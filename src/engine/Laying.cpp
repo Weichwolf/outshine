@@ -45,6 +45,7 @@
 #include "TerrainPress.h"
 #include "EngineHeld.h"
 #include "GroundWorldCandidate.h"
+#include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
 
 namespace outshine {
@@ -89,20 +90,6 @@ constexpr size_t kRefinedStructureCandidates = 4;
 
 class GroundBuildState {
 public:
-  enum class SheetPhase : uint8_t { NeedsRefinement, NeedsHalos, NeedsMesh, Ready };
-  enum class Stage : uint8_t {
-    NeedsClasses,
-    NeedsGroundSurface,
-    NeedsModels,
-    NeedsBakes,
-    NeedsCorridors,
-    NeedsEarthworks,
-    NeedsTerrainMesh,
-    NeedsWater,
-    NeedsGeometry,
-    NeedsPublication
-  };
-
   GroundBuildState(Render::SceneRenderer &renderer,
                    const Surrounds &world,
                    const Ground::BuildingField &footprints,
@@ -135,18 +122,22 @@ public:
 
   void Lays(Patchwork patchwork) noexcept { Patchwork_.emplace(std::move(patchwork)); }
 
-  [[nodiscard]] SheetPhase SheetBuilding() const noexcept { return SheetBuilding_; }
-
-  void AdvancesSheetsTo(SheetPhase phase) noexcept {
-    RecordsProductPeak();
-    SheetBuilding_ = phase;
+  [[nodiscard]] Core::GroundBuildSchedule::SheetPhase SheetBuilding() const noexcept {
+    return Schedule_.SheetBuilding();
   }
 
-  [[nodiscard]] Stage NextStage() const noexcept { return NextStage_; }
-
-  void AdvancesTo(Stage stage) noexcept {
+  void CompletesSheetPhase() noexcept {
     RecordsProductPeak();
-    NextStage_ = stage;
+    Schedule_.CompletesSheetPhase();
+  }
+
+  [[nodiscard]] Core::GroundBuildSchedule::Stage NextStage() const noexcept {
+    return Schedule_.NextStage();
+  }
+
+  void CompletesStage() noexcept {
+    RecordsProductPeak();
+    Schedule_.CompletesStage();
   }
 
   [[nodiscard]] size_t ProductPeakBytes() const noexcept { return ProductPeakBytes_; }
@@ -157,32 +148,14 @@ public:
 
   [[nodiscard]] std::chrono::steady_clock::time_point Began() const noexcept { return Began_; }
 
-  [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
+  [[nodiscard]] bool Prepared() const noexcept { return Schedule_.Prepared(); }
 
-  void Prepared(bool prepared) noexcept { Prepared_ = prepared; }
+  void MarksPrepared() noexcept { Schedule_.MarksPrepared(); }
 
   [[nodiscard]] std::string_view Status() const noexcept {
-    if (!Prepared_) { return "candidate"; }
+    if (!Schedule_.Prepared()) { return "candidate"; }
     if (!Patchwork_) { return "patchwork"; }
-    switch (SheetBuilding_) {
-      case SheetPhase::NeedsRefinement: return "sheet-refinement";
-      case SheetPhase::NeedsHalos: return "sheet-halos";
-      case SheetPhase::NeedsMesh: return "sheet-mesh";
-      case SheetPhase::Ready: break;
-    }
-    switch (NextStage_) {
-      case Stage::NeedsClasses: return "classes";
-      case Stage::NeedsGroundSurface: return "ground-surface";
-      case Stage::NeedsModels: return "models";
-      case Stage::NeedsBakes: return "structure-bakes";
-      case Stage::NeedsCorridors: return "corridors";
-      case Stage::NeedsEarthworks: return "earthworks";
-      case Stage::NeedsTerrainMesh: return "terrain-mesh";
-      case Stage::NeedsWater: return "water";
-      case Stage::NeedsGeometry: return "geometry";
-      case Stage::NeedsPublication: return "publication";
-    }
-    return "unknown";
+    return Schedule_.Status();
   }
 
 private:
@@ -202,9 +175,7 @@ private:
   std::vector<Yields> Corridors_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   size_t ProductPeakBytes_ = 0;
-  SheetPhase SheetBuilding_ = SheetPhase::NeedsRefinement;
-  Stage NextStage_ = Stage::NeedsClasses;
-  bool Prepared_ = false;
+  Core::GroundBuildSchedule Schedule_;
 };
 
 Surrounds::Surrounds() = default;
@@ -952,7 +923,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
-  state.Prepared(true);
+  state.MarksPrepared();
   return GroundBuildProgress::Pending;
 }
 
@@ -962,14 +933,14 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
   GroundBuildState &state = *World.GroundBuild;
   GroundBuildProducts &build = state.Candidate().Products();
   switch (state.SheetBuilding()) {
-    case GroundBuildState::SheetPhase::NeedsRefinement:
+    case Core::GroundBuildSchedule::SheetPhase::NeedsRefinement:
       if (!RefineGroundSheets(standing, patchwork, build)) {
         World.GroundBuild.reset();
         return GroundBuildProgress::Failed;
       }
-      state.AdvancesSheetsTo(GroundBuildState::SheetPhase::NeedsHalos);
+      state.CompletesSheetPhase();
       return GroundBuildProgress::Pending;
-    case GroundBuildState::SheetPhase::NeedsHalos: {
+    case Core::GroundBuildSchedule::SheetPhase::NeedsHalos: {
       const auto haloAt = std::chrono::steady_clock::now();
       Published.Places(
           "ground: sheets the lattice haloed",
@@ -984,27 +955,27 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - haloAt)
               .count(),
           "ms");
-      state.AdvancesSheetsTo(GroundBuildState::SheetPhase::NeedsMesh);
+      state.CompletesSheetPhase();
       return GroundBuildProgress::Pending;
     }
-    case GroundBuildState::SheetPhase::NeedsMesh: {
+    case Core::GroundBuildSchedule::SheetPhase::NeedsMesh: {
       const Generators::TerrainMesh mesh = Generators::BuildTerrainMesh(
           patchwork, standing, {.Side = Render::GroundLattice::kSide, .Halo = 1});
       build.PositionsM = mesh.PositionsM;
       build.Indices = mesh.Indices;
       TellsTheRelief(
           {.Tallest = mesh.TallestM, .Lowest = mesh.LowestM, .TallestOutM = mesh.TallestDistanceM});
-      state.AdvancesSheetsTo(GroundBuildState::SheetPhase::Ready);
+      state.CompletesSheetPhase();
       return GroundBuildProgress::Ready;
     }
-    case GroundBuildState::SheetPhase::Ready: return GroundBuildProgress::Ready;
+    case Core::GroundBuildSchedule::SheetPhase::Ready: return GroundBuildProgress::Ready;
   }
   return GroundBuildProgress::Failed;
 }
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
   GroundBuildState &state = *World.GroundBuild;
-  if (state.NextStage() != GroundBuildState::Stage::NeedsClasses) {
+  if (state.NextStage() != Core::GroundBuildSchedule::Stage::NeedsClasses) {
     return GroundBuildProgress::Ready;
   }
   GroundBuildProducts &build = state.Candidate().Products();
@@ -1013,13 +984,13 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundClasses() {
   Classed classed = Classify(build.PositionsM, state.Candidate());
   build.ClassPalette = std::move(classed.Palette);
   build.ClassStructure = std::move(classed.Structure);
-  state.AdvancesTo(GroundBuildState::Stage::NeedsGroundSurface);
+  state.CompletesStage();
   return GroundBuildProgress::Pending;
 }
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundSurface() {
   GroundBuildState &state = *World.GroundBuild;
-  if (state.NextStage() != GroundBuildState::Stage::NeedsGroundSurface) {
+  if (state.NextStage() != Core::GroundBuildSchedule::Stage::NeedsGroundSurface) {
     return GroundBuildProgress::Ready;
   }
   GroundBuildProducts &build = state.Candidate().Products();
@@ -1036,13 +1007,13 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSurface() {
   }
   build.GroundMaterial = bare;
   build.GroundSurface = *ringSurface;
-  state.AdvancesTo(GroundBuildState::Stage::NeedsModels);
+  state.CompletesStage();
   return GroundBuildProgress::Pending;
 }
 
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const TangentFrame &standing) {
   GroundBuildState &state = *World.GroundBuild;
-  if (state.NextStage() != GroundBuildState::Stage::NeedsModels) {
+  if (state.NextStage() != Core::GroundBuildSchedule::Stage::NeedsModels) {
     return GroundBuildProgress::Ready;
   }
   const auto began = std::chrono::steady_clock::now();
@@ -1085,7 +1056,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
                      "points");
     if (!mapped.Refusal.empty()) { Published.Places("network: refused to weave", 1.0, "yes/no"); }
   }
-  state.AdvancesTo(GroundBuildState::Stage::NeedsBakes);
+  state.CompletesStage();
   return GroundBuildProgress::Pending;
 }
 
@@ -1093,13 +1064,13 @@ Engine::State::GroundBuildProgress
 Engine::State::BeginsGroundBakes(const TangentFrame &standing) const {
   (void)standing;
   GroundBuildState &state = *World.GroundBuild;
-  if (state.NextStage() != GroundBuildState::Stage::NeedsBakes) {
+  if (state.NextStage() != Core::GroundBuildSchedule::Stage::NeedsBakes) {
     return GroundBuildProgress::Ready;
   }
   if (!StructuresReady(state.Footprints(), state.Revision())) {
     return GroundBuildProgress::Pending;
   }
-  state.AdvancesTo(GroundBuildState::Stage::NeedsCorridors);
+  state.CompletesStage();
   return GroundBuildProgress::Pending;
 }
 
@@ -1120,7 +1091,8 @@ Ground::BuildingField *Engine::State::CandidateFootprints() const noexcept {
 }
 
 bool Engine::State::StagesGroundBakes(size_t landsMost) {
-  if (!World.GroundBuild || World.GroundBuild->NextStage() != GroundBuildState::Stage::NeedsBakes) {
+  if (!World.GroundBuild ||
+      World.GroundBuild->NextStage() != Core::GroundBuildSchedule::Stage::NeedsBakes) {
     return true;
   }
   GroundBuildState &state = *World.GroundBuild;
@@ -1204,7 +1176,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
       "ground candidate: corridor drape field misses", static_cast<double>(fieldMisses), "queries");
   build.Sheets.ForgetsFields();
   state.HoldsCorridors(std::move(corridors));
-  state.AdvancesTo(GroundBuildState::Stage::NeedsEarthworks);
+  state.CompletesStage();
   Published.Places(
       "ground candidate: corridors",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
@@ -1239,7 +1211,7 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
   Published.Places("ground: sheets NOT drawn for want of nodes",
                    static_cast<double>(build.Sheets.Flat()),
                    "tiles");
-  state.AdvancesTo(GroundBuildState::Stage::NeedsWater);
+  state.CompletesStage();
   Published.Places(
       "ground candidate: terrain mesh",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
@@ -1289,7 +1261,7 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - geometryBegan)
           .count(),
       "ms");
-  state.AdvancesTo(GroundBuildState::Stage::NeedsPublication);
+  state.CompletesStage();
   Published.Places(
       "ground candidate: geometry",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
@@ -1346,38 +1318,38 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   if (models != GroundBuildProgress::Ready) { return models != GroundBuildProgress::Failed; }
   const GroundBuildProgress bakes = BeginsGroundBakes(standing);
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
-  if (state.NextStage() == GroundBuildState::Stage::NeedsCorridors) {
+  if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsCorridors) {
     return BuildGroundCorridors(standing, over, state);
   }
-  if (state.NextStage() == GroundBuildState::Stage::NeedsEarthworks) {
+  if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsEarthworks) {
     const auto began = std::chrono::steady_clock::now();
     if (!PressGroundEarthworks(standing, laid, build.Footprints, state.TakesCorridors())) {
       return false;
     }
-    state.AdvancesTo(GroundBuildState::Stage::NeedsTerrainMesh);
+    state.CompletesStage();
     Published.Places(
         "ground candidate: earthworks",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
     return true;
   }
-  if (state.NextStage() == GroundBuildState::Stage::NeedsTerrainMesh) {
+  if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsTerrainMesh) {
     return BuildGroundTerrainMesh(standing, laid, state);
   }
-  if (state.NextStage() == GroundBuildState::Stage::NeedsWater) {
+  if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsWater) {
     const auto began = std::chrono::steady_clock::now();
     if (!BuildWaterSurfaces(standing, ground, ringSurface)) { return false; }
-    state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
+    state.CompletesStage();
     Published.Places(
         "ground candidate: water",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
     return true;
   }
-  if (state.NextStage() == GroundBuildState::Stage::NeedsGeometry) {
+  if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsGeometry) {
     return PublishGroundGeometry(state);
   }
-  if (state.NextStage() != GroundBuildState::Stage::NeedsPublication) {
+  if (state.NextStage() != Core::GroundBuildSchedule::Stage::NeedsPublication) {
     Error = "ground candidate reached an invalid stage";
     return false;
   }
