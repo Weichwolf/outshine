@@ -30,6 +30,7 @@ public:
     int CentreX = 0;
     int CentreY = 0;
     int Rings = kEveryRing;
+    size_t CandidatesMost = 0;
   };
 
   template <typename Consumable>
@@ -71,7 +72,10 @@ public:
     std::sort(Candidates_.begin(), Candidates_.end(), [&key](const Next &a, const Next &b) {
       return key(a) < key(b);
     });
+    size_t attempted = 0;
     for (const Next &one : Candidates_) {
+      if (over.CandidatesMost > 0 && attempted >= over.CandidatesMost) { break; }
+      ++attempted;
       if (consumable(one.From, one.To)) { return one; }
       Deferrals_++;
     }

@@ -16,10 +16,20 @@ The 2026-09-21 cold floor-contact run with the bounded HTTP multi transport exha
 requests at the first missing field. The unchanged cold case exhausted 15.249 s with
 8/12 landed, four queued and 1,164 structures left. Ground was resident after 7.084 s;
 all requested vectors after 0.783 s. Worst range, finalization and task costs remained
-0.734, 3.753 and 4.370 ms. Dependency fan-out therefore admits more work but does not
-service it: the shared task pool starves short structure continuations behind unrelated
-work. The request ledger can also report ground ready before stitched eight-neighbour
-dependencies are ready. Measure both waits; do not tune slice sizes against this evidence.
+0.734, 3.753 and 4.370 ms. Direct post-to-worker instrumentation measured only 0.023 ms
+worst queue delay, disproving compute-pool starvation. Starting dependency discovery as
+soon as vectors settled was also wrong: outstanding requests rose from 85 to 135, fetched
+bytes fell from 23.684 to 17.040 MiB and no bake completed. Unbounded discovery merely
+moves overload earlier. The request ledger can report ground ready before stitched
+eight-neighbour dependencies are ready. Bound and prioritize that IO admission before
+tuning compute slices.
+
+A four-candidate window completed 24 tiles with 13 requests outstanding; one candidate
+completed 15 with four outstanding, while eight completed 26 but left 28 outstanding.
+Four is the measured provisional balance. All completed tasks started within 0.075 ms.
+Even bounded early overlap did not improve the 15 s result. Full fine-DEM seating for
+every visible building still exceeds cold transfer capacity; staged ground products or
+prioritized refinement must make initial publication independent of complete fine seating.
 
 ## Decision
 
@@ -43,10 +53,11 @@ using engine ticks, with stable tie breaks. Avoid waiting for all unrelated vect
 
 ## Implementation order and ownership
 
-1. Measure first eligibility, height-dependency-ready, post, worker-start and land times
-   for every structure tile. Attribute shared-pool queue delay by work kind. Reproduce
-   floor-contact cold without changing 15 s.
-2. Introduce one private admission record/owner around those existing queues. Preallocate
+1. Measure first eligibility, height-dependency-ready, post and land times for every
+   structure tile. Count unique field/source requests separately from frame retries.
+   Reproduce floor-contact cold without changing 15 s.
+2. Introduce one private admission record/owner around those existing queues and their
+   IO dependencies. Preallocate
    capacity; establish explicit capacity and slice values from those measurements and
    label provisional choices. The frame target is 1000/60 = 16.67 ms, not a compute-only
    allowance. Record p50/p95/p99 and overshoot; no hard real-time guarantee from averages.

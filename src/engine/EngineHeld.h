@@ -404,6 +404,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress BeginsGroundSurface();
   [[nodiscard]] GroundBuildProgress BeginsGroundModels(const TangentFrame &standing);
   [[nodiscard]] GroundBuildProgress BeginsGroundBakes(const TangentFrame &standing) const;
+  [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] Ground::BuildingField *CandidateFootprints() const noexcept;
   [[nodiscard]] bool StagesGroundBakes(size_t landsMost);
 

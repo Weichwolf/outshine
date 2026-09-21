@@ -93,6 +93,8 @@ public:
 
   [[nodiscard]] double SlowestTaskMs() const { return SlowestTaskMs_; }
 
+  [[nodiscard]] double SlowestQueueMs() const { return SlowestQueueMs_; }
+
   [[nodiscard]] size_t QueuedStructures() const;
 
   [[nodiscard]] bool AwaitSlice(double seconds) const {
@@ -137,6 +139,7 @@ private:
   size_t CompletedRanges_ = 0;
   double SlowestRangeMs_ = 0.0;
   double SlowestFinalizationMs_ = 0.0;
+  double SlowestQueueMs_ = 0.0;
   double SlowestTaskMs_ = 0.0;
 };
 

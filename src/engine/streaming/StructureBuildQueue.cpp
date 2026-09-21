@@ -212,6 +212,7 @@ void StructureBuildQueue::ResumeCompletedTasks() {
         SlowestRangeMs_ = std::max(SlowestRangeMs_, bake.Task.Result().LastRangeMs);
         SlowestFinalizationMs_ =
             std::max(SlowestFinalizationMs_, bake.Task.Result().FinalizationMs);
+        SlowestQueueMs_ = std::max(SlowestQueueMs_, bake.Task.Result().LastQueueMs);
         SlowestTaskMs_ = std::max(SlowestTaskMs_, bake.Task.Result().LastTaskMs);
       }
     }
@@ -257,6 +258,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     output->LastRanges = 0;
     output->LastRangeMs = 0.0;
     output->FinalizationMs = 0.0;
+    output->LastQueueMs = 0.0;
     output->LastTaskMs = 0.0;
     Queue_.push_back(
         {.Revision = revision,

@@ -23,6 +23,7 @@ public:
     size_t LastRanges = 0;
     double LastRangeMs = 0.0;
     double FinalizationMs = 0.0;
+    double LastQueueMs = 0.0;
     double LastTaskMs = 0.0;
   };
 

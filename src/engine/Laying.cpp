@@ -23,6 +23,7 @@
 #include <functional>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <numbers>
 #include <string>
 #include <ratio>
@@ -135,6 +136,25 @@ public:
   [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
 
   void Prepared(bool prepared) noexcept { Prepared_ = prepared; }
+
+  [[nodiscard]] std::string_view Status() const noexcept {
+    if (!Prepared_) { return "candidate"; }
+    if (!Patchwork_) { return "patchwork"; }
+    switch (SheetBuilding_) {
+      case SheetPhase::NeedsRefinement: return "sheet-refinement";
+      case SheetPhase::NeedsHalos: return "sheet-halos";
+      case SheetPhase::NeedsMesh: return "sheet-mesh";
+      case SheetPhase::Ready: break;
+    }
+    switch (NextStage_) {
+      case Stage::NeedsClasses: return "classes";
+      case Stage::NeedsGroundSurface: return "ground-surface";
+      case Stage::NeedsModels: return "models";
+      case Stage::NeedsBakes: return "structure-bakes";
+      case Stage::NeedsGeometry: return "geometry";
+    }
+    return "unknown";
+  }
 
 private:
   Around Coverage_;
@@ -998,6 +1018,10 @@ Engine::State::BeginsGroundBakes(const TangentFrame &standing) const {
   }
   state.AdvancesTo(GroundBuildState::Stage::NeedsGeometry);
   return GroundBuildProgress::Pending;
+}
+
+std::string_view Engine::State::GroundBuildStatus() const noexcept {
+  return World.GroundBuild ? World.GroundBuild->Status() : "absent";
 }
 
 Ground::BuildingField *Engine::State::CandidateFootprints() const noexcept {

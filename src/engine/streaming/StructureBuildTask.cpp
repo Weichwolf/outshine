@@ -50,9 +50,11 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   Generators::StructureBakeProgress *const progress = Progress_.get();
   Output *const output = Output_.get();
   const std::shared_ptr<std::atomic_bool> stopping = Stopping_;
+  const auto posted = std::chrono::steady_clock::now();
   State_ = State::Running;
-  Handle_ = pool.Post([raw, heights, &mesher, scratch, progress, output, stopping] {
+  Handle_ = pool.Post([raw, heights, &mesher, scratch, progress, output, stopping, posted] {
     const auto began = std::chrono::steady_clock::now();
+    output->LastQueueMs = std::chrono::duration<double, std::milli>(began - posted).count();
     static const Heap::Tag kBakingTag("structure-bake");
     const Heap::Tagged baking(kBakingTag);
     output->LastRanges = 0;

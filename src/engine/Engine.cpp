@@ -467,6 +467,7 @@ Result Engine::State::PreloadTimeout(double bound) {
           " s: " + readiness.Describe();
   if (!World.Stack.Ingested()) { Error += " (" + World.Stack.IngestionStatus() + ")"; }
   if (!World.GroundPublished.Current() && !pendingGround.empty()) { Error += "; " + pendingGround; }
+  Error += "; ground build=" + std::string(GroundBuildStatus());
   if (World.StructureBuilds.Posted() > 0) {
     Error += "; structure bakes=" + std::to_string(World.StructureBuilds.Landed()) + "/" +
              std::to_string(World.StructureBuilds.Posted()) +
@@ -477,6 +478,7 @@ Result Engine::State::PreloadTimeout(double bound) {
              ", maxMs=" + std::to_string(World.StructureBuilds.SlowestBakeMs()) +
              ", ranges=" + std::to_string(World.StructureBuilds.CompletedRanges()) +
              ", structuresPerRange=" + std::to_string(StructureBuildTask::StructuresPerRange) +
+             ", maxQueueMs=" + std::to_string(World.StructureBuilds.SlowestQueueMs()) +
              ", maxTaskMs=" + std::to_string(World.StructureBuilds.SlowestTaskMs()) +
              ", maxRangeMs=" + std::to_string(World.StructureBuilds.SlowestRangeMs()) +
              ", maxFinalizationMs=" + std::to_string(World.StructureBuilds.SlowestFinalizationMs());
