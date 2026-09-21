@@ -11,12 +11,15 @@ Tags: scheduling, osm, realtime
 
 ## Evidence
 
-Historical floor-contact timeouts do not describe the current state: WI 2231 records
-2,894.869 ms against its unchanged 15 s limit. Its range scheduler already exists.
-The recorded Lattice run still exhausted 15 s with ingestion/classification pending;
-this identifies a regression fixture, not proof of CPU contention or a scheduler cause.
-Measure current phase/queue costs before changing admission. If the delay is entirely
-one synchronous ground stage, repair that unit under WI 2234 before tuning admission.
+The 2026-09-21 cold floor-contact run with the bounded HTTP multi transport exhausted
+15.040 s at 8/9 landed tiles. `BlocksUnder` then stopped serializing independent DEM
+requests at the first missing field. The unchanged cold case exhausted 15.249 s with
+8/12 landed, four queued and 1,164 structures left. Ground was resident after 7.084 s;
+all requested vectors after 0.783 s. Worst range, finalization and task costs remained
+0.734, 3.753 and 4.370 ms. Dependency fan-out therefore admits more work but does not
+service it: the shared task pool starves short structure continuations behind unrelated
+work. The request ledger can also report ground ready before stitched eight-neighbour
+dependencies are ready. Measure both waits; do not tune slice sizes against this evidence.
 
 ## Decision
 
@@ -40,9 +43,9 @@ using engine ticks, with stable tie breaks. Avoid waiting for all unrelated vect
 
 ## Implementation order and ownership
 
-1. Measure completion snapshots in src/engine/streaming/StructureBuildQueue.cpp and StructureBuildTask.cpp
-   and Engine::State's ingestion/ground path (src/engine/Laying.cpp): queue depth/bytes, oldest age, main-thread work and
-   worker time separately. Reproduce Lattice and floor-contact unchanged.
+1. Measure first eligibility, height-dependency-ready, post, worker-start and land times
+   for every structure tile. Attribute shared-pool queue delay by work kind. Reproduce
+   floor-contact cold without changing 15 s.
 2. Introduce one private admission record/owner around those existing queues. Preallocate
    capacity; establish explicit capacity and slice values from those measurements and
    label provisional choices. The frame target is 1000/60 = 16.67 ms, not a compute-only

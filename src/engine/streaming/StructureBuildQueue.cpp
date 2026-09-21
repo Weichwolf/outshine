@@ -116,7 +116,7 @@ BlocksUnder(const Ground::GroundStream &ground,
             Ground::FeatureRun over) {
   const std::span<const Ground::OsmField::Feature> feats = vectors.Features();
   const int layer = vectors.Layer(Ground::OsmLayer::Buildings);
-  std::vector<Ground::HeightField::Block> blocks;
+  std::vector<Ground::TileSpot> spots;
   for (size_t at = over.From; at < over.To; ++at) {
     const Ground::OsmField::Feature &f = feats[at];
     if (f.Type != kPolygonFeature || std::cmp_not_equal(f.Layer, layer)) { continue; }
@@ -126,12 +126,22 @@ BlocksUnder(const Ground::GroundStream &ground,
         Ground::HeightField::SpotOf({.LongitudeDeg = f.MaxLon, .LatitudeDeg = f.MinLat}, zoom);
     for (long y = low.Y; y <= high.Y; ++y) {
       for (long x = low.X; x <= high.X; ++x) {
-        if (!Gathers(ground, {.Zoom = zoom, .X = x, .Y = y}, fineField, blocks)) {
-          return std::nullopt;
+        const Ground::TileSpot spot{.Zoom = zoom, .X = x, .Y = y};
+        if (std::ranges::none_of(spots, [spot](Ground::TileSpot one) {
+              return one.X == spot.X && one.Y == spot.Y;
+            })) {
+          spots.push_back(spot);
         }
       }
     }
   }
+  std::vector<Ground::HeightField::Block> blocks;
+  blocks.reserve(spots.size());
+  bool complete = true;
+  for (const Ground::TileSpot spot : spots) {
+    if (!Gathers(ground, spot, fineField, blocks)) { complete = false; }
+  }
+  if (!complete) { return std::nullopt; }
   return blocks;
 }
 
