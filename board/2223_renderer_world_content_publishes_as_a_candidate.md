@@ -73,6 +73,13 @@ would instead detach the newly published `RuntimeScene` and leave later draw cal
 remain frame-owned. Publication therefore rebinds those addresses without allocation; the generator
 composition oracle exposed the stale-candidate-pointer failure before this contract was added.
 
+An open candidate is an editing target, not the active frame. `RuntimeScene::Advance` and `Draw`
+bind the published renderer state for their complete operation so camera, animation, light and
+frame updates cannot disappear into a resumable ground candidate. Frame encoding independently
+binds the same published state. Candidate construction keeps the private editing route until commit;
+later resource transactions must replace this implicit route with a narrow candidate editor rather
+than exposing `ActiveState` or a renderer reference to integration owners.
+
 ## Boundaries
 
 - Device, window claim, frame attachments and GPU fences remain renderer/platform state.

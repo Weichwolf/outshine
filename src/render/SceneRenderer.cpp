@@ -1421,11 +1421,8 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
 }
 
 std::expected<void, std::string> SceneRenderer::RenderFrame() {
-  assert(!DrawingPublished_);
-  DrawingPublished_ = true;
-  auto rendered = RenderPublishedFrame();
-  DrawingPublished_ = false;
-  return rendered;
+  const auto published = PublishedWorld();
+  return RenderPublishedFrame();
 }
 
 std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {

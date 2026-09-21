@@ -969,6 +969,7 @@ size_t RuntimeScene::AssetReads_ = 0;
 size_t RuntimeScene::PlanInits_ = 0;
 
 bool RuntimeScene::Advance(std::string &error) {
+  const auto published = Renderer_->PublishedWorld();
   static const Heap::Tag kAdvancingTag("runtime-scene-advance");
   const Heap::Tagged advancing(kAdvancingTag);
   const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
@@ -1012,6 +1013,7 @@ bool RuntimeScene::Draw(std::string &error) {
     error = "no device stands, so there is nothing to draw with";
     return false;
   }
+  const auto published = Renderer_->PublishedWorld();
   if (Camera_.NeedsBinding()) {
     if (!Look(error)) { return false; }
     Camera_.MarkBound();

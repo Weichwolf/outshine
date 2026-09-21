@@ -29,6 +29,13 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "published world opens");
     if (scene) {
+      Render::Viewpoint eye;
+      eye.EyeM = {{0, 0, 4}};
+      eye.Kind = Render::CameraKind::Orthographic;
+      eye.XMagM = eye.YMagM = 2;
+      eye.ZNearM = 0.1;
+      eye.ZFarM = 10;
+      scene->Eye(eye);
       CHECK(scene->Draw(error), "published world draws before replacement");
       renderer.WaitForGpu();
       std::vector<float> expected;
@@ -48,6 +55,22 @@ int main() {
       std::vector<float> actual;
       CHECK(renderer.ReadSceneLinear(actual) == Render::ReadState::Ready && actual == expected,
             "an unpublished candidate cannot affect the rendered frame");
+      {
+        Core::WorldCandidate candidate(renderer);
+        const auto prepared = candidate.Prepare(*scene, nullptr);
+        CHECK(prepared.has_value(),
+              prepared ? "camera replacement prepares" : prepared.error().c_str());
+        if (prepared) {
+          eye.EyeM[0] = 1.5;
+          scene->Eye(eye);
+          CHECK(scene->Advance(error) && scene->Draw(error),
+                "published camera advances while a replacement builds");
+          renderer.WaitForGpu();
+        }
+      }
+      std::vector<float> moved;
+      CHECK(renderer.ReadSceneLinear(moved) == Render::ReadState::Ready && moved != expected,
+            "published camera changes do not disappear into the candidate");
     }
   }
   SDL_Quit();

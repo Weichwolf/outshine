@@ -8,6 +8,7 @@
 #include "Extent.h"
 #include "Heap.h"
 #include <array>
+#include <cassert>
 #include <span>
 #include <cstdint>
 #include <memory>
@@ -44,6 +45,10 @@
 #include "stages/SkyStage.h"
 #include "stages/MediumTransmittanceStage.h"
 #include "stages/TonemapStage.h"
+
+namespace outshine::Core {
+class RuntimeScene;
+}
 
 namespace outshine::Render {
 
@@ -544,6 +549,8 @@ public:
   }
 
 private:
+  friend class Core::RuntimeScene;
+
   struct FrameResources;
 
   [[nodiscard]] std::expected<void, std::string> PrepareFrame();
@@ -837,31 +844,54 @@ private:
   [[nodiscard]] Placed PictureRect() const;
   [[nodiscard]] Lens Through() const;
 
+  class PublishedWorldScope {
+  public:
+    explicit PublishedWorldScope(SceneRenderer &renderer) noexcept : Renderer_(renderer) {
+      ++Renderer_.PublishedScopeDepth_;
+    }
+
+    PublishedWorldScope(const PublishedWorldScope &) = delete;
+    PublishedWorldScope &operator=(const PublishedWorldScope &) = delete;
+    PublishedWorldScope(PublishedWorldScope &&) = delete;
+    PublishedWorldScope &operator=(PublishedWorldScope &&) = delete;
+
+    ~PublishedWorldScope() {
+      assert(Renderer_.PublishedScopeDepth_ > 0);
+      --Renderer_.PublishedScopeDepth_;
+    }
+
+  private:
+    SceneRenderer &Renderer_;
+  };
+
+  [[nodiscard]] PublishedWorldScope PublishedWorld() noexcept { return PublishedWorldScope(*this); }
+
   [[nodiscard]] SceneStateCore &ActiveState() noexcept {
-    return Candidate_ && !DrawingPublished_ ? static_cast<SceneStateCore &>(*Candidate_)
-                                            : static_cast<SceneStateCore &>(State_);
+    return Candidate_ && PublishedScopeDepth_ == 0 ? static_cast<SceneStateCore &>(*Candidate_)
+                                                   : static_cast<SceneStateCore &>(State_);
   }
 
   [[nodiscard]] const SceneStateCore &ActiveState() const noexcept {
-    return Candidate_ && !DrawingPublished_ ? static_cast<const SceneStateCore &>(*Candidate_)
-                                            : static_cast<const SceneStateCore &>(State_);
+    return Candidate_ && PublishedScopeDepth_ == 0
+               ? static_cast<const SceneStateCore &>(*Candidate_)
+               : static_cast<const SceneStateCore &>(State_);
   }
 
   [[nodiscard]] FrameResources &ActiveFrame() noexcept {
-    return Candidate_ && !DrawingPublished_ && Candidate_->Frame ? *Candidate_->Frame
-                                                                 : State_.Frame;
+    return Candidate_ && PublishedScopeDepth_ == 0 && Candidate_->Frame ? *Candidate_->Frame
+                                                                        : State_.Frame;
   }
 
   [[nodiscard]] const FrameResources &ActiveFrame() const noexcept {
-    return Candidate_ && !DrawingPublished_ && Candidate_->Frame ? *Candidate_->Frame
-                                                                 : State_.Frame;
+    return Candidate_ && PublishedScopeDepth_ == 0 && Candidate_->Frame ? *Candidate_->Frame
+                                                                        : State_.Frame;
   }
 
   std::array<SDL_GPUFence *, kFramesInFlight> Landed_ = {};
   int LandedAt_ = 0;
   SceneState State_;
   std::optional<WorldCandidate> Candidate_;
-  bool DrawingPublished_ = false;
+  size_t PublishedScopeDepth_ = 0;
 };
 
 }
