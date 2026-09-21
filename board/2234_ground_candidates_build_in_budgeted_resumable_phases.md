@@ -77,6 +77,12 @@ Advance returns Pending, Ready, Rejected or Cancelled. Ready transfers a complet
 to the existing engine-thread publication owner; publication is not a second state machine
 phase with a competing Engine::State swap. The active world remains unchanged until that commit.
 
+`Engine::advance()` is the normal one-turn streaming path: it ingests one frame budget,
+advances at most the current ground-candidate phase and then draws. `preload()` is only a
+synchronous orchestration loop around the same production operations. The paced oracle must
+therefore drive `advance()` through ordinary frames and compare its final native product with
+the `preload()` control; do not add a test-only stepping API or duplicate candidate execution.
+
 Every synchronous unit has bounded input size and a measured tail cost. Splitting a large
 function into named phases does not make it budgeted: continue within the longest phase
 by tile/row/batch, preserving algorithmic dependencies and stable reduction order. Never
