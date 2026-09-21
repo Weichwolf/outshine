@@ -242,6 +242,8 @@ public:
     return Stood_.IndirectLight();
   }
 
+  void StopsEditingCandidate() noexcept { CandidateEditor_.reset(); }
+
   [[nodiscard]] size_t PartsStanding() const { return Stood_.Parts(); }
 
   [[nodiscard]] size_t InstancesStanding() const { return Stood_.Instances(); }
@@ -385,6 +387,7 @@ private:
   double ShadowRadiusStoodM_ = 0.0;
   std::shared_ptr<const Render::Compiled> Plan_;
   Render::CameraState Camera_;
+  std::optional<Render::SceneRenderer::CandidateEditorScope> CandidateEditor_;
   Render::SubjectPoseHistory SubmittedPose_;
 
   std::vector<Box> PartBounds_;

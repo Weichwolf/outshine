@@ -866,25 +866,66 @@ private:
 
   [[nodiscard]] PublishedWorldScope PublishedWorld() noexcept { return PublishedWorldScope(*this); }
 
+  class CandidateEditorScope {
+  public:
+    explicit CandidateEditorScope(SceneRenderer &renderer) noexcept : Renderer_(&renderer) {
+      assert(Renderer_->Candidate_);
+      ++Renderer_->CandidateEditorDepth_;
+    }
+
+    CandidateEditorScope(const CandidateEditorScope &) = delete;
+    CandidateEditorScope &operator=(const CandidateEditorScope &) = delete;
+
+    CandidateEditorScope(CandidateEditorScope &&other) noexcept
+        : Renderer_(std::exchange(other.Renderer_, nullptr)) {}
+
+    CandidateEditorScope &operator=(CandidateEditorScope &&other) noexcept {
+      if (this != &other) {
+        Release();
+        Renderer_ = std::exchange(other.Renderer_, nullptr);
+      }
+      return *this;
+    }
+
+    ~CandidateEditorScope() { Release(); }
+
+  private:
+    void Release() noexcept {
+      if (Renderer_ == nullptr) { return; }
+      assert(Renderer_->CandidateEditorDepth_ > 0);
+      --Renderer_->CandidateEditorDepth_;
+      Renderer_ = nullptr;
+    }
+
+    SceneRenderer *Renderer_ = nullptr;
+  };
+
+  [[nodiscard]] CandidateEditorScope EditsWorldCandidate() noexcept {
+    return CandidateEditorScope(*this);
+  }
+
   [[nodiscard]] SceneStateCore &ActiveState() noexcept {
-    return Candidate_ && PublishedScopeDepth_ == 0 ? static_cast<SceneStateCore &>(*Candidate_)
-                                                   : static_cast<SceneStateCore &>(State_);
+    return Candidate_ && CandidateEditorDepth_ > 0 && PublishedScopeDepth_ == 0
+               ? static_cast<SceneStateCore &>(*Candidate_)
+               : static_cast<SceneStateCore &>(State_);
   }
 
   [[nodiscard]] const SceneStateCore &ActiveState() const noexcept {
-    return Candidate_ && PublishedScopeDepth_ == 0
+    return Candidate_ && CandidateEditorDepth_ > 0 && PublishedScopeDepth_ == 0
                ? static_cast<const SceneStateCore &>(*Candidate_)
                : static_cast<const SceneStateCore &>(State_);
   }
 
   [[nodiscard]] FrameResources &ActiveFrame() noexcept {
-    return Candidate_ && PublishedScopeDepth_ == 0 && Candidate_->Frame ? *Candidate_->Frame
-                                                                        : State_.Frame;
+    return Candidate_ && CandidateEditorDepth_ > 0 && PublishedScopeDepth_ == 0 && Candidate_->Frame
+               ? *Candidate_->Frame
+               : State_.Frame;
   }
 
   [[nodiscard]] const FrameResources &ActiveFrame() const noexcept {
-    return Candidate_ && PublishedScopeDepth_ == 0 && Candidate_->Frame ? *Candidate_->Frame
-                                                                        : State_.Frame;
+    return Candidate_ && CandidateEditorDepth_ > 0 && PublishedScopeDepth_ == 0 && Candidate_->Frame
+               ? *Candidate_->Frame
+               : State_.Frame;
   }
 
   std::array<SDL_GPUFence *, kFramesInFlight> Landed_ = {};
@@ -892,6 +933,7 @@ private:
   SceneState State_;
   std::optional<WorldCandidate> Candidate_;
   size_t PublishedScopeDepth_ = 0;
+  size_t CandidateEditorDepth_ = 0;
 };
 
 }

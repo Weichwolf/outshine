@@ -159,6 +159,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
+  candidate->StopsEditingCandidate();
   HandOffRenderer(out);
   out = std::move(candidate);
   return true;
@@ -173,8 +174,10 @@ bool RuntimeScene::Prepare(Render::SceneRenderer &renderer,
     error = Says::InvalidInitialGeometry;
     return false;
   }
+  auto editing = renderer.EditsWorldCandidate();
   std::unique_ptr<RuntimeScene> scene(new RuntimeScene(renderer, std::move(declaration), font));
   if (!scene->Build(error)) { return false; }
+  scene->CandidateEditor_.emplace(std::move(editing));
   out = std::move(scene);
   return true;
 }
@@ -258,6 +261,7 @@ bool RuntimeScene::PublishesPreparedWorld(Render::SceneRenderer &renderer,
     renderer.AbandonsWorldCandidate();
     return false;
   }
+  candidate->StopsEditingCandidate();
   HandOffRenderer(out);
   out = std::move(candidate);
   return true;

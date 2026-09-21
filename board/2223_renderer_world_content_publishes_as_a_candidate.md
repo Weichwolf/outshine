@@ -77,9 +77,10 @@ An open candidate is an editing target, not the active frame. `RuntimeScene::Adv
 bind the published renderer state for their complete operation so camera, animation, light and
 frame updates cannot disappear into a resumable ground candidate. Live UI, body-placement and
 inspection calls use the same scope. Frame encoding independently
-binds the same published state. Candidate construction keeps the private editing route until commit;
-later resource transactions must replace this implicit route with a narrow candidate editor rather
-than exposing `ActiveState` or a renderer reference to integration owners.
+binds the same published state. Candidate construction owns an explicit move-only editor scope;
+an open candidate alone leaves the published state active. Preparation transfers that scope to its
+RuntimeScene and releases it only after a successful renderer commit. This replaces implicit
+`ActiveState` routing without exposing a renderer reference to integration owners.
 
 `GroundWorldCandidate` exposes weder Renderer noch RuntimeScene. Klassen-, Ground-Albedo-,
 Audit- und Geometrieoperationen sind explizite Kandidatenoperationen; auch der Failure/Retry-
