@@ -35,7 +35,7 @@ int main() {
       GroundWorldCandidate ground(renderer, world, footprints);
       CHECK(ground.Prepare(*scene, nullptr).has_value(),
             "ground candidate prepares from an empty world");
-      CHECK(ground.Scene().SetGeometry(base.clone(), 0, error),
+      CHECK(ground.SetGroundGeometry(base.clone(), 0, error),
             "ground candidate carries every streamed piece material slot");
       CHECK(ground.Publish(world, footprints, scene, {.Region = 1}).has_value(),
             "ground candidate publishes its native material table");
