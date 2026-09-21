@@ -40,6 +40,8 @@ int main() {
   pad.PlateauM = 5.0;
   pad.Fills = true;
   pad.Kind = Stamp::Pad;
+  CHECK(pad.HeapBytes() >= pad.RingEastNorthM.size() * sizeof(double),
+        "earthwork stamp reports its owned ring capacity");
 
   const auto pressed = PressTerrain(
       std::span{&pad, 1u}, candidate, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);

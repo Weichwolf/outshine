@@ -134,6 +134,12 @@ int main() {
             }));
         CHECK(actual->Tiles == source.Calls.size() && actual->Sheets.size() == (asking ? 0 : ready),
               "mesh products contain ready coverage and never pending placeholder geometry");
+        size_t activeBytes = actual->Sheets.size() * sizeof(Sheet);
+        for (const Sheet &sheet : actual->Sheets) {
+          activeBytes += sheet.Nodes.size() * sizeof(float);
+        }
+        CHECK(actual->HeapBytes() >= activeBytes,
+              "patchwork reports sheet slots and every owned node capacity");
         size_t pending = 0, absent = 0, refused = 0, bare = 0;
         for (const auto tile : expected.Calls) {
           pending += source.Status(tile) == TileMeshes::Reply::Pending;

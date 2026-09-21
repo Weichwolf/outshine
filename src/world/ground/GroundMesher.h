@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_GROUNDMESHER_H
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <span>
@@ -61,6 +62,12 @@ struct Patchwork {
   size_t Overlapped = 0;
   long ReachTiles = 0;
   int CoarsestZoom = 0;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    size_t bytes = Sheets.capacity() * sizeof(Sheet);
+    for (const Sheet &sheet : Sheets) { bytes += sheet.Nodes.capacity() * sizeof(float); }
+    return bytes;
+  }
 };
 
 enum class Stamp : uint8_t { Pad, Corridor, Basin };
@@ -77,6 +84,10 @@ struct Yields {
   double SagInv = 0.0;
   bool Fills = false;
   Stamp Kind = Stamp::Pad;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return (RingEastNorthM.capacity() + SeamEastNorthM.capacity()) * sizeof(double);
+  }
 
   [[nodiscard]] double WantsAt(EastNorth at) const {
     const double dE = at.EastM - AtE;
