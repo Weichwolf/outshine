@@ -25,15 +25,18 @@ The repeated `shots --no-vegetation --measures Malcesine` run gave p95 640.81 ms
 and 39/120 over budget. Its last candidate reported earthworks 395.085 ms,
 terrain mesh 183.774 ms and corridors 72.491 ms. These phase samples identify
 where to instrument next; they are neither per-frame maxima nor distributions.
-The follow-up split measured 47.472 ms in `Sheets.Hands` and 140.658 ms in
-`BuildTerrainMesh`, across 2887 sheets. Both initial and post-earthwork native
-meshing now advance 96 sheets per frame in stable order. The Malcesine shot
-reached Refined after 129 measured frames; longest slices were 8.265/8.871 ms,
-yet p95 was 680.30 ms. Handoff split into 0.856 ms stitching and 46.336 ms
-residency. Earthworks, residency and corridors remain unbounded. The image is
-visually unchanged, but 0.0601% of pixels differ near one shore building;
-diagnose input readiness versus geometry. Shot timing now continues after the
-first 120 frames only until Refined, capped at 240 measured frames.
+The follow-up split measured 47.472 ms in sheet handoff and 140.658 ms in
+native meshing across 2887 sheets. Both mesh passes now advance 96 sheets per
+frame. Stitching took 0.856 ms; residency took 46.336 ms before slicing.
+Residency now prepares the complete key set, stages 128 pages per frame in the
+isolated candidate renderer and publishes terrain tiles only after the last page.
+Malcesine reached Refined after 154 measured frames: longest residency slice
+7.745 ms, p95 668.08 ms, 37/154 over budget. Earthworks and corridors remain
+unbounded. The image is visually unchanged, but 0.0601% of pixels differed
+near one shore building in an earlier run; diagnose input readiness versus
+geometry. Shot timing continues after 120 frames only until Refined, capped at
+240 measured frames. The direct staged/one-shot digest and late GPU failure
+tests pass; candidate isolation still needs cancellation and memory-peak proof.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
 also with NDEBUG. The defect was a combination of arrival-ordered `OsmField` indices,

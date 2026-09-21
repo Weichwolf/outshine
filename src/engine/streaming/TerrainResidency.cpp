@@ -208,6 +208,16 @@ bool TerrainResidency::ReindexPages(std::string &error) {
 bool TerrainResidency::Publish(const Patchwork &patchwork,
                                const TangentFrame &frame,
                                std::string &error) {
+  if (!BeginPublish(patchwork, error)) { return false; }
+  const auto advanced = AdvancePublish(patchwork, frame, patchwork.Sheets.size());
+  if (!advanced) {
+    error = advanced.error();
+    return false;
+  }
+  return *advanced;
+}
+
+bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &error) {
   if (Renderer_ == nullptr) { return true; }
   auto wanted = IndexSheets(patchwork);
   if (!wanted) {
@@ -223,27 +233,44 @@ bool TerrainResidency::Publish(const Patchwork &patchwork,
   Flat_ = 0;
   Instances_.clear();
   Virtual_.clear();
-  for (const Sheet &sheet : patchwork.Sheets) {
+  NextSheet_ = 0;
+  Publishing_ = true;
+  return true;
+}
+
+std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwork &patchwork,
+                                                                  const TangentFrame &frame,
+                                                                  size_t sheetsMost) {
+  if (Renderer_ == nullptr) { return true; }
+  if (!Publishing_ || (sheetsMost == 0 && !patchwork.Sheets.empty())) {
+    return std::unexpected("height pages are not prepared for a bounded publication");
+  }
+  const size_t end = std::min(NextSheet_ + sheetsMost, patchwork.Sheets.size());
+  for (; NextSheet_ < end; ++NextSheet_) {
+    const Sheet &sheet = patchwork.Sheets[NextSheet_];
     if (sheet.Side != Render::GroundLattice::kSide ||
         sheet.Nodes.size() != Render::GroundLattice::kPageNodes) {
       ++Flat_;
       continue;
     }
     const auto page = PageFor(sheet.Tile, sheet.Nodes);
-    if (!page) {
-      error = page.error();
-      return false;
-    }
+    if (!page) { return std::unexpected(page.error()); }
     (sheet.Virtual ? Virtual_ : Instances_)
         .push_back(TileOf(sheet.Tile, *page, sheet.Nodes, frame));
   }
+  if (NextSheet_ < patchwork.Sheets.size()) { return false; }
   std::ranges::sort(Held_, [](const Held &left, const Held &right) {
     if (left.Tile.Zoom != right.Tile.Zoom) { return left.Tile.Zoom < right.Tile.Zoom; }
     if (left.Tile.X != right.Tile.X) { return left.Tile.X < right.Tile.X; }
     return left.Tile.Y < right.Tile.Y;
   });
-  if (!ReindexPages(error)) { return false; }
-  return PublishGrid(patchwork, error) && Renderer_->SetTerrainTiles(Instances_, Virtual_, error);
+  std::string error;
+  if (!ReindexPages(error) || !PublishGrid(patchwork, error) ||
+      !Renderer_->SetTerrainTiles(Instances_, Virtual_, error)) {
+    return std::unexpected(std::move(error));
+  }
+  Publishing_ = false;
+  return true;
 }
 
 void TerrainResidency::Clear() {
@@ -258,6 +285,8 @@ void TerrainResidency::Clear() {
   Instances_.clear();
   Virtual_.clear();
   GridPostings_ = 0;
+  NextSheet_ = 0;
+  Publishing_ = false;
 }
 
 uint64_t TerrainResidency::Digest() const noexcept {

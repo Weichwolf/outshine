@@ -2,13 +2,12 @@
 
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cmath>
 #include <limits>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <optional>
-#include <ratio>
 #include <utility>
 #include <string>
 #include <vector>
@@ -331,19 +330,23 @@ size_t HeightSheets::Halos(Patchwork &laid, const Ground::GroundStream &ground, 
   return haloed;
 }
 
-bool HeightSheets::Hands(Patchwork &laid, std::string &error, HandoffCost *cost) {
+bool HeightSheets::Stitch(Patchwork &laid, std::string &error) {
   if (!Framed_) { return true; }
-  const auto began = std::chrono::steady_clock::now();
-  if (!StitchEdges(laid, error)) { return false; }
-  const auto stitched = std::chrono::steady_clock::now();
-  const bool published = Residency_.Publish(laid, Frame_, error);
-  if (cost != nullptr) {
-    cost->StitchMs = std::chrono::duration<double, std::milli>(stitched - began).count();
-    cost->ResidencyMs =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - stitched)
-            .count();
-  }
-  return published;
+  return StitchEdges(laid, error);
+}
+
+bool HeightSheets::Hands(Patchwork &laid, std::string &error) {
+  return Stitch(laid, error) && (!Framed_ || Residency_.Publish(laid, Frame_, error));
+}
+
+bool HeightSheets::BeginResidency(const Patchwork &laid, std::string &error) {
+  return !Framed_ || Residency_.BeginPublish(laid, error);
+}
+
+std::expected<bool, std::string> HeightSheets::AdvanceResidency(const Patchwork &laid,
+                                                                size_t sheetsMost) {
+  if (!Framed_) { return true; }
+  return Residency_.AdvancePublish(laid, Frame_, sheetsMost);
 }
 
 std::optional<double> HeightSheets::FieldUpM(int zoom, EastNorth at) const {

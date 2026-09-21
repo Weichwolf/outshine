@@ -31,6 +31,9 @@ public:
 
   [[nodiscard]] bool
   Publish(const Patchwork &patchwork, const TangentFrame &frame, std::string &error);
+  [[nodiscard]] bool BeginPublish(const Patchwork &patchwork, std::string &error);
+  [[nodiscard]] std::expected<bool, std::string>
+  AdvancePublish(const Patchwork &patchwork, const TangentFrame &frame, size_t sheetsMost);
 
   void Clear();
 
@@ -70,6 +73,8 @@ private:
   size_t Flat_ = 0;
   uint32_t GridPostings_ = 0;
   Render::SceneRenderer *Renderer_ = nullptr;
+  size_t NextSheet_ = 0;
+  bool Publishing_ = false;
 };
 
 }

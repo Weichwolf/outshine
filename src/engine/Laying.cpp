@@ -87,6 +87,7 @@ constexpr size_t kBounceProbeStride = 16;
 constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
 constexpr size_t kTerrainSheetsPerFrame = 96;
+constexpr size_t kTerrainResidencySheetsPerFrame = 128;
 
 bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
@@ -99,8 +100,11 @@ public:
   struct MeshBuild {
     Generators::TerrainMesh Mesh;
     size_t NextSheet = 0;
-    bool SheetsHanded = false;
+    bool SheetsStitched = false;
+    bool ResidencyStarted = false;
+    bool ResidencyReady = false;
     double LongestSliceMs = 0.0;
+    double LongestResidencySliceMs = 0.0;
   };
 
   GroundBuildState(Render::SceneRenderer &renderer,
@@ -1275,16 +1279,38 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
   const auto began = std::chrono::steady_clock::now();
   GroundBuildProducts &build = state.Candidate().Products();
   GroundBuildState::MeshBuild &meshing = state.Meshing();
-  if (!meshing.SheetsHanded) {
-    HeightSheets::HandoffCost cost;
-    if (!build.Sheets.Hands(patchwork, Error, &cost)) { return false; }
-    meshing.SheetsHanded = true;
-    Published.Places("ground candidate: sheet stitching", cost.StitchMs, "ms");
-    Published.Places("ground candidate: sheet residency", cost.ResidencyMs, "ms");
+  if (!meshing.SheetsStitched) {
+    if (!build.Sheets.Stitch(patchwork, Error)) { return false; }
+    meshing.SheetsStitched = true;
     Published.Places(
-        "ground candidate: sheet handoff",
+        "ground candidate: sheet stitching",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
+    return true;
+  }
+  if (!meshing.ResidencyStarted) {
+    if (!build.Sheets.BeginResidency(patchwork, Error)) { return false; }
+    meshing.ResidencyStarted = true;
+    Published.Places(
+        "ground candidate: residency preparation",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
+        "ms");
+    return true;
+  }
+  if (!meshing.ResidencyReady) {
+    const auto advanced = build.Sheets.AdvanceResidency(patchwork, kTerrainResidencySheetsPerFrame);
+    if (!advanced) {
+      Error = advanced.error();
+      return false;
+    }
+    const double sliceMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    meshing.LongestResidencySliceMs = std::max(meshing.LongestResidencySliceMs, sliceMs);
+    state.SamplesProductPeak();
+    if (!*advanced) { return true; }
+    meshing.ResidencyReady = true;
+    Published.Places(
+        "ground candidate: longest residency slice", meshing.LongestResidencySliceMs, "ms");
     return true;
   }
   const size_t end = std::min(meshing.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
