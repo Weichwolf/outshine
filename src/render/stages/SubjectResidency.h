@@ -166,11 +166,14 @@ struct SubjectResidency {
   [[nodiscard]] std::expected<BoundImage, std::string>
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
+  [[nodiscard]] std::expected<void, std::string> UploadMipChain(OwnedTexture &image,
+                                                                std::span<const float> linear,
+                                                                Texels extent,
+                                                                uint32_t levels,
+                                                                Transfer decode,
+                                                                TexelKind kind) const;
+
 private:
-  [[nodiscard]] std::expected<void, std::string> UploadMip(SDL_GPUTexture *image,
-                                                           std::span<const uint8_t> level,
-                                                           Texels extent,
-                                                           uint32_t mip) const;
   mutable size_t UploadAttempts_ = 0;
   mutable size_t TotalUploadAttempts_ = 0;
   size_t RecordedCrossings_ = 0;

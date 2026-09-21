@@ -11,10 +11,11 @@ Tags: gpu, ownership, state
 
 ## Evidence and correction
 
-`SubjectResidency::UploadMip` allocates and submits once per level. `Upload` owns a
-local `BoundImage` and returns it only after every level and sampler succeeds.
-`SubjectDraw::BindSurface` likewise builds a local slot. A late failure destroys the
-candidate; separate mip submissions alone do not prove partial publication.
+`SubjectResidency::Upload` now packs every encoded mip level into one checked transfer
+allocation, records all copies in one pass and submits once. The local `BoundImage` returns
+only after that submit and sampler creation succeed. `FilteredMipSampling` uses an imported
+multi-level material and proves one submit, one staging allocation and positive transfer bytes.
+`SubjectDraw::BindSurface` likewise builds a local slot. Late failure injection remains open.
 
 Reference: ../SDL at fa2c02b, include/SDL3/SDL_gpu.h, SDL_UploadToGPUTexture and
 SDL_ReleaseGPUTransferBuffer. Subsequent commands see completed uploads; release is

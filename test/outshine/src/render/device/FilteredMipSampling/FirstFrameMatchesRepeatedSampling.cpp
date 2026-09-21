@@ -60,6 +60,12 @@ struct Fixture {
   explicit Fixture(SDL_GPUDevice *device) : Device(device) {}
 };
 
+struct TextureUploadCounts {
+  size_t Submissions = 0;
+  size_t StagingAllocations = 0;
+  size_t Bytes = 0;
+};
+
 enum class MipMode { None, Nearest, Linear };
 enum class RasterShape { Fullscreen, SmallTriangle };
 
@@ -451,7 +457,7 @@ std::vector<uint8_t> Draw(Fixture &fixture) {
   return pixels;
 }
 
-bool ConfigureImported(Fixture &fixture) {
+bool ConfigureImported(Fixture &fixture, TextureUploadCounts &counts) {
   if (!CreateTargets(fixture)) { return false; }
   const std::string path = PreparedRoot() + "/test-khronos-glTF-ABeautifulGame/scene.gltf";
   outshine::GltfImporter imported;
@@ -483,6 +489,9 @@ bool ConfigureImported(Fixture &fixture) {
     SDL_SetError("%s", bound.error().c_str());
     return false;
   }
+  counts.Submissions = residency.TakeUploadAttempts();
+  counts.StagingAllocations = residency.TakeStagingAllocationAttempts();
+  counts.Bytes = residency.TakeUploadBytes();
   fixture.Source = std::move(bound->Image);
   fixture.Sampler = std::move(bound->Sample);
 
@@ -694,9 +703,15 @@ int main() {
                                            SDL_GPU_SHADERFORMAT_DXIL,
                                        false,
                                        nullptr));
-  CHECK(imported.Device && ConfigureImported(imported),
+  TextureUploadCounts importedUpload;
+  CHECK(imported.Device && ConfigureImported(imported, importedUpload),
         "the exact imported chess draw configures through raw SDL");
   if (imported.Device && imported.Pipeline) {
+    CHECK(importedUpload.Submissions == 1,
+          "a complete imported mip chain submits through one copy command");
+    CHECK(importedUpload.StagingAllocations == 1,
+          "a complete imported mip chain owns one staging allocation");
+    CHECK(importedUpload.Bytes > 0, "the imported mip chain records its transferred bytes");
     CHECK(imported.IndirectDraw, "the imported part uses the engine's clustered indirect draw");
     const auto first = Draw(imported);
     const auto repeated = Draw(imported);

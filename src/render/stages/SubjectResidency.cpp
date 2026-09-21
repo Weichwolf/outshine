@@ -48,6 +48,8 @@ inline constexpr std::string_view kTextureStagingDidNotMap =
     "the texture's staging buffer did not map: {}";
 inline constexpr std::string_view kTextureSamplerFailed =
     "the texture sampler was refused by the device: {}";
+inline constexpr std::string_view kTextureMipChainTooLarge =
+    "the texture mip chain exceeds GPU transfer storage";
 }
 
 namespace {
@@ -124,6 +126,24 @@ void Encode(std::span<const float> linear,
     encoded[texel * kRgbaChannels + kAlphaChannel] =
         Byte(linear[texel * kRgbaChannels + kAlphaChannel]);
   }
+}
+
+struct TextureMip {
+  uint32_t Offset = 0;
+  Texels Extent;
+};
+
+std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels) {
+  uint32_t width = extent.WidthPx;
+  uint32_t height = extent.HeightPx;
+  uint64_t total = 0;
+  for (uint32_t level = 0; level < levels; ++level) {
+    total += uint64_t{width} * height * kRgbaChannels;
+    if (total > std::numeric_limits<uint32_t>::max()) { return std::nullopt; }
+    width = std::max(1u, width / 2u);
+    height = std::max(1u, height / 2u);
+  }
+  return static_cast<uint32_t>(total);
 }
 
 }
@@ -438,55 +458,6 @@ void SubjectResidency::CommitCrossings() {
   Retired_.clear();
 }
 
-std::expected<void, std::string> SubjectResidency::UploadMip(SDL_GPUTexture *image,
-                                                             std::span<const uint8_t> level,
-                                                             Texels extent,
-                                                             uint32_t mip) const {
-  const auto bytes = static_cast<uint32_t>(level.size());
-  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
-  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  wantedTransfer.size = bytes;
-  const OwnedTransfer staging(Device_, SDL_CreateGPUTransferBuffer(Device_, &wantedTransfer));
-  StagingAttempts_ += 1u;
-  UploadAttempts_ += 1u;
-  TotalUploadAttempts_ += 1u;
-  UploadBytes_ += bytes;
-  if (!staging) {
-    return std::unexpected(std::format(Says::kTextureStagingFoundNoRoom, SDL_GetError()));
-  }
-  void *const mappedLevel = SDL_MapGPUTransferBuffer(Device_, staging.Get(), false);
-  if (mappedLevel == nullptr) {
-    return std::unexpected(std::format(Says::kTextureStagingDidNotMap, SDL_GetError()));
-  }
-  std::memcpy(mappedLevel, level.data(), bytes);
-  SDL_UnmapGPUTransferBuffer(Device_, staging.Get());
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_);
-  if (commands == nullptr) {
-    return std::unexpected(std::format(Says::kCopyAcquireFailed, SDL_GetError()));
-  }
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-  if (copy == nullptr) {
-    SDL_CancelGPUCommandBuffer(commands);
-    return std::unexpected(std::format(Says::kCopyPassFailed, SDL_GetError()));
-  }
-  SDL_GPUTextureTransferInfo source{};
-  source.transfer_buffer = staging.Get();
-  source.pixels_per_row = extent.WidthPx;
-  source.rows_per_layer = extent.HeightPx;
-  SDL_GPUTextureRegion into{};
-  into.texture = image;
-  into.mip_level = mip;
-  into.w = extent.WidthPx;
-  into.h = extent.HeightPx;
-  into.d = 1;
-  SDL_UploadToGPUTexture(copy, &source, &into, false);
-  SDL_EndGPUCopyPass(copy);
-  if (!SDL_SubmitGPUCommandBuffer(commands)) {
-    return std::unexpected(std::format(Says::kCopySubmitFailed, SDL_GetError()));
-  }
-  return {};
-}
-
 std::expected<SubjectResidency::BoundImage, std::string>
 SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
   static const std::array<uint8_t, 4> white = {{255, 255, 255, 255}};
@@ -526,6 +497,8 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   for (uint32_t extent = width > height ? width : height; extent > 1u; extent /= 2u) { ++levels; }
 
   if (texture.Mip == SubjectMip::None) { levels = 1; }
+  const auto chainBytes = MipChainBytes({.WidthPx = width, .HeightPx = height}, levels);
+  if (!chainBytes) { return std::unexpected(std::string(Says::kTextureMipChainTooLarge)); }
   wantedTexture.num_levels = levels;
   wantedTexture.sample_count = SDL_GPU_SAMPLECOUNT_1;
   bound.Image = OwnedTexture(Device_, SDL_CreateGPUTexture(Device_, &wantedTexture));
@@ -533,23 +506,10 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
     return std::unexpected(std::format(Says::kTextureImageFoundNoRoom, SDL_GetError()));
   }
 
-  std::vector<float> level = linear;
-  std::vector<uint8_t> encoded;
-  uint32_t levelWidth = width;
-  uint32_t levelHeight = height;
-  for (uint32_t which = 0; which < levels; ++which) {
-    if (which > 0) {
-      std::vector<float> smaller;
-      const Texels made =
-          HalveInPlace(level, {.WidthPx = levelWidth, .HeightPx = levelHeight}, smaller, kind);
-      level.swap(smaller);
-      levelWidth = made.WidthPx;
-      levelHeight = made.HeightPx;
-    }
-    Encode(level, decode, encoded);
-    auto uploaded = UploadMip(
-        bound.Image.Get(), encoded, {.WidthPx = levelWidth, .HeightPx = levelHeight}, which);
-    if (!uploaded) { return std::unexpected(std::move(uploaded.error())); }
+  if (auto uploaded = UploadMipChain(
+          bound.Image, linear, {.WidthPx = width, .HeightPx = height}, levels, decode, kind);
+      !uploaded) {
+    return std::unexpected(std::move(uploaded.error()));
   }
 
   SDL_GPUSamplerCreateInfo wantedSampler{};
@@ -570,6 +530,80 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
     return std::unexpected(std::format(Says::kTextureSamplerFailed, SDL_GetError()));
   }
   return bound;
+}
+
+std::expected<void, std::string> SubjectResidency::UploadMipChain(OwnedTexture &image,
+                                                                  std::span<const float> linear,
+                                                                  Texels extent,
+                                                                  uint32_t levels,
+                                                                  Transfer decode,
+                                                                  TexelKind kind) const {
+  const auto chainBytes = MipChainBytes(extent, levels);
+  if (!chainBytes) { return std::unexpected(std::string(Says::kTextureMipChainTooLarge)); }
+  std::vector<float> level(linear.begin(), linear.end());
+  std::vector<uint8_t> encoded;
+  std::vector<uint8_t> packed;
+  packed.reserve(*chainBytes);
+  std::vector<TextureMip> mips;
+  mips.reserve(levels);
+  uint32_t levelWidth = extent.WidthPx;
+  uint32_t levelHeight = extent.HeightPx;
+  for (uint32_t which = 0; which < levels; ++which) {
+    if (which > 0) {
+      std::vector<float> smaller;
+      const Texels made =
+          HalveInPlace(level, {.WidthPx = levelWidth, .HeightPx = levelHeight}, smaller, kind);
+      level.swap(smaller);
+      levelWidth = made.WidthPx;
+      levelHeight = made.HeightPx;
+    }
+    Encode(level, decode, encoded);
+    if (encoded.size() > *chainBytes - packed.size()) {
+      return std::unexpected(std::string(Says::kTextureMipChainTooLarge));
+    }
+    mips.push_back({.Offset = static_cast<uint32_t>(packed.size()),
+                    .Extent = {.WidthPx = levelWidth, .HeightPx = levelHeight}});
+    packed.insert(packed.end(), encoded.begin(), encoded.end());
+  }
+
+  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
+  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+  wantedTransfer.size = *chainBytes;
+  const OwnedTransfer staging(Device_, SDL_CreateGPUTransferBuffer(Device_, &wantedTransfer));
+  StagingAttempts_ += 1u;
+  UploadAttempts_ += 1u;
+  TotalUploadAttempts_ += 1u;
+  UploadBytes_ += *chainBytes;
+  if (!staging) {
+    return std::unexpected(std::format(Says::kTextureStagingFoundNoRoom, SDL_GetError()));
+  }
+  void *const mapped = SDL_MapGPUTransferBuffer(Device_, staging.Get(), false);
+  if (mapped == nullptr) {
+    return std::unexpected(std::format(Says::kTextureStagingDidNotMap, SDL_GetError()));
+  }
+  std::memcpy(mapped, packed.data(), packed.size());
+  SDL_UnmapGPUTransferBuffer(Device_, staging.Get());
+  std::string error;
+  const auto copy = BeginCopy(Device_, error);
+  if (!copy) { return std::unexpected(error); }
+  for (uint32_t mip = 0; mip < levels; ++mip) {
+    const TextureMip &levelInfo = mips[mip];
+    SDL_GPUTextureTransferInfo source{};
+    source.transfer_buffer = staging.Get();
+    source.offset = levelInfo.Offset;
+    source.pixels_per_row = levelInfo.Extent.WidthPx;
+    source.rows_per_layer = levelInfo.Extent.HeightPx;
+    SDL_GPUTextureRegion into{};
+    into.texture = image.Get();
+    into.mip_level = mip;
+    into.w = levelInfo.Extent.WidthPx;
+    into.h = levelInfo.Extent.HeightPx;
+    into.d = 1;
+    SDL_UploadToGPUTexture(copy->Pass, &source, &into, false);
+  }
+  if (!SubmitCopy(*copy, error)) { return std::unexpected(error); }
+
+  return {};
 }
 
 }
