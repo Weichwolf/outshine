@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "HeightFieldError.h"
@@ -132,40 +133,41 @@ void SelectPatches(std::span<const ErrorPatch> tree,
                       .SourceZoom = sourceZoom});
 }
 
+std::vector<float> SampleReference(const Ground::TerrainField &heights, size_t cells) {
+  const size_t side = cells + 1u;
+  std::vector<float> reference(side * side);
+  for (size_t row = 0; row < side; ++row) {
+    for (size_t column = 0; column < side; ++column) {
+      reference[row * side + column] =
+          heights.PostingM({.Col = static_cast<double>(column) / static_cast<double>(cells),
+                            .Row = static_cast<double>(row) / static_cast<double>(cells)});
+    }
+  }
+  return reference;
 }
 
-std::expected<std::vector<Sheet>, std::string>
-RefineTerrain(std::span<const TerrainRefinementSource> sources,
-              const TangentFrame &frame,
-              TerrainPageLayout layout,
-              TerrainRefinementDetail detail,
-              size_t maximumPatches) {
-  std::vector<Sheet> selected;
-  if (!layout.Valid()) { return selected; }
-  const auto grid = static_cast<size_t>(layout.Side - 1);
-  for (const TerrainRefinementSource &source : sources) {
-    if (source.Page == nullptr) { continue; }
-    const Sheet &sheet = *source.Page;
-    if (sheet.Virtual || sheet.Side != layout.Side || source.Heights == nullptr ||
-        !source.Heights->Meshable()) {
-      selected.push_back(sheet);
-      continue;
-    }
-    size_t cells = grid;
-    while (cells + 1u < std::max(source.Heights->Rows(), source.Heights->Cols())) { cells *= 2u; }
-    const size_t side = cells + 1u;
-    std::vector<float> reference(side * side);
-    for (size_t row = 0; row < side; ++row) {
-      for (size_t column = 0; column < side; ++column) {
-        reference[row * side + column] = source.Heights->PostingM(
-            {.Col = static_cast<double>(column) / static_cast<double>(cells),
-             .Row = static_cast<double>(row) / static_cast<double>(cells)});
-      }
-    }
-    std::vector<ErrorPatch> tree;
-    (void)BuildErrors(tree, reference, side, sheet.Tile, {.Cells = cells}, grid);
-    SelectPatches(tree, tree.front(), sheet.Tile.Zoom, frame, layout, detail, selected);
+void SelectSourcePatches(const TerrainRefinementSource &source,
+                         const TangentFrame &frame,
+                         TerrainPageLayout layout,
+                         TerrainRefinementDetail detail,
+                         std::vector<Sheet> &selected) {
+  if (source.Page == nullptr) { return; }
+  const Sheet &sheet = *source.Page;
+  if (sheet.Virtual || sheet.Side != layout.Side || source.Heights == nullptr ||
+      !source.Heights->Meshable()) {
+    selected.push_back(sheet);
+    return;
   }
+  const auto grid = static_cast<size_t>(layout.Side - 1);
+  size_t cells = grid;
+  while (cells + 1u < std::max(source.Heights->Rows(), source.Heights->Cols())) { cells *= 2u; }
+  const std::vector<float> reference = SampleReference(*source.Heights, cells);
+  std::vector<ErrorPatch> tree;
+  (void)BuildErrors(tree, reference, cells + 1u, sheet.Tile, {.Cells = cells}, grid);
+  SelectPatches(tree, tree.front(), sheet.Tile.Zoom, frame, layout, detail, selected);
+}
+
+std::expected<std::vector<Sheet>, std::string> UniquePatches(std::vector<Sheet> selected) {
   std::vector<Sheet> unique;
   unique.reserve(selected.size());
   std::map<std::tuple<int, uint32_t, uint32_t>, size_t> indices;
@@ -186,7 +188,25 @@ RefineTerrain(std::span<const TerrainRefinementSource> sources,
     }
     if (held.Virtual) { held = std::move(sheet); }
   }
-  selected = std::move(unique);
+  return unique;
+}
+
+}
+
+std::expected<std::vector<Sheet>, std::string>
+RefineTerrain(std::span<const TerrainRefinementSource> sources,
+              const TangentFrame &frame,
+              TerrainPageLayout layout,
+              TerrainRefinementDetail detail,
+              size_t maximumPatches) {
+  std::vector<Sheet> selected;
+  if (!layout.Valid()) { return selected; }
+  for (const TerrainRefinementSource &source : sources) {
+    SelectSourcePatches(source, frame, layout, detail, selected);
+  }
+  auto unique = UniquePatches(std::move(selected));
+  if (!unique) { return std::unexpected(std::move(unique.error())); }
+  selected = std::move(*unique);
   if (selected.size() > maximumPatches) {
     return std::unexpected(
         std::format(Says::kTooManyPatches, selected.size(), detail.ErrorPx, maximumPatches));

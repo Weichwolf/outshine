@@ -71,7 +71,9 @@ Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung so
 
 ## Abnahme
 
-- [x] make lint meldet null Tidy-Befunde: 189/189 Einheiten, 0 Befunde (2026-09-16).
+- [ ] clang-tidy meldet null Befunde. Aktuell 207/207 Einheiten vollständig, vier Befunde:
+      `Grounds` und `InitForTarget` sind überkomplex; `SetSky` und `Restand` haben vertauschbare
+      Parameter. `TerrainRefinement` ist nach fachlicher Trennung und direkten Includes sauber.
       Analysefehler gelten weiterhin nicht als null.
 - [ ] Öffentliche API-Verträge gegen 2188 vollständig geprüft. Doxygen: 24/24 Header,
       0 Diagnosen (2026-09-16); dies beweist Dokumentationsabdeckung, nicht Vertragsrichtigkeit.
