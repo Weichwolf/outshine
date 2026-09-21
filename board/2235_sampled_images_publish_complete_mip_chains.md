@@ -15,7 +15,9 @@ Tags: gpu, ownership, state
 allocation, records all copies in one pass and submits once. The local `BoundImage` returns
 only after that submit and sampler creation succeed. `FilteredMipSampling` uses an imported
 multi-level material and proves one submit, one staging allocation and positive transfer bytes.
-`SubjectDraw::BindSurface` likewise builds a local slot. Late failure injection remains open.
+`SubjectDraw::BindSurface` likewise builds a local slot. `MipSubmissionFailureRetainsRetry`
+injects the final submit failure, receives no image and immediately retries to a complete
+texture/sampler pair.
 
 Reference: ../SDL at fa2c02b, include/SDL3/SDL_gpu.h, SDL_UploadToGPUTexture and
 SDL_ReleaseGPUTransferBuffer. Subsequent commands see completed uploads; release is
