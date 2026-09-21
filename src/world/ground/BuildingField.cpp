@@ -1,5 +1,6 @@
 #include "BuildingField.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -19,6 +20,7 @@ constexpr size_t kBuildingCandidatesPerAdmission = 4;
 void BuildingField::ResetDerived() {
   ++Revision_;
   Prints_.clear();
+  AcceptedTiles_.clear();
   TrianglesHanded_ = 0;
   Taken_ = Accepted_ = 0;
   ByTile_ = {};
@@ -77,9 +79,28 @@ void BuildingField::CommitAcceptance(PendingAcceptance pending,
   Fronted_ += baked.Fronted;
   TrianglesHanded_ += baked.Triangles;
   ByTile_.Set(pending.Tile_, firstPrint, static_cast<uint32_t>(Prints_.size()));
+  AcceptedTiles_.insert(std::ranges::lower_bound(AcceptedTiles_, pending.Tile_), pending.Tile_);
   Mark_.Advance(field.Features());
   ++Accepted_;
   ++Revision_;
+}
+
+bool BuildingField::IngestedWithin(const OsmField &field, int rings) const noexcept {
+  if (rings < 0) { return false; }
+  const std::span<const OsmField::Feature> features = field.Features();
+  size_t at = 0;
+  while (at < features.size()) {
+    const uint32_t tile = features[at].Tile;
+    while (at < features.size() && features[at].Tile == tile) { ++at; }
+    if (tile >= field.Tiles().size()) { return false; }
+    const OsmField::Tile &source = field.Tiles()[tile];
+    if (std::abs(source.X - field.CentreX()) > rings ||
+        std::abs(source.Y - field.CentreY()) > rings) {
+      continue;
+    }
+    if (!std::ranges::binary_search(AcceptedTiles_, tile)) { return false; }
+  }
+  return true;
 }
 
 }

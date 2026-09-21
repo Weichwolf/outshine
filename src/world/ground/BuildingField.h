@@ -135,12 +135,18 @@ public:
 
   [[nodiscard]] int Deferrals() const { return Mark_.Deferrals(); }
 
-  void Settle() { Prints_.shrink_to_fit(); }
+  void Settle() {
+    Prints_.shrink_to_fit();
+    AcceptedTiles_.shrink_to_fit();
+  }
+
+  [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const noexcept;
 
   [[nodiscard]] size_t PrintBytes() const { return CapacityBytes(Prints_); }
 
   [[nodiscard]] size_t HeapBytes() const {
-    return CapacityBytes(Prints_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
+    return CapacityBytes(Prints_) + CapacityBytes(AcceptedTiles_) + Mark_.HeapBytes() +
+           ByTile_.HeapBytes();
   }
 
   [[nodiscard]] bool Ingested(const OsmField &field) const {
@@ -152,6 +158,7 @@ public:
 private:
   uint64_t Revision_ = 0;
   std::vector<Footprint> Prints_;
+  std::vector<uint32_t> AcceptedTiles_;
   size_t TrianglesHanded_ = 0;
   size_t Taken_ = 0, Accepted_ = 0;
   TileRanges ByTile_;
