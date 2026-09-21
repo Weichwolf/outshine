@@ -6,6 +6,8 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  CHECK(StructureBuildQueue::kCandidateWindow == 4,
+        "structure admission keeps the measured four-candidate window across hardware sizes");
   const std::array<std::string, 1> layers{"building"};
   Ground::OsmField vectors(14, layers);
   const std::array<Ground::OsmField::Declared, 0> noFeatures;

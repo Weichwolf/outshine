@@ -26,7 +26,6 @@ namespace {
 constexpr uint32_t kMostRingPoints = 512;
 constexpr uint8_t kPolygonFeature = 3;
 constexpr size_t kBuildsPerThread = 1;
-constexpr size_t kCandidatesMost = 4;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
 int PitchedOf(std::string_view said) {
@@ -231,7 +230,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
   const Ground::OsmField &vectors = *stack.Vectors();
   size_t posted = 0;
   const size_t inFlightMost =
-      std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidatesMost);
+      std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow);
   const int blockZoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   while (Queue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;

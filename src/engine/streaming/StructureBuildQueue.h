@@ -23,6 +23,8 @@ namespace outshine {
 
 class StructureBuildQueue {
 public:
+  static constexpr size_t kCandidateWindow = 4;
+
   ~StructureBuildQueue();
 
   void Opens(Tasks *pool, const StructureMesher *mesher) {
