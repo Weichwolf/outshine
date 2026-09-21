@@ -21,6 +21,10 @@ p50 3.03, p95 694.92 and p99 711.90 ms, with 41/120 above 16.67 ms and
 These are observed client timings, not accepted budgets. Find and slice the
 responsible native build/publication units without moving work out of the
 measurement window.
+The repeated `shots --no-vegetation --measures Malcesine` run gave p95 640.81 ms
+and 39/120 over budget. Its last candidate reported earthworks 395.085 ms,
+terrain mesh 183.774 ms and corridors 72.491 ms. These phase samples identify
+where to instrument next; they are neither per-frame maxima nor distributions.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
 also with NDEBUG. The defect was a combination of arrival-ordered `OsmField` indices,
@@ -70,6 +74,9 @@ end-to-end progress. Do not add a second rendering client.
 2. Measure bounded units in Laying.cpp, GroundWorldCandidate and TerrainTileUpload.
    Record maximum input sizes, p50/p95/p99 and CPU/GPU memory separately. Existing
    OwnedHeapBytes covers selected direct CPU products, not total engine residency.
+   Start with earthworks, terrain mesh and corridors. Attribute each sampled frame
+   to its active substep and retained candidate bytes; prove total frame work, not
+   merely the time of a named phase after moving it elsewhere.
 3. Continue the longest over-budget unit by tile/row/batch, preserving topology and
    stable reduction order. Whole named phases are not automatically bounded units.
    Test cancellation, stale completion, submission failure and retry; publication once.
