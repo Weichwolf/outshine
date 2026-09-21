@@ -107,13 +107,14 @@ the complete crown capture test preserves every prior coverage, normal, lighting
 
 ## Acceptance and commands
 
-- [ ] Terrain computation runs without Engine, SDL or renderer; analytical flat, slope,
+- [x] Terrain computation runs without Engine, SDL or renderer; analytical flat, slope,
       footprint and corridor tests match the existing completed native products/contacts.
-- [ ] Injected generator failure leaves the published tile/world unchanged; retry succeeds.
-- [ ] New reaches edges obey the table, no back-reference or umbrella engine include.
-- [ ] Existing atlas codec/corruption, instance and worker-lifetime tests migrate with owners;
+- [x] Injected generator failure leaves the published tile/world unchanged; retry succeeds.
+- [x] New reaches edges obey the table, no back-reference or umbrella engine include.
+- [x] Existing atlas codec/corruption, instance and worker-lifetime tests migrate with owners;
       generated and imported native geometry use the same resource installation boundary.
 - [ ] make format; make suite SUITE=outshine/src/engine/streaming/StructureBuildTask;
       make suite SUITE=outshine/integration/places/ScoreAFootprintStandsOnALevelFloor;
       moved focused suites via make suite; make lint. Inspect unchanged terrain/crown PNGs
       through the client for their respective migration slices, without enabling new features.
+Focused suites pass on 2026-09-21; fresh crown captures retain silhouette, materials and views.

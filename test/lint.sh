@@ -44,8 +44,19 @@ for tool in clang-format clang-tidy; do
     exit 2
   }
 done
-make test-format test-tidy-analysis test-documentation test-reference-cache db
-[ -f compile_commands.json ] || { printf 'lint: no compile_commands.json -- run `make db`\n' >&2; exit 2; }
+for target in test-format test-tidy-analysis test-documentation test-reference-cache db; do
+  if ! make "$target"; then
+    printf 'lint: prerequisite %s failed\n' "$target" >&2
+    red=$((red + 1))
+  fi
+done
+
+compile_database=1
+if [ ! -f compile_commands.json ]; then
+  printf 'lint: no compile_commands.json -- run `make db`\n' >&2
+  red=$((red + 1))
+  compile_database=0
+fi
 
 mkdir -p "$REPORT"
 printf '== format ==\n'
@@ -58,12 +69,18 @@ fi
 
 printf '\n== analysis ==\n'
 analysis_status=0
-python3 test/scripts/tidy_analysis.py --root "$PWD" --report "$REPORT" \
-  --tool "$LLVM/clang-tidy" --jobs "$(sysctl -n hw.ncpu)" || analysis_status=$?
-found=$(wc -l < "$REPORT/tidy.unique" | tr -d ' ')
-# Execution status is independent of finding count: zero is valid only after every unit ran.
-grep -o '\[[a-z-]*\]$' "$REPORT/tidy.unique" | sort | uniq -c | sort -rn > "$REPORT/tidy.checks"
-head -12 "$REPORT/tidy.checks"
+if [ "$compile_database" -eq 1 ]; then
+  python3 test/scripts/tidy_analysis.py --root "$PWD" --report "$REPORT" \
+    --tool "$LLVM/clang-tidy" --jobs "$(sysctl -n hw.ncpu)" || analysis_status=$?
+  found=$(wc -l < "$REPORT/tidy.unique" | tr -d ' ')
+  # Execution status is independent of finding count: zero is valid only after every unit ran.
+  grep -o '\[[a-z-]*\]$' "$REPORT/tidy.unique" | sort | uniq -c | sort -rn > "$REPORT/tidy.checks"
+  head -12 "$REPORT/tidy.checks"
+else
+  analysis_status=1
+  found=0
+  printf 'lint: analysis not run without compile_commands.json\n' >&2
+fi
 
 printf '\nlint: %s finding(s), the target is 0\n' "$found"
 if [ "$analysis_status" -ne 0 ]; then
