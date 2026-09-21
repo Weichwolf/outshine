@@ -114,6 +114,6 @@ rebuild. The focused Place control must prove the cycle is gone before changing 
 ## Verbleibende Budgetarbeit
 
 Die frühere 32/36-Bake-Timeoutdiagnose ist durch den späteren erfolgreichen
-Kandidatenpfad in WI 2231 überholt; kein aktueller globaler Blocker. Restarbeiten:
-2231 begrenzt auch große Einzelstrukturen und Clustering, 2233 die Compute-Zulassung,
-2234 Ground-Phasen. Unveränderte Fristen und vollständige Produkte weiter prüfen.
+Kandidatenpfad überholt; kein aktueller globaler Blocker. Struktur-Ranges, Finalisierung,
+Abbruch und atomare Publikation sind begrenzt und geprüft. Restarbeiten: 2233 budgetiert
+die Compute-Zulassung, 2234 die Ground-Phasen. Unveränderte Fristen und Produkte weiter prüfen.

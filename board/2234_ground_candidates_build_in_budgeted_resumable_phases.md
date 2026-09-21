@@ -98,8 +98,8 @@ for later GPU sampling; CPU reuse/readback needs its proper completion contract 
    Commit B once through the existing owner; failure retains A. Continue additional stages
    only where measurements show unbounded work. Integrate admission under WI 2233 later.
 
-WI 2231's unfinished public proof is not a code prerequisite. Reuse its candidate fixture
-when available; avoid duplicating engine-owned publication or exposing public test hooks.
+Reuse the existing structure candidate fixture; avoid duplicating engine-owned publication
+or exposing public test hooks.
 Expected visual result: unchanged completed world; smoother preparation during movement.
 
 ## Acceptance and commands

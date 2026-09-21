@@ -1,7 +1,7 @@
 Type: defect
 State: active
 Parent: 2105
-Depends: 2231
+Depends:
 Area: engine, generators, world
 Tags: streaming, lod, geometry
 
@@ -32,7 +32,6 @@ proxy for geometry visibility.
 
 ## Measurement
 
-2026-09-17: the direct floor-contact executable remained unprepared after 16.62 s, with 27/31
-tiles baked and four jobs holding 376 structures. The prior tile-wide LOD choice is removed, but
-the bounded-bake scheduler/residency bottleneck remains in 2231; this WI cannot close on that
-measurement alone.
+The bounded scheduler and current floor-contact Place are green. Close this WI only with the
+direct mixed-distance LOD and moved-camera invalidation controls above; aggregate residency timing
+does not prove which detail each structure received.

@@ -82,11 +82,9 @@ P1–P6 aus 2169 folgen erst nach P0. Architektur muss deren Umsetzung erleichte
 Arbeitsreserve für Coding; fehlgeschlagene Gates zuerst reparieren:
 1. **P0, 2223 / 2191 (ready):** implizites Renderer-Candidate-Routing durch einen schmalen
    Editor ersetzen; veröffentlichte Laufzeitupdates dürfen keinen Candidate mutieren.
-2. **P0, 2231 (ready):** öffentliche Tile-Atomarität und History des letzten Submit
-   beweisen; keine Worker-Datenrennen oder bloß leere Bewegungsbilder als Nachweis.
-3. **P0, 2234 (ready):** längste gemessene Ground-Einheit fortsetzbar machen, danach
+2. **P0, 2234 (ready):** längste gemessene Ground-Einheit fortsetzbar machen, danach
    **P1, 2233:** Zulassung/Rückstau budgetieren. Schedulingzeit und Produktdeterminismus trennen.
-4. **P1, 2235 / 2179 (ready):** Mip-Uploads ohne unnötige Fences bündeln und
+3. **P1, 2235 / 2179 (ready):** Mip-Uploads ohne unnötige Fences bündeln und
    Factory-Übersetzung unabhängig reparieren.
 Strukturaudit aller Module und konkrete Zuständigkeiten: 2139.
 2230 bindet Capture an verwendete Produkte; 2150 migriert statischen nativen Import,

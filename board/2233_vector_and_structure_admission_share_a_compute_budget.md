@@ -65,7 +65,7 @@ using engine ticks, with stable tie breaks. Avoid waiting for all unrelated vect
    among small ones with a controllable clock. Equal final native products and eventual
    service are required; identical wall-clock scheduling is not.
 4. Integrate resumable ground work from WI 2234 when available. Admission tests and
-   measurement do not depend on WI 2231's remaining public publication proof.
+   measurement reuse the completed structure range and publication contracts.
 
 ## Acceptance and commands
 
