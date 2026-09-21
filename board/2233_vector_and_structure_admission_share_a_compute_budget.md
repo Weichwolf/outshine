@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2105
-Depends:
+Depends: 2243
 Priority: P1
 Area: engine, world, streaming
 Tags: scheduling, osm, realtime
