@@ -33,6 +33,8 @@ public:
 
   [[nodiscard]] size_t Bytes() const { return HeightsM_.size() * sizeof(float); }
 
+  [[nodiscard]] size_t HeapBytes() const { return HeightsM_.capacity() * sizeof(float); }
+
   [[nodiscard]] const float *Data() const { return HeightsM_.data(); }
 
   [[nodiscard]] float *Data() { return HeightsM_.data(); }

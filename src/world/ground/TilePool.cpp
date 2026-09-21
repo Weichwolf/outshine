@@ -225,7 +225,8 @@ size_t TilePool::SchedulerBytes() const {
   size_t bytes = jobBytes(Queue_) + jobBytes(Carrying_);
   bytes += Posted_.HeapBytes() + Done_.HeapBytes() + Awaiting_.HeapBytes();
   Done_.Visit([&bytes](uint64_t, const Result &result) {
-    bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Landed.Bytes);
+    bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Landed.Bytes) +
+             (result.Field ? result.Field->HeapBytes() : 0u);
   });
   Awaiting_.Visit(
       [&bytes, &jobBytes](uint64_t, const std::vector<Job> &jobs) { bytes += jobBytes(jobs); });
@@ -575,27 +576,28 @@ std::optional<TilePool::Job> TilePool::NextJob() {
 
 TilePool::Result TilePool::RunJob(TerrainTiles &tiles, const Job &job) {
   Result result;
-  switch (job.Kind) {
-    case Rank::Mesh: {
-      ShapedGround told;
-      {
-        const std::scoped_lock lock(QueueMutex_);
-        told = Shape_;
-      }
-      if (!told.Kind.empty()) {
-        TerrainTiles::Shaped how;
-        how.Kind = told.Kind;
-        how.AmplitudeM = told.AmplitudeM;
-        how.WavelengthM = told.WavelengthM;
-        how.Gradient = told.Gradient;
-        how.BearingDeg = told.BearingDeg;
-        how.FocusLatDeg = told.FocusLatDeg;
-        how.FocusLonDeg = told.FocusLonDeg;
-        how.Seed = told.Seed;
-        tiles.Shapes(how);
-      }
-      RunMesh(tiles, job, &result);
+  if (job.Kind != Rank::Fetch) {
+    ShapedGround told;
+    {
+      const std::scoped_lock lock(QueueMutex_);
+      told = Shape_;
     }
+    if (!told.Kind.empty()) {
+      TerrainTiles::Shaped how;
+      how.Kind = told.Kind;
+      how.AmplitudeM = told.AmplitudeM;
+      how.WavelengthM = told.WavelengthM;
+      how.Gradient = told.Gradient;
+      how.BearingDeg = told.BearingDeg;
+      how.FocusLatDeg = told.FocusLatDeg;
+      how.FocusLonDeg = told.FocusLonDeg;
+      how.Seed = told.Seed;
+      tiles.Shapes(how);
+    }
+  }
+  switch (job.Kind) {
+    case Rank::Mesh:
+      RunMesh(tiles, job, &result);
       result.Holds = true;
       break;
     case Rank::Field:
