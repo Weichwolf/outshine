@@ -547,6 +547,7 @@ private:
   struct FrameResources;
 
   [[nodiscard]] std::expected<void, std::string> PrepareFrame();
+  [[nodiscard]] std::expected<void, std::string> RenderPublishedFrame();
   GpuSubmission Submission_;
   std::array<Effort, kStageCount> Spent_ = {{}};
 
@@ -837,27 +838,30 @@ private:
   [[nodiscard]] Lens Through() const;
 
   [[nodiscard]] SceneStateCore &ActiveState() noexcept {
-    return Candidate_ ? static_cast<SceneStateCore &>(*Candidate_)
-                      : static_cast<SceneStateCore &>(State_);
+    return Candidate_ && !DrawingPublished_ ? static_cast<SceneStateCore &>(*Candidate_)
+                                            : static_cast<SceneStateCore &>(State_);
   }
 
   [[nodiscard]] const SceneStateCore &ActiveState() const noexcept {
-    return Candidate_ ? static_cast<const SceneStateCore &>(*Candidate_)
-                      : static_cast<const SceneStateCore &>(State_);
+    return Candidate_ && !DrawingPublished_ ? static_cast<const SceneStateCore &>(*Candidate_)
+                                            : static_cast<const SceneStateCore &>(State_);
   }
 
   [[nodiscard]] FrameResources &ActiveFrame() noexcept {
-    return Candidate_ && Candidate_->Frame ? *Candidate_->Frame : State_.Frame;
+    return Candidate_ && !DrawingPublished_ && Candidate_->Frame ? *Candidate_->Frame
+                                                                 : State_.Frame;
   }
 
   [[nodiscard]] const FrameResources &ActiveFrame() const noexcept {
-    return Candidate_ && Candidate_->Frame ? *Candidate_->Frame : State_.Frame;
+    return Candidate_ && !DrawingPublished_ && Candidate_->Frame ? *Candidate_->Frame
+                                                                 : State_.Frame;
   }
 
   std::array<SDL_GPUFence *, kFramesInFlight> Landed_ = {};
   int LandedAt_ = 0;
   SceneState State_;
   std::optional<WorldCandidate> Candidate_;
+  bool DrawingPublished_ = false;
 };
 
 }

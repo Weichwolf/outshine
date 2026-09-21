@@ -1421,6 +1421,14 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
 }
 
 std::expected<void, std::string> SceneRenderer::RenderFrame() {
+  assert(!DrawingPublished_);
+  DrawingPublished_ = true;
+  auto rendered = RenderPublishedFrame();
+  DrawingPublished_ = false;
+  return rendered;
+}
+
+std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   auto prepared = PrepareFrame();
   if (!prepared) { return prepared; }
   SDL_GPUCommandBuffer *commands = Submission_.Acquire(Submission_.Context, Device_.Get());

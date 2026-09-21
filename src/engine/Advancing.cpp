@@ -7,6 +7,7 @@
 #include "Heap.h"
 #include <algorithm>
 #include <chrono>
+#include <cassert>
 #include <numbers>
 #include <array>
 #include <cmath>
@@ -229,13 +230,17 @@ void Engine::State::HandsPiecesOver() {
 bool Engine::State::Bakes(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   const LongitudeLatitude eye = WhereTheEyeStands();
-  if (!World.GroundPublished.Current()) {
-    Ground::BuildingField *const footprints = CandidateFootprints();
+  if (World.GroundBuild) {
     World.StructureBuilds.ResumeCompletedTasks();
-    if (footprints != nullptr) {
-      if (!StagesGroundBakes(landsMost)) { return false; }
-      (void)World.StructureBuilds.Posts(World.Stack, *footprints, eye, StructureCandidatesMost());
-    } else if (World.Stack.Ingested()) {
+    if (!StagesGroundBakes(landsMost)) { return false; }
+    Ground::BuildingField *const footprints = CandidateFootprints();
+    assert(footprints != nullptr);
+    (void)World.StructureBuilds.Posts(World.Stack, *footprints, eye, StructureCandidatesMost());
+    return true;
+  }
+  if (!World.GroundPublished.Current()) {
+    World.StructureBuilds.ResumeCompletedTasks();
+    if (World.Stack.Ingested()) {
       (void)World.StructureBuilds.Posts(
           World.Stack, World.Stack.Footprints(), eye, StructureCandidatesMost());
     }
@@ -279,6 +284,7 @@ bool Engine::State::Bakes(size_t landsMost) {
 bool Engine::State::UpdateCrowns(bool prepare) {
   if (!Session.Declared.Ground.VegetationEnabled) { return true; }
   if (!Picture.Standing || !World.Grown || !World.Shipping.Ready()) { return true; }
+  if (World.GroundBuild) { return true; }
   if (!World.Vegetation) {
     VegetationStreaming::Config config;
     config.Cache.Store.Directory =
