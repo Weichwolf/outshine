@@ -21,6 +21,9 @@ now gives an exact retained-capacity value and keeps index failure atomic with h
 upload. Shared terrain fields remain counted at their owning stream, not here.
 `TilePieces` likewise counts only its handle slots and diagnostic capacity; renderer-owned
 piece source and GPU storage stay in the renderer category.
+Native `Geometry::storageBytes` counts its owner record, retained part/material/image/light
+slots and nested attribute, name and pixel capacities. Renderer copies remain a separate
+category, which exposes the real overlap while a ground candidate continues after cloning.
 
 ## Decision
 

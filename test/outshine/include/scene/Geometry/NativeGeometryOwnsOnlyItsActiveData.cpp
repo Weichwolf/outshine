@@ -7,6 +7,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Geometry geometry;
+  const size_t emptyBytes = geometry.storageBytes();
   const std::array<float, 9> positions{0, 0, 0, 1, 0, 0, 0, 1, 0};
   const std::array<uint32_t, 3> triangle{0, 1, 2};
   const auto add = [&] {
@@ -20,6 +21,10 @@ int main() {
   CHECK(geometry.wellFormed(), "two active triangles are valid");
   CHECK(*geometry.addImage(1, 1, std::array<uint8_t, 4>{255, 255, 255, 255}) == 0,
         "the first image has index zero");
+  CHECK(geometry.storageBytes() >=
+            emptyBytes +
+                2 * (positions.size() * sizeof(float) + triangle.size() * sizeof(uint32_t)) + 4,
+        "native storage counts owned attribute and image capacities");
   geometry.clear();
   CHECK(geometry.parts() == 0 && geometry.images() == 0 && geometry.surfaces() == 0 &&
             geometry.lamps() == 0 && !geometry.wellFormed(),
@@ -97,6 +102,8 @@ int main() {
         "clone owns separate vertex storage");
   CHECK(copied.imageAt(0).Rgba.data() != geometry.imageAt(0).Rgba.data(),
         "clone owns separate image storage");
+  CHECK(copied.storageBytes() >= emptyBytes + positions.size() * sizeof(float),
+        "clone reports its independent native storage");
   geometry.clear();
   CHECK(copied.wellFormed() && copied.images() == imageCount + 1 &&
             copied.imageAt(imageCount).Rgba[0] == pixel[0],

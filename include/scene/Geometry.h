@@ -2,6 +2,7 @@
 #define OUTSHINE_GEOMETRY_H
 
 #include <cstdint>
+#include <cstddef>
 #include <expected>
 #include <memory>
 #include <span>
@@ -290,6 +291,11 @@ public:
 
   /// @return Number of active parts, excluding retained capacity.
   [[nodiscard]] int parts() const;
+  /// Return retained native CPU storage in bytes, including inactive reusable capacity.
+  /// Shared external resources and renderer copies are excluded. O(parts + materials + images +
+  /// lights), no allocation; the object must not have been moved from.
+  /// @return Owned native storage capacity in bytes.
+  [[nodiscard]] size_t storageBytes() const noexcept;
   /// @param part Active owner-local part index.
   /// @return Borrowed name, or an empty view when absent.
   [[nodiscard]] std::string_view nameOf(int part) const;

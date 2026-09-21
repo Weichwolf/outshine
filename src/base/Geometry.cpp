@@ -439,6 +439,25 @@ int Geometry::parts() const {
   return static_cast<int>(Held_->Live);
 }
 
+size_t Geometry::storageBytes() const noexcept {
+  size_t bytes = sizeof(Held) + Held_->Parts.capacity() * sizeof(Held::Piece) +
+                 Held_->Surfaces.capacity() * sizeof(Held::Named) +
+                 Held_->Images.capacity() * sizeof(Held::Picture) +
+                 Held_->Lamps.capacity() * sizeof(Held::Placed);
+  for (const Held::Piece &part : Held_->Parts) {
+    bytes += part.Named.capacity() + part.PositionsM.capacity() * sizeof(float) +
+             part.Normals.capacity() * sizeof(float) + part.Uv.capacity() * sizeof(float) +
+             part.Uv1.capacity() * sizeof(float) + part.Tangents.capacity() * sizeof(float) +
+             part.Colours.capacity() * sizeof(float) + part.Indices.capacity() * sizeof(uint32_t);
+  }
+  for (const Held::Named &surface : Held_->Surfaces) { bytes += surface.Named.capacity(); }
+  for (const Held::Picture &image : Held_->Images) {
+    bytes += image.Rgba.capacity() * sizeof(uint8_t);
+  }
+  for (const Held::Placed &lamp : Held_->Lamps) { bytes += lamp.Named.capacity(); }
+  return bytes;
+}
+
 std::string_view Geometry::nameOf(int part) const {
   const Held::Piece *piece = Held_->At(part);
   return piece != nullptr ? std::string_view(piece->Named) : std::string_view();
