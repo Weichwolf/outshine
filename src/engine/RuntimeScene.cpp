@@ -461,11 +461,11 @@ void RuntimeScene::StandsKeyLight() {
   const Vec3f toSun = TowardTheKey();
   const Vec3f up = {{0.0f, 1.0f, 0.0f}};
 
-  Renderer_->SetSky(
-      toSun,
-      up,
-      static_cast<float>(Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
-      0.0f);
+  Renderer_->SetSky({.ToSun = toSun,
+                     .Up = up,
+                     .IlluminanceLux = static_cast<float>(
+                         Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
+                     .EyeHeightM = 0.0f});
   if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
 }
 

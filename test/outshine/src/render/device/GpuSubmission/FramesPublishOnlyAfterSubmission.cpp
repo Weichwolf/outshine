@@ -210,7 +210,8 @@ void ReinitializationInvalidatesFrames(bool temporal) {
   if (!lens) { return; }
   renderer.SetCamera(eye, *lens);
   renderer.SetMedium(kEarthAir);
-  renderer.SetSky({{0, 1, 0}}, {{0, 1, 0}}, 10000, 2);
+  renderer.SetSky(
+      {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
   CHECK(renderer.RenderFrame().has_value() && renderer.Drew(), "old plan has a submitted image");
   faults.Next = Faults::Point::Wait;
   const auto refused = renderer.Init({48, 48}, *compiled);
@@ -233,7 +234,8 @@ void ReinitializationInvalidatesFrames(bool temporal) {
   for (auto *target : {&renderer, &fresh}) {
     target->SetCamera(eye, *replacementLens);
     target->SetMedium(kEarthAir);
-    target->SetSky({{0, 1, 0}}, {{0, 1, 0}}, 10000, 2);
+    target->SetSky(
+        {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
     CHECK(target->RenderFrame().has_value(), "replacement and fresh renderer submit");
   }
   std::vector<uint8_t> expected;
@@ -293,7 +295,8 @@ void Exercise() {
     CHECK(!renderer->RenderFrame(), "missing camera cannot become a successful frame");
     renderer->SetCamera(eye, *lens);
     renderer->SetMedium(kEarthAir);
-    renderer->SetSky({{0, 1, 0}}, {{0, 1, 0}}, 10000, 2);
+    renderer->SetSky(
+        {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
   }
   for (int attempt = 0; attempt < 2; ++attempt) {
     Reject(actual, faults, Faults::Point::Acquire, false);

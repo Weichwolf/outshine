@@ -71,9 +71,9 @@ Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung so
 
 ## Abnahme
 
-- [ ] clang-tidy meldet null Befunde. Aktuell 207/207 Einheiten vollständig, vier Befunde:
-      `Grounds` und `InitForTarget` sind überkomplex; `SetSky` und `Restand` haben vertauschbare
-      Parameter. `TerrainRefinement` ist nach fachlicher Trennung und direkten Includes sauber.
+- [ ] clang-tidy meldet null Befunde. Aktuell 207/207 Einheiten vollständig, zwei Befunde:
+      `Grounds` und `InitForTarget` sind überkomplex. `TerrainRefinement` ist nach fachlicher
+      Trennung und direkten Includes sauber; `SetSky` und `Restand` verwenden Parameterobjekte.
       Analysefehler gelten weiterhin nicht als null.
 - [ ] Öffentliche API-Verträge gegen 2188 vollständig geprüft. Doxygen: 24/24 Header,
       0 Diagnosen (2026-09-16); dies beweist Dokumentationsabdeckung, nicht Vertragsrichtigkeit.

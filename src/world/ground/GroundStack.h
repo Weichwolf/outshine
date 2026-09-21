@@ -35,6 +35,11 @@ constexpr int kVectorRing = 3;
 constexpr int kVectorTiles = (2 * kVectorRing + 1) * (2 * kVectorRing + 1);
 constexpr size_t kFrameIngestTiles = 1;
 
+struct RestandBudget {
+  size_t IngestTilesMost = 0;
+  int VectorRing = 0;
+};
+
 class GroundStack {
 public:
   GroundStack() = default;
@@ -100,8 +105,8 @@ public:
 
   [[nodiscard]] bool Vegetated() const { return Vegetated_; }
 
-  [[nodiscard]] std::expected<void, std::string_view>
-  Restand(LongitudeLatitude at, size_t ingestTilesMost, int vectorRing);
+  [[nodiscard]] std::expected<void, std::string_view> Restand(LongitudeLatitude at,
+                                                              RestandBudget budget);
 
   [[nodiscard]] bool AwaitProgress(double seconds);
 

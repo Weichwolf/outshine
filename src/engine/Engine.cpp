@@ -453,7 +453,8 @@ Result Engine::State::PumpPreload() {
   const double atLon = stands.LongitudeDeg;
   HandsPiecesOver();
   const int vectorRing = World.GroundPublished.Current() ? Ground::kVectorRing : 0;
-  const auto streamed = World.Stack.Restand(stands, Ground::kVectorTiles, vectorRing);
+  const auto streamed = World.Stack.Restand(
+      stands, {.IngestTilesMost = Ground::kVectorTiles, .VectorRing = vectorRing});
   if (!streamed) {
     Error = streamed.error();
     return std::unexpected(Error);

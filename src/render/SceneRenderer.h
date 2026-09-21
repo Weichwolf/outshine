@@ -61,6 +61,13 @@ struct PyramidDepths {
   float Mean = 0.0f;
 };
 
+struct SkyDeclaration {
+  Vec3f ToSun;
+  Vec3f Up;
+  float IlluminanceLux = 0.0f;
+  float EyeHeightM = 0.0f;
+};
+
 class SceneRenderer {
 public:
   [[nodiscard]] std::expected<void, std::string> Init(Extent frame,
@@ -420,12 +427,13 @@ public:
     if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
-  void SetSky(const Vec3f &toSun, const Vec3f &up, float illuminanceLux, float eyeHeightM) {
-    ActiveState().CosSunZenith = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
-    ActiveState().EyeHeightM = eyeHeightM;
-    ActiveState().SkyToSun = toSun;
-    ActiveState().SkyUp = up;
-    ActiveState().SkyIlluminanceLux = illuminanceLux;
+  void SetSky(const SkyDeclaration &sky) {
+    ActiveState().CosSunZenith =
+        sky.ToSun[0] * sky.Up[0] + sky.ToSun[1] * sky.Up[1] + sky.ToSun[2] * sky.Up[2];
+    ActiveState().EyeHeightM = sky.EyeHeightM;
+    ActiveState().SkyToSun = sky.ToSun;
+    ActiveState().SkyUp = sky.Up;
+    ActiveState().SkyIlluminanceLux = sky.IlluminanceLux;
     ActiveState().SkyDeclared = true;
     if (!Candidate_) { ApplyWorldDeclarations(); }
   }

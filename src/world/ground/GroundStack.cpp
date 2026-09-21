@@ -102,8 +102,8 @@ std::expected<TileAt, std::string_view> GroundStack::ValidatePosition(LongitudeL
   return OsmField::Locate(at, vectorZoom);
 }
 
-std::expected<void, std::string_view>
-GroundStack::Restand(LongitudeLatitude at, size_t ingestTilesMost, int vectorRing) {
+std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
+                                                           RestandBudget budget) {
   const auto vectorTile = ValidatePosition(at);
   if (!vectorTile) { return std::unexpected(vectorTile.error()); }
   if (!Pool_) { return {}; }
@@ -124,13 +124,13 @@ GroundStack::Restand(LongitudeLatitude at, size_t ingestTilesMost, int vectorRin
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   if (Declared_.empty()) {
-    const auto built = Vectors_->Build(*Pool_, at, vectorRing, kVectorTiles);
+    const auto built = Vectors_->Build(*Pool_, at, budget.VectorRing, kVectorTiles);
     if (!built) { return std::unexpected(built.error()); }
   } else {
     Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), *vectorTile);
   }
   if (!Vectors_->SettledWithin(0)) { return {}; }
-  for (size_t pass = 0; pass < ingestTilesMost; ++pass) {
+  for (size_t pass = 0; pass < budget.IngestTilesMost; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       Settle();
       Settled_ = true;
