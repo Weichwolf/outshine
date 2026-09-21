@@ -437,6 +437,13 @@ struct Engine::State {
   [[nodiscard]] bool BuildPressedGroundMesh(const TangentFrame &standing,
                                             Patchwork &patchwork,
                                             GroundBuildProducts &build);
+  [[nodiscard]] bool BuildGroundCorridors(const TangentFrame &standing,
+                                          const Around &coverage,
+                                          GroundBuildState &state);
+  [[nodiscard]] bool BuildGroundTerrainMesh(const TangentFrame &standing,
+                                            Patchwork &patchwork,
+                                            GroundBuildState &state);
+  [[nodiscard]] bool PublishGroundGeometry(GroundBuildState &state);
   [[nodiscard]] bool
   BuildWaterSurfaces(const TangentFrame &standing, Geometry &ground, MaterialInstance ringSurface);
   void ReportGroundPlacements();

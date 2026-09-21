@@ -71,12 +71,11 @@ Nachweis: Sanitizer-/Fehlerfälle, unabhängige Dreiecks- und Sphere-Prüfung so
 
 ## Abnahme
 
-- [ ] clang-tidy meldet null Befunde. Aktuell 207/207 Einheiten vollständig, ein Befund:
-      `Grounds` ist überkomplex. `TerrainRefinement` und Renderer-Targetaufbau sind fachlich
-      getrennt; `SetSky` und `Restand` verwenden Parameterobjekte.
-      Analysefehler gelten weiterhin nicht als null.
-- [ ] Öffentliche API-Verträge gegen 2188 vollständig geprüft. Doxygen: 24/24 Header,
-      0 Diagnosen (2026-09-16); dies beweist Dokumentationsabdeckung, nicht Vertragsrichtigkeit.
+- [x] clang-tidy meldet null Befunde: 207/207 Einheiten vollständig, 0 Befunde (2026-09-21).
+      Ground-Aufbau, Terrain-Refinement und Renderer-Targetaufbau sind fachlich getrennt;
+      `SetSky` und `Restand` verwenden Parameterobjekte. Analysefehler gelten nicht als null.
+- [ ] Öffentliche API-Verträge gegen 2188 vollständig geprüft. Doxygen: 31/31 Header,
+      0 Diagnosen (2026-09-21); dies beweist Dokumentationsabdeckung, nicht Vertragsrichtigkeit.
 - [ ] Relevante Konventions-/Fehler-/Lebensdauer-Tests inklusive Negativkontrollen grün.
 - [ ] Bildwirksame Änderungen durch Places-PNGs und unabhängige Orakel abgenommen.
 - [ ] Komplexitätsabbau erhält Determinismus, begrenzte Arbeit und Fehlersicherheit.
