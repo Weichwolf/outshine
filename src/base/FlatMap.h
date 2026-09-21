@@ -84,6 +84,16 @@ public:
 
   [[nodiscard]] bool Holds(const Key &key) const noexcept { return Find(key) != nullptr; }
 
+  template <typename Visitor>
+  void Visit(Visitor &&visitor) const
+      noexcept(noexcept(std::declval<Visitor &>()(std::declval<const Key &>(),
+                                                  std::declval<const Value &>()))) {
+    for (size_t at = 0; at < Capacity_; ++at) {
+      const Slot &one = Slots_.get()[at];
+      if (one.Epoch == Epoch_) { visitor(one.StoredKey, one.Held); }
+    }
+  }
+
   [[nodiscard]] std::expected<std::pair<Value *, bool>, FlatMapError>
   Emplace(Key key, Value value) noexcept {
     const size_t threshold = (Capacity_ / 10u) * 7u + (Capacity_ % 10u * 7u + 9u) / 10u;

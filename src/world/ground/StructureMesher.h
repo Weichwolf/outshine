@@ -101,6 +101,7 @@ protected:
 enum class StructureMeshError {
   InvalidPlan,
   IncompatibleScratch,
+  AllocationFailed,
   BuildFailed,
   UnsupportedFootprint
 };
@@ -109,6 +110,7 @@ enum class StructureMeshError {
   switch (error) {
     case StructureMeshError::InvalidPlan: return "invalid structure plan";
     case StructureMeshError::IncompatibleScratch: return "incompatible structure mesh scratch";
+    case StructureMeshError::AllocationFailed: return "structure mesh storage allocation failed";
     case StructureMeshError::BuildFailed: return "structure mesh construction failed";
     case StructureMeshError::UnsupportedFootprint:
       return "footprint cannot form a supported building mass";

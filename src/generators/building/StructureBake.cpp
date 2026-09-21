@@ -11,13 +11,13 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <optional>
 #include <span>
 #include <vector>
 
 #include "math/Units.h"
+#include "FlatMap.h"
 #include "Geodesy.h"
 #include <generation/Generate.h>
 
@@ -317,13 +317,18 @@ struct Standing {
   LevelOfDetail Level = LevelOfDetail::Fine;
 };
 
-void Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cellM) {
+using Lumps = FlatMap<Lumped>;
+
+std::expected<void, StructureMeshError> Lump(Lumps &into, Spread over, Standing at, double cellM) {
   const auto cellLat =
       static_cast<int64_t>(std::floor(0.5 * (over.LowLat + over.HighLat) * kMPerDegLat / cellM));
   const auto cellLon =
       static_cast<int64_t>(std::floor(0.5 * (over.LowLon + over.HighLon) * kMPerDegLon / cellM));
-  Lumped &block = into[(static_cast<uint64_t>(cellLat + kCellBiasTiles) << 32U) |
-                       static_cast<uint64_t>(cellLon + kCellBiasTiles)];
+  const uint64_t key = (static_cast<uint64_t>(cellLat + kCellBiasTiles) << 32U) |
+                       static_cast<uint64_t>(cellLon + kCellBiasTiles);
+  auto placed = into.Emplace(key, {});
+  if (!placed) { return std::unexpected(StructureMeshError::AllocationFailed); }
+  Lumped &block = *placed->first;
   if (block.Count == 0) {
     block.LowLat = over.LowLat;
     block.HighLat = over.HighLat;
@@ -342,6 +347,7 @@ void Lump(std::map<uint64_t, Lumped> &into, Spread over, Standing at, double cel
   if (at.Pitched) { block.PitchedAreaM2 += at.RoofAreaM2; }
   block.Level = std::max(block.Level, at.Level);
   ++block.Count;
+  return {};
 }
 
 std::expected<void, StructureMeshError> RaiseLump(const Lumped &of,
@@ -430,20 +436,24 @@ std::expected<void, StructureMeshError> AccountMesh(std::expected<void, Structur
   return std::unexpected(result.error());
 }
 
-std::expected<void, StructureBakeError> FinishStructures(const std::map<uint64_t, Lumped> &lumps,
+std::expected<void, StructureBakeError> FinishStructures(const Lumps &lumps,
                                                          const RawTile &raw,
                                                          const StructureMesher &mesher,
                                                          MeshScratch &scratch,
                                                          std::vector<double> &corners,
                                                          BakedTile &out,
                                                          const std::atomic_bool *stopping) {
-  for (const auto &[where, block] : lumps) {
-    if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-    (void)where;
-    const auto built = AccountMesh(RaiseLump(block, raw, mesher, scratch, corners, out.Built), out);
-    if (!built) { return std::unexpected(built.error()); }
-  }
-  out.Blocks = static_cast<int>(lumps.size());
+  std::expected<void, StructureBakeError> finished;
+  lumps.Visit([&](uint64_t, const Lumped &block) {
+    if (!finished) { return; }
+    if (WasStopped(stopping)) {
+      finished = std::unexpected(StructureBakeErrorKind::Cancelled);
+      return;
+    }
+    finished = AccountMesh(RaiseLump(block, raw, mesher, scratch, corners, out.Built), out);
+  });
+  if (!finished) { return std::unexpected(finished.error()); }
+  out.Blocks = static_cast<int>(lumps.Size());
   return FinalizeBake(raw, out);
 }
 
@@ -479,7 +489,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 const RawTile::Structure &one,
                                                 std::span<const double> pts,
                                                 const std::vector<WayLine> &ways,
-                                                std::map<uint64_t, Lumped> &lumps,
+                                                Lumps &lumps,
                                                 std::vector<double> &corners,
                                                 double statedM,
                                                 const std::atomic_bool *stopping) {
@@ -550,15 +560,17 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   out.Prints.push_back(fp);
 
   if (level >= LevelOfDetail::Massed) {
-    Lump(lumps,
-         {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
-         {.BaseM = base,
-          .SeatM = seat,
-          .HeightM = fp.HeightM,
-          .RoofAreaM2 = RingAreaM2(pts, ring),
-          .Pitched = one.Pitched != 0,
-          .Level = level},
-         raw.TileSpanM / kBlocksPerTile);
+    const auto lumped =
+        Lump(lumps,
+             {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
+             {.BaseM = base,
+              .SeatM = seat,
+              .HeightM = fp.HeightM,
+              .RoofAreaM2 = RingAreaM2(pts, ring),
+              .Pitched = one.Pitched != 0,
+              .Level = level},
+             raw.TileSpanM / kBlocksPerTile);
+    if (!lumped) { return std::unexpected(lumped.error()); }
     ++out.Lumped;
     return {};
   }
@@ -585,7 +597,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
 
 struct StructureBakeProgress::State {
   std::vector<WayLine> Ways;
-  std::map<uint64_t, Lumped> Lumps;
+  Lumps Lumps;
   std::vector<double> Corners;
   BakedTile Tile;
   size_t Next = 0;
@@ -627,6 +639,8 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     out.NoGround = 0;
     out.UnsupportedMeshes = 0;
     state.Ways = LinesOf(raw);
+    state.Lumps.Clear();
+    state.Corners.clear();
     state.Started = true;
   }
   const std::span<const double> pts = raw.LatLon;

@@ -1,6 +1,10 @@
 #include "src/base/FlatMap.h"
 #include "Check.h"
 
+#include <array>
+#include <cstddef>
+#include <cstdint>
+
 namespace {
 struct PositionKey {
   int64_t East;
@@ -44,5 +48,13 @@ int main() {
   const auto integer = integers.Emplace(42, 7);
   CHECK(integer && integer->second && *integers.Find(42) == 7,
         "existing integer-key interface remains usable");
+  std::array<uint64_t, 2> visited{};
+  size_t visits = 0;
+  const auto &readOnly = integers;
+  readOnly.Visit([&](uint64_t key, const int value) {
+    visited[visits++] = key;
+    CHECK(value == 7, "visitation exposes the stored value");
+  });
+  CHECK(visits == 1 && visited[0] == 42, "const visitation reaches each occupied slot once");
   return Report();
 }
