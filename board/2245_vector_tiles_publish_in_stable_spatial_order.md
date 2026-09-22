@@ -65,11 +65,13 @@ restarts candidates at the correct revision, that value can describe different
 previous publications under different pacing. Move the diagnostic to successful
 publication; retain the same digest equality check against the final native world.
 
-2026-09-22 cold-cache control contradicts the earlier broad pass claim:
-`GroundCandidatePacingReachesReadiness` produces different sheet and geometry
-digests on both `3693c4c14` and the pinned network-height branch; warm repeats
-pass. Arrival/cache state therefore still affects native publication. Keep this
-red specification and fix canonical inputs; the network sampler is not causal.
+2026-09-22 cold-cache staging proved source sheets and corridor stamps identical;
+divergence entered through building seats and water levels derived before the
+candidate from mutable `GroundStream` state. Refined candidates now rebuild every
+footprint from pinned fields; bake revisions reject another candidate's results.
+Missing z15 blocks resample the pinned z14 field at its equivalent 17x17 density.
+Lake earthworks and render lids derive one percentile level from the same snapshot.
+The empty-cache oracle passes normal in 29.739 s and validated in 12.453 s.
 
 ## Decision
 

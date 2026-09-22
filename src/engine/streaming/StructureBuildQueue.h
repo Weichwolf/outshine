@@ -27,6 +27,11 @@ public:
   static constexpr size_t kCandidateWindow = 4;
   enum class HeightRequirement : uint8_t { AllowFallback, FineOnly };
 
+  struct HeightSourceRevision {
+    uint64_t Value = 0;
+    friend bool operator==(HeightSourceRevision, HeightSourceRevision) = default;
+  };
+
   ~StructureBuildQueue();
 
   void Opens(Tasks *pool, const StructureMesher *mesher) {
@@ -36,6 +41,7 @@ public:
 
   struct BakeRevision {
     uint64_t Vectors = 0;
+    HeightSourceRevision HeightSource;
     double FocalPx = 0.0;
     double TileSpanM = 0.0;
     LongitudeLatitude Eye;
@@ -45,15 +51,20 @@ public:
     Matches(const Ground::OsmField &vectors,
             const Ground::BuildingField &footprints,
             LongitudeLatitude eye,
+            HeightSourceRevision heightSource,
             HeightRequirement heights = HeightRequirement::AllowFallback) const noexcept {
-      return Vectors == vectors.Generation() && FocalPx == footprints.FocalPx() &&
-             TileSpanM == footprints.TileSpanM() && Eye.LongitudeDeg == eye.LongitudeDeg &&
-             Eye.LatitudeDeg == eye.LatitudeDeg &&
+      return Vectors == vectors.Generation() && HeightSource == heightSource &&
+             FocalPx == footprints.FocalPx() && TileSpanM == footprints.TileSpanM() &&
+             Eye.LongitudeDeg == eye.LongitudeDeg && Eye.LatitudeDeg == eye.LatitudeDeg &&
              (heights == HeightRequirement::AllowFallback || !FallbackHeights);
     }
   };
 
-  using HeightSource = std::function<std::optional<double>(LongitudeLatitude)>;
+  struct HeightSource {
+    std::function<std::optional<double>(LongitudeLatitude)> Sample;
+    std::function<bool(Data::TileId, Ground::HeightField::Block &)> CopyField;
+    HeightSourceRevision Revision;
+  };
 
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack,
                              Ground::BuildingField &footprints,
@@ -73,6 +84,7 @@ public:
   NextLandings(Ground::GroundStack &stack,
                Ground::BuildingField &footprints,
                LongitudeLatitude eye,
+               HeightSourceRevision heightSource,
                size_t most,
                HeightRequirement heights = HeightRequirement::AllowFallback);
   void ResumeCompletedTasks();
@@ -138,6 +150,7 @@ private:
   void DiscardStale(const Ground::OsmField &vectors,
                     Ground::BuildingField &prints,
                     LongitudeLatitude eye,
+                    HeightSourceRevision heightSource,
                     HeightRequirement heights);
 
   Tasks *Pool_ = nullptr;

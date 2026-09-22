@@ -18,7 +18,7 @@ bool HeightSheets::RefineByError(Patchwork &candidate,
   sources.reserve(candidate.Sheets.size());
   for (const Sheet &sheet : candidate.Sheets) {
     const Ground::TerrainField *heights = nullptr;
-    if (!sheet.Virtual && sheet.Side == layout.Side) { heights = HeldFieldAt(sheet.Tile); }
+    if (!sheet.Virtual && sheet.Side == layout.Side) { heights = FieldAt(sheet.Tile); }
     sources.push_back({.Page = &sheet, .Heights = heights});
   }
   auto refined = Generators::RefineTerrain(sources, Frame_, layout, detail, maximumPatches);

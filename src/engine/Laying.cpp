@@ -95,6 +95,53 @@ constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kNetworkItemsPerFrame = 1024;
 
+uint64_t DigestPatchwork(const Patchwork &patchwork) {
+  uint64_t digest = kDigestBasis;
+  const auto fold = [&digest](uint32_t word) { digest = (digest ^ word) * kDigestPrime; };
+  for (const Sheet &sheet : patchwork.Sheets) {
+    fold(static_cast<uint32_t>(sheet.Tile.Zoom));
+    fold(sheet.Tile.X);
+    fold(sheet.Tile.Y);
+    fold(static_cast<uint32_t>(sheet.Side));
+    fold(sheet.Postings);
+    fold(static_cast<uint32_t>(sheet.Virtual));
+    fold(static_cast<uint32_t>(sheet.SourceZoom));
+    for (const float node : sheet.Nodes) { fold(std::bit_cast<uint32_t>(node)); }
+  }
+  return digest;
+}
+
+uint64_t DigestEarthworks(std::span<const Yields> earthworks) {
+  uint64_t digest = kDigestBasis;
+  const auto fold = [&digest](uint32_t word) { digest = (digest ^ word) * kDigestPrime; };
+  const auto foldDouble = [&fold](double value) {
+    const auto bits = std::bit_cast<uint64_t>(value);
+    fold(static_cast<uint32_t>(bits));
+    fold(static_cast<uint32_t>(bits >> 32U));
+  };
+  for (const Yields &one : earthworks) {
+    fold(static_cast<uint32_t>(one.RingEastNorthM.size()));
+    for (const double value : one.RingEastNorthM) { foldDouble(value); }
+    foldDouble(one.LowE);
+    foldDouble(one.HighE);
+    foldDouble(one.LowN);
+    foldDouble(one.HighN);
+    foldDouble(one.AtE);
+    foldDouble(one.AtN);
+    foldDouble(one.PlateauM);
+    foldDouble(one.SlopeE);
+    foldDouble(one.SlopeN);
+    fold(static_cast<uint32_t>(one.SeamEastNorthM.size()));
+    for (const double value : one.SeamEastNorthM) { foldDouble(value); }
+    foldDouble(one.ApronM);
+    foldDouble(one.YieldM);
+    foldDouble(one.SagInv);
+    fold(static_cast<uint32_t>(one.Fills));
+    fold(static_cast<uint32_t>(one.Kind));
+  }
+  return digest;
+}
+
 bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
 }
@@ -117,8 +164,12 @@ public:
                    const Surrounds &world,
                    const Ground::BuildingField &footprints,
                    Around coverage,
-                   GroundRevision revision)
-      : Coverage_(coverage), Revision_(revision), Candidate_(renderer, world, footprints) {}
+                   GroundRevision revision,
+                   uint64_t id)
+      : Coverage_(coverage),
+        Revision_(revision),
+        Candidate_(renderer, world, footprints),
+        Id_(id) {}
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
     return Revision_.Region == revision.Region && Revision_.Classes == revision.Classes &&
@@ -147,6 +198,8 @@ public:
   [[nodiscard]] const Around &Coverage() const noexcept { return Coverage_; }
 
   [[nodiscard]] const GroundRevision &Revision() const noexcept { return Revision_; }
+
+  [[nodiscard]] uint64_t Id() const noexcept { return Id_; }
 
   [[nodiscard]] GroundWorldCandidate &Candidate() noexcept { return Candidate_; }
 
@@ -282,6 +335,7 @@ private:
   double LongestPressingSliceMs_ = 0.0;
   double LongestCorridorSliceMs_ = 0.0;
   Core::GroundBuildSchedule Schedule_;
+  uint64_t Id_ = 0;
 };
 
 Surrounds::Surrounds() = default;
@@ -761,14 +815,34 @@ void AppendBuildingStamps(const Ground::BuildingField &pads,
 }
 
 namespace {
+std::optional<float> CandidateLakeLevel(const Ground::WaterField::Surface &lake,
+                                        std::span<const double> points,
+                                        const HeightSheets &sheets,
+                                        int finestZoom) {
+  if (lake.PointCount < 3) { return std::nullopt; }
+  const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2u;
+  if (last > points.size()) { return std::nullopt; }
+  std::vector<double> heights;
+  heights.reserve(lake.PointCount);
+  for (uint32_t step = 0; step < lake.PointCount; ++step) {
+    const size_t at = (static_cast<size_t>(lake.FirstPoint) + step) * 2u;
+    const std::optional<double> height =
+        sheets.AslMAt(finestZoom, {.LongitudeDeg = points[at + 1], .LatitudeDeg = points[at]});
+    if (!height) { return std::nullopt; }
+    heights.push_back(*height);
+  }
+  return Ground::WaterField::SurfaceLevel(heights);
+}
+
 void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
                       std::span<const double> points,
+                      const HeightSheets &sheets,
+                      int finestZoom,
                       const TangentFrame &standing,
                       std::vector<Yields> &yielding) {
   for (const Ground::WaterField::Surface &lake : lakes) {
-    if (lake.PointCount < 3) { continue; }
-    const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2u;
-    if (last > points.size()) { continue; }
+    const std::optional<float> levelM = CandidateLakeLevel(lake, points, sheets, finestZoom);
+    if (!levelM) { continue; }
     Yields made;
     made.RingEastNorthM.reserve(static_cast<size_t>(lake.PointCount) * 2u);
     made.LowE = kBeyondAnyCoordinate;
@@ -782,7 +856,7 @@ void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
       const EastNorthUp shore =
           standing.Place({.LongitudeDeg = points[at + 1],
                           .LatitudeDeg = points[at],
-                          .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
+                          .HeightM = static_cast<double>(*levelM) - kWaterBedM});
       made.RingEastNorthM.push_back(shore.EastM);
       made.RingEastNorthM.push_back(shore.NorthM);
       made.LowE = std::min(made.LowE, shore.EastM);
@@ -814,7 +888,8 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
                                           GroundBuildState &state) {
   if (state.Pressing() == nullptr) {
-    const Ground::BuildingField &pads = state.Candidate().Products().Footprints;
+    const GroundBuildProducts &build = state.Candidate().Products();
+    const Ground::BuildingField &pads = build.Footprints;
     std::vector<Yields> corridor = state.TakesCorridors();
     const Ground::OsmField *const shapes = World.Stack.Vectors();
     if (shapes != nullptr) {
@@ -834,13 +909,45 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     if (shapes != nullptr) { AppendBuildingStamps(pads, shapes->Points(), standing, yielding); }
     const size_t builtPads = yielding.size();
     if (shapes != nullptr) {
-      AppendLakeStamps(World.Stack.WaterBodies().Surfaces(), shapes->Points(), standing, yielding);
+      AppendLakeStamps(World.Stack.WaterBodies().Surfaces(),
+                       shapes->Points(),
+                       build.Sheets,
+                       World.Stack.FinestZoomOf(Data::DataKind::Elevation),
+                       standing,
+                       yielding);
     }
     const size_t builtLakes = yielding.size() - builtPads;
+    if (Session.Declared.Render.Audits) {
+      const uint64_t padStamps = DigestEarthworks(std::span(yielding).first(builtPads));
+      Published.Places("ground candidate: pad stamps digest, low half",
+                       static_cast<double>(padStamps & kLowWord),
+                       "digest");
+      Published.Places("ground candidate: pad stamps digest, high half",
+                       static_cast<double>(padStamps >> 32U),
+                       "digest");
+      const uint64_t lakeStamps =
+          DigestEarthworks(std::span(yielding).subspan(builtPads, builtLakes));
+      Published.Places("ground candidate: lake stamps digest, low half",
+                       static_cast<double>(lakeStamps & kLowWord),
+                       "digest");
+      Published.Places("ground candidate: lake stamps digest, high half",
+                       static_cast<double>(lakeStamps >> 32U),
+                       "digest");
+    }
     Published.Places("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
     yielding.insert(yielding.end(),
                     std::make_move_iterator(corridor.begin()),
                     std::make_move_iterator(corridor.end()));
+    if (Session.Declared.Render.Audits) {
+      const uint64_t corridorStamps =
+          DigestEarthworks(std::span(yielding).subspan(builtPads + builtLakes, corridor.size()));
+      Published.Places("ground candidate: corridor stamps digest, low half",
+                       static_cast<double>(corridorStamps & kLowWord),
+                       "digest");
+      Published.Places("ground candidate: corridor stamps digest, high half",
+                       static_cast<double>(corridorStamps >> 32U),
+                       "digest");
+    }
     Published.Places("ground: pads that press it", static_cast<double>(builtPads), "pads");
     Published.Places("ground: corridor pieces that press it",
                      static_cast<double>(yielding.size() - builtPads - builtLakes),
@@ -933,7 +1040,9 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
 
 bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
                                        Geometry &ground,
-                                       MaterialInstance ringSurface) {
+                                       MaterialInstance ringSurface,
+                                       const HeightSheets &sheets,
+                                       int finestZoom) {
 
   const auto waterAt = std::chrono::steady_clock::now();
   const Ground::WaterField &wet = World.Stack.WaterBodies();
@@ -950,12 +1059,8 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
                               ? std::span<const Ground::WaterField::Surface>(wet.Surfaces())
                               : std::span<const Ground::WaterField::Surface>{};
     for (const Ground::WaterField::Surface &lake : surfaces) {
-      if (lake.PointCount < 3) {
-        ++lidsRefused;
-        continue;
-      }
-      const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2;
-      if (last > points.size()) {
+      const std::optional<float> levelM = CandidateLakeLevel(lake, points, sheets, finestZoom);
+      if (!levelM) {
         ++lidsRefused;
         continue;
       }
@@ -969,7 +1074,7 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
           double northM = 0.0;
           const EastNorthUp placed = standing.Place({.LongitudeDeg = points[at + 1],
                                                      .LatitudeDeg = points[at],
-                                                     .HeightM = static_cast<double>(lake.LevelM)});
+                                                     .HeightM = static_cast<double>(*levelM)});
           eastM = placed.EastM;
           upM = placed.UpM;
           northM = placed.NorthM;
@@ -1058,9 +1163,16 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
                        static_cast<double>(World.GroundBuild->RevisionDifference(request.Revision)),
                        "bits");
     }
-    World.GroundBuild = std::make_unique<GroundBuildState>(
-        Picture.Device, World, World.Stack.Footprints(), request.Coverage, request.Revision);
     ++World.GroundCandidates;
+    World.GroundBuild = std::make_unique<GroundBuildState>(Picture.Device,
+                                                           World,
+                                                           World.Stack.Footprints(),
+                                                           request.Coverage,
+                                                           request.Revision,
+                                                           World.GroundCandidates);
+    if (request.Revision.Quality == GroundQuality::Refined) {
+      World.GroundBuild->Footprints().ResetDerived();
+    }
     Published.Places(
         "ground candidate: starts", static_cast<double>(World.GroundCandidates), "candidates");
     return GroundBuildProgress::Pending;
@@ -1140,6 +1252,15 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
       if (meshing.NextSheet < patchwork.Sheets.size()) { return GroundBuildProgress::Pending; }
       Published.Places(
           "ground candidate: longest initial mesh slice", meshing.LongestSliceMs, "ms");
+      if (Session.Declared.Render.Audits) {
+        const uint64_t sourceSheets = DigestPatchwork(patchwork);
+        Published.Places("ground candidate: source sheets digest, low half",
+                         static_cast<double>(sourceSheets & kLowWord),
+                         "digest");
+        Published.Places("ground candidate: source sheets digest, high half",
+                         static_cast<double>(sourceSheets >> 32U),
+                         "digest");
+      }
       build.PositionsM = std::move(meshing.Mesh.PositionsM);
       build.Indices = std::move(meshing.Mesh.Indices);
       TellsTheRelief({.Tallest = meshing.Mesh.TallestM,
@@ -1364,8 +1485,26 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   const auto heights = state.Revision().Quality == GroundQuality::Refined
                            ? StructureBuildQueue::HeightRequirement::FineOnly
                            : StructureBuildQueue::HeightRequirement::AllowFallback;
+  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
+  const StructureBuildQueue::HeightSource heightAt{
+      .Sample = [&build,
+                 finestZoom](LongitudeLatitude at) { return build.Sheets.AslMAt(finestZoom, at); },
+      .CopyField =
+          [&build, finestZoom](Data::TileId tile, Ground::HeightField::Block &into) {
+            const Ground::TerrainField *field = build.Sheets.FieldAt(tile);
+            if (field != nullptr) { return Ground::HeightField::CopiesField(*field, tile, into); }
+            constexpr int side = 17;
+            return Ground::HeightField::SamplesField(
+                tile,
+                side,
+                [&build, finestZoom](LongitudeLatitude at) {
+                  return build.Sheets.AslMAt(finestZoom, at);
+                },
+                into);
+          },
+      .Revision = {.Value = state.Id()}};
   auto ready = World.StructureBuilds.NextLandings(
-      World.Stack, state.Footprints(), WhereTheEyeStands(), landsMost, heights);
+      World.Stack, state.Footprints(), WhereTheEyeStands(), heightAt.Revision, landsMost, heights);
   if (!ready) {
     Error = Generators::Describe(ready.error());
     return false;
@@ -1377,10 +1516,6 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
     }
   }
   World.StructureBuilds.CommitsLandings(World.Stack, state.Footprints(), *ready);
-  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
-  const StructureBuildQueue::HeightSource heightAt = [&build, finestZoom](LongitudeLatitude at) {
-    return build.Sheets.AslMAt(finestZoom, at);
-  };
   (void)World.StructureBuilds.Posts(World.Stack,
                                     state.Footprints(),
                                     WhereTheEyeStands(),
@@ -1694,7 +1829,13 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   }
   if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsWater) {
     const auto began = std::chrono::steady_clock::now();
-    if (!BuildWaterSurfaces(standing, ground, ringSurface)) { return false; }
+    if (!BuildWaterSurfaces(standing,
+                            ground,
+                            ringSurface,
+                            build.Sheets,
+                            World.Stack.FinestZoomOf(Data::DataKind::Elevation))) {
+      return false;
+    }
     state.CompletesStage();
     Published.Places(
         "ground candidate: water",

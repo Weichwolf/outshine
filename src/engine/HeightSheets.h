@@ -63,6 +63,8 @@ public:
 
   [[nodiscard]] std::optional<double> AslMAt(int zoom, LongitudeLatitude at) const;
 
+  [[nodiscard]] const Ground::TerrainField *FieldAt(Data::TileId tile) const;
+
   void ForgetsFields() {
     Fields_.clear();
     Requests_.clear();
@@ -105,7 +107,6 @@ public:
 
 private:
   [[nodiscard]] bool StitchEdges(Patchwork &laid, std::string &error);
-  [[nodiscard]] const Ground::TerrainField *HeldFieldAt(Data::TileId tile) const;
   [[nodiscard]] std::optional<float> AslAt(int zoom, Ground::TileFrac at) const;
   [[nodiscard]] bool HaloOf(Sheet &sheet, int finestZoom);
 

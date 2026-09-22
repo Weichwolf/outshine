@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <optional>
 #include <span>
 #include <cstdint>
 #include <utility>
@@ -111,15 +112,22 @@ void WaterField::AddCourse(const OsmField &field,
 }
 
 void WaterField::AddSurface(const OsmField::Ring &ring, std::span<double> heights) {
-  std::ranges::sort(heights);
-  const double level =
-      heights[static_cast<size_t>(kLevelPercentile * static_cast<double>(heights.size() - 1))];
+  const std::optional<float> sampled = SurfaceLevel(heights);
+  if (!sampled) { return; }
+  const double level = *sampled;
   if (std::ranges::any_of(heights,
                           [level](double height) { return height > level + kShoreToleranceM; })) {
     ++Outliers_;
   }
   Surfaces_.push_back(
       {.FirstPoint = ring.First, .PointCount = ring.Count, .LevelM = static_cast<float>(level)});
+}
+
+std::optional<float> WaterField::SurfaceLevel(std::span<double> heights) {
+  if (heights.empty()) { return std::nullopt; }
+  std::ranges::sort(heights);
+  return static_cast<float>(
+      heights[static_cast<size_t>(kLevelPercentile * static_cast<double>(heights.size() - 1))]);
 }
 
 uint32_t WaterField::Ingest(const GroundQuery &ground,

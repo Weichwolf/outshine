@@ -114,7 +114,7 @@ struct SourceTile {
 
 }
 
-const Ground::TerrainField *HeightSheets::HeldFieldAt(Data::TileId tile) const {
+const Ground::TerrainField *HeightSheets::FieldAt(Data::TileId tile) const {
   for (const auto &one : Fields_) {
     if (one.first == tile) { return one.second.get(); }
   }
@@ -166,7 +166,7 @@ std::optional<float> HeightSheets::AslAt(int zoom, Ground::TileFrac at) const {
   const double row = at.Y - static_cast<double>(y);
   if (!Ground::WrapTile(zoom, &x, &y)) { return std::nullopt; }
   const Ground::TerrainField *field =
-      HeldFieldAt({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
+      FieldAt({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
   if (field == nullptr || !field->Meshable()) { return std::nullopt; }
   return field->PostingM({.Col = col, .Row = row});
 }
@@ -440,7 +440,7 @@ std::optional<double> HeightSheets::AslMAt(int zoom, LongitudeLatitude at) const
     const Data::TileId tile{.Zoom = heldZoom,
                             .X = static_cast<uint32_t>(std::floor(frac.X)),
                             .Y = static_cast<uint32_t>(std::floor(frac.Y))};
-    const Ground::TerrainField *field = HeldFieldAt(tile);
+    const Ground::TerrainField *field = FieldAt(tile);
     if (field == nullptr || !field->Meshable()) { continue; }
     return field->PostingM(
         {.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});

@@ -230,9 +230,13 @@ void Engine::State::HandsPiecesOver() {
 bool Engine::State::Bakes(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   const LongitudeLatitude eye = WhereTheEyeStands();
-  const StructureBuildQueue::HeightSource heightAt = [this](LongitudeLatitude at) {
-    return World.Stack.Ground().Resident(at).AslM();
-  };
+  const StructureBuildQueue::HeightSource heightAt{
+      .Sample = [this](LongitudeLatitude at) { return World.Stack.Ground().Resident(at).AslM(); },
+      .CopyField =
+          [this](Data::TileId tile, Ground::HeightField::Block &into) {
+            return Ground::HeightField::CopiesField(World.Stack.Ground().FieldOf(tile), tile, into);
+          },
+      .Revision = {}};
   if (World.GroundBuild) {
     World.StructureBuilds.ResumeCompletedTasks();
     return StagesGroundBakes(landsMost);
@@ -245,8 +249,8 @@ bool Engine::State::Bakes(size_t landsMost) {
     }
     return true;
   }
-  auto ready =
-      World.StructureBuilds.NextLandings(World.Stack, World.Stack.Footprints(), eye, landsMost);
+  auto ready = World.StructureBuilds.NextLandings(
+      World.Stack, World.Stack.Footprints(), eye, heightAt.Revision, landsMost);
   if (!ready) {
     Error = Generators::Describe(ready.error());
     return false;

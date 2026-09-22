@@ -22,44 +22,49 @@ int main() {
                                                    .FocalPx = footprints.FocalPx(),
                                                    .TileSpanM = footprints.TileSpanM(),
                                                    .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
-  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
+  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "posted bake inputs still match");
+  CHECK(
+      !revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {.Value = 1}),
+      "a different height snapshot makes a bake stale");
   const StructureBuildQueue::BakeRevision fallbackRevision{
       .Vectors = vectors.Generation(),
       .FocalPx = footprints.FocalPx(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
       .FallbackHeights = true};
-  CHECK(fallbackRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
+  CHECK(fallbackRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "playable accepts fallback heights");
   CHECK(!fallbackRevision.Matches(vectors,
                                   footprints,
                                   {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                  {},
                                   StructureBuildQueue::HeightRequirement::FineOnly),
         "refined rejects a queued fallback bake");
   CHECK(revision.Matches(vectors,
                          footprints,
                          {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                         {},
                          StructureBuildQueue::HeightRequirement::FineOnly),
         "refined accepts a queued fine bake");
   footprints.SeenWith(1080.0);
-  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
+  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "changed focal scale makes a bake stale");
   footprints.SeenWith(720.0);
   footprints.ResetDerived();
-  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
+  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "accepted footprints do not invalidate sibling bakes");
-  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}),
+  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}, {}),
         "a moved camera makes an unfinished bake stale");
   const StructureBuildQueue::BakeRevision vectorRevision{
       .Vectors = vectors.Generation(),
       .FocalPx = footprints.FocalPx(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
-  CHECK(vectorRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
+  CHECK(vectorRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "declared vector source still matches");
   vectors.Declare(noFeatures, {.X = 19, .Y = 27});
-  CHECK(!vectorRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
+  CHECK(!vectorRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "changed vector source identity makes a bake stale");
   return Report();
 }

@@ -2,7 +2,9 @@
 #define OUTSHINE_WORLD_GROUND_HEIGHTFIELD_H
 
 #include <memory>
+#include <optional>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include "geo/Geodesy.h"
@@ -44,12 +46,41 @@ public:
 
   [[nodiscard]] static bool CopiesField(const TerrainGrid &grid, Data::TileId at, Block &into) {
     const TerrainField *field = grid.TryField();
-    if (field == nullptr || field->Rows() != field->Cols() || field->Cols() < 2) { return false; }
+    return field != nullptr && CopiesField(*field, at, into);
+  }
+
+  [[nodiscard]] static bool CopiesField(const TerrainField &field, Data::TileId at, Block &into) {
+    if (field.Rows() != field.Cols() || field.Cols() < 2) { return false; }
     into.At = {.Zoom = at.Zoom, .X = static_cast<long>(at.X), .Y = static_cast<long>(at.Y)};
-    into.Raster = {.Side = static_cast<int>(field->Cols()), .Postings = field->Cols()};
-    into.Nodes.assign(field->Data(),
-                      field->Data() + static_cast<size_t>(field->Rows()) * field->Cols());
-    into.Sources.assign(field->Sources().begin(), field->Sources().end());
+    into.Raster = {.Side = static_cast<int>(field.Cols()), .Postings = field.Cols()};
+    into.Nodes.assign(field.Data(),
+                      field.Data() + static_cast<size_t>(field.Rows()) * field.Cols());
+    into.Sources.assign(field.Sources().begin(), field.Sources().end());
+    return true;
+  }
+
+  template <typename Sample>
+  [[nodiscard]] static bool SamplesField(Data::TileId at, int side, Sample &&sample, Block &into) {
+    if (side < 2) { return false; }
+    Block sampled;
+    sampled.At = {.Zoom = at.Zoom, .X = static_cast<long>(at.X), .Y = static_cast<long>(at.Y)};
+    sampled.Raster = {.Side = side, .Postings = static_cast<uint32_t>(side)};
+    sampled.Nodes.resize(static_cast<size_t>(side) * static_cast<size_t>(side));
+    const auto denominator = static_cast<double>(side - 1);
+    for (int row = 0; row < side; ++row) {
+      for (int column = 0; column < side; ++column) {
+        const Geo point = TileFracToGeo(
+            {.X = static_cast<double>(at.X) + static_cast<double>(column) / denominator,
+             .Y = static_cast<double>(at.Y) + static_cast<double>(row) / denominator},
+            at.Zoom);
+        const std::optional<double> height = sample(LongitudeLatitude{
+            .LongitudeDeg = point.LongitudeDeg, .LatitudeDeg = point.LatitudeDeg});
+        if (!height) { return false; }
+        sampled.Nodes[static_cast<size_t>(row) * static_cast<size_t>(side) +
+                      static_cast<size_t>(column)] = static_cast<float>(*height);
+      }
+    }
+    into = std::move(sampled);
     return true;
   }
 

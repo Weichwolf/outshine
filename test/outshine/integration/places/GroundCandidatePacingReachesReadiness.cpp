@@ -11,8 +11,16 @@
 #include <thread>
 
 namespace {
-constexpr std::array<std::string_view, 15> kProductMeasures{
+constexpr std::array<std::string_view, 23> kProductMeasures{
     "restand: the geometry handed over, digested",
+    "ground candidate: source sheets digest, low half",
+    "ground candidate: source sheets digest, high half",
+    "ground candidate: pad stamps digest, low half",
+    "ground candidate: pad stamps digest, high half",
+    "ground candidate: lake stamps digest, low half",
+    "ground candidate: lake stamps digest, high half",
+    "ground candidate: corridor stamps digest, low half",
+    "ground candidate: corridor stamps digest, high half",
     "ground: the sheets' digest, low half",
     "ground: the sheets' digest, high half",
     "class field: the structure's digest, low half",

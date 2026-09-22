@@ -6,6 +6,7 @@
 #include "VegetationTemplates.h"
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "Capacity.h"
@@ -29,6 +30,8 @@ public:
   };
 
   uint32_t Ingest(const GroundQuery &ground, const OsmField &field, const VegetationTemplates &veg);
+
+  [[nodiscard]] static std::optional<float> SurfaceLevel(std::span<double> heights);
 
   [[nodiscard]] const std::vector<Surface> &Surfaces() const { return Surfaces_; }
 

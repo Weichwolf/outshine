@@ -83,8 +83,7 @@ void RawOf(const Ground::OsmField &vectors,
   }
 }
 
-bool Gathers(const Ground::GroundStream &ground,
-             Ground::TileSpot spot,
+bool Gathers(Ground::TileSpot spot,
              bool fineField,
              const StructureBuildQueue::HeightSource &heightAt,
              std::vector<Ground::HeightField::Block> &into) {
@@ -94,39 +93,12 @@ bool Gathers(const Ground::GroundStream &ground,
     return true;
   }
   Ground::HeightField::Block block;
-  bool copied =
-      fineField
-          ? Ground::HeightField::CopiesField(ground.FieldOf({.Zoom = spot.Zoom,
-                                                             .X = static_cast<uint32_t>(spot.X),
-                                                             .Y = static_cast<uint32_t>(spot.Y)}),
-                                             {.Zoom = spot.Zoom,
-                                              .X = static_cast<uint32_t>(spot.X),
-                                              .Y = static_cast<uint32_t>(spot.Y)},
-                                             block)
-          : Ground::HeightField::Copies(ground.BlockAt(spot), block);
+  const Data::TileId tile{
+      .Zoom = spot.Zoom, .X = static_cast<uint32_t>(spot.X), .Y = static_cast<uint32_t>(spot.Y)};
+  bool copied = fineField && heightAt.CopyField && heightAt.CopyField(tile, block);
   if (!copied && !fineField) {
     constexpr int side = 17;
-    block.At = spot;
-    block.Raster = {.Side = side, .Postings = side};
-    block.Nodes.resize(static_cast<size_t>(side) * static_cast<size_t>(side));
-    copied = true;
-    const auto denominator = static_cast<double>(side - 1);
-    for (int row = 0; row < side && copied; ++row) {
-      for (int column = 0; column < side; ++column) {
-        const auto at = Ground::TileFracToGeo(
-            {.X = static_cast<double>(spot.X) + static_cast<double>(column) / denominator,
-             .Y = static_cast<double>(spot.Y) + static_cast<double>(row) / denominator},
-            spot.Zoom);
-        const std::optional<double> height =
-            heightAt({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg});
-        if (!height) {
-          copied = false;
-          break;
-        }
-        block.Nodes[static_cast<size_t>(row) * static_cast<size_t>(side) +
-                    static_cast<size_t>(column)] = static_cast<float>(*height);
-      }
-    }
+    copied = Ground::HeightField::SamplesField(tile, side, heightAt.Sample, block);
   }
   if (!copied) { return false; }
   into.push_back(std::move(block));
@@ -134,8 +106,7 @@ bool Gathers(const Ground::GroundStream &ground,
 }
 
 std::optional<std::vector<Ground::HeightField::Block>>
-BlocksUnder(const Ground::GroundStream &ground,
-            bool fineField,
+BlocksUnder(bool fineField,
             int zoom,
             const Ground::OsmField &vectors,
             Ground::FeatureRun over,
@@ -165,7 +136,7 @@ BlocksUnder(const Ground::GroundStream &ground,
   blocks.reserve(spots.size());
   bool complete = true;
   for (const Ground::TileSpot spot : spots) {
-    if (!Gathers(ground, spot, fineField, heightAt, blocks)) { complete = false; }
+    if (!Gathers(spot, fineField, heightAt, blocks)) { complete = false; }
   }
   if (!complete) { return std::nullopt; }
   return blocks;
@@ -211,8 +182,10 @@ void StructureBuildQueue::PostSlice(QueuedBuild &build) {
 void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
                                        Ground::BuildingField &prints,
                                        LongitudeLatitude eye,
+                                       HeightSourceRevision heightSource,
                                        HeightRequirement heights) {
-  while (!Queue_.empty() && !Queue_.front().Revision.Matches(vectors, prints, eye, heights)) {
+  while (!Queue_.empty() &&
+         !Queue_.front().Revision.Matches(vectors, prints, eye, heightSource, heights)) {
     QueuedBuild &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
@@ -266,10 +239,10 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     const auto groundStands = [&](Ground::FeatureRun over) {
       bool fallback = false;
       std::optional<std::vector<Ground::HeightField::Block>> blocks =
-          BlocksUnder(stack.Ground(), true, blockZoom, vectors, over, heightAt);
+          BlocksUnder(true, blockZoom, vectors, over, heightAt);
       if (!blocks && requirement == HeightRequirement::AllowFallback) {
         fallback = true;
-        blocks = BlocksUnder(stack.Ground(), false, blockZoom, vectors, over, heightAt);
+        blocks = BlocksUnder(false, blockZoom, vectors, over, heightAt);
       }
       if (!blocks) {
         ++Deferred_;
@@ -282,6 +255,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
         prints.Next(vectors, groundStands, candidatesMost);
     if (!next || !heights) { break; }
     const BakeRevision revision{.Vectors = vectors.Generation(),
+                                .HeightSource = heightAt.Revision,
                                 .FocalPx = prints.FocalPx(),
                                 .TileSpanM = prints.TileSpanM(),
                                 .Eye = eye,
@@ -313,13 +287,14 @@ std::expected<std::vector<StructureBuildQueue::Landing>, Generators::StructureBa
 StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
                                   Ground::BuildingField &prints,
                                   LongitudeLatitude eye,
+                                  HeightSourceRevision heightSource,
                                   size_t most,
                                   HeightRequirement heights) {
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
-  DiscardStale(*vectors, prints, eye, heights);
+  DiscardStale(*vectors, prints, eye, heightSource, heights);
   ResumeCompletedTasks();
   size_t count = 0;
   size_t printCount = 0;
@@ -328,7 +303,9 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   uint32_t largestTile = 0;
   while (count < most && count < Queue_.size()) {
     QueuedBuild &bake = Queue_[count];
-    if (!bake.Finished || !bake.Revision.Matches(*vectors, prints, eye, heights)) { break; }
+    if (!bake.Finished || !bake.Revision.Matches(*vectors, prints, eye, heightSource, heights)) {
+      break;
+    }
     if (!bake.Task.Result().Status) {
       if (count == 0) { return std::unexpected(bake.Task.Result().Status.error()); }
       break;
