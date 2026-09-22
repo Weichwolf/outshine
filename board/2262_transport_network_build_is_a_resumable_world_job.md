@@ -41,6 +41,12 @@ simulation/render; revise only from measured whole-frame budgets. Bound CPU
 peak memory and pending job count. Source revision/cancellation may not leave
 borrowed spans or mutate the published graph.
 
+First Wien phase probe: 542.714 ms total, comprising Lay 2.316 ms, Weave
+430.871 ms, Crossings 25.604 ms and Elevate 83.923 ms. The largest work is
+inside `Network::Weave`: sort ways, snap points, create edges, tie loose ends,
+then flatten adjacency. Measure those subphases before changing their order;
+stage `Weave` and `Elevate` first. Shot digest stayed `49440d93`.
+
 ## Acceptance
 
 - Analytic line, closed loop, legal junction, grade-separated crossing and

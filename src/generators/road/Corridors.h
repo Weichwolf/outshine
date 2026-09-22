@@ -43,6 +43,10 @@ public:
     size_t Junctions = 0;
     Path::Network::Elevated Elevated;
     std::string Refusal;
+    double LayMs = 0.0;
+    double WeaveMs = 0.0;
+    double CrossingsMs = 0.0;
+    double ElevateMs = 0.0;
   };
 
   [[nodiscard]] static Mapped MapOf(const outshine::Ground::GroundStack &stack);

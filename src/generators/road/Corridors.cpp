@@ -565,22 +565,33 @@ Corridors::Mapped Corridors::MapOf(const outshine::Ground::GroundStack &stack) {
     return made;
   }
   auto net = std::make_shared<Path::Network>(std::move(*created));
+  auto phaseBegan = std::chrono::steady_clock::now();
+  const auto phaseMs = [&phaseBegan] {
+    const auto now = std::chrono::steady_clock::now();
+    const double ms = std::chrono::duration<double, std::milli>(now - phaseBegan).count();
+    phaseBegan = now;
+    return ms;
+  };
   if (const auto laid = LayLanesIntoNetwork(stack.Ways(), vectors->Points(), *net); !laid) {
     made.Refusal = laid.error();
     return made;
   }
+  made.LayMs = phaseMs();
   made.Ways = net->WayCount();
   if (made.Ways > 0 && !net->Weave(made.Refusal)) { return made; }
+  made.WeaveMs = phaseMs();
   std::vector<Path::Network::Crossing> crossings;
   if (const auto swept = net->Crossings(crossings); !swept) {
     made.Refusal = swept.error();
     return made;
   }
+  made.CrossingsMs = phaseMs();
   made.Nodes = net->NodeCount();
   made.Edges = net->EdgeCount();
   made.Junctions = net->JunctionCount();
   made.Elevated =
       net->Elevate([&stack](LongitudeLatitude at) { return stack.Ground().At(at).AslM(); });
+  made.ElevateMs = phaseMs();
   made.Network = std::move(net);
   return made;
 }

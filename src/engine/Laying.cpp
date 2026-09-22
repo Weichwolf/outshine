@@ -1203,7 +1203,13 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
       publishedRevision->StreetTiles != requestedRevision.StreetTiles;
   if (build.Network == nullptr || World.Stack.Ways().Ways().size() != build.NetworkOfWays ||
       networkSourcesChanged) {
+    const auto networkBegan = std::chrono::steady_clock::now();
     const Generators::Corridors::Mapped mapped = Generators::Corridors::MapOf(World.Stack);
+    Published.Places(
+        "network: candidate construction",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - networkBegan)
+            .count(),
+        "ms");
     if (!mapped.Refusal.empty()) {
       Error = mapped.Refusal;
       World.GroundBuild.reset();
@@ -1212,6 +1218,10 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
     build.Network = mapped.Network;
     build.NetworkOfWays = World.Stack.Ways().Ways().size();
     Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
+    Published.Places("network: laying ways", mapped.LayMs, "ms");
+    Published.Places("network: weaving topology", mapped.WeaveMs, "ms");
+    Published.Places("network: classifying crossings", mapped.CrossingsMs, "ms");
+    Published.Places("network: elevating nodes", mapped.ElevateMs, "ms");
     Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
     Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");
     Published.Places("network: nodes where three or more edges meet",
