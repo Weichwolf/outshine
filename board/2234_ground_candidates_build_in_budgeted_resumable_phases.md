@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2105
-Depends: 2245, 2246, 2256
+Depends: 2246, 2256
 Priority: P0
 Area: engine, world, rendering
 Tags: streaming, realtime, ownership
@@ -39,11 +39,10 @@ Preserve the full refinement window. Retain atomic ownership and sliced work;
 no lower-detail workaround or movement of stalls outside the measurement window.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
-also with NDEBUG. The defect was a combination of arrival-ordered `OsmField` indices,
-completion-ordered footprints and unequal first vector requests: preload asked for
-contact, advance for the full ring. WI 2245 owns source snapshot identity and its
-remaining missing/retry and budget proofs. Equality is proven for this fixture;
-other inputs and per-unit frame bounds remain open.
+also with NDEBUG. Canonical `OsmField` publication, bounded active windows, source
+identity and stale-result rejection are proven under reordered, missing and retried
+inputs. Equality is proven for this fixture; other inputs and per-unit frame bounds
+remain open.
 
 The release regression is reproduced: with NDEBUG, the paced engine tries to start
 another candidate while its renderer still owns the first. The three mutating schedule

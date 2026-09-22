@@ -2,7 +2,7 @@ Type: feature
 State: active
 Architecture: ready
 Parent: 2105
-Depends: 2245
+Depends:
 Priority: P0
 Area: engine, world, streaming
 Tags: terrain, structures, lod, publication

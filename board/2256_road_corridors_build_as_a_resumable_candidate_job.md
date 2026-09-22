@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2234
-Depends: 2245
+Depends:
 Priority: P0
 Area: generators, road, engine
 Tags: realtime, roads, determinism, ownership
