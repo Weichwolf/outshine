@@ -2,6 +2,7 @@
 #include "math/Vec3.h"
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -9,6 +10,7 @@
 #include <limits>
 #include <span>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace outshine {
@@ -35,53 +37,14 @@ constexpr uint32_t kMortonSpread4 = 0x030c30c3u;
 constexpr uint32_t kMortonSpread2 = 0x09249249u;
 constexpr double kMortonSteps = 1023.0;
 constexpr size_t kTriangleCorners = 3;
-
-struct Bounds {
-  Vec3 Low = {{std::numeric_limits<double>::max(),
-               std::numeric_limits<double>::max(),
-               std::numeric_limits<double>::max()}};
-  Vec3 High = {{std::numeric_limits<double>::lowest(),
-                std::numeric_limits<double>::lowest(),
-                std::numeric_limits<double>::lowest()}};
-
-  void Include(const Vec3 &point) {
-    for (size_t axis = 0; axis < 3; ++axis) {
-      Low[axis] = std::min(Low[axis], point[axis]);
-      High[axis] = std::max(High[axis], point[axis]);
-    }
-  }
-};
+constexpr unsigned kMortonCodeBits = 30;
+constexpr unsigned kRadixBits = 10;
+constexpr unsigned kRadixPasses = kMortonCodeBits / kRadixBits;
+constexpr uint64_t kRadixMask = 0x3ffu;
 
 Vec3 Position(ClusterMeshInput input, size_t index) {
   const size_t first = index * input.StrideFloats;
   return {{input.PositionsM[first], input.PositionsM[first + 1], input.PositionsM[first + 2]}};
-}
-
-std::expected<Bounds, ClusterError> Validate(ClusterMeshInput input, uint32_t triangleLimit) {
-  constexpr size_t maximum = std::numeric_limits<uint32_t>::max();
-  if (triangleLimit == 0 || triangleLimit > maximum / kTriangleCorners) {
-    return std::unexpected(ClusterError::InvalidLimit);
-  }
-  if (input.StrideFloats < 3 || input.PositionsM.size() % input.StrideFloats != 0 ||
-      input.Indices.size() % kTriangleCorners != 0) {
-    return std::unexpected(ClusterError::InvalidLayout);
-  }
-  const size_t vertices = input.PositionsM.size() / input.StrideFloats;
-  if (vertices > maximum || input.Indices.size() > maximum) {
-    return std::unexpected(ClusterError::CapacityExceeded);
-  }
-  Bounds bounds;
-  for (size_t vertex = 0; vertex < vertices; ++vertex) {
-    const Vec3 point = Position(input, vertex);
-    if (!std::isfinite(point[0]) || !std::isfinite(point[1]) || !std::isfinite(point[2])) {
-      return std::unexpected(ClusterError::NonFinitePosition);
-    }
-    bounds.Include(point);
-  }
-  for (const uint32_t index : input.Indices) {
-    if (index >= vertices) { return std::unexpected(ClusterError::InvalidIndex); }
-  }
-  return bounds;
 }
 
 uint32_t Spread(uint32_t bits) {
@@ -92,48 +55,27 @@ uint32_t Spread(uint32_t bits) {
   return (bits | (bits << 2u)) & kMortonSpread2;
 }
 
-uint32_t Morton(const Vec3 &point, const Bounds &bounds) {
+uint32_t
+Morton(const Vec3 &point, const std::array<double, 3> &low, const std::array<double, 3> &high) {
   std::array<uint32_t, 3> quantized{};
   for (size_t axis = 0; axis < 3; ++axis) {
-    const double width = bounds.High[axis] - bounds.Low[axis];
-    const double fraction = width > 0 ? (point[axis] - bounds.Low[axis]) / width : 0;
+    const double width = high[axis] - low[axis];
+    const double fraction = width > 0 ? (point[axis] - low[axis]) / width : 0;
     quantized[axis] = static_cast<uint32_t>(std::clamp(fraction, 0.0, 1.0) * kMortonSteps);
   }
   return (Spread(quantized[0]) << 2u) | (Spread(quantized[1]) << 1u) | Spread(quantized[2]);
 }
 
-struct OrderedTriangle {
-  uint32_t Code;
-  uint32_t Triangle;
-};
-
-std::vector<OrderedTriangle> Order(ClusterMeshInput input, const Bounds &bounds) {
-  std::vector<OrderedTriangle> ordered;
-  ordered.reserve(input.Indices.size() / kTriangleCorners);
-  for (size_t first = 0; first < input.Indices.size(); first += kTriangleCorners) {
-    Vec3 center;
-    for (size_t corner = 0; corner < kTriangleCorners; ++corner) {
-      center = center + Position(input, input.Indices[first + corner]) * (1.0 / 3.0);
-    }
-    ordered.push_back({.Code = Morton(center, bounds),
-                       .Triangle = static_cast<uint32_t>(first / kTriangleCorners)});
-  }
-  std::ranges::sort(ordered, [](const auto &left, const auto &right) {
-    return left.Code != right.Code ? left.Code < right.Code : left.Triangle < right.Triangle;
-  });
-  return ordered;
-}
-
-std::expected<DagCluster, ClusterError> BoundCluster(ClusterMeshInput input,
-                                                     std::span<const uint32_t> indices) {
-  Bounds bounds;
-  for (const uint32_t index : indices) { bounds.Include(Position(input, index)); }
+std::expected<DagCluster, ClusterError> BoundCluster(const std::array<double, 3> &low,
+                                                     const std::array<double, 3> &high,
+                                                     size_t first,
+                                                     size_t count) {
   DagCluster cluster{};
   double radiusSquared = 0;
   for (size_t axis = 0; axis < 3; ++axis) {
-    cluster.SelfCenter[axis] = static_cast<float>((bounds.Low[axis] + bounds.High[axis]) * 0.5);
-    const double extent = std::max(std::abs(bounds.Low[axis] - cluster.SelfCenter[axis]),
-                                   std::abs(bounds.High[axis] - cluster.SelfCenter[axis]));
+    cluster.SelfCenter[axis] = static_cast<float>((low[axis] + high[axis]) * 0.5);
+    const double extent = std::max(std::abs(low[axis] - cluster.SelfCenter[axis]),
+                                   std::abs(high[axis] - cluster.SelfCenter[axis]));
     radiusSquared += extent * extent;
   }
   const double radius = std::sqrt(radiusSquared);
@@ -146,43 +88,274 @@ std::expected<DagCluster, ClusterError> BoundCluster(ClusterMeshInput input,
   }
   if (!std::isfinite(cluster.SelfRadius)) { return std::unexpected(ClusterError::BoundsOverflow); }
   cluster.ParentErr = kDagRootErr;
-  cluster.Count = static_cast<uint32_t>(indices.size());
+  cluster.First = static_cast<uint32_t>(first);
+  cluster.Count = static_cast<uint32_t>(count);
   return cluster;
 }
 }
 
+ClusterCookJob::ClusterCookJob(ClusterMeshInput input, uint32_t triangleLimit) noexcept
+    : Input_(input), TriangleLimit_(triangleLimit) {
+  Clear(InputBounds_);
+  Clear(ClusterBounds_);
+}
+
+void ClusterCookJob::Clear(Bounds &bounds) noexcept {
+  bounds.Low.fill(std::numeric_limits<double>::max());
+  bounds.High.fill(std::numeric_limits<double>::lowest());
+}
+
+void ClusterCookJob::Include(Bounds &bounds, const Vec3 &point) noexcept {
+  for (size_t axis = 0; axis < 3; ++axis) {
+    bounds.Low[axis] = std::min(bounds.Low[axis], point[axis]);
+    bounds.High[axis] = std::max(bounds.High[axis], point[axis]);
+  }
+}
+
+bool ClusterCookJob::Ready() const noexcept {
+  return Stage_ == Stage::Complete;
+}
+
+ClusteredMesh ClusterCookJob::Take() noexcept {
+  assert(Ready());
+  return std::move(Result_);
+}
+
+ClusterError ClusterCookJob::Fail(ClusterError error) noexcept {
+  Failure_ = error;
+  Stage_ = Stage::Failed;
+  return error;
+}
+
+void ClusterCookJob::BeginsPack() {
+  Result_.Index.clear();
+  Result_.Clusters.clear();
+  Result_.Index.reserve(Input_.Indices.size());
+  const size_t triangles = Input_.Indices.size() / kTriangleCorners;
+  Result_.Clusters.reserve(triangles / TriangleLimit_ +
+                           (triangles % TriangleLimit_ != 0 ? 1u : 0u));
+  Cursor_ = 0;
+  ClusterFirst_ = 0;
+  ClusterTriangles_ = 0;
+  Clear(ClusterBounds_);
+  Stage_ = Stage::Pack;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError> ClusterCookJob::AdvancesPack(size_t &itemsLeft) {
+  const size_t triangles = Input_.Indices.size() / kTriangleCorners;
+  while (Cursor_ < triangles && itemsLeft > 0) {
+    if (ClusterTriangles_ == 0) {
+      ClusterFirst_ = Result_.Index.size();
+      Clear(ClusterBounds_);
+    }
+    const size_t triangle = Order_.empty() ? Cursor_ : static_cast<uint32_t>(Order_[Cursor_]);
+    const size_t first = triangle * kTriangleCorners;
+    for (size_t corner = 0; corner < kTriangleCorners; ++corner) {
+      const uint32_t index = Input_.Indices[first + corner];
+      Result_.Index.push_back(index);
+      Include(ClusterBounds_, Position(Input_, index));
+    }
+    ++Cursor_;
+    ++ClusterTriangles_;
+    --itemsLeft;
+    if (ClusterTriangles_ == TriangleLimit_ || Cursor_ == triangles) {
+      const auto cluster = BoundCluster(ClusterBounds_.Low,
+                                        ClusterBounds_.High,
+                                        ClusterFirst_,
+                                        ClusterTriangles_ * kTriangleCorners);
+      if (!cluster) { return std::unexpected(Fail(cluster.error())); }
+      Result_.Clusters.push_back(*cluster);
+      ClusterTriangles_ = 0;
+    }
+  }
+  if (Cursor_ == triangles) {
+    Stage_ = Stage::Complete;
+    return Flow::Complete;
+  }
+  return Flow::Yield;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError> ClusterCookJob::AdvancesLayout() {
+  constexpr size_t maximum = std::numeric_limits<uint32_t>::max();
+  if (TriangleLimit_ == 0 || TriangleLimit_ > maximum / kTriangleCorners) {
+    return std::unexpected(Fail(ClusterError::InvalidLimit));
+  }
+  if (Input_.StrideFloats < 3 || Input_.PositionsM.size() % Input_.StrideFloats != 0 ||
+      Input_.Indices.size() % kTriangleCorners != 0) {
+    return std::unexpected(Fail(ClusterError::InvalidLayout));
+  }
+  if (Input_.PositionsM.size() / Input_.StrideFloats > maximum || Input_.Indices.size() > maximum) {
+    return std::unexpected(Fail(ClusterError::CapacityExceeded));
+  }
+  Cursor_ = 0;
+  Stage_ = Stage::Positions;
+  return Flow::Continue;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError>
+ClusterCookJob::AdvancesPositions(size_t &itemsLeft) {
+  const size_t vertices = Input_.PositionsM.size() / Input_.StrideFloats;
+  if (Cursor_ == vertices) {
+    Cursor_ = 0;
+    Stage_ = Stage::Indices;
+    return Flow::Continue;
+  }
+  if (itemsLeft == 0) { return Flow::Yield; }
+  const Vec3 point = Position(Input_, Cursor_++);
+  --itemsLeft;
+  if (!std::isfinite(point[0]) || !std::isfinite(point[1]) || !std::isfinite(point[2])) {
+    return std::unexpected(Fail(ClusterError::NonFinitePosition));
+  }
+  Include(InputBounds_, point);
+  return Flow::Continue;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError>
+ClusterCookJob::AdvancesIndices(size_t &itemsLeft) {
+  if (Cursor_ == Input_.Indices.size()) {
+    if (Input_.Indices.empty()) {
+      Stage_ = Stage::Complete;
+      return Flow::Complete;
+    }
+    const size_t triangles = Input_.Indices.size() / kTriangleCorners;
+    if (triangles <= TriangleLimit_) {
+      BeginsPack();
+    } else {
+      Order_.resize(triangles);
+      Cursor_ = 0;
+      Stage_ = Stage::Order;
+    }
+    return Flow::Continue;
+  }
+  if (itemsLeft == 0) { return Flow::Yield; }
+  if (Input_.Indices[Cursor_++] >= Input_.PositionsM.size() / Input_.StrideFloats) {
+    return std::unexpected(Fail(ClusterError::InvalidIndex));
+  }
+  --itemsLeft;
+  return Flow::Continue;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError> ClusterCookJob::AdvancesOrder(size_t &itemsLeft) {
+  if (Cursor_ == Order_.size()) {
+    Sorting_.resize(Order_.size());
+    Cursor_ = 0;
+    Stage_ = Stage::SortClear;
+    return Flow::Continue;
+  }
+  if (itemsLeft == 0) { return Flow::Yield; }
+  const size_t first = Cursor_ * kTriangleCorners;
+  Vec3 center;
+  for (size_t corner = 0; corner < kTriangleCorners; ++corner) {
+    center = center + Position(Input_, Input_.Indices[first + corner]) * (1.0 / 3.0);
+  }
+  const uint64_t code = Morton(center, InputBounds_.Low, InputBounds_.High);
+  Order_[Cursor_] = (code << 32u) | static_cast<uint32_t>(Cursor_);
+  ++Cursor_;
+  --itemsLeft;
+  return Flow::Continue;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError>
+ClusterCookJob::AdvancesSortClear(size_t &itemsLeft) {
+  if (Cursor_ == Counts_.size()) {
+    Cursor_ = 0;
+    Stage_ = Stage::SortCount;
+    return Flow::Continue;
+  }
+  if (itemsLeft == 0) { return Flow::Yield; }
+  Counts_[Cursor_++] = 0;
+  --itemsLeft;
+  return Flow::Continue;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError>
+ClusterCookJob::AdvancesSortCount(size_t &itemsLeft) {
+  if (Cursor_ == Order_.size()) {
+    Cursor_ = 0;
+    Prefix_ = 0;
+    Running_ = 0;
+    Stage_ = Stage::SortPrefix;
+    return Flow::Continue;
+  }
+  if (itemsLeft == 0) { return Flow::Yield; }
+  const auto bucket =
+      static_cast<size_t>((Order_[Cursor_++] >> (32u + Pass_ * kRadixBits)) & kRadixMask);
+  ++Counts_[bucket];
+  --itemsLeft;
+  return Flow::Continue;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError>
+ClusterCookJob::AdvancesSortPrefix(size_t &itemsLeft) {
+  if (Prefix_ == Counts_.size()) {
+    Cursor_ = 0;
+    Stage_ = Stage::SortScatter;
+    return Flow::Continue;
+  }
+  if (itemsLeft == 0) { return Flow::Yield; }
+  Offsets_[Prefix_] = Running_;
+  Running_ += Counts_[Prefix_++];
+  --itemsLeft;
+  return Flow::Continue;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError>
+ClusterCookJob::AdvancesSortScatter(size_t &itemsLeft) {
+  if (Cursor_ == Order_.size()) {
+    Order_.swap(Sorting_);
+    ++Pass_;
+    if (Pass_ == kRadixPasses) {
+      BeginsPack();
+    } else {
+      Cursor_ = 0;
+      Stage_ = Stage::SortClear;
+    }
+    return Flow::Continue;
+  }
+  if (itemsLeft == 0) { return Flow::Yield; }
+  const uint64_t key = Order_[Cursor_++];
+  const auto bucket = static_cast<size_t>((key >> (32u + Pass_ * kRadixBits)) & kRadixMask);
+  Sorting_[Offsets_[bucket]++] = key;
+  --itemsLeft;
+  return Flow::Continue;
+}
+
+std::expected<ClusterCookJob::Flow, ClusterError> ClusterCookJob::AdvanceStage(size_t &itemsLeft) {
+  switch (Stage_) {
+    case Stage::Layout: return AdvancesLayout();
+    case Stage::Positions: return AdvancesPositions(itemsLeft);
+    case Stage::Indices: return AdvancesIndices(itemsLeft);
+    case Stage::Order: return AdvancesOrder(itemsLeft);
+    case Stage::SortClear: return AdvancesSortClear(itemsLeft);
+    case Stage::SortCount: return AdvancesSortCount(itemsLeft);
+    case Stage::SortPrefix: return AdvancesSortPrefix(itemsLeft);
+    case Stage::SortScatter: return AdvancesSortScatter(itemsLeft);
+    case Stage::Pack: return AdvancesPack(itemsLeft);
+    case Stage::Complete: return Flow::Complete;
+    case Stage::Failed: return std::unexpected(Failure_);
+  }
+  return std::unexpected(Failure_);
+}
+
+std::expected<bool, ClusterError> ClusterCookJob::Advance(size_t itemsMost) {
+  if (Stage_ == Stage::Failed) { return std::unexpected(Failure_); }
+  if (Ready()) { return true; }
+  size_t itemsLeft = itemsMost;
+  for (;;) {
+    const auto advanced = AdvanceStage(itemsLeft);
+    if (!advanced) { return std::unexpected(advanced.error()); }
+    if (*advanced == Flow::Complete) { return true; }
+    if (*advanced == Flow::Yield) { return false; }
+  }
+}
+
 std::expected<ClusteredMesh, ClusterError> CookClusters(ClusterMeshInput input,
                                                         uint32_t triangleLimit) {
-  const auto bounds = Validate(input, triangleLimit);
-  if (!bounds) { return std::unexpected(bounds.error()); }
-  ClusteredMesh result;
-  if (input.Indices.empty()) { return result; }
-  if (input.Indices.size() / kTriangleCorners <= triangleLimit) {
-    const auto cluster = BoundCluster(input, input.Indices);
-    if (!cluster) { return std::unexpected(cluster.error()); }
-    result.Index.assign(input.Indices.begin(), input.Indices.end());
-    result.Clusters.push_back(*cluster);
-    return result;
+  ClusterCookJob job(input, triangleLimit);
+  for (;;) {
+    const auto advanced = job.Advance(65536);
+    if (!advanced) { return std::unexpected(advanced.error()); }
+    if (*advanced) { return job.Take(); }
   }
-  const auto ordered = Order(input, *bounds);
-  result.Index.reserve(input.Indices.size());
-  result.Clusters.reserve(ordered.size() / triangleLimit +
-                          (ordered.size() % triangleLimit != 0 ? 1u : 0u));
-  for (size_t first = 0; first < ordered.size();) {
-    const size_t count = std::min(static_cast<size_t>(triangleLimit), ordered.size() - first);
-    const auto firstIndex = static_cast<uint32_t>(result.Index.size());
-    for (size_t at = first; at < first + count; ++at) {
-      const size_t index = static_cast<size_t>(ordered[at].Triangle) * kTriangleCorners;
-      result.Index.insert(result.Index.end(),
-                          input.Indices.begin() + static_cast<ptrdiff_t>(index),
-                          input.Indices.begin() + static_cast<ptrdiff_t>(index + kTriangleCorners));
-    }
-    auto cluster = BoundCluster(input, std::span<const uint32_t>(result.Index).subspan(firstIndex));
-    if (!cluster) { return std::unexpected(cluster.error()); }
-    cluster->First = firstIndex;
-    result.Clusters.push_back(*cluster);
-    first += count;
-  }
-  return result;
 }
 }

@@ -14,6 +14,18 @@ namespace {
 using namespace outshine;
 using namespace outshine::Test;
 
+std::expected<ClusteredMesh, ClusterError>
+CookPaced(ClusterMeshInput input, uint32_t limit, size_t itemsMost) {
+  ClusterCookJob job(input, limit);
+  for (size_t turn = 0; turn < 1000000; ++turn) {
+    const auto advanced = job.Advance(itemsMost);
+    if (!advanced) { return std::unexpected(advanced.error()); }
+    if (*advanced) { return job.Take(); }
+  }
+  CHECK(false, "a finite cluster input completes under bounded pacing");
+  return std::unexpected(ClusterError::CapacityExceeded);
+}
+
 void Verify(ClusterMeshInput input, uint32_t limit) {
   const auto result = CookClusters(input, limit);
   CHECK(result.has_value(), "valid bounded mesh can be clustered");
@@ -51,6 +63,11 @@ void Verify(ClusterMeshInput input, uint32_t limit) {
   CHECK(packed == original, "the oriented triangle multiset is preserved exactly");
   const auto repeated = CookClusters(input, limit);
   CHECK(repeated && repeated->Index == result->Index, "cluster ordering is repeatable");
+  for (const size_t itemsMost : {1u, 2u, 7u, 257u}) {
+    const auto paced = CookPaced(input, limit, itemsMost);
+    CHECK(paced && paced->Index == result->Index && paced->Clusters == result->Clusters,
+          "every bounded interruption schedule reproduces the one-shot native product");
+  }
 }
 }
 

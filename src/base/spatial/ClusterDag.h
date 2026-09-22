@@ -26,6 +26,8 @@ struct DagCluster {
   float ParentErr = 0.0f;
   uint32_t First = 0, Count = 0;
   uint32_t Level = 0;
+
+  [[nodiscard]] bool operator==(const DagCluster &) const = default;
 };
 
 inline constexpr float kDagRootErr = 3.0e38f;
