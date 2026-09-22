@@ -1,6 +1,10 @@
 #include <cmath>
+#include <array>
+#include <bit>
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <utility>
 #include <vector>
 #include "math/Units.h"
@@ -21,6 +25,25 @@ constexpr double kWaveShoulder = 0.25;
 constexpr double kQuarterOfFour = 0.25;
 
 namespace {
+
+[[nodiscard]] std::string ShapeRevision(const TerrainTiles::Shaped &shape) {
+  std::string revision = shape.Kind;
+  const auto append = [&revision](uint64_t bits) {
+    constexpr int kHexRadix = 16;
+    std::array<char, 2 * sizeof(uint64_t)> hex{};
+    const auto converted = std::to_chars(hex.data(), hex.data() + hex.size(), bits, kHexRadix);
+    revision.push_back(':');
+    revision.append(hex.data(), converted.ptr);
+  };
+  append(std::bit_cast<uint64_t>(shape.AmplitudeM));
+  append(std::bit_cast<uint64_t>(shape.WavelengthM));
+  append(std::bit_cast<uint64_t>(shape.Gradient));
+  append(std::bit_cast<uint64_t>(shape.BearingDeg));
+  append(std::bit_cast<uint64_t>(shape.FocusLatDeg));
+  append(std::bit_cast<uint64_t>(shape.FocusLonDeg));
+  append(shape.Seed);
+  return revision;
+}
 
 [[nodiscard]] int Severity(TerrainGrid::State s) {
   switch (s) {
@@ -133,6 +156,11 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
             ShapedAslM({.LongitudeDeg = stands.LongitudeDeg, .LatitudeDeg = stands.LatitudeDeg}));
       }
     }
+    field.AddSource({.From = Data::TileSourceIdentity::Origin::Shaped,
+                     .Kind = Data::DataKind::Elevation,
+                     .Tile = of,
+                     .SourceId = "shaped",
+                     .Revision = ShapeRevision(Shape_)});
     return TerrainGrid::Holding(std::move(field));
   }
   {
@@ -150,8 +178,8 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
       case TerrainBytes::State::Delivered: return TerrainGrid::Refused();
     }
   }
-  const Data::TileId source = delivered->first;
-  std::vector<uint8_t> png = std::move(delivered->second);
+  const Data::TileId source = delivered->At;
+  std::vector<uint8_t> png = std::move(delivered->Png);
 
   const int steps = of.Zoom - source.Zoom;
   if (steps < 0 || steps >= kZoomMost) { return TerrainGrid::Refused(); }
@@ -160,8 +188,9 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
   const uint32_t subY = of.Y & (subDiv - 1);
 
   TerrainGrid grid = TerrainGrid::FromTerrariumPng(png.data(), png.size());
-  const TerrainField *field = grid.TryFieldMutable();
+  TerrainField *field = grid.TryFieldMutable();
   if (field == nullptr) { return grid; }
+  field->AddSource(std::move(delivered->Source));
 
   if (subDiv > 1) {
     const uint32_t cropCols = field->Cols() / subDiv;
@@ -208,6 +237,7 @@ TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Si
                 0.5f * (self.AtM(selfRow, c) + n->PostingM({.Col = along, .Row = neighbourFrac})));
     }
   }
+  self.AddSources(n->Sources());
   return TerrainGrid::State::Decoded;
 }
 
@@ -243,6 +273,9 @@ TerrainTiles::StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, 
   self.SetM(north ? 0u : self.Rows() - 1u,
             west ? 0u : self.Cols() - 1u,
             static_cast<float>(sum * kQuarterOfFour));
+  self.AddSources(a->Sources());
+  self.AddSources(b->Sources());
+  self.AddSources(c->Sources());
   return TerrainGrid::State::Decoded;
 }
 

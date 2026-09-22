@@ -11,6 +11,7 @@
 
 #include "Address.h"
 #include "TerrainGrid.h"
+#include "TileSourceIdentity.h"
 #include "TileGeodesy.h"
 
 namespace outshine::Ground {
@@ -19,10 +20,16 @@ class TerrainBytes {
 public:
   enum class State { Delivered, Deferred, NoTile, Refused };
 
-  static TerrainBytes From(Data::TileId at, std::vector<uint8_t> png) {
+  struct Payload {
+    Data::TileId At;
+    std::vector<uint8_t> Png;
+    Data::TileSourceIdentity Source;
+  };
+
+  static TerrainBytes
+  From(Data::TileId at, std::vector<uint8_t> png, Data::TileSourceIdentity source) {
     TerrainBytes b(State::Delivered);
-    b.At_ = at;
-    b.Png_ = std::move(png);
+    b.Payload_ = Payload{.At = at, .Png = std::move(png), .Source = std::move(source)};
     return b;
   }
 
@@ -34,17 +41,17 @@ public:
 
   [[nodiscard]] State Where() const { return Where_; }
 
-  [[nodiscard]] std::optional<std::pair<Data::TileId, std::vector<uint8_t>>> Take() {
+  [[nodiscard]] std::optional<Payload> Take() {
     if (Where_ != State::Delivered) { return std::nullopt; }
-    return std::pair{At_, std::move(Png_)};
+    Where_ = State::Deferred;
+    return std::move(Payload_);
   }
 
 private:
   explicit TerrainBytes(State where) : Where_(where) {}
 
   State Where_;
-  Data::TileId At_;
-  std::vector<uint8_t> Png_;
+  Payload Payload_;
 };
 
 class TerrainSource {
@@ -103,7 +110,10 @@ public:
 
   TerrainTiles(TerrainSource &source, EnuFrame frame, Config config);
 
-  void Shapes(const Shaped &how) { Shape_ = how; }
+  void Shapes(const Shaped &how) {
+    Shape_ = how;
+    Stitched_.clear();
+  }
 
   [[nodiscard]] bool IsShaped() const noexcept { return !Shape_.Kind.empty(); }
 

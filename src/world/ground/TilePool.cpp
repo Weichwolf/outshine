@@ -431,7 +431,12 @@ private:
   static TerrainBytes Answered(TilePool::Landing &landing) {
     const std::optional<Data::TileId> at = landing.At.Tile();
     if (!at) { return TerrainBytes::Wire(); }
-    return TerrainBytes::From(*at, std::move(landing.Bytes));
+    return TerrainBytes::From(*at,
+                              std::move(landing.Bytes),
+                              {.Kind = Data::DataKind::Elevation,
+                               .Tile = *at,
+                               .SourceId = std::move(landing.SourceId),
+                               .Revision = std::move(landing.SourceRevision)});
   }
 
   TilePool &Pool_;

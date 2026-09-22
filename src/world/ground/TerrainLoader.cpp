@@ -104,7 +104,12 @@ struct GroundStream::Held {
         case TilePool::Reply::Ready: {
           const std::optional<Data::TileId> landed = landing.At.Tile();
           if (!landed) { return TerrainBytes::Wire(); }
-          return TerrainBytes::From(*landed, std::move(landing.Bytes));
+          return TerrainBytes::From(*landed,
+                                    std::move(landing.Bytes),
+                                    {.Kind = Data::DataKind::Elevation,
+                                     .Tile = *landed,
+                                     .SourceId = std::move(landing.SourceId),
+                                     .Revision = std::move(landing.SourceRevision)});
         }
         case TilePool::Reply::Absent:
         case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();

@@ -1,7 +1,9 @@
 #ifndef OUTSHINE_WORLD_DATA_TILESOURCEIDENTITY_H
 #define OUTSHINE_WORLD_DATA_TILESOURCEIDENTITY_H
 
+#include <compare>
 #include <string>
+#include <tuple>
 
 #include "Address.h"
 #include "DataKind.h"
@@ -18,6 +20,17 @@ struct TileSourceIdentity {
   std::string Revision;
 
   [[nodiscard]] bool operator==(const TileSourceIdentity &) const noexcept = default;
+
+  [[nodiscard]] std::strong_ordering operator<=>(const TileSourceIdentity &other) const {
+    return std::tie(From, Kind, Tile.Zoom, Tile.X, Tile.Y, SourceId, Revision) <=>
+           std::tie(other.From,
+                    other.Kind,
+                    other.Tile.Zoom,
+                    other.Tile.X,
+                    other.Tile.Y,
+                    other.SourceId,
+                    other.Revision);
+  }
 };
 
 }

@@ -3,9 +3,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
 #include <mdspan>
+#include <span>
 #include <vector>
 
+#include "TileSourceIdentity.h"
 #include "TileGeodesy.h"
 #include "TileMath.h"
 
@@ -31,9 +34,36 @@ public:
 
   [[nodiscard]] bool Meshable() const { return Rows_ >= 2 && Cols_ >= 2; }
 
-  [[nodiscard]] size_t Bytes() const { return HeightsM_.size() * sizeof(float); }
+  [[nodiscard]] size_t Bytes() const {
+    size_t bytes =
+        HeightsM_.size() * sizeof(float) + Sources_.size() * sizeof(Data::TileSourceIdentity);
+    for (const auto &source : Sources_) {
+      bytes += source.SourceId.size() + source.Revision.size();
+    }
+    return bytes;
+  }
 
-  [[nodiscard]] size_t HeapBytes() const { return HeightsM_.capacity() * sizeof(float); }
+  [[nodiscard]] size_t HeapBytes() const {
+    size_t bytes = HeightsM_.capacity() * sizeof(float) +
+                   Sources_.capacity() * sizeof(Data::TileSourceIdentity);
+    for (const auto &source : Sources_) {
+      bytes += source.SourceId.capacity() + source.Revision.capacity();
+    }
+    return bytes;
+  }
+
+  [[nodiscard]] std::span<const Data::TileSourceIdentity> Sources() const noexcept {
+    return Sources_;
+  }
+
+  void AddSource(Data::TileSourceIdentity source) {
+    const auto at = std::ranges::lower_bound(Sources_, source);
+    if (at == Sources_.end() || !(*at == source)) { Sources_.insert(at, std::move(source)); }
+  }
+
+  void AddSources(std::span<const Data::TileSourceIdentity> sources) {
+    for (const auto &source : sources) { AddSource(source); }
+  }
 
   [[nodiscard]] const float *Data() const { return HeightsM_.data(); }
 
@@ -57,6 +87,7 @@ public:
 
 private:
   std::vector<float> HeightsM_;
+  std::vector<Data::TileSourceIdentity> Sources_;
   uint32_t Rows_ = 0, Cols_ = 0;
 };
 
