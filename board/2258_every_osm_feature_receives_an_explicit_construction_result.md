@@ -40,12 +40,12 @@ support, portal or culvert is unnecessary.
 | Real construction | Typical OSM evidence | Required product/constraint |
 |---|---|---|
 | Ground road, path, steps | `highway=*`, `surface`, `width`, `incline`, `steps` | graded and drained contact; mode-specific traversability |
-| Bridge, viaduct, flyover | `bridge=*`, `layer`, connected ways | continuous deck, abutments/piers, free underpass and load path |
+| Bridge, viaduct, flyover | `bridge=*`, `layer`, connected ways | continuous deck, plausible visible contacts, free underpass and driving surface |
 | Ford, culvert, causeway | crossing road/waterway, `ford=*`, `tunnel=culvert`, embankment | passable crossing and maintained hydraulic opening |
 | Tunnel, covered road, underpass | `tunnel=*`, `layer`, covered/indoor hints | portal, excavation/void, enclosure, headroom and route continuity |
 | Rail, tram, switch, level crossing | `railway=*`, gauge/tracks, crossing nodes | continuous rail pose, switch/road conflict rules and clearance |
 | River, stream, canal, lake, coast | `waterway=*`, `natural=water`, water polygons/coastline | bed, banks, surface/flow corridor; no accidental fill |
-| Building on slope or over passage | footprint/relation, levels, height, `building:part`, `min_height` | foundations or supports, openings, access and stable floors |
+| Building on slope or over passage | footprint/relation, levels, height, `building:part`, `min_height` | closed visible base, openings, access and stable floors |
 | Quay, pier, retaining wall | `man_made=*`, embankment/cutting hints | supported edge, water/terrain contact, no universal earth skirt |
 | Vegetation, rock, land cover | natural/landuse areas and point features | material/biome and instances with scale, exclusion and LOD |
 | Address, boundary, route metadata | relations and nonphysical tags | semantic product only; optional map overlay, no collision |
@@ -79,7 +79,7 @@ the interpretation, while `layer` alone is not a metric elevation.
   products, assumptions and tests. Every ingested primitive ends in exactly
   one explicit result state; zero silently dropped physical features.
 - Analytical fixtures for the table and pairwise conflicts check geometry,
-  material, ground/water contact, structural clearance, logical route and
+  material, ground/water contact, free-space clearance, logical route and
   collision. Negative controls fail for a filled river, closed tunnel, floating
   road, wrong-level turn and unsupported building. Vary source order and LOD.
 - Vehicles/trains/people traverse only routes whose constructed alignment and
