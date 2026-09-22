@@ -60,3 +60,32 @@ job runs. Publish only after the final geometry and yields pass validation.
 - Keep `GroundCandidatePacingReachesReadiness`, Floor/Lattice and place render
   contracts unchanged. Open resulting PNGs, compare against prior complete
   shots and run `make format`, focused suites and `make lint`.
+
+## Current evidence and remaining work
+
+The candidate now owns a resumable corridor job. Wien's 47,645 ways produce
+582,932 street triangles; the interrupted run rendered the same `0257fdae`
+shot as a same-tree one-shot run and also reproduced the earlier `49440d93`
+shot. Both images have 2,920,352 total triangles. A diagnostic same-site
+oracle exposed a missing lane-cursor reset after bridge raising: before the
+fix, the job completed with zero street triangles and yields despite green
+pacing tests. That transition is fixed; the PNGs were opened. Current
+`ScoreAFootprintStandsOnALevelFloor` passes in normal and validated variants.
+`GroundCandidatePacingReachesReadiness` exposed a corridor field miss near east
+365.028 m, north -1096.280 m: the candidate asked at zoom 15 while source DEM
+is zoom 14. `HeightSheets::PrepareFields` now also requests parent DEM tiles
+and their halo. A subsequent normal and validated Pacing run and the focused
+HeightSheets rim case pass; repeat under changed source arrival schedules before
+calling this resolved. No fabricated drape height was introduced. `make lint`
+passes with clang-tidy after this change.
+
+Wien's prior longest measured corridor slice was 28.120 ms: geometry transfer
+was the largest phase (29.576 ms in an earlier run); bridge-end raising reached
+16.529 ms. Geometry transfer is now split into material/part, positions,
+normals, colours, triangles and validation stages. Measure each on Wien and
+bound any remaining over-budget stage, especially winding validation and
+bridge-end raising. Prove one-shot/job equivalence for geometry and ordered
+yields directly, then open a fresh Wien PNG. The prior shot's simulation p99 was 23.97 ms
+and worst frame 542.29 ms, so neither the corridor nor the whole-frame budget
+is accepted yet. Diagnose those costs separately; do not infer a frame bound
+from the matching still image.
