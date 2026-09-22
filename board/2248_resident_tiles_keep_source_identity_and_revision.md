@@ -12,12 +12,12 @@ Tags: provenance, streaming, determinism
 ## Defect
 
 `SourceDecl::Revision` reaches `Delivery::Answer` and `TilePool::Landing`.
-`ContentStore` includes it in the cache key. The resident paths discard it:
-`OsmField::FetchTile` moves only decoded layers into `ParsedTile`; both
-`PoolTerrain::Answered` and `GroundStream::Held::Oracle::Take` pass only bytes
-and tile address to `TerrainBytes`. A structure bake therefore cannot identify
-the exact DEM/vector source revision it consumed. Runtime handles or arrival
-order are not source identities.
+`ContentStore` includes it in the cache key. Native OSM tiles now retain this
+identity (3cfac6f2d). Both `PoolTerrain::Answered` and
+`GroundStream::Held::Oracle::Take` still pass only bytes and tile address to
+`TerrainBytes`; `TerrainField`, `DecodedCache` and stitched fields have no
+provenance. A structure bake cannot yet identify its exact DEM source set.
+Runtime handles or arrival order are not source identities.
 
 ## Decision
 
@@ -26,7 +26,7 @@ declared revision, kind and canonical tile address. Carry it with decoded
 resident vector and elevation tiles, including cache hits and generated/declared
 fixtures. Empty revision is an explicit value, never an implicit wildcard.
 Do not store a view into `TilePool::Landing` or mutable cache memory. Preserve
-the existing payload and cache identity; do not derive identity from bytes.
+payload semantics; do not derive identity from bytes.
 
 Expose a stable, sorted identity set for the exact source tiles used by a
 ground/structure candidate. Record the identity at consumption, not by later
@@ -36,17 +36,22 @@ metadata outside the native geometry model.
 
 `TerrainTiles::StitchedGrid` can consume the centre, four edges and four
 corners. Its identity is their sorted source set, not the centre's identity.
-`DecodedCache` and stitched entries currently key by tile address; either
-include the source set in those keys or invalidate on a source revision change.
+`DecodedCache`, stitched entries and TilePool's byte cache key by tile address.
+Freeze provider declarations/revisions within one SourceSet generation; an
+accepted registration change must invalidate or namespace all three caches
+and stale in-flight work. Actual provider selection remains part of each raw
+tile identity, including fallback/ancestor results.
 Cache hits must return the same provenance as fresh decoding. Shaped terrain
 uses an explicit identity from its declared parameters and seed.
 
 ## Implementation and acceptance
 
-1. Thread identity through `TerrainBytes`, decoded and stitched terrain products,
-   resident slots, `OsmField::ParsedTile` and published vector tiles. Preserve it through
-   replacement, eviction and cache reload. Keep allocations out of lookup and
-   frame hot paths; account for owned storage.
+1. `TerrainBytes::Take` returns identity with bytes and address. Store the
+   sorted source set in `TerrainField` so decoded-cache hits preserve it;
+   stitch only identities of raw fields actually consulted. Carry the set to
+   resident slots and structure height blocks. Preserve it through replacement,
+   eviction and reload. Keep allocations out of lookup/frame hot paths and
+   account for owned storage.
 2. A candidate's height snapshot reports identities for every DEM block used
    by one structure tile. Pinned blocks remain valid until that bake completes;
    a later source revision creates a new input generation, not an in-place
