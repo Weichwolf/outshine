@@ -66,6 +66,20 @@ Maximum 10.706° E / 45.337° N (z11/z10). Beide liegen fern der Kamera
 Als Nächstes sichtbare Kanten nahe der Kamera und zugehörige Roh-/Finalprofile
 lokalisieren, bevor eine LOD- oder Quellenkorrektur erfolgt.
 
+Isolierter Diagnose-Build auf 9a88c1546 (temporärer Worktree, nicht übernommen):
+der endgültige 2887-Page-Kandidat hat 540 Seam-Abweichungen >2 m im horizontalen
+Kamerakegel bis 50 km. Sichtbares Maximum 56.377 m bei 10.546875° E /
+45.779496° N, etwa 20.07 km entfernt; es verschiebt die projizierte Kante
+näherungsweise nur um 3 px bei Bild-x≈476. Der globale 183-m-Wert kommt nicht
+aus dem sichtbaren Vorhang. Am Kamerastrahl 290° steigt das residente z13-DEM
+von 64.26 m (4.1 km) auf 385.54 m (4.2 km); finale Page vor/nach Stitching:
+64.40/64.40 und 386.23/386.23 m. Rohkacheln aus dem lokalen ContentStore mit
+Terrarium-Formel unabhängig gelesen; finale Page im Diagnose-Build gemessen.
+Der enorme Anstieg ist bereits im verwendeten DEM, kein Press-/Stitch-Artefakt.
+Nächster Schritt: Fels-Mesorelief und triplanare Struktur mit begrenzter Amplitude
+generisch an steilen finalen Flächen; Bild- und Normalstabilität bei Bewegung sowie
+Source-/LOD-Nähte prüfen. Kantenfehler danach im sichtbaren Bereich getrennt senken.
+
 1. Pro sichtbarem Patch Roh-DEM, finales gestempeltes Höhenfeld, Quellzoom, Sampleabstand,
    Höhenänderung, Patch-/Skirt-ID und geometrische Normale separat ausgeben. Faltenursache
    belegen, nicht eine Materialänderung als Geometriefix melden.
