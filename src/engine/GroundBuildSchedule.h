@@ -12,6 +12,7 @@ public:
     NeedsClasses,
     NeedsGroundSurface,
     NeedsModels,
+    NeedsNetwork,
     NeedsBakes,
     NeedsCorridors,
     NeedsEarthworks,
@@ -50,7 +51,8 @@ public:
     switch (NextStage_) {
       case Stage::NeedsClasses: NextStage_ = Stage::NeedsGroundSurface; return true;
       case Stage::NeedsGroundSurface: NextStage_ = Stage::NeedsModels; return true;
-      case Stage::NeedsModels: NextStage_ = Stage::NeedsBakes; return true;
+      case Stage::NeedsModels: NextStage_ = Stage::NeedsNetwork; return true;
+      case Stage::NeedsNetwork: NextStage_ = Stage::NeedsBakes; return true;
       case Stage::NeedsBakes: NextStage_ = Stage::NeedsCorridors; return true;
       case Stage::NeedsCorridors: NextStage_ = Stage::NeedsEarthworks; return true;
       case Stage::NeedsEarthworks: NextStage_ = Stage::NeedsTerrainMesh; return true;
@@ -74,6 +76,7 @@ public:
       case Stage::NeedsClasses: return "classes";
       case Stage::NeedsGroundSurface: return "ground-surface";
       case Stage::NeedsModels: return "models";
+      case Stage::NeedsNetwork: return "network";
       case Stage::NeedsBakes: return "structure-bakes";
       case Stage::NeedsCorridors: return "corridors";
       case Stage::NeedsEarthworks: return "earthworks";

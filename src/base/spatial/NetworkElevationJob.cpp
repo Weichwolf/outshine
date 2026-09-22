@@ -1,9 +1,11 @@
 #include "Wayfinding.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <expected>
 #include <optional>
+#include <ratio>
 #include <string_view>
 #include <utility>
 
@@ -73,11 +75,25 @@ void NetworkElevationJob::Profile() {
 
 std::expected<bool, std::string_view> NetworkElevationJob::Advance(size_t itemsMost) {
   if (itemsMost == 0) { return std::unexpected("network elevation work budget is zero"); }
+  const auto began = std::chrono::steady_clock::now();
+  const Stage before = Stage_;
   switch (Stage_) {
     case Stage::SampleNodes: SampleNodes(itemsMost); break;
     case Stage::WritePoints: WritePoints(itemsMost); break;
     case Stage::Profile: Profile(); break;
     case Stage::Done: return true;
+  }
+  const double elapsedMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  switch (before) {
+    case Stage::SampleNodes:
+      Worst_.SampleNodesMs = std::max(Worst_.SampleNodesMs, elapsedMs);
+      break;
+    case Stage::WritePoints:
+      Worst_.WritePointsMs = std::max(Worst_.WritePointsMs, elapsedMs);
+      break;
+    case Stage::Profile: Worst_.ProfileMs = std::max(Worst_.ProfileMs, elapsedMs); break;
+    case Stage::Done: break;
   }
   return Stage_ == Stage::Done;
 }

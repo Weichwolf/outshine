@@ -419,6 +419,15 @@ private:
 
 class NetworkWeaveJob {
 public:
+  struct SliceWorst {
+    double SnapMs = 0.0;
+    double EdgesMs = 0.0;
+    double IndexMs = 0.0;
+    double AdjacencyMs = 0.0;
+    double TieMs = 0.0;
+    double PublishMs = 0.0;
+  };
+
   [[nodiscard]] static std::expected<NetworkWeaveJob, std::string> Begin(Network &&network);
   NetworkWeaveJob(const NetworkWeaveJob &) = delete;
   NetworkWeaveJob &operator=(const NetworkWeaveJob &) = delete;
@@ -427,6 +436,8 @@ public:
 
   [[nodiscard]] std::expected<bool, std::string> Advance(size_t itemsMost);
   [[nodiscard]] std::expected<Network, std::string_view> Take() &&;
+
+  [[nodiscard]] SliceWorst LongestSlices() const noexcept { return Worst_; }
 
 private:
   enum class Stage : uint8_t {
@@ -459,11 +470,18 @@ private:
   size_t NextStep_ = 1;
   size_t NextNode_ = 0;
   size_t NextEdge_ = 0;
+  SliceWorst Worst_;
   Stage Stage_ = Stage::SnapPoints;
 };
 
 class NetworkElevationJob {
 public:
+  struct SliceWorst {
+    double SampleNodesMs = 0.0;
+    double WritePointsMs = 0.0;
+    double ProfileMs = 0.0;
+  };
+
   struct Result {
     Network Graph;
     Network::Elevated Statistics;
@@ -478,6 +496,8 @@ public:
   [[nodiscard]] std::expected<bool, std::string_view> Advance(size_t itemsMost);
   [[nodiscard]] std::expected<Result, std::string_view> Take() &&;
 
+  [[nodiscard]] SliceWorst LongestSlices() const noexcept { return Worst_; }
+
 private:
   enum class Stage : uint8_t { SampleNodes, WritePoints, Profile, Done };
   NetworkElevationJob(Network &&network, Network::HeightSource source);
@@ -491,6 +511,7 @@ private:
   Network::Elevated Statistics_;
   size_t NextNode_ = 0;
   size_t NextPoint_ = 0;
+  SliceWorst Worst_;
   Stage Stage_ = Stage::SampleNodes;
 };
 

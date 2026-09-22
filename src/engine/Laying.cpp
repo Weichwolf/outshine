@@ -93,6 +93,7 @@ constexpr size_t kEarthworkSheetsPerFrame = 32;
 constexpr size_t kEarthworkPointsPerFrame = 8192;
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
+constexpr size_t kNetworkItemsPerFrame = 1024;
 
 bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
@@ -209,6 +210,16 @@ public:
 
   void FinishesCorridors() noexcept { CorridorJob_.reset(); }
 
+  [[nodiscard]] outshine::World::TransportNetworkBuildJob *NetworkJob() noexcept {
+    return NetworkJob_.get();
+  }
+
+  void BeginsNetwork(std::unique_ptr<outshine::World::TransportNetworkBuildJob> job) noexcept {
+    NetworkJob_ = std::move(job);
+  }
+
+  void FinishesNetwork() noexcept { NetworkJob_.reset(); }
+
   void SamplesCorridorSlice(double milliseconds) noexcept {
     LongestCorridorSliceMs_ = std::max(LongestCorridorSliceMs_, milliseconds);
   }
@@ -262,6 +273,7 @@ private:
   std::optional<Patchwork> Patchwork_;
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
+  std::unique_ptr<outshine::World::TransportNetworkBuildJob> NetworkJob_;
   std::vector<Yields> Corridors_;
   MeshBuild Meshing_;
   MeshBuild InitialMeshing_;
@@ -1195,64 +1207,95 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
+  state.CompletesStage();
+  return GroundBuildProgress::Pending;
+}
+
+Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
+  GroundBuildState &state = *World.GroundBuild;
+  if (state.NextStage() != Core::GroundBuildSchedule::Stage::NeedsNetwork) {
+    return GroundBuildProgress::Ready;
+  }
+  GroundBuildProducts &build = state.Candidate().Products();
   const std::optional<GroundRevision> &publishedRevision = World.GroundPublished.Current();
   const GroundRevision &requestedRevision = state.Revision();
-  const bool networkSourcesChanged =
+  const bool sourcesChanged =
       !publishedRevision || publishedRevision->Region != requestedRevision.Region ||
       publishedRevision->ResidentTiles != requestedRevision.ResidentTiles ||
       publishedRevision->VectorGeneration != requestedRevision.VectorGeneration ||
       publishedRevision->StreetTiles != requestedRevision.StreetTiles;
-  if (build.Network == nullptr || World.Stack.Ways().Ways().size() != build.NetworkOfWays ||
-      networkSourcesChanged) {
-    const auto networkBegan = std::chrono::steady_clock::now();
-    const outshine::World::TransportNetwork::Built mapped =
-        outshine::World::TransportNetwork::BuildOneShot(World.Stack);
-    Published.Places(
-        "network: candidate construction",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - networkBegan)
-            .count(),
-        "ms");
-    if (!mapped.Refusal.empty()) {
-      Error = mapped.Refusal;
+  if (build.Network != nullptr && World.Stack.Ways().Ways().size() == build.NetworkOfWays &&
+      !sourcesChanged) {
+    state.CompletesStage();
+    return GroundBuildProgress::Pending;
+  }
+  if (World.Stack.Vectors() == nullptr) {
+    build.Network.reset();
+    build.NetworkOfWays = 0;
+    state.CompletesStage();
+    return GroundBuildProgress::Pending;
+  }
+  if (state.NetworkJob() == nullptr) {
+    auto started = outshine::World::TransportNetworkBuildJob::Begin(World.Stack);
+    if (!started) {
+      Error = std::move(started.error());
       World.GroundBuild.reset();
       return GroundBuildProgress::Failed;
     }
-    build.Network = mapped.Graph;
-    build.NetworkOfWays = World.Stack.Ways().Ways().size();
-    Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
-    Published.Places("network: laying ways", mapped.LayMs, "ms");
-    Published.Places("network: weaving topology", mapped.WeaveMs, "ms");
-    Published.Places("network: weaving sort", mapped.WeavePhases.SortMs, "ms");
-    Published.Places("network: weaving snap", mapped.WeavePhases.SnapMs, "ms");
-    Published.Places("network: weaving edges", mapped.WeavePhases.EdgesMs, "ms");
-    Published.Places("network: weaving tie", mapped.WeavePhases.TieMs, "ms");
-    Published.Places("network: weaving pack", mapped.WeavePhases.PackMs, "ms");
-    Published.Places("network: classifying crossings", mapped.CrossingsMs, "ms");
-    Published.Places("network: elevating nodes", mapped.ElevateMs, "ms");
-    Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
-    Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");
-    Published.Places("network: nodes where three or more edges meet",
-                     static_cast<double>(mapped.Junctions),
-                     "nodes");
-    Published.Places(
-        "network: points with a height", static_cast<double>(mapped.Elevated.Points), "points");
-    Published.Places("network: points the ground refused a height",
-                     static_cast<double>(mapped.Elevated.Refused),
-                     "points");
-    Published.Places("network: steepest grade", mapped.Elevated.SteepestGrade, "m/m");
-    Published.Places(
-        "network: steepest grade on a sealed way", mapped.Elevated.SteepestSealedGrade, "m/m");
-    Published.Places("network: sealed points over ten percent grade",
-                     static_cast<double>(mapped.Elevated.SealedOverTenPercent),
-                     "points");
-    Published.Places("network: points over ten percent grade",
-                     static_cast<double>(mapped.Elevated.OverTenPercent),
-                     "points");
-    Published.Places("network: points over thirty percent grade",
-                     static_cast<double>(mapped.Elevated.OverThirtyPercent),
-                     "points");
-    if (!mapped.Refusal.empty()) { Published.Places("network: refused to weave", 1.0, "yes/no"); }
+    state.BeginsNetwork(
+        std::make_unique<outshine::World::TransportNetworkBuildJob>(std::move(*started)));
+    return GroundBuildProgress::Pending;
   }
+  auto advanced = state.NetworkJob()->Advance(World.Stack, kNetworkItemsPerFrame);
+  if (!advanced) {
+    Error = std::move(advanced.error());
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  if (!*advanced) { return GroundBuildProgress::Pending; }
+  const double longestSliceMs = state.NetworkJob()->LongestSliceMs();
+  auto completed = std::move(*state.NetworkJob()).Take();
+  if (!completed) {
+    Error = completed.error();
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  const outshine::World::TransportNetwork::Built &mapped = *completed;
+  build.Network = mapped.Graph;
+  build.NetworkOfWays = World.Stack.Ways().Ways().size();
+  Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
+  Published.Places("network: laying ways", mapped.LayMs, "ms");
+  Published.Places("network: weaving topology", mapped.WeaveMs, "ms");
+  Published.Places("network: longest weave slice", mapped.WeaveLongestMs, "ms");
+  Published.Places("network: longest snap slice", mapped.WeaveSlices.SnapMs, "ms");
+  Published.Places("network: longest edge creation slice", mapped.WeaveSlices.EdgesMs, "ms");
+  Published.Places("network: longest edge index slice", mapped.WeaveSlices.IndexMs, "ms");
+  Published.Places("network: longest adjacency slice", mapped.WeaveSlices.AdjacencyMs, "ms");
+  Published.Places("network: longest tie slice", mapped.WeaveSlices.TieMs, "ms");
+  Published.Places("network: longest weave publish slice", mapped.WeaveSlices.PublishMs, "ms");
+  Published.Places("network: classifying crossings", mapped.CrossingsMs, "ms");
+  Published.Places("network: elevating nodes", mapped.ElevateMs, "ms");
+  Published.Places("network: longest elevation slice", mapped.ElevateLongestMs, "ms");
+  Published.Places(
+      "network: longest node sample slice", mapped.ElevationSlices.SampleNodesMs, "ms");
+  Published.Places(
+      "network: longest point write slice", mapped.ElevationSlices.WritePointsMs, "ms");
+  Published.Places("network: longest profile slice", mapped.ElevationSlices.ProfileMs, "ms");
+  Published.Places("network: longest build slice", longestSliceMs, "ms");
+  Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
+  Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");
+  Published.Places("network: nodes where three or more edges meet",
+                   static_cast<double>(mapped.Junctions),
+                   "nodes");
+  Published.Places(
+      "network: points with a height", static_cast<double>(mapped.Elevated.Points), "points");
+  Published.Places("network: points the ground refused a height",
+                   static_cast<double>(mapped.Elevated.Refused),
+                   "points");
+  Published.Places("network: steepest grade", mapped.Elevated.SteepestGrade, "m/m");
+  Published.Places(
+      "network: steepest grade on a sealed way", mapped.Elevated.SteepestSealedGrade, "m/m");
+  state.FinishesNetwork();
   state.CompletesStage();
   return GroundBuildProgress::Pending;
 }
@@ -1613,6 +1656,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
 
   const GroundBuildProgress models = BeginsGroundModels(standing);
   if (models != GroundBuildProgress::Ready) { return models != GroundBuildProgress::Failed; }
+  const GroundBuildProgress network = BeginsGroundNetwork();
+  if (network != GroundBuildProgress::Ready) { return network != GroundBuildProgress::Failed; }
   const GroundBuildProgress bakes = BeginsGroundBakes(standing);
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
   if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsCorridors) {

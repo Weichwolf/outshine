@@ -411,6 +411,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress BeginsGroundClasses();
   [[nodiscard]] GroundBuildProgress BeginsGroundSurface();
   [[nodiscard]] GroundBuildProgress BeginsGroundModels(const TangentFrame &standing);
+  [[nodiscard]] GroundBuildProgress BeginsGroundNetwork();
   [[nodiscard]] GroundBuildProgress BeginsGroundBakes(const TangentFrame &standing) const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;

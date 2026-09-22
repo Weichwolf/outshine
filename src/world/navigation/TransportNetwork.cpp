@@ -15,10 +15,6 @@
 #include "StreetField.h"
 
 namespace outshine::World {
-namespace {
-constexpr double kNodeSnapM = 2.0;
-}
-
 namespace Says {
 constexpr auto kInvalidTransportPointRange =
     "transport way point range exceeds the supplied coordinate stream";

@@ -84,6 +84,17 @@ old `49440d93` still digest on the same source tree; another run gave
 existing shot nondeterminism tracked by WI 2105, not evidence of network
 equivalence by itself. Wien still has a 556-ms worst simulation frame.
 
+The candidate now owns `TransportNetworkBuildJob` as a separate `NeedsNetwork`
+stage and publishes only after weave, crossings and elevation complete. Wien
+keeps 47,101 ways, 155,084 nodes, 369,981 edges and the prior `49440d93`
+digest. Worst simulation frame fell from about 556 ms to 109–133 ms; p99 fell
+from about 23 ms to 9.56–13.18 ms. Remaining worst work at 1,024 items/frame:
+snap 2.285, edge creation 0.613, edge index 9.714, adjacency 5.947, tie 2.896,
+weave publication 2.941, crossings 24.613, node sampling 22.096, point writes
+0.030 and profile construction 14.078 ms. A separate unclassified builder
+slice reached 50.370 ms. Reduce the item budget from measurements, classify
+that transfer/start slice, then split crossings and profile construction.
+
 ## Acceptance
 
 - Analytic line, closed loop, legal junction, grade-separated crossing and

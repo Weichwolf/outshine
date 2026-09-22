@@ -1,9 +1,11 @@
 #include "Wayfinding.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <ratio>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -132,6 +134,8 @@ void NetworkWeaveJob::Publish() {
 
 std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
   if (itemsMost == 0) { return std::unexpected("network weave work budget is zero"); }
+  const auto began = std::chrono::steady_clock::now();
+  const Stage before = Stage_;
   switch (Stage_) {
     case Stage::SnapPoints: SnapPoints(itemsMost); break;
     case Stage::BuildEdges: BuildEdges(itemsMost); break;
@@ -144,6 +148,17 @@ std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
     case Stage::TieEnds: TieEnds(itemsMost); break;
     case Stage::Publish: Publish(); break;
     case Stage::Done: return true;
+  }
+  const double elapsedMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  switch (before) {
+    case Stage::SnapPoints: Worst_.SnapMs = std::max(Worst_.SnapMs, elapsedMs); break;
+    case Stage::BuildEdges: Worst_.EdgesMs = std::max(Worst_.EdgesMs, elapsedMs); break;
+    case Stage::IndexEdges: Worst_.IndexMs = std::max(Worst_.IndexMs, elapsedMs); break;
+    case Stage::BuildAdjacency: Worst_.AdjacencyMs = std::max(Worst_.AdjacencyMs, elapsedMs); break;
+    case Stage::TieEnds: Worst_.TieMs = std::max(Worst_.TieMs, elapsedMs); break;
+    case Stage::Publish: Worst_.PublishMs = std::max(Worst_.PublishMs, elapsedMs); break;
+    case Stage::Done: break;
   }
   return Stage_ == Stage::Done;
 }
