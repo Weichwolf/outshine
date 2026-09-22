@@ -54,7 +54,7 @@ constexpr double kProgressEveryS = 0.25;
 namespace {
 
 constexpr int kTimedFrames = 120;
-constexpr int kMaximumTimedFrames = 512;
+constexpr int kMaximumTimedFrames = 3072;
 
 }
 

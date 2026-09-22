@@ -354,7 +354,7 @@ Pressed PressPoints(std::span<const Yields> these,
 }
 
 struct PressPointsJob::State {
-  enum class Phase : uint8_t { Reject, Apply, Done };
+  enum class Phase : uint8_t { Reject, InitializeDecisions, Apply, Done };
 
   std::span<const Yields> These;
   std::span<const EastNorth> At;
@@ -383,6 +383,7 @@ struct PressPointsJob::State {
     }
     Result.BucketMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - Began).count();
+    Result.DecidedBy.reserve(at.size());
   }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
@@ -419,11 +420,24 @@ bool PressPointsJob::Advance(size_t pointsMost) {
                state.MostEarthworkM,
                state.Next);
     }
-    state.Result.RejectMs +=
+    const double elapsed =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    state.Result.RejectMs += elapsed;
+    state.Result.LongestRejectMs = std::max(state.Result.LongestRejectMs, elapsed);
     if (state.Next < state.At.size()) { return false; }
     for (const uint8_t rejected : state.Structures) { state.Result.Structures += rejected; }
-    state.Result.DecidedBy.assign(state.At.size(), kNoStamp);
+    state.Next = 0;
+    state.Current = State::Phase::InitializeDecisions;
+    return false;
+  }
+  if (state.Current == State::Phase::InitializeDecisions) {
+    state.Result.DecidedBy.insert(state.Result.DecidedBy.end(), end - state.Next, kNoStamp);
+    state.Result.LongestInitializeMs =
+        std::max(state.Result.LongestInitializeMs,
+                 std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                     .count());
+    state.Next = end;
+    if (state.Next < state.At.size()) { return false; }
     state.Next = 0;
     state.Current = State::Phase::Apply;
     return false;
@@ -438,8 +452,10 @@ bool PressPointsJob::Advance(size_t pointsMost) {
             state.Result,
             state.Next);
   }
-  state.Result.ApplyMs +=
+  const double elapsed =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  state.Result.ApplyMs += elapsed;
+  state.Result.LongestApplyMs = std::max(state.Result.LongestApplyMs, elapsed);
   if (state.Next < state.At.size()) { return false; }
   state.Result.Refused = std::move(state.Structures);
   state.Current = State::Phase::Done;

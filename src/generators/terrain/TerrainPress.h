@@ -28,6 +28,14 @@ struct PressedTerrain {
   double ApplyMs = 0.0;
   double WriteMs = 0.0;
   double FloorsMs = 0.0;
+  double LongestGatherMs = 0.0;
+  double LongestDecideMs = 0.0;
+  double LongestRejectMs = 0.0;
+  double LongestInitializeMs = 0.0;
+  double LongestApplyMs = 0.0;
+  double LongestWriteMs = 0.0;
+  double LongestReprojectMs = 0.0;
+  double LongestFloorsMs = 0.0;
 };
 
 [[nodiscard]] PressedTerrain PressTerrain(std::span<const Yields> yields,

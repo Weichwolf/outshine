@@ -89,7 +89,7 @@ constexpr size_t kRefinedStructureCandidates = 4;
 constexpr size_t kTerrainSheetsPerFrame = 96;
 constexpr size_t kTerrainResidencySheetsPerFrame = 128;
 constexpr size_t kEarthworkSheetsPerFrame = 32;
-constexpr size_t kEarthworkPointsPerFrame = 65536;
+constexpr size_t kEarthworkPointsPerFrame = 8192;
 
 bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
@@ -833,6 +833,14 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
   Published.Places("ground: pressing apply", pressed_.ApplyMs, "ms");
   Published.Places("ground: pressing write", pressed_.WriteMs, "ms");
   Published.Places("ground: pressing floors", pressed_.FloorsMs, "ms");
+  Published.Places("ground: longest gather slice", pressed_.LongestGatherMs, "ms");
+  Published.Places("ground: longest decide slice", pressed_.LongestDecideMs, "ms");
+  Published.Places("ground: longest reject slice", pressed_.LongestRejectMs, "ms");
+  Published.Places("ground: longest initialize slice", pressed_.LongestInitializeMs, "ms");
+  Published.Places("ground: longest apply slice", pressed_.LongestApplyMs, "ms");
+  Published.Places("ground: longest write slice", pressed_.LongestWriteMs, "ms");
+  Published.Places("ground: longest reproject slice", pressed_.LongestReprojectMs, "ms");
+  Published.Places("ground: longest floors slice", pressed_.LongestFloorsMs, "ms");
   Published.Places(
       "ground: lattice nodes the stamps pressed", static_cast<double>(pressed_.Nodes), "nodes");
   Published.Places("ground: stamps refused as STRUCTURES, past the earthwork bound",

@@ -46,6 +46,9 @@ struct Pressed {
   double BucketMs = 0.0;
   double RejectMs = 0.0;
   double ApplyMs = 0.0;
+  double LongestRejectMs = 0.0;
+  double LongestInitializeMs = 0.0;
+  double LongestApplyMs = 0.0;
 };
 
 [[nodiscard]] Pressed PressPoints(std::span<const Yields> these,

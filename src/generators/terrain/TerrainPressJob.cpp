@@ -35,6 +35,13 @@ struct TerrainPressJob::State {
   size_t NextPoint = 0;
   Phase Current = Phase::Gather;
 
+  static double Measures(double &total, std::chrono::steady_clock::time_point began) {
+    const double elapsed =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    total += elapsed;
+    return elapsed;
+  }
+
   State(std::vector<Yields> yields,
         Patchwork &candidate,
         TangentFrame frame,
@@ -162,9 +169,8 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
       const size_t end =
           state.NextSheet + std::min(sheetsMost, state.Candidate->Sheets.size() - state.NextSheet);
       for (; state.NextSheet < end; ++state.NextSheet) { state.GatherSheet(state.NextSheet); }
-      state.Result.GatherMs +=
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count();
+      state.Result.LongestGatherMs =
+          std::max(state.Result.LongestGatherMs, State::Measures(state.Result.GatherMs, began));
       if (state.NextSheet < state.Candidate->Sheets.size()) { return false; }
       state.PointsJob = std::make_unique<PressPointsJob>(
           state.YieldsHeld, state.Positions, state.HeightsM, state.MostEarthworkM);
@@ -173,14 +179,12 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
     }
     case State::Phase::Decide: {
       if (!state.PointsJob->Advance(pointsMost)) {
-        state.Result.DecideMs +=
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                .count();
+        state.Result.LongestDecideMs =
+            std::max(state.Result.LongestDecideMs, State::Measures(state.Result.DecideMs, began));
         return false;
       }
-      state.Result.DecideMs +=
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count();
+      state.Result.LongestDecideMs =
+          std::max(state.Result.LongestDecideMs, State::Measures(state.Result.DecideMs, began));
       state.PressedPoints = state.PointsJob->Take();
       state.PointsJob.reset();
       state.Result.Nodes = state.PressedPoints.Moved;
@@ -189,6 +193,9 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
       state.Result.BucketMs = state.PressedPoints.BucketMs;
       state.Result.RejectMs = state.PressedPoints.RejectMs;
       state.Result.ApplyMs = state.PressedPoints.ApplyMs;
+      state.Result.LongestRejectMs = state.PressedPoints.LongestRejectMs;
+      state.Result.LongestInitializeMs = state.PressedPoints.LongestInitializeMs;
+      state.Result.LongestApplyMs = state.PressedPoints.LongestApplyMs;
       state.Current = state.PressedPoints.Moved == 0 ? State::Phase::Done : State::Phase::Write;
       return state.Current == State::Phase::Done;
     }
@@ -197,9 +204,8 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
       const size_t end =
           state.NextPoint + std::min(pointsMost, state.HeightsM.size() - state.NextPoint);
       for (; state.NextPoint < end; ++state.NextPoint) { state.WritePoint(state.NextPoint); }
-      state.Result.WriteMs +=
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count();
+      state.Result.LongestWriteMs =
+          std::max(state.Result.LongestWriteMs, State::Measures(state.Result.WriteMs, began));
       if (state.NextPoint < state.HeightsM.size()) { return false; }
       state.NextPoint = 0;
       state.Current = State::Phase::Reproject;
@@ -210,9 +216,8 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
       const size_t end =
           state.NextPoint + std::min(pointsMost, state.HeightsM.size() - state.NextPoint);
       for (; state.NextPoint < end; ++state.NextPoint) { state.ReprojectPoint(state.NextPoint); }
-      state.Result.WriteMs +=
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count();
+      state.Result.LongestReprojectMs =
+          std::max(state.Result.LongestReprojectMs, State::Measures(state.Result.WriteMs, began));
       if (state.NextPoint < state.HeightsM.size()) { return false; }
       state.Current = State::Phase::Floors;
       return false;
@@ -223,9 +228,8 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
           state.YieldsHeld, state.PressedPoints, Stamp::Pad, state.Positions, finalHeights);
       state.Result.Corridors = FloorsOf(
           state.YieldsHeld, state.PressedPoints, Stamp::Corridor, state.Positions, finalHeights);
-      state.Result.FloorsMs +=
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count();
+      state.Result.LongestFloorsMs =
+          std::max(state.Result.LongestFloorsMs, State::Measures(state.Result.FloorsMs, began));
       state.Current = State::Phase::Done;
       return true;
     }
