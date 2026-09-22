@@ -1266,6 +1266,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
   Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
   Published.Places("network: laying ways", mapped.LayMs, "ms");
   Published.Places("network: weaving topology", mapped.WeaveMs, "ms");
+  Published.Places("network: beginning weave", mapped.BeginWeaveMs, "ms");
+  Published.Places("network: cleaning weave temporaries", mapped.CleanupWeaveMs, "ms");
+  Published.Places("network: longest weave cleanup slice", mapped.CleanupWeaveLongestMs, "ms");
   Published.Places("network: longest weave slice", mapped.WeaveLongestMs, "ms");
   Published.Places("network: longest snap slice", mapped.WeaveSlices.SnapMs, "ms");
   Published.Places("network: longest edge creation slice", mapped.WeaveSlices.EdgesMs, "ms");
@@ -1275,6 +1278,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
   Published.Places("network: longest weave publish slice", mapped.WeaveSlices.PublishMs, "ms");
   Published.Places("network: classifying crossings", mapped.CrossingsMs, "ms");
   Published.Places("network: elevating nodes", mapped.ElevateMs, "ms");
+  Published.Places("network: beginning elevation", mapped.BeginElevationMs, "ms");
   Published.Places("network: longest elevation slice", mapped.ElevateLongestMs, "ms");
   Published.Places(
       "network: longest node sample slice", mapped.ElevationSlices.SampleNodesMs, "ms");
@@ -1283,6 +1287,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
   Published.Places("network: longest station slice", mapped.ElevationSlices.StationsMs, "ms");
   Published.Places("network: longest slope slice", mapped.ElevationSlices.SlopesMs, "ms");
   Published.Places("network: longest grade slice", mapped.ElevationSlices.GradesMs, "ms");
+  Published.Places("network: publishing graph", mapped.PublishMs, "ms");
   Published.Places("network: longest build slice", longestSliceMs, "ms");
   Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
   Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");

@@ -26,13 +26,18 @@ public:
     std::string Refusal;
     double LayMs = 0.0;
     double WeaveMs = 0.0;
+    double BeginWeaveMs = 0.0;
+    double CleanupWeaveMs = 0.0;
+    double CleanupWeaveLongestMs = 0.0;
     double WeaveLongestMs = 0.0;
     Path::NetworkWeaveJob::SliceWorst WeaveSlices;
     Path::Network::WeaveTimings WeavePhases;
     double CrossingsMs = 0.0;
     double ElevateMs = 0.0;
+    double BeginElevationMs = 0.0;
     double ElevateLongestMs = 0.0;
     Path::NetworkElevationJob::SliceWorst ElevationSlices;
+    double PublishMs = 0.0;
   };
 
   [[nodiscard]] static Built BuildOneShot(const Ground::GroundStack &stack);
@@ -63,6 +68,7 @@ private:
   enum class Stage : uint8_t {
     BeginWeave,
     Weave,
+    CleanupWeave,
     Crossings,
     BeginElevation,
     Elevation,
@@ -72,6 +78,7 @@ private:
   explicit TransportNetworkBuildJob(Path::Network &&graph);
   [[nodiscard]] std::expected<void, std::string> BeginWeave();
   [[nodiscard]] std::expected<void, std::string> AdvanceWeave(size_t itemsMost);
+  [[nodiscard]] std::expected<void, std::string> CleanupWeave(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> ClassifyCrossings();
   void BeginElevation(const Ground::GroundStack &stack);
   [[nodiscard]] std::expected<void, std::string> AdvanceElevation(size_t itemsMost);

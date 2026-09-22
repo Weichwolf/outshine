@@ -63,6 +63,15 @@ int main() {
     auto woven = std::move(*started).Take();
     CHECK(woven.has_value(), "complete graph transfers its owner");
     if (!woven) { continue; }
+    CHECK(!started->ReleaseTemporary(0).has_value(), "zero cleanup budget is rejected");
+    bool released = false;
+    for (size_t step = 0; step < 10000 && !released; ++step) {
+      const auto cleaned = started->ReleaseTemporary(budget);
+      CHECK(cleaned.has_value(), "temporary graph products release in bounded slices");
+      if (!cleaned) { break; }
+      released = *cleaned;
+    }
+    CHECK(released, "all temporary graph products are released");
     CHECK(woven->NodeCount() == oracle->NodeCount() && woven->EdgeCount() == oracle->EdgeCount() &&
               woven->TiedToEdges() == oracle->TiedToEdges(),
           "slicing preserves native topology counts");

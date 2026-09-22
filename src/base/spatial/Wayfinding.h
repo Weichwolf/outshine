@@ -207,6 +207,7 @@ private:
 
     void Connect(size_t from, size_t to);
     void Disconnect(size_t from, size_t to);
+    [[nodiscard]] bool Release(size_t itemsMost);
 
     [[nodiscard]] size_t Degree(size_t node) const { return Degree_[node]; }
 
@@ -438,6 +439,7 @@ public:
 
   [[nodiscard]] std::expected<bool, std::string> Advance(size_t itemsMost);
   [[nodiscard]] std::expected<Network, std::string_view> Take() &&;
+  [[nodiscard]] std::expected<bool, std::string_view> ReleaseTemporary(size_t itemsMost);
 
   [[nodiscard]] SliceWorst LongestSlices() const noexcept { return Worst_; }
 
@@ -451,6 +453,7 @@ private:
     Publish,
     Done
   };
+  enum class ReleaseStage : uint8_t { Cells, Outgoing, EdgeCells, Adjacency, Done };
   explicit NetworkWeaveJob(Network &&network);
   void SnapPoints(size_t itemsMost);
   void BuildEdges(size_t itemsMost);
@@ -472,8 +475,10 @@ private:
   size_t NextStep_ = 1;
   size_t NextNode_ = 0;
   size_t NextEdge_ = 0;
+  size_t NextRelease_ = 0;
   SliceWorst Worst_;
   Stage Stage_ = Stage::SnapPoints;
+  ReleaseStage ReleaseStage_ = ReleaseStage::Cells;
 };
 
 class NetworkElevationJob {

@@ -168,4 +168,43 @@ std::expected<Network, std::string_view> NetworkWeaveJob::Take() && {
   return std::move(Network_);
 }
 
+std::expected<bool, std::string_view> NetworkWeaveJob::ReleaseTemporary(size_t itemsMost) {
+  if (itemsMost == 0) { return std::unexpected("network weave cleanup budget is zero"); }
+  if (Stage_ != Stage::Done) { return std::unexpected("network weave is incomplete"); }
+  size_t released = 0;
+  switch (ReleaseStage_) {
+    case ReleaseStage::Cells:
+      NodeOf_.clear();
+      while (!ByCell_.empty() && released < itemsMost) {
+        ByCell_.erase(ByCell_.begin());
+        ++released;
+      }
+      if (ByCell_.empty()) { ReleaseStage_ = ReleaseStage::Outgoing; }
+      break;
+    case ReleaseStage::Outgoing:
+      while (NextRelease_ < Outgoing_.size() && released < itemsMost) {
+        Network::OutgoingEdges::value_type{}.swap(Outgoing_[NextRelease_++]);
+        ++released;
+      }
+      if (NextRelease_ == Outgoing_.size()) {
+        Outgoing_.clear();
+        NextRelease_ = 0;
+        ReleaseStage_ = ReleaseStage::EdgeCells;
+      }
+      break;
+    case ReleaseStage::EdgeCells:
+      while (!ByEdgeCell_.empty() && released < itemsMost) {
+        ByEdgeCell_.erase(ByEdgeCell_.begin());
+        ++released;
+      }
+      if (ByEdgeCell_.empty()) { ReleaseStage_ = ReleaseStage::Adjacency; }
+      break;
+    case ReleaseStage::Adjacency:
+      if (Adjacency_.Release(itemsMost)) { ReleaseStage_ = ReleaseStage::Done; }
+      break;
+    case ReleaseStage::Done: return true;
+  }
+  return ReleaseStage_ == ReleaseStage::Done;
+}
+
 }

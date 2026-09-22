@@ -101,6 +101,17 @@ void Network::PhysicalAdjacency::Disconnect(size_t from, size_t to) {
   }
 }
 
+bool Network::PhysicalAdjacency::Release(size_t itemsMost) {
+  size_t released = 0;
+  while (!Edges_.empty() && released < itemsMost) {
+    Edges_.erase(Edges_.begin());
+    ++released;
+  }
+  if (!Edges_.empty()) { return false; }
+  Degree_.clear();
+  return true;
+}
+
 double ApartM(LongitudeLatitude from, LongitudeLatitude to, Sphere on) {
   const double fromLat = from.LatitudeDeg * kDegToRad;
   const double toLat = to.LatitudeDeg * kDegToRad;

@@ -62,15 +62,17 @@ WI 2105.
 
 At 1,024 graph items/frame and 4,096 profile points/frame, latest worst slices
 are: snap 2.285, edge creation 0.613, edge index 9.714, adjacency 5.947, tie
-2.896, weave publication 2.941, crossings 24.943, node sampling 20.755, point
+2.896, weave publication 2.941, crossings 23.912, node sampling 21.579, point
 writes 0.013, stations 0.379, slopes 0.288 and grade statistics 0.058 ms.
-Profile work previously cost 14.078 ms. An unclassified builder transition
-still reaches 48.958 ms.
+Profile work previously cost 14.078 ms. Destroying 72.376 ms of weave
+temporaries caused the unexplained 48.958-ms transition; explicit staged
+release now limits that work to 2.594 ms and the longest build slice is the
+measured 23.912-ms crossing pass.
 
 Global budgets 128, 256 and 512 failed to reach Refined within the 6,144-frame
 shot horizon; 1,024 completes in about 5,860–6,072 frames. Counts therefore
-remain phase-specific. Next classify builder transitions, split crossings, and
-move DEM sampling off the frame path or into an independently bounded worker.
+remain phase-specific. Next split crossings and move DEM sampling off the
+frame path or into an independently bounded worker.
 
 ## Acceptance
 

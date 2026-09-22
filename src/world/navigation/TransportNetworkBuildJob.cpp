@@ -59,9 +59,24 @@ std::expected<void, std::string> TransportNetworkBuildJob::AdvanceWeave(size_t i
   Built_.WeaveSlices = Weave_->LongestSlices();
   auto woven = std::move(*Weave_).Take();
   if (!woven) { return std::unexpected(std::string(woven.error())); }
-  Weave_.reset();
   Graph_ = std::move(*woven);
-  Stage_ = Stage::Crossings;
+  Stage_ = Stage::CleanupWeave;
+  return {};
+}
+
+std::expected<void, std::string> TransportNetworkBuildJob::CleanupWeave(size_t itemsMost) {
+  assert(Weave_ != nullptr);
+  constexpr size_t kCleanupItemsPerBuildItem = 16;
+  const size_t cleanupItemsMost =
+      itemsMost > std::numeric_limits<size_t>::max() / kCleanupItemsPerBuildItem
+          ? std::numeric_limits<size_t>::max()
+          : itemsMost * kCleanupItemsPerBuildItem;
+  auto released = Weave_->ReleaseTemporary(cleanupItemsMost);
+  if (!released) { return std::unexpected(std::string(released.error())); }
+  if (*released) {
+    Weave_.reset();
+    Stage_ = Stage::Crossings;
+  }
   return {};
 }
 
@@ -118,6 +133,7 @@ std::expected<bool, std::string> TransportNetworkBuildJob::Advance(const Ground:
   switch (Stage_) {
     case Stage::BeginWeave: progressed = BeginWeave(); break;
     case Stage::Weave: progressed = AdvanceWeave(itemsMost); break;
+    case Stage::CleanupWeave: progressed = CleanupWeave(itemsMost); break;
     case Stage::Crossings: progressed = ClassifyCrossings(); break;
     case Stage::BeginElevation: BeginElevation(stack); break;
     case Stage::Elevation: progressed = AdvanceElevation(itemsMost); break;
@@ -130,17 +146,29 @@ std::expected<bool, std::string> TransportNetworkBuildJob::Advance(const Ground:
   LongestSliceMs_ = std::max(LongestSliceMs_, elapsedMs);
   switch (before) {
     case Stage::BeginWeave:
+      Built_.BeginWeaveMs = elapsedMs;
+      Built_.WeaveMs += elapsedMs;
+      Built_.WeaveLongestMs = std::max(Built_.WeaveLongestMs, elapsedMs);
+      break;
     case Stage::Weave:
       Built_.WeaveMs += elapsedMs;
       Built_.WeaveLongestMs = std::max(Built_.WeaveLongestMs, elapsedMs);
       break;
+    case Stage::CleanupWeave:
+      Built_.CleanupWeaveMs += elapsedMs;
+      Built_.CleanupWeaveLongestMs = std::max(Built_.CleanupWeaveLongestMs, elapsedMs);
+      break;
     case Stage::Crossings: Built_.CrossingsMs += elapsedMs; break;
     case Stage::BeginElevation:
+      Built_.BeginElevationMs = elapsedMs;
+      Built_.ElevateMs += elapsedMs;
+      Built_.ElevateLongestMs = std::max(Built_.ElevateLongestMs, elapsedMs);
+      break;
     case Stage::Elevation:
       Built_.ElevateMs += elapsedMs;
       Built_.ElevateLongestMs = std::max(Built_.ElevateLongestMs, elapsedMs);
       break;
-    case Stage::Publish:
+    case Stage::Publish: Built_.PublishMs = elapsedMs; break;
     case Stage::Done: break;
   }
   return Stage_ == Stage::Done;
