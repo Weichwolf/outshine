@@ -11,11 +11,15 @@ Area: render, materials
 ## Evidence and boundary
 
 Malcesine at 6761d703a: final z13 DEM rises 321.28 m along a 100 m camera-ray
-segment, and the final height page agrees within 1 m at both ends. Current
-`groundLit.glsl` only blends one rock albedo/roughness row into the slope; the
-exposed cliff remains a uniform gray curtain. The final geometric relief and
-silhouette still belong to WI 2166. This unit improves the independent PBR
-surface response and must not pretend shader bump fixes geometry.
+segment, and the final height page agrees within 1 m at both ends. Filtered
+world-space rock response now reaches the shared BRDF. In Koerbersee, suppressing
+its weight changes 207297/921600 pixels (22.49%); restoring it reproduces the
+saved image byte-for-byte. The mountain reads less smooth, but still lacks
+convincing rock breakup; the Malcesine curtain and Feldkirch near wall remain.
+Their geometric relief and silhouette belong to WI 2166. Koerbersee measured
+p99 14.40 ms without detail and 15.23–17.48 ms in two runs with it; this is
+insufficient to infer a stable GPU cost. Further visual and movement checks
+remain required before accepting this WI.
 
 ## Decision
 
