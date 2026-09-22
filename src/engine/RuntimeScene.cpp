@@ -149,7 +149,12 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
   const bool framesSubject = out && !out->Camera_.Prepared().HasExplicitCamera;
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   std::unique_ptr<RuntimeScene> candidate;
-  if (!Prepare(renderer, std::move(declaration), font, candidate, error)) {
+  if (!Prepare(renderer,
+               std::move(declaration),
+               font,
+               candidate,
+               error,
+               out ? out->GroundAir_ : GroundAtmosphere{})) {
     renderer.AbandonsWorldCandidate();
     return false;
   }
@@ -169,13 +174,15 @@ bool RuntimeScene::Prepare(Render::SceneRenderer &renderer,
                            Declaration declaration,
                            const Ui::Font *font,
                            std::unique_ptr<RuntimeScene> &out,
-                           std::string &error) {
+                           std::string &error,
+                           const GroundAtmosphere &atmosphere) {
   if (declaration.InitialGeometry != nullptr && !declaration.InitialGeometry->wellFormed()) {
     error = Says::InvalidInitialGeometry;
     return false;
   }
   auto editing = renderer.EditsWorldCandidate();
   std::unique_ptr<RuntimeScene> scene(new RuntimeScene(renderer, std::move(declaration), font));
+  scene->GroundAir_ = atmosphere;
   if (!scene->Build(error)) { return false; }
   scene->CandidateEditor_.emplace(std::move(editing));
   out = std::move(scene);
@@ -205,7 +212,7 @@ bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
-  if (!Prepare(renderer, std::move(declaration), font, candidate, error)) {
+  if (!Prepare(renderer, std::move(declaration), font, candidate, error, previous.GroundAir_)) {
     renderer.AbandonsWorldCandidate();
     return false;
   }
@@ -235,7 +242,7 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
-  if (!Prepare(renderer, std::move(declaration), font, candidate, error)) {
+  if (!Prepare(renderer, std::move(declaration), font, candidate, error, previous.GroundAir_)) {
     renderer.AbandonsWorldCandidate();
     return false;
   }

@@ -103,7 +103,8 @@ public:
                                     Declaration declaration,
                                     const Ui::Font *font,
                                     std::unique_ptr<RuntimeScene> &out,
-                                    std::string &error);
+                                    std::string &error,
+                                    const GroundAtmosphere &atmosphere = {});
   [[nodiscard]] static bool ReplacesGeometry(Render::SceneRenderer &renderer,
                                              const RuntimeScene &previous,
                                              Geometry replacement,
