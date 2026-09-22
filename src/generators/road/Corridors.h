@@ -35,23 +35,6 @@ class Corridors {
 public:
   explicit Corridors(const RoadMesher &sweeper) : Sweeper_(sweeper) {}
 
-  struct Mapped {
-    std::shared_ptr<const Path::Network> Network;
-    size_t Ways = 0;
-    size_t Nodes = 0;
-    size_t Edges = 0;
-    size_t Junctions = 0;
-    Path::Network::Elevated Elevated;
-    std::string Refusal;
-    double LayMs = 0.0;
-    double WeaveMs = 0.0;
-    Path::Network::WeaveTimings WeavePhases;
-    double CrossingsMs = 0.0;
-    double ElevateMs = 0.0;
-  };
-
-  [[nodiscard]] static Mapped MapOf(const outshine::Ground::GroundStack &stack);
-
   struct Site {
     const outshine::Ground::GroundStack &Stack;
     const Path::Network *Network = nullptr;
@@ -213,10 +196,6 @@ private:
   static void TrimLaneEnds(const Edge &edge, Paved &into);
   static void FitLane(const Edge &edge, Paved &into);
 
-  [[nodiscard]] static std::expected<void, std::string_view>
-  LayLanesIntoNetwork(const outshine::Ground::StreetField &ways,
-                      std::span<const double> points,
-                      Path::Network &net);
   static void
   FileCrossing(const Path::Network::Crossing &one, const TangentFrame &standing, Paved &into);
   static void RaiseDeckOver(const Path::Network::Crossing &one,

@@ -16,8 +16,8 @@ candidate runs `Corridors::MapOf` for 529.673/591.290 ms in one Engine frame.
 Those runs' worst simulation frames were 530.97/592.67 ms. The graph has
 47,101 ways, 155,084 nodes and 369,981 edges. This stage prevents continuous
 camera movement even though road corridor slices are now about 10–12 ms.
-`Corridors` also owns construction of the logical map, although road geometry
-should consume a published graph rather than build navigation inside a mesher.
+The original `Corridors::MapOf` also owned logical map construction inside the
+road mesher; it has been moved to `world/navigation/TransportNetwork::BuildOneShot`.
 
 ## Decision
 
@@ -77,6 +77,12 @@ height assignment by source point. The shared-node/profile oracle matches
 one-shot `Elevate` at work sizes 1, 2 and 8, including refused samples and
 grade diagnostics; 15 Wayfinding cases and lint pass. Station/grade profile
 construction remains one-shot. The job is not yet wired into the Engine.
+
+After moving one-shot construction to `world/navigation`, Wien repeated the
+old `49440d93` still digest on the same source tree; another run gave
+`0257fdae` with 290/921600 pixels differing only at rows 487–509. This is
+existing shot nondeterminism tracked by WI 2105, not evidence of network
+equivalence by itself. Wien still has a 556-ms worst simulation frame.
 
 ## Acceptance
 

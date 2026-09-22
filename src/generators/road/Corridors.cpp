@@ -42,8 +42,6 @@
 namespace outshine::Generators {
 
 namespace Says {
-constexpr auto kInvalidTransportPointRange =
-    "transport way point range exceeds the supplied coordinate stream";
 constexpr auto kStaleCorridorInput = "corridor input changed during construction";
 constexpr auto kPavingCreationFailed = "could not publish road geometry";
 }
@@ -57,7 +55,6 @@ constexpr float kUnlitTint = 0.65f;
 constexpr double kUnraisedDeckM = -1.0e29;
 constexpr double kRoseLeast = 0.05;
 constexpr double kRoadStepM = 16.0;
-constexpr double kNodeSnapM = 2.0;
 constexpr double kCrossCellM = 32.0;
 constexpr double kMeetsWithinM = 10.0;
 constexpr int kRampPasses = 12;
@@ -552,76 +549,6 @@ void Corridors::IslandOf(const Paving &on,
       corridor.push_back(std::move(island));
     }
   }
-}
-
-Corridors::Mapped Corridors::MapOf(const outshine::Ground::GroundStack &stack) {
-  Mapped made;
-  const outshine::Ground::OsmField *const vectors = stack.Vectors();
-  if (vectors == nullptr) { return made; }
-  auto created =
-      Path::Network::Create(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = kWgs84A});
-  if (!created) {
-    made.Refusal = created.error();
-    return made;
-  }
-  auto net = std::make_shared<Path::Network>(std::move(*created));
-  auto phaseBegan = std::chrono::steady_clock::now();
-  const auto phaseMs = [&phaseBegan] {
-    const auto now = std::chrono::steady_clock::now();
-    const double ms = std::chrono::duration<double, std::milli>(now - phaseBegan).count();
-    phaseBegan = now;
-    return ms;
-  };
-  if (const auto laid = LayLanesIntoNetwork(stack.Ways(), vectors->Points(), *net); !laid) {
-    made.Refusal = laid.error();
-    return made;
-  }
-  made.LayMs = phaseMs();
-  made.Ways = net->WayCount();
-  if (made.Ways > 0 && !net->Weave(made.Refusal, &made.WeavePhases)) { return made; }
-  made.WeaveMs = phaseMs();
-  std::vector<Path::Network::Crossing> crossings;
-  if (const auto swept = net->Crossings(crossings); !swept) {
-    made.Refusal = swept.error();
-    return made;
-  }
-  made.CrossingsMs = phaseMs();
-  made.Nodes = net->NodeCount();
-  made.Edges = net->EdgeCount();
-  made.Junctions = net->JunctionCount();
-  made.Elevated =
-      net->Elevate([&stack](LongitudeLatitude at) { return stack.Ground().At(at).AslM(); });
-  made.ElevateMs = phaseMs();
-  made.Network = std::move(net);
-  return made;
-}
-
-std::expected<void, std::string_view> Corridors::LayLanesIntoNetwork(
-    const outshine::Ground::StreetField &ways, std::span<const double> points, Path::Network &net) {
-  for (size_t at = 0; at < ways.Ways().size(); ++at) {
-    const outshine::Ground::StreetField::Way &lane = ways.Ways()[at];
-    if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) {
-      continue;
-    }
-    const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
-    if (first > points.size() || lane.PointCount > (points.size() - first) / 2) {
-      return std::unexpected(Says::kInvalidTransportPointRange);
-    }
-    const auto laid = net.Lay(points.subspan(first, static_cast<size_t>(lane.PointCount) * 2),
-                              Path::WayClass{.HalfWidthM = static_cast<double>(lane.HalfWidthM),
-                                             .MaxGradient = 0.0,
-                                             .MinRadiusM = 0.0,
-                                             .Friction = 0.0,
-                                             .SpeedMps = static_cast<double>(lane.SpeedMps),
-                                             .Lanes = lane.Lanes,
-                                             .Priority = lane.Priority,
-                                             .Oneway = lane.Oneway,
-                                             .Sealed = lane.Sealed,
-                                             .Spans = lane.Bridge,
-                                             .Tag = at});
-    if (!laid) { return laid; }
-  }
-  return {};
 }
 
 void Corridors::FileCrossing(const Path::Network::Crossing &one,

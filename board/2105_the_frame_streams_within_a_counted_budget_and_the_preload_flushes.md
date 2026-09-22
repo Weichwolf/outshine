@@ -25,7 +25,7 @@ determinism is compulsory.
 | the ceiling refuses | NO | `GroundStack.cpp:115-122` `break`s silently and sets `Overflowing_`; only preload reads it |
 | the ceiling can see | NO | `HeapBytes()` misses the frame copies (board:2104) |
 | Shibuya | refuses | 856.7 MB against 512 MB with the ceiling lifted -- board:2122 |
-| eight places, three runs | steady | one still digest each; the 120 timed frames are unhashed |
+| Wien, two repeat shots 2026-09-22 | unstable | `0257fdae` then `49440d93` on the same tree; 290/921600 pixels differ in rows 487–509; timed frames still need comparison |
 
 The wall clock is gone and the medium-stage `memcmp` is gone (board:2092 holds the record). What
 remains of the wander is the ORDER tiles are meshed in: `TileWatermark::Ask` sorts the candidate

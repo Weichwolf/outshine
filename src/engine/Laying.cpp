@@ -48,6 +48,7 @@
 #include "GroundWorldCandidate.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
+#include "TransportNetwork.h"
 
 namespace outshine {
 namespace Says {
@@ -1204,7 +1205,8 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
   if (build.Network == nullptr || World.Stack.Ways().Ways().size() != build.NetworkOfWays ||
       networkSourcesChanged) {
     const auto networkBegan = std::chrono::steady_clock::now();
-    const Generators::Corridors::Mapped mapped = Generators::Corridors::MapOf(World.Stack);
+    const outshine::World::TransportNetwork::Built mapped =
+        outshine::World::TransportNetwork::BuildOneShot(World.Stack);
     Published.Places(
         "network: candidate construction",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - networkBegan)
@@ -1215,7 +1217,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
       World.GroundBuild.reset();
       return GroundBuildProgress::Failed;
     }
-    build.Network = mapped.Network;
+    build.Network = mapped.Graph;
     build.NetworkOfWays = World.Stack.Ways().Ways().size();
     Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
     Published.Places("network: laying ways", mapped.LayMs, "ms");
