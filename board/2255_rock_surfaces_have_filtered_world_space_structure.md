@@ -33,8 +33,10 @@ remain required before accepting this WI.
   intact for material/terrain validation.
 - Use stable tangent-world metres, including elevation, for a non-periodic 3D
   procedural field. Carry the ground world's height explicitly from the lattice
-  vertex stage; do not use camera-relative `position` as a noise seed. Shared
-  positions must agree across tile seams and remain stable during camera motion.
+  vertex stage; derive mesh coordinates before adding the camera shift rather
+  than subtracting it from a rounded float. Do not use camera-relative
+  `position` as a noise seed. Shared positions must agree across tile seams and
+  remain stable during camera motion.
 - Pack the template's existing `GroundSurf`/`Mix` parameters through the palette
   instead of inventing one shader style for every class. Macro structure may be
   artistically set in versioned material data; validate units and limits. Distinct

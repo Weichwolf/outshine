@@ -25,11 +25,11 @@ layout(location = 5) in vec3 previous;
 #endif
 void main() {
   mat4 m = rows[2u * gl_InstanceIndex];
-  m[3] += vec4(s.shift.xyz, 0.0);
-  vec4 world = m * vec4(p, 1.0);
+  vec4 stable = m * vec4(p, 1.0);
+  vec4 world = stable + vec4(s.shift.xyz, 0.0);
   gl_Position = s.viewProj * world;
   position = world.xyz;
-  groundWorldM = vec3(world.x - s.shift.x, world.y - s.shift.y, s.shift.z - world.z);
+  groundWorldM = vec3(stable.x, stable.y, -stable.z);
   localPosition = p;
   lightSpace = s.lightFromWorld * world;
   normal = normalize(m[0].xyz * vertexNormal.x + m[1].xyz * vertexNormal.y + m[2].xyz * vertexNormal.z);
