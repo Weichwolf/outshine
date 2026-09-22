@@ -100,10 +100,10 @@ Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behob
    Refined-Struktur-Tiles müssen aus einem qualifizierten, gepinnten Höhenstand
    backen. Playable-Fallback darf erscheinen, muss bei feinerem Input mit dessen
    Revision neu gebaut werden; Refined-Readiness wartet auf diesen Ersatz.
-   `BuildingField::Next` kann akzeptierte Tiles nicht erneut wählen: `TileWatermark`
-   rückt nach `CommitAcceptance` dauerhaft vor. Ersatz braucht daher eine getrennte,
-   begrenzte Rebuild-Queue pro Tile mit erwarteter Höhenrevision. Bei Commit nur die
-   neueste passende Revision annehmen; ältere Workerprodukte verwerfen. `TilePieces`
+   `GroundBuildState` kopiert publizierte Footprints samt `TileWatermark` in den
+   Kandidaten. `BuildingField::Next` bietet akzeptierte Tiles deshalb auch für
+   Refined nicht erneut an. Ersatz braucht eine getrennte, begrenzte Rebuild-Queue
+   pro Tile mit Höhenrevision. Nur die neueste passende Revision annehmen; `TilePieces`
    ersetzt Render-Handles bereits pro Tile, `BuildingField::CommitAcceptance` hängt
    Footprints und Messwerte dagegen nur an. Für Ersatz dort vorbereitete Bereiche,
    Zähler und Tile-Ranges atomar austauschen, statt denselben Tile doppelt einzufügen.
