@@ -225,8 +225,11 @@ size_t TilePool::SchedulerBytes() const {
   size_t bytes = jobBytes(Queue_) + jobBytes(Carrying_);
   bytes += Posted_.HeapBytes() + Done_.HeapBytes() + Awaiting_.HeapBytes();
   Done_.Visit([&bytes](uint64_t, const Result &result) {
-    bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Landed.Bytes) +
-             (result.Field ? result.Field->HeapBytes() : 0u);
+    bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Build.Sources) +
+             CapacityBytes(result.Landed.Bytes) + (result.Field ? result.Field->HeapBytes() : 0u);
+    for (const auto &source : result.Build.Sources) {
+      bytes += source.SourceId.capacity() + source.Revision.capacity();
+    }
   });
   Awaiting_.Visit(
       [&bytes, &jobBytes](uint64_t, const std::vector<Job> &jobs) { bytes += jobBytes(jobs); });
@@ -465,6 +468,7 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   const TerrainGrid::State stood = tiles.NodesOf({.Zoom = job.Z, .X = job.X, .Y = job.Y},
                                                  job.Grid,
                                                  &out->Build.Nodes,
+                                                 &out->Build.Sources,
                                                  &out->Build.Postings,
                                                  &out->Build.Side);
   Miss miss = MissOf(stood);

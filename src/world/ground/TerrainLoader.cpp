@@ -86,6 +86,7 @@ struct Tile {
   int Nodes = 0;
   uint32_t Postings = 0;
   std::vector<float> H;
+  std::vector<Data::TileSourceIdentity> Sources;
   bool Resident = false;
   bool Hole = false;
   uint64_t Used = 0;
@@ -193,9 +194,11 @@ void GroundStream::KeepCoarse(long x, long y) const {
   victim->Postings = square ? colPostings : 0;
   if (!square) {
     victim->H.clear();
+    victim->Sources.clear();
     return;
   }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
+  victim->Sources.assign(field->Sources().begin(), field->Sources().end());
 }
 
 const Tile *GroundStream::TileResident(long x, long y) const {
@@ -322,9 +325,11 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   victim->Postings = square ? colPostings : 0;
   if (!square) {
     victim->H.clear();
+    victim->Sources.clear();
     return nullptr;
   }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
+  victim->Sources.assign(field->Sources().begin(), field->Sources().end());
   KeepCoarse(static_cast<long>(static_cast<uint64_t>(x) >> kCoarseDrop),
              static_cast<long>(static_cast<uint64_t>(y) >> kCoarseDrop));
   return victim;
@@ -384,7 +389,8 @@ GroundBlock GroundStream::BlockAt(TileSpot at) const {
   if (t == nullptr) { return Held_->Pending ? GroundBlock::Waiting() : GroundBlock{}; }
   return GroundBlock::Over(t->H.data(),
                            {.Zoom = at.Zoom, .X = hx, .Y = hy},
-                           {.Side = t->Nodes, .Postings = t->Postings});
+                           {.Side = t->Nodes, .Postings = t->Postings},
+                           t->Sources);
 }
 
 void GroundBlock::AslMRow(LongitudeLatitude from,

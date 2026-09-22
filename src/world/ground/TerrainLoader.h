@@ -12,6 +12,7 @@
 #include "ChunkSurface.h"
 #include "GroundQuery.h"
 #include "GroundSample.h"
+#include "TileSourceIdentity.h"
 #include "TilePool.h"
 
 namespace outshine::Data {
@@ -43,7 +44,10 @@ public:
 
   void AslMRow(LongitudeLatitude from, double lonStepDeg, std::span<double> out) const noexcept;
 
-  static GroundBlock Over(const float *nodes, TileSpot at, Sampling raster) {
+  static GroundBlock Over(const float *nodes,
+                          TileSpot at,
+                          Sampling raster,
+                          std::span<const Data::TileSourceIdentity> sources = {}) {
     GroundBlock out;
     out.Nodes_ = nodes;
     out.Zoom_ = at.Zoom;
@@ -51,6 +55,7 @@ public:
     out.Y_ = at.Y;
     out.Side_ = raster.Side;
     out.Postings_ = raster.Postings;
+    out.Sources_ = sources;
     out.Where_ = nodes != nullptr ? State::Resolved : State::Missing;
     return out;
   }
@@ -67,11 +72,16 @@ public:
 
   [[nodiscard]] Sampling Raster() const noexcept { return {.Side = Side_, .Postings = Postings_}; }
 
+  [[nodiscard]] std::span<const Data::TileSourceIdentity> Sources() const noexcept {
+    return Sources_;
+  }
+
 private:
   const float *Nodes_ = nullptr;
   long X_ = 0, Y_ = 0;
   int Zoom_ = 0, Side_ = 0;
   uint32_t Postings_ = 0;
+  std::span<const Data::TileSourceIdentity> Sources_;
   State Where_ = State::Missing;
 };
 

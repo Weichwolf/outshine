@@ -83,6 +83,14 @@ int main() {
   TerrainTiles shaped(unused, EnuFrame::At(Geo{}), Cache());
   shaped.Shapes({.Kind = "sineRidge", .AmplitudeM = 30.0, .WavelengthM = 100.0});
   const auto before = shaped.StitchedField(0, 0, 0);
+  std::vector<float> nodes;
+  std::vector<Data::TileSourceIdentity> meshSources;
+  uint32_t postings = 0;
+  int side = 0;
+  CHECK(shaped.NodesOf({.Zoom = 0, .X = 0, .Y = 0}, 4, &nodes, &meshSources, &postings, &side) ==
+                TerrainGrid::State::Decoded &&
+            before && std::ranges::equal(before->Sources(), meshSources),
+        "sampled mesh product retains the stitched source set");
   shaped.Shapes({.Kind = "sineRidge", .AmplitudeM = 30.0, .WavelengthM = 100.0});
   CHECK(shaped.StitchedField(0, 0, 0) == before,
         "repeating unchanged shape parameters preserves the stitched cache");

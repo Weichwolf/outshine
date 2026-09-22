@@ -1,4 +1,5 @@
 #include "TerrainLoader.h"
+#include "HeightField.h"
 #include "SourceSet.h"
 #include "Check.h"
 #include <atomic>
@@ -9,7 +10,8 @@
 namespace {
 class DelayedSource final : public outshine::Data::Source {
 public:
-  outshine::Data::SourceDecl Decl{.Id = "delayed", .Keeps = outshine::Data::Cacheability::Never};
+  outshine::Data::SourceDecl Decl{
+      .Id = "delayed", .Revision = "r1", .Keeps = outshine::Data::Cacheability::Never};
   std::thread::id Caller = std::this_thread::get_id();
   mutable std::atomic<bool> CalledOnCaller{false};
   std::atomic<bool> Released{false};
@@ -83,5 +85,17 @@ int main() {
     CHECK_NEAR(*sample.AslM(), 42.0, 0.001, "m", "decoded terrain height preserved");
   }
   CHECK(!probe->CalledOnCaller, "retry also leaves source work on carriers");
+  const Ground::GroundBlock block = ground.BlockAt(Ground::HeightField::SpotOf({}, 4));
+  CHECK(block.Where() == Ground::GroundBlock::State::Resolved && !block.Sources().empty(),
+        "resident ground block carries its source set");
+  Ground::HeightField::Block copied;
+  CHECK(Ground::HeightField::Copies(block, copied) &&
+            copied.Sources.size() == block.Sources().size(),
+        "height snapshot owns the resident source set");
+  CHECK(std::ranges::all_of(copied.Sources,
+                            [](const Data::TileSourceIdentity &identity) {
+                              return identity.SourceId == "delayed" && identity.Revision == "r1";
+                            }),
+        "height snapshot retains provider revision");
   return Report();
 }

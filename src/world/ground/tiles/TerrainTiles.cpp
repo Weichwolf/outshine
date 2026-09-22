@@ -368,9 +368,14 @@ void FillNodeHeights(const TerrainField &field,
   }
 }
 
-TerrainGrid::State TerrainTiles::NodesOf(
-    Data::TileId of, int grid, std::vector<float> *out, uint32_t *postings, int *side) {
+TerrainGrid::State TerrainTiles::NodesOf(Data::TileId of,
+                                         int grid,
+                                         std::vector<float> *out,
+                                         std::vector<Data::TileSourceIdentity> *sources,
+                                         uint32_t *postings,
+                                         int *side) {
   out->clear();
+  sources->clear();
   *postings = 0;
   *side = 0;
   const TerrainGrid stitched = StitchedGrid(of.Zoom, of.X, of.Y);
@@ -383,6 +388,7 @@ TerrainGrid::State TerrainTiles::NodesOf(
     return TerrainGrid::State::Refused;
   }
   FillNodeHeights(*field, rows, cols, nodes, out);
+  sources->assign(field->Sources().begin(), field->Sources().end());
   *postings = cols;
   *side = nodes;
   return TerrainGrid::State::Decoded;

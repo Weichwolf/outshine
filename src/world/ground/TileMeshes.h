@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "Address.h"
+#include "TileSourceIdentity.h"
 #include <array>
 #include <cstddef>
 #include <type_traits>
@@ -13,6 +14,7 @@ namespace outshine {
 
 struct TileBuild {
   std::vector<float> Nodes;
+  std::vector<Data::TileSourceIdentity> Sources;
   int Side = 0;
   uint32_t Postings = 0;
 };

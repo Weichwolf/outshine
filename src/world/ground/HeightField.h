@@ -18,6 +18,7 @@ public:
     TileSpot At;
     Sampling Raster;
     std::vector<float> Nodes;
+    std::vector<Data::TileSourceIdentity> Sources;
   };
 
   [[nodiscard]] static TileSpot SpotOf(LongitudeLatitude at, int zoom) noexcept {
@@ -37,6 +38,7 @@ public:
     into.At = block.Spot();
     into.Raster = raster;
     into.Nodes.assign(block.Nodes(), block.Nodes() + side * side);
+    into.Sources.assign(block.Sources().begin(), block.Sources().end());
     return true;
   }
 
@@ -47,6 +49,7 @@ public:
     into.Raster = {.Side = static_cast<int>(field->Cols()), .Postings = field->Cols()};
     into.Nodes.assign(field->Data(),
                       field->Data() + static_cast<size_t>(field->Rows()) * field->Cols());
+    into.Sources.assign(field->Sources().begin(), field->Sources().end());
     return true;
   }
 
@@ -56,6 +59,8 @@ public:
   }
 
   [[nodiscard]] bool Fallback() const noexcept { return Fallback_; }
+
+  [[nodiscard]] std::span<const Block> Blocks() const noexcept { return Blocks_; }
 
   [[nodiscard]] GroundSample At(LongitudeLatitude at) const noexcept {
     const TileSpot spot = SpotOf(at, Zoom_);
@@ -71,7 +76,13 @@ public:
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = 0;
-    for (const Block &one : Blocks_) { bytes += one.Nodes.capacity() * sizeof(float); }
+    for (const Block &one : Blocks_) {
+      bytes += one.Nodes.capacity() * sizeof(float) +
+               one.Sources.capacity() * sizeof(Data::TileSourceIdentity);
+      for (const auto &source : one.Sources) {
+        bytes += source.SourceId.capacity() + source.Revision.capacity();
+      }
+    }
     return bytes;
   }
 
