@@ -1194,8 +1194,21 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
-  if (World.Stack.Ways().Ways().size() != build.NetworkOfWays) {
+  const std::optional<GroundRevision> &publishedRevision = World.GroundPublished.Current();
+  const GroundRevision &requestedRevision = state.Revision();
+  const bool networkSourcesChanged =
+      !publishedRevision || publishedRevision->Region != requestedRevision.Region ||
+      publishedRevision->ResidentTiles != requestedRevision.ResidentTiles ||
+      publishedRevision->VectorGeneration != requestedRevision.VectorGeneration ||
+      publishedRevision->StreetTiles != requestedRevision.StreetTiles;
+  if (build.Network == nullptr || World.Stack.Ways().Ways().size() != build.NetworkOfWays ||
+      networkSourcesChanged) {
     const Generators::Corridors::Mapped mapped = Generators::Corridors::MapOf(World.Stack);
+    if (!mapped.Refusal.empty()) {
+      Error = mapped.Refusal;
+      World.GroundBuild.reset();
+      return GroundBuildProgress::Failed;
+    }
     build.Network = mapped.Network;
     build.NetworkOfWays = World.Stack.Ways().Ways().size();
     Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
