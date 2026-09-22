@@ -26,7 +26,23 @@ void NetworkWeaveJob::SnapPoints(size_t itemsMost) {
   for (; NextPoint_ < end; ++NextPoint_) { Network_.SnapOnePoint(NextPoint_, NodeOf_, ByCell_); }
   if (NextPoint_ == NodeOf_.size()) {
     Outgoing_.resize(Network_.Nodes_.size());
-    Network_.EdgesFromWays(NodeOf_, Outgoing_);
+    Stage_ = Stage::BuildEdges;
+  }
+}
+
+void NetworkWeaveJob::BuildEdges(size_t itemsMost) {
+  size_t visited = 0;
+  while (NextWay_ < Network_.Ways_.size() && visited < itemsMost) {
+    const Network::Way &way = Network_.Ways_[NextWay_];
+    if (NextStep_ >= way.Count) {
+      ++NextWay_;
+      NextStep_ = 1;
+      continue;
+    }
+    Network_.AppendWayEdge(way, NextStep_++, NodeOf_, Outgoing_);
+    ++visited;
+  }
+  if (NextWay_ == Network_.Ways_.size()) {
     TieReachM_ = Network_.TieReachM();
     Network_.Tied_ = 0;
     Stage_ = Stage::IndexEdges;
@@ -118,6 +134,7 @@ std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
   if (itemsMost == 0) { return std::unexpected("network weave work budget is zero"); }
   switch (Stage_) {
     case Stage::SnapPoints: SnapPoints(itemsMost); break;
+    case Stage::BuildEdges: BuildEdges(itemsMost); break;
     case Stage::IndexEdges:
       if (auto indexed = IndexEdges(itemsMost); !indexed) {
         return std::unexpected(indexed.error());

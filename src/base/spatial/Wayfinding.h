@@ -284,6 +284,10 @@ private:
   static void FoldWayInto(Node &node, const Way &from);
   void SnapOnePoint(size_t point, std::vector<size_t> &nodeOf, CellsByKey &byCell);
   void SnapPointsIntoNodes(std::vector<size_t> &nodeOf, CellsByKey &byCell);
+  void AppendWayEdge(const Way &way,
+                     size_t step,
+                     std::span<const size_t> nodeOf,
+                     OutgoingEdges &outgoing) const;
   void EdgesFromWays(std::span<const size_t> nodeOf, OutgoingEdges &outgoing) const;
 
   struct Spanned {
@@ -421,9 +425,18 @@ public:
   [[nodiscard]] std::expected<Network, std::string_view> Take() &&;
 
 private:
-  enum class Stage : uint8_t { SnapPoints, IndexEdges, BuildAdjacency, TieEnds, Publish, Done };
+  enum class Stage : uint8_t {
+    SnapPoints,
+    BuildEdges,
+    IndexEdges,
+    BuildAdjacency,
+    TieEnds,
+    Publish,
+    Done
+  };
   explicit NetworkWeaveJob(Network &&network);
   void SnapPoints(size_t itemsMost);
+  void BuildEdges(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> IndexEdges(size_t itemsMost);
   void BuildAdjacency(size_t itemsMost);
   void TieEnds(size_t itemsMost);
@@ -438,6 +451,8 @@ private:
   Network::PhysicalAdjacency Adjacency_{0};
   double TieReachM_ = 0.0;
   size_t NextPoint_ = 0;
+  size_t NextWay_ = 0;
+  size_t NextStep_ = 1;
   size_t NextNode_ = 0;
   size_t NextEdge_ = 0;
   Stage Stage_ = Stage::SnapPoints;

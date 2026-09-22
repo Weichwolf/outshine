@@ -435,19 +435,24 @@ void Network::SnapPointsIntoNodes(std::vector<size_t> &nodeOf, CellsByKey &byCel
   }
 }
 
+void Network::AppendWayEdge(const Way &way,
+                            size_t step,
+                            std::span<const size_t> nodeOf,
+                            OutgoingEdges &outgoing) const {
+  const size_t from = nodeOf[way.First + step - 1];
+  const size_t to = nodeOf[way.First + step];
+  if (from == to) { return; }
+  const double lengthM =
+      ApartM({.LongitudeDeg = Nodes_[from].LongitudeDeg, .LatitudeDeg = Nodes_[from].LatitudeDeg},
+             {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
+             Sphere{.RadiusM = RadiusM_});
+  outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
+  if (!way.Oneway) { outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM}); }
+}
+
 void Network::EdgesFromWays(std::span<const size_t> nodeOf, OutgoingEdges &outgoing) const {
   for (const Way &way : Ways_) {
-    for (size_t step = 1; step < way.Count; ++step) {
-      const size_t from = nodeOf[way.First + step - 1];
-      const size_t to = nodeOf[way.First + step];
-      if (from == to) { continue; }
-      const double lengthM = ApartM(
-          {.LongitudeDeg = Nodes_[from].LongitudeDeg, .LatitudeDeg = Nodes_[from].LatitudeDeg},
-          {.LongitudeDeg = Nodes_[to].LongitudeDeg, .LatitudeDeg = Nodes_[to].LatitudeDeg},
-          Sphere{.RadiusM = RadiusM_});
-      outgoing[from].push_back(Edge{.To = to, .LengthM = lengthM});
-      if (!way.Oneway) { outgoing[to].push_back(Edge{.To = from, .LengthM = lengthM}); }
-    }
+    for (size_t step = 1; step < way.Count; ++step) { AppendWayEdge(way, step, nodeOf, outgoing); }
   }
 }
 
