@@ -14,29 +14,18 @@ Tags: streaming, realtime, ownership
 Candidate ownership, phase scheduling and atomic publication exist. Floor-contact,
 Lattice and paced-readiness fixtures passed at bd8693885. These establish readiness
 and local contracts, not equal native products under different pacing or frame budgets.
-Historical single-run timings are in Git; no p95/p99 claim follows from them.
-On 2026-09-21 Malcesine's 120 measured frames after Playable preload gave
-p50 3.03, p95 694.92 and p99 711.90 ms, with 41/120 above 16.67 ms and
-564 MB peak heap. Advance dominates (p99 711.43 ms); render p99 is 4.90 ms.
-These are observed client timings, not accepted budgets. Find and slice the
-responsible native build/publication units without moving work out of the
-measurement window.
-The repeated `shots --no-vegetation --measures Malcesine` run gave p95 640.81 ms
-and 39/120 over budget. Its last candidate reported earthworks 395.085 ms,
-terrain mesh 183.774 ms and corridors 72.491 ms. These phase samples identify
-where to instrument next; they are neither per-frame maxima nor distributions.
-The follow-up split measured 47.472 ms in sheet handoff and 140.658 ms in
-native meshing across 2887 sheets. Both mesh passes now advance 96 sheets per
-frame. Stitching took 0.856 ms; residency took 46.336 ms before slicing.
-Residency now prepares the complete key set, stages 128 pages per frame in the
-isolated candidate renderer and publishes terrain tiles only after the last page.
-Malcesine reached Refined after 154 measured frames: longest residency slice
-7.745 ms, p95 668.08 ms, 37/154 over budget. Earthworks and corridors remain
-unbounded. The image is visually unchanged, but 0.0601% of pixels differed
-near one shore building in an earlier run; diagnose input readiness versus
-geometry. Shot timing continues after 120 frames only until Refined, capped at
-240 measured frames. The direct staged/one-shot digest and late GPU failure
-tests pass; candidate isolation still needs cancellation and memory-peak proof.
+Current client run 590696be3, Malcesine without vegetation, through refinement:
+p50 2.08, p95 4.25, p99 598.35 ms; 36/2408 frames exceed 16.67 ms.
+Simulation p99 597.81/worst 671.65 ms; draw p99 2.12/worst 9.98 ms; peak heap 852 MB.
+Latest candidate: 2887 haloed/rendered sheets; longest earthwork slice 11.671 ms,
+initial/native mesh slices 10.677/11.127 ms, Floors slice 1.204 ms.
+Earthworks total 727.445 ms and haloing total 205.550 ms are accumulated phase costs,
+not per-frame maxima. These samples do not attribute the remaining ~672 ms stall.
+Instrument remaining synchronous ingestion/rebuild/commit phases before splitting
+FloorsOf merely because it is still unsliced. Preserve the full refinement window.
+Static candidate ownership, sliced mesh/residency and reject-before-write already
+work; retain them and identify the first measured unit exceeding its tick budget.
+Historical timing sequences remain in Git, not as current acceptance evidence.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
 also with NDEBUG. The defect was a combination of arrival-ordered `OsmField` indices,
@@ -98,7 +87,7 @@ end-to-end progress. Do not add a second rendering client.
    `FloorsOf` passes in `TerrainPressJob::Advance(Floors)`. Also measure
    `OsmField::PublishParsed`, which rebuilds the entire resident vector snapshot.
    Do not call these bounded because surrounding loops yield. Malcesine-762c673c
-   measured sim p99 616.11 ms and draw p99 2.49 ms over the refinement run;
+   measured sim p99 597.81 ms and draw p99 2.12 ms over the refinement run;
    those aggregate values do not identify the responsible phase. Measure first,
    split the dominant unit, preserve global decisions and completed native products.
 

@@ -25,13 +25,23 @@ Die konkrete Entstehung jeder Wand ist noch durch Höhen-/Stamp-/Sheet-Diagnosti
 ## Implementierung
 
 Aktueller Render 590696be3: Malcesine-8dd84aa7 geöffnet, Vorhang unverändert.
-Materialfix verändert 667863/921600 Pixel, nicht die Geometrie (110345 Dreiecke).
+Materialfix verändert 667863/921600 Pixel; Geometriepfade blieben unverändert.
+Die 110345 gemeldeten Dreiecke zählen Gebäude, nicht die Terrain-Lattice.
 Sim p99 622.93 ms, Draw p99 2.28 ms; Refinement enthalten, kein Steady-State-Nachweis.
 Rohkachel 11/1084/731 im ContentStore unabhängig per PIL/Terrarium-Formel gelesen:
 256×256, 52.19..1554.58 m; größter horizontaler Nachbarsprung 100.35 m bei (75,69).
 Das allein beweist weder die finale Geometrie noch fehlerfreie Quelldaten.
 Zuerst dieselben geographischen Uferproben vor/nach Stitching und Press sowie
 am GPU-Höhenpage-Eingang vergleichen; erste abweichende Stufe korrigieren.
+Messlauf 590696be3 (`shots --no-vegetation --measures Malcesine`):
+maximaler Press-Abtrag 29.822 m, Auftrag 28.680 m. Roh-DEM z11 entlang Bearing 290°:
+(45.755608,10.758108) 61.00 m; (45.757145,10.752060) 46.43 m;
+(45.758681,10.746012) 468.91 m. Unabhängig als nächster PNG-Pixel dekodiert,
+keine interpolierte Höhenabnahme. Der mehrere hundert Meter hohe Uferhang ist
+bereits in den Rohdaten; nicht pauschal glätten oder als Stamp-Fehler behandeln.
+Vergleiche jetzt lokale Querprofile und Normalen an derselben Wand vor/nach GPU-
+Rekonstruktion. Korrekte steile Reliefs erhalten; regelmäßige Falten/Zähne getrennt
+von fehlendem plausiblem Felsdetail bewerten. Webcam fehlt lokal weiterhin.
 Keine weitere allgemeine LOD-Refaktorierung vor dieser lokalen Ursachenklärung.
 2123 ist Integration der späteren LOD-Leiter, kein Blocker dieser Korrektur.
 
@@ -68,7 +78,7 @@ Felswand vergleichen. Tatsächliche Felswände erhalten; künstliche Falten loka
 - [ ] Plane einschließlich steiler Plane hat Nullfehler; versetzter Peak, schmale Rinne,
       nachträglicher Stamp und seitlich gesehene Reliefwand lösen notwendige Verfeinerung aus.
       Unendlich große Toleranz lässt das Fehleroracle rot werden.
-- [ ] Malcesine: kein Vorhang, keine Zähne; seitliche Details tragen Licht/Silhouette auch bei
+- [ ] Malcesine: keine künstlichen Falten/Zähne; reale Steilhänge erhalten. Details tragen Licht/Silhouette bei
       Kamerabewegung. Koerbersee: Grate/Rinnen bleiben erhalten. Feldkirch: keine erfundene Nahwand.
 - [ ] 1-px-Ziel getrennt gegen residente Daten und gegen Quellauflösung berichten; zusätzliche
       Dreiecke allein gelten nicht als Beweis. 2092 misst Kosten und maximale Framezeit.
