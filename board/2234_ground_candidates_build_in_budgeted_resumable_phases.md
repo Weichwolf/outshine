@@ -26,7 +26,8 @@ Unprofiled baseline was simulation p99 597.81/worst 671.65 ms. Profiling samples
 attribute work; they are not independent frame-time measurements.
 Remaining: 2887 sheets; longest earthwork slice 11.670 ms. Previous initial/native
 mesh slices 10.677/11.127 ms and Floors 1.204 ms do not explain the remaining
-265.85 ms maximum. Profile the corrected build before selecting the next unit.
+265.85 ms maximum. Next unit: WI 2253 removes worker waits in refinement/halos, confirmed by the
+corrected-build profile (FieldAwaited -> condition_variable::wait).
 Preserve the full refinement window. Retain atomic ownership and sliced work;
 no lower-detail workaround or movement of stalls outside the measurement window.
 
