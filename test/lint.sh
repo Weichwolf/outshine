@@ -71,7 +71,7 @@ printf '\n== analysis ==\n'
 analysis_status=0
 if [ "$compile_database" -eq 1 ]; then
   python3 test/scripts/tidy_analysis.py --root "$PWD" --report "$REPORT" \
-    --tool "$LLVM/clang-tidy" --jobs "$(sysctl -n hw.ncpu)" || analysis_status=$?
+    --tool "$LLVM/clang-tidy" --jobs "${LINT_JOBS:-$(sysctl -n hw.ncpu)}" || analysis_status=$?
   found=$(wc -l < "$REPORT/tidy.unique" | tr -d ' ')
   # Execution status is independent of finding count: zero is valid only after every unit ran.
   grep -o '\[[a-z-]*\]$' "$REPORT/tidy.unique" | sort | uniq -c | sort -rn > "$REPORT/tidy.checks"

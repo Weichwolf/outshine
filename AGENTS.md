@@ -111,8 +111,21 @@ gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
   beide benutzen die öffentliche API. Direkte API-Tests prüfen Zustands-/Fehlerverträge.
 - Tests spiegeln Zuständigkeiten: `test/outshine/include/<Header>/`,
   `test/outshine/src/<Komponente>/`, Places unter `test/outshine/integration/places/`.
-- Änderung vollständig bündeln, dann `make format`, fokussierte Suite und `make lint`. Während
-  eines Gates nichts ändern; Ergebnis erst nach Prozessende melden.
+- Code-/Shader-/Build-/Teständerungen vollständig bündeln, dann `make format`, fokussierte
+  Suite und `make lint`. Öffentliche API-Dokumentation gehört ebenfalls zum vollständigen Gate.
+- Nur `board/` oder diese Datei geändert: `make lint-docs`. Das prüft Board und Anweisungsverweise,
+  nicht die Engine. Frühere Codeprüfungen nur bei unverändertem Code und unveränderter Toolchain
+  weiterverwenden; keinen offenen roten Befund damit schließen.
+- Ein Gate sperrt nur seinen eigenen Worktree. Während es läuft dort nichts ändern; Ergebnis
+  erst nach Prozessende melden und dem geprüften Commit zuordnen. In einem zweiten Worktree
+  unabhängig weiterarbeiten. Änderungen am geprüften Stand verlangen erneute betroffene Gates.
+- Bei längeren Gates einen lokalen Commit in einem separaten detached Worktree prüfen
+  (`git worktree add --detach <prüfpfad> <commit>`). Eigene Build-/Testverzeichnisse verwenden;
+  `build/` niemals zwischen Worktrees teilen. Die Test-Nests sind bereits checkoutbezogen.
+  Nur einen schweren Build-/Lint-/Renderlauf gleichzeitig starten; `LINT_JOBS=2 make lint`
+  begrenzt clang-tidy für nebenläufige leichte Arbeit. Fehler auf dem Arbeitsbranch beheben,
+  neuen Commit erneut prüfen; Ergebnis eines alten Commits gilt nicht für dessen Nachfolger.
+  Kein `make spotless` während anderer Gates: es löscht checkoutübergreifende Test-Nests.
 - Modernes C++23: minimale API, Encapsulation, Composition, Zustandsautomaten, RAII und explizite
   Ownership. `[[nodiscard]]`, `constexpr`, `static_assert`, `string_view` und `span` nach Vertrag.
 - Hot Paths sind cachefreundlich, gebündelt und begrenzt. Keine versteckten Allokationen, Kopien,

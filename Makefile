@@ -117,6 +117,10 @@ db: crown-provenance ## compile_commands.json for clangd, clang-tidy and clang-f
 lint: ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 
+.PHONY: lint-docs
+lint-docs: ## board and AGENTS contracts only; no engine build or C++ analysis
+	@cd $(SELF_DIR) && sh test/lint-docs.sh
+
 doc:             ## the door's documentation -> build/doc
 	@cd $(SELF_DIR) && doxygen doc/Doxyfile
 
