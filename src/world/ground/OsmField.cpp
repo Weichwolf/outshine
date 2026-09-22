@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include "math/Units.h"
 #include "OsmField.h"
 
@@ -29,6 +30,7 @@
 namespace outshine::Ground {
 
 constexpr double kNoLeastYet = 1e9;
+constexpr size_t kAssemblyTilesPerBuild = 4;
 
 namespace {
 
@@ -45,8 +47,19 @@ uint64_t TileKey(int x, int y) {
 
 }
 
+struct OsmField::AssemblyState {
+  explicit AssemblyState(int zoom, std::span<const std::string> layers) : Rebuilt(zoom, layers) {}
+
+  OsmField Rebuilt;
+  OsmStorageUsage Usage;
+  std::vector<size_t> Order;
+  size_t Next = 0;
+};
+
 OsmField::OsmField(int zoom, std::span<const std::string> layers)
     : Layers_(layers.begin(), layers.end()), Zoom_(zoom) {}
+
+OsmField::~OsmField() = default;
 
 uint32_t OsmField::Intern(std::vector<std::string> &pool,
                           std::unordered_map<std::string, uint32_t> &index,
@@ -129,7 +142,10 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
   const auto window =
       TileWindowFor({.Centre = *centre, .Zoom = Zoom_, .Radius = ringTiles, .Budget = tileBudget});
   if (!window) { return std::unexpected(window.error()); }
-  if (CentreX_ != centre->X || CentreY_ != centre->Y) { Stage_ = SnapshotStage::Empty; }
+  if (CentreX_ != centre->X || CentreY_ != centre->Y) {
+    Stage_ = SnapshotStage::Empty;
+    Assembly_.reset();
+  }
   Pending_ = 0;
   Refused_ = 0;
   CentreX_ = centre->X;
@@ -170,10 +186,12 @@ std::expected<void, std::string_view> OsmField::PublishReady(TileAt centre) {
     PublishedSettledTiles_ = 1;
   } else if (Stage_ != SnapshotStage::Empty && Pending_ == 0 && Refused_ == 0 &&
              PublishedSettledTiles_ != Settled_.size()) {
-    const auto published = PublishParsed(nullptr, std::nullopt);
+    const auto published = AdvanceAssembly();
     if (!published) { return std::unexpected(published.error()); }
-    Stage_ = SnapshotStage::Complete;
-    PublishedSettledTiles_ = Settled_.size();
+    if (*published) {
+      Stage_ = SnapshotStage::Complete;
+      PublishedSettledTiles_ = Settled_.size();
+    }
   }
 
   return {};
@@ -188,6 +206,7 @@ bool OsmField::SettledWithin(int rings) const {
       Zoom_ >= std::numeric_limits<int>::digits) {
     return false;
   }
+  if (rings > 0 && (Stage_ != SnapshotStage::Complete || Assembly_)) { return false; }
   const int last = static_cast<int>((uint64_t{1} << static_cast<unsigned>(Zoom_)) - 1);
   for (int y = std::max(0, CentreY_ - rings); y <= std::min(last, CentreY_ + rings); ++y) {
     for (int x = std::max(0, CentreX_ - rings); x <= std::min(last, CentreX_ + rings); ++x) {
@@ -199,7 +218,10 @@ bool OsmField::SettledWithin(int rings) const {
 
 void OsmField::Settle(int x, int y) {
   const uint64_t key = TileKey(x, y);
-  if (std::ranges::find(Settled_, key) == Settled_.end()) { Settled_.push_back(key); }
+  if (std::ranges::find(Settled_, key) == Settled_.end()) {
+    Settled_.push_back(key);
+    Assembly_.reset();
+  }
 }
 
 int OsmField::TileIndex(int x, int y) const {
@@ -327,6 +349,7 @@ OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
           .Revision = {}}};
   const auto published = PublishParsed(&parsed, std::nullopt);
   if (!published) { return std::unexpected(published.error()); }
+  Assembly_.reset();
   const auto previous = std::ranges::find_if(ParsedTiles_, [tx, ty](const ParsedTile &tile) {
     return tile.At.X == tx && tile.At.Y == ty;
   });
@@ -363,26 +386,65 @@ std::expected<void, std::string_view> OsmField::PublishParsed(const ParsedTile *
   OsmField rebuilt(Zoom_, Layers_);
   OsmStorageUsage usage;
   for (const ParsedTile *tile : ordered) {
-    if (!FitsNativeStorage(usage, tile->Layers)) {
+    if (!rebuilt.AppendParsedTile(*tile, usage)) {
       return std::unexpected(Says::kOsmIndexCapacity);
     }
-    const size_t first = rebuilt.Features_.size();
-    rebuilt.Tiles_.push_back(Tile{.Z = Zoom_,
-                                  .X = tile->At.X,
-                                  .Y = tile->At.Y,
-                                  .FirstFeature = static_cast<uint32_t>(first),
-                                  .FeatureCount = 0,
-                                  .Source = tile->Source});
-    for (size_t i = 0; i < tile->Layers.size(); ++i) {
-      const auto &layer = tile->Layers[i];
-      if (layer) {
-        rebuilt.AppendLayer(*layer, static_cast<uint16_t>(i));
-      } else {
-        ++rebuilt.Missing_;
-      }
-    }
-    rebuilt.Tiles_.back().FeatureCount = static_cast<uint32_t>(rebuilt.Features_.size() - first);
   }
+  CommitParsed(rebuilt);
+  return {};
+}
+
+std::expected<bool, std::string_view> OsmField::AdvanceAssembly() {
+  if (!Assembly_) {
+    auto assembly = std::make_unique<AssemblyState>(Zoom_, Layers_);
+    assembly->Order.reserve(ParsedTiles_.size());
+    for (size_t index = 0; index < ParsedTiles_.size(); ++index) {
+      assembly->Order.push_back(index);
+    }
+    std::ranges::sort(assembly->Order, [this](size_t left, size_t right) {
+      const TileAt a = ParsedTiles_[left].At;
+      const TileAt b = ParsedTiles_[right].At;
+      return a.Y == b.Y ? a.X < b.X : a.Y < b.Y;
+    });
+    Assembly_ = std::move(assembly);
+  }
+  AssemblyState &assembly = *Assembly_;
+  const size_t end = std::min(assembly.Next + kAssemblyTilesPerBuild, assembly.Order.size());
+  for (; assembly.Next < end; ++assembly.Next) {
+    const ParsedTile &tile = ParsedTiles_[assembly.Order[assembly.Next]];
+    if (!assembly.Rebuilt.AppendParsedTile(tile, assembly.Usage)) {
+      Assembly_.reset();
+      return std::unexpected(Says::kOsmIndexCapacity);
+    }
+  }
+  if (assembly.Next < assembly.Order.size()) { return false; }
+  CommitParsed(assembly.Rebuilt);
+  Assembly_.reset();
+  return true;
+}
+
+bool OsmField::AppendParsedTile(const ParsedTile &tile, OsmStorageUsage &usage) {
+  if (!FitsNativeStorage(usage, tile.Layers)) { return false; }
+  const size_t first = Features_.size();
+  Tiles_.push_back(Tile{.Z = Zoom_,
+                        .X = tile.At.X,
+                        .Y = tile.At.Y,
+                        .FirstFeature = static_cast<uint32_t>(first),
+                        .FeatureCount = 0,
+                        .Source = tile.Source});
+  for (size_t i = 0; i < tile.Layers.size(); ++i) {
+    const auto &layer = tile.Layers[i];
+    if (layer) {
+      AppendLayer(*layer, static_cast<uint16_t>(i));
+    } else {
+      ++Missing_;
+    }
+  }
+  Tiles_.back().FeatureCount = static_cast<uint32_t>(Features_.size() - first);
+  return true;
+}
+
+void OsmField::CommitParsed(OsmField &rebuilt) {
   Features_ = std::move(rebuilt.Features_);
   Rings_ = std::move(rebuilt.Rings_);
   Points_ = std::move(rebuilt.Points_);
@@ -396,7 +458,6 @@ std::expected<void, std::string_view> OsmField::PublishParsed(const ParsedTile *
   Extent_ = rebuilt.Extent_;
   Missing_ = rebuilt.Missing_;
   ++Generation_;
-  return {};
 }
 
 void OsmField::AppendLayer(const OsmVector &layer, uint16_t layerIndex) {
@@ -492,10 +553,13 @@ size_t OsmField::HeapBytes() const {
 
   const size_t nodes = (KeyIndex_.size() + StringIndex_.size()) *
                        (sizeof(std::string) + sizeof(uint32_t) + 2 * sizeof(void *));
+  const size_t assembly = Assembly_ ? sizeof(AssemblyState) + CapacityBytes(Assembly_->Order) +
+                                          Assembly_->Rebuilt.HeapBytes()
+                                    : 0;
   return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
          CapacityBytes(Tiles_) + CapacityBytes(Tags_) + CapacityBytes(Values_) +
          CapacityBytes(Settled_) + CapacityBytes(Scratch_.Bytes) + CapacityBytes(Keys_) +
-         CapacityBytes(Strings_) + CapacityBytes(Layers_) + strings + nodes + parsed;
+         CapacityBytes(Strings_) + CapacityBytes(Layers_) + strings + nodes + parsed + assembly;
 }
 
 int OsmField::Layer(const char *name) const {
@@ -632,6 +696,7 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
   Points_.clear();
   Tiles_.clear();
   ParsedTiles_.clear();
+  Assembly_.reset();
   Tags_.clear();
   Values_.clear();
   Keys_.clear();

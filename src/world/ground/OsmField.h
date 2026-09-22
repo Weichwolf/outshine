@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <expected>
 #include <initializer_list>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -18,6 +19,8 @@
 #include "TileSourceIdentity.h"
 
 namespace outshine::Ground {
+
+struct OsmStorageUsage;
 
 struct FeatureRun {
   size_t From = 0;
@@ -52,6 +55,7 @@ public:
   };
 
   OsmField(int zoom, std::span<const std::string> layers);
+  ~OsmField();
 
   [[nodiscard]] static std::expected<TileAt, std::string_view> Locate(LongitudeLatitude at,
                                                                       int zoom) noexcept;
@@ -90,7 +94,9 @@ public:
 
   [[nodiscard]] long BadTiles() const { return Bad_; }
 
-  [[nodiscard]] int PendingTiles() const { return Pending_; }
+  [[nodiscard]] int PendingTiles() const {
+    return Pending_ + static_cast<int>(Assembly_ != nullptr);
+  }
 
   [[nodiscard]] int RefusedTiles() const { return Refused_; }
 
@@ -162,12 +168,17 @@ private:
     Data::TileSourceIdentity Source;
   };
 
+  struct AssemblyState;
+
   enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
 
   [[nodiscard]] std::expected<Fetched, std::string_view> AddTile(TilePool &tiles, TileAt at);
   [[nodiscard]] std::expected<void, std::string_view> PublishParsed(const ParsedTile *replacement,
                                                                     std::optional<TileAt> contact);
   [[nodiscard]] std::expected<void, std::string_view> PublishReady(TileAt centre);
+  [[nodiscard]] std::expected<bool, std::string_view> AdvanceAssembly();
+  [[nodiscard]] bool AppendParsedTile(const ParsedTile &tile, OsmStorageUsage &usage);
+  void CommitParsed(OsmField &rebuilt);
   void AppendLayer(const OsmVector &layer, uint16_t layerIndex);
   void Settle(int x, int y);
   void AppendDeclaredFeature(const Declared &one);
@@ -176,6 +187,7 @@ private:
 
   std::vector<std::string> Layers_;
   std::vector<ParsedTile> ParsedTiles_;
+  std::unique_ptr<AssemblyState> Assembly_;
   SnapshotStage Stage_ = SnapshotStage::Empty;
   size_t PublishedSettledTiles_ = 0;
   std::vector<Feature> Features_;
