@@ -54,6 +54,18 @@ Quellwert wiederhergestellt. Logs: System-Temp, `outshine-skirt-probe-{lint,shot
 Nächste Ursache: Rohhöhen → resampelte Referenz → finale Stamps entlang derselben
 Felswand vergleichen. Tatsächliche Felswände erhalten; künstliche Falten lokalisieren.
 
+Messlauf 88290db42: 2879/2887 Pages sind virtuelle Verfeinerungen aus acht nativen
+Quellen, 0 Ränder fehlen. Vor dem LOD-Kantenstitch weichen feine Knoten maximal
+183.594 m vom groben Chord ab (1405 virtuelle Kanten); nachher werden sie exakt
+auf diesen Chord gezogen. Press hebt/senkt höchstens 28.680/29.822 m. Die
+Seam-Deformation ist damit ein konkreter Kandidat für die regelmäßigen Falten,
+noch kein Beweis für den sichtbaren Bildbereich. Koordinatenmessung am selben
+Digest: globales virtuelles Maximum 14.030° E / 45.089° N (z10/z9), reales
+Maximum 10.706° E / 45.337° N (z11/z10). Beide liegen fern der Kamera
+10.800445° E / 45.744855° N; die globale Zahl erklärt den Ufer-Vorhang nicht.
+Als Nächstes sichtbare Kanten nahe der Kamera und zugehörige Roh-/Finalprofile
+lokalisieren, bevor eine LOD- oder Quellenkorrektur erfolgt.
+
 1. Pro sichtbarem Patch Roh-DEM, finales gestempeltes Höhenfeld, Quellzoom, Sampleabstand,
    Höhenänderung, Patch-/Skirt-ID und geometrische Normale separat ausgeben. Faltenursache
    belegen, nicht eine Materialänderung als Geometriefix melden.

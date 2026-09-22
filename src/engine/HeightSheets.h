@@ -89,6 +89,10 @@ public:
     double EvenM = 0.0;
     double OddBeforeM = 0.0;
     double OddAfterM = 0.0;
+    double WorstLongitudeDeg = 0.0;
+    double WorstLatitudeDeg = 0.0;
+    int WorstFineZoom = 0;
+    int WorstCoarseZoom = 0;
     size_t Edges = 0;
   };
 

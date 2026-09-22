@@ -1405,6 +1405,12 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
     Published.Places(
         at + "odd nodes off the coarser chord before the stitch, worst", kind.OddBeforeM, "m");
     Published.Places(at + "odd nodes off the coarser chord after it, worst", kind.OddAfterM, "m");
+    if (kind.OddBeforeM > 0.0) {
+      Published.Places(at + "worst odd node longitude", kind.WorstLongitudeDeg, "deg");
+      Published.Places(at + "worst odd node latitude", kind.WorstLatitudeDeg, "deg");
+      Published.Places(at + "worst odd node fine zoom", kind.WorstFineZoom, "zoom");
+      Published.Places(at + "worst odd node coarse zoom", kind.WorstCoarseZoom, "zoom");
+    }
   }
   const uint64_t sheets = build.Sheets.Digest();
   Published.Places(

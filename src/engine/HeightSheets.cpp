@@ -264,7 +264,20 @@ void StitchAlong(Sheet &fine,
     float &height =
         fine.Nodes[edge.AlongJ ? PageNode(edge.FixedFine, k) : PageNode(k, edge.FixedFine)];
     if (kind != nullptr && k % static_cast<int>(scale) != 0) {
-      kind->OddBeforeM = std::max(kind->OddBeforeM, std::fabs(height - chord));
+      const double differenceM = std::fabs(height - chord);
+      if (differenceM > kind->OddBeforeM) {
+        kind->OddBeforeM = differenceM;
+        const double fraction = static_cast<double>(k) / static_cast<double>(side - 1);
+        const double fixed = static_cast<double>(edge.FixedFine) / static_cast<double>(side - 1);
+        const Ground::Geo at = Ground::TileFracToGeo(
+            {.X = static_cast<double>(fine.Tile.X) + (edge.AlongJ ? fixed : fraction),
+             .Y = static_cast<double>(fine.Tile.Y) + (edge.AlongJ ? fraction : fixed)},
+            fine.Tile.Zoom);
+        kind->WorstLongitudeDeg = at.LongitudeDeg;
+        kind->WorstLatitudeDeg = at.LatitudeDeg;
+        kind->WorstFineZoom = fine.Tile.Zoom;
+        kind->WorstCoarseZoom = coarse.Tile.Zoom;
+      }
     }
     height = static_cast<float>(chord);
     if (kind != nullptr) {
