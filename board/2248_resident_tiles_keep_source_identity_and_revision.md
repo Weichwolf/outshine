@@ -18,6 +18,10 @@ sorted source sets (3b41a5d2e). Resident `GroundStream` slots, copied
 `HeightField::Block`s and `TileBuild` now retain these source sets. Structure
 candidate identity, source-generation invalidation and rebake policy remain open.
 Runtime handles or arrival order are not source identities.
+`StructureBuildQueue::Gathers` synthesizes a 17×17 fallback block through
+`HeightSource = optional<double>(LongitudeLatitude)`; this callback carries no
+identity. `SourceSet::AddAll` still accepts registration after `TilePool` starts
+workers that retain source pointers and address-keyed caches.
 
 ## Decision
 
@@ -44,13 +48,20 @@ tile identity, including fallback/ancestor results.
 Cache hits must return the same provenance as fresh decoding. Shaped terrain
 uses an explicit identity from its declared parameters and seed.
 
+Seal source registration before `TilePool` starts workers; reject late `AddAll`
+atomically. Provider ID/revision declarations remain immutable while registered.
+Do not fabricate a DEM identity for scalar fallback samples: mark their blocks
+unqualified, always replace their structure products when fine fields arrive,
+and exclude them from fine-input equality checks.
+
 ## Implementation and acceptance
 
 1. Resident slots, structure height blocks and `TerrainTiles::NodesOf` now
    carry the exact stitched source set. Verify replacement, eviction and reload
    without later resident-tile enumeration. Account for retained capacity.
 2. A candidate's height snapshot reports identities for every DEM block used
-   by one structure tile. Pinned blocks remain valid until that bake completes;
+   by one structure tile; scalar fallback blocks report unqualified input.
+   Pinned blocks remain valid until that bake completes;
    a later source revision creates a new input generation, not an in-place
    mutation of an accepted product.
 3. Test two sources with equal bytes but different declared revisions, cache
