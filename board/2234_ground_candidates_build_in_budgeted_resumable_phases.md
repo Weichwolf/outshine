@@ -14,18 +14,21 @@ Tags: streaming, realtime, ownership
 Candidate ownership, phase scheduling and atomic publication exist. Floor-contact,
 Lattice and paced-readiness fixtures passed at bd8693885. These establish readiness
 and local contracts, not equal native products under different pacing or frame budgets.
-Current client run 590696be3, Malcesine without vegetation, through refinement:
-p50 2.08, p95 4.25, p99 598.35 ms; 36/2408 frames exceed 16.67 ms.
-Simulation p99 597.81/worst 671.65 ms; draw p99 2.12/worst 9.98 ms; peak heap 852 MB.
-Latest candidate: 2887 haloed/rendered sheets; longest earthwork slice 11.671 ms,
-initial/native mesh slices 10.677/11.127 ms, Floors slice 1.204 ms.
-Earthworks total 727.445 ms and haloing total 205.550 ms are accumulated phase costs,
-not per-frame maxima. These samples do not attribute the remaining ~672 ms stall.
-Instrument remaining synchronous ingestion/rebuild/commit phases before splitting
-FloorsOf merely because it is still unsliced. Preserve the full refinement window.
-Static candidate ownership, sliced mesh/residency and reject-before-write already
-work; retain them and identify the first measured unit exceeding its tick budget.
-Historical timing sequences remain in Git, not as current acceptance evidence.
+Current client run 12ed7a1d7, Malcesine without vegetation, through refinement:
+p50 2.15, p95 4.25, p99 34.84 ms; 36/2405 frames exceed 16.67 ms.
+Simulation p99 34.08/worst 265.85 ms; draw p99 2.23/worst 11.17 ms; peak heap 852 MB.
+Native macOS sample (`sample <client-pid> 20 1 -file <tmp-file>`) attributed
+11676/15041 main-thread samples to repeated atmosphere integration inside structure
+publication. RuntimeScene candidates now inherit the exact atmosphere cache before
+Build; unchanged air/sun no longer integrate. Focused tests and full lint pass;
+cache-reset mutation fails 18 checks. PNG opened; digest remains 8dd84aa7.
+Unprofiled baseline was simulation p99 597.81/worst 671.65 ms. Profiling samples
+attribute work; they are not independent frame-time measurements.
+Remaining: 2887 sheets; longest earthwork slice 11.670 ms. Previous initial/native
+mesh slices 10.677/11.127 ms and Floors 1.204 ms do not explain the remaining
+265.85 ms maximum. Profile the corrected build before selecting the next unit.
+Preserve the full refinement window. Retain atomic ownership and sliced work;
+no lower-detail workaround or movement of stalls outside the measurement window.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
 also with NDEBUG. The defect was a combination of arrival-ordered `OsmField` indices,
@@ -87,7 +90,7 @@ end-to-end progress. Do not add a second rendering client.
    `FloorsOf` passes in `TerrainPressJob::Advance(Floors)`. Also measure
    `OsmField::PublishParsed`, which rebuilds the entire resident vector snapshot.
    Do not call these bounded because surrounding loops yield. Malcesine-762c673c
-   measured sim p99 597.81 ms and draw p99 2.12 ms over the refinement run;
+   measured sim p99 34.08 ms and draw p99 2.23 ms after atmosphere-cache repair;
    those aggregate values do not identify the responsible phase. Measure first,
    split the dominant unit, preserve global decisions and completed native products.
 
