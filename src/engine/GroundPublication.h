@@ -23,6 +23,7 @@ struct GroundRevision {
   size_t ResidentTiles = 0;
   uint64_t Classes = 0;
   uint64_t Footprints = 0;
+  uint64_t VectorGeneration = 0;
   size_t StreetTiles = 0;
   size_t WaterTiles = 0;
   std::array<double, 3> Projection{};
@@ -39,6 +40,7 @@ public:
                                   bool missingRims) const noexcept {
     return !Current_ || Current_->Region != requested.Region ||
            Current_->Classes != requested.Classes || Current_->Footprints != requested.Footprints ||
+           Current_->VectorGeneration != requested.VectorGeneration ||
            Current_->StreetTiles != requested.StreetTiles ||
            Current_->WaterTiles != requested.WaterTiles ||
            Current_->Projection != requested.Projection ||

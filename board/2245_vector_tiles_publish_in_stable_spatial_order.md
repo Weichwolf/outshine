@@ -51,6 +51,20 @@ window's decoded products; keep the previous native publication intact until the
 new contact/full snapshot commits. Revisit must decode or reuse cache and produce
 the same canonical product. Test disjoint windows and return travel.
 
+`GroundRevision` currently compares ingested street/water tile counts but omits
+the vector publication generation. Replacing one native OSM snapshot with another
+at equal counts can therefore leave a candidate or published world marked current.
+Include the vector generation in revision matching and rebuild eligibility; a
+candidate must be discarded before it reads changed vectors. `SourceSet` is sealed
+for the declared scenario, so in-session provider registration/revision mutation
+is outside this contract; redeclaration resets the source set and publication.
+
+The paced product oracle read `the geometry the world built` from `World.Pieces`
+inside `Focuses`, before the next candidate was built. Once source generation
+restarts candidates at the correct revision, that value can describe different
+previous publications under different pacing. Move the diagnostic to successful
+publication; retain the same digest equality check against the final native world.
+
 ## Decision
 
 Fetch all requested tiles concurrently; never serialize IO behind the first pending

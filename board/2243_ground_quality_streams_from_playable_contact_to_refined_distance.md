@@ -35,6 +35,13 @@ zero requests and corridor draping failed without a DEM field. The candidate now
 waits for its contact mesh and rejects terminal zero-sheet terrain. The unchanged
 pacing oracle passes normal and validated modes.
 
+The vector-generation revision gate exposes the next timing case: Refined can
+start with a ready contact mesh while other requested terrain meshes are still
+pending. Roads from the new complete OSM snapshot then reach outside prepared
+DEM fields. Require all requested terrain meshes to settle before admitting a
+Refined patchwork; Playable still waits only for contact. Keep the unchanged
+pacing oracle and inspect refined completion time.
+
 ## Decision
 
 Ground residency has explicit quality, coverage and revision. The first publishable

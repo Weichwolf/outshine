@@ -120,6 +120,7 @@ public:
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
     return Revision_.Region == revision.Region && Revision_.Classes == revision.Classes &&
            Revision_.Footprints == revision.Footprints &&
+           Revision_.VectorGeneration == revision.VectorGeneration &&
            Revision_.StreetTiles == revision.StreetTiles &&
            Revision_.WaterTiles == revision.WaterTiles &&
            Revision_.Projection == revision.Projection && Revision_.Coverage == revision.Coverage &&
@@ -136,6 +137,7 @@ public:
     difference |= Revision_.Projection != revision.Projection ? 1u << 5u : 0u;
     difference |= Revision_.Coverage != revision.Coverage ? 1u << 6u : 0u;
     difference |= Revision_.Quality != revision.Quality ? 1u << 7u : 0u;
+    difference |= Revision_.VectorGeneration != revision.VectorGeneration ? 1u << 8u : 0u;
     return difference;
   }
 
@@ -522,6 +524,9 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                       .ResidentTiles = resident,
                       .Classes = classes,
                       .Footprints = footprints,
+                      .VectorGeneration = World.Stack.Vectors() != nullptr
+                                              ? World.Stack.Vectors()->Generation()
+                                              : 0,
                       .StreetTiles = World.Stack.Ways().IngestedTiles(),
                       .WaterTiles = World.Stack.WaterBodies().IngestedTiles(),
                       .Projection = projection,
@@ -573,12 +578,6 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
     return Laid::Unchanged;
   }
 
-  {
-    const uint64_t geometry = World.Pieces.Digest();
-    Published.Places(
-        "the geometry the world built, high half", static_cast<double>(geometry >> 32U), "digest");
-    Published.Places("and its low half", static_cast<double>(geometry & kLowWord), "digest");
-  }
   Published.Places(
       "rebuilds since the world stood", static_cast<double>(World.Relaid + 1u), "rebuilds");
   Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
@@ -1289,7 +1288,8 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundPatchwork(const Ar
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
-  if (made->ContactPending != 0 || made->Sheets.empty()) {
+  if (made->ContactPending != 0 || made->Sheets.empty() ||
+      (state.Revision().Quality == GroundQuality::Refined && made->Pending != 0)) {
     if (made->Pending != 0) { return GroundBuildProgress::Pending; }
     Error = Says::GroundContactIncomplete;
     World.GroundBuild.reset();
@@ -1580,6 +1580,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   Published.Places("ground publication: quality",
                    state.Revision().Quality == GroundQuality::Refined ? 1.0 : 0.0,
                    "0=playable 1=refined");
+  const uint64_t geometry = World.Pieces.Digest();
+  Published.Places(
+      "the geometry the world built, high half", static_cast<double>(geometry >> 32U), "digest");
+  Published.Places("and its low half", static_cast<double>(geometry & kLowWord), "digest");
   Published.Places("ground candidate: direct CPU product peak",
                    static_cast<double>(state.ProductPeakBytes()),
                    "bytes");
