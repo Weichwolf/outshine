@@ -210,8 +210,9 @@ void StructureBuildQueue::PostSlice(QueuedBuild &build) {
 
 void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
                                        Ground::BuildingField &prints,
-                                       LongitudeLatitude eye) {
-  while (!Queue_.empty() && !Queue_.front().Revision.Matches(vectors, prints, eye)) {
+                                       LongitudeLatitude eye,
+                                       HeightRequirement heights) {
+  while (!Queue_.empty() && !Queue_.front().Revision.Matches(vectors, prints, eye, heights)) {
     QueuedBuild &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
@@ -250,7 +251,8 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                   Ground::BuildingField &prints,
                                   LongitudeLatitude eye,
                                   const HeightSource &heightAt,
-                                  size_t candidatesMost) {
+                                  size_t candidatesMost,
+                                  HeightRequirement requirement) {
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
@@ -265,7 +267,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
       bool fallback = false;
       std::optional<std::vector<Ground::HeightField::Block>> blocks =
           BlocksUnder(stack.Ground(), true, blockZoom, vectors, over, heightAt);
-      if (!blocks) {
+      if (!blocks && requirement == HeightRequirement::AllowFallback) {
         fallback = true;
         blocks = BlocksUnder(stack.Ground(), false, blockZoom, vectors, over, heightAt);
       }
@@ -282,7 +284,8 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     const BakeRevision revision{.Vectors = vectors.Generation(),
                                 .FocalPx = prints.FocalPx(),
                                 .TileSpanM = prints.TileSpanM(),
-                                .Eye = eye};
+                                .Eye = eye,
+                                .FallbackHeights = heights->Fallback()};
     prints.Take(next->Tile);
     std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
     RawOf(vectors, prints, stack.Ways(), *next, eye, *raw);
@@ -310,12 +313,13 @@ std::expected<std::vector<StructureBuildQueue::Landing>, Generators::StructureBa
 StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
                                   Ground::BuildingField &prints,
                                   LongitudeLatitude eye,
-                                  size_t most) {
+                                  size_t most,
+                                  HeightRequirement heights) {
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
-  DiscardStale(*vectors, prints, eye);
+  DiscardStale(*vectors, prints, eye, heights);
   ResumeCompletedTasks();
   size_t count = 0;
   size_t printCount = 0;
@@ -324,7 +328,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   uint32_t largestTile = 0;
   while (count < most && count < Queue_.size()) {
     QueuedBuild &bake = Queue_[count];
-    if (!bake.Finished || !bake.Revision.Matches(*vectors, prints, eye)) { break; }
+    if (!bake.Finished || !bake.Revision.Matches(*vectors, prints, eye, heights)) { break; }
     if (!bake.Task.Result().Status) {
       if (count == 0) { return std::unexpected(bake.Task.Result().Status.error()); }
       break;

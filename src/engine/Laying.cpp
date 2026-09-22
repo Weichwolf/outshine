@@ -1230,8 +1230,11 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   GroundBuildState &state = *World.GroundBuild;
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
+  const auto heights = state.Revision().Quality == GroundQuality::Refined
+                           ? StructureBuildQueue::HeightRequirement::FineOnly
+                           : StructureBuildQueue::HeightRequirement::AllowFallback;
   auto ready = World.StructureBuilds.NextLandings(
-      World.Stack, state.Footprints(), WhereTheEyeStands(), landsMost);
+      World.Stack, state.Footprints(), WhereTheEyeStands(), landsMost, heights);
   if (!ready) {
     Error = Generators::Describe(ready.error());
     return false;
@@ -1247,8 +1250,12 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   const StructureBuildQueue::HeightSource heightAt = [&build, finestZoom](LongitudeLatitude at) {
     return build.Sheets.AslMAt(finestZoom, at);
   };
-  (void)World.StructureBuilds.Posts(
-      World.Stack, state.Footprints(), WhereTheEyeStands(), heightAt, StructureCandidatesMost());
+  (void)World.StructureBuilds.Posts(World.Stack,
+                                    state.Footprints(),
+                                    WhereTheEyeStands(),
+                                    heightAt,
+                                    StructureCandidatesMost(),
+                                    heights);
   return true;
 }
 

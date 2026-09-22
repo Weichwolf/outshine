@@ -109,12 +109,10 @@ Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behob
    Zähler und Tile-Ranges atomar austauschen, statt denselben Tile doppelt einzufügen.
    Test: Fallback publizieren, feine Höhe verspätet liefern; umgekehrt fertige
    Revisionen dürfen weder doppelte Footprints noch Rückschritt erzeugen.
-   Ankunftsreihenfolge darf die finalen Bake-Inputs nicht bestimmen.
+   FineOnly-Gate: Malcesine bleibt `762c673c`; Refined meldet Tile 24 weiterhin
+   als Fallback (1). Akzeptierte Tiles umgehen das Gate und brauchen Ersatz.
    Gleicher Backendstand und Snapshot liefern gleiche vereinbarte Bildmetrik.
    Backendübergreifende Bitgleichheit ist kein Vertrag.
 5. make format; make suite SUITE=outshine/include/Outshine; make lint;
    make shots PLACE='--no-vegetation --preload-seconds 120 Graz' zweimal.
    PNGs öffnen und mit test/scripts/pixels.py vergleichen. Keine Neupins zur Kaschierung.
-
-Die Ursachenuntersuchung ist sofort ausführbar. Nur deterministische Place-Abnahme
-wartet auf diesen Nachweis; native Migration und analytische Tests sind unabhängig.

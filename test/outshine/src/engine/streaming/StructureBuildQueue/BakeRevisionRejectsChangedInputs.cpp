@@ -24,6 +24,24 @@ int main() {
                                                    .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
   CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
         "posted bake inputs still match");
+  const StructureBuildQueue::BakeRevision fallbackRevision{
+      .Vectors = vectors.Generation(),
+      .FocalPx = footprints.FocalPx(),
+      .TileSpanM = footprints.TileSpanM(),
+      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .FallbackHeights = true};
+  CHECK(fallbackRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
+        "playable accepts fallback heights");
+  CHECK(!fallbackRevision.Matches(vectors,
+                                  footprints,
+                                  {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                  StructureBuildQueue::HeightRequirement::FineOnly),
+        "refined rejects a queued fallback bake");
+  CHECK(revision.Matches(vectors,
+                         footprints,
+                         {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                         StructureBuildQueue::HeightRequirement::FineOnly),
+        "refined accepts a queued fine bake");
   footprints.SeenWith(1080.0);
   CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}),
         "changed focal scale makes a bake stale");

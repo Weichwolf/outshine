@@ -25,6 +25,7 @@ namespace outshine {
 class StructureBuildQueue {
 public:
   static constexpr size_t kCandidateWindow = 4;
+  enum class HeightRequirement : uint8_t { AllowFallback, FineOnly };
 
   ~StructureBuildQueue();
 
@@ -38,13 +39,17 @@ public:
     double FocalPx = 0.0;
     double TileSpanM = 0.0;
     LongitudeLatitude Eye;
+    bool FallbackHeights = false;
 
-    [[nodiscard]] bool Matches(const Ground::OsmField &vectors,
-                               const Ground::BuildingField &footprints,
-                               LongitudeLatitude eye) const noexcept {
+    [[nodiscard]] bool
+    Matches(const Ground::OsmField &vectors,
+            const Ground::BuildingField &footprints,
+            LongitudeLatitude eye,
+            HeightRequirement heights = HeightRequirement::AllowFallback) const noexcept {
       return Vectors == vectors.Generation() && FocalPx == footprints.FocalPx() &&
              TileSpanM == footprints.TileSpanM() && Eye.LongitudeDeg == eye.LongitudeDeg &&
-             Eye.LatitudeDeg == eye.LatitudeDeg;
+             Eye.LatitudeDeg == eye.LatitudeDeg &&
+             (heights == HeightRequirement::AllowFallback || !FallbackHeights);
     }
   };
 
@@ -54,7 +59,8 @@ public:
                              Ground::BuildingField &footprints,
                              LongitudeLatitude eye,
                              const HeightSource &heightAt,
-                             size_t candidatesMost);
+                             size_t candidatesMost,
+                             HeightRequirement requirement = HeightRequirement::AllowFallback);
 
   struct Landing {
     uint32_t Tile = 0;
@@ -67,7 +73,8 @@ public:
   NextLandings(Ground::GroundStack &stack,
                Ground::BuildingField &footprints,
                LongitudeLatitude eye,
-               size_t most);
+               size_t most,
+               HeightRequirement heights = HeightRequirement::AllowFallback);
   void ResumeCompletedTasks();
   void CommitsLandings(Ground::GroundStack &stack,
                        Ground::BuildingField &footprints,
@@ -130,7 +137,8 @@ private:
   void PostSlice(QueuedBuild &build);
   void DiscardStale(const Ground::OsmField &vectors,
                     Ground::BuildingField &prints,
-                    LongitudeLatitude eye);
+                    LongitudeLatitude eye,
+                    HeightRequirement heights);
 
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
