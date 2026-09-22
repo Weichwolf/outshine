@@ -64,13 +64,13 @@ source revision, crossings and elevation; `Corridors` only consumes its frozen
 result. First prove analytic graph/route equality across slice sizes before
 replacing the Engine's synchronous `MapOf` call.
 
-First implementation slice: `NetworkWeaveJob` now resumes edge indexing,
-physical adjacency and loose-end splicing, preserving one-shot route behavior
-in the analytic directed-splice case at work sizes 1, 2 and 8. It is not yet
-used by the Engine. `Begin` still performs sorting, point snapping and edge
-creation synchronously; publication also remains one-shot. Split those phases,
-then integrate a candidate-owned world/navigation builder before claiming a
-frame-budget improvement.
+Implementation so far: `NetworkWeaveJob` resumes point snapping, edge indexing,
+physical adjacency and loose-end splicing. The analytic directed-splice case
+matches the one-shot route at work sizes 1, 2 and 8; all 14 Wayfinding cases
+and lint pass. It is not yet used by the Engine. `Begin` still sorts ways
+synchronously; edge creation at the end of snapping and publication are also
+one-shot. Split or bound those operations, then integrate a candidate-owned
+world/navigation builder before claiming a frame-budget improvement.
 
 ## Acceptance
 

@@ -18,12 +18,19 @@ std::expected<NetworkWeaveJob, std::string> NetworkWeaveJob::Begin(Network &&net
   if (!job.Network_.PrepareWeave(error)) { return std::unexpected(std::move(error)); }
   job.Network_.SortWaysIntoDeclaredOrder();
   job.NodeOf_.resize(job.Network_.Points_.size() / 2u);
-  job.Network_.SnapPointsIntoNodes(job.NodeOf_, job.ByCell_);
-  job.Outgoing_.resize(job.Network_.Nodes_.size());
-  job.Network_.EdgesFromWays(job.NodeOf_, job.Outgoing_);
-  job.TieReachM_ = job.Network_.TieReachM();
-  job.Network_.Tied_ = 0;
   return job;
+}
+
+void NetworkWeaveJob::SnapPoints(size_t itemsMost) {
+  const size_t end = NextPoint_ + std::min(itemsMost, NodeOf_.size() - NextPoint_);
+  for (; NextPoint_ < end; ++NextPoint_) { Network_.SnapOnePoint(NextPoint_, NodeOf_, ByCell_); }
+  if (NextPoint_ == NodeOf_.size()) {
+    Outgoing_.resize(Network_.Nodes_.size());
+    Network_.EdgesFromWays(NodeOf_, Outgoing_);
+    TieReachM_ = Network_.TieReachM();
+    Network_.Tied_ = 0;
+    Stage_ = Stage::IndexEdges;
+  }
 }
 
 std::expected<void, std::string> NetworkWeaveJob::IndexEdges(size_t itemsMost) {
@@ -110,6 +117,7 @@ void NetworkWeaveJob::Publish() {
 std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
   if (itemsMost == 0) { return std::unexpected("network weave work budget is zero"); }
   switch (Stage_) {
+    case Stage::SnapPoints: SnapPoints(itemsMost); break;
     case Stage::IndexEdges:
       if (auto indexed = IndexEdges(itemsMost); !indexed) {
         return std::unexpected(indexed.error());

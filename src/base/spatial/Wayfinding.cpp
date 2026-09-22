@@ -407,27 +407,31 @@ void Network::FoldWayInto(Node &node, const Way &from) {
   }
 }
 
+void Network::SnapOnePoint(size_t point, std::vector<size_t> &nodeOf, CellsByKey &byCell) {
+  const LongitudeLatitude at{.LongitudeDeg = Points_[2 * point + 1],
+                             .LatitudeDeg = Points_[2 * point]};
+  const Way &from = Ways_[WayOf_[point]];
+  const size_t found = NodeNear(at, byCell);
+  if (found == Nodes_.size()) {
+    Node made;
+    made.LatitudeDeg = at.LatitudeDeg;
+    made.LongitudeDeg = at.LongitudeDeg;
+    made.HalfWidthM = from.HalfWidthM;
+    made.Friction = from.Friction;
+    made.MaxGradient = from.MaxGradient;
+    made.MinRadiusM = from.MinRadiusM;
+    made.Lanes = from.Lanes;
+    Nodes_.push_back(made);
+    byCell[CellOf(at)].push_back(found);
+  } else {
+    FoldWayInto(Nodes_[found], from);
+  }
+  nodeOf[point] = found;
+}
+
 void Network::SnapPointsIntoNodes(std::vector<size_t> &nodeOf, CellsByKey &byCell) {
   for (size_t point = 0; point < Points_.size() / 2; ++point) {
-    const LongitudeLatitude at{.LongitudeDeg = Points_[2 * point + 1],
-                               .LatitudeDeg = Points_[2 * point]};
-    const Way &from = Ways_[WayOf_[point]];
-    const size_t found = NodeNear(at, byCell);
-    if (found == Nodes_.size()) {
-      Node made;
-      made.LatitudeDeg = at.LatitudeDeg;
-      made.LongitudeDeg = at.LongitudeDeg;
-      made.HalfWidthM = from.HalfWidthM;
-      made.Friction = from.Friction;
-      made.MaxGradient = from.MaxGradient;
-      made.MinRadiusM = from.MinRadiusM;
-      made.Lanes = from.Lanes;
-      Nodes_.push_back(made);
-      byCell[CellOf(at)].push_back(found);
-    } else {
-      FoldWayInto(Nodes_[found], from);
-    }
-    nodeOf[point] = found;
+    SnapOnePoint(point, nodeOf, byCell);
   }
 }
 
