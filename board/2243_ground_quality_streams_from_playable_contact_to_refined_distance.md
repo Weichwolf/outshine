@@ -29,6 +29,12 @@ Crossing sweep reuse costs 0.095 ms. Sampling heights
 for 1,891 crossings had cost 2.35 s because a field miss called `StitchedFieldAwaited`.
 `FieldUpM` now reads prepared candidate fields only and falls back to its candidate BVH.
 
+2026-09-22 pacing failure: `Focuses` admitted a candidate while terrain meshes
+were still pending. `LayPatchwork` returned zero Sheets; `PrepareFields` created
+zero requests and corridor draping failed without a DEM field. The candidate now
+waits for its contact mesh and rejects terminal zero-sheet terrain. The unchanged
+pacing oracle passes normal and validated modes.
+
 ## Decision
 
 Ground residency has explicit quality, coverage and revision. The first publishable

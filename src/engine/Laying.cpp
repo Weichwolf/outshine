@@ -56,6 +56,7 @@ constexpr auto MaterialCreationFailed = "could not create ground materials";
 constexpr auto PavingCreationFailed = "could not publish road geometry";
 constexpr auto CorridorTerrainIncomplete =
     "corridor generation reached terrain without a DEM field";
+constexpr auto GroundContactIncomplete = "ground patchwork has no ready contact terrain";
 }
 
 constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
@@ -1285,6 +1286,12 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundPatchwork(const Ar
   auto made = World.Shipping.Covering().Lay(World.Stack.Pool(), coverage);
   if (!made) {
     Error = made.error();
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  if (made->ContactPending != 0 || made->Sheets.empty()) {
+    if (made->Pending != 0) { return GroundBuildProgress::Pending; }
+    Error = Says::GroundContactIncomplete;
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }

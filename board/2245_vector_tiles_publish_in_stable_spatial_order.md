@@ -33,10 +33,10 @@ snapshot survives refusal and the recovered centre replaces it without mixing
 tile indices or losing source identity. Missing-tile recovery and changed source
 revisions remain unproven.
 
-2026-09-22: `GroundCandidatePacingReachesReadiness` is red on the committed
-baseline and with bounded assembly: corridor draping queries a DEM field that
-`HeightSheets` did not retain. Fix source/terrain coverage before claiming the
-pacing acceptance; do not weaken that oracle.
+2026-09-22: `GroundCandidatePacingReachesReadiness` was red on the committed
+baseline and with bounded assembly because a zero-sheet terrain candidate reached
+corridor draping. WI 2243's contact-mesh gate restored both pacing variants without
+changing the oracle.
 
 ## Decision
 
