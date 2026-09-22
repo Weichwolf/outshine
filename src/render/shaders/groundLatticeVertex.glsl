@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define VARYING out
+#define GROUND_WORLD_POSITION
 #include "subjectVaryings.glsl"
 #include "subjectView.glsl"
 #include "groundLatticeCore.glsl"
@@ -11,6 +12,7 @@ void main() {
   mat4 model = mat4(c0, c1, c2, c3 + vec4(s.shift.xyz, 0.0));
   vec4 local = vec4(g.local, 1.0);
   vec4 frame = stood * local;
+  groundWorldM = vec3(frame.x, frame.y, -frame.z);
   vec4 wp = model * local;
   gl_Position = s.viewProj * wp;
   uv = vec2(frame.x, -frame.z);

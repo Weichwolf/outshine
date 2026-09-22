@@ -2,6 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 #include "subjectView.glsl"
 #define VARYING out
+#define GROUND_WORLD_POSITION
 #include "subjectVaryings.glsl"
 #if LIT_MAPPED
 layout(location = 9) out vec4 tangent;
@@ -28,6 +29,7 @@ void main() {
   vec4 world = m * vec4(p, 1.0);
   gl_Position = s.viewProj * world;
   position = world.xyz;
+  groundWorldM = vec3(world.x - s.shift.x, world.y - s.shift.y, s.shift.z - world.z);
   localPosition = p;
   lightSpace = s.lightFromWorld * world;
   normal = normalize(m[0].xyz * vertexNormal.x + m[1].xyz * vertexNormal.y + m[2].xyz * vertexNormal.z);

@@ -258,7 +258,9 @@ Surrounds::~Surrounds() = default;
 std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates &wearing,
                                               const Medium &fallback) {
   const size_t rows = wearing.TemplateCount();
-  std::vector<float> palette(kPaletteStride * (rows + 2u) + rows + 1u, 0.0f);
+  constexpr size_t kSurfaceStride = 8u;
+  const size_t surfacesAt = kPaletteStride * (rows + 2u) + rows + 1u;
+  std::vector<float> palette(surfacesAt + kSurfaceStride * (rows + 1u), 0.0f);
   palette[0] = std::bit_cast<float>(static_cast<uint32_t>(rows));
   palette[1] = std::bit_cast<float>(static_cast<uint32_t>(wearing.RockTemplate()));
   palette[2] = wearing.Limit().SlopeBandDeg();
@@ -268,6 +270,11 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
       palette[rowAt(row) + channel] = wearing.Rows()[row].Ground[channel];
     }
     palette[kPaletteStride * (rows + 2u) + row] = wearing.Rows()[row].Edge[3];
+    for (size_t channel = 0; channel < kPaletteStride; ++channel) {
+      palette[surfacesAt + kSurfaceStride * row + channel] =
+          wearing.Rows()[row].GroundSurf[channel];
+    }
+    palette[surfacesAt + kSurfaceStride * row + kPaletteStride] = wearing.Rows()[row].Mix[1];
   }
   for (size_t channel = 0; channel < 3; ++channel) {
     palette[rowAt(rows) + channel] = fallback.GroundAlbedo[channel];
