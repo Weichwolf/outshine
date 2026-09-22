@@ -24,7 +24,9 @@ Die konkrete Entstehung jeder Wand ist noch durch Höhen-/Stamp-/Sheet-Diagnosti
 
 ## Implementierung
 
-Aktueller Render 21342822f: Malcesine-762c673c geöffnet, Vorhang unverändert.
+Aktueller Render 590696be3: Malcesine-8dd84aa7 geöffnet, Vorhang unverändert.
+Materialfix verändert 667863/921600 Pixel, nicht die Geometrie (110345 Dreiecke).
+Sim p99 622.93 ms, Draw p99 2.28 ms; Refinement enthalten, kein Steady-State-Nachweis.
 Rohkachel 11/1084/731 im ContentStore unabhängig per PIL/Terrarium-Formel gelesen:
 256×256, 52.19..1554.58 m; größter horizontaler Nachbarsprung 100.35 m bei (75,69).
 Das allein beweist weder die finale Geometrie noch fehlerfreie Quelldaten.

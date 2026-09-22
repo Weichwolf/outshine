@@ -80,11 +80,10 @@ für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschlie�
 schrittweise pro vollständigem Consumer.
 Unabhängige Bildarbeit aus 2169 läuft jetzt; offene Gesamtaudits sind kein Wartegate.
 Arbeitsreserve für Coding; fehlgeschlagene Gates zuerst reparieren:
-1. **P1, 2250 (ready):** deklarierte Bodenrauheit bis zur BRDF durchreichen und visuell prüfen.
-2. **P1, 2166 (ready):** Malcesines Vorhang über Roh-/Stitch-/Press-/GPU-Proben lokalisieren
+1. **P1, 2166 (ready):** Malcesines Vorhang über Roh-/Stitch-/Press-/GPU-Proben lokalisieren
    und die erste fehlerhafte Stufe korrigieren; kein Materialrauschen als Geometrieersatz.
-3. **P1, 2248 → 2247:** qualifizierte Quellenrevisionen und begrenzter Ersatz alter Bakes.
-4. **2224 / 2234:** Reviewbefunde zu publizierten Footprints und ungeteilten Restphasen;
+2. **P1, 2248 → 2247:** qualifizierte Quellenrevisionen und begrenzter Ersatz alter Bakes.
+3. **2224 / 2234:** Reviewbefunde zu publizierten Footprints und ungeteilten Restphasen;
    tatsächliche Fehler mit Regression isolieren. **2179:** unabhängiger Mip-Filtervertrag.
 Strukturaudit aller Module und konkrete Zuständigkeiten: 2139.
 2230 bindet Capture an verwendete Produkte; 2150 migriert statischen nativen Import,

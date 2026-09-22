@@ -30,6 +30,9 @@ Keine Mutation des aktiven Owners mit anschließendem Snapshot-Rollback.
 
 ## Vorhandene Grundlage
 
+590696be3 invalidiert gecachte Sichtbarkeit bei Publish trotz gleicher Owner-Adresse
+und lokaler Generation. Wiederholte Weltwechsel und statische Wiederverwendung geprüft.
+
 `WorldCandidate.h` kapselt Prepare/Publish/Abandon und die schmalen Kandidatenoperationen für
 `RuntimeScene` und Renderer. Es gibt keinen `RuntimeScene&`-Fluchtweg mehr: Grounding,
 Material-/Geometrieaufbau und Diagnose laufen nur über benannte Kandidatenoperationen. Bei Fehler

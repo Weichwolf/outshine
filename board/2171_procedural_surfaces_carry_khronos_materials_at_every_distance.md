@@ -3,12 +3,15 @@ State: active
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
-Depends: 2173, 2166, 2179, 2250
+Depends: 2173, 2166, 2179
 Priority: P1
 
 # Procedural surfaces carry Khronos materials at every distance
 
 ## IST
+
+590696be3: Bodenpalette erhält Roughness und die BRDF ihren dielektrischen Glanzanteil.
+Native/Ground-Vergleich samt Fallback und Slope-Mix grün; Malcesine-8dd84aa7 visuell geprüft.
 
 Aktueller Teilnachweis (2111): native Masked-/DoubleSided-Farbmaps greifen auch
 bei gemeinsam instanzierten Piece-Meshes, direkt und mit Cluster-Culling.

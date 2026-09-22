@@ -50,7 +50,7 @@ Nacht und bewegte NPCs sind durch Außen-Standbilder nicht abgedeckt.
 
 P0 priorisiert aktuelle rote Gates und belegte Lebensdauer-/Publikationsfehler.
 clang-tidy bleibt auf **null**; offene Gesamtaudits sperren unabhängige Bildarbeit nicht.
-Jetzt 2250 (Bodenrauheit), 2166 (Terrainvorhang lokalisieren und korrigieren),
+Jetzt 2166 (Terrainvorhang lokalisieren und korrigieren),
 2248 → 2247 (reproduzierbare Strukturprodukte) bearbeiten. Materialien und Licht
 auf einfachen Szenen parallel zur gebauten Welt entwickeln. Places ohne Vegetation.
 

@@ -45,7 +45,7 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 2. The twelve-hour review through 21342822f found live derived-state invalidation in
    GroundStack::Restand (2224) and unbounded remaining terrain phases (2234).
    These are concrete correctness/cost tasks, not permission for generic module moves.
-3. Material/terrain work 2250/2166 proceeds independently under the order in 2188.
+3. Material/terrain work 2171/2166 proceeds independently under the order in 2188.
 WI 2188 maintains global priority against runtime defects. Vegetation features and a new
 threading model are not part of this refactor.
 
