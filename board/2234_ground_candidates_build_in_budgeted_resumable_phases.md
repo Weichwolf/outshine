@@ -11,9 +11,8 @@ Tags: streaming, realtime, ownership
 
 ## Verified state and immediate defect
 
-Candidate ownership, phase scheduling and atomic publication exist. Floor-contact,
-Lattice and paced-readiness fixtures passed at bd8693885. These establish readiness
-and local contracts, not equal native products under different pacing or frame budgets.
+Candidate ownership, phase scheduling and atomic publication exist. Floor-contact and
+paced-readiness passed at bd8693885, proving local contracts but not pacing equivalence.
 Current client run 12ed7a1d7, Malcesine without vegetation, through refinement:
 p50 2.15, p95 4.25, p99 34.84 ms; 36/2405 frames exceed 16.67 ms.
 Simulation p99 34.08/worst 265.85 ms; draw p99 2.23/worst 11.17 ms; peak heap 852 MB.
@@ -23,7 +22,7 @@ publication. RuntimeScene candidates now inherit the exact atmosphere cache befo
 Build; unchanged air/sun no longer integrate. Focused tests and full lint pass;
 cache-reset mutation fails 18 checks. PNG opened; digest remains 8dd84aa7.
 Unprofiled baseline was simulation p99 597.81/worst 671.65 ms. Profiling samples
-attribute work; they are not independent frame-time measurements.
+attribute work but are not independent frame-time measurements.
 WI 2253 removed the confirmed `FieldAwaited` worker wait from refinement/halos.
 Fields are now prepared and pinned in bounded polls before either phase. Delayed,
 boundary, cancellation, absence and refusal cases plus full lint pass at 86eee1580.
@@ -33,10 +32,11 @@ peak heap 848 MB. WI 2254 then fixed nested fetch admission at cap 1/2:
 parked field jobs stop consuming active slots, while their fetches inherit the
 parent admission. Delayed, shutdown and pool tests plus full lint pass at
 02463e0c0. Malcesine remains pixel-identical; p50/p95/p99 2.06/4.30/33.73 ms,
-36/2456 over budget, sim worst 188.71 ms, peak heap 848 MB. The remaining
-maxima need a fresh profile; do not attribute them to field waiting without evidence.
-Preserve the full refinement window. Retain atomic ownership and sliced work;
-no lower-detail workaround or movement of stalls outside the measurement window.
+36/2456 over budget, sim worst 188.71 ms, peak heap 848 MB. Rosenheim at
+75719327e measures 18.72 ms in `RuntimeScene::SetGeometry`: 11.33 ms shape
+preparation, including 9.00 ms cluster cooking, then 7.09 ms binding/submission.
+This names the next synchronous CPU block. Preserve the full refinement window;
+do not move stalls outside it or reduce completed detail.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
 also with NDEBUG. Canonical `OsmField` publication, bounded active windows, source
@@ -73,8 +73,7 @@ visual inspection and pixel comparison against the previous completed shot show
 0.8864% changed pixels. This restores the image oracle, not visual acceptance.
 Freeze input revision, coverage, quality and simulation time before comparing results.
 Do not call different-quality image equality a valid oracle.
-Use existing internal contracts for controlled equivalence tests and public API for
-end-to-end progress. Do not add a second rendering client.
+Use internal contracts for equivalence and public API end to end. Add no second client.
 
 ## Ordered implementation
 
@@ -91,6 +90,10 @@ end-to-end progress. Do not add a second rendering client.
 3. Continue the longest over-budget unit by tile/row/batch, preserving topology and
    stable reduction order. Whole named phases are not automatically bounded units.
    Test cancellation, stale completion, submission failure and retry; publication once.
+   First replace monolithic cluster validation, Morton ordering and packing with one
+   deterministic resumable cook. Preserve exact `(Morton, original triangle)` order
+   and final native indices/clusters under different budgets, then integrate that job
+   into candidate shape preparation. Do not publish a partially cooked `ShapeStore`.
    Review through 21342822f: `PressPointsJob` now completes global rejection before
    applying any height changes, retaining cursors and decisions. Preserve that rule.
    Remaining unsliced work: bucket construction in its constructor and both
