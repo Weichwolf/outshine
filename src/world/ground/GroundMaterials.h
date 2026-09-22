@@ -26,6 +26,7 @@ public:
     float DetailFineM;
 
     float SlopeMaxDeg;
+    bool SlopeExposesRock = false;
     int LitterClass;
     float LitterCoverage;
   };

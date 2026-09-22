@@ -209,6 +209,11 @@ std::expected<ParsedMaterial, std::string> ReadMaterial(Json::Ref c, const Moist
   if (auto metric = ReadMetricValues(c, m); !metric) {
     return std::unexpected("class " + m.Name + ": " + metric.error());
   }
+  const Json::Ref rockExposure = c["slopeExposesRock"];
+  if (rockExposure.GetKind() != Json::Kind::Invalid && rockExposure.GetKind() != Json::Kind::Bool) {
+    return std::unexpected("class " + m.Name + ": slopeExposesRock must be a boolean");
+  }
+  m.SlopeExposesRock = rockExposure.Bool(false);
   parsed.Litter = c["litter"]["class"].Str("");
 
   const Json::Ref surf = c["surface"];

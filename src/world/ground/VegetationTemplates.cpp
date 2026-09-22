@@ -24,6 +24,7 @@ constexpr double kCoverUnsaid = 0.35;
 constexpr double kLitterUnsaid = 0.01;
 
 constexpr double kEdgeReachUnsaidM = 0.05;
+constexpr float kNoRockSlopeDeg = 90.0f;
 
 namespace {
 namespace Says {
@@ -249,7 +250,7 @@ bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
   row.Mix[3] = lm.SpecularScale;
   row.Edge[0] = static_cast<float>(ground["edgeReachM"].Num(kEdgeReachUnsaidM));
   row.Edge[1] = static_cast<float>(ground["edgeConstructed"].Num(0.0));
-  row.Edge[3] = gm.SlopeMaxDeg;
+  row.Edge[3] = gm.SlopeExposesRock ? gm.SlopeMaxDeg : kNoRockSlopeDeg;
   Friction_.push_back(gm.FrictionFactor);
   return true;
 }

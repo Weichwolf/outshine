@@ -22,6 +22,11 @@ surface response and must not pretend shader bump fixes geometry.
 - Keep one material path: `groundClass` selects a template and its existing rock
   slope blend; `groundLit` feeds filtered albedo, roughness and normal into the
   same Metallic-Roughness BRDF. No rock-only draw pipeline or imported texture.
+- `slope.plausibleDeg` currently doubles as rock-exposure permission: asphalt and
+  concrete at 10° wrongly become rock on steep constructed ground. Add explicit
+  material data `slopeExposesRock` (missing = false) and pass a 90° no-exposure
+  threshold to the shader for classes where it is false. Keep plausible slope
+  intact for material/terrain validation.
 - Use stable tangent-world metres, including elevation, for a non-periodic 3D
   procedural field. Carry the ground world's height explicitly from the lattice
   vertex stage; do not use camera-relative `position` as a noise seed. Shared
@@ -32,7 +37,7 @@ surface response and must not pretend shader bump fixes geometry.
   wavelengths control broad color variation and close normal/roughness detail.
 - Fade octaves by fragment footprint before Nyquist. Bump changes the shading
   normal only; amplitude and material albedo stay bounded and dielectric.
-  Constructed terrain classes with 90° slope limit must not acquire rock noise.
+  Constructed terrain classes with disabled rock exposure remain unchanged.
 - Check stage bindings, world-origin moves and shader cost. A measurable regression
   or visual repetition is a failure, even if a static screenshot is prettier.
 

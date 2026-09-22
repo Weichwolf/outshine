@@ -75,6 +75,7 @@
   "classes": [
     {
       "name": "sand",
+      "slopeExposesRock": true,
       "albedo": [
         0.3935,
         0.2514,
@@ -121,6 +122,7 @@
     },
     {
       "name": "earth_dry",
+      "slopeExposesRock": true,
       "albedo": [
         0.2352,
         0.1587,
@@ -169,6 +171,7 @@
     },
     {
       "name": "earth_moist",
+      "slopeExposesRock": true,
       "albedo": [
         0.264,
         0.1524,
@@ -217,6 +220,7 @@
     },
     {
       "name": "gravel",
+      "slopeExposesRock": true,
       "albedo": [
         0.2924,
         0.2053,
@@ -263,6 +267,7 @@
     },
     {
       "name": "crushed_stone",
+      "slopeExposesRock": true,
       "albedo": [
         0.1999,
         0.177,
@@ -311,6 +316,7 @@
     },
     {
       "name": "rock",
+      "slopeExposesRock": true,
       "albedo": [
         0.4202,
         0.2753,
@@ -359,6 +365,7 @@
     },
     {
       "name": "limestone",
+      "slopeExposesRock": true,
       "albedo": [
         0.2857,
         0.2857,
@@ -408,6 +415,7 @@
     },
     {
       "name": "limestone_scree",
+      "slopeExposesRock": true,
       "albedo": [
         0.2857,
         0.2857,
@@ -457,6 +465,7 @@
     },
     {
       "name": "firn",
+      "slopeExposesRock": true,
       "albedo": [
         0.4619,
         0.4942,
@@ -505,6 +514,7 @@
     },
     {
       "name": "forest_floor",
+      "slopeExposesRock": true,
       "albedo": [
         0.224,
         0.1354,
@@ -553,6 +563,7 @@
     },
     {
       "name": "leaf_litter",
+      "slopeExposesRock": true,
       "albedo": [
         0.2638,
         0.1898,
@@ -601,6 +612,7 @@
     },
     {
       "name": "needle_litter",
+      "slopeExposesRock": true,
       "albedo": [
         0.2086,
         0.1264,
@@ -648,6 +660,7 @@
     },
     {
       "name": "grass_thatch",
+      "slopeExposesRock": true,
       "albedo": [
         0.2797,
         0.1886,
@@ -702,6 +715,7 @@
     },
     {
       "name": "moss",
+      "slopeExposesRock": true,
       "albedo": [
         0.1258,
         0.1797,
@@ -750,6 +764,7 @@
     },
     {
       "name": "peat",
+      "slopeExposesRock": true,
       "albedo": [
         0.114,
         0.0979,
@@ -798,6 +813,7 @@
     },
     {
       "name": "mud",
+      "slopeExposesRock": true,
       "albedo": [
         0.264,
         0.1524,
@@ -846,6 +862,7 @@
     },
     {
       "name": "asphalt",
+      "slopeExposesRock": false,
       "albedo": [
         0.1256,
         0.1193,
@@ -893,6 +910,7 @@
     },
     {
       "name": "paving",
+      "slopeExposesRock": false,
       "albedo": [
         0.1967,
         0.1622,
@@ -938,6 +956,7 @@
     },
     {
       "name": "concrete",
+      "slopeExposesRock": false,
       "albedo": [
         0.29,
         0.2323,
@@ -984,6 +1003,7 @@
     },
     {
       "name": "water",
+      "slopeExposesRock": true,
       "albedo": [
         0.0324,
         0.0661,

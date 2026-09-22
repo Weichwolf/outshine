@@ -1,4 +1,5 @@
 #include "GroundMaterials.h"
+#include "VegetationTemplates.h"
 #include "Check.h"
 #include <cstdlib>
 #include <filesystem>
@@ -26,7 +27,8 @@ int main() {
   const auto preserved = [&] {
     return materials.Count() == 1 && materials.At(0).GrainSizeM == 0 &&
            materials.At(0).HeightAmplitudeM == 0 && materials.At(0).DetailCoarseM == 2 &&
-           materials.At(0).DetailFineM == 0.5f && materials.At(0).SlopeMaxDeg == 90;
+           materials.At(0).DetailFineM == 0.5f && materials.At(0).SlopeMaxDeg == 90 &&
+           !materials.At(0).SlopeExposesRock;
   };
   CHECK(preserved(), "metric values retain declared units");
   for (const auto *field : {R"("grainSizeM":-1)",
@@ -63,7 +65,51 @@ int main() {
   CHECK(materials.Load(path.c_str()) && materials.At(0).SlopeMaxDeg == 90 &&
             materials.At(0).DetailCoarseM == 0.5f && materials.At(0).DetailFineM == 0.5f,
         "equal finite boundaries remain valid on retry");
+  write(slope + R"(,"slopeExposesRock":true)");
+  CHECK(materials.Load(path.c_str()) && materials.At(0).SlopeExposesRock &&
+            materials.At(0).SlopeMaxDeg == 90,
+        "declared rock exposure preserves the separate plausible-slope limit");
+  write(slope + R"(,"slopeExposesRock":"true")");
+  CHECK(!materials.Load(path.c_str()) && materials.At(0).SlopeExposesRock &&
+            materials.Error().find("slopeExposesRock") != std::string::npos,
+        "invalid exposure flag cannot replace the last valid catalog");
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "shipped catalog remains valid");
+  const int asphalt = materials.Find("asphalt");
+  const int limestone = materials.Find("limestone");
+  const int water = materials.Find("water");
+  CHECK(asphalt >= 0 && limestone >= 0 && water >= 0,
+        "built, rocky and water-cover comparison materials are declared");
+  if (asphalt >= 0 && limestone >= 0 && water >= 0) {
+    CHECK(!materials.At(static_cast<size_t>(asphalt)).SlopeExposesRock &&
+              materials.At(static_cast<size_t>(limestone)).SlopeExposesRock &&
+              materials.At(static_cast<size_t>(water)).SlopeExposesRock,
+          "pavement remains built while rocky and water-covered slopes expose bedrock");
+  }
+  VegetationTemplates templates;
+  CHECK(templates.Load("src/assets/world/vegetation.json", materials),
+        "shipped vegetation templates accept the material contract");
+  const int sand = materials.Find("sand");
+  bool sawAsphalt = false;
+  bool sawSand = false;
+  bool sawWater = false;
+  for (size_t row = 0; row < templates.TemplateCount(); ++row) {
+    const auto &one = templates.Rows()[row];
+    if (one.GroundClass == asphalt) {
+      sawAsphalt = true;
+      CHECK(one.Edge[3] == 90.0f, "steep asphalt never exposes procedural rock");
+    }
+    if (one.GroundClass == sand && sand >= 0) {
+      sawSand = true;
+      CHECK(one.Edge[3] == materials.At(static_cast<size_t>(sand)).SlopeMaxDeg,
+            "natural sand retains its declared rock-exposure slope");
+    }
+    if (one.GroundClass == water && water >= 0) {
+      sawWater = true;
+      CHECK(one.Edge[3] == materials.At(static_cast<size_t>(water)).SlopeMaxDeg,
+            "water-covered steep terrain exposes its bedrock rather than a vertical blue wall");
+    }
+  }
+  CHECK(sawAsphalt && sawSand && sawWater, "all exposure policies reach template rows");
   std::error_code cleanup;
   std::filesystem::remove_all(temporary, cleanup);
   CHECK(!cleanup, "temporary files removed");
