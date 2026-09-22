@@ -38,6 +38,12 @@ baseline and with bounded assembly because a zero-sheet terrain candidate reache
 corridor draping. WI 2243's contact-mesh gate restored both pacing variants without
 changing the oracle.
 
+2026-09-22 Wien probe after staged assembly: the 49-tile snapshot completed in
+13 four-tile slices; the longest observed slice was 2.513 ms. Removing the
+probe restored the prior shot digest `49440d93`. This bounds the measured case,
+not every tile or total frame. WI 2256 owns the now-measured 637.622-ms road
+corridor call; WI 2234 still owns whole-frame stalls and budgets.
+
 ## Decision
 
 Fetch all requested tiles concurrently; never serialize IO behind the first pending
