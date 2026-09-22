@@ -28,6 +28,13 @@ seriellen Clientlauf. `GroundPublication` schließt während Capture zusätzlich
 Ground-Candidate-Commit vor jeder Live-/CPU-Änderung; dessen Negativtest ist grün.
 Pro-Tile-Quell- und Produktrevisionen sowie die vertauschte Workerfertigstellung fehlen weiter.
 
+Malcesine, gleicher Build 2026-09-22: zwei aufeinanderfolgende cache-warme Captures
+`--no-vegetation --measures` unterschieden sich in 1/921600 Pixeln, maximal
+4/255 bei (1119,251). Terrain-Sheet-Digest und OSM-Tile-Reihenfolge waren gleich;
+`TilePieces::Digest` unterschied sich in beiden Hälften. Dieser Digest faltet
+sortierte Tile-IDs und Bake-Digests; unklar bleibt, ob Tile-Bestand oder Bake-Inhalt
+abweicht. Die Terrain-Press-Abnahme verfolgt diesen Strukturprodukt-Befund nicht.
+
 ## Verbindliche Architekturentscheidung
 
 Capture bindet einen vollständig publizierten Weltstand, nicht eine Wartezeit.
@@ -77,7 +84,10 @@ Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behob
    vertauschte Workerfertigstellung, gleiche Inhalte; verspätetes Produkt während
    Capture bleibt privat, nach Freigabe wird Streaming fortgesetzt. Abbruch/Timeout
    gibt Pins frei und erhält die nutzbare Welt. Mutation während Capture als Negativkontrolle.
-4. Bei gleichen CPU-Produkten GPU-Eingaben/Readback untersuchen; keine Toleranzerhöhung.
+4. Für Malcesine zuerst sortierte `TilePieces`-Tile-IDs und jeweilige Bake-Digests
+   zweier Captures vergleichen. Beim ersten Unterschied Inputrevision,
+   Worker-Abschluss und gebackene Geometrie dieses Tiles verfolgen. Erst bei
+   gleichen CPU-Produkten GPU-Eingaben/Readback untersuchen; keine Toleranzerhöhung.
    Gleicher Backendstand und Snapshot liefern gleiche vereinbarte Bildmetrik.
    Backendübergreifende Bitgleichheit ist kein Vertrag.
 5. make format; make suite SUITE=outshine/include/Outshine; make lint;

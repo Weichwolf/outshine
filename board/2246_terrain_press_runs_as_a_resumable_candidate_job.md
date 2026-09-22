@@ -65,6 +65,6 @@ outside the generator.
    interruption and a stale revision during pressing. Readiness must reject
    the old projection until C publishes; only A and C may publish. Retain the
    separate late-failure publication test. Report full frame distributions and
-   CPU/GPU memory peaks; repeat the capture to resolve its observed pixel
-   variance. `make format` and `make lint` must pass. Close only when no
-   earthwork unit monopolizes a frame.
+   CPU/GPU memory peaks. Capture pixel variance with identical terrain-sheet
+   digests belongs to WI 2230. `make format` and `make lint` must pass. Close
+   only when no earthwork unit monopolizes a frame.
