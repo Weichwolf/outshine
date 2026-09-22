@@ -1220,6 +1220,11 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
     Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
     Published.Places("network: laying ways", mapped.LayMs, "ms");
     Published.Places("network: weaving topology", mapped.WeaveMs, "ms");
+    Published.Places("network: weaving sort", mapped.WeavePhases.SortMs, "ms");
+    Published.Places("network: weaving snap", mapped.WeavePhases.SnapMs, "ms");
+    Published.Places("network: weaving edges", mapped.WeavePhases.EdgesMs, "ms");
+    Published.Places("network: weaving tie", mapped.WeavePhases.TieMs, "ms");
+    Published.Places("network: weaving pack", mapped.WeavePhases.PackMs, "ms");
     Published.Places("network: classifying crossings", mapped.CrossingsMs, "ms");
     Published.Places("network: elevating nodes", mapped.ElevateMs, "ms");
     Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");

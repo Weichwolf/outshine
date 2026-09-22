@@ -578,7 +578,7 @@ Corridors::Mapped Corridors::MapOf(const outshine::Ground::GroundStack &stack) {
   }
   made.LayMs = phaseMs();
   made.Ways = net->WayCount();
-  if (made.Ways > 0 && !net->Weave(made.Refusal)) { return made; }
+  if (made.Ways > 0 && !net->Weave(made.Refusal, &made.WeavePhases)) { return made; }
   made.WeaveMs = phaseMs();
   std::vector<Path::Network::Crossing> crossings;
   if (const auto swept = net->Crossings(crossings); !swept) {

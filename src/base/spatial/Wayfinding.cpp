@@ -7,6 +7,7 @@
 
 #include <array>
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -21,6 +22,7 @@
 #include <string_view>
 #include <type_traits>
 #include <queue>
+#include <ratio>
 #include <vector>
 #include <utility>
 #include <unordered_map>
@@ -665,7 +667,7 @@ bool Network::TieLooseEnds(OutgoingEdges &outgoing, std::string &error) {
   return true;
 }
 
-bool Network::Weave(std::string &error) {
+bool Network::Weave(std::string &error, WeaveTimings *timings) {
   CachedCrossings_.clear();
   CachedSweep_.reset();
   Nodes_.clear();
@@ -688,15 +690,26 @@ bool Network::Weave(std::string &error) {
     return false;
   }
 
+  auto phaseBegan = std::chrono::steady_clock::now();
+  const auto phaseMs = [&phaseBegan] {
+    const auto now = std::chrono::steady_clock::now();
+    const double ms = std::chrono::duration<double, std::milli>(now - phaseBegan).count();
+    phaseBegan = now;
+    return ms;
+  };
   SortWaysIntoDeclaredOrder();
+  if (timings != nullptr) { timings->SortMs = phaseMs(); }
 
   std::vector<size_t> nodeOf(Points_.size() / 2, 0);
   CellsByKey byCell;
   SnapPointsIntoNodes(nodeOf, byCell);
+  if (timings != nullptr) { timings->SnapMs = phaseMs(); }
 
   std::vector<std::vector<Edge>> outgoing(Nodes_.size());
   EdgesFromWays(nodeOf, outgoing);
+  if (timings != nullptr) { timings->EdgesMs = phaseMs(); }
   if (!TieLooseEnds(outgoing, error)) { return false; }
+  if (timings != nullptr) { timings->TieMs = phaseMs(); }
 
   for (size_t node = 0; node < Nodes_.size(); ++node) {
     Nodes_[node].FirstEdge = Edges_.size();
@@ -710,6 +723,7 @@ bool Network::Weave(std::string &error) {
   }
   Cells_ = std::move(byCell);
   Woven_ = true;
+  if (timings != nullptr) { timings->PackMs = phaseMs(); }
   return true;
 }
 

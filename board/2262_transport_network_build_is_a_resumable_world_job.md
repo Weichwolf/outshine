@@ -47,6 +47,13 @@ inside `Network::Weave`: sort ways, snap points, create edges, tie loose ends,
 then flatten adjacency. Measure those subphases before changing their order;
 stage `Weave` and `Elevate` first. Shot digest stayed `49440d93`.
 
+Second Wien probe: `Weave` 510.662 ms: sort 5.352, snap 111.007, edges
+13.738, tie 374.715, pack 2.477 ms. Prioritize a resumable `TieLooseEnds`
+with owned edge-cell index, adjacency and ascending loose-node cursor;
+`SpliceInto` must update both structures atomically before yielding. Stage
+point snapping next. Keep a single frozen candidate graph until all phases
+complete. The probe shot stayed `49440d93`.
+
 ## Acceptance
 
 - Analytic line, closed loop, legal junction, grade-separated crossing and

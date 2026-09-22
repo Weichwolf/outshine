@@ -45,6 +45,7 @@ public:
     std::string Refusal;
     double LayMs = 0.0;
     double WeaveMs = 0.0;
+    Path::Network::WeaveTimings WeavePhases;
     double CrossingsMs = 0.0;
     double ElevateMs = 0.0;
   };

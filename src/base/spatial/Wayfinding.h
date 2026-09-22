@@ -82,7 +82,16 @@ public:
   [[nodiscard]] std::expected<void, std::string_view> Lay(std::span<const double> latLonPairs,
                                                           const WayClass &of);
   [[nodiscard]] size_t Cross();
-  [[nodiscard]] bool Weave(std::string &error);
+
+  struct WeaveTimings {
+    double SortMs = 0.0;
+    double SnapMs = 0.0;
+    double EdgesMs = 0.0;
+    double TieMs = 0.0;
+    double PackMs = 0.0;
+  };
+
+  [[nodiscard]] bool Weave(std::string &error, WeaveTimings *timings = nullptr);
 
   [[nodiscard]] size_t WayCount() const { return Ways_.size(); }
 
