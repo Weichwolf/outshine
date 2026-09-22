@@ -113,3 +113,8 @@ Cleanup peaked at 1.581/1.647/1.508 ms, and the whole corridor slice at
 10.819/11.618/11.475 ms. Pacing passed normal and validated. Whole-frame
 simulation p99 still ranged 19.45–23.99 ms with 528–610-ms worst frames;
 correctness and per-corridor pacing do not close the engine-wide frame claim.
+
+`Corridors::Site` pins explicit inputs instead of a mutable `GroundStack`. The crossing/bridge
+oracle proves exact one-shot equality at two interruption schedules and rejects a
+changed vector revision before output. Rosenheim measures a 5.525-ms corridor maximum;
+its 46.27-ms frame p99 is candidate handoff/proxy work owned by WI 2234.

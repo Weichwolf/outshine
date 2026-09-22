@@ -1567,7 +1567,12 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   };
   std::vector<Yields> corridors;
   std::vector<DiagnosticSample> notes;
-  const Generators::Corridors::Site site{.Stack = World.Stack,
+  const Generators::Corridors::Site site{.Vectors = World.Stack.Vectors(),
+                                         .Ways = World.Stack.Ways(),
+                                         .Materials = World.Stack.Materials(),
+                                         .Vegetation = World.Stack.Vegetation(),
+                                         .GroundClasses = &World.Stack.Classes(),
+                                         .Ground = &World.Stack.Ground(),
                                          .Network = build.Network.get(),
                                          .Standing = standing,
                                          .Draped = drapedOver,

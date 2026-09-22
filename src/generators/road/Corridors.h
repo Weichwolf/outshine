@@ -18,12 +18,14 @@
 #include <diagnostics/DiagnosticSample.h>
 
 #include "Earth.h"
-#include "Fit.h"
+#include "curve/Fit.h"
 #include "GroundMesher.h"
-#include "GroundStack.h"
+#include "ClassField.h"
+#include "GroundMaterials.h"
 #include "OsmField.h"
 #include "RoadMesher.h"
 #include "StreetField.h"
+#include "TerrainLoader.h"
 #include "TangentFrame.h"
 #include "Wayfinding.h"
 #include "scene/Geometry.h"
@@ -36,7 +38,12 @@ public:
   explicit Corridors(const RoadMesher &sweeper) : Sweeper_(sweeper) {}
 
   struct Site {
-    const outshine::Ground::GroundStack &Stack;
+    const outshine::Ground::OsmField *Vectors = nullptr;
+    const outshine::Ground::StreetField &Ways;
+    const outshine::Ground::GroundMaterials &Materials;
+    const outshine::Ground::VegetationTemplates &Vegetation;
+    const outshine::Ground::ClassField *GroundClasses = nullptr;
+    const outshine::Ground::GroundStream *Ground = nullptr;
     const Path::Network *Network = nullptr;
     const TangentFrame &Standing;
     const Drape &Draped;
@@ -60,7 +67,10 @@ private:
   };
 
   struct Paving {
-    const outshine::Ground::GroundStack &Stack;
+    const outshine::Ground::GroundMaterials &Materials;
+    const outshine::Ground::VegetationTemplates &Vegetation;
+    const outshine::Ground::ClassField *GroundClasses = nullptr;
+    const outshine::Ground::GroundStream *Ground = nullptr;
     const Path::Network *Network = nullptr;
     const outshine::Ground::StreetField &Ways;
     const outshine::Ground::OsmField &Vectors;
@@ -355,9 +365,8 @@ public:
     };
 
     explicit Job(const Site &site)
-        : VectorGeneration(site.Stack.Vectors() != nullptr ? site.Stack.Vectors()->Generation()
-                                                           : 0),
-          WayCount(site.Stack.Ways().Ways().size()) {}
+        : VectorGeneration(site.Vectors != nullptr ? site.Vectors->Generation() : 0),
+          WayCount(site.Ways.Ways().size()) {}
 
     Paved Work;
     RoadRaised Pavement;

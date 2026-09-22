@@ -321,23 +321,19 @@ void Corridors::MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into)
     lon = midAt.LongitudeDeg;
     double edgeM = 0.0;
     int second = -1;
-    const int which = on.Stack.Classes().ClassAt(
+    const int which = on.GroundClasses->ClassAt(
         *on.Classes, {.LongitudeDeg = lon, .LatitudeDeg = lat}, &edgeM, &second);
     ++into.AskedOverBridge;
-    if (which < 0 || static_cast<size_t>(which) >= on.Stack.Vegetation().TemplateCount()) {
-      continue;
-    }
+    if (which < 0 || static_cast<size_t>(which) >= on.Vegetation.TemplateCount()) { continue; }
     ++into.NamedOverBridge;
-    if (on.Stack.Vegetation().Rows()[static_cast<size_t>(which)].GroundClass != on.WaterRow) {
-      continue;
-    }
+    if (on.Vegetation.Rows()[static_cast<size_t>(which)].GroundClass != on.WaterRow) { continue; }
     ++into.WetOverBridge;
     overWaterM += StepAlongM(into.Along, at);
   }
   if (overWaterM > 0.0) {
     double clear = 0.0;
     for (const outshine::Ground::VegetationTemplates::WaterBand &band :
-         on.Stack.Vegetation().WaterBands()) {
+         on.Vegetation.WaterBands()) {
       clear = static_cast<double>(band.ClearanceM);
       if (overWaterM <= static_cast<double>(band.RunM)) { break; }
     }
@@ -407,20 +403,20 @@ void Corridors::PaveEdge(const Paving &on,
     ++into.RefusedWays;
     return;
   }
-  if (lane.Bridge && on.WaterRow >= 0 && on.Classes) { MarksWaterCrossing(on, laneAt, into); }
+  if (lane.Bridge && on.WaterRow >= 0 && on.Classes && on.GroundClasses != nullptr) {
+    MarksWaterCrossing(on, laneAt, into);
+  }
   DeckOrRamp(lane, edge, into);
   into.LaidWays += lane.Bridge ? 1u : 0u;
   into.GroundWays += lane.Bridge ? 0u : 1u;
-  const bool sealed =
-      lane.CoverRow >= 0 &&
-      static_cast<size_t>(lane.CoverRow) < on.Stack.Vegetation().TemplateCount() &&
-      on.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
+  const bool sealed = lane.CoverRow >= 0 &&
+                      static_cast<size_t>(lane.CoverRow) < on.Vegetation.TemplateCount() &&
+                      on.Vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
   RoadProfile profile = RoadProfile::Rounded;
   if (sealed) { profile = lane.Lanes >= 2 ? RoadProfile::Kerbed : RoadProfile::Simple; }
   Vec3f wears = {{0.5f, 0.5f, 0.5f}};
-  if (lane.CoverRow >= 0 &&
-      static_cast<size_t>(lane.CoverRow) < on.Stack.Vegetation().TemplateCount()) {
-    const Vec4f &cover = on.Stack.Vegetation().Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
+  if (lane.CoverRow >= 0 && static_cast<size_t>(lane.CoverRow) < on.Vegetation.TemplateCount()) {
+    const Vec4f &cover = on.Vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
     wears = {{cover[0], cover[1], cover[2]}};
   }
   into.WaterMs += since();
@@ -655,7 +651,8 @@ std::optional<Corridors::Grounded> Corridors::GroundUnder(const Paving &on, Long
     return Grounded{.EastM = flatHere.EastM, .NorthM = flatHere.NorthM, .GradeM = *grade};
   }
 
-  const std::optional<double> stood = on.Stack.Ground().At(at).AslM();
+  if (on.Ground == nullptr) { return std::nullopt; }
+  const std::optional<double> stood = on.Ground->At(at).AslM();
   if (!stood) { return std::nullopt; }
   const EastNorthUp enu = standing.Place(
       {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = *stood});
@@ -1402,16 +1399,19 @@ bool Corridors::Lay(const Site &site,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - site.CensusAt)
             .count(),
         "ms");
-  const outshine::Ground::StreetField &ways = site.Stack.Ways();
-  const outshine::Ground::OsmField *const vectors = site.Stack.Vectors();
+  const outshine::Ground::StreetField &ways = site.Ways;
+  const outshine::Ground::OsmField *const vectors = site.Vectors;
   into.DeckM.assign(ways.Ways().size(), -kBeyondAnyCoordinate);
   into.Designed.resize(ways.Ways().size());
-  const int waterRow = site.Stack.Materials().Find("water");
+  const int waterRow = site.Materials.Find("water");
   std::unordered_map<uint64_t, uint32_t> sharedNodes;
   std::optional<Paving> paving;
   if (vectors != nullptr) {
     sharedNodes = SharedNodesOf(ways, vectors->Points());
-    paving.emplace(Paving{.Stack = site.Stack,
+    paving.emplace(Paving{.Materials = site.Materials,
+                          .Vegetation = site.Vegetation,
+                          .GroundClasses = site.GroundClasses,
+                          .Ground = site.Ground,
                           .Network = site.Network,
                           .Ways = ways,
                           .Vectors = *vectors,
@@ -1546,7 +1546,7 @@ bool Corridors::Lay(const Site &site,
   const auto junctionsAt = std::chrono::steady_clock::now();
   Notes(into,
         "streets: junction bodies raised",
-        static_cast<double>(RaisesTheJunctionBodies(site.Stack.Materials(), into, pavement)),
+        static_cast<double>(RaisesTheJunctionBodies(site.Materials, into, pavement)),
         "junctions");
   Notes(into,
         "streets: of that, raising the junction bodies",
@@ -1589,7 +1589,7 @@ bool Corridors::Lay(const Site &site,
   const size_t pavedTriangles = pavement.Index.size() / 3;
   Notes(into, "streets: triangles", static_cast<double>(pavedTriangles), "triangles");
   const auto handingAt = std::chrono::steady_clock::now();
-  if (!HandsThePavingOver(site.Stack.Materials(), pavement, into, ground)) { return false; }
+  if (!HandsThePavingOver(site.Materials, pavement, into, ground)) { return false; }
   Notes(into,
         "streets: of that, handing the paving over",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handingAt)
@@ -1635,21 +1635,24 @@ Corridors::Advance(Job &job,
                    Geometry &ground,
                    std::vector<Yields> *corridor,
                    std::vector<DiagnosticSample> *notes) const {
-  const auto *vectors = site.Stack.Vectors();
-  const auto &ways = site.Stack.Ways();
+  const auto *vectors = site.Vectors;
+  const auto &ways = site.Ways;
   if ((vectors != nullptr ? vectors->Generation() : 0) != job.VectorGeneration ||
       ways.Ways().size() != job.WayCount) {
     return std::unexpected(Says::kStaleCorridorInput);
   }
   if (job.Phase == Job::Stage::Done) { return true; }
   const auto began = std::chrono::steady_clock::now();
-  const int waterRow = site.Stack.Materials().Find("water");
+  const int waterRow = site.Materials.Find("water");
   if (job.Phase == Job::Stage::Prepare && vectors != nullptr) {
     job.SharedNodes = SharedNodesOf(ways, vectors->Points());
   }
   std::optional<Paving> paving;
   if (vectors != nullptr) {
-    paving.emplace(Paving{.Stack = site.Stack,
+    paving.emplace(Paving{.Materials = site.Materials,
+                          .Vegetation = site.Vegetation,
+                          .GroundClasses = site.GroundClasses,
+                          .Ground = site.Ground,
                           .Network = site.Network,
                           .Ways = ways,
                           .Vectors = *vectors,
@@ -2125,7 +2128,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadBodies(Job &job,
   Paved &into = job.Work;
   if (job.Phase != Job::Stage::Bodies) { return std::unexpected(Says::kStaleCorridorInput); }
   {
-    const auto &wearing = site.Stack.Materials();
+    const auto &wearing = site.Materials;
     const int asphalt = wearing.Find("asphalt");
     Vec3f wears = {{0.5f, 0.5f, 0.5f}};
     if (asphalt >= 0) { wears = wearing.At(static_cast<size_t>(asphalt)).Albedo; }
@@ -2141,11 +2144,6 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadBodies(Job &job,
     job.StageMs += elapsed();
     job.TotalMs += elapsed();
     if (job.NextBody < into.Junctions.size()) { return false; }
-    Notes(into,
-          "streets: junction bodies raised",
-          static_cast<double>(into.Junctions.size()),
-          "junctions");
-    Notes(into, "streets: of that, raising the junction bodies", job.StageMs, "ms");
     job.Phase = Job::Stage::FinishNotes;
     return false;
   }
@@ -2181,6 +2179,11 @@ std::expected<bool, std::string_view> Corridors::AdvanceFinish(Job &job, const J
           "stations");
     Notes(into, "streets: and the longest approach", into.LongestRampM, "m");
     Notes(into, "streets: and the most a rim lifted a road", into.MostLiftedM, "m");
+    Notes(into,
+          "streets: junction bodies raised",
+          static_cast<double>(into.Junctions.size()),
+          "junctions");
+    Notes(into, "streets: of that, raising the junction bodies", job.StageMs, "ms");
     TellsWhatTheFitFound(into);
     Notes(into,
           "streets: ways laid as ribbons, all of them FLOATING",
@@ -2268,7 +2271,7 @@ std::expected<bool, std::string_view> Corridors::BeginTransfer(Job &job, const J
   if (job.Pavement.Index.size() >= 3) {
     Material tarmac;
     for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
-    const auto &wearing = slice.site.Stack.Materials();
+    const auto &wearing = slice.site.Materials;
     const int asphalt = wearing.Find("asphalt");
     tarmac.Roughness =
         asphalt >= 0 ? wearing.At(static_cast<size_t>(asphalt)).Roughness : kUnlitTint;

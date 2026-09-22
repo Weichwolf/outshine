@@ -85,6 +85,8 @@ struct Yields {
   bool Fills = false;
   Stamp Kind = Stamp::Pad;
 
+  [[nodiscard]] bool operator==(const Yields &) const = default;
+
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return (RingEastNorthM.capacity() + SeamEastNorthM.capacity()) * sizeof(double);
   }
