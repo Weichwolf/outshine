@@ -41,7 +41,7 @@ TransportNetworkBuildJob::Begin(const Ground::GroundStack &stack) {
 
 std::expected<void, std::string> TransportNetworkBuildJob::BeginWeave() {
   if (Built_.Ways == 0) {
-    Stage_ = Stage::Crossings;
+    Stage_ = Stage::BeginCrossings;
     return {};
   }
   auto started = Path::NetworkWeaveJob::Begin(std::move(Graph_));
@@ -75,16 +75,35 @@ std::expected<void, std::string> TransportNetworkBuildJob::CleanupWeave(size_t i
   if (!released) { return std::unexpected(std::string(released.error())); }
   if (*released) {
     Weave_.reset();
-    Stage_ = Stage::Crossings;
+    Stage_ = Stage::BeginCrossings;
   }
   return {};
 }
 
-std::expected<void, std::string> TransportNetworkBuildJob::ClassifyCrossings() {
-  std::vector<Path::Network::Crossing> crossings;
-  auto swept = Graph_.Crossings(crossings);
-  if (!swept) { return std::unexpected(std::string(swept.error())); }
-  Built_.CrossingSweep = *swept;
+std::expected<void, std::string> TransportNetworkBuildJob::BeginCrossings() {
+  auto started = Path::NetworkCrossingJob::Begin(std::move(Graph_));
+  if (!started) { return std::unexpected(std::string(started.error())); }
+  Crossings_ = std::make_unique<Path::NetworkCrossingJob>(std::move(*started));
+  Stage_ = Stage::Crossings;
+  return {};
+}
+
+std::expected<void, std::string> TransportNetworkBuildJob::AdvanceCrossings(size_t pairsMost) {
+  assert(Crossings_ != nullptr);
+  constexpr size_t kCrossingPairsPerBuildItem = 2048;
+  const size_t crossingPairsMost =
+      pairsMost > std::numeric_limits<size_t>::max() / kCrossingPairsPerBuildItem
+          ? std::numeric_limits<size_t>::max()
+          : pairsMost * kCrossingPairsPerBuildItem;
+  auto advanced = Crossings_->Advance(crossingPairsMost);
+  if (!advanced) { return std::unexpected(std::string(advanced.error())); }
+  if (!*advanced) { return {}; }
+  Built_.CrossingSlices = Crossings_->LongestSlices();
+  auto crossed = std::move(*Crossings_).Take();
+  if (!crossed) { return std::unexpected(std::string(crossed.error())); }
+  Crossings_.reset();
+  Graph_ = std::move(crossed->Graph);
+  Built_.CrossingSweep = crossed->Statistics;
   Built_.Nodes = Graph_.NodeCount();
   Built_.Edges = Graph_.EdgeCount();
   Built_.Junctions = Graph_.JunctionCount();
@@ -134,7 +153,8 @@ std::expected<bool, std::string> TransportNetworkBuildJob::Advance(const Ground:
     case Stage::BeginWeave: progressed = BeginWeave(); break;
     case Stage::Weave: progressed = AdvanceWeave(itemsMost); break;
     case Stage::CleanupWeave: progressed = CleanupWeave(itemsMost); break;
-    case Stage::Crossings: progressed = ClassifyCrossings(); break;
+    case Stage::BeginCrossings: progressed = BeginCrossings(); break;
+    case Stage::Crossings: progressed = AdvanceCrossings(itemsMost); break;
     case Stage::BeginElevation: BeginElevation(stack); break;
     case Stage::Elevation: progressed = AdvanceElevation(itemsMost); break;
     case Stage::Publish: Publish(); break;
@@ -158,7 +178,11 @@ std::expected<bool, std::string> TransportNetworkBuildJob::Advance(const Ground:
       Built_.CleanupWeaveMs += elapsedMs;
       Built_.CleanupWeaveLongestMs = std::max(Built_.CleanupWeaveLongestMs, elapsedMs);
       break;
-    case Stage::Crossings: Built_.CrossingsMs += elapsedMs; break;
+    case Stage::BeginCrossings:
+    case Stage::Crossings:
+      Built_.CrossingsMs += elapsedMs;
+      Built_.CrossingsLongestMs = std::max(Built_.CrossingsLongestMs, elapsedMs);
+      break;
     case Stage::BeginElevation:
       Built_.BeginElevationMs = elapsedMs;
       Built_.ElevateMs += elapsedMs;

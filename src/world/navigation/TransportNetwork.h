@@ -33,7 +33,9 @@ public:
     Path::NetworkWeaveJob::SliceWorst WeaveSlices;
     Path::Network::WeaveTimings WeavePhases;
     double CrossingsMs = 0.0;
+    double CrossingsLongestMs = 0.0;
     Path::Network::Swept CrossingSweep;
+    Path::NetworkCrossingJob::SliceWorst CrossingSlices;
     double ElevateMs = 0.0;
     double BeginElevationMs = 0.0;
     double ElevateLongestMs = 0.0;
@@ -70,6 +72,7 @@ private:
     BeginWeave,
     Weave,
     CleanupWeave,
+    BeginCrossings,
     Crossings,
     BeginElevation,
     Elevation,
@@ -80,13 +83,15 @@ private:
   [[nodiscard]] std::expected<void, std::string> BeginWeave();
   [[nodiscard]] std::expected<void, std::string> AdvanceWeave(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> CleanupWeave(size_t itemsMost);
-  [[nodiscard]] std::expected<void, std::string> ClassifyCrossings();
+  [[nodiscard]] std::expected<void, std::string> BeginCrossings();
+  [[nodiscard]] std::expected<void, std::string> AdvanceCrossings(size_t pairsMost);
   void BeginElevation(const Ground::GroundStack &stack);
   [[nodiscard]] std::expected<void, std::string> AdvanceElevation(size_t itemsMost);
   void Publish();
 
   Path::Network Graph_;
   std::unique_ptr<Path::NetworkWeaveJob> Weave_;
+  std::unique_ptr<Path::NetworkCrossingJob> Crossings_;
   std::unique_ptr<Path::NetworkElevationJob> Elevation_;
   TransportNetwork::Built Built_;
   double LongestSliceMs_ = 0.0;

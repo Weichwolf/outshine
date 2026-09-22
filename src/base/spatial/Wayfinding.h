@@ -77,6 +77,7 @@ struct Route {
 };
 
 class NetworkWeaveJob;
+class NetworkCrossingJob;
 class NetworkElevationJob;
 
 class Network {
@@ -154,6 +155,7 @@ public:
     size_t PairsTested = 0;
     size_t FullestCell = 0;
     size_t PairsPruned = 0;
+    size_t CandidatePairs = 0;
     double SpanMs = 0.0;
     double SegmentsMs = 0.0;
     double GridMs = 0.0;
@@ -203,6 +205,7 @@ public:
 
 private:
   friend class NetworkWeaveJob;
+  friend class NetworkCrossingJob;
   friend class NetworkElevationJob;
 
   Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}
@@ -341,6 +344,9 @@ private:
 
   static_assert(sizeof(Filed) == 2 * sizeof(uint32_t) + 4 * sizeof(double));
   static_assert(std::is_trivially_copyable_v<Filed>);
+
+  [[nodiscard]] static std::optional<LongitudeLatitude> CrossingOf(const Filed &one,
+                                                                   const Filed &two);
 
   struct Filing {
     std::span<const uint32_t> SegAt;
@@ -485,6 +491,52 @@ private:
   SliceWorst Worst_;
   Stage Stage_ = Stage::SnapPoints;
   ReleaseStage ReleaseStage_ = ReleaseStage::Cells;
+};
+
+class NetworkCrossingJob {
+public:
+  struct SliceWorst {
+    double TestMs = 0.0;
+    double PublishMs = 0.0;
+  };
+
+  struct Result {
+    Network Graph;
+    Network::Swept Statistics;
+  };
+
+  [[nodiscard]] static std::expected<NetworkCrossingJob, std::string_view> Begin(Network &&network);
+  NetworkCrossingJob(const NetworkCrossingJob &) = delete;
+  NetworkCrossingJob &operator=(const NetworkCrossingJob &) = delete;
+  NetworkCrossingJob(NetworkCrossingJob &&) noexcept = default;
+  NetworkCrossingJob &operator=(NetworkCrossingJob &&) noexcept = default;
+
+  [[nodiscard]] std::expected<bool, std::string_view> Advance(size_t pairsMost);
+  [[nodiscard]] std::expected<Result, std::string_view> Take() &&;
+
+  [[nodiscard]] SliceWorst LongestSlices() const noexcept { return Worst_; }
+
+private:
+  enum class Stage : uint8_t { TestPairs, Publish, Done };
+  explicit NetworkCrossingJob(Network &&network);
+  void TestPairs(size_t pairsMost);
+  void Publish();
+
+  Network Network_;
+  std::vector<double> LongitudeDeg_;
+  std::vector<uint32_t> SegmentWay_;
+  std::vector<uint32_t> SegmentAt_;
+  std::vector<uint32_t> CellStarts_;
+  std::vector<Network::Filed> FiledInCell_;
+  std::vector<Network::Crossing> Found_;
+  Network::Spanned Span_;
+  Network::Gridded Grid_;
+  Network::Swept Statistics_;
+  size_t NextCell_ = 0;
+  uint32_t NextOne_ = 0;
+  uint32_t NextTwo_ = 0;
+  SliceWorst Worst_;
+  Stage Stage_ = Stage::TestPairs;
 };
 
 class NetworkElevationJob {

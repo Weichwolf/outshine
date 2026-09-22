@@ -1277,11 +1277,17 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
   Published.Places("network: longest tie slice", mapped.WeaveSlices.TieMs, "ms");
   Published.Places("network: longest weave publish slice", mapped.WeaveSlices.PublishMs, "ms");
   Published.Places("network: classifying crossings", mapped.CrossingsMs, "ms");
+  Published.Places("network: longest crossing slice", mapped.CrossingsLongestMs, "ms");
+  Published.Places("network: longest crossing pair slice", mapped.CrossingSlices.TestMs, "ms");
+  Published.Places("network: crossing publication", mapped.CrossingSlices.PublishMs, "ms");
   Published.Places("network: crossing point span", mapped.CrossingSweep.SpanMs, "ms");
   Published.Places("network: crossing segment list", mapped.CrossingSweep.SegmentsMs, "ms");
   Published.Places("network: crossing grid", mapped.CrossingSweep.GridMs, "ms");
   Published.Places("network: crossing cell filing", mapped.CrossingSweep.FilingMs, "ms");
   Published.Places("network: crossing pair tests", mapped.CrossingSweep.TestMs, "ms");
+  Published.Places("network: crossing candidate pairs",
+                   static_cast<double>(mapped.CrossingSweep.CandidatePairs),
+                   "pairs");
   Published.Places("network: crossing cache", mapped.CrossingSweep.CacheMs, "ms");
   Published.Places("network: elevating nodes", mapped.ElevateMs, "ms");
   Published.Places("network: beginning elevation", mapped.BeginElevationMs, "ms");

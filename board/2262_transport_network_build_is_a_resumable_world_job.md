@@ -69,10 +69,18 @@ temporaries caused the unexplained 48.958-ms transition; explicit staged
 release now limits that work to 2.594 ms and the longest build slice is the
 crossing pass. Its measured parts are point span 0.217, segment list 0.717,
 grid 0.194, cell filing 4.784, pair tests 19.420 and cache 0.037 ms.
+A native crossing job now owns the graph, preserves one-shot crossing identity
+at pair budgets 1, 2 and 8, and records the full candidate count. Wien has
+2,822,153 candidate pairs. A phase-specific 2,097,152-pair slice is the
+smallest measured budget that keeps the current 6,144-frame shot horizon
+green: digest `49440d93` at 6,071 frames, crossing worst 19.387 ms. Budgets
+1,048,576 and below finish the network but miss the later Refined deadline;
+the candidate scheduler amplifies one extra network tick and needs correction.
 
 Global budgets 128, 256 and 512 failed to reach Refined within the 6,144-frame
 shot horizon; 1,024 completes in about 5,860–6,072 frames. Counts therefore
-remain phase-specific. Next split crossings and move DEM sampling off the
+remain phase-specific. Next remove the candidate-scheduler amplification,
+reduce crossing setup/pair slices below 4 ms, and move DEM sampling off the
 frame path or into an independently bounded worker.
 
 ## Acceptance

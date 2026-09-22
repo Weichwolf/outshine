@@ -3,8 +3,6 @@
 
 #include <cstdio>
 
-#include "math/Vec2.h"
-
 #include <array>
 #include <algorithm>
 #include <chrono>
@@ -739,40 +737,24 @@ bool Network::Weave(std::string &error, WeaveTimings *timings) {
   return true;
 }
 
-namespace {
-
-struct Ends {
-  Vec2 From;
-  Vec2 To;
-};
-
-[[nodiscard]] std::optional<Vec2> SegmentsMeet(Ends a, Ends b) {
-  const double ax = a.From[0];
-  const double ay = a.From[1];
-  const double rx = a.To[0] - ax;
-  const double ry = a.To[1] - ay;
-  const double cx = b.From[0];
-  const double cy = b.From[1];
-  const double sx = b.To[0] - cx;
-  const double sy = b.To[1] - cy;
+std::optional<LongitudeLatitude> Network::CrossingOf(const Filed &one, const Filed &two) {
+  const double ax = one.Ax;
+  const double ay = one.Ay;
+  const double rx = one.Bx - ax;
+  const double ry = one.By - ay;
+  const double cx = two.Ax;
+  const double cy = two.Ay;
+  const double sx = two.Bx - cx;
+  const double sy = two.By - cy;
   const double denominator = rx * sy - ry * sx;
   if (denominator == 0.0) { return std::nullopt; }
   const double along = ((cx - ax) * sy - (cy - ay) * sx) / denominator;
   const double across = ((cx - ax) * ry - (cy - ay) * rx) / denominator;
   if (along <= 0.0 || along >= 1.0 || across <= 0.0 || across >= 1.0) { return std::nullopt; }
-  return Vec2{{ax + along * rx, ay + along * ry}};
-}
-
-}
-
-namespace {
-
-double AboutTheMeridian(double lonDeg) {
-  while (lonDeg > kDegPerHalfTurn) { lonDeg -= kDegPerTurn; }
-  while (lonDeg < -kDegPerHalfTurn) { lonDeg += kDegPerTurn; }
-  return lonDeg;
-}
-
+  double longitudeDeg = ax + along * rx;
+  while (longitudeDeg > kDegPerHalfTurn) { longitudeDeg -= kDegPerTurn; }
+  while (longitudeDeg < -kDegPerHalfTurn) { longitudeDeg += kDegPerTurn; }
+  return LongitudeLatitude{.LongitudeDeg = longitudeDeg, .LatitudeDeg = ay + along * ry};
 }
 
 uint32_t Network::SquareIn(const Gridded &grid, Spanned box, LongitudeLatitude at) {
@@ -866,17 +848,12 @@ void Network::CrossingsInCell(const Filing &filed,
       }
 
       ++swept.PairsTested;
-      const std::optional<Vec2> met =
-          SegmentsMeet({.From = Vec2{{ours.Ax, ours.Ay}}, .To = Vec2{{ours.Bx, ours.By}}},
-                       {.From = Vec2{{yours.Ax, yours.Ay}}, .To = Vec2{{yours.Bx, yours.By}}});
-      if (!met || SquareIn(grid, box, {.LongitudeDeg = (*met)[0], .LatitudeDeg = (*met)[1]}) !=
-                      span.Square) {
-        continue;
-      }
+      const std::optional<LongitudeLatitude> met = CrossingOf(ours, yours);
+      if (!met || SquareIn(grid, box, *met) != span.Square) { continue; }
       into.push_back(Crossing{.OverWay = ours.Way,
                               .UnderWay = yours.Way,
-                              .LatitudeDeg = (*met)[1],
-                              .LongitudeDeg = AboutTheMeridian((*met)[0]),
+                              .LatitudeDeg = met->LatitudeDeg,
+                              .LongitudeDeg = met->LongitudeDeg,
                               .OverAt = static_cast<uint32_t>(filed.SegAt[ours.Seg]),
                               .UnderAt = static_cast<uint32_t>(filed.SegAt[yours.Seg])});
     }
@@ -960,7 +937,9 @@ Network::Crossings(std::vector<Crossing> &into) const {
     }
   }
   for (size_t cell = 0; cell < cells; ++cell) {
-    swept.FullestCell = std::max<size_t>(holds[cell + 1u] - holds[cell], swept.FullestCell);
+    const size_t held = holds[cell + 1u] - holds[cell];
+    swept.FullestCell = std::max(held, swept.FullestCell);
+    swept.CandidatePairs += held * (held - static_cast<size_t>(held > 0)) / 2;
   }
   swept.FilingMs = phaseMs();
 
