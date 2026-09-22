@@ -34,6 +34,8 @@ namespace Says {
 constexpr auto InvalidInitialGeometry = "initial native geometry is not well formed";
 constexpr auto NoGeometrySurface = "native geometry requires a declared surface policy";
 constexpr auto InvalidFramedCamera = "automatic framing produced an invalid renderer camera";
+constexpr auto GeometryBuildAlreadyActive = "native geometry preparation is already active";
+constexpr auto NoGeometryBuild = "native geometry preparation has not begun";
 }
 
 constexpr double kExposureCalibration = 1.2;
@@ -295,6 +297,10 @@ bool RuntimeScene::FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::st
 }
 
 bool RuntimeScene::Reshape(std::string &error) {
+  if (GeometryBuildActive()) {
+    error = Says::GeometryBuildAlreadyActive;
+    return false;
+  }
   if (EverShaped_ && ShapedAt_ == Held_.Revision()) { return true; }
   EverShaped_ = false;
   Shaped_ = {};
@@ -963,19 +969,76 @@ bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
                                size_t carried,
                                const Material &wearing,
                                std::string &error) {
+  auto began = BeginGeometryBuild(std::move(built), carried, Material(wearing));
+  if (!began) {
+    error = std::move(began.error());
+    return false;
+  }
+  for (;;) {
+    auto advanced = AdvanceGeometryBuild(std::numeric_limits<size_t>::max());
+    if (!advanced) {
+      error = std::move(advanced.error());
+      return false;
+    }
+    if (*advanced) { return true; }
+  }
+}
+
+std::expected<void, std::string>
+RuntimeScene::BeginGeometryBuild(outshine::Geometry &&built, size_t carried, Material wearing) {
+  if (GeometryBuildActive()) { return std::unexpected(Says::GeometryBuildAlreadyActive); }
   Camera_.Invalidate();
-  const std::vector<Material> wore = std::move(Declared_.Surfacing);
-  Declared_.Surfacing.assign(1u, wearing);
+  GeometryBuildSurfaces_ = std::move(Declared_.Surfacing);
+  Declared_.Surfacing.clear();
+  Declared_.Surfacing.push_back(wearing);
   Held_.SetGeometry(std::move(built));
   Stoodup_ = false;
   Carrying_ = carried;
   const auto phaseAt = std::chrono::steady_clock::now();
-  const bool stood = Build(error);
+  Shaped_ = {};
+  EverShaped_ = false;
+  ShapeParts_.Clear();
+  Render::AppendGeometry(Held_.Snapshot(), ShapeParts_);
+  if (auto bound = Render::BindShapeStorage(ShapeParts_); !bound) {
+    RestoreGeometryBuildState();
+    return std::unexpected(std::string(Describe(bound.error())));
+  }
+  ShapeCooking_.emplace(ShapeParts_, ShapeParts_.Surfaces);
   BuildMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
+  return {};
+}
+
+std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t itemsMost) {
+  if (!ShapeCooking_) { return std::unexpected(Says::NoGeometryBuild); }
+  const auto phaseAt = std::chrono::steady_clock::now();
+  auto advanced = ShapeCooking_->Advance(itemsMost);
+  BuildMs_ +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
+  if (!advanced) {
+    const std::string error(Describe(advanced.error()));
+    RestoreGeometryBuildState();
+    return std::unexpected(error);
+  }
+  if (!*advanced) { return false; }
+  Shaped_ = Render::ViewShape(ShapeParts_);
+  ShapedAt_ = Held_.Revision();
+  EverShaped_ = true;
+  ShapeCooking_.reset();
+  std::string error;
+  const auto buildAt = std::chrono::steady_clock::now();
+  const bool stood = Build(error);
+  BuildMs_ +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - buildAt).count();
+  RestoreGeometryBuildState();
+  if (!stood) { return std::unexpected(std::move(error)); }
+  return true;
+}
+
+void RuntimeScene::RestoreGeometryBuildState() noexcept {
+  ShapeCooking_.reset();
   Carrying_ = 0;
-  Declared_.Surfacing = wore;
-  return stood;
+  Declared_.Surfacing = std::move(GeometryBuildSurfaces_);
 }
 
 size_t RuntimeScene::TookPosing_ = 0, RuntimeScene::TookSubmitting_ = 0,

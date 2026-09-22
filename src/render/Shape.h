@@ -146,6 +146,8 @@ private:
 };
 
 void AppendGeometry(const Geometry &from, ShapeStore &into);
+[[nodiscard]] std::expected<void, ClusterError> BindShapeStorage(ShapeStore &into);
+[[nodiscard]] Shape ViewShape(const ShapeStore &store) noexcept;
 [[nodiscard]] std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into);
 [[nodiscard]] std::expected<Shape, ClusterError> PrepareShape(const Geometry &from,
                                                               ShapeStore &into);

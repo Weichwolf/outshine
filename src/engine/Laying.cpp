@@ -94,6 +94,7 @@ constexpr size_t kEarthworkPointsPerFrame = 8192;
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kNetworkItemsPerFrame = 1024;
+constexpr size_t kShapeCookItemsPerFrame = 262144;
 
 uint64_t DigestPatchwork(const Patchwork &patchwork) {
   uint64_t digest = kDigestBasis;
@@ -279,6 +280,12 @@ public:
 
   [[nodiscard]] double LongestCorridorSliceMs() const noexcept { return LongestCorridorSliceMs_; }
 
+  void SamplesGeometrySlice(double milliseconds) noexcept {
+    LongestGeometrySliceMs_ = std::max(LongestGeometrySliceMs_, milliseconds);
+  }
+
+  [[nodiscard]] double LongestGeometrySliceMs() const noexcept { return LongestGeometrySliceMs_; }
+
   [[nodiscard]] std::vector<Yields> TakesCorridors() { return std::move(Corridors_); }
 
   [[nodiscard]] std::chrono::steady_clock::time_point Began() const noexcept { return Began_; }
@@ -334,6 +341,7 @@ private:
   size_t ProductPeakBytes_ = 0;
   double LongestPressingSliceMs_ = 0.0;
   double LongestCorridorSliceMs_ = 0.0;
+  double LongestGeometrySliceMs_ = 0.0;
   Core::GroundBuildSchedule Schedule_;
   uint64_t Id_ = 0;
 };
@@ -1726,52 +1734,59 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
 }
 
 bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
-  const auto began = std::chrono::steady_clock::now();
+  const auto sliceBegan = std::chrono::steady_clock::now();
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
-  const size_t drivenParts = Picture.Standing->CarriedParts();
-  Published.Places("restand: the carried count the world hands over",
-                   static_cast<double>(drivenParts),
-                   "carried");
-  Published.Places(
-      "restand: parts in the geometry", static_cast<double>(build.Ground.parts()), "parts");
-  candidate.GroundIs(build.GroundSurface.index());
-  const auto classesBegan = std::chrono::steady_clock::now();
-  if (build.ClassStructure && !build.ClassPalette.empty() &&
-      !candidate.SetGroundClasses(
-          {build.ClassStructure->Words(), build.ClassStructure->Bytes() / sizeof(uint32_t)},
-          build.ClassPalette,
-          Error)) {
+  if (!candidate.GroundGeometryBuildActive()) {
+    const size_t drivenParts = Picture.Standing->CarriedParts();
+    Published.Places("restand: the carried count the world hands over",
+                     static_cast<double>(drivenParts),
+                     "carried");
+    Published.Places(
+        "restand: parts in the geometry", static_cast<double>(build.Ground.parts()), "parts");
+    candidate.GroundIs(build.GroundSurface.index());
+    const auto classesBegan = std::chrono::steady_clock::now();
+    if (build.ClassStructure && !build.ClassPalette.empty() &&
+        !candidate.SetGroundClasses(
+            {build.ClassStructure->Words(), build.ClassStructure->Bytes() / sizeof(uint32_t)},
+            build.ClassPalette,
+            Error)) {
+      return false;
+    }
+    Published.Places(
+        "ground candidate: class upload",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - classesBegan)
+            .count(),
+        "ms");
+    candidate.Digests(Session.Declared.Render.Audits);
+    size_t handed = 0;
+    for (int part = 0; part < build.Ground.parts(); ++part) {
+      handed += build.Ground.trianglesOf(part).size() / 3u;
+    }
+    Published.Places(
+        "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
+    Published.Places("in this many parts", static_cast<double>(build.Ground.parts()), "parts");
+    auto began = candidate.BeginGroundGeometryBuild(
+        std::move(build.Ground), drivenParts, build.GroundMaterial);
+    if (!began) {
+      Error = std::move(began.error());
+      return false;
+    }
+  }
+  auto advanced = candidate.AdvanceGroundGeometryBuild(kShapeCookItemsPerFrame);
+  const double sliceMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceBegan)
+          .count();
+  state.SamplesGeometrySlice(sliceMs);
+  if (!advanced) {
+    Error = std::move(advanced.error());
     return false;
   }
+  if (!*advanced) { return true; }
+  Published.Places("ground candidate: final scene geometry slice", sliceMs, "ms");
   Published.Places(
-      "ground candidate: class upload",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - classesBegan)
-          .count(),
-      "ms");
-  candidate.Digests(Session.Declared.Render.Audits);
-  size_t handed = 0;
-  for (int part = 0; part < build.Ground.parts(); ++part) {
-    handed += build.Ground.trianglesOf(part).size() / 3u;
-  }
-  Published.Places(
-      "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
-  Published.Places("in this many parts", static_cast<double>(build.Ground.parts()), "parts");
-  const auto geometryBegan = std::chrono::steady_clock::now();
-  if (!candidate.SetGroundGeometry(
-          std::move(build.Ground), drivenParts, build.GroundMaterial, Error)) {
-    return false;
-  }
-  Published.Places(
-      "ground candidate: scene geometry",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - geometryBegan)
-          .count(),
-      "ms");
+      "ground candidate: longest scene geometry slice", state.LongestGeometrySliceMs(), "ms");
   state.CompletesStage();
-  Published.Places(
-      "ground candidate: geometry",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
-      "ms");
   return true;
 }
 

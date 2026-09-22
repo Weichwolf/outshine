@@ -44,6 +44,17 @@ public:
     return Scene().SetGeometry(std::move(geometry), carried, material, error);
   }
 
+  [[nodiscard]] std::expected<void, std::string>
+  BeginGeometryBuild(Geometry geometry, size_t carried, Material material) {
+    return Scene().BeginGeometryBuild(std::move(geometry), carried, material);
+  }
+
+  [[nodiscard]] std::expected<bool, std::string> AdvanceGeometryBuild(size_t itemsMost) {
+    return Scene().AdvanceGeometryBuild(itemsMost);
+  }
+
+  [[nodiscard]] bool GeometryBuildActive() const noexcept { return Scene().GeometryBuildActive(); }
+
   [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return Renderer_; }
 
   [[nodiscard]] std::expected<void, std::string> Prepare(const RuntimeScene &previous,
@@ -65,6 +76,11 @@ public:
   }
 
 private:
+  [[nodiscard]] const RuntimeScene &Scene() const noexcept {
+    assert(Scene_);
+    return *Scene_;
+  }
+
   [[nodiscard]] RuntimeScene &Scene() noexcept {
     assert(Scene_);
     return *Scene_;

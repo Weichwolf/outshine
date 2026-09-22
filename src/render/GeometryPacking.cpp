@@ -191,7 +191,7 @@ void AppendGeometry(const Geometry &from, ShapeStore &into) {
   }
 }
 
-std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into) {
+std::expected<void, ClusterError> BindShapeStorage(ShapeStore &into) {
   for (ShapePart &part : into.Parts) {
     if (!AttributesFit(part, into)) { return std::unexpected(ClusterError::InvalidLayout); }
     part.PositionsM = Attribute(into.PositionsM, part, 3, true);
@@ -201,16 +201,18 @@ std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into) {
     part.Uv1 = Attribute(into.Uv1, part, 2, part.HasUv1);
     part.Colours = Attribute(into.Colours, part, 4, part.HasColour);
   }
-  const auto cooked = CookShape(into, into.Surfaces);
-  if (!cooked) { return std::unexpected(cooked.error()); }
+  return {};
+}
+
+Shape ViewShape(const ShapeStore &store) noexcept {
   Shape view;
-  view.Parts = into.Parts;
-  view.Surfaces = into.Surfaces;
-  view.Lamps = into.Lamps;
-  view.Indices = into.Indices;
-  view.Clusters = into.Clusters;
-  view.ClusterSpheres = into.ClusterSpheres;
-  for (const ShapePart &part : into.Parts) {
+  view.Parts = store.Parts;
+  view.Surfaces = store.Surfaces;
+  view.Lamps = store.Lamps;
+  view.Indices = store.Indices;
+  view.Clusters = store.Clusters;
+  view.ClusterSpheres = store.ClusterSpheres;
+  for (const ShapePart &part : store.Parts) {
     view.CarriesUv = view.CarriesUv || part.HasUv;
     view.CarriesUv1 = view.CarriesUv1 || part.HasUv1;
     view.CarriesNormal = view.CarriesNormal || part.HasNormal;
@@ -218,6 +220,13 @@ std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into) {
     view.CarriesColour = view.CarriesColour || part.HasColour;
   }
   return view;
+}
+
+std::expected<Shape, ClusterError> FinalizeShape(ShapeStore &into) {
+  if (auto bound = BindShapeStorage(into); !bound) { return std::unexpected(bound.error()); }
+  const auto cooked = CookShape(into, into.Surfaces);
+  if (!cooked) { return std::unexpected(cooked.error()); }
+  return ViewShape(into);
 }
 
 std::expected<Shape, ClusterError> PrepareShape(const Geometry &from, ShapeStore &into) {

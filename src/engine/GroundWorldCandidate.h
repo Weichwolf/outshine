@@ -84,6 +84,19 @@ public:
     return World_.SetGeometry(std::move(geometry), carried, material, error);
   }
 
+  [[nodiscard]] std::expected<void, std::string>
+  BeginGroundGeometryBuild(Geometry geometry, size_t carried, Material material) {
+    return World_.BeginGeometryBuild(std::move(geometry), carried, material);
+  }
+
+  [[nodiscard]] std::expected<bool, std::string> AdvanceGroundGeometryBuild(size_t itemsMost) {
+    return World_.AdvanceGeometryBuild(itemsMost);
+  }
+
+  [[nodiscard]] bool GroundGeometryBuildActive() const noexcept {
+    return World_.GeometryBuildActive();
+  }
+
   [[nodiscard]] bool SetGroundClasses(std::span<const uint32_t> words,
                                       std::span<const float> palette,
                                       std::string &error) {

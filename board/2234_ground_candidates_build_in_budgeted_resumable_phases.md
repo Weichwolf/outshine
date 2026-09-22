@@ -90,10 +90,10 @@ Use internal contracts for equivalence and public API end to end. Add no second 
 3. Continue the longest over-budget unit by tile/row/batch, preserving topology and
    stable reduction order. Whole named phases are not automatically bounded units.
    Test cancellation, stale completion, submission failure and retry; publication once.
-   `ClusterCookJob` and `ShapeCookJob` now preserve exact indices, clusters, spheres
-   and part ranges under budgets 1, 2, 7 and 257. Next let the ground candidate drive
-   shape cooking across advances, then publish only the completed `ShapeStore`.
-   Retain `(Morton, original triangle)` order and reject partial publication.
+   `ClusterCookJob` and `ShapeCookJob` preserve exact products under varied budgets;
+   the candidate now drives them at 262144 items/advance. Rosenheim keeps digest
+   8e6642f9; shape completion reshapes for 0.000 ms and the longest geometry slice is
+   the remaining 11.94 ms final material/GPU bind. Split that without partial publish.
    Review through 21342822f: `PressPointsJob` now completes global rejection before
    applying any height changes, retaining cursors and decisions. Preserve that rule.
    Remaining unsliced work: bucket construction in its constructor and both

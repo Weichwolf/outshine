@@ -186,6 +186,12 @@ public:
   [[nodiscard]] double SubmitMs() const { return SubmitMs_; }
 
   [[nodiscard]] bool SetGeometry(outshine::Geometry &&built, size_t carried, std::string &error);
+  [[nodiscard]] std::expected<void, std::string>
+  BeginGeometryBuild(outshine::Geometry &&built, size_t carried, Material wearing);
+  [[nodiscard]] std::expected<bool, std::string> AdvanceGeometryBuild(size_t itemsMost);
+
+  [[nodiscard]] bool GeometryBuildActive() const noexcept { return ShapeCooking_.has_value(); }
+
   [[nodiscard]] bool Reshape(std::string &error);
 
   [[nodiscard]] const Render::ClusterBuildMetrics &Clustering() const noexcept {
@@ -406,6 +412,8 @@ private:
 
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
+  std::optional<Render::ShapeCookJob> ShapeCooking_;
+  std::vector<Material> GeometryBuildSurfaces_;
   std::vector<float> RenderedPositionsM_;
   int GroundSurface_ = -1;
   void WearsPieces();
@@ -427,6 +435,8 @@ private:
   bool Stoodup_ = false;
   size_t Joined_ = 0;
   size_t Carrying_ = 0;
+
+  void RestoreGeometryBuildState() noexcept;
 };
 
 }
