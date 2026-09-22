@@ -146,6 +146,16 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
     Stage_ = SnapshotStage::Empty;
     Assembly_.reset();
   }
+  const auto inWindow = [&window](TileAt tile) {
+    return tile.X >= window->MinX && tile.X <= window->MaxX && tile.Y >= window->MinY &&
+           tile.Y <= window->MaxY;
+  };
+  const size_t removedTiles = std::erase_if(
+      ParsedTiles_, [&inWindow](const ParsedTile &tile) { return !inWindow(tile.At); });
+  const size_t removedSettled = std::erase_if(Settled_, [&inWindow](uint64_t key) {
+    return !inWindow({.X = static_cast<int>(key >> 32u), .Y = static_cast<int>(key)});
+  });
+  if (removedTiles != 0 || removedSettled != 0) { Assembly_.reset(); }
   Pending_ = 0;
   Refused_ = 0;
   CentreX_ = centre->X;

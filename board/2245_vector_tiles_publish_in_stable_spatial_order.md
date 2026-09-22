@@ -44,6 +44,13 @@ probe restored the prior shot digest `49440d93`. This bounds the measured case,
 not every tile or total frame. WI 2256 owns the now-measured 637.622-ms road
 corridor call; WI 2234 still owns whole-frame stalls and budgets.
 
+The current producer retains parsed tiles and settled keys from every visited
+window, then merges all of them into later snapshots. Movement therefore grows
+memory and publishes out-of-window geometry. Retain only the active requested
+window's decoded products; keep the previous native publication intact until the
+new contact/full snapshot commits. Revisit must decode or reuse cache and produce
+the same canonical product. Test disjoint windows and return travel.
+
 ## Decision
 
 Fetch all requested tiles concurrently; never serialize IO behind the first pending

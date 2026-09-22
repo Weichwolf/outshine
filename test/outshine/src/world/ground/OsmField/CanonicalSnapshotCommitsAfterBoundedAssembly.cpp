@@ -113,5 +113,35 @@ int main() {
                   left.FeatureCount == right.FeatureCount;
   }
   CHECK(sameIndices, "tile keys and feature offsets match the one-shot oracle");
+  const std::vector<double> originalPoints(staged.Points().begin(), staged.Points().end());
+  const size_t originalBytes = staged.HeapBytes();
+  const auto *originalPublication = staged.Points().data();
+  CHECK(staged.Build(pool, {.LongitudeDeg = 90.0}, 1, 9).has_value() &&
+            staged.Points().data() == originalPublication,
+        "a pending distant contact preserves the previously published snapshot");
+  for (uint32_t y = 7; y <= 9; ++y) {
+    for (uint32_t x = 11; x <= 13; ++x) {
+      Ground::TilePool::Landing landed;
+      const Fetch request(DataKind::VectorMap, Address::At({.Zoom = 4, .X = x, .Y = y}));
+      CHECK(pool.BytesBlocking(request, &landed) == Ground::TilePool::Reply::Ready,
+            "the distant source window becomes resident");
+    }
+  }
+  for (int slice = 0; slice < 4; ++slice) {
+    CHECK(staged.Build(pool, {.LongitudeDeg = 90.0}, 1, 9).has_value(),
+          "distant window assembles without source errors");
+  }
+  CHECK(staged.SettledWithin(1) && staged.Tiles().size() == 9 &&
+            std::ranges::all_of(staged.Tiles(),
+                                [](const auto &tile) { return tile.X >= 11 && tile.X <= 13; }),
+        "moving removes the old window from the next canonical publication");
+  for (int slice = 0; slice < 4; ++slice) {
+    CHECK(staged.Build(pool, {}, 1, 9).has_value(),
+          "return window assembles without source errors");
+  }
+  CHECK(staged.SettledWithin(1) && staged.Tiles().size() == 9 &&
+            std::ranges::equal(staged.Points(), originalPoints) &&
+            staged.HeapBytes() < originalBytes * 2,
+        "return travel reproduces the original geometry without accumulating windows");
   return Report();
 }
