@@ -35,6 +35,12 @@ it is distinct from `Pending` (admitted work) and `Refused` (a source/product fa
 completed results have separate bounded windows and must release admission slots. Duplicate admitted keys remain `Pending` without consuming another slot. A failed
 `FlatMap` insertion returns `Deferred`; it must never masquerade as a repeated pending job.
 
+`DelayedFieldsDoNotBecomeRims` intermittently fails its `FieldDropped == 0 &&
+Posts < 100` dependency-admission check under the combined focused suite, then
+passes alone. Record both counters and the queued/parked state on failure;
+determine whether duplicate field jobs or scheduling timing causes the extra
+posts. A rerun is evidence of flakiness, not resolution.
+
 Do not count shared decoded terrain fields in the scheduler. Count a queued `Fetch` key,
 completed `Result` payloads, parked job vectors and every retained queue/index allocation.
 A synchronized snapshot may be momentary, but its arithmetic must be exact for the lock

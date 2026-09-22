@@ -252,6 +252,11 @@ private:
 
   [[nodiscard]] static double HighestDeckM(const Paved &over);
 
+  static void EaseRampPass(const outshine::Ground::StreetField &ways,
+                           const outshine::Ground::OsmField &vectors,
+                           double mostDeckM,
+                           Paved &into);
+
   static void EasesRamps(const outshine::Ground::StreetField &ways,
                          const outshine::Ground::OsmField &vectors,
                          double mostDeckM,
@@ -346,6 +351,7 @@ public:
       BridgeRelevant,
       BridgeSample,
       BridgeRaise,
+      BridgeCleanup,
       BridgeRamps,
       BridgeGrades,
       Design,
@@ -387,7 +393,10 @@ public:
     size_t NextCrossing = 0;
     size_t NextEdge = 0;
     size_t NextBridgeEnd = 0;
+    int RampPass = 0;
     int TransferPart = -1;
+    double RampCapM = 0.0;
+    double RampMs = 0.0;
     bool BridgeTopologyStarted = false;
     double BridgeSeedMs = 0.0;
     double StageMs = 0.0;

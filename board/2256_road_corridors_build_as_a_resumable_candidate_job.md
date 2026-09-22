@@ -91,3 +91,18 @@ remain visually below target. The shot has 2,920,352 triangles, simulation
 p99 22.12 ms, worst frame 531.07 ms and 50/4435 frames over 16.67 ms.
 Neither corridor nor whole-frame budget is accepted yet; a matching still
 image does not prove a frame bound.
+
+Wien `shots --measures` isolates the next two units: bridge-end raising
+17.574 ms and the 12-pass ramp relaxer 16.541 ms; transfer phases peak at
+5.754 ms. Keep the same ordered relaxation and cap, but resume one complete
+pass per frame. Move bridge topology cleanup out of the final raise slice.
+Recheck direct products, shot digest, slice maxima and whole-frame timings;
+this only addresses those measured units, not the separate 502-ms worst frame.
+
+After the split, Wien stays at `49440d93`; the PNG was opened. Longest measured
+raise, cleanup and ramp slices are 0.202, 11.576 and 2.169 ms respectively;
+the whole corridor maximum is 11.577 ms. The job takes 1057.702 ms total,
+spread over frames. Shot simulation p99 is 21.98 ms with a 531.30-ms worst
+frame, so WI 2234 still owns the larger stall. Pacing passes in both variants.
+The HeightSheets dependency-admission test failed once on its posting bound
+and then passed alone; WI 2244 tracks that unresolved scheduler observation.

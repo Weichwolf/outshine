@@ -830,33 +830,38 @@ void Corridors::EasesRamps(const outshine::Ground::StreetField &ways,
                            const outshine::Ground::OsmField &vectors,
                            double mostDeckM,
                            Paved &into) {
-  for (int pass = 0; pass < kRampPasses; ++pass) {
-    for (const outshine::Ground::StreetField::Way &lane : ways.Ways()) {
-      if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) {
-        continue;
-      }
-      if (!(lane.MaxGradient > 0.0f)) { continue; }
-      const std::optional<Ends> ends = EndsOf(vectors, lane);
-      if (!ends) { continue; }
-      const std::array<uint64_t, 2> &key = ends->Key;
-      const auto low = into.EndM.find(key[0]);
-      const auto high = into.EndM.find(key[1]);
-      if (low == into.EndM.end() || high == into.EndM.end()) { continue; }
-      const double perLon = kMPerDegLon * std::cos(ends->At[0] * kDeg2Rad);
-      const double runE = (ends->At[3] - ends->At[1]) * perLon;
-      const double runN = (ends->At[2] - ends->At[0]) * kMPerDegLat;
-      const double runM = std::sqrt(runE * runE + runN * runN);
-      const double mostM = runM * static_cast<double>(lane.MaxGradient);
-      const double apartM = high->second - low->second;
-      const auto capped = [&](uint64_t at, double toM) {
-        const auto seeded = into.GroundEndM.find(at);
-        return seeded == into.GroundEndM.end() ? toM : std::min(toM, seeded->second + mostDeckM);
-      };
-      if (apartM > mostM) {
-        low->second = capped(low->first, high->second - mostM);
-      } else if (-apartM > mostM) {
-        high->second = capped(high->first, low->second - mostM);
-      }
+  for (int pass = 0; pass < kRampPasses; ++pass) { EaseRampPass(ways, vectors, mostDeckM, into); }
+}
+
+void Corridors::EaseRampPass(const outshine::Ground::StreetField &ways,
+                             const outshine::Ground::OsmField &vectors,
+                             double mostDeckM,
+                             Paved &into) {
+  for (const outshine::Ground::StreetField::Way &lane : ways.Ways()) {
+    if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) {
+      continue;
+    }
+    if (!(lane.MaxGradient > 0.0f)) { continue; }
+    const std::optional<Ends> ends = EndsOf(vectors, lane);
+    if (!ends) { continue; }
+    const std::array<uint64_t, 2> &key = ends->Key;
+    const auto low = into.EndM.find(key[0]);
+    const auto high = into.EndM.find(key[1]);
+    if (low == into.EndM.end() || high == into.EndM.end()) { continue; }
+    const double perLon = kMPerDegLon * std::cos(ends->At[0] * kDeg2Rad);
+    const double runE = (ends->At[3] - ends->At[1]) * perLon;
+    const double runN = (ends->At[2] - ends->At[0]) * kMPerDegLat;
+    const double runM = std::sqrt(runE * runE + runN * runN);
+    const double mostM = runM * static_cast<double>(lane.MaxGradient);
+    const double apartM = high->second - low->second;
+    const auto capped = [&](uint64_t at, double toM) {
+      const auto seeded = into.GroundEndM.find(at);
+      return seeded == into.GroundEndM.end() ? toM : std::min(toM, seeded->second + mostDeckM);
+    };
+    if (apartM > mostM) {
+      low->second = capped(low->first, high->second - mostM);
+    } else if (-apartM > mostM) {
+      high->second = capped(high->first, low->second - mostM);
     }
   }
 }
@@ -1737,7 +1742,7 @@ Corridors::Advance(Job &job,
     result = AdvanceCrossings(job, slice);
   } else if (entered <= Job::Stage::BridgeRelevant) {
     result = AdvanceBridgeTopology(job, slice);
-  } else if (entered <= Job::Stage::BridgeRaise) {
+  } else if (entered <= Job::Stage::BridgeCleanup) {
     result = AdvanceBridgeDecks(job, slice);
   } else if (entered <= Job::Stage::BridgeGrades) {
     result = AdvanceBridgeGrades(job, slice);
@@ -1943,11 +1948,16 @@ std::expected<bool, std::string_view> Corridors::AdvanceBridgeDecks(Job &job,
       job.NextLane = 0;
       Notes(into, "streets: of raising decks, seeding bridge ends", job.BridgeSeedMs, "ms");
       Notes(into, "streets: the highest deck a ramp must reach", HighestDeckM(into), "m");
-      job.Topology = {};
-      job.BridgeEnds.clear();
-      job.Phase = Job::Stage::BridgeRamps;
+      job.Phase = Job::Stage::BridgeCleanup;
       return false;
     }
+    case Job::Stage::BridgeCleanup:
+      job.RampCapM = HighestDeckM(into);
+      job.Topology = {};
+      job.BridgeEnds.clear();
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::BridgeRamps;
+      return false;
     default: return std::unexpected(Says::kStaleCorridorInput);
   }
 }
@@ -1962,10 +1972,14 @@ std::expected<bool, std::string_view> Corridors::AdvanceBridgeGrades(Job &job,
   switch (job.Phase) {
     case Job::Stage::BridgeRamps:
       if (paving != nullptr && into.DecksRaised > 0) {
-        EasesRamps(ways, *vectors, HighestDeckM(into), into);
-        Notes(into, "streets: of raising decks, easing ramps", elapsed(), "ms");
+        EaseRampPass(ways, *vectors, job.RampCapM, into);
+        job.RampMs += elapsed();
+        job.TotalMs += elapsed();
+        if (++job.RampPass < kRampPasses) { return false; }
+        Notes(into, "streets: of raising decks, easing ramps", job.RampMs, "ms");
+      } else {
+        job.TotalMs += elapsed();
       }
-      job.TotalMs += elapsed();
       job.Phase = Job::Stage::BridgeGrades;
       return false;
     case Job::Stage::BridgeGrades:
@@ -2341,7 +2355,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
   job.TotalMs += elapsed();
   Notes(into, "streets: everything Paves did", job.TotalMs, "ms");
   job.LongestSliceMs[static_cast<size_t>(Job::Stage::TransferValidate)] = elapsed();
-  constexpr std::array<std::string_view, 23> stages{"prepare",
+  constexpr std::array<std::string_view, 24> stages{"prepare",
                                                     "crossings",
                                                     "cross-file",
                                                     "cross-decks",
@@ -2349,6 +2363,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
                                                     "bridge-relevant",
                                                     "bridge-sample",
                                                     "bridge-raise",
+                                                    "bridge-cleanup",
                                                     "bridge-ramps",
                                                     "bridge-grades",
                                                     "design",
