@@ -1,5 +1,5 @@
 Type: defect
-State: proposed
+State: active
 Architecture: ready
 Parent: 2230
 Depends:
