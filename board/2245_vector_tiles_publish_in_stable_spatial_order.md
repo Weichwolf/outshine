@@ -22,8 +22,12 @@ Current focused repair stages decoded tiles independently, publishes a spatially
 ordered contact snapshot, then a complete requested-ring snapshot. Preload and
 advance now request the same first tier. `GroundCandidatePacingReachesReadiness`
 passes normal and NDEBUG variants; Floor/Lattice and six OsmField tests pass.
-Source-revision replacement, missing recovery, assembly cost and bounded memory
-still require proof before this WI closes.
+Source-revision replacement, missing recovery and bounded memory still require
+proof before this WI closes. A temporary timed probe on Wien found the complete
+49-tile publication rebuilding 108870 features and 2143040 point scalars in
+34.271 ms on the Engine thread; the slowest tile took 1.487 ms. Koerbersee's
+largest publication took 4.560 ms. The Wien step alone exceeds 16.67 ms, so
+bounded resumable assembly is required, with unchanged atomic publication.
 The provider-backed refusal/backoff/arrival case now proves that the old native
 snapshot survives refusal and the recovered centre replaces it without mixing
 tile indices or losing source identity. Missing-tile recovery and changed source
