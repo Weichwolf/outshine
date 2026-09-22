@@ -28,6 +28,7 @@ constexpr auto kPendingTerrain = "terrain downloads pending";
 constexpr auto kMissingTerrain = "terrain coverage missing";
 constexpr auto kMissingNeighbours = "terrain neighbours missing";
 constexpr auto kPendingSnapshot = "generator snapshot pending";
+constexpr auto kPendingGroundRevision = "ground for current request pending";
 constexpr auto kPendingIngestion = "world ingestion pending";
 constexpr auto kPendingClassification = "terrain classification pending";
 constexpr auto kPendingVectors = "vector tiles pending";
@@ -233,33 +234,41 @@ bool Engine::State::StructuresReady(const Ground::BuildingField &footprints,
   return footprints.IngestedWithin(*vectors, rings);
 }
 
-WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
+bool Engine::State::RefinedGroundIngested(const GroundRevision &revision) const {
+  return World.Stack.Ingested() && StructuresReady(World.Stack.Footprints(), revision) &&
+         revision.Footprints == World.Stack.Footprints().Revision();
+}
+
+bool Engine::State::RefinedGroundClassified(const GroundRevision &revision) const {
   const auto classes = World.Stack.Classes().Read();
   const uint64_t version = classes ? classes->Version() : 0;
+  return World.Stack.Classes().Complete() && revision.Classes == version;
+}
+
+WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const auto *vectors = World.Stack.Vectors();
   const auto &ground = World.GroundPublished.Current();
   const bool refined = quality == GroundQuality::Refined;
   const bool published = ground && ground->Quality >= quality;
-  return {
-      {(!refined || World.AskedWanted > 0) ? "" : Says::kNoTerrainRequests,
-       (!refined || World.AskedPending == 0) ? "" : Says::kPendingTerrain,
-       (!refined || World.Bare == 0) ? "" : Says::kMissingTerrain,
-       (!refined || World.RimsMissing == 0) ? "" : Says::kMissingNeighbours,
-       World.Grown ? "" : Says::kPendingSnapshot,
-       published && (!refined || (World.Stack.Ingested() &&
-                                  StructuresReady(World.Stack.Footprints(), *ground) &&
-                                  ground->Footprints == World.Stack.Footprints().Revision()))
-           ? ""
-           : Says::kPendingIngestion,
-       published && (!refined || (World.Stack.Classes().Complete() && ground->Classes == version))
-           ? ""
-           : Says::kPendingClassification,
-       vectors != nullptr && (!refined || vectors->PendingTiles() == 0) ? ""
-                                                                        : Says::kPendingVectors,
-       !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
-               (World.Vegetation && World.Vegetation->Ready())
-           ? ""
-           : Says::kPendingVegetation}};
+  const bool currentRevision =
+      World.RequestedRefinedGround &&
+      !World.GroundPublished.NeedsRebuild(*World.RequestedRefinedGround, false, false);
+  return {{(!refined || World.AskedWanted > 0) ? "" : Says::kNoTerrainRequests,
+           (!refined || World.AskedPending == 0) ? "" : Says::kPendingTerrain,
+           (!refined || World.Bare == 0) ? "" : Says::kMissingTerrain,
+           (!refined || World.RimsMissing == 0) ? "" : Says::kMissingNeighbours,
+           World.Grown ? "" : Says::kPendingSnapshot,
+           !refined || currentRevision ? "" : Says::kPendingGroundRevision,
+           published && (!refined || RefinedGroundIngested(*ground)) ? "" : Says::kPendingIngestion,
+           published && (!refined || RefinedGroundClassified(*ground))
+               ? ""
+               : Says::kPendingClassification,
+           vectors != nullptr && (!refined || vectors->PendingTiles() == 0) ? ""
+                                                                            : Says::kPendingVectors,
+           !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
+                   (World.Vegetation && World.Vegetation->Ready())
+               ? ""
+               : Says::kPendingVegetation}};
 }
 
 bool Engine::settled(WorldQuality required) const {

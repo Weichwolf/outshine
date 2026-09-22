@@ -522,6 +522,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                                    .MinimumSourceZoom = std::max(over.Zoom - 1, 0),
                                    .TargetSourceZoom = over.Zoom},
                       .Quality = quality};
+  if (quality == GroundQuality::Refined) { World.RequestedRefinedGround = request.Revision; }
   Published.Places("building triangles the world meshed",
                    static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
                    "triangles");

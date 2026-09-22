@@ -60,13 +60,11 @@ outside the generator.
    a late globally rejected stamp, empty/invalid sheets and differing slice
    sizes. Interruption must not change the result.
 4. Run paced/preload equivalence with and without NDEBUG, Floor/Lattice
-   integrations, Malcesine capture and visual comparison. Direct mixed-sheet
-   and late-rejection tests exist; still prove an engine-level stale revision
-   during pressing. Use two declared views via `Engine::setView`: first publish
-   A, start B until stage 5 has advanced, then return to A or move to C.
-   Require a revision-mismatch event and a fresh candidate; compare the final
-   native product signature with a clean build at the final view, and assert
-   no stale candidate publishes while the new one is pending. Prove failure
-   retains the last published world. Report full
-   frame distributions and CPU/GPU memory peaks; `make format` and `make lint`
-   must pass. Close only when no earthwork unit monopolizes a frame.
+   integrations, Malcesine capture and visual comparison. The mixed-sheet,
+   late-rejection and A→B→C projection-change tests cover native equivalence,
+   interruption and a stale revision during pressing. Readiness must reject
+   the old projection until C publishes; only A and C may publish. Retain the
+   separate late-failure publication test. Report full frame distributions and
+   CPU/GPU memory peaks; repeat the capture to resolve its observed pixel
+   variance. `make format` and `make lint` must pass. Close only when no
+   earthwork unit monopolizes a frame.

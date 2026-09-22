@@ -234,6 +234,7 @@ struct Surrounds {
   size_t AskedWanted = 0;
   size_t AskedPlayablePending = 0;
   GroundPublication GroundPublished;
+  std::optional<GroundRevision> RequestedRefinedGround;
   std::unique_ptr<GroundBuildState> GroundBuild;
   size_t GroundCandidates = 0;
 
@@ -355,6 +356,8 @@ struct Engine::State {
   [[nodiscard]] WorldReadiness Readiness(GroundQuality quality = GroundQuality::Playable) const;
   [[nodiscard]] bool StructuresReady(const Ground::BuildingField &footprints,
                                      const GroundRevision &revision) const;
+  [[nodiscard]] bool RefinedGroundIngested(const GroundRevision &revision) const;
+  [[nodiscard]] bool RefinedGroundClassified(const GroundRevision &revision) const;
   [[nodiscard]] bool CanFinishPreload() const;
   [[nodiscard]] bool CanBeginGroundCandidate() const;
   [[nodiscard]] bool CanAdvanceGroundCandidate() const;
