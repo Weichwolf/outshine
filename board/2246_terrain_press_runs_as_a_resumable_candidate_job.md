@@ -52,11 +52,13 @@ outside the generator.
    budget. The Malcesine samples suggest work units well below 16.67 ms, but
    verify their p50/p95/p99 and worst frame rather than treating the estimates
    as guarantees. Keep preparation and finalization bounded too. Extend the
-   client's fully measured Refined-capture window; its current cap is 3072
-   frames. Koerbersee and Feldkirch currently exhaust this window after all
-   source downloads have completed. Record the actual Refined-readiness blockers,
-   candidate stage, elapsed time and frame count on capture failure before
-   changing the limit; distinguish slow finite work from stalled publication.
+   client's fully measured Refined-capture window; its former cap was 3072
+   frames. A temporary stage probe found Koerbersee still building earthworks
+   after 2560 checks; 6144 fully measured frames let it publish at frame 4475.
+   Feldkirch published at frame 2685 in the same run. The temporary probe also
+   saw `terrain coverage missing` until publication; this is not evidence of a
+   missing download. Preserve the observed frame counts and diagnose any future
+   cap failure by candidate stage and readiness blocker before raising it again.
    Never hide work after timing.
 3. Compare one-shot and staged results for byte-identical sheet nodes, moved/
    held/refused counts, deepest/raised cut, pad/corridor floor diagnostics and

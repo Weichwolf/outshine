@@ -54,7 +54,7 @@ constexpr double kProgressEveryS = 0.25;
 namespace {
 
 constexpr int kTimedFrames = 120;
-constexpr int kMaximumTimedFrames = 3072;
+constexpr int kMaximumTimedFrames = 6144;
 
 }
 
@@ -376,7 +376,8 @@ Shot Draw(Engine &engine,
   if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
   if (!MeasureFrames(engine, name, shot)) { return shot; }
   if (!engine.settled(WorldQuality::Refined)) {
-    shot.Why = std::string(name) + " did not reach refined world quality before capture";
+    shot.Why = std::string(name) + " did not reach refined world quality after " +
+               std::to_string(shot.Frames) + " measured frames";
     return shot;
   }
   {
