@@ -34,10 +34,17 @@ enumerating all currently resident tiles. A monotonically increasing product
 generation distinguishes rebakes from the same source identity. Keep format
 metadata outside the native geometry model.
 
+`TerrainTiles::StitchedGrid` can consume the centre, four edges and four
+corners. Its identity is their sorted source set, not the centre's identity.
+`DecodedCache` and stitched entries currently key by tile address; either
+include the source set in those keys or invalidate on a source revision change.
+Cache hits must return the same provenance as fresh decoding. Shaped terrain
+uses an explicit identity from its declared parameters and seed.
+
 ## Implementation and acceptance
 
-1. Thread identity through `TerrainBytes`, the terrain decoder/resident slots,
-   `OsmField::ParsedTile` and published vector tiles. Preserve it through
+1. Thread identity through `TerrainBytes`, decoded and stitched terrain products,
+   resident slots, `OsmField::ParsedTile` and published vector tiles. Preserve it through
    replacement, eviction and cache reload. Keep allocations out of lookup and
    frame hot paths; account for owned storage.
 2. A candidate's height snapshot reports identities for every DEM block used
