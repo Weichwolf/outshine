@@ -272,6 +272,7 @@ private:
   std::vector<std::thread> Threads_;
   std::vector<std::thread> Carriers_;
   FlatMap<std::vector<Job>> Awaiting_;
+  size_t ParkedJobs_ = 0;
 };
 
 }

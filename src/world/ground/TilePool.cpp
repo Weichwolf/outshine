@@ -54,6 +54,7 @@ constexpr int kPollAttempts = 30000;
 thread_local double tFetchBlockedMs = 0.0;
 thread_local bool tCarries = false;
 thread_local uint64_t tAwaited = 0;
+thread_local uint64_t tWorkingJob = 0;
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
   return (kTerrainKind << kKindShift) |
@@ -554,6 +555,7 @@ void TilePool::Carry() {
       const std::scoped_lock lock(QueueMutex_);
       const Reply said = PublishesCarried(job, std::move(result));
       if (const std::vector<Job> *parked = Awaiting_.Find(job.Key)) {
+        ParkedJobs_ -= parked->size();
         if (said != Reply::Pending) {
           for (const Job &held : *parked) { Queue_.push_back(held); }
         } else {
@@ -677,7 +679,9 @@ void TilePool::Work(int slot) {
     const double blockedBefore = tFetchBlockedMs;
     const auto t0 = std::chrono::steady_clock::now();
     tAwaited = 0;
+    tWorkingJob = job.Key;
     result = RunJob(tiles, job);
+    tWorkingJob = 0;
     if (result.State == Reply::Pending && tAwaited != 0) {
       const uint64_t awaited = tAwaited;
       tAwaited = 0;
@@ -696,6 +700,7 @@ void TilePool::Work(int slot) {
           continue;
         }
         parked->first->push_back(job);
+        ++ParkedJobs_;
         continue;
       }
     }
@@ -751,6 +756,7 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
       *out = *done;
     }
     if (const std::vector<Job> *parked = Awaiting_.Find(job.Key)) {
+      ParkedJobs_ -= parked->size();
       for (const Job &held : *parked) { Queue_.push_back(held); }
       Awaiting_.Erase(job.Key);
       lock.unlock();
@@ -763,7 +769,9 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
     ++Repeats_;
     return Reply::Pending;
   }
-  if (Posted_.Size() - Done_.Size() >= OutstandingMost_) {
+  const size_t active = Posted_.Size() - Done_.Size() - ParkedJobs_;
+  const bool dependency = job.Kind == Rank::Fetch && tWorkingJob != 0 && Posted_.Holds(tWorkingJob);
+  if (active >= OutstandingMost_ && !dependency) {
     lock.unlock();
     DeferredAdmission();
     return Reply::Deferred;

@@ -16,6 +16,7 @@ public:
       .Id = "delayed", .Revision = "r1", .Keeps = outshine::Data::Cacheability::Never};
   std::thread::id Caller = std::this_thread::get_id();
   mutable std::atomic<bool> CalledOnCaller{false};
+  mutable std::atomic<int> Collections{0};
   std::atomic<bool> Released{false};
   Answer Response = Answer::Height;
 
@@ -37,6 +38,7 @@ public:
   outshine::Data::Fetched Collect(const outshine::Data::Address &,
                                   outshine::Data::Ticket,
                                   outshine::Data::Transport &) const override {
+    ++Collections;
     if (std::this_thread::get_id() == Caller) { CalledOnCaller = true; }
     if (!Released) { return outshine::Data::Fetched::Working(); }
     if (Response == Answer::Absent) {
@@ -166,16 +168,52 @@ int main() {
     CHECK(boundarySheets.Halos(boundary, 4) == 1 && boundarySheets.RimsMissing() == 1,
           "a true world boundary copies only the unavailable northern rim");
   }
-  probe->Released = false;
-  {
+  for (size_t limit : {1u, 2u}) {
+    probe->Released = false;
+    const int before = probe->Collections;
     Ground::TilePool tightPool(
-        {.DecodedBytes = 1u << 20u, .PollAttempts = 3, .OutstandingMost = 1}, sources, transport);
+        {.DecodedBytes = 1u << 20u, .PollAttempts = 3000, .OutstandingMost = limit},
+        sources,
+        transport);
     Ground::GroundStream tightGround(tightPool, {.Z = 4, .Grid = 4});
     HeightSheets tightSheets;
-    const auto deferred =
+    auto deferred =
         tightSheets.PrepareFields(original, tightGround, {.FinestZoom = 4, .RequestsMost = 9});
     CHECK(deferred.has_value() && !*deferred && tightPool.Counters().AdmissionDeferred > 0,
           "deferred admission remains pending and never becomes a missing field");
+    const auto startedBy = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (probe->Collections == before && std::chrono::steady_clock::now() < startedBy) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(probe->Collections > before && !probe->CalledOnCaller,
+          "a dependent fetch starts on a carrier under the tight admission limit");
+    probe->Released = true;
+    const auto finishesBy = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (deferred && !*deferred && std::chrono::steady_clock::now() < finishesBy) {
+      deferred =
+          tightSheets.PrepareFields(original, tightGround, {.FinestZoom = 4, .RequestsMost = 9});
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(deferred.has_value() && *deferred,
+          "a released dependency lets the field complete even at one admitted slot");
+    CHECK(tightPool.Counters().FieldDropped == 0 && tightPool.Counters().Posts < 100,
+          "dependency admission completes without repeated field jobs or a posting storm");
+  }
+  probe->Released = false;
+  {
+    Ground::TilePool stoppingPool(
+        {.DecodedBytes = 1u << 20u, .PollAttempts = 300, .OutstandingMost = 1}, sources, transport);
+    Ground::GroundStream stoppingGround(stoppingPool, {.Z = 4, .Grid = 4});
+    HeightSheets stoppingSheets;
+    const auto waiting = stoppingSheets.PrepareFields(
+        original, stoppingGround, {.FinestZoom = 4, .RequestsMost = 1});
+    CHECK(waiting.has_value() && !*waiting, "a field is pending before pool shutdown");
+    const auto parkedBy = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (stoppingPool.Counters().ParkedJobs == 0 && std::chrono::steady_clock::now() < parkedBy) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(stoppingPool.Counters().ParkedJobs == 1,
+          "the dependent field is parked while its fetch is withheld");
   }
   probe->Released = true;
   for (DelayedSource::Answer answer :
