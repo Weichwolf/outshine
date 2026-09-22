@@ -11,14 +11,16 @@ Tags: earthworks, realtime, determinism
 
 ## Defect and measured workload
 
-`Engine::State::PressGroundEarthworks` calls `Generators::PressTerrain` once in
-`NeedsEarthworks`. The 2026-09-22 Malcesine run processed 2887 sheets,
+The original one-shot `PressGroundEarthworks` processed 2887 Malcesine sheets,
 5788 building pads and 16942 corridor pieces. It spent 120.646 ms gathering
 node coordinates/heights, 0.654 ms bucketing stamps, 101.245 ms globally
 rejecting excessive cuts/fills, 90.761 ms applying accepted stamps and
 107.002 ms converting/writing heights; floor diagnostics took 0.527 ms.
 These are one candidate's phase samples, not maxima or a platform budget.
-The shot's p95 remained 673.56 ms with 37/153 frames above 16.67 ms.
+The shot's p95 was 673.56 ms with 37/153 frames above 16.67 ms. The staged
+8192-node run measured 2406 frames, p50/p95/p99 2.08/4.28/617.75 ms, 36
+over 16.67 ms, 13.528 ms longest earthwork slice and 852 MB heap peak. Other
+candidate phases still dominate the slow frames; this WI does not waive them.
 
 ## Decision
 
@@ -50,15 +52,21 @@ outside the generator.
    budget. The Malcesine samples suggest work units well below 16.67 ms, but
    verify their p50/p95/p99 and worst frame rather than treating the estimates
    as guarantees. Keep preparation and finalization bounded too. Extend the
-   client's fully measured Refined-capture window if additional slices exceed
-   its current 240-frame cap; never hide work after timing.
+   client's fully measured Refined-capture window; its current cap is 3072
+   frames. Never hide work after timing.
 3. Compare one-shot and staged results for byte-identical sheet nodes, moved/
    held/refused counts, deepest/raised cut, pad/corridor floor diagnostics and
    ordered claims/decisions. Include overlapping pad/basin/corridor stamps,
    a late globally rejected stamp, empty/invalid sheets and differing slice
    sizes. Interruption must not change the result.
 4. Run paced/preload equivalence with and without NDEBUG, Floor/Lattice
-   integrations, Malcesine capture and visual comparison. Prove cancellation,
-   stale revision and failure retain the last published world. Report full
+   integrations, Malcesine capture and visual comparison. Direct mixed-sheet
+   and late-rejection tests exist; still prove an engine-level stale revision
+   during pressing. Use two declared views via `Engine::setView`: first publish
+   A, start B until stage 5 has advanced, then return to A or move to C.
+   Require a revision-mismatch event and a fresh candidate; compare the final
+   native product signature with a clean build at the final view, and assert
+   no stale candidate publishes while the new one is pending. Prove failure
+   retains the last published world. Report full
    frame distributions and CPU/GPU memory peaks; `make format` and `make lint`
    must pass. Close only when no earthwork unit monopolizes a frame.
