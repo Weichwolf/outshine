@@ -24,10 +24,14 @@ Build; unchanged air/sun no longer integrate. Focused tests and full lint pass;
 cache-reset mutation fails 18 checks. PNG opened; digest remains 8dd84aa7.
 Unprofiled baseline was simulation p99 597.81/worst 671.65 ms. Profiling samples
 attribute work; they are not independent frame-time measurements.
-Remaining: 2887 sheets; longest earthwork slice 11.670 ms. Previous initial/native
-mesh slices 10.677/11.127 ms and Floors 1.204 ms do not explain the remaining
-265.85 ms maximum. Next unit: WI 2253 removes worker waits in refinement/halos, confirmed by the
-corrected-build profile (FieldAwaited -> condition_variable::wait).
+WI 2253 removed the confirmed `FieldAwaited` worker wait from refinement/halos.
+Fields are now prepared and pinned in bounded polls before either phase. Delayed,
+boundary, cancellation, absence and refusal cases plus full lint pass at 86eee1580.
+Malcesine is pixel-identical (0/921600); p50/p95/p99 2.08/4.10/33.53 ms, 36/2468
+over 16.67 ms, sim p99/worst 32.84/192.46 ms, draw p99/worst 2.71/11.47 ms,
+peak heap 848 MB. The remaining maxima need a fresh profile; do not attribute
+them to field waiting without evidence. WI 2254 covers a separate nested-admission
+deadlock seen with `OutstandingMost=1`.
 Preserve the full refinement window. Retain atomic ownership and sliced work;
 no lower-detail workaround or movement of stalls outside the measurement window.
 
