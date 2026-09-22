@@ -106,11 +106,14 @@ public:
     double FocusLatDeg = 0.0;
     double FocusLonDeg = 0.0;
     uint64_t Seed = 0;
+
+    [[nodiscard]] bool operator==(const Shaped &) const noexcept = default;
   };
 
   TerrainTiles(TerrainSource &source, EnuFrame frame, Config config);
 
   void Shapes(const Shaped &how) {
+    if (Shape_ == how) { return; }
     Shape_ = how;
     Stitched_.clear();
   }

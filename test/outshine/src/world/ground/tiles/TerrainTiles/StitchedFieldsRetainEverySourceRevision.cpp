@@ -83,6 +83,9 @@ int main() {
   TerrainTiles shaped(unused, EnuFrame::At(Geo{}), Cache());
   shaped.Shapes({.Kind = "sineRidge", .AmplitudeM = 30.0, .WavelengthM = 100.0});
   const auto before = shaped.StitchedField(0, 0, 0);
+  shaped.Shapes({.Kind = "sineRidge", .AmplitudeM = 30.0, .WavelengthM = 100.0});
+  CHECK(shaped.StitchedField(0, 0, 0) == before,
+        "repeating unchanged shape parameters preserves the stitched cache");
   shaped.Shapes({.Kind = "sineRidge", .AmplitudeM = 60.0, .WavelengthM = 100.0});
   const auto after = shaped.StitchedField(0, 0, 0);
   CHECK(before && after && before->Sources().size() == 1 && after->Sources().size() == 1 &&
