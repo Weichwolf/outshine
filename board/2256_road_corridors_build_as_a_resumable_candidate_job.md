@@ -106,3 +106,10 @@ spread over frames. Shot simulation p99 is 21.98 ms with a 531.30-ms worst
 frame, so WI 2234 still owns the larger stall. Pacing passes in both variants.
 The HeightSheets dependency-admission test failed once on its posting bound
 and then passed alone; WI 2244 tracks that unresolved scheduler observation.
+Another Wien run measured bridge cleanup at 17.183 ms, above the frame budget;
+erase topology nodes incrementally before releasing the remaining storage.
+Three subsequent Wien runs kept the shot at `49440d93`; the PNG was opened.
+Cleanup peaked at 1.581/1.647/1.508 ms, and the whole corridor slice at
+10.819/11.618/11.475 ms. Pacing passed normal and validated. Whole-frame
+simulation p99 still ranged 19.45–23.99 ms with 528–610-ms worst frames;
+correctness and per-corridor pacing do not close the engine-wide frame claim.

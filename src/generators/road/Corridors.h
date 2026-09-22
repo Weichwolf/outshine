@@ -417,6 +417,8 @@ private:
   [[nodiscard]] static std::expected<bool, std::string_view>
   AdvanceBridgeDecks(Job &job, const JobSlice &slice);
   [[nodiscard]] static std::expected<bool, std::string_view>
+  AdvanceBridgeCleanup(Job &job, const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view>
   AdvanceBridgeGrades(Job &job, const JobSlice &slice);
   [[nodiscard]] std::expected<bool, std::string_view>
   AdvanceRoadDesign(Job &job, const JobSlice &slice) const;

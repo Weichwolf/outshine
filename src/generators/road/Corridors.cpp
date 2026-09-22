@@ -1742,8 +1742,10 @@ Corridors::Advance(Job &job,
     result = AdvanceCrossings(job, slice);
   } else if (entered <= Job::Stage::BridgeRelevant) {
     result = AdvanceBridgeTopology(job, slice);
-  } else if (entered <= Job::Stage::BridgeCleanup) {
+  } else if (entered <= Job::Stage::BridgeRaise) {
     result = AdvanceBridgeDecks(job, slice);
+  } else if (entered == Job::Stage::BridgeCleanup) {
+    result = AdvanceBridgeCleanup(job, slice);
   } else if (entered <= Job::Stage::BridgeGrades) {
     result = AdvanceBridgeGrades(job, slice);
   } else if (entered <= Job::Stage::Legs) {
@@ -1951,15 +1953,33 @@ std::expected<bool, std::string_view> Corridors::AdvanceBridgeDecks(Job &job,
       job.Phase = Job::Stage::BridgeCleanup;
       return false;
     }
-    case Job::Stage::BridgeCleanup:
-      job.RampCapM = HighestDeckM(into);
-      job.Topology = {};
-      job.BridgeEnds.clear();
-      job.TotalMs += elapsed();
-      job.Phase = Job::Stage::BridgeRamps;
-      return false;
     default: return std::unexpected(Says::kStaleCorridorInput);
   }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceBridgeCleanup(Job &job,
+                                                                      const JobSlice &slice) {
+  if (job.Phase != Job::Stage::BridgeCleanup) { return std::unexpected(Says::kStaleCorridorInput); }
+  constexpr size_t kEntriesPerSlice = 4096;
+  constexpr double kCleanupBudgetMs = 2.0;
+  for (size_t removed = 0; removed < kEntriesPerSlice && !job.Topology.WaysAt.empty() &&
+                           slice.Elapsed() < kCleanupBudgetMs;
+       ++removed) {
+    job.Topology.WaysAt.erase(job.Topology.WaysAt.begin());
+  }
+  for (size_t removed = 0; removed < kEntriesPerSlice && !job.Topology.PlaceOf.empty() &&
+                           slice.Elapsed() < kCleanupBudgetMs;
+       ++removed) {
+    job.Topology.PlaceOf.erase(job.Topology.PlaceOf.begin());
+  }
+  job.TotalMs += slice.Elapsed();
+  if (!job.Topology.WaysAt.empty() || !job.Topology.PlaceOf.empty()) { return false; }
+  job.RampCapM = HighestDeckM(job.Work);
+  job.Topology.EndsOfWay.clear();
+  job.Topology.HasEnds.clear();
+  job.BridgeEnds.clear();
+  job.Phase = Job::Stage::BridgeRamps;
+  return false;
 }
 
 std::expected<bool, std::string_view> Corridors::AdvanceBridgeGrades(Job &job,
