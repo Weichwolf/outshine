@@ -1376,13 +1376,11 @@ std::expected<void, std::string_view> Network::ReconstructRoute(RouteTrace trace
   return {};
 }
 
-namespace {
-std::optional<double> SampleFiniteHeight(const Network::HeightSource &source,
-                                         LongitudeLatitude at) {
+std::optional<double> Network::SampleFiniteHeight(const HeightSource &source,
+                                                  LongitudeLatitude at) {
   if (!source) { return std::nullopt; }
   const auto height = source(at);
   return height && std::isfinite(*height) ? height : std::nullopt;
-}
 }
 
 Network::Elevated Network::Elevate(const HeightSource &heightOf) {

@@ -77,6 +77,7 @@ struct Route {
 };
 
 class NetworkWeaveJob;
+class NetworkElevationJob;
 
 class Network {
 public:
@@ -196,6 +197,7 @@ public:
 
 private:
   friend class NetworkWeaveJob;
+  friend class NetworkElevationJob;
 
   Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}
 
@@ -215,6 +217,8 @@ private:
 
   [[nodiscard]] static uint64_t PhysicalEdgeKey(size_t from, size_t to);
   [[nodiscard]] bool PrepareWeave(std::string &error);
+  [[nodiscard]] static std::optional<double> SampleFiniteHeight(const HeightSource &source,
+                                                                LongitudeLatitude at);
 
   struct Way {
     size_t First = 0;
@@ -456,6 +460,38 @@ private:
   size_t NextNode_ = 0;
   size_t NextEdge_ = 0;
   Stage Stage_ = Stage::SnapPoints;
+};
+
+class NetworkElevationJob {
+public:
+  struct Result {
+    Network Graph;
+    Network::Elevated Statistics;
+  };
+
+  [[nodiscard]] static NetworkElevationJob Begin(Network &&network, Network::HeightSource source);
+  NetworkElevationJob(const NetworkElevationJob &) = delete;
+  NetworkElevationJob &operator=(const NetworkElevationJob &) = delete;
+  NetworkElevationJob(NetworkElevationJob &&) noexcept = default;
+  NetworkElevationJob &operator=(NetworkElevationJob &&) noexcept = default;
+
+  [[nodiscard]] std::expected<bool, std::string_view> Advance(size_t itemsMost);
+  [[nodiscard]] std::expected<Result, std::string_view> Take() &&;
+
+private:
+  enum class Stage : uint8_t { SampleNodes, WritePoints, Profile, Done };
+  NetworkElevationJob(Network &&network, Network::HeightSource source);
+  void SampleNodes(size_t itemsMost);
+  void WritePoints(size_t itemsMost);
+  void Profile();
+
+  Network Network_;
+  Network::HeightSource HeightOf_;
+  std::vector<std::optional<double>> AtNode_;
+  Network::Elevated Statistics_;
+  size_t NextNode_ = 0;
+  size_t NextPoint_ = 0;
+  Stage Stage_ = Stage::SampleNodes;
 };
 
 }

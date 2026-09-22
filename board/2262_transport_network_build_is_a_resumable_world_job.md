@@ -72,6 +72,12 @@ synchronously; publication is one-shot. Split or bound those operations and
 measure worst individual edge-index and splice cost, then integrate a candidate-owned
 world/navigation builder before claiming a frame-budget improvement.
 
+`NetworkElevationJob` now resumes DEM sampling by distinct graph node and
+height assignment by source point. The shared-node/profile oracle matches
+one-shot `Elevate` at work sizes 1, 2 and 8, including refused samples and
+grade diagnostics; 15 Wayfinding cases and lint pass. Station/grade profile
+construction remains one-shot. The job is not yet wired into the Engine.
+
 ## Acceptance
 
 - Analytic line, closed loop, legal junction, grade-separated crossing and
