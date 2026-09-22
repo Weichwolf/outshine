@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2218
-Depends:
+Depends: 2247
 Priority: P1
 Area: client, engine, test
 Tags: determinism, streaming, capture
@@ -76,16 +76,10 @@ Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behob
    akzeptierte Revisionen, Kamera/Zeit/Samples und native Produktdaten. Nur eine kompakte
    Differenzdiagnose ins System-Temp; keine vollständigen Meshlogs. Reihenfolgeunterschiede
    über stabile Quellidentitäten vergleichen, nicht über zufällige Runtime-Handles.
-   Der vorhandene Datenfluss verwirft `SourceDecl::Revision` nach `SourceSet::Collect`:
-   `Delivery::Answer` und `TilePool::Landing` führen derzeit nur Quelle/Adresse bzw. Bytes.
-   Zuerst Quelle-ID und deklarierte Revision bis zur residenten Terrain-/Vektorkachel tragen;
-   der veröffentlichte Stand erhält daraus eine sortierte, wertbesitzende Arbeitsset-Identität
-   und eine monotone akzeptierte Produktrevision. Cache-Key und Capture-Diagnose verwenden
-   dieselbe Identität. Die Revision ist kein Payload-Hash und kein Runtime-Handle.
-   Vektor- und Höhenpfad treffen erst im `GroundStack` zusammen: `OsmField` hält eigene
-   residente Tiles, `GroundStream` sticht Höhenfelder in LOD-Slots. Darum erfasst der
-   Candidate beim Aufbau genau seine genutzten Terrain-/Vektorkacheln dort; weder der
-   veränderliche TilePool-Cache noch alle gerade geladenen Kacheln definieren den Snapshot.
+   `Delivery::Answer` und `TilePool::Landing` tragen die deklarierte Quellenrevision
+   bereits. Erst die residenten Terrain-/Vektorpfade verlieren sie; WI 2248
+   führt eine wertbesitzende Identität bis zu den konsumierten Tiles. Der
+   Candidate erfasst genau sein genutztes Arbeitsset, nicht den gesamten Cache.
 2. Engine-eigene Capture-Sitzung und Client-Anbindung implementieren. Bestehende
    preload-/Readiness-Bedingungen wiederverwenden; Readback wartet auf seinen Submit.
    Referenz: lokales ../SDL, Stand fa2c02b, include/SDL3/SDL_gpu.h, Fence-Vertrag.
@@ -97,23 +91,10 @@ Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behob
    zweier Captures vergleichen. Beim ersten Unterschied Inputrevision,
    Worker-Abschluss und gebackene Geometrie dieses Tiles verfolgen. Erst bei
    gleichen CPU-Produkten GPU-Eingaben/Readback untersuchen; keine Toleranzerhöhung.
-   Refined-Struktur-Tiles müssen aus einem qualifizierten, gepinnten Höhenstand
-   backen. Playable-Fallback darf erscheinen, muss bei feinerem Input mit dessen
-   Revision neu gebaut werden; Refined-Readiness wartet auf diesen Ersatz.
-   `GroundBuildState` kopiert publizierte Footprints samt `TileWatermark` in den
-   Kandidaten. `BuildingField::Next` bietet akzeptierte Tiles deshalb auch für
-   Refined nicht erneut an. Ersatz braucht eine getrennte, begrenzte Rebuild-Queue
-   pro Tile mit Höhenrevision. Nur die neueste passende Revision annehmen; `TilePieces`
-   ersetzt Render-Handles bereits pro Tile, `BuildingField::CommitAcceptance` hängt
-   Footprints und Messwerte dagegen nur an. Für Ersatz dort vorbereitete Bereiche,
-   Zähler und Tile-Ranges atomar austauschen, statt denselben Tile doppelt einzufügen.
-   Test: Fallback publizieren, feine Höhe verspätet liefern; umgekehrt fertige
-   Revisionen dürfen weder doppelte Footprints noch Rückschritt erzeugen.
-   FineOnly-Gate allein lässt akzeptierte Fallback-Tiles stehen (Malcesine 24).
-   Kandidatweites Reset/Rebake korrigierte Malcesine (`6e4cbe9e`, zwei Läufe
-   pixelgleich, 0 Fallback-Tiles), ließ Graz aber nicht rechtzeitig Refined
-   erreichen: über 65.000 Gebäude bis zum Capture-Abbruch. Nicht übernommen.
-   Ersatz muss tileweise, begrenzt und ohne globalen Neubau erfolgen.
+   WI 2247 ersetzt akzeptierte Fallback-Bakes pro Tile. Das FineOnly-Gate allein
+   lässt Malcesine-Tile 24 stehen; globales Rebake erreichte in Graz vor Capture
+   keine Refined-Qualität und wurde verworfen. Die neue Abnahme verlangt beide
+   Places, veränderte Quellrevisionen und vertauschte Workerabschlüsse.
    Gleicher Backendstand und Snapshot liefern gleiche vereinbarte Bildmetrik.
 5. make format; make suite SUITE=outshine/include/Outshine; make lint;
    make shots PLACE='--no-vegetation --preload-seconds 120 Graz' zweimal.
