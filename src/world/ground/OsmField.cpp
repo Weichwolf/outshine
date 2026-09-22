@@ -243,7 +243,14 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
   for (const auto &layer : *layers) {
     if (layer) { added += static_cast<int>(layer->Features().size()); }
   }
-  ParsedTiles_.push_back({.At = at, .Layers = std::move(*layers)});
+  ParsedTiles_.push_back({.At = at,
+                          .Layers = std::move(*layers),
+                          .Source = {.Kind = Data::DataKind::VectorMap,
+                                     .Tile = {.Zoom = Zoom_,
+                                              .X = static_cast<uint32_t>(at.X),
+                                              .Y = static_cast<uint32_t>(at.Y)},
+                                     .SourceId = std::move(Scratch_.SourceId),
+                                     .Revision = std::move(Scratch_.SourceRevision)}});
   return Fetched{.Held = true, .Added = added};
 }
 
@@ -308,7 +315,15 @@ OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
     ++Bad_;
     return std::unexpected(layers.error());
   }
-  ParsedTile parsed{.At = {.X = tx, .Y = ty}, .Layers = std::move(*layers)};
+  ParsedTile parsed{
+      .At = {.X = tx, .Y = ty},
+      .Layers = std::move(*layers),
+      .Source = {
+          .From = Data::TileSourceIdentity::Origin::Direct,
+          .Kind = Data::DataKind::VectorMap,
+          .Tile = {.Zoom = Zoom_, .X = static_cast<uint32_t>(tx), .Y = static_cast<uint32_t>(ty)},
+          .SourceId = "direct",
+          .Revision = {}}};
   const auto published = PublishParsed(&parsed, std::nullopt);
   if (!published) { return std::unexpected(published.error()); }
   const auto previous = std::ranges::find_if(ParsedTiles_, [tx, ty](const ParsedTile &tile) {
@@ -355,7 +370,8 @@ std::expected<void, std::string_view> OsmField::PublishParsed(const ParsedTile *
                                   .X = tile->At.X,
                                   .Y = tile->At.Y,
                                   .FirstFeature = static_cast<uint32_t>(first),
-                                  .FeatureCount = 0});
+                                  .FeatureCount = 0,
+                                  .Source = tile->Source});
     for (size_t i = 0; i < tile->Layers.size(); ++i) {
       const auto &layer = tile->Layers[i];
       if (layer) {
@@ -459,10 +475,15 @@ size_t OsmField::HeapBytes() const {
   for (const std::string &s : Keys_) { strings += s.capacity(); }
   for (const std::string &s : Strings_) { strings += s.capacity(); }
   for (const std::string &s : Layers_) { strings += s.capacity(); }
+  for (const Tile &tile : Tiles_) {
+    strings += tile.Source.SourceId.capacity() + tile.Source.Revision.capacity();
+  }
+  strings += Scratch_.SourceId.capacity() + Scratch_.SourceRevision.capacity();
 
   size_t parsed = CapacityBytes(ParsedTiles_);
   for (const ParsedTile &tile : ParsedTiles_) {
     parsed += CapacityBytes(tile.Layers);
+    parsed += tile.Source.SourceId.capacity() + tile.Source.Revision.capacity();
     for (const auto &layer : tile.Layers) {
       if (layer) { parsed += layer->HeapBytes(); }
     }
@@ -626,7 +647,14 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
                         .X = over.X,
                         .Y = over.Y,
                         .FirstFeature = 0,
-                        .FeatureCount = static_cast<uint32_t>(Features_.size())});
+                        .FeatureCount = static_cast<uint32_t>(Features_.size()),
+                        .Source = {.From = Data::TileSourceIdentity::Origin::Declared,
+                                   .Kind = Data::DataKind::VectorMap,
+                                   .Tile = {.Zoom = Zoom_,
+                                            .X = static_cast<uint32_t>(over.X),
+                                            .Y = static_cast<uint32_t>(over.Y)},
+                                   .SourceId = "declared",
+                                   .Revision = {}}});
   Settle(over.X, over.Y);
   Pending_ = 0;
   RequestedRing_ = 0;

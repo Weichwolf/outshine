@@ -15,6 +15,7 @@
 #include "OsmLayer.h"
 #include "OsmVector.h"
 #include "TilePool.h"
+#include "TileSourceIdentity.h"
 
 namespace outshine::Ground {
 
@@ -47,6 +48,7 @@ public:
   struct Tile {
     int Z = 0, X = 0, Y = 0;
     uint32_t FirstFeature = 0, FeatureCount = 0;
+    Data::TileSourceIdentity Source;
   };
 
   OsmField(int zoom, std::span<const std::string> layers);
@@ -157,6 +159,7 @@ private:
   struct ParsedTile {
     TileAt At;
     std::vector<std::optional<OsmVector>> Layers;
+    Data::TileSourceIdentity Source;
   };
 
   enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
