@@ -24,9 +24,14 @@ int main() {
                                                    .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
   CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "posted bake inputs still match");
+  CHECK(revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
+        "the posting candidate owns its footprint reservation");
   CHECK(
       !revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {.Value = 1}),
       "a different height snapshot makes a bake stale");
+  CHECK(!revision.OwnsReservation(
+            vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {.Value = 1}),
+        "another candidate cannot release the stale bake's footprint reservation");
   const StructureBuildQueue::BakeRevision fallbackRevision{
       .Vectors = vectors.Generation(),
       .FocalPx = footprints.FocalPx(),

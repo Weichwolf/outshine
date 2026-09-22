@@ -58,6 +58,13 @@ public:
              Eye.LongitudeDeg == eye.LongitudeDeg && Eye.LatitudeDeg == eye.LatitudeDeg &&
              (heights == HeightRequirement::AllowFallback || !FallbackHeights);
     }
+
+    [[nodiscard]] bool OwnsReservation(const Ground::OsmField &vectors,
+                                       const Ground::BuildingField &footprints,
+                                       LongitudeLatitude eye,
+                                       HeightSourceRevision heightSource) const noexcept {
+      return Matches(vectors, footprints, eye, heightSource, HeightRequirement::AllowFallback);
+    }
   };
 
   struct HeightSource {

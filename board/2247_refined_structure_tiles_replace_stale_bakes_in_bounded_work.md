@@ -41,6 +41,12 @@ Revision comparisons cover vector source, DEM source, quality, camera-dependent
 detail inputs and candidate generation. Do not use a global reset or special
 case for Malcesine/Graz.
 
+2026-09-23 Rosenheim exposed an old-candidate worker releasing its tile in the
+new candidate's `BuildingField`: equal vector generation was insufficient and
+tripped `TileWatermark::Release`. Reservation release now also requires the
+same candidate height revision, footprint parameters and eye. This prevents
+cross-candidate mutation; it does not replace the global refined rebake.
+
 ## Implementation and acceptance
 
 1. Add a per-tile acceptance record with source/product revisions and ranges

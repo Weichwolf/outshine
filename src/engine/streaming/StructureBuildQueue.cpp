@@ -192,7 +192,9 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
     IdleRaw_.reserve(IdleRaw_.size() + 1u);
     IdleOut_.reserve(IdleOut_.size() + 1u);
     IdleScratch_.reserve(IdleScratch_.size() + 1u);
-    if (stale.Revision.Vectors == vectors.Generation()) { prints.Release(stale.Task.Tile()); }
+    if (stale.Revision.OwnsReservation(vectors, prints, eye, heightSource)) {
+      prints.Release(stale.Task.Tile());
+    }
     IdleRaw_.push_back(stale.Task.TakeRaw());
     IdleOut_.push_back(stale.Task.TakeOutput());
     IdleScratch_.push_back(stale.Task.TakeScratch());
