@@ -13,7 +13,8 @@ Area: engine, render
 `VegetationTemplates::ReadSubstrate` writes material roughness into `Row::Ground[3]`.
 `Engine::State::PaletteOver` replaces that channel with `Mix[2]` (specular scale).
 `groundLit.glsl` ignores that fourth channel and shades every ground class with
-the shared material roughness. The declared catalogue is not rendered.
+the shared material roughness. It also passes zero dielectric F0/F90 to `shadeRow`,
+removing the dielectric specular lobe. The declared material is not rendered.
 This predates the last twelve hours and is independent of streaming provenance.
 
 ## Decision and owners
@@ -22,8 +23,9 @@ This predates the last twelve hours and is independent of streaming provenance.
   Keep the existing storage layout. Use native default material roughness for
   the unclassified fallback, matching `BeginsGroundSurface`.
 - `groundWearsSlope` and class-edge interpolation already mix all four channels.
-  Feed the resulting roughness to `shadeRow` in `groundLit.glsl`. Keep dielectric
-  metalness and all other material/light parameters intact.
+  Feed the resulting roughness to `shadeRow` in `groundLit.glsl`, together with
+  `surface.f0` and `surface.specularWeight` as in the native `shade` path.
+  Keep metalness and all other material/light parameters intact.
 - Do not tune catalogue values to hide geometry faults or add per-Place settings.
   No new material model, texture cache or speculative module extraction.
 
