@@ -12,11 +12,11 @@ Tags: provenance, streaming, determinism
 ## Defect
 
 `SourceDecl::Revision` reaches `Delivery::Answer` and `TilePool::Landing`.
-`ContentStore` includes it in the cache key. Native OSM tiles now retain this
-identity (3cfac6f2d). Both `PoolTerrain::Answered` and
-`GroundStream::Held::Oracle::Take` still pass only bytes and tile address to
-`TerrainBytes`; `TerrainField`, `DecodedCache` and stitched fields have no
-provenance. A structure bake cannot yet identify its exact DEM source set.
+`ContentStore` includes it in the cache key. Native OSM tiles retain it
+(3cfac6f2d); `TerrainBytes`, decoded fields and stitched fields retain their
+sorted source sets (3b41a5d2e). `GroundStream::Held::Tile` and
+`HeightField::Block` still hold only sampled heights. A structure bake cannot
+yet identify its exact DEM source set.
 Runtime handles or arrival order are not source identities.
 
 ## Decision
@@ -46,12 +46,11 @@ uses an explicit identity from its declared parameters and seed.
 
 ## Implementation and acceptance
 
-1. `TerrainBytes::Take` returns identity with bytes and address. Store the
-   sorted source set in `TerrainField` so decoded-cache hits preserve it;
-   stitch only identities of raw fields actually consulted. Carry the set to
-   resident slots and structure height blocks. Preserve it through replacement,
-   eviction and reload. Keep allocations out of lookup/frame hot paths and
-   account for owned storage.
+1. Carry `TerrainField::Sources()` to resident slots and structure height
+   blocks. `TerrainTiles::NodesOf` currently returns only float nodes and
+   dimensions; extend its product rather than looking up source tiles later.
+   Preserve identities through replacement, eviction and reload. Keep
+   allocations out of lookup/frame hot paths and account for owned storage.
 2. A candidate's height snapshot reports identities for every DEM block used
    by one structure tile. Pinned blocks remain valid until that bake completes;
    a later source revision creates a new input generation, not an in-place
