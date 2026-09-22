@@ -55,6 +55,23 @@ int main() {
                             [](float heightM) { return std::abs(heightM - 5.0f) < 0.001f; }),
         "the flat five metre result is written into the private candidate");
 
+  Patchwork stagedCandidate = FlatCandidate();
+  TerrainPressJob staged(
+      {pad}, stagedCandidate, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
+  bool completed = false;
+  for (int step = 0; step < 80 && !completed; ++step) { completed = staged.Advance(1, 3); }
+  CHECK(completed && staged.HeapBytes() > 0, "bounded pressing completes with owned work data");
+  const PressedTerrain stagedResult = staged.Take();
+  CHECK(stagedCandidate.Sheets[0].Nodes == candidate.Sheets[0].Nodes &&
+            stagedResult.Nodes == pressed.Nodes && stagedResult.Structures == pressed.Structures &&
+            stagedResult.Held == pressed.Held && stagedResult.DeepestM == pressed.DeepestM &&
+            stagedResult.RaisedM == pressed.RaisedM &&
+            stagedResult.Pads.Stamps == pressed.Pads.Stamps &&
+            stagedResult.Pads.Nodes == pressed.Pads.Nodes &&
+            stagedResult.Pads.AboveM == pressed.Pads.AboveM &&
+            stagedResult.Pads.BelowM == pressed.Pads.BelowM,
+        "sheet and node interruptions preserve the one-shot terrain and pad diagnostics");
+
   Patchwork slopedCandidate = FlatCandidate();
   Yields corridor = pad;
   corridor.PlateauM = 0.0;
@@ -73,6 +90,19 @@ int main() {
         "corridor diagnostics cover moved and already-level candidate nodes");
   CHECK(sloped.Corridors.AboveM < 0.001 && sloped.Corridors.BelowM < 0.001,
         "corridor contact diagnostics measure the sloped native result");
+
+  Patchwork stagedSlope = FlatCandidate();
+  TerrainPressJob slopeJob(
+      {corridor}, stagedSlope, TangentFrame::At({}), {.Side = kSide, .Halo = kHalo}, 30.0);
+  completed = false;
+  for (int step = 0; step < 80 && !completed; ++step) { completed = slopeJob.Advance(1, 5); }
+  const PressedTerrain stagedSlopeResult = slopeJob.Take();
+  CHECK(completed && stagedSlope.Sheets[0].Nodes == slopedCandidate.Sheets[0].Nodes &&
+            stagedSlopeResult.Corridors.Stamps == sloped.Corridors.Stamps &&
+            stagedSlopeResult.Corridors.Nodes == sloped.Corridors.Nodes &&
+            stagedSlopeResult.Corridors.AboveM == sloped.Corridors.AboveM &&
+            stagedSlopeResult.Corridors.BelowM == sloped.Corridors.BelowM,
+        "staged sloped corridors preserve the one-shot native and floor result");
 
   const auto retained = candidate.Sheets[0].Nodes;
   const auto invalid = PressTerrain(std::span{&pad, 1u},

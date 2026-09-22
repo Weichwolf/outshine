@@ -88,6 +88,8 @@ constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
 constexpr size_t kTerrainSheetsPerFrame = 96;
 constexpr size_t kTerrainResidencySheetsPerFrame = 128;
+constexpr size_t kEarthworkSheetsPerFrame = 32;
+constexpr size_t kEarthworkPointsPerFrame = 65536;
 
 bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
@@ -145,6 +147,18 @@ public:
   [[nodiscard]] MeshBuild &Meshing() noexcept { return Meshing_; }
 
   [[nodiscard]] MeshBuild &InitialMeshing() noexcept { return InitialMeshing_; }
+
+  [[nodiscard]] Generators::TerrainPressJob *Pressing() noexcept { return Pressing_.get(); }
+
+  void BeginsPressing(std::unique_ptr<Generators::TerrainPressJob> pressing) noexcept {
+    Pressing_ = std::move(pressing);
+  }
+
+  void SamplesPressingSlice(double milliseconds) noexcept {
+    LongestPressingSliceMs_ = std::max(LongestPressingSliceMs_, milliseconds);
+  }
+
+  [[nodiscard]] double LongestPressingSliceMs() const noexcept { return LongestPressingSliceMs_; }
 
   [[nodiscard]] Ground::BuildingField &Footprints() noexcept {
     return Candidate_.Products().Footprints;
@@ -215,7 +229,8 @@ private:
                               Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
                               Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
                               InitialMeshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-                              InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t);
+                              InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
+                              (Pressing_ ? Pressing_->HeapBytes() : 0u);
     size_t corridorBytes = 0;
     for (const Yields &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
     ProductPeakBytes_ = std::max(
@@ -226,11 +241,13 @@ private:
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
   std::optional<Patchwork> Patchwork_;
+  std::unique_ptr<Generators::TerrainPressJob> Pressing_;
   std::vector<Yields> Corridors_;
   MeshBuild Meshing_;
   MeshBuild InitialMeshing_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   size_t ProductPeakBytes_ = 0;
+  double LongestPressingSliceMs_ = 0.0;
   Core::GroundBuildSchedule Schedule_;
 };
 
@@ -758,46 +775,57 @@ void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
 
 bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
-                                          const Ground::BuildingField &footprints,
-                                          std::vector<Yields> corridor) {
-
-  const Ground::BuildingField &pads = footprints;
-  const Ground::OsmField *const shapes = World.Stack.Vectors();
-  if (shapes != nullptr) {
-    uint64_t tileOrder = kDigestBasis;
-    for (const Ground::OsmField::Tile &tile : shapes->Tiles()) {
-      tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.X)) * kDigestPrime;
-      tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.Y)) * kDigestPrime;
+                                          GroundBuildState &state) {
+  if (state.Pressing() == nullptr) {
+    const Ground::BuildingField &pads = state.Candidate().Products().Footprints;
+    std::vector<Yields> corridor = state.TakesCorridors();
+    const Ground::OsmField *const shapes = World.Stack.Vectors();
+    if (shapes != nullptr) {
+      uint64_t tileOrder = kDigestBasis;
+      for (const Ground::OsmField::Tile &tile : shapes->Tiles()) {
+        tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.X)) * kDigestPrime;
+        tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.Y)) * kDigestPrime;
+      }
+      Published.Places("ground candidate: OSM tile order, low half",
+                       static_cast<double>(tileOrder & kLowWord),
+                       "digest");
+      Published.Places("ground candidate: OSM tile order, high half",
+                       static_cast<double>(tileOrder >> 32U),
+                       "digest");
     }
-    Published.Places("ground candidate: OSM tile order, low half",
-                     static_cast<double>(tileOrder & kLowWord),
-                     "digest");
-    Published.Places("ground candidate: OSM tile order, high half",
-                     static_cast<double>(tileOrder >> 32U),
-                     "digest");
+    std::vector<Yields> yielding;
+    if (shapes != nullptr) { AppendBuildingStamps(pads, shapes->Points(), standing, yielding); }
+    const size_t builtPads = yielding.size();
+    if (shapes != nullptr) {
+      AppendLakeStamps(World.Stack.WaterBodies().Surfaces(), shapes->Points(), standing, yielding);
+    }
+    const size_t builtLakes = yielding.size() - builtPads;
+    Published.Places("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
+    yielding.insert(yielding.end(),
+                    std::make_move_iterator(corridor.begin()),
+                    std::make_move_iterator(corridor.end()));
+    Published.Places("ground: pads that press it", static_cast<double>(builtPads), "pads");
+    Published.Places("ground: corridor pieces that press it",
+                     static_cast<double>(yielding.size() - builtPads - builtLakes),
+                     "pieces");
+    state.BeginsPressing(std::make_unique<Generators::TerrainPressJob>(
+        std::move(yielding),
+        patchwork,
+        standing,
+        Generators::TerrainPageLayout{.Side = Render::GroundLattice::kSide, .Halo = 1},
+        kMostEarthworkM));
+    state.SamplesProductPeak();
+    return true;
   }
-  std::vector<Yields> yielding;
-  if (shapes != nullptr) { AppendBuildingStamps(pads, shapes->Points(), standing, yielding); }
-  const size_t builtPads = yielding.size();
-  if (shapes != nullptr) {
-    AppendLakeStamps(World.Stack.WaterBodies().Surfaces(), shapes->Points(), standing, yielding);
-  }
-  const size_t builtLakes = yielding.size() - builtPads;
-  Published.Places("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
-  yielding.insert(yielding.end(),
-                  std::make_move_iterator(corridor.begin()),
-                  std::make_move_iterator(corridor.end()));
-  Published.Places("ground: pads that press it", static_cast<double>(builtPads), "pads");
-  Published.Places("ground: corridor pieces that press it",
-                   static_cast<double>(yielding.size() - builtPads - builtLakes),
-                   "pieces");
-  const auto pressAt = std::chrono::steady_clock::now();
-  const Generators::PressedTerrain pressed_ =
-      Generators::PressTerrain(yielding,
-                               patchwork,
-                               standing,
-                               {.Side = Render::GroundLattice::kSide, .Halo = 1},
-                               kMostEarthworkM);
+  const auto sliceAt = std::chrono::steady_clock::now();
+  const bool completed =
+      state.Pressing()->Advance(kEarthworkSheetsPerFrame, kEarthworkPointsPerFrame);
+  state.SamplesPressingSlice(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
+          .count());
+  state.SamplesProductPeak();
+  if (!completed) { return true; }
+  const Generators::PressedTerrain pressed_ = state.Pressing()->Take();
   Published.Places("ground: pressing gather", pressed_.GatherMs, "ms");
   Published.Places("ground: pressing decide", pressed_.DecideMs, "ms");
   Published.Places("ground: pressing buckets", pressed_.BucketMs, "ms");
@@ -848,10 +876,13 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
         floors->WasBelowM,
         "m");
   }
+  const double pressingMs =
+      pressed_.GatherMs + pressed_.DecideMs + pressed_.WriteMs + pressed_.FloorsMs;
+  Published.Places("ground: of that, pressing", pressingMs, "ms");
+  Published.Places("ground candidate: earthworks", pressingMs, "ms");
   Published.Places(
-      "ground: of that, pressing",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pressAt).count(),
-      "ms");
+      "ground candidate: longest earthwork slice", state.LongestPressingSliceMs(), "ms");
+  state.CompletesStage();
   return true;
 }
 
@@ -1464,16 +1495,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
     return BuildGroundCorridors(standing, over, state);
   }
   if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsEarthworks) {
-    const auto began = std::chrono::steady_clock::now();
-    if (!PressGroundEarthworks(standing, laid, build.Footprints, state.TakesCorridors())) {
-      return false;
-    }
-    state.CompletesStage();
-    Published.Places(
-        "ground candidate: earthworks",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
-        "ms");
-    return true;
+    return PressGroundEarthworks(standing, laid, state);
   }
   if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsTerrainMesh) {
     return BuildGroundTerrainMesh(standing, laid, state);

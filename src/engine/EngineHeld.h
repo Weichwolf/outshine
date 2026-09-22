@@ -434,8 +434,7 @@ struct Engine::State {
                                         GroundBuildProducts &build);
   [[nodiscard]] bool PressGroundEarthworks(const TangentFrame &standing,
                                            Patchwork &patchwork,
-                                           const Ground::BuildingField &footprints,
-                                           std::vector<Yields> corridor);
+                                           GroundBuildState &state);
   [[nodiscard]] bool BuildGroundCorridors(const TangentFrame &standing,
                                           const Around &coverage,
                                           GroundBuildState &state);

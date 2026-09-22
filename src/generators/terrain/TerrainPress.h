@@ -2,7 +2,9 @@
 #define OUTSHINE_GENERATORS_TERRAIN_TERRAINPRESS_H
 
 #include <cstddef>
+#include <memory>
 #include <span>
+#include <vector>
 
 #include "GroundMesher.h"
 #include "GroundYield.h"
@@ -33,6 +35,28 @@ struct PressedTerrain {
                                           const TangentFrame &frame,
                                           TerrainPageLayout layout,
                                           double mostEarthworkM);
+
+class TerrainPressJob {
+public:
+  TerrainPressJob(std::vector<Yields> yields,
+                  Patchwork &candidate,
+                  TangentFrame frame,
+                  TerrainPageLayout layout,
+                  double mostEarthworkM);
+  ~TerrainPressJob();
+  TerrainPressJob(const TerrainPressJob &) = delete;
+  TerrainPressJob &operator=(const TerrainPressJob &) = delete;
+  TerrainPressJob(TerrainPressJob &&) noexcept;
+  TerrainPressJob &operator=(TerrainPressJob &&) noexcept;
+
+  [[nodiscard]] bool Advance(size_t sheetsMost, size_t pointsMost);
+  [[nodiscard]] PressedTerrain Take() noexcept;
+  [[nodiscard]] size_t HeapBytes() const noexcept;
+
+private:
+  struct State;
+  std::unique_ptr<State> State_;
+};
 
 }
 #endif
