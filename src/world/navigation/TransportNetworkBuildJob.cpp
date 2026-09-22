@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <ratio>
 #include <string>
 #include <string_view>
@@ -84,7 +85,13 @@ void TransportNetworkBuildJob::BeginElevation(const Ground::GroundStack &stack) 
 
 std::expected<void, std::string> TransportNetworkBuildJob::AdvanceElevation(size_t itemsMost) {
   assert(Elevation_ != nullptr);
-  auto advanced = Elevation_->Advance(itemsMost);
+  constexpr size_t kProfileItemsPerSample = 4;
+  const size_t profileItemsMost =
+      itemsMost > std::numeric_limits<size_t>::max() / kProfileItemsPerSample
+          ? std::numeric_limits<size_t>::max()
+          : itemsMost * kProfileItemsPerSample;
+  auto advanced =
+      Elevation_->Advance({.SamplesMost = itemsMost, .ProfilePointsMost = profileItemsMost});
   if (!advanced) { return std::unexpected(std::string(advanced.error())); }
   if (!*advanced) { return {}; }
   Built_.ElevationSlices = Elevation_->LongestSlices();

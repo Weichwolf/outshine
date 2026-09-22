@@ -1280,7 +1280,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
       "network: longest node sample slice", mapped.ElevationSlices.SampleNodesMs, "ms");
   Published.Places(
       "network: longest point write slice", mapped.ElevationSlices.WritePointsMs, "ms");
-  Published.Places("network: longest profile slice", mapped.ElevationSlices.ProfileMs, "ms");
+  Published.Places("network: longest station slice", mapped.ElevationSlices.StationsMs, "ms");
+  Published.Places("network: longest slope slice", mapped.ElevationSlices.SlopesMs, "ms");
+  Published.Places("network: longest grade slice", mapped.ElevationSlices.GradesMs, "ms");
   Published.Places("network: longest build slice", longestSliceMs, "ms");
   Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
   Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");

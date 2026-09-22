@@ -216,6 +216,8 @@ private:
   };
 
   [[nodiscard]] static uint64_t PhysicalEdgeKey(size_t from, size_t to);
+  static constexpr double kTenPercent = 0.10;
+  static constexpr double kThirtyPercent = 0.30;
   [[nodiscard]] bool PrepareWeave(std::string &error);
   [[nodiscard]] static std::optional<double> SampleFiniteHeight(const HeightSource &source,
                                                                 LongitudeLatitude at);
@@ -476,10 +478,17 @@ private:
 
 class NetworkElevationJob {
 public:
+  struct Budget {
+    size_t SamplesMost = 0;
+    size_t ProfilePointsMost = 0;
+  };
+
   struct SliceWorst {
     double SampleNodesMs = 0.0;
     double WritePointsMs = 0.0;
-    double ProfileMs = 0.0;
+    double StationsMs = 0.0;
+    double SlopesMs = 0.0;
+    double GradesMs = 0.0;
   };
 
   struct Result {
@@ -494,16 +503,30 @@ public:
   NetworkElevationJob &operator=(NetworkElevationJob &&) noexcept = default;
 
   [[nodiscard]] std::expected<bool, std::string_view> Advance(size_t itemsMost);
+  [[nodiscard]] std::expected<bool, std::string_view> Advance(Budget budget);
   [[nodiscard]] std::expected<Result, std::string_view> Take() &&;
 
   [[nodiscard]] SliceWorst LongestSlices() const noexcept { return Worst_; }
 
 private:
-  enum class Stage : uint8_t { SampleNodes, WritePoints, Profile, Done };
+  enum class Stage : uint8_t {
+    SampleNodes,
+    WritePoints,
+    PrepareStations,
+    Stations,
+    PrepareSlopes,
+    Slopes,
+    CountGrades,
+    Done
+  };
   NetworkElevationJob(Network &&network, Network::HeightSource source);
   void SampleNodes(size_t itemsMost);
   void WritePoints(size_t itemsMost);
-  void Profile();
+  void PrepareStations();
+  void BuildStations(size_t itemsMost);
+  void PrepareSlopes();
+  void BuildSlopes(size_t itemsMost);
+  void CountGrades(size_t itemsMost);
 
   Network Network_;
   Network::HeightSource HeightOf_;
@@ -511,6 +534,8 @@ private:
   Network::Elevated Statistics_;
   size_t NextNode_ = 0;
   size_t NextPoint_ = 0;
+  size_t NextWay_ = 0;
+  size_t NextProfilePoint_ = 0;
   SliceWorst Worst_;
   Stage Stage_ = Stage::SampleNodes;
 };

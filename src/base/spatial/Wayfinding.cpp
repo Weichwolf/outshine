@@ -56,8 +56,6 @@ constexpr uint64_t kWordMost = 0xFFFFFFFFull;
 namespace {
 
 constexpr double kDegToRad = std::numbers::pi / kDegPerHalfTurn;
-constexpr double kTenPercent = 0.10;
-constexpr double kThirtyPercent = 0.30;
 constexpr size_t kNoSearchState = std::numeric_limits<size_t>::max();
 
 [[nodiscard]] bool ValidCoordinates(LongitudeLatitude at) {
@@ -1421,11 +1419,11 @@ Network::Elevated Network::Elevate(const HeightSource &heightOf) {
 void Network::CountGrades(Elevated &made) const {
   for (size_t at = 0; at < SlopeM_.size(); ++at) {
     const double grade = std::fabs(SlopeM_[at]);
-    if (grade > kTenPercent) { ++made.OverTenPercent; }
-    if (grade > kThirtyPercent) { ++made.OverThirtyPercent; }
+    if (grade > Network::kTenPercent) { ++made.OverTenPercent; }
+    if (grade > Network::kThirtyPercent) { ++made.OverThirtyPercent; }
     made.SteepestGrade = std::max(made.SteepestGrade, grade);
     if (!Ways_[WayOf_[at]].Sealed) { continue; }
-    if (grade > kTenPercent) { ++made.SealedOverTenPercent; }
+    if (grade > Network::kTenPercent) { ++made.SealedOverTenPercent; }
     made.SteepestSealedGrade = std::max(made.SteepestSealedGrade, grade);
   }
 }
