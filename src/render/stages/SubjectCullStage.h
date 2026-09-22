@@ -38,6 +38,8 @@ public:
     Subjects_ = &subjects;
   }
 
+  void Invalidate() noexcept { HasResult_ = false; }
+
   void EncodeCull(const FrameContext &ctx, const PassRecording &into);
   void EncodeScan(const FrameContext &ctx, const PassRecording &into);
   void EncodeCompact(const FrameContext &ctx, const PassRecording &into);

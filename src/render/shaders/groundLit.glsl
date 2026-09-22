@@ -27,6 +27,6 @@ void main() {
       ? mix(groundWearsSlope(runnerUp, rows, slopeDeg), groundWearsSlope(which, rows, slopeDeg), smoothstep(-acrossM, acrossM, edgeM))
       : groundWearsSlope(which, rows, slopeDeg);
   vec3 shaded = shadeRow(surface, localPosition, shadingNormal, position, wears.rgb,
-      surface.metalness, surface.roughness, vec3(0.0), 0.0, surface.emissive, vec3(0.0), lightSpace, shadowMap);
+      surface.metalness, wears.a, vec3(surface.f0), surface.specularWeight, surface.emissive, vec3(0.0), lightSpace, shadowMap);
   outputSurface(vec4(shaded, 1.0), shadingNormal, surface.identity);
 }

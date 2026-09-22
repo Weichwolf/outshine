@@ -285,6 +285,7 @@ bool SceneRenderer::PublishesWorldCandidate(std::string &error) {
   Candidate_.reset();
   ApplyWorldDeclarations();
   BindFrameResources();
+  ActiveFrame().Cull.Invalidate();
   BeginTemporalRun();
   error.clear();
   return true;

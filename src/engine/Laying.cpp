@@ -264,15 +264,15 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
   palette[2] = wearing.Limit().SlopeBandDeg();
   const auto rowAt = [](size_t row) { return kPaletteStride * (row + 1u); };
   for (size_t row = 0; row < rows; ++row) {
-    for (size_t channel = 0; channel < 3; ++channel) {
+    for (size_t channel = 0; channel < kPaletteStride; ++channel) {
       palette[rowAt(row) + channel] = wearing.Rows()[row].Ground[channel];
     }
-    palette[rowAt(row) + 3u] = wearing.Rows()[row].Mix[2];
     palette[kPaletteStride * (rows + 2u) + row] = wearing.Rows()[row].Edge[3];
   }
   for (size_t channel = 0; channel < 3; ++channel) {
     palette[rowAt(rows) + channel] = fallback.GroundAlbedo[channel];
   }
+  palette[rowAt(rows) + 3u] = Material{}.Roughness;
   palette[kPaletteStride * (rows + 2u) + rows] = kVerticalSlopeDeg;
   return palette;
 }
