@@ -27,6 +27,8 @@ gezahnte/geböschte Ufer und in Husum durchquerende helle Bänder.
   und mit Quelle protokollieren; gültigen Berg nicht an den See-Level ziehen.
 - Derselbe ausgeschnittene Wasserkörper beliefert Bed, Surface und 2129; Unterschiede nach
   Ablehnungsgrund zählen. Wasser unter Brücken erhalten; Straße nicht auf Wasserniveau pressen.
+  2257 ergänzt geschützte Gerinne auch für `WaterField::Course`, nicht nur Polygonflächen;
+  Konflikte mit Pads/Korridoren werden konstruktiv gelöst oder abgelehnt.
 
 ## Abnahme
 

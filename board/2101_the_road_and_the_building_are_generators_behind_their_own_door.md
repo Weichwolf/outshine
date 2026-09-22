@@ -28,6 +28,9 @@ Offen: Corridors/Laying/StructureBake auf diese Produkte umstellen, Whole-ring-B
 Tile-/Struktur-Jobs mit Nachbarschaftshalo ersetzen; 2124 besitzt Scheduling/Upload.
 Die alte pauschale „Straße kann wegen Skirt nie schweben“-Lösung ist aufgehoben:
 Fundament/Stützwand nur wo konstruktiv sinnvoll; Brücke/Tunnel müssen darunter offen bleiben.
+2257 prüft die gemeinsame Wasser-/Bauwerksgrenze mit geschütztem Gerinne und tragfähigem
+Anschluss. 2258 definiert die totale OSM-Interpretation. OSM-Grundriss allein beweist weder
+Statik noch Befahrbarkeit; Generatorprodukte brauchen Konstruktion und Konfliktdiagnose.
 
 - [ ] Headless-Kartenquery benötigt weder Mesh noch Renderer; identische Route bei jeder LOD.
 - [ ] Straße, Schiene, Weg, Brücke und Tunnel gehen durch denselben versionierten Produktvertrag;
