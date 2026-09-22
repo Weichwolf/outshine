@@ -11,6 +11,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <optional>
 #include <vector>
 
@@ -74,6 +75,8 @@ struct Route {
   std::vector<Leg> Legs;
   std::string Error;
 };
+
+class NetworkWeaveJob;
 
 class Network {
 public:
@@ -192,7 +195,26 @@ public:
   Within(LongitudeLatitude of, double reachM, std::vector<size_t> &nodes) const;
 
 private:
+  friend class NetworkWeaveJob;
+
   Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}
+
+  class PhysicalAdjacency {
+  public:
+    explicit PhysicalAdjacency(size_t nodes) : Degree_(nodes) {}
+
+    void Connect(size_t from, size_t to);
+    void Disconnect(size_t from, size_t to);
+
+    [[nodiscard]] size_t Degree(size_t node) const { return Degree_[node]; }
+
+  private:
+    std::vector<size_t> Degree_;
+    std::unordered_set<uint64_t> Edges_;
+  };
+
+  [[nodiscard]] static uint64_t PhysicalEdgeKey(size_t from, size_t to);
+  [[nodiscard]] bool PrepareWeave(std::string &error);
 
   struct Way {
     size_t First = 0;
@@ -384,6 +406,38 @@ private:
   mutable std::optional<Swept> CachedSweep_;
   size_t Tied_ = 0;
   bool Woven_ = false;
+};
+
+class NetworkWeaveJob {
+public:
+  [[nodiscard]] static std::expected<NetworkWeaveJob, std::string> Begin(Network &&network);
+  NetworkWeaveJob(const NetworkWeaveJob &) = delete;
+  NetworkWeaveJob &operator=(const NetworkWeaveJob &) = delete;
+  NetworkWeaveJob(NetworkWeaveJob &&) noexcept = default;
+  NetworkWeaveJob &operator=(NetworkWeaveJob &&) noexcept = default;
+
+  [[nodiscard]] std::expected<bool, std::string> Advance(size_t itemsMost);
+  [[nodiscard]] std::expected<Network, std::string_view> Take() &&;
+
+private:
+  enum class Stage : uint8_t { IndexEdges, BuildAdjacency, TieEnds, Publish, Done };
+  explicit NetworkWeaveJob(Network &&network);
+  [[nodiscard]] std::expected<void, std::string> IndexEdges(size_t itemsMost);
+  void BuildAdjacency(size_t itemsMost);
+  void TieEnds(size_t itemsMost);
+  void Publish();
+
+  Network Network_;
+  std::vector<size_t> NodeOf_;
+  Network::CellsByKey ByCell_;
+  Network::OutgoingEdges Outgoing_;
+  Network::EdgesByCell ByEdgeCell_;
+  std::unordered_set<uint64_t> Indexed_;
+  Network::PhysicalAdjacency Adjacency_{0};
+  double TieReachM_ = 0.0;
+  size_t NextNode_ = 0;
+  size_t NextEdge_ = 0;
+  Stage Stage_ = Stage::IndexEdges;
 };
 
 }

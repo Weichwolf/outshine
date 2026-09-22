@@ -66,38 +66,6 @@ constexpr size_t kNoSearchState = std::numeric_limits<size_t>::max();
          std::abs(at.LatitudeDeg) <= kDegPerHalfTurn / 2.0;
 }
 
-[[nodiscard]] uint64_t PhysicalEdgeKey(size_t from, size_t to) {
-  static_assert(kMaxNetworkPoints <= std::numeric_limits<uint32_t>::max());
-  return (static_cast<uint64_t>(std::min(from, to))
-          << static_cast<unsigned>(std::numeric_limits<uint32_t>::digits)) |
-         static_cast<uint64_t>(std::max(from, to));
-}
-
-class PhysicalAdjacency {
-public:
-  explicit PhysicalAdjacency(size_t nodes) : Degree_(nodes) {}
-
-  void Connect(size_t from, size_t to) {
-    if (Edges_.insert(PhysicalEdgeKey(from, to)).second) {
-      ++Degree_[from];
-      ++Degree_[to];
-    }
-  }
-
-  void Disconnect(size_t from, size_t to) {
-    if (Edges_.erase(PhysicalEdgeKey(from, to)) != 0) {
-      --Degree_[from];
-      --Degree_[to];
-    }
-  }
-
-  [[nodiscard]] size_t Degree(size_t node) const { return Degree_[node]; }
-
-private:
-  std::vector<size_t> Degree_;
-  std::unordered_set<uint64_t> Edges_;
-};
-
 double MetresPerDegreeLat(double sphereRadiusM) {
   return sphereRadiusM * kDegToRad;
 }
@@ -112,6 +80,27 @@ double MetresPerDegreeLon(double latDeg, Sphere on) {
   return apart - kDegPerTurn * std::floor(apart / kDegPerTurn + 0.5);
 }
 
+}
+
+uint64_t Network::PhysicalEdgeKey(size_t from, size_t to) {
+  static_assert(kMaxNetworkPoints <= std::numeric_limits<uint32_t>::max());
+  return (static_cast<uint64_t>(std::min(from, to))
+          << static_cast<unsigned>(std::numeric_limits<uint32_t>::digits)) |
+         static_cast<uint64_t>(std::max(from, to));
+}
+
+void Network::PhysicalAdjacency::Connect(size_t from, size_t to) {
+  if (Edges_.insert(Network::PhysicalEdgeKey(from, to)).second) {
+    ++Degree_[from];
+    ++Degree_[to];
+  }
+}
+
+void Network::PhysicalAdjacency::Disconnect(size_t from, size_t to) {
+  if (Edges_.erase(Network::PhysicalEdgeKey(from, to)) != 0) {
+    --Degree_[from];
+    --Degree_[to];
+  }
 }
 
 double ApartM(LongitudeLatitude from, LongitudeLatitude to, Sphere on) {
@@ -667,7 +656,7 @@ bool Network::TieLooseEnds(OutgoingEdges &outgoing, std::string &error) {
   return true;
 }
 
-bool Network::Weave(std::string &error, WeaveTimings *timings) {
+bool Network::PrepareWeave(std::string &error) {
   CachedCrossings_.clear();
   CachedSweep_.reset();
   Nodes_.clear();
@@ -689,6 +678,11 @@ bool Network::Weave(std::string &error, WeaveTimings *timings) {
             std::to_string(SnapM_) + " m";
     return false;
   }
+  return true;
+}
+
+bool Network::Weave(std::string &error, WeaveTimings *timings) {
+  if (!PrepareWeave(error)) { return false; }
 
   auto phaseBegan = std::chrono::steady_clock::now();
   const auto phaseMs = [&phaseBegan] {
