@@ -95,6 +95,12 @@ weave publication 2.941, crossings 24.613, node sampling 22.096, point writes
 slice reached 50.370 ms. Reduce the item budget from measurements, classify
 that transfer/start slice, then split crossings and profile construction.
 
+Global budgets of 128, 256 and 512 items were rejected: Wien did not reach
+Refined within the 6,144-frame shot horizon; 1,024 completed in roughly
+5,860–6,009 frames. A single count cannot represent cheap adjacency work and
+expensive DEM samples. Keep 1,024 until phase-specific budgets or compute
+execution preserve both completion latency and the per-frame bound.
+
 ## Acceptance
 
 - Analytic line, closed loop, legal junction, grade-separated crossing and
