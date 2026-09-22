@@ -17,18 +17,21 @@
 #include "OsmField.h"
 
 namespace outshine::World {
-TransportNetworkBuildJob::TransportNetworkBuildJob(Path::Network &&graph)
-    : Graph_(std::move(graph)) {}
+TransportNetworkBuildJob::TransportNetworkBuildJob(Path::Network &&graph,
+                                                   Path::Network::HeightSource heightOf)
+    : Graph_(std::move(graph)), HeightOf_(std::move(heightOf)) {}
 
 std::expected<TransportNetworkBuildJob, std::string>
-TransportNetworkBuildJob::Begin(const Ground::GroundStack &stack) {
+TransportNetworkBuildJob::Begin(const Ground::GroundStack &stack,
+                                Path::Network::HeightSource heightOf) {
   const auto began = std::chrono::steady_clock::now();
   const Ground::OsmField *const vectors = stack.Vectors();
   if (vectors == nullptr) { return std::unexpected("transport vectors are absent"); }
   auto created = Path::Network::Create(Path::Snap{.CellM = TransportNetwork::kNodeSnapM},
                                        Path::Sphere{.RadiusM = kWgs84A});
   if (!created) { return std::unexpected(std::string(created.error())); }
-  TransportNetworkBuildJob job(std::move(*created));
+  if (!heightOf) { return std::unexpected("transport height source is absent"); }
+  TransportNetworkBuildJob job(std::move(*created), std::move(heightOf));
   if (const auto laid = TransportNetwork::LayWays(stack.Ways(), vectors->Points(), job.Graph_);
       !laid) {
     return std::unexpected(std::string(laid.error()));
@@ -111,9 +114,9 @@ std::expected<void, std::string> TransportNetworkBuildJob::AdvanceCrossings(size
   return {};
 }
 
-void TransportNetworkBuildJob::BeginElevation(const Ground::GroundStack &stack) {
-  Elevation_ = std::make_unique<Path::NetworkElevationJob>(Path::NetworkElevationJob::Begin(
-      std::move(Graph_), [&stack](LongitudeLatitude at) { return stack.Ground().At(at).AslM(); }));
+void TransportNetworkBuildJob::BeginElevation() {
+  Elevation_ = std::make_unique<Path::NetworkElevationJob>(
+      Path::NetworkElevationJob::Begin(std::move(Graph_), std::move(HeightOf_)));
   Stage_ = Stage::Elevation;
 }
 
@@ -143,8 +146,7 @@ void TransportNetworkBuildJob::Publish() {
   Stage_ = Stage::Done;
 }
 
-std::expected<bool, std::string> TransportNetworkBuildJob::Advance(const Ground::GroundStack &stack,
-                                                                   size_t itemsMost) {
+std::expected<bool, std::string> TransportNetworkBuildJob::Advance(size_t itemsMost) {
   if (itemsMost == 0) { return std::unexpected("transport network work budget is zero"); }
   const auto began = std::chrono::steady_clock::now();
   const Stage before = Stage_;
@@ -155,7 +157,7 @@ std::expected<bool, std::string> TransportNetworkBuildJob::Advance(const Ground:
     case Stage::CleanupWeave: progressed = CleanupWeave(itemsMost); break;
     case Stage::BeginCrossings: progressed = BeginCrossings(); break;
     case Stage::Crossings: progressed = AdvanceCrossings(itemsMost); break;
-    case Stage::BeginElevation: BeginElevation(stack); break;
+    case Stage::BeginElevation: BeginElevation(); break;
     case Stage::Elevation: progressed = AdvanceElevation(itemsMost); break;
     case Stage::Publish: Publish(); break;
     case Stage::Done: return true;

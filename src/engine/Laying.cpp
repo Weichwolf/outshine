@@ -1236,7 +1236,11 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
     return GroundBuildProgress::Pending;
   }
   if (state.NetworkJob() == nullptr) {
-    auto started = outshine::World::TransportNetworkBuildJob::Begin(World.Stack);
+    const int sourceZoom = state.Coverage().Zoom;
+    auto started = outshine::World::TransportNetworkBuildJob::Begin(
+        World.Stack, [&sheets = build.Sheets, sourceZoom](LongitudeLatitude at) {
+          return sheets.AslMAt(sourceZoom, at);
+        });
     if (!started) {
       Error = std::move(started.error());
       World.GroundBuild.reset();
@@ -1246,7 +1250,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
         std::make_unique<outshine::World::TransportNetworkBuildJob>(std::move(*started)));
     return GroundBuildProgress::Pending;
   }
-  auto advanced = state.NetworkJob()->Advance(World.Stack, kNetworkItemsPerFrame);
+  auto advanced = state.NetworkJob()->Advance(kNetworkItemsPerFrame);
   if (!advanced) {
     Error = std::move(advanced.error());
     World.GroundBuild.reset();

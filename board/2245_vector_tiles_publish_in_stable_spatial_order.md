@@ -65,6 +65,12 @@ restarts candidates at the correct revision, that value can describe different
 previous publications under different pacing. Move the diagnostic to successful
 publication; retain the same digest equality check against the final native world.
 
+2026-09-22 cold-cache control contradicts the earlier broad pass claim:
+`GroundCandidatePacingReachesReadiness` produces different sheet and geometry
+digests on both `3693c4c14` and the pinned network-height branch; warm repeats
+pass. Arrival/cache state therefore still affects native publication. Keep this
+red specification and fix canonical inputs; the network sampler is not causal.
+
 ## Decision
 
 Fetch all requested tiles concurrently; never serialize IO behind the first pending

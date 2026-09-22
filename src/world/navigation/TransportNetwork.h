@@ -55,14 +55,13 @@ private:
 class TransportNetworkBuildJob {
 public:
   [[nodiscard]] static std::expected<TransportNetworkBuildJob, std::string>
-  Begin(const Ground::GroundStack &stack);
+  Begin(const Ground::GroundStack &stack, Path::Network::HeightSource heightOf);
   TransportNetworkBuildJob(const TransportNetworkBuildJob &) = delete;
   TransportNetworkBuildJob &operator=(const TransportNetworkBuildJob &) = delete;
   TransportNetworkBuildJob(TransportNetworkBuildJob &&) noexcept = default;
   TransportNetworkBuildJob &operator=(TransportNetworkBuildJob &&) noexcept = default;
 
-  [[nodiscard]] std::expected<bool, std::string> Advance(const Ground::GroundStack &stack,
-                                                         size_t itemsMost);
+  [[nodiscard]] std::expected<bool, std::string> Advance(size_t itemsMost);
   [[nodiscard]] std::expected<TransportNetwork::Built, std::string_view> Take() &&;
 
   [[nodiscard]] double LongestSliceMs() const noexcept { return LongestSliceMs_; }
@@ -79,13 +78,13 @@ private:
     Publish,
     Done
   };
-  explicit TransportNetworkBuildJob(Path::Network &&graph);
+  TransportNetworkBuildJob(Path::Network &&graph, Path::Network::HeightSource heightOf);
   [[nodiscard]] std::expected<void, std::string> BeginWeave();
   [[nodiscard]] std::expected<void, std::string> AdvanceWeave(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> CleanupWeave(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> BeginCrossings();
   [[nodiscard]] std::expected<void, std::string> AdvanceCrossings(size_t pairsMost);
-  void BeginElevation(const Ground::GroundStack &stack);
+  void BeginElevation();
   [[nodiscard]] std::expected<void, std::string> AdvanceElevation(size_t itemsMost);
   void Publish();
 
@@ -93,6 +92,7 @@ private:
   std::unique_ptr<Path::NetworkWeaveJob> Weave_;
   std::unique_ptr<Path::NetworkCrossingJob> Crossings_;
   std::unique_ptr<Path::NetworkElevationJob> Elevation_;
+  Path::Network::HeightSource HeightOf_;
   TransportNetwork::Built Built_;
   double LongestSliceMs_ = 0.0;
   Stage Stage_ = Stage::BeginWeave;

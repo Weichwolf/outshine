@@ -83,6 +83,13 @@ remain phase-specific. Next remove the candidate-scheduler amplification,
 reduce crossing setup/pair slices below 4 ms, and move DEM sampling off the
 frame path or into an independently bounded worker.
 
+The elevation job now owns the candidate's pinned `HeightSheets` sampler
+instead of consulting mutable `GroundStream` and synchronously building tiles.
+Wien sampled every node, reduced the worst elevation slice from 21.630 to
+0.804 ms and changed 3,297/921,600 pixels in the road/shore band because roads
+now use the rendered candidate terrain. Digest is `84df505c`; the build needed
+6,206 frames, so the unchanged 6,144-frame shot horizon remains red.
+
 ## Acceptance
 
 - Analytic line, closed loop, legal junction, grade-separated crossing and
