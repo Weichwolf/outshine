@@ -154,6 +154,12 @@ public:
     size_t PairsTested = 0;
     size_t FullestCell = 0;
     size_t PairsPruned = 0;
+    double SpanMs = 0.0;
+    double SegmentsMs = 0.0;
+    double GridMs = 0.0;
+    double FilingMs = 0.0;
+    double TestMs = 0.0;
+    double CacheMs = 0.0;
   };
 
   [[nodiscard]] std::expected<Swept, std::string_view> Crossings(std::vector<Crossing> &into) const;

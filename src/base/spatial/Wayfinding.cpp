@@ -891,19 +891,29 @@ Network::Crossings(std::vector<Crossing> &into) const {
     return *CachedSweep_;
   }
   Swept swept;
+  auto phaseBegan = std::chrono::steady_clock::now();
+  const auto phaseMs = [&phaseBegan] {
+    const auto ended = std::chrono::steady_clock::now();
+    const double elapsed = std::chrono::duration<double, std::milli>(ended - phaseBegan).count();
+    phaseBegan = ended;
+    return elapsed;
+  };
   const size_t points = Points_.size() / 2;
   if (Ways_.size() < 2 || points < 4) { return swept; }
 
   std::vector<double> lon(points, 0.0);
   const Spanned over = SpanOfPoints(lon);
+  swept.SpanMs = phaseMs();
   std::vector<uint32_t> segWay;
   std::vector<uint32_t> segAt;
   const size_t segments = SegmentsOfWays(segWay, segAt);
+  swept.SegmentsMs = phaseMs();
   if (segments < 2) { return swept; }
 
   const std::expected<Gridded, std::string_view> grid =
       GridOver({.Lon = lon, .SegAt = segAt, .Segments = segments}, over);
   if (!grid) { return std::unexpected(grid.error()); }
+  swept.GridMs = phaseMs();
   const size_t cells = grid->Cells;
   const uint64_t wide = grid->Wide;
 
@@ -952,6 +962,7 @@ Network::Crossings(std::vector<Crossing> &into) const {
   for (size_t cell = 0; cell < cells; ++cell) {
     swept.FullestCell = std::max<size_t>(holds[cell + 1u] - holds[cell], swept.FullestCell);
   }
+  swept.FilingMs = phaseMs();
 
   for (size_t cell = 0; cell < cells; ++cell) {
     CrossingsInCell(
@@ -962,8 +973,11 @@ Network::Crossings(std::vector<Crossing> &into) const {
         into,
         swept);
   }
+  swept.TestMs = phaseMs();
   swept.Found = into.size();
   CachedCrossings_ = into;
+  CachedSweep_ = swept;
+  swept.CacheMs = phaseMs();
   CachedSweep_ = swept;
   return swept;
 }

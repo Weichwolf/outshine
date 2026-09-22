@@ -62,12 +62,13 @@ WI 2105.
 
 At 1,024 graph items/frame and 4,096 profile points/frame, latest worst slices
 are: snap 2.285, edge creation 0.613, edge index 9.714, adjacency 5.947, tie
-2.896, weave publication 2.941, crossings 23.912, node sampling 21.579, point
+2.896, weave publication 2.941, crossings 25.636, node sampling 19.937, point
 writes 0.013, stations 0.379, slopes 0.288 and grade statistics 0.058 ms.
 Profile work previously cost 14.078 ms. Destroying 72.376 ms of weave
 temporaries caused the unexplained 48.958-ms transition; explicit staged
 release now limits that work to 2.594 ms and the longest build slice is the
-measured 23.912-ms crossing pass.
+crossing pass. Its measured parts are point span 0.217, segment list 0.717,
+grid 0.194, cell filing 4.784, pair tests 19.420 and cache 0.037 ms.
 
 Global budgets 128, 256 and 512 failed to reach Refined within the 6,144-frame
 shot horizon; 1,024 completes in about 5,860–6,072 frames. Counts therefore

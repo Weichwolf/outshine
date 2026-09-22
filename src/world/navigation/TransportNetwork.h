@@ -33,6 +33,7 @@ public:
     Path::NetworkWeaveJob::SliceWorst WeaveSlices;
     Path::Network::WeaveTimings WeavePhases;
     double CrossingsMs = 0.0;
+    Path::Network::Swept CrossingSweep;
     double ElevateMs = 0.0;
     double BeginElevationMs = 0.0;
     double ElevateLongestMs = 0.0;

@@ -82,9 +82,9 @@ std::expected<void, std::string> TransportNetworkBuildJob::CleanupWeave(size_t i
 
 std::expected<void, std::string> TransportNetworkBuildJob::ClassifyCrossings() {
   std::vector<Path::Network::Crossing> crossings;
-  if (auto swept = Graph_.Crossings(crossings); !swept) {
-    return std::unexpected(std::string(swept.error()));
-  }
+  auto swept = Graph_.Crossings(crossings);
+  if (!swept) { return std::unexpected(std::string(swept.error())); }
+  Built_.CrossingSweep = *swept;
   Built_.Nodes = Graph_.NodeCount();
   Built_.Edges = Graph_.EdgeCount();
   Built_.Junctions = Graph_.JunctionCount();
