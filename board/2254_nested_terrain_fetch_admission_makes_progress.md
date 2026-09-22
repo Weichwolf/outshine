@@ -1,5 +1,5 @@
 Type: defect
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2234
