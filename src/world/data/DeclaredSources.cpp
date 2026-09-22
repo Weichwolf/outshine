@@ -65,6 +65,9 @@ bool RegisterDeclared(SourceSet &set,
     case SourceSet::Registration::Unnamed:
       error = "a provider resolves to a source without an id";
       return false;
+    case SourceSet::Registration::Sealed:
+      error = "providers cannot be registered after the tile pool starts";
+      return false;
   }
   return true;
 }

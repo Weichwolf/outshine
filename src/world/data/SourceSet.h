@@ -14,7 +14,7 @@ namespace outshine::Data {
 
 class SourceSet {
 public:
-  enum class Registration { Accepted, DuplicateRank, Unnamed };
+  enum class Registration { Accepted, DuplicateRank, Unnamed, Sealed };
 
   explicit SourceSet(ContentStore &store) : Store_(store) {}
 
@@ -23,6 +23,8 @@ public:
 
   [[nodiscard]] Registration Add(std::unique_ptr<Source> source);
   [[nodiscard]] Registration AddAll(std::vector<std::unique_ptr<Source>> sources);
+
+  void Seal() noexcept;
 
   [[nodiscard]] size_t Count() const noexcept { return Sources_.size(); }
 
@@ -84,6 +86,8 @@ private:
                                                         Transport &transport);
 
   ContentStore &Store_;
+  mutable std::mutex RegistryMutex_;
+  bool Sealed_ = false;
   std::vector<std::unique_ptr<Source>> Sources_;
 
   mutable std::mutex LedgerMutex_;

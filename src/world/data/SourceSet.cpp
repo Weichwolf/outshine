@@ -49,6 +49,8 @@ SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
 }
 
 SourceSet::Registration SourceSet::AddAll(std::vector<std::unique_ptr<Source>> sources) {
+  const std::scoped_lock lock(RegistryMutex_);
+  if (Sealed_) { return Registration::Sealed; }
   for (size_t at = 0; at < sources.size(); ++at) {
     if (!sources[at] || sources[at]->Declaration().Id.empty()) { return Registration::Unnamed; }
     const SourceDecl &decl = sources[at]->Declaration();
@@ -80,7 +82,13 @@ SourceSet::Registration SourceSet::AddAll(std::vector<std::unique_ptr<Source>> s
   return Registration::Accepted;
 }
 
+void SourceSet::Seal() noexcept {
+  const std::scoped_lock lock(RegistryMutex_);
+  Sealed_ = true;
+}
+
 SourceSet::Query SourceSet::Ask(const Fetch &request) const {
+  const std::scoped_lock lock(RegistryMutex_);
   Query query(*this, request);
   for (const std::unique_ptr<Source> &source : Sources_) {
     if (source->Covers(request) == Coverage::Inside) { query.Candidates_.push_back(source.get()); }

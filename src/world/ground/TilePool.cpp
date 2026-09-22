@@ -89,6 +89,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       Diagnostics_(config.Diagnostics),
       FocusLatDeg_(config.OriginLatDeg),
       FocusLonDeg_(config.OriginLonDeg) {
+  Sources_.Seal();
   const int n = config.Threads > 0 ? config.Threads : 1;
   ContextBytes_ = std::vector<std::atomic<size_t>>(static_cast<size_t>(n));
   Threads_.reserve(static_cast<size_t>(n));

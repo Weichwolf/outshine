@@ -20,8 +20,8 @@ candidate identity, source-generation invalidation and rebake policy remain open
 Runtime handles or arrival order are not source identities.
 `StructureBuildQueue::Gathers` synthesizes a 17×17 fallback block through
 `HeightSource = optional<double>(LongitudeLatitude)`; this callback carries no
-identity. `SourceSet::AddAll` still accepts registration after `TilePool` starts
-workers that retain source pointers and address-keyed caches.
+identity. `TilePool` now seals `SourceSet` before starting workers; late
+registration is rejected while the pool retains source pointers and caches.
 
 ## Decision
 
@@ -48,8 +48,10 @@ tile identity, including fallback/ancestor results.
 Cache hits must return the same provenance as fresh decoding. Shaped terrain
 uses an explicit identity from its declared parameters and seed.
 
-Seal source registration before `TilePool` starts workers; reject late `AddAll`
-atomically. Provider ID/revision declarations remain immutable while registered.
+Source registration is sealed before `TilePool` starts workers; late `AddAll`
+is rejected atomically. Provider ID/revision declarations must remain immutable
+while registered; mutability through concrete provider objects still needs a
+contract test or value snapshot.
 Do not fabricate a DEM identity for scalar fallback samples: mark their blocks
 unqualified, always replace their structure products when fine fields arrive,
 and exclude them from fine-input equality checks.

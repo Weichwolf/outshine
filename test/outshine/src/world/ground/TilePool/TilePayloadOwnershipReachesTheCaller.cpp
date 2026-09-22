@@ -58,6 +58,9 @@ int main() {
         "caller receives the source allocation without an intermediate copy");
   CHECK(first.SourceId == "owned" && first.SourceRevision == "fixture-r1",
         "caller receives the declared source identity with tile bytes");
+  CHECK(sources.Add(std::make_unique<ByteSource>()) == SourceSet::Registration::Sealed &&
+            sources.Count() == 1,
+        "tile pool seals its source registry before carrier work starts");
   if (!first.Bytes.empty()) { first.Bytes[0] = 9; }
   TilePool::Landing cached;
   CHECK(pool.BytesBlocking(request, &cached) == TilePool::Reply::Ready,
