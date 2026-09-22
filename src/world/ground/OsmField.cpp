@@ -212,6 +212,7 @@ int OsmField::TileIndex(int x, int y) const {
 std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
   if (index < 0 || static_cast<size_t>(index) >= Tiles_.size()) { return {}; }
   const Tile &t = Tiles_[static_cast<size_t>(index)];
+  if (t.FeatureCount == 0) { return {}; }
   return {Features_.data() + t.FirstFeature, t.FeatureCount};
 }
 
