@@ -50,9 +50,12 @@ public:
     return true;
   }
 
-  [[nodiscard]] static std::shared_ptr<const HeightField> Of(int zoom, std::vector<Block> blocks) {
-    return std::shared_ptr<const HeightField>(new HeightField(zoom, std::move(blocks)));
+  [[nodiscard]] static std::shared_ptr<const HeightField>
+  Of(int zoom, std::vector<Block> blocks, bool fallback = false) {
+    return std::shared_ptr<const HeightField>(new HeightField(zoom, std::move(blocks), fallback));
   }
+
+  [[nodiscard]] bool Fallback() const noexcept { return Fallback_; }
 
   [[nodiscard]] GroundSample At(LongitudeLatitude at) const noexcept {
     const TileSpot spot = SpotOf(at, Zoom_);
@@ -73,10 +76,12 @@ public:
   }
 
 private:
-  HeightField(int zoom, std::vector<Block> blocks) : Blocks_(std::move(blocks)), Zoom_(zoom) {}
+  HeightField(int zoom, std::vector<Block> blocks, bool fallback)
+      : Blocks_(std::move(blocks)), Zoom_(zoom), Fallback_(fallback) {}
 
   std::vector<Block> Blocks_;
   int Zoom_ = 0;
+  bool Fallback_ = false;
 };
 
 }

@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 #include <iterator>
+#include <limits>
 #include <vector>
 #include <string_view>
 #include <cstdint>
@@ -289,6 +290,14 @@ Holds<Capture> Engine::beginCapture() {
     return std::unexpected("capture could not pin the published ground");
   }
   S_->Capturing = true;
+  S_->World.Pieces.ForEachDigest([this](TilePieces::DigestRecord piece) {
+    const std::string name = "capture: structure tile " + std::to_string(piece.Tile) + " digest ";
+    S_->Published.Places(name + "low half",
+                         static_cast<double>(piece.Digest & std::numeric_limits<uint32_t>::max()),
+                         "digest");
+    S_->Published.Places(name + "high half", static_cast<double>(piece.Digest >> 32u), "digest");
+    S_->Published.Places(name + "fallback heights", piece.FallbackHeights ? 1.0 : 0.0, "yes/no");
+  });
   return Capture(*this);
 }
 

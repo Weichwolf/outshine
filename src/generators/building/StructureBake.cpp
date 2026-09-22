@@ -638,6 +638,7 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     out.Blocks = 0;
     out.NoGround = 0;
     out.UnsupportedMeshes = 0;
+    out.FallbackHeights = heights.Fallback();
     state.Ways = LinesOf(raw);
     state.Lumps.Clear();
     state.Corners.clear();

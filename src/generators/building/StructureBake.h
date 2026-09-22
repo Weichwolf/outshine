@@ -67,6 +67,7 @@ struct BakedTile {
   Raised Built;
   ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;
+  bool FallbackHeights = false;
   std::vector<outshine::Ground::BuildingField::Footprint> Prints;
   std::vector<double> SeatSpreadM;
   std::vector<double> AcrossM;

@@ -42,7 +42,7 @@ bool TilePieces::Hands(uint32_t tile,
     return false;
   }
   const Mat4 row = RowFor(anchorEcef);
-  Standing stood{.Tile = tile, .Digest = baked.Digest};
+  Standing stood{.Tile = tile, .Digest = baked.Digest, .FallbackHeights = baked.FallbackHeights};
   std::string why;
   const auto place = [this, &row, &why](std::span<const StoredVertex> corners,
                                         std::span<const uint32_t> run,

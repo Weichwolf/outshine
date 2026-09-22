@@ -44,6 +44,19 @@ public:
 
   [[nodiscard]] uint64_t Digest() const { return Digest_; }
 
+  struct DigestRecord {
+    uint32_t Tile = 0;
+    uint64_t Digest = 0;
+    bool FallbackHeights = false;
+  };
+
+  template <typename Each> void ForEachDigest(Each each) const {
+    for (const auto &stood : Standing_) {
+      each(DigestRecord{
+          .Tile = stood.Tile, .Digest = stood.Digest, .FallbackHeights = stood.FallbackHeights});
+    }
+  }
+
   [[nodiscard]] size_t Handed() const { return Handed_; }
 
   [[nodiscard]] size_t Refused() const { return Refused_; }
@@ -58,6 +71,7 @@ private:
   struct Standing {
     uint32_t Tile = 0;
     uint64_t Digest = 0;
+    bool FallbackHeights = false;
     Render::PieceHandle Walls{};
     Render::PieceHandle Roofs{};
   };

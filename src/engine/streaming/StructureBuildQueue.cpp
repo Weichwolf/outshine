@@ -262,16 +262,18 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
   while (Queue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;
     const auto groundStands = [&](Ground::FeatureRun over) {
+      bool fallback = false;
       std::optional<std::vector<Ground::HeightField::Block>> blocks =
           BlocksUnder(stack.Ground(), true, blockZoom, vectors, over, heightAt);
       if (!blocks) {
+        fallback = true;
         blocks = BlocksUnder(stack.Ground(), false, blockZoom, vectors, over, heightAt);
       }
       if (!blocks) {
         ++Deferred_;
         return false;
       }
-      heights = Ground::HeightField::Of(blockZoom, std::move(*blocks));
+      heights = Ground::HeightField::Of(blockZoom, std::move(*blocks), fallback);
       return true;
     };
     const std::optional<Ground::TileWatermark::Next> next =

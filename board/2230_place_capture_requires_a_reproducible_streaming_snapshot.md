@@ -35,6 +35,15 @@ Malcesine, gleicher Build 2026-09-22: zwei aufeinanderfolgende cache-warme Captu
 sortierte Tile-IDs und Bake-Digests; unklar bleibt, ob Tile-Bestand oder Bake-Inhalt
 abweicht. Die Terrain-Press-Abnahme verfolgt diesen Strukturprodukt-Befund nicht.
 
+Sechs weitere normale Malcesine-Captures mit Tile-Provenienz: fünfmal Bild
+`762c673c`, einmal `9367bebc`. Im Ausreißer änderte nur Struktur-Tile 24 seinen
+Bake-Digest und die Höhenquelle von Fallback (1) auf fein (0). Das erzeugte
+554 abweichende Pixel am rechten Ufer (x=1125..1279, y=461..495), maximal
+170/255. Beide PNGs geöffnet. `StructureBuildQueue::Posts` wählt feine Blöcke
+nach momentaner Verfügbarkeit und fällt sonst auf Block/Sampling zurück;
+`BakeRevision` enthält keine Höhenquellenrevision. Das erklärt diese Variante.
+Der frühere Ein-Pixel-Unterschied in Tile 8 ist dadurch noch nicht erklärt.
+
 ## Verbindliche Architekturentscheidung
 
 Capture bindet einen vollständig publizierten Weltstand, nicht eine Wartezeit.
@@ -88,6 +97,10 @@ Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behob
    zweier Captures vergleichen. Beim ersten Unterschied Inputrevision,
    Worker-Abschluss und gebackene Geometrie dieses Tiles verfolgen. Erst bei
    gleichen CPU-Produkten GPU-Eingaben/Readback untersuchen; keine Toleranzerhöhung.
+   Refined-Struktur-Tiles müssen aus einem qualifizierten, gepinnten Höhenstand
+   backen. Playable-Fallback darf erscheinen, muss bei feinerem Input mit dessen
+   Revision neu gebaut werden; Refined-Readiness wartet auf diesen Ersatz.
+   Ankunftsreihenfolge darf die finalen Bake-Inputs nicht bestimmen.
    Gleicher Backendstand und Snapshot liefern gleiche vereinbarte Bildmetrik.
    Backendübergreifende Bitgleichheit ist kein Vertrag.
 5. make format; make suite SUITE=outshine/include/Outshine; make lint;
