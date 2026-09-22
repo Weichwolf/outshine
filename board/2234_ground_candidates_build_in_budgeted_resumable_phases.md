@@ -29,9 +29,12 @@ Fields are now prepared and pinned in bounded polls before either phase. Delayed
 boundary, cancellation, absence and refusal cases plus full lint pass at 86eee1580.
 Malcesine is pixel-identical (0/921600); p50/p95/p99 2.08/4.10/33.53 ms, 36/2468
 over 16.67 ms, sim p99/worst 32.84/192.46 ms, draw p99/worst 2.71/11.47 ms,
-peak heap 848 MB. The remaining maxima need a fresh profile; do not attribute
-them to field waiting without evidence. WI 2254 covers a separate nested-admission
-deadlock seen with `OutstandingMost=1`.
+peak heap 848 MB. WI 2254 then fixed nested fetch admission at cap 1/2:
+parked field jobs stop consuming active slots, while their fetches inherit the
+parent admission. Delayed, shutdown and pool tests plus full lint pass at
+02463e0c0. Malcesine remains pixel-identical; p50/p95/p99 2.06/4.30/33.73 ms,
+36/2456 over budget, sim worst 188.71 ms, peak heap 848 MB. The remaining
+maxima need a fresh profile; do not attribute them to field waiting without evidence.
 Preserve the full refinement window. Retain atomic ownership and sliced work;
 no lower-detail workaround or movement of stalls outside the measurement window.
 

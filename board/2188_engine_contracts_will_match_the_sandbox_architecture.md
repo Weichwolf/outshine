@@ -80,8 +80,8 @@ für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschlie�
 schrittweise pro vollständigem Consumer.
 Unabhängige Bildarbeit aus 2169 läuft jetzt; offene Gesamtaudits sind kein Wartegate.
 Arbeitsreserve für Coding; fehlgeschlagene Gates zuerst reparieren:
-**Zuerst P0 2254 (ready):** Geschachtelte Feld-/Fetch-Arbeit muss auch unter engem
-Pool-Limit vorankommen. Danach Bild-/Quellenreserve unten weiterbearbeiten.
+**Nächster Bildauftrag:** 2166 (ready). Der bestätigte Feld-Wait (2253) und die
+geschachtelte Pool-Zulassung (2254) sind behoben; verbleibende Latenz neu profilieren.
 1. **P1, 2166 (ready):** Malcesines Vorhang über Roh-/Stitch-/Press-/GPU-Proben lokalisieren
    und die erste fehlerhafte Stufe korrigieren; kein Materialrauschen als Geometrieersatz.
 2. **P1, 2248 → 2247:** qualifizierte Quellenrevisionen und begrenzter Ersatz alter Bakes.
