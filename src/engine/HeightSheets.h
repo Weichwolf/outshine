@@ -25,6 +25,11 @@ class SceneRenderer;
 
 class HeightSheets {
 public:
+  struct FieldPreparation {
+    int FinestZoom;
+    size_t RequestsMost;
+  };
+
   HeightSheets() = default;
   HeightSheets(const HeightSheets &other) = default;
   HeightSheets &operator=(const HeightSheets &) = delete;
@@ -43,20 +48,28 @@ public:
   [[nodiscard]] bool BeginResidency(const Patchwork &laid, std::string &error);
   [[nodiscard]] std::expected<bool, std::string> AdvanceResidency(const Patchwork &laid,
                                                                   size_t sheetsMost);
+  [[nodiscard]] std::expected<bool, std::string> PrepareFields(const Patchwork &candidate,
+                                                               const Ground::GroundStream &ground,
+                                                               FieldPreparation preparation);
 
   [[nodiscard]] bool RefineByError(Patchwork &candidate,
-                                   const Ground::GroundStream &ground,
                                    Generators::TerrainPageLayout layout,
                                    Generators::TerrainRefinementDetail detail,
                                    size_t maximumPatches,
                                    std::string &error);
-  [[nodiscard]] size_t Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom);
+  [[nodiscard]] size_t Halos(Patchwork &laid, int finestZoom);
 
   [[nodiscard]] std::optional<double> FieldUpM(int zoom, EastNorth at) const;
 
   [[nodiscard]] std::optional<double> AslMAt(int zoom, LongitudeLatitude at) const;
 
-  void ForgetsFields() { Fields_.clear(); }
+  void ForgetsFields() {
+    Fields_.clear();
+    Requests_.clear();
+    NextRequest_ = 0;
+    ResolvedRequests_ = 0;
+    RequestsPrepared_ = false;
+  }
 
   void Clear();
 
@@ -88,15 +101,20 @@ public:
 
 private:
   [[nodiscard]] bool StitchEdges(Patchwork &laid, std::string &error);
-  [[nodiscard]] const Ground::TerrainField *FieldAt(const Ground::GroundStream &ground,
-                                                    Data::TileId tile);
   [[nodiscard]] const Ground::TerrainField *HeldFieldAt(Data::TileId tile) const;
-  static void AsksFields(const Ground::GroundStream &ground, const Patchwork &laid, int finestZoom);
-  [[nodiscard]] std::optional<float>
-  AslAt(const Ground::GroundStream &ground, int zoom, Ground::TileFrac at);
-  [[nodiscard]] bool HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int finestZoom);
+  [[nodiscard]] std::optional<float> AslAt(int zoom, Ground::TileFrac at) const;
+  [[nodiscard]] bool HaloOf(Sheet &sheet, int finestZoom);
+
+  struct FieldRequest {
+    Data::TileId Tile;
+    bool Resolved = false;
+  };
 
   std::vector<std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>> Fields_;
+  std::vector<FieldRequest> Requests_;
+  size_t NextRequest_ = 0;
+  size_t ResolvedRequests_ = 0;
+  bool RequestsPrepared_ = false;
   size_t RimsMissing_ = 0;
   Seam Seams_;
   TerrainResidency Residency_;

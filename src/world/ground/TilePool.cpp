@@ -868,17 +868,6 @@ TilePool::Reply TilePool::Field(Data::TileId of, std::shared_ptr<const TerrainFi
   return state;
 }
 
-TilePool::Reply TilePool::FieldAwaited(Data::TileId of, std::shared_ptr<const TerrainField> *out) {
-  const Reply asked = Field(of, out);
-  if (asked != Reply::Pending) { return asked; }
-  const uint64_t key = FieldKey(of.Zoom, of.X, of.Y);
-  {
-    std::unique_lock<std::mutex> lock(QueueMutex_);
-    Landed_.wait(lock, [&] { return Done_.Holds(key) || !Posted_.Holds(key); });
-  }
-  return Field(of, out);
-}
-
 TilePool::Reply TilePool::MeshAwaited(Data::TileId of, int grid, TileBuild *out) {
   const Reply asked = Mesh(of, grid, out);
   if (asked != Reply::Pending) { return asked; }

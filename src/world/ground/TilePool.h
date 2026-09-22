@@ -103,7 +103,6 @@ public:
   [[nodiscard]] Reply MeshAwaited(Data::TileId of, int grid, TileBuild *out) override;
 
   [[nodiscard]] Reply Field(Data::TileId of, std::shared_ptr<const TerrainField> *out);
-  [[nodiscard]] Reply FieldAwaited(Data::TileId of, std::shared_ptr<const TerrainField> *out);
 
   void ForgetMesh(int z, uint32_t x, uint32_t y);
 

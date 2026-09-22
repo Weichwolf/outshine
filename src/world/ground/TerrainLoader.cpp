@@ -362,21 +362,18 @@ TerrainGrid GroundStream::FieldOf(Data::TileId of) const {
 }
 
 std::shared_ptr<const TerrainField> GroundStream::StitchedField(Data::TileId of) const {
-  if (std::shared_ptr<const TerrainField> held = Held_->Stitched->HeldStitched(of)) { return held; }
   std::shared_ptr<const TerrainField> stitched;
-  if (Held_->Pool.Field(of, &stitched) == TilePool::Reply::Ready) {
-    Held_->Stitched->HoldsStitched(of, stitched);
-  }
+  (void)PollStitchedField(of, stitched);
   return stitched;
 }
 
-std::shared_ptr<const TerrainField> GroundStream::StitchedFieldAwaited(Data::TileId of) const {
-  if (std::shared_ptr<const TerrainField> held = Held_->Stitched->HeldStitched(of)) { return held; }
-  std::shared_ptr<const TerrainField> stitched;
-  if (Held_->Pool.FieldAwaited(of, &stitched) == TilePool::Reply::Ready) {
-    Held_->Stitched->HoldsStitched(of, stitched);
-  }
-  return stitched;
+TilePool::Reply GroundStream::PollStitchedField(Data::TileId of,
+                                                std::shared_ptr<const TerrainField> &out) const {
+  out = Held_->Stitched->HeldStitched(of);
+  if (out) { return TilePool::Reply::Ready; }
+  const TilePool::Reply status = Held_->Pool.Field(of, &out);
+  if (status == TilePool::Reply::Ready) { Held_->Stitched->HoldsStitched(of, out); }
+  return status;
 }
 
 GroundBlock GroundStream::BlockAt(TileSpot at) const {

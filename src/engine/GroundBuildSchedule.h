@@ -7,7 +7,7 @@
 namespace outshine::Core {
 class GroundBuildSchedule {
 public:
-  enum class SheetPhase : uint8_t { NeedsRefinement, NeedsHalos, NeedsMesh, Ready };
+  enum class SheetPhase : uint8_t { NeedsFields, NeedsRefinement, NeedsHalos, NeedsMesh, Ready };
   enum class Stage : uint8_t {
     NeedsClasses,
     NeedsGroundSurface,
@@ -34,6 +34,7 @@ public:
   [[nodiscard]] bool CompletesSheetPhase() noexcept {
     if (!Prepared_) { return false; }
     switch (SheetBuilding_) {
+      case SheetPhase::NeedsFields: SheetBuilding_ = SheetPhase::NeedsRefinement; return true;
       case SheetPhase::NeedsRefinement: SheetBuilding_ = SheetPhase::NeedsHalos; return true;
       case SheetPhase::NeedsHalos: SheetBuilding_ = SheetPhase::NeedsMesh; return true;
       case SheetPhase::NeedsMesh: SheetBuilding_ = SheetPhase::Ready; return true;
@@ -63,6 +64,7 @@ public:
 
   [[nodiscard]] std::string_view Status() const noexcept {
     switch (SheetBuilding_) {
+      case SheetPhase::NeedsFields: return "sheet-fields";
       case SheetPhase::NeedsRefinement: return "sheet-refinement";
       case SheetPhase::NeedsHalos: return "sheet-halos";
       case SheetPhase::NeedsMesh: return "sheet-mesh";
@@ -84,7 +86,7 @@ public:
   }
 
 private:
-  SheetPhase SheetBuilding_ = SheetPhase::NeedsRefinement;
+  SheetPhase SheetBuilding_ = SheetPhase::NeedsFields;
   Stage NextStage_ = Stage::NeedsClasses;
   bool Prepared_ = false;
 };

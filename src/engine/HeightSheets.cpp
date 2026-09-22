@@ -4,12 +4,15 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <optional>
+#include <ranges>
 #include <utility>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "ChunkSurface.h"
@@ -63,15 +66,30 @@ void CopiesEdgeIntoRim(std::vector<float> &page, const std::vector<bool> &missin
   }
 }
 
+[[nodiscard]] std::vector<Data::TileId> SourceTilesOf(const Patchwork &candidate, int finestZoom) {
+  std::vector<Data::TileId> tiles;
+  tiles.reserve(candidate.Sheets.size() * 9u);
+  for (const Sheet &sheet : candidate.Sheets) {
+    const int sourceZoom = SourceZoomOf(sheet, finestZoom);
+    const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - sourceZoom);
+    const long x = static_cast<long>(sheet.Tile.X >> drop);
+    const long y = static_cast<long>(sheet.Tile.Y >> drop);
+    for (long dy = -1; dy <= 1; ++dy) {
+      for (long dx = -1; dx <= 1; ++dx) {
+        long nx = x + dx;
+        const long ny = y + dy;
+        if (ny < 0 || !Ground::WrapTile(sourceZoom, &nx, &ny)) { continue; }
+        tiles.push_back(
+            {.Zoom = sourceZoom, .X = static_cast<uint32_t>(nx), .Y = static_cast<uint32_t>(ny)});
+      }
+    }
+  }
+  const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
+  std::ranges::sort(tiles, {}, key);
+  tiles.erase(std::ranges::unique(tiles).begin(), tiles.end());
+  return tiles;
 }
 
-const Ground::TerrainField *HeightSheets::FieldAt(const Ground::GroundStream &ground,
-                                                  Data::TileId tile) {
-  for (const auto &one : Fields_) {
-    if (one.first == tile) { return one.second.get(); }
-  }
-  Fields_.emplace_back(tile, ground.StitchedFieldAwaited(tile));
-  return Fields_.back().second.get();
 }
 
 const Ground::TerrainField *HeightSheets::HeldFieldAt(Data::TileId tile) const {
@@ -81,20 +99,56 @@ const Ground::TerrainField *HeightSheets::HeldFieldAt(Data::TileId tile) const {
   return nullptr;
 }
 
-std::optional<float>
-HeightSheets::AslAt(const Ground::GroundStream &ground, int zoom, Ground::TileFrac at) {
+std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &candidate,
+                                                             const Ground::GroundStream &ground,
+                                                             FieldPreparation preparation) {
+  if (!RequestsPrepared_) {
+    ForgetsFields();
+    const std::vector<Data::TileId> tiles = SourceTilesOf(candidate, preparation.FinestZoom);
+    Requests_.reserve(tiles.size());
+    Fields_.reserve(tiles.size());
+    for (const Data::TileId tile : tiles) { Requests_.push_back({.Tile = tile}); }
+    RequestsPrepared_ = true;
+  }
+  for (size_t checked = 0;
+       checked < preparation.RequestsMost && ResolvedRequests_ < Requests_.size();
+       ++checked) {
+    FieldRequest &request = Requests_[NextRequest_];
+    NextRequest_ = (NextRequest_ + 1u) % Requests_.size();
+    if (request.Resolved) { continue; }
+    std::shared_ptr<const Ground::TerrainField> field;
+    const Ground::TilePool::Reply status = ground.PollStitchedField(request.Tile, field);
+    switch (status) {
+      case Ground::TilePool::Reply::Ready:
+        if (!field) { return std::unexpected("a ready height field has no data"); }
+        Fields_.emplace_back(request.Tile, std::move(field));
+        break;
+      case Ground::TilePool::Reply::Absent:
+      case Ground::TilePool::Reply::Undeclared: Fields_.emplace_back(request.Tile, nullptr); break;
+      case Ground::TilePool::Reply::Refused:
+        return std::unexpected("a terrain source refused a height field");
+      case Ground::TilePool::Reply::Pending:
+      case Ground::TilePool::Reply::Deferred: continue;
+    }
+    request.Resolved = true;
+    ++ResolvedRequests_;
+  }
+  return ResolvedRequests_ == Requests_.size();
+}
+
+std::optional<float> HeightSheets::AslAt(int zoom, Ground::TileFrac at) const {
   long x = static_cast<long>(std::floor(at.X));
   const long y = static_cast<long>(std::floor(at.Y));
   const double col = at.X - static_cast<double>(x);
   const double row = at.Y - static_cast<double>(y);
   if (!Ground::WrapTile(zoom, &x, &y)) { return std::nullopt; }
   const Ground::TerrainField *field =
-      FieldAt(ground, {.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
+      HeldFieldAt({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
   if (field == nullptr || !field->Meshable()) { return std::nullopt; }
   return field->PostingM({.Col = col, .Row = row});
 }
 
-bool HeightSheets::HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int finestZoom) {
+bool HeightSheets::HaloOf(Sheet &sheet, int finestZoom) {
   constexpr int side = Render::GroundLattice::kSide;
   const bool whole = (sheet.Virtual || sheet.SourceZoom >= 0) &&
                      sheet.Nodes.size() != Render::GroundLattice::kNodes;
@@ -120,7 +174,6 @@ bool HeightSheets::HaloOf(Sheet &sheet, const Ground::GroundStream &ground, int 
         continue;
       }
       const std::optional<float> asl = AslAt(
-          ground,
           zoom,
           {.X = atX + span * NodeFraction(sheet, i), .Y = atY + span * NodeFraction(sheet, j)});
       if (asl) {
@@ -297,35 +350,11 @@ bool HeightSheets::StitchEdges(Patchwork &laid, std::string &error) {
   return true;
 }
 
-void HeightSheets::AsksFields(const Ground::GroundStream &ground,
-                              const Patchwork &laid,
-                              int finestZoom) {
-  for (const Sheet &sheet : laid.Sheets) {
-    const int sourceZoom = SourceZoomOf(sheet, finestZoom);
-    const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - sourceZoom);
-    const int zoom = sheet.Tile.Zoom - static_cast<int>(drop);
-    const long x = static_cast<long>(sheet.Tile.X >> drop);
-    const long y = static_cast<long>(sheet.Tile.Y >> drop);
-    for (long dy = -1; dy <= 1; ++dy) {
-      for (long dx = -1; dx <= 1; ++dx) {
-        long nx = x + dx;
-        const long ny = y + dy;
-        if (ny < 0 || !Ground::WrapTile(zoom, &nx, &ny)) { continue; }
-        (void)ground.StitchedField(
-            {.Zoom = zoom, .X = static_cast<uint32_t>(nx), .Y = static_cast<uint32_t>(ny)});
-      }
-    }
-  }
-}
-
-size_t HeightSheets::Halos(Patchwork &laid, const Ground::GroundStream &ground, int finestZoom) {
+size_t HeightSheets::Halos(Patchwork &laid, int finestZoom) {
   RimsMissing_ = 0;
   size_t haloed = 0;
-  AsksFields(ground, laid, finestZoom);
   for (Sheet &sheet : laid.Sheets) {
-    if (sheet.Side == Render::GroundLattice::kSide && HaloOf(sheet, ground, finestZoom)) {
-      ++haloed;
-    }
+    if (sheet.Side == Render::GroundLattice::kSide && HaloOf(sheet, finestZoom)) { ++haloed; }
   }
   return haloed;
 }
@@ -385,7 +414,7 @@ std::optional<double> HeightSheets::AslMAt(int zoom, LongitudeLatitude at) const
 
 void HeightSheets::Clear() {
   Residency_.Clear();
-  Fields_.clear();
+  ForgetsFields();
 }
 
 uint64_t HeightSheets::Digest() const {
@@ -393,7 +422,8 @@ uint64_t HeightSheets::Digest() const {
 }
 
 size_t HeightSheets::HeapBytes() const noexcept {
-  return Residency_.HeapBytes() + Fields_.capacity() * sizeof(decltype(Fields_)::value_type);
+  return Residency_.HeapBytes() + Fields_.capacity() * sizeof(decltype(Fields_)::value_type) +
+         Requests_.capacity() * sizeof(FieldRequest);
 }
 
 }

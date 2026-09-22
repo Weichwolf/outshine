@@ -5,17 +5,18 @@ int main() {
   using outshine::Core::GroundBuildSchedule;
   using namespace outshine::Test;
   GroundBuildSchedule schedule;
-  CHECK(!schedule.Prepared() && schedule.Status() == "sheet-refinement",
+  CHECK(!schedule.Prepared() && schedule.Status() == "sheet-fields",
         "an unopened candidate cannot begin a production phase");
   CHECK(!schedule.CompletesSheetPhase() && !schedule.CompletesStage(),
         "an unopened candidate cannot advance terrain or production");
   CHECK(schedule.MarksPrepared(), "preparation opens the candidate exactly once");
   CHECK(!schedule.MarksPrepared(), "a prepared candidate cannot be prepared again");
-  CHECK(schedule.Prepared() && schedule.Status() == "sheet-refinement",
-        "preparation does not skip terrain refinement");
+  CHECK(schedule.Prepared() && schedule.Status() == "sheet-fields",
+        "preparation does not skip height source acquisition");
   CHECK(!schedule.CompletesStage(),
         "production cannot advance while the terrain candidate remains incomplete");
-  CHECK(schedule.CompletesSheetPhase() && schedule.CompletesSheetPhase() &&
+  CHECK(schedule.CompletesSheetPhase() && schedule.Status() == "sheet-refinement" &&
+            schedule.CompletesSheetPhase() && schedule.CompletesSheetPhase() &&
             schedule.CompletesSheetPhase(),
         "terrain phases advance in their declared order");
   CHECK(!schedule.CompletesSheetPhase(), "a complete terrain candidate cannot advance again");

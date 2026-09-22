@@ -661,7 +661,6 @@ bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
           static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
     }
     if (!build.Sheets.RefineByError(patchwork,
-                                    World.Stack.Ground(),
                                     {.Side = Render::GroundLattice::kSide, .Halo = 1},
                                     detail,
                                     Render::GroundLattice::kPages,
@@ -1048,6 +1047,19 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
   GroundBuildState &state = *World.GroundBuild;
   GroundBuildProducts &build = state.Candidate().Products();
   switch (state.SheetBuilding()) {
+    case Core::GroundBuildSchedule::SheetPhase::NeedsFields: {
+      const auto prepared = build.Sheets.PrepareFields(
+          patchwork,
+          World.Stack.Ground(),
+          {.FinestZoom = coverage.Zoom, .RequestsMost = kTerrainSheetsPerFrame});
+      if (!prepared) {
+        Error = prepared.error();
+        World.GroundBuild.reset();
+        return GroundBuildProgress::Failed;
+      }
+      if (*prepared) { state.CompletesSheetPhase(); }
+      return GroundBuildProgress::Pending;
+    }
     case Core::GroundBuildSchedule::SheetPhase::NeedsRefinement:
       if (!RefineGroundSheets(standing, patchwork, build)) {
         World.GroundBuild.reset();
@@ -1057,10 +1069,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
       return GroundBuildProgress::Pending;
     case Core::GroundBuildSchedule::SheetPhase::NeedsHalos: {
       const auto haloAt = std::chrono::steady_clock::now();
-      Published.Places(
-          "ground: sheets the lattice haloed",
-          static_cast<double>(build.Sheets.Halos(patchwork, World.Stack.Ground(), coverage.Zoom)),
-          "sheets");
+      Published.Places("ground: sheets the lattice haloed",
+                       static_cast<double>(build.Sheets.Halos(patchwork, coverage.Zoom)),
+                       "sheets");
       build.RimsMissing = build.Sheets.RimsMissing();
       Published.Places("ground: rims copied for want of a neighbour",
                        static_cast<double>(build.RimsMissing),
