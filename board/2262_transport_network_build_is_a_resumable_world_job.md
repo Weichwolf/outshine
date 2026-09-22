@@ -1,5 +1,5 @@
 Type: defect
-State: ready
+State: active
 Architecture: ready
 Parent: 2133
 Depends:
@@ -53,6 +53,16 @@ with owned edge-cell index, adjacency and ascending loose-node cursor;
 `SpliceInto` must update both structures atomically before yielding. Stage
 point snapping next. Keep a single frozen candidate graph until all phases
 complete. The probe shot stayed `49440d93`.
+
+Implementation boundary: a move-only `Path::NetworkWeaveJob` owns one private
+mutable graph and all temporary point/node, outgoing-edge, edge-cell and
+adjacency products. Its `Advance` resumes by source-order cursors and returns
+Pending/Done or a typed failure; only `Take` on Done exposes the graph. The
+existing `Network::Weave` remains the one-shot oracle. A later
+`world/navigation` transport builder owns this graph job and handles OSM/DEM
+source revision, crossings and elevation; `Corridors` only consumes its frozen
+result. First prove analytic graph/route equality across slice sizes before
+replacing the Engine's synchronous `MapOf` call.
 
 ## Acceptance
 
