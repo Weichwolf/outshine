@@ -49,9 +49,10 @@ Cache hits must return the same provenance as fresh decoding. Shaped terrain
 uses an explicit identity from its declared parameters and seed.
 
 Source registration is sealed before `TilePool` starts workers; late `AddAll`
-is rejected atomically. Provider ID/revision declarations must remain immutable
-while registered; mutability through concrete provider objects still needs a
-contract test or value snapshot.
+is rejected atomically. Provider ID/revision declarations are construction-time
+constants: use const owned declarations in WebTileSource/StarBands, which already
+have no mutation API. A different revision uses new providers and a fresh TilePool;
+do not add hot-reload/cache-generation infrastructure without a supported consumer.
 Do not fabricate a DEM identity for scalar fallback samples: mark their blocks
 unqualified, always replace their structure products when fine fields arrive,
 and exclude them from fine-input equality checks.

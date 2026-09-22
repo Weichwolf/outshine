@@ -3,7 +3,9 @@ State: active
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
-Depends: 2123
+Depends:
+Architecture: ready
+Priority: P1
 
 # Terrain refines the final surface, including cliff faces
 
@@ -21,6 +23,15 @@ Koerbersee-53e84b69 gerundete/aufgeblähte Felsformen; Feldkirch-297a9d23 eine a
 Die konkrete Entstehung jeder Wand ist noch durch Höhen-/Stamp-/Sheet-Diagnostik zu lokalisieren.
 
 ## Implementierung
+
+Aktueller Render 21342822f: Malcesine-762c673c geöffnet, Vorhang unverändert.
+Rohkachel 11/1084/731 im ContentStore unabhängig per PIL/Terrarium-Formel gelesen:
+256×256, 52.19..1554.58 m; größter horizontaler Nachbarsprung 100.35 m bei (75,69).
+Das allein beweist weder die finale Geometrie noch fehlerfreie Quelldaten.
+Zuerst dieselben geographischen Uferproben vor/nach Stitching und Press sowie
+am GPU-Höhenpage-Eingang vergleichen; erste abweichende Stufe korrigieren.
+Keine weitere allgemeine LOD-Refaktorierung vor dieser lokalen Ursachenklärung.
+2123 ist Integration der späteren LOD-Leiter, kein Blocker dieser Korrektur.
 
 Skirt-Hypothese widerlegt: Malcesine ohne Vegetation, ausschließlich Skirt-Absenkung
 16 → 0 Gitterabstände. PNG e67943aa geöffnet: Faltenvorhang und Zähne bleiben.

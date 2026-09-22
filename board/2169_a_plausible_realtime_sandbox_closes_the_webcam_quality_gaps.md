@@ -48,11 +48,11 @@ Nacht und bewegte NPCs sind durch Außen-Standbilder nicht abgedeckt.
 
 ## Verbindliche Arbeitsreihenfolge
 
-P0 ist der aktuelle Auftrag: clang-tidy auf **null**, vollständige API-Dokumentation
-und belegte Architekturverträge nach 2188. Fehler an der Ursache beheben; Refactoring
-nach technischem Ermessen, keine Suppressionen oder bloßen Zählerkorrekturen.
-Bis zur P0-Abnahme keine neuen visuellen Features. Bestehende Features dürfen für
-Korrektheit/Architektur repariert werden. Place-Regressionen standardmäßig ohne Vegetation.
+P0 priorisiert aktuelle rote Gates und belegte Lebensdauer-/Publikationsfehler.
+clang-tidy bleibt auf **null**; offene Gesamtaudits sperren unabhängige Bildarbeit nicht.
+Jetzt 2250 (Bodenrauheit), 2166 (Terrainvorhang lokalisieren und korrigieren),
+2248 → 2247 (reproduzierbare Strukturprodukte) bearbeiten. Materialien und Licht
+auf einfachen Szenen parallel zur gebauten Welt entwickeln. Places ohne Vegetation.
 
 | Stufe | Arbeiten | Abnahme vor nächstem Ausbau |
 |---|---|---|

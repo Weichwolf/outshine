@@ -10,6 +10,17 @@ Tags: geometry, ownership, state, gpu
 
 ## Architekturvertrag
 
+Review 21342822f: `GroundStack::Restand` ruft bei neuer Vektorgeneration
+`Footprints_.ResetDerived()` auf und ersetzt Ways_/WaterBodies_ sofort. Damit sind
+veröffentlichte CPU-Ableitungen vor Candidate-Publish geleert; PNG-Erhaltung allein
+prüft das nicht. Invalidation muss die nächste abgeleitete Generation markieren;
+der bisherige publizierte Owner bleibt bis zum gemeinsamen Commit nutzbar.
+Regression: publiziere A, liefere neue OSM-Kacheln, lehne B spät ab; prüfe alte
+Footprints/Netze samt Abfragen sowie Bild/Audio und danach gültigen B-Retry.
+Nebenbefund: `Advancing.cpp` subtrahiert IngestedTiles über diesen Reset unsigned;
+Cost.StreamedTiles ist derzeit ungenutzt. Entfernen oder echte Arbeitsereignisse
+zählen; keine bloße Nullklammer als Ersatz für den Publikationsvertrag.
+
 `Core::RuntimeScene` besitzt native Weltinputs; `Render::WorldContent` besitzt daraus erzeugte
 GPU-Produkte. `Surrounds` besitzt Streamingzustand, logisches Netz und Ressourcenhalter.
 Ein vorbereiteter Nachfolger veröffentlicht diese Produkte gemeinsam auf dem Engine-Thread.

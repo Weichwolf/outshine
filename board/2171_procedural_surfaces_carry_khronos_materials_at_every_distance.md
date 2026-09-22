@@ -3,7 +3,7 @@ State: active
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
-Depends: 2173, 2166, 2179
+Depends: 2173, 2166, 2179, 2250
 Priority: P1
 
 # Procedural surfaces carry Khronos materials at every distance

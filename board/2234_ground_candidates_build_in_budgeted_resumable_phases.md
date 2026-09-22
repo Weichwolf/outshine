@@ -92,15 +92,15 @@ end-to-end progress. Do not add a second rendering client.
 3. Continue the longest over-budget unit by tile/row/batch, preserving topology and
    stable reduction order. Whole named phases are not automatically bounded units.
    Test cancellation, stale completion, submission failure and retry; publication once.
-   `PressPoints` in `GroundYield.cpp` has two ordered full-node passes: the first
-   globally marks stamps whose requested cut/fill exceeds the earthwork bound;
-   the second excludes those stamps and changes heights. A resumable press must
-   finish the first pass for all nodes before changing any height. Keep the bucket
-   index, rejection flags, positions, original heights and second-pass cursor in
-   candidate-owned state; then convert changed nodes back to geodetic heights and
-   calculate floors in deterministic source order. Do not split by stamp or publish
-   partly pressed sheets. Prove byte-identical results against the current one-shot
-   algorithm, including overlapping stamps and a late rejected stamp.
+   Review through 21342822f: `PressPointsJob` now completes global rejection before
+   applying any height changes, retaining cursors and decisions. Preserve that rule.
+   Remaining unsliced work: bucket construction in its constructor and both
+   `FloorsOf` passes in `TerrainPressJob::Advance(Floors)`. Also measure
+   `OsmField::PublishParsed`, which rebuilds the entire resident vector snapshot.
+   Do not call these bounded because surrounding loops yield. Malcesine-762c673c
+   measured sim p99 616.11 ms and draw p99 2.49 ms over the refinement run;
+   those aggregate values do not identify the responsible phase. Measure first,
+   split the dominant unit, preserve global decisions and completed native products.
 
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.
