@@ -53,7 +53,11 @@ outside the generator.
    verify their p50/p95/p99 and worst frame rather than treating the estimates
    as guarantees. Keep preparation and finalization bounded too. Extend the
    client's fully measured Refined-capture window; its current cap is 3072
-   frames. Never hide work after timing.
+   frames. Koerbersee and Feldkirch currently exhaust this window after all
+   source downloads have completed. Record the actual Refined-readiness blockers,
+   candidate stage, elapsed time and frame count on capture failure before
+   changing the limit; distinguish slow finite work from stalled publication.
+   Never hide work after timing.
 3. Compare one-shot and staged results for byte-identical sheet nodes, moved/
    held/refused counts, deepest/raised cut, pad/corridor floor diagnostics and
    ordered claims/decisions. Include overlapping pad/basin/corridor stamps,
