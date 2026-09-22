@@ -109,10 +109,12 @@ Eingängen abweichende CPU-Produkte müssen an der Merge-/Generatorursache behob
    Zähler und Tile-Ranges atomar austauschen, statt denselben Tile doppelt einzufügen.
    Test: Fallback publizieren, feine Höhe verspätet liefern; umgekehrt fertige
    Revisionen dürfen weder doppelte Footprints noch Rückschritt erzeugen.
-   FineOnly-Gate: Malcesine bleibt `762c673c`; Refined meldet Tile 24 weiterhin
-   als Fallback (1). Akzeptierte Tiles umgehen das Gate und brauchen Ersatz.
+   FineOnly-Gate allein lässt akzeptierte Fallback-Tiles stehen (Malcesine 24).
+   Kandidatweites Reset/Rebake korrigierte Malcesine (`6e4cbe9e`, zwei Läufe
+   pixelgleich, 0 Fallback-Tiles), ließ Graz aber nicht rechtzeitig Refined
+   erreichen: über 65.000 Gebäude bis zum Capture-Abbruch. Nicht übernommen.
+   Ersatz muss tileweise, begrenzt und ohne globalen Neubau erfolgen.
    Gleicher Backendstand und Snapshot liefern gleiche vereinbarte Bildmetrik.
-   Backendübergreifende Bitgleichheit ist kein Vertrag.
 5. make format; make suite SUITE=outshine/include/Outshine; make lint;
    make shots PLACE='--no-vegetation --preload-seconds 120 Graz' zweimal.
    PNGs öffnen und mit test/scripts/pixels.py vergleichen. Keine Neupins zur Kaschierung.
