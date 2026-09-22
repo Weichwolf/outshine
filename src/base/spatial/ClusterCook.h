@@ -45,6 +45,8 @@ public:
 
   [[nodiscard]] std::expected<bool, ClusterError> Advance(size_t itemsMost);
 
+  [[nodiscard]] std::expected<bool, ClusterError> AdvanceWithin(size_t &itemsLeft);
+
   [[nodiscard]] bool Ready() const noexcept;
 
   [[nodiscard]] ClusteredMesh Take() noexcept;

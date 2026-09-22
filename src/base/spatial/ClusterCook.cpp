@@ -195,128 +195,133 @@ std::expected<ClusterCookJob::Flow, ClusterError> ClusterCookJob::AdvancesLayout
 std::expected<ClusterCookJob::Flow, ClusterError>
 ClusterCookJob::AdvancesPositions(size_t &itemsLeft) {
   const size_t vertices = Input_.PositionsM.size() / Input_.StrideFloats;
-  if (Cursor_ == vertices) {
-    Cursor_ = 0;
-    Stage_ = Stage::Indices;
-    return Flow::Continue;
+  const size_t count = std::min(itemsLeft, vertices - Cursor_);
+  const size_t end = Cursor_ + count;
+  for (; Cursor_ < end; ++Cursor_) {
+    const Vec3 point = Position(Input_, Cursor_);
+    if (!std::isfinite(point[0]) || !std::isfinite(point[1]) || !std::isfinite(point[2])) {
+      return std::unexpected(Fail(ClusterError::NonFinitePosition));
+    }
+    Include(InputBounds_, point);
   }
-  if (itemsLeft == 0) { return Flow::Yield; }
-  const Vec3 point = Position(Input_, Cursor_++);
-  --itemsLeft;
-  if (!std::isfinite(point[0]) || !std::isfinite(point[1]) || !std::isfinite(point[2])) {
-    return std::unexpected(Fail(ClusterError::NonFinitePosition));
-  }
-  Include(InputBounds_, point);
+  itemsLeft -= count;
+  if (Cursor_ != vertices) { return Flow::Yield; }
+  Cursor_ = 0;
+  Stage_ = Stage::Indices;
   return Flow::Continue;
 }
 
 std::expected<ClusterCookJob::Flow, ClusterError>
 ClusterCookJob::AdvancesIndices(size_t &itemsLeft) {
-  if (Cursor_ == Input_.Indices.size()) {
-    if (Input_.Indices.empty()) {
-      Stage_ = Stage::Complete;
-      return Flow::Complete;
+  const size_t count = std::min(itemsLeft, Input_.Indices.size() - Cursor_);
+  const size_t end = Cursor_ + count;
+  const size_t vertices = Input_.PositionsM.size() / Input_.StrideFloats;
+  for (; Cursor_ < end; ++Cursor_) {
+    if (Input_.Indices[Cursor_] >= vertices) {
+      return std::unexpected(Fail(ClusterError::InvalidIndex));
     }
-    const size_t triangles = Input_.Indices.size() / kTriangleCorners;
-    if (triangles <= TriangleLimit_) {
-      BeginsPack();
-    } else {
-      Order_.resize(triangles);
-      Cursor_ = 0;
-      Stage_ = Stage::Order;
-    }
-    return Flow::Continue;
   }
-  if (itemsLeft == 0) { return Flow::Yield; }
-  if (Input_.Indices[Cursor_++] >= Input_.PositionsM.size() / Input_.StrideFloats) {
-    return std::unexpected(Fail(ClusterError::InvalidIndex));
+  itemsLeft -= count;
+  if (Cursor_ != Input_.Indices.size()) { return Flow::Yield; }
+  if (Input_.Indices.empty()) {
+    Stage_ = Stage::Complete;
+    return Flow::Complete;
   }
-  --itemsLeft;
+  const size_t triangles = Input_.Indices.size() / kTriangleCorners;
+  if (triangles <= TriangleLimit_) {
+    BeginsPack();
+  } else {
+    Order_.resize(triangles);
+    Cursor_ = 0;
+    Stage_ = Stage::Order;
+  }
   return Flow::Continue;
 }
 
 std::expected<ClusterCookJob::Flow, ClusterError> ClusterCookJob::AdvancesOrder(size_t &itemsLeft) {
-  if (Cursor_ == Order_.size()) {
-    Sorting_.resize(Order_.size());
-    Cursor_ = 0;
-    Stage_ = Stage::SortClear;
-    return Flow::Continue;
+  const size_t count = std::min(itemsLeft, Order_.size() - Cursor_);
+  const size_t end = Cursor_ + count;
+  for (; Cursor_ < end; ++Cursor_) {
+    const size_t first = Cursor_ * kTriangleCorners;
+    Vec3 center;
+    for (size_t corner = 0; corner < kTriangleCorners; ++corner) {
+      center = center + Position(Input_, Input_.Indices[first + corner]) * (1.0 / 3.0);
+    }
+    const uint64_t code = Morton(center, InputBounds_.Low, InputBounds_.High);
+    Order_[Cursor_] = (code << 32u) | static_cast<uint32_t>(Cursor_);
   }
-  if (itemsLeft == 0) { return Flow::Yield; }
-  const size_t first = Cursor_ * kTriangleCorners;
-  Vec3 center;
-  for (size_t corner = 0; corner < kTriangleCorners; ++corner) {
-    center = center + Position(Input_, Input_.Indices[first + corner]) * (1.0 / 3.0);
-  }
-  const uint64_t code = Morton(center, InputBounds_.Low, InputBounds_.High);
-  Order_[Cursor_] = (code << 32u) | static_cast<uint32_t>(Cursor_);
-  ++Cursor_;
-  --itemsLeft;
+  itemsLeft -= count;
+  if (Cursor_ != Order_.size()) { return Flow::Yield; }
+  Sorting_.resize(Order_.size());
+  Cursor_ = 0;
+  Stage_ = Stage::SortClear;
   return Flow::Continue;
 }
 
 std::expected<ClusterCookJob::Flow, ClusterError>
 ClusterCookJob::AdvancesSortClear(size_t &itemsLeft) {
-  if (Cursor_ == Counts_.size()) {
-    Cursor_ = 0;
-    Stage_ = Stage::SortCount;
-    return Flow::Continue;
-  }
-  if (itemsLeft == 0) { return Flow::Yield; }
-  Counts_[Cursor_++] = 0;
-  --itemsLeft;
+  const size_t count = std::min(itemsLeft, Counts_.size() - Cursor_);
+  std::fill_n(Counts_.begin() + static_cast<ptrdiff_t>(Cursor_), count, size_t{0});
+  Cursor_ += count;
+  itemsLeft -= count;
+  if (Cursor_ != Counts_.size()) { return Flow::Yield; }
+  Cursor_ = 0;
+  Stage_ = Stage::SortCount;
   return Flow::Continue;
 }
 
 std::expected<ClusterCookJob::Flow, ClusterError>
 ClusterCookJob::AdvancesSortCount(size_t &itemsLeft) {
-  if (Cursor_ == Order_.size()) {
-    Cursor_ = 0;
-    Prefix_ = 0;
-    Running_ = 0;
-    Stage_ = Stage::SortPrefix;
-    return Flow::Continue;
+  const size_t count = std::min(itemsLeft, Order_.size() - Cursor_);
+  const size_t end = Cursor_ + count;
+  for (; Cursor_ < end; ++Cursor_) {
+    const auto bucket =
+        static_cast<size_t>((Order_[Cursor_] >> (32u + Pass_ * kRadixBits)) & kRadixMask);
+    ++Counts_[bucket];
   }
-  if (itemsLeft == 0) { return Flow::Yield; }
-  const auto bucket =
-      static_cast<size_t>((Order_[Cursor_++] >> (32u + Pass_ * kRadixBits)) & kRadixMask);
-  ++Counts_[bucket];
-  --itemsLeft;
+  itemsLeft -= count;
+  if (Cursor_ != Order_.size()) { return Flow::Yield; }
+  Cursor_ = 0;
+  Prefix_ = 0;
+  Running_ = 0;
+  Stage_ = Stage::SortPrefix;
   return Flow::Continue;
 }
 
 std::expected<ClusterCookJob::Flow, ClusterError>
 ClusterCookJob::AdvancesSortPrefix(size_t &itemsLeft) {
-  if (Prefix_ == Counts_.size()) {
-    Cursor_ = 0;
-    Stage_ = Stage::SortScatter;
-    return Flow::Continue;
+  const size_t count = std::min(itemsLeft, Counts_.size() - Prefix_);
+  const size_t end = Prefix_ + count;
+  for (; Prefix_ < end; ++Prefix_) {
+    Offsets_[Prefix_] = Running_;
+    Running_ += Counts_[Prefix_];
   }
-  if (itemsLeft == 0) { return Flow::Yield; }
-  Offsets_[Prefix_] = Running_;
-  Running_ += Counts_[Prefix_++];
-  --itemsLeft;
+  itemsLeft -= count;
+  if (Prefix_ != Counts_.size()) { return Flow::Yield; }
+  Cursor_ = 0;
+  Stage_ = Stage::SortScatter;
   return Flow::Continue;
 }
 
 std::expected<ClusterCookJob::Flow, ClusterError>
 ClusterCookJob::AdvancesSortScatter(size_t &itemsLeft) {
-  if (Cursor_ == Order_.size()) {
-    Order_.swap(Sorting_);
-    ++Pass_;
-    if (Pass_ == kRadixPasses) {
-      BeginsPack();
-    } else {
-      Cursor_ = 0;
-      Stage_ = Stage::SortClear;
-    }
-    return Flow::Continue;
+  const size_t count = std::min(itemsLeft, Order_.size() - Cursor_);
+  const size_t end = Cursor_ + count;
+  for (; Cursor_ < end; ++Cursor_) {
+    const uint64_t key = Order_[Cursor_];
+    const auto bucket = static_cast<size_t>((key >> (32u + Pass_ * kRadixBits)) & kRadixMask);
+    Sorting_[Offsets_[bucket]++] = key;
   }
-  if (itemsLeft == 0) { return Flow::Yield; }
-  const uint64_t key = Order_[Cursor_++];
-  const auto bucket = static_cast<size_t>((key >> (32u + Pass_ * kRadixBits)) & kRadixMask);
-  Sorting_[Offsets_[bucket]++] = key;
-  --itemsLeft;
+  itemsLeft -= count;
+  if (Cursor_ != Order_.size()) { return Flow::Yield; }
+  Order_.swap(Sorting_);
+  ++Pass_;
+  if (Pass_ == kRadixPasses) {
+    BeginsPack();
+  } else {
+    Cursor_ = 0;
+    Stage_ = Stage::SortClear;
+  }
   return Flow::Continue;
 }
 
@@ -338,9 +343,12 @@ std::expected<ClusterCookJob::Flow, ClusterError> ClusterCookJob::AdvanceStage(s
 }
 
 std::expected<bool, ClusterError> ClusterCookJob::Advance(size_t itemsMost) {
+  return AdvanceWithin(itemsMost);
+}
+
+std::expected<bool, ClusterError> ClusterCookJob::AdvanceWithin(size_t &itemsLeft) {
   if (Stage_ == Stage::Failed) { return std::unexpected(Failure_); }
   if (Ready()) { return true; }
-  size_t itemsLeft = itemsMost;
   for (;;) {
     const auto advanced = AdvanceStage(itemsLeft);
     if (!advanced) { return std::unexpected(advanced.error()); }

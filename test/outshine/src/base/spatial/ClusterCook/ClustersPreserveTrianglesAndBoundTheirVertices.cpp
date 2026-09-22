@@ -115,7 +115,7 @@ int main() {
         "unrepresentable GPU bounds produce an explicit failure");
   std::vector<float> positions;
   std::vector<uint32_t> indices;
-  for (uint32_t at = 0; at < 80; ++at) {
+  for (uint32_t at = 0; at < 260; ++at) {
     for (size_t vertex = 0; vertex < 3; ++vertex) {
       positions.insert(positions.end(),
                        {vertices[vertex * 3],
@@ -132,6 +132,44 @@ int main() {
   const auto ties = CookClusters(interleaved, 7);
   CHECK(ties && ties->Index == indices,
         "Morton ties retain source triangle order independently of std::sort tie behavior");
+  std::vector<float> shapePositions;
+  std::vector<uint32_t> shapeIndices;
+  for (uint32_t triangleAt = 0; triangleAt < 260; ++triangleAt) {
+    const float along = static_cast<float>(triangleAt % 17);
+    shapePositions.insert(shapePositions.end(), {along, 0, 0, along + 0.5f, 0, 0, along, 1, 0});
+    shapeIndices.insert(shapeIndices.end(),
+                        {triangleAt * 3, triangleAt * 3 + 1, triangleAt * 3 + 2});
+  }
+  const auto fillsShape = [&](Render::ShapeStore &store) {
+    store.PositionsM = shapePositions;
+    store.Indices = shapeIndices;
+    Render::ShapePart part;
+    part.VertexCount = shapePositions.size() / 3;
+    part.IndexCount = shapeIndices.size();
+    part.PositionsM = store.PositionsM;
+    store.Parts.push_back(part);
+  };
+  Render::ShapeStore uninterrupted;
+  Render::ShapeStore interrupted;
+  fillsShape(uninterrupted);
+  fillsShape(interrupted);
+  CHECK(Render::CookShape(uninterrupted, {}).has_value(),
+        "one-shot shape cooking accepts the clustered fixture");
+  Render::ShapeCookJob shapeJob(interrupted, {});
+  for (size_t turn = 0; !shapeJob.Ready() && turn < 100000; ++turn) {
+    const auto advanced = shapeJob.Advance(turn % 7 + 1);
+    CHECK(advanced.has_value(), "paced shape cooking accepts every intermediate boundary");
+  }
+  CHECK(shapeJob.Ready(), "paced shape cooking completes under finite changing budgets");
+  CHECK(interrupted.Indices == uninterrupted.Indices &&
+            interrupted.Clusters == uninterrupted.Clusters &&
+            interrupted.ClusterSpheres == uninterrupted.ClusterSpheres,
+        "paced shape cooking reproduces the one-shot native buffers exactly");
+  CHECK(interrupted.Parts[0].FirstCluster == uninterrupted.Parts[0].FirstCluster &&
+            interrupted.Parts[0].ClusterCount == uninterrupted.Parts[0].ClusterCount &&
+            interrupted.Clustering.RootClusters == uninterrupted.Clustering.RootClusters &&
+            interrupted.Clustering.Clusters == uninterrupted.Clustering.Clusters,
+        "paced shape cooking reproduces part ranges and aggregate counts exactly");
   Render::ShapeStore shape;
   shape.PositionsM.assign(vertices.begin(), vertices.end());
   shape.Indices = {0, 1, 9};

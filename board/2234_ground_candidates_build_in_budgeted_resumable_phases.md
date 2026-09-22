@@ -32,11 +32,11 @@ peak heap 848 MB. WI 2254 then fixed nested fetch admission at cap 1/2:
 parked field jobs stop consuming active slots, while their fetches inherit the
 parent admission. Delayed, shutdown and pool tests plus full lint pass at
 02463e0c0. Malcesine remains pixel-identical; p50/p95/p99 2.06/4.30/33.73 ms,
-36/2456 over budget, sim worst 188.71 ms, peak heap 848 MB. Rosenheim at
-75719327e measures 18.72 ms in `RuntimeScene::SetGeometry`: 11.33 ms shape
-preparation, including 9.00 ms cluster cooking, then 7.09 ms binding/submission.
-This names the next synchronous CPU block. Preserve the full refinement window;
-do not move stalls outside it or reduce completed detail.
+36/2456 over budget, sim worst 188.71 ms, peak heap 848 MB. Rosenheim initially
+measured 18.72 ms in `RuntimeScene::SetGeometry`: 11.33 ms shape preparation,
+including 9.00 ms cluster cooking. Resumable cooks now preserve digest 8e6642f9;
+the synchronous wrapper measures 16.19/9.08/7.12 ms for set/shape/clusters.
+Preserve detail and the full measured refinement window.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
 also with NDEBUG. Canonical `OsmField` publication, bounded active windows, source
@@ -90,10 +90,10 @@ Use internal contracts for equivalence and public API end to end. Add no second 
 3. Continue the longest over-budget unit by tile/row/batch, preserving topology and
    stable reduction order. Whole named phases are not automatically bounded units.
    Test cancellation, stale completion, submission failure and retry; publication once.
-   First replace monolithic cluster validation, Morton ordering and packing with one
-   deterministic resumable cook. Preserve exact `(Morton, original triangle)` order
-   and final native indices/clusters under different budgets, then integrate that job
-   into candidate shape preparation. Do not publish a partially cooked `ShapeStore`.
+   `ClusterCookJob` and `ShapeCookJob` now preserve exact indices, clusters, spheres
+   and part ranges under budgets 1, 2, 7 and 257. Next let the ground candidate drive
+   shape cooking across advances, then publish only the completed `ShapeStore`.
+   Retain `(Morton, original triangle)` order and reject partial publication.
    Review through 21342822f: `PressPointsJob` now completes global rejection before
    applying any height changes, retaining cursors and decisions. Preserve that rule.
    Remaining unsliced work: bucket construction in its constructor and both
