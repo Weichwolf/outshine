@@ -246,6 +246,7 @@ private:
   };
 
   [[nodiscard]] static BridgeTopology BridgeTopologyOf(const Paving &on);
+  static void AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology);
   [[nodiscard]] static std::vector<uint64_t>
   RelevantBridgeEnds(const Paving &on, const BridgeTopology &topology, const Paved &into);
 
@@ -271,6 +272,10 @@ private:
   static void SplitsEdges(Paved &into);
   [[nodiscard]] static std::unordered_map<uint64_t, std::vector<Leg>> LegsOf(const Paving &on,
                                                                              const Paved &into);
+  static void AppendLeg(const Paving &on,
+                        const Paved &into,
+                        uint32_t edgeAt,
+                        std::unordered_map<uint64_t, std::vector<Leg>> &legsAt);
   static void GatesOf(std::span<const Leg> legs, const Paved &into, Junction &made);
   static void LiesOnItsPlane(const Paving &on, Junction &made, Paved &into);
   static void PressesUnder(const Junction &made, double rootsM, Paved &into);
@@ -322,6 +327,115 @@ private:
     into.Notes.push_back({.Name = std::move(what), .Value = how, .Unit = unit});
   }
 
+public:
+  class Job {
+  public:
+    Job(const Job &) = delete;
+    Job &operator=(const Job &) = delete;
+    Job(Job &&) noexcept = default;
+    Job &operator=(Job &&) noexcept = default;
+
+  private:
+    friend class Corridors;
+    enum class Stage : uint8_t {
+      Prepare,
+      Crossings,
+      CrossFile,
+      CrossDecks,
+      BridgeTopology,
+      BridgeRelevant,
+      BridgeSample,
+      BridgeRaise,
+      BridgeRamps,
+      BridgeGrades,
+      Design,
+      Edges,
+      Legs,
+      Junctions,
+      Pave,
+      Bodies,
+      FinishNotes,
+      Transfer,
+      TransferPositions,
+      TransferNormals,
+      TransferColours,
+      TransferTriangles,
+      TransferValidate,
+      Done
+    };
+
+    explicit Job(const Site &site)
+        : VectorGeneration(site.Stack.Vectors() != nullptr ? site.Stack.Vectors()->Generation()
+                                                           : 0),
+          WayCount(site.Stack.Ways().Ways().size()) {}
+
+    Paved Work;
+    RoadRaised Pavement;
+    std::vector<Yields> Corridor;
+    std::unordered_map<uint64_t, uint32_t> SharedNodes;
+    std::unordered_map<uint64_t, std::vector<Leg>> LegsAt;
+    std::vector<Path::Network::Crossing> Crossed;
+    BridgeTopology Topology;
+    std::vector<uint64_t> BridgeEnds;
+    std::vector<uint64_t> Nodes;
+    Stage Phase = Stage::Prepare;
+    uint64_t VectorGeneration = 0;
+    size_t WayCount = 0;
+    size_t NextLane = 0;
+    size_t NextNode = 0;
+    size_t NextBody = 0;
+    size_t NextCrossing = 0;
+    size_t NextEdge = 0;
+    size_t NextBridgeEnd = 0;
+    int TransferPart = -1;
+    bool BridgeTopologyStarted = false;
+    double BridgeSeedMs = 0.0;
+    double StageMs = 0.0;
+    double TotalMs = 0.0;
+    static constexpr size_t StageCount = static_cast<size_t>(Stage::Done);
+    std::array<double, StageCount> LongestSliceMs{};
+
+  public:
+    [[nodiscard]] double WorkMs() const noexcept { return TotalMs; }
+  };
+
+private:
+  struct JobSlice;
+  [[nodiscard]] static std::expected<bool, std::string_view>
+  AdvanceCrossings(Job &job, const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view>
+  AdvanceBridgeTopology(Job &job, const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view>
+  AdvanceBridgeDecks(Job &job, const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view>
+  AdvanceBridgeGrades(Job &job, const JobSlice &slice);
+  [[nodiscard]] std::expected<bool, std::string_view>
+  AdvanceRoadDesign(Job &job, const JobSlice &slice) const;
+  [[nodiscard]] std::expected<bool, std::string_view>
+  AdvanceRoadJunctions(Job &job, const JobSlice &slice) const;
+  [[nodiscard]] std::expected<bool, std::string_view>
+  AdvanceRoadBodies(Job &job, const JobSlice &slice) const;
+  [[nodiscard]] static std::expected<bool, std::string_view> AdvanceFinish(Job &job,
+                                                                           const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view> AdvanceTransfer(Job &job,
+                                                                             const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view> BeginTransfer(Job &job,
+                                                                           const JobSlice &slice);
+  [[nodiscard]] static std::expected<bool, std::string_view>
+  AdvanceTransferValidation(Job &job, const JobSlice &slice);
+
+public:
+  [[nodiscard]] static std::unique_ptr<Job> Begin(const Site &site);
+  [[nodiscard]] std::expected<bool, std::string_view>
+  Advance(Job &job,
+          const Site &site,
+          size_t lanesMost,
+          size_t nodesMost,
+          Geometry &ground,
+          std::vector<Yields> *corridor,
+          std::vector<DiagnosticSample> *notes) const;
+
+private:
   const RoadMesher &Sweeper_;
 };
 

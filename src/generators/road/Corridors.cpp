@@ -44,6 +44,8 @@ namespace outshine::Generators {
 namespace Says {
 constexpr auto kInvalidTransportPointRange =
     "transport way point range exceeds the supplied coordinate stream";
+constexpr auto kStaleCorridorInput = "corridor input changed during construction";
+constexpr auto kPavingCreationFailed = "could not publish road geometry";
 }
 
 namespace {
@@ -741,25 +743,24 @@ Corridors::BridgeTopology Corridors::BridgeTopologyOf(const Paving &on) {
                           .HasEnds = std::vector<uint8_t>(ways.Ways().size()),
                           .WaysAt = {},
                           .PlaceOf = {}};
-  for (size_t at = 0; at < ways.Ways().size(); ++at) {
-    const outshine::Ground::StreetField::Way &lane = ways.Ways()[at];
-    if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) {
-      continue;
-    }
-    const std::optional<Ends> ends = EndsOf(on.Vectors, lane);
-    if (!ends) { continue; }
-    topology.EndsOfWay[at] = *ends;
-    topology.HasEnds[at] = 1;
-    for (size_t side = 0; side < 2; ++side) {
-      const uint64_t key = ends->Key[side];
-      const size_t axis = side * 2u;
-      topology.WaysAt[key].push_back(at);
-      topology.PlaceOf.try_emplace(
-          key,
-          LongitudeLatitude{.LongitudeDeg = ends->At[axis + 1u], .LatitudeDeg = ends->At[axis]});
-    }
-  }
+  for (size_t at = 0; at < ways.Ways().size(); ++at) { AppendBridgeTopology(on, at, topology); }
   return topology;
+}
+
+void Corridors::AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology) {
+  const outshine::Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
+  if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { return; }
+  const std::optional<Ends> ends = EndsOf(on.Vectors, lane);
+  if (!ends) { return; }
+  topology.EndsOfWay[laneAt] = *ends;
+  topology.HasEnds[laneAt] = 1;
+  for (size_t side = 0; side < 2; ++side) {
+    const uint64_t key = ends->Key[side];
+    const size_t axis = side * 2u;
+    topology.WaysAt[key].push_back(laneAt);
+    topology.PlaceOf.try_emplace(
+        key, LongitudeLatitude{.LongitudeDeg = ends->At[axis + 1u], .LatitudeDeg = ends->At[axis]});
+  }
 }
 
 std::vector<uint64_t>
@@ -1065,25 +1066,28 @@ std::unordered_map<uint64_t, std::vector<Corridors::Leg>> Corridors::LegsOf(cons
                                                                             const Paved &into) {
   std::unordered_map<uint64_t, std::vector<Leg>> legsAt;
   for (uint32_t edgeAt = 0; edgeAt < static_cast<uint32_t>(into.Edges.size()); ++edgeAt) {
-    const Edge &edge = into.Edges[edgeAt];
-    const std::vector<RoadStation> &along = into.Designed[edge.Lane];
-    const auto halfM = static_cast<double>(on.Ways.Ways()[edge.Lane].HalfWidthM);
-    for (uint8_t end = 0; end < 2; ++end) {
-      if (edge.NodeAt[end] == 0u) { continue; }
-      const std::span<const RoadStation> stations(along.data() + edge.First, edge.Count);
-      const Bound centre =
-          BoundaryOf(stations, end == 1, {.SideM = 0.0, .ReachM = kAngleLookaheadM});
-      const size_t look = centre.EastM.size() - 1u;
-      const double dE = centre.EastM[look] - centre.EastM[0];
-      const double dN = centre.NorthM[look] - centre.NorthM[0];
-      legsAt[edge.NodeAt[end]].push_back({.Edge = edgeAt,
-                                          .End = end,
-                                          .AngleRad = std::atan2(dN, dE),
-                                          .HalfM = halfM,
-                                          .CutM = 0.0});
-    }
+    AppendLeg(on, into, edgeAt, legsAt);
   }
   return legsAt;
+}
+
+void Corridors::AppendLeg(const Paving &on,
+                          const Paved &into,
+                          uint32_t edgeAt,
+                          std::unordered_map<uint64_t, std::vector<Leg>> &legsAt) {
+  const Edge &edge = into.Edges[edgeAt];
+  const std::vector<RoadStation> &along = into.Designed[edge.Lane];
+  const auto halfM = static_cast<double>(on.Ways.Ways()[edge.Lane].HalfWidthM);
+  for (uint8_t end = 0; end < 2; ++end) {
+    if (edge.NodeAt[end] == 0u) { continue; }
+    const std::span<const RoadStation> stations(along.data() + edge.First, edge.Count);
+    const Bound centre = BoundaryOf(stations, end == 1, {.SideM = 0.0, .ReachM = kAngleLookaheadM});
+    const size_t look = centre.EastM.size() - 1u;
+    const double dE = centre.EastM[look] - centre.EastM[0];
+    const double dN = centre.NorthM[look] - centre.NorthM[0];
+    legsAt[edge.NodeAt[end]].push_back(
+        {.Edge = edgeAt, .End = end, .AngleRad = std::atan2(dN, dE), .HalfM = halfM, .CutM = 0.0});
+  }
 }
 
 void Corridors::GatesOf(std::span<const Leg> legs, const Paved &into, Junction &made) {
@@ -1656,4 +1660,720 @@ bool Corridors::Lay(const Site &site,
   *notes = std::move(into.Notes);
   return true;
 }
+
+std::unique_ptr<Corridors::Job> Corridors::Begin(const Site &site) {
+  return std::unique_ptr<Job>(new Job(site));
+}
+
+struct Corridors::JobSlice {
+  const Site &site;
+  const outshine::Ground::StreetField &ways;
+  const outshine::Ground::OsmField *vectors;
+  const Paving *paving;
+  Geometry &ground;
+  std::vector<Yields> *corridor;
+  std::vector<DiagnosticSample> *notes;
+  std::chrono::steady_clock::time_point began;
+  size_t lanesMost;
+  size_t nodesMost;
+  int waterRow;
+
+  [[nodiscard]] double Elapsed() const {
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+        .count();
+  }
+};
+
+std::expected<bool, std::string_view>
+Corridors::Advance(Job &job,
+                   const Site &site,
+                   size_t lanesMost,
+                   size_t nodesMost,
+                   Geometry &ground,
+                   std::vector<Yields> *corridor,
+                   std::vector<DiagnosticSample> *notes) const {
+  const auto *vectors = site.Stack.Vectors();
+  const auto &ways = site.Stack.Ways();
+  if ((vectors != nullptr ? vectors->Generation() : 0) != job.VectorGeneration ||
+      ways.Ways().size() != job.WayCount) {
+    return std::unexpected(Says::kStaleCorridorInput);
+  }
+  if (job.Phase == Job::Stage::Done) { return true; }
+  const auto began = std::chrono::steady_clock::now();
+  const int waterRow = site.Stack.Materials().Find("water");
+  if (job.Phase == Job::Stage::Prepare && vectors != nullptr) {
+    job.SharedNodes = SharedNodesOf(ways, vectors->Points());
+  }
+  std::optional<Paving> paving;
+  if (vectors != nullptr) {
+    paving.emplace(Paving{.Stack = site.Stack,
+                          .Network = site.Network,
+                          .Ways = ways,
+                          .Vectors = *vectors,
+                          .Points = vectors->Points(),
+                          .SharedNodes = job.SharedNodes,
+                          .Draped = site.Draped,
+                          .Standing = site.Standing,
+                          .Classes = site.Classes,
+                          .WaterRow = waterRow,
+                          .EyeLatDeg = site.EyeLatDeg,
+                          .EyeLonDeg = site.EyeLonDeg,
+                          .FocalPx = site.FocalPx});
+  }
+  const JobSlice slice{.site = site,
+                       .ways = ways,
+                       .vectors = vectors,
+                       .paving = paving ? &*paving : nullptr,
+                       .ground = ground,
+                       .corridor = corridor,
+                       .notes = notes,
+                       .began = began,
+                       .lanesMost = lanesMost,
+                       .nodesMost = nodesMost,
+                       .waterRow = waterRow};
+  const auto entered = job.Phase;
+  std::expected<bool, std::string_view> result = std::unexpected(Says::kStaleCorridorInput);
+  if (entered <= Job::Stage::CrossDecks) {
+    result = AdvanceCrossings(job, slice);
+  } else if (entered <= Job::Stage::BridgeRelevant) {
+    result = AdvanceBridgeTopology(job, slice);
+  } else if (entered <= Job::Stage::BridgeRaise) {
+    result = AdvanceBridgeDecks(job, slice);
+  } else if (entered <= Job::Stage::BridgeGrades) {
+    result = AdvanceBridgeGrades(job, slice);
+  } else if (entered <= Job::Stage::Legs) {
+    result = AdvanceRoadDesign(job, slice);
+  } else if (entered <= Job::Stage::Pave) {
+    result = AdvanceRoadJunctions(job, slice);
+  } else if (entered <= Job::Stage::Bodies) {
+    result = AdvanceRoadBodies(job, slice);
+  } else if (entered == Job::Stage::FinishNotes) {
+    result = AdvanceFinish(job, slice);
+  } else if (entered == Job::Stage::Transfer) {
+    result = BeginTransfer(job, slice);
+  } else if (entered == Job::Stage::TransferValidate) {
+    result = AdvanceTransferValidation(job, slice);
+  } else {
+    result = AdvanceTransfer(job, slice);
+  }
+  const auto index = static_cast<size_t>(entered);
+  job.LongestSliceMs[index] = std::max(job.LongestSliceMs[index], slice.Elapsed());
+  return result;
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceCrossings(Job &job, const JobSlice &slice) {
+  const auto &site = slice.site;
+  const auto *paving = slice.paving;
+  const size_t lanesMost = slice.lanesMost;
+  const auto began = slice.began;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  Paved &into = job.Work;
+  switch (job.Phase) {
+    case Job::Stage::Prepare:
+      Notes(into,
+            "rebuild: of that, the drape the buildings stand on",
+            std::chrono::duration<double, std::milli>(began - site.CensusAt).count(),
+            "ms");
+      into.DeckM.assign(job.WayCount, -kBeyondAnyCoordinate);
+      into.Designed.resize(job.WayCount);
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::Crossings;
+      return false;
+    case Job::Stage::Crossings:
+      if (site.Network != nullptr) {
+        const Path::Network &network = *site.Network;
+        const auto swept = network.Crossings(job.Crossed);
+        if (swept) {
+          std::ranges::sort(
+              job.Crossed,
+              [&network](const Path::Network::Crossing &a, const Path::Network::Crossing &b) {
+                const std::array<size_t, 4> ka = {
+                    network.TagOf(a.OverWay), network.TagOf(a.UnderWay), a.OverAt, a.UnderAt};
+                const std::array<size_t, 4> kb = {
+                    network.TagOf(b.OverWay), network.TagOf(b.UnderWay), b.OverAt, b.UnderAt};
+                return ka < kb;
+              });
+          into.CrossingsSeen = job.Crossed.size();
+          into.PairsTested = swept->PairsTested;
+          into.PairsPruned = swept->PairsPruned;
+          into.FullestCell = swept->FullestCell;
+        }
+      }
+      into.CrossSweepMs = elapsed();
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::CrossFile;
+      return false;
+    case Job::Stage::CrossFile: {
+      const size_t end =
+          std::min(job.NextCrossing + 2u * std::max(size_t{1}, lanesMost), job.Crossed.size());
+      for (; job.NextCrossing < end; ++job.NextCrossing) {
+        FileCrossing(job.Crossed[job.NextCrossing], site.Standing, into);
+      }
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextCrossing < job.Crossed.size()) { return false; }
+      into.CrossFilingMs = job.StageMs;
+      job.NextCrossing = 0;
+      job.StageMs = 0.0;
+      job.Phase = Job::Stage::CrossDecks;
+      return false;
+    }
+    case Job::Stage::CrossDecks: {
+      const size_t end =
+          std::min(job.NextCrossing + 2u * std::max(size_t{1}, lanesMost), job.Crossed.size());
+      if (paving != nullptr && site.Network != nullptr) {
+        for (; job.NextCrossing < end; ++job.NextCrossing) {
+          RaiseDeckOver(job.Crossed[job.NextCrossing], *paving, *site.Network, into);
+        }
+      } else {
+        job.NextCrossing = end;
+      }
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextCrossing < job.Crossed.size()) { return false; }
+      into.CrossDecksMs = job.StageMs;
+      job.Crossed.clear();
+      Notes(into,
+            "streets: of that, finding the crossings",
+            into.CrossSweepMs + into.CrossFilingMs + into.CrossDecksMs,
+            "ms");
+      Notes(into,
+            "streets: of finding them, laying the lanes into a network",
+            into.CrossNetworkMs,
+            "ms");
+      Notes(into, "streets: of finding them, the sweep itself", into.CrossSweepMs, "ms");
+      Notes(into, "streets: of finding them, filing each one", into.CrossFilingMs, "ms");
+      Notes(into, "streets: of finding them, raising a deck over each", into.CrossDecksMs, "ms");
+      Notes(into,
+            "streets: of finding them, pairs the sweep tested",
+            static_cast<double>(into.PairsTested),
+            "pairs");
+      Notes(into,
+            "streets: and pairs its boxes threw out first",
+            static_cast<double>(into.PairsPruned),
+            "pairs");
+      Notes(into,
+            "streets: segments in the fullest square",
+            static_cast<double>(into.FullestCell),
+            "segments");
+      job.Phase = Job::Stage::BridgeTopology;
+      return false;
+    }
+    default: return std::unexpected(Says::kStaleCorridorInput);
+  }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceBridgeTopology(Job &job,
+                                                                       const JobSlice &slice) {
+  const auto *paving = slice.paving;
+  const size_t lanesMost = slice.lanesMost;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  const Paved &into = job.Work;
+  switch (job.Phase) {
+    case Job::Stage::BridgeTopology: {
+      if (paving == nullptr || into.DecksRaised == 0) {
+        job.Phase = Job::Stage::BridgeGrades;
+        return false;
+      }
+      if (!job.BridgeTopologyStarted) {
+        job.Topology.EndsOfWay.resize(job.WayCount);
+        job.Topology.HasEnds.resize(job.WayCount);
+        job.BridgeTopologyStarted = true;
+      }
+      const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
+      for (; job.NextLane < end; ++job.NextLane) {
+        AppendBridgeTopology(*paving, job.NextLane, job.Topology);
+      }
+      job.BridgeSeedMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextLane < job.WayCount) { return false; }
+      job.NextLane = 0;
+      job.Phase = Job::Stage::BridgeRelevant;
+      return false;
+    }
+    case Job::Stage::BridgeRelevant:
+      if (paving == nullptr) { return std::unexpected(Says::kStaleCorridorInput); }
+      job.BridgeEnds = RelevantBridgeEnds(*paving, job.Topology, into);
+      job.BridgeSeedMs += elapsed();
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::BridgeSample;
+      return false;
+    default: return std::unexpected(Says::kStaleCorridorInput);
+  }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceBridgeDecks(Job &job,
+                                                                    const JobSlice &slice) {
+  const auto &ways = slice.ways;
+  const auto *paving = slice.paving;
+  const size_t lanesMost = slice.lanesMost;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  Paved &into = job.Work;
+  switch (job.Phase) {
+    case Job::Stage::BridgeSample: {
+      if (paving == nullptr) { return std::unexpected(Says::kStaleCorridorInput); }
+      const size_t end =
+          std::min(job.NextBridgeEnd + 2u * std::max(size_t{1}, lanesMost), job.BridgeEnds.size());
+      for (; job.NextBridgeEnd < end; ++job.NextBridgeEnd) {
+        const uint64_t key = job.BridgeEnds[job.NextBridgeEnd];
+        const auto place = job.Topology.PlaceOf.find(key);
+        if (place == job.Topology.PlaceOf.end()) { continue; }
+        const std::optional<Grounded> under = GroundUnder(*paving, place->second);
+        if (!under) { continue; }
+        into.EndM.insert_or_assign(key, under->GradeM);
+        into.GroundEndM.insert_or_assign(key, under->GradeM);
+      }
+      job.BridgeSeedMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextBridgeEnd < job.BridgeEnds.size()) { return false; }
+      job.Phase = Job::Stage::BridgeRaise;
+      return false;
+    }
+    case Job::Stage::BridgeRaise: {
+      const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
+      for (; job.NextLane < end; ++job.NextLane) {
+        if (job.Topology.HasEnds[job.NextLane] != 0 && ways.Ways()[job.NextLane].Bridge &&
+            into.DeckM[job.NextLane] > kUnraisedDeckM) {
+          RaisesEnds(job.Topology.EndsOfWay[job.NextLane].Key, into.DeckM[job.NextLane], into);
+        }
+      }
+      job.BridgeSeedMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextLane < job.WayCount) { return false; }
+      job.NextLane = 0;
+      Notes(into, "streets: of raising decks, seeding bridge ends", job.BridgeSeedMs, "ms");
+      Notes(into, "streets: the highest deck a ramp must reach", HighestDeckM(into), "m");
+      job.Topology = {};
+      job.BridgeEnds.clear();
+      job.Phase = Job::Stage::BridgeRamps;
+      return false;
+    }
+    default: return std::unexpected(Says::kStaleCorridorInput);
+  }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceBridgeGrades(Job &job,
+                                                                     const JobSlice &slice) {
+  const auto &ways = slice.ways;
+  const auto *vectors = slice.vectors;
+  const auto *paving = slice.paving;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  Paved &into = job.Work;
+  switch (job.Phase) {
+    case Job::Stage::BridgeRamps:
+      if (paving != nullptr && into.DecksRaised > 0) {
+        EasesRamps(ways, *vectors, HighestDeckM(into), into);
+        Notes(into, "streets: of raising decks, easing ramps", elapsed(), "ms");
+      }
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::BridgeGrades;
+      return false;
+    case Job::Stage::BridgeGrades:
+      if (paving != nullptr && into.DecksRaised > 0) {
+        GradesApproaches(*paving, into);
+        Notes(into, "streets: of raising decks, grading approaches", elapsed(), "ms");
+      }
+      Notes(into,
+            "streets: ways a ramp lifted off the ground",
+            static_cast<double>(into.RampsRaised),
+            "ways");
+      Notes(into, "streets: and the most one was lifted", into.SteepestRamp, "m");
+      Notes(into,
+            "streets: crossings the plan found",
+            static_cast<double>(into.CrossingsSeen),
+            "crossings");
+      Notes(
+          into, "streets: decks a crossing raised", static_cast<double>(into.DecksRaised), "decks");
+      Notes(into, "streets: and the most one stands over what it crosses", into.MostRaisedM, "m");
+      Notes(into, "streets: of that, raising the decks", elapsed(), "ms");
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::Design;
+      return false;
+    default: return std::unexpected(Says::kStaleCorridorInput);
+  }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
+                                                                   const JobSlice &slice) const {
+  const auto *paving = slice.paving;
+  const size_t lanesMost = slice.lanesMost;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  Paved &into = job.Work;
+  switch (job.Phase) {
+    case Job::Stage::Design: {
+      const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
+      if (paving != nullptr) {
+        for (; job.NextLane < end; ++job.NextLane) {
+          PaveLane(*paving, Pass::Designing, job.NextLane, into, job.Corridor, job.Pavement);
+        }
+      } else {
+        job.NextLane = end;
+      }
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextLane < job.WayCount) { return false; }
+      Notes(into, "streets: of that, designing every lane", job.StageMs, "ms");
+      Notes(into, "streets: of designing, the fit", into.FitMs, "ms");
+      Notes(into, "streets: of designing, the water", into.WaterMs, "ms");
+      Notes(into, "streets: of designing, the sweep", into.SweepMs, "ms");
+      Notes(into, "streets: of designing, the yields", into.YieldsMs, "ms");
+      Notes(into,
+            "streets: of designing, stations paved",
+            static_cast<double>(into.EdgeStations),
+            "stations");
+      into.FitMs = into.WaterMs = into.SweepMs = 0.0;
+      job.NextLane = 0;
+      job.StageMs = 0.0;
+      job.Phase = Job::Stage::Edges;
+      return false;
+    }
+    case Job::Stage::Edges:
+      SplitsEdges(into);
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::Legs;
+      return false;
+    case Job::Stage::Legs: {
+      const size_t end =
+          std::min(job.NextEdge + 2u * std::max(size_t{1}, lanesMost), into.Edges.size());
+      if (paving != nullptr) {
+        for (; job.NextEdge < end; ++job.NextEdge) {
+          AppendLeg(*paving, into, static_cast<uint32_t>(job.NextEdge), job.LegsAt);
+        }
+      } else {
+        job.NextEdge = end;
+      }
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextEdge < into.Edges.size()) { return false; }
+      for (const auto &one : job.LegsAt) {
+        if (one.second.size() >= 2) { job.Nodes.push_back(one.first); }
+      }
+      std::ranges::sort(job.Nodes);
+      job.Phase = Job::Stage::Junctions;
+      return false;
+    }
+    default: return std::unexpected(Says::kStaleCorridorInput);
+  }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
+                                                                      const JobSlice &slice) const {
+  const auto *paving = slice.paving;
+  const size_t lanesMost = slice.lanesMost;
+  const size_t nodesMost = slice.nodesMost;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  Paved &into = job.Work;
+  switch (job.Phase) {
+    case Job::Stage::Junctions: {
+      const size_t end = std::min(job.NextNode + std::max(size_t{1}, nodesMost), job.Nodes.size());
+      for (; job.NextNode < end; ++job.NextNode) {
+        const uint64_t node = job.Nodes[job.NextNode];
+        std::vector<Leg> &legs = job.LegsAt.at(node);
+        std::ranges::sort(legs, ByBearing);
+        if (legs.size() == 2) {
+          ++into.Continuations;
+        } else if (paving != nullptr) {
+          ShapeOf(*paving, node, legs, into);
+        }
+      }
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextNode < job.Nodes.size()) { return false; }
+      job.Corridor.insert(job.Corridor.end(),
+                          std::make_move_iterator(into.UnderJunctions.begin()),
+                          std::make_move_iterator(into.UnderJunctions.end()));
+      into.UnderJunctions.clear();
+      Notes(into,
+            "streets: edges the ways split into",
+            static_cast<double>(into.Edges.size()),
+            "edges");
+      Notes(into,
+            "streets: junctions shaped",
+            static_cast<double>(into.Junctions.size()),
+            "junctions");
+      Notes(into,
+            "streets: nodes where a way continues",
+            static_cast<double>(into.Continuations),
+            "nodes");
+      Notes(into,
+            "streets: ways under a pixel wide, left to the ground",
+            static_cast<double>(into.UnseenWays),
+            "ways");
+      Notes(into,
+            "streets: legs cut back to a junction's rim",
+            static_cast<double>(into.LegsCut),
+            "legs");
+      Notes(into, "streets: and the deepest cut", into.DeepestCutM, "m");
+      Notes(into, "streets: and the steepest junction plane", into.SteepestJunction, "m/m");
+      Notes(into,
+            "streets: junctions held to the steepest paved grade",
+            static_cast<double>(into.JunctionsLevelled),
+            "junctions");
+      Notes(into, "streets: of that, shaping the junctions", job.StageMs, "ms");
+      job.NextLane = 0;
+      job.StageMs = 0.0;
+      job.Phase = Job::Stage::Pave;
+      return false;
+    }
+    case Job::Stage::Pave: {
+      const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
+      if (paving != nullptr) {
+        for (; job.NextLane < end; ++job.NextLane) {
+          PaveLane(*paving, Pass::Paving, job.NextLane, into, job.Corridor, job.Pavement);
+        }
+      } else {
+        job.NextLane = end;
+      }
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextLane < job.WayCount) { return false; }
+      Notes(into, "streets: of that, paving every lane", job.StageMs, "ms");
+      Notes(into, "streets: of paving, the fit", into.FitMs, "ms");
+      Notes(into, "streets: of paving, the water", into.WaterMs, "ms");
+      Notes(into, "streets: of paving, the sweep", into.SweepMs, "ms");
+      Notes(into, "streets: of paving, the yields", into.YieldsMs, "ms");
+      Notes(into,
+            "streets: of paving, stations paved",
+            static_cast<double>(into.EdgeStations),
+            "stations");
+      job.StageMs = 0.0;
+      job.Phase = Job::Stage::Bodies;
+      return false;
+    }
+    default: return std::unexpected(Says::kStaleCorridorInput);
+  }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceRoadBodies(Job &job,
+                                                                   const JobSlice &slice) const {
+  const auto &site = slice.site;
+  const size_t nodesMost = slice.nodesMost;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  Paved &into = job.Work;
+  if (job.Phase != Job::Stage::Bodies) { return std::unexpected(Says::kStaleCorridorInput); }
+  {
+    const auto &wearing = site.Stack.Materials();
+    const int asphalt = wearing.Find("asphalt");
+    Vec3f wears = {{0.5f, 0.5f, 0.5f}};
+    if (asphalt >= 0) { wears = wearing.At(static_cast<size_t>(asphalt)).Albedo; }
+    const size_t end =
+        std::min(job.NextBody + std::max(size_t{1}, nodesMost), into.Junctions.size());
+    for (; job.NextBody < end; ++job.NextBody) {
+      const Junction &one = into.Junctions[job.NextBody];
+      Sweeper_.Junction(std::span<const RoadGate>(one.Gates.data(), one.Gates.size()),
+                        {.SlopeE = one.SlopeE, .SlopeN = one.SlopeN},
+                        wears,
+                        job.Pavement);
+    }
+    job.StageMs += elapsed();
+    job.TotalMs += elapsed();
+    if (job.NextBody < into.Junctions.size()) { return false; }
+    Notes(into,
+          "streets: junction bodies raised",
+          static_cast<double>(into.Junctions.size()),
+          "junctions");
+    Notes(into, "streets: of that, raising the junction bodies", job.StageMs, "ms");
+    job.Phase = Job::Stage::FinishNotes;
+    return false;
+  }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceFinish(Job &job, const JobSlice &slice) {
+  const auto &site = slice.site;
+  const auto &ways = slice.ways;
+  const int waterRow = slice.waterRow;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  Paved &into = job.Work;
+  if (job.Phase == Job::Stage::FinishNotes) {
+    Notes(into,
+          "streets: stations under a bridge asked",
+          static_cast<double>(into.AskedOverBridge),
+          "stations");
+    Notes(into,
+          "streets: of those a class named",
+          static_cast<double>(into.NamedOverBridge),
+          "stations");
+    Notes(
+        into, "streets: and of those, water", static_cast<double>(into.WetOverBridge), "stations");
+    Notes(into, "streets: the water class the table names", static_cast<double>(waterRow), "index");
+    Notes(into, "streets: a class structure stood", site.Classes ? 1.0 : 0.0, "yes/no");
+    Notes(into,
+          "streets: decks a WATERWAY raised",
+          static_cast<double>(into.DecksOverWater),
+          "decks");
+    Notes(into, "streets: and the clearance the widest one took", into.MostOverWaterM, "m");
+    Notes(into,
+          "streets: stations an approach ramp moved",
+          static_cast<double>(into.RampStations),
+          "stations");
+    Notes(into, "streets: and the longest approach", into.LongestRampM, "m");
+    Notes(into, "streets: and the most a rim lifted a road", into.MostLiftedM, "m");
+    TellsWhatTheFitFound(into);
+    Notes(into,
+          "streets: ways laid as ribbons, all of them FLOATING",
+          static_cast<double>(into.LaidWays),
+          "ways");
+    Notes(into,
+          "streets: ways the GROUND carries instead",
+          static_cast<double>(into.GroundWays),
+          "ways");
+    Notes(into, "streets: ways the field holds", static_cast<double>(job.WayCount), "ways");
+    Notes(into,
+          "streets: features it walked at all",
+          static_cast<double>(ways.LookedCount()),
+          "features");
+    Notes(into,
+          "streets: features no rule named",
+          static_cast<double>(ways.UnruledCount()),
+          "features");
+    Notes(into,
+          "streets: features a rule gave no width",
+          static_cast<double>(ways.UnwidthedCount()),
+          "features");
+    Notes(into,
+          "streets: features that are tunnels",
+          static_cast<double>(ways.TunnelCount()),
+          "features");
+    Notes(
+        into, "streets: ways OSM calls a bridge", static_cast<double>(ways.BridgeCount()), "ways");
+    Notes(
+        into, "streets: ways that state a layer", static_cast<double>(ways.LayeredCount()), "ways");
+    Notes(into,
+          "streets: ways whose layer is a STRING",
+          static_cast<double>(ways.LayerSaidCount()),
+          "ways");
+    Notes(into, "streets: ways it refused", static_cast<double>(into.RefusedWays), "ways");
+    Notes(into,
+          "streets: triangles",
+          static_cast<double>(job.Pavement.Index.size()) / 3.0,
+          "triangles");
+    job.TotalMs += elapsed();
+    job.Phase = Job::Stage::Transfer;
+    return false;
+  }
+  return std::unexpected(Says::kStaleCorridorInput);
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceTransfer(Job &job, const JobSlice &slice) {
+  auto &ground = slice.ground;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  switch (job.Phase) {
+    case Job::Stage::TransferPositions:
+      if (job.TransferPart >= 0 && !ground.setPositions(job.TransferPart, job.Pavement.PositionM)) {
+        return std::unexpected(Says::kPavingCreationFailed);
+      }
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::TransferNormals;
+      return false;
+    case Job::Stage::TransferNormals:
+      if (job.TransferPart >= 0 && !ground.setNormals(job.TransferPart, job.Pavement.NormalM)) {
+        return std::unexpected(Says::kPavingCreationFailed);
+      }
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::TransferColours;
+      return false;
+    case Job::Stage::TransferColours:
+      if (job.TransferPart >= 0 && !ground.setColours(job.TransferPart, job.Pavement.ColourRgba)) {
+        return std::unexpected(Says::kPavingCreationFailed);
+      }
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::TransferTriangles;
+      return false;
+    case Job::Stage::TransferTriangles:
+      if (job.TransferPart >= 0 && !ground.setTriangles(job.TransferPart, job.Pavement.Index)) {
+        return std::unexpected(Says::kPavingCreationFailed);
+      }
+      job.TotalMs += elapsed();
+      job.Phase = Job::Stage::TransferValidate;
+      return false;
+    default: return std::unexpected(Says::kStaleCorridorInput);
+  }
+}
+
+std::expected<bool, std::string_view> Corridors::BeginTransfer(Job &job, const JobSlice &slice) {
+  if (job.Phase != Job::Stage::Transfer) { return std::unexpected(Says::kStaleCorridorInput); }
+  if (job.Pavement.Index.size() >= 3) {
+    Material tarmac;
+    for (int channel = 0; channel < 3; ++channel) { tarmac.BaseColour[channel] = 1.0f; }
+    const auto &wearing = slice.site.Stack.Materials();
+    const int asphalt = wearing.Find("asphalt");
+    tarmac.Roughness =
+        asphalt >= 0 ? wearing.At(static_cast<size_t>(asphalt)).Roughness : kUnlitTint;
+    const auto paved = slice.ground.addSurface("streets", tarmac);
+    if (!paved) { return std::unexpected(Says::kPavingCreationFailed); }
+    const auto part = slice.ground.addPart("streets", *paved);
+    if (!part) { return std::unexpected(Says::kPavingCreationFailed); }
+    job.TransferPart = *part;
+    Notes(job.Work,
+          "streets: the surface they were given",
+          static_cast<double>(paved->index()),
+          "index");
+    Notes(job.Work, "streets: the part they were given", static_cast<double>(*part), "index");
+  }
+  job.TotalMs += slice.Elapsed();
+  job.Phase = Job::Stage::TransferPositions;
+  return false;
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &job,
+                                                                           const JobSlice &slice) {
+  if (job.Phase != Job::Stage::TransferValidate) {
+    return std::unexpected(Says::kStaleCorridorInput);
+  }
+  const auto &ground = slice.ground;
+  auto *corridor = slice.corridor;
+  auto *notes = slice.notes;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  Paved &into = job.Work;
+  if (job.TransferPart >= 0) {
+    Notes(into, "streets: the geometry took them", 1.0, "yes/no");
+    Notes(into,
+          "streets: triangles wound against their normals",
+          static_cast<double>(ground.windingAgainstNormals(job.TransferPart)),
+          "triangles");
+    Notes(into,
+          "streets: parts the geometry now holds",
+          static_cast<double>(ground.parts()),
+          "parts");
+  }
+  Notes(into, "streets: of that, handing the paving over", elapsed(), "ms");
+  job.TotalMs += elapsed();
+  Notes(into, "streets: everything Paves did", job.TotalMs, "ms");
+  job.LongestSliceMs[static_cast<size_t>(Job::Stage::TransferValidate)] = elapsed();
+  constexpr std::array<std::string_view, 23> stages{"prepare",
+                                                    "crossings",
+                                                    "cross-file",
+                                                    "cross-decks",
+                                                    "bridge-topology",
+                                                    "bridge-relevant",
+                                                    "bridge-sample",
+                                                    "bridge-raise",
+                                                    "bridge-ramps",
+                                                    "bridge-grades",
+                                                    "design",
+                                                    "edges",
+                                                    "legs",
+                                                    "junctions",
+                                                    "pave",
+                                                    "bodies",
+                                                    "notes",
+                                                    "transfer",
+                                                    "transfer-positions",
+                                                    "transfer-normals",
+                                                    "transfer-colours",
+                                                    "transfer-triangles",
+                                                    "transfer-validate"};
+  for (size_t stage = 0; stage < stages.size(); ++stage) {
+    Notes(into,
+          std::format("streets: longest {} slice", stages[stage]),
+          job.LongestSliceMs[stage],
+          "ms");
+  }
+  *corridor = std::move(job.Corridor);
+  *notes = std::move(into.Notes);
+  job.Phase = Job::Stage::Done;
+  return true;
+}
+
 }

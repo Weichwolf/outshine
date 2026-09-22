@@ -53,7 +53,6 @@ namespace outshine {
 namespace Says {
 constexpr auto WaterCreationFailed = "could not publish water geometry";
 constexpr auto MaterialCreationFailed = "could not create ground materials";
-constexpr auto PavingCreationFailed = "could not publish road geometry";
 constexpr auto CorridorTerrainIncomplete =
     "corridor generation reached terrain without a DEM field";
 constexpr auto GroundContactIncomplete = "ground patchwork has no ready contact terrain";
@@ -91,6 +90,8 @@ constexpr size_t kTerrainSheetsPerFrame = 96;
 constexpr size_t kTerrainResidencySheetsPerFrame = 128;
 constexpr size_t kEarthworkSheetsPerFrame = 32;
 constexpr size_t kEarthworkPointsPerFrame = 8192;
+constexpr size_t kCorridorLanesPerFrame = 128;
+constexpr size_t kCorridorNodesPerFrame = 64;
 
 bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
@@ -199,6 +200,20 @@ public:
 
   void HoldsCorridors(std::vector<Yields> corridors) { Corridors_ = std::move(corridors); }
 
+  [[nodiscard]] Generators::Corridors::Job *CorridorJob() noexcept { return CorridorJob_.get(); }
+
+  void BeginsCorridors(std::unique_ptr<Generators::Corridors::Job> job) noexcept {
+    CorridorJob_ = std::move(job);
+  }
+
+  void FinishesCorridors() noexcept { CorridorJob_.reset(); }
+
+  void SamplesCorridorSlice(double milliseconds) noexcept {
+    LongestCorridorSliceMs_ = std::max(LongestCorridorSliceMs_, milliseconds);
+  }
+
+  [[nodiscard]] double LongestCorridorSliceMs() const noexcept { return LongestCorridorSliceMs_; }
+
   [[nodiscard]] std::vector<Yields> TakesCorridors() { return std::move(Corridors_); }
 
   [[nodiscard]] std::chrono::steady_clock::time_point Began() const noexcept { return Began_; }
@@ -245,12 +260,14 @@ private:
   GroundWorldCandidate Candidate_;
   std::optional<Patchwork> Patchwork_;
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
+  std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::vector<Yields> Corridors_;
   MeshBuild Meshing_;
   MeshBuild InitialMeshing_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   size_t ProductPeakBytes_ = 0;
   double LongestPressingSliceMs_ = 0.0;
+  double LongestCorridorSliceMs_ = 0.0;
   Core::GroundBuildSchedule Schedule_;
 };
 
@@ -1310,33 +1327,63 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                    "triangles");
   Drape drapedOver{.Surface = surface, .Field = {}};
   size_t fieldMisses = 0;
-  drapedOver.Field = [&coverage, &build, &fieldMisses](Drape::EastNorth at) {
+  std::optional<Drape::EastNorth> firstFieldMiss;
+  drapedOver.Field = [&coverage, &build, &fieldMisses, &firstFieldMiss](Drape::EastNorth at) {
     const std::optional<double> sampled = build.Sheets.FieldUpM(coverage.Zoom, at);
     fieldMisses += sampled ? 0u : 1u;
+    if (!sampled && !firstFieldMiss) { firstFieldMiss = at; }
     return sampled;
   };
   std::vector<Yields> corridors;
   std::vector<DiagnosticSample> notes;
-  const bool paved = World.Shipping.Corridors().Lay({.Stack = World.Stack,
-                                                     .Network = build.Network.get(),
-                                                     .Standing = standing,
-                                                     .Draped = drapedOver,
-                                                     .Classes = build.ClassStructure,
-                                                     .CensusAt = began,
-                                                     .EyeLatDeg = coverage.LatitudeDeg,
-                                                     .EyeLonDeg = coverage.LongitudeDeg,
-                                                     .FocalPx = build.Footprints.FocalPx()},
-                                                    build.Ground,
-                                                    &corridors,
-                                                    &notes);
+  const Generators::Corridors::Site site{.Stack = World.Stack,
+                                         .Network = build.Network.get(),
+                                         .Standing = standing,
+                                         .Draped = drapedOver,
+                                         .Classes = build.ClassStructure,
+                                         .CensusAt = state.Began(),
+                                         .EyeLatDeg = coverage.LatitudeDeg,
+                                         .EyeLonDeg = coverage.LongitudeDeg,
+                                         .FocalPx = build.Footprints.FocalPx()};
+  if (state.CorridorJob() == nullptr) {
+    state.BeginsCorridors(Generators::Corridors::Begin(site));
+    state.SamplesProductPeak();
+    return true;
+  }
+  const auto paved = World.Shipping.Corridors().Advance(*state.CorridorJob(),
+                                                        site,
+                                                        kCorridorLanesPerFrame,
+                                                        kCorridorNodesPerFrame,
+                                                        build.Ground,
+                                                        &corridors,
+                                                        &notes);
+  state.SamplesCorridorSlice(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+  state.SamplesProductPeak();
   if (!paved) {
-    Error = Says::PavingCreationFailed;
+    Error = paved.error();
     return false;
   }
   if (fieldMisses > 0) {
-    Error = Says::CorridorTerrainIncomplete;
+    if (firstFieldMiss) {
+      const Ground::OsmField *const shapes = World.Stack.Vectors();
+      const int vectorZoom =
+          shapes != nullptr && !shapes->Tiles().empty() ? shapes->Tiles().front().Z : -1;
+      Error = std::format("{}: east {:.3f} m, north {:.3f} m, {} misses, sheet zoom {}, "
+                          "DEM zoom {}, OSM zoom {}",
+                          Says::CorridorTerrainIncomplete,
+                          firstFieldMiss->EastM,
+                          firstFieldMiss->NorthM,
+                          fieldMisses,
+                          coverage.Zoom,
+                          World.Stack.Ground().BlockZoom(),
+                          vectorZoom);
+    } else {
+      Error = Says::CorridorTerrainIncomplete;
+    }
     return false;
   }
+  if (!*paved) { return true; }
   for (const DiagnosticSample &one : notes) {
     Published.Places(one.Name, one.Value, one.Unit.c_str());
   }
@@ -1346,9 +1393,9 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   state.HoldsCorridors(std::move(corridors));
   state.CompletesStage();
   Published.Places(
-      "ground candidate: corridors",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
-      "ms");
+      "ground candidate: longest corridor slice", state.LongestCorridorSliceMs(), "ms");
+  Published.Places("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
+  state.FinishesCorridors();
   return true;
 }
 

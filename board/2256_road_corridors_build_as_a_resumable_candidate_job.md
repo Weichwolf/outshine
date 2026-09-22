@@ -85,7 +85,9 @@ was the largest phase (29.576 ms in an earlier run); bridge-end raising reached
 normals, colours, triangles and validation stages. Measure each on Wien and
 bound any remaining over-budget stage, especially winding validation and
 bridge-end raising. Prove one-shot/job equivalence for geometry and ordered
-yields directly, then open a fresh Wien PNG. The prior shot's simulation p99 was 23.97 ms
-and worst frame 542.29 ms, so neither the corridor nor the whole-frame budget
-is accepted yet. Diagnose those costs separately; do not infer a frame bound
-from the matching still image.
+yields directly. The fresh Wien PNG `49440d93` was opened: road and city
+placement persist, but broad flat roofs and weak material/light variation
+remain visually below target. The shot has 2,920,352 triangles, simulation
+p99 22.12 ms, worst frame 531.07 ms and 50/4435 frames over 16.67 ms.
+Neither corridor nor whole-frame budget is accepted yet; a matching still
+image does not prove a frame bound.

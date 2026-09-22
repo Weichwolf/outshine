@@ -66,22 +66,44 @@ void CopiesEdgeIntoRim(std::vector<float> &page, const std::vector<bool> &missin
   }
 }
 
-[[nodiscard]] std::vector<Data::TileId> SourceTilesOf(const Patchwork &candidate, int finestZoom) {
+struct SourceCoverage {
+  int FinestZoom;
+  int GroundZoom;
+};
+
+struct SourceTile {
+  int Zoom;
+  long X;
+  long Y;
+};
+
+[[nodiscard]] std::vector<Data::TileId> SourceTilesOf(const Patchwork &candidate,
+                                                      SourceCoverage coverage) {
   std::vector<Data::TileId> tiles;
-  tiles.reserve(candidate.Sheets.size() * 9u);
+  constexpr size_t kNeighbours = 9;
+  tiles.reserve(candidate.Sheets.size() * kNeighbours * 2u);
+  const auto appendNeighbours = [&tiles](SourceTile source) {
+    for (long dy = -1; dy <= 1; ++dy) {
+      for (long dx = -1; dx <= 1; ++dx) {
+        long nx = source.X + dx;
+        const long ny = source.Y + dy;
+        if (ny < 0 || !Ground::WrapTile(source.Zoom, &nx, &ny)) { continue; }
+        tiles.push_back(
+            {.Zoom = source.Zoom, .X = static_cast<uint32_t>(nx), .Y = static_cast<uint32_t>(ny)});
+      }
+    }
+  };
   for (const Sheet &sheet : candidate.Sheets) {
-    const int sourceZoom = SourceZoomOf(sheet, finestZoom);
+    const int sourceZoom = SourceZoomOf(sheet, coverage.FinestZoom);
     const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - sourceZoom);
     const long x = static_cast<long>(sheet.Tile.X >> drop);
     const long y = static_cast<long>(sheet.Tile.Y >> drop);
-    for (long dy = -1; dy <= 1; ++dy) {
-      for (long dx = -1; dx <= 1; ++dx) {
-        long nx = x + dx;
-        const long ny = y + dy;
-        if (ny < 0 || !Ground::WrapTile(sourceZoom, &nx, &ny)) { continue; }
-        tiles.push_back(
-            {.Zoom = sourceZoom, .X = static_cast<uint32_t>(nx), .Y = static_cast<uint32_t>(ny)});
-      }
+    appendNeighbours({.Zoom = sourceZoom, .X = x, .Y = y});
+    if (coverage.GroundZoom >= 0 && coverage.GroundZoom < sourceZoom) {
+      const auto parentDrop = static_cast<uint32_t>(sourceZoom - coverage.GroundZoom);
+      appendNeighbours({.Zoom = coverage.GroundZoom,
+                        .X = static_cast<long>(static_cast<uint32_t>(x) >> parentDrop),
+                        .Y = static_cast<long>(static_cast<uint32_t>(y) >> parentDrop)});
     }
   }
   const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
@@ -104,7 +126,8 @@ std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &ca
                                                              FieldPreparation preparation) {
   if (!RequestsPrepared_) {
     ForgetsFields();
-    const std::vector<Data::TileId> tiles = SourceTilesOf(candidate, preparation.FinestZoom);
+    const std::vector<Data::TileId> tiles = SourceTilesOf(
+        candidate, {.FinestZoom = preparation.FinestZoom, .GroundZoom = ground.BlockZoom()});
     Requests_.reserve(tiles.size());
     Fields_.reserve(tiles.size());
     for (const Data::TileId tile : tiles) { Requests_.push_back({.Tile = tile}); }
