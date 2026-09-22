@@ -90,9 +90,10 @@ und unterscheidet große endliche Kosten von Überlauf. Analytische Routingkontr
 bestehen; globales Laufzeitbudget und Alternativpfade bei Überlauf bleiben offen.
 Kein produktiver Router-Aufruf im Client-Renderpfad.
 
-Grounds erneuert World.Network nur bei geänderter Wegeanzahl. Topologie-/Höhenänderung
-bei gleicher Anzahl könnte unbemerkt bleiben. Gemeinsame Wege-/DEM-Revision fehlt;
-explizite Publikationsrevisionen statt weiterer Zähler benötigen eigene Änderungsprüfung.
+Grounds erneuert World.Network bisher nur bei geänderter Wegeanzahl. Auch bei
+gleicher Anzahl neu bauen, wenn publizierte gegenüber angeforderter Region,
+Vektorgeneration, Straßen-Tilezahl oder DEM-Residenz wechselt; `MapOf`-Fehler
+müssen den Kandidaten ablehnen, statt ein leeres Netz zu publizieren.
 Elevate übernimmt derzeit NaN/Inf und ruft auch leere HeightSource auf. Eingabegrenze
 prüft optional + isfinite; ungültig zählt wie fehlend als Refused (vorige Weghöhe/0).
 Profile vor/nach Weave: 138 Checks zu ±Höhen, NaN/±Inf, fehlender/leerer Quelle.
