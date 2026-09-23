@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <memory>
 #include <expected>
+#include <utility>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -351,6 +352,26 @@ public:
     }
     return ActiveState().Content.Subjects.SetMesh(mesh, error) &&
            (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetMesh(mesh, error));
+  }
+
+  [[nodiscard]] std::expected<SubjectDraw::MeshTicket, std::string>
+  BeginSubjectMesh(const SubjectMesh &mesh) {
+    std::string error;
+    if (ActiveState().Content.DrawsGlass &&
+        !ActiveState().Content.Glass.ValidateMesh(mesh, error)) {
+      return std::unexpected(std::move(error));
+    }
+    return ActiveState().Content.Subjects.BeginMesh(mesh);
+  }
+
+  [[nodiscard]] bool
+  FinishSubjectMesh(SubjectDraw::MeshTicket ticket, const SubjectMesh &mesh, std::string &error) {
+    return ActiveState().Content.Subjects.FinishMesh(ticket, mesh, error) &&
+           (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetMesh(mesh, error));
+  }
+
+  [[nodiscard]] bool SubjectMeshPending() const noexcept {
+    return ActiveState().Content.Subjects.MeshPending();
   }
 
   [[nodiscard]] SubjectMeshUploadMetrics LastSubjectMeshUpload() const noexcept {

@@ -90,6 +90,48 @@ int main() {
         CHECK(renderer.ReadSceneLinear(after) == ReadState::Ready && after == before,
               "invalid input leaves the rendered image unchanged");
       }
+      DrawList draws;
+      CHECK(draws.Add(DrawItem{.IndexCount = 3}, error), "staged draw is valid");
+      draws.Compile();
+      constexpr std::array<float, 9> stagedPositions{
+          -0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f};
+      SubjectMesh mesh;
+      mesh.Verts.From = stagedPositions.data();
+      mesh.Positions = stagedPositions;
+      mesh.Emitted.From = emitted.data();
+      mesh.VertexCount = 3;
+      mesh.Indices = indices.data();
+      mesh.IndexCount = 3;
+      mesh.Draws = &draws;
+      auto began = renderer.BeginSubjectMesh(mesh);
+      CHECK(began.has_value() && began->NeedsFinish && renderer.SubjectMeshPending(),
+            "index upload yields a pending subject");
+      if (began) {
+        CHECK(scene->Draw(error), "pending subject can enter a render pass without its geometry");
+        renderer.WaitForGpu();
+        std::vector<float> partial;
+        CHECK(renderer.ReadSceneLinear(partial) == ReadState::Ready && partial == before,
+              "pending upload still draws the prior complete subject");
+        auto stale = *began;
+        ++stale.Generation;
+        std::string staleError;
+        CHECK(!renderer.FinishSubjectMesh(stale, mesh, staleError) && !staleError.empty(),
+              "stale completion cannot claim a newer subject upload");
+        CHECK(renderer.FinishSubjectMesh(*began, mesh, error),
+              "the matching subject finishes its streams and tables");
+        CHECK(!renderer.SubjectMeshPending(), "completed subject leaves the pending state");
+        CHECK(scene->Draw(error), "finished subject renders");
+        renderer.WaitForGpu();
+        std::vector<float> staged;
+        CHECK(renderer.ReadSceneLinear(staged) == ReadState::Ready,
+              "finished subject remains readable");
+        CHECK(renderer.SetSubjectMesh(mesh, error) && scene->Draw(error),
+              "the one-shot entry point uses the same mesh");
+        renderer.WaitForGpu();
+        std::vector<float> oneShot;
+        CHECK(renderer.ReadSceneLinear(oneShot) == ReadState::Ready && oneShot == staged,
+              "interrupted and one-shot uploads render identical pixels");
+      }
     }
   }
   SDL_Quit();

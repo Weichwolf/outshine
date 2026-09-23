@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <ratio>
 
 #include <cstdint>
 #include <span>
@@ -700,10 +701,25 @@ bool SubjectDraw::ValidateMesh(const SubjectMesh &mesh, std::string &error) cons
 }
 
 bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
+  auto began = BeginMesh(mesh);
+  if (!began) {
+    error = std::move(began.error());
+    return false;
+  }
+  return !began->NeedsFinish || FinishMesh(*began, mesh, error);
+}
+
+std::expected<SubjectDraw::MeshTicket, std::string>
+SubjectDraw::BeginMesh(const SubjectMesh &mesh) {
+  std::string error;
   LastMeshUpload_ = {};
   const auto admissionAt = std::chrono::steady_clock::now();
-  if (!ValidateMesh(mesh, error)) { return false; }
+  if (!ValidateMesh(mesh, error)) { return std::unexpected(std::move(error)); }
   ++Reshaped_;
+  PendingMesh_ = {};
+  PendingDraws_ = nullptr;
+  PendingIndices_ = nullptr;
+  PendingIndexCount_ = 0;
   Bound().DropStaged();
   Bound().Shape().Vertices = mesh.VertexCount;
   Bound().Shape().Indices = mesh.IndexCount;
@@ -731,14 +747,18 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
       Bound().GiveIndices(Bound().SubjectIndices());
       Bound().SubjectStands({}, {});
     }
-    return HandTables(error);
+    if (!HandTables(error)) { return std::unexpected(std::move(error)); }
+    return MeshTicket{.Generation = Reshaped_};
   }
   SubjectBatches_ = mesh.Draws->Batches();
   for (const DrawBatch &batch : SubjectBatches_) {
     SubjectRows_ = std::max(SubjectRows_, batch.ModelSlot + batch.Instances);
   }
 
-  if (Borrows()) { return HandTables(error); }
+  if (Borrows()) {
+    if (!HandTables(error)) { return std::unexpected(std::move(error)); }
+    return MeshTicket{.Generation = Reshaped_};
+  }
 
   LastMeshUpload_.AdmissionMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - admissionAt)
@@ -754,7 +774,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     Bound().SubjectStands(v, i);
     if (!RoomForStreams(error)) {
       Bound().Shape().Indices = 0;
-      return false;
+      return std::unexpected(std::move(error));
     }
     const RebasedRun rebased{
         .From = mesh.Indices, .Count = mesh.IndexCount, .FirstVertex = v.First};
@@ -767,16 +787,37 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
         .Carrying = &rebased}};
     if (!Bound().Cross(run, false, error)) {
       Bound().Shape().Indices = 0;
-      return false;
+      return std::unexpected(std::move(error));
     }
   }
   if (!Bound().Buffer(SubjectResidency::Stream::Index)) {
     Bound().Shape().Indices = 0;
     error = std::string("the subject's index run did not reach the device: ") + SDL_GetError();
-    return false;
+    return std::unexpected(std::move(error));
   }
   LastMeshUpload_.IndexMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - indexAt).count();
+  PendingMesh_ = {.Generation = Reshaped_, .NeedsFinish = true};
+  PendingDraws_ = mesh.Draws;
+  PendingIndices_ = mesh.Indices;
+  PendingIndexCount_ = mesh.IndexCount;
+  Bound().Shape().Indices = 0;
+  return PendingMesh_;
+}
+
+bool SubjectDraw::FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, std::string &error) {
+  if (!ticket.NeedsFinish || ticket.Generation == 0 ||
+      ticket.Generation != PendingMesh_.Generation || mesh.Draws != PendingDraws_ ||
+      mesh.Indices != PendingIndices_ || mesh.IndexCount != PendingIndexCount_ ||
+      mesh.VertexCount != Bound().Shape().Vertices) {
+    error = "subject mesh completion has no matching preparation";
+    return false;
+  }
+  Bound().Shape().Indices = PendingIndexCount_;
+  PendingMesh_ = {};
+  PendingDraws_ = nullptr;
+  PendingIndices_ = nullptr;
+  PendingIndexCount_ = 0;
   const auto streamsAt = std::chrono::steady_clock::now();
   if (!HandStreams(mesh, false, error)) { return false; }
   LastMeshUpload_.StreamsMs =
@@ -793,6 +834,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   LastMeshUpload_.TablesMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tablesAt)
           .count();
+  if (!handed) { Bound().Shape().Indices = 0; }
   return handed;
 }
 

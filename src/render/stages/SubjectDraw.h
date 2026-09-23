@@ -5,6 +5,7 @@
 #include <optional>
 #include <array>
 #include <cstdint>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,11 @@ struct SubjectMeshUploadMetrics {
 
 class SubjectDraw {
 public:
+  struct MeshTicket {
+    uint64_t Generation = 0;
+    bool NeedsFinish = false;
+  };
+
   using SourceOptions = SurfaceOutputs;
 
   [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
@@ -220,6 +226,10 @@ public:
 
   [[nodiscard]] bool ValidateMesh(const SubjectMesh &mesh, std::string &error) const;
   [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
+  [[nodiscard]] std::expected<MeshTicket, std::string> BeginMesh(const SubjectMesh &mesh);
+  [[nodiscard]] bool FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, std::string &error);
+
+  [[nodiscard]] bool MeshPending() const noexcept { return PendingMesh_.NeedsFinish; }
 
   [[nodiscard]] SubjectMeshUploadMetrics LastMeshUpload() const noexcept { return LastMeshUpload_; }
 
@@ -445,6 +455,10 @@ private:
   size_t Moved_ = 0;
   uint64_t Reshaped_ = 0;
   SubjectMeshUploadMetrics LastMeshUpload_;
+  MeshTicket PendingMesh_;
+  const DrawList *PendingDraws_ = nullptr;
+  const uint32_t *PendingIndices_ = nullptr;
+  uint32_t PendingIndexCount_ = 0;
 
   SubjectPipelineBinding OwnedBinding_;
   SubjectPipelineBinding *Binding_ = &OwnedBinding_;
