@@ -1764,8 +1764,22 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                                          .EyeLonDeg = coverage.LongitudeDeg,
                                          .FocalPx = build.Footprints.FocalPx()};
   if (state.CorridorJob() == nullptr) {
+    const auto jobAt = std::chrono::steady_clock::now();
     state.BeginsCorridors(Generators::Corridors::Begin(site));
+    Published.Places(
+        "ground candidate: corridor job admission",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - jobAt).count(),
+        "ms");
+    const auto inventoryAt = std::chrono::steady_clock::now();
     state.SamplesProductPeak();
+    Published.Places(
+        "ground candidate: corridor product inventory",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - inventoryAt)
+            .count(),
+        "ms");
+    state.SamplesCorridorSlice(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+            .count());
     return true;
   }
   const auto paved = World.Shipping.Corridors().Advance(*state.CorridorJob(),
@@ -1775,8 +1789,6 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                                                         build.Ground,
                                                         &corridors,
                                                         &notes);
-  state.SamplesCorridorSlice(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   state.SamplesProductPeak();
   if (!paved) {
     Error = paved.error();
@@ -1801,19 +1813,38 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
     }
     return false;
   }
-  if (!*paved) { return true; }
+  if (!*paved) {
+    state.SamplesCorridorSlice(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+            .count());
+    return true;
+  }
   for (const DiagnosticSample &one : notes) {
     Published.Places(one.Name, one.Value, one.Unit.c_str());
   }
   Published.Places(
       "ground candidate: corridor drape field misses", static_cast<double>(fieldMisses), "queries");
+  const auto fieldsAt = std::chrono::steady_clock::now();
   build.Sheets.ForgetsFields();
+  Published.Places(
+      "ground candidate: corridor field release",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - fieldsAt)
+          .count(),
+      "ms");
   state.HoldsCorridors(std::move(corridors));
   state.CompletesStage();
+  Published.Places("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
+  const auto retireAt = std::chrono::steady_clock::now();
+  state.FinishesCorridors();
+  Published.Places(
+      "ground candidate: corridor job retirement",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retireAt)
+          .count(),
+      "ms");
+  state.SamplesCorridorSlice(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   Published.Places(
       "ground candidate: longest corridor slice", state.LongestCorridorSliceMs(), "ms");
-  Published.Places("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
-  state.FinishesCorridors();
   return true;
 }
 

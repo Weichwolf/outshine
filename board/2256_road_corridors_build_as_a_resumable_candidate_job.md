@@ -9,112 +9,61 @@ Tags: realtime, roads, determinism, ownership
 
 # Road corridors build as a resumable candidate job
 
-## Defect
+## Defect and evidence
 
-Wien's Refined shot `49440d93` reports simulation p99 81.30 ms. The native
-`Corridors::Lay` call alone takes 637.622 ms on the Engine thread for 55,021
-edges, 16,573 junctions and 215,279 paved stations. Its design-lane pass takes
-94.165 ms, `ShapesJunctions` 174.848 ms and paving 275.692 ms, including
-193.510 ms for yields. The renderer path separately takes 71.851 ms to hand
-scene geometry over; neither cost is explained by the vector snapshot assembler.
-A temporary Wien probe measured that assembler's 13 four-tile slices at at most
-2.513 ms, versus its former 34.271 ms one-shot publication. These are samples,
-not an enforced worst-case budget. Probe logging changed scheduling and the shot
-digest, so production image comparisons must run without that instrumentation.
+The old `Corridors::Lay` consumed 637 ms in one Wien candidate frame. The
+candidate-owned `Corridors::Job` now paces topology, bridge treatment, lane
+and junction construction, paving and geometry transfer. It pins explicit OSM,
+DEM, network and class inputs; changed vector revisions are rejected. The
+crossing/bridge oracle proves one-shot equality at two interruption schedules.
+The current Wien shot retains `2fc0aec4`, with 47,645 ways and 582,932 street
+triangles. The PNG was opened; geometry is stable but materials and lighting
+remain visibly below target.
 
-`Corridors::Lay` owns transient `Paved`, `RoadRaised`, shared-node counts, notes and
-yields on its stack. The caller cannot pause, cancel or retain a partial result;
-the entire 637-ms call happens inside one candidate frame. This violates the
-16.67-ms frame target even when total work is otherwise acceptable.
+The current full corridor phase peaks at 21.60 ms although its generator
+advance peaks at 13.01 ms. Job admission is below 0.001 ms, product inventory
+0.001 ms and DEM field release 0.39 ms. `GroundBuildState::FinishesCorridors`
+destroys the finished job synchronously and took 14.85 ms. Earlier telemetry
+sampled before this destruction and understated the corridor maximum. Six of
+4466 full Wien frames exceed 16.67 ms; other phases also need attribution
+under WI 2234. A matching image alone does not prove a frame bound.
 
-## Decision
+## Contract and ownership
 
-Make corridor construction a move-only, candidate-owned generator job. Keep
-`Paved`, `RoadRaised`, shared-node counts, ordered notes, corridor yields and
-phase cursors inside it. Pin the input `OsmField` publication, `StreetField`,
-network, class structure, tangent frame and DEM field owner for the job's lifetime;
-no borrowed span or callback may outlive its owner. Cancellation discards the
-whole job. A revised source starts a new job; no partial road geometry is visible
-to renderer, navigation or earthworks. Keep `Corridors::Lay` as an independent
-one-shot oracle until exact output equivalence is proven.
+`GroundBuildState` owns the move-only job through construction and retirement.
+The job owns `Paved`, `RoadRaised`, bridge topology, ordered yields and phase
+cursors. No callback or span outlives its candidate input. The completed
+geometry and ordered yields move to candidate products exactly once; retirement
+may then release job scratch without touching those products. Cancellation or a
+stale source sends private scratch through the same bounded retirement path;
+no partial road geometry reaches renderer, navigation or earthworks. The engine
+limits retained canceled jobs and applies backpressure.
 
-Resume in source order: crossings/decks, designing lanes, splitting edges,
-shaping junctions, paving lanes, raising junction bodies, handing geometry over.
-Slice loops by bounded work units, first lanes and junctions; decompose the
-remaining whole-phase operations after measurement. Preserve ordering of edges,
-stations, junction legs, yields, geometry indices and diagnostic reductions.
-`ShapesJunctions` needs an explicit stable node order rather than unordered-map
-iteration. Retain the complete candidate's terrain and OSM snapshot while the
-job runs. Publish only after the final geometry and yields pass validation.
+Keep `Corridors::Lay` as an independent one-shot oracle. Preserve edge,
+station, junction-leg, yield, index and diagnostic order across arbitrary
+advances. Do not move the 14.85-ms destructor to publication or another frame.
+Expose a bounded `Job::RetireStep` that releases nested vectors/maps in measured
+chunks, then destroys the empty job. Hold the candidate in `NeedsCorridors`
+until retirement completes. Canceled candidates hand scratch to an engine-owned
+retirement queue before destruction. The transition must be explicit and replayable;
+retirement timing cannot alter the native geometry or road network.
 
-## Acceptance
+## Implementation and acceptance
 
-- One-shot and interrupted runs produce identical native geometry, ordered
-  yields, bridge clearances, network contacts and diagnostics for small analytic
-  roads, stacked crossings, bridges and Wien; vary lane/junction slice sizes.
-- A revision change, cancellation or late DEM refusal leaves the prior published
-  world intact. No stale job writes into the new candidate.
-- Measure every phase slice and full frame p50/p95/p99 plus CPU/GPU peaks. No
-  corridor unit exceeds the declared per-frame budget on Wien and Malcesine;
-  720p60 target remains a separate whole-frame acceptance.
-- Keep `GroundCandidatePacingReachesReadiness`, Floor/Lattice and place render
-  contracts unchanged. Open resulting PNGs, compare against prior complete
-  shots and run `make format`, focused suites and `make lint`.
-
-## Current evidence and remaining work
-
-The candidate now owns a resumable corridor job. Wien's 47,645 ways produce
-582,932 street triangles; the interrupted run rendered the same `0257fdae`
-shot as a same-tree one-shot run and also reproduced the earlier `49440d93`
-shot. Both images have 2,920,352 total triangles. A diagnostic same-site
-oracle exposed a missing lane-cursor reset after bridge raising: before the
-fix, the job completed with zero street triangles and yields despite green
-pacing tests. That transition is fixed; the PNGs were opened. Current
-`ScoreAFootprintStandsOnALevelFloor` passes in normal and validated variants.
-`GroundCandidatePacingReachesReadiness` exposed a corridor field miss near east
-365.028 m, north -1096.280 m: the candidate asked at zoom 15 while source DEM
-is zoom 14. `HeightSheets::PrepareFields` now also requests parent DEM tiles
-and their halo. A subsequent normal and validated Pacing run and the focused
-HeightSheets rim case pass; repeat under changed source arrival schedules before
-calling this resolved. No fabricated drape height was introduced. `make lint`
-passes with clang-tidy after this change.
-
-Wien's prior longest measured corridor slice was 28.120 ms: geometry transfer
-was the largest phase (29.576 ms in an earlier run); bridge-end raising reached
-16.529 ms. Geometry transfer is now split into material/part, positions,
-normals, colours, triangles and validation stages. Measure each on Wien and
-bound any remaining over-budget stage, especially winding validation and
-bridge-end raising. Prove one-shot/job equivalence for geometry and ordered
-yields directly. The fresh Wien PNG `49440d93` was opened: road and city
-placement persist, but broad flat roofs and weak material/light variation
-remain visually below target. The shot has 2,920,352 triangles, simulation
-p99 22.12 ms, worst frame 531.07 ms and 50/4435 frames over 16.67 ms.
-Neither corridor nor whole-frame budget is accepted yet; a matching still
-image does not prove a frame bound.
-
-Wien `shots --measures` isolates the next two units: bridge-end raising
-17.574 ms and the 12-pass ramp relaxer 16.541 ms; transfer phases peak at
-5.754 ms. Keep the same ordered relaxation and cap, but resume one complete
-pass per frame. Move bridge topology cleanup out of the final raise slice.
-Recheck direct products, shot digest, slice maxima and whole-frame timings;
-this only addresses those measured units, not the separate 502-ms worst frame.
-
-After the split, Wien stays at `49440d93`; the PNG was opened. Longest measured
-raise, cleanup and ramp slices are 0.202, 11.576 and 2.169 ms respectively;
-the whole corridor maximum is 11.577 ms. The job takes 1057.702 ms total,
-spread over frames. Shot simulation p99 is 21.98 ms with a 531.30-ms worst
-frame, so WI 2234 still owns the larger stall. Pacing passes in both variants.
-The HeightSheets dependency-admission test failed once on its posting bound
-and then passed alone; WI 2244 tracks that unresolved scheduler observation.
-Another Wien run measured bridge cleanup at 17.183 ms, above the frame budget;
-erase topology nodes incrementally before releasing the remaining storage.
-Three subsequent Wien runs kept the shot at `49440d93`; the PNG was opened.
-Cleanup peaked at 1.581/1.647/1.508 ms, and the whole corridor slice at
-10.819/11.618/11.475 ms. Pacing passed normal and validated. Whole-frame
-simulation p99 still ranged 19.45–23.99 ms with 528–610-ms worst frames;
-correctness and per-corridor pacing do not close the engine-wide frame claim.
-
-`Corridors::Site` pins explicit inputs instead of a mutable `GroundStack`. The crossing/bridge
-oracle proves exact one-shot equality at two interruption schedules and rejects a
-changed vector revision before output. Rosenheim measures a 5.525-ms corridor maximum;
-its 46.27-ms frame p99 is candidate handoff/proxy work owned by WI 2234.
+1. In `src/generators/road/Corridors.*`, inventory job-owned allocations after
+   `Done`. Retire nested `Paved` station/yield/junction arrays, maps, topology
+   and stream scratch with a cursor and bounded count/time per advance. Record
+   the longest release unit and retained bytes. No unbounded container clear,
+   map destruction or large destructor on the frame path.
+2. In `src/engine/Laying.cpp`, move final ordered notes/yields once, then enter
+   the retirement phase. Advance it at most once per frame before completing
+   `NeedsCorridors`. An engine-owned retirement queue handles canceled jobs
+   with bounded occupancy and no synchronous large destructor.
+3. Prove one-shot/interrupted equality of geometry, ordered yields, contacts
+   and diagnostics on small roads, stacked crossings, bridges and Wien. Reject
+   a changed vector revision and a DEM field miss without fabricating heights.
+   `GroundCandidatePacingReachesReadiness` must pass normally and with NDEBUG.
+4. Render Wien and Malcesine through outshine-client, open PNGs, preserve
+   `2fc0aec4` and `07ca3a25`, and report corridor retirement max, whole
+   corridor max, full-frame p50/p95/p99 and heap peak separately. Run
+   `make format`, focused suites and `LINT_JOBS=2 make lint` on the commit.
