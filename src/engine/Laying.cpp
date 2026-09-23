@@ -1200,12 +1200,16 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
                        "bits");
     }
     ++World.GroundCandidates;
+    const auto createAt = std::chrono::steady_clock::now();
     World.GroundBuild = std::make_unique<GroundBuildState>(Picture.Device,
                                                            World,
                                                            World.Stack.Footprints(),
                                                            request.Coverage,
                                                            request.Revision,
                                                            World.GroundCandidates);
+    Cost.GroundBuildCreate.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - createAt)
+            .count());
     if (request.Revision.Quality == GroundQuality::Refined) {
       World.GroundBuild->Footprints().ResetDerived();
     }
@@ -1217,11 +1221,18 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
   Published.Places(
       "ground candidate: progress", static_cast<double>(state.Progress()), "stage index");
   if (state.Prepared()) { return GroundBuildProgress::Ready; }
+  const auto prepareAt = std::chrono::steady_clock::now();
   if (auto prepared = state.Candidate().Prepare(*Picture.Standing, &Picture.Face); !prepared) {
+    Cost.GroundBuildPrepare.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - prepareAt)
+            .count());
     Error = std::move(prepared.error());
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
+  Cost.GroundBuildPrepare.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - prepareAt)
+          .count());
   state.MarksPrepared();
   return GroundBuildProgress::Pending;
 }

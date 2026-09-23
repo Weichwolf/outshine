@@ -146,6 +146,9 @@ void Engine::State::Tells() {
     Published.Places("ground candidate time, most", Cost.Ground.MostMs(), "ms");
     Published.Places("ground request time, most", Cost.GroundRequest.MostMs(), "ms");
     Published.Places("ground candidate begin time, most", Cost.GroundBuildBegin.MostMs(), "ms");
+    Published.Places("ground candidate creation time, most", Cost.GroundBuildCreate.MostMs(), "ms");
+    Published.Places(
+        "ground candidate preparation time, most", Cost.GroundBuildPrepare.MostMs(), "ms");
     static constexpr std::array<std::string_view, Spent::kGroundPhaseCount> kGroundPhases{
         "candidate",
         "patchwork",

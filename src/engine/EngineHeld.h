@@ -335,6 +335,8 @@ struct Spent {
   Counter Ground;
   Counter GroundRequest;
   Counter GroundBuildBegin;
+  Counter GroundBuildCreate;
+  Counter GroundBuildPrepare;
   std::array<Counter, kGroundPhaseCount> GroundPhases;
   Counter Crowns;
   double StreamedMs = 0.0;

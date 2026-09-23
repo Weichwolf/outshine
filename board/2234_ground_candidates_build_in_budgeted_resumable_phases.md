@@ -102,13 +102,14 @@ Use internal contracts for equivalence and public API end to end. Add no second 
    from 52.62 to 2.38 ms. Refined candidates omit pieces every tile rebakes. A
    source-paced `TerrainRefinementJob` preserves exact patches at budgets 1/2/7;
    production budget 16 cuts refinement from 69.02 to 11.46 ms, Ground worst from
-   69.05 to 29.63 ms and over-budget frames from 10 to 8. Rosenheim stays 8e6642f9.
-   Next split candidate begin at 29.55 ms, then geometry's observed 19.26 ms maximum.
+   69.05 to 29.63 ms. Rosenheim stays 8e6642f9. Candidate creation costs 0.78 ms;
+   its 25.32 ms preparation dominates by cloning the previous fused subject/ground
+   geometry. Do not merely omit it: first give authored and generated geometry explicit
+   ownership so replacement preserves the former without copying obsolete ground.
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.
 Expected image: unchanged completed world, no partial terrain/contact revision;
 streaming preparation must stop monopolizing frames under measured workload.
-
 ## Acceptance
 
 - Actual engine progresses and publishes with and without NDEBUG.
@@ -116,5 +117,4 @@ streaming preparation must stop monopolizing frames under measured workload.
 - Active world remains intact during preparation, rejection and cancellation.
 - Per-unit distributions, maximum workload and candidate peaks support stated budgets.
 - Existing Floor and Lattice 15 s/contact contracts remain intact.
-- make format; focused schedule and paced-publication cases; Floor/Lattice integrations;
-  make lint. Keep logs in system temp; report only failures and final counts.
+- make format; focused schedule and paced-publication cases; Floor/Lattice integrations; make lint.
