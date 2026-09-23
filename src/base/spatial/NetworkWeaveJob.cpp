@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <ratio>
 #include <string>
 #include <string_view>
@@ -91,7 +92,7 @@ std::expected<void, std::string> NetworkWeaveJob::IndexEdges(size_t itemsMost) {
     if (NextNode_ == Outgoing_.size()) {
       NextNode_ = 0;
       NextEdge_ = 0;
-      Stage_ = Stage::ReleaseEdgeIndex;
+      Stage_ = Stage::BeginAdjacency;
       break;
     }
     if (NextEdge_ == Outgoing_[NextNode_].size()) {
@@ -117,34 +118,13 @@ std::expected<void, std::string> NetworkWeaveJob::IndexEdges(size_t itemsMost) {
   return {};
 }
 
-void NetworkWeaveJob::ReleaseEdgeIndex(size_t itemsMost) {
-  for (size_t released = 0; released < itemsMost && !Indexed_.empty(); ++released) {
-    Indexed_.erase(Indexed_.begin());
-  }
-  if (Indexed_.empty()) { Stage_ = Stage::BeginAdjacency; }
-}
-
 void NetworkWeaveJob::BeginAdjacency() {
-  Adjacency_ = Network::PhysicalAdjacency(Network_.Nodes_.size());
+  Adjacency_.Adopt(Network_.Nodes_.size(), std::move(Indexed_));
   Stage_ = Stage::BuildAdjacency;
 }
 
 void NetworkWeaveJob::BuildAdjacency(size_t itemsMost) {
-  size_t visited = 0;
-  while (NextNode_ < Outgoing_.size() && visited < itemsMost) {
-    if (NextEdge_ == Outgoing_[NextNode_].size()) {
-      ++NextNode_;
-      NextEdge_ = 0;
-      continue;
-    }
-    Adjacency_.Connect(NextNode_, Outgoing_[NextNode_][NextEdge_++].To);
-    ++visited;
-  }
-  if (NextNode_ == Outgoing_.size()) {
-    NextNode_ = 0;
-    NextEdge_ = 0;
-    Stage_ = Stage::TieEnds;
-  }
+  if (Adjacency_.AccumulateDegrees(itemsMost)) { Stage_ = Stage::TieEnds; }
 }
 
 void NetworkWeaveJob::TieEnds(size_t itemsMost) {
@@ -192,7 +172,6 @@ std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
         return std::unexpected(indexed.error());
       }
       break;
-    case Stage::ReleaseEdgeIndex: ReleaseEdgeIndex(itemsMost); break;
     case Stage::BeginAdjacency: BeginAdjacency(); break;
     case Stage::BuildAdjacency: BuildAdjacency(itemsMost); break;
     case Stage::TieEnds: TieEnds(itemsMost); break;
@@ -205,9 +184,6 @@ std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
     case Stage::SnapPoints: Worst_.SnapMs = std::max(Worst_.SnapMs, elapsedMs); break;
     case Stage::BuildEdges: Worst_.EdgesMs = std::max(Worst_.EdgesMs, elapsedMs); break;
     case Stage::IndexEdges: Worst_.IndexMs = std::max(Worst_.IndexMs, elapsedMs); break;
-    case Stage::ReleaseEdgeIndex:
-      Worst_.IndexReleaseMs = std::max(Worst_.IndexReleaseMs, elapsedMs);
-      break;
     case Stage::BeginAdjacency:
       Worst_.AdjacencyBeginMs = std::max(Worst_.AdjacencyBeginMs, elapsedMs);
       break;

@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "Earth.h"
@@ -215,8 +216,10 @@ private:
   public:
     explicit PhysicalAdjacency(size_t nodes) : Degree_(nodes) {}
 
+    void Adopt(size_t nodes, std::unordered_set<uint64_t> &&edges);
     void Connect(size_t from, size_t to);
     void Disconnect(size_t from, size_t to);
+    [[nodiscard]] bool AccumulateDegrees(size_t itemsMost);
     [[nodiscard]] bool Release(size_t itemsMost);
 
     [[nodiscard]] size_t Degree(size_t node) const { return Degree_[node]; }
@@ -224,6 +227,7 @@ private:
   private:
     std::vector<size_t> Degree_;
     std::unordered_set<uint64_t> Edges_;
+    std::optional<std::unordered_set<uint64_t>::const_iterator> DegreeCursor_;
   };
 
   [[nodiscard]] static uint64_t PhysicalEdgeKey(size_t from, size_t to);
@@ -456,7 +460,6 @@ public:
     double SnapMs = 0.0;
     double EdgesMs = 0.0;
     double IndexMs = 0.0;
-    double IndexReleaseMs = 0.0;
     double AdjacencyBeginMs = 0.0;
     double AdjacencyMs = 0.0;
     double TieMs = 0.0;
@@ -480,7 +483,6 @@ private:
     SnapPoints,
     BuildEdges,
     IndexEdges,
-    ReleaseEdgeIndex,
     BeginAdjacency,
     BuildAdjacency,
     TieEnds,
@@ -492,7 +494,6 @@ private:
   void SnapPoints(size_t itemsMost);
   void BuildEdges(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> IndexEdges(size_t itemsMost);
-  void ReleaseEdgeIndex(size_t itemsMost);
   void BeginAdjacency();
   void BuildAdjacency(size_t itemsMost);
   void TieEnds(size_t itemsMost);

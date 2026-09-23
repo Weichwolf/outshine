@@ -85,6 +85,12 @@ uint64_t Network::PhysicalEdgeKey(size_t from, size_t to) {
          static_cast<uint64_t>(std::max(from, to));
 }
 
+void Network::PhysicalAdjacency::Adopt(size_t nodes, std::unordered_set<uint64_t> &&edges) {
+  Degree_.assign(nodes, 0);
+  Edges_ = std::move(edges);
+  DegreeCursor_ = Edges_.cbegin();
+}
+
 void Network::PhysicalAdjacency::Connect(size_t from, size_t to) {
   if (Edges_.insert(Network::PhysicalEdgeKey(from, to)).second) {
     ++Degree_[from];
@@ -97,6 +103,21 @@ void Network::PhysicalAdjacency::Disconnect(size_t from, size_t to) {
     --Degree_[from];
     --Degree_[to];
   }
+}
+
+bool Network::PhysicalAdjacency::AccumulateDegrees(size_t itemsMost) {
+  if (!DegreeCursor_) { return true; }
+  size_t visited = 0;
+  while (*DegreeCursor_ != Edges_.cend() && visited < itemsMost) {
+    const uint64_t key = **DegreeCursor_;
+    ++*DegreeCursor_;
+    ++Degree_[static_cast<size_t>(key >> 32u)];
+    ++Degree_[static_cast<size_t>(static_cast<uint32_t>(key))];
+    ++visited;
+  }
+  if (*DegreeCursor_ != Edges_.cend()) { return false; }
+  DegreeCursor_.reset();
+  return true;
 }
 
 bool Network::PhysicalAdjacency::Release(size_t itemsMost) {
