@@ -33,8 +33,10 @@ at 11.54 ms, p99 at 9.81 ms, six of 4659 frames late and heap peak 1096 MB.
 Malcesine remains `07ca3a25`: retirement 0.03 ms, corridor slice 3.31 ms.
 Both PNGs were opened. A changed revision now moves the old candidate into
 the single retirement slot, which blocks new admission until scratch retires.
-The canceled-candidate path and destruction of its other products still need
-an independent latency test.
+A two-view integration test changes region during in-flight corridor work,
+checks that replacement waits for retirement, and passes normally and under
+NDEBUG; measured retirement peaks at 0.33 ms. Larger canceled candidates and
+destruction of their non-corridor products still need a latency bound.
 
 ## Contract and ownership
 
