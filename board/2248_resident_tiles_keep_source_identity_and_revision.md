@@ -57,6 +57,16 @@ Do not fabricate a DEM identity for scalar fallback samples: mark their blocks
 unqualified, always replace their structure products when fine fields arrive,
 and exclude them from fine-input equality checks.
 
+The next vertical slice uses `HeightField` as the pinned input owner. It forms
+one sorted unique union of block sources and marks the input qualified only
+when every block has source identity and no scalar fallback was used.
+`StructureBuildTask` lends this immutable summary until landing. In
+`BuildingField`, `PendingAcceptance` copies the summary before publication;
+the accepted tile keeps a value-owned source set and qualification flag in
+tile order, including empty geometry. Reservation, rejection and cancellation
+do not mutate the accepted record. This does not yet schedule replacements;
+WI 2247 compares these records against fresh fine input.
+
 ## Implementation and acceptance
 
 1. Resident slots, structure height blocks and `TerrainTiles::NodesOf` now
