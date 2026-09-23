@@ -1,5 +1,5 @@
 Type: proof
-State: ready
+State: active
 Architecture: ready
 Parent: 2175
 Depends: 2133, 2256, 2262
@@ -26,6 +26,18 @@ currently proves a route-bound camera. Do not revive the rejected element as
 an opaque shortcut. Extend the declarative scenario/API contract for a named
 route and a camera rig driven by (edge ID, station, lateral offset), or an
 equivalent format-independent native route handle.
+
+## First data gate
+
+`src/assets/world/vegetation.json` has no street rule for `kind=raceway`.
+This does not prove that VersaTiles emits that kind at Hockenheim. Add a
+declarative overview scenario, fetch through the normal provider and inspect
+the accepted vector features and source identities. Record whether the loop is
+present, which layer/kind and tags it carries, and whether `StreetField` admits
+it. A missing loop must fail this data gate explicitly. Only then add a
+general raceway rule or fix upstream semantic transport; do not fabricate a
+Hockenheim-only road. Open the overview PNG and measure streaming/frame costs.
+The overview is input diagnosis, not the lap or its driving acceptance.
 
 ## Construction
 
