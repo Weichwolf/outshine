@@ -179,9 +179,8 @@ BuildGeneratedGeometry(const Scenario::Document &scenario,
 
     [[nodiscard]] std::optional<double>
     sampleHeightAslM(const LongitudeLatitudeHeight &at) const override {
-      return From_ ? From_->At({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg})
-                         .AslM()
-                   : std::nullopt;
+      if (From_ == nullptr) { return std::nullopt; }
+      return From_->At({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}).AslM();
     }
 
   private:
@@ -193,7 +192,7 @@ BuildGeneratedGeometry(const Scenario::Document &scenario,
   asked.LatitudeDeg = scenario.Ground.Origin.LatitudeDeg;
   asked.LongitudeDeg = scenario.Ground.Origin.LongitudeDeg;
   asked.ExtentM = scenario.Ground.Origin.RadiusM;
-  asked.Ground = ground ? &stands : nullptr;
+  asked.Ground = ground != nullptr ? &stands : nullptr;
   Geometry made;
   const auto offered =
       [&registry, &asked, &made](
