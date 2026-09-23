@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <expected>
 #include <ratio>
 
 #include <cstdint>
