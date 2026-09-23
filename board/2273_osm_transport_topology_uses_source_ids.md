@@ -25,8 +25,10 @@ OSM node IDs. Source namespace is the provider dataset ID, never the tile or
 revision; revision belongs to the graph snapshot. Store double WGS84
 coordinates, transport mode, one-way/access,
 layer and bridge/tunnel flags separately from later altitude/alignment.
-Connect only shared source node IDs with compatible mode/level; XY crossings
-alone do not join. Normalize `oneway=yes/-1/no` at input. Retain tunnels in
+Connect only shared source node IDs with compatible transport modes; a
+bridge/tunnel-to-ground transition at one explicit node remains connected
+despite a layer change. XY crossings with distinct IDs never join. Normalize
+`oneway=yes/-1/no` at input. Retain tunnels in
 the logical graph. A missing node or duplicate conflicting way/edge rejects
 the candidate with source-ID diagnostics; never replace the published graph
 partially. Sort by stable source keys, not tile arrival or relation order.
