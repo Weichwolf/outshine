@@ -57,16 +57,21 @@ diagnostic needed 7,433–7,456 advances; a bounded four-advance, 8-ms
 same-phase candidate scheduler now reaches Refined in 3,141 advances, with
 the same digest. At 262,144 crossing pairs per slice, Wien needs 3,118
 advances, p99 10.78 ms, and still has 10 frames over 16.67 ms. Longest
-crossing pair slice is 2.852 ms, but crossing setup remains 6.803 ms; weave
-edge indexing is 9.892 ms. Simulation worst is 38.27 ms and draw worst
-49.29 ms. The PNG was opened: roads, river and building masses are unchanged;
-its low-detail look is tracked by the visual work items, not this graph job.
+crossing pair slice is 2.852 ms. A long edge previously indexed thousands of
+cells in one advance; a cell cursor now bounds that work. Measured single-cell
+hashmap rehash cost 14.70 ms and full edge-set clearing 15.01 ms. The cell
+index now has 256 fixed shards and set release is staged. Wien remains
+`2fc0aec4`, reaches Refined in 3,740 advances, p99 9.98 ms and peak heap
+1,103 MB. Its longest edge-index slice is 3.516 ms, release 0.208 ms,
+crossing setup 7.977 ms, with 10 frames over 16.67 ms. Malcesine remains
+`07ca3a25`, p99 9.93 ms, zero late frames. The PNGs were opened: graph work
+does not change the roads, river or building masses; their low-detail look is
+tracked by visual WIs.
 
-Next split crossing setup and weave edge indexing into bounded work without
-changing graph IDs, edge order or crossing statistics. Identify the remaining
-simulation spike before claiming 720p60. Keep the draw spike separate from
-network construction. Graph source-revision and cancellation tests remain
-part of this WI's acceptance.
+Next split crossing setup (cell filing 6.706 ms) into bounded work without
+changing graph IDs, edge order or crossing statistics. Identify remaining
+simulation spikes before claiming 720p60; draw spikes are separate. Graph
+source-revision and cancellation tests remain part of this WI's acceptance.
 
 ## Acceptance
 

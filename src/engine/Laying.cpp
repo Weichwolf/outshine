@@ -1538,6 +1538,8 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
   Published.Places("network: longest snap slice", mapped.WeaveSlices.SnapMs, "ms");
   Published.Places("network: longest edge creation slice", mapped.WeaveSlices.EdgesMs, "ms");
   Published.Places("network: longest edge index slice", mapped.WeaveSlices.IndexMs, "ms");
+  Published.Places("network: releasing edge index", mapped.WeaveSlices.IndexReleaseMs, "ms");
+  Published.Places("network: beginning adjacency", mapped.WeaveSlices.AdjacencyBeginMs, "ms");
   Published.Places("network: longest adjacency slice", mapped.WeaveSlices.AdjacencyMs, "ms");
   Published.Places("network: longest tie slice", mapped.WeaveSlices.TieMs, "ms");
   Published.Places("network: longest weave publish slice", mapped.WeaveSlices.PublishMs, "ms");

@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_SPATIAL_WAYFINDING_H
 #define OUTSHINE_BASE_SPATIAL_WAYFINDING_H
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -274,7 +275,22 @@ private:
 
   using CellsByKey = std::unordered_map<int64_t, std::vector<size_t>>;
   using OutgoingEdges = std::vector<std::vector<Edge>>;
-  using EdgesByCell = std::unordered_map<int64_t, std::vector<std::pair<uint32_t, uint32_t>>>;
+
+  class EdgesByCell {
+  public:
+    using Entries = std::vector<std::pair<uint32_t, uint32_t>>;
+
+    [[nodiscard]] Entries &Cell(int64_t key);
+    [[nodiscard]] const Entries *Find(int64_t key) const;
+    [[nodiscard]] bool Release(size_t itemsMost);
+
+  private:
+    static constexpr size_t kShards = 256;
+    [[nodiscard]] static size_t ShardOf(int64_t key) noexcept;
+
+    std::array<std::unordered_map<int64_t, Entries>, kShards> Shards_;
+    size_t NextReleaseShard_ = 0;
+  };
 
   [[nodiscard]] bool LocalTurnAllowsRadius(const Edge &incoming,
                                            size_t previousNode,
@@ -373,6 +389,8 @@ private:
 
   [[nodiscard]] bool
   IndexOneEdge(EdgeEnds ends, double tieReachM, EdgesByCell &byEdgeCell, std::string &error);
+  [[nodiscard]] bool
+  IndexEdgeCell(EdgeEnds ends, RowColumn at, EdgesByCell &byEdgeCell, std::string &error);
   [[nodiscard]] bool IndexEdgesByCell(const OutgoingEdges &outgoing,
                                       double tieReachM,
                                       EdgesByCell &byEdgeCell,
@@ -438,6 +456,8 @@ public:
     double SnapMs = 0.0;
     double EdgesMs = 0.0;
     double IndexMs = 0.0;
+    double IndexReleaseMs = 0.0;
+    double AdjacencyBeginMs = 0.0;
     double AdjacencyMs = 0.0;
     double TieMs = 0.0;
     double PublishMs = 0.0;
@@ -460,6 +480,8 @@ private:
     SnapPoints,
     BuildEdges,
     IndexEdges,
+    ReleaseEdgeIndex,
+    BeginAdjacency,
     BuildAdjacency,
     TieEnds,
     Publish,
@@ -470,6 +492,8 @@ private:
   void SnapPoints(size_t itemsMost);
   void BuildEdges(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> IndexEdges(size_t itemsMost);
+  void ReleaseEdgeIndex(size_t itemsMost);
+  void BeginAdjacency();
   void BuildAdjacency(size_t itemsMost);
   void TieEnds(size_t itemsMost);
   void Publish();
@@ -481,6 +505,17 @@ private:
   Network::EdgesByCell ByEdgeCell_;
   std::unordered_set<uint64_t> Indexed_;
   Network::PhysicalAdjacency Adjacency_{0};
+
+  struct EdgeIndexCursor {
+    Network::EdgeEnds Ends;
+    int64_t Row = 0;
+    int64_t LastRow = 0;
+    int64_t Column = 0;
+    int64_t LastColumn = 0;
+    std::optional<Network::RowShape> Shape;
+  };
+
+  std::optional<EdgeIndexCursor> IndexCursor_;
   double TieReachM_ = 0.0;
   size_t NextPoint_ = 0;
   size_t NextWay_ = 0;

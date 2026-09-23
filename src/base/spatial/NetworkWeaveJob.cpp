@@ -53,32 +53,79 @@ void NetworkWeaveJob::BuildEdges(size_t itemsMost) {
 
 std::expected<void, std::string> NetworkWeaveJob::IndexEdges(size_t itemsMost) {
   size_t visited = 0;
-  while (NextNode_ < Outgoing_.size() && visited < itemsMost) {
+  std::string error;
+  while (visited < itemsMost) {
+    if (IndexCursor_) {
+      EdgeIndexCursor &cursor = *IndexCursor_;
+      const Network::Node &a = Network_.Nodes_[cursor.Ends.From];
+      const Network::Node &b = Network_.Nodes_[cursor.Ends.To];
+      if (!cursor.Shape) {
+        cursor.Shape = Network_.ShapeRowOver(cursor.Row, Snap{.CellM = TieReachM_});
+        const int64_t one = Network::ColumnIn(*cursor.Shape, a.LongitudeDeg);
+        const int64_t two = Network::ColumnIn(*cursor.Shape, b.LongitudeDeg);
+        cursor.Column = std::min(one, two);
+        cursor.LastColumn = std::max(one, two);
+      }
+      if (!Network_.IndexEdgeCell(
+              cursor.Ends,
+              {.Row = cursor.Row,
+               .Column = ((cursor.Column % cursor.Shape->Columns) + cursor.Shape->Columns) %
+                         cursor.Shape->Columns},
+              ByEdgeCell_,
+              error)) {
+        return std::unexpected(std::move(error));
+      }
+      ++visited;
+      if (cursor.Column == cursor.LastColumn) {
+        if (cursor.Row == cursor.LastRow) {
+          IndexCursor_.reset();
+        } else {
+          ++cursor.Row;
+          cursor.Shape.reset();
+        }
+      } else {
+        ++cursor.Column;
+      }
+      continue;
+    }
+    if (NextNode_ == Outgoing_.size()) {
+      NextNode_ = 0;
+      NextEdge_ = 0;
+      Stage_ = Stage::ReleaseEdgeIndex;
+      break;
+    }
     if (NextEdge_ == Outgoing_[NextNode_].size()) {
       ++NextNode_;
       NextEdge_ = 0;
+      ++visited;
       continue;
     }
     const Network::Edge &edge = Outgoing_[NextNode_][NextEdge_++];
     ++visited;
     if (!Indexed_.insert(Network::PhysicalEdgeKey(NextNode_, edge.To)).second) { continue; }
-    std::string error;
-    if (!Network_.IndexOneEdge(
-            {.From = std::min(NextNode_, edge.To), .To = std::max(NextNode_, edge.To)},
-            TieReachM_,
-            ByEdgeCell_,
-            error)) {
-      return std::unexpected(std::move(error));
-    }
-  }
-  if (NextNode_ == Outgoing_.size()) {
-    NextNode_ = 0;
-    NextEdge_ = 0;
-    Indexed_.clear();
-    Adjacency_ = Network::PhysicalAdjacency(Network_.Nodes_.size());
-    Stage_ = Stage::BuildAdjacency;
+    const Network::EdgeEnds ends{.From = std::min(NextNode_, edge.To),
+                                 .To = std::max(NextNode_, edge.To)};
+    const Network::Node &a = Network_.Nodes_[ends.From];
+    const Network::Node &b = Network_.Nodes_[ends.To];
+    IndexCursor_ = EdgeIndexCursor{
+        .Ends = ends,
+        .Row = Network_.RowOver(std::min(a.LatitudeDeg, b.LatitudeDeg), Snap{.CellM = TieReachM_}),
+        .LastRow =
+            Network_.RowOver(std::max(a.LatitudeDeg, b.LatitudeDeg), Snap{.CellM = TieReachM_})};
   }
   return {};
+}
+
+void NetworkWeaveJob::ReleaseEdgeIndex(size_t itemsMost) {
+  for (size_t released = 0; released < itemsMost && !Indexed_.empty(); ++released) {
+    Indexed_.erase(Indexed_.begin());
+  }
+  if (Indexed_.empty()) { Stage_ = Stage::BeginAdjacency; }
+}
+
+void NetworkWeaveJob::BeginAdjacency() {
+  Adjacency_ = Network::PhysicalAdjacency(Network_.Nodes_.size());
+  Stage_ = Stage::BuildAdjacency;
 }
 
 void NetworkWeaveJob::BuildAdjacency(size_t itemsMost) {
@@ -144,6 +191,8 @@ std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
         return std::unexpected(indexed.error());
       }
       break;
+    case Stage::ReleaseEdgeIndex: ReleaseEdgeIndex(itemsMost); break;
+    case Stage::BeginAdjacency: BeginAdjacency(); break;
     case Stage::BuildAdjacency: BuildAdjacency(itemsMost); break;
     case Stage::TieEnds: TieEnds(itemsMost); break;
     case Stage::Publish: Publish(); break;
@@ -155,6 +204,12 @@ std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
     case Stage::SnapPoints: Worst_.SnapMs = std::max(Worst_.SnapMs, elapsedMs); break;
     case Stage::BuildEdges: Worst_.EdgesMs = std::max(Worst_.EdgesMs, elapsedMs); break;
     case Stage::IndexEdges: Worst_.IndexMs = std::max(Worst_.IndexMs, elapsedMs); break;
+    case Stage::ReleaseEdgeIndex:
+      Worst_.IndexReleaseMs = std::max(Worst_.IndexReleaseMs, elapsedMs);
+      break;
+    case Stage::BeginAdjacency:
+      Worst_.AdjacencyBeginMs = std::max(Worst_.AdjacencyBeginMs, elapsedMs);
+      break;
     case Stage::BuildAdjacency: Worst_.AdjacencyMs = std::max(Worst_.AdjacencyMs, elapsedMs); break;
     case Stage::TieEnds: Worst_.TieMs = std::max(Worst_.TieMs, elapsedMs); break;
     case Stage::Publish: Worst_.PublishMs = std::max(Worst_.PublishMs, elapsedMs); break;
@@ -193,11 +248,7 @@ std::expected<bool, std::string_view> NetworkWeaveJob::ReleaseTemporary(size_t i
       }
       break;
     case ReleaseStage::EdgeCells:
-      while (!ByEdgeCell_.empty() && released < itemsMost) {
-        ByEdgeCell_.erase(ByEdgeCell_.begin());
-        ++released;
-      }
-      if (ByEdgeCell_.empty()) { ReleaseStage_ = ReleaseStage::Adjacency; }
+      if (ByEdgeCell_.Release(itemsMost)) { ReleaseStage_ = ReleaseStage::Adjacency; }
       break;
     case ReleaseStage::Adjacency:
       if (Adjacency_.Release(itemsMost)) { ReleaseStage_ = ReleaseStage::Done; }

@@ -480,19 +480,62 @@ bool Network::IndexOneEdge(EdgeEnds ends,
     const int64_t firstColumn = one < two ? one : two;
     const int64_t lastColumn = one < two ? two : one;
     for (int64_t column = firstColumn; column <= lastColumn; ++column) {
-      if (IndexedCells_ >= kMaxNetworkPoints) {
-        error = "the tie index would hold more than " + std::to_string(kMaxNetworkPoints) +
-                " cells for " + std::to_string(Nodes_.size()) +
-                " nodes, which is a graph this network cannot weave at a snap of " +
-                std::to_string(SnapM_) + " m";
+      if (!IndexEdgeCell(
+              ends,
+              {.Row = row, .Column = ((column % shape.Columns) + shape.Columns) % shape.Columns},
+              byEdgeCell,
+              error)) {
         return false;
       }
-      ++IndexedCells_;
-      byEdgeCell[KeyAt({.Row = row,
-                        .Column = ((column % shape.Columns) + shape.Columns) % shape.Columns})]
-          .emplace_back(static_cast<uint32_t>(ends.From), static_cast<uint32_t>(ends.To));
     }
   }
+  return true;
+}
+
+size_t Network::EdgesByCell::ShardOf(int64_t key) noexcept {
+  const uint64_t bits = static_cast<uint64_t>(key);
+  return static_cast<size_t>((bits ^ (bits >> 32u)) & (kShards - 1u));
+}
+
+Network::EdgesByCell::Entries &Network::EdgesByCell::Cell(int64_t key) {
+  return Shards_[ShardOf(key)][key];
+}
+
+const Network::EdgesByCell::Entries *Network::EdgesByCell::Find(int64_t key) const {
+  const auto &shard = Shards_[ShardOf(key)];
+  const auto found = shard.find(key);
+  return found == shard.end() ? nullptr : &found->second;
+}
+
+bool Network::EdgesByCell::Release(size_t itemsMost) {
+  size_t released = 0;
+  while (NextReleaseShard_ < kShards && released < itemsMost) {
+    auto &shard = Shards_[NextReleaseShard_];
+    if (shard.empty()) {
+      ++NextReleaseShard_;
+      continue;
+    }
+    shard.erase(shard.begin());
+    ++released;
+  }
+  while (NextReleaseShard_ < kShards && Shards_[NextReleaseShard_].empty()) { ++NextReleaseShard_; }
+  return NextReleaseShard_ == kShards;
+}
+
+bool Network::IndexEdgeCell(EdgeEnds ends,
+                            RowColumn at,
+                            EdgesByCell &byEdgeCell,
+                            std::string &error) {
+  if (IndexedCells_ >= kMaxNetworkPoints) {
+    error = "the tie index would hold more than " + std::to_string(kMaxNetworkPoints) +
+            " cells for " + std::to_string(Nodes_.size()) +
+            " nodes, which is a graph this network cannot weave at a snap of " +
+            std::to_string(SnapM_) + " m";
+    return false;
+  }
+  ++IndexedCells_;
+  byEdgeCell.Cell(KeyAt(at)).emplace_back(static_cast<uint32_t>(ends.From),
+                                          static_cast<uint32_t>(ends.To));
   return true;
 }
 
@@ -551,7 +594,7 @@ void Network::MarkEdgeOverCells(EdgeEnds ends,
     for (int64_t column = firstColumn; column <= lastColumn; ++column) {
       const int64_t key =
           KeyAt({.Row = row, .Column = ((column % shape.Columns) + shape.Columns) % shape.Columns});
-      std::vector<std::pair<uint32_t, uint32_t>> &cell = byEdgeCell[key];
+      std::vector<std::pair<uint32_t, uint32_t>> &cell = byEdgeCell.Cell(key);
       if (holding) {
         cell.emplace_back(one, two);
         continue;
@@ -595,9 +638,9 @@ Network::NearestEdgeTo(size_t loose, const EdgesByCell &byEdgeCell, double tieRe
         static_cast<int64_t>(std::ceil(reachM / (shape.LonCellDeg * per.Lon))) + 1;
     for (int64_t step = -colReach; step <= colReach; ++step) {
       const int64_t column = ((centre + step) % shape.Columns + shape.Columns) % shape.Columns;
-      const auto seen = byEdgeCell.find(KeyAt({.Row = row, .Column = column}));
-      if (seen == byEdgeCell.end()) { continue; }
-      for (const auto &held : seen->second) {
+      const auto *const seen = byEdgeCell.Find(KeyAt({.Row = row, .Column = column}));
+      if (seen == nullptr) { continue; }
+      for (const auto &held : *seen) {
         const EdgeEnds ends{.From = held.first, .To = held.second};
         if (ends.From == loose || ends.To == loose) { continue; }
         const double awayM = AwayFromEdgeM(end, ends, per);
