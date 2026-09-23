@@ -16,7 +16,7 @@ namespace outshine::Generators {
 inline constexpr int kMaxParts = 9;
 
 struct Piece {
-  std::vector<En> P;
+  std::vector<EastNorth> P;
   std::vector<uint8_t> Party;
 };
 
@@ -76,21 +76,21 @@ struct BuildingScratch final : MeshScratch {
   FlatMap<uint32_t, BuildingPositionKey, BuildingPositionHash> Welded;
   std::array<FlatMap<uint32_t, BuildingCornerKey, BuildingCornerHash>, 2> Corners;
 
-  std::vector<En> Outline;
+  std::vector<EastNorth> Outline;
   Piece Whole, Rest, Plot, Beyond, Lo, Hi, Main, Wing, Cap;
   std::array<Piece, kMaxParts> Row;
   std::vector<double> Side;
   std::vector<int> Sign;
   BuildingShape One, Made;
   Slots<BuildingShape> Parts, Stacked;
-  std::vector<En> Inner;
+  std::vector<EastNorth> Inner;
 
-  std::vector<En> Overhang, CrownInner, CrownOut, Proud, Foot, Wide, Covered, Tris, Refined;
+  std::vector<EastNorth> Overhang, CrownInner, CrownOut, Proud, Foot, Wide, Covered, Tris, Refined;
   std::vector<double> Breaks, Other, At;
 
   std::vector<uint32_t> Poly;
-  Slots<std::vector<En>> Cells, NextCells;
-  std::vector<En> Mine, Above, Below;
+  Slots<std::vector<EastNorth>> Cells, NextCells;
+  std::vector<EastNorth> Mine, Above, Below;
 
   void ClearWelds() noexcept {
     Welded.Clear();

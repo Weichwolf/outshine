@@ -33,7 +33,10 @@ constexpr double kCorniceM = 0.16;
 constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
 
-void PushTri(std::vector<En> &out, const En &a, const En &b, const En &c) {
+void PushTri(std::vector<EastNorth> &out,
+             const EastNorth &a,
+             const EastNorth &b,
+             const EastNorth &c) {
   const double ab =
       (a.EastM - b.EastM) * (a.EastM - b.EastM) + (a.NorthM - b.NorthM) * (a.NorthM - b.NorthM);
   const double bc =
@@ -52,7 +55,7 @@ struct Ear {
   uint32_t After;
 };
 
-[[nodiscard]] bool IsEar(std::span<const En> ring, std::span<const uint32_t> poly, Ear ear) {
+[[nodiscard]] bool IsEar(std::span<const EastNorth> ring, std::span<const uint32_t> poly, Ear ear) {
   const auto cross = [&](uint32_t a, uint32_t b, uint32_t c) {
     return (ring[b].EastM - ring[a].EastM) * (ring[c].NorthM - ring[a].NorthM) -
            (ring[c].EastM - ring[a].EastM) * (ring[b].NorthM - ring[a].NorthM);
@@ -72,11 +75,12 @@ struct Ear {
   return true;
 }
 
-[[nodiscard]] bool
-EarClip(std::span<const En> ring, std::vector<uint32_t> &poly, std::vector<En> &tris) {
+[[nodiscard]] bool EarClip(std::span<const EastNorth> ring,
+                           std::vector<uint32_t> &poly,
+                           std::vector<EastNorth> &tris) {
   const size_t n = ring.size();
   if (n < 3 || n > std::numeric_limits<uint32_t>::max()) { return false; }
-  if (!std::ranges::all_of(ring, [](const En &point) {
+  if (!std::ranges::all_of(ring, [](const EastNorth &point) {
         return std::isfinite(point.EastM) && std::isfinite(point.NorthM);
       })) {
     return false;
@@ -100,7 +104,7 @@ EarClip(std::span<const En> ring, std::vector<uint32_t> &poly, std::vector<En> &
   return true;
 }
 
-[[nodiscard]] bool Inside(std::span<const En> ring, const En &p, double marginM) {
+[[nodiscard]] bool Inside(std::span<const EastNorth> ring, const EastNorth &p, double marginM) {
   const size_t n = ring.size();
   if (n < 3) { return true; }
   bool in = false;
@@ -186,16 +190,16 @@ int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
   return 0;
 }
 
-void Refine(std::vector<En> &tris, std::vector<En> &out, int passes) {
+void Refine(std::vector<EastNorth> &tris, std::vector<EastNorth> &out, int passes) {
   for (int p = 0; p < passes; p++) {
     out.clear();
     for (size_t i = 0; i + 2 < tris.size(); i += 3) {
-      const En a = tris[i];
-      const En b = tris[i + 1];
-      const En c = tris[i + 2];
-      const En ab{.EastM = 0.5 * (a.EastM + b.EastM), .NorthM = 0.5 * (a.NorthM + b.NorthM)};
-      const En bc{.EastM = 0.5 * (b.EastM + c.EastM), .NorthM = 0.5 * (b.NorthM + c.NorthM)};
-      const En ca{.EastM = 0.5 * (c.EastM + a.EastM), .NorthM = 0.5 * (c.NorthM + a.NorthM)};
+      const EastNorth a = tris[i];
+      const EastNorth b = tris[i + 1];
+      const EastNorth c = tris[i + 2];
+      const EastNorth ab{.EastM = 0.5 * (a.EastM + b.EastM), .NorthM = 0.5 * (a.NorthM + b.NorthM)};
+      const EastNorth bc{.EastM = 0.5 * (b.EastM + c.EastM), .NorthM = 0.5 * (b.NorthM + c.NorthM)};
+      const EastNorth ca{.EastM = 0.5 * (c.EastM + a.EastM), .NorthM = 0.5 * (c.NorthM + a.NorthM)};
       PushTri(out, a, ab, ca);
       PushTri(out, ab, b, bc);
       PushTri(out, ca, bc, c);
@@ -209,7 +213,7 @@ void Refine(std::vector<En> &tris, std::vector<En> &out, int passes) {
 
 RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
 
-double RoofSurface::HeightAt(const En &enu) const noexcept {
+double RoofSurface::HeightAt(const EastNorth &enu) const noexcept {
   double u = 0.0;
   double v = 0.0;
   const Boxed boxed = Shape_.ToBox(enu);
@@ -248,7 +252,9 @@ double RoofSurface::HeightAt(const En &enu) const noexcept {
   return f * rise;
 }
 
-bool RoofSurface::Fill(std::span<const En> plan, BuildingScratch &scratch, std::vector<En> &tris) {
+bool RoofSurface::Fill(std::span<const EastNorth> plan,
+                       BuildingScratch &scratch,
+                       std::vector<EastNorth> &tris) {
   const size_t first = tris.size();
   if (!EarClip(plan, scratch.Poly, tris)) {
     tris.resize(first);
@@ -260,15 +266,15 @@ bool RoofSurface::Fill(std::span<const En> plan, BuildingScratch &scratch, std::
 namespace {
 
 void ClipHalf(const BuildingShape &shape,
-              std::span<const En> poly,
+              std::span<const EastNorth> poly,
               const Line &line,
               double sign,
-              std::vector<En> &out) {
+              std::vector<EastNorth> &out) {
   out.clear();
   const size_t n = poly.size();
   for (size_t i = 0; i < n; i++) {
-    const En &a = poly[i];
-    const En &b = poly[(i + 1) % n];
+    const EastNorth &a = poly[i];
+    const EastNorth &b = poly[(i + 1) % n];
     double ua = 0.0;
     double va = 0.0;
     double ub = 0.0;
@@ -284,8 +290,8 @@ void ClipHalf(const BuildingShape &shape,
     if (da >= -kOnLineM) { out.push_back(a); }
     if ((da > kOnLineM && db < -kOnLineM) || (da < -kOnLineM && db > kOnLineM)) {
       const double f = da / (da - db);
-      En cut{.EastM = a.EastM + (b.EastM - a.EastM) * f,
-             .NorthM = a.NorthM + (b.NorthM - a.NorthM) * f};
+      EastNorth cut{.EastM = a.EastM + (b.EastM - a.EastM) * f,
+                    .NorthM = a.NorthM + (b.NorthM - a.NorthM) * f};
       if (std::hypot(cut.EastM - a.EastM, cut.NorthM - a.NorthM) < kWeldM) {
         cut = a;
       } else if (std::hypot(cut.EastM - b.EastM, cut.NorthM - b.NorthM) < kWeldM) {
@@ -297,7 +303,9 @@ void ClipHalf(const BuildingShape &shape,
 }
 }
 
-void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> &at) const {
+void RoofSurface::BreaksAlong(const EastNorth &from,
+                              const EastNorth &to,
+                              std::vector<double> &at) const {
   at.clear();
   std::array<Line, kMaxCreases> lines{};
   const int n = CreasesOf(Shape_, lines);
@@ -328,22 +336,22 @@ void RoofSurface::BreaksAlong(const En &from, const En &to, std::vector<double> 
            at.end());
 }
 
-void RoofSurface::Cover(std::span<const En> plan,
+void RoofSurface::Cover(std::span<const EastNorth> plan,
                         BuildingScratch &scratch,
-                        std::vector<En> &tris) const {
+                        std::vector<EastNorth> &tris) const {
   const size_t first = tris.size();
 
   std::array<Line, kMaxCreases> lines{};
   const int n = CreasesOf(Shape_, lines);
-  Slots<std::vector<En>> &cells = scratch.Cells;
-  Slots<std::vector<En>> &next = scratch.NextCells;
+  Slots<std::vector<EastNorth>> &cells = scratch.Cells;
+  Slots<std::vector<EastNorth>> &next = scratch.NextCells;
   cells.Reset();
   cells.Next().assign(plan.begin(), plan.end());
   for (int i = 0; i < n; i++) {
     next.Reset();
-    for (std::vector<En> &cell : cells.Standing()) {
-      std::vector<En> &above = scratch.Above;
-      std::vector<En> &below = scratch.Below;
+    for (std::vector<EastNorth> &cell : cells.Standing()) {
+      std::vector<EastNorth> &above = scratch.Above;
+      std::vector<EastNorth> &below = scratch.Below;
       ClipHalf(Shape_, cell, lines[i], 1.0, above);
       ClipHalf(Shape_, cell, lines[i], -1.0, below);
       if (above.size() >= 3 && below.size() >= 3) {
@@ -356,9 +364,9 @@ void RoofSurface::Cover(std::span<const En> plan,
     cells.Swap(next);
   }
 
-  std::vector<En> &mine = scratch.Mine;
+  std::vector<EastNorth> &mine = scratch.Mine;
   mine.clear();
-  for (const std::vector<En> &cell : cells.Standing()) {
+  for (const std::vector<EastNorth> &cell : cells.Standing()) {
     if (!EarClip(cell, scratch.Poly, mine)) {
       tris.resize(first);
       return;
@@ -375,18 +383,18 @@ void RoofSurface::Cover(std::span<const En> plan,
   tris.insert(tris.end(), mine.begin(), mine.end());
 }
 
-void RoofSurface::Widened(std::span<const En> ring,
+void RoofSurface::Widened(std::span<const EastNorth> ring,
                           double byM,
                           std::span<const uint8_t> held,
-                          std::vector<En> &out) {
+                          std::vector<EastNorth> &out) {
   out.clear();
   const size_t n = ring.size();
   if (n < 3 || std::fabs(byM) < kSameLineM) { return; }
   for (size_t i = 0; i < n; i++) {
     const size_t before = (i + n - 1) % n;
-    const En &p = ring[i];
-    const En &a = ring[before];
-    const En &b = ring[(i + 1) % n];
+    const EastNorth &p = ring[i];
+    const EastNorth &a = ring[before];
+    const EastNorth &b = ring[(i + 1) % n];
     const double e0 = p.EastM - a.EastM;
     const double n0 = p.NorthM - a.NorthM;
     const double l0 = std::hypot(e0, n0);

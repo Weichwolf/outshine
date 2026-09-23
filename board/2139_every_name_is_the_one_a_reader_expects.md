@@ -31,8 +31,8 @@ The three read-only telemetry methods moved from `Laying.cpp` to
 `Yields`/`Stamp` are now `EarthworkStamp`/`EarthworkKind`; four suites and lint pass.
 `GroundYield.*` is now `EarthworkPress.*`; its result, claim, height and metrics
 types and apply/measure functions name their roles. Two focused suites and full lint
-pass; Wien retains digest `e45d4da2`. Next: replace building-only `En` with
-`EastNorth` in shape, scratch, roof and tests; prove suites, Wien digest and lint.
+pass; Wien retains digest `e45d4da2`. The building-only `En` alias was removed;
+shape, scratch, roof and tests use `EastNorth`. Ten building tests and lint pass.
 
 ## Module decisions and implementation owners
 

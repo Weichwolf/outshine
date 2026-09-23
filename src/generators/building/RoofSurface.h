@@ -13,18 +13,21 @@ class RoofSurface {
 public:
   explicit RoofSurface(const BuildingShape &shape);
 
-  [[nodiscard]] double HeightAt(const En &enu) const noexcept;
+  [[nodiscard]] double HeightAt(const EastNorth &enu) const noexcept;
 
-  void Cover(std::span<const En> plan, BuildingScratch &scratch, std::vector<En> &tris) const;
+  void Cover(std::span<const EastNorth> plan,
+             BuildingScratch &scratch,
+             std::vector<EastNorth> &tris) const;
 
-  void BreaksAlong(const En &from, const En &to, std::vector<double> &at) const;
+  void BreaksAlong(const EastNorth &from, const EastNorth &to, std::vector<double> &at) const;
 
-  static bool Fill(std::span<const En> plan, BuildingScratch &scratch, std::vector<En> &tris);
+  static bool
+  Fill(std::span<const EastNorth> plan, BuildingScratch &scratch, std::vector<EastNorth> &tris);
 
-  static void Widened(std::span<const En> ring,
+  static void Widened(std::span<const EastNorth> ring,
                       double byM,
                       std::span<const uint8_t> held,
-                      std::vector<En> &out);
+                      std::vector<EastNorth> &out);
 
 private:
   const BuildingShape &Shape_;

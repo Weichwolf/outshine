@@ -13,8 +13,6 @@ namespace outshine::Generators {
 
 constexpr double kFloorUnsaidM = 2.9;
 
-using En = outshine::EastNorth;
-
 enum class RoofKind : uint8_t { Flat, Gable, Hip, Shed, Mansard, Sawtooth, Dome };
 
 enum class BuildingUse : uint8_t { Outbuilding, House, Terrace, Block, Hall, Tower, Spire };
@@ -25,13 +23,13 @@ struct Boxed {
 };
 
 struct BuildingShape {
-  std::vector<En> Ring;
+  std::vector<EastNorth> Ring;
   size_t TidiedAway = 0;
 
   std::vector<uint8_t> Party;
   double AreaM2 = 0.0;
-  En Centre;
-  En AxisU;
+  EastNorth Centre;
+  EastNorth AxisU;
   double HalfUm = 0.0, HalfVm = 0.0;
   double Fill = 0.0;
 
@@ -59,10 +57,10 @@ struct BuildingShape {
 
   [[nodiscard]] double TopM() const { return SeatM + FootM + EavesM + RiseM; }
 
-  [[nodiscard]] En AxisV() const { return {.EastM = -AxisU.NorthM, .NorthM = AxisU.EastM}; }
+  [[nodiscard]] EastNorth AxisV() const { return {.EastM = -AxisU.NorthM, .NorthM = AxisU.EastM}; }
 
-  [[nodiscard]] Boxed ToBox(const En &p) const;
-  [[nodiscard]] En FromBox(Boxed at) const;
+  [[nodiscard]] Boxed ToBox(const EastNorth &p) const;
+  [[nodiscard]] EastNorth FromBox(Boxed at) const;
 };
 
 struct BuildingScratch;
