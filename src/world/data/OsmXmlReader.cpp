@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <expected>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -49,6 +50,13 @@ std::expected<void, OsmXmlError> AppendTag(const Xml::Ref &element, std::vector<
   return {};
 }
 
+void SortTags(std::vector<OsmTag> &tags) {
+  std::ranges::sort(tags, [](const OsmTag &left, const OsmTag &right) {
+    if (left.Key != right.Key) { return left.Key < right.Key; }
+    return left.Value < right.Value;
+  });
+}
+
 std::expected<OsmNode, OsmXmlError> ReadNode(const Xml::Ref &element) {
   const auto id = ReadId(element, "id");
   if (!id) { return std::unexpected(id.error()); }
@@ -61,6 +69,7 @@ std::expected<OsmNode, OsmXmlError> ReadNode(const Xml::Ref &element) {
     const auto tag = AppendTag(child, node.Tags);
     if (!tag) { return std::unexpected(tag.error()); }
   }
+  SortTags(node.Tags);
   return node;
 }
 
@@ -81,6 +90,7 @@ std::expected<OsmWay, OsmXmlError> ReadWay(const Xml::Ref &element) {
       return std::unexpected(OsmXmlError::InvalidDocument);
     }
   }
+  SortTags(way.Tags);
   return way;
 }
 
@@ -118,6 +128,7 @@ std::expected<OsmRelation, OsmXmlError> ReadRelation(const Xml::Ref &element) {
       return std::unexpected(OsmXmlError::InvalidDocument);
     }
   }
+  SortTags(relation.Tags);
   return relation;
 }
 
@@ -131,7 +142,11 @@ template <typename Element> bool SortUnique(std::vector<Element> &elements) {
 
 }
 
-std::expected<OsmElements, OsmXmlError> OsmXmlReader::Read(std::string_view xml) {
+std::expected<OsmElements, OsmXmlError> OsmXmlReader::Read(std::string_view xml,
+                                                           OsmSourceIdentity identity) {
+  if (identity.DatasetId.empty() || identity.Revision.empty()) {
+    return std::unexpected(OsmXmlError::InvalidSourceIdentity);
+  }
   Xml document;
   if (!document.Parse(xml.data(), xml.size())) {
     return std::unexpected(OsmXmlError::InvalidDocument);
@@ -141,6 +156,7 @@ std::expected<OsmElements, OsmXmlError> OsmXmlReader::Read(std::string_view xml)
     return std::unexpected(OsmXmlError::UnsupportedRoot);
   }
   OsmElements elements;
+  elements.SourceIdentity_ = std::move(identity);
   for (const Xml::Ref child : root.Children()) {
     const std::string name = child.Name();
     if (name == "node") {

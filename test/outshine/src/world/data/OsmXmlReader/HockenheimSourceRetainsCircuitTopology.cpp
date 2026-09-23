@@ -30,7 +30,7 @@ int main() {
   CHECK(input.good(), "pinned OSM relation source is available");
   if (!input) { return Report(); }
   const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
-  auto parsed = OsmXmlReader::Read(xml);
+  auto parsed = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(parsed.has_value(), "pinned OSM source parses");
   if (!parsed) { return Report(); }
   const OsmElements &elements = *parsed;

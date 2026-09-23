@@ -10,6 +10,7 @@
 namespace outshine::Data {
 
 enum class OsmXmlError : uint8_t {
+  InvalidSourceIdentity,
   InvalidDocument,
   UnsupportedRoot,
   InvalidId,
@@ -21,7 +22,8 @@ enum class OsmXmlError : uint8_t {
 
 class OsmXmlReader {
 public:
-  [[nodiscard]] static std::expected<OsmElements, OsmXmlError> Read(std::string_view xml);
+  [[nodiscard]] static std::expected<OsmElements, OsmXmlError> Read(std::string_view xml,
+                                                                    OsmSourceIdentity identity);
 };
 
 }

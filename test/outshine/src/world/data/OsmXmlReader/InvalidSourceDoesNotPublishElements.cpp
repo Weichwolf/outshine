@@ -10,6 +10,10 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
 
+  const auto ReadSource = [](std::string_view xml) {
+    return OsmXmlReader::Read(xml, {.DatasetId = "osm-test", .Revision = "r1"});
+  };
+
   struct Rejected {
     std::string_view Xml;
     OsmXmlError Error;
@@ -39,35 +43,33 @@ int main() {
                OsmXmlError::InvalidMember},
   };
   for (const Rejected &input : rejected) {
-    const auto result = OsmXmlReader::Read(input.Xml);
+    const auto result = ReadSource(input.Xml);
     CHECK(!result && result.error() == input.Error,
           "invalid source element returns a typed rejection without a partial document");
   }
 
-  const auto missingNode =
-      OsmXmlReader::Read("<osm version='0.6'><way id='7'><nd ref='9'/></way></osm>");
+  const auto missingNode = ReadSource("<osm version='0.6'><way id='7'><nd ref='9'/></way></osm>");
   CHECK(missingNode && missingNode->FirstMissingReference() &&
             missingNode->FirstMissingReference()->OwnerKind == OsmElementKind::Way &&
             missingNode->FirstMissingReference()->MissingKind == OsmElementKind::Node &&
             missingNode->FirstMissingReference()->MissingId == 9,
         "a partial way remains parseable but exposes its unresolved node reference");
-  const auto missingWay =
-      OsmXmlReader::Read("<osm version='0.6'><relation id='8'>"
-                         "<member type='way' ref='9' role='main'/></relation></osm>");
+  const auto missingWay = ReadSource("<osm version='0.6'><relation id='8'>"
+                                     "<member type='way' ref='9' role='main'/></relation></osm>");
   CHECK(missingWay && missingWay->FirstMissingReference() &&
             missingWay->FirstMissingReference()->OwnerKind == OsmElementKind::Relation &&
             missingWay->FirstMissingReference()->MissingKind == OsmElementKind::Way &&
             missingWay->FirstMissingReference()->MissingId == 9,
         "a partial relation retains role and reports its unresolved way ID");
-  const auto corrected = OsmXmlReader::Read("<osm version='0.6'><node id='9' lat='0' lon='0'/>"
-                                            "<way id='7'><nd ref='9'/></way></osm>");
+  const auto corrected = ReadSource("<osm version='0.6'><node id='9' lat='0' lon='0'/>"
+                                    "<way id='7'><nd ref='9'/></way></osm>");
   CHECK(corrected && !corrected->FirstMissingReference() && corrected->FindNode(9) != nullptr &&
             corrected->FindWay(7) != nullptr,
         "a corrected source parses and closes after prior rejection");
-  const auto reversed = OsmXmlReader::Read("<osm version='0.6'>"
-                                           "<node id='1' lat='0' lon='0'/>"
-                                           "<node id='2' lat='0' lon='1'/>"
-                                           "<way id='7'><nd ref='2'/><nd ref='1'/></way></osm>");
+  const auto reversed = ReadSource("<osm version='0.6'>"
+                                   "<node id='1' lat='0' lon='0'/>"
+                                   "<node id='2' lat='0' lon='1'/>"
+                                   "<way id='7'><nd ref='2'/><nd ref='1'/></way></osm>");
   CHECK(reversed && !reversed->FirstMissingReference() && reversed->FindWay(7) != nullptr &&
             reversed->FindWay(7)->NodeIds == std::vector<uint64_t>({2, 1}),
         "way node order is source data, not inferred or corrected by the XML reader");

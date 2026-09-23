@@ -221,6 +221,7 @@ TestProfile() {
     outshine/src/world/data/MvtLayer | outshine/src/world/ground/OsmStorageUsage)
       printf '%s' 'profile/vector' ;;
     outshine/src/world/data/OsmXmlReader) printf '%s' 'profile/osm-xml' ;;
+    outshine/src/world/navigation/TransportTopology) printf '%s' 'profile/transport-topology' ;;
     outshine/src/diagnostics/ProcessHeap | outshine/src/engine/WorldInstanceSink)
       printf '%s' 'profile/diagnostics' ;;
     outshine/src/render/device/GpuSubmission | outshine/src/render/device/GroundStorage)
@@ -239,6 +240,7 @@ LayerIncludes() {
     profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
     profile/vector) printf '%s' "-Isrc/world/data -Isrc/base/spatial" ;;
     profile/osm-xml) printf '%s' "-Isrc/world/data -Isrc/base/format" ;;
+    profile/transport-topology) printf '%s' "-Isrc/world/navigation -Isrc/world/data -Isrc/base/format" ;;
     profile/diagnostics) LayerIncludes profile/internal ;;
     profile/internal|profile/device) printf '%s ' "-I. -Isrc/base -Isrc/actor/body -Isrc/world/ground/tiles"; LayerIncludes profile/engine ;;
     # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
@@ -280,7 +282,7 @@ LayerToolchain() {
 # Instrumenting repository-claim wrappers would not instrument their subprocesses.
 LayerSanitiser() {
   case "$(TestProfile "$1")" in
-    profile/vector | profile/osm-xml | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
+    profile/vector | profile/osm-xml | profile/transport-topology | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     harness/khronos/validator | harness/geographiclib/geodesic)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
@@ -318,6 +320,7 @@ LayerGroups() {
     profile/public) LayerGroups profile/internal ;;
     profile/vector) printf '%s' "src/world/data/MvtLayer.cpp" ;;
     profile/osm-xml) printf '%s' "src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
+    profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/world/navigation/CircuitRoute.cpp src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/diagnostics) LayerGroups profile/internal; printf ' %s' "src/diagnostics" ;;
     profile/internal|profile/device) LayerGroups profile/engine ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
