@@ -17,6 +17,17 @@ not proof that every algorithm, race and failure path is correct. Line counts lo
 mixed ownership; no maximum file length or automatic split is an architectural oracle.
 Examples supplied by the user do not limit the audit to Live, Crown and Structure.
 
+2026-09-23 lexical inventory: 261 `class` and 902 `struct` definitions (excluding
+`enum class` and template parameters), 31 public headers/4,459 lines, 580 private
+C++/GLSL files/94,275 lines, 22 declared dependency tiers and 384 public edges.
+Layer check finds zero direction violations; it cannot prove runtime ownership.
+`Laying.cpp` (2,430 lines) still triangulates water inside `Engine::State`;
+WI 2145 owns that algorithm and its transfer to `generators/water`. `Document.cpp`
+(2,268 lines) contains several glTF sections but one import owner; split it only
+when a complete codec boundary reduces change propagation. Track public API
+growth, owner-crossing edits, dependency edges and largest cohesive files, not
+a target count of types or an arbitrary line cap.
+
 ## Module decisions and implementation owners
 
 | Module | Finding and binding decision | WI |

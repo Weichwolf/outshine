@@ -17,6 +17,15 @@ gezahnte/geböschte Ufer und in Husum durchquerende helle Bänder.
 
 ## Implementierung
 
+- Besitzgrenze: `WaterField` hält geografische Körper, Ringe und Pegel. Ein
+  `Generators::WaterSurfaceBuilder` erhält einen unveränderlichen, für die
+  Kandidatenrevision gepinnten Input aus Ringen, Pegeln, Höhen und TangentFrame
+  und liefert native `Geometry` samt Zählern/Fehlern. `Engine::State` plant,
+  veröffentlicht und meldet nur; dort entstehen keine Dreiecke. Basin-Stamps
+  werden vom selben validierten Wasserkörper abgeleitet, nicht aus einem zweiten
+  unabhängigen Ring-Walk. Keine `Engine::State`- oder Renderer-Abhängigkeit im
+  Generator. Methoden heißen nach `Build`, `Advance`, `Take` und `Cancel` statt
+  nach einem allgemeinen `Grounds`-/`Laying`-Vorgang.
 - Ein WaterBody-Modell für Geometrie, Niveau/Datum, Outer-/Inner-Ringe, Bed und Bank.
   Polygon-Clipping/Triangulation für konkave Multipolygone und Inseln; Tilegrenzen teilen IDs.
 - Niveau für See zusammenhängend; Fluss längs stetig mit plausibler Falllinie, Meer mit
@@ -32,6 +41,11 @@ gezahnte/geböschte Ufer und in Husum durchquerende helle Bänder.
 
 ## Abnahme
 
+- [ ] Konvexer See reproduziert bestehende Geometrie; konkaver Ring mit Insel
+      beweist Innen-/Außenfläche und Winding analytisch. Offener, degenerierter
+      oder selbstschneidender Ring liefert einen lokalen Fehler mit Body-ID.
+      Unterbrochene Arbeit und Retry ergeben identische Indizes und Pegel; ein
+      späterer Kandidat ändert den gepinnten Input nicht rückwirkend.
 - [ ] Konkaver See mit Insel, Fluss über Tilegrenze, Hafen mit Brücke: keine Landüberdeckung,
       fehlende Surface oder Höhensprünge. Absichtlich falscher Ring erzeugt lokalen roten Befund.
 - [ ] Husum ohne Treppen/Bänder im Wasser; Malcesine ohne künstlichen Uferkamm;
