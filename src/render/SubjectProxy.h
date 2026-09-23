@@ -7,6 +7,7 @@
 #include "Viewing.h"
 #include <array>
 #include <cstdint>
+#include <expected>
 #include <span>
 #include <string>
 #include <vector>
@@ -149,6 +150,15 @@ struct SubjectScratch {
                                    const SubjectProxy &proxy,
                                    SubjectScratch &scratch,
                                    std::string &error);
+
+[[nodiscard]] std::expected<SubjectDraw::MeshTicket, std::string>
+BeginPlacementUpload(SceneRenderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch);
+
+[[nodiscard]] bool FinishPlacementUpload(SceneRenderer &renderer,
+                                         const SubjectProxy &proxy,
+                                         SubjectScratch &scratch,
+                                         SubjectDraw::MeshTicket ticket,
+                                         std::string &error);
 
 [[nodiscard]] bool Place(SceneRenderer &renderer,
                          const SubjectProxy &proxy,

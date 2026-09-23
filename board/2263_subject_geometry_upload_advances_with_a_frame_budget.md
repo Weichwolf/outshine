@@ -46,21 +46,26 @@ needed. Maintain existing draw-run order, material slots, cluster jobs, index
 rebasing and geometry digest for an identical source snapshot.
 Separate CPU planning/packing, index upload and vertex/table upload into at
 least three advances; the baseline pack plus index alone can exceed one frame.
-`SubjectProxy` now separates `PreparePlacement` from `SubmitPlacement`; the
-scene-owned scratch checks Shape identity through submission. `SubjectDraw` and
-`SceneRenderer` expose generation-bound begin/finish calls.
+`SubjectProxy` now separates `PreparePlacement`, `BeginPlacementUpload` and
+`FinishPlacementUpload`; the scene-owned scratch checks Shape identity through
+submission. The synchronous `SubmitPlacement` composes those steps for the
+existing path. `SubjectDraw` and `SceneRenderer` expose generation-bound
+begin/finish calls, including empty subjects.
 The paused state retains the prior complete draw; stale tickets fail. The
 focused GPU case checks those contracts, but its linear image is black and is
 not an independent visual oracle. Place and glTF images must prove visibility
 after pacing. `RuntimeScene` still calls the one-shot path, so the full-frame
 defect remains until its job is paced.
+The split path retained Wien `2fc0aec4` and Malcesine `07ca3a25` in
+client captures. Wien still shows 9/4517 frames over 16.67 ms and a
+105.71 ms worst draw interval; these are full-frame figures, not upload slices.
 
 ## Implementation order
 
-1. In `src/render/SubjectProxy.*`, keep the extracted draw/index preparation
-   stable while splitting `SubmitPlacement` into index and stream advances.
-   Own callback context or replace it with bounded span
-   packing. `RuntimeScene` already owns `Stood_`, `Shaped_` and `Scratch_`; a
+1. In `src/render/SubjectProxy.*`, retain stable draw/index preparation and
+   separated index and stream submissions. Replace full upfront channel
+   packing with bounded span packing. `RuntimeScene` already owns `Stood_`,
+   `Shaped_` and `Scratch_`; a
    move-only placement job may borrow them for exactly that candidate's life.
    Keep `Scratch_.Draws`, indices and positions fixed from begin through finish:
    `SubjectDraw::MeshTicket` pins their addresses. Recreate callback contexts

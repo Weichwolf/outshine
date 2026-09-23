@@ -707,7 +707,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     error = std::move(began.error());
     return false;
   }
-  return !began->NeedsFinish || FinishMesh(*began, mesh, error);
+  return FinishMesh(*began, mesh, error);
 }
 
 std::expected<SubjectDraw::MeshTicket, std::string>
@@ -807,10 +807,16 @@ SubjectDraw::BeginMesh(const SubjectMesh &mesh) {
 }
 
 bool SubjectDraw::FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, std::string &error) {
-  if (!ticket.NeedsFinish || ticket.Generation == 0 ||
-      ticket.Generation != PendingMesh_.Generation || mesh.Draws != PendingDraws_ ||
-      mesh.Indices != PendingIndices_ || mesh.IndexCount != PendingIndexCount_ ||
-      mesh.VertexCount != Bound().Shape().Vertices) {
+  if (!ticket.NeedsFinish) {
+    if (ticket.Generation != 0 && ticket.Generation == Reshaped_ && !PendingMesh_.NeedsFinish) {
+      return true;
+    }
+    error = "subject mesh completion has no matching preparation";
+    return false;
+  }
+  if (ticket.Generation == 0 || ticket.Generation != PendingMesh_.Generation ||
+      mesh.Draws != PendingDraws_ || mesh.Indices != PendingIndices_ ||
+      mesh.IndexCount != PendingIndexCount_ || mesh.VertexCount != Bound().Shape().Vertices) {
     error = "subject mesh completion has no matching preparation";
     return false;
   }

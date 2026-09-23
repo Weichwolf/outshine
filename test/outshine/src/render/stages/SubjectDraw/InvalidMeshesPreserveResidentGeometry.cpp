@@ -131,6 +131,20 @@ int main() {
         std::vector<float> oneShot;
         CHECK(renderer.ReadSceneLinear(oneShot) == ReadState::Ready && oneShot == staged,
               "interrupted and one-shot uploads render identical pixels");
+        SubjectMesh empty;
+        auto cleared = renderer.BeginSubjectMesh(empty);
+        CHECK(cleared.has_value() && !cleared->NeedsFinish && !renderer.SubjectMeshPending(),
+              "empty subject completes during admission");
+        if (cleared) {
+          auto staleClear = *cleared;
+          ++staleClear.Generation;
+          std::string staleClearError;
+          CHECK(!renderer.FinishSubjectMesh(staleClear, empty, staleClearError) &&
+                    !staleClearError.empty(),
+                "stale empty-subject completion is rejected");
+          CHECK(renderer.FinishSubjectMesh(*cleared, empty, error),
+                "matching empty-subject completion updates every subject pass");
+        }
       }
     }
   }

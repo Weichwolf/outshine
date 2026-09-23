@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <expected>
 
 #include "Heap.h"
 
@@ -18,6 +19,7 @@
 #include <span>
 #include <ratio>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "SceneRenderer.h"
@@ -477,75 +479,132 @@ bool PreparePlacement(SceneRenderer &renderer,
   return true;
 }
 
-bool SubmitPlacement(SceneRenderer &renderer,
-                     const SubjectProxy &proxy,
-                     SubjectScratch &scratch,
-                     std::string &error) {
+namespace {
+
+const Shape *PreparedSubject(const SubjectProxy &proxy, const SubjectScratch &scratch) {
   const Shape *const source = proxy.Shaped();
   if (source == nullptr || source != scratch.PreparedShape ||
       scratch.Indices.size() != scratch.Draws.IndexCount() ||
       scratch.Vertices.size() != source->VertexCount() * 3u) {
-    error = "subject placement no longer matches its prepared geometry";
-    return false;
+    return nullptr;
   }
-  const Shape &subject = *source;
+  return source;
+}
 
-  SubjectMesh mesh;
-  const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
-  const ChannelPack uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2};
-  const ChannelPack uv1{.From = &subject, .Channel = &ShapePart::Uv1, .Wide = 2};
-  const ChannelPack normals{.From = &subject, .Channel = &ShapePart::Normals, .Wide = 3};
-  const ChannelPack tangents{.From = &subject, .Channel = &ShapePart::Tangents, .Wide = 4};
-  const ChannelPack colours{.From = &subject, .Channel = &ShapePart::Colours, .Wide = 4};
-  const EmitPack emitted{.From = &subject, .Proxy = &proxy};
+struct PlacementMeshInput {
+  ChannelPack Positions;
+  ChannelPack Uv;
+  ChannelPack Uv1;
+  ChannelPack Normals;
+  ChannelPack Tangents;
+  ChannelPack Colours;
+  EmitPack Emitted;
+  SubjectMesh Mesh;
 
-  mesh.Verts = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &positions};
-  if (subject.CarriesUv) {
-    mesh.Uv = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &uv};
+  PlacementMeshInput(const Shape &subject, const SubjectProxy &proxy, const SubjectScratch &scratch)
+      : Positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3},
+        Uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2},
+        Uv1{.From = &subject, .Channel = &ShapePart::Uv1, .Wide = 2},
+        Normals{.From = &subject, .Channel = &ShapePart::Normals, .Wide = 3},
+        Tangents{.From = &subject, .Channel = &ShapePart::Tangents, .Wide = 4},
+        Colours{.From = &subject, .Channel = &ShapePart::Colours, .Wide = 4},
+        Emitted{.From = &subject, .Proxy = &proxy} {
+    Mesh.Verts = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Positions};
+    if (subject.CarriesUv) {
+      Mesh.Uv = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv};
+    }
+    if (subject.CarriesUv1) {
+      Mesh.Uv1 = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Uv1};
+    }
+    if (subject.CarriesNormal) {
+      Mesh.Normals = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Normals};
+    }
+    if (subject.CarriesTangent) {
+      Mesh.Tangents = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Tangents};
+    }
+    if (subject.CarriesColour) {
+      Mesh.Colours = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &Colours};
+    }
+    Mesh.Emitted = SubjectStream{.From = nullptr, .Writes = PackEmitted, .Carrying = &Emitted};
+    Mesh.Positions = scratch.Vertices;
+    if (!proxy.Previous().empty()) {
+      Mesh.PrevVerts =
+          SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
+    }
+    Mesh.VertexCount = static_cast<uint32_t>(subject.VertexCount());
+    Mesh.Indices = scratch.Indices.data();
+    Mesh.IndexCount = static_cast<uint32_t>(scratch.Indices.size());
+    for (int axis = 0; axis < 3; ++axis) { Mesh.Anchor[axis] = proxy.Anchor()[axis]; }
+    Mesh.Draws = &scratch.Draws;
+    Mesh.Clusters = subject.Clusters;
+    Mesh.ClusterSpheres = subject.ClusterSpheres;
   }
-  if (subject.CarriesUv1) {
-    mesh.Uv1 = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &uv1};
-  }
-  if (subject.CarriesNormal) {
-    mesh.Normals = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &normals};
-  }
-  if (subject.CarriesTangent) {
-    mesh.Tangents = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &tangents};
-  }
-  if (subject.CarriesColour) {
-    mesh.Colours = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &colours};
-  }
-  mesh.Emitted = SubjectStream{.From = nullptr, .Writes = PackEmitted, .Carrying = &emitted};
-  mesh.Positions = scratch.Vertices;
-  if (!proxy.Previous().empty()) {
-    mesh.PrevVerts =
-        SubjectStream{.From = nullptr, .Writes = PackPrevious, .Carrying = &proxy.Previous()};
-  }
-  mesh.VertexCount = static_cast<uint32_t>(subject.VertexCount());
-  mesh.Indices = scratch.Indices.data();
-  mesh.IndexCount = static_cast<uint32_t>(scratch.Indices.size());
-  for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = proxy.Anchor()[axis]; }
-  mesh.Draws = &scratch.Draws;
-  mesh.Clusters = subject.Clusters;
-  mesh.ClusterSpheres = subject.ClusterSpheres;
-  static const Heap::Tag kHandingTag("subject-mesh");
-  const Heap::Tagged handing(kHandingTag);
-  const auto handedFrom = std::chrono::steady_clock::now();
-  const bool uploaded = renderer.SetSubjectMesh(mesh, error);
-  scratch.Metrics.UploadMs =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
-          .count();
+};
+
+void RecordsMeshUpload(SceneRenderer &renderer, SubjectScratch &scratch) {
   const SubjectMeshUploadMetrics stages = renderer.LastSubjectMeshUpload();
   scratch.Metrics.MeshAdmissionMs = stages.AdmissionMs;
   scratch.Metrics.IndexUploadMs = stages.IndexMs;
   scratch.Metrics.StreamUploadMs = stages.StreamsMs;
   scratch.Metrics.TableUploadMs = stages.TablesMs;
+}
 
+}
+
+std::expected<SubjectDraw::MeshTicket, std::string>
+BeginPlacementUpload(SceneRenderer &renderer, const SubjectProxy &proxy, SubjectScratch &scratch) {
+  const Shape *const source = PreparedSubject(proxy, scratch);
+  if (source == nullptr) {
+    return std::unexpected("subject placement no longer matches its prepared geometry");
+  }
+  PlacementMeshInput input(*source, proxy, scratch);
+  static const Heap::Tag kHandingTag("subject-mesh");
+  const Heap::Tagged handing(kHandingTag);
+  const auto handedFrom = std::chrono::steady_clock::now();
+  auto began = renderer.BeginSubjectMesh(input.Mesh);
+  scratch.Metrics.UploadMs +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
+          .count();
+  RecordsMeshUpload(renderer, scratch);
+  return began;
+}
+
+bool FinishPlacementUpload(SceneRenderer &renderer,
+                           const SubjectProxy &proxy,
+                           SubjectScratch &scratch,
+                           SubjectDraw::MeshTicket ticket,
+                           std::string &error) {
+  const Shape *const source = PreparedSubject(proxy, scratch);
+  if (source == nullptr) {
+    error = "subject placement no longer matches its prepared geometry";
+    return false;
+  }
+  PlacementMeshInput input(*source, proxy, scratch);
+  static const Heap::Tag kHandingTag("subject-mesh");
+  const Heap::Tagged handing(kHandingTag);
+  const auto handedFrom = std::chrono::steady_clock::now();
+  const bool uploaded = renderer.FinishSubjectMesh(ticket, input.Mesh, error);
+  scratch.Metrics.UploadMs +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
+          .count();
+  RecordsMeshUpload(renderer, scratch);
   if (!uploaded) { return false; }
   scratch.PreparedShape = nullptr;
   { std::vector<uint32_t>().swap(scratch.Indices); }
   { std::vector<float>().swap(scratch.Vertices); }
   return Placed(renderer, proxy, error);
+}
+
+bool SubmitPlacement(SceneRenderer &renderer,
+                     const SubjectProxy &proxy,
+                     SubjectScratch &scratch,
+                     std::string &error) {
+  auto began = BeginPlacementUpload(renderer, proxy, scratch);
+  if (!began) {
+    error = std::move(began.error());
+    return false;
+  }
+  return FinishPlacementUpload(renderer, proxy, scratch, *began, error);
 }
 
 bool Place(SceneRenderer &renderer,
