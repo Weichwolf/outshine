@@ -21,6 +21,13 @@ to reach Refined before capture after over 65,000 buildings had been baked.
 That candidate-wide path was rejected. Source and product revisions come from
 WI 2248.
 
+Basel Badischer at 47.568 N, 7.607 E reproduced the same scale failure on
+2026-09-23: after the native structure material fix, vegetation disabled, and
+cached input, the client processed more than 98,000 building candidates, then
+started another candidate and still missed Refined after 6,144 measured frames.
+Changing `sightM` from 4,000 to 500 did not change that outcome. Diagnose the
+candidate/revision trace before attributing every rebake to height quality.
+
 ## Decision
 
 Track accepted structure products by vector tile and exact height input
@@ -64,6 +71,7 @@ cross-candidate mutation; it does not replace the global refined rebake.
 4. Render Malcesine twice from cache-warm starts; open both PNGs and compare
    exact pixels on the same backend. Refined reports zero fallback structure
    tiles in its workset. Graz reaches Refined without a global structure
-   rebuild. Report posted/replaced tile counts, p50/p95/p99, frames above
+   rebuild. Basel Badischer also reaches Refined from the same cached input
+   without a candidate-wide rebake. Report posted/replaced tile counts, p50/p95/p99, frames above
    16.67 ms and memory peak against the current baseline. `make format`,
    relevant suites and `make lint` pass.

@@ -25,8 +25,8 @@ public:
   void Framed(const TangentFrame &frame) { Frame_ = frame; }
 
   struct Surfaces {
-    uint32_t Walls = 1;
-    uint32_t Roofs = 2;
+    Render::PieceSurface Walls{1};
+    Render::PieceSurface Roofs{2};
   };
 
   void Wears(Surfaces these) noexcept {
@@ -81,8 +81,8 @@ private:
 
   Render::SceneRenderer *Renderer_ = nullptr;
   TangentFrame Frame_;
-  uint32_t WallsSurface_ = 1;
-  uint32_t RoofsSurface_ = 2;
+  Render::PieceSurface WallsSurface_{1};
+  Render::PieceSurface RoofsSurface_{2};
   std::vector<Standing> Standing_;
   uint64_t Digest_ = 0;
   size_t Handed_ = 0;

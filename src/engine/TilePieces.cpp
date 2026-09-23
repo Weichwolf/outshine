@@ -47,7 +47,7 @@ bool TilePieces::Hands(uint32_t tile,
   const auto place = [this, &row, &why](std::span<const StoredVertex> corners,
                                         std::span<const uint32_t> run,
                                         const ClusteredMesh &cut,
-                                        uint32_t surface) {
+                                        Render::PieceSurface surface) {
     if (run.empty()) { return Render::PieceHandle{}; }
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
     const auto placed =
@@ -59,7 +59,7 @@ bool TilePieces::Hands(uint32_t tile,
                                .Colours = {},
                                .Row = row,
                                .Instances = {},
-                               .Surface = Render::PieceSurface(surface)});
+                               .Surface = surface});
     if (!placed) {
       why = placed.error();
       return Render::PieceHandle{};

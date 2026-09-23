@@ -36,23 +36,23 @@ int main() {
       baked.Built.RoofRun = {0, 1, 2};
       TilePieces pieces;
       pieces.Into(&renderer);
-      pieces.Wears({.Walls = 0, .Roofs = 1});
+      pieces.Wears({.Walls = Render::PieceSurface(0), .Roofs = Render::PieceSurface(1)});
       CHECK(!pieces.Hands(7, baked, {}, error), "invalid roof surface rejects the complete tile");
       CHECK(pieces.Handed() == 0 && renderer.PiecesStanding() == 0,
             "a rejected roof removes its already resident wall");
-      pieces.Wears({.Walls = 0, .Roofs = 0});
+      pieces.Wears({.Walls = Render::PieceSurface(0), .Roofs = Render::PieceSurface(0)});
       CHECK(pieces.Hands(7, baked, {}, error) && renderer.PiecesStanding() == 2,
             "a complete original tile installs its wall and roof");
       const size_t ownerBytes = pieces.HeapBytes();
       CHECK(ownerBytes > 0, "piece owner counts its retained handle slots and diagnostic storage");
       const uint64_t originalDigest = pieces.Digest();
       baked.Digest = 7;
-      pieces.Wears({.Walls = 0, .Roofs = 1});
+      pieces.Wears({.Walls = Render::PieceSurface(0), .Roofs = Render::PieceSurface(1)});
       CHECK(!pieces.Hands(7, baked, {}, error), "replacement roof refuses after its wall uploads");
       CHECK(renderer.PiecesStanding() == 2 && pieces.Handed() == 1 &&
                 pieces.Digest() == originalDigest,
             "failed replacement preserves both old pieces and the published digest");
-      pieces.Wears({.Walls = 0, .Roofs = 0});
+      pieces.Wears({.Walls = Render::PieceSurface(0), .Roofs = Render::PieceSurface(0)});
       CHECK(pieces.Hands(7, baked, {}, error) && renderer.PiecesStanding() == 2 &&
                 pieces.Handed() == 2 && pieces.Digest() != originalDigest,
             "retry replaces both pieces once without leaking old or refused geometry");

@@ -39,8 +39,8 @@ int main() {
             "ground candidate carries every streamed piece material slot");
       CHECK(ground.Publish(world, footprints, scene, {.Region = 1}).has_value(),
             "ground candidate publishes its native material table");
-      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
-                          .Roofs = static_cast<uint32_t>(roof->index())});
+      world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
+                          .Roofs = Render::PieceSurface(static_cast<uint32_t>(roof->index()))});
       Generators::BakedTile built;
       built.Built.WallCorners = {StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 0, 1}}),
                                  StoredVertex::Of({{1, 0, 0}}, {{1, 0}}, {{0, 0, 1}}),
@@ -56,15 +56,16 @@ int main() {
             "complete tile publishes wall and roof without replacing the world");
       const auto digest = world.Pieces.Digest();
       const auto payload = renderer.PieceSourceBytes();
-      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()), .Roofs = 3});
+      world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
+                          .Roofs = Render::PieceSurface(3)});
       CHECK(!PublishStructureTile(world, renderer, landing),
             "replacement roof refuses after its candidate wall uploads");
       CHECK(scene.get() == original && renderer.PiecesStanding() == 2 &&
                 world.Pieces.Digest() == digest && world.Pieces.Handed() == 1 &&
                 renderer.PieceSourceBytes() == payload,
             "rejected tile keeps old world, geometry, digest and source payload");
-      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
-                          .Roofs = static_cast<uint32_t>(roof->index())});
+      world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
+                          .Roofs = Render::PieceSurface(static_cast<uint32_t>(roof->index()))});
       for (size_t count : {size_t{1}, size_t{2}}) {
         Generators::BakedTile malformed;
         malformed.Built.WallCorners = built.Built.WallCorners;
@@ -106,12 +107,13 @@ int main() {
       CHECK(renderer.PiecesStanding() == 6,
             "abandoning the full rebuild leaves published pieces resident");
       const auto batchedDigest = world.Pieces.Digest();
-      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()), .Roofs = 3});
+      world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
+                          .Roofs = Render::PieceSurface(3)});
       CHECK(!PublishStructureTile(world, renderer, batch[0]) && scene.get() == original &&
                 renderer.PiecesStanding() == 6 && world.Pieces.Digest() == batchedDigest,
             "a tile failure preserves every published tile");
-      world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
-                          .Roofs = static_cast<uint32_t>(roof->index())});
+      world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
+                          .Roofs = Render::PieceSurface(static_cast<uint32_t>(roof->index()))});
       {
         Core::WorldCandidate outer(renderer);
         const auto prepared = outer.Prepare(*scene, nullptr);

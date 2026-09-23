@@ -8,6 +8,7 @@
 #include <expected>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <type_traits>
@@ -29,7 +30,7 @@ struct GroundBuildProducts {
   std::shared_ptr<const Path::Network> Network;
   size_t NetworkOfWays = 0;
   size_t RimsMissing = 0;
-  TilePieces::Surfaces Surfaces;
+  std::optional<TilePieces::Surfaces> Surfaces;
 
   [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
     return Sheets.HeapBytes() + Footprints.HeapBytes() + Pieces.HeapBytes() +
@@ -66,7 +67,7 @@ public:
                   .Network = world.Network,
                   .NetworkOfWays = world.NetworkOfWays,
                   .RimsMissing = world.RimsMissing,
-                  .Surfaces = {}},
+                  .Surfaces = world.StructureSurfaces},
         World_(renderer),
         PieceSources_(pieces) {}
 
@@ -206,7 +207,8 @@ public:
             .count();
     phaseAt = std::chrono::steady_clock::now();
     world.Pieces = std::move(Products_.Pieces);
-    world.Pieces.Wears(Products_.Surfaces);
+    if (Products_.Surfaces) { world.Pieces.Wears(*Products_.Surfaces); }
+    world.StructureSurfaces = Products_.Surfaces;
     PublicationMetrics_.PiecesMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
             .count();

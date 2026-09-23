@@ -240,6 +240,7 @@ struct Surrounds {
   size_t GroundCandidates = 0;
 
   TilePieces Pieces;
+  std::optional<TilePieces::Surfaces> StructureSurfaces;
   HeightSheets Sheets;
   std::shared_ptr<const Path::Network> Network;
   size_t NetworkOfWays = 0;

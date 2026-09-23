@@ -69,7 +69,7 @@ int main() {
           std::move(generated.Mesh), generated.SurfaceInstance, generated.Surface);
       CHECK(began.has_value(), began ? "generated geometry build begins" : began.error().c_str());
       std::expected<bool, std::string> advanced = false;
-      if (began) {
+      for (size_t step = 0; began && advanced && !*advanced && step < 32; ++step) {
         advanced = candidate.AdvanceGroundGeometryBuild(std::numeric_limits<size_t>::max());
       }
       CHECK(advanced && *advanced, "generated geometry build completes");

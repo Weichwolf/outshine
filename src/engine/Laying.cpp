@@ -697,26 +697,31 @@ void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing) {
 bool Engine::State::Models(const TangentFrame &standing,
                            GroundBuildProducts &build,
                            Phasing &clocks) {
-  Geometry &ground = build.Ground;
   TellsWhatTheGroundHolds(standing);
-  Material walls;
-  walls.BaseColour[0] = kWallRed;
-  walls.BaseColour[1] = kWallGreen;
-  walls.BaseColour[2] = kWallBlue;
-  walls.Roughness = kWallRoughness;
-  Material tiles;
-  tiles.BaseColour[0] = kTileRed;
-  tiles.BaseColour[1] = kTileGreen;
-  tiles.BaseColour[2] = kTileBlue;
-  tiles.Roughness = kTileRoughness;
-  const auto wallSurface = ground.addSurface("walls", walls);
-  const auto roofSurface = ground.addSurface("roofs", tiles);
-  if (!wallSurface || !roofSurface) {
-    Error = Says::MaterialCreationFailed;
-    return false;
+  if (!build.Surfaces) {
+    Geometry materials;
+    Material walls;
+    walls.BaseColour[0] = kWallRed;
+    walls.BaseColour[1] = kWallGreen;
+    walls.BaseColour[2] = kWallBlue;
+    walls.Roughness = kWallRoughness;
+    Material tiles;
+    tiles.BaseColour[0] = kTileRed;
+    tiles.BaseColour[1] = kTileGreen;
+    tiles.BaseColour[2] = kTileBlue;
+    tiles.Roughness = kTileRoughness;
+    if (!materials.addSurface("walls", walls) || !materials.addSurface("roofs", tiles)) {
+      Error = Says::MaterialCreationFailed;
+      return false;
+    }
+    auto first = Picture.Device.RegisterPieceMaterials(std::move(materials));
+    if (!first) {
+      Error = std::move(first.error());
+      return false;
+    }
+    build.Surfaces = TilePieces::Surfaces{.Walls = Render::PieceSurface::Registered(*first),
+                                          .Roofs = Render::PieceSurface::Registered(*first + 1u)};
   }
-  build.Surfaces = {.Walls = static_cast<uint32_t>(wallSurface->index()),
-                    .Roofs = static_cast<uint32_t>(roofSurface->index())};
   Published.Places(
       "rebuild: the ground ring took",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.PhaseAt)
@@ -725,9 +730,9 @@ bool Engine::State::Models(const TangentFrame &standing,
   clocks.PhaseAt = std::chrono::steady_clock::now();
   clocks.CensusAt = clocks.PhaseAt;
   Published.Places(
-      "buildings: the wall surface", static_cast<double>(wallSurface->index()), "index");
+      "buildings: the wall surface", static_cast<double>(build.Surfaces->Walls.Index), "index");
   Published.Places(
-      "buildings: the roof surface", static_cast<double>(roofSurface->index()), "index");
+      "buildings: the roof surface", static_cast<double>(build.Surfaces->Roofs.Index), "index");
   Published.Places("buildings: tiles handed to the arena as pieces",
                    static_cast<double>(World.Pieces.Handed()),
                    "tiles");
@@ -1553,8 +1558,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
   const Heap::Tagged modelling(kModellingTag);
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
-  if (!Models(standing, build, clocks) ||
-      !candidate.SetGroundGeometry(build.Ground.clone(), 0, build.GroundMaterial, Error)) {
+  if (!Models(standing, build, clocks)) {
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
@@ -1746,7 +1750,11 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
     return false;
   }
   const auto transferAt = std::chrono::steady_clock::now();
-  build.Pieces.Wears(build.Surfaces);
+  if (!build.Surfaces) {
+    Error = "structure materials were not registered before baking";
+    return false;
+  }
+  build.Pieces.Wears(*build.Surfaces);
   for (const StructureBuildQueue::Landing &landing : *ready) {
     if (!build.Pieces.Hands(landing.Tile, *landing.Baked, landing.AnchorEcef, Error)) {
       return false;
