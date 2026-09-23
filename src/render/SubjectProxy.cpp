@@ -516,6 +516,11 @@ bool Place(SceneRenderer &renderer,
   scratch.Metrics.UploadMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handedFrom)
           .count();
+  const SubjectMeshUploadMetrics stages = renderer.LastSubjectMeshUpload();
+  scratch.Metrics.MeshAdmissionMs = stages.AdmissionMs;
+  scratch.Metrics.IndexUploadMs = stages.IndexMs;
+  scratch.Metrics.StreamUploadMs = stages.StreamsMs;
+  scratch.Metrics.TableUploadMs = stages.TablesMs;
 
   if (!uploaded) { return false; }
   { std::vector<uint32_t>().swap(scratch.Indices); }

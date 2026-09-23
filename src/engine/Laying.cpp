@@ -2164,6 +2164,14 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
       "rebuild: digesting what it handed over", Picture.Standing->TransferMetrics().DigestMs, "ms");
   Published.Places(
       "rebuild: and the device taking them", Picture.Standing->TransferMetrics().UploadMs, "ms");
+  Published.Places(
+      "rebuild: mesh admission", Picture.Standing->TransferMetrics().MeshAdmissionMs, "ms");
+  Published.Places(
+      "rebuild: index upload", Picture.Standing->TransferMetrics().IndexUploadMs, "ms");
+  Published.Places(
+      "rebuild: stream upload", Picture.Standing->TransferMetrics().StreamUploadMs, "ms");
+  Published.Places(
+      "rebuild: draw table upload", Picture.Standing->TransferMetrics().TableUploadMs, "ms");
   Published.Places("rebuild: residency upload attempts",
                    static_cast<double>(Picture.Device.TakeUploadAttempts()),
                    "uploads");

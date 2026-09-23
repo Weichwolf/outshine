@@ -49,6 +49,13 @@ private:
   bool WritesVelocity = false;
 };
 
+struct SubjectMeshUploadMetrics {
+  double AdmissionMs = 0.0;
+  double IndexMs = 0.0;
+  double StreamsMs = 0.0;
+  double TablesMs = 0.0;
+};
+
 class SubjectDraw {
 public:
   using SourceOptions = SurfaceOutputs;
@@ -213,6 +220,8 @@ public:
 
   [[nodiscard]] bool ValidateMesh(const SubjectMesh &mesh, std::string &error) const;
   [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
+
+  [[nodiscard]] SubjectMeshUploadMetrics LastMeshUpload() const noexcept { return LastMeshUpload_; }
 
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
@@ -435,6 +444,7 @@ private:
   [[nodiscard]] bool UploadTables(std::string &error);
   size_t Moved_ = 0;
   uint64_t Reshaped_ = 0;
+  SubjectMeshUploadMetrics LastMeshUpload_;
 
   SubjectPipelineBinding OwnedBinding_;
   SubjectPipelineBinding *Binding_ = &OwnedBinding_;

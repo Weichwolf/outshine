@@ -353,6 +353,10 @@ public:
            (!ActiveState().Content.DrawsGlass || ActiveState().Content.Glass.SetMesh(mesh, error));
   }
 
+  [[nodiscard]] SubjectMeshUploadMetrics LastSubjectMeshUpload() const noexcept {
+    return ActiveState().Content.Subjects.LastMeshUpload();
+  }
+
   [[nodiscard]] bool SubjectPlacementRows(size_t rows, std::string &error) {
     return ActiveState().Content.Subjects.PlacementRows(rows, error) &&
            (!ActiveState().Content.DrawsGlass ||

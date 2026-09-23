@@ -98,6 +98,10 @@ struct SubjectTransferMetrics {
   double PackingMs = 0;
   double DigestMs = 0;
   double UploadMs = 0;
+  double MeshAdmissionMs = 0;
+  double IndexUploadMs = 0;
+  double StreamUploadMs = 0;
+  double TableUploadMs = 0;
 
   [[nodiscard]] double DigestValue() const {
     return static_cast<double>(GeometryDigest & kDigestMask);

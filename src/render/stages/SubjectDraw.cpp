@@ -700,6 +700,8 @@ bool SubjectDraw::ValidateMesh(const SubjectMesh &mesh, std::string &error) cons
 }
 
 bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
+  LastMeshUpload_ = {};
+  const auto admissionAt = std::chrono::steady_clock::now();
   if (!ValidateMesh(mesh, error)) { return false; }
   ++Reshaped_;
   Bound().DropStaged();
@@ -738,6 +740,10 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
   if (Borrows()) { return HandTables(error); }
 
+  LastMeshUpload_.AdmissionMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - admissionAt)
+          .count();
+  const auto indexAt = std::chrono::steady_clock::now();
   {
     static const Heap::Tag kUploadingTag("mesh-upload");
     const Heap::Tagged uploading(kUploadingTag);
@@ -769,14 +775,25 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     error = std::string("the subject's index run did not reach the device: ") + SDL_GetError();
     return false;
   }
+  LastMeshUpload_.IndexMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - indexAt).count();
+  const auto streamsAt = std::chrono::steady_clock::now();
   if (!HandStreams(mesh, false, error)) { return false; }
+  LastMeshUpload_.StreamsMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - streamsAt)
+          .count();
 
+  const auto tablesAt = std::chrono::steady_clock::now();
   const std::vector<uint32_t> &jobs = mesh.Draws->ClusterJobs();
   if (!jobs.empty() && !mesh.ClusterSpheres.empty()) {
     SubjectJobs_ = jobs;
     SubjectSpheres_.assign(mesh.ClusterSpheres.begin(), mesh.ClusterSpheres.end());
   }
-  return HandTables(error);
+  const bool handed = HandTables(error);
+  LastMeshUpload_.TablesMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tablesAt)
+          .count();
+  return handed;
 }
 
 bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::string &error) {

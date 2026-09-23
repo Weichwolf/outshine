@@ -13,9 +13,10 @@ Tags: streaming, gpu, realtime, ownership
 
 Wien `2fc0aec4` has 857730 subject vertices and 1748976 indices. After
 resumable shape cooking, `RuntimeScene::AdvanceGeometryBuild` calls `Build`
-synchronously. Its subject submission takes 29.13 ms in the 2026-09-23 run:
-11.42 ms packing and 16.32 ms device handoff. The whole geometry phase peaks
-at 34.35 ms; 8/4528 frames exceed 16.67 ms. Subject residency reports 320 MB
+synchronously. Subject submission takes 29.13 ms in the baseline: 11.42 ms
+packing and 16.32 ms device handoff. A later measured handoff spent 4.91 ms
+on indices, 7.20 ms on vertex streams and 1.55 ms on draw tables. The whole
+geometry phase peaks at 34.35 ms; 8/4528 frames exceed 16.67 ms. Residency reports 320 MB
 offered across 146 uploads during the capture, not one 320-MB upload. The
 candidate is private until publication, so partial preparation need not be
 visible to the active world. A shorter shot or larger frame allowance is no fix.
@@ -43,6 +44,8 @@ on each call. Keep the glTF one-shot build entry point working through the same
 job with an explicit unlimited budget. No public API or format-specific path is
 needed. Maintain existing draw-run order, material slots, cluster jobs, index
 rebasing and geometry digest for an identical source snapshot.
+Separate CPU planning/packing, index upload and vertex/table upload into at
+least three advances; the baseline pack plus index alone can exceed one frame.
 
 ## Implementation order
 
