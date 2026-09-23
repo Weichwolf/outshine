@@ -73,6 +73,21 @@ prüfen; die Aufteilung allein beweist diesen Lebensdauervertrag nicht.
 
 ## P0: ein Datenmodell, ein aktiver Geometriepfad
 
+Quellaudit 2026-09-23: `OsmVector`/`OsmField` erhalten Außen- und Innenringe
+mit `Feature.FirstRing/RingCount` und `Ring.Exterior`. `WaterField::UsableRing`
+verwirft dagegen jeden Innenring; `WaterField::Surface` enthält nur einen
+Außenring. Der aktive Fan kann Inseln somit auch mit einem besseren
+Triangulator nicht sehen. Zuerst `WaterField` auf einen pro Feature/äußerem
+Teil zusammengehörigen Body mit geordneten Ringreferenzen, Pegel und
+Quellrevision umstellen. Ein ungültiger Innenring verwirft den betroffenen
+Body mit Diagnose, statt ihn still als Wasser zu füllen. Pegel aus dem
+zugehörigen Außenring ableiten; Innenringe benötigen keine eigene Pegelprobe.
+Paced Admission, Retry und Revisionswechsel dürfen keinen Teil-Body
+veröffentlichen. Der bestehende MVT-Ringtest liefert ein Loch-Fixture für
+einen neuen End-to-End-WaterField-Test. Lokale Triangulationsreferenz:
+`/Users/cosmo/Git/earcut.hpp` bei `f25bc76` (ISC); vor Übernahme Lizenz,
+Degeneratfälle und Arbeitsbudget prüfen.
+
 Quell-/Test-/Header-Audit: WaterField::Tessellate hatte keinen Aufrufer. Der aktive
 Pfad in Engine::State::Grounds baut weiterhin einen Fan in native Geometry.
 Der tote Earclip-/Flussstreifenpfad mit abweichend interleavten ECEF-Daten ist
