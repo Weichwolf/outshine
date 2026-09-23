@@ -26,7 +26,7 @@ struct BuildingShape {
   std::vector<EastNorth> Ring;
   size_t TidiedAway = 0;
 
-  std::vector<uint8_t> Party;
+  std::vector<uint8_t> PartyWallEdges;
   double AreaM2 = 0.0;
   EastNorth Centre;
   EastNorth AxisU;

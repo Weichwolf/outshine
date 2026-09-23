@@ -15,9 +15,9 @@ namespace outshine::Generators {
 
 inline constexpr int kMaxParts = 9;
 
-struct Piece {
-  std::vector<EastNorth> P;
-  std::vector<uint8_t> Party;
+struct FootprintPiece {
+  std::vector<EastNorth> Ring;
+  std::vector<uint8_t> PartyWallEdges;
 };
 
 template <typename T> class Slots {
@@ -77,8 +77,8 @@ struct BuildingScratch final : MeshScratch {
   std::array<FlatMap<uint32_t, BuildingCornerKey, BuildingCornerHash>, 2> Corners;
 
   std::vector<EastNorth> Outline;
-  Piece Whole, Rest, Plot, Beyond, Lo, Hi, Main, Wing, Cap;
-  std::array<Piece, kMaxParts> Row;
+  FootprintPiece Whole, Rest, Plot, Beyond, Lo, Hi, Main, Wing, Cap;
+  std::array<FootprintPiece, kMaxParts> Row;
   std::vector<double> Side;
   std::vector<int> Sign;
   BuildingShape One, Made;

@@ -28,9 +28,9 @@ growth, owner-crossing edits, dependency edges and largest cohesive files, not
 a target count of types or an arbitrary line cap.
 Ground telemetry belongs to `GroundDiagnostics`; earthwork contracts belong to
 `EarthworkPress`. Buildings use `EastNorth` directly. Tests and lint pass; Wien
-retains digest `e45d4da2`. Next: `Piece` -> `FootprintPiece`, its `P` -> `Ring`,
-and parallel `Party` flags -> `PartyWallEdges` across shape, scratch and mesh.
-Preserve ring/edge alignment; prove building suites, Wien digest and full lint.
+retains digest `e45d4da2`. Building footprint pieces now expose `Ring` and
+`PartyWallEdges` instead of `Piece::P`/`Party`; shape, scratch and mesh agree.
+Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
 
 ## Module decisions and implementation owners
 

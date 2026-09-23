@@ -468,7 +468,7 @@ void Walls(const BuildingShape &s,
     const EastNorth &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
-    const double bays = (s.Party[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
+    const double bays = (s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     if (std::cmp_equal(i, s.FrontEdge) && bays >= 2.0) {
       FrontWall(s, p, q, bays, lowZ, topZ, site);
       continue;
@@ -599,7 +599,7 @@ void Gables(const BuildingShape &s,
     const EastNorth &q = s.Ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
-    const double bays = (s.Party[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
+    const double bays = (s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     const bool overhung = wide.size() == n;
     BreaksBoth(roof,
                {.Face = {.From = p, .To = q},
@@ -993,7 +993,7 @@ void Pavement(const BuildingShape &s,
   if (!street.Known || !s.OnGround()) { return; }
   const size_t n = s.Ring.size();
   for (size_t i = 0; i < n; i++) {
-    if (s.Party[i] != 0u) { continue; }
+    if (s.PartyWallEdges[i] != 0u) { continue; }
     const EastNorth &p = s.Ring[i];
     const EastNorth &q = s.Ring[(i + 1) % n];
     const double e = q.EastM - p.EastM;

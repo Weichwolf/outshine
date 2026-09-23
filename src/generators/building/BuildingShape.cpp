@@ -189,24 +189,24 @@ double SignedArea(std::span<const EastNorth> ring) {
   return 0.5 * a;
 }
 
-void WholeOf(std::span<const EastNorth> ring, Piece &p) {
-  p.P.assign(ring.begin(), ring.end());
-  p.Party.assign(ring.size(), 0u);
+void WholeOf(std::span<const EastNorth> ring, FootprintPiece &p) {
+  p.Ring.assign(ring.begin(), ring.end());
+  p.PartyWallEdges.assign(ring.size(), 0u);
 }
 
 double SideOf(const EastNorth &at, const EastNorth &normal, const EastNorth &p) {
   return (p.EastM - at.EastM) * normal.EastM + (p.NorthM - at.NorthM) * normal.NorthM;
 }
 
-void DropSpurs(Piece *p) {
+void DropSpurs(FootprintPiece *p) {
   bool again = true;
-  while (again && p->P.size() > 3) {
+  while (again && p->Ring.size() > 3) {
     again = false;
-    for (size_t i = 0; i < p->P.size(); i++) {
-      const size_t n = p->P.size();
-      const EastNorth &a = p->P[(i + n - 1) % n];
-      const EastNorth &b = p->P[i];
-      const EastNorth &c = p->P[(i + 1) % n];
+    for (size_t i = 0; i < p->Ring.size(); i++) {
+      const size_t n = p->Ring.size();
+      const EastNorth &a = p->Ring[(i + n - 1) % n];
+      const EastNorth &b = p->Ring[i];
+      const EastNorth &c = p->Ring[(i + 1) % n];
       const double e1 = b.EastM - a.EastM;
       const double n1 = b.NorthM - a.NorthM;
       const double e2 = c.EastM - b.EastM;
@@ -214,8 +214,8 @@ void DropSpurs(Piece *p) {
       const double area2 = std::fabs(e1 * n2 - e2 * n1);
       if (area2 > kOnCutM * std::max(1.0, std::hypot(e1, n1) + std::hypot(e2, n2))) { continue; }
       if (e1 * e2 + n1 * n2 >= 0.0) { continue; }
-      p->P.erase(p->P.begin() + static_cast<long>(i));
-      p->Party.erase(p->Party.begin() + static_cast<long>(i));
+      p->Ring.erase(p->Ring.begin() + static_cast<long>(i));
+      p->PartyWallEdges.erase(p->PartyWallEdges.begin() + static_cast<long>(i));
       again = true;
       break;
     }
@@ -227,53 +227,54 @@ struct Cut {
   EastNorth Normal;
 };
 
-[[nodiscard]] bool CutPiece(const Piece &in,
+[[nodiscard]] bool CutPiece(const FootprintPiece &in,
                             Cut along,
                             BuildingScratch &scratch,
-                            Piece *back,
-                            Piece *front,
+                            FootprintPiece *back,
+                            FootprintPiece *front,
                             double *cutLenM) {
   const EastNorth &at = along.At;
   const EastNorth &normal = along.Normal;
-  const size_t n = in.P.size();
+  const size_t n = in.Ring.size();
   if (n < 3) { return false; }
   std::vector<double> &s = scratch.Side;
   std::vector<int> &sg = scratch.Sign;
   s.assign(n, 0.0);
   sg.assign(n, 0);
   for (size_t i = 0; i < n; i++) {
-    s[i] = SideOf(at, normal, in.P[i]);
+    s[i] = SideOf(at, normal, in.Ring[i]);
     sg[i] = SideSign(s[i]);
   }
   if (!HasSingleCut(sg)) { return false; }
 
-  const auto build = [&](Piece *out, int side) {
-    out->P.clear();
-    out->Party.clear();
+  const auto build = [&](FootprintPiece *out, int side) {
+    out->Ring.clear();
+    out->PartyWallEdges.clear();
     for (size_t i = 0; i < n; i++) {
       const size_t j = (i + 1) % n;
       const int si = sg[i] * side;
       const int sj = sg[j] * side;
       if (si >= 0) {
-        out->P.push_back(in.P[i]);
-        out->Party.push_back(si == 0 && sj < 0 ? 1u : in.Party[i]);
+        out->Ring.push_back(in.Ring[i]);
+        out->PartyWallEdges.push_back(si == 0 && sj < 0 ? 1u : in.PartyWallEdges[i]);
       }
       if (si * sj >= 0) { continue; }
       const double f = s[i] / (s[i] - s[j]);
-      out->P.push_back({.EastM = in.P[i].EastM + (in.P[j].EastM - in.P[i].EastM) * f,
-                        .NorthM = in.P[i].NorthM + (in.P[j].NorthM - in.P[i].NorthM) * f});
-      out->Party.push_back(si > 0 ? 1u : in.Party[i]);
+      out->Ring.push_back(
+          {.EastM = in.Ring[i].EastM + (in.Ring[j].EastM - in.Ring[i].EastM) * f,
+           .NorthM = in.Ring[i].NorthM + (in.Ring[j].NorthM - in.Ring[i].NorthM) * f});
+      out->PartyWallEdges.push_back(si > 0 ? 1u : in.PartyWallEdges[i]);
     }
   };
   build(front, 1);
   build(back, -1);
   DropSpurs(front);
   DropSpurs(back);
-  if (front->P.size() < 3 || back->P.size() < 3) { return false; }
+  if (front->Ring.size() < 3 || back->Ring.size() < 3) { return false; }
 
   double t0 = kBeyondAnyCoordinate;
   double t1 = -kBeyondAnyCoordinate;
-  for (const EastNorth &p : front->P) {
+  for (const EastNorth &p : front->Ring) {
     if (std::fabs(SideOf(at, normal, p)) > kOnCutM) { continue; }
     const double t = (p.EastM - at.EastM) * -normal.NorthM + (p.NorthM - at.NorthM) * normal.EastM;
     t0 = std::min(t0, t);
@@ -283,9 +284,9 @@ struct Cut {
   return true;
 }
 
-[[nodiscard]] bool BothWorthIt(const Piece &a, const Piece &b, double wholeM2) {
+[[nodiscard]] bool BothWorthIt(const FootprintPiece &a, const FootprintPiece &b, double wholeM2) {
   const double least = std::max(kLeastPieceM2, kLeastPieceFrac * wholeM2);
-  return std::fabs(SignedArea(a.P)) >= least && std::fabs(SignedArea(b.P)) >= least;
+  return std::fabs(SignedArea(a.Ring)) >= least && std::fabs(SignedArea(b.Ring)) >= least;
 }
 
 void MinAreaBox(std::span<const EastNorth> ring, BuildingShape *out) {
@@ -511,15 +512,15 @@ size_t TidyRing(std::vector<EastNorth> &ring, std::vector<uint8_t> &party) {
   return dropped;
 }
 
-void Finish(Piece &piece, const PartOrder &order, BuildingShape &s) {
+void Finish(FootprintPiece &piece, const PartOrder &order, BuildingShape &s) {
   s.Ring.clear();
-  s.Party.clear();
+  s.PartyWallEdges.clear();
   s.TidiedAway = 0;
   s.FrontEdge = -1;
-  if (piece.P.size() < 3) { return; }
-  s.Ring.swap(piece.P);
-  s.Party.swap(piece.Party);
-  s.TidiedAway = TidyRing(s.Ring, s.Party);
+  if (piece.Ring.size() < 3) { return; }
+  s.Ring.swap(piece.Ring);
+  s.PartyWallEdges.swap(piece.PartyWallEdges);
+  s.TidiedAway = TidyRing(s.Ring, s.PartyWallEdges);
   if (s.Ring.size() < 3) {
     s.Ring.clear();
     return;
@@ -528,8 +529,8 @@ void Finish(Piece &piece, const PartOrder &order, BuildingShape &s) {
   if (signed2 < 0.0) {
     std::ranges::reverse(s.Ring);
 
-    std::ranges::reverse(s.Party);
-    std::ranges::rotate(s.Party, s.Party.begin() + 1);
+    std::ranges::reverse(s.PartyWallEdges);
+    std::ranges::rotate(s.PartyWallEdges, s.PartyWallEdges.begin() + 1);
   }
   s.AreaM2 = std::fabs(signed2);
   MinAreaBox(s.Ring, &s);
@@ -577,21 +578,21 @@ EastNorth UnitFrom(const EastNorth &a, const EastNorth &b) {
                         : EastNorth{.EastM = e / l, .NorthM = n / l};
 }
 
-[[nodiscard]] bool WingCut(const Piece &whole, BuildingScratch &scratch) {
-  const std::vector<EastNorth> &ring = whole.P;
+[[nodiscard]] bool WingCut(const FootprintPiece &whole, BuildingScratch &scratch) {
+  const std::vector<EastNorth> &ring = whole.Ring;
   const double wholeM2 = std::fabs(SignedArea(ring));
   double bestLen = kBeyondAnyCoordinate;
   bool found = false;
-  Piece &a = scratch.Plot;
-  Piece &b = scratch.Beyond;
+  FootprintPiece &a = scratch.Plot;
+  FootprintPiece &b = scratch.Beyond;
   for (size_t i = 0; i < ring.size(); i++) {
     if (!IsReflex(ring, i)) { continue; }
     const std::array<EastNorth, 2> dirs = {
         {UnitFrom(ring[(i + ring.size() - 1) % ring.size()], ring[i]),
          UnitFrom(ring[i], ring[(i + 1) % ring.size()])}};
     for (const EastNorth &dir : dirs) {
-      Piece &lo = scratch.Lo;
-      Piece &hi = scratch.Hi;
+      FootprintPiece &lo = scratch.Lo;
+      FootprintPiece &hi = scratch.Hi;
       double len = 0.0;
       if (!CutPiece(whole,
                     {.At = ring[i], .Normal = {.EastM = dir.NorthM, .NorthM = -dir.EastM}},
@@ -603,29 +604,29 @@ EastNorth UnitFrom(const EastNorth &a, const EastNorth &b) {
       }
       if (len < 1.0 || len >= bestLen) { continue; }
       if (!BothWorthIt(lo, hi, wholeM2)) { continue; }
-      a.P = lo.P;
-      a.Party = lo.Party;
-      b.P = hi.P;
-      b.Party = hi.Party;
+      a.Ring = lo.Ring;
+      a.PartyWallEdges = lo.PartyWallEdges;
+      b.Ring = hi.Ring;
+      b.PartyWallEdges = hi.PartyWallEdges;
       bestLen = len;
       found = true;
     }
   }
   if (!found) { return false; }
-  const bool aIsMain = std::fabs(SignedArea(a.P)) >= std::fabs(SignedArea(b.P));
-  Piece &main = aIsMain ? a : b;
-  Piece &wing = aIsMain ? b : a;
-  scratch.Main.P.swap(main.P);
-  scratch.Main.Party.swap(main.Party);
-  scratch.Wing.P.swap(wing.P);
-  scratch.Wing.Party.swap(wing.Party);
+  const bool aIsMain = std::fabs(SignedArea(a.Ring)) >= std::fabs(SignedArea(b.Ring));
+  FootprintPiece &main = aIsMain ? a : b;
+  FootprintPiece &wing = aIsMain ? b : a;
+  scratch.Main.Ring.swap(main.Ring);
+  scratch.Main.PartyWallEdges.swap(main.PartyWallEdges);
+  scratch.Wing.Ring.swap(wing.Ring);
+  scratch.Wing.PartyWallEdges.swap(wing.PartyWallEdges);
   return true;
 }
 
-int RowCut(const Piece &whole,
+int RowCut(const FootprintPiece &whole,
            const BuildingShape &box,
            BuildingScratch &scratch,
-           std::span<Piece> out) {
+           std::span<FootprintPiece> out) {
   const double lengthM = 2.0 * box.HalfUm;
 
   if (lengthM < kPlotLengthFactor * kPlotM || box.HalfUm < kPlotAspectFactor * box.HalfVm ||
@@ -636,33 +637,34 @@ int RowCut(const Piece &whole,
       std::min(static_cast<int>(out.size()), static_cast<int>(std::lround(lengthM / kPlotM)));
   if (want < 2) { return 0; }
   const double step = lengthM / static_cast<double>(want);
-  const double wholeM2 = std::fabs(SignedArea(whole.P));
-  Piece &rest = scratch.Rest;
-  rest.P = whole.P;
-  rest.Party = whole.Party;
+  const double wholeM2 = std::fabs(SignedArea(whole.Ring));
+  FootprintPiece &rest = scratch.Rest;
+  rest.Ring = whole.Ring;
+  rest.PartyWallEdges = whole.PartyWallEdges;
   int made = 0;
   for (int k = 1; k < want; k++) {
     const EastNorth at = box.FromBox({.U = -box.HalfUm + step * static_cast<double>(k), .V = 0.0});
-    Piece &plot = scratch.Plot;
-    Piece &beyond = scratch.Beyond;
+    FootprintPiece &plot = scratch.Plot;
+    FootprintPiece &beyond = scratch.Beyond;
     double len = 0.0;
     if (!CutPiece(rest, {.At = at, .Normal = box.AxisU}, scratch, &plot, &beyond, &len)) { break; }
-    if (std::fabs(SignedArea(plot.P)) < std::max(kLeastPieceM2, kSliverShare * kPlotM * kPlotM)) {
+    if (std::fabs(SignedArea(plot.Ring)) <
+        std::max(kLeastPieceM2, kSliverShare * kPlotM * kPlotM)) {
       break;
     }
-    if (std::fabs(SignedArea(beyond.P)) <
+    if (std::fabs(SignedArea(beyond.Ring)) <
         std::max(kLeastPieceM2, kLeastPieceFrac * wholeM2 * kSliverShare)) {
       break;
     }
-    out[made].P.swap(plot.P);
-    out[made].Party.swap(plot.Party);
+    out[made].Ring.swap(plot.Ring);
+    out[made].PartyWallEdges.swap(plot.PartyWallEdges);
     ++made;
-    rest.P.swap(beyond.P);
-    rest.Party.swap(beyond.Party);
+    rest.Ring.swap(beyond.Ring);
+    rest.PartyWallEdges.swap(beyond.PartyWallEdges);
   }
   if (made == 0) { return 0; }
-  out[made].P.swap(rest.P);
-  out[made].Party.swap(rest.Party);
+  out[made].Ring.swap(rest.Ring);
+  out[made].PartyWallEdges.swap(rest.PartyWallEdges);
   ++made;
   return made;
 }
@@ -677,7 +679,7 @@ void FaceTheStreet(BuildingShape *s, const Frontage &street) {
   const size_t n = s->Ring.size();
   double best = kFrontLeastLook;
   for (size_t i = 0; i < n; i++) {
-    if (s->Party[i] != 0u) { continue; }
+    if (s->PartyWallEdges[i] != 0u) { continue; }
     const EastNorth &p = s->Ring[i];
     const EastNorth &q = s->Ring[(i + 1) % n];
     const double e = q.EastM - p.EastM;
@@ -757,9 +759,9 @@ void StackDeep(bool heightMeasured, BuildingScratch &scratch) {
       continue;
     }
     const double lower = s.EavesM - s.FloorM;
-    Piece &cap = scratch.Cap;
-    cap.P.swap(inner);
-    cap.Party.assign(cap.P.size(), 0u);
+    FootprintPiece &cap = scratch.Cap;
+    cap.Ring.swap(inner);
+    cap.PartyWallEdges.assign(cap.Ring.size(), 0u);
     PartOrder o;
     o.FootM = s.FootM + lower;
     o.TopOverFootM = s.EavesM + s.RiseM - lower;
