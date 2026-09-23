@@ -93,28 +93,18 @@ Rosenheim bleibt 8e6642f9; 0/4203 statt 8/3344 Frames über 16.67 ms.
 Längster Wasseraufruf 9.37 ms, davon eine Höhenabfrage 9.00 ms. Offen bleibt
 `GroundStream::TileAt`: das synchrone Kacheln kann weiter einzelne Frames sprengen.
 
+Nächster Schritt: `TilePool::Field` erzeugt gestitchte Raster schon auf Workern;
+`GroundStream::PollStitchedField` hält sie im lokalen Cache. `TileAt` und
+`KeepCoarse` übernehmen nur Ready-Raster, Pending ergibt Waiting ohne Opfer-Slot
+zu überschreiben; Absent/Refused bleiben definierte Löcher. Beide Pfade nutzen
+dieselbe Shape-Konfiguration. Höhen, Quellrevisionen und Slot-Lebensdauer gegen
+den bisherigen Pfad prüfen. Der verzögerte Provider muss ohne Hauptthread-Stitch
+auflösen, Rosenheim pixelgleich bleiben. `FillNodeHeights` separat messen; falls
+dieses Mapping selbst über Budget liegt, als eigenes Workerprodukt bauen.
+
 ## Worker-Phasen
 
 NextJob besitzt priorisierte Queue-Entnahme und Shutdown-Warten, RunJob die Mesh-/
 Field-Ausführung, PublishResult die gesperrte Ergebnisübergabe. Work koordiniert
 Abhängigkeiten und Zeitmessung. Priorität, Locks und Fehlerzustände bleiben erhalten.
 Diese Strukturkorrektur nimmt keine neue Streaming-Fähigkeit ab.
-
-## P0: begrenzte Patchwork-Abdeckung
-
-Die alte Maske benötigte 16*4^(Levels-1) Bytes und entsprechende Flächenscans;
-unbegrenzte Zoom-/Levelwerte konnten ungültige Shifts auslösen. Jetzt hält die
-Abdeckung disjunkte dyadische Tile-Bereiche: fertige Eltern ersetzen enthaltene
-Kinder, abgedeckte Fläche ist die Summe der Kinderflächen. Maximal
-16*(kZoomLevels-1) = 368 Bereiche/Provider-Aufrufe, kein weltflächiges Raster.
-Zoom 1..23, Levels positiv und auf vorhandene Zoomstufen begrenzt, Grid>=2,
-Koordinaten endlich; ungültige Eingaben erreichen keinen Provider.
-Anfrage, Antwortzählung und Abdeckung sind getrennt. Reihenfolge und Fallback
-bleiben erhalten, Anfragen ohne Mesh verdecken keine Eltern. Ein unabhängiges
-Zellenorakel prüft gemischte Antworten, ungültige Ready-Meshes, Anfragebetrieb,
-Datumsgrenze/Polgrenzen und Maximalfall: 187 Checks grün. Pending als Abdeckung
-injiziert: 35 Checks rot. Wien geöffnet, 0/921600 Pixel verändert.
-Lint vollständig: 60 Befunde, keiner in GroundPatchwork; Writer weiter rot.
-Warmaufnahme p50/p95/p99 5.26/6.00/6.27 ms, 0/120 über 16.67 ms, sim p99 0.53 ms.
-Kein allgemeiner Geschwindigkeitsnachweis aus einer Aufnahme; Bewegung und
-Dauerlauf bleiben offen. Fremde Provider können intern weiterhin blockieren.

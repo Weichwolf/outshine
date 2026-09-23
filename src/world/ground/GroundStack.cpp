@@ -113,7 +113,7 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
     return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
         .count();
   };
-  const auto complete = [&]() -> std::expected<void, std::string_view> {
+  const auto complete = [&] -> std::expected<void, std::string_view> {
     metrics.TotalMs = elapsedMs(restandAt);
     RecordsRestand(metrics);
     return {};

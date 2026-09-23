@@ -7,6 +7,7 @@
 #include <ratio>
 #include <span>
 #include <cstdint>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -87,7 +88,7 @@ bool WaterField::AdvanceCandidate(const GroundQuery &ground,
     if (candidate.Point == 0 &&
         (candidate.Rings.empty() || candidate.Rings.back().Feature != candidate.Feature ||
          candidate.Rings.back().Ring != ringIndex)) {
-      candidate.Rings.push_back({.Feature = candidate.Feature, .Ring = ringIndex});
+      candidate.Rings.push_back({.Feature = candidate.Feature, .Ring = ringIndex, .Heights = {}});
       candidate.Rings.back().Heights.reserve(ring.Count);
     }
     const auto queryAt = std::chrono::steady_clock::now();
@@ -121,7 +122,7 @@ void WaterField::MaterializeCandidate(const OsmField &field,
     }
     heights.clear();
     heights.reserve(samples.Heights.size());
-    for (const auto &height : samples.Heights) { heights.push_back(*height); }
+    for (const auto &height : samples.Heights) { heights.push_back(height.value_or(0.0)); }
     const auto &feature = field.Features()[samples.Feature];
     const auto &ring = field.Rings()[samples.Ring];
     if (KindOf(field, feature, on) == WaterKind::Course) {
@@ -191,7 +192,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
     return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - from)
         .count();
   };
-  const auto finish = [&]() {
+  const auto finish = [&] {
     metrics.TotalMs = elapsedMs(began);
     if (metrics.TotalMs > WorstIngest_.TotalMs) { WorstIngest_ = metrics; }
     return static_cast<uint32_t>(Surfaces_.size());
@@ -201,32 +202,45 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
   const auto admissionAt = std::chrono::steady_clock::now();
   ++Admission_;
   size_t steps = 0;
-  const auto next = Mark_.Ask(
-      features,
-      field.Tiles(),
-      {.CentreX = field.CentreX(),
-       .CentreY = field.CentreY(),
-       .Rings = kEveryRing,
-       .CandidatesMost = kWaterCandidatesPerAdmission},
-      [&](size_t from, size_t to) {
-        const auto validationAt = std::chrono::steady_clock::now();
-        const uint32_t tile = features[from].Tile;
-        auto found = std::ranges::find_if(
-            Candidates_, [tile](const Candidate &one) { return one.Tile == tile; });
-        if (found == Candidates_.end()) {
-          Candidates_.push_back(
-              {.Tile = tile, .LastSeen = Admission_, .From = from, .To = to, .Feature = from});
-          found = std::prev(Candidates_.end());
-        }
-        if (found->From != from || found->To != to) {
-          *found = {.Tile = tile, .LastSeen = Admission_, .From = from, .To = to, .Feature = from};
-        }
-        found->LastSeen = Admission_;
-        const bool resolved =
-            AdvanceCandidate(ground, field, layers, *found, admissionAt, steps, metrics);
-        metrics.ValidationMs += elapsedMs(validationAt);
-        return resolved;
-      });
+  const auto next =
+      Mark_.Ask(features,
+                field.Tiles(),
+                {.CentreX = field.CentreX(),
+                 .CentreY = field.CentreY(),
+                 .Rings = kEveryRing,
+                 .CandidatesMost = kWaterCandidatesPerAdmission},
+                [&](size_t from, size_t to) {
+                  const auto validationAt = std::chrono::steady_clock::now();
+                  const uint32_t tile = features[from].Tile;
+                  auto found = std::ranges::find_if(
+                      Candidates_, [tile](const Candidate &one) { return one.Tile == tile; });
+                  if (found == Candidates_.end()) {
+                    Candidates_.push_back({.Tile = tile,
+                                           .LastSeen = Admission_,
+                                           .From = from,
+                                           .To = to,
+                                           .Feature = from,
+                                           .Ring = 0,
+                                           .Point = 0,
+                                           .Rings = {}});
+                    found = std::prev(Candidates_.end());
+                  }
+                  if (found->From != from || found->To != to) {
+                    *found = {.Tile = tile,
+                              .LastSeen = Admission_,
+                              .From = from,
+                              .To = to,
+                              .Feature = from,
+                              .Ring = 0,
+                              .Point = 0,
+                              .Rings = {}};
+                  }
+                  found->LastSeen = Admission_;
+                  const bool resolved =
+                      AdvanceCandidate(ground, field, layers, *found, admissionAt, steps, metrics);
+                  metrics.ValidationMs += elapsedMs(validationAt);
+                  return resolved;
+                });
   metrics.AdmissionMs = elapsedMs(admissionAt);
   std::erase_if(Candidates_, [this](const Candidate &one) { return one.LastSeen != Admission_; });
   if (!next.Found) { return finish(); }
