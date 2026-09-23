@@ -18,6 +18,8 @@ class SubjectDraw;
 
 class SceneResources {
 public:
+  enum class PieceSources : uint8_t { Copy, Omit };
+
   struct PieceRows {
     PieceHandle Piece;
     std::span<const Mat4> Rows;
@@ -33,7 +35,8 @@ public:
   SetPieceInstances(SubjectDraw &subjects, std::span<const PieceRows> pieces, std::string &error);
   void ReleasePiece(SubjectDraw &subjects, PieceHandle which);
 
-  [[nodiscard]] bool CopySourcesFrom(const SceneResources &source, std::string &error);
+  [[nodiscard]] bool
+  CopySourcesFrom(const SceneResources &source, PieceSources pieces, std::string &error);
   [[nodiscard]] bool RestorePieces(SubjectDraw &subjects, std::string &error);
 
   [[nodiscard]] std::expected<uint32_t, std::string>

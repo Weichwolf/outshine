@@ -77,7 +77,9 @@ class SceneRenderer {
 public:
   [[nodiscard]] std::expected<void, std::string> Init(Extent frame,
                                                       std::shared_ptr<const Compiled> plan);
-  [[nodiscard]] bool BeginsWorldCandidate(std::string &error);
+  [[nodiscard]] bool
+  BeginsWorldCandidate(std::string &error,
+                       SceneResources::PieceSources pieces = SceneResources::PieceSources::Copy);
   [[nodiscard]] bool PublishesWorldCandidate(std::string &error);
   void AbandonsWorldCandidate() noexcept;
 

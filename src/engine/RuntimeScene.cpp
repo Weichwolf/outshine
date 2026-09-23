@@ -210,8 +210,9 @@ bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
                                                Geometry replacement,
                                                const Ui::Font *font,
                                                std::unique_ptr<RuntimeScene> &candidate,
-                                               std::string &error) {
-  if (!renderer.BeginsWorldCandidate(error)) { return false; }
+                                               std::string &error,
+                                               Render::SceneResources::PieceSources pieces) {
+  if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
   if (!Prepare(renderer, std::move(declaration), font, candidate, error, previous.GroundAir_)) {
@@ -236,12 +237,13 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                             const RuntimeScene &previous,
                                             const Ui::Font *font,
                                             std::unique_ptr<RuntimeScene> &candidate,
-                                            std::string &error) {
+                                            std::string &error,
+                                            Render::SceneResources::PieceSources pieces) {
   if (previous.Held_.HasGeometry()) {
     return PreparesGeometryReplacement(
-        renderer, previous, previous.Held_.Snapshot().clone(), font, candidate, error);
+        renderer, previous, previous.Held_.Snapshot().clone(), font, candidate, error, pieces);
   }
-  if (!renderer.BeginsWorldCandidate(error)) { return false; }
+  if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
   if (!Prepare(renderer, std::move(declaration), font, candidate, error, previous.GroundAir_)) {

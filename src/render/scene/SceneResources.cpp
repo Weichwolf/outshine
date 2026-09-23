@@ -140,10 +140,17 @@ void SceneResources::ReleasePiece(SubjectDraw &subjects, PieceHandle which) {
   piece.State = state;
 }
 
-bool SceneResources::CopySourcesFrom(const SceneResources &source, std::string &error) {
-  Pieces_ = source.Pieces_;
-  FirstFreePiece_ = source.FirstFreePiece_;
-  for (Piece &piece : Pieces_) { piece.Resident = kNoPiece; }
+bool SceneResources::CopySourcesFrom(const SceneResources &source,
+                                     PieceSources pieces,
+                                     std::string &error) {
+  if (pieces == PieceSources::Copy) {
+    Pieces_ = source.Pieces_;
+    FirstFreePiece_ = source.FirstFreePiece_;
+    for (Piece &piece : Pieces_) { piece.Resident = kNoPiece; }
+  } else {
+    Pieces_.clear();
+    FirstFreePiece_ = kNoResourceSlot;
+  }
   HeightPages_ = source.HeightPages_;
   FirstFreeHeightPage_ = source.FirstFreeHeightPage_;
   for (HeightPage &page : HeightPages_) { page.Resident = kNoPage; }

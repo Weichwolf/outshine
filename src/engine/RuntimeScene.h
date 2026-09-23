@@ -111,17 +111,21 @@ public:
                                              const Ui::Font *font,
                                              std::unique_ptr<RuntimeScene> &out,
                                              std::string &error);
-  [[nodiscard]] static bool PreparesGeometryReplacement(Render::SceneRenderer &renderer,
-                                                        const RuntimeScene &previous,
-                                                        Geometry replacement,
-                                                        const Ui::Font *font,
-                                                        std::unique_ptr<RuntimeScene> &candidate,
-                                                        std::string &error);
-  [[nodiscard]] static bool PreparesWorldReplacement(Render::SceneRenderer &renderer,
-                                                     const RuntimeScene &previous,
-                                                     const Ui::Font *font,
-                                                     std::unique_ptr<RuntimeScene> &candidate,
-                                                     std::string &error);
+  [[nodiscard]] static bool PreparesGeometryReplacement(
+      Render::SceneRenderer &renderer,
+      const RuntimeScene &previous,
+      Geometry replacement,
+      const Ui::Font *font,
+      std::unique_ptr<RuntimeScene> &candidate,
+      std::string &error,
+      Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy);
+  [[nodiscard]] static bool PreparesWorldReplacement(
+      Render::SceneRenderer &renderer,
+      const RuntimeScene &previous,
+      const Ui::Font *font,
+      std::unique_ptr<RuntimeScene> &candidate,
+      std::string &error,
+      Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy);
   [[nodiscard]] static bool PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                                    std::unique_ptr<RuntimeScene> &out,
                                                    std::unique_ptr<RuntimeScene> &candidate,

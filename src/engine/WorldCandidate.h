@@ -57,10 +57,12 @@ public:
 
   [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return Renderer_; }
 
-  [[nodiscard]] std::expected<void, std::string> Prepare(const RuntimeScene &previous,
-                                                         const Ui::Font *font) {
+  [[nodiscard]] std::expected<void, std::string> Prepare(
+      const RuntimeScene &previous,
+      const Ui::Font *font,
+      Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy) {
     std::string error;
-    if (!RuntimeScene::PreparesWorldReplacement(Renderer_, previous, font, Scene_, error)) {
+    if (!RuntimeScene::PreparesWorldReplacement(Renderer_, previous, font, Scene_, error, pieces)) {
       return std::unexpected(std::move(error));
     }
     return {};

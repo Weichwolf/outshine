@@ -93,6 +93,18 @@ int main() {
                 PublishStructureTile(world, renderer, batch[1]).has_value() &&
                 renderer.PiecesStanding() == 6 && world.Pieces.Handed() == 5,
             "independent complete tiles publish in order");
+      {
+        Core::WorldCandidate replacement(renderer);
+        const auto prepared =
+            replacement.Prepare(*scene, nullptr, Render::SceneResources::PieceSources::Omit);
+        CHECK(prepared.has_value(), "a full structure rebuild prepares without old pieces");
+        if (prepared) {
+          CHECK(renderer.PiecesStanding() == 0 && renderer.PieceSourceBytes() == 0,
+                "a full structure rebuild does not copy or upload obsolete pieces");
+        }
+      }
+      CHECK(renderer.PiecesStanding() == 6,
+            "abandoning the full rebuild leaves published pieces resident");
       const auto batchedDigest = world.Pieces.Digest();
       world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()), .Roofs = 3});
       CHECK(!PublishStructureTile(world, renderer, batch[0]) && scene.get() == original &&

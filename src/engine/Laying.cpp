@@ -170,7 +170,12 @@ public:
                    uint64_t id)
       : Coverage_(coverage),
         Revision_(revision),
-        Candidate_(renderer, world, footprints),
+        Candidate_(renderer,
+                   world,
+                   footprints,
+                   revision.Quality == GroundQuality::Refined
+                       ? Render::SceneResources::PieceSources::Omit
+                       : Render::SceneResources::PieceSources::Copy),
         Id_(id) {}
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
@@ -912,6 +917,7 @@ void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
 bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
                                           GroundBuildState &state) {
+  const auto sliceAt = std::chrono::steady_clock::now();
   if (state.Pressing() == nullptr) {
     const GroundBuildProducts &build = state.Candidate().Products();
     const Ground::BuildingField &pads = build.Footprints;
@@ -983,10 +989,12 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
         standing,
         Generators::TerrainPageLayout{.Side = Render::GroundLattice::kSide, .Halo = 1},
         kMostEarthworkM));
+    state.SamplesPressingSlice(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
+            .count());
     state.SamplesProductPeak();
     return true;
   }
-  const auto sliceAt = std::chrono::steady_clock::now();
   const bool completed =
       state.Pressing()->Advance(kEarthworkSheetsPerFrame, kEarthworkPointsPerFrame);
   state.SamplesPressingSlice(
@@ -1841,9 +1849,17 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
 
+  const auto requestAt = std::chrono::steady_clock::now();
   const auto asked = RingWanted(alsoWhenTilesLanded, quality);
+  Cost.GroundRequest.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - requestAt)
+          .count());
   if (!asked) { return asked.error() == Laid::Unchanged || asked.error() == Laid::Pending; }
+  const auto buildAt = std::chrono::steady_clock::now();
   const GroundBuildProgress progress = BeginsGroundBuild(*asked);
+  Cost.GroundBuildBegin.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - buildAt)
+          .count());
   if (progress != GroundBuildProgress::Ready) { return progress != GroundBuildProgress::Failed; }
   GroundBuildState &state = *World.GroundBuild;
   const Around &over = state.Coverage();

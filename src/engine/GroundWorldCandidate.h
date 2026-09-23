@@ -37,9 +37,11 @@ struct GroundBuildProducts {
 
 class GroundWorldCandidate {
 public:
-  GroundWorldCandidate(Render::SceneRenderer &renderer,
-                       const Surrounds &world,
-                       const Ground::BuildingField &footprints)
+  GroundWorldCandidate(
+      Render::SceneRenderer &renderer,
+      const Surrounds &world,
+      const Ground::BuildingField &footprints,
+      Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy)
       : Products_{.Sheets = world.Sheets,
                   .Footprints = footprints,
                   .Pieces = world.Pieces,
@@ -54,7 +56,8 @@ public:
                   .NetworkOfWays = world.NetworkOfWays,
                   .RimsMissing = world.RimsMissing,
                   .Surfaces = {}},
-        World_(renderer) {}
+        World_(renderer),
+        PieceSources_(pieces) {}
 
   GroundWorldCandidate(const GroundWorldCandidate &) = delete;
   GroundWorldCandidate &operator=(const GroundWorldCandidate &) = delete;
@@ -105,9 +108,15 @@ public:
 
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,
                                                          const Ui::Font *font) {
-    if (auto prepared = World_.Prepare(previous, font); !prepared) { return prepared; }
+    if (auto prepared = World_.Prepare(previous, font, PieceSources_); !prepared) {
+      return prepared;
+    }
     Products_.Sheets.Into(&World_.Renderer());
     Products_.Pieces.Into(&World_.Renderer());
+    if (PieceSources_ == Render::SceneResources::PieceSources::Omit) {
+      Products_.Pieces.Clear();
+      Products_.Pieces.Into(&World_.Renderer());
+    }
     return {};
   }
 
@@ -140,6 +149,7 @@ public:
 private:
   GroundBuildProducts Products_;
   Core::WorldCandidate World_;
+  Render::SceneResources::PieceSources PieceSources_ = Render::SceneResources::PieceSources::Copy;
   static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
   static_assert(std::is_nothrow_move_assignable_v<Ground::BuildingField>);
   static_assert(std::is_nothrow_move_assignable_v<TilePieces>);

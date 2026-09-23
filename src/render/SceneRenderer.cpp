@@ -260,14 +260,14 @@ std::expected<void, std::string> SceneRenderer::Init(Extent frame,
   return InitForTarget(frame, std::move(plan), Showing_ != nullptr);
 }
 
-bool SceneRenderer::BeginsWorldCandidate(std::string &error) {
+bool SceneRenderer::BeginsWorldCandidate(std::string &error, SceneResources::PieceSources pieces) {
   if (Candidate_) {
     error = "a renderer already builds a world candidate, so a second candidate cannot borrow its "
             "temporary GPU state";
     return false;
   }
   Candidate_.emplace();
-  if (!Candidate_->Content.Resources.CopySourcesFrom(State_.Content.Resources, error)) {
+  if (!Candidate_->Content.Resources.CopySourcesFrom(State_.Content.Resources, pieces, error)) {
     Candidate_.reset();
     return false;
   }

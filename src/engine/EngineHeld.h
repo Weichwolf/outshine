@@ -331,6 +331,8 @@ struct Spent {
   Counter Growth;
   Counter Simulation;
   Counter Ground;
+  Counter GroundRequest;
+  Counter GroundBuildBegin;
   Counter Crowns;
   double StreamedMs = 0.0;
   size_t StreamedTiles = 0;

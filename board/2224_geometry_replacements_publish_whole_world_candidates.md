@@ -87,7 +87,8 @@ publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung
   Gebäude; unvollständige Dreiecke und Dachfehler erhalten alle alten Tiles und Payloads.
   Direkte Einzel-Tile-Publikation ersetzt keinen `RuntimeScene`-Owner. Rosenheim bleibt
   8e6642f9; Live-Transfer fällt von 52.62 auf 2.38 ms und Frames über 16.67 ms von 24
-  auf 9. Whole-world Ground-Revisionswechsel bleiben Kandidatenoperationen.
+  auf 9. Refined-Candidates laden keine vollständig neu gebackenen Alt-Pieces; normale
+  Whole-world- und Geometrieersetzungen erhalten weiterhin sämtliche Ressourcen.
 
 - `test/outshine/src/engine/GroundWorldCandidate/LateFailurePreservesPublishedGround.cpp`:
   späte Klassen-/Geometriefehler erhalten CPU-/GPU-Welt und Revision; Retry funktioniert.

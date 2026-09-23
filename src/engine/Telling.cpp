@@ -143,6 +143,8 @@ void Engine::State::Tells() {
     Published.Places("world growth time, most", Cost.Growth.MostMs(), "ms");
     Published.Places("simulation core time, most", Cost.Simulation.MostMs(), "ms");
     Published.Places("ground candidate time, most", Cost.Ground.MostMs(), "ms");
+    Published.Places("ground request time, most", Cost.GroundRequest.MostMs(), "ms");
+    Published.Places("ground candidate begin time, most", Cost.GroundBuildBegin.MostMs(), "ms");
     Published.Places("vegetation update time, most", Cost.Crowns.MostMs(), "ms");
   }
   if (Picture.Standing) {
