@@ -1,6 +1,7 @@
 #include "GroundStorage.h"
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_gpu.h>
+#include <array>
 #include <cstdint>
 #include <expected>
 #include <span>
@@ -203,8 +204,8 @@ std::expected<void, std::string> GroundStorage::Replace(SDL_GPUDevice *device,
     if (!advanced) { return std::unexpected(std::move(advanced.error())); }
     if (*advanced) { return {}; }
     if (Pending_ && Pending_->Fence) {
-      SDL_GPUFence *const fence = Pending_->Fence.Get();
-      if (!submission.WaitFence(submission.Context, device, &fence, 1)) {
+      const std::array<SDL_GPUFence *, 1> fences{Pending_->Fence.Get()};
+      if (!submission.WaitFence(submission.Context, device, fences.data(), fences.size())) {
         std::string error = SDL_GetError();
         Pending_.reset();
         return std::unexpected(std::move(error));
