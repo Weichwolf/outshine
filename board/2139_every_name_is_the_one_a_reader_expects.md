@@ -26,13 +26,11 @@ Water triangulation now belongs to `generators/water` (2145). `Document.cpp`
 when a complete codec boundary reduces change propagation. Track public API
 growth, owner-crossing edits, dependency edges and largest cohesive files, not
 a target count of types or an arbitrary line cap.
-The three read-only telemetry methods moved from `Laying.cpp` to
-`GroundDiagnostics.cpp` in b992673c9; explicit borrows replaced `Engine::State` access.
-`Yields`/`Stamp` are now `EarthworkStamp`/`EarthworkKind`; four suites and lint pass.
-`GroundYield.*` is now `EarthworkPress.*`; its result, claim, height and metrics
-types and apply/measure functions name their roles. Two focused suites and full lint
-pass; Wien retains digest `e45d4da2`. The building-only `En` alias was removed;
-shape, scratch, roof and tests use `EastNorth`. Ten building tests and lint pass.
+Ground telemetry belongs to `GroundDiagnostics`; earthwork contracts belong to
+`EarthworkPress`. Buildings use `EastNorth` directly. Tests and lint pass; Wien
+retains digest `e45d4da2`. Next: `Piece` -> `FootprintPiece`, its `P` -> `Ring`,
+and parallel `Party` flags -> `PartyWallEdges` across shape, scratch and mesh.
+Preserve ring/edge alignment; prove building suites, Wien digest and full lint.
 
 ## Module decisions and implementation owners
 
