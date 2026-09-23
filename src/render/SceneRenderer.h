@@ -260,6 +260,12 @@ public:
     return ActiveState().Content.Resources.RestorePieces(ActiveState().Content.Subjects, error);
   }
 
+  [[nodiscard]] std::expected<bool, std::string> AdvancePieceRestore(size_t &nextPiece,
+                                                                     size_t piecesMost) {
+    auto &content = ActiveState().Content;
+    return content.Resources.AdvancePieceRestore(content.Subjects, nextPiece, piecesMost);
+  }
+
   [[nodiscard]] std::expected<uint32_t, std::string> RegisterPieceMaterials(Geometry source) {
     auto &content = ActiveState().Content;
     return content.Resources.RegisterPieceMaterials(

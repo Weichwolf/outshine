@@ -42,6 +42,11 @@ struct GroundBuildProducts {
 
 class GroundWorldCandidate {
 public:
+  struct RestoreBudget {
+    size_t Pieces;
+    size_t HeightPages;
+  };
+
   struct PublicationMetrics {
     double WorldMs = 0.0;
     double ProductsMs = 0.0;
@@ -149,26 +154,32 @@ public:
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,
                                                          const Ui::Font *font) {
     for (;;) {
-      auto prepared = AdvancePreparation(previous, font, std::numeric_limits<size_t>::max());
+      auto prepared = AdvancePreparation(previous,
+                                         font,
+                                         {.Pieces = std::numeric_limits<size_t>::max(),
+                                          .HeightPages = std::numeric_limits<size_t>::max()});
       if (!prepared) { return std::unexpected(std::move(prepared.error())); }
       if (*prepared) { return {}; }
     }
   }
 
   [[nodiscard]] std::expected<bool, std::string> AdvancePreparation(
-      const Core::RuntimeScene &previous, const Ui::Font *font, size_t heightPagesMost) {
+      const Core::RuntimeScene &previous, const Ui::Font *font, RestoreBudget budget) {
     if (Prepared_) { return true; }
     if (!WorldPrepared_) {
       auto prepared = World_.Prepare(previous,
                                      font,
                                      PieceSources_,
                                      Core::SubjectGeometrySources::Driven,
-                                     Core::GroundResourceRestore::Deferred);
+                                     Core::ResourceRestoreMode::Deferred);
       if (!prepared) { return std::unexpected(std::move(prepared.error())); }
       WorldPrepared_ = true;
       return false;
     }
-    auto ground = World_.AdvanceGroundResourceRestore(NextHeightPage_, heightPagesMost);
+    auto pieces = World_.AdvancePieceResourceRestore(NextPiece_, budget.Pieces);
+    if (!pieces) { return std::unexpected(std::move(pieces.error())); }
+    if (!*pieces) { return false; }
+    auto ground = World_.AdvanceGroundResourceRestore(NextHeightPage_, budget.HeightPages);
     if (!ground) { return std::unexpected(std::move(ground.error())); }
     if (!*ground) { return false; }
     Products_.Sheets.Into(&World_.Renderer());
@@ -233,6 +244,7 @@ private:
   GroundBuildProducts Products_;
   Core::WorldCandidate World_;
   Render::SceneResources::PieceSources PieceSources_ = Render::SceneResources::PieceSources::Copy;
+  size_t NextPiece_ = 0;
   size_t NextHeightPage_ = 0;
   bool WorldPrepared_ = false;
   bool Prepared_ = false;

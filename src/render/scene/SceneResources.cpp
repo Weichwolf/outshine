@@ -31,11 +31,11 @@ constexpr auto PieceMaterialTables = "subject material tables disagree before pi
 }
 
 PieceMesh SceneResources::Piece::Mesh() const noexcept {
-  return {.Tangents = Tangents,
-          .Verts = Vertices,
-          .Indices = Indices,
-          .Clusters = Clusters,
-          .Colours = Colours,
+  return {.Tangents = Source->Tangents,
+          .Verts = Source->Vertices,
+          .Indices = Source->Indices,
+          .Clusters = Source->Clusters,
+          .Colours = Source->Colours,
           .Row = Row,
           .Instances = Rows,
           .MaxInstances = MaxInstances,
@@ -48,11 +48,13 @@ std::expected<PieceHandle, std::string> SceneResources::PlacePiece(SubjectDraw &
   if (FirstFreePiece_ == kNoResourceSlot && Pieces_.size() >= kNoResourceSlot) {
     return std::unexpected(Says::PieceSlotLimit);
   }
-  Piece held{.Tangents = {piece.Tangents.begin(), piece.Tangents.end()},
-             .Vertices = {piece.Verts.begin(), piece.Verts.end()},
-             .Indices = {piece.Indices.begin(), piece.Indices.end()},
-             .Clusters = {piece.Clusters.begin(), piece.Clusters.end()},
-             .Colours = {piece.Colours.begin(), piece.Colours.end()},
+  auto source = std::make_shared<const PieceSource>(
+      PieceSource{.Tangents = {piece.Tangents.begin(), piece.Tangents.end()},
+                  .Vertices = {piece.Verts.begin(), piece.Verts.end()},
+                  .Indices = {piece.Indices.begin(), piece.Indices.end()},
+                  .Clusters = {piece.Clusters.begin(), piece.Clusters.end()},
+                  .Colours = {piece.Colours.begin(), piece.Colours.end()}});
+  Piece held{.Source = std::move(source),
              .Row = piece.Row,
              .Rows = {piece.Instances.begin(), piece.Instances.end()},
              .MaxInstances = piece.MaxInstances,
@@ -260,22 +262,44 @@ bool SceneResources::RestorePieceMaterials(SubjectDraw &subjects,
 }
 
 bool SceneResources::RestorePieces(SubjectDraw &subjects, std::string &error) {
-  for (Piece &piece : Pieces_) {
-    if (!piece.State.Occupied) { continue; }
-    piece.Resident = subjects.PlacePiece(piece.Mesh(), error);
-    if (piece.Resident == kNoPiece) { return false; }
+  size_t nextPiece = 0;
+  auto restored = AdvancePieceRestore(subjects, nextPiece, std::numeric_limits<size_t>::max());
+  if (!restored) {
+    error = std::move(restored.error());
+    return false;
   }
-  return true;
+  return *restored;
+}
+
+std::expected<bool, std::string>
+SceneResources::AdvancePieceRestore(SubjectDraw &subjects, size_t &nextPiece, size_t piecesMost) {
+  if (piecesMost == 0) { return std::unexpected("piece restore budget is zero"); }
+  size_t visited = 0;
+  while (nextPiece < Pieces_.size() && visited < piecesMost) {
+    Piece &piece = Pieces_[nextPiece++];
+    ++visited;
+    if (!piece.State.Occupied || piece.Resident != kNoPiece) { continue; }
+    std::string error;
+    piece.Resident = subjects.PlacePiece(piece.Mesh(), error);
+    if (piece.Resident == kNoPiece) {
+      return std::unexpected(error.empty() ? std::string(Says::PieceUploadFailed)
+                                           : std::move(error));
+    }
+  }
+  return nextPiece == Pieces_.size();
 }
 
 size_t SceneResources::PieceSourceBytes() const noexcept {
   size_t bytes = 0;
   for (const Piece &piece : Pieces_) {
-    bytes += piece.Tangents.capacity() * sizeof(float) +
-             piece.Vertices.capacity() * sizeof(StoredVertex) +
-             piece.Indices.capacity() * sizeof(uint32_t) +
-             piece.Clusters.capacity() * sizeof(DagCluster) +
-             piece.Colours.capacity() * sizeof(float) + piece.Rows.capacity() * sizeof(Mat4);
+    if (piece.Source) {
+      bytes += piece.Source->Tangents.capacity() * sizeof(float) +
+               piece.Source->Vertices.capacity() * sizeof(StoredVertex) +
+               piece.Source->Indices.capacity() * sizeof(uint32_t) +
+               piece.Source->Clusters.capacity() * sizeof(DagCluster) +
+               piece.Source->Colours.capacity() * sizeof(float);
+    }
+    bytes += piece.Rows.capacity() * sizeof(Mat4);
   }
   return bytes;
 }

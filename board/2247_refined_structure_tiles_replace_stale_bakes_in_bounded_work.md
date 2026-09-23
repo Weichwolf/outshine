@@ -66,20 +66,28 @@ Revision comparisons cover vector source, DEM source, quality, camera-dependent
 detail inputs and candidate generation. Do not use a global reset or special
 case for Malcesine/Graz.
 
-2026-09-23 Rosenheim exposed an old-candidate worker releasing its tile in the
-new candidate's `BuildingField`: equal vector generation was insufficient and
-tripped `TileWatermark::Release`. Reservation release now also requires the
-same candidate height revision, footprint parameters and eye. This prevents
-cross-candidate mutation; it does not replace the global refined rebake.
+An old-candidate worker may release a reservation only when vector generation,
+candidate height revision, footprint parameters and eye all still match.
 
-Refined now copies accepted CPU/GPU structure products, scans accepted tiles
+Refined now copies accepted CPU structure products and tile IDs, scans accepted tiles
 against vector, DEM raster, street and camera inputs, and replaces only stale
 tiles before readiness. The street digest is captured at bake admission:
 recording it at commit falsely marked a tile current when roads arrived during
 the worker task. `GroundCandidatePacingReachesReadiness` now passes normal and
 validated pacing; Wien publishes a new Refined PNG within its frame limit.
-This proves neither DEM posting adequacy nor unchanged-handle upload counts,
-late cancellation, source eviction/reload, or the larger Graz/Basel cases.
+Wien exposes the next violation: `SceneResources::CopySourcesFrom` deep-copies
+98 immutable piece meshes (156.7 MB) in 23.7 ms; `RestorePieces` reuploads all
+of them in 58.4 ms on one candidate-preparation frame. Keep mutable rows,
+resident ID and slot state per world, share immutable CPU mesh payloads, and
+pace restoration before candidate readiness. Published resources must remain
+usable until replacement and retirement. True unchanged GPU-handle reuse is
+still unproven. DEM posting adequacy, cancellation, eviction/reload and
+Graz/Basel acceptance remain open.
+Immutable CPU piece payloads now remain shared across the candidate; piece
+uploads are paced before readiness. The Wien shot kept digest `45d7bbaa` and
+reached Refined in 5,428 frames: simulation p99 9.37 ms, maximum 26.71 ms,
+9 frames over 16.67 ms overall. The largest remaining frame was in draw
+(108.72 ms); true GPU-resident handle reuse and Graz/Basel still need proof.
 
 ## Implementation and acceptance
 

@@ -120,6 +120,7 @@ constexpr size_t kClassUploadBytesPerFrame = 1u << 20u;
 constexpr size_t kHaloNodesPerFrame = 32768;
 constexpr size_t kTerrainRefinementSourcesPerFrame = 8;
 constexpr size_t kGroundRestorePagesPerFrame = 64;
+constexpr size_t kPieceRestorePerFrame = 4;
 
 uint64_t DigestPatchwork(const Patchwork &patchwork) {
   uint64_t digest = kDigestBasis;
@@ -1347,7 +1348,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
   if (state.Prepared()) { return GroundBuildProgress::Ready; }
   const auto prepareAt = std::chrono::steady_clock::now();
   auto prepared = state.Candidate().AdvancePreparation(
-      *Picture.Standing, &Picture.Face, kGroundRestorePagesPerFrame);
+      *Picture.Standing,
+      &Picture.Face,
+      {.Pieces = kPieceRestorePerFrame, .HeightPages = kGroundRestorePagesPerFrame});
   if (!prepared) {
     Cost.GroundBuildPrepare.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - prepareAt)

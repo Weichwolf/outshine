@@ -35,11 +35,12 @@ int main() {
     if (scene) {
       {
         GroundWorldCandidate candidate(renderer, world, footprints);
-        auto advanced = candidate.AdvancePreparation(*scene, nullptr, 1);
+        auto advanced =
+            candidate.AdvancePreparation(*scene, nullptr, {.Pieces = 1, .HeightPages = 1});
         CHECK(advanced && !*advanced,
               "first advance creates the candidate without restoring pages");
         for (size_t restored = 0; restored < pages.size(); ++restored) {
-          advanced = candidate.AdvancePreparation(*scene, nullptr, 1);
+          advanced = candidate.AdvancePreparation(*scene, nullptr, {.Pieces = 1, .HeightPages = 1});
           CHECK(advanced && (*advanced == (restored + 1 == pages.size())),
                 "each advance restores exactly one source page before completion");
         }

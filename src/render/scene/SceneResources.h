@@ -54,6 +54,8 @@ public:
   [[nodiscard]] bool
   CopySourcesFrom(const SceneResources &source, PieceSources pieces, std::string &error);
   [[nodiscard]] bool RestorePieces(SubjectDraw &subjects, std::string &error);
+  [[nodiscard]] std::expected<bool, std::string>
+  AdvancePieceRestore(SubjectDraw &subjects, size_t &nextPiece, size_t piecesMost);
 
   [[nodiscard]] std::expected<uint32_t, std::string>
   RegisterPieceMaterials(SubjectDraw &subjects, SubjectDraw *glass, Geometry source);
@@ -103,13 +105,17 @@ public:
   }
 
 private:
-  struct Piece {
-    ResourceSlotState State{};
+  struct PieceSource {
     std::vector<float> Tangents;
     std::vector<StoredVertex> Vertices;
     std::vector<uint32_t> Indices;
     std::vector<DagCluster> Clusters;
     std::vector<float> Colours;
+  };
+
+  struct Piece {
+    ResourceSlotState State{};
+    std::shared_ptr<const PieceSource> Source;
     Mat4 Row;
     std::vector<Mat4> Rows;
     uint32_t MaxInstances = 0;

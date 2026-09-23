@@ -58,6 +58,11 @@ public:
     return Scene().AdvanceGeometryBuild(itemsMost);
   }
 
+  [[nodiscard]] std::expected<bool, std::string> AdvancePieceResourceRestore(size_t &nextPiece,
+                                                                             size_t piecesMost) {
+    return Scene().AdvancePieceResourceRestore(nextPiece, piecesMost);
+  }
+
   [[nodiscard]] std::expected<bool, std::string> AdvanceGroundResourceRestore(size_t &nextPage,
                                                                               size_t pagesMost) {
     return Scene().AdvanceGroundResourceRestore(nextPage, pagesMost);
@@ -72,10 +77,10 @@ public:
           const Ui::Font *font,
           Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
           SubjectGeometrySources geometry = SubjectGeometrySources::All,
-          GroundResourceRestore ground = GroundResourceRestore::Immediate) {
+          ResourceRestoreMode restore = ResourceRestoreMode::Immediate) {
     std::string error;
     if (!RuntimeScene::PreparesWorldReplacement(
-            Renderer_, previous, font, Scene_, error, pieces, geometry, ground)) {
+            Renderer_, previous, font, Scene_, error, pieces, geometry, restore)) {
       return std::unexpected(std::move(error));
     }
     return {};
