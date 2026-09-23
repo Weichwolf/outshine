@@ -36,7 +36,9 @@ the single retirement slot, which blocks new admission until scratch retires.
 A two-view integration test changes region during in-flight corridor work,
 checks that replacement waits for retirement, and passes normally and under
 NDEBUG; measured retirement peaks at 0.33 ms. Larger canceled candidates and
-destruction of their non-corridor products still need a latency bound.
+destruction of their non-corridor products still need a latency bound. The same
+test cancels after class upload: 1.72 MB retained, 0.15 ms longest retirement
+slice, normal and NDEBUG. This does not prove the Wien-scale limit.
 
 ## Contract and ownership
 

@@ -1280,6 +1280,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
                        static_cast<double>(World.GroundBuild->RevisionDifference(request.Revision)),
                        "bits");
       if (World.GroundRetirement) { return GroundBuildProgress::Pending; }
+      Published.Places("ground candidate: canceled CPU products",
+                       static_cast<double>(World.GroundBuild->RetainedProductBytes()),
+                       "bytes");
       World.GroundRetirement = std::move(World.GroundBuild);
       return GroundBuildProgress::Pending;
     }

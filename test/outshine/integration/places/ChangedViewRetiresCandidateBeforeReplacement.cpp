@@ -102,6 +102,52 @@ int main() {
         Note("changed-view retirement maximum", retirementMostMs, "ms");
         CHECK(retirementMostMs > 0 && retirementMostMs < 16.67,
               "candidate retirement stays within one frame");
+        const auto lateUntil = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        bool lateCandidate = false;
+        while (std::chrono::steady_clock::now() < lateUntil && !lateCandidate) {
+          const auto advanced = engine.advance();
+          CHECK(advanced.has_value(),
+                advanced ? "late candidate advances" : advanced.error().c_str());
+          if (!advanced) { break; }
+          lateCandidate = Measure(engine, "ground candidate: class upload").has_value() &&
+                          !Measure(engine, "ground candidate: publication").has_value();
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        CHECK(lateCandidate, "replacement reaches geometry preparation before publication");
+        if (lateCandidate) {
+          const double startsAtLate = Measure(engine, "ground candidate: starts").value_or(0);
+          const double retirementSlices = Measure(engine, "ground retirement slices").value_or(0);
+          CHECK(engine.setView("first").has_value(), "return view invalidates late candidate");
+          bool lateRetired = false;
+          bool lateReplacementStarted = false;
+          double lateRetirementMostMs = 0;
+          double canceledBytes = 0;
+          const auto returnUntil = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+          while (std::chrono::steady_clock::now() < returnUntil && !lateReplacementStarted) {
+            const auto advanced = engine.advance();
+            CHECK(advanced.has_value(),
+                  advanced ? "late replacement advances" : advanced.error().c_str());
+            if (!advanced) { break; }
+            const double slices = Measure(engine, "ground retirement slices").value_or(0);
+            if (slices > retirementSlices) {
+              lateRetired = true;
+              lateRetirementMostMs =
+                  std::max(lateRetirementMostMs,
+                           Measure(engine, "ground retirement time, last").value_or(0));
+            }
+            canceledBytes = Measure(engine, "ground candidate: canceled CPU products").value_or(0);
+            lateReplacementStarted =
+                lateRetired &&
+                Measure(engine, "ground candidate: starts").value_or(0) > startsAtLate;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          }
+          Note("late canceled CPU products", canceledBytes, "bytes");
+          Note("late retirement maximum", lateRetirementMostMs, "ms");
+          CHECK(lateReplacementStarted && canceledBytes > 0,
+                "late candidate retires before another replacement starts");
+          CHECK(lateRetirementMostMs > 0 && lateRetirementMostMs < 16.67,
+                "late candidate retirement stays within one frame");
+        }
       }
     }
   }
