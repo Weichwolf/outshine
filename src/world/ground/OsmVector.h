@@ -22,7 +22,7 @@ public:
     uint32_t FirstRing = 0, RingCount = 0;
     uint32_t FirstTag = 0, TagCount = 0;
     int Type = 0;
-    std::optional<uint64_t> SourceFeatureId;
+    std::optional<uint64_t> ProviderFeatureId;
   };
 
   enum class ParseError { MissingLayer, InvalidTile, UnsupportedVersion };

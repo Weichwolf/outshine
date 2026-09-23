@@ -33,14 +33,27 @@ The normal VersaTiles provider (`versatiles.osm`, version 1, vector z14) was
 inspected in the 5x5 tile window centred on 14/8581/5603. It exposes 348
 `kind=track` and 226 `kind=service` street features, but zero `kind=raceway`
 features and no `highway=raceway` property; the sports-centre POI alone cannot
-identify the closed racing surface. `src/assets/world/vegetation.json` has no
-raceway street rule either. The loop is therefore **unidentified** at this
-provider boundary: do not silently route a service road or author a track
-spline. WI 2173 must deliver stable OSM way/relation IDs and preserved raceway,
-pit/access and direction tags (or a pinned raw OSM overlay) before this lap can
-select its route. Verify that the selected features survive provider, logical
-graph and native alignment with the same IDs. A source without those fields
-must fail this gate with the source identity and missing tags.
+identify the closed racing surface. All 1,162 street features carry MVT IDs,
+98 repeated across tiles, but no checked raceway Way ID matches an MVT ID or
+simple decimal scaling of one. `src/assets/world/vegetation.json` has no raceway
+street rule either. The loop remains **unidentified** at this provider boundary:
+do not silently route a service road or author a track spline.
+
+Raw OSM `/api/0.6/map` extracts for bboxes `8.54,49.315,8.58,49.34` and
+`8.58,49.315,8.61,49.34` contain 24 `highway=raceway` ways. Relation 284588,
+`type=circuit`, names the Grand Prix layout: 16 main ways form one directed
+267-node/267-edge cycle with no branch, approximately 4,565 m by spherical
+segment sum. A seventeenth member is explicitly `role=pitlane`; shortcuts and
+Rallycross ways are outside the main relation. Relation member order runs
+opposite the ways' one-way direction, so solve the topology rather than using
+the listed order. The 33,557-byte source pin is
+`test/outshine/integration/places/HockenheimringGrandPrix.osm` (SHA-256
+`f50914eac077325eee1b3e88eae0eeffac58ff086e180cba4ec8734e94661d7f`).
+It contains route source objects, not a hand-authored track or whole-world
+fixture. WI 2173 must deliver OSM way/relation IDs and tags through a general
+provider or raw overlay. The MVT ID preserved by WI 2270 is only a provider ID
+until a source mapping is proven. A source without relation, way IDs or
+direction tags fails this gate explicitly.
 
 The height-field footprint now covers building footprints and the vector
 window plus a DEM halo. Before that fix, 49 structure tiles remained
@@ -56,11 +69,12 @@ diagnosis, not driving acceptance.
 
 ## Construction
 
-1. Pin a local OSM/DEM input region and source identities. Identify the main
-   `highway=raceway` loop from OSM topology; pit lane, service roads, paths and
-   public roads remain distinct. Use explicit start/waypoint/direction only
-   where OSM admits more than one legal loop. Missing/ambiguous connectivity
-   yields a diagnostic with source IDs, never an invisible camera teleport.
+1. Resolve circuit relation 284588 from a generic OSM semantic source; join
+   its unroled member ways by directed node IDs into one closed route. Exclude
+   `role=pitlane`, shortcuts and Rallycross. Verify 267 nodes each have one
+   predecessor and successor in this pinned source. A missing member, reverse
+   direction or ambiguous junction yields source-ID diagnostics, never an
+   invisible camera teleport. DEM, transport and geometry still stream normally.
 2. Route graph (2133) yields stable edge IDs independent of rendering. The
    bounded road candidate (2256) must publish complete matching geometry.
    Alignment (2175) maps each (edge ID, s, t) to double-precision position,

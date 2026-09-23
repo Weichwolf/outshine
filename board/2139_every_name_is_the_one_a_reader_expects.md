@@ -98,8 +98,9 @@ the last placement-buffer upload; rendered vertex history remains separately own
 `RuntimeScene` and advances only after a successful frame submission. Published products have
 one commit owner; subsystem extraction must preserve rollback, generation and GPU lifetime.
 Use reaches plus resolved-header checks; do not add reverse edges to make a move compile.
-Names follow the actual operation: Prepare/Commit/Submit/Read/Cancel, not Opens/Hands/Into
-where they obscure ownership. Rename only alongside the owning consumer migration.
+Audit class, struct, function and file names in every owner slice: a name states the domain
+object or operation, ownership and units when relevant. Reject generic wrappers, misleading
+source identities and verbs that hide side effects. Migrate callers and tests with each rename.
 
 For each slice migrate code, callers, build paths, tests and contracts together; remove the
 old implementation and storage. No facade containing the old monolith, service locator,

@@ -526,7 +526,7 @@ void OsmField::AppendLayer(const OsmVector &layer, uint16_t layerIndex) {
     f.Tile = tile;
     f.Layer = layerIndex;
     f.Type = static_cast<uint8_t>(sf.Type);
-    f.SourceFeatureId = sf.SourceFeatureId;
+    f.ProviderFeatureId = sf.ProviderFeatureId;
     f.FirstRing = static_cast<uint32_t>(Rings_.size());
     f.FirstTag = static_cast<uint32_t>(Tags_.size());
     f.MinLat = f.MinLon = kNoLeastYet;

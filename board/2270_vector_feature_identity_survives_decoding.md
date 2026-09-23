@@ -18,7 +18,7 @@ features carry an ID; 98 IDs repeat across tiles. These are provider feature
 IDs, not yet proven to be original OSM way IDs. Do not derive OSM meaning from
 their numeric pattern or substitute tile coordinates/geometry hashes.
 
-`OsmVector::Feature` and `OsmField::Feature` carry an optional `SourceFeatureId`
+`OsmVector::Feature` and `OsmField::Feature` carry an optional `ProviderFeatureId`
 through decode, staged tile publication and rebuilt snapshots. The optional
 state distinguishes absent from the valid ID zero; preserve the full 64 bits.
 Repeated IDs may identify fragments across tiles, but no consumer may merge on

@@ -337,7 +337,7 @@ struct EncodedFeature {
   std::vector<uint32_t> Tags;
   std::vector<uint32_t> Geometry;
   int Type = 0;
-  std::optional<uint64_t> SourceFeatureId;
+  std::optional<uint64_t> ProviderFeatureId;
 };
 
 enum class FeatureTag : uint32_t {
@@ -363,57 +363,61 @@ bool AppendPackedWords(Reader reader, std::vector<uint32_t> &words) {
   return reader.Ok;
 }
 
+bool ReadProviderFeatureId(Reader &reader, EncodedFeature &feature) {
+  if (feature.ProviderFeatureId) { return false; }
+  const uint64_t id = reader.Varint();
+  if (!reader.Ok) { return false; }
+  feature.ProviderFeatureId = id;
+  return true;
+}
+
+bool ReadFeatureType(Reader &reader, EncodedFeature &feature) {
+  const uint64_t type = reader.Varint();
+  if (!reader.Ok || type > 3) { return false; }
+  feature.Type = static_cast<int>(type);
+  return true;
+}
+
+struct FeaturePresence {
+  bool HasType = false;
+  bool HasGeometry = false;
+};
+
+bool ReadFeatureField(Reader &reader,
+                      FieldHeader field,
+                      EncodedFeature &feature,
+                      FeaturePresence &presence) {
+  switch (static_cast<FeatureTag>((field.Number << 3u) | field.Wire)) {
+    case FeatureTag::Id: return ReadProviderFeatureId(reader, feature);
+    case FeatureTag::Tag: return AppendWord(reader, feature.Tags);
+    case FeatureTag::PackedTags: return AppendPackedWords(reader.Bytes(), feature.Tags);
+    case FeatureTag::GeometryWord:
+    case FeatureTag::PackedGeometry:
+      presence.HasGeometry = true;
+      return field.Wire == 0 ? AppendWord(reader, feature.Geometry)
+                             : AppendPackedWords(reader.Bytes(), feature.Geometry);
+    case FeatureTag::Type:
+      presence.HasType = ReadFeatureType(reader, feature);
+      return presence.HasType;
+    default: return field.Number != 1 && reader.Skip(field.Wire);
+  }
+}
+
 std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature &feature) {
   feature.Tags.clear();
   feature.Geometry.clear();
   feature.Type = 0;
-  feature.SourceFeatureId.reset();
-  bool hasType = false;
-  bool hasGeometry = false;
+  feature.ProviderFeatureId.reset();
+  FeaturePresence presence;
   FieldHeader field;
   while (reader.ReadField(field)) {
-    switch (static_cast<FeatureTag>((field.Number << 3u) | field.Wire)) {
-      case FeatureTag::Id: {
-        if (feature.SourceFeatureId) { return std::unexpected(Says::kInvalidMvtFeature); }
-        const uint64_t id = reader.Varint();
-        if (!reader.Ok) { return std::unexpected(Says::kInvalidMvtFeature); }
-        feature.SourceFeatureId = id;
-        break;
-      }
-      case FeatureTag::Tag:
-        if (!AppendWord(reader, feature.Tags)) { return std::unexpected(Says::kInvalidMvtFeature); }
-        break;
-      case FeatureTag::PackedTags:
-        if (!AppendPackedWords(reader.Bytes(), feature.Tags)) {
-          return std::unexpected(Says::kInvalidMvtFeature);
-        }
-        break;
-      case FeatureTag::GeometryWord:
-        hasGeometry = true;
-        if (!AppendWord(reader, feature.Geometry)) {
-          return std::unexpected(Says::kInvalidMvtFeature);
-        }
-        break;
-      case FeatureTag::PackedGeometry:
-        hasGeometry = true;
-        if (!AppendPackedWords(reader.Bytes(), feature.Geometry)) {
-          return std::unexpected(Says::kInvalidMvtFeature);
-        }
-        break;
-      case FeatureTag::Type: {
-        const auto type = reader.Varint();
-        if (!reader.Ok || type > 3) { return std::unexpected(Says::kInvalidMvtFeature); }
-        feature.Type = static_cast<int>(type);
-        hasType = true;
-        break;
-      }
-      default:
-        if (field.Number == 1) { return std::unexpected(Says::kInvalidMvtFeature); }
-        if (!reader.Skip(field.Wire)) { return std::unexpected(Says::kInvalidMvtFeature); }
-        break;
+    if (!ReadFeatureField(reader, field, feature, presence)) {
+      return std::unexpected(Says::kInvalidMvtFeature);
     }
   }
-  if (!reader.Ok || !hasType || !hasGeometry) { return std::unexpected(Says::kInvalidMvtFeature); }
+  if (!reader.Ok || !presence.HasType || !presence.HasGeometry) {
+    return std::unexpected(Says::kInvalidMvtFeature);
+  }
   return {};
 }
 
@@ -508,7 +512,7 @@ OsmVector::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodie
     if (encoded.Type == 0) { continue; }
     Feature f{};
     f.Type = encoded.Type;
-    f.SourceFeatureId = encoded.SourceFeatureId;
+    f.ProviderFeatureId = encoded.ProviderFeatureId;
     f.FirstTag = static_cast<uint32_t>(Tags_.size());
     f.FirstRing = static_cast<uint32_t>(Rings_.size());
     Tags_.insert(Tags_.end(), encoded.Tags.begin(), encoded.Tags.end());

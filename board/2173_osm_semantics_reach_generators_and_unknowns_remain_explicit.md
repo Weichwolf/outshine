@@ -58,6 +58,15 @@ Pit-/Service-/Access- und Richtungssemantik am Providervertrag überleben. Ein
 gepinnter Roh-OSM-Overlay ist zulässig, wenn die Vektorkacheln die Semantik
 nachweislich verlieren; die Zuordnung muss aus Quell-IDs entstehen, nicht aus
 Place-Namen oder kamerafesten Heuristiken. Fehlende Identität explizit melden.
+Im 25-Tile-Fenster tragen alle 1 162 `streets`-Features MVT-IDs; 98 IDs erscheinen
+in mehreren Tiles. Der bisherige Decoder verwarf sie; WI 2270 erhält diese
+optionalen 64-Bit-Quell-IDs. Sie sind **keine belegten OSM-Way-IDs**: kein
+geprüfter Hockenheim-Raceway-Way passt direkt oder durch einfache Dezimalskalierung.
+Roh-OSM zeigt stattdessen 24 `highway=raceway`-Ways und die eindeutige
+Grand-Prix-Relation 284588 mit 16 Haupt-Ways und eigener Pitlane-Rolle; das
+Quellpin steht in WI 2260. Der allgemeine semantische Provider muss Node-/Way-/
+Relation-IDs, Mitgliedsrolle, Tag-Provenienz und gerichtete Nodefolge liefern.
+Ein MVT-Feature-ID-Join ist erst nach einem unabhängigen Nachweis zulässig.
 Ein auf Bildkacheln generalisierter Linienzug ohne IDs ist keine vollständige logische
 Karte. 2133 besitzt Konnektivität, 2175 Bauwerke, 2176 Artenauswahl. Fehlende Tags werden
 gezählt und plausibel ergänzt; keine vermeintliche Messgenauigkeit aus Defaults.
