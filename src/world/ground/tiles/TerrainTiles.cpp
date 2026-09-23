@@ -203,6 +203,7 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
         cropped.SetM(r, c, field->AtM(subY * cropRows + r, subX * cropCols + c));
       }
     }
+    cropped.AddSources(field->Sources());
     grid = TerrainGrid::Holding(std::move(cropped));
     field = grid.TryFieldMutable();
   }
