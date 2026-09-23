@@ -24,6 +24,17 @@ int main() {
     Geometry target = seed.clone();
     CHECK(target.setPositions(part, std::array<float, 9>{-2, -1, 0, 2, -1, 0, 0, 2, 0}),
           "replacement geometry is valid");
+    const int second = target.addPart("second", MaterialInstance{}).value();
+    CHECK(
+        target.setPositions(
+            second,
+            std::array<float, 9>{-0.5f, -0.5f, 0.1f, 0.5f, -0.5f, 0.1f, 0.0f, 0.5f, 0.1f}) &&
+            target.setNormals(second, std::array<float, 9>{0, 0, 1, 0, 0, 1, 0, 0, 1}) &&
+            target.setTangents(second, std::array<float, 12>{1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1}) &&
+            target.setTexture(second, std::array<float, 6>{0, 0, 1, 0, 0.5f, 1}) &&
+            target.setColours(second, std::array<float, 12>{1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1}) &&
+            target.setTriangles(second, std::array<uint32_t, 3>{0, 1, 2}),
+        "second part carries independent texture, frame and colour streams");
     Core::Declaration declaration;
     declaration.InitialGeometry = &seed;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;

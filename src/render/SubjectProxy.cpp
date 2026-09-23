@@ -423,9 +423,8 @@ bool PackIndexSlice(const Shape &subject, SubjectScratch &scratch, size_t wordsM
     const IndexRun &run = runs[cursor.Run];
     const size_t count = std::min(wordsMost, static_cast<size_t>(run.Count) - cursor.RunWord);
     const size_t first = static_cast<size_t>(run.SourceFirst) + cursor.RunWord;
-    scratch.Indices.insert(scratch.Indices.end(),
-                           subject.Indices.begin() + first,
-                           subject.Indices.begin() + first + count);
+    const std::span<const uint32_t> section = subject.Indices.subspan(first, count);
+    scratch.Indices.insert(scratch.Indices.end(), section.begin(), section.end());
     cursor.RunWord += count;
     wordsMost -= count;
     if (cursor.RunWord == run.Count) {
