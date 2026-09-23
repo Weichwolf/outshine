@@ -20,6 +20,8 @@
 #include "Geodesy.h"
 #include "TerrainGrid.h"
 #include "GroundLattice.h"
+#include "OsmField.h"
+#include "OsmLayer.h"
 #include "TileGeodesy.h"
 #include "math/Vec3.h"
 
@@ -30,6 +32,8 @@ static_assert(kPatchGrid + 1 == Render::GroundLattice::kSide,
               "the surface the roads are draped on");
 
 namespace {
+
+constexpr uint8_t kPolygonFeature = 3;
 
 [[nodiscard]] double FractionOf(int k, uint32_t postings, int side) {
   return static_cast<double>(Ground::ChunkNodePosting(k, postings, side)) /
@@ -78,7 +82,8 @@ struct SourceTile {
 };
 
 [[nodiscard]] std::vector<Data::TileId> SourceTilesOf(const Patchwork &candidate,
-                                                      SourceCoverage coverage) {
+                                                      SourceCoverage coverage,
+                                                      const Ground::OsmField *vectors) {
   std::vector<Data::TileId> tiles;
   constexpr size_t kNeighbours = 9;
   tiles.reserve(candidate.Sheets.size() * kNeighbours * 2u);
@@ -104,6 +109,32 @@ struct SourceTile {
       appendNeighbours({.Zoom = coverage.GroundZoom,
                         .X = static_cast<long>(static_cast<uint32_t>(x) >> parentDrop),
                         .Y = static_cast<long>(static_cast<uint32_t>(y) >> parentDrop)});
+    }
+  }
+  if (vectors != nullptr) {
+    for (const Ground::OsmField::Tile &tile : vectors->Tiles()) {
+      const int zoom = std::min(tile.Z, coverage.FinestZoom);
+      const auto drop = static_cast<uint32_t>(tile.Z - zoom);
+      appendNeighbours({.Zoom = zoom,
+                        .X = static_cast<long>(static_cast<uint32_t>(tile.X) >> drop),
+                        .Y = static_cast<long>(static_cast<uint32_t>(tile.Y) >> drop)});
+    }
+    const int buildings = vectors->Layer(Ground::OsmLayer::Buildings);
+    for (const Ground::OsmField::Feature &feature : vectors->Features()) {
+      if (feature.Type != kPolygonFeature || std::cmp_not_equal(feature.Layer, buildings)) {
+        continue;
+      }
+      const Ground::TileSpot low = Ground::HeightField::SpotOf(
+          {.LongitudeDeg = feature.MinLon, .LatitudeDeg = feature.MaxLat}, coverage.FinestZoom);
+      const Ground::TileSpot high = Ground::HeightField::SpotOf(
+          {.LongitudeDeg = feature.MaxLon, .LatitudeDeg = feature.MinLat}, coverage.FinestZoom);
+      for (long y = low.Y; y <= high.Y; ++y) {
+        for (long x = low.X; x <= high.X; ++x) {
+          tiles.push_back({.Zoom = coverage.FinestZoom,
+                           .X = static_cast<uint32_t>(x),
+                           .Y = static_cast<uint32_t>(y)});
+        }
+      }
     }
   }
   const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
@@ -139,8 +170,10 @@ std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &ca
                                                              FieldPreparation preparation) {
   if (!RequestsPrepared_) {
     ForgetsFields();
-    const std::vector<Data::TileId> tiles = SourceTilesOf(
-        candidate, {.FinestZoom = preparation.FinestZoom, .GroundZoom = ground.BlockZoom()});
+    const std::vector<Data::TileId> tiles =
+        SourceTilesOf(candidate,
+                      {.FinestZoom = preparation.FinestZoom, .GroundZoom = ground.BlockZoom()},
+                      preparation.Vectors);
     Requests_.reserve(tiles.size());
     Fields_.reserve(tiles.size());
     for (const Data::TileId tile : tiles) { Requests_.push_back({.Tile = tile}); }

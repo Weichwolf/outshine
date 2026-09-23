@@ -84,6 +84,8 @@ std::optional<ProductSignature> Builds(bool preload) {
   const auto assembled = engine.assemble();
   CHECK(assembled.has_value(), assembled ? "scenario assembled" : assembled.error().c_str());
   if (!assembled) { return std::nullopt; }
+  CHECK(!engine.unsettledReasons(outshine::WorldQuality::Refined).empty(),
+        "an unbuilt world explains why refined capture is unavailable");
   if (preload) {
     const auto loaded = engine.preload(15.0);
     CHECK(loaded.has_value(), loaded ? "playable preload completed" : loaded.error().c_str());
@@ -132,6 +134,8 @@ std::optional<ProductSignature> Builds(bool preload) {
   CHECK(capture.has_value() && engine.settled(outshine::WorldQuality::Refined),
         "paced advance publishes a refined capturable world");
   if (!capture || !engine.settled(outshine::WorldQuality::Refined)) { return std::nullopt; }
+  CHECK(engine.unsettledReasons(outshine::WorldQuality::Refined).empty(),
+        "a refined world has no outstanding readiness reason");
   Note(preload ? "preloaded published products" : "paced published products");
   for (const char *name : {"ground candidate: starts",
                            "buildings: tiles handed to the arena as pieces",

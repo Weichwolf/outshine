@@ -50,6 +50,14 @@ Vorbild, RAGE die visuelle Referenz, kein belegter Quellcodevertrag.
 
 Auch OSM node/way/relation IDs, highway/railway, bridge/tunnel/layer, access/oneway,
 lanes/turn restrictions, gauge/electrified sowie tree/species/genus/leaf_type durchreichen.
+Hockenheim-Datengate: VersaTiles `versatiles.osm` v1 z14 im 5x5-Fenster um
+14/8581/5603 liefert 348 `kind=track`, 226 `kind=service`, aber kein
+`kind=raceway` und kein `highway=raceway`; ein POI `sport=motor` identifiziert
+keine befahrbare Runde. Für WI 2260 müssen OSM-Way-/Relation-ID, `highway=raceway`,
+Pit-/Service-/Access- und Richtungssemantik am Providervertrag überleben. Ein
+gepinnter Roh-OSM-Overlay ist zulässig, wenn die Vektorkacheln die Semantik
+nachweislich verlieren; die Zuordnung muss aus Quell-IDs entstehen, nicht aus
+Place-Namen oder kamerafesten Heuristiken. Fehlende Identität explizit melden.
 Ein auf Bildkacheln generalisierter Linienzug ohne IDs ist keine vollständige logische
 Karte. 2133 besitzt Konnektivität, 2175 Bauwerke, 2176 Artenauswahl. Fehlende Tags werden
 gezählt und plausibel ergänzt; keine vermeintliche Messgenauigkeit aus Defaults.

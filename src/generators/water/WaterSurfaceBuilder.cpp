@@ -131,10 +131,15 @@ AppendWaterSurfaceGeometry(Geometry &geometry,
   std::vector<float> normals;
   std::vector<float> texcoords;
   std::vector<uint32_t> indices;
-  for (size_t body = 0; body < water.Surfaces().size(); ++body) {
-    const auto &surface = water.Surfaces()[body];
+  std::vector<const Ground::WaterField::Surface *> orderedSurfaces;
+  orderedSurfaces.reserve(water.Surfaces().size());
+  for (const auto &surface : water.Surfaces()) { orderedSurfaces.push_back(&surface); }
+  std::ranges::sort(orderedSurfaces, {}, [&water](const auto *surface) {
+    return water.RingsOf(*surface).front().FirstPoint;
+  });
+  for (const auto *surface : orderedSurfaces) {
     const auto polygon =
-        ReadWaterPolygon(water.RingsOf(surface), geographicPoints, surface.LevelM, frame);
+        ReadWaterPolygon(water.RingsOf(*surface), geographicPoints, surface->LevelM, frame);
     if (!polygon ||
         polygon->Vertices.size() > std::numeric_limits<uint32_t>::max() - positions.size() / 3u) {
       ++metrics.RefusedTopology;

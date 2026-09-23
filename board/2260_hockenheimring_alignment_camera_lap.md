@@ -2,7 +2,7 @@ Type: proof
 State: active
 Architecture: ready
 Parent: 2175
-Depends: 2133, 2256, 2262
+Depends: 2173, 2133, 2256, 2262
 Priority: P0
 Area: scenario, navigation, generators, client
 Tags: osm, driving, camera, visual-acceptance
@@ -19,8 +19,8 @@ flips, terrain penetration, LOD pops and tile eviction. It is a development
 driver because the entire scene uses the normal streaming pipeline; no
 hand-authored track mesh or route spline may replace OSM-derived products.
 
-The repository does not yet contain this scenario. The existing
-`src/assets/drive/f31.scenario` contains a root `<drive>` that the current
+`src/assets/places/Hockenheimring.scenario` is the data-gate overview, not a lap.
+The existing `src/assets/drive/f31.scenario` contains a root `<drive>` that the current
 reader rejects; follower camera placement exists, but no scenario contract
 currently proves a route-bound camera. Do not revive the rejected element as
 an opaque shortcut. Extend the declarative scenario/API contract for a named
@@ -29,15 +29,30 @@ equivalent format-independent native route handle.
 
 ## First data gate
 
-`src/assets/world/vegetation.json` has no street rule for `kind=raceway`.
-This does not prove that VersaTiles emits that kind at Hockenheim. Add a
-declarative overview scenario, fetch through the normal provider and inspect
-the accepted vector features and source identities. Record whether the loop is
-present, which layer/kind and tags it carries, and whether `StreetField` admits
-it. A missing loop must fail this data gate explicitly. Only then add a
-general raceway rule or fix upstream semantic transport; do not fabricate a
-Hockenheim-only road. Open the overview PNG and measure streaming/frame costs.
-The overview is input diagnosis, not the lap or its driving acceptance.
+The normal VersaTiles provider (`versatiles.osm`, version 1, vector z14) was
+inspected in the 5x5 tile window centred on 14/8581/5603. It exposes 348
+`kind=track` and 226 `kind=service` street features, but zero `kind=raceway`
+features and no `highway=raceway` property; the sports-centre POI alone cannot
+identify the closed racing surface. `src/assets/world/vegetation.json` has no
+raceway street rule either. The loop is therefore **unidentified** at this
+provider boundary: do not silently route a service road or author a track
+spline. WI 2173 must deliver stable OSM way/relation IDs and preserved raceway,
+pit/access and direction tags (or a pinned raw OSM overlay) before this lap can
+select its route. Verify that the selected features survive provider, logical
+graph and native alignment with the same IDs. A source without those fields
+must fail this gate with the source identity and missing tags.
+
+The height-field footprint now covers building footprints and the vector
+window plus a DEM halo. Before that fix, 49 structure tiles remained
+uncertified after 6144 frames; extending only building fields exposed a
+missing road DEM at east -6140 m. `make shots PLACE=Hockenheimring` now reaches
+Refined and produces `build/shots/places/Hockenheimring-c46ddc43.png`:
+in a repeated run p50/p95/p99 2.07/3.42/8.41 ms, 1/1349 frames above
+16.67 ms, 393 MB peak heap, 953915 triangles, zero bare tiles. The opened
+1280x720 PNG shows the
+track area and buildings, but flat olive/brown surfaces and generic dark paths;
+it neither identifies a raceway nor proves photorealism. The overview is input
+diagnosis, not driving acceptance.
 
 ## Construction
 

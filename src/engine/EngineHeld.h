@@ -467,6 +467,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress BeginsGroundNetwork();
   [[nodiscard]] GroundBuildProgress BeginsGroundBakes(const TangentFrame &standing) const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
+  [[nodiscard]] std::string GroundBuildDiagnostic() const;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;
   [[nodiscard]] Ground::BuildingField *CandidateFootprints() const noexcept;
   [[nodiscard]] bool StagesGroundBakes(size_t landsMost);

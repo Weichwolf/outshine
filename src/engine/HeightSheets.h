@@ -20,6 +20,10 @@
 
 namespace outshine {
 
+namespace Ground {
+class OsmField;
+}
+
 namespace Render {
 class SceneRenderer;
 }
@@ -29,6 +33,7 @@ public:
   struct FieldPreparation {
     int FinestZoom;
     size_t RequestsMost;
+    const Ground::OsmField *Vectors = nullptr;
   };
 
   class HaloBuildJob {

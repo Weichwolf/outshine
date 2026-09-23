@@ -278,6 +278,20 @@ bool Engine::settled(WorldQuality required) const {
   return S_->Readiness(quality).Ready();
 }
 
+std::string Engine::unsettledReasons(WorldQuality required) const {
+  const GroundQuality quality =
+      required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
+  std::string reasons = S_->Readiness(quality).Describe();
+  if (!reasons.empty() && required == WorldQuality::Refined) {
+    reasons += "; " + S_->World.Stack.IngestionStatus();
+    reasons += "; " + S_->GroundBuildDiagnostic();
+    reasons += "; structure queue=" + std::to_string(S_->World.StructureBuilds.Queued()) +
+               ", landed=" + std::to_string(S_->World.StructureBuilds.Landed()) + "/" +
+               std::to_string(S_->World.StructureBuilds.Posted());
+  }
+  return reasons;
+}
+
 Holds<Capture> Engine::beginCapture() {
   if (S_->Capturing) { return std::unexpected("a capture already holds this engine"); }
   if (!S_->Picture.Standing) {

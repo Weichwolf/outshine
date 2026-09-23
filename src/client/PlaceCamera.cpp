@@ -377,7 +377,8 @@ Shot Draw(Engine &engine,
   if (!MeasureFrames(engine, name, shot)) { return shot; }
   if (!engine.settled(WorldQuality::Refined)) {
     shot.Why = std::string(name) + " did not reach refined world quality after " +
-               std::to_string(shot.Frames) + " measured frames";
+               std::to_string(shot.Frames) +
+               " measured frames: " + engine.unsettledReasons(WorldQuality::Refined);
     return shot;
   }
   {

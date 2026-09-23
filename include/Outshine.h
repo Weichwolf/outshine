@@ -306,6 +306,11 @@ public:
   /// @param required Required near-contact or complete visual-coverage quality.
   /// @return True only when every readiness component for that quality is complete.
   [[nodiscard]] bool settled(WorldQuality required = WorldQuality::Playable) const;
+  /// Describe the work still blocking settled(required), without waiting or changing state.
+  /// Returns an owned empty string when settled; may allocate. Serialize with Engine mutations.
+  /// @param required Required near-contact or complete visual-coverage quality.
+  /// @return Empty if settled, otherwise current readiness blockers and internal progress.
+  [[nodiscard]] std::string unsettledReasons(WorldQuality required) const;
   /// Lock the assembled render scene and, when ground is declared, its settled published world.
   /// Rendering, readback and diagnostics remain permitted. Simulation, declarations, geometry,
   /// targets, roots, generator registration, views, preload and state restore are refused until

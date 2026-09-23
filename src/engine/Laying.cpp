@@ -869,6 +869,8 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
                             std::span<const double> points,
                             const TangentFrame &standing,
                             std::vector<EarthworkStamp> &yielding) {
+  std::vector<std::pair<uint32_t, EarthworkStamp>> ordered;
+  ordered.reserve(water.Surfaces().size());
   for (const Ground::WaterField::Surface &lake : water.Surfaces()) {
     const Ground::WaterField::SurfaceRing &ring = water.RingsOf(lake).front();
     if ((static_cast<size_t>(ring.FirstPoint) + ring.PointCount) * 2u > points.size()) { continue; }
@@ -928,8 +930,10 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
       made.HoleRingsEastNorthM.push_back(std::move(boundary));
     }
     if (!complete) { continue; }
-    yielding.push_back(std::move(made));
+    ordered.emplace_back(ring.FirstPoint, std::move(made));
   }
+  std::ranges::sort(ordered, {}, [](const auto &one) { return one.first; });
+  for (auto &entry : ordered) { yielding.push_back(std::move(entry.second)); }
 }
 }
 
@@ -1223,7 +1227,10 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
       const auto prepared = build.Sheets.PrepareFields(
           patchwork,
           World.Stack.Ground(),
-          {.FinestZoom = coverage.Zoom, .RequestsMost = kTerrainSheetsPerFrame});
+          {.FinestZoom = coverage.Zoom,
+           .RequestsMost = kTerrainSheetsPerFrame,
+           .Vectors = state.Revision().Quality == GroundQuality::Refined ? World.Stack.Vectors()
+                                                                         : nullptr});
       if (!prepared) {
         Error = prepared.error();
         World.GroundBuild.reset();
@@ -1546,6 +1553,17 @@ Engine::State::BeginsGroundBakes(const TangentFrame &standing) const {
 
 std::string_view Engine::State::GroundBuildStatus() const noexcept {
   return World.GroundBuild ? World.GroundBuild->Status() : "absent";
+}
+
+std::string Engine::State::GroundBuildDiagnostic() const {
+  std::string diagnostic = "ground build=" + std::string(GroundBuildStatus());
+  if (!World.GroundBuild) { return diagnostic; }
+  const auto &footprints = World.GroundBuild->Footprints();
+  const auto *vectors = World.Stack.Vectors();
+  diagnostic += ", structure refinement=" + std::to_string(footprints.RefinementRemaining());
+  diagnostic += ", footprints ingested=" +
+                std::to_string(vectors != nullptr && footprints.Ingested(*vectors));
+  return diagnostic;
 }
 
 size_t Engine::State::StructureCandidatesMost() const noexcept {

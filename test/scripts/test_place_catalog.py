@@ -70,7 +70,8 @@ class Catalog(unittest.TestCase):
         rows = self.run_client('places', directory=ROOT / 'src/assets/places').stdout.splitlines()
         actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}
         self.assertEqual(set(actual), {'DarmstadtWest', 'Wien', 'Rosenheim', 'Husum', 'Olympiaturm',
-                                       'Graz', 'Koerbersee', 'Malcesine', 'Feldkirch'})
+                                       'Graz', 'Koerbersee', 'Malcesine', 'Feldkirch',
+                                       'Hockenheimring'})
         self.assertEqual(actual['Malcesine'], ['45.744855', '10.800445', '140', '290', '-2',
                                               '38.04', '1280', '720', '2026-09-07T10:40:00Z'])
         self.assertEqual(actual['Husum'][-1], '2026-09-07T10:30:00Z')
