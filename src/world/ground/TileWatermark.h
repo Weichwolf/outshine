@@ -96,6 +96,21 @@ public:
     --Takes_;
   }
 
+  size_t ReleaseUnaccepted(std::span<const uint32_t> accepted) {
+    size_t released = 0;
+    std::erase_if(Ahead_, [&](uint32_t tile) {
+      if (std::ranges::binary_search(accepted, tile) ||
+          std::ranges::binary_search(Skipped_, tile)) {
+        return false;
+      }
+      ++released;
+      return true;
+    });
+    assert(released <= Takes_);
+    Takes_ -= released;
+    return released;
+  }
+
   void Advance(std::span<const OsmField::Feature> feats) {
     while (Mark_ < feats.size() && Taken(feats[Mark_].Tile)) {
       const uint32_t tile = feats[Mark_].Tile;

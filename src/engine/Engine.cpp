@@ -510,6 +510,7 @@ Result Engine::State::PreloadTimeout(double bound) {
   if (World.StructureBuilds.Posted() > 0) {
     Error += "; structure bakes=" + std::to_string(World.StructureBuilds.Landed()) + "/" +
              std::to_string(World.StructureBuilds.Posted()) +
+             ", discarded=" + std::to_string(World.StructureBuilds.Discarded()) +
              ", queued=" + std::to_string(World.StructureBuilds.Queued()) +
              ", structures=" + std::to_string(World.StructureBuilds.QueuedStructures()) +
              ", deferred=" + std::to_string(World.StructureBuilds.Deferred()) +

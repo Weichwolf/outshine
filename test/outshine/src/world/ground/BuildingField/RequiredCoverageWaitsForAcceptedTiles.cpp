@@ -23,11 +23,22 @@ int main() {
         "required coverage waits while its source tile has no accepted product");
   const uint32_t tile = vectors.Features().front().Tile;
   field.Take(tile);
+  BuildingField snapshot = field.SnapshotAccepted();
+  CHECK(!field.Next(
+            vectors, [](FeatureRun) { return true; }, 1) &&
+            snapshot.Next(
+                        vectors, [](FeatureRun) { return true; }, 1)
+                .has_value(),
+        "candidate snapshot retries a reserved tile while its source keeps ownership");
+  CHECK(!snapshot.Ingested(vectors) && !snapshot.IngestedWithin(vectors, 0),
+        "unfinished source tile is not accepted by the candidate snapshot");
   const BuildingField::Baked empty;
   auto pending = field.PrepareAcceptance(tile, empty);
   field.CommitAcceptance(std::move(pending), vectors, empty);
   CHECK(field.IngestedWithin(vectors, 0),
         "required coverage becomes ready only after its tile product is accepted");
+  CHECK(field.SnapshotAccepted().Ingested(vectors),
+        "accepted tile stays complete when copied into a candidate");
   field.ResetDerived();
   CHECK(!field.IngestedWithin(vectors, 0),
         "reset removes accepted coverage together with derived geometry");

@@ -53,7 +53,7 @@ public:
       const Ground::BuildingField &footprints,
       Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy)
       : Products_{.Sheets = world.Sheets,
-                  .Footprints = footprints,
+                  .Footprints = footprints.SnapshotAccepted(),
                   .Pieces = world.Pieces,
                   .Ground = {},
                   .PositionsM = {},

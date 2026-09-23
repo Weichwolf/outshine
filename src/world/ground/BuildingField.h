@@ -92,6 +92,8 @@ public:
   void AnchorAt(const Vec3 &ecef);
   void ResetDerived();
 
+  [[nodiscard]] BuildingField SnapshotAccepted() const;
+
   [[nodiscard]] uint64_t Revision() const noexcept { return Revision_; }
 
   [[nodiscard]] std::optional<TileWatermark::Next>

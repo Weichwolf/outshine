@@ -11,6 +11,14 @@
 
 namespace outshine::Ground {
 
+BuildingField BuildingField::SnapshotAccepted() const {
+  BuildingField copy = *this;
+  const size_t released = copy.Mark_.ReleaseUnaccepted(copy.AcceptedTiles_);
+  copy.Taken_ -= released;
+  assert(copy.Taken_ == copy.Accepted_);
+  return copy;
+}
+
 void BuildingField::ResetDerived() {
   ++Revision_;
   Prints_.clear();

@@ -11,32 +11,16 @@ Tags: streaming, realtime, ownership
 
 ## Verified state and immediate defect
 
-Candidate ownership, phase scheduling and atomic publication exist. Floor-contact and
-paced-readiness passed at bd8693885, proving local contracts but not pacing equivalence.
-Current client run 12ed7a1d7, Malcesine without vegetation, through refinement:
-p50 2.15, p95 4.25, p99 34.84 ms; 36/2405 frames exceed 16.67 ms.
-Simulation p99 34.08/worst 265.85 ms; draw p99 2.23/worst 11.17 ms; peak heap 852 MB.
-Native macOS sample (`sample <client-pid> 20 1 -file <tmp-file>`) attributed
-11676/15041 main-thread samples to repeated atmosphere integration inside structure
-publication. RuntimeScene candidates now inherit the exact atmosphere cache before
-Build; unchanged air/sun no longer integrate. Focused tests and full lint pass;
-cache-reset mutation fails 18 checks. PNG opened; digest remains 8dd84aa7.
-Unprofiled baseline was simulation p99 597.81/worst 671.65 ms. Profiling samples
-attribute work but are not independent frame-time measurements.
-WI 2253 removed the confirmed `FieldAwaited` worker wait from refinement/halos.
-Fields are now prepared and pinned in bounded polls before either phase. Delayed,
-boundary, cancellation, absence and refusal cases plus full lint pass at 86eee1580.
-Malcesine is pixel-identical (0/921600); p50/p95/p99 2.08/4.10/33.53 ms, 36/2468
-over 16.67 ms, sim p99/worst 32.84/192.46 ms, draw p99/worst 2.71/11.47 ms,
-peak heap 848 MB. WI 2254 then fixed nested fetch admission at cap 1/2:
-parked field jobs stop consuming active slots, while their fetches inherit the
-parent admission. Delayed, shutdown and pool tests plus full lint pass at
-02463e0c0. Malcesine remains pixel-identical; p50/p95/p99 2.06/4.30/33.73 ms,
-36/2456 over budget, sim worst 188.71 ms, peak heap 848 MB. Rosenheim initially
-measured 18.72 ms in `RuntimeScene::SetGeometry`: 11.33 ms shape preparation,
-including 9.00 ms cluster cooking. Resumable cooks now preserve digest 8e6642f9;
-the synchronous wrapper measures 16.19/9.08/7.12 ms for set/shape/clusters.
-Preserve detail and the full measured refinement window.
+Candidate ownership, phase scheduling, async field preparation, resumable cooks
+and atomic publication exist. Rosenheim remains 8e6642f9; with worker fields and
+smaller terrain batches its p99 is 5.04 ms, 0/3821 frames exceed 16.67 ms.
+Malcesine previously rendered 36/2456 frames over budget. At 0f5b955a6 and
+pre-worker 7ed2bdb17 it instead misses the 15 s preload deadline in
+`structure-bakes`: posted=1, landed=0, queue=0. The one task is discarded when
+its height-source revision changes; vector, focal length, tile span and eye
+still match. `GroundWorldCandidate` copies `BuildingField` including a pending
+reservation, but the old task belongs to another height-source revision. The
+candidate then has a taken tile without a task; `Next` cannot schedule it.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
 also with NDEBUG. Canonical `OsmField` publication, bounded active windows, source
@@ -62,6 +46,17 @@ Each candidate owns a coherent input revision and its intermediate products. Ret
 input owners through worker completion. Cancel obsolete candidates; never splice
 new revision data into completed phases. Only complete validated products replace the
 active world. Failure and cancellation preserve the published world.
+
+An in-flight building-tile reservation belongs only to its posting field.
+`BuildingField::SnapshotAccepted` must copy accepted products and watermark
+state but remove unaccepted reservations from the copy; it must leave the source
+field untouched. `GroundWorldCandidate` takes that snapshot. Skipped tiles and
+accepted out-of-order tiles remain marked. Test a reservation copied before
+completion: source stays reserved, candidate can request the tile, and no
+duplicate/partial product appears. Re-run Malcesine preload and paced capture;
+the repaired run completes: 07ca3a25, p99 4.22 ms, 0/3422 frames over budget.
+The historical image digest came from different engine inputs and is no current
+pixel oracle; the new PNG still exposes implausibly vertical shore terrain.
 
 Engine::advance and preload must orchestrate the same production operations. Their
 first publications now both use Playable quality; advance had incorrectly labelled its
