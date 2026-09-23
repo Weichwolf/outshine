@@ -40,12 +40,7 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
   std::vector<FeatureField::Feature> features;
   std::vector<FeatureField::Ring> rings;
   std::vector<FeatureField::Vertex> vertices;
-  const auto take = [&](const FeatureField::Feature &proto, FeatureField::Ring over) {
-    const uint32_t least = proto.Form == FeatureForm::Ribbon ? 2u : 3u;
-    if (over.Count < least) { return; }
-    FeatureField::Feature f = proto;
-    f.FirstRing = static_cast<uint32_t>(rings.size());
-    f.RingCount = 1;
+  const auto appendRing = [&](FeatureField::Ring over) {
     rings.push_back({.First = static_cast<uint32_t>(vertices.size()), .Count = over.Count});
     for (uint32_t k = 0; k < over.Count; k++) {
       const EastNorth on =
@@ -53,6 +48,14 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
                       .LatitudeDeg = points[(static_cast<size_t>(over.First) + k) * 2]});
       vertices.push_back({.Em = static_cast<float>(on.EastM), .Nm = static_cast<float>(on.NorthM)});
     }
+  };
+  const auto take = [&](const FeatureField::Feature &proto, FeatureField::Ring over) {
+    const uint32_t least = proto.Form == FeatureForm::Ribbon ? 2u : 3u;
+    if (over.Count < least) { return; }
+    FeatureField::Feature f = proto;
+    f.FirstRing = static_cast<uint32_t>(rings.size());
+    f.RingCount = 1;
+    appendRing(over);
     features.push_back(f);
   };
 
@@ -71,7 +74,13 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     f.Kind = FeatureKind::Water;
     f.Form = FeatureForm::Area;
     f.Top = FeatureLevel::At(s.LevelM);
-    take(f, {.First = s.FirstPoint, .Count = s.PointCount});
+    f.FirstRing = static_cast<uint32_t>(rings.size());
+    const auto surfaceRings = stands.WaterBodies->RingsOf(s);
+    f.RingCount = static_cast<uint32_t>(surfaceRings.size());
+    for (const auto &ring : surfaceRings) {
+      appendRing({.First = ring.FirstPoint, .Count = ring.PointCount});
+    }
+    features.push_back(f);
   }
   for (const outshine::Ground::StreetField::Way &w : stands.Ways->OfTile(tile)) {
     FeatureField::Feature f{};

@@ -76,6 +76,7 @@ enum class Stamp : uint8_t { Pad, Corridor, Basin };
 
 struct Yields {
   std::vector<double> RingEastNorthM;
+  std::vector<std::vector<double>> HoleRingsEastNorthM;
   double LowE = 0.0, HighE = 0.0, LowN = 0.0, HighN = 0.0;
   double AtE = 0.0, AtN = 0.0;
   double PlateauM = 0.0;
@@ -90,7 +91,10 @@ struct Yields {
   [[nodiscard]] bool operator==(const Yields &) const = default;
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return (RingEastNorthM.capacity() + SeamEastNorthM.capacity()) * sizeof(double);
+    size_t bytes = (RingEastNorthM.capacity() + SeamEastNorthM.capacity()) * sizeof(double);
+    bytes += HoleRingsEastNorthM.capacity() * sizeof(std::vector<double>);
+    for (const auto &hole : HoleRingsEastNorthM) { bytes += hole.capacity() * sizeof(double); }
+    return bytes;
   }
 
   [[nodiscard]] double WantsAt(EastNorth at) const {

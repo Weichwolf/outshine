@@ -30,8 +30,12 @@ public:
   };
 
   struct Surface {
-    uint32_t FirstPoint = 0, PointCount = 0;
+    uint32_t FirstRing = 0, RingCount = 0;
     float LevelM = 0.0f;
+  };
+
+  struct SurfaceRing {
+    uint32_t FirstPoint = 0, PointCount = 0;
   };
 
   struct Course {
@@ -48,6 +52,10 @@ public:
 
   [[nodiscard]] const std::vector<Surface> &Surfaces() const { return Surfaces_; }
 
+  [[nodiscard]] std::span<const SurfaceRing> RingsOf(const Surface &surface) const noexcept {
+    return std::span(SurfaceRings_).subspan(surface.FirstRing, surface.RingCount);
+  }
+
   [[nodiscard]] std::span<const Surface> OfTile(int tile) const {
     if (tile < 0) { return {}; }
     const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
@@ -60,6 +68,7 @@ public:
 
   void Settle() {
     Surfaces_.shrink_to_fit();
+    SurfaceRings_.shrink_to_fit();
     Courses_.shrink_to_fit();
     Levels_.shrink_to_fit();
   }
@@ -70,13 +79,15 @@ public:
       staged += CapacityBytes(candidate.Rings);
       for (const RingSamples &ring : candidate.Rings) { staged += CapacityBytes(ring.Heights); }
     }
-    return CapacityBytes(Surfaces_) + CapacityBytes(Courses_) + CapacityBytes(Levels_) +
-           Mark_.HeapBytes() + ByTile_.HeapBytes() + staged;
+    return CapacityBytes(Surfaces_) + CapacityBytes(SurfaceRings_) + CapacityBytes(Courses_) +
+           CapacityBytes(Levels_) + Mark_.HeapBytes() + ByTile_.HeapBytes() + staged;
   }
 
   [[nodiscard]] long NoGroundCount() const { return NoGround_; }
 
   [[nodiscard]] long OutlierCount() const { return Outliers_; }
+
+  [[nodiscard]] long InvalidBodyCount() const { return InvalidBodies_; }
 
   [[nodiscard]] int Deferrals() const { return Mark_.Deferrals(); }
 
@@ -94,6 +105,7 @@ private:
     size_t Feature = 0;
     size_t Ring = 0;
     std::vector<std::optional<double>> Heights;
+    bool Usable = true;
   };
 
   struct Candidate {
@@ -109,7 +121,7 @@ private:
                  const OsmField::Ring &ring,
                  const VegetationTemplates &vegetation,
                  std::span<double> heights);
-  void AddSurface(const OsmField::Ring &ring, std::span<double> heights);
+  void AddSurface(std::span<const RingSamples> rings, const OsmField &field);
   [[nodiscard]] static bool AdvanceCandidate(const GroundQuery &ground,
                                              const OsmField &field,
                                              OnLayers on,
@@ -117,17 +129,24 @@ private:
                                              std::chrono::steady_clock::time_point began,
                                              size_t &steps,
                                              IngestMetrics &metrics);
+  [[nodiscard]] static bool AdvanceRing(const GroundQuery &ground,
+                                        const OsmField &field,
+                                        bool surface,
+                                        Candidate &candidate,
+                                        size_t ringIndex,
+                                        IngestMetrics &metrics);
   void MaterializeCandidate(const OsmField &field,
                             OnLayers on,
                             const VegetationTemplates &vegetation,
                             const Candidate &candidate);
   std::vector<Surface> Surfaces_;
+  std::vector<SurfaceRing> SurfaceRings_;
   std::vector<Course> Courses_;
   std::vector<float> Levels_;
   TileRanges ByTile_;
   TileWatermark Mark_;
   std::vector<Candidate> Candidates_;
-  long NoGround_ = 0, Outliers_ = 0;
+  long NoGround_ = 0, Outliers_ = 0, InvalidBodies_ = 0;
   IngestMetrics WorstIngest_;
   std::optional<uint64_t> SourceGeneration_;
   uint64_t Admission_ = 0;

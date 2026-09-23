@@ -154,16 +154,16 @@ CellGrid BucketOver(std::span<const Yields> these) {
   return out;
 }
 
-double OutsideRingM(const Yields &held, EastNorth at) {
-  const size_t corners = held.RingEastNorthM.size() / 2u;
+double SignedDistanceToRingM(std::span<const double> ring, EastNorth at) {
+  const size_t corners = ring.size() / 2u;
   if (corners < 3) { return kBeyondAnyCoordinate; }
   bool inside = false;
   double nearest = kBeyondAnyCoordinate;
   for (size_t edge = 0, last = corners - 1u; edge < corners; last = edge++) {
-    const double aE = held.RingEastNorthM[edge * 2u];
-    const double aN = held.RingEastNorthM[edge * 2u + 1u];
-    const double bE = held.RingEastNorthM[last * 2u];
-    const double bN = held.RingEastNorthM[last * 2u + 1u];
+    const double aE = ring[edge * 2u];
+    const double aN = ring[edge * 2u + 1u];
+    const double bE = ring[last * 2u];
+    const double bN = ring[last * 2u + 1u];
     if ((aN > at.NorthM) != (bN > at.NorthM) &&
         at.EastM < (bE - aE) * (at.NorthM - aN) / (bN - aN) + aE) {
       inside = !inside;
@@ -180,6 +180,18 @@ double OutsideRingM(const Yields &held, EastNorth at) {
     nearest = std::min(nearest, std::sqrt(offE * offE + offN * offN));
   }
   return inside ? -nearest : nearest;
+}
+
+double OutsideRingM(const Yields &held, EastNorth at) {
+  const double outer = SignedDistanceToRingM(held.RingEastNorthM, at);
+  if (outer >= 0.0) { return outer; }
+  double insideM = -outer;
+  for (const auto &hole : held.HoleRingsEastNorthM) {
+    const double distanceM = SignedDistanceToRingM(hole, at);
+    if (distanceM <= 0.0) { return -distanceM; }
+    insideM = std::min(insideM, distanceM);
+  }
+  return -insideM;
 }
 
 struct Pressing {

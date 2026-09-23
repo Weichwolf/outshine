@@ -8,6 +8,7 @@
 #include <span>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -42,7 +43,7 @@ WaterKind KindOf(const OsmField &field, const OsmField::Feature &feature, OnLaye
 bool UsableRing(const OsmField::Ring &ring, WaterKind kind) {
   if (ring.Count > kMaxWaterRingPoints) { return false; }
   if (kind == WaterKind::Course) { return ring.Count >= 2; }
-  return kind == WaterKind::Surface && ring.Exterior && ring.Count >= 3;
+  return kind == WaterKind::Surface && ring.Count >= 3;
 }
 
 std::span<const double> RingPoints(const OsmField &field, const OsmField::Ring &ring) {
@@ -80,31 +81,51 @@ bool WaterField::AdvanceCandidate(const GroundQuery &ground,
       continue;
     }
     const size_t ringIndex = static_cast<size_t>(feature.FirstRing) + candidate.Ring;
-    const auto &ring = field.Rings()[ringIndex];
-    if (!UsableRing(ring, kind)) {
-      ++candidate.Ring;
-      continue;
+    if (!AdvanceRing(ground, field, kind == WaterKind::Surface, candidate, ringIndex, metrics)) {
+      return false;
     }
-    if (candidate.Point == 0 &&
-        (candidate.Rings.empty() || candidate.Rings.back().Feature != candidate.Feature ||
-         candidate.Rings.back().Ring != ringIndex)) {
-      candidate.Rings.push_back({.Feature = candidate.Feature, .Ring = ringIndex, .Heights = {}});
-      candidate.Rings.back().Heights.reserve(ring.Count);
+  }
+  return true;
+}
+
+bool WaterField::AdvanceRing(const GroundQuery &ground,
+                             const OsmField &field,
+                             bool surface,
+                             Candidate &candidate,
+                             size_t ringIndex,
+                             IngestMetrics &metrics) {
+  const auto &ring = field.Rings()[ringIndex];
+  if (!UsableRing(ring, surface ? WaterKind::Surface : WaterKind::Course)) {
+    if (surface) {
+      candidate.Rings.push_back(
+          {.Feature = candidate.Feature, .Ring = ringIndex, .Heights = {}, .Usable = false});
     }
-    const auto queryAt = std::chrono::steady_clock::now();
-    const GroundSample sampled = ground.At(PointAt(RingPoints(field, ring), candidate.Point));
-    metrics.LongestQueryMs = std::max(
-        metrics.LongestQueryMs,
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - queryAt)
-            .count());
-    ++metrics.ValidationPoints;
-    if (sampled.Where() == GroundSample::State::Pending) { return false; }
-    candidate.Rings.back().Heights.push_back(sampled.AslM());
-    ++candidate.Point;
-    if (candidate.Point >= ring.Count) {
-      ++candidate.Ring;
-      candidate.Point = 0;
-    }
+    ++candidate.Ring;
+    return true;
+  }
+  if (candidate.Point == 0 &&
+      (candidate.Rings.empty() || candidate.Rings.back().Feature != candidate.Feature ||
+       candidate.Rings.back().Ring != ringIndex)) {
+    candidate.Rings.push_back({.Feature = candidate.Feature, .Ring = ringIndex, .Heights = {}});
+    if (!surface || ring.Exterior) { candidate.Rings.back().Heights.reserve(ring.Count); }
+  }
+  if (surface && !ring.Exterior) {
+    ++candidate.Ring;
+    return true;
+  }
+  const auto queryAt = std::chrono::steady_clock::now();
+  const GroundSample sampled = ground.At(PointAt(RingPoints(field, ring), candidate.Point));
+  metrics.LongestQueryMs =
+      std::max(metrics.LongestQueryMs,
+               std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - queryAt)
+                   .count());
+  ++metrics.ValidationPoints;
+  if (sampled.Where() == GroundSample::State::Pending) { return false; }
+  candidate.Rings.back().Heights.push_back(sampled.AslM());
+  ++candidate.Point;
+  if (candidate.Point >= ring.Count) {
+    ++candidate.Ring;
+    candidate.Point = 0;
   }
   return true;
 }
@@ -113,8 +134,32 @@ void WaterField::MaterializeCandidate(const OsmField &field,
                                       OnLayers on,
                                       const VegetationTemplates &vegetation,
                                       const Candidate &candidate) {
+  size_t firstSurfaceRing = 0;
+  size_t surfaceFeature = 0;
+  bool surfaceActive = false;
+  const auto publishSurface = [&](size_t end) {
+    if (surfaceActive) {
+      AddSurface(std::span(candidate.Rings).subspan(firstSurfaceRing, end - firstSurfaceRing),
+                 field);
+    }
+  };
   std::vector<double> heights;
-  for (const RingSamples &samples : candidate.Rings) {
+  for (size_t at = 0; at < candidate.Rings.size(); ++at) {
+    const RingSamples &samples = candidate.Rings[at];
+    const auto &feature = field.Features()[samples.Feature];
+    const auto &ring = field.Rings()[samples.Ring];
+    if (KindOf(field, feature, on) == WaterKind::Surface) {
+      if (!surfaceActive || samples.Feature != surfaceFeature || ring.Exterior) {
+        publishSurface(at);
+        firstSurfaceRing = at;
+        surfaceFeature = samples.Feature;
+        surfaceActive = true;
+      }
+      continue;
+    }
+    publishSurface(at);
+    surfaceActive = false;
+    if (!samples.Usable) { continue; }
     if (std::ranges::any_of(samples.Heights,
                             [](const std::optional<double> &height) { return !height; })) {
       ++NoGround_;
@@ -123,14 +168,9 @@ void WaterField::MaterializeCandidate(const OsmField &field,
     heights.clear();
     heights.reserve(samples.Heights.size());
     for (const auto &height : samples.Heights) { heights.push_back(height.value_or(0.0)); }
-    const auto &feature = field.Features()[samples.Feature];
-    const auto &ring = field.Rings()[samples.Ring];
-    if (KindOf(field, feature, on) == WaterKind::Course) {
-      AddCourse(field, feature, ring, vegetation, heights);
-    } else {
-      AddSurface(ring, heights);
-    }
+    AddCourse(field, feature, ring, vegetation, heights);
   }
+  publishSurface(candidate.Rings.size());
 }
 
 void WaterField::AddCourse(const OsmField &field,
@@ -158,7 +198,27 @@ void WaterField::AddCourse(const OsmField &field,
   Courses_.push_back(course);
 }
 
-void WaterField::AddSurface(const OsmField::Ring &ring, std::span<double> heights) {
+void WaterField::AddSurface(std::span<const RingSamples> rings, const OsmField &field) {
+  if (rings.empty() || !rings.front().Usable || !field.Rings()[rings.front().Ring].Exterior ||
+      SurfaceRings_.size() > std::numeric_limits<uint32_t>::max() - rings.size()) {
+    ++InvalidBodies_;
+    return;
+  }
+  for (size_t at = 1; at < rings.size(); ++at) {
+    if (!rings[at].Usable || rings[at].Feature != rings.front().Feature ||
+        field.Rings()[rings[at].Ring].Exterior) {
+      ++InvalidBodies_;
+      return;
+    }
+  }
+  if (std::ranges::any_of(rings.front().Heights,
+                          [](const std::optional<double> &height) { return !height; })) {
+    ++NoGround_;
+    return;
+  }
+  std::vector<double> heights;
+  heights.reserve(rings.front().Heights.size());
+  for (const auto &height : rings.front().Heights) { heights.push_back(height.value_or(0.0)); }
   const std::optional<float> sampled = SurfaceLevel(heights);
   if (!sampled) { return; }
   const double level = *sampled;
@@ -166,8 +226,14 @@ void WaterField::AddSurface(const OsmField::Ring &ring, std::span<double> height
                           [level](double height) { return height > level + kShoreToleranceM; })) {
     ++Outliers_;
   }
-  Surfaces_.push_back(
-      {.FirstPoint = ring.First, .PointCount = ring.Count, .LevelM = static_cast<float>(level)});
+  const auto first = static_cast<uint32_t>(SurfaceRings_.size());
+  for (const RingSamples &samples : rings) {
+    const OsmField::Ring &ring = field.Rings()[samples.Ring];
+    SurfaceRings_.push_back({.FirstPoint = ring.First, .PointCount = ring.Count});
+  }
+  Surfaces_.push_back({.FirstRing = first,
+                       .RingCount = static_cast<uint32_t>(rings.size()),
+                       .LevelM = static_cast<float>(level)});
 }
 
 std::optional<float> WaterField::SurfaceLevel(std::span<double> heights) {

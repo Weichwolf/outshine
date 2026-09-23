@@ -1,6 +1,5 @@
 #include "GeodeticCamera.h"
 #include "Digest.h"
-#include "math/RenderFrame.h"
 #include "math/Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
@@ -47,13 +46,13 @@
 #include "EngineHeld.h"
 #include "GroundWorldCandidate.h"
 #include "GroundDiagnostics.h"
+#include "WaterSurfaceBuilder.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
 #include "TransportNetwork.h"
 
 namespace outshine {
 namespace Says {
-constexpr auto WaterCreationFailed = "could not publish water geometry";
 constexpr auto MaterialCreationFailed = "could not create ground materials";
 constexpr auto CorridorTerrainIncomplete =
     "corridor generation reached terrain without a DEM field";
@@ -149,6 +148,11 @@ uint64_t DigestEarthworks(std::span<const Yields> earthworks) {
   for (const Yields &one : earthworks) {
     fold(static_cast<uint32_t>(one.RingEastNorthM.size()));
     for (const double value : one.RingEastNorthM) { foldDouble(value); }
+    fold(static_cast<uint32_t>(one.HoleRingsEastNorthM.size()));
+    for (const auto &hole : one.HoleRingsEastNorthM) {
+      fold(static_cast<uint32_t>(hole.size()));
+      for (const double value : hole) { foldDouble(value); }
+    }
     foldDouble(one.LowE);
     foldDouble(one.HighE);
     foldDouble(one.LowN);
@@ -860,48 +864,27 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
 }
 
 namespace {
-std::optional<float> CandidateLakeLevel(const Ground::WaterField::Surface &lake,
-                                        std::span<const double> points,
-                                        const HeightSheets &sheets,
-                                        int finestZoom) {
-  if (lake.PointCount < 3) { return std::nullopt; }
-  const size_t last = (static_cast<size_t>(lake.FirstPoint) + lake.PointCount) * 2u;
-  if (last > points.size()) { return std::nullopt; }
-  std::vector<double> heights;
-  heights.reserve(lake.PointCount);
-  for (uint32_t step = 0; step < lake.PointCount; ++step) {
-    const size_t at = (static_cast<size_t>(lake.FirstPoint) + step) * 2u;
-    const std::optional<double> height =
-        sheets.AslMAt(finestZoom, {.LongitudeDeg = points[at + 1], .LatitudeDeg = points[at]});
-    if (!height) { return std::nullopt; }
-    heights.push_back(*height);
-  }
-  return Ground::WaterField::SurfaceLevel(heights);
-}
-
-void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
-                      std::span<const double> points,
-                      const HeightSheets &sheets,
-                      int finestZoom,
-                      const TangentFrame &standing,
-                      std::vector<Yields> &yielding) {
-  for (const Ground::WaterField::Surface &lake : lakes) {
-    const std::optional<float> levelM = CandidateLakeLevel(lake, points, sheets, finestZoom);
-    if (!levelM) { continue; }
+void AppendWaterBasinStamps(const Ground::WaterField &water,
+                            std::span<const double> points,
+                            const TangentFrame &standing,
+                            std::vector<Yields> &yielding) {
+  for (const Ground::WaterField::Surface &lake : water.Surfaces()) {
+    const Ground::WaterField::SurfaceRing &ring = water.RingsOf(lake).front();
+    if ((static_cast<size_t>(ring.FirstPoint) + ring.PointCount) * 2u > points.size()) { continue; }
     Yields made;
-    made.RingEastNorthM.reserve(static_cast<size_t>(lake.PointCount) * 2u);
+    made.RingEastNorthM.reserve(static_cast<size_t>(ring.PointCount) * 2u);
     made.LowE = kBeyondAnyCoordinate;
     made.HighE = -kBeyondAnyCoordinate;
     made.LowN = kBeyondAnyCoordinate;
     made.HighN = -kBeyondAnyCoordinate;
     std::vector<double> bedM;
-    bedM.reserve(lake.PointCount);
-    for (uint32_t step = 0; step < lake.PointCount; ++step) {
-      const size_t at = (static_cast<size_t>(lake.FirstPoint) + step) * 2u;
+    bedM.reserve(ring.PointCount);
+    for (uint32_t step = 0; step < ring.PointCount; ++step) {
+      const size_t at = (static_cast<size_t>(ring.FirstPoint) + step) * 2u;
       const EastNorthUp shore =
           standing.Place({.LongitudeDeg = points[at + 1],
                           .LatitudeDeg = points[at],
-                          .HeightM = static_cast<double>(*levelM) - kWaterBedM});
+                          .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
       made.RingEastNorthM.push_back(shore.EastM);
       made.RingEastNorthM.push_back(shore.NorthM);
       made.LowE = std::min(made.LowE, shore.EastM);
@@ -924,6 +907,26 @@ void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
     made.YieldM = kWaterBedM;
     made.Kind = Stamp::Basin;
     made.SeamEastNorthM = made.RingEastNorthM;
+    bool complete = true;
+    for (const Ground::WaterField::SurfaceRing &hole : water.RingsOf(lake).subspan(1)) {
+      if ((static_cast<size_t>(hole.FirstPoint) + hole.PointCount) * 2u > points.size()) {
+        complete = false;
+        break;
+      }
+      std::vector<double> boundary;
+      boundary.reserve(static_cast<size_t>(hole.PointCount) * 2u);
+      for (uint32_t step = 0; step < hole.PointCount; ++step) {
+        const size_t at = (static_cast<size_t>(hole.FirstPoint) + step) * 2u;
+        const EastNorthUp shore =
+            standing.Place({.LongitudeDeg = points[at + 1],
+                            .LatitudeDeg = points[at],
+                            .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
+        boundary.push_back(shore.EastM);
+        boundary.push_back(shore.NorthM);
+      }
+      made.HoleRingsEastNorthM.push_back(std::move(boundary));
+    }
+    if (!complete) { continue; }
     yielding.push_back(std::move(made));
   }
 }
@@ -967,7 +970,6 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           GroundBuildState &state) {
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.Pressing() == nullptr) {
-    const GroundBuildProducts &build = state.Candidate().Products();
     const Ground::OsmField *const shapes = World.Stack.Vectors();
     std::vector<Yields> yielding;
     if (shapes != nullptr) {
@@ -998,12 +1000,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     }
     const size_t builtPads = yielding.size();
     if (shapes != nullptr) {
-      AppendLakeStamps(World.Stack.WaterBodies().Surfaces(),
-                       shapes->Points(),
-                       build.Sheets,
-                       World.Stack.FinestZoomOf(Data::DataKind::Elevation),
-                       standing,
-                       yielding);
+      AppendWaterBasinStamps(World.Stack.WaterBodies(), shapes->Points(), standing, yielding);
     }
     const size_t builtLakes = yielding.size() - builtPads;
     if (Session.Declared.Render.Audits) {
@@ -1132,89 +1129,30 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
 
 bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
                                        Geometry &ground,
-                                       MaterialInstance ringSurface,
-                                       const HeightSheets &sheets,
-                                       int finestZoom) {
-
+                                       MaterialInstance ringSurface) {
   const auto waterAt = std::chrono::steady_clock::now();
-  const Ground::WaterField &wet = World.Stack.WaterBodies();
+  const Ground::WaterField &water = World.Stack.WaterBodies();
   const Ground::OsmField *const vectors = World.Stack.Vectors();
-  std::vector<float> places;
-  std::vector<float> facing;
-  std::vector<float> lidUv;
-  std::vector<uint32_t> order;
-  size_t lidsLaid = 0;
-  size_t lidsRefused = 0;
-  {
-    const auto points = vectors != nullptr ? vectors->Points() : std::span<const double>{};
-    const auto surfaces = vectors != nullptr
-                              ? std::span<const Ground::WaterField::Surface>(wet.Surfaces())
-                              : std::span<const Ground::WaterField::Surface>{};
-    for (const Ground::WaterField::Surface &lake : surfaces) {
-      const std::optional<float> levelM = CandidateLakeLevel(lake, points, sheets, finestZoom);
-      if (!levelM) {
-        ++lidsRefused;
-        continue;
-      }
-      const size_t began = places.size();
-      for (uint32_t step = 1; step + 1 < lake.PointCount; ++step) {
-        const std::array<uint32_t, 3> corners = {{0u, step, step + 1u}};
-        for (const uint32_t corner : corners) {
-          const size_t at = (static_cast<size_t>(lake.FirstPoint) + corner) * 2;
-          double eastM = 0.0;
-          double upM = 0.0;
-          double northM = 0.0;
-          const EastNorthUp placed = standing.Place({.LongitudeDeg = points[at + 1],
-                                                     .LatitudeDeg = points[at],
-                                                     .HeightM = static_cast<double>(*levelM)});
-          eastM = placed.EastM;
-          upM = placed.UpM;
-          northM = placed.NorthM;
-          places.push_back(static_cast<float>(eastM));
-          places.push_back(static_cast<float>(upM));
-          places.push_back(static_cast<float>(RenderFrame::ZOfNorth(northM)));
-          facing.push_back(0.0f);
-          facing.push_back(1.0f);
-          facing.push_back(0.0f);
-          lidUv.push_back(static_cast<float>(eastM));
-          lidUv.push_back(static_cast<float>(northM));
-          order.push_back(static_cast<uint32_t>(order.size()));
-        }
-      }
-      if (places.size() > began) {
-        ++lidsLaid;
-      } else {
-        ++lidsRefused;
-      }
-    }
+  const std::span<const double> points =
+      vectors != nullptr ? vectors->Points() : std::span<const double>{};
+  const auto built =
+      Generators::AppendWaterSurfaceGeometry(ground, ringSurface, water, points, standing);
+  if (!built) {
+    Error = built.error();
+    return false;
   }
   Published.Places(
       "water: of that, laying the surfaces",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - waterAt).count(),
       "ms");
-  Published.Places("water: surfaces laid", static_cast<double>(lidsLaid), "surfaces");
-  Published.Places("water: surfaces refused", static_cast<double>(lidsRefused), "surfaces");
-  const size_t waterTriangles = order.size() / 3;
-  Published.Places("water: triangles", static_cast<double>(waterTriangles), "triangles");
-  if (order.size() >= 3) {
-    const auto createdPart = ground.addPart("water", ringSurface);
-    if (!createdPart) {
-      Error = Says::WaterCreationFailed;
-      return false;
-    }
-    const int wetPart = *createdPart;
-    const bool tookWater =
-        wetPart >= 0 &&
-        ground.setPositions(wetPart, std::span<const float>(places.data(), places.size())) &&
-        ground.setNormals(wetPart, std::span<const float>(facing.data(), facing.size())) &&
-        ground.setTriangles(wetPart, std::span<const uint32_t>(order.data(), order.size())) &&
-        ground.setTexture(wetPart, std::span<const float>(lidUv.data(), lidUv.size()), 0);
-    Published.Places("water: the geometry took it", tookWater ? 1.0 : 0.0, "yes/no");
-    if (!tookWater) {
-      Error = Says::WaterCreationFailed;
-      return false;
-    }
-  }
+  Published.Places("water: surfaces laid", static_cast<double>(built->Laid), "surfaces");
+  Published.Places(
+      "water: surfaces refused", static_cast<double>(built->RefusedTopology), "surfaces");
+  Published.Places("water: surfaces refused by topology",
+                   static_cast<double>(built->RefusedTopology),
+                   "surfaces");
+  Published.Places("water: triangles", static_cast<double>(built->Triangles), "triangles");
+  if (built->Triangles > 0) { Published.Places("water: the geometry took it", 1.0, "yes/no"); }
   return true;
 }
 
@@ -2154,13 +2092,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   }
   if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsWater) {
     const auto began = std::chrono::steady_clock::now();
-    if (!BuildWaterSurfaces(standing,
-                            ground,
-                            ringSurface,
-                            build.Sheets,
-                            World.Stack.FinestZoomOf(Data::DataKind::Elevation))) {
-      return false;
-    }
+    if (!BuildWaterSurfaces(standing, ground, ringSurface)) { return false; }
     state.CompletesStage();
     Published.Places(
         "ground candidate: water",

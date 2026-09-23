@@ -9,11 +9,10 @@ Depends: 2121, 2173
 
 ## IST
 
-Die frühere pauschale Diagnose „kein Deckel“ ist nicht mehr haltbar. `Laying.cpp` erzeugt
-Wasserflächen; im vorigen Diagnosebestand Husum 220 Flächen/2998 Dreiecke, Malcesine
-58/1874. Der genutzte Fan-Pfad ist gegen konkave Polygone/Löcher zu prüfen; der unbenutzte
-Earclip-Nebenpfad wurde entfernt. Aktuelle Bilder zeigen dunkle Wasserflächen,
-gezahnte/geböschte Ufer und in Husum durchquerende helle Bänder.
+Wasserflächen existieren. Der frühere Fan-Pfad überdeckte aber konkave Einbuchtungen und
+Inseln. Der Polygonpfad ist jetzt aktiv und dieselbe `WaterField::Surface::LevelM` versorgt
+logische Fläche, Bodenform und Renderoberfläche. Aktuelle Bilder zeigen weiterhin dunkle
+Wasserflächen, gezahnte/geböschte Ufer und in Husum durchquerende helle Bänder.
 
 ## Implementierung
 
@@ -89,11 +88,24 @@ einen neuen End-to-End-WaterField-Test. Lokale Triangulationsreferenz:
 Degeneratfälle und Arbeitsbudget prüfen.
 
 Quell-/Test-/Header-Audit: WaterField::Tessellate hatte keinen Aufrufer. Der aktive
-Pfad in Engine::State::Grounds baut weiterhin einen Fan in native Geometry.
+Pfad in Engine::State::Grounds baute einen Fan in native Geometry.
 Der tote Earclip-/Flussstreifenpfad mit abweichend interleavten ECEF-Daten ist
 entfernt, ebenso sein exklusiver Anchor-Zustand und der GroundStack-Setup-Aufruf.
-WaterField hält geografische Wasserdaten und Pegel. Build und unveränderte
-Aufnahmeprüfungen grün; Wien geöffnet und pixelgleich (0/921600). Lint: 57 Befunde,
-keiner in WaterField; Writer weiter rot. Damit ist kein aktiver Geometriefehler
-behoben: Fan durch gemeinsamen Polygon-Generator mit validierten Außen-/Innenringen
-und vollständigem Ergebnis/Fehler ersetzen. Wasser-, Bed- und Bank-Verträge oben gelten.
+WaterField hält geografische Wasserdaten und Pegel. Der alte Build und die damaligen
+Aufnahmeprüfungen waren grün; Wien blieb zunächst pixelgleich. Der Fan ist inzwischen
+ersetzt. Wasser-, Bed- und Bank-Verträge oben gelten weiterhin.
+
+## Implementierter Polygon-Schnitt, 2026-09-23
+
+`WaterField` veröffentlicht Außen- und Innenringe atomar pro Body; unbrauchbare Innenringe
+verwerfen den ganzen Body. `GroundSnapshot` erhält dieselben Ringe für die logische Fläche.
+`Generators::AppendWaterSurfaceGeometry` trianguliert konkave Polygone mit Löchern in native
+`Geometry`; lokale Earcut-Quelle `f25bc76` samt ISC-Lizenz ist gepinnt. Der Basin-Stamp
+respektiert Inseln. Ein Pegel aus `WaterField` gilt für Karte, Basin und Surface. Der
+MVT-End-to-End-Test prüft Insel, konkave Einbuchtung, Winding und ungültiges Loch; ein
+separater Basin-Test hat eine wirksame Negativkontrolle. Beide Suites und `make lint` grün.
+Wien/Malcesine gerendert und geöffnet: 3,1070 %/3,5207 % Pixel gegenüber vorigem Stand
+geändert; p99 11,94/10,48 ms. Das Wasser ist kohärenter, aber Malcesines künstliche
+Steilwände und der dunkle Streifen am Fuß bleiben sichtbar. Lochfall nur analytisch
+abgenommen; Place-Kameras zeigen ihn nicht. Offen: selbstschneidende/degenerierte Ringe,
+Tilegrenzen, Flussprofil, Ufer/Quai, geschützte Gerinne, Revisions- und Budgetbeweis.
