@@ -43,7 +43,7 @@ Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
 | scenario/ | Reader/writer belongs to import composition; TriggerField executes entity-time state and must leave the serialization module. Native input/action/view state is not parser state. | 2151, 2130 |
 | engine/ | RuntimeScene coordinates playback and rendering. Terrain computation, resource residency and streaming scheduling have distinct owners; candidate editing still needs a narrow renderer boundary. | 2223, 2191 |
 | generators/ | Building/flora/road/water/terrain algorithms return native CPU products without Engine or renderer dependencies. Preserve independent library linkage. | 2150 |
-| world/ | Geographic/provider/logical-world products fit here; provider configuration is native. Navigation is independent of visual geometry. | 2133 |
+| world/ | Provider and OSM-ID topology are separate from geometry. The older `TransportNetwork` still consumes snapped `StreetField` for corridor meshing; its name must not imply authoritative navigation. Resolve this boundary in 2262/2133 before renaming it. | 2133, 2262 |
 | render/ | SceneState/FrameResources/WorldContent separation is useful. SceneRenderer still exposes individual stage settings; narrow calls by coherent frame/world inputs, reuse existing owners. | 2222, 2223 |
 | actor/ | Rigid/prismatic computation is a valid simulation kernel. Stateful bodies/triggers currently straddle scenario/engine; gather native simulation state before adding threads. | 2130 |
 | audio/ | DSP graph/mixer configuration is native. Engine AudioOcclusion remains the wrong owner; acoustic BVH belongs to audio while CPU triangle BVH stays base. | 2212, 2130 |
@@ -56,10 +56,10 @@ Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
 
 ## Executable reserve and order
 
-1. Candidate routing is implemented. Review its consumers rather than starting another facade.
+1. Engine phase methods with misleading verbs are migrated in bounded slices (2274);
+   inspect the remaining `Composes`/`Bakes`/`Grows`/`Carries`/`Models` before renaming.
 2. The twelve-hour review through 21342822f found live derived-state invalidation in
    GroundStack::Restand (2224) and unbounded remaining terrain phases (2234).
-   These are concrete correctness/cost tasks, not permission for generic module moves.
 3. Material/terrain work 2171/2166 proceeds independently under the order in 2188.
 WI 2188 maintains global priority against runtime defects. Vegetation features and a new
 threading model are not part of this refactor.
