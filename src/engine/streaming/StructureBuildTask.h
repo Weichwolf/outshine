@@ -53,6 +53,8 @@ public:
 
   [[nodiscard]] const Generators::RawTile &Raw() const noexcept { return *Raw_; }
 
+  [[nodiscard]] const Ground::HeightField &Heights() const noexcept { return *Heights_; }
+
   [[nodiscard]] Generators::RawTile &Raw() noexcept { return *Raw_; }
 
   [[nodiscard]] Output &Result() noexcept { return *Output_; }

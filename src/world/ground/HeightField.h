@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_HEIGHTFIELD_H
 #define OUTSHINE_WORLD_GROUND_HEIGHTFIELD_H
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <span>
@@ -105,6 +106,12 @@ public:
 
   [[nodiscard]] bool Fallback() const noexcept { return Fallback_; }
 
+  [[nodiscard]] bool Qualified() const noexcept { return Qualified_; }
+
+  [[nodiscard]] std::span<const Data::TileSourceIdentity> Sources() const noexcept {
+    return Sources_;
+  }
+
   [[nodiscard]] std::span<const Block> Blocks() const noexcept { return Blocks_; }
 
   [[nodiscard]] GroundSample At(LongitudeLatitude at) const noexcept {
@@ -120,7 +127,10 @@ public:
   }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    size_t bytes = 0;
+    size_t bytes = Sources_.capacity() * sizeof(Data::TileSourceIdentity);
+    for (const auto &source : Sources_) {
+      bytes += source.SourceId.capacity() + source.Revision.capacity();
+    }
     for (const Block &one : Blocks_) {
       bytes += (one.Terrain ? one.Terrain->HeapBytes() : 0u) +
                one.Nodes.capacity() * sizeof(float) +
@@ -134,11 +144,21 @@ public:
 
 private:
   HeightField(int zoom, std::vector<Block> blocks, bool fallback)
-      : Blocks_(std::move(blocks)), Zoom_(zoom), Fallback_(fallback) {}
+      : Blocks_(std::move(blocks)), Zoom_(zoom), Fallback_(fallback) {
+    Qualified_ = !fallback;
+    for (const Block &block : Blocks_) {
+      Qualified_ = Qualified_ && !block.Sources.empty();
+      Sources_.insert(Sources_.end(), block.Sources.begin(), block.Sources.end());
+    }
+    std::ranges::sort(Sources_);
+    Sources_.erase(std::ranges::unique(Sources_).begin(), Sources_.end());
+  }
 
   std::vector<Block> Blocks_;
+  std::vector<Data::TileSourceIdentity> Sources_;
   int Zoom_ = 0;
   bool Fallback_ = false;
+  bool Qualified_ = false;
 };
 
 }

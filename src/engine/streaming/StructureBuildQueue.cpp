@@ -373,7 +373,10 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
                                                  .Triangles = triangles,
                                                  .OsmHeights = baked.OsmHeights,
                                                  .DefaultHeights = baked.DefaultHeights,
-                                                 .Fronted = baked.Fronted})});
+                                                 .Fronted = baked.Fronted},
+                                                bake.Task.Heights().Sources(),
+                                                bake.Task.Heights().Qualified(),
+                                                vectors->Tiles()[bake.Task.Tile()].Source)});
   }
   return landings;
 }

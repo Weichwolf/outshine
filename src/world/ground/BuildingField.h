@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 #define OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 
+#include <algorithm>
 #include <span>
 #include "math/Vec3.h"
 #include "OsmField.h"
@@ -9,6 +10,7 @@
 #include <cassert>
 #include <functional>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "Capacity.h"
@@ -55,6 +57,12 @@ public:
     uint32_t LargestTile = 0;
   };
 
+  struct AcceptedInput {
+    std::optional<Data::TileSourceIdentity> Vector;
+    std::vector<Data::TileSourceIdentity> Sources;
+    bool Qualified = false;
+  };
+
   class PendingAcceptance {
     friend class BuildingField;
 
@@ -65,18 +73,27 @@ public:
     PendingAcceptance &operator=(PendingAcceptance &&) noexcept = default;
 
   private:
-    PendingAcceptance(const BuildingField *owner, uint32_t tile, const Baked &baked) noexcept
+    PendingAcceptance(const BuildingField *owner,
+                      uint32_t tile,
+                      const Baked &baked,
+                      std::optional<Data::TileSourceIdentity> vector,
+                      std::span<const Data::TileSourceIdentity> sources,
+                      bool qualified)
         : Owner_(owner),
           Tile_(tile),
           Prints_(baked.Prints.size()),
           Spread_(baked.SeatSpreadM.size()),
-          Across_(baked.AcrossM.size()) {}
+          Across_(baked.AcrossM.size()),
+          Input_{.Vector = std::move(vector),
+                 .Sources = std::vector<Data::TileSourceIdentity>(sources.begin(), sources.end()),
+                 .Qualified = qualified} {}
 
     [[maybe_unused]] const BuildingField *Owner_ = nullptr;
     uint32_t Tile_ = 0;
     size_t Prints_ = 0;
     size_t Spread_ = 0;
     size_t Across_ = 0;
+    AcceptedInput Input_;
   };
 
   void SeenWith(double focalPx) { FocalPx_ = focalPx; }
@@ -111,7 +128,12 @@ public:
     --Taken_;
   }
 
-  [[nodiscard]] PendingAcceptance PrepareAcceptance(uint32_t tile, const Baked &baked);
+  [[nodiscard]] PendingAcceptance
+  PrepareAcceptance(uint32_t tile,
+                    const Baked &baked,
+                    std::span<const Data::TileSourceIdentity> sources = {},
+                    bool qualified = false,
+                    std::optional<Data::TileSourceIdentity> vector = std::nullopt);
   void PreparesAcceptances(AcceptanceCapacity capacity);
   void
   CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
@@ -130,6 +152,12 @@ public:
     return {Prints_.data() + r.First, r.Count};
   }
 
+  [[nodiscard]] const AcceptedInput *InputOfTile(uint32_t tile) const noexcept {
+    const auto at = std::ranges::lower_bound(AcceptedTiles_, tile);
+    if (at == AcceptedTiles_.end() || *at != tile) { return nullptr; }
+    return &AcceptedInputs_[static_cast<size_t>(at - AcceptedTiles_.begin())];
+  }
+
   [[nodiscard]] int OsmHeights() const { return OsmHeights_; }
 
   [[nodiscard]] int DefaultHeights() const { return DefaultHeights_; }
@@ -143,6 +171,7 @@ public:
   void Settle() {
     Prints_.shrink_to_fit();
     AcceptedTiles_.shrink_to_fit();
+    AcceptedInputs_.shrink_to_fit();
   }
 
   [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const noexcept;
@@ -154,8 +183,19 @@ public:
   }
 
   [[nodiscard]] size_t HeapBytes() const {
-    return CapacityBytes(Prints_) + CapacityBytes(AcceptedTiles_) + Mark_.HeapBytes() +
-           ByTile_.HeapBytes() + MeasurementBytes();
+    size_t bytes = CapacityBytes(Prints_) + CapacityBytes(AcceptedTiles_) +
+                   CapacityBytes(AcceptedInputs_) + Mark_.HeapBytes() + ByTile_.HeapBytes() +
+                   MeasurementBytes();
+    for (const AcceptedInput &input : AcceptedInputs_) {
+      if (input.Vector) {
+        bytes += input.Vector->SourceId.capacity() + input.Vector->Revision.capacity();
+      }
+      bytes += CapacityBytes(input.Sources);
+      for (const auto &source : input.Sources) {
+        bytes += source.SourceId.capacity() + source.Revision.capacity();
+      }
+    }
+    return bytes;
   }
 
   [[nodiscard]] bool Ingested(const OsmField &field) const {
@@ -168,6 +208,7 @@ private:
   uint64_t Revision_ = 0;
   std::vector<Footprint> Prints_;
   std::vector<uint32_t> AcceptedTiles_;
+  std::vector<AcceptedInput> AcceptedInputs_;
   size_t TrianglesHanded_ = 0;
   size_t Taken_ = 0, Accepted_ = 0;
   TileRanges ByTile_;

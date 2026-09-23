@@ -15,8 +15,9 @@ Tags: provenance, streaming, determinism
 `ContentStore` includes it in the cache key. Native OSM tiles retain it
 (3cfac6f2d); `TerrainBytes`, decoded fields and stitched fields retain their
 sorted source sets (3b41a5d2e). Resident `GroundStream` slots, copied
-`HeightField::Block`s and `TileBuild` now retain these source sets. Structure
-candidate identity, source-generation invalidation and rebake policy remain open.
+`HeightField::Block`s and `TileBuild` now retain these source sets. Accepted
+structure tiles now retain their pinned DEM union and OSM vector identity.
+Candidate source-generation invalidation and selective rebake remain open.
 Runtime handles or arrival order are not source identities.
 `StructureBuildQueue::Gathers` synthesizes a 17×17 fallback block through
 `HeightSource = optional<double>(LongitudeLatitude)`; this callback carries no
@@ -62,7 +63,8 @@ one sorted unique union of block sources and marks the input qualified only
 when every block has source identity and no scalar fallback was used.
 `StructureBuildTask` lends this immutable summary until landing. In
 `BuildingField`, `PendingAcceptance` copies the summary before publication;
-the accepted tile keeps a value-owned source set and qualification flag in
+it also copies the corresponding OSM vector tile identity. The accepted tile
+keeps value-owned source identities and a DEM qualification flag in
 tile order, including empty geometry. Reservation, rejection and cancellation
 do not mutate the accepted record. This does not yet schedule replacements;
 WI 2247 compares these records against fresh fine input.
@@ -74,7 +76,8 @@ WI 2247 compares these records against fresh fine input.
    without later resident-tile enumeration. Account for retained capacity.
 2. A candidate's height snapshot reports identities for every DEM block used
    by one structure tile; scalar fallback blocks report unqualified input.
-   Pinned blocks remain valid until that bake completes;
+   Acceptance also retains the vector tile identity. Pinned blocks remain
+   valid until that bake completes;
    a later source revision creates a new input generation, not an in-place
    mutation of an accepted product.
 3. Test two sources with equal bytes but different declared revisions, cache

@@ -8,6 +8,7 @@
 #include <functional>
 #include <optional>
 #include <span>
+#include <utility>
 
 namespace outshine::Ground {
 
@@ -23,6 +24,7 @@ void BuildingField::ResetDerived() {
   ++Revision_;
   Prints_.clear();
   AcceptedTiles_.clear();
+  AcceptedInputs_.clear();
   TrianglesHanded_ = 0;
   Taken_ = Accepted_ = 0;
   ByTile_ = {};
@@ -62,12 +64,17 @@ void BuildingField::PreparesAcceptances(AcceptanceCapacity capacity) {
   SeatSpread_.reserve(SeatSpread_.size() + capacity.Spread);
   Across_.reserve(Across_.size() + capacity.Across);
   AcceptedTiles_.reserve(AcceptedTiles_.size() + capacity.Tiles);
+  AcceptedInputs_.reserve(AcceptedInputs_.size() + capacity.Tiles);
   ByTile_.Prepare(capacity.LargestTile);
 }
 
-BuildingField::PendingAcceptance BuildingField::PrepareAcceptance(uint32_t tile,
-                                                                  const Baked &baked) {
-  return {this, tile, baked};
+BuildingField::PendingAcceptance
+BuildingField::PrepareAcceptance(uint32_t tile,
+                                 const Baked &baked,
+                                 std::span<const Data::TileSourceIdentity> sources,
+                                 bool qualified,
+                                 std::optional<Data::TileSourceIdentity> vector) {
+  return {this, tile, baked, std::move(vector), sources, qualified};
 }
 
 void BuildingField::CommitAcceptance(PendingAcceptance pending,
@@ -76,6 +83,7 @@ void BuildingField::CommitAcceptance(PendingAcceptance pending,
   assert(pending.Owner_ == this && pending.Prints_ == baked.Prints.size() &&
          pending.Spread_ == baked.SeatSpreadM.size() && pending.Across_ == baked.AcrossM.size());
   const auto nextTile = std::ranges::lower_bound(AcceptedTiles_, pending.Tile_);
+  const size_t inputAt = static_cast<size_t>(nextTile - AcceptedTiles_.begin());
   const uint32_t firstPrint = nextTile == AcceptedTiles_.end()
                                   ? static_cast<uint32_t>(Prints_.size())
                                   : ByTile_.At(*nextTile).First;
@@ -89,6 +97,7 @@ void BuildingField::CommitAcceptance(PendingAcceptance pending,
   ByTile_.ShiftAfter(
       {.AfterTile = pending.Tile_, .By = static_cast<uint32_t>(baked.Prints.size())});
   ByTile_.Set(pending.Tile_, firstPrint, firstPrint + static_cast<uint32_t>(baked.Prints.size()));
+  AcceptedInputs_.insert(AcceptedInputs_.begin() + inputAt, std::move(pending.Input_));
   AcceptedTiles_.insert(nextTile, pending.Tile_);
   Mark_.Advance(field.Features());
   ++Accepted_;
