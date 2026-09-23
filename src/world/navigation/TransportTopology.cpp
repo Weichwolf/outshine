@@ -20,6 +20,12 @@ namespace {
 
 enum class WayTravel : uint8_t { Forward, Reverse, Both };
 
+struct DirectionTags {
+  std::optional<std::string_view> OneWay;
+  std::optional<std::string_view> Highway;
+  std::optional<std::string_view> Junction;
+};
+
 struct WaySemantics {
   bool TransportTagged = false;
   uint8_t Modes = 0;
@@ -87,19 +93,21 @@ uint8_t WaterwayModes(std::string_view kind) {
   return Contains(kind, kWater) ? static_cast<uint8_t>(TransportMode::Water) : 0;
 }
 
-std::expected<WayTravel, TransportBuildErrorCode>
-ReadTravel(std::optional<std::string_view> oneWay,
-           std::optional<std::string_view> highway,
-           std::optional<std::string_view> junction) {
-  if (!oneWay) {
-    if (highway == "motorway" || highway == "motorway_link" || junction == "roundabout") {
+std::expected<WayTravel, TransportBuildErrorCode> ReadTravel(const DirectionTags &tags) {
+  if (!tags.OneWay) {
+    if (tags.Highway == "motorway" || tags.Highway == "motorway_link" ||
+        tags.Junction == "roundabout") {
       return WayTravel::Forward;
     }
     return WayTravel::Both;
   }
-  if (*oneWay == "yes" || *oneWay == "1" || *oneWay == "true") { return WayTravel::Forward; }
-  if (*oneWay == "-1" || *oneWay == "reverse") { return WayTravel::Reverse; }
-  if (*oneWay == "no" || *oneWay == "0" || *oneWay == "false") { return WayTravel::Both; }
+  if (*tags.OneWay == "yes" || *tags.OneWay == "1" || *tags.OneWay == "true") {
+    return WayTravel::Forward;
+  }
+  if (*tags.OneWay == "-1" || *tags.OneWay == "reverse") { return WayTravel::Reverse; }
+  if (*tags.OneWay == "no" || *tags.OneWay == "0" || *tags.OneWay == "false") {
+    return WayTravel::Both;
+  }
   return std::unexpected(TransportBuildErrorCode::InvalidOneway);
 }
 
@@ -145,12 +153,14 @@ std::expected<WaySemantics, TransportBuildErrorCode> DescribeWay(const Data::Osm
   semantics.TransportTagged =
       highway->has_value() || railway->has_value() || waterway->has_value() || *route == "ferry";
   if (!semantics.TransportTagged) { return semantics; }
-  semantics.Modes = (highway->has_value() ? HighwayModes(**highway) : 0) |
-                    (railway->has_value() ? RailwayModes(**railway) : 0) |
-                    (waterway->has_value() ? WaterwayModes(**waterway) : 0) |
-                    (*route == "ferry" ? static_cast<uint8_t>(TransportMode::Water) : 0);
+  unsigned modeBits = 0;
+  if (highway->has_value()) { modeBits |= HighwayModes(**highway); }
+  if (railway->has_value()) { modeBits |= RailwayModes(**railway); }
+  if (waterway->has_value()) { modeBits |= WaterwayModes(**waterway); }
+  if (*route == "ferry") { modeBits |= static_cast<unsigned>(TransportMode::Water); }
+  semantics.Modes = static_cast<uint8_t>(modeBits);
   const auto parsedLayer = ReadLayer(*layer);
-  const auto travel = ReadTravel(*oneway, *highway, *junction);
+  const auto travel = ReadTravel({.OneWay = *oneway, .Highway = *highway, .Junction = *junction});
   if (!parsedLayer) { return std::unexpected(parsedLayer.error()); }
   if (!travel) { return std::unexpected(travel.error()); }
   semantics.Layer = *parsedLayer;
@@ -159,6 +169,39 @@ std::expected<WaySemantics, TransportBuildErrorCode> DescribeWay(const Data::Osm
   semantics.Tunnel = Enabled(*tunnel);
   semantics.Access = ReadAccess(*access);
   return semantics;
+}
+
+std::expected<void, TransportBuildError> AppendWayEdges(std::vector<TransportEdge> &edges,
+                                                        const Data::OsmWay &way,
+                                                        const WaySemantics &semantics) {
+  for (size_t segment = 1; segment < way.NodeIds.size(); ++segment) {
+    if (segment - 1 > std::numeric_limits<uint32_t>::max() ||
+        edges.size() > std::numeric_limits<uint32_t>::max() - 2u) {
+      return std::unexpected(
+          TransportBuildError{.Code = TransportBuildErrorCode::TooManyEdges, .SourceId = way.Id});
+    }
+    const uint64_t from = way.NodeIds[segment - 1];
+    const uint64_t to = way.NodeIds[segment];
+    if (from == to) {
+      return std::unexpected(TransportBuildError{.Code = TransportBuildErrorCode::DegenerateSegment,
+                                                 .SourceId = way.Id});
+    }
+    const auto append = [&](EdgeDirection direction, uint64_t start, uint64_t end) {
+      edges.push_back(TransportEdge{.Id = {.WayId = way.Id,
+                                           .SegmentOrdinal = static_cast<uint32_t>(segment - 1),
+                                           .Direction = direction},
+                                    .FromNodeId = start,
+                                    .ToNodeId = end,
+                                    .Modes = semantics.Modes,
+                                    .Layer = semantics.Layer,
+                                    .Bridge = semantics.Bridge,
+                                    .Tunnel = semantics.Tunnel,
+                                    .Access = semantics.Access});
+    };
+    if (semantics.Travel != WayTravel::Reverse) { append(EdgeDirection::Forward, from, to); }
+    if (semantics.Travel != WayTravel::Forward) { append(EdgeDirection::Reverse, to, from); }
+  }
+  return {};
 }
 
 }
@@ -184,33 +227,8 @@ TransportTopology::Build(const Data::OsmElements &source) {
     }
     if (!described->TransportTagged) { continue; }
     if (described->Modes == 0) { ++built.UnclassifiedWayCount_; }
-    for (size_t segment = 1; segment < way.NodeIds.size(); ++segment) {
-      if (segment - 1 > std::numeric_limits<uint32_t>::max() ||
-          built.Edges_.size() > std::numeric_limits<uint32_t>::max() - 2u) {
-        return std::unexpected(
-            TransportBuildError{.Code = TransportBuildErrorCode::TooManyEdges, .SourceId = way.Id});
-      }
-      const uint64_t from = way.NodeIds[segment - 1];
-      const uint64_t to = way.NodeIds[segment];
-      if (from == to) {
-        return std::unexpected(TransportBuildError{
-            .Code = TransportBuildErrorCode::DegenerateSegment, .SourceId = way.Id});
-      }
-      const auto append = [&](EdgeDirection direction, uint64_t start, uint64_t end) {
-        built.Edges_.push_back(
-            TransportEdge{.Id = {.WayId = way.Id,
-                                 .SegmentOrdinal = static_cast<uint32_t>(segment - 1),
-                                 .Direction = direction},
-                          .FromNodeId = start,
-                          .ToNodeId = end,
-                          .Modes = described->Modes,
-                          .Layer = described->Layer,
-                          .Bridge = described->Bridge,
-                          .Tunnel = described->Tunnel,
-                          .Access = described->Access});
-      };
-      if (described->Travel != WayTravel::Reverse) { append(EdgeDirection::Forward, from, to); }
-      if (described->Travel != WayTravel::Forward) { append(EdgeDirection::Reverse, to, from); }
+    if (const auto appended = AppendWayEdges(built.Edges_, way, *described); !appended) {
+      return std::unexpected(appended.error());
     }
   }
   std::ranges::sort(built.Edges_, {}, &TransportEdge::Id);
@@ -228,32 +246,20 @@ TransportTopology::Build(const Data::OsmElements &source) {
 }
 
 const TransportNode *TransportTopology::FindNode(uint64_t id) const noexcept {
-  const auto found = std::lower_bound(
-      Nodes_.begin(), Nodes_.end(), id, [](const TransportNode &node, uint64_t wanted) {
-        return node.SourceNodeId < wanted;
-      });
+  const auto found = std::ranges::lower_bound(Nodes_, id, {}, &TransportNode::SourceNodeId);
   return found != Nodes_.end() && found->SourceNodeId == id ? &*found : nullptr;
 }
 
 const TransportEdge *TransportTopology::FindEdge(TransportEdgeId id) const noexcept {
-  const auto found = std::lower_bound(
-      Edges_.begin(), Edges_.end(), id, [](const TransportEdge &edge, TransportEdgeId wanted) {
-        return edge.Id < wanted;
-      });
+  const auto found = std::ranges::lower_bound(Edges_, id, {}, &TransportEdge::Id);
   return found != Edges_.end() && found->Id == id ? &*found : nullptr;
 }
 
 std::span<const OutgoingTransportEdge>
 TransportTopology::OutgoingFrom(uint64_t nodeId) const noexcept {
-  const auto first = std::lower_bound(
-      Outgoing_.begin(),
-      Outgoing_.end(),
-      nodeId,
-      [](const OutgoingTransportEdge &edge, uint64_t wanted) { return edge.NodeId < wanted; });
-  const auto last = std::upper_bound(
-      first, Outgoing_.end(), nodeId, [](uint64_t wanted, const OutgoingTransportEdge &edge) {
-        return wanted < edge.NodeId;
-      });
+  const auto first =
+      std::ranges::lower_bound(Outgoing_, nodeId, {}, &OutgoingTransportEdge::NodeId);
+  const auto last = std::ranges::upper_bound(Outgoing_, nodeId, {}, &OutgoingTransportEdge::NodeId);
   return {first, last};
 }
 
