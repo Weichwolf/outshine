@@ -525,14 +525,14 @@ MvtLayer::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodies
   return {};
 }
 
-double MvtLayer::NumberTag(const Feature &f, const char *key, double def) const {
-  for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
-    const uint32_t k = Tags_[f.FirstTag + i];
-    const uint32_t v = Tags_[f.FirstTag + i + 1];
+double MvtLayer::NumberTag(const Feature &feature, const char *key, double fallback) const {
+  for (uint32_t i = 0; i + 1 < feature.TagCount; i += 2) {
+    const uint32_t k = Tags_[feature.FirstTag + i];
+    const uint32_t v = Tags_[feature.FirstTag + i + 1];
     if (k >= Keys_.size() || v >= Values_.size()) { continue; }
     if (Keys_[k] == key && ValueIsNum_[v]) { return Values_[v]; }
   }
-  return def;
+  return fallback;
 }
 
 MvtLayer::Tag MvtLayer::TagAt(const Feature &f, uint32_t i) const {
@@ -551,10 +551,10 @@ MvtLayer::Tag MvtLayer::TagAt(const Feature &f, uint32_t i) const {
   return t;
 }
 
-std::string_view MvtLayer::StringTag(const Feature &f, const char *key) const {
-  for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
-    const uint32_t k = Tags_[f.FirstTag + i];
-    const uint32_t v = Tags_[f.FirstTag + i + 1];
+std::string_view MvtLayer::StringTag(const Feature &feature, const char *key) const {
+  for (uint32_t i = 0; i + 1 < feature.TagCount; i += 2) {
+    const uint32_t k = Tags_[feature.FirstTag + i];
+    const uint32_t v = Tags_[feature.FirstTag + i + 1];
     if (k >= Keys_.size() || v >= ValueStrs_.size()) { continue; }
     if (Keys_[k] == key && !ValueIsNum_[v]) { return ValueStrs_[v]; }
   }

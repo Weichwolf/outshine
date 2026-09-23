@@ -37,9 +37,11 @@ PBF/PMTiles source and revision-aware stitching remain separate provider work.
 - Read the pin through the adapter: 319 nodes, 17 ways, one circuit relation;
   16 unroled ways plus one `pitlane`. All 16 main ways are `highway=raceway`,
   `oneway=yes`; retain all node references and tag values verbatim.
-- Changed node order, duplicate ID, missing required attribute, NaN/out-of-
-  range coordinate, unknown member kind, truncated XML and missing relation
-  member each fail at their own contract boundary. Corrected input recovers.
+- Reversed way-node order survives import verbatim; the later directed route
+  check in WI 2260 must reject a broken cycle. Duplicate ID, missing required
+  attribute, NaN/out-of-range coordinate, unknown member kind and truncated
+  XML fail at the reader; missing references remain explicit until closure.
+  Corrected input recovers.
 - Assert the 16-way main relation closes by directed node IDs and that the
   pitlane is excluded by role, not by an ID constant or a geometric guess.
   `make format`, focused suite and `make lint` pass. No Hockenheim route is
