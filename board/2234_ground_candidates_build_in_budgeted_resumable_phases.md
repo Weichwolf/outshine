@@ -14,13 +14,16 @@ Tags: streaming, realtime, ownership
 Candidate ownership, phase scheduling, async field preparation, resumable cooks
 and atomic publication exist. Rosenheim remains 8e6642f9; with worker fields and
 smaller terrain batches its p99 is 5.04 ms, 0/3821 frames exceed 16.67 ms.
-Malcesine previously rendered 36/2456 frames over budget. At 0f5b955a6 and
-pre-worker 7ed2bdb17 it instead misses the 15 s preload deadline in
-`structure-bakes`: posted=1, landed=0, queue=0. The one task is discarded when
-its height-source revision changes; vector, focal length, tile span and eye
-still match. `GroundWorldCandidate` copies `BuildingField` including a pending
-reservation, but the old task belongs to another height-source revision. The
-candidate then has a taken tile without a task; `Next` cannot schedule it.
+The 2026-09-23 Wien shot remains `2fc0aec4`, p99 9.81 ms, 8/4464 frames over
+16.67 ms. Ground geometry still peaks near 28–41 ms: class upload is about
+16 ms, and `RuntimeScene::Build` spends about 24 ms standing/submitting;
+subject residency reports 320 MB offered across its uploads. These costs are
+the next measured whole-frame defect; do not hide them behind a longer shot horizon.
+
+Malcesine remains `07ca3a25`, p99 10.25 ms, zero late frames. Its earlier
+preload deadlock came from copying a `BuildingField` with an in-flight tile
+reservation tied to a discarded height revision. Candidate snapshots now
+copy only accepted products and let the tile be requested again.
 
 The Refined oracle now passes for preload, paced advance and a repeated paced run,
 also with NDEBUG. Canonical `OsmField` publication, bounded active windows, source

@@ -26,18 +26,28 @@ int main() {
   std::optional<std::vector<Yields>> oracle;
   for (const size_t budget : {size_t{1}, size_t{7}, size_t{1024}}) {
     Generators::BuildingStampJob job(frame, 42);
-    CHECK(!job.Advance(prints, points, 43, budget).has_value(),
+    CHECK(!job.Advance({.Footprints = prints,
+                        .Points = points,
+                        .VectorGeneration = 43,
+                        .UnitsMost = budget})
+               .has_value(),
           "changed vector generation refuses an incomplete stamp job");
     CHECK(!std::move(job).Take().has_value(), "partial building stamps cannot publish");
     if (budget == 1) {
-      const auto started = job.Advance(prints, points, 42, budget);
+      const auto started = job.Advance(
+          {.Footprints = prints, .Points = points, .VectorGeneration = 42, .UnitsMost = budget});
       CHECK(started.has_value() && !*started, "one work unit leaves the pad incomplete");
-      CHECK(!job.Advance(std::span(prints).first(2), points, 42, budget).has_value(),
+      CHECK(!job.Advance({.Footprints = std::span(prints).first(2),
+                          .Points = points,
+                          .VectorGeneration = 42,
+                          .UnitsMost = budget})
+                 .has_value(),
             "source dimensions cannot change within a candidate");
     }
     bool done = false;
     for (size_t step = 0; step < 1000 && !done; ++step) {
-      const auto advanced = job.Advance(prints, points, 42, budget);
+      const auto advanced = job.Advance(
+          {.Footprints = prints, .Points = points, .VectorGeneration = 42, .UnitsMost = budget});
       CHECK(advanced.has_value(), "pinned building stamp source advances");
       if (!advanced) { break; }
       done = *advanced;

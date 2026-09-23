@@ -912,42 +912,55 @@ void AppendLakeStamps(std::span<const Ground::WaterField::Surface> lakes,
 }
 }
 
+Engine::State::GroundBuildProgress
+Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
+                                         GroundBuildState &state,
+                                         const Ground::OsmField &shapes,
+                                         std::vector<Yields> &yielding) {
+  const auto sliceAt = std::chrono::steady_clock::now();
+  if (state.Stamping() == nullptr) {
+    state.BeginsStamping(std::make_unique<Generators::BuildingStampJob>(
+        standing, state.Revision().VectorGeneration));
+  }
+  const auto advanced = state.Stamping()->Advance({.Footprints = state.Footprints().Footprints(),
+                                                   .Points = shapes.Points(),
+                                                   .VectorGeneration = shapes.Generation(),
+                                                   .UnitsMost = kEarthworkStampUnitsPerFrame});
+  if (!advanced) {
+    Error = std::string(advanced.error());
+    return GroundBuildProgress::Failed;
+  }
+  state.SamplesPressingSlice(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
+          .count());
+  state.SamplesProductPeak();
+  if (!*advanced) { return GroundBuildProgress::Pending; }
+  auto stamped = std::move(*state.Stamping()).Take();
+  if (!stamped) {
+    Error = std::string(stamped.error());
+    return GroundBuildProgress::Failed;
+  }
+  yielding = std::move(*stamped);
+  state.FinishesStamping();
+  return GroundBuildProgress::Ready;
+}
+
 bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
                                           GroundBuildState &state) {
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.Pressing() == nullptr) {
     const GroundBuildProducts &build = state.Candidate().Products();
-    const Ground::BuildingField &pads = build.Footprints;
     const Ground::OsmField *const shapes = World.Stack.Vectors();
     std::vector<Yields> yielding;
     if (shapes != nullptr) {
-      if (state.Stamping() == nullptr) {
-        state.BeginsStamping(std::make_unique<Generators::BuildingStampJob>(
-            standing, state.Revision().VectorGeneration));
+      if (shapes->Generation() != state.Revision().VectorGeneration) {
+        World.GroundBuild.reset();
+        return true;
       }
-      const auto advanced = state.Stamping()->Advance(
-          pads.Footprints(), shapes->Points(), shapes->Generation(), kEarthworkStampUnitsPerFrame);
-      if (!advanced) {
-        if (shapes->Generation() != state.Revision().VectorGeneration) {
-          World.GroundBuild.reset();
-          return true;
-        }
-        Error = std::string(advanced.error());
-        return false;
-      }
-      state.SamplesPressingSlice(
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
-              .count());
-      state.SamplesProductPeak();
-      if (!*advanced) { return true; }
-      auto stamped = std::move(*state.Stamping()).Take();
-      if (!stamped) {
-        Error = std::string(stamped.error());
-        return false;
-      }
-      yielding = std::move(*stamped);
-      state.FinishesStamping();
+      const GroundBuildProgress stamped =
+          BuildGroundBuildingStamps(standing, state, *shapes, yielding);
+      if (stamped != GroundBuildProgress::Ready) { return stamped != GroundBuildProgress::Failed; }
     } else if (state.Stamping() != nullptr) {
       World.GroundBuild.reset();
       return true;
