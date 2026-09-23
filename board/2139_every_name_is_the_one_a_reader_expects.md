@@ -21,18 +21,18 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 `enum class` and template parameters), 31 public headers/4,459 lines, 580 private
 C++/GLSL files/94,275 lines, 22 declared dependency tiers and 384 public edges.
 Layer check finds zero direction violations; it cannot prove runtime ownership.
-WI 2145 moved water triangulation out of `Engine::State` to `generators/water`.
-`Document.cpp`
+Water triangulation now belongs to `generators/water` (2145). `Document.cpp`
 (2,268 lines) contains several glTF sections but one import owner; split it only
 when a complete codec boundary reduces change propagation. Track public API
 growth, owner-crossing edits, dependency edges and largest cohesive files, not
 a target count of types or an arbitrary line cap.
 The three read-only telemetry methods moved from `Laying.cpp` to
 `GroundDiagnostics.cpp` in b992673c9; explicit borrows replaced `Engine::State` access.
-`Yields`/`Stamp` in `GroundMesher.h` were renamed `EarthworkStamp`/`EarthworkKind`
-across producers, consumers and tests without aliases. Four focused suites and full
-lint pass; Wien retains digest `e45d4da2`. Remaining names and file ownership need
-consumer-based review; this type rename does not close the parent WI.
+`Yields`/`Stamp` are now `EarthworkStamp`/`EarthworkKind`; four suites, lint and Wien
+digest `e45d4da2` pass. Next: `GroundYield.*` -> `EarthworkPress.*`; rename its
+generic types/functions by actual claim, height, result, apply and measure semantics.
+Migrate callers, tests and board refs without aliases; prove four suites, identical
+Wien digest, format and lint. The parent stays open.
 
 ## Module decisions and implementation owners
 
