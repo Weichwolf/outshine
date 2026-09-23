@@ -72,6 +72,14 @@ tripped `TileWatermark::Release`. Reservation release now also requires the
 same candidate height revision, footprint parameters and eye. This prevents
 cross-candidate mutation; it does not replace the global refined rebake.
 
+The `GroundCandidatePacingReachesReadiness` integration suite is red on both
+`13e3b6cfd` and the later sliced-network branch: all OSM/DEM tiles arrive,
+outstanding IO is zero, but three consecutive builds each remain at candidate
+progress 10 (`NeedsBakes`) after the 30-second Refined deadline. Normal and
+validated variants agree. Network weaving finishes before this phase; do not
+attribute the timeout to network slicing or weaken the deadline. Diagnose
+which structure bake/replacement job or publication gate holds progress 10.
+
 ## Implementation and acceptance
 
 1. Add a per-tile acceptance record with source/product revisions and ranges
