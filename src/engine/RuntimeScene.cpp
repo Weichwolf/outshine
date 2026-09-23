@@ -668,10 +668,20 @@ std::expected<void, std::string> RuntimeScene::PrepareBuild() {
   std::string error;
   const auto phaseAt = std::chrono::steady_clock::now();
   const bool prepared =
-      Render::PreparePlacement(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error);
+      Render::PlanPlacement(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error);
   SubmitMs_ +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   if (!prepared) { return std::unexpected(std::move(error)); }
+  return {};
+}
+
+std::expected<void, std::string> RuntimeScene::PackBuild() {
+  std::string error;
+  const auto phaseAt = std::chrono::steady_clock::now();
+  const bool packed = Render::PackPlacement(Stood_, Scratch_, error);
+  SubmitMs_ +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
+  if (!packed) { return std::unexpected(std::move(error)); }
   return {};
 }
 
@@ -726,6 +736,10 @@ std::expected<bool, std::string> RuntimeScene::AdvanceBuild() {
       break;
     case GeometryBuildStage::Prepare:
       advanced = PrepareBuild();
+      BuildStage_ = GeometryBuildStage::Pack;
+      break;
+    case GeometryBuildStage::Pack:
+      advanced = PackBuild();
       BuildStage_ = GeometryBuildStage::Index;
       break;
     case GeometryBuildStage::Index:
@@ -744,6 +758,21 @@ std::expected<bool, std::string> RuntimeScene::AdvanceBuild() {
   }
   if (!advanced) { return std::unexpected(std::move(advanced.error())); }
   return BuildStage_ == GeometryBuildStage::Idle;
+}
+
+void RuntimeScene::RecordGeometrySlice(GeometryBuildStage stage, double ms) noexcept {
+  double *record = nullptr;
+  switch (stage) {
+    case GeometryBuildStage::Plan: record = &GeometrySlices_.PlanMs; break;
+    case GeometryBuildStage::Bind: record = &GeometrySlices_.BindMs; break;
+    case GeometryBuildStage::Prepare: record = &GeometrySlices_.DrawPlanMs; break;
+    case GeometryBuildStage::Pack: record = &GeometrySlices_.PackMs; break;
+    case GeometryBuildStage::Index: record = &GeometrySlices_.IndexMs; break;
+    case GeometryBuildStage::Finish: record = &GeometrySlices_.FinishMs; break;
+    case GeometryBuildStage::Finalize: record = &GeometrySlices_.FinalizeMs; break;
+    case GeometryBuildStage::Idle: return;
+  }
+  if (record != nullptr) { *record = std::max(*record, ms); }
 }
 
 bool RuntimeScene::Pose(double seconds, std::string &error) {
@@ -1133,6 +1162,7 @@ RuntimeScene::BeginGeometryBuild(outshine::Geometry &&built, size_t drivenParts,
   Held_.SetGeometry(std::move(built));
   Stoodup_ = false;
   PendingDrivenParts_ = drivenParts;
+  GeometrySlices_ = {};
   const auto phaseAt = std::chrono::steady_clock::now();
   Shaped_ = {};
   EverShaped_ = false;
@@ -1169,9 +1199,11 @@ std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t items
   const auto phaseAt = std::chrono::steady_clock::now();
   if (ShapeCooking_) {
     auto cooked = ShapeCooking_->Advance(itemsMost);
-    BuildMs_ +=
+    const double sliceMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
             .count();
+    BuildMs_ += sliceMs;
+    GeometrySlices_.CookMs = std::max(GeometrySlices_.CookMs, sliceMs);
     if (!cooked) {
       const std::string error(Describe(cooked.error()));
       RestoreGeometryBuildState();
@@ -1185,9 +1217,12 @@ std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t items
     BuildStage_ = GeometryBuildStage::Plan;
     return false;
   }
+  const GeometryBuildStage stage = BuildStage_;
   auto advanced = AdvanceBuild();
-  BuildMs_ +=
+  const double sliceMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
+  BuildMs_ += sliceMs;
+  RecordGeometrySlice(stage, sliceMs);
   if (!advanced) {
     std::string error = std::move(advanced.error());
     RestoreGeometryBuildState();

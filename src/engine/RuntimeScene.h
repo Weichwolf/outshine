@@ -88,6 +88,17 @@ struct Extents {
   Vec3 MostM = {{0.0, 0.0, 0.0}};
 };
 
+struct GeometryBuildSliceMetrics {
+  double CookMs = 0;
+  double PlanMs = 0;
+  double BindMs = 0;
+  double DrawPlanMs = 0;
+  double PackMs = 0;
+  double IndexMs = 0;
+  double FinishMs = 0;
+  double FinalizeMs = 0;
+};
+
 enum class SubjectGeometrySources : uint8_t { All, Driven };
 enum class GroundResourceRestore : uint8_t { Immediate, Deferred };
 
@@ -169,6 +180,10 @@ public:
   [[nodiscard]] double MediumMs() const { return MediumMs_; }
 
   [[nodiscard]] Render::SubjectTransferMetrics TransferMetrics() const { return Scratch_.Metrics; }
+
+  [[nodiscard]] const GeometryBuildSliceMetrics &GeometrySlices() const noexcept {
+    return GeometrySlices_;
+  }
 
   [[nodiscard]] double FramingMs() const { return FramingMs_; }
 
@@ -350,6 +365,17 @@ public:
 private:
   friend class ::outshine::Engine;
 
+  enum class GeometryBuildStage : uint8_t {
+    Idle,
+    Plan,
+    Bind,
+    Prepare,
+    Pack,
+    Index,
+    Finish,
+    Finalize
+  };
+
   static void HandOffRenderer(std::unique_ptr<RuntimeScene> &owner) noexcept {
     if (owner != nullptr) { owner->Renderer_ = nullptr; }
   }
@@ -385,9 +411,11 @@ private:
   [[nodiscard]] std::expected<void, std::string> PlanBuild();
   [[nodiscard]] std::expected<void, std::string> BindBuild();
   [[nodiscard]] std::expected<void, std::string> PrepareBuild();
+  [[nodiscard]] std::expected<void, std::string> PackBuild();
   [[nodiscard]] std::expected<void, std::string> IndexBuild();
   [[nodiscard]] std::expected<void, std::string> FinishBuild();
   [[nodiscard]] std::expected<void, std::string> FinalizeBuild();
+  void RecordGeometrySlice(GeometryBuildStage stage, double ms) noexcept;
   [[nodiscard]] double Framing() const;
   [[nodiscard]] bool
   FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &error) const;
@@ -437,9 +465,9 @@ private:
 
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
-  enum class GeometryBuildStage : uint8_t { Idle, Plan, Bind, Prepare, Index, Finish, Finalize };
   GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
   Render::SubjectDraw::MeshTicket BuildTicket_;
+  GeometryBuildSliceMetrics GeometrySlices_;
   std::optional<Render::ShapeCookJob> ShapeCooking_;
   std::vector<Material> GeometryBuildSurfaces_;
   std::vector<float> RenderedPositionsM_;

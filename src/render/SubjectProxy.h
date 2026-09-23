@@ -96,6 +96,7 @@ Moved(SceneRenderer &renderer, Moving what, const Mat4 &ecef, std::string &error
 struct SubjectTransferMetrics {
   static constexpr uint64_t kDigestMask = 0xffffffffffffull;
   uint64_t GeometryDigest = 0;
+  double DrawPlanMs = 0;
   double PackingMs = 0;
   double DigestMs = 0;
   double UploadMs = 0;
@@ -115,6 +116,7 @@ struct SubjectScratch {
   SubjectTransferMetrics Metrics;
 
   bool Digests = false;
+  const Shape *PlannedShape = nullptr;
   const Shape *PreparedShape = nullptr;
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
@@ -139,6 +141,15 @@ struct SubjectScratch {
                            const SubjectView &view,
                            SubjectScratch &scratch,
                            std::string &error);
+
+[[nodiscard]] bool PlanPlacement(SceneRenderer &renderer,
+                                 const SubjectProxy &proxy,
+                                 const SubjectView &view,
+                                 SubjectScratch &scratch,
+                                 std::string &error);
+
+[[nodiscard]] bool
+PackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, std::string &error);
 
 [[nodiscard]] bool PreparePlacement(SceneRenderer &renderer,
                                     const SubjectProxy &proxy,

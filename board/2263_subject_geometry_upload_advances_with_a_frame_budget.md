@@ -63,9 +63,14 @@ The pre-pacing split retained Wien `2fc0aec4` and Malcesine `07ca3a25`.
 Before pacing, Wien showed 9/4517 frames over 16.67 ms and a 105.71 ms
 worst draw interval. With staged `RuntimeScene`, its digest remains
 `2fc0aec4`; 8/4493 frames exceed 16.67 ms, the worst draw interval is
-55.60 ms, and the longest geometry slice is 21.54 ms. Malcesine remains
-`07ca3a25` with a 2.43 ms longest geometry slice. These figures do not
-prove bounded work; split draw planning from stream packing next.
+55.60 ms, and the longest geometry slice was 21.54 ms. Malcesine remains
+`07ca3a25`. After splitting draw planning (1.46 ms) from CPU packing
+(9.93 ms), Wien's longest combined geometry slice measured 32.26 ms while
+every measured inner build phase stayed below 10 ms. The first slice also
+ran class upload (17.55 ms) and admission; separate those candidate phases
+before changing the mesh algorithm. Then bound any remaining over-budget
+class upload or admission unit. These are full-frame and phase figures from
+different captures, not directly comparable CPU samples.
 
 ## Implementation order
 
@@ -85,7 +90,9 @@ prove bounded work; split draw planning from stream packing next.
    `ShapeCookJob`; verify the prior complete scene stays resident until final
    success and `GroundWorldCandidate` publication remains atomic. Bound work
    inside the phases rather than introducing a second build route.
-4. Bound the most expensive unit by measured bytes/work, then measure full
+4. Separate class upload, geometry admission and the first cook advance in
+   `GroundBuildState`; none should repeat on a resumed candidate. Then bound
+   the most expensive unit by measured bytes/work, and measure full
    frame p50/p95/p99, warm/cold transition and CPU/GPU peaks on Wien. If an SDL
    allocation or submit still blocks, isolate and bound that operation rather
    than moving it into an unmeasured phase.

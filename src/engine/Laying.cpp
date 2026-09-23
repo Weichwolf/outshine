@@ -2127,6 +2127,15 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   World.GroundRetirement = std::move(World.GroundBuild);
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");
+  const Core::GeometryBuildSliceMetrics &slices = Picture.Standing->GeometrySlices();
+  Published.Places("geometry slice: shape cooking", slices.CookMs, "ms");
+  Published.Places("geometry slice: scene planning", slices.PlanMs, "ms");
+  Published.Places("geometry slice: subject binding", slices.BindMs, "ms");
+  Published.Places("geometry slice: draw planning", slices.DrawPlanMs, "ms");
+  Published.Places("geometry slice: CPU packing", slices.PackMs, "ms");
+  Published.Places("geometry slice: index upload", slices.IndexMs, "ms");
+  Published.Places("geometry slice: stream completion", slices.FinishMs, "ms");
+  Published.Places("geometry slice: finalization", slices.FinalizeMs, "ms");
   Published.Places("rebuild: standing render plan", Picture.Standing->PlanMs(), "ms");
   Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");
   Published.Places(
@@ -2155,6 +2164,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   Published.Places("cook: clusters in all",
                    static_cast<double>(Picture.Standing->Clustering().Clusters),
                    "clusters");
+  Published.Places(
+      "rebuild: planning draw runs", Picture.Standing->TransferMetrics().DrawPlanMs, "ms");
   Published.Places(
       "rebuild: of the streams, packing them", Picture.Standing->TransferMetrics().PackingMs, "ms");
   Published.Places("restand: the geometry handed over, digested",

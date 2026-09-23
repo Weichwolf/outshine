@@ -426,11 +426,12 @@ void RecordGeometryDigest(const Shape &subject, SubjectScratch &scratch) {
 
 }
 
-bool PreparePlacement(SceneRenderer &renderer,
-                      const SubjectProxy &proxy,
-                      const SubjectView &view,
-                      SubjectScratch &scratch,
-                      std::string &error) {
+bool PlanPlacement(SceneRenderer &renderer,
+                   const SubjectProxy &proxy,
+                   const SubjectView &view,
+                   SubjectScratch &scratch,
+                   std::string &error) {
+  scratch.PlannedShape = nullptr;
   scratch.PreparedShape = nullptr;
   if (proxy.Shaped() == nullptr) {
     error = "the proxy declares no subject";
@@ -450,13 +451,27 @@ bool PreparePlacement(SceneRenderer &renderer,
   }
   if (!Aim(renderer, subject, view, proxy.Anchor(), error)) { return false; }
 
+  scratch.Metrics = {};
+  const auto planFrom = std::chrono::steady_clock::now();
   {
     static const Heap::Tag kInsideTag("draw-list");
     const Heap::Tagged inside(kInsideTag);
     if (!BuildDrawList(proxy, view, subject, scratch.Draws, error)) { return false; }
   }
+  scratch.Metrics.DrawPlanMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - planFrom)
+          .count();
+  scratch.PlannedShape = &subject;
+  return true;
+}
 
-  scratch.Metrics = {};
+bool PackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, std::string &error) {
+  const Shape *const source = proxy.Shaped();
+  if (source == nullptr || source != scratch.PlannedShape) {
+    error = "subject packing no longer matches its draw plan";
+    return false;
+  }
+  const Shape &subject = *source;
   const auto packingFrom = std::chrono::steady_clock::now();
   static const Heap::Tag kPackingTag("index-run");
   const Heap::Tagged packing(kPackingTag);
@@ -477,6 +492,15 @@ bool PreparePlacement(SceneRenderer &renderer,
   RecordGeometryDigest(subject, scratch);
   scratch.PreparedShape = &subject;
   return true;
+}
+
+bool PreparePlacement(SceneRenderer &renderer,
+                      const SubjectProxy &proxy,
+                      const SubjectView &view,
+                      SubjectScratch &scratch,
+                      std::string &error) {
+  return PlanPlacement(renderer, proxy, view, scratch, error) &&
+         PackPlacement(proxy, scratch, error);
 }
 
 namespace {
@@ -589,6 +613,7 @@ bool FinishPlacementUpload(SceneRenderer &renderer,
           .count();
   RecordsMeshUpload(renderer, scratch);
   if (!uploaded) { return false; }
+  scratch.PlannedShape = nullptr;
   scratch.PreparedShape = nullptr;
   { std::vector<uint32_t>().swap(scratch.Indices); }
   { std::vector<float>().swap(scratch.Vertices); }
