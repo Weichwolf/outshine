@@ -114,10 +114,6 @@ std::expected<TileAt, std::string_view> OsmField::Locate(LongitudeLatitude at, i
 namespace {
 static_assert(2 * std::numeric_limits<int>::digits < std::numeric_limits<uint64_t>::digits);
 
-struct TileWindow {
-  int64_t MinX, MaxX, MinY, MaxY;
-};
-
 struct TileWindowRequest {
   TileAt Centre;
   int Zoom;
@@ -125,15 +121,15 @@ struct TileWindowRequest {
   size_t Budget;
 };
 
-std::expected<TileWindow, std::string_view> TileWindowFor(TileWindowRequest request) {
+std::expected<OsmTileWindow, std::string_view> TileWindowFor(TileWindowRequest request) {
   if (request.Radius < 0) { return std::unexpected(Says::kInvalidOsmRadius); }
   const auto last = static_cast<int64_t>((uint64_t{1} << static_cast<unsigned>(request.Zoom)) - 1);
   const int64_t x = request.Centre.X;
   const int64_t y = request.Centre.Y;
-  const TileWindow window{.MinX = std::max(int64_t{0}, x - request.Radius),
-                          .MaxX = std::min(last, x + request.Radius),
-                          .MinY = std::max(int64_t{0}, y - request.Radius),
-                          .MaxY = std::min(last, y + request.Radius)};
+  const OsmTileWindow window{.MinX = std::max(int64_t{0}, x - request.Radius),
+                             .MaxX = std::min(last, x + request.Radius),
+                             .MinY = std::max(int64_t{0}, y - request.Radius),
+                             .MaxY = std::min(last, y + request.Radius)};
   const auto width = static_cast<uint64_t>(window.MaxX - window.MinX + 1);
   const auto height = static_cast<uint64_t>(window.MaxY - window.MinY + 1);
   const auto count = width * height;
@@ -178,11 +174,23 @@ std::expected<int, std::string_view> OsmField::Build(
   CentreX_ = centre->X;
   CentreY_ = centre->Y;
   RequestedRing_ = std::max(RequestedRing_, ringTiles);
+  const auto added = AddWindowTiles(tiles, *window, parsing);
+  if (!added) { return std::unexpected(added.error()); }
+
+  const auto publicationAt = Clock::now();
+  const auto published = PublishReady(*centre);
+  BuildMetrics_.PublicationMs = ElapsedMs(publicationAt);
+  if (!published) { return std::unexpected(published.error()); }
+  return *added;
+}
+
+std::expected<int, std::string_view>
+OsmField::AddWindowTiles(TilePool &tiles, OsmTileWindow window, ParseBudget parsing) {
   int added = 0;
   size_t parsed = 0;
 
-  for (int64_t ty = window->MinY; ty <= window->MaxY && !WindowPending_; ++ty) {
-    for (int64_t tx = window->MinX; tx <= window->MaxX; ++tx) {
+  for (int64_t ty = window.MinY; ty <= window.MaxY && !WindowPending_; ++ty) {
+    for (int64_t tx = window.MinX; tx <= window.MaxX; ++tx) {
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
       if (std::ranges::find(Settled_, key) != Settled_.end()) { continue; }
 
@@ -205,10 +213,6 @@ std::expected<int, std::string_view> OsmField::Build(
     }
   }
 
-  const auto publicationAt = Clock::now();
-  const auto published = PublishReady(*centre);
-  BuildMetrics_.PublicationMs = ElapsedMs(publicationAt);
-  if (!published) { return std::unexpected(published.error()); }
   return added;
 }
 

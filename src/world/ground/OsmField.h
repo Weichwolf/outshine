@@ -23,6 +23,10 @@ namespace outshine::Ground {
 
 struct OsmStorageUsage;
 
+struct OsmTileWindow {
+  int64_t MinX, MaxX, MinY, MaxY;
+};
+
 struct FeatureRun {
   size_t From = 0;
   size_t To = 0;
@@ -193,6 +197,8 @@ private:
   enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
 
   [[nodiscard]] std::expected<Fetched, std::string_view> AddTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<int, std::string_view>
+  AddWindowTiles(TilePool &tiles, OsmTileWindow window, ParseBudget parsing);
   [[nodiscard]] std::expected<void, std::string_view> PublishParsed(const ParsedTile *replacement,
                                                                     std::optional<TileAt> contact);
   [[nodiscard]] std::expected<void, std::string_view> PublishReady(TileAt centre);
