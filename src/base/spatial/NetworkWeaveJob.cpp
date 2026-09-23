@@ -19,9 +19,78 @@ std::expected<NetworkWeaveJob, std::string> NetworkWeaveJob::Begin(Network &&net
   NetworkWeaveJob job(std::move(network));
   std::string error;
   if (!job.Network_.PrepareWeave(error)) { return std::unexpected(std::move(error)); }
-  job.Network_.SortWaysIntoDeclaredOrder();
-  job.NodeOf_.resize(job.Network_.Points_.size() / 2u);
+  job.Order_.resize(job.Network_.Ways_.size());
+  for (size_t at = 0; at < job.Order_.size(); ++at) { job.Order_[at] = at; }
   return job;
+}
+
+void NetworkWeaveJob::SortWays() {
+  const size_t end = std::min(NextSort_ + kWayRun, Order_.size());
+  std::sort(Order_.begin() + static_cast<ptrdiff_t>(NextSort_),
+            Order_.begin() + static_cast<ptrdiff_t>(end),
+            [this](size_t a, size_t b) { return Network_.WayLess(a, b); });
+  NextSort_ = end;
+  if (NextSort_ != Order_.size()) { return; }
+  SortedOrder_.reserve(Order_.size());
+  RunHeap_.reserve((Order_.size() + kWayRun - 1u) / kWayRun);
+  for (size_t at = 0; at < Order_.size(); at += kWayRun) {
+    RunHeap_.push_back({.At = at, .End = std::min(at + kWayRun, Order_.size())});
+  }
+  const auto later = [this](RunCursor a, RunCursor b) {
+    return Network_.WayLess(Order_[b.At], Order_[a.At]);
+  };
+  std::make_heap(RunHeap_.begin(), RunHeap_.end(), later);
+  Stage_ = Stage::MergeWays;
+}
+
+void NetworkWeaveJob::MergeWays(size_t itemsMost) {
+  const auto later = [this](RunCursor a, RunCursor b) {
+    return Network_.WayLess(Order_[b.At], Order_[a.At]);
+  };
+  const size_t count = std::min(itemsMost, size_t{4096});
+  for (size_t made = 0; made < count && !RunHeap_.empty(); ++made) {
+    std::pop_heap(RunHeap_.begin(), RunHeap_.end(), later);
+    RunCursor next = RunHeap_.back();
+    RunHeap_.pop_back();
+    SortedOrder_.push_back(Order_[next.At++]);
+    if (next.At < next.End) {
+      RunHeap_.push_back(next);
+      std::push_heap(RunHeap_.begin(), RunHeap_.end(), later);
+    }
+  }
+  if (RunHeap_.empty()) { Stage_ = Stage::ReservePointCopy; }
+}
+
+void NetworkWeaveJob::CopyWays(size_t itemsMost) {
+  const size_t count = std::min(itemsMost, size_t{8192});
+  size_t made = 0;
+  while (NextCopyWay_ < SortedOrder_.size() && made < count) {
+    const Network::Way &source = Network_.Ways_[SortedOrder_[NextCopyWay_]];
+    if (NextCopyPoint_ == 0) {
+      Network::Way moved = source;
+      moved.First = SortedPoints_.size() / 2u;
+      SortedWays_.push_back(moved);
+    }
+    const size_t from = source.First + NextCopyPoint_;
+    SortedPoints_.push_back(Network_.Points_[2u * from]);
+    SortedPoints_.push_back(Network_.Points_[2u * from + 1u]);
+    SortedWayOf_.push_back(static_cast<uint32_t>(SortedWays_.size() - 1u));
+    ++made;
+    if (++NextCopyPoint_ == source.Count) {
+      ++NextCopyWay_;
+      NextCopyPoint_ = 0;
+    }
+  }
+  if (NextCopyWay_ != SortedOrder_.size()) { return; }
+  Network_.Points_ = std::move(SortedPoints_);
+  Network_.WayOf_ = std::move(SortedWayOf_);
+  Network_.Ways_ = std::move(SortedWays_);
+  Stage_ = Stage::BeginSnap;
+}
+
+void NetworkWeaveJob::BeginSnap() {
+  NodeOf_.resize(Network_.Points_.size() / 2u);
+  Stage_ = Stage::SnapPoints;
 }
 
 void NetworkWeaveJob::SnapPoints(size_t itemsMost) {
@@ -165,6 +234,22 @@ std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
   const auto began = std::chrono::steady_clock::now();
   const Stage before = Stage_;
   switch (Stage_) {
+    case Stage::SortWays: SortWays(); break;
+    case Stage::MergeWays: MergeWays(itemsMost); break;
+    case Stage::ReservePointCopy:
+      SortedPoints_.reserve(Network_.Points_.size());
+      Stage_ = Stage::ReserveOwnerCopy;
+      break;
+    case Stage::ReserveOwnerCopy:
+      SortedWayOf_.reserve(Network_.WayOf_.size());
+      Stage_ = Stage::ReserveWayCopy;
+      break;
+    case Stage::ReserveWayCopy:
+      SortedWays_.reserve(Network_.Ways_.size());
+      Stage_ = Stage::CopyWays;
+      break;
+    case Stage::CopyWays: CopyWays(itemsMost); break;
+    case Stage::BeginSnap: BeginSnap(); break;
     case Stage::SnapPoints: SnapPoints(itemsMost); break;
     case Stage::BuildEdges: BuildEdges(itemsMost); break;
     case Stage::IndexEdges:
@@ -181,6 +266,13 @@ std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
   const double elapsedMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   switch (before) {
+    case Stage::SortWays: Worst_.SortMs = std::max(Worst_.SortMs, elapsedMs); break;
+    case Stage::MergeWays: Worst_.MergeMs = std::max(Worst_.MergeMs, elapsedMs); break;
+    case Stage::ReservePointCopy:
+    case Stage::ReserveOwnerCopy:
+    case Stage::ReserveWayCopy: Worst_.ReserveMs = std::max(Worst_.ReserveMs, elapsedMs); break;
+    case Stage::CopyWays: Worst_.CopyMs = std::max(Worst_.CopyMs, elapsedMs); break;
+    case Stage::BeginSnap: Worst_.BeginSnapMs = std::max(Worst_.BeginSnapMs, elapsedMs); break;
     case Stage::SnapPoints: Worst_.SnapMs = std::max(Worst_.SnapMs, elapsedMs); break;
     case Stage::BuildEdges: Worst_.EdgesMs = std::max(Worst_.EdgesMs, elapsedMs); break;
     case Stage::IndexEdges: Worst_.IndexMs = std::max(Worst_.IndexMs, elapsedMs); break;

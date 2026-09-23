@@ -1629,6 +1629,11 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
   Published.Places("network: cleaning weave temporaries", mapped.CleanupWeaveMs, "ms");
   Published.Places("network: longest weave cleanup slice", mapped.CleanupWeaveLongestMs, "ms");
   Published.Places("network: longest weave slice", mapped.WeaveLongestMs, "ms");
+  Published.Places("network: longest way sort slice", mapped.WeaveSlices.SortMs, "ms");
+  Published.Places("network: longest way merge slice", mapped.WeaveSlices.MergeMs, "ms");
+  Published.Places("network: longest way reserve slice", mapped.WeaveSlices.ReserveMs, "ms");
+  Published.Places("network: longest way copy slice", mapped.WeaveSlices.CopyMs, "ms");
+  Published.Places("network: beginning snap", mapped.WeaveSlices.BeginSnapMs, "ms");
   Published.Places("network: longest snap slice", mapped.WeaveSlices.SnapMs, "ms");
   Published.Places("network: longest edge creation slice", mapped.WeaveSlices.EdgesMs, "ms");
   Published.Places("network: longest edge index slice", mapped.WeaveSlices.IndexMs, "ms");

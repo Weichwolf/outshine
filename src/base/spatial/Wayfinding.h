@@ -312,6 +312,7 @@ private:
   [[nodiscard]] std::expected<void, std::string_view> ReconstructRoute(RouteTrace trace,
                                                                        Route &out) const;
 
+  [[nodiscard]] bool WayLess(size_t a, size_t b) const;
   void SortWaysIntoDeclaredOrder();
   void StationsOfWays();
   void SlopesOfWays();
@@ -457,6 +458,11 @@ private:
 class NetworkWeaveJob {
 public:
   struct SliceWorst {
+    double SortMs = 0.0;
+    double MergeMs = 0.0;
+    double ReserveMs = 0.0;
+    double CopyMs = 0.0;
+    double BeginSnapMs = 0.0;
     double SnapMs = 0.0;
     double EdgesMs = 0.0;
     double IndexMs = 0.0;
@@ -480,6 +486,13 @@ public:
 
 private:
   enum class Stage : uint8_t {
+    SortWays,
+    MergeWays,
+    ReservePointCopy,
+    ReserveOwnerCopy,
+    ReserveWayCopy,
+    CopyWays,
+    BeginSnap,
     SnapPoints,
     BuildEdges,
     IndexEdges,
@@ -491,6 +504,10 @@ private:
   };
   enum class ReleaseStage : uint8_t { Cells, Outgoing, EdgeCells, Adjacency, Done };
   explicit NetworkWeaveJob(Network &&network);
+  void SortWays();
+  void MergeWays(size_t itemsMost);
+  void CopyWays(size_t itemsMost);
+  void BeginSnap();
   void SnapPoints(size_t itemsMost);
   void BuildEdges(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> IndexEdges(size_t itemsMost);
@@ -500,6 +517,19 @@ private:
   void Publish();
 
   Network Network_;
+
+  struct RunCursor {
+    size_t At = 0;
+    size_t End = 0;
+  };
+
+  static constexpr size_t kWayRun = 512;
+  std::vector<size_t> Order_;
+  std::vector<size_t> SortedOrder_;
+  std::vector<RunCursor> RunHeap_;
+  std::vector<double> SortedPoints_;
+  std::vector<uint32_t> SortedWayOf_;
+  std::vector<Network::Way> SortedWays_;
   std::vector<size_t> NodeOf_;
   Network::CellsByKey ByCell_;
   Network::OutgoingEdges Outgoing_;
@@ -519,13 +549,16 @@ private:
   std::optional<EdgeIndexCursor> IndexCursor_;
   double TieReachM_ = 0.0;
   size_t NextPoint_ = 0;
+  size_t NextSort_ = 0;
+  size_t NextCopyWay_ = 0;
+  size_t NextCopyPoint_ = 0;
   size_t NextWay_ = 0;
   size_t NextStep_ = 1;
   size_t NextNode_ = 0;
   size_t NextEdge_ = 0;
   size_t NextRelease_ = 0;
   SliceWorst Worst_;
-  Stage Stage_ = Stage::SnapPoints;
+  Stage Stage_ = Stage::SortWays;
   ReleaseStage ReleaseStage_ = ReleaseStage::Cells;
 };
 

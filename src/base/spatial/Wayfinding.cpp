@@ -352,26 +352,31 @@ size_t Network::Cross() {
   return Joined_;
 }
 
+bool Network::WayLess(size_t a, size_t b) const {
+  const Way &wa = Ways_[a];
+  const Way &wb = Ways_[b];
+  const size_t count = wa.Count < wb.Count ? wa.Count : wb.Count;
+  for (size_t at = 0; at < 2 * count; ++at) {
+    const double da = Points_[2 * wa.First + at];
+    const double db = Points_[2 * wb.First + at];
+    if (da != db) { return da < db; }
+  }
+  if (wa.Count != wb.Count) { return wa.Count < wb.Count; }
+  if (wa.HalfWidthM != wb.HalfWidthM) { return wa.HalfWidthM < wb.HalfWidthM; }
+  if (wa.MaxGradient != wb.MaxGradient) { return wa.MaxGradient < wb.MaxGradient; }
+  if (wa.MinRadiusM != wb.MinRadiusM) { return wa.MinRadiusM < wb.MinRadiusM; }
+  if (wa.Lanes != wb.Lanes) { return wa.Lanes < wb.Lanes; }
+  const auto left =
+      std::tie(wa.Friction, wa.SpeedMps, wa.Priority, wa.Oneway, wa.Sealed, wa.Spans, wa.Tag);
+  const auto right =
+      std::tie(wb.Friction, wb.SpeedMps, wb.Priority, wb.Oneway, wb.Sealed, wb.Spans, wb.Tag);
+  return left == right ? a < b : left < right;
+}
+
 void Network::SortWaysIntoDeclaredOrder() {
   std::vector<size_t> order(Ways_.size());
   for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
-  std::ranges::sort(order, [this](size_t a, size_t b) {
-    const Way &wa = Ways_[a];
-    const Way &wb = Ways_[b];
-    const size_t count = wa.Count < wb.Count ? wa.Count : wb.Count;
-    for (size_t at = 0; at < 2 * count; ++at) {
-      const double da = Points_[2 * wa.First + at];
-      const double db = Points_[2 * wb.First + at];
-      if (da != db) { return da < db; }
-    }
-    if (wa.Count != wb.Count) { return wa.Count < wb.Count; }
-    if (wa.HalfWidthM != wb.HalfWidthM) { return wa.HalfWidthM < wb.HalfWidthM; }
-    if (wa.MaxGradient != wb.MaxGradient) { return wa.MaxGradient < wb.MaxGradient; }
-    if (wa.MinRadiusM != wb.MinRadiusM) { return wa.MinRadiusM < wb.MinRadiusM; }
-    if (wa.Lanes != wb.Lanes) { return wa.Lanes < wb.Lanes; }
-    return std::tie(wa.Friction, wa.SpeedMps, wa.Priority, wa.Oneway, wa.Sealed, wa.Spans, wa.Tag) <
-           std::tie(wb.Friction, wb.SpeedMps, wb.Priority, wb.Oneway, wb.Sealed, wb.Spans, wb.Tag);
-  });
+  std::ranges::sort(order, [this](size_t a, size_t b) { return WayLess(a, b); });
   std::vector<double> points;
   std::vector<uint32_t> wayOf;
   std::vector<Way> ways;
