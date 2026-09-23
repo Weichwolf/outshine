@@ -50,6 +50,7 @@ public:
     uint32_t Tile = 0;
     uint16_t Layer = 0;
     uint8_t Type = 0;
+    std::optional<uint64_t> SourceFeatureId;
     double MinLat = 0, MinLon = 0, MaxLat = 0, MaxLon = 0;
   };
 

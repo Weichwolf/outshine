@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -21,6 +22,7 @@ public:
     uint32_t FirstRing = 0, RingCount = 0;
     uint32_t FirstTag = 0, TagCount = 0;
     int Type = 0;
+    std::optional<uint64_t> SourceFeatureId;
   };
 
   enum class ParseError { MissingLayer, InvalidTile, UnsupportedVersion };

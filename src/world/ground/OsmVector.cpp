@@ -337,9 +337,11 @@ struct EncodedFeature {
   std::vector<uint32_t> Tags;
   std::vector<uint32_t> Geometry;
   int Type = 0;
+  std::optional<uint64_t> SourceFeatureId;
 };
 
 enum class FeatureTag : uint32_t {
+  Id = 0x08,
   Tag = 0x10,
   PackedTags = 0x12,
   Type = 0x18,
@@ -365,11 +367,19 @@ std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature 
   feature.Tags.clear();
   feature.Geometry.clear();
   feature.Type = 0;
+  feature.SourceFeatureId.reset();
   bool hasType = false;
   bool hasGeometry = false;
   FieldHeader field;
   while (reader.ReadField(field)) {
     switch (static_cast<FeatureTag>((field.Number << 3u) | field.Wire)) {
+      case FeatureTag::Id: {
+        if (feature.SourceFeatureId) { return std::unexpected(Says::kInvalidMvtFeature); }
+        const uint64_t id = reader.Varint();
+        if (!reader.Ok) { return std::unexpected(Says::kInvalidMvtFeature); }
+        feature.SourceFeatureId = id;
+        break;
+      }
       case FeatureTag::Tag:
         if (!AppendWord(reader, feature.Tags)) { return std::unexpected(Says::kInvalidMvtFeature); }
         break;
@@ -398,6 +408,7 @@ std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature 
         break;
       }
       default:
+        if (field.Number == 1) { return std::unexpected(Says::kInvalidMvtFeature); }
         if (!reader.Skip(field.Wire)) { return std::unexpected(Says::kInvalidMvtFeature); }
         break;
     }
@@ -497,6 +508,7 @@ OsmVector::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodie
     if (encoded.Type == 0) { continue; }
     Feature f{};
     f.Type = encoded.Type;
+    f.SourceFeatureId = encoded.SourceFeatureId;
     f.FirstTag = static_cast<uint32_t>(Tags_.size());
     f.FirstRing = static_cast<uint32_t>(Rings_.size());
     Tags_.insert(Tags_.end(), encoded.Tags.begin(), encoded.Tags.end());
