@@ -22,6 +22,16 @@ The shot's p95 was 673.56 ms with 37/153 frames above 16.67 ms. The staged
 over 16.67 ms, 13.528 ms longest earthwork slice and 852 MB heap peak. Other
 candidate phases still dominate the slow frames; this WI does not waive them.
 
+Wien later showed 103,293 building pads assembled synchronously before the
+press job, with a 27.672-ms earthwork slice. `BuildingStampJob` now owns pad
+construction in 2,048-unit slices, including per-ring and seam cursors; it
+checks vector generation and source dimensions without retaining OSM spans.
+The 2026-09-23 Wien shot remains `2fc0aec4`: p99 9.81 ms, 8/4464 late
+frames, longest earthwork slice 6.450 ms and whole phase 15.807 ms. Malcesine
+remains `07ca3a25`: p99 10.25 ms, 0/1373 late, earthwork slice 2.154 ms.
+The remaining start cost is lake-stamp construction and corridor-yield merge;
+measure and split them before claiming a strict per-unit budget.
+
 ## Decision
 
 Make terrain pressing a candidate-owned generator job, with resumable phases:

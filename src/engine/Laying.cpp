@@ -42,6 +42,7 @@
 #include "geo/PlaceKey.h"
 #include "spatial/Refine.h"
 #include "Corridors.h"
+#include "BuildingStampJob.h"
 #include "TerrainMesh.h"
 #include "TerrainPress.h"
 #include "EngineHeld.h"
@@ -100,7 +101,6 @@ constexpr float kTileGreen = 0.20f;
 constexpr float kTileBlue = 0.14f;
 constexpr float kTileRoughness = 0.72f;
 
-constexpr double kPadApronM = 6.0;
 constexpr double kWaterBedM = 2.0;
 constexpr double kWaterBankM = kWaterBedM / kBatterRise;
 constexpr size_t kBounceProbeStride = 16;
@@ -110,6 +110,7 @@ constexpr size_t kTerrainSheetsPerFrame = 48;
 constexpr size_t kTerrainResidencySheetsPerFrame = 64;
 constexpr size_t kEarthworkSheetsPerFrame = 32;
 constexpr size_t kEarthworkPointsPerFrame = 8192;
+constexpr size_t kEarthworkStampUnitsPerFrame = 2048;
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kNetworkItemsPerFrame = 1024;
@@ -236,6 +237,14 @@ public:
   [[nodiscard]] MeshBuild &InitialMeshing() noexcept { return InitialMeshing_; }
 
   [[nodiscard]] Generators::TerrainPressJob *Pressing() noexcept { return Pressing_.get(); }
+
+  [[nodiscard]] Generators::BuildingStampJob *Stamping() noexcept { return Stamping_.get(); }
+
+  void BeginsStamping(std::unique_ptr<Generators::BuildingStampJob> stamping) noexcept {
+    Stamping_ = std::move(stamping);
+  }
+
+  void FinishesStamping() noexcept { Stamping_.reset(); }
 
   void BeginsPressing(std::unique_ptr<Generators::TerrainPressJob> pressing) noexcept {
     Pressing_ = std::move(pressing);
@@ -394,13 +403,13 @@ public:
 
 private:
   [[nodiscard]] size_t CurrentProductBytes() const noexcept {
-    const size_t phaseBytes = (Patchwork_ ? Patchwork_->HeapBytes() : 0u) +
-                              Corridors_.capacity() * sizeof(Yields) +
-                              Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-                              Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
-                              InitialMeshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-                              InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
-                              (Pressing_ ? Pressing_->HeapBytes() : 0u);
+    const size_t phaseBytes =
+        (Patchwork_ ? Patchwork_->HeapBytes() : 0u) + Corridors_.capacity() * sizeof(Yields) +
+        Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
+        Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
+        InitialMeshing_.Mesh.PositionsM.capacity() * sizeof(float) +
+        InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
+        (Stamping_ ? Stamping_->HeapBytes() : 0u) + (Pressing_ ? Pressing_->HeapBytes() : 0u);
     size_t corridorBytes = 0;
     for (const Yields &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
     return Candidate_.Products().OwnedHeapBytes() + phaseBytes + corridorBytes;
@@ -414,6 +423,7 @@ private:
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
   std::optional<Patchwork> Patchwork_;
+  std::unique_ptr<Generators::BuildingStampJob> Stamping_;
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::unique_ptr<outshine::World::TransportNetworkBuildJob> NetworkJob_;
@@ -833,54 +843,6 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
 }
 
 namespace {
-void AppendBuildingStamps(const Ground::BuildingField &pads,
-                          std::span<const double> points,
-                          const TangentFrame &standing,
-                          std::vector<Yields> &yielding) {
-  for (const Ground::BuildingField::Footprint &one : pads.Footprints()) {
-    if (one.PointCount < 3) { continue; }
-    Yields made;
-    made.RingEastNorthM.reserve(static_cast<size_t>(one.PointCount) * 2u);
-    made.LowE = kBeyondAnyCoordinate;
-    made.HighE = -kBeyondAnyCoordinate;
-    made.LowN = kBeyondAnyCoordinate;
-    made.HighN = -kBeyondAnyCoordinate;
-    bool whole = true;
-    for (uint32_t step = 0; step < one.PointCount && whole; ++step) {
-      const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
-      if (at + 1 >= points.size()) {
-        whole = false;
-        break;
-      }
-      const EastNorthUp seated = standing.Place({.LongitudeDeg = points[at + 1],
-                                                 .LatitudeDeg = points[at],
-                                                 .HeightM = static_cast<double>(one.SeatM)});
-      const double eastM = seated.EastM;
-      const double northM = seated.NorthM;
-      made.RingEastNorthM.push_back(eastM);
-      made.RingEastNorthM.push_back(northM);
-      made.LowE = std::min(made.LowE, eastM);
-      made.HighE = std::max(made.HighE, eastM);
-      made.LowN = std::min(made.LowN, northM);
-      made.HighN = std::max(made.HighN, northM);
-    }
-    if (!whole) { continue; }
-    {
-      const size_t first = static_cast<size_t>(one.FirstPoint) * 2u;
-      const EastNorthUp placed = standing.Place({.LongitudeDeg = points[first + 1],
-                                                 .LatitudeDeg = points[first],
-                                                 .HeightM = static_cast<double>(one.SeatM)});
-      made.PlateauM = placed.UpM;
-    }
-    made.ApronM = kPadApronM;
-    made.YieldM = std::fabs(static_cast<double>(one.SeatM) - static_cast<double>(one.BaseM));
-    made.SeamEastNorthM = made.RingEastNorthM;
-    yielding.push_back(std::move(made));
-  }
-}
-}
-
-namespace {
 std::optional<float> CandidateLakeLevel(const Ground::WaterField::Surface &lake,
                                         std::span<const double> points,
                                         const HeightSheets &sheets,
@@ -957,8 +919,40 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
   if (state.Pressing() == nullptr) {
     const GroundBuildProducts &build = state.Candidate().Products();
     const Ground::BuildingField &pads = build.Footprints;
-    std::vector<Yields> corridor = state.TakesCorridors();
     const Ground::OsmField *const shapes = World.Stack.Vectors();
+    std::vector<Yields> yielding;
+    if (shapes != nullptr) {
+      if (state.Stamping() == nullptr) {
+        state.BeginsStamping(std::make_unique<Generators::BuildingStampJob>(
+            standing, state.Revision().VectorGeneration));
+      }
+      const auto advanced = state.Stamping()->Advance(
+          pads.Footprints(), shapes->Points(), shapes->Generation(), kEarthworkStampUnitsPerFrame);
+      if (!advanced) {
+        if (shapes->Generation() != state.Revision().VectorGeneration) {
+          World.GroundBuild.reset();
+          return true;
+        }
+        Error = std::string(advanced.error());
+        return false;
+      }
+      state.SamplesPressingSlice(
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
+              .count());
+      state.SamplesProductPeak();
+      if (!*advanced) { return true; }
+      auto stamped = std::move(*state.Stamping()).Take();
+      if (!stamped) {
+        Error = std::string(stamped.error());
+        return false;
+      }
+      yielding = std::move(*stamped);
+      state.FinishesStamping();
+    } else if (state.Stamping() != nullptr) {
+      World.GroundBuild.reset();
+      return true;
+    }
+    std::vector<Yields> corridor = state.TakesCorridors();
     if (shapes != nullptr) {
       uint64_t tileOrder = kDigestBasis;
       for (const Ground::OsmField::Tile &tile : shapes->Tiles()) {
@@ -972,8 +966,6 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                        static_cast<double>(tileOrder >> 32U),
                        "digest");
     }
-    std::vector<Yields> yielding;
-    if (shapes != nullptr) { AppendBuildingStamps(pads, shapes->Points(), standing, yielding); }
     const size_t builtPads = yielding.size();
     if (shapes != nullptr) {
       AppendLakeStamps(World.Stack.WaterBodies().Surfaces(),
