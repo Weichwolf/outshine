@@ -39,7 +39,7 @@ void NetworkWeaveJob::SortWays() {
   const auto later = [this](RunCursor a, RunCursor b) {
     return Network_.WayLess(Order_[b.At], Order_[a.At]);
   };
-  std::make_heap(RunHeap_.begin(), RunHeap_.end(), later);
+  std::ranges::make_heap(RunHeap_, later);
   Stage_ = Stage::MergeWays;
 }
 
@@ -49,13 +49,13 @@ void NetworkWeaveJob::MergeWays(size_t itemsMost) {
   };
   const size_t count = std::min(itemsMost, size_t{4096});
   for (size_t made = 0; made < count && !RunHeap_.empty(); ++made) {
-    std::pop_heap(RunHeap_.begin(), RunHeap_.end(), later);
+    std::ranges::pop_heap(RunHeap_, later);
     RunCursor next = RunHeap_.back();
     RunHeap_.pop_back();
     SortedOrder_.push_back(Order_[next.At++]);
     if (next.At < next.End) {
       RunHeap_.push_back(next);
-      std::push_heap(RunHeap_.begin(), RunHeap_.end(), later);
+      std::ranges::push_heap(RunHeap_, later);
     }
   }
   if (RunHeap_.empty()) { Stage_ = Stage::ReservePointCopy; }
