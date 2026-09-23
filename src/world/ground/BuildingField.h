@@ -148,7 +148,7 @@ public:
   [[nodiscard]] std::span<const Footprint> OfTile(int tile) const {
     if (tile < 0) { return {}; }
     const auto at = std::ranges::lower_bound(AcceptedTiles_, static_cast<uint32_t>(tile));
-    if (at == AcceptedTiles_.end() || *at != static_cast<uint32_t>(tile)) { return {}; }
+    if (at == AcceptedTiles_.end() || std::cmp_not_equal(*at, tile)) { return {}; }
     const Range r = Products_[static_cast<size_t>(at - AcceptedTiles_.begin())].Prints;
     return r.Count == 0 ? std::span<const Footprint>{}
                         : std::span<const Footprint>{Prints_.data() + r.First, r.Count};
