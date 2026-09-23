@@ -113,6 +113,7 @@ constexpr size_t kEarthworkPointsPerFrame = 8192;
 constexpr size_t kEarthworkStampUnitsPerFrame = 2048;
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
+constexpr size_t kCorridorRetireUnitsPerFrame = 512;
 constexpr size_t kNetworkItemsPerFrame = 1024;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kHaloNodesPerFrame = 32768;
@@ -175,6 +176,7 @@ bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality)
 class GroundBuildState {
 public:
   enum class GeometrySubmission : uint8_t { Classes, Begin, Cook };
+  enum class CorridorCompletion : uint8_t { Build, Retire };
 
   struct MeshBuild {
     Generators::TerrainMesh Mesh;
@@ -329,6 +331,15 @@ public:
     CorridorJob_ = std::move(job);
   }
 
+  [[nodiscard]] bool RetiringCorridors() const noexcept {
+    return CorridorCompletion_ == CorridorCompletion::Retire;
+  }
+
+  void BeginsCorridorRetirement() noexcept {
+    assert(CorridorCompletion_ == CorridorCompletion::Build);
+    CorridorCompletion_ = CorridorCompletion::Retire;
+  }
+
   void FinishesCorridors() noexcept { CorridorJob_.reset(); }
 
   [[nodiscard]] outshine::World::TransportNetworkBuildJob *NetworkJob() noexcept {
@@ -370,6 +381,14 @@ public:
   }
 
   [[nodiscard]] double LongestCorridorSliceMs() const noexcept { return LongestCorridorSliceMs_; }
+
+  void SamplesCorridorRetirement(double milliseconds) noexcept {
+    LongestCorridorRetirementMs_ = std::max(LongestCorridorRetirementMs_, milliseconds);
+  }
+
+  [[nodiscard]] double LongestCorridorRetirementMs() const noexcept {
+    return LongestCorridorRetirementMs_;
+  }
 
   void SamplesGeometrySlice(double milliseconds) noexcept {
     LongestGeometrySliceMs_ = std::max(LongestGeometrySliceMs_, milliseconds);
@@ -452,8 +471,10 @@ private:
   size_t ProductPeakBytes_ = 0;
   double LongestPressingSliceMs_ = 0.0;
   double LongestCorridorSliceMs_ = 0.0;
+  double LongestCorridorRetirementMs_ = 0.0;
   double LongestGeometrySliceMs_ = 0.0;
   GeometrySubmission GeometrySubmission_ = GeometrySubmission::Classes;
+  CorridorCompletion CorridorCompletion_ = CorridorCompletion::Build;
   double LongestHaloSliceMs_ = 0.0;
   Core::GroundBuildSchedule Schedule_;
   uint64_t Id_ = 0;
@@ -1733,6 +1754,24 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                                          const Around &coverage,
                                          GroundBuildState &state) {
   const auto began = std::chrono::steady_clock::now();
+  if (state.RetiringCorridors()) {
+    const auto retireAt = std::chrono::steady_clock::now();
+    const bool retired = state.CorridorJob()->RetireStep(kCorridorRetireUnitsPerFrame);
+    if (retired) { state.FinishesCorridors(); }
+    state.SamplesCorridorRetirement(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retireAt)
+            .count());
+    state.SamplesCorridorSlice(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+            .count());
+    if (!retired) { return true; }
+    state.CompletesStage();
+    Published.Places(
+        "ground candidate: corridor job retirement", state.LongestCorridorRetirementMs(), "ms");
+    Published.Places(
+        "ground candidate: longest corridor slice", state.LongestCorridorSliceMs(), "ms");
+    return true;
+  }
   GroundBuildProducts &build = state.Candidate().Products();
   const TriangleBvh surface;
   Published.Places("ground: triangles the drape can reach",
@@ -1832,19 +1871,10 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
           .count(),
       "ms");
   state.HoldsCorridors(std::move(corridors));
-  state.CompletesStage();
   Published.Places("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
-  const auto retireAt = std::chrono::steady_clock::now();
-  state.FinishesCorridors();
-  Published.Places(
-      "ground candidate: corridor job retirement",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retireAt)
-          .count(),
-      "ms");
+  state.BeginsCorridorRetirement();
   state.SamplesCorridorSlice(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
-  Published.Places(
-      "ground candidate: longest corridor slice", state.LongestCorridorSliceMs(), "ms");
   return true;
 }
 

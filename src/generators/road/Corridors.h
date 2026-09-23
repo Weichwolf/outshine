@@ -333,6 +333,7 @@ public:
     Job &operator=(const Job &) = delete;
     Job(Job &&) noexcept = default;
     Job &operator=(Job &&) noexcept = default;
+    [[nodiscard]] bool RetireStep(size_t unitsMost) noexcept;
 
   private:
     friend class Corridors;
@@ -363,6 +364,22 @@ public:
       TransferValidate,
       Done
     };
+    enum class RetireStage : uint8_t {
+      Active,
+      Designed,
+      Junctions,
+      UnderJunctions,
+      Corridor,
+      CrossingMap,
+      EndMap,
+      GroundEndMap,
+      SharedNodes,
+      LegsMap,
+      TopologyWays,
+      TopologyPlaces,
+      Notes,
+      Done
+    };
 
     explicit Job(const Site &site)
         : VectorGeneration(site.Vectors != nullptr ? site.Vectors->Generation() : 0),
@@ -378,6 +395,7 @@ public:
     std::vector<uint64_t> BridgeEnds;
     std::vector<uint64_t> Nodes;
     Stage Phase = Stage::Prepare;
+    RetireStage Retirement = RetireStage::Active;
     uint64_t VectorGeneration = 0;
     size_t WayCount = 0;
     size_t NextLane = 0;

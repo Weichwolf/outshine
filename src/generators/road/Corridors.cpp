@@ -43,6 +43,7 @@ namespace outshine::Generators {
 
 namespace Says {
 constexpr auto kStaleCorridorInput = "corridor input changed during construction";
+constexpr auto kRetiredCorridorJob = "corridor job has entered retirement";
 constexpr auto kPavingCreationFailed = "could not publish road geometry";
 }
 
@@ -1608,6 +1609,95 @@ std::unique_ptr<Corridors::Job> Corridors::Begin(const Site &site) {
   return std::unique_ptr<Job>(new Job(site));
 }
 
+namespace {
+
+template <class T>
+bool RetireVector(std::vector<T> &entries,
+                  size_t unitsMost,
+                  std::chrono::steady_clock::time_point deadline) noexcept {
+  size_t released = 0;
+  while (!entries.empty() && released < unitsMost) {
+    entries.pop_back();
+    ++released;
+    if (released % 32u == 0u && std::chrono::steady_clock::now() >= deadline) { break; }
+  }
+  if (!entries.empty()) { return false; }
+  std::vector<T>().swap(entries);
+  return true;
+}
+
+template <class Map>
+bool RetireMap(Map &entries,
+               size_t unitsMost,
+               std::chrono::steady_clock::time_point deadline) noexcept {
+  size_t released = 0;
+  while (!entries.empty() && released < unitsMost) {
+    entries.erase(entries.begin());
+    ++released;
+    if (released % 32u == 0u && std::chrono::steady_clock::now() >= deadline) { break; }
+  }
+  if (!entries.empty()) { return false; }
+  Map().swap(entries);
+  return true;
+}
+
+}
+
+bool Corridors::Job::RetireStep(size_t unitsMost) noexcept {
+  if (unitsMost == 0) { return false; }
+  if (Retirement == RetireStage::Active) { Retirement = RetireStage::Designed; }
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(2);
+  switch (Retirement) {
+    case RetireStage::Active: return false;
+    case RetireStage::Designed:
+      if (RetireVector(Work.Designed, unitsMost, deadline)) { Retirement = RetireStage::Junctions; }
+      break;
+    case RetireStage::Junctions:
+      if (RetireVector(Work.Junctions, unitsMost, deadline)) {
+        Retirement = RetireStage::UnderJunctions;
+      }
+      break;
+    case RetireStage::UnderJunctions:
+      if (RetireVector(Work.UnderJunctions, unitsMost, deadline)) {
+        Retirement = RetireStage::Corridor;
+      }
+      break;
+    case RetireStage::Corridor:
+      if (RetireVector(Corridor, unitsMost, deadline)) { Retirement = RetireStage::CrossingMap; }
+      break;
+    case RetireStage::CrossingMap:
+      if (RetireMap(Work.AtCrossing, unitsMost, deadline)) { Retirement = RetireStage::EndMap; }
+      break;
+    case RetireStage::EndMap:
+      if (RetireMap(Work.EndM, unitsMost, deadline)) { Retirement = RetireStage::GroundEndMap; }
+      break;
+    case RetireStage::GroundEndMap:
+      if (RetireMap(Work.GroundEndM, unitsMost, deadline)) {
+        Retirement = RetireStage::SharedNodes;
+      }
+      break;
+    case RetireStage::SharedNodes:
+      if (RetireMap(SharedNodes, unitsMost, deadline)) { Retirement = RetireStage::LegsMap; }
+      break;
+    case RetireStage::LegsMap:
+      if (RetireMap(LegsAt, unitsMost, deadline)) { Retirement = RetireStage::TopologyWays; }
+      break;
+    case RetireStage::TopologyWays:
+      if (RetireMap(Topology.WaysAt, unitsMost, deadline)) {
+        Retirement = RetireStage::TopologyPlaces;
+      }
+      break;
+    case RetireStage::TopologyPlaces:
+      if (RetireMap(Topology.PlaceOf, unitsMost, deadline)) { Retirement = RetireStage::Notes; }
+      break;
+    case RetireStage::Notes:
+      if (RetireVector(Work.Notes, unitsMost, deadline)) { Retirement = RetireStage::Done; }
+      break;
+    case RetireStage::Done: return true;
+  }
+  return Retirement == RetireStage::Done;
+}
+
 struct Corridors::JobSlice {
   const Site &site;
   const outshine::Ground::StreetField &ways;
@@ -1635,6 +1725,9 @@ Corridors::Advance(Job &job,
                    Geometry &ground,
                    std::vector<Yields> *corridor,
                    std::vector<DiagnosticSample> *notes) const {
+  if (job.Retirement != Job::RetireStage::Active) {
+    return std::unexpected(Says::kRetiredCorridorJob);
+  }
   const auto *vectors = site.Vectors;
   const auto &ways = site.Ways;
   if ((vectors != nullptr ? vectors->Generation() : 0) != job.VectorGeneration ||

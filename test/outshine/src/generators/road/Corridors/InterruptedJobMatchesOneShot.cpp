@@ -33,7 +33,12 @@ Product RunJob(const Generators::Corridors &corridors,
         *job, site, lanesMost, nodesMost, product.Mesh, &product.Earthworks, &product.Measures);
     if (!advanced) { return product; }
     if (*advanced) {
-      product.Complete = true;
+      for (size_t retired = 0; retired < kSlicesMost; ++retired) {
+        if (job->RetireStep(2)) {
+          product.Complete = true;
+          break;
+        }
+      }
       return product;
     }
   }
@@ -150,6 +155,20 @@ int main() {
     CHECK(SameSemanticMeasures(oneShot.Measures, sliced.Measures),
           "interruption preserves ordered semantic diagnostics independently of timing");
   }
+  std::unique_ptr<Generators::Corridors::Job> canceled = Generators::Corridors::Begin(site);
+  Geometry canceledMesh;
+  std::vector<Yields> canceledEarthworks;
+  std::vector<DiagnosticSample> canceledMeasures;
+  const auto started = corridors.Advance(
+      *canceled, site, 1, 1, canceledMesh, &canceledEarthworks, &canceledMeasures);
+  CHECK(started.has_value() && !*started, "a road job has a cancellable intermediate state");
+  bool retired = false;
+  for (size_t step = 0; step < 1024 && !retired; ++step) { retired = canceled->RetireStep(1); }
+  CHECK(retired &&
+            !corridors.Advance(
+                *canceled, site, 1, 1, canceledMesh, &canceledEarthworks, &canceledMeasures) &&
+            canceledMesh.parts() == 0 && canceledEarthworks.empty() && canceledMeasures.empty(),
+        "canceled scratch retires without publishing and cannot resume");
   std::unique_ptr<Generators::Corridors::Job> stale = Generators::Corridors::Begin(site);
   auto changed = declared;
   changed.front().LatLon.front() += 0.0001;

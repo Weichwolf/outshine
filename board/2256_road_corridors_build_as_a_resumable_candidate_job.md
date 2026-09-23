@@ -27,6 +27,11 @@ destroys the finished job synchronously and took 14.85 ms. Earlier telemetry
 sampled before this destruction and understated the corridor maximum. Six of
 4466 full Wien frames exceed 16.67 ms; other phases also need attribution
 under WI 2234. A matching image alone does not prove a frame bound.
+The completed-job path now drains nested scratch in candidate-owned advances.
+Wien remains `2fc0aec4`: retirement peaks at 0.17 ms, the full corridor slice
+at 11.54 ms, p99 at 9.81 ms, six of 4659 frames late and heap peak 1096 MB.
+Malcesine remains `07ca3a25`: retirement 0.03 ms, corridor slice 3.31 ms.
+Both PNGs were opened. Cancellation still needs the bounded owner handoff.
 
 ## Contract and ownership
 
