@@ -82,6 +82,12 @@ which structure bake/replacement job or publication gate holds progress 10.
 Wien independently misses its 6,144-frame Refined shot after more than
 103,000 structure candidates are baked and another candidate starts; the
 client cannot produce a fresh PNG or publish network diagnostics meanwhile.
+The exact bypass is `BeginsGroundBuild` calling `ResetDerived()` for every
+Refined candidate. `BuildingField::ReplaceAcceptance` already replaces one
+tile atomically, but `StructureBuildQueue::Posts` admits only
+`BuildingField::Next` first-ingestion work. `Complete` checks only the queue
+and watermark, so it cannot certify qualified replacement. Connect admission,
+commit and readiness to accepted source revisions before removing the reset.
 
 ## Implementation and acceptance
 
