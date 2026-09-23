@@ -69,6 +69,25 @@ static_assert(Ground::kStreamGrid == 2 * kPatchGrid,
 
 namespace {
 
+class ScopedCounter {
+public:
+  explicit ScopedCounter(Spent::Counter &counter) noexcept
+      : Counter_(counter), Began_(std::chrono::steady_clock::now()) {}
+
+  ScopedCounter(const ScopedCounter &) = delete;
+  ScopedCounter &operator=(const ScopedCounter &) = delete;
+
+  ~ScopedCounter() {
+    Counter_.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - Began_)
+            .count());
+  }
+
+private:
+  Spent::Counter &Counter_;
+  std::chrono::steady_clock::time_point Began_;
+};
+
 constexpr double kPerMille = 1000.0;
 constexpr float kVerticalSlopeDeg = 90.0f;
 
@@ -96,6 +115,7 @@ constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kNetworkItemsPerFrame = 1024;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kHaloNodesPerFrame = 32768;
+constexpr size_t kTerrainRefinementSourcesPerFrame = 16;
 
 uint64_t DigestPatchwork(const Patchwork &patchwork) {
   uint64_t digest = kDigestBasis;
@@ -280,6 +300,16 @@ public:
 
   void FinishesNetwork() noexcept { NetworkJob_.reset(); }
 
+  [[nodiscard]] Generators::TerrainRefinementJob *RefinementJob() noexcept {
+    return RefinementJob_.get();
+  }
+
+  void BeginsRefinement(std::unique_ptr<Generators::TerrainRefinementJob> job) noexcept {
+    RefinementJob_ = std::move(job);
+  }
+
+  void FinishesRefinement() noexcept { RefinementJob_.reset(); }
+
   [[nodiscard]] HeightSheets::HaloBuildJob *HaloJob() noexcept { return HaloJob_.get(); }
 
   void BeginsHalos(std::unique_ptr<HeightSheets::HaloBuildJob> job) noexcept {
@@ -354,6 +384,7 @@ private:
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::unique_ptr<outshine::World::TransportNetworkBuildJob> NetworkJob_;
+  std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<Yields> Corridors_;
   MeshBuild Meshing_;
@@ -766,34 +797,6 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
     case Laid::Wanted: break;
   }
   return request;
-}
-
-bool Engine::State::RefineGroundSheets(const TangentFrame &standing,
-                                       Patchwork &patchwork,
-                                       GroundBuildProducts &build) {
-  {
-    build.Sheets.Framed(standing);
-    const Render::Viewpoint &eye = Picture.Standing->Watching();
-    Generators::TerrainRefinementDetail detail{.EyeM = eye.EyeM};
-    if (eye.Kind == Render::CameraKind::Orthographic) {
-      detail.OrthographicPxPerM = static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
-    } else {
-      detail.FocalPx =
-          static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
-    }
-    if (!build.Sheets.RefineByError(patchwork,
-                                    {.Side = Render::GroundLattice::kSide, .Halo = 1},
-                                    detail,
-                                    Render::GroundLattice::kPages,
-                                    Error)) {
-      return false;
-    }
-    Published.Places("ground: virtual tiles the lattice refines to",
-                     static_cast<double>(std::ranges::count_if(
-                         patchwork.Sheets, [](const Sheet &sheet) { return sheet.Virtual; })),
-                     "tiles");
-  }
-  return true;
 }
 
 namespace {
@@ -1242,13 +1245,41 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
       if (*prepared) { state.CompletesSheetPhase(); }
       return GroundBuildProgress::Pending;
     }
-    case Core::GroundBuildSchedule::SheetPhase::NeedsRefinement:
-      if (!RefineGroundSheets(standing, patchwork, build)) {
+    case Core::GroundBuildSchedule::SheetPhase::NeedsRefinement: {
+      if (state.RefinementJob() == nullptr) {
+        build.Sheets.Framed(standing);
+        const Render::Viewpoint &eye = Picture.Standing->Watching();
+        Generators::TerrainRefinementDetail detail{.EyeM = eye.EyeM};
+        if (eye.Kind == Render::CameraKind::Orthographic) {
+          detail.OrthographicPxPerM =
+              static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
+        } else {
+          detail.FocalPx =
+              static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
+        }
+        state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
+            build.Sheets.BeginRefinement(patchwork,
+                                         {.Side = Render::GroundLattice::kSide, .Halo = 1},
+                                         detail,
+                                         Render::GroundLattice::kPages)));
+        return GroundBuildProgress::Pending;
+      }
+      auto refined = state.RefinementJob()->Advance(kTerrainRefinementSourcesPerFrame);
+      if (!refined) {
+        Error = std::move(refined.error());
         World.GroundBuild.reset();
         return GroundBuildProgress::Failed;
       }
+      if (!*refined) { return GroundBuildProgress::Pending; }
+      patchwork.Sheets = std::move(*state.RefinementJob()).Take();
+      state.FinishesRefinement();
+      Published.Places("ground: virtual tiles the lattice refines to",
+                       static_cast<double>(std::ranges::count_if(
+                           patchwork.Sheets, [](const Sheet &sheet) { return sheet.Virtual; })),
+                       "tiles");
       state.CompletesSheetPhase();
       return GroundBuildProgress::Pending;
+    }
     case Core::GroundBuildSchedule::SheetPhase::NeedsHalos: {
       if (state.HaloJob() == nullptr) {
         state.BeginsHalos(
@@ -1862,6 +1893,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
           .count());
   if (progress != GroundBuildProgress::Ready) { return progress != GroundBuildProgress::Failed; }
   GroundBuildState &state = *World.GroundBuild;
+  const size_t phase = state.Progress();
+  assert(phase < Cost.GroundPhases.size());
+  const ScopedCounter phaseTime(Cost.GroundPhases[phase]);
   const Around &over = state.Coverage();
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();

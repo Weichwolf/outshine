@@ -263,6 +263,8 @@ struct Surrounds {
 };
 
 struct Spent {
+  static constexpr size_t kGroundPhaseCount = 17;
+
   class Counter {
   public:
     [[nodiscard]] double LastMs() const { return LastMs_; }
@@ -333,6 +335,7 @@ struct Spent {
   Counter Ground;
   Counter GroundRequest;
   Counter GroundBuildBegin;
+  std::array<Counter, kGroundPhaseCount> GroundPhases;
   Counter Crowns;
   double StreamedMs = 0.0;
   size_t StreamedTiles = 0;
@@ -453,9 +456,6 @@ struct Engine::State {
   [[nodiscard]] std::expected<GroundRequest, Laid> RingWanted(bool alsoWhenTilesLanded,
                                                               GroundQuality quality);
 
-  [[nodiscard]] bool RefineGroundSheets(const TangentFrame &standing,
-                                        Patchwork &patchwork,
-                                        GroundBuildProducts &build);
   [[nodiscard]] bool PressGroundEarthworks(const TangentFrame &standing,
                                            Patchwork &patchwork,
                                            GroundBuildState &state);

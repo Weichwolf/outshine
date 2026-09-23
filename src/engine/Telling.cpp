@@ -19,6 +19,7 @@
 #include <span>
 #include <numbers>
 #include <string>
+#include <string_view>
 #include <ratio>
 #include <unordered_map>
 #include <unordered_set>
@@ -145,6 +146,31 @@ void Engine::State::Tells() {
     Published.Places("ground candidate time, most", Cost.Ground.MostMs(), "ms");
     Published.Places("ground request time, most", Cost.GroundRequest.MostMs(), "ms");
     Published.Places("ground candidate begin time, most", Cost.GroundBuildBegin.MostMs(), "ms");
+    static constexpr std::array<std::string_view, Spent::kGroundPhaseCount> kGroundPhases{
+        "candidate",
+        "patchwork",
+        "sheet fields",
+        "sheet refinement",
+        "sheet halos",
+        "sheet mesh",
+        "classes",
+        "surface",
+        "models",
+        "network",
+        "structure bake",
+        "corridors",
+        "earthworks",
+        "terrain mesh",
+        "water",
+        "geometry",
+        "publication"};
+    for (size_t phase = 0; phase < Cost.GroundPhases.size(); ++phase) {
+      if (Cost.GroundPhases[phase].Taken() == 0) { continue; }
+      Published.Places(std::string("ground phase ") + std::string(kGroundPhases[phase]) +
+                           " time, most",
+                       Cost.GroundPhases[phase].MostMs(),
+                       "ms");
+    }
     Published.Places("vegetation update time, most", Cost.Crowns.MostMs(), "ms");
   }
   if (Picture.Standing) {

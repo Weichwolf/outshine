@@ -49,6 +49,21 @@ int main() {
   CHECK(resolved && resolved->size() == 4 && resolved->front().Tile == nativeChild.Tile &&
             !resolved->front().Virtual,
         "a native source replaces the same patch derived from a coarser source");
+  if (resolved) {
+    for (const size_t budget : std::array<size_t, 3>{1, 2, 7}) {
+      TerrainRefinementJob job(overlappingSources, TangentFrame::At({}), layout, detail, 4);
+      std::expected<bool, std::string> advanced = false;
+      size_t advances = 0;
+      while (advanced && !*advanced) {
+        advanced = job.Advance(budget);
+        ++advances;
+      }
+      CHECK(advanced && std::move(job).Take() == *resolved,
+            "paced refinement preserves the canonical patch sequence");
+      CHECK(budget != 1 || advances == overlappingSources.size(),
+            "unit pacing consumes exactly one source per advance");
+    }
+  }
 
   const Sheet virtualPage{.Tile = {.Zoom = 11, .X = 1024, .Y = 1024},
                           .Nodes = {},

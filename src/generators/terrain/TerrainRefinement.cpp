@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -193,25 +194,57 @@ std::expected<std::vector<Sheet>, std::string> UniquePatches(std::vector<Sheet> 
 
 }
 
+TerrainRefinementJob::TerrainRefinementJob(std::span<const TerrainRefinementSource> sources,
+                                           TangentFrame frame,
+                                           TerrainPageLayout layout,
+                                           TerrainRefinementDetail detail,
+                                           size_t maximumPatches)
+    : Sources_(sources.begin(), sources.end()),
+      Frame_(frame),
+      Layout_(layout),
+      Detail_(detail),
+      MaximumPatches_(maximumPatches) {}
+
+std::expected<bool, std::string> TerrainRefinementJob::Advance(size_t sourcesMost) {
+  if (Complete_) { return true; }
+  if (!Layout_.Valid()) {
+    Complete_ = true;
+    return true;
+  }
+  const size_t count = std::min(sourcesMost, Sources_.size() - NextSource_);
+  const size_t end = NextSource_ + count;
+  for (; NextSource_ < end; ++NextSource_) {
+    SelectSourcePatches(Sources_[NextSource_], Frame_, Layout_, Detail_, Selected_);
+  }
+  if (NextSource_ < Sources_.size()) { return false; }
+  auto unique = UniquePatches(std::move(Selected_));
+  if (!unique) { return std::unexpected(std::move(unique.error())); }
+  if (unique->size() > MaximumPatches_) {
+    return std::unexpected(
+        std::format(Says::kTooManyPatches, unique->size(), Detail_.ErrorPx, MaximumPatches_));
+  }
+  Result_ = std::move(*unique);
+  Complete_ = true;
+  return true;
+}
+
+std::vector<Sheet> TerrainRefinementJob::Take() noexcept {
+  assert(Complete_);
+  return std::move(Result_);
+}
+
 std::expected<std::vector<Sheet>, std::string>
 RefineTerrain(std::span<const TerrainRefinementSource> sources,
               const TangentFrame &frame,
               TerrainPageLayout layout,
               TerrainRefinementDetail detail,
               size_t maximumPatches) {
-  std::vector<Sheet> selected;
-  if (!layout.Valid()) { return selected; }
-  for (const TerrainRefinementSource &source : sources) {
-    SelectSourcePatches(source, frame, layout, detail, selected);
+  TerrainRefinementJob job(sources, frame, layout, detail, maximumPatches);
+  while (true) {
+    auto advanced = job.Advance(sources.size());
+    if (!advanced) { return std::unexpected(std::move(advanced.error())); }
+    if (*advanced) { return std::move(job).Take(); }
   }
-  auto unique = UniquePatches(std::move(selected));
-  if (!unique) { return std::unexpected(std::move(unique.error())); }
-  selected = std::move(*unique);
-  if (selected.size() > maximumPatches) {
-    return std::unexpected(
-        std::format(Says::kTooManyPatches, selected.size(), detail.ErrorPx, maximumPatches));
-  }
-  return selected;
 }
 
 }

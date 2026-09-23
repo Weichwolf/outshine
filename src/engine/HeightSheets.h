@@ -86,7 +86,12 @@ public:
                                    Generators::TerrainPageLayout layout,
                                    Generators::TerrainRefinementDetail detail,
                                    size_t maximumPatches,
-                                   std::string &error);
+                                   std::string &error) const;
+  [[nodiscard]] Generators::TerrainRefinementJob
+  BeginRefinement(const Patchwork &candidate,
+                  Generators::TerrainPageLayout layout,
+                  Generators::TerrainRefinementDetail detail,
+                  size_t maximumPatches) const;
   [[nodiscard]] size_t Halos(Patchwork &laid, int finestZoom);
 
   [[nodiscard]] std::optional<double> FieldUpM(int zoom, EastNorth at) const;

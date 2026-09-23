@@ -97,13 +97,13 @@ Use internal contracts for equivalence and public API end to end. Add no second 
    Review through 21342822f: `PressPointsJob` now completes global rejection before
    applying any height changes, retaining cursors and decisions. Preserve that rule.
    `HaloBuildJob` replaces Rosenheim's 130.19 ms whole-set halo pass. Budgets 1/2/257
-   reproduce exact pages, order and missing-rim counts; production uses 32768 nodes
-   per advance and measures 3.09 ms longest. Shared immutable height snapshots cut
-   height resolution from 39.57 to 2.00 ms; direct atomic tile swaps cut live transfer
-   from 52.62 to 2.38 ms and over-budget frames from 24 to 9. Refined candidates omit
-   obsolete pieces that every tile rebakes, cutting candidate begin from 42.75 to
-   22.89 ms. Rosenheim remains 8e6642f9. Stamp initialization is only 7.74 ms; next
-   attribute and split the still-unidentified 68.99 ms ground-candidate maximum.
+   reproduce exact output; production measures 3.09 ms. Shared immutable heights cut
+   structure resolution from 39.57 to 2.00 ms; atomic tile swaps cut live transfer
+   from 52.62 to 2.38 ms. Refined candidates omit pieces every tile rebakes. A
+   source-paced `TerrainRefinementJob` preserves exact patches at budgets 1/2/7;
+   production budget 16 cuts refinement from 69.02 to 11.46 ms, Ground worst from
+   69.05 to 29.63 ms and over-budget frames from 10 to 8. Rosenheim stays 8e6642f9.
+   Next split candidate begin at 29.55 ms, then geometry's observed 19.26 ms maximum.
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.
 Expected image: unchanged completed world, no partial terrain/contact revision;
