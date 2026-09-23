@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2105
-Depends: 2246, 2256, 2263
+Depends: 2246, 2256, 2263, 2264
 Priority: P0
 Area: engine, world, rendering
 Tags: streaming, realtime, ownership

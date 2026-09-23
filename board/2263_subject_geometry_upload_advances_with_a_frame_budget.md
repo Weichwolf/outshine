@@ -64,7 +64,7 @@ separate advances. Index, position and optional digest packing now resume with
 an item budget. The direct/interrupted native test matches digest and pixels;
 the place pacing test passes with and without NDEBUG. Current Wien retains
 `2fc0aec4`: longest pack slice 0.79 ms versus 10.98 ms before, but the 50.7 MB
-class upload reached 26.65 ms; p99 9.84 ms, 7/4671 frames late. Malcesine
+class upload reached 26.65 ms (WI 2264); p99 9.84 ms, 7/4671 frames late. Malcesine
 retains `07ca3a25`, pack slice 0.01 ms, no late frame. Both PNGs were opened:
 Wien is flat and Malcesine still has artificial vertical shore walls. The
 class upload, stream upload and frame tails lack a guaranteed bound.
@@ -87,7 +87,7 @@ class upload, stream upload and frame tails lack a guaranteed bound.
    `ShapeCookJob`; verify the prior complete scene stays resident until final
    success and `GroundWorldCandidate` publication remains atomic. Bound work
    inside the phases rather than introducing a second build route.
-4. Stress class upload, admission and index/stream submission with larger
+4. Stress admission and index/stream submission with larger
    inputs. Bound any over-budget unit by measured bytes/work, and measure full
    frame p50/p95/p99, warm/cold transition and CPU/GPU peaks on Wien. If an SDL
    allocation or submit still blocks, isolate and bound that operation rather
