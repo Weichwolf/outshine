@@ -48,6 +48,11 @@ and stale in-flight work. Actual provider selection remains part of each raw
 tile identity, including fallback/ancestor results.
 Cache hits must return the same provenance as fresh decoding. Shaped terrain
 uses an explicit identity from its declared parameters and seed.
+`TerrainTiles::RawGrid` currently crops an ancestor DEM into a child grid but
+does not copy the decoded source identity into that new field. This makes an
+otherwise valid fine block look unqualified and hides a provider revision.
+Preserve the ancestor identity through the crop and its decoded-cache hit;
+the canonical source address remains the ancestor, not the requested child.
 
 Source registration is sealed before `TilePool` starts workers; late `AddAll`
 is rejected atomically. Provider ID/revision declarations are construction-time
