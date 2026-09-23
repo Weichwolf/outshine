@@ -55,7 +55,7 @@ std::expected<OsmNode, OsmXmlError> ReadNode(const Xml::Ref &element) {
   const auto latitude = ReadCoordinate(element, "lat", 90.0);
   const auto longitude = ReadCoordinate(element, "lon", 180.0);
   if (!latitude || !longitude) { return std::unexpected(OsmXmlError::InvalidCoordinate); }
-  OsmNode node{.Id = *id, .LatitudeDeg = *latitude, .LongitudeDeg = *longitude};
+  OsmNode node{.Id = *id, .LatitudeDeg = *latitude, .LongitudeDeg = *longitude, .Tags = {}};
   for (const Xml::Ref child : element.Children()) {
     if (child.Name() != "tag") { return std::unexpected(OsmXmlError::InvalidDocument); }
     const auto tag = AppendTag(child, node.Tags);
@@ -67,7 +67,7 @@ std::expected<OsmNode, OsmXmlError> ReadNode(const Xml::Ref &element) {
 std::expected<OsmWay, OsmXmlError> ReadWay(const Xml::Ref &element) {
   const auto id = ReadId(element, "id");
   if (!id) { return std::unexpected(id.error()); }
-  OsmWay way{.Id = *id};
+  OsmWay way{.Id = *id, .NodeIds = {}, .Tags = {}};
   for (const Xml::Ref child : element.Children()) {
     const std::string name = child.Name();
     if (name == "nd") {
@@ -104,7 +104,7 @@ std::expected<OsmRelationMember, OsmXmlError> ReadMember(const Xml::Ref &element
 std::expected<OsmRelation, OsmXmlError> ReadRelation(const Xml::Ref &element) {
   const auto id = ReadId(element, "id");
   if (!id) { return std::unexpected(id.error()); }
-  OsmRelation relation{.Id = *id};
+  OsmRelation relation{.Id = *id, .Members = {}, .Tags = {}};
   for (const Xml::Ref child : element.Children()) {
     const std::string name = child.Name();
     if (name == "member") {

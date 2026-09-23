@@ -1,6 +1,9 @@
 #include "OsmElements.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <optional>
+#include <vector>
 
 namespace outshine::Data {
 
