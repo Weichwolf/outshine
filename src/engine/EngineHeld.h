@@ -445,7 +445,6 @@ struct Engine::State {
     std::chrono::steady_clock::time_point WiresAt;
   };
 
-  void TellsWhatTheGroundHolds(const TangentFrame &standing);
   [[nodiscard]] bool
   Models(const TangentFrame &standing, GroundBuildProducts &build, Phasing &clocks);
 
@@ -477,13 +476,6 @@ struct Engine::State {
                              bool alsoWhenTilesLanded,
                              GroundQuality quality);
 
-  struct Relieved {
-    double Tallest = 0.0;
-    double Lowest = 0.0;
-    double TallestOutM = 0.0;
-  };
-
-  void TellsTheRelief(Relieved over);
   [[nodiscard]] std::expected<GroundRequest, Laid> RingWanted(bool alsoWhenTilesLanded,
                                                               GroundQuality quality);
 
@@ -506,7 +498,6 @@ struct Engine::State {
                                         MaterialInstance ringSurface,
                                         const HeightSheets &sheets,
                                         int finestZoom);
-  void ReportGroundPlacements();
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded, GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundWithinBudget(GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundRetirement();

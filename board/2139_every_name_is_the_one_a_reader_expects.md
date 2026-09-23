@@ -27,9 +27,10 @@ WI 2145 owns that algorithm and its transfer to `generators/water`. `Document.cp
 when a complete codec boundary reduces change propagation. Track public API
 growth, owner-crossing edits, dependency edges and largest cohesive files, not
 a target count of types or an arbitrary line cap.
-Next complete cut: move the three read-only ground telemetry methods from
-`Laying.cpp` to `GroundDiagnostics.cpp`; name them `ReportGroundInputs`,
-`ReportGroundRelief`, `ReportGroundPlacements`. Keep output and image identical;
+Next complete cut: move three read-only telemetry methods from `Laying.cpp`
+to `GroundDiagnostics.cpp` as functions with explicit Ledger/product/scene borrows;
+remove their `Engine::State` declarations. Name them `ReportBuildingFootprints`,
+`ReportGroundRelief`, `ReportSubjectPlacements`. Keep output and image identical;
 prove with engine suites, one Place shot, format and full lint.
 
 ## Module decisions and implementation owners

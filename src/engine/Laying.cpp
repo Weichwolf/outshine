@@ -1,7 +1,6 @@
 #include "GeodeticCamera.h"
 #include "Digest.h"
 #include "math/RenderFrame.h"
-#include "math/Quantile.h"
 #include "math/Units.h"
 #include "math/Vec2.h"
 #include "math/Vec3.h"
@@ -47,6 +46,7 @@
 #include "TerrainPress.h"
 #include "EngineHeld.h"
 #include "GroundWorldCandidate.h"
+#include "GroundDiagnostics.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
 #include "TransportNetwork.h"
@@ -634,66 +634,11 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
   return out;
 }
 
-void Engine::State::TellsWhatTheGroundHolds(const TangentFrame &standing) {
-  constexpr double kGroundCellM = 25.0;
-  const Ground::BuildingField &prints = World.Stack.Footprints();
-  const Vec3 &anchor = prints.Anchor();
-  double away = 0.0;
-  for (int axis = 0; axis < 3; ++axis) {
-    const double step = anchor[axis] - standing.OriginEcef()[axis];
-    away += step * step;
-  }
-  Published.Places("buildings: their anchor lies from the frame's origin", std::sqrt(away), "m");
-  {
-    std::vector<double> fill = prints.SeatSpreadM();
-    std::vector<double> across = prints.FootprintAcrossM();
-    const auto publishQuantile =
-        [this](const char *name, std::span<const double> sample, double share) {
-          if (const auto value = QuantileOf(sample, share)) { Published.Places(name, *value, "m"); }
-        };
-    if (!fill.empty()) {
-      std::ranges::sort(fill);
-      size_t wouldStamp = 0;
-      for (const double filled : fill) {
-        if (filled > kStampWorthM) { ++wouldStamp; }
-      }
-      publishQuantile("buildings: a stamp would fill, p50", fill, kMiddleQuantile);
-      publishQuantile("buildings: a stamp would fill, p95", fill, kBroadQuantile);
-      Published.Places("buildings: a stamp would fill, worst", fill.back(), "m");
-      Published.Places(
-          "buildings: footprints worth a stamp", static_cast<double>(wouldStamp), "footprints");
-    }
-    if (!across.empty()) {
-      std::ranges::sort(across);
-      size_t underOneCell = 0;
-      for (const double wide : across) {
-        if (wide < kGroundCellM) { ++underOneCell; }
-      }
-      publishQuantile("buildings: footprint across, p50", across, kMiddleQuantile);
-      publishQuantile("buildings: footprint across, p05", across, kNarrowQuantile);
-      Published.Places("buildings: and the narrowest of them", across.front(), "m");
-      Published.Places("buildings: footprints narrower than a ground cell",
-                       static_cast<double>(underOneCell),
-                       "footprints");
-    }
-  }
-  Published.Places("buildings: footprints the field holds",
-                   static_cast<double>(prints.Footprints().size()),
-                   "footprints");
-  if (World.Stack.Vectors() != nullptr) {
-    Published.Places("buildings: vector tiles the field settled",
-                     static_cast<double>(World.Stack.Vectors()->Tiles().size()),
-                     "tiles");
-    Published.Places("buildings: OSM features it holds",
-                     static_cast<double>(World.Stack.Vectors()->Features().size()),
-                     "features");
-  }
-}
-
 bool Engine::State::Models(const TangentFrame &standing,
                            GroundBuildProducts &build,
                            Phasing &clocks) {
-  TellsWhatTheGroundHolds(standing);
+  Core::ReportBuildingFootprints(
+      Published, World.Stack.Footprints(), World.Stack.Vectors(), standing);
   if (!build.Surfaces) {
     Geometry materials;
     Material walls;
@@ -855,14 +800,6 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                    "tiles");
   Published.Places("rebuild: the land classes were named anew", renamed ? 1.0 : 0.0, "yes/no");
   return Laid::Wanted;
-}
-
-void Engine::State::TellsTheRelief(Relieved over) {
-  Published.Places("relief: the ring's tallest vertex ABOVE THE ELLIPSOID", over.Tallest, "m");
-  Published.Places("relief: and how far out it lies", over.TallestOutM, "m");
-  Published.Places("relief: the ring's lowest vertex above the ellipsoid", over.Lowest, "m");
-  Published.Places(
-      "relief: so the true relief, with the sphere taken out", over.Tallest - over.Lowest, "m");
 }
 
 std::expected<Engine::State::GroundRequest, Engine::State::Laid>
@@ -1281,36 +1218,6 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
   return true;
 }
 
-void Engine::State::ReportGroundPlacements() {
-  for (size_t part = 0; part < Picture.Standing->Shown().Parts.size(); ++part) {
-    const Render::ShapePart &one = Picture.Standing->Shown().Parts[part];
-    Published.Places("restand: subject part " + std::to_string(part) + " first vertex",
-                     static_cast<double>(one.FirstVertex),
-                     "");
-    Published.Places("restand: subject part " + std::to_string(part) + " vertex count",
-                     static_cast<double>(one.VertexCount),
-                     "");
-    Published.Places("restand: subject part " + std::to_string(part) + " first index",
-                     static_cast<double>(one.FirstIndex),
-                     "");
-    Published.Places("restand: subject part " + std::to_string(part) + " index count",
-                     static_cast<double>(one.IndexCount),
-                     "");
-  }
-  for (size_t part = 0; part < Picture.Standing->PartsStanding(); ++part) {
-    const double *const m = Picture.Standing->PlacementStanding(part);
-    if (m == nullptr) { continue; }
-    double most = 0.0;
-    for (int at = 0; at < 16; ++at) { most += std::fabs(m[at]); }
-    Published.Places("restand: part " + std::to_string(part) +
-                         " placement, sum of the absolute terms",
-                     most,
-                     "");
-    Published.Places(
-        "restand: part " + std::to_string(part) + " diagonal", m[0] + m[5] + m[10] + m[15], "");
-  }
-}
-
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const GroundRequest &request) {
   if (!World.GroundBuild || !World.GroundBuild->Matches(request.Revision)) {
     if (World.GroundBuild) {
@@ -1496,9 +1403,10 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
       }
       build.PositionsM = std::move(meshing.Mesh.PositionsM);
       build.Indices = std::move(meshing.Mesh.Indices);
-      TellsTheRelief({.Tallest = meshing.Mesh.TallestM,
-                      .Lowest = meshing.Mesh.LowestM,
-                      .TallestOutM = meshing.Mesh.TallestDistanceM});
+      Core::ReportGroundRelief(Published,
+                               {.TallestM = meshing.Mesh.TallestM,
+                                .LowestM = meshing.Mesh.LowestM,
+                                .TallestDistanceM = meshing.Mesh.TallestDistanceM});
       state.CompletesSheetPhase();
       return GroundBuildProgress::Ready;
     }
@@ -2396,7 +2304,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
                    "instances");
   Published.Places(
       "restand: the near plane the renderer stands on", Picture.Standing->NearStanding(), "m");
-  ReportGroundPlacements();
+  Core::ReportSubjectPlacements(Published, *Picture.Standing);
   World.GroundTiles = laid.Tiles;
   Published.Places("tiles the ring laid", static_cast<double>(laid.Tiles), "tiles");
   Published.Places("tiles it is still waiting for", static_cast<double>(laid.Pending), "tiles");
