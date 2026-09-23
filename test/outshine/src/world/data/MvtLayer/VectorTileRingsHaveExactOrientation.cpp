@@ -1,4 +1,4 @@
-#include "OsmVector.h"
+#include "MvtLayer.h"
 #include "WireFixture.h"
 #include "Check.h"
 #include <algorithm>
@@ -64,7 +64,7 @@ Ring LargeSquare(int32_t radius) {
 }
 
 int main() {
-  using namespace outshine::Ground;
+  using namespace outshine::Data;
   using namespace outshine::Test;
   for (const int32_t base : {0,
                              1000000000,
@@ -74,7 +74,7 @@ int main() {
     const Ring inner{
         {base + 1, base + 1}, {base + 1, base + 2}, {base + 2, base + 2}, {base + 2, base + 1}};
     const std::array<Ring, 2> rings{outer, inner};
-    OsmVector decoded;
+    MvtLayer decoded;
     CHECK(decoded.Parse(Tile(rings), "x").has_value() && decoded.Rings().size() == 2 &&
               decoded.Rings()[0].Exterior && !decoded.Rings()[1].Exterior,
           "translation preserves exact square and hole orientation");
@@ -82,7 +82,7 @@ int main() {
   auto inner = LargeSquare(1900000000);
   std::ranges::reverse(inner);
   const std::array<Ring, 2> large{LargeSquare(2000000000), inner};
-  OsmVector decoded;
+  MvtLayer decoded;
   CHECK(decoded.Parse(Tile(large), "x").has_value() && decoded.Rings().size() == 2 &&
             decoded.Rings()[0].Exterior && !decoded.Rings()[1].Exterior,
         "positive and negative twice-areas beyond uint64 range retain their signs");

@@ -1,6 +1,6 @@
 #include "OsmField.h"
-#include "OsmVector.h"
-#include "test/outshine/src/world/ground/OsmVector/WireFixture.h"
+#include "MvtLayer.h"
+#include "test/outshine/src/world/data/MvtLayer/WireFixture.h"
 #include "Check.h"
 #include <algorithm>
 #include <array>
@@ -20,6 +20,7 @@ Bytes Tile(std::span<const Bytes> features) {
 
 int main() {
   using namespace outshine::Ground;
+  using outshine::Data::MvtLayer;
   using namespace outshine::Test;
   const std::array<Bytes, 3> features{{{0x18, 0, 0x22, 1, 3},
                                        {0x18, 1, 0x22, 3, 9, 64, 64},
@@ -45,9 +46,9 @@ int main() {
   }
   for (const auto &feature : std::vector<Bytes>{{}, {0x18, 0}, {0x22, 0}, {0x22, 3, 9, 0, 0}}) {
     const std::array<Bytes, 1> missing{feature};
-    OsmVector decoded;
+    MvtLayer decoded;
     const auto parsed = decoded.Parse(Tile(missing), "x");
-    CHECK(!parsed && parsed.error() == OsmVector::ParseError::InvalidTile,
+    CHECK(!parsed && parsed.error() == MvtLayer::ParseError::InvalidTile,
           "missing type or geometry field is invalid even for default UNKNOWN");
   }
   return Report();

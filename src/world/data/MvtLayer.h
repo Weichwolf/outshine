@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUND_OSMVECTOR_H
-#define OUTSHINE_WORLD_GROUND_OSMVECTOR_H
+#ifndef OUTSHINE_WORLD_DATA_MVTLAYER_H
+#define OUTSHINE_WORLD_DATA_MVTLAYER_H
 
 #include <cstdint>
 #include <expected>
@@ -9,9 +9,9 @@
 #include <string_view>
 #include <vector>
 
-namespace outshine::Ground {
+namespace outshine::Data {
 
-class OsmVector {
+class MvtLayer {
 public:
   struct Ring {
     uint32_t First = 0, Count = 0;
@@ -40,13 +40,13 @@ public:
 
   [[nodiscard]] size_t HeapBytes() const;
 
-  double Num(const Feature &f, const char *key, double def) const;
-  std::string_view Str(const Feature &f, const char *key) const;
+  [[nodiscard]] double NumberTag(const Feature &feature, const char *key, double fallback) const;
+  [[nodiscard]] std::string_view StringTag(const Feature &feature, const char *key) const;
 
   struct Tag {
-    std::string_view Key, Str;
-    double Num = 0.0;
-    bool IsNum = false;
+    std::string_view Key, String;
+    double Number = 0.0;
+    bool IsNumber = false;
   };
 
   [[nodiscard]] static uint32_t TagCount(const Feature &f) { return f.TagCount / 2; }

@@ -1,4 +1,4 @@
-#include "OsmVector.h"
+#include "MvtLayer.h"
 #include "Capacity.h"
 
 #include <cstdint>
@@ -14,9 +14,9 @@
 #include <utility>
 #include <vector>
 
-namespace outshine::Ground {
+namespace outshine::Data {
 
-size_t OsmVector::HeapBytes() const {
+size_t MvtLayer::HeapBytes() const {
   size_t strings = 0;
   for (const std::string &key : Keys_) { strings += key.capacity(); }
   for (const std::string &value : ValueStrs_) { strings += value.capacity(); }
@@ -180,7 +180,7 @@ class GeometryReader {
 public:
   GeometryReader(std::span<const uint32_t> words,
                  std::vector<int32_t> &points,
-                 std::vector<OsmVector::Ring> &rings)
+                 std::vector<MvtLayer::Ring> &rings)
       : Words_(words), Points_(points), Rings_(rings) {}
 
   [[nodiscard]] bool Read(int type) {
@@ -271,7 +271,7 @@ private:
 
   std::span<const uint32_t> Words_;
   std::vector<int32_t> &Points_;
-  std::vector<OsmVector::Ring> &Rings_;
+  std::vector<MvtLayer::Ring> &Rings_;
   int32_t X_ = 0;
   int32_t Y_ = 0;
 };
@@ -423,18 +423,18 @@ std::expected<void, std::string_view> ReadFeature(Reader reader, EncodedFeature 
 
 }
 
-std::expected<void, OsmVector::ParseError> OsmVector::Parse(std::span<const uint8_t> bytes,
-                                                            std::string_view layer) {
+std::expected<void, MvtLayer::ParseError> MvtLayer::Parse(std::span<const uint8_t> bytes,
+                                                          std::string_view layer) {
   if (bytes.empty()) { return std::unexpected(ParseError::MissingLayer); }
-  OsmVector candidate;
+  MvtLayer candidate;
   const auto result = candidate.Decode(bytes, layer);
   if (!result) { return result; }
   *this = std::move(candidate);
   return {};
 }
 
-std::expected<void, OsmVector::ParseError> OsmVector::Decode(std::span<const uint8_t> bytes,
-                                                             std::string_view layer) {
+std::expected<void, MvtLayer::ParseError> MvtLayer::Decode(std::span<const uint8_t> bytes,
+                                                           std::string_view layer) {
   bool found = false;
   Reader top{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
   FieldHeader field;
@@ -469,8 +469,8 @@ std::expected<void, OsmVector::ParseError> OsmVector::Decode(std::span<const uin
   return {};
 }
 
-std::expected<std::vector<std::span<const uint8_t>>, OsmVector::ParseError>
-OsmVector::ReadLayerTables(std::span<const uint8_t> bytes) {
+std::expected<std::vector<std::span<const uint8_t>>, MvtLayer::ParseError>
+MvtLayer::ReadLayerTables(std::span<const uint8_t> bytes) {
   Reader L{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
   FieldHeader field;
   std::vector<std::span<const uint8_t>> featureBodies;
@@ -500,8 +500,8 @@ OsmVector::ReadLayerTables(std::span<const uint8_t> bytes) {
   return featureBodies;
 }
 
-std::expected<void, OsmVector::ParseError>
-OsmVector::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodies) {
+std::expected<void, MvtLayer::ParseError>
+MvtLayer::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodies) {
   EncodedFeature encoded;
   for (const auto bytes : featureBodies) {
     const Reader body{.P = bytes.data(), .End = bytes.data() + bytes.size(), .Ok = true};
@@ -525,7 +525,7 @@ OsmVector::DecodeFeatures(std::span<const std::span<const uint8_t>> featureBodie
   return {};
 }
 
-double OsmVector::Num(const Feature &f, const char *key, double def) const {
+double MvtLayer::NumberTag(const Feature &f, const char *key, double def) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
     const uint32_t k = Tags_[f.FirstTag + i];
     const uint32_t v = Tags_[f.FirstTag + i + 1];
@@ -535,23 +535,23 @@ double OsmVector::Num(const Feature &f, const char *key, double def) const {
   return def;
 }
 
-OsmVector::Tag OsmVector::TagAt(const Feature &f, uint32_t i) const {
+MvtLayer::Tag MvtLayer::TagAt(const Feature &f, uint32_t i) const {
   Tag t{};
   if (i * 2 + 1 >= f.TagCount) { return t; }
   const uint32_t k = Tags_[f.FirstTag + i * 2];
   const uint32_t v = Tags_[f.FirstTag + i * 2 + 1];
   if (k >= Keys_.size() || v >= Values_.size()) { return t; }
   t.Key = Keys_[k];
-  t.IsNum = ValueIsNum_[v];
-  if (t.IsNum) {
-    t.Num = Values_[v];
+  t.IsNumber = ValueIsNum_[v];
+  if (t.IsNumber) {
+    t.Number = Values_[v];
   } else {
-    t.Str = ValueStrs_[v];
+    t.String = ValueStrs_[v];
   }
   return t;
 }
 
-std::string_view OsmVector::Str(const Feature &f, const char *key) const {
+std::string_view MvtLayer::StringTag(const Feature &f, const char *key) const {
   for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
     const uint32_t k = Tags_[f.FirstTag + i];
     const uint32_t v = Tags_[f.FirstTag + i + 1];

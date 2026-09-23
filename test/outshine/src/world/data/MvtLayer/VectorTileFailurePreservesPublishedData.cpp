@@ -1,4 +1,4 @@
-#include "OsmVector.h"
+#include "MvtLayer.h"
 #include "WireFixture.h"
 #include "Check.h"
 #include <algorithm>
@@ -20,9 +20,9 @@ Bytes Tile(char name, uint8_t x, bool broken = false) {
 }
 
 int main() {
-  using namespace outshine::Ground;
+  using namespace outshine::Data;
   using namespace outshine::Test;
-  OsmVector decoded;
+  MvtLayer decoded;
   const auto initial = Tile('x', 4);
   CHECK(decoded.Parse(initial, "x").has_value(), "initial layer is valid");
   const auto *points = decoded.Points().data();
@@ -48,7 +48,7 @@ int main() {
   CHECK(decoded.Parse(replacement, "x") &&
             std::ranges::equal(decoded.Points(), std::array<int32_t, 4>{5, 0, 6, 1}),
         "successful replacement publishes new owned data with unrelated following layer");
-  using Error = OsmVector::ParseError;
+  using Error = MvtLayer::ParseError;
 
   struct Case {
     Bytes Input;

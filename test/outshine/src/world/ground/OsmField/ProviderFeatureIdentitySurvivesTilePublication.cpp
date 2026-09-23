@@ -1,6 +1,6 @@
 #include "OsmField.h"
-#include "OsmVector.h"
-#include "test/outshine/src/world/ground/OsmVector/WireFixture.h"
+#include "MvtLayer.h"
+#include "test/outshine/src/world/data/MvtLayer/WireFixture.h"
 #include "Check.h"
 
 #include <array>
@@ -43,11 +43,12 @@ Bytes VectorTile(std::span<const Bytes> features) {
 
 int main() {
   using namespace outshine::Ground;
+  using outshine::Data::MvtLayer;
   using namespace outshine::Test;
   constexpr uint64_t kLargestId = std::numeric_limits<uint64_t>::max();
   const std::array features{LineFeature(std::nullopt), LineFeature(0), LineFeature(kLargestId)};
   const Bytes valid = VectorTile(features);
-  OsmVector decoded;
+  MvtLayer decoded;
   const auto parsed = decoded.Parse(valid, "x");
   CHECK(parsed && decoded.Features().size() == 3, "MVT features decode with optional IDs");
   if (!parsed || decoded.Features().size() != 3) { return Report(); }

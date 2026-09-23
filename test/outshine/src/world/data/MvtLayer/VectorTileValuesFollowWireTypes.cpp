@@ -1,4 +1,4 @@
-#include "OsmVector.h"
+#include "MvtLayer.h"
 #include "WireFixture.h"
 #include "Check.h"
 #include <array>
@@ -28,7 +28,7 @@ Bytes Tile(std::span<const uint8_t> value) {
 }
 
 int main() {
-  using namespace outshine::Ground;
+  using namespace outshine::Data;
   using namespace outshine::Test;
 
   struct Numeric {
@@ -48,12 +48,12 @@ int main() {
        {{0x38, 1}, 1}}};
   for (const auto &one : cases) {
     const auto tile = Tile(one.Wire);
-    OsmVector decoded;
+    MvtLayer decoded;
     CHECK(decoded.Parse(tile, "x") && decoded.Features().size() == 1,
           "typed numeric fixture parses");
     if (decoded.Features().empty()) { continue; }
     const auto tag = decoded.TagAt(decoded.Features().front(), 0);
-    CHECK(tag.Key == "value" && tag.IsNum && tag.Num == one.Expected,
+    CHECK(tag.Key == "value" && tag.IsNumber && tag.Number == one.Expected,
           "wire signedness, width and byte order match analytical value");
   }
   for (const auto &one : {cases[0], cases[1]}) {
@@ -61,9 +61,9 @@ int main() {
       const auto tile = Tile(std::span(one.Wire).first(length));
       auto exact = std::make_unique<uint8_t[]>(tile.size());
       std::ranges::copy(tile, exact.get());
-      OsmVector decoded;
+      MvtLayer decoded;
       const auto result = decoded.Parse(std::span(exact.get(), tile.size()), "x");
-      CHECK(!result && result.error() == OsmVector::ParseError::InvalidTile,
+      CHECK(!result && result.error() == MvtLayer::ParseError::InvalidTile,
             "every truncated fixed-width payload refuses the present layer");
     }
   }
@@ -76,21 +76,21 @@ int main() {
                           {0x38, 1, 0x40, 0x80},
                           {0x0a, 5, 'x'}}) {
     const auto tile = Tile(bad);
-    OsmVector decoded;
+    MvtLayer decoded;
     CHECK(!decoded.Parse(tile, "x"), "malformed or untyped value is refused");
   }
   const auto stringTile = Tile(Bytes{0x0a, 4, 'r', 'o', 'c', 'k', 0x40, 1});
-  OsmVector decoded;
+  MvtLayer decoded;
   CHECK(decoded.Parse(stringTile, "x").has_value(), "string plus unknown extension is valid");
   if (!decoded.Features().empty()) {
-    CHECK(decoded.Str(decoded.Features().front(), "value") == "rock",
+    CHECK(decoded.StringTag(decoded.Features().front(), "value") == "rock",
           "string bytes survive unknown extension");
   }
   const auto duplicate = Tile(Bytes{0x38, 0, 0x38, 1});
   CHECK(decoded.Parse(duplicate, "x").has_value(),
         "protobuf last-one-wins for repeated singular field");
   if (!decoded.Features().empty()) {
-    CHECK(decoded.Num(decoded.Features().front(), "value", -1) == 1,
+    CHECK(decoded.NumberTag(decoded.Features().front(), "value", -1) == 1,
           "last occurrence of same value type wins");
   }
   return Report();

@@ -218,7 +218,7 @@ TestProfile() {
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
     outshine/include/*) printf '%s' 'profile/public' ;;
-    outshine/src/world/ground/OsmVector | outshine/src/world/ground/OsmStorageUsage)
+    outshine/src/world/data/MvtLayer | outshine/src/world/ground/OsmStorageUsage)
       printf '%s' 'profile/vector' ;;
     outshine/src/diagnostics/ProcessHeap | outshine/src/engine/WorldInstanceSink)
       printf '%s' 'profile/diagnostics' ;;
@@ -236,7 +236,7 @@ LayerIncludes() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip) LayerIncludes profile/internal ;;
     profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
-    profile/vector) printf '%s' "-Isrc/world/ground" ;;
+    profile/vector) printf '%s' "-Isrc/world/data -Isrc/base/spatial" ;;
     profile/diagnostics) LayerIncludes profile/internal ;;
     profile/internal|profile/device) printf '%s ' "-I. -Isrc/base -Isrc/actor/body -Isrc/world/ground/tiles"; LayerIncludes profile/engine ;;
     # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
@@ -314,7 +314,7 @@ LayerGroups() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/public) LayerGroups profile/internal ;;
-    profile/vector) printf '%s' "src/world/ground/OsmVector.cpp" ;;
+    profile/vector) printf '%s' "src/world/data/MvtLayer.cpp" ;;
     profile/diagnostics) LayerGroups profile/internal; printf ' %s' "src/diagnostics" ;;
     profile/internal|profile/device) LayerGroups profile/engine ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;

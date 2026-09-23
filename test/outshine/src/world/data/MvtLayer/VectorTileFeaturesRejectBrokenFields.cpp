@@ -1,4 +1,4 @@
-#include "OsmVector.h"
+#include "MvtLayer.h"
 #include "WireFixture.h"
 #include "Check.h"
 #include <algorithm>
@@ -21,7 +21,7 @@ Bytes Tile(std::span<const Bytes> features, std::span<const uint8_t> tail = {}) 
 }
 
 int main() {
-  using namespace outshine::Ground;
+  using namespace outshine::Data;
   using namespace outshine::Test;
   for (const auto &bad : std::vector<Bytes>{{},
                                             {0x18, 0},
@@ -43,15 +43,15 @@ int main() {
                                             {0x41, 0}}) {
     const std::array<Bytes, 2> features{kLine, bad};
     const auto tile = Tile(features);
-    OsmVector decoded;
+    MvtLayer decoded;
     const auto result = decoded.Parse(tile, "x");
-    CHECK(!result && result.error() == OsmVector::ParseError::InvalidTile,
+    CHECK(!result && result.error() == MvtLayer::ParseError::InvalidTile,
           "late malformed feature refuses the present layer");
   }
   for (const auto &tail : std::vector<Bytes>{{0x80}, {0}, {0x28, 0x80}}) {
     const std::array<Bytes, 1> features{kLine};
     const auto tile = Tile(features, tail);
-    OsmVector decoded;
+    MvtLayer decoded;
     CHECK(!decoded.Parse(tile, "x"), "truncated layer field refuses parsing");
   }
   for (const auto &feature : std::vector<Bytes>{
@@ -61,7 +61,7 @@ int main() {
            {0x12, 1, 0, 0x10, 0, 0x18, 2, 0x22, 3, 9, 0, 0, 0x20, 10, 0x20, 2, 0x20, 2}}) {
     const std::array<Bytes, 1> features{feature};
     const auto tile = Tile(features);
-    OsmVector decoded;
+    MvtLayer decoded;
     CHECK(decoded.Parse(tile, "x") && decoded.Features().size() == 1,
           "packed, unpacked and segmented forms are valid");
     const std::array<int32_t, 4> points{0, 0, 1, 1};
@@ -69,7 +69,7 @@ int main() {
               decoded.Rings().front().Count == 2,
           "all representations decode the analytical two-point line");
     if (!decoded.Features().empty()) {
-      CHECK(decoded.Str(decoded.Features().front(), "kind") == "road",
+      CHECK(decoded.StringTag(decoded.Features().front(), "kind") == "road",
             "tag segments concatenate in encounter order");
     }
   }

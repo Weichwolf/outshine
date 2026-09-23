@@ -1,4 +1,4 @@
-#include "OsmVector.h"
+#include "MvtLayer.h"
 #include "WireFixture.h"
 #include "Check.h"
 #include <limits>
@@ -20,7 +20,7 @@ Bytes Tile(Bytes header, std::span<const uint8_t> tags) {
 }
 
 int main() {
-  using namespace outshine::Ground;
+  using namespace outshine::Data;
   using namespace outshine::Test;
   const Bytes valid{0x0a, 1, 'x', 0x78, 2, 0x28, 64};
   for (const auto &header :
@@ -33,12 +33,12 @@ int main() {
                           {0x0a, 1, 'x', 0x78, 2, 0x28, 0x80, 0x80, 0x80, 0x80, 8},
                           {0x0a, 1, 'x', 0x78, 2, 0x28, 0xc0, 0x80, 0x80, 0x80, 0x10}}) {
     const auto tile = Tile(header, Bytes{0, 0});
-    OsmVector decoded;
+    MvtLayer decoded;
     CHECK(!decoded.Parse(tile, "x"), "invalid layer header rejected");
   }
   for (const auto &tags : std::vector<Bytes>{{0}, {0, 0, 0}, {1, 0}, {0, 1}}) {
     const auto tile = Tile(valid, tags);
-    OsmVector decoded;
+    MvtLayer decoded;
     CHECK(!decoded.Parse(tile, "x"), "invalid dictionary pair rejected");
   }
   for (const auto &header :
@@ -46,13 +46,13 @@ int main() {
                           {0x0a, 1, 'x', 0x78, 2, 0x28, 1},
                           {0x0a, 1, 'x', 0x78, 2, 0x28, 0xff, 0xff, 0xff, 0xff, 7}}) {
     const auto tile = Tile(header, Bytes{0, 0});
-    OsmVector decoded;
+    MvtLayer decoded;
     CHECK(decoded.Parse(tile, "x").has_value(), "valid extent and later dictionaries accepted");
     CHECK(decoded.Features().size() == 1 && decoded.Points().size() == 4 &&
               decoded.Points()[0] == -1 && decoded.Points()[2] == 1,
           "buffered coordinates remain legal outside extent");
     if (!decoded.Features().empty()) {
-      CHECK(decoded.Str(decoded.Features().front(), "k") == "v",
+      CHECK(decoded.StringTag(decoded.Features().front(), "k") == "v",
             "valid tag resolves later dictionary");
     }
   }

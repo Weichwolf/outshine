@@ -1,4 +1,4 @@
-#include "OsmVector.h"
+#include "MvtLayer.h"
 #include "WireFixture.h"
 #include "Check.h"
 #include <algorithm>
@@ -27,14 +27,14 @@ Bytes Tile(uint8_t type, std::span<const uint32_t> words) {
   return tile;
 }
 
-bool Parse(outshine::Ground::OsmVector &decoded, uint8_t type, std::span<const uint32_t> words) {
+bool Parse(outshine::Data::MvtLayer &decoded, uint8_t type, std::span<const uint32_t> words) {
   const auto tile = Tile(type, words);
   return decoded.Parse(tile, "x").has_value();
 }
 }
 
 int main() {
-  using namespace outshine::Ground;
+  using namespace outshine::Data;
   using namespace outshine::Test;
 
   struct Invalid {
@@ -66,11 +66,11 @@ int main() {
                                               {1, {17, maxDelta, 0, 2, 0}},
                                               {1, {17, 0, maxDelta, 0, 2}},
                                               {1, {17, maxDelta - 1, 0, 3, 0}}}) {
-    OsmVector decoded;
+    MvtLayer decoded;
     CHECK(!Parse(decoded, bad.Type, bad.Words),
           "invalid geometry commands or coordinates rejected");
   }
-  OsmVector points;
+  MvtLayer points;
   const std::array<uint32_t, 5> multiPoint{17, 10, 14, 5, 9};
   CHECK(Parse(points, 1, multiPoint), "specification multipoint accepted");
   CHECK(std::ranges::equal(points.Points(), std::array<int32_t, 4>{5, 7, 2, 2}),
@@ -79,14 +79,14 @@ int main() {
             points.Rings()[0].Count == 2 && points.Features().size() == 1 &&
             points.Features()[0].RingCount == 1,
         "multipoint positions are referenced by their feature");
-  OsmVector lines;
+  MvtLayer lines;
   const std::array<uint32_t, 14> multiLine{9, 4, 4, 18, 0, 16, 16, 0, 9, 17, 17, 10, 4, 8};
   CHECK(Parse(lines, 2, multiLine), "specification multiline accepted");
   CHECK(std::ranges::equal(lines.Points(),
                            std::array<int32_t, 10>{2, 2, 2, 10, 10, 10, 1, 1, 3, 5}) &&
             lines.Rings().size() == 2 && lines.Rings()[0].Count == 3 && lines.Rings()[1].Count == 2,
         "multiline retains independent paths and shared cursor");
-  OsmVector polygon;
+  MvtLayer polygon;
   const std::array<uint32_t, 22> rings{9, 0, 0,  26, 20, 0,  0,  20, 19, 0,  15,
                                        9, 4, 15, 26, 0,  12, 12, 0,  0,  11, 15};
   CHECK(Parse(polygon, 3, rings), "polygon with interior ring accepted");

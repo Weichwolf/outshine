@@ -14,7 +14,7 @@
 
 #include "Capacity.h"
 #include "Log.h"
-#include "OsmVector.h"
+#include "MvtLayer.h"
 #include "OsmStorageUsage.h"
 #include "TerrainLoader.h"
 #include "TileGeodesy.h"
@@ -35,7 +35,7 @@ constexpr size_t kAssemblyTilesPerBuild = 4;
 
 namespace {
 
-using VectorLayers = std::vector<std::optional<OsmVector>>;
+using VectorLayers = std::vector<std::optional<Data::MvtLayer>>;
 
 using Clock = std::chrono::steady_clock;
 
@@ -338,7 +338,7 @@ ReadVectorLayers(std::span<const uint8_t> bytes,
   VectorLayers layers;
   layers.reserve(names.size());
   for (const auto &name : names) {
-    OsmVector layer;
+    Data::MvtLayer layer;
     const auto layerAt = Clock::now();
     const auto result = layer.Parse(bytes, name);
     if (metrics != nullptr) {
@@ -350,10 +350,10 @@ ReadVectorLayers(std::span<const uint8_t> bytes,
     }
     if (result) {
       layers.emplace_back(std::move(layer));
-    } else if (result.error() == OsmVector::ParseError::MissingLayer) {
+    } else if (result.error() == Data::MvtLayer::ParseError::MissingLayer) {
       layers.emplace_back(std::nullopt);
     } else {
-      return std::unexpected(result.error() == OsmVector::ParseError::UnsupportedVersion
+      return std::unexpected(result.error() == Data::MvtLayer::ParseError::UnsupportedVersion
                                  ? Says::kUnsupportedVectorTile
                                  : Says::kInvalidVectorTile);
     }
@@ -369,7 +369,7 @@ ReadVectorLayers(std::span<const uint8_t> bytes,
                            .Rings = layer->Rings().size(),
                            .Points = layer->Points().size() / 2};
     for (const auto &feature : layer->Features()) {
-      const size_t pairs = OsmVector::TagCount(feature);
+      const size_t pairs = Data::MvtLayer::TagCount(feature);
       if (!growth.TryAdd(
               {.Tags = feature.TagCount, .Values = pairs, .Keys = pairs, .Strings = pairs})) {
         return false;
@@ -514,14 +514,14 @@ void OsmField::CommitParsed(OsmField &rebuilt) {
   ++Generation_;
 }
 
-void OsmField::AppendLayer(const OsmVector &layer, uint16_t layerIndex) {
+void OsmField::AppendLayer(const Data::MvtLayer &layer, uint16_t layerIndex) {
   const auto tile = static_cast<uint32_t>(Tiles_.size() - 1);
   const auto ext = static_cast<double>(layer.Extent());
   Extent_ = std::min(Extent_, layer.Extent());
   const auto &pts = layer.Points();
   const int tx = Tiles_.back().X;
   const int ty = Tiles_.back().Y;
-  for (const OsmVector::Feature &sf : layer.Features()) {
+  for (const Data::MvtLayer::Feature &sf : layer.Features()) {
     Feature f{};
     f.Tile = tile;
     f.Layer = layerIndex;
@@ -533,7 +533,7 @@ void OsmField::AppendLayer(const OsmVector &layer, uint16_t layerIndex) {
     f.MaxLat = f.MaxLon = -kNoLeastYet;
 
     for (uint32_t r = 0; r < sf.RingCount; r++) {
-      const OsmVector::Ring &sr = layer.Rings()[sf.FirstRing + r];
+      const Data::MvtLayer::Ring &sr = layer.Rings()[sf.FirstRing + r];
       Ring ring{};
       ring.First = static_cast<uint32_t>(Points_.size() / 2);
       ring.Count = sr.Count;
@@ -555,15 +555,15 @@ void OsmField::AppendLayer(const OsmVector &layer, uint16_t layerIndex) {
     }
     f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
 
-    for (uint32_t t = 0; t < outshine::Ground::OsmVector::TagCount(sf); t++) {
-      const OsmVector::Tag tag = layer.TagAt(sf, t);
+    for (uint32_t t = 0; t < Data::MvtLayer::TagCount(sf); t++) {
+      const Data::MvtLayer::Tag tag = layer.TagAt(sf, t);
       if (tag.Key.empty()) { continue; }
       Value v{};
-      v.IsNum = tag.IsNum;
-      if (tag.IsNum) {
-        v.Num = tag.Num;
+      v.IsNum = tag.IsNumber;
+      if (tag.IsNumber) {
+        v.Num = tag.Number;
       } else {
-        v.Str = Intern(Strings_, StringIndex_, tag.Str);
+        v.Str = Intern(Strings_, StringIndex_, tag.String);
       }
       Tags_.push_back(Intern(Keys_, KeyIndex_, tag.Key));
       Tags_.push_back(static_cast<uint32_t>(Values_.size()));

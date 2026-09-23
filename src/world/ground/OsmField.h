@@ -15,7 +15,7 @@
 
 #include "GroundQuery.h"
 #include "OsmLayer.h"
-#include "OsmVector.h"
+#include "MvtLayer.h"
 #include "TilePool.h"
 #include "TileSourceIdentity.h"
 
@@ -189,7 +189,7 @@ private:
 
   struct ParsedTile {
     TileAt At;
-    std::vector<std::optional<OsmVector>> Layers;
+    std::vector<std::optional<Data::MvtLayer>> Layers;
     Data::TileSourceIdentity Source;
   };
 
@@ -206,7 +206,7 @@ private:
   [[nodiscard]] std::expected<bool, std::string_view> AdvanceAssembly();
   [[nodiscard]] bool AppendParsedTile(const ParsedTile &tile, OsmStorageUsage &usage);
   void CommitParsed(OsmField &rebuilt);
-  void AppendLayer(const OsmVector &layer, uint16_t layerIndex);
+  void AppendLayer(const Data::MvtLayer &layer, uint16_t layerIndex);
   void Settle(int x, int y);
   void AppendDeclaredFeature(const Declared &one);
   [[nodiscard]] bool MatchesDeclaredFeature(const Feature &feature, const Declared &input) const;
