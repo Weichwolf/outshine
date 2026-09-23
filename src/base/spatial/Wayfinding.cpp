@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <tuple>
 #include <queue>
 #include <ratio>
 #include <vector>
@@ -367,7 +368,9 @@ void Network::SortWaysIntoDeclaredOrder() {
     if (wa.HalfWidthM != wb.HalfWidthM) { return wa.HalfWidthM < wb.HalfWidthM; }
     if (wa.MaxGradient != wb.MaxGradient) { return wa.MaxGradient < wb.MaxGradient; }
     if (wa.MinRadiusM != wb.MinRadiusM) { return wa.MinRadiusM < wb.MinRadiusM; }
-    return wa.Lanes < wb.Lanes;
+    if (wa.Lanes != wb.Lanes) { return wa.Lanes < wb.Lanes; }
+    return std::tie(wa.Friction, wa.SpeedMps, wa.Priority, wa.Oneway, wa.Sealed, wa.Spans, wa.Tag) <
+           std::tie(wb.Friction, wb.SpeedMps, wb.Priority, wb.Oneway, wb.Sealed, wb.Spans, wb.Tag);
   });
   std::vector<double> points;
   std::vector<uint32_t> wayOf;

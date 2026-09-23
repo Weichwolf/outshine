@@ -48,6 +48,8 @@ The one-shot oracle measured 543 ms (Weave 431, Crossings 26, Elevate 84).
 jobs. It publishes only a complete graph; `Corridors` reads that snapshot.
 One-shot paths remain independent comparison oracles. Small directed routes,
 crossings, elevation profiles and diagnostics agree at work sizes 1, 2 and 8.
+Equal-geometry ways now sort by all navigation properties and source tag;
+reversing their arrival order preserves the native way order in the focused test.
 The elevation job pins candidate `HeightSheets`, avoiding synchronous DEM
 builds and aligning roads with the rendered terrain.
 

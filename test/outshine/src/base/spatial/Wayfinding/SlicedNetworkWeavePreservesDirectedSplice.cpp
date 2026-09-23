@@ -86,6 +86,26 @@ int main() {
             "directed routes and station lengths match the one-shot oracle");
     }
   }
+  const auto duplicated = [](bool reversed) {
+    auto made = Path::Network::Create({.CellM = 1}, {});
+    if (!made) { return made; }
+    constexpr std::array<double, 4> road{0, 0, 0, 0.01};
+    for (const size_t tag : reversed ? std::array<size_t, 2>{2, 1} : std::array<size_t, 2>{1, 2}) {
+      if (auto laid = made->Lay(road, {.HalfWidthM = 1, .Tag = tag}); !laid) {
+        return std::expected<Path::Network, std::string_view>(std::unexpected(laid.error()));
+      }
+    }
+    return made;
+  };
+  for (const bool reversed : {false, true}) {
+    auto input = duplicated(reversed);
+    CHECK(input.has_value(), "duplicate geometry fixture accepted");
+    if (!input) { continue; }
+    std::string duplicateError;
+    CHECK(input->Weave(duplicateError), "duplicate geometry graph woven");
+    CHECK(input->TagOf(0) == 1 && input->TagOf(1) == 2,
+          "source identity breaks equal-geometry ties independently of arrival order");
+  }
   auto empty = Path::Network::Create({.CellM = 1}, {});
   CHECK(empty.has_value(), "empty graph can be configured");
   if (empty) {
