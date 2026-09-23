@@ -14,11 +14,15 @@ Tags: streaming, realtime, ownership
 Candidate ownership, phase scheduling, async field preparation, resumable cooks
 and atomic publication exist. Rosenheim remains 8e6642f9; with worker fields and
 smaller terrain batches its p99 is 5.04 ms, 0/3821 frames exceed 16.67 ms.
-The 2026-09-23 Wien shot remains `2fc0aec4`, p99 9.81 ms, 8/4464 frames over
-16.67 ms. Ground geometry still peaks near 28–41 ms: class upload is about
-16 ms, and `RuntimeScene::Build` spends about 24 ms standing/submitting;
-subject residency reports 320 MB offered across its uploads. These costs are
-the next measured whole-frame defect; do not hide them behind a longer shot horizon.
+The 2026-09-23 Wien shot remains `2fc0aec4`, p99 10.27 ms, 9/4477 frames over
+16.67 ms. Ground geometry peaks at 35.34 ms: class upload is 11.51 ms;
+`RuntimeScene::Build` spends 30.22 ms standing/submitting, including 12.98 ms
+packing and 15.01 ms uploading streams. Cluster cooking totals 28.27 ms
+across paced calls; subject residency reports 320 MB offered across 146 uploads.
+The worst tile restand is 32.67 ms, including 32.64 ms in vector ingest. Separate
+tile parsing, capacity validation, and contact/full snapshot publication before
+changing that path. These are measured whole-frame defects; do not hide them
+behind a longer shot horizon.
 
 Malcesine remains `07ca3a25`, p99 10.25 ms, zero late frames. Its earlier
 preload deadlock came from copying a `BuildingField` with an in-flight tile
@@ -31,11 +35,9 @@ identity and stale-result rejection are proven under reordered, missing and retr
 inputs. Equality is proven for this fixture; other inputs and per-unit frame bounds
 remain open.
 
-The release regression is reproduced: with NDEBUG, the paced engine tries to start
-another candidate while its renderer still owns the first. The three mutating schedule
-calls in Laying.cpp now execute outside assert. Place integrations run the same tests
-with NDEBUG in the actual engine, not only in their test translation units. The object
-cache keys include validation/sanitizer defines to prevent stale variant reuse.
+The NDEBUG candidate regression is fixed: scheduling no longer depends on assert
+side effects. Place integrations test the actual release engine; object caches
+distinguish validation and sanitizer variants.
 
 ## Decision
 
