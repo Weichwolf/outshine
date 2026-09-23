@@ -41,7 +41,7 @@ outshine::EarthworkStamp StampOf(double halfWidth, double height, outshine::Eart
   return stamp;
 }
 
-bool SameFloors(const outshine::Floors &a, const outshine::Floors &b) {
+bool SameFloors(const outshine::EarthworkMetrics &a, const outshine::EarthworkMetrics &b) {
   return a.Stamps == b.Stamps && a.Unreached == b.Unreached && a.Nodes == b.Nodes &&
          a.Contested == b.Contested && a.AboveM == b.AboveM && a.BelowM == b.BelowM &&
          a.UnfilledM == b.UnfilledM && a.WasAboveM == b.WasAboveM && a.WasBelowM == b.WasBelowM;

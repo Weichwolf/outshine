@@ -2,7 +2,7 @@
 #include <cstdio>
 #include "FlatMap.h"
 #include "math/Units.h"
-#include "GroundYield.h"
+#include "EarthworkPress.h"
 #include "math/Vec3.h"
 
 #include <array>
@@ -215,7 +215,7 @@ struct Bids {
 
 struct CoveredNodes {
   uint32_t Point = 0;
-  std::vector<Covered> *Into = nullptr;
+  std::vector<EarthworkPointClaim> *Into = nullptr;
 };
 
 struct Bid {
@@ -314,7 +314,7 @@ void ApplyAt(std::span<const EarthworkStamp> these,
              std::span<double> upM,
              std::span<const uint8_t> structures,
              double mostEarthworkM,
-             Pressed &told,
+             EarthworkPressResult &told,
              size_t one) {
   const Pressing under = PressesAt(these,
                                    buckets.At(at[one]),
@@ -338,11 +338,11 @@ void ApplyAt(std::span<const EarthworkStamp> these,
 
 }
 
-Pressed PressPoints(std::span<const EarthworkStamp> these,
-                    std::span<const EastNorth> at,
-                    std::span<double> upM,
-                    double mostEarthworkM) {
-  Pressed told;
+EarthworkPressResult ApplyEarthworkStamps(std::span<const EarthworkStamp> these,
+                                          std::span<const EastNorth> at,
+                                          std::span<double> upM,
+                                          double mostEarthworkM) {
+  EarthworkPressResult told;
   if (these.empty() || at.size() != upM.size()) { return told; }
   const auto began = std::chrono::steady_clock::now();
   const CellGrid buckets = BucketOver(these);
@@ -365,7 +365,7 @@ Pressed PressPoints(std::span<const EarthworkStamp> these,
   return told;
 }
 
-struct PressPointsJob::State {
+struct EarthworkPressJob::State {
   enum class Phase : uint8_t { Reject, InitializeDecisions, Apply, Done };
 
   std::span<const EarthworkStamp> These;
@@ -375,7 +375,7 @@ struct PressPointsJob::State {
   std::chrono::steady_clock::time_point Began = std::chrono::steady_clock::now();
   CellGrid Buckets;
   std::vector<uint8_t> Structures;
-  Pressed Result;
+  EarthworkPressResult Result;
   size_t Next = 0;
   Phase Current = Phase::Reject;
 
@@ -402,21 +402,21 @@ struct PressPointsJob::State {
     return Buckets.HeapBytes() + Structures.capacity() * sizeof(uint8_t) +
            Result.Refused.capacity() * sizeof(uint8_t) +
            Result.DecidedBy.capacity() * sizeof(uint32_t) +
-           Result.Inside.capacity() * sizeof(Covered);
+           Result.Inside.capacity() * sizeof(EarthworkPointClaim);
   }
 };
 
-PressPointsJob::PressPointsJob(std::span<const EarthworkStamp> these,
-                               std::span<const EastNorth> at,
-                               std::span<double> upM,
-                               double mostEarthworkM)
+EarthworkPressJob::EarthworkPressJob(std::span<const EarthworkStamp> these,
+                                     std::span<const EastNorth> at,
+                                     std::span<double> upM,
+                                     double mostEarthworkM)
     : State_(std::make_unique<State>(these, at, upM, mostEarthworkM)) {}
 
-PressPointsJob::~PressPointsJob() = default;
-PressPointsJob::PressPointsJob(PressPointsJob &&) noexcept = default;
-PressPointsJob &PressPointsJob::operator=(PressPointsJob &&) noexcept = default;
+EarthworkPressJob::~EarthworkPressJob() = default;
+EarthworkPressJob::EarthworkPressJob(EarthworkPressJob &&) noexcept = default;
+EarthworkPressJob &EarthworkPressJob::operator=(EarthworkPressJob &&) noexcept = default;
 
-bool PressPointsJob::Advance(size_t pointsMost) {
+bool EarthworkPressJob::Advance(size_t pointsMost) {
   State &state = *State_;
   if (state.Current == State::Phase::Done) { return true; }
   if (pointsMost == 0) { return false; }
@@ -474,25 +474,25 @@ bool PressPointsJob::Advance(size_t pointsMost) {
   return true;
 }
 
-Pressed PressPointsJob::Take() noexcept {
+EarthworkPressResult EarthworkPressJob::Take() noexcept {
   assert(State_ && State_->Current == State::Phase::Done);
   return std::move(State_->Result);
 }
 
-size_t PressPointsJob::HeapBytes() const noexcept {
+size_t EarthworkPressJob::HeapBytes() const noexcept {
   return State_ ? State_->HeapBytes() : 0;
 }
 
-Floors FloorsOf(std::span<const EarthworkStamp> these,
-                const Pressed &pressed,
-                EarthworkKind kind,
-                std::span<const EastNorth> at,
-                Heights heights) {
+EarthworkMetrics MeasureEarthworkEffect(std::span<const EarthworkStamp> these,
+                                        const EarthworkPressResult &pressed,
+                                        EarthworkKind kind,
+                                        std::span<const EastNorth> at,
+                                        EarthworkHeightView heights) {
   const std::span<const double> upM = heights.WrittenM;
   const std::span<const double> wasM = heights.WasM;
-  Floors told;
+  EarthworkMetrics told;
   std::vector<uint8_t> reached(these.size(), 0u);
-  for (const Covered &claim : pressed.Inside) {
+  for (const EarthworkPointClaim &claim : pressed.Inside) {
     const EarthworkStamp &held = these[claim.Stamp];
     if (held.Kind != kind || pressed.Refused[claim.Stamp] != 0u) { continue; }
     reached[claim.Stamp] = 1u;

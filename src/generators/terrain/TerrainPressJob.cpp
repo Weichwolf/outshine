@@ -17,9 +17,9 @@
 namespace outshine::Generators {
 
 struct TerrainPressJob::State {
-  enum class Phase : uint8_t { Gather, Decide, Write, Reproject, Floors, Done };
+  enum class Phase : uint8_t { Gather, Decide, Write, Reproject, Measure, Done };
 
-  std::vector<EarthworkStamp> YieldsHeld;
+  std::vector<EarthworkStamp> Stamps;
   Patchwork *Candidate;
   TangentFrame Frame;
   TerrainPageLayout Layout;
@@ -28,8 +28,8 @@ struct TerrainPressJob::State {
   std::vector<double> HeightsM;
   std::vector<double> PreviousM;
   std::vector<size_t> SourceSheets;
-  std::unique_ptr<PressPointsJob> PointsJob;
-  Pressed PressedPoints;
+  std::unique_ptr<EarthworkPressJob> PressJob;
+  EarthworkPressResult PressResult;
   PressedTerrain Result;
   size_t NextSheet = 0;
   size_t NextPoint = 0;
@@ -47,12 +47,12 @@ struct TerrainPressJob::State {
         TangentFrame frame,
         TerrainPageLayout layout,
         double mostEarthworkM)
-      : YieldsHeld(std::move(yields)),
+      : Stamps(std::move(yields)),
         Candidate(&candidate),
         Frame(frame),
         Layout(layout),
         MostEarthworkM(mostEarthworkM) {
-    if (YieldsHeld.empty() || !Layout.Valid()) { Current = Phase::Done; }
+    if (Stamps.empty() || !Layout.Valid()) { Current = Phase::Done; }
     if (Current == Phase::Done) { return; }
     const auto validSheets = static_cast<size_t>(std::count_if(
         Candidate->Sheets.begin(), Candidate->Sheets.end(), [this](const Sheet &sheet) {
@@ -134,15 +134,15 @@ struct TerrainPressJob::State {
   }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    size_t bytes = YieldsHeld.capacity() * sizeof(EarthworkStamp) +
+    size_t bytes = Stamps.capacity() * sizeof(EarthworkStamp) +
                    Positions.capacity() * sizeof(EastNorth) +
                    (HeightsM.capacity() + PreviousM.capacity()) * sizeof(double) +
                    SourceSheets.capacity() * sizeof(size_t) +
-                   PressedPoints.Refused.capacity() * sizeof(uint8_t) +
-                   PressedPoints.DecidedBy.capacity() * sizeof(uint32_t) +
-                   PressedPoints.Inside.capacity() * sizeof(Covered);
-    for (const EarthworkStamp &one : YieldsHeld) { bytes += one.HeapBytes(); }
-    if (PointsJob) { bytes += PointsJob->HeapBytes(); }
+                   PressResult.Refused.capacity() * sizeof(uint8_t) +
+                   PressResult.DecidedBy.capacity() * sizeof(uint32_t) +
+                   PressResult.Inside.capacity() * sizeof(EarthworkPointClaim);
+    for (const EarthworkStamp &one : Stamps) { bytes += one.HeapBytes(); }
+    if (PressJob) { bytes += PressJob->HeapBytes(); }
     return bytes;
   }
 };
@@ -172,31 +172,31 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
       state.Result.LongestGatherMs =
           std::max(state.Result.LongestGatherMs, State::Measures(state.Result.GatherMs, began));
       if (state.NextSheet < state.Candidate->Sheets.size()) { return false; }
-      state.PointsJob = std::make_unique<PressPointsJob>(
-          state.YieldsHeld, state.Positions, state.HeightsM, state.MostEarthworkM);
+      state.PressJob = std::make_unique<EarthworkPressJob>(
+          state.Stamps, state.Positions, state.HeightsM, state.MostEarthworkM);
       state.Current = State::Phase::Decide;
       return false;
     }
     case State::Phase::Decide: {
-      if (!state.PointsJob->Advance(pointsMost)) {
+      if (!state.PressJob->Advance(pointsMost)) {
         state.Result.LongestDecideMs =
             std::max(state.Result.LongestDecideMs, State::Measures(state.Result.DecideMs, began));
         return false;
       }
       state.Result.LongestDecideMs =
           std::max(state.Result.LongestDecideMs, State::Measures(state.Result.DecideMs, began));
-      state.PressedPoints = state.PointsJob->Take();
-      state.PointsJob.reset();
-      state.Result.Nodes = state.PressedPoints.Moved;
-      state.Result.Structures = state.PressedPoints.Structures;
-      state.Result.Held = state.PressedPoints.Held;
-      state.Result.BucketMs = state.PressedPoints.BucketMs;
-      state.Result.RejectMs = state.PressedPoints.RejectMs;
-      state.Result.ApplyMs = state.PressedPoints.ApplyMs;
-      state.Result.LongestRejectMs = state.PressedPoints.LongestRejectMs;
-      state.Result.LongestInitializeMs = state.PressedPoints.LongestInitializeMs;
-      state.Result.LongestApplyMs = state.PressedPoints.LongestApplyMs;
-      state.Current = state.PressedPoints.Moved == 0 ? State::Phase::Done : State::Phase::Write;
+      state.PressResult = state.PressJob->Take();
+      state.PressJob.reset();
+      state.Result.Nodes = state.PressResult.Moved;
+      state.Result.Structures = state.PressResult.Structures;
+      state.Result.Held = state.PressResult.Held;
+      state.Result.BucketMs = state.PressResult.BucketMs;
+      state.Result.RejectMs = state.PressResult.RejectMs;
+      state.Result.ApplyMs = state.PressResult.ApplyMs;
+      state.Result.LongestRejectMs = state.PressResult.LongestRejectMs;
+      state.Result.LongestInitializeMs = state.PressResult.LongestInitializeMs;
+      state.Result.LongestApplyMs = state.PressResult.LongestApplyMs;
+      state.Current = state.PressResult.Moved == 0 ? State::Phase::Done : State::Phase::Write;
       return state.Current == State::Phase::Done;
     }
     case State::Phase::Write: {
@@ -219,18 +219,15 @@ bool TerrainPressJob::Advance(size_t sheetsMost, size_t pointsMost) {
       state.Result.LongestReprojectMs =
           std::max(state.Result.LongestReprojectMs, State::Measures(state.Result.WriteMs, began));
       if (state.NextPoint < state.HeightsM.size()) { return false; }
-      state.Current = State::Phase::Floors;
+      state.Current = State::Phase::Measure;
       return false;
     }
-    case State::Phase::Floors: {
-      const Heights finalHeights{.WrittenM = state.HeightsM, .WasM = state.PreviousM};
-      state.Result.Pads = FloorsOf(
-          state.YieldsHeld, state.PressedPoints, EarthworkKind::Pad, state.Positions, finalHeights);
-      state.Result.Corridors = FloorsOf(state.YieldsHeld,
-                                        state.PressedPoints,
-                                        EarthworkKind::Corridor,
-                                        state.Positions,
-                                        finalHeights);
+    case State::Phase::Measure: {
+      const EarthworkHeightView finalHeights{.WrittenM = state.HeightsM, .WasM = state.PreviousM};
+      state.Result.Pads = MeasureEarthworkEffect(
+          state.Stamps, state.PressResult, EarthworkKind::Pad, state.Positions, finalHeights);
+      state.Result.Corridors = MeasureEarthworkEffect(
+          state.Stamps, state.PressResult, EarthworkKind::Corridor, state.Positions, finalHeights);
       state.Result.LongestFloorsMs =
           std::max(state.Result.LongestFloorsMs, State::Measures(state.Result.FloorsMs, began));
       state.Current = State::Phase::Done;

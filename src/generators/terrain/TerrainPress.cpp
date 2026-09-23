@@ -50,7 +50,8 @@ PressedTerrain PressTerrain(std::span<const EarthworkStamp> yields,
   }
   std::vector<double> previous(heights);
   const auto gathered = std::chrono::steady_clock::now();
-  const Pressed pressed = PressPoints(yields, positions, heights, mostEarthworkM);
+  const EarthworkPressResult pressed =
+      ApplyEarthworkStamps(yields, positions, heights, mostEarthworkM);
   const auto decided = std::chrono::steady_clock::now();
   PressedTerrain result{
       .Nodes = pressed.Moved,
@@ -101,9 +102,11 @@ PressedTerrain PressTerrain(std::span<const EarthworkStamp> yields,
             .UpM;
   }
   const auto writtenAt = std::chrono::steady_clock::now();
-  const Heights finalHeights{.WrittenM = written, .WasM = previous};
-  result.Pads = FloorsOf(yields, pressed, EarthworkKind::Pad, positions, finalHeights);
-  result.Corridors = FloorsOf(yields, pressed, EarthworkKind::Corridor, positions, finalHeights);
+  const EarthworkHeightView finalHeights{.WrittenM = written, .WasM = previous};
+  result.Pads =
+      MeasureEarthworkEffect(yields, pressed, EarthworkKind::Pad, positions, finalHeights);
+  result.Corridors =
+      MeasureEarthworkEffect(yields, pressed, EarthworkKind::Corridor, positions, finalHeights);
   const auto finished = std::chrono::steady_clock::now();
   result.WriteMs = std::chrono::duration<double, std::milli>(writtenAt - decided).count();
   result.FloorsMs = std::chrono::duration<double, std::milli>(finished - writtenAt).count();

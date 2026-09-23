@@ -30,7 +30,7 @@ piece source and GPU storage stay in the renderer category.
 Native `Geometry::storageBytes` counts its owner record, retained part/material/image/light
 slots and nested attribute, name and pixel capacities. Renderer copies remain a separate
 category, which exposes the real overlap while a ground candidate continues after cloning.
-Ground `Patchwork` and `Yields` report their phase-local sheet/node and ring/seam capacities;
+Ground `Patchwork` and `EarthworkStamp` report phase-local sheet/node and ring/seam capacities;
 these values disappear from the candidate snapshot when their owning phase products retire.
 
 ## Decision

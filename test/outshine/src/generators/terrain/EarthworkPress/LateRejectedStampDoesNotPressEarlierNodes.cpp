@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "GroundYield.h"
+#include "EarthworkPress.h"
 
 #include <array>
 #include <algorithm>
@@ -28,7 +28,7 @@ int main() {
                                          {.EastM = 1.0, .NorthM = 0.0},
                                          {.EastM = 2.0, .NorthM = 0.0}}};
   std::array<double, 3> heights{};
-  const Pressed pressed = PressPoints(stamps, points, heights, 30.0);
+  const EarthworkPressResult pressed = ApplyEarthworkStamps(stamps, points, heights, 30.0);
   CHECK(pressed.Structures == 1 && pressed.Refused[1] == 1 && pressed.Moved == 3 &&
             pressed.Held == 0,
         "late excessive cut rejects its stamp globally before any height changes");
@@ -39,7 +39,7 @@ int main() {
 
   for (const size_t slice : {1u, 2u, 7u}) {
     heights.fill(0.0);
-    PressPointsJob job(stamps, points, heights, 30.0);
+    EarthworkPressJob job(stamps, points, heights, 30.0);
     bool complete = false;
     for (int step = 0; step < 16 && !complete; ++step) {
       complete = job.Advance(slice);
@@ -49,22 +49,23 @@ int main() {
       }
     }
     CHECK(complete && job.HeapBytes() > 0, "the bounded job completes and reports retained memory");
-    const Pressed staged = job.Take();
+    const EarthworkPressResult staged = job.Take();
     CHECK(staged.Moved == pressed.Moved && staged.Structures == pressed.Structures &&
               staged.Held == pressed.Held && staged.Refused == pressed.Refused &&
               staged.DecidedBy == pressed.DecidedBy &&
               staged.Inside.size() == pressed.Inside.size() &&
-              std::ranges::equal(staged.Inside,
-                                 pressed.Inside,
-                                 [](const Covered &left, const Covered &right) {
-                                   return left.Point == right.Point && left.Stamp == right.Stamp;
-                                 }) &&
+              std::ranges::equal(
+                  staged.Inside,
+                  pressed.Inside,
+                  [](const EarthworkPointClaim &left, const EarthworkPointClaim &right) {
+                    return left.Point == right.Point && left.Stamp == right.Stamp;
+                  }) &&
               std::ranges::all_of(heights, [](double height) { return height == 5.0; }),
           "different interruption sizes preserve decisions, claims and final heights");
   }
 
   heights.fill(0.0);
-  const Pressed permitted = PressPoints(stamps, points, heights, 100.0);
+  const EarthworkPressResult permitted = ApplyEarthworkStamps(stamps, points, heights, 100.0);
   const std::array<double, 3> expectedHeights{-5.0, -20.0, -35.0};
   CHECK(permitted.Structures == 0 && permitted.Moved == 3 && heights == expectedHeights,
         "the late stamp changes all nodes when the earthwork bound permits it");

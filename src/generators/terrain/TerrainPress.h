@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "GroundMesher.h"
-#include "GroundYield.h"
+#include "EarthworkPress.h"
 #include "TangentFrame.h"
 #include "TerrainPage.h"
 
@@ -19,8 +19,8 @@ struct PressedTerrain {
   size_t Held = 0;
   double DeepestM = 0.0;
   double RaisedM = 0.0;
-  Floors Pads;
-  Floors Corridors;
+  EarthworkMetrics Pads;
+  EarthworkMetrics Corridors;
   double GatherMs = 0.0;
   double DecideMs = 0.0;
   double BucketMs = 0.0;

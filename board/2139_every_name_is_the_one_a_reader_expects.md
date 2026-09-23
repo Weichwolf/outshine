@@ -28,11 +28,10 @@ growth, owner-crossing edits, dependency edges and largest cohesive files, not
 a target count of types or an arbitrary line cap.
 The three read-only telemetry methods moved from `Laying.cpp` to
 `GroundDiagnostics.cpp` in b992673c9; explicit borrows replaced `Engine::State` access.
-`Yields`/`Stamp` are now `EarthworkStamp`/`EarthworkKind`; four suites, lint and Wien
-digest `e45d4da2` pass. Next: `GroundYield.*` -> `EarthworkPress.*`; rename its
-generic types/functions by actual claim, height, result, apply and measure semantics.
-Migrate callers, tests and board refs without aliases; prove four suites, identical
-Wien digest, format and lint. The parent stays open.
+`Yields`/`Stamp` are now `EarthworkStamp`/`EarthworkKind`; four suites and lint pass.
+`GroundYield.*` is now `EarthworkPress.*`; its result, claim, height and metrics
+types and apply/measure functions name their roles. Two focused suites and full lint
+pass; Wien retains digest `e45d4da2`. The parent stays open.
 
 ## Module decisions and implementation owners
 

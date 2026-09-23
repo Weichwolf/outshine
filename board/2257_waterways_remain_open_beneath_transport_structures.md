@@ -12,9 +12,9 @@ Tags: osm, bridges, contacts, navigation
 ## Proven defect and boundary
 
 `Corridors::YieldsOf` marks bridge ribbons `Fills=false`, but still sends their
-entire span as a terrain stamp; `GroundYield::BidsLand` may cut its bed and banks.
+entire span as a terrain stamp; `EarthworkPress::BidsLand` may cut its bed and banks.
 `Corridors::PressesUnder` emits `Fills=true` for every shaped junction, including
-one supported by a bridge deck. `GroundYield::PressesAt` applies a `Stamp::Basin`
+one supported by a bridge deck. `EarthworkPress::PressesAt` applies an `EarthworkKind::Basin`
 only when no land stamp covers the same point. Thus an elevated junction or
 unrelated land feature can fill a waterway. `AppendLakeStamps` covers water
 surfaces, while `WaterField::Course` has no matching bed protection in the
