@@ -66,6 +66,9 @@ and exclude them from fine-input equality checks.
 The next vertical slice uses `HeightField` as the pinned input owner. It forms
 one sorted unique union of block sources and marks the input qualified only
 when every block has source identity and no scalar fallback was used.
+This qualification means provenance is complete; it does not certify DEM
+sample spacing, target quality or visual detail. An identified ancestor tile
+can still be too coarse for a Refined construction.
 `StructureBuildTask` lends this immutable summary until landing. In
 `BuildingField`, `PendingAcceptance` copies the summary before publication;
 it also copies the corresponding OSM vector tile identity. The accepted tile

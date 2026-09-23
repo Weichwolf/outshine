@@ -33,6 +33,10 @@ candidate/revision trace before attributing every rebake to height quality.
 Track accepted structure products by vector tile and exact height input
 revision, including empty geometry. Playable fallback is publishable; Refined
 requires a qualified pinned fine-height snapshot for each relevant tile.
+Require both complete source provenance and sufficient effective DEM sample
+spacing for the tile's declared contact/detail tolerance; an identified
+ancestor DEM is not automatically fine. Derive the threshold from the actor
+contact and visible terrain error budget, not a hardcoded provider zoom.
 When its source changes, enqueue only the affected tile for replacement.
 Separate replacement admission from first-time `TileWatermark` ingestion so
 already accepted tiles are not silently skipped or counted twice. Bound
