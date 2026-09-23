@@ -26,8 +26,8 @@ gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
   Outshine und outshine-client sind deine Arbeitsmittel.
 - Greenfield bedeutet keinen Bestandsschutz. Belegte Designfehler vollständig ersetzen;
   funktionierende Substanz erkennen und erhalten.
-- Namen sind Architektur. Klassen, Funktionen, Dateien und öffentliche Begriffe beschreiben ihre
-  tatsächliche Zuständigkeit und entsprechen üblichen Engine-Begriffen.
+- Namen sind Architektur. Klassen, Strukturen, Methoden, Funktionen, Dateien und öffentliche
+  Begriffe beschreiben ihre tatsächliche Zuständigkeit und entsprechen üblichen Engine-Begriffen.
 - RAGE, Unreal, Filament, Cesium, CARLA/SUMO und veröffentlichte AAA-Verfahren sind Referenzen,
   keine Dogmen. Outshine bildet die beste belegte Synthese; Messungen im Projekt entscheiden.
 - Audio folgt demselben Anspruch wie das Bild: hochwertige Stereoanlage und Kopfhörer, native
