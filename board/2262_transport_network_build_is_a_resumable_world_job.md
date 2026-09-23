@@ -79,6 +79,15 @@ Next bound weave startup/index rehash and identify the remaining simulation spik
 before claiming 720p60; draw spikes are separate. Graph source-revision and
 cancellation tests remain part of this WI's acceptance.
 
+`NetworkWeaveJob::Begin` currently calls the one-shot
+`Network::SortWaysIntoDeclaredOrder`, including full sort and point/way copies,
+before any `Advance` budget applies. Move ordering into bounded job phases:
+sort fixed-size runs with the same total way comparator as the one-shot oracle,
+merge them incrementally, then copy point/way arrays with a point cursor.
+Prepare and publish each array only at complete phase boundaries. Check exact
+node/edge/route equality for duplicate ways and reversed input order; measure
+each phase on Wien separately before claiming the startup spike is gone.
+
 ## Acceptance
 
 - Analytic line, closed loop, legal junction, grade-separated crossing and
