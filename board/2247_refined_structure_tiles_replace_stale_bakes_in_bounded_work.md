@@ -79,6 +79,9 @@ progress 10 (`NeedsBakes`) after the 30-second Refined deadline. Normal and
 validated variants agree. Network weaving finishes before this phase; do not
 attribute the timeout to network slicing or weaken the deadline. Diagnose
 which structure bake/replacement job or publication gate holds progress 10.
+Wien independently misses its 6,144-frame Refined shot after more than
+103,000 structure candidates are baked and another candidate starts; the
+client cannot produce a fresh PNG or publish network diagnostics meanwhile.
 
 ## Implementation and acceptance
 

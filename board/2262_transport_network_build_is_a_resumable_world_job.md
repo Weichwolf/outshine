@@ -88,6 +88,11 @@ Prepare and publish each array only at complete phase boundaries. Check exact
 node/edge/route equality for duplicate ways and reversed input order; measure
 each phase on Wien separately before claiming the startup spike is gone.
 
+The run-sort/merge/copy phases are implemented; 17 Wayfinding tests and lint
+pass on `a84c1c4f8`. A fresh Wien shot did not reach Refined in 6,144 frames
+because structure baking blocked publication (WI 2247). The new Wien slice
+timings and pixel equality are therefore still unverified.
+
 ## Acceptance
 
 - Analytic line, closed loop, legal junction, grade-separated crossing and
