@@ -84,6 +84,7 @@ using OwnedBuffer = Owned<SDL_GPUBuffer, SDL_ReleaseGPUBuffer>;
 using OwnedTexture = Owned<SDL_GPUTexture, SDL_ReleaseGPUTexture>;
 
 using OwnedTransfer = Owned<SDL_GPUTransferBuffer, SDL_ReleaseGPUTransferBuffer>;
+using OwnedFence = Owned<SDL_GPUFence, SDL_ReleaseGPUFence>;
 using OwnedSampler = Owned<SDL_GPUSampler, SDL_ReleaseGPUSampler>;
 using OwnedShader = Owned<SDL_GPUShader, SDL_ReleaseGPUShader>;
 using OwnedPipeline = Owned<SDL_GPUGraphicsPipeline, SDL_ReleaseGPUGraphicsPipeline>;

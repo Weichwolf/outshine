@@ -561,6 +561,11 @@ public:
   [[nodiscard]] bool SetGroundClasses(GroundClassificationSource source,
                                       std::string &error,
                                       GroundClassUploadMetrics *metrics = nullptr);
+  [[nodiscard]] bool BeginGroundClasses(GroundClassificationSource source,
+                                        std::string &error,
+                                        GroundClassUploadMetrics *metrics = nullptr);
+  [[nodiscard]] std::expected<bool, std::string>
+  AdvanceGroundClasses(size_t bytesMost, GroundClassUploadMetrics *metrics = nullptr);
 
   [[nodiscard]] bool RestoreGroundResources(std::string &error) {
     auto &content = ActiveState().Content;
@@ -753,6 +758,7 @@ private:
 
   struct WorldContent {
     GroundStorage Ground;
+    std::optional<GroundClassificationSource> PendingGroundClasses;
     SceneResources Resources;
     SubjectDraw Subjects;
     SubjectDraw Glass;

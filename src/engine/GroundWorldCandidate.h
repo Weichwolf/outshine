@@ -117,10 +117,10 @@ public:
     return PublicationMetrics_;
   }
 
-  [[nodiscard]] bool SetGroundClasses(std::shared_ptr<const ClassStructure> structure,
-                                      std::vector<float> palette,
-                                      std::string &error,
-                                      Render::GroundClassUploadMetrics *metrics = nullptr) {
+  [[nodiscard]] bool BeginGroundClasses(std::shared_ptr<const ClassStructure> structure,
+                                        std::vector<float> palette,
+                                        std::string &error,
+                                        Render::GroundClassUploadMetrics *metrics = nullptr) {
     if (!structure) {
       error = "ground classification has no structure";
       return false;
@@ -134,9 +134,14 @@ public:
     const double preparationMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - prepareAt)
             .count();
-    const bool accepted = World_.Renderer().SetGroundClasses(std::move(source), error, metrics);
+    const bool accepted = World_.Renderer().BeginGroundClasses(std::move(source), error, metrics);
     if (metrics != nullptr) { metrics->SourcePreparationMs = preparationMs; }
     return accepted;
+  }
+
+  [[nodiscard]] std::expected<bool, std::string>
+  AdvanceGroundClasses(size_t bytesMost, Render::GroundClassUploadMetrics *metrics = nullptr) {
+    return World_.Renderer().AdvanceGroundClasses(bytesMost, metrics);
   }
 
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,

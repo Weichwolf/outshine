@@ -116,6 +116,7 @@ constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kCorridorRetireUnitsPerFrame = 512;
 constexpr size_t kNetworkItemsPerFrame = 1024;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
+constexpr size_t kClassUploadBytesPerFrame = 1u << 20u;
 constexpr size_t kHaloNodesPerFrame = 32768;
 constexpr size_t kTerrainRefinementSourcesPerFrame = 8;
 constexpr size_t kGroundRestorePagesPerFrame = 64;
@@ -175,7 +176,7 @@ bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality)
 
 class GroundBuildState {
 public:
-  enum class GeometrySubmission : uint8_t { Classes, Begin, Cook };
+  enum class GeometrySubmission : uint8_t { Classes, ClassRanges, Begin, Cook };
   enum class CorridorCompletion : uint8_t { Build, Retire };
 
   struct MeshBuild {
@@ -404,9 +405,42 @@ public:
     return GeometrySubmission_;
   }
 
-  void ClassesUploaded() noexcept {
+  void ClassesStarted() noexcept {
     assert(GeometrySubmission_ == GeometrySubmission::Classes);
+    GeometrySubmission_ = GeometrySubmission::ClassRanges;
+  }
+
+  void ClassesUploaded() noexcept {
+    assert(GeometrySubmission_ == GeometrySubmission::ClassRanges);
     GeometrySubmission_ = GeometrySubmission::Begin;
+  }
+
+  void SamplesClassUploadSlice(double milliseconds) noexcept {
+    LongestClassUploadMs_ = std::max(LongestClassUploadMs_, milliseconds);
+    TotalClassUploadMs_ += milliseconds;
+  }
+
+  [[nodiscard]] double LongestClassUploadMs() const noexcept { return LongestClassUploadMs_; }
+
+  [[nodiscard]] double TotalClassUploadMs() const noexcept { return TotalClassUploadMs_; }
+
+  void SamplesClassComponents(const Render::GroundClassUploadMetrics &seen) noexcept {
+    LongestClassComponents_.Storage.BytesSubmitted =
+        std::max(LongestClassComponents_.Storage.BytesSubmitted, seen.Storage.BytesSubmitted);
+    LongestClassComponents_.Storage.AllocationMs =
+        std::max(LongestClassComponents_.Storage.AllocationMs, seen.Storage.AllocationMs);
+    LongestClassComponents_.Storage.StagingMs =
+        std::max(LongestClassComponents_.Storage.StagingMs, seen.Storage.StagingMs);
+    LongestClassComponents_.Storage.SubmissionMs =
+        std::max(LongestClassComponents_.Storage.SubmissionMs, seen.Storage.SubmissionMs);
+    LongestClassComponents_.SourcePreparationMs =
+        std::max(LongestClassComponents_.SourcePreparationMs, seen.SourcePreparationMs);
+    LongestClassComponents_.RestoreSourceMs =
+        std::max(LongestClassComponents_.RestoreSourceMs, seen.RestoreSourceMs);
+  }
+
+  [[nodiscard]] const Render::GroundClassUploadMetrics &LongestClassComponents() const noexcept {
+    return LongestClassComponents_;
   }
 
   void GeometryStarted() noexcept {
@@ -477,6 +511,9 @@ private:
   double LongestCorridorSliceMs_ = 0.0;
   double LongestCorridorRetirementMs_ = 0.0;
   double LongestGeometrySliceMs_ = 0.0;
+  double LongestClassUploadMs_ = 0.0;
+  double TotalClassUploadMs_ = 0.0;
+  Render::GroundClassUploadMetrics LongestClassComponents_;
   GeometrySubmission GeometrySubmission_ = GeometrySubmission::Classes;
   CorridorCompletion CorridorCompletion_ = CorridorCompletion::Build;
   double LongestHaloSliceMs_ = 0.0;
@@ -1994,21 +2031,50 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
   if (state.GeometrySubmissionStep() == GroundBuildState::GeometrySubmission::Classes) {
     const auto classesBegan = std::chrono::steady_clock::now();
     Render::GroundClassUploadMetrics upload;
-    if (build.ClassStructure && !build.ClassPalette.empty() &&
-        !candidate.SetGroundClasses(
-            build.ClassStructure, std::move(build.ClassPalette), Error, &upload)) {
+    const bool hasClasses = build.ClassStructure && !build.ClassPalette.empty();
+    if (hasClasses && !candidate.BeginGroundClasses(
+                          build.ClassStructure, std::move(build.ClassPalette), Error, &upload)) {
       return false;
     }
-    const double classUploadMs =
+    state.ClassesStarted();
+    state.SamplesClassComponents(upload);
+    state.SamplesClassUploadSlice(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - classesBegan)
-            .count();
-    Published.Places("ground class upload: allocation", upload.Storage.AllocationMs, "ms");
-    Published.Places("ground class upload: staging", upload.Storage.StagingMs, "ms");
-    Published.Places("ground class upload: submission", upload.Storage.SubmissionMs, "ms");
-    Published.Places("ground class upload: source preparation", upload.SourcePreparationMs, "ms");
-    Published.Places("ground class upload: restore source", upload.RestoreSourceMs, "ms");
-    Published.Places("ground candidate: class upload", classUploadMs, "ms");
-    state.ClassesUploaded();
+            .count());
+    if (!hasClasses) {
+      state.ClassesUploaded();
+      Published.Places("ground candidate: class upload", state.TotalClassUploadMs(), "ms");
+    }
+    sample();
+    return true;
+  }
+  if (state.GeometrySubmissionStep() == GroundBuildState::GeometrySubmission::ClassRanges) {
+    Render::GroundClassUploadMetrics upload;
+    auto advanced = candidate.AdvanceGroundClasses(kClassUploadBytesPerFrame, &upload);
+    if (!advanced) {
+      Error = std::move(advanced.error());
+      return false;
+    }
+    state.SamplesClassComponents(upload);
+    state.SamplesClassUploadSlice(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceBegan)
+            .count());
+    if (*advanced) {
+      const Render::GroundClassUploadMetrics &longest = state.LongestClassComponents();
+      Published.Places("ground class upload: allocation", longest.Storage.AllocationMs, "ms");
+      Published.Places("ground class upload: largest range",
+                       static_cast<double>(longest.Storage.BytesSubmitted),
+                       "bytes");
+      Published.Places("ground class upload: staging", longest.Storage.StagingMs, "ms");
+      Published.Places("ground class upload: submission", longest.Storage.SubmissionMs, "ms");
+      Published.Places(
+          "ground class upload: source preparation", longest.SourcePreparationMs, "ms");
+      Published.Places("ground class upload: restore source", longest.RestoreSourceMs, "ms");
+      Published.Places("ground candidate: class upload", state.TotalClassUploadMs(), "ms");
+      Published.Places(
+          "ground candidate: longest class upload slice", state.LongestClassUploadMs(), "ms");
+      state.ClassesUploaded();
+    }
     sample();
     return true;
   }
@@ -2079,12 +2145,16 @@ bool Engine::State::AdvancesGroundWithinBudget(GroundQuality quality) {
     const GroundBuildState *const before = World.GroundBuild.get();
     const uint64_t id = before != nullptr ? before->Id() : 0;
     const size_t phase = before != nullptr ? before->Progress() : 0;
+    const auto submission = before != nullptr ? before->GeometrySubmissionStep()
+                                              : GroundBuildState::GeometrySubmission::Classes;
     const uint64_t slices = before != nullptr && phase < Cost.GroundPhases.size()
                                 ? Cost.GroundPhases[phase].Taken()
                                 : 0;
     if (!Grounds(false, quality)) { return false; }
     const GroundBuildState *const after = World.GroundBuild.get();
     if (after == nullptr || after->Id() != id || after->Progress() != phase ||
+        after->GeometrySubmissionStep() != submission ||
+        submission == GroundBuildState::GeometrySubmission::ClassRanges ||
         Cost.GroundPhases[phase].Taken() == slices) {
       return true;
     }

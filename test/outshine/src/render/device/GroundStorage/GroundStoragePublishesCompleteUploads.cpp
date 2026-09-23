@@ -152,6 +152,75 @@ void Exercise(SDL_GPUDevice *device) {
         "empty replacement clears a previously populated pair");
   CHECK(Read(device, storage.Classes(), 4) == zero && Read(device, storage.Palette(), 4) == zero,
         "cleared storage cannot expose stale palette or class data");
+  std::vector<uint32_t> manyClasses(64);
+  for (size_t at = 0; at < manyClasses.size(); ++at) {
+    manyClasses[at] = static_cast<uint32_t>(at + 1u);
+  }
+  const std::array<float, 8> manyPalette{0, 0.125f, 0.25f, 0.375f, 0.5f, 0.625f, 0.75f, 0.875f};
+  const SDL_GPUBuffer *const priorClasses = storage.Classes();
+  const SDL_GPUBuffer *const priorPalette = storage.Palette();
+  CHECK(storage.BeginReplace(device, manyClasses, manyPalette).has_value(),
+        "bounded class upload starts without publishing either buffer");
+  CHECK(!storage.BeginReplace(device, manyClasses, manyPalette),
+        "a second transaction cannot replace an unfinished upload");
+  bool complete = false;
+  size_t rangeCount = 0;
+  for (size_t step = 0; step < 2000 && !complete; ++step) {
+    GroundStorageUploadMetrics metrics;
+    const auto advanced = storage.AdvanceReplace(32, calls, &metrics);
+    CHECK(advanced.has_value(), advanced ? "class range advances" : advanced.error().c_str());
+    if (!advanced) { break; }
+    CHECK(metrics.BytesSubmitted <= 32 && metrics.BytesSubmitted % sizeof(uint32_t) == 0,
+          "one advance submits at most its aligned byte budget");
+    rangeCount += metrics.BytesSubmitted != 0 ? 1u : 0u;
+    complete = *advanced;
+    if (!complete) {
+      CHECK(storage.Classes() == priorClasses && storage.Palette() == priorPalette,
+            "no incomplete class or palette range becomes visible");
+      SDL_Delay(1);
+    }
+  }
+  CHECK(complete && rangeCount > 2 &&
+            Read(device, storage.Classes(), manyClasses.size()) == manyClasses,
+        "multiple interrupted ranges publish exact class words after the final fence");
+  std::vector<uint32_t> manyPaletteWords;
+  for (float value : manyPalette) { manyPaletteWords.push_back(std::bit_cast<uint32_t>(value)); }
+  CHECK(Read(device, storage.Palette(), manyPalette.size()) == manyPaletteWords,
+        "paced palette ranges retain their exact values");
+  GroundStorage synchronous;
+  CHECK(synchronous.Replace(device, manyClasses, manyPalette, calls).has_value() &&
+            Read(device, synchronous.Classes(), manyClasses.size()) ==
+                Read(device, storage.Classes(), manyClasses.size()) &&
+            Read(device, synchronous.Palette(), manyPalette.size()) ==
+                Read(device, storage.Palette(), manyPalette.size()),
+        "synchronous and paced transactions publish the same GPU bytes");
+  const SDL_GPUBuffer *const publishedClasses = storage.Classes();
+  const SDL_GPUBuffer *const publishedPalette = storage.Palette();
+  CHECK(storage.BeginReplace(device, manyClasses, manyPalette).has_value(),
+        "a second bounded transaction begins");
+  const auto firstRange = storage.AdvanceReplace(32, calls);
+  CHECK(firstRange.has_value() && !*firstRange, "a submitted range leaves the replacement private");
+  faults.Next = Faults::Point::Map;
+  bool failedAfterRange = false;
+  for (size_t step = 0; step < 2000 && !failedAfterRange; ++step) {
+    const auto advanced = storage.AdvanceReplace(32, calls);
+    failedAfterRange = !advanced;
+    if (!failedAfterRange) { SDL_Delay(1); }
+  }
+  CHECK(failedAfterRange && !storage.UploadActive() && storage.Classes() == publishedClasses &&
+            storage.Palette() == publishedPalette &&
+            Read(device, storage.Classes(), manyClasses.size()) == manyClasses,
+        "a failure after one submitted range preserves the last complete pair");
+  {
+    GroundStorage canceled;
+    CHECK(canceled.BeginReplace(device, manyClasses, manyPalette).has_value(),
+          "a disposable candidate starts its own upload");
+    const auto submitted = canceled.AdvanceReplace(32, calls);
+    CHECK(submitted.has_value() && !*submitted, "the disposable candidate owns an in-flight range");
+  }
+  CHECK(SDL_WaitForGPUIdle(device), "releasing an in-flight candidate leaves the device usable");
+  CHECK(Read(device, storage.Classes(), manyClasses.size()) == manyClasses,
+        "canceling an in-flight upload preserves the committed world");
   CHECK(faults.Acquired == faults.Submitted, "every acquired upload command is consumed once");
 }
 }

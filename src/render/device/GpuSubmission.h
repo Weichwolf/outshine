@@ -22,6 +22,10 @@ struct GpuSubmission {
       [](void *, SDL_GPUDevice *device, SDL_GPUFence *const *fences, uint32_t count) {
         return SDL_WaitForGPUFences(device, true, fences, count);
       };
+  bool (*QueryFence)(void *, SDL_GPUDevice *, SDL_GPUFence *) =
+      [](void *, SDL_GPUDevice *device, SDL_GPUFence *fence) {
+        return SDL_QueryGPUFence(device, fence);
+      };
   bool (*WaitIdle)(void *, SDL_GPUDevice *) = [](void *, SDL_GPUDevice *device) {
     return SDL_WaitForGPUIdle(device);
   };

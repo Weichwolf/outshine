@@ -1164,6 +1164,58 @@ bool SceneRenderer::SetGroundClasses(GroundClassificationSource source,
   return true;
 }
 
+bool SceneRenderer::BeginGroundClasses(GroundClassificationSource source,
+                                       std::string &error,
+                                       GroundClassUploadMetrics *metrics) {
+  if (metrics != nullptr) { *metrics = {}; }
+  WorldContent &content = ActiveState().Content;
+  if (content.PendingGroundClasses || (source.ClassWords != 0 && !source.Classes) ||
+      (source.PaletteFloats != 0 && !source.Palette)) {
+    error = "ground classification upload has an active or unowned source";
+    return false;
+  }
+  content.PendingGroundClasses.emplace(std::move(source));
+  auto begun = content.Ground.BeginReplace(ActiveFrame().Handles.Device,
+                                           content.PendingGroundClasses->ClassSpan(),
+                                           content.PendingGroundClasses->PaletteSpan(),
+                                           metrics != nullptr ? &metrics->Storage : nullptr);
+  if (!begun) {
+    error = std::move(begun.error());
+    content.PendingGroundClasses.reset();
+    return false;
+  }
+  return true;
+}
+
+std::expected<bool, std::string>
+SceneRenderer::AdvanceGroundClasses(size_t bytesMost, GroundClassUploadMetrics *metrics) {
+  if (metrics != nullptr) { *metrics = {}; }
+  WorldContent &content = ActiveState().Content;
+  if (!content.PendingGroundClasses) {
+    return std::unexpected("ground classification upload has no source");
+  }
+  auto advanced = content.Ground.AdvanceReplace(
+      bytesMost, Submission_, metrics != nullptr ? &metrics->Storage : nullptr);
+  if (!advanced) {
+    content.PendingGroundClasses.reset();
+    return std::unexpected(std::move(advanced.error()));
+  }
+  if (!*advanced) { return false; }
+  content.Subjects.GroundFrom(
+      {.Classes = content.Ground.Classes(), .Palette = content.Ground.Palette()});
+  content.Glass.GroundFrom(
+      {.Classes = content.Ground.Classes(), .Palette = content.Ground.Palette()});
+  const auto retainAt = std::chrono::steady_clock::now();
+  content.Resources.SetGroundClassification(std::move(*content.PendingGroundClasses));
+  content.PendingGroundClasses.reset();
+  if (metrics != nullptr) {
+    metrics->RestoreSourceMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retainAt)
+            .count();
+  }
+  return true;
+}
+
 bool SceneRenderer::UploadGroundClasses(std::span<const uint32_t> classes,
                                         std::span<const float> palette,
                                         std::string &error,

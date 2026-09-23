@@ -121,12 +121,37 @@ int main() {
                 "replacement restores independent copies of both classification inputs");
           const std::array<uint32_t, 4> changed{9, 8, 7, 6};
           const std::array<float, 4> changedPalette{0.75f, 0.5f, 0.25f, 0.0f};
-          CHECK(renderer.SetGroundClasses(changed, changedPalette, error),
-                "candidate classification changes before publication");
+          auto pendingClasses = std::make_shared<const std::array<uint32_t, 4>>(changed);
+          auto pendingPalette = std::make_shared<const std::array<float, 4>>(changedPalette);
+          const std::weak_ptr<const std::array<uint32_t, 4>> pendingClassLifetime = pendingClasses;
+          const std::weak_ptr<const std::array<float, 4>> pendingPaletteLifetime = pendingPalette;
+          Render::GroundClassificationSource pending{
+              .Classes = {pendingClasses, pendingClasses->data()},
+              .ClassWords = pendingClasses->size(),
+              .Palette = {pendingPalette, pendingPalette->data()},
+              .PaletteFloats = pendingPalette->size()};
+          CHECK(renderer.BeginGroundClasses(std::move(pending), error),
+                "candidate accepts owned classification before publication");
+          pendingClasses.reset();
+          pendingPalette.reset();
+          CHECK(!pendingClassLifetime.expired() && !pendingPaletteLifetime.expired(),
+                "pending upload keeps both source buffers alive");
+          bool complete = false;
+          for (size_t step = 0; step < 2000 && !complete; ++step) {
+            const auto advanced = renderer.AdvanceGroundClasses(4);
+            CHECK(advanced.has_value(), "candidate upload advances in aligned ranges");
+            if (!advanced) { break; }
+            complete = *advanced;
+            if (!complete) { SDL_Delay(1); }
+          }
+          CHECK(complete && !pendingClassLifetime.expired() && !pendingPaletteLifetime.expired(),
+                "committed candidate keeps its original source without a CPU copy");
           CHECK(!buffers[0].Released && !buffers[1].Released,
                 "candidate upload cannot retire either published buffer");
           candidate.reset();
           renderer.AbandonsWorldCandidate();
+          CHECK(pendingClassLifetime.expired() && pendingPaletteLifetime.expired(),
+                "discarded candidate releases its retained classification source");
           CHECK(!buffers[0].Released && !buffers[1].Released && Contains(0, classes) &&
                     Contains(0, paletteBits),
                 "rejected candidate leaves original GPU payloads alive and unchanged");
