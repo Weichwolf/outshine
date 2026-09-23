@@ -55,13 +55,21 @@ the one-shot path, so the full-frame defect remains until its job is paced.
 
 1. In `src/render/SubjectProxy.*`, separate stable draw/index planning from
    per-stream packing. Own callback context or replace it with bounded span
-   packing. Record packing and staging bytes per advance.
+   packing. `RuntimeScene` already owns `Stood_`, `Shaped_` and `Scratch_`; a
+   move-only placement job may borrow them for exactly that candidate's life.
+   Keep `Scratch_.Draws`, indices and positions fixed from begin through finish:
+   `SubjectDraw::MeshTicket` pins their addresses. Recreate callback contexts
+   locally on each advance, never persist pointers to their stack storage.
+   Record packing and staging bytes per advance.
 2. In `src/render/stages/SubjectDraw.*` and `SubjectResidency.*`, accept bounded
    index/vertex stream ranges into candidate-owned buffers; track completion
    and submission lifetime. Reject invalid offset/size and an incomplete mesh.
 3. In `src/engine/RuntimeScene.*` and `SceneRenderer.h`, advance the private
-   subject job after `ShapeCookJob` and bind it once. Preserve the old complete
-   scene until final success. Keep `GroundWorldCandidate` publication atomic.
+   subject job after `ShapeCookJob`: prepare plan/packing, begin index upload,
+   finish streams/tables, then mark geometry ready. Split `Build` into a shared
+   prefix/finalization so glTF and generated geometry use the same operations;
+   never rerun a completed phase. Preserve the old complete scene until final
+   success. Keep `GroundWorldCandidate` publication atomic.
 4. Bound the most expensive unit by measured bytes/work, then measure full
    frame p50/p95/p99, warm/cold transition and CPU/GPU peaks on Wien. If an SDL
    allocation or submit still blocks, isolate and bound that operation rather
