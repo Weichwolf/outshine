@@ -50,14 +50,14 @@ int main() {
       built.Built.RoofRun = {0, 1, 2};
       built.Digest = 19;
       StructureBuildQueue::Landing landing{.Tile = 7, .Baked = &built, .AnchorEcef = {}};
-      CHECK(PublishStructureTile(world, renderer, scene, landing, nullptr).has_value() &&
-                renderer.PiecesStanding() == 2,
-            "complete tile publishes wall and roof");
       const auto original = scene.get();
+      CHECK(PublishStructureTile(world, renderer, landing).has_value() &&
+                renderer.PiecesStanding() == 2 && scene.get() == original,
+            "complete tile publishes wall and roof without replacing the world");
       const auto digest = world.Pieces.Digest();
       const auto payload = renderer.PieceSourceBytes();
       world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()), .Roofs = 3});
-      CHECK(!PublishStructureTile(world, renderer, scene, landing, nullptr),
+      CHECK(!PublishStructureTile(world, renderer, landing),
             "replacement roof refuses after its candidate wall uploads");
       CHECK(scene.get() == original && renderer.PiecesStanding() == 2 &&
                 world.Pieces.Digest() == digest && world.Pieces.Handed() == 1 &&
@@ -70,35 +70,34 @@ int main() {
         malformed.Built.WallCorners = built.Built.WallCorners;
         malformed.Built.WallRun.resize(count, 0);
         landing.Baked = &malformed;
-        CHECK(!PublishStructureTile(world, renderer, scene, landing, nullptr) &&
-                  scene.get() == original && renderer.PiecesStanding() == 2 &&
-                  world.Pieces.Handed() == 1 && world.Pieces.Digest() == digest,
+        CHECK(!PublishStructureTile(world, renderer, landing) && scene.get() == original &&
+                  renderer.PiecesStanding() == 2 && world.Pieces.Handed() == 1 &&
+                  world.Pieces.Digest() == digest,
               "an incomplete triangle is an error, not an empty tile replacement");
       }
       Generators::BakedTile empty;
       landing.Baked = &empty;
-      CHECK(PublishStructureTile(world, renderer, scene, landing, nullptr).has_value(),
+      CHECK(PublishStructureTile(world, renderer, landing).has_value(),
             "empty tile is an accepted replacement");
       CHECK(renderer.PiecesStanding() == 0 && renderer.PieceSourceBytes() == 0 &&
                 world.Pieces.Handed() == 2 && world.Pieces.Digest() != digest,
             "empty replacement removes previous buildings and advances publication");
       landing.Baked = &built;
-      CHECK(PublishStructureTile(world, renderer, scene, landing, nullptr).has_value() &&
+      CHECK(PublishStructureTile(world, renderer, landing).has_value() &&
                 renderer.PiecesStanding() == 2 && world.Pieces.Handed() == 3,
             "buildings can return after an empty revision");
       std::array<StructureBuildQueue::Landing, 2> batch{
           {{.Tile = 8, .Baked = &built, .AnchorEcef = {}},
            {.Tile = 9, .Baked = &built, .AnchorEcef = {}}}};
-      CHECK(PublishStructureTiles(world, renderer, scene, batch, nullptr).has_value() &&
+      CHECK(PublishStructureTile(world, renderer, batch[0]).has_value() &&
+                PublishStructureTile(world, renderer, batch[1]).has_value() &&
                 renderer.PiecesStanding() == 6 && world.Pieces.Handed() == 5,
-            "two complete tiles publish through one world candidate");
-      const auto batched = scene.get();
+            "independent complete tiles publish in order");
       const auto batchedDigest = world.Pieces.Digest();
       world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()), .Roofs = 3});
-      CHECK(!PublishStructureTiles(world, renderer, scene, batch, nullptr) &&
-                scene.get() == batched && renderer.PiecesStanding() == 6 &&
-                world.Pieces.Digest() == batchedDigest,
-            "a later tile failure abandons the whole structure batch");
+      CHECK(!PublishStructureTile(world, renderer, batch[0]) && scene.get() == original &&
+                renderer.PiecesStanding() == 6 && world.Pieces.Digest() == batchedDigest,
+            "a tile failure preserves every published tile");
       world.Pieces.Wears({.Walls = static_cast<uint32_t>(wall->index()),
                           .Roofs = static_cast<uint32_t>(roof->index())});
       {

@@ -114,6 +114,36 @@ void Engine::State::Tells() {
     Published.Places("the step's own time, least", Cost.Advance.LeastMs(), "ms");
     Published.Places("the step's own time, most", Cost.Advance.MostMs(), "ms");
     Published.Places("steps taken", static_cast<double>(Cost.Advance.Taken()), "steps");
+    Published.Places("world update time, most", Cost.Update.MostMs(), "ms");
+    Published.Places("measurement publication time, most", Cost.Telling.MostMs(), "ms");
+    Published.Places("scene advance time, most", Cost.SceneAdvance.MostMs(), "ms");
+    Published.Places("streaming and bake time, most", Cost.Streaming.MostMs(), "ms");
+    Published.Places("piece handoff time, most", Cost.PieceHandoff.MostMs(), "ms");
+    Published.Places("tile restand time, most", Cost.Restand.MostMs(), "ms");
+    Published.Places("structure bake time, most", Cost.Bakes.MostMs(), "ms");
+    Published.Places("structure worker collection time, most", Cost.BakeResume.MostMs(), "ms");
+    Published.Places("structure landing selection time, most", Cost.BakeLanding.MostMs(), "ms");
+    Published.Places("structure transfer time, most", Cost.BakeTransfer.MostMs(), "ms");
+    Published.Places("structure live transfer time, most", Cost.BakeLiveTransfer.MostMs(), "ms");
+    Published.Places(
+        "structure candidate transfer time, most", Cost.BakeCandidateTransfer.MostMs(), "ms");
+    Published.Places("structure landing commit time, most", Cost.BakeCommit.MostMs(), "ms");
+    Published.Places("structure posting time, most", Cost.BakePosting.MostMs(), "ms");
+    Published.Places("structure candidate selection time, most",
+                     World.StructureBuilds.SlowestCandidateSelectionMs(),
+                     "ms");
+    Published.Places("structure height resolution time, most",
+                     World.StructureBuilds.SlowestHeightResolutionMs(),
+                     "ms");
+    Published.Places("structure raw extraction time, most",
+                     World.StructureBuilds.SlowestRawExtractionMs(),
+                     "ms");
+    Published.Places(
+        "structure task posting time, most", World.StructureBuilds.SlowestTaskPostingMs(), "ms");
+    Published.Places("world growth time, most", Cost.Growth.MostMs(), "ms");
+    Published.Places("simulation core time, most", Cost.Simulation.MostMs(), "ms");
+    Published.Places("ground candidate time, most", Cost.Ground.MostMs(), "ms");
+    Published.Places("vegetation update time, most", Cost.Crowns.MostMs(), "ms");
   }
   if (Picture.Standing) {
     for (size_t at = 0; at < Render::kStageCount; ++at) {

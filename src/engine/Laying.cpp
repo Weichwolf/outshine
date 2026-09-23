@@ -1534,25 +1534,43 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
                 into);
           },
       .Revision = {.Value = state.Id()}};
+  const auto landingAt = std::chrono::steady_clock::now();
   auto ready = World.StructureBuilds.NextLandings(
       World.Stack, state.Footprints(), WhereTheEyeStands(), heightAt.Revision, landsMost, heights);
+  Cost.BakeLanding.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
+          .count());
   if (!ready) {
     Error = Generators::Describe(ready.error());
     return false;
   }
+  const auto transferAt = std::chrono::steady_clock::now();
   build.Pieces.Wears(build.Surfaces);
   for (const StructureBuildQueue::Landing &landing : *ready) {
     if (!build.Pieces.Hands(landing.Tile, *landing.Baked, landing.AnchorEcef, Error)) {
       return false;
     }
   }
+  const double transferMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - transferAt)
+          .count();
+  Cost.BakeTransfer.Took(transferMs);
+  Cost.BakeCandidateTransfer.Took(transferMs);
+  const auto commitAt = std::chrono::steady_clock::now();
   World.StructureBuilds.CommitsLandings(World.Stack, state.Footprints(), *ready);
+  Cost.BakeCommit.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commitAt)
+          .count());
+  const auto postingAt = std::chrono::steady_clock::now();
   (void)World.StructureBuilds.Posts(World.Stack,
                                     state.Footprints(),
                                     WhereTheEyeStands(),
                                     heightAt,
                                     StructureCandidatesMost(),
                                     heights);
+  Cost.BakePosting.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
+          .count());
   return true;
 }
 

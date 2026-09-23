@@ -26,7 +26,8 @@ GPU-Produkte. `Surrounds` besitzt Streamingzustand, logisches Netz und Ressource
 Ein vorbereiteter Nachfolger veröffentlicht diese Produkte gemeinsam auf dem Engine-Thread.
 Provider-Anfragen und Vorbereitungscaches dürfen fortschreiten; veröffentlichte Geometrie,
 Materialzuordnung, Lichtparameter, Netz, Audio-Occlusion und Revision bei Ablehnung nicht.
-Keine Mutation des aktiven Owners mit anschließendem Snapshot-Rollback.
+Keine Whole-World-Mutation mit anschließendem Snapshot-Rollback. Unabhängige gestreamte
+Tiles bereiten neue Handles vor, geben sie bei Fehler frei und tauschen erst bei Erfolg.
 
 ## Vorhandene Grundlage
 
@@ -55,16 +56,14 @@ GPU-Produkte vor, und erst `PublishesPreparedWorld` tauscht den Owner. Danach si
 fehlgeschlagener Submit lässt daher Welt, Audio und Bild bei A; ein Retry darf B
 publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung.
 
-1. Die Bake-Übergabe ist jetzt eigentümerscharf: `GroundBuildProducts` besitzt
-   `BuildingField` und `TilePieces` bis `GroundWorldCandidate::Publish`.
-   `StructureBuildQueue` erhält den Footprint-Owner ausdrücklich; vor der ersten
-   Ground-Publikation arbeitet `State::Bakes` gegen diesen Kandidaten. Nichtwerfende
-   Transfers veröffentlichen Footprints, Pieces, `RuntimeScene` und GPU-Welt gemeinsam.
-   Ein unanchored Field lehnt Bake-Aufnahme ab. `BakeRevisionRejectsChangedInputs`
-   prüft den Revisionsvertrag. Ein eingecheckter vollständiger Floor-Contact-Pfad fehlt;
-   er darf nicht als Nachweis behauptet werden. Noch offen: A→B→spätes-A über die öffentliche API,
-   GPU-Submit-Fehler während Bake-Publikation und erneuter Bindungsnachweis nach
-   Kandidatenwechsel.
+1. `GroundBuildProducts` besitzt `BuildingField` und `TilePieces` bis zum atomaren
+   `GroundWorldCandidate::Publish`. Danach veröffentlicht der Live-Stream genau ein
+   unabhängiges Struktur-Tile pro Frame direkt über stabile Handles; Wall und Roof
+   werden gemeinsam ersetzt, während `RuntimeScene` und alle anderen Tiles stehen bleiben.
+   `StructureBuildQueue` erhält den Footprint-Owner ausdrücklich. Ein unanchored Field
+   lehnt Bake-Aufnahme ab; `BakeRevisionRejectsChangedInputs` prüft die Revision.
+   Noch offen: A→B→spätes-A über die öffentliche API, GPU-Submit-Fehler während
+   Ground-Bake-Publikation und erneuter Bindungsnachweis nach Kandidatenwechsel.
 2. Stale Ergebnisse abweisen: Bake-/Ground-Anfragen tragen die benötigte Datenrevision
    einschließlich Projektion und Quellidentität. Vor Publikation mit aktuellem Auftrag
    vergleichen. Veralteten fertigen Job freigeben, ohne aktuelle Welt/Revision zu verändern;
@@ -85,10 +84,10 @@ publizieren. Das ist kein Blocker für Struktur-Bake-Shutdown oder -Budgetierung
 ## Abnahme und vorhandene Nachweise
 
 - `StructureTilePublication/TileChangesPublishAtomically.cpp`: leerer Ersatz entfernt
-  Gebäude, unvollständige Dreiecke werden abgelehnt; Dachfehler, Retry, verschachtelte
-  Kandidaten und Rebinding geprüft. Fix 947d891d9; drei gezielte Suiten und Lint grün.
-  Graz zweimal geöffnet: zweiter Lauf pixelgleich zum Ausgangsbild, zwischen Läufen
-  68/921600 Pixel am linken Hang verschieden. Reproduzierbarkeitsbefund separat WI 2230.
+  Gebäude; unvollständige Dreiecke und Dachfehler erhalten alle alten Tiles und Payloads.
+  Direkte Einzel-Tile-Publikation ersetzt keinen `RuntimeScene`-Owner. Rosenheim bleibt
+  8e6642f9; Live-Transfer fällt von 52.62 auf 2.38 ms und Frames über 16.67 ms von 24
+  auf 9. Whole-world Ground-Revisionswechsel bleiben Kandidatenoperationen.
 
 - `test/outshine/src/engine/GroundWorldCandidate/LateFailurePreservesPublishedGround.cpp`:
   späte Klassen-/Geometriefehler erhalten CPU-/GPU-Welt und Revision; Retry funktioniert.

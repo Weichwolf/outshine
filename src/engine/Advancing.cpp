@@ -234,38 +234,70 @@ bool Engine::State::Bakes(size_t landsMost) {
       .Sample = [this](LongitudeLatitude at) { return World.Stack.Ground().Resident(at).AslM(); },
       .CopyField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            return Ground::HeightField::CopiesField(World.Stack.Ground().FieldOf(tile), tile, into);
+            return Ground::HeightField::SharesField(
+                World.Stack.Ground().StitchedField(tile), tile, into);
           },
       .Revision = {}};
   if (World.GroundBuild) {
+    const auto resumeAt = std::chrono::steady_clock::now();
     World.StructureBuilds.ResumeCompletedTasks();
+    Cost.BakeResume.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resumeAt)
+            .count());
     return StagesGroundBakes(landsMost);
   }
   if (!World.GroundPublished.Current()) {
+    const auto resumeAt = std::chrono::steady_clock::now();
     World.StructureBuilds.ResumeCompletedTasks();
+    Cost.BakeResume.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - resumeAt)
+            .count());
     if (World.Stack.Ingested()) {
+      const auto postingAt = std::chrono::steady_clock::now();
       (void)World.StructureBuilds.Posts(
           World.Stack, World.Stack.Footprints(), eye, heightAt, StructureCandidatesMost());
+      Cost.BakePosting.Took(
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
+              .count());
     }
     return true;
   }
-  auto ready = World.StructureBuilds.NextLandings(
-      World.Stack, World.Stack.Footprints(), eye, heightAt.Revision, landsMost);
+  const auto landingAt = std::chrono::steady_clock::now();
+  auto ready = World.StructureBuilds.NextLandings(World.Stack,
+                                                  World.Stack.Footprints(),
+                                                  eye,
+                                                  heightAt.Revision,
+                                                  std::min(landsMost, size_t{1}));
+  Cost.BakeLanding.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
+          .count());
   if (!ready) {
     Error = Generators::Describe(ready.error());
     return false;
   }
   if (!ready->empty()) {
-    if (auto published =
-            PublishStructureTiles(World, Picture.Device, Picture.Standing, *ready, &Picture.Face);
-        !published) {
+    const auto transferAt = std::chrono::steady_clock::now();
+    if (auto published = PublishStructureTile(World, Picture.Device, ready->front()); !published) {
       Error = std::move(published.error());
       return false;
     }
+    const double transferMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - transferAt)
+            .count();
+    Cost.BakeTransfer.Took(transferMs);
+    Cost.BakeLiveTransfer.Took(transferMs);
+    const auto commitAt = std::chrono::steady_clock::now();
     World.StructureBuilds.CommitsLandings(World.Stack, World.Stack.Footprints(), *ready);
+    Cost.BakeCommit.Took(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commitAt)
+            .count());
   }
+  const auto postingAt = std::chrono::steady_clock::now();
   (void)World.StructureBuilds.Posts(
       World.Stack, World.Stack.Footprints(), eye, heightAt, StructureCandidatesMost());
+  Cost.BakePosting.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
+          .count());
   Published.Places("buildings: tiles posted to the bake",
                    static_cast<double>(World.StructureBuilds.Posted()),
                    "tiles");
@@ -342,19 +374,36 @@ bool Engine::State::Updates() {
       {
         static const Heap::Tag kRestandingTag("world-restand");
         const Heap::Tagged restanding(kRestandingTag);
+        const auto handoffAt = std::chrono::steady_clock::now();
         HandsPiecesOver();
+        Cost.PieceHandoff.Took(
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handoffAt)
+                .count());
         const int vectorRing = World.GroundPublished.Current() ? Ground::kVectorRing : 0;
+        const auto restandAt = std::chrono::steady_clock::now();
         const auto streamed = World.Stack.Restand(
             stands, {.IngestTilesMost = Ground::kFrameIngestTiles, .VectorRing = vectorRing});
+        Cost.Restand.Took(
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - restandAt)
+                .count());
         if (!streamed) {
           Error = streamed.error();
           return false;
         }
-        if (!Bakes(kBakesLandedPerFrame)) { return false; }
+        const auto bakesAt = std::chrono::steady_clock::now();
+        const bool baked = Bakes(kBakesLandedPerFrame);
+        Cost.Bakes.Took(
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bakesAt)
+                .count());
+        if (!baked) { return false; }
         {
           static const Heap::Tag kGrowingTag("world-grow");
           const Heap::Tagged growing(kGrowingTag);
+          const auto growthAt = std::chrono::steady_clock::now();
           (void)Grows(stands.LatitudeDeg, stands.LongitudeDeg);
+          Cost.Growth.Took(
+              std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - growthAt)
+                  .count());
         }
       }
       Cost.StreamedMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
@@ -365,18 +414,35 @@ bool Engine::State::Updates() {
       Cost.StreamedMs = 0.0;
       Cost.StreamedTiles = 0;
     }
+    Cost.Streaming.Took(Cost.StreamedMs);
   }
 
+  const auto simulationAt = std::chrono::steady_clock::now();
   const double simulationStepS =
       Session.Declared.Motion.StepS > 0.0 ? Session.Declared.Motion.StepS : 1.0 / 60.0;
   const double gravityMs2 = Session.Declared.Ground.GravityMs2;
   Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
   Ticking.ElapsedS += simulationStepS;
-  if (!UpdateTriggers()) { return false; }
-  if (!Watches()) { return false; }
+  const bool triggered = UpdateTriggers();
+  const bool watched = triggered && Watches();
+  Cost.Simulation.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - simulationAt)
+          .count());
+  if (!triggered || !watched) { return false; }
   const GroundQuality quality =
       World.GroundPublished.Current() ? GroundQuality::Refined : GroundQuality::Playable;
-  return Grounds(false, quality) && UpdateCrowns(false);
+  const auto groundAt = std::chrono::steady_clock::now();
+  const bool grounded = Grounds(false, quality);
+  Cost.Ground.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - groundAt)
+          .count());
+  if (!grounded) { return false; }
+  const auto crownsAt = std::chrono::steady_clock::now();
+  const bool crowned = UpdateCrowns(false);
+  Cost.Crowns.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - crownsAt)
+          .count());
+  return crowned;
 }
 
 bool Engine::State::Draws() {
@@ -409,9 +475,22 @@ Result Engine::advance() {
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   const auto began = std::chrono::steady_clock::now();
   S_->Published.Opens();
-  if (!S_->Updates()) { return std::unexpected(S_->Error); }
+  const auto updateAt = std::chrono::steady_clock::now();
+  const bool updated = S_->Updates();
+  S_->Cost.Update.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - updateAt)
+          .count());
+  if (!updated) { return std::unexpected(S_->Error); }
+  const auto tellingAt = std::chrono::steady_clock::now();
   S_->Tells();
+  S_->Cost.Telling.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tellingAt)
+          .count());
+  const auto sceneAt = std::chrono::steady_clock::now();
   const bool drew = S_->Draws();
+  S_->Cost.SceneAdvance.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sceneAt)
+          .count());
   S_->Cost.Advance.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   return drew ? Result{} : std::unexpected(S_->Error);

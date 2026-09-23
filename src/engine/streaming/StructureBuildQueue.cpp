@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -238,7 +239,9 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
   const int blockZoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   while (Queue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;
+    double heightResolutionMs = 0.0;
     const auto groundStands = [&](Ground::FeatureRun over) {
+      const auto began = std::chrono::steady_clock::now();
       bool fallback = false;
       std::optional<std::vector<Ground::HeightField::Block>> blocks =
           BlocksUnder(true, blockZoom, vectors, over, heightAt);
@@ -248,13 +251,25 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
       }
       if (!blocks) {
         ++Deferred_;
+        heightResolutionMs +=
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                .count();
         return false;
       }
       heights = Ground::HeightField::Of(blockZoom, std::move(*blocks), fallback);
+      heightResolutionMs +=
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count();
       return true;
     };
+    const auto selectionAt = std::chrono::steady_clock::now();
     const std::optional<Ground::TileWatermark::Next> next =
         prints.Next(vectors, groundStands, candidatesMost);
+    SlowestCandidateSelectionMs_ = std::max(
+        SlowestCandidateSelectionMs_,
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - selectionAt)
+            .count());
+    SlowestHeightResolutionMs_ = std::max(SlowestHeightResolutionMs_, heightResolutionMs);
     if (!next || !heights) { break; }
     const BakeRevision revision{.Vectors = vectors.Generation(),
                                 .HeightSource = heightAt.Revision,
@@ -264,7 +279,12 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                 .FallbackHeights = heights->Fallback()};
     prints.Take(next->Tile);
     std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
+    const auto extractionAt = std::chrono::steady_clock::now();
     RawOf(vectors, prints, stack.Ways(), *next, eye, *raw);
+    SlowestRawExtractionMs_ = std::max(
+        SlowestRawExtractionMs_,
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extractionAt)
+            .count());
     std::unique_ptr<StructureBuildTask::Output> output = Borrowed(IdleOut_);
     output->Status = {};
     output->Tile.reset();
@@ -278,7 +298,12 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
         {.Revision = revision,
          .Task = StructureBuildTask(
              next->Tile, std::move(raw), std::move(heights), std::move(output), LentScratch())});
+    const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Queue_.back());
+    SlowestTaskPostingMs_ = std::max(
+        SlowestTaskPostingMs_,
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
+            .count());
     ++Posted_;
     ++posted;
   }

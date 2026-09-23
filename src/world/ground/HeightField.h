@@ -19,6 +19,7 @@ public:
   struct Block {
     TileSpot At;
     Sampling Raster;
+    std::shared_ptr<const TerrainField> Terrain;
     std::vector<float> Nodes;
     std::vector<Data::TileSourceIdentity> Sources;
   };
@@ -39,6 +40,7 @@ public:
     if (side < 2) { return false; }
     into.At = block.Spot();
     into.Raster = raster;
+    into.Terrain.reset();
     into.Nodes.assign(block.Nodes(), block.Nodes() + side * side);
     into.Sources.assign(block.Sources().begin(), block.Sources().end());
     return true;
@@ -53,9 +55,21 @@ public:
     if (field.Rows() != field.Cols() || field.Cols() < 2) { return false; }
     into.At = {.Zoom = at.Zoom, .X = static_cast<long>(at.X), .Y = static_cast<long>(at.Y)};
     into.Raster = {.Side = static_cast<int>(field.Cols()), .Postings = field.Cols()};
+    into.Terrain.reset();
     into.Nodes.assign(field.Data(),
                       field.Data() + static_cast<size_t>(field.Rows()) * field.Cols());
     into.Sources.assign(field.Sources().begin(), field.Sources().end());
+    return true;
+  }
+
+  [[nodiscard]] static bool
+  SharesField(std::shared_ptr<const TerrainField> field, Data::TileId at, Block &into) {
+    if (!field || field->Rows() != field->Cols() || field->Cols() < 2) { return false; }
+    into.At = {.Zoom = at.Zoom, .X = static_cast<long>(at.X), .Y = static_cast<long>(at.Y)};
+    into.Raster = {.Side = static_cast<int>(field->Cols()), .Postings = field->Cols()};
+    into.Nodes.clear();
+    into.Sources.assign(field->Sources().begin(), field->Sources().end());
+    into.Terrain = std::move(field);
     return true;
   }
 
@@ -98,8 +112,8 @@ public:
     for (const Block &one : Blocks_) {
       if (one.At.X != spot.X || one.At.Y != spot.Y) { continue; }
       double held = 0.0;
-      GroundBlock::Over(one.Nodes.data(), one.At, one.Raster)
-          .AslMRow(at, 0.0, std::span<double>(&held, 1));
+      const float *const nodes = one.Terrain ? one.Terrain->Data() : one.Nodes.data();
+      GroundBlock::Over(nodes, one.At, one.Raster).AslMRow(at, 0.0, std::span<double>(&held, 1));
       return GroundSample::At(held);
     }
     return GroundSample::Missing();
@@ -108,7 +122,8 @@ public:
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = 0;
     for (const Block &one : Blocks_) {
-      bytes += one.Nodes.capacity() * sizeof(float) +
+      bytes += (one.Terrain ? one.Terrain->HeapBytes() : 0u) +
+               one.Nodes.capacity() * sizeof(float) +
                one.Sources.capacity() * sizeof(Data::TileSourceIdentity);
       for (const auto &source : one.Sources) {
         bytes += source.SourceId.capacity() + source.Revision.capacity();

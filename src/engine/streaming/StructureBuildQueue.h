@@ -129,6 +129,14 @@ public:
 
   [[nodiscard]] double SlowestQueueMs() const { return SlowestQueueMs_; }
 
+  [[nodiscard]] double SlowestCandidateSelectionMs() const { return SlowestCandidateSelectionMs_; }
+
+  [[nodiscard]] double SlowestHeightResolutionMs() const { return SlowestHeightResolutionMs_; }
+
+  [[nodiscard]] double SlowestRawExtractionMs() const { return SlowestRawExtractionMs_; }
+
+  [[nodiscard]] double SlowestTaskPostingMs() const { return SlowestTaskPostingMs_; }
+
   [[nodiscard]] size_t QueuedStructures() const;
 
   [[nodiscard]] bool AwaitSlice(double seconds) const {
@@ -177,6 +185,10 @@ private:
   double SlowestFinalizationMs_ = 0.0;
   double SlowestQueueMs_ = 0.0;
   double SlowestTaskMs_ = 0.0;
+  double SlowestCandidateSelectionMs_ = 0.0;
+  double SlowestHeightResolutionMs_ = 0.0;
+  double SlowestRawExtractionMs_ = 0.0;
+  double SlowestTaskPostingMs_ = 0.0;
 };
 
 }

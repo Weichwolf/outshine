@@ -97,5 +97,15 @@ int main() {
                               return identity.SourceId == "delayed" && identity.Revision == "r1";
                             }),
         "height snapshot retains provider revision");
+  auto terrain = std::make_shared<Ground::TerrainField>(2, 2);
+  for (uint32_t row = 0; row < 2; ++row) {
+    for (uint32_t column = 0; column < 2; ++column) { terrain->SetM(row, column, 42.0f); }
+  }
+  Ground::HeightField::Block shared;
+  CHECK(Ground::HeightField::SharesField(terrain, {.Zoom = 0}, shared) && shared.Nodes.empty() &&
+            shared.Terrain == terrain,
+        "height snapshot shares an immutable terrain raster");
+  const auto field = Ground::HeightField::Of(0, {std::move(shared)});
+  CHECK_NEAR(*field->At({}).AslM(), 42.0, 0.001, "m", "shared height snapshot remains sampleable");
   return Report();
 }

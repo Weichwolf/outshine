@@ -314,6 +314,24 @@ struct Spent {
   };
 
   Counter Advance;
+  Counter Update;
+  Counter Telling;
+  Counter SceneAdvance;
+  Counter Streaming;
+  Counter PieceHandoff;
+  Counter Restand;
+  Counter Bakes;
+  Counter BakeResume;
+  Counter BakeLanding;
+  Counter BakeTransfer;
+  Counter BakeLiveTransfer;
+  Counter BakeCandidateTransfer;
+  Counter BakeCommit;
+  Counter BakePosting;
+  Counter Growth;
+  Counter Simulation;
+  Counter Ground;
+  Counter Crowns;
   double StreamedMs = 0.0;
   size_t StreamedTiles = 0;
   Counter Render;
