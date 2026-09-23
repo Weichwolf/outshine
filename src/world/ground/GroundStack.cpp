@@ -142,7 +142,8 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   }
   const uint64_t previousVectorGeneration = Vectors_->Generation();
   if (Declared_.empty()) {
-    const auto built = Vectors_->Build(*Pool_, at, budget.VectorRing, kVectorTiles);
+    const auto built = Vectors_->Build(
+        *Pool_, at, budget.VectorRing, kVectorTiles, {.TilesMost = kVectorParseTilesPerRestand});
     if (!built) { return std::unexpected(built.error()); }
     metrics.VectorBuild = Vectors_->LastBuildMetrics();
   } else {

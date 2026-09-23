@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <expected>
 #include <initializer_list>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <span>
@@ -60,8 +61,15 @@ public:
   [[nodiscard]] static std::expected<TileAt, std::string_view> Locate(LongitudeLatitude at,
                                                                       int zoom) noexcept;
 
+  struct ParseBudget {
+    size_t TilesMost = std::numeric_limits<size_t>::max();
+  };
+
   [[nodiscard]] std::expected<int, std::string_view>
   Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget);
+
+  [[nodiscard]] std::expected<int, std::string_view> Build(
+      TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget, ParseBudget parsing);
 
   struct BuildMetrics {
     double FetchMs = 0.0;
@@ -106,7 +114,7 @@ public:
   [[nodiscard]] long BadTiles() const { return Bad_; }
 
   [[nodiscard]] int PendingTiles() const {
-    return Pending_ + static_cast<int>(Assembly_ != nullptr);
+    return Pending_ + static_cast<int>(Assembly_ != nullptr) + static_cast<int>(WindowPending_);
   }
 
   [[nodiscard]] int RefusedTiles() const { return Refused_; }
@@ -171,6 +179,7 @@ private:
     bool Held = false;
     int Added = 0;
     bool Refused = false;
+    bool Parsed = false;
   };
 
   struct ParsedTile {
@@ -217,6 +226,7 @@ private:
   int Zoom_;
   int RequestedRing_ = -1;
   int Pending_ = -1;
+  bool WindowPending_ = false;
   int Refused_ = 0;
   long Missing_ = 0, Bad_ = 0;
 };

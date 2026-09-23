@@ -14,15 +14,15 @@ Tags: streaming, realtime, ownership
 Candidate ownership, phase scheduling, async field preparation, resumable cooks
 and atomic publication exist. Rosenheim remains 8e6642f9; with worker fields and
 smaller terrain batches its p99 is 5.04 ms, 0/3821 frames exceed 16.67 ms.
-The 2026-09-23 Wien shot remains `2fc0aec4`, p99 10.27 ms, 9/4477 frames over
-16.67 ms. Ground geometry peaks at 35.34 ms: class upload is 11.51 ms;
+The 2026-09-23 Wien shot remains `2fc0aec4`, p99 10.04 ms, 8/4528 frames over
+16.67 ms. Ground geometry peaks at 34.35 ms: class upload was 11.51 ms;
 `RuntimeScene::Build` spends 30.22 ms standing/submitting, including 12.98 ms
 packing and 15.01 ms uploading streams. Cluster cooking totals 28.27 ms
 across paced calls; subject residency reports 320 MB offered across 146 uploads.
-The worst tile restand is 32.52 ms in vector ingest: 28.03 ms tile parsing,
-2.76 ms capacity checking, 1.35 ms snapshot publication. The longest single
-layer parse is 0.74 ms; bound parsed tiles per frame and preserve the contact/
-full publication contract. These are whole-frame defects, not shot-horizon artifacts.
+Vector ingest had cost 32.52 ms, including 28.03 ms parsing; one layer peaked
+at 0.74 ms. Two parsed tiles per restand now bound that batch; the worst total
+restand is 10.58 ms with 0.61 ms vector work in that sample. The bounded and
+unbounded canonical snapshots match, including contact-only publication.
 
 Malcesine remains `07ca3a25`, p99 10.25 ms, zero late frames. Its earlier
 preload deadlock came from copying a `BuildingField` with an in-flight tile

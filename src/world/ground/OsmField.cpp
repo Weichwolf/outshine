@@ -146,7 +146,13 @@ std::expected<TileWindow, std::string_view> TileWindowFor(TileWindowRequest requ
 
 std::expected<int, std::string_view>
 OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget) {
+  return Build(tiles, at, ringTiles, tileBudget, ParseBudget{});
+}
+
+std::expected<int, std::string_view> OsmField::Build(
+    TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget, ParseBudget parsing) {
   BuildMetrics_ = {};
+  if (parsing.TilesMost == 0) { return std::unexpected(Says::kOsmTileBudgetExceeded); }
   const auto centre = Locate(at, Zoom_);
   if (!centre) { return std::unexpected(centre.error()); }
   const auto window =
@@ -167,13 +173,15 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
   });
   if (removedTiles != 0 || removedSettled != 0) { Assembly_.reset(); }
   Pending_ = 0;
+  WindowPending_ = false;
   Refused_ = 0;
   CentreX_ = centre->X;
   CentreY_ = centre->Y;
   RequestedRing_ = std::max(RequestedRing_, ringTiles);
   int added = 0;
+  size_t parsed = 0;
 
-  for (int64_t ty = window->MinY; ty <= window->MaxY; ++ty) {
+  for (int64_t ty = window->MinY; ty <= window->MaxY && !WindowPending_; ++ty) {
     for (int64_t tx = window->MinX; tx <= window->MaxX; ++tx) {
       const uint64_t key = TileKey(static_cast<int>(tx), static_cast<int>(ty));
       if (std::ranges::find(Settled_, key) != Settled_.end()) { continue; }
@@ -190,6 +198,10 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
       }
       added += got->Added;
       Settle(static_cast<int>(tx), static_cast<int>(ty));
+      if (got->Parsed && ++parsed >= parsing.TilesMost) {
+        WindowPending_ = true;
+        break;
+      }
     }
   }
 
@@ -206,7 +218,7 @@ std::expected<void, std::string_view> OsmField::PublishReady(TileAt centre) {
     if (!published) { return std::unexpected(published.error()); }
     Stage_ = SnapshotStage::Contact;
     PublishedSettledTiles_ = 1;
-  } else if (Stage_ != SnapshotStage::Empty && Pending_ == 0 && Refused_ == 0 &&
+  } else if (Stage_ != SnapshotStage::Empty && !WindowPending_ && Pending_ == 0 && Refused_ == 0 &&
              PublishedSettledTiles_ != Settled_.size()) {
     const auto published = AdvanceAssembly();
     if (!published) { return std::unexpected(published.error()); }
@@ -302,7 +314,7 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
                                               .Y = static_cast<uint32_t>(at.Y)},
                                      .SourceId = std::move(Scratch_.SourceId),
                                      .Revision = std::move(Scratch_.SourceRevision)}});
-  return Fetched{.Held = true, .Added = added};
+  return Fetched{.Held = true, .Added = added, .Parsed = true};
 }
 
 namespace {

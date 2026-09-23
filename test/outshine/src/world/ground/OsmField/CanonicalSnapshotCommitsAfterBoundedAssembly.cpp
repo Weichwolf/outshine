@@ -113,6 +113,37 @@ int main() {
                   left.FeatureCount == right.FeatureCount;
   }
   CHECK(sameIndices, "tile keys and feature offsets match the one-shot oracle");
+  Ground::OsmField bounded(4, layers);
+  const auto settledCount = [&bounded] {
+    size_t count = 0;
+    for (int y = 7; y <= 9; ++y) {
+      for (int x = 7; x <= 9; ++x) { count += bounded.Settled(x, y) ? 1u : 0u; }
+    }
+    return count;
+  };
+  bool sawContact = false;
+  for (int slice = 0; slice < 12 && !bounded.SettledWithin(1); ++slice) {
+    const size_t before = settledCount();
+    CHECK(bounded.Build(pool, {}, 1, 9, {.TilesMost = 2}).has_value(),
+          "bounded parsing accepts the resident source window");
+    const size_t after = settledCount();
+    CHECK(after >= before && after - before <= 2,
+          "each interrupted update parses at most two vector tiles");
+    if (bounded.Generation() == 1) {
+      sawContact = true;
+      CHECK(bounded.Tiles().size() == 1 && !bounded.SettledWithin(1),
+            "partial parsing retains only the contact publication");
+    }
+    CHECK(bounded.Generation() != 2 || after == 9,
+          "full geometry cannot publish before the last source tile is parsed");
+  }
+  CHECK(sawContact && bounded.SettledWithin(1) && bounded.Generation() == 2 &&
+            bounded.Tiles().size() == staged.Tiles().size() &&
+            bounded.Features().size() == staged.Features().size() &&
+            std::ranges::equal(bounded.Points(), staged.Points()),
+        "bounded and unbounded parsing publish the same canonical world");
+  CHECK(!bounded.Build(pool, {}, 1, 9, {.TilesMost = 0}).has_value() && bounded.Generation() == 2,
+        "an empty parse budget cannot mutate the published world");
   const std::vector<double> originalPoints(staged.Points().begin(), staged.Points().end());
   const size_t originalBytes = staged.HeapBytes();
   const auto *originalPublication = staged.Points().data();

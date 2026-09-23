@@ -33,6 +33,7 @@ namespace outshine::Ground {
 
 constexpr int kVectorRing = 3;
 constexpr int kVectorTiles = (2 * kVectorRing + 1) * (2 * kVectorRing + 1);
+constexpr size_t kVectorParseTilesPerRestand = 2;
 constexpr size_t kFrameIngestTiles = 1;
 
 struct RestandBudget {
