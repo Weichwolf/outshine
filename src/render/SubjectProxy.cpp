@@ -541,7 +541,7 @@ struct PlacementMeshInput {
   }
 };
 
-void RecordsMeshUpload(SceneRenderer &renderer, SubjectScratch &scratch) {
+void RecordsMeshUpload(const SceneRenderer &renderer, SubjectScratch &scratch) {
   const SubjectMeshUploadMetrics stages = renderer.LastSubjectMeshUpload();
   scratch.Metrics.MeshAdmissionMs = stages.AdmissionMs;
   scratch.Metrics.IndexUploadMs = stages.IndexMs;
@@ -557,7 +557,7 @@ BeginPlacementUpload(SceneRenderer &renderer, const SubjectProxy &proxy, Subject
   if (source == nullptr) {
     return std::unexpected("subject placement no longer matches its prepared geometry");
   }
-  PlacementMeshInput input(*source, proxy, scratch);
+  const PlacementMeshInput input(*source, proxy, scratch);
   static const Heap::Tag kHandingTag("subject-mesh");
   const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();
@@ -579,7 +579,7 @@ bool FinishPlacementUpload(SceneRenderer &renderer,
     error = "subject placement no longer matches its prepared geometry";
     return false;
   }
-  PlacementMeshInput input(*source, proxy, scratch);
+  const PlacementMeshInput input(*source, proxy, scratch);
   static const Heap::Tag kHandingTag("subject-mesh");
   const Heap::Tagged handing(kHandingTag);
   const auto handedFrom = std::chrono::steady_clock::now();

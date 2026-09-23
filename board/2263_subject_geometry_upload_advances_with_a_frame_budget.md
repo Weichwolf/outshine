@@ -54,11 +54,18 @@ begin/finish calls, including empty subjects.
 The paused state retains the prior complete draw; stale tickets fail. The
 focused GPU case checks those contracts, but its linear image is black and is
 not an independent visual oracle. Place and glTF images must prove visibility
-after pacing. `RuntimeScene` still calls the one-shot path, so the full-frame
-defect remains until its job is paced.
-The split path retained Wien `2fc0aec4` and Malcesine `07ca3a25` in
-client captures. Wien still shows 9/4517 frames over 16.67 ms and a
-105.71 ms worst draw interval; these are full-frame figures, not upload slices.
+after pacing. `RuntimeScene` now advances plan, binding, CPU packing, index
+upload, stream/table upload and finalization in separate candidate frames;
+its one-shot path loops over the same stages. The native test compares direct
+and interrupted digests and pixels; the place pacing test passes normally and
+with NDEBUG. Individual upload ranges are still unbounded.
+The pre-pacing split retained Wien `2fc0aec4` and Malcesine `07ca3a25`.
+Before pacing, Wien showed 9/4517 frames over 16.67 ms and a 105.71 ms
+worst draw interval. With staged `RuntimeScene`, its digest remains
+`2fc0aec4`; 8/4493 frames exceed 16.67 ms, the worst draw interval is
+55.60 ms, and the longest geometry slice is 21.54 ms. Malcesine remains
+`07ca3a25` with a 2.43 ms longest geometry slice. These figures do not
+prove bounded work; split draw planning from stream packing next.
 
 ## Implementation order
 
@@ -74,12 +81,10 @@ client captures. Wien still shows 9/4517 frames over 16.67 ms and a
 2. In `src/render/stages/SubjectDraw.*` and `SubjectResidency.*`, accept bounded
    index/vertex stream ranges into candidate-owned buffers; track completion
    and submission lifetime. Reject invalid offset/size and an incomplete mesh.
-3. In `src/engine/RuntimeScene.*` and `SceneRenderer.h`, advance the private
-   subject job after `ShapeCookJob`: prepare plan/packing, begin index upload,
-   finish streams/tables, then mark geometry ready. Split `Build` into a shared
-   prefix/finalization so glTF and generated geometry use the same operations;
-   never rerun a completed phase. Preserve the old complete scene until final
-   success. Keep `GroundWorldCandidate` publication atomic.
+3. In `src/engine/RuntimeScene.*`, retain the phase sequence after
+   `ShapeCookJob`; verify the prior complete scene stays resident until final
+   success and `GroundWorldCandidate` publication remains atomic. Bound work
+   inside the phases rather than introducing a second build route.
 4. Bound the most expensive unit by measured bytes/work, then measure full
    frame p50/p95/p99, warm/cold transition and CPU/GPU peaks on Wien. If an SDL
    allocation or submit still blocks, isolate and bound that operation rather

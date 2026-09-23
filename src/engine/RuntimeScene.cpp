@@ -332,7 +332,7 @@ bool RuntimeScene::FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::st
 }
 
 bool RuntimeScene::Reshape(std::string &error) {
-  if (GeometryBuildActive()) {
+  if (ShapeCooking_) {
     error = Says::GeometryBuildAlreadyActive;
     return false;
   }
@@ -589,81 +589,161 @@ bool RuntimeScene::StandsPlan(std::string &error) {
 }
 
 bool RuntimeScene::Build(std::string &error) {
+  BuildStage_ = GeometryBuildStage::Plan;
+  for (;;) {
+    auto advanced = AdvanceBuild();
+    if (!advanced) {
+      error = std::move(advanced.error());
+      BuildStage_ = GeometryBuildStage::Idle;
+      return false;
+    }
+    if (*advanced) { return true; }
+  }
+}
+
+std::expected<void, std::string> RuntimeScene::PlanBuild() {
+  std::string error;
   if (PendingDrivenParts_) {
     if (!Held_.HasGeometry()) {
       ClearsSubject();
     } else if (!CarriesBuilt(error)) {
-      return false;
+      return std::unexpected(std::move(error));
     }
   } else {
     if (!Held_.HasGeometry() && Declared_.Stands.empty()) { ClearsSubject(); }
-    if (Held_.HasGeometry() && Declared_.Stands.empty() && !CarriesBuilt(error)) { return false; }
-    if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
+    if (Held_.HasGeometry() && Declared_.Stands.empty() && !CarriesBuilt(error)) {
+      return std::unexpected(std::move(error));
+    }
+    if (!Declared_.Stands.empty() && !StandsSubjects(error)) {
+      return std::unexpected(std::move(error));
+    }
   }
 
-  if (!Reshape(error)) { return false; }
+  if (!Reshape(error)) { return std::unexpected(std::move(error)); }
   DrivenParts_ = Shaped_.Parts.size();
   if (PendingDrivenParts_) { DrivenParts_ = *PendingDrivenParts_; }
   StandsShadowRadius();
 
   const auto planFrom = std::chrono::steady_clock::now();
-  if (!StandsPlan(error)) { return false; }
+  if (!StandsPlan(error)) { return std::unexpected(std::move(error)); }
   PlanMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - planFrom)
                 .count();
   WearsPieces();
   if (DeclaresKeyLight()) { StandsKeyLight(); }
-
-  if (auto bound = BindSubject(); !bound) {
-    error = std::move(bound.error());
-    return false;
-  }
-  if (!Renderer_->RestorePieceMaterials(error)) { return false; }
-  const auto composedFrom = std::chrono::steady_clock::now();
-  const bool composed = Ui_.Compose(error);
-  ComposeMs_ =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - composedFrom)
-          .count();
-  return composed;
+  SubmitMs_ = 0.0;
+  InsideMs_ = 0.0;
+  return {};
 }
 
-std::expected<void, std::string> RuntimeScene::BindSubject() {
+std::expected<void, std::string> RuntimeScene::BindBuild() {
   std::string error;
-  if (Shaped_.TriangleCount() > 0) {
-    Renderer_->SetPictureRegion({.X = Declared_.PictureLeftFrac,
-                                 .Y = Declared_.PictureTopFrac,
-                                 .Width = Declared_.PictureWidthFrac,
-                                 .Height = Declared_.PictureHeightFrac});
-    auto insideFrom = std::chrono::steady_clock::now();
-    const auto sinceInside = [&insideFrom] {
-      const double ms =
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - insideFrom)
-              .count();
-      insideFrom = std::chrono::steady_clock::now();
-      return ms;
-    };
-    const auto wholeFrom = std::chrono::steady_clock::now();
-
-    Renderer_->CastsBelow(static_cast<uint32_t>(Shaped_.Parts.size()));
-    if (!Stand(error)) { return std::unexpected(std::move(error)); }
-    StandMs_ = sinceInside();
-    if (!Render::Surface(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error)) {
-      return std::unexpected(std::move(error));
-    }
-    SurfaceMs_ = sinceInside();
-    if (!Submit(error)) { return std::unexpected(std::move(error)); }
-    if (Camera_.IsUnbound()) { Camera_.MarkBound(); }
-    SubmitMs_ = sinceInside();
-    InsideMs_ =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - wholeFrom)
-            .count();
-  } else {
+  if (Shaped_.TriangleCount() == 0) {
     if (!Camera_.NeedsBinding()) { Camera_.Unbind(); }
     if (!Renderer_->SetSubjectMaterials(Materials_.Slots(), error)) {
       return std::unexpected(std::move(error));
     }
     Renderer_->SetPictureRegion({});
+    return {};
   }
+  Renderer_->SetPictureRegion({.X = Declared_.PictureLeftFrac,
+                               .Y = Declared_.PictureTopFrac,
+                               .Width = Declared_.PictureWidthFrac,
+                               .Height = Declared_.PictureHeightFrac});
+  Renderer_->CastsBelow(static_cast<uint32_t>(Shaped_.Parts.size()));
+  const auto standFrom = std::chrono::steady_clock::now();
+  if (!Stand(error)) { return std::unexpected(std::move(error)); }
+  StandMs_ = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - standFrom)
+                 .count();
+  const auto surfaceFrom = std::chrono::steady_clock::now();
+  if (!Render::Surface(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error)) {
+    return std::unexpected(std::move(error));
+  }
+  SurfaceMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - surfaceFrom)
+          .count();
   return {};
+}
+
+std::expected<void, std::string> RuntimeScene::PrepareBuild() {
+  std::string error;
+  const auto phaseAt = std::chrono::steady_clock::now();
+  const bool prepared =
+      Render::PreparePlacement(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error);
+  SubmitMs_ +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
+  if (!prepared) { return std::unexpected(std::move(error)); }
+  return {};
+}
+
+std::expected<void, std::string> RuntimeScene::IndexBuild() {
+  const auto phaseAt = std::chrono::steady_clock::now();
+  auto began = Render::BeginPlacementUpload(*Renderer_, Stood_, Scratch_);
+  SubmitMs_ +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
+  if (!began) { return std::unexpected(std::move(began.error())); }
+  BuildTicket_ = *began;
+  return {};
+}
+
+std::expected<void, std::string> RuntimeScene::FinishBuild() {
+  std::string error;
+  const auto phaseAt = std::chrono::steady_clock::now();
+  const bool placed =
+      Render::FinishPlacementUpload(*Renderer_, Stood_, Scratch_, BuildTicket_, error);
+  SubmitMs_ +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
+  if (!placed) { return std::unexpected(std::move(error)); }
+  BuildTicket_ = {};
+  Stoodup_ = true;
+  if (Camera_.IsUnbound()) { Camera_.MarkBound(); }
+  InsideMs_ = StandMs_ + SurfaceMs_ + SubmitMs_;
+  return {};
+}
+
+std::expected<void, std::string> RuntimeScene::FinalizeBuild() {
+  std::string error;
+  if (!Renderer_->RestorePieceMaterials(error)) { return std::unexpected(std::move(error)); }
+  const auto composedFrom = std::chrono::steady_clock::now();
+  const bool composed = Ui_.Compose(error);
+  ComposeMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - composedFrom)
+          .count();
+  if (!composed) { return std::unexpected(std::move(error)); }
+  return {};
+}
+
+std::expected<bool, std::string> RuntimeScene::AdvanceBuild() {
+  std::expected<void, std::string> advanced;
+  switch (BuildStage_) {
+    case GeometryBuildStage::Plan:
+      advanced = PlanBuild();
+      BuildStage_ = GeometryBuildStage::Bind;
+      break;
+    case GeometryBuildStage::Bind:
+      advanced = BindBuild();
+      BuildStage_ =
+          Shaped_.TriangleCount() == 0 ? GeometryBuildStage::Finalize : GeometryBuildStage::Prepare;
+      break;
+    case GeometryBuildStage::Prepare:
+      advanced = PrepareBuild();
+      BuildStage_ = GeometryBuildStage::Index;
+      break;
+    case GeometryBuildStage::Index:
+      advanced = IndexBuild();
+      BuildStage_ = GeometryBuildStage::Finish;
+      break;
+    case GeometryBuildStage::Finish:
+      advanced = FinishBuild();
+      BuildStage_ = GeometryBuildStage::Finalize;
+      break;
+    case GeometryBuildStage::Finalize:
+      advanced = FinalizeBuild();
+      BuildStage_ = GeometryBuildStage::Idle;
+      break;
+    case GeometryBuildStage::Idle: return std::unexpected(Says::NoGeometryBuild);
+  }
+  if (!advanced) { return std::unexpected(std::move(advanced.error())); }
+  return BuildStage_ == GeometryBuildStage::Idle;
 }
 
 bool RuntimeScene::Pose(double seconds, std::string &error) {
@@ -1085,33 +1165,42 @@ std::expected<void, std::string> RuntimeScene::BeginGeneratedGeometryBuild(
 }
 
 std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t itemsMost) {
-  if (!ShapeCooking_) { return std::unexpected(Says::NoGeometryBuild); }
+  if (!GeometryBuildActive()) { return std::unexpected(Says::NoGeometryBuild); }
   const auto phaseAt = std::chrono::steady_clock::now();
-  auto advanced = ShapeCooking_->Advance(itemsMost);
+  if (ShapeCooking_) {
+    auto cooked = ShapeCooking_->Advance(itemsMost);
+    BuildMs_ +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
+            .count();
+    if (!cooked) {
+      const std::string error(Describe(cooked.error()));
+      RestoreGeometryBuildState();
+      return std::unexpected(error);
+    }
+    if (!*cooked) { return false; }
+    Shaped_ = Render::ViewShape(ShapeParts_);
+    ShapedAt_ = Held_.Revision();
+    EverShaped_ = true;
+    ShapeCooking_.reset();
+    BuildStage_ = GeometryBuildStage::Plan;
+    return false;
+  }
+  auto advanced = AdvanceBuild();
   BuildMs_ +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   if (!advanced) {
-    const std::string error(Describe(advanced.error()));
+    std::string error = std::move(advanced.error());
     RestoreGeometryBuildState();
-    return std::unexpected(error);
+    return std::unexpected(std::move(error));
   }
-  if (!*advanced) { return false; }
-  Shaped_ = Render::ViewShape(ShapeParts_);
-  ShapedAt_ = Held_.Revision();
-  EverShaped_ = true;
-  ShapeCooking_.reset();
-  std::string error;
-  const auto buildAt = std::chrono::steady_clock::now();
-  const bool stood = Build(error);
-  BuildMs_ +=
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - buildAt).count();
-  RestoreGeometryBuildState();
-  if (!stood) { return std::unexpected(std::move(error)); }
-  return true;
+  if (*advanced) { RestoreGeometryBuildState(); }
+  return *advanced;
 }
 
 void RuntimeScene::RestoreGeometryBuildState() noexcept {
   ShapeCooking_.reset();
+  BuildStage_ = GeometryBuildStage::Idle;
+  BuildTicket_ = {};
   PendingDrivenParts_.reset();
   Declared_.Surfacing = std::move(GeometryBuildSurfaces_);
 }

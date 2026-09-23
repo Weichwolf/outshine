@@ -206,7 +206,9 @@ public:
   [[nodiscard]] std::expected<bool, std::string> AdvanceGroundResourceRestore(size_t &nextPage,
                                                                               size_t pagesMost);
 
-  [[nodiscard]] bool GeometryBuildActive() const noexcept { return ShapeCooking_.has_value(); }
+  [[nodiscard]] bool GeometryBuildActive() const noexcept {
+    return ShapeCooking_.has_value() || BuildStage_ != GeometryBuildStage::Idle;
+  }
 
   [[nodiscard]] bool Reshape(std::string &error);
 
@@ -379,7 +381,13 @@ private:
   [[nodiscard]] bool JoinsSubjects(std::string &error);
   [[nodiscard]] bool StandsSubjects(std::string &error);
   [[nodiscard]] bool Build(std::string &error);
-  [[nodiscard]] std::expected<void, std::string> BindSubject();
+  [[nodiscard]] std::expected<bool, std::string> AdvanceBuild();
+  [[nodiscard]] std::expected<void, std::string> PlanBuild();
+  [[nodiscard]] std::expected<void, std::string> BindBuild();
+  [[nodiscard]] std::expected<void, std::string> PrepareBuild();
+  [[nodiscard]] std::expected<void, std::string> IndexBuild();
+  [[nodiscard]] std::expected<void, std::string> FinishBuild();
+  [[nodiscard]] std::expected<void, std::string> FinalizeBuild();
   [[nodiscard]] double Framing() const;
   [[nodiscard]] bool
   FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &error) const;
@@ -429,6 +437,9 @@ private:
 
   Render::ShapeStore ShapeParts_;
   Render::Shape Shaped_;
+  enum class GeometryBuildStage : uint8_t { Idle, Plan, Bind, Prepare, Index, Finish, Finalize };
+  GeometryBuildStage BuildStage_ = GeometryBuildStage::Idle;
+  Render::SubjectDraw::MeshTicket BuildTicket_;
   std::optional<Render::ShapeCookJob> ShapeCooking_;
   std::vector<Material> GeometryBuildSurfaces_;
   std::vector<float> RenderedPositionsM_;
