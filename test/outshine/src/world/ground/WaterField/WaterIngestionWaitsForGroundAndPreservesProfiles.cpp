@@ -10,8 +10,10 @@ namespace {
 class Heights final : public GroundQuery {
 public:
   bool Pending = true;
+  mutable bool DelayThird = false;
   mutable size_t Queries = 0;
   mutable size_t IgnoredQueries = 0;
+  mutable std::array<size_t, 4> Hits{};
 
   GroundSample At(LongitudeLatitude at) const override {
     ++Queries;
@@ -22,7 +24,13 @@ public:
     if (Pending) { return GroundSample::Waiting(); }
     constexpr std::array values{10.0, 12.0, 5.0, 3.0};
     if (at.LatitudeDeg < 0 || at.LatitudeDeg >= 4) { return GroundSample::Missing(); }
-    return GroundSample::At(values[static_cast<size_t>(at.LatitudeDeg)]);
+    const size_t index = static_cast<size_t>(at.LatitudeDeg);
+    ++Hits[index];
+    if (index == 2 && DelayThird) {
+      DelayThird = false;
+      return GroundSample::Waiting();
+    }
+    return GroundSample::At(values[index]);
   }
 
   GroundSample Resident(LongitudeLatitude at) const override { return At(at); }
@@ -100,5 +108,60 @@ int main() {
   CHECK(water.Ingest(ground, field, materials) == 1 && ground.Queries == queries &&
             water.IngestedTiles() == 1,
         "completed tile is not queried or appended twice");
+  Heights delayed;
+  delayed.Pending = false;
+  delayed.DelayThird = true;
+  WaterField resumed;
+  CHECK(resumed.Ingest(delayed, field, materials) == 0 && !resumed.Ingested(field) &&
+            resumed.Courses().empty() && resumed.Surfaces().empty() && delayed.Hits[0] == 1 &&
+            delayed.Hits[1] == 1 && delayed.Hits[2] == 1,
+        "mid-ring pending retains only staged heights and publishes nothing");
+  CHECK(resumed.Ingest(delayed, field, materials) == 1 && resumed.Ingested(field) &&
+            delayed.Hits[0] == ground.Hits[0] && delayed.Hits[1] == ground.Hits[1] &&
+            delayed.Hits[2] == ground.Hits[2] + 1,
+        "resume repeats only pending point and later occurrences");
+  CHECK(resumed.Courses().size() == water.Courses().size() && resumed.Levels() == water.Levels() &&
+            resumed.Surfaces().size() == water.Surfaces().size() &&
+            resumed.Surfaces()[0].LevelM == water.Surfaces()[0].LevelM,
+        "paced water admission preserves complete profile and level");
+  Heights revised;
+  revised.Pending = false;
+  revised.DelayThird = true;
+  WaterField revisionWater;
+  CHECK(revisionWater.Ingest(revised, field, materials) == 0 && revised.Hits[0] == 1,
+        "old source revision holds incomplete water candidate");
+  const uint64_t oldGeneration = field.Generation();
+  features[6].Value = "house";
+  field.Declare(features, TileAt{.X = 32, .Y = 32});
+  CHECK(field.Generation() == oldGeneration + 1, "declared OSM revision advances generation");
+  const auto revisionSurfaces = revisionWater.Ingest(revised, field, materials);
+  CHECK(revisionSurfaces == 1, "new source revision publishes complete water tile");
+  CHECK_NEAR(revised.Hits[0],
+             ground.Hits[0] + 1,
+             0,
+             "queries",
+             "new source revision discards staged height queries");
+  CHECK(revisionWater.Levels() == water.Levels(), "new source revision preserves complete profile");
+  OsmField longField(6, layers);
+  std::vector<double> longLine;
+  for (int point = 0; point < 130; ++point) {
+    longLine.push_back(0.0);
+    longLine.push_back(static_cast<double>(point));
+  }
+  const std::array longFeatures{OsmField::Declared{
+      .Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = longLine}};
+  longField.Declare(longFeatures, TileAt{.X = 32, .Y = 32});
+  Heights longGround;
+  longGround.Pending = false;
+  WaterField longWater;
+  (void)longWater.Ingest(longGround, longField, materials);
+  CHECK(!longWater.Ingested(longField) && longGround.Queries <= 128 && longWater.Courses().empty(),
+        "large ring stops at admission step cap without partial publication");
+  for (int advance = 0; advance < 10 && !longWater.Ingested(longField); ++advance) {
+    (void)longWater.Ingest(longGround, longField, materials);
+  }
+  CHECK(longWater.Ingested(longField) && longGround.Queries == 130 &&
+            longWater.Courses().size() == 1 && longWater.Levels().size() == 130,
+        "large ring resumes without repeating resolved points");
   return Report();
 }

@@ -116,11 +116,51 @@ void Engine::State::Tells() {
     Published.Places("the step's own time, most", Cost.Advance.MostMs(), "ms");
     Published.Places("steps taken", static_cast<double>(Cost.Advance.Taken()), "steps");
     Published.Places("world update time, most", Cost.Update.MostMs(), "ms");
+    const Spent::UpdateComponents &worst = Cost.WorstSuccessfulUpdate;
+    if (worst.TotalMs > 0.0) {
+      Published.Places("worst successful update: total", worst.TotalMs, "ms");
+      Published.Places("worst successful update: streaming and bakes", worst.StreamingMs, "ms");
+      Published.Places("worst successful update: piece handoff", worst.PieceHandoffMs, "ms");
+      Published.Places("worst successful update: tile restand", worst.RestandMs, "ms");
+      Published.Places("worst successful update: structure bakes", worst.BakesMs, "ms");
+      Published.Places("worst successful update: world growth", worst.GrowthMs, "ms");
+      Published.Places("worst successful update: streaming other",
+                       worst.StreamingMs - worst.PieceHandoffMs - worst.RestandMs - worst.BakesMs -
+                           worst.GrowthMs,
+                       "ms");
+      Published.Places("worst successful update: simulation", worst.SimulationMs, "ms");
+      Published.Places("worst successful update: ground", worst.GroundMs, "ms");
+      Published.Places("worst successful update: vegetation", worst.CrownsMs, "ms");
+      Published.Places("worst successful update: other",
+                       worst.TotalMs - worst.StreamingMs - worst.SimulationMs - worst.GroundMs -
+                           worst.CrownsMs,
+                       "ms");
+    }
     Published.Places("measurement publication time, most", Cost.Telling.MostMs(), "ms");
     Published.Places("scene advance time, most", Cost.SceneAdvance.MostMs(), "ms");
     Published.Places("streaming and bake time, most", Cost.Streaming.MostMs(), "ms");
     Published.Places("piece handoff time, most", Cost.PieceHandoff.MostMs(), "ms");
     Published.Places("tile restand time, most", Cost.Restand.MostMs(), "ms");
+    const Ground::RestandMetrics &restand = World.Stack.WorstRestand();
+    Published.Places("worst tile restand: total", restand.TotalMs, "ms");
+    Published.Places("worst tile restand: classification", restand.ClassificationMs, "ms");
+    Published.Places("worst tile restand: vectors", restand.VectorsMs, "ms");
+    Published.Places("worst tile restand: streets", restand.StreetsMs, "ms");
+    Published.Places("worst tile restand: water", restand.WaterMs, "ms");
+    const Ground::WaterField::IngestMetrics &water = World.Stack.WaterBodies().WorstIngest();
+    Published.Places("worst water ingest: total", water.TotalMs, "ms");
+    Published.Places("worst water ingest: tile admission", water.AdmissionMs, "ms");
+    Published.Places("worst water ingest: height validation", water.ValidationMs, "ms");
+    Published.Places("worst water ingest: longest height query", water.LongestQueryMs, "ms");
+    Published.Places("worst water ingest: validated points",
+                     static_cast<double>(water.ValidationPoints),
+                     "points");
+    Published.Places("worst water ingest: materialization", water.MaterializationMs, "ms");
+    Published.Places("worst tile restand: settlement", restand.SettlementMs, "ms");
+    Published.Places("worst tile restand: other",
+                     restand.TotalMs - restand.ClassificationMs - restand.VectorsMs -
+                         restand.StreetsMs - restand.WaterMs - restand.SettlementMs,
+                     "ms");
     Published.Places("structure bake time, most", Cost.Bakes.MostMs(), "ms");
     Published.Places("structure worker collection time, most", Cost.BakeResume.MostMs(), "ms");
     Published.Places("structure landing selection time, most", Cost.BakeLanding.MostMs(), "ms");

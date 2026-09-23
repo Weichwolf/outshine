@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <chrono>
 #include <memory>
 #include <ratio>
 #include <span>
@@ -81,6 +82,7 @@ void GroundStack::Close() {
   Sources_.reset();
   Store_.reset();
   Opened_ = false;
+  WorstRestand_ = {};
 }
 
 int GroundStack::FinestZoomOf(Data::DataKind kind) const {
@@ -105,14 +107,28 @@ std::expected<TileAt, std::string_view> GroundStack::ValidatePosition(LongitudeL
 
 std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
                                                            RestandBudget budget) {
+  const auto restandAt = std::chrono::steady_clock::now();
+  RestandMetrics metrics;
+  const auto elapsedMs = [](std::chrono::steady_clock::time_point began) {
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+        .count();
+  };
+  const auto complete = [&]() -> std::expected<void, std::string_view> {
+    metrics.TotalMs = elapsedMs(restandAt);
+    RecordsRestand(metrics);
+    return {};
+  };
   const auto vectorTile = ValidatePosition(at);
   if (!vectorTile) { return std::unexpected(vectorTile.error()); }
-  if (!Pool_) { return {}; }
+  if (!Pool_) { return complete(); }
+  const auto classificationAt = std::chrono::steady_clock::now();
   const auto classified = Cls_.Update(*Pool_, at);
+  metrics.ClassificationMs = elapsedMs(classificationAt);
   if (!classified) { return std::unexpected(classified.error()); }
   Stood_ = at;
   Settled_ = false;
-  if (!Vegetated_) { return {}; }
+  if (!Vegetated_) { return complete(); }
+  const auto vectorAt = std::chrono::steady_clock::now();
   if (!Vectors_) {
     const std::array<std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
                                                 OsmLayerName(OsmLayer::WaterPolygons),
@@ -120,7 +136,7 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
                                                 OsmLayerName(OsmLayer::Streets),
                                                 OsmLayerName(OsmLayer::StreetPolygons)}};
     const int zoom = FinestZoomOf(Data::DataKind::VectorMap);
-    if (zoom <= 0) { return {}; }
+    if (zoom <= 0) { return complete(); }
     Vectors_ = std::make_unique<OsmField>(zoom, std::span<const std::string>(layers));
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
@@ -136,10 +152,13 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
     Ways_ = StreetField{};
     WaterBodies_ = WaterField{};
   }
-  if (!Vectors_->SettledWithin(0)) { return {}; }
+  metrics.VectorsMs = elapsedMs(vectorAt);
+  if (!Vectors_->SettledWithin(0)) { return complete(); }
   for (size_t pass = 0; pass < budget.IngestTilesMost; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
+      const auto settleAt = std::chrono::steady_clock::now();
       Settle();
+      metrics.SettlementMs += elapsedMs(settleAt);
       Settled_ = true;
       if (HeapBytes() > kHoldsBytes) {
         ++Overflowed_;
@@ -149,17 +168,27 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
     }
     const size_t before =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
+    const auto streetsAt = std::chrono::steady_clock::now();
     (void)Ways_.Ingest(*Vectors_, Templates_);
+    metrics.StreetsMs += elapsedMs(streetsAt);
+    const auto waterAt = std::chrono::steady_clock::now();
     (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
+    metrics.WaterMs += elapsedMs(waterAt);
     const size_t after =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     if (after == before || Drained()) { break; }
   }
   if (Drained() && !Settled_) {
+    const auto settleAt = std::chrono::steady_clock::now();
     Settle();
+    metrics.SettlementMs += elapsedMs(settleAt);
     Settled_ = true;
   }
-  return {};
+  return complete();
+}
+
+void GroundStack::RecordsRestand(RestandMetrics metrics) noexcept {
+  if (metrics.TotalMs > WorstRestand_.TotalMs) { WorstRestand_ = metrics; }
 }
 
 bool GroundStack::AwaitProgress(double seconds) {

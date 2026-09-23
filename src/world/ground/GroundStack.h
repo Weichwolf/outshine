@@ -40,6 +40,15 @@ struct RestandBudget {
   int VectorRing = 0;
 };
 
+struct RestandMetrics {
+  double TotalMs = 0.0;
+  double ClassificationMs = 0.0;
+  double VectorsMs = 0.0;
+  double StreetsMs = 0.0;
+  double WaterMs = 0.0;
+  double SettlementMs = 0.0;
+};
+
 class GroundStack {
 public:
   GroundStack() = default;
@@ -108,6 +117,8 @@ public:
   [[nodiscard]] std::expected<void, std::string_view> Restand(LongitudeLatitude at,
                                                               RestandBudget budget);
 
+  [[nodiscard]] const RestandMetrics &WorstRestand() const noexcept { return WorstRestand_; }
+
   [[nodiscard]] bool AwaitProgress(double seconds);
 
   [[nodiscard]] bool StandsAt(LongitudeLatitude at) const { return Stood_ == at && Ingested(); }
@@ -120,6 +131,7 @@ public:
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:
+  void RecordsRestand(RestandMetrics metrics) noexcept;
   [[nodiscard]] std::expected<TileAt, std::string_view>
   ValidatePosition(LongitudeLatitude at) const;
 
@@ -142,6 +154,7 @@ private:
   std::optional<LongitudeLatitude> Stood_;
   bool Vegetated_ = false;
   bool Opened_ = false;
+  RestandMetrics WorstRestand_;
 };
 
 }

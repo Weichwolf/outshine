@@ -477,10 +477,12 @@ Result Engine::advance() {
   S_->Published.Opens();
   const auto updateAt = std::chrono::steady_clock::now();
   const bool updated = S_->Updates();
-  S_->Cost.Update.Took(
+  const double updateMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - updateAt)
-          .count());
+          .count();
+  S_->Cost.Update.Took(updateMs);
   if (!updated) { return std::unexpected(S_->Error); }
+  S_->Cost.ObservesSuccessfulUpdate(updateMs, S_->Session.Declared.Ground.Declared);
   const auto tellingAt = std::chrono::steady_clock::now();
   S_->Tells();
   S_->Cost.Telling.Took(

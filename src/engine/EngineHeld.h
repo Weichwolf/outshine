@@ -266,6 +266,18 @@ struct Surrounds {
 struct Spent {
   static constexpr size_t kGroundPhaseCount = 17;
 
+  struct UpdateComponents {
+    double TotalMs = 0.0;
+    double StreamingMs = 0.0;
+    double PieceHandoffMs = 0.0;
+    double RestandMs = 0.0;
+    double BakesMs = 0.0;
+    double GrowthMs = 0.0;
+    double SimulationMs = 0.0;
+    double GroundMs = 0.0;
+    double CrownsMs = 0.0;
+  };
+
   class Counter {
   public:
     [[nodiscard]] double LastMs() const { return LastMs_; }
@@ -341,9 +353,23 @@ struct Spent {
   Counter GroundRetirement;
   std::array<Counter, kGroundPhaseCount> GroundPhases;
   Counter Crowns;
+  UpdateComponents WorstSuccessfulUpdate;
   double StreamedMs = 0.0;
   size_t StreamedTiles = 0;
   Counter Render;
+
+  void ObservesSuccessfulUpdate(double milliseconds, bool streamsGround) noexcept {
+    if (milliseconds <= WorstSuccessfulUpdate.TotalMs) { return; }
+    WorstSuccessfulUpdate = {.TotalMs = milliseconds,
+                             .StreamingMs = streamsGround ? Streaming.LastMs() : 0.0,
+                             .PieceHandoffMs = streamsGround ? PieceHandoff.LastMs() : 0.0,
+                             .RestandMs = streamsGround ? Restand.LastMs() : 0.0,
+                             .BakesMs = streamsGround ? Bakes.LastMs() : 0.0,
+                             .GrowthMs = streamsGround ? Growth.LastMs() : 0.0,
+                             .SimulationMs = Simulation.LastMs(),
+                             .GroundMs = Ground.LastMs(),
+                             .CrownsMs = Crowns.LastMs()};
+  }
 };
 
 struct Ticks {

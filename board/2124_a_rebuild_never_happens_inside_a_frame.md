@@ -67,8 +67,6 @@ Oracle liefert jetzt über TilePool::Bytes Pending und löst später erneut auf.
 Verzögerte Quelle prüft Worker-Zuständigkeit, Pending und spätere korrekte Höhe;
 Altpfad scheitert. Fetching bricht aktive Requests über libcurl-XFERINFO ab,
 auch beim Shutdown. Lokaler HTTP-Test mit einem Worker prüft Freigabe vor Timeout.
-Drei Tests grün, beide Negativkontrollen rot. Lint: unverändert 96 Tidy-Befunde
-und offene Writer-Inventur; keine neuen Diagnosen.
 Offen: Carrier-Serialisierung, Queue-Budgets, Mainthread-Decodierung/Aufbau und
 OSM-Gesamtdurchsatz bei kaltem Cache. Der Fix ist keine Streaming-Gesamtabnahme.
 
@@ -88,16 +86,18 @@ publizieren und `TileWatermark::Take` ausführen. OSM-Generation verwirft den
 Aufnahmezustand, alte Revisionen dürfen nichts veröffentlichen. Kein grober
 `Resident`-Fallback für definitive Wasserhöhen. Negativkontrolle: Pending nach
 mehreren erfolgreichen Punkten darf keine Teilprodukte und keine doppelten
-Punktabfragen erzeugen. Gleicher Input muss dieselben Profile und das gleiche
-Place-Bild liefern; längste Wasseraufnahme und ganze Framezeit erneut messen.
+Punktabfragen erzeugen. Implementiert: 128 Schritte/2 ms pro Aufnahme, höchstens
+vier staged Kandidaten, Revisionswechsel verwirft sie. Der gezielte Test prüft
+Pending mitten im Ring, Revisionswechsel, große Ringe und Profilgleichheit.
+Rosenheim bleibt 8e6642f9; 0/4203 statt 8/3344 Frames über 16.67 ms.
+Längster Wasseraufruf 9.37 ms, davon eine Höhenabfrage 9.00 ms. Offen bleibt
+`GroundStream::TileAt`: das synchrone Kacheln kann weiter einzelne Frames sprengen.
 
 ## Worker-Phasen
 
 NextJob besitzt priorisierte Queue-Entnahme und Shutdown-Warten, RunJob die Mesh-/
 Field-Ausführung, PublishResult die gesperrte Ergebnisübergabe. Work koordiniert
 Abhängigkeiten und Zeitmessung. Priorität, Locks und Fehlerzustände bleiben erhalten.
-Drei TilePool-/Terrain-Tests grün; Wien ohne Vegetation pixelgleich (0/921600).
-Lint: 94 Tidy-Befunde, keiner mehr in TilePool; Writer-Inventur weiter offen.
 Diese Strukturkorrektur nimmt keine neue Streaming-Fähigkeit ab.
 
 ## P0: begrenzte Patchwork-Abdeckung
