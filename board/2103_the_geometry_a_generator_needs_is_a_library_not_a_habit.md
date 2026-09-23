@@ -5,81 +5,57 @@ Tags: architecture, owner
 Supersedes: 2116
 Parent: 2188
 
-# The geometry a generator needs is a LIBRARY, and each primitive stands once
+# Shared geometry primitives need shared semantics, not just similar code
 
-**Benchmark** -- Unreal: `FGeomTools2D`, `FPoly`, `FDynamicMesh3` and `GeometryProcessing` are
-one library every tool and plugin uses; a landscape spline and a procedural-mesh actor call the
-same triangulation. RAGE: the geometry primitives sit beside the maths in `rage` and every module
-takes them from there. **Neither lets a subsystem carry its own polygon code**, because two copies
-drift and only one gets the bug fixed.
+## Current finding, 2026-09-23
 
-## Where it stands, measured 2026-09-04
+The 2026-09-04 copy-count table was obsolete. `GroundYield.cpp` no longer exists;
+its claimed `LayCutFace`, `Refine` and `EdgeKey` functions are absent from
+`EarthworkPress.cpp`. The cited Wayfinding line now indexes graph cells, and
+`WaterField::Tessellate` was removed. Those claims cannot justify a shared library.
 
-| primitive | copies | where |
-|---|---|---|
-| segment intersection | 2 | `base/spatial/Wayfinding.cpp:584`, `generators/terrain/GroundYield.cpp:453` (different epsilons) |
-| ring area | 4 | `world/ground/BuildingField.cpp:101`, `generators/building/BuildingShape.cpp:177`, `world/ground/WaterField.cpp:213`, `import/Tangents.cpp:252` |
-| point in ring | 3 | `BuildingField.cpp:218`, `generators/building/RoofSurface.cpp:84`, `generators/base/FeatureField.cpp:82` |
-| ear-clip triangulation | 2 | `RoofSurface.cpp:48`, `WaterField.cpp:213` |
-| red-green split | 2 | `base/spatial/Refine.h::Divide`, `GroundYield.cpp:354 LayCutFace` -- byte for byte, with `kNoVertex` redeclared |
-| undirected edge key | 2 | `Refine.h::EdgeKey`, `GroundYield.cpp:53 EdgeKey(EastSouth, EastSouth)` -- a different meaning under the same name |
-| a millisecond clock | 3 | `ClassStructure.cpp:27`, `ClassField.cpp:32`, `ClassBuilder.cpp:36` |
-| half-plane side | 1 | `BuildingShape.cpp:72` |
+One real overlap remains: `RoofSurface.cpp` has a local `EarClip`, while water
+surfaces use the pinned Mapbox Earcut adapter in `generators/water`. They have
+related purposes but different inputs, hole behavior and failure contracts.
+Do not replace either until a native polygon contract and negative controls
+prove that a common implementation preserves the required semantics.
 
-And the word `Refine` names five things: `Refine.h` (a file named for a caller), `GroundYield::Refine`
-(the adaptive loop), `RoofSurface::Refine` (dome subdivision), `Laying::RefineChords` (stations
-along a curve), `BuildingMesh::Refined` (ring densification). A sweep over the word is
-CLAUDE.md's four-meanings trap; the rename is per type with the compiler as the oracle.
+Point-in-ring, ring area and edge-key code also need a semantic audit before
+consolidation. Coordinate frame, boundary inclusion, winding, holes, degenerates
+and numeric tolerance are part of each contract. Identical syntax alone is not
+evidence that two functions are interchangeable. `Refine.h::Divide` and its
+`EdgeKey` have no identified duplicate in the current earthwork module.
 
-Already out and standing once: `Refine.h::Divide` (the engine's `DividesAtClassEdges` uses it),
-`Census.h`, `Drape.h`, `geo/PlaceKey.h`, `TriangleBvh`, `ClusterCook`.
+## Ownership decision
 
-## The solution
+`src/base/` owns a primitive only when multiple real consumers need the same
+coordinate-independent contract. Generators own domain policy, materials and
+presentation. Keep one native geometry model; adapters convert external formats.
+No umbrella geometry utility, compatibility aliases or speculative extraction.
 
-`src/base/geometry/` -- beside `base/math/` -- with the verbs and their vendor oracles:
+A candidate primitive needs an analytical test, boundary/degenerate cases and
+an independent oracle where available. Migrate all consumers together and
+compare affected Place PNGs; pixel equality alone does not prove correctness.
+Measure CPU cost and allocations before moving a hot-path implementation.
 
-| | verbs | oracle |
-|---|---|---|
-| **polygon** | signed area, orientation, point inside, convexity, offset, clip by half-plane, simplify, triangulate | area against a computed one; triangulation against a known-good result |
-| **polyline** | resample at a step, arc and chord fit (`base/curve/` already), offset to a ribbon, segment intersection, trim at a meeting | intersection against exact rational arithmetic |
-| **mesh** | `Divide` (the red-green split), weld, `CensusOver`, recompute normals, PRESS to a profile | a closed mesh's Euler characteristic |
-| **field** | `Drape`, `TriangleBvh` | height at a point against a direct sample |
+## Executable slices
 
-Each primitive lands on its own with the nine places quoted before and after, and the digests are
-the proof the copies agreed. `LayCutFace` goes first because it is a byte-for-byte copy; the
-four ring areas second. The header is named for what it holds: `Refine.h` becomes `Divide.h`.
+- `TriangleBvh` validation: reject invalid indices and nonfinite vertices before
+  build or refit mutation. Failed refit preserves triangles and bounds. Preserve
+  valid ray hits/heights and compact hierarchy without frame-path allocation.
+  Prove analytic planes/rays, multi-leaf traversal and rollback with negative
+  controls. Reference: locally pinned PBRT if consulted; no web lookup.
+- `FeatureField` input boundary: reject nonfinite coordinates/heights, invalid
+  form/kind enums, negative ribbon width and overflowing index ranges. Compute
+  bounds as a separate phase. Preserve valid area/ribbon and forest consumers;
+  return an explicit error instead of collapsing all failures to null.
+- Roof/water triangulation: specify native polygon rings, winding, holes and
+  degenerates, then test both consumers against analytical polygons and an
+  independent oracle. Extract only the proven common operation, if there is one.
 
-## What will be true
+## Acceptance
 
-- [ ] Each primitive above stands ONCE under `src/base/`, reachable by every generator, and the
-      generators' door offers them
-- [ ] A claim walks `src/generators/**` and `src/world/**` for a second copy the way
-      `TheEngineNamesNoSubject` walks for nouns, and reads 0
-- [ ] `grep -rn '\bRefine' src include` names one thing
-- [ ] Each primitive carries a proof with a VENDOR oracle where one exists, never agreement with
-      ourselves
-
-## What will show I was wrong
-
-A shared primitive that moves a picture on landing. Then the two copies disagreed, and which one
-was right is looked at before either is kept.
-
-## BVH validation and refit
-
-TriangleBvh currently substitutes invalid indices with the origin, including refit.
-Keep its compact SAH hierarchy; separate primitive validation, partitioning and traversal.
-Reject malformed/nonfinite input before mutation; failed refit preserves triangles and bounds
-without per-frame allocation. Valid geometry must retain the same hits and heights.
-Reference: [PBRT BVH construction and SAH](https://pbr-book.org/4ed/Primitives_and_Intersection_Acceleration/Bounding_Volume_Hierarchies).
-Prove against analytic planes/rays, multi-leaf traversal, invalid indices and failed-refit
-rollback; negative controls must detect fabricated vertices and premature mutation.
-
-## FeatureField-Eingabegrenze
-Factory prüft bisher nur Indexbereiche; NaN/Inf und negative Ribbon-Breiten gelangen
-in räumliche Abfragen. Endliche Koordinaten/Höhen und gültige Form-/Kind-Enums prüfen;
-Bereiche durch Subtraktion statt überlaufbarer Addition absichern. Bounds als eigene
-fachliche Phase berechnen, nicht im verschachtelten Konstruktor. Ribbon-Erweiterung
-muss im Float-Bereich bleiben. Bestehende nullable Factory vorerst erhalten.
-Analytische Fläche/Ribbon, ungültige Werte und Indexbereiche geprüft; Altcode verletzt
-die Negativkontrolle. Zwei Tests einschließlich Forest-Consumer grün. Keine Änderung
-gültiger Bilddaten. Fehlerursachen als expected statt nullptr bleiben offen.
+- [ ] Each extraction names its actual consumers and common semantic contract.
+- [ ] Invalid input fails locally and leaves the previous valid product intact.
+- [ ] Analytical and negative tests cover coordinates, topology and rollback.
+- [ ] `make format`, focused suites, Place PNG review and `make lint` pass.
