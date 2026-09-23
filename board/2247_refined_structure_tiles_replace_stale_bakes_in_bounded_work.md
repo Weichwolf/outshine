@@ -49,6 +49,13 @@ without joining workers on the frame thread; reject late older generations.
 counts and range offsets atomically after reserving capacity. Keep tile IDs
 unique and the published world intact until the candidate commits. Any failed
 upload or bake discards the private candidate product; no half-updated world.
+The current Refined constructor chooses `SceneResources::PieceSources::Omit`,
+and `GroundWorldCandidate::Prepare` clears the copied `TilePieces`. That policy
+forces a full GPU structure upload even if CPU bakes are selective. Refined
+must instead copy stable piece sources and tile ownership from Playable,
+replace only stale tiles after successful uploads, and retain unchanged
+handles through publication. Prove that copied GPU resources remain valid
+until candidate commit or abandonment; do not merely remove `ResetDerived`.
 First replace `BuildingField`'s sparse footprint range plus append-only
 measurements with one sorted accepted-tile product record. That record owns
 ranges for all three arrays and the tile's counters. Replacement prepares its
@@ -79,6 +86,8 @@ cross-candidate mutation; it does not replace the global refined rebake.
    empty tile, smaller/larger replacement, cancellation, failed upload and
    source eviction/reload. Compare full footprints, samples, counts, handles
    and publication revision; published Playable remains usable on failure.
+   Assert unchanged tile handles and upload count/bytes are retained across
+   Refined publication, not rebuilt under `PieceSources::Omit`.
 4. Render Malcesine twice from cache-warm starts; open both PNGs and compare
    exact pixels on the same backend. Refined reports zero fallback structure
    tiles in its workset. Graz reaches Refined without a global structure
