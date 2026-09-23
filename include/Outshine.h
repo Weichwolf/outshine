@@ -560,7 +560,6 @@ private:
   friend class SwapChain;
   struct State;
   [[nodiscard]] bool readScenarioInto(std::string_view path, Scenario::Document &out);
-  [[nodiscard]] bool generated(const Scenario::Document &scenario);
   void ships();
   std::unique_ptr<State> S_;
 };

@@ -92,6 +92,8 @@ public:
 
   [[nodiscard]] GroundStream &Ground() const { return *Ground_; }
 
+  [[nodiscard]] const GroundQuery *TryGround() const noexcept { return Ground_.get(); }
+
   [[nodiscard]] const ClassField &Classes() const { return Cls_; }
 
   [[nodiscard]] const GroundMaterials &Materials() const { return Materials_; }

@@ -10,6 +10,7 @@ class Probe final : public outshine::Generators::Generator {
 public:
   mutable int Calls = 0;
   mutable std::string Value;
+  mutable bool GroundPresent = true;
   bool Accepts = true;
 
   std::string_view kind() const override { return "redeclare-probe"; }
@@ -17,6 +18,7 @@ public:
   Product make(const outshine::Generators::Request &request) const override {
     ++Calls;
     Value = request.Parameters.empty() ? "" : std::string(request.Parameters.front().Value);
+    GroundPresent = request.Ground != nullptr;
     if (!Accepts) { return std::unexpected("refused"); }
     return outshine::Geometry{};
   }
@@ -35,8 +37,9 @@ int main() {
     Scenario::Document scenario;
     scenario.Generators.push_back(
         {.Kind = "redeclare-probe", .Parameters = {{.Name = "value", .Value = "first"}}});
-    CHECK(engine.declare(scenario) && probe.Calls == 1 && probe.Value == "first",
-          "initial declaration invokes producer");
+    CHECK(engine.declare(scenario) && probe.Calls == 1 && probe.Value == "first" &&
+              !probe.GroundPresent,
+          "groundless declaration invokes producer without inventing a terrain sampler");
     CHECK(engine.declare(scenario) && probe.Calls == 2,
           "unchanged declaration queries producer again; providers may have changed");
     scenario.Generators.front().Parameters.front().Value = "second";

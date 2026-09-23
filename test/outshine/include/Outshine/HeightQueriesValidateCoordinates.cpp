@@ -28,5 +28,7 @@ int main() {
     CHECK(!result && result.error().contains("no world"),
           "valid longitude boundaries and ignored height reach world validation");
   }
+  CHECK(engine.loadProgress() == 1.0 && engine.loading().GroundWanted == 0,
+        "groundless state reports no terrain loading work");
   return Report();
 }

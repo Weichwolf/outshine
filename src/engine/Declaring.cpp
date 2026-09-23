@@ -172,18 +172,20 @@ namespace {
 [[nodiscard]] std::expected<std::optional<Geometry>, std::string>
 BuildGeneratedGeometry(const Scenario::Document &scenario,
                        const Generators::Registry &registry,
-                       const GroundQuery &ground) {
+                       const GroundQuery *ground) {
   class Stands final : public Generators::HeightSampler {
   public:
-    explicit Stands(const GroundQuery &from) noexcept : From_(from) {}
+    explicit Stands(const GroundQuery *from) noexcept : From_(from) {}
 
     [[nodiscard]] std::optional<double>
     sampleHeightAslM(const LongitudeLatitudeHeight &at) const override {
-      return From_.At({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}).AslM();
+      return From_ ? From_->At({.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg})
+                         .AslM()
+                   : std::nullopt;
     }
 
   private:
-    const GroundQuery &From_;
+    const GroundQuery *From_;
   };
 
   const Stands stands(ground);
@@ -191,7 +193,7 @@ BuildGeneratedGeometry(const Scenario::Document &scenario,
   asked.LatitudeDeg = scenario.Ground.Origin.LatitudeDeg;
   asked.LongitudeDeg = scenario.Ground.Origin.LongitudeDeg;
   asked.ExtentM = scenario.Ground.Origin.RadiusM;
-  asked.Ground = &stands;
+  asked.Ground = ground ? &stands : nullptr;
   Geometry made;
   const auto offered =
       [&registry, &asked, &made](
@@ -273,7 +275,7 @@ PrepareTargetedDeclaration(Render::SceneRenderer &renderer,
 [[nodiscard]] std::expected<HeadlessDeclaration, std::string>
 PrepareHeadlessDeclaration(const Scenario::Document &scenario,
                            const Generators::Registry &registry,
-                           const GroundQuery &ground,
+                           const GroundQuery *ground,
                            std::span<const float> groundPositionsM,
                            std::span<const uint32_t> groundIndex) {
   auto made = BuildGeneratedGeometry(scenario, registry, ground);
@@ -295,7 +297,7 @@ struct PreparedRuntimeDeclaration {
 [[nodiscard]] std::expected<PreparedRuntimeDeclaration, std::string>
 PrepareRuntimeDeclaration(const Scenario::Document &scenario,
                           const Generators::Registry &registry,
-                          const GroundQuery &ground,
+                          const GroundQuery *ground,
                           std::span<const float> groundPositionsM,
                           std::span<const uint32_t> groundIndex,
                           Seen &picture,
@@ -620,13 +622,14 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::move(*reused);
   }
 
-  auto prepared = PrepareRuntimeDeclaration(scenario,
-                                            S_->World.Offering,
-                                            S_->World.Stack.Ground(),
-                                            S_->World.GroundPositionsM,
-                                            S_->World.GroundIndex,
-                                            S_->Picture,
-                                            declared);
+  auto prepared =
+      PrepareRuntimeDeclaration(scenario,
+                                S_->World.Offering,
+                                scenario.Ground.Declared ? S_->World.Stack.TryGround() : nullptr,
+                                S_->World.GroundPositionsM,
+                                S_->World.GroundIndex,
+                                S_->Picture,
+                                declared);
   if (!prepared) {
     S_->Error = std::move(prepared.error());
     return std::unexpected(S_->Error);
@@ -668,15 +671,6 @@ Result Engine::declare(const Scenario::Document &scenario) {
       prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
   PublishConfiguration(S_->Session, *views, bindings);
   return {};
-}
-
-bool Engine::generated(const Scenario::Document &scenario) {
-  auto made = BuildGeneratedGeometry(scenario, S_->World.Offering, S_->World.Stack.Ground());
-  if (!made) {
-    S_->Error = std::move(made.error());
-    return false;
-  }
-  return !*made || setGeometry(**made);
 }
 
 bool Engine::readScenarioInto(std::string_view path, Scenario::Document &out) {

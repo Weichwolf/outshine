@@ -364,7 +364,7 @@ Holds<double> Engine::sampleHeight(const LongitudeLatitudeHeight &at) const {
     return std::unexpected(Says::kHeightOutsideCoverage);
   }
   const std::string there = std::to_string(at.LatitudeDeg) + ", " + std::to_string(at.LongitudeDeg);
-  if (!S_->World.Stack.Opened()) {
+  if (!S_->Session.Declared.Ground.Declared || !S_->World.Stack.Opened()) {
     S_->Error = "a height was asked for at " + there +
                 " and no world stands -- a scenario declares one before anything can be placed on "
                 "it";
@@ -383,6 +383,7 @@ Holds<double> Engine::sampleHeight(const LongitudeLatitudeHeight &at) const {
 }
 
 double Engine::loadProgress() const {
+  if (!S_->Session.Declared.Ground.Declared) { return 1.0; }
   const size_t wanted = S_->World.AskedWanted;
   if (wanted == 0) { return 1.0; }
   const size_t missing = S_->World.AskedPending;
@@ -395,6 +396,7 @@ constexpr size_t kPreloadGroundAdvancesMost = 16;
 
 Loading Engine::loading() const {
   Loading said;
+  if (!S_->Session.Declared.Ground.Declared) { return said; }
   said.GroundWanted = S_->World.AskedWanted;
   said.GroundArrived = S_->World.AskedWanted >= S_->World.AskedPending
                            ? S_->World.AskedWanted - S_->World.AskedPending
