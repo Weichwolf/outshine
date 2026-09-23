@@ -13,7 +13,7 @@
 #include "math/Vec3.h"
 
 namespace outshine::Generators {
-PressedTerrain PressTerrain(std::span<const Yields> yields,
+PressedTerrain PressTerrain(std::span<const EarthworkStamp> yields,
                             Patchwork &candidate,
                             const TangentFrame &frame,
                             TerrainPageLayout layout,
@@ -102,8 +102,8 @@ PressedTerrain PressTerrain(std::span<const Yields> yields,
   }
   const auto writtenAt = std::chrono::steady_clock::now();
   const Heights finalHeights{.WrittenM = written, .WasM = previous};
-  result.Pads = FloorsOf(yields, pressed, Stamp::Pad, positions, finalHeights);
-  result.Corridors = FloorsOf(yields, pressed, Stamp::Corridor, positions, finalHeights);
+  result.Pads = FloorsOf(yields, pressed, EarthworkKind::Pad, positions, finalHeights);
+  result.Corridors = FloorsOf(yields, pressed, EarthworkKind::Corridor, positions, finalHeights);
   const auto finished = std::chrono::steady_clock::now();
   result.WriteMs = std::chrono::duration<double, std::milli>(writtenAt - decided).count();
   result.FloorsMs = std::chrono::duration<double, std::milli>(finished - writtenAt).count();

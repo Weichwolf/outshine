@@ -27,8 +27,8 @@ outshine::Patchwork Candidate() {
   return candidate;
 }
 
-outshine::Yields StampOf(double halfWidth, double height, outshine::Stamp kind) {
-  outshine::Yields stamp;
+outshine::EarthworkStamp StampOf(double halfWidth, double height, outshine::EarthworkKind kind) {
+  outshine::EarthworkStamp stamp;
   stamp.RingEastNorthM = {
       -halfWidth, -halfWidth, halfWidth, -halfWidth, halfWidth, halfWidth, -halfWidth, halfWidth};
   stamp.LowE = -halfWidth;
@@ -37,7 +37,7 @@ outshine::Yields StampOf(double halfWidth, double height, outshine::Stamp kind) 
   stamp.HighN = halfWidth;
   stamp.PlateauM = height;
   stamp.Kind = kind;
-  stamp.Fills = kind != outshine::Stamp::Basin;
+  stamp.Fills = kind != outshine::EarthworkKind::Basin;
   return stamp;
 }
 
@@ -63,11 +63,11 @@ int main() {
   using namespace outshine::Test;
 
   const Patchwork source = Candidate();
-  std::vector<Yields> stamps;
-  stamps.push_back(StampOf(100.0, 5.0, Stamp::Pad));
-  stamps.push_back(StampOf(70.0, 2.0, Stamp::Corridor));
+  std::vector<EarthworkStamp> stamps;
+  stamps.push_back(StampOf(100.0, 5.0, EarthworkKind::Pad));
+  stamps.push_back(StampOf(70.0, 2.0, EarthworkKind::Corridor));
   stamps.back().SlopeE = 0.03;
-  stamps.push_back(StampOf(15.0, -3.0, Stamp::Basin));
+  stamps.push_back(StampOf(15.0, -3.0, EarthworkKind::Basin));
 
   Patchwork oneShot = source;
   const PressedTerrain expected =

@@ -72,9 +72,9 @@ struct Patchwork {
   }
 };
 
-enum class Stamp : uint8_t { Pad, Corridor, Basin };
+enum class EarthworkKind : uint8_t { Pad, Corridor, Basin };
 
-struct Yields {
+struct EarthworkStamp {
   std::vector<double> RingEastNorthM;
   std::vector<std::vector<double>> HoleRingsEastNorthM;
   double LowE = 0.0, HighE = 0.0, LowN = 0.0, HighN = 0.0;
@@ -86,9 +86,9 @@ struct Yields {
   double YieldM = 0.0;
   double SagInv = 0.0;
   bool Fills = false;
-  Stamp Kind = Stamp::Pad;
+  EarthworkKind Kind = EarthworkKind::Pad;
 
-  [[nodiscard]] bool operator==(const Yields &) const = default;
+  [[nodiscard]] bool operator==(const EarthworkStamp &) const = default;
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = (RingEastNorthM.capacity() + SeamEastNorthM.capacity()) * sizeof(double);

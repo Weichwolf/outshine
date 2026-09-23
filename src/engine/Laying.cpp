@@ -137,7 +137,7 @@ uint64_t DigestPatchwork(const Patchwork &patchwork) {
   return digest;
 }
 
-uint64_t DigestEarthworks(std::span<const Yields> earthworks) {
+uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
   uint64_t digest = kDigestBasis;
   const auto fold = [&digest](uint32_t word) { digest = (digest ^ word) * kDigestPrime; };
   const auto foldDouble = [&fold](double value) {
@@ -145,7 +145,7 @@ uint64_t DigestEarthworks(std::span<const Yields> earthworks) {
     fold(static_cast<uint32_t>(bits));
     fold(static_cast<uint32_t>(bits >> 32U));
   };
-  for (const Yields &one : earthworks) {
+  for (const EarthworkStamp &one : earthworks) {
     fold(static_cast<uint32_t>(one.RingEastNorthM.size()));
     for (const double value : one.RingEastNorthM) { foldDouble(value); }
     fold(static_cast<uint32_t>(one.HoleRingsEastNorthM.size()));
@@ -328,7 +328,7 @@ public:
 
   void SamplesProductPeak() noexcept { RecordsProductPeak(); }
 
-  void HoldsCorridors(std::vector<Yields> corridors) { Corridors_ = std::move(corridors); }
+  void HoldsCorridors(std::vector<EarthworkStamp> corridors) { Corridors_ = std::move(corridors); }
 
   [[nodiscard]] Generators::Corridors::Job *CorridorJob() noexcept { return CorridorJob_.get(); }
 
@@ -448,7 +448,7 @@ public:
     GeometrySubmission_ = GeometrySubmission::Cook;
   }
 
-  [[nodiscard]] std::vector<Yields> TakesCorridors() { return std::move(Corridors_); }
+  [[nodiscard]] std::vector<EarthworkStamp> TakesCorridors() { return std::move(Corridors_); }
 
   [[nodiscard]] std::chrono::steady_clock::time_point Began() const noexcept { return Began_; }
 
@@ -476,15 +476,16 @@ public:
 
 private:
   [[nodiscard]] size_t CurrentProductBytes() const noexcept {
-    const size_t phaseBytes =
-        (Patchwork_ ? Patchwork_->HeapBytes() : 0u) + Corridors_.capacity() * sizeof(Yields) +
-        Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-        Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
-        InitialMeshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-        InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
-        (Stamping_ ? Stamping_->HeapBytes() : 0u) + (Pressing_ ? Pressing_->HeapBytes() : 0u);
+    const size_t phaseBytes = (Patchwork_ ? Patchwork_->HeapBytes() : 0u) +
+                              Corridors_.capacity() * sizeof(EarthworkStamp) +
+                              Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
+                              Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
+                              InitialMeshing_.Mesh.PositionsM.capacity() * sizeof(float) +
+                              InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
+                              (Stamping_ ? Stamping_->HeapBytes() : 0u) +
+                              (Pressing_ ? Pressing_->HeapBytes() : 0u);
     size_t corridorBytes = 0;
-    for (const Yields &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
+    for (const EarthworkStamp &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
     return Candidate_.Products().OwnedHeapBytes() + phaseBytes + corridorBytes;
   }
 
@@ -502,7 +503,7 @@ private:
   std::unique_ptr<outshine::World::TransportNetworkBuildJob> NetworkJob_;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
-  std::vector<Yields> Corridors_;
+  std::vector<EarthworkStamp> Corridors_;
   MeshBuild Meshing_;
   MeshBuild InitialMeshing_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
@@ -867,11 +868,11 @@ namespace {
 void AppendWaterBasinStamps(const Ground::WaterField &water,
                             std::span<const double> points,
                             const TangentFrame &standing,
-                            std::vector<Yields> &yielding) {
+                            std::vector<EarthworkStamp> &yielding) {
   for (const Ground::WaterField::Surface &lake : water.Surfaces()) {
     const Ground::WaterField::SurfaceRing &ring = water.RingsOf(lake).front();
     if ((static_cast<size_t>(ring.FirstPoint) + ring.PointCount) * 2u > points.size()) { continue; }
-    Yields made;
+    EarthworkStamp made;
     made.RingEastNorthM.reserve(static_cast<size_t>(ring.PointCount) * 2u);
     made.LowE = kBeyondAnyCoordinate;
     made.HighE = -kBeyondAnyCoordinate;
@@ -905,7 +906,7 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
     made.PlateauM = plateau / static_cast<double>(bedM.size());
     made.ApronM = kWaterBankM;
     made.YieldM = kWaterBedM;
-    made.Kind = Stamp::Basin;
+    made.Kind = EarthworkKind::Basin;
     made.SeamEastNorthM = made.RingEastNorthM;
     bool complete = true;
     for (const Ground::WaterField::SurfaceRing &hole : water.RingsOf(lake).subspan(1)) {
@@ -936,7 +937,7 @@ Engine::State::GroundBuildProgress
 Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
                                          GroundBuildState &state,
                                          const Ground::OsmField &shapes,
-                                         std::vector<Yields> &yielding) {
+                                         std::vector<EarthworkStamp> &yielding) {
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.Stamping() == nullptr) {
     state.BeginsStamping(std::make_unique<Generators::BuildingStampJob>(
@@ -971,7 +972,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.Pressing() == nullptr) {
     const Ground::OsmField *const shapes = World.Stack.Vectors();
-    std::vector<Yields> yielding;
+    std::vector<EarthworkStamp> yielding;
     if (shapes != nullptr) {
       if (shapes->Generation() != state.Revision().VectorGeneration) {
         World.GroundBuild.reset();
@@ -984,7 +985,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
       World.GroundBuild.reset();
       return true;
     }
-    std::vector<Yields> corridor = state.TakesCorridors();
+    std::vector<EarthworkStamp> corridor = state.TakesCorridors();
     if (shapes != nullptr) {
       uint64_t tileOrder = kDigestBasis;
       for (const Ground::OsmField::Tile &tile : shapes->Tiles()) {
@@ -1689,7 +1690,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
     if (!sampled && !firstFieldMiss) { firstFieldMiss = at; }
     return sampled;
   };
-  std::vector<Yields> corridors;
+  std::vector<EarthworkStamp> corridors;
   std::vector<DiagnosticSample> notes;
   const Generators::Corridors::Site site{.Vectors = World.Stack.Vectors(),
                                          .Ways = World.Stack.Ways(),

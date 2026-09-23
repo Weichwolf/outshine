@@ -47,7 +47,7 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
         ++visited;
         continue;
       }
-      Current_ = Yields{};
+      Current_ = EarthworkStamp{};
       Current_.RingEastNorthM.reserve(count * 2u);
       Current_.LowE = Current_.LowN = kBeyondAnyCoordinate;
       Current_.HighE = Current_.HighN = -kBeyondAnyCoordinate;
@@ -89,7 +89,7 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
     ++visited;
     if (NextSeam_ == Current_.RingEastNorthM.size()) {
       Stamps_.push_back(std::move(Current_));
-      Current_ = Yields{};
+      Current_ = EarthworkStamp{};
       ++NextFootprint_;
       Phase_ = Phase::Choose;
     }
@@ -98,14 +98,14 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
   return Phase_ == Phase::Done;
 }
 
-std::expected<std::vector<Yields>, std::string_view> BuildingStampJob::Take() && {
+std::expected<std::vector<EarthworkStamp>, std::string_view> BuildingStampJob::Take() && {
   if (Phase_ != Phase::Done) { return std::unexpected("building stamps are incomplete"); }
   return std::move(Stamps_);
 }
 
 size_t BuildingStampJob::HeapBytes() const noexcept {
-  size_t held = Stamps_.capacity() * sizeof(Yields);
-  for (const Yields &stamp : Stamps_) { held += stamp.HeapBytes(); }
+  size_t held = Stamps_.capacity() * sizeof(EarthworkStamp);
+  for (const EarthworkStamp &stamp : Stamps_) { held += stamp.HeapBytes(); }
   held += Current_.HeapBytes();
   return held;
 }

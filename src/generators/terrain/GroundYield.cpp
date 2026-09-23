@@ -142,10 +142,10 @@ private:
   std::vector<uint32_t> Seats_;
 };
 
-CellGrid BucketOver(std::span<const Yields> these) {
+CellGrid BucketOver(std::span<const EarthworkStamp> these) {
   CellGrid out({.CellM = kBucketM});
   for (size_t at = 0; at < these.size(); ++at) {
-    const Yields &one = these[at];
+    const EarthworkStamp &one = these[at];
     out.Spread({.EastM = one.LowE - one.ApronM, .NorthM = one.LowN - one.ApronM},
                {.EastM = one.HighE + one.ApronM, .NorthM = one.HighN + one.ApronM},
                static_cast<uint32_t>(at));
@@ -182,7 +182,7 @@ double SignedDistanceToRingM(std::span<const double> ring, EastNorth at) {
   return inside ? -nearest : nearest;
 }
 
-double OutsideRingM(const Yields &held, EastNorth at) {
+double OutsideRingM(const EarthworkStamp &held, EastNorth at) {
   const double outer = SignedDistanceToRingM(held.RingEastNorthM, at);
   if (outer >= 0.0) { return outer; }
   double insideM = -outer;
@@ -224,7 +224,7 @@ struct Bid {
   double WantsM = 0.0;
 };
 
-void BidsBasin(const Yields &held, Bid bid, Bids *bids) {
+void BidsBasin(const EarthworkStamp &held, Bid bid, Bids *bids) {
   if (bid.OutsideM > 0.0) { return; }
   const double bankAt = bid.WantsM + std::max(0.0, held.ApronM + bid.OutsideM) * kBatterRise;
   if (bankAt < bids->BasinM) {
@@ -233,7 +233,7 @@ void BidsBasin(const Yields &held, Bid bid, Bids *bids) {
   }
 }
 
-void BidsLand(const Yields &held, Bid bid, Bids *bids) {
+void BidsLand(const EarthworkStamp &held, Bid bid, Bids *bids) {
   const double out = std::max(bid.OutsideM, 0.0);
   if (out > held.ApronM) { return; }
   bids->LandHeld = true;
@@ -254,7 +254,7 @@ void BidsLand(const Yields &held, Bid bid, Bids *bids) {
   }
 }
 
-Pressing PressesAt(std::span<const Yields> these,
+Pressing PressesAt(std::span<const EarthworkStamp> these,
                    std::span<const uint32_t> over,
                    std::span<const uint8_t> structures,
                    EastNorth at,
@@ -263,13 +263,13 @@ Pressing PressesAt(std::span<const Yields> these,
   Bids bids{.LowestM = wasM, .HighestM = wasM, .BasinM = wasM};
   for (const uint32_t which : over) {
     if (!structures.empty() && structures[which] != 0u) { continue; }
-    const Yields &held = these[which];
+    const EarthworkStamp &held = these[which];
     if (at.EastM < held.LowE - held.ApronM || at.EastM > held.HighE + held.ApronM ||
         at.NorthM < held.LowN - held.ApronM || at.NorthM > held.HighN + held.ApronM) {
       continue;
     }
     const Bid bid{.Which = which, .OutsideM = OutsideRingM(held, at), .WantsM = held.WantsAt(at)};
-    if (held.Kind == Stamp::Basin) {
+    if (held.Kind == EarthworkKind::Basin) {
       BidsBasin(held, bid, &bids);
       continue;
     }
@@ -295,7 +295,7 @@ Pressing PressesAt(std::span<const Yields> these,
   return {};
 }
 
-void RejectAt(std::span<const Yields> these,
+void RejectAt(std::span<const EarthworkStamp> these,
               const CellGrid &buckets,
               std::span<const EastNorth> at,
               std::span<const double> upM,
@@ -308,7 +308,7 @@ void RejectAt(std::span<const Yields> these,
   }
 }
 
-void ApplyAt(std::span<const Yields> these,
+void ApplyAt(std::span<const EarthworkStamp> these,
              const CellGrid &buckets,
              std::span<const EastNorth> at,
              std::span<double> upM,
@@ -338,7 +338,7 @@ void ApplyAt(std::span<const Yields> these,
 
 }
 
-Pressed PressPoints(std::span<const Yields> these,
+Pressed PressPoints(std::span<const EarthworkStamp> these,
                     std::span<const EastNorth> at,
                     std::span<double> upM,
                     double mostEarthworkM) {
@@ -368,7 +368,7 @@ Pressed PressPoints(std::span<const Yields> these,
 struct PressPointsJob::State {
   enum class Phase : uint8_t { Reject, InitializeDecisions, Apply, Done };
 
-  std::span<const Yields> These;
+  std::span<const EarthworkStamp> These;
   std::span<const EastNorth> At;
   std::span<double> UpM;
   double MostEarthworkM;
@@ -379,7 +379,7 @@ struct PressPointsJob::State {
   size_t Next = 0;
   Phase Current = Phase::Reject;
 
-  State(std::span<const Yields> these,
+  State(std::span<const EarthworkStamp> these,
         std::span<const EastNorth> at,
         std::span<double> upM,
         double mostEarthworkM)
@@ -406,7 +406,7 @@ struct PressPointsJob::State {
   }
 };
 
-PressPointsJob::PressPointsJob(std::span<const Yields> these,
+PressPointsJob::PressPointsJob(std::span<const EarthworkStamp> these,
                                std::span<const EastNorth> at,
                                std::span<double> upM,
                                double mostEarthworkM)
@@ -483,9 +483,9 @@ size_t PressPointsJob::HeapBytes() const noexcept {
   return State_ ? State_->HeapBytes() : 0;
 }
 
-Floors FloorsOf(std::span<const Yields> these,
+Floors FloorsOf(std::span<const EarthworkStamp> these,
                 const Pressed &pressed,
-                Stamp kind,
+                EarthworkKind kind,
                 std::span<const EastNorth> at,
                 Heights heights) {
   const std::span<const double> upM = heights.WrittenM;
@@ -493,7 +493,7 @@ Floors FloorsOf(std::span<const Yields> these,
   Floors told;
   std::vector<uint8_t> reached(these.size(), 0u);
   for (const Covered &claim : pressed.Inside) {
-    const Yields &held = these[claim.Stamp];
+    const EarthworkStamp &held = these[claim.Stamp];
     if (held.Kind != kind || pressed.Refused[claim.Stamp] != 0u) { continue; }
     reached[claim.Stamp] = 1u;
     const uint32_t by = pressed.DecidedBy[claim.Point];

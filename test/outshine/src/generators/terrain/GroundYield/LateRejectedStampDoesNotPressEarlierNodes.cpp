@@ -11,7 +11,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
 
-  Yields accepted;
+  EarthworkStamp accepted;
   accepted.RingEastNorthM = {-1.0, -1.0, 3.0, -1.0, 3.0, 1.0, -1.0, 1.0};
   accepted.LowE = -1.0;
   accepted.HighE = 3.0;
@@ -20,10 +20,10 @@ int main() {
   accepted.PlateauM = 5.0;
   accepted.Fills = true;
 
-  Yields rejected = accepted;
+  EarthworkStamp rejected = accepted;
   rejected.PlateauM = -5.0;
   rejected.SlopeE = -15.0;
-  const std::array<Yields, 2> stamps{accepted, rejected};
+  const std::array<EarthworkStamp, 2> stamps{accepted, rejected};
   const std::array<EastNorth, 3> points{{{.EastM = 0.0, .NorthM = 0.0},
                                          {.EastM = 1.0, .NorthM = 0.0},
                                          {.EastM = 2.0, .NorthM = 0.0}}};

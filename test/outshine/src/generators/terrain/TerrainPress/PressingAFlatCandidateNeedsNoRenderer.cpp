@@ -31,7 +31,7 @@ int main() {
   using namespace outshine::Test;
 
   Patchwork candidate = FlatCandidate();
-  Yields pad;
+  EarthworkStamp pad;
   pad.RingEastNorthM = {-100.0, -100.0, 100.0, -100.0, 100.0, 100.0, -100.0, 100.0};
   pad.LowE = -100.0;
   pad.HighE = 100.0;
@@ -39,7 +39,7 @@ int main() {
   pad.HighN = 100.0;
   pad.PlateauM = 5.0;
   pad.Fills = true;
-  pad.Kind = Stamp::Pad;
+  pad.Kind = EarthworkKind::Pad;
   CHECK(pad.HeapBytes() >= pad.RingEastNorthM.size() * sizeof(double),
         "earthwork stamp reports its owned ring capacity");
 
@@ -73,10 +73,10 @@ int main() {
         "sheet and node interruptions preserve the one-shot terrain and pad diagnostics");
 
   Patchwork slopedCandidate = FlatCandidate();
-  Yields corridor = pad;
+  EarthworkStamp corridor = pad;
   corridor.PlateauM = 0.0;
   corridor.SlopeE = 0.05;
-  corridor.Kind = Stamp::Corridor;
+  corridor.Kind = EarthworkKind::Corridor;
   const auto sloped = PressTerrain(std::span{&corridor, 1u},
                                    slopedCandidate,
                                    TangentFrame::At({}),

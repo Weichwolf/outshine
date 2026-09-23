@@ -27,7 +27,7 @@ public:
       : Frame_(frame), VectorGeneration_(vectorGeneration) {}
 
   [[nodiscard]] std::expected<bool, std::string_view> Advance(Work work);
-  [[nodiscard]] std::expected<std::vector<Yields>, std::string_view> Take() &&;
+  [[nodiscard]] std::expected<std::vector<EarthworkStamp>, std::string_view> Take() &&;
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:
@@ -35,8 +35,8 @@ private:
 
   TangentFrame Frame_;
   uint64_t VectorGeneration_ = 0;
-  std::vector<Yields> Stamps_;
-  Yields Current_;
+  std::vector<EarthworkStamp> Stamps_;
+  EarthworkStamp Current_;
   size_t FootprintCount_ = 0;
   size_t PointCount_ = 0;
   size_t NextFootprint_ = 0;

@@ -38,7 +38,7 @@ struct PressedTerrain {
   double LongestFloorsMs = 0.0;
 };
 
-[[nodiscard]] PressedTerrain PressTerrain(std::span<const Yields> yields,
+[[nodiscard]] PressedTerrain PressTerrain(std::span<const EarthworkStamp> yields,
                                           Patchwork &candidate,
                                           const TangentFrame &frame,
                                           TerrainPageLayout layout,
@@ -46,7 +46,7 @@ struct PressedTerrain {
 
 class TerrainPressJob {
 public:
-  TerrainPressJob(std::vector<Yields> yields,
+  TerrainPressJob(std::vector<EarthworkStamp> yields,
                   Patchwork &candidate,
                   TangentFrame frame,
                   TerrainPageLayout layout,

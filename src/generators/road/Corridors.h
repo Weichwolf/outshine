@@ -56,7 +56,7 @@ public:
 
   [[nodiscard]] bool Lay(const Site &site,
                          Geometry &ground,
-                         std::vector<Yields> *corridor,
+                         std::vector<EarthworkStamp> *corridor,
                          std::vector<DiagnosticSample> *notes) const;
 
 private:
@@ -120,7 +120,7 @@ private:
     std::vector<Edge> Edges;
     std::vector<std::pair<uint32_t, uint32_t>> EdgesOf;
     std::vector<Junction> Junctions;
-    std::vector<Yields> UnderJunctions;
+    std::vector<EarthworkStamp> UnderJunctions;
     size_t Continuations = 0;
     size_t UnseenWays = 0;
     size_t LegsCut = 0;
@@ -285,15 +285,15 @@ private:
   static void YieldsOf(const Paving &on,
                        const outshine::Ground::StreetField::Way &lane,
                        Paved &into,
-                       std::vector<Yields> &corridor);
+                       std::vector<EarthworkStamp> &corridor);
   static void IslandOf(const Paving &on,
                        const outshine::Ground::StreetField::Way &lane,
                        std::span<const RoadStation> along,
-                       std::vector<Yields> &corridor);
+                       std::vector<EarthworkStamp> &corridor);
   void PaveEdge(const Paving &on,
                 size_t edgeAt,
                 Paved &into,
-                std::vector<Yields> &corridor,
+                std::vector<EarthworkStamp> &corridor,
                 RoadRaised &pavement) const;
 
   enum class Pass : uint8_t { Designing, Paving };
@@ -306,7 +306,7 @@ private:
                 Pass pass,
                 size_t laneAt,
                 Paved &into,
-                std::vector<Yields> &corridor,
+                std::vector<EarthworkStamp> &corridor,
                 RoadRaised &pavement) const;
 
   [[nodiscard]] size_t RaisesTheJunctionBodies(const outshine::Ground::GroundMaterials &wearing,
@@ -390,7 +390,7 @@ public:
 
     Paved Work;
     RoadRaised Pavement;
-    std::vector<Yields> Corridor;
+    std::vector<EarthworkStamp> Corridor;
     std::unordered_map<uint64_t, uint32_t> SharedNodes;
     std::unordered_map<uint64_t, std::vector<Leg>> LegsAt;
     std::vector<Path::Network::Crossing> Crossed;
@@ -458,7 +458,7 @@ public:
           size_t lanesMost,
           size_t nodesMost,
           Geometry &ground,
-          std::vector<Yields> *corridor,
+          std::vector<EarthworkStamp> *corridor,
           std::vector<DiagnosticSample> *notes) const;
 
 private:

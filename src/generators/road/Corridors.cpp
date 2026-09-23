@@ -352,7 +352,7 @@ void Corridors::PaveLane(const Paving &on,
                          Pass pass,
                          size_t laneAt,
                          Paved &into,
-                         std::vector<Yields> &corridor,
+                         std::vector<EarthworkStamp> &corridor,
                          RoadRaised &pavement) const {
   const outshine::Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
   if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
@@ -379,7 +379,7 @@ void Corridors::PaveLane(const Paving &on,
 void Corridors::PaveEdge(const Paving &on,
                          size_t edgeAt,
                          Paved &into,
-                         std::vector<Yields> &corridor,
+                         std::vector<EarthworkStamp> &corridor,
                          RoadRaised &pavement) const {
   const Edge &edge = into.Edges[edgeAt];
   const size_t laneAt = edge.Lane;
@@ -436,7 +436,7 @@ void Corridors::PaveEdge(const Paving &on,
 void Corridors::YieldsOf(const Paving &on,
                          const outshine::Ground::StreetField::Way &lane,
                          Paved &into,
-                         std::vector<Yields> &corridor) {
+                         std::vector<EarthworkStamp> &corridor) {
   const auto yieldsAt = std::chrono::steady_clock::now();
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double runE = into.Along[at].EastM - into.Along[at - 1u].EastM;
@@ -464,7 +464,7 @@ void Corridors::YieldsOf(const Paving &on,
       }
     }
     if (yieldM < kStampWorthM && reliefM < kBrokenGroundM) { continue; }
-    Yields made;
+    EarthworkStamp made;
     made.RingEastNorthM = {into.Along[at - 1u].EastM + outE * half,
                            into.Along[at - 1u].NorthM + outN * half,
                            into.Along[at].EastM + outE * half,
@@ -502,7 +502,7 @@ void Corridors::YieldsOf(const Paving &on,
           into.Along[at - 1u].NorthM - outN * static_cast<double>(lane.HalfWidthM)};
     }
     made.Fills = !lane.Bridge;
-    made.Kind = outshine::Stamp::Corridor;
+    made.Kind = outshine::EarthworkKind::Corridor;
     corridor.push_back(std::move(made));
   }
   into.YieldsMs +=
@@ -514,7 +514,7 @@ void Corridors::YieldsOf(const Paving &on,
 void Corridors::IslandOf(const Paving &on,
                          const outshine::Ground::StreetField::Way &lane,
                          std::span<const RoadStation> along,
-                         std::vector<Yields> &corridor) {
+                         std::vector<EarthworkStamp> &corridor) {
   if (!lane.Bridge && along.size() > 3) {
     const size_t shutFrom = static_cast<size_t>(lane.FirstPoint) * 2u;
     const size_t shutTo = shutFrom + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
@@ -522,7 +522,7 @@ void Corridors::IslandOf(const Paving &on,
                       std::fabs(on.Points[shutFrom] - on.Points[shutTo]) < 1.0e-7 &&
                       std::fabs(on.Points[shutFrom + 1] - on.Points[shutTo + 1]) < 1.0e-7;
     if (shut) {
-      Yields island;
+      EarthworkStamp island;
       island.RingEastNorthM.reserve(along.size() * 2u);
       island.LowE = island.HighE = along.front().EastM;
       island.LowN = island.HighN = along.front().NorthM;
@@ -542,7 +542,7 @@ void Corridors::IslandOf(const Paving &on,
       island.ApronM = kLeastApronM;
       island.YieldM = kBrokenGroundM;
       island.Fills = true;
-      island.Kind = outshine::Stamp::Corridor;
+      island.Kind = outshine::EarthworkKind::Corridor;
       corridor.push_back(std::move(island));
     }
   }
@@ -1182,7 +1182,7 @@ void Corridors::PressesUnder(const Junction &made, double rootsM, Paved &into) {
   std::ranges::sort(around, [](const Corner &a, const Corner &b) {
     return a.AroundRad != b.AroundRad ? a.AroundRad < b.AroundRad : a.Gate < b.Gate;
   });
-  Yields under;
+  EarthworkStamp under;
   under.RingEastNorthM.reserve(around.size() * 2u);
   under.LowE = under.HighE = around.front().EastM;
   under.LowN = under.HighN = around.front().NorthM;
@@ -1203,7 +1203,7 @@ void Corridors::PressesUnder(const Junction &made, double rootsM, Paved &into) {
   under.ApronM = std::clamp(kBatterRun * under.YieldM, kLeastApronM, kMostApronM);
   under.SeamEastNorthM = under.RingEastNorthM;
   under.Fills = true;
-  under.Kind = outshine::Stamp::Corridor;
+  under.Kind = outshine::EarthworkKind::Corridor;
   into.UnderJunctions.push_back(std::move(under));
 }
 
@@ -1387,12 +1387,12 @@ Corridors::SharedNodesOf(const outshine::Ground::StreetField &ways,
 
 bool Corridors::Lay(const Site &site,
                     Geometry &ground,
-                    std::vector<Yields> *corridorOut,
+                    std::vector<EarthworkStamp> *corridorOut,
                     std::vector<DiagnosticSample> *notes) const {
   const TangentFrame &standing = site.Standing;
   const std::shared_ptr<const ClassStructure> &classStructure = site.Classes;
   const Drape &drapedOver = site.Draped;
-  std::vector<Yields> &corridor = *corridorOut;
+  std::vector<EarthworkStamp> &corridor = *corridorOut;
   RoadRaised pavement;
   Paved into;
   Notes(into,
@@ -1719,7 +1719,7 @@ struct Corridors::JobSlice {
   const outshine::Ground::OsmField *vectors;
   const Paving *paving;
   Geometry &ground;
-  std::vector<Yields> *corridor;
+  std::vector<EarthworkStamp> *corridor;
   std::vector<DiagnosticSample> *notes;
   std::chrono::steady_clock::time_point began;
   size_t lanesMost;
@@ -1738,7 +1738,7 @@ Corridors::Advance(Job &job,
                    size_t lanesMost,
                    size_t nodesMost,
                    Geometry &ground,
-                   std::vector<Yields> *corridor,
+                   std::vector<EarthworkStamp> *corridor,
                    std::vector<DiagnosticSample> *notes) const {
   if (job.Retirement != Job::RetireStage::Active) {
     return std::unexpected(Says::kRetiredCorridorJob);

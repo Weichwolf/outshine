@@ -51,14 +51,14 @@ struct Pressed {
   double LongestApplyMs = 0.0;
 };
 
-[[nodiscard]] Pressed PressPoints(std::span<const Yields> these,
+[[nodiscard]] Pressed PressPoints(std::span<const EarthworkStamp> these,
                                   std::span<const EastNorth> at,
                                   std::span<double> upM,
                                   double mostEarthworkM);
 
 class PressPointsJob {
 public:
-  PressPointsJob(std::span<const Yields> these,
+  PressPointsJob(std::span<const EarthworkStamp> these,
                  std::span<const EastNorth> at,
                  std::span<double> upM,
                  double mostEarthworkM);
@@ -77,9 +77,9 @@ private:
   std::unique_ptr<State> State_;
 };
 
-[[nodiscard]] Floors FloorsOf(std::span<const Yields> these,
+[[nodiscard]] Floors FloorsOf(std::span<const EarthworkStamp> these,
                               const Pressed &pressed,
-                              Stamp kind,
+                              EarthworkKind kind,
                               std::span<const EastNorth> at,
                               Heights heights);
 

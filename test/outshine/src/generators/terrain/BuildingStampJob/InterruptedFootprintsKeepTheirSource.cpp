@@ -23,7 +23,7 @@ int main() {
   prints[2].SeatM = 18;
   prints[2].BaseM = 12;
   const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
-  std::optional<std::vector<Yields>> oracle;
+  std::optional<std::vector<EarthworkStamp>> oracle;
   for (const size_t budget : {size_t{1}, size_t{7}, size_t{1024}}) {
     Generators::BuildingStampJob job(frame, 42);
     CHECK(!job.Advance({.Footprints = prints,

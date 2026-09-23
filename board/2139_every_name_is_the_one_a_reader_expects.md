@@ -29,10 +29,10 @@ growth, owner-crossing edits, dependency edges and largest cohesive files, not
 a target count of types or an arbitrary line cap.
 The three read-only telemetry methods moved from `Laying.cpp` to
 `GroundDiagnostics.cpp` in b992673c9; explicit borrows replaced `Engine::State` access.
-Next naming cut: `Yields` and `Stamp` in `GroundMesher.h` denote terrain earthwork
-stamps and kinds. Rename them `EarthworkStamp` and `EarthworkKind` across producers,
-consumers and tests without aliases or behavior changes. Confirm format, focused suites,
-one Place image digest and full lint.
+`Yields`/`Stamp` in `GroundMesher.h` were renamed `EarthworkStamp`/`EarthworkKind`
+across producers, consumers and tests without aliases. Four focused suites and full
+lint pass; Wien retains digest `e45d4da2`. Remaining names and file ownership need
+consumer-based review; this type rename does not close the parent WI.
 
 ## Module decisions and implementation owners
 

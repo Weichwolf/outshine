@@ -16,7 +16,7 @@ using namespace outshine;
 
 struct Product {
   Geometry Mesh;
-  std::vector<Yields> Earthworks;
+  std::vector<EarthworkStamp> Earthworks;
   std::vector<DiagnosticSample> Measures;
   bool Complete = false;
 };
@@ -157,7 +157,7 @@ int main() {
   }
   std::unique_ptr<Generators::Corridors::Job> canceled = Generators::Corridors::Begin(site);
   Geometry canceledMesh;
-  std::vector<Yields> canceledEarthworks;
+  std::vector<EarthworkStamp> canceledEarthworks;
   std::vector<DiagnosticSample> canceledMeasures;
   const auto started = corridors.Advance(
       *canceled, site, 1, 1, canceledMesh, &canceledEarthworks, &canceledMeasures);
@@ -174,7 +174,7 @@ int main() {
   changed.front().LatLon.front() += 0.0001;
   vectors.Declare(changed, *tile);
   Geometry staleMesh;
-  std::vector<Yields> staleEarthworks;
+  std::vector<EarthworkStamp> staleEarthworks;
   std::vector<DiagnosticSample> staleMeasures;
   CHECK(!corridors.Advance(*stale, site, 1, 1, staleMesh, &staleEarthworks, &staleMeasures) &&
             staleMesh.parts() == 0 && staleEarthworks.empty() && staleMeasures.empty(),
