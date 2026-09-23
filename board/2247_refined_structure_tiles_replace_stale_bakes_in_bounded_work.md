@@ -1,8 +1,8 @@
 Type: defect
-State: proposed
+State: active
 Architecture: ready
 Parent: 2230
-Depends: 2248
+Depends:
 Priority: P1
 Area: engine, ground, generators
 Tags: structures, determinism, realtime
@@ -19,7 +19,8 @@ tile 24 and arrival-dependent pixels. A full candidate reset/rebake made two
 Malcesine captures pixel-identical with zero fallback tiles, but Graz failed
 to reach Refined before capture after over 65,000 buildings had been baked.
 That candidate-wide path was rejected. Source and product revisions come from
-WI 2248.
+WI 2248. Its accepted-input identity contract is implemented; remaining
+source-lifecycle tests there do not block the per-tile product store.
 
 Basel Badischer at 47.568 N, 7.607 E reproduced the same scale failure on
 2026-09-23: after the native structure material fix, vegetation disabled, and
@@ -48,6 +49,12 @@ without joining workers on the frame thread; reject late older generations.
 counts and range offsets atomically after reserving capacity. Keep tile IDs
 unique and the published world intact until the candidate commits. Any failed
 upload or bake discards the private candidate product; no half-updated world.
+First replace `BuildingField`'s sparse footprint range plus append-only
+measurements with one sorted accepted-tile product record. That record owns
+ranges for all three arrays and the tile's counters. Replacement prepares its
+owned input and reserves growth before the non-throwing commit; it never
+advances first-ingestion watermark or accepted-tile count. Verify replacement
+independently before connecting worker admission.
 Revision comparisons cover vector source, DEM source, quality, camera-dependent
 detail inputs and candidate generation. Do not use a global reset or special
 case for Malcesine/Graz.
