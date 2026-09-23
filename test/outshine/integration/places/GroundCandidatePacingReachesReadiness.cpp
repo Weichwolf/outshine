@@ -117,10 +117,21 @@ std::optional<ProductSignature> Builds(bool preload) {
       Note("ground candidate progress", *progress, "stage index");
     }
   }
+  const auto retired = engine.advance();
+  CHECK(retired.has_value(), retired ? "retirement frame advanced" : retired.error().c_str());
+  if (!retired) { return std::nullopt; }
   auto capture = engine.beginCapture();
   CHECK(capture.has_value() && engine.settled(outshine::WorldQuality::Refined),
         "paced advance publishes a refined capturable world");
   if (!capture || !engine.settled(outshine::WorldQuality::Refined)) { return std::nullopt; }
+  const auto peakBytes = Measure(engine, "ground candidate: direct CPU product peak");
+  const auto retainedBytes =
+      Measure(engine, "ground candidate: CPU products retained for retirement");
+  const auto retirementMs = Measure(engine, "ground retirement time, most");
+  CHECK(peakBytes && retainedBytes && *retainedBytes < *peakBytes,
+        "completed earthworks release their scratch storage before publication");
+  CHECK(retirementMs && *retirementMs >= 0.0,
+        "published candidate storage enters bounded retirement on the next frame");
   ProductSignature signature{};
   for (size_t at = 0; at < kProductMeasures.size(); ++at) {
     const auto measured = Measure(engine, kProductMeasures[at]);

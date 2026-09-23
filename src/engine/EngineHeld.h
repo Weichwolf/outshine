@@ -236,6 +236,7 @@ struct Surrounds {
   GroundPublication GroundPublished;
   std::optional<GroundRevision> RequestedRefinedGround;
   std::unique_ptr<GroundBuildState> GroundBuild;
+  std::unique_ptr<GroundBuildState> GroundRetirement;
   size_t GroundCandidates = 0;
 
   TilePieces Pieces;
@@ -337,6 +338,7 @@ struct Spent {
   Counter GroundBuildBegin;
   Counter GroundBuildCreate;
   Counter GroundBuildPrepare;
+  Counter GroundRetirement;
   std::array<Counter, kGroundPhaseCount> GroundPhases;
   Counter Crowns;
   double StreamedMs = 0.0;
@@ -475,6 +477,8 @@ struct Engine::State {
                                         int finestZoom);
   void ReportGroundPlacements();
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded, GroundQuality quality);
+  [[nodiscard]] bool AdvancesGroundRetirement();
+  [[nodiscard]] bool GroundInputsReady(GroundQuality quality) const;
   [[nodiscard]] bool Asks();
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);

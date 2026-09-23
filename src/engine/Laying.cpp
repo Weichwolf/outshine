@@ -241,6 +241,8 @@ public:
     Pressing_ = std::move(pressing);
   }
 
+  void FinishesPressing() noexcept { Pressing_.reset(); }
+
   void SamplesPressingSlice(double milliseconds) noexcept {
     LongestPressingSliceMs_ = std::max(LongestPressingSliceMs_, milliseconds);
   }
@@ -278,6 +280,33 @@ public:
   }
 
   [[nodiscard]] size_t ProductPeakBytes() const noexcept { return ProductPeakBytes_; }
+
+  [[nodiscard]] size_t RetainedProductBytes() const noexcept { return CurrentProductBytes(); }
+
+  [[nodiscard]] size_t RetainedCandidateBytes() const noexcept {
+    return Candidate_.Products().OwnedHeapBytes();
+  }
+
+  [[nodiscard]] size_t RetainedPatchworkBytes() const noexcept {
+    return Patchwork_ ? Patchwork_->HeapBytes() : 0u;
+  }
+
+  [[nodiscard]] size_t RetainedMeshBytes() const noexcept {
+    return Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
+           Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
+           InitialMeshing_.Mesh.PositionsM.capacity() * sizeof(float) +
+           InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t);
+  }
+
+  [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept {
+    if (Patchwork_) {
+      const size_t count = std::min(sheetsMost, Patchwork_->Sheets.size());
+      for (size_t released = 0; released < count; ++released) { Patchwork_->Sheets.pop_back(); }
+      if (!Patchwork_->Sheets.empty()) { return false; }
+      Patchwork_.reset();
+    }
+    return true;
+  }
 
   void SamplesProductPeak() noexcept { RecordsProductPeak(); }
 
@@ -364,7 +393,7 @@ public:
   }
 
 private:
-  void RecordsProductPeak() noexcept {
+  [[nodiscard]] size_t CurrentProductBytes() const noexcept {
     const size_t phaseBytes = (Patchwork_ ? Patchwork_->HeapBytes() : 0u) +
                               Corridors_.capacity() * sizeof(Yields) +
                               Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
@@ -374,8 +403,11 @@ private:
                               (Pressing_ ? Pressing_->HeapBytes() : 0u);
     size_t corridorBytes = 0;
     for (const Yields &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
-    ProductPeakBytes_ = std::max(
-        ProductPeakBytes_, Candidate_.Products().OwnedHeapBytes() + phaseBytes + corridorBytes);
+    return Candidate_.Products().OwnedHeapBytes() + phaseBytes + corridorBytes;
+  }
+
+  void RecordsProductPeak() noexcept {
+    ProductPeakBytes_ = std::max(ProductPeakBytes_, CurrentProductBytes());
   }
 
   Around Coverage_;
@@ -1007,6 +1039,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
   state.SamplesProductPeak();
   if (!completed) { return true; }
   const Generators::PressedTerrain pressed_ = state.Pressing()->Take();
+  state.FinishesPressing();
   Published.Places("ground: pressing gather", pressed_.GatherMs, "ms");
   Published.Places("ground: pressing decide", pressed_.DecideMs, "ms");
   Published.Places("ground: pressing buckets", pressed_.BucketMs, "ms");
@@ -1884,13 +1917,29 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
   return true;
 }
 
+bool Engine::State::AdvancesGroundRetirement() {
+  if (!World.GroundRetirement) { return true; }
+  const auto retirementAt = std::chrono::steady_clock::now();
+  const bool retired = World.GroundRetirement->AdvancesRetirement(kGroundRestorePagesPerFrame);
+  if (retired) { World.GroundRetirement.reset(); }
+  Cost.GroundRetirement.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retirementAt)
+          .count());
+  return retired;
+}
+
+bool Engine::State::GroundInputsReady(GroundQuality quality) const {
+  return Session.Declared.Ground.Declared && Picture.Standing != nullptr && World.Stack.Opened() &&
+         GroundSourcesReady(World.Stack, quality);
+}
+
 bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   static const Heap::Tag kLayingTag("world-ground");
   const Heap::Tagged laying(kLayingTag);
+  if (!AdvancesGroundRetirement()) { return true; }
+  if (!GroundInputsReady(quality)) { return true; }
   auto phaseAt = std::chrono::steady_clock::now();
   const Scenario::Document &declared = Session.Declared;
-  if (!declared.Ground.Declared || !Picture.Standing || !World.Stack.Opened()) { return true; }
-  if (!GroundSourcesReady(World.Stack, quality)) { return true; }
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
 
@@ -1988,6 +2037,12 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
       "ground candidate: publication",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
+  const GroundWorldCandidate::PublicationMetrics &publication = candidate.Publication();
+  Published.Places("ground publication: world owner swap", publication.WorldMs, "ms");
+  Published.Places("ground publication: CPU products", publication.ProductsMs, "ms");
+  Published.Places("ground publication: pieces", publication.PiecesMs, "ms");
+  Published.Places("ground publication: resource binding", publication.BindingMs, "ms");
+  Published.Places("ground publication: revision", publication.RevisionMs, "ms");
   Published.Places("ground publication: quality",
                    state.Revision().Quality == GroundQuality::Refined ? 1.0 : 0.0,
                    "0=playable 1=refined");
@@ -1998,7 +2053,20 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   Published.Places("ground candidate: direct CPU product peak",
                    static_cast<double>(state.ProductPeakBytes()),
                    "bytes");
-  World.GroundBuild.reset();
+  Published.Places("ground candidate: CPU products retained for retirement",
+                   static_cast<double>(state.RetainedProductBytes()),
+                   "bytes");
+  Published.Places("ground candidate: candidate products retained for retirement",
+                   static_cast<double>(state.RetainedCandidateBytes()),
+                   "bytes");
+  Published.Places("ground candidate: patchwork retained for retirement",
+                   static_cast<double>(state.RetainedPatchworkBytes()),
+                   "bytes");
+  Published.Places("ground candidate: mesh products retained for retirement",
+                   static_cast<double>(state.RetainedMeshBytes()),
+                   "bytes");
+  assert(!World.GroundRetirement);
+  World.GroundRetirement = std::move(World.GroundBuild);
   Published.Places(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");
   Published.Places("rebuild: standing render plan", Picture.Standing->PlanMs(), "ms");

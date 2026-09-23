@@ -3,6 +3,7 @@
 
 #include "EngineHeld.h"
 #include "WorldCandidate.h"
+#include <chrono>
 #include <expected>
 #include <limits>
 #include <memory>
@@ -38,6 +39,14 @@ struct GroundBuildProducts {
 
 class GroundWorldCandidate {
 public:
+  struct PublicationMetrics {
+    double WorldMs = 0.0;
+    double ProductsMs = 0.0;
+    double PiecesMs = 0.0;
+    double BindingMs = 0.0;
+    double RevisionMs = 0.0;
+  };
+
   GroundWorldCandidate(
       Render::SceneRenderer &renderer,
       const Surrounds &world,
@@ -66,6 +75,8 @@ public:
   GroundWorldCandidate &operator=(GroundWorldCandidate &&) = delete;
 
   [[nodiscard]] GroundBuildProducts &Products() noexcept { return Products_; }
+
+  [[nodiscard]] const GroundBuildProducts &Products() const noexcept { return Products_; }
 
   void Grounding(const Vec3 &albedo) { World_.Grounding(albedo); }
 
@@ -99,6 +110,10 @@ public:
 
   [[nodiscard]] bool GroundGeometryBuildActive() const noexcept {
     return World_.GeometryBuildActive();
+  }
+
+  [[nodiscard]] const PublicationMetrics &Publication() const noexcept {
+    return PublicationMetrics_;
   }
 
   [[nodiscard]] bool SetGroundClasses(std::span<const uint32_t> words,
@@ -150,7 +165,13 @@ public:
     if (!world.GroundPublished.CanPublish()) {
       return std::unexpected("a capture holds the published ground");
     }
+    PublicationMetrics_ = {};
+    auto phaseAt = std::chrono::steady_clock::now();
     if (auto publishedWorld = World_.Publish(published); !publishedWorld) { return publishedWorld; }
+    PublicationMetrics_.WorldMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
+            .count();
+    phaseAt = std::chrono::steady_clock::now();
     footprints = std::move(Products_.Footprints);
     world.Sheets = std::move(Products_.Sheets);
     world.GroundPositionsM = std::move(Products_.PositionsM);
@@ -158,13 +179,28 @@ public:
     world.Network = std::move(Products_.Network);
     world.NetworkOfWays = Products_.NetworkOfWays;
     world.RimsMissing = Products_.RimsMissing;
+    PublicationMetrics_.ProductsMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
+            .count();
+    phaseAt = std::chrono::steady_clock::now();
     world.Pieces = std::move(Products_.Pieces);
     world.Pieces.Wears(Products_.Surfaces);
+    PublicationMetrics_.PiecesMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
+            .count();
+    phaseAt = std::chrono::steady_clock::now();
     world.BindSceneResources(World_.Renderer());
+    PublicationMetrics_.BindingMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
+            .count();
+    phaseAt = std::chrono::steady_clock::now();
     if (!world.GroundPublished.Publish(revision)) {
       return std::unexpected("a capture holds the published ground");
     }
     ++world.Relaid;
+    PublicationMetrics_.RevisionMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
+            .count();
     return {};
   }
 
@@ -175,6 +211,7 @@ private:
   size_t NextHeightPage_ = 0;
   bool WorldPrepared_ = false;
   bool Prepared_ = false;
+  PublicationMetrics PublicationMetrics_;
   static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
   static_assert(std::is_nothrow_move_assignable_v<Ground::BuildingField>);
   static_assert(std::is_nothrow_move_assignable_v<TilePieces>);

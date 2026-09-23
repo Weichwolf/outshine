@@ -90,22 +90,17 @@ Use internal contracts for equivalence and public API end to end. Add no second 
 3. Continue the longest over-budget unit by tile/row/batch, preserving topology and
    stable reduction order. Whole named phases are not automatically bounded units.
    Test cancellation, stale completion, submission failure and retry; publication once.
-   `ClusterCookJob` and `ShapeCookJob` preserve exact products under varied budgets;
-   the candidate now drives them at 262144 items/advance. Rosenheim keeps digest
-   8e6642f9; shape completion reshapes for 0.000 ms and the longest geometry slice is
-   the remaining 11.94 ms final material/GPU bind. Split that without partial publish.
-   Review through 21342822f: `PressPointsJob` now completes global rejection before
-   applying any height changes, retaining cursors and decisions. Preserve that rule.
-   `HaloBuildJob` cuts the 130.19 ms whole-set pass to 3.09 ms. Shared height fields
-   cut structure resolution from 39.57 to 2.00 ms; atomic tile swaps cut transfer
-   from 52.62 to 2.38 ms. `TerrainRefinementJob` preserves exact patches at budgets
-   1/2/7 and cuts 69.02 to 11.46 ms. Driven/generated part ownership is now explicit:
-   zero is a real boundary, repeated ground builds retain authored parts and replace
-   obsolete generated parts. Shadow-caster selection is independent of that boundary.
-   Immutable height-page CPU payloads are shared; GPU restore advances 64 pages/frame.
-   A unit budget restores exactly one page. Rosenheim stays 8e6642f9; preparation falls
-   from 20.48–21.59 to 10.08 ms, world worst is 21.57 ms and 7/3309 frames exceed budget.
-   Next split the observed 17.83 ms publication slice without exposing partial resources.
+   Existing cook/refinement/halo jobs preserve exact products under varied budgets.
+   Shared height fields and atomic tile swaps bound structure work. Driven/generated
+   ownership is explicit; shadow casting is independent. Height-page CPU payloads are
+   shared and GPU restore advances 64 pages/frame. The supposed 17.83 ms publication
+   cost did not reproduce: its substeps total 0.29 ms. Instrumentation instead found
+   120.72 MB retained through publication, including a completed 110 MB `TerrainPressJob`.
+   Release that scratch at its last use. Retire the remaining 10.52 MB/2122 Patchwork
+   sheets at 64 per frame; measured retirement is at most 0.009 ms. Rosenheim remains
+   8e6642f9, p99 6.98 ms, with 6/3333 frames over budget. The next measured offender is
+   sheet refinement at 13.59 ms; world worst remains 20.05 ms. Split its completion
+   work while preserving the existing budget-equivalence oracle and exact digest.
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.
 Expected image: unchanged completed world, no partial terrain/contact revision;
