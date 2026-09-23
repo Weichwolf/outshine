@@ -20,7 +20,7 @@ int main() {
                                   .SourceId = "osm",
                                   .Revision = "vector-a"};
   const BuildingField::Baked empty;
-  field.PreparesAcceptances({.Tiles = 1, .LargestTile = 7});
+  field.PreparesAcceptances({.Tiles = 1});
   field.Take(7);
   auto pending = field.PrepareAcceptance(7, empty, std::span(&source, 1), true, vector);
   CHECK(field.InputOfTile(7) == nullptr,

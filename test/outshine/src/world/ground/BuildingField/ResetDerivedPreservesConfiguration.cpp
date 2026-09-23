@@ -38,6 +38,7 @@ int main() {
                                      .AcrossM = across,
                                      .Triangles = 12,
                                      .OsmHeights = 1};
+    field.PreparesAcceptances({.Prints = 1, .Spread = 1, .Across = 1, .Tiles = 1});
     auto pending = field.PrepareAcceptance(0, baked);
     CHECK(field.Footprints().empty() && field.Revision() == before,
           "prepared acceptance does not publish footprints");

@@ -335,7 +335,6 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   size_t printCount = 0;
   size_t spreadCount = 0;
   size_t acrossCount = 0;
-  uint32_t largestTile = 0;
   while (count < most && count < Queue_.size()) {
     QueuedBuild &bake = Queue_[count];
     if (!bake.Finished || !bake.Revision.Matches(*vectors, prints, eye, heightSource, heights)) {
@@ -351,18 +350,14 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
     printCount += baked.Prints.size();
     spreadCount += baked.SeatSpreadM.size();
     acrossCount += baked.AcrossM.size();
-    largestTile = std::max(largestTile, bake.Task.Tile());
     ++count;
   }
   if (count == 0) { return landings; }
   IdleRaw_.reserve(IdleRaw_.size() + count);
   IdleOut_.reserve(IdleOut_.size() + count);
   IdleScratch_.reserve(IdleScratch_.size() + count);
-  prints.PreparesAcceptances({.Prints = printCount,
-                              .Spread = spreadCount,
-                              .Across = acrossCount,
-                              .Tiles = count,
-                              .LargestTile = largestTile});
+  prints.PreparesAcceptances(
+      {.Prints = printCount, .Spread = spreadCount, .Across = acrossCount, .Tiles = count});
   landings.reserve(count);
   for (size_t at = 0; at < count; ++at) {
     const QueuedBuild &bake = Queue_[at];

@@ -16,7 +16,6 @@
 #include "Capacity.h"
 #include <Earth.h>
 #include "StructureMesher.h"
-#include "TileRanges.h"
 #include "TileWatermark.h"
 
 #include <scene/LevelOfDetail.h>
@@ -54,7 +53,6 @@ public:
     size_t Spread = 0;
     size_t Across = 0;
     size_t Tiles = 0;
-    uint32_t LargestTile = 0;
   };
 
   struct AcceptedInput {
@@ -137,6 +135,7 @@ public:
   void PreparesAcceptances(AcceptanceCapacity capacity);
   void
   CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
+  void ReplaceAcceptance(PendingAcceptance pending, const Baked &baked) noexcept;
 
   [[nodiscard]] size_t TrianglesHanded() const { return TrianglesHanded_; }
 
@@ -148,8 +147,11 @@ public:
 
   [[nodiscard]] std::span<const Footprint> OfTile(int tile) const {
     if (tile < 0) { return {}; }
-    const TileRanges::Range r = ByTile_.At(static_cast<uint32_t>(tile));
-    return {Prints_.data() + r.First, r.Count};
+    const auto at = std::ranges::lower_bound(AcceptedTiles_, static_cast<uint32_t>(tile));
+    if (at == AcceptedTiles_.end() || *at != static_cast<uint32_t>(tile)) { return {}; }
+    const Range r = Products_[static_cast<size_t>(at - AcceptedTiles_.begin())].Prints;
+    return r.Count == 0 ? std::span<const Footprint>{}
+                        : std::span<const Footprint>{Prints_.data() + r.First, r.Count};
   }
 
   [[nodiscard]] const AcceptedInput *InputOfTile(uint32_t tile) const noexcept {
@@ -172,6 +174,7 @@ public:
     Prints_.shrink_to_fit();
     AcceptedTiles_.shrink_to_fit();
     AcceptedInputs_.shrink_to_fit();
+    Products_.shrink_to_fit();
   }
 
   [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const noexcept;
@@ -184,7 +187,7 @@ public:
 
   [[nodiscard]] size_t HeapBytes() const {
     size_t bytes = CapacityBytes(Prints_) + CapacityBytes(AcceptedTiles_) +
-                   CapacityBytes(AcceptedInputs_) + Mark_.HeapBytes() + ByTile_.HeapBytes() +
+                   CapacityBytes(AcceptedInputs_) + CapacityBytes(Products_) + Mark_.HeapBytes() +
                    MeasurementBytes();
     for (const AcceptedInput &input : AcceptedInputs_) {
       if (input.Vector) {
@@ -205,13 +208,28 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
+  struct Range {
+    size_t First = 0;
+    size_t Count = 0;
+  };
+
+  struct TileProduct {
+    Range Prints;
+    Range Spread;
+    Range Across;
+    size_t Triangles = 0;
+    int OsmHeights = 0;
+    int DefaultHeights = 0;
+    int Fronted = 0;
+  };
+
   uint64_t Revision_ = 0;
   std::vector<Footprint> Prints_;
   std::vector<uint32_t> AcceptedTiles_;
   std::vector<AcceptedInput> AcceptedInputs_;
+  std::vector<TileProduct> Products_;
   size_t TrianglesHanded_ = 0;
   size_t Taken_ = 0, Accepted_ = 0;
-  TileRanges ByTile_;
   TileWatermark Mark_;
   double FocalPx_ = 0.0;
   double TileSpanM_ = 0.0;

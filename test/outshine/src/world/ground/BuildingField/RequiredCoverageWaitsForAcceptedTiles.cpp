@@ -33,6 +33,7 @@ int main() {
   CHECK(!snapshot.Ingested(vectors) && !snapshot.IngestedWithin(vectors, 0),
         "unfinished source tile is not accepted by the candidate snapshot");
   const BuildingField::Baked empty;
+  field.PreparesAcceptances({.Tiles = 1});
   auto pending = field.PrepareAcceptance(tile, empty);
   field.CommitAcceptance(std::move(pending), vectors, empty);
   CHECK(field.IngestedWithin(vectors, 0),
