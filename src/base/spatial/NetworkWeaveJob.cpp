@@ -111,7 +111,8 @@ std::expected<void, std::string> NetworkWeaveJob::IndexEdges(size_t itemsMost) {
         .Ends = ends,
         .Row = Network_.RowOver(std::min(a.LatitudeDeg, b.LatitudeDeg), Snap{.CellM = TieReachM_}),
         .LastRow =
-            Network_.RowOver(std::max(a.LatitudeDeg, b.LatitudeDeg), Snap{.CellM = TieReachM_})};
+            Network_.RowOver(std::max(a.LatitudeDeg, b.LatitudeDeg), Snap{.CellM = TieReachM_}),
+        .Shape = std::nullopt};
   }
   return {};
 }

@@ -51,55 +51,100 @@ std::expected<NetworkCrossingJob, std::string_view> NetworkCrossingJob::Begin(Ne
   job.Grid_ = *grid;
   job.Statistics_.GridMs = phaseMs();
 
-  std::vector<uint32_t> holds(job.Grid_.Cells + 1u, 0);
-  const auto squareOf = [&job](double longitudeDeg, double latitudeDeg) {
-    return Network::SquareIn(
-        job.Grid_, job.Span_, {.LongitudeDeg = longitudeDeg, .LatitudeDeg = latitudeDeg});
-  };
-  const auto overSquares = [&job, &squareOf](size_t segment, auto &&visit) {
-    const size_t first = job.SegmentAt_[segment];
-    const double lowLongitude = std::fmin(job.LongitudeDeg_[first], job.LongitudeDeg_[first + 1]);
-    const double highLongitude = std::fmax(job.LongitudeDeg_[first], job.LongitudeDeg_[first + 1]);
-    const double lowLatitude =
-        std::fmin(job.Network_.Points_[2 * first], job.Network_.Points_[2 * first + 2]);
-    const double highLatitude =
-        std::fmax(job.Network_.Points_[2 * first], job.Network_.Points_[2 * first + 2]);
-    const uint32_t from = squareOf(lowLongitude, lowLatitude);
-    const uint32_t to = squareOf(highLongitude, highLatitude);
-    const auto wide = static_cast<uint32_t>(job.Grid_.Wide);
-    for (uint32_t y = from / wide; y <= to / wide; ++y) {
-      for (uint32_t x = from % wide; x <= to % wide; ++x) {
-        visit(static_cast<uint32_t>(y * job.Grid_.Wide + x));
-      }
-    }
-  };
-
-  for (size_t segment = 0; segment < segments; ++segment) {
-    overSquares(segment, [&holds](uint32_t square) { ++holds[static_cast<size_t>(square) + 1u]; });
-  }
-  for (size_t cell = 0; cell < job.Grid_.Cells; ++cell) { holds[cell + 1u] += holds[cell]; }
-  std::vector<uint32_t> filled(holds.begin(), holds.end() - 1);
-  job.FiledInCell_.assign(holds[job.Grid_.Cells], Network::Filed{});
-  for (size_t segment = 0; segment < segments; ++segment) {
-    const size_t first = job.SegmentAt_[segment];
-    const Network::Filed filed{.Seg = static_cast<uint32_t>(segment),
-                               .Way = job.SegmentWay_[segment],
-                               .Ax = job.LongitudeDeg_[first],
-                               .Ay = job.Network_.Points_[2 * first],
-                               .Bx = job.LongitudeDeg_[first + 1],
-                               .By = job.Network_.Points_[2 * first + 2]};
-    overSquares(segment, [&job, &filled, filed](uint32_t square) {
-      job.FiledInCell_[filled[square]++] = filed;
-    });
-  }
-  for (size_t cell = 0; cell < job.Grid_.Cells; ++cell) {
-    const size_t held = holds[cell + 1u] - holds[cell];
-    job.Statistics_.FullestCell = std::max(held, job.Statistics_.FullestCell);
-    job.Statistics_.CandidatePairs += held * (held - static_cast<size_t>(held > 0)) / 2;
-  }
-  job.CellStarts_ = std::move(holds);
+  job.Holds_.assign(job.Grid_.Cells + 1u, 0);
   job.Statistics_.FilingMs = phaseMs();
   return job;
+}
+
+NetworkCrossingJob::SquareCursor NetworkCrossingJob::SquaresOf(size_t segment) const {
+  const size_t first = SegmentAt_[segment];
+  const double lowLongitude = std::fmin(LongitudeDeg_[first], LongitudeDeg_[first + 1]);
+  const double highLongitude = std::fmax(LongitudeDeg_[first], LongitudeDeg_[first + 1]);
+  const double lowLatitude =
+      std::fmin(Network_.Points_[2 * first], Network_.Points_[2 * first + 2]);
+  const double highLatitude =
+      std::fmax(Network_.Points_[2 * first], Network_.Points_[2 * first + 2]);
+  const uint32_t from =
+      Network::SquareIn(Grid_, Span_, {.LongitudeDeg = lowLongitude, .LatitudeDeg = lowLatitude});
+  const uint32_t to =
+      Network::SquareIn(Grid_, Span_, {.LongitudeDeg = highLongitude, .LatitudeDeg = highLatitude});
+  const auto wide = static_cast<uint32_t>(Grid_.Wide);
+  return {.FirstX = from % wide,
+          .LastX = to % wide,
+          .LastY = to / wide,
+          .X = from % wide,
+          .Y = from / wide,
+          .Filed = {.Seg = static_cast<uint32_t>(segment),
+                    .Way = SegmentWay_[segment],
+                    .Ax = LongitudeDeg_[first],
+                    .Ay = Network_.Points_[2 * first],
+                    .Bx = LongitudeDeg_[first + 1],
+                    .By = Network_.Points_[2 * first + 2]}};
+}
+
+void NetworkCrossingJob::AdvanceSquares(size_t itemsMost) {
+  size_t visited = 0;
+  while (NextSegment_ < SegmentAt_.size() && visited < itemsMost) {
+    if (!SquareCursor_) {
+      SquareCursor_ = SquaresOf(NextSegment_);
+      ++visited;
+      continue;
+    }
+    SquareCursor &cursor = *SquareCursor_;
+    if (cursor.Y > cursor.LastY || cursor.X > cursor.LastX) {
+      SquareCursor_.reset();
+      ++NextSegment_;
+      continue;
+    }
+    const size_t square = static_cast<size_t>(cursor.Y) * Grid_.Wide + cursor.X;
+    if (Stage_ == Stage::CountCells) {
+      ++Holds_[square + 1u];
+    } else {
+      FiledInCell_[Filled_[square]++] = cursor.Filed;
+    }
+    ++visited;
+    if (cursor.X == cursor.LastX) {
+      if (cursor.Y == cursor.LastY) {
+        SquareCursor_.reset();
+        ++NextSegment_;
+      } else {
+        cursor.X = cursor.FirstX;
+        ++cursor.Y;
+      }
+    } else {
+      ++cursor.X;
+    }
+  }
+  if (NextSegment_ == SegmentAt_.size()) {
+    NextSegment_ = 0;
+    Stage_ = Stage_ == Stage::CountCells ? Stage::PrefixCells : Stage::CountPairs;
+  }
+}
+
+void NetworkCrossingJob::PrefixCells(size_t itemsMost) {
+  const size_t end = NextSetupCell_ + std::min(itemsMost, Grid_.Cells - NextSetupCell_);
+  for (; NextSetupCell_ < end; ++NextSetupCell_) {
+    Holds_[NextSetupCell_ + 1u] += Holds_[NextSetupCell_];
+  }
+  if (NextSetupCell_ == Grid_.Cells) { Stage_ = Stage::AllocateCells; }
+}
+
+void NetworkCrossingJob::AllocateCells() {
+  Filled_.assign(Holds_.begin(), Holds_.end() - 1);
+  FiledInCell_.assign(Holds_[Grid_.Cells], Network::Filed{});
+  CellStarts_ = std::move(Holds_);
+  NextSetupCell_ = 0;
+  Stage_ = Stage::FillCells;
+}
+
+void NetworkCrossingJob::CountPairs(size_t itemsMost) {
+  const size_t end = NextSetupCell_ + std::min(itemsMost, Grid_.Cells - NextSetupCell_);
+  for (; NextSetupCell_ < end; ++NextSetupCell_) {
+    const size_t held = CellStarts_[NextSetupCell_ + 1u] - CellStarts_[NextSetupCell_];
+    Statistics_.FullestCell = std::max(held, Statistics_.FullestCell);
+    Statistics_.CandidatePairs += held * (held - static_cast<size_t>(held > 0)) / 2;
+  }
+  if (NextSetupCell_ == Grid_.Cells) { Stage_ = Stage::TestPairs; }
 }
 
 void NetworkCrossingJob::TestPairs(size_t pairsMost) {
@@ -164,9 +209,16 @@ void NetworkCrossingJob::Publish() {
 
 std::expected<bool, std::string_view> NetworkCrossingJob::Advance(size_t pairsMost) {
   if (pairsMost == 0) { return std::unexpected("network crossing pair budget is zero"); }
+  constexpr size_t kSetupItemsPerAdvance = 512;
+  const size_t setupItemsMost = std::min(pairsMost, kSetupItemsPerAdvance);
   const auto began = std::chrono::steady_clock::now();
   const Stage before = Stage_;
   switch (Stage_) {
+    case Stage::CountCells: AdvanceSquares(setupItemsMost); break;
+    case Stage::PrefixCells: PrefixCells(setupItemsMost); break;
+    case Stage::AllocateCells: AllocateCells(); break;
+    case Stage::FillCells: AdvanceSquares(setupItemsMost); break;
+    case Stage::CountPairs: CountPairs(setupItemsMost); break;
     case Stage::TestPairs: TestPairs(pairsMost); break;
     case Stage::Publish: Publish(); break;
     case Stage::Done: return true;
@@ -174,6 +226,14 @@ std::expected<bool, std::string_view> NetworkCrossingJob::Advance(size_t pairsMo
   const double elapsedMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   switch (before) {
+    case Stage::CountCells:
+    case Stage::PrefixCells:
+    case Stage::AllocateCells:
+    case Stage::FillCells:
+    case Stage::CountPairs:
+      Worst_.SetupMs = std::max(Worst_.SetupMs, elapsedMs);
+      Statistics_.FilingMs += elapsedMs;
+      break;
     case Stage::TestPairs: Worst_.TestMs = std::max(Worst_.TestMs, elapsedMs); break;
     case Stage::Publish: Worst_.PublishMs = std::max(Worst_.PublishMs, elapsedMs); break;
     case Stage::Done: break;

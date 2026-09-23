@@ -531,6 +531,7 @@ private:
 class NetworkCrossingJob {
 public:
   struct SliceWorst {
+    double SetupMs = 0.0;
     double TestMs = 0.0;
     double PublishMs = 0.0;
   };
@@ -552,8 +553,32 @@ public:
   [[nodiscard]] SliceWorst LongestSlices() const noexcept { return Worst_; }
 
 private:
-  enum class Stage : uint8_t { TestPairs, Publish, Done };
+  enum class Stage : uint8_t {
+    CountCells,
+    PrefixCells,
+    AllocateCells,
+    FillCells,
+    CountPairs,
+    TestPairs,
+    Publish,
+    Done
+  };
   explicit NetworkCrossingJob(Network &&network);
+
+  struct SquareCursor {
+    uint32_t FirstX = 0;
+    uint32_t LastX = 0;
+    uint32_t LastY = 0;
+    uint32_t X = 0;
+    uint32_t Y = 0;
+    Network::Filed Filed;
+  };
+
+  [[nodiscard]] SquareCursor SquaresOf(size_t segment) const;
+  void AdvanceSquares(size_t itemsMost);
+  void PrefixCells(size_t itemsMost);
+  void AllocateCells();
+  void CountPairs(size_t itemsMost);
   void TestPairs(size_t pairsMost);
   void Publish();
 
@@ -561,17 +586,22 @@ private:
   std::vector<double> LongitudeDeg_;
   std::vector<uint32_t> SegmentWay_;
   std::vector<uint32_t> SegmentAt_;
+  std::vector<uint32_t> Holds_;
+  std::vector<uint32_t> Filled_;
   std::vector<uint32_t> CellStarts_;
   std::vector<Network::Filed> FiledInCell_;
   std::vector<Network::Crossing> Found_;
   Network::Spanned Span_;
   Network::Gridded Grid_;
   Network::Swept Statistics_;
+  size_t NextSegment_ = 0;
+  size_t NextSetupCell_ = 0;
+  std::optional<SquareCursor> SquareCursor_;
   size_t NextCell_ = 0;
   uint32_t NextOne_ = 0;
   uint32_t NextTwo_ = 0;
   SliceWorst Worst_;
-  Stage Stage_ = Stage::TestPairs;
+  Stage Stage_ = Stage::CountCells;
 };
 
 class NetworkElevationJob {

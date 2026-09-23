@@ -1545,6 +1545,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
   Published.Places("network: longest weave publish slice", mapped.WeaveSlices.PublishMs, "ms");
   Published.Places("network: classifying crossings", mapped.CrossingsMs, "ms");
   Published.Places("network: longest crossing slice", mapped.CrossingsLongestMs, "ms");
+  Published.Places("network: longest crossing setup slice", mapped.CrossingSlices.SetupMs, "ms");
   Published.Places("network: longest crossing pair slice", mapped.CrossingSlices.TestMs, "ms");
   Published.Places("network: crossing publication", mapped.CrossingSlices.PublishMs, "ms");
   Published.Places("network: crossing point span", mapped.CrossingSweep.SpanMs, "ms");

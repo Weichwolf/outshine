@@ -61,17 +61,19 @@ crossing pair slice is 2.852 ms. A long edge previously indexed thousands of
 cells in one advance; a cell cursor now bounds that work. Measured single-cell
 hashmap rehash cost 14.70 ms and full edge-set clearing 15.01 ms. The cell
 index now has 256 fixed shards and set release is staged. Wien remains
-`2fc0aec4`, reaches Refined in 3,740 advances, p99 9.98 ms and peak heap
-1,103 MB. Its longest edge-index slice is 3.516 ms, release 0.208 ms,
-crossing setup 7.977 ms, with 10 frames over 16.67 ms. Malcesine remains
-`07ca3a25`, p99 9.93 ms, zero late frames. The PNGs were opened: graph work
-does not change the roads, river or building masses; their low-detail look is
-tracked by visual WIs.
+`2fc0aec4`; its longest edge-index slice is 3.516 ms, release 0.208 ms.
+Crossing setup now counts, prefixes, allocates and fills cells in separate
+bounded phases, including a cursor within a long segment. At 131,072 pairs
+per pair slice, Wien reaches Refined in 4,242 advances, p99 9.78 ms, peak
+heap 1,098 MB; setup worst 2.298 ms, pair worst 3.428 ms. Its remaining
+network worst is adjacency at 5.708 ms; 10 whole frames exceed 16.67 ms.
+Malcesine remains `07ca3a25`, p99 10.20 ms and zero late frames. The PNGs
+were opened: graph work does not change roads, river or building masses;
+their low-detail look is tracked by visual WIs.
 
-Next split crossing setup (cell filing 6.706 ms) into bounded work without
-changing graph IDs, edge order or crossing statistics. Identify remaining
-simulation spikes before claiming 720p60; draw spikes are separate. Graph
-source-revision and cancellation tests remain part of this WI's acceptance.
+Next bound adjacency work and identify the remaining simulation spikes
+before claiming 720p60; draw spikes are separate. Graph source-revision and
+cancellation tests remain part of this WI's acceptance.
 
 ## Acceptance
 

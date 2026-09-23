@@ -493,7 +493,7 @@ bool Network::IndexOneEdge(EdgeEnds ends,
 }
 
 size_t Network::EdgesByCell::ShardOf(int64_t key) noexcept {
-  const uint64_t bits = static_cast<uint64_t>(key);
+  const auto bits = static_cast<uint64_t>(key);
   return static_cast<size_t>((bits ^ (bits >> 32u)) & (kShards - 1u));
 }
 
