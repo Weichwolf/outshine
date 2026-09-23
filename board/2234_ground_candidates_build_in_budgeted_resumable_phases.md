@@ -97,10 +97,13 @@ Use internal contracts for equivalence and public API end to end. Add no second 
    cost did not reproduce: its substeps total 0.29 ms. Instrumentation instead found
    120.72 MB retained through publication, including a completed 110 MB `TerrainPressJob`.
    Release that scratch at its last use. Retire the remaining 10.52 MB/2122 Patchwork
-   sheets at 64 per frame; measured retirement is at most 0.009 ms. Rosenheim remains
-   8e6642f9, p99 6.98 ms, with 6/3333 frames over budget. The next measured offender is
-   sheet refinement at 13.59 ms; world worst remains 20.05 ms. Split its completion
-   work while preserving the existing budget-equivalence oracle and exact digest.
+   sheets at 64 per frame; measured retirement is at most 0.088 ms. Rosenheim remains
+   8e6642f9. Refinement attribution: 100 sources, 12.904 ms for a 16-source slice,
+   0.917 ms for one source, 0.207 ms for deduplication plus replacement. Eight sources
+   per advance cut the longest selection to 6.346 ms and the whole phase to 7.114 ms;
+   `ceil(100/8)-ceil(100/16)=6` extra advances. In that run p99 was 6.32 ms,
+   6/3336 frames exceeded 16.67 ms, and world worst remained 22.46 ms. Preserve the
+   budget-equivalence oracle and exact digest; next attribute the remaining worst frame.
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.
 Expected image: unchanged completed world, no partial terrain/contact revision;

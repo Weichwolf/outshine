@@ -115,7 +115,7 @@ constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kNetworkItemsPerFrame = 1024;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kHaloNodesPerFrame = 32768;
-constexpr size_t kTerrainRefinementSourcesPerFrame = 16;
+constexpr size_t kTerrainRefinementSourcesPerFrame = 8;
 constexpr size_t kGroundRestorePagesPerFrame = 64;
 
 uint64_t DigestPatchwork(const Patchwork &patchwork) {
@@ -1296,6 +1296,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
     case Core::GroundBuildSchedule::SheetPhase::NeedsRefinement: {
       if (state.RefinementJob() == nullptr) {
         build.Sheets.Framed(standing);
+        Published.Places("ground refinement: source sheets",
+                         static_cast<double>(patchwork.Sheets.size()),
+                         "sheets");
         const Render::Viewpoint &eye = Picture.Standing->Watching();
         Generators::TerrainRefinementDetail detail{.EyeM = eye.EyeM};
         if (eye.Kind == Render::CameraKind::Orthographic) {
@@ -1319,8 +1322,27 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
         return GroundBuildProgress::Failed;
       }
       if (!*refined) { return GroundBuildProgress::Pending; }
+      Published.Places("ground refinement: longest source selection slice",
+                       state.RefinementJob()->LongestSelectionMs(),
+                       "ms");
+      Published.Places(
+          "ground refinement: longest source", state.RefinementJob()->LongestSourceMs(), "ms");
+      Published.Places(
+          "ground refinement: patch deduplication", state.RefinementJob()->DeduplicationMs(), "ms");
+      const auto replacementAt = std::chrono::steady_clock::now();
       patchwork.Sheets = std::move(*state.RefinementJob()).Take();
+      Published.Places("ground refinement: patch replacement",
+                       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
+                                                                 replacementAt)
+                           .count(),
+                       "ms");
+      const auto releaseAt = std::chrono::steady_clock::now();
       state.FinishesRefinement();
+      Published.Places(
+          "ground refinement: job release",
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - releaseAt)
+              .count(),
+          "ms");
       Published.Places("ground: virtual tiles the lattice refines to",
                        static_cast<double>(std::ranges::count_if(
                            patchwork.Sheets, [](const Sheet &sheet) { return sheet.Virtual; })),

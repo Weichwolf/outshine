@@ -168,13 +168,13 @@ int main(void) {
                             "ground candidate: earthworks",
                             "ground candidate: terrain mesh",
                             "ground candidate: water",
-                            "ground candidate: geometry",
+                            "ground candidate: final scene geometry slice",
                             "ground candidate: class upload",
-                            "ground candidate: scene geometry",
+                            "ground candidate: longest scene geometry slice",
                             "ground candidate: publication"}) {
     const double elapsedMs = Measured(told, stage);
     std::printf("STAGE %-31s %8.3f ms\n", stage, elapsedMs);
-    CHECK(elapsedMs >= 0.0, "every resumable ground stage publishes its completion cost");
+    CHECK(elapsedMs >= 0.0, "each listed ground stage or slice publishes its measured cost");
   }
   for (const char *operation : {"rebuild: cutting it into clusters",
                                 "rebuild: of the streams, packing them",

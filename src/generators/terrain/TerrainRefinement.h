@@ -39,6 +39,12 @@ public:
 
   [[nodiscard]] std::vector<Sheet> Take() noexcept;
 
+  [[nodiscard]] double LongestSelectionMs() const noexcept { return LongestSelectionMs_; }
+
+  [[nodiscard]] double LongestSourceMs() const noexcept { return LongestSourceMs_; }
+
+  [[nodiscard]] double DeduplicationMs() const noexcept { return DeduplicationMs_; }
+
 private:
   std::vector<TerrainRefinementSource> Sources_;
   TangentFrame Frame_;
@@ -48,6 +54,9 @@ private:
   size_t NextSource_ = 0;
   std::vector<Sheet> Selected_;
   std::vector<Sheet> Result_;
+  double LongestSelectionMs_ = 0.0;
+  double LongestSourceMs_ = 0.0;
+  double DeduplicationMs_ = 0.0;
   bool Complete_ = false;
 };
 

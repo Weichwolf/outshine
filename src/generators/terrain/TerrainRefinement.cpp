@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -10,6 +11,7 @@
 #include <format>
 #include <limits>
 #include <map>
+#include <ratio>
 #include <span>
 #include <string>
 #include <string_view>
@@ -213,11 +215,25 @@ std::expected<bool, std::string> TerrainRefinementJob::Advance(size_t sourcesMos
   }
   const size_t count = std::min(sourcesMost, Sources_.size() - NextSource_);
   const size_t end = NextSource_ + count;
+  const auto selectionAt = std::chrono::steady_clock::now();
   for (; NextSource_ < end; ++NextSource_) {
+    const auto sourceAt = std::chrono::steady_clock::now();
     SelectSourcePatches(Sources_[NextSource_], Frame_, Layout_, Detail_, Selected_);
+    LongestSourceMs_ = std::max(
+        LongestSourceMs_,
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sourceAt)
+            .count());
   }
+  LongestSelectionMs_ = std::max(
+      LongestSelectionMs_,
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - selectionAt)
+          .count());
   if (NextSource_ < Sources_.size()) { return false; }
+  const auto deduplicationAt = std::chrono::steady_clock::now();
   auto unique = UniquePatches(std::move(Selected_));
+  DeduplicationMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - deduplicationAt)
+          .count();
   if (!unique) { return std::unexpected(std::move(unique.error())); }
   if (unique->size() > MaximumPatches_) {
     return std::unexpected(

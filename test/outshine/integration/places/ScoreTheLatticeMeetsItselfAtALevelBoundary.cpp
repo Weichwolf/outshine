@@ -95,11 +95,11 @@ int main(void) {
                             "ground candidate: earthworks",
                             "ground candidate: terrain mesh",
                             "ground candidate: water",
-                            "ground candidate: geometry",
+                            "ground candidate: longest scene geometry slice",
                             "ground candidate: publication"}) {
     const double elapsedMs = Measured(told, stage);
     std::printf("STAGE %-31s %8.3f ms\n", stage, elapsedMs);
-    CHECK(elapsedMs >= 0.0, "every resumable ground stage publishes its completion cost");
+    CHECK(elapsedMs >= 0.0, "each listed ground stage or slice publishes its measured cost");
   }
   CHECK(Measured(told, "ground candidate: corridor drape field misses") == 0.0,
         "corridors resolve every terrain query through the adaptive DEM fields");
