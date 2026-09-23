@@ -424,11 +424,12 @@ void RecordGeometryDigest(const Shape &subject, SubjectScratch &scratch) {
 
 }
 
-bool Place(SceneRenderer &renderer,
-           const SubjectProxy &proxy,
-           const SubjectView &view,
-           SubjectScratch &scratch,
-           std::string &error) {
+bool PreparePlacement(SceneRenderer &renderer,
+                      const SubjectProxy &proxy,
+                      const SubjectView &view,
+                      SubjectScratch &scratch,
+                      std::string &error) {
+  scratch.PreparedShape = nullptr;
   if (proxy.Shaped() == nullptr) {
     error = "the proxy declares no subject";
     return false;
@@ -465,6 +466,30 @@ bool Place(SceneRenderer &renderer,
     }
   }
 
+  const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
+  scratch.Vertices.resize(subject.VertexCount() * 3u);
+  PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
+  scratch.Metrics.PackingMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packingFrom)
+          .count();
+  RecordGeometryDigest(subject, scratch);
+  scratch.PreparedShape = &subject;
+  return true;
+}
+
+bool SubmitPlacement(SceneRenderer &renderer,
+                     const SubjectProxy &proxy,
+                     SubjectScratch &scratch,
+                     std::string &error) {
+  const Shape *const source = proxy.Shaped();
+  if (source == nullptr || source != scratch.PreparedShape ||
+      scratch.Indices.size() != scratch.Draws.IndexCount() ||
+      scratch.Vertices.size() != source->VertexCount() * 3u) {
+    error = "subject placement no longer matches its prepared geometry";
+    return false;
+  }
+  const Shape &subject = *source;
+
   SubjectMesh mesh;
   const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
   const ChannelPack uv{.From = &subject, .Channel = &ShapePart::Uv, .Wide = 2};
@@ -491,8 +516,6 @@ bool Place(SceneRenderer &renderer,
     mesh.Colours = SubjectStream{.From = nullptr, .Writes = PackChannel, .Carrying = &colours};
   }
   mesh.Emitted = SubjectStream{.From = nullptr, .Writes = PackEmitted, .Carrying = &emitted};
-  scratch.Vertices.resize(subject.VertexCount() * 3u);
-  PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
   mesh.Positions = scratch.Vertices;
   if (!proxy.Previous().empty()) {
     mesh.PrevVerts =
@@ -502,10 +525,6 @@ bool Place(SceneRenderer &renderer,
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = static_cast<uint32_t>(scratch.Indices.size());
   for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = proxy.Anchor()[axis]; }
-  scratch.Metrics.PackingMs =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packingFrom)
-          .count();
-  RecordGeometryDigest(subject, scratch);
   mesh.Draws = &scratch.Draws;
   mesh.Clusters = subject.Clusters;
   mesh.ClusterSpheres = subject.ClusterSpheres;
@@ -523,9 +542,19 @@ bool Place(SceneRenderer &renderer,
   scratch.Metrics.TableUploadMs = stages.TablesMs;
 
   if (!uploaded) { return false; }
+  scratch.PreparedShape = nullptr;
   { std::vector<uint32_t>().swap(scratch.Indices); }
   { std::vector<float>().swap(scratch.Vertices); }
   return Placed(renderer, proxy, error);
+}
+
+bool Place(SceneRenderer &renderer,
+           const SubjectProxy &proxy,
+           const SubjectView &view,
+           SubjectScratch &scratch,
+           std::string &error) {
+  return PreparePlacement(renderer, proxy, view, scratch, error) &&
+         SubmitPlacement(renderer, proxy, scratch, error);
 }
 
 bool Move(SceneRenderer &renderer,

@@ -46,7 +46,9 @@ needed. Maintain existing draw-run order, material slots, cluster jobs, index
 rebasing and geometry digest for an identical source snapshot.
 Separate CPU planning/packing, index upload and vertex/table upload into at
 least three advances; the baseline pack plus index alone can exceed one frame.
-`SubjectDraw`/`SceneRenderer` now expose generation-bound begin/finish calls.
+`SubjectProxy` now separates `PreparePlacement` from `SubmitPlacement`; the
+scene-owned scratch checks Shape identity through submission. `SubjectDraw` and
+`SceneRenderer` expose generation-bound begin/finish calls.
 The paused state retains the prior complete draw; stale tickets fail. The
 focused GPU case checks those contracts, but its linear image is black and is
 not an independent visual oracle. Place and glTF images must prove visibility
@@ -55,8 +57,9 @@ defect remains until its job is paced.
 
 ## Implementation order
 
-1. In `src/render/SubjectProxy.*`, separate stable draw/index planning from
-   per-stream packing. Own callback context or replace it with bounded span
+1. In `src/render/SubjectProxy.*`, keep the extracted draw/index preparation
+   stable while splitting `SubmitPlacement` into index and stream advances.
+   Own callback context or replace it with bounded span
    packing. `RuntimeScene` already owns `Stood_`, `Shaped_` and `Scratch_`; a
    move-only placement job may borrow them for exactly that candidate's life.
    Keep `Scratch_.Draws`, indices and positions fixed from begin through finish:

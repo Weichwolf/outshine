@@ -114,6 +114,7 @@ struct SubjectScratch {
   SubjectTransferMetrics Metrics;
 
   bool Digests = false;
+  const Shape *PreparedShape = nullptr;
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
   std::vector<SubjectLight> Lights;
@@ -138,11 +139,22 @@ struct SubjectScratch {
                            SubjectScratch &scratch,
                            std::string &error);
 
-bool Place(SceneRenderer &renderer,
-           const SubjectProxy &proxy,
-           const SubjectView &view,
-           SubjectScratch &scratch,
-           std::string &error);
+[[nodiscard]] bool PreparePlacement(SceneRenderer &renderer,
+                                    const SubjectProxy &proxy,
+                                    const SubjectView &view,
+                                    SubjectScratch &scratch,
+                                    std::string &error);
+
+[[nodiscard]] bool SubmitPlacement(SceneRenderer &renderer,
+                                   const SubjectProxy &proxy,
+                                   SubjectScratch &scratch,
+                                   std::string &error);
+
+[[nodiscard]] bool Place(SceneRenderer &renderer,
+                         const SubjectProxy &proxy,
+                         const SubjectView &view,
+                         SubjectScratch &scratch,
+                         std::string &error);
 
 [[nodiscard]] bool Move(SceneRenderer &renderer,
                         const SubjectProxy &proxy,
