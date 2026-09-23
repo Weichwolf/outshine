@@ -23,6 +23,9 @@ Runtime handles or arrival order are not source identities.
 `HeightSource = optional<double>(LongitudeLatitude)`; this callback carries no
 identity. `TilePool` now seals `SourceSet` before starting workers; late
 registration is rejected while the pool retains source pointers and caches.
+The candidate `CopyField` callback also synthesizes a 17×17 block when
+`HeightSheets::FieldAt` is absent. `FineOnly` can therefore post a source-less
+height snapshot as if it had copied a fine field.
 
 ## Decision
 
@@ -62,6 +65,9 @@ do not add hot-reload/cache-generation infrastructure without a supported consum
 Do not fabricate a DEM identity for scalar fallback samples: mark their blocks
 unqualified, always replace their structure products when fine fields arrive,
 and exclude them from fine-input equality checks.
+The candidate `CopyField` callback must copy an actual field only. Scalar
+sampling belongs to the explicit Playable fallback path. The FineOnly queue
+gate must defer an unqualified pinned input even if a callback returns it.
 
 The next vertical slice uses `HeightField` as the pinned input owner. It forms
 one sorted unique union of block sources and marks the input qualified only
@@ -94,3 +100,5 @@ WI 2247 compares these records against fresh fine input.
    invalidates the old product even when payload bytes match.
 4. Use independent fixtures and public capture diagnostics. `make format`,
    relevant suites and `make lint` pass. WI 2247 consumes this contract.
+5. With a missing fine field but available scalar sampling, Playable can post
+   fallback work; FineOnly cannot post it or count it as accepted fine input.
