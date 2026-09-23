@@ -6,6 +6,7 @@
 #include "Shape.h"
 #include "Viewing.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <span>
@@ -113,7 +114,21 @@ struct SubjectTransferMetrics {
 };
 
 struct SubjectScratch {
+  struct PackCursor {
+    enum class Phase : uint8_t { Indices, Positions, DigestIndices, DigestChannels, Done };
+    Phase Next = Phase::Indices;
+    size_t Run = 0;
+    size_t RunWord = 0;
+    size_t Part = 0;
+    size_t PartWord = 0;
+    size_t PositionWord = 0;
+    size_t DigestByte = 0;
+    size_t DigestChannel = 0;
+    uint64_t Digest = 0;
+  };
+
   SubjectTransferMetrics Metrics;
+  PackCursor Packing;
 
   bool Digests = false;
   const Shape *PlannedShape = nullptr;
@@ -150,6 +165,9 @@ struct SubjectScratch {
 
 [[nodiscard]] bool
 PackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, std::string &error);
+
+[[nodiscard]] std::expected<bool, std::string>
+AdvancePackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, size_t wordsMost);
 
 [[nodiscard]] bool PreparePlacement(SceneRenderer &renderer,
                                     const SubjectProxy &proxy,

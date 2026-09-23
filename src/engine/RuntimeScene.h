@@ -407,11 +407,11 @@ private:
   [[nodiscard]] bool JoinsSubjects(std::string &error);
   [[nodiscard]] bool StandsSubjects(std::string &error);
   [[nodiscard]] bool Build(std::string &error);
-  [[nodiscard]] std::expected<bool, std::string> AdvanceBuild();
+  [[nodiscard]] std::expected<bool, std::string> AdvanceBuild(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> PlanBuild();
   [[nodiscard]] std::expected<void, std::string> BindBuild();
   [[nodiscard]] std::expected<void, std::string> PrepareBuild();
-  [[nodiscard]] std::expected<void, std::string> PackBuild();
+  [[nodiscard]] std::expected<bool, std::string> PackBuild(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> IndexBuild();
   [[nodiscard]] std::expected<void, std::string> FinishBuild();
   [[nodiscard]] std::expected<void, std::string> FinalizeBuild();

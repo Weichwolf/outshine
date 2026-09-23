@@ -591,7 +591,7 @@ bool RuntimeScene::StandsPlan(std::string &error) {
 bool RuntimeScene::Build(std::string &error) {
   BuildStage_ = GeometryBuildStage::Plan;
   for (;;) {
-    auto advanced = AdvanceBuild();
+    auto advanced = AdvanceBuild(std::numeric_limits<size_t>::max());
     if (!advanced) {
       error = std::move(advanced.error());
       BuildStage_ = GeometryBuildStage::Idle;
@@ -675,14 +675,12 @@ std::expected<void, std::string> RuntimeScene::PrepareBuild() {
   return {};
 }
 
-std::expected<void, std::string> RuntimeScene::PackBuild() {
-  std::string error;
+std::expected<bool, std::string> RuntimeScene::PackBuild(size_t itemsMost) {
   const auto phaseAt = std::chrono::steady_clock::now();
-  const bool packed = Render::PackPlacement(Stood_, Scratch_, error);
+  auto packed = Render::AdvancePackPlacement(Stood_, Scratch_, itemsMost);
   SubmitMs_ +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
-  if (!packed) { return std::unexpected(std::move(error)); }
-  return {};
+  return packed;
 }
 
 std::expected<void, std::string> RuntimeScene::IndexBuild() {
@@ -722,7 +720,7 @@ std::expected<void, std::string> RuntimeScene::FinalizeBuild() {
   return {};
 }
 
-std::expected<bool, std::string> RuntimeScene::AdvanceBuild() {
+std::expected<bool, std::string> RuntimeScene::AdvanceBuild(size_t itemsMost) {
   std::expected<void, std::string> advanced;
   switch (BuildStage_) {
     case GeometryBuildStage::Plan:
@@ -738,10 +736,12 @@ std::expected<bool, std::string> RuntimeScene::AdvanceBuild() {
       advanced = PrepareBuild();
       BuildStage_ = GeometryBuildStage::Pack;
       break;
-    case GeometryBuildStage::Pack:
-      advanced = PackBuild();
-      BuildStage_ = GeometryBuildStage::Index;
-      break;
+    case GeometryBuildStage::Pack: {
+      auto packed = PackBuild(itemsMost);
+      if (!packed) { return std::unexpected(std::move(packed.error())); }
+      if (*packed) { BuildStage_ = GeometryBuildStage::Index; }
+      return false;
+    }
     case GeometryBuildStage::Index:
       advanced = IndexBuild();
       BuildStage_ = GeometryBuildStage::Finish;
@@ -1218,7 +1218,7 @@ std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t items
     return false;
   }
   const GeometryBuildStage stage = BuildStage_;
-  auto advanced = AdvanceBuild();
+  auto advanced = AdvanceBuild(itemsMost);
   const double sliceMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   BuildMs_ += sliceMs;

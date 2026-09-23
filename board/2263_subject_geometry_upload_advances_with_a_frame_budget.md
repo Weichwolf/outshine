@@ -60,12 +60,14 @@ its one-shot path loops over the same stages. The native test compares direct
 and interrupted digests and pixels; the place pacing test passes normally and
 with NDEBUG. Individual upload ranges are still unbounded.
 `GroundBuildState` now gives class upload, geometry admission and cooking
-separate advances. The current Wien capture retains `2fc0aec4`: class upload
-10.78 ms, longest complete geometry slice 15.95 ms, longest inner phase CPU
-packing 10.98 ms. Six of 4471 full frames still exceed 16.67 ms; worst sim
-35.39 ms and draw 78.62 ms require separate attribution. Malcesine remains
-`07ca3a25`, longest geometry slice 1.71 ms. These captures demonstrate a
-reduction, not a guaranteed bound: an earlier class upload took 17.55 ms.
+separate advances. Index, position and optional digest packing now resume with
+an item budget. The direct/interrupted native test matches digest and pixels;
+the place pacing test passes with and without NDEBUG. Current Wien retains
+`2fc0aec4`: longest pack slice 0.79 ms versus 10.98 ms before, but the 50.7 MB
+class upload reached 26.65 ms; p99 9.84 ms, 7/4671 frames late. Malcesine
+retains `07ca3a25`, pack slice 0.01 ms, no late frame. Both PNGs were opened:
+Wien is flat and Malcesine still has artificial vertical shore walls. The
+class upload, stream upload and frame tails lack a guaranteed bound.
 
 ## Implementation order
 

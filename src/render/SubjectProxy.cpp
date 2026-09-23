@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <expected>
+#include <limits>
 
 #include "Heap.h"
 
@@ -399,29 +400,113 @@ bool Show(SceneRenderer &renderer,
 
 namespace {
 
-void RecordGeometryDigest(const Shape &subject, SubjectScratch &scratch) {
-  if (scratch.Digests) {
-    const auto digestedFrom = std::chrono::steady_clock::now();
-    unsigned long long digest = kDigestBasis;
-    const auto eat = [&digest](const void *from, size_t bytes) {
-      const auto *at = static_cast<const unsigned char *>(from);
-      for (size_t one = 0; one < bytes; ++one) { digest = DigestFolded(digest, at[one]); }
-    };
-    eat(scratch.Indices.data(), scratch.Indices.size() * sizeof(uint32_t));
-    for (const ShapePart &one : subject.Parts) {
-      for (const std::span<const float> run :
-           {one.PositionsM, one.Normals, one.Tangents, one.Uv, one.Uv1, one.Colours}) {
-        eat(run.data(), run.size() * sizeof(float));
-      }
-    }
-    scratch.Metrics.GeometryDigest = digest;
-    scratch.Metrics.DigestMs =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - digestedFrom)
-            .count();
-  } else {
-    scratch.Metrics.GeometryDigest = 0;
-    scratch.Metrics.DigestMs = 0.0;
+size_t
+DigestBytes(uint64_t &digest, const void *source, size_t bytes, size_t &offset, size_t wordsMost) {
+  const size_t remaining = bytes - offset;
+  const size_t count = wordsMost >= (remaining + sizeof(uint32_t) - 1u) / sizeof(uint32_t)
+                           ? remaining
+                           : wordsMost * sizeof(uint32_t);
+  if (count == 0) { return 0; }
+  const auto *at = static_cast<const unsigned char *>(source) + offset;
+  for (size_t byte = 0; byte < count; ++byte) { digest = DigestFolded(digest, at[byte]); }
+  offset += count;
+  return count / sizeof(uint32_t);
+}
+
+bool PackIndexSlice(const Shape &subject, SubjectScratch &scratch, size_t wordsMost) {
+  SubjectScratch::PackCursor &cursor = scratch.Packing;
+  const std::vector<IndexRun> &runs = scratch.Draws.Runs();
+  if (cursor.Run == 0 && cursor.RunWord == 0) {
+    scratch.Indices.reserve(scratch.Draws.IndexCount());
   }
+  while (cursor.Run < runs.size() && wordsMost > 0) {
+    const IndexRun &run = runs[cursor.Run];
+    const size_t count = std::min(wordsMost, static_cast<size_t>(run.Count) - cursor.RunWord);
+    const size_t first = static_cast<size_t>(run.SourceFirst) + cursor.RunWord;
+    scratch.Indices.insert(scratch.Indices.end(),
+                           subject.Indices.begin() + first,
+                           subject.Indices.begin() + first + count);
+    cursor.RunWord += count;
+    wordsMost -= count;
+    if (cursor.RunWord == run.Count) {
+      ++cursor.Run;
+      cursor.RunWord = 0;
+    }
+  }
+  if (cursor.Run != runs.size()) { return false; }
+  cursor.Next = SubjectScratch::PackCursor::Phase::Positions;
+  return false;
+}
+
+bool PackPositionSlice(const Shape &subject, SubjectScratch &scratch, size_t wordsMost) {
+  SubjectScratch::PackCursor &cursor = scratch.Packing;
+  if (cursor.Part == 0 && cursor.PartWord == 0) {
+    scratch.Vertices.resize(subject.VertexCount() * 3u);
+  }
+  while (cursor.Part < subject.Parts.size() && wordsMost > 0) {
+    const ShapePart &part = subject.Parts[cursor.Part];
+    const size_t partWords = part.VertexCount * 3u;
+    const size_t count = std::min(wordsMost, partWords - cursor.PartWord);
+    float *const into = scratch.Vertices.data() + cursor.PositionWord;
+    if (part.PositionsM.size() >= partWords) {
+      std::memcpy(into, part.PositionsM.data() + cursor.PartWord, count * sizeof(float));
+    } else {
+      std::memset(into, 0, count * sizeof(float));
+    }
+    cursor.PositionWord += count;
+    cursor.PartWord += count;
+    wordsMost -= count;
+    if (cursor.PartWord == partWords) {
+      ++cursor.Part;
+      cursor.PartWord = 0;
+    }
+  }
+  if (cursor.Part != subject.Parts.size()) { return false; }
+  cursor.Digest = kDigestBasis;
+  cursor.Next = scratch.Digests ? SubjectScratch::PackCursor::Phase::DigestIndices
+                                : SubjectScratch::PackCursor::Phase::Done;
+  if (!scratch.Digests) { scratch.PreparedShape = &subject; }
+  return cursor.Next == SubjectScratch::PackCursor::Phase::Done;
+}
+
+bool DigestIndexSlice(SubjectScratch &scratch, size_t wordsMost) {
+  SubjectScratch::PackCursor &cursor = scratch.Packing;
+  const size_t bytes = scratch.Indices.size() * sizeof(uint32_t);
+  DigestBytes(cursor.Digest, scratch.Indices.data(), bytes, cursor.DigestByte, wordsMost);
+  if (cursor.DigestByte != bytes) { return false; }
+  cursor.DigestByte = 0;
+  cursor.Part = 0;
+  cursor.Next = SubjectScratch::PackCursor::Phase::DigestChannels;
+  return false;
+}
+
+bool DigestChannelSlice(const Shape &subject, SubjectScratch &scratch, size_t wordsMost) {
+  constexpr std::array<std::span<const float> ShapePart::*, 6> channels{&ShapePart::PositionsM,
+                                                                        &ShapePart::Normals,
+                                                                        &ShapePart::Tangents,
+                                                                        &ShapePart::Uv,
+                                                                        &ShapePart::Uv1,
+                                                                        &ShapePart::Colours};
+  SubjectScratch::PackCursor &cursor = scratch.Packing;
+  while (cursor.Part < subject.Parts.size() && wordsMost > 0) {
+    const std::span<const float> values =
+        subject.Parts[cursor.Part].*channels[cursor.DigestChannel];
+    const size_t bytes = values.size() * sizeof(float);
+    const size_t taken =
+        DigestBytes(cursor.Digest, values.data(), bytes, cursor.DigestByte, wordsMost);
+    wordsMost -= taken;
+    if (cursor.DigestByte != bytes) { break; }
+    cursor.DigestByte = 0;
+    if (++cursor.DigestChannel == channels.size()) {
+      cursor.DigestChannel = 0;
+      ++cursor.Part;
+    }
+  }
+  if (cursor.Part != subject.Parts.size()) { return false; }
+  scratch.Metrics.GeometryDigest = cursor.Digest;
+  scratch.PreparedShape = &subject;
+  cursor.Next = SubjectScratch::PackCursor::Phase::Done;
+  return true;
 }
 
 }
@@ -452,6 +537,9 @@ bool PlanPlacement(SceneRenderer &renderer,
   if (!Aim(renderer, subject, view, proxy.Anchor(), error)) { return false; }
 
   scratch.Metrics = {};
+  scratch.Packing = {};
+  scratch.Indices.clear();
+  scratch.Vertices.clear();
   const auto planFrom = std::chrono::steady_clock::now();
   {
     static const Heap::Tag kInsideTag("draw-list");
@@ -466,32 +554,52 @@ bool PlanPlacement(SceneRenderer &renderer,
 }
 
 bool PackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, std::string &error) {
+  while (true) {
+    auto packed = AdvancePackPlacement(proxy, scratch, std::numeric_limits<size_t>::max());
+    if (!packed) {
+      error = std::move(packed.error());
+      return false;
+    }
+    if (*packed) { return true; }
+  }
+}
+
+std::expected<bool, std::string>
+AdvancePackPlacement(const SubjectProxy &proxy, SubjectScratch &scratch, size_t wordsMost) {
   const Shape *const source = proxy.Shaped();
   if (source == nullptr || source != scratch.PlannedShape) {
-    error = "subject packing no longer matches its draw plan";
-    return false;
+    return std::unexpected("subject packing no longer matches its draw plan");
   }
-  const Shape &subject = *source;
-  const auto packingFrom = std::chrono::steady_clock::now();
+  if (wordsMost == 0) { return false; }
   static const Heap::Tag kPackingTag("index-run");
   const Heap::Tagged packing(kPackingTag);
-  scratch.Indices.clear();
-  scratch.Indices.reserve(scratch.Draws.IndexCount());
-  for (const IndexRun &run : scratch.Draws.Runs()) {
-    for (uint32_t at = 0; at < run.Count; ++at) {
-      scratch.Indices.push_back(subject.Indices[run.SourceFirst + at]);
-    }
+  const auto began = std::chrono::steady_clock::now();
+  const SubjectScratch::PackCursor::Phase phase = scratch.Packing.Next;
+  bool complete = false;
+  switch (phase) {
+    case SubjectScratch::PackCursor::Phase::Indices:
+      complete = PackIndexSlice(*source, scratch, wordsMost);
+      break;
+    case SubjectScratch::PackCursor::Phase::Positions:
+      complete = PackPositionSlice(*source, scratch, wordsMost);
+      break;
+    case SubjectScratch::PackCursor::Phase::DigestIndices:
+      complete = DigestIndexSlice(scratch, wordsMost);
+      break;
+    case SubjectScratch::PackCursor::Phase::DigestChannels:
+      complete = DigestChannelSlice(*source, scratch, wordsMost);
+      break;
+    case SubjectScratch::PackCursor::Phase::Done: return true;
   }
-
-  const ChannelPack positions{.From = &subject, .Channel = &ShapePart::PositionsM, .Wide = 3};
-  scratch.Vertices.resize(subject.VertexCount() * 3u);
-  PackChannel(&positions, scratch.Vertices.data(), static_cast<uint32_t>(scratch.Vertices.size()));
-  scratch.Metrics.PackingMs =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - packingFrom)
-          .count();
-  RecordGeometryDigest(subject, scratch);
-  scratch.PreparedShape = &subject;
-  return true;
+  const double elapsed =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  if (phase == SubjectScratch::PackCursor::Phase::Indices ||
+      phase == SubjectScratch::PackCursor::Phase::Positions) {
+    scratch.Metrics.PackingMs += elapsed;
+  } else {
+    scratch.Metrics.DigestMs += elapsed;
+  }
+  return complete;
 }
 
 bool PreparePlacement(SceneRenderer &renderer,
