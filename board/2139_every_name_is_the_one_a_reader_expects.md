@@ -21,17 +21,18 @@ Examples supplied by the user do not limit the audit to Live, Crown and Structur
 `enum class` and template parameters), 31 public headers/4,459 lines, 580 private
 C++/GLSL files/94,275 lines, 22 declared dependency tiers and 384 public edges.
 Layer check finds zero direction violations; it cannot prove runtime ownership.
-`Laying.cpp` (2,430 lines) still triangulates water inside `Engine::State`;
-WI 2145 owns that algorithm and its transfer to `generators/water`. `Document.cpp`
+WI 2145 moved water triangulation out of `Engine::State` to `generators/water`.
+`Document.cpp`
 (2,268 lines) contains several glTF sections but one import owner; split it only
 when a complete codec boundary reduces change propagation. Track public API
 growth, owner-crossing edits, dependency edges and largest cohesive files, not
 a target count of types or an arbitrary line cap.
-Next complete cut: move three read-only telemetry methods from `Laying.cpp`
-to `GroundDiagnostics.cpp` as functions with explicit Ledger/product/scene borrows;
-remove their `Engine::State` declarations. Name them `ReportBuildingFootprints`,
-`ReportGroundRelief`, `ReportSubjectPlacements`. Keep output and image identical;
-prove with engine suites, one Place shot, format and full lint.
+The three read-only telemetry methods moved from `Laying.cpp` to
+`GroundDiagnostics.cpp` in b992673c9; explicit borrows replaced `Engine::State` access.
+Next naming cut: `Yields` and `Stamp` in `GroundMesher.h` denote terrain earthwork
+stamps and kinds. Rename them `EarthworkStamp` and `EarthworkKind` across producers,
+consumers and tests without aliases or behavior changes. Confirm format, focused suites,
+one Place image digest and full lint.
 
 ## Module decisions and implementation owners
 
