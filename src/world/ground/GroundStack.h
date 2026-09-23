@@ -44,6 +44,7 @@ struct RestandMetrics {
   double TotalMs = 0.0;
   double ClassificationMs = 0.0;
   double VectorsMs = 0.0;
+  OsmField::BuildMetrics VectorBuild;
   double StreetsMs = 0.0;
   double WaterMs = 0.0;
   double SettlementMs = 0.0;

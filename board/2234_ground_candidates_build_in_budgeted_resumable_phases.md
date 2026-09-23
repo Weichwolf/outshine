@@ -19,10 +19,10 @@ The 2026-09-23 Wien shot remains `2fc0aec4`, p99 10.27 ms, 9/4477 frames over
 `RuntimeScene::Build` spends 30.22 ms standing/submitting, including 12.98 ms
 packing and 15.01 ms uploading streams. Cluster cooking totals 28.27 ms
 across paced calls; subject residency reports 320 MB offered across 146 uploads.
-The worst tile restand is 32.67 ms, including 32.64 ms in vector ingest. Separate
-tile parsing, capacity validation, and contact/full snapshot publication before
-changing that path. These are measured whole-frame defects; do not hide them
-behind a longer shot horizon.
+The worst tile restand is 32.52 ms in vector ingest: 28.03 ms tile parsing,
+2.76 ms capacity checking, 1.35 ms snapshot publication. The longest single
+layer parse is 0.74 ms; bound parsed tiles per frame and preserve the contact/
+full publication contract. These are whole-frame defects, not shot-horizon artifacts.
 
 Malcesine remains `07ca3a25`, p99 10.25 ms, zero late frames. Its earlier
 preload deadlock came from copying a `BuildingField` with an in-flight tile

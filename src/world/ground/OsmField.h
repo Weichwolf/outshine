@@ -63,6 +63,17 @@ public:
   [[nodiscard]] std::expected<int, std::string_view>
   Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget);
 
+  struct BuildMetrics {
+    double FetchMs = 0.0;
+    double ParseMs = 0.0;
+    double LongestLayerMs = 0.0;
+    size_t LongestLayerIndex = 0;
+    double CapacityMs = 0.0;
+    double PublicationMs = 0.0;
+  };
+
+  [[nodiscard]] BuildMetrics LastBuildMetrics() const noexcept { return BuildMetrics_; }
+
   [[nodiscard]] int CentreX() const { return CentreX_; }
 
   [[nodiscard]] int CentreY() const { return CentreY_; }
@@ -202,6 +213,7 @@ private:
   std::unordered_map<std::string, uint32_t> KeyIndex_, StringIndex_;
   std::vector<uint64_t> Settled_;
   TilePool::Landing Scratch_;
+  BuildMetrics BuildMetrics_;
   int Zoom_;
   int RequestedRing_ = -1;
   int Pending_ = -1;

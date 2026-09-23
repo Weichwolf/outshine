@@ -3,6 +3,7 @@
 #include <system_error>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <utility>
 #include <cmath>
 #include <cstdint>
@@ -36,8 +37,16 @@ namespace {
 
 using VectorLayers = std::vector<std::optional<OsmVector>>;
 
+using Clock = std::chrono::steady_clock;
+
+double ElapsedMs(Clock::time_point began) {
+  return std::chrono::duration<double, std::milli>(Clock::now() - began).count();
+}
+
 [[nodiscard]] std::expected<VectorLayers, std::string_view>
-ReadVectorLayers(std::span<const uint8_t> bytes, std::span<const std::string> names);
+ReadVectorLayers(std::span<const uint8_t> bytes,
+                 std::span<const std::string> names,
+                 OsmField::BuildMetrics *metrics = nullptr);
 
 [[nodiscard]] bool FitsNativeStorage(OsmStorageUsage &usage, const VectorLayers &layers);
 
@@ -137,6 +146,7 @@ std::expected<TileWindow, std::string_view> TileWindowFor(TileWindowRequest requ
 
 std::expected<int, std::string_view>
 OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget) {
+  BuildMetrics_ = {};
   const auto centre = Locate(at, Zoom_);
   if (!centre) { return std::unexpected(centre.error()); }
   const auto window =
@@ -183,7 +193,9 @@ OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t til
     }
   }
 
+  const auto publicationAt = Clock::now();
   const auto published = PublishReady(*centre);
+  BuildMetrics_.PublicationMs = ElapsedMs(publicationAt);
   if (!published) { return std::unexpected(published.error()); }
   return added;
 }
@@ -253,7 +265,9 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
                             Data::Address::At(Data::TileId{.Zoom = Zoom_,
                                                            .X = static_cast<uint32_t>(at.X),
                                                            .Y = static_cast<uint32_t>(at.Y)}));
+  const auto fetchAt = Clock::now();
   const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
+  BuildMetrics_.FetchMs += ElapsedMs(fetchAt);
 
   const bool refused = reply == TilePool::Reply::Refused;
   if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Deferred || refused) {
@@ -262,16 +276,20 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
   if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) {
     return Fetched{.Held = true};
   }
-  auto layers = ReadVectorLayers(Scratch_.Bytes, Layers_);
+  const auto parseAt = Clock::now();
+  auto layers = ReadVectorLayers(Scratch_.Bytes, Layers_, &BuildMetrics_);
+  BuildMetrics_.ParseMs += ElapsedMs(parseAt);
   if (!layers) {
     ++Bad_;
     return std::unexpected(layers.error());
   }
+  const auto capacityAt = Clock::now();
   OsmStorageUsage usage;
   for (const ParsedTile &tile : ParsedTiles_) {
     if (!FitsNativeStorage(usage, tile.Layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
   }
   if (!FitsNativeStorage(usage, *layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
+  BuildMetrics_.CapacityMs += ElapsedMs(capacityAt);
   int added = 0;
   for (const auto &layer : *layers) {
     if (layer) { added += static_cast<int>(layer->Features().size()); }
@@ -295,7 +313,9 @@ namespace {
 }
 
 [[nodiscard]] std::expected<VectorLayers, std::string_view>
-ReadVectorLayers(std::span<const uint8_t> bytes, std::span<const std::string> names) {
+ReadVectorLayers(std::span<const uint8_t> bytes,
+                 std::span<const std::string> names,
+                 OsmField::BuildMetrics *metrics) {
   if (names.size() > static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1) {
     return std::unexpected(Says::kTooManyVectorLayers);
   }
@@ -303,7 +323,15 @@ ReadVectorLayers(std::span<const uint8_t> bytes, std::span<const std::string> na
   layers.reserve(names.size());
   for (const auto &name : names) {
     OsmVector layer;
+    const auto layerAt = Clock::now();
     const auto result = layer.Parse(bytes, name);
+    if (metrics != nullptr) {
+      const double ms = ElapsedMs(layerAt);
+      if (ms > metrics->LongestLayerMs) {
+        metrics->LongestLayerMs = ms;
+        metrics->LongestLayerIndex = layers.size();
+      }
+    }
     if (result) {
       layers.emplace_back(std::move(layer));
     } else if (result.error() == OsmVector::ParseError::MissingLayer) {

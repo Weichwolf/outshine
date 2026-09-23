@@ -145,6 +145,15 @@ void Engine::State::Tells() {
     Published.Places("worst tile restand: total", restand.TotalMs, "ms");
     Published.Places("worst tile restand: classification", restand.ClassificationMs, "ms");
     Published.Places("worst tile restand: vectors", restand.VectorsMs, "ms");
+    Published.Places("worst vector restand: tile fetch", restand.VectorBuild.FetchMs, "ms");
+    Published.Places("worst vector restand: tile parsing", restand.VectorBuild.ParseMs, "ms");
+    Published.Places(
+        "worst vector restand: longest layer", restand.VectorBuild.LongestLayerMs, "ms");
+    Published.Places("worst vector restand: longest layer index",
+                     static_cast<double>(restand.VectorBuild.LongestLayerIndex),
+                     "index");
+    Published.Places("worst vector restand: capacity check", restand.VectorBuild.CapacityMs, "ms");
+    Published.Places("worst vector restand: publication", restand.VectorBuild.PublicationMs, "ms");
     Published.Places("worst tile restand: streets", restand.StreetsMs, "ms");
     Published.Places("worst tile restand: water", restand.WaterMs, "ms");
     const Ground::WaterField::IngestMetrics &water = World.Stack.WaterBodies().WorstIngest();

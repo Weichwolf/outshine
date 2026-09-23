@@ -144,6 +144,7 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   if (Declared_.empty()) {
     const auto built = Vectors_->Build(*Pool_, at, budget.VectorRing, kVectorTiles);
     if (!built) { return std::unexpected(built.error()); }
+    metrics.VectorBuild = Vectors_->LastBuildMetrics();
   } else {
     Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), *vectorTile);
   }
