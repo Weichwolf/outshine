@@ -256,7 +256,15 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                 .count();
         return false;
       }
-      heights = Ground::HeightField::Of(blockZoom, std::move(*blocks), fallback);
+      auto pinned = Ground::HeightField::Of(blockZoom, std::move(*blocks), fallback);
+      if (requirement == HeightRequirement::FineOnly && !pinned->Qualified()) {
+        ++Deferred_;
+        heightResolutionMs +=
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                .count();
+        return false;
+      }
+      heights = std::move(pinned);
       heightResolutionMs +=
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
               .count();

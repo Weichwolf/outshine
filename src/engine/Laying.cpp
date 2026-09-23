@@ -1726,17 +1726,9 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
       .Sample = [&build,
                  finestZoom](LongitudeLatitude at) { return build.Sheets.AslMAt(finestZoom, at); },
       .CopyField =
-          [&build, finestZoom](Data::TileId tile, Ground::HeightField::Block &into) {
+          [&build](Data::TileId tile, Ground::HeightField::Block &into) {
             const Ground::TerrainField *field = build.Sheets.FieldAt(tile);
-            if (field != nullptr) { return Ground::HeightField::CopiesField(*field, tile, into); }
-            constexpr int side = 17;
-            return Ground::HeightField::SamplesField(
-                tile,
-                side,
-                [&build, finestZoom](LongitudeLatitude at) {
-                  return build.Sheets.AslMAt(finestZoom, at);
-                },
-                into);
+            return field != nullptr && Ground::HeightField::CopiesField(*field, tile, into);
           },
       .Revision = {.Value = state.Id()}};
   const auto landingAt = std::chrono::steady_clock::now();
