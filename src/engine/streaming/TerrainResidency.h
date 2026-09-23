@@ -43,6 +43,10 @@ public:
 
   [[nodiscard]] size_t Flat() const noexcept { return Flat_; }
 
+  [[nodiscard]] double LongestBatchMs() const noexcept { return LongestBatchMs_; }
+
+  [[nodiscard]] double FinalizeMs() const noexcept { return FinalizeMs_; }
+
   [[nodiscard]] uint64_t Digest() const noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
@@ -75,6 +79,8 @@ private:
   Render::SceneRenderer *Renderer_ = nullptr;
   size_t NextSheet_ = 0;
   bool Publishing_ = false;
+  double LongestBatchMs_ = 0.0;
+  double FinalizeMs_ = 0.0;
 };
 
 }

@@ -101,9 +101,11 @@ Use internal contracts for equivalence and public API end to end. Add no second 
    8e6642f9. Refinement attribution: 100 sources, 12.904 ms for a 16-source slice,
    0.917 ms for one source, 0.207 ms for deduplication plus replacement. Eight sources
    per advance cut the longest selection to 6.346 ms and the whole phase to 7.114 ms;
-   `ceil(100/8)-ceil(100/16)=6` extra advances. In that run p99 was 6.32 ms,
-   6/3336 frames exceeded 16.67 ms, and world worst remained 22.46 ms. Preserve the
-   budget-equivalence oracle and exact digest; next attribute the remaining worst frame.
+   `ceil(100/8)-ceil(100/16)=6` extra advances. WI 2124 moved the remaining
+   synchronous water-height stitching to workers. Residency 128->64 cut its
+   longest batch 11.0->5.86 ms; native mesh 96->48 cut 14.93->10.32 ms.
+   Rosenheim stays 8e6642f9: p99 5.04 ms, 0/3821 frames over 16.67 ms,
+   65 extra advances against the 128/96 worker baseline.
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.
 Expected image: unchanged completed world, no partial terrain/contact revision;

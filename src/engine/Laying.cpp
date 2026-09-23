@@ -106,8 +106,8 @@ constexpr double kWaterBankM = kWaterBedM / kBatterRise;
 constexpr size_t kBounceProbeStride = 16;
 constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
-constexpr size_t kTerrainSheetsPerFrame = 96;
-constexpr size_t kTerrainResidencySheetsPerFrame = 128;
+constexpr size_t kTerrainSheetsPerFrame = 48;
+constexpr size_t kTerrainResidencySheetsPerFrame = 64;
 constexpr size_t kEarthworkSheetsPerFrame = 32;
 constexpr size_t kEarthworkPointsPerFrame = 8192;
 constexpr size_t kCorridorLanesPerFrame = 128;
@@ -1831,6 +1831,10 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
     meshing.ResidencyReady = true;
     Published.Places(
         "ground candidate: longest residency slice", meshing.LongestResidencySliceMs, "ms");
+    Published.Places(
+        "ground candidate: longest residency batch", build.Sheets.LongestResidencyBatchMs(), "ms");
+    Published.Places(
+        "ground candidate: residency finalize", build.Sheets.ResidencyFinalizeMs(), "ms");
     return true;
   }
   const size_t end = std::min(meshing.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());

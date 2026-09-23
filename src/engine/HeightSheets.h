@@ -78,6 +78,13 @@ public:
   [[nodiscard]] bool BeginResidency(const Patchwork &laid, std::string &error);
   [[nodiscard]] std::expected<bool, std::string> AdvanceResidency(const Patchwork &laid,
                                                                   size_t sheetsMost);
+
+  [[nodiscard]] double LongestResidencyBatchMs() const noexcept {
+    return Residency_.LongestBatchMs();
+  }
+
+  [[nodiscard]] double ResidencyFinalizeMs() const noexcept { return Residency_.FinalizeMs(); }
+
   [[nodiscard]] std::expected<bool, std::string> PrepareFields(const Patchwork &candidate,
                                                                const Ground::GroundStream &ground,
                                                                FieldPreparation preparation);

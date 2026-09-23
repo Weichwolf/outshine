@@ -13,11 +13,13 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <ranges>
+#include <ratio>
 #include <span>
 #include <string>
 #include <utility>
@@ -235,6 +237,8 @@ bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &err
   Virtual_.clear();
   NextSheet_ = 0;
   Publishing_ = true;
+  LongestBatchMs_ = 0.0;
+  FinalizeMs_ = 0.0;
   return true;
 }
 
@@ -245,6 +249,7 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
   if (!Publishing_ || (sheetsMost == 0 && !patchwork.Sheets.empty())) {
     return std::unexpected("height pages are not prepared for a bounded publication");
   }
+  const auto batchAt = std::chrono::steady_clock::now();
   const size_t end = std::min(NextSheet_ + sheetsMost, patchwork.Sheets.size());
   for (; NextSheet_ < end; ++NextSheet_) {
     const Sheet &sheet = patchwork.Sheets[NextSheet_];
@@ -258,7 +263,12 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
     (sheet.Virtual ? Virtual_ : Instances_)
         .push_back(TileOf(sheet.Tile, *page, sheet.Nodes, frame));
   }
+  LongestBatchMs_ =
+      std::max(LongestBatchMs_,
+               std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - batchAt)
+                   .count());
   if (NextSheet_ < patchwork.Sheets.size()) { return false; }
+  const auto finalizeAt = std::chrono::steady_clock::now();
   std::ranges::sort(Held_, [](const Held &left, const Held &right) {
     if (left.Tile.Zoom != right.Tile.Zoom) { return left.Tile.Zoom < right.Tile.Zoom; }
     if (left.Tile.X != right.Tile.X) { return left.Tile.X < right.Tile.X; }
@@ -269,6 +279,9 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
       !Renderer_->SetTerrainTiles(Instances_, Virtual_, error)) {
     return std::unexpected(std::move(error));
   }
+  FinalizeMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - finalizeAt)
+          .count();
   Publishing_ = false;
   return true;
 }
@@ -287,6 +300,8 @@ void TerrainResidency::Clear() {
   GridPostings_ = 0;
   NextSheet_ = 0;
   Publishing_ = false;
+  LongestBatchMs_ = 0.0;
+  FinalizeMs_ = 0.0;
 }
 
 uint64_t TerrainResidency::Digest() const noexcept {
