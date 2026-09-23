@@ -1,5 +1,6 @@
 Type: bug
 State: active
+Architecture: ready
 Area: engine, world
 Parent: 2169
 Depends:
@@ -70,6 +71,25 @@ Drei Tests grün, beide Negativkontrollen rot. Lint: unverändert 96 Tidy-Befund
 und offene Writer-Inventur; keine neuen Diagnosen.
 Offen: Carrier-Serialisierung, Queue-Budgets, Mainthread-Decodierung/Aufbau und
 OSM-Gesamtdurchsatz bei kaltem Cache. Der Fix ist keine Streaming-Gesamtabnahme.
+
+## Water admission: bounded height sampling
+
+Rosenheim 8e6642f9: der längste erfolgreiche `GroundStack::Restand` braucht
+23.58 ms, davon Wasser 23.54 ms. `WaterField::Ingest` prüft in einem Aufruf
+484 Punkte in 21.09 ms; die längste `GroundStream::At`-Abfrage braucht 5.44 ms.
+Die Validierung fragt bei Pending erneut und die Materialisierung ein zweites Mal. Besitzer sind
+`WaterField` (Aufnahmezustand und staged Höhen) und `GroundStream` (Höhenquelle).
+
+Wasser-Tiles über mehrere Frames mit gemeinsamem Zeit- und Punktbudget für die
+bis zu vier Kandidaten prüfen. Pro gültigem Ring Höhe oder Loch in stabiler
+Punktreihenfolge merken; Pending wiederholt nur den betroffenen Punkt. Erst nach
+vollständiger Prüfung aus den gemerkten Höhen atomar Courses/Surfaces/Levels
+publizieren und `TileWatermark::Take` ausführen. OSM-Generation verwirft den
+Aufnahmezustand, alte Revisionen dürfen nichts veröffentlichen. Kein grober
+`Resident`-Fallback für definitive Wasserhöhen. Negativkontrolle: Pending nach
+mehreren erfolgreichen Punkten darf keine Teilprodukte und keine doppelten
+Punktabfragen erzeugen. Gleicher Input muss dieselben Profile und das gleiche
+Place-Bild liefern; längste Wasseraufnahme und ganze Framezeit erneut messen.
 
 ## Worker-Phasen
 
