@@ -45,8 +45,13 @@ public:
   }
 
   [[nodiscard]] std::expected<void, std::string>
-  BeginGeometryBuild(Geometry geometry, size_t carried, Material material) {
-    return Scene().BeginGeometryBuild(std::move(geometry), carried, material);
+  BeginGeometryBuild(Geometry geometry, size_t drivenParts, Material material) {
+    return Scene().BeginGeometryBuild(std::move(geometry), drivenParts, material);
+  }
+
+  [[nodiscard]] std::expected<void, std::string> BeginGeneratedGeometryBuild(
+      Geometry geometry, MaterialInstance groundSurface, Material material) {
+    return Scene().BeginGeneratedGeometryBuild(std::move(geometry), groundSurface, material);
   }
 
   [[nodiscard]] std::expected<bool, std::string> AdvanceGeometryBuild(size_t itemsMost) {
@@ -57,12 +62,14 @@ public:
 
   [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return Renderer_; }
 
-  [[nodiscard]] std::expected<void, std::string> Prepare(
-      const RuntimeScene &previous,
-      const Ui::Font *font,
-      Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy) {
+  [[nodiscard]] std::expected<void, std::string>
+  Prepare(const RuntimeScene &previous,
+          const Ui::Font *font,
+          Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
+          SubjectGeometrySources geometry = SubjectGeometrySources::All) {
     std::string error;
-    if (!RuntimeScene::PreparesWorldReplacement(Renderer_, previous, font, Scene_, error, pieces)) {
+    if (!RuntimeScene::PreparesWorldReplacement(
+            Renderer_, previous, font, Scene_, error, pieces, geometry)) {
       return std::unexpected(std::move(error));
     }
     return {};

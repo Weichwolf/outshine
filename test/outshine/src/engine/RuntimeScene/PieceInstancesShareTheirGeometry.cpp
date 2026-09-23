@@ -312,6 +312,8 @@ int main() {
   renderer.ReleasePiece(oldPiece);
   CHECK(Core::RuntimeScene::ReplacesGeometry(renderer, *scene, base.clone(), nullptr, scene, error),
         "native geometry replacement publishes around the direct renderer registration fixture");
+  CHECK(scene->DrivenParts() == static_cast<size_t>(base.parts()),
+        "a complete native replacement drives every replacement part");
   scene->Eye(eye);
   Geometry empty;
   CHECK(!renderer.RegisterPieceMaterials(std::move(empty)),

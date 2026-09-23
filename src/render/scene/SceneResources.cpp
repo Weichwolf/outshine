@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <memory>
 #include <span>
 #include <string>
 #include <utility>
@@ -283,9 +284,9 @@ SceneResources::PlaceHeightPage(SubjectDraw &subjects, std::span<const float> no
   if (FirstFreeHeightPage_ == kNoResourceSlot && HeightPages_.size() >= kNoResourceSlot) {
     return std::unexpected(Says::HeightPageLimit);
   }
-  HeightPage held{.Nodes = {nodes.begin(), nodes.end()}};
+  HeightPage held{.Nodes = std::make_shared<const std::vector<float>>(nodes.begin(), nodes.end())};
   std::string error;
-  held.Resident = subjects.Ground().PlacePage(held.Nodes, error);
+  held.Resident = subjects.Ground().PlacePage(*held.Nodes, error);
   if (held.Resident == kNoPage) {
     return std::unexpected(error.empty() ? std::string(Says::HeightPageUploadFailed)
                                          : std::move(error));
@@ -328,7 +329,7 @@ PageId SceneResources::HeightPageResident(HeightPageHandle which) const noexcept
 bool SceneResources::RestoreHeightPages(SubjectDraw &subjects, std::string &error) {
   for (HeightPage &page : HeightPages_) {
     if (!page.State.Occupied) { continue; }
-    page.Resident = subjects.Ground().PlacePage(page.Nodes, error);
+    page.Resident = subjects.Ground().PlacePage(*page.Nodes, error);
     if (page.Resident == kNoPage) { return false; }
   }
   return true;
@@ -385,7 +386,9 @@ void SceneResources::SetGroundClassification(std::span<const uint32_t> classes,
 
 size_t SceneResources::HeightPageSourceBytes() const noexcept {
   size_t bytes = 0;
-  for (const HeightPage &page : HeightPages_) { bytes += page.Nodes.capacity() * sizeof(float); }
+  for (const HeightPage &page : HeightPages_) {
+    if (page.Nodes) { bytes += page.Nodes->capacity() * sizeof(float); }
+  }
   return bytes;
 }
 

@@ -96,16 +96,16 @@ Use internal contracts for equivalence and public API end to end. Add no second 
    the remaining 11.94 ms final material/GPU bind. Split that without partial publish.
    Review through 21342822f: `PressPointsJob` now completes global rejection before
    applying any height changes, retaining cursors and decisions. Preserve that rule.
-   `HaloBuildJob` replaces Rosenheim's 130.19 ms whole-set halo pass. Budgets 1/2/257
-   reproduce exact output; production measures 3.09 ms. Shared immutable heights cut
-   structure resolution from 39.57 to 2.00 ms; atomic tile swaps cut live transfer
-   from 52.62 to 2.38 ms. Refined candidates omit pieces every tile rebakes. A
-   source-paced `TerrainRefinementJob` preserves exact patches at budgets 1/2/7;
-   production budget 16 cuts refinement from 69.02 to 11.46 ms, Ground worst from
-   69.05 to 29.63 ms. Rosenheim stays 8e6642f9. Candidate creation costs 0.78 ms;
-   its 25.32 ms preparation dominates by cloning the previous fused subject/ground
-   geometry. Do not merely omit it: first give authored and generated geometry explicit
-   ownership so replacement preserves the former without copying obsolete ground.
+   `HaloBuildJob` cuts the 130.19 ms whole-set pass to 3.09 ms. Shared height fields
+   cut structure resolution from 39.57 to 2.00 ms; atomic tile swaps cut transfer
+   from 52.62 to 2.38 ms. `TerrainRefinementJob` preserves exact patches at budgets
+   1/2/7 and cuts 69.02 to 11.46 ms. Driven/generated part ownership is now explicit:
+   zero is a real boundary, repeated ground builds retain authored parts and replace
+   obsolete generated parts. Shadow-caster selection is independent of that boundary.
+   Immutable height-page CPU payloads are shared across candidates. Rosenheim remains
+   8e6642f9; repeated preparation is 20.48–21.59 ms from 25.32, world worst 22.10–22.13 ms;
+   7–8/~3290 frames exceed 16.67 ms. Remaining preparation reuploads published ground
+   GPU resources; replace that with shared residency and transactional handles, not aliasing.
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.
 Expected image: unchanged completed world, no partial terrain/contact revision;

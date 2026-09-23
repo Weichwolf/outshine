@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <expected>
+#include <memory>
 #include <span>
 #include <string>
 #include <vector>
@@ -113,7 +114,7 @@ private:
 
   struct HeightPage {
     ResourceSlotState State{};
-    std::vector<float> Nodes;
+    std::shared_ptr<const std::vector<float>> Nodes;
     PageId Resident = kNoPage;
   };
 

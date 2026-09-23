@@ -151,6 +151,7 @@ int main() {
         CHECK(retry.Publish(world, footprints, scene, nextRevision).has_value(),
               "complete retry publishes");
         CHECK(scene.get() != oldScene && renderer.GroundLatticeTriangles() == 0 &&
+                  scene->DrivenParts() == 0 &&
                   world.GroundPositionsM == std::vector<float>({9, 8, 7}) &&
                   world.GroundIndex == std::vector<uint32_t>({0, 0, 0}) &&
                   world.NetworkOfWays == 19 && world.RimsMissing == 0 && world.Relaid == 1 &&

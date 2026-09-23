@@ -88,6 +88,8 @@ struct Extents {
   Vec3 MostM = {{0.0, 0.0, 0.0}};
 };
 
+enum class SubjectGeometrySources : uint8_t { All, Driven };
+
 class RuntimeScene {
 public:
   ~RuntimeScene();
@@ -115,6 +117,7 @@ public:
       Render::SceneRenderer &renderer,
       const RuntimeScene &previous,
       Geometry replacement,
+      size_t drivenParts,
       const Ui::Font *font,
       std::unique_ptr<RuntimeScene> &candidate,
       std::string &error,
@@ -125,7 +128,8 @@ public:
       const Ui::Font *font,
       std::unique_ptr<RuntimeScene> &candidate,
       std::string &error,
-      Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy);
+      Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
+      SubjectGeometrySources geometry = SubjectGeometrySources::All);
   [[nodiscard]] static bool PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                                    std::unique_ptr<RuntimeScene> &out,
                                                    std::unique_ptr<RuntimeScene> &candidate,
@@ -189,9 +193,12 @@ public:
 
   [[nodiscard]] double SubmitMs() const { return SubmitMs_; }
 
-  [[nodiscard]] bool SetGeometry(outshine::Geometry &&built, size_t carried, std::string &error);
+  [[nodiscard]] bool
+  SetGeometry(outshine::Geometry &&built, size_t drivenParts, std::string &error);
   [[nodiscard]] std::expected<void, std::string>
-  BeginGeometryBuild(outshine::Geometry &&built, size_t carried, Material wearing);
+  BeginGeometryBuild(outshine::Geometry &&built, size_t drivenParts, Material wearing);
+  [[nodiscard]] std::expected<void, std::string> BeginGeneratedGeometryBuild(
+      outshine::Geometry &&generated, MaterialInstance groundSurface, Material wearing);
   [[nodiscard]] std::expected<bool, std::string> AdvanceGeometryBuild(size_t itemsMost);
 
   [[nodiscard]] bool GeometryBuildActive() const noexcept { return ShapeCooking_.has_value(); }
@@ -203,7 +210,7 @@ public:
   }
 
   [[nodiscard]] bool SetGeometry(outshine::Geometry &&built,
-                                 size_t carried,
+                                 size_t drivenParts,
                                  const Material &wearing,
                                  std::string &error);
 
@@ -315,7 +322,7 @@ public:
 
   [[nodiscard]] const Render::Shape &Shown() const { return Shaped_; }
 
-  [[nodiscard]] size_t CarriedParts() const { return Joined_; }
+  [[nodiscard]] size_t DrivenParts() const noexcept { return DrivenParts_; }
 
   [[nodiscard]] bool Stands() const { return Stoodup_; }
 
@@ -410,6 +417,7 @@ private:
   [[nodiscard]] bool RestoresPieceResources(std::string &error);
 
   [[nodiscard]] bool RestoresGroundResources(std::string &error);
+  Geometry DrivenGeometry_;
   ScenePlayback Held_;
   Render::SubjectProxy Stood_;
   Render::SubjectScratch Scratch_;
@@ -437,8 +445,8 @@ private:
   double CarryMs_ = 0.0, ResolveMs_ = 0.0, BoundsMs_ = 0.0, InsideMs_ = 0.0, SurfaceMs_ = 0.0;
 
   bool Stoodup_ = false;
-  size_t Joined_ = 0;
-  size_t Carrying_ = 0;
+  size_t DrivenParts_ = 0;
+  std::optional<size_t> PendingDrivenParts_;
 
   void RestoreGeometryBuildState() noexcept;
 };

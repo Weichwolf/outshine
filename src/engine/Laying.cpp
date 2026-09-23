@@ -1829,13 +1829,12 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
   if (!candidate.GroundGeometryBuildActive()) {
-    const size_t drivenParts = Picture.Standing->CarriedParts();
+    const size_t drivenParts = Picture.Standing->DrivenParts();
     Published.Places("restand: the carried count the world hands over",
                      static_cast<double>(drivenParts),
                      "carried");
     Published.Places(
         "restand: parts in the geometry", static_cast<double>(build.Ground.parts()), "parts");
-    candidate.GroundIs(build.GroundSurface.index());
     const auto classesBegan = std::chrono::steady_clock::now();
     if (build.ClassStructure && !build.ClassPalette.empty() &&
         !candidate.SetGroundClasses(
@@ -1858,7 +1857,7 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
         "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
     Published.Places("in this many parts", static_cast<double>(build.Ground.parts()), "parts");
     auto began = candidate.BeginGroundGeometryBuild(
-        std::move(build.Ground), drivenParts, build.GroundMaterial);
+        std::move(build.Ground), build.GroundSurface, build.GroundMaterial);
     if (!began) {
       Error = std::move(began.error());
       return false;

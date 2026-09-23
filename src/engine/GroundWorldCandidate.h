@@ -88,8 +88,8 @@ public:
   }
 
   [[nodiscard]] std::expected<void, std::string>
-  BeginGroundGeometryBuild(Geometry geometry, size_t carried, Material material) {
-    return World_.BeginGeometryBuild(std::move(geometry), carried, material);
+  BeginGroundGeometryBuild(Geometry geometry, MaterialInstance groundSurface, Material material) {
+    return World_.BeginGeneratedGeometryBuild(std::move(geometry), groundSurface, material);
   }
 
   [[nodiscard]] std::expected<bool, std::string> AdvanceGroundGeometryBuild(size_t itemsMost) {
@@ -108,7 +108,9 @@ public:
 
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,
                                                          const Ui::Font *font) {
-    if (auto prepared = World_.Prepare(previous, font, PieceSources_); !prepared) {
+    if (auto prepared =
+            World_.Prepare(previous, font, PieceSources_, Core::SubjectGeometrySources::Driven);
+        !prepared) {
       return prepared;
     }
     Products_.Sheets.Into(&World_.Renderer());

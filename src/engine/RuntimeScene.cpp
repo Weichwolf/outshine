@@ -36,6 +36,10 @@ constexpr auto NoGeometrySurface = "native geometry requires a declared surface 
 constexpr auto InvalidFramedCamera = "automatic framing produced an invalid renderer camera";
 constexpr auto GeometryBuildAlreadyActive = "native geometry preparation is already active";
 constexpr auto NoGeometryBuild = "native geometry preparation has not begun";
+constexpr auto InvalidDrivenPartCount = "driven part count exceeds native geometry";
+constexpr auto InvalidDrivenGeometry = "driven geometry does not match the composed subject";
+constexpr auto InvalidGroundSurface = "generated ground surface is absent";
+constexpr auto GeneratedGeometryAppendFailed = "generated geometry could not join driven geometry";
 }
 
 constexpr double kExposureCalibration = 1.2;
@@ -122,7 +126,8 @@ RuntimeScene::RuntimeScene(Render::SceneRenderer &renderer,
                            const Ui::Font *font)
     : Renderer_(&renderer), Declared_(std::move(declaration)) {
   if (Declared_.InitialGeometry != nullptr) {
-    Held_.SetGeometry(Declared_.InitialGeometry->clone());
+    DrivenGeometry_ = Declared_.InitialGeometry->clone();
+    Held_.SetGeometry(DrivenGeometry_.clone());
     Declared_.InitialGeometry = nullptr;
   }
   std::vector<UiSurface> surfaces = std::move(Declared_.Surfaces);
@@ -198,8 +203,9 @@ bool RuntimeScene::ReplacesGeometry(Render::SceneRenderer &renderer,
                                     std::unique_ptr<RuntimeScene> &out,
                                     std::string &error) {
   std::unique_ptr<RuntimeScene> candidate;
+  const auto drivenParts = static_cast<size_t>(replacement.parts());
   if (!PreparesGeometryReplacement(
-          renderer, previous, std::move(replacement), font, candidate, error)) {
+          renderer, previous, std::move(replacement), drivenParts, font, candidate, error)) {
     return false;
   }
   return PublishesPreparedWorld(renderer, out, candidate, error);
@@ -208,6 +214,7 @@ bool RuntimeScene::ReplacesGeometry(Render::SceneRenderer &renderer,
 bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
                                                const RuntimeScene &previous,
                                                Geometry replacement,
+                                               size_t drivenParts,
                                                const Ui::Font *font,
                                                std::unique_ptr<RuntimeScene> &candidate,
                                                std::string &error,
@@ -222,7 +229,10 @@ bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
   candidate->GroundAlbedo_ = previous.GroundAlbedo_;
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
-  if (!candidate->SetGeometry(std::move(replacement), previous.Carrying_, error) ||
+  if (std::cmp_less(drivenParts, replacement.parts())) {
+    candidate->DrivenGeometry_ = previous.DrivenGeometry_.clone();
+  }
+  if (!candidate->SetGeometry(std::move(replacement), drivenParts, error) ||
       !candidate->RestoresPieceResources(error) || !candidate->RestoresGroundResources(error) ||
       !candidate->Scrolled(previous.Ui_.ScrollState(), error)) {
     candidate.reset();
@@ -238,10 +248,27 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                             const Ui::Font *font,
                                             std::unique_ptr<RuntimeScene> &candidate,
                                             std::string &error,
-                                            Render::SceneResources::PieceSources pieces) {
-  if (previous.Held_.HasGeometry()) {
-    return PreparesGeometryReplacement(
-        renderer, previous, previous.Held_.Snapshot().clone(), font, candidate, error, pieces);
+                                            Render::SceneResources::PieceSources pieces,
+                                            SubjectGeometrySources geometry) {
+  if (previous.Held_.HasGeometry() && geometry == SubjectGeometrySources::All) {
+    return PreparesGeometryReplacement(renderer,
+                                       previous,
+                                       previous.Held_.Snapshot().clone(),
+                                       previous.DrivenParts_,
+                                       font,
+                                       candidate,
+                                       error,
+                                       pieces);
+  }
+  if (previous.DrivenGeometry_.parts() > 0) {
+    return PreparesGeometryReplacement(renderer,
+                                       previous,
+                                       previous.DrivenGeometry_.clone(),
+                                       static_cast<size_t>(previous.DrivenGeometry_.parts()),
+                                       font,
+                                       candidate,
+                                       error,
+                                       pieces);
   }
   if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
   Declaration declaration = previous.Declared_;
@@ -370,15 +397,17 @@ bool RuntimeScene::StandsSubjects(std::string &error) {
   }
   if (!Pose(0.0, error)) { return false; }
   if (!JoinsSubjects(error)) { return false; }
+  DrivenGeometry_ = Held_.Snapshot().clone();
   return CarriesBuilt(error);
 }
 
 void RuntimeScene::ClearsSubject() {
   Held_.Clear();
+  DrivenGeometry_.clear();
   Materials_.Clear();
   ShadowRadiusStoodM_ = 0.0;
-  Joined_ = 0;
-  Carrying_ = 0;
+  DrivenParts_ = 0;
+  PendingDrivenParts_.reset();
   Stoodup_ = false;
   PartBounds_.clear();
   if (Renderer_ != nullptr) {
@@ -438,7 +467,7 @@ void RuntimeScene::StandsShadowRadius() {
   ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
   if (ShadowRadiusStoodM_ > 0.0 || Shaped_.TriangleCount() == 0) { return; }
   const auto boundedFrom = std::chrono::steady_clock::now();
-  const Box bounded = Shaped_.BoundsOf(Joined_);
+  const Box bounded = Shaped_.BoundsOf(DrivenParts_);
   BoundsMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
           .count();
@@ -549,13 +578,21 @@ bool RuntimeScene::StandsPlan(std::string &error) {
 }
 
 bool RuntimeScene::Build(std::string &error) {
-  if (!Held_.HasGeometry() && Declared_.Stands.empty()) { ClearsSubject(); }
-  if (Held_.HasGeometry() && Declared_.Stands.empty() && !CarriesBuilt(error)) { return false; }
-  if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
+  if (PendingDrivenParts_) {
+    if (!Held_.HasGeometry()) {
+      ClearsSubject();
+    } else if (!CarriesBuilt(error)) {
+      return false;
+    }
+  } else {
+    if (!Held_.HasGeometry() && Declared_.Stands.empty()) { ClearsSubject(); }
+    if (Held_.HasGeometry() && Declared_.Stands.empty() && !CarriesBuilt(error)) { return false; }
+    if (!Declared_.Stands.empty() && !StandsSubjects(error)) { return false; }
+  }
 
   if (!Reshape(error)) { return false; }
-  Joined_ = Shaped_.Parts.size();
-  if (Carrying_ > 0) { Joined_ = Carrying_; }
+  DrivenParts_ = Shaped_.Parts.size();
+  if (PendingDrivenParts_) { DrivenParts_ = *PendingDrivenParts_; }
   StandsShadowRadius();
 
   const auto planFrom = std::chrono::steady_clock::now();
@@ -595,7 +632,7 @@ std::expected<void, std::string> RuntimeScene::BindSubject() {
     };
     const auto wholeFrom = std::chrono::steady_clock::now();
 
-    Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
+    Renderer_->CastsBelow(static_cast<uint32_t>(Shaped_.Parts.size()));
     if (!Stand(error)) { return std::unexpected(std::move(error)); }
     StandMs_ = sinceInside();
     if (!Render::Surface(*Renderer_, Stood_, Camera_.Prepared(), Scratch_, error)) {
@@ -671,7 +708,8 @@ bool RuntimeScene::PartVolumes(std::string &error) {
 
 bool RuntimeScene::PlacedBounds(Extents &into, std::string &error) {
   if (!PartVolumes(error)) { return false; }
-  const size_t framed = Joined_ > 0 && Joined_ < PartBounds_.size() ? Joined_ : PartBounds_.size();
+  const size_t framed =
+      DrivenParts_ > 0 && DrivenParts_ < PartBounds_.size() ? DrivenParts_ : PartBounds_.size();
   Box grown;
   for (size_t part = 0; part < framed; ++part) {
     grown.Cover(PartBounds_[part].Through(part < Stood_.Parts() ? Stood_.Placement(part) : Mat4{}));
@@ -709,7 +747,7 @@ bool RuntimeScene::Look(std::string &error) {
   framed.Forward = spun(framed.Forward);
   framed.Right = spun(framed.Right);
   framed.Up = spun(framed.Up);
-  Camera_.Prepare(framed, false, Joined_);
+  Camera_.Prepare(framed, false, DrivenParts_);
   return Render::Aim(*Renderer_, Shaped_, Camera_.Prepared(), Stood_.Anchor(), error);
 }
 
@@ -797,7 +835,7 @@ bool RuntimeScene::Stand(std::string &error) {
   }
   Camera_.Prepare(Camera_.HasOverride() ? Camera_.Override() : Render::Viewpoint{},
                   Camera_.HasOverride(),
-                  Joined_);
+                  DrivenParts_);
   PlacementUploadHistory_.Reset();
   if (Held_.IsAnimated() && RenderedPositionsM_.size() == Shaped_.VertexCount() * 3u) {
     Stood_.Posed(RenderedPositionsM_);
@@ -819,13 +857,13 @@ bool RuntimeScene::Stand(std::string &error) {
   Camera_.Prepared().Eye = eye;
   if (!Camera_.HasOverride() && (Declared_.Fill > 0.0 || !declared)) {
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Box bounded = Shaped_.BoundsOf(Joined_);
+    Box bounded = Shaped_.BoundsOf(DrivenParts_);
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
     for (int sample = 1; sample < Sweeps(); ++sample) {
       if (!Measure(Seconds(sample), error)) { return false; }
-      bounded.Cover(Shaped_.BoundsOf(Joined_));
+      bounded.Cover(Shaped_.BoundsOf(DrivenParts_));
     }
     if (Held_.FrameCount() > 1 && !Measure(0.0, error)) { return false; }
     if (!FitsViewTo(bounded, eye, error)) { return false; }
@@ -899,7 +937,7 @@ Mat4 RuntimeScene::InMetres(const Mat4 &placed) const {
 bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
   const auto published = Renderer_->PublishedWorld();
   const Mat4 bodyM = InMetres(held.WorldFromBodyM);
-  if (Joined_ == 0) {
+  if (DrivenParts_ == 0) {
     error = "nothing joined this picture from a file, so there is no body to carry -- every part "
             "stands where the world put it";
     return false;
@@ -924,7 +962,7 @@ bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
   const bool builtMoved = PlacementUploadHistory_.NeedsBuiltUpload(held.AsBuilt);
   if (!bodyMoved && !builtMoved) { return true; }
 
-  const size_t joined = Joined_ < parts ? Joined_ : parts;
+  const size_t joined = DrivenParts_ < parts ? DrivenParts_ : parts;
   if (bodyMoved) {
     for (size_t part = 0; part < joined; ++part) {
       if (!Stood_.Places(part, body, bodyM)) { return false; }
@@ -936,7 +974,7 @@ bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
     }
   }
   PartBounds_.clear();
-  Renderer_->CastsBelow(static_cast<uint32_t>(Joined_));
+  Renderer_->CastsBelow(static_cast<uint32_t>(Shaped_.Parts.size()));
 
   if ((bodyMoved && joined > 0) &&
       (!Render::Moved(*Renderer_,
@@ -959,19 +997,19 @@ bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
   return true;
 }
 
-bool RuntimeScene::SetGeometry(outshine::Geometry &&built, size_t carried, std::string &error) {
+bool RuntimeScene::SetGeometry(outshine::Geometry &&built, size_t drivenParts, std::string &error) {
   if (Declared_.Surfacing.empty()) {
     error = Says::NoGeometrySurface;
     return false;
   }
-  return SetGeometry(std::move(built), carried, Declared_.Surfacing.front(), error);
+  return SetGeometry(std::move(built), drivenParts, Declared_.Surfacing.front(), error);
 }
 
 bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
-                               size_t carried,
+                               size_t drivenParts,
                                const Material &wearing,
                                std::string &error) {
-  auto began = BeginGeometryBuild(std::move(built), carried, Material(wearing));
+  auto began = BeginGeometryBuild(std::move(built), drivenParts, Material(wearing));
   if (!began) {
     error = std::move(began.error());
     return false;
@@ -987,15 +1025,23 @@ bool RuntimeScene::SetGeometry(outshine::Geometry &&built,
 }
 
 std::expected<void, std::string>
-RuntimeScene::BeginGeometryBuild(outshine::Geometry &&built, size_t carried, Material wearing) {
+RuntimeScene::BeginGeometryBuild(outshine::Geometry &&built, size_t drivenParts, Material wearing) {
   if (GeometryBuildActive()) { return std::unexpected(Says::GeometryBuildAlreadyActive); }
+  if (std::cmp_greater(drivenParts, built.parts())) {
+    return std::unexpected(Says::InvalidDrivenPartCount);
+  }
+  if (std::cmp_equal(drivenParts, built.parts())) {
+    DrivenGeometry_ = built.clone();
+  } else if (!std::cmp_equal(drivenParts, DrivenGeometry_.parts())) {
+    return std::unexpected(Says::InvalidDrivenGeometry);
+  }
   Camera_.Invalidate();
   GeometryBuildSurfaces_ = std::move(Declared_.Surfacing);
   Declared_.Surfacing.clear();
   Declared_.Surfacing.push_back(wearing);
   Held_.SetGeometry(std::move(built));
   Stoodup_ = false;
-  Carrying_ = carried;
+  PendingDrivenParts_ = drivenParts;
   const auto phaseAt = std::chrono::steady_clock::now();
   Shaped_ = {};
   EverShaped_ = false;
@@ -1009,6 +1055,22 @@ RuntimeScene::BeginGeometryBuild(outshine::Geometry &&built, size_t carried, Mat
   BuildMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count();
   return {};
+}
+
+std::expected<void, std::string> RuntimeScene::BeginGeneratedGeometryBuild(
+    outshine::Geometry &&generated, MaterialInstance groundSurface, Material wearing) {
+  if (!groundSurface.bound() || groundSurface.index() >= generated.surfaces()) {
+    return std::unexpected(Says::InvalidGroundSurface);
+  }
+  if (DrivenParts_ == 0) {
+    GroundSurface_ = groundSurface.index();
+    return BeginGeometryBuild(std::move(generated), 0, wearing);
+  }
+  Geometry driven = DrivenGeometry_.clone();
+  const int surfaceBase = driven.surfaces();
+  if (!driven.append(generated)) { return std::unexpected(Says::GeneratedGeometryAppendFailed); }
+  GroundSurface_ = surfaceBase + groundSurface.index();
+  return BeginGeometryBuild(std::move(driven), DrivenParts_, wearing);
 }
 
 std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t itemsMost) {
@@ -1039,7 +1101,7 @@ std::expected<bool, std::string> RuntimeScene::AdvanceGeometryBuild(size_t items
 
 void RuntimeScene::RestoreGeometryBuildState() noexcept {
   ShapeCooking_.reset();
-  Carrying_ = 0;
+  PendingDrivenParts_.reset();
   Declared_.Surfacing = std::move(GeometryBuildSurfaces_);
 }
 
