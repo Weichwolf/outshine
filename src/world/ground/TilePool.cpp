@@ -50,6 +50,7 @@ namespace {
 
 constexpr int kPollMs = 1;
 constexpr int kPollAttempts = 30000;
+constexpr size_t kMinimumStitchCacheBytes = size_t{32} * 1024u * 1024u;
 
 thread_local double tFetchBlockedMs = 0.0;
 thread_local bool tCarries = false;
@@ -83,7 +84,8 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       OriginLatDeg_(config.OriginLatDeg),
       OriginLonDeg_(config.OriginLonDeg),
       ByteBudget_(config.ByteBudget),
-      Decoded_(std::make_shared<Ground::DecodedCache>(config.DecodedBytes)),
+      Decoded_(std::make_shared<Ground::DecodedCache>(
+          std::max(config.DecodedBytes, kMinimumStitchCacheBytes))),
       PollAttempts_(config.PollAttempts),
       CarrierCount_(config.Carriers),
       OutstandingMost_(config.OutstandingMost),

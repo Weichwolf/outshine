@@ -85,6 +85,8 @@ int main() {
     CHECK_NEAR(*sample.AslM(), 42.0, 0.001, "m", "decoded terrain height preserved");
   }
   CHECK(!probe->CalledOnCaller, "retry also leaves source work on carriers");
+  CHECK(pool.Counters().FieldTiles >= 1,
+        "stitched height field is built by tile workers before caller samples it");
   const Ground::GroundBlock block = ground.BlockAt(Ground::HeightField::SpotOf({}, 4));
   CHECK(block.Where() == Ground::GroundBlock::State::Resolved && !block.Sources().empty(),
         "resident ground block carries its source set");

@@ -89,18 +89,16 @@ mehreren erfolgreichen Punkten darf keine Teilprodukte und keine doppelten
 Punktabfragen erzeugen. Implementiert: 128 Schritte/2 ms pro Aufnahme, höchstens
 vier staged Kandidaten, Revisionswechsel verwirft sie. Der gezielte Test prüft
 Pending mitten im Ring, Revisionswechsel, große Ringe und Profilgleichheit.
-Rosenheim bleibt 8e6642f9; 0/4203 statt 8/3344 Frames über 16.67 ms.
-Längster Wasseraufruf 9.37 ms, davon eine Höhenabfrage 9.00 ms. Offen bleibt
-`GroundStream::TileAt`: das synchrone Kacheln kann weiter einzelne Frames sprengen.
-
-Nächster Schritt: `TilePool::Field` erzeugt gestitchte Raster schon auf Workern;
-`GroundStream::PollStitchedField` hält sie im lokalen Cache. `TileAt` und
-`KeepCoarse` übernehmen nur Ready-Raster, Pending ergibt Waiting ohne Opfer-Slot
-zu überschreiben; Absent/Refused bleiben definierte Löcher. Beide Pfade nutzen
-dieselbe Shape-Konfiguration. Höhen, Quellrevisionen und Slot-Lebensdauer gegen
-den bisherigen Pfad prüfen. Der verzögerte Provider muss ohne Hauptthread-Stitch
-auflösen, Rosenheim pixelgleich bleiben. `FillNodeHeights` separat messen; falls
-dieses Mapping selbst über Budget liegt, als eigenes Workerprodukt bauen.
+Zwischenstand: Rosenheim 0/4203 statt 8/3344 Frames über 16.67 ms; der längste
+Wasseraufruf 9.37 ms, davon eine Höhenabfrage 9.00 ms. `TileAt`/`KeepCoarse`
+übernehmen gestitchte Raster jetzt über `TilePool::Field` vom Worker. Der
+gemeinsame Decoded-Cache erlaubt mindestens 32 MiB Arbeitsmenge: Bei konfigurierten
+0 Bytes hatten die wiederaufgenommenen Field-Jobs zuvor alle Vorfelder verworfen
+und endlos neu begonnen. Der Null-Budget-Test verlangt Worker-Field-Fortschritt,
+Pending-Auflösung und identische Quellenrevision. Rosenheim bleibt 8e6642f9;
+Wasseraufruf höchstens 0.376 ms, Höhenabfrage 0.137 ms. 2/3755 Frames liegen
+über 16.67 ms; Draw erreicht 18.53 ms. `FillNodeHeights` bleibt auf dem
+Hauptthread und muss bei einem gemessenen Ausreißer ebenfalls zum Workerprodukt.
 
 ## Worker-Phasen
 

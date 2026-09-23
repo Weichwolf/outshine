@@ -7,7 +7,6 @@
 #include <expected>
 #include <string_view>
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <optional>
@@ -141,7 +140,6 @@ struct GroundStream::Held {
   uint64_t Clock = 0;
   long Builds = 0;
   long Decodes = 0;
-  double StitchMs = 0.0;
   bool Pending = false;
 };
 
@@ -172,14 +170,13 @@ void GroundStream::KeepCoarse(long x, long y) const {
   }
   const int zoom = Surface_.Z - static_cast<int>(kCoarseDrop);
   if (zoom < 1) { return; }
-  held.Pending = false;
-  const TerrainGrid grid =
-      held.Stitched->StitchedGrid(zoom, static_cast<uint32_t>(x), static_cast<uint32_t>(y));
-  const TerrainField *field = grid.TryField();
-  if (held.Pending) { return; }
+  std::shared_ptr<const TerrainField> field;
+  const TilePool::Reply status = PollStitchedField(
+      {.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)}, field);
+  if (status == TilePool::Reply::Pending || status == TilePool::Reply::Deferred) { return; }
   const uint32_t stride = held.Stitched->Stride();
-  const uint32_t rowPostings = field != nullptr ? PostingsPerEdge(field->Rows(), stride) : 0;
-  const uint32_t colPostings = field != nullptr ? PostingsPerEdge(field->Cols(), stride) : 0;
+  const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
+  const uint32_t colPostings = field ? PostingsPerEdge(field->Cols(), stride) : 0;
   const int gr =
       field != nullptr ? Ground::ChunkNodes({.Postings = rowPostings, .Grid = Surface_.Grid}) : 0;
   const int gc =
@@ -275,46 +272,33 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   for (Tile &t : held.Ground) {
     if (t.Resident && t.X == x && t.Y == y) {
       t.Used = ++held.Clock;
+      KeepCoarse(static_cast<long>(static_cast<uint64_t>(x) >> kCoarseDrop),
+                 static_cast<long>(static_cast<uint64_t>(y) >> kCoarseDrop));
       return t.Hole ? nullptr : &t;
     }
     if (t.Used < victim->Used) { victim = &t; }
   }
   held.Pending = false;
-  const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
-  {
-    const ShapedGround told = Tiles_.Shaped();
-    if (!told.Kind.empty()) {
-      TerrainTiles::Shaped how;
-      how.Kind = told.Kind;
-      how.AmplitudeM = told.AmplitudeM;
-      how.WavelengthM = told.WavelengthM;
-      how.Gradient = told.Gradient;
-      how.BearingDeg = told.BearingDeg;
-      how.FocusLatDeg = told.FocusLatDeg;
-      how.FocusLonDeg = told.FocusLonDeg;
-      how.Seed = told.Seed;
-      held.Stitched->Shapes(how);
-    }
+  std::shared_ptr<const TerrainField> field;
+  const TilePool::Reply status = PollStitchedField(
+      {.Zoom = Surface_.Z, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)}, field);
+  if (status == TilePool::Reply::Pending || status == TilePool::Reply::Deferred) {
+    held.Pending = true;
+    return nullptr;
   }
-  const TerrainGrid grid =
-      held.Stitched->StitchedGrid(Surface_.Z, static_cast<uint32_t>(x), static_cast<uint32_t>(y));
-  held.StitchMs +=
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-  const TerrainField *field = grid.TryField();
-  if (grid.Where() == TerrainGrid::State::Undecodable) {
+  if (status == TilePool::Reply::Refused) {
     Log::Error(LogTag::World,
                "ground_grid_failed",
                {{"z", Surface_.Z}, {"x", static_cast<int>(x)}, {"y", static_cast<int>(y)}});
   }
   const uint32_t stride = held.Stitched->Stride();
-  const uint32_t rowPostings = field != nullptr ? PostingsPerEdge(field->Rows(), stride) : 0;
-  const uint32_t colPostings = field != nullptr ? PostingsPerEdge(field->Cols(), stride) : 0;
+  const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
+  const uint32_t colPostings = field ? PostingsPerEdge(field->Cols(), stride) : 0;
   const int gr =
       field != nullptr ? Ground::ChunkNodes({.Postings = rowPostings, .Grid = Surface_.Grid}) : 0;
   const int gc =
       field != nullptr ? Ground::ChunkNodes({.Postings = colPostings, .Grid = Surface_.Grid}) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
-  if (held.Pending) { return nullptr; }
   held.Builds++;
   victim->X = x;
   victim->Y = y;
