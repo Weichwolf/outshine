@@ -17,7 +17,7 @@ not proof that every algorithm, race and failure path is correct. Line counts lo
 mixed ownership; no maximum file length or automatic split is an architectural oracle.
 Examples supplied by the user do not limit the audit to Live, Crown and Structure.
 
-2026-09-23 lexical inventory: 261 `class` and 902 `struct` definitions (excluding
+2026-09-23 lexical inventory: 261 `class` and 903 `struct` definitions (excluding
 `enum class` and template parameters), 31 public headers/4,459 lines, 580 private
 C++/GLSL files/94,275 lines, 22 declared dependency tiers and 384 public edges.
 Layer check finds zero direction violations; it cannot prove runtime ownership.
