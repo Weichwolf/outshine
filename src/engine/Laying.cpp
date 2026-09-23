@@ -95,6 +95,7 @@ constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kNetworkItemsPerFrame = 1024;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
+constexpr size_t kHaloNodesPerFrame = 32768;
 
 uint64_t DigestPatchwork(const Patchwork &patchwork) {
   uint64_t digest = kDigestBasis;
@@ -274,6 +275,20 @@ public:
 
   void FinishesNetwork() noexcept { NetworkJob_.reset(); }
 
+  [[nodiscard]] HeightSheets::HaloBuildJob *HaloJob() noexcept { return HaloJob_.get(); }
+
+  void BeginsHalos(std::unique_ptr<HeightSheets::HaloBuildJob> job) noexcept {
+    HaloJob_ = std::move(job);
+  }
+
+  void FinishesHalos() noexcept { HaloJob_.reset(); }
+
+  void SamplesHaloSlice(double milliseconds) noexcept {
+    LongestHaloSliceMs_ = std::max(LongestHaloSliceMs_, milliseconds);
+  }
+
+  [[nodiscard]] double LongestHaloSliceMs() const noexcept { return LongestHaloSliceMs_; }
+
   void SamplesCorridorSlice(double milliseconds) noexcept {
     LongestCorridorSliceMs_ = std::max(LongestCorridorSliceMs_, milliseconds);
   }
@@ -334,6 +349,7 @@ private:
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::unique_ptr<outshine::World::TransportNetworkBuildJob> NetworkJob_;
+  std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<Yields> Corridors_;
   MeshBuild Meshing_;
   MeshBuild InitialMeshing_;
@@ -342,6 +358,7 @@ private:
   double LongestPressingSliceMs_ = 0.0;
   double LongestCorridorSliceMs_ = 0.0;
   double LongestGeometrySliceMs_ = 0.0;
+  double LongestHaloSliceMs_ = 0.0;
   Core::GroundBuildSchedule Schedule_;
   uint64_t Id_ = 0;
 };
@@ -1225,19 +1242,25 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
       state.CompletesSheetPhase();
       return GroundBuildProgress::Pending;
     case Core::GroundBuildSchedule::SheetPhase::NeedsHalos: {
-      const auto haloAt = std::chrono::steady_clock::now();
-      Published.Places("ground: sheets the lattice haloed",
-                       static_cast<double>(build.Sheets.Halos(patchwork, coverage.Zoom)),
-                       "sheets");
+      if (state.HaloJob() == nullptr) {
+        state.BeginsHalos(
+            std::make_unique<HeightSheets::HaloBuildJob>(build.Sheets, patchwork, coverage.Zoom));
+      }
+      const auto began = std::chrono::steady_clock::now();
+      HeightSheets::HaloBuildJob &job = *state.HaloJob();
+      const bool ready = job.Advance(kHaloNodesPerFrame);
+      state.SamplesHaloSlice(
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count());
+      if (!ready) { return GroundBuildProgress::Pending; }
+      Published.Places(
+          "ground: sheets the lattice haloed", static_cast<double>(job.Haloed()), "sheets");
       build.RimsMissing = build.Sheets.RimsMissing();
       Published.Places("ground: rims copied for want of a neighbour",
                        static_cast<double>(build.RimsMissing),
                        "sheets");
-      Published.Places(
-          "ground: of that, haloing",
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - haloAt)
-              .count(),
-          "ms");
+      Published.Places("ground candidate: longest halo slice", state.LongestHaloSliceMs(), "ms");
+      state.FinishesHalos();
       state.CompletesSheetPhase();
       return GroundBuildProgress::Pending;
     }

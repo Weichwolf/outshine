@@ -46,6 +46,8 @@ struct Sheet {
   uint32_t Postings = 0;
   bool Virtual = false;
   int SourceZoom = -1;
+
+  [[nodiscard]] bool operator==(const Sheet &) const = default;
 };
 
 struct Patchwork {

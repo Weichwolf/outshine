@@ -116,8 +116,18 @@ int main() {
                              Render::GroundLattice::kPages,
                              error),
         "resolved field refines the native candidate");
+  Patchwork interrupted = candidate;
+  HeightSheets interruptedSheets = sheets;
+  HeightSheets::HaloBuildJob haloJob(interruptedSheets, interrupted, 4);
+  for (size_t turn = 0; turn < 100000 && !haloJob.Advance(turn % 3 == 2 ? 257u : turn % 3 + 1u);
+       ++turn) {}
+  CHECK(haloJob.Haloed() == interrupted.Sheets.size(),
+        "bounded halo preparation completes every eligible sheet");
   CHECK(sheets.Halos(candidate, 4) == candidate.Sheets.size() && sheets.RimsMissing() == 0,
         "neighbour fields complete every halo without missing rims");
+  CHECK(interrupted.Sheets == candidate.Sheets &&
+            interruptedSheets.RimsMissing() == sheets.RimsMissing(),
+        "interrupted and one-shot halo preparation produce identical pages and rim counts");
   for (const Sheet &sheet : candidate.Sheets) {
     CHECK(sheet.Nodes.size() == Render::GroundLattice::kPageNodes,
           "complete height page has all interior and rim samples");

@@ -171,50 +171,94 @@ std::optional<float> HeightSheets::AslAt(int zoom, Ground::TileFrac at) const {
   return field->PostingM({.Col = col, .Row = row});
 }
 
-bool HeightSheets::HaloOf(Sheet &sheet, int finestZoom) {
+HeightSheets::HaloBuildJob::HaloBuildJob(HeightSheets &sheets,
+                                         Patchwork &candidate,
+                                         int finestZoom) noexcept
+    : Sheets_(&sheets), Candidate_(&candidate), FinestZoom_(finestZoom) {
+  Sheets_->RimsMissing_ = 0;
+}
+
+bool HeightSheets::HaloBuildJob::BeginsSheet() {
   constexpr int side = Render::GroundLattice::kSide;
-  const bool whole = (sheet.Virtual || sheet.SourceZoom >= 0) &&
-                     sheet.Nodes.size() != Render::GroundLattice::kNodes;
-  if (!whole && sheet.Nodes.size() != Render::GroundLattice::kNodes) { return false; }
-  std::vector<float> page(Render::GroundLattice::kPageNodes, 0.0f);
-  const int sourceZoom = SourceZoomOf(sheet, finestZoom);
-  const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - sourceZoom);
-  const int zoom = sheet.Tile.Zoom - static_cast<int>(drop);
-  const double span = 1.0 / static_cast<double>(1u << drop);
-  const double atX = static_cast<double>(sheet.Tile.X >> drop) +
-                     static_cast<double>(sheet.Tile.X & ((1u << drop) - 1u)) * span;
-  const double atY = static_cast<double>(sheet.Tile.Y >> drop) +
-                     static_cast<double>(sheet.Tile.Y & ((1u << drop) - 1u)) * span;
-  std::vector<bool> missing(Render::GroundLattice::kPageNodes, false);
-  bool anyMissing = false;
-  for (int j = -1; j <= side; ++j) {
-    for (int i = -1; i <= side; ++i) {
-      const bool inside = i >= 0 && i < side && j >= 0 && j < side;
-      if (inside && !whole) {
-        page[PageNode(i, j)] =
-            sheet
-                .Nodes[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)];
-        continue;
-      }
-      const std::optional<float> asl = AslAt(
-          zoom,
-          {.X = atX + span * NodeFraction(sheet, i), .Y = atY + span * NodeFraction(sheet, j)});
-      if (asl) {
-        page[PageNode(i, j)] = *asl;
-      } else if (inside) {
-        return false;
-      } else {
-        missing[PageNode(i, j)] = true;
-        anyMissing = true;
-      }
+  while (SheetAt_ < Candidate_->Sheets.size()) {
+    const Sheet &sheet = Candidate_->Sheets[SheetAt_];
+    if (sheet.Side != side) {
+      ++SheetAt_;
+      continue;
     }
+    Whole_ = (sheet.Virtual || sheet.SourceZoom >= 0) &&
+             sheet.Nodes.size() != Render::GroundLattice::kNodes;
+    if (!Whole_ && sheet.Nodes.size() != Render::GroundLattice::kNodes) {
+      ++SheetAt_;
+      continue;
+    }
+    const int sourceZoom = SourceZoomOf(sheet, FinestZoom_);
+    const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - sourceZoom);
+    Zoom_ = sheet.Tile.Zoom - static_cast<int>(drop);
+    Span_ = 1.0 / static_cast<double>(1u << drop);
+    AtX_ = static_cast<double>(sheet.Tile.X >> drop) +
+           static_cast<double>(sheet.Tile.X & ((1u << drop) - 1u)) * Span_;
+    AtY_ = static_cast<double>(sheet.Tile.Y >> drop) +
+           static_cast<double>(sheet.Tile.Y & ((1u << drop) - 1u)) * Span_;
+    Page_.assign(Render::GroundLattice::kPageNodes, 0.0f);
+    Missing_.assign(Render::GroundLattice::kPageNodes, false);
+    AnyMissing_ = false;
+    NodeAt_ = 0;
+    Working_ = true;
+    return true;
   }
-  if (anyMissing) {
-    CopiesEdgeIntoRim(page, missing);
-    ++RimsMissing_;
+  return false;
+}
+
+bool HeightSheets::HaloBuildJob::AdvancesNode() {
+  constexpr int side = Render::GroundLattice::kSide;
+  constexpr auto pageSide = static_cast<size_t>(side) + 2u;
+  Sheet &sheet = Candidate_->Sheets[SheetAt_];
+  const int j = static_cast<int>(NodeAt_ / pageSide) - 1;
+  const int i = static_cast<int>(NodeAt_ % pageSide) - 1;
+  const bool inside = i >= 0 && i < side && j >= 0 && j < side;
+  if (inside && !Whole_) {
+    Page_[NodeAt_] =
+        sheet.Nodes[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)];
+    ++NodeAt_;
+    return true;
   }
-  sheet.Nodes = std::move(page);
+  const std::optional<float> asl = Sheets_->AslAt(
+      Zoom_,
+      {.X = AtX_ + Span_ * NodeFraction(sheet, i), .Y = AtY_ + Span_ * NodeFraction(sheet, j)});
+  if (asl) {
+    Page_[NodeAt_] = *asl;
+  } else if (inside) {
+    Working_ = false;
+    ++SheetAt_;
+    return false;
+  } else {
+    Missing_[NodeAt_] = true;
+    AnyMissing_ = true;
+  }
+  ++NodeAt_;
   return true;
+}
+
+void HeightSheets::HaloBuildJob::CompletesSheet() {
+  if (AnyMissing_) {
+    CopiesEdgeIntoRim(Page_, Missing_);
+    ++Sheets_->RimsMissing_;
+  }
+  Candidate_->Sheets[SheetAt_].Nodes = std::move(Page_);
+  ++Haloed_;
+  ++SheetAt_;
+  Working_ = false;
+}
+
+bool HeightSheets::HaloBuildJob::Advance(size_t nodesMost) {
+  while (nodesMost > 0) {
+    if (!Working_ && !BeginsSheet()) { return true; }
+    --nodesMost;
+    if (!AdvancesNode()) { continue; }
+    if (NodeAt_ == Render::GroundLattice::kPageNodes) { CompletesSheet(); }
+  }
+  return !Working_ && SheetAt_ == Candidate_->Sheets.size();
 }
 
 namespace {
@@ -387,12 +431,9 @@ bool HeightSheets::StitchEdges(Patchwork &laid, std::string &error) {
 }
 
 size_t HeightSheets::Halos(Patchwork &laid, int finestZoom) {
-  RimsMissing_ = 0;
-  size_t haloed = 0;
-  for (Sheet &sheet : laid.Sheets) {
-    if (sheet.Side == Render::GroundLattice::kSide && HaloOf(sheet, finestZoom)) { ++haloed; }
-  }
-  return haloed;
+  HaloBuildJob job(*this, laid, finestZoom);
+  while (!job.Advance(std::numeric_limits<size_t>::max())) {}
+  return job.Haloed();
 }
 
 bool HeightSheets::Stitch(Patchwork &laid, std::string &error) {

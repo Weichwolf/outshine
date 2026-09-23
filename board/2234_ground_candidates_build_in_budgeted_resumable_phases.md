@@ -96,13 +96,13 @@ Use internal contracts for equivalence and public API end to end. Add no second 
    the remaining 11.94 ms final material/GPU bind. Split that without partial publish.
    Review through 21342822f: `PressPointsJob` now completes global rejection before
    applying any height changes, retaining cursors and decisions. Preserve that rule.
-   Remaining unsliced work: bucket construction in its constructor and both
-   `FloorsOf` passes in `TerrainPressJob::Advance(Floors)`. Also measure
-   `OsmField::PublishParsed`, which rebuilds the entire resident vector snapshot.
-   Do not call these bounded because surrounding loops yield. Malcesine-762c673c
-   measured sim p99 34.08 ms and draw p99 2.23 ms after atmosphere-cache repair;
-   those aggregate values do not identify the responsible phase. Measure first,
-   split the dominant unit, preserve global decisions and completed native products.
+   `HaloBuildJob` replaces Rosenheim's 130.19 ms whole-set halo pass. Budgets 1/2/257
+   reproduce exact pages, order and missing-rim counts; production uses 32768 nodes
+   per advance and measures 3.09 ms longest with digest 8e6642f9 unchanged. Simulation
+   worst falls from 130.34 to 86.62 ms; attribute that remainder before changing code.
+   Press bucket construction, both `FloorsOf` passes and `OsmField::PublishParsed`
+   remain whole-input work. The final GPU bind is below one frame alone. Preserve
+   global decisions and completed native products when slicing each remaining unit.
 
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.

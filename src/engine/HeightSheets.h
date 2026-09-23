@@ -30,6 +30,36 @@ public:
     size_t RequestsMost;
   };
 
+  class HaloBuildJob {
+  public:
+    HaloBuildJob(HeightSheets &sheets, Patchwork &candidate, int finestZoom) noexcept;
+
+    [[nodiscard]] bool Advance(size_t nodesMost);
+
+    [[nodiscard]] size_t Haloed() const noexcept { return Haloed_; }
+
+  private:
+    [[nodiscard]] bool BeginsSheet();
+    [[nodiscard]] bool AdvancesNode();
+    void CompletesSheet();
+
+    HeightSheets *Sheets_ = nullptr;
+    Patchwork *Candidate_ = nullptr;
+    int FinestZoom_ = 0;
+    size_t SheetAt_ = 0;
+    size_t NodeAt_ = 0;
+    size_t Haloed_ = 0;
+    int Zoom_ = 0;
+    double Span_ = 0;
+    double AtX_ = 0;
+    double AtY_ = 0;
+    std::vector<float> Page_;
+    std::vector<bool> Missing_;
+    bool Whole_ = false;
+    bool AnyMissing_ = false;
+    bool Working_ = false;
+  };
+
   HeightSheets() = default;
   HeightSheets(const HeightSheets &other) = default;
   HeightSheets &operator=(const HeightSheets &) = delete;
@@ -108,7 +138,6 @@ public:
 private:
   [[nodiscard]] bool StitchEdges(Patchwork &laid, std::string &error);
   [[nodiscard]] std::optional<float> AslAt(int zoom, Ground::TileFrac at) const;
-  [[nodiscard]] bool HaloOf(Sheet &sheet, int finestZoom);
 
   struct FieldRequest {
     Data::TileId Tile;
