@@ -102,10 +102,10 @@ Use internal contracts for equivalence and public API end to end. Add no second 
    1/2/7 and cuts 69.02 to 11.46 ms. Driven/generated part ownership is now explicit:
    zero is a real boundary, repeated ground builds retain authored parts and replace
    obsolete generated parts. Shadow-caster selection is independent of that boundary.
-   Immutable height-page CPU payloads are shared across candidates. Rosenheim remains
-   8e6642f9; repeated preparation is 20.48–21.59 ms from 25.32, world worst 22.10–22.13 ms;
-   7–8/~3290 frames exceed 16.67 ms. Remaining preparation reuploads published ground
-   GPU resources; replace that with shared residency and transactional handles, not aliasing.
+   Immutable height-page CPU payloads are shared; GPU restore advances 64 pages/frame.
+   A unit budget restores exactly one page. Rosenheim stays 8e6642f9; preparation falls
+   from 20.48–21.59 to 10.08 ms, world worst is 21.57 ms and 7/3309 frames exceed budget.
+   Next split the observed 17.83 ms publication slice without exposing partial resources.
 Memory accounting belongs to WI 2228/2244; admission integration to WI 2233.
 These do not block the release-state fix or controlled product-equivalence tests.
 Expected image: unchanged completed world, no partial terrain/contact revision;

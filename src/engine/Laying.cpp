@@ -116,6 +116,7 @@ constexpr size_t kNetworkItemsPerFrame = 1024;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kHaloNodesPerFrame = 32768;
 constexpr size_t kTerrainRefinementSourcesPerFrame = 16;
+constexpr size_t kGroundRestorePagesPerFrame = 64;
 
 uint64_t DigestPatchwork(const Patchwork &patchwork) {
   uint64_t digest = kDigestBasis;
@@ -1222,7 +1223,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
       "ground candidate: progress", static_cast<double>(state.Progress()), "stage index");
   if (state.Prepared()) { return GroundBuildProgress::Ready; }
   const auto prepareAt = std::chrono::steady_clock::now();
-  if (auto prepared = state.Candidate().Prepare(*Picture.Standing, &Picture.Face); !prepared) {
+  auto prepared = state.Candidate().AdvancePreparation(
+      *Picture.Standing, &Picture.Face, kGroundRestorePagesPerFrame);
+  if (!prepared) {
     Cost.GroundBuildPrepare.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - prepareAt)
             .count());
@@ -1233,6 +1236,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
   Cost.GroundBuildPrepare.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - prepareAt)
           .count());
+  if (!*prepared) { return GroundBuildProgress::Pending; }
   state.MarksPrepared();
   return GroundBuildProgress::Pending;
 }

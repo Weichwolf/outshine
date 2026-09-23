@@ -59,6 +59,8 @@ public:
   [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
   [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
   [[nodiscard]] bool RestoreHeightPages(SubjectDraw &subjects, std::string &error);
+  [[nodiscard]] std::expected<bool, std::string>
+  AdvanceTerrainRestore(SubjectDraw &subjects, size_t &nextPage, size_t pagesMost);
   [[nodiscard]] bool
   SetGroundGrid(SubjectDraw &subjects, std::span<const float> fractions, std::string &error);
   [[nodiscard]] bool SetTerrainTiles(SubjectDraw &subjects,

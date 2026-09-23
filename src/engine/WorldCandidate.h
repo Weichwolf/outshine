@@ -58,6 +58,11 @@ public:
     return Scene().AdvanceGeometryBuild(itemsMost);
   }
 
+  [[nodiscard]] std::expected<bool, std::string> AdvanceGroundResourceRestore(size_t &nextPage,
+                                                                              size_t pagesMost) {
+    return Scene().AdvanceGroundResourceRestore(nextPage, pagesMost);
+  }
+
   [[nodiscard]] bool GeometryBuildActive() const noexcept { return Scene().GeometryBuildActive(); }
 
   [[nodiscard]] Render::SceneRenderer &Renderer() noexcept { return Renderer_; }
@@ -66,10 +71,11 @@ public:
   Prepare(const RuntimeScene &previous,
           const Ui::Font *font,
           Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
-          SubjectGeometrySources geometry = SubjectGeometrySources::All) {
+          SubjectGeometrySources geometry = SubjectGeometrySources::All,
+          GroundResourceRestore ground = GroundResourceRestore::Immediate) {
     std::string error;
     if (!RuntimeScene::PreparesWorldReplacement(
-            Renderer_, previous, font, Scene_, error, pieces, geometry)) {
+            Renderer_, previous, font, Scene_, error, pieces, geometry, ground)) {
       return std::unexpected(std::move(error));
     }
     return {};

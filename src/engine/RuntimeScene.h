@@ -89,6 +89,7 @@ struct Extents {
 };
 
 enum class SubjectGeometrySources : uint8_t { All, Driven };
+enum class GroundResourceRestore : uint8_t { Immediate, Deferred };
 
 class RuntimeScene {
 public:
@@ -121,7 +122,8 @@ public:
       const Ui::Font *font,
       std::unique_ptr<RuntimeScene> &candidate,
       std::string &error,
-      Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy);
+      Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
+      GroundResourceRestore ground = GroundResourceRestore::Immediate);
   [[nodiscard]] static bool PreparesWorldReplacement(
       Render::SceneRenderer &renderer,
       const RuntimeScene &previous,
@@ -129,7 +131,8 @@ public:
       std::unique_ptr<RuntimeScene> &candidate,
       std::string &error,
       Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy,
-      SubjectGeometrySources geometry = SubjectGeometrySources::All);
+      SubjectGeometrySources geometry = SubjectGeometrySources::All,
+      GroundResourceRestore ground = GroundResourceRestore::Immediate);
   [[nodiscard]] static bool PublishesPreparedWorld(Render::SceneRenderer &renderer,
                                                    std::unique_ptr<RuntimeScene> &out,
                                                    std::unique_ptr<RuntimeScene> &candidate,
@@ -200,6 +203,8 @@ public:
   [[nodiscard]] std::expected<void, std::string> BeginGeneratedGeometryBuild(
       outshine::Geometry &&generated, MaterialInstance groundSurface, Material wearing);
   [[nodiscard]] std::expected<bool, std::string> AdvanceGeometryBuild(size_t itemsMost);
+  [[nodiscard]] std::expected<bool, std::string> AdvanceGroundResourceRestore(size_t &nextPage,
+                                                                              size_t pagesMost);
 
   [[nodiscard]] bool GeometryBuildActive() const noexcept { return ShapeCooking_.has_value(); }
 

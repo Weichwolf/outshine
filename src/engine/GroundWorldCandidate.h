@@ -4,6 +4,7 @@
 #include "EngineHeld.h"
 #include "WorldCandidate.h"
 #include <expected>
+#include <limits>
 #include <memory>
 #include <span>
 #include <string>
@@ -108,18 +109,37 @@ public:
 
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,
                                                          const Ui::Font *font) {
-    if (auto prepared =
-            World_.Prepare(previous, font, PieceSources_, Core::SubjectGeometrySources::Driven);
-        !prepared) {
-      return prepared;
+    for (;;) {
+      auto prepared = AdvancePreparation(previous, font, std::numeric_limits<size_t>::max());
+      if (!prepared) { return std::unexpected(std::move(prepared.error())); }
+      if (*prepared) { return {}; }
     }
+  }
+
+  [[nodiscard]] std::expected<bool, std::string> AdvancePreparation(
+      const Core::RuntimeScene &previous, const Ui::Font *font, size_t heightPagesMost) {
+    if (Prepared_) { return true; }
+    if (!WorldPrepared_) {
+      auto prepared = World_.Prepare(previous,
+                                     font,
+                                     PieceSources_,
+                                     Core::SubjectGeometrySources::Driven,
+                                     Core::GroundResourceRestore::Deferred);
+      if (!prepared) { return std::unexpected(std::move(prepared.error())); }
+      WorldPrepared_ = true;
+      return false;
+    }
+    auto ground = World_.AdvanceGroundResourceRestore(NextHeightPage_, heightPagesMost);
+    if (!ground) { return std::unexpected(std::move(ground.error())); }
+    if (!*ground) { return false; }
     Products_.Sheets.Into(&World_.Renderer());
     Products_.Pieces.Into(&World_.Renderer());
     if (PieceSources_ == Render::SceneResources::PieceSources::Omit) {
       Products_.Pieces.Clear();
       Products_.Pieces.Into(&World_.Renderer());
     }
-    return {};
+    Prepared_ = true;
+    return true;
   }
 
   [[nodiscard]] std::expected<void, std::string>
@@ -152,6 +172,9 @@ private:
   GroundBuildProducts Products_;
   Core::WorldCandidate World_;
   Render::SceneResources::PieceSources PieceSources_ = Render::SceneResources::PieceSources::Copy;
+  size_t NextHeightPage_ = 0;
+  bool WorldPrepared_ = false;
+  bool Prepared_ = false;
   static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
   static_assert(std::is_nothrow_move_assignable_v<Ground::BuildingField>);
   static_assert(std::is_nothrow_move_assignable_v<TilePieces>);

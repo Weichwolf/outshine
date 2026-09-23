@@ -535,6 +535,12 @@ public:
     return content.Resources.RestoreTerrain(content.Subjects, error);
   }
 
+  [[nodiscard]] std::expected<bool, std::string> AdvanceGroundResourceRestore(size_t &nextPage,
+                                                                              size_t pagesMost) {
+    auto &content = ActiveState().Content;
+    return content.Resources.AdvanceTerrainRestore(content.Subjects, nextPage, pagesMost);
+  }
+
   [[nodiscard]] float NearMetres() const { return ActiveState().NearM; }
 
   void BeginTemporalRun();

@@ -5,10 +5,12 @@
 #include "TerrainTileUpload.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <span>
 #include <string>
 #include <utility>
@@ -373,9 +375,36 @@ bool SceneResources::SetTerrainTiles(SubjectDraw &subjects,
 }
 
 bool SceneResources::RestoreTerrain(SubjectDraw &subjects, std::string &error) {
-  if (!RestoreHeightPages(subjects, error)) { return false; }
-  if (!GroundGrid_.empty() && !subjects.Ground().SetGrid(GroundGrid_, error)) { return false; }
-  return SetTerrainTiles(subjects, GroundReal_, GroundVirtual_, error);
+  size_t nextPage = 0;
+  auto restored = AdvanceTerrainRestore(subjects, nextPage, std::numeric_limits<size_t>::max());
+  if (!restored) {
+    error = std::move(restored.error());
+    return false;
+  }
+  return *restored;
+}
+
+std::expected<bool, std::string>
+SceneResources::AdvanceTerrainRestore(SubjectDraw &subjects, size_t &nextPage, size_t pagesMost) {
+  assert(nextPage <= HeightPages_.size());
+  const size_t count = std::min(pagesMost, HeightPages_.size() - nextPage);
+  const size_t end = nextPage + count;
+  for (; nextPage < end; ++nextPage) {
+    HeightPage &page = HeightPages_[nextPage];
+    if (!page.State.Occupied) { continue; }
+    std::string error;
+    page.Resident = subjects.Ground().PlacePage(*page.Nodes, error);
+    if (page.Resident == kNoPage) { return std::unexpected(std::move(error)); }
+  }
+  if (nextPage < HeightPages_.size()) { return false; }
+  std::string error;
+  if (!GroundGrid_.empty() && !subjects.Ground().SetGrid(GroundGrid_, error)) {
+    return std::unexpected(std::move(error));
+  }
+  if (!SetTerrainTiles(subjects, GroundReal_, GroundVirtual_, error)) {
+    return std::unexpected(std::move(error));
+  }
+  return true;
 }
 
 void SceneResources::SetGroundClassification(std::span<const uint32_t> classes,

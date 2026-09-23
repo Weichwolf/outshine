@@ -218,7 +218,8 @@ bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
                                                const Ui::Font *font,
                                                std::unique_ptr<RuntimeScene> &candidate,
                                                std::string &error,
-                                               Render::SceneResources::PieceSources pieces) {
+                                               Render::SceneResources::PieceSources pieces,
+                                               GroundResourceRestore ground) {
   if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
   Declaration declaration = previous.Declared_;
   declaration.Surfaces = previous.Ui_.Surfaces();
@@ -233,7 +234,8 @@ bool RuntimeScene::PreparesGeometryReplacement(Render::SceneRenderer &renderer,
     candidate->DrivenGeometry_ = previous.DrivenGeometry_.clone();
   }
   if (!candidate->SetGeometry(std::move(replacement), drivenParts, error) ||
-      !candidate->RestoresPieceResources(error) || !candidate->RestoresGroundResources(error) ||
+      !candidate->RestoresPieceResources(error) ||
+      (ground == GroundResourceRestore::Immediate && !candidate->RestoresGroundResources(error)) ||
       !candidate->Scrolled(previous.Ui_.ScrollState(), error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
@@ -249,7 +251,8 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                             std::unique_ptr<RuntimeScene> &candidate,
                                             std::string &error,
                                             Render::SceneResources::PieceSources pieces,
-                                            SubjectGeometrySources geometry) {
+                                            SubjectGeometrySources geometry,
+                                            GroundResourceRestore ground) {
   if (previous.Held_.HasGeometry() && geometry == SubjectGeometrySources::All) {
     return PreparesGeometryReplacement(renderer,
                                        previous,
@@ -258,7 +261,8 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                        font,
                                        candidate,
                                        error,
-                                       pieces);
+                                       pieces,
+                                       ground);
   }
   if (previous.DrivenGeometry_.parts() > 0) {
     return PreparesGeometryReplacement(renderer,
@@ -268,7 +272,8 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
                                        font,
                                        candidate,
                                        error,
-                                       pieces);
+                                       pieces,
+                                       ground);
   }
   if (!renderer.BeginsWorldCandidate(error, pieces)) { return false; }
   Declaration declaration = previous.Declared_;
@@ -280,7 +285,8 @@ bool RuntimeScene::PreparesWorldReplacement(Render::SceneRenderer &renderer,
   candidate->GroundAlbedo_ = previous.GroundAlbedo_;
   candidate->GroundSurface_ = previous.GroundSurface_;
   candidate->Scratch_.Digests = previous.Scratch_.Digests;
-  if (!candidate->RestoresPieceResources(error) || !candidate->RestoresGroundResources(error) ||
+  if (!candidate->RestoresPieceResources(error) ||
+      (ground == GroundResourceRestore::Immediate && !candidate->RestoresGroundResources(error)) ||
       !candidate->Scrolled(previous.Ui_.ScrollState(), error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
@@ -455,6 +461,11 @@ bool RuntimeScene::RestoresPieceResources(std::string &error) {
 
 bool RuntimeScene::RestoresGroundResources(std::string &error) {
   return Renderer_->RestoreGroundResources(error);
+}
+
+std::expected<bool, std::string> RuntimeScene::AdvanceGroundResourceRestore(size_t &nextPage,
+                                                                            size_t pagesMost) {
+  return Renderer_->AdvanceGroundResourceRestore(nextPage, pagesMost);
 }
 
 void RuntimeScene::WearsPieces() {
