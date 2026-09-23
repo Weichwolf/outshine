@@ -1965,10 +1965,11 @@ bool Engine::State::AdvancesGroundWithinBudget(GroundQuality quality) {
   const auto began = std::chrono::steady_clock::now();
   for (size_t advance = 0; advance < kAdvancesMost; ++advance) {
     const GroundBuildState *const before = World.GroundBuild.get();
-    const uint64_t id = before ? before->Id() : 0;
-    const size_t phase = before ? before->Progress() : 0;
-    const uint64_t slices =
-        before && phase < Cost.GroundPhases.size() ? Cost.GroundPhases[phase].Taken() : 0;
+    const uint64_t id = before != nullptr ? before->Id() : 0;
+    const size_t phase = before != nullptr ? before->Progress() : 0;
+    const uint64_t slices = before != nullptr && phase < Cost.GroundPhases.size()
+                                ? Cost.GroundPhases[phase].Taken()
+                                : 0;
     if (!Grounds(false, quality)) { return false; }
     const GroundBuildState *const after = World.GroundBuild.get();
     if (after == nullptr || after->Id() != id || after->Progress() != phase ||
