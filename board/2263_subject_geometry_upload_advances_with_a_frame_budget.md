@@ -59,18 +59,13 @@ upload, stream/table upload and finalization in separate candidate frames;
 its one-shot path loops over the same stages. The native test compares direct
 and interrupted digests and pixels; the place pacing test passes normally and
 with NDEBUG. Individual upload ranges are still unbounded.
-The pre-pacing split retained Wien `2fc0aec4` and Malcesine `07ca3a25`.
-Before pacing, Wien showed 9/4517 frames over 16.67 ms and a 105.71 ms
-worst draw interval. With staged `RuntimeScene`, its digest remains
-`2fc0aec4`; 8/4493 frames exceed 16.67 ms, the worst draw interval is
-55.60 ms, and the longest geometry slice was 21.54 ms. Malcesine remains
-`07ca3a25`. After splitting draw planning (1.46 ms) from CPU packing
-(9.93 ms), Wien's longest combined geometry slice measured 32.26 ms while
-every measured inner build phase stayed below 10 ms. The first slice also
-ran class upload (17.55 ms) and admission; separate those candidate phases
-before changing the mesh algorithm. Then bound any remaining over-budget
-class upload or admission unit. These are full-frame and phase figures from
-different captures, not directly comparable CPU samples.
+`GroundBuildState` now gives class upload, geometry admission and cooking
+separate advances. The current Wien capture retains `2fc0aec4`: class upload
+10.78 ms, longest complete geometry slice 15.95 ms, longest inner phase CPU
+packing 10.98 ms. Six of 4471 full frames still exceed 16.67 ms; worst sim
+35.39 ms and draw 78.62 ms require separate attribution. Malcesine remains
+`07ca3a25`, longest geometry slice 1.71 ms. These captures demonstrate a
+reduction, not a guaranteed bound: an earlier class upload took 17.55 ms.
 
 ## Implementation order
 
@@ -90,9 +85,8 @@ different captures, not directly comparable CPU samples.
    `ShapeCookJob`; verify the prior complete scene stays resident until final
    success and `GroundWorldCandidate` publication remains atomic. Bound work
    inside the phases rather than introducing a second build route.
-4. Separate class upload, geometry admission and the first cook advance in
-   `GroundBuildState`; none should repeat on a resumed candidate. Then bound
-   the most expensive unit by measured bytes/work, and measure full
+4. Stress class upload, admission and index/stream submission with larger
+   inputs. Bound any over-budget unit by measured bytes/work, and measure full
    frame p50/p95/p99, warm/cold transition and CPU/GPU peaks on Wien. If an SDL
    allocation or submit still blocks, isolate and bound that operation rather
    than moving it into an unmeasured phase.

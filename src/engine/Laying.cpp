@@ -174,6 +174,8 @@ bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality)
 
 class GroundBuildState {
 public:
+  enum class GeometrySubmission : uint8_t { Classes, Begin, Cook };
+
   struct MeshBuild {
     Generators::TerrainMesh Mesh;
     size_t NextSheet = 0;
@@ -375,6 +377,20 @@ public:
 
   [[nodiscard]] double LongestGeometrySliceMs() const noexcept { return LongestGeometrySliceMs_; }
 
+  [[nodiscard]] GeometrySubmission GeometrySubmissionStep() const noexcept {
+    return GeometrySubmission_;
+  }
+
+  void ClassesUploaded() noexcept {
+    assert(GeometrySubmission_ == GeometrySubmission::Classes);
+    GeometrySubmission_ = GeometrySubmission::Begin;
+  }
+
+  void GeometryStarted() noexcept {
+    assert(GeometrySubmission_ == GeometrySubmission::Begin);
+    GeometrySubmission_ = GeometrySubmission::Cook;
+  }
+
   [[nodiscard]] std::vector<Yields> TakesCorridors() { return std::move(Corridors_); }
 
   [[nodiscard]] std::chrono::steady_clock::time_point Began() const noexcept { return Began_; }
@@ -437,6 +453,7 @@ private:
   double LongestPressingSliceMs_ = 0.0;
   double LongestCorridorSliceMs_ = 0.0;
   double LongestGeometrySliceMs_ = 0.0;
+  GeometrySubmission GeometrySubmission_ = GeometrySubmission::Classes;
   double LongestHaloSliceMs_ = 0.0;
   Core::GroundBuildSchedule Schedule_;
   uint64_t Id_ = 0;
@@ -1898,13 +1915,12 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
   const auto sliceBegan = std::chrono::steady_clock::now();
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
-  if (!candidate.GroundGeometryBuildActive()) {
-    const size_t drivenParts = Picture.Standing->DrivenParts();
-    Published.Places("restand: the carried count the world hands over",
-                     static_cast<double>(drivenParts),
-                     "carried");
-    Published.Places(
-        "restand: parts in the geometry", static_cast<double>(build.Ground.parts()), "parts");
+  const auto sample = [&] {
+    state.SamplesGeometrySlice(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceBegan)
+            .count());
+  };
+  if (state.GeometrySubmissionStep() == GroundBuildState::GeometrySubmission::Classes) {
     const auto classesBegan = std::chrono::steady_clock::now();
     if (build.ClassStructure && !build.ClassPalette.empty() &&
         !candidate.SetGroundClasses(
@@ -1918,6 +1934,17 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - classesBegan)
             .count(),
         "ms");
+    state.ClassesUploaded();
+    sample();
+    return true;
+  }
+  if (state.GeometrySubmissionStep() == GroundBuildState::GeometrySubmission::Begin) {
+    const size_t drivenParts = Picture.Standing->DrivenParts();
+    Published.Places("restand: the carried count the world hands over",
+                     static_cast<double>(drivenParts),
+                     "carried");
+    Published.Places(
+        "restand: parts in the geometry", static_cast<double>(build.Ground.parts()), "parts");
     candidate.Digests(Session.Declared.Render.Audits);
     size_t handed = 0;
     for (int part = 0; part < build.Ground.parts(); ++part) {
@@ -1932,7 +1959,11 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
       Error = std::move(began.error());
       return false;
     }
+    state.GeometryStarted();
+    sample();
+    return true;
   }
+  assert(candidate.GroundGeometryBuildActive());
   auto advanced = candidate.AdvanceGroundGeometryBuild(kShapeCookItemsPerFrame);
   const double sliceMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceBegan)
