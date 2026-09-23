@@ -47,9 +47,11 @@ rebasing and geometry digest for an identical source snapshot.
 Separate CPU planning/packing, index upload and vertex/table upload into at
 least three advances; the baseline pack plus index alone can exceed one frame.
 `SubjectDraw`/`SceneRenderer` now expose generation-bound begin/finish calls.
-The paused state retains the prior complete draw; stale tickets fail. A focused
-GPU test compares interrupted and one-shot pixels. `RuntimeScene` still calls
-the one-shot path, so the full-frame defect remains until its job is paced.
+The paused state retains the prior complete draw; stale tickets fail. The
+focused GPU case checks those contracts, but its linear image is black and is
+not an independent visual oracle. Place and glTF images must prove visibility
+after pacing. `RuntimeScene` still calls the one-shot path, so the full-frame
+defect remains until its job is paced.
 
 ## Implementation order
 
