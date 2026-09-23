@@ -160,8 +160,7 @@ bool SceneResources::CopySourcesFrom(const SceneResources &source,
   GroundGrid_ = source.GroundGrid_;
   GroundReal_ = source.GroundReal_;
   GroundVirtual_ = source.GroundVirtual_;
-  GroundClasses_ = source.GroundClasses_;
-  GroundPalette_ = source.GroundPalette_;
+  GroundClassification_ = source.GroundClassification_;
   PieceMaterials_.clear();
   PieceMaterials_.reserve(source.PieceMaterials_.size());
   for (const PieceMaterials &materials : source.PieceMaterials_) {
@@ -409,8 +408,18 @@ SceneResources::AdvanceTerrainRestore(SubjectDraw &subjects, size_t &nextPage, s
 
 void SceneResources::SetGroundClassification(std::span<const uint32_t> classes,
                                              std::span<const float> palette) {
-  GroundClasses_.assign(classes.begin(), classes.end());
-  GroundPalette_.assign(palette.begin(), palette.end());
+  const auto classCopy =
+      std::make_shared<const std::vector<uint32_t>>(classes.begin(), classes.end());
+  const auto paletteCopy =
+      std::make_shared<const std::vector<float>>(palette.begin(), palette.end());
+  SetGroundClassification({.Classes = {classCopy, classCopy->data()},
+                           .ClassWords = classCopy->size(),
+                           .Palette = {paletteCopy, paletteCopy->data()},
+                           .PaletteFloats = paletteCopy->size()});
+}
+
+void SceneResources::SetGroundClassification(GroundClassificationSource source) noexcept {
+  GroundClassification_ = std::move(source);
 }
 
 size_t SceneResources::HeightPageSourceBytes() const noexcept {

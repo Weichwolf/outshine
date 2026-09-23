@@ -1996,10 +1996,7 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
     Render::GroundClassUploadMetrics upload;
     if (build.ClassStructure && !build.ClassPalette.empty() &&
         !candidate.SetGroundClasses(
-            {build.ClassStructure->Words(), build.ClassStructure->Bytes() / sizeof(uint32_t)},
-            build.ClassPalette,
-            Error,
-            &upload)) {
+            build.ClassStructure, std::move(build.ClassPalette), Error, &upload)) {
       return false;
     }
     const double classUploadMs =
@@ -2008,7 +2005,8 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
     Published.Places("ground class upload: allocation", upload.Storage.AllocationMs, "ms");
     Published.Places("ground class upload: staging", upload.Storage.StagingMs, "ms");
     Published.Places("ground class upload: submission", upload.Storage.SubmissionMs, "ms");
-    Published.Places("ground class upload: restore copy", upload.RestoreCopyMs, "ms");
+    Published.Places("ground class upload: source preparation", upload.SourcePreparationMs, "ms");
+    Published.Places("ground class upload: restore source", upload.RestoreSourceMs, "ms");
     Published.Places("ground candidate: class upload", classUploadMs, "ms");
     state.ClassesUploaded();
     sample();

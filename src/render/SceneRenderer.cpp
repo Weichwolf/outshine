@@ -1132,6 +1132,42 @@ bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                      std::span<const float> palette,
                                      std::string &error,
                                      GroundClassUploadMetrics *metrics) {
+  if (!UploadGroundClasses(classes, palette, error, metrics)) { return false; }
+  const auto copyAt = std::chrono::steady_clock::now();
+  ActiveState().Content.Resources.SetGroundClassification(classes, palette);
+  if (metrics != nullptr) {
+    metrics->RestoreSourceMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - copyAt)
+            .count();
+  }
+  return true;
+}
+
+bool SceneRenderer::SetGroundClasses(GroundClassificationSource source,
+                                     std::string &error,
+                                     GroundClassUploadMetrics *metrics) {
+  if ((source.ClassWords != 0 && !source.Classes) ||
+      (source.PaletteFloats != 0 && !source.Palette)) {
+    error = "ground classification source has no owner for its bytes";
+    return false;
+  }
+  if (!UploadGroundClasses(source.ClassSpan(), source.PaletteSpan(), error, metrics)) {
+    return false;
+  }
+  const auto retainAt = std::chrono::steady_clock::now();
+  ActiveState().Content.Resources.SetGroundClassification(std::move(source));
+  if (metrics != nullptr) {
+    metrics->RestoreSourceMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retainAt)
+            .count();
+  }
+  return true;
+}
+
+bool SceneRenderer::UploadGroundClasses(std::span<const uint32_t> classes,
+                                        std::span<const float> palette,
+                                        std::string &error,
+                                        GroundClassUploadMetrics *metrics) {
   if (metrics != nullptr) { *metrics = {}; }
   const auto uploaded =
       ActiveState().Content.Ground.Replace(ActiveFrame().Handles.Device,
@@ -1147,13 +1183,6 @@ bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                              .Palette = ActiveState().Content.Ground.Palette()});
   ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                           .Palette = ActiveState().Content.Ground.Palette()});
-  const auto copyAt = std::chrono::steady_clock::now();
-  ActiveState().Content.Resources.SetGroundClassification(classes, palette);
-  if (metrics != nullptr) {
-    metrics->RestoreCopyMs =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - copyAt)
-            .count();
-  }
   return true;
 }
 

@@ -1,5 +1,5 @@
 Type: defect
-State: open
+State: active
 Architecture: ready
 Parent: 2234
 Depends:
@@ -22,6 +22,12 @@ allocation, mapping, copies, submission and CPU retention in the 26.65-ms
 sample. Two later runs did: allocation 0.05–0.10 ms, staging 2.19–5.20 ms,
 submission 0.015 ms, restore copy 5.65–8.31 ms; whole call 10.62–10.91 ms.
 These runs do not explain the earlier peak. Subject stream submission is WI 2263.
+Shared immutable source ownership now removes the second 50.7-MB copy in the
+engine path. Wien remains `2fc0aec4`: allocation 0.073 ms, staging 2.604 ms,
+submission 0.019 ms, source retention below 0.001 ms, whole class step 2.698 ms;
+p99 9.97 ms, 6/4657 frames late. Malcesine remains `07ca3a25`, class step
+1.131 ms, no late frame. Both PNGs were opened. The GPU staging transfer is
+still one full-size call, so a cold or larger input can exceed the budget.
 
 ## Contract and ownership
 

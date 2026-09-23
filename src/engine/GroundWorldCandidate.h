@@ -3,6 +3,7 @@
 
 #include "EngineHeld.h"
 #include "WorldCandidate.h"
+#include "ClassStructure.h"
 #include <chrono>
 #include <expected>
 #include <limits>
@@ -116,11 +117,26 @@ public:
     return PublicationMetrics_;
   }
 
-  [[nodiscard]] bool SetGroundClasses(std::span<const uint32_t> words,
-                                      std::span<const float> palette,
+  [[nodiscard]] bool SetGroundClasses(std::shared_ptr<const ClassStructure> structure,
+                                      std::vector<float> palette,
                                       std::string &error,
                                       Render::GroundClassUploadMetrics *metrics = nullptr) {
-    return World_.Renderer().SetGroundClasses(words, palette, error, metrics);
+    if (!structure) {
+      error = "ground classification has no structure";
+      return false;
+    }
+    const auto prepareAt = std::chrono::steady_clock::now();
+    const auto retainedPalette = std::make_shared<const std::vector<float>>(std::move(palette));
+    Render::GroundClassificationSource source{.Classes = {structure, structure->Words()},
+                                              .ClassWords = structure->Bytes() / sizeof(uint32_t),
+                                              .Palette = {retainedPalette, retainedPalette->data()},
+                                              .PaletteFloats = retainedPalette->size()};
+    const double preparationMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - prepareAt)
+            .count();
+    const bool accepted = World_.Renderer().SetGroundClasses(std::move(source), error, metrics);
+    if (metrics != nullptr) { metrics->SourcePreparationMs = preparationMs; }
+    return accepted;
   }
 
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,

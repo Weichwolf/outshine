@@ -17,6 +17,21 @@ namespace outshine::Render {
 
 class SubjectDraw;
 
+struct GroundClassificationSource {
+  std::shared_ptr<const uint32_t> Classes;
+  size_t ClassWords = 0;
+  std::shared_ptr<const float> Palette;
+  size_t PaletteFloats = 0;
+
+  [[nodiscard]] std::span<const uint32_t> ClassSpan() const noexcept {
+    return {Classes.get(), ClassWords};
+  }
+
+  [[nodiscard]] std::span<const float> PaletteSpan() const noexcept {
+    return {Palette.get(), PaletteFloats};
+  }
+};
+
 class SceneResources {
 public:
   enum class PieceSources : uint8_t { Copy, Omit };
@@ -69,10 +84,15 @@ public:
                                      std::string &error);
   [[nodiscard]] bool RestoreTerrain(SubjectDraw &subjects, std::string &error);
   void SetGroundClassification(std::span<const uint32_t> classes, std::span<const float> palette);
+  void SetGroundClassification(GroundClassificationSource source) noexcept;
 
-  [[nodiscard]] std::span<const uint32_t> GroundClasses() const noexcept { return GroundClasses_; }
+  [[nodiscard]] std::span<const uint32_t> GroundClasses() const noexcept {
+    return GroundClassification_.ClassSpan();
+  }
 
-  [[nodiscard]] std::span<const float> GroundPalette() const noexcept { return GroundPalette_; }
+  [[nodiscard]] std::span<const float> GroundPalette() const noexcept {
+    return GroundClassification_.PaletteSpan();
+  }
 
   [[nodiscard]] size_t HeightPageSourceBytes() const noexcept;
 
@@ -129,8 +149,7 @@ private:
   std::vector<float> GroundGrid_;
   std::vector<TerrainTile> GroundReal_;
   std::vector<TerrainTile> GroundVirtual_;
-  std::vector<uint32_t> GroundClasses_;
-  std::vector<float> GroundPalette_;
+  GroundClassificationSource GroundClassification_;
 };
 
 }

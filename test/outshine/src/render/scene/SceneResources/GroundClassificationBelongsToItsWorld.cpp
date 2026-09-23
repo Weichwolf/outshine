@@ -7,6 +7,7 @@
 #include <cstring>
 #include <dlfcn.h>
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -85,9 +86,24 @@ int main() {
       const std::array<float, 4> palette{0.125f, 0.25f, 0.5f, 1.0f};
       std::array<uint32_t, 4> paletteBits{};
       std::memcpy(paletteBits.data(), palette.data(), sizeof(palette));
+      auto ownedClasses = std::make_shared<const std::array<uint32_t, 4>>(classes);
+      auto ownedPalette = std::make_shared<const std::array<float, 4>>(palette);
+      const std::weak_ptr<const std::array<uint32_t, 4>> classLifetime = ownedClasses;
+      const std::weak_ptr<const std::array<float, 4>> paletteLifetime = ownedPalette;
+      Render::GroundClassificationSource source{.Classes = {ownedClasses, ownedClasses->data()},
+                                                .ClassWords = ownedClasses->size(),
+                                                .Palette = {ownedPalette, ownedPalette->data()},
+                                                .PaletteFloats = ownedPalette->size()};
       capture = true;
-      CHECK(renderer.SetGroundClasses(classes, palette, error), "original classification uploads");
+      CHECK(renderer.SetGroundClasses(std::move(source), error),
+            "owned original classification uploads");
       capture = false;
+      ownedClasses.reset();
+      ownedPalette.reset();
+      CHECK(!classLifetime.expired() && !paletteLifetime.expired(),
+            "the renderer retains both immutable sources after their caller releases them");
+      CHECK(!renderer.SetGroundClasses(Render::GroundClassificationSource{.ClassWords = 4}, error),
+            "an unowned source cannot replace live classification");
       CHECK(buffers.size() == 2 && Contains(0, classes) && Contains(0, paletteBits),
             "original class and palette bytes reach separate GPU buffers");
       if (buffers.size() == 2) {

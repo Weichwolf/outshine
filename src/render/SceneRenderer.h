@@ -56,7 +56,8 @@ namespace outshine::Render {
 
 struct GroundClassUploadMetrics {
   GroundStorageUploadMetrics Storage;
-  double RestoreCopyMs = 0.0;
+  double SourcePreparationMs = 0.0;
+  double RestoreSourceMs = 0.0;
 };
 
 struct KeptDraws {
@@ -557,10 +558,13 @@ public:
                                       std::span<const float> palette,
                                       std::string &error,
                                       GroundClassUploadMetrics *metrics = nullptr);
+  [[nodiscard]] bool SetGroundClasses(GroundClassificationSource source,
+                                      std::string &error,
+                                      GroundClassUploadMetrics *metrics = nullptr);
 
   [[nodiscard]] bool RestoreGroundResources(std::string &error) {
     auto &content = ActiveState().Content;
-    if (!SetGroundClasses(
+    if (!UploadGroundClasses(
             content.Resources.GroundClasses(), content.Resources.GroundPalette(), error)) {
       return false;
     }
@@ -590,6 +594,11 @@ public:
 
 private:
   friend class Core::RuntimeScene;
+
+  [[nodiscard]] bool UploadGroundClasses(std::span<const uint32_t> classes,
+                                         std::span<const float> palette,
+                                         std::string &error,
+                                         GroundClassUploadMetrics *metrics = nullptr);
 
   struct FrameResources;
 

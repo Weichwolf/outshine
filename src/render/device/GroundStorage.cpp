@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <chrono>
 #include <optional>
+#include <ratio>
 #include <cstddef>
 #include <cstring>
 #include <limits>
