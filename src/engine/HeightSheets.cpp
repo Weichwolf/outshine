@@ -121,6 +121,19 @@ const Ground::TerrainField *HeightSheets::FieldAt(Data::TileId tile) const {
   return nullptr;
 }
 
+bool HeightSheets::CopySourcedField(Data::TileId tile, Ground::HeightField::Block &into) const {
+  if (tile.Zoom < 0 || tile.Zoom > Ground::HeightField::MaximumTileZoom) { return false; }
+  for (int zoom = tile.Zoom; zoom >= 0; --zoom) {
+    const auto drop = static_cast<uint32_t>(tile.Zoom - zoom);
+    const Data::TileId source{.Zoom = zoom, .X = tile.X >> drop, .Y = tile.Y >> drop};
+    const Ground::TerrainField *const field = FieldAt(source);
+    if (field == nullptr || !field->Meshable() || field->Sources().empty()) { continue; }
+    if (zoom == tile.Zoom) { return Ground::HeightField::CopiesField(*field, tile, into); }
+    return Ground::HeightField::ResamplesSourcedAncestor(*field, source, tile, into);
+  }
+  return false;
+}
+
 std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &candidate,
                                                              const Ground::GroundStream &ground,
                                                              FieldPreparation preparation) {

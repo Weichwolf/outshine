@@ -2,6 +2,8 @@
 #define OUTSHINE_WORLD_GROUND_HEIGHTFIELD_H
 
 #include <algorithm>
+#include <bit>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -9,6 +11,7 @@
 #include <vector>
 
 #include "geo/Geodesy.h"
+#include "Digest.h"
 #include "TerrainGrid.h"
 #include "TerrainLoader.h"
 #include "TileGeodesy.h"
@@ -17,6 +20,8 @@ namespace outshine::Ground {
 
 class HeightField {
 public:
+  static constexpr int MaximumTileZoom = 30;
+
   struct Block {
     TileSpot At;
     Sampling Raster;
@@ -60,6 +65,44 @@ public:
     into.Nodes.assign(field.Data(),
                       field.Data() + static_cast<size_t>(field.Rows()) * field.Cols());
     into.Sources.assign(field.Sources().begin(), field.Sources().end());
+    return true;
+  }
+
+  [[nodiscard]] static bool ResamplesSourcedAncestor(const TerrainField &field,
+                                                     Data::TileId source,
+                                                     Data::TileId child,
+                                                     Block &into) {
+    if (!field.Meshable() || field.Rows() != field.Cols() || field.Sources().empty() ||
+        source.Zoom < 0 || child.Zoom <= source.Zoom || child.Zoom > MaximumTileZoom) {
+      return false;
+    }
+    const auto drop = static_cast<uint32_t>(child.Zoom - source.Zoom);
+    if (child.X >> drop != source.X || child.Y >> drop != source.Y) { return false; }
+    const auto scale = uint64_t{1} << drop;
+    const size_t nativeCells = (static_cast<size_t>(field.Cols() - 1u) + scale - 1u) / scale;
+    const int side = static_cast<int>(std::min<size_t>(nativeCells + 1u, 257u));
+    Block sampled;
+    sampled.At = {
+        .Zoom = child.Zoom, .X = static_cast<long>(child.X), .Y = static_cast<long>(child.Y)};
+    sampled.Raster = {.Side = side, .Postings = static_cast<uint32_t>(side)};
+    sampled.Nodes.resize(static_cast<size_t>(side) * static_cast<size_t>(side));
+    sampled.Sources.assign(field.Sources().begin(), field.Sources().end());
+    const auto x = static_cast<double>(static_cast<uint64_t>(child.X) -
+                                       static_cast<uint64_t>(source.X) * scale);
+    const auto y = static_cast<double>(static_cast<uint64_t>(child.Y) -
+                                       static_cast<uint64_t>(source.Y) * scale);
+    const auto denominator = static_cast<double>(side - 1);
+    for (int row = 0; row < side; ++row) {
+      for (int column = 0; column < side; ++column) {
+        sampled.Nodes[static_cast<size_t>(row) * static_cast<size_t>(side) +
+                      static_cast<size_t>(column)] =
+            field.PostingM(
+                {.Col =
+                     (x + static_cast<double>(column) / denominator) / static_cast<double>(scale),
+                 .Row = (y + static_cast<double>(row) / denominator) / static_cast<double>(scale)});
+      }
+    }
+    into = std::move(sampled);
     return true;
   }
 
@@ -112,6 +155,8 @@ public:
     return Sources_;
   }
 
+  [[nodiscard]] uint64_t RasterDigest() const noexcept { return RasterDigest_; }
+
   [[nodiscard]] std::span<const Block> Blocks() const noexcept { return Blocks_; }
 
   [[nodiscard]] GroundSample At(LongitudeLatitude at) const noexcept {
@@ -152,12 +197,29 @@ private:
     }
     std::ranges::sort(Sources_);
     Sources_.erase(std::ranges::unique(Sources_).begin(), Sources_.end());
+    const auto fold = [this](uint32_t word) {
+      for (unsigned shift = 0; shift < 32u; shift += 8u) {
+        RasterDigest_ = DigestFolded(RasterDigest_, static_cast<uint8_t>(word >> shift));
+      }
+    };
+    fold(static_cast<uint32_t>(zoom));
+    for (const Block &block : Blocks_) {
+      fold(static_cast<uint32_t>(block.At.Zoom));
+      fold(static_cast<uint32_t>(block.At.X));
+      fold(static_cast<uint32_t>(block.At.Y));
+      fold(static_cast<uint32_t>(block.Raster.Side));
+      fold(block.Raster.Postings);
+      const float *const values = block.Terrain ? block.Terrain->Data() : block.Nodes.data();
+      const size_t count = static_cast<size_t>(block.Raster.Side) * block.Raster.Side;
+      for (size_t at = 0; at < count; ++at) { fold(std::bit_cast<uint32_t>(values[at])); }
+    }
   }
 
   std::vector<Block> Blocks_;
   std::vector<Data::TileSourceIdentity> Sources_;
   int Zoom_ = 0;
   bool Fallback_ = false;
+  uint64_t RasterDigest_ = kDigestBasis;
   bool Qualified_ = false;
 };
 

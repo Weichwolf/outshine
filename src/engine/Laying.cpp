@@ -197,12 +197,7 @@ public:
                    uint64_t id)
       : Coverage_(coverage),
         Revision_(revision),
-        Candidate_(renderer,
-                   world,
-                   footprints,
-                   revision.Quality == GroundQuality::Refined
-                       ? Render::SceneResources::PieceSources::Omit
-                       : Render::SceneResources::PieceSources::Copy),
+        Candidate_(renderer, world, footprints),
         Id_(id) {}
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
@@ -1340,7 +1335,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - createAt)
             .count());
     if (request.Revision.Quality == GroundQuality::Refined) {
-      World.GroundBuild->Footprints().ResetDerived();
+      World.GroundBuild->Footprints().BeginRefinement();
     }
     Published.Places(
         "ground candidate: starts", static_cast<double>(World.GroundCandidates), "candidates");
@@ -1723,6 +1718,14 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   GroundBuildState &state = *World.GroundBuild;
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
+  Published.Places("ground candidate: structure tiles to certify",
+                   static_cast<double>(state.Footprints().RefinementRemaining()),
+                   "tiles");
+  Published.Places(
+      "ground candidate: structure field ingested",
+      World.Stack.Vectors() != nullptr && state.Footprints().Ingested(*World.Stack.Vectors()) ? 1.0
+                                                                                              : 0.0,
+      "bool");
   const auto heights = state.Revision().Quality == GroundQuality::Refined
                            ? StructureBuildQueue::HeightRequirement::FineOnly
                            : StructureBuildQueue::HeightRequirement::AllowFallback;
@@ -1732,8 +1735,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
                  finestZoom](LongitudeLatitude at) { return build.Sheets.AslMAt(finestZoom, at); },
       .CopyField =
           [&build](Data::TileId tile, Ground::HeightField::Block &into) {
-            const Ground::TerrainField *field = build.Sheets.FieldAt(tile);
-            return field != nullptr && Ground::HeightField::CopiesField(*field, tile, into);
+            return build.Sheets.CopySourcedField(tile, into);
           },
       .Revision = {.Value = state.Id()}};
   const auto landingAt = std::chrono::steady_clock::now();

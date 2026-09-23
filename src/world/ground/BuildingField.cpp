@@ -34,6 +34,8 @@ void BuildingField::ResetDerived() {
   Products_.clear();
   TrianglesHanded_ = 0;
   Taken_ = Accepted_ = 0;
+  RefinementAt_ = RefinementEnd_ = 0;
+  RefinementActive_ = false;
   Mark_ = {};
   OsmHeights_ = DefaultHeights_ = Fronted_ = 0;
   SeatSpread_.clear();
@@ -80,7 +82,17 @@ BuildingField::PrepareAcceptance(uint32_t tile,
                                  std::span<const Data::TileSourceIdentity> sources,
                                  bool qualified,
                                  std::optional<Data::TileSourceIdentity> vector) {
-  return {this, tile, baked, std::move(vector), sources, qualified};
+  return PrepareAcceptance(tile, baked, sources, qualified, std::move(vector), BakeInputs{});
+}
+
+BuildingField::PendingAcceptance
+BuildingField::PrepareAcceptance(uint32_t tile,
+                                 const Baked &baked,
+                                 std::span<const Data::TileSourceIdentity> sources,
+                                 bool qualified,
+                                 std::optional<Data::TileSourceIdentity> vector,
+                                 BakeInputs bake) {
+  return {this, tile, baked, std::move(vector), sources, qualified, bake};
 }
 
 void BuildingField::CommitAcceptance(PendingAcceptance pending,

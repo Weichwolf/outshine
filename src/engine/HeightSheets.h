@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "GroundMesher.h"
+#include "HeightField.h"
 #include "TerrainGrid.h"
 #include <optional>
 #include <utility>
@@ -106,6 +107,7 @@ public:
   [[nodiscard]] std::optional<double> AslMAt(int zoom, LongitudeLatitude at) const;
 
   [[nodiscard]] const Ground::TerrainField *FieldAt(Data::TileId tile) const;
+  [[nodiscard]] bool CopySourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
 
   void ForgetsFields() {
     Fields_.clear();

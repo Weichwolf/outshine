@@ -147,9 +147,11 @@ private:
   struct QueuedBuild {
     BakeRevision Revision;
     StructureBuildTask Task;
+    uint64_t StreetDigest = 0;
     size_t BakedStructures = 0;
     size_t Tasks = 0;
     bool Finished = false;
+    bool Replacement = false;
   };
 
   template <typename T>

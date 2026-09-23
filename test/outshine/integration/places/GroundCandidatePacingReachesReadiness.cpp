@@ -116,6 +116,14 @@ std::optional<ProductSignature> Builds(bool preload) {
     if (const auto progress = Measure(engine, "ground candidate: progress")) {
       Note("ground candidate progress", *progress, "stage index");
     }
+    for (const char *name : {"ground candidate: structure tiles to certify",
+                             "ground candidate: structure field ingested",
+                             "buildings: tiles posted to the bake",
+                             "buildings: tiles landed from it",
+                             "buildings: tiles in the bake right now",
+                             "buildings: tiles deferred for ground"}) {
+      if (const auto value = Measure(engine, name)) { Note(name, *value, "diagnostic"); }
+    }
   }
   const auto retired = engine.advance();
   CHECK(retired.has_value(), retired ? "retirement frame advanced" : retired.error().c_str());
@@ -124,6 +132,15 @@ std::optional<ProductSignature> Builds(bool preload) {
   CHECK(capture.has_value() && engine.settled(outshine::WorldQuality::Refined),
         "paced advance publishes a refined capturable world");
   if (!capture || !engine.settled(outshine::WorldQuality::Refined)) { return std::nullopt; }
+  Note(preload ? "preloaded published products" : "paced published products");
+  for (const char *name : {"ground candidate: starts",
+                           "buildings: tiles handed to the arena as pieces",
+                           "buildings: triangles the tiles handed over",
+                           "buildings: tiles posted to the bake",
+                           "buildings: tiles landed from it",
+                           "buildings: stale tiles discarded"}) {
+    if (const auto value = Measure(engine, name)) { Note(name, *value, "diagnostic"); }
+  }
   const auto peakBytes = Measure(engine, "ground candidate: direct CPU product peak");
   const auto retainedBytes =
       Measure(engine, "ground candidate: CPU products retained for retirement");

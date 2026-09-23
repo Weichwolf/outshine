@@ -55,10 +55,19 @@ public:
     size_t Tiles = 0;
   };
 
+  struct BakeInputs {
+    uint64_t HeightRasterDigest = 0;
+    uint64_t StreetDigest = 0;
+    double FocalPx = 0.0;
+    double TileSpanM = 0.0;
+    LongitudeLatitude Eye;
+  };
+
   struct AcceptedInput {
     std::optional<Data::TileSourceIdentity> Vector;
     std::vector<Data::TileSourceIdentity> Sources;
     bool Qualified = false;
+    BakeInputs Bake;
   };
 
   class PendingAcceptance {
@@ -76,7 +85,8 @@ public:
                       const Baked &baked,
                       std::optional<Data::TileSourceIdentity> vector,
                       std::span<const Data::TileSourceIdentity> sources,
-                      bool qualified)
+                      bool qualified,
+                      BakeInputs bake)
         : Owner_(owner),
           Tile_(tile),
           Prints_(baked.Prints.size()),
@@ -84,7 +94,8 @@ public:
           Across_(baked.AcrossM.size()),
           Input_{.Vector = std::move(vector),
                  .Sources = std::vector<Data::TileSourceIdentity>(sources.begin(), sources.end()),
-                 .Qualified = qualified} {}
+                 .Qualified = qualified,
+                 .Bake = bake} {}
 
     [[maybe_unused]] const BuildingField *Owner_ = nullptr;
     uint32_t Tile_ = 0;
@@ -109,6 +120,30 @@ public:
 
   [[nodiscard]] BuildingField SnapshotAccepted() const;
 
+  void BeginRefinement() noexcept {
+    RefinementAt_ = 0;
+    RefinementEnd_ = AcceptedTiles_.size();
+    RefinementActive_ = true;
+  }
+
+  [[nodiscard]] std::optional<uint32_t> RefinementTile() const noexcept {
+    if (!RefinementActive_ || RefinementAt_ == RefinementEnd_) { return std::nullopt; }
+    return AcceptedTiles_[RefinementAt_];
+  }
+
+  void AdvanceRefinement() noexcept {
+    assert(RefinementActive_ && RefinementAt_ < RefinementEnd_);
+    ++RefinementAt_;
+  }
+
+  [[nodiscard]] bool RefinementComplete() const noexcept {
+    return RefinementActive_ && RefinementAt_ == RefinementEnd_;
+  }
+
+  [[nodiscard]] size_t RefinementRemaining() const noexcept {
+    return RefinementActive_ ? RefinementEnd_ - RefinementAt_ : 0;
+  }
+
   [[nodiscard]] uint64_t Revision() const noexcept { return Revision_; }
 
   [[nodiscard]] std::optional<TileWatermark::Next>
@@ -132,6 +167,13 @@ public:
                     std::span<const Data::TileSourceIdentity> sources = {},
                     bool qualified = false,
                     std::optional<Data::TileSourceIdentity> vector = std::nullopt);
+  [[nodiscard]] PendingAcceptance
+  PrepareAcceptance(uint32_t tile,
+                    const Baked &baked,
+                    std::span<const Data::TileSourceIdentity> sources,
+                    bool qualified,
+                    std::optional<Data::TileSourceIdentity> vector,
+                    BakeInputs bake);
   void PreparesAcceptances(AcceptanceCapacity capacity);
   void
   CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
@@ -230,6 +272,8 @@ private:
   std::vector<TileProduct> Products_;
   size_t TrianglesHanded_ = 0;
   size_t Taken_ = 0, Accepted_ = 0;
+  size_t RefinementAt_ = 0, RefinementEnd_ = 0;
+  bool RefinementActive_ = false;
   TileWatermark Mark_;
   double FocalPx_ = 0.0;
   double TileSpanM_ = 0.0;

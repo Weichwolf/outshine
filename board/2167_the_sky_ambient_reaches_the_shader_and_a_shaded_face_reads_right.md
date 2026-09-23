@@ -40,6 +40,13 @@ auf neutral aliasiert (`stage_without_a_body ambientOcclusion`).
 - [ ] Kosten/Leakage bei Bewegung sowie Tag/Nacht mit 2092; 2140s Integration bleibt offene
       gemeinsame Abnahme, verhindert aber nicht die erste Clear-sky-Implementierung.
 
+Wien am 2026-09-07 um 10:40 UTC (12:40 Ortszeit), klarer Himmel: Im aktuellen 1280×720-Shot
+liegen 1.608 Pixel unter 32/255 gewichteter Display-Helligkeit, Minimum 12/255; sie sitzen
+vor allem an Kanten und im unteren Bildteil. Direct-, Indirect-, Albedo- und Visibility-AOV
+an denselben Pixeln vergleichen und Material, Schatten und Geometrielücken unterscheiden.
+Offen zum Himmel gerichtete matte Flächen dürfen nicht mangels diffusem Sky-Licht fast schwarz
+werden; verdeckte Hohlräume müssen dunkel bleiben. Keine globale Fill-Konstante als Reparatur.
+
 Wahl: [Filaments IBL-Modell](https://google.github.io/filament/main/filament.html) als
 lesbare Referenz; Unreal-GI ist Vergleich für Sichtbarkeit/Bounce, kein Lumen-Versprechen
 auf SDL_GPU. RAGEs Look begründet keine unbelegte konstante Ambient-Zahl.

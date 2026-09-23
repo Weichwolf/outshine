@@ -8,9 +8,12 @@ plausible Welten. Kein digitaler Zwilling, keine Place-Sonderfälle. Szenarien d
 Regeln und Verhalten.
 
 Ziel: Apple A18 Pro, 8 GB, 720p60. Nahansicht, Straße, Stadt und Horizont gehören zur selben
-Engine. Qualität richtet sich nach sichtbarem Beitrag, Framebudget und Speicher. RDR2 und GTA5
-auf PS4 sind die visuelle Baseline. Ein bewusst gestalteter plausibler Look ist besser als
-verfehlter Realismus.
+Engine. Qualität richtet sich nach sichtbarem Beitrag, Framebudget und Speicher. Visuelles Ziel
+ist ein physikalisch glaubwürdiger Studio-Look zwischen Animation und Realismus: plausible
+Geometrie, Metallic-Roughness-Materialien, volumetrisches Licht, Atmosphäre und Farbe bilden ein
+kohärentes Bild in Nähe und Bewegung, zu jeder Tageszeit und bei jedem Wetter. OSM/DEM liefern
+keine fotografische Wahrheit; Generatoren treffen daher überprüfbare Gestaltungsentscheidungen.
+RDR2 und GTA5 auf PS4 sind Maßstab für Bildkohärenz, Dichte und Laufzeit, keine Stilvorlage.
 
 Diese Datei enthält dauerhafte Regeln. Stand, Prioritäten, Befunde und konkrete Entscheidungen
 gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.

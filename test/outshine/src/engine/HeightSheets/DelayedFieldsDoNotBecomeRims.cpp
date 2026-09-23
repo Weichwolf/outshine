@@ -109,6 +109,18 @@ int main() {
   CHECK(prepared.has_value() && *prepared && !probe->CalledOnCaller,
         "every source tile and halo neighbour resolves without blocking the caller");
   if (!prepared || !*prepared) { return Report(); }
+  Ground::HeightField::Block exact;
+  Ground::HeightField::Block child;
+  Ground::HeightField::Block absent;
+  CHECK(sheets.CopySourcedField({.Zoom = 4, .X = 8, .Y = 8}, exact) && !exact.Sources.empty() &&
+            exact.Raster.Side == 4,
+        "the exact source keeps its native raster and provenance");
+  CHECK(sheets.CopySourcedField({.Zoom = 5, .X = 16, .Y = 16}, child) &&
+            child.Sources == exact.Sources &&
+            std::ranges::all_of(child.Nodes, [](float height) { return height == 42.0f; }),
+        "a child height tile resamples its sourced ancestor without inventing provenance");
+  CHECK(!sheets.CopySourcedField({.Zoom = 5, .X = 0, .Y = 0}, absent),
+        "a tile outside sourced coverage is not qualified as fine terrain");
   std::string error;
   CHECK(sheets.RefineByError(candidate,
                              {.Side = Render::GroundLattice::kSide, .Halo = 1},

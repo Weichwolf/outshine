@@ -49,6 +49,13 @@ int main() {
         "measurement ranges and first-ingestion watermark follow sorted tile order");
 
   BuildingField published = field.SnapshotAccepted();
+  field.BeginRefinement();
+  CHECK(field.RefinementTile() == 2 && field.RefinementRemaining() == 3 &&
+            !field.RefinementComplete(),
+        "refined candidate scans accepted tile IDs without resetting their products");
+  field.AdvanceRefinement();
+  CHECK(field.RefinementTile() == 5 && field.RefinementRemaining() == 2,
+        "accepted tile scan advances in stable sorted order");
   const size_t ingested = field.IngestedTiles();
   const uint64_t firstRevision = field.Revision();
   const std::array<BuildingField::Footprint, 2> centre{{{.HeightM = 50.0f}, {.HeightM = 51.0f}}};
@@ -76,7 +83,8 @@ int main() {
   CHECK(field.InputOfTile(5) && field.InputOfTile(5)->Qualified &&
             field.InputOfTile(5)->Sources.front() == fine && field.TrianglesHanded() == 21 &&
             field.OsmHeights() == 4 && field.IngestedTiles() == ingested && field.Ingested(empty) &&
-            field.Revision() > firstRevision,
+            field.Revision() > firstRevision && field.RefinementTile() == 5 &&
+            field.RefinementRemaining() == 2,
         "replacement updates source, counters and revision without first-ingestion changes");
   CHECK(published.OfTile(5).empty() && published.TrianglesHanded() == 11 &&
             published.InputOfTile(5) && !published.InputOfTile(5)->Qualified,
@@ -91,5 +99,11 @@ int main() {
             field.TrianglesHanded() == 11 && field.OsmHeights() == 2 &&
             field.IngestedTiles() == ingested,
         "smaller empty replacement removes stale data and preserves later tiles");
+  field.AdvanceRefinement();
+  CHECK(field.RefinementTile() == 9 && field.RefinementRemaining() == 1,
+        "replacement does not skip the next accepted tile");
+  field.AdvanceRefinement();
+  CHECK(field.RefinementComplete() && field.Ingested(empty) && !published.RefinementComplete(),
+        "only the candidate completes source certification; published state remains independent");
   return Report();
 }

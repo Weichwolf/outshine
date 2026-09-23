@@ -72,22 +72,14 @@ tripped `TileWatermark::Release`. Reservation release now also requires the
 same candidate height revision, footprint parameters and eye. This prevents
 cross-candidate mutation; it does not replace the global refined rebake.
 
-The `GroundCandidatePacingReachesReadiness` integration suite is red on both
-`13e3b6cfd` and the later sliced-network branch: all OSM/DEM tiles arrive,
-outstanding IO is zero, but three consecutive builds each remain at candidate
-progress 10 (`NeedsBakes`) after the 30-second Refined deadline. Normal and
-validated variants agree. Network weaving finishes before this phase; do not
-attribute the timeout to network slicing or weaken the deadline. Diagnose
-which structure bake/replacement job or publication gate holds progress 10.
-Wien independently misses its 6,144-frame Refined shot after more than
-103,000 structure candidates are baked and another candidate starts; the
-client cannot produce a fresh PNG or publish network diagnostics meanwhile.
-The exact bypass is `BeginsGroundBuild` calling `ResetDerived()` for every
-Refined candidate. `BuildingField::ReplaceAcceptance` already replaces one
-tile atomically, but `StructureBuildQueue::Posts` admits only
-`BuildingField::Next` first-ingestion work. `Complete` checks only the queue
-and watermark, so it cannot certify qualified replacement. Connect admission,
-commit and readiness to accepted source revisions before removing the reset.
+Refined now copies accepted CPU/GPU structure products, scans accepted tiles
+against vector, DEM raster, street and camera inputs, and replaces only stale
+tiles before readiness. The street digest is captured at bake admission:
+recording it at commit falsely marked a tile current when roads arrived during
+the worker task. `GroundCandidatePacingReachesReadiness` now passes normal and
+validated pacing; Wien publishes a new Refined PNG within its frame limit.
+This proves neither DEM posting adequacy nor unchanged-handle upload counts,
+late cancellation, source eviction/reload, or the larger Graz/Basel cases.
 
 ## Implementation and acceptance
 

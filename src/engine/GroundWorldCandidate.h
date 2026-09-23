@@ -5,6 +5,7 @@
 #include "WorldCandidate.h"
 #include "ClassStructure.h"
 #include <chrono>
+#include <cstdio>
 #include <expected>
 #include <limits>
 #include <memory>

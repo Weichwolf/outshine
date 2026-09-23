@@ -29,6 +29,11 @@ int main() {
   const auto changed = Ground::HeightField::Of(14, {first, second});
   CHECK(changed->Qualified() && !std::ranges::equal(changed->Sources(), fine->Sources()),
         "equal height samples from a different source revision are different input");
+  first.Nodes[0] = 2;
+  const auto changedRaster = Ground::HeightField::Of(14, {first, second});
+  CHECK(changedRaster->RasterDigest() != changed->RasterDigest() &&
+            std::ranges::equal(changedRaster->Sources(), changed->Sources()),
+        "changed raster samples invalidate a bake even when source identities are unchanged");
   second.Sources.clear();
   const auto missing = Ground::HeightField::Of(14, {first, second});
   CHECK(!missing->Qualified() && !missing->Sources().empty(),

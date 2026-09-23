@@ -4,10 +4,12 @@
 #include "StructureBuildQueue.h"
 
 #include <algorithm>
+#include <bit>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <ratio>
@@ -16,6 +18,7 @@
 #include <string_view>
 #include <utility>
 
+#include "Digest.h"
 #include "Log.h"
 #include "Shape.h"
 #include "OsmLayer.h"
@@ -28,6 +31,34 @@ constexpr uint32_t kMostRingPoints = 512;
 constexpr uint8_t kPolygonFeature = 3;
 constexpr size_t kBuildsPerThread = 1;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
+
+std::optional<Data::TileSourceIdentity> VectorSource(const Ground::OsmField &vectors,
+                                                     uint32_t tile) {
+  if (tile >= vectors.Tiles().size()) { return std::nullopt; }
+  return vectors.Tiles()[tile].Source;
+}
+
+uint64_t
+StreetDigest(const Ground::StreetField &streets, const Ground::OsmField &vectors, uint32_t tile) {
+  uint64_t digest = kDigestBasis;
+  const auto fold = [&digest](uint64_t word) {
+    for (unsigned shift = 0; shift < 64u; shift += 8u) {
+      digest = DigestFolded(digest, static_cast<uint8_t>(word >> shift));
+    }
+  };
+  const std::span<const double> points = vectors.Points();
+  for (const Ground::StreetField::Way &way : streets.OfTile(static_cast<int>(tile))) {
+    const size_t first = way.FirstPoint;
+    const size_t count = way.PointCount;
+    if (count < 2 || first + count > points.size() / 2u) { continue; }
+    fold(count);
+    fold(std::bit_cast<uint32_t>(way.HalfWidthM));
+    for (size_t at = 0; at < 2u * count; ++at) {
+      fold(std::bit_cast<uint64_t>(points[2u * first + at]));
+    }
+  }
+  return digest;
+}
 
 int PitchedOf(std::string_view said) {
   if (said.empty()) { return -1; }
@@ -143,6 +174,86 @@ BlocksUnder(bool fineField,
   return blocks;
 }
 
+struct HeightResolutionStats {
+  size_t &Deferred;
+  double &DurationMs;
+};
+
+bool ResolveHeights(const Ground::OsmField &vectors,
+                    Ground::FeatureRun over,
+                    int blockZoom,
+                    const StructureBuildQueue::HeightSource &heightAt,
+                    StructureBuildQueue::HeightRequirement requirement,
+                    std::shared_ptr<const Ground::HeightField> &heights,
+                    HeightResolutionStats stats) {
+  const auto began = std::chrono::steady_clock::now();
+  bool fallback = false;
+  std::optional<std::vector<Ground::HeightField::Block>> blocks =
+      BlocksUnder(true, blockZoom, vectors, over, heightAt);
+  if (!blocks && requirement == StructureBuildQueue::HeightRequirement::AllowFallback) {
+    fallback = true;
+    blocks = BlocksUnder(false, blockZoom, vectors, over, heightAt);
+  }
+  if (!blocks) {
+    ++stats.Deferred;
+    stats.DurationMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    return false;
+  }
+  auto pinned = Ground::HeightField::Of(blockZoom, std::move(*blocks), fallback);
+  if (requirement == StructureBuildQueue::HeightRequirement::FineOnly && !pinned->Qualified()) {
+    ++stats.Deferred;
+    stats.DurationMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    return false;
+  }
+  heights = std::move(pinned);
+  stats.DurationMs +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  return true;
+}
+
+struct RefinementSelection {
+  std::optional<Ground::TileWatermark::Next> Next;
+  bool Deferred = false;
+};
+
+template <typename GroundStands>
+RefinementSelection SelectRefinement(Ground::BuildingField &prints,
+                                     const Ground::OsmField &vectors,
+                                     const Ground::StreetField &streets,
+                                     std::shared_ptr<const Ground::HeightField> &heights,
+                                     LongitudeLatitude eye,
+                                     GroundStands &&groundStands) {
+  const std::optional<uint32_t> tile = prints.RefinementTile();
+  if (!tile) { return {.Next = std::nullopt, .Deferred = true}; }
+  const std::span<const Ground::OsmField::Feature> features = vectors.Features();
+  const auto first = std::ranges::lower_bound(
+      features, *tile, std::ranges::less{}, &Ground::OsmField::Feature::Tile);
+  const auto last = std::ranges::upper_bound(
+      features, *tile, std::ranges::less{}, &Ground::OsmField::Feature::Tile);
+  const size_t from = static_cast<size_t>(first - features.begin());
+  const size_t to = static_cast<size_t>(last - features.begin());
+  if (!groundStands({.From = from, .To = to}) || !heights) {
+    return {.Next = std::nullopt, .Deferred = true};
+  }
+  const Ground::BuildingField::AcceptedInput *const accepted = prints.InputOfTile(*tile);
+  const std::optional<Data::TileSourceIdentity> vectorSource = VectorSource(vectors, *tile);
+  const bool current = accepted != nullptr && accepted->Qualified &&
+                       accepted->Vector == vectorSource &&
+                       std::ranges::equal(accepted->Sources, heights->Sources()) &&
+                       accepted->Bake.HeightRasterDigest == heights->RasterDigest() &&
+                       accepted->Bake.StreetDigest == StreetDigest(streets, vectors, *tile) &&
+                       accepted->Bake.FocalPx == prints.FocalPx() &&
+                       accepted->Bake.TileSpanM == prints.TileSpanM() &&
+                       accepted->Bake.Eye.LongitudeDeg == eye.LongitudeDeg &&
+                       accepted->Bake.Eye.LatitudeDeg == eye.LatitudeDeg;
+  prints.AdvanceRefinement();
+  if (current) { return {}; }
+  return {.Next =
+              Ground::TileWatermark::Next{.From = from, .To = to, .Tile = *tile, .Found = true}};
+}
+
 }
 
 StructureBuildQueue::~StructureBuildQueue() {
@@ -152,7 +263,8 @@ StructureBuildQueue::~StructureBuildQueue() {
 bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
                                    const Ground::BuildingField &footprints) const {
   const Ground::OsmField *const vectors = stack.Vectors();
-  return vectors == nullptr || (Queue_.empty() && footprints.Ingested(*vectors));
+  return vectors == nullptr ||
+         (Queue_.empty() && footprints.RefinementComplete() && footprints.Ingested(*vectors));
 }
 
 size_t StructureBuildQueue::QueuedStructures() const {
@@ -193,7 +305,7 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
     IdleRaw_.reserve(IdleRaw_.size() + 1u);
     IdleOut_.reserve(IdleOut_.size() + 1u);
     IdleScratch_.reserve(IdleScratch_.size() + 1u);
-    if (stale.Revision.OwnsReservation(vectors, prints, eye, heightSource)) {
+    if (!stale.Replacement && stale.Revision.OwnsReservation(vectors, prints, eye, heightSource)) {
       prints.Release(stale.Task.Tile());
     }
     IdleRaw_.push_back(stale.Task.TakeRaw());
@@ -237,42 +349,34 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
   const size_t inFlightMost =
       std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow);
   const int blockZoom = stack.FinestZoomOf(Data::DataKind::Elevation);
+  size_t examined = 0;
   while (Queue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;
     double heightResolutionMs = 0.0;
     const auto groundStands = [&](Ground::FeatureRun over) {
-      const auto began = std::chrono::steady_clock::now();
-      bool fallback = false;
-      std::optional<std::vector<Ground::HeightField::Block>> blocks =
-          BlocksUnder(true, blockZoom, vectors, over, heightAt);
-      if (!blocks && requirement == HeightRequirement::AllowFallback) {
-        fallback = true;
-        blocks = BlocksUnder(false, blockZoom, vectors, over, heightAt);
-      }
-      if (!blocks) {
-        ++Deferred_;
-        heightResolutionMs +=
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                .count();
-        return false;
-      }
-      auto pinned = Ground::HeightField::Of(blockZoom, std::move(*blocks), fallback);
-      if (requirement == HeightRequirement::FineOnly && !pinned->Qualified()) {
-        ++Deferred_;
-        heightResolutionMs +=
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                .count();
-        return false;
-      }
-      heights = std::move(pinned);
-      heightResolutionMs +=
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-              .count();
-      return true;
+      return ResolveHeights(vectors,
+                            over,
+                            blockZoom,
+                            heightAt,
+                            requirement,
+                            heights,
+                            {.Deferred = Deferred_, .DurationMs = heightResolutionMs});
     };
     const auto selectionAt = std::chrono::steady_clock::now();
-    const std::optional<Ground::TileWatermark::Next> next =
-        prints.Next(vectors, groundStands, candidatesMost);
+    std::optional<Ground::TileWatermark::Next> next;
+    bool replacement = false;
+    if (requirement == HeightRequirement::FineOnly && !prints.RefinementComplete()) {
+      if (examined >= candidatesMost) { break; }
+      ++examined;
+      const RefinementSelection selected =
+          SelectRefinement(prints, vectors, stack.Ways(), heights, eye, groundStands);
+      if (selected.Deferred) { break; }
+      if (!selected.Next) { continue; }
+      next = selected.Next;
+      replacement = true;
+    } else {
+      next = prints.Next(vectors, groundStands, candidatesMost);
+    }
     SlowestCandidateSelectionMs_ = std::max(
         SlowestCandidateSelectionMs_,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - selectionAt)
@@ -285,10 +389,11 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                 .TileSpanM = prints.TileSpanM(),
                                 .Eye = eye,
                                 .FallbackHeights = heights->Fallback()};
-    prints.Take(next->Tile);
+    if (!replacement) { prints.Take(next->Tile); }
     std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
     const auto extractionAt = std::chrono::steady_clock::now();
     RawOf(vectors, prints, stack.Ways(), *next, eye, *raw);
+    const uint64_t streetDigest = StreetDigest(stack.Ways(), vectors, next->Tile);
     SlowestRawExtractionMs_ = std::max(
         SlowestRawExtractionMs_,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extractionAt)
@@ -305,7 +410,9 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     Queue_.push_back(
         {.Revision = revision,
          .Task = StructureBuildTask(
-             next->Tile, std::move(raw), std::move(heights), std::move(output), LentScratch())});
+             next->Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
+         .StreetDigest = streetDigest,
+         .Replacement = replacement});
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Queue_.back());
     SlowestTaskPostingMs_ = std::max(
@@ -365,21 +472,28 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
     if (!completed) { std::terminate(); }
     const Generators::BakedTile &baked = *completed;
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-    landings.push_back(
-        {.Tile = bake.Task.Tile(),
-         .Baked = &baked,
-         .AnchorEcef = bake.Task.Raw().AnchorEcef,
-         .Footprints = prints.PrepareAcceptance(bake.Task.Tile(),
-                                                {.Prints = baked.Prints,
-                                                 .SeatSpreadM = baked.SeatSpreadM,
-                                                 .AcrossM = baked.AcrossM,
-                                                 .Triangles = triangles,
-                                                 .OsmHeights = baked.OsmHeights,
-                                                 .DefaultHeights = baked.DefaultHeights,
-                                                 .Fronted = baked.Fronted},
-                                                bake.Task.Heights().Sources(),
-                                                bake.Task.Heights().Qualified(),
-                                                vectors->Tiles()[bake.Task.Tile()].Source)});
+    const std::optional<Data::TileSourceIdentity> vectorSource =
+        VectorSource(*vectors, bake.Task.Tile());
+    landings.push_back({.Tile = bake.Task.Tile(),
+                        .Baked = &baked,
+                        .AnchorEcef = bake.Task.Raw().AnchorEcef,
+                        .Footprints = prints.PrepareAcceptance(
+                            bake.Task.Tile(),
+                            {.Prints = baked.Prints,
+                             .SeatSpreadM = baked.SeatSpreadM,
+                             .AcrossM = baked.AcrossM,
+                             .Triangles = triangles,
+                             .OsmHeights = baked.OsmHeights,
+                             .DefaultHeights = baked.DefaultHeights,
+                             .Fronted = baked.Fronted},
+                            bake.Task.Heights().Sources(),
+                            bake.Task.Heights().Qualified(),
+                            vectorSource,
+                            {.HeightRasterDigest = bake.Task.Heights().RasterDigest(),
+                             .StreetDigest = bake.StreetDigest,
+                             .FocalPx = bake.Revision.FocalPx,
+                             .TileSpanM = bake.Revision.TileSpanM,
+                             .Eye = bake.Revision.Eye})});
   }
   return landings;
 }
@@ -399,15 +513,18 @@ void StructureBuildQueue::CommitsLandings(Ground::GroundStack &stack,
     assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
            IdleScratch_.size() < IdleScratch_.capacity());
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-    footprints.CommitAcceptance(std::move(landing.Footprints.value()),
-                                *stack.Vectors(),
-                                {.Prints = baked.Prints,
-                                 .SeatSpreadM = baked.SeatSpreadM,
-                                 .AcrossM = baked.AcrossM,
-                                 .Triangles = triangles,
-                                 .OsmHeights = baked.OsmHeights,
-                                 .DefaultHeights = baked.DefaultHeights,
-                                 .Fronted = baked.Fronted});
+    const Ground::BuildingField::Baked product{.Prints = baked.Prints,
+                                               .SeatSpreadM = baked.SeatSpreadM,
+                                               .AcrossM = baked.AcrossM,
+                                               .Triangles = triangles,
+                                               .OsmHeights = baked.OsmHeights,
+                                               .DefaultHeights = baked.DefaultHeights,
+                                               .Fronted = baked.Fronted};
+    if (bake.Replacement) {
+      footprints.ReplaceAcceptance(std::move(landing.Footprints.value()), product);
+    } else {
+      footprints.CommitAcceptance(std::move(landing.Footprints.value()), *stack.Vectors(), product);
+    }
     Log::Info(LogTag::World,
               "buildings",
               {{"added", static_cast<int>(baked.Prints.size())},
