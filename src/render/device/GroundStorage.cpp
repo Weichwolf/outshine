@@ -203,7 +203,7 @@ std::expected<void, std::string> GroundStorage::Replace(SDL_GPUDevice *device,
     if (!advanced) { return std::unexpected(std::move(advanced.error())); }
     if (*advanced) { return {}; }
     if (Pending_ && Pending_->Fence) {
-      SDL_GPUFence *fence = Pending_->Fence.Get();
+      SDL_GPUFence *const fence = Pending_->Fence.Get();
       if (!submission.WaitFence(submission.Context, device, &fence, 1)) {
         std::string error = SDL_GetError();
         Pending_.reset();
