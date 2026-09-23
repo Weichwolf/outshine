@@ -93,7 +93,7 @@ std::expected<void, std::string> TransportNetworkBuildJob::BeginCrossings() {
 
 std::expected<void, std::string> TransportNetworkBuildJob::AdvanceCrossings(size_t pairsMost) {
   assert(Crossings_ != nullptr);
-  constexpr size_t kCrossingPairsPerBuildItem = 2048;
+  constexpr size_t kCrossingPairsPerBuildItem = 256;
   const size_t crossingPairsMost =
       pairsMost > std::numeric_limits<size_t>::max() / kCrossingPairsPerBuildItem
           ? std::numeric_limits<size_t>::max()

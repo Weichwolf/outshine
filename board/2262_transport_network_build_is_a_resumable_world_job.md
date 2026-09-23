@@ -43,64 +43,30 @@ borrowed spans or mutate the published graph.
 
 ## Current evidence
 
-The one-shot oracle measured 542.714 ms: Lay 2.316, Weave 430.871,
-Crossings 25.604 and Elevate 83.923 ms. A second Weave probe measured sort
-5.352, snap 111.007, edges 13.738, tie 374.715 and pack 2.477 ms.
+The one-shot oracle measured 543 ms (Weave 431, Crossings 26, Elevate 84).
+`TransportNetworkBuildJob` now owns move-only weave, crossing and elevation
+jobs. It publishes only a complete graph; `Corridors` reads that snapshot.
+One-shot paths remain independent comparison oracles. Small directed routes,
+crossings, elevation profiles and diagnostics agree at work sizes 1, 2 and 8.
+The elevation job pins candidate `HeightSheets`, avoiding synchronous DEM
+builds and aligning roads with the rendered terrain.
 
-A move-only `Path::NetworkWeaveJob` now owns the mutable graph and temporary
-indices; `NetworkElevationJob` owns height sampling and profiles.
-`world/navigation/TransportNetworkBuildJob` drives both as candidate stage
-`NeedsNetwork`; only its completed snapshot reaches `Corridors`. One-shot
-paths remain comparison oracles. Analytic directed routes, shared-node samples,
-profiles and diagnostics match at work sizes 1, 2 and 8.
+Wien holds 47,101 ways, 155,084 nodes, 369,981 edges and 2,822,153 candidate
+crossing pairs. Its current shot digest is `2fc0aec4`. The earlier 8,192-frame
+diagnostic needed 7,433–7,456 advances; a bounded four-advance, 8-ms
+same-phase candidate scheduler now reaches Refined in 3,141 advances, with
+the same digest. At 262,144 crossing pairs per slice, Wien needs 3,118
+advances, p99 10.78 ms, and still has 10 frames over 16.67 ms. Longest
+crossing pair slice is 2.852 ms, but crossing setup remains 6.803 ms; weave
+edge indexing is 9.892 ms. Simulation worst is 38.27 ms and draw worst
+49.29 ms. The PNG was opened: roads, river and building masses are unchanged;
+its low-detail look is tracked by the visual work items, not this graph job.
 
-Wien keeps 47,101 ways, 155,084 nodes, 369,981 edges and digest `49440d93`.
-Worst simulation frame fell from about 556 ms to 109–133 ms; p99 fell from
-about 23 ms to 9.56–13.18 ms. The alternate `0257fdae` digest differs in
-290/921600 pixels at rows 487–509 and is tracked as shot nondeterminism in
-WI 2105.
-
-At 1,024 graph items/frame and 4,096 profile points/frame, latest worst slices
-are: snap 2.285, edge creation 0.613, edge index 9.714, adjacency 5.947, tie
-2.896, weave publication 2.941, crossings 25.636, node sampling 19.937, point
-writes 0.013, stations 0.379, slopes 0.288 and grade statistics 0.058 ms.
-Profile work previously cost 14.078 ms. Destroying 72.376 ms of weave
-temporaries caused the unexplained 48.958-ms transition; explicit staged
-release now limits that work to 2.594 ms and the longest build slice is the
-crossing pass. Its measured parts are point span 0.217, segment list 0.717,
-grid 0.194, cell filing 4.784, pair tests 19.420 and cache 0.037 ms.
-A native crossing job now owns the graph, preserves one-shot crossing identity
-at pair budgets 1, 2 and 8, and records the full candidate count. Wien has
-2,822,153 candidate pairs. A phase-specific 2,097,152-pair slice is the
-smallest measured budget that keeps the current 6,144-frame shot horizon
-green: digest `49440d93` at 6,071 frames, crossing worst 19.387 ms. Budgets
-1,048,576 and below finish the network but miss the later Refined deadline;
-the candidate scheduler amplifies one extra network tick and needs correction.
-
-Global budgets 128, 256 and 512 failed to reach Refined within the 6,144-frame
-shot horizon; 1,024 completes in about 5,860–6,072 frames. Counts therefore
-remain phase-specific. Next remove the candidate-scheduler amplification,
-reduce crossing setup/pair slices below 4 ms, and move DEM sampling off the
-frame path or into an independently bounded worker.
-
-The elevation job now owns the candidate's pinned `HeightSheets` sampler
-instead of consulting mutable `GroundStream` and synchronously building tiles.
-Wien sampled every node, reduced the worst elevation slice from 21.630 to
-0.804 ms and changed 3,297/921,600 pixels in the road/shore band because roads
-now use the rendered candidate terrain. Digest is `84df505c`; the build needed
-6,206 frames, so the unchanged 6,144-frame shot horizon remains red.
-
-At da6b61077 Wien still fails the 6,144-frame horizon. A diagnostic-only 8,192
-limit reaches Refined at 7,433–7,456 frames, digest `2fc0aec4`.
-Per-phase advances: network 1,728, corridors 2,944, earthworks 1,458;
-terrain mesh 74. Corridor subphases repeat hundreds of cheap slices (bridge
-raise 373 at 0.189 ms worst, cross-decks 183 at 0.238 ms), while paving and
-bodies can cost 9.523 and 8.044 ms. Keep each producer's work-unit budget;
-coalesce at most four same-phase candidate advances while measured cumulative
-ground time stays below 8 ms. Stop on no progress, revision/phase change or
-publication. The normal 6,144-frame horizon and product digest are the oracle.
-Implemented: Wien remains `2fc0aec4`, reaches Refined after 3,141 frames,
-p99 10.37 ms; 10 frames still exceed 16.67 ms, including draw spikes.
+Next split crossing setup and weave edge indexing into bounded work without
+changing graph IDs, edge order or crossing statistics. Identify the remaining
+simulation spike before claiming 720p60. Keep the draw spike separate from
+network construction. Graph source-revision and cancellation tests remain
+part of this WI's acceptance.
 
 ## Acceptance
 
