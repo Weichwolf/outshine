@@ -1130,9 +1130,15 @@ void SceneRenderer::EncodeMediumRadiance(const FrameContext &ctx, const PassReco
 
 bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                      std::span<const float> palette,
-                                     std::string &error) {
-  const auto uploaded = ActiveState().Content.Ground.Replace(
-      ActiveFrame().Handles.Device, classes, palette, Submission_);
+                                     std::string &error,
+                                     GroundClassUploadMetrics *metrics) {
+  if (metrics != nullptr) { *metrics = {}; }
+  const auto uploaded =
+      ActiveState().Content.Ground.Replace(ActiveFrame().Handles.Device,
+                                           classes,
+                                           palette,
+                                           Submission_,
+                                           metrics != nullptr ? &metrics->Storage : nullptr);
   if (!uploaded) {
     error = uploaded.error();
     return false;
@@ -1141,7 +1147,13 @@ bool SceneRenderer::SetGroundClasses(std::span<const uint32_t> classes,
                                              .Palette = ActiveState().Content.Ground.Palette()});
   ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                           .Palette = ActiveState().Content.Ground.Palette()});
+  const auto copyAt = std::chrono::steady_clock::now();
   ActiveState().Content.Resources.SetGroundClassification(classes, palette);
+  if (metrics != nullptr) {
+    metrics->RestoreCopyMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - copyAt)
+            .count();
+  }
   return true;
 }
 

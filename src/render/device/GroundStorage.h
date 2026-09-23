@@ -10,12 +10,20 @@
 
 namespace outshine::Render {
 
+struct GroundStorageUploadMetrics {
+  double AllocationMs = 0.0;
+  double StagingMs = 0.0;
+  double SubmissionMs = 0.0;
+};
+
 class GroundStorage {
 public:
-  [[nodiscard]] std::expected<void, std::string> Replace(SDL_GPUDevice *device,
-                                                         std::span<const uint32_t> classes,
-                                                         std::span<const float> palette,
-                                                         const GpuSubmission &submission = {});
+  [[nodiscard]] std::expected<void, std::string>
+  Replace(SDL_GPUDevice *device,
+          std::span<const uint32_t> classes,
+          std::span<const float> palette,
+          const GpuSubmission &submission = {},
+          GroundStorageUploadMetrics *metrics = nullptr);
 
   [[nodiscard]] SDL_GPUBuffer *Classes() const noexcept { return Classes_.Get(); }
 

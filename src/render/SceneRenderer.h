@@ -33,6 +33,7 @@
 #include "Compiled.h"
 #include "stages/OverlayDraw.h"
 #include "stages/PresentStage.h"
+
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
 #include "stages/AerialPerspectiveStage.h"
@@ -52,6 +53,11 @@ class RuntimeScene;
 }
 
 namespace outshine::Render {
+
+struct GroundClassUploadMetrics {
+  GroundStorageUploadMetrics Storage;
+  double RestoreCopyMs = 0.0;
+};
 
 struct KeptDraws {
   uint32_t Indices = 0;
@@ -549,7 +555,8 @@ public:
 
   [[nodiscard]] bool SetGroundClasses(std::span<const uint32_t> classes,
                                       std::span<const float> palette,
-                                      std::string &error);
+                                      std::string &error,
+                                      GroundClassUploadMetrics *metrics = nullptr);
 
   [[nodiscard]] bool RestoreGroundResources(std::string &error) {
     auto &content = ActiveState().Content;

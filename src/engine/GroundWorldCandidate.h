@@ -118,8 +118,9 @@ public:
 
   [[nodiscard]] bool SetGroundClasses(std::span<const uint32_t> words,
                                       std::span<const float> palette,
-                                      std::string &error) {
-    return World_.Renderer().SetGroundClasses(words, palette, error);
+                                      std::string &error,
+                                      Render::GroundClassUploadMetrics *metrics = nullptr) {
+    return World_.Renderer().SetGroundClasses(words, palette, error, metrics);
   }
 
   [[nodiscard]] std::expected<void, std::string> Prepare(const Core::RuntimeScene &previous,

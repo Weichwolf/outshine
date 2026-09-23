@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <algorithm>
+#include <chrono>
 #include <optional>
 #include <cstddef>
 #include <cstring>
@@ -56,13 +57,16 @@ void EncodeUpload(SDL_GPUCopyPass *pass,
 std::expected<void, std::string> GroundStorage::Replace(SDL_GPUDevice *device,
                                                         std::span<const uint32_t> classes,
                                                         std::span<const float> palette,
-                                                        const GpuSubmission &submission) {
+                                                        const GpuSubmission &submission,
+                                                        GroundStorageUploadMetrics *metrics) {
+  if (metrics != nullptr) { *metrics = {}; }
   if (device == nullptr) { return std::unexpected(Says::kGroundDeviceMissing); }
   const auto classBytes = StorageBytes(classes.size());
   const auto paletteBytes = StorageBytes(palette.size());
   if (!classBytes || !paletteBytes || *classBytes > kMaximumUploadBytes - *paletteBytes) {
     return std::unexpected(Says::kGroundStorageTooLarge);
   }
+  const auto allocationAt = std::chrono::steady_clock::now();
   OwnedBuffer nextClasses = Allocate(device, *classBytes);
   if (!nextClasses) { return std::unexpected(SDL_GetError()); }
   OwnedBuffer nextPalette = Allocate(device, *paletteBytes);
@@ -72,6 +76,12 @@ std::expected<void, std::string> GroundStorage::Replace(SDL_GPUDevice *device,
   info.size = *classBytes + *paletteBytes;
   const OwnedTransfer staging(device, SDL_CreateGPUTransferBuffer(device, &info));
   if (!staging) { return std::unexpected(SDL_GetError()); }
+  if (metrics != nullptr) {
+    metrics->AllocationMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - allocationAt)
+            .count();
+  }
+  const auto stagingAt = std::chrono::steady_clock::now();
   auto *mapped =
       static_cast<std::byte *>(submission.MapUpload(submission.Context, device, staging.Get()));
   if (mapped == nullptr) { return std::unexpected(SDL_GetError()); }
@@ -79,6 +89,12 @@ std::expected<void, std::string> GroundStorage::Replace(SDL_GPUDevice *device,
   if (!classes.empty()) { std::memcpy(mapped, classes.data(), classes.size_bytes()); }
   if (!palette.empty()) { std::memcpy(mapped + *classBytes, palette.data(), palette.size_bytes()); }
   SDL_UnmapGPUTransferBuffer(device, staging.Get());
+  if (metrics != nullptr) {
+    metrics->StagingMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - stagingAt)
+            .count();
+  }
+  const auto submitAt = std::chrono::steady_clock::now();
   SDL_GPUCommandBuffer *commands = submission.Acquire(submission.Context, device);
   if (commands == nullptr) { return std::unexpected(SDL_GetError()); }
   SDL_GPUCopyPass *pass = SDL_BeginGPUCopyPass(commands);
@@ -99,6 +115,11 @@ std::expected<void, std::string> GroundStorage::Replace(SDL_GPUDevice *device,
   SDL_ReleaseGPUFence(device, fence);
   Classes_ = std::move(nextClasses);
   Palette_ = std::move(nextPalette);
+  if (metrics != nullptr) {
+    metrics->SubmissionMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - submitAt)
+            .count();
+  }
   return {};
 }
 
