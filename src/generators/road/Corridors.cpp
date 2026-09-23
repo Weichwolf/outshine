@@ -1646,9 +1646,16 @@ bool RetireMap(Map &entries,
 bool Corridors::Job::RetireStep(size_t unitsMost) noexcept {
   if (unitsMost == 0) { return false; }
   if (Retirement == RetireStage::Active) { Retirement = RetireStage::Designed; }
+  if (Retirement == RetireStage::Done) { return true; }
+  if (Retirement <= RetireStage::Corridor || Retirement == RetireStage::Notes) {
+    return RetireVectors(unitsMost);
+  }
+  return RetireMaps(unitsMost);
+}
+
+bool Corridors::Job::RetireVectors(size_t unitsMost) noexcept {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(2);
   switch (Retirement) {
-    case RetireStage::Active: return false;
     case RetireStage::Designed:
       if (RetireVector(Work.Designed, unitsMost, deadline)) { Retirement = RetireStage::Junctions; }
       break;
@@ -1665,6 +1672,17 @@ bool Corridors::Job::RetireStep(size_t unitsMost) noexcept {
     case RetireStage::Corridor:
       if (RetireVector(Corridor, unitsMost, deadline)) { Retirement = RetireStage::CrossingMap; }
       break;
+    case RetireStage::Notes:
+      if (RetireVector(Work.Notes, unitsMost, deadline)) { Retirement = RetireStage::Done; }
+      break;
+    default: return false;
+  }
+  return Retirement == RetireStage::Done;
+}
+
+bool Corridors::Job::RetireMaps(size_t unitsMost) noexcept {
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(2);
+  switch (Retirement) {
     case RetireStage::CrossingMap:
       if (RetireMap(Work.AtCrossing, unitsMost, deadline)) { Retirement = RetireStage::EndMap; }
       break;
@@ -1690,12 +1708,9 @@ bool Corridors::Job::RetireStep(size_t unitsMost) noexcept {
     case RetireStage::TopologyPlaces:
       if (RetireMap(Topology.PlaceOf, unitsMost, deadline)) { Retirement = RetireStage::Notes; }
       break;
-    case RetireStage::Notes:
-      if (RetireVector(Work.Notes, unitsMost, deadline)) { Retirement = RetireStage::Done; }
-      break;
-    case RetireStage::Done: return true;
+    default: return false;
   }
-  return Retirement == RetireStage::Done;
+  return false;
 }
 
 struct Corridors::JobSlice {

@@ -381,6 +381,9 @@ public:
       Done
     };
 
+    [[nodiscard]] bool RetireVectors(size_t unitsMost) noexcept;
+    [[nodiscard]] bool RetireMaps(size_t unitsMost) noexcept;
+
     explicit Job(const Site &site)
         : VectorGeneration(site.Vectors != nullptr ? site.Vectors->Generation() : 0),
           WayCount(site.Ways.Ways().size()) {}

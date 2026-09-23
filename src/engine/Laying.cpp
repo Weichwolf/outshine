@@ -312,6 +312,10 @@ public:
   }
 
   [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept {
+    if (CorridorJob_) {
+      if (!CorridorJob_->RetireStep(kCorridorRetireUnitsPerFrame)) { return false; }
+      CorridorJob_.reset();
+    }
     if (Patchwork_) {
       const size_t count = std::min(sheetsMost, Patchwork_->Sheets.size());
       for (size_t released = 0; released < count; ++released) { Patchwork_->Sheets.pop_back(); }
@@ -1275,6 +1279,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
       Published.Places("ground candidate: revision mismatch mask",
                        static_cast<double>(World.GroundBuild->RevisionDifference(request.Revision)),
                        "bits");
+      if (World.GroundRetirement) { return GroundBuildProgress::Pending; }
+      World.GroundRetirement = std::move(World.GroundBuild);
+      return GroundBuildProgress::Pending;
     }
     ++World.GroundCandidates;
     const auto createAt = std::chrono::steady_clock::now();

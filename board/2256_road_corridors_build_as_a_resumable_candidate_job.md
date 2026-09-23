@@ -31,7 +31,10 @@ The completed-job path now drains nested scratch in candidate-owned advances.
 Wien remains `2fc0aec4`: retirement peaks at 0.17 ms, the full corridor slice
 at 11.54 ms, p99 at 9.81 ms, six of 4659 frames late and heap peak 1096 MB.
 Malcesine remains `07ca3a25`: retirement 0.03 ms, corridor slice 3.31 ms.
-Both PNGs were opened. Cancellation still needs the bounded owner handoff.
+Both PNGs were opened. A changed revision now moves the old candidate into
+the single retirement slot, which blocks new admission until scratch retires.
+The canceled-candidate path and destruction of its other products still need
+an independent latency test.
 
 ## Contract and ownership
 
@@ -42,15 +45,15 @@ geometry and ordered yields move to candidate products exactly once; retirement
 may then release job scratch without touching those products. Cancellation or a
 stale source sends private scratch through the same bounded retirement path;
 no partial road geometry reaches renderer, navigation or earthworks. The engine
-limits retained canceled jobs and applies backpressure.
+retains at most one retired candidate and applies backpressure.
 
 Keep `Corridors::Lay` as an independent one-shot oracle. Preserve edge,
 station, junction-leg, yield, index and diagnostic order across arbitrary
 advances. Do not move the 14.85-ms destructor to publication or another frame.
 Expose a bounded `Job::RetireStep` that releases nested vectors/maps in measured
 chunks, then destroys the empty job. Hold the candidate in `NeedsCorridors`
-until retirement completes. Canceled candidates hand scratch to an engine-owned
-retirement queue before destruction. The transition must be explicit and replayable;
+until retirement completes. Canceled candidates use the engine-owned single
+retirement slot before destruction. The transition must be explicit and replayable;
 retirement timing cannot alter the native geometry or road network.
 
 ## Implementation and acceptance
@@ -62,8 +65,8 @@ retirement timing cannot alter the native geometry or road network.
    map destruction or large destructor on the frame path.
 2. In `src/engine/Laying.cpp`, move final ordered notes/yields once, then enter
    the retirement phase. Advance it at most once per frame before completing
-   `NeedsCorridors`. An engine-owned retirement queue handles canceled jobs
-   with bounded occupancy and no synchronous large destructor.
+   `NeedsCorridors`. The single retirement slot handles canceled jobs; verify
+   that subsequent candidate admission waits and teardown stays within budget.
 3. Prove one-shot/interrupted equality of geometry, ordered yields, contacts
    and diagnostics on small roads, stacked crossings, bridges and Wien. Reject
    a changed vector revision and a DEM field miss without fabricating heights.
