@@ -1959,6 +1959,30 @@ bool Engine::State::GroundInputsReady(GroundQuality quality) const {
          GroundSourcesReady(World.Stack, quality);
 }
 
+bool Engine::State::AdvancesGroundWithinBudget(GroundQuality quality) {
+  constexpr size_t kAdvancesMost = 4;
+  constexpr double kGroundBudgetMs = 8.0;
+  const auto began = std::chrono::steady_clock::now();
+  for (size_t advance = 0; advance < kAdvancesMost; ++advance) {
+    const GroundBuildState *const before = World.GroundBuild.get();
+    const uint64_t id = before ? before->Id() : 0;
+    const size_t phase = before ? before->Progress() : 0;
+    const uint64_t slices =
+        before && phase < Cost.GroundPhases.size() ? Cost.GroundPhases[phase].Taken() : 0;
+    if (!Grounds(false, quality)) { return false; }
+    const GroundBuildState *const after = World.GroundBuild.get();
+    if (after == nullptr || after->Id() != id || after->Progress() != phase ||
+        Cost.GroundPhases[phase].Taken() == slices) {
+      return true;
+    }
+    if (std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+            .count() >= kGroundBudgetMs) {
+      return true;
+    }
+  }
+  return true;
+}
+
 bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   static const Heap::Tag kLayingTag("world-ground");
   const Heap::Tagged laying(kLayingTag);

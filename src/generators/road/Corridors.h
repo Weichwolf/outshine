@@ -396,6 +396,7 @@ public:
     double TotalMs = 0.0;
     static constexpr size_t StageCount = static_cast<size_t>(Stage::Done);
     std::array<double, StageCount> LongestSliceMs{};
+    std::array<size_t, StageCount> StageAdvances{};
 
   public:
     [[nodiscard]] double WorkMs() const noexcept { return TotalMs; }

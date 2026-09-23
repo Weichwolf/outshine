@@ -503,6 +503,7 @@ struct Engine::State {
                                         int finestZoom);
   void ReportGroundPlacements();
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded, GroundQuality quality);
+  [[nodiscard]] bool AdvancesGroundWithinBudget(GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundRetirement();
   [[nodiscard]] bool GroundInputsReady(GroundQuality quality) const;
   [[nodiscard]] bool Asks();

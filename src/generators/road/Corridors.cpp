@@ -1705,6 +1705,7 @@ Corridors::Advance(Job &job,
     result = AdvanceTransfer(job, slice);
   }
   const auto index = static_cast<size_t>(entered);
+  ++job.StageAdvances[index];
   job.LongestSliceMs[index] = std::max(job.LongestSliceMs[index], slice.Elapsed());
   return result;
 }
@@ -2345,6 +2346,10 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
           std::format("streets: longest {} slice", stages[stage]),
           job.LongestSliceMs[stage],
           "ms");
+    Notes(into,
+          std::format("streets: {} advances", stages[stage]),
+          static_cast<double>(job.StageAdvances[stage]),
+          "frames");
   }
   *corridor = std::move(job.Corridor);
   *notes = std::move(into.Notes);

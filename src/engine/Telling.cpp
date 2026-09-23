@@ -214,6 +214,10 @@ void Engine::State::Tells() {
                            " time, most",
                        Cost.GroundPhases[phase].MostMs(),
                        "ms");
+      Published.Places(std::string("ground phase ") + std::string(kGroundPhases[phase]) +
+                           " advances",
+                       static_cast<double>(Cost.GroundPhases[phase].Taken()),
+                       "frames");
     }
     Published.Places("vegetation update time, most", Cost.Crowns.MostMs(), "ms");
   }

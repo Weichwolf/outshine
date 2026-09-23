@@ -90,6 +90,18 @@ Wien sampled every node, reduced the worst elevation slice from 21.630 to
 now use the rendered candidate terrain. Digest is `84df505c`; the build needed
 6,206 frames, so the unchanged 6,144-frame shot horizon remains red.
 
+At da6b61077 Wien still fails the 6,144-frame horizon. A diagnostic-only 8,192
+limit reaches Refined at 7,433–7,456 frames, digest `2fc0aec4`.
+Per-phase advances: network 1,728, corridors 2,944, earthworks 1,458;
+terrain mesh 74. Corridor subphases repeat hundreds of cheap slices (bridge
+raise 373 at 0.189 ms worst, cross-decks 183 at 0.238 ms), while paving and
+bodies can cost 9.523 and 8.044 ms. Keep each producer's work-unit budget;
+coalesce at most four same-phase candidate advances while measured cumulative
+ground time stays below 8 ms. Stop on no progress, revision/phase change or
+publication. The normal 6,144-frame horizon and product digest are the oracle.
+Implemented: Wien remains `2fc0aec4`, reaches Refined after 3,141 frames,
+p99 10.37 ms; 10 frames still exceed 16.67 ms, including draw spikes.
+
 ## Acceptance
 
 - Analytic line, closed loop, legal junction, grade-separated crossing and

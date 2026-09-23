@@ -432,7 +432,7 @@ bool Engine::State::Updates() {
   const GroundQuality quality =
       World.GroundPublished.Current() ? GroundQuality::Refined : GroundQuality::Playable;
   const auto groundAt = std::chrono::steady_clock::now();
-  const bool grounded = Grounds(false, quality);
+  const bool grounded = AdvancesGroundWithinBudget(quality);
   Cost.Ground.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - groundAt)
           .count());
