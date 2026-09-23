@@ -83,7 +83,7 @@ void BuildingField::CommitAcceptance(PendingAcceptance pending,
   assert(pending.Owner_ == this && pending.Prints_ == baked.Prints.size() &&
          pending.Spread_ == baked.SeatSpreadM.size() && pending.Across_ == baked.AcrossM.size());
   const auto nextTile = std::ranges::lower_bound(AcceptedTiles_, pending.Tile_);
-  const size_t inputAt = static_cast<size_t>(nextTile - AcceptedTiles_.begin());
+  const auto inputAt = nextTile - AcceptedTiles_.begin();
   const uint32_t firstPrint = nextTile == AcceptedTiles_.end()
                                   ? static_cast<uint32_t>(Prints_.size())
                                   : ByTile_.At(*nextTile).First;
