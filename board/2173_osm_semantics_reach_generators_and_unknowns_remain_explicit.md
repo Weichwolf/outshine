@@ -66,6 +66,8 @@ Roh-OSM zeigt stattdessen 24 `highway=raceway`-Ways und die eindeutige
 Grand-Prix-Relation 284588 mit 16 Haupt-Ways und eigener Pitlane-Rolle; das
 Quellpin steht in WI 2260. Der allgemeine semantische Provider muss Node-/Way-/
 Relation-IDs, Mitgliedsrolle, Tag-Provenienz und gerichtete Nodefolge liefern.
+`Data::OsmXmlReader` erhält diese Elemente im gepinnten Ausschnitt; ein
+versionierter Streaming-Provider und die Verbindung zum Weltgraph fehlen noch.
 Ein MVT-Feature-ID-Join ist erst nach einem unabhängigen Nachweis zulässig.
 Ein auf Bildkacheln generalisierter Linienzug ohne IDs ist keine vollständige logische
 Karte. 2133 besitzt Konnektivität, 2175 Bauwerke, 2176 Artenauswahl. Fehlende Tags werden

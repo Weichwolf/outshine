@@ -2,7 +2,7 @@ Type: feature
 State: active
 Architecture: ready
 Parent: 2133
-Depends: 2272
+Depends:
 Priority: P0
 Area: world, navigation
 Tags: osm, graph, hockenheim, transport
