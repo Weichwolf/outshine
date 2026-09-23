@@ -3,61 +3,62 @@ State: ready
 Architecture: ready
 Parent: 2258
 Depends: 2173
-Priority: P0
+Priority: P1
 Area: generators, simulation, testing
-Tags: geometry, proof, numerics, determinism
+Tags: geometry, validation, numerics, plausibility
 
-# Generators publish checkable geometric certificates
+# Construction products carry checkable functional and visual evidence
 
-## Scope of proof
+## Scope
 
-For each physical construction family in 2258, state a mathematical model,
-assumptions, admissible input domain, numerical representation and output
-invariants before treating its mesh as correct. A theorem about this model is
-conditional; it cannot prove which bridge, foundation or material exists in
-reality when OSM omits those facts. Artistic plausibility needs visual review.
-Structural load capacity is out of scope; closed surfaces, convincing visible
-contacts and functional route geometry are in scope. Do not infer required
-support size from appearance: slender reinforced concrete can be credible.
+The target is a plausible, usable and appealing generated world, not a proof
+of the real object's dimensions or structural capacity. OSM/DEM often admit
+several defensible constructions. Record the chosen rule, inferred parameters,
+source IDs and uncertainty. Never label an unknown as a measured real value.
 
-Each `ConstructionResult::Built` carries source IDs, inferred parameters,
-solver residuals, numeric error bounds and a validation record. Consumers may
-mark a route drivable or a structure collidable only if its relevant certificate
-passes. Rejection preserves logical OSM identity with a precise cause. A generic
-fallback has the same obligations as a specialized builder.
-The logical graph for AI/NPC/navigation/minimap stays independent of visible
-meshes. Its stable edge IDs connect to a certified 3D alignment; a render LOD
-or tile eviction cannot create or delete a legal turn. The contact mesh must
-remain within a declared error of that alignment during traversal.
+Use hard geometric checks where a violated condition breaks function or is
+visibly impossible: route continuity, vehicle envelope, free passage, protected
+water, terrain contact, mesh validity and cross-tile seams. Choose explicit
+tolerances from actor size, source resolution and numerical precision. An
+unresolved hard condition yields a diagnosed construction result, not a
+`drivable` or `collidable` claim. Material/style/shape plausibility needs
+image and motion review; an analytic check cannot certify its appearance.
 
-## Proof obligations
+Each `ConstructionResult::Built` carries a compact validation record: input
+revision, assumptions, measured minima/maxima, tolerances and pass/fail for
+the contracts relevant to that product. Do not attach irrelevant certificates
+to semantic-only features. The logical AI/NPC/map graph stays independent of
+render LOD; stable route IDs refer to a validated 3D alignment and contact.
 
-| Family | Analytic claim | Independent check |
+## Checks by construction family
+
+| Family | Functional check | Visual/motion check |
 |---|---|---|
-| Shared frame/tiles | identical world position and seam data at common IDs; bounded float projection error | double-coordinate oracle, two tile orders and camera shifts |
-| Alignment/lane/rail | continuous position/tangent where declared, bounded grade, curvature, crossfall and width for a stated actor class | analytic line/arc/spiral derivatives plus interval extrema, moving contact trace |
-| Bridge/underpass | deck support footprint and required free volume are disjoint; deck thickness and clearance exceed stated minima | cross-section interval bounds, exact/robust overlap predicates, negative filled-channel case |
-| Tunnel | route lies inside a connected void with valid portal and headroom | volume/portal intersection and collision traversal |
-| Terrain/water | protected channel bed never rises; cut/fill stays within declared earthwork bounds; connected water surface/bed obey level constraints | pointwise inequalities including cell interiors and tile seams |
-| Building/support | floor, visible base and openings meet without gaps or false contact | mesh closure and contact/clearance predicates |
-| Mesh/material | finite vertices, valid indices/orientation, closed solids where required, BRDF parameter and color-space contracts | independent mesh validator and material oracle |
+| Shared frame/tiles | common positions and seam normals within derived metre/radian tolerances | crossing a streamed tile seam has no visible pop or contact jump |
+| Road/lane/rail | continuous alignment; bounded width, grade, curvature and contact for stated actor | camera and vehicle traverse without floating, sinking or wrong-level turns |
+| Bridge/underpass | deck and support avoid required free volume; actor envelope clears | deck, underside, supports and approaches read as one credible structure |
+| Tunnel | connected void, portal and headroom along route | entrance, lighting and terrain enclosure remain convincing in motion |
+| Terrain/water | protected river channel is not filled; earthwork joins intended structure | banks, cuts and embankments have plausible slopes and materials |
+| Building/support | finite closed required solids, usable openings and ground contact | base, façade, roof and access look coherent from several distances |
+| Mesh/material | finite vertices, valid indices/orientation and Metallic-Roughness ranges/colorspaces | shading, scale and texture frequency survive lighting/time variants |
 
-Derive continuous-extremum bounds where possible. Sampling pixels or raster
-nodes alone cannot prove inequalities between samples. Use interval arithmetic
-or robust predicates for bounded nonlinear cases; subdivide until a declared
-error bound is met or reject within a work budget. Explicitly separate exact
-analytic claims, interval-certified approximations and empirical checks.
-Tests must include a mutation/negative control for each invariant; green output
-alone is not a proof. Numerical tolerance carries units, derives from input
-resolution and floating-point error, and is not loosened to hide failures.
+Analytic extrema are useful for simple curves, planes and swept envelopes.
+Use bounded subdivision or robust predicates where sampling can miss a
+functional gap; use sampled motion and image review where perceptual quality
+is the actual requirement. State the resolution and residual uncertainty.
+Tests include deliberate mutations for each hard check. Do not reject a
+visually plausible solution solely because an unobservable detail differs
+from the real object or an arbitrary prefab.
 
-## First vertical slice
+## First slice and acceptance
 
-Prove a two-point bridge over an analytic river in 2257: derive the protected
-channel polygon and deck/support volumes, certify zero positive terrain delta
-in the channel, minimum vertical clearance and continuous road contact at both
-abutments. Make the deliberate fill/closed-deck variants fail. Compare native
-products from one-shot and sliced builds across several slice sizes, then run
-the same predicates on a real OSM/DEM crossing and inspect above/below PNGs.
-Publish no `drivable` claim if a required predicate or numeric bound is unknown.
-Vehicle and train models, not building statics, set the movement constraints.
+Build a two-point bridge over an analytic river in 2257. Protect the channel
+from positive terrain fill, check a stated vehicle envelope under/over the
+deck as applicable, and trace continuous road contact through both abutments.
+Deliberately fill the channel, close the passage and introduce a road gap;
+each must fail its relevant check. Compare one-shot and sliced products, then
+apply the same checks to a real OSM/DEM crossing. Open above/below PNGs and
+drive a camera through the transition; note appearance defects separately
+from functional failures. Report work/memory cost, `make format`, focused
+tests and `make lint`. Vehicle and train envelopes set movement constraints;
+building statics are outside scope.

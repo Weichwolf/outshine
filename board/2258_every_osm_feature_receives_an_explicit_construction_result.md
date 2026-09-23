@@ -28,7 +28,8 @@ Products share stable source/structure IDs and a revision: logical topology,
 Metallic-Roughness material, collision/contact and interaction semantics.
 Consumers derive LOD independently; no navigation from render triangles.
 Uncertainty, inferred dimensions and the rule/seed used are explicit. WI 2259
-requires a checkable geometric certificate before physical validity is claimed.
+defines the functional checks and visual review needed before a product claims
+to be usable and plausible.
 
 ## Reality-to-OSM case matrix
 

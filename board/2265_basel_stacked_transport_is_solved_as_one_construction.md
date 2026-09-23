@@ -30,6 +30,8 @@ Around 47.5693, 7.6079, Maulbeerstrasse `1219622017` is `tunnel=yes`,
 tracks including `1219622011`; they share no route node. Station platforms
 carry `ele=256`, but that does not fix every deck, tunnel or road height.
 OSM does not specify the exact real piers, section dimensions or all datums.
+The acceptance target is a usable transport layout and a visually credible
+cityscape, not a digital twin or a structural engineering proof.
 
 ## Construction decision
 

@@ -1,9 +1,9 @@
 Type: defect
-State: active
+State: open
 Architecture: ready
 Parent: 2234
-Depends:
-Priority: P0
+Depends: 2247
+Priority: P1
 Area: engine, rendering, streaming
 Tags: materials, structures, ground, candidate
 
@@ -37,6 +37,11 @@ future variable structure palette needs an explicit versioned replacement
 contract; do not silently mutate published slots.
 
 ## Falsifiable acceptance
+
+Commit `6ca7dbe4f` fixes the missing material slot: focused candidate/tile
+tests and lint pass; Wien/Malcesine image digests remain unchanged. Basel
+passes that stage but cannot yet reach Refined capture because its structure
+candidate work repeats. WI 2247 owns that remaining end-to-end dependency.
 
 - A cold empty-world candidate accepts wall/roof pieces before any ground mesh,
   then publishes ground geometry with those pieces intact. Repeat after a
