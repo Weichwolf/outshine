@@ -88,10 +88,18 @@ Prepare and publish each array only at complete phase boundaries. Check exact
 node/edge/route equality for duplicate ways and reversed input order; measure
 each phase on Wien separately before claiming the startup spike is gone.
 
-The run-sort/merge/copy phases are implemented; 17 Wayfinding tests and lint
-pass on `a84c1c4f8`. A fresh Wien shot did not reach Refined in 6,144 frames
-because structure baking blocked publication (WI 2247). The new Wien slice
-timings and pixel equality are therefore still unverified.
+Wien reaches Refined at digest `45d7bbaa`. Run-sort/merge/copy slices peak
+at 0.041/0.190/0.082 ms. TieEnds at 1,024 nodes took 4.752 ms; 512 nodes
+reduced that to 1.43–2.73 ms. A 512-step edge-index slice still took 6.228 ms
+while 44 new keys triggered a global rehash from 102,877 to 205,759 buckets.
+The physical key set now has 256 stable shards, transferred into adjacency
+without reinsertion; degree scan and release remain cursor-bounded. Two Wien
+runs retain the same PNG/native product digest, index slices peak at
+1.14–1.24 ms, full network slices at 3.35–4.03 ms, p99 frames at 9.79–9.92 ms,
+and 7 late frames. The occasional >80-ms simulation frame has another cause.
+Malcesine's native product digest is stable, but two PNGs differ at 15 of
+921,600 pixels by at most 3/255; image determinism remains open outside the
+network graph. Do not call the 4-ms bound proven from these two runs alone.
 
 ## Acceptance
 

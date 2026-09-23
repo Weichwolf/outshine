@@ -86,48 +86,77 @@ uint64_t Network::PhysicalEdgeKey(size_t from, size_t to) {
          static_cast<uint64_t>(std::max(from, to));
 }
 
-void Network::PhysicalAdjacency::Adopt(size_t nodes, std::unordered_set<uint64_t> &&edges) {
+size_t Network::PhysicalEdgeSet::ShardOf(uint64_t key) noexcept {
+  return std::hash<uint64_t>{}(key) % kShards;
+}
+
+bool Network::PhysicalEdgeSet::Insert(uint64_t key) {
+  return Shards_[ShardOf(key)].insert(key).second;
+}
+
+bool Network::PhysicalEdgeSet::Erase(uint64_t key) {
+  return Shards_[ShardOf(key)].erase(key) != 0;
+}
+
+bool Network::PhysicalEdgeSet::AccumulateDegrees(std::span<size_t> degree, size_t itemsMost) {
+  size_t visited = 0;
+  while (DegreeShard_ < kShards && visited < itemsMost) {
+    const auto &shard = Shards_[DegreeShard_];
+    if (!DegreeCursor_) { DegreeCursor_ = shard.cbegin(); }
+    if (*DegreeCursor_ == shard.cend()) {
+      DegreeCursor_.reset();
+      ++DegreeShard_;
+      continue;
+    }
+    const uint64_t key = **DegreeCursor_;
+    ++*DegreeCursor_;
+    ++degree[static_cast<size_t>(key >> 32u)];
+    ++degree[static_cast<size_t>(static_cast<uint32_t>(key))];
+    ++visited;
+  }
+  return DegreeShard_ == kShards;
+}
+
+bool Network::PhysicalEdgeSet::Release(size_t itemsMost) {
+  size_t released = 0;
+  while (ReleaseShard_ < kShards && released < itemsMost) {
+    auto &shard = Shards_[ReleaseShard_];
+    if (!shard.empty()) {
+      shard.erase(shard.begin());
+    } else {
+      std::unordered_set<uint64_t>{}.swap(shard);
+      ++ReleaseShard_;
+    }
+    ++released;
+  }
+  return ReleaseShard_ == kShards;
+}
+
+void Network::PhysicalAdjacency::Adopt(size_t nodes, PhysicalEdgeSet &&edges) {
   Degree_.assign(nodes, 0);
   Edges_ = std::move(edges);
-  DegreeCursor_ = Edges_.cbegin();
 }
 
 void Network::PhysicalAdjacency::Connect(size_t from, size_t to) {
-  if (Edges_.insert(Network::PhysicalEdgeKey(from, to)).second) {
+  if (Edges_.Insert(Network::PhysicalEdgeKey(from, to))) {
     ++Degree_[from];
     ++Degree_[to];
   }
 }
 
 void Network::PhysicalAdjacency::Disconnect(size_t from, size_t to) {
-  if (Edges_.erase(Network::PhysicalEdgeKey(from, to)) != 0) {
+  if (Edges_.Erase(Network::PhysicalEdgeKey(from, to))) {
     --Degree_[from];
     --Degree_[to];
   }
 }
 
 bool Network::PhysicalAdjacency::AccumulateDegrees(size_t itemsMost) {
-  if (!DegreeCursor_) { return true; }
-  size_t visited = 0;
-  while (*DegreeCursor_ != Edges_.cend() && visited < itemsMost) {
-    const uint64_t key = **DegreeCursor_;
-    ++*DegreeCursor_;
-    ++Degree_[static_cast<size_t>(key >> 32u)];
-    ++Degree_[static_cast<size_t>(static_cast<uint32_t>(key))];
-    ++visited;
-  }
-  if (*DegreeCursor_ != Edges_.cend()) { return false; }
-  DegreeCursor_.reset();
-  return true;
+  return Edges_.AccumulateDegrees(Degree_, itemsMost);
 }
 
 bool Network::PhysicalAdjacency::Release(size_t itemsMost) {
-  size_t released = 0;
-  while (!Edges_.empty() && released < itemsMost) {
-    Edges_.erase(Edges_.begin());
-    ++released;
-  }
-  if (!Edges_.empty()) { return false; }
+  if (!Edges_.Release(itemsMost)) { return false; }
   Degree_.clear();
   return true;
 }

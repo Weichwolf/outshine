@@ -212,11 +212,28 @@ private:
 
   Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}
 
+  class PhysicalEdgeSet {
+  public:
+    [[nodiscard]] bool Insert(uint64_t key);
+    [[nodiscard]] bool Erase(uint64_t key);
+    [[nodiscard]] bool AccumulateDegrees(std::span<size_t> degree, size_t itemsMost);
+    [[nodiscard]] bool Release(size_t itemsMost);
+
+  private:
+    static constexpr size_t kShards = 256;
+    [[nodiscard]] static size_t ShardOf(uint64_t key) noexcept;
+
+    std::array<std::unordered_set<uint64_t>, kShards> Shards_;
+    size_t DegreeShard_ = 0;
+    std::optional<std::unordered_set<uint64_t>::const_iterator> DegreeCursor_;
+    size_t ReleaseShard_ = 0;
+  };
+
   class PhysicalAdjacency {
   public:
     explicit PhysicalAdjacency(size_t nodes) : Degree_(nodes) {}
 
-    void Adopt(size_t nodes, std::unordered_set<uint64_t> &&edges);
+    void Adopt(size_t nodes, PhysicalEdgeSet &&edges);
     void Connect(size_t from, size_t to);
     void Disconnect(size_t from, size_t to);
     [[nodiscard]] bool AccumulateDegrees(size_t itemsMost);
@@ -226,8 +243,7 @@ private:
 
   private:
     std::vector<size_t> Degree_;
-    std::unordered_set<uint64_t> Edges_;
-    std::optional<std::unordered_set<uint64_t>::const_iterator> DegreeCursor_;
+    PhysicalEdgeSet Edges_;
   };
 
   [[nodiscard]] static uint64_t PhysicalEdgeKey(size_t from, size_t to);
@@ -534,7 +550,7 @@ private:
   Network::CellsByKey ByCell_;
   Network::OutgoingEdges Outgoing_;
   Network::EdgesByCell ByEdgeCell_;
-  std::unordered_set<uint64_t> Indexed_;
+  Network::PhysicalEdgeSet Indexed_;
   Network::PhysicalAdjacency Adjacency_{0};
 
   struct EdgeIndexCursor {

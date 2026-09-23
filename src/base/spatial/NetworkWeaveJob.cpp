@@ -13,6 +13,13 @@
 
 namespace outshine::Path {
 
+namespace {
+
+constexpr size_t kEdgeIndexStepsPerAdvance = 512;
+constexpr size_t kTieNodesPerAdvance = 512;
+
+}
+
 NetworkWeaveJob::NetworkWeaveJob(Network &&network) : Network_(std::move(network)) {}
 
 std::expected<NetworkWeaveJob, std::string> NetworkWeaveJob::Begin(Network &&network) {
@@ -172,7 +179,7 @@ std::expected<void, std::string> NetworkWeaveJob::IndexEdges(size_t itemsMost) {
     }
     const Network::Edge &edge = Outgoing_[NextNode_][NextEdge_++];
     ++visited;
-    if (!Indexed_.insert(Network::PhysicalEdgeKey(NextNode_, edge.To)).second) { continue; }
+    if (!Indexed_.Insert(Network::PhysicalEdgeKey(NextNode_, edge.To))) { continue; }
     const Network::EdgeEnds ends{.From = std::min(NextNode_, edge.To),
                                  .To = std::max(NextNode_, edge.To)};
     const Network::Node &a = Network_.Nodes_[ends.From];
@@ -253,13 +260,13 @@ std::expected<bool, std::string> NetworkWeaveJob::Advance(size_t itemsMost) {
     case Stage::SnapPoints: SnapPoints(itemsMost); break;
     case Stage::BuildEdges: BuildEdges(itemsMost); break;
     case Stage::IndexEdges:
-      if (auto indexed = IndexEdges(itemsMost); !indexed) {
+      if (auto indexed = IndexEdges(std::min(itemsMost, kEdgeIndexStepsPerAdvance)); !indexed) {
         return std::unexpected(indexed.error());
       }
       break;
     case Stage::BeginAdjacency: BeginAdjacency(); break;
     case Stage::BuildAdjacency: BuildAdjacency(itemsMost); break;
-    case Stage::TieEnds: TieEnds(itemsMost); break;
+    case Stage::TieEnds: TieEnds(std::min(itemsMost, kTieNodesPerAdvance)); break;
     case Stage::Publish: Publish(); break;
     case Stage::Done: return true;
   }
