@@ -1217,6 +1217,13 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
   return GroundBuildProgress::Pending;
 }
 
+namespace {
+const Ground::OsmField *HeightCoverageVectors(GroundQuality quality,
+                                              const Ground::OsmField *vectors) noexcept {
+  return quality == GroundQuality::Refined ? vectors : nullptr;
+}
+}
+
 Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const TangentFrame &standing,
                                                                      Patchwork &patchwork,
                                                                      const Around &coverage) {
@@ -1229,8 +1236,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
           World.Stack.Ground(),
           {.FinestZoom = coverage.Zoom,
            .RequestsMost = kTerrainSheetsPerFrame,
-           .Vectors = state.Revision().Quality == GroundQuality::Refined ? World.Stack.Vectors()
-                                                                         : nullptr});
+           .Vectors = HeightCoverageVectors(state.Revision().Quality, World.Stack.Vectors())});
       if (!prepared) {
         Error = prepared.error();
         World.GroundBuild.reset();
@@ -1561,8 +1567,9 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   const auto &footprints = World.GroundBuild->Footprints();
   const auto *vectors = World.Stack.Vectors();
   diagnostic += ", structure refinement=" + std::to_string(footprints.RefinementRemaining());
-  diagnostic += ", footprints ingested=" +
-                std::to_string(vectors != nullptr && footprints.Ingested(*vectors));
+  diagnostic +=
+      ", footprints ingested=" +
+      std::to_string(static_cast<int>(vectors != nullptr && footprints.Ingested(*vectors)));
   return diagnostic;
 }
 

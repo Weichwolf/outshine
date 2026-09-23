@@ -81,6 +81,27 @@ struct SourceTile {
   long Y;
 };
 
+void AppendBuildingHeightTiles(std::vector<Data::TileId> &tiles,
+                               const Ground::OsmField &vectors,
+                               int zoom) {
+  const int buildings = vectors.Layer(Ground::OsmLayer::Buildings);
+  for (const Ground::OsmField::Feature &feature : vectors.Features()) {
+    if (feature.Type != kPolygonFeature || std::cmp_not_equal(feature.Layer, buildings)) {
+      continue;
+    }
+    const Ground::TileSpot low = Ground::HeightField::SpotOf(
+        {.LongitudeDeg = feature.MinLon, .LatitudeDeg = feature.MaxLat}, zoom);
+    const Ground::TileSpot high = Ground::HeightField::SpotOf(
+        {.LongitudeDeg = feature.MaxLon, .LatitudeDeg = feature.MinLat}, zoom);
+    for (long y = low.Y; y <= high.Y; ++y) {
+      for (long x = low.X; x <= high.X; ++x) {
+        tiles.push_back(
+            {.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
+      }
+    }
+  }
+}
+
 [[nodiscard]] std::vector<Data::TileId> SourceTilesOf(const Patchwork &candidate,
                                                       SourceCoverage coverage,
                                                       const Ground::OsmField *vectors) {
@@ -119,23 +140,7 @@ struct SourceTile {
                         .X = static_cast<long>(static_cast<uint32_t>(tile.X) >> drop),
                         .Y = static_cast<long>(static_cast<uint32_t>(tile.Y) >> drop)});
     }
-    const int buildings = vectors->Layer(Ground::OsmLayer::Buildings);
-    for (const Ground::OsmField::Feature &feature : vectors->Features()) {
-      if (feature.Type != kPolygonFeature || std::cmp_not_equal(feature.Layer, buildings)) {
-        continue;
-      }
-      const Ground::TileSpot low = Ground::HeightField::SpotOf(
-          {.LongitudeDeg = feature.MinLon, .LatitudeDeg = feature.MaxLat}, coverage.FinestZoom);
-      const Ground::TileSpot high = Ground::HeightField::SpotOf(
-          {.LongitudeDeg = feature.MaxLon, .LatitudeDeg = feature.MinLat}, coverage.FinestZoom);
-      for (long y = low.Y; y <= high.Y; ++y) {
-        for (long x = low.X; x <= high.X; ++x) {
-          tiles.push_back({.Zoom = coverage.FinestZoom,
-                           .X = static_cast<uint32_t>(x),
-                           .Y = static_cast<uint32_t>(y)});
-        }
-      }
-    }
+    AppendBuildingHeightTiles(tiles, *vectors, coverage.FinestZoom);
   }
   const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
   std::ranges::sort(tiles, {}, key);
