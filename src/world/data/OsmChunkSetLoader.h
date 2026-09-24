@@ -27,7 +27,7 @@ public:
   [[nodiscard]] static std::expected<OsmChunkSet, std::string>
   Load(std::span<const SourceProvider> providers,
        std::string_view shippedRoot,
-       std::stop_token stop = {});
+       const std::stop_token &stop = {});
 };
 
 }

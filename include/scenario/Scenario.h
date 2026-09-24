@@ -790,6 +790,7 @@ struct RouteDeclaration {
   uint64_t OsmRelationId = 0;
 
   /// Value equality for declaration comparison; neither field carries runtime ownership.
+  /// @return True when both the route name and source relation ID match.
   [[nodiscard]] bool operator==(const RouteDeclaration &) const = default;
 };
 

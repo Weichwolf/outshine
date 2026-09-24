@@ -149,7 +149,7 @@ private:
   [[nodiscard]] static LoadResult Load(std::span<const Data::SourceProvider> providers,
                                        std::string_view shippedRoot,
                                        std::span<const OsmCircuitRequest> routes,
-                                       std::stop_token stop);
+                                       const std::stop_token &stop);
 
   void StartRequested();
 

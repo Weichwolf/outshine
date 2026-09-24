@@ -144,7 +144,7 @@ OsmTransportLoader::LoadResult
 OsmTransportLoader::Load(std::span<const Data::SourceProvider> providers,
                          std::string_view shippedRoot,
                          std::span<const OsmCircuitRequest> routes,
-                         std::stop_token stop) {
+                         const std::stop_token &stop) {
   auto loaded = Data::OsmChunkSetLoader::Load(providers, shippedRoot, stop);
   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }

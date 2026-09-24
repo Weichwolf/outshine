@@ -37,8 +37,10 @@ constexpr std::string_view kSha256PinPrefix = "sha256:";
 
 }
 
-std::expected<OsmChunkSet, std::string> OsmChunkSetLoader::Load(
-    std::span<const SourceProvider> providers, std::string_view shippedRoot, std::stop_token stop) {
+std::expected<OsmChunkSet, std::string>
+OsmChunkSetLoader::Load(std::span<const SourceProvider> providers,
+                        std::string_view shippedRoot,
+                        const std::stop_token &stop) {
   std::vector<OsmElements> chunks;
   std::vector<SourceCoverage> coverage;
   chunks.reserve(providers.size());
