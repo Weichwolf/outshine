@@ -3,9 +3,12 @@
 #include "OsmXmlReader.h"
 #include "RoadSurfaceBuilder.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -64,26 +67,49 @@ int main() {
         "contact triangles retain all 267 ordered source edges and full lap station coverage");
   const auto positions = surface->SurfaceGeometry.positionsOf(0);
   std::vector<EastNorth> contactPoints;
+  std::vector<double> roadHeights;
   std::vector<double> contactHeights;
-  contactPoints.reserve(surface->Spans.size());
-  contactHeights.reserve(surface->Spans.size());
+  constexpr std::array stationFractions{0.0, 0.25, 0.5, 0.75, 1.0};
+  constexpr std::array widthFractions{0.0, 0.5, 1.0};
+  constexpr size_t samplesPerSpan = stationFractions.size() * widthFractions.size();
+  contactPoints.reserve(surface->Spans.size() * samplesPerSpan);
+  roadHeights.reserve(surface->Spans.size() * samplesPerSpan);
+  contactHeights.reserve(surface->Spans.size() * samplesPerSpan);
   for (size_t index = 0; index < surface->Spans.size(); ++index) {
     const size_t at = index * 12;
-    contactPoints.push_back(
-        {.EastM =
-             (positions[at] + positions[at + 3] + positions[at + 6] + positions[at + 9]) * 0.25,
-         .NorthM =
-             -(positions[at + 2] + positions[at + 5] + positions[at + 8] + positions[at + 11]) *
-             0.25});
-    contactHeights.push_back(
-        (positions[at + 1] + positions[at + 4] + positions[at + 7] + positions[at + 10]) * 0.25 +
-        2.0);
+    for (const double station : stationFractions) {
+      for (const double width : widthFractions) {
+        const auto coordinate = [&](size_t component) {
+          const double left = std::lerp(static_cast<double>(positions[at + component]),
+                                        static_cast<double>(positions[at + 6 + component]),
+                                        station);
+          const double right = std::lerp(static_cast<double>(positions[at + 3 + component]),
+                                         static_cast<double>(positions[at + 9 + component]),
+                                         station);
+          return std::lerp(left, right, width);
+        };
+        contactPoints.push_back({.EastM = coordinate(0), .NorthM = -coordinate(2)});
+        roadHeights.push_back(coordinate(1));
+        contactHeights.push_back(coordinate(1) + 2.0);
+      }
+    }
   }
   const auto contact =
       ApplyEarthworkStamps(surface->Earthworks, contactPoints, contactHeights, kMostEarthworkM);
   CHECK(surface->Earthworks.size() == surface->Spans.size() &&
-            contact.Moved == surface->Spans.size(),
-        "every curved road segment has a matching ground contact footprint");
+            contact.Moved == contactPoints.size(),
+        "every road cross-section samples inside a matching ground contact footprint");
+  double minimumClearanceM = std::numeric_limits<double>::infinity();
+  double maximumClearanceM = -std::numeric_limits<double>::infinity();
+  for (size_t index = 0; index < contactHeights.size(); ++index) {
+    const double clearanceM = roadHeights[index] - contactHeights[index];
+    minimumClearanceM = std::min(minimumClearanceM, clearanceM);
+    maximumClearanceM = std::max(maximumClearanceM, clearanceM);
+  }
+  Note("minimum road-ground clearance", minimumClearanceM, "m");
+  Note("maximum road-ground clearance", maximumClearanceM, "m");
+  CHECK(minimumClearanceM >= 0.02 && maximumClearanceM <= 0.15,
+        "every road interval and edge remains visibly above its pressed terrain contact");
   const size_t last = positions.size() - 12;
   bool closed = positions.size() >= 24;
   if (closed) {

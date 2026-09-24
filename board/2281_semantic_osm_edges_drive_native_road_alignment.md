@@ -93,9 +93,9 @@ larger routes are reported deferred until sliding-window coverage exists.
   corridors now ask terrain LOD for <=3 m postings before earthworks. The
   Hockenheim shot has 267 corridors, 139 virtual patches and 148 total pages.
   Per-segment earthwork replaces five-segment chords; a9d234b1 shows a more
-  continuous lower circuit and all test midpoints receive contact. Measure final clearance along all
-  stations and resolve remaining occlusion, seam and MVT overlap. WI 2166
-  owns general final-surface error; keep the page budget strict.
+  continuous lower circuit. A pinned-OSM/analytic-DEM test samples 5×3 points
+  per segment (0.05998–0.06005 m post-press clearance). Real DEM, rendered
+  occlusion and MVT overlap remain unproved. WI 2166 owns final-surface error.
 
 ## Executable sequence and falsification
 
