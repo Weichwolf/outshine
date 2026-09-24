@@ -43,6 +43,13 @@ Keep the source yields and patchwork alive with the candidate; cancellation
 discards the job and leaves the published world intact. A revision mismatch
 starts a new job, never splices work from the old source snapshot.
 
+The A→B→C projection-change test is red on the unchanged `e234869b1` baseline
+and on the profiled-corridor branch: its line 114 does not observe both a new
+start and mismatch bit 5 immediately after C's first advance. Inspect the
+measured starts, progress and mismatch mask at that transition; establish
+whether C starts later or B escapes cancellation. Preserve the stale-publication
+assertion and prove A/C-only publication for both normal and NDEBUG builds.
+
 The rejection pass is global: a stamp discovered invalid at a late node must
 be excluded at every earlier node in the apply pass. Preserve sheet/row/column
 order, bucket ordering, `Pressed::Inside` claim ordering, `DecidedBy` indices,

@@ -3,6 +3,7 @@
 #include "FlatMap.h"
 #include "math/Units.h"
 #include "EarthworkPress.h"
+#include "ProfiledCorridorPress.h"
 #include "math/Vec3.h"
 
 #include <array>
@@ -254,6 +255,85 @@ void BidsLand(const EarthworkStamp &held, Bid bid, Bids *bids) {
   }
 }
 
+struct NearestProfile {
+  ProfiledCorridor::Offer Offer;
+  uint32_t Which;
+  const ProfiledCorridorSpan *Profile;
+};
+
+const ProfiledCorridorSpan *ProfileOf(const EarthworkStamp &stamp) {
+  return stamp.Profile.transform([](const ProfiledCorridorSpan &profile) { return &profile; })
+      .value_or(nullptr);
+}
+
+std::optional<NearestProfile> NearestProfileAt(std::span<const EarthworkStamp> these,
+                                               std::span<const uint32_t> over,
+                                               std::span<const uint8_t> structures,
+                                               EastNorth at) {
+  std::optional<NearestProfile> nearest;
+  for (const uint32_t which : over) {
+    if (!structures.empty() && structures[which] != 0u) { continue; }
+    const EarthworkStamp &held = these[which];
+    const ProfiledCorridorSpan *profile = ProfileOf(held);
+    if (profile == nullptr || at.EastM < held.LowE - held.ApronM ||
+        at.EastM > held.HighE + held.ApronM || at.NorthM < held.LowN - held.ApronM ||
+        at.NorthM > held.HighN + held.ApronM) {
+      continue;
+    }
+    const auto offered = ProfiledCorridor::OfferAt(*profile, held.ApronM, at);
+    if (!offered) { continue; }
+    const ProfiledCorridor::Offer candidate = offered.value();
+    if (!nearest || candidate.DistanceSquared < nearest->Offer.DistanceSquared ||
+        (candidate.DistanceSquared == nearest->Offer.DistanceSquared &&
+         ProfiledCorridor::Earlier(*profile, *nearest->Profile))) {
+      nearest = NearestProfile{.Offer = candidate, .Which = which, .Profile = profile};
+    }
+  }
+  return nearest;
+}
+
+std::optional<Bid> ProfileBidAt(std::span<const EarthworkStamp> these,
+                                std::span<const uint32_t> over,
+                                std::span<const uint8_t> structures,
+                                EastNorth at,
+                                double wasM) {
+  const auto nearest = NearestProfileAt(these, over, structures, at);
+  if (!nearest) { return std::nullopt; }
+  const NearestProfile selected = nearest.value();
+  const EarthworkStamp &road = these[selected.Which];
+  Bid bid{
+      .Which = selected.Which, .OutsideM = selected.Offer.OutsideM, .WantsM = selected.Offer.BedM};
+  ProfiledCorridor::Average average;
+  for (const uint32_t which : over) {
+    if (!structures.empty() && structures[which] != 0u) { continue; }
+    const EarthworkStamp &held = these[which];
+    const ProfiledCorridorSpan *profile = ProfileOf(held);
+    if (profile != nullptr && profile->CorridorKey == selected.Profile->CorridorKey) {
+      ProfiledCorridor::Accumulate(
+          *profile, held.ApronM, at, selected.Offer.DistanceSquared, average);
+    }
+  }
+  if (average.Weight > 0.0) {
+    const double distanceM = std::sqrt(selected.Offer.DistanceSquared);
+    const double vergeM = selected.Offer.FullHalfWidthM - selected.Offer.PavementHalfWidthM;
+    const double fraction =
+        vergeM > 0.0
+            ? std::clamp((distanceM - selected.Offer.PavementHalfWidthM) / vergeM, 0.0, 1.0)
+            : 0.0;
+    const double blend = ProfiledCorridor::Smoothstep(fraction);
+    bid.WantsM = std::lerp(bid.WantsM, average.HeightM / average.Weight, blend);
+  }
+  const double outsideM = std::max(bid.OutsideM, 0.0);
+  if (outsideM > 0.0) {
+    const double fade = ProfiledCorridor::Smoothstep(std::clamp(outsideM / road.ApronM, 0.0, 1.0));
+    const double mixed = std::lerp(bid.WantsM, wasM, fade);
+    bid.WantsM =
+        std::clamp(mixed, bid.WantsM - outsideM * kBatterRise, bid.WantsM + outsideM * kBatterRise);
+    bid.OutsideM = 0.0;
+  }
+  return bid;
+}
+
 Pressing PressesAt(std::span<const EarthworkStamp> these,
                    std::span<const uint32_t> over,
                    std::span<const uint8_t> structures,
@@ -268,6 +348,7 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
         at.NorthM < held.LowN - held.ApronM || at.NorthM > held.HighN + held.ApronM) {
       continue;
     }
+    if (held.Profile) { continue; }
     const Bid bid{.Which = which, .OutsideM = OutsideRingM(held, at), .WantsM = held.WantsAt(at)};
     if (held.Kind == EarthworkKind::Basin) {
       BidsBasin(held, bid, &bids);
@@ -277,6 +358,14 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
       covered.Into->push_back({.Point = covered.Point, .Stamp = which});
     }
     BidsLand(held, bid, &bids);
+  }
+  if (const auto profiled = ProfileBidAt(these, over, structures, at, wasM)) {
+    const Bid bid = profiled.value();
+    const EarthworkStamp &road = these[bid.Which];
+    if (covered.Into != nullptr && bid.OutsideM < 0.0) {
+      covered.Into->push_back({.Point = covered.Point, .Stamp = bid.Which});
+    }
+    BidsLand(road, bid, &bids);
   }
   if (!bids.LandHeld && bids.BasinM < bids.LowestM) {
     bids.LowestM = bids.BasinM;

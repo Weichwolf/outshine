@@ -189,7 +189,12 @@ int main() {
             surface->Spans.size() == surface->Earthworks.size(),
         "real DEM alignment yields complete native road and earthwork products");
   if (!surface) { return Report(); }
-  for (const double offsetM : {-10.0, 10.0}) {
+  double largestShoulderImpulseM = 0.0;
+  double largestShoulderOffsetM = 0.0;
+  double largestShoulderStationM = 0.0;
+  for (const double offsetM :
+       {-17.0, -16.0, -15.0, -14.0, -13.0, -12.0, -11.0, -10.0, -9.0, -8.0,
+        8.0,   9.0,   10.0,  11.0,  12.0,  13.0,  14.0,  15.0,  16.0, 17.0}) {
     std::vector<EastNorth> shoulder;
     std::vector<double> raw;
     for (double stationM = 1780.0; stationM <= 1880.0; stationM += 0.25) {
@@ -226,13 +231,22 @@ int main() {
         strongest = index;
       }
     }
-    CHECK(raw.size() == 401 && rawImpulseM < 0.005 && press.Moved == raw.size(),
-          "smooth pinned DEM and fully pressed shoulders isolate the earthwork field");
-    Note("shoulder offset", offsetM, "m");
-    Note("shoulder raw impulse", rawImpulseM, "m/0.25m");
-    Note("shoulder pressed impulse", pressedImpulseM, "m/0.25m");
-    Note("shoulder impulse station", 1780.0 + 0.25 * static_cast<double>(strongest), "m");
+    CHECK(raw.size() == 401 && rawImpulseM < 0.005,
+          "smooth pinned DEM isolates the earthwork field");
+    if (std::abs(offsetM) == 10.0) {
+      CHECK(press.Moved == raw.size(), "both ten-metre shoulders remain fully pressed");
+    }
+    if (pressedImpulseM > largestShoulderImpulseM) {
+      largestShoulderImpulseM = pressedImpulseM;
+      largestShoulderOffsetM = offsetM;
+      largestShoulderStationM = 1780.0 + 0.25 * static_cast<double>(strongest);
+    }
+    CHECK(pressedImpulseM < 0.01,
+          "profiled road earthworks keep real DEM shoulders free of segment-end impulses");
   }
+  Note("strongest shoulder impulse", largestShoulderImpulseM, "m/0.25m");
+  Note("strongest shoulder offset", largestShoulderOffsetM, "m");
+  Note("strongest shoulder station", largestShoulderStationM, "m");
   double lowestM = 1e9;
   double highestM = -1e9;
   for (const RoadSurfaceSpan &span : surface->Spans) {

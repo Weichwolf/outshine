@@ -67,6 +67,10 @@ Diese Reparatur ersetzt keine Abnahme von gerichtetem IBL, Sichtbarkeit oder Bou
 
 ## Offene Sonnenhöhenprüfung
 `test/outshine/integration/places/ScoreWhichWaysTheSunMovesTheGround.cpp` bleibt rot:
+Auf dem unveränderten `e234869b1` und dem Profilzweig unterscheidet sich das
+erneute 5°-Bild nach 75° pixelweise vom ersten 5°-Bild (Zeile 165). Zuerst
+den zeitlichen Zustand von Belichtung, Beleuchtung und Renderer-Cache beim
+Rücksprung isolieren; gleiche Eingaben müssen das gleiche Bild ergeben.
 unteres Bildviertel bei 5°/30°/75°: 37,022 / 35,774 / 71,616. Der Test verlangt
 Monotonie, misst aber komplexes Gelände nach Belichtung/Tonemapping. Das beweist
 noch keinen Fehler der direkten Beleuchtung: sin(Höhe) gilt für eine horizontale,

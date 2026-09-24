@@ -166,6 +166,29 @@ uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
     foldDouble(one.SlopeN);
     fold(static_cast<uint32_t>(one.SeamEastNorthM.size()));
     for (const double value : one.SeamEastNorthM) { foldDouble(value); }
+    fold(static_cast<uint32_t>(one.Profile.has_value()));
+    if (one.Profile) {
+      const ProfiledCorridorSpan profile = one.Profile.value_or(ProfiledCorridorSpan{});
+      fold(static_cast<uint32_t>(profile.CorridorKey));
+      fold(static_cast<uint32_t>(profile.CorridorKey >> 32u));
+      foldDouble(profile.BeginM.EastM);
+      foldDouble(profile.BeginM.NorthM);
+      foldDouble(profile.EndM.EastM);
+      foldDouble(profile.EndM.NorthM);
+      foldDouble(profile.BeginDerivativeM.EastM);
+      foldDouble(profile.BeginDerivativeM.NorthM);
+      foldDouble(profile.BeginDerivativeM.UpM);
+      foldDouble(profile.EndDerivativeM.EastM);
+      foldDouble(profile.EndDerivativeM.NorthM);
+      foldDouble(profile.EndDerivativeM.UpM);
+      foldDouble(profile.StationLengthM);
+      foldDouble(profile.BeginBedM);
+      foldDouble(profile.EndBedM);
+      foldDouble(profile.BeginPavementHalfWidthM);
+      foldDouble(profile.EndPavementHalfWidthM);
+      foldDouble(profile.BeginHalfWidthM);
+      foldDouble(profile.EndHalfWidthM);
+    }
     foldDouble(one.ApronM);
     foldDouble(one.YieldM);
     foldDouble(one.SagInv);

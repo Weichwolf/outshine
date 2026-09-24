@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "Digest.h"
 #include "math/RenderFrame.h"
 #include "math/Vec3.h"
 
@@ -28,6 +29,29 @@ constexpr double kMaximumSurfaceLiftM = 0.2;
 constexpr float kConcreteRoughness = 0.82f;
 constexpr float kOtherRoadRoughness = 0.92f;
 constexpr double kRoadApronM = 6.0;
+
+uint64_t CorridorKeyOf(const RoadAlignment &alignment) {
+  uint64_t digest = kDigestBasis;
+  const auto foldWord = [&digest](uint64_t word) {
+    for (unsigned byte = 0; byte < 8; ++byte) {
+      digest = DigestFolded(digest, static_cast<uint8_t>(word >> (byte * 8u)));
+    }
+  };
+  for (const char byte : alignment.SourceIdentity().DatasetId) {
+    digest = DigestFolded(digest, static_cast<uint8_t>(byte));
+  }
+  digest = DigestFolded(digest, 0u);
+  for (const char byte : alignment.SourceIdentity().Revision) {
+    digest = DigestFolded(digest, static_cast<uint8_t>(byte));
+  }
+  digest = DigestFolded(digest, 0u);
+  for (const RoadAlignmentEdge &edge : alignment.Edges()) {
+    foldWord(edge.SourceEdge.WayId);
+    foldWord(edge.SourceEdge.SegmentOrdinal);
+    foldWord(static_cast<uint64_t>(edge.SourceEdge.Direction));
+  }
+  return digest;
+}
 
 struct SurfaceBucket {
   std::vector<float> PositionsM;
@@ -165,8 +189,13 @@ AppendSegment(SurfaceBucket &bucket, const SurfaceSample &begin, const SurfaceSa
   return true;
 }
 
-[[nodiscard]] std::optional<EarthworkStamp>
-EarthworkFor(const SurfaceSample &begin, const SurfaceSample &end, double liftM) {
+[[nodiscard]] std::optional<EarthworkStamp> EarthworkFor(const SurfaceSample &begin,
+                                                         const SurfaceSample &end,
+                                                         const RoadAlignmentPose &from,
+                                                         const RoadAlignmentPose &to,
+                                                         const RoadFrameTransform &frames,
+                                                         uint64_t corridorKey,
+                                                         double liftM) {
   const Vec3 beginCenter = (begin.LeftM + begin.RightM) * 0.5;
   const Vec3 endCenter = (end.LeftM + end.RightM) * 0.5;
   const double runE = endCenter[0] - beginCenter[0];
@@ -181,7 +210,10 @@ EarthworkFor(const SurfaceSample &begin, const SurfaceSample &end, double liftM)
   };
   const auto outerBegin = extend(begin.LeftM, begin.RightM, RoadTerrainContact::VergeM / widthM);
   const double endWidthM = std::hypot(end.LeftM[0] - end.RightM[0], end.LeftM[2] - end.RightM[2]);
-  if (endWidthM <= 0.0) { return std::nullopt; }
+  const double stationLengthM = to.StationM - from.StationM;
+  if (endWidthM <= 0.0 || stationLengthM <= 0.0) { return std::nullopt; }
+  const Vec3 fromDerivative = RenderDirection(frames, from.TangentEnu) * stationLengthM;
+  const Vec3 toDerivative = RenderDirection(frames, to.TangentEnu) * stationLengthM;
   const auto outerEnd = extend(end.LeftM, end.RightM, RoadTerrainContact::VergeM / endWidthM);
   const auto ring =
       [](const Vec3 &leftStart, const Vec3 &leftEnd, const Vec3 &rightEnd, const Vec3 &rightStart) {
@@ -211,6 +243,23 @@ EarthworkFor(const SurfaceSample &begin, const SurfaceSample &end, double liftM)
   const double rise = endCenter[1] - beginCenter[1];
   stamp.SlopeE = rise * runE / runSquaredM;
   stamp.SlopeN = rise * runN / runSquaredM;
+  stamp.Profile =
+      ProfiledCorridorSpan{.CorridorKey = corridorKey,
+                           .BeginM = {.EastM = beginCenter[0], .NorthM = -beginCenter[2]},
+                           .EndM = {.EastM = endCenter[0], .NorthM = -endCenter[2]},
+                           .BeginDerivativeM = {.EastM = fromDerivative[0],
+                                                .NorthM = -fromDerivative[2],
+                                                .UpM = fromDerivative[1]},
+                           .EndDerivativeM = {.EastM = toDerivative[0],
+                                              .NorthM = -toDerivative[2],
+                                              .UpM = toDerivative[1]},
+                           .StationLengthM = stationLengthM,
+                           .BeginBedM = beginCenter[1] - liftM,
+                           .EndBedM = endCenter[1] - liftM,
+                           .BeginPavementHalfWidthM = widthM * 0.5,
+                           .EndPavementHalfWidthM = endWidthM * 0.5,
+                           .BeginHalfWidthM = widthM * 0.5 + RoadTerrainContact::VergeM,
+                           .EndHalfWidthM = endWidthM * 0.5 + RoadTerrainContact::VergeM};
   stamp.ApronM = kRoadApronM;
   stamp.Fills = true;
   stamp.Kind = EarthworkKind::Corridor;
@@ -230,6 +279,7 @@ AppendEdge(const RoadAlignment &alignment,
            const RoadAlignmentEdge &edge,
            const RoadFrameTransform &frames,
            const RoadSurfaceBuildOptions &options,
+           uint64_t corridorKey,
            std::array<SurfaceBucket, kSurfaceCount> &buckets,
            RoadSurface &result,
            size_t &segmentCount) {
@@ -260,7 +310,8 @@ AppendEdge(const RoadAlignment &alignment,
       return std::unexpected(Error(
           RoadSurfaceErrorCode::DegenerateTriangle, edge.SourceEdge, edge.StartStationM + fromM));
     }
-    auto earthwork = EarthworkFor(*begin, *end, options.SurfaceLiftM);
+    auto earthwork =
+        EarthworkFor(*begin, *end, *from, *to, frames, corridorKey, options.SurfaceLiftM);
     if (!earthwork) {
       return std::unexpected(Error(
           RoadSurfaceErrorCode::DegenerateTriangle, edge.SourceEdge, edge.StartStationM + fromM));
@@ -325,8 +376,10 @@ RoadSurfaceBuilder::Build(const RoadAlignment &alignment,
   const RoadFrameTransform frames{.Alignment = alignmentFrame, .Render = renderFrame};
   std::array<SurfaceBucket, kSurfaceCount> buckets;
   size_t segmentCount = 0;
+  const uint64_t corridorKey = CorridorKeyOf(alignment);
   for (const RoadAlignmentEdge &edge : alignment.Edges()) {
-    auto appended = AppendEdge(alignment, edge, frames, options, buckets, result, segmentCount);
+    auto appended =
+        AppendEdge(alignment, edge, frames, options, corridorKey, buckets, result, segmentCount);
     if (!appended) { return std::unexpected(appended.error()); }
   }
   auto geometry = InstallGeometry(buckets, result);

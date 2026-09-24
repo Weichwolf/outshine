@@ -37,24 +37,26 @@ height and earthwork use the same published alignment revision and stations.
 Do not tune the Hockenheim image by place, source Way ID, apron width alone,
 lighting or material color.
 
-Replace independent road-segment bids with a bounded profiled corridor
-primitive. Store centerline station, ENU position, bed height and half-width
-knots; query candidate spans through a spatial index. At a ground point choose
-the nearest finite centerline span, interpolate bed height at its station, and
-derive signed lateral clearance from the continuous width profile. Clamp at
-true route endpoints; adjacent source-edge joins are interior. Partition long
-routes into bounded chunks with neighbor halos, keeping the geometric answer
-independent of chunk and source-edge boundaries. Apply one cut/fill batter from
-distance outside the road/verge, preserving the existing maximum earthwork
-limit and water/structure exclusion. Crossings at different levels stay
-separate by their structure constraints; do not flatten under bridge decks or
-over tunnel roofs. Report rejected constraints with source-edge/station.
+Replace independent road-segment bids with one profiled-corridor bid per DEM
+node. Use C1 alignment tangents for short cubic spans, and the tile candidate
+grid to bound queries. Under pavement, the nearest finite span sets exact
+contact height. In the verge and apron, integrate nearby same-route spans
+with arc-length weights and a compact C2 taper, then fade grading to raw DEM.
+This handles the pinned hairpin's 12 m turn radius, whose inner 10 m lateral
+query approaches the medial axis and has no stable single closest station.
+Route keys derive from source identity and ordered edge IDs; another route
+cannot enter that height average. Source-edge and tessellation boundaries
+must not change the field. Preserve the maximum earthwork and water/structure
+exclusions. At multi-level crossings do not flatten under bridge decks or
+over tunnel roofs; report rejected constraints with source edge and station.
 
-Retain the pinned real-DEM shoulder probe as a regression when implementing
-the field: sample ±10/12 m at 0.25 m spacing near station 1837 m; compare raw,
-pressed and source-station traces. A local analytic case must isolate plane
-extrapolation from apron-distance transitions before choosing the final field
-formula.
+The pinned regression scans ±8–17 m every 0.25 m over station 1780–1880 m.
+It now measures at most 6.33 mm pressed second difference, versus 49 mm
+before the profile path. A graded analytic corridor differs by 0.27 mm
+between 2 m and 1 m subdivision and by roundoff under reversed input order.
+No-road-earthworks rendering removes the visible bands; the profiled path
+reduces but does not yet eliminate them in the high-camera PNG. Curved and
+multi-level negative cases remain open.
 
 ## Falsifiable acceptance
 

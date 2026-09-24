@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -74,6 +75,23 @@ struct Patchwork {
 
 enum class EarthworkKind : uint8_t { Pad, Corridor, Basin };
 
+struct ProfiledCorridorSpan {
+  uint64_t CorridorKey = 0;
+  EastNorth BeginM;
+  EastNorth EndM;
+  EastNorthUp BeginDerivativeM;
+  EastNorthUp EndDerivativeM;
+  double StationLengthM = 0.0;
+  double BeginBedM = 0.0;
+  double EndBedM = 0.0;
+  double BeginPavementHalfWidthM = 0.0;
+  double EndPavementHalfWidthM = 0.0;
+  double BeginHalfWidthM = 0.0;
+  double EndHalfWidthM = 0.0;
+
+  [[nodiscard]] bool operator==(const ProfiledCorridorSpan &) const = default;
+};
+
 struct EarthworkStamp {
   std::vector<double> RingEastNorthM;
   std::vector<std::vector<double>> HoleRingsEastNorthM;
@@ -82,6 +100,7 @@ struct EarthworkStamp {
   double PlateauM = 0.0;
   double SlopeE = 0.0, SlopeN = 0.0;
   std::vector<double> SeamEastNorthM;
+  std::optional<ProfiledCorridorSpan> Profile;
   double ApronM = 0.0;
   double YieldM = 0.0;
   double SagInv = 0.0;
