@@ -20,6 +20,7 @@
 #include "scenario/Scenario.h"
 #include "scene/Geometry.h"
 #include "world/EntityRegistry.h"
+#include "world/Route.h"
 
 namespace outshine {
 
@@ -356,6 +357,22 @@ public:
   /// @param at Borrowed geographic position; only longitude and latitude are sampled.
   /// @return Source height in metres above mean sea level, or an owned query error.
   [[nodiscard]] Holds<double> sampleHeight(const LongitudeLatitudeHeight &at) const;
+  /// Return the currently published named route, without waiting or advancing streaming.
+  /// Rejects unknown names and routes whose alignment is pending or has an old source revision.
+  /// Serialize with Engine mutations. This owned snapshot does not pin a later publication.
+  /// @param name Borrowed scenario-local route name; it is not retained.
+  /// @return Owned route information, or an owned unknown/unavailable diagnostic.
+  [[nodiscard]] Holds<RouteInfo> routeInfo(std::string_view name) const;
+  /// Sample the currently published centerline at a finite station in [0, route length].
+  /// A closed route's terminal station resolves to its first pose. Position, forward and up
+  /// use the same local world frame as Camera. No geometry or terrain query occurs here;
+  /// a valid pose alone does not prove drivable surface or contact clearance.
+  /// Serialize with Engine mutations. Errors distinguish invalid station, unknown route,
+  /// unavailable publication and an invalid alignment sample.
+  /// @param name Borrowed scenario-local route name; it is not retained.
+  /// @param stationM Centerline station in metres, inclusive of the closed terminal station.
+  /// @return Owned local route pose, or an owned diagnostic with no partial pose.
+  [[nodiscard]] Holds<RoutePose> sampleRoute(std::string_view name, double stationM) const;
   /// Prepare the current declared audio scene at a positive sample rate in Hz.
   /// Call after declaring/assembling content and before starting audio output. This call
   /// allocates and validates DSP state; it needs no SDL audio device or render target.
