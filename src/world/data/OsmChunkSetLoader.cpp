@@ -13,6 +13,7 @@
 
 #include "OsmXmlReader.h"
 #include "ReadTextFile.h"
+#include "Sha256.h"
 
 namespace outshine::Data {
 
@@ -21,6 +22,7 @@ namespace {
 constexpr size_t kMaxChunkBytes = size_t{4} * 1024u * 1024u;
 constexpr size_t kMaxTotalBytes = size_t{16} * 1024u * 1024u;
 constexpr size_t kMaxInputElements = 1000000;
+constexpr std::string_view kSha256PinPrefix = "sha256:";
 
 [[nodiscard]] double MillisecondsSince(std::chrono::steady_clock::time_point began) {
   return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -51,6 +53,11 @@ OsmChunkSetLoader::Load(std::span<const SourceProvider> providers, std::string_v
     auto xml = ReadTextFile(path.string(), kMaxChunkBytes);
     readMs += MillisecondsSince(readAt);
     if (!xml) { return std::unexpected(std::move(xml.error())); }
+    if (std::string_view(provider.Revision).starts_with(kSha256PinPrefix) &&
+        Sha256Hex(*xml) != std::string_view(provider.Revision).substr(kSha256PinPrefix.size())) {
+      return std::unexpected("semantic OSM source '" + provider.Location +
+                             "' does not match its sha256 pin");
+    }
     if (xml->size() > kMaxTotalBytes - bytes) {
       return std::unexpected("semantic OSM source exceeds the total byte budget");
     }

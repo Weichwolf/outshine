@@ -12,13 +12,12 @@ Tags: osm, streaming, source-identity, hockenheim
 ## Problem and evidence
 
 The runtime asks `Data::SourceSet` for Terrarium elevation and VersaTiles MVT.
-`SourceProvider` chooses kind/revision/rank, but cannot name a semantic OSM
-source. MVT z14 at Hockenheim omits `highway=raceway`; its feature IDs are not
-proven OSM Way IDs. `OsmXmlReader` and `OsmElements::Merge` retain source
-node/way/relation IDs, roles, tags and revision. `TransportTopology::Build`
-and `ResolveCircuit` already prove the pinned 267-edge Grand Prix loop.
-No running world requests, validates or publishes that graph. The snapped
-`Ground::VectorStreetGraph` is only a road-corridor rendering input.
+MVT z14 at Hockenheim omits `highway=raceway`; its feature IDs are not proven
+OSM Way IDs. The authored scenario now declares a SHA-256-pinned semantic OSM
+source, loaded and published as a native graph even without a renderer. The
+remaining gap is focus-based source-cell scheduling, bounded cancellation and
+route access from the running world. The snapped `Ground::VectorStreetGraph`
+is only a road-corridor rendering input.
 
 ## Ownership and data flow
 
@@ -34,9 +33,8 @@ No running world requests, validates or publishes that graph. The snapped
    A regional OSM XML file is the first adapter; source acquisition uses
    bounded IO/compute work off the frame path. Do not make a Place-name switch,
    an opaque `file://` curl trick or an unversioned whole-world XML document.
-   First code slice: declaration validation, layer merge by kind/rank and
-   round-trip, with a negative control for every required field. It does not
-   claim a graph is published until the subsequent runtime slice passes.
+   A `sha256:` pin verifies local source bytes before parsing. The authored
+   Hockenheim scenario must use the shipped asset, not a test-only path.
 2. `world/data` owns byte acquisition, limits, parsing and chunk identity.
    Each chunk records dataset, revision, spatial cell and coverage. Merge
    only identical dataset/revision; reject conflicting objects. Missing Way
@@ -78,7 +76,8 @@ OSM chunks. `Data::OsmChunkSetLoader` owns byte limits, XML parse and merge;
 `World::OsmTransportLoader` builds an immutable native graph on a worker and
 atomically publishes a complete candidate. Runtime readiness exposes pending
 and failed source states. The public groundless path works both with and without
-a render target; the pinned Hockenheim relation has a focused graph test. Read,
+a render target; the authored Hockenheim scenario resolves its shipped OSM file
+and verifies its SHA-256 pin. The relation has a focused graph test. Read,
 parse and graph times, source bytes and pending jobs reach public diagnostics.
 Names describe those ownership boundaries; do not reintroduce parser or file IO
 into `world/navigation`.

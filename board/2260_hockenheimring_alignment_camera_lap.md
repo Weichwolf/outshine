@@ -47,7 +47,7 @@ segment sum. A seventeenth member is explicitly `role=pitlane`; shortcuts and
 Rallycross ways are outside the main relation. Relation member order runs
 opposite the ways' one-way direction, so solve the topology rather than using
 the listed order. The 33,557-byte source pin is
-`test/outshine/integration/places/HockenheimringGrandPrix.osm` (SHA-256
+`src/assets/world/osm/HockenheimringGrandPrix.osm` (SHA-256
 `f50914eac077325eee1b3e88eae0eeffac58ff086e180cba4ec8734e94661d7f`).
 It contains route source objects, not a hand-authored track or whole-world
 fixture. `Data::OsmXmlReader` retains all 319 nodes, 17 ways, roles and tags;

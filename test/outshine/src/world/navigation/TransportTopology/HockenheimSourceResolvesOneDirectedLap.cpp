@@ -38,8 +38,7 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
   using namespace outshine::World;
-  std::ifstream input("test/outshine/integration/places/HockenheimringGrandPrix.osm",
-                      std::ios::binary);
+  std::ifstream input("src/assets/world/osm/HockenheimringGrandPrix.osm", std::ios::binary);
   CHECK(input.good(), "the pinned Hockenheim OSM source is available");
   if (!input) { return Report(); }
   const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});

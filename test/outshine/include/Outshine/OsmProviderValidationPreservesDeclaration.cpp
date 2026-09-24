@@ -33,6 +33,11 @@ int main() {
   CHECK(engine.writeScenario() == before, "second invalid source also preserves declaration");
 
   candidate.Providers.front().Location = "osm/region.osm";
+  candidate.Providers.front().Revision = "sha256:short";
+  CHECK(!engine.declare(candidate), "malformed content pin rejects the whole declaration");
+  CHECK(engine.writeScenario() == before, "malformed pin preserves the previous declaration");
+
+  candidate.Providers.front().Revision = "pin-r1";
   CHECK(engine.declare(candidate).has_value(), "valid source declaration can replace refusal");
   const auto written = engine.writeScenario();
   CHECK(written && written->find("dataset=\"openstreetmap\"") != std::string::npos,

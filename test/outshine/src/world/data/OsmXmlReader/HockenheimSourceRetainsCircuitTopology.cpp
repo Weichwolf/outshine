@@ -25,8 +25,7 @@ std::string_view TagValue(const std::vector<outshine::Data::OsmTag> &tags, std::
 int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
-  std::ifstream input("test/outshine/integration/places/HockenheimringGrandPrix.osm",
-                      std::ios::binary);
+  std::ifstream input("src/assets/world/osm/HockenheimringGrandPrix.osm", std::ios::binary);
   CHECK(input.good(), "pinned OSM relation source is available");
   if (!input) { return Report(); }
   const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});

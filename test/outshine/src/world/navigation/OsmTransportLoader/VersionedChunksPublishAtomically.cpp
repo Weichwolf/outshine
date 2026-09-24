@@ -41,7 +41,7 @@ int main() {
   Tasks tasks(1);
   OsmTransportLoader source(tasks);
   const auto hockenheim =
-      Region("test/outshine/integration/places/HockenheimringGrandPrix.osm",
+      Region("src/assets/world/osm/HockenheimringGrandPrix.osm",
              "pin-r1",
              {.WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34});
   CHECK(source.Request(std::span(&hockenheim, 1), "."), "versioned regional source is queued");
@@ -57,6 +57,13 @@ int main() {
             original->SourceBytes > 30000 && circuitValid,
         "published source IDs resolve the independent Hockenheim circuit oracle");
   if (!original) { return Report(); }
+
+  auto wrongPin = hockenheim;
+  wrongPin.Revision = "sha256:" + std::string(64, '0');
+  CHECK(source.Request(std::span(&wrongPin, 1), "."), "well-formed digest pin is queued");
+  CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Failed &&
+            source.Error().find("sha256") != std::string_view::npos && source.Current() == original,
+        "different source bytes cannot publish under a declared digest pin");
 
   const auto temporary =
       std::filesystem::temp_directory_path() /

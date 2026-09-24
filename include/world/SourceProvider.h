@@ -31,7 +31,7 @@ struct SourceCoverage {
 /// construction may allocate and perform IO; the value itself has no thread affinity.
 struct SourceProvider {
   std::string Kind;     ///< Registered source category such as terrain, vector or stars.
-  std::string Revision; ///< Opaque data revision included in cache identity.
+  std::string Revision; ///< Source revision; OSM sha256: pins verify the file bytes.
   int Priority = 0;     ///< Ordering among sources of the same category; lower is earlier.
   MissingDataPolicy Missing = MissingDataPolicy::Continue; ///< Missing-value behavior.
   std::string Dataset;                    ///< Stable dataset ID; required for semantic OSM chunks.

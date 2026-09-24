@@ -22,7 +22,7 @@ int main() {
          .Revision = "pin-r1",
          .Missing = Data::MissingDataPolicy::Fail,
          .Dataset = "openstreetmap",
-         .Location = "test/outshine/integration/places/HockenheimringGrandPrix.osm",
+         .Location = "src/assets/world/osm/HockenheimringGrandPrix.osm",
          .Coverage = Data::SourceCoverage{
              .WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34}});
     CHECK(engine.setRoots({.Shipped = ".", .Offline = true}) && engine.setRenderTarget({64, 64}) &&
