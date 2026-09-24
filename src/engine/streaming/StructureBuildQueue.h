@@ -52,18 +52,15 @@ public:
             const Ground::BuildingField &footprints,
             LongitudeLatitude eye,
             HeightSourceRevision heightSource,
-            HeightRequirement heights = HeightRequirement::AllowFallback) const noexcept {
-      return Vectors == vectors.Generation() && HeightSource == heightSource &&
-             FocalPx == footprints.FocalPx() && TileSpanM == footprints.TileSpanM() &&
-             Eye.LongitudeDeg == eye.LongitudeDeg && Eye.LatitudeDeg == eye.LatitudeDeg &&
-             (heights == HeightRequirement::AllowFallback || !FallbackHeights);
-    }
+            HeightRequirement heights = HeightRequirement::AllowFallback) const noexcept;
 
     [[nodiscard]] bool OwnsReservation(const Ground::OsmField &vectors,
                                        const Ground::BuildingField &footprints,
                                        LongitudeLatitude eye,
                                        HeightSourceRevision heightSource) const noexcept {
-      return Matches(vectors, footprints, eye, heightSource, HeightRequirement::AllowFallback);
+      (void)eye;
+      return Vectors == vectors.Generation() && HeightSource == heightSource &&
+             FocalPx == footprints.FocalPx() && TileSpanM == footprints.TileSpanM();
     }
   };
 

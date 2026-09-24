@@ -7,6 +7,7 @@
 #include <bit>
 #include <cassert>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -22,6 +23,7 @@
 #include "Log.h"
 #include "Shape.h"
 #include "OsmLayer.h"
+#include "Geodesy.h"
 
 namespace outshine {
 
@@ -31,6 +33,16 @@ constexpr uint32_t kMostRingPoints = 512;
 constexpr uint8_t kPolygonFeature = 3;
 constexpr size_t kBuildsPerThread = 1;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
+
+[[nodiscard]] bool EyeWithin(LongitudeLatitude from, LongitudeLatitude to) noexcept {
+  const Ellipsoid earth{.SemiMajorM = kWgs84A, .Flattening = 1.0 - std::sqrt(1.0 - kWgs84E2)};
+  const Geodesic distance =
+      GeodesicOn({.LongitudeDeg = from.LongitudeDeg, .LatitudeDeg = from.LatitudeDeg},
+                 {.LongitudeDeg = to.LongitudeDeg, .LatitudeDeg = to.LatitudeDeg},
+                 earth);
+  return distance.Converged && std::isfinite(distance.AlongM) &&
+         distance.AlongM <= Generators::kStructureEyeReuseM;
+}
 
 std::optional<Data::TileSourceIdentity> VectorSource(const Ground::OsmField &vectors,
                                                      uint32_t tile) {
@@ -239,15 +251,13 @@ RefinementSelection SelectRefinement(Ground::BuildingField &prints,
   }
   const Ground::BuildingField::AcceptedInput *const accepted = prints.InputOfTile(*tile);
   const std::optional<Data::TileSourceIdentity> vectorSource = VectorSource(vectors, *tile);
-  const bool current = accepted != nullptr && accepted->Qualified &&
-                       accepted->Vector == vectorSource &&
-                       std::ranges::equal(accepted->Sources, heights->Sources()) &&
-                       accepted->Bake.HeightRasterDigest == heights->RasterDigest() &&
-                       accepted->Bake.StreetDigest == StreetDigest(streets, vectors, *tile) &&
-                       accepted->Bake.FocalPx == prints.FocalPx() &&
-                       accepted->Bake.TileSpanM == prints.TileSpanM() &&
-                       accepted->Bake.Eye.LongitudeDeg == eye.LongitudeDeg &&
-                       accepted->Bake.Eye.LatitudeDeg == eye.LatitudeDeg;
+  const bool current =
+      accepted != nullptr && accepted->Qualified && accepted->Vector == vectorSource &&
+      std::ranges::equal(accepted->Sources, heights->Sources()) &&
+      accepted->Bake.HeightRasterDigest == heights->RasterDigest() &&
+      accepted->Bake.StreetDigest == StreetDigest(streets, vectors, *tile) &&
+      accepted->Bake.FocalPx == prints.FocalPx() &&
+      accepted->Bake.TileSpanM == prints.TileSpanM() && EyeWithin(accepted->Bake.Eye, eye);
   prints.AdvanceRefinement();
   if (current) { return {}; }
   return {.Next =
@@ -258,6 +268,15 @@ RefinementSelection SelectRefinement(Ground::BuildingField &prints,
 
 StructureBuildQueue::~StructureBuildQueue() {
   Clear();
+}
+
+bool StructureBuildQueue::BakeRevision::Matches(const Ground::OsmField &vectors,
+                                                const Ground::BuildingField &footprints,
+                                                LongitudeLatitude eye,
+                                                HeightSourceRevision heightSource,
+                                                HeightRequirement heights) const noexcept {
+  return OwnsReservation(vectors, footprints, eye, heightSource) && EyeWithin(Eye, eye) &&
+         (heights == HeightRequirement::AllowFallback || !FallbackHeights);
 }
 
 bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,

@@ -19,6 +19,10 @@
 
 namespace outshine::Generators {
 
+inline constexpr double kStructureEyeReuseM = 64.0;
+inline constexpr double kStructureEyeDetailGuardM = 128.0;
+static_assert(kStructureEyeDetailGuardM >= kStructureEyeReuseM);
+
 enum class StructureBakeErrorKind { Cancelled };
 
 using StructureBakeError = std::variant<StructureMeshError, ClusterError, StructureBakeErrorKind>;

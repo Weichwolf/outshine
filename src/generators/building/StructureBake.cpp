@@ -519,6 +519,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   const double eastM =
       (nearLon - raw.Eye.LongitudeDeg) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
   const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
+  const double conservativeAwayM =
+      std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
   const double perLonM = kMPerDegLon * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
   out.SeatSpreadM.push_back(seat - base);
   out.AcrossM.push_back(std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM));
@@ -549,11 +551,11 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   fp.SeatM = static_cast<float>(seat);
 
   LevelOfDetail level = LevelOfDetail::Fine;
-  if (Unseen(std::max(kArchitectureM, statedM), raw.FocalPx, awayAtLeastM)) {
+  if (Unseen(std::max(kArchitectureM, statedM), raw.FocalPx, conservativeAwayM)) {
     level = LevelOfDetail::Shell;
   }
   if (level == LevelOfDetail::Shell &&
-      Unseen(0.5 * raw.TileSpanM / kBlocksPerTile, raw.FocalPx, awayAtLeastM)) {
+      Unseen(0.5 * raw.TileSpanM / kBlocksPerTile, raw.FocalPx, conservativeAwayM)) {
     level = LevelOfDetail::Massed;
   }
   fp.Coarseness = level;

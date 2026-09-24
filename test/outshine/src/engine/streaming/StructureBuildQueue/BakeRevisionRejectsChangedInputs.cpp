@@ -59,8 +59,13 @@ int main() {
   footprints.ResetDerived();
   CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "accepted footprints do not invalidate sibling bakes");
+  CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9.0001, .LatitudeDeg = 47}, {}),
+        "a camera moving within the conservative eye radius retains the in-flight bake");
   CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}, {}),
-        "a moved camera makes an unfinished bake stale");
+        "camera movement beyond the eye radius makes detail stale");
+  CHECK(
+      revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}, {}),
+      "camera movement cannot strand a discarded bake's footprint reservation");
   const StructureBuildQueue::BakeRevision vectorRevision{
       .Vectors = vectors.Generation(),
       .FocalPx = footprints.FocalPx(),

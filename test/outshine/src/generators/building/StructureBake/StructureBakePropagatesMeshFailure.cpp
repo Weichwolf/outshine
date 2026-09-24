@@ -93,6 +93,19 @@ int main() {
   CHECK(distantOutput.Prints.front().Coarseness == LevelOfDetail::Massed,
         "a distant building uses massed geometry");
 
+  Generators::RawTile threshold = raw;
+  threshold.LatLon = {47, 9.0047, 47, 9.0048, 47.0001, 9.0048, 47.0001, 9.0047};
+  threshold.Structures.resize(1);
+  threshold.Ways.clear();
+  RefusingMesher thresholdMesher(StructureMeshError::UnsupportedFootprint);
+  auto thresholdScratch = thresholdMesher.Scratch();
+  Generators::BakedTile thresholdOutput;
+  const auto thresholdResult = Generators::BakeStructures(
+      threshold, *heights, thresholdMesher, *thresholdScratch, thresholdOutput);
+  CHECK(thresholdResult && thresholdOutput.Prints.size() == 1 &&
+            thresholdOutput.Prints.front().Coarseness == LevelOfDetail::Fine,
+        "the eye reuse guard retains fine detail just beyond the ordinary shell threshold");
+
   RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
   auto oneShotScratch = oneShotMesher.Scratch();
   Generators::BakedTile oneShot;
