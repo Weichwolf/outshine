@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <cstddef>
 #include <cstdio>
 #include <span>
@@ -11,6 +12,7 @@
 #include <numbers>
 #include <optional>
 #include <print>
+#include <ratio>
 #include <set>
 #include <string>
 #include <string_view>
@@ -28,7 +30,7 @@ constexpr auto DuplicateOption = "duplicate render option: ";
 constexpr auto Usage =
     "render <asset.gltf|asset.glb> <width>x<height> <output.png> [--camera auto|index] [--time "
     "seconds] [--animation index] [--variant name] [--position x,y,z] [--look-at x,y,z] [--fov "
-    "degrees] [--lighting auto|authored|studio] [--exposure multiplier]";
+    "degrees] [--lighting auto|authored|studio] [--exposure multiplier] [--stats]";
 constexpr auto InvalidExtent = "resolution must contain two integers in [1,4096], separated by x";
 constexpr auto InvalidIndex = "camera and animation indices must be nonnegative integers";
 constexpr auto InvalidNumber = "option requires a finite number in its declared range";
@@ -62,7 +64,21 @@ struct AssetRenderOptions {
   std::optional<Vec3> Target;
   std::optional<double> FovDeg;
   double Exposure = 1;
+  bool Stats = false;
 };
+
+struct RenderStats {
+  double PrepareMs = 0;
+  double AssembleMs = 0;
+  double DrawMs = 0;
+  double SaveMs = 0;
+  int Frames = 0;
+};
+
+[[nodiscard]] double MillisecondsSince(std::chrono::steady_clock::time_point began) {
+  return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+      .count();
+}
 
 [[nodiscard]] std::optional<int> ParseIndex(std::string_view value) {
   int index = 0;
@@ -151,9 +167,7 @@ struct AssetRenderOptions {
 }
 
 [[nodiscard]] Holds<AssetRenderOptions> ParseRenderOptions(std::span<const char *const> arguments) {
-  if (arguments.size() < 3 || (arguments.size() - 3) % 2 != 0) {
-    return std::unexpected(Says::Usage);
-  }
+  if (arguments.size() < 3) { return std::unexpected(Says::Usage); }
   AssetRenderOptions options;
   options.Asset = arguments[0];
   options.Output = arguments[2];
@@ -169,12 +183,19 @@ struct AssetRenderOptions {
   }
   options.Frame = {.WidthPx = *width, .HeightPx = *height};
   std::set<std::string_view> seen;
-  for (size_t at = 3; at < arguments.size(); at += 2) {
+  for (size_t at = 3; at < arguments.size();) {
     if (!seen.insert(arguments[at]).second) {
       return std::unexpected(Says::DuplicateOption + std::string(arguments[at]));
     }
+    if (std::string_view(arguments[at]) == "--stats") {
+      options.Stats = true;
+      ++at;
+      continue;
+    }
+    if (at + 1 == arguments.size()) { return std::unexpected(Says::Usage); }
     auto set = SetOption(options, {.Name = arguments[at], .Value = arguments[at + 1]});
     if (!set) { return std::unexpected(std::move(set.error())); }
+    at += 2;
   }
   if (options.Position.has_value() != options.Target.has_value()) {
     return std::unexpected(Says::InvalidAim);
@@ -220,7 +241,8 @@ struct AssetRenderOptions {
   return camera;
 }
 
-[[nodiscard]] Result CaptureAsset(const AssetRenderOptions &options) {
+[[nodiscard]] Result CaptureAsset(const AssetRenderOptions &options, RenderStats &stats) {
+  const auto prepareBegan = std::chrono::steady_clock::now();
   GltfImporter asset;
   auto loaded = asset.load(options.Asset);
   if (!loaded) { return loaded; }
@@ -237,6 +259,8 @@ struct AssetRenderOptions {
   if (!sampled) { return sampled; }
   auto camera = ResolveCamera(options, asset);
   if (!camera) { return std::unexpected(std::move(camera.error())); }
+  stats.PrepareMs = MillisecondsSince(prepareBegan);
+  const auto assembleBegan = std::chrono::steady_clock::now();
   if (!SDL_Init(SDL_INIT_VIDEO)) { return std::unexpected(std::string(SDL_GetError())); }
 
   struct VideoSession {
@@ -274,6 +298,8 @@ struct AssetRenderOptions {
   if (!geometry) { return std::unexpected(std::move(geometry.error())); }
   auto assembled = engine.assemble();
   if (!assembled) { return std::unexpected(std::move(assembled.error())); }
+  stats.AssembleMs = MillisecondsSince(assembleBegan);
+  const auto drawBegan = std::chrono::steady_clock::now();
   auto advanced = engine.advance();
   if (!advanced) { return std::unexpected(std::move(advanced.error())); }
   auto renderer = engine.renderer();
@@ -283,7 +309,32 @@ struct AssetRenderOptions {
     if (!rendered) { return rendered; }
   }
   if (auto rendered = renderer.render({}); !rendered) { return rendered; }
-  return renderer.saveScreenshot(options.Output);
+  stats.Frames = frames + 1;
+  stats.DrawMs = MillisecondsSince(drawBegan);
+  const auto saveBegan = std::chrono::steady_clock::now();
+  if (auto saved = renderer.saveScreenshot(options.Output); !saved) {
+    return std::unexpected(std::move(saved.error()));
+  }
+  stats.SaveMs = MillisecondsSince(saveBegan);
+  return {};
+}
+
+void PrintRenderStats(const AssetRenderOptions &options,
+                      const RenderStats *stats,
+                      double elapsedMs) {
+  const auto row = [](std::string_view key, auto value, std::string_view unit) {
+    std::println("STAT\trender\t{}\t{}\t{}", key, value, unit);
+  };
+  row("status", stats != nullptr ? "ok" : "failed", "-");
+  row("elapsed_ms", elapsedMs, "ms");
+  row("width_px", options.Frame.WidthPx, "px");
+  row("height_px", options.Frame.HeightPx, "px");
+  if (stats == nullptr) { return; }
+  row("prepare_ms", stats->PrepareMs, "ms");
+  row("assemble_ms", stats->AssembleMs, "ms");
+  row("draw_ms", stats->DrawMs, "ms");
+  row("save_ms", stats->SaveMs, "ms");
+  row("draw_frames", stats->Frames, "frames");
 }
 }
 
@@ -293,9 +344,12 @@ int RenderAsset(std::span<const char *const> arguments) {
     std::println(stderr, "outshine-client: {}", options.error());
     return 2;
   }
-  auto captured = CaptureAsset(*options);
+  const auto began = std::chrono::steady_clock::now();
+  RenderStats stats;
+  auto captured = CaptureAsset(*options, stats);
   if (!captured) {
     std::println(stderr, "outshine-client: {}", captured.error());
+    if (options->Stats) { PrintRenderStats(*options, nullptr, MillisecondsSince(began)); }
     return 1;
   }
   std::println("RENDER\t{}\t{}x{}\tt={}\t{}",
@@ -304,6 +358,7 @@ int RenderAsset(std::span<const char *const> arguments) {
                options->Frame.HeightPx,
                options->TimeS,
                options->Output);
+  if (options->Stats) { PrintRenderStats(*options, &stats, MillisecondsSince(began)); }
   return 0;
 }
 }

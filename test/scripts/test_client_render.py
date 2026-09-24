@@ -79,6 +79,29 @@ class AssetRender(unittest.TestCase):
             struct.pack("<II", len(binary), 0x004E4942) + binary)
         np.testing.assert_array_equal(self.render(), self.render(asset="scene.glb", output="glb.png"))
 
+    def test_stats_report_render_stages_and_failure(self):
+        output = self.root / "stats.png"
+        result = self.run_client(self.root / "scene.gltf", "128x64", output, "--stats")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(output.is_file())
+        rows = [line.split("\t") for line in result.stdout.splitlines()
+                if line.startswith("STAT\t")]
+        fields = {row[2]: (row[3], row[4]) for row in rows}
+        self.assertTrue(all(len(row) == 5 and row[1] == "render" for row in rows))
+        self.assertEqual(fields["status"], ("ok", "-"))
+        self.assertEqual(fields["width_px"], ("128", "px"))
+        self.assertEqual(fields["height_px"], ("64", "px"))
+        self.assertGreaterEqual(int(fields["draw_frames"][0]), 3)
+        for name in ("elapsed_ms", "prepare_ms", "assemble_ms", "draw_ms", "save_ms"):
+            self.assertEqual(fields[name][1], "ms")
+            self.assertGreaterEqual(float(fields[name][0]), 0)
+        failed = self.run_client(self.root / "absent.gltf", "128x64", self.root / "absent.png",
+                                 "--stats")
+        self.assertEqual(failed.returncode, 1)
+        self.assertIn("STAT\trender\tstatus\tfailed\t-", failed.stdout)
+        self.assertIn("STAT\trender\telapsed_ms\t", failed.stdout)
+        self.assertFalse((self.root / "absent.png").exists())
+
     def add_camera(self):
         self.asset["cameras"] = [{"type": "perspective", "perspective": {"yfov": 1, "znear": .1}}]
         self.asset["nodes"] = [{"children": [1, 2]}, {"mesh": 0}, {"camera": 0, "translation": [0, 0, 5]}]

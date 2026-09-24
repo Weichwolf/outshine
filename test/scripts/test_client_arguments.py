@@ -13,6 +13,19 @@ CLIENT = ROOT / 'build/outshine-client'
 
 
 class Coordinates(unittest.TestCase):
+    def test_help_describes_commands_and_stats_without_starting_platform(self):
+        env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
+        for args in (('--help',), ('render', '--help'), ('run', '--help'),
+                     ('shots', '--help')):
+            with self.subTest(args=args):
+                result = subprocess.run([str(CLIENT), *args], cwd=ROOT, env=env,
+                                        capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('render <asset.gltf|asset.glb>', result.stdout)
+                self.assertIn('run [--rows] [--stats]', result.stdout)
+                self.assertIn('STAT<TAB>name<TAB>key<TAB>value<TAB>unit', result.stdout)
+                self.assertNotIn('SDL', result.stdout + result.stderr)
+
     def query(self, *args):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
         return subprocess.run([str(CLIENT), 'height', *args], cwd=ROOT, env=env,

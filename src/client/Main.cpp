@@ -129,7 +129,7 @@ void Row(const Shot &shot, std::string_view name) {
 void Usage() {
   std::println(
       "outshine-client -- the engine through its own door, from a command line.\n\n"
-      "  render <asset.gltf|asset.glb> <width>x<height> <output.png> [options]\n"
+      "  render <asset.gltf|asset.glb> <width>x<height> <output.png> [options] [--stats]\n"
       "    --camera auto|index --time seconds --animation index --variant name\n"
       "    --position x,y,z --look-at x,y,z --fov degrees\n"
       "    --lighting auto|authored|studio --exposure multiplier\n"
@@ -154,9 +154,18 @@ void Usage() {
       "  measures <scenario>              and print every measure it published\n"
       "  height <lat> <lon>               terrain elevation; angles in decimal degrees\n"
       "  --help | <verb> --help           this\n"
-      "  --stats                           STAT TSV rows: cache, provider, preload, readiness\n"
-      "                                    cache=provider disk; remote=declared "
-      "regional/distant\n\n"
+      "  --stats                           render, run, shots: STAT TSV rows\n"
+      "                                    STAT<TAB>name<TAB>key<TAB>value<TAB>unit\n"
+      "                                    render: elapsed/prepare/assemble/draw/save_ms, "
+      "draw_frames, width/height_px\n"
+      "                                    run/shots: elapsed/preload/pump/flush/await_ms, "
+      "wait_*_ms/calls/signals\n"
+      "                                    readiness: playable, refined, arrived/wanted, "
+      "outstanding\n"
+      "                                    sources: store_hits/misses/writes, provider_starts/"
+      "retries, remote_starts, source_*\n"
+      "                                    all: status=ok|failed; cache=provider disk; "
+      "remote=declared regional/distant\n\n"
       "Every verb is a call on `outshine::Engine`. A verb this does not have is a verb the door\n"
       "does not offer, or one nobody has needed yet.");
 }
