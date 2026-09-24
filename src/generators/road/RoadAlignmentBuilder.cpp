@@ -19,6 +19,7 @@ constexpr double kMaximumArcStepM = 0.5;
 constexpr size_t kMinimumArcSteps = 4;
 constexpr size_t kMaximumArcSamples = 262144;
 constexpr double kMinimumForwardDot = -0.8660254037844386;
+constexpr double kMinimumHorizontalDirection = 0.1;
 
 [[nodiscard]] RoadAlignmentError
 Error(RoadAlignmentErrorCode code, World::TransportEdgeId edge = {}, uint64_t nodeId = 0) {
@@ -43,7 +44,11 @@ SolveTangents(const RoadConstraintChain &constraints, std::span<const Vec3> posi
     Vec3 outgoing = positions[next] - positions[index];
     if (!closed && index == 0) { incoming = outgoing; }
     if (!closed && index == uniqueCount - 1) { outgoing = incoming; }
-    if (!Normalise(incoming) || !Normalise(outgoing) ||
+    const double incomingLengthM = Length(incoming);
+    const double outgoingLengthM = Length(outgoing);
+    if (!std::isfinite(incomingLengthM) || incomingLengthM < kMinimumChordM ||
+        !std::isfinite(outgoingLengthM) || outgoingLengthM < kMinimumChordM ||
+        !Normalise(incoming) || !Normalise(outgoing) ||
         Dot(incoming, outgoing) < kMinimumForwardDot) {
       const size_t edgeIndex = std::min(index, edgeCount - 1);
       return std::unexpected(Error(RoadAlignmentErrorCode::SharpTurn,
@@ -51,12 +56,21 @@ SolveTangents(const RoadConstraintChain &constraints, std::span<const Vec3> posi
                                    constraints.Points()[index].SourceNodeId));
     }
     Vec3 tangent = incoming + outgoing;
-    if (!Normalise(tangent)) {
+    Vec3 weighted = incoming * outgoingLengthM + outgoing * incomingLengthM;
+    if (!Normalise(tangent) || !Normalise(weighted)) {
       const size_t edgeIndex = std::min(index, edgeCount - 1);
       return std::unexpected(Error(RoadAlignmentErrorCode::SharpTurn,
                                    constraints.Edges()[edgeIndex].SourceEdge,
                                    constraints.Points()[index].SourceNodeId));
     }
+    const double horizontal = std::hypot(weighted[0], weighted[1]);
+    if (!std::isfinite(horizontal) || horizontal < kMinimumHorizontalDirection) {
+      const size_t edgeIndex = std::min(index, edgeCount - 1);
+      return std::unexpected(Error(RoadAlignmentErrorCode::SharpTurn,
+                                   constraints.Edges()[edgeIndex].SourceEdge,
+                                   constraints.Points()[index].SourceNodeId));
+    }
+    tangent[2] = weighted[2] * std::hypot(tangent[0], tangent[1]) / horizontal;
     tangents.push_back(tangent);
   }
   if (closed) { tangents.push_back(tangents.front()); }

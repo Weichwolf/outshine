@@ -202,6 +202,43 @@ int main() {
   Note("real DEM road height maximum", highestM, "m");
   CHECK(highestM - lowestM > 1.0,
         "the real DEM changes road elevation rather than acting as a flat fixture");
+  constexpr double kProfileStepM = 0.5;
+  double strongestVerticalCurvaturePerM = 0.0;
+  double strongestVerticalCurvatureStationM = 0.0;
+  for (double stationM = kProfileStepM; stationM + kProfileStepM < alignment->LengthM();
+       stationM += kProfileStepM) {
+    const auto behind = alignment->AtStation(stationM - kProfileStepM);
+    const auto here = alignment->AtStation(stationM);
+    const auto ahead = alignment->AtStation(stationM + kProfileStepM);
+    if (!behind || !here || !ahead) { continue; }
+    const double curvaturePerM =
+        std::abs(ahead->PositionM.UpM - 2.0 * here->PositionM.UpM + behind->PositionM.UpM) /
+        (kProfileStepM * kProfileStepM);
+    if (curvaturePerM > strongestVerticalCurvaturePerM) {
+      strongestVerticalCurvaturePerM = curvaturePerM;
+      strongestVerticalCurvatureStationM = stationM;
+    }
+  }
+  Note("real DEM highest vertical curvature", strongestVerticalCurvaturePerM, "1/m");
+  Note("real DEM highest vertical curvature station", strongestVerticalCurvatureStationM, "m");
+  CHECK(strongestVerticalCurvaturePerM < 0.015,
+        "nonuniform source-node spacing does not kink the drivable road grade");
+  const auto maximumCurvatureAt = [&alignment](double stepM) {
+    double greatest = 0.0;
+    for (double stationM = stepM; stationM + stepM < alignment->LengthM(); stationM += stepM) {
+      const auto behind = alignment->AtStation(stationM - stepM);
+      const auto here = alignment->AtStation(stationM);
+      const auto ahead = alignment->AtStation(stationM + stepM);
+      if (!behind || !here || !ahead) { continue; }
+      greatest = std::max(
+          greatest,
+          std::abs(ahead->PositionM.UpM - 2.0 * here->PositionM.UpM + behind->PositionM.UpM) /
+              (stepM * stepM));
+    }
+    return greatest;
+  };
+  Note("real DEM vertical curvature at 2 m", maximumCurvatureAt(2.0), "1/m");
+  Note("real DEM vertical curvature at 5 m", maximumCurvatureAt(5.0), "1/m");
 
   const auto positions = surface->SurfaceGeometry.positionsOf(0);
   constexpr std::array stationFractions{0.0, 0.25, 0.5, 0.75, 1.0};
