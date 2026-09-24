@@ -66,12 +66,17 @@ struct Loading {
     double StructureMs = 0.0;          ///< Time waiting on queued structure workers.
     double ClassMs = 0.0;              ///< Time waiting on terrain classification.
     double TileMs = 0.0;               ///< Time waiting on the tile pool.
+    double WorldWorkerMs = 0.0;        ///< Time waiting on an active OSM or road worker.
+    double IdleMs = 0.0;               ///< Short backoff with no known pending worker.
     size_t StructureCalls = 0;         ///< Structure-worker waits.
     size_t ClassCalls = 0;             ///< Classification waits.
     size_t TileCalls = 0;              ///< Tile-pool waits.
+    size_t WorldWorkerCalls = 0;       ///< Active OSM or road worker waits.
+    size_t IdleCalls = 0;              ///< Backoffs with no known pending worker.
     size_t StructureSignals = 0;       ///< Structure-worker condition-variable signals.
     size_t ClassSignals = 0;           ///< Classification condition-variable signals.
     size_t TileSignals = 0;            ///< Tile-pool condition-variable signals.
+    size_t WorldWorkerSignals = 0;     ///< Shared worker-pool completion signals.
     double TileNoOutstandingMs = 0.0;  ///< Tile wait entered with zero outstanding pool jobs.
     size_t TileNoOutstandingCalls = 0; ///< Such waits; other world jobs may remain active.
   } Waited; ///< Current or last valid preload() call; zero before one begins.

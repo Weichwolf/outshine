@@ -19,6 +19,7 @@
 #include <cmath>
 #include <ratio>
 #include <span>
+#include <thread>
 
 namespace outshine {
 
@@ -593,36 +594,78 @@ Result Engine::State::PreloadTimeout(double bound) {
 
 void Engine::State::AwaitPreloadProgress(double seconds) {
   auto &waited = PreloadWaited;
+
+  struct WaitAccumulator {
+    double &Milliseconds;
+    size_t &Calls;
+    size_t &Signals;
+  };
+
+  const auto started = std::chrono::steady_clock::now();
+  const auto remaining = [started, seconds] {
+    return std::max(
+        0.0,
+        seconds -
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count());
+  };
+  const auto record = [](WaitAccumulator target,
+                         std::chrono::steady_clock::time_point began,
+                         bool signalled) {
+    target.Milliseconds +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    ++target.Calls;
+    target.Signals += signalled ? 1u : 0u;
+  };
   if (World.StructureBuilds.Queued() > 0) {
     const auto began = std::chrono::steady_clock::now();
-    const bool signalled = World.StructureBuilds.AwaitSlice(seconds);
-    waited.StructureMs +=
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    ++waited.StructureCalls;
-    if (signalled) {
-      ++waited.StructureSignals;
-      return;
-    }
+    const bool signalled = World.StructureBuilds.AwaitSlice(remaining());
+    record({.Milliseconds = waited.StructureMs,
+            .Calls = waited.StructureCalls,
+            .Signals = waited.StructureSignals},
+           began,
+           signalled);
+    if (signalled || remaining() <= 0.0) { return; }
   }
-  const bool classBuilding = World.Stack.Classes().Building();
-  const bool noTileWork = !classBuilding && World.Stack.Pool().Counters().Outstanding == 0;
+  if (World.Stack.Classes().Building()) {
+    const auto began = std::chrono::steady_clock::now();
+    const bool signalled = World.Stack.AwaitProgress(remaining());
+    record({.Milliseconds = waited.ClassMs,
+            .Calls = waited.ClassCalls,
+            .Signals = waited.ClassSignals},
+           began,
+           signalled);
+    if (signalled || remaining() <= 0.0) { return; }
+  }
+  if (!World.Stack.Classes().Building() && World.Stack.Pool().Counters().Outstanding > 0) {
+    const auto began = std::chrono::steady_clock::now();
+    const bool signalled = World.Stack.AwaitProgress(remaining());
+    record(
+        {.Milliseconds = waited.TileMs, .Calls = waited.TileCalls, .Signals = waited.TileSignals},
+        began,
+        signalled);
+    if (signalled || remaining() <= 0.0) { return; }
+  }
+  const bool worldWorker =
+      World.RoadAlignmentBuilds.Busy() ||
+      (World.OsmTransportLoader && World.OsmTransportLoader->PendingCount() > 0);
+  if (worldWorker && World.Pool) {
+    const auto began = std::chrono::steady_clock::now();
+    const bool signalled = World.Pool->AwaitCompletion(remaining());
+    record({.Milliseconds = waited.WorldWorkerMs,
+            .Calls = waited.WorldWorkerCalls,
+            .Signals = waited.WorldWorkerSignals},
+           began,
+           signalled);
+    return;
+  }
+  if (World.GroundBuild || World.GroundRetirement) { return; }
+  const double idleS = std::min(remaining(), 0.001);
+  if (idleS <= 0.0) { return; }
   const auto began = std::chrono::steady_clock::now();
-  const bool signalled = World.Stack.AwaitProgress(seconds);
-  const double elapsedMs =
+  std::this_thread::sleep_for(std::chrono::duration<double>(idleS));
+  waited.IdleMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-  if (classBuilding) {
-    waited.ClassMs += elapsedMs;
-    ++waited.ClassCalls;
-    waited.ClassSignals += signalled ? 1u : 0u;
-  } else {
-    waited.TileMs += elapsedMs;
-    ++waited.TileCalls;
-    waited.TileSignals += signalled ? 1u : 0u;
-    if (noTileWork) {
-      waited.TileNoOutstandingMs += elapsedMs;
-      ++waited.TileNoOutstandingCalls;
-    }
-  }
+  ++waited.IdleCalls;
 }
 
 Result Engine::preload(double patienceS) {

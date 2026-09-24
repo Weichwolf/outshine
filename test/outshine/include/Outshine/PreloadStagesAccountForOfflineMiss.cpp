@@ -33,13 +33,15 @@ int main() {
                   loading.PreloadMs,
           "disjoint measured phases fit within total preload wall time");
     const auto &waited = loading.Waited;
-    CHECK(waited.StructureMs + waited.ClassMs + waited.TileMs <= loading.PreloadAwaitMs &&
+    CHECK(waited.StructureMs + waited.ClassMs + waited.TileMs + waited.WorldWorkerMs +
+                      waited.IdleMs <=
+                  loading.PreloadAwaitMs &&
               waited.StructureSignals <= waited.StructureCalls &&
-              waited.ClassSignals <= waited.ClassCalls && waited.TileSignals <= waited.TileCalls,
+              waited.ClassSignals <= waited.ClassCalls && waited.TileSignals <= waited.TileCalls &&
+              waited.WorldWorkerSignals <= waited.WorldWorkerCalls,
           "wait-source accounting is disjoint and signals never exceed calls");
-    CHECK(waited.TileNoOutstandingMs <= waited.TileMs &&
-              waited.TileNoOutstandingCalls <= waited.TileCalls,
-          "zero-outstanding tile waits are a subset of tile wait samples");
+    CHECK(waited.TileNoOutstandingMs == 0.0 && waited.TileNoOutstandingCalls == 0,
+          "preload never waits on an empty tile pool");
   }
 
   std::error_code error;

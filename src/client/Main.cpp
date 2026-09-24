@@ -191,12 +191,17 @@ void PrintStats(std::string_view name,
   row("wait_structure_ms", loading.Waited.StructureMs, "ms");
   row("wait_class_ms", loading.Waited.ClassMs, "ms");
   row("wait_tile_ms", loading.Waited.TileMs, "ms");
+  row("wait_world_worker_ms", loading.Waited.WorldWorkerMs, "ms");
+  row("wait_idle_ms", loading.Waited.IdleMs, "ms");
   row("wait_structure_calls", loading.Waited.StructureCalls, "calls");
   row("wait_class_calls", loading.Waited.ClassCalls, "calls");
   row("wait_tile_calls", loading.Waited.TileCalls, "calls");
+  row("wait_world_worker_calls", loading.Waited.WorldWorkerCalls, "calls");
+  row("wait_idle_calls", loading.Waited.IdleCalls, "calls");
   row("wait_structure_signals", loading.Waited.StructureSignals, "signals");
   row("wait_class_signals", loading.Waited.ClassSignals, "signals");
   row("wait_tile_signals", loading.Waited.TileSignals, "signals");
+  row("wait_world_worker_signals", loading.Waited.WorldWorkerSignals, "signals");
   row("wait_tile_no_outstanding_ms", loading.Waited.TileNoOutstandingMs, "ms");
   row("wait_tile_no_outstanding_calls", loading.Waited.TileNoOutstandingCalls, "calls");
   row("playable", playable ? 1 : 0, "bool");

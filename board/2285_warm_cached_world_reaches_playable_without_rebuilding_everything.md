@@ -46,9 +46,15 @@ Five further warm Hockenheim runs split `Await` into roughly 0.54–0.55 s
 structure, 0.05–0.07 s classification and 2.09–2.19 s tile wait. One run
 entered 41 tile waits with zero outstanding tile jobs and spent 2125.6 ms
 there. This is an invalid wait source, not proof that no other worker runs.
-Next scheduling step must skip the tile condition variable at zero pool
-outstanding, preserve a single 50 ms budget across wait sources, and continue
-synchronous candidate work promptly. Compare digest and phase times again.
+The scheduler now skips the tile condition variable at zero pool outstanding,
+shares one 50 ms budget across wait sources, waits on active OSM/road workers,
+and continues synchronous candidate work promptly. Five fresh-process
+warm/offline Hockenheim shots take 725.5–871.2 ms to preload, mean 776.5 ms
+versus 3201.8 ms before (4.12x); tile waits with no outstanding work stay
+zero. All five retain digest `16908acb`, 477 store hits and zero provider
+starts. Mean structure/class/tile/idle waits are 513.9/73.7/6.2/5.3 ms.
+This removes a scheduler delay; the visible shot still has flat ground and
+simplified materials, so it is not a visual-quality acceptance.
 
 The product contract is low-latency playable contact from a complete warm
 cache, followed by bounded visual refinement while the world is already
