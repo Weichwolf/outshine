@@ -59,7 +59,8 @@ std::expected<std::vector<const TransportEdge *>, CircuitError>
 SelectEdges(const TransportTopology &graph,
             const Data::OsmElements &source,
             const Data::OsmRelation &relation,
-            std::string_view memberRole) {
+            std::string_view memberRole,
+            size_t maxEdges) {
   std::vector<const TransportEdge *> selected;
   for (const Data::OsmRelationMember &member : relation.Members) {
     if (member.Role != memberRole) { continue; }
@@ -77,6 +78,10 @@ SelectEdges(const TransportTopology &graph,
           CircuitError{.Code = CircuitErrorCode::InvalidMember, .SourceId = member.Id});
     }
     for (size_t segment = 0; segment + 1 < way->NodeIds.size(); ++segment) {
+      if (selected.size() == maxEdges) {
+        return std::unexpected(
+            CircuitError{.Code = CircuitErrorCode::TooManyEdges, .SourceId = relation.Id});
+      }
       const auto edge = ResolveSegment(graph, *way, segment);
       if (!edge) { return std::unexpected(edge.error()); }
       selected.push_back(*edge);
@@ -91,8 +96,11 @@ SelectEdges(const TransportTopology &graph,
 
 }
 
-std::expected<CircuitRoute, CircuitError> TransportTopology::ResolveCircuit(
-    const Data::OsmElements &source, uint64_t relationId, std::string_view memberRole) const {
+std::expected<CircuitRoute, CircuitError>
+TransportTopology::ResolveCircuit(const Data::OsmElements &source,
+                                  uint64_t relationId,
+                                  std::string_view memberRole,
+                                  size_t maxEdges) const {
   if (source.SourceIdentity() != SourceIdentity_) {
     return std::unexpected(
         CircuitError{.Code = CircuitErrorCode::SourceMismatch, .SourceId = relationId});
@@ -106,7 +114,7 @@ std::expected<CircuitRoute, CircuitError> TransportTopology::ResolveCircuit(
     return std::unexpected(
         CircuitError{.Code = CircuitErrorCode::NotCircuit, .SourceId = relationId});
   }
-  const auto selected = SelectEdges(*this, source, *relation, memberRole);
+  const auto selected = SelectEdges(*this, source, *relation, memberRole, maxEdges);
   if (!selected) { return std::unexpected(selected.error()); }
   std::unordered_map<uint64_t, const TransportEdge *> outgoing;
   outgoing.reserve(selected->size());

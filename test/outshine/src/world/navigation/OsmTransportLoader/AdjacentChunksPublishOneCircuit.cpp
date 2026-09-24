@@ -80,14 +80,16 @@ int main() {
             0,
             "r1",
             {.WestDeg = 0.0, .SouthDeg = 0.0, .EastDeg = 0.001, .NorthDeg = 0.001})};
-  CHECK(loader.Request(providers, "."), "shuffled adjacent source declarations are queued");
+  const OsmCircuitRequest routeRequest{.Id = "three-edge", .RelationId = 9};
+  CHECK(loader.Request(providers, ".", std::span(&routeRequest, 1)),
+        "shuffled adjacent source declarations and route are queued");
   CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmTransportLoader::Phase::Ready,
         "cross-chunk nodes and relation publish only after both chunks close");
   const auto first = loader.Current();
   bool circuitReady = false;
   if (first) {
-    const auto circuit = first->ResolveCircuit(9);
-    circuitReady = circuit && circuit->EdgeIds.size() == 3;
+    const CircuitRoute *circuit = first->FindRoute("three-edge");
+    circuitReady = circuit != nullptr && circuit->EdgeIds.size() == 3;
   }
   CHECK(first && first->SourceIdentity().Revision == "r1" && circuitReady,
         "source IDs form one directed circuit independently of declaration order");
@@ -103,23 +105,27 @@ int main() {
     changed << "<osm version='0.6'><node id='2' lat='0.5' lon='0.001'/></osm>";
   }
   for (auto &provider : providers) { provider.Revision = "r2"; }
-  CHECK(loader.Request(providers, "."), "changed revision is queued");
+  CHECK(loader.Request(providers, ".", std::span(&routeRequest, 1)), "changed revision is queued");
   CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmTransportLoader::Phase::Failed &&
-            loader.Error().find("2") != std::string_view::npos && loader.Current() == first,
+            loader.Error().find("2") != std::string_view::npos && loader.Current() == first &&
+            loader.Current()->FindRoute("three-edge") != nullptr,
         "conflicting cross-chunk ID rejects replacement and retains the published graph");
 
   {
     std::ofstream restored(secondPath, std::ios::binary | std::ios::trunc);
     restored << secondXml;
   }
-  CHECK(loader.Request(providers, "."), "same revision retries after corrected source bytes");
+  CHECK(loader.Request(providers, ".", std::span(&routeRequest, 1)),
+        "same revision retries after corrected source bytes");
   CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmTransportLoader::Phase::Ready &&
             loader.Current() && loader.Current()->SourceIdentity().Revision == "r2" &&
-            loader.Current()->Topology().Edges().size() == first->Topology().Edges().size(),
-        "corrected revision atomically replaces an equal-sized prior graph");
+            loader.Current()->Topology().Edges().size() == first->Topology().Edges().size() &&
+            loader.Current()->FindRoute("three-edge") != nullptr &&
+            loader.Current()->FindRoute("three-edge")->EdgeIds.size() == 3,
+        "corrected revision atomically replaces an equal-sized graph and named route");
 
   providers[0].Revision = "r3";
-  CHECK(!loader.Request(providers, ".") && loader.Current() &&
+  CHECK(!loader.Request(providers, ".", std::span(&routeRequest, 1)) && loader.Current() &&
             loader.Current()->SourceIdentity().Revision == "r2",
         "mixed source revisions reject before scheduling or changing publication");
 

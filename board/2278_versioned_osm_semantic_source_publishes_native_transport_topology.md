@@ -15,8 +15,8 @@ The runtime asks `Data::SourceSet` for Terrarium elevation and VersaTiles MVT.
 MVT z14 at Hockenheim omits `highway=raceway`; its feature IDs are not proven
 OSM Way IDs. The authored scenario now declares a SHA-256-pinned semantic OSM
 source, loaded and published as a native graph even without a renderer. The
-remaining gap is focus-based source-cell scheduling, bounded cancellation and
-route access from the running world. The snapped `Ground::VectorStreetGraph`
+remaining gap is bounded cancellation and route stability during focus movement.
+Worldwide source-cell scheduling belongs to WI 2280. The snapped `Ground::VectorStreetGraph`
 is only a road-corridor rendering input.
 
 ## Ownership and data flow
@@ -80,18 +80,20 @@ and failed source states. The public groundless path works both with and without
 a render target; the authored Hockenheim scenario resolves its shipped OSM file
 and verifies its SHA-256 pin. A snapshot resolves a circuit against its own
 source revision; source and graph cannot be paired by the consumer. Read,
-parse and graph times, source bytes and pending jobs reach public diagnostics.
+parse and graph times, source bytes, named-route counts and pending jobs reach
+public diagnostics. Scenario routes resolve on the worker and publish with the
+matching graph; authored Hockenheim resolves 267 directed edges.
 Names describe those ownership boundaries; do not reintroduce parser or file IO
 into `world/navigation`.
 
 The remaining regional work is cancellation/backpressure when revisions
-overtake the two-job queue and Engine/scenario access to the native route.
+overtake the two-job queue and route consumption by the camera.
 Worldwide focus-based source-cell scheduling is WI 2280. Adjacent shuffled chunks, conflicting
 source IDs, mixed revisions and corrected equal-sized replacement now pass the
 worker-publication test. Prove route stability under mesh eviction and moving
 focus before closing this WI; the camera lap stays in 2260.
 
-## Next executable route slice
+## Route publication contract
 
 - `Scenario::Document` declares named routes independently of views. Read/write
   `<routes><route id="grand-prix" source="osm" relationId="284588"/></routes>`.

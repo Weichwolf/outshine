@@ -44,19 +44,29 @@ int main() {
       Region("src/assets/world/osm/HockenheimringGrandPrix.osm",
              "pin-r1",
              {.WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34});
-  CHECK(source.Request(std::span(&hockenheim, 1), "."), "versioned regional source is queued");
+  const OsmCircuitRequest mainRoute{.Id = "grand-prix", .RelationId = 284588};
+  CHECK(source.Request(std::span(&hockenheim, 1), ".", std::span(&mainRoute, 1)),
+        "versioned regional source and named route are queued");
   CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Ready,
         "background import publishes a complete native graph");
   const auto original = source.Current();
   bool circuitValid = false;
   if (original) {
-    const auto circuit = original->ResolveCircuit(284588);
-    circuitValid = circuit && circuit->EdgeIds.size() == 267;
+    const CircuitRoute *circuit = original->FindRoute("grand-prix");
+    circuitValid = circuit != nullptr && circuit->EdgeIds.size() == 267;
   }
   CHECK(original && original->SourceIdentity().Revision == "pin-r1" &&
             original->Metrics().SourceBytes > 30000 && circuitValid,
         "published source IDs resolve the independent Hockenheim circuit oracle");
   if (!original) { return Report(); }
+
+  const OsmCircuitRequest missingRoute{.Id = "missing", .RelationId = 999999};
+  CHECK(source.Request(std::span(&hockenheim, 1), ".", std::span(&missingRoute, 1)),
+        "a replacement route request queues against the same source");
+  CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Failed &&
+            source.Error().find("999999") != std::string_view::npos &&
+            source.Current() == original && source.Current()->FindRoute("grand-prix") != nullptr,
+        "missing relation leaves the previous named route and graph published");
 
   auto wrongPin = hockenheim;
   wrongPin.Revision = "sha256:" + std::string(64, '0');

@@ -2,6 +2,8 @@
 #define OUTSHINE_WORLD_NAVIGATION_OSMTRANSPORTLOADER_H
 
 #include <cstddef>
+#include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <expected>
 #include <memory>
@@ -26,27 +28,66 @@ struct TransportLoadMetrics {
   double GraphMs = 0.0;
 };
 
-class TransportTopologySnapshot {
+struct OsmCircuitRequest {
+  std::string Id;
+  uint64_t RelationId = 0;
+
+  [[nodiscard]] bool operator==(const OsmCircuitRequest &) const = default;
+};
+
+struct NamedCircuitRoute {
+  std::string Id;
+  CircuitRoute Circuit;
+};
+
+struct ResolvedTransport {
+  TransportTopology Graph;
+  std::vector<NamedCircuitRoute> Routes;
+};
+
+class TransportNetworkSnapshot {
   Data::OsmElements Source_;
-  TransportTopology Graph_;
+  ResolvedTransport Transport_;
   std::vector<Data::SourceCoverage> Coverage_;
   TransportLoadMetrics Metrics_;
 
 public:
-  TransportTopologySnapshot(Data::OsmElements source,
-                            TransportTopology topology,
-                            std::vector<Data::SourceCoverage> coverage,
-                            TransportLoadMetrics metrics)
+  TransportNetworkSnapshot(Data::OsmElements source,
+                           ResolvedTransport transport,
+                           std::vector<Data::SourceCoverage> coverage,
+                           TransportLoadMetrics metrics)
       : Source_(std::move(source)),
-        Graph_(std::move(topology)),
+        Transport_(std::move(transport)),
         Coverage_(std::move(coverage)),
-        Metrics_(metrics) {}
+        Metrics_(metrics) {
+    assert(Source_.SourceIdentity() == Transport_.Graph.SourceIdentity());
+    assert(std::ranges::all_of(Transport_.Routes, [this](const NamedCircuitRoute &route) {
+      return route.Circuit.SourceIdentity == Source_.SourceIdentity();
+    }));
+  }
 
   [[nodiscard]] const Data::OsmSourceIdentity &SourceIdentity() const noexcept {
     return Source_.SourceIdentity();
   }
 
-  [[nodiscard]] const TransportTopology &Topology() const noexcept { return Graph_; }
+  [[nodiscard]] const TransportTopology &Topology() const noexcept { return Transport_.Graph; }
+
+  [[nodiscard]] const CircuitRoute *FindRoute(std::string_view id) const noexcept {
+    for (const NamedCircuitRoute &route : Transport_.Routes) {
+      if (route.Id == id) { return &route.Circuit; }
+    }
+    return nullptr;
+  }
+
+  [[nodiscard]] size_t RouteCount() const noexcept { return Transport_.Routes.size(); }
+
+  [[nodiscard]] size_t RouteEdgeCount() const noexcept {
+    size_t edges = 0;
+    for (const NamedCircuitRoute &route : Transport_.Routes) {
+      edges += route.Circuit.EdgeIds.size();
+    }
+    return edges;
+  }
 
   [[nodiscard]] std::span<const Data::SourceCoverage> Coverage() const noexcept {
     return Coverage_;
@@ -56,7 +97,7 @@ public:
 
   [[nodiscard]] std::expected<CircuitRoute, CircuitError>
   ResolveCircuit(uint64_t relationId, std::string_view memberRole = {}) const {
-    return Graph_.ResolveCircuit(Source_, relationId, memberRole);
+    return Transport_.Graph.ResolveCircuit(Source_, relationId, memberRole);
   }
 };
 
@@ -71,21 +112,23 @@ public:
   OsmTransportLoader &operator=(const OsmTransportLoader &) = delete;
 
   [[nodiscard]] std::expected<void, std::string>
-  Request(std::span<const Data::SourceProvider> providers, std::string_view shippedRoot);
+  Request(std::span<const Data::SourceProvider> providers,
+          std::string_view shippedRoot,
+          std::span<const OsmCircuitRequest> routes = {});
   void Poll();
 
   [[nodiscard]] Phase CurrentPhase() const noexcept { return Phase_; }
 
   [[nodiscard]] std::string_view Error() const noexcept { return Error_; }
 
-  [[nodiscard]] const std::shared_ptr<const TransportTopologySnapshot> &Current() const noexcept {
+  [[nodiscard]] const std::shared_ptr<const TransportNetworkSnapshot> &Current() const noexcept {
     return Current_;
   }
 
   [[nodiscard]] size_t PendingCount() const noexcept { return Pending_.size(); }
 
 private:
-  using LoadResult = std::expected<std::shared_ptr<const TransportTopologySnapshot>, std::string>;
+  using LoadResult = std::expected<std::shared_ptr<const TransportNetworkSnapshot>, std::string>;
 
   struct Result {
     std::optional<LoadResult> Value;
@@ -98,13 +141,15 @@ private:
   };
 
   [[nodiscard]] static LoadResult Load(std::span<const Data::SourceProvider> providers,
-                                       std::string_view shippedRoot);
+                                       std::string_view shippedRoot,
+                                       std::span<const OsmCircuitRequest> routes);
 
   Tasks *Tasks_;
   std::vector<Data::SourceProvider> Requested_;
+  std::vector<OsmCircuitRequest> RequestedRoutes_;
   std::string Root_;
   std::vector<Pending> Pending_;
-  std::shared_ptr<const TransportTopologySnapshot> Current_;
+  std::shared_ptr<const TransportNetworkSnapshot> Current_;
   std::string Error_;
   uint64_t Revision_ = 0;
   Phase Phase_ = Phase::Inactive;

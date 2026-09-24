@@ -9,6 +9,9 @@
               location="world/osm/HockenheimringGrandPrix.osm" rank="0" whenAbsent="fail"
               westDeg="8.54" southDeg="49.315" eastDeg="8.61" northDeg="49.34"/>
   </providers>
+  <routes>
+    <route id="grand-prix" source="osm" relationId="284588"/>
+  </routes>
   <views>
     <view id="overview" person="first" fovDeg="55">
       <at lat="49.327400" lon="8.565900" heightM="900"

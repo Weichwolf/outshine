@@ -38,12 +38,18 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   for (const Data::SourceProvider &provider : Session.Declared.Providers) {
     (provider.Kind == "osm" ? osmProviders : tileProviders).push_back(provider);
   }
+  std::vector<World::OsmCircuitRequest> routes;
+  routes.reserve(Session.Declared.Routes.size());
+  for (const Scenario::RouteDeclaration &declared : Session.Declared.Routes) {
+    routes.push_back({.Id = declared.Id, .RelationId = declared.OsmRelationId});
+  }
   if (!osmProviders.empty() || World.OsmTransportLoader) {
     if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
     if (!World.OsmTransportLoader) {
       World.OsmTransportLoader = std::make_unique<World::OsmTransportLoader>(*World.Pool);
     }
-    if (auto requested = World.OsmTransportLoader->Request(osmProviders, Session.Under.Shipped);
+    if (auto requested =
+            World.OsmTransportLoader->Request(osmProviders, Session.Under.Shipped, routes);
         !requested) {
       Error = std::move(requested.error());
       return false;
@@ -189,6 +195,10 @@ void Engine::State::PollOsmTransport() {
   Published.Places("semantic OSM read time", metrics.ReadMs, "ms");
   Published.Places("semantic OSM parse time", metrics.ParseMs, "ms");
   Published.Places("semantic OSM graph time", metrics.GraphMs, "ms");
+  Published.Places(
+      "semantic OSM named routes", static_cast<double>(current->RouteCount()), "routes");
+  Published.Places(
+      "semantic OSM route edges", static_cast<double>(current->RouteEdgeCount()), "edges");
 }
 
 }

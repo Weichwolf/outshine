@@ -16,6 +16,7 @@
 #include "Number.h"
 #include "ReadScenarioOsm.h"
 #include "SourceProviderValidation.h"
+#include "RouteValidation.h"
 
 #include <scenario/Scenario.h>
 
@@ -87,10 +88,10 @@ struct Element {
   const char *Allowed = "";
 };
 
-const std::array<Element, 81> kGrammar = {{
+const std::array<Element, 83> kGrammar = {{
     {.Path = "scenario",
      .Children =
-         "world render lighting providers generators assets placements surfaces kinds "
+         "world render lighting providers routes generators assets placements surfaces kinds "
          "instances regions volumes audio tables events views body player drive physics clock "
          "scene "
          "input state layer"},
@@ -110,6 +111,11 @@ const std::array<Element, 81> kGrammar = {{
     {.Path = "scenario/lighting/environment", .Children = ""},
     {.Path = "scenario/providers", .Children = "provider"},
     {.Path = "scenario/providers/provider", .Children = "", .Required = "kind"},
+    {.Path = "scenario/routes", .Children = "route"},
+    {.Path = "scenario/routes/route",
+     .Children = "",
+     .Required = "id source relationId",
+     .Allowed = "id source relationId"},
     {.Path = "scenario/generators", .Children = "generator"},
     {.Path = "scenario/generators/generator", .Children = "set", .Required = "kind"},
     {.Path = "scenario/generators/generator/set", .Children = ""},
@@ -529,6 +535,32 @@ bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &er
     into.Generators.push_back(made);
   }
 
+  return true;
+}
+
+bool ReadRoutes(const Xml::Ref &root, Scenario::Document &into, std::string &error) {
+  for (const Xml::Ref one : root.Child("routes").Children("route")) {
+    if (into.Routes.size() == 32) {
+      error = "scenario exceeds 32 named routes";
+      return false;
+    }
+    if (one.Attr("source") != "osm") {
+      error = "route source must be 'osm'";
+      return false;
+    }
+    const std::string text = one.Attr("relationId");
+    uint64_t relationId = 0;
+    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), relationId);
+    if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
+      error = "route relationId requires a complete unsigned decimal integer";
+      return false;
+    }
+    into.Routes.push_back({.Id = one.Attr("id"), .OsmRelationId = relationId});
+  }
+  if (auto valid = ValidateRouteDeclarations(into.Routes); !valid) {
+    error = std::move(valid.error());
+    return false;
+  }
   return true;
 }
 
@@ -1093,6 +1125,7 @@ bool ReadScenario(const Xml &document, Scenario::Document &output, std::string &
   if (!ReadSectionsOnto(root, into, error)) { return false; }
 
   if (!ReadSources(root, into, error)) { return false; }
+  if (!ReadRoutes(root, into, error)) { return false; }
   if (!ReadAssets(root, into, error)) { return false; }
   ReadPlacementAndUi(root, into);
   if (!ReadSceneRoom(root, into.Room, error)) { return false; }

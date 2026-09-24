@@ -778,6 +778,18 @@ struct Persisted {
   std::string What;
 };
 
+/// Named route import request. The OSM relation ID is a source selector; runtime
+/// consumers use Id and receive a route resolved against one published source revision.
+/// Engine::declare copies this value. Id has 1-64 ASCII bytes from letters, digits,
+/// underscore, hyphen and period; names must be unique and OsmRelationId nonzero.
+/// Resolution runs off the frame path and rejects the candidate when its relation is unusable.
+struct RouteDeclaration {
+  std::string Id;
+  uint64_t OsmRelationId = 0;
+
+  [[nodiscard]] bool operator==(const RouteDeclaration &) const = default;
+};
+
 /// Owned scenario declarations, not a live world or an imported geometry container.
 /// Copying duplicates strings and vectors and may allocate. Engine::declare copies
 /// declarations; later edits here do not update the engine. Validation occurs at
@@ -795,6 +807,8 @@ struct Document {
   WorldSettings Ground;
   /// Owned provider configurations; declaring these does not synchronously fetch their data.
   std::vector<Data::SourceProvider> Providers;
+  /// Routes resolved from the semantic OSM source before that source becomes ready.
+  std::vector<RouteDeclaration> Routes;
   /// Generator requests resolved against registered producer kinds during declaration.
   std::vector<Generating> Generators;
   /// Render configuration; dimensions and live render targets are supplied separately to Engine.

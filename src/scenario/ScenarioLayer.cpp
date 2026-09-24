@@ -158,6 +158,8 @@ bool MergeLayer(Scenario::Document &into,
   MergeRows(into.Instances, layer.Instances, named, "instance", ByInstanceId{}, trace);
   MergeRows(into.Assets, layer.Assets, named, "asset", ByAssetUri{}, trace);
   MergeRows(into.Providers, layer.Providers, named, "provider", ByProviderKindAndRank{}, trace);
+  MergeRows(
+      into.Routes, layer.Routes, named, "route", ByIdField<Scenario::RouteDeclaration>{}, trace);
   MergeRows(into.Generators,
             layer.Generators,
             named,

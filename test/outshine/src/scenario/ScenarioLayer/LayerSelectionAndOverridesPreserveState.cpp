@@ -18,6 +18,7 @@ int main() {
   into.Motion.StepS = 0.02;
   into.Motion.MostStepsInArrears = 8;
   into.Events.push_back({.Name = "old", .Carries = {"before"}});
+  into.Routes.push_back({.Id = "circuit", .OsmRelationId = 9});
   std::vector<std::string> trace{"previous"};
   std::string error;
   for (const std::string_view text : {"<scenario><events><event name=\"new\"/></events><physics "
@@ -30,13 +31,15 @@ int main() {
     CHECK(into.Named.Name == "base" && into.Events.size() == 1 &&
               into.Events.front().Name == "old" &&
               into.Events.front().Carries == std::vector<std::string>{"before"} &&
+              into.Routes.size() == 1 && into.Routes.front().OsmRelationId == 9 &&
               into.Motion.StepS == 0.02 && into.Motion.MostStepsInArrears == 8,
           "rejected layer preserves document");
     CHECK(trace == std::vector<std::string>{"previous"}, "rejected layer preserves trace");
   }
   constexpr std::string_view valid =
       "<scenario><events><event name=\"old\"><carries what=\"after\"/></event>"
-      "<event name=\"new\"/></events><physics stepS=\"0.01\"/></scenario>";
+      "<event name=\"new\"/></events><physics stepS=\"0.01\"/>"
+      "<routes><route id=\"circuit\" source=\"osm\" relationId=\"10\"/></routes></scenario>";
   CHECK(ApplyLayer(into, valid.data(), valid.size(), "good", trace, error), "valid retry succeeds");
   CHECK(error.empty() && into.Events.size() == 2 &&
             into.Events.front().Carries == std::vector<std::string>{"after"} &&
@@ -44,6 +47,8 @@ int main() {
         "matching event replaced and new event appended");
   CHECK(into.Motion.StepS == 0.01 && into.Motion.MostStepsInArrears == 8,
         "omitted scalar preserves base value");
+  CHECK(into.Routes.size() == 1 && into.Routes.front().OsmRelationId == 10,
+        "layer replaces named route selector without duplicating the name");
   CHECK(trace.size() > 1 && trace.front() == "previous", "successful merge appends trace");
   return Report();
 }

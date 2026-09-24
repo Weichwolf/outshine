@@ -76,7 +76,8 @@ enum class CircuitErrorCode : uint8_t {
   UnusableEdge,
   EmptyRoute,
   AmbiguousDirection,
-  DisconnectedRoute
+  DisconnectedRoute,
+  TooManyEdges
 };
 
 struct CircuitError {
@@ -112,8 +113,11 @@ public:
   [[nodiscard]] static bool CanContinue(const TransportEdge &from,
                                         const TransportEdge &to) noexcept;
 
-  [[nodiscard]] std::expected<CircuitRoute, CircuitError> ResolveCircuit(
-      const Data::OsmElements &source, uint64_t relationId, std::string_view memberRole = {}) const;
+  [[nodiscard]] std::expected<CircuitRoute, CircuitError>
+  ResolveCircuit(const Data::OsmElements &source,
+                 uint64_t relationId,
+                 std::string_view memberRole = {},
+                 size_t maxEdges = 65536) const;
 
 private:
   Data::OsmSourceIdentity SourceIdentity_;

@@ -49,6 +49,10 @@ int main() {
   CHECK(graph.has_value(), "the complete source builds a native logical transport graph");
   if (!graph) { return Report(); }
   const auto route = graph->ResolveCircuit(*source, 284588);
+  const auto undersizedBudget = graph->ResolveCircuit(*source, 284588, {}, 266);
+  CHECK(!undersizedBudget && undersizedBudget.error().Code == CircuitErrorCode::TooManyEdges &&
+            undersizedBudget.error().SourceId == 284588,
+        "route edge budget rejects before selecting an overlong circuit");
   CHECK(route && route->EdgeIds.size() == 267 && graph->UnclassifiedWayCount() == 0,
         "the main Grand Prix relation resolves to 267 directed raceway edges");
   if (!route) { return Report(); }

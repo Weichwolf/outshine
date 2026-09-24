@@ -9,6 +9,7 @@
 #include "WorldValidation.h"
 #include "OsmValidation.h"
 #include "SourceProviderValidation.h"
+#include "RouteValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineHeld.h"
 #include "ReadTextFile.h"
@@ -420,8 +421,17 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 
 namespace {
 [[nodiscard]] Result ValidateDeclarationInputs(const Scenario::Document &scenario) {
+  if (auto valid = ValidateRouteDeclarations(scenario.Routes); !valid) {
+    return std::unexpected(std::move(valid.error()));
+  }
   if (const auto valid = Data::ValidateSourceProviders(scenario.Providers); !valid) {
     return std::unexpected(valid.error());
+  }
+  if (!scenario.Routes.empty() &&
+      !std::ranges::any_of(scenario.Providers, [](const Data::SourceProvider &provider) {
+        return provider.Kind == "osm";
+      })) {
+    return std::unexpected("named OSM routes require an OSM source provider");
   }
   if (const auto valid = ValidateBodyDynamics(scenario.Bodies); !valid) {
     return std::unexpected(std::string(valid.error()));

@@ -7,6 +7,7 @@
 #include "WeatherValidation.h"
 #include "PlayerValidation.h"
 #include "WorldValidation.h"
+#include "RouteValidation.h"
 #include <utility>
 
 #include <expected>
@@ -769,6 +770,19 @@ void WriteProviders(std::string &said, std::span<const Data::SourceProvider> pro
   said += "  </providers>\n";
 }
 
+void WriteRoutes(std::string &said, std::span<const Scenario::RouteDeclaration> routes) {
+  if (routes.empty()) { return; }
+  said += "  <routes>\n";
+  for (const auto &route : routes) {
+    said += "    <route";
+    Said(said, "id", route.Id, true);
+    Said(said, "source", "osm");
+    Number(said, "relationId", route.OsmRelationId);
+    said += "/>\n";
+  }
+  said += "  </routes>\n";
+}
+
 void WriteGenerators(std::string &said, std::span<const Scenario::Generating> generators) {
   if (generators.empty()) { return; }
   said += "  <generators>\n";
@@ -790,6 +804,9 @@ void WriteGenerators(std::string &said, std::span<const Scenario::Generating> ge
 }
 
 std::expected<std::string, std::string> WriteScenario(const Scenario::Document &declared) {
+  if (auto valid = ValidateRouteDeclarations(declared.Routes); !valid) {
+    return std::unexpected(std::move(valid.error()));
+  }
   if (const auto valid = ValidateWorld(declared.Ground); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
@@ -854,6 +871,7 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   WriteEvents(said, declared.Events);
   WriteVolumes(said, declared.Volumes);
   WriteProviders(said, declared.Providers);
+  WriteRoutes(said, declared.Routes);
   WriteGenerators(said, declared.Generators);
   WritePersistence(said, declared.State);
   WritePlayer(said, declared.Played);
