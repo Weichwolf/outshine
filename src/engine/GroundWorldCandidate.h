@@ -28,8 +28,8 @@ struct GroundBuildProducts {
   std::shared_ptr<const ClassStructure> ClassStructure;
   Material GroundMaterial;
   MaterialInstance GroundSurface;
-  std::shared_ptr<const Path::Network> Network;
-  size_t NetworkOfWays = 0;
+  std::shared_ptr<const Path::Network> StreetGraph;
+  size_t StreetGraphWayCount = 0;
   size_t RimsMissing = 0;
   std::optional<TilePieces::Surfaces> Surfaces;
 
@@ -70,8 +70,8 @@ public:
                   .ClassStructure = {},
                   .GroundMaterial = {},
                   .GroundSurface = {},
-                  .Network = world.Network,
-                  .NetworkOfWays = world.NetworkOfWays,
+                  .StreetGraph = world.StreetGraph,
+                  .StreetGraphWayCount = world.StreetGraphWayCount,
                   .RimsMissing = world.RimsMissing,
                   .Surfaces = world.StructureSurfaces},
         World_(renderer),
@@ -211,8 +211,8 @@ public:
     world.Sheets = std::move(Products_.Sheets);
     world.GroundPositionsM = std::move(Products_.PositionsM);
     world.GroundIndex = std::move(Products_.Indices);
-    world.Network = std::move(Products_.Network);
-    world.NetworkOfWays = Products_.NetworkOfWays;
+    world.StreetGraph = std::move(Products_.StreetGraph);
+    world.StreetGraphWayCount = Products_.StreetGraphWayCount;
     world.RimsMissing = Products_.RimsMissing;
     PublicationMetrics_.ProductsMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)
@@ -258,7 +258,7 @@ private:
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::ClassStructure)>);
   static_assert(std::is_nothrow_move_assignable_v<Material>);
   static_assert(std::is_nothrow_move_assignable_v<MaterialInstance>);
-  static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::Network)>);
+  static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::StreetGraph)>);
 };
 }
 #endif

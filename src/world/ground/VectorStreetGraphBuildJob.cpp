@@ -1,4 +1,4 @@
-#include "TransportNetwork.h"
+#include "VectorStreetGraph.h"
 
 #include <algorithm>
 #include <cassert>
@@ -16,23 +16,23 @@
 #include "Earth.h"
 #include "OsmField.h"
 
-namespace outshine::World {
-TransportNetworkBuildJob::TransportNetworkBuildJob(Path::Network &&graph,
-                                                   Path::Network::HeightSource heightOf)
+namespace outshine::Ground {
+VectorStreetGraphBuildJob::VectorStreetGraphBuildJob(Path::Network &&graph,
+                                                     Path::Network::HeightSource heightOf)
     : Graph_(std::move(graph)), HeightOf_(std::move(heightOf)) {}
 
-std::expected<TransportNetworkBuildJob, std::string>
-TransportNetworkBuildJob::Begin(const Ground::GroundStack &stack,
-                                Path::Network::HeightSource heightOf) {
+std::expected<VectorStreetGraphBuildJob, std::string>
+VectorStreetGraphBuildJob::Begin(const Ground::GroundStack &stack,
+                                 Path::Network::HeightSource heightOf) {
   const auto began = std::chrono::steady_clock::now();
   const Ground::OsmField *const vectors = stack.Vectors();
-  if (vectors == nullptr) { return std::unexpected("transport vectors are absent"); }
-  auto created = Path::Network::Create(Path::Snap{.CellM = TransportNetwork::kNodeSnapM},
+  if (vectors == nullptr) { return std::unexpected("vector streets are absent"); }
+  auto created = Path::Network::Create(Path::Snap{.CellM = VectorStreetGraph::kNodeSnapM},
                                        Path::Sphere{.RadiusM = kWgs84A});
   if (!created) { return std::unexpected(std::string(created.error())); }
-  if (!heightOf) { return std::unexpected("transport height source is absent"); }
-  TransportNetworkBuildJob job(std::move(*created), std::move(heightOf));
-  if (const auto laid = TransportNetwork::LayWays(stack.Ways(), vectors->Points(), job.Graph_);
+  if (!heightOf) { return std::unexpected("street corridor height source is absent"); }
+  VectorStreetGraphBuildJob job(std::move(*created), std::move(heightOf));
+  if (const auto laid = VectorStreetGraph::LayWays(stack.Ways(), vectors->Points(), job.Graph_);
       !laid) {
     return std::unexpected(std::string(laid.error()));
   }
@@ -42,7 +42,7 @@ TransportNetworkBuildJob::Begin(const Ground::GroundStack &stack,
   return job;
 }
 
-std::expected<void, std::string> TransportNetworkBuildJob::BeginWeave() {
+std::expected<void, std::string> VectorStreetGraphBuildJob::BeginWeave() {
   if (Built_.Ways == 0) {
     Stage_ = Stage::BeginCrossings;
     return {};
@@ -54,7 +54,7 @@ std::expected<void, std::string> TransportNetworkBuildJob::BeginWeave() {
   return {};
 }
 
-std::expected<void, std::string> TransportNetworkBuildJob::AdvanceWeave(size_t itemsMost) {
+std::expected<void, std::string> VectorStreetGraphBuildJob::AdvanceWeave(size_t itemsMost) {
   assert(Weave_ != nullptr);
   auto advanced = Weave_->Advance(itemsMost);
   if (!advanced) { return std::unexpected(std::move(advanced.error())); }
@@ -67,7 +67,7 @@ std::expected<void, std::string> TransportNetworkBuildJob::AdvanceWeave(size_t i
   return {};
 }
 
-std::expected<void, std::string> TransportNetworkBuildJob::CleanupWeave(size_t itemsMost) {
+std::expected<void, std::string> VectorStreetGraphBuildJob::CleanupWeave(size_t itemsMost) {
   assert(Weave_ != nullptr);
   constexpr size_t kCleanupItemsPerBuildItem = 16;
   const size_t cleanupItemsMost =
@@ -83,7 +83,7 @@ std::expected<void, std::string> TransportNetworkBuildJob::CleanupWeave(size_t i
   return {};
 }
 
-std::expected<void, std::string> TransportNetworkBuildJob::BeginCrossings() {
+std::expected<void, std::string> VectorStreetGraphBuildJob::BeginCrossings() {
   auto started = Path::NetworkCrossingJob::Begin(std::move(Graph_));
   if (!started) { return std::unexpected(std::string(started.error())); }
   Crossings_ = std::make_unique<Path::NetworkCrossingJob>(std::move(*started));
@@ -91,7 +91,7 @@ std::expected<void, std::string> TransportNetworkBuildJob::BeginCrossings() {
   return {};
 }
 
-std::expected<void, std::string> TransportNetworkBuildJob::AdvanceCrossings(size_t pairsMost) {
+std::expected<void, std::string> VectorStreetGraphBuildJob::AdvanceCrossings(size_t pairsMost) {
   assert(Crossings_ != nullptr);
   constexpr size_t kCrossingPairsPerBuildItem = 128;
   const size_t crossingPairsMost =
@@ -114,13 +114,13 @@ std::expected<void, std::string> TransportNetworkBuildJob::AdvanceCrossings(size
   return {};
 }
 
-void TransportNetworkBuildJob::BeginElevation() {
+void VectorStreetGraphBuildJob::BeginElevation() {
   Elevation_ = std::make_unique<Path::NetworkElevationJob>(
       Path::NetworkElevationJob::Begin(std::move(Graph_), std::move(HeightOf_)));
   Stage_ = Stage::Elevation;
 }
 
-std::expected<void, std::string> TransportNetworkBuildJob::AdvanceElevation(size_t itemsMost) {
+std::expected<void, std::string> VectorStreetGraphBuildJob::AdvanceElevation(size_t itemsMost) {
   assert(Elevation_ != nullptr);
   constexpr size_t kProfileItemsPerSample = 4;
   const size_t profileItemsMost =
@@ -141,13 +141,13 @@ std::expected<void, std::string> TransportNetworkBuildJob::AdvanceElevation(size
   return {};
 }
 
-void TransportNetworkBuildJob::Publish() {
+void VectorStreetGraphBuildJob::Publish() {
   Built_.Graph = std::make_shared<Path::Network>(std::move(Graph_));
   Stage_ = Stage::Done;
 }
 
-std::expected<bool, std::string> TransportNetworkBuildJob::Advance(size_t itemsMost) {
-  if (itemsMost == 0) { return std::unexpected("transport network work budget is zero"); }
+std::expected<bool, std::string> VectorStreetGraphBuildJob::Advance(size_t itemsMost) {
+  if (itemsMost == 0) { return std::unexpected("street corridor work budget is zero"); }
   const auto began = std::chrono::steady_clock::now();
   const Stage before = Stage_;
   std::expected<void, std::string> progressed;
@@ -200,8 +200,8 @@ std::expected<bool, std::string> TransportNetworkBuildJob::Advance(size_t itemsM
   return Stage_ == Stage::Done;
 }
 
-std::expected<TransportNetwork::Built, std::string_view> TransportNetworkBuildJob::Take() && {
-  if (Stage_ != Stage::Done) { return std::unexpected("transport network is incomplete"); }
+std::expected<VectorStreetGraph::Built, std::string_view> VectorStreetGraphBuildJob::Take() && {
+  if (Stage_ != Stage::Done) { return std::unexpected("street corridor graph is incomplete"); }
   return std::move(Built_);
 }
 

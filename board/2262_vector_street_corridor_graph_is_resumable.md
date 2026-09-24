@@ -4,10 +4,10 @@ Architecture: ready
 Parent: 2234
 Depends:
 Priority: P0
-Area: world, navigation, engine, streaming
-Tags: osm, routing, realtime, determinism
+Area: world, ground, engine, streaming
+Tags: vector-tiles, roads, realtime, determinism
 
-# Transport network construction must not stall a moving frame
+# Vector street corridor graph construction must not stall a moving frame
 
 ## Proven defect
 
@@ -25,13 +25,13 @@ snap can connect unrelated levels.
 ## Decision
 
 Keep the vector-street corridor graph under `world/ground`; the road generator
-consumes a read-only graph snapshot. Rename its builder and product so neither
-claims to be the authoritative transport topology. A candidate-owned, move-only
+consumes a read-only graph snapshot. `VectorStreetGraph` and its build job
+name this derived product, distinct from `TransportTopology`. A candidate-owned, move-only
 builder pins one `OsmField` generation, `StreetField`, DEM source and region.
 Build in deterministic source order: ingest ways/points, create topology,
-classify crossings, then attach elevation and navigation metadata. Expose a
+classify crossings, then attach elevation and corridor metadata. Expose a
 bounded `Advance(work budget)` and cancellation, not a synchronous full build
-in `BeginsGroundModels`. No intermediate graph can replace the published one.
+in `AdvanceGroundStreetGraph`. No intermediate graph can replace the published one.
 Vector-tile revisions govern this derived product, never OSM logical identity.
 A same-count changed vector revision rebuilds it. Failures retain the old
 published corridor product; do not publish null or partial state. The source-ID
@@ -45,7 +45,7 @@ memory and pending jobs. Cancellation must preserve the published product.
 ## Current evidence
 
 The one-shot oracle measured 543 ms (Weave 431, Crossings 26, Elevate 84).
-The paced builder owns move-only weave, crossing and elevation jobs, pins
+The paced `VectorStreetGraphBuildJob` owns move-only weave, crossing and elevation jobs, pins
 candidate DEM sheets and publishes only complete graphs. Wien has 47,101 ways,
 155,084 nodes and 369,981 edges. Two recent Wien runs retained the same
 native product digest; worst network slices were 3.35–4.03 ms, p99 frames

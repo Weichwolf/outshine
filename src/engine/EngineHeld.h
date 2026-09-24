@@ -242,8 +242,8 @@ struct Surrounds {
   TilePieces Pieces;
   std::optional<TilePieces::Surfaces> StructureSurfaces;
   HeightSheets Sheets;
-  std::shared_ptr<const Path::Network> Network;
-  size_t NetworkOfWays = 0;
+  std::shared_ptr<const Path::Network> StreetGraph;
+  size_t StreetGraphWayCount = 0;
   bool PiecesFramed = false;
   std::unique_ptr<Tasks> Pool;
   StructureBuildQueue StructureBuilds;
@@ -464,7 +464,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress BeginsGroundClasses();
   [[nodiscard]] GroundBuildProgress BeginsGroundSurface();
   [[nodiscard]] GroundBuildProgress BeginsGroundModels(const TangentFrame &standing);
-  [[nodiscard]] GroundBuildProgress BeginsGroundNetwork();
+  [[nodiscard]] GroundBuildProgress AdvanceGroundStreetGraph();
   [[nodiscard]] GroundBuildProgress BeginsGroundBakes(const TangentFrame &standing) const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;

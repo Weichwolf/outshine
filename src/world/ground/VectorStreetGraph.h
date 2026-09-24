@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_NAVIGATION_TRANSPORTNETWORK_H
-#define OUTSHINE_WORLD_NAVIGATION_TRANSPORTNETWORK_H
+#ifndef OUTSHINE_WORLD_GROUND_VECTORSTREETGRAPH_H
+#define OUTSHINE_WORLD_GROUND_VECTORSTREETGRAPH_H
 
 #include <cstddef>
 #include <cstdint>
@@ -12,9 +12,9 @@
 #include "GroundStack.h"
 #include "Wayfinding.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
-class TransportNetwork {
+class VectorStreetGraph {
 public:
   struct Built {
     std::shared_ptr<const Path::Network> Graph;
@@ -46,23 +46,23 @@ public:
   [[nodiscard]] static Built BuildOneShot(const Ground::GroundStack &stack);
 
 private:
-  friend class TransportNetworkBuildJob;
+  friend class VectorStreetGraphBuildJob;
   static constexpr double kNodeSnapM = 2.0;
   [[nodiscard]] static std::expected<void, std::string_view>
   LayWays(const Ground::StreetField &ways, std::span<const double> points, Path::Network &graph);
 };
 
-class TransportNetworkBuildJob {
+class VectorStreetGraphBuildJob {
 public:
-  [[nodiscard]] static std::expected<TransportNetworkBuildJob, std::string>
+  [[nodiscard]] static std::expected<VectorStreetGraphBuildJob, std::string>
   Begin(const Ground::GroundStack &stack, Path::Network::HeightSource heightOf);
-  TransportNetworkBuildJob(const TransportNetworkBuildJob &) = delete;
-  TransportNetworkBuildJob &operator=(const TransportNetworkBuildJob &) = delete;
-  TransportNetworkBuildJob(TransportNetworkBuildJob &&) noexcept = default;
-  TransportNetworkBuildJob &operator=(TransportNetworkBuildJob &&) noexcept = default;
+  VectorStreetGraphBuildJob(const VectorStreetGraphBuildJob &) = delete;
+  VectorStreetGraphBuildJob &operator=(const VectorStreetGraphBuildJob &) = delete;
+  VectorStreetGraphBuildJob(VectorStreetGraphBuildJob &&) noexcept = default;
+  VectorStreetGraphBuildJob &operator=(VectorStreetGraphBuildJob &&) noexcept = default;
 
   [[nodiscard]] std::expected<bool, std::string> Advance(size_t itemsMost);
-  [[nodiscard]] std::expected<TransportNetwork::Built, std::string_view> Take() &&;
+  [[nodiscard]] std::expected<VectorStreetGraph::Built, std::string_view> Take() &&;
 
   [[nodiscard]] double LongestSliceMs() const noexcept { return LongestSliceMs_; }
 
@@ -78,7 +78,7 @@ private:
     Publish,
     Done
   };
-  TransportNetworkBuildJob(Path::Network &&graph, Path::Network::HeightSource heightOf);
+  VectorStreetGraphBuildJob(Path::Network &&graph, Path::Network::HeightSource heightOf);
   [[nodiscard]] std::expected<void, std::string> BeginWeave();
   [[nodiscard]] std::expected<void, std::string> AdvanceWeave(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> CleanupWeave(size_t itemsMost);
@@ -93,7 +93,7 @@ private:
   std::unique_ptr<Path::NetworkCrossingJob> Crossings_;
   std::unique_ptr<Path::NetworkElevationJob> Elevation_;
   Path::Network::HeightSource HeightOf_;
-  TransportNetwork::Built Built_;
+  VectorStreetGraph::Built Built_;
   double LongestSliceMs_ = 0.0;
   Stage Stage_ = Stage::BeginWeave;
 };

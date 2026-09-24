@@ -1,4 +1,4 @@
-#include "TransportNetwork.h"
+#include "VectorStreetGraph.h"
 
 #include <chrono>
 #include <cstddef>
@@ -14,13 +14,13 @@
 #include "OsmField.h"
 #include "StreetField.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 namespace Says {
-constexpr auto kInvalidTransportPointRange =
-    "transport way point range exceeds the supplied coordinate stream";
+constexpr auto kInvalidStreetPointRange =
+    "vector street point range exceeds the supplied coordinate stream";
 }
 
-TransportNetwork::Built TransportNetwork::BuildOneShot(const Ground::GroundStack &stack) {
+VectorStreetGraph::Built VectorStreetGraph::BuildOneShot(const Ground::GroundStack &stack) {
   Built made;
   const Ground::OsmField *const vectors = stack.Vectors();
   if (vectors == nullptr) { return made; }
@@ -62,15 +62,15 @@ TransportNetwork::Built TransportNetwork::BuildOneShot(const Ground::GroundStack
   return made;
 }
 
-std::expected<void, std::string_view> TransportNetwork::LayWays(const Ground::StreetField &ways,
-                                                                std::span<const double> points,
-                                                                Path::Network &graph) {
+std::expected<void, std::string_view> VectorStreetGraph::LayWays(const Ground::StreetField &ways,
+                                                                 std::span<const double> points,
+                                                                 Path::Network &graph) {
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const Ground::StreetField::Way &lane = ways.Ways()[at];
     if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
     const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
     if (first > points.size() || lane.PointCount > (points.size() - first) / 2) {
-      return std::unexpected(Says::kInvalidTransportPointRange);
+      return std::unexpected(Says::kInvalidStreetPointRange);
     }
     const auto laid = graph.Lay(points.subspan(first, static_cast<size_t>(lane.PointCount) * 2),
                                 Path::WayClass{.HalfWidthM = static_cast<double>(lane.HalfWidthM),

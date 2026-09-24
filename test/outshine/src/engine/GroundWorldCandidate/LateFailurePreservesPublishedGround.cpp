@@ -55,7 +55,7 @@ int main() {
       world.BindSceneResources(renderer);
       world.GroundPositionsM = {1, 2, 3};
       world.GroundIndex = {0};
-      world.NetworkOfWays = 7;
+      world.StreetGraphWayCount = 7;
       world.RimsMissing = 2;
       const GroundRevision oldRevision{.Region = 17};
       const GroundRevision nextRevision{.Region = 18};
@@ -92,7 +92,7 @@ int main() {
           if (prepared) {
             build.Products().PositionsM = {9, 8, 7};
             build.Products().Indices = {0, 0, 0};
-            build.Products().NetworkOfWays = 19;
+            build.Products().StreetGraphWayCount = 19;
             build.Products().RimsMissing = 0;
             CHECK(renderer.SetTerrainTiles({}, {}, error), "candidate changes terrain first");
             rejectSubmit = true;
@@ -111,8 +111,8 @@ int main() {
                   renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
               "abandonment preserves the published owner and original GPU terrain");
         CHECK(world.GroundPositionsM == std::vector<float>({1, 2, 3}) &&
-                  world.GroundIndex == std::vector<uint32_t>({0}) && world.NetworkOfWays == 7 &&
-                  world.RimsMissing == 2 && world.Relaid == 0 &&
+                  world.GroundIndex == std::vector<uint32_t>({0}) &&
+                  world.StreetGraphWayCount == 7 && world.RimsMissing == 2 && world.Relaid == 0 &&
                   world.GroundPublished.NeedsRebuild(nextRevision, false, false),
               "late failure preserves CPU terrain, network metadata and publication revision");
       }
@@ -125,12 +125,12 @@ int main() {
         if (heldPrepared) {
           held.Products().PositionsM = {9, 8, 7};
           held.Products().Indices = {0, 0, 0};
-          held.Products().NetworkOfWays = 19;
+          held.Products().StreetGraphWayCount = 19;
           CHECK(world.GroundPublished.BeginCapture(), "published ground enters capture");
           const auto heldResult = held.Publish(world, footprints, scene, nextRevision);
           CHECK(!heldResult && scene.get() == oldScene &&
                     world.GroundPositionsM == std::vector<float>({1, 2, 3}) &&
-                    world.NetworkOfWays == 7 && world.Relaid == 0,
+                    world.StreetGraphWayCount == 7 && world.Relaid == 0,
                 "capture refuses a late candidate before changing live or CPU world products");
           world.GroundPublished.EndCapture();
         }
@@ -143,7 +143,7 @@ int main() {
       if (prepared) {
         retry.Products().PositionsM = {9, 8, 7};
         retry.Products().Indices = {0, 0, 0};
-        retry.Products().NetworkOfWays = 19;
+        retry.Products().StreetGraphWayCount = 19;
         retry.Products().RimsMissing = 0;
         CHECK(renderer.SetTerrainTiles({}, {}, error) &&
                   retry.SetGroundGeometry(geometry.clone(), 0, error),
@@ -154,7 +154,7 @@ int main() {
                   scene->DrivenParts() == 0 &&
                   world.GroundPositionsM == std::vector<float>({9, 8, 7}) &&
                   world.GroundIndex == std::vector<uint32_t>({0, 0, 0}) &&
-                  world.NetworkOfWays == 19 && world.RimsMissing == 0 && world.Relaid == 1 &&
+                  world.StreetGraphWayCount == 19 && world.RimsMissing == 0 && world.Relaid == 1 &&
                   !world.GroundPublished.NeedsRebuild(nextRevision, false, false),
               "GPU terrain, CPU products and revision publish together exactly once");
       }

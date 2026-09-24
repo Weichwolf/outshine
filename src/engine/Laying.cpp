@@ -49,7 +49,7 @@
 #include "WaterSurfaceBuilder.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
-#include "TransportNetwork.h"
+#include "VectorStreetGraph.h"
 
 namespace outshine {
 namespace Says {
@@ -347,15 +347,15 @@ public:
 
   void FinishesCorridors() noexcept { CorridorJob_.reset(); }
 
-  [[nodiscard]] outshine::World::TransportNetworkBuildJob *NetworkJob() noexcept {
-    return NetworkJob_.get();
+  [[nodiscard]] outshine::Ground::VectorStreetGraphBuildJob *StreetGraphJob() noexcept {
+    return StreetGraphJob_.get();
   }
 
-  void BeginsNetwork(std::unique_ptr<outshine::World::TransportNetworkBuildJob> job) noexcept {
-    NetworkJob_ = std::move(job);
+  void BeginStreetGraph(std::unique_ptr<outshine::Ground::VectorStreetGraphBuildJob> job) noexcept {
+    StreetGraphJob_ = std::move(job);
   }
 
-  void FinishesNetwork() noexcept { NetworkJob_.reset(); }
+  void FinishStreetGraph() noexcept { StreetGraphJob_.reset(); }
 
   [[nodiscard]] Generators::TerrainRefinementJob *RefinementJob() noexcept {
     return RefinementJob_.get();
@@ -500,7 +500,7 @@ private:
   std::unique_ptr<Generators::BuildingStampJob> Stamping_;
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
-  std::unique_ptr<outshine::World::TransportNetworkBuildJob> NetworkJob_;
+  std::unique_ptr<outshine::Ground::VectorStreetGraphBuildJob> StreetGraphJob_;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<EarthworkStamp> Corridors_;
@@ -1424,7 +1424,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
   return GroundBuildProgress::Pending;
 }
 
-Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   GroundBuildState &state = *World.GroundBuild;
   if (state.NextStage() != Core::GroundBuildSchedule::Stage::NeedsNetwork) {
     return GroundBuildProgress::Ready;
@@ -1437,20 +1437,20 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
       publishedRevision->ResidentTiles != requestedRevision.ResidentTiles ||
       publishedRevision->VectorGeneration != requestedRevision.VectorGeneration ||
       publishedRevision->StreetTiles != requestedRevision.StreetTiles;
-  if (build.Network != nullptr && World.Stack.Ways().Ways().size() == build.NetworkOfWays &&
-      !sourcesChanged) {
+  if (build.StreetGraph != nullptr &&
+      World.Stack.Ways().Ways().size() == build.StreetGraphWayCount && !sourcesChanged) {
     state.CompletesStage();
     return GroundBuildProgress::Pending;
   }
   if (World.Stack.Vectors() == nullptr) {
-    build.Network.reset();
-    build.NetworkOfWays = 0;
+    build.StreetGraph.reset();
+    build.StreetGraphWayCount = 0;
     state.CompletesStage();
     return GroundBuildProgress::Pending;
   }
-  if (state.NetworkJob() == nullptr) {
+  if (state.StreetGraphJob() == nullptr) {
     const int sourceZoom = state.Coverage().Zoom;
-    auto started = outshine::World::TransportNetworkBuildJob::Begin(
+    auto started = outshine::Ground::VectorStreetGraphBuildJob::Begin(
         World.Stack, [&sheets = build.Sheets, sourceZoom](LongitudeLatitude at) {
           return sheets.AslMAt(sourceZoom, at);
         });
@@ -1459,27 +1459,27 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
       World.GroundBuild.reset();
       return GroundBuildProgress::Failed;
     }
-    state.BeginsNetwork(
-        std::make_unique<outshine::World::TransportNetworkBuildJob>(std::move(*started)));
+    state.BeginStreetGraph(
+        std::make_unique<outshine::Ground::VectorStreetGraphBuildJob>(std::move(*started)));
     return GroundBuildProgress::Pending;
   }
-  auto advanced = state.NetworkJob()->Advance(kNetworkItemsPerFrame);
+  auto advanced = state.StreetGraphJob()->Advance(kNetworkItemsPerFrame);
   if (!advanced) {
     Error = std::move(advanced.error());
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
   if (!*advanced) { return GroundBuildProgress::Pending; }
-  const double longestSliceMs = state.NetworkJob()->LongestSliceMs();
-  auto completed = std::move(*state.NetworkJob()).Take();
+  const double longestSliceMs = state.StreetGraphJob()->LongestSliceMs();
+  auto completed = std::move(*state.StreetGraphJob()).Take();
   if (!completed) {
     Error = completed.error();
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
-  const outshine::World::TransportNetwork::Built &mapped = *completed;
-  build.Network = mapped.Graph;
-  build.NetworkOfWays = World.Stack.Ways().Ways().size();
+  const outshine::Ground::VectorStreetGraph::Built &mapped = *completed;
+  build.StreetGraph = mapped.Graph;
+  build.StreetGraphWayCount = World.Stack.Ways().Ways().size();
   Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
   Published.Places("network: laying ways", mapped.LayMs, "ms");
   Published.Places("network: weaving topology", mapped.WeaveMs, "ms");
@@ -1538,7 +1538,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundNetwork() {
   Published.Places("network: steepest grade", mapped.Elevated.SteepestGrade, "m/m");
   Published.Places(
       "network: steepest grade on a sealed way", mapped.Elevated.SteepestSealedGrade, "m/m");
-  state.FinishesNetwork();
+  state.FinishStreetGraph();
   state.CompletesStage();
   return GroundBuildProgress::Pending;
 }
@@ -1723,7 +1723,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                                          .Vegetation = World.Stack.Vegetation(),
                                          .GroundClasses = &World.Stack.Classes(),
                                          .Ground = &World.Stack.Ground(),
-                                         .Network = build.Network.get(),
+                                         .Network = build.StreetGraph.get(),
                                          .Standing = standing,
                                          .Draped = drapedOver,
                                          .Classes = build.ClassStructure,
@@ -2103,8 +2103,10 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
 
   const GroundBuildProgress models = BeginsGroundModels(standing);
   if (models != GroundBuildProgress::Ready) { return models != GroundBuildProgress::Failed; }
-  const GroundBuildProgress network = BeginsGroundNetwork();
-  if (network != GroundBuildProgress::Ready) { return network != GroundBuildProgress::Failed; }
+  const GroundBuildProgress streetGraph = AdvanceGroundStreetGraph();
+  if (streetGraph != GroundBuildProgress::Ready) {
+    return streetGraph != GroundBuildProgress::Failed;
+  }
   const GroundBuildProgress bakes = BeginsGroundBakes(standing);
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
   if (state.NextStage() == Core::GroundBuildSchedule::Stage::NeedsCorridors) {
