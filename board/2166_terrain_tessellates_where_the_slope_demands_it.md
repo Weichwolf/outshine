@@ -17,6 +17,10 @@ changes the BRDF, not the side silhouette. Malcesine still has a regular cliff
 curtain; Koerbersee has inflated, smooth rock; Feldkirch has an abrupt near wall.
 The shader work in 2255 cannot close this geometric defect. A heightfield also
 cannot represent overhangs or multiple heights at one map coordinate.
+Hockenheim's pinned real DEM exposes a related triangle-contact defect: node
+samples clear the road, yet the 3 m mesh crossed it by 6.4 mm at a 3 m verge.
+The road/terrain contract now couples a 3 m posting bound to a 5 m verge;
+the pinned sample minimum is 24 mm. This is not a whole-image occlusion proof.
 
 Malcesine's camera ray at bearing 290° rises from 64.26 m at 4.1 km to 385.54 m
 at 4.2 km in the resident z13 DEM; the final page agrees within 1 m at both ends.

@@ -4,14 +4,21 @@
 #include "Json.h"
 #include "OsmXmlReader.h"
 #include "RoadSurfaceBuilder.h"
+#include "RoadTerrainContact.h"
 #include "Sha256.h"
 #include "TerrainGrid.h"
+#include "TerrainMesh.h"
+#include "TerrainPress.h"
+#include "TerrainRefinement.h"
+#include "TileGeodesy.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <fstream>
 #include <iterator>
+#include <limits>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -23,6 +30,73 @@ namespace {
   std::ifstream input(path, std::ios::binary);
   if (!input) { return {}; }
   return {std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
+}
+
+[[nodiscard]] std::optional<double> TriangleHeight(const outshine::Generators::TerrainMesh &mesh,
+                                                   std::array<uint32_t, 3> vertices,
+                                                   outshine::EastNorth point) {
+  const auto coordinate = [&](uint32_t vertex, size_t component) {
+    return static_cast<double>(mesh.PositionsM[static_cast<size_t>(vertex) * 3u + component]);
+  };
+  const double ax = coordinate(vertices[0], 0);
+  const double az = -coordinate(vertices[0], 2);
+  const double bx = coordinate(vertices[1], 0);
+  const double bz = -coordinate(vertices[1], 2);
+  const double cx = coordinate(vertices[2], 0);
+  const double cz = -coordinate(vertices[2], 2);
+  const double cross = (bx - ax) * (cz - az) - (bz - az) * (cx - ax);
+  if (std::abs(cross) < 1e-9) { return std::nullopt; }
+  const double b = ((point.EastM - ax) * (cz - az) - (point.NorthM - az) * (cx - ax)) / cross;
+  const double c = ((bx - ax) * (point.NorthM - az) - (bz - az) * (point.EastM - ax)) / cross;
+  const double a = 1.0 - b - c;
+  if (std::min({a, b, c}) < -1e-5) { return std::nullopt; }
+  return a * coordinate(vertices[0], 1) + b * coordinate(vertices[1], 1) +
+         c * coordinate(vertices[2], 1);
+}
+
+[[nodiscard]] std::optional<double> MeshHeightAt(const outshine::Generators::TerrainMesh &mesh,
+                                                 const outshine::Patchwork &candidate,
+                                                 const outshine::TangentFrame &frame,
+                                                 outshine::EastNorth point,
+                                                 int side) {
+  const outshine::LongitudeLatitude geo = frame.ApproximateGeographicAt(point);
+  for (size_t page = 0; page < candidate.Sheets.size(); ++page) {
+    const outshine::Sheet &sheet = candidate.Sheets[page];
+    const outshine::Ground::TileFrac tile = outshine::Ground::ToTileFracClamped(
+        {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg}, sheet.Tile.Zoom);
+    const double x = tile.X - static_cast<double>(sheet.Tile.X);
+    const double y = tile.Y - static_cast<double>(sheet.Tile.Y);
+    if (x < -0.01 || x > 1.01 || y < -0.01 || y > 1.01) { continue; }
+    const int column =
+        std::clamp(static_cast<int>(std::floor(x * static_cast<double>(side - 1))), 0, side - 2);
+    const int row =
+        std::clamp(static_cast<int>(std::floor(y * static_cast<double>(side - 1))), 0, side - 2);
+    for (int dy = -1; dy <= 1; ++dy) {
+      for (int dx = -1; dx <= 1; ++dx) {
+        const int cellX = column + dx;
+        const int cellY = row + dy;
+        if (cellX < 0 || cellX >= side - 1 || cellY < 0 || cellY >= side - 1) { continue; }
+        const size_t first = (page * static_cast<size_t>(side - 1) * static_cast<size_t>(side - 1) +
+                              static_cast<size_t>(cellY) * static_cast<size_t>(side - 1) +
+                              static_cast<size_t>(cellX)) *
+                             6u;
+        for (size_t triangle = 0; triangle < 2; ++triangle) {
+          const size_t at = first + triangle * 3u;
+          if (auto height = TriangleHeight(
+                  mesh, {mesh.Indices[at], mesh.Indices[at + 1], mesh.Indices[at + 2]}, point)) {
+            return height;
+          }
+        }
+      }
+    }
+  }
+  for (size_t index = 0; index + 2 < mesh.Indices.size(); index += 3) {
+    if (auto height = TriangleHeight(
+            mesh, {mesh.Indices[index], mesh.Indices[index + 1], mesh.Indices[index + 2]}, point)) {
+      return height;
+    }
+  }
+  return std::nullopt;
 }
 
 }
@@ -45,6 +119,10 @@ int main() {
         "six pinned Terrarium source tiles cover the route");
   if (tiles.Size() != 6) { return Report(); }
   std::vector<Ground::HeightField::Block> blocks;
+  std::vector<Ground::TerrainGrid> sourceGrids;
+  std::vector<Sheet> sourceSheets;
+  sourceGrids.reserve(tiles.Size());
+  sourceSheets.reserve(tiles.Size());
   std::set<std::pair<int, int>> seen;
   for (size_t index = 0; index < tiles.Size(); ++index) {
     const auto tile = tiles[index];
@@ -76,6 +154,8 @@ int main() {
     CHECK(Ground::HeightField::CopiesField(*field, address, block),
           "decoded DEM retains its tile source identity");
     blocks.push_back(std::move(block));
+    sourceSheets.push_back({.Tile = address, .Side = 33, .Postings = 33});
+    sourceGrids.push_back(std::move(grid));
   }
   CHECK(seen.size() == 6, "every terrain fixture tile is distinct");
   const auto terrain = Ground::HeightField::Of(15, std::move(blocks));
@@ -182,5 +262,89 @@ int main() {
   Note("real DEM maximum post-press clearance", maximumClearanceM, "m");
   CHECK(pressed.Moved > 0 && minimumClearanceM >= 0.02 && maximumClearanceM <= 0.15,
         "real DEM road surface clears its cut and filled terrain at every sampled section");
+
+  constexpr TerrainPageLayout layout{.Side = 33, .Halo = 1};
+  std::vector<TerrainRefinementSource> sources;
+  sources.reserve(sourceSheets.size());
+  for (size_t index = 0; index < sourceSheets.size(); ++index) {
+    sources.push_back({.Page = &sourceSheets[index], .Heights = sourceGrids[index].TryField()});
+  }
+  std::vector<TerrainRefinementCorridor> corridors;
+  corridors.reserve(surface->Spans.size());
+  for (size_t index = 0; index < surface->Spans.size(); ++index) {
+    const size_t at = index * 12;
+    const auto centre = [&](size_t offset) {
+      return EastNorth{.EastM = 0.5 * (positions[at + offset] + positions[at + 3 + offset]),
+                       .NorthM = -0.5 * (positions[at + offset + 2] + positions[at + 5 + offset])};
+    };
+    corridors.push_back({.Start = centre(0),
+                         .End = centre(6),
+                         .HalfWidthM = 26.0,
+                         .MaximumPostingM = RoadTerrainContact::MaximumPostingM});
+  }
+  const auto refined = RefineTerrain(
+      sources, frame, layout, {.OrthographicPxPerM = 1.0, .ErrorPx = 1e6}, 512, corridors);
+  CHECK(refined && refined->size() > sourceSheets.size(),
+        "the production selector spends fine terrain patches along the sourced route");
+  if (!refined) { return Report(); }
+  Patchwork candidate{.Sheets = *refined};
+  for (Sheet &sheet : candidate.Sheets) {
+    const auto sourceAt = std::ranges::find_if(sourceSheets, [&](const Sheet &sourceSheet) {
+      const auto shift = static_cast<uint32_t>(sheet.Tile.Zoom - sourceSheet.Tile.Zoom);
+      return sheet.Tile.X >> shift == sourceSheet.Tile.X &&
+             sheet.Tile.Y >> shift == sourceSheet.Tile.Y;
+    });
+    CHECK(sourceAt != sourceSheets.end(), "every selected page has a pinned source ancestor");
+    if (sourceAt == sourceSheets.end()) { return Report(); }
+    const size_t sourceIndex = static_cast<size_t>(sourceAt - sourceSheets.begin());
+    const Ground::TerrainField *sourceField = sourceGrids[sourceIndex].TryField();
+    sheet.Nodes.assign(layout.NodeCount(), std::numeric_limits<float>::quiet_NaN());
+    for (int row = -layout.Halo; row < layout.Side + layout.Halo; ++row) {
+      for (int column = -layout.Halo; column < layout.Side + layout.Halo; ++column) {
+        const Ground::Geo geo = Ground::TileFracToGeo(
+            {.X = static_cast<double>(sheet.Tile.X) + layout.FractionAt(sheet, column),
+             .Y = static_cast<double>(sheet.Tile.Y) + layout.FractionAt(sheet, row)},
+            sheet.Tile.Zoom);
+        const auto aslM =
+            terrain->At({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg}).AslM();
+        const Ground::TileFrac fraction = Ground::ToTileFracClamped(geo, 15);
+        const float ancestorM = sourceField->PostingM(
+            {.Col = std::clamp(fraction.X - static_cast<double>(sourceAt->Tile.X), 0.0, 1.0),
+             .Row = std::clamp(fraction.Y - static_cast<double>(sourceAt->Tile.Y), 0.0, 1.0)});
+        sheet.Nodes[layout.NodeAt(column, row)] = static_cast<float>(aslM.value_or(ancestorM));
+      }
+    }
+  }
+  const auto meshPress =
+      PressTerrain(surface->Earthworks, candidate, frame, layout, kMostEarthworkM);
+  const auto mesh = BuildTerrainMesh(candidate, frame, layout);
+  CHECK(meshPress.Nodes > 0 && mesh.PositionsM.size() == candidate.Sheets.size() * 33u * 33u * 3u,
+        "production terrain press and triangulation cover each selected page");
+  double minimumTriangleClearanceM = std::numeric_limits<double>::infinity();
+  size_t worstTriangleSample = 0;
+  for (size_t index = 0; index < points.size(); ++index) {
+    const auto terrainM = MeshHeightAt(mesh, candidate, frame, points[index], layout.Side);
+    if (!terrainM) {
+      Note("missing mesh sample index", static_cast<double>(index), "sample");
+      Note("missing mesh east", points[index].EastM, "m");
+      Note("missing mesh north", points[index].NorthM, "m");
+      const auto geo = frame.ApproximateGeographicAt(points[index]);
+      const auto tile = Ground::ToTileFracClamped(
+          {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg}, 15);
+      Note("missing mesh tile x", tile.X, "tile");
+      Note("missing mesh tile y", tile.Y, "tile");
+      CHECK(false, "every road sample intersects a drawn terrain triangle");
+      return Report();
+    }
+    const double clearanceM = roadHeights[index] - *terrainM;
+    if (clearanceM < minimumTriangleClearanceM) {
+      minimumTriangleClearanceM = clearanceM;
+      worstTriangleSample = index;
+    }
+  }
+  Note("real DEM minimum triangulated clearance", minimumTriangleClearanceM, "m");
+  Note("real DEM worst triangle sample", static_cast<double>(worstTriangleSample), "sample");
+  CHECK(minimumTriangleClearanceM >= 0.0,
+        "the refined and pressed terrain triangles do not occlude the road surface");
   return Report();
 }

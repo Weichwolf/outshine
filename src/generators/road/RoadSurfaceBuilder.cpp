@@ -1,4 +1,5 @@
 #include "RoadSurfaceBuilder.h"
+#include "RoadTerrainContact.h"
 
 #include <algorithm>
 #include <array>
@@ -26,7 +27,6 @@ constexpr double kMaximumStationStepM = 20.0;
 constexpr double kMaximumSurfaceLiftM = 0.2;
 constexpr float kConcreteRoughness = 0.82f;
 constexpr float kOtherRoadRoughness = 0.92f;
-constexpr double kRoadVergeM = 3.0;
 constexpr double kRoadApronM = 6.0;
 
 struct SurfaceBucket {
@@ -179,10 +179,10 @@ EarthworkFor(const SurfaceSample &begin, const SurfaceSample &end, double liftM)
     const Vec3 across = (left - right) * factor;
     return std::array<Vec3, 2>{left + across, right - across};
   };
-  const auto outerBegin = extend(begin.LeftM, begin.RightM, kRoadVergeM / widthM);
+  const auto outerBegin = extend(begin.LeftM, begin.RightM, RoadTerrainContact::VergeM / widthM);
   const double endWidthM = std::hypot(end.LeftM[0] - end.RightM[0], end.LeftM[2] - end.RightM[2]);
   if (endWidthM <= 0.0) { return std::nullopt; }
-  const auto outerEnd = extend(end.LeftM, end.RightM, kRoadVergeM / endWidthM);
+  const auto outerEnd = extend(end.LeftM, end.RightM, RoadTerrainContact::VergeM / endWidthM);
   const auto ring =
       [](const Vec3 &leftStart, const Vec3 &leftEnd, const Vec3 &rightEnd, const Vec3 &rightStart) {
         return std::vector<double>{leftStart[0],

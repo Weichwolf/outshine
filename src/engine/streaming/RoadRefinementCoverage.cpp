@@ -1,4 +1,5 @@
 #include "RoadRefinementCoverage.h"
+#include "RoadTerrainContact.h"
 
 #include <cmath>
 #include <cstddef>
@@ -13,7 +14,6 @@ namespace {
 
 constexpr size_t kMaximumCorridors = 512;
 constexpr double kRoadGroundMarginM = 20.0;
-constexpr double kMaximumRoadPostingM = 3.0;
 
 [[nodiscard]] EastNorth InFrame(const World::TransportNode &node, const TangentFrame &frame) {
   const EastNorthUp placed = frame.ToLocalPosition(
@@ -54,7 +54,7 @@ RoadRefinementCoverage::Build(const World::TransportNetworkSnapshot &source,
       corridors.push_back({.Start = InFrame(*from, frame),
                            .End = InFrame(*to, frame),
                            .HalfWidthM = edge->WidthM * 0.5 + kRoadGroundMarginM,
-                           .MaximumPostingM = kMaximumRoadPostingM});
+                           .MaximumPostingM = Generators::RoadTerrainContact::MaximumPostingM});
     }
   }
   return corridors;

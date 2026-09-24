@@ -37,13 +37,11 @@ become the source-ID contract. No authored track spline or place-name branch.
 
 `OsmWaySemantics` normalizes corridor properties before topology creation;
 `TangentFrame` belongs to `base/spatial`. `RoadConstraintChain` and
-`RoadAlignmentBuilder` now retain all 267 Hockenheim source edges, but only
-with controlled sourced DEM in tests. `SourcedTerrainFields` owns an immutable
-height-field snapshot; `RoadTerrainPinJob` selects bounded route tiles, defers
-missing fields and returns source/candidate provenance. Wire it to the normal
-ground worker before declaring real DEM coverage or road output. The ground
-candidate now captures one successful transport snapshot, includes its
-generation in rebuild matching, and requests up to 256 additional route DEM
+`RoadAlignmentBuilder` retain all 267 Hockenheim source edges with pinned DEM.
+`SourcedTerrainFields` owns an immutable height-field snapshot;
+`RoadTerrainPinJob` selects bounded route tiles and defers missing fields with
+source/candidate provenance. The candidate captures one transport snapshot,
+includes its generation in rebuild matching, and requests up to 256 route DEM
 tiles at its source zoom. `RoadHeightCoverage` admits at most 512 route edges;
 larger routes are reported deferred until sliding-window coverage exists.
 - `RoadConstraintChain` is the bounded preparation input to the solver: an
@@ -92,10 +90,11 @@ larger routes are reported deferred until sliding-window coverage exists.
   material groups and source-derived earthworks off-thread. Bounded OSM route
   corridors now ask terrain LOD for <=3 m postings before earthworks. The
   Hockenheim shot has 267 corridors, 139 virtual patches and 148 total pages.
-  Per-segment earthwork replaces five-segment chords. Six pinned z15 Terrarium
+  Six pinned z15 Terrarium
   tiles vary 100.05–118.86 m; raw offset reaches 1.527 m, then 5×3 samples
-  per segment clear 0.045–0.087 m.
-  Rendered mesh occlusion and MVT overlap remain unproved (WI 2166).
+  per segment clear 0.045–0.087 m. At 3 m terrain postings a 3 m verge left
+  6.4 mm penetration; shared 5 m verge leaves 24 mm in the pinned mesh test.
+  Runtime PNG occlusion and MVT overlap remain unproved.
 
 ## Executable sequence and falsification
 
