@@ -80,10 +80,15 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    never regresses; maximum eye step is 0.5042 m/tick. Chord-length-weighted
    grade caps observed vertical eye acceleration at 4.755 m/s², zero frames
    over 1 g, versus 36.865 m/s² and five frames before. All eleven PNGs
-   were opened: road is visible but uniformly grey; mark 4 retains dark waves,
-   flat ground, abrupt distance edges and crude buildings. Of 13200 frames,
-   7155 are unrefined, 33 exceed 16.667 ms; p50/p95/p99 is
-   2.01/7.25/12.95 ms, peak heap 619.9 MiB. In a warm offline 20 s
+   were opened: road is visible but uniformly grey; mark 4 retains a vast dark
+   wall and road shading waves, with flat ground, abrupt distance edges and
+   crude buildings. The updated profiled-earthwork warm offline 220 s run
+   reaches station 4575.927 m; 7170/13200 frames are unrefined, 31 exceed
+   16.667 ms, p50/p95/p99 is 2.033/8.651/12.721 ms and heap peaks at
+   642.145 MiB. Setup takes 829 ms including 371 ms preload; the provider
+   serves 538/538 source reads from disk, 28.6 MB, with no remote start.
+   These measurements do not prove per-frame road contact or Kaltstart speed.
+   In a warm offline 20 s
    lap, the graph worker cuts unrefined frames from 1200 to about 1075; p99 is
    13.73 ms with seven over-budget frames. Only two candidates start, so
    restart is not the cause. The phase ledger counts 563 bake waits, 857

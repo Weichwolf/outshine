@@ -62,6 +62,11 @@ partition, the maximum shoulder difference is 0.022 mm, the greatest second
 difference is 0.007 mm per 0.12 m arc step, and centreline grade error is below
 1 nm. This proves the curved field at that radius; disconnected stacked
 crossings, bridge/water and tunnel-cover exclusions remain unproved.
+The public warm offline 220 s Hockenheim run after the profile change has
+p50/p95/p99 2.033/8.651/12.721 ms and 31/13200 over 16.667 ms. All eleven
+route-decile PNGs were opened: contact stays visually continuous, but a flat
+grey road, terrain bands at some curves and abrupt distant patches remain.
+No store misses or remote starts occurred; this is not a cold-source benchmark.
 
 ## Falsifiable acceptance
 
