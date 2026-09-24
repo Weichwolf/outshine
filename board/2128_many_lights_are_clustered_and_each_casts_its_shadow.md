@@ -39,3 +39,11 @@ Welt-/Instanz-Policy und den fehlenden Terrain-Aufruf nicht ab.
 Wahl: [Filament](https://google.github.io/filament/main/filament.html), portable Cluster und
 Schattenkarten. Unreal/RAGE sind Bildbenchmarks. Metal-Imageblocks oder herstellerspezifische
 Tile-Shading-Experimente sind aus dem Auftrag entfernt: SDL_GPU ist die verbindliche Grenze.
+
+Nach korrekten Terrain-/Instanz-Castern: Epic Virtual Shadow Maps als Experiment
+für seitenweise Schattenauflösung und Wiederverwendung statischer Seiten prüfen.
+Gegen stabile Sonnenkaskaden bei Fahrt, Kamerasprung, bewegter Vegetation und
+Zeitraffer vergleichen; Page-Invalidierungen, GPU-p95/p99 und Bytes ausweisen.
+Sonnenbewegung invalidiert den Cache, daher nur übernehmen, wenn Gesamtbild und
+Kosten auf A18 Pro besser sind. Referenz:
+https://dev.epicgames.com/documentation/unreal-engine/virtual-shadow-maps-in-unreal-engine .

@@ -471,7 +471,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundSurface();
   [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingModels(const TangentFrame &standing);
   [[nodiscard]] GroundBuildProgress AdvanceGroundStreetGraph();
-  [[nodiscard]] GroundBuildProgress AdvanceGroundRoadAlignments();
+  [[nodiscard]] GroundBuildProgress AdvanceGroundRoadAlignments(const TangentFrame &standing);
   [[nodiscard]] GroundBuildProgress AdvanceGroundStructureBakes(const TangentFrame &standing) const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;

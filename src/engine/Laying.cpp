@@ -270,6 +270,22 @@ public:
 
   void MarkRoadAlignmentRequested() noexcept { RoadAlignmentRequested_ = true; }
 
+  [[nodiscard]] bool RoadSurfaceBuilt() const noexcept { return RoadSurfaceBuilt_; }
+
+  void MarkRoadSurfaceBuilt() noexcept { RoadSurfaceBuilt_ = true; }
+
+  [[nodiscard]] size_t NextRoadSurfaceTransfer() const noexcept { return NextRoadSurfaceTransfer_; }
+
+  void AdvanceRoadSurfaceTransfer() noexcept { ++NextRoadSurfaceTransfer_; }
+
+  void HoldRoadEarthworks(std::vector<EarthworkStamp> stamps) {
+    RoadEarthworks_ = std::move(stamps);
+  }
+
+  [[nodiscard]] std::vector<EarthworkStamp> TakeRoadEarthworks() noexcept {
+    return std::move(RoadEarthworks_);
+  }
+
   [[nodiscard]] MeshBuild &Meshing() noexcept { return Meshing_; }
 
   [[nodiscard]] MeshBuild &InitialMeshing() noexcept { return InitialMeshing_; }
@@ -521,7 +537,9 @@ private:
                               (Pressing_ ? Pressing_->HeapBytes() : 0u);
     size_t corridorBytes = 0;
     for (const EarthworkStamp &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
-    return Candidate_.Products().OwnedHeapBytes() + phaseBytes + corridorBytes;
+    size_t roadEarthworkBytes = RoadEarthworks_.capacity() * sizeof(EarthworkStamp);
+    for (const EarthworkStamp &stamp : RoadEarthworks_) { roadEarthworkBytes += stamp.HeapBytes(); }
+    return Candidate_.Products().OwnedHeapBytes() + phaseBytes + corridorBytes + roadEarthworkBytes;
   }
 
   void RecordsProductPeak() noexcept {
@@ -534,6 +552,8 @@ private:
   std::shared_ptr<const World::TransportNetworkSnapshot> TransportSnapshot_;
   RoadHeightCoverage RoadHeightCoverage_;
   bool RoadAlignmentRequested_ = false;
+  bool RoadSurfaceBuilt_ = false;
+  size_t NextRoadSurfaceTransfer_ = 0;
   std::optional<Patchwork> Patchwork_;
   std::unique_ptr<Generators::BuildingStampJob> Stamping_;
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
@@ -542,6 +562,7 @@ private:
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<EarthworkStamp> Corridors_;
+  std::vector<EarthworkStamp> RoadEarthworks_;
   MeshBuild Meshing_;
   MeshBuild InitialMeshing_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
@@ -1036,6 +1057,11 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
       return true;
     }
     std::vector<EarthworkStamp> corridor = state.TakesCorridors();
+    std::vector<EarthworkStamp> roadEarthworks = state.TakeRoadEarthworks();
+    corridor.reserve(corridor.size() + roadEarthworks.size());
+    corridor.insert(corridor.end(),
+                    std::make_move_iterator(roadEarthworks.begin()),
+                    std::make_move_iterator(roadEarthworks.end()));
     if (shapes != nullptr) {
       uint64_t tileOrder = kDigestBasis;
       for (const Ground::OsmField::Tile &tile : shapes->Tiles()) {
@@ -1608,7 +1634,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   return GroundBuildProgress::Pending;
 }
 
-Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRoadAlignments() {
+Engine::State::GroundBuildProgress
+Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
   GroundBuildState &state = *World.GroundBuild;
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsRoadAlignments) {
     return GroundBuildProgress::Ready;
@@ -1622,11 +1649,29 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRoadAlignments() 
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
+  GroundBuildProducts &build = state.Candidate().Products();
+  if (state.RoadSurfaceBuilt()) {
+    if (state.NextRoadSurfaceTransfer() < build.RoadAlignments.size()) {
+      const NamedRoadAlignment &route = build.RoadAlignments[state.NextRoadSurfaceTransfer()];
+      if (!route.Surface || !build.Ground.append(route.Surface->SurfaceGeometry)) {
+        Error =
+            std::format("road surface '{}' could not enter the native ground geometry", route.Id);
+        World.GroundBuild.reset();
+        return GroundBuildProgress::Failed;
+      }
+      state.AdvanceRoadSurfaceTransfer();
+      state.SamplesProductPeak();
+      return GroundBuildProgress::Pending;
+    }
+    state.AdvanceStage();
+    return GroundBuildProgress::Pending;
+  }
   if (!state.RoadAlignmentRequested()) {
     RoadAlignmentBuildRequest request{
         .Source = state.TransportSnapshotOwner(),
         .Terrain = state.Candidate().Products().Sheets.SnapshotSourcedFields(),
         .RouteIndices = {state.RoadRouteIndices().begin(), state.RoadRouteIndices().end()},
+        .RenderFrame = standing,
         .TerrainZoom = state.Coverage().Zoom,
         .CandidateGeneration = state.Id()};
     if (!World.RoadAlignmentBuilds.TryStart(*World.Pool, std::move(request))) {
@@ -1651,8 +1696,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRoadAlignments() 
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
-  GroundBuildProducts &build = state.Candidate().Products();
   build.RoadAlignments = std::move(result->value().Routes);
+  state.HoldRoadEarthworks(std::move(result->value().Earthworks));
   size_t alignedEdges = 0;
   size_t terrainSources = 0;
   for (const NamedRoadAlignment &route : build.RoadAlignments) {
@@ -1665,7 +1710,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRoadAlignments() 
       "semantic road alignment source edges", static_cast<double>(alignedEdges), "edges");
   Published.Places(
       "semantic road alignment terrain sources", static_cast<double>(terrainSources), "sources");
-  state.AdvanceStage();
+  state.MarkRoadSurfaceBuilt();
   return GroundBuildProgress::Pending;
 }
 
@@ -2267,7 +2312,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   if (streetGraph != GroundBuildProgress::Ready) {
     return streetGraph != GroundBuildProgress::Failed;
   }
-  const GroundBuildProgress roads = AdvanceGroundRoadAlignments();
+  const GroundBuildProgress roads = AdvanceGroundRoadAlignments(standing);
   if (roads != GroundBuildProgress::Ready) { return roads != GroundBuildProgress::Failed; }
   const GroundBuildProgress bakes = AdvanceGroundStructureBakes(standing);
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }

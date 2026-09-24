@@ -54,6 +54,10 @@ Instancing, räumliche Cluster und Distanzrepräsentationen. RAGE sowie Arma/Far
 DayZ/KCD/RDR liefern den sichtbaren Qualitätsmaßstab. Konkrete Strukturen nur aus
 belegten Verfahren übernehmen; aus Bildern keine Implementierung ableiten.
 Der bestehende Code ist ersetzbar, das vollständige Waldsystem ist die Abnahmeeinheit.
+SpeedTree trennt Basisbaum, viele Instanzen, sichtbare Zellen und kamerabezogenen
+LOD-Zustand. Diese Trennung als Vergleich zu Outshines Prototyp-/Instanz-/Residency-
+Besitzern messen; deren SDK ist keine notwendige Engine-Abhängigkeit.
+Referenz: https://docs9.speedtree.com/sdk/doku.php?id=culling-and-population-structures .
 
 ## Abnahme
 

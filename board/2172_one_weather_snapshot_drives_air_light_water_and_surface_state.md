@@ -61,6 +61,17 @@ Wahl: eine deklarative Wetterquelle mit physikalischen Verbrauchern statt handge
 Place-Looks. Unreal-Atmosphäre ist die technische Referenz, RAGE-Timecycle nur das
 vergleichbare Organisationsprinzip, keine übernommene proprietäre Implementierung.
 
+Experiment: Hillaire 2020 (dynamische Sky-View-/Aerial-Perspective-LUTs) gegen
+Bruneton 2017 (vorberechnete Streuung) auf denselben klaren und dunstigen
+Snapshots messen. Sonne am Zenit/Horizont, Hochlage und Wetterwechsel prüfen;
+separate Sky-/Ground-Irradiance und Transmittance-AOVs müssen konsistent sein.
+CPU/GPU-p95, LUT-Bytes und Update-Spitzen auf A18 Pro entscheiden, nicht PC-Zeiten.
+Die RDR2-SIGGRAPH-2019-Präsentation ist Vorbild für geteilte Atmosphäre,
+Wolken/Fog und Sky-Irradiance, nicht für eine kopierte Implementierung.
+Referenzen: https://sebh.github.io/publications/egsr2020.pdf ;
+https://ebruneton.github.io/precomputed_atmospheric_scattering/ ;
+https://advances.realtimerendering.com/s2019/index.htm .
+
 ## Deklarationsvertrag und Export
 Scenario::Weather dokumentieren: dimensionslose Wolkenanteile, Basis AGL, Wind in
 m/s und meteorologische Herkunftsrichtung; derzeit keine Cloud-/Wind-Verbraucher.

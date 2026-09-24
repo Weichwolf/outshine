@@ -58,12 +58,14 @@ int main() {
   Tasks tasks(1);
   RoadAlignmentBuildQueue queue;
   const auto submit = [&](uint64_t generation, std::vector<SourcedTerrainFields::Entry> terrain) {
-    return queue.TryStart(tasks,
-                          {.Source = source,
-                           .Terrain = SourcedTerrainFields(std::move(terrain)),
-                           .RouteIndices = coverage->SelectedRouteIndices,
-                           .TerrainZoom = 15,
-                           .CandidateGeneration = generation});
+    return queue.TryStart(
+        tasks,
+        {.Source = source,
+         .Terrain = SourcedTerrainFields(std::move(terrain)),
+         .RouteIndices = coverage->SelectedRouteIndices,
+         .RenderFrame = TangentFrame::At({.LongitudeDeg = 8.565, .LatitudeDeg = 49.329}),
+         .TerrainZoom = 15,
+         .CandidateGeneration = generation});
   };
   const auto finish = [&](uint64_t activeGeneration) {
     for (int attempt = 0; attempt < 50 && queue.Busy(); ++attempt) {
@@ -79,8 +81,12 @@ int main() {
   CHECK(built && *built && built->value().Matches(41, source->SourceIdentity()) &&
             built->value().Routes.size() == 1 &&
             built->value().Routes.front().Alignment->Closed() &&
-            built->value().Routes.front().Alignment->Edges().size() == 267,
-        "the worker returns all source edges with candidate and OSM provenance");
+            built->value().Routes.front().Alignment->Edges().size() == 267 &&
+            built->value().Routes.front().Surface &&
+            built->value().Routes.front().Surface->SurfaceGeometry.wellFormed() &&
+            built->value().Earthworks.size() ==
+                (built->value().Routes.front().Surface->Spans.size() + 4) / 5,
+        "the worker returns one native road surface and all source edges with provenance");
 
   CHECK(submit(42, fields), "a later candidate starts after the first result is taken");
   finish(43);
@@ -95,12 +101,14 @@ int main() {
             missing->error().Tile == coverage->Tiles.back() &&
             missing->error().RouteId == "grand-prix",
         "missing sourced terrain fails with route and tile identity instead of a fallback");
-  CHECK(queue.TryStart(tasks,
-                       {.Source = source,
-                        .Terrain = SourcedTerrainFields(std::vector<SourcedTerrainFields::Entry>{}),
-                        .RouteIndices = {0, 0},
-                        .TerrainZoom = 15,
-                        .CandidateGeneration = 45}),
+  CHECK(queue.TryStart(
+            tasks,
+            {.Source = source,
+             .Terrain = SourcedTerrainFields(std::vector<SourcedTerrainFields::Entry>{}),
+             .RouteIndices = {0, 0},
+             .RenderFrame = TangentFrame::At({.LongitudeDeg = 8.565, .LatitudeDeg = 49.329}),
+             .TerrainZoom = 15,
+             .CandidateGeneration = 45}),
         "a malformed request reaches the bounded worker validator");
   finish(45);
   auto duplicate = queue.TakeCompleted();

@@ -87,8 +87,13 @@ larger routes are reported deferred until sliding-window coverage exists.
   at-grade join at an XY crossing without a graph node.
 - Road render and contact products sample the same published alignment and
   native material specification. The MVT corridor path may coexist only for
-  edges with no semantic source coverage; a spatial overlap suppresses its
-  duplicate visible road. Renderer/physics consume products, not OSM tags.
+  edges with no semantic source coverage; overlap suppresses duplicate roads.
+  `RoadSurfaceBuilder` now emits native Geometry, edge/station/triangle spans,
+  material groups and source-derived earthworks off-thread. The 4e27db1b
+  Hockenheim PNG still has terrain occlusion: 33-node terrain pages at z16 are
+  about 12 m apart there, comparable to the road width. Next refine the final
+  pressed surface along the corridor to <=3 m postings, bounded by page budget;
+  verify continuous pavement and no duplicate MVT strip in PNG and contact.
 
 ## Executable sequence and falsification
 

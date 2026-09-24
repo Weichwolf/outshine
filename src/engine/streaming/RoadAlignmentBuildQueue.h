@@ -11,7 +11,9 @@
 
 #include "OsmTransportLoader.h"
 #include "RoadAlignment.h"
+#include "RoadSurfaceBuilder.h"
 #include "SourcedTerrainFields.h"
+#include "TangentFrame.h"
 #include "Tasks.h"
 
 namespace outshine {
@@ -19,6 +21,7 @@ namespace outshine {
 struct NamedRoadAlignment {
   std::string Id;
   std::shared_ptr<const Generators::RoadAlignment> Alignment;
+  std::shared_ptr<const Generators::RoadSurface> Surface;
 };
 
 enum class RoadAlignmentBuildErrorCode : uint8_t {
@@ -26,7 +29,8 @@ enum class RoadAlignmentBuildErrorCode : uint8_t {
   TerrainPin,
   MissingTerrain,
   Constraints,
-  Alignment
+  Alignment,
+  Surface
 };
 
 struct RoadAlignmentBuildError {
@@ -40,6 +44,7 @@ struct RoadAlignmentBuildProduct {
   uint64_t CandidateGeneration = 0;
   Data::OsmSourceIdentity SourceIdentity;
   std::vector<NamedRoadAlignment> Routes;
+  std::vector<EarthworkStamp> Earthworks;
 
   [[nodiscard]] bool Matches(uint64_t generation,
                              const Data::OsmSourceIdentity &source) const noexcept {
@@ -51,6 +56,7 @@ struct RoadAlignmentBuildRequest {
   std::shared_ptr<const World::TransportNetworkSnapshot> Source;
   SourcedTerrainFields Terrain;
   std::vector<size_t> RouteIndices;
+  TangentFrame RenderFrame;
   int TerrainZoom = 0;
   uint64_t CandidateGeneration = 0;
 };

@@ -36,3 +36,10 @@ Luftperspektive; Regennebel und Wolken dürfen Gelände nicht falsch überdecken
 Wahl: reduzierte volumetrische Integration nach
 [Unreal Volumetric Clouds](https://dev.epicgames.com/documentation/en-us/unreal-engine/volumetric-cloud-component-in-unreal-engine),
 gemessen auf SDL_GPU. RAGE ist Fernbildvergleich; seine internen Algorithmen werden nicht behauptet.
+
+Nubis Evolved (SIGGRAPH 2022) liefert einen zweiten, PS4-erprobten Versuch:
+gleiche Wetter-Dichte und Sonnenenergie, aber dessen Wolkenform-/Licht- und
+Reprojektionsstrategie gegen den obigen March messen. Die Kursangabe unter
+2 ms auf PS4 ist keine Outshine-Zusage. Klar/bedeckt, Wolkenschatten, Kamerasprung,
+GPU-p95 und History-Speicher entscheiden auf dem Zielgerät.
+Referenz: https://advances.realtimerendering.com/s2022/SIGGRAPH2022-Advances-NubisEvolved-NoVideos.pdf .

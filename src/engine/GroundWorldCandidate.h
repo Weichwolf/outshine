@@ -41,6 +41,9 @@ struct GroundBuildProducts {
       if (route.Alignment) {
         alignmentBytes += sizeof(Generators::RoadAlignment) + route.Alignment->OwnedHeapBytes();
       }
+      if (route.Surface) {
+        alignmentBytes += sizeof(Generators::RoadSurface) + route.Surface->OwnedHeapBytes();
+      }
     }
     return Sheets.HeapBytes() + Footprints.HeapBytes() + Pieces.HeapBytes() + alignmentBytes +
            Ground.storageBytes() + PositionsM.capacity() * sizeof(float) +

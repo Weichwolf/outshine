@@ -4,10 +4,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "RoadConstraintChain.h"
 #include "RoadTerrainPinJob.h"
@@ -33,7 +35,8 @@ RoadAlignmentBuildQueue::Result RoadAlignmentBuildQueue::Build(RoadAlignmentBuil
   }
   RoadAlignmentBuildProduct product{.CandidateGeneration = request.CandidateGeneration,
                                     .SourceIdentity = request.Source->SourceIdentity(),
-                                    .Routes = {}};
+                                    .Routes = {},
+                                    .Earthworks = {}};
   product.Routes.reserve(request.RouteIndices.size());
   size_t selectedEdges = 0;
   for (const size_t routeIndex : request.RouteIndices) {
@@ -83,9 +86,28 @@ RoadAlignmentBuildQueue::Result RoadAlignmentBuildQueue::Build(RoadAlignmentBuil
                                    std::nullopt,
                                    alignment.error().SourceEdge));
     }
+    constexpr size_t kMaximumSurfaceSegments = 32768;
+    if (product.Earthworks.size() >= kMaximumSurfaceSegments) {
+      return std::unexpected(Error(RoadAlignmentBuildErrorCode::Surface, named.Id));
+    }
+    auto surface = Generators::RoadSurfaceBuilder::Build(
+        *alignment,
+        request.RenderFrame,
+        {.MaximumSegments = kMaximumSurfaceSegments - product.Earthworks.size()});
+    if (!surface) {
+      return std::unexpected(Error(RoadAlignmentBuildErrorCode::Surface,
+                                   named.Id,
+                                   std::nullopt,
+                                   surface.error().SourceEdge));
+    }
+    product.Earthworks.insert(product.Earthworks.end(),
+                              std::make_move_iterator(surface->Earthworks.begin()),
+                              std::make_move_iterator(surface->Earthworks.end()));
+    std::vector<EarthworkStamp>().swap(surface->Earthworks);
     product.Routes.push_back(
         {.Id = named.Id,
-         .Alignment = std::make_shared<const Generators::RoadAlignment>(std::move(*alignment))});
+         .Alignment = std::make_shared<const Generators::RoadAlignment>(std::move(*alignment)),
+         .Surface = std::make_shared<const Generators::RoadSurface>(std::move(*surface))});
   }
   return product;
 }

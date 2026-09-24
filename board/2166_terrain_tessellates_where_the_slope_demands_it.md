@@ -62,6 +62,27 @@ surface error and visible contribution justify it.
    double the 33×33 lattice globally. Instrument cold load, warm camera motion,
    p50/p95/p99/worst frames, memory peak, and stable image transitions.
 
+## DEM-conditioned procedural formation experiment
+
+DEM remains the large-scale height authority; its source samples, drainage,
+water levels and OSM construction corridors are constraints. A deterministic
+formation field supplies only missing meso-/micro-scale geometry: choose a
+small reusable family by slope, curvature, climate/landcover and available
+geology; orient ridges with terrain structure, blend in world coordinates and
+cache by source revision plus seed. Never invent a hill across a road, water
+surface or building pad. Publish render and contact from the same final field.
+Compare pure DEM, bounded formation blend and multi-scale erosion against
+independent fine DEM where available; hold coarse samples and cross-tile seams
+fixed. Reject repeated motifs, drainage reversals, loss of road clearance and
+unbounded job cost. Frontier describes Odyssey's hierarchical selection,
+orientation and blending of reusable forms; Starfield publicly documents
+rule-based world composition, not an equivalent terrain algorithm. Adobe's
+SIGGRAPH 2024 erosion amplification is a quality oracle, not a presumed
+real-time implementation. References:
+https://store.steampowered.com/news/posts/?appids=359320&enddate=1617185871&feed=steam_community_announcements ;
+https://research.adobe.com/publication/terrain-amplification-using-multi-scale-erosion/ ;
+https://news.xbox.com/en-us/2024/02/28/how-starfield-filled-its-galaxy-with-alien-life/ .
+
 ## Acceptance
 
 - Analytic steep plane needs no extra tessellation; off-grid peak, narrow ridge,
