@@ -86,8 +86,14 @@ matching graph; authored Hockenheim resolves 267 directed edges.
 Names describe those ownership boundaries; do not reintroduce parser or file IO
 into `world/navigation`.
 
-The remaining regional work is cancellation/backpressure when revisions
-overtake the two-job queue and route consumption by the camera.
+The remaining regional work is cancellation/backpressure and route consumption
+by the camera. Keep at most one executing source build and one latest desired
+request in the loader; a new valid request supersedes the desired state and
+signals the executing worker to stop. Check the signal before IO, after read,
+after parse and before graph/route construction. `Poll()` discards stale work
+and schedules only the latest request, without waiting on the frame thread.
+Report completed, canceled and pending work separately. Do not change the
+general `Tasks` guarantee that an accepted job runs unless explicitly canceled.
 Worldwide focus-based source-cell scheduling is WI 2280. Adjacent shuffled chunks, conflicting
 source IDs, mixed revisions and corrected equal-sized replacement now pass the
 worker-publication test. Prove route stability under mesh eviction and moving
