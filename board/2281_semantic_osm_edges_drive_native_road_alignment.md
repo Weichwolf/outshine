@@ -41,11 +41,15 @@ route retains asphalt raceway profiles; independent metre/foot, lane and invalid
 tag controls pass. Alignment, DEM constraints and road/contact products remain
 the next executable work in this WI.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
-  Input is one `TransportNetworkSnapshot` revision and pinned DEM samples from
-  the ground candidate, never a mutable live `GroundQuery` borrowed by a
-  worker. Each edge has double-precision station, centerline, tangent, width,
-  bank and height/clearance constraints. The output maps every source edge ID
-  to its interval and records the exact source/DEM revisions.
+  Input is one `TransportNetworkSnapshot` revision, a bounded ordered set of
+  source edge IDs with source identity selected by route or coverage, and pinned
+  DEM samples from the ground candidate. Never borrow mutable live
+  `GroundQuery` in a worker or require DEM for unselected network edges.
+  Reject duplicate, absent, forbidden
+  or wrong-revision selections with source IDs. Each selected edge has
+  double-precision station, centerline, tangent, width, bank and height/clearance
+  constraints. The output maps each requested source edge ID to its interval
+  and records the exact source/DEM revisions.
 - A bounded local solve enforces common endpoint position and tangent where
   edges are logically connected. Grounded portions sample DEM; bridge decks
   clear underpasses/water and stamp only supports/approaches; tunnel lanes
