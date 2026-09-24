@@ -68,6 +68,21 @@ class Coordinates(unittest.TestCase):
             self.assertIn('SDL did not start', result.stdout)
             self.assertNotIn('finite latitude', result.stderr)
 
+    def test_cache_directory_is_validated_before_platform_initialization(self):
+        env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
+        for verb in ('run', 'shots'):
+            for cache in ('', '--offline'):
+                result = subprocess.run([str(CLIENT), verb, '--cache-dir', cache], cwd=ROOT,
+                                        env=env, capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('--cache-dir requires a nonempty directory', result.stderr)
+                self.assertNotIn('SDL', result.stdout + result.stderr)
+        accepted = subprocess.run([str(CLIENT), 'run', '--offline', '--cache-dir', '/tmp/outshine-test-cache',
+                                   'missing.scenario'], cwd=ROOT, env=env,
+                                  capture_output=True, text=True, timeout=10)
+        self.assertEqual(accepted.returncode, 2)
+        self.assertIn('SDL did not start', accepted.stdout)
+
 
 if __name__ == '__main__':
     unittest.main()

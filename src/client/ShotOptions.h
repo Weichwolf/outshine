@@ -11,6 +11,11 @@
 namespace outshine::Client {
 
 inline constexpr double kDefaultPreloadSeconds = 15.0;
+inline constexpr std::string_view kDefaultCacheDirectory = "/tmp/outshine-drive-cache";
+
+[[nodiscard]] constexpr bool ValidCacheDirectory(std::string_view path) noexcept {
+  return !path.empty() && !path.starts_with("--");
+}
 
 struct ShotOptions {
   bool Rows = false;
@@ -18,8 +23,10 @@ struct ShotOptions {
   bool Stats = false;
   bool Audit = false;
   bool Vegetation = true;
+  bool Offline = false;
   bool All = false;
   double PreloadSeconds = kDefaultPreloadSeconds;
+  std::string_view CacheDirectory = kDefaultCacheDirectory;
   size_t FirstPlace = 0;
 };
 
@@ -34,6 +41,25 @@ ReadPreloadSeconds(std::string_view number) {
   return seconds;
 }
 
+[[nodiscard]] inline bool ReadShotFlag(std::string_view argument, ShotOptions &options) {
+  if (argument == "--rows") {
+    options.Rows = true;
+  } else if (argument == "--measures") {
+    options.Measures = true;
+  } else if (argument == "--stats") {
+    options.Stats = true;
+  } else if (argument == "--audit") {
+    options.Audit = true;
+  } else if (argument == "--no-vegetation") {
+    options.Vegetation = false;
+  } else if (argument == "--offline") {
+    options.Offline = true;
+  } else {
+    return false;
+  }
+  return true;
+}
+
 [[nodiscard]] inline std::expected<ShotOptions, std::string_view>
 ReadShotOptions(std::span<const char *const> arguments) {
   ShotOptions options;
@@ -41,16 +67,13 @@ ReadShotOptions(std::span<const char *const> arguments) {
     const std::string_view argument = arguments[options.FirstPlace];
     if (!argument.starts_with('-')) { break; }
     ++options.FirstPlace;
-    if (argument == "--rows") {
-      options.Rows = true;
-    } else if (argument == "--measures") {
-      options.Measures = true;
-    } else if (argument == "--stats") {
-      options.Stats = true;
-    } else if (argument == "--audit") {
-      options.Audit = true;
-    } else if (argument == "--no-vegetation") {
-      options.Vegetation = false;
+    if (ReadShotFlag(argument, options)) { continue; }
+    if (argument == "--cache-dir") {
+      if (options.FirstPlace == arguments.size() ||
+          !ValidCacheDirectory(arguments[options.FirstPlace])) {
+        return std::unexpected("--cache-dir requires a nonempty directory");
+      }
+      options.CacheDirectory = arguments[options.FirstPlace++];
     } else if (argument == "--all") {
       if (options.FirstPlace != arguments.size()) {
         return std::unexpected("--all cannot be combined with place names or trailing options");

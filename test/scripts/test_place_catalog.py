@@ -97,6 +97,20 @@ class Catalog(unittest.TestCase):
         self.assertEqual(actual['Hockenheimring'][:6],
                          ['49.3274', '8.5659', '900', '90', '-60', '55'])
 
+    def test_empty_offline_cache_does_not_fall_back_to_global_cache(self):
+        cache = self.directory / 'empty-cache'
+        cache.mkdir()
+        result = self.run_client('shots', '--rows', '--stats', '--offline', '--cache-dir', str(cache),
+                                 '--preload-seconds', '0.2', 'Hockenheimring', success=False,
+                                 directory=ROOT / 'src/assets/places')
+        stats = {fields[2]: fields[3] for fields in
+                 (row.split('\t') for row in result.stdout.splitlines())
+                 if len(fields) == 5 and fields[0] == 'STAT'}
+        self.assertEqual(stats['status'], 'failed')
+        self.assertEqual(stats['store_hits'], '0')
+        self.assertGreater(int(stats['store_misses']), 0)
+        self.assertGreater(int(stats['provider_starts']), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

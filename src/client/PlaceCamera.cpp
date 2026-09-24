@@ -219,17 +219,13 @@ LogSink *Telling = nullptr;
 bool Audits = false;
 
 namespace {
-bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation = true) {
+bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation, Roots roots) {
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     shot.Why = "SDL did not start, so nothing can be drawn";
     return false;
   }
   if (Telling != nullptr) { engine.logsTo(Telling); }
-  if (const auto rooted = engine.setRoots(Roots{.Assets = "src/assets/drive",
-                                                .Shipped = "src/assets",
-                                                .Cache = "/tmp/outshine-drive-cache",
-                                                .Offline = false});
-      !rooted) {
+  if (const auto rooted = engine.setRoots(std::move(roots)); !rooted) {
     shot.Why = "the engine rejected its roots: " + rooted.error();
     return false;
   }
@@ -260,7 +256,15 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation =
 std::string Prepare(const Place &place, double patienceS) {
   Engine engine;
   Shot shot;
-  if (!OpenPlace(engine, place, shot)) { return shot.Why; }
+  if (!OpenPlace(engine,
+                 place,
+                 shot,
+                 true,
+                 Roots{.Assets = "src/assets/drive",
+                       .Shipped = "src/assets",
+                       .Cache = "/tmp/outshine-drive-cache"})) {
+    return shot.Why;
+  }
   double last = 0;
   const Result ready = engine.preload(patienceS, [&](const Loading &how) {
     if (how.ElapsedS - last < 5) { return; }
@@ -275,10 +279,10 @@ std::string Prepare(const Place &place, double patienceS) {
   return ready ? std::string{} : ready.error();
 }
 
-Shot Take(const Place &place, bool tells, bool vegetation, double preloadSeconds) {
+Shot Take(const Place &place, bool tells, bool vegetation, double preloadSeconds, Roots roots) {
   Engine engine;
   Shot shot;
-  if (!OpenPlace(engine, place, shot, vegetation)) { return shot; }
+  if (!OpenPlace(engine, place, shot, vegetation, std::move(roots))) { return shot; }
   Shot drawn = Draw(engine, place.Name, tells, "places", preloadSeconds);
   drawn.StandingMs = shot.StandingMs;
   drawn.LoadingAtEnd = engine.loading();

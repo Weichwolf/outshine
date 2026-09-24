@@ -78,10 +78,8 @@ extern ::outshine::LogSink *Telling;
 
 extern bool Audits;
 
-[[nodiscard]] Shot Take(const Place &place,
-                        bool tells,
-                        bool vegetation = true,
-                        double preloadSeconds = Client::kDefaultPreloadSeconds);
+[[nodiscard]] Shot
+Take(const Place &place, bool tells, bool vegetation, double preloadSeconds, Roots roots);
 [[nodiscard]] std::string Prepare(const Place &place, double patienceS);
 
 }

@@ -137,10 +137,15 @@ void Usage() {
       "  shots [--rows] [--stats] [--measures] [--audit] [--no-vegetation] [--all | <place>]\n"
       "    --preload-seconds <seconds>     preparation timeout (default 15); separate from frame "
       "timing\n"
+      "    --cache-dir <directory>        persistent source cache (default "
+      "/tmp/outshine-drive-cache)\n"
+      "    --offline                      forbid network; cached and shipped sources remain "
+      "usable\n"
       "  places                           list the external scenario cameras\n"
       "  --places <directory> <command>   override src/assets/places\n"
       "  roundtrip                        write each place, read it back, write it again\n"
-      "  run [--rows] [--stats] [--into <folder>] [--motion [--samples]] [--view <id> --at-seconds "
+      "  run [--rows] [--stats] [--cache-dir <directory>] [--offline] [--into <folder>] "
+      "[--motion [--samples]] [--view <id> --at-seconds "
       "<s>] "
       "<scenario> "
       "[name]\n"
@@ -186,19 +191,24 @@ void PrintStats(std::string_view name,
   row("source_bytes", loading.SourceBytes, "bytes");
 }
 
-[[nodiscard]] bool Stands(outshine::Engine &engine,
-                          outshine::Extent frame = {.WidthPx = outshine::Shots::kWidePx,
-                                                    .HeightPx = outshine::Shots::kHighPx}) {
+[[nodiscard]] outshine::Roots ClientRoots(std::string_view cacheDirectory, bool offline) {
+  return {.Assets = "src/assets/drive",
+          .Shipped = "src/assets",
+          .Cache = std::string(cacheDirectory),
+          .Offline = offline};
+}
+
+[[nodiscard]] bool
+Stands(outshine::Engine &engine,
+       outshine::Extent frame = {.WidthPx = outshine::Shots::kWidePx,
+                                 .HeightPx = outshine::Shots::kHighPx},
+       outshine::Roots roots = ClientRoots(outshine::Client::kDefaultCacheDirectory, false)) {
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     std::println("outshine-client: SDL did not start");
     return false;
   }
   engine.logsTo(&gTelling);
-  if (const auto rooted = engine.setRoots(outshine::Roots{.Assets = "src/assets/drive",
-                                                          .Shipped = "src/assets",
-                                                          .Cache = "/tmp/outshine-drive-cache",
-                                                          .Offline = false});
-      !rooted) {
+  if (const auto rooted = engine.setRoots(std::move(roots)); !rooted) {
     std::println("outshine-client: the engine rejected its roots -- {}", rooted.error());
     return false;
   }
@@ -267,8 +277,11 @@ int TakeShots(std::span<const Place> places, int argc, const char *const *argv) 
   for (const Place *const one : taking) {
     outshine::Shots::Telling = &gTelling;
     const auto began = std::chrono::steady_clock::now();
-    const Shot shot =
-        outshine::Shots::Take(*one, !options.Rows, options.Vegetation, options.PreloadSeconds);
+    const Shot shot = outshine::Shots::Take(*one,
+                                            !options.Rows,
+                                            options.Vegetation,
+                                            options.PreloadSeconds,
+                                            ClientRoots(options.CacheDirectory, options.Offline));
     ReportShot(shot, one->Name, options, began);
     refused += shot.Why.empty() && shot.Kept ? 0 : 1;
   }
@@ -280,6 +293,8 @@ struct ScenarioRunOptions {
   const char *const *Argv = nullptr;
   bool Rows = false;
   bool Stats = false;
+  bool Offline = false;
+  std::string_view CacheDirectory = outshine::Client::kDefaultCacheDirectory;
   std::string Into = "khronos";
   std::string_view SelectedView;
   double AtS = 0.0;
@@ -304,6 +319,23 @@ struct ScenarioRunOptions {
   return {};
 }
 
+[[nodiscard]] bool ReadRunFlag(std::string_view flag, ScenarioRunOptions &options) {
+  if (flag == "--rows") {
+    options.Rows = true;
+  } else if (flag == "--stats") {
+    options.Stats = true;
+  } else if (flag == "--offline") {
+    options.Offline = true;
+  } else if (flag == "--motion") {
+    options.RenderMotion = true;
+  } else if (flag == "--samples") {
+    options.SampleImages = true;
+  } else {
+    return false;
+  }
+  return true;
+}
+
 [[nodiscard]] std::expected<ScenarioRunOptions, int>
 ParseScenarioRunOptions(int argc, const char *const *argv) {
   ScenarioRunOptions options;
@@ -311,28 +343,19 @@ ParseScenarioRunOptions(int argc, const char *const *argv) {
   options.Argv = argv;
   bool hasTime = false;
   while (argc > 0 && argv[0][0] == '-') {
-    if (std::strcmp(argv[0], "--rows") == 0) {
-      options.Rows = true;
+    if (ReadRunFlag(argv[0], options)) {
       --argc;
       ++argv;
       continue;
     }
-    if (std::strcmp(argv[0], "--stats") == 0) {
-      options.Stats = true;
-      --argc;
-      ++argv;
-      continue;
-    }
-    if (std::strcmp(argv[0], "--motion") == 0) {
-      options.RenderMotion = true;
-      --argc;
-      ++argv;
-      continue;
-    }
-    if (std::strcmp(argv[0], "--samples") == 0) {
-      options.SampleImages = true;
-      --argc;
-      ++argv;
+    if (std::strcmp(argv[0], "--cache-dir") == 0) {
+      if (argc < 2 || !outshine::Client::ValidCacheDirectory(argv[1])) {
+        std::println(stderr, "outshine-client: --cache-dir requires a nonempty directory");
+        return std::unexpected(2);
+      }
+      options.CacheDirectory = argv[1];
+      argc -= 2;
+      argv += 2;
       continue;
     }
     if (std::strcmp(argv[0], "--into") == 0 && argc > 1) {
@@ -449,7 +472,7 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   }
   const std::string named = options.Argc > 1 ? options.Argv[1] : "scenario";
   outshine::Engine engine;
-  if (!Stands(engine, {})) { return 2; }
+  if (!Stands(engine, {}, ClientRoots(options.CacheDirectory, options.Offline))) { return 2; }
   if (const auto read = engine.readScenario(options.Argv[0]); !read) {
     std::println("outshine-client: {} -- {}", options.Argv[0], read.error());
     return 1;

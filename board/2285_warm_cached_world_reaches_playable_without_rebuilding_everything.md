@@ -23,6 +23,13 @@ frame-count evidence, not a CPU critical-path breakdown. Repeated Feldkirch
 attempts reached the 30 s preload limit, but their cache provenance was not
 recorded; do not label them warm benchmarks.
 
+The same Hockenheim shot with `--offline --cache-dir /tmp/outshine-drive-cache`
+kept digest `16908acb`, 477 store hits, zero misses and zero provider starts.
+An empty isolated offline directory yielded zero hits, 36 misses and 36
+provider starts before its 0.2 s preload limit. These local probes establish
+root isolation and provenance; a repository-owned complete fixture is still
+required for a portable warmstart benchmark.
+
 The product contract is low-latency playable contact from a complete warm
 cache, followed by bounded visual refinement while the world is already
 interactive. A source-cache hit must never wait for network. A native-product
