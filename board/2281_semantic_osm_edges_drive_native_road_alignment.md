@@ -94,8 +94,8 @@ larger routes are reported deferred until sliding-window coverage exists.
   tiles vary 100.05–118.86 m; raw offset reaches 1.527 m, then 5×3 samples
   per segment clear 0.045–0.087 m. At 3 m terrain postings a 3 m verge left
   6.4 mm penetration; shared 5 m verge leaves 24 mm in the pinned mesh test.
-  Mark-4 road pixels are identical without the shadow stage (320x30 region);
-  dark waves near 1830 m implicate normals or overlap. MVT overlap is unproved.
+  Mark-4 pixels match with shadows disabled. Terrain-only/no-MVT still has
+  repeated shoulder waves, falsifying MVT overlap; see WI 2288.
 
 ## Executable sequence and falsification
 
