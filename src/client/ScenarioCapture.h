@@ -18,6 +18,7 @@ struct ScenarioCaptureOptions {
   std::string_view Into;
   double AtS = 0.0;
   bool RenderMotion = false;
+  bool SampleImages = false;
 };
 
 struct ScenarioCaptureResult {
@@ -31,6 +32,7 @@ struct ScenarioCaptureResult {
   size_t Frames = 0;
   size_t OverBudget = 0;
   size_t Unsettled = 0;
+  size_t SampleImages = 0;
   double P50Ms = 0.0;
   double P95Ms = 0.0;
   double P99Ms = 0.0;

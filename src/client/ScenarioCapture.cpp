@@ -30,6 +30,7 @@ constexpr double kPreloadBudgetS = 30.0;
 constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 constexpr double kBytesPerMiB = 1024.0 * 1024.0;
 constexpr unsigned kAllRouteFields = 31u;
+constexpr size_t kRouteMarkCount = 10;
 
 struct MotionSchedule {
   size_t Ticks = 0;
@@ -85,8 +86,42 @@ struct MotionFrame {
   return route;
 }
 
+[[nodiscard]] std::expected<std::optional<double>, std::string>
+CaptureRouteLength(const Engine &engine, std::string_view viewId) {
+  for (const Scenario::View &view : engine.declaration().Views) {
+    if (view.Id != viewId || view.Placement != Scenario::CameraPlacement::Route) { continue; }
+    const auto info = engine.routeInfo(view.Route.RouteId);
+    if (!info || !std::isfinite(info->LengthM) || info->LengthM <= 0.0) {
+      return std::unexpected(info ? "capture route has no finite length"
+                                  : Refusal("capture route", info.error()));
+    }
+    return info->LengthM;
+  }
+  return std::nullopt;
+}
+
+[[nodiscard]] std::expected<void, std::string> SaveRouteMarks(Engine &engine,
+                                                              double stationM,
+                                                              const std::filesystem::path &folder,
+                                                              std::string_view stem,
+                                                              size_t &nextMark,
+                                                              ScenarioCaptureResult &result) {
+  while (nextMark <= kRouteMarkCount && stationM >= result.RouteLengthM *
+                                                        static_cast<double>(nextMark) /
+                                                        static_cast<double>(kRouteMarkCount)) {
+    const auto path = folder / (std::string(stem) + "-mark" + std::to_string(nextMark) + ".png");
+    if (const auto saved = engine.renderer().saveScreenshot(path.string()); !saved) {
+      return std::unexpected(Refusal("route sample", saved.error()));
+    }
+    ++nextMark;
+    ++result.SampleImages;
+  }
+  return {};
+}
+
 [[nodiscard]] std::expected<void, std::string> RenderMotion(Engine &engine,
                                                             MotionSchedule schedule,
+                                                            bool sampleImages,
                                                             const std::filesystem::path &folder,
                                                             std::string_view stem,
                                                             ScenarioCaptureResult &result) {
@@ -96,6 +131,7 @@ struct MotionFrame {
   frameMs.reserve(schedule.Ticks);
   HeapProbe::ForgetPeak();
   const auto started = std::chrono::steady_clock::now();
+  size_t nextMark = 0;
   for (size_t tick = 0; tick < schedule.Ticks; ++tick) {
     const auto began = std::chrono::steady_clock::now();
     if (const auto advanced = engine.advance(); !advanced) {
@@ -120,6 +156,13 @@ struct MotionFrame {
     frameMs.push_back(advanceMs + renderMs);
     result.OverBudget += frameMs.back() > kFrameBudgetMs ? 1u : 0u;
     result.Unsettled += settled ? 0u : 1u;
+    if (sampleImages) {
+      if (const auto saved =
+              SaveRouteMarks(engine, route->StationM, folder, stem, nextMark, result);
+          !saved) {
+        return std::unexpected(saved.error());
+      }
+    }
     (void)HeapProbe::Sample();
     const auto due =
         started +
@@ -191,6 +234,9 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
       !std::isfinite(options.AtS) || options.AtS < 0.0 || options.AtS > kMaximumCaptureTimeS) {
     return std::unexpected("capture needs a view, output name/folder and time in [0,3600] s");
   }
+  if (options.SampleImages && !options.RenderMotion) {
+    return std::unexpected("route samples require motion capture");
+  }
   if (const auto ready = engine.preload(kPreloadBudgetS); !ready) {
     return std::unexpected(Refusal("initial world preload", ready.error()));
   }
@@ -204,15 +250,10 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
   const auto ticks = static_cast<size_t>(std::max(1.0, std::ceil(options.AtS / stepS)));
   ScenarioCaptureResult result;
   result.SimTimeS = static_cast<double>(ticks) * stepS;
-  bool isRoute = false;
-  for (const Scenario::View &view : engine.declaration().Views) {
-    if (view.Id != options.View || view.Placement != Scenario::CameraPlacement::Route) { continue; }
-    const auto info = engine.routeInfo(view.Route.RouteId);
-    if (!info) { return std::unexpected(Refusal("capture route", info.error())); }
-    result.RouteLengthM = info->LengthM;
-    isRoute = true;
-    break;
-  }
+  const auto routeLength = CaptureRouteLength(engine, options.View);
+  if (!routeLength) { return std::unexpected(routeLength.error()); }
+  const bool isRoute = routeLength->has_value();
+  result.RouteLengthM = routeLength->value_or(0.0);
   std::error_code failure;
   const std::filesystem::path folder = std::filesystem::path("build/shots") / options.Into;
   std::filesystem::create_directories(folder, failure);
@@ -220,8 +261,8 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
   if (options.RenderMotion) {
     if (!isRoute) { return std::unexpected("motion capture requires a route-bound view"); }
     const std::string stem = std::string(options.Name) + "-" + std::string(options.View);
-    if (const auto motion =
-            RenderMotion(engine, {.Ticks = ticks, .StepS = stepS}, folder, stem, result);
+    if (const auto motion = RenderMotion(
+            engine, {.Ticks = ticks, .StepS = stepS}, options.SampleImages, folder, stem, result);
         !motion) {
       return std::unexpected(motion.error());
     }

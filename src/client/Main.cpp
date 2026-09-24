@@ -138,10 +138,11 @@ void Usage() {
       "  places                           list the external scenario cameras\n"
       "  --places <directory> <command>   override src/assets/places\n"
       "  roundtrip                        write each place, read it back, write it again\n"
-      "  run [--rows] [--into <folder>] [--motion] [--view <id> --at-seconds <s>] <scenario> "
+      "  run [--rows] [--into <folder>] [--motion [--samples]] [--view <id> --at-seconds <s>] "
+      "<scenario> "
       "[name]\n"
-      "                                   draw a scenario or a selected view at simulation time; "
-      "--motion renders every paced tick\n"
+      "                                   draw a selected view; motion renders every paced tick, "
+      "samples save route-decile PNGs\n"
       "  measures <scenario>              and print every measure it published\n"
       "  height <lat> <lon>               terrain elevation; angles in decimal degrees\n"
       "  help                             this\n\n"
@@ -228,7 +229,25 @@ struct ScenarioRunOptions {
   std::string_view SelectedView;
   double AtS = 0.0;
   bool RenderMotion = false;
+  bool SampleImages = false;
 };
+
+[[nodiscard]] std::expected<void, int> ValidateScenarioRunOptions(const ScenarioRunOptions &options,
+                                                                  bool hasTime) {
+  if (hasTime && options.SelectedView.empty()) {
+    std::println(stderr, "outshine-client: --at-seconds requires --view");
+    return std::unexpected(2);
+  }
+  if (options.RenderMotion && (!hasTime || options.SelectedView.empty())) {
+    std::println(stderr, "outshine-client: --motion requires --view and --at-seconds");
+    return std::unexpected(2);
+  }
+  if (options.SampleImages && !options.RenderMotion) {
+    std::println(stderr, "outshine-client: --samples requires --motion");
+    return std::unexpected(2);
+  }
+  return {};
+}
 
 [[nodiscard]] std::expected<ScenarioRunOptions, int>
 ParseScenarioRunOptions(int argc, const char *const *argv) {
@@ -245,6 +264,12 @@ ParseScenarioRunOptions(int argc, const char *const *argv) {
     }
     if (std::strcmp(argv[0], "--motion") == 0) {
       options.RenderMotion = true;
+      --argc;
+      ++argv;
+      continue;
+    }
+    if (std::strcmp(argv[0], "--samples") == 0) {
+      options.SampleImages = true;
       --argc;
       ++argv;
       continue;
@@ -275,13 +300,8 @@ ParseScenarioRunOptions(int argc, const char *const *argv) {
     }
     break;
   }
-  if (hasTime && options.SelectedView.empty()) {
-    std::println(stderr, "outshine-client: --at-seconds requires --view");
-    return std::unexpected(2);
-  }
-  if (options.RenderMotion && (!hasTime || options.SelectedView.empty())) {
-    std::println(stderr, "outshine-client: --motion requires --view and --at-seconds");
-    return std::unexpected(2);
+  if (const auto valid = ValidateScenarioRunOptions(options, hasTime); !valid) {
+    return std::unexpected(valid.error());
   }
   options.Argc = argc;
   options.Argv = argv;
@@ -297,7 +317,8 @@ int CaptureView(outshine::Engine &engine,
                                              .Name = named,
                                              .Into = options.Into,
                                              .AtS = options.AtS,
-                                             .RenderMotion = options.RenderMotion});
+                                             .RenderMotion = options.RenderMotion,
+                                             .SampleImages = options.SampleImages});
   if (!captured) {
     std::println(stderr, "outshine-client: {}", captured.error());
     return 1;
@@ -350,6 +371,9 @@ int CaptureView(outshine::Engine &engine,
     if (!captured->LastUnsettledReason.empty()) {
       std::println("UNSETTLED {}", captured->LastUnsettledReason);
     }
+  }
+  if (options.SampleImages) {
+    std::println("SAMPLES\t{}\tbuild/shots/{}", captured->SampleImages, options.Into);
   }
   return 0;
 }

@@ -77,21 +77,21 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    from native pose samples. `placement="route"` binds a first- or third-person
    rig only after publication; one pinned-OSM/analytic-DEM test checks 60 fixed
    ticks against `Engine::sampleRoute`, startup refusal, and view reselection.
-   Remaining: presentation interpolation, one continuous client capture with
-   per-frame continuity/streaming measurements, and visual acceptance.
-   `outshine-client run --motion --view lap --at-seconds 30` now renders each
-   paced tick and writes a route/eye/time/refined-readiness TSV. The first
-   1800-frame run found a structure-bake starvation bug (WI 2232); after its
-   bounded-eye fix, 100/101 bakes landed and 336 frames were refined. The
-   closing frame is still unrefined with a ground candidate pending. The
-   trace is diagnostic, not yet full-lap or road-coverage acceptance.
-   A paced 300 s run rendered all 18000 ticks. All 267 segments and 4575.880 m
-   were traversed; motion ended at 214.233 s. Station never regressed, advanced
-   at most 0.5 m/tick, and eye movement stayed below 0.505 m/tick. During
-   12854 moving frames only 2378 were refined. Full-run p99 CPU advance+render
-   was 11.552 ms, 32 moving frames exceeded 16.667 ms, and heap peaked at
-   488.025 MiB. The opened closing PNG has a continuous but flat grey road
-   and implausibly simple surroundings. Streaming and visual acceptance stay open.
+   Remaining: presentation interpolation, per-frame road-coverage/contact
+   proof, refined streaming and visual acceptance. A paced 300 s capture
+   traversed all 267 segments and 4575.880 m by 214.233 s. Station never
+   regressed, advanced at most 0.5 m/tick, and eye movement stayed below
+   0.505 m/tick. Only 2378/12854 moving frames were refined; p99 CPU
+   advance+render was 11.552 ms, 32 moving frames exceeded 16.667 ms, and
+   heap peaked at 488.025 MiB. `outshine-client run --motion --samples --view
+   lap --at-seconds 220 --into places src/assets/places/Hockenheimring.scenario
+   HockenheimSamples` saves route-decile PNGs and a per-frame TSV. All eleven
+   PNGs were opened: road remains visible, but uniformly grey asphalt, flat
+   ground colors, abrupt distant edges and crude dark buildings fail visual
+   acceptance. The sampled run had 10474/13200 unrefined frames, p99 12.281 ms,
+   32 over-budget frames and 483.033 MiB peak heap. A footprint revision rises
+   on each accepted/replaced structure tile; verify whether this needlessly
+   restarts ground candidates during movement before changing the contract.
 4. Stream ahead and evict behind under bounded memory. Keep graph/route IDs
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.
