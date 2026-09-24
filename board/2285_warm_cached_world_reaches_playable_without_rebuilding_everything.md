@@ -65,6 +65,11 @@ never publish mixed revisions or stale geometry.
    first Playable and Refined targets. Optimize the slowest stage first:
    bounded parallel decode/ingest, reuse unchanged native products, batch GPU
    uploads, and keep IO/compute work ahead of the moving focus.
+   First attribute each `Engine::preload` call's wall time to pump, candidate
+   flush, and await, with call counts in `Loading`/client `STAT`. Sum must not
+   exceed `preload_ms`; residual includes callback and loop overhead. Record
+   five fresh-process warm Hockenheim runs before optimizing a phase. This
+   accounting lives outside the frame path and allocates nothing per cycle.
 4. Persist immutable native products only where profiling proves regeneration
    dominates read cost. Atomic write/rename, key validation, bounded eviction
    and corruption fallback are required. Repeated source-cache and
