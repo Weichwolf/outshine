@@ -54,12 +54,28 @@ struct Loading {
   double MeanFetchMs = 0.0; ///< Accumulated fetch time divided by pool post count, in milliseconds.
   double ElapsedS = 0.0;    ///< Seconds since this preload call began; zero in loading() snapshots.
   double PreloadMs = 0.0;   ///< Duration of the last valid preload() call, in milliseconds.
-  double PreloadPumpMs = 0.0;       ///< Wall time spent polling sources and ingesting world data.
-  double PreloadFlushMs = 0.0;      ///< Wall time spent advancing candidate publication.
-  double PreloadAwaitMs = 0.0;      ///< Wall time spent awaiting source or worker progress.
-  size_t PreloadPumps = 0;          ///< Pump calls in the current or last valid preload().
-  size_t PreloadFlushes = 0;        ///< Candidate-flush calls in that preload().
-  size_t PreloadAwaits = 0;         ///< Await calls in that preload().
+  double PreloadPumpMs = 0.0;  ///< Wall time spent polling sources and ingesting world data.
+  double PreloadFlushMs = 0.0; ///< Wall time spent advancing candidate publication.
+  double PreloadAwaitMs = 0.0; ///< Wall time spent awaiting source or worker progress.
+  size_t PreloadPumps = 0;     ///< Pump calls in the current or last valid preload().
+  size_t PreloadFlushes = 0;   ///< Candidate-flush calls in that preload().
+  size_t PreloadAwaits = 0;    ///< Await calls in that preload().
+
+  /// Disjoint waits within PreloadAwaitMs. A signal may be spurious or unrelated to readiness.
+  struct WaitBreakdown {
+    double StructureMs = 0.0;          ///< Time waiting on queued structure workers.
+    double ClassMs = 0.0;              ///< Time waiting on terrain classification.
+    double TileMs = 0.0;               ///< Time waiting on the tile pool.
+    size_t StructureCalls = 0;         ///< Structure-worker waits.
+    size_t ClassCalls = 0;             ///< Classification waits.
+    size_t TileCalls = 0;              ///< Tile-pool waits.
+    size_t StructureSignals = 0;       ///< Structure-worker condition-variable signals.
+    size_t ClassSignals = 0;           ///< Classification condition-variable signals.
+    size_t TileSignals = 0;            ///< Tile-pool condition-variable signals.
+    double TileNoOutstandingMs = 0.0;  ///< Tile wait entered with zero outstanding pool jobs.
+    size_t TileNoOutstandingCalls = 0; ///< Such waits; other world jobs may remain active.
+  } Waited; ///< Current or last valid preload() call; zero before one begins.
+
   std::uint64_t StoreHits = 0;      ///< Successful persistent source-cache reads since assemble().
   std::uint64_t StoreMisses = 0;    ///< Missed persistent source-cache reads since assemble().
   std::uint64_t StoreWrites = 0;    ///< Successful persistent source-cache writes since assemble().

@@ -32,6 +32,14 @@ int main() {
               loading.PreloadPumpMs + loading.PreloadFlushMs + loading.PreloadAwaitMs <=
                   loading.PreloadMs,
           "disjoint measured phases fit within total preload wall time");
+    const auto &waited = loading.Waited;
+    CHECK(waited.StructureMs + waited.ClassMs + waited.TileMs <= loading.PreloadAwaitMs &&
+              waited.StructureSignals <= waited.StructureCalls &&
+              waited.ClassSignals <= waited.ClassCalls && waited.TileSignals <= waited.TileCalls,
+          "wait-source accounting is disjoint and signals never exceed calls");
+    CHECK(waited.TileNoOutstandingMs <= waited.TileMs &&
+              waited.TileNoOutstandingCalls <= waited.TileCalls,
+          "zero-outstanding tile waits are a subset of tile wait samples");
   }
 
   std::error_code error;

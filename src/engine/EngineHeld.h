@@ -417,6 +417,7 @@ struct Engine::State {
   size_t PreloadPumps = 0;
   size_t PreloadFlushes = 0;
   size_t PreloadAwaits = 0;
+  Loading::WaitBreakdown PreloadWaited;
   bool Capturing = false;
 
   [[nodiscard]] LogThreadSinkScope Logs() const { return LogThreadSinkScope(Diagnostics); }

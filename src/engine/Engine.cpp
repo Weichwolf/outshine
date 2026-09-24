@@ -442,6 +442,7 @@ Loading Engine::loading() const {
   said.PreloadPumps = S_->PreloadPumps;
   said.PreloadFlushes = S_->PreloadFlushes;
   said.PreloadAwaits = S_->PreloadAwaits;
+  said.Waited = S_->PreloadWaited;
   if (!S_->Session.Declared.Ground.Declared) { return said; }
   said.GroundWanted = S_->World.AskedWanted;
   said.GroundArrived = S_->World.AskedWanted >= S_->World.AskedPending
@@ -591,8 +592,37 @@ Result Engine::State::PreloadTimeout(double bound) {
 }
 
 void Engine::State::AwaitPreloadProgress(double seconds) {
-  if (World.StructureBuilds.AwaitSlice(seconds)) { return; }
-  (void)World.Stack.AwaitProgress(seconds);
+  auto &waited = PreloadWaited;
+  if (World.StructureBuilds.Queued() > 0) {
+    const auto began = std::chrono::steady_clock::now();
+    const bool signalled = World.StructureBuilds.AwaitSlice(seconds);
+    waited.StructureMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    ++waited.StructureCalls;
+    if (signalled) {
+      ++waited.StructureSignals;
+      return;
+    }
+  }
+  const bool classBuilding = World.Stack.Classes().Building();
+  const bool noTileWork = !classBuilding && World.Stack.Pool().Counters().Outstanding == 0;
+  const auto began = std::chrono::steady_clock::now();
+  const bool signalled = World.Stack.AwaitProgress(seconds);
+  const double elapsedMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  if (classBuilding) {
+    waited.ClassMs += elapsedMs;
+    ++waited.ClassCalls;
+    waited.ClassSignals += signalled ? 1u : 0u;
+  } else {
+    waited.TileMs += elapsedMs;
+    ++waited.TileCalls;
+    waited.TileSignals += signalled ? 1u : 0u;
+    if (noTileWork) {
+      waited.TileNoOutstandingMs += elapsedMs;
+      ++waited.TileNoOutstandingCalls;
+    }
+  }
 }
 
 Result Engine::preload(double patienceS) {
@@ -613,6 +643,7 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
   S_->PreloadPumps = 0;
   S_->PreloadFlushes = 0;
   S_->PreloadAwaits = 0;
+  S_->PreloadWaited = {};
   const auto elapsedMs = [](std::chrono::steady_clock::time_point started) {
     return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
         .count();

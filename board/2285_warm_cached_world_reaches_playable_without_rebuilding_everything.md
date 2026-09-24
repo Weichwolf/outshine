@@ -42,6 +42,13 @@ Count calls and condition-variable signals for each; a tile signal does not
 by itself prove a delivered tile. Preserve the existing wait order and bound
 while measuring so comparison is causal. Subwait time must fit within total
 await time; signals cannot exceed calls.
+Five further warm Hockenheim runs split `Await` into roughly 0.54–0.55 s
+structure, 0.05–0.07 s classification and 2.09–2.19 s tile wait. One run
+entered 41 tile waits with zero outstanding tile jobs and spent 2125.6 ms
+there. This is an invalid wait source, not proof that no other worker runs.
+Next scheduling step must skip the tile condition variable at zero pool
+outstanding, preserve a single 50 ms budget across wait sources, and continue
+synchronous candidate work promptly. Compare digest and phase times again.
 
 The product contract is low-latency playable contact from a complete warm
 cache, followed by bounded visual refinement while the world is already
