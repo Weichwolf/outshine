@@ -25,6 +25,7 @@
 #include "TilePieces.h"
 #include "WorldPlacement.h"
 #include "StructureBuildQueue.h"
+#include "RoadAlignmentBuildQueue.h"
 #include "Tasks.h"
 #include "Log.h"
 
@@ -245,8 +246,10 @@ struct Surrounds {
   HeightSheets Sheets;
   std::shared_ptr<const Path::Network> StreetGraph;
   size_t StreetGraphWayCount = 0;
+  std::vector<NamedRoadAlignment> RoadAlignments;
   bool PiecesFramed = false;
   std::unique_ptr<Tasks> Pool;
+  RoadAlignmentBuildQueue RoadAlignmentBuilds;
   std::unique_ptr<World::OsmTransportLoader> OsmTransportLoader;
   StructureBuildQueue StructureBuilds;
   size_t Relaid = 0;
@@ -267,7 +270,7 @@ struct Surrounds {
 };
 
 struct Spent {
-  static constexpr size_t kGroundPhaseCount = 17;
+  static constexpr size_t kGroundPhaseCount = 18;
 
   struct UpdateComponents {
     double TotalMs = 0.0;
@@ -468,6 +471,7 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundSurface();
   [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingModels(const TangentFrame &standing);
   [[nodiscard]] GroundBuildProgress AdvanceGroundStreetGraph();
+  [[nodiscard]] GroundBuildProgress AdvanceGroundRoadAlignments();
   [[nodiscard]] GroundBuildProgress AdvanceGroundStructureBakes(const TangentFrame &standing) const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;
@@ -498,6 +502,9 @@ struct Engine::State {
                                             Patchwork &patchwork,
                                             GroundBuildState &state);
   [[nodiscard]] bool PublishGroundGeometry(GroundBuildState &state);
+  [[nodiscard]] GroundBuildProgress AdvanceGroundConstructionStages(const TangentFrame &standing,
+                                                                    Patchwork &patchwork,
+                                                                    GroundBuildState &state);
   [[nodiscard]] bool
   BuildWaterSurfaces(const TangentFrame &standing, Geometry &ground, MaterialInstance ringSurface);
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded, GroundQuality quality);

@@ -18,9 +18,11 @@ std::expected<RoadHeightCoverage, std::string>
 RoadHeightCoverage::Select(const World::TransportNetworkSnapshot &source, Budget budget) {
   RoadHeightCoverage result;
   const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
-  for (const World::NamedCircuitRoute &named : source.Routes()) {
+  for (size_t routeIndex = 0; routeIndex < source.Routes().size(); ++routeIndex) {
+    const World::NamedCircuitRoute &named = source.Routes()[routeIndex];
     const World::CircuitRoute &route = named.Circuit;
-    if (result.SelectedEdges > budget.MaximumEdges ||
+    if (result.SelectedRouteIndices.size() >= budget.MaximumRoutes ||
+        result.SelectedEdges > budget.MaximumEdges ||
         route.EdgeIds.size() > budget.MaximumEdges - result.SelectedEdges) {
       ++result.DeferredRoutes;
       continue;
@@ -48,6 +50,7 @@ RoadHeightCoverage::Select(const World::TransportNetworkSnapshot &source, Budget
       continue;
     }
     result.Tiles = std::move(combined);
+    result.SelectedRouteIndices.push_back(routeIndex);
     result.SelectedEdges += route.EdgeIds.size();
   }
   return result;

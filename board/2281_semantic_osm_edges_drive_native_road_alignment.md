@@ -65,9 +65,10 @@ larger routes are reported deferred until sliding-window coverage exists.
   off the frame path. Source identity, DEM source set/digest and candidate
   generation travel with the result; stale completion cannot replace a newer
   candidate. Test missing/changed tiles and normal Hockenheim DEM coverage.
-  Selection and candidate field requests are implemented. Remaining: snapshot
-  the resolved fields, run pin plus alignment off-frame, land only matching
-  generations, and prove normal Hockenheim DEM samples from the public client.
+  Selection, candidate field requests and off-frame pin/alignment with stale-result
+  rejection are implemented. The normal Hockenheim client shot reports six
+  requested DEM tiles, 267 aligned source edges and 20 terrain-source records.
+  Its PNG still lacks the raceway: derive matched road render/contact products.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
   Input is one `TransportNetworkSnapshot` revision, a bounded ordered set of
   source edge IDs with source identity selected by route or coverage, and pinned

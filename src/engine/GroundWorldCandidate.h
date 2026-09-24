@@ -30,11 +30,19 @@ struct GroundBuildProducts {
   MaterialInstance GroundSurface;
   std::shared_ptr<const Path::Network> StreetGraph;
   size_t StreetGraphWayCount = 0;
+  std::vector<NamedRoadAlignment> RoadAlignments;
   size_t RimsMissing = 0;
   std::optional<TilePieces::Surfaces> Surfaces;
 
   [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
-    return Sheets.HeapBytes() + Footprints.HeapBytes() + Pieces.HeapBytes() +
+    size_t alignmentBytes = RoadAlignments.capacity() * sizeof(NamedRoadAlignment);
+    for (const NamedRoadAlignment &route : RoadAlignments) {
+      alignmentBytes += route.Id.capacity();
+      if (route.Alignment) {
+        alignmentBytes += sizeof(Generators::RoadAlignment) + route.Alignment->OwnedHeapBytes();
+      }
+    }
+    return Sheets.HeapBytes() + Footprints.HeapBytes() + Pieces.HeapBytes() + alignmentBytes +
            Ground.storageBytes() + PositionsM.capacity() * sizeof(float) +
            Indices.capacity() * sizeof(uint32_t) + ClassPalette.capacity() * sizeof(float);
   }
@@ -72,6 +80,7 @@ public:
                   .GroundSurface = {},
                   .StreetGraph = world.StreetGraph,
                   .StreetGraphWayCount = world.StreetGraphWayCount,
+                  .RoadAlignments = {},
                   .RimsMissing = world.RimsMissing,
                   .Surfaces = world.StructureSurfaces},
         World_(renderer),
@@ -213,6 +222,7 @@ public:
     world.GroundIndex = std::move(Products_.Indices);
     world.StreetGraph = std::move(Products_.StreetGraph);
     world.StreetGraphWayCount = Products_.StreetGraphWayCount;
+    world.RoadAlignments = std::move(Products_.RoadAlignments);
     world.RimsMissing = Products_.RimsMissing;
     PublicationMetrics_.ProductsMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)

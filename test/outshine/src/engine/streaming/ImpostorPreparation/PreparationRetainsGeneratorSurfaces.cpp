@@ -600,7 +600,8 @@ int main() {
     bool stepped = true;
     const auto began = std::chrono::steady_clock::now();
     while (!world->Ready() && std::chrono::steady_clock::now() - began < std::chrono::seconds(5)) {
-      if (!world->Step(camera->EyeM, false, error)) {
+      if (!world->Step(
+              camera->EyeM, false, VegetationStreaming::ResourcePublication::Allowed, error)) {
         stepped = false;
         break;
       }
@@ -639,7 +640,7 @@ int main() {
     CHECK(absent != nullptr, "an absent capture shape can request its artifact");
     if (absent) {
       for (int attempt = 0; attempt < 20; ++attempt) {
-        CHECK(absent->Step({}, false, error),
+        CHECK(absent->Step({}, false, VegetationStreaming::ResourcePublication::Allowed, error),
               "realtime polling defers a missing crown instead of baking it");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }

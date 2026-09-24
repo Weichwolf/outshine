@@ -87,7 +87,8 @@ int main() {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     bool stepped = true;
     while (!crowns->Ready() && std::chrono::steady_clock::now() < deadline) {
-      if (!crowns->Step({{0, 0, 10}}, false, error)) {
+      if (!crowns->Step(
+              {{0, 0, 10}}, false, VegetationStreaming::ResourcePublication::Allowed, error)) {
         stepped = false;
         break;
       }
@@ -103,7 +104,8 @@ int main() {
                 renderer, *live, geometry->clone(), nullptr, live, error),
             "world publication retains the crown piece descriptions");
       crowns->Into(renderer);
-      CHECK(crowns->Step({{0, 0, 10}}, false, error),
+      CHECK(crowns->Step(
+                {{0, 0, 10}}, false, VegetationStreaming::ResourcePublication::Allowed, error),
             "crown groups rebind their stable piece handles after publication");
       CHECK(renderer.PiecesStanding() == initialPieces + 2,
             "rebound crown groups retain every resident prototype");

@@ -27,7 +27,7 @@ Error(RoadConstraintErrorCode code, World::TransportEdgeId edge = {}, uint64_t n
 
 std::expected<RoadConstraintPoint, RoadConstraintError>
 SampleRoadPoint(const World::TransportTopology &topology,
-                const Ground::HeightField &terrain,
+                const ::outshine::Ground::HeightField &terrain,
                 const TangentFrame &frame,
                 uint64_t nodeId,
                 World::TransportEdgeId edgeId) {
@@ -59,7 +59,7 @@ std::expected<RoadConstraintChain, RoadConstraintError>
 RoadConstraintChain::Build(const World::TransportTopology &topology,
                            const Data::OsmSourceIdentity &selectionSource,
                            std::span<const World::TransportEdgeId> selectedEdges,
-                           const Ground::HeightField &terrain) {
+                           const ::outshine::Ground::HeightField &terrain) {
   if (topology.SourceIdentity() != selectionSource) {
     return std::unexpected(Error(RoadConstraintErrorCode::SourceMismatch));
   }

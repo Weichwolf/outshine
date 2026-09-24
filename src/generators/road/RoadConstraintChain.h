@@ -58,7 +58,7 @@ public:
   Build(const World::TransportTopology &topology,
         const Data::OsmSourceIdentity &selectionSource,
         std::span<const World::TransportEdgeId> selectedEdges,
-        const Ground::HeightField &terrain);
+        const ::outshine::Ground::HeightField &terrain);
 
   [[nodiscard]] const Data::OsmSourceIdentity &SourceIdentity() const noexcept {
     return SourceIdentity_;

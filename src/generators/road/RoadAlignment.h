@@ -76,6 +76,13 @@ public:
 
   [[nodiscard]] std::span<const RoadAlignmentEdge> Edges() const noexcept { return Edges_; }
 
+  [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
+    return TerrainSources_.capacity() * sizeof(Data::TileSourceIdentity) +
+           Edges_.capacity() * sizeof(RoadAlignmentEdge) + Curves_.capacity() * sizeof(Cubic) +
+           ArcRanges_.capacity() * sizeof(ArcRange) + ArcSamples_.capacity() * sizeof(ArcSample) +
+           EdgeIndicesById_.capacity() * sizeof(uint32_t);
+  }
+
   [[nodiscard]] const RoadAlignmentEdge *FindEdge(World::TransportEdgeId id) const noexcept;
   [[nodiscard]] std::optional<RoadAlignmentPose> AtEdgeStation(World::TransportEdgeId id,
                                                                double edgeStationM) const noexcept;

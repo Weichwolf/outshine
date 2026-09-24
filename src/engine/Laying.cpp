@@ -249,11 +249,26 @@ public:
     return TransportSnapshot_.get();
   }
 
-  void SetRoadHeightTiles(std::vector<Data::TileId> tiles) { RoadHeightTiles_ = std::move(tiles); }
+  [[nodiscard]] const std::shared_ptr<const World::TransportNetworkSnapshot> &
+  TransportSnapshotOwner() const noexcept {
+    return TransportSnapshot_;
+  }
+
+  void SetRoadHeightCoverage(RoadHeightCoverage coverage) {
+    RoadHeightCoverage_ = std::move(coverage);
+  }
 
   [[nodiscard]] std::span<const Data::TileId> RoadHeightTiles() const noexcept {
-    return RoadHeightTiles_;
+    return RoadHeightCoverage_.Tiles;
   }
+
+  [[nodiscard]] std::span<const size_t> RoadRouteIndices() const noexcept {
+    return RoadHeightCoverage_.SelectedRouteIndices;
+  }
+
+  [[nodiscard]] bool RoadAlignmentRequested() const noexcept { return RoadAlignmentRequested_; }
+
+  void MarkRoadAlignmentRequested() noexcept { RoadAlignmentRequested_ = true; }
 
   [[nodiscard]] MeshBuild &Meshing() noexcept { return Meshing_; }
 
@@ -495,7 +510,8 @@ public:
 private:
   [[nodiscard]] size_t CurrentProductBytes() const noexcept {
     const size_t phaseBytes = (Patchwork_ ? Patchwork_->HeapBytes() : 0u) +
-                              RoadHeightTiles_.capacity() * sizeof(Data::TileId) +
+                              RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
+                              RoadHeightCoverage_.SelectedRouteIndices.capacity() * sizeof(size_t) +
                               Corridors_.capacity() * sizeof(EarthworkStamp) +
                               Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
                               Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
@@ -516,7 +532,8 @@ private:
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
   std::shared_ptr<const World::TransportNetworkSnapshot> TransportSnapshot_;
-  std::vector<Data::TileId> RoadHeightTiles_;
+  RoadHeightCoverage RoadHeightCoverage_;
+  bool RoadAlignmentRequested_ = false;
   std::optional<Patchwork> Patchwork_;
   std::unique_ptr<Generators::BuildingStampJob> Stamping_;
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
@@ -1226,7 +1243,7 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
       Published.Places("semantic road routes deferred by local tile budget",
                        static_cast<double>(routeTiles->DeferredRoutes),
                        "routes");
-      World.GroundBuild->SetRoadHeightTiles(std::move(routeTiles->Tiles));
+      World.GroundBuild->SetRoadHeightCoverage(std::move(*routeTiles));
     }
     Cost.GroundBuildCreate.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - createAt)
@@ -1587,6 +1604,67 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   Published.Places(
       "network: steepest grade on a sealed way", mapped.Elevated.SteepestSealedGrade, "m/m");
   state.FinishStreetGraph();
+  state.AdvanceStage();
+  return GroundBuildProgress::Pending;
+}
+
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRoadAlignments() {
+  GroundBuildState &state = *World.GroundBuild;
+  if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsRoadAlignments) {
+    return GroundBuildProgress::Ready;
+  }
+  if (state.RoadRouteIndices().empty()) {
+    state.AdvanceStage();
+    return GroundBuildProgress::Pending;
+  }
+  if (!World.Pool || state.TransportSnapshot() == nullptr) {
+    Error = "road alignment candidate has no task pool or OSM source";
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  if (!state.RoadAlignmentRequested()) {
+    RoadAlignmentBuildRequest request{
+        .Source = state.TransportSnapshotOwner(),
+        .Terrain = state.Candidate().Products().Sheets.SnapshotSourcedFields(),
+        .RouteIndices = {state.RoadRouteIndices().begin(), state.RoadRouteIndices().end()},
+        .TerrainZoom = state.Coverage().Zoom,
+        .CandidateGeneration = state.Id()};
+    if (!World.RoadAlignmentBuilds.TryStart(*World.Pool, std::move(request))) {
+      return GroundBuildProgress::Pending;
+    }
+    state.MarkRoadAlignmentRequested();
+    return GroundBuildProgress::Pending;
+  }
+  auto result = World.RoadAlignmentBuilds.TakeCompleted();
+  if (!result) { return GroundBuildProgress::Pending; }
+  if (!*result) {
+    const RoadAlignmentBuildError &failure = result->error();
+    Error = std::format("road alignment '{}' failed with code {} at edge {}",
+                        failure.RouteId,
+                        static_cast<int>(failure.Code),
+                        failure.Edge.WayId);
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  if (!result->value().Matches(state.Id(), state.TransportSnapshot()->SourceIdentity())) {
+    Error = "road alignment candidate completed for a different source revision";
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
+  GroundBuildProducts &build = state.Candidate().Products();
+  build.RoadAlignments = std::move(result->value().Routes);
+  size_t alignedEdges = 0;
+  size_t terrainSources = 0;
+  for (const NamedRoadAlignment &route : build.RoadAlignments) {
+    alignedEdges += route.Alignment->Edges().size();
+    terrainSources += route.Alignment->TerrainSources().size();
+  }
+  Published.Places(
+      "semantic road alignments built", static_cast<double>(build.RoadAlignments.size()), "routes");
+  Published.Places(
+      "semantic road alignment source edges", static_cast<double>(alignedEdges), "edges");
+  Published.Places(
+      "semantic road alignment terrain sources", static_cast<double>(terrainSources), "sources");
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
 }
@@ -2100,12 +2178,47 @@ bool Engine::State::AdvancesGroundWithinBudget(GroundQuality quality) {
   return true;
 }
 
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundConstructionStages(
+    const TangentFrame &standing, Patchwork &patchwork, GroundBuildState &state) {
+  switch (state.CurrentStage()) {
+    case Core::GroundBuildSchedule::Stage::NeedsCorridors:
+      return BuildGroundCorridors(standing, state.Coverage(), state) ? GroundBuildProgress::Pending
+                                                                     : GroundBuildProgress::Failed;
+    case Core::GroundBuildSchedule::Stage::NeedsEarthworks:
+      return PressGroundEarthworks(standing, patchwork, state) ? GroundBuildProgress::Pending
+                                                               : GroundBuildProgress::Failed;
+    case Core::GroundBuildSchedule::Stage::NeedsTerrainMesh:
+      return BuildGroundTerrainMesh(standing, patchwork, state) ? GroundBuildProgress::Pending
+                                                                : GroundBuildProgress::Failed;
+    case Core::GroundBuildSchedule::Stage::NeedsWater: {
+      const auto began = std::chrono::steady_clock::now();
+      GroundBuildProducts &build = state.Candidate().Products();
+      if (!BuildWaterSurfaces(standing, build.Ground, build.GroundSurface)) {
+        return GroundBuildProgress::Failed;
+      }
+      state.AdvanceStage();
+      Published.Places(
+          "ground candidate: water",
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count(),
+          "ms");
+      return GroundBuildProgress::Pending;
+    }
+    case Core::GroundBuildSchedule::Stage::NeedsGeometry:
+      return PublishGroundGeometry(state) ? GroundBuildProgress::Pending
+                                          : GroundBuildProgress::Failed;
+    default: return GroundBuildProgress::Ready;
+  }
+}
+
 bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   static const Heap::Tag kLayingTag("world-ground");
   const Heap::Tagged laying(kLayingTag);
+  if (World.Pool) {
+    World.RoadAlignmentBuilds.Poll(*World.Pool, World.GroundBuild ? World.GroundBuild->Id() : 0);
+  }
   if (!AdvancesGroundRetirement()) { return true; }
   if (!GroundInputsReady(quality)) { return true; }
-  auto phaseAt = std::chrono::steady_clock::now();
   const Scenario::Document &declared = Session.Declared;
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
@@ -2128,8 +2241,6 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   const ScopedCounter phaseTime(Cost.GroundPhases[phase]);
   const Around &over = state.Coverage();
   GroundWorldCandidate &candidate = state.Candidate();
-  GroundBuildProducts &build = candidate.Products();
-
   const auto rebuildBegan = state.Began();
 
   const GroundBuildProgress patchwork = AdvanceGroundPatchwork(over);
@@ -2150,44 +2261,25 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   if (materialProgress != GroundBuildProgress::Ready) {
     return materialProgress != GroundBuildProgress::Failed;
   }
-  Geometry &ground = build.Ground;
-  const MaterialInstance ringSurface = build.GroundSurface;
-
   const GroundBuildProgress models = AdvanceGroundBuildingModels(standing);
   if (models != GroundBuildProgress::Ready) { return models != GroundBuildProgress::Failed; }
   const GroundBuildProgress streetGraph = AdvanceGroundStreetGraph();
   if (streetGraph != GroundBuildProgress::Ready) {
     return streetGraph != GroundBuildProgress::Failed;
   }
+  const GroundBuildProgress roads = AdvanceGroundRoadAlignments();
+  if (roads != GroundBuildProgress::Ready) { return roads != GroundBuildProgress::Failed; }
   const GroundBuildProgress bakes = AdvanceGroundStructureBakes(standing);
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
-  if (state.CurrentStage() == Core::GroundBuildSchedule::Stage::NeedsCorridors) {
-    return BuildGroundCorridors(standing, over, state);
-  }
-  if (state.CurrentStage() == Core::GroundBuildSchedule::Stage::NeedsEarthworks) {
-    return PressGroundEarthworks(standing, laid, state);
-  }
-  if (state.CurrentStage() == Core::GroundBuildSchedule::Stage::NeedsTerrainMesh) {
-    return BuildGroundTerrainMesh(standing, laid, state);
-  }
-  if (state.CurrentStage() == Core::GroundBuildSchedule::Stage::NeedsWater) {
-    const auto began = std::chrono::steady_clock::now();
-    if (!BuildWaterSurfaces(standing, ground, ringSurface)) { return false; }
-    state.AdvanceStage();
-    Published.Places(
-        "ground candidate: water",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
-        "ms");
-    return true;
-  }
-  if (state.CurrentStage() == Core::GroundBuildSchedule::Stage::NeedsGeometry) {
-    return PublishGroundGeometry(state);
+  const GroundBuildProgress construction = AdvanceGroundConstructionStages(standing, laid, state);
+  if (construction != GroundBuildProgress::Ready) {
+    return construction != GroundBuildProgress::Failed;
   }
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsPublication) {
     Error = "ground candidate reached an invalid stage";
     return false;
   }
-  phaseAt = std::chrono::steady_clock::now();
+  auto phaseAt = std::chrono::steady_clock::now();
   state.PublishesFootprints();
   if (auto published =
           candidate.Publish(World, World.Stack.Footprints(), Picture.Standing, state.Revision());

@@ -143,6 +143,7 @@ void Engine::State::PublishFrameMeasurements() {
         "surface",
         "models",
         "network",
+        "road alignments",
         "structure bake",
         "corridors",
         "earthworks",

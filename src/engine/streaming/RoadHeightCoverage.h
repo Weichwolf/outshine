@@ -16,9 +16,11 @@ struct RoadHeightCoverage {
     int Zoom = 0;
     size_t MaximumEdges = 0;
     size_t MaximumTiles = 0;
+    size_t MaximumRoutes = 32;
   };
 
   std::vector<Data::TileId> Tiles;
+  std::vector<size_t> SelectedRouteIndices;
   size_t DeferredRoutes = 0;
   size_t SelectedEdges = 0;
 
