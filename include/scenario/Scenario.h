@@ -784,9 +784,12 @@ struct Persisted {
 /// underscore, hyphen and period; names must be unique and OsmRelationId nonzero.
 /// Resolution runs off the frame path and rejects the candidate when its relation is unusable.
 struct RouteDeclaration {
+  /// Unique scenario-local route name used by native consumers after source resolution.
   std::string Id;
+  /// Positive OSM circuit relation ID used only to select the imported source route.
   uint64_t OsmRelationId = 0;
 
+  /// Value equality for declaration comparison; neither field carries runtime ownership.
   [[nodiscard]] bool operator==(const RouteDeclaration &) const = default;
 };
 

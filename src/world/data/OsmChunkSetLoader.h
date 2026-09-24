@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <expected>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -24,7 +25,9 @@ struct OsmChunkSet {
 class OsmChunkSetLoader {
 public:
   [[nodiscard]] static std::expected<OsmChunkSet, std::string>
-  Load(std::span<const SourceProvider> providers, std::string_view shippedRoot);
+  Load(std::span<const SourceProvider> providers,
+       std::string_view shippedRoot,
+       std::stop_token stop = {});
 };
 
 }

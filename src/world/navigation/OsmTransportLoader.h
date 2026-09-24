@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -125,7 +126,11 @@ public:
     return Current_;
   }
 
-  [[nodiscard]] size_t PendingCount() const noexcept { return Pending_.size(); }
+  [[nodiscard]] size_t PendingCount() const noexcept { return Pending_ ? 1 : 0; }
+
+  [[nodiscard]] uint64_t CompletedCount() const noexcept { return CompletedCount_; }
+
+  [[nodiscard]] uint64_t CanceledCount() const noexcept { return CanceledCount_; }
 
 private:
   using LoadResult = std::expected<std::shared_ptr<const TransportNetworkSnapshot>, std::string>;
@@ -138,20 +143,26 @@ private:
     Tasks::Handle Handle = Tasks::kNoTask;
     uint64_t Revision = 0;
     std::shared_ptr<Result> Output;
+    std::stop_source Stop;
   };
 
   [[nodiscard]] static LoadResult Load(std::span<const Data::SourceProvider> providers,
                                        std::string_view shippedRoot,
-                                       std::span<const OsmCircuitRequest> routes);
+                                       std::span<const OsmCircuitRequest> routes,
+                                       std::stop_token stop);
+
+  void StartRequested();
 
   Tasks *Tasks_;
   std::vector<Data::SourceProvider> Requested_;
   std::vector<OsmCircuitRequest> RequestedRoutes_;
   std::string Root_;
-  std::vector<Pending> Pending_;
+  std::optional<Pending> Pending_;
   std::shared_ptr<const TransportNetworkSnapshot> Current_;
   std::string Error_;
   uint64_t Revision_ = 0;
+  uint64_t CompletedCount_ = 0;
+  uint64_t CanceledCount_ = 0;
   Phase Phase_ = Phase::Inactive;
 };
 

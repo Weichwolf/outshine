@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <ratio>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -36,8 +37,8 @@ constexpr std::string_view kSha256PinPrefix = "sha256:";
 
 }
 
-std::expected<OsmChunkSet, std::string>
-OsmChunkSetLoader::Load(std::span<const SourceProvider> providers, std::string_view shippedRoot) {
+std::expected<OsmChunkSet, std::string> OsmChunkSetLoader::Load(
+    std::span<const SourceProvider> providers, std::string_view shippedRoot, std::stop_token stop) {
   std::vector<OsmElements> chunks;
   std::vector<SourceCoverage> coverage;
   chunks.reserve(providers.size());
@@ -46,6 +47,7 @@ OsmChunkSetLoader::Load(std::span<const SourceProvider> providers, std::string_v
   double readMs = 0.0;
   double parseMs = 0.0;
   for (const SourceProvider &provider : providers) {
+    if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
     const std::filesystem::path location(provider.Location);
     const std::filesystem::path path =
         location.is_absolute() ? location : std::filesystem::path(shippedRoot) / location;
@@ -53,6 +55,7 @@ OsmChunkSetLoader::Load(std::span<const SourceProvider> providers, std::string_v
     auto xml = ReadTextFile(path.string(), kMaxChunkBytes);
     readMs += MillisecondsSince(readAt);
     if (!xml) { return std::unexpected(std::move(xml.error())); }
+    if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
     if (std::string_view(provider.Revision).starts_with(kSha256PinPrefix) &&
         Sha256Hex(*xml) != std::string_view(provider.Revision).substr(kSha256PinPrefix.size())) {
       return std::unexpected("semantic OSM source '" + provider.Location +
@@ -66,6 +69,7 @@ OsmChunkSetLoader::Load(std::span<const SourceProvider> providers, std::string_v
     auto parsed =
         OsmXmlReader::Read(*xml, {.DatasetId = provider.Dataset, .Revision = provider.Revision});
     parseMs += MillisecondsSince(parseAt);
+    if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
     if (!parsed) {
       return std::unexpected("semantic OSM source '" + provider.Location +
                              "' failed XML import with code " +
@@ -79,9 +83,11 @@ OsmChunkSetLoader::Load(std::span<const SourceProvider> providers, std::string_v
     chunks.push_back(std::move(*parsed));
   }
 
+  if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   const auto mergeAt = std::chrono::steady_clock::now();
   auto merged = OsmElements::Merge(chunks, kMaxInputElements);
   parseMs += MillisecondsSince(mergeAt);
+  if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   if (!merged) { return std::unexpected(ElementError(merged.error())); }
   if (const auto missing = merged->FirstMissingReference()) {
     return std::unexpected("semantic OSM source element " + std::to_string(missing->OwnerId) +

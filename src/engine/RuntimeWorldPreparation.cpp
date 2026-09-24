@@ -188,6 +188,12 @@ void Engine::State::PollOsmTransport() {
   Published.Places("semantic OSM jobs pending",
                    static_cast<double>(World.OsmTransportLoader->PendingCount()),
                    "jobs");
+  Published.Places("semantic OSM jobs completed",
+                   static_cast<double>(World.OsmTransportLoader->CompletedCount()),
+                   "jobs");
+  Published.Places("semantic OSM jobs canceled",
+                   static_cast<double>(World.OsmTransportLoader->CanceledCount()),
+                   "jobs");
   const auto &current = World.OsmTransportLoader->Current();
   if (!current || current == previous) { return; }
   const World::TransportLoadMetrics &metrics = current->Metrics();

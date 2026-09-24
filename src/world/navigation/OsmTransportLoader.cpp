@@ -10,6 +10,7 @@
 #include <ranges>
 #include <ratio>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -23,7 +24,6 @@ namespace outshine::World {
 namespace {
 
 constexpr size_t kMaxChunks = 4;
-constexpr size_t kMaxPending = 2;
 constexpr size_t kMaxRoutes = 32;
 constexpr size_t kMaxRouteEdges = 65536;
 
@@ -35,7 +35,10 @@ constexpr size_t kMaxRouteEdges = 65536;
 }
 
 OsmTransportLoader::~OsmTransportLoader() {
-  for (const Pending &pending : Pending_) { Tasks_->Wait(pending.Handle); }
+  if (Pending_) {
+    (void)Pending_->Stop.request_stop();
+    Tasks_->Wait(Pending_->Handle);
+  }
 }
 
 std::expected<void, std::string>
@@ -77,69 +80,78 @@ OsmTransportLoader::Request(std::span<const Data::SourceProvider> providers,
   if (Revision_ == std::numeric_limits<uint64_t>::max()) {
     return std::unexpected("semantic OSM source request revision is exhausted");
   }
-  Poll();
-  if (!requested.empty() && Pending_.size() >= kMaxPending) {
-    return std::unexpected("semantic OSM source has two builds pending");
-  }
-
   ++Revision_;
   Requested_ = std::move(requested);
   RequestedRoutes_ = std::move(requestedRoutes);
   Root_ = root;
   Error_.clear();
+  if (Pending_) { (void)Pending_->Stop.request_stop(); }
   if (Requested_.empty()) {
     Current_.reset();
     Phase_ = Phase::Inactive;
     return {};
   }
-
-  auto result = std::make_shared<Result>();
-  std::vector<Data::SourceProvider> input = Requested_;
-  std::vector<OsmCircuitRequest> routeInput = RequestedRoutes_;
-  const Tasks::Handle handle =
-      Tasks_->Post([input = std::move(input), routeInput = std::move(routeInput), root, result] {
-        result->Value = Load(input, root, routeInput);
-      });
-  Pending_.push_back({.Handle = handle, .Revision = Revision_, .Output = std::move(result)});
   Phase_ = Phase::Loading;
+  Poll();
   return {};
 }
 
 void OsmTransportLoader::Poll() {
-  for (size_t at = 0; at < Pending_.size();) {
-    if (!Tasks_->Done(Pending_[at].Handle)) {
-      ++at;
-      continue;
+  if (Pending_ && Tasks_->Done(Pending_->Handle)) {
+    const Pending finished = std::move(*Pending_);
+    Pending_.reset();
+    if (finished.Revision != Revision_) {
+      ++CanceledCount_;
+    } else {
+      ++CompletedCount_;
+      if (!finished.Output->Value) {
+        Error_ = "semantic OSM source worker returned no result";
+        Phase_ = Phase::Failed;
+      } else {
+        LoadResult &loaded = *finished.Output->Value;
+        if (!loaded) {
+          Error_ = std::move(loaded.error());
+          Phase_ = Phase::Failed;
+        } else {
+          Current_ = std::move(*loaded);
+          Error_.clear();
+          Phase_ = Phase::Ready;
+        }
+      }
     }
-    const Pending finished = std::move(Pending_[at]);
-    Pending_.erase(Pending_.begin() + static_cast<std::ptrdiff_t>(at));
-    if (finished.Revision != Revision_) { continue; }
-    if (!finished.Output->Value) {
-      Error_ = "semantic OSM source worker returned no result";
-      Phase_ = Phase::Failed;
-      continue;
-    }
-    LoadResult &loaded = *finished.Output->Value;
-    if (!loaded) {
-      Error_ = std::move(loaded.error());
-      Phase_ = Phase::Failed;
-      continue;
-    }
-    Current_ = std::move(*loaded);
-    Error_.clear();
-    Phase_ = Phase::Ready;
   }
+  if (!Pending_ && Phase_ == Phase::Loading && !Requested_.empty()) { StartRequested(); }
+}
+
+void OsmTransportLoader::StartRequested() {
+  auto result = std::make_shared<Result>();
+  std::vector<Data::SourceProvider> input = Requested_;
+  std::vector<OsmCircuitRequest> routes = RequestedRoutes_;
+  const std::string root = Root_;
+  std::stop_source stop;
+  const std::stop_token token = stop.get_token();
+  const Tasks::Handle handle =
+      Tasks_->Post([input = std::move(input), routes = std::move(routes), root, result, token] {
+        result->Value = Load(input, root, routes, token);
+      });
+  Pending_.emplace(Pending{.Handle = handle,
+                           .Revision = Revision_,
+                           .Output = std::move(result),
+                           .Stop = std::move(stop)});
 }
 
 OsmTransportLoader::LoadResult
 OsmTransportLoader::Load(std::span<const Data::SourceProvider> providers,
                          std::string_view shippedRoot,
-                         std::span<const OsmCircuitRequest> routes) {
-  auto loaded = Data::OsmChunkSetLoader::Load(providers, shippedRoot);
+                         std::span<const OsmCircuitRequest> routes,
+                         std::stop_token stop) {
+  auto loaded = Data::OsmChunkSetLoader::Load(providers, shippedRoot, stop);
   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
+  if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   const auto graphAt = std::chrono::steady_clock::now();
   auto graph = TransportTopology::Build(loaded->Elements);
   const double graphMs = MillisecondsSince(graphAt);
+  if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   if (!graph) {
     return std::unexpected("semantic OSM graph failed at source object " +
                            std::to_string(graph.error().SourceId) + " with code " +
@@ -149,6 +161,7 @@ OsmTransportLoader::Load(std::span<const Data::SourceProvider> providers,
   transport.Routes.reserve(routes.size());
   size_t routeEdges = 0;
   for (const OsmCircuitRequest &request : routes) {
+    if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
     auto route = transport.Graph.ResolveCircuit(
         loaded->Elements, request.RelationId, {}, kMaxRouteEdges - routeEdges);
     if (!route) {
@@ -159,6 +172,7 @@ OsmTransportLoader::Load(std::span<const Data::SourceProvider> providers,
     routeEdges += route->EdgeIds.size();
     transport.Routes.push_back({.Id = request.Id, .Circuit = std::move(*route)});
   }
+  if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   return std::make_shared<TransportNetworkSnapshot>(
       std::move(loaded->Elements),
       std::move(transport),

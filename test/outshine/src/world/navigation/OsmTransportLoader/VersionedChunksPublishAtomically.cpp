@@ -112,13 +112,17 @@ int main() {
   const Tasks::Handle blocker = tasks.Post([gate] { gate.wait(); });
   const auto stale = Region(hockenheim.Location, "r3", *hockenheim.Coverage);
   const auto newest = Region(hockenheim.Location, "r4", *hockenheim.Coverage);
+  const auto latest = Region(hockenheim.Location, "r5", *hockenheim.Coverage);
   CHECK(source.Request(std::span(&stale, 1), "."), "older revision is queued behind a gate");
   CHECK(source.Request(std::span(&newest, 1), "."), "newer revision supersedes it");
+  CHECK(source.Request(std::span(&latest, 1), ".") && source.PendingCount() == 1,
+        "third revision replaces the desired state without queuing another build");
   release.set_value();
   tasks.Wait(blocker);
   CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Ready &&
-            source.Current() && source.Current()->SourceIdentity().Revision == "r4",
-        "late older result cannot replace the requested source revision");
+            source.Current() && source.Current()->SourceIdentity().Revision == "r5" &&
+            source.CanceledCount() == 1,
+        "only the newest revision publishes after one stale build is canceled");
 
   std::error_code cleanupError;
   std::filesystem::remove(temporary, cleanupError);
