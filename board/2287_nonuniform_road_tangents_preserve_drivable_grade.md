@@ -42,6 +42,13 @@ use their only chord. Reject zero/nonfinite lengths and near-vertical `w`;
 retain the sharp-turn refusal. Weighting the full 3D tangent was rejected:
 it moved the Hockenheim centerline over 1 m from source chords.
 
+Implementation `acd381610` passes the road suite and Hockenheim camera test.
+Real DEM curvature at 0.5/2/5 m is 0.01475/0.01057/0.00521 1/m. The first
+130 s of a paced 60 Hz lap peak at 3.29 m/s² vertical eye acceleration, with
+zero frames over 1 g; the old trace peaked at 36.86 m/s². Mark 4 still shows
+a wavy road pattern in PNGs. The full lap and a generic nonuniform-chain test
+remain open.
+
 `generators/road` owns this geometric decision. It must not move DEM nodes
 or choose a place-specific speed. The road/contact product, camera and
 vehicle use the same resulting alignment. If the remaining vertical profile
