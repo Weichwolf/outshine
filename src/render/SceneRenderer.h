@@ -91,6 +91,8 @@ public:
   [[nodiscard]] bool PublishesWorldCandidate(std::string &error);
   void AbandonsWorldCandidate() noexcept;
 
+  [[nodiscard]] bool HasWorldCandidate() const noexcept { return Candidate_.has_value(); }
+
   [[nodiscard]] const Compiled &Plan() const { return *ActiveState().Plan; }
 
   [[nodiscard]] bool DeviceUsable() const { return ActiveState().Ready; }
@@ -905,6 +907,7 @@ private:
   [[nodiscard]] Placed PictureRect() const;
   [[nodiscard]] Lens Through() const;
 
+public:
   class PublishedWorldScope {
   public:
     explicit PublishedWorldScope(SceneRenderer &renderer) noexcept : Renderer_(renderer) {
@@ -927,6 +930,7 @@ private:
 
   [[nodiscard]] PublishedWorldScope PublishedWorld() noexcept { return PublishedWorldScope(*this); }
 
+private:
   class CandidateEditorScope {
   public:
     explicit CandidateEditorScope(SceneRenderer &renderer) noexcept : Renderer_(&renderer) {

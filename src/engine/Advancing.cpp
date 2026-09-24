@@ -318,7 +318,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   return true;
 }
 
-bool Engine::State::UpdateCrowns(bool prepare) {
+bool Engine::State::UpdateVegetation(bool prepare) {
   if (!Session.Declared.Ground.VegetationEnabled) { return true; }
   if (!Picture.Standing || !World.Grown || !World.Shipping.Ready()) { return true; }
   if (World.GroundBuild) { return true; }
@@ -335,7 +335,11 @@ bool Engine::State::UpdateCrowns(bool prepare) {
   }
   const auto &eye =
       Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
-  const bool updated = World.Vegetation->Step(eye.EyeM, prepare, Error);
+  const auto publication = World.GroundBuild || Picture.Device.HasWorldCandidate()
+                               ? VegetationStreaming::ResourcePublication::Deferred
+                               : VegetationStreaming::ResourcePublication::Allowed;
+  const auto publishedWorld = Picture.Device.PublishedWorld();
+  const bool updated = World.Vegetation->Step(eye.EyeM, prepare, publication, Error);
   Published.Places("flora: crown prototypes resident",
                    static_cast<double>(World.Vegetation->Resident()),
                    "prototypes");
@@ -441,7 +445,7 @@ bool Engine::State::Updates() {
           .count());
   if (!grounded) { return false; }
   const auto crownsAt = std::chrono::steady_clock::now();
-  const bool crowned = UpdateCrowns(false);
+  const bool crowned = UpdateVegetation(false);
   Cost.Crowns.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - crownsAt)
           .count());

@@ -483,7 +483,7 @@ Result Engine::State::FinishesPreload() {
   if ((!published || structuresReady) && !Grounds(true, GroundQuality::Playable)) {
     return std::unexpected(Error);
   }
-  if (structuresReady && !UpdateCrowns(true)) { return std::unexpected(Error); }
+  if (structuresReady && !UpdateVegetation(true)) { return std::unexpected(Error); }
   return {};
 }
 

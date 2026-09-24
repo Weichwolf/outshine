@@ -96,7 +96,9 @@ bool SceneResources::SetPieceInstances(SubjectDraw &subjects,
   for (size_t at = 0; at < pieces.size(); ++at) {
     const PieceRows &change = pieces[at];
     if (!HasPiece(change.Piece)) {
-      error = Says::MissingPiece;
+      error = std::string(Says::MissingPiece) + " (slot=" + std::to_string(change.Piece.Slot) +
+              ", generation=" + std::to_string(change.Piece.Generation) +
+              ", slots=" + std::to_string(Pieces_.size()) + ")";
       return false;
     }
     if (Pieces_[change.Piece.Slot].MaxInstances > 0 &&

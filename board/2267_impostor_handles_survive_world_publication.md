@@ -1,36 +1,35 @@
 Type: defect
-State: open
-Architecture: needs decision
+State: active
+Architecture: ready
 Parent: 2230
-Depends: 2224
-Priority: P2
+Depends:
+Priority: P0
 Area: engine, rendering, vegetation
 Tags: ownership, handles, world-candidate
 
 # Impostor handles survive world publication
 
-## Reproducer and cause to verify
+## Reproducer and measured cause
 
-Basel Badischer with vegetation enabled passed the structure-material stage,
-then client preload failed: `the piece handle names no live resource in this
-world`. The same temporary scenario with vegetation disabled passed that point
-and baked over 40,000 buildings. `VegetationStreaming` retains
-`ImpostorInstances`; `ImpostorInstances::MoveTo` only changes its renderer
-pointer, while each `View` retains a `PieceHandle`. Refined candidates use
-`PieceSources::Omit`, so those handles may name pieces absent in the published
-candidate. Verify the failing handle's owner/generation at the publication
-boundary before implementation.
+`prepare Hockenheimring 30` with vegetation enabled failed after about 5 s:
+slot 4, generation 1 was updated in a published world containing only four
+slots. Trace: a candidate copied four published pieces, then vegetation
+created pieces while `SceneRenderer` still had an active candidate editor.
+`World.GroundBuild` was already null, so checking that pointer alone missed
+the active renderer candidate. The old claim that Refined candidates use
+`PieceSources::Omit` is false for this path: `GroundWorldCandidate` defaults
+to `Copy`. The renderer's `CandidateEditorScope` selects candidate resources
+unless a `PublishedWorldScope` overrides it.
 
-## Decision required
+## Binding ownership decision
 
-Give persistent impostor prototypes an explicit candidate residency policy:
-either copy their piece sources and preserve valid handles, or create candidate
-pieces from retained atlas/source data and atomically replace handles on
-publication. Do not copy obsolete structure tiles merely to keep impostors,
-and do not repoint a handle to an unrelated resource. Candidate failure leaves
-active impostors usable; retirement releases each GPU product after last use.
-Keep vegetation optional in scenario tests, as its visual development follows
-ground, architecture, light and atmosphere work.
+Engine vegetation updates run in the renderer's published-world scope.
+Ground builds skip vegetation updates; if a renderer candidate remains after
+the ground pointer clears, `VegetationStreaming` may poll/cache CPU results
+but defers creation of new GPU pieces until that candidate is gone.
+The active world owns its existing handles; candidate copying preserves them.
+Never repoint a handle to an unrelated slot. Keep vegetation optional in
+scenario tests; Hockenheim's road proof disables it declaratively.
 
 ## Acceptance
 
@@ -39,5 +38,7 @@ ground, architecture, light and atmosphere work.
 - Repeated candidates do not grow piece/source bytes without bound; cancellation
   leaves the prior scene and prototype rows intact.
 - A public-client scenario with vegetation enabled progresses past the failing
-  transition. Run focused ownership tests, format and lint; inspect its PNG
-  when refined capture is independently ready.
+  transition. The 30 s Hockenheim reproduction now passes the former 5 s
+  failure and times out only on pending vegetation; repeat with a longer bound
+  or a smaller vegetation fixture before closing this WI. Run focused
+  ownership tests, format and lint; inspect a PNG when refined capture is ready.

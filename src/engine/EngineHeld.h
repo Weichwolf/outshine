@@ -518,7 +518,7 @@ struct Engine::State {
   [[nodiscard]] LongitudeLatitude CurrentGeographicFocus() const;
   [[nodiscard]] bool EnsureRuntimeScene();
   void HandsPiecesOver();
-  [[nodiscard]] bool UpdateCrowns(bool prepare);
+  [[nodiscard]] bool UpdateVegetation(bool prepare);
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates();

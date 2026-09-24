@@ -140,12 +140,16 @@ void VegetationStreaming::PrepareNext() {
   }
 }
 
-bool VegetationStreaming::Step(const Vec3 &eye, bool prepare, std::string &error) {
+bool VegetationStreaming::Step(const Vec3 &eye,
+                               bool prepare,
+                               ResourcePublication publication,
+                               std::string &error) {
   if (!Failure_.empty()) {
     error = Failure_;
     return false;
   }
-  if (!PollPreparation(prepare, error) || !AcceptCacheResult(error)) { return false; }
+  if (!PollPreparation(prepare, error)) { return false; }
+  if (publication == ResourcePublication::Allowed && !AcceptCacheResult(error)) { return false; }
   for (auto &group : Groups_) {
     if (group.State != Phase::Wanted) { continue; }
     if (Cache_.Read(group.Provenance) == Data::ImpostorCache::Request::Full) { break; }

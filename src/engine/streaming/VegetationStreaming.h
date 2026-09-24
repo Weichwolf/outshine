@@ -10,6 +10,8 @@
 namespace outshine {
 class VegetationStreaming {
 public:
+  enum class ResourcePublication : uint8_t { Deferred, Allowed };
+
   struct Config {
     Data::ImpostorCache::Config Cache;
     Content::ImpostorAtlasShape Shape;
@@ -25,7 +27,8 @@ public:
                                                      std::string &error);
   ~VegetationStreaming();
   void Into(Render::SceneRenderer &renderer) noexcept;
-  [[nodiscard]] bool Step(const Vec3 &eye, bool prepare, std::string &error);
+  [[nodiscard]] bool
+  Step(const Vec3 &eye, bool prepare, ResourcePublication publication, std::string &error);
   [[nodiscard]] bool Ready() const;
   [[nodiscard]] size_t Resident() const;
 

@@ -43,6 +43,7 @@ int main() {
         CHECK(placed.has_value(), "published piece uploads");
         if (placed) { handle = *placed; }
       }
+      Render::PieceHandle latePublished;
       {
         Core::WorldCandidate candidate(renderer);
         const auto prepared = candidate.Prepare(*scene,
@@ -52,6 +53,18 @@ int main() {
                                                 Core::ResourceRestoreMode::Deferred);
         CHECK(prepared.has_value(), "candidate copies immutable piece sources");
         if (prepared) {
+          CHECK(renderer.HasWorldCandidate() && renderer.PieceSlots() == handles.size(),
+                "the candidate editor addresses the copied resource table");
+          {
+            const auto published = renderer.PublishedWorld();
+            const auto placed = renderer.PlacePiece(mesh);
+            CHECK(placed.has_value(), "the published world accepts an independent late piece");
+            if (placed) { latePublished = *placed; }
+            CHECK(renderer.PieceSlots() == handles.size() + 1,
+                  "the scoped resource edit targets the published table");
+          }
+          CHECK(renderer.PieceSlots() == handles.size(),
+                "leaving the scope returns to the candidate table");
           size_t next = 0;
           CHECK(!candidate.AdvancePieceResourceRestore(next, 0), "zero budget is rejected");
           CHECK(next == 0, "rejected budget preserves cursor");
@@ -63,12 +76,21 @@ int main() {
           }
           CHECK(candidate.AdvancePieceResourceRestore(next, 1).value_or(false),
                 "completed restoration is idempotent");
+          {
+            const auto published = renderer.PublishedWorld();
+            CHECK(renderer.SetPieceInstances(latePublished, {}, error),
+                  "published instances remain addressable during candidate restoration");
+          }
         }
       }
+      CHECK(!renderer.HasWorldCandidate(), "abandoning the candidate closes its resource table");
       for (const auto handle : handles) {
         CHECK(renderer.SetPieceInstances(handle, {}, error),
               "abandoning candidate preserves published piece handles");
       }
+      CHECK(renderer.SetPieceInstances(latePublished, {}, error),
+            "the scoped published piece remains live after candidate abandonment");
+      renderer.ReleasePiece(latePublished);
     }
   }
   SDL_Quit();
