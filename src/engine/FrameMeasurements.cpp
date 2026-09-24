@@ -1,8 +1,10 @@
 #include "EngineHeld.h"
 #include "Heap.h"
 
+#include <array>
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace outshine {
