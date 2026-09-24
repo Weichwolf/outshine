@@ -173,6 +173,12 @@ void PrintStats(std::string_view name,
   row("status", succeeded ? "ok" : "failed", "-");
   row("elapsed_ms", elapsedMs, "ms");
   row("preload_ms", loading.PreloadMs, "ms");
+  row("preload_pump_ms", loading.PreloadPumpMs, "ms");
+  row("preload_flush_ms", loading.PreloadFlushMs, "ms");
+  row("preload_await_ms", loading.PreloadAwaitMs, "ms");
+  row("preload_pumps", loading.PreloadPumps, "calls");
+  row("preload_flushes", loading.PreloadFlushes, "calls");
+  row("preload_awaits", loading.PreloadAwaits, "calls");
   row("playable", playable ? 1 : 0, "bool");
   row("refined", refined ? 1 : 0, "bool");
   row("ground_arrived", loading.GroundArrived, "tiles");

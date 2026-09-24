@@ -30,6 +30,13 @@ provider starts before its 0.2 s preload limit. These local probes establish
 root isolation and provenance; a repository-owned complete fixture is still
 required for a portable warmstart benchmark.
 
+Five fresh-process warm/offline Hockenheim shots with phase attribution give
+mean preload 3201.8 ms (3162.1–3246.7): pump 70.7 ms, candidate flush
+362.3 ms, await 2768.2 ms (86.5%). The three accounted phases sum to
+3201.2 ms on average. `AwaitPreloadProgress` can wait first on structure
+workers and then on ground/class/tile work. Split its time and wake reason
+before changing wait slices; the current result does not prove idle polling.
+
 The product contract is low-latency playable contact from a complete warm
 cache, followed by bounded visual refinement while the world is already
 interactive. A source-cache hit must never wait for network. A native-product

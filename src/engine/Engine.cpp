@@ -436,6 +436,12 @@ constexpr size_t kPreloadGroundAdvancesMost = 16;
 Loading Engine::loading() const {
   Loading said;
   said.PreloadMs = S_->LastPreloadMs;
+  said.PreloadPumpMs = S_->PreloadPumpMs;
+  said.PreloadFlushMs = S_->PreloadFlushMs;
+  said.PreloadAwaitMs = S_->PreloadAwaitMs;
+  said.PreloadPumps = S_->PreloadPumps;
+  said.PreloadFlushes = S_->PreloadFlushes;
+  said.PreloadAwaits = S_->PreloadAwaits;
   if (!S_->Session.Declared.Ground.Declared) { return said; }
   said.GroundWanted = S_->World.AskedWanted;
   said.GroundArrived = S_->World.AskedWanted >= S_->World.AskedPending
@@ -600,6 +606,17 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     return std::unexpected(Says::kInvalidPreloadBudget);
   }
   const auto began = std::chrono::steady_clock::now();
+  S_->LastPreloadMs = 0.0;
+  S_->PreloadPumpMs = 0.0;
+  S_->PreloadFlushMs = 0.0;
+  S_->PreloadAwaitMs = 0.0;
+  S_->PreloadPumps = 0;
+  S_->PreloadFlushes = 0;
+  S_->PreloadAwaits = 0;
+  const auto elapsedMs = [](std::chrono::steady_clock::time_point started) {
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
+        .count();
+  };
   const auto timed = [this, began](Result result) -> Result {
     S_->LastPreloadMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
@@ -611,10 +628,17 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     return timed(Result{});
   }
   for (;;) {
-    if (const auto pumped = S_->PumpPreload(); !pumped) { return timed(pumped); }
+    const auto pumpAt = std::chrono::steady_clock::now();
+    const auto pumped = S_->PumpPreload();
+    S_->PreloadPumpMs += elapsedMs(pumpAt);
+    ++S_->PreloadPumps;
+    if (!pumped) { return timed(pumped); }
     ReportPreload(*this, began, tell);
     if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate()) {
+      const auto flushAt = std::chrono::steady_clock::now();
       const auto finished = S_->FlushPreloadGround(began, bound);
+      S_->PreloadFlushMs += elapsedMs(flushAt);
+      ++S_->PreloadFlushes;
       if (!finished) { return timed(std::unexpected(finished.error())); }
       if (*finished == State::PreloadFlush::Ready) { return timed(Result{}); }
     }
@@ -625,7 +649,10 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
     if (!S_->World.Stack.Opened()) { continue; }
     const double waitS = leftS < kMostWaitS ? leftS : kMostWaitS;
+    const auto awaitAt = std::chrono::steady_clock::now();
     S_->AwaitPreloadProgress(waitS);
+    S_->PreloadAwaitMs += elapsedMs(awaitAt);
+    ++S_->PreloadAwaits;
   }
 }
 

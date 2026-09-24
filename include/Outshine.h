@@ -54,6 +54,12 @@ struct Loading {
   double MeanFetchMs = 0.0; ///< Accumulated fetch time divided by pool post count, in milliseconds.
   double ElapsedS = 0.0;    ///< Seconds since this preload call began; zero in loading() snapshots.
   double PreloadMs = 0.0;   ///< Duration of the last valid preload() call, in milliseconds.
+  double PreloadPumpMs = 0.0;       ///< Wall time spent polling sources and ingesting world data.
+  double PreloadFlushMs = 0.0;      ///< Wall time spent advancing candidate publication.
+  double PreloadAwaitMs = 0.0;      ///< Wall time spent awaiting source or worker progress.
+  size_t PreloadPumps = 0;          ///< Pump calls in the current or last valid preload().
+  size_t PreloadFlushes = 0;        ///< Candidate-flush calls in that preload().
+  size_t PreloadAwaits = 0;         ///< Await calls in that preload().
   std::uint64_t StoreHits = 0;      ///< Successful persistent source-cache reads since assemble().
   std::uint64_t StoreMisses = 0;    ///< Missed persistent source-cache reads since assemble().
   std::uint64_t StoreWrites = 0;    ///< Successful persistent source-cache writes since assemble().

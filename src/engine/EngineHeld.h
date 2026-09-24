@@ -411,6 +411,12 @@ struct Engine::State {
   LogSink *Diagnostics = nullptr;
   std::string Error;
   double LastPreloadMs = 0.0;
+  double PreloadPumpMs = 0.0;
+  double PreloadFlushMs = 0.0;
+  double PreloadAwaitMs = 0.0;
+  size_t PreloadPumps = 0;
+  size_t PreloadFlushes = 0;
+  size_t PreloadAwaits = 0;
   bool Capturing = false;
 
   [[nodiscard]] LogThreadSinkScope Logs() const { return LogThreadSinkScope(Diagnostics); }
