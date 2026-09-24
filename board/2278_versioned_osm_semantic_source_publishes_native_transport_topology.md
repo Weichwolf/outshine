@@ -90,3 +90,20 @@ Worldwide focus-based source-cell scheduling is WI 2280. Adjacent shuffled chunk
 source IDs, mixed revisions and corrected equal-sized replacement now pass the
 worker-publication test. Prove route stability under mesh eviction and moving
 focus before closing this WI; the camera lap stays in 2260.
+
+## Next executable route slice
+
+- `Scenario::Document` declares named routes independently of views. Read/write
+  `<routes><route id="grand-prix" source="osm" relationId="284588"/></routes>`.
+  The OSM relation is an import selector; native consumers use the route name.
+  Reject empty/duplicate names, zero or invalid relation IDs and unsupported
+  source kinds before changing the running declaration.
+- `world/navigation` owns immutable named routes. Resolve requests on the OSM
+  worker against its complete source snapshot and publish graph, source revision
+  and routes together. Bound route count and total edges before allocation;
+  `advance()` never scans a relation. Failed replacement retains the prior
+  graph and routes, with source-ID diagnostics for the rejected candidate.
+- The headless authored Hockenheim scenario publishes `grand-prix` with 267
+  directed edges. A corrected equal-sized revision replaces it; missing member,
+  pitlane-only and reverse-direction controls fail. Route state stays valid
+  when render tiles vanish. Camera traversal remains WI 2260.
