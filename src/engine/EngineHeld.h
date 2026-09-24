@@ -445,8 +445,9 @@ struct Engine::State {
     std::chrono::steady_clock::time_point WiresAt;
   };
 
-  [[nodiscard]] bool
-  Models(const TangentFrame &standing, GroundBuildProducts &build, Phasing &clocks);
+  [[nodiscard]] bool PrepareBuildingSurfaces(const TangentFrame &standing,
+                                             GroundBuildProducts &build,
+                                             Phasing &clocks);
 
   enum class Laid : uint8_t { Refused, Pending, Unchanged, Wanted };
 
@@ -503,15 +504,17 @@ struct Engine::State {
   [[nodiscard]] bool GroundInputsReady(GroundQuality quality) const;
   [[nodiscard]] bool RequestTerrainCoverage();
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
-  [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
-  [[nodiscard]] bool Composes();
-  bool Grows(double atLat, double atLon);
-  [[nodiscard]] bool GrowsOver(const Generators::Tile &region, LevelOfDetail coarseness);
+  [[nodiscard]] bool
+  UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
+  [[nodiscard]] bool PrepareRuntimeWorld();
+  bool GenerateInitialInstances(double atLat, double atLon);
+  [[nodiscard]] bool GenerateInstancesForRegion(const Generators::Tile &region,
+                                                LevelOfDetail coarseness);
   [[nodiscard]] LongitudeLatitude WhereTheEyeStands() const;
   [[nodiscard]] bool EnsureRuntimeScene();
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateCrowns(bool prepare);
-  [[nodiscard]] bool Bakes(size_t landsMost);
+  [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();

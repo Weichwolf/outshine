@@ -639,9 +639,9 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
   return out;
 }
 
-bool Engine::State::Models(const TangentFrame &standing,
-                           GroundBuildProducts &build,
-                           Phasing &clocks) {
+bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
+                                            GroundBuildProducts &build,
+                                            Phasing &clocks) {
   Core::ReportBuildingFootprints(
       Published, World.Stack.Footprints(), World.Stack.Vectors(), standing);
   if (!build.Surfaces) {
@@ -1416,7 +1416,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundModels(const Tange
   const Heap::Tagged modelling(kModellingTag);
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
-  if (!Models(standing, build, clocks)) {
+  if (!PrepareBuildingSurfaces(standing, build, clocks)) {
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }

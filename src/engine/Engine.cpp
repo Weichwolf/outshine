@@ -131,7 +131,7 @@ Result Engine::assemble() {
   }
   candidate->ViewBodies = std::move(*viewBodies);
   auto previous = std::exchange(S_->Simulation, std::move(candidate));
-  if (S_->Picture.Targeted && !S_->Composes()) {
+  if (S_->Picture.Targeted && !S_->PrepareRuntimeWorld()) {
     S_->Simulation = std::move(previous);
     return std::unexpected(S_->Error);
   }
@@ -496,9 +496,9 @@ Result Engine::State::PumpPreload() {
     return std::unexpected(Error);
   }
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
-  if (!Bakes(kBakesLandedInPreload)) { return std::unexpected(Error); }
+  if (!AdvanceStructureBuilds(kBakesLandedInPreload)) { return std::unexpected(Error); }
   const auto growthBegan = std::chrono::steady_clock::now();
-  (void)Grows(atLat, atLon);
+  (void)GenerateInitialInstances(atLat, atLon);
   Published.Places(
       "preload: generator work",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - growthBegan)

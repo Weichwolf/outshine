@@ -96,7 +96,7 @@ LongitudeLatitude Engine::State::WhereTheEyeStands() const {
   return stands;
 }
 
-bool Engine::State::Grows(double atLat, double atLon) {
+bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
   Published.Places(
       "generators: bodies already placed", static_cast<double>(World.Placed), "bodies");
   Published.Places(
@@ -108,12 +108,14 @@ bool Engine::State::Grows(double atLat, double atLon) {
       World.Stack.Vectors() == nullptr) {
     return false;
   }
-  return GrowsOver(Generators::Tile::Of(World.Stack.Vectors()->Zoom(),
-                                        {.LongitudeDeg = atLon, .LatitudeDeg = atLat}),
-                   LevelOfDetail::Fine);
+  return GenerateInstancesForRegion(
+      Generators::Tile::Of(World.Stack.Vectors()->Zoom(),
+                           {.LongitudeDeg = atLon, .LatitudeDeg = atLat}),
+      LevelOfDetail::Fine);
 }
 
-bool Engine::State::GrowsOver(const Generators::Tile &region, LevelOfDetail coarseness) {
+bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
+                                               LevelOfDetail coarseness) {
   Generators::Fields stands;
   stands.Vectors = World.Stack.Vectors();
   stands.Footprints = &World.Stack.Footprints();
@@ -221,7 +223,7 @@ bool Engine::State::GrowsOver(const Generators::Tile &region, LevelOfDetail coar
   return true;
 }
 
-bool Engine::State::Composes() {
+bool Engine::State::PrepareRuntimeWorld() {
   static const Heap::Tag kComposingTag("world-compose");
   const Heap::Tagged composing(kComposingTag);
   World.GroundTiles = 0;

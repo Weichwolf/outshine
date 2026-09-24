@@ -150,7 +150,9 @@ bool Engine::State::UpdateActiveCamera() {
   return true;
 }
 
-bool Engine::State::Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM) {
+bool Engine::State::UpdateSceneBodyTransform(size_t which,
+                                             const Physics::Rigid &body,
+                                             const Vec3 &shiftM) {
   const Mat4 bodyFromWorld = BodyTransform(body, shiftM);
 
   if (!Picture.Standing) { return true; }
@@ -227,7 +229,7 @@ void Engine::State::HandsPiecesOver() {
   World.PiecesFramed = true;
 }
 
-bool Engine::State::Bakes(size_t landsMost) {
+bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   const LongitudeLatitude eye = WhereTheEyeStands();
   const StructureBuildQueue::HeightSource heightAt{
@@ -391,7 +393,7 @@ bool Engine::State::Updates() {
           return false;
         }
         const auto bakesAt = std::chrono::steady_clock::now();
-        const bool baked = Bakes(kBakesLandedPerFrame);
+        const bool baked = AdvanceStructureBuilds(kBakesLandedPerFrame);
         Cost.Bakes.Took(
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bakesAt)
                 .count());
@@ -400,7 +402,7 @@ bool Engine::State::Updates() {
           static const Heap::Tag kGrowingTag("world-grow");
           const Heap::Tagged growing(kGrowingTag);
           const auto growthAt = std::chrono::steady_clock::now();
-          (void)Grows(stands.LatitudeDeg, stands.LongitudeDeg);
+          (void)GenerateInitialInstances(stands.LatitudeDeg, stands.LongitudeDeg);
           Cost.Growth.Took(
               std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - growthAt)
                   .count());
@@ -451,7 +453,9 @@ bool Engine::State::Draws() {
     const Vec3 unshifted;
     if (!Picture.Standing->Carries(Simulation->DynamicBodies.size(), Error)) { return false; }
     for (size_t which = 0; which < Simulation->DynamicBodies.size(); ++which) {
-      if (!Carries(which, Simulation->DynamicBodies[which].Motion, unshifted)) { return false; }
+      if (!UpdateSceneBodyTransform(which, Simulation->DynamicBodies[which].Motion, unshifted)) {
+        return false;
+      }
     }
   }
   if (Picture.Standing && !Picture.Standing->Advance(Error)) { return false; }

@@ -57,7 +57,7 @@ Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
 1. Public API naming continues under 2096. Internal Engine::State operations:
    `Composes` → `PrepareRuntimeWorld`, `Bakes` → `AdvanceStructureBuilds`,
    `Grows[Over]` → `GenerateInitialInstances/GenerateInstancesForRegion`,
-   `Carries` → `PublishBodyTransform`, `Models` → `PrepareBuildingSurfaces`.
+   `Carries` → `UpdateSceneBodyTransform`, `Models` → `PrepareBuildingSurfaces`.
 2. The twelve-hour review through 21342822f found live derived-state invalidation in
    GroundStack::Restand (2224) and unbounded remaining terrain phases (2234).
 3. Material/terrain work 2171/2166 proceeds independently under the order in 2188.
