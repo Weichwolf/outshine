@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <span>
 #include <cstdint>
 #include <vector>
@@ -97,17 +98,14 @@ public:
   }
 
   size_t ReleaseUnaccepted(std::span<const uint32_t> accepted) {
-    size_t released = 0;
-    std::erase_if(Ahead_, [&](uint32_t tile) {
-      if (std::ranges::binary_search(accepted, tile) ||
-          std::ranges::binary_search(Skipped_, tile)) {
-        return false;
-      }
-      ++released;
-      return true;
-    });
-    assert(released <= Takes_);
-    Takes_ -= released;
+    assert(accepted.size() <= Takes_);
+    const size_t released = Takes_ - accepted.size();
+    if (released == 0) { return 0; }
+    Ahead_.clear();
+    Ahead_.reserve(accepted.size() + Skipped_.size());
+    std::ranges::set_union(accepted, Skipped_, std::back_inserter(Ahead_));
+    Takes_ = accepted.size();
+    Mark_ = 0;
     return released;
   }
 
