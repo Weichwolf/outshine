@@ -50,9 +50,10 @@ the listed order. The 33,557-byte source pin is
 `test/outshine/integration/places/HockenheimringGrandPrix.osm` (SHA-256
 `f50914eac077325eee1b3e88eae0eeffac58ff086e180cba4ec8734e94661d7f`).
 It contains route source objects, not a hand-authored track or whole-world
-fixture. The bounded `Data::OsmXmlReader` now retains all 319 nodes, 17 ways,
-roles and tags; an independent test reconstructs the directed 267-edge cycle.
-No runtime route or provider publication follows from that test. WI 2173 must
+fixture. `Data::OsmXmlReader` retains all 319 nodes, 17 ways, roles and tags;
+`World::TransportTopology` resolves their 267 directed main-route edges and
+rejects reversed ways, missing members and pitlane promotion. No runtime route
+or provider publication follows from those tests. WI 2173 must
 deliver OSM way/relation IDs and tags through a general
 provider or raw overlay. The MVT ID preserved by WI 2270 is only a provider ID
 until a source mapping is proven. A source without relation, way IDs or
