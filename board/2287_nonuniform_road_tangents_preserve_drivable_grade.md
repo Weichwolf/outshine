@@ -31,12 +31,16 @@ from this kinematic defect.
 
 Keep node positions, terrain samples, source IDs and C1 cubics. At a node,
 let `a` and `b` be positive incoming/outgoing chord lengths and `u` and `v`
-their unit directions. Select the unit tangent parallel to `b*u + a*v`.
-This is the inverse-length weighted least-squares direction: it minimizes
-`|t-u|²/a + |t-v|²/b` before normalization. A short adjacent chord dominates
-the tangent; the longer edge absorbs the direction change. Equal lengths
-reduce to the existing mean. Open endpoints use their only chord. Reject
-zero/nonfinite lengths and retain the existing sharp-turn refusal.
+their unit directions. Keep the horizontal components of the existing unit
+tangent `c = normalize(u+v)`. The weighted direction
+`w = normalize(b*u + a*v)` minimizes `|t-u|²/a + |t-v|²/b` before
+normalization. Set the cubic's vertical derivative direction to
+`|c_xy| * w_z / |w_xy|`, leaving `c_xy` unchanged. This puts a short edge's
+grade transition onto its longer neighbour without altering the horizontal
+Hermite curve. Equal lengths reduce to the existing tangent. Open endpoints
+use their only chord. Reject zero/nonfinite lengths and near-vertical `w`;
+retain the sharp-turn refusal. Weighting the full 3D tangent was rejected:
+it moved the Hockenheim centerline over 1 m from source chords.
 
 `generators/road` owns this geometric decision. It must not move DEM nodes
 or choose a place-specific speed. The road/contact product, camera and
