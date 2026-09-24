@@ -53,6 +53,12 @@ alignment DEM sampling must use original geodetic nodes or an exact inverse.
   It reports source IDs for missing/disconnected/duplicate/unusable edges and
   missing DEM. Its chord length is an estimate, never vehicle chainage; bridge
   and tunnel points are terrain constraints, not fabricated deck geometry.
+- First solve grounded chains with a C1 cubic through source nodes and periodic
+  tangents for closed circuits. Integrate arc length into bounded per-edge
+  tables; publish monotonic edge intervals and pose queries by source ID or
+  global station. Reject cusps and unresolved bridge/tunnel edges explicitly.
+  This is internal centerline geometry until terrain-interior clearance and
+  render/contact products pass; a successful camera query is not a road proof.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
   Input is one `TransportNetworkSnapshot` revision, a bounded ordered set of
   source edge IDs with source identity selected by route or coverage, and pinned
