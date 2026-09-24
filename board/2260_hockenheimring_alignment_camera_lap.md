@@ -2,7 +2,7 @@ Type: proof
 State: active
 Architecture: ready
 Parent: 2175
-Depends: 2173, 2133, 2256, 2262
+Depends: 2173, 2133, 2256
 Priority: P0
 Area: scenario, navigation, generators, client
 Tags: osm, driving, camera, visual-acceptance
@@ -81,7 +81,9 @@ diagnosis, not driving acceptance.
    invisible camera teleport. DEM, transport and geometry still stream normally.
 2. Route graph (2133) yields stable edge IDs independent of rendering. The
    bounded road candidate (2256) must publish complete matching geometry.
-   Alignment (2175) maps each (edge ID, s, t) to double-precision position,
+   The vector-tile corridor network in 2262 is a rendering intermediate, not
+   the source-ID route; it cannot identify the raceway while its provider omits
+   `highway=raceway`. Alignment (2175) maps each (edge ID, s, t) to double-precision position,
    tangent, bank and road width. Camera sampling uses this native alignment,
    not triangles, screen-space tracking or a separate authored spline.
 3. Define a reproducible lap speed profile with bounded acceleration and

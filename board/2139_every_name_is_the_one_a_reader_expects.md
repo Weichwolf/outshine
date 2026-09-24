@@ -43,7 +43,7 @@ Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
 | scenario/ | Reader/writer belongs to import composition; TriggerField executes entity-time state and must leave the serialization module. Native input/action/view state is not parser state. | 2151, 2130 |
 | engine/ | RuntimeScene coordinates playback and rendering. Terrain computation, resource residency and streaming scheduling have distinct owners; candidate editing still needs a narrow renderer boundary. | 2223, 2191 |
 | generators/ | Building/flora/road/water/terrain algorithms return native CPU products without Engine or renderer dependencies. Preserve independent library linkage. | 2150 |
-| world/ | Provider and OSM-ID topology are separate from geometry. The older `TransportNetwork` still consumes snapped `StreetField` for corridor meshing; its name must not imply authoritative navigation. Resolve this boundary in 2262/2133 before renaming it. | 2133, 2262 |
+| world/ | Provider and OSM-ID topology are separate from geometry. The vector-street corridor builder consumes snapped `StreetField` for meshing; it belongs to ground, while authoritative navigation consumes source IDs. | 2133, 2262 |
 | render/ | SceneState/FrameResources/WorldContent separation is useful. SceneRenderer still exposes individual stage settings; narrow calls by coherent frame/world inputs, reuse existing owners. | 2222, 2223 |
 | actor/ | Rigid/prismatic computation is a valid simulation kernel. Stateful bodies/triggers currently straddle scenario/engine; gather native simulation state before adding threads. | 2130 |
 | audio/ | DSP graph/mixer configuration is native. Engine AudioOcclusion remains the wrong owner; acoustic BVH belongs to audio while CPU triangle BVH stays base. | 2212, 2130 |

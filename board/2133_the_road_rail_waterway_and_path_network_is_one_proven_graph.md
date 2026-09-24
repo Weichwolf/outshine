@@ -55,7 +55,9 @@ kein Ableiten des logischen Netzes aus einem sichtbarkeitsabhängigen Mesh.
 
 ## Aktueller Router und verbleibende Verträge
 
-2173 blockiert Providerintegration, nicht lokale Graphkorrekturen. Oneway und Splicing
+2173 blockiert Providerintegration, nicht lokale Graphkorrekturen. Der
+vektorkachelbasierte Corridor-Builder in 2262 ist kein Ersatz für diesen
+OSM-ID-Graphen; sein XY-Snap darf keine logischen Abzweige bestimmen. Oneway/Splicing
 bewahren gerichtete Kanten; Index dedupliziert physische Segmente, lose Enden richten
 sich nach physischer Nachbarschaft. Einbahn-/Abzweigmatrix und Gegenproben bestehen.
 WeakComponents verwendet Union-Find; Reaches bleibt gerichtet. OSM reverse/-1 im Adapter
