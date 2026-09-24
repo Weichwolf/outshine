@@ -47,6 +47,12 @@ dead helper, and name position/direction conversions explicitly. Existing
 geodetic/ENU and road tests plus layer and lint gates must remain green. The
 legacy ENU-to-geographic linear estimate becomes `ApproximateGeographicAt`;
 alignment DEM sampling must use original geodetic nodes or an exact inverse.
+- `RoadConstraintChain` is the bounded preparation input to the solver: an
+  ordered, connected set of directed OSM edge IDs, pinned terrain samples,
+  geographic/local node positions, width, material class and structure intent.
+  It reports source IDs for missing/disconnected/duplicate/unusable edges and
+  missing DEM. Its chord length is an estimate, never vehicle chainage; bridge
+  and tunnel points are terrain constraints, not fabricated deck geometry.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
   Input is one `TransportNetworkSnapshot` revision, a bounded ordered set of
   source edge IDs with source identity selected by route or coverage, and pinned
