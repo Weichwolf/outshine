@@ -1735,9 +1735,7 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
   return GroundBuildProgress::Pending;
 }
 
-Engine::State::GroundBuildProgress
-Engine::State::AdvanceGroundStructureBakes(const TangentFrame &standing) const {
-  (void)standing;
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() {
   GroundBuildState &state = *World.GroundBuild;
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsBakes) {
     return GroundBuildProgress::Ready;
@@ -1745,6 +1743,14 @@ Engine::State::AdvanceGroundStructureBakes(const TangentFrame &standing) const {
   if (!StructuresReady(state.Footprints(), state.Revision())) {
     return GroundBuildProgress::Pending;
   }
+  GroundBuildProducts &build = state.Candidate().Products();
+  const auto fieldsAt = std::chrono::steady_clock::now();
+  build.Sheets.ForgetsFields();
+  Published.Places(
+      "ground candidate: source field release",
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - fieldsAt)
+          .count(),
+      "ms");
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
 }
@@ -1779,7 +1785,8 @@ Ground::BuildingField *Engine::State::CandidateFootprints() const noexcept {
 
 bool Engine::State::StagesGroundBakes(size_t landsMost) {
   if (!World.GroundBuild ||
-      World.GroundBuild->CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsBakes) {
+      (World.GroundBuild->CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsCorridors &&
+       World.GroundBuild->CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsBakes)) {
     return true;
   }
   GroundBuildState &state = *World.GroundBuild;
@@ -1988,13 +1995,6 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   }
   Published.Places(
       "ground candidate: corridor drape field misses", static_cast<double>(fieldMisses), "queries");
-  const auto fieldsAt = std::chrono::steady_clock::now();
-  build.Sheets.ForgetsFields();
-  Published.Places(
-      "ground candidate: corridor field release",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - fieldsAt)
-          .count(),
-      "ms");
   state.HoldsCorridors(std::move(corridors));
   Published.Places("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
   state.BeginsCorridorRetirement();
@@ -2335,7 +2335,7 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   }
   const GroundBuildProgress roads = AdvanceGroundRoadAlignments(standing);
   if (roads != GroundBuildProgress::Ready) { return roads != GroundBuildProgress::Failed; }
-  const GroundBuildProgress bakes = AdvanceGroundStructureBakes(standing);
+  const GroundBuildProgress bakes = AdvanceGroundStructureBakes();
   if (bakes != GroundBuildProgress::Ready) { return bakes != GroundBuildProgress::Failed; }
   const GroundBuildProgress construction = AdvanceGroundConstructionStages(standing, laid, state);
   if (construction != GroundBuildProgress::Ready) {

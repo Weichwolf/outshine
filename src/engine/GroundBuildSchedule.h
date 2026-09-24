@@ -14,8 +14,8 @@ public:
     NeedsModels,
     NeedsNetwork,
     NeedsRoadAlignments,
-    NeedsBakes,
     NeedsCorridors,
+    NeedsBakes,
     NeedsEarthworks,
     NeedsTerrainMesh,
     NeedsWater,
@@ -54,9 +54,9 @@ public:
       case Stage::NeedsGroundSurface: CurrentStage_ = Stage::NeedsModels; return true;
       case Stage::NeedsModels: CurrentStage_ = Stage::NeedsNetwork; return true;
       case Stage::NeedsNetwork: CurrentStage_ = Stage::NeedsRoadAlignments; return true;
-      case Stage::NeedsRoadAlignments: CurrentStage_ = Stage::NeedsBakes; return true;
-      case Stage::NeedsBakes: CurrentStage_ = Stage::NeedsCorridors; return true;
-      case Stage::NeedsCorridors: CurrentStage_ = Stage::NeedsEarthworks; return true;
+      case Stage::NeedsRoadAlignments: CurrentStage_ = Stage::NeedsCorridors; return true;
+      case Stage::NeedsCorridors: CurrentStage_ = Stage::NeedsBakes; return true;
+      case Stage::NeedsBakes: CurrentStage_ = Stage::NeedsEarthworks; return true;
       case Stage::NeedsEarthworks: CurrentStage_ = Stage::NeedsTerrainMesh; return true;
       case Stage::NeedsTerrainMesh: CurrentStage_ = Stage::NeedsWater; return true;
       case Stage::NeedsWater: CurrentStage_ = Stage::NeedsGeometry; return true;
@@ -80,8 +80,8 @@ public:
       case Stage::NeedsModels: return "models";
       case Stage::NeedsNetwork: return "network";
       case Stage::NeedsRoadAlignments: return "road-alignments";
-      case Stage::NeedsBakes: return "structure-bakes";
       case Stage::NeedsCorridors: return "corridors";
+      case Stage::NeedsBakes: return "structure-bakes";
       case Stage::NeedsEarthworks: return "earthworks";
       case Stage::NeedsTerrainMesh: return "terrain-mesh";
       case Stage::NeedsWater: return "water";

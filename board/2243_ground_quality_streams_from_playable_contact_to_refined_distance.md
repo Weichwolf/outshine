@@ -75,16 +75,17 @@ samples the candidate's prepared height hierarchy instead of deferring forever;
 contact coverage still receives fine fields. The eventual fine arrival remains a
 revision-triggered replacement.
 
-The current warm Hockenheim motion run reaches 4575.880 m in 13200 frames,
-with 8021 frames before Refined, p99 13.81 ms, 59 frames over 16.67 ms and
-547.5 MiB peak heap. `NeedsBakes` serially precedes `NeedsCorridors` even
-though corridor construction consumes classes, road graph and DEM fields,
-not baked building pieces. Admit and land structure work while corridors run;
-keep `NeedsBakes` as a completion gate before earthworks and publication.
-Both consumers retain candidate DEM fields until complete. A view/revision
-change retires both without exposing a partial product. Compare Hockenheim
-road/image digest, full-lap readiness, p99 and peak bytes before accepting the
-overlap; the same source must keep the same rendered products.
+The warm Hockenheim lap reaches 4575.880 m in 13200 frames. `NeedsBakes` had
+serially preceded `NeedsCorridors`, although corridors consume classes, road
+graph and DEM fields, not baked building pieces. Bakes now admit and land
+during corridor work; `NeedsBakes` remains a completion gate before earthworks
+and publication. Both retain candidate DEM fields until complete. In 20 s,
+unrefined frames fall from about 1075 to 958 with an identical 921600-pixel
+end image. Over the full lap, they fall from 8021 to 7169; p99 changes from
+13.81 to 13.91 ms, over-budget frames stay at 59, and peak heap rises from
+547.5 to 621.7 MiB. The full-lap end images differ in 101 pixels at the
+distant horizon despite Refined readiness. Inspect distant structure residency
+and publication determinism before claiming exact visual equivalence.
 
 ## Implementation
 
