@@ -25,7 +25,9 @@ has rollback and thread contracts; the generator and host remain borrowed.
 - Rename `offers(Host*)` to `setInputHost` and
   `offers(const Generators::Generator&)` to `registerGenerator`. These are
   different lifetime contracts; preserve null-detach and duplicate-kind
-  behavior. No generic `offer` alias, extra facade or new ownership.
+  behavior. Rename `Generators::Registry::offers` to `registerGenerator` as
+  the same registration contract; preserve borrowed lifetime. No generic
+  `offer` alias, extra facade or new ownership.
 - Update declarations, definitions, all internal/client/test consumers,
   installed-header example and Doxygen in one change. Remove obsolete names;
   search all tracked C++ and documentation for remaining calls. Keep the
