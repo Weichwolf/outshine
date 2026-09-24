@@ -24,55 +24,55 @@ public:
 
   [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
 
-  [[nodiscard]] bool MarksPrepared() noexcept {
+  [[nodiscard]] bool MarkPrepared() noexcept {
     if (Prepared_) { return false; }
     Prepared_ = true;
     return true;
   }
 
-  [[nodiscard]] SheetPhase SheetBuilding() const noexcept { return SheetBuilding_; }
+  [[nodiscard]] SheetPhase CurrentSheetPhase() const noexcept { return CurrentSheetPhase_; }
 
-  [[nodiscard]] bool CompletesSheetPhase() noexcept {
+  [[nodiscard]] bool AdvanceSheetPhase() noexcept {
     if (!Prepared_) { return false; }
-    switch (SheetBuilding_) {
-      case SheetPhase::NeedsFields: SheetBuilding_ = SheetPhase::NeedsRefinement; return true;
-      case SheetPhase::NeedsRefinement: SheetBuilding_ = SheetPhase::NeedsHalos; return true;
-      case SheetPhase::NeedsHalos: SheetBuilding_ = SheetPhase::NeedsMesh; return true;
-      case SheetPhase::NeedsMesh: SheetBuilding_ = SheetPhase::Ready; return true;
+    switch (CurrentSheetPhase_) {
+      case SheetPhase::NeedsFields: CurrentSheetPhase_ = SheetPhase::NeedsRefinement; return true;
+      case SheetPhase::NeedsRefinement: CurrentSheetPhase_ = SheetPhase::NeedsHalos; return true;
+      case SheetPhase::NeedsHalos: CurrentSheetPhase_ = SheetPhase::NeedsMesh; return true;
+      case SheetPhase::NeedsMesh: CurrentSheetPhase_ = SheetPhase::Ready; return true;
       case SheetPhase::Ready: return false;
     }
     return false;
   }
 
-  [[nodiscard]] Stage NextStage() const noexcept { return NextStage_; }
+  [[nodiscard]] Stage CurrentStage() const noexcept { return CurrentStage_; }
 
-  [[nodiscard]] bool CompletesStage() noexcept {
-    if (!Prepared_ || SheetBuilding_ != SheetPhase::Ready) { return false; }
-    switch (NextStage_) {
-      case Stage::NeedsClasses: NextStage_ = Stage::NeedsGroundSurface; return true;
-      case Stage::NeedsGroundSurface: NextStage_ = Stage::NeedsModels; return true;
-      case Stage::NeedsModels: NextStage_ = Stage::NeedsNetwork; return true;
-      case Stage::NeedsNetwork: NextStage_ = Stage::NeedsBakes; return true;
-      case Stage::NeedsBakes: NextStage_ = Stage::NeedsCorridors; return true;
-      case Stage::NeedsCorridors: NextStage_ = Stage::NeedsEarthworks; return true;
-      case Stage::NeedsEarthworks: NextStage_ = Stage::NeedsTerrainMesh; return true;
-      case Stage::NeedsTerrainMesh: NextStage_ = Stage::NeedsWater; return true;
-      case Stage::NeedsWater: NextStage_ = Stage::NeedsGeometry; return true;
-      case Stage::NeedsGeometry: NextStage_ = Stage::NeedsPublication; return true;
+  [[nodiscard]] bool AdvanceStage() noexcept {
+    if (!Prepared_ || CurrentSheetPhase_ != SheetPhase::Ready) { return false; }
+    switch (CurrentStage_) {
+      case Stage::NeedsClasses: CurrentStage_ = Stage::NeedsGroundSurface; return true;
+      case Stage::NeedsGroundSurface: CurrentStage_ = Stage::NeedsModels; return true;
+      case Stage::NeedsModels: CurrentStage_ = Stage::NeedsNetwork; return true;
+      case Stage::NeedsNetwork: CurrentStage_ = Stage::NeedsBakes; return true;
+      case Stage::NeedsBakes: CurrentStage_ = Stage::NeedsCorridors; return true;
+      case Stage::NeedsCorridors: CurrentStage_ = Stage::NeedsEarthworks; return true;
+      case Stage::NeedsEarthworks: CurrentStage_ = Stage::NeedsTerrainMesh; return true;
+      case Stage::NeedsTerrainMesh: CurrentStage_ = Stage::NeedsWater; return true;
+      case Stage::NeedsWater: CurrentStage_ = Stage::NeedsGeometry; return true;
+      case Stage::NeedsGeometry: CurrentStage_ = Stage::NeedsPublication; return true;
       case Stage::NeedsPublication: return false;
     }
     return false;
   }
 
   [[nodiscard]] std::string_view Status() const noexcept {
-    switch (SheetBuilding_) {
+    switch (CurrentSheetPhase_) {
       case SheetPhase::NeedsFields: return "sheet-fields";
       case SheetPhase::NeedsRefinement: return "sheet-refinement";
       case SheetPhase::NeedsHalos: return "sheet-halos";
       case SheetPhase::NeedsMesh: return "sheet-mesh";
       case SheetPhase::Ready: break;
     }
-    switch (NextStage_) {
+    switch (CurrentStage_) {
       case Stage::NeedsClasses: return "classes";
       case Stage::NeedsGroundSurface: return "ground-surface";
       case Stage::NeedsModels: return "models";
@@ -89,8 +89,8 @@ public:
   }
 
 private:
-  SheetPhase SheetBuilding_ = SheetPhase::NeedsFields;
-  Stage NextStage_ = Stage::NeedsClasses;
+  SheetPhase CurrentSheetPhase_ = SheetPhase::NeedsFields;
+  Stage CurrentStage_ = Stage::NeedsClasses;
   bool Prepared_ = false;
 };
 }

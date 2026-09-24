@@ -460,15 +460,15 @@ struct Engine::State {
 
   enum class GroundBuildProgress : uint8_t { Failed, Pending, Ready };
 
-  [[nodiscard]] GroundBuildProgress BeginsGroundBuild(const GroundRequest &request);
-  [[nodiscard]] GroundBuildProgress BeginsGroundPatchwork(const Around &coverage);
+  [[nodiscard]] GroundBuildProgress AdvanceGroundCandidatePreparation(const GroundRequest &request);
+  [[nodiscard]] GroundBuildProgress AdvanceGroundPatchwork(const Around &coverage);
   [[nodiscard]] GroundBuildProgress
-  BeginsGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
-  [[nodiscard]] GroundBuildProgress BeginsGroundClasses();
-  [[nodiscard]] GroundBuildProgress BeginsGroundSurface();
-  [[nodiscard]] GroundBuildProgress BeginsGroundModels(const TangentFrame &standing);
+  AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
+  [[nodiscard]] GroundBuildProgress AdvanceGroundClasses();
+  [[nodiscard]] GroundBuildProgress AdvanceGroundSurface();
+  [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingModels(const TangentFrame &standing);
   [[nodiscard]] GroundBuildProgress AdvanceGroundStreetGraph();
-  [[nodiscard]] GroundBuildProgress BeginsGroundBakes(const TangentFrame &standing) const;
+  [[nodiscard]] GroundBuildProgress AdvanceGroundStructureBakes(const TangentFrame &standing) const;
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;

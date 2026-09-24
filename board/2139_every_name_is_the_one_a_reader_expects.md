@@ -16,7 +16,6 @@ headers and selected implementations/callers. This is a structural/dependency au
 not proof that every algorithm, race and failure path is correct. Line counts locate
 mixed ownership; no maximum file length or automatic split is an architectural oracle.
 Examples supplied by the user do not limit the audit to Live, Crown and Structure.
-
 The lexical audit found 261 classes, 903 structs, 31 public headers and 22
 dependency tiers; direction checks found no back edge but cannot prove ownership.
 Water triangulation now belongs to `generators/water` (2145). `Document.cpp`
@@ -48,6 +47,11 @@ a target count of types or an arbitrary line cap.
 
 ## Executable reserve and order
 
+Current slice: `GroundBuildSchedule` names the current phase and its state transition;
+`Engine::State` names ground candidate operations by what repeated calls actually advance.
+Migrate declarations, callers and schedule tests together. A formerly `BeginsGround*` call
+must continue to be safe while pending and must preserve candidate retry/publication order.
+
 1. The listed `Engine::State` verbs are migrated. Continue public API naming
    under 2096. Runtime body-instance resizing is now named at both the scene
    and render proxy boundary; keep names tied to operations, not metaphors.
@@ -61,12 +65,9 @@ threading model are not part of this refactor.
 
 ## Re-audit after candidate routing
 
-2026-09-21: `Live` is no longer an engine state facade. The remaining `Time.Live` occurrence
-is scenario configuration. `StructureBuildQueue` and `StructureBuildTask` are correctly inside
-`engine/streaming`: they schedule generator-owned `StructureBake` products and do not contain
-building geometry algorithms. `CrownBuildIdentity` is a generated private provenance header
-included through `OutshineGenerated/`, not a build-relative path. The layer contract finds no
-parent-path, absolute or physical build include in product code.
+`Live` is no longer an engine state facade. `StructureBuildQueue` and
+`StructureBuildTask` schedule generator-owned products from `engine/streaming`.
+The layer contract rejects parent-path, absolute and physical build includes.
 
 `GroundBuildState` remains local to `Laying.cpp` because it coordinates one Engine-owned ground
 candidate. Its phase order is now owned by `GroundBuildSchedule`; production cannot start before

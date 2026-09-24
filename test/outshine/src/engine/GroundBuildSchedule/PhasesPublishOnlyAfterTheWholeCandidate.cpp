@@ -7,19 +7,19 @@ int main() {
   GroundBuildSchedule schedule;
   CHECK(!schedule.Prepared() && schedule.Status() == "sheet-fields",
         "an unopened candidate cannot begin a production phase");
-  CHECK(!schedule.CompletesSheetPhase() && !schedule.CompletesStage(),
+  CHECK(!schedule.AdvanceSheetPhase() && !schedule.AdvanceStage(),
         "an unopened candidate cannot advance terrain or production");
-  CHECK(schedule.MarksPrepared(), "preparation opens the candidate exactly once");
-  CHECK(!schedule.MarksPrepared(), "a prepared candidate cannot be prepared again");
+  CHECK(schedule.MarkPrepared(), "preparation opens the candidate exactly once");
+  CHECK(!schedule.MarkPrepared(), "a prepared candidate cannot be prepared again");
   CHECK(schedule.Prepared() && schedule.Status() == "sheet-fields",
         "preparation does not skip height source acquisition");
-  CHECK(!schedule.CompletesStage(),
+  CHECK(!schedule.AdvanceStage(),
         "production cannot advance while the terrain candidate remains incomplete");
-  CHECK(schedule.CompletesSheetPhase() && schedule.Status() == "sheet-refinement" &&
-            schedule.CompletesSheetPhase() && schedule.CompletesSheetPhase() &&
-            schedule.CompletesSheetPhase(),
+  CHECK(schedule.AdvanceSheetPhase() && schedule.Status() == "sheet-refinement" &&
+            schedule.AdvanceSheetPhase() && schedule.AdvanceSheetPhase() &&
+            schedule.AdvanceSheetPhase(),
         "terrain phases advance in their declared order");
-  CHECK(!schedule.CompletesSheetPhase(), "a complete terrain candidate cannot advance again");
+  CHECK(!schedule.AdvanceSheetPhase(), "a complete terrain candidate cannot advance again");
   constexpr GroundBuildSchedule::Stage kRequired[] = {
       GroundBuildSchedule::Stage::NeedsClasses,
       GroundBuildSchedule::Stage::NeedsGroundSurface,
@@ -34,15 +34,14 @@ int main() {
       GroundBuildSchedule::Stage::NeedsPublication};
   for (size_t at = 0; at < std::size(kRequired); ++at) {
     const auto stage = kRequired[at];
-    CHECK(schedule.NextStage() == stage,
+    CHECK(schedule.CurrentStage() == stage,
           "a candidate remains at each complete production phase until its owner advances it");
     if (at + 1u < std::size(kRequired)) {
-      CHECK(schedule.CompletesStage(), "only the current production phase can advance");
+      CHECK(schedule.AdvanceStage(), "only the current production phase can advance");
     }
   }
   CHECK(schedule.Status() == "publication",
         "publication is reachable only after every candidate product phase completes");
-  CHECK(!schedule.CompletesStage(),
-        "publication is terminal until its owner commits or rejects it");
+  CHECK(!schedule.AdvanceStage(), "publication is terminal until its owner commits or rejects it");
   return Report();
 }
