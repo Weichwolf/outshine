@@ -36,6 +36,12 @@ mean preload 3201.8 ms (3162.1–3246.7): pump 70.7 ms, candidate flush
 3201.2 ms on average. `AwaitPreloadProgress` can wait first on structure
 workers and then on ground/class/tile work. Split its time and wake reason
 before changing wait slices; the current result does not prove idle polling.
+`Engine::State::AwaitPreloadProgress` owns the split: time a queued structure
+wait, then classify `GroundStack::AwaitProgress` as class build or tile pool.
+Count calls and condition-variable signals for each; a tile signal does not
+by itself prove a delivered tile. Preserve the existing wait order and bound
+while measuring so comparison is causal. Subwait time must fit within total
+await time; signals cannot exceed calls.
 
 The product contract is low-latency playable contact from a complete warm
 cache, followed by bounded visual refinement while the world is already
