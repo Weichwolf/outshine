@@ -17,6 +17,21 @@ namespace outshine::World {
 
 namespace {
 
+constexpr double kMotorwayWidthM = 7.5;
+constexpr double kTrunkArterialWidthM = 7.0;
+constexpr double kLocalMixedWidthM = 6.0;
+constexpr double kServiceWidthM = 4.5;
+constexpr double kTrackWidthM = 3.0;
+constexpr double kRacewayWidthM = 12.0;
+constexpr double kWalkwayWidthM = 2.0;
+constexpr double kCyclewayWidthM = 2.5;
+constexpr double kRailwayWidthM = 3.5;
+constexpr double kWaterWidthM = 8.0;
+constexpr double kFeetToMetres = 0.3048;
+constexpr double kMinimumWidthM = 0.3;
+constexpr double kMaximumWidthM = 1000.0;
+constexpr double kMotorLaneWidthM = 3.25;
+
 struct DirectionTags {
   std::optional<std::string_view> OneWay;
   std::optional<std::string_view> Highway;
@@ -145,19 +160,19 @@ constexpr TransportFacility HighwayFacility(std::string_view kind) {
 
 constexpr double DefaultWidthM(TransportFacility facility) {
   switch (facility) {
-    case TransportFacility::Motorway: return 7.5;
-    case TransportFacility::Trunk: return 7.0;
-    case TransportFacility::Arterial: return 7.0;
-    case TransportFacility::LocalStreet: return 6.0;
-    case TransportFacility::ServiceRoad: return 4.5;
-    case TransportFacility::Track: return 3.0;
-    case TransportFacility::Raceway: return 12.0;
-    case TransportFacility::Walkway: return 2.0;
-    case TransportFacility::Cycleway: return 2.5;
-    case TransportFacility::Railway: return 3.5;
-    case TransportFacility::Waterway: return 8.0;
-    case TransportFacility::Ferry: return 8.0;
-    case TransportFacility::Mixed: return 6.0;
+    case TransportFacility::Motorway: return kMotorwayWidthM;
+    case TransportFacility::Trunk:
+    case TransportFacility::Arterial: return kTrunkArterialWidthM;
+    case TransportFacility::LocalStreet:
+    case TransportFacility::Mixed: return kLocalMixedWidthM;
+    case TransportFacility::ServiceRoad: return kServiceWidthM;
+    case TransportFacility::Track: return kTrackWidthM;
+    case TransportFacility::Raceway: return kRacewayWidthM;
+    case TransportFacility::Walkway: return kWalkwayWidthM;
+    case TransportFacility::Cycleway: return kCyclewayWidthM;
+    case TransportFacility::Railway: return kRailwayWidthM;
+    case TransportFacility::Waterway:
+    case TransportFacility::Ferry: return kWaterWidthM;
     case TransportFacility::Unknown: return 0.0;
   }
   return 0.0;
@@ -206,11 +221,11 @@ std::expected<double, TransportBuildErrorCode> ReadWidthM(std::optional<std::str
   while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) { text.remove_prefix(1); }
   while (!text.empty() && (text.back() == ' ' || text.back() == '\t')) { text.remove_suffix(1); }
   if (text == "ft" || text == "feet" || text == "'") {
-    measured *= 0.3048;
+    measured *= kFeetToMetres;
   } else if (!text.empty() && text != "m") {
     return std::unexpected(TransportBuildErrorCode::InvalidWidth);
   }
-  if (!std::isfinite(measured) || measured < 0.3 || measured > 1000.0) {
+  if (!std::isfinite(measured) || measured < kMinimumWidthM || measured > kMaximumWidthM) {
     return std::unexpected(TransportBuildErrorCode::InvalidWidth);
   }
   return measured;
@@ -283,7 +298,7 @@ std::expected<OsmWaySemantics, TransportBuildErrorCode> DescribeOsmWay(const Dat
   semantics.LaneCount = *parsedLanes;
   semantics.WidthM = DefaultWidthM(semantics.Facility);
   if (*parsedLanes != 0 && (semantics.Modes & static_cast<uint8_t>(TransportMode::Motor)) != 0) {
-    const double laneWidthM = static_cast<double>(*parsedLanes) * 3.25;
+    const double laneWidthM = static_cast<double>(*parsedLanes) * kMotorLaneWidthM;
     semantics.WidthM = semantics.Facility == TransportFacility::Raceway
                            ? std::max(semantics.WidthM, laneWidthM)
                            : laneWidthM;
