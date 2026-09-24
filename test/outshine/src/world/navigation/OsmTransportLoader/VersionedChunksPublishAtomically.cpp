@@ -54,7 +54,7 @@ int main() {
     circuitValid = circuit && circuit->EdgeIds.size() == 267;
   }
   CHECK(original && original->SourceIdentity().Revision == "pin-r1" &&
-            original->SourceBytes > 30000 && circuitValid,
+            original->Metrics().SourceBytes > 30000 && circuitValid,
         "published source IDs resolve the independent Hockenheim circuit oracle");
   if (!original) { return Report(); }
 

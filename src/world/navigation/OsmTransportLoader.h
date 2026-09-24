@@ -19,25 +19,28 @@
 
 namespace outshine::World {
 
+struct TransportLoadMetrics {
+  size_t SourceBytes = 0;
+  double ReadMs = 0.0;
+  double ParseMs = 0.0;
+  double GraphMs = 0.0;
+};
+
 class TransportTopologySnapshot {
   Data::OsmElements Source_;
   TransportTopology Graph_;
+  std::vector<Data::SourceCoverage> Coverage_;
+  TransportLoadMetrics Metrics_;
 
 public:
   TransportTopologySnapshot(Data::OsmElements source,
                             TransportTopology topology,
                             std::vector<Data::SourceCoverage> coverage,
-                            size_t sourceBytes,
-                            double readMs,
-                            double parseMs,
-                            double graphMs)
+                            TransportLoadMetrics metrics)
       : Source_(std::move(source)),
         Graph_(std::move(topology)),
-        Coverage(std::move(coverage)),
-        SourceBytes(sourceBytes),
-        ReadMs(readMs),
-        ParseMs(parseMs),
-        GraphMs(graphMs) {}
+        Coverage_(std::move(coverage)),
+        Metrics_(metrics) {}
 
   [[nodiscard]] const Data::OsmSourceIdentity &SourceIdentity() const noexcept {
     return Source_.SourceIdentity();
@@ -45,16 +48,16 @@ public:
 
   [[nodiscard]] const TransportTopology &Topology() const noexcept { return Graph_; }
 
+  [[nodiscard]] std::span<const Data::SourceCoverage> Coverage() const noexcept {
+    return Coverage_;
+  }
+
+  [[nodiscard]] const TransportLoadMetrics &Metrics() const noexcept { return Metrics_; }
+
   [[nodiscard]] std::expected<CircuitRoute, CircuitError>
   ResolveCircuit(uint64_t relationId, std::string_view memberRole = {}) const {
     return Graph_.ResolveCircuit(Source_, relationId, memberRole);
   }
-
-  std::vector<Data::SourceCoverage> Coverage;
-  size_t SourceBytes = 0;
-  double ReadMs = 0.0;
-  double ParseMs = 0.0;
-  double GraphMs = 0.0;
 };
 
 class OsmTransportLoader {

@@ -184,10 +184,11 @@ void Engine::State::PollOsmTransport() {
                    "jobs");
   const auto &current = World.OsmTransportLoader->Current();
   if (!current || current == previous) { return; }
-  Published.Places("semantic OSM source bytes", static_cast<double>(current->SourceBytes), "bytes");
-  Published.Places("semantic OSM read time", current->ReadMs, "ms");
-  Published.Places("semantic OSM parse time", current->ParseMs, "ms");
-  Published.Places("semantic OSM graph time", current->GraphMs, "ms");
+  const World::TransportLoadMetrics &metrics = current->Metrics();
+  Published.Places("semantic OSM source bytes", static_cast<double>(metrics.SourceBytes), "bytes");
+  Published.Places("semantic OSM read time", metrics.ReadMs, "ms");
+  Published.Places("semantic OSM parse time", metrics.ParseMs, "ms");
+  Published.Places("semantic OSM graph time", metrics.GraphMs, "ms");
 }
 
 }
