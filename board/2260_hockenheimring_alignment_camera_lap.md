@@ -65,6 +65,10 @@ unproven. The overview is input diagnosis, not driving acceptance.
    simulate vehicle dynamics. Capture time-stamped frames through outshine-client.
    Add a route-bound view only after the overview has made the route ready;
    moving focus may rebuild geometry but must retain route identity and pose.
+   `Motion::RouteSpeedProfile` now plans a finite, bounded time-to-station curve
+   from native pose samples. An analytic circle/straight test covers lateral,
+   acceleration and braking limits, the closed seam and missing samples. The
+   remaining work is to bind it to the published route and drive a view/capture.
 4. Stream ahead and evict behind under bounded memory. Keep graph/route IDs
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.
