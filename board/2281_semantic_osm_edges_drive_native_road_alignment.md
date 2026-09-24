@@ -91,11 +91,11 @@ larger routes are reported deferred until sliding-window coverage exists.
   `RoadSurfaceBuilder` now emits native Geometry, edge/station/triangle spans,
   material groups and source-derived earthworks off-thread. Bounded OSM route
   corridors now ask terrain LOD for <=3 m postings before earthworks. The
-  Hockenheim 1e2cc1f9 shot has 267 corridors, 139 virtual patches, 148 total
-  pages and 5.4% changed pixels against 4e27db1b, but the road still looks
-  interrupted. Measure final road-to-ground clearance along all stations;
-  resolve remaining occlusion, seam and MVT overlap. WI 2166 owns general
-  final-surface error; keep the page budget strict.
+  Hockenheim shot has 267 corridors, 139 virtual patches and 148 total pages.
+  Per-segment earthwork replaces five-segment chords; a9d234b1 shows a more
+  continuous lower circuit and all test midpoints receive contact. Measure final clearance along all
+  stations and resolve remaining occlusion, seam and MVT overlap. WI 2166
+  owns general final-surface error; keep the page budget strict.
 
 ## Executable sequence and falsification
 

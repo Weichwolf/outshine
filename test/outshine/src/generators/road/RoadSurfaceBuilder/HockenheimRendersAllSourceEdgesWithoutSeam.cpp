@@ -1,4 +1,5 @@
 #include "Check.h"
+#include "EarthworkPress.h"
 #include "OsmXmlReader.h"
 #include "RoadSurfaceBuilder.h"
 
@@ -62,6 +63,27 @@ int main() {
             std::abs(surface->Spans.back().EndStationM - alignment->LengthM()) < 1e-7,
         "contact triangles retain all 267 ordered source edges and full lap station coverage");
   const auto positions = surface->SurfaceGeometry.positionsOf(0);
+  std::vector<EastNorth> contactPoints;
+  std::vector<double> contactHeights;
+  contactPoints.reserve(surface->Spans.size());
+  contactHeights.reserve(surface->Spans.size());
+  for (size_t index = 0; index < surface->Spans.size(); ++index) {
+    const size_t at = index * 12;
+    contactPoints.push_back(
+        {.EastM =
+             (positions[at] + positions[at + 3] + positions[at + 6] + positions[at + 9]) * 0.25,
+         .NorthM =
+             -(positions[at + 2] + positions[at + 5] + positions[at + 8] + positions[at + 11]) *
+             0.25});
+    contactHeights.push_back(
+        (positions[at + 1] + positions[at + 4] + positions[at + 7] + positions[at + 10]) * 0.25 +
+        2.0);
+  }
+  const auto contact =
+      ApplyEarthworkStamps(surface->Earthworks, contactPoints, contactHeights, kMostEarthworkM);
+  CHECK(surface->Earthworks.size() == surface->Spans.size() &&
+            contact.Moved == surface->Spans.size(),
+        "every curved road segment has a matching ground contact footprint");
   const size_t last = positions.size() - 12;
   bool closed = positions.size() >= 24;
   if (closed) {

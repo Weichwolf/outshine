@@ -71,8 +71,8 @@ int main() {
   const auto triangles = surface->SurfaceGeometry.trianglesOf(0);
   CHECK(!surface->Spans.empty() && triangles.size() == surface->Spans.size() * 6 &&
             positions.size() == surface->Spans.size() * 12 &&
-            surface->Earthworks.size() == (surface->Spans.size() + 4) / 5,
-        "each station interval owns exactly two contact triangles");
+            surface->Earthworks.size() == surface->Spans.size(),
+        "each station interval owns two triangles and one matching ground contact");
   const EastNorth firstRoadCenter{
       .EastM = (positions[0] + positions[3] + positions[6] + positions[9]) * 0.25,
       .NorthM = -(positions[2] + positions[5] + positions[8] + positions[11]) * 0.25};

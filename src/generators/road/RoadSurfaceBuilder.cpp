@@ -28,7 +28,6 @@ constexpr float kConcreteRoughness = 0.82f;
 constexpr float kOtherRoadRoughness = 0.92f;
 constexpr double kRoadVergeM = 3.0;
 constexpr double kRoadApronM = 6.0;
-constexpr size_t kEarthworkSegmentsPerStamp = 5;
 
 struct SurfaceBucket {
   std::vector<float> PositionsM;
@@ -232,7 +231,6 @@ AppendEdge(const RoadAlignment &alignment,
            const RoadFrameTransform &frames,
            const RoadSurfaceBuildOptions &options,
            std::array<SurfaceBucket, kSurfaceCount> &buckets,
-           std::vector<SurfaceSample> &crossSections,
            RoadSurface &result,
            size_t &segmentCount) {
   const auto surfaceIndex = SurfaceIndex(edge.Surface);
@@ -262,8 +260,12 @@ AppendEdge(const RoadAlignment &alignment,
       return std::unexpected(Error(
           RoadSurfaceErrorCode::DegenerateTriangle, edge.SourceEdge, edge.StartStationM + fromM));
     }
-    if (crossSections.empty()) { crossSections.push_back(*begin); }
-    crossSections.push_back(*end);
+    auto earthwork = EarthworkFor(*begin, *end, options.SurfaceLiftM);
+    if (!earthwork) {
+      return std::unexpected(Error(
+          RoadSurfaceErrorCode::DegenerateTriangle, edge.SourceEdge, edge.StartStationM + fromM));
+    }
+    result.Earthworks.push_back(std::move(*earthwork));
     result.Spans.push_back(
         {.SourceEdge = edge.SourceEdge,
          .StartStationM = edge.StartStationM + fromM,
@@ -271,21 +273,6 @@ AppendEdge(const RoadAlignment &alignment,
          .Part = static_cast<int>(*surfaceIndex),
          .FirstTriangle = static_cast<uint32_t>(bucket.Triangles.size() / 3u - 2u)});
     ++segmentCount;
-  }
-  return {};
-}
-
-[[nodiscard]] std::expected<void, RoadSurfaceError> BuildEarthworks(
-    const std::vector<SurfaceSample> &crossSections, double liftM, RoadSurface &result) {
-  for (size_t first = 0; first < result.Spans.size(); first += kEarthworkSegmentsPerStamp) {
-    const size_t last = std::min(first + kEarthworkSegmentsPerStamp, result.Spans.size());
-    auto earthwork = EarthworkFor(crossSections[first], crossSections[last], liftM);
-    if (!earthwork) {
-      return std::unexpected(Error(RoadSurfaceErrorCode::DegenerateTriangle,
-                                   result.Spans[first].SourceEdge,
-                                   result.Spans[first].StartStationM));
-    }
-    result.Earthworks.push_back(std::move(*earthwork));
   }
   return {};
 }
@@ -337,15 +324,11 @@ RoadSurfaceBuilder::Build(const RoadAlignment &alignment,
   const TangentFrame alignmentFrame = TangentFrame::At(alignment.Anchor());
   const RoadFrameTransform frames{.Alignment = alignmentFrame, .Render = renderFrame};
   std::array<SurfaceBucket, kSurfaceCount> buckets;
-  std::vector<SurfaceSample> crossSections;
   size_t segmentCount = 0;
   for (const RoadAlignmentEdge &edge : alignment.Edges()) {
-    auto appended =
-        AppendEdge(alignment, edge, frames, options, buckets, crossSections, result, segmentCount);
+    auto appended = AppendEdge(alignment, edge, frames, options, buckets, result, segmentCount);
     if (!appended) { return std::unexpected(appended.error()); }
   }
-  auto earthworks = BuildEarthworks(crossSections, options.SurfaceLiftM, result);
-  if (!earthworks) { return std::unexpected(earthworks.error()); }
   auto geometry = InstallGeometry(buckets, result);
   if (!geometry) { return std::unexpected(geometry.error()); }
   return result;
