@@ -56,7 +56,7 @@ Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
 
 ## Executable reserve and order
 
-1. Engine phase methods with misleading verbs are migrated in bounded slices (2274);
+1. Engine phase methods and mixed file owners are migrated in bounded slices (2275);
    inspect the remaining `Composes`/`Bakes`/`Grows`/`Carries`/`Models` before renaming.
 2. The twelve-hour review through 21342822f found live derived-state invalidation in
    GroundStack::Restand (2224) and unbounded remaining terrain phases (2234).
