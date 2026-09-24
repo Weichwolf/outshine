@@ -110,6 +110,7 @@ private:
     double GradeM = 0.0;
     double SlopeE = 0.0;
     double SlopeN = 0.0;
+    Vec3f WearsLinear = {{0.5f, 0.5f, 0.5f}};
     std::vector<Leg> Legs;
     std::vector<RoadGate> Gates;
   };
@@ -176,6 +177,9 @@ private:
     double SweepMs = 0.0;
     double RestMs = 0.0;
   };
+
+  [[nodiscard]] static Vec3f
+  JunctionColour(const Paving &on, std::span<const Leg> legs, const Paved &into);
 
   static void RefineChords(const Paving &on, Paved &into);
 
@@ -309,9 +313,7 @@ private:
                 std::vector<EarthworkStamp> &corridor,
                 RoadMeshBuffers &pavement) const;
 
-  [[nodiscard]] size_t RaisesTheJunctionBodies(const outshine::Ground::GroundMaterials &wearing,
-                                               Paved &into,
-                                               RoadMeshBuffers &pavement) const;
+  [[nodiscard]] size_t RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const;
 
   static void TellsWhatTheFitFound(Paved &into);
   [[nodiscard]] static bool HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,

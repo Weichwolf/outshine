@@ -78,6 +78,15 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
   return a.Edge != b.Edge ? a.Edge < b.Edge : a.End < b.End;
 };
 
+[[nodiscard]] Vec3f LaneColour(const Ground::StreetField::Way &lane,
+                               const Ground::VegetationTemplates &vegetation) {
+  if (lane.CoverRow < 0 || static_cast<size_t>(lane.CoverRow) >= vegetation.TemplateCount()) {
+    return {{0.5f, 0.5f, 0.5f}};
+  }
+  const Vec4f &cover = vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
+  return {{cover[0], cover[1], cover[2]}};
+}
+
 }
 
 double Corridors::LeastSeen(double held, double seen) {
@@ -416,11 +425,7 @@ void Corridors::PaveEdge(const Paving &on,
                       on.Vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
   RoadProfile profile = RoadProfile::Rounded;
   if (sealed) { profile = lane.Lanes >= 2 ? RoadProfile::Kerbed : RoadProfile::Simple; }
-  Vec3f wears = {{0.5f, 0.5f, 0.5f}};
-  if (lane.CoverRow >= 0 && static_cast<size_t>(lane.CoverRow) < on.Vegetation.TemplateCount()) {
-    const Vec4f &cover = on.Vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Ground;
-    wears = {{cover[0], cover[1], cover[2]}};
-  }
+  const Vec3f wears = LaneColour(lane, on.Vegetation);
   into.WaterMs += since();
   if (lane.Bridge) {
     into.Swept += Sweeper_.Sweep(std::span<const RoadStation>(into.Along.data(), into.Along.size()),
@@ -1062,6 +1067,30 @@ void Corridors::GatesOf(std::span<const Leg> legs, const Paved &into, Junction &
   }
 }
 
+Vec3f Corridors::JunctionColour(const Paving &on, std::span<const Leg> legs, const Paved &into) {
+  const Vec3f firstColour =
+      LaneColour(on.Ways.Ways()[into.Edges[legs.front().Edge].Lane], on.Vegetation);
+  std::array<double, 3> sum{};
+  double widthM = 0.0;
+  bool uniformColour = true;
+  for (const Leg &leg : legs) {
+    const Vec3f colour = LaneColour(on.Ways.Ways()[into.Edges[leg.Edge].Lane], on.Vegetation);
+    uniformColour = uniformColour && colour == firstColour;
+    const double weightM = std::max(0.0, leg.HalfM);
+    for (size_t channel = 0; channel < sum.size(); ++channel) {
+      sum[channel] += static_cast<double>(colour[channel]) * weightM;
+    }
+    widthM += weightM;
+  }
+  Vec3f wears = firstColour;
+  if (!uniformColour && widthM > 0.0) {
+    for (size_t channel = 0; channel < sum.size(); ++channel) {
+      wears[channel] = static_cast<float>(sum[channel] / widthM);
+    }
+  }
+  return wears;
+}
+
 void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into) {
   Junction made{.Node = node, .Legs = {}, .Gates = {}};
   const size_t n = legs.size();
@@ -1084,6 +1113,7 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
     leg.AngleRad = std::atan2(ray.NorthM[1] - ray.NorthM[0], ray.EastM[1] - ray.EastM[0]);
   }
   std::ranges::sort(legs, ByBearing);
+  made.WearsLinear = JunctionColour(on, legs, into);
   std::vector<Bound> left(n);
   std::vector<Bound> right(n);
   for (size_t i = 0; i < n; ++i) {
@@ -1256,16 +1286,11 @@ void Corridors::DeckOrRamp(const outshine::Ground::StreetField::Way &lane,
   }
 }
 
-size_t Corridors::RaisesTheJunctionBodies(const outshine::Ground::GroundMaterials &wearing,
-                                          Paved &into,
-                                          RoadMeshBuffers &pavement) const {
-  const int asphalt = wearing.Find("asphalt");
-  Vec3f wears = {{0.5f, 0.5f, 0.5f}};
-  if (asphalt >= 0) { wears = wearing.At(static_cast<size_t>(asphalt)).Albedo; }
+size_t Corridors::RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const {
   for (const Junction &one : into.Junctions) {
     Sweeper_.Junction(std::span<const RoadGate>(one.Gates.data(), one.Gates.size()),
                       {.SlopeE = one.SlopeE, .SlopeN = one.SlopeN},
-                      wears,
+                      one.WearsLinear,
                       pavement);
   }
   return into.Junctions.size();
@@ -1548,7 +1573,7 @@ bool Corridors::Lay(const Site &site,
   const auto junctionsAt = std::chrono::steady_clock::now();
   Notes(into,
         "streets: junction bodies raised",
-        static_cast<double>(RaisesTheJunctionBodies(site.Materials, into, pavement)),
+        static_cast<double>(RaisesTheJunctionBodies(into, pavement)),
         "junctions");
   Notes(into,
         "streets: of that, raising the junction bodies",
@@ -2232,23 +2257,18 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
 
 std::expected<bool, std::string_view> Corridors::AdvanceRoadBodies(Job &job,
                                                                    const JobSlice &slice) const {
-  const auto &site = slice.site;
   const size_t nodesMost = slice.nodesMost;
   const auto elapsed = [&slice] { return slice.Elapsed(); };
   Paved &into = job.Work;
   if (job.Phase != Job::Stage::Bodies) { return std::unexpected(Says::kStaleCorridorInput); }
   {
-    const auto &wearing = site.Materials;
-    const int asphalt = wearing.Find("asphalt");
-    Vec3f wears = {{0.5f, 0.5f, 0.5f}};
-    if (asphalt >= 0) { wears = wearing.At(static_cast<size_t>(asphalt)).Albedo; }
     const size_t end =
         std::min(job.NextBody + std::max(size_t{1}, nodesMost), into.Junctions.size());
     for (; job.NextBody < end; ++job.NextBody) {
       const Junction &one = into.Junctions[job.NextBody];
       Sweeper_.Junction(std::span<const RoadGate>(one.Gates.data(), one.Gates.size()),
                         {.SlopeE = one.SlopeE, .SlopeN = one.SlopeN},
-                        wears,
+                        one.WearsLinear,
                         job.Pavement);
     }
     job.StageMs += elapsed();
