@@ -59,6 +59,13 @@ alignment DEM sampling must use original geodetic nodes or an exact inverse.
   global station. Reject cusps and unresolved bridge/tunnel edges explicitly.
   This is internal centerline geometry until terrain-interior clearance and
   render/contact products pass; a successful camera query is not a road proof.
+- Candidate integration gathers unique DEM tile spots from selected source
+  nodes at the candidate's declared zoom, with an explicit tile-count budget.
+  `HeightSheets::CopySourcedField` pins each tile from the candidate; a missing
+  tile defers publication, never invokes a scalar fallback. Copy work is paced
+  off the frame path. Source identity, DEM source set/digest and candidate
+  generation travel with the result; stale completion cannot replace a newer
+  candidate. Test missing/changed tiles and normal Hockenheim DEM coverage.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
   Input is one `TransportNetworkSnapshot` revision, a bounded ordered set of
   source edge IDs with source identity selected by route or coverage, and pinned
