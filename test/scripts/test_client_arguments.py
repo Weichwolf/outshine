@@ -23,6 +23,7 @@ class Coordinates(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn('render <asset.gltf|asset.glb>', result.stdout)
                 self.assertIn('run [--rows] [--stats]', result.stdout)
+                self.assertIn('measures [--view <id> --at-seconds <s>]', result.stdout)
                 self.assertIn('STAT<TAB>name<TAB>key<TAB>value<TAB>unit', result.stdout)
                 self.assertNotIn('SDL', result.stdout + result.stderr)
 

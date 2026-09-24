@@ -19,13 +19,9 @@ flips, terrain penetration, LOD pops and tile eviction. It is a development
 driver because the entire scene uses the normal streaming pipeline; no
 hand-authored track mesh or route spline may replace OSM-derived products.
 
-`src/assets/places/Hockenheimring.scenario` is the data-gate overview, not a lap.
-The existing `src/assets/drive/f31.scenario` contains a root `<drive>` that the current
-reader rejects; follower camera placement exists, but no scenario contract
-currently proves a route-bound camera. Do not revive the rejected element as
-an opaque shortcut. Extend the declarative scenario/API contract for a named
-route and a camera rig driven by (edge ID, station, lateral offset), or an
-equivalent format-independent native route handle.
+`src/assets/places/Hockenheimring.scenario` declares an overview and a
+route-bound lap view. The camera follows the native alignment by station;
+the overview is a data gate, not lap acceptance.
 
 ## Current input and output
 
@@ -89,9 +85,14 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    PNGs were opened: road remains visible, but uniformly grey asphalt, flat
    ground colors, abrupt distant edges and crude dark buildings fail visual
    acceptance. The sampled run had 10474/13200 unrefined frames, p99 12.281 ms,
-   32 over-budget frames and 483.033 MiB peak heap. A footprint revision rises
-   on each accepted/replaced structure tile; verify whether this needlessly
-   restarts ground candidates during movement before changing the contract.
+   32 over-budget frames and 483.033 MiB peak heap. A fresh offline 20 s lap
+   starts only two candidates (Playable, Refined), stays unrefined for all 1200
+   frames, and ends in corridors at station 408 m. The stage ledger reports
+   1716 network and 456 corridor advances, with 100/101 structure tiles landed.
+   Candidate restart is not the first cause. Measure stage wall time and source
+   scope; move heavy graph/corridor work off the frame path or publish bounded
+   road/terrain products independently of distant MVT work. Preserve revisions
+   and per-frame budgets; do not hide the delay by raising a frame work quota.
 4. Stream ahead and evict behind under bounded memory. Keep graph/route IDs
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.

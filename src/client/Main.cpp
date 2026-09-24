@@ -151,7 +151,8 @@ void Usage() {
       "[name]\n"
       "                                   draw a selected view; motion renders every paced tick, "
       "samples save route-decile PNGs\n"
-      "  measures <scenario>              and print every measure it published\n"
+      "  measures [--view <id> --at-seconds <s>] <scenario>\n"
+      "                                   print measurements after the selected capture\n"
       "  height <lat> <lon>               terrain elevation; angles in decimal degrees\n"
       "  --help | <verb> --help           this\n"
       "  --stats                           render, run, shots: STAT TSV rows\n"
@@ -493,6 +494,12 @@ int CaptureView(outshine::Engine &engine,
   return 0;
 }
 
+void PrintMeasures(const outshine::Engine &engine) {
+  for (const outshine::DiagnosticSample &one : engine.measures()) {
+    std::println("        {:<56} {:14.3f} {}", one.Name, one.Value, one.Unit);
+  }
+}
+
 int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   const auto parsed = ParseScenarioRunOptions(argc, argv);
   if (!parsed) { return parsed.error(); }
@@ -523,6 +530,7 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   const auto began = std::chrono::steady_clock::now();
   if (!options.SelectedView.empty()) {
     const int result = CaptureView(engine, named, options);
+    if (everyMeasure) { PrintMeasures(engine); }
     if (options.Stats) {
       const double elapsedMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -542,11 +550,7 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   } else {
     Tell(shot, named);
   }
-  if (everyMeasure) {
-    for (const outshine::DiagnosticSample &one : engine.measures()) {
-      std::println("        {:<56} {:14.3f} {}", one.Name, one.Value, one.Unit);
-    }
-  }
+  if (everyMeasure) { PrintMeasures(engine); }
   if (options.Stats) {
     const double elapsedMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
