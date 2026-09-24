@@ -404,11 +404,24 @@ namespace {
 [[nodiscard]] std::expected<std::optional<ViewBook>, std::string>
 PrepareViews(const Scenario::Document &scenario) {
   if (scenario.Views.empty()) { return std::optional<ViewBook>{}; }
+  for (const Scenario::View &view : scenario.Views) {
+    if (view.Placement != Scenario::CameraPlacement::Route) { continue; }
+    const bool known = std::ranges::any_of(
+        scenario.Routes, [&](const auto &route) { return route.Id == view.Route.RouteId; });
+    if (!known) {
+      return std::unexpected("route view '" + view.Id + "' names an undeclared route '" +
+                             view.Route.RouteId + "'");
+    }
+  }
   const std::string_view starting = scenario.Played.View.empty()
                                         ? std::string_view(scenario.Views.front().Id)
                                         : std::string_view(scenario.Played.View);
   auto views = ViewBook::Stand(scenario.Views, starting);
   if (!views) { return std::unexpected(std::move(views.error())); }
+  if (views->Active().Placement == Scenario::CameraPlacement::Route) {
+    return std::unexpected("route view '" + views->Active().Id +
+                           "' cannot start before its alignment is published");
+  }
   return std::optional<ViewBook>{std::move(*views)};
 }
 }
@@ -632,6 +645,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   }
   if (auto reused = ReuseDeclaration(
           scenario, declared, S_->Picture, S_->Session, *views, bindings, S_->Error)) {
+    if (*reused) { S_->RouteCamera.reset(); }
     return std::move(*reused);
   }
 
@@ -669,6 +683,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     S_->Session.Carried = Unacted(scenario);
     S_->Error.clear();
     PublishConfiguration(S_->Session, *views, bindings);
+    S_->RouteCamera.reset();
     return {};
   }
   Core::RuntimeScene::HandOffRenderer(S_->Picture.Standing);
@@ -683,6 +698,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.AudioOcclusion =
       prepared->Headless.Occlusion ? std::move(*prepared->Headless.Occlusion) : TriangleBvh{};
   PublishConfiguration(S_->Session, *views, bindings);
+  S_->RouteCamera.reset();
   return {};
 }
 

@@ -1,4 +1,5 @@
 #include "WorldCandidate.h"
+#include "FrameCapture.h"
 
 #include "Check.h"
 
@@ -6,6 +7,7 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <vector>
 
 int main() {
   using namespace outshine;
@@ -31,6 +33,10 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "published world opens");
     if (scene) {
+      std::vector<uint8_t> baseline;
+      CHECK(scene->Draw(error) && Core::ReadFrame(renderer, baseline, error) &&
+                baseline.size() == 32u * 32u * 4u,
+            "the initial published frame has a readable offscreen image");
       const std::array<StoredVertex, 3> vertices{
           StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 0, 1}}),
           StoredVertex::Of({{1, 0, 0}}, {{1, 0}}, {{0, 0, 1}}),
@@ -53,6 +59,10 @@ int main() {
                                                 Core::ResourceRestoreMode::Deferred);
         CHECK(prepared.has_value(), "candidate copies immutable piece sources");
         if (prepared) {
+          std::vector<uint8_t> duringCandidate;
+          CHECK(scene->Draw(error) && Core::ReadFrame(renderer, duringCandidate, error) &&
+                    duringCandidate == baseline,
+                "readback uses the published frame while a candidate editor is active");
           CHECK(renderer.HasWorldCandidate() && renderer.PieceSlots() == handles.size(),
                 "the candidate editor addresses the copied resource table");
           {

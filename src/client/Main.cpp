@@ -22,6 +22,7 @@
 #include "PlaceCamera.h"
 #include "RenderAsset.h"
 #include "ScenarioRoundTrip.h"
+#include "ScenarioCapture.h"
 #include "format/Number.h"
 #include <cmath>
 
@@ -137,8 +138,8 @@ void Usage() {
       "  places                           list the external scenario cameras\n"
       "  --places <directory> <command>   override src/assets/places\n"
       "  roundtrip                        write each place, read it back, write it again\n"
-      "  run [--rows] [--into <folder>] <scenario> [name]\n"
-      "                                   read a declared scenario, stand it, draw it\n"
+      "  run [--rows] [--into <folder>] [--view <id> --at-seconds <s>] <scenario> [name]\n"
+      "                                   draw a scenario or a selected view at simulation time\n"
       "  measures <scenario>              and print every measure it published\n"
       "  height <lat> <lon>               terrain elevation; angles in decimal degrees\n"
       "  help                             this\n\n"
@@ -217,33 +218,76 @@ int TakeShots(std::span<const Place> places, int argc, const char *const *argv) 
   return refused == 0 ? 0 : 1;
 }
 
-int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
-  bool rows = false;
-  std::string into = "khronos";
+struct ScenarioRunOptions {
+  int Argc = 0;
+  const char *const *Argv = nullptr;
+  bool Rows = false;
+  std::string Into = "khronos";
+  std::string_view SelectedView;
+  double AtS = 0.0;
+};
+
+[[nodiscard]] std::expected<ScenarioRunOptions, int>
+ParseScenarioRunOptions(int argc, const char *const *argv) {
+  ScenarioRunOptions options;
+  options.Argc = argc;
+  options.Argv = argv;
+  bool hasTime = false;
   while (argc > 0 && argv[0][0] == '-') {
     if (std::strcmp(argv[0], "--rows") == 0) {
-      rows = true;
+      options.Rows = true;
       --argc;
       ++argv;
       continue;
     }
     if (std::strcmp(argv[0], "--into") == 0 && argc > 1) {
-      into = argv[1];
+      options.Into = argv[1];
+      argc -= 2;
+      argv += 2;
+      continue;
+    }
+    if (std::strcmp(argv[0], "--view") == 0 && argc > 1) {
+      options.SelectedView = argv[1];
+      argc -= 2;
+      argv += 2;
+      continue;
+    }
+    if (std::strcmp(argv[0], "--at-seconds") == 0 && argc > 1) {
+      const auto parsed = outshine::ParseFiniteNumber(argv[1]);
+      if (!parsed || *parsed < 0.0) {
+        std::println(stderr, "outshine-client: --at-seconds needs a nonnegative time in seconds");
+        return std::unexpected(2);
+      }
+      options.AtS = *parsed;
+      hasTime = true;
       argc -= 2;
       argv += 2;
       continue;
     }
     break;
   }
-  if (argc < 1) {
+  if (hasTime && options.SelectedView.empty()) {
+    std::println(stderr, "outshine-client: --at-seconds requires --view");
+    return std::unexpected(2);
+  }
+  options.Argc = argc;
+  options.Argv = argv;
+  return options;
+}
+
+int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
+  const auto parsed = ParseScenarioRunOptions(argc, argv);
+  if (!parsed) { return parsed.error(); }
+  const ScenarioRunOptions &options = *parsed;
+  if (options.Argc < 1) {
     std::println("outshine-client: name a scenario to run");
     return 2;
   }
-  const std::string named = argc > 1 ? argv[1] : "scenario";
+  const std::string named = options.Argc > 1 ? options.Argv[1] : "scenario";
   outshine::Engine engine;
   if (!Stands(engine, {})) { return 2; }
-  if (const auto read = engine.readScenario(argv[0]); !read) {
-    std::println("outshine-client: {} -- {}", argv[0], read.error());
+  if (const auto read = engine.readScenario(options.Argv[0]); !read) {
+    std::println("outshine-client: {} -- {}", options.Argv[0], read.error());
     return 1;
   }
   outshine::Extent frame = engine.declaration().Render.Frame;
@@ -255,11 +299,38 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     return 1;
   }
   if (const auto assembled = engine.assemble(); !assembled) {
-    std::println("outshine-client: {} did not assemble -- {}", argv[0], assembled.error());
+    std::println("outshine-client: {} did not assemble -- {}", options.Argv[0], assembled.error());
     return 1;
   }
-  const Shot shot = outshine::Shots::Draw(engine, named, true, into);
-  if (rows) {
+  if (!options.SelectedView.empty()) {
+    const auto captured = outshine::Client::CaptureScenarioView(
+        engine,
+        {.View = options.SelectedView, .Name = named, .Into = options.Into, .AtS = options.AtS});
+    if (!captured) {
+      std::println(stderr, "outshine-client: {}", captured.error());
+      return 1;
+    }
+    if (options.Rows) {
+      std::println("CAPTURE\t{}\t{}\t{:.6f}\t{:.3f}\t{:.3f}\t{}",
+                   named,
+                   options.SelectedView,
+                   captured->SimTimeS,
+                   captured->RouteStationM,
+                   captured->RouteLengthM,
+                   captured->Path);
+    } else {
+      std::println("CAPTURE {} view={} t={:.3f} s station={:.3f}/{:.3f} m {}",
+                   named,
+                   options.SelectedView,
+                   captured->SimTimeS,
+                   captured->RouteStationM,
+                   captured->RouteLengthM,
+                   captured->Path);
+    }
+    return 0;
+  }
+  const Shot shot = outshine::Shots::Draw(engine, named, true, options.Into);
+  if (options.Rows) {
     Row(shot, named);
   } else {
     Tell(shot, named);

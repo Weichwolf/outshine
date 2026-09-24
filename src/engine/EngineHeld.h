@@ -26,6 +26,7 @@
 #include "WorldPlacement.h"
 #include "StructureBuildQueue.h"
 #include "RoadAlignmentBuildQueue.h"
+#include "RouteSpeedProfile.h"
 #include "Tasks.h"
 #include "Log.h"
 
@@ -384,6 +385,14 @@ struct Ticks {
   double ElapsedS = 0.0;
 };
 
+struct RouteCameraMotion {
+  std::string ViewId;
+  std::string RouteId;
+  RouteInfo Route;
+  Motion::RouteSpeedProfile Speed;
+  double BeganAtS = 0.0;
+};
+
 namespace Says {
 inline constexpr std::string_view kCaptureMutation =
     "a capture holds the published world; end it before mutating engine state";
@@ -396,6 +405,7 @@ struct Engine::State {
   Surrounds World;
   Spent Cost;
   Ticks Ticking;
+  std::optional<RouteCameraMotion> RouteCamera;
   Core::Ledger Published;
   Host *Offered = nullptr;
   LogSink *Diagnostics = nullptr;
@@ -430,6 +440,9 @@ struct Engine::State {
   [[nodiscard]] Result PreloadTimeout(double bound);
   void AwaitPreloadProgress(double seconds);
   [[nodiscard]] bool UpdateActiveCamera();
+  [[nodiscard]] bool UpdateRouteCamera(const Scenario::View &view);
+  [[nodiscard]] Holds<RouteInfo> PublishedRouteInfo(std::string_view name) const;
+  [[nodiscard]] Holds<RoutePose> SamplePublishedRoute(std::string_view name, double stationM) const;
 
   struct Classed {
     std::vector<float> Palette;

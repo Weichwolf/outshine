@@ -543,7 +543,8 @@ struct Event {
 enum class CameraPlacement {
   FollowEntity, ///< Resolve the named followed entity during simulation.
   Local,        ///< Use the camera's local world pose directly.
-  Geodetic      ///< Resolve geographic position and optional terrain height before rendering.
+  Geodetic,     ///< Resolve geographic position and optional terrain height before rendering.
+  Route         ///< Follow a published named route from its first to its final station.
 };
 
 /// Geographic camera placement, resolved by scenario/world setup; never an import type.
@@ -558,20 +559,44 @@ struct GeographicCameraPlacement {
   double PitchDeg = 0.0;
 };
 
+/// Owned configuration for a kinematic camera on a published native route.
+/// Route selection requires a ready alignment; the speed plan is built once when the view is
+/// selected. Later frames sample the plan by simulation time without IO or allocation.
+struct RouteCameraPlacement {
+  static constexpr double kDefaultEyeHeightM = 1.6;             ///< Default seat height in metres.
+  static constexpr double kDefaultLookAheadM = 12.0;            ///< Default target lead in metres.
+  static constexpr double kDefaultMaximumSpeedMps = 30.0;       ///< Default speed cap in m/s.
+  static constexpr double kDefaultAccelerationMs2 = 3.0;        ///< Default acceleration in m/s².
+  static constexpr double kDefaultBrakingMs2 = 6.0;             ///< Default braking in m/s².
+  static constexpr double kDefaultLateralAccelerationMs2 = 5.0; ///< Default curve limit in m/s².
+
+  std::string RouteId; ///< Case-sensitive route ID declared in the same scenario.
+  double EyeHeightM = kDefaultEyeHeightM; ///< Metres above the route surface normal.
+  double LateralOffsetM = 0.0;            ///< Signed metres toward the route's right-hand side.
+  double LookAheadM = kDefaultLookAheadM; ///< Metres ahead along the route for the view target.
+  double MaximumSpeedMps = kDefaultMaximumSpeedMps; ///< Upper bound on kinematic speed.
+  double AccelerationMs2 = kDefaultAccelerationMs2; ///< Forward acceleration bound.
+  double BrakingMs2 = kDefaultBrakingMs2; ///< Deceleration bound before curves and lap end.
+  double LateralAccelerationMs2 =
+      kDefaultLateralAccelerationMs2; ///< Curve-speed acceleration bound.
+};
+
 /// Owned camera configuration. Engine::declare copies it; later edits do not update the Engine.
-/// IDs/mode/follow labels/clock scale are checked during declaration. Following requires
+/// IDs/mode/follow labels/route rig/clock scale are checked during declaration. Following requires
 /// assemble(); geographic resolution and camera/projection checks can fail during advance().
 /// Configure outside frames; serialize mutation with reads of the same descriptor. Strings
 /// may allocate. This descriptor owns no renderer, entity or device resource.
 struct View {
   std::string Id; ///< Nonempty, case-sensitive identifier, unique within the view catalog.
   /// Projection/lens settings; also the pose for Local. FollowEntity replaces the pose;
-  /// Geodetic replaces the position and, without LooksAt, derives direction from bearing/pitch.
+  /// Geodetic replaces the position and, without LooksAt, derives direction from bearing/pitch;
+  /// Route derives both position and direction from the published alignment.
   Camera Sees;
-  /// One of the three declared modes; unsupported enum values reject declaration.
+  /// One of the declared modes; unsupported enum values reject declaration.
   CameraPlacement Placement = CameraPlacement::FollowEntity;
   /// Geographic inputs used only when Placement is Geodetic; terrain may require streaming.
   GeographicCameraPlacement Geographic;
+  RouteCameraPlacement Route; ///< Used only for Route placement; requires a named route.
   Patch Viewport; ///< Stored normalized viewport metadata; not applied by the current renderer.
 
   /// Copy camera values; no validation, resource access or retained reference to the input.

@@ -316,6 +316,16 @@ void WriteCameraPose(std::string &into, const Scenario::View &view) {
 }
 
 void WriteCameraParameters(std::string &into, const Scenario::View &view) {
+  if (view.Placement == Scenario::CameraPlacement::Route) {
+    Said(into, "route", view.Route.RouteId, true);
+    Number(into, "eyeHeightM", view.Route.EyeHeightM);
+    Number(into, "lateralOffsetM", view.Route.LateralOffsetM);
+    Number(into, "lookAheadM", view.Route.LookAheadM);
+    Number(into, "maximumSpeedMps", view.Route.MaximumSpeedMps);
+    Number(into, "accelerationMs2", view.Route.AccelerationMs2);
+    Number(into, "brakingMs2", view.Route.BrakingMs2);
+    Number(into, "lateralAccelerationMs2", view.Route.LateralAccelerationMs2);
+  }
   Number(into, "fovDeg", view.Sees.FovDeg);
   Number(into, "nearM", view.Sees.NearM);
   Number(into, "farM", view.Sees.FarM);
@@ -356,7 +366,7 @@ void WriteCameraParameters(std::string &into, const Scenario::View &view) {
     Said(into, "placement", mode);
     WriteCameraParameters(into, view);
     into += ">\n";
-    WriteCameraPose(into, view);
+    if (view.Placement != Scenario::CameraPlacement::Route) { WriteCameraPose(into, view); }
     into += "    </view>\n";
   }
   into += "  </views>\n";

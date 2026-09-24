@@ -21,9 +21,26 @@ namespace {
   switch (placement) {
     case Scenario::CameraPlacement::FollowEntity:
     case Scenario::CameraPlacement::Local:
-    case Scenario::CameraPlacement::Geodetic: return true;
+    case Scenario::CameraPlacement::Geodetic:
+    case Scenario::CameraPlacement::Route: return true;
   }
   return false;
+}
+
+[[nodiscard]] bool ValidRouteRig(const Scenario::View &view) noexcept {
+  const auto &route = view.Route;
+  return !route.RouteId.empty() && view.Follows.empty() &&
+         (view.Person == "first" || view.Person == "third") && std::isfinite(route.EyeHeightM) &&
+         route.EyeHeightM > 0.0 && std::isfinite(route.LateralOffsetM) &&
+         std::isfinite(route.LookAheadM) && route.LookAheadM > 0.0 &&
+         std::isfinite(route.MaximumSpeedMps) && route.MaximumSpeedMps > 0.0 &&
+         std::isfinite(route.AccelerationMs2) && route.AccelerationMs2 > 0.0 &&
+         std::isfinite(route.BrakingMs2) && route.BrakingMs2 > 0.0 &&
+         std::isfinite(route.LateralAccelerationMs2) && route.LateralAccelerationMs2 > 0.0 &&
+         std::isfinite(view.DistanceM) &&
+         ((view.Person == "first" && view.DistanceM == 0.0) ||
+          (view.Person == "third" && view.DistanceM > 0.0)) &&
+         std::isfinite(view.RisesBy);
 }
 
 [[nodiscard]] std::expected<void, std::string> ValidateView(const Scenario::View &view) {
@@ -35,6 +52,9 @@ namespace {
   }
   if (!view.Follows.empty() && view.Person != "first" && view.Person != "third") {
     return std::unexpected("view '" + view.Id + "'" + Says::InvalidPerson);
+  }
+  if (view.Placement == Scenario::CameraPlacement::Route && !ValidRouteRig(view)) {
+    return std::unexpected("view '" + view.Id + "' declares an invalid route camera rig");
   }
   if (!std::isfinite(view.TimeScale) || !(view.TimeScale > 0.0)) {
     return std::unexpected("view '" + view.Id + "'" + Says::InvalidClockScale);

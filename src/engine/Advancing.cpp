@@ -96,6 +96,7 @@ bool Engine::State::UpdateActiveCamera() {
   if (seen.Placement == Scenario::CameraPlacement::FollowEntity) {
     return FollowCamera(*Session.Views);
   }
+  if (seen.Placement == Scenario::CameraPlacement::Route) { return UpdateRouteCamera(seen); }
   Vec3 station = seen.Sees.PositionM + seen.OffsetM;
   if (seen.Placement == Scenario::CameraPlacement::Geodetic) {
     const auto position =
@@ -144,6 +145,59 @@ bool Engine::State::UpdateActiveCamera() {
     standing.Forward[axis] = -model[8 + axis];
   }
   if (!ApplyCamera(*Picture.Standing, Picture.Device, seen.Sees, standing)) {
+    Error = Says::kInvalidViewProjection;
+    return false;
+  }
+  return true;
+}
+
+bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
+  if (!RouteCamera || RouteCamera->ViewId != view.Id) {
+    Error = "route view has no activated motion profile";
+    return false;
+  }
+  const auto motion = RouteCamera->Speed.AtTime(Ticking.ElapsedS - RouteCamera->BeganAtS);
+  if (!motion) {
+    Error = "route camera time is outside its motion profile";
+    return false;
+  }
+  const auto here = SamplePublishedRoute(RouteCamera->RouteId, motion->StationM);
+  if (!here) {
+    Error = here.error();
+    return false;
+  }
+  double aheadStationM = motion->StationM + view.Route.LookAheadM;
+  if (RouteCamera->Route.Closed) {
+    aheadStationM = std::fmod(aheadStationM, RouteCamera->Route.LengthM);
+  } else {
+    aheadStationM = std::min(aheadStationM, RouteCamera->Route.LengthM);
+  }
+  const auto ahead = SamplePublishedRoute(RouteCamera->RouteId, aheadStationM);
+  if (!ahead) {
+    Error = ahead.error();
+    return false;
+  }
+  const Vec3 right = Cross(here->Forward, here->Up);
+  const Vec3 aheadRight = Cross(ahead->Forward, ahead->Up);
+  const Vec3 seat =
+      here->PositionM + here->Up * view.Route.EyeHeightM + right * view.Route.LateralOffsetM;
+  const Vec3 eye =
+      seat - here->Forward * view.DistanceM + here->Up * (view.DistanceM * view.RisesBy);
+  const Vec3 aim =
+      ahead->PositionM + ahead->Up * view.Route.EyeHeightM + aheadRight * view.Route.LateralOffsetM;
+  const auto stood = Render::Viewpoint::LookAt({.EyeM = eye, .AimM = aim}, here->Up);
+  if (!stood) {
+    Error = "route camera cannot form a finite view basis";
+    return false;
+  }
+  Published.Places("the route camera's station", motion->StationM, "m");
+  Published.Places("the route camera's speed", motion->SpeedMps, "m/s");
+  Published.Places(
+      "the route camera's segment", static_cast<double>(here->SegmentIndex), "segment");
+  Published.Places("the route camera's eye, east", eye[0], "m");
+  Published.Places("the route camera's eye, up", eye[1], "m");
+  Published.Places("the route camera's eye, south", eye[2], "m");
+  if (!ApplyCamera(*Picture.Standing, Picture.Device, view.Sees, *stood)) {
     Error = Says::kInvalidViewProjection;
     return false;
   }

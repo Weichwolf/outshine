@@ -920,6 +920,15 @@ void ReadEvents(const Xml::Ref &root, Scenario::Document &into) {
     made.Viewport.WidthFrac = one.Num("widthFrac", 1.0);
     made.Viewport.HeightFrac = one.Num("heightFrac", 1.0);
     made.Person = one.Attr("person");
+    made.Route.RouteId = one.Attr("route");
+    made.Route.EyeHeightM = one.Num("eyeHeightM", made.Route.EyeHeightM);
+    made.Route.LateralOffsetM = one.Num("lateralOffsetM", made.Route.LateralOffsetM);
+    made.Route.LookAheadM = one.Num("lookAheadM", made.Route.LookAheadM);
+    made.Route.MaximumSpeedMps = one.Num("maximumSpeedMps", made.Route.MaximumSpeedMps);
+    made.Route.AccelerationMs2 = one.Num("accelerationMs2", made.Route.AccelerationMs2);
+    made.Route.BrakingMs2 = one.Num("brakingMs2", made.Route.BrakingMs2);
+    made.Route.LateralAccelerationMs2 =
+        one.Num("lateralAccelerationMs2", made.Route.LateralAccelerationMs2);
     made.DistanceM = one.Num("distanceM", 0.0);
     made.RisesBy = one.Num("risesBy", made.RisesBy);
     made.PitchLimitDeg = one.Num("pitchLimitDeg", kPitchLimitUnsaidDeg);

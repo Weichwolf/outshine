@@ -619,10 +619,53 @@ Result Engine::setView(std::string_view view) {
     S_->Error = "the scenario declares no views, so there is none to take";
     return std::unexpected(S_->Error);
   }
-  if (!S_->Session.Views->Take(view)) {
+  const Scenario::View *selected = nullptr;
+  for (size_t index = 0; index < S_->Session.Views->Count(); ++index) {
+    const Scenario::View &candidate = S_->Session.Views->AtIndex(index);
+    if (candidate.Id == view) {
+      selected = &candidate;
+      break;
+    }
+  }
+  if (selected == nullptr) {
     S_->Error = "the scenario declares no view by that name";
     return std::unexpected(S_->Error);
   }
+  std::optional<RouteCameraMotion> routeCamera;
+  if (selected->Placement == Scenario::CameraPlacement::Route) {
+    const auto info = S_->PublishedRouteInfo(selected->Route.RouteId);
+    if (!info) {
+      S_->Error = info.error();
+      return std::unexpected(S_->Error);
+    }
+    Motion::RouteSpeedLimits limits;
+    limits.MaximumSpeedMps = selected->Route.MaximumSpeedMps;
+    limits.AccelerationMs2 = selected->Route.AccelerationMs2;
+    limits.BrakingMs2 = selected->Route.BrakingMs2;
+    limits.LateralAccelerationMs2 = selected->Route.LateralAccelerationMs2;
+    const Motion::RouteSpeedProfile::Sampler sample =
+        [this, routeId = selected->Route.RouteId](
+            double stationM) -> std::optional<Motion::RouteCurveSample> {
+      const auto pose = S_->SamplePublishedRoute(routeId, stationM);
+      if (!pose) { return std::nullopt; }
+      return Motion::RouteCurveSample{.PositionM = pose->PositionM, .Forward = pose->Forward};
+    };
+    auto speed = Motion::RouteSpeedProfile::Build(info->LengthM, sample, limits);
+    if (!speed) {
+      S_->Error = "route view '" + selected->Id + "' cannot plan a finite lap speed profile";
+      return std::unexpected(S_->Error);
+    }
+    routeCamera.emplace(RouteCameraMotion{.ViewId = selected->Id,
+                                          .RouteId = selected->Route.RouteId,
+                                          .Route = *info,
+                                          .Speed = std::move(*speed),
+                                          .BeganAtS = S_->Ticking.ElapsedS});
+  }
+  if (!S_->Session.Views->Take(view)) {
+    S_->Error = "the selected view changed during activation";
+    return std::unexpected(S_->Error);
+  }
+  S_->RouteCamera = std::move(routeCamera);
   return {};
 }
 

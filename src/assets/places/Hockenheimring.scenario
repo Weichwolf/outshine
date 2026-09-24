@@ -18,5 +18,8 @@
       <at lat="49.327400" lon="8.565900" heightM="900"
           samplesHeight="no" bearingDeg="90" pitchDeg="-60"/>
     </view>
+    <view id="lap" placement="route" route="grand-prix" person="first" fovDeg="70"
+          eyeHeightM="1.6" lookAheadM="15" maximumSpeedMps="30"
+          accelerationMs2="3" brakingMs2="6" lateralAccelerationMs2="5"/>
   </views>
 </scenario>

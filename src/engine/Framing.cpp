@@ -334,6 +334,7 @@ Result Engine::saveScreenshot(std::string_view path) {
 namespace outshine::Core {
 
 bool ReadFrame(Render::SceneRenderer &renderer, std::vector<uint8_t> &rgba, std::string &error) {
+  const auto published = renderer.PublishedWorld();
   if (!renderer.Drew()) {
     error = "nothing has been drawn yet, so there is no frame to read";
     return false;
@@ -349,6 +350,7 @@ bool ReadFrame(Render::SceneRenderer &renderer,
                outshine::Buffer buffer,
                std::vector<float> &out,
                std::string &error) {
+  const auto published = renderer.PublishedWorld();
   if (!renderer.Drew()) {
     error = "nothing has been drawn yet, so there is no frame to read";
     return false;

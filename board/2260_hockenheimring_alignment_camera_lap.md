@@ -38,6 +38,14 @@ alignment and surface. The opened `Hockenheimring-a9d234b1.png` shows a more
 continuous circuit after one earthwork stamp per rendered segment. Segment
 midpoints have contact; continuous clearance and moving-camera coverage remain
 unproven. The overview is input diagnosis, not driving acceptance.
+`outshine-client run --view lap --at-seconds 300 --into places
+src/assets/places/Hockenheimring.scenario HockenheimLapEnd` captures the
+published-road view at a metric simulation time. Opened captures at 0, 10, 15,
+100, 200 and 300 s show motion on the road; 300 s reaches station 4575.880 m.
+Start/end PNGs differ in 602 of 921600 pixels (0.0653%). A candidate-world
+readback mismatch exposed at 15 s is fixed and has an independent regression.
+The road is still flat grey; side strips and crude buildings are visually
+obvious. These captures do not prove continuous road contact or LOD stability.
 
 ## Construction
 
@@ -65,10 +73,12 @@ unproven. The overview is input diagnosis, not driving acceptance.
    simulate vehicle dynamics. Capture time-stamped frames through outshine-client.
    Add a route-bound view only after the overview has made the route ready;
    moving focus may rebuild geometry but must retain route identity and pose.
-   `Motion::RouteSpeedProfile` now plans a finite, bounded time-to-station curve
-   from native pose samples. An analytic circle/straight test covers lateral,
-   acceleration and braking limits, the closed seam and missing samples. The
-   remaining work is to bind it to the published route and drive a view/capture.
+   `Motion::RouteSpeedProfile` plans a finite, bounded time-to-station curve
+   from native pose samples. `placement="route"` binds a first- or third-person
+   rig only after publication; one pinned-OSM/analytic-DEM test checks 60 fixed
+   ticks against `Engine::sampleRoute`, startup refusal, and view reselection.
+   Remaining: presentation interpolation, one continuous client capture with
+   per-frame continuity/streaming measurements, and visual acceptance.
 4. Stream ahead and evict behind under bounded memory. Keep graph/route IDs
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.

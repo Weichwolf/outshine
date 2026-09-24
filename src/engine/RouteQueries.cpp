@@ -51,14 +51,15 @@ struct RouteFrames {
 
 }
 
-Holds<RouteInfo> Engine::routeInfo(std::string_view name) const {
-  const auto declared = std::ranges::find_if(
-      S_->Session.Declared.Routes,
-      [&](const Scenario::RouteDeclaration &route) { return route.Id == name; });
-  if (declared == S_->Session.Declared.Routes.end()) {
+Holds<RouteInfo> Engine::State::PublishedRouteInfo(std::string_view name) const {
+  const auto declared =
+      std::ranges::find_if(Session.Declared.Routes, [&](const Scenario::RouteDeclaration &route) {
+        return route.Id == name;
+      });
+  if (declared == Session.Declared.Routes.end()) {
     return std::unexpected("unknown route '" + std::string(name) + "'");
   }
-  const NamedRoadAlignment *published = PublishedRoute(S_->World, name);
+  const NamedRoadAlignment *published = PublishedRoute(World, name);
   if (published == nullptr) {
     return std::unexpected("route '" + std::string(name) + "' has no current published alignment");
   }
@@ -68,16 +69,16 @@ Holds<RouteInfo> Engine::routeInfo(std::string_view name) const {
                    .Closed = alignment.Closed()};
 }
 
-Holds<RoutePose> Engine::sampleRoute(std::string_view name, double stationM) const {
+Holds<RoutePose> Engine::State::SamplePublishedRoute(std::string_view name, double stationM) const {
   if (!std::isfinite(stationM) || stationM < 0.0) {
     return std::unexpected("route station must be finite and nonnegative");
   }
-  const auto info = routeInfo(name);
+  const auto info = PublishedRouteInfo(name);
   if (!info) { return std::unexpected(info.error()); }
   if (stationM > info->LengthM) {
     return std::unexpected("route station exceeds the published route length");
   }
-  const NamedRoadAlignment *published = PublishedRoute(S_->World, name);
+  const NamedRoadAlignment *published = PublishedRoute(World, name);
   if (published == nullptr) { return std::unexpected("route alignment changed during sampling"); }
   const Generators::RoadAlignment &alignment = *published->Alignment;
   const auto pose = alignment.AtStation(stationM);
@@ -88,7 +89,7 @@ Holds<RoutePose> Engine::sampleRoute(std::string_view name, double stationM) con
                                   ? 0
                                   : static_cast<size_t>(upper - alignment.Edges().begin() - 1);
   const TangentFrame alignmentFrame = TangentFrame::At(alignment.Anchor());
-  const Scenario::Georeference &origin = S_->Session.Declared.Ground.Origin;
+  const Scenario::Georeference &origin = Session.Declared.Ground.Origin;
   const TangentFrame worldFrame =
       TangentFrame::At({.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg});
   const RouteFrames frames{.Alignment = alignmentFrame, .World = worldFrame};
@@ -107,6 +108,14 @@ Holds<RoutePose> Engine::sampleRoute(std::string_view name, double stationM) con
                    .StationM = pose->StationM,
                    .WidthM = pose->WidthM,
                    .SegmentIndex = segmentIndex};
+}
+
+Holds<RouteInfo> Engine::routeInfo(std::string_view name) const {
+  return S_->PublishedRouteInfo(name);
+}
+
+Holds<RoutePose> Engine::sampleRoute(std::string_view name, double stationM) const {
+  return S_->SamplePublishedRoute(name, stationM);
 }
 
 }

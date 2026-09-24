@@ -17,6 +17,12 @@ the simulated body through the existing first-/third-person camera modes.
 Vehicle dynamics/contact are a separate claim from camera motion. Current
 scenario `Slip` parameters explicitly have no runtime tyre-force consumer;
 do not present the old `f31.scenario` as a working autopilot proof.
+The engine owns bodies, forces, friction and contacts, not a built-in car.
+A scenario declares the vehicle assembly and chooses a handling model:
+an arcade model may simplify tyres and aids, while a realism model must
+derive forces from measurable tyre, suspension and powertrain parameters.
+Both use the same SI-unit body/contact and route contracts; neither changes
+the world's collision data or introduces a vehicle branch in core physics.
 Apply WI 2259's route/contact proof obligations to this vehicle class; the
 entire all-feature proof inventory need not close before this focused lap.
 

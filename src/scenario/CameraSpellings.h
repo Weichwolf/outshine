@@ -8,13 +8,14 @@
 namespace outshine::CameraFormat {
 namespace Says {
 inline constexpr std::string_view kInvalidPlacement =
-    "camera placement must be follow, local or geodetic";
+    "camera placement must be follow, local, geodetic or route";
 }
 
-inline constexpr Spellings<Scenario::CameraPlacement, 3> kPlacements{
+inline constexpr Spellings<Scenario::CameraPlacement, 4> kPlacements{
     {{"follow", Scenario::CameraPlacement::FollowEntity},
      {"local", Scenario::CameraPlacement::Local},
-     {"geodetic", Scenario::CameraPlacement::Geodetic}}};
+     {"geodetic", Scenario::CameraPlacement::Geodetic},
+     {"route", Scenario::CameraPlacement::Route}}};
 static_assert(EverySpellingStandsOnce(kPlacements));
 
 [[nodiscard]] inline std::expected<Scenario::CameraPlacement, std::string_view>
