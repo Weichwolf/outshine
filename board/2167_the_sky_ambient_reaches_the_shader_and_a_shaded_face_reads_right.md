@@ -65,19 +65,18 @@ Korrektur des Temporal-Eingangs, ohne GLSL-Änderung: keine belegte Folge des So
 Den unabhängig vorhandenen Nullvektor-Verstoß mit Zenit/Nadir und Annäherung prüfen.
 Diese Reparatur ersetzt keine Abnahme von gerichtetem IBL, Sichtbarkeit oder Bounce.
 
-## Offene Sonnenhöhenprüfung
-`test/outshine/integration/places/ScoreWhichWaysTheSunMovesTheGround.cpp` bleibt rot:
-Auf dem unveränderten `e234869b1` und dem Profilzweig unterscheidet sich das
-erneute 5°-Bild nach 75° pixelweise vom ersten 5°-Bild (Zeile 165). Zuerst
-den zeitlichen Zustand von Belichtung, Beleuchtung und Renderer-Cache beim
-Rücksprung isolieren; gleiche Eingaben müssen das gleiche Bild ergeben.
-unteres Bildviertel bei 5°/30°/75°: 37,022 / 35,774 / 71,616. Der Test verlangt
-Monotonie, misst aber komplexes Gelände nach Belichtung/Tonemapping. Das beweist
-noch keinen Fehler der direkten Beleuchtung: sin(Höhe) gilt für eine horizontale,
-unverschattete diffuse Fläche bei konstantem einfallendem Direktlicht. Den Vertrag
-mit isoliertem Empfänger, fester Belichtung und linearem Direct-AOV prüfen;
-Geländenormalen, Sichtbarkeit und Belichtungsverlauf separat eingrenzen. Keine
-Toleranzanhebung oder Shaderkorrektur aus dieser ROI-Zahl allein ableiten.
+## Sonnenhöhenprüfung
+Der alte Place-Test verglich das erste und letzte 5°-Bild pixelgenau, obwohl
+`preload()` nur spielbare Qualität erreicht: alle Aufnahmen waren nicht refined;
+bei jeder Sonnen-Deklaration veröffentlichten neue Ground-Kandidaten. Auch mit
+fester Belichtung änderten sich 13.450 Bytes in den Zeilen 71–179. Die
+Gleichheitsannahme über verschiedene Weltstände war falsch. Ein separater
+groundless API-Test mit nativer horizontaler Fläche und demselben Engine-Objekt
+prüft nun den 5°→30°→75°→5°-Rücksprung im linearen Bild. Der erste Lauf maß
+889 / 5015 / 9612 lineare Luminanz; die Verhältnisse lagen innerhalb 3% von
+sin(Höhe). Der Place-Test bleibt Integrationssignal für Himmel, Gelände und
+deklarierte feste Belichtung, kein isoliertes Lambert-Orakel. Gerichtetes IBL,
+Sichtbarkeit, Bounce und ein explizites lineares Direct-AOV bleiben offen.
 
 ## Clear-sky-Messreferenz
 Egbert/ASTM-Manifeste erhalten, score_clear_sky.py neu anbinden: derzeit falscher
