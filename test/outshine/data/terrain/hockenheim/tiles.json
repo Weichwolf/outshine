@@ -1,0 +1,50 @@
+{
+  "source": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+  "source_id": "terrarium.s3",
+  "source_version": 1,
+  "source_revision": "",
+  "tiles": [
+    {
+      "z": 15,
+      "x": 17163,
+      "y": 11206,
+      "sha256": "aa40981c748cb05a8f9867ce8e2641d29a701baa6d06c569155d7a7c63591691",
+      "bytes": 49989
+    },
+    {
+      "z": 15,
+      "x": 17164,
+      "y": 11206,
+      "sha256": "b15167381cc10a941baac055d0f0daca92e1611af59824de99861121bc43d43d",
+      "bytes": 47673
+    },
+    {
+      "z": 15,
+      "x": 17165,
+      "y": 11206,
+      "sha256": "0e08783fe6f401a7bf3a250398de16e4ad8e91c351798795c6be579e22b855b7",
+      "bytes": 49015
+    },
+    {
+      "z": 15,
+      "x": 17163,
+      "y": 11207,
+      "sha256": "814b570bd29f3deee97bd77f46d4ff9fcfc78586f2e3d1c8f8849a681a2ef413",
+      "bytes": 57886
+    },
+    {
+      "z": 15,
+      "x": 17164,
+      "y": 11207,
+      "sha256": "249d49f0b3acbbd23d0800f1244ee7ce6e1fe2b51311e43a0c5440b2c25f4014",
+      "bytes": 56290
+    },
+    {
+      "z": 15,
+      "x": 17165,
+      "y": 11207,
+      "sha256": "c5e821822a46f85ebaa8d97a34f54cdbefd7c714562c6dcb0087b7b05dd1b6ec",
+      "bytes": 57494
+    }
+  ]
+}

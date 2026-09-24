@@ -92,10 +92,10 @@ larger routes are reported deferred until sliding-window coverage exists.
   material groups and source-derived earthworks off-thread. Bounded OSM route
   corridors now ask terrain LOD for <=3 m postings before earthworks. The
   Hockenheim shot has 267 corridors, 139 virtual patches and 148 total pages.
-  Per-segment earthwork replaces five-segment chords; a9d234b1 shows a more
-  continuous lower circuit. A pinned-OSM/analytic-DEM test samples 5×3 points
-  per segment (0.05998–0.06005 m post-press clearance). Real DEM, rendered
-  occlusion and MVT overlap remain unproved. WI 2166 owns final-surface error.
+  Per-segment earthwork replaces five-segment chords. Six pinned z15 Terrarium
+  tiles vary 100.05–118.86 m; raw offset reaches 1.527 m, then 5×3 samples
+  per segment clear 0.045–0.087 m.
+  Rendered mesh occlusion and MVT overlap remain unproved (WI 2166).
 
 ## Executable sequence and falsification
 
