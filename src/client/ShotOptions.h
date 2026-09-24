@@ -15,6 +15,7 @@ inline constexpr double kDefaultPreloadSeconds = 15.0;
 struct ShotOptions {
   bool Rows = false;
   bool Measures = false;
+  bool Stats = false;
   bool Audit = false;
   bool Vegetation = true;
   bool All = false;
@@ -44,6 +45,8 @@ ReadShotOptions(std::span<const char *const> arguments) {
       options.Rows = true;
     } else if (argument == "--measures") {
       options.Measures = true;
+    } else if (argument == "--stats") {
+      options.Stats = true;
     } else if (argument == "--audit") {
       options.Audit = true;
     } else if (argument == "--no-vegetation") {

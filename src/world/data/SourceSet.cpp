@@ -129,10 +129,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(*kept));
         }
       }
-      {
-        const std::scoped_lock lock(LedgerMutex_);
-        Ledger_.Asked++;
-      }
+      RecordStart(decl, true);
       query.Ticket_ = query.Current_->Begin(query.At_, transport);
       query.Phase_ = Query::Phase::InFlight;
     }
@@ -156,9 +153,17 @@ Delivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
   if (!std::isfinite(nowMs) || nowMs < 0.0) { return Refuse(query, kRetryCapMs); }
   if (nowMs < query.RetryAtMs_) { return Delivery::Waiting(); }
   query.RetryAtMs_ = 0.0;
+  RecordStart(query.Current_->Declaration(), false);
   query.Ticket_ = query.Current_->Begin(query.At_, transport);
   query.Phase_ = Query::Phase::InFlight;
   return Delivery::Waiting();
+}
+
+void SourceSet::RecordStart(const SourceDecl &decl, bool first) {
+  const std::scoped_lock lock(LedgerMutex_);
+  if (first) { Ledger_.Asked++; }
+  Ledger_.ProviderStarts++;
+  if (decl.Latency != LatencyClass::Local) { Ledger_.RemoteStarts++; }
 }
 
 std::optional<Delivery> SourceSet::ProcessResponse(Query &query,

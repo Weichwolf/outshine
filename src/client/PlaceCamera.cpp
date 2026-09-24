@@ -265,6 +265,9 @@ Shot Take(const Place &place, bool tells, bool vegetation, double preloadSeconds
   if (!OpenPlace(engine, place, shot, vegetation)) { return shot; }
   Shot drawn = Draw(engine, place.Name, tells, "places", preloadSeconds);
   drawn.StandingMs = shot.StandingMs;
+  drawn.LoadingAtEnd = engine.loading();
+  drawn.Playable = engine.settled(WorldQuality::Playable);
+  drawn.Refined = engine.settled(WorldQuality::Refined);
   return drawn;
 }
 
@@ -294,6 +297,7 @@ bool PreloadShot(
   const auto stood = std::chrono::steady_clock::now();
   shot.StreamedS = last.ElapsedS;
   shot.Preloaded = ready.has_value();
+  shot.LoadingMs = std::chrono::duration<double, std::milli>(stood - asked).count();
   if (!ready) {
     shot.Why = std::string(name) +
                " did not preload, so nothing measured after this point is "
@@ -301,7 +305,6 @@ bool PreloadShot(
                ready.error();
     return false;
   }
-  shot.LoadingMs = std::chrono::duration<double, std::milli>(stood - asked).count();
   (void)HeapProbe::Sample();
 
   return true;

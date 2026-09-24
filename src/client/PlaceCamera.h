@@ -54,6 +54,9 @@ struct Shot {
   double SettledOver = 0.0, PosedAtS = 0.0;
   bool Preloaded = false;
   bool Kept = false;
+  Loading LoadingAtEnd;
+  bool Playable = false;
+  bool Refined = false;
 
   std::vector<::outshine::DiagnosticSample> Measures;
 };

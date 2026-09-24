@@ -8,11 +8,18 @@ int main() {
   const auto defaults = ReadShotOptions({});
   CHECK(defaults && defaults->PreloadSeconds == 15.0 && defaults->Vegetation,
         "defaults preserve existing capture behavior");
-  const char *valid[] = {
-      "--rows", "--measures", "--audit", "--no-vegetation", "--preload-seconds", "180.5", "Wien"};
+  const char *valid[] = {"--rows",
+                         "--stats",
+                         "--measures",
+                         "--audit",
+                         "--no-vegetation",
+                         "--preload-seconds",
+                         "180.5",
+                         "Wien"};
   const auto parsed = ReadShotOptions(valid);
-  CHECK(parsed && parsed->Rows && parsed->Measures && parsed->Audit && !parsed->Vegetation &&
-            parsed->PreloadSeconds == 180.5 && parsed->FirstPlace == 6 && !parsed->All,
+  CHECK(parsed && parsed->Rows && parsed->Stats && parsed->Measures && parsed->Audit &&
+            !parsed->Vegetation && parsed->PreloadSeconds == 180.5 && parsed->FirstPlace == 7 &&
+            !parsed->All,
         "options preserve place names and an explicit fractional setup budget");
   for (const char *invalid : {"", "0", "-1", "nan", "inf", "1e999", "15s", " 15", "15 "}) {
     const char *arguments[] = {"--preload-seconds", invalid};

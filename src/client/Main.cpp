@@ -1,9 +1,11 @@
 #include "CommandLine.h"
 #include "ProcessBoundary.h"
 #include "ShotOptions.h"
+#include <chrono>
 #include <expected>
 #include <cstdio>
 #include <print>
+#include <ratio>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -132,22 +134,55 @@ void Usage() {
       "    --position x,y,z --look-at x,y,z --fov degrees\n"
       "    --lighting auto|authored|studio --exposure multiplier\n"
       "  prepare <place> <timeout-seconds>\n"
-      "  shots [--rows] [--measures] [--audit] [--no-vegetation] [--all | <place>]\n"
+      "  shots [--rows] [--stats] [--measures] [--audit] [--no-vegetation] [--all | <place>]\n"
       "    --preload-seconds <seconds>     preparation timeout (default 15); separate from frame "
       "timing\n"
       "  places                           list the external scenario cameras\n"
       "  --places <directory> <command>   override src/assets/places\n"
       "  roundtrip                        write each place, read it back, write it again\n"
-      "  run [--rows] [--into <folder>] [--motion [--samples]] [--view <id> --at-seconds <s>] "
+      "  run [--rows] [--stats] [--into <folder>] [--motion [--samples]] [--view <id> --at-seconds "
+      "<s>] "
       "<scenario> "
       "[name]\n"
       "                                   draw a selected view; motion renders every paced tick, "
       "samples save route-decile PNGs\n"
       "  measures <scenario>              and print every measure it published\n"
       "  height <lat> <lon>               terrain elevation; angles in decimal degrees\n"
-      "  help                             this\n\n"
+      "  --help | <verb> --help           this\n"
+      "  --stats                           STAT TSV rows: cache, provider, preload, readiness\n"
+      "                                    cache=provider disk; remote=declared "
+      "regional/distant\n\n"
       "Every verb is a call on `outshine::Engine`. A verb this does not have is a verb the door\n"
       "does not offer, or one nobody has needed yet.");
+}
+
+void PrintStats(std::string_view name,
+                const outshine::Loading &loading,
+                double elapsedMs,
+                bool succeeded,
+                bool playable,
+                bool refined) {
+  const auto row = [name](std::string_view key, auto value, std::string_view unit) {
+    std::println("STAT\t{}\t{}\t{}\t{}", name, key, value, unit);
+  };
+  row("status", succeeded ? "ok" : "failed", "-");
+  row("elapsed_ms", elapsedMs, "ms");
+  row("playable", playable ? 1 : 0, "bool");
+  row("refined", refined ? 1 : 0, "bool");
+  row("ground_arrived", loading.GroundArrived, "tiles");
+  row("ground_wanted", loading.GroundWanted, "tiles");
+  row("vector_arrived", loading.VectorArrived, "tiles");
+  row("vector_wanted", loading.VectorWanted, "tiles");
+  row("outstanding", loading.Outstanding, "tiles");
+  row("store_hits", loading.StoreHits, "reads");
+  row("store_misses", loading.StoreMisses, "reads");
+  row("store_writes", loading.StoreWrites, "writes");
+  row("provider_starts", loading.ProviderStarts, "calls");
+  row("remote_starts", loading.RemoteStarts, "calls");
+  row("provider_retries", loading.ProviderRetries, "retries");
+  row("source_deliveries", loading.SourceDeliveries, "deliveries");
+  row("source_from_store", loading.SourceFromStore, "deliveries");
+  row("source_bytes", loading.SourceBytes, "bytes");
 }
 
 [[nodiscard]] bool Stands(outshine::Engine &engine,
@@ -173,6 +208,32 @@ void Usage() {
     }
   }
   return true;
+}
+
+void ReportShot(const Shot &shot,
+                std::string_view name,
+                const outshine::Client::ShotOptions &options,
+                std::chrono::steady_clock::time_point began) {
+  if (options.Rows) {
+    Row(shot, name);
+  } else {
+    Tell(shot, name);
+  }
+  if (options.Measures) {
+    for (const outshine::DiagnosticSample &measure : shot.Measures) {
+      std::println("        {:<56} {:14.3f} {}", measure.Name, measure.Value, measure.Unit);
+    }
+  }
+  if (options.Stats) {
+    const double elapsedMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    PrintStats(name,
+               shot.LoadingAtEnd,
+               elapsedMs,
+               shot.Why.empty() && shot.Kept,
+               shot.Playable,
+               shot.Refined);
+  }
 }
 
 int TakeShots(std::span<const Place> places, int argc, const char *const *argv) {
@@ -204,18 +265,10 @@ int TakeShots(std::span<const Place> places, int argc, const char *const *argv) 
   int refused = 0;
   for (const Place *const one : taking) {
     outshine::Shots::Telling = &gTelling;
+    const auto began = std::chrono::steady_clock::now();
     const Shot shot =
         outshine::Shots::Take(*one, !options.Rows, options.Vegetation, options.PreloadSeconds);
-    if (options.Rows) {
-      Row(shot, one->Name);
-    } else {
-      Tell(shot, one->Name);
-    }
-    if (options.Measures) {
-      for (const outshine::DiagnosticSample &measure : shot.Measures) {
-        std::println("        {:<56} {:14.3f} {}", measure.Name, measure.Value, measure.Unit);
-      }
-    }
+    ReportShot(shot, one->Name, options, began);
     refused += shot.Why.empty() && shot.Kept ? 0 : 1;
   }
   return refused == 0 ? 0 : 1;
@@ -225,6 +278,7 @@ struct ScenarioRunOptions {
   int Argc = 0;
   const char *const *Argv = nullptr;
   bool Rows = false;
+  bool Stats = false;
   std::string Into = "khronos";
   std::string_view SelectedView;
   double AtS = 0.0;
@@ -258,6 +312,12 @@ ParseScenarioRunOptions(int argc, const char *const *argv) {
   while (argc > 0 && argv[0][0] == '-') {
     if (std::strcmp(argv[0], "--rows") == 0) {
       options.Rows = true;
+      --argc;
+      ++argv;
+      continue;
+    }
+    if (std::strcmp(argv[0], "--stats") == 0) {
+      options.Stats = true;
       --argc;
       ++argv;
       continue;
@@ -405,7 +465,22 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     std::println("outshine-client: {} did not assemble -- {}", options.Argv[0], assembled.error());
     return 1;
   }
-  if (!options.SelectedView.empty()) { return CaptureView(engine, named, options); }
+  const auto began = std::chrono::steady_clock::now();
+  if (!options.SelectedView.empty()) {
+    const int result = CaptureView(engine, named, options);
+    if (options.Stats) {
+      const double elapsedMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count();
+      PrintStats(named,
+                 engine.loading(),
+                 elapsedMs,
+                 result == 0,
+                 engine.settled(outshine::WorldQuality::Playable),
+                 engine.settled(outshine::WorldQuality::Refined));
+    }
+    return result;
+  }
   const Shot shot = outshine::Shots::Draw(engine, named, true, options.Into);
   if (options.Rows) {
     Row(shot, named);
@@ -416,6 +491,16 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     for (const outshine::DiagnosticSample &one : engine.measures()) {
       std::println("        {:<56} {:14.3f} {}", one.Name, one.Value, one.Unit);
     }
+  }
+  if (options.Stats) {
+    const double elapsedMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    PrintStats(named,
+               engine.loading(),
+               elapsedMs,
+               shot.Why.empty(),
+               engine.settled(outshine::WorldQuality::Playable),
+               engine.settled(outshine::WorldQuality::Refined));
   }
   return shot.Why.empty() ? 0 : 1;
 }
@@ -513,6 +598,10 @@ int RunClientCommand(std::span<const char *const> arguments) {
   const auto verb = command->Verb;
   const auto rest = static_cast<int>(command->Arguments.size());
   const auto *const from = command->Arguments.data();
+  if (verb == "help" || verb == "--help" || (rest == 1 && std::string_view(from[0]) == "--help")) {
+    Usage();
+    return 0;
+  }
   auto loaded = LoadCommandPlaces(*command);
   if (!loaded) {
     std::println(stderr, "outshine-client: {}", loaded.error());

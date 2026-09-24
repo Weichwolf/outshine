@@ -53,6 +53,15 @@ struct Loading {
   double Megabits = 0.0;    ///< Preload callback estimate: FetchedMB * 8 / ElapsedS, in Mibit/s.
   double MeanFetchMs = 0.0; ///< Accumulated fetch time divided by pool post count, in milliseconds.
   double ElapsedS = 0.0;    ///< Seconds since this preload call began; zero in loading() snapshots.
+  std::uint64_t StoreHits = 0;      ///< Successful persistent source-cache reads since assemble().
+  std::uint64_t StoreMisses = 0;    ///< Missed persistent source-cache reads since assemble().
+  std::uint64_t StoreWrites = 0;    ///< Successful persistent source-cache writes since assemble().
+  std::uint64_t ProviderStarts = 0; ///< Source::Begin calls, including retries and local sources.
+  std::uint64_t RemoteStarts = 0;   ///< Begins for sources declared regional or distant.
+  std::uint64_t ProviderRetries = 0;  ///< Source retries scheduled after a provider response.
+  std::uint64_t SourceDeliveries = 0; ///< Source deliveries, including persistent-cache hits.
+  std::uint64_t SourceFromStore = 0;  ///< Source deliveries read from the persistent cache.
+  std::uint64_t SourceBytes = 0;      ///< Bytes delivered by sources, including cache hits.
 
   /// Ratio of arrived to wanted terrain/vector entries, without allocation.
   /// Returns one when nothing is wanted. Does not clamp inconsistent caller-created

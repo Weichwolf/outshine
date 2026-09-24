@@ -70,12 +70,15 @@ public:
   struct Ledger {
     long long Asked = 0, Delivered = 0, HandedOver = 0, Vacant = 0, Undeclared = 0;
     long long Refused = 0, Retried = 0, FromStore = 0;
+    long long ProviderStarts = 0, RemoteStarts = 0;
     long long DeliveredBytes = 0;
   };
 
   [[nodiscard]] Ledger Counters() const;
 
 private:
+  void RecordStart(const SourceDecl &decl, bool first);
+
   [[nodiscard]] Delivery ResumeRetry(Query &query, Transport &transport);
 
   [[nodiscard]] Delivery Refuse(Query &query, double afterMs);

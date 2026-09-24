@@ -450,6 +450,16 @@ Loading Engine::loading() const {
   said.Outstanding = counted.Outstanding > 0 ? static_cast<size_t>(counted.Outstanding) : 0;
   said.FetchedMB = counted.FetchedMB;
   said.MeanFetchMs = counted.Posts > 0 ? counted.FetchMs / static_cast<double>(counted.Posts) : 0.0;
+  const Ground::GroundStack::SourceCounters sources = S_->World.Stack.Counters();
+  said.StoreHits = static_cast<std::uint64_t>(sources.Store.Hits);
+  said.StoreMisses = static_cast<std::uint64_t>(sources.Store.Misses);
+  said.StoreWrites = static_cast<std::uint64_t>(sources.Store.Writes);
+  said.ProviderStarts = static_cast<std::uint64_t>(sources.Sources.ProviderStarts);
+  said.RemoteStarts = static_cast<std::uint64_t>(sources.Sources.RemoteStarts);
+  said.ProviderRetries = static_cast<std::uint64_t>(sources.Sources.Retried);
+  said.SourceDeliveries = static_cast<std::uint64_t>(sources.Sources.Delivered);
+  said.SourceFromStore = static_cast<std::uint64_t>(sources.Sources.FromStore);
+  said.SourceBytes = static_cast<std::uint64_t>(sources.Sources.DeliveredBytes);
   return said;
 }
 

@@ -132,7 +132,8 @@ int main() {
           "deadline restarts the transport before collecting again");
     CHECK(sources.Collect(query, transport).Where() == Delivery::State::Delivered,
           "retry delivers");
-    CHECK(sources.Counters().Retried == 1, "retry budget consumed once");
+    CHECK(sources.Counters().Retried == 1 && sources.Counters().ProviderStarts == 2,
+          "retry counts both provider starts and one retry");
   }
   {
     SourceSet sources(store);

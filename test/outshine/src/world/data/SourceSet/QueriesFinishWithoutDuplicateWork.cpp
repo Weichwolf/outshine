@@ -140,7 +140,8 @@ int main() {
     CHECK(sources.Collect(query, transport).Where() == Delivery::State::Delivered,
           "cache satisfies query");
     CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed &&
-              probe->Calls == 0 && sources.Counters().FromStore == 1,
+              probe->Calls == 0 && sources.Counters().FromStore == 1 &&
+              sources.Counters().ProviderStarts == 0 && sources.Counters().RemoteStarts == 0,
           "cached completion cannot enter the source afterward");
     std::error_code error;
     std::filesystem::remove_all(directory, error);

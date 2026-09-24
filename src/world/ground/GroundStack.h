@@ -11,6 +11,7 @@
 
 #include "ContentStore.h"
 #include "DeclaredSources.h"
+#include "SourceSet.h"
 #include "TerrainLoader.h"
 #include "SourceDecl.h"
 #include "BuildingField.h"
@@ -84,6 +85,16 @@ public:
   }
 
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
+
+  struct SourceCounters {
+    Data::SourceSet::Ledger Sources;
+    Data::ContentStore::Ledger Store;
+  };
+
+  [[nodiscard]] SourceCounters Counters() const {
+    return {.Sources = Sources_ ? Sources_->Counters() : Data::SourceSet::Ledger{},
+            .Store = Store_ ? Store_->Counters() : Data::ContentStore::Ledger{}};
+  }
 
   void Declares(std::span<const OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
