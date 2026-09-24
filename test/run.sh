@@ -320,7 +320,7 @@ LayerGroups() {
     profile/public) LayerGroups profile/internal ;;
     profile/vector) printf '%s' "src/world/data/MvtLayer.cpp" ;;
     profile/osm-xml) printf '%s' "src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
-    profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/world/navigation/CircuitRoute.cpp src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
+    profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/world/navigation/OsmWaySemantics.cpp src/world/navigation/CircuitRoute.cpp src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/diagnostics) LayerGroups profile/internal; printf ' %s' "src/diagnostics" ;;
     profile/internal|profile/device) LayerGroups profile/engine ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;

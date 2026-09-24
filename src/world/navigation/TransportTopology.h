@@ -17,6 +17,32 @@ namespace outshine::World {
 enum class TransportMode : uint8_t { Motor = 1, Walk = 2, Cycle = 4, Rail = 8, Water = 16 };
 enum class EdgeDirection : uint8_t { Forward, Reverse };
 enum class TransportAccess : uint8_t { Public, Restricted, Forbidden };
+enum class TransportFacility : uint8_t {
+  Unknown,
+  Motorway,
+  Trunk,
+  Arterial,
+  LocalStreet,
+  ServiceRoad,
+  Track,
+  Raceway,
+  Walkway,
+  Cycleway,
+  Railway,
+  Waterway,
+  Ferry,
+  Mixed
+};
+enum class TransportSurface : uint8_t {
+  Unknown,
+  Asphalt,
+  Concrete,
+  Paved,
+  Gravel,
+  Earth,
+  Rail,
+  Water
+};
 
 struct TransportEdgeId {
   uint64_t WayId = 0;
@@ -37,6 +63,10 @@ struct TransportEdge {
   uint64_t FromNodeId = 0;
   uint64_t ToNodeId = 0;
   uint8_t Modes = 0;
+  TransportFacility Facility = TransportFacility::Unknown;
+  TransportSurface Surface = TransportSurface::Unknown;
+  double WidthM = 0.0;
+  uint8_t LaneCount = 0;
   int32_t Layer = 0;
   bool Bridge = false;
   bool Tunnel = false;
@@ -57,6 +87,8 @@ enum class TransportBuildErrorCode : uint8_t {
   AmbiguousTag,
   InvalidLayer,
   InvalidOneway,
+  InvalidWidth,
+  InvalidLaneCount,
   DegenerateSegment,
   TooManyEdges
 };

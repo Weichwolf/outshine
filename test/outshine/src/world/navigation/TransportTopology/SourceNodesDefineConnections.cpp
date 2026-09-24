@@ -3,6 +3,7 @@
 #include "Check.h"
 
 #include <cstdint>
+#include <cmath>
 #include <string_view>
 
 int main() {
@@ -21,13 +22,14 @@ int main() {
       "<node id='16' lat='3' lon='1'/><node id='17' lat='4' lon='0'/>"
       "<node id='18' lat='4' lon='1'/>"
       "<way id='10'><nd ref='1'/><nd ref='2'/><tag k='highway' v='primary'/>"
-      "<tag k='oneway' v='yes'/></way>"
+      "<tag k='oneway' v='yes'/><tag k='width' v='10 m'/>"
+      "<tag k='lanes' v='2'/><tag k='surface' v='concrete'/></way>"
       "<way id='11'><nd ref='2'/><nd ref='3'/><tag k='highway' v='primary'/>"
       "<tag k='oneway' v='yes'/><tag k='bridge' v='yes'/><tag k='layer' v='1'/></way>"
       "<way id='12'><nd ref='3'/><nd ref='4'/><tag k='highway' v='primary'/>"
-      "<tag k='oneway' v='yes'/></way>"
+      "<tag k='oneway' v='yes'/><tag k='width' v='20 ft'/></way>"
       "<way id='13'><nd ref='5'/><nd ref='6'/><tag k='highway' v='primary'/>"
-      "<tag k='oneway' v='yes'/></way>"
+      "<tag k='oneway' v='yes'/><tag k='lanes' v='3'/></way>"
       "<way id='14'><nd ref='4'/><nd ref='7'/><tag k='highway' v='primary'/>"
       "<tag k='oneway' v='yes'/><tag k='tunnel' v='yes'/><tag k='layer' v='-1'/></way>"
       "<way id='15'><nd ref='7'/><nd ref='8'/><tag k='highway' v='primary'/>"
@@ -80,6 +82,13 @@ int main() {
         "coincident XY coordinates with distinct OSM node IDs do not connect");
   CHECK(!TransportTopology::CanContinue(*road, *rail),
         "a shared node does not turn a motor road into a rail line");
+  CHECK(road->Facility == TransportFacility::Arterial &&
+            road->Surface == TransportSurface::Concrete && road->WidthM == 10.0 &&
+            road->LaneCount == 2 && bridge->WidthM == 7.0 &&
+            std::abs(ground->WidthM - 6.096) < 1e-9 && xyCrossing->WidthM == 9.75 &&
+            rail->Facility == TransportFacility::Railway &&
+            rail->Surface == TransportSurface::Rail && rail->WidthM == 3.5,
+        "native corridor properties retain explicit metres, feet, lanes and class fallbacks");
   CHECK(graph.FindEdge(forward(30)) == nullptr && graph.FindEdge(reverse(30)) &&
             graph.FindEdge(reverse(30))->FromNodeId == 12 &&
             graph.FindEdge(reverse(30))->ToNodeId == 11,

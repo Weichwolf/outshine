@@ -66,15 +66,19 @@ int main() {
   CHECK(pitWayId != 0, "the alternate pit way is identified by its relation role");
   uint64_t node = route->StartNodeId;
   bool continuous = true;
+  bool racewayMaterial = true;
   for (const TransportEdgeId id : route->EdgeIds) {
     const TransportEdge *edge = graph->FindEdge(id);
     continuous &= edge != nullptr && edge->FromNodeId == node &&
                   edge->Allows(TransportMode::Motor) && edge->Id.WayId != pitWayId;
     if (edge == nullptr) { break; }
+    racewayMaterial &= edge->Facility == TransportFacility::Raceway &&
+                       edge->Surface == TransportSurface::Asphalt && edge->WidthM == 12.0;
     node = edge->ToNodeId;
   }
   CHECK(continuous && node == route->StartNodeId,
         "the ID-based lap closes without a gap, jump or pitlane substitution");
+  CHECK(racewayMaterial, "every main-loop edge has a native asphalt raceway corridor profile");
   uint64_t mainWayId = 0;
   for (const OsmRelationMember &member : relation->Members) {
     if (member.Role.empty()) {

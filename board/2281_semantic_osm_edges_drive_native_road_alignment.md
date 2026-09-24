@@ -26,6 +26,20 @@ become the source-ID contract. No authored track spline or place-name branch.
   source revision. Parse explicit width/lanes strictly; missing values use a
   documented class fallback, including `highway=raceway`, independent of place.
   Invalid tags report Way ID; no per-edge strings or XML in hot consumers.
+- First envelope estimates, in metres, are explicit width first, otherwise
+  motor-lane count × 3.25, otherwise class fallback: motorway 7.5, trunk and
+  arterial 7, local 6, service 4.5, track 3, raceway 12, walkway 2,
+  cycleway 2.5, rail 3.5, water/ferry 8. Raceway keeps at least 12 unless an
+  explicit width overrides it. Numeric `width` accepts metres and decimal
+  feet; malformed width/lanes reject with Way ID. These are declared visual
+  assumptions, not legal standards; measure and revise against independent
+  geometry and images. Unknown explicit surfaces remain `Unknown`.
+
+The native profile gate now passes: `OsmWaySemantics` normalizes class, surface,
+width and lanes before `TransportTopology` creates edges. The full Hockenheim
+route retains asphalt raceway profiles; independent metre/foot, lane and invalid
+tag controls pass. Alignment, DEM constraints and road/contact products remain
+the next executable work in this WI.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
   Input is one `TransportNetworkSnapshot` revision and pinned DEM samples from
   the ground candidate, never a mutable live `GroundQuery` borrowed by a
