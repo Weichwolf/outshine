@@ -63,6 +63,16 @@ template <class Row> struct ByKindField {
   [[nodiscard]] std::string Identity(const Row &row) const { return row.Kind; }
 };
 
+struct ByProviderKindAndRank {
+  bool operator()(const Data::SourceProvider &a, const Data::SourceProvider &b) const {
+    return a.Kind == b.Kind && a.Priority == b.Priority;
+  }
+
+  [[nodiscard]] static std::string Identity(const Data::SourceProvider &row) {
+    return row.Kind + "#" + std::to_string(row.Priority);
+  }
+};
+
 template <class Row> struct ByIdField {
   bool operator()(const Row &a, const Row &b) const { return !a.Id.empty() && a.Id == b.Id; }
 
@@ -147,12 +157,7 @@ bool MergeLayer(Scenario::Document &into,
   MergeRows(into.Kinds, layer.Kinds, named, "kind", ByKindName{}, trace);
   MergeRows(into.Instances, layer.Instances, named, "instance", ByInstanceId{}, trace);
   MergeRows(into.Assets, layer.Assets, named, "asset", ByAssetUri{}, trace);
-  MergeRows(into.Providers,
-            layer.Providers,
-            named,
-            "provider",
-            ByKindField<Data::SourceProvider>{},
-            trace);
+  MergeRows(into.Providers, layer.Providers, named, "provider", ByProviderKindAndRank{}, trace);
   MergeRows(into.Generators,
             layer.Generators,
             named,

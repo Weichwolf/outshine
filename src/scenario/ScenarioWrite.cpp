@@ -751,7 +751,15 @@ void WriteProviders(std::string &said, std::span<const Data::SourceProvider> pro
     said += "    <provider";
     Said(said, "kind", provider.Kind, true);
     Said(said, "pin", provider.Revision);
+    Said(said, "dataset", provider.Dataset);
+    Said(said, "location", provider.Location);
     said += std::format(" rank=\"{}\"", provider.Priority);
+    if (provider.Coverage) {
+      Number(said, "westDeg", provider.Coverage->WestDeg);
+      Number(said, "southDeg", provider.Coverage->SouthDeg);
+      Number(said, "eastDeg", provider.Coverage->EastDeg);
+      Number(said, "northDeg", provider.Coverage->NorthDeg);
+    }
     switch (provider.Missing) {
       case Data::MissingDataPolicy::Continue: break;
       case Data::MissingDataPolicy::Fail: Said(said, "whenAbsent", "fail"); break;

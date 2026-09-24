@@ -15,6 +15,7 @@
 #include "WorldValidation.h"
 #include "Number.h"
 #include "ReadScenarioOsm.h"
+#include "SourceProviderValidation.h"
 
 #include <scenario/Scenario.h>
 
@@ -473,6 +474,8 @@ bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &er
     Data::SourceProvider made;
     made.Kind = one.Attr("kind");
     made.Revision = one.Attr("pin");
+    made.Dataset = one.Attr("dataset");
+    made.Location = one.Attr("location");
     if (!ReadProviderRank(one, made.Priority)) {
       error = Says::kInvalidProviderRank;
       return false;
@@ -486,7 +489,33 @@ bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &er
       error = Says::kInvalidProviderAbsence;
       return false;
     }
+    Data::SourceCoverage coverage;
+    const std::array bounds{std::pair{"westDeg", &coverage.WestDeg},
+                            std::pair{"southDeg", &coverage.SouthDeg},
+                            std::pair{"eastDeg", &coverage.EastDeg},
+                            std::pair{"northDeg", &coverage.NorthDeg}};
+    size_t found = 0;
+    for (const auto &[name, value] : bounds) {
+      const auto token = one.Said(name);
+      if (!token) { continue; }
+      const auto parsed = ParseFiniteNumber(*token);
+      if (!parsed) {
+        error = std::string("provider ") + name + " requires a finite number";
+        return false;
+      }
+      *value = *parsed;
+      ++found;
+    }
+    if (found != 0 && found != bounds.size()) {
+      error = "provider coverage requires westDeg, southDeg, eastDeg and northDeg together";
+      return false;
+    }
+    if (found == bounds.size()) { made.Coverage = coverage; }
     into.Providers.push_back(made);
+  }
+  if (const auto valid = Data::ValidateSourceProviders(into.Providers); !valid) {
+    error = valid.error();
+    return false;
   }
 
   const Xml::Ref generators = root.Child("generators");

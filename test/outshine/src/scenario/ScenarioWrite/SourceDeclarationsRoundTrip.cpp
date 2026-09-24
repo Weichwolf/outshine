@@ -9,14 +9,23 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Scenario::Document source;
-  source.Providers = {{.Kind = "terrain",
-                       .Revision = "snapshot & <a>\"\t",
-                       .Priority = std::numeric_limits<int>::min()},
-                      {.Kind = "vector",
-                       .Revision = "other'\n",
-                       .Priority = std::numeric_limits<int>::max(),
-                       .Missing = Data::MissingDataPolicy::Fail},
-                      {.Kind = "stars"}};
+  source.Providers = {
+      {.Kind = "terrain",
+       .Revision = "snapshot & <a>\"\t",
+       .Priority = std::numeric_limits<int>::min()},
+      {.Kind = "vector",
+       .Revision = "other'\n",
+       .Priority = std::numeric_limits<int>::max(),
+       .Missing = Data::MissingDataPolicy::Fail},
+      {.Kind = "stars"},
+      {.Kind = "osm",
+       .Revision = "regional-r1",
+       .Priority = 4,
+       .Missing = Data::MissingDataPolicy::Fail,
+       .Dataset = "openstreetmap",
+       .Location = "osm/Hockenheim & region.osm",
+       .Coverage = Data::SourceCoverage{
+           .WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34}}};
   const auto text = WriteScenario(source);
   CHECK(text.has_value(), "export succeeds");
   if (!text) { return Report(); }
@@ -29,7 +38,8 @@ int main() {
       const auto &a = source.Providers[i];
       const auto &b = copy.Providers[i];
       CHECK(a.Kind == b.Kind && a.Revision == b.Revision && a.Priority == b.Priority &&
-                a.Missing == b.Missing,
+                a.Missing == b.Missing && a.Dataset == b.Dataset && a.Location == b.Location &&
+                a.Coverage == b.Coverage,
             "provider order and all fields preserved");
     }
   }

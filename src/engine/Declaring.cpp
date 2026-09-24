@@ -8,6 +8,7 @@
 #include "BodyValidation.h"
 #include "WorldValidation.h"
 #include "OsmValidation.h"
+#include "SourceProviderValidation.h"
 #include "AudioOcclusion.h"
 #include "EngineHeld.h"
 #include "ReadTextFile.h"
@@ -419,6 +420,9 @@ constexpr auto RevisionExhausted = "declaration revision exhausted";
 
 namespace {
 [[nodiscard]] Result ValidateDeclarationInputs(const Scenario::Document &scenario) {
+  if (const auto valid = Data::ValidateSourceProviders(scenario.Providers); !valid) {
+    return std::unexpected(valid.error());
+  }
   if (const auto valid = ValidateBodyDynamics(scenario.Bodies); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
