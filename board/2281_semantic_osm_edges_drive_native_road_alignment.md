@@ -91,9 +91,10 @@ larger routes are reported deferred until sliding-window coverage exists.
   `RoadSurfaceBuilder` now emits native Geometry, edge/station/triangle spans,
   material groups and source-derived earthworks off-thread. The 4e27db1b
   Hockenheim PNG still has terrain occlusion: 33-node terrain pages at z16 are
-  about 12 m apart there, comparable to the road width. Next refine the final
-  pressed surface along the corridor to <=3 m postings, bounded by page budget;
-  verify continuous pavement and no duplicate MVT strip in PNG and contact.
+  about 12 m apart there, comparable to road width. Before DEM-only sheet LOD,
+  derive bounded OSM route segments in the candidate tangent frame; request
+  <=3 m postings where road plus apron meets a patch. WI 2166 owns final-surface
+  error. Keep page budget strict; verify continuous pavement and no MVT double.
 
 ## Executable sequence and falsification
 
