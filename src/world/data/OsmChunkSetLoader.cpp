@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <expected>
 #include <filesystem>
+#include <ratio>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -16,8 +18,8 @@ namespace outshine::Data {
 
 namespace {
 
-constexpr size_t kMaxChunkBytes = 4u * 1024u * 1024u;
-constexpr size_t kMaxTotalBytes = 16u * 1024u * 1024u;
+constexpr size_t kMaxChunkBytes = size_t{4} * 1024u * 1024u;
+constexpr size_t kMaxTotalBytes = size_t{16} * 1024u * 1024u;
 constexpr size_t kMaxInputElements = 1000000;
 
 [[nodiscard]] double MillisecondsSince(std::chrono::steady_clock::time_point began) {
@@ -61,6 +63,10 @@ OsmChunkSetLoader::Load(std::span<const SourceProvider> providers, std::string_v
       return std::unexpected("semantic OSM source '" + provider.Location +
                              "' failed XML import with code " +
                              std::to_string(static_cast<int>(parsed.error())));
+    }
+    if (!provider.Coverage) {
+      return std::unexpected("semantic OSM source '" + provider.Location +
+                             "' has no declared coverage");
     }
     coverage.push_back(*provider.Coverage);
     chunks.push_back(std::move(*parsed));

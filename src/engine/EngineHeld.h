@@ -509,6 +509,8 @@ struct Engine::State {
   [[nodiscard]] bool
   UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
+  [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
+  void DeclareGroundFeatures();
   bool GenerateInitialInstances(double atLat, double atLon);
   [[nodiscard]] bool GenerateInstancesForRegion(const Generators::Tile &region,
                                                 LevelOfDetail coarseness);

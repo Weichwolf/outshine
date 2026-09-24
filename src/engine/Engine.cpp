@@ -49,6 +49,23 @@ constexpr auto kEmptyGeneratorKind = "generator registration needs a nonempty ki
 constexpr auto kDuplicateGeneratorKind = "generator kind is already registered";
 }
 
+namespace {
+
+[[nodiscard]] std::string_view OsmTransportBlocker(std::span<const Data::SourceProvider> providers,
+                                                   const World::OsmTransportLoader *loader) {
+  const bool requested = std::ranges::any_of(
+      providers, [](const Data::SourceProvider &provider) { return provider.Kind == "osm"; });
+  if (!requested) { return {}; }
+  if (loader == nullptr) { return Says::kPendingOsmTransport; }
+  if (loader->CurrentPhase() == World::OsmTransportLoader::Phase::Ready) { return {}; }
+  if (loader->CurrentPhase() == World::OsmTransportLoader::Phase::Failed) {
+    return loader->Error();
+  }
+  return Says::kPendingOsmTransport;
+}
+
+}
+
 constexpr double kBitsPerByte = 8.0;
 
 Engine::Engine() : S_(std::make_unique<State>()) {}
@@ -256,18 +273,8 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const bool currentRevision =
       World.RequestedRefinedGround &&
       !World.GroundPublished.NeedsRebuild(*World.RequestedRefinedGround, false, false);
-  const bool wantsOsm =
-      std::ranges::any_of(Session.Declared.Providers, [](const Data::SourceProvider &provider) {
-        return provider.Kind == "osm";
-      });
   const std::string_view osmBlocker =
-      !wantsOsm || (World.OsmTransportLoader && World.OsmTransportLoader->CurrentPhase() ==
-                                                    World::OsmTransportLoader::Phase::Ready)
-          ? ""
-      : World.OsmTransportLoader &&
-              World.OsmTransportLoader->CurrentPhase() == World::OsmTransportLoader::Phase::Failed
-          ? World.OsmTransportLoader->Error()
-          : Says::kPendingOsmTransport;
+      OsmTransportBlocker(Session.Declared.Providers, World.OsmTransportLoader.get());
   return {{(!refined || World.AskedWanted > 0) ? "" : Says::kNoTerrainRequests,
            (!refined || World.AskedPending == 0) ? "" : Says::kPendingTerrain,
            (!refined || World.Bare == 0) ? "" : Says::kMissingTerrain,

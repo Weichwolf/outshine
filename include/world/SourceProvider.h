@@ -22,6 +22,7 @@ struct SourceCoverage {
   double NorthDeg = 0.0; ///< Northern latitude in [-90, 90], greater than SouthDeg.
 
   /// Compare the declared coverage coordinates exactly.
+  /// @return True when all four bounds are equal.
   [[nodiscard]] bool operator==(const SourceCoverage &) const = default;
 };
 
@@ -38,6 +39,7 @@ struct SourceProvider {
   std::optional<SourceCoverage> Coverage; ///< Required finite OSM chunk bounds.
 
   /// Compare the complete owned source declaration.
+  /// @return True when all source fields are equal.
   [[nodiscard]] bool operator==(const SourceProvider &) const = default;
 };
 

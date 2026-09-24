@@ -8,6 +8,7 @@
 #include <limits>
 #include <memory>
 #include <ranges>
+#include <ratio>
 #include <span>
 #include <string>
 #include <string_view>
@@ -88,7 +89,7 @@ void OsmTransportLoader::Poll() {
       ++at;
       continue;
     }
-    Pending finished = std::move(Pending_[at]);
+    const Pending finished = std::move(Pending_[at]);
     Pending_.erase(Pending_.begin() + static_cast<std::ptrdiff_t>(at));
     if (finished.Revision != Revision_) { continue; }
     if (!finished.Output->Value) {
