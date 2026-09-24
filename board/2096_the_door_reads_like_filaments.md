@@ -32,6 +32,12 @@ Verständlichkeit, Abhängigkeitsrichtung und die tatsächlich dargestellte Vera
 - Scenario.h bündelt Deklarationen vieler Systeme. Nach fachlichen Abhängigkeiten
   aufteilen, soweit dies isolierte Consumer und nachvollziehbare Verträge ermöglicht;
   keine Headerzahl als Ziel. Jeder öffentliche Header muss selbstständig verwendbar sein.
+- `Scenario::Document` benennt mehrere Felder nach alten Erzählverben statt nach
+  ihrem Inhalt: `Named`, `Ground`, `Lit`, `Played`, `Motion`, `Time`. Die nächste
+  API-Migration nennt sie `Metadata`, `World`, `LightingSetup`, `PlayerSettings`,
+  `Physics` und `ClockSettings`. Typnamen, Aufrufer und Tests gemeinsam migrieren;
+  XML-Vokabular und Laufzeitverhalten bleiben gleich. Keine Aliasfelder oder
+  Doppelhaltung. Vorher alle gleichnamigen Felder anderer Typen ausnehmen.
 - Kamera und Audio lösen benannte Körper jetzt gegen die aktuelle Assembly auf;
   Trigger laufen mit Entity-Handles ohne Renderer. Instanzen ohne physikalischen
   Körper benötigen weiterhin dieselbe native Pose-/Geschwindigkeitsquelle.
