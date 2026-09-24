@@ -39,9 +39,10 @@ PressedTerrain PressTerrain(std::span<const EarthworkStamp> yields,
                                    .Y = static_cast<double>(sheet.Tile.Y) + rowFraction},
                                   sheet.Tile.Zoom);
         const size_t node = layout.NodeAt(column, row);
-        const EastNorthUp placed = frame.Place({.LongitudeDeg = geo.LongitudeDeg,
-                                                .LatitudeDeg = geo.LatitudeDeg,
-                                                .HeightM = static_cast<double>(sheet.Nodes[node])});
+        const EastNorthUp placed =
+            frame.ToLocalPosition({.LongitudeDeg = geo.LongitudeDeg,
+                                   .LatitudeDeg = geo.LatitudeDeg,
+                                   .HeightM = static_cast<double>(sheet.Nodes[node])});
         positions.push_back({.EastM = placed.EastM, .NorthM = placed.NorthM});
         heights.push_back(placed.UpM);
         sources.emplace_back(sheetAt, node);
@@ -96,9 +97,9 @@ PressedTerrain PressTerrain(std::span<const EarthworkStamp> yields,
         sheet.Tile.Zoom);
     written[point] =
         frame
-            .Place({.LongitudeDeg = geo.LongitudeDeg,
-                    .LatitudeDeg = geo.LatitudeDeg,
-                    .HeightM = static_cast<double>(sheet.Nodes[sources[point].second])})
+            .ToLocalPosition({.LongitudeDeg = geo.LongitudeDeg,
+                              .LatitudeDeg = geo.LatitudeDeg,
+                              .HeightM = static_cast<double>(sheet.Nodes[sources[point].second])})
             .UpM;
   }
   const auto writtenAt = std::chrono::steady_clock::now();

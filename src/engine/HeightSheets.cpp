@@ -520,7 +520,8 @@ std::optional<double> HeightSheets::FieldUpM(int zoom, EastNorth at) const {
       AslMAt(zoom, {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg});
   if (!aslM) { return std::nullopt; }
   return Frame_
-      .Place({.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = *aslM})
+      .ToLocalPosition(
+          {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = *aslM})
       .UpM;
 }
 

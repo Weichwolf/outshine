@@ -59,7 +59,7 @@ int main() {
           "invalid polygon is skipped and both complete pads publish");
     if (!stamps || stamps->size() != 2) { continue; }
     const EastNorthUp first =
-        frame.Place({.LongitudeDeg = points[1], .LatitudeDeg = points[0], .HeightM = 12});
+        frame.ToLocalPosition({.LongitudeDeg = points[1], .LatitudeDeg = points[0], .HeightM = 12});
     CHECK((*stamps)[0].RingEastNorthM[0] == first.EastM &&
               (*stamps)[0].RingEastNorthM[1] == first.NorthM &&
               (*stamps)[0].PlateauM == first.UpM && (*stamps)[0].ApronM == 6.0 &&

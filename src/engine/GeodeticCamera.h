@@ -46,7 +46,7 @@ inline constexpr std::string_view kCameraPositionInvalid =
     if (!height) { return std::unexpected(Says::kCameraGroundHole); }
     point.HeightM += *height;
   }
-  const auto position = TangentFrame::At(origin).Place(point);
+  const auto position = TangentFrame::At(origin).ToLocalPosition(point);
   const Vec3 station =
       Vec3{{position.EastM, position.UpM, RenderFrame::ZOfNorth(position.NorthM)}} + camera.OffsetM;
   for (int axis = 0; axis < 3; ++axis) {
@@ -72,7 +72,7 @@ ResolveGeodeticCameraAxes(const Scenario::GeographicCameraPlacement &camera,
   const Vec3 horizontal = axes.East * std::sin(bearing) + axes.North * std::cos(bearing);
   const TangentFrame frame = TangentFrame::At(origin);
   const auto native = [&](const Vec3 &direction) {
-    const auto local = frame.Turn(direction);
+    const auto local = frame.ToLocalDirection(direction);
     return Vec3{{local.EastM, local.UpM, RenderFrame::ZOfNorth(local.NorthM)}};
   };
   const GeographicCameraAxes result{

@@ -885,9 +885,9 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
     for (uint32_t step = 0; step < ring.PointCount; ++step) {
       const size_t at = (static_cast<size_t>(ring.FirstPoint) + step) * 2u;
       const EastNorthUp shore =
-          standing.Place({.LongitudeDeg = points[at + 1],
-                          .LatitudeDeg = points[at],
-                          .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
+          standing.ToLocalPosition({.LongitudeDeg = points[at + 1],
+                                    .LatitudeDeg = points[at],
+                                    .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
       made.RingEastNorthM.push_back(shore.EastM);
       made.RingEastNorthM.push_back(shore.NorthM);
       made.LowE = std::min(made.LowE, shore.EastM);
@@ -921,9 +921,9 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
       for (uint32_t step = 0; step < hole.PointCount; ++step) {
         const size_t at = (static_cast<size_t>(hole.FirstPoint) + step) * 2u;
         const EastNorthUp shore =
-            standing.Place({.LongitudeDeg = points[at + 1],
-                            .LatitudeDeg = points[at],
-                            .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
+            standing.ToLocalPosition({.LongitudeDeg = points[at + 1],
+                                      .LatitudeDeg = points[at],
+                                      .HeightM = static_cast<double>(lake.LevelM) - kWaterBedM});
         boundary.push_back(shore.EastM);
         boundary.push_back(shore.NorthM);
       }

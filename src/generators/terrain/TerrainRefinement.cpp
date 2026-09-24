@@ -91,7 +91,7 @@ double DistanceToPatch(const ErrorPatch &patch, const TangentFrame &frame, const
     for (const double longitudeDeg :
          {bounds.MinLonDeg, 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg), bounds.MaxLonDeg}) {
       for (const double heightM : {patch.LowM, patch.HighM}) {
-        const EastNorthUp placed = frame.Place(
+        const EastNorthUp placed = frame.ToLocalPosition(
             {.LongitudeDeg = longitudeDeg, .LatitudeDeg = latitudeDeg, .HeightM = heightM});
         const Vec3 at = {{placed.EastM, placed.UpM, RenderFrame::ZOfNorth(placed.NorthM)}};
         for (size_t axis = 0; axis < 3; ++axis) {

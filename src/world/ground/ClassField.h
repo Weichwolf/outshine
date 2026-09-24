@@ -58,7 +58,9 @@ public:
 
   const Vec3 &NorthEcef() const { return Frame_.NorthEcef(); }
 
-  [[nodiscard]] EastNorth Project(LongitudeLatitude at) const { return Frame_.Project(at); }
+  [[nodiscard]] EastNorth Project(LongitudeLatitude at) const {
+    return Frame_.ToLocalGroundPosition(at);
+  }
 
   [[nodiscard]] int
   ClassAt(const ClassStructure &held, LongitudeLatitude at, double *edgeM, int *runnerUp) const {
@@ -72,7 +74,9 @@ public:
     return ClassAt(*held, at, edgeM, runnerUp);
   }
 
-  [[nodiscard]] LongitudeLatitude FromEnu(EastNorth at) const { return Frame_.Geo(at); }
+  [[nodiscard]] LongitudeLatitude FromEnu(EastNorth at) const {
+    return Frame_.ApproximateGeographicAt(at);
+  }
 
   [[nodiscard]] bool Complete() const;
 

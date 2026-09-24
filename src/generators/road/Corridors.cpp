@@ -317,7 +317,8 @@ void Corridors::MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into)
     double lon = 0.0;
     const double midE = 0.5 * (into.Along[at - 1].EastM + into.Along[at].EastM);
     const double midN = 0.5 * (into.Along[at - 1].NorthM + into.Along[at].NorthM);
-    const LongitudeLatitude midAt = on.Standing.Geo({.EastM = midE, .NorthM = midN});
+    const LongitudeLatitude midAt =
+        on.Standing.ApproximateGeographicAt({.EastM = midE, .NorthM = midN});
     lat = midAt.LatitudeDeg;
     lon = midAt.LongitudeDeg;
     double edgeM = 0.0;
@@ -551,7 +552,7 @@ void Corridors::IslandOf(const Paving &on,
 void Corridors::FileCrossing(const Path::Network::Crossing &one,
                              const TangentFrame &standing,
                              Paved &into) {
-  const EastNorthUp crossedAt = standing.Place(
+  const EastNorthUp crossedAt = standing.ToLocalPosition(
       {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = 0.0});
   const uint64_t named =
       PlaceKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
@@ -645,7 +646,7 @@ std::optional<Corridors::Grounded> Corridors::GroundUnder(const Paving &on, Long
   const TangentFrame &standing = on.Standing;
   const Drape &drapedOver = on.Draped;
 
-  const EastNorthUp flat = standing.Place(
+  const EastNorthUp flat = standing.ToLocalPosition(
       {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = 0.0});
   const Drape::EastNorth flatHere = {.EastM = flat.EastM, .NorthM = flat.NorthM};
   if (const std::optional<double> grade = drapedOver.Sample(flatHere)) {
@@ -655,7 +656,7 @@ std::optional<Corridors::Grounded> Corridors::GroundUnder(const Paving &on, Long
   if (on.Ground == nullptr) { return std::nullopt; }
   const std::optional<double> stood = on.Ground->At(at).AslM();
   if (!stood) { return std::nullopt; }
-  const EastNorthUp enu = standing.Place(
+  const EastNorthUp enu = standing.ToLocalPosition(
       {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = *stood});
   const Drape::EastNorth here = {.EastM = enu.EastM, .NorthM = enu.NorthM};
   return Grounded{

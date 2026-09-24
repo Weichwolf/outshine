@@ -170,12 +170,12 @@ int main() {
         const auto triangles = geometry.trianglesOf(0);
         const auto wetGeo = Midpoint(points, rings[0].FirstPoint, rings[1].FirstPoint);
         const auto innerGeo = Midpoint(points, rings[1].FirstPoint, rings[1].FirstPoint + 2u);
-        const auto wet = frame.Place({.LongitudeDeg = wetGeo.LongitudeDeg,
-                                      .LatitudeDeg = wetGeo.LatitudeDeg,
-                                      .HeightM = 10.0});
-        const auto inner = frame.Place({.LongitudeDeg = innerGeo.LongitudeDeg,
-                                        .LatitudeDeg = innerGeo.LatitudeDeg,
-                                        .HeightM = 10.0});
+        const auto wet = frame.ToLocalPosition({.LongitudeDeg = wetGeo.LongitudeDeg,
+                                                .LatitudeDeg = wetGeo.LatitudeDeg,
+                                                .HeightM = 10.0});
+        const auto inner = frame.ToLocalPosition({.LongitudeDeg = innerGeo.LongitudeDeg,
+                                                  .LatitudeDeg = innerGeo.LatitudeDeg,
+                                                  .HeightM = 10.0});
         CHECK(CoveredBy(positions, triangles, {.EastM = wet.EastM, .NorthM = wet.NorthM}) &&
                   !CoveredBy(positions, triangles, {.EastM = inner.EastM, .NorthM = inner.NorthM}),
               "render triangles cover water but never the island centre");
@@ -227,9 +227,9 @@ int main() {
       const auto positions = concaveGeometry.positionsOf(0);
       const auto triangles = concaveGeometry.trianglesOf(0);
       const auto wet =
-          frame.Place({.LongitudeDeg = 0.0006, .LatitudeDeg = 0.0001, .HeightM = 10.0});
+          frame.ToLocalPosition({.LongitudeDeg = 0.0006, .LatitudeDeg = 0.0001, .HeightM = 10.0});
       const auto recess =
-          frame.Place({.LongitudeDeg = 0.0006, .LatitudeDeg = 0.0006, .HeightM = 10.0});
+          frame.ToLocalPosition({.LongitudeDeg = 0.0006, .LatitudeDeg = 0.0006, .HeightM = 10.0});
       CHECK(CoveredBy(positions, triangles, {.EastM = wet.EastM, .NorthM = wet.NorthM}) &&
                 !CoveredBy(positions, triangles, {.EastM = recess.EastM, .NorthM = recess.NorthM}),
             "mesh covers the wet bar but leaves the concave recess dry");

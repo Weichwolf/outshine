@@ -59,9 +59,10 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
     const auto &footprint = footprints[NextFootprint_];
     if (Phase_ == Phase::Ring) {
       const size_t point = static_cast<size_t>(footprint.FirstPoint) + NextPoint_;
-      const EastNorthUp seated = Frame_.Place({.LongitudeDeg = points[2u * point + 1u],
-                                               .LatitudeDeg = points[2u * point],
-                                               .HeightM = static_cast<double>(footprint.SeatM)});
+      const EastNorthUp seated =
+          Frame_.ToLocalPosition({.LongitudeDeg = points[2u * point + 1u],
+                                  .LatitudeDeg = points[2u * point],
+                                  .HeightM = static_cast<double>(footprint.SeatM)});
       Current_.RingEastNorthM.push_back(seated.EastM);
       Current_.RingEastNorthM.push_back(seated.NorthM);
       Current_.LowE = std::min(Current_.LowE, seated.EastM);
@@ -73,9 +74,9 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
       if (NextPoint_ == footprint.PointCount) {
         const size_t first = static_cast<size_t>(footprint.FirstPoint) * 2u;
         Current_.PlateauM = Frame_
-                                .Place({.LongitudeDeg = points[first + 1u],
-                                        .LatitudeDeg = points[first],
-                                        .HeightM = static_cast<double>(footprint.SeatM)})
+                                .ToLocalPosition({.LongitudeDeg = points[first + 1u],
+                                                  .LatitudeDeg = points[first],
+                                                  .HeightM = static_cast<double>(footprint.SeatM)})
                                 .UpM;
         Current_.ApronM = kPadApronM;
         Current_.YieldM =

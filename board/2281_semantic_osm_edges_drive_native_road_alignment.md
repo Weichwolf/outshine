@@ -40,6 +40,13 @@ width and lanes before `TransportTopology` creates edges. The full Hockenheim
 route retains asphalt raceway profiles; independent metre/foot, lane and invalid
 tag controls pass. Alignment, DEM constraints and road/contact products remain
 the next executable work in this WI.
+Spatial prerequisite: `TangentFrame` currently lives in `content/shade` despite
+being used by road, terrain, world and engine. Its `CarryIntoTheFrame` mesh helper
+has no callers. Move the pure geographic transform to `base/spatial`, remove the
+dead helper, and name position/direction conversions explicitly. Existing
+geodetic/ENU and road tests plus layer and lint gates must remain green. The
+legacy ENU-to-geographic linear estimate becomes `ApproximateGeographicAt`;
+alignment DEM sampling must use original geodetic nodes or an exact inverse.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
   Input is one `TransportNetworkSnapshot` revision, a bounded ordered set of
   source edge IDs with source identity selected by route or coverage, and pinned

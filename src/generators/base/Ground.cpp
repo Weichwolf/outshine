@@ -26,7 +26,7 @@ Ground::Ground(const Tile &region, const Snapshot &snapshot, LevelOfDetail coars
 }
 
 Cover Ground::CoverAt(EastNorth at) const noexcept {
-  const EastNorth on = Classes_->Frame().Project(Region_.Geo(at));
+  const EastNorth on = Classes_->Frame().ToLocalGroundPosition(Region_.Geo(at));
   double edgeM = 0.0;
   int runnerUp = -1;
   const int row = Classes_->Evaluate(on.EastM, on.NorthM, &edgeM, &runnerUp);

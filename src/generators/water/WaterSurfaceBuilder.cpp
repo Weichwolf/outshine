@@ -71,9 +71,9 @@ ReadWaterPolygon(std::span<const outshine::Ground::WaterField::SurfaceRing> sour
     contour.reserve(source.PointCount);
     for (uint32_t point = 0; point < source.PointCount; ++point) {
       const size_t at = (static_cast<size_t>(source.FirstPoint) + point) * 2u;
-      const EastNorthUp placed = frame.Place({.LongitudeDeg = geographicPoints[at + 1],
-                                              .LatitudeDeg = geographicPoints[at],
-                                              .HeightM = static_cast<double>(levelM)});
+      const EastNorthUp placed = frame.ToLocalPosition({.LongitudeDeg = geographicPoints[at + 1],
+                                                        .LatitudeDeg = geographicPoints[at],
+                                                        .HeightM = static_cast<double>(levelM)});
       if (!std::isfinite(placed.EastM) || !std::isfinite(placed.NorthM) ||
           !std::isfinite(placed.UpM)) {
         return std::nullopt;

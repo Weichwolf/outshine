@@ -29,7 +29,7 @@ void AppendTerrainMeshSheet(TerrainMesh &result,
                                  .Y = static_cast<double>(sheet.Tile.Y) + rowFraction},
                                 sheet.Tile.Zoom);
       const auto heightM = static_cast<double>(sheet.Nodes[layout.NodeAt(column, row)]);
-      const EastNorthUp placed = frame.Place(
+      const EastNorthUp placed = frame.ToLocalPosition(
           {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = heightM});
       result.PositionsM.push_back(static_cast<float>(placed.EastM));
       result.PositionsM.push_back(static_cast<float>(placed.UpM));

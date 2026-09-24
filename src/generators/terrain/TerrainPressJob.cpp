@@ -82,9 +82,10 @@ struct TerrainPressJob::State {
                                    .Y = static_cast<double>(sheet.Tile.Y) + rowFraction},
                                   sheet.Tile.Zoom);
         const size_t node = Layout.NodeAt(column, row);
-        const EastNorthUp placed = Frame.Place({.LongitudeDeg = geo.LongitudeDeg,
-                                                .LatitudeDeg = geo.LatitudeDeg,
-                                                .HeightM = static_cast<double>(sheet.Nodes[node])});
+        const EastNorthUp placed =
+            Frame.ToLocalPosition({.LongitudeDeg = geo.LongitudeDeg,
+                                   .LatitudeDeg = geo.LatitudeDeg,
+                                   .HeightM = static_cast<double>(sheet.Nodes[node])});
         Positions.push_back({.EastM = placed.EastM, .NorthM = placed.NorthM});
         HeightsM.push_back(placed.UpM);
         PreviousM.push_back(placed.UpM);
@@ -127,9 +128,9 @@ struct TerrainPressJob::State {
          .Y = static_cast<double>(sheet.Tile.Y) + Layout.FractionAt(sheet, row)},
         sheet.Tile.Zoom);
     HeightsM[point] = Frame
-                          .Place({.LongitudeDeg = geo.LongitudeDeg,
-                                  .LatitudeDeg = geo.LatitudeDeg,
-                                  .HeightM = static_cast<double>(sheet.Nodes[node])})
+                          .ToLocalPosition({.LongitudeDeg = geo.LongitudeDeg,
+                                            .LatitudeDeg = geo.LatitudeDeg,
+                                            .HeightM = static_cast<double>(sheet.Nodes[node])})
                           .UpM;
   }
 

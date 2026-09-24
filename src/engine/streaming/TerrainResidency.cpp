@@ -147,7 +147,7 @@ Render::TerrainTile TerrainResidency::TileOf(Data::TileId tile,
   const std::array<float, 2> sw = corner(bounds.MinLonDeg, bounds.MinLatDeg);
   const std::array<float, 2> se = corner(bounds.MaxLonDeg, bounds.MinLatDeg);
 
-  const EastNorthUp at = frame.Place(centre);
+  const EastNorthUp at = frame.ToLocalPosition(centre);
   Render::TerrainTile made;
   const std::array<const Vec3 *, 3> axes = {{&tileFrame.East, &tileFrame.North, &tileFrame.Up}};
   for (size_t column = 0; column < axes.size(); ++column) {

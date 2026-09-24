@@ -18,7 +18,7 @@ Mat4 TilePieces::RowFor(const Vec3 &anchorEcef) const {
   const Vec3 &east = Frame_.EastEcef();
   const Vec3 &north = Frame_.NorthEcef();
   const Vec3 &up = Frame_.UpEcef();
-  const EastNorthUp shift = Frame_.Place(anchorEcef);
+  const EastNorthUp shift = Frame_.ToLocalPosition(anchorEcef);
   Mat4 row;
   for (size_t axis = 0; axis < 3; ++axis) {
     row[axis * 4u] = east[axis];
