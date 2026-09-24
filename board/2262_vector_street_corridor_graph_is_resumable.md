@@ -52,6 +52,25 @@ native product digest; worst network slices were 3.35–4.03 ms, p99 frames
 9.79–9.92 ms, with seven frames over 16.67 ms. This does not prove the
 4-ms bound or whole-frame 60 fps. Visual differences are handled by 2256.
 
+Hockenheim's warm offline 20 s lap starts only Playable and Refined candidates,
+yet all 1200 motion frames are unrefined. The Refined MVT graph has 12,462
+ways, 43,698 nodes and 102,370 edges. Its work takes about 625 ms CPU but
+1716 paced advances before corridor construction. The candidate then reaches
+the corridor phase while the camera is already 408 m along the route. The
+semantic OSM alignment does not use this MVT graph, but corridor rendering does.
+No candidate-restart hypothesis explains the measured delay.
+
+Next move the existing deterministic graph job to one candidate-owned worker.
+`Begin` snapshots way/point data into its own graph; pin an immutable copy of
+candidate DEM fields for height queries, with no mutable GroundStack borrow.
+The worker runs bounded job slices back-to-back and publishes only an owned
+complete result; the engine thread polls without waiting. A canceled candidate
+requests stop between slices and joins before releasing its height snapshot.
+Keep the source revision and current published graph until atomic candidate
+publication. Reject stale completion. Compare topology, heights, digest, frame
+p99 and refined-frame fraction against the paced baseline; do not spend more
+main-thread frame budget to reduce latency.
+
 ## Acceptance
 
 - Analytic line, closed loop, crossings and changed vector revision produce
