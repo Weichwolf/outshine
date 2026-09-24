@@ -3,6 +3,7 @@
 #include "ShotOptions.h"
 #include <chrono>
 #include <expected>
+#include <optional>
 #include <cstdio>
 #include <print>
 #include <ratio>
@@ -159,7 +160,9 @@ void Usage() {
       "                                    STAT<TAB>name<TAB>key<TAB>value<TAB>unit\n"
       "                                    render: elapsed/prepare/assemble/draw/save_ms, "
       "draw_frames, width/height_px\n"
-      "                                    run/shots: elapsed/preload/pump/flush/await_ms, "
+      "                                    run: elapsed_ms includes setup and capture; setup_ms "
+      "ends after assemble\n"
+      "                                    run/shots: preload/pump/flush/await_ms, "
       "wait_*_ms/calls/signals\n"
       "                                    readiness: playable, refined, arrived/wanted, "
       "outstanding\n"
@@ -176,12 +179,14 @@ void PrintStats(std::string_view name,
                 double elapsedMs,
                 bool succeeded,
                 bool playable,
-                bool refined) {
+                bool refined,
+                std::optional<double> setupMs = std::nullopt) {
   const auto row = [name](std::string_view key, auto value, std::string_view unit) {
     std::println("STAT\t{}\t{}\t{}\t{}", name, key, value, unit);
   };
   row("status", succeeded ? "ok" : "failed", "-");
   row("elapsed_ms", elapsedMs, "ms");
+  if (setupMs) { row("setup_ms", *setupMs, "ms"); }
   row("preload_ms", loading.PreloadMs, "ms");
   row("preload_pump_ms", loading.PreloadPumpMs, "ms");
   row("preload_flush_ms", loading.PreloadFlushMs, "ms");
@@ -509,11 +514,23 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     return 2;
   }
   const std::string named = options.Argc > 1 ? options.Argv[1] : "scenario";
+  const auto began = std::chrono::steady_clock::now();
   outshine::Engine engine;
-  if (!Stands(engine, {}, ClientRoots(options.CacheDirectory, options.Offline))) { return 2; }
+  const auto setupFailed = [&](int result) {
+    if (options.Stats) {
+      const double elapsedMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count();
+      PrintStats(named, engine.loading(), elapsedMs, false, false, false, elapsedMs);
+    }
+    return result;
+  };
+  if (!Stands(engine, {}, ClientRoots(options.CacheDirectory, options.Offline))) {
+    return setupFailed(2);
+  }
   if (const auto read = engine.readScenario(options.Argv[0]); !read) {
     std::println("outshine-client: {} -- {}", options.Argv[0], read.error());
-    return 1;
+    return setupFailed(1);
   }
   outshine::Extent frame = engine.declaration().Render.Frame;
   if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
@@ -521,13 +538,14 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   }
   if (const auto targeted = engine.setRenderTarget(frame); !targeted) {
     std::println("outshine-client: {}", targeted.error());
-    return 1;
+    return setupFailed(1);
   }
   if (const auto assembled = engine.assemble(); !assembled) {
     std::println("outshine-client: {} did not assemble -- {}", options.Argv[0], assembled.error());
-    return 1;
+    return setupFailed(1);
   }
-  const auto began = std::chrono::steady_clock::now();
+  const double setupMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   if (!options.SelectedView.empty()) {
     const int result = CaptureView(engine, named, options);
     if (everyMeasure) { PrintMeasures(engine); }
@@ -540,7 +558,8 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
                  elapsedMs,
                  result == 0,
                  engine.settled(outshine::WorldQuality::Playable),
-                 engine.settled(outshine::WorldQuality::Refined));
+                 engine.settled(outshine::WorldQuality::Refined),
+                 setupMs);
     }
     return result;
   }
@@ -559,7 +578,8 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
                elapsedMs,
                shot.Why.empty(),
                engine.settled(outshine::WorldQuality::Playable),
-               engine.settled(outshine::WorldQuality::Refined));
+               engine.settled(outshine::WorldQuality::Refined),
+               setupMs);
   }
   return shot.Why.empty() ? 0 : 1;
 }

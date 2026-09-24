@@ -27,6 +27,18 @@ class Coordinates(unittest.TestCase):
                 self.assertIn('STAT<TAB>name<TAB>key<TAB>value<TAB>unit', result.stdout)
                 self.assertNotIn('SDL', result.stdout + result.stderr)
 
+    def test_run_stats_include_setup_even_when_startup_fails(self):
+        env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
+        result = subprocess.run([str(CLIENT), 'run', '--stats', 'missing.scenario'], cwd=ROOT,
+                                env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 2)
+        rows = [line.split('\t') for line in result.stdout.splitlines()
+                if line.startswith('STAT\t')]
+        stats = {row[2]: row[3] for row in rows}
+        self.assertEqual(stats['status'], 'failed')
+        self.assertGreater(float(stats['setup_ms']), 0)
+        self.assertGreaterEqual(float(stats['elapsed_ms']), float(stats['setup_ms']))
+
     def query(self, *args):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
         return subprocess.run([str(CLIENT), 'height', *args], cwd=ROOT, env=env,
