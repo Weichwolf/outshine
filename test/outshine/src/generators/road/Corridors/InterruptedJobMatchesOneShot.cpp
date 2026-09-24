@@ -1,5 +1,5 @@
 #include "src/generators/road/Corridors.h"
-#include "src/generators/road/RoadMesh.h"
+#include "src/generators/road/ProfiledRoadMesher.h"
 #include "Check.h"
 
 #include <algorithm>
@@ -136,7 +136,7 @@ int main() {
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
                                          .FocalPx = 800.0};
-  const Generators::RoadMesh mesher;
+  const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   Product oneShot;
   oneShot.Complete = corridors.Lay(site, oneShot.Mesh, &oneShot.Earthworks, &oneShot.Measures);

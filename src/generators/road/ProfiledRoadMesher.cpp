@@ -1,6 +1,6 @@
 #include "math/Units.h"
 #include "math/RenderFrame.h"
-#include "RoadMesh.h"
+#include "ProfiledRoadMesher.h"
 #include "math/Vec3.h"
 
 #include "Fit.h"
@@ -34,7 +34,7 @@ double Snapped(double metres) {
   return std::round(metres / kSnapM) * kSnapM;
 }
 
-void Vertex(RoadRaised &into,
+void Vertex(RoadMeshBuffers &into,
             const std::array<double, 3> &at,
             const Vec3 &normal,
             const Vec3f &wearsLinear) {
@@ -95,10 +95,10 @@ WedgeOf(const std::vector<Corner> &around, double centreE, double centreZ, doubl
 
 }
 
-void RoadMesh::Junction(std::span<const RoadGate> gates,
-                        RoadPlane plane,
-                        const Vec3f &wearsLinear,
-                        RoadRaised &into) const {
+void ProfiledRoadMesher::Junction(std::span<const RoadGate> gates,
+                                  RoadPlane plane,
+                                  const Vec3f &wearsLinear,
+                                  RoadMeshBuffers &into) const {
   if (gates.size() < 2) { return; }
   double centreE = 0.0;
   double centreZ = 0.0;
@@ -213,7 +213,7 @@ Section SectionFor(double halfWidthM, RoadProfile profile) {
   return cut;
 }
 
-void Pour(const Ribbon &woven, const Vec3f &wearsLinear, RoadRaised &into) {
+void Pour(const Ribbon &woven, const Vec3f &wearsLinear, RoadMeshBuffers &into) {
   const auto firstVertex = static_cast<uint32_t>(into.PositionM.size() / 3u);
   const size_t vertices = woven.PositionM.size() / 3u;
   for (size_t one = 0; one < vertices; ++one) {
@@ -234,13 +234,13 @@ void Pour(const Ribbon &woven, const Vec3f &wearsLinear, RoadRaised &into) {
 bool FitPiece(std::span<const double> eastNorthM,
               ReferenceLine &line,
               double &tightestM,
-              RoadRefusals &why) {
+              RoadMeshingRejections &rejections) {
   if (eastNorthM.size() == 4) {
     const double runE = eastNorthM[2] - eastNorthM[0];
     const double runN = eastNorthM[3] - eastNorthM[1];
     const double runM = std::sqrt(runE * runE + runN * runN);
     if (!(runM > 0.0)) {
-      ++why.TooShort;
+      ++rejections.TooShort;
       return false;
     }
     const Placed from{
@@ -248,7 +248,7 @@ bool FitPiece(std::span<const double> eastNorthM,
     const Segment straight{.Shape = Curve::Straight, .LengthM = runM};
     std::string laidWhy;
     if (!line.Lay(from, std::span<const Segment>(&straight, 1), laidWhy)) {
-      ++why.Fit;
+      ++rejections.Fit;
       return false;
     }
   } else {
@@ -257,7 +257,7 @@ bool FitPiece(std::span<const double> eastNorthM,
                             kLayTightestM,
                             line);
     if (!laid.Laid || !(line.LengthM() > 0.0)) {
-      ++why.Fit;
+      ++rejections.Fit;
       return false;
     }
     tightestM = laid.TightestRadiusM;
@@ -325,29 +325,29 @@ bool LayPiece(std::span<const double> eastNorthM,
               RoadProfile profile,
               const Vec3f &wearsLinear,
               double crossfall,
-              RoadRaised &into,
-              RoadRefusals &why) {
+              RoadMeshBuffers &into,
+              RoadMeshingRejections &rejections) {
   ReferenceLine line;
   double tightestM = 0.0;
-  if (!FitPiece(eastNorthM, line, tightestM, why)) { return false; }
+  if (!FitPiece(eastNorthM, line, tightestM, rejections)) { return false; }
   const auto rise = ElevationKnots(elevation, line.LengthM());
   std::string said;
   if (!line.Rise(std::span<const Knot>(rise.data(), rise.size()), said)) {
-    ++why.Rise;
+    ++rejections.Rise;
     return false;
   }
   const std::array<Knot, 2> bank = {
       {Knot{.AlongM = 0.0, .Value = crossfall, .RatePerM = 0.0},
        Knot{.AlongM = line.LengthM(), .Value = crossfall, .RatePerM = 0.0}}};
   if (!line.Bank(std::span<const Knot>(bank.data(), 2), said)) {
-    ++why.Bank;
+    ++rejections.Bank;
     return false;
   }
 
   const Ribbon woven =
       Sweep(line, SectionFor(halfWidthM, profile), 0.0, line.LengthM(), StepFor(tightestM));
   if (!woven.Woven) {
-    ++why.Sweep;
+    ++rejections.Sweep;
     return false;
   }
   Pour(woven, wearsLinear, into);
@@ -356,14 +356,15 @@ bool LayPiece(std::span<const double> eastNorthM,
 
 }
 
-RoadTallied
-RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &into) const {
+RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
+                                           RoadSweep how,
+                                           RoadMeshBuffers &into) const {
   const double halfWidthM = how.HalfWidthM;
   const RoadProfile profile = how.Profile;
   const Vec3f &wearsLinear = how.WearsLinear;
   const double crossfall = how.Crossfall;
-  RoadTallied tally;
-  RoadRefusals &why = tally.Why;
+  RoadMeshingStats tally;
+  RoadMeshingRejections &rejections = tally.Rejections;
   if (along.size() < 2 || !(halfWidthM > 0.0)) { return tally; }
 
   std::vector<double> eastNorth;
@@ -404,14 +405,14 @@ RoadMesh::Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &i
                    wearsLinear,
                    crossfall,
                    into,
-                   why)) {
+                   rejections)) {
         ++tally.Pieces;
       } else {
         ++tally.Refused;
       }
     } else {
       ++tally.Refused;
-      ++why.TooShort;
+      ++rejections.TooShort;
     }
     if (got.Laid) { break; }
     if (got.Undrivable == 0 || got.TightestDemandedAtVertex == 0) {

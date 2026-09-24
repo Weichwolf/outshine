@@ -13,15 +13,15 @@ Der Nutzer benennt Straßen-/Schienen-/Wegegeneratoren, Brücken, Tunnel und kom
 3D-Situationen ausdrücklich als fehlerhaft. Webcam-Renders Wien/Husum/Feldkirch zeigen
 auffällige Deck-/Ufer-/Straßenkontakte; Tunnelinnenräume und gestapelte Knoten wurden durch
 diese neun Außenkameras nicht geprüft. `StreetField.cpp` filtert Tunnel vor dem Generator.
-`src/generators/road/Corridors.*`, `RoadMesh.*`, `Infrastructure.*` enthalten Brücken-/Rampen-
+`src/generators/road/Corridors.*`, `ProfiledRoadMesher.*`, `Infrastructure.*` enthalten Brücken-/Rampen-
 Logik. Eine vollständig sichtbare Schienen-/Tunnel-Pipeline ist damit nicht nachgewiesen.
 
-Kontextprüfung: RoadMesh::TrySweep baut ReferenceLine/Rise/Bank und ruft Ribbon::Sweep;
+Kontextprüfung: ProfiledRoadMesher::TrySweep baut ReferenceLine/Rise/Bank und ruft Ribbon::Sweep;
 die Kurvenklassen sind damit Produktionscode. Carriageway::Surface berücksichtigt
 Offsetkrümmung und Bankrate; Differentialtests prüfen die Decknormale. Ribbon prüft
 Randnormalen/Null-Schulter und verweigert horizontale Offset-Faltung. Globale
 Selbstüberschneidung und Kontakt-/Renderübereinstimmung bleiben offen.
-RoadMesh skaliert Stützstationen und Höhenraten jetzt konsistent auf die gefittete
+ProfiledRoadMesher skaliert Stützstationen und Höhenraten jetzt konsistent auf die gefittete
 Linienlänge. Gemeinsame Anschlussgradienten mehrerer Abschnitte bleiben zu prüfen.
 Angebotene Kurven-/Fahrnetzklassen benötigen eigene Korrektheits-, Budget- und
 Grenzfallnachweise; deren Existenz oder Lint-Erfolg ist keine Driving-Abnahme.
@@ -101,20 +101,19 @@ Alignment ergänzt 3D-Pose, Render-/Kollisionsprodukte dürfen keine Topologie e
 
 ## P0-Nachweis: minimale Decksegmente
 
-RoadMesh verarbeitet jetzt Zwei-Punkt-Geraden und verbleibende Zweipunktstücke.
+ProfiledRoadMesher verarbeitet jetzt Zwei-Punkt-Geraden und verbleibende Zweipunktstücke.
 Linienfit, Höhenprofil und Anschlusstore sind getrennt; Profilformeln unverändert.
-Zwölf RoadMesh-/Kurventests grün. Analytischer Fall: 64 m Länge, 16 m Anstieg,
+Zwölf ProfiledRoadMesher-/Kurventests grün. Analytischer Fall: 64 m Länge, 16 m Anstieg,
 drei Richtungen, Deckrandlage und appendierte Indizes; Altcode scheitert 15-mal.
 Wien ohne Vegetation geöffnet: 3235/921600 Pixel verändert; Gegenprobe mit alter
 Mindestlänge reproduziert das Vorbild pixelgenau. Neue Deckflächen, weiterhin
 unzureichende Material-/Lichtqualität. p50/p95/p99 5.26/5.68/6.06 ms, 0/120 über
 16.67 ms; Warmaufnahme, keine vollständige Streaming-/Bauwerksabnahme.
-Endliche Eingaben, gemeinsame Anschlussgradienten, Kontakt und komplexe Bauwerke
-bleiben offen; die folgende Korrektur allein nimmt diese Verträge nicht ab.
+Endliche Eingaben, Anschlussgradienten, Kontakt und komplexe Bauwerke bleiben offen.
 
 Höhenraten erfüllen nun bei s = u * Lfit/Lquelle die Kettenregel
 dh/ds = dh/du * Lquelle/Lfit. Steigender/fallender linearer Quellverlauf prüft
-die Eintrittsnormalen analytisch; Altcode scheitert achtmal. Alle 13 RoadMesh-/
-Kurventests grün. Fehlerzähler sind nichtnullable Referenzen. RoadMesh ohne Tidy-
+die Eintrittsnormalen analytisch; Altcode scheitert achtmal. Alle 13 ProfiledRoadMesher-/
+Kurventests grün. Fehlerzähler sind nichtnullable Referenzen. ProfiledRoadMesher ohne Tidy-
 Befunde; insgesamt 61, Writer rot. Wien geöffnet und pixelgleich zur Vorversion;
 p50/p95/p99 5.24/5.73/5.99 ms, 0/120 über 16.67 ms. Höhenfix hier nur analytisch nachgewiesen.

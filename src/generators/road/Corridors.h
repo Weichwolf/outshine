@@ -143,7 +143,7 @@ private:
     std::unordered_map<uint64_t, std::vector<Meets>> AtCrossing;
     std::unordered_map<uint64_t, double> EndM;
     std::unordered_map<uint64_t, double> GroundEndM;
-    RoadTallied Swept;
+    RoadMeshingStats Swept;
     size_t ChordAdded = 0;
     size_t DecksOverWater = 0;
     size_t AskedOverBridge = 0;
@@ -294,7 +294,7 @@ private:
                 size_t edgeAt,
                 Paved &into,
                 std::vector<EarthworkStamp> &corridor,
-                RoadRaised &pavement) const;
+                RoadMeshBuffers &pavement) const;
 
   enum class Pass : uint8_t { Designing, Paving };
 
@@ -307,15 +307,15 @@ private:
                 size_t laneAt,
                 Paved &into,
                 std::vector<EarthworkStamp> &corridor,
-                RoadRaised &pavement) const;
+                RoadMeshBuffers &pavement) const;
 
   [[nodiscard]] size_t RaisesTheJunctionBodies(const outshine::Ground::GroundMaterials &wearing,
                                                Paved &into,
-                                               RoadRaised &pavement) const;
+                                               RoadMeshBuffers &pavement) const;
 
   static void TellsWhatTheFitFound(Paved &into);
   [[nodiscard]] static bool HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
-                                               const RoadRaised &pavement,
+                                               const RoadMeshBuffers &pavement,
                                                Paved &into,
                                                Geometry &ground);
 
@@ -389,7 +389,7 @@ public:
           WayCount(site.Ways.Ways().size()) {}
 
     Paved Work;
-    RoadRaised Pavement;
+    RoadMeshBuffers Pavement;
     std::vector<EarthworkStamp> Corridor;
     std::unordered_map<uint64_t, uint32_t> SharedNodes;
     std::unordered_map<uint64_t, std::vector<Leg>> LegsAt;

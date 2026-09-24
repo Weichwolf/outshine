@@ -22,7 +22,7 @@ struct RoadStation {
   uint64_t Node = 0;
 };
 
-struct RoadRaised {
+struct RoadMeshBuffers {
   std::vector<float> PositionM;
   std::vector<float> NormalM;
   std::vector<float> ColourRgba;
@@ -43,7 +43,7 @@ struct RoadPlane {
   double SlopeN = 0.0;
 };
 
-struct RoadRefusals {
+struct RoadMeshingRejections {
   size_t Fit = 0;
   size_t Rise = 0;
   size_t Bank = 0;
@@ -51,21 +51,21 @@ struct RoadRefusals {
   size_t TooShort = 0;
 };
 
-struct RoadTallied {
+struct RoadMeshingStats {
   size_t Pieces = 0;
   size_t Cuts = 0;
   size_t Refused = 0;
-  RoadRefusals Why;
+  RoadMeshingRejections Rejections;
 
-  RoadTallied &operator+=(const RoadTallied &more) {
+  RoadMeshingStats &operator+=(const RoadMeshingStats &more) {
     Pieces += more.Pieces;
     Cuts += more.Cuts;
     Refused += more.Refused;
-    Why.Fit += more.Why.Fit;
-    Why.Rise += more.Why.Rise;
-    Why.Bank += more.Why.Bank;
-    Why.Sweep += more.Why.Sweep;
-    Why.TooShort += more.Why.TooShort;
+    Rejections.Fit += more.Rejections.Fit;
+    Rejections.Rise += more.Rejections.Rise;
+    Rejections.Bank += more.Rejections.Bank;
+    Rejections.Sweep += more.Rejections.Sweep;
+    Rejections.TooShort += more.Rejections.TooShort;
     return *this;
   }
 };
@@ -83,13 +83,13 @@ public:
   RoadMesher(const RoadMesher &) = delete;
   RoadMesher &operator=(const RoadMesher &) = delete;
 
-  [[nodiscard]] virtual RoadTallied
-  Sweep(std::span<const RoadStation> along, RoadSweep how, RoadRaised &into) const = 0;
+  [[nodiscard]] virtual RoadMeshingStats
+  Sweep(std::span<const RoadStation> along, RoadSweep how, RoadMeshBuffers &into) const = 0;
 
   virtual void Junction(std::span<const RoadGate> gates,
                         RoadPlane plane,
                         const Vec3f &wearsLinear,
-                        RoadRaised &into) const = 0;
+                        RoadMeshBuffers &into) const = 0;
 
 protected:
   RoadMesher() = default;

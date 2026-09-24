@@ -1,4 +1,4 @@
-#include "src/generators/road/RoadMesh.h"
+#include "src/generators/road/ProfiledRoadMesher.h"
 #include "src/base/curve/Fit.h"
 #include "Check.h"
 #include <array>
@@ -20,8 +20,8 @@ int main() {
         {{.EastM = 0, .NorthM = 0, .GradeM = 7},
          {.EastM = 100, .NorthM = 0, .GradeM = 7 + sourceSlope * 100},
          {.EastM = 200, .NorthM = 30, .GradeM = 7 + sourceSlope * sourceLength}}};
-    RoadRaised mesh;
-    const auto result = Generators::RoadMesh{}.Sweep(
+    RoadMeshBuffers mesh;
+    const auto result = Generators::ProfiledRoadMesher{}.Sweep(
         stations,
         {.HalfWidthM = 0.1, .Profile = RoadProfile::Simple, .WearsLinear = {{0.5f, 0.5f, 0.5f}}},
         mesh);

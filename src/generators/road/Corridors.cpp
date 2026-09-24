@@ -353,7 +353,7 @@ void Corridors::PaveLane(const Paving &on,
                          size_t laneAt,
                          Paved &into,
                          std::vector<EarthworkStamp> &corridor,
-                         RoadRaised &pavement) const {
+                         RoadMeshBuffers &pavement) const {
   const outshine::Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
   if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
       !(lane.HalfWidthM > 0.0f)) {
@@ -380,7 +380,7 @@ void Corridors::PaveEdge(const Paving &on,
                          size_t edgeAt,
                          Paved &into,
                          std::vector<EarthworkStamp> &corridor,
-                         RoadRaised &pavement) const {
+                         RoadMeshBuffers &pavement) const {
   const Edge &edge = into.Edges[edgeAt];
   const size_t laneAt = edge.Lane;
   const outshine::Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
@@ -1257,7 +1257,7 @@ void Corridors::DeckOrRamp(const outshine::Ground::StreetField::Way &lane,
 
 size_t Corridors::RaisesTheJunctionBodies(const outshine::Ground::GroundMaterials &wearing,
                                           Paved &into,
-                                          RoadRaised &pavement) const {
+                                          RoadMeshBuffers &pavement) const {
   const int asphalt = wearing.Find("asphalt");
   Vec3f wears = {{0.5f, 0.5f, 0.5f}};
   if (asphalt >= 0) { wears = wearing.At(static_cast<size_t>(asphalt)).Albedo; }
@@ -1297,23 +1297,23 @@ void Corridors::TellsWhatTheFitFound(Paved &into) {
         "pieces");
   Notes(into,
         "streets: of those, the fit refused",
-        static_cast<double>(into.Swept.Why.Fit),
+        static_cast<double>(into.Swept.Rejections.Fit),
         "pieces");
   Notes(into,
         "streets: of those, the rise refused",
-        static_cast<double>(into.Swept.Why.Rise),
+        static_cast<double>(into.Swept.Rejections.Rise),
         "pieces");
   Notes(into,
         "streets: of those, the bank refused",
-        static_cast<double>(into.Swept.Why.Bank),
+        static_cast<double>(into.Swept.Rejections.Bank),
         "pieces");
   Notes(into,
         "streets: of those, the sweep refused",
-        static_cast<double>(into.Swept.Why.Sweep),
+        static_cast<double>(into.Swept.Rejections.Sweep),
         "pieces");
   Notes(into,
         "streets: of those, too short to lay",
-        static_cast<double>(into.Swept.Why.TooShort),
+        static_cast<double>(into.Swept.Rejections.TooShort),
         "pieces");
   Notes(into,
         "streets: pieces the split still could not lay",
@@ -1329,7 +1329,7 @@ void Corridors::TellsWhatTheFitFound(Paved &into) {
 }
 
 bool Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wearing,
-                                   const RoadRaised &pavement,
+                                   const RoadMeshBuffers &pavement,
                                    Paved &into,
                                    Geometry &ground) {
 
@@ -1393,7 +1393,7 @@ bool Corridors::Lay(const Site &site,
   const std::shared_ptr<const ClassStructure> &classStructure = site.Classes;
   const Drape &drapedOver = site.Draped;
   std::vector<EarthworkStamp> &corridor = *corridorOut;
-  RoadRaised pavement;
+  RoadMeshBuffers pavement;
   Paved into;
   Notes(into,
         "rebuild: of that, the drape the buildings stand on",

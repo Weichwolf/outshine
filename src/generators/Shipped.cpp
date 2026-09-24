@@ -7,7 +7,7 @@
 #include "Forest.h"
 #include "GroundPatchwork.h"
 #include "Structures.h"
-#include "RoadMesh.h"
+#include "ProfiledRoadMesher.h"
 
 #include "ForestDraw.h"
 #include "BuildingDraw.h"
@@ -26,7 +26,7 @@ Shipping::Shipping()
     : Offered_(std::make_unique<Structures>()),
       Coverer_(std::make_unique<Patchworker>()),
       Shaper_(std::make_unique<BuildingMesh>()),
-      Paver_(std::make_unique<RoadMesh>()),
+      Paver_(std::make_unique<ProfiledRoadMesher>()),
       Corridors_(std::make_unique<Generators::Corridors>(*Paver_)) {}
 
 Shipping::~Shipping() = default;

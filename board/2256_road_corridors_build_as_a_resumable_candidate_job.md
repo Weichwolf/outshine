@@ -43,7 +43,7 @@ slice, normal and NDEBUG. This does not prove the Wien-scale limit.
 ## Contract and ownership
 
 `GroundBuildState` owns the move-only job through construction and retirement.
-The job owns `Paved`, `RoadRaised`, bridge topology, ordered yields and phase
+The job owns `Paved`, `RoadMeshBuffers`, bridge topology, ordered yields and phase
 cursors. No callback or span outlives its candidate input. The completed
 geometry and ordered yields move to candidate products exactly once; retirement
 may then release job scratch without touching those products. Cancellation or a

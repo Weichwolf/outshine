@@ -1,4 +1,4 @@
-#include "src/generators/road/RoadMesh.h"
+#include "src/generators/road/ProfiledRoadMesher.h"
 #include "Check.h"
 #include <array>
 #include <algorithm>
@@ -7,7 +7,7 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Generators::RoadMesh mesher;
+  Generators::ProfiledRoadMesher mesher;
   const RoadSweep settings{.HalfWidthM = 3,
                            .Profile = RoadProfile::Simple,
                            .WearsLinear = {{0.2f, 0.3f, 0.4f}},
@@ -17,7 +17,7 @@ int main() {
     const std::array<RoadStation, 2> stations{
         {{.EastM = 10, .NorthM = 20, .GradeM = 5},
          {.EastM = 10 + 64 * east, .NorthM = 20 + 64 * north, .GradeM = 21}}};
-    RoadRaised mesh;
+    RoadMeshBuffers mesh;
     const auto result = mesher.Sweep(stations, settings, mesh);
     CHECK(result.Pieces == 1 && result.Refused == 0 && result.Cuts == 0,
           "two stations define one complete graded road deck");
@@ -49,7 +49,7 @@ int main() {
             "new indices address the appended vertices");
     }
   }
-  RoadRaised empty;
+  RoadMeshBuffers empty;
   CHECK(mesher.Sweep({}, settings, empty).Pieces == 0 && empty.PositionM.empty(),
         "empty input cannot produce geometry");
   return Report();
