@@ -189,6 +189,50 @@ int main() {
             surface->Spans.size() == surface->Earthworks.size(),
         "real DEM alignment yields complete native road and earthwork products");
   if (!surface) { return Report(); }
+  for (const double offsetM : {-10.0, 10.0}) {
+    std::vector<EastNorth> shoulder;
+    std::vector<double> raw;
+    for (double stationM = 1780.0; stationM <= 1880.0; stationM += 0.25) {
+      const auto pose = alignment->AtStation(stationM);
+      CHECK(pose.has_value(), "shoulder probe station resolves on the pinned circuit");
+      if (!pose) { return Report(); }
+      const double length = std::hypot(pose->TangentEnu[0], pose->TangentEnu[1]);
+      const EastNorth at{.EastM = pose->PositionM.EastM - pose->TangentEnu[1] / length * offsetM,
+                         .NorthM = pose->PositionM.NorthM + pose->TangentEnu[0] / length * offsetM};
+      const LongitudeLatitude geo = frame.ApproximateGeographicAt(at);
+      const auto aslM = terrain->At(geo).AslM();
+      CHECK(aslM.has_value(), "pinned DEM covers each shoulder probe station");
+      if (!aslM) { return Report(); }
+      shoulder.push_back(at);
+      raw.push_back(frame
+                        .ToLocalPosition({.LongitudeDeg = geo.LongitudeDeg,
+                                          .LatitudeDeg = geo.LatitudeDeg,
+                                          .HeightM = *aslM})
+                        .UpM);
+    }
+    std::vector<double> pressedM = raw;
+    const auto press =
+        ApplyEarthworkStamps(surface->Earthworks, shoulder, pressedM, kMostEarthworkM);
+    double rawImpulseM = 0.0;
+    double pressedImpulseM = 0.0;
+    size_t strongest = 0;
+    for (size_t index = 1; index + 1 < raw.size(); ++index) {
+      rawImpulseM =
+          std::max(rawImpulseM, std::abs(raw[index + 1] - 2.0 * raw[index] + raw[index - 1]));
+      const double impulse =
+          std::abs(pressedM[index + 1] - 2.0 * pressedM[index] + pressedM[index - 1]);
+      if (impulse > pressedImpulseM) {
+        pressedImpulseM = impulse;
+        strongest = index;
+      }
+    }
+    CHECK(raw.size() == 401 && rawImpulseM < 0.005 && press.Moved == raw.size(),
+          "smooth pinned DEM and fully pressed shoulders isolate the earthwork field");
+    Note("shoulder offset", offsetM, "m");
+    Note("shoulder raw impulse", rawImpulseM, "m/0.25m");
+    Note("shoulder pressed impulse", pressedImpulseM, "m/0.25m");
+    Note("shoulder impulse station", 1780.0 + 0.25 * static_cast<double>(strongest), "m");
+  }
   double lowestM = 1e9;
   double highestM = -1e9;
   for (const RoadSurfaceSpan &span : surface->Spans) {
