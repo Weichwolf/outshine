@@ -23,11 +23,17 @@ zero. `Engine::Readiness` and world snapshot publication nevertheless require
 a vector snapshot. This forbids a valid terrain-only world and makes absence of
 a provider behave like missing data from a required provider.
 
+A no-route terrain-only capture exposes a second consumer defect. ClassField
+still requests fine/coarse vector tiles without a provider. After removing those
+requests, the same capture crashes in SDL Metal: SubjectDraw::Encode binds a
+null placement storage buffer for a ground-only frame.
+
 ## Contract and ownership
 
 `GroundStack` owns vector-source capability. When no vector source exists,
 publish an empty/declared-feature `OsmField` at the ground classification's
 fine zoom for each focus tile; call `Declare`, never `Build` or vector IO.
+Apply the same source-capability rule to ClassField's fine/coarse fields.
 Keep its generation and source identity stable on unchanged focus and advance
 on a real focus/declaration change. The existing world/generator consumers
 receive a valid immutable empty feature snapshot. `GroundStack::Close` retires
@@ -36,6 +42,11 @@ feature snapshot does not counterfeit a fetched vector tile. Footprint tile
 span uses that same effective zoom. A declared vector source retains normal
 fetch, parse, ingestion and missing-data behavior. Terrain/OSM failures still
 block; no unconditional `settled()` bypass.
+
+SubjectDraw owns subject bindings. Bind placement storage only for actual
+subject batches; ground drawing has its own resources and must render when
+there are zero subject instances. A zero-subject frame must not submit null
+GPU storage bindings.
 
 ## Falsifiable acceptance
 
@@ -49,6 +60,9 @@ block; no unconditional `settled()` bypass.
 - Shipped/default vector provider still requests MVT tiles and retains normal
   PNG/counters. Compare terrain-only and vector-enabled PNGs at the same view;
   this isolates source overlap without changing the road generator.
+- Ground-only renderer test draws a terrain tile with zero subjects and reads
+  pixels. Public no-route terrain-only capture completes without a GPU fault or
+  undeclared vector request.
 - `make format`, focused GroundStack/client cases and `make lint` pass.
 
 ## Remaining provider work
