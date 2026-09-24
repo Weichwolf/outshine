@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Parent: 2173
 Depends:
@@ -22,13 +22,21 @@ No running world requests, validates or publishes that graph. The snapped
 
 ## Ownership and data flow
 
-1. Extend the source declaration with a location and bounded coverage.
-   Scenario reader/writer round-trip them; reject missing revision, invalid
+1. Extend `SourceProvider` for `kind="osm"` with `Dataset`, `Location`
+   and `Coverage` (west/south/east/north degrees). XML uses `dataset`,
+   `location`, `westDeg`, `southDeg`, `eastDeg`, `northDeg`, plus
+   existing `pin`, `rank`, `whenAbsent="fail"`. Location is a local path,
+   absolute or relative to `Roots.Shipped`; reject URI schemes. Split
+   antimeridian coverage into two rows. Scenario reader/writer round-trip;
+   reject missing revision, invalid
    coverage, duplicate rank/identity and unsupported location scheme before
    mutation. Existing terrain/vector/star declarations retain their behavior.
    A regional OSM XML file is the first adapter; source acquisition uses
    bounded IO/compute work off the frame path. Do not make a Place-name switch,
    an opaque `file://` curl trick or an unversioned whole-world XML document.
+   First code slice: declaration validation, layer merge by kind/rank and
+   round-trip, with a negative control for every required field. It does not
+   claim a graph is published until the subsequent runtime slice passes.
 2. `world/data` owns byte acquisition, limits, parsing and chunk identity.
    Each chunk records dataset, revision, spatial cell and coverage. Merge
    only identical dataset/revision; reject conflicting objects. Missing Way
