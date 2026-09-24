@@ -1,83 +1,11 @@
-#include "Digest.h"
-#include "math/Units.h"
-#include "math/Vec2.h"
-#include "math/Vec3.h"
-#include "Log.h"
-#include <algorithm>
-#include <atomic>
-#include <bit>
-#include <cstddef>
-#include <cstdint>
-#include <iterator>
-#include <expected>
-#include <memory>
-#include <cmath>
+#include "EngineHeld.h"
 #include "Heap.h"
-#include "TangentFrame.h"
-#include <array>
-#include <optional>
-#include <span>
-#include <numbers>
+
+#include <cstddef>
 #include <string>
-#include <string_view>
-#include <ratio>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-#include <chrono>
 #include <vector>
 
-#include "Fit.h"
-#include "ReferenceLine.h"
-
-#include "EngineHeld.h"
-#include "GroundMesher.h"
-
 namespace outshine {
-
-namespace Says {
-constexpr auto NoRenderTarget = "a render target is required before creating the scene";
-}
-
-constexpr float kNearestOccluderM = 0.01f;
-
-bool Engine::State::EnsureRuntimeScene() {
-  if (!Picture.Standing) {
-    if (!Picture.Targeted) {
-      Error = Says::NoRenderTarget;
-      return false;
-    }
-    Core::Declaration wanted = Picture.Shown;
-    wanted.SurfaceWidthPx = Picture.Frame.WidthPx;
-    wanted.SurfaceHeightPx = Picture.Frame.HeightPx;
-    if (Picture.PendingGeometry) { wanted.InitialGeometry = &*Picture.PendingGeometry; }
-    if (!Core::RuntimeScene::Open(
-            Picture.Device, std::move(wanted), &Picture.Face, Picture.Standing, Error)) {
-      return false;
-    }
-    Picture.PendingGeometry.reset();
-    if (Picture.PendingAudioOcclusion) {
-      World.AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
-      Picture.PendingAudioOcclusion.reset();
-    }
-  }
-  if (!Picture.PendingGeometry) { return true; }
-  if (!Core::RuntimeScene::ReplacesGeometry(Picture.Device,
-                                            *Picture.Standing,
-                                            Picture.PendingGeometry->clone(),
-                                            &Picture.Face,
-                                            Picture.Standing,
-                                            Error)) {
-    return false;
-  }
-  World.BindSceneResources(Picture.Device);
-  Picture.PendingGeometry.reset();
-  if (Picture.PendingAudioOcclusion) {
-    World.AudioOcclusion = std::move(*Picture.PendingAudioOcclusion);
-    Picture.PendingAudioOcclusion.reset();
-  }
-  return true;
-}
 
 void Engine::State::PublishResourcePayloadMeasurements() {
   if (!Picture.Standing) { return; }
@@ -281,71 +209,6 @@ void Engine::State::PublishFrameMeasurements() {
       Published.Places("published twice in one round: " + one, 1.0, "rows");
     }
   }
-}
-
-void Engine::State::PublishAudioSnapshot() {
-  const unsigned next = (Session.Told.load(std::memory_order_relaxed) + 1u) & 1u;
-  std::vector<Audio::Heard> &sources = Session.Sources[next];
-  sources.clear();
-  sources.reserve(Session.Declared.Sounds.size());
-  for (size_t source = 0; source < Session.Declared.Sounds.size(); ++source) {
-    const Audio::SoundSource &declared = Session.Declared.Sounds[source];
-    Audio::Heard where;
-    where.Id = declared.Id;
-    if (declared.Body.empty()) {
-      where.Standing = !declared.Spatial.Positional;
-      sources.push_back(where);
-      continue;
-    }
-    const Physics::Rigid *stood = nullptr;
-    const auto binding =
-        source < Session.AudioBodies.size() ? Session.AudioBodies[source] : std::nullopt;
-    if (binding && Simulation->DeclarationRevision == Session.DeclarationRevision) {
-      const auto &body = Simulation->DynamicBodies[*binding];
-      if (Simulation->Entities.alive(body.Owner)) { stood = &body.Motion; }
-    }
-    if (stood != nullptr) {
-      where.Standing = true;
-      for (int axis = 0; axis < 3; ++axis) {
-        where.AtM[axis] = stood->PositionM[axis];
-        where.VelocityMs[axis] = stood->VelocityMs[axis];
-      }
-      where.Blocked = IsAudioOccluded(where.AtM) ? 1.0 : 0.0;
-    }
-    sources.push_back(where);
-  }
-
-  Audio::Listening &ear = Session.Ear[next];
-  ear = Audio::Listening{};
-  if (Picture.Standing) {
-    const Render::Viewpoint &eye = Picture.Standing->Aimed();
-    for (int axis = 0; axis < 3; ++axis) {
-      ear.AtM[axis] = eye.EyeM[axis];
-      ear.ForwardXyz[axis] = eye.Forward[axis];
-      ear.RightXyz[axis] = eye.Right[axis];
-    }
-  }
-  Session.Told.store(next, std::memory_order_release);
-}
-
-bool Engine::State::IsAudioOccluded(const Vec3 &sourceM) const {
-  if (World.AudioOcclusion.Empty() || !Picture.Standing) { return false; }
-  const Render::Viewpoint &eye = Picture.Standing->Aimed();
-  Vec3f fromM;
-  Vec3f along;
-  double awayM = 0.0;
-  for (int axis = 0; axis < 3; ++axis) {
-    const double step = sourceM[axis] - eye.EyeM[axis];
-    awayM += step * step;
-  }
-  awayM = std::sqrt(awayM);
-  if (!(awayM > 0.0)) { return false; }
-  for (int axis = 0; axis < 3; ++axis) {
-    fromM[axis] = static_cast<float>(eye.EyeM[axis]);
-    along[axis] = static_cast<float>((sourceM[axis] - eye.EyeM[axis]) / awayM);
-  }
-  return World.AudioOcclusion.Occludes(
-      {.OriginM = fromM, .Toward = along}, kNearestOccluderM, static_cast<float>(awayM));
 }
 
 }
