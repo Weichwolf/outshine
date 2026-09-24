@@ -77,14 +77,15 @@ OSM chunks. `Data::OsmChunkSetLoader` owns byte limits, XML parse and merge;
 atomically publishes a complete candidate. Runtime readiness exposes pending
 and failed source states. The public groundless path works both with and without
 a render target; the authored Hockenheim scenario resolves its shipped OSM file
-and verifies its SHA-256 pin. The relation has a focused graph test. Read,
+and verifies its SHA-256 pin. A snapshot resolves a circuit against its own
+source revision; source and graph cannot be paired by the consumer. Read,
 parse and graph times, source bytes and pending jobs reach public diagnostics.
 Names describe those ownership boundaries; do not reintroduce parser or file IO
 into `world/navigation`.
 
 The remaining work is spatial scheduling of source cells around moving focus,
 real cancellation/backpressure when revisions overtake the two-job queue,
-and query access for route consumers. Adjacent shuffled chunks, conflicting
+and Engine/scenario access to the native route. Adjacent shuffled chunks, conflicting
 source IDs, mixed revisions and corrected equal-sized replacement now pass the
 worker-publication test. Prove route stability under mesh eviction and moving
 focus before closing this WI; the camera lap stays in 2260.

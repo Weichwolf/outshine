@@ -50,10 +50,10 @@ int main() {
   const auto original = source.Current();
   bool circuitValid = false;
   if (original) {
-    const auto circuit = original->Graph.ResolveCircuit(original->Source, 284588);
+    const auto circuit = original->ResolveCircuit(284588);
     circuitValid = circuit && circuit->EdgeIds.size() == 267;
   }
-  CHECK(original && original->Source.SourceIdentity().Revision == "pin-r1" &&
+  CHECK(original && original->SourceIdentity().Revision == "pin-r1" &&
             original->SourceBytes > 30000 && circuitValid,
         "published source IDs resolve the independent Hockenheim circuit oracle");
   if (!original) { return Report(); }
@@ -94,7 +94,7 @@ int main() {
   }
   CHECK(source.Request(std::span(&changed, 1), "."), "same revision retries after failure");
   CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Ready &&
-            source.Current() && source.Current()->Graph.FindNode(2) != nullptr,
+            source.Current() && source.Current()->Topology().FindNode(2) != nullptr,
         "valid retry atomically replaces the failed candidate");
 
   std::promise<void> release;
@@ -107,7 +107,7 @@ int main() {
   release.set_value();
   tasks.Wait(blocker);
   CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Ready &&
-            source.Current() && source.Current()->Source.SourceIdentity().Revision == "r4",
+            source.Current() && source.Current()->SourceIdentity().Revision == "r4",
         "late older result cannot replace the requested source revision");
 
   std::error_code cleanupError;

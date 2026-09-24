@@ -86,10 +86,10 @@ int main() {
   const auto first = loader.Current();
   bool circuitReady = false;
   if (first) {
-    const auto circuit = first->Graph.ResolveCircuit(first->Source, 9);
+    const auto circuit = first->ResolveCircuit(9);
     circuitReady = circuit && circuit->EdgeIds.size() == 3;
   }
-  CHECK(first && first->Source.SourceIdentity().Revision == "r1" && circuitReady,
+  CHECK(first && first->SourceIdentity().Revision == "r1" && circuitReady,
         "source IDs form one directed circuit independently of declaration order");
   if (!first) {
     std::error_code ignored;
@@ -114,13 +114,13 @@ int main() {
   }
   CHECK(loader.Request(providers, "."), "same revision retries after corrected source bytes");
   CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmTransportLoader::Phase::Ready &&
-            loader.Current() && loader.Current()->Source.SourceIdentity().Revision == "r2" &&
-            loader.Current()->Graph.Edges().size() == first->Graph.Edges().size(),
+            loader.Current() && loader.Current()->SourceIdentity().Revision == "r2" &&
+            loader.Current()->Topology().Edges().size() == first->Topology().Edges().size(),
         "corrected revision atomically replaces an equal-sized prior graph");
 
   providers[0].Revision = "r3";
   CHECK(!loader.Request(providers, ".") && loader.Current() &&
-            loader.Current()->Source.SourceIdentity().Revision == "r2",
+            loader.Current()->SourceIdentity().Revision == "r2",
         "mixed source revisions reject before scheduling or changing publication");
 
   std::error_code cleanupError;

@@ -122,14 +122,13 @@ OsmTransportLoader::Load(std::span<const Data::SourceProvider> providers,
                            std::to_string(graph.error().SourceId) + " with code " +
                            std::to_string(static_cast<int>(graph.error().Code)));
   }
-  return std::make_shared<TransportTopologySnapshot>(
-      TransportTopologySnapshot{.Source = std::move(loaded->Elements),
-                                .Graph = std::move(*graph),
-                                .Coverage = std::move(loaded->Coverage),
-                                .SourceBytes = loaded->SourceBytes,
-                                .ReadMs = loaded->ReadMs,
-                                .ParseMs = loaded->ParseMs,
-                                .GraphMs = graphMs});
+  return std::make_shared<TransportTopologySnapshot>(std::move(loaded->Elements),
+                                                     std::move(*graph),
+                                                     std::move(loaded->Coverage),
+                                                     loaded->SourceBytes,
+                                                     loaded->ReadMs,
+                                                     loaded->ParseMs,
+                                                     graphMs);
 }
 
 }

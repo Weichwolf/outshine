@@ -9,6 +9,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "OsmElements.h"
@@ -18,9 +19,37 @@
 
 namespace outshine::World {
 
-struct TransportTopologySnapshot {
-  Data::OsmElements Source;
-  TransportTopology Graph;
+class TransportTopologySnapshot {
+  Data::OsmElements Source_;
+  TransportTopology Graph_;
+
+public:
+  TransportTopologySnapshot(Data::OsmElements source,
+                            TransportTopology topology,
+                            std::vector<Data::SourceCoverage> coverage,
+                            size_t sourceBytes,
+                            double readMs,
+                            double parseMs,
+                            double graphMs)
+      : Source_(std::move(source)),
+        Graph_(std::move(topology)),
+        Coverage(std::move(coverage)),
+        SourceBytes(sourceBytes),
+        ReadMs(readMs),
+        ParseMs(parseMs),
+        GraphMs(graphMs) {}
+
+  [[nodiscard]] const Data::OsmSourceIdentity &SourceIdentity() const noexcept {
+    return Source_.SourceIdentity();
+  }
+
+  [[nodiscard]] const TransportTopology &Topology() const noexcept { return Graph_; }
+
+  [[nodiscard]] std::expected<CircuitRoute, CircuitError>
+  ResolveCircuit(uint64_t relationId, std::string_view memberRole = {}) const {
+    return Graph_.ResolveCircuit(Source_, relationId, memberRole);
+  }
+
   std::vector<Data::SourceCoverage> Coverage;
   size_t SourceBytes = 0;
   double ReadMs = 0.0;
