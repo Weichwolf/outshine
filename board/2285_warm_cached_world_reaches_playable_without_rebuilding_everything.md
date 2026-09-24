@@ -12,13 +12,16 @@ Tags: startup, streaming, cache, measurement
 ## Evidence and target
 
 The client uses `/tmp/outshine-drive-cache`; `SourceSet` can return bytes from
-`ContentStore` before starting a transport request and counts `FromStore`.
-`TilePool` also has a per-process byte cache. Neither cache-hit count nor the
-critical path from decoded source to first Playable frame is reported by the
-client. Repeated Feldkirch `run` attempts reached the 30 s preload limit with
-vegetation and ground-candidate work pending. Their actual disk-cache hit
-ratio is unknown; do not label them warm benchmarks. A Koerbersee shot with
-vegetation disabled completed, but it is not a full-world warmstart proof.
+`ContentStore` before starting a transport request. `TilePool` also has a
+per-process byte cache. `Loading` and client `STAT` rows now report persistent
+store and provider counters plus completed preload duration. A fresh process
+capturing Hockenheimring from its existing disk cache used 477 store hits,
+25,186,276 delivered bytes and zero provider/remote starts: first Playable
+preload 3.056 s, full Refined shot 8.692 s with 1332 measured frames. The
+stage ledger reports 407 structure-bake advances. These are wall-time and
+frame-count evidence, not a CPU critical-path breakdown. Repeated Feldkirch
+attempts reached the 30 s preload limit, but their cache provenance was not
+recorded; do not label them warm benchmarks.
 
 The product contract is low-latency playable contact from a complete warm
 cache, followed by bounded visual refinement while the world is already

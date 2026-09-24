@@ -167,6 +167,7 @@ void PrintStats(std::string_view name,
   };
   row("status", succeeded ? "ok" : "failed", "-");
   row("elapsed_ms", elapsedMs, "ms");
+  row("preload_ms", loading.PreloadMs, "ms");
   row("playable", playable ? 1 : 0, "bool");
   row("refined", refined ? 1 : 0, "bool");
   row("ground_arrived", loading.GroundArrived, "tiles");

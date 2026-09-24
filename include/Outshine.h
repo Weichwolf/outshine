@@ -53,6 +53,7 @@ struct Loading {
   double Megabits = 0.0;    ///< Preload callback estimate: FetchedMB * 8 / ElapsedS, in Mibit/s.
   double MeanFetchMs = 0.0; ///< Accumulated fetch time divided by pool post count, in milliseconds.
   double ElapsedS = 0.0;    ///< Seconds since this preload call began; zero in loading() snapshots.
+  double PreloadMs = 0.0;   ///< Duration of the last valid preload() call, in milliseconds.
   std::uint64_t StoreHits = 0;      ///< Successful persistent source-cache reads since assemble().
   std::uint64_t StoreMisses = 0;    ///< Missed persistent source-cache reads since assemble().
   std::uint64_t StoreWrites = 0;    ///< Successful persistent source-cache writes since assemble().

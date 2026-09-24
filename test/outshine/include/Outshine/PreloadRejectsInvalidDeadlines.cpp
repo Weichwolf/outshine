@@ -1,6 +1,8 @@
 #include <Outshine.h>
 #include "Check.h"
+#include <chrono>
 #include <limits>
+#include <thread>
 
 int main() {
   using namespace outshine;
@@ -16,6 +18,14 @@ int main() {
     CHECK(callbacks == 0, "invalid deadline performs no progress callback");
     CHECK(!engine.preload(seconds), "both overloads enforce the same deadline contract");
   }
-  CHECK(engine.preload(0).has_value(), "zero budget permits an already complete empty world");
+  CHECK(engine.loading().PreloadMs == 0.0, "invalid calls do not become preload samples");
+  CHECK(
+      engine
+          .preload(
+              0, [](const Loading &) { std::this_thread::sleep_for(std::chrono::milliseconds(2)); })
+          .has_value(),
+      "zero budget permits an already complete empty world");
+  CHECK(engine.loading().PreloadMs >= 1.0,
+        "loading snapshot records the completed preload call, including its callback");
   return Report();
 }

@@ -435,6 +435,7 @@ constexpr size_t kPreloadGroundAdvancesMost = 16;
 
 Loading Engine::loading() const {
   Loading said;
+  said.PreloadMs = S_->LastPreloadMs;
   if (!S_->Session.Declared.Ground.Declared) { return said; }
   said.GroundWanted = S_->World.AskedWanted;
   said.GroundArrived = S_->World.AskedWanted >= S_->World.AskedPending
@@ -599,21 +600,26 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     return std::unexpected(Says::kInvalidPreloadBudget);
   }
   const auto began = std::chrono::steady_clock::now();
+  const auto timed = [this, began](Result result) -> Result {
+    S_->LastPreloadMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    return result;
+  };
   const double bound = patienceS;
   if (!S_->Session.Declared.Ground.Declared) {
     ReportPreload(*this, began, tell);
-    return Result{};
+    return timed(Result{});
   }
   for (;;) {
-    if (const auto pumped = S_->PumpPreload(); !pumped) { return pumped; }
+    if (const auto pumped = S_->PumpPreload(); !pumped) { return timed(pumped); }
     ReportPreload(*this, began, tell);
     if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate()) {
       const auto finished = S_->FlushPreloadGround(began, bound);
-      if (!finished) { return std::unexpected(finished.error()); }
-      if (*finished == State::PreloadFlush::Ready) { return Result{}; }
+      if (!finished) { return timed(std::unexpected(finished.error())); }
+      if (*finished == State::PreloadFlush::Ready) { return timed(Result{}); }
     }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
-      return S_->PreloadTimeout(bound);
+      return timed(S_->PreloadTimeout(bound));
     }
     const double leftS =
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
