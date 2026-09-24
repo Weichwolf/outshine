@@ -69,7 +69,8 @@ Relation-IDs, Mitgliedsrolle, Tag-Provenienz und gerichtete Nodefolge liefern.
 `Data::OsmXmlReader` erhält diese Elemente im gepinnten Ausschnitt;
 `World::TransportTopology` baut daraus einen revisionsgebundenen logischen Graphen
 und löst die Hockenheim-Relation ohne Place-Zweig auf. Ein versionierter
-Streaming-Provider und die Veröffentlichung dieses Graphen in der Welt fehlen noch.
+Streaming-Provider und die Veröffentlichung dieses Graphen in der Welt fehlen noch
+(ausführbarer Vertrag 2278).
 Ein MVT-Feature-ID-Join ist erst nach einem unabhängigen Nachweis zulässig.
 Ein auf Bildkacheln generalisierter Linienzug ohne IDs ist keine vollständige logische
 Karte. 2133 besitzt Konnektivität, 2175 Bauwerke, 2176 Artenauswahl. Fehlende Tags werden
