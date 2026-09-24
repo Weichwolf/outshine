@@ -142,7 +142,7 @@ corpus-reference: ## explicitly pin generated reference images (CASES=...; REFER
 corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
 	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
 
-test: test-client-arguments test-client-render all ## the fast gate
+test: test-client-arguments test-client-data test-client-render all ## the fast gate
 	@$(RUN)
 
 suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/RuntimeScene/CameraBindingPrecedesDrawing)

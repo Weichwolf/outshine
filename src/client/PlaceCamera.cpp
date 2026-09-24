@@ -39,7 +39,8 @@ constexpr const char *kNotFile = ": scenario is not a regular file";
 constexpr const char *kScenarioSize = ": scenario must contain 1 byte to 1 MiB";
 constexpr const char *kEmptyCatalog = ": no .scenario files";
 constexpr const char *kPlaceDeclaration =
-    ": a place requires world, positive frame, fixed clock and one view";
+    ": a place requires world, positive frame and fixed clock";
+constexpr const char *kPlaceView = ": a place requires exactly one geodetic view";
 constexpr const char *kInvalidCamera = ": invalid geodetic camera or projection";
 constexpr const char *kInvalidName =
     ": place file stem must use ASCII letters, digits, underscore or hyphen";
@@ -92,6 +93,18 @@ PlaceFiles(const std::filesystem::path &directory) {
   return paths;
 }
 
+[[nodiscard]] std::expected<size_t, const char *>
+PlaceViewIndex(std::span<const Scenario::View> views) {
+  size_t selected = views.size();
+  for (size_t at = 0; at < views.size(); ++at) {
+    if (views[at].Placement != Scenario::CameraPlacement::Geodetic) { continue; }
+    if (selected != views.size()) { return std::unexpected(Says::kPlaceView); }
+    selected = at;
+  }
+  if (selected == views.size()) { return std::unexpected(Says::kPlaceView); }
+  return selected;
+}
+
 [[nodiscard]] std::expected<Place, std::string> ReadPlace(const std::filesystem::path &path) {
   Engine reader;
   if (const auto read = reader.readScenario(path.string()); !read) {
@@ -100,12 +113,14 @@ PlaceFiles(const std::filesystem::path &directory) {
   const auto &declared = reader.declaration();
   if (!declared.Ground.Declared || !declared.Render.Declared ||
       declared.Render.Frame.WidthPx <= 0 || declared.Render.Frame.HeightPx <= 0 ||
-      !declared.Time.Declared || declared.Time.Live || declared.Time.Start.empty() ||
-      declared.Views.size() != 1) {
+      !declared.Time.Declared || declared.Time.Live || declared.Time.Start.empty()) {
     return std::unexpected(path.string() + Says::kPlaceDeclaration);
   }
-  const auto &camera = declared.Views.front().Sees;
-  const auto &standing = declared.Views.front().Geographic;
+  const auto selected = PlaceViewIndex(declared.Views);
+  if (!selected) { return std::unexpected(path.string() + selected.error()); }
+  const Scenario::View &view = declared.Views[*selected];
+  const auto &camera = view.Sees;
+  const auto &standing = view.Geographic;
   const auto validPosition = [](const auto &position) {
     return std::isfinite(position.LatitudeDeg) &&
            std::abs(position.LatitudeDeg) <= kDegPerHalfTurn / 2 &&
@@ -120,8 +135,7 @@ PlaceFiles(const std::filesystem::path &directory) {
   Mat4 matrix;
   const double aspect =
       static_cast<double>(declared.Render.Frame.WidthPx) / declared.Render.Frame.HeightPx;
-  if (declared.Views.front().Placement != Scenario::CameraPlacement::Geodetic ||
-      standing.SamplesHeight || !validPosition(standing.Geodetic) ||
+  if (standing.SamplesHeight || !validPosition(standing.Geodetic) ||
       !validPosition(declared.Ground.Origin) || !std::isfinite(standing.Geodetic.HeightM) ||
       !std::isfinite(standing.BearingDeg) || !std::isfinite(standing.PitchDeg) ||
       std::abs(standing.PitchDeg) > kDegPerHalfTurn / 2 ||
@@ -134,7 +148,9 @@ PlaceFiles(const std::filesystem::path &directory) {
           std::string::npos) {
     return std::unexpected(path.string() + Says::kInvalidName);
   }
-  return Place{.Name = name, .Declaration = declared};
+  Scenario::Document capture = declared;
+  capture.Views = {view};
+  return Place{.Name = name, .Declaration = std::move(capture)};
 }
 
 }

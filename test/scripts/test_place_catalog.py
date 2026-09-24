@@ -66,6 +66,25 @@ class Catalog(unittest.TestCase):
                 path.write_text(text)
                 self.run_client('places', success=False)
 
+    def test_one_geodetic_view_with_other_camera_modes(self):
+        path = self.directory / 'MixedViews.scenario'
+        local = '<view id="local" placement="local"><at x="0" y="10" z="0"/></view>'
+        path.write_text(scenario().replace('</views>', local + '</views>'))
+        self.assertEqual(self.run_client('places').stdout.split('\t')[0], 'MixedViews')
+
+        second = ('<view id="other" person="first" fovDeg="42">'
+                  '<at lat="13" lon="-23" heightM="500" samplesHeight="no"/>'
+                  '</view>')
+        path.write_text(scenario().replace('</views>', second + '</views>'))
+        self.assertIn('exactly one geodetic view',
+                      self.run_client('places', success=False).stderr)
+
+        source = (ROOT / 'src/assets/places/Hockenheimring.scenario').read_text()
+        first = source.index('<view id="overview"')
+        last = source.index('</view>', first) + len('</view>')
+        path.write_text(source[:first] + source[last:])
+        self.run_client('places', success=False)
+
     def test_shipped_catalog_migration(self):
         rows = self.run_client('places', directory=ROOT / 'src/assets/places').stdout.splitlines()
         actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}
@@ -75,6 +94,8 @@ class Catalog(unittest.TestCase):
         self.assertEqual(actual['Malcesine'], ['45.744855', '10.800445', '140', '290', '-2',
                                               '38.04', '1280', '720', '2026-09-07T10:40:00Z'])
         self.assertEqual(actual['Husum'][-1], '2026-09-07T10:30:00Z')
+        self.assertEqual(actual['Hockenheimring'][:6],
+                         ['49.3274', '8.5659', '900', '90', '-60', '55'])
 
 
 if __name__ == '__main__':
