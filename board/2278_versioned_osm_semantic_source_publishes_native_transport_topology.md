@@ -70,3 +70,20 @@ No running world requests, validates or publishes that graph. The snapped
   queue depth and cancellation. No blocking file read or full parse on the
   simulation/render thread. Run focused source/topology/runtime tests,
   `make format`, `make lint`; Hockenheim camera acceptance remains WI 2260.
+
+## Current implementation boundary
+
+`SourceProvider` and scenario IO now validate and round-trip bounded, pinned
+OSM chunks. `Data::OsmChunkSetLoader` owns byte limits, XML parse and merge;
+`World::OsmTransportLoader` builds an immutable native graph on a worker and
+atomically publishes a complete candidate. Runtime readiness exposes pending
+and failed source states. The public groundless scenario path and the pinned
+Hockenheim relation have focused tests. Names describe those ownership
+boundaries; do not reintroduce parser or file IO into `world/navigation`.
+
+The remaining work is spatial scheduling of source cells around moving focus,
+real cancellation/backpressure when revisions overtake the two-job queue,
+query access for route consumers, and explicit published metrics for read,
+parse, graph, bytes and queue depth. Test adjacent shuffled chunks, revision
+conflict, absent members and synthetic XY crossing independently of the pinned
+track. Only then mark this WI complete; the camera lap stays in 2260.
