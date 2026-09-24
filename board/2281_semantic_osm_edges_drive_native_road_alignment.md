@@ -66,7 +66,7 @@ larger routes are reported deferred until sliding-window coverage exists.
   Selection, candidate field requests and off-frame pin/alignment with stale-result
   rejection are implemented. The normal Hockenheim client shot reports six
   requested DEM tiles, 267 aligned source edges and 20 terrain-source records.
-  Its PNG still lacks the raceway: derive matched road render/contact products.
+  The sourced raceway now appears in the client; continuous contact remains open.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
   Input is one `TransportNetworkSnapshot` revision, a bounded ordered set of
   source edge IDs with source identity selected by route or coverage, and pinned
@@ -94,7 +94,8 @@ larger routes are reported deferred until sliding-window coverage exists.
   tiles vary 100.05–118.86 m; raw offset reaches 1.527 m, then 5×3 samples
   per segment clear 0.045–0.087 m. At 3 m terrain postings a 3 m verge left
   6.4 mm penetration; shared 5 m verge leaves 24 mm in the pinned mesh test.
-  Runtime PNG occlusion and MVT overlap remain unproved.
+  PNG mark 4 retains dark waves near station 1830 m; isolate terrain occlusion,
+  normal shading and shadow before changing geometry. MVT overlap is unproved.
 
 ## Executable sequence and falsification
 

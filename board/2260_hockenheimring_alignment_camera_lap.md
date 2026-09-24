@@ -75,18 +75,15 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    tick of the 267-edge lap against `sampleRoute`, bounded station/eye steps,
    startup refusal and view reselection.
    Remaining: presentation interpolation, per-frame road-coverage/contact
-   proof, refined streaming and visual acceptance. A paced 300 s capture
-   traversed all 267 segments and 4575.880 m by 214.233 s. Station never
-   regressed, advanced at most 0.5 m/tick, and eye movement stayed below
-   0.505 m/tick. Only 2378/12854 moving frames were refined; p99 CPU
-   advance+render was 11.552 ms, 32 moving frames exceeded 16.667 ms, and
-   heap peaked at 488.025 MiB. `outshine-client run --motion --samples --view
-   lap --at-seconds 220 --into places src/assets/places/Hockenheimring.scenario
-   HockenheimSamples` saves route-decile PNGs and a per-frame TSV. All eleven
-   PNGs were opened: road remains visible, but uniformly grey asphalt, flat
-   ground colors, abrupt distant edges and crude dark buildings fail visual
-   acceptance. The sampled run had 10474/13200 unrefined frames, p99 12.281 ms,
-   32 over-budget frames and 483.033 MiB peak heap. In a warm offline 20 s
+   proof, refined streaming and visual acceptance. A paced 220 s real-DEM
+   capture traverses all 267 segments and 4575.927 m by 213.833 s. Station
+   never regresses; maximum eye step is 0.5042 m/tick. Chord-length-weighted
+   grade caps observed vertical eye acceleration at 4.755 m/s², zero frames
+   over 1 g, versus 36.865 m/s² and five frames before. All eleven PNGs
+   were opened: road is visible but uniformly grey; mark 4 retains dark waves,
+   flat ground, abrupt distance edges and crude buildings. Of 13200 frames,
+   7155 are unrefined, 33 exceed 16.667 ms; p50/p95/p99 is
+   2.01/7.25/12.95 ms, peak heap 619.9 MiB. In a warm offline 20 s
    lap, the graph worker cuts unrefined frames from 1200 to about 1075; p99 is
    13.73 ms with seven over-budget frames. Only two candidates start, so
    restart is not the cause. The phase ledger counts 563 bake waits, 857
