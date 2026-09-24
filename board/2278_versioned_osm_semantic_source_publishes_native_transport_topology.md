@@ -36,7 +36,8 @@ is only a road-corridor rendering input.
    A `sha256:` pin verifies local source bytes before parsing. The authored
    Hockenheim scenario must use the shipped asset, not a test-only path.
 2. `world/data` owns byte acquisition, limits, parsing and chunk identity.
-   Each chunk records dataset, revision, spatial cell and coverage. Merge
+   Each regional chunk records dataset, revision and coverage. WI 2280 adds
+   worldwide source-cell identity and residency. Merge
    only identical dataset/revision; reject conflicting objects. Missing Way
    nodes or Relation members remain explicit until an enclosing source
    coverage is complete; they cannot become silent disconnected edges.
@@ -83,9 +84,9 @@ parse and graph times, source bytes and pending jobs reach public diagnostics.
 Names describe those ownership boundaries; do not reintroduce parser or file IO
 into `world/navigation`.
 
-The remaining work is spatial scheduling of source cells around moving focus,
-real cancellation/backpressure when revisions overtake the two-job queue,
-and Engine/scenario access to the native route. Adjacent shuffled chunks, conflicting
+The remaining regional work is cancellation/backpressure when revisions
+overtake the two-job queue and Engine/scenario access to the native route.
+Worldwide focus-based source-cell scheduling is WI 2280. Adjacent shuffled chunks, conflicting
 source IDs, mixed revisions and corrected equal-sized replacement now pass the
 worker-publication test. Prove route stability under mesh eviction and moving
 focus before closing this WI; the camera lap stays in 2260.
