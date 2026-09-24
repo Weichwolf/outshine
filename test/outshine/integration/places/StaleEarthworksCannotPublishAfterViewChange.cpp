@@ -107,14 +107,20 @@ int Run() {
 
   CHECK(engine.setView("c").has_value() && engine.advance().has_value(),
         "view C requests a new projection revision");
-  const auto restarted = Measure(engine, "ground candidate: starts");
   const auto mismatch = Measure(engine, "ground candidate: revision mismatch mask");
-  CHECK(restarted && *restarted > *started + 1.0 && mismatch &&
-            (static_cast<unsigned>(*mismatch) & (1u << 5u)) != 0u,
-        "projection change discards the active B candidate and starts C");
+  CHECK(mismatch && (static_cast<unsigned>(*mismatch) & (1u << 5u)) != 0u,
+        "projection change immediately invalidates the active B candidate");
   CHECK(Measure(engine, "times the terrain was rebuilt") == publications,
         "stale B cannot publish at the revision switch");
   CHECK(!engine.settled(WorldQuality::Refined), "old A projection cannot satisfy view C readiness");
+
+  const bool restartedC = AdvanceUntil(engine, [&] {
+    const auto starts = Measure(engine, "ground candidate: starts");
+    return starts && *starts > *started + 1.0;
+  });
+  CHECK(restartedC, "view C starts after bounded retirement of B");
+  CHECK(Measure(engine, "times the terrain was rebuilt") == publications,
+        "retirement of B cannot publish partly pressed ground");
 
   const bool final = AdvanceUntil(engine, [&] {
     const auto count = Measure(engine, "times the terrain was rebuilt");
