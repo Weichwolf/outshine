@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
+#include <ranges>
 
 namespace outshine::Generators {
 
@@ -33,12 +35,8 @@ Vec3 RoadAlignment::Derivative(const Cubic &curve, double parameter) noexcept {
 }
 
 std::optional<size_t> RoadAlignment::FindEdgeIndex(World::TransportEdgeId id) const noexcept {
-  const auto found = std::lower_bound(EdgeIndicesById_.begin(),
-                                      EdgeIndicesById_.end(),
-                                      id,
-                                      [this](uint32_t index, World::TransportEdgeId needle) {
-                                        return Edges_[index].SourceEdge < needle;
-                                      });
+  const auto found = std::ranges::lower_bound(
+      EdgeIndicesById_, id, {}, [this](uint32_t index) { return Edges_[index].SourceEdge; });
   if (found == EdgeIndicesById_.end() || Edges_[*found].SourceEdge != id) { return std::nullopt; }
   return static_cast<size_t>(*found);
 }
@@ -48,8 +46,9 @@ const RoadAlignmentEdge *RoadAlignment::FindEdge(World::TransportEdgeId id) cons
   return index ? &Edges_[*index] : nullptr;
 }
 
-std::optional<RoadAlignmentPose> RoadAlignment::SampleEdge(size_t edgeIndex,
-                                                           double edgeStationM) const noexcept {
+std::optional<RoadAlignmentPose> RoadAlignment::SampleEdge(EdgeStation request) const noexcept {
+  const size_t edgeIndex = request.EdgeIndex;
+  double edgeStationM = request.DistanceM;
   const RoadAlignmentEdge &edge = Edges_[edgeIndex];
   const ArcRange range = ArcRanges_[edgeIndex];
   const ArcSample *const first = ArcSamples_.data() + range.Begin;
@@ -87,7 +86,7 @@ std::optional<RoadAlignmentPose> RoadAlignment::SampleEdge(size_t edgeIndex,
 std::optional<RoadAlignmentPose> RoadAlignment::AtEdgeStation(World::TransportEdgeId id,
                                                               double edgeStationM) const noexcept {
   const std::optional<size_t> index = FindEdgeIndex(id);
-  return index ? SampleEdge(*index, edgeStationM) : std::nullopt;
+  return index ? SampleEdge({.EdgeIndex = *index, .DistanceM = edgeStationM}) : std::nullopt;
 }
 
 std::optional<RoadAlignmentPose> RoadAlignment::AtStation(double stationM) const noexcept {
@@ -97,13 +96,11 @@ std::optional<RoadAlignmentPose> RoadAlignment::AtStation(double stationM) const
   } else if (stationM > LengthM_) {
     return std::nullopt;
   }
-  const auto upper = std::upper_bound(
-      Edges_.begin(), Edges_.end(), stationM, [](double station, const RoadAlignmentEdge &edge) {
-        return station < edge.StartStationM;
-      });
+  const auto upper =
+      std::ranges::upper_bound(Edges_, stationM, {}, &RoadAlignmentEdge::StartStationM);
   const size_t index =
       upper == Edges_.begin() ? 0 : static_cast<size_t>(upper - Edges_.begin() - 1);
-  return SampleEdge(index, stationM - Edges_[index].StartStationM);
+  return SampleEdge({.EdgeIndex = index, .DistanceM = stationM - Edges_[index].StartStationM});
 }
 
 }

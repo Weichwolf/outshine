@@ -107,7 +107,7 @@ RoadAlignmentBuilder::AppendEdge(RoadAlignment &alignment,
                                    .EndM = points[index + 1],
                                    .StartDerivativeM = tangents[index] * chordM,
                                    .EndDerivativeM = tangents[index + 1] * chordM};
-  const uint32_t arcBegin = static_cast<uint32_t>(alignment.ArcSamples_.size());
+  const auto arcBegin = static_cast<uint32_t>(alignment.ArcSamples_.size());
   alignment.ArcSamples_.push_back({.Parameter = 0.0, .DistanceM = 0.0});
   Vec3 previous = curve.StartM;
   double arcLengthM = 0.0;

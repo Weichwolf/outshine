@@ -101,11 +101,15 @@ private:
     uint32_t Count = 0;
   };
 
+  struct EdgeStation {
+    size_t EdgeIndex = 0;
+    double DistanceM = 0.0;
+  };
+
   RoadAlignment() = default;
   [[nodiscard]] static Vec3 Evaluate(const Cubic &curve, double parameter) noexcept;
   [[nodiscard]] static Vec3 Derivative(const Cubic &curve, double parameter) noexcept;
-  [[nodiscard]] std::optional<RoadAlignmentPose> SampleEdge(size_t edgeIndex,
-                                                            double edgeStationM) const noexcept;
+  [[nodiscard]] std::optional<RoadAlignmentPose> SampleEdge(EdgeStation request) const noexcept;
   [[nodiscard]] std::optional<size_t> FindEdgeIndex(World::TransportEdgeId id) const noexcept;
 
   Data::OsmSourceIdentity SourceIdentity_;

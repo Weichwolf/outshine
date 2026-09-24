@@ -2,6 +2,7 @@
 #include "OsmXmlReader.h"
 #include "RoadAlignment.h"
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iterator>
@@ -49,6 +50,7 @@ int main() {
         "the source circuit retains every edge and a plausible measured arc length");
 
   bool allSeams = true;
+  double maximumSourceOffsetM = 0.0;
   for (size_t index = 0; index < alignment->Edges().size(); ++index) {
     const RoadAlignmentEdge &current = alignment->Edges()[index];
     const RoadAlignmentEdge &next = alignment->Edges()[(index + 1) % alignment->Edges().size()];
@@ -63,8 +65,28 @@ int main() {
                 Dot(end->TangentEnu, start->TangentEnu) > 1.0 - 1e-10 &&
                 std::abs(end->WidthM - start->WidthM) < 1e-10 &&
                 current.EndStationM > current.StartStationM;
+    const EastNorthUp &from = constraints->Points()[index].TerrainLocalM;
+    const EastNorthUp &to = constraints->Points()[index + 1].TerrainLocalM;
+    const double eastM = to.EastM - from.EastM;
+    const double northM = to.NorthM - from.NorthM;
+    const double chordM = std::hypot(eastM, northM);
+    for (int sample = 1; sample < 8; ++sample) {
+      const double edgeStationM =
+          (current.EndStationM - current.StartStationM) * static_cast<double>(sample) / 8.0;
+      const auto pose = alignment->AtEdgeStation(current.SourceEdge, edgeStationM);
+      if (!pose) {
+        allSeams = false;
+        continue;
+      }
+      const double offsetM = std::abs((pose->PositionM.EastM - from.EastM) * northM -
+                                      (pose->PositionM.NorthM - from.NorthM) * eastM) /
+                             chordM;
+      maximumSourceOffsetM = std::max(maximumSourceOffsetM, offsetM);
+    }
   }
   CHECK(allSeams, "all 267 edge seams, including lap closure, share pose and width");
+  CHECK(maximumSourceOffsetM < 1.0,
+        "the smoothed centerline stays within one metre of the independent source chords");
 
   const auto first = alignment->AtStation(0.0);
   const auto lap = alignment->AtStation(alignment->LengthM());
