@@ -84,6 +84,7 @@ into `world/navigation`.
 
 The remaining work is spatial scheduling of source cells around moving focus,
 real cancellation/backpressure when revisions overtake the two-job queue,
-and query access for route consumers. Test adjacent shuffled chunks, revision
-conflict, absent members and synthetic XY crossing independently of the pinned
-track. Only then mark this WI complete; the camera lap stays in 2260.
+and query access for route consumers. Adjacent shuffled chunks, conflicting
+source IDs, mixed revisions and corrected equal-sized replacement now pass the
+worker-publication test. Prove route stability under mesh eviction and moving
+focus before closing this WI; the camera lap stays in 2260.
