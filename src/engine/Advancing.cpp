@@ -90,7 +90,7 @@ ApplyCamera(Core::RuntimeScene &scene,
 }
 }
 
-bool Engine::State::Watches() {
+bool Engine::State::UpdateActiveCamera() {
   if (!Session.Views || !Picture.Standing) { return true; }
   const Scenario::View &seen = Session.Views->Active();
   if (seen.Placement == Scenario::CameraPlacement::FollowEntity) {
@@ -424,11 +424,11 @@ bool Engine::State::Updates() {
   Simulation->Integrate(simulationStepS, {{0.0, -gravityMs2, 0.0}});
   Ticking.ElapsedS += simulationStepS;
   const bool triggered = UpdateTriggers();
-  const bool watched = triggered && Watches();
+  const bool cameraUpdated = triggered && UpdateActiveCamera();
   Cost.Simulation.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - simulationAt)
           .count());
-  if (!triggered || !watched) { return false; }
+  if (!triggered || !cameraUpdated) { return false; }
   const GroundQuality quality =
       World.GroundPublished.Current() ? GroundQuality::Refined : GroundQuality::Playable;
   const auto groundAt = std::chrono::steady_clock::now();
@@ -483,10 +483,11 @@ Result Engine::advance() {
   S_->Cost.Update.Took(updateMs);
   if (!updated) { return std::unexpected(S_->Error); }
   S_->Cost.ObservesSuccessfulUpdate(updateMs, S_->Session.Declared.Ground.Declared);
-  const auto tellingAt = std::chrono::steady_clock::now();
-  S_->Tells();
-  S_->Cost.Telling.Took(
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tellingAt)
+  const auto publicationAt = std::chrono::steady_clock::now();
+  S_->PublishFrameMeasurements();
+  S_->PublishAudioSnapshot();
+  S_->Cost.FramePublication.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - publicationAt)
           .count());
   const auto sceneAt = std::chrono::steady_clock::now();
   const bool drew = S_->Draws();
@@ -501,8 +502,8 @@ Result Engine::advance() {
 void Engine::State::Drew() {
   static const Heap::Tag kDrewTag("frame-drew");
   const Heap::Tagged drew(kDrewTag);
-  static const Heap::Tag kTellingTag("frame-measures");
-  const Heap::Tagged telling(kTellingTag);
+  static const Heap::Tag kFrameMeasurementsTag("frame-measures");
+  const Heap::Tagged measuring(kFrameMeasurementsTag);
   Published.Places(
       "bodies the world's generators placed", static_cast<double>(World.Placed), "bodies");
   Published.Places(

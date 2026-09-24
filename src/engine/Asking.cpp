@@ -225,11 +225,11 @@ bool Engine::State::Composes() {
   static const Heap::Tag kComposingTag("world-compose");
   const Heap::Tagged composing(kComposingTag);
   World.GroundTiles = 0;
-  if (!Stood()) { return false; }
+  if (!EnsureRuntimeScene()) { return false; }
   const Scenario::Document &declared = Session.Declared;
   if (Session.Views &&
       (Session.Views->Active().Placement != Scenario::CameraPlacement::FollowEntity) &&
-      !Session.Views->Active().Geographic.SamplesHeight && !Watches()) {
+      !Session.Views->Active().Geographic.SamplesHeight && !UpdateActiveCamera()) {
     return false;
   }
   if (!declared.Ground.Declared) { return true; }
@@ -337,7 +337,7 @@ bool Engine::State::Composes() {
   return Grounds(true, GroundQuality::Playable);
 }
 
-bool Engine::State::Asks() {
+bool Engine::State::RequestTerrainCoverage() {
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }

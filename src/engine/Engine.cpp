@@ -483,7 +483,7 @@ Engine::State::FlushPreloadGround(std::chrono::steady_clock::time_point began, d
 Result Engine::State::PumpPreload() {
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.Opens();
-  if (!Asks()) { return std::unexpected(Error); }
+  if (!RequestTerrainCoverage()) { return std::unexpected(Error); }
   const LongitudeLatitude stands = WhereTheEyeStands();
   const double atLat = stands.LatitudeDeg;
   const double atLon = stands.LongitudeDeg;

@@ -133,7 +133,7 @@ Result Engine::render(Extent frame) {
   if (const auto valid = ValidateFrameExtent(frame, S_->Picture); !valid) {
     return std::unexpected(valid.error());
   }
-  if (!S_->Stood()) { return std::unexpected(S_->Error); }
+  if (!S_->EnsureRuntimeScene()) { return std::unexpected(S_->Error); }
   const auto began = std::chrono::steady_clock::now();
   if (!DrawScene(S_->Picture, S_->Error)) { return std::unexpected(S_->Error); }
   S_->Published.Opens();
@@ -228,7 +228,7 @@ Result Engine::render(Extent frame) {
 
 Result Engine::inspect() {
   [[maybe_unused]] const auto logs = S_->Logs();
-  if (!S_->Stood()) { return std::unexpected(S_->Error); }
+  if (!S_->EnsureRuntimeScene()) { return std::unexpected(S_->Error); }
   if (!S_->Picture.Standing) {
     S_->Error = "nothing stands to be inspected -- a scenario is declared before a frame carries "
                 "anything a readback could tell";
@@ -291,7 +291,7 @@ Result Engine::beginFrame() {
   if (S_->Picture.Scope != FrameScope::Closed) {
     return std::unexpected(std::string(Says::kFrameAlreadyOpen));
   }
-  if (!S_->Stood()) { return std::unexpected(S_->Error); }
+  if (!S_->EnsureRuntimeScene()) { return std::unexpected(S_->Error); }
   if (!S_->Picture.Standing) {
     return std::unexpected(std::string("a frame is begun over a scenario, and none stands"));
   }

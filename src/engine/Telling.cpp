@@ -41,7 +41,7 @@ constexpr auto NoRenderTarget = "a render target is required before creating the
 
 constexpr float kNearestOccluderM = 0.01f;
 
-bool Engine::State::Stood() {
+bool Engine::State::EnsureRuntimeScene() {
   if (!Picture.Standing) {
     if (!Picture.Targeted) {
       Error = Says::NoRenderTarget;
@@ -79,7 +79,7 @@ bool Engine::State::Stood() {
   return true;
 }
 
-void Engine::State::TellResourcePayloads() {
+void Engine::State::PublishResourcePayloadMeasurements() {
   if (!Picture.Standing) { return; }
   Published.Places("streamed piece CPU payload capacity",
                    static_cast<double>(Picture.Device.PieceSourceBytes()),
@@ -95,11 +95,11 @@ void Engine::State::TellResourcePayloads() {
                    "bytes");
 }
 
-void Engine::State::Tells() {
-  static const Heap::Tag kTellingTag("frame-tells");
-  const Heap::Tagged telling(kTellingTag);
+void Engine::State::PublishFrameMeasurements() {
+  static const Heap::Tag kFrameMeasurementsTag("frame-measurements");
+  const Heap::Tagged measuring(kFrameMeasurementsTag);
   if (Heap::ProcessInstrumentationEnabled()) {
-    TellResourcePayloads();
+    PublishResourcePayloadMeasurements();
     Published.Places(
         "process C++ heap live bytes", static_cast<double>(Heap::LiveBytes()), "bytes");
     for (size_t at = 0; at < Heap::TagCount(); ++at) {
@@ -136,7 +136,7 @@ void Engine::State::Tells() {
                            worst.CrownsMs,
                        "ms");
     }
-    Published.Places("measurement publication time, most", Cost.Telling.MostMs(), "ms");
+    Published.Places("frame publication time, most", Cost.FramePublication.MostMs(), "ms");
     Published.Places("scene advance time, most", Cost.SceneAdvance.MostMs(), "ms");
     Published.Places("streaming and bake time, most", Cost.Streaming.MostMs(), "ms");
     Published.Places("piece handoff time, most", Cost.PieceHandoff.MostMs(), "ms");
@@ -281,8 +281,6 @@ void Engine::State::Tells() {
       Published.Places("published twice in one round: " + one, 1.0, "rows");
     }
   }
-
-  PublishAudioSnapshot();
 }
 
 void Engine::State::PublishAudioSnapshot() {

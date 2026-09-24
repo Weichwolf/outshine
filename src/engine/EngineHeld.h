@@ -331,7 +331,7 @@ struct Spent {
 
   Counter Advance;
   Counter Update;
-  Counter Telling;
+  Counter FramePublication;
   Counter SceneAdvance;
   Counter Streaming;
   Counter PieceHandoff;
@@ -424,7 +424,7 @@ struct Engine::State {
   FlushPreloadGround(std::chrono::steady_clock::time_point began, double bound);
   [[nodiscard]] Result PreloadTimeout(double bound);
   void AwaitPreloadProgress(double seconds);
-  [[nodiscard]] bool Watches();
+  [[nodiscard]] bool UpdateActiveCamera();
 
   struct Classed {
     std::vector<float> Palette;
@@ -501,22 +501,22 @@ struct Engine::State {
   [[nodiscard]] bool AdvancesGroundWithinBudget(GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundRetirement();
   [[nodiscard]] bool GroundInputsReady(GroundQuality quality) const;
-  [[nodiscard]] bool Asks();
+  [[nodiscard]] bool RequestTerrainCoverage();
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool Carries(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool Composes();
   bool Grows(double atLat, double atLon);
   [[nodiscard]] bool GrowsOver(const Generators::Tile &region, LevelOfDetail coarseness);
   [[nodiscard]] LongitudeLatitude WhereTheEyeStands() const;
-  [[nodiscard]] bool Stood();
+  [[nodiscard]] bool EnsureRuntimeScene();
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateCrowns(bool prepare);
   [[nodiscard]] bool Bakes(size_t landsMost);
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
-  void Tells();
-  void TellResourcePayloads();
+  void PublishFrameMeasurements();
+  void PublishResourcePayloadMeasurements();
   void PublishAudioSnapshot();
   [[nodiscard]] bool IsAudioOccluded(const Vec3 &sourceM) const;
 };

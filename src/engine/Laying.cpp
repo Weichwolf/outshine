@@ -852,7 +852,7 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
       if (!*position) { return std::unexpected(Laid::Pending); }
     }
   }
-  if (!Watches()) { return std::unexpected(Laid::Refused); }
+  if (!UpdateActiveCamera()) { return std::unexpected(Laid::Refused); }
   GroundRequest request{.Coverage = over, .Revision = {}};
   switch (Focuses(
       request, {.LongitudeDeg = atLon, .LatitudeDeg = atLat}, alsoWhenTilesLanded, quality)) {
