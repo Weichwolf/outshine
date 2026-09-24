@@ -82,6 +82,10 @@ public:
 
   [[nodiscard]] size_t RouteCount() const noexcept { return Transport_.Routes.size(); }
 
+  [[nodiscard]] std::span<const NamedCircuitRoute> Routes() const noexcept {
+    return Transport_.Routes;
+  }
+
   [[nodiscard]] size_t RouteEdgeCount() const noexcept {
     size_t edges = 0;
     for (const NamedCircuitRoute &route : Transport_.Routes) {

@@ -15,8 +15,8 @@ int main() {
   CHECK(publication.Publish(initial), "the first complete ground revision publishes");
   CHECK(!publication.NeedsRebuild(initial, true, false),
         "the successfully published revision needs no duplicate build");
-  std::array<GroundRevision, 9> changed{
-      initial, initial, initial, initial, initial, initial, initial, initial, initial};
+  std::array<GroundRevision, 10> changed{
+      initial, initial, initial, initial, initial, initial, initial, initial, initial, initial};
   ++changed[0].Region;
   ++changed[1].Classes;
   ++changed[2].Footprints;
@@ -26,6 +26,7 @@ int main() {
   changed[6].Projection[1] = 0.5;
   changed[7].Projection[2] = 4;
   ++changed[8].VectorGeneration;
+  ++changed[9].TransportSourceGeneration;
   for (const GroundRevision &requested : changed) {
     CHECK(publication.NeedsRebuild(requested, false, false),
           "region, source snapshot, data and projection changes rebuild independently of residency "

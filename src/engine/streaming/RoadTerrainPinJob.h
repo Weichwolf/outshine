@@ -15,6 +15,7 @@
 namespace outshine {
 
 enum class RoadTerrainPinErrorCode : uint8_t {
+  SourceMismatch,
   InvalidZoom,
   EmptyRoute,
   TooManyEdges,
@@ -46,11 +47,23 @@ struct RoadTerrainPinRequest {
   uint64_t CandidateGeneration = 0;
 };
 
+struct RoadTerrainTileSelectionRequest {
+  int Zoom = 0;
+  size_t MaximumTiles = 0;
+};
+
 class RoadTerrainPinJob {
 public:
+  [[nodiscard]] static std::expected<std::vector<Data::TileId>, RoadTerrainPinError>
+  SelectTiles(const World::TransportTopology &topology,
+              const Data::OsmSourceIdentity &selectionSource,
+              std::span<const World::TransportEdgeId> route,
+              RoadTerrainTileSelectionRequest request);
+
   [[nodiscard]] static std::expected<RoadTerrainPinJob, RoadTerrainPinError>
   Begin(SourcedTerrainFields fields,
         const World::TransportTopology &topology,
+        const Data::OsmSourceIdentity &selectionSource,
         std::span<const World::TransportEdgeId> route,
         RoadTerrainPinRequest request);
 

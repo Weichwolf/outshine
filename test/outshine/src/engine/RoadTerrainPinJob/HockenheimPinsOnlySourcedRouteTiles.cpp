@@ -54,6 +54,18 @@ int main() {
   tiles.erase(std::ranges::unique(tiles).begin(), tiles.end());
   CHECK(tiles.size() > 1 && tiles.size() < 64,
         "the route needs a bounded multi-tile terrain pin at its declared zoom");
+  const auto selected =
+      RoadTerrainPinJob::SelectTiles(*topology,
+                                     route->SourceIdentity,
+                                     route->EdgeIds,
+                                     {.Zoom = zoom, .MaximumTiles = tiles.size()});
+  CHECK(selected && *selected == tiles,
+        "tile selection equals independently computed source-node coverage");
+  const OsmSourceIdentity stale{.DatasetId = "openstreetmap", .Revision = "previous"};
+  const auto staleSelection = RoadTerrainPinJob::SelectTiles(
+      *topology, stale, route->EdgeIds, {.Zoom = zoom, .MaximumTiles = tiles.size()});
+  CHECK(!staleSelection && staleSelection.error().Code == RoadTerrainPinErrorCode::SourceMismatch,
+        "a stale route revision cannot request terrain from the current graph");
 
   using Entry = SourcedTerrainFields::Entry;
   std::vector<Entry> fields;
@@ -72,6 +84,7 @@ int main() {
   auto shortBudget = RoadTerrainPinJob::Begin(
       SourcedTerrainFields(fields),
       *topology,
+      route->SourceIdentity,
       route->EdgeIds,
       {.Zoom = zoom, .MaximumTiles = tiles.size() - 1, .CandidateGeneration = 17});
   CHECK(!shortBudget && shortBudget.error().Code == RoadTerrainPinErrorCode::TooManyTiles,
@@ -82,6 +95,7 @@ int main() {
   auto missing = RoadTerrainPinJob::Begin(
       SourcedTerrainFields(fields),
       *topology,
+      route->SourceIdentity,
       route->EdgeIds,
       {.Zoom = zoom, .MaximumTiles = tiles.size(), .CandidateGeneration = 17});
   CHECK(missing.has_value(), "the bounded route pin starts from immutable source fields");
@@ -93,6 +107,7 @@ int main() {
   auto complete = RoadTerrainPinJob::Begin(
       SourcedTerrainFields(std::move(completeFields)),
       *topology,
+      route->SourceIdentity,
       route->EdgeIds,
       {.Zoom = zoom, .MaximumTiles = tiles.size(), .CandidateGeneration = 18});
   CHECK(complete.has_value(), "the complete route pin starts");

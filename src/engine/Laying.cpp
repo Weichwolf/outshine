@@ -50,6 +50,7 @@
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
 #include "VectorStreetGraph.h"
+#include "RoadHeightCoverage.h"
 
 namespace outshine {
 namespace Says {
@@ -203,12 +204,17 @@ public:
       : Coverage_(coverage),
         Revision_(revision),
         Candidate_(renderer, world, footprints),
+        TransportSnapshot_(world.OsmTransportLoader && world.OsmTransportLoader->CurrentPhase() ==
+                                                           World::OsmTransportLoader::Phase::Ready
+                               ? world.OsmTransportLoader->Current()
+                               : nullptr),
         Id_(id) {}
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
     return Revision_.Region == revision.Region && Revision_.Classes == revision.Classes &&
            Revision_.Footprints == revision.Footprints &&
            Revision_.VectorGeneration == revision.VectorGeneration &&
+           Revision_.TransportSourceGeneration == revision.TransportSourceGeneration &&
            Revision_.StreetTiles == revision.StreetTiles &&
            Revision_.WaterTiles == revision.WaterTiles &&
            Revision_.Projection == revision.Projection && Revision_.Coverage == revision.Coverage &&
@@ -226,6 +232,8 @@ public:
     difference |= Revision_.Coverage != revision.Coverage ? 1u << 6u : 0u;
     difference |= Revision_.Quality != revision.Quality ? 1u << 7u : 0u;
     difference |= Revision_.VectorGeneration != revision.VectorGeneration ? 1u << 8u : 0u;
+    difference |=
+        Revision_.TransportSourceGeneration != revision.TransportSourceGeneration ? 1u << 9u : 0u;
     return difference;
   }
 
@@ -236,6 +244,16 @@ public:
   [[nodiscard]] uint64_t Id() const noexcept { return Id_; }
 
   [[nodiscard]] GroundWorldCandidate &Candidate() noexcept { return Candidate_; }
+
+  [[nodiscard]] const World::TransportNetworkSnapshot *TransportSnapshot() const noexcept {
+    return TransportSnapshot_.get();
+  }
+
+  void SetRoadHeightTiles(std::vector<Data::TileId> tiles) { RoadHeightTiles_ = std::move(tiles); }
+
+  [[nodiscard]] std::span<const Data::TileId> RoadHeightTiles() const noexcept {
+    return RoadHeightTiles_;
+  }
 
   [[nodiscard]] MeshBuild &Meshing() noexcept { return Meshing_; }
 
@@ -477,6 +495,7 @@ public:
 private:
   [[nodiscard]] size_t CurrentProductBytes() const noexcept {
     const size_t phaseBytes = (Patchwork_ ? Patchwork_->HeapBytes() : 0u) +
+                              RoadHeightTiles_.capacity() * sizeof(Data::TileId) +
                               Corridors_.capacity() * sizeof(EarthworkStamp) +
                               Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
                               Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
@@ -496,6 +515,8 @@ private:
   Around Coverage_;
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
+  std::shared_ptr<const World::TransportNetworkSnapshot> TransportSnapshot_;
+  std::vector<Data::TileId> RoadHeightTiles_;
   std::optional<Patchwork> Patchwork_;
   std::unique_ptr<Generators::BuildingStampJob> Stamping_;
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
@@ -733,6 +754,13 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   const bool elsewhere = from != previous.Region;
   const bool renamed = classes != previous.Classes;
   const uint64_t footprints = World.Stack.Footprints().Revision();
+  const World::OsmTransportLoader *const transportLoader = World.OsmTransportLoader.get();
+  const uint64_t transportGeneration =
+      transportLoader != nullptr &&
+              transportLoader->CurrentPhase() == World::OsmTransportLoader::Phase::Ready &&
+              transportLoader->Current()
+          ? transportLoader->CompletedCount()
+          : 0;
   const Render::Viewpoint &view = Picture.Standing->Watching();
   const std::array<double, 3> projection{
       {static_cast<double>(view.Kind), view.YfovRad, view.YMagM}};
@@ -745,6 +773,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                       .VectorGeneration = World.Stack.Vectors() != nullptr
                                               ? World.Stack.Vectors()->Generation()
                                               : 0,
+                      .TransportSourceGeneration = transportGeneration,
                       .StreetTiles = World.Stack.Ways().IngestedTiles(),
                       .WaterTiles = World.Stack.WaterBodies().IngestedTiles(),
                       .Projection = projection,
@@ -1182,6 +1211,22 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundBuild(const Ground
                                                            request.Coverage,
                                                            request.Revision,
                                                            World.GroundCandidates);
+    if (const auto *source = World.GroundBuild->TransportSnapshot()) {
+      auto routeTiles = RoadHeightCoverage::Select(
+          *source, {.Zoom = request.Coverage.Zoom, .MaximumEdges = 512, .MaximumTiles = 256});
+      if (!routeTiles) {
+        Error = std::move(routeTiles.error());
+        World.GroundBuild.reset();
+        return GroundBuildProgress::Failed;
+      }
+      Published.Places("semantic road route tiles requested",
+                       static_cast<double>(routeTiles->Tiles.size()),
+                       "tiles");
+      Published.Places("semantic road routes deferred by local tile budget",
+                       static_cast<double>(routeTiles->DeferredRoutes),
+                       "routes");
+      World.GroundBuild->SetRoadHeightTiles(std::move(routeTiles->Tiles));
+    }
     Cost.GroundBuildCreate.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - createAt)
             .count());
@@ -1236,7 +1281,8 @@ Engine::State::GroundBuildProgress Engine::State::BeginsGroundSheets(const Tange
           World.Stack.Ground(),
           {.FinestZoom = coverage.Zoom,
            .RequestsMost = kTerrainSheetsPerFrame,
-           .Vectors = HeightCoverageVectors(state.Revision().Quality, World.Stack.Vectors())});
+           .Vectors = HeightCoverageVectors(state.Revision().Quality, World.Stack.Vectors()),
+           .AdditionalTiles = state.RoadHeightTiles()});
       if (!prepared) {
         Error = prepared.error();
         World.GroundBuild.reset();

@@ -8,6 +8,7 @@
 #include <span>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 namespace outshine {
 namespace {
@@ -28,11 +29,14 @@ Error(RoadTerrainPinErrorCode code, World::TransportEdgeId edge = {}, uint64_t n
 
 }
 
-std::expected<RoadTerrainPinJob, RoadTerrainPinError>
-RoadTerrainPinJob::Begin(SourcedTerrainFields fields,
-                         const World::TransportTopology &topology,
-                         std::span<const World::TransportEdgeId> route,
-                         RoadTerrainPinRequest request) {
+std::expected<std::vector<Data::TileId>, RoadTerrainPinError>
+RoadTerrainPinJob::SelectTiles(const World::TransportTopology &topology,
+                               const Data::OsmSourceIdentity &selectionSource,
+                               std::span<const World::TransportEdgeId> route,
+                               RoadTerrainTileSelectionRequest request) {
+  if (topology.SourceIdentity() != selectionSource) {
+    return std::unexpected(Error(RoadTerrainPinErrorCode::SourceMismatch));
+  }
   if (request.Zoom < 0 || request.Zoom > Ground::HeightField::MaximumTileZoom) {
     return std::unexpected(Error(RoadTerrainPinErrorCode::InvalidZoom));
   }
@@ -40,12 +44,8 @@ RoadTerrainPinJob::Begin(SourcedTerrainFields fields,
   if (route.size() > kMaximumRouteEdges) {
     return std::unexpected(Error(RoadTerrainPinErrorCode::TooManyEdges));
   }
-  RoadTerrainPinJob job;
-  job.Fields_ = std::move(fields);
-  job.SourceIdentity_ = topology.SourceIdentity();
-  job.CandidateGeneration_ = request.CandidateGeneration;
-  job.Zoom_ = request.Zoom;
-  job.Tiles_.reserve(std::min(request.MaximumTiles, route.size() * 2));
+  std::vector<Data::TileId> tiles;
+  tiles.reserve(std::min(request.MaximumTiles, route.size() * 2));
   for (const World::TransportEdgeId id : route) {
     const World::TransportEdge *edge = topology.FindEdge(id);
     if (edge == nullptr) {
@@ -56,16 +56,36 @@ RoadTerrainPinJob::Begin(SourcedTerrainFields fields,
       if (node == nullptr) {
         return std::unexpected(Error(RoadTerrainPinErrorCode::MissingNode, id, nodeId));
       }
-      job.Tiles_.push_back(TileAt(*node, request.Zoom));
+      tiles.push_back(TileAt(*node, request.Zoom));
     }
   }
-  std::ranges::sort(job.Tiles_, [](Data::TileId left, Data::TileId right) {
+  std::ranges::sort(tiles, [](Data::TileId left, Data::TileId right) {
     return std::tie(left.Zoom, left.X, left.Y) < std::tie(right.Zoom, right.X, right.Y);
   });
-  job.Tiles_.erase(std::ranges::unique(job.Tiles_).begin(), job.Tiles_.end());
-  if (job.Tiles_.size() > request.MaximumTiles) {
+  tiles.erase(std::ranges::unique(tiles).begin(), tiles.end());
+  if (tiles.size() > request.MaximumTiles) {
     return std::unexpected(Error(RoadTerrainPinErrorCode::TooManyTiles));
   }
+  return tiles;
+}
+
+std::expected<RoadTerrainPinJob, RoadTerrainPinError>
+RoadTerrainPinJob::Begin(SourcedTerrainFields fields,
+                         const World::TransportTopology &topology,
+                         const Data::OsmSourceIdentity &selectionSource,
+                         std::span<const World::TransportEdgeId> route,
+                         RoadTerrainPinRequest request) {
+  auto tiles = SelectTiles(topology,
+                           selectionSource,
+                           route,
+                           {.Zoom = request.Zoom, .MaximumTiles = request.MaximumTiles});
+  if (!tiles) { return std::unexpected(tiles.error()); }
+  RoadTerrainPinJob job;
+  job.Fields_ = std::move(fields);
+  job.SourceIdentity_ = selectionSource;
+  job.CandidateGeneration_ = request.CandidateGeneration;
+  job.Zoom_ = request.Zoom;
+  job.Tiles_ = std::move(*tiles);
   job.Blocks_.reserve(job.Tiles_.size());
   return job;
 }

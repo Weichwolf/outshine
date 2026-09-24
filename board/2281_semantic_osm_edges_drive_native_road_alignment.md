@@ -41,7 +41,11 @@ become the source-ID contract. No authored track spline or place-name branch.
 with controlled sourced DEM in tests. `SourcedTerrainFields` owns an immutable
 height-field snapshot; `RoadTerrainPinJob` selects bounded route tiles, defers
 missing fields and returns source/candidate provenance. Wire it to the normal
-ground candidate and worker before declaring real DEM coverage or road output.
+ground worker before declaring real DEM coverage or road output. The ground
+candidate now captures one successful transport snapshot, includes its
+generation in rebuild matching, and requests up to 256 additional route DEM
+tiles at its source zoom. `RoadHeightCoverage` admits at most 512 route edges;
+larger routes are reported deferred until sliding-window coverage exists.
 - `RoadConstraintChain` is the bounded preparation input to the solver: an
   ordered, connected set of directed OSM edge IDs, pinned terrain samples,
   geographic/local node positions, width, material class and structure intent.
@@ -61,9 +65,9 @@ ground candidate and worker before declaring real DEM coverage or road output.
   off the frame path. Source identity, DEM source set/digest and candidate
   generation travel with the result; stale completion cannot replace a newer
   candidate. Test missing/changed tiles and normal Hockenheim DEM coverage.
-  The pin job and immutable snapshot are implemented. Remaining: schedule it
-  from the candidate after fields resolve, land only matching generations, and
-  request missing route tiles beyond camera coverage without blocking a frame.
+  Selection and candidate field requests are implemented. Remaining: snapshot
+  the resolved fields, run pin plus alignment off-frame, land only matching
+  generations, and prove normal Hockenheim DEM samples from the public client.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
   Input is one `TransportNetworkSnapshot` revision, a bounded ordered set of
   source edge IDs with source identity selected by route or coverage, and pinned

@@ -3,6 +3,7 @@
 #include "GroundLattice.h"
 #include "SourceSet.h"
 #include "Check.h"
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <memory>
@@ -87,9 +88,20 @@ int main() {
                               .Side = Render::GroundLattice::kSide,
                               .Postings = Render::GroundLattice::kSide});
   const Patchwork original = candidate;
+  HeightSheets invalid;
+  const std::array<Data::TileId, 1> wrongZoom{{{.Zoom = 5, .X = 0, .Y = 0}}};
+  CHECK(!invalid.PrepareFields(
+            candidate, ground, {.FinestZoom = 4, .RequestsMost = 1, .AdditionalTiles = wrongZoom}),
+        "an additional tile from another source zoom cannot enter the candidate");
+  const std::vector<Data::TileId> tooMany(257, {.Zoom = 4, .X = 0, .Y = 0});
+  CHECK(!invalid.PrepareFields(
+            candidate, ground, {.FinestZoom = 4, .RequestsMost = 1, .AdditionalTiles = tooMany}),
+        "additional route fields have an explicit candidate budget");
   HeightSheets sheets;
   sheets.Framed(TangentFrame::At({}));
-  auto prepared = sheets.PrepareFields(candidate, ground, {.FinestZoom = 4, .RequestsMost = 9});
+  const std::array<Data::TileId, 1> routeTiles{{{.Zoom = 4, .X = 0, .Y = 0}}};
+  auto prepared = sheets.PrepareFields(
+      candidate, ground, {.FinestZoom = 4, .RequestsMost = 9, .AdditionalTiles = routeTiles});
   CHECK(prepared.has_value() && !*prepared && !probe->CalledOnCaller,
         "unreleased source leaves a complete candidate pending without caller-side collection");
   CHECK(candidate.Sheets.front().Nodes.size() == Render::GroundLattice::kNodes,
@@ -103,7 +115,8 @@ int main() {
   probe->Released = true;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (prepared && !*prepared && std::chrono::steady_clock::now() < deadline) {
-    prepared = sheets.PrepareFields(candidate, ground, {.FinestZoom = 4, .RequestsMost = 9});
+    prepared = sheets.PrepareFields(
+        candidate, ground, {.FinestZoom = 4, .RequestsMost = 9, .AdditionalTiles = routeTiles});
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   CHECK(prepared.has_value() && *prepared && !probe->CalledOnCaller,
@@ -111,6 +124,7 @@ int main() {
   if (!prepared || !*prepared) { return Report(); }
   Ground::HeightField::Block exact;
   Ground::HeightField::Block child;
+  Ground::HeightField::Block route;
   Ground::HeightField::Block absent;
   CHECK(sheets.CopySourcedField({.Zoom = 4, .X = 8, .Y = 8}, exact) && !exact.Sources.empty() &&
             exact.Raster.Side == 4,
@@ -119,7 +133,10 @@ int main() {
             child.Sources == exact.Sources &&
             std::ranges::all_of(child.Nodes, [](float height) { return height == 42.0f; }),
         "a child height tile resamples its sourced ancestor without inventing provenance");
-  CHECK(!sheets.CopySourcedField({.Zoom = 5, .X = 0, .Y = 0}, absent),
+  CHECK(sheets.CopySourcedField(routeTiles.front(), route) && !route.Sources.empty() &&
+            std::ranges::all_of(route.Nodes, [](float height) { return height == 42.0f; }),
+        "an off-camera route tile is prepared as a sourced field");
+  CHECK(!sheets.CopySourcedField({.Zoom = 5, .X = 2, .Y = 2}, absent),
         "a tile outside sourced coverage is not qualified as fine terrain");
   auto snapshot = sheets.SnapshotSourcedFields();
   HeightSheets cleared = sheets;

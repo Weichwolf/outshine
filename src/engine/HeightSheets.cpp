@@ -10,6 +10,7 @@
 #include <expected>
 #include <optional>
 #include <ranges>
+#include <span>
 #include <utility>
 #include <string>
 #include <tuple>
@@ -104,7 +105,8 @@ void AppendBuildingHeightTiles(std::vector<Data::TileId> &tiles,
 
 [[nodiscard]] std::vector<Data::TileId> SourceTilesOf(const Patchwork &candidate,
                                                       SourceCoverage coverage,
-                                                      const Ground::OsmField *vectors) {
+                                                      const Ground::OsmField *vectors,
+                                                      std::span<const Data::TileId> additional) {
   std::vector<Data::TileId> tiles;
   constexpr size_t kNeighbours = 9;
   tiles.reserve(candidate.Sheets.size() * kNeighbours * 2u);
@@ -142,6 +144,7 @@ void AppendBuildingHeightTiles(std::vector<Data::TileId> &tiles,
     }
     AppendBuildingHeightTiles(tiles, *vectors, coverage.FinestZoom);
   }
+  tiles.insert(tiles.end(), additional.begin(), additional.end());
   const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
   std::ranges::sort(tiles, {}, key);
   tiles.erase(std::ranges::unique(tiles).begin(), tiles.end());
@@ -169,11 +172,26 @@ std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &ca
                                                              const Ground::GroundStream &ground,
                                                              FieldPreparation preparation) {
   if (!RequestsPrepared_) {
+    constexpr size_t kMaximumAdditionalTiles = 256;
+    if (preparation.AdditionalTiles.size() > kMaximumAdditionalTiles) {
+      return std::unexpected("terrain field preparation exceeds its 256 additional tile budget");
+    }
+    if (preparation.FinestZoom < 0 ||
+        preparation.FinestZoom > Ground::HeightField::MaximumTileZoom) {
+      return std::unexpected("terrain field preparation has an invalid source zoom");
+    }
+    const uint32_t side = uint32_t{1} << static_cast<uint32_t>(preparation.FinestZoom);
+    for (const Data::TileId tile : preparation.AdditionalTiles) {
+      if (tile.Zoom != preparation.FinestZoom || tile.X >= side || tile.Y >= side) {
+        return std::unexpected("additional terrain tile is outside the candidate source grid");
+      }
+    }
     ForgetsFields();
     const std::vector<Data::TileId> tiles =
         SourceTilesOf(candidate,
                       {.FinestZoom = preparation.FinestZoom, .GroundZoom = ground.BlockZoom()},
-                      preparation.Vectors);
+                      preparation.Vectors,
+                      preparation.AdditionalTiles);
     Requests_.reserve(tiles.size());
     Fields_.reserve(tiles.size());
     for (const Data::TileId tile : tiles) { Requests_.push_back({.Tile = tile}); }

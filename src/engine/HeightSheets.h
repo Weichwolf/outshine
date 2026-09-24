@@ -35,6 +35,7 @@ public:
     int FinestZoom;
     size_t RequestsMost;
     const Ground::OsmField *Vectors = nullptr;
+    std::span<const Data::TileId> AdditionalTiles;
   };
 
   class HaloBuildJob {
