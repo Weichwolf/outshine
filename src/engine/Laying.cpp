@@ -51,6 +51,7 @@
 #include "GroundMesher.h"
 #include "VectorStreetGraph.h"
 #include "RoadHeightCoverage.h"
+#include "RoadRefinementCoverage.h"
 
 namespace outshine {
 namespace Says {
@@ -1313,6 +1314,44 @@ const Ground::OsmField *HeightCoverageVectors(GroundQuality quality,
 }
 }
 
+Engine::State::GroundBuildProgress
+Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwork &patchwork) {
+  GroundBuildState &state = *World.GroundBuild;
+  GroundBuildProducts &build = state.Candidate().Products();
+  build.Sheets.Framed(standing);
+  Published.Places(
+      "ground refinement: source sheets", static_cast<double>(patchwork.Sheets.size()), "sheets");
+  const Render::Viewpoint &eye = Picture.Standing->Watching();
+  Generators::TerrainRefinementDetail detail{.EyeM = eye.EyeM};
+  if (eye.Kind == Render::CameraKind::Orthographic) {
+    detail.OrthographicPxPerM = static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
+  } else {
+    detail.FocalPx =
+        static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
+  }
+  std::vector<Generators::TerrainRefinementCorridor> roadCorridors;
+  if (const auto *source = state.TransportSnapshot();
+      source != nullptr && !state.RoadRouteIndices().empty()) {
+    auto corridorCoverage =
+        RoadRefinementCoverage::Build(*source, state.RoadRouteIndices(), standing);
+    if (!corridorCoverage) {
+      Error = std::move(corridorCoverage.error());
+      World.GroundBuild.reset();
+      return GroundBuildProgress::Failed;
+    }
+    roadCorridors = std::move(*corridorCoverage);
+  }
+  Published.Places(
+      "ground refinement: road corridors", static_cast<double>(roadCorridors.size()), "edges");
+  state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
+      build.Sheets.BeginRefinement(patchwork,
+                                   {.Side = Render::GroundLattice::kSide, .Halo = 1},
+                                   detail,
+                                   Render::GroundLattice::kPages,
+                                   roadCorridors)));
+  return GroundBuildProgress::Pending;
+}
+
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const TangentFrame &standing,
                                                                       Patchwork &patchwork,
                                                                       const Around &coverage) {
@@ -1337,25 +1376,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
     }
     case Core::GroundBuildSchedule::SheetPhase::NeedsRefinement: {
       if (state.RefinementJob() == nullptr) {
-        build.Sheets.Framed(standing);
-        Published.Places("ground refinement: source sheets",
-                         static_cast<double>(patchwork.Sheets.size()),
-                         "sheets");
-        const Render::Viewpoint &eye = Picture.Standing->Watching();
-        Generators::TerrainRefinementDetail detail{.EyeM = eye.EyeM};
-        if (eye.Kind == Render::CameraKind::Orthographic) {
-          detail.OrthographicPxPerM =
-              static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
-        } else {
-          detail.FocalPx =
-              static_cast<double>(Picture.Frame.HeightPx) / (2.0 * std::tan(eye.YfovRad * 0.5));
-        }
-        state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
-            build.Sheets.BeginRefinement(patchwork,
-                                         {.Side = Render::GroundLattice::kSide, .Halo = 1},
-                                         detail,
-                                         Render::GroundLattice::kPages)));
-        return GroundBuildProgress::Pending;
+        return BeginGroundSheetRefinement(standing, patchwork);
       }
       auto refined = state.RefinementJob()->Advance(kTerrainRefinementSourcesPerFrame);
       if (!refined) {

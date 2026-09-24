@@ -467,6 +467,8 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundPatchwork(const Around &coverage);
   [[nodiscard]] GroundBuildProgress
   AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
+  [[nodiscard]] GroundBuildProgress BeginGroundSheetRefinement(const TangentFrame &standing,
+                                                               Patchwork &patchwork);
   [[nodiscard]] GroundBuildProgress AdvanceGroundClasses();
   [[nodiscard]] GroundBuildProgress AdvanceGroundSurface();
   [[nodiscard]] GroundBuildProgress AdvanceGroundBuildingModels(const TangentFrame &standing);

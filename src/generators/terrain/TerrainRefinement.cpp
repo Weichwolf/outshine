@@ -11,6 +11,7 @@
 #include <format>
 #include <limits>
 #include <map>
+#include <ranges>
 #include <ratio>
 #include <span>
 #include <string>
@@ -31,6 +32,7 @@ constexpr std::string_view kTooManyPatches =
     "terrain needs {} height patches for its {} px error bound; the device holds {}";
 constexpr std::string_view kDuplicatePatch =
     "terrain refinement has two equally authoritative sources for one patch";
+constexpr std::string_view kInvalidCorridor = "terrain refinement has an invalid corridor";
 }
 
 struct ErrorPatch {
@@ -41,6 +43,72 @@ struct ErrorPatch {
   double HighM = 0.0;
   std::array<size_t, 4> Children{};
 };
+
+struct PlanarBounds {
+  double LowEastM = 0.0;
+  double HighEastM = 0.0;
+  double LowNorthM = 0.0;
+  double HighNorthM = 0.0;
+};
+
+[[nodiscard]] PlanarBounds PatchPlanarBounds(Data::TileId tile, const TangentFrame &frame) {
+  const Ground::GeoBounds geo = Ground::TileBounds(tile);
+  PlanarBounds bounds{.LowEastM = std::numeric_limits<double>::max(),
+                      .HighEastM = std::numeric_limits<double>::lowest(),
+                      .LowNorthM = std::numeric_limits<double>::max(),
+                      .HighNorthM = std::numeric_limits<double>::lowest()};
+  for (const double latitudeDeg : {geo.MinLatDeg, geo.MaxLatDeg}) {
+    for (const double longitudeDeg : {geo.MinLonDeg, geo.MaxLonDeg}) {
+      const EastNorthUp at = frame.ToLocalPosition(
+          {.LongitudeDeg = longitudeDeg, .LatitudeDeg = latitudeDeg, .HeightM = 0.0});
+      bounds.LowEastM = std::min(bounds.LowEastM, at.EastM);
+      bounds.HighEastM = std::max(bounds.HighEastM, at.EastM);
+      bounds.LowNorthM = std::min(bounds.LowNorthM, at.NorthM);
+      bounds.HighNorthM = std::max(bounds.HighNorthM, at.NorthM);
+    }
+  }
+  return bounds;
+}
+
+[[nodiscard]] bool SegmentOverlaps(const TerrainRefinementCorridor &corridor,
+                                   const PlanarBounds &bounds) {
+  const std::array start{corridor.Start.EastM, corridor.Start.NorthM};
+  const std::array end{corridor.End.EastM, corridor.End.NorthM};
+  const std::array low{bounds.LowEastM - corridor.HalfWidthM,
+                       bounds.LowNorthM - corridor.HalfWidthM};
+  const std::array high{bounds.HighEastM + corridor.HalfWidthM,
+                        bounds.HighNorthM + corridor.HalfWidthM};
+  double entry = 0.0;
+  double departure = 1.0;
+  for (size_t axis = 0; axis < start.size(); ++axis) {
+    const double delta = end[axis] - start[axis];
+    if (std::abs(delta) < std::numeric_limits<double>::epsilon()) {
+      if (start[axis] < low[axis] || start[axis] > high[axis]) { return false; }
+      continue;
+    }
+    double first = (low[axis] - start[axis]) / delta;
+    double last = (high[axis] - start[axis]) / delta;
+    if (first > last) { std::swap(first, last); }
+    entry = std::max(entry, first);
+    departure = std::min(departure, last);
+    if (entry > departure) { return false; }
+  }
+  return true;
+}
+
+[[nodiscard]] bool CorridorNeedsDetail(const ErrorPatch &patch,
+                                       const TangentFrame &frame,
+                                       TerrainPageLayout layout,
+                                       std::span<const TerrainRefinementCorridor> corridors) {
+  if (corridors.empty()) { return false; }
+  const PlanarBounds bounds = PatchPlanarBounds(patch.Tile, frame);
+  const double postingM =
+      std::max(bounds.HighEastM - bounds.LowEastM, bounds.HighNorthM - bounds.LowNorthM) /
+      static_cast<double>(layout.Side - 1);
+  return std::ranges::any_of(corridors, [&](const TerrainRefinementCorridor &corridor) {
+    return postingM > corridor.MaximumPostingM && SegmentOverlaps(corridor, bounds);
+  });
+}
 
 size_t BuildErrors(std::vector<ErrorPatch> &tree,
                    std::span<const float> reference,
@@ -115,6 +183,7 @@ void SelectPatches(std::span<const ErrorPatch> tree,
                    const TangentFrame &frame,
                    TerrainPageLayout layout,
                    TerrainRefinementDetail detail,
+                   std::span<const TerrainRefinementCorridor> corridors,
                    std::vector<Sheet> &selected) {
   const double errorPx =
       detail.OrthographicPxPerM > 0.0
@@ -122,9 +191,10 @@ void SelectPatches(std::span<const ErrorPatch> tree,
           : HeightField::ProjectedErrorPx(
                 patch.ErrorM, detail.FocalPx, DistanceToPatch(patch, frame, detail.EyeM));
   const auto grid = static_cast<size_t>(layout.Side - 1);
-  if (patch.Region.Cells > grid && errorPx > detail.ErrorPx) {
+  if (patch.Region.Cells > grid &&
+      (errorPx > detail.ErrorPx || CorridorNeedsDetail(patch, frame, layout, corridors))) {
     for (const size_t child : patch.Children) {
-      SelectPatches(tree, tree[child], sourceZoom, frame, layout, detail, selected);
+      SelectPatches(tree, tree[child], sourceZoom, frame, layout, detail, corridors, selected);
     }
     return;
   }
@@ -153,6 +223,7 @@ void SelectSourcePatches(const TerrainRefinementSource &source,
                          const TangentFrame &frame,
                          TerrainPageLayout layout,
                          TerrainRefinementDetail detail,
+                         std::span<const TerrainRefinementCorridor> corridors,
                          std::vector<Sheet> &selected) {
   if (source.Page == nullptr) { return; }
   const Sheet &sheet = *source.Page;
@@ -167,7 +238,7 @@ void SelectSourcePatches(const TerrainRefinementSource &source,
   const std::vector<float> reference = SampleReference(*source.Heights, cells);
   std::vector<ErrorPatch> tree;
   (void)BuildErrors(tree, reference, cells + 1u, sheet.Tile, {.Cells = cells}, grid);
-  SelectPatches(tree, tree.front(), sheet.Tile.Zoom, frame, layout, detail, selected);
+  SelectPatches(tree, tree.front(), sheet.Tile.Zoom, frame, layout, detail, corridors, selected);
 }
 
 std::expected<std::vector<Sheet>, std::string> UniquePatches(std::vector<Sheet> selected) {
@@ -200,8 +271,10 @@ TerrainRefinementJob::TerrainRefinementJob(std::span<const TerrainRefinementSour
                                            TangentFrame frame,
                                            TerrainPageLayout layout,
                                            TerrainRefinementDetail detail,
-                                           size_t maximumPatches)
+                                           size_t maximumPatches,
+                                           std::span<const TerrainRefinementCorridor> corridors)
     : Sources_(sources.begin(), sources.end()),
+      Corridors_(corridors.begin(), corridors.end()),
       Frame_(frame),
       Layout_(layout),
       Detail_(detail),
@@ -213,12 +286,20 @@ std::expected<bool, std::string> TerrainRefinementJob::Advance(size_t sourcesMos
     Complete_ = true;
     return true;
   }
+  if (!std::ranges::all_of(Corridors_, [](const TerrainRefinementCorridor &corridor) {
+        return std::isfinite(corridor.Start.EastM) && std::isfinite(corridor.Start.NorthM) &&
+               std::isfinite(corridor.End.EastM) && std::isfinite(corridor.End.NorthM) &&
+               std::isfinite(corridor.HalfWidthM) && corridor.HalfWidthM >= 0.0 &&
+               std::isfinite(corridor.MaximumPostingM) && corridor.MaximumPostingM > 0.0;
+      })) {
+    return std::unexpected(std::string(Says::kInvalidCorridor));
+  }
   const size_t count = std::min(sourcesMost, Sources_.size() - NextSource_);
   const size_t end = NextSource_ + count;
   const auto selectionAt = std::chrono::steady_clock::now();
   for (; NextSource_ < end; ++NextSource_) {
     const auto sourceAt = std::chrono::steady_clock::now();
-    SelectSourcePatches(Sources_[NextSource_], Frame_, Layout_, Detail_, Selected_);
+    SelectSourcePatches(Sources_[NextSource_], Frame_, Layout_, Detail_, Corridors_, Selected_);
     LongestSourceMs_ = std::max(
         LongestSourceMs_,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sourceAt)
@@ -254,8 +335,9 @@ RefineTerrain(std::span<const TerrainRefinementSource> sources,
               const TangentFrame &frame,
               TerrainPageLayout layout,
               TerrainRefinementDetail detail,
-              size_t maximumPatches) {
-  TerrainRefinementJob job(sources, frame, layout, detail, maximumPatches);
+              size_t maximumPatches,
+              std::span<const TerrainRefinementCorridor> corridors) {
+  TerrainRefinementJob job(sources, frame, layout, detail, maximumPatches, corridors);
   while (true) {
     auto advanced = job.Advance(sources.size());
     if (!advanced) { return std::unexpected(std::move(advanced.error())); }

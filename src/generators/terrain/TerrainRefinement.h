@@ -27,13 +27,21 @@ struct TerrainRefinementSource {
   const outshine::Ground::TerrainField *Heights = nullptr;
 };
 
+struct TerrainRefinementCorridor {
+  EastNorth Start;
+  EastNorth End;
+  double HalfWidthM = 0.0;
+  double MaximumPostingM = 0.0;
+};
+
 class TerrainRefinementJob {
 public:
   TerrainRefinementJob(std::span<const TerrainRefinementSource> sources,
                        TangentFrame frame,
                        TerrainPageLayout layout,
                        TerrainRefinementDetail detail,
-                       size_t maximumPatches);
+                       size_t maximumPatches,
+                       std::span<const TerrainRefinementCorridor> corridors = {});
 
   [[nodiscard]] std::expected<bool, std::string> Advance(size_t sourcesMost);
 
@@ -47,6 +55,7 @@ public:
 
 private:
   std::vector<TerrainRefinementSource> Sources_;
+  std::vector<TerrainRefinementCorridor> Corridors_;
   TangentFrame Frame_;
   TerrainPageLayout Layout_;
   TerrainRefinementDetail Detail_;
@@ -65,7 +74,8 @@ RefineTerrain(std::span<const TerrainRefinementSource> sources,
               const TangentFrame &frame,
               TerrainPageLayout layout,
               TerrainRefinementDetail detail,
-              size_t maximumPatches);
+              size_t maximumPatches,
+              std::span<const TerrainRefinementCorridor> corridors = {});
 
 }
 #endif

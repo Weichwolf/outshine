@@ -106,7 +106,8 @@ public:
   BeginRefinement(const Patchwork &candidate,
                   Generators::TerrainPageLayout layout,
                   Generators::TerrainRefinementDetail detail,
-                  size_t maximumPatches) const;
+                  size_t maximumPatches,
+                  std::span<const Generators::TerrainRefinementCorridor> corridors = {}) const;
   [[nodiscard]] size_t Halos(Patchwork &laid, int finestZoom);
 
   [[nodiscard]] std::optional<double> FieldUpM(int zoom, EastNorth at) const;

@@ -89,12 +89,13 @@ larger routes are reported deferred until sliding-window coverage exists.
   native material specification. The MVT corridor path may coexist only for
   edges with no semantic source coverage; overlap suppresses duplicate roads.
   `RoadSurfaceBuilder` now emits native Geometry, edge/station/triangle spans,
-  material groups and source-derived earthworks off-thread. The 4e27db1b
-  Hockenheim PNG still has terrain occlusion: 33-node terrain pages at z16 are
-  about 12 m apart there, comparable to road width. Before DEM-only sheet LOD,
-  derive bounded OSM route segments in the candidate tangent frame; request
-  <=3 m postings where road plus apron meets a patch. WI 2166 owns final-surface
-  error. Keep page budget strict; verify continuous pavement and no MVT double.
+  material groups and source-derived earthworks off-thread. Bounded OSM route
+  corridors now ask terrain LOD for <=3 m postings before earthworks. The
+  Hockenheim 1e2cc1f9 shot has 267 corridors, 139 virtual patches, 148 total
+  pages and 5.4% changed pixels against 4e27db1b, but the road still looks
+  interrupted. Measure final road-to-ground clearance along all stations;
+  resolve remaining occlusion, seam and MVT overlap. WI 2166 owns general
+  final-surface error; keep the page budget strict.
 
 ## Executable sequence and falsification
 

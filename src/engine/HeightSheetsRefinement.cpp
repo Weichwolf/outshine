@@ -1,6 +1,7 @@
 #include "HeightSheets.h"
 
 #include <cstddef>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -9,11 +10,12 @@
 
 namespace outshine {
 
-Generators::TerrainRefinementJob
-HeightSheets::BeginRefinement(const Patchwork &candidate,
-                              Generators::TerrainPageLayout layout,
-                              Generators::TerrainRefinementDetail detail,
-                              size_t maximumPatches) const {
+Generators::TerrainRefinementJob HeightSheets::BeginRefinement(
+    const Patchwork &candidate,
+    Generators::TerrainPageLayout layout,
+    Generators::TerrainRefinementDetail detail,
+    size_t maximumPatches,
+    std::span<const Generators::TerrainRefinementCorridor> corridors) const {
   std::vector<Generators::TerrainRefinementSource> sources;
   sources.reserve(candidate.Sheets.size());
   for (const Sheet &sheet : candidate.Sheets) {
@@ -21,7 +23,7 @@ HeightSheets::BeginRefinement(const Patchwork &candidate,
     if (!sheet.Virtual && sheet.Side == layout.Side) { heights = FieldAt(sheet.Tile); }
     sources.push_back({.Page = &sheet, .Heights = heights});
   }
-  return {sources, Frame_, layout, detail, maximumPatches};
+  return {sources, Frame_, layout, detail, maximumPatches, corridors};
 }
 
 bool HeightSheets::RefineByError(Patchwork &candidate,
