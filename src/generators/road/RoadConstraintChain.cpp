@@ -2,9 +2,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <optional>
 #include <ranges>
+#include <span>
 #include <utility>
+#include <vector>
 
 #include "TangentFrame.h"
 
@@ -18,6 +23,34 @@ constexpr double kMinimumHorizontalEdgeM = 0.001;
 [[nodiscard]] RoadConstraintError
 Error(RoadConstraintErrorCode code, World::TransportEdgeId edge = {}, uint64_t nodeId = 0) {
   return {.Code = code, .Edge = edge, .SourceNodeId = nodeId};
+}
+
+std::expected<RoadConstraintPoint, RoadConstraintError>
+SampleRoadPoint(const World::TransportTopology &topology,
+                const Ground::HeightField &terrain,
+                const TangentFrame &frame,
+                uint64_t nodeId,
+                World::TransportEdgeId edgeId) {
+  const World::TransportNode *node = topology.FindNode(nodeId);
+  if (node == nullptr) {
+    return std::unexpected(Error(RoadConstraintErrorCode::MissingNode, edgeId, nodeId));
+  }
+  const LongitudeLatitude geographic{.LongitudeDeg = node->LongitudeDeg,
+                                     .LatitudeDeg = node->LatitudeDeg};
+  const std::optional<double> elevation = terrain.At(geographic).AslM();
+  if (!elevation) {
+    return std::unexpected(Error(RoadConstraintErrorCode::MissingTerrain, edgeId, nodeId));
+  }
+  const EastNorthUp local = frame.ToLocalPosition({.LongitudeDeg = geographic.LongitudeDeg,
+                                                   .LatitudeDeg = geographic.LatitudeDeg,
+                                                   .HeightM = *elevation});
+  if (!std::isfinite(local.EastM) || !std::isfinite(local.NorthM) || !std::isfinite(local.UpM)) {
+    return std::unexpected(Error(RoadConstraintErrorCode::DegenerateGeometry, edgeId, nodeId));
+  }
+  return RoadConstraintPoint{.SourceNodeId = nodeId,
+                             .Geographic = geographic,
+                             .TerrainElevationM = *elevation,
+                             .TerrainLocalM = local};
 }
 
 }
@@ -65,32 +98,6 @@ RoadConstraintChain::Build(const World::TransportTopology &topology,
   built.Anchor_ = {.LongitudeDeg = anchor->LongitudeDeg, .LatitudeDeg = anchor->LatitudeDeg};
   const TangentFrame frame = TangentFrame::At(built.Anchor_);
 
-  const auto appendPoint =
-      [&](uint64_t nodeId,
-          World::TransportEdgeId edgeId) -> std::expected<void, RoadConstraintError> {
-    const World::TransportNode *node = topology.FindNode(nodeId);
-    if (node == nullptr) {
-      return std::unexpected(Error(RoadConstraintErrorCode::MissingNode, edgeId, nodeId));
-    }
-    const LongitudeLatitude geographic{.LongitudeDeg = node->LongitudeDeg,
-                                       .LatitudeDeg = node->LatitudeDeg};
-    const std::optional<double> elevation = terrain.At(geographic).AslM();
-    if (!elevation) {
-      return std::unexpected(Error(RoadConstraintErrorCode::MissingTerrain, edgeId, nodeId));
-    }
-    const EastNorthUp local = frame.ToLocalPosition({.LongitudeDeg = geographic.LongitudeDeg,
-                                                     .LatitudeDeg = geographic.LatitudeDeg,
-                                                     .HeightM = *elevation});
-    if (!std::isfinite(local.EastM) || !std::isfinite(local.NorthM) || !std::isfinite(local.UpM)) {
-      return std::unexpected(Error(RoadConstraintErrorCode::DegenerateGeometry, edgeId, nodeId));
-    }
-    built.Points_.push_back({.SourceNodeId = nodeId,
-                             .Geographic = geographic,
-                             .TerrainElevationM = *elevation,
-                             .TerrainLocalM = local});
-    return {};
-  };
-
   for (const World::TransportEdgeId edgeId : selectedEdges) {
     const World::TransportEdge *edge = topology.FindEdge(edgeId);
     if (edge == nullptr) {
@@ -100,16 +107,16 @@ RoadConstraintChain::Build(const World::TransportTopology &topology,
       return std::unexpected(Error(RoadConstraintErrorCode::UnusableEdge, edgeId));
     }
     if (built.Points_.empty()) {
-      if (const auto appended = appendPoint(edge->FromNodeId, edgeId); !appended) {
-        return std::unexpected(appended.error());
-      }
+      auto start = SampleRoadPoint(topology, terrain, frame, edge->FromNodeId, edgeId);
+      if (!start) { return std::unexpected(start.error()); }
+      built.Points_.push_back(*start);
     } else if (built.Points_.back().SourceNodeId != edge->FromNodeId) {
       return std::unexpected(
           Error(RoadConstraintErrorCode::DisconnectedEdge, edgeId, edge->FromNodeId));
     }
-    if (const auto appended = appendPoint(edge->ToNodeId, edgeId); !appended) {
-      return std::unexpected(appended.error());
-    }
+    auto end = SampleRoadPoint(topology, terrain, frame, edge->ToNodeId, edgeId);
+    if (!end) { return std::unexpected(end.error()); }
+    built.Points_.push_back(*end);
     const RoadConstraintPoint &from = built.Points_[built.Points_.size() - 2];
     const RoadConstraintPoint &to = built.Points_.back();
     const double lengthM = std::hypot(to.TerrainLocalM.EastM - from.TerrainLocalM.EastM,
