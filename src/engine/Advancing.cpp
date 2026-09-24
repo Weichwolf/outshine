@@ -231,7 +231,7 @@ void Engine::State::HandsPiecesOver() {
 
 bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
-  const LongitudeLatitude eye = WhereTheEyeStands();
+  const LongitudeLatitude eye = CurrentGeographicFocus();
   const StructureBuildQueue::HeightSource heightAt{
       .Sample = [this](LongitudeLatitude at) { return World.Stack.Ground().Resident(at).AslM(); },
       .CopyField =
@@ -370,7 +370,7 @@ bool Engine::State::UpdateTriggers() {
 bool Engine::State::Updates() {
   if (World.OsmTransportLoader) { World.OsmTransportLoader->Poll(); }
   if (Session.Declared.Ground.Declared) {
-    const LongitudeLatitude stands = WhereTheEyeStands();
+    const LongitudeLatitude stands = CurrentGeographicFocus();
     if (World.Stack.Opened()) {
       const auto streamingFrom = std::chrono::steady_clock::now();
       const size_t heldBefore = World.Stack.Footprints().IngestedTiles();

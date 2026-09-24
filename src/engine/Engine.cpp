@@ -507,7 +507,7 @@ Result Engine::State::PumpPreload() {
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.Opens();
   if (!RequestTerrainCoverage()) { return std::unexpected(Error); }
-  const LongitudeLatitude stands = WhereTheEyeStands();
+  const LongitudeLatitude stands = CurrentGeographicFocus();
   const double atLat = stands.LatitudeDeg;
   const double atLon = stands.LongitudeDeg;
   HandsPiecesOver();

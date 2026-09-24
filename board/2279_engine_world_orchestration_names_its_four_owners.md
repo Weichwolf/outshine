@@ -12,7 +12,7 @@ Tags: naming, ownership, runtime
 ## Problem and evidence
 
 `src/engine/Asking.cpp` groups four unrelated `Engine::State` operations:
-`WhereTheEyeStands` resolves geographic camera focus, `GenerateInitialInstances`
+`WhereTheEyeStands` resolved geographic camera focus, `GenerateInitialInstances`
 and `GenerateInstancesForRegion` place generated world instances,
 `PrepareRuntimeWorld` opens providers and runtime ground, and
 `RequestTerrainCoverage` schedules bounded elevation work. The filename
@@ -22,7 +22,7 @@ camera code. Renaming the file alone would misrepresent the remaining duties.
 
 ## Ownership decision
 
-- `WorldFocus.cpp` owns `WhereTheEyeStands` and its geodesy dependencies.
+- `WorldFocus.cpp` owns `CurrentGeographicFocus` and its geodesy dependencies.
 - `WorldPlacement.cpp` owns the two generator-placement operations, the
   instance-budget diagnostic and snapshot-row constant.
 - `RuntimeWorldPreparation.cpp` owns `PrepareRuntimeWorld`, declared-OSM

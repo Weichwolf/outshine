@@ -812,7 +812,7 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
   const Scenario::Document &declared = Session.Declared;
   const double anchorLat = declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = declared.Ground.Origin.LongitudeDeg;
-  const LongitudeLatitude eyeStands = WhereTheEyeStands();
+  const LongitudeLatitude eyeStands = CurrentGeographicFocus();
   const double atLat = eyeStands.LatitudeDeg;
   const double atLon = eyeStands.LongitudeDeg;
   Published.Places("the ring centres this far from the world's anchor",
@@ -1614,8 +1614,12 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
           },
       .Revision = {.Value = state.Id()}};
   const auto landingAt = std::chrono::steady_clock::now();
-  auto ready = World.StructureBuilds.NextLandings(
-      World.Stack, state.Footprints(), WhereTheEyeStands(), heightAt.Revision, landsMost, heights);
+  auto ready = World.StructureBuilds.NextLandings(World.Stack,
+                                                  state.Footprints(),
+                                                  CurrentGeographicFocus(),
+                                                  heightAt.Revision,
+                                                  landsMost,
+                                                  heights);
   Cost.BakeLanding.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
           .count());
@@ -1647,7 +1651,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   const auto postingAt = std::chrono::steady_clock::now();
   (void)World.StructureBuilds.Posts(World.Stack,
                                     state.Footprints(),
-                                    WhereTheEyeStands(),
+                                    CurrentGeographicFocus(),
                                     heightAt,
                                     StructureCandidatesMost(),
                                     heights);

@@ -15,7 +15,7 @@ bool Engine::State::RequestTerrainCoverage() {
   if (!declared.Ground.Declared) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }
   Around over;
-  const LongitudeLatitude focus = WhereTheEyeStands();
+  const LongitudeLatitude focus = CurrentGeographicFocus();
   over.LatitudeDeg = focus.LatitudeDeg;
   over.LongitudeDeg = focus.LongitudeDeg;
   over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);

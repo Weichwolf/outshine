@@ -514,7 +514,7 @@ struct Engine::State {
   bool GenerateInitialInstances(double atLat, double atLon);
   [[nodiscard]] bool GenerateInstancesForRegion(const Generators::Tile &region,
                                                 LevelOfDetail coarseness);
-  [[nodiscard]] LongitudeLatitude WhereTheEyeStands() const;
+  [[nodiscard]] LongitudeLatitude CurrentGeographicFocus() const;
   [[nodiscard]] bool EnsureRuntimeScene();
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateCrowns(bool prepare);

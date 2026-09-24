@@ -5,7 +5,7 @@
 
 namespace outshine {
 
-LongitudeLatitude Engine::State::WhereTheEyeStands() const {
+LongitudeLatitude Engine::State::CurrentGeographicFocus() const {
   const double anchorLat = Session.Declared.Ground.Origin.LatitudeDeg;
   const double anchorLon = Session.Declared.Ground.Origin.LongitudeDeg;
   LongitudeLatitude stands{.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat};

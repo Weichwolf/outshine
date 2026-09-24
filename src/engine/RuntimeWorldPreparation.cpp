@@ -15,16 +15,16 @@ namespace outshine {
 
 namespace {
 
-struct Declaring {
+struct OsmLayerTraits {
   bool Area = false;
   bool Wet = false;
 };
 
-Ground::OsmLayer LayerFor(Declaring what) {
-  if (what.Area) {
-    return what.Wet ? Ground::OsmLayer::WaterPolygons : Ground::OsmLayer::Buildings;
+Ground::OsmLayer SelectOsmLayer(OsmLayerTraits traits) {
+  if (traits.Area) {
+    return traits.Wet ? Ground::OsmLayer::WaterPolygons : Ground::OsmLayer::Buildings;
   }
-  return what.Wet ? Ground::OsmLayer::WaterLines : Ground::OsmLayer::Streets;
+  return traits.Wet ? Ground::OsmLayer::WaterLines : Ground::OsmLayer::Streets;
 }
 
 constexpr double kEastStepDeg = 0.0138;
@@ -59,7 +59,7 @@ void Engine::State::DeclareGroundFeatures() {
   for (const Scenario::Structure &one : Session.Declared.Ground.Osm) {
     Ground::OsmField::Declared made;
     const bool wet = one.Kind == "water";
-    const Ground::OsmLayer holds = LayerFor({.Area = one.Area, .Wet = wet});
+    const Ground::OsmLayer holds = SelectOsmLayer({.Area = one.Area, .Wet = wet});
     made.Layer = OsmLayerName(holds);
     made.Key = "kind";
     made.Value = one.Kind;
