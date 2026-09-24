@@ -65,6 +65,11 @@ never publish mixed revisions or stale geometry.
 
 ## Executable architecture
 
+`--help` and per-command `--stats` already exist. `run` currently starts
+`elapsed_ms` after `assemble()`, omitting startup. Move its clock before
+engine setup; emit `setup_ms` through assembly and on setup failures.
+Document both boundaries and prove `elapsed_ms >= setup_ms` in client tests.
+
 1. Expose `SourceSet::Counters` and `ContentStore::Counters` through internal
    `GroundStack` diagnostics, then `Engine::loading()` value snapshots. Count
    provider starts at the `Source::Begin` call, including retries; distinguish
