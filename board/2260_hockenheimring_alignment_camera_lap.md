@@ -79,6 +79,19 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    ticks against `Engine::sampleRoute`, startup refusal, and view reselection.
    Remaining: presentation interpolation, one continuous client capture with
    per-frame continuity/streaming measurements, and visual acceptance.
+   `outshine-client run --motion --view lap --at-seconds 30` now renders each
+   paced tick and writes a route/eye/time/refined-readiness TSV. The first
+   1800-frame run found a structure-bake starvation bug (WI 2232); after its
+   bounded-eye fix, 100/101 bakes landed and 336 frames were refined. The
+   closing frame is still unrefined with a ground candidate pending. The
+   trace is diagnostic, not yet full-lap or road-coverage acceptance.
+   A paced 300 s run rendered all 18000 ticks. All 267 segments and 4575.880 m
+   were traversed; motion ended at 214.233 s. Station never regressed, advanced
+   at most 0.5 m/tick, and eye movement stayed below 0.505 m/tick. During
+   12854 moving frames only 2378 were refined. Full-run p99 CPU advance+render
+   was 11.552 ms, 32 moving frames exceeded 16.667 ms, and heap peaked at
+   488.025 MiB. The opened closing PNG has a continuous but flat grey road
+   and implausibly simple surroundings. Streaming and visual acceptance stay open.
 4. Stream ahead and evict behind under bounded memory. Keep graph/route IDs
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.

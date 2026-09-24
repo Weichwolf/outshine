@@ -138,8 +138,10 @@ void Usage() {
       "  places                           list the external scenario cameras\n"
       "  --places <directory> <command>   override src/assets/places\n"
       "  roundtrip                        write each place, read it back, write it again\n"
-      "  run [--rows] [--into <folder>] [--view <id> --at-seconds <s>] <scenario> [name]\n"
-      "                                   draw a scenario or a selected view at simulation time\n"
+      "  run [--rows] [--into <folder>] [--motion] [--view <id> --at-seconds <s>] <scenario> "
+      "[name]\n"
+      "                                   draw a scenario or a selected view at simulation time; "
+      "--motion renders every paced tick\n"
       "  measures <scenario>              and print every measure it published\n"
       "  height <lat> <lon>               terrain elevation; angles in decimal degrees\n"
       "  help                             this\n\n"
@@ -225,6 +227,7 @@ struct ScenarioRunOptions {
   std::string Into = "khronos";
   std::string_view SelectedView;
   double AtS = 0.0;
+  bool RenderMotion = false;
 };
 
 [[nodiscard]] std::expected<ScenarioRunOptions, int>
@@ -236,6 +239,12 @@ ParseScenarioRunOptions(int argc, const char *const *argv) {
   while (argc > 0 && argv[0][0] == '-') {
     if (std::strcmp(argv[0], "--rows") == 0) {
       options.Rows = true;
+      --argc;
+      ++argv;
+      continue;
+    }
+    if (std::strcmp(argv[0], "--motion") == 0) {
+      options.RenderMotion = true;
       --argc;
       ++argv;
       continue;
@@ -270,9 +279,79 @@ ParseScenarioRunOptions(int argc, const char *const *argv) {
     std::println(stderr, "outshine-client: --at-seconds requires --view");
     return std::unexpected(2);
   }
+  if (options.RenderMotion && (!hasTime || options.SelectedView.empty())) {
+    std::println(stderr, "outshine-client: --motion requires --view and --at-seconds");
+    return std::unexpected(2);
+  }
   options.Argc = argc;
   options.Argv = argv;
   return options;
+}
+
+int CaptureView(outshine::Engine &engine,
+                std::string_view named,
+                const ScenarioRunOptions &options) {
+  const auto captured =
+      outshine::Client::CaptureScenarioView(engine,
+                                            {.View = options.SelectedView,
+                                             .Name = named,
+                                             .Into = options.Into,
+                                             .AtS = options.AtS,
+                                             .RenderMotion = options.RenderMotion});
+  if (!captured) {
+    std::println(stderr, "outshine-client: {}", captured.error());
+    return 1;
+  }
+  if (options.Rows) {
+    std::println("CAPTURE\t{}\t{}\t{:.6f}\t{:.3f}\t{:.3f}\t{}",
+                 named,
+                 options.SelectedView,
+                 captured->SimTimeS,
+                 captured->RouteStationM,
+                 captured->RouteLengthM,
+                 captured->Path);
+  } else {
+    std::println("CAPTURE {} view={} t={:.3f} s station={:.3f}/{:.3f} m {}",
+                 named,
+                 options.SelectedView,
+                 captured->SimTimeS,
+                 captured->RouteStationM,
+                 captured->RouteLengthM,
+                 captured->Path);
+  }
+  if (!options.RenderMotion) { return 0; }
+  if (options.Rows) {
+    std::println("MOTION\t{}\t{}\t{}\t{:.3f}\t{:.3f}\t{:.3f}\t{}\t{}\t{:.3f}\t{}",
+                 named,
+                 options.SelectedView,
+                 captured->Frames,
+                 captured->P50Ms,
+                 captured->P95Ms,
+                 captured->P99Ms,
+                 captured->OverBudget,
+                 captured->Unsettled,
+                 captured->PeakHeapMiB,
+                 captured->TracePath);
+    if (!captured->LastUnsettledReason.empty()) {
+      std::println("UNSETTLED\t{}", captured->LastUnsettledReason);
+    }
+  } else {
+    std::println("MOTION {} frames={} p50={:.2f} p95={:.2f} p99={:.2f} ms over={} unsettled={} "
+                 "peak={:.1f} MiB {}",
+                 named,
+                 captured->Frames,
+                 captured->P50Ms,
+                 captured->P95Ms,
+                 captured->P99Ms,
+                 captured->OverBudget,
+                 captured->Unsettled,
+                 captured->PeakHeapMiB,
+                 captured->TracePath);
+    if (!captured->LastUnsettledReason.empty()) {
+      std::println("UNSETTLED {}", captured->LastUnsettledReason);
+    }
+  }
+  return 0;
 }
 
 int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
@@ -302,33 +381,7 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     std::println("outshine-client: {} did not assemble -- {}", options.Argv[0], assembled.error());
     return 1;
   }
-  if (!options.SelectedView.empty()) {
-    const auto captured = outshine::Client::CaptureScenarioView(
-        engine,
-        {.View = options.SelectedView, .Name = named, .Into = options.Into, .AtS = options.AtS});
-    if (!captured) {
-      std::println(stderr, "outshine-client: {}", captured.error());
-      return 1;
-    }
-    if (options.Rows) {
-      std::println("CAPTURE\t{}\t{}\t{:.6f}\t{:.3f}\t{:.3f}\t{}",
-                   named,
-                   options.SelectedView,
-                   captured->SimTimeS,
-                   captured->RouteStationM,
-                   captured->RouteLengthM,
-                   captured->Path);
-    } else {
-      std::println("CAPTURE {} view={} t={:.3f} s station={:.3f}/{:.3f} m {}",
-                   named,
-                   options.SelectedView,
-                   captured->SimTimeS,
-                   captured->RouteStationM,
-                   captured->RouteLengthM,
-                   captured->Path);
-    }
-    return 0;
-  }
+  if (!options.SelectedView.empty()) { return CaptureView(engine, named, options); }
   const Shot shot = outshine::Shots::Draw(engine, named, true, options.Into);
   if (options.Rows) {
     Row(shot, named);
