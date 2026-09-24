@@ -511,6 +511,7 @@ struct Engine::State {
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
   void DeclareGroundFeatures();
+  void PollOsmTransport();
   bool GenerateInitialInstances(double atLat, double atLon);
   [[nodiscard]] bool GenerateInstancesForRegion(const Generators::Tile &region,
                                                 LevelOfDetail coarseness);

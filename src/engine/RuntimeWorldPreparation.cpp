@@ -175,4 +175,19 @@ bool Engine::State::PrepareRuntimeWorld() {
   return Grounds(true, GroundQuality::Playable);
 }
 
+void Engine::State::PollOsmTransport() {
+  if (!World.OsmTransportLoader) { return; }
+  const auto previous = World.OsmTransportLoader->Current();
+  World.OsmTransportLoader->Poll();
+  Published.Places("semantic OSM jobs pending",
+                   static_cast<double>(World.OsmTransportLoader->PendingCount()),
+                   "jobs");
+  const auto &current = World.OsmTransportLoader->Current();
+  if (!current || current == previous) { return; }
+  Published.Places("semantic OSM source bytes", static_cast<double>(current->SourceBytes), "bytes");
+  Published.Places("semantic OSM read time", current->ReadMs, "ms");
+  Published.Places("semantic OSM parse time", current->ParseMs, "ms");
+  Published.Places("semantic OSM graph time", current->GraphMs, "ms");
+}
+
 }

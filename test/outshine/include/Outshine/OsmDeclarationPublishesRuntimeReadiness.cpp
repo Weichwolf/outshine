@@ -42,6 +42,33 @@ int main() {
       if (!published) { SDL_Delay(10); }
     }
     CHECK(published, "public readiness observes the complete graph publication");
+    double publishedBytes = -1.0;
+    double graphMs = -1.0;
+    double pendingJobs = -1.0;
+    for (const DiagnosticSample &sample : engine.measures()) {
+      if (sample.Name == "semantic OSM source bytes") { publishedBytes = sample.Value; }
+      if (sample.Name == "semantic OSM graph time") { graphMs = sample.Value; }
+      if (sample.Name == "semantic OSM jobs pending") { pendingJobs = sample.Value; }
+    }
+    CHECK(publishedBytes > 30000.0 && graphMs >= 0.0 && pendingJobs == 0.0,
+          "public diagnostics expose the completed source and bounded worker queue");
+
+    Scenario::Document simulationOnly = document;
+    simulationOnly.Views.clear();
+    Engine headless;
+    CHECK(headless.setRoots({.Shipped = ".", .Offline = true}) &&
+              headless.declare(simulationOnly) && headless.assemble(),
+          "renderer-free simulation queues the same semantic source");
+    double headlessBytes = -1.0;
+    for (int attempt = 0; attempt < 200 && headlessBytes < 0.0; ++attempt) {
+      CHECK(headless.advance(), "renderer-free simulation advances while source loads");
+      for (const DiagnosticSample &sample : headless.measures()) {
+        if (sample.Name == "semantic OSM source bytes") { headlessBytes = sample.Value; }
+      }
+      if (headlessBytes < 0.0) { SDL_Delay(10); }
+    }
+    CHECK(headlessBytes > 30000.0,
+          "semantic graph publication does not depend on render target or vector tiles");
   }
   SDL_Quit();
   return Report();

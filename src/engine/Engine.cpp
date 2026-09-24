@@ -150,7 +150,10 @@ Result Engine::assemble() {
   }
   candidate->ViewBodies = std::move(*viewBodies);
   auto previous = std::exchange(S_->Simulation, std::move(candidate));
-  if (S_->Picture.Targeted && !S_->PrepareRuntimeWorld()) {
+  std::vector<Data::SourceProvider> unusedTileProviders;
+  const bool worldReady = S_->Picture.Targeted ? S_->PrepareRuntimeWorld()
+                                               : S_->ConfigureSourceProviders(unusedTileProviders);
+  if (!worldReady) {
     S_->Simulation = std::move(previous);
     return std::unexpected(S_->Error);
   }
@@ -503,9 +506,9 @@ Engine::State::FlushPreloadGround(std::chrono::steady_clock::time_point began, d
 }
 
 Result Engine::State::PumpPreload() {
-  if (World.OsmTransportLoader) { World.OsmTransportLoader->Poll(); }
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.Opens();
+  PollOsmTransport();
   if (!RequestTerrainCoverage()) { return std::unexpected(Error); }
   const LongitudeLatitude stands = CurrentGeographicFocus();
   const double atLat = stands.LatitudeDeg;
