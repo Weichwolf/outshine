@@ -55,8 +55,13 @@ It now measures at most 6.33 mm pressed second difference, versus 49 mm
 before the profile path. A graded analytic corridor differs by 0.27 mm
 between 2 m and 1 m subdivision and by roundoff under reversed input order.
 No-road-earthworks rendering removes the visible bands; the profiled path
-reduces but does not yet eliminate them in the high-camera PNG. Curved and
-multi-level negative cases remain open.
+reduces but does not yet eliminate them in the high-camera PNG. The real curved
+shoulder and multi-level negative cases remain open. An analytic 12 m-radius graded bend
+checks both shoulders and exact centreline contact. Across 2 m versus 1 m
+partition, the maximum shoulder difference is 0.022 mm, the greatest second
+difference is 0.007 mm per 0.12 m arc step, and centreline grade error is below
+1 nm. This proves the curved field at that radius; disconnected stacked
+crossings, bridge/water and tunnel-cover exclusions remain unproved.
 
 ## Falsifiable acceptance
 
