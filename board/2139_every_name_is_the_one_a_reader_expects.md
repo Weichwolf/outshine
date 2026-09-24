@@ -78,8 +78,8 @@ candidate. Its phase order is now owned by `GroundBuildSchedule`; production can
 candidate preparation and all sheet phases, and cannot pass Publication. That is a real state
 contract, not a file split. Open ownership work is specific: WI 2225 must atomically replace
 crown resources; WI 2228 must count renderer, candidate and worker residency; WI 2234 still
-needs paced-versus-uninterrupted product equivalence and tail distributions. No generic engine
-module move remains authorized by this parent.
+needs paced-versus-uninterrupted product equivalence and tail distributions. Move further engine
+owners when a named responsibility and caller migration demonstrate a real boundary violation.
 
 ## Common implementation contract
 
