@@ -18,9 +18,15 @@ the same pinned OSM route, no vector source and no vegetation still shows the
 bands. MVT overlap and shadow-map aliasing therefore do not explain them.
 `RoadSurfaceBuilder::EarthworkFor` emits one trapezoid `EarthworkStamp` per
 approximately 2 m road segment, each with its own plane and 6 m apron.
-`EarthworkPress::PressesAt` composes per-stamp cut/fill bids. Discontinuous
-apron distances or grade extrapolation at stamp joins is a testable hypothesis,
-not yet a proven cause.
+`EarthworkPress::PressesAt` composes per-stamp cut/fill bids. A pinned DEM
+probe at station 1780–1880 m, every 0.25 m at ±10 m lateral offset, found raw
+height impulses of 0.5–1.5 mm but pressed impulses of 39–49 mm near station
+1837 m. Stamp 978 ends at 1837.008 m; the winning bid switches to stamp 979
+on one side, while the other side jumps within stamp 978's apron. At +12 m
+another 47.5 mm impulse appears near a stamp transition; ±14/16 m are
+unpressed. The discontinuity is in earthwork field evaluation, before terrain
+mesh and lighting. The exact contribution of plane extrapolation versus apron
+distance remains to be isolated.
 
 ## Contract and ownership
 
@@ -44,10 +50,11 @@ limit and water/structure exclusion. Crossings at different levels stay
 separate by their structure constraints; do not flatten under bridge decks or
 over tunnel roofs. Report rejected constraints with source-edge/station.
 
-First measure current stamp and pressed DEM values at fixed lateral offsets
-through station 1833 m. Show whether maxima/minima align with stamp ends.
-If this falsifies the stamp hypothesis, record the measured cause and amend
-this contract before implementation.
+Retain the pinned real-DEM shoulder probe as a regression when implementing
+the field: sample ±10/12 m at 0.25 m spacing near station 1837 m; compare raw,
+pressed and source-station traces. A local analytic case must isolate plane
+extrapolation from apron-distance transitions before choosing the final field
+formula.
 
 ## Falsifiable acceptance
 
