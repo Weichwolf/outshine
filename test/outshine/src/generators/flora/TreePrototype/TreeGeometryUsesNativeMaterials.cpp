@@ -266,7 +266,7 @@ int main() {
       view.Sees.setProjection(Camera::Ortho{
           .XMagM = close ? 1.5 : 13, .YMagM = close ? 1.6875 : 14, .NearM = 0.1, .FarM = 100});
       scenario.Views.push_back(view);
-      auto prepared = engine.drawsInto({640, 720});
+      auto prepared = engine.setRenderTarget({640, 720});
       if (prepared) { prepared = engine.declare(scenario); }
       if (prepared) { prepared = engine.setGeometry(*geometry); }
       if (prepared) { prepared = engine.assemble(); }

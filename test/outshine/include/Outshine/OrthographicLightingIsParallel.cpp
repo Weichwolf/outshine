@@ -46,7 +46,7 @@ int main() {
     view.Sees.PositionM = {{0, 0, at == 0 ? 2.0 : 8.0}};
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 20});
     declaration.Views.push_back(view);
-    if (!accepted(engine.drawsInto({64, 64})) || !accepted(engine.declare(declaration)) ||
+    if (!accepted(engine.setRenderTarget({64, 64})) || !accepted(engine.declare(declaration)) ||
         !accepted(engine.setGeometry(geometry)) || !accepted(engine.assemble()) ||
         !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
         !accepted(engine.renderer().readPixels(Buffer::Linear, frames[at]))) {

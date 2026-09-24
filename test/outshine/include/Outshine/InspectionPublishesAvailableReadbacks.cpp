@@ -17,7 +17,7 @@ int main() {
   if (!initialized) { return Report(); }
   {
     Engine engine;
-    CHECK(engine.drawsInto(Extent{32, 32}).has_value(), "offscreen target configured");
+    CHECK(engine.setRenderTarget(Extent{32, 32}).has_value(), "offscreen target configured");
     Scenario::Document document;
     document.Render.Declared = true;
     document.Render.Frame = {32, 32};

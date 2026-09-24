@@ -117,7 +117,7 @@ int main() {
                 sequence.Warmup,
                 sequence.SubjectOnly);
     Engine engine;
-    if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario))) {
+    if (!accepted(engine.setRenderTarget({1280, 720})) || !accepted(engine.declare(scenario))) {
       return Report();
     }
     if (!accepted(engine.setGeometry(*sequence.Source)) || !accepted(engine.assemble()) ||

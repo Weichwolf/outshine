@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
 
   outshine::Engine engine;
   (void)engine.setRoots(outshine::Roots{under, "src/assets", "/tmp/outshine-refuse-cache", true});
-  if (!engine.drawsInto(outshine::Extent{64, 64})) {
+  if (!engine.setRenderTarget(outshine::Extent{64, 64})) {
     Unprepared("the device did not stand a canvas, so nothing can be read into it");
     return Report();
   }

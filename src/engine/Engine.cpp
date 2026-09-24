@@ -143,24 +143,24 @@ Result Engine::assemble() {
 
 Engine::~Engine() = default;
 
-Result Engine::drawsInto(SDL_Window *presents) {
+Result Engine::setRenderTarget(SDL_Window *window) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (S_->Picture.Scope != FrameScope::Closed) {
     S_->Error = Says::kTargetInsideFrame;
     return std::unexpected(S_->Error);
   }
-  if (presents == nullptr) {
+  if (window == nullptr) {
     S_->Error = Says::kNullWindow;
     return std::unexpected(S_->Error);
   }
   int widthPx = 0;
   int heightPx = 0;
-  if (!SDL_GetWindowSizeInPixels(presents, &widthPx, &heightPx)) {
+  if (!SDL_GetWindowSizeInPixels(window, &widthPx, &heightPx)) {
     S_->Error = std::string(Says::kWindowExtentFailed) + SDL_GetError();
     return std::unexpected(S_->Error);
   }
-  const auto standing = S_->Picture.Device.DrawsInto(widthPx, heightPx, presents);
+  const auto standing = S_->Picture.Device.DrawsInto(widthPx, heightPx, window);
   if (!standing) {
     S_->Error = std::string(standing.error());
     return std::unexpected(S_->Error);
@@ -171,7 +171,7 @@ Result Engine::drawsInto(SDL_Window *presents) {
   return {};
 }
 
-Result Engine::drawsInto(Extent offscreen) {
+Result Engine::setRenderTarget(Extent offscreen) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (S_->Picture.Scope != FrameScope::Closed) {
@@ -201,15 +201,15 @@ Result Engine::setRoots(Roots roots) {
   return {};
 }
 
-void Engine::offers(Host *host) {
+void Engine::setInputHost(Host *host) {
   S_->Offered = host;
 }
 
-Result Engine::offers(const Generators::Generator &maker) {
+Result Engine::registerGenerator(const Generators::Generator &generator) {
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  const auto offered = S_->World.Offering.offers(maker);
-  if (offered) { return {}; }
-  return std::unexpected(offered.error() == Generators::Registry::RegistrationError::EmptyKind
+  const auto registered = S_->World.Offering.registerGenerator(generator);
+  if (registered) { return {}; }
+  return std::unexpected(registered.error() == Generators::Registry::RegistrationError::EmptyKind
                              ? Says::kEmptyGeneratorKind
                              : Says::kDuplicateGeneratorKind);
 }
@@ -354,8 +354,8 @@ bool SwapChain::presents() const {
 Result Renderer::beginFrame(SwapChain &into) {
   if (into.Of_ != Of_) { return std::unexpected(std::string(Says::kForeignSwapChain)); }
   if (into.extent().WidthPx <= 0 || into.extent().HeightPx <= 0) {
-    return std::unexpected(std::string("a frame is begun against a canvas and this one is "
-                                       "0x0 -- drawsInto declares it before a frame opens"));
+    return std::unexpected(
+        std::string("cannot begin a frame without a render target with positive pixel dimensions"));
   }
   return Of_->beginFrame();
 }

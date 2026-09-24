@@ -19,7 +19,7 @@ int main() {
     view.Sees.PositionM = {{0, 0, 2}};
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
     scene.Views.push_back(view);
-    CHECK(engine.drawsInto({64, 64}) && engine.declare(scene) && engine.assemble(),
+    CHECK(engine.setRenderTarget({64, 64}) && engine.declare(scene) && engine.assemble(),
           "assembled scene is ready for capture without streamed ground");
     {
       auto capture = engine.beginCapture();
@@ -34,7 +34,7 @@ int main() {
       CHECK(!engine.setSurfaces({}), "capture refuses overlay replacement");
       CHECK(!engine.handleEvent(SDL_Event{}), "capture refuses input state changes");
       CHECK(!engine.setGeometry(Geometry{}), "capture refuses geometry replacement");
-      CHECK(!engine.drawsInto({32, 32}), "capture refuses target replacement");
+      CHECK(!engine.setRenderTarget({32, 32}), "capture refuses target replacement");
       CHECK(!engine.setRoots({}), "capture refuses root replacement");
     }
     CHECK(engine.advance().has_value(), "capture destruction resumes simulation");

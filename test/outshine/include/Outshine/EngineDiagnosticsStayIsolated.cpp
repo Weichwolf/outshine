@@ -19,7 +19,7 @@ public:
 };
 
 bool RefusesWithoutVideo(outshine::Engine &engine) {
-  return !engine.drawsInto({32, 32});
+  return !engine.setRenderTarget({32, 32});
 }
 
 }

@@ -23,9 +23,9 @@ int main() {
   {
     Receiver receiver;
     Engine engine;
-    engine.offers(&receiver);
+    engine.setInputHost(&receiver);
     (void)engine.setRoots({.Shipped = "src/assets"});
-    const auto target = engine.drawsInto(Extent{64, 64});
+    const auto target = engine.setRenderTarget(Extent{64, 64});
     CHECK(target.has_value(), target ? "offscreen UI target ready" : target.error().c_str());
     Scenario::Document scene;
     scene.Surfaces.push_back({.Document = "<div data-action=\"clicked()\"></div>",
@@ -59,7 +59,7 @@ int main() {
       handled = engine.handleEvent(event);
       CHECK(handled && *handled && receiver.Names == std::vector<std::string>{"clicked"},
             "removing binding restores UI dispatch");
-      engine.offers(static_cast<Host *>(nullptr));
+      engine.setInputHost(static_cast<Host *>(nullptr));
       CHECK(!engine.handleEvent(event), "UI action without host returns a processing error");
       event.button.x = event.button.y = 96.0f;
       handled = engine.handleEvent(event);

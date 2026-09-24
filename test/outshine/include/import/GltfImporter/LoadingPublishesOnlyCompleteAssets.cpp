@@ -185,7 +185,7 @@ int main() {
   view.Sees = *renderedCamera;
   view.Placement = Scenario::CameraPlacement::Local;
   scene.Views.push_back(view);
-  if (!accepted(engine.drawsInto(scene.Render.Frame)) || !accepted(engine.declare(scene)) ||
+  if (!accepted(engine.setRenderTarget(scene.Render.Frame)) || !accepted(engine.declare(scene)) ||
       !accepted(engine.setGeometry(asset.geometry())) || !accepted(engine.assemble()) ||
       !accepted(engine.advance()) || !accepted(engine.renderer().render({}))) {
     return Report();

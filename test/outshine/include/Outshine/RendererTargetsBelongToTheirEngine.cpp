@@ -31,8 +31,8 @@ int main() {
     auto other = second.renderer();
     auto target = first.swapChain();
     auto foreign = second.swapChain();
-    CHECK(first.drawsInto({32, 32}).has_value(), "first offscreen target");
-    CHECK(second.drawsInto({32, 32}).has_value(), "second target has identical dimensions");
+    CHECK(first.setRenderTarget({32, 32}).has_value(), "first offscreen target");
+    CHECK(second.setRenderTarget({32, 32}).has_value(), "second target has identical dimensions");
     Scenario::Document scenario;
     scenario.Render.Declared = true;
     scenario.Render.Frame = {32, 32};
@@ -48,12 +48,14 @@ int main() {
     CHECK(render.beginFrame(target).has_value(), "the first owner remains usable");
     CHECK(!render.beginFrame(target), "an already open frame rejects a repeated begin");
     CHECK(!copied.beginFrame(target), "facade copies cannot nest their owner's frame");
-    CHECK(!first.drawsInto({48, 32}), "rejected nested begin preserves the original open scope");
+    CHECK(!first.setRenderTarget({48, 32}),
+          "rejected nested begin preserves the original open scope");
     CHECK(copied.endFrame().has_value(), "copied facades share their owner's frame state");
     CHECK(!render.endFrame(), "exactly one close consumes the original frame");
     CHECK(other.beginFrame(foreign).has_value(), "the second owner remains usable");
     CHECK(other.endFrame().has_value(), "second frame ends independently");
-    CHECK(first.drawsInto({48, 32}).has_value(), "target can change without moving the Engine");
+    CHECK(first.setRenderTarget({48, 32}).has_value(),
+          "target can change without moving the Engine");
     CHECK(target.extent().WidthPx == 48 && foreign.extent().WidthPx == 32,
           "borrowed targets observe only their own Engine's changes");
     CHECK(copied.beginFrame(target).has_value(),
@@ -71,7 +73,7 @@ int main() {
     broken.Uri = missing.string();
     deferred.Assets.push_back(broken);
     CHECK(engine.declare(deferred).has_value(), "scene setup can be deferred without a target");
-    CHECK(engine.drawsInto({32, 32}).has_value(),
+    CHECK(engine.setRenderTarget({32, 32}).has_value(),
           "configure target without loading the deferred asset");
     auto renderer = engine.renderer();
     const auto wrongSize = renderer.render({48, 32});

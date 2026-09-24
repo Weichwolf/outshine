@@ -266,7 +266,7 @@ struct AssetRenderOptions {
         .Lux = std::numbers::pi, .ElevationDeg = kStudioAngleDeg, .BearingDeg = kStudioAngleDeg};
     scene.Lit.IndirectLight = {{kStudioFill, kStudioFill, kStudioFill}};
   }
-  auto targeted = engine.drawsInto(options.Frame);
+  auto targeted = engine.setRenderTarget(options.Frame);
   if (!targeted) { return std::unexpected(std::move(targeted.error())); }
   auto declared = engine.declare(scene);
   if (!declared) { return std::unexpected(std::move(declared.error())); }

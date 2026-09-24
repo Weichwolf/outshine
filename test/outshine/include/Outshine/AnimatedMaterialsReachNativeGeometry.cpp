@@ -108,7 +108,7 @@ int main() {
   view.Sees.PositionM = {{0, 0, 3}};
   scene.Views.push_back(view);
   CHECK(asset.selectAnimations(clips).has_value(), "reselect material clip for rendering");
-  if (!accepted(engine.drawsInto(scene.Render.Frame)) || !accepted(engine.declare(scene))) {
+  if (!accepted(engine.setRenderTarget(scene.Render.Frame)) || !accepted(engine.declare(scene))) {
     return Report();
   }
   for (const double time : {0.0, 1.0}) {

@@ -57,17 +57,17 @@ int main() {
   const VideoSession video;
   Engine engine;
   const Geometry triangle = Triangle();
-  CHECK(engine.drawsInto(kFirst) && engine.declare(Scene(kFirst)) && engine.setGeometry(triangle) &&
-            engine.assemble(),
+  CHECK(engine.setRenderTarget(kFirst) && engine.declare(Scene(kFirst)) &&
+            engine.setGeometry(triangle) && engine.assemble(),
         "a static native world prepares on the first target");
   std::vector<float> first;
   CHECK(Draw(engine, first) && first.size() == 64u * 64u * 4u,
         "the first target produces the expected static readback");
-  CHECK(engine.drawsInto(kOther), "the unrelated wider offscreen target publishes");
+  CHECK(engine.setRenderTarget(kOther), "the unrelated wider offscreen target publishes");
   std::vector<float> wider;
   CHECK(Draw(engine, wider) && wider.size() == 96u * 64u * 4u,
         "the static world rebinds to the wider target");
-  CHECK(engine.drawsInto(kFirst), "the original target extent publishes again");
+  CHECK(engine.setRenderTarget(kFirst), "the original target extent publishes again");
   std::vector<float> restored;
   CHECK(Draw(engine, restored) && restored == first,
         "a static world preserves its original-target linear pixels across target switches");

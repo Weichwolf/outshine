@@ -54,7 +54,7 @@ int main() {
   {
     outshine::Engine engine;
     CHECK(engine.setRoots({"src/assets/drive", "src/assets", "/tmp/outshine-paced", false}) &&
-              engine.drawsInto({160, 90}),
+              engine.setRenderTarget({160, 90}),
           "offscreen world starts");
     const auto declared = engine.declare(Scenario());
     CHECK(declared.has_value(), declared ? "two views declare" : declared.error().c_str());

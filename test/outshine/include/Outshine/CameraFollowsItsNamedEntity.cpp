@@ -52,7 +52,7 @@ int main() {
   {
     Engine engine;
     const auto ready =
-        engine.drawsInto(Extent{64, 64}) && engine.declare(scene) && engine.assemble();
+        engine.setRenderTarget(Extent{64, 64}) && engine.declare(scene) && engine.assemble();
     CHECK(ready, "camera targets resolve before rendering");
     if (!ready) { return Report(); }
     const auto checkEye = [&](double expected) {

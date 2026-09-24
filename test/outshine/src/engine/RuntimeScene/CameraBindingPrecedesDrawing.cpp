@@ -153,7 +153,7 @@ int main() {
     const auto target = engine.swapChain();
     CHECK(target.extent().WidthPx == 0 && target.extent().HeightPx == 0,
           "internal default dimensions are not advertised as a configured target");
-    CHECK(engine.drawsInto(Extent{32, 32}).has_value(), "configure an offscreen target");
+    CHECK(engine.setRenderTarget(Extent{32, 32}).has_value(), "configure an offscreen target");
     CHECK(engine.declare(Declaration(false)).has_value(),
           "an empty scene can be declared before a camera is prepared");
     auto renderer = engine.renderer();
@@ -186,7 +186,7 @@ int main() {
   if (window != nullptr) {
     {
       Engine engine;
-      CHECK(engine.drawsInto(window).has_value(), "the Engine borrows the window");
+      CHECK(engine.setRenderTarget(window).has_value(), "the Engine borrows the window");
       CHECK(engine.declare(Declaration(false)).has_value(),
             "a presentation scene starts without a bound camera");
       auto target = engine.swapChain();

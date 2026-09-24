@@ -87,14 +87,14 @@ int main() {
   Product right("right-product", 0.5F, {{0, 1, 0}});
   Product wall("wall-product", 0.0F, {{0, 0, 1}});
   Engine engine;
-  const auto empty = engine.offers(unnamed);
+  const auto empty = engine.registerGenerator(unnamed);
   CHECK(!empty && empty.error() == "generator registration needs a nonempty kind",
         "empty generator kind reports a registration refusal");
-  CHECK(engine.offers(left), "left fixture generator registers");
-  const auto duplicate = engine.offers(left);
+  CHECK(engine.registerGenerator(left), "left fixture generator registers");
+  const auto duplicate = engine.registerGenerator(left);
   CHECK(!duplicate && duplicate.error() == "generator kind is already registered",
         "duplicate generator kind reports a registration refusal");
-  CHECK(engine.offers(right), "right fixture generator registers");
+  CHECK(engine.registerGenerator(right), "right fixture generator registers");
   Scenario::Document scenario;
   scenario.Render.Declared = true;
   scenario.Render.Frame = {64, 64};
@@ -122,7 +122,7 @@ int main() {
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scenario.Views.push_back(view);
   std::vector<float> pixels;
-  if (!accepted(engine.drawsInto({64, 64})) || !accepted(engine.declare(scenario)) ||
+  if (!accepted(engine.setRenderTarget({64, 64})) || !accepted(engine.declare(scenario)) ||
       !accepted(engine.assemble()) || !accepted(engine.advance()) ||
       !accepted(engine.renderer().render({})) ||
       !accepted(engine.renderer().readPixels(Buffer::Linear, pixels))) {

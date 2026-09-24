@@ -25,7 +25,7 @@ int main() {
     Engine engine;
     (void)engine.setRoots(
         {.Assets = "src/assets/drive", .Shipped = temporary, .Cache = (root / "cache").string()});
-    CHECK(engine.drawsInto({32, 32}).has_value(), "offscreen target opens");
+    CHECK(engine.setRenderTarget({32, 32}).has_value(), "offscreen target opens");
     Scenario::Document empty;
     CHECK(engine.declare(empty) && engine.assemble(), "initial empty simulation assembles");
     const auto *previous = &engine.entities();

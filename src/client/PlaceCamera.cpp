@@ -217,7 +217,7 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation =
     shot.Why = "the engine rejected its roots: " + rooted.error();
     return false;
   }
-  if (const auto targeted = engine.drawsInto(place.Declaration.Render.Frame); !targeted) {
+  if (const auto targeted = engine.setRenderTarget(place.Declaration.Render.Frame); !targeted) {
     shot.Why = "the device stood no canvas: " + targeted.error();
     return false;
   }

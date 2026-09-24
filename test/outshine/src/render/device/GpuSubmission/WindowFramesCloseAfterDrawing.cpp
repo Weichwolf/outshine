@@ -210,7 +210,7 @@ int main() {
   }
   {
     Engine engine;
-    CHECK(engine.drawsInto(window).has_value() && Prepare(engine), "window scene is ready");
+    CHECK(engine.setRenderTarget(window).has_value() && Prepare(engine), "window scene is ready");
     auto renderer = engine.renderer();
     auto copied = renderer;
     auto target = engine.swapChain();
@@ -300,7 +300,7 @@ int main() {
     std::filesystem::remove(blocked);
 
     Engine offscreen;
-    CHECK(offscreen.drawsInto({64, 64}).has_value() && Prepare(offscreen),
+    CHECK(offscreen.setRenderTarget({64, 64}).has_value() && Prepare(offscreen),
           "offscreen scene is ready");
     auto offscreenRenderer = offscreen.renderer();
     auto offscreenTarget = offscreen.swapChain();

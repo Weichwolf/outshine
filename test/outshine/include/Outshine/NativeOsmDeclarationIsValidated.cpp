@@ -34,8 +34,8 @@ int main() {
   Receiver receiver;
   Probe probe;
   Engine engine;
-  engine.offers(&receiver);
-  CHECK(engine.offers(probe), "fixture generator registers");
+  engine.setInputHost(&receiver);
+  CHECK(engine.registerGenerator(probe), "fixture generator registers");
   const Scenario::Structure valid{.Kind = "track", .LatLon = {0, 0, 1, 1}};
   Scenario::Document original;
   original.Input = {{.Event = "KeyW", .Action = "original"}};

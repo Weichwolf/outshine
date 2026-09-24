@@ -32,8 +32,8 @@ int main() {
   {
     Probe probe;
     Engine engine;
-    CHECK(engine.offers(probe), "fixture generator registers");
-    CHECK(engine.drawsInto(Extent{64, 64}).has_value(), "real offscreen target opens");
+    CHECK(engine.registerGenerator(probe), "fixture generator registers");
+    CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "real offscreen target opens");
     Scenario::Document scenario;
     scenario.Generators.push_back(
         {.Kind = "redeclare-probe", .Parameters = {{.Name = "value", .Value = "first"}}});

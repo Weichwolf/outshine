@@ -387,7 +387,7 @@ void PublishConfiguration(Kept &session,
 
 void Engine::ships() {
   if (S_->World.Offering.count() > 0) { return; }
-  const auto shipped = offers(S_->World.Shipping.Offered());
+  const auto shipped = registerGenerator(S_->World.Shipping.Offered());
   if (!shipped) { std::terminate(); }
 }
 
@@ -453,18 +453,18 @@ namespace {
 [[nodiscard]] Result ValidateOfferedGenerators(const Scenario::Document &scenario,
                                                const Generators::Registry &registry,
                                                std::string &error) {
-  const auto offers = [&registry](const std::string &kind) {
+  const auto isGeneratorRegistered = [&registry](const std::string &kind) {
     return registry.named(kind) != nullptr;
   };
   for (const Scenario::Generating &named : scenario.Generators) {
-    if (offers(named.Kind)) { continue; }
+    if (isGeneratorRegistered(named.Kind)) { continue; }
     error = "the scenario declares a generator of kind '" + named.Kind +
             "' and nothing offers that kind -- a declaration nobody can act on is a refusal, "
             "never a line that is counted and dropped";
     return std::unexpected(error);
   }
   for (const Scenario::Asset &shown : scenario.Assets) {
-    if (shown.Kind != "generated" || offers(shown.Uri)) { continue; }
+    if (shown.Kind != "generated" || isGeneratorRegistered(shown.Uri)) { continue; }
     error = "the scenario stands the generated asset '" + shown.Uri +
             "' and nothing offers a generator of that kind -- an asset names a generator the "
             "way a scenario names anything, and a name nobody answers is a refusal";

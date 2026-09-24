@@ -9,7 +9,7 @@ int main() {
   {
     Engine engine;
     (void)engine.setRoots({.Shipped = "src/assets"});
-    CHECK(engine.drawsInto(Extent{128, 128}).has_value(), "offscreen target is configured");
+    CHECK(engine.setRenderTarget(Extent{128, 128}).has_value(), "offscreen target is configured");
     Scenario::Document scene;
     scene.WheelStepPx = 16;
     scene.Surfaces.push_back(

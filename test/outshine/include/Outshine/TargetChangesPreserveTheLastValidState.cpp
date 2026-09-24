@@ -189,7 +189,8 @@ int main() {
   if (first != nullptr && candidate != nullptr) {
     {
       Engine unconfigured;
-      CHECK(!unconfigured.drawsInto(Extent{0, 32}), "invalid first configuration is rejected");
+      CHECK(!unconfigured.setRenderTarget(Extent{0, 32}),
+            "invalid first configuration is rejected");
       auto target = unconfigured.swapChain();
       const auto begun = unconfigured.renderer().beginFrame(target);
       CHECK(!begun && target.extent().WidthPx == 0 && target.extent().HeightPx == 0,
@@ -198,16 +199,16 @@ int main() {
     {
       Engine owner;
       Engine contender;
-      CHECK(owner.drawsInto(first).has_value(), "the owner claims its window");
+      CHECK(owner.setRenderTarget(first).has_value(), "the owner claims its window");
       const Extent original = owner.swapChain().extent();
-      CHECK(!contender.drawsInto(first), "a second Engine cannot claim the same window");
+      CHECK(!contender.setRenderTarget(first), "a second Engine cannot claim the same window");
       CHECK(owner.swapChain().presents() && !contender.swapChain().presents(),
             "refused claim preserves both owner identities");
       for (const Failure failure : {Failure::Extent, Failure::Composition, Failure::Parameters}) {
         const unsigned before = injected;
         const unsigned released = releasedWindows;
         inject = failure;
-        const auto result = owner.drawsInto(candidate);
+        const auto result = owner.setRenderTarget(candidate);
         inject = Failure::None;
         CHECK(injected > before && !result, "the actual SDL boundary rejects the candidate");
         CHECK(owner.swapChain().presents() &&
@@ -216,10 +217,11 @@ int main() {
         const unsigned expectedReleases = failure == Failure::Extent ? 0u : 1u;
         CHECK(releasedWindows == released + expectedReleases,
               "only a successfully claimed candidate is released on failure");
-        CHECK(!contender.drawsInto(first), "the original window remains claimed by its owner");
-        CHECK(contender.drawsInto(candidate).has_value(),
+        CHECK(!contender.setRenderTarget(first),
+              "the original window remains claimed by its owner");
+        CHECK(contender.setRenderTarget(candidate).has_value(),
               "the rejected candidate has no leaked claim");
-        CHECK(contender.drawsInto(Extent{32, 32}).has_value(),
+        CHECK(contender.setRenderTarget(Extent{32, 32}).has_value(),
               "the contender releases the candidate");
         if (failure != Failure::Composition) {
           CHECK(!result && result.error().find("injected") != std::string::npos,
@@ -234,28 +236,30 @@ int main() {
       const bool began = ready && renderer.beginFrame(target).has_value();
       CHECK(began, "a frame opens on the retained window");
       if (began) {
-        CHECK(!owner.drawsInto(candidate) && !owner.drawsInto(Extent{32, 32}),
+        CHECK(!owner.setRenderTarget(candidate) && !owner.setRenderTarget(Extent{32, 32}),
               "both target overloads reject a change while a frame is open");
         CHECK(renderer.endFrame().has_value(), "the original window still presents that frame");
       }
-      CHECK(owner.drawsInto(candidate).has_value(), "a closed frame permits a valid target switch");
+      CHECK(owner.setRenderTarget(candidate).has_value(),
+            "a closed frame permits a valid target switch");
       auto replacement = owner.swapChain();
       const bool replacementFrame = renderer.beginFrame(replacement).has_value();
       CHECK(replacementFrame && renderer.endFrame().has_value(),
             "the replaced window opens and presents a complete frame");
-      CHECK(contender.drawsInto(first).has_value(),
+      CHECK(contender.setRenderTarget(first).has_value(),
             "successful replacement releases the old window");
     }
     {
       Engine afterDestruction;
-      CHECK(afterDestruction.drawsInto(first).has_value(),
+      CHECK(afterDestruction.setRenderTarget(first).has_value(),
             "Engine destruction releases its borrowed window");
-      CHECK(afterDestruction.drawsInto(candidate).has_value(),
+      CHECK(afterDestruction.setRenderTarget(candidate).has_value(),
             "both former claims can be acquired again");
     }
     {
       Engine offscreen;
-      CHECK(offscreen.drawsInto(Extent{32, 32}).has_value(), "offscreen target is configured");
+      CHECK(offscreen.setRenderTarget(Extent{32, 32}).has_value(),
+            "offscreen target is configured");
       const auto ready = Prepare(offscreen, TargetScenario({32, 32}));
       CHECK(ready, "the plan allocates an offscreen surface and camera");
       if (!ready) { std::printf("offscreen setup: %s\n", ready.error().c_str()); }
@@ -310,7 +314,7 @@ int main() {
         textureAttempt = 0;
         failTextureAt = 1;
         inject = Failure::Texture;
-        const auto refused = offscreen.drawsInto(Extent{48, 32});
+        const auto refused = offscreen.setRenderTarget(Extent{48, 32});
         inject = Failure::None;
         CHECK(injected == failures + 1 && !refused &&
                   refused.error().find("injected") != std::string::npos,
@@ -324,7 +328,7 @@ int main() {
         pipelineAttempt = 0;
         failPipelineAt = 1;
         inject = Failure::Pipeline;
-        const auto refusedTargetPipeline = offscreen.drawsInto(Extent{48, 32});
+        const auto refusedTargetPipeline = offscreen.setRenderTarget(Extent{48, 32});
         inject = Failure::None;
         CHECK(injected == targetPipelineFailures + 1 && !refusedTargetPipeline &&
                   refusedTargetPipeline.error().find("injected") != std::string::npos,
@@ -337,7 +341,7 @@ int main() {
         const unsigned pipelinesBeforeIdleFailure = createdPipelines;
         const unsigned idleFailures = injected;
         inject = Failure::Idle;
-        const auto refusedIdle = offscreen.drawsInto(Extent{48, 32});
+        const auto refusedIdle = offscreen.setRenderTarget(Extent{48, 32});
         inject = Failure::None;
         CHECK(injected == idleFailures + 1 && !refusedIdle &&
                   refusedIdle.error().find("injected") != std::string::npos,
@@ -351,12 +355,12 @@ int main() {
         CHECK(renderer.readPixels(afterIdleFailure).has_value() &&
                   afterIdleFailure == beforeTargetFailure,
               "a failed post-build settle keeps the old target pixels");
-        CHECK(!offscreen.drawsInto(Extent{-1, 32}) &&
-                  !offscreen.drawsInto(static_cast<SDL_Window *>(nullptr)),
+        CHECK(!offscreen.setRenderTarget(Extent{-1, 32}) &&
+                  !offscreen.setRenderTarget(static_cast<SDL_Window *>(nullptr)),
               "invalid inputs cannot replace the existing target");
-        CHECK(offscreen.drawsInto(Extent{32, 32}).has_value(),
+        CHECK(offscreen.setRenderTarget(Extent{32, 32}).has_value(),
               "replacement succeeds after the injected failure");
-        CHECK(offscreen.drawsInto(Extent{48, 32}).has_value() &&
+        CHECK(offscreen.setRenderTarget(Extent{48, 32}).has_value() &&
                   offscreen.swapChain().extent().WidthPx == 48,
               "a complete target candidate publishes its new extent");
         std::vector<uint8_t> widened;
@@ -368,14 +372,14 @@ int main() {
         const unsigned buffersBeforeRepeat = createdBuffers;
         const unsigned pipelinesBeforeRepeat = createdPipelines;
         const unsigned releasedBeforeRepeat = releasedTextures;
-        CHECK(offscreen.drawsInto(Extent{32, 32}).has_value(),
+        CHECK(offscreen.setRenderTarget(Extent{32, 32}).has_value(),
               "first repeated target switch succeeds");
         const unsigned firstMade = createdTextures - madeBeforeRepeat;
         const unsigned firstSamplers = createdSamplers - samplersBeforeRepeat;
         const unsigned firstBuffers = createdBuffers - buffersBeforeRepeat;
         const unsigned firstPipelines = createdPipelines - pipelinesBeforeRepeat;
         const unsigned firstReleased = releasedTextures - releasedBeforeRepeat;
-        CHECK(offscreen.drawsInto(Extent{48, 32}).has_value(),
+        CHECK(offscreen.setRenderTarget(Extent{48, 32}).has_value(),
               "second repeated target switch succeeds");
         CHECK(createdTextures - madeBeforeRepeat == 2u * firstMade &&
                   releasedTextures - releasedBeforeRepeat == 2u * firstReleased &&
@@ -414,7 +418,7 @@ int main() {
                 break;
             }
             inject = failure;
-            const auto refusedCandidate = offscreen.drawsInto(next);
+            const auto refusedCandidate = offscreen.setRenderTarget(next);
             inject = Failure::None;
             CHECK(injected == failuresBefore + 1 && !refusedCandidate,
                   "every target candidate creation boundary rejects independently");
@@ -424,7 +428,7 @@ int main() {
             std::vector<uint8_t> retainedPixels;
             CHECK(renderer.readPixels(retainedPixels).has_value() && retainedPixels == expected,
                   "a rejected candidate keeps the active target pixels");
-            CHECK(offscreen.drawsInto(next).has_value(),
+            CHECK(offscreen.setRenderTarget(next).has_value(),
                   "a target switch retries after every candidate creation failure");
           }
         };

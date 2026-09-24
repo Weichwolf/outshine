@@ -74,7 +74,7 @@ std::optional<ProductSignature> Builds(bool preload) {
   using namespace outshine::Test;
   outshine::Engine engine;
   if (!engine.setRoots({"src/assets/drive", "src/assets", "/tmp/outshine-paced", false}) ||
-      !engine.drawsInto({160, 90})) {
+      !engine.setRenderTarget({160, 90})) {
     Unprepared("the offscreen target did not start");
     return std::nullopt;
   }

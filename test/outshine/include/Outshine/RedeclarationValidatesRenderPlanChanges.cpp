@@ -20,7 +20,7 @@ void ChangedPlanIsValidated(Setting setting) {
   using namespace outshine::Test;
   Engine reused;
   Engine fresh;
-  CHECK(reused.drawsInto({32, 32}).has_value() && fresh.drawsInto({32, 32}).has_value(),
+  CHECK(reused.setRenderTarget({32, 32}).has_value() && fresh.setRenderTarget({32, 32}).has_value(),
         "independent engines have the same target");
   auto scene = Scene();
   CHECK(reused.declare(scene).has_value(), "the original render plan is initialized");
@@ -47,7 +47,7 @@ void AdditionalOutputIsApplied() {
   using namespace outshine;
   using namespace outshine::Test;
   Engine engine;
-  CHECK(engine.drawsInto({32, 32}).has_value(), "output transition has an offscreen target");
+  CHECK(engine.setRenderTarget({32, 32}).has_value(), "output transition has an offscreen target");
   auto scene = Scene();
   Scenario::View view;
   view.Id = "plan-output";

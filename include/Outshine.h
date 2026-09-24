@@ -234,19 +234,19 @@ public:
   /// initialized. The window must outlive its use as this Engine's target; ownership stays
   /// external. Requires no open frame. On failure, the previous target and extent
   /// remain configured. A successful switch invalidates the previous pixel readback.
-  /// @param presents Borrowed window whose creation thread is executing this call.
+  /// @param window Borrowed window whose creation thread is executing this call.
   /// @return Success or an error describing invalid input or device configuration failure.
-  [[nodiscard]] Result drawsInto(SDL_Window *presents);
+  [[nodiscard]] Result setRenderTarget(SDL_Window *window);
   /// Borrow a host for subsequent action callbacks. nullptr detaches it. The host must remain
   /// alive until replaced or this Engine is destroyed; replacement must not overlap a callback.
   /// @param host Borrowed callback receiver, or nullptr to detach.
-  void offers(Host *host);
+  void setInputHost(Host *host);
   /// Borrow a generator until Engine destruction. Registration retains its address and never
   /// takes ownership. Duplicate kind names retain the first registration.
-  /// @param maker Borrowed generator whose lifetime covers its registration.
+  /// @param generator Borrowed generator whose lifetime covers its registration.
   /// @return Empty or duplicate-kind diagnostic while retaining all prior registrations;
   /// otherwise success.
-  [[nodiscard]] Result offers(const Generators::Generator &maker);
+  [[nodiscard]] Result registerGenerator(const Generators::Generator &generator);
   /// Select an exact declared view identifier; camera application occurs during advance().
   /// @param view Borrowed identifier, not retained. No case folding or fallback lookup.
   /// @return Error for missing/unknown views, preserving the active selection; otherwise success.
@@ -270,7 +270,7 @@ public:
   /// previous pixel readback is invalidated; subsequent pixel requests render this target.
   /// @param offscreen Required width and height in physical pixels.
   /// @return Success or an error describing invalid input or device configuration failure.
-  [[nodiscard]] Result drawsInto(Extent offscreen);
+  [[nodiscard]] Result setRenderTarget(Extent offscreen);
   /// Store owned paths for subsequent setup; performs no filesystem validation or IO.
   /// Replace roots before the first successful declaration and serialize with every Engine call.
   /// @param roots Configuration moved into the Engine; no references to the argument remain.

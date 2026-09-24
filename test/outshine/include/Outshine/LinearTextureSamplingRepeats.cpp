@@ -48,8 +48,8 @@ int main() {
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scene.Views.push_back(view);
   Engine engine;
-  CHECK(engine.drawsInto({128, 128}) && engine.declare(scene) && engine.setGeometry(geometry) &&
-            engine.assemble() && engine.advance(),
+  CHECK(engine.setRenderTarget({128, 128}) && engine.declare(scene) &&
+            engine.setGeometry(geometry) && engine.assemble() && engine.advance(),
         "linear texture scene assembles");
   std::vector<float> first, repeated;
   CHECK(engine.renderer().render({}) && engine.renderer().readPixels(Buffer::Linear, first),

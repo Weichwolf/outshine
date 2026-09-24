@@ -53,7 +53,7 @@ int main() {
     view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 20});
     declaration.Views.push_back(view);
     std::vector<float> frame;
-    if (!accepted(engine.drawsInto({65, 65})) || !accepted(engine.declare(declaration)) ||
+    if (!accepted(engine.setRenderTarget({65, 65})) || !accepted(engine.declare(declaration)) ||
         !accepted(engine.setGeometry(geometry)) || !accepted(engine.assemble()) ||
         !accepted(engine.advance()) || !accepted(engine.renderer().render({})) ||
         !accepted(engine.renderer().readPixels(Buffer::Linear, frame))) {

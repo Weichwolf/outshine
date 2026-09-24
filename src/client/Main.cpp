@@ -163,7 +163,7 @@ void Usage() {
     return false;
   }
   if (frame.WidthPx > 0 && frame.HeightPx > 0) {
-    if (const auto targeted = engine.drawsInto(frame); !targeted) {
+    if (const auto targeted = engine.setRenderTarget(frame); !targeted) {
       std::println("outshine-client: the device stood no canvas -- {}", targeted.error());
       return false;
     }
@@ -250,7 +250,7 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
     frame = {.WidthPx = outshine::Shots::kWidePx, .HeightPx = outshine::Shots::kHighPx};
   }
-  if (const auto targeted = engine.drawsInto(frame); !targeted) {
+  if (const auto targeted = engine.setRenderTarget(frame); !targeted) {
     std::println("outshine-client: {}", targeted.error());
     return 1;
   }

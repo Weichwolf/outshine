@@ -64,7 +64,7 @@ int main() {
   foregroundCamera.Placement = Scenario::CameraPlacement::Local;
   foregroundCamera.Sees.PositionM = {{0, 0, 3}};
   foregroundScene.Views.push_back(foregroundCamera);
-  CHECK(foreground.drawsInto({1280, 720}) && foreground.declare(foregroundScene) &&
+  CHECK(foreground.setRenderTarget({1280, 720}) && foreground.declare(foregroundScene) &&
             foreground.setGeometry(control) && foreground.assemble() && foreground.advance(),
         "independent foreground renderer stands before the bake");
   std::vector<float> foregroundReference, frame;
@@ -385,7 +385,7 @@ int main() {
       scene.Views.push_back(camera);
       Engine engine;
       std::vector<float> depth, normals;
-      const bool rendered = engine.drawsInto({128, 128}) && engine.declare(scene) &&
+      const bool rendered = engine.setRenderTarget({128, 128}) && engine.declare(scene) &&
                             engine.setGeometry(*card) && engine.assemble() && engine.advance() &&
                             engine.renderer().render({}) &&
                             engine.renderer().readPixels(Buffer::Linear, frames[light]) &&
@@ -428,7 +428,7 @@ int main() {
       if (view == 0 && fine) {
         Engine reference;
         std::vector<float> original;
-        const bool drawn = reference.drawsInto({128, 128}) && reference.declare(scene) &&
+        const bool drawn = reference.setRenderTarget({128, 128}) && reference.declare(scene) &&
                            reference.setGeometry(*fine) && reference.assemble() &&
                            reference.advance() && reference.renderer().render({}) &&
                            reference.renderer().readPixels(Buffer::Linear, original);

@@ -23,7 +23,7 @@ struct Argument {
 };
 
 /// Application-owned synchronous receiver of named engine actions.
-/// Engine::offers borrows this object until replacement, detachment or engine destruction.
+/// Engine::setInputHost borrows this object until replacement, detachment or engine destruction.
 /// Calls execute on the invoking engine thread; there is no dispatcher or synchronization.
 /// Keep callbacks bounded, do not throw, and do not reenter or destroy the invoking engine.
 /// Multiple engines sharing one host require external synchronization or a thread-safe host.

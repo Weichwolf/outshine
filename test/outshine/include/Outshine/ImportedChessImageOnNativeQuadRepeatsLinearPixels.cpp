@@ -71,7 +71,7 @@ int main() {
                           .FarM = 4.118946968135317});
   scenario.Views.push_back(view);
   std::vector<float> frame;
-  if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario)) ||
+  if (!accepted(engine.setRenderTarget({1280, 720})) || !accepted(engine.declare(scenario)) ||
       !accepted(engine.setGeometry(geometry))) {
     return Report();
   }

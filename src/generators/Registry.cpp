@@ -24,11 +24,12 @@ Registry::~Registry() = default;
 Registry::Registry(Registry &&) noexcept = default;
 Registry &Registry::operator=(Registry &&) noexcept = default;
 
-std::expected<void, Registry::RegistrationError> Registry::offers(const Generator &maker) {
-  const std::string_view name = maker.kind();
+std::expected<void, Registry::RegistrationError>
+Registry::registerGenerator(const Generator &generator) {
+  const std::string_view name = generator.kind();
   if (name.empty()) { return std::unexpected(RegistrationError::EmptyKind); }
   if (named(name) != nullptr) { return std::unexpected(RegistrationError::DuplicateKind); }
-  Kept_->Held.push_back({.Name = std::string(name), .Maker = &maker});
+  Kept_->Held.push_back({.Name = std::string(name), .Maker = &generator});
   return {};
 }
 

@@ -43,9 +43,9 @@ int main() {
   {
     Receiver receiver;
     Engine engine;
-    engine.offers(&receiver);
+    engine.setInputHost(&receiver);
     (void)engine.setRoots({.Shipped = "src/assets"});
-    CHECK(engine.drawsInto(Extent{64, 64}).has_value(), "offscreen target ready");
+    CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target ready");
     Scenario::Document document;
     document.Render.Declared = true;
     document.Render.Outputs = {"surface"};

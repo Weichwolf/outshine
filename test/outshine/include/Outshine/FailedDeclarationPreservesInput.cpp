@@ -30,8 +30,8 @@ int main() {
   Receiver receiver;
   RefusingGenerator generator;
   Engine engine;
-  engine.offers(&receiver);
-  CHECK(engine.offers(generator), "fixture generator registers");
+  engine.setInputHost(&receiver);
+  CHECK(engine.registerGenerator(generator), "fixture generator registers");
   Scenario::Document original;
   original.Input = {{.Event = "KeyW", .Action = "original"}};
   SDL_Event event{};

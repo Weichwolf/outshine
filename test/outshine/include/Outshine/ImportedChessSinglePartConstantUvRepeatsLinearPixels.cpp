@@ -76,7 +76,7 @@ int main() {
     return Report();
   }
   Engine engine;
-  if (!accepted(engine.drawsInto({1280, 720})) || !accepted(engine.declare(scenario)) ||
+  if (!accepted(engine.setRenderTarget({1280, 720})) || !accepted(engine.declare(scenario)) ||
       !accepted(engine.setGeometry(single)) || !accepted(engine.assemble()) ||
       !accepted(engine.advance())) {
     return Report();

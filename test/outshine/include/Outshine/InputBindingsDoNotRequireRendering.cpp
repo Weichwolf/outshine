@@ -27,7 +27,7 @@ int main() {
   using namespace outshine::Test;
   Receiver receiver;
   Engine engine;
-  engine.offers(&receiver);
+  engine.setInputHost(&receiver);
   Scenario::Document scene;
   scene.Input = {{.Event = "KeyW", .Action = "key"},
                  {.Event = "MouseLeft", .Action = "mouse"},
@@ -95,9 +95,9 @@ int main() {
   receiver.Accept = false;
   const auto refused = engine.handleEvent(event);
   CHECK(refused && !*refused, "host refusal remains an unhandled result");
-  engine.offers(static_cast<Host *>(nullptr));
+  engine.setInputHost(static_cast<Host *>(nullptr));
   CHECK(!engine.handleEvent(event), "bound action without a host produces an error");
-  engine.offers(&receiver);
+  engine.setInputHost(&receiver);
   CHECK(engine.declare({}).has_value(), "empty declaration removes bindings");
   const auto unbound = engine.handleEvent(event);
   CHECK(unbound && !*unbound, "removed binding is unhandled without reusing old error");

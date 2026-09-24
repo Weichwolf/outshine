@@ -115,7 +115,7 @@ int main() {
   view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 2, .NearM = 0.1, .FarM = 10});
   scenario.Views.push_back(view);
   std::vector<float> frame;
-  if (!accepted(engine.drawsInto({320, 320})) || !accepted(engine.declare(scenario)) ||
+  if (!accepted(engine.setRenderTarget({320, 320})) || !accepted(engine.declare(scenario)) ||
       !accepted(engine.setGeometry(geometry))) {
     return Report();
   }

@@ -33,7 +33,7 @@ int main() {
   using namespace outshine::Test;
   Probe probe;
   Engine engine;
-  CHECK(engine.offers(probe), "fixture generator registers");
+  CHECK(engine.registerGenerator(probe), "fixture generator registers");
   Scenario::Document source;
   source.Generators.push_back(
       {.Kind = "parameter-probe",

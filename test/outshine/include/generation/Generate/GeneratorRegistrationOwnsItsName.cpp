@@ -26,18 +26,19 @@ int main() {
   NamedGenerator first;
   NamedGenerator duplicate;
   Registry registry;
-  const auto empty = registry.offers(first);
+  const auto empty = registry.registerGenerator(first);
   CHECK(!empty && empty.error() == Registry::RegistrationError::EmptyKind && registry.count() == 0,
         "empty name cannot enter catalogue");
   first.Name = "structures";
-  CHECK(registry.offers(first).has_value() && registry.count() == 1, "nonempty name registers");
+  CHECK(registry.registerGenerator(first).has_value() && registry.count() == 1,
+        "nonempty name registers");
   const size_t calls = first.Calls;
   first.Name = "changed";
   CHECK(registry.named("structures") == &first && registry.named("changed") == nullptr,
         "registration owns its original name");
   CHECK(first.Calls == calls, "lookup does not execute generator callbacks");
   duplicate.Name = "structures";
-  const auto duplicateResult = registry.offers(duplicate);
+  const auto duplicateResult = registry.registerGenerator(duplicate);
   CHECK(!duplicateResult && duplicateResult.error() == Registry::RegistrationError::DuplicateKind &&
             registry.count() == 1 && registry.named("structures") == &first,
         "duplicate cannot replace existing registration after the provider renames itself");

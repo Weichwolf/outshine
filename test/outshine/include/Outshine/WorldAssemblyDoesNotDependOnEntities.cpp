@@ -11,7 +11,7 @@ int main() {
     Engine engine;
     CHECK(engine.setRoots({.Shipped = "src/assets", .Offline = true}).has_value(),
           "roots are accepted before declaration");
-    CHECK(engine.drawsInto(Extent{64, 64}).has_value(), "offscreen target configured");
+    CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target configured");
     Scenario::Document initial;
     initial.Room = 4;
     Scenario::Kind kind;

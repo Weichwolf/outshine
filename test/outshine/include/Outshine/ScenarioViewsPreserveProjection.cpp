@@ -148,7 +148,7 @@ Frame CheckProjection(Engine &engine, const Camera &camera) {
 std::vector<float> Exercise(bool carried, const std::string &path) {
   Engine engine;
   const auto declared = Declaration(carried, path);
-  auto ready = engine.drawsInto(Extent{64, 64});
+  auto ready = engine.setRenderTarget(Extent{64, 64});
   if (ready) { ready = engine.declare(declared); }
   if (ready) { ready = engine.assemble(); }
   if (ready) { ready = engine.advance(); }
