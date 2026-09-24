@@ -1638,9 +1638,11 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   enum class IndexBinding { Unbound, Direct, Indirect };
   IndexBinding indexBinding = IndexBinding::Unbound;
 
-  std::array<SDL_GPUBuffer *const, 1> rows = {
-      Bound().Buffer(SubjectResidency::Stream::Placements).Get()};
-  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
+  if (drawsBatches) {
+    std::array<SDL_GPUBuffer *const, 1> rows = {
+        Bound().Buffer(SubjectResidency::Stream::Placements).Get()};
+    SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
+  }
 
   size_t bound = kPipelines;
   uint32_t boundSlot = kNoSlot;

@@ -41,6 +41,8 @@ public:
 
   void SetVegetation(const VegetationTemplates *veg) { Veg_ = veg; }
 
+  void SetVectorSource(bool available) noexcept { HasVectorSource_ = available; }
+
   void Open(double lat, double lon);
 
   [[nodiscard]] std::expected<void, std::string_view> Update(TilePool &tiles, LongitudeLatitude at);
@@ -168,6 +170,7 @@ private:
   Tier &TierOf(ClassGrain grain) { return grain == ClassGrain::Fine ? Fine_ : Coarse_; }
 
   const VegetationTemplates *Veg_ = nullptr;
+  bool HasVectorSource_ = true;
 
   Tier Fine_{{.Zoom = kFineZoom,
               .TileRadius = kFineRings,

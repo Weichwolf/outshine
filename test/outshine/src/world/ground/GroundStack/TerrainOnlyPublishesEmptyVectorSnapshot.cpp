@@ -66,8 +66,8 @@ int main() {
             vectors->Tiles().size() == 1 && vectors->PendingTiles() == 0 &&
             vectors->SettledWithin(0),
         "a settled zero-feature tile replaces absent source data without vector IO");
-  CHECK(!stack.Ingested() && !stack.Classes().Complete(),
-        "empty offline terrain cache cannot become a classified world");
+  CHECK(!stack.Ground().At(first).AslM(),
+        "publishing an empty vector snapshot does not invent missing elevation");
   if (!vectors) { return Report(); }
   const uint64_t firstGeneration = vectors->Generation();
   const int firstX = vectors->CentreX();

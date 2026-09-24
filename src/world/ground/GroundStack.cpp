@@ -67,6 +67,7 @@ bool GroundStack::Open(const World::StoragePaths &under,
   Pool_ = std::make_unique<outshine::Ground::TilePool>(poolConfig, sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
   SurfaceZoom_ = surface.Z;
+  Cls_.SetVectorSource(HasVectorSource_);
   Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg);
 
   const std::string &assets = under.Shipped;

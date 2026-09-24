@@ -2,6 +2,7 @@
 #include "WorldCandidate.h"
 #include "EngineHeld.h"
 #include "SceneRenderer.h"
+#include "FrameCapture.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -51,6 +52,18 @@ int main() {
             "ground inputs retain stable page handles");
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "one published ground tile has its full topology");
+      Render::Viewpoint eye =
+          *Render::Viewpoint::LookAt({.EyeM = {{0, 7, 8}}, .AimM = {{0, 3, 0}}}, 0.0);
+      eye.YfovRad = 1;
+      eye.ZNearM = 0.1;
+      eye.ZFarM = 100;
+      scene->Eye(eye);
+      CHECK(scene->Draw(error), "a ground-only frame renders without any subject placement buffer");
+      CHECK(renderer.GroundLatticeTriangles() > 0,
+            "the ground-only draw actually culls the test tile into the frame");
+      std::vector<uint8_t> pixels;
+      CHECK(Core::ReadFrame(renderer, pixels, error) && pixels.size() == 32u * 32u * 4u,
+            "the ground-only frame is readable at the declared size");
       std::unique_ptr<Core::RuntimeScene> candidate;
       CHECK(Core::RuntimeScene::PreparesWorldReplacement(
                 renderer, *scene, nullptr, candidate, error) &&

@@ -223,7 +223,7 @@ std::expected<void, std::string_view> ClassField::Update(TilePool &tiles, Longit
     Coarse_.Field = std::make_unique<OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
   }
   const double t0 = Clock();
-  if (Declared_.empty()) {
+  if (HasVectorSource_ && Declared_.empty()) {
     const auto fineBuilt = Fine_.Field->Build(
         tiles, at, Fine_.TileRadius, (size_t{2} * kFineRings + 1) * (size_t{2} * kFineRings + 1));
     if (!fineBuilt) { return std::unexpected(fineBuilt.error()); }
