@@ -1,5 +1,5 @@
 Type: debt
-State: open
+State: active
 Architecture: ready
 Parent: 2096
 Depends:
