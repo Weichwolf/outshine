@@ -75,6 +75,17 @@ samples the candidate's prepared height hierarchy instead of deferring forever;
 contact coverage still receives fine fields. The eventual fine arrival remains a
 revision-triggered replacement.
 
+The current warm Hockenheim motion run reaches 4575.880 m in 13200 frames,
+with 8021 frames before Refined, p99 13.81 ms, 59 frames over 16.67 ms and
+547.5 MiB peak heap. `NeedsBakes` serially precedes `NeedsCorridors` even
+though corridor construction consumes classes, road graph and DEM fields,
+not baked building pieces. Admit and land structure work while corridors run;
+keep `NeedsBakes` as a completion gate before earthworks and publication.
+Both consumers retain candidate DEM fields until complete. A view/revision
+change retires both without exposing a partial product. Compare Hockenheim
+road/image digest, full-lap readiness, p99 and peak bytes before accepting the
+overlap; the same source must keep the same rendered products.
+
 ## Implementation
 
 1. Extend the native ground revision/request with required near radius, target coverage
