@@ -52,8 +52,9 @@ the listed order. The 33,557-byte source pin is
 It contains route source objects, not a hand-authored track or whole-world
 fixture. `Data::OsmXmlReader` retains all 319 nodes, 17 ways, roles and tags;
 `World::TransportTopology` resolves their 267 directed main-route edges and
-rejects reversed ways, missing members and pitlane promotion. No runtime route
-or provider publication follows from those tests. WI 2173 must
+rejects reversed ways, missing members and pitlane promotion. WI 2278 now
+publishes the pinned semantic source and native graph asynchronously, including
+in a headless Engine; no route-query or camera alignment follows yet. WI 2173 must
 deliver OSM way/relation IDs and tags through a general
 provider or raw overlay. The MVT ID preserved by WI 2270 is only a provider ID
 until a source mapping is proven. A source without relation, way IDs or
