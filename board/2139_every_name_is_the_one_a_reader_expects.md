@@ -17,10 +17,8 @@ not proof that every algorithm, race and failure path is correct. Line counts lo
 mixed ownership; no maximum file length or automatic split is an architectural oracle.
 Examples supplied by the user do not limit the audit to Live, Crown and Structure.
 
-2026-09-23 lexical inventory: 261 `class` and 903 `struct` definitions (excluding
-`enum class` and template parameters), 31 public headers/4,459 lines, 580 private
-C++/GLSL files/94,275 lines, 22 declared dependency tiers and 384 public edges.
-Layer check finds zero direction violations; it cannot prove runtime ownership.
+The lexical audit found 261 classes, 903 structs, 31 public headers and 22
+dependency tiers; direction checks found no back edge but cannot prove ownership.
 Water triangulation now belongs to `generators/water` (2145). `Document.cpp`
 (2,268 lines) contains several glTF sections but one import owner; split it only
 when a complete codec boundary reduces change propagation. Track public API
@@ -56,8 +54,10 @@ Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
 
 ## Executable reserve and order
 
-1. Public API naming continues under 2096; inspect the remaining engine verbs
-   `Composes`/`Bakes`/`Grows`/`Carries`/`Models` before naming their owner slices.
+1. Public API naming continues under 2096. Internal Engine::State operations:
+   `Composes` → `PrepareRuntimeWorld`, `Bakes` → `AdvanceStructureBuilds`,
+   `Grows[Over]` → `GenerateInitialInstances/GenerateInstancesForRegion`,
+   `Carries` → `PublishBodyTransform`, `Models` → `PrepareBuildingSurfaces`.
 2. The twelve-hour review through 21342822f found live derived-state invalidation in
    GroundStack::Restand (2224) and unbounded remaining terrain phases (2234).
 3. Material/terrain work 2171/2166 proceeds independently under the order in 2188.
