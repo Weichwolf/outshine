@@ -540,18 +540,7 @@ std::optional<double> HeightSheets::FieldUpM(int zoom, EastNorth at) const {
 
 std::optional<double> HeightSheets::AslMAt(int zoom, LongitudeLatitude at) const {
   if (!Framed_) { return std::nullopt; }
-  for (int heldZoom = zoom; heldZoom >= 0; --heldZoom) {
-    const Ground::TileFrac frac = Ground::ToTileFracClamped(
-        {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}, heldZoom);
-    const Data::TileId tile{.Zoom = heldZoom,
-                            .X = static_cast<uint32_t>(std::floor(frac.X)),
-                            .Y = static_cast<uint32_t>(std::floor(frac.Y))};
-    const Ground::TerrainField *field = FieldAt(tile);
-    if (field == nullptr || !field->Meshable()) { continue; }
-    return field->PostingM(
-        {.Col = frac.X - std::floor(frac.X), .Row = frac.Y - std::floor(frac.Y)});
-  }
-  return std::nullopt;
+  return SourcedTerrainFields::AslMAt(Fields_, zoom, at);
 }
 
 void HeightSheets::Clear() {

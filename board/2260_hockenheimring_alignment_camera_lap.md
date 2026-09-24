@@ -89,10 +89,12 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    starts only two candidates (Playable, Refined), stays unrefined for all 1200
    frames, and ends in corridors at station 408 m. The stage ledger reports
    1716 network and 456 corridor advances, with 100/101 structure tiles landed.
-   Candidate restart is not the first cause. Measure stage wall time and source
-   scope; move heavy graph/corridor work off the frame path or publish bounded
-   road/terrain products independently of distant MVT work. Preserve revisions
-   and per-frame budgets; do not hide the delay by raising a frame work quota.
+   Candidate restart is not the first cause. A graph worker cuts unrefined
+   frames to 1074/1200; p99 is 14.09 ms with seven over-budget frames, and
+   the world is Refined at station 408 m. Corridor and later stages still delay
+   most of the lap. Measure their source scope and wall path; publish bounded
+   road/terrain products independently of distant MVT work where safe. Preserve
+   revisions and frame budgets rather than raising the per-frame work quota.
 4. Stream ahead and evict behind under bounded memory. Keep graph/route IDs
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.

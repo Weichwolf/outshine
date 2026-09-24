@@ -50,6 +50,7 @@
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
 #include "VectorStreetGraph.h"
+#include "VectorStreetGraphWorker.h"
 #include "RoadHeightCoverage.h"
 #include "RoadRefinementCoverage.h"
 
@@ -115,7 +116,6 @@ constexpr size_t kEarthworkStampUnitsPerFrame = 2048;
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
 constexpr size_t kCorridorRetireUnitsPerFrame = 512;
-constexpr size_t kNetworkItemsPerFrame = 1024;
 constexpr size_t kShapeCookItemsPerFrame = 262144;
 constexpr size_t kClassUploadBytesPerFrame = 1u << 20u;
 constexpr size_t kHaloNodesPerFrame = 32768;
@@ -363,6 +363,11 @@ public:
   }
 
   [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept {
+    if (StreetGraphWorker_) {
+      StreetGraphWorker_->Cancel();
+      if (!StreetGraphWorker_->Complete()) { return false; }
+      StreetGraphWorker_.reset();
+    }
     if (CorridorJob_) {
       if (!CorridorJob_->RetireStep(kCorridorRetireUnitsPerFrame)) { return false; }
       CorridorJob_.reset();
@@ -397,15 +402,15 @@ public:
 
   void FinishesCorridors() noexcept { CorridorJob_.reset(); }
 
-  [[nodiscard]] outshine::Ground::VectorStreetGraphBuildJob *StreetGraphJob() noexcept {
-    return StreetGraphJob_.get();
+  [[nodiscard]] VectorStreetGraphWorker *StreetGraphWorker() noexcept {
+    return StreetGraphWorker_.get();
   }
 
-  void BeginStreetGraph(std::unique_ptr<outshine::Ground::VectorStreetGraphBuildJob> job) noexcept {
-    StreetGraphJob_ = std::move(job);
+  void BeginStreetGraph(std::unique_ptr<VectorStreetGraphWorker> worker) noexcept {
+    StreetGraphWorker_ = std::move(worker);
   }
 
-  void FinishStreetGraph() noexcept { StreetGraphJob_.reset(); }
+  void FinishStreetGraph() noexcept { StreetGraphWorker_.reset(); }
 
   [[nodiscard]] Generators::TerrainRefinementJob *RefinementJob() noexcept {
     return RefinementJob_.get();
@@ -559,7 +564,7 @@ private:
   std::unique_ptr<Generators::BuildingStampJob> Stamping_;
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
-  std::unique_ptr<outshine::Ground::VectorStreetGraphBuildJob> StreetGraphJob_;
+  std::unique_ptr<VectorStreetGraphWorker> StreetGraphWorker_;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<EarthworkStamp> Corridors_;
@@ -1560,36 +1565,31 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
     state.AdvanceStage();
     return GroundBuildProgress::Pending;
   }
-  if (state.StreetGraphJob() == nullptr) {
+  if (state.StreetGraphWorker() == nullptr) {
     const int sourceZoom = state.Coverage().Zoom;
+    auto fields =
+        std::make_shared<const SourcedTerrainFields>(build.Sheets.SnapshotSourcedFields());
     auto started = outshine::Ground::VectorStreetGraphBuildJob::Begin(
-        World.Stack, [&sheets = build.Sheets, sourceZoom](LongitudeLatitude at) {
-          return sheets.AslMAt(sourceZoom, at);
+        World.Stack, [fields = std::move(fields), sourceZoom](LongitudeLatitude at) {
+          return fields->AslMAt(sourceZoom, at);
         });
     if (!started) {
       Error = std::move(started.error());
       World.GroundBuild.reset();
       return GroundBuildProgress::Failed;
     }
-    state.BeginStreetGraph(
-        std::make_unique<outshine::Ground::VectorStreetGraphBuildJob>(std::move(*started)));
+    state.BeginStreetGraph(std::make_unique<VectorStreetGraphWorker>(std::move(*started)));
     return GroundBuildProgress::Pending;
   }
-  auto advanced = state.StreetGraphJob()->Advance(kNetworkItemsPerFrame);
-  if (!advanced) {
-    Error = std::move(advanced.error());
+  auto completed = state.StreetGraphWorker()->Collect();
+  if (!completed) { return GroundBuildProgress::Pending; }
+  if (!*completed) {
+    Error = std::move(completed->error());
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }
-  if (!*advanced) { return GroundBuildProgress::Pending; }
-  const double longestSliceMs = state.StreetGraphJob()->LongestSliceMs();
-  auto completed = std::move(*state.StreetGraphJob()).Take();
-  if (!completed) {
-    Error = completed.error();
-    World.GroundBuild.reset();
-    return GroundBuildProgress::Failed;
-  }
-  const outshine::Ground::VectorStreetGraph::Built &mapped = *completed;
+  const double longestSliceMs = completed->value().LongestSliceMs;
+  const outshine::Ground::VectorStreetGraph::Built &mapped = completed->value().Graph;
   build.StreetGraph = mapped.Graph;
   build.StreetGraphWayCount = World.Stack.Ways().Ways().size();
   Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");

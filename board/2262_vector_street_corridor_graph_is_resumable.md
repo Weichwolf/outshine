@@ -60,16 +60,16 @@ the corridor phase while the camera is already 408 m along the route. The
 semantic OSM alignment does not use this MVT graph, but corridor rendering does.
 No candidate-restart hypothesis explains the measured delay.
 
-Next move the existing deterministic graph job to one candidate-owned worker.
-`Begin` snapshots way/point data into its own graph; pin an immutable copy of
-candidate DEM fields for height queries, with no mutable GroundStack borrow.
-The worker runs bounded job slices back-to-back and publishes only an owned
-complete result; the engine thread polls without waiting. A canceled candidate
-requests stop between slices and joins before releasing its height snapshot.
-Keep the source revision and current published graph until atomic candidate
-publication. Reject stale completion. Compare topology, heights, digest, frame
-p99 and refined-frame fraction against the paced baseline; do not spend more
-main-thread frame budget to reduce latency.
+The graph job now runs on one candidate-owned worker. `Begin` copies ways and
+points into its graph; height queries use an immutable shared DEM-field snapshot.
+The engine thread polls a complete owned result without waiting. Candidate
+retirement requests stop between slices and releases the worker only after it
+finishes; a changed-view test measured 0.13 ms maximum retirement. In the same
+warm offline 20 s lap, unrefined frames fall from 1200 to 1074, p99 from
+14.38 to 14.09 ms, and final readiness becomes Refined at station 408 m.
+The remaining 1074 frames need downstream corridor/publication work (2260).
+Verify independent one-shot graph equivalence and source-revision rejection;
+the current image and frame counters alone do not prove those contracts.
 
 ## Acceptance
 
