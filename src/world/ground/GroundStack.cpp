@@ -50,6 +50,13 @@ bool GroundStack::Open(const World::StoragePaths &under,
     Close();
     return false;
   }
+  for (size_t at = 0; at < sources.Count(); ++at) {
+    if (sources.At(at).Declaration().Kind == Data::DataKind::VectorMap) {
+      HasVectorSource_ = true;
+      break;
+    }
+  }
+  VectorZoom_ = HasVectorSource_ ? FinestZoomOf(Data::DataKind::VectorMap) : kFineZoom;
   say.Number("sources registered", static_cast<double>(sources.Count()), "sources");
 
   outshine::Ground::GroundSurface surface;
@@ -77,10 +84,13 @@ bool GroundStack::Open(const World::StoragePaths &under,
 }
 
 void GroundStack::Close() {
+  Vectors_.reset();
   Ground_.reset();
   Pool_.reset();
   Sources_.reset();
   Store_.reset();
+  HasVectorSource_ = false;
+  VectorZoom_ = kFineZoom;
   Opened_ = false;
   WorstRestand_ = {};
 }
@@ -101,8 +111,7 @@ std::expected<TileAt, std::string_view> GroundStack::ValidatePosition(LongitudeL
   if (!fine) { return std::unexpected(fine.error()); }
   const auto coarse = OsmField::Locate(at, kCoarseZoom);
   if (!coarse) { return std::unexpected(coarse.error()); }
-  const int vectorZoom = Vectors_ ? Vectors_->Zoom() : FinestZoomOf(Data::DataKind::VectorMap);
-  return OsmField::Locate(at, vectorZoom);
+  return OsmField::Locate(at, VectorZoom_);
 }
 
 std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
@@ -135,13 +144,11 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
                                                 OsmLayerName(OsmLayer::WaterLines),
                                                 OsmLayerName(OsmLayer::Streets),
                                                 OsmLayerName(OsmLayer::StreetPolygons)}};
-    const int zoom = FinestZoomOf(Data::DataKind::VectorMap);
-    if (zoom <= 0) { return complete(); }
-    Vectors_ = std::make_unique<OsmField>(zoom, std::span<const std::string>(layers));
+    Vectors_ = std::make_unique<OsmField>(VectorZoom_, std::span<const std::string>(layers));
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   const uint64_t previousVectorGeneration = Vectors_->Generation();
-  if (Declared_.empty()) {
+  if (HasVectorSource_ && Declared_.empty()) {
     const auto built = Vectors_->Build(
         *Pool_, at, budget.VectorRing, kVectorTiles, {.TilesMost = kVectorParseTilesPerRestand});
     if (!built) { return std::unexpected(built.error()); }

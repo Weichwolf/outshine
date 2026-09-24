@@ -450,7 +450,8 @@ Loading Engine::loading() const {
                            ? S_->World.AskedWanted - S_->World.AskedPending
                            : 0;
   if (!S_->World.Stack.Opened()) { return said; }
-  if (const Ground::OsmField *vectors = S_->World.Stack.Vectors()) {
+  if (const Ground::OsmField *vectors = S_->World.Stack.Vectors();
+      vectors != nullptr && S_->World.Stack.HasVectorSource()) {
     said.VectorArrived = vectors->Tiles().size();
     const int pending = vectors->PendingTiles();
     said.VectorWanted = said.VectorArrived + (pending > 0 ? static_cast<size_t>(pending) : 0);

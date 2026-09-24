@@ -113,6 +113,10 @@ public:
 
   [[nodiscard]] const OsmField *Vectors() const { return Vectors_.get(); }
 
+  [[nodiscard]] bool HasVectorSource() const noexcept { return HasVectorSource_; }
+
+  [[nodiscard]] int VectorZoom() const noexcept { return VectorZoom_; }
+
   [[nodiscard]] const BuildingField &Footprints() const { return Footprints_; }
 
   [[nodiscard]] BuildingField &Footprints() { return Footprints_; }
@@ -162,6 +166,8 @@ private:
   bool Settled_ = false;
   bool Overflowing_ = false;
   std::unique_ptr<OsmField> Vectors_;
+  bool HasVectorSource_ = false;
+  int VectorZoom_ = kFineZoom;
   BuildingField Footprints_;
   WaterField WaterBodies_;
   StreetField Ways_;
