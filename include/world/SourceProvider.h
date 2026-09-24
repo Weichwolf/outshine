@@ -16,11 +16,12 @@ enum class MissingDataPolicy : uint8_t {
 /// Closed geodetic coverage of one bounded source chunk, in degrees.
 /// Antimeridian-crossing coverage uses two chunks. Coordinates must be finite.
 struct SourceCoverage {
-  double WestDeg = 0.0;
-  double SouthDeg = 0.0;
-  double EastDeg = 0.0;
-  double NorthDeg = 0.0;
+  double WestDeg = 0.0;  ///< Western longitude in [-180, 180].
+  double SouthDeg = 0.0; ///< Southern latitude in [-90, 90].
+  double EastDeg = 0.0;  ///< Eastern longitude in [-180, 180], greater than WestDeg.
+  double NorthDeg = 0.0; ///< Northern latitude in [-90, 90], greater than SouthDeg.
 
+  /// Compare the declared coverage coordinates exactly.
   [[nodiscard]] bool operator==(const SourceCoverage &) const = default;
 };
 
@@ -35,6 +36,9 @@ struct SourceProvider {
   std::string Dataset;                    ///< Stable dataset ID; required for semantic OSM chunks.
   std::string Location;                   ///< OSM file path, absolute or relative to Roots.Shipped.
   std::optional<SourceCoverage> Coverage; ///< Required finite OSM chunk bounds.
+
+  /// Compare the complete owned source declaration.
+  [[nodiscard]] bool operator==(const SourceProvider &) const = default;
 };
 
 }

@@ -50,6 +50,7 @@
 #include "Sink.h"
 #include "DeclaredSources.h"
 #include "GroundStack.h"
+#include "OsmTransportLoader.h"
 #include "GroundMesher.h"
 #include "spatial/Drape.h"
 #include "TileGeodesy.h"
@@ -246,6 +247,7 @@ struct Surrounds {
   size_t StreetGraphWayCount = 0;
   bool PiecesFramed = false;
   std::unique_ptr<Tasks> Pool;
+  std::unique_ptr<World::OsmTransportLoader> OsmTransportLoader;
   StructureBuildQueue StructureBuilds;
   size_t Relaid = 0;
   size_t Asked = 0;

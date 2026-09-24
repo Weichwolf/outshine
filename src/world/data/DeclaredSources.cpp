@@ -74,9 +74,27 @@ bool RegisterDeclared(SourceSet &set,
 
 std::span<const SourceProvider> ShippedProviders() {
   static const std::array<SourceProvider, 3> shipped = {{
-      {.Kind = "terrain", .Revision = "", .Priority = 0, .Missing = MissingDataPolicy::Continue},
-      {.Kind = "vector", .Revision = "", .Priority = 1, .Missing = MissingDataPolicy::Continue},
-      {.Kind = "stars", .Revision = "", .Priority = 2, .Missing = MissingDataPolicy::Continue},
+      {.Kind = "terrain",
+       .Revision = "",
+       .Priority = 0,
+       .Missing = MissingDataPolicy::Continue,
+       .Dataset = "",
+       .Location = "",
+       .Coverage = {}},
+      {.Kind = "vector",
+       .Revision = "",
+       .Priority = 1,
+       .Missing = MissingDataPolicy::Continue,
+       .Dataset = "",
+       .Location = "",
+       .Coverage = {}},
+      {.Kind = "stars",
+       .Revision = "",
+       .Priority = 2,
+       .Missing = MissingDataPolicy::Continue,
+       .Dataset = "",
+       .Location = "",
+       .Coverage = {}},
   }};
   return shipped;
 }

@@ -8,7 +8,7 @@
 
 namespace outshine {
 struct WorldReadiness {
-  std::array<std::string_view, 10> Blockers{};
+  std::array<std::string_view, 11> Blockers{};
 
   [[nodiscard]] constexpr bool Ready() const noexcept {
     return std::ranges::all_of(Blockers, [](std::string_view blocker) { return blocker.empty(); });

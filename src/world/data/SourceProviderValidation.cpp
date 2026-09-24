@@ -11,12 +11,25 @@ namespace outshine::Data {
 
 namespace {
 
+constexpr double kLongitudeLimitDeg = 180.0;
+constexpr double kLatitudeLimitDeg = 90.0;
+
 [[nodiscard]] bool ValidCoverage(const SourceCoverage &bounds) noexcept {
   return std::isfinite(bounds.WestDeg) && std::isfinite(bounds.SouthDeg) &&
          std::isfinite(bounds.EastDeg) && std::isfinite(bounds.NorthDeg) &&
-         bounds.WestDeg >= -180.0 && bounds.EastDeg <= 180.0 && bounds.SouthDeg >= -90.0 &&
-         bounds.NorthDeg <= 90.0 && bounds.WestDeg < bounds.EastDeg &&
-         bounds.SouthDeg < bounds.NorthDeg;
+         bounds.WestDeg >= -kLongitudeLimitDeg && bounds.EastDeg <= kLongitudeLimitDeg &&
+         bounds.SouthDeg >= -kLatitudeLimitDeg && bounds.NorthDeg <= kLatitudeLimitDeg &&
+         bounds.WestDeg < bounds.EastDeg && bounds.SouthDeg < bounds.NorthDeg;
+}
+
+[[nodiscard]] bool DuplicateRank(std::span<const SourceProvider> providers, size_t at) {
+  for (size_t previous = 0; previous < at; ++previous) {
+    if (providers[previous].Kind == providers[at].Kind &&
+        providers[previous].Priority == providers[at].Priority) {
+      return true;
+    }
+  }
+  return false;
 }
 
 [[nodiscard]] std::expected<void, std::string> ValidateOsm(const SourceProvider &provider) {
@@ -50,22 +63,18 @@ ValidateSourceProviders(std::span<const SourceProvider> providers) {
         provider.Missing != MissingDataPolicy::Fail) {
       return std::unexpected("a provider declares an invalid missing-data policy");
     }
-    for (size_t previous = 0; previous < at; ++previous) {
-      if (providers[previous].Kind == provider.Kind &&
-          providers[previous].Priority == provider.Priority) {
-        return std::unexpected("provider kind '" + provider.Kind +
-                               "' declares the same rank twice");
-      }
+    if (DuplicateRank(providers, at)) {
+      return std::unexpected("provider kind '" + provider.Kind + "' declares the same rank twice");
     }
     if (provider.Kind == "osm") {
       if (auto valid = ValidateOsm(provider); !valid) {
         return std::unexpected(std::move(valid.error()));
       }
-      if (firstOsm &&
+      if (firstOsm != nullptr &&
           (firstOsm->Dataset != provider.Dataset || firstOsm->Revision != provider.Revision)) {
         return std::unexpected("osm chunks must share one dataset and revision");
       }
-      if (!firstOsm) { firstOsm = &provider; }
+      if (firstOsm == nullptr) { firstOsm = &provider; }
     } else if (!provider.Dataset.empty() || !provider.Location.empty() || provider.Coverage) {
       return std::unexpected("only osm providers declare dataset, location or coverage");
     }

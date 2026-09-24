@@ -368,6 +368,7 @@ bool Engine::State::UpdateTriggers() {
 }
 
 bool Engine::State::Updates() {
+  if (World.OsmTransportLoader) { World.OsmTransportLoader->Poll(); }
   if (Session.Declared.Ground.Declared) {
     const LongitudeLatitude stands = WhereTheEyeStands();
     if (World.Stack.Opened()) {

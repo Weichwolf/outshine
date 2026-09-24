@@ -1,6 +1,7 @@
 #include "EngineHeld.h"
 #include "geo/Mercator.h"
 #include "math/Units.h"
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <expected>
@@ -34,6 +35,7 @@ constexpr auto kPendingIngestion = "world ingestion pending";
 constexpr auto kPendingClassification = "terrain classification pending";
 constexpr auto kPendingVectors = "vector tiles pending";
 constexpr auto kPendingVegetation = "vegetation prototypes pending";
+constexpr auto kPendingOsmTransport = "semantic OSM transport source pending";
 
 constexpr auto kInvalidHeightCoordinate =
     "height query requires finite longitude in [-180,180] and latitude in [-90,90] degrees";
@@ -254,6 +256,18 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const bool currentRevision =
       World.RequestedRefinedGround &&
       !World.GroundPublished.NeedsRebuild(*World.RequestedRefinedGround, false, false);
+  const bool wantsOsm =
+      std::ranges::any_of(Session.Declared.Providers, [](const Data::SourceProvider &provider) {
+        return provider.Kind == "osm";
+      });
+  const std::string_view osmBlocker =
+      !wantsOsm || (World.OsmTransportLoader && World.OsmTransportLoader->CurrentPhase() ==
+                                                    World::OsmTransportLoader::Phase::Ready)
+          ? ""
+      : World.OsmTransportLoader &&
+              World.OsmTransportLoader->CurrentPhase() == World::OsmTransportLoader::Phase::Failed
+          ? World.OsmTransportLoader->Error()
+          : Says::kPendingOsmTransport;
   return {{(!refined || World.AskedWanted > 0) ? "" : Says::kNoTerrainRequests,
            (!refined || World.AskedPending == 0) ? "" : Says::kPendingTerrain,
            (!refined || World.Bare == 0) ? "" : Says::kMissingTerrain,
@@ -269,7 +283,8 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
            !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
                    (World.Vegetation && World.Vegetation->Ready())
                ? ""
-               : Says::kPendingVegetation}};
+               : Says::kPendingVegetation,
+           osmBlocker}};
 }
 
 bool Engine::settled(WorldQuality required) const {
@@ -481,6 +496,7 @@ Engine::State::FlushPreloadGround(std::chrono::steady_clock::time_point began, d
 }
 
 Result Engine::State::PumpPreload() {
+  if (World.OsmTransportLoader) { World.OsmTransportLoader->Poll(); }
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.Opens();
   if (!RequestTerrainCoverage()) { return std::unexpected(Error); }

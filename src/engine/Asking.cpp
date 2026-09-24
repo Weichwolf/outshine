@@ -234,6 +234,24 @@ bool Engine::State::PrepareRuntimeWorld() {
       !Session.Views->Active().Geographic.SamplesHeight && !UpdateActiveCamera()) {
     return false;
   }
+  std::vector<Data::SourceProvider> tileProviders;
+  std::vector<Data::SourceProvider> osmProviders;
+  tileProviders.reserve(declared.Providers.size());
+  osmProviders.reserve(declared.Providers.size());
+  for (const Data::SourceProvider &provider : declared.Providers) {
+    (provider.Kind == "osm" ? osmProviders : tileProviders).push_back(provider);
+  }
+  if (!osmProviders.empty() || World.OsmTransportLoader) {
+    if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
+    if (!World.OsmTransportLoader) {
+      World.OsmTransportLoader = std::make_unique<World::OsmTransportLoader>(*World.Pool);
+    }
+    if (auto requested = World.OsmTransportLoader->Request(osmProviders, Session.Under.Shipped);
+        !requested) {
+      Error = std::move(requested.error());
+      return false;
+    }
+  }
   if (!declared.Ground.Declared) { return true; }
   const double atLat = declared.Ground.Origin.LatitudeDeg;
   const double atLon = declared.Ground.Origin.LongitudeDeg;
@@ -245,13 +263,15 @@ bool Engine::State::PrepareRuntimeWorld() {
     }
   }
 
-  const std::span<const Data::SourceProvider> providers =
-      declared.Providers.empty() ? Data::ShippedProviders() : std::span(declared.Providers);
+  if (tileProviders.empty()) {
+    const auto shipped = Data::ShippedProviders();
+    tileProviders.assign(shipped.begin(), shipped.end());
+  }
   Collecting say;
   const World::StoragePaths worldStorage{.Shipped = Session.Under.Shipped,
                                          .Cache = Session.Under.Cache};
   if (!World.Stack.Opened() && !World.Stack.Open(worldStorage,
-                                                 providers,
+                                                 tileProviders,
                                                  {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
                                                  *World.Wire,
                                                  say,
