@@ -17,6 +17,7 @@
 #include "TangentFrame.h"
 #include "TerrainRefinement.h"
 #include "TerrainResidency.h"
+#include "SourcedTerrainFields.h"
 
 namespace outshine {
 
@@ -113,6 +114,7 @@ public:
 
   [[nodiscard]] const Ground::TerrainField *FieldAt(Data::TileId tile) const;
   [[nodiscard]] bool CopySourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
+  [[nodiscard]] SourcedTerrainFields SnapshotSourcedFields() const;
 
   void ForgetsFields() {
     Fields_.clear();

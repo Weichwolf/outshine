@@ -35,18 +35,13 @@ become the source-ID contract. No authored track spline or place-name branch.
   assumptions, not legal standards; measure and revise against independent
   geometry and images. Unknown explicit surfaces remain `Unknown`.
 
-The native profile gate now passes: `OsmWaySemantics` normalizes class, surface,
-width and lanes before `TransportTopology` creates edges. The full Hockenheim
-route retains asphalt raceway profiles; independent metre/foot, lane and invalid
-tag controls pass. Alignment, DEM constraints and road/contact products remain
-the next executable work in this WI.
-Spatial prerequisite: `TangentFrame` currently lives in `content/shade` despite
-being used by road, terrain, world and engine. Its `CarryIntoTheFrame` mesh helper
-has no callers. Move the pure geographic transform to `base/spatial`, remove the
-dead helper, and name position/direction conversions explicitly. Existing
-geodetic/ENU and road tests plus layer and lint gates must remain green. The
-legacy ENU-to-geographic linear estimate becomes `ApproximateGeographicAt`;
-alignment DEM sampling must use original geodetic nodes or an exact inverse.
+`OsmWaySemantics` normalizes corridor properties before topology creation;
+`TangentFrame` belongs to `base/spatial`. `RoadConstraintChain` and
+`RoadAlignmentBuilder` now retain all 267 Hockenheim source edges, but only
+with controlled sourced DEM in tests. `SourcedTerrainFields` owns an immutable
+height-field snapshot; `RoadTerrainPinJob` selects bounded route tiles, defers
+missing fields and returns source/candidate provenance. Wire it to the normal
+ground candidate and worker before declaring real DEM coverage or road output.
 - `RoadConstraintChain` is the bounded preparation input to the solver: an
   ordered, connected set of directed OSM edge IDs, pinned terrain samples,
   geographic/local node positions, width, material class and structure intent.
@@ -66,6 +61,9 @@ alignment DEM sampling must use original geodetic nodes or an exact inverse.
   off the frame path. Source identity, DEM source set/digest and candidate
   generation travel with the result; stale completion cannot replace a newer
   candidate. Test missing/changed tiles and normal Hockenheim DEM coverage.
+  The pin job and immutable snapshot are implemented. Remaining: schedule it
+  from the candidate after fields resolve, land only matching generations, and
+  request missing route tiles beyond camera coverage without blocking a frame.
 - `generators/road` owns `RoadAlignmentBuilder` and immutable `RoadAlignment`.
   Input is one `TransportNetworkSnapshot` revision, a bounded ordered set of
   source edge IDs with source identity selected by route or coverage, and pinned

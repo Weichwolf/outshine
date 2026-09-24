@@ -121,6 +121,13 @@ int main() {
         "a child height tile resamples its sourced ancestor without inventing provenance");
   CHECK(!sheets.CopySourcedField({.Zoom = 5, .X = 0, .Y = 0}, absent),
         "a tile outside sourced coverage is not qualified as fine terrain");
+  auto snapshot = sheets.SnapshotSourcedFields();
+  HeightSheets cleared = sheets;
+  cleared.ForgetsFields();
+  Ground::HeightField::Block pinned;
+  CHECK(snapshot.CopySourcedField({.Zoom = 4, .X = 8, .Y = 8}, pinned) &&
+            pinned.Sources == exact.Sources && pinned.Nodes == exact.Nodes,
+        "a worker snapshot keeps immutable sourced fields after the candidate releases them");
   std::string error;
   CHECK(sheets.RefineByError(candidate,
                              {.Side = Render::GroundLattice::kSide, .Halo = 1},

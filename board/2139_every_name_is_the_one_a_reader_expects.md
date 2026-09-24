@@ -24,12 +24,6 @@ Water triangulation now belongs to `generators/water` (2145). `Document.cpp`
 when a complete codec boundary reduces change propagation. Track public API
 growth, owner-crossing edits, dependency edges and largest cohesive files, not
 a target count of types or an arbitrary line cap.
-Ground telemetry belongs to `GroundDiagnostics`; earthwork contracts belong to
-`EarthworkPress`. Buildings use `EastNorth` directly. Tests and lint pass; Wien
-retains digest `e45d4da2`. Building footprint pieces now expose `Ring` and
-`PartyWallEdges` instead of `Piece::P`/`Party`; shape, scratch and mesh agree.
-Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
-
 ## Module decisions and implementation owners
 
 | Module | Finding and binding decision | WI |
@@ -106,6 +100,11 @@ source identities and verbs that hide side effects. Migrate callers and tests wi
 For each slice migrate code, callers, build paths, tests and contracts together; remove the
 old implementation and storage. No facade containing the old monolith, service locator,
 parallel model or compatibility aliases. Do not invent an ECS/framework without a consumer.
+The route-height seam is a current naming/ownership example: `SourcedTerrainFields`
+names the immutable worker input, `RoadTerrainPinJob` owns bounded DEM selection,
+and `HeightSheets` only snapshots candidate fields. Keep future names similarly
+literal: an API that copies, pins, publishes or retires must say so; migrate every
+caller when correcting it. Do not preserve poetic verbs through aliases.
 References: local SDL fa2c02b for platform lifetime; existing native Geometry, candidate
 owners and module contracts provide the project baseline. No proprietary architecture claim.
 
