@@ -56,7 +56,7 @@ Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
 
 ## Executable reserve and order
 
-1. Public target and registration names migrate under 2276; inspect the remaining
+1. Public API naming continues under 2096; inspect the remaining engine verbs
    `Composes`/`Bakes`/`Grows`/`Carries`/`Models` before naming their owner slices.
 2. The twelve-hour review through 21342822f found live derived-state invalidation in
    GroundStack::Restand (2224) and unbounded remaining terrain phases (2234).
