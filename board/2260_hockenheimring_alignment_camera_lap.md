@@ -71,8 +71,9 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    moving focus may rebuild geometry but must retain route identity and pose.
    `Motion::RouteSpeedProfile` plans a finite, bounded time-to-station curve
    from native pose samples. `placement="route"` binds a first- or third-person
-   rig only after publication; one pinned-OSM/analytic-DEM test checks 60 fixed
-   ticks against `Engine::sampleRoute`, startup refusal, and view reselection.
+   rig only after publication; a pinned-OSM/analytic-DEM test checks every
+   tick of the 267-edge lap against `sampleRoute`, bounded station/eye steps,
+   startup refusal and view reselection.
    Remaining: presentation interpolation, per-frame road-coverage/contact
    proof, refined streaming and visual acceptance. A paced 300 s capture
    traversed all 267 segments and 4575.880 m by 214.233 s. Station never
@@ -85,16 +86,13 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    PNGs were opened: road remains visible, but uniformly grey asphalt, flat
    ground colors, abrupt distant edges and crude dark buildings fail visual
    acceptance. The sampled run had 10474/13200 unrefined frames, p99 12.281 ms,
-   32 over-budget frames and 483.033 MiB peak heap. A fresh offline 20 s lap
-   starts only two candidates (Playable, Refined), stays unrefined for all 1200
-   frames, and ends in corridors at station 408 m. The stage ledger reports
-   1716 network and 456 corridor advances, with 100/101 structure tiles landed.
-   Candidate restart is not the first cause. A graph worker cuts unrefined
-   frames to 1074/1200; p99 is 14.09 ms with seven over-budget frames, and
-   the world is Refined at station 408 m. Corridor and later stages still delay
-   most of the lap. Measure their source scope and wall path; publish bounded
-   road/terrain products independently of distant MVT work where safe. Preserve
-   revisions and frame budgets rather than raising the per-frame work quota.
+   32 over-budget frames and 483.033 MiB peak heap. In a warm offline 20 s
+   lap, the graph worker cuts unrefined frames from 1200 to about 1075; p99 is
+   13.73 ms with seven over-budget frames. Only two candidates start, so
+   restart is not the cause. The phase ledger counts 563 bake waits, 857
+   corridor, 649 earthwork and 418 geometry advances across candidates. Publish
+   bounded road/terrain products independently of distant MVT work; preserve
+   revisions and frame budgets.
 4. Stream ahead and evict behind under bounded memory. Keep graph/route IDs
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.

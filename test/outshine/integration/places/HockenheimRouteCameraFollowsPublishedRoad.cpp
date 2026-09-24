@@ -83,7 +83,7 @@ int main() {
       info = engine.routeInfo("circuit");
       if (!info) { SDL_Delay(1); }
     }
-    CHECK(info && info->Closed && info->LengthM > 4000.0,
+    CHECK(info && info->Closed && info->SegmentCount == 267 && info->LengthM > 4000.0,
           info ? "a complete closed route is published" : "route publication timed out");
     if (info) {
       CHECK(engine.setView("lap"), "the ready route camera selects without rebuilding the world");
@@ -109,6 +109,45 @@ int main() {
       }
       CHECK(movedOnAlignment && previousStationM > 0.5,
             "60 fixed ticks move the eye monotonically along the published route at metre height");
+      const double maximumStationStepM = lap.Route.MaximumSpeedMps * engine.stepSeconds() + 0.05;
+      double greatestStationStepM = 0.0;
+      double greatestEyeStepM = 0.0;
+      const auto previousPose = engine.sampleRoute("circuit", previousStationM);
+      movedOnAlignment &= previousPose.has_value();
+      Vec3 previousEye =
+          previousPose ? previousPose->PositionM + previousPose->Up * lap.Route.EyeHeightM : Vec3{};
+      constexpr double kMaximumLapTimeS = 300.0;
+      const int maximumTicks = static_cast<int>(std::ceil(kMaximumLapTimeS / engine.stepSeconds()));
+      for (int tick = 60;
+           movedOnAlignment && tick < maximumTicks && previousStationM < info->LengthM;
+           ++tick) {
+        const auto advanced = engine.advance();
+        if (!advanced) {
+          movedOnAlignment = false;
+          break;
+        }
+        const auto stationM = Measure(engine, "the route camera's station");
+        const auto eastM = Measure(engine, "the route camera's eye, east");
+        const auto upM = Measure(engine, "the route camera's eye, up");
+        const auto eyeZM = Measure(engine, "the route camera's eye, south");
+        if (!stationM || !eastM || !upM || !eyeZM || *stationM < previousStationM ||
+            *stationM > info->LengthM) {
+          movedOnAlignment = false;
+          break;
+        }
+        const Vec3 eye{{*eastM, *upM, *eyeZM}};
+        greatestStationStepM = std::max(greatestStationStepM, *stationM - previousStationM);
+        greatestEyeStepM = std::max(greatestEyeStepM, Length(eye - previousEye));
+        const auto pose = engine.sampleRoute("circuit", *stationM);
+        movedOnAlignment &=
+            pose && Length(pose->PositionM + pose->Up * lap.Route.EyeHeightM - eye) < 1e-4;
+        previousStationM = *stationM;
+        previousEye = eye;
+        if (!movedOnAlignment) { break; }
+      }
+      CHECK(movedOnAlignment && previousStationM >= info->LengthM - 1e-3 &&
+                greatestStationStepM <= maximumStationStepM && greatestEyeStepM <= 1.5,
+            "the complete circuit has bounded motion and no eye-position jump at source edges");
       CHECK(engine.setView("chase") && engine.advance(),
             "the third-person rig also binds to the same native alignment");
       const auto chaseStationM = Measure(engine, "the route camera's station");
