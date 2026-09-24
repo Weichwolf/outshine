@@ -42,10 +42,15 @@ never publish mixed revisions or stale geometry.
    `--help` documents names and units. Existing `--measures` remains the full
    stage-level diagnostic channel; add missing stage timings there as measured.
 2. Build a deterministic offline fixture with a complete persistent raw-tile
-   cache. Run in a fresh process twice with the same source versions, then
-   change one source revision. Warm run requires zero transport starts, all
-   needed bytes from store, equal native outputs, and no unexplained 30 s
-   wait. A disabled/empty cache is the negative control.
+   cache. `run` and `shots` accept `--cache-dir <path>` and `--offline` before
+   the scenario/place name; both configure the same public `Roots` contract.
+   Empty paths are rejected before engine creation. Offline prohibits actual
+   transport, but `provider_starts` still counts a source attempting `Begin`
+   after a miss; zero is required for complete warm coverage. Run in a fresh
+   process twice with the same source versions, then change one source
+   revision. Warm run requires zero provider starts, all needed bytes from
+   store, equal native outputs, and no unexplained 30 s wait. An empty cache
+   is the negative control and must not silently fall back to a global cache.
 3. Measure byte counts and sustained local read/decode/generate/upload rates
    on the exact fixture. Calculate a critical-path lower bound from the stage
    dependency graph and measured rates; report actual/lower-bound ratio at
