@@ -53,7 +53,7 @@ int main() {
                 firstRenderer.TakeUploadBytes() == 0,
             "byte accounting retains sub-megabyte uploads and is consumed independently");
       first->Digests(true);
-      CHECK(first->Carries(2, error), "first scene uploads with digest enabled");
+      CHECK(first->ResizeBodyInstances(2, error), "first scene uploads with digest enabled");
       CHECK(firstRenderer.TotalUploadAttempts() > initialUploads &&
                 secondRenderer.TotalUploadAttempts() == otherUploads,
             "first mesh upload changes only its residency");
@@ -64,7 +64,7 @@ int main() {
                 std::isfinite(before.UploadMs) && before.UploadMs >= 0,
             "first scene exposes a digest and finite CPU phase timings");
       second->Digests(false);
-      CHECK(second->Carries(2, error), "second scene uploads without digest work");
+      CHECK(second->ResizeBodyInstances(2, error), "second scene uploads without digest work");
       CHECK(firstRenderer.TotalUploadAttempts() == beforeUploads &&
                 secondRenderer.TotalUploadAttempts() > otherUploads,
             "second mesh upload cannot change first residency totals");
@@ -73,11 +73,11 @@ int main() {
             "disabled digest is explicit in the second scene");
       CHECK(first->TransferMetrics() == before,
             "second mesh upload cannot overwrite first scene metrics");
-      CHECK(first->Carries(3, error), "first scene uploads changed instances");
+      CHECK(first->ResizeBodyInstances(3, error), "first scene uploads changed instances");
       CHECK(first->TransferMetrics().GeometryDigest != 0 && second->TransferMetrics() == other,
             "mesh upload remains isolated from the second scene");
       first->Digests(false);
-      CHECK(first->Carries(4, error) && first->TransferMetrics().GeometryDigest == 0 &&
+      CHECK(first->ResizeBodyInstances(4, error) && first->TransferMetrics().GeometryDigest == 0 &&
                 first->TransferMetrics().DigestMs == 0,
             "disabling mesh digest clears only its own measurements");
       CHECK(second->TransferMetrics() == other,

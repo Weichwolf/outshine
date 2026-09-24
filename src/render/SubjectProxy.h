@@ -33,7 +33,7 @@ public:
   [[nodiscard]] bool Emits(size_t part, const std::array<float, 3> &radiance);
   [[nodiscard]] bool Places(size_t part, const Mat4 &placement);
   [[nodiscard]] bool Places(size_t part, size_t instance, const Mat4 &placement);
-  [[nodiscard]] bool Carries(size_t instances);
+  [[nodiscard]] bool ResizeInstances(size_t instances);
 
   void Lit(const outshine::PunctualLight &light) { Lights_.push_back(light); }
 

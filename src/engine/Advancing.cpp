@@ -452,7 +452,9 @@ bool Engine::State::Draws() {
   if (!Simulation->DynamicBodies.empty() && Picture.Standing && Picture.Standing->Stands() &&
       Picture.Standing->DrivenParts() != 0) {
     const Vec3 unshifted;
-    if (!Picture.Standing->Carries(Simulation->DynamicBodies.size(), Error)) { return false; }
+    if (!Picture.Standing->ResizeBodyInstances(Simulation->DynamicBodies.size(), Error)) {
+      return false;
+    }
     for (size_t which = 0; which < Simulation->DynamicBodies.size(); ++which) {
       if (!UpdateSceneBodyTransform(which, Simulation->DynamicBodies[which].Motion, unshifted)) {
         return false;

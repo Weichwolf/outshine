@@ -54,10 +54,11 @@ Ten building tests, Wien digest `e45d4da2`, format and full lint pass.
 
 ## Executable reserve and order
 
-1. Public API naming continues under 2096. Internal Engine::State operations:
-   `Composes` → `PrepareRuntimeWorld`, `Bakes` → `AdvanceStructureBuilds`,
-   `Grows[Over]` → `GenerateInitialInstances/GenerateInstancesForRegion`,
-   `Carries` → `UpdateSceneBodyTransform`, `Models` → `PrepareBuildingSurfaces`.
+1. The listed `Engine::State` verbs are migrated. Continue public API naming
+   under 2096. Runtime body-instance resizing is now named at both the scene
+   and render proxy boundary; keep names tied to operations, not metaphors.
+   Audit remaining `Stands`, `Wears`, `Lit`, `Around` and `CarriesBuilt` with
+   their actual side effects before renaming each owner slice.
 2. The twelve-hour review through 21342822f found live derived-state invalidation in
    GroundStack::Restand (2224) and unbounded remaining terrain phases (2234).
 3. Material/terrain work 2171/2166 proceeds independently under the order in 2188.

@@ -1025,17 +1025,15 @@ void RuntimeScene::SkyEye(double aboveGroundM) {
   Renderer_->SetSkyEye(static_cast<float>(quantisedM));
 }
 
-bool RuntimeScene::Carries(size_t bodies, std::string &error) {
+bool RuntimeScene::ResizeBodyInstances(size_t bodies, std::string &error) {
   const auto published = Renderer_->PublishedWorld();
   if (bodies == 0) {
-    error = "a picture was asked to carry no bodies at all, and that is a different statement "
-            "from carrying one that has not moved";
+    error = "runtime scene requires at least one body instance";
     return false;
   }
   const size_t stood = Stood_.Instances();
-  if (!Stood_.Carries(bodies)) {
-    error = "the subject proxy stands over nothing, so it cannot carry " + std::to_string(bodies) +
-            " bodies";
+  if (!Stood_.ResizeInstances(bodies)) {
+    error = "subject proxy cannot resize to " + std::to_string(bodies) + " body instances";
     return false;
   }
   if (stood != bodies && Stoodup_) {

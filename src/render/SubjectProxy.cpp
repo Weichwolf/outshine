@@ -46,7 +46,7 @@ void SubjectProxy::Stands(const Shape &subject, const Vec3 &anchorEcefM) {
   Lights_.clear();
 }
 
-bool SubjectProxy::Carries(size_t instances) {
+bool SubjectProxy::ResizeInstances(size_t instances) {
   if (instances == 0 || Shape_ == nullptr) { return false; }
   const size_t parts = Parts();
   if (instances == Instances_) { return true; }

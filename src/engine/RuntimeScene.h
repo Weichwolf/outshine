@@ -149,7 +149,7 @@ public:
                                                    std::unique_ptr<RuntimeScene> &candidate,
                                                    std::string &error);
 
-  [[nodiscard]] bool Carries(size_t bodies, std::string &error);
+  [[nodiscard]] bool ResizeBodyInstances(size_t bodies, std::string &error);
   [[nodiscard]] bool Redeclare(std::vector<UiSurface> surfaces, std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
