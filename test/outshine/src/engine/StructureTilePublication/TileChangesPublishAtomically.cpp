@@ -42,7 +42,7 @@ int main() {
       world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
                           .Roofs = Render::PieceSurface(static_cast<uint32_t>(roof->index()))});
       Generators::BakedTile built;
-      built.Built.WallCorners = {StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 0, 1}}),
+      built.Built.WallCorners = {StoredVertex::Of({{0, 0, 0}}, {{0.1f, 0.1f}}, {{0, 0, 1}}),
                                  StoredVertex::Of({{1, 0, 0}}, {{1, 0}}, {{0, 0, 1}}),
                                  StoredVertex::Of({{0, 1, 0}}, {{0, 1}}, {{0, 0, 1}})};
       built.Built.WallRun = {0, 1, 2};
@@ -51,8 +51,9 @@ int main() {
       built.Digest = 19;
       StructureBuildQueue::Landing landing{.Tile = 7, .Baked = &built, .AnchorEcef = {}};
       const auto original = scene.get();
-      CHECK(PublishStructureTile(world, renderer, landing).has_value() &&
-                renderer.PiecesStanding() == 2 && scene.get() == original,
+      const auto first = PublishStructureTile(world, renderer, landing);
+      CHECK(first.has_value(), first ? "first tile publishes" : first.error().c_str());
+      CHECK(renderer.PiecesStanding() == 2 && scene.get() == original,
             "complete tile publishes wall and roof without replacing the world");
       const auto digest = world.Pieces.Digest();
       const auto payload = renderer.PieceSourceBytes();
@@ -128,6 +129,26 @@ int main() {
           world.BindSceneResources(renderer);
         }
       }
+      landing.Tile = 10;
+      landing.Baked = &built;
+      {
+        Core::WorldCandidate retiring(renderer);
+        CHECK(retiring.Prepare(*scene, nullptr).has_value(),
+              "retiring ground candidate keeps a private renderer state");
+        const auto live = PublishStructureTile(world, renderer, landing);
+        CHECK(live.has_value(),
+              live ? "live tile publishes during retirement" : live.error().c_str());
+        CHECK(renderer.PiecesStanding() == 6,
+              "live tile publication does not modify the private candidate");
+        {
+          const auto published = renderer.PublishedWorld();
+          CHECK(renderer.PiecesStanding() == 8 && world.Pieces.ValidateSources(error),
+                "published tile and source registry advance together");
+        }
+      }
+      CHECK(renderer.PiecesStanding() == 8 && world.Pieces.ValidateSources(error),
+            "abandoning the candidate preserves the live tile");
+      world.Pieces.Forgets(10);
       world.Pieces.Forgets(7);
       world.Pieces.Forgets(8);
       world.Pieces.Forgets(9);

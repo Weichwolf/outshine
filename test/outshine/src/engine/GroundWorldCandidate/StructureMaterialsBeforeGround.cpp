@@ -30,7 +30,7 @@ int main() {
               ground.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}),
           "future terrain geometry is valid");
     Generators::BakedTile baked;
-    baked.Built.WallCorners = {StoredVertex::Of({{0, 0, 0}}, {{0, 0}}, {{0, 1, 0}}),
+    baked.Built.WallCorners = {StoredVertex::Of({{0, 0, 0}}, {{0.1f, 0.1f}}, {{0, 1, 0}}),
                                StoredVertex::Of({{1, 0, 0}}, {{1, 0}}, {{0, 1, 0}}),
                                StoredVertex::Of({{0, 1, 0}}, {{0, 1}}, {{0, 1, 0}})};
     baked.Built.WallRun = {0, 1, 2};
@@ -66,19 +66,29 @@ int main() {
             "ground and early structure pieces publish together");
     }
     {
+      const Render::PieceMesh extra{.Verts = baked.Built.WallCorners,
+                                    .Indices = baked.Built.WallRun,
+                                    .Surface = Render::PieceSurface::Registered(0),
+                                    .Textured = true};
+      const auto stray = renderer.PlaceStructurePiece(extra);
+      const auto independent = renderer.PlacePiece(extra);
+      CHECK(stray && independent && renderer.PiecesStanding() == 4,
+            "a stale structure source and an unrelated source can coexist");
       GroundWorldCandidate candidate(renderer, world, footprints);
       CHECK(candidate.Prepare(*scene, nullptr).has_value(),
             "next candidate restores the registered materials and pieces");
       CHECK(candidate.Products().Surfaces &&
                 candidate.Products().Surfaces->Walls.From ==
                     Render::PieceSurface::Source::Registered &&
-                candidate.Products().Surfaces->Walls.Index == 0 && renderer.PiecesStanding() == 2,
-            "second revision reuses the same structure slots");
+                candidate.Products().Surfaces->Walls.Index == 0 && renderer.PiecesStanding() == 4,
+            "second revision restores all registered piece sources before reconciliation");
       CHECK(candidate.SetGroundGeometry(ground.clone(), 0, error),
             "second revision rebuilds its terrain subject");
       CHECK(candidate.Publish(world, footprints, scene, {.Region = 2}).has_value() &&
-                renderer.PiecesStanding() == 2,
-            "second publication retains both early structure pieces");
+                candidate.Publication().OrphanStructurePieces == 1 &&
+                renderer.PiecesStanding() == 3,
+            "publication removes only the unowned structure source");
+      if (independent) { renderer.ReleasePiece(*independent); }
     }
     world.Pieces.Forgets(7);
     CHECK(renderer.PiecesStanding() == 0, "published piece handles release correctly");

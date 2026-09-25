@@ -5,7 +5,6 @@
 #include "WorldCandidate.h"
 #include "ClassStructure.h"
 #include <chrono>
-#include <cstdio>
 #include <expected>
 #include <limits>
 #include <memory>
@@ -64,6 +63,7 @@ public:
     double PiecesMs = 0.0;
     double BindingMs = 0.0;
     double RevisionMs = 0.0;
+    size_t OrphanStructurePieces = 0;
   };
 
   GroundWorldCandidate(
@@ -179,6 +179,13 @@ public:
       const Core::RuntimeScene &previous, const Ui::Font *font, RestoreBudget budget) {
     if (Prepared_) { return true; }
     if (!WorldPrepared_) {
+      if (PieceSources_ == Render::SceneResources::PieceSources::Copy) {
+        Products_.Pieces.Into(&World_.Renderer());
+        std::string sourceError;
+        if (!Products_.Pieces.ValidateSources(sourceError)) {
+          return std::unexpected("candidate snapshot before preparation: " + sourceError);
+        }
+      }
       auto prepared = World_.Prepare(previous,
                                      font,
                                      PieceSources_,
@@ -213,6 +220,9 @@ public:
       return std::unexpected("a capture holds the published ground");
     }
     PublicationMetrics_ = {};
+    const auto reconciled = World_.Renderer().ReconcileStructurePieces(Products_.Pieces.Handles());
+    if (!reconciled) { return std::unexpected(reconciled.error()); }
+    PublicationMetrics_.OrphanStructurePieces = *reconciled;
     auto phaseAt = std::chrono::steady_clock::now();
     if (auto publishedWorld = World_.Publish(published); !publishedWorld) { return publishedWorld; }
     PublicationMetrics_.WorldMs =

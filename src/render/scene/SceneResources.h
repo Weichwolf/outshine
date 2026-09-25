@@ -35,14 +35,17 @@ struct GroundClassificationSource {
 class SceneResources {
 public:
   enum class PieceSources : uint8_t { Copy, Omit };
+  enum class PieceOwner : uint8_t { Independent, StructureTile };
 
   struct PieceRows {
     PieceHandle Piece;
     std::span<const Mat4> Rows;
   };
 
-  [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(SubjectDraw &subjects,
-                                                                   const PieceMesh &piece);
+  [[nodiscard]] std::expected<PieceHandle, std::string> PlacePiece(
+      SubjectDraw &subjects, const PieceMesh &piece, PieceOwner owner = PieceOwner::Independent);
+  [[nodiscard]] std::expected<size_t, std::string>
+  ReconcileStructurePieces(SubjectDraw &subjects, std::span<const PieceHandle> held);
   [[nodiscard]] bool SetPieceInstances(SubjectDraw &subjects,
                                        PieceHandle which,
                                        std::span<const Mat4> rows,
@@ -64,6 +67,7 @@ public:
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
   [[nodiscard]] size_t PieceSourceCount() const noexcept;
+  [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
 
   [[nodiscard]] size_t PieceSlots() const noexcept { return Pieces_.size(); }
 
@@ -122,12 +126,11 @@ private:
     uint32_t MaxInstances = 0;
     PieceSurface Surface;
     PieceId Resident = kNoPiece;
+    PieceOwner Owner = PieceOwner::Independent;
     bool Textured = false;
 
     [[nodiscard]] PieceMesh Mesh() const noexcept;
   };
-
-  [[nodiscard]] bool HasPiece(PieceHandle handle) const noexcept;
 
   struct PieceMaterials {
     Geometry Source;

@@ -57,6 +57,18 @@ public:
     }
   }
 
+  [[nodiscard]] std::vector<Render::PieceHandle> Handles() const {
+    std::vector<Render::PieceHandle> handles;
+    handles.reserve(Standing_.size() * 2u);
+    for (const Standing &stood : Standing_) {
+      if (stood.Walls) { handles.push_back(stood.Walls); }
+      if (stood.Roofs) { handles.push_back(stood.Roofs); }
+    }
+    return handles;
+  }
+
+  [[nodiscard]] bool ValidateSources(std::string &error) const;
+
   [[nodiscard]] size_t Handed() const { return Handed_; }
 
   [[nodiscard]] size_t Refused() const { return Refused_; }

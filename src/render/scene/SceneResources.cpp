@@ -43,8 +43,8 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
           .Textured = Textured};
 }
 
-std::expected<PieceHandle, std::string> SceneResources::PlacePiece(SubjectDraw &subjects,
-                                                                   const PieceMesh &piece) {
+std::expected<PieceHandle, std::string>
+SceneResources::PlacePiece(SubjectDraw &subjects, const PieceMesh &piece, PieceOwner owner) {
   if (FirstFreePiece_ == kNoResourceSlot && Pieces_.size() >= kNoResourceSlot) {
     return std::unexpected(Says::PieceSlotLimit);
   }
@@ -59,6 +59,7 @@ std::expected<PieceHandle, std::string> SceneResources::PlacePiece(SubjectDraw &
              .Rows = {piece.Instances.begin(), piece.Instances.end()},
              .MaxInstances = piece.MaxInstances,
              .Surface = piece.Surface,
+             .Owner = owner,
              .Textured = piece.Textured};
   std::string error;
   held.Resident = subjects.PlacePiece(held.Mesh(), error);
@@ -76,6 +77,35 @@ std::expected<PieceHandle, std::string> SceneResources::PlacePiece(SubjectDraw &
     Pieces_.push_back(std::move(held));
   }
   return PieceHandle{.Slot = slot, .Generation = Pieces_[slot].State.Generation};
+}
+
+std::expected<size_t, std::string>
+SceneResources::ReconcileStructurePieces(SubjectDraw &subjects, std::span<const PieceHandle> held) {
+  std::vector<uint8_t> retained(Pieces_.size(), 0);
+  for (const PieceHandle handle : held) {
+    if (!HasPiece(handle) || Pieces_[handle.Slot].Owner != PieceOwner::StructureTile) {
+      const Piece *current = handle.Slot < Pieces_.size() ? &Pieces_[handle.Slot] : nullptr;
+      return std::unexpected(
+          "a structure tile names a missing or foreign piece source (slot=" +
+          std::to_string(handle.Slot) + ", generation=" + std::to_string(handle.Generation) +
+          ", slots=" + std::to_string(Pieces_.size()) + ", present=" +
+          std::to_string(static_cast<int>(HasPiece(handle))) + ", current generation=" +
+          std::to_string(current != nullptr ? current->State.Generation : 0) +
+          ", current occupied=" +
+          std::to_string(static_cast<int>(current != nullptr && current->State.Occupied)) + ")");
+    }
+    retained[handle.Slot] = 1;
+  }
+  size_t released = 0;
+  for (uint32_t slot = 0; slot < Pieces_.size(); ++slot) {
+    const Piece &piece = Pieces_[slot];
+    if (!piece.State.Occupied || piece.Owner != PieceOwner::StructureTile || retained[slot] != 0) {
+      continue;
+    }
+    ReleasePiece(subjects, {.Slot = slot, .Generation = piece.State.Generation});
+    ++released;
+  }
+  return released;
 }
 
 bool SceneResources::HasPiece(PieceHandle handle) const noexcept {

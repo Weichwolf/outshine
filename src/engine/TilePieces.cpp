@@ -57,17 +57,17 @@ bool TilePieces::Hands(uint32_t tile,
       return Render::PieceHandle{};
     }
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
-    const auto placed =
-        Renderer_->PlacePiece({.Tangents = {},
-                               .Verts = corners,
-                               .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
-                               .Clusters = cooked ? std::span<const DagCluster>(cut.Clusters)
-                                                  : std::span<const DagCluster>(),
-                               .Colours = {},
-                               .Row = row,
-                               .Instances = {},
-                               .Surface = surface,
-                               .Textured = textured});
+    const auto placed = Renderer_->PlaceStructurePiece(
+        {.Tangents = {},
+         .Verts = corners,
+         .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
+         .Clusters =
+             cooked ? std::span<const DagCluster>(cut.Clusters) : std::span<const DagCluster>(),
+         .Colours = {},
+         .Row = row,
+         .Instances = {},
+         .Surface = surface,
+         .Textured = textured});
     if (!placed) {
       why = placed.error();
       return Render::PieceHandle{};
@@ -108,6 +108,22 @@ void TilePieces::Forgets(uint32_t tile) {
   }
   Standing_.erase(at);
   RefreshDigest();
+}
+
+bool TilePieces::ValidateSources(std::string &error) const {
+  if (Renderer_ == nullptr) {
+    error = "tile geometry requires a live world";
+    return false;
+  }
+  for (const Standing &stood : Standing_) {
+    for (const Render::PieceHandle piece : {stood.Walls, stood.Roofs}) {
+      if (!piece || Renderer_->HasPieceSource(piece)) { continue; }
+      error = "structure tile " + std::to_string(stood.Tile) + " holds missing piece slot " +
+              std::to_string(piece.Slot) + ":" + std::to_string(piece.Generation);
+      return false;
+    }
+  }
+  return true;
 }
 
 void TilePieces::RefreshDigest() noexcept {

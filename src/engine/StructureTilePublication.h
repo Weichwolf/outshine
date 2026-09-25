@@ -13,6 +13,7 @@ PublishStructureTile(Surrounds &world,
                      Render::SceneRenderer &renderer,
                      const StructureBuildQueue::Landing &landing) {
   assert(landing.Baked);
+  const auto published = renderer.PublishedWorld();
   TilePieces pieces = world.Pieces;
   pieces.Into(&renderer);
   const auto &baked = *landing.Baked;

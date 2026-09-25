@@ -2390,6 +2390,9 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   Published.Places("ground publication: world owner swap", publication.WorldMs, "ms");
   Published.Places("ground publication: CPU products", publication.ProductsMs, "ms");
   Published.Places("ground publication: pieces", publication.PiecesMs, "ms");
+  Published.Places("ground publication: orphan structure pieces reclaimed",
+                   static_cast<double>(publication.OrphanStructurePieces),
+                   "pieces");
   Published.Places("ground publication: resource binding", publication.BindingMs, "ms");
   Published.Places("ground publication: revision", publication.RevisionMs, "ms");
   Published.Places("ground publication: quality",

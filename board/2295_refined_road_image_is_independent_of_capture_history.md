@@ -49,6 +49,22 @@ digest/tile count and native piece source/residency/triangle counts so this
 distinction remains measurable. The earlier publication digest was a snapshot,
 not a live ownership check.
 
+One source-count split is a renderer-state ownership error. A retired ground
+candidate can remain active while `AdvanceStructureBuilds` publishes a live
+tile; its piece operations entered the private candidate. In one trace,
+published tile 16 held slot 10:1 after the candidate reused that slot.
+`PublishStructureTile` now explicitly enters the published-world scope. A
+candidate/live-tile fixture checks both registries. Eight fresh offline
+74.85-s captures gave the bright road probe (91,88,83), with no refusal.
+First/last PNG differ by at most 1/255 in 14,185 pixels. Motion at 74.85 s
+and 91.433 s remains dark while both stills are bright. At 74.85 s, both
+worlds have 46 structure tiles and 92 native sources, yet tile 24's bake
+digest differs (3,759,789,901,417,230,002 vs 1,467,637,370,733,713,420),
+both with fine heights; native triangles differ by 1,178. `RawTile::Eye`
+drives structure LOD and accepted bakes reuse an eye within 64 m, but that
+is a hypothesis for the tile-24 discrepancy, not a proven cause. Compare its
+source/input revisions, eye, footprint LODs and generated bounds next.
+
 ## Ownership and solution direction
 
 `src/engine/Laying.cpp` and ground/structure publication own the coherent

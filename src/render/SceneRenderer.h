@@ -196,6 +196,22 @@ public:
     return ActiveState().Content.Resources.PlacePiece(ActiveState().Content.Subjects, piece);
   }
 
+  [[nodiscard]] std::expected<PieceHandle, std::string>
+  PlaceStructurePiece(const PieceMesh &piece) {
+    return ActiveState().Content.Resources.PlacePiece(
+        ActiveState().Content.Subjects, piece, SceneResources::PieceOwner::StructureTile);
+  }
+
+  [[nodiscard]] bool HasPieceSource(PieceHandle which) const noexcept {
+    return ActiveState().Content.Resources.HasPiece(which);
+  }
+
+  [[nodiscard]] std::expected<size_t, std::string>
+  ReconcileStructurePieces(std::span<const PieceHandle> held) {
+    return ActiveState().Content.Resources.ReconcileStructurePieces(ActiveState().Content.Subjects,
+                                                                    held);
+  }
+
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error) {
     return ActiveState().Content.Subjects.PlacePiece(piece, error);
   }
