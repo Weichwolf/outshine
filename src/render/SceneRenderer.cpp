@@ -1520,10 +1520,24 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
 }
 
 std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
+  const auto began = std::chrono::steady_clock::now();
+  auto phaseBegan = began;
+  const auto phaseMs = [&phaseBegan] {
+    const auto now = std::chrono::steady_clock::now();
+    const double ms = std::chrono::duration<double, std::milli>(now - phaseBegan).count();
+    phaseBegan = now;
+    return ms;
+  };
+  RenderFrameTiming timing;
+  const auto record = [&timing, &phaseMs](RenderFramePhase phase) {
+    timing.PhaseMs[static_cast<size_t>(phase)] = phaseMs();
+  };
   auto prepared = PrepareFrame();
   if (!prepared) { return prepared; }
+  record(RenderFramePhase::Prepare);
   SDL_GPUCommandBuffer *commands = Submission_.Acquire(Submission_.Context, Device_.Get());
   if (commands == nullptr) { return std::unexpected(SDL_GetError()); }
+  record(RenderFramePhase::Acquire);
   std::string uploadError;
   if (!ActiveState().Content.Subjects.FlushCrossings(commands, uploadError) ||
       (ActiveState().Content.DrawsGlass &&
@@ -1531,6 +1545,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     SDL_CancelGPUCommandBuffer(commands);
     return std::unexpected(std::move(uploadError));
   }
+  record(RenderFramePhase::Upload);
 
   SDL_GPUTexture *swapchain = nullptr;
   if (Showing_ != nullptr) {
@@ -1549,6 +1564,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     ActiveFrame().Shown.HeightPx = static_cast<int>(gotH);
     ActiveFrame().HostSurface = swapchain;
   }
+  record(RenderFramePhase::Swapchain);
 
   const auto previousJitter = ActiveState().Jitter;
   const auto previousPrevJitter = ActiveState().PrevJitter;
@@ -1581,10 +1597,12 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     restoreTemporalState();
     return std::unexpected(std::move(uploadError));
   }
+  record(RenderFramePhase::Cull);
 
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     EncodePass(commands, pass, stageSubmission);
   }
+  record(RenderFramePhase::Encode);
 
   if (Landed_[LandedAt_] != nullptr) {
     if (!Submission_.WaitFence(Submission_.Context, Device_.Get(), &Landed_[LandedAt_], 1)) {
@@ -1596,6 +1614,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     SDL_ReleaseGPUFence(Device_.Get(), Landed_[LandedAt_]);
     Landed_[LandedAt_] = nullptr;
   }
+  record(RenderFramePhase::FenceWait);
   Landed_[LandedAt_] = Submission_.Submit(Submission_.Context, commands);
   if (swapchain != nullptr) { ActiveFrame().HostSurface = ActiveFrame().Offscreen.Get(); }
   if (Landed_[LandedAt_] == nullptr) {
@@ -1603,6 +1622,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     restoreTemporalState();
     return std::unexpected(std::move(error));
   }
+  record(RenderFramePhase::Submit);
   ActiveState().Content.Subjects.CommitCrossings();
   if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
   stageSubmission.Commit();
@@ -1615,6 +1635,14 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
 
   ActiveState().PrevMvp = Through().ViewProjection(ActiveState().Camera);
   ActiveState().Submitted = true;
+  record(RenderFramePhase::Finish);
+  timing.TotalMs = std::chrono::duration<double, std::milli>(phaseBegan - began).count();
+  LastRenderFrameTiming_ = timing;
+  WorstRenderFrameTiming_.TotalMs = std::max(WorstRenderFrameTiming_.TotalMs, timing.TotalMs);
+  for (size_t phase = 0; phase < timing.PhaseMs.size(); ++phase) {
+    WorstRenderFrameTiming_.PhaseMs[phase] =
+        std::max(WorstRenderFrameTiming_.PhaseMs[phase], timing.PhaseMs[phase]);
+  }
   return {};
 }
 

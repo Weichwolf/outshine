@@ -21,16 +21,19 @@ Tabelle/Hashes in 2169. Daraus folgt kein nachgewiesener Restetat für alle fehl
 Hockenheim 220 s warm/offline wiederholt: 13,200 Frames, p99 13.314/13.040 ms,
 40/35 Gesamtframes spät. Einzelne `render()`-Aufrufe dauern 79.52/94.27 ms;
 8/5 Render-Aufrufe überschreiten 16.67 ms. `advance()` ist an den größten
-Ausreißern teils unter 2 ms. Die vorhandenen Pass-Messungen halten nur den
-letzten Frame; sie belegen weder GPU-Zeit noch die Ursache des Stalls.
+Ausreißern teils unter 2 ms. Pass-Messungen halten nur den letzten Frame.
 
-Nächster Schritt: `src/render/SceneRenderer.{h,cpp}` misst pro erfolgreichem
-Frame die Host-Zeit von Prepare, Acquire, Upload, Swapchain, Cull, Encode,
-Fence-Wait, Submit und Abschluss. `src/engine/FrameMeasurements.cpp` publiziert
-Last/Worst je Phase ohne neue
-öffentliche API. Host-Fence-Wait ist keine GPU-Passzeit. Negativkontrolle:
-fehlgeschlagenes Submit/Wait darf keine Erfolgsprobe publizieren. Device-Suite,
-voller Hockenheim-Motion-Trace, `make format` und `make lint` prüfen den Schritt.
+`src/render/SceneRenderer.{h,cpp}` misst erfolgreiche Host-Frames nach Prepare,
+Acquire, Upload, Swapchain, Cull, Encode, Fence-Wait, Submit und Abschluss;
+`src/engine/FrameMeasurements.cpp` publiziert Worst je Phase ohne öffentliche API.
+Ein weiterer 220-s-Lauf misst p99 12.741 ms, 32 späte Frames und maximal
+26.944 ms Render, davon 26.312 ms Fence-Wait; Encode höchstens 0.897 ms,
+Upload 0.017 ms. Das beweist einen Host-Wait auf GPU-Fortschritt, keine
+GPU-Passzeit oder seinen Produzenten. Vor einer Änderung von Frames-in-flight
+GPU-Arbeit/Uploads gegen den Stall korrelieren; keine Latenz durch bloßes
+Triple-Buffering verstecken. Negativkontrolle: fehlgeschlagenes Submit/Wait
+publiziert keine Erfolgsprobe. Device-Suite, 220-s-Trace, `make format`,
+`make lint` sind die Abnahme dieses Messschritts.
 
 - Stillvergleich behalten; zusätzlich deklarierte Geh-/Fahr-/Flugroute mit Tilegrenzwechsel,
   dichter Stadt, bewaldetem Hang, Tunnelportal und mehrstöckigem Verkehrsknoten. Warm-/Cold-

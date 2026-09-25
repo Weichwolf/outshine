@@ -174,12 +174,19 @@ void Match(const Snapshot &expected, const Snapshot &actual) {
 void Reject(SceneRenderer &renderer, Faults &faults, Faults::Point point, bool cached) {
   faults.Next = point;
   const auto submits = faults.Submitted;
+  const auto lastTiming = renderer.LastRenderFrameTiming();
+  const auto worstTiming = renderer.WorstRenderFrameTiming();
   const auto result = renderer.RenderFrame();
   const char *wanted = point == Faults::Point::Acquire ? "injected frame acquire failure"
                                                        : "injected frame submit failure";
   CHECK(!result && result.error() == wanted, "the original GPU error reaches the frame caller");
   CHECK(faults.Submitted == submits + (point == Faults::Point::Submit ? 1u : 0u),
         "failed acquire never submits; failed submit is attempted exactly once");
+  CHECK(renderer.LastRenderFrameTiming().TotalMs == lastTiming.TotalMs &&
+            renderer.LastRenderFrameTiming().PhaseMs == lastTiming.PhaseMs &&
+            renderer.WorstRenderFrameTiming().TotalMs == worstTiming.TotalMs &&
+            renderer.WorstRenderFrameTiming().PhaseMs == worstTiming.PhaseMs,
+        "rejected GPU commands do not publish successful-frame timings");
   std::array<float, kIrradianceFloats> irradiance{};
   CHECK(renderer.ReadSkyIrradiance(irradiance) == (cached ? ReadState::Ready : ReadState::Failed),
         "an aborted frame preserves existing LUT validity but cannot publish unsubmitted updates");
@@ -315,6 +322,8 @@ void Exercise() {
         "two submitted frames fill the fence ring before its reuse");
   const auto submits = faults.Submitted;
   const auto waits = faults.FenceWaits;
+  const auto lastTiming = actual.LastRenderFrameTiming();
+  const auto worstTiming = actual.WorstRenderFrameTiming();
   faults.Next = Faults::Point::FenceWait;
   const auto fenceRejected = actual.RenderFrame();
   CHECK(!fenceRejected && fenceRejected.error() == "injected frame fence wait failure" &&
@@ -322,6 +331,11 @@ void Exercise() {
         "a reused in-flight fence propagates its wait failure");
   CHECK(faults.Submitted == submits && faults.FenceWaits == waits + 1,
         "failed fence waiting cancels the new command before submission");
+  CHECK(actual.LastRenderFrameTiming().TotalMs == lastTiming.TotalMs &&
+            actual.LastRenderFrameTiming().PhaseMs == lastTiming.PhaseMs &&
+            actual.WorstRenderFrameTiming().TotalMs == worstTiming.TotalMs &&
+            actual.WorstRenderFrameTiming().PhaseMs == worstTiming.PhaseMs,
+        "failed fence waiting does not publish successful-frame timings");
   CHECK(control.RenderFrame().has_value() && actual.RenderFrame().has_value(),
         "a failed in-flight fence wait preserves the temporal retry");
   Match(Capture(control), Capture(actual));

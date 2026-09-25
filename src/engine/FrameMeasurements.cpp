@@ -9,6 +9,29 @@
 
 namespace outshine {
 
+namespace {
+
+constexpr std::array<const char *, static_cast<size_t>(Render::RenderFramePhase::Count)>
+    kWorstRenderPhaseNames = {"render host worst: prepare",
+                              "render host worst: acquire",
+                              "render host worst: upload",
+                              "render host worst: swapchain",
+                              "render host worst: cull",
+                              "render host worst: encode",
+                              "render host worst: fence wait",
+                              "render host worst: submit",
+                              "render host worst: finish"};
+
+void PublishRenderFrameTiming(Core::Ledger &published, const Render::SceneRenderer &device) {
+  const Render::RenderFrameTiming &worst = device.WorstRenderFrameTiming();
+  published.Places("render host worst: total", worst.TotalMs, "ms");
+  for (size_t phase = 0; phase < kWorstRenderPhaseNames.size(); ++phase) {
+    published.Places(kWorstRenderPhaseNames[phase], worst.PhaseMs[phase], "ms");
+  }
+}
+
+}
+
 void Engine::State::PublishResourcePayloadMeasurements() {
   if (!Picture.Standing) { return; }
   Published.Places("streamed piece CPU payload capacity",
@@ -203,6 +226,7 @@ void Engine::State::PublishFrameMeasurements() {
     Published.Places("the picture's own time, least", Cost.Render.LeastMs(), "ms");
     Published.Places("the picture's own time, most", Cost.Render.MostMs(), "ms");
     Published.Places("pictures drawn", static_cast<double>(Cost.Render.Taken()), "pictures");
+    PublishRenderFrameTiming(Published, Picture.Device);
   }
   {
     const std::vector<std::string> clashed = Published.Clashed();

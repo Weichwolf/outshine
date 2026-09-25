@@ -9,6 +9,7 @@
 #include "Heap.h"
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <span>
 #include <cstdint>
 #include <memory>
@@ -58,6 +59,24 @@ struct GroundClassUploadMetrics {
   GroundStorageUploadMetrics Storage;
   double SourcePreparationMs = 0.0;
   double RestoreSourceMs = 0.0;
+};
+
+enum class RenderFramePhase : size_t {
+  Prepare,
+  Acquire,
+  Upload,
+  Swapchain,
+  Cull,
+  Encode,
+  FenceWait,
+  Submit,
+  Finish,
+  Count
+};
+
+struct RenderFrameTiming {
+  std::array<double, static_cast<size_t>(RenderFramePhase::Count)> PhaseMs{};
+  double TotalMs = 0.0;
 };
 
 struct KeptDraws {
@@ -543,6 +562,14 @@ public:
     return Spent_[static_cast<size_t>(stage)];
   }
 
+  [[nodiscard]] const RenderFrameTiming &LastRenderFrameTiming() const noexcept {
+    return LastRenderFrameTiming_;
+  }
+
+  [[nodiscard]] const RenderFrameTiming &WorstRenderFrameTiming() const noexcept {
+    return WorstRenderFrameTiming_;
+  }
+
   [[nodiscard]] size_t SubjectUniformPushes() const {
     return ActiveState().Content.Subjects.UniformPushes() +
            ActiveState().Content.Glass.UniformPushes();
@@ -619,6 +646,8 @@ private:
   [[nodiscard]] std::expected<void, std::string> RenderPublishedFrame();
   GpuSubmission Submission_;
   std::array<Effort, kStageCount> Spent_ = {{}};
+  RenderFrameTiming LastRenderFrameTiming_;
+  RenderFrameTiming WorstRenderFrameTiming_;
 
   void Create(FrameResources &frame, const Compiled &plan, Resource resource);
   [[nodiscard]] static bool Created(const FrameResources &frame, Resource resource);
