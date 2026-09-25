@@ -42,6 +42,11 @@ DEM fields. Require all requested terrain meshes to settle before admitting a
 Refined patchwork; Playable still waits only for contact. Keep the unchanged
 pacing oracle and inspect refined completion time.
 
+Warm offline Hockenheim: 600/600 frames unrefined at 10 s; Refined starts
+at 9.10 s. Water: 49 tiles, 1,795 deferrals, 489 disk hits, zero remote.
+Irrelevant features spend the 128-step quota. Bound cheap scans separately
+from 128 height queries within 2 ms; preserve source order and profiles.
+
 ## Decision
 
 Ground residency has explicit quality, coverage and revision. The first publishable
