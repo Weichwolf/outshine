@@ -47,9 +47,14 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
 4. Relief amplitudenbegrenzt und in 2166s finalem Fehlermaß enthalten; nahe Silhouetten
    brauchen Geometrie. Subpixelstruktur gefiltert in Normal/Roughness überführen, keine
    periodischen Streifen, kein World-Origin-Schwimmen. Wetterfeuchte aus 2172 später einspeisen.
-5. Wiederverwendbare Parameter/Seeds/Materialtabellen statt Texturdownload oder Webcam-Bake;
-   Shaderarbeit durch gefilterte Oktaven und Footprint-/LOD-Auswahl begrenzen;
-   prozedurale Tiles/Mips bei gemessenem Kostenvorteil als Cache derselben Funktionen nutzen.
+5. Native Materialien als deduplizierte Rezepte aus MR-Faktoren, Schichten, metrischem Maßstab,
+   Seed und Wetterzustand verwalten; Instanzen referenzieren Rezept plus kleine Parameterdeltas.
+   Ein Stadtpark mit Boden, Arten, Ausstattung, Menschen und Tieren benötigt bereits Hunderte
+   Varianten; weltweit Tausende. Tausende Varianten bedeuten weder Tausende Shader noch Draws:
+   Shaderfamilien und Renderzustand bündeln, Instanzen und GPU-Parameter tabellarisch binden.
+   Keine fest eingebauten Texturassets für generierte Weltoberflächen. Gefilterte prozedurale
+   Tiles/Mips sind versionierte, verwerfbare Caches derselben Funktionen, wenn Messung sie
+   billiger als direkte GLSL-Auswertung zeigt. Importierte glTF-Texturen bleiben Quelldaten.
 
 ## Abnahme
 
@@ -58,12 +63,10 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
 - [ ] Malcesine und Koerbersee zeigen strukturierte Seitenflächen; Husums Quai bleibt Baustoff,
       Wasser horizontal. Distanzen 1/10/100/1000 m und bewegte Kamera auf Flimmern prüfen.
 - [ ] Parametervariation bleibt deterministisch und regional plausibel; kein Foto wird Input.
-      Passzeit/Bytes/Overdraw mit 2092 messen, nicht nur Materialkugel akzeptieren.
+      Katalog mit >1000 Rezepten und vielen Instanzen: stabile IDs, Deduplizierung,
+      Streaming-/Cache-Eviction ohne Bildsprung, p95/p99 und Bytes messen.
 
-Wahl: Filaments Metallic-Roughness/IBL als lesbare physikalische Referenz; prozedurale
-Schichten erfüllen die Generierungsanforderung. Unreal/RAGE sind visuelle Vergleichsbilder.
-[Filament](https://google.github.io/filament/main/filament.html),
-[glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
+Referenzen: [Filament](https://google.github.io/filament/main/filament.html), [glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
 
 ## Vollständigkeit pro Geometrieerzeuger
 
@@ -81,18 +84,15 @@ importiertes glTF. Generator-Ausgang → Material-ID → Upload → Draw separat
 | Wasser/Schnee/Eis | dielektrisches MR plus passende Transmission/Volumen-/Streumodelle |
 | generierte Props/Partikel | Oberflächenmaterial bzw. expliziter Emissions-/Volumenvertrag |
 
-Metalness beschreibt das exponierte Material: Holz/Stein/Blatt/Asphalt sind Dielektrika;
-Lack und Rost werden nicht allein wegen metallischem Untergrund zu blankem Metall.
-Roughness, Normalmaßstab und Albedo dürfen nicht sämtlich auf dem Fallback bleiben.
-MR allein beschreibt weder Blattstreuung noch Wasserabsorption oder Wolken: ergänzende
-physikalische Modelle sind explizit, nicht als falsche Metalness versteckt.
+Holz/Stein/Blatt/Asphalt sind Dielektrika; Lack und Rost kein blankes Metall.
+MR ersetzt weder Blattstreuung noch Wasserabsorption oder Wolkenmodelle.
 
 - [ ] Coverage-Report nennt jeden Generator und jede ausgegebene Oberflächenklasse samt
       Materialbindung; fehlende/ungültige ID geht rot. Bewusstes Debugmaterial ist markiert.
 - [ ] Materialatlas und Nah-/Fernbilder aller Tabellenzeilen, einschließlich Brückenunterseite
       und Tunnelinnenwand. Alle Generatoren nutzen denselben Khronos-Vertrag, keine privaten
       RGB+Glanz-Abkürzungen. Einheitliches Defaultmaterial als Mutation verletzt das Oracle.
-
+## Verbleibender Filtervertrag
 
 ## Verbleibender Filtervertrag
 

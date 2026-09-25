@@ -45,6 +45,13 @@ Welt-/Instanz-Policy und den fehlenden Terrain-Aufruf nicht ab.
       Bewegte Scheinwerfer und LOD-/Weltwechsel erzeugen keine geerbten Schatten.
       Shadow-Slots/Atlas-Bytes, Updatezahl und GPU-p95/p99 am Zielgerät messen;
       bei Überlast stabil priorisieren statt pro Frame zu flackern.
+- [ ] Nächtliches Auto fährt an einem begehbaren Raum mit Fenster vorbei:
+      zwei Scheinwerferkegel und die zugehörigen Schatten wandern kontinuierlich
+      über Innenwand und Decke; Wand, Fensteröffnung und Fahrzeug verdecken
+      Licht geometrisch korrekt. Eine Figur geht unter einer Straßenlaterne
+      durch: eigener Schatten wechselt Richtung und Länge stetig auf Boden und
+      Körper. Kamerafahrt und Standbilder bei mehreren Zeiten selbst ansehen;
+      falsches Lichtleck, Schatten-Popping oder temporaler Nachlauf sind rot.
 - [ ] 720p60 bewegte Tag-/Nachtszenen nach 2092 mit allen aktiven Passes.
 
 Wahl: [Filament](https://google.github.io/filament/main/filament.html), portable Cluster und

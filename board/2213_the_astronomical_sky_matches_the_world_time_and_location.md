@@ -41,6 +41,10 @@ gehören zum allgemeinen Vertrag. Referenzbilder sind keine austauschbaren Skybo
 - [ ] PNGs zeigen stimmige Mondphase/-orientierung, Sternhimmel,
       Luftperspektive und Landschaftsbeleuchtung; keine sichtbaren Sprünge/Geisterbilder.
       Sonne/Mond dürfen bei Horizontdurchgang nicht durch Gelände sichtbar bleiben.
+      Eine gepinnte NASA-Mond-Albedokarte darf die einzige fest eingebaute Bildtextur der
+      generierten Welt sein; Lizenz, Projektion, Farbraum und Phase/Orientierung belegen.
+      Ohne Asset muss der prozedurale Fallback weiterhin funktionieren. Importierte
+      Szenarien dürfen eigene Texturen mitbringen; generierte Caches zählen nicht als Assets.
 - [ ] A18-Pro-Projektziel 720p60 in bewegter Gesamtszene prüfen: Framebudget
       1000 ms / 60 = 16,67 ms. CPU/GPU p50/p95/p99, Speicher und Streaming mit 2092;
       Himmelbudget als Teil des Gesamtbudgets aus Messungen ableiten. Kein isolierter
