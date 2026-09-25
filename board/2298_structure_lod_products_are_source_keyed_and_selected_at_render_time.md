@@ -1,5 +1,5 @@
 Type: defect
-State: ready
+State: active
 Architecture: ready
 Parent: 2123
 Depends:
@@ -53,6 +53,11 @@ remains Playable and reports its error; it cannot falsely report Refined.
 Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 
 ## Implementation order
+
+First slice: make `StructureMesher::Mesh` obey only its explicit detail level.
+Remove the hidden focal/world-anchor distance gate from `BuildingMesh` and
+prove Fine remains detailed at a remote world anchor while Shell stays coarse.
+This does not close camera-dependent selection in `StructureBake` or this WI.
 
 1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: split semantic
    footprint acceptance from camera-local detail choice. Add stable cell/level
