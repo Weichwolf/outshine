@@ -11,6 +11,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 
 #include "Digest.h"
 #include "SceneRenderer.h"
@@ -75,25 +76,34 @@ Mat4 TilePieces::RowFor(const Vec3 &anchorEcef) const {
 }
 
 bool TilePieces::ShouldShow(uint32_t tile,
+                            uint32_t cell,
                             std::optional<LevelOfDetail> detail,
                             uint64_t sourceKey) const {
   if (!detail) { return true; }
-  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
-  if (std::any_of(first, Standing_.end(), [tile, sourceKey](const Standing &held) {
-        return held.Tile == tile && held.SourceKey != sourceKey;
-      })) {
+  const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
+  const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
+    return held.Tile != tile || held.Cell != cell;
+  });
+  if (std::any_of(
+          first, last, [sourceKey](const Standing &held) { return held.SourceKey != sourceKey; })) {
     return true;
   }
-  const auto previous = std::find_if(first, Standing_.end(), [tile, detail](const Standing &held) {
-    return held.Tile == tile && held.Detail == detail;
-  });
-  if (previous != Standing_.end()) { return previous->Visible; }
-  return std::none_of(first, Standing_.end(), [tile](const Standing &held) {
-    return held.Tile == tile && held.Visible;
-  });
+  const auto previous =
+      std::find_if(first, last, [detail](const Standing &held) { return held.Detail == detail; });
+  if (previous != last) { return previous->Visible; }
+  return std::none_of(first, last, [](const Standing &held) { return held.Visible; });
 }
 
 bool TilePieces::Hands(uint32_t tile,
+                       const Generators::BakedTile &baked,
+                       const Vec3 &anchorEcef,
+                       std::string &error,
+                       uint64_t sourceKey) {
+  return Hands(tile, 0, baked, anchorEcef, error, sourceKey);
+}
+
+bool TilePieces::Hands(uint32_t tile,
+                       uint32_t cell,
                        const Generators::BakedTile &baked,
                        const Vec3 &anchorEcef,
                        std::string &error,
@@ -107,13 +117,15 @@ bool TilePieces::Hands(uint32_t tile,
     return false;
   }
   const Mat4 row = RowFor(anchorEcef);
-  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
-  const bool sourceChanged =
-      std::any_of(first, Standing_.end(), [tile, sourceKey](const Standing &held) {
-        return held.Tile == tile && held.SourceKey != sourceKey;
-      });
-  const bool visible = ShouldShow(tile, baked.RequestedDetail, sourceKey);
+  const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
+  const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
+    return held.Tile != tile || held.Cell != cell;
+  });
+  const bool sourceChanged = std::any_of(
+      first, last, [sourceKey](const Standing &held) { return held.SourceKey != sourceKey; });
+  const bool visible = ShouldShow(tile, cell, baked.RequestedDetail, sourceKey);
   Standing stood{.Tile = tile,
+                 .Cell = cell,
                  .Digest = baked.Digest,
                  .SourceKey = sourceKey,
                  .FallbackHeights = baked.FallbackHeights,
@@ -153,12 +165,13 @@ bool TilePieces::Hands(uint32_t tile,
     }
   }
   if (baked.RequestedDetail && !sourceChanged) {
-    ForgetsDetail(tile, baked.RequestedDetail);
+    ForgetsDetail(tile, cell, baked.RequestedDetail);
   } else {
-    Forgets(tile);
+    ForgetsCell(tile, cell);
   }
   if (stood.Walls || stood.Roofs) {
-    Standing_.insert(std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile), stood);
+    Standing_.insert(std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf),
+                     stood);
   }
   RefreshDigest();
   ++Handed_;
@@ -166,20 +179,32 @@ bool TilePieces::Hands(uint32_t tile,
 }
 
 void TilePieces::Forgets(uint32_t tile) {
-  auto at = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
-  while (at != Standing_.end() && at->Tile == tile) {
-    Releases(*at);
-    at = Standing_.erase(at);
-  }
+  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
+  const auto last = std::find_if(
+      first, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
+  std::for_each(first, last, [this](const Standing &held) { Releases(held); });
+  Standing_.erase(first, last);
   RefreshDigest();
 }
 
-void TilePieces::ForgetsDetail(uint32_t tile, std::optional<LevelOfDetail> detail) {
-  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
-  const auto at = std::find_if(first, Standing_.end(), [tile, detail](const Standing &held) {
-    return held.Tile == tile && held.Detail == detail;
+void TilePieces::ForgetsCell(uint32_t tile, uint32_t cell) {
+  const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
+  const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
+    return held.Tile != tile || held.Cell != cell;
   });
-  if (at == Standing_.end()) { return; }
+  std::for_each(first, last, [this](const Standing &held) { Releases(held); });
+  Standing_.erase(first, last);
+  RefreshDigest();
+}
+
+void TilePieces::ForgetsDetail(uint32_t tile, uint32_t cell, std::optional<LevelOfDetail> detail) {
+  const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
+  const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
+    return held.Tile != tile || held.Cell != cell;
+  });
+  const auto at =
+      std::find_if(first, last, [detail](const Standing &held) { return held.Detail == detail; });
+  if (at == last) { return; }
   Releases(*at);
   Standing_.erase(at);
   RefreshDigest();
@@ -192,32 +217,39 @@ void TilePieces::Releases(const Standing &stood) {
 }
 
 bool TilePieces::SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error) {
+  return SelectDetail(tile, 0, detail, error);
+}
+
+bool TilePieces::SelectDetail(uint32_t tile,
+                              uint32_t cell,
+                              LevelOfDetail detail,
+                              std::string &error) {
   if (Renderer_ == nullptr) {
     error = "tile geometry requires a live world";
     return false;
   }
-  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
-  const auto target = std::find_if(first, Standing_.end(), [tile, detail](const Standing &held) {
-    return held.Tile == tile && held.Detail == detail;
+  const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
+  const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
+    return held.Tile != tile || held.Cell != cell;
   });
-  if (target == Standing_.end()) {
+  const auto target =
+      std::find_if(first, last, [detail](const Standing &held) { return held.Detail == detail; });
+  if (target == last) {
     error = "the requested structure detail is not resident";
     return false;
   }
   if (target->Visible) { return true; }
-  const auto current = std::find_if(first, Standing_.end(), [tile](const Standing &held) {
-    return held.Tile == tile && held.Visible;
-  });
+  const auto current = std::find_if(first, last, [](const Standing &held) { return held.Visible; });
   std::array<Render::SceneRenderer::PieceRows, 4> rows;
   size_t count = 0;
-  if (current != Standing_.end()) {
+  if (current != last) {
     if (current->Walls) { rows[count++] = {.Piece = current->Walls, .Rows = {}}; }
     if (current->Roofs) { rows[count++] = {.Piece = current->Roofs, .Rows = {}}; }
   }
   if (target->Walls) { rows[count++] = {.Piece = target->Walls, .Rows = {&target->Row, 1}}; }
   if (target->Roofs) { rows[count++] = {.Piece = target->Roofs, .Rows = {&target->Row, 1}}; }
   if (!Renderer_->SetPieceInstances(std::span(rows.data(), count), error)) { return false; }
-  if (current != Standing_.end()) { current->Visible = false; }
+  if (current != last) { current->Visible = false; }
   target->Visible = true;
   RefreshDigest();
   return true;
@@ -231,7 +263,8 @@ bool TilePieces::ValidateSources(std::string &error) const {
   for (const Standing &stood : Standing_) {
     for (const Render::PieceHandle piece : {stood.Walls, stood.Roofs}) {
       if (!piece || Renderer_->HasPieceSource(piece)) { continue; }
-      error = "structure tile " + std::to_string(stood.Tile) + " holds missing piece slot " +
+      error = "structure tile " + std::to_string(stood.Tile) + " cell " +
+              std::to_string(stood.Cell) + " holds missing piece slot " +
               std::to_string(piece.Slot) + ":" + std::to_string(piece.Generation);
       return false;
     }
@@ -248,6 +281,7 @@ void TilePieces::RefreshDigest() noexcept {
   for (const Standing &stood : Standing_) {
     if (!stood.Visible) { continue; }
     Digest_ = (Digest_ ^ static_cast<uint64_t>(stood.Tile)) * kDigestPrime;
+    if (stood.Cell != 0) { Digest_ = (Digest_ ^ static_cast<uint64_t>(stood.Cell)) * kDigestPrime; }
     Digest_ = (Digest_ ^ stood.Digest) * kDigestPrime;
     if (stood.SourceKey != 0) { Digest_ = (Digest_ ^ stood.SourceKey) * kDigestPrime; }
   }

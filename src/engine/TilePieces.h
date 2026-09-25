@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "math/Vec3.h"
@@ -40,15 +41,25 @@ public:
                            const Vec3 &anchorEcef,
                            std::string &error,
                            uint64_t sourceKey = 0);
+  [[nodiscard]] bool Hands(uint32_t tile,
+                           uint32_t cell,
+                           const Generators::BakedTile &baked,
+                           const Vec3 &anchorEcef,
+                           std::string &error,
+                           uint64_t sourceKey);
 
   void Forgets(uint32_t tile);
+  void ForgetsCell(uint32_t tile, uint32_t cell);
   [[nodiscard]] bool SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error);
+  [[nodiscard]] bool
+  SelectDetail(uint32_t tile, uint32_t cell, LevelOfDetail detail, std::string &error);
   void Clear();
 
   [[nodiscard]] uint64_t Digest() const { return Digest_; }
 
   struct DigestRecord {
     uint32_t Tile = 0;
+    uint32_t Cell = 0;
     uint64_t Digest = 0;
     uint64_t SourceKey = 0;
     bool FallbackHeights = false;
@@ -59,6 +70,7 @@ public:
     for (const auto &stood : Standing_) {
       if (!stood.Visible) { continue; }
       each(DigestRecord{.Tile = stood.Tile,
+                        .Cell = stood.Cell,
                         .Digest = stood.Digest,
                         .SourceKey = stood.SourceKey,
                         .FallbackHeights = stood.FallbackHeights,
@@ -91,6 +103,7 @@ public:
 private:
   struct Standing {
     uint32_t Tile = 0;
+    uint32_t Cell = 0;
     uint64_t Digest = 0;
     uint64_t SourceKey = 0;
     bool FallbackHeights = false;
@@ -101,10 +114,16 @@ private:
     Render::PieceHandle Roofs{};
   };
 
+  [[nodiscard]] static std::pair<uint32_t, uint32_t> AddressOf(const Standing &stood) noexcept {
+    return {stood.Tile, stood.Cell};
+  }
+
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;
-  [[nodiscard]] bool
-  ShouldShow(uint32_t tile, std::optional<LevelOfDetail> detail, uint64_t sourceKey) const;
-  void ForgetsDetail(uint32_t tile, std::optional<LevelOfDetail> detail);
+  [[nodiscard]] bool ShouldShow(uint32_t tile,
+                                uint32_t cell,
+                                std::optional<LevelOfDetail> detail,
+                                uint64_t sourceKey) const;
+  void ForgetsDetail(uint32_t tile, uint32_t cell, std::optional<LevelOfDetail> detail);
   void Releases(const Standing &stood);
   void RefreshDigest() noexcept;
 

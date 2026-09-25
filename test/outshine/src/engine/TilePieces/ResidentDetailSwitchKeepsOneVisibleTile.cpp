@@ -122,6 +122,34 @@ int main() {
       CHECK(visible().size() == 1 && visible().front().SourceKey == 0 && !visible().front().Detail,
             "automatic camera-dependent geometry is explicit in capture provenance");
       pieces.Forgets(7);
+      CHECK(renderer.PiecesStanding() == 0 && visible().empty(),
+            "legacy whole-tile geometry retires before cell products are published");
+      CHECK(pieces.Hands(7, 1, fine, frame.OriginEcef(), error, 11) &&
+                pieces.Hands(7, 1, shell, frame.OriginEcef(), error, 11) &&
+                pieces.Hands(7, 2, fine, frame.OriginEcef(), error, 22),
+            "two cells retain their own source-keyed detail products");
+      CHECK(renderer.PiecesStanding() == 3 && visible().size() == 2 && visible()[0].Cell == 1 &&
+                visible()[1].Cell == 2 && visible()[0].Digest == 11 && visible()[1].Digest == 11,
+            "only one detail per cell is visible");
+      CHECK(pieces.SelectDetail(7, 1, LevelOfDetail::Shell, error) && visible()[0].Digest == 22 &&
+                visible()[1].Digest == 11,
+            "switching one cell leaves its neighbour selected");
+      CHECK(!pieces.SelectDetail(7, 2, LevelOfDetail::Shell, error) && visible()[1].Digest == 11,
+            "missing neighbour detail leaves that cell visible");
+      auto invalidCell = mesh(-0.5f, 55, LevelOfDetail::Fine);
+      for (StoredVertex &corner : invalidCell.Built.WallCorners) { corner.texture = {{0, 0}}; }
+      CHECK(!pieces.Hands(7, 1, invalidCell, frame.OriginEcef(), error, 33) &&
+                renderer.PiecesStanding() == 3 && visible()[0].Digest == 22 &&
+                visible()[1].Digest == 11,
+            "failed cell upload preserves its previous detail and the neighbour");
+      CHECK(pieces.Hands(7, 1, revised, frame.OriginEcef(), error, 33) &&
+                renderer.PiecesStanding() == 2 && visible()[0].SourceKey == 33 &&
+                visible()[1].SourceKey == 22,
+            "a new source replaces only the addressed cell");
+      pieces.ForgetsCell(7, 1);
+      CHECK(renderer.PiecesStanding() == 1 && visible().size() == 1 && visible()[0].Cell == 2,
+            "evicting one cell preserves other products in the tile");
+      pieces.Forgets(7);
       CHECK(renderer.PiecesStanding() == 0 && pieces.Handles().empty() && depth() == 0.0f,
             "forgetting the tile releases both resident variants");
     }

@@ -345,7 +345,9 @@ Holds<Capture> Engine::beginCapture() {
   }
   S_->Capturing = true;
   S_->World.Pieces.ForEachDigest([this](TilePieces::DigestRecord piece) {
-    const std::string name = "capture: structure tile " + std::to_string(piece.Tile) + " digest ";
+    const std::string name = "capture: structure tile " + std::to_string(piece.Tile) +
+                             (piece.Cell == 0 ? "" : " cell " + std::to_string(piece.Cell)) +
+                             " digest ";
     S_->Published.Places(name + "low half",
                          static_cast<double>(piece.Digest & std::numeric_limits<uint32_t>::max()),
                          "digest");

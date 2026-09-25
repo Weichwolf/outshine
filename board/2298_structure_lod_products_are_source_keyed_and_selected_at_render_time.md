@@ -12,8 +12,7 @@ Tags: buildings, lod, determinism, streaming, hockenheim
 ## Problem and evidence
 
 `StructureBake.cpp` uses `RawTile::Eye` to choose Fine, Shell or Massed before
-building native geometry. `BuildingMesh.cpp` also tests distance to a fixed
-world anchor. Accepted tiles are reused within 64 m of their bake eye.
+building native geometry. Accepted tiles are reused within 64 m of their bake eye.
 Hockenheim tile 24 had identical source, DEM and street inputs but 51 Fine
 footprints after a jump versus 38 after motion. Eye revalidation avoids a
 false Refined result, yet repeated whole-tile baking prevents stable streaming.
@@ -55,8 +54,10 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   invalid or mid-bake detail changes reject. The queue carries that request,
   but the live path still uses automatic camera-selected whole-tile bakes.
 - `SceneResources` restores hidden instance rows after world publication.
-  `TilePieces` retains variants and switches one visible level atomically;
-  depth tests cover publication, missing levels and automatic fallback.
+  `TilePieces` retains variants per tile/cell and switches one visible level
+  per cell atomically. Depth tests cover publication, missing levels, failed
+  upload, cell-scoped replacement and automatic fallback. Live jobs still
+  publish only legacy cell zero.
   `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;
   candidate and live uploads retain it. Changed sources retire old variants
   only after successful upload; failure leaves the old image intact.
