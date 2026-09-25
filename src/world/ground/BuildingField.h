@@ -40,6 +40,7 @@ public:
     std::span<const Footprint> Prints;
     std::span<const double> SeatSpreadM;
     std::span<const double> AcrossM;
+    uint64_t OccupiedCells = 0;
     size_t Triangles = 0;
     int OsmHeights = 0;
     int DefaultHeights = 0;
@@ -64,6 +65,7 @@ public:
   struct AcceptedInput {
     std::optional<Data::TileSourceIdentity> Vector;
     std::vector<Data::TileSourceIdentity> Sources;
+    uint64_t OccupiedCells = 0;
     bool Qualified = false;
     BakeInputs Bake;
   };
@@ -92,6 +94,7 @@ public:
           Across_(baked.AcrossM.size()),
           Input_{.Vector = std::move(vector),
                  .Sources = std::vector<Data::TileSourceIdentity>(sources.begin(), sources.end()),
+                 .OccupiedCells = baked.OccupiedCells,
                  .Qualified = qualified,
                  .Bake = bake} {
       std::ranges::sort(Input_.Sources);

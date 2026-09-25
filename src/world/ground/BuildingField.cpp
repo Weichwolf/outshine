@@ -170,6 +170,7 @@ void BuildingField::ReplaceAcceptance(PendingAcceptance pending, const Baked &ba
                                !same(SeatSpread_, old.Spread, baked.SeatSpreadM) ||
                                !same(Across_, old.Across, baked.AcrossM) ||
                                before.Vector != after.Vector || before.Sources != after.Sources ||
+                               before.OccupiedCells != after.OccupiedCells ||
                                before.Qualified != after.Qualified ||
                                before.Bake.HeightRasterDigest != after.Bake.HeightRasterDigest ||
                                before.Bake.StreetDigest != after.Bake.StreetDigest ||

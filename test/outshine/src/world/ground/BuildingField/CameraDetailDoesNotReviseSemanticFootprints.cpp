@@ -15,8 +15,12 @@ int main() {
   field.AnchorAt({{0, 0, 0}});
   std::array<BuildingField::Footprint, 1> prints{{{.HeightM = 12.0f}}};
   const std::array<double, 1> spread{0.5}, across{18.0};
-  BuildingField::Baked baked{
-      .Prints = prints, .SeatSpreadM = spread, .AcrossM = across, .Triangles = 12, .OsmHeights = 1};
+  BuildingField::Baked baked{.Prints = prints,
+                             .SeatSpreadM = spread,
+                             .AcrossM = across,
+                             .OccupiedCells = 1,
+                             .Triangles = 12,
+                             .OsmHeights = 1};
   const Data::TileSourceIdentity vector{.Kind = Data::DataKind::VectorMap,
                                         .Tile = {.Zoom = 14, .X = 7, .Y = 8},
                                         .SourceId = "osm",
@@ -46,7 +50,8 @@ int main() {
   auto camera = field.PrepareAcceptance(7, baked, repeated, true, vector, input(1080, 10));
   field.ReplaceAcceptance(std::move(camera), baked);
   CHECK(field.Revision() == semanticRevision && field.TrianglesHanded() == 3 &&
-            field.InputOfTile(7) && field.InputOfTile(7)->Bake.Eye.LongitudeDeg == 10,
+            field.InputOfTile(7) && field.InputOfTile(7)->Bake.Eye.LongitudeDeg == 10 &&
+            field.InputOfTile(7)->OccupiedCells == 1,
         "camera detail and duplicate source delivery do not revise semantic ground");
   CHECK(field.InputOfTile(7) && field.InputOfTile(7)->Sources.size() == 2,
         "accepted source identity stores a canonical set");
@@ -56,10 +61,16 @@ int main() {
   field.ReplaceAcceptance(std::move(source), baked);
   CHECK(field.Revision() == semanticRevision + 1,
         "changed pinned DEM source revises the semantic footprint input");
+  baked.OccupiedCells = 2;
+  auto cells = field.PrepareAcceptance(7, baked, sources, true, vector, input(1080, 10));
+  field.ReplaceAcceptance(std::move(cells), baked);
+  CHECK(field.Revision() == semanticRevision + 2 && field.InputOfTile(7) &&
+            field.InputOfTile(7)->OccupiedCells == 2,
+        "changed spatial cell occupancy revises the accepted source geometry");
   prints.front().HeightM = 15.0f;
   auto shape = field.PrepareAcceptance(7, baked, sources, true, vector, input(1080, 10));
   field.ReplaceAcceptance(std::move(shape), baked);
-  CHECK(field.Revision() == semanticRevision + 2 && field.OfTile(7).front().HeightM == 15.0f,
+  CHECK(field.Revision() == semanticRevision + 3 && field.OfTile(7).front().HeightM == 15.0f,
         "changed footprint shape revises the semantic ground state");
   return Report();
 }
