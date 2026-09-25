@@ -27,6 +27,7 @@ Provider-Anfragen und Vorbereitungscaches dürfen fortschreiten; veröffentlicht
 Materialzuordnung, Lichtparameter, Netz, Audio-Occlusion und Revision bei Ablehnung nicht.
 Keine Whole-World-Mutation mit anschließendem Snapshot-Rollback. Unabhängige gestreamte
 Tiles bereiten neue Handles vor, geben sie bei Fehler frei und tauschen erst bei Erfolg.
+WI 2299 besitzt den veröffentlichten CPU-Snapshot und stabile Tile-Übergänge.
 Hockenheim 60 s: sechs Kandidaten; Nr. 3 verwirft wegen Region (Maske 1), Nr. 5 wegen
 Klassen/Footprints/Vektoren (262). Unveränderte Tile-Produkte müssen beide Wechsel überleben.
 
