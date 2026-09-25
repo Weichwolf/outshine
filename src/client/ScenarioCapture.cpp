@@ -43,6 +43,8 @@ struct RouteMeasurements {
   double EastM = 0.0;
   double UpM = 0.0;
   double RendererZM = 0.0;
+  double CandidateStarts = 0.0;
+  double CandidateProgress = -1.0;
 };
 
 struct MotionFrame {
@@ -76,6 +78,10 @@ struct MotionFrame {
     } else if (measure.Name == "the route camera's eye, south") {
       route.RendererZM = measure.Value;
       found |= 16u;
+    } else if (measure.Name == "ground candidate: starts") {
+      route.CandidateStarts = measure.Value;
+    } else if (measure.Name == "ground candidate: progress") {
+      route.CandidateProgress = measure.Value;
     }
   }
   if (found != kAllRouteFields || !std::isfinite(route.StationM) || !std::isfinite(route.Segment) ||
@@ -188,13 +194,14 @@ CaptureRouteLength(const Engine &engine, std::string_view viewId) {
   result.TracePath = (folder / (std::string(stem) + "-motion.tsv")).string();
   std::ofstream trace(result.TracePath);
   if (!trace) { return std::unexpected("motion trace cannot be opened"); }
-  trace
-      << "time_s\tstation_m\tsegment\teast_m\tup_m\trenderer_z_m\tadvance_ms\trender_ms\tsettled\n";
+  trace << "time_s\tstation_m\tsegment\teast_m\tup_m\trenderer_z_m\tadvance_ms\trender_"
+           "ms\tsettled\tcandidate_starts\tcandidate_last_progress\n";
   trace << std::fixed << std::setprecision(6);
   for (const MotionFrame &frame : frames) {
     trace << frame.TimeS << '\t' << frame.Route.StationM << '\t' << frame.Route.Segment << '\t'
           << frame.Route.EastM << '\t' << frame.Route.UpM << '\t' << frame.Route.RendererZM << '\t'
-          << frame.AdvanceMs << '\t' << frame.RenderMs << '\t' << (frame.Settled ? 1 : 0) << '\n';
+          << frame.AdvanceMs << '\t' << frame.RenderMs << '\t' << (frame.Settled ? 1 : 0) << '\t'
+          << frame.Route.CandidateStarts << '\t' << frame.Route.CandidateProgress << '\n';
   }
   trace.close();
   if (!trace) { return std::unexpected("motion trace could not be written"); }
