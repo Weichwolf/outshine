@@ -41,6 +41,11 @@ camera-eye bakes (51/1337 Fine/Shell still, 38/1350 paced; eye offset about
 for the few large pixel differences, not yet a demonstrated cause of the rare
 polygon. WI 2298 specifies source-keyed cell/level products and render-time
 selection; this WI owns final image/shadow convergence and the rare failure.
+`measures --quality refined` now pins a capture and reports visible tile
+digest, source key, explicit detail and fallback status. At 74.85 s all 46
+source keys match; only tile 24's mesh digest differs, with `automatic` detail
+and no height fallback in both runs. This supports the camera-bake explanation
+for the edge pixels, but does not identify the rare polygon's producer.
 
 ## Ownership and solution direction
 

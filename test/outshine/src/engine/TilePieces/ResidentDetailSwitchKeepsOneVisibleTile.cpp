@@ -41,6 +41,11 @@ int main() {
       renderer.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});
       TilePieces pieces;
       pieces.Into(&renderer);
+      const auto visible = [&]() {
+        std::vector<TilePieces::DigestRecord> records;
+        pieces.ForEachDigest([&](TilePieces::DigestRecord record) { records.push_back(record); });
+        return records;
+      };
       const TangentFrame frame = TangentFrame::At({});
       pieces.Framed(frame);
       pieces.Wears({.Walls = Render::PieceSurface(0), .Roofs = Render::PieceSurface(0)});
@@ -78,6 +83,9 @@ int main() {
       CHECK(renderer.PiecesStanding() == 2 && pieces.Handles().size() == 2 &&
                 pieces.Digest() == fineDigest && depth() == fineDepth,
             "hidden detail neither replaces nor duplicates the visible image");
+      CHECK(visible().size() == 1 && visible().front().SourceKey == 1 &&
+                visible().front().Detail == LevelOfDetail::Fine,
+            "capture provenance names only the visible source and detail");
       Core::WorldCandidate candidate(renderer);
       CHECK(candidate.Prepare(*scene, nullptr).has_value(), "candidate restores both variants");
       CHECK(candidate.Publish(scene).has_value(), "candidate publishes resident variants");
@@ -88,6 +96,9 @@ int main() {
       const float shellDepth = depth();
       CHECK(shellDepth > 0.0f && shellDepth != fineDepth && pieces.Digest() != fineDigest,
             "selected shell replaces fine at the probe");
+      CHECK(visible().size() == 1 && visible().front().Digest == 22 &&
+                visible().front().Detail == LevelOfDetail::Shell,
+            "provenance follows the selected resident product");
       CHECK(!pieces.SelectDetail(7, LevelOfDetail::Massed, error) && depth() == shellDepth,
             "missing detail leaves the selected product visible");
       CHECK(pieces.SelectDetail(7, LevelOfDetail::Fine, error) && depth() == fineDepth,
@@ -108,6 +119,8 @@ int main() {
       CHECK(pieces.Hands(7, automatic, frame.OriginEcef(), error) &&
                 renderer.PiecesStanding() == 1 && depth() > 0.0f,
             "automatic replacement removes both variants without leaving the tile hidden");
+      CHECK(visible().size() == 1 && visible().front().SourceKey == 0 && !visible().front().Detail,
+            "automatic camera-dependent geometry is explicit in capture provenance");
       pieces.Forgets(7);
       CHECK(renderer.PiecesStanding() == 0 && pieces.Handles().empty() && depth() == 0.0f,
             "forgetting the tile releases both resident variants");

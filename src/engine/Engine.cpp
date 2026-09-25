@@ -350,6 +350,15 @@ Holds<Capture> Engine::beginCapture() {
                          static_cast<double>(piece.Digest & std::numeric_limits<uint32_t>::max()),
                          "digest");
     S_->Published.Places(name + "high half", static_cast<double>(piece.Digest >> 32u), "digest");
+    S_->Published.Places(
+        name + "source low half",
+        static_cast<double>(piece.SourceKey & std::numeric_limits<uint32_t>::max()),
+        "key");
+    S_->Published.Places(
+        name + "source high half", static_cast<double>(piece.SourceKey >> 32u), "key");
+    S_->Published.Places(name + "explicit detail",
+                         piece.Detail ? static_cast<double>(static_cast<int>(*piece.Detail)) : -1.0,
+                         "-1=automatic");
     S_->Published.Places(name + "fallback heights", piece.FallbackHeights ? 1.0 : 0.0, "yes/no");
   });
   return Capture(*this);

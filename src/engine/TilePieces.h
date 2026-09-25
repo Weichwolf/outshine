@@ -52,6 +52,7 @@ public:
     uint64_t Digest = 0;
     uint64_t SourceKey = 0;
     bool FallbackHeights = false;
+    std::optional<LevelOfDetail> Detail;
   };
 
   template <typename Each> void ForEachDigest(Each each) const {
@@ -60,7 +61,8 @@ public:
       each(DigestRecord{.Tile = stood.Tile,
                         .Digest = stood.Digest,
                         .SourceKey = stood.SourceKey,
-                        .FallbackHeights = stood.FallbackHeights});
+                        .FallbackHeights = stood.FallbackHeights,
+                        .Detail = stood.Detail});
     }
   }
 

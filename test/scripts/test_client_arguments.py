@@ -20,7 +20,7 @@ class Coordinates(unittest.TestCase):
                  (('run', '--help'), ('--view', '--motion', '--samples', '--stats',
                                      '--probe-pixel', '--quality playable|refined')),
                  (('shots', '--help'), ('--preload-seconds', '--offline', '--stats')),
-                 (('measures', '--help'), ('diagnostic samples', '--stats')),
+                 (('measures', '--help'), ('structure source keys', '--stats')),
                  (('height', '--help'), ('latitude-deg', 'longitude-deg')))
         for args, expected in cases:
             with self.subTest(args=args):

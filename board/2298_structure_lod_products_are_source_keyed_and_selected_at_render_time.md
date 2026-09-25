@@ -67,25 +67,21 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   sorted fast path and normalizes reversed/duplicate deliveries; accepted
   footprint inputs store the same canonical identity set. The raster digest
   still distinguishes changed sample values.
-- Warm/offline Hockenheim 74.85 s static/motion PNG difference fell from
-  5,719 to 153/921,600 pixels after separating semantic ground revision from
-  camera detail; 124 exceed 1/255. Static repeats are pixel-exact, both road
-  probes are (91,88,83), both Refined. Motion p50/p95/p99: 2.480/9.091/13.361
-  ms, 20/4,491 late frames, 477.7 MiB peak heap (single runs). At 91.433 s,
-  static/motion differ in 13,606 pixels, all by at most 1/255; both probes
-  are (93,90,85). Opened PNGs show the same buildings, but the anonymous long
-  footprint still produces an implausibly repetitive facade (WI 2289).
-- A 60-s motion diagnostic had 3,357/3,600 unrefined frames; 664/676 bakes
-  landed across 49 vector tiles. `Complete` requires every bake eye within
-  64 m and restarts whole-tile refinement on expiry. A larger radius is no fix.
-- Candidate source bakes now survive camera/focal movement and source completion
-  ignores bake-eye age. The same 60-s lap remains 3,393/3,600 unrefined versus
-  3,357/3,600 before, with six candidate starts in both runs. Final PNGs are
-  pixel-identical and road contact has no gap. Separate blockers now show both
-  source ingestion and structure view detail pending at 60 s; the sixth ground
-  candidate just restarted, with footprints not yet ingested. The previous
-  inference that only view detail blocked was too narrow. Cell/level residency
-  and stable source publication remain P0; no readiness gain is demonstrated.
+- Explicitly Refined Hockenheim 74.85-s still/motion captures have 46 visible
+  structure tiles with identical source keys and no fallback heights. Only
+  tile 24 differs in mesh digest; both runs mark its detail `automatic`. The
+  opened PNGs differ in 120 pixels by more than 1/255, all around building
+  edges (worst 112/255). The recorded source/DEM/street identity is the same;
+  the different automatic bake is the next cause to isolate. Earlier tile-24
+  bakes had 51/1337 Fine/Shell
+  footprints after a jump versus 38/1350 after motion at eyes about 109 m
+  apart. The 4,491-frame motion run has zero contact gaps and p99 13.22 ms.
+- A 60-s lap remains roughly 3,393/3,600 frames unrefined with six ground
+  candidate starts. Source ingestion and structure view detail are separate
+  blockers. Source bakes survive eye/focal movement, but `Complete` still
+  requires bake eyes within 64 m and restarts whole-tile refinement. Increasing
+  that radius would keep the wrong camera-baked mesh longer. Stable cell/level
+  residency and source publication remain P0; no readiness gain is proven.
 
 ## Implementation order
 

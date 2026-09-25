@@ -173,7 +173,7 @@ void Usage(std::string_view verb = {}) {
         "  --probe-pixel <x,y>             inspect a final pixel; requires --quality refined\n"
         "  PIXEL row: name, x, y, RGBA8, linear RGB, device depth, normal XYZ, surface ID, "
         "quality.\n"
-        "  measures additionally prints all engine diagnostic samples.\n"
+        "  measures additionally prints engine diagnostics and visible structure source keys.\n"
         "Motion writes a per-frame TSV with time, station, camera position, advance/render "
         "time, readiness, ground candidate progress, previous-frame GPU diagnostics and "
         "left/centre/right road contact with eye clearance.",
@@ -644,6 +644,11 @@ int CaptureView(outshine::Engine &engine,
 }
 
 [[nodiscard]] bool PrintMeasures(outshine::Engine &engine) {
+  auto capture = engine.beginCapture();
+  if (!capture && engine.settled()) {
+    std::println(stderr, "outshine-client: diagnostic capture: {}", capture.error());
+    return false;
+  }
   if (const auto inspected = engine.inspect(); !inspected) {
     std::println(stderr, "outshine-client: diagnostic readback: {}", inspected.error());
     return false;
