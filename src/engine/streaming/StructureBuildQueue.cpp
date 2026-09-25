@@ -248,6 +248,37 @@ bool ResolveHeights(const Ground::OsmField &vectors,
   return true;
 }
 
+bool CurrentCellSource(const Ground::GroundStack &stack,
+                       const Ground::OsmField &vectors,
+                       const Ground::BuildingField &footprints,
+                       const StructureBuildQueue::HeightSource &heightAt,
+                       uint32_t tile,
+                       uint64_t sourceKey,
+                       size_t &deferred,
+                       double &resolutionMs) {
+  const auto &record = vectors.Tiles()[tile];
+  const Ground::FeatureRun over{.From = record.FirstFeature,
+                                .To =
+                                    static_cast<size_t>(record.FirstFeature) + record.FeatureCount};
+  std::shared_ptr<const Ground::HeightField> heights;
+  if (!ResolveHeights(vectors,
+                      over,
+                      stack.FinestZoomOf(Data::DataKind::Elevation),
+                      heightAt,
+                      StructureBuildQueue::HeightRequirement::FineOnly,
+                      heights,
+                      {.Deferred = deferred, .DurationMs = resolutionMs}) ||
+      !heights) {
+    return false;
+  }
+  return StructureSourceKey({.Vector = VectorSource(vectors, tile),
+                             .HeightSources = heights->Sources(),
+                             .HeightDigest = heights->RasterDigest(),
+                             .StreetDigest = StreetDigest(stack.Ways(), vectors, tile),
+                             .TileSpanM = footprints.TileSpanM(),
+                             .FallbackHeights = heights->Fallback()}) == sourceKey;
+}
+
 struct RefinementSelection {
   std::optional<Ground::TileWatermark::Next> Next;
   bool Deferred = false;
@@ -693,14 +724,21 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
 std::expected<std::optional<StructureBuildQueue::Landing>, Generators::StructureBakeError>
 StructureBuildQueue::NextCellLanding(const Ground::GroundStack &stack,
                                      const Ground::BuildingField &footprints,
-                                     HeightSourceRevision heightSource) {
+                                     const HeightSource &heightAt) {
   if (CellQueue_.empty() || Pool_ == nullptr) { return std::nullopt; }
   QueuedBuild &bake = CellQueue_.front();
+  const auto discard = [this, &bake] {
+    IdleRaw_.push_back(bake.Task.TakeRaw());
+    IdleOut_.push_back(bake.Task.TakeOutput());
+    IdleScratch_.push_back(bake.Task.TakeScratch());
+    CellQueue_.pop_front();
+    ++Discarded_;
+  };
   const Ground::OsmField *vectors = stack.Vectors();
   const auto *accepted = footprints.InputOfTile(bake.Task.Tile());
   const bool current = vectors != nullptr && accepted != nullptr &&
                        bake.Revision.Vectors == vectors->Generation() &&
-                       bake.Revision.HeightSource == heightSource &&
+                       bake.Revision.HeightSource == heightAt.Revision &&
                        QualifiedSourceKey(footprints, bake.Task.Tile()) == bake.SourceKey &&
                        (accepted->OccupiedCells & (uint64_t{1} << (bake.Cell - 1u))) != 0 &&
                        bake.Task.Tile() < vectors->Tiles().size() &&
@@ -708,17 +746,24 @@ StructureBuildQueue::NextCellLanding(const Ground::GroundStack &stack,
   if (!current) {
     bake.Task.RequestStop();
     if (!bake.Finished) { bake.Finished = bake.Task.TakeCompletion(*Pool_); }
-    if (bake.Finished) {
-      IdleRaw_.push_back(bake.Task.TakeRaw());
-      IdleOut_.push_back(bake.Task.TakeOutput());
-      IdleScratch_.push_back(bake.Task.TakeScratch());
-      CellQueue_.pop_front();
-      ++Discarded_;
-    }
+    if (bake.Finished) { discard(); }
     return std::nullopt;
   }
   ResumeCompletedTasks();
   if (!bake.Finished) { return std::nullopt; }
+  double resolutionMs = 0.0;
+  if (!CurrentCellSource(stack,
+                         *vectors,
+                         footprints,
+                         heightAt,
+                         bake.Task.Tile(),
+                         bake.SourceKey,
+                         Deferred_,
+                         resolutionMs)) {
+    discard();
+    return std::nullopt;
+  }
+  SlowestHeightResolutionMs_ = std::max(SlowestHeightResolutionMs_, resolutionMs);
   if (!bake.Task.Result().Status) { return std::unexpected(bake.Task.Result().Status.error()); }
   const auto &completed = bake.Task.Result().Tile;
   if (!completed) { return std::nullopt; }

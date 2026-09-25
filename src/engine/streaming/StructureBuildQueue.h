@@ -120,7 +120,7 @@ public:
   [[nodiscard]] std::expected<std::optional<Landing>, Generators::StructureBakeError>
   NextCellLanding(const Ground::GroundStack &stack,
                   const Ground::BuildingField &footprints,
-                  HeightSourceRevision heightSource);
+                  const HeightSource &heightAt);
   void CommitsCellLanding(const Landing &landing) noexcept;
   void ResumeCompletedTasks();
   void CommitsLandings(Ground::GroundStack &stack,

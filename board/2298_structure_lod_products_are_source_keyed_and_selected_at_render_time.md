@@ -62,8 +62,8 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   Resident variant and accepted-tile queries support bounded source planning;
   missing cells, stale sources and failed uploads keep the legacy image visible.
   `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;
-  candidate and live uploads retain it. Changed sources retire old variants
-  only after successful upload; failure leaves the old image intact.
+  cell landings recheck current DEM and street inputs before publication.
+  Changed sources retire old variants only after successful upload.
 - `BuildingField::Footprint` contains semantic data only. Render detail stays
   in `BakedTile::FootprintDetails`; whole-tile landings carry source cell masks,
   full envelopes and maximum heights into acceptance; camera-only changes leave the semantic revision stable.

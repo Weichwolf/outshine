@@ -93,13 +93,16 @@ int main() {
   prints.TilesSpan(1000);
   prints.SeenWith(720);
   const int zoom = stack.FinestZoomOf(Data::DataKind::Elevation);
-  const auto block = [zoom](Data::TileId at) {
+  std::string demRevision = "one";
+  const auto block = [zoom, &demRevision](Data::TileId at) {
     HeightField::Block one;
     one.At = {.Zoom = zoom, .X = static_cast<long>(at.X), .Y = static_cast<long>(at.Y)};
     one.Raster = {.Side = 3, .Postings = 3};
     one.Nodes.assign(9, 100.0f);
-    one.Sources.push_back(
-        {.Kind = Data::DataKind::Elevation, .Tile = at, .SourceId = "test-dem", .Revision = "one"});
+    one.Sources.push_back({.Kind = Data::DataKind::Elevation,
+                           .Tile = at,
+                           .SourceId = "test-dem",
+                           .Revision = demRevision});
     return one;
   };
   const auto spot = HeightField::SpotOf(eye, zoom);
@@ -192,7 +195,7 @@ int main() {
         "one explicit cell product occupies the bounded worker slot");
   std::optional<StructureBuildQueue::Landing> landing;
   for (int attempt = 0; attempt < 100 && !landing; ++attempt) {
-    auto ready = queue.NextCellLanding(stack, prints, heights.Revision);
+    auto ready = queue.NextCellLanding(stack, prints, heights);
     CHECK(ready.has_value(), "cell worker completes without a bake error");
     if (!ready) { break; }
     landing = std::move(*ready);
@@ -209,6 +212,17 @@ int main() {
   auto staleRequest = request;
   staleRequest.Detail = LevelOfDetail::Fine;
   CHECK(queue.PostsCell(stack, prints, eye, heights, staleRequest),
+        "a detail task pins the current DEM source");
+  demRevision = "two";
+  for (int attempt = 0; attempt < 100 && queue.QueuedCells() != 0; ++attempt) {
+    const auto rejected = queue.NextCellLanding(stack, prints, heights);
+    CHECK(rejected && !*rejected, "changed live DEM cannot publish an old cell product");
+    if (queue.QueuedCells() != 0) { (void)queue.AwaitSlice(0.02); }
+  }
+  CHECK(queue.QueuedCells() == 0 && prints.Revision() == semanticRevision,
+        "discarding a stale cell leaves accepted semantics unchanged");
+  demRevision = "one";
+  CHECK(queue.PostsCell(stack, prints, eye, heights, staleRequest),
         "a second detail can start from the same pinned source");
   auto changedVector = tile.Source;
   changedVector.Revision = "two";
@@ -224,7 +238,7 @@ int main() {
                                            .Eye = eye});
   prints.ReplaceAcceptance(std::move(revised), accepted);
   for (int attempt = 0; attempt < 100 && queue.QueuedCells() != 0; ++attempt) {
-    const auto rejected = queue.NextCellLanding(stack, prints, heights.Revision);
+    const auto rejected = queue.NextCellLanding(stack, prints, heights);
     CHECK(rejected && !*rejected, "stale cell product never lands");
     if (queue.QueuedCells() != 0) { (void)queue.AwaitSlice(0.02); }
   }
@@ -260,7 +274,7 @@ int main() {
   CHECK(StructureBuildQueue::QualifiedSourceKey(prints, 0) == sourceKey,
         "cell-mask change alone does not forge a source-key change");
   for (int attempt = 0; attempt < 100 && queue.QueuedCells() != 0; ++attempt) {
-    const auto rejected = queue.NextCellLanding(stack, prints, heights.Revision);
+    const auto rejected = queue.NextCellLanding(stack, prints, heights);
     CHECK(rejected && !*rejected, "moved source cell never lands under its old address");
     if (queue.QueuedCells() != 0) { (void)queue.AwaitSlice(0.02); }
   }
