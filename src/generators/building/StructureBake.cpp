@@ -559,8 +559,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
       level = LevelOfDetail::Massed;
     }
   }
-  fp.Coarseness = level;
   out.Prints.push_back(fp);
+  out.FootprintDetails.push_back(level);
 
   if (level >= LevelOfDetail::Massed) {
     const auto lumped =
@@ -589,7 +589,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.HeightMeasured = fp.Source == BuildingField::HeightSource::Osm;
   plan.Street = fp.Street;
   plan.AnchorEcef = raw.AnchorEcef;
-  plan.Coarseness = fp.Coarseness;
+  plan.Coarseness = level;
   const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
   if (!built) { return std::unexpected(built.error()); }
   return {};
@@ -637,6 +637,7 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     out.Roofs = {};
     out.Built.Clear();
     out.Prints.clear();
+    out.FootprintDetails.clear();
     out.SeatSpreadM.clear();
     out.AcrossM.clear();
     out.OsmHeights = 0;

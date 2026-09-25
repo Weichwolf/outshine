@@ -68,6 +68,13 @@ accepted camera-local LOD within the 64 m reuse radius still needs a stable
 representation. The paced 4,491 frames were all unsettled before final preload;
 p99 was 17.24 ms, with 53 frames over the 16.67 ms target.
 
+After the semantic footprint revision stopped changing for camera-only LOD
+replacements (WI 2298), fresh 74.85-s static/motion captures differ in 153
+pixels, 124 by more than 1/255; the road probes agree. At 91.433 s, both
+probes agree and all 13,606 differing pixels vary by at most 1/255. Opened
+PNGs show no overhead polygon in this sample. The rare failure remains open
+until a deterministic fixture or bounded repetition proves its cause.
+
 ## Ownership and solution direction
 
 `src/engine/Laying.cpp` and ground/structure publication own the coherent

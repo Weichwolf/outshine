@@ -17,6 +17,7 @@
 #include "StructureMesher.h"
 #include "spatial/Capacity.h"
 #include "spatial/ClusterCook.h"
+#include "scene/LevelOfDetail.h"
 
 namespace outshine::Generators {
 
@@ -81,6 +82,7 @@ struct BakedTile {
   bool FallbackHeights = false;
   std::optional<LevelOfDetail> RequestedDetail;
   std::vector<outshine::Ground::BuildingField::Footprint> Prints;
+  std::vector<LevelOfDetail> FootprintDetails;
   std::vector<double> SeatSpreadM;
   std::vector<double> AcrossM;
   int OsmHeights = 0;
@@ -93,7 +95,7 @@ struct BakedTile {
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return Built.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes() + CapacityBytes(Prints) +
-           CapacityBytes(SeatSpreadM) + CapacityBytes(AcrossM);
+           CapacityBytes(FootprintDetails) + CapacityBytes(SeatSpreadM) + CapacityBytes(AcrossM);
   }
 };
 

@@ -90,7 +90,7 @@ int main() {
   CHECK(distantMesher.Calls == 1 && distantMesher.LastCoarseness == LevelOfDetail::Massed,
         "a distant tile batches its buildings into one massed mesh");
   CHECK(distantOutput.Prints.size() == 2, "a distant tile retains every footprint");
-  CHECK(distantOutput.Prints.front().Coarseness == LevelOfDetail::Massed,
+  CHECK(distantOutput.FootprintDetails.front() == LevelOfDetail::Massed,
         "a distant building uses massed geometry");
 
   Generators::RawTile threshold = raw;
@@ -103,7 +103,7 @@ int main() {
   const auto thresholdResult = Generators::BakeStructures(
       threshold, *heights, thresholdMesher, *thresholdScratch, thresholdOutput);
   CHECK(thresholdResult && thresholdOutput.Prints.size() == 1 &&
-            thresholdOutput.Prints.front().Coarseness == LevelOfDetail::Fine,
+            thresholdOutput.FootprintDetails.front() == LevelOfDetail::Fine,
         "the eye reuse guard retains fine detail just beyond the ordinary shell threshold");
 
   RefusingMesher oneShotMesher(StructureMeshError::UnsupportedFootprint);
@@ -169,9 +169,9 @@ int main() {
                                         left.Street.AlongE == right.Street.AlongE &&
                                         left.Street.AlongN == right.Street.AlongN &&
                                         left.Street.ToStreetE == right.Street.ToStreetE &&
-                                        left.Street.ToStreetN == right.Street.ToStreetN &&
-                                        left.Coarseness == right.Coarseness;
+                                        left.Street.ToStreetN == right.Street.ToStreetN;
                                }) &&
+            manyFinalized->FootprintDetails == manyOneShot.FootprintDetails &&
             manyFinalized->SeatSpreadM == manyOneShot.SeatSpreadM &&
             manyFinalized->AcrossM == manyOneShot.AcrossM &&
             manyFinalized->Digest == manyOneShot.Digest &&

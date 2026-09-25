@@ -18,8 +18,6 @@
 #include "StructureMesher.h"
 #include "TileWatermark.h"
 
-#include <scene/LevelOfDetail.h>
-
 namespace outshine::Ground {
 
 class BuildingField {
@@ -35,7 +33,7 @@ public:
     HeightSource Source = HeightSource::Default;
     Frontage Street;
 
-    LevelOfDetail Coarseness = LevelOfDetail::Fine;
+    [[nodiscard]] bool operator==(const Footprint &) const noexcept = default;
   };
 
   struct Baked {

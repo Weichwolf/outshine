@@ -9,11 +9,13 @@ int main() {
   baked.Walls.Clusters.reserve(3);
   baked.Roofs.Index.reserve(5);
   baked.Prints.reserve(7);
+  baked.FootprintDetails.reserve(8);
   baked.SeatSpreadM.reserve(11);
   baked.AcrossM.reserve(13);
   const size_t expected =
       baked.Built.HeapBytes() + baked.Walls.HeapBytes() + baked.Roofs.HeapBytes() +
       baked.Prints.capacity() * sizeof(Ground::BuildingField::Footprint) +
+      baked.FootprintDetails.capacity() * sizeof(LevelOfDetail) +
       baked.SeatSpreadM.capacity() * sizeof(double) + baked.AcrossM.capacity() * sizeof(double);
   CHECK(baked.HeapBytes() == expected, "baked structure products count each owned capacity once");
   return Report();

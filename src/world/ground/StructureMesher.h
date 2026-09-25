@@ -62,6 +62,8 @@ struct Frontage {
   double KerbEm = 0.0, KerbNm = 0.0;
   double AlongE = 0.0, AlongN = 0.0;
   double ToStreetE = 0.0, ToStreetN = 0.0;
+
+  [[nodiscard]] bool operator==(const Frontage &) const noexcept = default;
 };
 
 inline constexpr double kPitchedShareUnknown = -1.0;

@@ -52,48 +52,36 @@ the current view and no required source upgrade is pending. A coarse fallback
 remains Playable and reports its error; it cannot falsely report Refined.
 Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 
+## Verified foundation and remaining work
+
+- `StructureMesher` obeys explicit detail without camera/world-anchor gates.
+  `RawTile::RequestedDetail` bakes Fine/Shell/Massed independently of eye/focal;
+  invalid or mid-bake detail changes reject. The queue carries that request,
+  but the live path still uses automatic camera-selected whole-tile bakes.
+- `SceneResources` restores hidden instance rows after world publication.
+  `TilePieces` retains variants and switches one visible level atomically;
+  depth tests cover publication, missing levels and automatic fallback.
+  `StructureSourceKey` includes vector identity, sorted DEM identities/raster,
+  street digest, scale and fallback. A changed source retires old variants
+  only after successful upload; failed upload leaves the old image intact.
+- `BuildingField::Footprint` now contains semantic data only. Render detail is
+  retained in `BakedTile::FootprintDetails`; a camera-only replacement updates
+  render triangle counts without changing the semantic ground revision.
+- Warm/offline Hockenheim 74.85 s static/motion PNG difference fell from
+  5,719 to 153/921,600 pixels after separating semantic ground revision from
+  camera detail; 124 exceed 1/255. Static repeats are pixel-exact, both road
+  probes are (91,88,83), both Refined. Motion p50/p95/p99: 2.480/9.091/13.361
+  ms, 20/4,491 late frames, 477.7 MiB peak heap (single runs). At 91.433 s,
+  static/motion differ in 13,606 pixels, all by at most 1/255; both probes
+  are (93,90,85). Opened PNGs show the same buildings, but the anonymous long
+  footprint still produces an implausibly repetitive facade (WI 2289).
+
 ## Implementation order
 
-First slice: make `StructureMesher::Mesh` obey only its explicit detail level.
-Remove the hidden focal/world-anchor distance gate from `BuildingMesh` and
-prove Fine remains detailed at a remote world anchor while Shell stays coarse.
-This does not close camera-dependent selection in `StructureBake` or this WI.
-The focused anchor/detail test passes. Hockenheim 74.85 s paced capture keeps
-RGB 91/88/83; p99 is 17.16 ms with 51/4,491 over-budget frames and 520.1 MiB
-peak heap. Static/paced PNGs still differ in 5,719/921,600 pixels (0.621%),
-only near the horizon. The remaining selection is upstream of the mesher.
-Second slice: `RawTile::RequestedDetail` produces explicit Fine/Shell/Massed
-products whose digest is invariant under changed eye/focal input. A source
-height change alters the digest; Skyline and mid-bake detail changes reject.
-The engine queue still uses automatic eye selection and needs conversion.
-Residency prerequisite: `SceneResources` now stores the default identity row
-as visible state and reapplies empty rows after candidate GPU restoration.
-A depth-buffer fixture hides a structure piece, publishes a copied world,
-confirms it stays hidden, then reveals it through the same valid handle.
-Without this, hidden coarse/fine alternatives could reappear together.
-The build queue now carries an optional explicit Fine/Shell/Massed request into
-`RawTile`. Its revision ignores camera eye/focal changes only for explicit
-detail, while still rejecting changed source, height, scale or requested level.
-Automatic requests retain the old eye guard until resident selection replaces it.
-`TilePieces` now retains explicit variants under one tile owner and switches
-their instance rows as one validated batch. A depth fixture proves Fine/Shell
-selection, candidate restoration, missing-level rejection and legacy fallback.
-This is a residency mechanism, not yet spatial cells or live projected-error
-selection. Repeated warm/offline 74.85-s static/motion captures still differ in
-5,719/921,600 pixels (0.621%) over 45 horizon rows; both road probes are
-(91,88,83) and Refined. Motion p50/p95/p99 is 2.775/11.925/17.549 ms with
-56/4,491 over-budget frames and 519.7 MiB peak heap in this run.
-Automatic static Hockenheim frames after residency and source-key changes are
-pixel-exact to their preceding captures (0/921,600 changed); PNGs were opened.
-Variant residency now keys each tile's set by vector identity, sorted DEM
-source identities and raster digest, street digest, scale and fallback status.
-A changed source retires all old levels only after successful new upload;
-missing keys and stale-level selection are negative controls.
-
-1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: split semantic
-   footprint acceptance from camera-local detail choice. Add stable cell/level
-   product identity and source-keyed variant requests. Remove eye/focal inputs
-   from the product revision only after camera independence is proven.
+1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: retain the
+   completed semantic/detail separation, then add stable cell/level product
+   identity and source-keyed variant requests. Remove eye/focal inputs from
+   the product revision only after camera independence is proven.
 2. In `TilePieces`, `SceneResources`, `SubjectDraw`: publish variants with
    explicit cell/level ownership and retain coarse geometry during fine
    upload, retirement and failed replacement. Use existing cluster bounds;

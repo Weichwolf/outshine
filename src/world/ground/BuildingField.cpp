@@ -158,6 +158,22 @@ void BuildingField::ReplaceAcceptance(PendingAcceptance pending, const Baked &ba
          SeatSpread_.capacity() - SeatSpread_.size() + old.Spread.Count >=
              baked.SeatSpreadM.size() &&
          Across_.capacity() - Across_.size() + old.Across.Count >= baked.AcrossM.size());
+  const auto same = [](const auto &values, Range range, auto incoming) {
+    if (range.Count != incoming.size()) { return false; }
+    const auto first = values.begin() + static_cast<ptrdiff_t>(range.First);
+    return std::equal(
+        first, first + static_cast<ptrdiff_t>(range.Count), incoming.begin(), incoming.end());
+  };
+  const AcceptedInput &before = AcceptedInputs_[at];
+  const AcceptedInput &after = pending.Input_;
+  const bool semanticChanged = !same(Prints_, old.Prints, baked.Prints) ||
+                               !same(SeatSpread_, old.Spread, baked.SeatSpreadM) ||
+                               !same(Across_, old.Across, baked.AcrossM) ||
+                               before.Vector != after.Vector || before.Sources != after.Sources ||
+                               before.Qualified != after.Qualified ||
+                               before.Bake.HeightRasterDigest != after.Bake.HeightRasterDigest ||
+                               before.Bake.StreetDigest != after.Bake.StreetDigest ||
+                               before.Bake.TileSpanM != after.Bake.TileSpanM;
   const auto replace = [](auto &values, Range range, auto incoming) {
     auto first = values.begin() + static_cast<ptrdiff_t>(range.First);
     first = values.erase(first, first + static_cast<ptrdiff_t>(range.Count));
@@ -189,7 +205,7 @@ void BuildingField::ReplaceAcceptance(PendingAcceptance pending, const Baked &ba
   OsmHeights_ += baked.OsmHeights - old.OsmHeights;
   DefaultHeights_ += baked.DefaultHeights - old.DefaultHeights;
   Fronted_ += baked.Fronted - old.Fronted;
-  ++Revision_;
+  if (semanticChanged) { ++Revision_; }
 }
 
 bool BuildingField::IngestedWithin(const OsmField &field, int rings) const noexcept {

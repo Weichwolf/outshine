@@ -3,6 +3,8 @@
 #include "Check.h"
 
 #include <array>
+#include <optional>
+#include <vector>
 
 int main() {
   using namespace outshine;
@@ -20,6 +22,7 @@ int main() {
   Generators::BuildingMesh mesher;
 
   std::array<uint64_t, 3> digests{};
+  std::optional<Ground::BuildingField::Footprint> semantic;
   for (const LevelOfDetail detail :
        {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     raw.RequestedDetail = detail;
@@ -38,9 +41,19 @@ int main() {
           "the same requested detail bakes for another camera");
     CHECK(near.RequestedDetail == detail && far.RequestedDetail == detail &&
               near.Prints.size() == 1 && far.Prints.size() == 1 &&
-              near.Prints.front().Coarseness == detail && far.Prints.front().Coarseness == detail &&
-              near.Digest == far.Digest,
+              near.FootprintDetails == std::vector{detail} &&
+              far.FootprintDetails == std::vector{detail} && near.Digest == far.Digest,
           "explicit detail geometry and product identity ignore eye and focal length");
+    if (semantic) {
+      const auto &print = near.Prints.front();
+      CHECK(print.FirstPoint == semantic->FirstPoint && print.PointCount == semantic->PointCount &&
+                print.HeightM == semantic->HeightM && print.BaseM == semantic->BaseM &&
+                print.SeatM == semantic->SeatM && print.FootM == semantic->FootM &&
+                print.Source == semantic->Source && print.Street.Known == semantic->Street.Known,
+            "the semantic footprint is identical across all render detail levels");
+    } else {
+      semantic = near.Prints.front();
+    }
     digests[static_cast<size_t>(detail)] = near.Digest;
   }
   CHECK(digests[0] != digests[1], "Fine and Shell are distinct source-keyed products");
