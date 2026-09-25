@@ -71,26 +71,29 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   sorted fast path and normalizes reversed/duplicate deliveries; accepted
   footprint inputs store the same canonical identity set. The raster digest
   still distinguishes changed sample values.
-- Fresh Hockenheim 74.85-s still/motion `refined` PNGs differ by only 6/921600
-  pixels, each by 1/255; both were opened. Previously 120 building-edge pixels
-  differed by >1/255 (worst 112). The new view contract requires active
-  source-keyed cells; an eye-near legacy tile no longer certifies `refined`.
-  Zero contact gaps, motion p50/p95/p99 2.48/8.38/12.39 ms, 10 over-budget
-  frames, 592 MiB heap peak. Still capture takes 9.57 s and posts 1005 cells;
-  motion posts 1355 and remains unsettled for all 4491 paced frames. Cell
-  variants are correct at settle, but latency, CPU work and memory remain red.
+- Fresh Hockenheim 74.85-s still/motion `refined` PNGs were opened: before
+  source-keyed cell selection, 120 building-edge pixels differed by >1/255
+  (worst 112); after it, only 6/921600 differ, each by 1/255. An eye-near
+  legacy tile no longer certifies `refined`; contact remains gap-free.
 - A false `refined` gate caused 120-s timeout and >84000 repeated DEM field
   jobs: readiness must not prepare data. Posting and activation validate live
-  source; readiness compares resident revisions. Current motion still finishes
-  16361 field jobs. Profile per-cell height source acquisition and reuse pinned
-  DEM slices before claiming streaming scalability. Simplification uses a
-  conservative whole-cell bound; replace it with certified mesh error.
+  source; readiness compares resident revisions. Eight-request tile bursts and
+  a single <=2-MiB height pin with stale-landing eviction cut Hockenheim motion
+  field jobs 16361 -> 6097 and still `refined` time 9.57 -> 8.22 s at the same
+  16-MiB stitched-field budget. The opened still/motion PNGs differ by at most
+  1/255 with zero contact gaps. Motion p50/p95/p99 is 3.33/8.63/12.44 ms,
+  peak heap 688 MiB: both p50 and bytes regress against 2.48/8.38/12.39 ms
+  and 592 MiB. All 4491 paced frames remain unsettled. A 32/64-MiB cache
+  reduced jobs further but worsened memory and p50; global pinned heights
+  caused stale-source churn and was rejected. The remaining live source check
+  rebuilds a field per landing. Simplification still uses a whole-cell bound.
 
 ## Implementation order
 
-1. Reuse one pinned DEM source slice across cells of a tile, retain bounded
-   work queues and eliminate repeated height-field jobs in the frame path.
-   Measure cold/warm startup, moving camera p95/p99, bytes and jobs/frame.
+1. Give `GroundStream`/`TilePool` a cheap revision for each stitched field.
+   Validate cell landings against that revision without rebuilding the field;
+   keep stale-source rejection and bound pinned bytes. Measure cold/warm
+   startup, moving-camera p50/p95/p99, jobs/frame and memory on target hardware.
 2. Store certified simplification displacement per variant. Select with
    projected error and hysteresis; replace the whole-cell bound only after
    forced-coarse negative controls prove the tighter criterion.

@@ -225,6 +225,13 @@ private:
                     std::optional<LevelOfDetail> detail,
                     BuildPurpose purpose);
 
+  struct PinnedCellHeight {
+    uint32_t Tile = 0;
+    uint64_t SourceKey = 0;
+    HeightSourceRevision Revision;
+    std::shared_ptr<const Ground::HeightField> Heights;
+  };
+
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;
@@ -232,6 +239,7 @@ private:
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
   std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut_;
   std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;
+  std::optional<PinnedCellHeight> PinnedCellHeight_;
   size_t Posted_ = 0;
   size_t Landed_ = 0;
   size_t Deferred_ = 0;

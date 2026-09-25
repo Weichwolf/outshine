@@ -34,6 +34,7 @@ namespace {
 constexpr uint32_t kMostRingPoints = 512;
 constexpr uint8_t kPolygonFeature = 3;
 constexpr size_t kBuildsPerThread = 1;
+constexpr size_t kPinnedCellHeightBytesMost = size_t{2} * 1024u * 1024u;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
 [[nodiscard]] bool EyeWithin(LongitudeLatitude from, LongitudeLatitude to) noexcept {
@@ -498,17 +499,23 @@ bool StructureBuildQueue::PostsCell(Ground::GroundStack &stack,
   const Ground::FeatureRun over{.From = tile.FirstFeature,
                                 .To = static_cast<size_t>(tile.FirstFeature) + tile.FeatureCount};
   std::shared_ptr<const Ground::HeightField> heights;
+  if (PinnedCellHeight_ && PinnedCellHeight_->Tile != request.Tile) { PinnedCellHeight_.reset(); }
+  if (PinnedCellHeight_ && PinnedCellHeight_->SourceKey == request.SourceKey &&
+      PinnedCellHeight_->Revision == heightAt.Revision) {
+    heights = PinnedCellHeight_->Heights;
+  }
+  const bool pinMiss = !heights;
   double heightResolutionMs = 0.0;
-  if (!ResolveHeights(*vectors,
-                      over,
-                      stack.FinestZoomOf(Data::DataKind::Elevation),
-                      heightAt,
-                      HeightRequirement::FineOnly,
-                      heights,
-                      {.Deferred = Deferred_, .DurationMs = heightResolutionMs}) ||
-      !heights) {
+  if (pinMiss && !ResolveHeights(*vectors,
+                                 over,
+                                 stack.FinestZoomOf(Data::DataKind::Elevation),
+                                 heightAt,
+                                 HeightRequirement::FineOnly,
+                                 heights,
+                                 {.Deferred = Deferred_, .DurationMs = heightResolutionMs})) {
     return false;
   }
+  if (!heights) { return false; }
   SlowestHeightResolutionMs_ = std::max(SlowestHeightResolutionMs_, heightResolutionMs);
   const uint64_t streetDigest = StreetDigest(stack.Ways(), *vectors, request.Tile);
   const uint64_t pinnedKey = StructureSourceKey({.Vector = VectorSource(*vectors, request.Tile),
@@ -518,6 +525,12 @@ bool StructureBuildQueue::PostsCell(Ground::GroundStack &stack,
                                                  .TileSpanM = footprints.TileSpanM(),
                                                  .FallbackHeights = heights->Fallback()});
   if (pinnedKey != request.SourceKey) { return false; }
+  if (pinMiss && heights->HeapBytes() <= kPinnedCellHeightBytesMost) {
+    PinnedCellHeight_ = {.Tile = request.Tile,
+                         .SourceKey = request.SourceKey,
+                         .Revision = heightAt.Revision,
+                         .Heights = heights};
+  }
   const size_t recycleCapacity = IdleRaw_.size() + Queue_.size() + CellQueue_.size() + 1u;
   IdleRaw_.reserve(recycleCapacity);
   IdleOut_.reserve(recycleCapacity);
@@ -760,6 +773,9 @@ StructureBuildQueue::NextCellLanding(const Ground::GroundStack &stack,
                        bake.Task.Tile() < vectors->Tiles().size() &&
                        VectorSource(*vectors, bake.Task.Tile()) == accepted->Vector;
   if (!current) {
+    if (PinnedCellHeight_ && PinnedCellHeight_->Tile == bake.Task.Tile()) {
+      PinnedCellHeight_.reset();
+    }
     bake.Task.RequestStop();
     if (!bake.Finished) { bake.Finished = bake.Task.TakeCompletion(*Pool_); }
     if (bake.Finished) { discard(); }
@@ -776,6 +792,9 @@ StructureBuildQueue::NextCellLanding(const Ground::GroundStack &stack,
                          bake.SourceKey,
                          Deferred_,
                          resolutionMs)) {
+    if (PinnedCellHeight_ && PinnedCellHeight_->Tile == bake.Task.Tile()) {
+      PinnedCellHeight_.reset();
+    }
     discard();
     return std::nullopt;
   }
@@ -886,6 +905,7 @@ void StructureBuildQueue::Clear() {
   IdleRaw_.clear();
   IdleOut_.clear();
   IdleScratch_.clear();
+  PinnedCellHeight_.reset();
 }
 
 }

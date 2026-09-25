@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -158,5 +159,28 @@ int main() {
   CHECK(revisedAncestorField && croppedField &&
             !std::ranges::equal(revisedAncestorField->Sources(), croppedField->Sources()),
         "equal cropped heights from a different ancestor revision are distinct inputs");
+  Fixture lruSource("r1");
+  const auto tiny = std::make_shared<const TerrainField>(2, 2);
+  TerrainTiles::Config limited;
+  limited.StitchedFieldBytes = 2u * tiny->Bytes();
+  TerrainTiles lru(lruSource, EnuFrame::At(Geo{}), limited);
+  const Data::TileId a{.Zoom = 2, .X = 0, .Y = 0};
+  const Data::TileId b{.Zoom = 2, .X = 1, .Y = 0};
+  const Data::TileId c{.Zoom = 2, .X = 2, .Y = 0};
+  lru.HoldsStitched(a, tiny);
+  lru.HoldsStitched(b, tiny);
+  CHECK(lru.HeldStitched(a) == tiny, "a held-field scan reads without promoting its eviction age");
+  lru.HoldsStitched(c, tiny);
+  CHECK(!lru.HeldStitched(a) && lru.HeldStitched(b) == tiny && lru.HeldStitched(c) == tiny,
+        "a scan cannot make the oldest field survive budget eviction");
+  lru.HoldsStitched(a, tiny);
+  CHECK(lru.StitchedField(c.Zoom, c.X, c.Y) == tiny,
+        "an explicit field request promotes the requested field");
+  lru.HoldsStitched(b, tiny);
+  CHECK(lru.HeldStitched(b) == tiny && lru.HeldStitched(c) == tiny && !lru.HeldStitched(a),
+        "an explicit promotion survives the next eviction");
+  lru.Shapes({.Kind = "sineRidge", .AmplitudeM = 1.0});
+  CHECK(!lru.HeldStitched(a) && !lru.HeldStitched(c),
+        "a shape change invalidates all stitched fields");
   return Report();
 }

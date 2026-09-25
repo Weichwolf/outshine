@@ -281,19 +281,16 @@ TerrainTiles::StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, 
 }
 
 std::shared_ptr<const TerrainField> TerrainTiles::HeldStitched(Data::TileId of) const {
-  for (const StitchedEntry &held : Stitched_) {
-    if (held.Of == of) { return held.Field; }
-  }
-  return nullptr;
+  const auto found = Stitched_.find(of);
+  if (found == Stitched_.end()) { return nullptr; }
+  return found->second.Field;
 }
 
 std::shared_ptr<const TerrainField> TerrainTiles::StitchedField(int z, uint32_t x, uint32_t y) {
   const Data::TileId of{.Zoom = z, .X = x, .Y = y};
-  for (StitchedEntry &held : Stitched_) {
-    if (held.Of == of) {
-      held.Seq = ++Seq_;
-      return held.Field;
-    }
+  if (const auto found = Stitched_.find(of); found != Stitched_.end()) {
+    found->second.Seq = ++Seq_;
+    return found->second.Field;
   }
   TerrainGrid grid = StitchedGrid(z, x, y);
   TerrainField *field = grid.TryFieldMutable();
@@ -308,18 +305,19 @@ void TerrainTiles::HoldsStitched(Data::TileId of,
   if (!shared || Config_.StitchedFieldBytes == 0 || shared->Bytes() > Config_.StitchedFieldBytes) {
     return;
   }
-  size_t held = shared->Bytes();
-  for (const StitchedEntry &one : Stitched_) { held += one.Field->Bytes(); }
-  while (held > Config_.StitchedFieldBytes && !Stitched_.empty()) {
-    size_t oldest = 0;
-    for (size_t at = 1; at < Stitched_.size(); ++at) {
-      if (Stitched_[at].Seq < Stitched_[oldest].Seq) { oldest = at; }
-    }
-    held -= Stitched_[oldest].Field->Bytes();
-    Stitched_[oldest] = std::move(Stitched_.back());
-    Stitched_.pop_back();
+  if (const auto existing = Stitched_.find(of); existing != Stitched_.end()) {
+    StitchedBytes_ -= existing->second.Field->Bytes();
+    Stitched_.erase(existing);
   }
-  Stitched_.push_back({.Seq = ++Seq_, .Of = of, .Field = shared});
+  const size_t bytes = shared->Bytes();
+  while (StitchedBytes_ > Config_.StitchedFieldBytes - bytes && !Stitched_.empty()) {
+    const auto oldest =
+        std::ranges::min_element(Stitched_, {}, [](const auto &entry) { return entry.second.Seq; });
+    StitchedBytes_ -= oldest->second.Field->Bytes();
+    Stitched_.erase(oldest);
+  }
+  Stitched_.emplace(of, StitchedEntry{.Seq = ++Seq_, .Field = shared});
+  StitchedBytes_ += bytes;
 }
 
 TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
@@ -396,10 +394,11 @@ TerrainGrid::State TerrainTiles::NodesOf(Data::TileId of,
 }
 
 size_t TerrainTiles::HeapBytes() const {
-  size_t bytes = sizeof(*this);
+  size_t bytes = sizeof(*this) +
+                 Stitched_.size() * (sizeof(decltype(Stitched_)::value_type) + 3u * sizeof(void *));
   if (!SharesDecoded_) { bytes += Decoded_->Bytes(); }
-  for (const StitchedEntry &held : Stitched_) {
-    if (held.Field) { bytes += held.Field->Bytes(); }
+  for (const auto &held : Stitched_) {
+    if (held.second.Field) { bytes += held.second.Field->Bytes(); }
   }
   return bytes;
 }

@@ -256,6 +256,7 @@ struct Surrounds {
   std::unique_ptr<World::OsmTransportLoader> OsmTransportLoader;
   StructureBuildQueue StructureBuilds;
   size_t StructurePlanAt = 0;
+  size_t StructurePlanBurst = 0;
   size_t StructureCellsPosted = 0;
   size_t StructureCellsLanded = 0;
   size_t StructureTilesActivated = 0;

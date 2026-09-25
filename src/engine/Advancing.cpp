@@ -306,13 +306,20 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
   const auto tiles = footprints.AcceptedTiles();
   if (vectors == nullptr || tiles.empty()) { return true; }
   constexpr size_t kTilesExaminedPerFrame = 4;
+  constexpr size_t kCellsPerTileVisit = 8;
   const size_t examinedMost = std::min(kTilesExaminedPerFrame, tiles.size());
   for (size_t examined = 0; examined < examinedMost; ++examined) {
     const uint32_t tile = tiles[World.StructurePlanAt % tiles.size()];
-    World.StructurePlanAt = (World.StructurePlanAt + 1u) % tiles.size();
+    const auto nextTile = [this, count = tiles.size()] {
+      World.StructurePlanAt = (World.StructurePlanAt + 1u) % count;
+      World.StructurePlanBurst = 0;
+    };
     const auto *accepted = footprints.InputOfTile(tile);
     const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
-    if (accepted == nullptr || !sourceKey || accepted->OccupiedCells == 0) { continue; }
+    if (accepted == nullptr || !sourceKey || accepted->OccupiedCells == 0) {
+      nextTile();
+      continue;
+    }
     const StructureCellPlan plan = PlanStructureCells(tile,
                                                       *accepted,
                                                       *sourceKey,
@@ -330,13 +337,19 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
         return false;
       }
       ++World.StructureTilesActivated;
+      nextTile();
       return true;
     }
     if (plan.Missing && World.StructureBuilds.PostsCell(
                             World.Stack, World.Stack.Footprints(), eye, heightAt, *plan.Missing)) {
       ++World.StructureCellsPosted;
+      if (++World.StructurePlanBurst == kCellsPerTileVisit) { nextTile(); }
       return true;
     }
+    if (plan.Missing && World.StructureBuilds.Queued() + World.StructureBuilds.QueuedCells() > 0) {
+      return true;
+    }
+    nextTile();
   }
   return true;
 }

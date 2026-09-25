@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -116,6 +117,7 @@ public:
     if (Shape_ == how) { return; }
     Shape_ = how;
     Stitched_.clear();
+    StitchedBytes_ = 0;
   }
 
   [[nodiscard]] bool IsShaped() const noexcept { return !Shape_.Kind.empty(); }
@@ -150,8 +152,15 @@ private:
 
   struct StitchedEntry {
     uint64_t Seq = 0;
-    Data::TileId Of;
     std::shared_ptr<const TerrainField> Field;
+  };
+
+  struct TileIdLess {
+    [[nodiscard]] bool operator()(Data::TileId left, Data::TileId right) const noexcept {
+      if (left.Zoom != right.Zoom) { return left.Zoom < right.Zoom; }
+      if (left.X != right.X) { return left.X < right.X; }
+      return left.Y < right.Y;
+    }
   };
 
   [[nodiscard]] TerrainGrid::State
@@ -165,7 +174,8 @@ private:
   Config Config_;
   std::shared_ptr<DecodedCache> Decoded_;
   bool SharesDecoded_ = false;
-  std::vector<StitchedEntry> Stitched_;
+  std::map<Data::TileId, StitchedEntry, TileIdLess> Stitched_;
+  size_t StitchedBytes_ = 0;
   uint64_t Seq_ = 0;
 };
 

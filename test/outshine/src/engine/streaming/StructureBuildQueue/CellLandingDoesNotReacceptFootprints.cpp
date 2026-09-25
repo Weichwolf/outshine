@@ -134,8 +134,10 @@ int main() {
   Generators::BuildingMesh mesher;
   StructureBuildQueue queue;
   queue.Opens(&pool, &mesher);
+  size_t copiedFields = 0;
   const StructureBuildQueue::HeightSource heights{
-      .CopyField = [block](Data::TileId at, HeightField::Block &into) {
+      .CopyField = [block, &copiedFields](Data::TileId at, HeightField::Block &into) {
+        ++copiedFields;
         into = block(at);
         return true;
       }};
@@ -217,8 +219,10 @@ int main() {
         "committing render detail leaves accepted footprints and source identity untouched");
   auto staleRequest = request;
   staleRequest.Detail = LevelOfDetail::Fine;
-  CHECK(queue.PostsCell(stack, prints, eye, heights, staleRequest),
-        "a detail task pins the current DEM source");
+  const size_t copiedBeforeSecondPost = copiedFields;
+  CHECK(queue.PostsCell(stack, prints, eye, heights, staleRequest) &&
+            copiedFields == copiedBeforeSecondPost,
+        "one tile burst reuses its pinned DEM without another field job");
   demRevision = "two";
   CHECK(!StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
         "activation cannot trust an accepted key after live DEM revision changes");
@@ -231,6 +235,8 @@ int main() {
   }
   CHECK(queue.QueuedCells() == 0 && prints.Revision() == semanticRevision,
         "discarding a stale cell leaves accepted semantics unchanged");
+  CHECK(!queue.PostsCell(stack, prints, eye, heights, staleRequest),
+        "a stale landing invalidates the short-lived height pin");
   demRevision = "one";
   CHECK(queue.PostsCell(stack, prints, eye, heights, staleRequest),
         "a second detail can start from the same pinned source");
