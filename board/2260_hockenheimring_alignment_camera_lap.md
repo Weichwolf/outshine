@@ -43,6 +43,14 @@ run but a bright static render at the same pose/time; a rare static mark-4
 capture drew enormous overhead polygons while the paced run did not. WI 2295
 owns this path-dependent geometry/shadow defect. Contact and frame-time proofs
 remain valid, but Refined alone does not yet imply a stable image.
+Ein neuer warm/offline 220-s-Lauf nach der semantischen Footprint-Trennung
+(`f1a305e22`) und Quellnormalisierung (`5b2e5b633`) hat erneut 13 200 Frames,
+0 fehlende Fahrbahnkontakte und 538/538 Cache-Treffer. p50/p95/p99 sind
+2.277/9.810/14.466 ms, 69 Frames über 16.667 ms, 548.1 MiB Peak-Heap.
+Aber 11 962 Frames sind nicht Refined, gegenüber 5 979 zuvor. Alle elf
+Markierungen wurden geöffnet: Mark 3 hat keine schwarze Fahrbahn mehr; lange
+repetitive Gebäude bei Mark 3/4/7 und monotone Boden-/Straßenflächen bleiben.
+Die höhere Unrefined-Zahl ist eine Regression, keine Abnahme (WI 2298).
 
 ## Construction
 

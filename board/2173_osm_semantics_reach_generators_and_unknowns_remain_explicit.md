@@ -1,5 +1,6 @@
 Type: feature
-State: open
+State: active
+Architecture: ready
 Parent: 2169
 Area: world, generators
 Tags: webcam, measured
@@ -22,6 +23,10 @@ Mansarde. Der gepinnte Hockenheim-Roh-OSM-Ausschnitt enthält keine Gebäude;
 er belegt keine Dach-Tag-Abdeckung. Eine weltweite Quote wird erst aus einem
 versionierten, regional geschichteten OSM-Sample mit Nenner Gebäude/Parts,
 Provider-Tagverlust und `roof:shape`/Höhen-/Material-Abdeckung berichtet.
+`BuildingShape::MassOf` wendet `RowCut` auch auf Hall/Block an; `PlotParts`
+verwirft deren Nutzung und klassifiziert kleine Teile neu als Reihenhäuser.
+Hockenheim-Markierungen 3/4 zeigen serielle Giebel an einer langen anonymen
+Fassade: ein generischer Massingfehler, kein Place-Fall.
 
 ## Implementierung
 
@@ -54,6 +59,11 @@ Provider-Tagverlust und `roof:shape`/Höhen-/Material-Abdeckung berichtet.
    `osm-only` und explizite OSM-Material-/Formangaben haben Vorrang.
 4. OSM-Brücken/Tunnel/Layers und Stützmauern als Konstruktionen erhalten. Einheitliches
    Höhen-/Kontaktmodell mit 2121; keine Brücke als auf DEM gepresstes Straßenband.
+5. Ausführbarer Massing-Schritt: `generators/building/BuildingShape.cpp` wendet
+   `RowCut` nur auf Terrace an. Hall/Block bleiben ein Baukörper. Analytische
+   Hall-/Terrace-Grundrisse prüfen Teile, Nutzung, Höhe und Dach; Hockenheim
+   Markierungen 3/4 vor/nach öffnen. `make format`, Building-Suite und
+   `LINT_JOBS=2 make lint` müssen bestehen.
 
 ## Abnahme
 
