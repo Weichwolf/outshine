@@ -2,7 +2,7 @@ Type: diagnostic
 State: active
 Architecture: ready
 Parent: 2167
-Depends: 2291
+Depends: 2291, 2293
 Priority: P0
 Area: client, render
 Tags: lighting, hockenheim, pixel, attribution
