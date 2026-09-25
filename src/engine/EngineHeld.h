@@ -52,6 +52,7 @@
 #include "Sink.h"
 #include "DeclaredSources.h"
 #include "GroundStack.h"
+#include "PublishedRegion.h"
 #include "OsmTransportLoader.h"
 #include "GroundMesher.h"
 #include "spatial/Drape.h"
@@ -223,6 +224,7 @@ struct Surrounds {
 
   std::unique_ptr<Data::Transport> Wire;
   Ground::GroundStack Stack;
+  std::shared_ptr<const Ground::PublishedRegion> Region;
   Generators::Registry Offering;
   Generators::Shipping Shipping;
 

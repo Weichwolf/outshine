@@ -14,6 +14,21 @@
 
 namespace outshine::Ground {
 
+WaterField WaterField::SnapshotQueries() const {
+  WaterField snapshot;
+  snapshot.Surfaces_ = Surfaces_;
+  snapshot.SurfaceRings_ = SurfaceRings_;
+  snapshot.Courses_ = Courses_;
+  snapshot.Levels_ = Levels_;
+  snapshot.ByTile_ = ByTile_;
+  snapshot.Mark_ = Mark_;
+  snapshot.NoGround_ = NoGround_;
+  snapshot.Outliers_ = Outliers_;
+  snapshot.InvalidBodies_ = InvalidBodies_;
+  snapshot.SourceGeneration_ = SourceGeneration_;
+  return snapshot;
+}
+
 namespace {
 
 constexpr double kLevelPercentile = 0.05;

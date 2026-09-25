@@ -87,6 +87,8 @@ public:
                   .RimsMissing = world.RimsMissing,
                   .Surfaces = world.StructureSurfaces},
         World_(renderer),
+        Sources_(Ground::RegionSources::Snapshot(
+            world.Stack.Vectors(), world.Stack.Ways(), world.Stack.WaterBodies())),
         PieceSources_(pieces) {}
 
   GroundWorldCandidate(const GroundWorldCandidate &) = delete;
@@ -97,6 +99,10 @@ public:
   [[nodiscard]] GroundBuildProducts &Products() noexcept { return Products_; }
 
   [[nodiscard]] const GroundBuildProducts &Products() const noexcept { return Products_; }
+
+  [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
+    return Products_.OwnedHeapBytes() + Sources_.HeapBytes();
+  }
 
   void Grounding(const Vec3 &albedo) { World_.Grounding(albedo); }
 
@@ -223,6 +229,8 @@ public:
     const auto reconciled = World_.Renderer().ReconcileStructurePieces(Products_.Pieces.Handles());
     if (!reconciled) { return std::unexpected(reconciled.error()); }
     PublicationMetrics_.OrphanStructurePieces = *reconciled;
+    auto region = std::make_shared<const Ground::PublishedRegion>(
+        std::move(Sources_), Products_.Footprints.SnapshotAccepted());
     auto phaseAt = std::chrono::steady_clock::now();
     if (auto publishedWorld = World_.Publish(published); !publishedWorld) { return publishedWorld; }
     PublicationMetrics_.WorldMs =
@@ -234,6 +242,7 @@ public:
     world.GroundPositionsM = std::move(Products_.PositionsM);
     world.GroundIndex = std::move(Products_.Indices);
     world.StreetGraph = std::move(Products_.StreetGraph);
+    world.Region = std::move(region);
     world.StreetGraphWayCount = Products_.StreetGraphWayCount;
     world.RoadAlignments = std::move(Products_.RoadAlignments);
     world.RimsMissing = Products_.RimsMissing;
@@ -266,6 +275,7 @@ public:
 private:
   GroundBuildProducts Products_;
   Core::WorldCandidate World_;
+  Ground::RegionSources Sources_;
   Render::SceneResources::PieceSources PieceSources_ = Render::SceneResources::PieceSources::Copy;
   size_t NextPiece_ = 0;
   size_t NextHeightPage_ = 0;

@@ -32,6 +32,22 @@ that resets publication still rejects the old route; the Hockenheim public API
 route/contact fixture passes. The remaining vector, water, way and footprint
 reads still need the region owner below.
 
+`Ground::PublishedRegion` now holds the candidate's pinned vector/way/water
+sources and its final accepted footprint snapshot. `Surrounds` swaps this
+native owner with the ground products after renderer publication; generator
+feature reads use the published owner once ground is published, and staging
+only before the first publication. Water's query copy excludes in-flight
+candidates. Retained candidate and published-region bytes are measured.
+An empty replacement tile and accepted footprint source retain independent
+query identities after the ingest owner changes and dies. Live structure-tile
+updates and the remaining direct `Stack` readers still need migration.
+The injected late-GPU-failure fixture retains the old semantic owner; retry
+swaps it with the native scene. Hockenheim still at 74.85 s is pixel-identical
+to the prior snapshot build (0/921,600 changed); its PNG was opened. The
+4,491-frame offline camera run has zero missing contacts, 538 cache deliveries
+and no provider starts; its final frame still differs from the still in 4.125%
+of pixels, the separate camera/LOD issue in 2295.
+
 ## Ownership and data flow
 
 `GroundStack` owns mutable provider, parse and ingest state. Add a native

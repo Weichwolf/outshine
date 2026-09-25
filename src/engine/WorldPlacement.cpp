@@ -17,33 +17,43 @@ constexpr auto InstanceBudget = "generated instance count exceeds the prepared o
 
 namespace {
 constexpr size_t kBaseSnapshotRows = 40;
+
+[[nodiscard]] Generators::Fields GenerationFields(const Surrounds &world) {
+  if (world.GroundPublished.Current()) {
+    if (!world.Region) { return {}; }
+    return {.Vectors = world.Region->Vectors(),
+            .Footprints = &world.Region->Footprints(),
+            .WaterBodies = &world.Region->WaterBodies(),
+            .Ways = &world.Region->Ways()};
+  }
+  return {.Vectors = world.Stack.Vectors(),
+          .Footprints = &world.Stack.Footprints(),
+          .WaterBodies = &world.Stack.WaterBodies(),
+          .Ways = &world.Stack.Ways()};
+}
 }
 
 bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
+  const Ground::OsmField *const vectors = GenerationFields(World).Vectors;
   Published.Places(
       "generators: bodies already placed", static_cast<double>(World.Placed), "bodies");
   Published.Places(
       "generators: a shipped catalogue stands", World.Shipping.Ready() ? 1.0 : 0.0, "yes/no");
   Published.Places("generators: a ground table stands", World.Table ? 1.0 : 0.0, "yes/no");
-  Published.Places(
-      "generators: vector data stands", World.Stack.Vectors() != nullptr ? 1.0 : 0.0, "yes/no");
-  if (World.Placed > 0 || !World.Shipping.Ready() || !World.Table ||
-      World.Stack.Vectors() == nullptr) {
+  Published.Places("generators: vector data stands", vectors != nullptr ? 1.0 : 0.0, "yes/no");
+  if (World.Placed > 0 || !World.Shipping.Ready() || !World.Table || vectors == nullptr) {
     return false;
   }
   return GenerateInstancesForRegion(
-      Generators::Tile::Of(World.Stack.Vectors()->Zoom(),
-                           {.LongitudeDeg = atLon, .LatitudeDeg = atLat}),
+      Generators::Tile::Of(vectors->Zoom(), {.LongitudeDeg = atLon, .LatitudeDeg = atLat}),
       LevelOfDetail::Fine);
 }
 
 bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
                                                LevelOfDetail coarseness) {
-  Generators::Fields stands;
-  stands.Vectors = World.Stack.Vectors();
-  stands.Footprints = &World.Stack.Footprints();
-  stands.WaterBodies = &World.Stack.WaterBodies();
-  stands.Ways = &World.Stack.Ways();
+  const Generators::Fields stands = GenerationFields(World);
+  const Ground::OsmField *const vectors = stands.Vectors;
+  if (vectors == nullptr) { return false; }
   Generators::Ground::Snapshot snapshot;
   const Generators::Snapped how = Generators::SnapshotOver(
       region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
@@ -58,15 +68,14 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   Published.Places(
       "generators: the region it asks about, x", static_cast<double>(region.X()), "tile");
   Published.Places("generators: and y", static_cast<double>(region.Y()), "tile");
-  Published.Places("generators: at zoom", static_cast<double>(World.Stack.Vectors()->Zoom()), "z");
+  Published.Places("generators: at zoom", static_cast<double>(vectors->Zoom()), "z");
   Published.Places("generators: vector tiles that settled",
-                   static_cast<double>(World.Stack.Vectors()->Tiles().size()),
+                   static_cast<double>(vectors->Tiles().size()),
                    "tiles");
-  Published.Places("generators: vector tiles it refused",
-                   static_cast<double>(World.Stack.Vectors()->RefusedTiles()),
-                   "tiles");
+  Published.Places(
+      "generators: vector tiles it refused", static_cast<double>(vectors->RefusedTiles()), "tiles");
   Published.Places("generators: that region is settled",
-                   World.Stack.Vectors()->Settled(region.X(), region.Y()) ? 1.0 : 0.0,
+                   vectors->Settled(region.X(), region.Y()) ? 1.0 : 0.0,
                    "yes/no");
   World.Grown = how == Generators::Snapped::Taken;
   if (how != Generators::Snapped::Taken) { return false; }

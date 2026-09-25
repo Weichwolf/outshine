@@ -66,6 +66,8 @@ public:
 
   [[nodiscard]] const std::vector<float> &Levels() const { return Levels_; }
 
+  [[nodiscard]] WaterField SnapshotQueries() const;
+
   void Settle() {
     Surfaces_.shrink_to_fit();
     SurfaceRings_.shrink_to_fit();

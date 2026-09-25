@@ -4,6 +4,7 @@
 #include <array>
 #include <cassert>
 #include <dlfcn.h>
+#include <memory>
 
 namespace {
 bool rejectSubmit = false;
@@ -57,6 +58,9 @@ int main() {
       world.GroundIndex = {0};
       world.StreetGraphWayCount = 7;
       world.RimsMissing = 2;
+      const auto oldRegion = std::make_shared<const Ground::PublishedRegion>(
+          Ground::RegionSources{}, Ground::BuildingField{});
+      world.Region = oldRegion;
       const GroundRevision oldRevision{.Region = 17};
       const GroundRevision nextRevision{.Region = 18};
       CHECK(world.GroundPublished.Publish(oldRevision), "original ground revision publishes");
@@ -113,8 +117,9 @@ int main() {
         CHECK(world.GroundPositionsM == std::vector<float>({1, 2, 3}) &&
                   world.GroundIndex == std::vector<uint32_t>({0}) &&
                   world.StreetGraphWayCount == 7 && world.RimsMissing == 2 && world.Relaid == 0 &&
-                  world.GroundPublished.NeedsRebuild(nextRevision, false, false),
-              "late failure preserves CPU terrain, network metadata and publication revision");
+                  world.GroundPublished.NeedsRebuild(nextRevision, false, false) &&
+                  world.Region == oldRegion,
+              "late failure preserves CPU terrain, semantic source and publication revision");
       }
       {
         GroundWorldCandidate held(renderer, world, footprints);
@@ -130,7 +135,8 @@ int main() {
           const auto heldResult = held.Publish(world, footprints, scene, nextRevision);
           CHECK(!heldResult && scene.get() == oldScene &&
                     world.GroundPositionsM == std::vector<float>({1, 2, 3}) &&
-                    world.StreetGraphWayCount == 7 && world.Relaid == 0,
+                    world.StreetGraphWayCount == 7 && world.Relaid == 0 &&
+                    world.Region == oldRegion,
                 "capture refuses a late candidate before changing live or CPU world products");
           world.GroundPublished.EndCapture();
         }
@@ -155,8 +161,9 @@ int main() {
                   world.GroundPositionsM == std::vector<float>({9, 8, 7}) &&
                   world.GroundIndex == std::vector<uint32_t>({0, 0, 0}) &&
                   world.StreetGraphWayCount == 19 && world.RimsMissing == 0 && world.Relaid == 1 &&
-                  !world.GroundPublished.NeedsRebuild(nextRevision, false, false),
-              "GPU terrain, CPU products and revision publish together exactly once");
+                  !world.GroundPublished.NeedsRebuild(nextRevision, false, false) &&
+                  world.Region != oldRegion,
+              "GPU terrain, semantic source, CPU products and revision publish together once");
       }
     }
   }

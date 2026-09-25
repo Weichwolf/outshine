@@ -371,7 +371,7 @@ public:
   [[nodiscard]] size_t RetainedProductBytes() const noexcept { return CurrentProductBytes(); }
 
   [[nodiscard]] size_t RetainedCandidateBytes() const noexcept {
-    return Candidate_.Products().OwnedHeapBytes();
+    return Candidate_.OwnedHeapBytes();
   }
 
   [[nodiscard]] size_t RetainedPatchworkBytes() const noexcept {
@@ -568,7 +568,7 @@ private:
     for (const EarthworkStamp &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
     size_t roadEarthworkBytes = RoadEarthworks_.capacity() * sizeof(EarthworkStamp);
     for (const EarthworkStamp &stamp : RoadEarthworks_) { roadEarthworkBytes += stamp.HeapBytes(); }
-    return Candidate_.Products().OwnedHeapBytes() + phaseBytes + corridorBytes + roadEarthworkBytes;
+    return Candidate_.OwnedHeapBytes() + phaseBytes + corridorBytes + roadEarthworkBytes;
   }
 
   void RecordsProductPeak() noexcept {
@@ -856,6 +856,9 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                    "triangles");
   Published.Places(
       "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
+  Published.Places("world: published semantic region",
+                   World.Region ? static_cast<double>(World.Region->HeapBytes()) : 0.0,
+                   "bytes");
   Published.Places("world: of that, the land classes",
                    static_cast<double>(World.Stack.Classes().HeapBytes()),
                    "bytes");
