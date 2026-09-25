@@ -1,5 +1,5 @@
 Type: defect
-State: active
+State: done
 Architecture: ready
 Parent: 2175
 Depends:
@@ -11,12 +11,9 @@ Tags: osm, junction, visual-acceptance
 
 ## Problem and evidence
 
-`Corridors::PaveLane` colors each ribbon from its `StreetField::Way::CoverRow`,
-but both `RaisesTheJunctionBodies` and `AdvanceRoadBodies` color every junction
-from `GroundMaterials["asphalt"]`. Thus connected `kind=track`/`path` segments
-receive an asphalt-colored fill despite their unsealed source rules. This is a
-generator defect, not a place-specific material choice. The synchronous and
-resumable paths duplicate the error.
+Previously ribbons used `StreetField::Way::CoverRow` while junctions used
+`GroundMaterials["asphalt"]`, leaving asphalt patches on unsealed tracks.
+Both synchronous and resumable paths now consume the same junction cover.
 
 ## Contract
 
@@ -39,3 +36,9 @@ same explicit fallback as ribbons. No OSM tag or place-name branch in meshing.
   shuffled incident-way order leaves the chosen junction color unchanged.
 - One-shot and resumable corridor products remain byte-identical for the same
   inputs. Run the focused corridor suite, `make format` and `make lint`.
+
+`TrackJunctionKeepsUnsealedCover` checks track, residential, mixed covers and
+shuffled input order. It compares exact native vertices, normals, colors,
+indices, materials and earthworks between one-shot and 1-way/1-node slices.
+The old asphalt constant fails the track and mixed-color checks. Focused test,
+`make format` and `LINT_JOBS=2 make lint` pass.

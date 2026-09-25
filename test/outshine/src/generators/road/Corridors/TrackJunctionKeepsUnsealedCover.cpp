@@ -12,6 +12,32 @@
 #include <string_view>
 #include <vector>
 
+namespace {
+
+bool SameGeometry(const outshine::Geometry &left, const outshine::Geometry &right) {
+  if (left.parts() != right.parts() || left.surfaces() != right.surfaces()) { return false; }
+  for (int surface = 0; surface < left.surfaces(); ++surface) {
+    if (left.surfaceNameOf(surface) != right.surfaceNameOf(surface) ||
+        !(left.surfaceAt(outshine::MaterialInstance(surface)) ==
+          right.surfaceAt(outshine::MaterialInstance(surface)))) {
+      return false;
+    }
+  }
+  for (int part = 0; part < left.parts(); ++part) {
+    if (left.nameOf(part) != right.nameOf(part) ||
+        left.materialOf(part) != right.materialOf(part) ||
+        !std::ranges::equal(left.positionsOf(part), right.positionsOf(part)) ||
+        !std::ranges::equal(left.normalsOf(part), right.normalsOf(part)) ||
+        !std::ranges::equal(left.coloursOf(part), right.coloursOf(part)) ||
+        !std::ranges::equal(left.trianglesOf(part), right.trianglesOf(part))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
@@ -93,6 +119,19 @@ int main() {
     std::vector<DiagnosticSample> measures;
     CHECK(corridors.Lay(site, mesh, &earthworks, &measures) && mesh.wellFormed(),
           "the joined roads publish valid geometry");
+    Geometry sliced;
+    std::vector<EarthworkStamp> slicedEarthworks;
+    std::vector<DiagnosticSample> slicedMeasures;
+    std::unique_ptr<Generators::Corridors::Job> job = Generators::Corridors::Begin(site);
+    bool complete = false;
+    for (size_t step = 0; step < 1024 && !complete; ++step) {
+      const auto advanced =
+          corridors.Advance(*job, site, 1, 1, sliced, &slicedEarthworks, &slicedMeasures);
+      if (!advanced) { break; }
+      complete = *advanced;
+    }
+    CHECK(complete && SameGeometry(mesh, sliced) && earthworks == slicedEarthworks,
+          "paced road construction preserves junction covers and terrain geometry exactly");
     CHECK(mesh.parts() == 1, "joined roads publish one colored corridor part");
     if (mesh.parts() != 1) { return Report(); }
     const std::span<const float> colors = mesh.coloursOf(0);
