@@ -26,6 +26,12 @@ Hockenheim source (49 tiles, 45,297 features), the snapshot holds 10.68 MB
 versus 18.52 MB in the mutable field; one measured copy took 0.418 ms.
 It is not yet wired into candidate or published ownership.
 
+Public route lookup now uses `GroundPublished` and its atomic road-alignment
+product, not the mutable transport loader's current source. A new declaration
+that resets publication still rejects the old route; the Hockenheim public API
+route/contact fixture passes. The remaining vector, water, way and footprint
+reads still need the region owner below.
+
 ## Ownership and data flow
 
 `GroundStack` owns mutable provider, parse and ingest state. Add a native

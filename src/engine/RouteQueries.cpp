@@ -23,15 +23,10 @@ struct RouteFrames {
 
 [[nodiscard]] const NamedRoadAlignment *PublishedRoute(const Surrounds &world,
                                                        std::string_view name) {
-  if (!world.OsmTransportLoader ||
-      world.OsmTransportLoader->CurrentPhase() != World::OsmTransportLoader::Phase::Ready ||
-      !world.OsmTransportLoader->Current()) {
-    return nullptr;
-  }
-  const Data::OsmSourceIdentity &source = world.OsmTransportLoader->Current()->SourceIdentity();
+  if (!world.GroundPublished.Current()) { return nullptr; }
   const auto found =
       std::ranges::find_if(world.RoadAlignments, [&](const NamedRoadAlignment &route) {
-        return route.Id == name && route.Alignment && route.Alignment->SourceIdentity() == source;
+        return route.Id == name && route.Alignment;
       });
   return found == world.RoadAlignments.end() ? nullptr : &*found;
 }
