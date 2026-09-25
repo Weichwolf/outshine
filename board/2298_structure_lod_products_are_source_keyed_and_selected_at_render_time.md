@@ -28,7 +28,7 @@ the only representation. Keep one source geometry model; detail levels are
 derived products, not parallel importer or generator contracts.
 
 Partition each vector tile into bounded spatial cells using stable tile-local
-coordinates and assign a building by a stable source key/centroid. Bounds
+coordinates; assign each building by its footprint-bounds midpoint. Bounds
 cover its entire footprint, including cross-cell overlap. Produce a resident
 coarse product first; prepare Shell/Fine variants asynchronously on demand
 from the same pinned source snapshot. Existing `Raised` and `ClusteredMesh`
@@ -51,13 +51,15 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 
 - `StructureMesher` obeys explicit detail without camera/world-anchor gates.
   `RawTile::RequestedDetail` bakes Fine/Shell/Massed independently of eye/focal;
-  invalid or mid-bake detail changes reject. The queue carries that request,
-  but the live path still uses automatic camera-selected whole-tile bakes.
+  invalid or mid-bake detail changes reject. `StructureCellOf` assigns an 8x8
+  tile-local cell, preserving full cross-cell/dateline bounds; an explicit cell
+  request filters the bake and rejects invalid/mid-bake cell changes. The queue
+  annotates raw structures, but live jobs still bake the whole tile automatically.
 - `SceneResources` restores hidden instance rows after world publication.
   `TilePieces` retains variants per tile/cell and switches one visible level
-  per cell atomically. Depth tests cover publication, missing levels, failed
-  upload, cell-scoped replacement and automatic fallback. Live jobs still
-  publish only legacy cell zero.
+  per cell atomically and rejects mismatched addresses. Depth tests cover
+  publication, missing levels, failed upload, cell-scoped replacement and
+  automatic fallback. Live jobs still publish only legacy cell zero.
   `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;
   candidate and live uploads retain it. Changed sources retire old variants
   only after successful upload; failure leaves the old image intact.

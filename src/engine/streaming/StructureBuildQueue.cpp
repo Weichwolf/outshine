@@ -97,6 +97,7 @@ void RawOf(const Ground::OsmField &vectors,
   raw.AnchorEcef = prints.Anchor();
   raw.Eye = eye;
   raw.RequestedDetail = detail;
+  raw.RequestedCell.reset();
   raw.FocalPx = prints.FocalPx();
   raw.TileSpanM = prints.TileSpanM();
   raw.Extent = vectors.Extent();
@@ -104,6 +105,9 @@ void RawOf(const Ground::OsmField &vectors,
   const int layer = vectors.Layer(Ground::OsmLayer::Buildings);
   const std::span<const Ground::OsmField::Feature> feats = vectors.Features();
   const std::span<const double> points = vectors.Points();
+  const Ground::OsmField::Tile &tile = vectors.Tiles()[next.Tile];
+  const Ground::GeoBounds tileBounds = Ground::TileBounds(
+      {.Zoom = tile.Z, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)});
   for (const Ground::StreetField::Way &way : streets.OfTile(static_cast<int>(next.Tile))) {
     const auto first = static_cast<size_t>(way.FirstPoint);
     const auto count = static_cast<size_t>(way.PointCount);
@@ -123,6 +127,10 @@ void RawOf(const Ground::OsmField &vectors,
     for (uint32_t r = 0; r < f.RingCount; ++r) {
       const Ground::OsmField::Ring &ring = vectors.Rings()[f.FirstRing + r];
       if (!ring.Exterior || ring.Count < 3 || ring.Count > kMostRingPoints) { continue; }
+      const size_t ringFirst = static_cast<size_t>(ring.First) * 2u;
+      const size_t ringLength = static_cast<size_t>(ring.Count) * 2u;
+      const std::span<const double> ringPoints(points.data() + ringFirst, ringLength);
+      const auto cell = Generators::StructureCellOf(tileBounds, ringPoints);
       const auto local = static_cast<uint32_t>(raw.LatLon.size() / 2);
       raw.LatLon.insert(raw.LatLon.end(),
                         points.begin() + static_cast<long>(ring.First) * 2,
@@ -130,6 +138,7 @@ void RawOf(const Ground::OsmField &vectors,
       raw.Structures.push_back({.LocalFirst = local,
                                 .PointCount = ring.Count,
                                 .SourceFirst = ring.First,
+                                .Cell = cell.value_or(Generators::StructureCell{}),
                                 .HeightM = heightM,
                                 .Pitched = pitched});
     }

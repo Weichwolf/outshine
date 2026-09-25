@@ -492,6 +492,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 std::vector<double> &corners,
                                                 double statedM,
                                                 const std::atomic_bool *stopping) {
+  if (raw.RequestedCell && one.Cell.Index != *raw.RequestedCell) { return {}; }
   const Ring ring{.First = one.LocalFirst, .Count = one.PointCount};
   if (ring.Count < 3 || ring.Count > kMostRingPoints) { return {}; }
   const Seated seated = RingBase(heights, pts, ring, corners);
@@ -501,6 +502,15 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   }
   const double base = seated.BaseM;
   const double seat = seated.SeatM;
+  if (out.FootprintBounds) {
+    auto &bounds = *out.FootprintBounds;
+    bounds.MinLatDeg = std::min(bounds.MinLatDeg, one.Cell.Footprint.MinLatDeg);
+    bounds.MaxLatDeg = std::max(bounds.MaxLatDeg, one.Cell.Footprint.MaxLatDeg);
+    bounds.MinLonDeg = std::min(bounds.MinLonDeg, one.Cell.Footprint.MinLonDeg);
+    bounds.MaxLonDeg = std::max(bounds.MaxLonDeg, one.Cell.Footprint.MaxLonDeg);
+  } else {
+    out.FootprintBounds = one.Cell.Footprint;
+  }
 
   double lowLat = kNoLeastYet;
   double highLat = -kNoLeastYet;
@@ -625,12 +635,22 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
   if (raw.RequestedDetail && *raw.RequestedDetail > LevelOfDetail::Massed) {
     return std::unexpected(StructureBakeErrorKind::InvalidDetail);
   }
+  if (raw.RequestedCell &&
+      (*raw.RequestedCell == 0 || *raw.RequestedCell > kStructureCellsPerTile)) {
+    return std::unexpected(StructureBakeErrorKind::InvalidCell);
+  }
+  if (raw.RequestedCell && !raw.RequestedDetail) {
+    return std::unexpected(StructureBakeErrorKind::InvalidDetail);
+  }
   if (structuresMost == 0) { return false; }
   State &state = *State_;
   assert(!state.Finalized);
   BakedTile &out = state.Tile;
   if (state.Started && out.RequestedDetail != raw.RequestedDetail) {
     return std::unexpected(StructureBakeErrorKind::ChangedDetail);
+  }
+  if (state.Started && out.RequestedCell != raw.RequestedCell) {
+    return std::unexpected(StructureBakeErrorKind::ChangedCell);
   }
   if (!state.Started) {
     out.Walls = {};
@@ -649,6 +669,8 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     out.UnsupportedMeshes = 0;
     out.FallbackHeights = heights.Fallback();
     out.RequestedDetail = raw.RequestedDetail;
+    out.RequestedCell = raw.RequestedCell;
+    out.FootprintBounds.reset();
     state.Ways = LinesOf(raw);
     state.Lumps.Clear();
     state.Corners.clear();

@@ -18,6 +18,7 @@
 #include "spatial/Capacity.h"
 #include "spatial/ClusterCook.h"
 #include "scene/LevelOfDetail.h"
+#include "StructureCell.h"
 
 namespace outshine::Generators {
 
@@ -25,7 +26,13 @@ inline constexpr double kStructureEyeReuseM = 64.0;
 inline constexpr double kStructureEyeDetailGuardM = 128.0;
 static_assert(kStructureEyeDetailGuardM >= kStructureEyeReuseM);
 
-enum class StructureBakeErrorKind { Cancelled, InvalidDetail, ChangedDetail };
+enum class StructureBakeErrorKind {
+  Cancelled,
+  InvalidDetail,
+  ChangedDetail,
+  InvalidCell,
+  ChangedCell
+};
 
 using StructureBakeError = std::variant<StructureMeshError, ClusterError, StructureBakeErrorKind>;
 
@@ -40,6 +47,8 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError, Struct
     case StructureBakeErrorKind::Cancelled: return "structure bake cancelled";
     case StructureBakeErrorKind::InvalidDetail: return "unsupported structure detail level";
     case StructureBakeErrorKind::ChangedDetail: return "structure detail changed during bake";
+    case StructureBakeErrorKind::InvalidCell: return "unsupported structure cell";
+    case StructureBakeErrorKind::ChangedCell: return "structure cell changed during bake";
   }
   return "unknown structure bake error";
 }
@@ -49,6 +58,7 @@ struct RawTile {
     uint32_t LocalFirst = 0;
     uint32_t PointCount = 0;
     uint32_t SourceFirst = 0;
+    StructureCell Cell;
     double HeightM = 0.0;
     int Pitched = -1;
   };
@@ -65,6 +75,7 @@ struct RawTile {
   Vec3 AnchorEcef;
   LongitudeLatitude Eye;
   std::optional<LevelOfDetail> RequestedDetail;
+  std::optional<uint32_t> RequestedCell;
   double FocalPx = 0.0;
   double TileSpanM = 0.0;
   int Extent = 4096;
@@ -81,6 +92,8 @@ struct BakedTile {
   uint64_t Digest = 0;
   bool FallbackHeights = false;
   std::optional<LevelOfDetail> RequestedDetail;
+  std::optional<uint32_t> RequestedCell;
+  std::optional<outshine::Ground::GeoBounds> FootprintBounds;
   std::vector<outshine::Ground::BuildingField::Footprint> Prints;
   std::vector<LevelOfDetail> FootprintDetails;
   std::vector<double> SeatSpreadM;

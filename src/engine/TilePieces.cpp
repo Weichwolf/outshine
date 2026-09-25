@@ -116,6 +116,11 @@ bool TilePieces::Hands(uint32_t tile,
     error = "explicit structure detail requires a source key";
     return false;
   }
+  if ((cell == 0 && baked.RequestedCell) ||
+      (cell != 0 && (baked.RequestedCell != cell || !baked.RequestedDetail))) {
+    error = "structure product cell and residency address differ";
+    return false;
+  }
   const Mat4 row = RowFor(anchorEcef);
   const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
   const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
