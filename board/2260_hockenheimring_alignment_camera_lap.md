@@ -38,6 +38,11 @@ all contacts and frame times. All eleven route-mark PNGs and the final PNG were
 opened. Mark 3 has a near-black foreground despite valid road contact; mark 4
 has an implausibly vast building wall. Grey asphalt, flat ground, schematic
 buildings and abrupt distance transitions still fail visual acceptance.
+The Refined pixel probe now confirms the dark mark-3 foreground in the paced
+run but a bright static render at the same pose/time; a rare static mark-4
+capture drew enormous overhead polygons while the paced run did not. WI 2295
+owns this path-dependent geometry/shadow defect. Contact and frame-time proofs
+remain valid, but Refined alone does not yet imply a stable image.
 
 ## Construction
 
