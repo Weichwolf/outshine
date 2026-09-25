@@ -77,6 +77,9 @@ public:
   SelectDetail(uint32_t tile, uint32_t cell, LevelOfDetail detail, std::string &error);
   [[nodiscard]] bool
   HasCell(uint32_t tile, uint32_t cell, LevelOfDetail detail, uint64_t sourceKey) const noexcept;
+  [[nodiscard]] bool CellsActive(uint32_t tile,
+                                 std::span<const CellSelection> selected,
+                                 uint64_t sourceKey) const noexcept;
   void Clear();
 
   [[nodiscard]] uint64_t Digest() const { return Digest_; }

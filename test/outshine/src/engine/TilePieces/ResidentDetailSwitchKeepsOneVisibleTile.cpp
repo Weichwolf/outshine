@@ -144,6 +144,8 @@ int main() {
             "same-source fallback refresh preserves the hidden cell product");
       std::array<TilePieces::CellSelection, 2> cells{{{.Cell = 1, .Detail = LevelOfDetail::Fine},
                                                       {.Cell = 2, .Detail = LevelOfDetail::Shell}}};
+      CHECK(!pieces.CellsActive(7, cells, 11),
+            "one hidden cell cannot claim complete active residency");
       CHECK(
           !pieces.ActivateCells(7, {.Key = 11, .Occupied = 3}, std::span(cells.data(), 1), error) &&
               depth() == legacyDepth && visible().size() == 1,
@@ -156,6 +158,8 @@ int main() {
                 renderer.PiecesStanding() == 2 && visible().size() == 2 && visible()[0].Cell == 1 &&
                 visible()[1].Cell == 2 && depth() != legacyDepth,
             "one visibility transaction replaces the safety net with complete cell geometry");
+      CHECK(pieces.CellsActive(7, cells, 11) && !pieces.CellsActive(7, cells, 12),
+            "active selection includes the source revision and every chosen detail");
       const float cellFineDepth = depth();
       auto stagedShell = mesh(-0.5f, 55, LevelOfDetail::Shell);
       stagedShell.RequestedCell = 1;
@@ -210,6 +214,8 @@ int main() {
                 visible()[0].SourceKey == 12 && visible()[1].SourceKey == 12 &&
                 visible()[0].Digest == 77 && visible()[1].Digest == 88,
             "complete new-source cells replace and retire all old variants in one transaction");
+      CHECK(!pieces.CellsActive(7, cells, 11) && pieces.CellsActive(7, cells, 12),
+            "publication revokes the old active source selection");
       CHECK(!pieces.HasCell(7, 1, LevelOfDetail::Fine, 11) &&
                 pieces.HasCell(7, 1, LevelOfDetail::Shell, 12),
             "retired source variants cannot satisfy a later detail request");

@@ -23,6 +23,7 @@
 
 #include "EngineHeld.h"
 #include "StructureTilePublication.h"
+#include "StructureCellPlanner.h"
 #include "Lens.h"
 #include "Viewing.h"
 #include "Views.h"
@@ -283,6 +284,63 @@ void Engine::State::HandsPiecesOver() {
   World.PiecesFramed = true;
 }
 
+bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSource &heightAt,
+                                          LongitudeLatitude eye) {
+  auto ready =
+      World.StructureBuilds.NextCellLanding(World.Stack, World.Stack.Footprints(), heightAt);
+  if (!ready) {
+    Error = Generators::Describe(ready.error());
+    return false;
+  }
+  if (*ready) {
+    if (auto staged = StageStructureCell(World, Picture.Device, **ready); !staged) {
+      Error = std::move(staged.error());
+      return false;
+    }
+    World.StructureBuilds.CommitsCellLanding(**ready);
+    ++World.StructureCellsLanded;
+    return true;
+  }
+  const Ground::OsmField *vectors = World.Stack.Vectors();
+  const auto &footprints = World.Stack.Footprints();
+  const auto tiles = footprints.AcceptedTiles();
+  if (vectors == nullptr || tiles.empty()) { return true; }
+  constexpr size_t kTilesExaminedPerFrame = 4;
+  const size_t examinedMost = std::min(kTilesExaminedPerFrame, tiles.size());
+  for (size_t examined = 0; examined < examinedMost; ++examined) {
+    const uint32_t tile = tiles[World.StructurePlanAt % tiles.size()];
+    World.StructurePlanAt = (World.StructurePlanAt + 1u) % tiles.size();
+    const auto *accepted = footprints.InputOfTile(tile);
+    const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
+    if (accepted == nullptr || !sourceKey || accepted->OccupiedCells == 0) { continue; }
+    const StructureCellPlan plan = PlanStructureCells(tile,
+                                                      *accepted,
+                                                      *sourceKey,
+                                                      eye,
+                                                      footprints.FocalPx(),
+                                                      World.Pieces,
+                                                      World.StructureBuilds);
+    if (plan.Complete && !plan.Active &&
+        StructureBuildQueue::CellSourceCurrent(
+            World.Stack, footprints, heightAt, tile, *sourceKey)) {
+      if (auto activated = ActivateStructureCells(
+              World, Picture.Device, tile, *sourceKey, accepted->OccupiedCells, plan.Choices());
+          !activated) {
+        Error = std::move(activated.error());
+        return false;
+      }
+      ++World.StructureTilesActivated;
+      return true;
+    }
+    if (plan.Missing && World.StructureBuilds.PostsCell(
+                            World.Stack, World.Stack.Footprints(), eye, heightAt, *plan.Missing)) {
+      ++World.StructureCellsPosted;
+      return true;
+    }
+  }
+  return true;
+}
+
 bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   const LongitudeLatitude eye = CurrentGeographicFocus();
@@ -334,9 +392,14 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   }
   if (!ready->empty()) {
     const auto transferAt = std::chrono::steady_clock::now();
-    if (auto published = PublishStructureTile(World, Picture.Device, ready->front()); !published) {
-      Error = std::move(published.error());
-      return false;
+    const auto &landing = ready->front();
+    if (StructureBuildQueue::QualifiedSourceKey(World.Stack.Footprints(), landing.Tile) !=
+            landing.SourceKey ||
+        !StructureCellsReady(landing.Tile, eye)) {
+      if (auto published = PublishStructureTile(World, Picture.Device, landing); !published) {
+        Error = std::move(published.error());
+        return false;
+      }
     }
     const double transferMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - transferAt)
@@ -349,13 +412,18 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commitAt)
             .count());
   }
+  if (ready->empty() && !AdvanceStructureCells(heightAt, eye)) { return false; }
   const auto postingAt = std::chrono::steady_clock::now();
-  (void)World.StructureBuilds.Posts(World.Stack,
-                                    World.Stack.Footprints(),
-                                    eye,
-                                    heightAt,
-                                    StructureCandidatesMost(),
-                                    StructureBuildQueue::HeightRequirement::FineOnly);
+  (void)World.StructureBuilds.Posts(
+      World.Stack,
+      World.Stack.Footprints(),
+      eye,
+      heightAt,
+      StructureCandidatesMost(),
+      StructureBuildQueue::HeightRequirement::FineOnly,
+      std::nullopt,
+      StructureBuildQueue::BuildPurpose::ViewDetail,
+      [this, eye](uint32_t tile) { return StructureCellsReady(tile, eye); });
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
           .count());
@@ -374,6 +442,15 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   Published.Places("buildings: stale tiles discarded",
                    static_cast<double>(World.StructureBuilds.Discarded()),
                    "tiles");
+  Published.Places(
+      "buildings: cells posted", static_cast<double>(World.StructureCellsPosted), "cells");
+  Published.Places(
+      "buildings: cells landed", static_cast<double>(World.StructureCellsLanded), "cells");
+  Published.Places("buildings: cell tiles activated",
+                   static_cast<double>(World.StructureTilesActivated),
+                   "tiles");
+  Published.Places(
+      "buildings: cells queued", static_cast<double>(World.StructureBuilds.QueuedCells()), "cells");
   return true;
 }
 

@@ -83,7 +83,8 @@ public:
                              size_t candidatesMost,
                              HeightRequirement requirement = HeightRequirement::AllowFallback,
                              std::optional<LevelOfDetail> detail = std::nullopt,
-                             BuildPurpose purpose = BuildPurpose::ViewDetail);
+                             BuildPurpose purpose = BuildPurpose::ViewDetail,
+                             const std::function<bool(uint32_t)> &cellReady = {});
 
   struct CellRequest {
     uint32_t Tile = 0;
@@ -94,6 +95,11 @@ public:
 
   [[nodiscard]] static std::optional<uint64_t>
   QualifiedSourceKey(const Ground::BuildingField &footprints, uint32_t tile);
+  [[nodiscard]] static bool CellSourceCurrent(const Ground::GroundStack &stack,
+                                              const Ground::BuildingField &footprints,
+                                              const HeightSource &heightAt,
+                                              uint32_t tile,
+                                              uint64_t sourceKey);
   [[nodiscard]] bool PostsCell(Ground::GroundStack &stack,
                                Ground::BuildingField &footprints,
                                LongitudeLatitude eye,
@@ -132,9 +138,12 @@ public:
 
   [[nodiscard]] size_t QueuedCells() const { return CellQueue_.size(); }
 
+  [[nodiscard]] bool CellQueued(CellRequest request) const noexcept;
+
   [[nodiscard]] bool Complete(const Ground::GroundStack &stack,
                               const Ground::BuildingField &footprints,
-                              LongitudeLatitude eye) const;
+                              LongitudeLatitude eye,
+                              const std::function<bool(uint32_t)> &cellReady = {}) const;
   [[nodiscard]] bool SourcesComplete(const Ground::GroundStack &stack,
                                      const Ground::BuildingField &footprints) const;
   [[nodiscard]] static bool QualifiedSources(const Ground::GroundStack &stack,

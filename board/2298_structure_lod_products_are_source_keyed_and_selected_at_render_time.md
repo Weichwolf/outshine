@@ -54,12 +54,12 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   invalid or mid-bake detail changes reject. `StructureCellOf` assigns an 8x8
   tile-local cell, preserving full cross-cell/dateline bounds; an explicit cell
   request filters the bake and rejects invalid source/request IDs and mid-bake
-  changes. The bounded cell queue builds pinned detail without reaccepting
-  footprints; live scheduling still bakes whole tiles.
+  changes. Live scheduling posts bounded pinned cell variants, stages them
+  hidden and activates only complete source selections.
 - `SceneResources` restores hidden instance rows after world publication.
   `TilePieces` stages multiple cell levels hidden; a complete source mask/revision
   swaps atomically with whole tiles in both directions and retires old products.
-  Resident queries support bounded planning; same-source fallback refresh retains hidden cells.
+  Resident queries support planning; same-source fallback refresh retains hidden cells.
   Missing cells and failed uploads keep the legacy image visible.
   `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;
   cell landings recheck current DEM and street inputs before publication.
@@ -71,36 +71,32 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   sorted fast path and normalizes reversed/duplicate deliveries; accepted
   footprint inputs store the same canonical identity set. The raster digest
   still distinguishes changed sample values.
-- Explicitly Refined Hockenheim 74.85-s still/motion captures have 46 visible
-  structure tiles with identical source keys and no fallback heights. Only
-  tile 24 differs in mesh digest; both runs mark its detail `automatic`. The
-  opened PNGs differ in 120 pixels by more than 1/255, all around building
-  edges (worst 112/255). The recorded source/DEM/street identity is the same;
-  the different automatic bake is the next cause to isolate. Earlier tile-24
-  bakes had 51/1337 Fine/Shell footprints after a jump versus 38/1350 after motion at eyes about 109 m
-  apart. The 4,491-frame motion run has zero contact gaps and p99 13.22 ms.
-- A 60-s lap remains roughly 3,393/3,600 frames unrefined with six ground
-  candidate starts. Source ingestion and structure view detail are separate
-  blockers. Source bakes survive eye/focal movement, but `Complete` still
-  requires bake eyes within 64 m and restarts whole-tile refinement. Increasing
-  that radius would keep the wrong camera-baked mesh longer. Stable cell/level
-  residency and source publication remain P0; no readiness gain is proven.
+- Fresh Hockenheim 74.85-s still/motion `refined` PNGs differ by only 6/921600
+  pixels, each by 1/255; both were opened. Previously 120 building-edge pixels
+  differed by >1/255 (worst 112). The new view contract requires active
+  source-keyed cells; an eye-near legacy tile no longer certifies `refined`.
+  Zero contact gaps, motion p50/p95/p99 2.48/8.38/12.39 ms, 10 over-budget
+  frames, 592 MiB heap peak. Still capture takes 9.57 s and posts 1005 cells;
+  motion posts 1355 and remains unsettled for all 4491 paced frames. Cell
+  variants are correct at settle, but latency, CPU work and memory remain red.
+- A false `refined` gate caused 120-s timeout and >84000 repeated DEM field
+  jobs: readiness must not prepare data. Posting and activation validate live
+  source; readiness compares resident revisions. Current motion still finishes
+  16361 field jobs. Profile per-cell height source acquisition and reuse pinned
+  DEM slices before claiming streaming scalability. Simplification uses a
+  conservative whole-cell bound; replace it with certified mesh error.
 
 ## Implementation order
 
-1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: retain the
-   completed semantic/detail separation; give source qualification and view
-   detail separate cursors and readiness results. Add stable cell/level product
-   identity and source-keyed variant requests. Ground candidates wait for
-   qualified semantic footprints, not a camera-local bake eye.
-2. In `TilePieces`, `SceneResources`, `SubjectDraw`: publish variants with
-   explicit cell/level ownership and retain coarse geometry during fine
-   upload, retirement and failed replacement. Use existing cluster bounds;
-   add measured simplification error rather than treating flat clusters as a
-   finished hierarchy.
-3. In renderer/engine readiness: choose resident level from projected error,
-   hysteresis and budget. Request missing detail without blocking a frame.
-   Remove the 64-m whole-tile rebake after this path passes the controls.
+1. Reuse one pinned DEM source slice across cells of a tile, retain bounded
+   work queues and eliminate repeated height-field jobs in the frame path.
+   Measure cold/warm startup, moving camera p95/p99, bytes and jobs/frame.
+2. Store certified simplification displacement per variant. Select with
+   projected error and hysteresis; replace the whole-cell bound only after
+   forced-coarse negative controls prove the tighter criterion.
+3. Admit visible cell detail by bounded priority. Keep the coarse resident
+   safety net while Fine streams; reject stale source/failed upload without
+   replaying legacy camera-local whole-tile geometry.
 
 ## Falsifiable acceptance
 

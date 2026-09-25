@@ -255,6 +255,10 @@ struct Surrounds {
   RoadAlignmentBuildQueue RoadAlignmentBuilds;
   std::unique_ptr<World::OsmTransportLoader> OsmTransportLoader;
   StructureBuildQueue StructureBuilds;
+  size_t StructurePlanAt = 0;
+  size_t StructureCellsPosted = 0;
+  size_t StructureCellsLanded = 0;
+  size_t StructureTilesActivated = 0;
   size_t Relaid = 0;
   size_t Asked = 0;
   double RebuildMs = 0.0;
@@ -553,6 +557,9 @@ struct Engine::State {
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateVegetation(bool prepare);
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
+  [[nodiscard]] bool AdvanceStructureCells(const StructureBuildQueue::HeightSource &heightAt,
+                                           LongitudeLatitude eye);
+  [[nodiscard]] bool StructureCellsReady(uint32_t tile, LongitudeLatitude eye) const;
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();

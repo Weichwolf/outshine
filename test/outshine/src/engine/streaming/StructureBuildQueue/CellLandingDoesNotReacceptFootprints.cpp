@@ -112,6 +112,8 @@ int main() {
   CHECK(pinned && pinned->Qualified() && pinned->Sources().size() == 1,
         "synthetic DEM is a qualified pinned source");
   BuildingField::Baked accepted{.OccupiedCells = uint64_t{1} << (cell->Index - 1u)};
+  accepted.CellBounds[cell->Index - 1u] = cell->Footprint;
+  accepted.CellMaxHeightM[cell->Index - 1u] = 12.0f;
   prints.PreparesAcceptances({.Tiles = 1});
   prints.Take(0);
   auto pending = prints.PrepareAcceptance(0,
@@ -137,6 +139,8 @@ int main() {
         into = block(at);
         return true;
       }};
+  CHECK(StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
+        "accepted cell source still matches resident DEM and street data");
   prints.BeginRefinement();
   const LongitudeLatitude movedEye{.LongitudeDeg = eye.LongitudeDeg + 0.01,
                                    .LatitudeDeg = eye.LatitudeDeg};
@@ -146,32 +150,33 @@ int main() {
                     heights,
                     1,
                     StructureBuildQueue::HeightRequirement::FineOnly,
-                    LevelOfDetail::Massed) == 1,
-        "whole-tile view replacement posts against the accepted source");
-  std::vector<StructureBuildQueue::Landing> whole;
-  for (int attempt = 0; attempt < 100 && whole.empty(); ++attempt) {
-    auto ready = queue.NextLandings(stack,
-                                    prints,
-                                    movedEye,
-                                    heights.Revision,
-                                    1,
-                                    StructureBuildQueue::HeightRequirement::FineOnly,
-                                    LevelOfDetail::Massed);
-    CHECK(ready.has_value(), "whole-tile worker completes without a bake error");
-    if (!ready) { break; }
-    whole = std::move(*ready);
-    if (whole.empty()) { (void)queue.AwaitSlice(0.02); }
-  }
-  CHECK(whole.size() == 1 && whole.front().Footprints.has_value(),
-        "whole-tile landing carries prepared semantic acceptance");
-  if (whole.size() != 1) { return Report(); }
-  queue.CommitsLandings(stack, prints, whole);
+                    LevelOfDetail::Massed) == 0,
+        "camera motion preserves a current semantic source without whole-tile rebaking");
   const auto *qualified = prints.InputOfTile(0);
   CHECK(qualified && qualified->OccupiedCells == accepted.OccupiedCells &&
             qualified->CellBounds[cell->Index - 1u] == cell->Footprint &&
             qualified->CellMaxHeightM[cell->Index - 1u] > 0 &&
             StructureBuildQueue::QualifiedSourceKey(prints, 0) == sourceKey,
-        "whole-tile acceptance retains the baked cell mask, full bounds and maximum height");
+        "source acceptance retains the baked cell mask, full bounds and maximum height");
+  const LongitudeLatitude laterEye{.LongitudeDeg = movedEye.LongitudeDeg + 0.01,
+                                   .LatitudeDeg = movedEye.LatitudeDeg};
+  CHECK(!queue.Complete(stack, prints, movedEye, [](uint32_t) { return false; }),
+        "a near bake eye cannot certify missing view detail");
+  const auto cellsReady = [&](uint32_t tileAt) {
+    return tileAt == 0 &&
+           StructureBuildQueue::CellSourceCurrent(stack, prints, heights, tileAt, *sourceKey);
+  };
+  CHECK(queue.Complete(stack, prints, laterEye, cellsReady) &&
+            queue.Posts(stack,
+                        prints,
+                        laterEye,
+                        heights,
+                        1,
+                        StructureBuildQueue::HeightRequirement::FineOnly,
+                        std::nullopt,
+                        StructureBuildQueue::BuildPurpose::ViewDetail,
+                        cellsReady) == 0,
+        "active current cells satisfy view readiness without a redundant whole-tile rebake");
   const uint64_t semanticRevision = prints.Revision();
   const StructureBuildQueue::CellRequest request{
       .Tile = 0, .Cell = cell->Index, .Detail = LevelOfDetail::Massed, .SourceKey = *sourceKey};
@@ -191,7 +196,7 @@ int main() {
                             .SourceKey = *sourceKey + 1}),
       "invalid cell and stale source requests do not reserve work");
   CHECK(queue.PostsCell(stack, prints, eye, heights, request) && queue.QueuedCells() == 1 &&
-            !queue.PostsCell(stack, prints, eye, heights, request),
+            queue.CellQueued(request) && !queue.PostsCell(stack, prints, eye, heights, request),
         "one explicit cell product occupies the bounded worker slot");
   std::optional<StructureBuildQueue::Landing> landing;
   for (int attempt = 0; attempt < 100 && !landing; ++attempt) {
@@ -206,7 +211,8 @@ int main() {
             landing->Baked->OccupiedCells == accepted.OccupiedCells && !landing->Footprints,
         "landed geometry is source-keyed and has no semantic acceptance payload");
   if (landing) { queue.CommitsCellLanding(*landing); }
-  CHECK(queue.QueuedCells() == 0 && prints.Revision() == semanticRevision &&
+  CHECK(queue.QueuedCells() == 0 && !queue.CellQueued(request) &&
+            prints.Revision() == semanticRevision &&
             StructureBuildQueue::QualifiedSourceKey(prints, 0) == sourceKey,
         "committing render detail leaves accepted footprints and source identity untouched");
   auto staleRequest = request;
@@ -214,6 +220,10 @@ int main() {
   CHECK(queue.PostsCell(stack, prints, eye, heights, staleRequest),
         "a detail task pins the current DEM source");
   demRevision = "two";
+  CHECK(!StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
+        "activation cannot trust an accepted key after live DEM revision changes");
+  CHECK(!queue.Complete(stack, prints, laterEye, cellsReady),
+        "stale active cells cannot satisfy a moved camera view");
   for (int attempt = 0; attempt < 100 && queue.QueuedCells() != 0; ++attempt) {
     const auto rejected = queue.NextCellLanding(stack, prints, heights);
     CHECK(rejected && !*rejected, "changed live DEM cannot publish an old cell product");
