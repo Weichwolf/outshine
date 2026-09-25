@@ -455,6 +455,24 @@ void TilePieces::Forgets(uint32_t tile) {
   RefreshDigest();
 }
 
+bool TilePieces::HasCell(uint32_t tile,
+                         uint32_t cell,
+                         LevelOfDetail detail,
+                         uint64_t sourceKey) const noexcept {
+  if (cell == 0 || cell > Generators::kStructureCellsPerTile || sourceKey == 0 ||
+      detail > LevelOfDetail::Massed) {
+    return false;
+  }
+  const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
+  const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
+    return held.Tile != tile || held.Cell != cell;
+  });
+  return std::any_of(first, last, [detail, sourceKey, cell](const Standing &held) {
+    return held.Detail == detail && held.SourceKey == sourceKey &&
+           held.OccupiedCells == (uint64_t{1} << (cell - 1u));
+  });
+}
+
 void TilePieces::ForgetsCell(uint32_t tile, uint32_t cell) {
   const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
   const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {

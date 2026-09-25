@@ -157,6 +157,12 @@ int main() {
       CHECK(pieces.StageCell(7, 1, stagedShell, frame.OriginEcef(), error, 11) &&
                 renderer.PiecesStanding() == 3 && depth() == cellFineDepth,
             "another detail of the same source stages without changing the visible image");
+      CHECK(pieces.HasCell(7, 1, LevelOfDetail::Fine, 11) &&
+                pieces.HasCell(7, 1, LevelOfDetail::Shell, 11) &&
+                !pieces.HasCell(7, 1, LevelOfDetail::Massed, 11) &&
+                !pieces.HasCell(7, 1, LevelOfDetail::Shell, 12) &&
+                !pieces.HasCell(7, 0, LevelOfDetail::Fine, 11),
+            "residency distinguishes hidden detail, source revision and invalid cell address");
       CHECK(!pieces.StageCell(7, 1, stagedShell, frame.OriginEcef(), error, 11) &&
                 renderer.PiecesStanding() == 3 && depth() == cellFineDepth,
             "a duplicate staged cell detail is rejected without replacing the resident");
@@ -198,6 +204,9 @@ int main() {
                 visible()[0].SourceKey == 12 && visible()[1].SourceKey == 12 &&
                 visible()[0].Digest == 77 && visible()[1].Digest == 88,
             "complete new-source cells replace and retire all old variants in one transaction");
+      CHECK(!pieces.HasCell(7, 1, LevelOfDetail::Fine, 11) &&
+                pieces.HasCell(7, 1, LevelOfDetail::Shell, 12),
+            "retired source variants cannot satisfy a later detail request");
       auto whole = automatic;
       whole.Digest = 111;
       for (StoredVertex &corner : whole.Built.WallCorners) { corner.texture = {{0, 0}}; }

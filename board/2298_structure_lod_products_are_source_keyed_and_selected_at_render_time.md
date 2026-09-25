@@ -59,7 +59,8 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 - `SceneResources` restores hidden instance rows after world publication.
   `TilePieces` stages multiple cell levels hidden; a complete source mask/revision
   swaps atomically with whole tiles in both directions and retires old products.
-  Missing cells, stale sources and failed uploads keep the legacy image visible.
+  Resident variant and accepted-tile queries support bounded source planning;
+  missing cells, stale sources and failed uploads keep the legacy image visible.
   `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;
   candidate and live uploads retain it. Changed sources retire old variants
   only after successful upload; failure leaves the old image intact.
@@ -76,8 +77,7 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   opened PNGs differ in 120 pixels by more than 1/255, all around building
   edges (worst 112/255). The recorded source/DEM/street identity is the same;
   the different automatic bake is the next cause to isolate. Earlier tile-24
-  bakes had 51/1337 Fine/Shell
-  footprints after a jump versus 38/1350 after motion at eyes about 109 m
+  bakes had 51/1337 Fine/Shell footprints after a jump versus 38/1350 after motion at eyes about 109 m
   apart. The 4,491-frame motion run has zero contact gaps and p99 13.22 ms.
 - A 60-s lap remains roughly 3,393/3,600 frames unrefined with six ground
   candidate starts. Source ingestion and structure view detail are separate

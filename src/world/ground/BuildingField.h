@@ -142,6 +142,8 @@ public:
     return AcceptedInputs_;
   }
 
+  [[nodiscard]] std::span<const uint32_t> AcceptedTiles() const noexcept { return AcceptedTiles_; }
+
   [[nodiscard]] std::optional<uint32_t> RefinementTile() const noexcept {
     if (!RefinementActive_ || RefinementAt_ == RefinementEnd_) { return std::nullopt; }
     return AcceptedTiles_[RefinementAt_];
