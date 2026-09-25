@@ -35,6 +35,14 @@ Triple-Buffering verstecken. Negativkontrolle: fehlgeschlagenes Submit/Wait
 publiziert keine Erfolgsprobe. Device-Suite, 220-s-Trace, `make format`,
 `make lint` sind die Abnahme dieses Messschritts.
 
+Kontrollierte 100-s-Ablationen: ohne `lightVisibility` bleibt bei 95.7167 s
+ein 30.68-ms-Renderstall; bei 640×360 verschiebt er sich um einen Frame und
+dauert 25.78 ms. Schatten und Pixelzahl allein erklären ihn nicht. Ein Plan
+ohne `subjects` ist bei Weltgeometrie ungültig, also keine nutzbare Ablation.
+Nächster Beleg: Motion-TSV koppelt den zuletzt eingereichten Fence-Wait an
+monotone Residency-Upload- und Crossing-Zähler; jede Zeile nennt den
+ein-Frame-Versatz der nach dem Render publizierten Werte ausdrücklich.
+
 - Stillvergleich behalten; zusätzlich deklarierte Geh-/Fahr-/Flugroute mit Tilegrenzwechsel,
   dichter Stadt, bewaldetem Hang, Tunnelportal und mehrstöckigem Verkehrsknoten. Warm-/Cold-
   Cache und deterministischer Datenreplay getrennt; Zeit/Wetter/Seeds/Build im Manifest.
