@@ -84,6 +84,7 @@ public:
     uint32_t Tile = 0;
     const Generators::BakedTile *Baked = nullptr;
     Vec3 AnchorEcef;
+    uint64_t SourceKey = 0;
     std::optional<Ground::BuildingField::PendingAcceptance> Footprints;
   };
 
@@ -154,6 +155,7 @@ private:
     BakeRevision Revision;
     StructureBuildTask Task;
     uint64_t StreetDigest = 0;
+    uint64_t SourceKey = 0;
     size_t BakedStructures = 0;
     size_t Tasks = 0;
     bool Finished = false;

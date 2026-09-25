@@ -24,6 +24,7 @@
 #include "Shape.h"
 #include "OsmLayer.h"
 #include "Geodesy.h"
+#include "StructureSourceKey.h"
 
 namespace outshine {
 
@@ -433,6 +434,12 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     const auto extractionAt = std::chrono::steady_clock::now();
     RawOf(vectors, prints, stack.Ways(), *next, eye, detail, *raw);
     const uint64_t streetDigest = StreetDigest(stack.Ways(), vectors, next->Tile);
+    const uint64_t sourceKey = StructureSourceKey({.Vector = VectorSource(vectors, next->Tile),
+                                                   .HeightSources = heights->Sources(),
+                                                   .HeightDigest = heights->RasterDigest(),
+                                                   .StreetDigest = streetDigest,
+                                                   .TileSpanM = prints.TileSpanM(),
+                                                   .FallbackHeights = heights->Fallback()});
     SlowestRawExtractionMs_ = std::max(
         SlowestRawExtractionMs_,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extractionAt)
@@ -451,6 +458,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
          .Task = StructureBuildTask(
              next->Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
          .StreetDigest = streetDigest,
+         .SourceKey = sourceKey,
          .Replacement = replacement});
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Queue_.back());
@@ -518,6 +526,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
     landings.push_back({.Tile = bake.Task.Tile(),
                         .Baked = &baked,
                         .AnchorEcef = bake.Task.Raw().AnchorEcef,
+                        .SourceKey = bake.SourceKey,
                         .Footprints = prints.PrepareAcceptance(
                             bake.Task.Tile(),
                             {.Prints = baked.Prints,

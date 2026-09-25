@@ -38,7 +38,8 @@ public:
   [[nodiscard]] bool Hands(uint32_t tile,
                            const Generators::BakedTile &baked,
                            const Vec3 &anchorEcef,
-                           std::string &error);
+                           std::string &error,
+                           uint64_t sourceKey = 0);
 
   void Forgets(uint32_t tile);
   [[nodiscard]] bool SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error);
@@ -49,14 +50,17 @@ public:
   struct DigestRecord {
     uint32_t Tile = 0;
     uint64_t Digest = 0;
+    uint64_t SourceKey = 0;
     bool FallbackHeights = false;
   };
 
   template <typename Each> void ForEachDigest(Each each) const {
     for (const auto &stood : Standing_) {
       if (!stood.Visible) { continue; }
-      each(DigestRecord{
-          .Tile = stood.Tile, .Digest = stood.Digest, .FallbackHeights = stood.FallbackHeights});
+      each(DigestRecord{.Tile = stood.Tile,
+                        .Digest = stood.Digest,
+                        .SourceKey = stood.SourceKey,
+                        .FallbackHeights = stood.FallbackHeights});
     }
   }
 
@@ -86,6 +90,7 @@ private:
   struct Standing {
     uint32_t Tile = 0;
     uint64_t Digest = 0;
+    uint64_t SourceKey = 0;
     bool FallbackHeights = false;
     std::optional<LevelOfDetail> Detail;
     Mat4 Row;
@@ -95,7 +100,8 @@ private:
   };
 
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;
-  [[nodiscard]] bool ShouldShow(uint32_t tile, std::optional<LevelOfDetail> detail) const;
+  [[nodiscard]] bool
+  ShouldShow(uint32_t tile, std::optional<LevelOfDetail> detail, uint64_t sourceKey) const;
   void ForgetsDetail(uint32_t tile, std::optional<LevelOfDetail> detail);
   void Releases(const Standing &stood);
   void RefreshDigest() noexcept;

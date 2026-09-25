@@ -74,9 +74,16 @@ Mat4 TilePieces::RowFor(const Vec3 &anchorEcef) const {
   return row;
 }
 
-bool TilePieces::ShouldShow(uint32_t tile, std::optional<LevelOfDetail> detail) const {
+bool TilePieces::ShouldShow(uint32_t tile,
+                            std::optional<LevelOfDetail> detail,
+                            uint64_t sourceKey) const {
   if (!detail) { return true; }
   const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
+  if (std::any_of(first, Standing_.end(), [tile, sourceKey](const Standing &held) {
+        return held.Tile == tile && held.SourceKey != sourceKey;
+      })) {
+    return true;
+  }
   const auto previous = std::find_if(first, Standing_.end(), [tile, detail](const Standing &held) {
     return held.Tile == tile && held.Detail == detail;
   });
@@ -89,15 +96,26 @@ bool TilePieces::ShouldShow(uint32_t tile, std::optional<LevelOfDetail> detail) 
 bool TilePieces::Hands(uint32_t tile,
                        const Generators::BakedTile &baked,
                        const Vec3 &anchorEcef,
-                       std::string &error) {
+                       std::string &error,
+                       uint64_t sourceKey) {
   if (Renderer_ == nullptr) {
     error = "tile geometry requires a live world";
     return false;
   }
+  if (baked.RequestedDetail && sourceKey == 0) {
+    error = "explicit structure detail requires a source key";
+    return false;
+  }
   const Mat4 row = RowFor(anchorEcef);
-  const bool visible = ShouldShow(tile, baked.RequestedDetail);
+  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
+  const bool sourceChanged =
+      std::any_of(first, Standing_.end(), [tile, sourceKey](const Standing &held) {
+        return held.Tile == tile && held.SourceKey != sourceKey;
+      });
+  const bool visible = ShouldShow(tile, baked.RequestedDetail, sourceKey);
   Standing stood{.Tile = tile,
                  .Digest = baked.Digest,
+                 .SourceKey = sourceKey,
                  .FallbackHeights = baked.FallbackHeights,
                  .Detail = baked.RequestedDetail,
                  .Row = row,
@@ -134,7 +152,7 @@ bool TilePieces::Hands(uint32_t tile,
       return false;
     }
   }
-  if (baked.RequestedDetail) {
+  if (baked.RequestedDetail && !sourceChanged) {
     ForgetsDetail(tile, baked.RequestedDetail);
   } else {
     Forgets(tile);
@@ -231,6 +249,7 @@ void TilePieces::RefreshDigest() noexcept {
     if (!stood.Visible) { continue; }
     Digest_ = (Digest_ ^ static_cast<uint64_t>(stood.Tile)) * kDigestPrime;
     Digest_ = (Digest_ ^ stood.Digest) * kDigestPrime;
+    if (stood.SourceKey != 0) { Digest_ = (Digest_ ^ stood.SourceKey) * kDigestPrime; }
   }
 }
 

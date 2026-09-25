@@ -66,11 +66,15 @@ int main() {
       };
       const auto fine = mesh(0.0f, 11, LevelOfDetail::Fine);
       const auto shell = mesh(1.0f, 22, LevelOfDetail::Shell);
-      CHECK(pieces.Hands(7, fine, frame.OriginEcef(), error), "first detail becomes visible");
+      CHECK(!pieces.Hands(7, fine, frame.OriginEcef(), error) && renderer.PiecesStanding() == 0,
+            "an unkeyed explicit variant cannot enter residency");
+      CHECK(pieces.Hands(7, fine, frame.OriginEcef(), error, 1),
+            "first keyed detail becomes visible");
       const float fineDepth = depth();
       CHECK(fineDepth > 0.0f && pieces.Digest() != 0, "fine product covers the probe");
       const auto fineDigest = pieces.Digest();
-      CHECK(pieces.Hands(7, shell, frame.OriginEcef(), error), "second detail becomes resident");
+      CHECK(pieces.Hands(7, shell, frame.OriginEcef(), error, 1),
+            "second detail from the same source becomes resident");
       CHECK(renderer.PiecesStanding() == 2 && pieces.Handles().size() == 2 &&
                 pieces.Digest() == fineDigest && depth() == fineDepth,
             "hidden detail neither replaces nor duplicates the visible image");
@@ -88,6 +92,17 @@ int main() {
             "missing detail leaves the selected product visible");
       CHECK(pieces.SelectDetail(7, LevelOfDetail::Fine, error) && depth() == fineDepth,
             "switching back restores the same fine geometry");
+      auto revised = mesh(-0.5f, 44, LevelOfDetail::Fine);
+      for (StoredVertex &corner : revised.Built.WallCorners) { corner.texture = {{0, 0}}; }
+      CHECK(!pieces.Hands(7, revised, frame.OriginEcef(), error, 2) &&
+                renderer.PiecesStanding() == 2 && depth() == fineDepth,
+            "failed new-source upload preserves both old resident variants");
+      revised = mesh(-0.5f, 44, LevelOfDetail::Fine);
+      CHECK(pieces.Hands(7, revised, frame.OriginEcef(), error, 2) &&
+                renderer.PiecesStanding() == 1 && depth() != fineDepth && depth() > 0.0f,
+            "new source atomically replaces all old variants");
+      CHECK(!pieces.SelectDetail(7, LevelOfDetail::Shell, error),
+            "a retired source detail cannot be selected");
       auto automatic = mesh(0.5f, 33, LevelOfDetail::Fine);
       automatic.RequestedDetail.reset();
       CHECK(pieces.Hands(7, automatic, frame.OriginEcef(), error) &&

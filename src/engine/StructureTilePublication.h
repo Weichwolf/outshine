@@ -18,7 +18,7 @@ PublishStructureTile(Surrounds &world,
   pieces.Into(&renderer);
   const auto &baked = *landing.Baked;
   std::string error;
-  if (!pieces.Hands(landing.Tile, baked, landing.AnchorEcef, error)) {
+  if (!pieces.Hands(landing.Tile, baked, landing.AnchorEcef, error, landing.SourceKey)) {
     return std::unexpected(std::move(error));
   }
   world.Pieces = std::move(pieces);

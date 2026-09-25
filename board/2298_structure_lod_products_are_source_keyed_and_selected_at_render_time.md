@@ -83,8 +83,12 @@ selection. Repeated warm/offline 74.85-s static/motion captures still differ in
 5,719/921,600 pixels (0.621%) over 45 horizon rows; both road probes are
 (91,88,83) and Refined. Motion p50/p95/p99 is 2.775/11.925/17.549 ms with
 56/4,491 over-budget frames and 519.7 MiB peak heap in this run.
-The automatic static Hockenheim frame after variant residency is pixel-exact
-against its pre-change frame (0/921,600 changed); both PNGs were opened.
+Automatic static Hockenheim frames after residency and source-key changes are
+pixel-exact to their preceding captures (0/921,600 changed); PNGs were opened.
+Variant residency now keys each tile's set by vector identity, sorted DEM
+source identities and raster digest, street digest, scale and fallback status.
+A changed source retires all old levels only after successful new upload;
+missing keys and stale-level selection are negative controls.
 
 1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: split semantic
    footprint acceptance from camera-local detail choice. Add stable cell/level
