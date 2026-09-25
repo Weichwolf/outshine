@@ -59,8 +59,8 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 - `SceneResources` restores hidden instance rows after world publication.
   `TilePieces` stages multiple cell levels hidden; a complete source mask/revision
   swaps atomically with whole tiles in both directions and retires old products.
-  Resident variant and accepted-tile queries support bounded source planning;
-  missing cells, stale sources and failed uploads keep the legacy image visible.
+  Resident queries support bounded planning; same-source fallback refresh retains hidden cells.
+  Missing cells and failed uploads keep the legacy image visible.
   `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;
   cell landings recheck current DEM and street inputs before publication.
   Changed sources retire old variants only after successful upload.

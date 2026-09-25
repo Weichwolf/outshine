@@ -190,8 +190,9 @@ bool TilePieces::Store(uint32_t tile,
       return false;
     }
   }
-  const WholeTileTransition retired =
-      cell == 0 && visible ? RetireCellsForWholeTile(tile, error) : WholeTileTransition::NoCells;
+  const WholeTileTransition retired = cell == 0 && visible
+                                          ? RetireCellsForWholeTile(tile, sourceKey, error)
+                                          : WholeTileTransition::NoCells;
   if (retired == WholeTileTransition::Failed) {
     Releases(stood);
     ++Refused_;
@@ -215,8 +216,8 @@ bool TilePieces::Store(uint32_t tile,
   return true;
 }
 
-TilePieces::WholeTileTransition TilePieces::RetireCellsForWholeTile(uint32_t tile,
-                                                                    std::string &error) {
+TilePieces::WholeTileTransition
+TilePieces::RetireCellsForWholeTile(uint32_t tile, uint64_t sourceKey, std::string &error) {
   const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
   const auto last = std::find_if(
       first, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
@@ -241,7 +242,14 @@ TilePieces::WholeTileTransition TilePieces::RetireCellsForWholeTile(uint32_t til
   if (count != 0 && !Renderer_->SetPieceInstances(std::span(rows.data(), count), error)) {
     return WholeTileTransition::Failed;
   }
-  Forgets(tile);
+  const auto retire = [tile, sourceKey](const Standing &held) {
+    return held.Tile == tile && (held.Cell == 0 || held.Visible || held.SourceKey != sourceKey);
+  };
+  for (auto at = first; at != last; ++at) {
+    if (retire(*at)) { Releases(*at); }
+  }
+  std::erase_if(Standing_, retire);
+  RefreshDigest();
   return WholeTileTransition::Replaced;
 }
 

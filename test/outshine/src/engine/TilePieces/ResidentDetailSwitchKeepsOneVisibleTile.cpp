@@ -136,6 +136,12 @@ int main() {
                 pieces.StageCell(7, 1, stagedOne, frame.OriginEcef(), error, 11) &&
                 depth() == legacyDepth && visible().size() == 1,
             "a staged cell cannot duplicate the visible whole-tile safety net");
+      auto refreshedWhole = automatic;
+      refreshedWhole.Digest = 34;
+      CHECK(pieces.Hands(7, refreshedWhole, frame.OriginEcef(), error, 11) &&
+                pieces.HasCell(7, 1, LevelOfDetail::Fine, 11) && renderer.PiecesStanding() == 2 &&
+                depth() == legacyDepth,
+            "same-source fallback refresh preserves the hidden cell product");
       std::array<TilePieces::CellSelection, 2> cells{{{.Cell = 1, .Detail = LevelOfDetail::Fine},
                                                       {.Cell = 2, .Detail = LevelOfDetail::Shell}}};
       CHECK(
