@@ -9,6 +9,7 @@
 
 #include <array>
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <expected>
@@ -243,6 +244,10 @@ public:
 private:
   [[nodiscard]] uint32_t Corner(int side, const Vtx &v, uint32_t at, const Vec3 &nrm) {
     if (!Status_) { return 0; }
+    if (!std::isfinite(v.U) || !std::isfinite(v.V)) {
+      Status_ = std::unexpected(StructureMeshError::InvalidPlan);
+      return 0;
+    }
     std::vector<StoredVertex> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
     Vec3f placeM{};
     Vec3f turned{};
@@ -253,8 +258,10 @@ private:
           static_cast<float>(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]);
     }
     const StoredVertex vertex = StoredVertex::Of(placeM, Vec2f{{v.U, v.V}}, turned);
-    const BuildingCornerKey key{
-        .Position = at, .Normal = vertex.normWord, .Texture = vertex.uvWord};
+    const BuildingCornerKey key{.Position = at,
+                                .Normal = vertex.normWord,
+                                .TextureU = std::bit_cast<uint32_t>(vertex.texture[0]),
+                                .TextureV = std::bit_cast<uint32_t>(vertex.texture[1])};
     auto &corners = Scratch_.Corners[static_cast<size_t>(side)];
     if (const uint32_t *found = corners.Find(key)) { return *found; }
     const auto made = static_cast<uint32_t>(soup.size());

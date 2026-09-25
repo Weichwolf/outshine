@@ -14,16 +14,11 @@ namespace outshine {
 struct StoredVertex {
   Vec3f pos;
 
-  uint32_t uvWord;
+  Vec2f texture;
 
   uint32_t normWord;
 
-  static constexpr float kUvSpan = 4.0f;
-
-  [[nodiscard]] Vec2f uv() const {
-    const std::array<float, 2> held = UnpackedPair(uvWord);
-    return Vec2f{{held[0] * kUvSpan, held[1] * kUvSpan}};
-  }
+  [[nodiscard]] Vec2f uv() const { return texture; }
 
   [[nodiscard]] Vec3f norm() const {
     const std::array<float, 3> held = OctUnfolded(UnpackedPair(normWord));
@@ -33,23 +28,21 @@ struct StoredVertex {
   [[nodiscard]] static StoredVertex
   Of(const Vec3f &placeM, const Vec2f &texture, const Vec3f &facing) {
     return StoredVertex{.pos = placeM,
-                        .uvWord = PackedPair({{texture[0] / kUvSpan, texture[1] / kUvSpan}}),
+                        .texture = texture,
                         .normWord = PackedPair(OctFolded({{facing[0], facing[1], facing[2]}}))};
   }
 };
 
 static_assert(std::is_trivially_copyable_v<StoredVertex>);
 static_assert(std::is_standard_layout_v<StoredVertex>);
-static_assert(sizeof(StoredVertex) == 5 * sizeof(float),
-              "three floats of position and two packed words -- 20 bytes, what Filament, Metal and "
-              "Unreal all store, against the 32 this held before");
+static_assert(sizeof(StoredVertex) == 6 * sizeof(float));
 static_assert(offsetof(StoredVertex, pos) == 0);
-static_assert(offsetof(StoredVertex, uvWord) == 3 * sizeof(float));
-static_assert(offsetof(StoredVertex, normWord) == 4 * sizeof(float));
+static_assert(offsetof(StoredVertex, texture) == 3 * sizeof(float));
+static_assert(offsetof(StoredVertex, normWord) == 5 * sizeof(float));
 
 constexpr size_t kStoredVertexFloats = sizeof(StoredVertex) / sizeof(float);
 
-constexpr size_t kStoredVertexUvAt = offsetof(StoredVertex, uvWord) / sizeof(float);
+constexpr size_t kStoredVertexUvAt = offsetof(StoredVertex, texture) / sizeof(float);
 constexpr size_t kStoredVertexNormAt = offsetof(StoredVertex, normWord) / sizeof(float);
 
 struct PlainVtx {

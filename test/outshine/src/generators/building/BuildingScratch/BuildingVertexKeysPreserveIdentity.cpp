@@ -16,15 +16,17 @@ int main() {
   CHECK(*scratch.Welded.Find(east) == 7 && *scratch.Welded.Find(west) == 8,
         "position lookup returns the matching complete key");
   auto &corners = scratch.Corners[0];
-  const auto firstTexture = corners.Emplace({7, 11, 13}, 1);
-  const auto secondTexture = corners.Emplace({7, 11, 17}, 2);
-  CHECK(firstTexture && firstTexture->second && secondTexture && secondTexture->second,
-        "a texture seam retains separate vertices at the same position and normal");
-  const auto secondNormal = corners.Emplace({7, 19, 13}, 3);
+  const auto firstTexture = corners.Emplace({7, 11, 13, 23}, 1);
+  const auto secondTextureU = corners.Emplace({7, 11, 17, 23}, 2);
+  const auto secondTextureV = corners.Emplace({7, 11, 13, 29}, 5);
+  CHECK(firstTexture && firstTexture->second && secondTextureU && secondTextureU->second &&
+            secondTextureV && secondTextureV->second,
+        "either texture coordinate retains a seam at the same position and normal");
+  const auto secondNormal = corners.Emplace({7, 19, 13, 23}, 3);
   CHECK(secondNormal && secondNormal->second,
         "a normal seam retains separate vertices at the same position and texture");
-  const auto duplicate = corners.Emplace({7, 11, 13}, 4);
-  CHECK(duplicate && !duplicate->second && *corners.Find({7, 11, 13}) == 1,
+  const auto duplicate = corners.Emplace({7, 11, 13, 23}, 4);
+  CHECK(duplicate && !duplicate->second && *corners.Find({7, 11, 13, 23}) == 1,
         "identical stored attributes reuse their vertex");
   scratch.ClearWelds();
   CHECK(scratch.Welded.Empty() && corners.Empty(), "new building discards prior identities");

@@ -43,8 +43,8 @@ private:
   size_t Count_ = 0;
 };
 
-inline constexpr std::array<uint64_t, 3> kBuildingHashMultipliers{
-    73856093ULL, 19349663ULL, 83492791ULL};
+inline constexpr std::array<uint64_t, 5> kBuildingHashMultipliers{
+    73856093ULL, 19349663ULL, 83492791ULL, 2654435761ULL, 2246822519ULL};
 
 struct BuildingPositionKey {
   int64_t EastMm, NorthMm, HeightMm;
@@ -60,7 +60,7 @@ struct BuildingPositionHash {
 };
 
 struct BuildingCornerKey {
-  uint32_t Position, Normal, Texture;
+  uint32_t Position, Normal, TextureU, TextureV;
   constexpr bool operator==(const BuildingCornerKey &) const = default;
 };
 
@@ -68,7 +68,8 @@ struct BuildingCornerHash {
   constexpr uint64_t operator()(const BuildingCornerKey &key) const noexcept {
     return static_cast<uint64_t>(key.Position) * kBuildingHashMultipliers[0] ^
            static_cast<uint64_t>(key.Normal) * kBuildingHashMultipliers[1] ^
-           static_cast<uint64_t>(key.Texture) * kBuildingHashMultipliers[2];
+           static_cast<uint64_t>(key.TextureU) * kBuildingHashMultipliers[3] ^
+           static_cast<uint64_t>(key.TextureV) * kBuildingHashMultipliers[4];
   }
 };
 

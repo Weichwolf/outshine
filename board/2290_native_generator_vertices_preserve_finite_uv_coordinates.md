@@ -38,3 +38,19 @@ at the responsible generator/geometry boundary; do not silently clamp them.
   generated triangle counts before/after; image may remain blank until 2289
   selects a procedural facade material. Report memory and frame cost.
 - `make format`, focused tests and `make lint` pass.
+
+## Measured step
+
+`StoredVertex` now holds float2 UVs and remains 24 bytes; normals retain
+the octahedral word. The building key compares both float bit patterns.
+The generator suite's ten cases pass after updating the seam-key test; the
+direct glTF client-render suite passes. Warm/offline Hockenheim at 88 s keeps
+27,050 building triangles, 538 cache hits, no remote starts and an exactly
+equal 1280×720 PNG. Streamed Piece CPU payload capacity rises from
+16,952,892 to 18,387,272 bytes (+1,434,380); GPU piece capacity remains
+67,108,864 bytes because wall UVs are not uploaded yet. A single 100-s run
+has p50/p95/p99 1.925/7.922/12.759 ms and 14/6000 late frames, versus
+1.953/8.074/12.738 ms and 16/6000 before. Peak process heap varies from
+548.914 to 577.229 MiB, not attributed solely to these 1.4 MB of vertices.
+The final PNG is pixel-identical. WI 2289 must connect UVs to a procedural
+material before this representation repair can improve the image.
