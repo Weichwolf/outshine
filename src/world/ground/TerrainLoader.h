@@ -99,6 +99,7 @@ public:
   [[nodiscard]] TerrainGrid FieldOf(Data::TileId of) const;
 
   [[nodiscard]] std::shared_ptr<const TerrainField> StitchedField(Data::TileId of) const;
+  [[nodiscard]] std::shared_ptr<const TerrainField> ResidentStitchedField(Data::TileId of) const;
   [[nodiscard]] TilePool::Reply PollStitchedField(Data::TileId of,
                                                   std::shared_ptr<const TerrainField> &out) const;
 

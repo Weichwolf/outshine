@@ -73,6 +73,7 @@ public:
   struct HeightSource {
     std::function<std::optional<double>(LongitudeLatitude)> Sample;
     std::function<bool(Data::TileId, Ground::HeightField::Block &)> CopyField;
+    std::function<std::shared_ptr<const Ground::TerrainField>(Data::TileId)> ResidentField;
     HeightSourceRevision Revision;
   };
 
@@ -137,6 +138,8 @@ public:
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }
 
   [[nodiscard]] size_t QueuedCells() const { return CellQueue_.size(); }
+
+  [[nodiscard]] size_t FastCellValidations() const noexcept { return FastCellValidations_; }
 
   [[nodiscard]] bool CellQueued(CellRequest request) const noexcept;
 
@@ -240,6 +243,7 @@ private:
   std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut_;
   std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;
   std::optional<PinnedCellHeight> PinnedCellHeight_;
+  size_t FastCellValidations_ = 0;
   size_t Posted_ = 0;
   size_t Landed_ = 0;
   size_t Deferred_ = 0;

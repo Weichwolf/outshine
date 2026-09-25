@@ -85,14 +85,16 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   peak heap 688 MiB: both p50 and bytes regress against 2.48/8.38/12.39 ms
   and 592 MiB. All 4491 paced frames remain unsettled. A 32/64-MiB cache
   reduced jobs further but worsened memory and p50; global pinned heights
-  caused stale-source churn and was rejected. The remaining live source check
-  rebuilds a field per landing. Simplification still uses a whole-cell bound.
+  caused stale-source churn and was rejected. Resident identity skips DEM rebuild
+  on hits; misses run the full check. Static refined 8.22 -> 6.41 s; motion
+  p50/p95/p99 2.32/9.06/11.76 ms, 670 MiB, 6874 jobs (was 6097), 4491 unsettled
+  frames, zero gaps, identical PNG. Eviction revision and tighter bounds remain open.
 
 ## Implementation order
 
-1. Give `GroundStream`/`TilePool` a cheap revision for each stitched field.
-   Validate cell landings against that revision without rebuilding the field;
-   keep stale-source rejection and bound pinned bytes. Measure cold/warm
+1. Give `GroundStream`/`TilePool` a cheap revision also valid after cache eviction.
+   Resident identity already avoids live DEM rebuild on hits; misses still rebuild.
+   Keep stale-source rejection and bound pinned bytes. Measure cold/warm
    startup, moving-camera p50/p95/p99, jobs/frame and memory on target hardware.
 2. Store certified simplification displacement per variant. Select with
    projected error and hysteresis; replace the whole-cell bound only after

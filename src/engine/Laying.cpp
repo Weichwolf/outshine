@@ -1843,6 +1843,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
           [&build](Data::TileId tile, Ground::HeightField::Block &into) {
             return build.Sheets.CopySourcedField(tile, into);
           },
+      .ResidentField = {},
       .Revision = {.Value = state.Id()}};
   const auto landingAt = std::chrono::steady_clock::now();
   auto ready =

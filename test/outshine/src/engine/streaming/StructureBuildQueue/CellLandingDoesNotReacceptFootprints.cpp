@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <span>
 #include <string>
 #include <system_error>
@@ -94,20 +95,24 @@ int main() {
   prints.SeenWith(720);
   const int zoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   std::string demRevision = "one";
-  const auto block = [zoom, &demRevision](Data::TileId at) {
-    HeightField::Block one;
-    one.At = {.Zoom = zoom, .X = static_cast<long>(at.X), .Y = static_cast<long>(at.Y)};
-    one.Raster = {.Side = 3, .Postings = 3};
-    one.Nodes.assign(9, 100.0f);
-    one.Sources.push_back({.Kind = Data::DataKind::Elevation,
-                           .Tile = at,
-                           .SourceId = "test-dem",
-                           .Revision = demRevision});
-    return one;
-  };
   const auto spot = HeightField::SpotOf(eye, zoom);
   const Data::TileId demTile{
       .Zoom = zoom, .X = static_cast<uint32_t>(spot.X), .Y = static_cast<uint32_t>(spot.Y)};
+  const auto fieldOf = [&demRevision](Data::TileId at) {
+    auto field = std::make_shared<TerrainField>(3, 3);
+    std::fill_n(field->Data(), 9, 100.0f);
+    field->AddSource({.Kind = Data::DataKind::Elevation,
+                      .Tile = at,
+                      .SourceId = "test-dem",
+                      .Revision = demRevision});
+    return field;
+  };
+  std::shared_ptr<const TerrainField> residentField = fieldOf(demTile);
+  const auto block = [&residentField](Data::TileId at) {
+    HeightField::Block one;
+    (void)HeightField::SharesField(residentField, at, one);
+    return one;
+  };
   auto pinned = HeightField::Of(zoom, {block(demTile)});
   CHECK(pinned && pinned->Qualified() && pinned->Sources().size() == 1,
         "synthetic DEM is a qualified pinned source");
@@ -136,11 +141,16 @@ int main() {
   queue.Opens(&pool, &mesher);
   size_t copiedFields = 0;
   const StructureBuildQueue::HeightSource heights{
-      .CopyField = [block, &copiedFields](Data::TileId at, HeightField::Block &into) {
-        ++copiedFields;
-        into = block(at);
-        return true;
-      }};
+      .CopyField =
+          [block, &copiedFields](Data::TileId at, HeightField::Block &into) {
+            ++copiedFields;
+            into = block(at);
+            return true;
+          },
+      .ResidentField =
+          [&residentField, demTile](Data::TileId at) {
+            return at == demTile ? residentField : std::shared_ptr<const TerrainField>{};
+          }};
   CHECK(StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
         "accepted cell source still matches resident DEM and street data");
   prints.BeginRefinement();
@@ -212,6 +222,8 @@ int main() {
             landing->Baked->RequestedDetail == request.Detail &&
             landing->Baked->OccupiedCells == accepted.OccupiedCells && !landing->Footprints,
         "landed geometry is source-keyed and has no semantic acceptance payload");
+  CHECK(queue.FastCellValidations() == 1,
+        "unchanged resident DEM validates the landing without rebuilding height blocks");
   if (landing) { queue.CommitsCellLanding(*landing); }
   CHECK(queue.QueuedCells() == 0 && !queue.CellQueued(request) &&
             prints.Revision() == semanticRevision &&
@@ -224,6 +236,7 @@ int main() {
             copiedFields == copiedBeforeSecondPost,
         "one tile burst reuses its pinned DEM without another field job");
   demRevision = "two";
+  residentField = fieldOf(demTile);
   CHECK(!StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
         "activation cannot trust an accepted key after live DEM revision changes");
   CHECK(!queue.Complete(stack, prints, laterEye, cellsReady),
@@ -235,9 +248,12 @@ int main() {
   }
   CHECK(queue.QueuedCells() == 0 && prints.Revision() == semanticRevision,
         "discarding a stale cell leaves accepted semantics unchanged");
+  CHECK(queue.FastCellValidations() == 1 && copiedFields > copiedBeforeSecondPost,
+        "changed resident DEM falls back to live source validation and rejects stale geometry");
   CHECK(!queue.PostsCell(stack, prints, eye, heights, staleRequest),
         "a stale landing invalidates the short-lived height pin");
   demRevision = "one";
+  residentField = fieldOf(demTile);
   CHECK(queue.PostsCell(stack, prints, eye, heights, staleRequest),
         "a second detail can start from the same pinned source");
   auto changedVector = tile.Source;

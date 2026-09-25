@@ -285,6 +285,21 @@ bool CurrentCellSource(const Ground::GroundStack &stack,
                              .FallbackHeights = heights->Fallback()}) == sourceKey;
 }
 
+bool PinnedHeightsResident(const Ground::HeightField &pinned,
+                           const StructureBuildQueue::HeightSource &heightAt) {
+  if (!heightAt.ResidentField || pinned.Blocks().empty() || pinned.Fallback()) { return false; }
+  return std::ranges::all_of(pinned.Blocks(), [&](const Ground::HeightField::Block &block) {
+    if (!block.Terrain || block.At.Zoom < 0 || !std::in_range<uint32_t>(block.At.X) ||
+        !std::in_range<uint32_t>(block.At.Y)) {
+      return false;
+    }
+    const Data::TileId at{.Zoom = block.At.Zoom,
+                          .X = static_cast<uint32_t>(block.At.X),
+                          .Y = static_cast<uint32_t>(block.At.Y)};
+    return heightAt.ResidentField(at) == block.Terrain;
+  });
+}
+
 struct RefinementSelection {
   std::optional<Ground::TileWatermark::Next> Next;
   bool Deferred = false;
@@ -784,20 +799,24 @@ StructureBuildQueue::NextCellLanding(const Ground::GroundStack &stack,
   ResumeCompletedTasks();
   if (!bake.Finished) { return std::nullopt; }
   double resolutionMs = 0.0;
-  if (!CurrentCellSource(stack,
-                         *vectors,
-                         footprints,
-                         heightAt,
-                         bake.Task.Tile(),
-                         bake.SourceKey,
-                         Deferred_,
-                         resolutionMs)) {
+  const bool residentCurrent =
+      StreetDigest(stack.Ways(), *vectors, bake.Task.Tile()) == bake.StreetDigest &&
+      PinnedHeightsResident(bake.Task.Heights(), heightAt);
+  if (!residentCurrent && !CurrentCellSource(stack,
+                                             *vectors,
+                                             footprints,
+                                             heightAt,
+                                             bake.Task.Tile(),
+                                             bake.SourceKey,
+                                             Deferred_,
+                                             resolutionMs)) {
     if (PinnedCellHeight_ && PinnedCellHeight_->Tile == bake.Task.Tile()) {
       PinnedCellHeight_.reset();
     }
     discard();
     return std::nullopt;
   }
+  if (residentCurrent) { ++FastCellValidations_; }
   SlowestHeightResolutionMs_ = std::max(SlowestHeightResolutionMs_, resolutionMs);
   if (!bake.Task.Result().Status) { return std::unexpected(bake.Task.Result().Status.error()); }
   const auto &completed = bake.Task.Result().Tile;

@@ -364,6 +364,8 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
             return Ground::HeightField::SharesField(
                 World.Stack.Ground().StitchedField(tile), tile, into);
           },
+      .ResidentField =
+          [this](Data::TileId tile) { return World.Stack.Ground().ResidentStitchedField(tile); },
       .Revision = {}};
   if (World.GroundBuild) {
     const auto resumeAt = std::chrono::steady_clock::now();
@@ -464,6 +466,9 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
                    "tiles");
   Published.Places(
       "buildings: cells queued", static_cast<double>(World.StructureBuilds.QueuedCells()), "cells");
+  Published.Places("buildings: resident cells validated",
+                   static_cast<double>(World.StructureBuilds.FastCellValidations()),
+                   "cells");
   return true;
 }
 

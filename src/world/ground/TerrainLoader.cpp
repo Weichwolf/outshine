@@ -351,6 +351,10 @@ std::shared_ptr<const TerrainField> GroundStream::StitchedField(Data::TileId of)
   return stitched;
 }
 
+std::shared_ptr<const TerrainField> GroundStream::ResidentStitchedField(Data::TileId of) const {
+  return Held_->Stitched->HeldStitched(of);
+}
+
 TilePool::Reply GroundStream::PollStitchedField(Data::TileId of,
                                                 std::shared_ptr<const TerrainField> &out) const {
   out = Held_->Stitched->HeldStitched(of);
