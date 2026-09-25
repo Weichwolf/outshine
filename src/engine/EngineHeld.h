@@ -451,6 +451,8 @@ struct Engine::State {
   [[nodiscard]] bool UpdateRouteCamera(const Scenario::View &view);
   [[nodiscard]] Holds<RouteInfo> PublishedRouteInfo(std::string_view name) const;
   [[nodiscard]] Holds<RoutePose> SamplePublishedRoute(std::string_view name, double stationM) const;
+  [[nodiscard]] Holds<RouteContact>
+  SamplePublishedRouteContact(std::string_view name, double stationM, double lateralOffsetM) const;
 
   struct Classed {
     std::vector<float> Palette;

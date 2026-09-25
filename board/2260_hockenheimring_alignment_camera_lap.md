@@ -25,23 +25,19 @@ the overview is a data gate, not lap acceptance.
 
 ## Current input and output
 
-`src/assets/world/osm/HockenheimringGrandPrix.osm` is the 33,557-byte pinned
-source (SHA-256 `f50914eac077325eee1b3e88eae0eeffac58ff086e180cba4ec8734e94661d7f`).
-Relation 284588 resolves 267 directed main-route edges; the pitlane is excluded.
-VersaTiles MVT does not identify this circuit, so camera and road use the pinned
-semantic route. The normal refined candidate now publishes its DEM-based native
-alignment and surface. The opened `Hockenheimring-a9d234b1.png` shows a more
-continuous circuit after one earthwork stamp per rendered segment. Segment
-midpoints have contact; continuous clearance and moving-camera coverage remain
-unproven. The overview is input diagnosis, not driving acceptance.
-`outshine-client run --view lap --at-seconds 300 --into places
-src/assets/places/Hockenheimring.scenario HockenheimLapEnd` captures the
-published-road view at a metric simulation time. Opened captures at 0, 10, 15,
-100, 200 and 300 s show motion on the road; 300 s reaches station 4575.880 m.
-Start/end PNGs differ in 602 of 921600 pixels (0.0653%). A candidate-world
-readback mismatch exposed at 15 s is fixed and has an independent regression.
-The road is still flat grey; side strips and crude buildings are visually
-obvious. These captures do not prove continuous road contact or LOD stability.
+The pinned `src/assets/world/osm/HockenheimringGrandPrix.osm` resolves relation
+284588 to 267 directed edges without the pitlane. VersaTiles MVT omits the
+raceway, so the declared source supplies the semantic route. The normal
+candidate publishes a DEM-based native alignment and road surface.
+
+Warm/offline 220-s capture: 13,200 frames, 4575.927 m, no station regression,
+0 centre/near-edge contact gaps, eye clearance 1.513–1.555 m. p50/p95/p99:
+2.085/9.111/13.319 ms; 47 frames over 16.667 ms; 5,979 unrefined frames;
+629.7 MiB peak heap; 538/538 cache hits, no remote starts. The trace records
+all contacts and frame times. All eleven route-mark PNGs and the final PNG were
+opened. Mark 3 has a near-black foreground despite valid road contact; mark 4
+has an implausibly vast building wall. Grey asphalt, flat ground, schematic
+buildings and abrupt distance transitions still fail visual acceptance.
 
 ## Construction
 
@@ -69,33 +65,12 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    simulate vehicle dynamics. Capture time-stamped frames through outshine-client.
    Add a route-bound view only after the overview has made the route ready;
    moving focus may rebuild geometry but must retain route identity and pose.
-   `Motion::RouteSpeedProfile` plans a finite, bounded time-to-station curve
-   from native pose samples. `placement="route"` binds a first- or third-person
-   rig only after publication; a pinned-OSM/analytic-DEM test checks every
-   tick of the 267-edge lap against `sampleRoute`, bounded station/eye steps,
-   startup refusal and view reselection.
-   Remaining: presentation interpolation, per-frame road-coverage/contact
-   proof, refined streaming and visual acceptance. A paced 220 s real-DEM
-   capture traverses all 267 segments and 4575.927 m by 213.833 s. Station
-   never regresses; maximum eye step is 0.5042 m/tick. Chord-length-weighted
-   grade caps observed vertical eye acceleration at 4.755 m/s², zero frames
-   over 1 g, versus 36.865 m/s² and five frames before. All eleven PNGs
-   were opened: road is visible but uniformly grey; mark 4 retains a vast dark
-   wall and road shading waves, with flat ground, abrupt distance edges and
-   crude buildings. The updated profiled-earthwork warm offline 220 s run
-   reaches station 4575.927 m; 7170/13200 frames are unrefined, 31 exceed
-   16.667 ms, p50/p95/p99 is 2.033/8.651/12.721 ms and heap peaks at
-   642.145 MiB. Setup takes 829 ms including 371 ms preload; the provider
-   serves 538/538 source reads from disk, 28.6 MB, with no remote start.
-   These measurements do not prove per-frame road contact or Kaltstart speed.
-   Warm offline 10 s A/B moves Refined candidate start from 9.10 to 1.93 s.
-   Full 220 s after bounded water admission: 5,962/13,200 unrefined;
-   p50/p95/p99 2.016/9.102/13.314 ms, 40 late, 585.1 MiB peak,
-   538/538 cache hits and zero remote starts. Render spikes reach 79.52 ms.
-   All eleven PNGs opened: mark 3 now shows a Refined near-black foreground
-   beneath a vast wall; mark 4 retains the wall. The final PNG differs in
-   50/921,600 pixels. Road contact, frame tail and independent publication
-   remain open; earlier Refined visibility is not visual acceptance.
+   `Motion::RouteSpeedProfile` plans a bounded time-to-station curve.
+   `placement="route"` binds the camera after publication. A pinned-OSM/
+   analytic-DEM test covers all 267 edges, startup refusal and view reselection;
+   the public road-contact query reads published native triangles. Presentation
+   interpolation, projected-road coverage, refined streaming and visual
+   acceptance remain open.
 4. Stream ahead and evict behind under bounded memory. Keep graph/route IDs
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.

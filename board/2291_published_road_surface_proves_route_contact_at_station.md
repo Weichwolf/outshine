@@ -1,5 +1,5 @@
 Type: proof
-State: active
+State: done
 Architecture: ready
 Parent: 2260
 Depends: 2281
@@ -47,3 +47,14 @@ primitive; vehicle dynamics and collision response remain WI 2261.
 - Paced full-lap trace includes per-frame contact/clearance, missing count,
   p50/p95/p99 and peak memory. Open route-mark PNGs. Format, focused suites and
   `LINT_JOBS=2 make lint` pass.
+
+## Result
+
+Analytic straight/curve/seam and pinned 267-edge closed-circuit tests pass;
+removed station span, changed OSM/DEM revision and invalid offsets reject.
+Public Engine tests distinguish pending from published geometry. The warm
+offline 220-s client trace covers 13,200 frames and all 4575.927 m with zero
+missing left/centre/right contacts and 1.513–1.555 m eye clearance. p50/p95/p99
+is 2.085/9.111/13.319 ms; peak heap 629.7 MiB. All eleven route marks were
+opened. `make format`, focused suites, client argument tests and full lint pass.
+Image quality and streaming readiness remain in parent WI 2260.

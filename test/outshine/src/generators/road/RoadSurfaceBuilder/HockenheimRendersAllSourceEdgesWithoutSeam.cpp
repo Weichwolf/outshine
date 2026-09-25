@@ -2,6 +2,7 @@
 #include "EarthworkPress.h"
 #include "OsmXmlReader.h"
 #include "RoadSurfaceBuilder.h"
+#include "RoadSurfaceSampler.h"
 
 #include <algorithm>
 #include <array>
@@ -9,6 +10,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -49,9 +51,101 @@ int main() {
   const auto alignment = RoadAlignmentBuilder::Build(*constraints);
   CHECK(alignment && alignment->Closed(), "the circuit has a periodic native centerline");
   if (!alignment) { return Report(); }
-  const auto surface = RoadSurfaceBuilder::Build(*alignment, TangentFrame::At(alignment->Anchor()));
+  auto surface = RoadSurfaceBuilder::Build(*alignment, TangentFrame::At(alignment->Anchor()));
   CHECK(surface.has_value(), "all Hockenheim source edges form one bounded native surface");
   if (!surface) { return Report(); }
+  size_t missingContacts = 0;
+  double firstMissingStationM = -1.0;
+  double firstMissingLateralM = 0.0;
+  double firstMissingWidthM = 0.0;
+  double maximumCenterOffsetM = 0.0;
+  const auto sampleContact = [&](double stationM) {
+    const auto pose = alignment->AtStation(stationM);
+    if (!pose) {
+      ++missingContacts;
+      if (firstMissingStationM < 0.0) { firstMissingStationM = stationM; }
+      return;
+    }
+    for (double fraction : {-0.45, 0.0, 0.45}) {
+      const auto contact =
+          RoadSurfaceSampler::At(*alignment, *surface, stationM, pose->WidthM * fraction);
+      if (!contact) {
+        ++missingContacts;
+        if (firstMissingStationM < 0.0) {
+          firstMissingStationM = stationM;
+          firstMissingLateralM = pose->WidthM * fraction;
+          firstMissingWidthM = pose->WidthM;
+        }
+        continue;
+      }
+      if (fraction == 0.0) {
+        maximumCenterOffsetM =
+            std::max(maximumCenterOffsetM, std::abs(contact->PositionM[1] - pose->PositionM.UpM));
+      }
+    }
+  };
+  for (double stationM = 0.0; stationM < alignment->LengthM(); stationM += 0.5) {
+    sampleContact(stationM);
+  }
+  for (const RoadAlignmentEdge &edge : alignment->Edges()) {
+    sampleContact(edge.StartStationM);
+    sampleContact(edge.EndStationM);
+  }
+  sampleContact(alignment->LengthM());
+  if (missingContacts > 0) {
+    Note("missing road contacts", static_cast<double>(missingContacts), "samples");
+    Note("first missing road contact station", firstMissingStationM, "m");
+    Note("first missing road contact lateral offset", firstMissingLateralM, "m");
+    Note("first missing road contact width", firstMissingWidthM, "m");
+    const auto spanAt = std::ranges::upper_bound(
+        surface->Spans, firstMissingStationM, {}, &RoadSurfaceSpan::StartStationM);
+    if (spanAt != surface->Spans.begin()) {
+      Note("missing contact span start", (spanAt - 1)->StartStationM, "m");
+      Note("missing contact span end", (spanAt - 1)->EndStationM, "m");
+      Note("missing contact source way", static_cast<double>((spanAt - 1)->SourceEdge.WayId), "id");
+    }
+    for (double distanceM : {-1.0, 0.0, 1.0}) {
+      const auto pose = alignment->AtStation(firstMissingStationM + distanceM);
+      if (pose) {
+        Note("turn tangent east", pose->TangentEnu[0], "unit");
+        Note("turn tangent north", pose->TangentEnu[1], "unit");
+      }
+    }
+    Note("contact one centimetre before",
+         static_cast<double>(
+             RoadSurfaceSampler::At(
+                 *alignment, *surface, firstMissingStationM - 0.01, firstMissingLateralM)
+                 .has_value()),
+         "bool");
+    Note("contact one centimetre after",
+         static_cast<double>(
+             RoadSurfaceSampler::At(
+                 *alignment, *surface, firstMissingStationM + 0.01, firstMissingLateralM)
+                 .has_value()),
+         "bool");
+  }
+  Note("largest centerline-to-road height difference", maximumCenterOffsetM, "m");
+  CHECK(missingContacts == 0,
+        "the whole circuit has center and near-edge contact at half-metre stations and every seam");
+  const auto outside = RoadSurfaceSampler::At(*alignment, *surface, 0.0, 100.0);
+  CHECK(!outside && !RoadSurfaceSampler::At(*alignment, *surface, -1.0, 0.0) &&
+            !RoadSurfaceSampler::At(
+                *alignment, *surface, std::numeric_limits<double>::quiet_NaN(), 0.0),
+        "invalid station and lateral offsets refuse contact");
+  surface->TerrainDigest ^= 1u;
+  CHECK(!RoadSurfaceSampler::At(*alignment, *surface, 0.0, 0.0),
+        "a changed terrain revision refuses old contact geometry");
+  surface->TerrainDigest ^= 1u;
+  surface->SourceIdentity.Revision = "pin-r2";
+  CHECK(!RoadSurfaceSampler::At(*alignment, *surface, 0.0, 0.0),
+        "a changed OSM revision refuses old contact geometry");
+  surface->SourceIdentity.Revision = "pin-r1";
+  const RoadSurfaceSpan removed = surface->Spans[1];
+  surface->Spans.erase(surface->Spans.begin() + 1);
+  CHECK(!RoadSurfaceSampler::At(
+            *alignment, *surface, std::midpoint(removed.StartStationM, removed.EndStationM), 0.0),
+        "a missing published station span cannot be inferred from alignment alone");
+  surface->Spans.insert(surface->Spans.begin() + 1, removed);
   CHECK(surface->SurfaceGeometry.parts() == 1 && surface->SurfaceGeometry.wellFormed() &&
             surface->SurfaceGeometry.windingAgainstNormals(0) == 0 &&
             surface->Spans.size() > route->EdgeIds.size(),

@@ -3,6 +3,7 @@
 
 #include "Check.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <limits>
@@ -48,8 +49,10 @@ int main() {
           "the pinned route and analytic DEM enter the public engine");
     const auto unknown = engine.routeInfo("missing");
     const auto pending = engine.routeInfo("circuit");
+    const auto pendingContact = engine.sampleRouteContact("circuit", 0.0, 0.0);
     CHECK(!unknown && unknown.error().find("unknown route") != std::string::npos && !pending &&
-              pending.error().find("no current published alignment") != std::string::npos,
+              pending.error().find("no current published alignment") != std::string::npos &&
+              !pendingContact,
           "unknown and unpublished routes are distinct refusals");
     const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(60);
     auto info = engine.routeInfo("circuit");
@@ -84,12 +87,43 @@ int main() {
         if (pose) { previousSegment = pose->SegmentIndex; }
       }
       CHECK(validSamples, "sampled public stations advance on a finite orthonormal route basis");
+      size_t missingContact = 0;
+      double greatestCenterOffsetM = 0.0;
+      for (size_t sample = 0; sample <= 512; ++sample) {
+        const double stationM = info->LengthM * static_cast<double>(sample) / 512.0;
+        const auto pose = engine.sampleRoute("circuit", stationM);
+        if (!pose) {
+          ++missingContact;
+          continue;
+        }
+        for (double fraction : {-0.45, 0.0, 0.45}) {
+          const auto contact =
+              engine.sampleRouteContact("circuit", stationM, pose->WidthM * fraction);
+          if (!contact || std::abs(Length(contact->Normal) - 1.0) > 1e-6 ||
+              contact->Normal[1] <= 0.0) {
+            ++missingContact;
+            continue;
+          }
+          if (fraction == 0.0) {
+            greatestCenterOffsetM = std::max(greatestCenterOffsetM,
+                                             std::abs(contact->PositionM[1] - pose->PositionM[1]));
+          }
+        }
+      }
+      CHECK(missingContact == 0 && greatestCenterOffsetM < 0.2,
+            "public route contact reads published native road triangles across the circuit");
       CHECK(!engine.sampleRoute("circuit", -1.0) &&
                 !engine.sampleRoute("circuit", std::numeric_limits<double>::quiet_NaN()) &&
                 !engine.sampleRoute("circuit", info->LengthM + 1.0),
             "invalid stations are rejected before any camera consumes them");
+      CHECK(!engine.sampleRouteContact("circuit", -1.0, 0.0) &&
+                !engine.sampleRouteContact(
+                    "circuit", 0.0, std::numeric_limits<double>::quiet_NaN()) &&
+                !engine.sampleRouteContact("circuit", 0.0, 100.0),
+            "invalid contact coordinates are refused without terrain fallback");
       scene.Providers.front().Revision = "pin-r2";
-      CHECK(engine.declare(scene) && engine.assemble() && !engine.routeInfo("circuit"),
+      CHECK(engine.declare(scene) && engine.assemble() && !engine.routeInfo("circuit") &&
+                !engine.sampleRouteContact("circuit", 0.0, 0.0),
             "a new source revision cannot expose the previously published alignment");
     }
   }

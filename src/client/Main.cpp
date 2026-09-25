@@ -170,7 +170,8 @@ void Usage(std::string_view verb = {}) {
         "  --stats                         timing, readiness and source STAT rows\n"
         "  measures additionally prints all engine diagnostic samples.\n"
         "Motion writes a per-frame TSV with time, station, camera position, advance/render "
-        "time, readiness, ground candidate progress and previous-frame GPU diagnostics.",
+        "time, readiness, ground candidate progress, previous-frame GPU diagnostics and "
+        "left/centre/right road contact with eye clearance.",
         verb);
   } else if (verb == "shots") {
     std::println("Usage: outshine-client shots [options] [--all | <place> ...]\n"
@@ -202,7 +203,9 @@ void Usage(std::string_view verb = {}) {
                  "status is ok or failed. Timings are milliseconds.\n"
                  "run: setup_ms; run/shots: preload/wait timings, playable/refined, tile and "
                  "source counts.\n"
-                 "render: elapsed/prepare/assemble/draw/save_ms, draw_frames, width/height_px.");
+                 "render: elapsed/prepare/assemble/draw/save_ms, draw_frames, width/height_px.\n"
+                 "route motion: frame count, p50/p95/p99, budget/readiness, contact gaps, "
+                 "eye clearance and peak heap.");
   }
 }
 
@@ -542,7 +545,25 @@ int CaptureView(outshine::Engine &engine,
   if (options.SampleImages) {
     std::println("SAMPLES\t{}\tbuild/shots/{}", captured->SampleImages, options.Into);
   }
-  return 0;
+  if (options.Stats) {
+    std::println("STAT\t{}\tmotion_frames\t{}\tframes", named, captured->Frames);
+    std::println("STAT\t{}\tmotion_p50_ms\t{}\tms", named, captured->P50Ms);
+    std::println("STAT\t{}\tmotion_p95_ms\t{}\tms", named, captured->P95Ms);
+    std::println("STAT\t{}\tmotion_p99_ms\t{}\tms", named, captured->P99Ms);
+    std::println("STAT\t{}\tmotion_over_budget_frames\t{}\tframes", named, captured->OverBudget);
+    std::println("STAT\t{}\tmotion_unsettled_frames\t{}\tframes", named, captured->Unsettled);
+    std::println("STAT\t{}\tmotion_peak_heap_mib\t{}\tMiB", named, captured->PeakHeapMiB);
+    std::println("STAT\t{}\tmotion_missing_contact_frames\t{}\tframes",
+                 named,
+                 captured->MissingContactFrames);
+    if (captured->MinimumEyeClearanceM && captured->MaximumEyeClearanceM) {
+      std::println(
+          "STAT\t{}\tmotion_eye_clearance_min_m\t{}\tm", named, *captured->MinimumEyeClearanceM);
+      std::println(
+          "STAT\t{}\tmotion_eye_clearance_max_m\t{}\tm", named, *captured->MaximumEyeClearanceM);
+    }
+  }
+  return captured->MissingContactFrames == 0 ? 0 : 1;
 }
 
 void PrintMeasures(const outshine::Engine &engine) {

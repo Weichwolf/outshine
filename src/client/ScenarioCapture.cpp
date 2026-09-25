@@ -5,6 +5,7 @@
 #include "math/Quantile.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -13,9 +14,11 @@
 #include <fstream>
 #include <iomanip>
 #include <ios>
+#include <limits>
 #include <optional>
 #include <ranges>
 #include <ratio>
+#include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -56,6 +59,18 @@ struct MotionFrame {
   double AdvanceMs = 0.0;
   double RenderMs = 0.0;
   bool Settled = false;
+  std::array<bool, 3> Contact{};
+  double EyeClearanceM = std::numeric_limits<double>::quiet_NaN();
+};
+
+struct MotionContact {
+  std::array<bool, 3> Tracks{};
+  double EyeClearanceM = std::numeric_limits<double>::quiet_NaN();
+};
+
+struct CaptureRoute {
+  std::string Id;
+  double LengthM = 0.0;
 };
 
 [[nodiscard]] std::string Refusal(std::string_view phase, std::string_view why) {
@@ -101,8 +116,8 @@ struct MotionFrame {
   return state;
 }
 
-[[nodiscard]] std::expected<std::optional<double>, std::string>
-CaptureRouteLength(const Engine &engine, std::string_view viewId) {
+[[nodiscard]] std::expected<std::optional<CaptureRoute>, std::string>
+DeclaredCaptureRoute(const Engine &engine, std::string_view viewId) {
   for (const Scenario::View &view : engine.declaration().Views) {
     if (view.Id != viewId || view.Placement != Scenario::CameraPlacement::Route) { continue; }
     const auto info = engine.routeInfo(view.Route.RouteId);
@@ -110,9 +125,35 @@ CaptureRouteLength(const Engine &engine, std::string_view viewId) {
       return std::unexpected(info ? "capture route has no finite length"
                                   : Refusal("capture route", info.error()));
     }
-    return info->LengthM;
+    return CaptureRoute{.Id = view.Route.RouteId, .LengthM = info->LengthM};
   }
   return std::nullopt;
+}
+
+[[nodiscard]] std::expected<MotionContact, std::string>
+ReadPublishedRoadContact(const Engine &engine, std::string_view routeId, const MotionState &state) {
+  const auto pose = engine.sampleRoute(routeId, state.StationM);
+  if (!pose) { return std::unexpected(Refusal("motion route", pose.error())); }
+  MotionContact sampled;
+  constexpr std::array kLateralFractions{0.45, 0.0, -0.45};
+  for (size_t track = 0; track < sampled.Tracks.size(); ++track) {
+    const auto contact =
+        engine.sampleRouteContact(routeId, state.StationM, pose->WidthM * kLateralFractions[track]);
+    sampled.Tracks[track] = contact.has_value();
+    if (track == 1u && contact) { sampled.EyeClearanceM = state.UpM - contact->PositionM[1]; }
+  }
+  return sampled;
+}
+
+void RecordRoadContact(ScenarioCaptureResult &result, const MotionContact &contact) {
+  result.MissingContactFrames +=
+      std::ranges::all_of(contact.Tracks, [](bool found) { return found; }) ? 0u : 1u;
+  if (std::isfinite(contact.EyeClearanceM)) {
+    result.MinimumEyeClearanceM = std::min(
+        result.MinimumEyeClearanceM.value_or(contact.EyeClearanceM), contact.EyeClearanceM);
+    result.MaximumEyeClearanceM = std::max(
+        result.MaximumEyeClearanceM.value_or(contact.EyeClearanceM), contact.EyeClearanceM);
+  }
 }
 
 [[nodiscard]] std::expected<void, std::string> SaveRouteMarks(Engine &engine,
@@ -134,8 +175,32 @@ CaptureRouteLength(const Engine &engine, std::string_view viewId) {
   return {};
 }
 
+[[nodiscard]] std::expected<void, std::string>
+WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
+  std::ofstream trace{std::string(path)};
+  if (!trace) { return std::unexpected("motion trace cannot be opened"); }
+  trace << "time_s\tstation_m\tsegment\teast_m\tup_m\trenderer_z_m\tadvance_ms\trender_"
+           "ms\tsettled\tcandidate_starts\tcandidate_last_progress\tprevious_fence_wait_ms\t"
+           "previous_upload_attempts_current_residency\tprevious_crossings_current_residency\t"
+           "left_contact\tcenter_contact\tright_contact\teye_clearance_m\n";
+  trace << std::fixed << std::setprecision(6);
+  for (const MotionFrame &frame : frames) {
+    trace << frame.TimeS << '\t' << frame.State.StationM << '\t' << frame.State.Segment << '\t'
+          << frame.State.EastM << '\t' << frame.State.UpM << '\t' << frame.State.RendererZM << '\t'
+          << frame.AdvanceMs << '\t' << frame.RenderMs << '\t' << (frame.Settled ? 1 : 0) << '\t'
+          << frame.State.CandidateStarts << '\t' << frame.State.CandidateProgress << '\t'
+          << frame.State.PreviousFenceWaitMs << '\t' << frame.State.PreviousUploadAttempts << '\t'
+          << frame.State.PreviousCrossings << '\t' << frame.Contact[0] << '\t' << frame.Contact[1]
+          << '\t' << frame.Contact[2] << '\t' << frame.EyeClearanceM << '\n';
+  }
+  trace.close();
+  if (!trace) { return std::unexpected("motion trace could not be written"); }
+  return {};
+}
+
 [[nodiscard]] std::expected<void, std::string> RenderMotion(Engine &engine,
                                                             MotionSchedule schedule,
+                                                            std::string_view routeId,
                                                             bool sampleImages,
                                                             const std::filesystem::path &folder,
                                                             std::string_view stem,
@@ -163,11 +228,17 @@ CaptureRouteLength(const Engine &engine, std::string_view viewId) {
     const double renderMs =
         std::chrono::duration<double, std::milli>(renderedAt - advancedAt).count();
     const bool settled = engine.settled(WorldQuality::Refined);
-    frames.push_back({.TimeS = static_cast<double>(tick + 1) * schedule.StepS,
+    const auto contact = ReadPublishedRoadContact(engine, routeId, *route);
+    if (!contact) { return std::unexpected(contact.error()); }
+    MotionFrame frame{.TimeS = static_cast<double>(tick + 1) * schedule.StepS,
                       .State = *route,
                       .AdvanceMs = advanceMs,
                       .RenderMs = renderMs,
-                      .Settled = settled});
+                      .Settled = settled};
+    frame.Contact = contact->Tracks;
+    frame.EyeClearanceM = contact->EyeClearanceM;
+    RecordRoadContact(result, *contact);
+    frames.push_back(frame);
     frameMs.push_back(advanceMs + renderMs);
     result.OverBudget += frameMs.back() > kFrameBudgetMs ? 1u : 0u;
     result.Unsettled += settled ? 0u : 1u;
@@ -201,23 +272,7 @@ CaptureRouteLength(const Engine &engine, std::string_view viewId) {
   result.RouteStationM = frames.back().State.StationM;
   result.HasRouteStation = true;
   result.TracePath = (folder / (std::string(stem) + "-motion.tsv")).string();
-  std::ofstream trace(result.TracePath);
-  if (!trace) { return std::unexpected("motion trace cannot be opened"); }
-  trace << "time_s\tstation_m\tsegment\teast_m\tup_m\trenderer_z_m\tadvance_ms\trender_"
-           "ms\tsettled\tcandidate_starts\tcandidate_last_progress\tprevious_fence_wait_ms\t"
-           "previous_upload_attempts_current_residency\tprevious_crossings_current_residency\n";
-  trace << std::fixed << std::setprecision(6);
-  for (const MotionFrame &frame : frames) {
-    trace << frame.TimeS << '\t' << frame.State.StationM << '\t' << frame.State.Segment << '\t'
-          << frame.State.EastM << '\t' << frame.State.UpM << '\t' << frame.State.RendererZM << '\t'
-          << frame.AdvanceMs << '\t' << frame.RenderMs << '\t' << (frame.Settled ? 1 : 0) << '\t'
-          << frame.State.CandidateStarts << '\t' << frame.State.CandidateProgress << '\t'
-          << frame.State.PreviousFenceWaitMs << '\t' << frame.State.PreviousUploadAttempts << '\t'
-          << frame.State.PreviousCrossings << '\n';
-  }
-  trace.close();
-  if (!trace) { return std::unexpected("motion trace could not be written"); }
-  return {};
+  return WriteMotionTrace(result.TracePath, frames);
 }
 
 [[nodiscard]] std::expected<void, std::string>
@@ -269,10 +324,10 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
   const auto ticks = static_cast<size_t>(std::max(1.0, std::ceil(options.AtS / stepS)));
   ScenarioCaptureResult result;
   result.SimTimeS = static_cast<double>(ticks) * stepS;
-  const auto routeLength = CaptureRouteLength(engine, options.View);
-  if (!routeLength) { return std::unexpected(routeLength.error()); }
-  const bool isRoute = routeLength->has_value();
-  result.RouteLengthM = routeLength->value_or(0.0);
+  const auto route = DeclaredCaptureRoute(engine, options.View);
+  if (!route) { return std::unexpected(route.error()); }
+  const bool isRoute = route->has_value();
+  result.RouteLengthM = isRoute ? route->value().LengthM : 0.0;
   std::error_code failure;
   const std::filesystem::path folder = std::filesystem::path("build/shots") / options.Into;
   std::filesystem::create_directories(folder, failure);
@@ -280,8 +335,13 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
   if (options.RenderMotion) {
     if (!isRoute) { return std::unexpected("motion capture requires a route-bound view"); }
     const std::string stem = std::string(options.Name) + "-" + std::string(options.View);
-    if (const auto motion = RenderMotion(
-            engine, {.Ticks = ticks, .StepS = stepS}, options.SampleImages, folder, stem, result);
+    if (const auto motion = RenderMotion(engine,
+                                         {.Ticks = ticks, .StepS = stepS},
+                                         route->value().Id,
+                                         options.SampleImages,
+                                         folder,
+                                         stem,
+                                         result);
         !motion) {
       return std::unexpected(motion.error());
     }

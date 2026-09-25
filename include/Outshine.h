@@ -410,6 +410,18 @@ public:
   /// @param stationM Centerline station in metres, inclusive of the closed terminal station.
   /// @return Owned local route pose, or an owned diagnostic with no partial pose.
   [[nodiscard]] Holds<RoutePose> sampleRoute(std::string_view name, double stationM) const;
+  /// Intersect the published road triangles at a route station and signed lateral offset.
+  /// Positive offset is left when facing along the route; the accepted range is the current
+  /// half-width. A route pose alone does not establish contact. Missing geometry, invalid input,
+  /// stale source/terrain revision and uncovered points return an owned error without fallback.
+  /// Reads current immutable publication; serialize with Engine mutations. O(log spans), then
+  /// at most six triangle tests, constant auxiliary storage and no terrain/provider IO.
+  /// @param name Borrowed scenario-local route name, not retained.
+  /// @param stationM Finite station in [0, route length], inclusive of a closed terminal station.
+  /// @param lateralOffsetM Finite signed offset in metres from the centerline.
+  /// @return Owned native contact pose or a diagnostic; no partial contact on failure.
+  [[nodiscard]] Holds<RouteContact>
+  sampleRouteContact(std::string_view name, double stationM, double lateralOffsetM) const;
   /// Prepare the current declared audio scene at a positive sample rate in Hz.
   /// Call after declaring/assembling content and before starting audio output. This call
   /// allocates and validates DSP state; it needs no SDL audio device or render target.

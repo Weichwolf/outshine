@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <expected>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -32,7 +33,10 @@ struct ScenarioCaptureResult {
   size_t Frames = 0;
   size_t OverBudget = 0;
   size_t Unsettled = 0;
+  size_t MissingContactFrames = 0;
   size_t SampleImages = 0;
+  std::optional<double> MinimumEyeClearanceM;
+  std::optional<double> MaximumEyeClearanceM;
   double P50Ms = 0.0;
   double P95Ms = 0.0;
   double P99Ms = 0.0;

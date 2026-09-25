@@ -2,9 +2,11 @@
 #include "EarthworkPress.h"
 #include "OsmXmlReader.h"
 #include "RoadSurfaceBuilder.h"
+#include "RoadSurfaceSampler.h"
 
 #include <array>
 #include <cmath>
+#include <numeric>
 #include <span>
 #include <string_view>
 
@@ -107,6 +109,24 @@ int main() {
   CHECK(continuous && allEdges && surface->Spans.front().StartStationM == 0.0 &&
             std::abs(surface->Spans.back().EndStationM - alignment->LengthM()) < 1e-8,
         "triangle provenance and shared float vertices cover both source edges without gaps");
+  bool sampled = true;
+  constexpr std::array lateralFractions{-0.45, 0.0, 0.45};
+  for (const RoadSurfaceSpan &span : surface->Spans) {
+    const std::array stations{
+        span.StartStationM, std::midpoint(span.StartStationM, span.EndStationM), span.EndStationM};
+    for (double stationM : stations) {
+      const auto pose = alignment->AtStation(stationM);
+      sampled &= pose.has_value();
+      if (!pose) { continue; }
+      for (double fraction : lateralFractions) {
+        const auto contact =
+            RoadSurfaceSampler::At(*alignment, *surface, stationM, pose->WidthM * fraction);
+        sampled &= contact && std::isfinite(contact->PositionM[1]) &&
+                   std::abs(Length(contact->Normal) - 1.0) < 1e-6 && contact->Normal[1] > 0.0;
+      }
+    }
+  }
+  CHECK(sampled, "straight and curved stations retain native triangle contact across the seam");
   const auto tooSmall = RoadSurfaceBuilder::Build(*alignment, frame, {.MaximumSegments = 1});
   CHECK(!tooSmall && tooSmall.error().Code == RoadSurfaceErrorCode::SampleBudgetExceeded,
         "a bounded builder rejects incomplete road surface generation");

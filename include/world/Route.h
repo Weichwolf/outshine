@@ -27,6 +27,17 @@ struct RoutePose {
   size_t SegmentIndex = 0; ///< Directed route segment ordinal, independent of the source format.
 };
 
+/// Contact on a currently published native road triangle at a route station and lateral offset.
+/// Position and normal use the scenario's local east/up/south world frame. This owned value does
+/// not retain a geometry or route publication; query again after a world update.
+struct RouteContact {
+  Vec3 PositionM;              ///< Surface point in local metres.
+  Vec3 Normal;                 ///< Unit geometric triangle normal, pointing upward.
+  double StationM = 0.0;       ///< Resolved route station in metres.
+  double LateralOffsetM = 0.0; ///< Signed metres from centerline; positive means left.
+  size_t SegmentIndex = 0;     ///< Logical directed route segment ordinal.
+};
+
 }
 
 #endif
