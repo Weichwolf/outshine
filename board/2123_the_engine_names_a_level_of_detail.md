@@ -47,6 +47,16 @@ Vorhandenes Cluster-Cooking erzeugt flache Cluster, noch keine vereinfachende Hi
 Den ungenutzten CookDag-Prototyp nicht als fertigen Hierarchiepfad zählen. Verarbeitung
 für importierte und generierte Assets außerhalb des Framepfads aufbauen und cachen.
 
+Gebäude-LOD darf nicht vom Kameraort beim Bake abhängen. Hockenheim bei 74,85 s
+zeigt trotz identischer Endkamera nach `Refined` und Settle 5.679 abweichende
+Pixel in 43 Horizontzeilen: akzeptierte Tiles tragen verschiedene `RawTile::Eye`-
+Detailentscheidungen innerhalb der 64-m-Wiederverwendung. Erzeuge pro Quellrevision
+stabile native Detailprodukte/Proxies mit Fehler und Bounds; der Renderer wählt
+pro Frame nach projiziertem Fehler mit Hysterese. Fehlende feine Produkte halten
+den residenten Proxy und melden dessen Qualitätsgrenze, ohne Neubake alle 64 m.
+Gegenprobe: dieselbe Endkamera nach Sprung und Fahrt ergibt dieselbe Geometrie,
+Silhouette und PNG; schnelle Fahrt bleibt innerhalb CPU/GPU- und Uploadbudgets.
+
 Referenz: [Epic, Nanite Deep Dive](https://advances.realtimerendering.com/s2021/Karis_Nanite_SIGGRAPH_Advances_2021_final.pdf).
 [SDL-GPU-Indirektdraws](https://wiki.libsdl.org/SDL3/SDL_DrawGPUIndexedPrimitivesIndirect).
 Abnahme: Kamera-Nahfälle, Grenzrisse, schnelle Bewegung, fehlende Seiten und Queue-Überlauf;

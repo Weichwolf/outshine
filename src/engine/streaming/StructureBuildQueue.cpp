@@ -44,6 +44,12 @@ constexpr double kBytesPerMB = 1024.0 * 1024.0;
          distance.AlongM <= Generators::kStructureEyeReuseM;
 }
 
+[[nodiscard]] bool AcceptedEyesCurrent(const Ground::BuildingField &prints,
+                                       LongitudeLatitude eye) noexcept {
+  return std::ranges::all_of(prints.AcceptedInputs(),
+                             [eye](const auto &input) { return EyeWithin(input.Bake.Eye, eye); });
+}
+
 std::optional<Data::TileSourceIdentity> VectorSource(const Ground::OsmField &vectors,
                                                      uint32_t tile) {
   if (tile >= vectors.Tiles().size()) { return std::nullopt; }
@@ -280,10 +286,12 @@ bool StructureBuildQueue::BakeRevision::Matches(const Ground::OsmField &vectors,
 }
 
 bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
-                                   const Ground::BuildingField &footprints) const {
+                                   const Ground::BuildingField &footprints,
+                                   LongitudeLatitude eye) const {
   const Ground::OsmField *const vectors = stack.Vectors();
   return vectors == nullptr ||
-         (Queue_.empty() && footprints.RefinementComplete() && footprints.Ingested(*vectors));
+         (Queue_.empty() && footprints.RefinementComplete() &&
+          AcceptedEyesCurrent(footprints, eye) && footprints.Ingested(*vectors));
 }
 
 size_t StructureBuildQueue::QueuedStructures() const {
@@ -364,6 +372,10 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     return 0;
   }
   const Ground::OsmField &vectors = *stack.Vectors();
+  if (requirement == HeightRequirement::FineOnly && prints.RefinementComplete() && Queue_.empty() &&
+      !AcceptedEyesCurrent(prints, eye)) {
+    prints.BeginRefinement();
+  }
   size_t posted = 0;
   const size_t inFlightMost =
       std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow);

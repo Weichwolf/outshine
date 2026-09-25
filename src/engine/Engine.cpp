@@ -248,7 +248,7 @@ std::span<const DiagnosticSample> Engine::measures() const {
 bool Engine::State::StructuresReady(const Ground::BuildingField &footprints,
                                     const GroundRevision &revision) const {
   if (revision.Quality == GroundQuality::Refined) {
-    return World.StructureBuilds.Complete(World.Stack, footprints);
+    return World.StructureBuilds.Complete(World.Stack, footprints, CurrentGeographicFocus());
   }
   const Ground::OsmField *const vectors = World.Stack.Vectors();
   if (vectors == nullptr) { return true; }

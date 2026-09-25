@@ -38,16 +38,10 @@ casters and an all-zero atlas. `make format`, the focused suite and
 `LINT_JOBS=2 make lint` pass. This proves empty-world replacement only; it does
 not explain the Hockenheim paced/static colour split or rare overhead polygon.
 
-Fresh offline captures at 74.85 s now reproduce both colours in separate
-processes with identical 46-tile structure digests and 538 cache deliveries.
-The bright pixel (91,88,83) had 92/94 live native pieces in two runs; dark
-(4,10,26) had 102/105. `SceneResources` reports the same number of occupied
-piece sources as `SubjectDraw` live pieces in each run. Thus the extra resident
-pieces are registered sources outside the 46-tile `TilePieces` owner set, not
-just stale draw-table rows. `Engine::inspect()` now reports current structure
-digest/tile count and native piece source/residency/triangle counts so this
-distinction remains measurable. The earlier publication digest was a snapshot,
-not a live ownership check.
+Fresh offline captures reproduced both colours with 538 cache deliveries.
+Bright/dark runs had 92/102 native piece sources; the excess came from owned
+renderer sources, not draw-table rows. `Engine::inspect()` reports live
+structure digest, sources, residency and triangles.
 
 One source-count split is a renderer-state ownership error. A retired ground
 candidate can remain active while `AdvanceStructureBuilds` publishes a live
@@ -55,15 +49,24 @@ tile; its piece operations entered the private candidate. In one trace,
 published tile 16 held slot 10:1 after the candidate reused that slot.
 `PublishStructureTile` now explicitly enters the published-world scope. A
 candidate/live-tile fixture checks both registries. Eight fresh offline
-74.85-s captures gave the bright road probe (91,88,83), with no refusal.
-First/last PNG differ by at most 1/255 in 14,185 pixels. Motion at 74.85 s
-and 91.433 s remains dark while both stills are bright. At 74.85 s, both
+74.85-s static captures gave the bright road probe (91,88,83). Before final
+settle, motion at 74.85 s and 91.433 s was dark. At 74.85 s, both
 worlds have 46 structure tiles and 92 native sources, yet tile 24's bake
 digest differs (3,759,789,901,417,230,002 vs 1,467,637,370,733,713,420),
 both with fine heights; native triangles differ by 1,178. `RawTile::Eye`
-drives structure LOD and accepted bakes reuse an eye within 64 m, but that
-is a hypothesis for the tile-24 discrepancy, not a proven cause. Compare its
-source/input revisions, eye, footprint LODs and generated bounds next.
+drives structure LOD and accepted bakes reuse an eye within 64 m. Tile 24 had
+identical height/street digests, 29 height sources and qualified inputs, but
+its accepted bake eyes differed by about 109 m; Fine/Shell counts were
+51/1337 static and 38/1350 paced. The static client also preloads Refined and
+settles the renderer, while the paced client previously took its final PNG
+without either step. After current-eye acceptance became part of Refined,
+the 74.85 s paced run correctly reported Refined=0 before final preload.
+With motion-end Refined preload and settle, the probe matches static RGB 91/88/83
+and the dark wedge is gone. Fresh same-build PNGs still differ in 5,679 of
+921,600 pixels (0.616%, worst channel 118/255), confined to 43 horizon rows:
+accepted camera-local LOD within the 64 m reuse radius still needs a stable
+representation. The paced 4,491 frames were all unsettled before final preload;
+p99 was 17.24 ms, with 53 frames over the 16.67 ms target.
 
 ## Ownership and solution direction
 

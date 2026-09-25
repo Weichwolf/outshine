@@ -323,7 +323,8 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
                                                   World.Stack.Footprints(),
                                                   eye,
                                                   heightAt.Revision,
-                                                  std::min(landsMost, size_t{1}));
+                                                  std::min(landsMost, size_t{1}),
+                                                  StructureBuildQueue::HeightRequirement::FineOnly);
   Cost.BakeLanding.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
           .count());
@@ -349,8 +350,12 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
             .count());
   }
   const auto postingAt = std::chrono::steady_clock::now();
-  (void)World.StructureBuilds.Posts(
-      World.Stack, World.Stack.Footprints(), eye, heightAt, StructureCandidatesMost());
+  (void)World.StructureBuilds.Posts(World.Stack,
+                                    World.Stack.Footprints(),
+                                    eye,
+                                    heightAt,
+                                    StructureCandidatesMost(),
+                                    StructureBuildQueue::HeightRequirement::FineOnly);
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
           .count());

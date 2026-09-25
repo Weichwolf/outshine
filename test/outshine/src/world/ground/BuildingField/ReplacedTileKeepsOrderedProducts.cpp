@@ -51,7 +51,7 @@ int main() {
   BuildingField published = field.SnapshotAccepted();
   field.BeginRefinement();
   CHECK(field.RefinementTile() == 2 && field.RefinementRemaining() == 3 &&
-            !field.RefinementComplete(),
+            !field.RefinementComplete() && field.AcceptedInputs().size() == 3,
         "refined candidate scans accepted tile IDs without resetting their products");
   field.AdvanceRefinement();
   CHECK(field.RefinementTile() == 5 && field.RefinementRemaining() == 2,

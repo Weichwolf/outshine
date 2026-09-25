@@ -126,6 +126,10 @@ public:
     RefinementActive_ = true;
   }
 
+  [[nodiscard]] std::span<const AcceptedInput> AcceptedInputs() const noexcept {
+    return AcceptedInputs_;
+  }
+
   [[nodiscard]] std::optional<uint32_t> RefinementTile() const noexcept {
     if (!RefinementActive_ || RefinementAt_ == RefinementEnd_) { return std::nullopt; }
     return AcceptedTiles_[RefinementAt_];

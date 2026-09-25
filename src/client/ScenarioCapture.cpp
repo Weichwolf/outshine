@@ -276,6 +276,21 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
   return WriteMotionTrace(result.TracePath, frames);
 }
 
+[[nodiscard]] std::expected<void, std::string> SettleFinalFrame(Engine &engine, bool awaitRefined) {
+  const WorldQuality required = awaitRefined ? WorldQuality::Refined : WorldQuality::Playable;
+  const double budgetS = awaitRefined ? kRefinedPreloadBudgetS : kPreloadBudgetS;
+  if (const auto ready = engine.preload(budgetS, required); !ready) {
+    return std::unexpected(Refusal("capture world preload", ready.error()));
+  }
+  const int settleFrames = std::max(2, engine.renderer().settleFrames());
+  for (int frame = 0; frame < settleFrames; ++frame) {
+    if (const auto rendered = engine.renderer().render({}); !rendered) {
+      return std::unexpected(Refusal("capture render", rendered.error()));
+    }
+  }
+  return {};
+}
+
 [[nodiscard]] std::expected<void, std::string> RenderAtTime(Engine &engine,
                                                             MotionSchedule schedule,
                                                             bool isRoute,
@@ -286,22 +301,12 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
       return std::unexpected(Refusal("route advance", advanced.error()));
     }
   }
-  const WorldQuality required = awaitRefined ? WorldQuality::Refined : WorldQuality::Playable;
-  const double budgetS = awaitRefined ? kRefinedPreloadBudgetS : kPreloadBudgetS;
-  if (const auto ready = engine.preload(budgetS, required); !ready) {
-    return std::unexpected(Refusal("capture world preload", ready.error()));
-  }
+  if (const auto settled = SettleFinalFrame(engine, awaitRefined); !settled) { return settled; }
   if (isRoute) {
     const auto route = ReadMotionState(engine);
     if (!route) { return std::unexpected("capture has no finite route pose"); }
     result.RouteStationM = route->StationM;
     result.HasRouteStation = true;
-  }
-  const int settleFrames = std::max(2, engine.renderer().settleFrames());
-  for (int frame = 0; frame < settleFrames; ++frame) {
-    if (const auto rendered = engine.renderer().render({}); !rendered) {
-      return std::unexpected(Refusal("capture render", rendered.error()));
-    }
   }
   return {};
 }
@@ -350,6 +355,11 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
                                          result);
         !motion) {
       return std::unexpected(motion.error());
+    }
+    if (options.AwaitRefined) {
+      if (const auto settled = SettleFinalFrame(engine, true); !settled) {
+        return std::unexpected(settled.error());
+      }
     }
   } else {
     if (const auto rendered = RenderAtTime(

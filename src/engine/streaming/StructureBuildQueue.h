@@ -100,7 +100,8 @@ public:
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }
 
   [[nodiscard]] bool Complete(const Ground::GroundStack &stack,
-                              const Ground::BuildingField &footprints) const;
+                              const Ground::BuildingField &footprints,
+                              LongitudeLatitude eye) const;
 
   [[nodiscard]] size_t Posted() const { return Posted_; }
 
