@@ -60,6 +60,14 @@ Hockenheim-Trace Upload-Versuche, Crossings, p99/Max und späte Frames, plus
 gleiches PNG und unveränderte 267-Edge-Route. Falls nur der Zähler sinkt,
 der Fence-Stall aber bleibt, ist die Hypothese widerlegt; dann GPU-Passzeit
 und explizite Byte-/Queue-Last messen statt Frames-in-flight zu erhöhen.
+Der 100-s-Vergleich reduziert positive Upload-Versuchs-Deltas von 1680 auf
+318, während 4132 staged Crossings im Frame-Pass aufgezeichnet werden.
+Finales PNG: 0/921600 Pixel Unterschied; 267-Edge-Route und 538/538
+Cache-Hits bleiben. p99 12.702→12.738 ms, späte Frames 15→16;
+maximaler `render()`-Aufruf 24.889→74.051 ms (verschiedene Laufvarianz).
+Der längste neue Aufruf enthält 71.911 ms Fence-Wait. Batching spart
+Submits, löst den Stall aber nicht. Nächster Beleg: GPU-Passzeiten und
+Upload-Bytes desselben Frames, nicht ein weiteres Submit-Zähler-Tuning.
 
 - Stillvergleich behalten; zusätzlich deklarierte Geh-/Fahr-/Flugroute mit Tilegrenzwechsel,
   dichter Stadt, bewaldetem Hang, Tunnelportal und mehrstöckigem Verkehrsknoten. Warm-/Cold-
