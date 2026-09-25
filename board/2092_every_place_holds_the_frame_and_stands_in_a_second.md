@@ -49,6 +49,18 @@ Frame, aber keine staged Crossings. Bei 62.1 s tritt ein weiterer
 24.889-ms-Renderausreißer auf. Der Zusammenhang mit Upload-Arbeit ist damit
 beobachtbar, die verursachende GPU-Passzeit noch nicht belegt.
 
+Nächster Eingriff: `SubjectDraw::PlacePiece` lädt jedes neue Stück derzeit mit
+`Cross(..., false)` und damit einem eigenen Copy-Submit hoch. Die Residency
+besitzt bereits Staging, `FlushCrossings` vor Cull und `CommitCrossings` nach
+erfolgreichem Frame-Submit. Neue Stücke auf `Cross(..., true)` umstellen,
+ohne den unmittelbaren Mesh-Pfad oder Texturen zu ändern. Besitzer des
+Transfers bleibt die Residency; fehlgeschlagene Render-Submits behalten
+staged Daten für den Retry. Gegenprobe: vor/nach gleichem 100-s-Warm/Offline-
+Hockenheim-Trace Upload-Versuche, Crossings, p99/Max und späte Frames, plus
+gleiches PNG und unveränderte 267-Edge-Route. Falls nur der Zähler sinkt,
+der Fence-Stall aber bleibt, ist die Hypothese widerlegt; dann GPU-Passzeit
+und explizite Byte-/Queue-Last messen statt Frames-in-flight zu erhöhen.
+
 - Stillvergleich behalten; zusätzlich deklarierte Geh-/Fahr-/Flugroute mit Tilegrenzwechsel,
   dichter Stadt, bewaldetem Hang, Tunnelportal und mehrstöckigem Verkehrsknoten. Warm-/Cold-
   Cache und deterministischer Datenreplay getrennt; Zeit/Wetter/Seeds/Build im Manifest.
