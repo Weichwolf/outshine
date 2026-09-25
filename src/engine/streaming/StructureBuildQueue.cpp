@@ -305,9 +305,14 @@ bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
 
 bool StructureBuildQueue::SourcesComplete(const Ground::GroundStack &stack,
                                           const Ground::BuildingField &footprints) const {
+  return Queue_.empty() && QualifiedSources(stack, footprints);
+}
+
+bool StructureBuildQueue::QualifiedSources(const Ground::GroundStack &stack,
+                                           const Ground::BuildingField &footprints) {
   const Ground::OsmField *const vectors = stack.Vectors();
   return vectors == nullptr ||
-         (Queue_.empty() && footprints.RefinementComplete() && footprints.Ingested(*vectors) &&
+         (footprints.RefinementComplete() && footprints.Ingested(*vectors) &&
           std::ranges::all_of(footprints.AcceptedInputs(),
                               [](const auto &input) { return input.Qualified; }));
 }

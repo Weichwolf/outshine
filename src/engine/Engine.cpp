@@ -33,6 +33,7 @@ constexpr auto kMissingNeighbours = "terrain neighbours missing";
 constexpr auto kPendingSnapshot = "generator snapshot pending";
 constexpr auto kPendingGroundRevision = "ground for current request pending";
 constexpr auto kPendingIngestion = "world ingestion pending";
+constexpr auto kPendingStructureDetail = "structure view detail pending";
 constexpr auto kPendingClassification = "terrain classification pending";
 constexpr auto kPendingVectors = "vector tiles pending";
 constexpr auto kPendingVegetation = "vegetation prototypes pending";
@@ -63,6 +64,16 @@ namespace {
     return loader->Error();
   }
   return Says::kPendingOsmTransport;
+}
+
+[[nodiscard]] std::string_view
+StructureDetailBlocker(bool published, bool refined, bool detailReady) noexcept {
+  return published && (!refined || detailReady) ? "" : Says::kPendingStructureDetail;
+}
+
+[[nodiscard]] constexpr std::string_view
+RequiredBlocker(bool required, bool ready, std::string_view reason) noexcept {
+  return required && !ready ? reason : "";
 }
 
 }
@@ -259,7 +270,8 @@ bool Engine::State::StructuresReady(const Ground::BuildingField &footprints,
 }
 
 bool Engine::State::RefinedGroundIngested(const GroundRevision &revision) const {
-  return World.Stack.Ingested() && StructuresReady(World.Stack.Footprints(), revision) &&
+  return World.Stack.Ingested() &&
+         StructureBuildQueue::QualifiedSources(World.Stack, World.Stack.Footprints()) &&
          revision.Footprints == World.Stack.Footprints().Revision();
 }
 
@@ -279,13 +291,15 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
       !World.GroundPublished.NeedsRebuild(*World.RequestedRefinedGround, false, false);
   const std::string_view osmBlocker =
       OsmTransportBlocker(Session.Declared.Providers, World.OsmTransportLoader.get());
-  return {{(!refined || World.AskedWanted > 0) ? "" : Says::kNoTerrainRequests,
-           (!refined || World.AskedPending == 0) ? "" : Says::kPendingTerrain,
-           (!refined || World.Bare == 0) ? "" : Says::kMissingTerrain,
-           (!refined || World.RimsMissing == 0) ? "" : Says::kMissingNeighbours,
+  return {{RequiredBlocker(refined, World.AskedWanted > 0, Says::kNoTerrainRequests),
+           RequiredBlocker(refined, World.AskedPending == 0, Says::kPendingTerrain),
+           RequiredBlocker(refined, World.Bare == 0, Says::kMissingTerrain),
+           RequiredBlocker(refined, World.RimsMissing == 0, Says::kMissingNeighbours),
            World.Grown ? "" : Says::kPendingSnapshot,
            !refined || currentRevision ? "" : Says::kPendingGroundRevision,
            published && (!refined || RefinedGroundIngested(*ground)) ? "" : Says::kPendingIngestion,
+           StructureDetailBlocker(
+               published, refined, published && StructuresReady(World.Stack.Footprints(), *ground)),
            published && (!refined || RefinedGroundClassified(*ground))
                ? ""
                : Says::kPendingClassification,

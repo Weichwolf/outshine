@@ -115,6 +115,8 @@ public:
                               LongitudeLatitude eye) const;
   [[nodiscard]] bool SourcesComplete(const Ground::GroundStack &stack,
                                      const Ground::BuildingField &footprints) const;
+  [[nodiscard]] static bool QualifiedSources(const Ground::GroundStack &stack,
+                                             const Ground::BuildingField &footprints);
 
   [[nodiscard]] size_t Posted() const { return Posted_; }
 
