@@ -211,6 +211,23 @@ int main() {
       world.Pieces.ForEachDigest([&](TilePieces::DigestRecord record) {
         if (record.Tile == 10) { CHECK(record.SourceKey == 42, "only the new source is visible"); }
       });
+      landing.SourceKey = 43;
+      world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
+                          .Roofs = Render::PieceSurface(3)});
+      CHECK(!PublishStructureTile(world, renderer, landing) && renderer.PiecesStanding() == 10 &&
+                world.Pieces.ValidateSources(error),
+            "failed whole-tile fallback preserves published cell sources");
+      world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
+                          .Roofs = Render::PieceSurface(static_cast<uint32_t>(roof->index()))});
+      CHECK(PublishStructureTile(world, renderer, landing).has_value() &&
+                renderer.PiecesStanding() == 8 && world.Pieces.ValidateSources(error),
+            "whole-tile source replacement retires both published cell products");
+      world.Pieces.ForEachDigest([&](TilePieces::DigestRecord record) {
+        if (record.Tile == 10) {
+          CHECK(record.Cell == 0 && record.SourceKey == 43,
+                "fallback publication exposes only the complete new tile");
+        }
+      });
       world.Pieces.Forgets(10);
       world.Pieces.Forgets(7);
       world.Pieces.Forgets(8);

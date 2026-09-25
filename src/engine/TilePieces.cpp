@@ -190,8 +190,16 @@ bool TilePieces::Store(uint32_t tile,
       return false;
     }
   }
+  const WholeTileTransition retired =
+      cell == 0 && visible ? RetireCellsForWholeTile(tile, error) : WholeTileTransition::NoCells;
+  if (retired == WholeTileTransition::Failed) {
+    Releases(stood);
+    ++Refused_;
+    Why_ = error;
+    return false;
+  }
   if (staged) { DiscardSupersededStage(tile, sourceKey); }
-  if (!staged) {
+  if (!staged && retired != WholeTileTransition::Replaced) {
     if (baked.RequestedDetail && !sourceChanged) {
       ForgetsDetail(tile, cell, baked.RequestedDetail);
     } else {
@@ -205,6 +213,36 @@ bool TilePieces::Store(uint32_t tile,
   RefreshDigest();
   ++Handed_;
   return true;
+}
+
+TilePieces::WholeTileTransition TilePieces::RetireCellsForWholeTile(uint32_t tile,
+                                                                    std::string &error) {
+  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
+  const auto last = std::find_if(
+      first, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
+  if (std::none_of(first, last, [](const Standing &held) { return held.Cell != 0; })) {
+    return WholeTileTransition::NoCells;
+  }
+  std::array<Render::SceneRenderer::PieceRows,
+             2u * static_cast<size_t>(Generators::kStructureCellsPerTile)>
+      rows;
+  size_t count = 0;
+  for (auto at = first; at != last; ++at) {
+    if (at->Cell == 0 || !at->Visible) { continue; }
+    if (count + static_cast<size_t>(static_cast<bool>(at->Walls)) +
+            static_cast<size_t>(static_cast<bool>(at->Roofs)) >
+        rows.size()) {
+      error = "visible structure cells exceed the tile instance budget";
+      return WholeTileTransition::Failed;
+    }
+    if (at->Walls) { rows[count++] = {.Piece = at->Walls, .Rows = {}}; }
+    if (at->Roofs) { rows[count++] = {.Piece = at->Roofs, .Rows = {}}; }
+  }
+  if (count != 0 && !Renderer_->SetPieceInstances(std::span(rows.data(), count), error)) {
+    return WholeTileTransition::Failed;
+  }
+  Forgets(tile);
+  return WholeTileTransition::Replaced;
 }
 
 bool TilePieces::ValidateStore(TileCell address,

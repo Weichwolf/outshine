@@ -123,6 +123,8 @@ public:
   }
 
 private:
+  enum class WholeTileTransition : uint8_t { NoCells, Replaced, Failed };
+
   struct TileCell {
     uint32_t Tile = 0;
     uint32_t Cell = 0;
@@ -165,6 +167,7 @@ private:
   [[nodiscard]] Standing *
   CellTarget(uint32_t tile, CellSource source, CellSelection choice) noexcept;
   void DiscardSupersededStage(uint32_t tile, uint64_t sourceKey);
+  [[nodiscard]] WholeTileTransition RetireCellsForWholeTile(uint32_t tile, std::string &error);
   [[nodiscard]] bool Store(uint32_t tile,
                            uint32_t cell,
                            const Generators::BakedTile &baked,

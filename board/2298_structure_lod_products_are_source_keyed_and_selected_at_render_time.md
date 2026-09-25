@@ -58,7 +58,7 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   footprints; live scheduling still bakes whole tiles.
 - `SceneResources` restores hidden instance rows after world publication.
   `TilePieces` stages multiple cell levels hidden; a complete source mask/revision
-  triggers one atomic swap and retires all products of the previous revision.
+  swaps atomically with whole tiles in both directions and retires old products.
   Missing cells, stale sources and failed uploads keep the legacy image visible.
   `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;
   candidate and live uploads retain it. Changed sources retire old variants

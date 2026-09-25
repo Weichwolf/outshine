@@ -198,6 +198,19 @@ int main() {
                 visible()[0].SourceKey == 12 && visible()[1].SourceKey == 12 &&
                 visible()[0].Digest == 77 && visible()[1].Digest == 88,
             "complete new-source cells replace and retire all old variants in one transaction");
+      auto whole = automatic;
+      whole.Digest = 111;
+      for (StoredVertex &corner : whole.Built.WallCorners) { corner.texture = {{0, 0}}; }
+      const float cellDepth = depth();
+      CHECK(!pieces.Hands(7, whole, frame.OriginEcef(), error, 13) &&
+                renderer.PiecesStanding() == 2 && depth() == cellDepth,
+            "failed whole-tile fallback leaves active cells visible");
+      whole = automatic;
+      whole.Digest = 111;
+      CHECK(pieces.Hands(7, whole, frame.OriginEcef(), error, 13) &&
+                renderer.PiecesStanding() == 1 && visible().size() == 1 && visible()[0].Cell == 0 &&
+                visible()[0].SourceKey == 13 && visible()[0].Digest == 111 && depth() > 0.0f,
+            "new whole tile retires every visible and hidden cell product after upload");
       pieces.Forgets(7);
       CHECK(renderer.PiecesStanding() == 0 && visible().empty(),
             "legacy whole-tile geometry retires before cell products are published");
