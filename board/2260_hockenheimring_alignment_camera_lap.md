@@ -2,7 +2,7 @@ Type: proof
 State: active
 Architecture: ready
 Parent: 2175
-Depends: 2281
+Depends: 2281, 2291
 Priority: P0
 Area: scenario, navigation, generators, client
 Tags: osm, driving, camera, visual-acceptance
