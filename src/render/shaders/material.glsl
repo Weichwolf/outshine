@@ -23,6 +23,7 @@ struct M {
   float iridescenceIor;
   float iridescenceThicknessMin;
   float iridescenceThicknessMax;
+  float pattern;
   vec3 colourUvU;
   vec3 colourUvV;
   vec3 normalUvU;
@@ -78,6 +79,7 @@ layout(std140, set = 3, binding = 0) uniform Material {
   float iridescenceIor;
   float iridescenceThicknessMin;
   float iridescenceThicknessMax;
+  float pattern;
   float colourUvUx;
   float colourUvUy;
   float colourUvUz;
@@ -147,6 +149,7 @@ M materialAt() {
   m.iridescenceIor = float(packedMaterial.iridescenceIor);
   m.iridescenceThicknessMin = float(packedMaterial.iridescenceThicknessMin);
   m.iridescenceThicknessMax = float(packedMaterial.iridescenceThicknessMax);
+  m.pattern = float(packedMaterial.pattern);
   m.colourUvU = vec3(packedMaterial.colourUvUx, packedMaterial.colourUvUy, packedMaterial.colourUvUz);
   m.colourUvV = vec3(packedMaterial.colourUvVx, packedMaterial.colourUvVy, packedMaterial.colourUvVz);
   m.normalUvU = vec3(packedMaterial.normalUvUx, packedMaterial.normalUvUy, packedMaterial.normalUvUz);

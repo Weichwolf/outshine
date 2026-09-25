@@ -8,7 +8,7 @@
 
 namespace outshine::Render {
 
-inline constexpr size_t kSubjectSurfaceScalars = 35;
+inline constexpr size_t kSubjectSurfaceScalars = 36;
 inline constexpr size_t kSubjectUvMatrixFloats = 6;
 inline constexpr size_t kSubjectUvSetFloats = 1;
 inline constexpr size_t kSubjectSurfaceFloats =

@@ -47,8 +47,15 @@ bool TilePieces::Hands(uint32_t tile,
   const auto place = [this, &row, &why](std::span<const StoredVertex> corners,
                                         std::span<const uint32_t> run,
                                         const ClusteredMesh &cut,
-                                        Render::PieceSurface surface) {
+                                        Render::PieceSurface surface,
+                                        bool textured) {
     if (run.empty()) { return Render::PieceHandle{}; }
+    if (textured && std::ranges::any_of(corners, [](const StoredVertex &v) {
+          return v.uv()[0] == 0.0f && v.uv()[1] == 0.0f;
+        })) {
+      why = "generated building wall is missing facade coordinates";
+      return Render::PieceHandle{};
+    }
     const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
     const auto placed =
         Renderer_->PlacePiece({.Tangents = {},
@@ -59,7 +66,8 @@ bool TilePieces::Hands(uint32_t tile,
                                .Colours = {},
                                .Row = row,
                                .Instances = {},
-                               .Surface = surface});
+                               .Surface = surface,
+                               .Textured = textured});
     if (!placed) {
       why = placed.error();
       return Render::PieceHandle{};
@@ -67,14 +75,14 @@ bool TilePieces::Hands(uint32_t tile,
     return *placed;
   };
   const Raised &built = baked.Built;
-  stood.Walls = place(built.WallCorners, built.WallRun, baked.Walls, WallsSurface_);
+  stood.Walls = place(built.WallCorners, built.WallRun, baked.Walls, WallsSurface_, true);
   if (!why.empty()) {
     ++Refused_;
     Why_ = why;
     error = why;
     return false;
   }
-  stood.Roofs = place(built.RoofCorners, built.RoofRun, baked.Roofs, RoofsSurface_);
+  stood.Roofs = place(built.RoofCorners, built.RoofRun, baked.Roofs, RoofsSurface_, false);
   if (!why.empty()) {
     if (stood.Walls) { Renderer_->ReleasePiece(stood.Walls); }
     ++Refused_;

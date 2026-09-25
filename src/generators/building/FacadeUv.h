@@ -36,18 +36,18 @@ constexpr float kStoreyCeil = 64.0f;
 constexpr int kFacadeStride = 16;
 constexpr int kIdentCount = 64;
 
-inline float FacadeUvX(FacadeStyle style, Fields standing, float bay) {
+[[nodiscard]] constexpr float FacadeUvX(FacadeStyle style, Fields standing, float bay) {
   return kBayCeil * static_cast<float>(static_cast<int>(style) +
                                        kStyleCount * static_cast<int>(standing)) +
          bay;
 }
 
-inline float FacadeUvY(int ident, float storeysOverFoot) {
+[[nodiscard]] constexpr float FacadeUvY(int ident, float storeysOverFoot) {
   return kStoreyCeil * static_cast<float>(ident) + 1.0f + storeysOverFoot;
 }
 
-inline float FaceUvX(Facade kind, int ident) {
-  return -static_cast<float>(static_cast<int>(kind) + kFacadeStride * ident);
+[[nodiscard]] constexpr float FaceUvX(Facade kind, int ident) {
+  return -static_cast<float>(1 + static_cast<int>(kind) + kFacadeStride * ident);
 }
 
 }

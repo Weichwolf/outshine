@@ -17,8 +17,8 @@ provider ID 344001642 and no building type. `StructureBake` assigns it a
 9-metre default height and usually Fine LOD. The three observed copies were
 successive snapshots of the same tile, not simultaneous duplicate geometry.
 `BuildingMesh` already encodes facade style, frontage, bay and floor in UVs.
-The current packed `StoredVertex` clamps both coordinates to [-4,4], so
-those encoded values are already lost before upload (WI 2290).
+The former packed `StoredVertex` clamped both coordinates to [-4,4]; WI 2290
+now preserves the encoded values before upload.
 `TilePieces::Hands` sets no `Textured` flag and `Laying` registers only a flat
 wall material, so those UVs are neither uploaded nor consumed. The builder's
 large footprint still needs better massing after this material defect.
@@ -62,3 +62,28 @@ stride so a long edge cannot silently change the decoded style.
 - Native material validation, packing and shader reflection agree. Focused
   building/render suites, `make format`, `make lint` pass. Report p50/p95/p99,
   peak memory and actual residual architectural defects.
+
+## Current measured step
+
+Native `Facade` mode reaches the packed GPU row; Box and Fine LODs now supply
+bounded bay/floor UVs, walls upload them, and the lit GLSL path shades windows,
+frames, doors and plinth through the same metallic-roughness BRDF. An explicit
+`None` negative control, malformed-mode validation, box/face UV checks, shader
+reflection, 12 building cases, eight direct glTF renders, format and lint pass.
+Diagnostic red shading proved the material branch was live; the initial 88-s
+image nevertheless remained pixel-identical because Box walls had no bay UVs.
+After fixing Box, the opened Hockenheim image changes 196,596/921,600 pixels;
+the opened 640×360 image keeps legible windows without obvious moiré. The opened
+Wien image gains distant facade structure, but its repeated grid is still
+schematic. Hockenheim 100-s motion: 6000 frames, p50/p95/p99
+1.977/7.792/13.073 ms, 18 above 16.667 ms; previous pinned motion file gives
+1.993/7.862/12.702 ms and 15 late. These are single runs, not attribution.
+End-of-run live C++ heap is 523,793,024 bytes and building-piece device storage
+570,425,344 bytes; peak memory was not sampled.
+
+Keep this WI active for a visual transfer check and material/geometry tuning.
+The anonymous 352-metre footprint still becomes a monolithic block; generator
+typology and source-tag provenance belong to WI 2173, not a shader exception.
+The dark noon facade also needs the lighting work in WI 2172. Different tile
+landing counts at the same instant limit image-to-image numerical comparison;
+WI 2230 owns capture snapshot reproducibility.

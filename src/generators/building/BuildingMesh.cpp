@@ -345,7 +345,7 @@ EastNorth Along(const EastNorth &p, const EastNorth &q, double t) {
 
 double BaysOn(double lengthM, double bayM) {
   if (lengthM < kLeastWallM) { return 0.0; }
-  return std::max(1.0, std::round(lengthM / bayM));
+  return std::clamp(std::round(lengthM / bayM), 1.0, static_cast<double>(kBayCeil - 1.0f));
 }
 
 void WallPanel(const BuildingShape &s,
@@ -893,10 +893,11 @@ void Box(const BuildingShape &s, std::span<const EastNorth> ring, Site &site) {
   const Facade roof = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i < 4; i++) {
     const size_t j = (i + 1) % 4;
-    site.Quad(Face(s, ring[i], lowZ, Facade::Wall),
-              Face(s, ring[j], lowZ, Facade::Wall),
-              Face(s, ring[j], topZ, Facade::Wall),
-              Face(s, ring[i], topZ, Facade::Wall));
+    const double bays = BaysOn(EdgeLength(ring[i], ring[j]), s.BayM);
+    site.Quad(Wall(s, ring[i], lowZ, 0.0, Fields::Back),
+              Wall(s, ring[j], lowZ, bays, Fields::Back),
+              Wall(s, ring[j], topZ, bays, Fields::Back),
+              Wall(s, ring[i], topZ, 0.0, Fields::Back));
   }
   site.Quad(Face(s, ring[0], topZ, roof),
             Face(s, ring[1], topZ, roof),

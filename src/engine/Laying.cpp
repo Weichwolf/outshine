@@ -739,6 +739,7 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
     walls.BaseColour[1] = kWallGreen;
     walls.BaseColour[2] = kWallBlue;
     walls.Roughness = kWallRoughness;
+    walls.Pattern = SurfacePattern::Facade;
     Material tiles;
     tiles.BaseColour[0] = kTileRed;
     tiles.BaseColour[1] = kTileGreen;

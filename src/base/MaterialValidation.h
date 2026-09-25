@@ -73,6 +73,9 @@ namespace MaterialValidation {
 
 [[nodiscard]] inline bool MaterialValuesAreValid(const Material &row) noexcept {
   if (!MaterialValidation::Factors(row)) { return false; }
+  if (row.Pattern != SurfacePattern::None && row.Pattern != SurfacePattern::Facade) {
+    return false;
+  }
   if (row.Alpha != AlphaMode::Opaque && row.Alpha != AlphaMode::Masked &&
       row.Alpha != AlphaMode::Blended) {
     return false;

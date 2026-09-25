@@ -46,7 +46,8 @@ PackedSubjectMaterial PackSubjectMaterial(const SubjectMaterial &material,
                               row.Iridescence,
                               row.IridescenceIor,
                               row.IridescenceThicknessMinNm,
-                              row.IridescenceThicknessMaxNm};
+                              row.IridescenceThicknessMaxNm,
+                              static_cast<float>(row.Pattern)};
   static_assert(scalars.size() == kSubjectSurfaceScalars);
   PackedSubjectMaterial packed{};
   std::ranges::copy(scalars, packed.begin());

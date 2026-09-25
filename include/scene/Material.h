@@ -25,6 +25,9 @@ enum class AlphaMode {
   Blended ///< Blend using straight base-colour alpha.
 };
 
+/// Native surface detail evaluated from generator coordinates during metallic-roughness shading.
+enum class SurfacePattern { None, Facade };
+
 /// Native metallic-roughness surface parameters; default is a grey dielectric.
 /// Factors are dimensionless unless a field specifies units. Supply finite values in the
 /// documented ranges; this value type performs no validation or clamping. The only permitted
@@ -35,6 +38,8 @@ enum class AlphaMode {
 /// No thread affinity or internal synchronization; immutable reads may run concurrently,
 /// mutations require external synchronization. Copying allocates nothing.
 struct Material {
+  /// Procedural detail; Facade requires generated facade coordinates in UV0.
+  SurfacePattern Pattern = SurfacePattern::None;
   /// Linear RGB reflectance and straight coverage alpha, each in [0,1]; multiplies BaseColourMap.
   Vec4f BaseColour = {{0.5f, 0.5f, 0.5f, 1.0f}};
   /// Metallic fraction in [0,1]; multiplies the blue channel of MetalRoughMap.
