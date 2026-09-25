@@ -37,7 +37,7 @@ struct MotionSchedule {
   double StepS = 0.0;
 };
 
-struct RouteMeasurements {
+struct MotionState {
   double StationM = 0.0;
   double Segment = 0.0;
   double EastM = 0.0;
@@ -45,11 +45,14 @@ struct RouteMeasurements {
   double RendererZM = 0.0;
   double CandidateStarts = 0.0;
   double CandidateProgress = -1.0;
+  double PreviousFenceWaitMs = 0.0;
+  double PreviousUploadAttempts = 0.0;
+  double PreviousCrossings = 0.0;
 };
 
 struct MotionFrame {
   double TimeS = 0.0;
-  RouteMeasurements Route;
+  MotionState State;
   double AdvanceMs = 0.0;
   double RenderMs = 0.0;
   bool Settled = false;
@@ -59,37 +62,43 @@ struct MotionFrame {
   return std::string(phase) + ": " + std::string(why);
 }
 
-[[nodiscard]] std::optional<RouteMeasurements> ReadRouteMeasurements(const Engine &engine) {
-  RouteMeasurements route;
+[[nodiscard]] std::optional<MotionState> ReadMotionState(const Engine &engine) {
+  MotionState state;
   unsigned found = 0;
   for (const DiagnosticSample &measure : engine.measures()) {
     if (measure.Name == "the route camera's station") {
-      route.StationM = measure.Value;
+      state.StationM = measure.Value;
       found |= 1u;
     } else if (measure.Name == "the route camera's segment") {
-      route.Segment = measure.Value;
+      state.Segment = measure.Value;
       found |= 2u;
     } else if (measure.Name == "the route camera's eye, east") {
-      route.EastM = measure.Value;
+      state.EastM = measure.Value;
       found |= 4u;
     } else if (measure.Name == "the route camera's eye, up") {
-      route.UpM = measure.Value;
+      state.UpM = measure.Value;
       found |= 8u;
     } else if (measure.Name == "the route camera's eye, south") {
-      route.RendererZM = measure.Value;
+      state.RendererZM = measure.Value;
       found |= 16u;
     } else if (measure.Name == "ground candidate: starts") {
-      route.CandidateStarts = measure.Value;
+      state.CandidateStarts = measure.Value;
     } else if (measure.Name == "ground candidate: progress") {
-      route.CandidateProgress = measure.Value;
+      state.CandidateProgress = measure.Value;
+    } else if (measure.Name == "render host last submitted: fence wait") {
+      state.PreviousFenceWaitMs = measure.Value;
+    } else if (measure.Name == "subject residency upload attempts in all") {
+      state.PreviousUploadAttempts = measure.Value;
+    } else if (measure.Name == "staged crossings recorded in copy passes") {
+      state.PreviousCrossings = measure.Value;
     }
   }
-  if (found != kAllRouteFields || !std::isfinite(route.StationM) || !std::isfinite(route.Segment) ||
-      !std::isfinite(route.EastM) || !std::isfinite(route.UpM) ||
-      !std::isfinite(route.RendererZM)) {
+  if (found != kAllRouteFields || !std::isfinite(state.StationM) || !std::isfinite(state.Segment) ||
+      !std::isfinite(state.EastM) || !std::isfinite(state.UpM) ||
+      !std::isfinite(state.RendererZM)) {
     return std::nullopt;
   }
-  return route;
+  return state;
 }
 
 [[nodiscard]] std::expected<std::optional<double>, std::string>
@@ -143,7 +152,7 @@ CaptureRouteLength(const Engine &engine, std::string_view viewId) {
     if (const auto advanced = engine.advance(); !advanced) {
       return std::unexpected(Refusal("motion advance", advanced.error()));
     }
-    const auto route = ReadRouteMeasurements(engine);
+    const auto route = ReadMotionState(engine);
     if (!route) { return std::unexpected("motion advance did not publish a finite route pose"); }
     const auto advancedAt = std::chrono::steady_clock::now();
     if (const auto rendered = engine.renderer().render({}); !rendered) {
@@ -155,7 +164,7 @@ CaptureRouteLength(const Engine &engine, std::string_view viewId) {
         std::chrono::duration<double, std::milli>(renderedAt - advancedAt).count();
     const bool settled = engine.settled(WorldQuality::Refined);
     frames.push_back({.TimeS = static_cast<double>(tick + 1) * schedule.StepS,
-                      .Route = *route,
+                      .State = *route,
                       .AdvanceMs = advanceMs,
                       .RenderMs = renderMs,
                       .Settled = settled});
@@ -189,19 +198,22 @@ CaptureRouteLength(const Engine &engine, std::string_view viewId) {
   if (!frames.back().Settled) {
     result.LastUnsettledReason = engine.unsettledReasons(WorldQuality::Refined);
   }
-  result.RouteStationM = frames.back().Route.StationM;
+  result.RouteStationM = frames.back().State.StationM;
   result.HasRouteStation = true;
   result.TracePath = (folder / (std::string(stem) + "-motion.tsv")).string();
   std::ofstream trace(result.TracePath);
   if (!trace) { return std::unexpected("motion trace cannot be opened"); }
   trace << "time_s\tstation_m\tsegment\teast_m\tup_m\trenderer_z_m\tadvance_ms\trender_"
-           "ms\tsettled\tcandidate_starts\tcandidate_last_progress\n";
+           "ms\tsettled\tcandidate_starts\tcandidate_last_progress\tprevious_fence_wait_ms\t"
+           "previous_upload_attempts_current_residency\tprevious_crossings_current_residency\n";
   trace << std::fixed << std::setprecision(6);
   for (const MotionFrame &frame : frames) {
-    trace << frame.TimeS << '\t' << frame.Route.StationM << '\t' << frame.Route.Segment << '\t'
-          << frame.Route.EastM << '\t' << frame.Route.UpM << '\t' << frame.Route.RendererZM << '\t'
+    trace << frame.TimeS << '\t' << frame.State.StationM << '\t' << frame.State.Segment << '\t'
+          << frame.State.EastM << '\t' << frame.State.UpM << '\t' << frame.State.RendererZM << '\t'
           << frame.AdvanceMs << '\t' << frame.RenderMs << '\t' << (frame.Settled ? 1 : 0) << '\t'
-          << frame.Route.CandidateStarts << '\t' << frame.Route.CandidateProgress << '\n';
+          << frame.State.CandidateStarts << '\t' << frame.State.CandidateProgress << '\t'
+          << frame.State.PreviousFenceWaitMs << '\t' << frame.State.PreviousUploadAttempts << '\t'
+          << frame.State.PreviousCrossings << '\n';
   }
   trace.close();
   if (!trace) { return std::unexpected("motion trace could not be written"); }
@@ -219,7 +231,7 @@ RenderAtTime(Engine &engine, MotionSchedule schedule, bool isRoute, ScenarioCapt
     return std::unexpected(Refusal("capture world preload", ready.error()));
   }
   if (isRoute) {
-    const auto route = ReadRouteMeasurements(engine);
+    const auto route = ReadMotionState(engine);
     if (!route) { return std::unexpected("capture has no finite route pose"); }
     result.RouteStationM = route->StationM;
     result.HasRouteStation = true;

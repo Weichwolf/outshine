@@ -39,9 +39,15 @@ Kontrollierte 100-s-Ablationen: ohne `lightVisibility` bleibt bei 95.7167 s
 ein 30.68-ms-Renderstall; bei 640×360 verschiebt er sich um einen Frame und
 dauert 25.78 ms. Schatten und Pixelzahl allein erklären ihn nicht. Ein Plan
 ohne `subjects` ist bei Weltgeometrie ungültig, also keine nutzbare Ablation.
-Nächster Beleg: Motion-TSV koppelt den zuletzt eingereichten Fence-Wait an
-monotone Residency-Upload- und Crossing-Zähler; jede Zeile nennt den
-ein-Frame-Versatz der nach dem Render publizierten Werte ausdrücklich.
+Der Motion-TSV koppelt den zuletzt eingereichten Fence-Wait an Upload- und
+Crossing-Zähler der aktiven Residency. Diese Zähler können bei einem
+Contentwechsel zurücksetzen; ihre Werte sind um ein Frame gegenüber der
+aktuellen Renderzeit versetzt. In einem 100-s-Warm/Offline-Lauf dauert
+`render()` bei 95.7167 s 22.279 ms, davon 21.671 ms Fence-Wait. Die aktive
+Residency meldet in diesem Abschnitt vier zusätzliche Upload-Versuche pro
+Frame, aber keine staged Crossings. Bei 62.1 s tritt ein weiterer
+24.889-ms-Renderausreißer auf. Der Zusammenhang mit Upload-Arbeit ist damit
+beobachtbar, die verursachende GPU-Passzeit noch nicht belegt.
 
 - Stillvergleich behalten; zusätzlich deklarierte Geh-/Fahr-/Flugroute mit Tilegrenzwechsel,
   dichter Stadt, bewaldetem Hang, Tunnelportal und mehrstöckigem Verkehrsknoten. Warm-/Cold-

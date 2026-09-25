@@ -139,6 +139,11 @@ Result Engine::render(Extent frame) {
   S_->Published.Opens();
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+  const Render::RenderFrameTiming &frameTiming = S_->Picture.Device.LastRenderFrameTiming();
+  S_->Published.Places(
+      "render host last submitted: fence wait",
+      frameTiming.PhaseMs[static_cast<size_t>(Render::RenderFramePhase::FenceWait)],
+      "ms");
   S_->Published.Places(
       "subject draws", static_cast<double>(S_->Picture.Device.SubjectDrawCount()), "draws");
   S_->Published.Places(

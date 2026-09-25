@@ -170,7 +170,7 @@ void Usage(std::string_view verb = {}) {
         "  --stats                         timing, readiness and source STAT rows\n"
         "  measures additionally prints all engine diagnostic samples.\n"
         "Motion writes a per-frame TSV with time, station, camera position, advance/render "
-        "time, readiness and ground candidate progress.",
+        "time, readiness, ground candidate progress and previous-frame GPU diagnostics.",
         verb);
   } else if (verb == "shots") {
     std::println("Usage: outshine-client shots [options] [--all | <place> ...]\n"
