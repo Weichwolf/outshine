@@ -54,12 +54,12 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   invalid or mid-bake detail changes reject. `StructureCellOf` assigns an 8x8
   tile-local cell, preserving full cross-cell/dateline bounds; an explicit cell
   request filters the bake and rejects invalid source/request IDs and mid-bake
-  changes. The queue annotates raw structures; live jobs still bake whole tiles.
+  changes. The bounded cell queue builds pinned detail without reaccepting
+  footprints; live scheduling still bakes whole tiles.
 - `SceneResources` restores hidden instance rows after world publication.
   `TilePieces` stages multiple cell levels hidden; a complete source mask/revision
   triggers one atomic swap and retires all products of the previous revision.
   Missing cells, stale sources and failed uploads keep the legacy image visible.
-  Live jobs still publish only legacy cell zero; cell scheduling remains open.
   `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;
   candidate and live uploads retain it. Changed sources retire old variants
   only after successful upload; failure leaves the old image intact.

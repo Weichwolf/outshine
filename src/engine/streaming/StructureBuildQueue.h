@@ -85,6 +85,21 @@ public:
                              std::optional<LevelOfDetail> detail = std::nullopt,
                              BuildPurpose purpose = BuildPurpose::ViewDetail);
 
+  struct CellRequest {
+    uint32_t Tile = 0;
+    uint32_t Cell = 0;
+    LevelOfDetail Detail = LevelOfDetail::Massed;
+    uint64_t SourceKey = 0;
+  };
+
+  [[nodiscard]] static std::optional<uint64_t>
+  QualifiedSourceKey(const Ground::BuildingField &footprints, uint32_t tile);
+  [[nodiscard]] bool PostsCell(Ground::GroundStack &stack,
+                               Ground::BuildingField &footprints,
+                               LongitudeLatitude eye,
+                               const HeightSource &heightAt,
+                               CellRequest request);
+
   struct Landing {
     uint32_t Tile = 0;
     const Generators::BakedTile *Baked = nullptr;
@@ -102,6 +117,11 @@ public:
                HeightRequirement heights = HeightRequirement::AllowFallback,
                std::optional<LevelOfDetail> detail = std::nullopt,
                BuildPurpose purpose = BuildPurpose::ViewDetail);
+  [[nodiscard]] std::expected<std::optional<Landing>, Generators::StructureBakeError>
+  NextCellLanding(const Ground::GroundStack &stack,
+                  const Ground::BuildingField &footprints,
+                  HeightSourceRevision heightSource);
+  void CommitsCellLanding(const Landing &landing) noexcept;
   void ResumeCompletedTasks();
   void CommitsLandings(Ground::GroundStack &stack,
                        Ground::BuildingField &footprints,
@@ -109,6 +129,8 @@ public:
   void Clear();
 
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }
+
+  [[nodiscard]] size_t QueuedCells() const { return CellQueue_.size(); }
 
   [[nodiscard]] bool Complete(const Ground::GroundStack &stack,
                               const Ground::BuildingField &footprints,
@@ -157,6 +179,9 @@ public:
     for (const QueuedBuild &build : Queue_) {
       if (build.Task.Running()) { return Pool_->AwaitCompletion(seconds); }
     }
+    for (const QueuedBuild &build : CellQueue_) {
+      if (build.Task.Running()) { return Pool_->AwaitCompletion(seconds); }
+    }
     return false;
   }
 
@@ -166,6 +191,7 @@ private:
     StructureBuildTask Task;
     uint64_t StreetDigest = 0;
     uint64_t SourceKey = 0;
+    uint32_t Cell = 0;
     size_t BakedStructures = 0;
     size_t Tasks = 0;
     bool Finished = false;
@@ -193,6 +219,7 @@ private:
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;
+  std::deque<QueuedBuild> CellQueue_;
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
   std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut_;
   std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;

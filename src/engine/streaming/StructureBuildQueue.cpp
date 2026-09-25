@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -90,6 +91,7 @@ void RawOf(const Ground::OsmField &vectors,
            const Ground::TileWatermark::Next &next,
            LongitudeLatitude eye,
            std::optional<LevelOfDetail> detail,
+           std::optional<uint32_t> cell,
            Generators::RawTile &raw) {
   raw.LatLon.clear();
   raw.Structures.clear();
@@ -97,7 +99,7 @@ void RawOf(const Ground::OsmField &vectors,
   raw.AnchorEcef = prints.Anchor();
   raw.Eye = eye;
   raw.RequestedDetail = detail;
-  raw.RequestedCell.reset();
+  raw.RequestedCell = cell;
   raw.FocalPx = prints.FocalPx();
   raw.TileSpanM = prints.TileSpanM();
   raw.Extent = vectors.Extent();
@@ -130,7 +132,10 @@ void RawOf(const Ground::OsmField &vectors,
       const size_t ringFirst = static_cast<size_t>(ring.First) * 2u;
       const size_t ringLength = static_cast<size_t>(ring.Count) * 2u;
       const std::span<const double> ringPoints(points.data() + ringFirst, ringLength);
-      const auto cell = Generators::StructureCellOf(tileBounds, ringPoints);
+      const auto assignedCell = Generators::StructureCellOf(tileBounds, ringPoints);
+      if (raw.RequestedCell && (!assignedCell || assignedCell->Index != *raw.RequestedCell)) {
+        continue;
+      }
       const auto local = static_cast<uint32_t>(raw.LatLon.size() / 2);
       raw.LatLon.insert(raw.LatLon.end(),
                         points.begin() + static_cast<long>(ring.First) * 2,
@@ -138,7 +143,7 @@ void RawOf(const Ground::OsmField &vectors,
       raw.Structures.push_back({.LocalFirst = local,
                                 .PointCount = ring.Count,
                                 .SourceFirst = ring.First,
-                                .Cell = cell.value_or(Generators::StructureCell{}),
+                                .Cell = assignedCell.value_or(Generators::StructureCell{}),
                                 .HeightM = heightM,
                                 .Pitched = pitched});
     }
@@ -290,6 +295,18 @@ StructureBuildQueue::~StructureBuildQueue() {
   Clear();
 }
 
+std::optional<uint64_t>
+StructureBuildQueue::QualifiedSourceKey(const Ground::BuildingField &footprints, uint32_t tile) {
+  const auto *accepted = footprints.InputOfTile(tile);
+  if (accepted == nullptr || !accepted->Qualified) { return std::nullopt; }
+  return StructureSourceKey({.Vector = accepted->Vector,
+                             .HeightSources = accepted->Sources,
+                             .HeightDigest = accepted->Bake.HeightRasterDigest,
+                             .StreetDigest = accepted->Bake.StreetDigest,
+                             .TileSpanM = accepted->Bake.TileSpanM,
+                             .FallbackHeights = false});
+}
+
 bool StructureBuildQueue::BakeRevision::Matches(const Ground::OsmField &vectors,
                                                 const Ground::BuildingField &footprints,
                                                 LongitudeLatitude eye,
@@ -328,10 +345,14 @@ bool StructureBuildQueue::QualifiedSources(const Ground::GroundStack &stack,
 
 size_t StructureBuildQueue::QueuedStructures() const {
   size_t count = 0;
-  for (const QueuedBuild &bake : Queue_) {
-    const size_t all = bake.Task.Raw().Structures.size();
-    count += all > bake.BakedStructures ? all - bake.BakedStructures : 0;
-  }
+  const auto countRemaining = [&count](const std::deque<QueuedBuild> &queue) {
+    for (const QueuedBuild &bake : queue) {
+      const size_t all = bake.Task.Raw().Structures.size();
+      count += all > bake.BakedStructures ? all - bake.BakedStructures : 0;
+    }
+  };
+  countRemaining(Queue_);
+  countRemaining(CellQueue_);
   return count;
 }
 
@@ -378,22 +399,110 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
 }
 
 void StructureBuildQueue::ResumeCompletedTasks() {
-  for (QueuedBuild &bake : Queue_) {
-    if (!bake.Finished) {
-      bake.Finished = bake.Task.TakeCompletion(*Pool_);
-      if (bake.Finished) {
-        bake.BakedStructures = bake.Task.Progress().BakedStructures();
-        ++bake.Tasks;
-        CompletedRanges_ += bake.Task.Result().LastRanges;
-        SlowestRangeMs_ = std::max(SlowestRangeMs_, bake.Task.Result().LastRangeMs);
-        SlowestFinalizationMs_ =
-            std::max(SlowestFinalizationMs_, bake.Task.Result().FinalizationMs);
-        SlowestQueueMs_ = std::max(SlowestQueueMs_, bake.Task.Result().LastQueueMs);
-        SlowestTaskMs_ = std::max(SlowestTaskMs_, bake.Task.Result().LastTaskMs);
+  const auto resume = [this](std::deque<QueuedBuild> &queue) {
+    for (QueuedBuild &bake : queue) {
+      if (!bake.Finished) {
+        bake.Finished = bake.Task.TakeCompletion(*Pool_);
+        if (bake.Finished) {
+          bake.BakedStructures = bake.Task.Progress().BakedStructures();
+          ++bake.Tasks;
+          CompletedRanges_ += bake.Task.Result().LastRanges;
+          SlowestRangeMs_ = std::max(SlowestRangeMs_, bake.Task.Result().LastRangeMs);
+          SlowestFinalizationMs_ =
+              std::max(SlowestFinalizationMs_, bake.Task.Result().FinalizationMs);
+          SlowestQueueMs_ = std::max(SlowestQueueMs_, bake.Task.Result().LastQueueMs);
+          SlowestTaskMs_ = std::max(SlowestTaskMs_, bake.Task.Result().LastTaskMs);
+        }
+      }
+      if (bake.Finished && bake.Task.Result().Status && !bake.Task.Result().Tile) {
+        PostSlice(bake);
       }
     }
-    if (bake.Finished && bake.Task.Result().Status && !bake.Task.Result().Tile) { PostSlice(bake); }
+  };
+  resume(Queue_);
+  resume(CellQueue_);
+}
+
+bool StructureBuildQueue::PostsCell(Ground::GroundStack &stack,
+                                    Ground::BuildingField &footprints,
+                                    LongitudeLatitude eye,
+                                    const HeightSource &heightAt,
+                                    CellRequest request) {
+  const Ground::OsmField *vectors = stack.Vectors();
+  if (Pool_ == nullptr || Mesher_ == nullptr || vectors == nullptr || !footprints.Anchored() ||
+      request.Tile >= vectors->Tiles().size() || request.Cell == 0 ||
+      request.Cell > Generators::kStructureCellsPerTile || request.Detail > LevelOfDetail::Massed ||
+      request.SourceKey == 0 ||
+      Queue_.size() + CellQueue_.size() >=
+          std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow)) {
+    return false;
   }
+  const auto *accepted = footprints.InputOfTile(request.Tile);
+  const auto sourceKey = QualifiedSourceKey(footprints, request.Tile);
+  if (!sourceKey || *sourceKey != request.SourceKey ||
+      (accepted->OccupiedCells & (uint64_t{1} << (request.Cell - 1u))) == 0 ||
+      accepted->Vector != VectorSource(*vectors, request.Tile) ||
+      std::ranges::any_of(CellQueue_, [request](const QueuedBuild &queued) {
+        return queued.Task.Tile() == request.Tile && queued.Cell == request.Cell &&
+               queued.Revision.RequestedDetail == request.Detail &&
+               queued.SourceKey == request.SourceKey;
+      })) {
+    return false;
+  }
+  const auto &tile = vectors->Tiles()[request.Tile];
+  const Ground::FeatureRun over{.From = tile.FirstFeature,
+                                .To = static_cast<size_t>(tile.FirstFeature) + tile.FeatureCount};
+  std::shared_ptr<const Ground::HeightField> heights;
+  double heightResolutionMs = 0.0;
+  if (!ResolveHeights(*vectors,
+                      over,
+                      stack.FinestZoomOf(Data::DataKind::Elevation),
+                      heightAt,
+                      HeightRequirement::FineOnly,
+                      heights,
+                      {.Deferred = Deferred_, .DurationMs = heightResolutionMs}) ||
+      !heights) {
+    return false;
+  }
+  SlowestHeightResolutionMs_ = std::max(SlowestHeightResolutionMs_, heightResolutionMs);
+  const uint64_t streetDigest = StreetDigest(stack.Ways(), *vectors, request.Tile);
+  const uint64_t pinnedKey = StructureSourceKey({.Vector = VectorSource(*vectors, request.Tile),
+                                                 .HeightSources = heights->Sources(),
+                                                 .HeightDigest = heights->RasterDigest(),
+                                                 .StreetDigest = streetDigest,
+                                                 .TileSpanM = footprints.TileSpanM(),
+                                                 .FallbackHeights = heights->Fallback()});
+  if (pinnedKey != request.SourceKey) { return false; }
+  const size_t recycleCapacity = IdleRaw_.size() + Queue_.size() + CellQueue_.size() + 1u;
+  IdleRaw_.reserve(recycleCapacity);
+  IdleOut_.reserve(recycleCapacity);
+  IdleScratch_.reserve(recycleCapacity);
+  std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
+  const Ground::TileWatermark::Next next{
+      .From = over.From, .To = over.To, .Tile = request.Tile, .Found = true};
+  const auto extractionAt = std::chrono::steady_clock::now();
+  RawOf(*vectors, footprints, stack.Ways(), next, eye, request.Detail, request.Cell, *raw);
+  SlowestRawExtractionMs_ = std::max(
+      SlowestRawExtractionMs_,
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extractionAt)
+          .count());
+  std::unique_ptr<StructureBuildTask::Output> output = Borrowed(IdleOut_);
+  *output = {};
+  CellQueue_.push_back(
+      {.Revision = {.Vectors = vectors->Generation(),
+                    .HeightSource = heightAt.Revision,
+                    .TileSpanM = footprints.TileSpanM(),
+                    .Eye = eye,
+                    .RequestedDetail = request.Detail,
+                    .Purpose = BuildPurpose::ViewDetail},
+       .Task = StructureBuildTask(
+           request.Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
+       .StreetDigest = streetDigest,
+       .SourceKey = request.SourceKey,
+       .Cell = request.Cell});
+  PostSlice(CellQueue_.back());
+  ++Posted_;
+  return true;
 }
 
 size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
@@ -417,7 +526,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
       std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow);
   const int blockZoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   size_t examined = 0;
-  while (Queue_.size() < inFlightMost) {
+  while (Queue_.size() + CellQueue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;
     double heightResolutionMs = 0.0;
     const auto groundStands = [&](Ground::FeatureRun over) {
@@ -461,7 +570,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     if (!replacement) { prints.Take(next->Tile); }
     std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
     const auto extractionAt = std::chrono::steady_clock::now();
-    RawOf(vectors, prints, stack.Ways(), *next, eye, detail, *raw);
+    RawOf(vectors, prints, stack.Ways(), *next, eye, detail, std::nullopt, *raw);
     const uint64_t streetDigest = StreetDigest(stack.Ways(), vectors, next->Tile);
     const uint64_t sourceKey = StructureSourceKey({.Vector = VectorSource(vectors, next->Tile),
                                                    .HeightSources = heights->Sources(),
@@ -578,6 +687,70 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   return landings;
 }
 
+std::expected<std::optional<StructureBuildQueue::Landing>, Generators::StructureBakeError>
+StructureBuildQueue::NextCellLanding(const Ground::GroundStack &stack,
+                                     const Ground::BuildingField &footprints,
+                                     HeightSourceRevision heightSource) {
+  if (CellQueue_.empty() || Pool_ == nullptr) { return std::nullopt; }
+  QueuedBuild &bake = CellQueue_.front();
+  const Ground::OsmField *vectors = stack.Vectors();
+  const auto *accepted = footprints.InputOfTile(bake.Task.Tile());
+  const bool current = vectors != nullptr && accepted != nullptr &&
+                       bake.Revision.Vectors == vectors->Generation() &&
+                       bake.Revision.HeightSource == heightSource &&
+                       QualifiedSourceKey(footprints, bake.Task.Tile()) == bake.SourceKey &&
+                       (accepted->OccupiedCells & (uint64_t{1} << (bake.Cell - 1u))) != 0 &&
+                       bake.Task.Tile() < vectors->Tiles().size() &&
+                       VectorSource(*vectors, bake.Task.Tile()) == accepted->Vector;
+  if (!current) {
+    bake.Task.RequestStop();
+    if (!bake.Finished) { bake.Finished = bake.Task.TakeCompletion(*Pool_); }
+    if (bake.Finished) {
+      IdleRaw_.push_back(bake.Task.TakeRaw());
+      IdleOut_.push_back(bake.Task.TakeOutput());
+      IdleScratch_.push_back(bake.Task.TakeScratch());
+      CellQueue_.pop_front();
+      ++Discarded_;
+    }
+    return std::nullopt;
+  }
+  ResumeCompletedTasks();
+  if (!bake.Finished) { return std::nullopt; }
+  if (!bake.Task.Result().Status) { return std::unexpected(bake.Task.Result().Status.error()); }
+  const auto &completed = bake.Task.Result().Tile;
+  if (!completed) { return std::nullopt; }
+  if (completed->RequestedCell != bake.Cell ||
+      completed->RequestedDetail != bake.Revision.RequestedDetail ||
+      completed->OccupiedCells != (uint64_t{1} << (bake.Cell - 1u))) {
+    return std::unexpected(
+        Generators::StructureBakeError{Generators::StructureBakeErrorKind::InvalidCell});
+  }
+  return std::optional<Landing>{{.Tile = bake.Task.Tile(),
+                                 .Baked = &*completed,
+                                 .AnchorEcef = bake.Task.Raw().AnchorEcef,
+                                 .SourceKey = bake.SourceKey,
+                                 .Footprints = std::nullopt}};
+}
+
+void StructureBuildQueue::CommitsCellLanding(const Landing &landing) noexcept {
+  assert(!CellQueue_.empty());
+  QueuedBuild &bake = CellQueue_.front();
+  const Generators::BakedTile *const baked =
+      bake.Task.Result()
+          .Tile.transform([](const Generators::BakedTile &tile) { return &tile; })
+          .value_or(nullptr);
+  assert(bake.Finished && baked != nullptr && landing.Baked == baked &&
+         landing.Tile == bake.Task.Tile() && landing.SourceKey == bake.SourceKey &&
+         !landing.Footprints);
+  BakedMs_ += bake.Task.Result().BakeMs;
+  SlowestBakeMs_ = std::max(SlowestBakeMs_, bake.Task.Result().BakeMs);
+  IdleRaw_.push_back(bake.Task.TakeRaw());
+  IdleOut_.push_back(bake.Task.TakeOutput());
+  IdleScratch_.push_back(bake.Task.TakeScratch());
+  CellQueue_.pop_front();
+  ++Landed_;
+}
+
 void StructureBuildQueue::CommitsLandings(Ground::GroundStack &stack,
                                           Ground::BuildingField &footprints,
                                           std::span<Landing> landings) noexcept {
@@ -631,7 +804,12 @@ void StructureBuildQueue::Clear() {
     bake.Task.RequestStop();
     if (Pool_ != nullptr) { bake.Task.Join(*Pool_); }
   }
+  for (QueuedBuild &bake : CellQueue_) {
+    bake.Task.RequestStop();
+    if (Pool_ != nullptr) { bake.Task.Join(*Pool_); }
+  }
   Queue_.clear();
+  CellQueue_.clear();
   IdleRaw_.clear();
   IdleOut_.clear();
   IdleScratch_.clear();
