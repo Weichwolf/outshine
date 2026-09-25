@@ -63,6 +63,7 @@ public:
   RestorePieceMaterials(SubjectDraw &subjects, SubjectDraw *glass, std::string &error);
 
   [[nodiscard]] size_t PieceSourceBytes() const noexcept;
+  [[nodiscard]] size_t PieceSourceCount() const noexcept;
 
   [[nodiscard]] size_t PieceSlots() const noexcept { return Pieces_.size(); }
 

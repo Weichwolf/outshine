@@ -38,6 +38,17 @@ casters and an all-zero atlas. `make format`, the focused suite and
 `LINT_JOBS=2 make lint` pass. This proves empty-world replacement only; it does
 not explain the Hockenheim paced/static colour split or rare overhead polygon.
 
+Fresh offline captures at 74.85 s now reproduce both colours in separate
+processes with identical 46-tile structure digests and 538 cache deliveries.
+The bright pixel (91,88,83) had 92/94 live native pieces in two runs; dark
+(4,10,26) had 102/105. `SceneResources` reports the same number of occupied
+piece sources as `SubjectDraw` live pieces in each run. Thus the extra resident
+pieces are registered sources outside the 46-tile `TilePieces` owner set, not
+just stale draw-table rows. `Engine::inspect()` now reports current structure
+digest/tile count and native piece source/residency/triangle counts so this
+distinction remains measurable. The earlier publication digest was a snapshot,
+not a live ownership check.
+
 ## Ownership and solution direction
 
 `src/engine/Laying.cpp` and ground/structure publication own the coherent
@@ -52,6 +63,10 @@ Determine whether the overhead polygon is malformed native geometry, a stale
 GPU buffer/transform, or a caster drawn with stale bounds before changing
 lighting. Invalidate or rebuild only the affected derived product at
 publication. No route-specific hide, global fill or relaxed readiness.
+Trace which `SceneResources::PlacePiece` owner creates sources absent from
+`TilePieces::Standing_`; registration, replacement and candidate abandonment
+must release each owned handle exactly once. Prove the source/residency/owner
+count invariant at every publication boundary before changing shading.
 
 ## Falsifiable acceptance
 

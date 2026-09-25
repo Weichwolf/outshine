@@ -16,6 +16,12 @@ werden übersprungen. Der aktuelle Renderlog meldet für Feldkirch 31 673 Gebäu
 Das ist eine Laufstatistik dieses Providerpfads, keine Aussage über die gesamte OSM-Datenbank.
 Die wiederholten hohen Prismen in Olympiaturm und den Städten sind sichtbar; welchen
 Anteil Quellenverlust und Defaultgenerator haben, muss die Provenienz zeigen.
+`StructureBuildQueue::PitchedOf` reduziert sogar ein vorhandenes `roof:shape`
+auf flach/geneigt; `BuildingShape::RoofOf` erfindet daraus Giebel, Walm oder
+Mansarde. Der gepinnte Hockenheim-Roh-OSM-Ausschnitt enthält keine Gebäude;
+er belegt keine Dach-Tag-Abdeckung. Eine weltweite Quote wird erst aus einem
+versionierten, regional geschichteten OSM-Sample mit Nenner Gebäude/Parts,
+Provider-Tagverlust und `roof:shape`/Höhen-/Material-Abdeckung berichtet.
 
 ## Implementierung
 
@@ -26,10 +32,22 @@ Anteil Quellenverlust und Defaultgenerator haben, muss die Provenienz zeigen.
    Multipolygon mit Löchern, building/part, height/min_height, levels/min_level,
    roof shape/height/levels/direction/orientation, Material/Farbe und Nutzung erhalten.
    Zahlen mit Einheiten normalisieren; explizit, abgeleitet, unbekannt unterscheiden.
+   Bekannte `roof:shape`-Werte als präzise Form durchreichen; unbekannte Werte
+   weder als pitched=true noch als Flat umdeuten. Dachdetails wie Schornsteine
+   nur aus belegten Tags/Geometrie, sonst keine unbegründete Serienausstattung.
 3. Explizite Höhe hat Vorrang; Levels mit plausibler Geschosshöhe ableiten; ungeklärte
    Gebäude regional/nutzungsabhängig aus einer deklarierten Verteilung generieren.
    Seed aus Feature-ID und World-Seed, niemals Tile-Ankunft oder Kameraentfernung.
    Teile und Elternumriss nicht doppelt extrudieren; Innenhöfe bleiben frei.
+   Dachform folgt einer im Szenario deklarierten Policy: `osm-only` verwendet
+   explizite OSM-Form und belegte `building:part`-Geometrie; fehlende Form
+   bleibt unbekannt und erhält nur einen technischen, als unbekannt markierten
+   Abschluss. `plausible` ergänzt fehlende Formen aus Nutzung, Grundriss,
+   Nachbarbebauung und regionaler OSM-Evidenz mit begrenztem Kandidatenraum.
+   Der Seed hängt an Feature-ID und Welt-Seed; Annahme und Konfidenz stehen im
+   ConstructionResult. `plausible` ist der visuelle Standard, `osm-only` der
+   strikt quellentreue Prüfmodus. Kein Place-Namen-Preset. Explizites OSM hat
+   in beiden Modi Vorrang; Policy-Wechsel darf keine belegte Dachform ändern.
 4. OSM-Brücken/Tunnel/Layers und Stützmauern als Konstruktionen erhalten. Einheitliches
    Höhen-/Kontaktmodell mit 2121; keine Brücke als auf DEM gepresstes Straßenband.
 
@@ -41,6 +59,16 @@ Anteil Quellenverlust und Defaultgenerator haben, muss die Provenienz zeigen.
       bekannte Höhen werden nie durch die Verteilung überschrieben.
 - [ ] Olympiaturm/Graz/Feldkirch: plausible Nutzungs- und Höhenverteilung ohne Place-ID-Regeln;
       keine Pflicht zur Kopie ungetaggter Landmarken. Tile-/LOD-Wechsel ändert keine Höhe.
+- [ ] `roof:shape=gabled|hipped|flat|mansard` und unbekannter Tag erreichen
+      den Generator unterscheidbar; explizite Formen bleiben über Tilefolge,
+      LOD und erneuten Import stabil. Ohne Dachtag wird keine Form als gemessen
+      ausgegeben. Regionale Stichprobe nennt Dach-Tag-Anteil mit Zähler/Nenner.
+- [ ] Gleiche OSM-/DEM-/Seed-Eingabe rendert unter beiden Policies stabil;
+      nur unbelegte Dächer wechseln. Hockenheim und eine historisch dichte
+      Stadt mit gepinnten OSM-Daten in gleichen Kamera-/Lichtlagen als PNG
+      öffnen: weder serielle Einfamilienhausdächer am Ring noch ausschließlich
+      Flachdächer in der historischen Stadt. Sichtbare Form, Schatten,
+      Stadtsilhouette und Framekosten entscheiden über den `plausible`-Prior.
 
 Wahl: OSM-Semantik plus generische prozedurale Bauformen; Unreal-PCG ist das strukturelle
 Vorbild, RAGE die visuelle Referenz, kein belegter Quellcodevertrag.

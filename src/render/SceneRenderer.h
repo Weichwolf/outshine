@@ -319,6 +319,10 @@ public:
     return ActiveState().Content.Subjects.PiecesStanding();
   }
 
+  [[nodiscard]] size_t PieceSourceCount() const {
+    return ActiveState().Content.Resources.PieceSourceCount();
+  }
+
   [[nodiscard]] uint32_t PieceTriangles() const {
     return ActiveState().Content.Subjects.PieceTriangles();
   }

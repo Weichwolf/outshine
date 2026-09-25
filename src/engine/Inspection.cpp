@@ -127,6 +127,23 @@ void Engine::State::Inspected() {
   if (!Picture.Standing) { return; }
   static const Heap::Tag kFrameMeasurementsTag("frame-measures");
   const Heap::Tagged measuring(kFrameMeasurementsTag);
+  const uint64_t structures = World.Pieces.Digest();
+  size_t structureTiles = 0;
+  World.Pieces.ForEachDigest([&structureTiles](TilePieces::DigestRecord) { ++structureTiles; });
+  Published.Places(
+      "world: live structure digest high half", static_cast<double>(structures >> 32u), "digest");
+  Published.Places("world: live structure digest low half",
+                   static_cast<double>(static_cast<uint32_t>(structures)),
+                   "digest");
+  Published.Places("world: live structure tiles", static_cast<double>(structureTiles), "tiles");
+  Published.Places(
+      "render: live native pieces", static_cast<double>(Picture.Device.PiecesStanding()), "pieces");
+  Published.Places("render: live piece sources",
+                   static_cast<double>(Picture.Device.PieceSourceCount()),
+                   "pieces");
+  Published.Places("render: live native triangles",
+                   static_cast<double>(Picture.Device.PieceTriangles()),
+                   "triangles");
   InspectShadow(Picture, Published);
   InspectCulling(Picture, Published);
   InspectIrradiance(Picture, Published);

@@ -3,7 +3,7 @@ State: open
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
-Depends: 2152
+Depends: 2152, 2295
 
 # Terrain and local lights cast budgeted shadows
 
@@ -27,6 +27,11 @@ Welt-/Instanz-Policy und den fehlenden Terrain-Aufruf nicht ab.
 2. Cluster/Froxel-Listen und deklarierte Überlaufpolitik; bei wenigen Lichtern gemessenen
    Fast-Path behalten. Punctual-Lights nach Khronos-Einheiten, lokale begrenzte Shadow-Slots,
    Updatepriorität nach Einfluss/Bewegung und Hysterese. Keine still verlorenen Lichter.
+   Sichtbare Lichter und schattenwerfende Lichter getrennt budgetieren:
+   Tausende Emittenten dürfen Licht beitragen, während nur die wichtigsten
+   lokale Schattenkarten erhalten. Schattenlos heißt nicht lichtlos. Caster-
+   Revision und Lichttransform sind Teil des Cache-Schlüssels; Tag, Dämmerung,
+   Nacht und Scheinwerferwechsel dürfen keine fremden/stale Schatten übernehmen.
 3. Vegetation/Alpha-Cutouts und 2140s Cloud-Transmittance für Boden/Subjects einbeziehen;
    überlappende Sichtbarkeit physikalisch kombinieren. Schattenbudget pro Frame messen.
 
@@ -34,6 +39,12 @@ Welt-/Instanz-Policy und den fehlenden Terrain-Aufruf nicht ab.
       muss das Sichtbarkeitsoracle brechen. Bias-Testreihe trennt Acne von Peter-Panning.
 - [ ] 100 lokale Lichter ohne 16-Licht-Abschneiden; Referenz gegen vollständige Lichtsumme.
       Cluster abschalten ist ein Korrektheitsvergleich, nicht automatisch ein Performancefehler.
+- [ ] Gleiche Straße bei klarem Mittag, Dämmerung und Nacht mit 1000 sichtbaren
+      Emittenten rendern und PNGs öffnen. Sonnenschatten verschwindet mit
+      Sonnenlicht; lokale Lichtwirkung bleibt auch ohne Shadow-Slot erhalten.
+      Bewegte Scheinwerfer und LOD-/Weltwechsel erzeugen keine geerbten Schatten.
+      Shadow-Slots/Atlas-Bytes, Updatezahl und GPU-p95/p99 am Zielgerät messen;
+      bei Überlast stabil priorisieren statt pro Frame zu flackern.
 - [ ] 720p60 bewegte Tag-/Nachtszenen nach 2092 mit allen aktiven Passes.
 
 Wahl: [Filament](https://google.github.io/filament/main/filament.html), portable Cluster und

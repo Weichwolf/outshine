@@ -306,6 +306,11 @@ size_t SceneResources::PieceSourceBytes() const noexcept {
   return bytes;
 }
 
+size_t SceneResources::PieceSourceCount() const noexcept {
+  return static_cast<size_t>(
+      std::ranges::count_if(Pieces_, [](const Piece &piece) { return piece.State.Occupied; }));
+}
+
 std::expected<HeightPageHandle, std::string>
 SceneResources::PlaceHeightPage(SubjectDraw &subjects, std::span<const float> nodes) {
   if (FirstFreeHeightPage_ == kNoResourceSlot && HeightPages_.size() >= kNoResourceSlot) {
