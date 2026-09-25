@@ -7,8 +7,10 @@
 #include <bit>
 #include <cstdint>
 #include <optional>
+#include <algorithm>
 #include <span>
 #include <string_view>
+#include <vector>
 
 namespace outshine {
 
@@ -43,8 +45,16 @@ struct StructureSourceInputs {
   };
   word(static_cast<uint64_t>(inputs.Vector.has_value()));
   if (inputs.Vector) { source(*inputs.Vector); }
-  word(inputs.HeightSources.size());
-  for (const Data::TileSourceIdentity &height : inputs.HeightSources) { source(height); }
+  std::span<const Data::TileSourceIdentity> heights = inputs.HeightSources;
+  std::vector<Data::TileSourceIdentity> normalized;
+  if (!std::ranges::is_sorted(heights) || std::ranges::adjacent_find(heights) != heights.end()) {
+    normalized.assign(heights.begin(), heights.end());
+    std::ranges::sort(normalized);
+    normalized.erase(std::ranges::unique(normalized).begin(), normalized.end());
+    heights = normalized;
+  }
+  word(heights.size());
+  for (const Data::TileSourceIdentity &height : heights) { source(height); }
   word(inputs.HeightDigest);
   word(inputs.StreetDigest);
   word(std::bit_cast<uint64_t>(inputs.TileSpanM));

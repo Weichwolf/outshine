@@ -93,7 +93,10 @@ public:
           Input_{.Vector = std::move(vector),
                  .Sources = std::vector<Data::TileSourceIdentity>(sources.begin(), sources.end()),
                  .Qualified = qualified,
-                 .Bake = bake} {}
+                 .Bake = bake} {
+      std::ranges::sort(Input_.Sources);
+      Input_.Sources.erase(std::ranges::unique(Input_.Sources).begin(), Input_.Sources.end());
+    }
 
     [[maybe_unused]] const BuildingField *Owner_ = nullptr;
     uint32_t Tile_ = 0;

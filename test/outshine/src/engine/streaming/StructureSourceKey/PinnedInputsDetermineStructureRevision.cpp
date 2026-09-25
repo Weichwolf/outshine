@@ -37,6 +37,14 @@ int main() {
   const uint64_t baseline = key(vector, heights, 7, 11, 2400, false);
   CHECK(baseline != 0 && baseline == key(vector, heights, 7, 11, 2400, false),
         "equal pinned source snapshots produce one reusable key");
+  auto secondHeight = height;
+  secondHeight.Tile.X += 1;
+  const std::array ordered{height, secondHeight};
+  const std::array reversed{secondHeight, height};
+  const std::array repeated{height, secondHeight, height};
+  CHECK(key(vector, ordered, 7, 11, 2400, false) == key(vector, reversed, 7, 11, 2400, false) &&
+            key(vector, ordered, 7, 11, 2400, false) == key(vector, repeated, 7, 11, 2400, false),
+        "source arrival order and duplicate delivery do not change geometry identity");
   auto nextVector = vector;
   nextVector.Revision = "two";
   CHECK(key(nextVector, heights, 7, 11, 2400, false) != baseline,

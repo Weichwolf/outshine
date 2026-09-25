@@ -67,6 +67,10 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 - `BuildingField::Footprint` now contains semantic data only. Render detail is
   retained in `BakedTile::FootprintDetails`; a camera-only replacement updates
   render triangle counts without changing the semantic ground revision.
+- DEM source identities are a set: `StructureSourceKey` uses the existing
+  sorted fast path and normalizes reversed/duplicate deliveries; accepted
+  footprint inputs store the same canonical identity set. The raster digest
+  still distinguishes changed sample values.
 - Warm/offline Hockenheim 74.85 s static/motion PNG difference fell from
   5,719 to 153/921,600 pixels after separating semantic ground revision from
   camera detail; 124 exceed 1/255. Static repeats are pixel-exact, both road

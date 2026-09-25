@@ -25,6 +25,9 @@ int main() {
                                   .Tile = {.Zoom = 15, .X = 14, .Y = 16},
                                   .SourceId = "dem",
                                   .Revision = "one"};
+  auto nextHeight = height;
+  nextHeight.Tile.X += 1;
+  std::array sources{height, nextHeight};
   const auto input = [](double focal, double eyeLon) {
     return BuildingField::BakeInputs{.HeightRasterDigest = 5,
                                      .StreetDigest = 6,
@@ -34,27 +37,27 @@ int main() {
   };
   field.PreparesAcceptances({.Prints = 1, .Spread = 1, .Across = 1, .Tiles = 1});
   field.Take(7);
-  auto first =
-      field.PrepareAcceptance(7, baked, std::span(&height, 1), true, vector, input(720, 9));
+  auto first = field.PrepareAcceptance(7, baked, sources, true, vector, input(720, 9));
   field.CommitAcceptance(std::move(first), vectors, baked);
   const uint64_t semanticRevision = field.Revision();
   baked.Triangles = 3;
   field.PreparesAcceptances({.Prints = 1, .Spread = 1, .Across = 1});
-  auto camera =
-      field.PrepareAcceptance(7, baked, std::span(&height, 1), true, vector, input(1080, 10));
+  const std::array repeated{nextHeight, height, height};
+  auto camera = field.PrepareAcceptance(7, baked, repeated, true, vector, input(1080, 10));
   field.ReplaceAcceptance(std::move(camera), baked);
   CHECK(field.Revision() == semanticRevision && field.TrianglesHanded() == 3 &&
             field.InputOfTile(7) && field.InputOfTile(7)->Bake.Eye.LongitudeDeg == 10,
-        "camera-only render detail updates measurements without revising semantic ground");
+        "camera detail and duplicate source delivery do not revise semantic ground");
+  CHECK(field.InputOfTile(7) && field.InputOfTile(7)->Sources.size() == 2,
+        "accepted source identity stores a canonical set");
   height.Revision = "two";
-  auto source =
-      field.PrepareAcceptance(7, baked, std::span(&height, 1), true, vector, input(1080, 10));
+  sources.front() = height;
+  auto source = field.PrepareAcceptance(7, baked, sources, true, vector, input(1080, 10));
   field.ReplaceAcceptance(std::move(source), baked);
   CHECK(field.Revision() == semanticRevision + 1,
         "changed pinned DEM source revises the semantic footprint input");
   prints.front().HeightM = 15.0f;
-  auto shape =
-      field.PrepareAcceptance(7, baked, std::span(&height, 1), true, vector, input(1080, 10));
+  auto shape = field.PrepareAcceptance(7, baked, sources, true, vector, input(1080, 10));
   field.ReplaceAcceptance(std::move(shape), baked);
   CHECK(field.Revision() == semanticRevision + 2 && field.OfTile(7).front().HeightM == 15.0f,
         "changed footprint shape revises the semantic ground state");
