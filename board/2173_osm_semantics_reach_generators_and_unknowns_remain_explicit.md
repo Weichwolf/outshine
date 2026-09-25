@@ -48,6 +48,10 @@ Provider-Tagverlust und `roof:shape`/Höhen-/Material-Abdeckung berichtet.
    ConstructionResult. `plausible` ist der visuelle Standard, `osm-only` der
    strikt quellentreue Prüfmodus. Kein Place-Namen-Preset. Explizites OSM hat
    in beiden Modi Vorrang; Policy-Wechsel darf keine belegte Dachform ändern.
+   Der visuelle Solarpunk-2050-Default darf unbelegte Dach-/Fassadendetails,
+   Begrünung und Energieanlagen nur als markierte plausible Konstruktionen
+   ergänzen. Dachfläche, Last, Sonne, Wasser und Wartungszugang begrenzen sie;
+   `osm-only` und explizite OSM-Material-/Formangaben haben Vorrang.
 4. OSM-Brücken/Tunnel/Layers und Stützmauern als Konstruktionen erhalten. Einheitliches
    Höhen-/Kontaktmodell mit 2121; keine Brücke als auf DEM gepresstes Straßenband.
 

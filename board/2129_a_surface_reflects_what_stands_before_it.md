@@ -28,6 +28,9 @@ die Fotos spiegeln Himmel/Ufer/Berge. Die zu spiegelnde Welt ist die generierte 
 - [ ] Husum vertikale Kaimauer/Fronten; Malcesine Berge/Halbinsel; Koerbersee dunklerer
       kleiner See; Windreihe und Kamerafahrt auf Ghosting/Flicker prüfen. Keine exakten Wellen.
 - [ ] Jede Stufe einzeln zeitlich und visuell vergleichen; 2092 misst den Gesamtrender.
+- [ ] Nasse Nachtstraße mit emissiver Reklame und bewegten Scheinwerfern: Spiegelbild
+      folgt Geometrie, Rauheit und Kamera. SSR-Ausfall am Bildrand fällt weich auf
+      Probe/Planar zurück; keine aus der Emission erfundene Lichtquelle.
 
 Wahl: [Filament IBL](https://google.github.io/filament/dup/iblprefilter.html) plus gemessene
 SSR/Planar-Stufen wie in öffentlich dokumentierten Echtzeitrenderern. RAGE nur Bildbenchmark.

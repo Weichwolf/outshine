@@ -21,6 +21,9 @@ Kernkompetenz. Ort, Datum, Uhrzeit, Höhe und Wetter treiben denselben konsisten
 Zustand für direkte/indirekte Beleuchtung, Medium und Belichtung. Sonnen- und lokale
 Lichtquellen einschließlich Abschattung integrieren; klare Luft braucht subtile Tiefe,
 Nebel/Gegenlicht stärkere Streuung. Keine fest eingestellten Place-/Sonnenuntergangs-Looks.
+Lokale Nebelbänke, Tunnelabluft und Straßenlichtkegel sind räumlich begrenzte Medien,
+keine globale Haze-Erhöhung. Ihre Streuung nutzt dieselben lokalen Lichter und Caster
+wie 2128; Extinktion und Luftperspektive dürfen nicht doppelt gezählt werden.
 
 Abnahmematrix: beide Hemisphären, Äquator, mittlere Breiten, Polarregionen und Hochgebirge;
 Jahreszeiten, Morgen/Mittag/Abend/Nacht, Polartag und Polarnacht; klar/bedeckt/Nebel.
@@ -56,6 +59,9 @@ Zuständigkeiten: 2167 indirektes Licht, 2128 Schatten/Lichter, 2140 Wolken, 215
       Kontrastverlust. Snapshot-Replay liefert identischen Zustand; absichtliches Abklemmen
       eines Verbrauchers scheitert am jeweiligen Wirkungsoracle.
 - [ ] Keine Wetter-IO/Generierung blockiert einen Frame; 2092 misst Wechsel unter Bewegung.
+- [ ] Nachtstraße mit Laternen, bewegtem Scheinwerfer und lokalem Nebel: Kegel und
+      Verdeckung reagieren auf Licht/Caster; ohne Nebel verschwindet nur die Streuung.
+      Räumliche Auflösung und zeitliche Reprojektion messen, Ghosting im Schwenk geht rot.
 
 Wahl: eine deklarative Wetterquelle mit physikalischen Verbrauchern statt handgemalter
 Place-Looks. Unreal-Atmosphäre ist die technische Referenz, RAGE-Timecycle nur das

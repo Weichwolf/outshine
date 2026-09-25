@@ -39,6 +39,10 @@ Bewegungsunschärfe aus Simulationszeit/Belichtungsdauer, nicht schwankender CPU
 - [ ] Bedeckter Mittag, Sonne, Dämmerung, Nacht visuell abnehmen; keine Pflicht zur unbekannten
       Webcam-Automatik. Material-/Geometriefehler bleiben in scharfen Diagnosebildern sichtbar.
 - [ ] Post-Kosten in 2092 inklusive Bewegung/History und kompletter Welt messen.
+- [ ] Dieselbe dichte Stadt bei Mittag und Nacht: emissive Flächen, direkte
+      Beleuchtung, Reflexion, Medium und Belichtung als getrennte lineare AOVs;
+      Look/Glare erst danach. Nacht darf farbkräftig sein, aber Highlights nicht
+      clippen oder dunkle Geometrie verdecken. Standbild und Schwenk beurteilen.
 
 Wahl: Filament als physikalische Referenz und deklarative Zeit/Wetter-Looks als Sandbox-
 Struktur; Unreal-CineCamera/RAGE-Look als Vergleich. Fassadengeometrie gehört in 2138/2171.

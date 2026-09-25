@@ -13,12 +13,8 @@ Priority: P1
 590696be3: Bodenpalette erhält Roughness und die BRDF ihren dielektrischen Glanzanteil.
 Native/Ground-Vergleich samt Fallback und Slope-Mix grün; Malcesine-8dd84aa7 visuell geprüft.
 
-Aktueller Teilnachweis (2111): native Masked-/DoubleSided-Farbmaps greifen auch
-bei gemeinsam instanzierten Piece-Meshes, direkt und mit Cluster-Culling.
-66 Checks grün; erzwungene Opaque-Pipeline verletzt acht Masken-Tiefenchecks.
-PNG und Logpfade in 2111. Das frühere pauschale Batch.Kind ist kein Nachweis
-eines Masked-Fehlers, weil Encode SurfaceSlot.Kind verwendet. Mip-Alpha-Coverage,
-Normalmaps und Blatttransmission bleiben damit noch offen.
+Native Masked-/DoubleSided-Farbmaps greifen auch bei instanzierten Pieces;
+Mip-Alpha-Coverage, Normalmaps und Blatttransmission bleiben offen (2111).
 
 Alle neun Render zeigen weitgehend einfarbige Dächer/Wände/Boden. Die jüngste
 Slope-Regel in `groundClass.glsl`/`groundLit.glsl` mischt steile Flächen Richtung Rock;
@@ -55,6 +51,11 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
    Keine fest eingebauten Texturassets für generierte Weltoberflächen. Gefilterte prozedurale
    Tiles/Mips sind versionierte, verwerfbare Caches derselben Funktionen, wenn Messung sie
    billiger als direkte GLSL-Auswertung zeigt. Importierte glTF-Texturen bleiben Quelldaten.
+6. `decay` als dimensionsloser Alterungsgrad im Materialzustand; jedes Rezept definiert
+   seine Reaktion. Regenlauf, Exposition, Feuchte, Temperatur, Bewuchs und Nutzung
+   lokalisieren Ablagerung/Wasserflecken, Korrosion, Flechten, Moos und Abrieb.
+   Rost benötigt oxidierbares Metall, Moos Feuchte/Licht; kein universelles Schmutzrauschen.
+   Farbe, Rauheit, Normal/Relief und Materialmischung folgen demselben stabilen Feld.
 
 ## Abnahme
 
@@ -65,6 +66,9 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
 - [ ] Parametervariation bleibt deterministisch und regional plausibel; kein Foto wird Input.
       Katalog mit >1000 Rezepten und vielen Instanzen: stabile IDs, Deduplizierung,
       Streaming-/Cache-Eviction ohne Bildsprung, p95/p99 und Bytes messen.
+- [ ] Gleiche Betonkante trocken/feucht, neu/gealtert und um 180° gedreht:
+      Ablaufspuren folgen Schwerkraft; Holz, Metall und Stein altern unterscheidbar.
+      `decay=0` entfernt Alterung, Material-/Wetterwechsel ändert nur passende Effekte.
 
 Referenzen: [Filament](https://google.github.io/filament/main/filament.html), [glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
 
@@ -84,8 +88,7 @@ importiertes glTF. Generator-Ausgang → Material-ID → Upload → Draw separat
 | Wasser/Schnee/Eis | dielektrisches MR plus passende Transmission/Volumen-/Streumodelle |
 | generierte Props/Partikel | Oberflächenmaterial bzw. expliziter Emissions-/Volumenvertrag |
 
-Holz/Stein/Blatt/Asphalt sind Dielektrika; Lack und Rost kein blankes Metall.
-MR ersetzt weder Blattstreuung noch Wasserabsorption oder Wolkenmodelle.
+Holz/Stein/Blatt/Asphalt sind Dielektrika; MR ersetzt weder Blattstreuung noch Wasserabsorption.
 
 - [ ] Coverage-Report nennt jeden Generator und jede ausgegebene Oberflächenklasse samt
       Materialbindung; fehlende/ungültige ID geht rot. Bewusstes Debugmaterial ist markiert.
@@ -94,13 +97,10 @@ MR ersetzt weder Blattstreuung noch Wasserabsorption oder Wolkenmodelle.
       RGB+Glanz-Abkürzungen. Einheitliches Defaultmaterial als Mutation verletzt das Oracle.
 ## Verbleibender Filtervertrag
 
-## Verbleibender Filtervertrag
-
 Native Farb-/Normal-/MR-Bilder und flächenintegrierte Mips sind implementiert.
 Der rote externe Filter-/Wiederholungsnachweis bleibt in 2179. Noch offen:
 Alpha-Coverage bei Mips/Bewegung, Normalvarianz und Rauheit, Anisotropie,
 Speicher-/Uploadbudget. Boxfilter und ein Materialatlas allein nehmen keine Welt ab.
-Historische Messungen und Negativkontrollen stehen in der Git-Historie.
 
 ## Plausibler Boden vor Einzelpflanzen
 Zuerst Gelände ohne Vegetationsgeometrie visuell abnehmen. Aus OSM/DEM, Höhe,

@@ -98,3 +98,5 @@ remain valid, but Refined alone does not yet imply a stable image.
   camera alignment within numeric bounds; visually acceptable transitions.
 
 WI 2261 uses this same route and scenario as the later dynamic vehicle test.
+WI 2296 extends the proven route/vehicle into a 24-hour day/night/weather
+integration race; neither replaces this camera-lap acceptance.

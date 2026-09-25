@@ -46,6 +46,14 @@ generator runs, so no generator knows whether a building came from OSM or from t
 That is the same seam board:2110 drew -- the engine reads, the layer edits, the generator
 expands -- with the edit added between the first two.
 
+Default dress is a plausible Solarpunk 2050, overridable by the scenario:
+electrified street equipment, feasible roof/ground energy systems, planted
+structures and material aging. An OSM-confirmed roof, material or road class
+is evidence, not a disposable style hint. Additions need structural space,
+sun/water access and maintenance logic; no blanket green overlay or claim
+that generated details depict the actual future. The `osm-only` mode omits
+unsupported additions while preserving source-derived geometry.
+
 ## What will be true
 
 - [ ] The four verbs stand in the grammar, read and written back, each with a case

@@ -14,6 +14,10 @@ Geometrie, Metallic-Roughness-Materialien, volumetrisches Licht, Atmosphäre und
 kohärentes Bild in Nähe und Bewegung, zu jeder Tageszeit und bei jedem Wetter. OSM/DEM liefern
 keine fotografische Wahrheit; Generatoren treffen daher überprüfbare Gestaltungsentscheidungen.
 RDR2 und GTA5 auf PS4 sind Maßstab für Bildkohärenz, Dichte und Laufzeit, keine Stilvorlage.
+Die visuelle Default-Epoche ist ein plausibles Solarpunk-2050: elektrifizierte Mobilität,
+begrünte Gebäude und Infrastruktur, Energieanlagen und materialgerechte Alterung.
+Szenarien können die Epoche überschreiben; belegte OSM-Formen und physikalische Verträge
+haben Vorrang vor Stilannahmen. Kein Anspruch, den wirklichen Zustand von 2050 vorherzusagen.
 
 Diese Datei enthält dauerhafte Regeln. Stand, Prioritäten, Befunde und konkrete Entscheidungen
 gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
