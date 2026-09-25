@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2169
-Depends:
+Depends: 2290
 Priority: P0
 Area: generators, engine, render, materials
 Tags: buildings, hockenheim, glsl, visual-acceptance
@@ -17,6 +17,8 @@ provider ID 344001642 and no building type. `StructureBake` assigns it a
 9-metre default height and usually Fine LOD. The three observed copies were
 successive snapshots of the same tile, not simultaneous duplicate geometry.
 `BuildingMesh` already encodes facade style, frontage, bay and floor in UVs.
+The current packed `StoredVertex` clamps both coordinates to [-4,4], so
+those encoded values are already lost before upload (WI 2290).
 `TilePieces::Hands` sets no `Textured` flag and `Laying` registers only a flat
 wall material, so those UVs are neither uploaded nor consumed. The builder's
 large footprint still needs better massing after this material defect.
