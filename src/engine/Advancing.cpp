@@ -436,7 +436,6 @@ bool Engine::State::Updates() {
     const LongitudeLatitude stands = CurrentGeographicFocus();
     if (World.Stack.Opened()) {
       const auto streamingFrom = std::chrono::steady_clock::now();
-      const size_t heldBefore = World.Stack.Footprints().IngestedTiles();
       {
         static const Heap::Tag kRestandingTag("world-restand");
         const Heap::Tagged restanding(kRestandingTag);
@@ -475,10 +474,8 @@ bool Engine::State::Updates() {
       Cost.StreamedMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
                                                                   streamingFrom)
                             .count();
-      Cost.StreamedTiles = World.Stack.Footprints().IngestedTiles() - heldBefore;
     } else {
       Cost.StreamedMs = 0.0;
-      Cost.StreamedTiles = 0;
     }
     Cost.Streaming.Took(Cost.StreamedMs);
   }

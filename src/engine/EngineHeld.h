@@ -362,7 +362,6 @@ struct Spent {
   Counter Crowns;
   UpdateComponents WorstSuccessfulUpdate;
   double StreamedMs = 0.0;
-  size_t StreamedTiles = 0;
   Counter Render;
 
   void ObservesSuccessfulUpdate(double milliseconds, bool streamsGround) noexcept {

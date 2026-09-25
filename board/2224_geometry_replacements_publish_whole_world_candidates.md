@@ -17,9 +17,8 @@ prüft das nicht. Invalidation muss die nächste abgeleitete Generation markiere
 der bisherige publizierte Owner bleibt bis zum gemeinsamen Commit nutzbar.
 Regression: publiziere A, liefere neue OSM-Kacheln, lehne B spät ab; prüfe alte
 Footprints/Netze samt Abfragen sowie Bild/Audio und danach gültigen B-Retry.
-Nebenbefund: `Advancing.cpp` subtrahiert IngestedTiles über diesen Reset unsigned;
-Cost.StreamedTiles ist derzeit ungenutzt. Entfernen oder echte Arbeitsereignisse
-zählen; keine bloße Nullklammer als Ersatz für den Publikationsvertrag.
+Der ungenutzte `Cost.StreamedTiles`-Zähler mit unsigned Reset-Unterlauf ist entfernt;
+das repariert den ausstehenden Publikationsvertrag nicht.
 
 `Core::RuntimeScene` besitzt native Weltinputs; `Render::WorldContent` besitzt daraus erzeugte
 GPU-Produkte. `Surrounds` besitzt Streamingzustand, logisches Netz und Ressourcenhalter.
