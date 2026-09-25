@@ -22,6 +22,9 @@ those encoded values are already lost before upload (WI 2290).
 `TilePieces::Hands` sets no `Textured` flag and `Laying` registers only a flat
 wall material, so those UVs are neither uploaded nor consumed. The builder's
 large footprint still needs better massing after this material defect.
+Most visible Box-LOD walls use `FaceUvX` instead of window coordinates, so a
+shader alone leaves the Hockenheim 88-s image unchanged even when its material
+mode reaches the GPU. The Box generator must emit scaled bay/floor UVs too.
 
 ## Executable architecture
 
@@ -44,6 +47,10 @@ or interior collision: those are separate geometry/simulation obligations.
 Keep material validation, CPU/GPU packing, shader reflection and public
 documentation consistent. Test `None` as a negative control and a generated
 facade at two distances/resolutions for stable pixels and bounded frame cost.
+Fine and Box LODs share the same encoded UV contract. Box walls retain simple
+per-edge bay repetition and floor height despite simplified geometry; all
+other faces keep negative identifiers. Cap bay counts below the encoding
+stride so a long edge cannot silently change the decoded style.
 
 ## Acceptance
 
