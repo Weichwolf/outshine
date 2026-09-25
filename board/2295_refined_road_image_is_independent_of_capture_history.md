@@ -28,6 +28,16 @@ starts, so the rare failure is not a network miss. The current SurfaceIdentity
 probe samples one pixel and did not
 catch the overhead polygon during its one observed appearance.
 
+A focused world-replacement regression found a second, deterministic path to
+stale shadows: publishing zero-triangle geometry retained the previous
+`SubjectDraw` mesh. The replacement still drew one caster, and 92,672 atlas
+pixels remained nonzero. `RuntimeScene::BindBuild` now clears the renderer mesh
+and placements for empty geometry; world publication invalidates the shadow
+cache, and an empty cast resets its draw count. The same test now sees zero
+casters and an all-zero atlas. `make format`, the focused suite and
+`LINT_JOBS=2 make lint` pass. This proves empty-world replacement only; it does
+not explain the Hockenheim paced/static colour split or rare overhead polygon.
+
 ## Ownership and solution direction
 
 `src/engine/Laying.cpp` and ground/structure publication own the coherent

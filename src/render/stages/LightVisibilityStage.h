@@ -25,6 +25,8 @@ public:
 
   void Binds(SubjectDraw &subjects) noexcept { Subjects_ = &subjects; }
 
+  void Invalidate() noexcept { Cache_.Invalidate(); }
+
   struct Overhead {
     Vec3f ToSun;
     Vec3f Up;

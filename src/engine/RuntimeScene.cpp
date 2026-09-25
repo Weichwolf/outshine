@@ -643,6 +643,10 @@ std::expected<void, std::string> RuntimeScene::PlanBuild() {
 std::expected<void, std::string> RuntimeScene::BindBuild() {
   std::string error;
   if (Shaped_.TriangleCount() == 0) {
+    if (!Renderer_->SetSubjectMesh(Render::SubjectMesh{}, error) ||
+        !Renderer_->SetSubjectPlacements(nullptr, 0, error)) {
+      return std::unexpected(std::move(error));
+    }
     if (!Camera_.NeedsBinding()) { Camera_.Unbind(); }
     if (!Renderer_->SetSubjectMaterials(Materials_.Slots(), error)) {
       return std::unexpected(std::move(error));

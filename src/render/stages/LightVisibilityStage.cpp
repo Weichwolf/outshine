@@ -208,6 +208,7 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
                                 const Vec3 &preView,
                                 int atlasPx,
                                 const PassRecording &into) {
+  CastBatches_ = 0;
   if (Subjects_ == nullptr) { return; }
   const SubjectResidency &Resident_ = Subjects_->Resident();
   const Vec3 &Anchor = Subjects_->AnchorM();
@@ -242,7 +243,6 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   SDL_PushGPUVertexUniformData(
       into.Commands, 0, uniform.data(), static_cast<uint32_t>(uniform.size() * sizeof(uniform[0])));
 
-  CastBatches_ = 0;
   const uint32_t subjectRows = Subjects_->SubjectRows();
   for (const DrawBatch &batch : Batches) {
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < subjectRows) { continue; }
