@@ -17,6 +17,7 @@
 #include <string>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -121,7 +122,6 @@ int main() {
                                            .TileSpanM = 1000,
                                            .Eye = eye});
   prints.CommitAcceptance(std::move(pending), *vectors, accepted);
-  const uint64_t semanticRevision = prints.Revision();
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
   CHECK(sourceKey && *sourceKey != 0, "accepted tile exposes its qualified source key");
   if (!sourceKey) { return Report(); }
@@ -134,6 +134,42 @@ int main() {
         into = block(at);
         return true;
       }};
+  prints.BeginRefinement();
+  const LongitudeLatitude movedEye{.LongitudeDeg = eye.LongitudeDeg + 0.01,
+                                   .LatitudeDeg = eye.LatitudeDeg};
+  CHECK(queue.Posts(stack,
+                    prints,
+                    movedEye,
+                    heights,
+                    1,
+                    StructureBuildQueue::HeightRequirement::FineOnly,
+                    LevelOfDetail::Massed) == 1,
+        "whole-tile view replacement posts against the accepted source");
+  std::vector<StructureBuildQueue::Landing> whole;
+  for (int attempt = 0; attempt < 100 && whole.empty(); ++attempt) {
+    auto ready = queue.NextLandings(stack,
+                                    prints,
+                                    movedEye,
+                                    heights.Revision,
+                                    1,
+                                    StructureBuildQueue::HeightRequirement::FineOnly,
+                                    LevelOfDetail::Massed);
+    CHECK(ready.has_value(), "whole-tile worker completes without a bake error");
+    if (!ready) { break; }
+    whole = std::move(*ready);
+    if (whole.empty()) { (void)queue.AwaitSlice(0.02); }
+  }
+  CHECK(whole.size() == 1 && whole.front().Footprints.has_value(),
+        "whole-tile landing carries prepared semantic acceptance");
+  if (whole.size() != 1) { return Report(); }
+  queue.CommitsLandings(stack, prints, whole);
+  const auto *qualified = prints.InputOfTile(0);
+  CHECK(qualified && qualified->OccupiedCells == accepted.OccupiedCells &&
+            qualified->CellBounds[cell->Index - 1u] == cell->Footprint &&
+            qualified->CellMaxHeightM[cell->Index - 1u] > 0 &&
+            StructureBuildQueue::QualifiedSourceKey(prints, 0) == sourceKey,
+        "whole-tile acceptance retains the baked cell mask, full bounds and maximum height");
+  const uint64_t semanticRevision = prints.Revision();
   const StructureBuildQueue::CellRequest request{
       .Tile = 0, .Cell = cell->Index, .Detail = LevelOfDetail::Massed, .SourceKey = *sourceKey};
   CHECK(

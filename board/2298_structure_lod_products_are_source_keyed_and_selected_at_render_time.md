@@ -65,8 +65,8 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   candidate and live uploads retain it. Changed sources retire old variants
   only after successful upload; failure leaves the old image intact.
 - `BuildingField::Footprint` contains semantic data only. Render detail stays
-  in `BakedTile::FootprintDetails`; accepted inputs retain source cell mask,
-  full footprint envelopes and maximum heights for view selection; camera-only changes leave the semantic revision stable.
+  in `BakedTile::FootprintDetails`; whole-tile landings carry source cell masks,
+  full envelopes and maximum heights into acceptance; camera-only changes leave the semantic revision stable.
 - DEM source identities are a set: `StructureSourceKey` uses the existing
   sorted fast path and normalizes reversed/duplicate deliveries; accepted
   footprint inputs store the same canonical identity set. The raster digest
