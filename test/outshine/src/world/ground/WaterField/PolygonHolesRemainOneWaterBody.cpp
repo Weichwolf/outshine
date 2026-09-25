@@ -1,6 +1,7 @@
 #include "BuildingField.h"
 #include "GroundSnapshot.h"
 #include "OsmField.h"
+#include "PublishedRegion.h"
 #include "StreetField.h"
 #include "TangentFrame.h"
 #include "WaterField.h"
@@ -233,6 +234,25 @@ int main() {
       CHECK(CoveredBy(positions, triangles, {.EastM = wet.EastM, .NorthM = wet.NorthM}) &&
                 !CoveredBy(positions, triangles, {.EastM = recess.EastM, .NorthM = recess.NorthM}),
             "mesh covers the wet bar but leaves the concave recess dry");
+    }
+  }
+  const RegionSources pinned = RegionSources::Snapshot(&field, StreetField{}, water);
+  field.Declare(std::span<const OsmField::Declared>{}, TileAt{.X = 31, .Y = 32});
+  water = WaterField{};
+  CHECK(pinned.Vectors && pinned.Vectors->Generation() != field.Generation() &&
+            pinned.WaterBodies.Surfaces().size() == 1 && water.Surfaces().empty(),
+        "candidate water and OSM inputs survive mutable ingest replacement");
+  if (pinned.Vectors) {
+    Geometry retained;
+    const auto surface = retained.addSurface("water", Material{});
+    const auto points = pinned.Vectors->Points();
+    if (surface && points.size() >= 2) {
+      const TangentFrame frame =
+          TangentFrame::At({.LongitudeDeg = points[1], .LatitudeDeg = points[0]});
+      const auto built = Generators::AppendWaterSurfaceGeometry(
+          retained, *surface, pinned.WaterBodies, points, frame);
+      CHECK(built && built->Triangles == 8 && built->RefusedTopology == 0,
+            "replacement keeps the candidate lake with its original island topology");
     }
   }
   return Report();

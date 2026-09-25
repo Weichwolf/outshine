@@ -536,8 +536,10 @@ struct Engine::State {
   [[nodiscard]] GroundBuildProgress AdvanceGroundConstructionStages(const TangentFrame &standing,
                                                                     Patchwork &patchwork,
                                                                     GroundBuildState &state);
-  [[nodiscard]] bool
-  BuildWaterSurfaces(const TangentFrame &standing, Geometry &ground, MaterialInstance ringSurface);
+  [[nodiscard]] bool BuildWaterSurfaces(const TangentFrame &standing,
+                                        const Ground::RegionSources &sources,
+                                        Geometry &ground,
+                                        MaterialInstance ringSurface);
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded, GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundWithinBudget(GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundRetirement();

@@ -100,6 +100,8 @@ public:
 
   [[nodiscard]] const GroundBuildProducts &Products() const noexcept { return Products_; }
 
+  [[nodiscard]] const Ground::RegionSources &Sources() const noexcept { return Sources_; }
+
   [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
     return Products_.OwnedHeapBytes() + Sources_.HeapBytes();
   }

@@ -1035,6 +1035,12 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
   std::ranges::sort(ordered, {}, [](const auto &one) { return one.first; });
   for (auto &entry : ordered) { yielding.push_back(std::move(entry.second)); }
 }
+
+[[nodiscard]] bool SameVectorRevision(const Ground::OsmField *pinned,
+                                      const Ground::OsmField *live) noexcept {
+  if (pinned == nullptr || live == nullptr) { return pinned == live; }
+  return pinned->OriginToken() == live->OriginToken() && pinned->Generation() == live->Generation();
+}
 }
 
 Engine::State::GroundBuildProgress
@@ -1075,7 +1081,12 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           GroundBuildState &state) {
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.Pressing() == nullptr) {
-    const Ground::OsmField *const shapes = World.Stack.Vectors();
+    const Ground::OsmField *const live = World.Stack.Vectors();
+    const Ground::OsmField *const shapes = state.Candidate().Sources().Vectors.get();
+    if (!SameVectorRevision(shapes, live)) {
+      World.GroundBuild.reset();
+      return true;
+    }
     std::vector<EarthworkStamp> yielding;
     if (shapes != nullptr) {
       if (shapes->Generation() != state.Revision().VectorGeneration) {
@@ -1110,7 +1121,8 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     }
     const size_t builtPads = yielding.size();
     if (shapes != nullptr) {
-      AppendWaterBasinStamps(World.Stack.WaterBodies(), shapes->Points(), standing, yielding);
+      AppendWaterBasinStamps(
+          state.Candidate().Sources().WaterBodies, shapes->Points(), standing, yielding);
     }
     const size_t builtLakes = yielding.size() - builtPads;
     if (Session.Declared.Render.Audits) {
@@ -1238,11 +1250,12 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
 }
 
 bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
+                                       const Ground::RegionSources &sources,
                                        Geometry &ground,
                                        MaterialInstance ringSurface) {
   const auto waterAt = std::chrono::steady_clock::now();
-  const Ground::WaterField &water = World.Stack.WaterBodies();
-  const Ground::OsmField *const vectors = World.Stack.Vectors();
+  const Ground::WaterField &water = sources.WaterBodies;
+  const Ground::OsmField *const vectors = sources.Vectors.get();
   const std::span<const double> points =
       vectors != nullptr ? vectors->Points() : std::span<const double>{};
   const auto built =
@@ -2298,7 +2311,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundConstructionStage
     case Core::GroundBuildSchedule::Stage::NeedsWater: {
       const auto began = std::chrono::steady_clock::now();
       GroundBuildProducts &build = state.Candidate().Products();
-      if (!BuildWaterSurfaces(standing, build.Ground, build.GroundSurface)) {
+      if (!BuildWaterSurfaces(
+              standing, state.Candidate().Sources(), build.Ground, build.GroundSurface)) {
         return GroundBuildProgress::Failed;
       }
       state.AdvanceStage();

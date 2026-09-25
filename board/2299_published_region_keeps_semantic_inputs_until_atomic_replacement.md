@@ -44,7 +44,9 @@ now pauses unless vector generation/tile sources and accepted footprint revision
 match the published region; tests reject changed footprints, vector generations
 and a different vector field with the same generation counter. The Hockenheim
 74.85-s refined static and motion captures remain gap-free; the opened motion
-PNG is pixel-identical. Other direct `Stack` readers still need migration.
+PNG is pixel-identical. Candidate earthwork stamps and water meshes now read
+the pinned vector/water snapshot; changed vector identity cancels earthworks.
+Hockenheim's refined still remains identical. Other `Stack` reads need migration.
 The injected late-GPU-failure fixture retains the old semantic owner; retry
 swaps it with the native scene. Hockenheim Playable still at 74.85 s is
 pixel-identical to the prior snapshot build; its PNG was opened. The
