@@ -62,6 +62,10 @@ The focused anchor/detail test passes. Hockenheim 74.85 s paced capture keeps
 RGB 91/88/83; p99 is 17.16 ms with 51/4,491 over-budget frames and 520.1 MiB
 peak heap. Static/paced PNGs still differ in 5,719/921,600 pixels (0.621%),
 only near the horizon. The remaining selection is upstream of the mesher.
+Second slice: `RawTile::RequestedDetail` produces explicit Fine/Shell/Massed
+products whose digest is invariant under changed eye/focal input. A source
+height change alters the digest; Skyline and mid-bake detail changes reject.
+The engine queue still uses automatic eye selection and needs conversion.
 
 1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: split semantic
    footprint acceptance from camera-local detail choice. Add stable cell/level

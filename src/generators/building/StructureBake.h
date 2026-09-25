@@ -7,6 +7,7 @@
 #include <string_view>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -23,7 +24,7 @@ inline constexpr double kStructureEyeReuseM = 64.0;
 inline constexpr double kStructureEyeDetailGuardM = 128.0;
 static_assert(kStructureEyeDetailGuardM >= kStructureEyeReuseM);
 
-enum class StructureBakeErrorKind { Cancelled };
+enum class StructureBakeErrorKind { Cancelled, InvalidDetail, ChangedDetail };
 
 using StructureBakeError = std::variant<StructureMeshError, ClusterError, StructureBakeErrorKind>;
 
@@ -34,7 +35,12 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError, Struct
   if (const auto *cluster = std::get_if<ClusterError>(&error)) {
     return outshine::Describe(*cluster);
   }
-  return "structure bake cancelled";
+  switch (std::get<StructureBakeErrorKind>(error)) {
+    case StructureBakeErrorKind::Cancelled: return "structure bake cancelled";
+    case StructureBakeErrorKind::InvalidDetail: return "unsupported structure detail level";
+    case StructureBakeErrorKind::ChangedDetail: return "structure detail changed during bake";
+  }
+  return "unknown structure bake error";
 }
 
 struct RawTile {
@@ -57,6 +63,7 @@ struct RawTile {
   std::vector<Way> Ways;
   Vec3 AnchorEcef;
   LongitudeLatitude Eye;
+  std::optional<LevelOfDetail> RequestedDetail;
   double FocalPx = 0.0;
   double TileSpanM = 0.0;
   int Extent = 4096;
@@ -72,6 +79,7 @@ struct BakedTile {
   ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;
   bool FallbackHeights = false;
+  std::optional<LevelOfDetail> RequestedDetail;
   std::vector<outshine::Ground::BuildingField::Footprint> Prints;
   std::vector<double> SeatSpreadM;
   std::vector<double> AcrossM;
