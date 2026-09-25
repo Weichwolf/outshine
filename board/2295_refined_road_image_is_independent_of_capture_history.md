@@ -11,69 +11,36 @@ Tags: determinism, publication, shadow, hockenheim
 
 ## Evidence
 
-At Hockenheim 74.850 s/station 1373.068 m, the static and paced captures both
-report `Refined=1`, road surface ID 1, depth 0.018272724 and the same upward
-normal. Static RGB is (91,88,83), scene-linear (3602,3444,3196); paced RGB
-is (4,10,26), scene-linear (168.75,374.75,830.5). Two fresh static runs and
-a direct-first-declaration render are pixel-identical. The paced PNG shows a
-large dark wedge. Sun height (45.671 deg) and shadow radius (7913.537 m)
-agree, while atlas maximum depth and world geometry counts differ.
+At 74.850 s/station 1373.068 m, an early paced capture had a dark road
+(4,10,26) while a Refined still showed (91,88,83). A final Refined preload
+and renderer settle removed that dark wedge; both now report the same road
+surface ID, depth, normal and RGB. `RuntimeScene::BindBuild` also now clears
+empty replacement geometry and its shadows: a regression sees zero casters
+and a zero atlas instead of 92,672 stale pixels. Live structure-tile uploads
+enter the published renderer scope, preventing a retired candidate from
+receiving their piece handles; the candidate/live-tile fixture checks both.
 
-At 91.433 s/station 1830.597 m, one static Refined render produced enormous
-overhead polygons and a dark road (4,10,26); the paced render gave a clear sky
-and (93,90,85). Six immediate fresh static repeats and a further 20 fresh
-processes all rendered the clear version. The measured dark-static and
-bright-paced runs both had 538 cache deliveries, zero misses and zero provider
-starts, so the rare failure is not a network miss. The current SurfaceIdentity
-probe samples one pixel and did not
-catch the overhead polygon during its one observed appearance.
+One of 27 earlier fresh 91.433-s stills showed enormous overhead polygons;
+the other runs were clear with 538 cache deliveries and zero provider starts.
+No failing provenance row exists, so its precise cause remains unproved.
 
-A focused world-replacement regression found a second, deterministic path to
-stale shadows: publishing zero-triangle geometry retained the previous
-`SubjectDraw` mesh. The replacement still drew one caster, and 92,672 atlas
-pixels remained nonzero. `RuntimeScene::BindBuild` now clears the renderer mesh
-and placements for empty geometry; world publication invalidates the shadow
-cache, and an empty cast resets its draw count. The same test now sees zero
-casters and an all-zero atlas. `make format`, the focused suite and
-`LINT_JOBS=2 make lint` pass. This proves empty-world replacement only; it does
-not explain the Hockenheim paced/static colour split or rare overhead polygon.
+The 74.85-s still/motion comparison had also mixed qualities: without a
+probe the still stopped at Playable, while motion reached Refined. That gave
+38,013/921,600 differing pixels (4.125%), mostly roofs and facades. With
+explicit `--quality refined` on both current captures, only 130 pixels differ
+(0.0141%), 120 by more than 1/255; worst is 112/255 at a building edge.
+The final road probe is (91,88,83) in both. Both PNGs were opened: no dark
+wedge or overhead polygon, but a few building edges differ. A same-build
+still with/without `--probe-pixel` was pixel-identical. Two no-probe stills
+varied only by 1/255. The 4,491-frame motion run had zero missing contacts,
+p99 13.13 ms, 11 frames over 16.67 ms and 538 cached deliveries.
 
-Fresh offline captures reproduced both colours with 538 cache deliveries.
-Bright/dark runs had 92/102 native piece sources; the excess came from owned
-renderer sources, not draw-table rows. `Engine::inspect()` reports live
-structure digest, sources, residency and triangles.
-
-One source-count split is a renderer-state ownership error. A retired ground
-candidate can remain active while `AdvanceStructureBuilds` publishes a live
-tile; its piece operations entered the private candidate. In one trace,
-published tile 16 held slot 10:1 after the candidate reused that slot.
-`PublishStructureTile` now explicitly enters the published-world scope. A
-candidate/live-tile fixture checks both registries. Eight fresh offline
-74.85-s static captures gave the bright road probe (91,88,83). Before final
-settle, motion at 74.85 s and 91.433 s was dark. At 74.85 s, both
-worlds have 46 structure tiles and 92 native sources, yet tile 24's bake
-digest differs (3,759,789,901,417,230,002 vs 1,467,637,370,733,713,420),
-both with fine heights; native triangles differ by 1,178. `RawTile::Eye`
-drives structure LOD and accepted bakes reuse an eye within 64 m. Tile 24 had
-identical height/street digests, 29 height sources and qualified inputs, but
-its accepted bake eyes differed by about 109 m; Fine/Shell counts were
-51/1337 static and 38/1350 paced. The static client also preloads Refined and
-settles the renderer, while the paced client previously took its final PNG
-without either step. After current-eye acceptance became part of Refined,
-the 74.85 s paced run correctly reported Refined=0 before final preload.
-With motion-end Refined preload and settle, the probe matches static RGB 91/88/83
-and the dark wedge is gone. Fresh same-build PNGs still differ in 5,679 of
-921,600 pixels (0.616%, worst channel 118/255), confined to 43 horizon rows:
-accepted camera-local LOD within the 64 m reuse radius still needs a stable
-representation. The paced 4,491 frames were all unsettled before final preload;
-p99 was 17.24 ms, with 53 frames over the 16.67 ms target.
-
-After the semantic footprint revision stopped changing for camera-only LOD
-replacements (WI 2298), fresh 74.85-s static/motion captures differ in 153
-pixels, 124 by more than 1/255; the road probes agree. At 91.433 s, both
-probes agree and all 13,606 differing pixels vary by at most 1/255. Opened
-PNGs show no overhead polygon in this sample. The rare failure remains open
-until a deterministic fixture or bounded repetition proves its cause.
+Tile 24 previously had identical source/height/street inputs but different
+camera-eye bakes (51/1337 Fine/Shell still, 38/1350 paced; eye offset about
+109 m). Camera-local LOD and 64-m bake reuse remain the leading explanation
+for the few large pixel differences, not yet a demonstrated cause of the rare
+polygon. WI 2298 specifies source-keyed cell/level products and render-time
+selection; this WI owns final image/shadow convergence and the rare failure.
 
 ## Ownership and solution direction
 
@@ -111,7 +78,7 @@ count invariant at every publication boundary before changing shading.
 ## Reproduction
 
 Run `build/outshine-client run --offline --view lap --at-seconds 74.85
---probe-pixel 640,650 --stats src/assets/places/Hockenheimring.scenario`
+--quality refined --probe-pixel 640,650 --stats src/assets/places/Hockenheimring.scenario`
 once as a still and once with `--motion`. Repeat with time `91.416667`.
 Use distinct `--into` folders, retain the four PNGs and compare the `PIXEL`
 rows and final publication/caster diagnostics. A single matching run does not

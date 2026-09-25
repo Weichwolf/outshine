@@ -42,11 +42,12 @@ An empty replacement tile and accepted footprint source retain independent
 query identities after the ingest owner changes and dies. Live structure-tile
 updates and the remaining direct `Stack` readers still need migration.
 The injected late-GPU-failure fixture retains the old semantic owner; retry
-swaps it with the native scene. Hockenheim still at 74.85 s is pixel-identical
-to the prior snapshot build (0/921,600 changed); its PNG was opened. The
+swaps it with the native scene. Hockenheim Playable still at 74.85 s is
+pixel-identical to the prior snapshot build; its PNG was opened. The
 4,491-frame offline camera run has zero missing contacts, 538 cache deliveries
-and no provider starts; its final frame still differs from the still in 4.125%
-of pixels, the separate camera/LOD issue in 2295.
+and no provider starts. An earlier 4.125% image difference compared that
+Refined motion frame to a Playable still. Explicit Refined still/motion now
+differ in 130/921,600 pixels, with 120 above 1/255 (WI 2295).
 
 ## Ownership and data flow
 

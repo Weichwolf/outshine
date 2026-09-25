@@ -18,7 +18,7 @@ class Coordinates(unittest.TestCase):
         cases = ((('--help',), ('render', 'run', 'shots', 'measures', '<command> --help')),
                  (('render', '--help'), ('asset.gltf|asset.glb', '--camera', '--stats', 'draw_frames')),
                  (('run', '--help'), ('--view', '--motion', '--samples', '--stats',
-                                     '--probe-pixel', 'playable/refined')),
+                                     '--probe-pixel', '--quality playable|refined')),
                  (('shots', '--help'), ('--preload-seconds', '--offline', '--stats')),
                  (('measures', '--help'), ('diagnostic samples', '--stats')),
                  (('height', '--help'), ('latitude-deg', 'longitude-deg')))
@@ -125,6 +125,27 @@ class Coordinates(unittest.TestCase):
             self.assertEqual(result.returncode, 2, (value, result.stderr))
             self.assertIn('--probe-pixel requires nonnegative integer x,y', result.stderr)
             self.assertNotIn('SDL', result.stdout + result.stderr)
+
+    def test_capture_quality_is_explicit_before_pixel_diagnostics(self):
+        env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
+        base = [str(CLIENT), 'run', '--view', 'lap', '--at-seconds', '1']
+        for quality in ('', 'high', 'Refined'):
+            result = subprocess.run([*base, '--quality', quality, 'missing.scenario'], cwd=ROOT,
+                                    env=env, capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('--quality requires playable or refined', result.stderr)
+            self.assertNotIn('SDL', result.stdout + result.stderr)
+        without_quality = subprocess.run([*base, '--probe-pixel', '1,2', 'missing.scenario'],
+                                         cwd=ROOT, env=env, capture_output=True, text=True,
+                                         timeout=10)
+        self.assertEqual(without_quality.returncode, 2)
+        self.assertIn('--probe-pixel requires --quality refined', without_quality.stderr)
+        self.assertNotIn('SDL', without_quality.stdout + without_quality.stderr)
+        refined = subprocess.run([*base, '--quality', 'refined', '--probe-pixel', '1,2',
+                                  'missing.scenario'], cwd=ROOT, env=env, capture_output=True,
+                                 text=True, timeout=10)
+        self.assertEqual(refined.returncode, 2)
+        self.assertIn('SDL did not start', refined.stdout)
 
 
 if __name__ == '__main__':

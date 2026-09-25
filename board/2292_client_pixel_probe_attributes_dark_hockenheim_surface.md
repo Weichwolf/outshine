@@ -18,7 +18,7 @@ Colour alone cannot distinguish shadow, material or transient geometry.
 
 ## Contract and ownership
 
-`src/client` owns a bounded `run --probe-pixel x,y` diagnostic using only the
+`src/client` owns a bounded `run --quality refined --probe-pixel x,y` diagnostic using only the
 public `Renderer::readPixels` API after a Refined final frame. It reports
 display RGBA8, scene-linear RGB, raw device depth, shading normal and surface
 identity at one pixel. The option requires `--view --at-seconds`; nonnegative
@@ -44,7 +44,7 @@ machine-readable TSV row with named columns and physical/encoding semantics.
 
 ## Result
 
-`run`/`measures --probe-pixel x,y` retain two optional native attachments and
+`run`/`measures --quality refined --probe-pixel x,y` retain two optional native attachments and
 read one final pixel through the public renderer. Parsing rejects malformed and
 overflowed coordinates before SDL; an out-of-target coordinate fails before
 assembly. The TSV includes RGBA8, linear RGB, depth, normal, surface ID and

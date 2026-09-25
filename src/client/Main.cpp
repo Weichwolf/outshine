@@ -164,12 +164,13 @@ void Usage(std::string_view verb = {}) {
         "  --at-seconds <s>                nonnegative scenario time; requires --view\n"
         "  --motion                        render every paced tick; requires view and time\n"
         "  --samples                       save route-decile PNGs; requires --motion\n"
+        "  --quality playable|refined      minimum final capture quality (default playable)\n"
         "  --into <folder>                 relative to build/shots/ (default khronos)\n"
         "  --cache-dir <directory>         default /tmp/outshine-drive-cache\n"
         "  --offline                       use only cached and shipped sources\n"
         "  --rows                          machine-readable capture rows\n"
         "  --stats                         timing, readiness and source STAT rows\n"
-        "  --probe-pixel <x,y>             inspect a refined final frame; requires view and time\n"
+        "  --probe-pixel <x,y>             inspect a final pixel; requires --quality refined\n"
         "  PIXEL row: name, x, y, RGBA8, linear RGB, device depth, normal XYZ, surface ID, "
         "quality.\n"
         "  measures additionally prints all engine diagnostic samples.\n"
@@ -395,6 +396,7 @@ struct ScenarioRunOptions {
   double AtS = 0.0;
   bool RenderMotion = false;
   bool SampleImages = false;
+  bool AwaitRefined = false;
   std::optional<outshine::Client::PixelCoordinate> ProbePixel;
 };
 
@@ -416,6 +418,10 @@ struct ScenarioRunOptions {
     std::println(stderr, "outshine-client: --probe-pixel requires --view and --at-seconds");
     return std::unexpected(2);
   }
+  if (options.ProbePixel && !options.AwaitRefined) {
+    std::println(stderr, "outshine-client: --probe-pixel requires --quality refined");
+    return std::unexpected(2);
+  }
   return {};
 }
 
@@ -434,6 +440,29 @@ struct ScenarioRunOptions {
     return false;
   }
   return true;
+}
+
+[[nodiscard]] std::expected<bool, int> ReadCaptureQuality(const char *value) {
+  if (value == nullptr ||
+      (std::string_view(value) != "playable" && std::string_view(value) != "refined")) {
+    std::println(stderr, "outshine-client: --quality requires playable or refined");
+    return std::unexpected(2);
+  }
+  return std::string_view(value) == "refined";
+}
+
+[[nodiscard]] std::expected<outshine::Client::PixelCoordinate, int>
+ReadCapturePixel(const char *value) {
+  if (value == nullptr) {
+    std::println(stderr, "outshine-client: --probe-pixel requires nonnegative integer x,y");
+    return std::unexpected(2);
+  }
+  const auto pixel = outshine::Client::ParsePixelCoordinate(value);
+  if (!pixel) {
+    std::println(stderr, "outshine-client: {}", pixel.error());
+    return std::unexpected(2);
+  }
+  return *pixel;
 }
 
 [[nodiscard]] std::expected<bool, int>
@@ -472,16 +501,15 @@ ReadRunValue(std::string_view flag, const char *value, ScenarioRunOptions &optio
     hasTime = true;
     return true;
   }
+  if (flag == "--quality") {
+    const auto quality = ReadCaptureQuality(value);
+    if (!quality) { return std::unexpected(quality.error()); }
+    options.AwaitRefined = *quality;
+    return true;
+  }
   if (flag == "--probe-pixel") {
-    if (value == nullptr) {
-      std::println(stderr, "outshine-client: --probe-pixel requires nonnegative integer x,y");
-      return std::unexpected(2);
-    }
-    const auto pixel = outshine::Client::ParsePixelCoordinate(value);
-    if (!pixel) {
-      std::println(stderr, "outshine-client: {}", pixel.error());
-      return std::unexpected(2);
-    }
+    const auto pixel = ReadCapturePixel(value);
+    if (!pixel) { return std::unexpected(pixel.error()); }
     options.ProbePixel = *pixel;
     return true;
   }
@@ -525,10 +553,15 @@ int CaptureView(outshine::Engine &engine,
                                              .AtS = options.AtS,
                                              .RenderMotion = options.RenderMotion,
                                              .SampleImages = options.SampleImages,
-                                             .AwaitRefined = options.ProbePixel.has_value()});
+                                             .AwaitRefined = options.AwaitRefined});
   if (!captured) {
     std::println(stderr, "outshine-client: {}", captured.error());
     return 1;
+  }
+  if (options.Stats) {
+    std::println("STAT\t{}\trequested_quality\t{}\tquality",
+                 named,
+                 options.AwaitRefined ? "refined" : "playable");
   }
   if (options.ProbePixel) {
     if (const auto probed = outshine::Client::ReportPixel(engine, named, *options.ProbePixel);
