@@ -66,6 +66,34 @@ int main() {
   CHECK(
       revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}, {}),
       "camera movement cannot strand a discarded bake's footprint reservation");
+  const StructureBuildQueue::BakeRevision sourceRevision{
+      .Vectors = vectors.Generation(),
+      .FocalPx = footprints.FocalPx(),
+      .TileSpanM = footprints.TileSpanM(),
+      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .Purpose = StructureBuildQueue::BuildPurpose::SourceGeometry};
+  CHECK(sourceRevision.Matches(vectors,
+                               footprints,
+                               {.LongitudeDeg = 9.01, .LatitudeDeg = 47},
+                               {},
+                               StructureBuildQueue::HeightRequirement::FineOnly,
+                               std::nullopt,
+                               StructureBuildQueue::BuildPurpose::SourceGeometry),
+        "camera movement retains source qualification work");
+  CHECK(!sourceRevision.Matches(vectors,
+                                footprints,
+                                {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                {},
+                                StructureBuildQueue::HeightRequirement::FineOnly),
+        "view detail cannot consume a source qualification product");
+  CHECK(!sourceRevision.Matches(vectors,
+                                footprints,
+                                {.LongitudeDeg = 9.01, .LatitudeDeg = 47},
+                                {.Value = 1},
+                                StructureBuildQueue::HeightRequirement::FineOnly,
+                                std::nullopt,
+                                StructureBuildQueue::BuildPurpose::SourceGeometry),
+        "source qualification still rejects a changed height snapshot");
   const StructureBuildQueue::BakeRevision explicitRevision{
       .Vectors = vectors.Generation(),
       .FocalPx = footprints.FocalPx(),
@@ -80,6 +108,14 @@ int main() {
                                  LevelOfDetail::Shell),
         "source-keyed detail survives a remote camera eye");
   footprints.SeenWith(1080.0);
+  CHECK(sourceRevision.Matches(vectors,
+                               footprints,
+                               {.LongitudeDeg = 9.01, .LatitudeDeg = 47},
+                               {},
+                               StructureBuildQueue::HeightRequirement::FineOnly,
+                               std::nullopt,
+                               StructureBuildQueue::BuildPurpose::SourceGeometry),
+        "camera focal changes do not invalidate source qualification");
   CHECK(explicitRevision.Matches(vectors,
                                  footprints,
                                  {.LongitudeDeg = 10, .LatitudeDeg = 48},

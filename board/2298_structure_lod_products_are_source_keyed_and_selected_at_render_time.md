@@ -78,10 +78,14 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 - A fresh 60-s motion diagnostic has 3,357/3,600 unrefined frames. Once-per-
   second reasons name `world ingestion pending` in 55/60 samples; 664/676
   structure bakes had landed by 60 s for 49 vector tiles. `Complete` requires
-  every accepted bake eye within 64 m, and `Posts` restarts the whole-tile
-  refinement pass when any eye expires. `StructuresReady` also uses this
-  camera criterion for ground candidates. Source ingestion and view detail
-  must have separate completion state; a larger reuse radius is not the fix.
+  every bake eye within 64 m and restarts whole-tile refinement on expiry.
+  Source readiness and view detail need separate completion; a larger radius is no fix.
+- Candidate source bakes now survive camera/focal movement and source completion
+  ignores bake-eye age. The same 60-s lap remains 3,393/3,600 unrefined versus
+  3,357/3,600 before, with six candidate starts in both runs. Final PNGs are
+  pixel-identical and road contact has no gap. This is a contract split, not a
+  readiness fix: `RefinedGroundIngested` still requires camera-current geometry
+  for every accepted tile. Cell/level residency and view-local error remain P0.
 
 ## Implementation order
 

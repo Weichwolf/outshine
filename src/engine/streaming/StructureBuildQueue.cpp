@@ -245,6 +245,7 @@ RefinementSelection SelectRefinement(Ground::BuildingField &prints,
                                      const Ground::StreetField &streets,
                                      std::shared_ptr<const Ground::HeightField> &heights,
                                      LongitudeLatitude eye,
+                                     StructureBuildQueue::BuildPurpose purpose,
                                      GroundStands &&groundStands) {
   const std::optional<uint32_t> tile = prints.RefinementTile();
   if (!tile) { return {.Next = std::nullopt, .Deferred = true}; }
@@ -265,8 +266,9 @@ RefinementSelection SelectRefinement(Ground::BuildingField &prints,
       std::ranges::equal(accepted->Sources, heights->Sources()) &&
       accepted->Bake.HeightRasterDigest == heights->RasterDigest() &&
       accepted->Bake.StreetDigest == StreetDigest(streets, vectors, *tile) &&
-      accepted->Bake.FocalPx == prints.FocalPx() &&
-      accepted->Bake.TileSpanM == prints.TileSpanM() && EyeWithin(accepted->Bake.Eye, eye);
+      accepted->Bake.TileSpanM == prints.TileSpanM() &&
+      (purpose == StructureBuildQueue::BuildPurpose::SourceGeometry ||
+       (accepted->Bake.FocalPx == prints.FocalPx() && EyeWithin(accepted->Bake.Eye, eye)));
   prints.AdvanceRefinement();
   if (current) { return {}; }
   return {.Next =
@@ -279,15 +281,16 @@ StructureBuildQueue::~StructureBuildQueue() {
   Clear();
 }
 
-bool StructureBuildQueue::BakeRevision::Matches(
-    const Ground::OsmField &vectors,
-    const Ground::BuildingField &footprints,
-    LongitudeLatitude eye,
-    HeightSourceRevision heightSource,
-    HeightRequirement heights,
-    std::optional<LevelOfDetail> detail) const noexcept {
+bool StructureBuildQueue::BakeRevision::Matches(const Ground::OsmField &vectors,
+                                                const Ground::BuildingField &footprints,
+                                                LongitudeLatitude eye,
+                                                HeightSourceRevision heightSource,
+                                                HeightRequirement heights,
+                                                std::optional<LevelOfDetail> detail,
+                                                BuildPurpose purpose) const noexcept {
   return OwnsReservation(vectors, footprints, eye, heightSource) && RequestedDetail == detail &&
-         (RequestedDetail || EyeWithin(Eye, eye)) &&
+         Purpose == purpose &&
+         (purpose == BuildPurpose::SourceGeometry || RequestedDetail || EyeWithin(Eye, eye)) &&
          (heights == HeightRequirement::AllowFallback || !FallbackHeights);
 }
 
@@ -298,6 +301,15 @@ bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
   return vectors == nullptr ||
          (Queue_.empty() && footprints.RefinementComplete() &&
           AcceptedEyesCurrent(footprints, eye) && footprints.Ingested(*vectors));
+}
+
+bool StructureBuildQueue::SourcesComplete(const Ground::GroundStack &stack,
+                                          const Ground::BuildingField &footprints) const {
+  const Ground::OsmField *const vectors = stack.Vectors();
+  return vectors == nullptr ||
+         (Queue_.empty() && footprints.RefinementComplete() && footprints.Ingested(*vectors) &&
+          std::ranges::all_of(footprints.AcceptedInputs(),
+                              [](const auto &input) { return input.Qualified; }));
 }
 
 size_t StructureBuildQueue::QueuedStructures() const {
@@ -330,9 +342,10 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
                                        LongitudeLatitude eye,
                                        HeightSourceRevision heightSource,
                                        HeightRequirement heights,
-                                       std::optional<LevelOfDetail> detail) {
-  while (!Queue_.empty() &&
-         !Queue_.front().Revision.Matches(vectors, prints, eye, heightSource, heights, detail)) {
+                                       std::optional<LevelOfDetail> detail,
+                                       BuildPurpose purpose) {
+  while (!Queue_.empty() && !Queue_.front().Revision.Matches(
+                                vectors, prints, eye, heightSource, heights, detail, purpose)) {
     QueuedBuild &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
@@ -375,13 +388,14 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                   const HeightSource &heightAt,
                                   size_t candidatesMost,
                                   HeightRequirement requirement,
-                                  std::optional<LevelOfDetail> detail) {
+                                  std::optional<LevelOfDetail> detail,
+                                  BuildPurpose purpose) {
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
   const Ground::OsmField &vectors = *stack.Vectors();
-  if (requirement == HeightRequirement::FineOnly && prints.RefinementComplete() && Queue_.empty() &&
-      !AcceptedEyesCurrent(prints, eye)) {
+  if (requirement == HeightRequirement::FineOnly && purpose == BuildPurpose::ViewDetail &&
+      prints.RefinementComplete() && Queue_.empty() && !AcceptedEyesCurrent(prints, eye)) {
     prints.BeginRefinement();
   }
   size_t posted = 0;
@@ -408,7 +422,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
       if (examined >= candidatesMost) { break; }
       ++examined;
       const RefinementSelection selected =
-          SelectRefinement(prints, vectors, stack.Ways(), heights, eye, groundStands);
+          SelectRefinement(prints, vectors, stack.Ways(), heights, eye, purpose, groundStands);
       if (selected.Deferred) { break; }
       if (!selected.Next) { continue; }
       next = selected.Next;
@@ -428,6 +442,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                 .TileSpanM = prints.TileSpanM(),
                                 .Eye = eye,
                                 .RequestedDetail = detail,
+                                .Purpose = purpose,
                                 .FallbackHeights = heights->Fallback()};
     if (!replacement) { prints.Take(next->Tile); }
     std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
@@ -479,12 +494,13 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
                                   HeightSourceRevision heightSource,
                                   size_t most,
                                   HeightRequirement heights,
-                                  std::optional<LevelOfDetail> detail) {
+                                  std::optional<LevelOfDetail> detail,
+                                  BuildPurpose purpose) {
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
-  DiscardStale(*vectors, prints, eye, heightSource, heights, detail);
+  DiscardStale(*vectors, prints, eye, heightSource, heights, detail, purpose);
   ResumeCompletedTasks();
   size_t count = 0;
   size_t printCount = 0;
@@ -493,7 +509,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   while (count < most && count < Queue_.size()) {
     QueuedBuild &bake = Queue_[count];
     if (!bake.Finished ||
-        !bake.Revision.Matches(*vectors, prints, eye, heightSource, heights, detail)) {
+        !bake.Revision.Matches(*vectors, prints, eye, heightSource, heights, detail, purpose)) {
       break;
     }
     if (!bake.Task.Result().Status) {

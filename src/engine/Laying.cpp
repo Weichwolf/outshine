@@ -1764,9 +1764,10 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() 
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsBakes) {
     return GroundBuildProgress::Ready;
   }
-  if (!StructuresReady(state.Footprints(), state.Revision())) {
-    return GroundBuildProgress::Pending;
-  }
+  const bool ready = state.Revision().Quality == GroundQuality::Refined
+                         ? World.StructureBuilds.SourcesComplete(World.Stack, state.Footprints())
+                         : StructuresReady(state.Footprints(), state.Revision());
+  if (!ready) { return GroundBuildProgress::Pending; }
   GroundBuildProducts &build = state.Candidate().Products();
   const auto fieldsAt = std::chrono::steady_clock::now();
   build.Sheets.ForgetsFields();
@@ -1841,12 +1842,15 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
           },
       .Revision = {.Value = state.Id()}};
   const auto landingAt = std::chrono::steady_clock::now();
-  auto ready = World.StructureBuilds.NextLandings(World.Stack,
-                                                  state.Footprints(),
-                                                  CurrentGeographicFocus(),
-                                                  heightAt.Revision,
-                                                  landsMost,
-                                                  heights);
+  auto ready =
+      World.StructureBuilds.NextLandings(World.Stack,
+                                         state.Footprints(),
+                                         CurrentGeographicFocus(),
+                                         heightAt.Revision,
+                                         landsMost,
+                                         heights,
+                                         std::nullopt,
+                                         StructureBuildQueue::BuildPurpose::SourceGeometry);
   Cost.BakeLanding.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - landingAt)
           .count());
@@ -1881,7 +1885,9 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
                                     CurrentGeographicFocus(),
                                     heightAt,
                                     StructureCandidatesMost(),
-                                    heights);
+                                    heights,
+                                    std::nullopt,
+                                    StructureBuildQueue::BuildPurpose::SourceGeometry);
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
           .count());
