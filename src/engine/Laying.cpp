@@ -1865,7 +1865,8 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   }
   build.Pieces.Wears(*build.Surfaces);
   for (const StructureBuildQueue::Landing &landing : *ready) {
-    if (!build.Pieces.Hands(landing.Tile, *landing.Baked, landing.AnchorEcef, Error)) {
+    if (!build.Pieces.Hands(
+            landing.Tile, *landing.Baked, landing.AnchorEcef, Error, landing.SourceKey)) {
       return false;
     }
   }

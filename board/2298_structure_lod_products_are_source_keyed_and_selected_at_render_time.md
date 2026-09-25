@@ -57,9 +57,9 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 - `SceneResources` restores hidden instance rows after world publication.
   `TilePieces` retains variants and switches one visible level atomically;
   depth tests cover publication, missing levels and automatic fallback.
-  `StructureSourceKey` includes vector identity, sorted DEM identities/raster,
-  street digest, scale and fallback. A changed source retires old variants
-  only after successful upload; failed upload leaves the old image intact.
+  `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;
+  candidate and live uploads retain it. Changed sources retire old variants
+  only after successful upload; failure leaves the old image intact.
 - `BuildingField::Footprint` now contains semantic data only. Render detail is
   retained in `BakedTile::FootprintDetails`; a camera-only replacement updates
   render triangle counts without changing the semantic ground revision.
