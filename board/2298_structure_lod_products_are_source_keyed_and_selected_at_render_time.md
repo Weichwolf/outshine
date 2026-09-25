@@ -56,8 +56,8 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   request filters the bake and rejects invalid source/request IDs and mid-bake
   changes. The queue annotates raw structures; live jobs still bake whole tiles.
 - `SceneResources` restores hidden instance rows after world publication.
-  `TilePieces` stages cell variants hidden; a complete source mask/revision
-  triggers one atomic instance-row swap and retires the whole-tile safety net.
+  `TilePieces` stages multiple cell levels hidden; a complete source mask/revision
+  triggers one atomic swap and retires all products of the previous revision.
   Missing cells, stale sources and failed uploads keep the legacy image visible.
   Live jobs still publish only legacy cell zero; cell scheduling remains open.
   `StructureSourceKey` covers vector, DEM set/raster, street, scale and fallback;

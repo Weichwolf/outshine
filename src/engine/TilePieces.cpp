@@ -138,7 +138,9 @@ bool TilePieces::Store(uint32_t tile,
                        std::string &error,
                        uint64_t sourceKey,
                        bool staged) {
-  if (!ValidateStore(tile, cell, baked, sourceKey, staged, error)) { return false; }
+  if (!ValidateStore({.Tile = tile, .Cell = cell}, baked, sourceKey, staged, error)) {
+    return false;
+  }
   const Mat4 row = RowFor(anchorEcef);
   const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
   const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
@@ -188,6 +190,7 @@ bool TilePieces::Store(uint32_t tile,
       return false;
     }
   }
+  if (staged) { DiscardSupersededStage(tile, sourceKey); }
   if (!staged) {
     if (baked.RequestedDetail && !sourceChanged) {
       ForgetsDetail(tile, cell, baked.RequestedDetail);
@@ -204,8 +207,7 @@ bool TilePieces::Store(uint32_t tile,
   return true;
 }
 
-bool TilePieces::ValidateStore(uint32_t tile,
-                               uint32_t cell,
+bool TilePieces::ValidateStore(TileCell address,
                                const Generators::BakedTile &baked,
                                uint64_t sourceKey,
                                bool staged,
@@ -218,32 +220,69 @@ bool TilePieces::ValidateStore(uint32_t tile,
     error = "explicit structure detail requires a source key";
     return false;
   }
-  if ((cell == 0 && baked.RequestedCell) ||
-      (cell != 0 && (baked.RequestedCell != cell || !baked.RequestedDetail))) {
+  if ((address.Cell == 0 && baked.RequestedCell) ||
+      (address.Cell != 0 && (baked.RequestedCell != address.Cell || !baked.RequestedDetail))) {
     error = "structure product cell and residency address differ";
     return false;
   }
-  if (staged && (cell == 0 || cell > Generators::kStructureCellsPerTile || sourceKey == 0 ||
-                 baked.OccupiedCells != (uint64_t{1} << (cell - 1u)))) {
+  if (staged && (address.Cell == 0 || address.Cell > Generators::kStructureCellsPerTile ||
+                 sourceKey == 0 || baked.OccupiedCells != (uint64_t{1} << (address.Cell - 1u)))) {
     error = "staged structure cell needs one occupied source cell";
     return false;
   }
-  const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
-  const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
-    return held.Tile != tile || held.Cell != cell;
-  });
-  if (staged && first != last) {
-    error = "structure cell already has resident geometry";
-    return false;
-  }
-  if (!staged && cell != 0) {
-    const auto legacy = std::ranges::lower_bound(Standing_, std::pair{tile, 0u}, {}, AddressOf);
-    if (legacy != Standing_.end() && legacy->Tile == tile && legacy->Cell == 0 && legacy->Visible) {
+  if (staged && !ValidateStage(address.Tile, baked, sourceKey, error)) { return false; }
+  if (!staged && address.Cell != 0) {
+    const auto legacy =
+        std::ranges::lower_bound(Standing_, std::pair{address.Tile, 0u}, {}, AddressOf);
+    if (legacy != Standing_.end() && legacy->Tile == address.Tile && legacy->Cell == 0 &&
+        legacy->Visible) {
       error = "stage structure cells before replacing a whole tile";
       return false;
     }
   }
   return true;
+}
+
+bool TilePieces::ValidateStage(uint32_t tile,
+                               const Generators::BakedTile &baked,
+                               uint64_t sourceKey,
+                               std::string &error) const {
+  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
+  const auto last = std::find_if(
+      first, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
+  const auto visible = std::find_if(first, last, [](const Standing &held) { return held.Visible; });
+  const std::optional<uint64_t> visibleSource =
+      visible == last ? std::nullopt : std::optional<uint64_t>{visible->SourceKey};
+  for (auto at = first; at != last; ++at) {
+    if (at->Visible && visibleSource != at->SourceKey) {
+      error = "visible structure cells have mixed source revisions";
+      return false;
+    }
+    if (at->Cell == baked.RequestedCell && at->SourceKey == sourceKey &&
+        at->Detail == baked.RequestedDetail) {
+      error = "structure cell detail is already resident";
+      return false;
+    }
+  }
+  return true;
+}
+
+void TilePieces::DiscardSupersededStage(uint32_t tile, uint64_t sourceKey) {
+  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
+  const auto last = std::find_if(
+      first, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
+  const auto visible = std::find_if(first, last, [](const Standing &held) { return held.Visible; });
+  const std::optional<uint64_t> visibleSource =
+      visible == last ? std::nullopt : std::optional<uint64_t>{visible->SourceKey};
+  for (auto at = first; at != last; ++at) {
+    if (!at->Visible && at->SourceKey != sourceKey && at->SourceKey != visibleSource) {
+      Releases(*at);
+    }
+  }
+  std::erase_if(Standing_, [tile, sourceKey, visibleSource](const Standing &held) {
+    return held.Tile == tile && !held.Visible && held.SourceKey != sourceKey &&
+           held.SourceKey != visibleSource;
+  });
 }
 
 bool TilePieces::ActivateCells(uint32_t tile,
@@ -254,35 +293,31 @@ bool TilePieces::ActivateCells(uint32_t tile,
   const auto firstTile = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
   const auto lastTile = std::find_if(
       firstTile, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
-  const auto legacy = std::find_if(
-      firstTile, lastTile, [](const Standing &held) { return held.Cell == 0 && held.Visible; });
   std::vector<Render::SceneRenderer::PieceRows> rows;
-  rows.reserve(4u * selected.size() + 2u);
+  rows.reserve(2u * (static_cast<size_t>(lastTile - firstTile) + selected.size()));
   std::vector<Standing *> targets;
-  std::vector<Standing *> previous;
   targets.reserve(selected.size());
-  previous.reserve(selected.size());
-  if (legacy != lastTile) { AppendPieceRows(rows, legacy->Walls, legacy->Roofs, nullptr); }
   for (const CellSelection choice : selected) {
-    const auto [target, current] = CellTransition(tile, source, choice);
-    if (current != nullptr && current != target) {
-      AppendPieceRows(rows, current->Walls, current->Roofs, nullptr);
+    targets.push_back(CellTarget(tile, source, choice));
+  }
+  for (auto at = firstTile; at != lastTile; ++at) {
+    if (at->Visible && std::ranges::find(targets, &*at) == targets.end()) {
+      AppendPieceRows(rows, at->Walls, at->Roofs, nullptr);
     }
-    if (current != target) { AppendPieceRows(rows, target->Walls, target->Roofs, &target->Row); }
-    targets.push_back(target);
-    previous.push_back(current);
+  }
+  for (const Standing *target : targets) {
+    if (!target->Visible) { AppendPieceRows(rows, target->Walls, target->Roofs, &target->Row); }
   }
   if (!Renderer_->SetPieceInstances(rows, error)) { return false; }
-  if (legacy != lastTile) { legacy->Visible = false; }
-  for (size_t at = 0; at < targets.size(); ++at) {
-    if (previous[at] != nullptr) { previous[at]->Visible = false; }
-    targets[at]->Visible = true;
+  for (auto at = firstTile; at != lastTile; ++at) { at->Visible = false; }
+  for (Standing *target : targets) { target->Visible = true; }
+  for (auto at = firstTile; at != lastTile; ++at) {
+    if (at->Cell == 0 || at->SourceKey != source.Key) { Releases(*at); }
   }
-  if (legacy != lastTile) {
-    ForgetsCell(tile, 0);
-  } else {
-    RefreshDigest();
-  }
+  std::erase_if(Standing_, [tile, source](const Standing &held) {
+    return held.Tile == tile && (held.Cell == 0 || held.SourceKey != source.Key);
+  });
+  RefreshDigest();
   return true;
 }
 
@@ -310,23 +345,10 @@ bool TilePieces::ValidateActivation(uint32_t tile,
     error = "structure cell selection omits or adds a source cell";
     return false;
   }
+  if (!ValidateResidentSources(tile, source, error)) { return false; }
   const auto firstTile = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
   const auto lastTile = std::find_if(
       firstTile, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
-  const auto legacy = std::find_if(
-      firstTile, lastTile, [](const Standing &held) { return held.Cell == 0 && held.Visible; });
-  if (legacy != lastTile && legacy->SourceKey != source.Key) {
-    error = "whole-tile geometry belongs to another source revision";
-    return false;
-  }
-  for (auto at = firstTile; at != lastTile; ++at) {
-    if (at->Cell == 0) { continue; }
-    if (at->SourceKey != source.Key || at->Cell > Generators::kStructureCellsPerTile ||
-        (source.Occupied & (uint64_t{1} << (at->Cell - 1u))) == 0) {
-      error = "resident structure cell belongs to another source selection";
-      return false;
-    }
-  }
   for (const CellSelection choice : selected) {
     const auto first =
         std::ranges::lower_bound(firstTile, lastTile, std::pair{tile, choice.Cell}, {}, AddressOf);
@@ -344,8 +366,36 @@ bool TilePieces::ValidateActivation(uint32_t tile,
   return true;
 }
 
-std::pair<TilePieces::Standing *, TilePieces::Standing *>
-TilePieces::CellTransition(uint32_t tile, CellSource source, CellSelection choice) noexcept {
+bool TilePieces::ValidateResidentSources(uint32_t tile,
+                                         CellSource source,
+                                         std::string &error) const {
+  const auto first = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
+  const auto last = std::find_if(
+      first, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
+  const auto visible = std::find_if(first, last, [](const Standing &held) { return held.Visible; });
+  const std::optional<uint64_t> visibleSource =
+      visible == last ? std::nullopt : std::optional<uint64_t>{visible->SourceKey};
+  for (auto at = first; at != last; ++at) {
+    if (at->Visible && visibleSource != at->SourceKey) {
+      error = "visible structure cells have mixed source revisions";
+      return false;
+    }
+    if (at->SourceKey != source.Key && at->SourceKey != visibleSource) {
+      error = "staged structure cell belongs to another source revision";
+      return false;
+    }
+    if (at->SourceKey == source.Key && at->Cell != 0 &&
+        (at->Cell > Generators::kStructureCellsPerTile ||
+         (source.Occupied & (uint64_t{1} << (at->Cell - 1u))) == 0)) {
+      error = "resident structure cell is outside the source selection";
+      return false;
+    }
+  }
+  return true;
+}
+
+TilePieces::Standing *
+TilePieces::CellTarget(uint32_t tile, CellSource source, CellSelection choice) noexcept {
   const auto first =
       std::ranges::lower_bound(Standing_, std::pair{tile, choice.Cell}, {}, AddressOf);
   const auto last = std::find_if(first, Standing_.end(), [tile, choice](const Standing &held) {
@@ -355,8 +405,7 @@ TilePieces::CellTransition(uint32_t tile, CellSource source, CellSelection choic
     return held.Detail == choice.Detail && held.SourceKey == source.Key &&
            held.OccupiedCells == (uint64_t{1} << (choice.Cell - 1u));
   });
-  const auto current = std::find_if(first, last, [](const Standing &held) { return held.Visible; });
-  return {&*target, current == last ? nullptr : &*current};
+  return &*target;
 }
 
 void TilePieces::Forgets(uint32_t tile) {

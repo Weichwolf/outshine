@@ -136,9 +136,8 @@ int main() {
                 pieces.StageCell(7, 1, stagedOne, frame.OriginEcef(), error, 11) &&
                 depth() == legacyDepth && visible().size() == 1,
             "a staged cell cannot duplicate the visible whole-tile safety net");
-      const std::array<TilePieces::CellSelection, 2> cells{
-          {{.Cell = 1, .Detail = LevelOfDetail::Fine},
-           {.Cell = 2, .Detail = LevelOfDetail::Shell}}};
+      std::array<TilePieces::CellSelection, 2> cells{{{.Cell = 1, .Detail = LevelOfDetail::Fine},
+                                                      {.Cell = 2, .Detail = LevelOfDetail::Shell}}};
       CHECK(
           !pieces.ActivateCells(7, {.Key = 11, .Occupied = 3}, std::span(cells.data(), 1), error) &&
               depth() == legacyDepth && visible().size() == 1,
@@ -151,6 +150,54 @@ int main() {
                 renderer.PiecesStanding() == 2 && visible().size() == 2 && visible()[0].Cell == 1 &&
                 visible()[1].Cell == 2 && depth() != legacyDepth,
             "one visibility transaction replaces the safety net with complete cell geometry");
+      const float cellFineDepth = depth();
+      auto stagedShell = mesh(-0.5f, 55, LevelOfDetail::Shell);
+      stagedShell.RequestedCell = 1;
+      stagedShell.OccupiedCells = 1;
+      CHECK(pieces.StageCell(7, 1, stagedShell, frame.OriginEcef(), error, 11) &&
+                renderer.PiecesStanding() == 3 && depth() == cellFineDepth,
+            "another detail of the same source stages without changing the visible image");
+      CHECK(!pieces.StageCell(7, 1, stagedShell, frame.OriginEcef(), error, 11) &&
+                renderer.PiecesStanding() == 3 && depth() == cellFineDepth,
+            "a duplicate staged cell detail is rejected without replacing the resident");
+      cells[0].Detail = LevelOfDetail::Shell;
+      CHECK(pieces.ActivateCells(7, {.Key = 11, .Occupied = 3}, cells, error) &&
+                visible().size() == 2 && visible()[0].Digest == 55 && depth() > 0.0f &&
+                depth() != cellFineDepth,
+            "a later detail product replaces only its selected cell at the probe");
+      cells[0].Detail = LevelOfDetail::Fine;
+      CHECK(pieces.ActivateCells(7, {.Key = 11, .Occupied = 3}, cells, error) &&
+                visible()[0].Digest == 11 && depth() == cellFineDepth,
+            "the prior detail remains resident for a reversible view selection");
+      auto nextOne = stagedShell;
+      nextOne.Digest = 77;
+      auto nextTwo = stagedTwo;
+      nextTwo.Digest = 88;
+      CHECK(pieces.StageCell(7, 1, nextOne, frame.OriginEcef(), error, 12) &&
+                depth() == cellFineDepth,
+            "a new source stages beside the visible revision");
+      auto nextAgain = nextOne;
+      nextAgain.Digest = 99;
+      for (StoredVertex &corner : nextAgain.Built.WallCorners) { corner.texture = {{0, 0}}; }
+      CHECK(!pieces.StageCell(7, 1, nextAgain, frame.OriginEcef(), error, 13) &&
+                renderer.PiecesStanding() == 4 && depth() == cellFineDepth,
+            "failed newer-source upload retains the old image and prior staged revision");
+      nextAgain = nextOne;
+      CHECK(pieces.StageCell(7, 1, nextAgain, frame.OriginEcef(), error, 13) &&
+                renderer.PiecesStanding() == 4 && depth() == cellFineDepth &&
+                pieces.StageCell(7, 1, nextOne, frame.OriginEcef(), error, 12) &&
+                renderer.PiecesStanding() == 4,
+            "successful newer-source stage retires only superseded hidden products");
+      CHECK(pieces.StageCell(7, 2, nextTwo, frame.OriginEcef(), error, 12) &&
+                !pieces.ActivateCells(7, {.Key = 12, .Occupied = 3}, cells, error) &&
+                depth() == cellFineDepth,
+            "an incomplete new source selection retains the old visible cells");
+      cells[0].Detail = LevelOfDetail::Shell;
+      CHECK(pieces.ActivateCells(7, {.Key = 12, .Occupied = 3}, cells, error) &&
+                renderer.PiecesStanding() == 2 && visible().size() == 2 &&
+                visible()[0].SourceKey == 12 && visible()[1].SourceKey == 12 &&
+                visible()[0].Digest == 77 && visible()[1].Digest == 88,
+            "complete new-source cells replace and retire all old variants in one transaction");
       pieces.Forgets(7);
       CHECK(renderer.PiecesStanding() == 0 && visible().empty(),
             "legacy whole-tile geometry retires before cell products are published");

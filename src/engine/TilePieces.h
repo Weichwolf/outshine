@@ -123,6 +123,11 @@ public:
   }
 
 private:
+  struct TileCell {
+    uint32_t Tile = 0;
+    uint32_t Cell = 0;
+  };
+
   struct Standing {
     uint32_t Tile = 0;
     uint32_t Cell = 0;
@@ -142,18 +147,24 @@ private:
   }
 
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;
-  [[nodiscard]] bool ValidateStore(uint32_t tile,
-                                   uint32_t cell,
+  [[nodiscard]] bool ValidateStore(TileCell address,
                                    const Generators::BakedTile &baked,
                                    uint64_t sourceKey,
                                    bool staged,
+                                   std::string &error) const;
+  [[nodiscard]] bool ValidateStage(uint32_t tile,
+                                   const Generators::BakedTile &baked,
+                                   uint64_t sourceKey,
                                    std::string &error) const;
   [[nodiscard]] bool ValidateActivation(uint32_t tile,
                                         CellSource source,
                                         std::span<const CellSelection> selected,
                                         std::string &error) const;
-  [[nodiscard]] std::pair<Standing *, Standing *>
-  CellTransition(uint32_t tile, CellSource source, CellSelection choice) noexcept;
+  [[nodiscard]] bool
+  ValidateResidentSources(uint32_t tile, CellSource source, std::string &error) const;
+  [[nodiscard]] Standing *
+  CellTarget(uint32_t tile, CellSource source, CellSelection choice) noexcept;
+  void DiscardSupersededStage(uint32_t tile, uint64_t sourceKey);
   [[nodiscard]] bool Store(uint32_t tile,
                            uint32_t cell,
                            const Generators::BakedTile &baked,

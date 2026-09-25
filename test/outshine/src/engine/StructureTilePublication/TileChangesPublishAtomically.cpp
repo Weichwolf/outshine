@@ -198,6 +198,19 @@ int main() {
       });
       CHECK(visibleCells == 2 && world.Pieces.ValidateSources(error),
             "cell publication retains two visible products with valid source handles");
+      cellLanding.SourceKey = 42;
+      cellLanding.Baked = &cellOne;
+      CHECK(StageStructureCell(world, renderer, cellLanding).has_value() &&
+                renderer.PiecesStanding() == 12,
+            "new source cell stages while the prior revision remains visible");
+      cellLanding.Baked = &cellTwo;
+      CHECK(StageStructureCell(world, renderer, cellLanding).has_value() &&
+                ActivateStructureCells(world, renderer, 10, 42, 3, cells).has_value() &&
+                renderer.PiecesStanding() == 10 && world.Pieces.ValidateSources(error),
+            "new source atomically replaces both cells and retires the prior GPU products");
+      world.Pieces.ForEachDigest([&](TilePieces::DigestRecord record) {
+        if (record.Tile == 10) { CHECK(record.SourceKey == 42, "only the new source is visible"); }
+      });
       world.Pieces.Forgets(10);
       world.Pieces.Forgets(7);
       world.Pieces.Forgets(8);
