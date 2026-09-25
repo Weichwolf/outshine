@@ -2,6 +2,7 @@
 #include "TerrainLoader.h"
 #include "Check.h"
 #include <array>
+#include <vector>
 
 using namespace outshine;
 using namespace outshine::Ground;
@@ -163,5 +164,25 @@ int main() {
   CHECK(longWater.Ingested(longField) && longGround.Queries == 130 &&
             longWater.Courses().size() == 1 && longWater.Levels().size() == 130,
         "large ring resumes without repeating resolved points");
+  OsmField mixedField(6, layers);
+  std::vector<OsmField::Declared> mixedFeatures;
+  mixedFeatures.reserve(301);
+  for (int feature = 0; feature < 300; ++feature) {
+    mixedFeatures.push_back({.Layer = "buildings",
+                             .Key = "kind",
+                             .Value = "building",
+                             .Area = true,
+                             .LatLon = {50, 0, 51, 1, 50, 1}});
+  }
+  mixedFeatures.push_back(
+      {.Layer = "water_lines", .Key = "kind", .Value = "river", .LatLon = {0, 0, 1, 0}});
+  mixedField.Declare(mixedFeatures, TileAt{.X = 32, .Y = 32});
+  Heights mixedGround;
+  mixedGround.Pending = false;
+  WaterField mixedWater;
+  (void)mixedWater.Ingest(mixedGround, mixedField, materials);
+  CHECK(mixedField.Features().size() == mixedFeatures.size() && mixedWater.Ingested(mixedField) &&
+            mixedGround.Queries == 2 && mixedWater.Courses().size() == 1,
+        "irrelevant features do not spend the height-sampling budget");
   return Report();
 }

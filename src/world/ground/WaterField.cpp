@@ -21,7 +21,8 @@ constexpr double kLevelPercentile = 0.05;
 constexpr double kShoreToleranceM = 5.0;
 
 constexpr size_t kWaterCandidatesPerAdmission = 4;
-constexpr size_t kWaterAdmissionSteps = 128;
+constexpr size_t kWaterScansPerAdmission = 4096;
+constexpr size_t kWaterSamplesPerAdmission = 128;
 constexpr double kWaterAdmissionBudgetMs = 2.0;
 
 }
@@ -32,12 +33,12 @@ constexpr uint32_t kMaxWaterRingPoints = 512;
 enum class WaterKind { Ignored, Course, Surface };
 
 WaterKind KindOf(const OsmField &field, const OsmField::Feature &feature, OnLayers layers) {
-  if (field.Num(feature, "tunnel", 0.0) > 0.5) { return WaterKind::Ignored; }
-  if (feature.Type == 2 && std::cmp_equal(feature.Layer, layers.Line)) { return WaterKind::Course; }
-  if (feature.Type == 3 && std::cmp_equal(feature.Layer, layers.Poly)) {
-    return WaterKind::Surface;
+  const bool course = feature.Type == 2 && std::cmp_equal(feature.Layer, layers.Line);
+  const bool surface = feature.Type == 3 && std::cmp_equal(feature.Layer, layers.Poly);
+  if ((!course && !surface) || field.Num(feature, "tunnel", 0.0) > 0.5) {
+    return WaterKind::Ignored;
   }
-  return WaterKind::Ignored;
+  return course ? WaterKind::Course : WaterKind::Surface;
 }
 
 bool UsableRing(const OsmField::Ring &ring, WaterKind kind) {
@@ -65,7 +66,7 @@ bool WaterField::AdvanceCandidate(const GroundQuery &ground,
                                   size_t &steps,
                                   IngestMetrics &metrics) {
   while (candidate.Feature < candidate.To) {
-    if (steps >= kWaterAdmissionSteps ||
+    if (steps >= kWaterScansPerAdmission || metrics.ValidationPoints >= kWaterSamplesPerAdmission ||
         (steps > 0 &&
          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
                  .count() >= kWaterAdmissionBudgetMs)) {

@@ -88,13 +88,14 @@ obvious. These captures do not prove continuous road contact or LOD stability.
    642.145 MiB. Setup takes 829 ms including 371 ms preload; the provider
    serves 538/538 source reads from disk, 28.6 MB, with no remote start.
    These measurements do not prove per-frame road contact or Kaltstart speed.
-   In a warm offline 20 s
-   lap, the graph worker cuts unrefined frames from 1200 to about 1075; p99 is
-   13.73 ms with seven over-budget frames. Only two candidates start, so
-   restart is not the cause. The phase ledger counts 563 bake waits, 857
-   corridor, 649 earthwork and 418 geometry advances across candidates. Publish
-   bounded road/terrain products independently of distant MVT work; preserve
-   revisions and frame budgets.
+   Warm offline 10 s A/B moves Refined candidate start from 9.10 to 1.93 s.
+   Full 220 s after bounded water admission: 5,962/13,200 unrefined;
+   p50/p95/p99 2.016/9.102/13.314 ms, 40 late, 585.1 MiB peak,
+   538/538 cache hits and zero remote starts. Render spikes reach 79.52 ms.
+   All eleven PNGs opened: mark 3 now shows a Refined near-black foreground
+   beneath a vast wall; mark 4 retains the wall. The final PNG differs in
+   50/921,600 pixels. Road contact, frame tail and independent publication
+   remain open; earlier Refined visibility is not visual acceptance.
 4. Stream ahead and evict behind under bounded memory. Keep graph/route IDs
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.

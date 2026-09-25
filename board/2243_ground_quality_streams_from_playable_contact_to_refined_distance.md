@@ -42,10 +42,10 @@ DEM fields. Require all requested terrain meshes to settle before admitting a
 Refined patchwork; Playable still waits only for contact. Keep the unchanged
 pacing oracle and inspect refined completion time.
 
-Warm offline Hockenheim: 600/600 frames unrefined at 10 s; Refined starts
-at 9.10 s. Water: 49 tiles, 1,795 deferrals, 489 disk hits, zero remote.
-Irrelevant features spend the 128-step quota. Bound cheap scans separately
-from 128 height queries within 2 ms; preserve source order and profiles.
+Warm offline Hockenheim A/B (489 disk hits, zero remote): Refined starts
+at 9.10 -> 1.93 s. Full lap unrefined falls 7,170 -> 5,962/13,200;
+p99 rises 12.72 -> 13.31 ms and late frames 31 -> 40. Water admission
+bounds 4,096 cheap scans, 128 height queries and 2 ms per call.
 
 ## Decision
 
