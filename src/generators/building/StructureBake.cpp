@@ -492,6 +492,9 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 std::vector<double> &corners,
                                                 double statedM,
                                                 const std::atomic_bool *stopping) {
+  if (one.Cell.Index == 0 || one.Cell.Index > kStructureCellsPerTile) {
+    return std::unexpected(StructureBakeErrorKind::InvalidCell);
+  }
   if (raw.RequestedCell && one.Cell.Index != *raw.RequestedCell) { return {}; }
   const Ring ring{.First = one.LocalFirst, .Count = one.PointCount};
   if (ring.Count < 3 || ring.Count > kMostRingPoints) { return {}; }

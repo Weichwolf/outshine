@@ -80,7 +80,7 @@ std::shared_ptr<const outshine::Ground::HeightField> Heights() {
 std::unique_ptr<outshine::Generators::RawTile> Raw(size_t structures = 1) {
   auto raw = std::make_unique<outshine::Generators::RawTile>();
   raw->LatLon = {47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
-  raw->Structures.assign(structures, {.PointCount = 4, .HeightM = 6});
+  raw->Structures.assign(structures, {.PointCount = 4, .Cell = {.Index = 1}, .HeightM = 6});
   raw->FocalPx = 1000;
   raw->Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
   raw->TileSpanM = 1000;

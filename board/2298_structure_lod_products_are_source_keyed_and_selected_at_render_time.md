@@ -53,8 +53,8 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   `RawTile::RequestedDetail` bakes Fine/Shell/Massed independently of eye/focal;
   invalid or mid-bake detail changes reject. `StructureCellOf` assigns an 8x8
   tile-local cell, preserving full cross-cell/dateline bounds; an explicit cell
-  request filters the bake and rejects invalid/mid-bake cell changes. The queue
-  annotates raw structures, but live jobs still bake the whole tile automatically.
+  request filters the bake and rejects invalid source/request IDs and mid-bake
+  changes. The queue annotates raw structures; live jobs still bake whole tiles.
 - `SceneResources` restores hidden instance rows after world publication.
   `TilePieces` retains variants per tile/cell and switches one visible level
   per cell atomically and rejects mismatched addresses. Depth tests cover

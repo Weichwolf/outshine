@@ -13,7 +13,12 @@ int main() {
 
   Generators::RawTile raw;
   raw.LatLon = {47.0, 9.0, 47.0, 9.0001, 47.0001, 9.0001, 47.0001, 9.0};
-  raw.Structures.push_back({.PointCount = 4, .HeightM = 12.0});
+  const Ground::GeoBounds tileBounds{
+      .MinLonDeg = 9.0, .MinLatDeg = 47.0, .MaxLonDeg = 9.008, .MaxLatDeg = 47.008};
+  const auto fixtureCell = Generators::StructureCellOf(tileBounds, raw.LatLon);
+  CHECK(fixtureCell.has_value(), "valid synthetic building receives a cell");
+  if (!fixtureCell) { return Report(); }
+  raw.Structures.push_back({.PointCount = 4, .Cell = *fixtureCell, .HeightM = 12.0});
   raw.TileSpanM = 1000.0;
   Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
@@ -91,8 +96,6 @@ int main() {
                 Generators::StructureBakeErrorKind::ChangedDetail,
         "one tile cannot mix detail requests across worker slices");
 
-  const Ground::GeoBounds tileBounds{
-      .MinLonDeg = 9.0, .MinLatDeg = 47.0, .MaxLonDeg = 9.008, .MaxLatDeg = 47.008};
   const std::array westRing{47.004, 9.0005, 47.004, 9.0015, 47.0041, 9.0015, 47.0041, 9.0005};
   const std::array eastRing{47.004, 9.0065, 47.004, 9.0075, 47.0041, 9.0075, 47.0041, 9.0065};
   const auto westCell = Generators::StructureCellOf(tileBounds, westRing);
@@ -157,6 +160,18 @@ int main() {
             *std::get_if<Generators::StructureBakeErrorKind>(&badCell.error()) ==
                 Generators::StructureBakeErrorKind::InvalidCell,
         "reserved whole-tile address cannot be requested as a cell product");
+  cellRaw.RequestedCell = eastCell->Index;
+  cellRaw.Structures.front().Cell.Index = 0;
+  auto invalidSourceScratch = mesher.Scratch();
+  Generators::BakedTile invalidSource;
+  const auto badSource =
+      Generators::BakeStructures(cellRaw, *heights, mesher, *invalidSourceScratch, invalidSource);
+  CHECK(!badSource &&
+            std::get_if<Generators::StructureBakeErrorKind>(&badSource.error()) != nullptr &&
+            *std::get_if<Generators::StructureBakeErrorKind>(&badSource.error()) ==
+                Generators::StructureBakeErrorKind::InvalidCell,
+        "a malformed source in another cell cannot be silently omitted");
+  cellRaw.Structures.front().Cell = *westCell;
   cellRaw.RequestedCell = westCell->Index;
   Generators::StructureBakeProgress cellProgress;
   auto slicedScratch = mesher.Scratch();
