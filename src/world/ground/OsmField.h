@@ -142,6 +142,8 @@ public:
 
   [[nodiscard]] uint64_t Generation() const { return Generation_; }
 
+  [[nodiscard]] std::shared_ptr<const OsmField> SnapshotQueries() const;
+
   [[nodiscard]] size_t KeyCount() const { return Keys_.size(); }
 
   [[nodiscard]] std::string_view KeyAt(size_t at) const { return Keys_[at]; }

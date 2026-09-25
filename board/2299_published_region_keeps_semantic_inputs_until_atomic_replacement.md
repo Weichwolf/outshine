@@ -20,6 +20,12 @@ region change; candidate 5 by class, footprint and vector revisions together.
 Ignoring those revisions would publish stale data. The unused unsigned
 `Cost.StreamedTiles` subtraction across the reset has been removed.
 
+`OsmField::SnapshotQueries` pins native query arrays without parser/TilePool
+state; a source-generation and source-destruction test passes. On the pinned
+Hockenheim source (49 tiles, 45,297 features), the snapshot holds 10.68 MB
+versus 18.52 MB in the mutable field; one measured copy took 0.418 ms.
+It is not yet wired into candidate or published ownership.
+
 ## Ownership and data flow
 
 `GroundStack` owns mutable provider, parse and ingest state. Add a native

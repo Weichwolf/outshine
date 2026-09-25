@@ -10,20 +10,15 @@ Priority: P1
 
 ## IST
 
-590696be3: Bodenpalette erhält Roughness und die BRDF ihren dielektrischen Glanzanteil.
-Native/Ground-Vergleich samt Fallback und Slope-Mix grün; Malcesine-8dd84aa7 visuell geprüft.
-
-Native Masked-/DoubleSided-Farbmaps greifen auch bei instanzierten Pieces;
-Mip-Alpha-Coverage, Normalmaps und Blatttransmission bleiben offen (2111).
-
-Alle neun Render zeigen weitgehend einfarbige Dächer/Wände/Boden. Die jüngste
-Slope-Regel in `groundClass.glsl`/`groundLit.glsl` mischt steile Flächen Richtung Rock;
-sie erzeugt noch keine Felsstruktur. Malcesines graue Falten und Husums weiße Böschungen
-bleiben falsch. Steilheit ist ein Indiz für freiliegenden Untergrund, kein Beweis für
-Fels: Betonquai, Mauer, Straßeneinschnitt und ein steiler Erdhügel sind Gegenbeispiele.
-`include/scene/Material.h` erklärt Metallic-Roughness und Maps; die native Map-Anbindung,
-normalScale/occlusionStrength und Alpha-Verhalten sind noch durchgängig nachzuweisen.
-GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF sind Engine-Code.
+590696be3: Bodenpalette mit Roughness und dielektrischem Glanz; Native/Ground-Vergleich,
+Fallback und Slope-Mix grün; Malcesine-8dd84aa7 geprüft. Instanzierte Masked-/DoubleSided-
+Farbmaps greifen; Alpha-Coverage, Normalmaps und Blatttransmission bleiben offen (2111).
+Alle neun Render zeigen einfarbige Dächer/Wände/Boden. Die Slope-Regel in
+`groundClass.glsl`/`groundLit.glsl` mischt Richtung Rock, erzeugt aber keine Felsstruktur.
+Malcesines Falten und Husums Böschungen bleiben falsch. Steilheit beweist keinen Fels:
+Betonquai, Mauer, Straßeneinschnitt und Erdhügel sind Gegenbeispiele. Native Map-Anbindung,
+normalScale/occlusionStrength und Alpha-Verhalten brauchen Nachweis. Upload, Texturkanäle
+und BRDF sind Engine-Code; GLSL versteht glTF-Materialien nicht automatisch.
 
 ## Implementierung
 
@@ -43,20 +38,23 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
 4. Relief amplitudenbegrenzt und in 2166s finalem Fehlermaß enthalten; nahe Silhouetten
    brauchen Geometrie. Subpixelstruktur gefiltert in Normal/Roughness überführen, keine
    periodischen Streifen, kein World-Origin-Schwimmen. Wetterfeuchte aus 2172 später einspeisen.
-5. Native Materialien als deduplizierte Rezepte aus MR-Faktoren, Schichten, metrischem Maßstab,
-   Seed und Wetterzustand verwalten; Instanzen referenzieren Rezept plus kleine Parameterdeltas.
-   Ein Stadtpark mit Boden, Arten, Ausstattung, Menschen und Tieren benötigt bereits Hunderte
-   Varianten; weltweit Tausende. Tausende Varianten bedeuten weder Tausende Shader noch Draws:
-   Shaderfamilien und Renderzustand bündeln, Instanzen und GPU-Parameter tabellarisch binden.
-   Keine fest eingebauten Texturassets für generierte Weltoberflächen. Gefilterte prozedurale
-   Tiles/Mips sind versionierte, verwerfbare Caches derselben Funktionen, wenn Messung sie
-   billiger als direkte GLSL-Auswertung zeigt. Importierte glTF-Texturen bleiben Quelldaten.
+5. Native Materialien als deduplizierte Rezepte aus MR-Faktoren, Schichten, Maßstab, Seed und
+   Wetterzustand; Instanzen referenzieren Rezept plus Parameterdeltas. Ein Stadtpark braucht
+   Hunderte Varianten, die Welt Tausende; Shaderfamilien/Renderzustand bündeln und GPU-Parameter
+   tabellarisch binden. Keine festen Texturassets für generierte Oberflächen. Gefilterte
+   Tiles/Mips sind verwerfbare Caches derselben Funktionen, falls billiger als direkte GLSL-
+   Auswertung. Importierte glTF-Texturen bleiben Quelldaten.
 6. `decay` in [0,1] ist ein dimensionsloser Alterungsgrad pro Materialinstanz; das
    native Rezept definiert die Reaktion. Es ist kein glTF-MR-Faktor und nicht das
    unbenutzte Szenario-Metadatum `Scenario.Decay`. Regenlauf, Exposition, Feuchte,
    Temperatur, Bewuchs und Nutzung lokalisieren Flecken, Korrosion, Moos und Abrieb.
    Rost braucht oxidierbares Metall, Moos Feuchte/Licht; alle Kanäle teilen stabile
-   Koordinaten statt universellem Rauschen.
+   Koordinaten statt universellem Rauschen. Ein globaler, zur Laufzeit änderbarer
+   `decay`-Regler skaliert die lokale Instanzalterung vor dem Rezept: `d = clamp(
+   globalDecay * instanceDecay, 0, 1)`. Default `globalDecay=1`; `0` zeigt alle
+   alterungsfähigen Materialien neu, ohne Feuchte oder Schmutz aus Nutzung zu löschen.
+   Der Regler ändert Materialparameter, nicht Geometrie oder Materialidentität;
+   Ortsmasken und Seeds bleiben bei Regleränderung stabil.
 ## Abnahme
 
 - [ ] Native und importierte Material-Fixtures stimmen unter derselben Beleuchtung überein;
@@ -68,7 +66,9 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
       Streaming-/Cache-Eviction ohne Bildsprung, p95/p99 und Bytes messen.
 - [ ] Gleiche Betonkante trocken/feucht, neu/gealtert und um 180° gedreht:
       Ablaufspuren folgen Schwerkraft; Holz, Metall und Stein altern unterscheidbar.
-      `decay=0` entfernt Alterung, `decay=1` sättigt das Rezept; Glas rostet nie.
+      `globalDecay=0` entfernt Alterung, `globalDecay=1` nutzt die lokalen Werte;
+      `instanceDecay=1` sättigt das Rezept. Glas rostet nie. Regler-Sweep ohne
+      Geometrie-Neubau und ohne Sprung der Fleckenmuster nachweisen.
 
 Referenzen: [Filament](https://google.github.io/filament/main/filament.html), [glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
 
@@ -103,18 +103,17 @@ Alpha-Coverage bei Mips/Bewegung, Normalvarianz und Rauheit, Anisotropie,
 Speicher-/Uploadbudget. Boxfilter und ein Materialatlas allein nehmen keine Welt ab.
 
 ## Plausibler Boden vor Einzelpflanzen
-Zuerst Gelände ohne Vegetationsgeometrie visuell abnehmen. Aus OSM/DEM, Höhe,
-Neigung, Exposition, geografischer Lage, Klima und Jahreszeit plausible Anteile von
-Fels, Erde, Sand, Gras und Schnee ableiten; Feuchtigkeit/Temperatur zeitlich führen.
-Geologie, Wasser und Nutzung beeinflussen den Zustand: Höhe/Klima bestimmen ihn
-nicht eindeutig. Fehlende Daten deterministisch plausibel ergänzen, kein digitaler Zwilling.
-Drei Ebenen: Bodenzustand, räumliche Materialmischung, PBR-Darstellung. Große Farbflächen,
-mittlere Strukturen und gefilterte Mikrodetails trennen; nicht nur grünes Normalrauschen.
-Natürlicher Boden ist dielektrisch (Metallic=0); BaseColor/Roughness/Normal erzeugen,
-Nässe/Schnee/Gras mit passenden Lichtreaktionen statt falscher Metalness darstellen.
-Gemeinsame Standort-/Dichtedaten verbinden Bodenmaterial und Vegetationsplatzierung.
-Abnahme: kahle Testlandschaft mit Fels/Wiese/Erde, Nah-/Fernansicht, flacher Blick,
-Gegenlicht, Tag/Jahreszeit/Wetterwechsel und Bewegung; stimmiger künstlerischer Look
-ist zulässig. Streamingnähte, Wiederholungen und Flimmern bleiben Fehler.
-Einzelhalme erst ergänzen, wo projizierte Größe, Blickwinkel und Silhouette beitragen;
-keine pauschale Metergrenze. Vegetationsgeometrie folgt in 2137/2176.
+Zuerst Gelände ohne Vegetationsgeometrie visuell abnehmen. Aus OSM/DEM, Höhe, Neigung,
+Exposition, geografischer Lage, Klima und Jahreszeit plausible Anteile von Fels, Erde,
+Sand, Gras und Schnee ableiten; Feuchtigkeit/Temperatur zeitlich führen. Geologie,
+Wasser und Nutzung beeinflussen den Zustand: Höhe/Klima bestimmen ihn nicht eindeutig.
+Fehlende Daten deterministisch plausibel ergänzen, kein digitaler Zwilling. Drei Ebenen:
+Bodenzustand, räumliche Materialmischung, PBR-Darstellung. Große Farbflächen, mittlere
+Strukturen und gefilterte Mikrodetails trennen; nicht nur grünes Normalrauschen. Natürlicher
+Boden ist dielektrisch (Metallic=0); BaseColor/Roughness/Normal erzeugen, Nässe/Schnee/Gras
+mit passenden Lichtreaktionen statt falscher Metalness darstellen. Gemeinsame Standort-/
+Dichtedaten verbinden Bodenmaterial und Vegetationsplatzierung. Abnahme: kahle Testlandschaft
+mit Fels/Wiese/Erde, Nah-/Fernansicht, flacher Blick, Gegenlicht, Tag/Jahreszeit/Wetterwechsel
+und Bewegung; stimmiger künstlerischer Look ist zulässig. Streamingnähte, Wiederholungen und
+Flimmern bleiben Fehler. Einzelhalme erst ergänzen, wo projizierte Größe, Blickwinkel und
+Silhouette beitragen; keine pauschale Metergrenze. Vegetationsgeometrie folgt in 2137/2176.

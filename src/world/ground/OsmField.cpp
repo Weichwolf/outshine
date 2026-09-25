@@ -70,6 +70,31 @@ OsmField::OsmField(int zoom, std::span<const std::string> layers)
 
 OsmField::~OsmField() = default;
 
+std::shared_ptr<const OsmField> OsmField::SnapshotQueries() const {
+  auto snapshot = std::make_shared<OsmField>(Zoom_, Layers_);
+  snapshot->Extent_ = Extent_;
+  snapshot->CentreX_ = CentreX_;
+  snapshot->CentreY_ = CentreY_;
+  snapshot->Stage_ = Stage_;
+  snapshot->PublishedSettledTiles_ = PublishedSettledTiles_;
+  snapshot->Features_ = Features_;
+  snapshot->Rings_ = Rings_;
+  snapshot->Points_ = Points_;
+  snapshot->Tiles_ = Tiles_;
+  snapshot->Generation_ = Generation_;
+  snapshot->Tags_ = Tags_;
+  snapshot->Keys_ = Keys_;
+  snapshot->Strings_ = Strings_;
+  snapshot->Values_ = Values_;
+  snapshot->Settled_ = Settled_;
+  snapshot->RequestedRing_ = RequestedRing_;
+  snapshot->Pending_ = PendingTiles();
+  snapshot->Refused_ = Refused_;
+  snapshot->Missing_ = Missing_;
+  snapshot->Bad_ = Bad_;
+  return snapshot;
+}
+
 uint32_t OsmField::Intern(std::vector<std::string> &pool,
                           std::unordered_map<std::string, uint32_t> &index,
                           std::string_view s) {
