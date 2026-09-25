@@ -391,6 +391,11 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
     }
     return true;
   }
+  if (!World.Region ||
+      !World.Region->MatchesLiveSources(World.Stack.Vectors(), World.Stack.Footprints())) {
+    World.StructureBuilds.ResumeCompletedTasks();
+    return true;
+  }
   const auto landingAt = std::chrono::steady_clock::now();
   auto ready = World.StructureBuilds.NextLandings(World.Stack,
                                                   World.Stack.Footprints(),

@@ -47,6 +47,21 @@ int main() {
     footprints.CommitAcceptance(std::move(acceptance), ingest, emptyBake);
     old = std::make_shared<const PublishedRegion>(RegionSources::Snapshot(&ingest, ways, water),
                                                   footprints.SnapshotAccepted());
+    CHECK(old->MatchesLiveSources(&ingest, footprints),
+          "a published region accepts live detail from its unchanged semantic sources");
+    BuildingField changedFootprints = footprints.SnapshotAccepted();
+    changedFootprints.ResetDerived();
+    CHECK(!old->MatchesLiveSources(&ingest, changedFootprints),
+          "changed footprint semantics cannot publish live detail into the older region");
+    OsmField otherIngest(14, layers);
+    auto changedStructure = structure;
+    changedStructure[0].HeightM = 15;
+    otherIngest.Declare(changedStructure, TileAt{.X = 8581, .Y = 5603});
+    CHECK(otherIngest.Generation() == ingest.Generation() &&
+              otherIngest.Tiles().front().Source == ingest.Tiles().front().Source &&
+              otherIngest.Tiles().front().FeatureCount == ingest.Tiles().front().FeatureCount &&
+              !old->MatchesLiveSources(&otherIngest, footprints),
+          "equal counters and tile identities from another source do not authorize publication");
     CHECK(old->Vectors() && old->Vectors()->Generation() == oldGeneration &&
               old->Vectors()->Tiles().front().Source.From ==
                   Data::TileSourceIdentity::Origin::Declared &&
@@ -56,6 +71,8 @@ int main() {
           "the published region pins native features, tags and accepted source identity");
 
     ingest.Declare(std::span<const OsmField::Declared>{}, TileAt{.X = 8582, .Y = 5603});
+    CHECK(!old->MatchesLiveSources(&ingest, footprints),
+          "changed vector generation cannot publish live detail into the older region");
     footprints.ResetDerived();
     next = std::make_shared<const PublishedRegion>(RegionSources::Snapshot(&ingest, ways, water),
                                                    footprints.SnapshotAccepted());

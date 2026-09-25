@@ -39,8 +39,12 @@ feature reads use the published owner once ground is published, and staging
 only before the first publication. Water's query copy excludes in-flight
 candidates. Retained candidate and published-region bytes are measured.
 An empty replacement tile and accepted footprint source retain independent
-query identities after the ingest owner changes and dies. Live structure-tile
-updates and the remaining direct `Stack` readers still need migration.
+query identities after the ingest owner changes and dies. Live structure work
+now pauses unless vector generation/tile sources and accepted footprint revision
+match the published region; tests reject changed footprints, vector generations
+and a different vector field with the same generation counter. The Hockenheim
+74.85-s refined static and motion captures remain gap-free; the opened motion
+PNG is pixel-identical. Other direct `Stack` readers still need migration.
 The injected late-GPU-failure fixture retains the old semantic owner; retry
 swaps it with the native scene. Hockenheim Playable still at 74.85 s is
 pixel-identical to the prior snapshot build; its PNG was opened. The

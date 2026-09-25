@@ -92,10 +92,10 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 
 ## Implementation order
 
-1. Give `GroundStream`/`TilePool` a cheap revision also valid after cache eviction.
-   Resident identity already avoids live DEM rebuild on hits; misses still rebuild.
-   Keep stale-source rejection and bound pinned bytes. Measure cold/warm
-   startup, moving-camera p50/p95/p99, jobs/frame and memory on target hardware.
+1. Retain bounded source-dependency certificates beyond stitched-cache eviction;
+   invalidate on new provider data, shape change or an arriving neighbour.
+   `Forever` bytes can evict and partial stitches exist: without a valid
+   certificate, fully resolve. Measure cold/warm and moving-camera costs.
 2. Store certified simplification displacement per variant. Select with
    projected error and hysteresis; replace the whole-cell bound only after
    forced-coarse negative controls prove the tighter criterion.

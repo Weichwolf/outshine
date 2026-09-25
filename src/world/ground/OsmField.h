@@ -142,6 +142,8 @@ public:
 
   [[nodiscard]] uint64_t Generation() const { return Generation_; }
 
+  [[nodiscard]] const void *OriginToken() const noexcept { return OriginToken_.get(); }
+
   [[nodiscard]] std::shared_ptr<const OsmField> SnapshotQueries() const;
 
   [[nodiscard]] size_t KeyCount() const { return Keys_.size(); }
@@ -224,6 +226,7 @@ private:
   std::vector<double> Points_;
   std::vector<Tile> Tiles_;
   uint64_t Generation_ = 0;
+  std::shared_ptr<const uint8_t> OriginToken_ = std::make_shared<const uint8_t>(0);
   std::vector<uint32_t> Tags_;
   std::vector<std::string> Keys_;
   std::vector<std::string> Strings_;

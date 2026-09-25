@@ -42,6 +42,27 @@ public:
 
   [[nodiscard]] const BuildingField &Footprints() const noexcept { return Footprints_; }
 
+  [[nodiscard]] bool MatchesLiveSources(const OsmField *vectors,
+                                        const BuildingField &footprints) const noexcept {
+    const OsmField *published = Vectors();
+    if (published == nullptr || vectors == nullptr ||
+        published->OriginToken() != vectors->OriginToken() ||
+        published->Generation() != vectors->Generation() ||
+        Footprints_.Revision() != footprints.Revision() ||
+        published->Tiles().size() != vectors->Tiles().size()) {
+      return false;
+    }
+    for (size_t at = 0; at < vectors->Tiles().size(); ++at) {
+      const OsmField::Tile &old = published->Tiles()[at];
+      const OsmField::Tile &now = vectors->Tiles()[at];
+      if (old.Z != now.Z || old.X != now.X || old.Y != now.Y || old.Source != now.Source ||
+          old.FeatureCount != now.FeatureCount) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return Sources_.HeapBytes() + Footprints_.HeapBytes();
   }

@@ -82,6 +82,7 @@ std::shared_ptr<const OsmField> OsmField::SnapshotQueries() const {
   snapshot->Points_ = Points_;
   snapshot->Tiles_ = Tiles_;
   snapshot->Generation_ = Generation_;
+  snapshot->OriginToken_ = OriginToken_;
   snapshot->Tags_ = Tags_;
   snapshot->Keys_ = Keys_;
   snapshot->Strings_ = Strings_;
