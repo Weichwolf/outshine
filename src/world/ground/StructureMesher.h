@@ -81,8 +81,6 @@ struct StructurePlan {
 
   Vec3 AnchorEcef;
 
-  double FocalPx = 0.0;
-
   LevelOfDetail Coarseness = LevelOfDetail::Fine;
 
   double PitchedShare = kPitchedShareUnknown;

@@ -73,7 +73,6 @@ bool ValidPlanParameters(const StructurePlan &plan) {
                           plan.AnchorEcef[0],
                           plan.AnchorEcef[1],
                           plan.AnchorEcef[2],
-                          plan.FocalPx,
                           plan.PitchedShare,
                           plan.Street.KerbEm,
                           plan.Street.KerbNm,
@@ -157,15 +156,8 @@ public:
     North_ = axes.North;
     Up_ = axes.Up;
     for (int c = 0; c < 3; c++) { Origin_[c] = origin[c] - plan.AnchorEcef[c]; }
-    ReachM_ =
-        std::sqrt(Origin_[0] * Origin_[0] + Origin_[1] * Origin_[1] + Origin_[2] * Origin_[2]);
-    FocalPx_ = plan.FocalPx;
     Coarseness_ = plan.Coarseness;
   }
-
-  [[nodiscard]] double ReachM() const { return ReachM_; }
-
-  [[nodiscard]] double FocalPx() const { return FocalPx_; }
 
   [[nodiscard]] LevelOfDetail Coarseness() const { return Coarseness_; }
 
@@ -277,8 +269,6 @@ private:
   Raised &Out_;
   BuildingScratch &Scratch_;
   Vec3 Origin_, East_, North_, Up_;
-  double ReachM_ = 0.0;
-  double FocalPx_ = 0.0;
   LevelOfDetail Coarseness_ = LevelOfDetail::Fine;
 };
 
@@ -826,20 +816,6 @@ double PlinthTopZ(const BuildingShape &s, const FoundationGround &ground) {
   return seat;
 }
 
-constexpr double kRoofRiseM = 3.0;
-constexpr double kResolvedPx = 2.0;
-
-constexpr double kArchitectureTris = 262.0;
-
-[[nodiscard]] double FitsInPixelsM(double focalPx, double heightM, double widthM, double tris) {
-  if (heightM <= 0.0 || widthM <= 0.0 || tris <= 0.0) { return 0.0; }
-  return focalPx * std::sqrt(heightM * widthM / tris);
-}
-
-[[nodiscard]] double ArchitectureReachM(double focalPx) {
-  return focalPx * kRoofRiseM / kResolvedPx;
-}
-
 [[nodiscard]] std::array<EastNorth, 4> Hull(std::span<const EastNorth> ring) {
   const size_t n = ring.size();
   double bestArea = kBeyondAnyCoordinate;
@@ -907,27 +883,9 @@ void Box(const BuildingShape &s, std::span<const EastNorth> ring, Site &site) {
 }
 
 void RaisePart(const BuildingShape &s, Site &site) {
-  const double outM = site.ReachM();
-  const double focalPx = site.FocalPx();
-  if (focalPx > 0.0) {
-    double leastE = kBeyondAnyCoordinate;
-    double mostE = -kBeyondAnyCoordinate;
-    double leastN = kBeyondAnyCoordinate;
-    double mostN = -kBeyondAnyCoordinate;
-    for (const EastNorth &p : s.Ring) {
-      leastE = std::min(leastE, p.EastM);
-      mostE = std::max(mostE, p.EastM);
-      leastN = std::min(leastN, p.NorthM);
-      mostN = std::max(mostN, p.NorthM);
-    }
-    const double wideM = 0.5 * ((mostE - leastE) + (mostN - leastN));
-    const double highM = s.TopM() - s.SoleM;
-    const double asDetailed = std::min(ArchitectureReachM(focalPx),
-                                       FitsInPixelsM(focalPx, highM, wideM, kArchitectureTris));
-    if (site.Coarseness() != LevelOfDetail::Fine || outM > asDetailed) {
-      Box(s, Hull(s.Ring), site);
-      return;
-    }
+  if (site.Coarseness() != LevelOfDetail::Fine) {
+    Box(s, Hull(s.Ring), site);
+    return;
   }
   const RoofSurface roof(s);
   BuildingScratch &scratch = site.Scratch();

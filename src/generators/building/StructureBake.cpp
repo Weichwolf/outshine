@@ -385,7 +385,6 @@ std::expected<void, StructureMeshError> RaiseLump(const Lumped &of,
   plan.HeightMeasured = false;
   plan.Street = {};
   plan.AnchorEcef = raw.AnchorEcef;
-  plan.FocalPx = raw.FocalPx;
   plan.Coarseness = of.Level;
   plan.PitchedShare = of.RoofAreaM2 > 0.0 ? of.PitchedAreaM2 / of.RoofAreaM2 : kPitchedShareUnknown;
   return mesher.Mesh(plan, scratch, into);
@@ -588,7 +587,6 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.HeightMeasured = fp.Source == BuildingField::HeightSource::Osm;
   plan.Street = fp.Street;
   plan.AnchorEcef = raw.AnchorEcef;
-  plan.FocalPx = raw.FocalPx;
   plan.Coarseness = fp.Coarseness;
   const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
   if (!built) { return std::unexpected(built.error()); }

@@ -58,6 +58,10 @@ First slice: make `StructureMesher::Mesh` obey only its explicit detail level.
 Remove the hidden focal/world-anchor distance gate from `BuildingMesh` and
 prove Fine remains detailed at a remote world anchor while Shell stays coarse.
 This does not close camera-dependent selection in `StructureBake` or this WI.
+The focused anchor/detail test passes. Hockenheim 74.85 s paced capture keeps
+RGB 91/88/83; p99 is 17.16 ms with 51/4,491 over-budget frames and 520.1 MiB
+peak heap. Static/paced PNGs still differ in 5,719/921,600 pixels (0.621%),
+only near the horizon. The remaining selection is upstream of the mesher.
 
 1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: split semantic
    footprint acceptance from camera-local detail choice. Add stable cell/level
