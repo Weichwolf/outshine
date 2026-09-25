@@ -12,6 +12,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "Digest.h"
 #include "SceneRenderer.h"
@@ -52,6 +53,16 @@ PlaceStructurePiece(Render::SceneRenderer &renderer,
        .Instances = {},
        .Surface = surface,
        .Textured = textured});
+}
+
+void AppendPieceRows(std::vector<Render::SceneRenderer::PieceRows> &rows,
+                     Render::PieceHandle walls,
+                     Render::PieceHandle roofs,
+                     const Mat4 *row) {
+  const std::span<const Mat4> instances =
+      row == nullptr ? std::span<const Mat4>{} : std::span<const Mat4>{row, 1};
+  if (walls) { rows.push_back({.Piece = walls, .Rows = instances}); }
+  if (roofs) { rows.push_back({.Piece = roofs, .Rows = instances}); }
 }
 
 }
@@ -108,19 +119,26 @@ bool TilePieces::Hands(uint32_t tile,
                        const Vec3 &anchorEcef,
                        std::string &error,
                        uint64_t sourceKey) {
-  if (Renderer_ == nullptr) {
-    error = "tile geometry requires a live world";
-    return false;
-  }
-  if (baked.RequestedDetail && sourceKey == 0) {
-    error = "explicit structure detail requires a source key";
-    return false;
-  }
-  if ((cell == 0 && baked.RequestedCell) ||
-      (cell != 0 && (baked.RequestedCell != cell || !baked.RequestedDetail))) {
-    error = "structure product cell and residency address differ";
-    return false;
-  }
+  return Store(tile, cell, baked, anchorEcef, error, sourceKey, false);
+}
+
+bool TilePieces::StageCell(uint32_t tile,
+                           uint32_t cell,
+                           const Generators::BakedTile &baked,
+                           const Vec3 &anchorEcef,
+                           std::string &error,
+                           uint64_t sourceKey) {
+  return Store(tile, cell, baked, anchorEcef, error, sourceKey, true);
+}
+
+bool TilePieces::Store(uint32_t tile,
+                       uint32_t cell,
+                       const Generators::BakedTile &baked,
+                       const Vec3 &anchorEcef,
+                       std::string &error,
+                       uint64_t sourceKey,
+                       bool staged) {
+  if (!ValidateStore(tile, cell, baked, sourceKey, staged, error)) { return false; }
   const Mat4 row = RowFor(anchorEcef);
   const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
   const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
@@ -128,11 +146,12 @@ bool TilePieces::Hands(uint32_t tile,
   });
   const bool sourceChanged = std::any_of(
       first, last, [sourceKey](const Standing &held) { return held.SourceKey != sourceKey; });
-  const bool visible = ShouldShow(tile, cell, baked.RequestedDetail, sourceKey);
+  const bool visible = !staged && ShouldShow(tile, cell, baked.RequestedDetail, sourceKey);
   Standing stood{.Tile = tile,
                  .Cell = cell,
                  .Digest = baked.Digest,
                  .SourceKey = sourceKey,
+                 .OccupiedCells = baked.OccupiedCells,
                  .FallbackHeights = baked.FallbackHeights,
                  .Detail = baked.RequestedDetail,
                  .Row = row,
@@ -169,18 +188,175 @@ bool TilePieces::Hands(uint32_t tile,
       return false;
     }
   }
-  if (baked.RequestedDetail && !sourceChanged) {
-    ForgetsDetail(tile, cell, baked.RequestedDetail);
-  } else {
-    ForgetsCell(tile, cell);
+  if (!staged) {
+    if (baked.RequestedDetail && !sourceChanged) {
+      ForgetsDetail(tile, cell, baked.RequestedDetail);
+    } else {
+      ForgetsCell(tile, cell);
+    }
   }
-  if (stood.Walls || stood.Roofs) {
+  if (stood.Walls || stood.Roofs || staged) {
     Standing_.insert(std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf),
                      stood);
   }
   RefreshDigest();
   ++Handed_;
   return true;
+}
+
+bool TilePieces::ValidateStore(uint32_t tile,
+                               uint32_t cell,
+                               const Generators::BakedTile &baked,
+                               uint64_t sourceKey,
+                               bool staged,
+                               std::string &error) const {
+  if (Renderer_ == nullptr) {
+    error = "tile geometry requires a live world";
+    return false;
+  }
+  if (baked.RequestedDetail && sourceKey == 0) {
+    error = "explicit structure detail requires a source key";
+    return false;
+  }
+  if ((cell == 0 && baked.RequestedCell) ||
+      (cell != 0 && (baked.RequestedCell != cell || !baked.RequestedDetail))) {
+    error = "structure product cell and residency address differ";
+    return false;
+  }
+  if (staged && (cell == 0 || cell > Generators::kStructureCellsPerTile || sourceKey == 0 ||
+                 baked.OccupiedCells != (uint64_t{1} << (cell - 1u)))) {
+    error = "staged structure cell needs one occupied source cell";
+    return false;
+  }
+  const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
+  const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {
+    return held.Tile != tile || held.Cell != cell;
+  });
+  if (staged && first != last) {
+    error = "structure cell already has resident geometry";
+    return false;
+  }
+  if (!staged && cell != 0) {
+    const auto legacy = std::ranges::lower_bound(Standing_, std::pair{tile, 0u}, {}, AddressOf);
+    if (legacy != Standing_.end() && legacy->Tile == tile && legacy->Cell == 0 && legacy->Visible) {
+      error = "stage structure cells before replacing a whole tile";
+      return false;
+    }
+  }
+  return true;
+}
+
+bool TilePieces::ActivateCells(uint32_t tile,
+                               CellSource source,
+                               std::span<const CellSelection> selected,
+                               std::string &error) {
+  if (!ValidateActivation(tile, source, selected, error)) { return false; }
+  const auto firstTile = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
+  const auto lastTile = std::find_if(
+      firstTile, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
+  const auto legacy = std::find_if(
+      firstTile, lastTile, [](const Standing &held) { return held.Cell == 0 && held.Visible; });
+  std::vector<Render::SceneRenderer::PieceRows> rows;
+  rows.reserve(4u * selected.size() + 2u);
+  std::vector<Standing *> targets;
+  std::vector<Standing *> previous;
+  targets.reserve(selected.size());
+  previous.reserve(selected.size());
+  if (legacy != lastTile) { AppendPieceRows(rows, legacy->Walls, legacy->Roofs, nullptr); }
+  for (const CellSelection choice : selected) {
+    const auto [target, current] = CellTransition(tile, source, choice);
+    if (current != nullptr && current != target) {
+      AppendPieceRows(rows, current->Walls, current->Roofs, nullptr);
+    }
+    if (current != target) { AppendPieceRows(rows, target->Walls, target->Roofs, &target->Row); }
+    targets.push_back(target);
+    previous.push_back(current);
+  }
+  if (!Renderer_->SetPieceInstances(rows, error)) { return false; }
+  if (legacy != lastTile) { legacy->Visible = false; }
+  for (size_t at = 0; at < targets.size(); ++at) {
+    if (previous[at] != nullptr) { previous[at]->Visible = false; }
+    targets[at]->Visible = true;
+  }
+  if (legacy != lastTile) {
+    ForgetsCell(tile, 0);
+  } else {
+    RefreshDigest();
+  }
+  return true;
+}
+
+bool TilePieces::ValidateActivation(uint32_t tile,
+                                    CellSource source,
+                                    std::span<const CellSelection> selected,
+                                    std::string &error) const {
+  if (Renderer_ == nullptr || source.Key == 0 || source.Occupied == 0 ||
+      selected.size() != static_cast<size_t>(std::popcount(source.Occupied))) {
+    error = "structure cell activation needs a complete source selection";
+    return false;
+  }
+  uint64_t selectedMask = 0;
+  uint32_t previousCell = 0;
+  for (const CellSelection choice : selected) {
+    if (choice.Cell <= previousCell || choice.Cell > Generators::kStructureCellsPerTile ||
+        choice.Detail > LevelOfDetail::Massed) {
+      error = "structure cell selection is not ordered or has an invalid level";
+      return false;
+    }
+    selectedMask |= uint64_t{1} << (choice.Cell - 1u);
+    previousCell = choice.Cell;
+  }
+  if (selectedMask != source.Occupied) {
+    error = "structure cell selection omits or adds a source cell";
+    return false;
+  }
+  const auto firstTile = std::ranges::lower_bound(Standing_, tile, {}, &Standing::Tile);
+  const auto lastTile = std::find_if(
+      firstTile, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
+  const auto legacy = std::find_if(
+      firstTile, lastTile, [](const Standing &held) { return held.Cell == 0 && held.Visible; });
+  if (legacy != lastTile && legacy->SourceKey != source.Key) {
+    error = "whole-tile geometry belongs to another source revision";
+    return false;
+  }
+  for (auto at = firstTile; at != lastTile; ++at) {
+    if (at->Cell == 0) { continue; }
+    if (at->SourceKey != source.Key || at->Cell > Generators::kStructureCellsPerTile ||
+        (source.Occupied & (uint64_t{1} << (at->Cell - 1u))) == 0) {
+      error = "resident structure cell belongs to another source selection";
+      return false;
+    }
+  }
+  for (const CellSelection choice : selected) {
+    const auto first =
+        std::ranges::lower_bound(firstTile, lastTile, std::pair{tile, choice.Cell}, {}, AddressOf);
+    const auto last = std::find_if(
+        first, lastTile, [choice](const Standing &held) { return held.Cell != choice.Cell; });
+    const auto target = std::find_if(first, last, [choice, source](const Standing &held) {
+      return held.Detail == choice.Detail && held.SourceKey == source.Key &&
+             held.OccupiedCells == (uint64_t{1} << (choice.Cell - 1u));
+    });
+    if (target == last) {
+      error = "required structure cell detail is not resident";
+      return false;
+    }
+  }
+  return true;
+}
+
+std::pair<TilePieces::Standing *, TilePieces::Standing *>
+TilePieces::CellTransition(uint32_t tile, CellSource source, CellSelection choice) noexcept {
+  const auto first =
+      std::ranges::lower_bound(Standing_, std::pair{tile, choice.Cell}, {}, AddressOf);
+  const auto last = std::find_if(first, Standing_.end(), [tile, choice](const Standing &held) {
+    return held.Tile != tile || held.Cell != choice.Cell;
+  });
+  const auto target = std::find_if(first, last, [choice, source](const Standing &held) {
+    return held.Detail == choice.Detail && held.SourceKey == source.Key &&
+           held.OccupiedCells == (uint64_t{1} << (choice.Cell - 1u));
+  });
+  const auto current = std::find_if(first, last, [](const Standing &held) { return held.Visible; });
+  return {&*target, current == last ? nullptr : &*current};
 }
 
 void TilePieces::Forgets(uint32_t tile) {

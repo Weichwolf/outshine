@@ -505,6 +505,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   }
   const double base = seated.BaseM;
   const double seat = seated.SeatM;
+  out.OccupiedCells |= uint64_t{1} << (one.Cell.Index - 1u);
   if (out.FootprintBounds) {
     auto &bounds = *out.FootprintBounds;
     bounds.MinLatDeg = std::min(bounds.MinLatDeg, one.Cell.Footprint.MinLatDeg);
@@ -674,6 +675,7 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     out.RequestedDetail = raw.RequestedDetail;
     out.RequestedCell = raw.RequestedCell;
     out.FootprintBounds.reset();
+    out.OccupiedCells = 0;
     state.Ways = LinesOf(raw);
     state.Lumps.Clear();
     state.Corners.clear();

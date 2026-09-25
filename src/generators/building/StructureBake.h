@@ -94,6 +94,7 @@ struct BakedTile {
   std::optional<LevelOfDetail> RequestedDetail;
   std::optional<uint32_t> RequestedCell;
   std::optional<outshine::Ground::GeoBounds> FootprintBounds;
+  uint64_t OccupiedCells = 0;
   std::vector<outshine::Ground::BuildingField::Footprint> Prints;
   std::vector<LevelOfDetail> FootprintDetails;
   std::vector<double> SeatSpreadM;

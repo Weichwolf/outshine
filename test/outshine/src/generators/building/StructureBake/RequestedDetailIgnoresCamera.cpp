@@ -3,6 +3,7 @@
 #include "Check.h"
 
 #include <array>
+#include <cstdint>
 #include <limits>
 #include <optional>
 #include <vector>
@@ -47,6 +48,8 @@ int main() {
           "the same requested detail bakes for another camera");
     CHECK(near.RequestedDetail == detail && far.RequestedDetail == detail &&
               near.Prints.size() == 1 && far.Prints.size() == 1 &&
+              near.OccupiedCells == (uint64_t{1} << (fixtureCell->Index - 1u)) &&
+              far.OccupiedCells == near.OccupiedCells &&
               near.FootprintDetails == std::vector{detail} &&
               far.FootprintDetails == std::vector{detail} && near.Digest == far.Digest,
           "explicit detail geometry and product identity ignore eye and focal length");
@@ -133,6 +136,7 @@ int main() {
   Generators::BakedTile west;
   CHECK(Generators::BakeStructures(cellRaw, *heights, mesher, *westScratch, west).has_value() &&
             west.RequestedCell == westCell->Index && west.Prints.size() == 1 &&
+            west.OccupiedCells == (uint64_t{1} << (westCell->Index - 1u)) &&
             west.Prints.front().FirstPoint == 0 && west.FootprintBounds &&
             west.FootprintBounds->MinLonDeg == westCell->Footprint.MinLonDeg &&
             west.FootprintBounds->MaxLonDeg == westCell->Footprint.MaxLonDeg,
@@ -149,6 +153,7 @@ int main() {
   Generators::BakedTile east;
   CHECK(Generators::BakeStructures(cellRaw, *heights, mesher, *eastScratch, east).has_value() &&
             east.Prints.size() == 1 && east.Prints.front().FirstPoint == 4 &&
+            east.OccupiedCells == (uint64_t{1} << (eastCell->Index - 1u)) &&
             east.Digest != west.Digest,
         "a neighbouring cell produces a distinct product from the same source tile");
   cellRaw.RequestedCell = 0;

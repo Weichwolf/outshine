@@ -7,6 +7,7 @@
 #include <SDL3/SDL.h>
 #include <array>
 #include <memory>
+#include <span>
 #include <vector>
 
 int main() {
@@ -121,6 +122,35 @@ int main() {
             "automatic replacement removes both variants without leaving the tile hidden");
       CHECK(visible().size() == 1 && visible().front().SourceKey == 0 && !visible().front().Detail,
             "automatic camera-dependent geometry is explicit in capture provenance");
+      automatic.OccupiedCells = 3;
+      CHECK(pieces.Hands(7, automatic, frame.OriginEcef(), error, 11),
+            "source-keyed whole-tile safety net is resident");
+      const float legacyDepth = depth();
+      auto stagedOne = fine;
+      stagedOne.RequestedCell = 1;
+      stagedOne.OccupiedCells = 1;
+      auto stagedTwo = shell;
+      stagedTwo.RequestedCell = 2;
+      stagedTwo.OccupiedCells = 2;
+      CHECK(!pieces.Hands(7, 1, stagedOne, frame.OriginEcef(), error, 11) &&
+                pieces.StageCell(7, 1, stagedOne, frame.OriginEcef(), error, 11) &&
+                depth() == legacyDepth && visible().size() == 1,
+            "a staged cell cannot duplicate the visible whole-tile safety net");
+      const std::array<TilePieces::CellSelection, 2> cells{
+          {{.Cell = 1, .Detail = LevelOfDetail::Fine},
+           {.Cell = 2, .Detail = LevelOfDetail::Shell}}};
+      CHECK(
+          !pieces.ActivateCells(7, {.Key = 11, .Occupied = 3}, std::span(cells.data(), 1), error) &&
+              depth() == legacyDepth && visible().size() == 1,
+          "a missing source cell cannot retire the safety net");
+      CHECK(pieces.StageCell(7, 2, stagedTwo, frame.OriginEcef(), error, 11) &&
+                !pieces.ActivateCells(7, {.Key = 12, .Occupied = 3}, cells, error) &&
+                depth() == legacyDepth,
+            "a stale source key leaves both staged cells hidden");
+      CHECK(pieces.ActivateCells(7, {.Key = 11, .Occupied = 3}, cells, error) &&
+                renderer.PiecesStanding() == 2 && visible().size() == 2 && visible()[0].Cell == 1 &&
+                visible()[1].Cell == 2 && depth() != legacyDepth,
+            "one visibility transaction replaces the safety net with complete cell geometry");
       pieces.Forgets(7);
       CHECK(renderer.PiecesStanding() == 0 && visible().empty(),
             "legacy whole-tile geometry retires before cell products are published");

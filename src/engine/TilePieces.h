@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -47,6 +48,27 @@ public:
                            const Vec3 &anchorEcef,
                            std::string &error,
                            uint64_t sourceKey);
+  [[nodiscard]] bool StageCell(uint32_t tile,
+                               uint32_t cell,
+                               const Generators::BakedTile &baked,
+                               const Vec3 &anchorEcef,
+                               std::string &error,
+                               uint64_t sourceKey);
+
+  struct CellSelection {
+    uint32_t Cell = 0;
+    LevelOfDetail Detail = LevelOfDetail::Fine;
+  };
+
+  struct CellSource {
+    uint64_t Key = 0;
+    uint64_t Occupied = 0;
+  };
+
+  [[nodiscard]] bool ActivateCells(uint32_t tile,
+                                   CellSource source,
+                                   std::span<const CellSelection> selected,
+                                   std::string &error);
 
   void Forgets(uint32_t tile);
   void ForgetsCell(uint32_t tile, uint32_t cell);
@@ -106,6 +128,7 @@ private:
     uint32_t Cell = 0;
     uint64_t Digest = 0;
     uint64_t SourceKey = 0;
+    uint64_t OccupiedCells = 0;
     bool FallbackHeights = false;
     std::optional<LevelOfDetail> Detail;
     Mat4 Row;
@@ -119,6 +142,25 @@ private:
   }
 
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;
+  [[nodiscard]] bool ValidateStore(uint32_t tile,
+                                   uint32_t cell,
+                                   const Generators::BakedTile &baked,
+                                   uint64_t sourceKey,
+                                   bool staged,
+                                   std::string &error) const;
+  [[nodiscard]] bool ValidateActivation(uint32_t tile,
+                                        CellSource source,
+                                        std::span<const CellSelection> selected,
+                                        std::string &error) const;
+  [[nodiscard]] std::pair<Standing *, Standing *>
+  CellTransition(uint32_t tile, CellSource source, CellSelection choice) noexcept;
+  [[nodiscard]] bool Store(uint32_t tile,
+                           uint32_t cell,
+                           const Generators::BakedTile &baked,
+                           const Vec3 &anchorEcef,
+                           std::string &error,
+                           uint64_t sourceKey,
+                           bool staged);
   [[nodiscard]] bool ShouldShow(uint32_t tile,
                                 uint32_t cell,
                                 std::optional<LevelOfDetail> detail,

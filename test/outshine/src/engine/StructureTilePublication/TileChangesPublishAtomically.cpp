@@ -3,7 +3,9 @@
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cstdint>
 #include <memory>
+#include <span>
 
 int main() {
   using namespace outshine;
@@ -131,6 +133,8 @@ int main() {
       }
       landing.Tile = 10;
       landing.Baked = &built;
+      landing.SourceKey = 41;
+      built.OccupiedCells = 3;
       {
         Core::WorldCandidate retiring(renderer);
         CHECK(retiring.Prepare(*scene, nullptr).has_value(),
@@ -148,6 +152,52 @@ int main() {
       }
       CHECK(renderer.PiecesStanding() == 8 && world.Pieces.ValidateSources(error),
             "abandoning the candidate preserves the live tile");
+      const uint64_t legacyDigest = world.Pieces.Digest();
+      Generators::BakedTile cellOne = built;
+      cellOne.RequestedCell = 1;
+      cellOne.RequestedDetail = LevelOfDetail::Fine;
+      cellOne.OccupiedCells = 1;
+      cellOne.Digest = 101;
+      Generators::BakedTile cellTwo = built;
+      cellTwo.RequestedCell = 2;
+      cellTwo.RequestedDetail = LevelOfDetail::Shell;
+      cellTwo.OccupiedCells = 2;
+      cellTwo.Digest = 102;
+      StructureBuildQueue::Landing cellLanding{.Tile = landing.Tile,
+                                               .Baked = &cellOne,
+                                               .AnchorEcef = landing.AnchorEcef,
+                                               .SourceKey = landing.SourceKey};
+      CHECK(StageStructureCell(world, renderer, cellLanding).has_value() &&
+                renderer.PiecesStanding() == 10 && world.Pieces.Digest() == legacyDigest,
+            "first cell lands without changing the published image");
+      const std::array<TilePieces::CellSelection, 2> cells{
+          {{.Cell = 1, .Detail = LevelOfDetail::Fine},
+           {.Cell = 2, .Detail = LevelOfDetail::Shell}}};
+      CHECK(!ActivateStructureCells(world, renderer, 10, 41, 3, cells) &&
+                renderer.PiecesStanding() == 10 && world.Pieces.Digest() == legacyDigest,
+            "incomplete cell set cannot retire the published whole tile");
+      cellLanding.Baked = &cellTwo;
+      world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
+                          .Roofs = Render::PieceSurface(3)});
+      CHECK(!StageStructureCell(world, renderer, cellLanding) && renderer.PiecesStanding() == 10 &&
+                world.Pieces.Digest() == legacyDigest,
+            "failed cell upload preserves the safety net and prior staged product");
+      world.Pieces.Wears({.Walls = Render::PieceSurface(static_cast<uint32_t>(wall->index())),
+                          .Roofs = Render::PieceSurface(static_cast<uint32_t>(roof->index()))});
+      CHECK(StageStructureCell(world, renderer, cellLanding).has_value() &&
+                renderer.PiecesStanding() == 12 &&
+                !ActivateStructureCells(world, renderer, 10, 42, 3, cells) &&
+                world.Pieces.Digest() == legacyDigest,
+            "stale source cannot activate a complete staged cell set");
+      CHECK(ActivateStructureCells(world, renderer, 10, 41, 3, cells).has_value() &&
+                renderer.PiecesStanding() == 10 && world.Pieces.Digest() != legacyDigest,
+            "complete source-matched cells atomically replace the published whole tile");
+      size_t visibleCells = 0;
+      world.Pieces.ForEachDigest([&](TilePieces::DigestRecord record) {
+        if (record.Tile == 10 && record.Cell != 0) { ++visibleCells; }
+      });
+      CHECK(visibleCells == 2 && world.Pieces.ValidateSources(error),
+            "cell publication retains two visible products with valid source handles");
       world.Pieces.Forgets(10);
       world.Pieces.Forgets(7);
       world.Pieces.Forgets(8);
