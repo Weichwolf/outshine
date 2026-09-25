@@ -13,14 +13,10 @@ Tags: buildings, lod, determinism, streaming, hockenheim
 
 `StructureBake.cpp` uses `RawTile::Eye` to choose Fine, Shell or Massed before
 building native geometry. `BuildingMesh.cpp` also tests distance to a fixed
-world anchor. Accepted tiles are reused within 64 m of their bake eye. At the
-same Hockenheim final pose/time after Refined and render settle, a jump and a
-paced approach differ in 5,679/921,600 PNG pixels, concentrated in 43 horizon
-rows (worst channel difference 118/255). Tile 24 had identical source, DEM
-and street inputs but 51 Fine footprints after a jump versus 38 after motion.
-The current eye-revalidation fix prevents a false Refined result; it also left
-all 4,491 paced frames unsettled and still permits different valid bakes.
-Repeated tile baking every 64 m cannot be the streaming LOD architecture.
+world anchor. Accepted tiles are reused within 64 m of their bake eye.
+Hockenheim tile 24 had identical source, DEM and street inputs but 51 Fine
+footprints after a jump versus 38 after motion. Eye revalidation avoids a
+false Refined result, yet repeated whole-tile baking prevents stable streaming.
 
 ## Architecture contract
 
@@ -79,13 +75,21 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   static/motion differ in 13,606 pixels, all by at most 1/255; both probes
   are (93,90,85). Opened PNGs show the same buildings, but the anonymous long
   footprint still produces an implausibly repetitive facade (WI 2289).
+- A fresh 60-s motion diagnostic has 3,357/3,600 unrefined frames. Once-per-
+  second reasons name `world ingestion pending` in 55/60 samples; 664/676
+  structure bakes had landed by 60 s for 49 vector tiles. `Complete` requires
+  every accepted bake eye within 64 m, and `Posts` restarts the whole-tile
+  refinement pass when any eye expires. `StructuresReady` also uses this
+  camera criterion for ground candidates. Source ingestion and view detail
+  must have separate completion state; a larger reuse radius is not the fix.
 
 ## Implementation order
 
 1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: retain the
-   completed semantic/detail separation, then add stable cell/level product
-   identity and source-keyed variant requests. Remove eye/focal inputs from
-   the product revision only after camera independence is proven.
+   completed semantic/detail separation; give source qualification and view
+   detail separate cursors and readiness results. Add stable cell/level product
+   identity and source-keyed variant requests. Ground candidates wait for
+   qualified semantic footprints, not a camera-local bake eye.
 2. In `TilePieces`, `SceneResources`, `SubjectDraw`: publish variants with
    explicit cell/level ownership and retain coarse geometry during fine
    upload, retirement and failed replacement. Use existing cluster bounds;

@@ -51,6 +51,9 @@ Aber 11 962 Frames sind nicht Refined, gegenüber 5 979 zuvor. Alle elf
 Markierungen wurden geöffnet: Mark 3 hat keine schwarze Fahrbahn mehr; lange
 repetitive Gebäude bei Mark 3/4/7 und monotone Boden-/Straßenflächen bleiben.
 Die höhere Unrefined-Zahl ist eine Regression, keine Abnahme (WI 2298).
+Eine 60-s Diagnose nennt in 55 von 60 Sekundenproben `world ingestion pending`;
+die Bilddetail-Neubewertung aller akzeptierten Strukturkacheln hängt noch am
+semantischen Ground-Ready-Vertrag. WI 2298 trennt diese Zustände.
 
 ## Construction
 
