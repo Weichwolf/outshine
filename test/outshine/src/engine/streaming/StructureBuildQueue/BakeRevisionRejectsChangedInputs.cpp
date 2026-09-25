@@ -66,6 +66,51 @@ int main() {
   CHECK(
       revision.OwnsReservation(vectors, footprints, {.LongitudeDeg = 9.01, .LatitudeDeg = 47}, {}),
       "camera movement cannot strand a discarded bake's footprint reservation");
+  const StructureBuildQueue::BakeRevision explicitRevision{
+      .Vectors = vectors.Generation(),
+      .FocalPx = footprints.FocalPx(),
+      .TileSpanM = footprints.TileSpanM(),
+      .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
+      .RequestedDetail = LevelOfDetail::Shell};
+  CHECK(explicitRevision.Matches(vectors,
+                                 footprints,
+                                 {.LongitudeDeg = 10, .LatitudeDeg = 48},
+                                 {},
+                                 StructureBuildQueue::HeightRequirement::AllowFallback,
+                                 LevelOfDetail::Shell),
+        "source-keyed detail survives a remote camera eye");
+  footprints.SeenWith(1080.0);
+  CHECK(explicitRevision.Matches(vectors,
+                                 footprints,
+                                 {.LongitudeDeg = 10, .LatitudeDeg = 48},
+                                 {},
+                                 StructureBuildQueue::HeightRequirement::AllowFallback,
+                                 LevelOfDetail::Shell),
+        "source-keyed detail survives focal changes");
+  CHECK(!explicitRevision.Matches(vectors,
+                                  footprints,
+                                  {.LongitudeDeg = 10, .LatitudeDeg = 48},
+                                  {},
+                                  StructureBuildQueue::HeightRequirement::AllowFallback,
+                                  LevelOfDetail::Fine),
+        "another detail level cannot consume the queued product");
+  CHECK(!explicitRevision.Matches(vectors,
+                                  footprints,
+                                  {.LongitudeDeg = 10, .LatitudeDeg = 48},
+                                  {.Value = 1},
+                                  StructureBuildQueue::HeightRequirement::AllowFallback,
+                                  LevelOfDetail::Shell),
+        "explicit detail still rejects a changed height source");
+  footprints.TilesSpan(2500.0);
+  CHECK(!explicitRevision.Matches(vectors,
+                                  footprints,
+                                  {.LongitudeDeg = 10, .LatitudeDeg = 48},
+                                  {},
+                                  StructureBuildQueue::HeightRequirement::AllowFallback,
+                                  LevelOfDetail::Shell),
+        "explicit detail still rejects a changed spatial scale");
+  footprints.SeenWith(720.0);
+  footprints.TilesSpan(2400.0);
   const StructureBuildQueue::BakeRevision vectorRevision{
       .Vectors = vectors.Generation(),
       .FocalPx = footprints.FocalPx(),

@@ -88,12 +88,14 @@ void RawOf(const Ground::OsmField &vectors,
            const Ground::StreetField &streets,
            const Ground::TileWatermark::Next &next,
            LongitudeLatitude eye,
+           std::optional<LevelOfDetail> detail,
            Generators::RawTile &raw) {
   raw.LatLon.clear();
   raw.Structures.clear();
   raw.Ways.clear();
   raw.AnchorEcef = prints.Anchor();
   raw.Eye = eye;
+  raw.RequestedDetail = detail;
   raw.FocalPx = prints.FocalPx();
   raw.TileSpanM = prints.TileSpanM();
   raw.Extent = vectors.Extent();
@@ -276,12 +278,15 @@ StructureBuildQueue::~StructureBuildQueue() {
   Clear();
 }
 
-bool StructureBuildQueue::BakeRevision::Matches(const Ground::OsmField &vectors,
-                                                const Ground::BuildingField &footprints,
-                                                LongitudeLatitude eye,
-                                                HeightSourceRevision heightSource,
-                                                HeightRequirement heights) const noexcept {
-  return OwnsReservation(vectors, footprints, eye, heightSource) && EyeWithin(Eye, eye) &&
+bool StructureBuildQueue::BakeRevision::Matches(
+    const Ground::OsmField &vectors,
+    const Ground::BuildingField &footprints,
+    LongitudeLatitude eye,
+    HeightSourceRevision heightSource,
+    HeightRequirement heights,
+    std::optional<LevelOfDetail> detail) const noexcept {
+  return OwnsReservation(vectors, footprints, eye, heightSource) && RequestedDetail == detail &&
+         (RequestedDetail || EyeWithin(Eye, eye)) &&
          (heights == HeightRequirement::AllowFallback || !FallbackHeights);
 }
 
@@ -323,9 +328,10 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
                                        Ground::BuildingField &prints,
                                        LongitudeLatitude eye,
                                        HeightSourceRevision heightSource,
-                                       HeightRequirement heights) {
+                                       HeightRequirement heights,
+                                       std::optional<LevelOfDetail> detail) {
   while (!Queue_.empty() &&
-         !Queue_.front().Revision.Matches(vectors, prints, eye, heightSource, heights)) {
+         !Queue_.front().Revision.Matches(vectors, prints, eye, heightSource, heights, detail)) {
     QueuedBuild &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
@@ -367,7 +373,8 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                   LongitudeLatitude eye,
                                   const HeightSource &heightAt,
                                   size_t candidatesMost,
-                                  HeightRequirement requirement) {
+                                  HeightRequirement requirement,
+                                  std::optional<LevelOfDetail> detail) {
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
@@ -419,11 +426,12 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                 .FocalPx = prints.FocalPx(),
                                 .TileSpanM = prints.TileSpanM(),
                                 .Eye = eye,
+                                .RequestedDetail = detail,
                                 .FallbackHeights = heights->Fallback()};
     if (!replacement) { prints.Take(next->Tile); }
     std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
     const auto extractionAt = std::chrono::steady_clock::now();
-    RawOf(vectors, prints, stack.Ways(), *next, eye, *raw);
+    RawOf(vectors, prints, stack.Ways(), *next, eye, detail, *raw);
     const uint64_t streetDigest = StreetDigest(stack.Ways(), vectors, next->Tile);
     SlowestRawExtractionMs_ = std::max(
         SlowestRawExtractionMs_,
@@ -462,12 +470,13 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
                                   LongitudeLatitude eye,
                                   HeightSourceRevision heightSource,
                                   size_t most,
-                                  HeightRequirement heights) {
+                                  HeightRequirement heights,
+                                  std::optional<LevelOfDetail> detail) {
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
-  DiscardStale(*vectors, prints, eye, heightSource, heights);
+  DiscardStale(*vectors, prints, eye, heightSource, heights, detail);
   ResumeCompletedTasks();
   size_t count = 0;
   size_t printCount = 0;
@@ -475,7 +484,8 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   size_t acrossCount = 0;
   while (count < most && count < Queue_.size()) {
     QueuedBuild &bake = Queue_[count];
-    if (!bake.Finished || !bake.Revision.Matches(*vectors, prints, eye, heightSource, heights)) {
+    if (!bake.Finished ||
+        !bake.Revision.Matches(*vectors, prints, eye, heightSource, heights, detail)) {
       break;
     }
     if (!bake.Task.Result().Status) {

@@ -71,6 +71,10 @@ as visible state and reapplies empty rows after candidate GPU restoration.
 A depth-buffer fixture hides a structure piece, publishes a copied world,
 confirms it stays hidden, then reveals it through the same valid handle.
 Without this, hidden coarse/fine alternatives could reappear together.
+The build queue now carries an optional explicit Fine/Shell/Massed request into
+`RawTile`. Its revision ignores camera eye/focal changes only for explicit
+detail, while still rejecting changed source, height, scale or requested level.
+Automatic requests retain the old eye guard until resident selection replaces it.
 
 1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: split semantic
    footprint acceptance from camera-local detail choice. Add stable cell/level

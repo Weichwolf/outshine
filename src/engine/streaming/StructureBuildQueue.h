@@ -45,14 +45,15 @@ public:
     double FocalPx = 0.0;
     double TileSpanM = 0.0;
     LongitudeLatitude Eye;
+    std::optional<LevelOfDetail> RequestedDetail;
     bool FallbackHeights = false;
 
-    [[nodiscard]] bool
-    Matches(const Ground::OsmField &vectors,
-            const Ground::BuildingField &footprints,
-            LongitudeLatitude eye,
-            HeightSourceRevision heightSource,
-            HeightRequirement heights = HeightRequirement::AllowFallback) const noexcept;
+    [[nodiscard]] bool Matches(const Ground::OsmField &vectors,
+                               const Ground::BuildingField &footprints,
+                               LongitudeLatitude eye,
+                               HeightSourceRevision heightSource,
+                               HeightRequirement heights = HeightRequirement::AllowFallback,
+                               std::optional<LevelOfDetail> detail = std::nullopt) const noexcept;
 
     [[nodiscard]] bool OwnsReservation(const Ground::OsmField &vectors,
                                        const Ground::BuildingField &footprints,
@@ -60,7 +61,8 @@ public:
                                        HeightSourceRevision heightSource) const noexcept {
       (void)eye;
       return Vectors == vectors.Generation() && HeightSource == heightSource &&
-             FocalPx == footprints.FocalPx() && TileSpanM == footprints.TileSpanM();
+             (RequestedDetail || FocalPx == footprints.FocalPx()) &&
+             TileSpanM == footprints.TileSpanM();
     }
   };
 
@@ -75,7 +77,8 @@ public:
                              LongitudeLatitude eye,
                              const HeightSource &heightAt,
                              size_t candidatesMost,
-                             HeightRequirement requirement = HeightRequirement::AllowFallback);
+                             HeightRequirement requirement = HeightRequirement::AllowFallback,
+                             std::optional<LevelOfDetail> detail = std::nullopt);
 
   struct Landing {
     uint32_t Tile = 0;
@@ -90,7 +93,8 @@ public:
                LongitudeLatitude eye,
                HeightSourceRevision heightSource,
                size_t most,
-               HeightRequirement heights = HeightRequirement::AllowFallback);
+               HeightRequirement heights = HeightRequirement::AllowFallback,
+               std::optional<LevelOfDetail> detail = std::nullopt);
   void ResumeCompletedTasks();
   void CommitsLandings(Ground::GroundStack &stack,
                        Ground::BuildingField &footprints,
@@ -170,7 +174,8 @@ private:
                     Ground::BuildingField &prints,
                     LongitudeLatitude eye,
                     HeightSourceRevision heightSource,
-                    HeightRequirement heights);
+                    HeightRequirement heights,
+                    std::optional<LevelOfDetail> detail);
 
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
