@@ -1789,6 +1789,10 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   const auto &footprints = World.GroundBuild->Footprints();
   const auto *vectors = World.Stack.Vectors();
   diagnostic += ", structure refinement=" + std::to_string(footprints.RefinementRemaining());
+  if (const auto *worker = World.GroundBuild->StreetGraphWorker(); worker != nullptr) {
+    diagnostic += ", network phase=" + std::string(worker->PhaseName()) +
+                  ", network advances=" + std::to_string(worker->Advances());
+  }
   diagnostic +=
       ", footprints ingested=" +
       std::to_string(static_cast<int>(vectors != nullptr && footprints.Ingested(*vectors)));

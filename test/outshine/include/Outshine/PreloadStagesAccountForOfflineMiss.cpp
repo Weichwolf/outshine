@@ -42,6 +42,10 @@ int main() {
           "wait-source accounting is disjoint and signals never exceed calls");
     CHECK(waited.TileNoOutstandingMs == 0.0 && waited.TileNoOutstandingCalls == 0,
           "preload never waits on an empty tile pool");
+    const auto refined = engine.preload(0.0, WorldQuality::Refined);
+    CHECK(!refined && !engine.settled(WorldQuality::Refined) &&
+              refined.error().find("pending") != std::string::npos,
+          "refined preload refuses an incomplete world and describes pending work");
   }
 
   std::error_code error;

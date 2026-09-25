@@ -442,10 +442,10 @@ struct Engine::State {
   [[nodiscard]] Result PreloadOverflow();
   enum class PreloadFlush : uint8_t { Pending, Ready };
 
-  [[nodiscard]] Result FinishesPreload();
-  [[nodiscard]] std::expected<PreloadFlush, std::string>
-  FlushPreloadGround(std::chrono::steady_clock::time_point began, double bound);
-  [[nodiscard]] Result PreloadTimeout(double bound);
+  [[nodiscard]] Result FinishesPreload(GroundQuality quality);
+  [[nodiscard]] std::expected<PreloadFlush, std::string> FlushPreloadGround(
+      std::chrono::steady_clock::time_point began, double bound, GroundQuality quality);
+  [[nodiscard]] Result PreloadTimeout(double bound, GroundQuality quality);
   void AwaitPreloadProgress(double seconds);
   [[nodiscard]] bool UpdateActiveCamera();
   [[nodiscard]] bool UpdateRouteCamera(const Scenario::View &view);

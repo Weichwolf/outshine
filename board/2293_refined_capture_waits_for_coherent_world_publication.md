@@ -1,5 +1,5 @@
 Type: defect
-State: active
+State: done
 Architecture: ready
 Parent: 2191
 Depends: 2294
@@ -42,3 +42,14 @@ retains its frame-by-frame readiness trace and does not block on every frame.
   still differs, open a separate render-plan defect with that evidence.
 - `--probe-pixel` reports the quality at which its frame was captured. Focused
   tests, `make format` and `LINT_JOBS=2 make lint` pass.
+
+## Result
+
+`preload(patienceS, WorldQuality)` waits for the requested publication quality;
+the original overloads retain Playable. Invalid deadlines and groundless scenes
+are covered; incomplete offline input gives an explicit Refined timeout. Two
+fresh static Hockenheim probes at 74.850 s reached Refined with identical
+1280x720 PNGs and pixel (91,88,83). The first-declaration diagnostic-output
+plan and client-added outputs also match pixel-for-pixel. Final preload took
+697/698 ms from a complete warm cache. A paced Refined frame still differs;
+that is WI 2295, not a reason to weaken the quality wait.

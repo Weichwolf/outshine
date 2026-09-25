@@ -17,7 +17,8 @@ class Coordinates(unittest.TestCase):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
         cases = ((('--help',), ('render', 'run', 'shots', 'measures', '<command> --help')),
                  (('render', '--help'), ('asset.gltf|asset.glb', '--camera', '--stats', 'draw_frames')),
-                 (('run', '--help'), ('--view', '--motion', '--samples', '--stats', 'playable/refined')),
+                 (('run', '--help'), ('--view', '--motion', '--samples', '--stats',
+                                     '--probe-pixel', 'playable/refined')),
                  (('shots', '--help'), ('--preload-seconds', '--offline', '--stats')),
                  (('measures', '--help'), ('diagnostic samples', '--stats')),
                  (('height', '--help'), ('latitude-deg', 'longitude-deg')))
@@ -114,6 +115,16 @@ class Coordinates(unittest.TestCase):
                                   capture_output=True, text=True, timeout=10)
         self.assertEqual(accepted.returncode, 2)
         self.assertIn('SDL did not start', accepted.stdout)
+
+    def test_invalid_pixel_probe_is_rejected_before_platform_initialization(self):
+        env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
+        for value in ('', '-1,0', '1,-1', '1', '1,2,3', 'nan,1', '2147483648,0'):
+            result = subprocess.run([str(CLIENT), 'run', '--view', 'lap', '--at-seconds', '1',
+                                     '--probe-pixel', value, 'missing.scenario'], cwd=ROOT,
+                                    env=env, capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 2, (value, result.stderr))
+            self.assertIn('--probe-pixel requires nonnegative integer x,y', result.stderr)
+            self.assertNotIn('SDL', result.stdout + result.stderr)
 
 
 if __name__ == '__main__':

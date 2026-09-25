@@ -22,6 +22,8 @@ void VectorStreetGraphWorker::Run(Ground::VectorStreetGraphBuildJob job,
                                   const std::stop_token &stop) {
   while (!stop.stop_requested()) {
     auto advanced = job.Advance(kWorkItemsPerSlice);
+    Phase_.store(job.PhaseName(), std::memory_order_relaxed);
+    Advances_.fetch_add(1, std::memory_order_relaxed);
     if (!advanced) {
       Result_.emplace(std::unexpected(std::move(advanced.error())));
       break;

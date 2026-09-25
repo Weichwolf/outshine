@@ -30,6 +30,7 @@ namespace {
 
 constexpr double kMaximumCaptureTimeS = 3600.0;
 constexpr double kPreloadBudgetS = 30.0;
+constexpr double kRefinedPreloadBudgetS = 120.0;
 constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 constexpr double kBytesPerMiB = 1024.0 * 1024.0;
 constexpr unsigned kAllRouteFields = 31u;
@@ -275,14 +276,19 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
   return WriteMotionTrace(result.TracePath, frames);
 }
 
-[[nodiscard]] std::expected<void, std::string>
-RenderAtTime(Engine &engine, MotionSchedule schedule, bool isRoute, ScenarioCaptureResult &result) {
+[[nodiscard]] std::expected<void, std::string> RenderAtTime(Engine &engine,
+                                                            MotionSchedule schedule,
+                                                            bool isRoute,
+                                                            bool awaitRefined,
+                                                            ScenarioCaptureResult &result) {
   for (size_t tick = 0; tick < schedule.Ticks; ++tick) {
     if (const auto advanced = engine.advance(); !advanced) {
       return std::unexpected(Refusal("route advance", advanced.error()));
     }
   }
-  if (const auto ready = engine.preload(kPreloadBudgetS); !ready) {
+  const WorldQuality required = awaitRefined ? WorldQuality::Refined : WorldQuality::Playable;
+  const double budgetS = awaitRefined ? kRefinedPreloadBudgetS : kPreloadBudgetS;
+  if (const auto ready = engine.preload(budgetS, required); !ready) {
     return std::unexpected(Refusal("capture world preload", ready.error()));
   }
   if (isRoute) {
@@ -346,8 +352,8 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
       return std::unexpected(motion.error());
     }
   } else {
-    if (const auto rendered =
-            RenderAtTime(engine, {.Ticks = ticks, .StepS = stepS}, isRoute, result);
+    if (const auto rendered = RenderAtTime(
+            engine, {.Ticks = ticks, .StepS = stepS}, isRoute, options.AwaitRefined, result);
         !rendered) {
       return std::unexpected(rendered.error());
     }

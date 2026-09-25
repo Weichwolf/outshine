@@ -146,6 +146,21 @@ void VectorStreetGraphBuildJob::Publish() {
   Stage_ = Stage::Done;
 }
 
+const char *VectorStreetGraphBuildJob::PhaseName() const noexcept {
+  switch (Stage_) {
+    case Stage::BeginWeave: return "begin-weave";
+    case Stage::Weave: return "weave";
+    case Stage::CleanupWeave: return "cleanup-weave";
+    case Stage::BeginCrossings: return "begin-crossings";
+    case Stage::Crossings: return "crossings";
+    case Stage::BeginElevation: return "begin-elevation";
+    case Stage::Elevation: return "elevation";
+    case Stage::Publish: return "publish";
+    case Stage::Done: return "done";
+  }
+  return "unknown";
+}
+
 std::expected<bool, std::string> VectorStreetGraphBuildJob::Advance(size_t itemsMost) {
   if (itemsMost == 0) { return std::unexpected("street corridor work budget is zero"); }
   const auto began = std::chrono::steady_clock::now();

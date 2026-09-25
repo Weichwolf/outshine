@@ -121,6 +121,9 @@ int main() {
                     "circuit", 0.0, std::numeric_limits<double>::quiet_NaN()) &&
                 !engine.sampleRouteContact("circuit", 0.0, 100.0),
             "invalid contact coordinates are refused without terrain fallback");
+      const auto refined = engine.preload(0.0, WorldQuality::Refined);
+      CHECK(!refined && !engine.settled(WorldQuality::Refined),
+            "an incomplete vector fixture cannot claim refined coverage");
       scene.Providers.front().Revision = "pin-r2";
       CHECK(engine.declare(scene) && engine.assemble() && !engine.routeInfo("circuit") &&
                 !engine.sampleRouteContact("circuit", 0.0, 0.0),

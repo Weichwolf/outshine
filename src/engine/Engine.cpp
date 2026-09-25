@@ -497,23 +497,25 @@ bool Engine::State::CanAdvanceGroundCandidate() const {
   return World.GroundBuild != nullptr && World.Stack.IngestedWithin(0);
 }
 
-Result Engine::State::FinishesPreload() {
+Result Engine::State::FinishesPreload(GroundQuality quality) {
   const auto &published = World.GroundPublished.Current();
-  const bool structuresReady = published && StructuresReady(World.Stack.Footprints(), *published);
-  if ((!published || structuresReady) && !Grounds(true, GroundQuality::Playable)) {
+  const bool continuingCandidate = World.GroundBuild != nullptr;
+  const bool structuresReady =
+      !continuingCandidate && published && StructuresReady(World.Stack.Footprints(), *published);
+  if ((!published || structuresReady || continuingCandidate) && !Grounds(true, quality)) {
     return std::unexpected(Error);
   }
   if (structuresReady && !UpdateVegetation(true)) { return std::unexpected(Error); }
   return {};
 }
 
-std::expected<Engine::State::PreloadFlush, std::string>
-Engine::State::FlushPreloadGround(std::chrono::steady_clock::time_point began, double bound) {
+std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPreloadGround(
+    std::chrono::steady_clock::time_point began, double bound, GroundQuality quality) {
   for (size_t advance = 0; advance < kPreloadGroundAdvancesMost; ++advance) {
-    if (const Result finished = FinishesPreload(); !finished) {
+    if (const Result finished = FinishesPreload(quality); !finished) {
       return std::unexpected(finished.error());
     }
-    if (Readiness(GroundQuality::Playable).Ready() &&
+    if (Readiness(quality).Ready() &&
         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
       return PreloadFlush::Ready;
     }
@@ -561,14 +563,14 @@ Result Engine::State::PreloadOverflow() {
   return std::unexpected(Error);
 }
 
-Result Engine::State::PreloadTimeout(double bound) {
-  const WorldReadiness readiness = Readiness();
+Result Engine::State::PreloadTimeout(double bound, GroundQuality quality) {
+  const WorldReadiness readiness = Readiness(quality);
   const std::string pendingGround = Error;
   Error = "the world did not become resident within " + std::to_string(bound) +
           " s: " + readiness.Describe();
   if (!World.Stack.Ingested()) { Error += " (" + World.Stack.IngestionStatus() + ")"; }
   if (!World.GroundPublished.Current() && !pendingGround.empty()) { Error += "; " + pendingGround; }
-  Error += "; ground build=" + std::string(GroundBuildStatus());
+  Error += "; " + GroundBuildDiagnostic();
   if (World.StructureBuilds.Posted() > 0) {
     Error += "; structure bakes=" + std::to_string(World.StructureBuilds.Landed()) + "/" +
              std::to_string(World.StructureBuilds.Posted()) +
@@ -670,10 +672,20 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
 }
 
 Result Engine::preload(double patienceS) {
-  return preload(patienceS, {});
+  return preloadWithQuality(patienceS, WorldQuality::Playable, {});
 }
 
 Result Engine::preload(double patienceS, const std::function<void(const Loading &)> &tell) {
+  return preloadWithQuality(patienceS, WorldQuality::Playable, tell);
+}
+
+Result Engine::preload(double patienceS, WorldQuality required) {
+  return preloadWithQuality(patienceS, required, {});
+}
+
+Result Engine::preloadWithQuality(double patienceS,
+                                  WorldQuality required,
+                                  const std::function<void(const Loading &)> &tell) {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   if (!std::isfinite(patienceS) || patienceS < 0.0) {
@@ -698,6 +710,8 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     return result;
   };
   const double bound = patienceS;
+  const GroundQuality quality =
+      required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
   if (!S_->Session.Declared.Ground.Declared) {
     ReportPreload(*this, began, tell);
     return timed(Result{});
@@ -711,14 +725,14 @@ Result Engine::preload(double patienceS, const std::function<void(const Loading 
     ReportPreload(*this, began, tell);
     if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate()) {
       const auto flushAt = std::chrono::steady_clock::now();
-      const auto finished = S_->FlushPreloadGround(began, bound);
+      const auto finished = S_->FlushPreloadGround(began, bound, quality);
       S_->PreloadFlushMs += elapsedMs(flushAt);
       ++S_->PreloadFlushes;
       if (!finished) { return timed(std::unexpected(finished.error())); }
       if (*finished == State::PreloadFlush::Ready) { return timed(Result{}); }
     }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
-      return timed(S_->PreloadTimeout(bound));
+      return timed(S_->PreloadTimeout(bound, quality));
     }
     const double leftS =
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();

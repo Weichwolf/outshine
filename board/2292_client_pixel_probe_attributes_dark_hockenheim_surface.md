@@ -1,5 +1,5 @@
 Type: diagnostic
-State: active
+State: done
 Architecture: ready
 Parent: 2167
 Depends: 2291, 2293
@@ -19,7 +19,7 @@ Colour alone cannot distinguish shadow, material or transient geometry.
 ## Contract and ownership
 
 `src/client` owns a bounded `run --probe-pixel x,y` diagnostic using only the
-public `Renderer::readPixels` API after a Refined static frame. It reports
+public `Renderer::readPixels` API after a Refined final frame. It reports
 display RGBA8, scene-linear RGB, raw device depth, shading normal and surface
 identity at one pixel. The option requires `--view --at-seconds`; nonnegative
 integer coordinates parse before platform setup and are bounds-checked against
@@ -41,3 +41,16 @@ machine-readable TSV row with named columns and physical/encoding semantics.
 - `run --help` gives the exact option and row schema. Focused CLI/Engine tests,
   `make format`, `LINT_JOBS=2 make lint` pass. Board 2167/2260 records the
   observed cause and next corrective work, not a picture-specific workaround.
+
+## Result
+
+`run`/`measures --probe-pixel x,y` retain two optional native attachments and
+read one final pixel through the public renderer. Parsing rejects malformed and
+overflowed coordinates before SDL; an out-of-target coordinate fails before
+assembly. The TSV includes RGBA8, linear RGB, depth, normal, surface ID and
+quality. Static diagnostics wait for Refined; paced motion probes its final
+frame. Screenshot and probed RGBA agree. Mark-3 road/horizon and mark-4 road/
+sky were inspected. At mark 3, same ID/normal/depth but dark paced vs bright
+static colour proves a render-state discrepancy, not a contact
+gap. Mark 4 exposed a rare overhead-geometry anomaly. WI 2295 owns both
+remaining render defects. Focused tests, format and full lint pass.

@@ -20,6 +20,7 @@ struct ScenarioCaptureOptions {
   double AtS = 0.0;
   bool RenderMotion = false;
   bool SampleImages = false;
+  bool AwaitRefined = false;
 };
 
 struct ScenarioCaptureResult {

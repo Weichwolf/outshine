@@ -137,7 +137,11 @@ public:
   [[nodiscard]] size_t QueuedStructures() const;
 
   [[nodiscard]] bool AwaitSlice(double seconds) const {
-    return Pool_ != nullptr && !Queue_.empty() && Pool_->AwaitCompletion(seconds);
+    if (Pool_ == nullptr) { return false; }
+    for (const QueuedBuild &build : Queue_) {
+      if (build.Task.Running()) { return Pool_->AwaitCompletion(seconds); }
+    }
+    return false;
   }
 
 private:

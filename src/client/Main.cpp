@@ -23,6 +23,7 @@
 #include <scenario/Scenario.h>
 
 #include "PlaceCamera.h"
+#include "PixelProbe.h"
 #include "RenderAsset.h"
 #include "ScenarioRoundTrip.h"
 #include "ScenarioCapture.h"
@@ -168,6 +169,9 @@ void Usage(std::string_view verb = {}) {
         "  --offline                       use only cached and shipped sources\n"
         "  --rows                          machine-readable capture rows\n"
         "  --stats                         timing, readiness and source STAT rows\n"
+        "  --probe-pixel <x,y>             inspect a refined final frame; requires view and time\n"
+        "  PIXEL row: name, x, y, RGBA8, linear RGB, device depth, normal XYZ, surface ID, "
+        "quality.\n"
         "  measures additionally prints all engine diagnostic samples.\n"
         "Motion writes a per-frame TSV with time, station, camera position, advance/render "
         "time, readiness, ground candidate progress, previous-frame GPU diagnostics and "
@@ -206,6 +210,11 @@ void Usage(std::string_view verb = {}) {
                  "render: elapsed/prepare/assemble/draw/save_ms, draw_frames, width/height_px.\n"
                  "route motion: frame count, p50/p95/p99, budget/readiness, contact gaps, "
                  "eye clearance and peak heap.");
+  }
+  if (verb == "run" || verb == "measures") {
+    std::println("PIXEL TSV: PIXEL<TAB>name<TAB>x<TAB>y<TAB>RGBA8<TAB>"
+                 "linear-RGB<TAB>device-depth<TAB>normal-XYZ<TAB>surface-ID<TAB>quality; "
+                 "multi-component fields are comma-separated.");
   }
 }
 
@@ -386,6 +395,7 @@ struct ScenarioRunOptions {
   double AtS = 0.0;
   bool RenderMotion = false;
   bool SampleImages = false;
+  std::optional<outshine::Client::PixelCoordinate> ProbePixel;
 };
 
 [[nodiscard]] std::expected<void, int> ValidateScenarioRunOptions(const ScenarioRunOptions &options,
@@ -400,6 +410,10 @@ struct ScenarioRunOptions {
   }
   if (options.SampleImages && !options.RenderMotion) {
     std::println(stderr, "outshine-client: --samples requires --motion");
+    return std::unexpected(2);
+  }
+  if (options.ProbePixel && (!hasTime || options.SelectedView.empty())) {
+    std::println(stderr, "outshine-client: --probe-pixel requires --view and --at-seconds");
     return std::unexpected(2);
   }
   return {};
@@ -422,6 +436,58 @@ struct ScenarioRunOptions {
   return true;
 }
 
+[[nodiscard]] std::expected<bool, int>
+ReadRunValue(std::string_view flag, const char *value, ScenarioRunOptions &options, bool &hasTime) {
+  if (flag == "--cache-dir") {
+    if (value == nullptr || !outshine::Client::ValidCacheDirectory(value)) {
+      std::println(stderr, "outshine-client: --cache-dir requires a nonempty directory");
+      return std::unexpected(2);
+    }
+    options.CacheDirectory = value;
+    return true;
+  }
+  if (flag == "--into" || flag == "--view") {
+    if (value == nullptr) {
+      std::println(stderr, "outshine-client: {} requires a value", flag);
+      return std::unexpected(2);
+    }
+    if (flag == "--into") {
+      options.Into = value;
+    } else {
+      options.SelectedView = value;
+    }
+    return true;
+  }
+  if (flag == "--at-seconds") {
+    if (value == nullptr) {
+      std::println(stderr, "outshine-client: --at-seconds needs a nonnegative time in seconds");
+      return std::unexpected(2);
+    }
+    const auto parsed = outshine::ParseFiniteNumber(value);
+    if (!parsed || *parsed < 0.0) {
+      std::println(stderr, "outshine-client: --at-seconds needs a nonnegative time in seconds");
+      return std::unexpected(2);
+    }
+    options.AtS = *parsed;
+    hasTime = true;
+    return true;
+  }
+  if (flag == "--probe-pixel") {
+    if (value == nullptr) {
+      std::println(stderr, "outshine-client: --probe-pixel requires nonnegative integer x,y");
+      return std::unexpected(2);
+    }
+    const auto pixel = outshine::Client::ParsePixelCoordinate(value);
+    if (!pixel) {
+      std::println(stderr, "outshine-client: {}", pixel.error());
+      return std::unexpected(2);
+    }
+    options.ProbePixel = *pixel;
+    return true;
+  }
+  return false;
+}
+
 [[nodiscard]] std::expected<ScenarioRunOptions, int>
 ParseScenarioRunOptions(int argc, const char *const *argv) {
   ScenarioRunOptions options;
@@ -434,41 +500,11 @@ ParseScenarioRunOptions(int argc, const char *const *argv) {
       ++argv;
       continue;
     }
-    if (std::strcmp(argv[0], "--cache-dir") == 0) {
-      if (argc < 2 || !outshine::Client::ValidCacheDirectory(argv[1])) {
-        std::println(stderr, "outshine-client: --cache-dir requires a nonempty directory");
-        return std::unexpected(2);
-      }
-      options.CacheDirectory = argv[1];
-      argc -= 2;
-      argv += 2;
-      continue;
-    }
-    if (std::strcmp(argv[0], "--into") == 0 && argc > 1) {
-      options.Into = argv[1];
-      argc -= 2;
-      argv += 2;
-      continue;
-    }
-    if (std::strcmp(argv[0], "--view") == 0 && argc > 1) {
-      options.SelectedView = argv[1];
-      argc -= 2;
-      argv += 2;
-      continue;
-    }
-    if (std::strcmp(argv[0], "--at-seconds") == 0 && argc > 1) {
-      const auto parsed = outshine::ParseFiniteNumber(argv[1]);
-      if (!parsed || *parsed < 0.0) {
-        std::println(stderr, "outshine-client: --at-seconds needs a nonnegative time in seconds");
-        return std::unexpected(2);
-      }
-      options.AtS = *parsed;
-      hasTime = true;
-      argc -= 2;
-      argv += 2;
-      continue;
-    }
-    break;
+    const auto value = ReadRunValue(argv[0], argc > 1 ? argv[1] : nullptr, options, hasTime);
+    if (!value) { return std::unexpected(value.error()); }
+    if (!*value) { break; }
+    argc -= 2;
+    argv += 2;
   }
   if (const auto valid = ValidateScenarioRunOptions(options, hasTime); !valid) {
     return std::unexpected(valid.error());
@@ -488,10 +524,18 @@ int CaptureView(outshine::Engine &engine,
                                              .Into = options.Into,
                                              .AtS = options.AtS,
                                              .RenderMotion = options.RenderMotion,
-                                             .SampleImages = options.SampleImages});
+                                             .SampleImages = options.SampleImages,
+                                             .AwaitRefined = options.ProbePixel.has_value()});
   if (!captured) {
     std::println(stderr, "outshine-client: {}", captured.error());
     return 1;
+  }
+  if (options.ProbePixel) {
+    if (const auto probed = outshine::Client::ReportPixel(engine, named, *options.ProbePixel);
+        !probed) {
+      std::println(stderr, "outshine-client: {}", probed.error());
+      return 1;
+    }
   }
   if (options.Rows) {
     std::println("CAPTURE\t{}\t{}\t{:.6f}\t{:.3f}\t{:.3f}\t{}",
@@ -566,10 +610,47 @@ int CaptureView(outshine::Engine &engine,
   return captured->MissingContactFrames == 0 ? 0 : 1;
 }
 
-void PrintMeasures(const outshine::Engine &engine) {
+[[nodiscard]] bool PrintMeasures(outshine::Engine &engine) {
+  if (const auto inspected = engine.inspect(); !inspected) {
+    std::println(stderr, "outshine-client: diagnostic readback: {}", inspected.error());
+    return false;
+  }
   for (const outshine::DiagnosticSample &one : engine.measures()) {
     std::println("        {:<56} {:14.3f} {}", one.Name, one.Value, one.Unit);
   }
+  return true;
+}
+
+[[nodiscard]] int PrepareScenarioRun(outshine::Engine &engine, const ScenarioRunOptions &options) {
+  if (!Stands(engine, {}, ClientRoots(options.CacheDirectory, options.Offline))) { return 2; }
+  if (const auto read = engine.readScenario(options.Argv[0]); !read) {
+    std::println("outshine-client: {} -- {}", options.Argv[0], read.error());
+    return 1;
+  }
+  if (options.ProbePixel) {
+    if (const auto prepared = outshine::Client::PreparePixelAttachments(engine); !prepared) {
+      std::println(stderr, "outshine-client: pixel attachments: {}", prepared.error());
+      return 1;
+    }
+  }
+  outshine::Extent frame = engine.declaration().Render.Frame;
+  if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
+    frame = {.WidthPx = outshine::Shots::kWidePx, .HeightPx = outshine::Shots::kHighPx};
+  }
+  if (options.ProbePixel &&
+      (options.ProbePixel->X >= frame.WidthPx || options.ProbePixel->Y >= frame.HeightPx)) {
+    std::println(stderr, "outshine-client: probe pixel lies outside the current render target");
+    return 2;
+  }
+  if (const auto targeted = engine.setRenderTarget(frame); !targeted) {
+    std::println("outshine-client: {}", targeted.error());
+    return 1;
+  }
+  if (const auto assembled = engine.assemble(); !assembled) {
+    std::println("outshine-client: {} did not assemble -- {}", options.Argv[0], assembled.error());
+    return 1;
+  }
+  return 0;
 }
 
 int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
@@ -592,30 +673,14 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     }
     return result;
   };
-  if (!Stands(engine, {}, ClientRoots(options.CacheDirectory, options.Offline))) {
-    return setupFailed(2);
-  }
-  if (const auto read = engine.readScenario(options.Argv[0]); !read) {
-    std::println("outshine-client: {} -- {}", options.Argv[0], read.error());
-    return setupFailed(1);
-  }
-  outshine::Extent frame = engine.declaration().Render.Frame;
-  if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
-    frame = {.WidthPx = outshine::Shots::kWidePx, .HeightPx = outshine::Shots::kHighPx};
-  }
-  if (const auto targeted = engine.setRenderTarget(frame); !targeted) {
-    std::println("outshine-client: {}", targeted.error());
-    return setupFailed(1);
-  }
-  if (const auto assembled = engine.assemble(); !assembled) {
-    std::println("outshine-client: {} did not assemble -- {}", options.Argv[0], assembled.error());
-    return setupFailed(1);
+  if (const int prepared = PrepareScenarioRun(engine, options); prepared != 0) {
+    return setupFailed(prepared);
   }
   const double setupMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   if (!options.SelectedView.empty()) {
     const int result = CaptureView(engine, named, options);
-    if (everyMeasure) { PrintMeasures(engine); }
+    if (everyMeasure && !PrintMeasures(engine)) { return 1; }
     if (options.Stats) {
       const double elapsedMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -636,7 +701,7 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
   } else {
     Tell(shot, named);
   }
-  if (everyMeasure) { PrintMeasures(engine); }
+  if (everyMeasure && !PrintMeasures(engine)) { return 1; }
   if (options.Stats) {
     const double elapsedMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();

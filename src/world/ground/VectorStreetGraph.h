@@ -66,6 +66,8 @@ public:
 
   [[nodiscard]] double LongestSliceMs() const noexcept { return LongestSliceMs_; }
 
+  [[nodiscard]] const char *PhaseName() const noexcept;
+
 private:
   enum class Stage : uint8_t {
     BeginWeave,

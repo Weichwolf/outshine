@@ -1,5 +1,5 @@
 Type: defect
-State: active
+State: done
 Architecture: ready
 Parent: 2285
 Depends:
@@ -46,3 +46,14 @@ Hockenheim path or extend timeouts to conceal stalled work.
   the same camera and quality. If work remains slow, capture its phase and
   open a separate measured performance WI.
 - Focused candidate/route tests, `make format`, `LINT_JOBS=2 make lint` pass.
+
+## Result
+
+An active candidate now advances even when the prior published footprint
+revision is incomplete; its finished network worker is collected. The queue
+waits only for running structure tasks. Hockenheim's same warm/offline Refined
+probe changed from a 120 s timeout (worker already `done`, old/new footprint
+revisions 4/21) to 697/698 ms final preload and 2.95-3.06 s total client run.
+Both fresh runs used 538 cache deliveries and zero provider starts; the PNGs
+match exactly. The incomplete vector fixture refuses Refined, and focused
+preload/route tests, format and full lint pass.

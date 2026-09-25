@@ -367,6 +367,12 @@ public:
   /// @return Success when ready (including a scene without ground), or an owned error.
   /// Invalid budgets fail before work. Other failures may retain partial streaming progress.
   [[nodiscard]] Result preload(double patienceS);
+  /// Wait for a declared streaming quality using the same synchronous budget contract.
+  /// Playable matches preload(patienceS); Refined waits for complete published coverage.
+  /// @param patienceS Finite nonnegative time budget in seconds.
+  /// @param required Required published world quality.
+  /// @return Success only at the requested readiness, or an owned error.
+  [[nodiscard]] Result preload(double patienceS, WorldQuality required);
   /// Preload with synchronous progress notifications under the same budget/error contract.
   /// @param patienceS Finite nonnegative time budget in seconds.
   /// @param tell Optional callback, borrowed for this call. Its Loading reference is valid
@@ -616,6 +622,9 @@ public:
 private:
   friend class Capture;
   friend class Renderer;
+  [[nodiscard]] Result preloadWithQuality(double patienceS,
+                                          WorldQuality required,
+                                          const std::function<void(const Loading &)> &tell);
   [[nodiscard]] Result render(Extent frame);
   [[nodiscard]] Result saveScreenshot(std::string_view path);
   [[nodiscard]] Result readPixels(std::vector<uint8_t> &rgba);
