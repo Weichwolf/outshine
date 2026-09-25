@@ -51,12 +51,12 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
    Keine fest eingebauten Texturassets für generierte Weltoberflächen. Gefilterte prozedurale
    Tiles/Mips sind versionierte, verwerfbare Caches derselben Funktionen, wenn Messung sie
    billiger als direkte GLSL-Auswertung zeigt. Importierte glTF-Texturen bleiben Quelldaten.
-6. `decay` als dimensionsloser Alterungsgrad im Materialzustand; jedes Rezept definiert
-   seine Reaktion. Regenlauf, Exposition, Feuchte, Temperatur, Bewuchs und Nutzung
-   lokalisieren Ablagerung/Wasserflecken, Korrosion, Flechten, Moos und Abrieb.
-   Rost benötigt oxidierbares Metall, Moos Feuchte/Licht; kein universelles Schmutzrauschen.
-   Farbe, Rauheit, Normal/Relief und Materialmischung folgen demselben stabilen Feld.
-
+6. `decay` in [0,1] ist ein dimensionsloser Alterungsgrad pro Materialinstanz; das
+   native Rezept definiert die Reaktion. Es ist kein glTF-MR-Faktor und nicht das
+   unbenutzte Szenario-Metadatum `Scenario.Decay`. Regenlauf, Exposition, Feuchte,
+   Temperatur, Bewuchs und Nutzung lokalisieren Flecken, Korrosion, Moos und Abrieb.
+   Rost braucht oxidierbares Metall, Moos Feuchte/Licht; alle Kanäle teilen stabile
+   Koordinaten statt universellem Rauschen.
 ## Abnahme
 
 - [ ] Native und importierte Material-Fixtures stimmen unter derselben Beleuchtung überein;
@@ -68,7 +68,7 @@ GLSL versteht glTF-Materialien nicht automatisch: Upload, Texturkanäle und BRDF
       Streaming-/Cache-Eviction ohne Bildsprung, p95/p99 und Bytes messen.
 - [ ] Gleiche Betonkante trocken/feucht, neu/gealtert und um 180° gedreht:
       Ablaufspuren folgen Schwerkraft; Holz, Metall und Stein altern unterscheidbar.
-      `decay=0` entfernt Alterung, Material-/Wetterwechsel ändert nur passende Effekte.
+      `decay=0` entfernt Alterung, `decay=1` sättigt das Rezept; Glas rostet nie.
 
 Referenzen: [Filament](https://google.github.io/filament/main/filament.html), [glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
 
@@ -92,9 +92,9 @@ Holz/Stein/Blatt/Asphalt sind Dielektrika; MR ersetzt weder Blattstreuung noch W
 
 - [ ] Coverage-Report nennt jeden Generator und jede ausgegebene Oberflächenklasse samt
       Materialbindung; fehlende/ungültige ID geht rot. Bewusstes Debugmaterial ist markiert.
-- [ ] Materialatlas und Nah-/Fernbilder aller Tabellenzeilen, einschließlich Brückenunterseite
-      und Tunnelinnenwand. Alle Generatoren nutzen denselben Khronos-Vertrag, keine privaten
-      RGB+Glanz-Abkürzungen. Einheitliches Defaultmaterial als Mutation verletzt das Oracle.
+- [ ] Materialatlas und Nah-/Fernbilder aller Tabellenzeilen samt Brückenunterseite und
+      Tunnelinnenwand. Alle Generatoren nutzen denselben Khronos-Vertrag; privates RGB+Glanz
+      oder ein einheitliches Defaultmaterial verletzt das Oracle.
 ## Verbleibender Filtervertrag
 
 Native Farb-/Normal-/MR-Bilder und flächenintegrierte Mips sind implementiert.
