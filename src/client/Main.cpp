@@ -127,51 +127,97 @@ void Row(const Shot &shot, std::string_view name) {
                shot.Why.empty() ? "-" : std::string_view{shot.Why});
 }
 
-void Usage() {
-  std::println(
-      "outshine-client -- the engine through its own door, from a command line.\n\n"
-      "  render <asset.gltf|asset.glb> <width>x<height> <output.png> [options] [--stats]\n"
-      "    --camera auto|index --time seconds --animation index --variant name\n"
-      "    --position x,y,z --look-at x,y,z --fov degrees\n"
-      "    --lighting auto|authored|studio --exposure multiplier\n"
-      "  prepare <place> <timeout-seconds>\n"
-      "  shots [--rows] [--stats] [--measures] [--audit] [--no-vegetation] [--all | <place>]\n"
-      "    --preload-seconds <seconds>     preparation timeout (default 15); separate from frame "
-      "timing\n"
-      "    --cache-dir <directory>        persistent source cache (default "
-      "/tmp/outshine-drive-cache)\n"
-      "    --offline                      forbid network; cached and shipped sources remain "
-      "usable\n"
-      "  places                           list the external scenario cameras\n"
-      "  --places <directory> <command>   override src/assets/places\n"
-      "  roundtrip                        write each place, read it back, write it again\n"
-      "  run [--rows] [--stats] [--cache-dir <directory>] [--offline] [--into <folder>] "
-      "[--motion [--samples]] [--view <id> --at-seconds "
-      "<s>] "
-      "<scenario> "
-      "[name]\n"
-      "                                   draw a selected view; motion renders every paced tick, "
-      "samples save route-decile PNGs\n"
-      "  measures [--view <id> --at-seconds <s>] <scenario>\n"
-      "                                   print measurements after the selected capture\n"
-      "  height <lat> <lon>               terrain elevation; angles in decimal degrees\n"
-      "  --help | <verb> --help           this\n"
-      "  --stats                           render, run, shots: STAT TSV rows\n"
-      "                                    STAT<TAB>name<TAB>key<TAB>value<TAB>unit\n"
-      "                                    render: elapsed/prepare/assemble/draw/save_ms, "
-      "draw_frames, width/height_px\n"
-      "                                    run: elapsed_ms includes setup and capture; setup_ms "
-      "ends after assemble\n"
-      "                                    run/shots: preload/pump/flush/await_ms, "
-      "wait_*_ms/calls/signals\n"
-      "                                    readiness: playable, refined, arrived/wanted, "
-      "outstanding\n"
-      "                                    sources: store_hits/misses/writes, provider_starts/"
-      "retries, remote_starts, source_*\n"
-      "                                    all: status=ok|failed; cache=provider disk; "
-      "remote=declared regional/distant\n\n"
-      "Every verb is a call on `outshine::Engine`. A verb this does not have is a verb the door\n"
-      "does not offer, or one nobody has needed yet.");
+void Usage(std::string_view verb = {}) {
+  if (verb.empty()) {
+    std::println("Usage: outshine-client [--places <directory>] <command> [arguments]\n"
+                 "  render      capture glTF/GLB to PNG\n"
+                 "  run         capture a scenario or route motion\n"
+                 "  shots       capture named places\n"
+                 "  measures    capture a scenario and print engine diagnostics\n"
+                 "  prepare     preload a named place\n"
+                 "  places      list place cameras\n"
+                 "  roundtrip   check scenario serialization\n"
+                 "  height      query terrain elevation\n\n"
+                 "Use <command> --help for options. --places defaults to src/assets/places.\n"
+                 "--stats on render, run, shots or measures prints "
+                 "STAT<TAB>name<TAB>key<TAB>value<TAB>unit rows.");
+    return;
+  }
+  if (verb == "render") {
+    std::println("Usage: outshine-client render <asset.gltf|asset.glb> <width>x<height> "
+                 "<output.png> [options]\n"
+                 "  --camera auto|index             default: first unambiguous camera, else auto\n"
+                 "  --time <seconds>                animation time, default 0\n"
+                 "  --animation <index>             select animation clip\n"
+                 "  --variant <name>                select material variant\n"
+                 "  --position x,y,z --look-at x,y,z  camera in local metres; supply both\n"
+                 "  --fov <degrees>                 vertical field of view\n"
+                 "  --lighting auto|authored|studio  default auto\n"
+                 "  --exposure <multiplier>         positive linear multiplier, default 1\n"
+                 "  --stats                         stage timings, frame count and resolution\n"
+                 "Resolution axes: 1..4096 px. Output directory must exist.");
+  } else if (verb == "run" || verb == "measures") {
+    std::println(
+        "Usage: outshine-client {} [options] <scenario> [name]\n"
+        "  --view <id>                     capture this declared camera\n"
+        "  --at-seconds <s>                nonnegative scenario time; requires --view\n"
+        "  --motion                        render every paced tick; requires view and time\n"
+        "  --samples                       save route-decile PNGs; requires --motion\n"
+        "  --into <folder>                 relative to build/shots/ (default khronos)\n"
+        "  --cache-dir <directory>         default /tmp/outshine-drive-cache\n"
+        "  --offline                       use only cached and shipped sources\n"
+        "  --rows                          machine-readable capture rows\n"
+        "  --stats                         timing, readiness and source STAT rows\n"
+        "  measures additionally prints all engine diagnostic samples.\n"
+        "Motion writes a per-frame TSV with time, station, camera position, advance/render "
+        "time, readiness and ground candidate progress.",
+        verb);
+  } else if (verb == "shots") {
+    std::println("Usage: outshine-client shots [options] [--all | <place> ...]\n"
+                 "  --preload-seconds <seconds>     positive preparation timeout, default 15\n"
+                 "  --cache-dir <directory>         default /tmp/outshine-drive-cache\n"
+                 "  --offline                       use only cached and shipped sources\n"
+                 "  --no-vegetation                 disable vegetation in captured scenarios\n"
+                 "  --audit                         run image audit\n"
+                 "  --measures                      print engine diagnostic samples\n"
+                 "  --rows                          machine-readable capture rows\n"
+                 "  --stats                         timing, readiness and source STAT rows\n"
+                 "With no place, capture all. Preparation time is separate from frame timing.");
+  } else if (verb == "prepare") {
+    std::println(
+        "Usage: outshine-client prepare <place> <timeout-seconds>\n"
+        "Preload a named place with a positive timeout; report readiness, not frame rate.");
+  } else if (verb == "places") {
+    std::println("Usage: outshine-client [--places <directory>] places\n"
+                 "List each place camera, geodetic pose, resolution and time as TSV.");
+  } else if (verb == "roundtrip") {
+    std::println("Usage: outshine-client [--places <directory>] roundtrip\n"
+                 "Write, read and rewrite every place scenario.");
+  } else if (verb == "height") {
+    std::println("Usage: outshine-client height <latitude-deg> <longitude-deg>\n"
+                 "Query terrain elevation in metres; latitude [-90,90], longitude [-180,180].");
+  }
+  if (verb == "render" || verb == "run" || verb == "measures" || verb == "shots") {
+    std::println("STAT TSV: STAT<TAB>name<TAB>key<TAB>value<TAB>unit; "
+                 "status is ok or failed. Timings are milliseconds.\n"
+                 "run: setup_ms; run/shots: preload/wait timings, playable/refined, tile and "
+                 "source counts.\n"
+                 "render: elapsed/prepare/assemble/draw/save_ms, draw_frames, width/height_px.");
+  }
+}
+
+[[nodiscard]] std::optional<std::string_view>
+RequestedHelp(const outshine::Client::CommandLine &command) {
+  if (command.Verb == "help" || command.Verb == "--help") { return std::string_view{}; }
+  if (command.Arguments.size() != 1 || std::string_view(command.Arguments.front()) != "--help") {
+    return std::nullopt;
+  }
+  const std::string_view verb = command.Verb;
+  if (verb == "render" || verb == "run" || verb == "shots" || verb == "measures" ||
+      verb == "prepare" || verb == "places" || verb == "roundtrip" || verb == "height") {
+    return verb;
+  }
+  return std::nullopt;
 }
 
 void PrintStats(std::string_view name,
@@ -677,8 +723,8 @@ int RunClientCommand(std::span<const char *const> arguments) {
   const auto verb = command->Verb;
   const auto rest = static_cast<int>(command->Arguments.size());
   const auto *const from = command->Arguments.data();
-  if (verb == "help" || verb == "--help" || (rest == 1 && std::string_view(from[0]) == "--help")) {
-    Usage();
+  if (const auto help = RequestedHelp(*command); help) {
+    Usage(*help);
     return 0;
   }
   auto loaded = LoadCommandPlaces(*command);

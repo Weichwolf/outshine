@@ -15,17 +15,23 @@ CLIENT = ROOT / 'build/outshine-client'
 class Coordinates(unittest.TestCase):
     def test_help_describes_commands_and_stats_without_starting_platform(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
-        for args in (('--help',), ('render', '--help'), ('run', '--help'),
-                     ('shots', '--help')):
+        cases = ((('--help',), ('render', 'run', 'shots', 'measures', '<command> --help')),
+                 (('render', '--help'), ('asset.gltf|asset.glb', '--camera', '--stats', 'draw_frames')),
+                 (('run', '--help'), ('--view', '--motion', '--samples', '--stats', 'playable/refined')),
+                 (('shots', '--help'), ('--preload-seconds', '--offline', '--stats')),
+                 (('measures', '--help'), ('diagnostic samples', '--stats')),
+                 (('height', '--help'), ('latitude-deg', 'longitude-deg')))
+        for args, expected in cases:
             with self.subTest(args=args):
                 result = subprocess.run([str(CLIENT), *args], cwd=ROOT, env=env,
                                         capture_output=True, text=True, timeout=10)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn('render <asset.gltf|asset.glb>', result.stdout)
-                self.assertIn('run [--rows] [--stats]', result.stdout)
-                self.assertIn('measures [--view <id> --at-seconds <s>]', result.stdout)
-                self.assertIn('STAT<TAB>name<TAB>key<TAB>value<TAB>unit', result.stdout)
+                for fragment in expected:
+                    self.assertIn(fragment, result.stdout)
                 self.assertNotIn('SDL', result.stdout + result.stderr)
+        unknown = subprocess.run([str(CLIENT), 'unknown', '--help'], cwd=ROOT, env=env,
+                                 capture_output=True, text=True, timeout=10)
+        self.assertEqual(unknown.returncode, 2)
 
     def test_run_stats_include_setup_even_when_startup_fails(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
