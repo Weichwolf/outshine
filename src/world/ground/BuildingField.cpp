@@ -166,15 +166,16 @@ void BuildingField::ReplaceAcceptance(PendingAcceptance pending, const Baked &ba
   };
   const AcceptedInput &before = AcceptedInputs_[at];
   const AcceptedInput &after = pending.Input_;
-  const bool semanticChanged = !same(Prints_, old.Prints, baked.Prints) ||
-                               !same(SeatSpread_, old.Spread, baked.SeatSpreadM) ||
-                               !same(Across_, old.Across, baked.AcrossM) ||
-                               before.Vector != after.Vector || before.Sources != after.Sources ||
-                               before.OccupiedCells != after.OccupiedCells ||
-                               before.Qualified != after.Qualified ||
-                               before.Bake.HeightRasterDigest != after.Bake.HeightRasterDigest ||
-                               before.Bake.StreetDigest != after.Bake.StreetDigest ||
-                               before.Bake.TileSpanM != after.Bake.TileSpanM;
+  const bool semanticChanged =
+      !same(Prints_, old.Prints, baked.Prints) ||
+      !same(SeatSpread_, old.Spread, baked.SeatSpreadM) ||
+      !same(Across_, old.Across, baked.AcrossM) || before.Vector != after.Vector ||
+      before.Sources != after.Sources || before.OccupiedCells != after.OccupiedCells ||
+      before.CellBounds != after.CellBounds || before.CellMaxHeightM != after.CellMaxHeightM ||
+      before.Qualified != after.Qualified ||
+      before.Bake.HeightRasterDigest != after.Bake.HeightRasterDigest ||
+      before.Bake.StreetDigest != after.Bake.StreetDigest ||
+      before.Bake.TileSpanM != after.Bake.TileSpanM;
   const auto replace = [](auto &values, Range range, auto incoming) {
     auto first = values.begin() + static_cast<ptrdiff_t>(range.First);
     first = values.erase(first, first + static_cast<ptrdiff_t>(range.Count));

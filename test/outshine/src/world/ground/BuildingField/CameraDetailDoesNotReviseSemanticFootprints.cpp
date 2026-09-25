@@ -21,6 +21,8 @@ int main() {
                              .OccupiedCells = 1,
                              .Triangles = 12,
                              .OsmHeights = 1};
+  baked.CellBounds[0] = {.MinLonDeg = 9, .MinLatDeg = 47, .MaxLonDeg = 9.01, .MaxLatDeg = 47.01};
+  baked.CellMaxHeightM[0] = 12.0f;
   const Data::TileSourceIdentity vector{.Kind = Data::DataKind::VectorMap,
                                         .Tile = {.Zoom = 14, .X = 7, .Y = 8},
                                         .SourceId = "osm",
@@ -53,6 +55,9 @@ int main() {
             field.InputOfTile(7) && field.InputOfTile(7)->Bake.Eye.LongitudeDeg == 10 &&
             field.InputOfTile(7)->OccupiedCells == 1,
         "camera detail and duplicate source delivery do not revise semantic ground");
+  CHECK(field.InputOfTile(7) && field.InputOfTile(7)->CellBounds == baked.CellBounds &&
+            field.InputOfTile(7)->CellMaxHeightM == baked.CellMaxHeightM,
+        "accepted cell envelopes are stable source data across camera changes");
   CHECK(field.InputOfTile(7) && field.InputOfTile(7)->Sources.size() == 2,
         "accepted source identity stores a canonical set");
   height.Revision = "two";
@@ -62,12 +67,17 @@ int main() {
   CHECK(field.Revision() == semanticRevision + 1,
         "changed pinned DEM source revises the semantic footprint input");
   baked.OccupiedCells = 2;
+  baked.CellBounds[1] = baked.CellBounds[0];
+  baked.CellBounds[0] = {};
+  baked.CellMaxHeightM[1] = baked.CellMaxHeightM[0];
+  baked.CellMaxHeightM[0] = 0;
   auto cells = field.PrepareAcceptance(7, baked, sources, true, vector, input(1080, 10));
   field.ReplaceAcceptance(std::move(cells), baked);
   CHECK(field.Revision() == semanticRevision + 2 && field.InputOfTile(7) &&
             field.InputOfTile(7)->OccupiedCells == 2,
         "changed spatial cell occupancy revises the accepted source geometry");
   prints.front().HeightM = 15.0f;
+  baked.CellMaxHeightM[1] = 15.0f;
   auto shape = field.PrepareAcceptance(7, baked, sources, true, vector, input(1080, 10));
   field.ReplaceAcceptance(std::move(shape), baked);
   CHECK(field.Revision() == semanticRevision + 3 && field.OfTile(7).front().HeightM == 15.0f,

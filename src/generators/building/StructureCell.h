@@ -9,12 +9,13 @@
 #include <span>
 
 #include "math/Units.h"
+#include "StructureCellGrid.h"
 #include "TileGeodesy.h"
 
 namespace outshine::Generators {
 
-inline constexpr uint32_t kStructureCellSide = 8;
-inline constexpr uint32_t kStructureCellsPerTile = kStructureCellSide * kStructureCellSide;
+inline constexpr uint32_t kStructureCellSide = outshine::Ground::kStructureCellSide;
+inline constexpr uint32_t kStructureCellsPerTile = outshine::Ground::kStructureCellsPerTile;
 inline constexpr double kStructureLatitudeLimitDeg = 0.5 * kDegPerHalfTurn;
 
 struct StructureCell {

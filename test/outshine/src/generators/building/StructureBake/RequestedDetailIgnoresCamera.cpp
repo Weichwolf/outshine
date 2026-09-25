@@ -50,6 +50,10 @@ int main() {
               near.Prints.size() == 1 && far.Prints.size() == 1 &&
               near.OccupiedCells == (uint64_t{1} << (fixtureCell->Index - 1u)) &&
               far.OccupiedCells == near.OccupiedCells &&
+              near.CellBounds[fixtureCell->Index - 1u] == fixtureCell->Footprint &&
+              far.CellBounds == near.CellBounds &&
+              near.CellMaxHeightM[fixtureCell->Index - 1u] == near.Prints.front().HeightM &&
+              far.CellMaxHeightM == near.CellMaxHeightM &&
               near.FootprintDetails == std::vector{detail} &&
               far.FootprintDetails == std::vector{detail} && near.Digest == far.Digest,
           "explicit detail geometry and product identity ignore eye and focal length");
@@ -137,6 +141,8 @@ int main() {
   CHECK(Generators::BakeStructures(cellRaw, *heights, mesher, *westScratch, west).has_value() &&
             west.RequestedCell == westCell->Index && west.Prints.size() == 1 &&
             west.OccupiedCells == (uint64_t{1} << (westCell->Index - 1u)) &&
+            west.CellBounds[westCell->Index - 1u] == westCell->Footprint &&
+            west.CellMaxHeightM[westCell->Index - 1u] == west.Prints.front().HeightM &&
             west.Prints.front().FirstPoint == 0 && west.FootprintBounds &&
             west.FootprintBounds->MinLonDeg == westCell->Footprint.MinLonDeg &&
             west.FootprintBounds->MaxLonDeg == westCell->Footprint.MaxLonDeg,
@@ -154,8 +160,29 @@ int main() {
   CHECK(Generators::BakeStructures(cellRaw, *heights, mesher, *eastScratch, east).has_value() &&
             east.Prints.size() == 1 && east.Prints.front().FirstPoint == 4 &&
             east.OccupiedCells == (uint64_t{1} << (eastCell->Index - 1u)) &&
+            east.CellBounds[eastCell->Index - 1u] == eastCell->Footprint &&
+            east.CellMaxHeightM[eastCell->Index - 1u] == east.Prints.front().HeightM &&
             east.Digest != west.Digest,
         "a neighbouring cell produces a distinct product from the same source tile");
+  const std::array widerWestRing{
+      47.0041, 9.0011, 47.0041, 9.0018, 47.0042, 9.0018, 47.0042, 9.0011};
+  const auto extraCell = Generators::StructureCellOf(tileBounds, widerWestRing);
+  CHECK(extraCell && extraCell->Index == westCell->Index,
+        "the second footprint belongs to the same cell");
+  if (!extraCell) { return Report(); }
+  auto unionRaw = cellRaw;
+  unionRaw.RequestedCell = westCell->Index;
+  unionRaw.LatLon.insert(unionRaw.LatLon.end(), widerWestRing.begin(), widerWestRing.end());
+  unionRaw.Structures.push_back(
+      {.LocalFirst = 8, .PointCount = 4, .SourceFirst = 8, .Cell = *extraCell, .HeightM = 24.0});
+  auto unionScratch = mesher.Scratch();
+  Generators::BakedTile united;
+  CHECK(Generators::BakeStructures(unionRaw, *heights, mesher, *unionScratch, united).has_value() &&
+            united.Prints.size() == 2 &&
+            united.CellBounds[westCell->Index - 1u].MinLonDeg == westCell->Footprint.MinLonDeg &&
+            united.CellBounds[westCell->Index - 1u].MaxLonDeg == extraCell->Footprint.MaxLonDeg &&
+            united.CellMaxHeightM[westCell->Index - 1u] == 24.0f,
+        "one cell envelope includes both full footprints and their greatest height");
   cellRaw.RequestedCell = 0;
   auto invalidCellScratch = mesher.Scratch();
   Generators::BakedTile invalidCell;

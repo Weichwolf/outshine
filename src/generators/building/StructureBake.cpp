@@ -480,6 +480,30 @@ std::vector<WayLine> LinesOf(const RawTile &raw) {
   return ways;
 }
 
+void IncludeBounds(outshine::Ground::GeoBounds &bounds,
+                   const outshine::Ground::GeoBounds &additional) {
+  bounds.MinLatDeg = std::min(bounds.MinLatDeg, additional.MinLatDeg);
+  bounds.MaxLatDeg = std::max(bounds.MaxLatDeg, additional.MaxLatDeg);
+  bounds.MinLonDeg = std::min(bounds.MinLonDeg, additional.MinLonDeg);
+  bounds.MaxLonDeg = std::max(bounds.MaxLonDeg, additional.MaxLonDeg);
+}
+
+void IncludeFootprint(BakedTile &out, const StructureCell &cell) {
+  const size_t cellAt = cell.Index - 1u;
+  const uint64_t cellBit = uint64_t{1} << cellAt;
+  if ((out.OccupiedCells & cellBit) == 0) {
+    out.CellBounds[cellAt] = cell.Footprint;
+  } else {
+    IncludeBounds(out.CellBounds[cellAt], cell.Footprint);
+  }
+  out.OccupiedCells |= cellBit;
+  if (out.FootprintBounds) {
+    IncludeBounds(*out.FootprintBounds, cell.Footprint);
+  } else {
+    out.FootprintBounds = cell.Footprint;
+  }
+}
+
 std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 const outshine::Ground::HeightField &heights,
                                                 const StructureMesher &mesher,
@@ -505,16 +529,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   }
   const double base = seated.BaseM;
   const double seat = seated.SeatM;
-  out.OccupiedCells |= uint64_t{1} << (one.Cell.Index - 1u);
-  if (out.FootprintBounds) {
-    auto &bounds = *out.FootprintBounds;
-    bounds.MinLatDeg = std::min(bounds.MinLatDeg, one.Cell.Footprint.MinLatDeg);
-    bounds.MaxLatDeg = std::max(bounds.MaxLatDeg, one.Cell.Footprint.MaxLatDeg);
-    bounds.MinLonDeg = std::min(bounds.MinLonDeg, one.Cell.Footprint.MinLonDeg);
-    bounds.MaxLonDeg = std::max(bounds.MaxLonDeg, one.Cell.Footprint.MaxLonDeg);
-  } else {
-    out.FootprintBounds = one.Cell.Footprint;
-  }
+  IncludeFootprint(out, one.Cell);
 
   double lowLat = kNoLeastYet;
   double highLat = -kNoLeastYet;
@@ -554,6 +569,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   fp.BaseM = static_cast<float>(base);
   fp.FootM = static_cast<float>(base);
   fp.SeatM = static_cast<float>(seat);
+  const size_t cellAt = one.Cell.Index - 1u;
+  out.CellMaxHeightM[cellAt] = std::max(out.CellMaxHeightM[cellAt], fp.HeightM);
 
   LevelOfDetail level = raw.RequestedDetail.value_or(LevelOfDetail::Fine);
   if (!raw.RequestedDetail) {
@@ -676,6 +693,8 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     out.RequestedCell = raw.RequestedCell;
     out.FootprintBounds.reset();
     out.OccupiedCells = 0;
+    out.CellBounds = {};
+    out.CellMaxHeightM.fill(0.0f);
     state.Ways = LinesOf(raw);
     state.Lumps.Clear();
     state.Corners.clear();

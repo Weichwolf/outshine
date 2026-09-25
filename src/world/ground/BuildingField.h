@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 
 #include <algorithm>
+#include <array>
 #include <span>
 #include "math/Vec3.h"
 #include "OsmField.h"
@@ -16,6 +17,7 @@
 #include "Capacity.h"
 #include <Earth.h>
 #include "StructureMesher.h"
+#include "StructureCellGrid.h"
 #include "TileWatermark.h"
 
 namespace outshine::Ground {
@@ -41,6 +43,8 @@ public:
     std::span<const double> SeatSpreadM;
     std::span<const double> AcrossM;
     uint64_t OccupiedCells = 0;
+    std::array<GeoBounds, kStructureCellsPerTile> CellBounds{};
+    std::array<float, kStructureCellsPerTile> CellMaxHeightM{};
     size_t Triangles = 0;
     int OsmHeights = 0;
     int DefaultHeights = 0;
@@ -66,6 +70,8 @@ public:
     std::optional<Data::TileSourceIdentity> Vector;
     std::vector<Data::TileSourceIdentity> Sources;
     uint64_t OccupiedCells = 0;
+    std::array<GeoBounds, kStructureCellsPerTile> CellBounds{};
+    std::array<float, kStructureCellsPerTile> CellMaxHeightM{};
     bool Qualified = false;
     BakeInputs Bake;
   };
@@ -95,6 +101,8 @@ public:
           Input_{.Vector = std::move(vector),
                  .Sources = std::vector<Data::TileSourceIdentity>(sources.begin(), sources.end()),
                  .OccupiedCells = baked.OccupiedCells,
+                 .CellBounds = baked.CellBounds,
+                 .CellMaxHeightM = baked.CellMaxHeightM,
                  .Qualified = qualified,
                  .Bake = bake} {
       std::ranges::sort(Input_.Sources);

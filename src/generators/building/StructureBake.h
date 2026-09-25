@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
+#include <array>
 #include <expected>
 #include <atomic>
 #include <variant>
@@ -95,6 +96,8 @@ struct BakedTile {
   std::optional<uint32_t> RequestedCell;
   std::optional<outshine::Ground::GeoBounds> FootprintBounds;
   uint64_t OccupiedCells = 0;
+  std::array<outshine::Ground::GeoBounds, kStructureCellsPerTile> CellBounds{};
+  std::array<float, kStructureCellsPerTile> CellMaxHeightM{};
   std::vector<outshine::Ground::BuildingField::Footprint> Prints;
   std::vector<LevelOfDetail> FootprintDetails;
   std::vector<double> SeatSpreadM;

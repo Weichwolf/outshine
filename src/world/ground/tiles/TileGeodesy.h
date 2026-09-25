@@ -22,6 +22,8 @@ struct Ecef {
 
 struct GeoBounds {
   double MinLonDeg = 0.0, MinLatDeg = 0.0, MaxLonDeg = 0.0, MaxLatDeg = 0.0;
+
+  [[nodiscard]] bool operator==(const GeoBounds &) const noexcept = default;
 };
 
 struct TileFrac {
