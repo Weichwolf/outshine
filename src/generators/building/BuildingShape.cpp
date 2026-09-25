@@ -734,11 +734,13 @@ void PlotParts(const PartOrder &whole, int plots, BuildingScratch &scratch) {
 void WingParts(const PartOrder &whole, BuildingScratch &scratch) {
   PartOrder m = whole;
   m.Seed = Mix(whole.Seed + kMainWord);
+  m.Use = scratch.One.Use;
   BuildingShape &mainPart = scratch.Made;
   Finish(scratch.Main, m, mainPart);
   if (mainPart.Valid()) { scratch.Parts.Next() = mainPart; }
   PartOrder w = whole;
   w.Seed = Mix(whole.Seed + kWingWord);
+  w.Use = scratch.One.Use;
   w.TopOverFootM = std::max(whole.TopOverFootM *
                                 (kWingTopFloor + kWingTopSwing * UnitOf(w.Seed, kWingTopStream)),
                             kWingLeastM);
@@ -814,7 +816,8 @@ MassOf(std::span<const double> ringLatLon,
   if (!one.Valid()) { return {}; }
 
   WholeOf(outline, scratch.Whole);
-  const int plots = RowCut(scratch.Whole, one, scratch, scratch.Row);
+  const int plots =
+      one.Use == BuildingUse::Terrace ? RowCut(scratch.Whole, one, scratch, scratch.Row) : 0;
   if (plots > 1) {
     PlotParts(whole, plots, scratch);
   } else if (plots == 0 && one.Fill < kWingUnderFill) {

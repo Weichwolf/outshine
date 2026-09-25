@@ -84,6 +84,11 @@ End-of-run live C++ heap is 523,793,024 bytes and building-piece device storage
 Keep this WI active for a visual transfer check and material/geometry tuning.
 The anonymous 352-metre footprint still becomes a monolithic block; generator
 typology and source-tag provenance belong to WI 2173, not a shader exception.
+The pinned MVT feature 344001642 has one 24-point ring, extent 4096 and a
+232×905-unit bounding box in tile 14/8581/5603. A generic hall/terrace
+decomposition correction in WI 2173 changed the opened 91.433-s Hockenheim
+image by 0/921,600 pixels: that was not this facade's cause. Inspect the
+actual building-use/roof result and source tags before altering facade style.
 The dark noon facade also needs the lighting work in WI 2172. Different tile
 landing counts at the same instant limit image-to-image numerical comparison;
 WI 2230 owns capture snapshot reproducibility.
