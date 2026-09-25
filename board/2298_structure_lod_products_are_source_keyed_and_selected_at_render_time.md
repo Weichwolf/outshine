@@ -75,6 +75,16 @@ The build queue now carries an optional explicit Fine/Shell/Massed request into
 `RawTile`. Its revision ignores camera eye/focal changes only for explicit
 detail, while still rejecting changed source, height, scale or requested level.
 Automatic requests retain the old eye guard until resident selection replaces it.
+`TilePieces` now retains explicit variants under one tile owner and switches
+their instance rows as one validated batch. A depth fixture proves Fine/Shell
+selection, candidate restoration, missing-level rejection and legacy fallback.
+This is a residency mechanism, not yet spatial cells or live projected-error
+selection. Repeated warm/offline 74.85-s static/motion captures still differ in
+5,719/921,600 pixels (0.621%) over 45 horizon rows; both road probes are
+(91,88,83) and Refined. Motion p50/p95/p99 is 2.775/11.925/17.549 ms with
+56/4,491 over-budget frames and 519.7 MiB peak heap in this run.
+The automatic static Hockenheim frame after variant residency is pixel-exact
+against its pre-change frame (0/921,600 changed); both PNGs were opened.
 
 1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: split semantic
    footprint acceptance from camera-local detail choice. Add stable cell/level

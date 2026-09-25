@@ -4,6 +4,7 @@
 #include "TilePieces.h"
 #include <SDL3/SDL.h>
 #include <array>
+#include <limits>
 #include <memory>
 
 int main() {
@@ -46,6 +47,17 @@ int main() {
       const size_t ownerBytes = pieces.HeapBytes();
       CHECK(ownerBytes > 0, "piece owner counts its retained handle slots and diagnostic storage");
       const uint64_t originalDigest = pieces.Digest();
+      const auto validCorners = baked.Built.WallCorners;
+      for (StoredVertex &corner : baked.Built.WallCorners) { corner.texture = {{0, 0}}; }
+      CHECK(!pieces.Hands(7, baked, {}, error) && renderer.PiecesStanding() == 2 &&
+                pieces.Digest() == originalDigest,
+            "a completely absent facade coordinate field cannot replace visible geometry");
+      baked.Built.WallCorners = validCorners;
+      baked.Built.WallCorners.front().texture = {{std::numeric_limits<float>::quiet_NaN(), 0}};
+      CHECK(!pieces.Hands(7, baked, {}, error) && renderer.PiecesStanding() == 2 &&
+                pieces.Digest() == originalDigest,
+            "a nonfinite facade coordinate cannot replace visible geometry");
+      baked.Built.WallCorners = validCorners;
       baked.Digest = 7;
       pieces.Wears({.Walls = Render::PieceSurface(0), .Roofs = Render::PieceSurface(1)});
       CHECK(!pieces.Hands(7, baked, {}, error), "replacement roof refuses after its wall uploads");

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -40,6 +41,7 @@ public:
                            std::string &error);
 
   void Forgets(uint32_t tile);
+  [[nodiscard]] bool SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error);
   void Clear();
 
   [[nodiscard]] uint64_t Digest() const { return Digest_; }
@@ -52,6 +54,7 @@ public:
 
   template <typename Each> void ForEachDigest(Each each) const {
     for (const auto &stood : Standing_) {
+      if (!stood.Visible) { continue; }
       each(DigestRecord{
           .Tile = stood.Tile, .Digest = stood.Digest, .FallbackHeights = stood.FallbackHeights});
     }
@@ -84,11 +87,17 @@ private:
     uint32_t Tile = 0;
     uint64_t Digest = 0;
     bool FallbackHeights = false;
+    std::optional<LevelOfDetail> Detail;
+    Mat4 Row;
+    bool Visible = true;
     Render::PieceHandle Walls{};
     Render::PieceHandle Roofs{};
   };
 
   [[nodiscard]] Mat4 RowFor(const Vec3 &anchorEcef) const;
+  [[nodiscard]] bool ShouldShow(uint32_t tile, std::optional<LevelOfDetail> detail) const;
+  void ForgetsDetail(uint32_t tile, std::optional<LevelOfDetail> detail);
+  void Releases(const Standing &stood);
   void RefreshDigest() noexcept;
 
   Render::SceneRenderer *Renderer_ = nullptr;
