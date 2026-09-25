@@ -1,5 +1,7 @@
 Type: bug
-State: open
+State: active
+Architecture: ready
+Priority: P0
 Parent: 2169
 Area: engine, client, render
 Tags: webcam, measured
@@ -15,6 +17,20 @@ Depends: 2124, 2123, 2154
 Tabelle/Hashes in 2169. Daraus folgt kein nachgewiesener Restetat für alle fehlenden Effekte.
 
 ## Instrument und Abnahme
+
+Hockenheim 220 s warm/offline wiederholt: 13,200 Frames, p99 13.314/13.040 ms,
+40/35 Gesamtframes spät. Einzelne `render()`-Aufrufe dauern 79.52/94.27 ms;
+8/5 Render-Aufrufe überschreiten 16.67 ms. `advance()` ist an den größten
+Ausreißern teils unter 2 ms. Die vorhandenen Pass-Messungen halten nur den
+letzten Frame; sie belegen weder GPU-Zeit noch die Ursache des Stalls.
+
+Nächster Schritt: `src/render/SceneRenderer.{h,cpp}` misst pro erfolgreichem
+Frame die Host-Zeit von Prepare, Acquire, Upload, Swapchain, Cull, Encode,
+Fence-Wait, Submit und Abschluss. `src/engine/FrameMeasurements.cpp` publiziert
+Last/Worst je Phase ohne neue
+öffentliche API. Host-Fence-Wait ist keine GPU-Passzeit. Negativkontrolle:
+fehlgeschlagenes Submit/Wait darf keine Erfolgsprobe publizieren. Device-Suite,
+voller Hockenheim-Motion-Trace, `make format` und `make lint` prüfen den Schritt.
 
 - Stillvergleich behalten; zusätzlich deklarierte Geh-/Fahr-/Flugroute mit Tilegrenzwechsel,
   dichter Stadt, bewaldetem Hang, Tunnelportal und mehrstöckigem Verkehrsknoten. Warm-/Cold-
