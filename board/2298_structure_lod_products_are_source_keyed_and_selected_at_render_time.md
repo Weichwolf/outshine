@@ -66,6 +66,11 @@ Second slice: `RawTile::RequestedDetail` produces explicit Fine/Shell/Massed
 products whose digest is invariant under changed eye/focal input. A source
 height change alters the digest; Skyline and mid-bake detail changes reject.
 The engine queue still uses automatic eye selection and needs conversion.
+Residency prerequisite: `SceneResources` now stores the default identity row
+as visible state and reapplies empty rows after candidate GPU restoration.
+A depth-buffer fixture hides a structure piece, publishes a copied world,
+confirms it stays hidden, then reveals it through the same valid handle.
+Without this, hidden coarse/fine alternatives could reappear together.
 
 1. In `StructureBake`, `BuildingField`, `StructureBuildQueue`: split semantic
    footprint acceptance from camera-local detail choice. Add stable cell/level

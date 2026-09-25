@@ -61,6 +61,7 @@ SceneResources::PlacePiece(SubjectDraw &subjects, const PieceMesh &piece, PieceO
              .Surface = piece.Surface,
              .Owner = owner,
              .Textured = piece.Textured};
+  if (held.Rows.empty()) { held.Rows.push_back(piece.Row); }
   std::string error;
   held.Resident = subjects.PlacePiece(held.Mesh(), error);
   if (held.Resident == kNoPiece) {
@@ -316,6 +317,11 @@ SceneResources::AdvancePieceRestore(SubjectDraw &subjects, size_t &nextPiece, si
     if (piece.Resident == kNoPiece) {
       return std::unexpected(error.empty() ? std::string(Says::PieceUploadFailed)
                                            : std::move(error));
+    }
+    if (piece.Rows.empty() && !subjects.SetPieceInstances(piece.Resident, {}, error)) {
+      subjects.ReleasePiece(piece.Resident);
+      piece.Resident = kNoPiece;
+      return std::unexpected(std::move(error));
     }
   }
   return nextPiece == Pieces_.size();

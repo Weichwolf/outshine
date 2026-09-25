@@ -89,11 +89,13 @@ int main() {
       const auto prepared = candidate.Prepare(*scene, nullptr);
       CHECK(prepared.has_value(), "retry prepares");
       if (!prepared) { return Report(); }
+      const auto preparedBytes = renderer.PieceSourceBytes();
       rejectSubmit = true;
       const auto failed = renderer.PlacePiece(mesh);
-      CHECK(!failed && !rejectSubmit && renderer.PieceSlots() == 2 &&
-                renderer.PieceSourceBytes() == bytes,
-            "late GPU upload failure consumes neither slot nor payload");
+      CHECK(!failed && !rejectSubmit, "injected GPU upload fails and consumes the rejection");
+      CHECK(renderer.PieceSlots() == 2, "failed GPU upload consumes no source slot");
+      CHECK(renderer.PieceSourceBytes() == preparedBytes,
+            "failed GPU upload consumes no source payload");
       const auto replacement = renderer.PlacePiece(mesh);
       CHECK(replacement && replacement->Slot == first->Slot &&
                 replacement->Generation == first->Generation + 1,
