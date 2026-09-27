@@ -58,6 +58,36 @@ int main() {
     scenario.Assets.clear();
     CHECK(engine.declare(scenario) && probe.Calls == 6,
           "removing generated content does not invoke removed producer");
+    Scenario::Document earth;
+    earth.Ground.Declared = true;
+    earth.Ground.VegetationEnabled = false;
+    earth.Ground.Origin.LatitudeDeg = 49;
+    earth.Ground.Origin.LongitudeDeg = 10;
+    Scenario::View earthView;
+    earthView.Id = "earth";
+    earthView.Person = "first";
+    earthView.Placement = Scenario::CameraPlacement::Geodetic;
+    earthView.Geographic.Geodetic.LongitudeDeg = 10;
+    earthView.Geographic.Geodetic.LatitudeDeg = 49;
+    earthView.Geographic.Geodetic.HeightM = 1.7;
+    earthView.Geographic.SamplesHeight = false;
+    earth.Views.push_back(earthView);
+    CHECK(engine.declare(earth) && engine.assemble(),
+          "a world opens before replacing it with a groundless scene");
+    scenario.Generators.push_back({.Kind = "redeclare-probe"});
+    Scenario::View spaceView;
+    spaceView.Id = "space";
+    spaceView.Person = "first";
+    spaceView.Placement = Scenario::CameraPlacement::Local;
+    spaceView.Sees.PositionM = {{0, 0, 2}};
+    scenario.Views.push_back(spaceView);
+    CHECK(engine.declare(scenario) && probe.Calls == 7 && !probe.GroundPresent,
+          "a retained Earth stack does not supply ground to a groundless generator");
+    CHECK(engine.assemble() && engine.advance(),
+          "the replacement assembles and advances without terrain");
+    CHECK(!engine.sampleHeight({.LongitudeDeg = 10, .LatitudeDeg = 49}) &&
+              engine.loadProgress() == 1.0 && engine.loading().GroundWanted == 0,
+          "groundless height and loading APIs ignore retained terrain");
   }
   SDL_Quit();
   return Report();

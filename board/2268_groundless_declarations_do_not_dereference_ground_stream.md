@@ -1,5 +1,5 @@
 Type: defect
-State: active
+State: done
 Architecture: ready
 Parent: 2191
 Depends:
@@ -53,3 +53,13 @@ work for a groundless scenario even if previous terrain remains cached.
    `khronos/validator/glb-length-mismatch~sanitised` no longer reports a null
    `GroundStream` reference. Run the relevant public tests, `make format` and
    `make lint`; the full validator batch may reveal separate importer faults.
+
+## Result
+
+Declaration passes a nullable ground query only when the active scenario
+declares Earth. The generated-asset probe receives null before any ground is
+open and after replacing an assembled Earth scene with a groundless one;
+the replacement advances, refuses height queries and reports zero terrain
+loading. Public capture and height tests pass. The original Khronos validator
+case and its sanitised twin both pass. A separate no-view Earth assertion was
+found while constructing the transition proof; WI 2305 owns it.
