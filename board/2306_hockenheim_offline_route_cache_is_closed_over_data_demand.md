@@ -92,6 +92,8 @@ using the sampler's own coverage contract rather than a copied zoom constant.
    queries and `KeepCoarse` consume this same mapping. Reject invalid grids or
    a source tile coarser than the configured sampling grid; never invent finer
    coordinates from an underspecified coarse tile.
+   `Data::TileId::MaximumZoom` owns the existing native grid limit of 30.
+   `HeightField` aliases it; sampling coverage must not include the field loader.
 4. If confirmed 404s occur, add a typed bounded absence record with source
    revision/freshness rules; prove it differs from a cache miss. Do not cache
    403 as absent (Terrarium currently does), and retain retry/refusal policy.
