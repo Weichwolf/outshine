@@ -1,5 +1,5 @@
 Type: defect
-State: active
+State: done
 Architecture: ready
 Parent: 2131
 Depends:
@@ -9,16 +9,24 @@ Tags: architecture, providers, streaming, offline
 
 # Declared providers control the actual world sources
 
-## Current defect and evidence
+## Result and evidence
 
 Terrain-only snapshot and ground-only draw were repaired by `2a60e9f09` and
 `03ce86e6a`. `b7ec9a19a` carries declared tile endpoints/datasets through
 validation, transport, fallback and cache identity; focused tests and both
-offline Hockenheim PNGs pass. The remaining gap is successful-source reporting:
-the public client has only aggregate counters. `5d692d8de` adds source/pin/tile
-to refusal logs and serializes concurrent client log lines. An isolated empty
-offline DEM cache now fails with source `terrarium.s3`, revision `dem-test`,
-tile address, zero remote starts and no PNG.
+offline Hockenheim PNGs pass. `5d692d8de` adds source/pin/tile to refusal
+logs; an isolated empty offline DEM cache fails with zero remote starts and no
+PNG. `58d76edee` counts actual source deliveries by kind, ID, revision and
+priority; `--stats` also prints an endpoint-sensitive source key. SourceSet
+tests cover rank, handover, fail, cache hit, changed endpoint and retry.
+Default Hockenheim reports DEM plus vector; terrain-only reports DEM only.
+Both captures were visually inspected and each matches its previous PNG
+pixel-for-pixel (0/921600 changed). `make lint` passes.
+
+This WI proves provider selection and attribution. A successful online
+Hockenheim capture did **not** close its offline route-data demand: an
+immediate offline replay missed 46 tiles and failed. WI 2306 owns that P0
+streaming/cache-closure defect; do not infer offline replay from this result.
 
 ## Contract and ownership
 
@@ -40,13 +48,13 @@ tile address, zero remote starts and no PNG.
   means an empty immutable feature snapshot, no vector IO and no null GPU
   placement binding. No fabricated elevation or general readiness bypass.
 
-## Falsifiable acceptance
+## Verified provider acceptance
 
-- `outshine-client --stats` identifies each DEM/vector source actually used in
-  a successful capture, with revision and tile count. Mixed-source fallback
-  reports both sources; declarations alone do not count as use. Aggregate once
-  per distinct source, with bounded memory and no per-tile client log spam.
-- Complete offline cache reproduces the normal PNG; changing endpoint/dataset
-  under the same pin misses the previous cache and reports the new source.
-- SourceSet, TilePool and client tests prove attribution across retries and
-  fallback. `make format`, focused tests and `make lint` pass.
+- `--stats` identifies each DEM/vector provider actually used, with revision,
+  endpoint-sensitive key and delivery count. Mixed-source fallback reports
+  both; an unused declaration reports none. Memory is bounded by registrations.
+- Changing endpoint under the same dataset/pin misses previous cached bytes
+  and changes the diagnostic key. Empty offline cache refuses with exact
+  source/revision/tile and zero network starts.
+- SourceSet and TilePool tests prove attribution across retry/fallback/cache.
+  Public client captures, pixel comparison, `make format` and `make lint` pass.
