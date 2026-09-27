@@ -338,8 +338,9 @@ bool MeasureFrames(Engine &engine, std::string_view name, Shot &shot) {
   heldMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
   advancedMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
   renderedMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
-  for (int at = 0;
-       at < kMaximumTimedFrames && (at < kTimedFrames || !engine.settled(WorldQuality::Refined));
+  const bool waitsForWorld = engine.declaration().Ground.Declared;
+  for (int at = 0; at < kMaximumTimedFrames &&
+                   (at < kTimedFrames || (waitsForWorld && !engine.settled(WorldQuality::Refined)));
        ++at) {
     const auto before = std::chrono::steady_clock::now();
     if (const auto result = engine.advance(); !result) {
@@ -398,7 +399,7 @@ Shot Draw(Engine &engine,
   HeapProbe::ForgetPeak();
   if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
   if (!MeasureFrames(engine, name, shot)) { return shot; }
-  if (!engine.settled(WorldQuality::Refined)) {
+  if (engine.declaration().Ground.Declared && !engine.settled(WorldQuality::Refined)) {
     shot.Why = std::string(name) + " did not reach refined world quality after " +
                std::to_string(shot.Frames) +
                " measured frames: " + engine.unsettledReasons(WorldQuality::Refined);

@@ -1,5 +1,5 @@
 Type: defect
-State: active
+State: done
 Architecture: ready
 Parent: 2195
 Depends: 2268
@@ -34,3 +34,14 @@ general scene readiness. Do not add artificial terrain to vendor scenarios.
   after its readiness budget; this change cannot bypass terrain publication.
 - The three formerly blocked Khronos captures reach image comparison.
 - Focused client test, `make format`, and `LINT_JOBS=2 make lint` pass.
+
+## Result
+
+`run` captures a groundless imported asset after 120 measured frames. Its world
+readiness remains false; declared-ground captures still require Refined. The
+groundless client test and the existing offline-terrain refusal cover both sides.
+DirectionalLight, PointLightIntensityTest and SheenWoodLeatherSofa now reach the
+oracle comparison. Their image agreements are 37.6338%, 20.2521% and 97.5468%;
+none passes. Visual inspection shows mismatched sphere light gradients, missing
+square panel corners behind the point lights, and sofa edge/detail differences.
+These are separate render/material defects, not capture-readiness failures.

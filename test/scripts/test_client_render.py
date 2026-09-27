@@ -3,6 +3,7 @@ import copy
 import json
 import os
 from pathlib import Path
+import shutil
 import struct
 import subprocess
 import tempfile
@@ -78,6 +79,30 @@ class AssetRender(unittest.TestCase):
             struct.pack("<II", len(encoded), 0x4E4F534A) + encoded +
             struct.pack("<II", len(binary), 0x004E4942) + binary)
         np.testing.assert_array_equal(self.render(), self.render(asset="scene.glb", output="glb.png"))
+
+    def test_groundless_scenario_capture_does_not_wait_for_world_tiles(self):
+        scenario = self.root / "asset.scn"
+        scenario.write_text(f'''<scenario>
+<render widthPx="128" heightPx="64"/>
+<assets><asset uri="{self.root / "scene.gltf"}" kind="gltf"/></assets>
+<views><view id="front" fovDeg="50"><at x="0" y="0" z="5"/>
+<lookAt x="0" y="0" z="0"/><up x="0" y="1" z="0"/>
+</view></views></scenario>''')
+        shots_parent = ROOT / "build/shots"
+        shots_parent.mkdir(parents=True, exist_ok=True)
+        shots = Path(tempfile.mkdtemp(prefix="client-groundless-", dir=shots_parent))
+        self.addCleanup(shutil.rmtree, shots)
+        result = subprocess.run([str(CLIENT), "run", "--rows", "--stats", "--into",
+                                 shots.name, scenario, "groundless"], cwd=ROOT,
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        row = next(line.split("\t") for line in result.stdout.splitlines()
+                   if line.startswith("ROW\tgroundless\t"))
+        self.assertEqual(row[3], "1")
+        self.assertEqual(row[7], "120")
+        self.assertIn("STAT\tgroundless\trefined\t0\t", result.stdout)
+        pixels = np.asarray(Image.open(shots / f"groundless-{row[2]}.png").convert("RGB"))
+        self.assertTrue(np.any(pixels[..., 0] > 128))
 
     def test_stats_report_render_stages_and_failure(self):
         output = self.root / "stats.png"
