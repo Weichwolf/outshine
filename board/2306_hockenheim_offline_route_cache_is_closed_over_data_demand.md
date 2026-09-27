@@ -31,11 +31,8 @@ online `--motion` run to 91.7 s fetched the route demand (244 remote starts,
 had 538 hits, 0 misses, 0 remote starts and a PNG identical to the successful
 online static image (0/921600 pixels changed). The motion frame itself was
 unrefined and is not the static image oracle.
-Two discarded client experiments advanced without intermediate renders and
-called playable `Engine::preload`: every simulated second caused 181 remote
-starts and 43 offline misses; every tick caused 197 starts and 42 misses.
-Both fast-forwarded in a few wall seconds. Their failure does not yet
-separate real-time pacing from `renderer().render` as the missing trigger.
+Fast-forward with playable preload every tick still left 42 offline misses;
+playable readiness alone does not close route demand.
 The controlled paced 60-Hz motion without intermediate renders requested 538
 byte tiles into a fresh cache in 97.7 s. Its final screenshot failed because
 no frame was drawn, as expected for this temporary diagnostic. An immediate
@@ -45,6 +42,16 @@ all 921,600 pixels. The diagnostic code was removed. Thus wall-time pacing,
 not GPU rendering, closes this observed demand gap; fast-forward outruns
 asynchronous tile and candidate progress. It remains to identify which
 candidate phase creates the extra addresses and make its route demand explicit.
+Content-store key reconstruction mapped every file in the two isolated caches
+to a tile address. Both contain the same 65 vector tiles. The paced cache has
+473 elevation tiles versus 129 after fast-forward with playable preload every
+tick: 344 elevation addresses occur only in the paced run. The gap includes
+source zooms 11, 14 and 15; it is not an OSM vector-download difference.
+`HeightSheets::SourceTilesOf` currently derives elevation requests from
+resident `Patchwork::Sheets`, so a candidate that has not reached its sheet
+phase cannot submit the full set. `GroundPatchwork` selects tiles from `Around`
+but changes coverage with tile readiness. Demand planning must enumerate the
+conservative geometric coverage independently of that readiness.
 
 ## Contract and ownership
 
@@ -77,7 +84,21 @@ candidate phase creates the extra addresses and make its route demand explicit.
 3. Move required data-demand submission into world/view preparation, independent
    of GPU drawing and worker timing. A preparation API awaits the complete
    request closure under one bounded global deadline; playable `preload`
-   alone returns too early. Replay must require the same address set.
+   alone returns too early. Factor a pure coverage-to-source-tile planner from
+   `GroundPatchwork` and `HeightSheets`: enumerate route camera positions from
+   the published alignment and speed profile, cover their possible 4x4 tile
+   blocks at each level, then expand source neighbours and ground-zoom parents.
+   Use bounded batches and an explicit tile-count refusal for oversized paths.
+   The planned set must be independent of resident mesh/field state; replay
+   must require that same set. Keep the planning contract useful for any
+   georeferenced path, not tied to Hockenheim or the client.
+   Settle the planned vector/classification coverage first; then include the
+   loaded vector-tile neighbours and building footprint height tiles through
+   the same source planner as refined candidates. Avoid a guessed radial pad.
+   `PlanPatchworkTiles(Around)` now provides canonical potential mesh tiles,
+   independent of replies, without IO or waiting. Its independent-cell test
+   covers ready/mixed/pending cascades, dateline and poles. Source-neighbour
+   expansion, path union and bounded preparation are still to be integrated.
 4. If confirmed 404s occur, add a typed bounded absence record with source
    revision/freshness rules; prove it differs from a cache miss. Do not cache
    403 as absent (Terrarium currently does), and retain retry/refusal policy.

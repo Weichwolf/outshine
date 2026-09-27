@@ -10,7 +10,9 @@
 #include <expected>
 #include <span>
 #include <string>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 namespace outshine {
 namespace {
@@ -68,6 +70,29 @@ long BlockOrigin(double tileCoordinate) {
   return kBlockTiles / 2 * static_cast<long>(std::floor((std::floor(tileCoordinate) - 1) / 2));
 }
 
+[[nodiscard]] bool ValidCoverage(const Around &over) {
+  return over.Zoom >= 1 && std::cmp_less(over.Zoom, kZoomLevels) && over.Levels >= 1 &&
+         over.Grid >= 2 && std::isfinite(over.LatitudeDeg) && std::isfinite(over.LongitudeDeg);
+}
+
+template <typename Visit> void ForEachBlockTile(const Around &over, int level, Visit visit) {
+  const int zoom = over.Zoom - level;
+  const long span = 1L << static_cast<unsigned>(level);
+  const auto at = Ground::ToTileFracClamped(
+      {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}, zoom);
+  const long originX = BlockOrigin(at.X);
+  const long originY = BlockOrigin(at.Y);
+  for (long row = 0; row < kBlockTiles; ++row) {
+    for (long column = 0; column < kBlockTiles; ++column) {
+      const long x = originX + column;
+      const long y = originY + row;
+      const bool contact = level == 0 && x == static_cast<long>(std::floor(at.X)) &&
+                           y == static_cast<long>(std::floor(at.Y));
+      visit(zoom, x, y, TileRegion{.X = x * span, .Y = y * span, .Span = span}, contact);
+    }
+  }
+}
+
 bool RecordReply(TileMeshes::Reply reply, int zoom, Patchwork &out) {
   ++out.WantedAtZoom[zoom];
   switch (reply) {
@@ -111,34 +136,23 @@ void LayLevel(TileMeshes &tiles,
               Patchwork &out) {
   const int zoom = over.Zoom - level;
   const long span = 1L << static_cast<unsigned>(level);
-  const auto at = Ground::ToTileFracClamped(
-      {.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg}, zoom);
-  const long originX = BlockOrigin(at.X);
-  const long originY = BlockOrigin(at.Y);
   std::array<TileRegion, kTilesPerLevel> standing{};
   size_t count = 0;
-  for (long row = 0; row < kBlockTiles; ++row) {
-    for (long column = 0; column < kBlockTiles; ++column) {
-      long x = originX + column;
-      const long y = originY + row;
-      const bool contact = level == 0 && x == static_cast<long>(std::floor(at.X)) &&
-                           y == static_cast<long>(std::floor(at.Y));
-      if (over.Asking && over.PlayableOnly && level != lastLevel && !contact) { continue; }
-      const TileRegion region{.X = x * span, .Y = y * span, .Span = span};
-      const uint64_t covered = coverage.CoveredCells(region);
-      if (covered == region.Cells()) {
-        ++out.Skipped;
-        continue;
-      }
-      if (covered > 0) { ++out.Overlapped; }
-      if (!Ground::WrapTile(zoom, &x, &y)) { continue; }
-      const Data::TileId asked{
-          .Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
-      const bool ready = RequestTile(tiles, over, asked, out);
-      if (contact && !ready) { ++out.ContactPending; }
-      if (ready) { standing[count++] = region; }
+  ForEachBlockTile(over, level, [&](int tileZoom, long x, long y, TileRegion region, bool contact) {
+    if (over.Asking && over.PlayableOnly && level != lastLevel && !contact) { return; }
+    const uint64_t covered = coverage.CoveredCells(region);
+    if (covered == region.Cells()) {
+      ++out.Skipped;
+      return;
     }
-  }
+    if (covered > 0) { ++out.Overlapped; }
+    if (!Ground::WrapTile(tileZoom, &x, &y)) { return; }
+    const Data::TileId asked{
+        .Zoom = tileZoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)};
+    const bool ready = RequestTile(tiles, over, asked, out);
+    if (contact && !ready) { ++out.ContactPending; }
+    if (ready) { standing[count++] = region; }
+  });
   for (const auto &region : std::span(standing).first(count)) { coverage.Add(region); }
   out.ReachTiles = kBlockTiles * span;
   out.CoarsestZoom = zoom;
@@ -147,10 +161,7 @@ void LayLevel(TileMeshes &tiles,
 }
 
 std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Around &over) {
-  if (over.Zoom < 1 || std::cmp_greater_equal(over.Zoom, kZoomLevels) || over.Levels < 1 ||
-      over.Grid < 2 || !std::isfinite(over.LatitudeDeg) || !std::isfinite(over.LongitudeDeg)) {
-    return std::unexpected(Says::Input);
-  }
+  if (!ValidCoverage(over)) { return std::unexpected(Says::Input); }
   const int levels = std::min(over.Levels, over.Zoom);
   Patchwork out;
   if (!over.Asking) { out.Sheets.reserve(kTilesPerLevel * static_cast<size_t>(levels)); }
@@ -160,6 +171,23 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   }
   if (out.Tiles == 0) { return std::unexpected(Says::Empty); }
   return out;
+}
+
+std::expected<std::vector<Data::TileId>, std::string> PlanPatchworkTiles(const Around &over) {
+  if (!ValidCoverage(over)) { return std::unexpected(Says::Input); }
+  const int levels = std::min(over.Levels, over.Zoom);
+  std::vector<Data::TileId> tiles;
+  tiles.reserve(kTilesPerLevel * static_cast<size_t>(levels));
+  for (int level = 0; level < levels; ++level) {
+    ForEachBlockTile(over, level, [&](int zoom, long x, long y, TileRegion, bool) {
+      if (!Ground::WrapTile(zoom, &x, &y)) { return; }
+      tiles.push_back({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
+    });
+  }
+  const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
+  std::ranges::sort(tiles, {}, key);
+  tiles.erase(std::ranges::unique(tiles).begin(), tiles.end());
+  return tiles;
 }
 
 std::expected<Patchwork, std::string> Patchworker::Lay(TileMeshes &tiles,

@@ -21,6 +21,9 @@ public:
 [[nodiscard]] std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles,
                                                                  const Around &over);
 
+[[nodiscard]] std::expected<std::vector<Data::TileId>, std::string>
+PlanPatchworkTiles(const Around &over);
+
 }
 
 #endif

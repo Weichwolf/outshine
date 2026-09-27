@@ -6,6 +6,7 @@
 #include <cmath>
 #include <limits>
 #include <set>
+#include <tuple>
 #include <utility>
 
 using namespace outshine;
@@ -121,9 +122,27 @@ int main() {
         source.Mode = pattern;
         const auto expected = CellOracle(over, source);
         const auto actual = LayPatchwork(source, over);
+        const auto planned = PlanPatchworkTiles(over);
         CHECK(actual.has_value(), "valid cascade completes");
+        CHECK(planned.has_value(), "valid coverage has a data plan");
         CHECK(source.Calls == expected.Calls,
               "tile order and fallback match independent cell union");
+        if (planned) {
+          const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
+          CHECK(std::ranges::all_of(expected.Calls,
+                                    [&](Data::TileId tile) {
+                                      return std::ranges::binary_search(
+                                          *planned, key(tile), {}, key);
+                                    }),
+                "planned coverage contains every tile the independent cascade can request");
+          if (pattern == Pattern::Pending) {
+            auto all = expected.Calls;
+            std::ranges::sort(all, {}, key);
+            all.erase(std::ranges::unique(all).begin(), all.end());
+            CHECK(*planned == all,
+                  "no resident tiles makes the plan equal the independent full-grid oracle");
+          }
+        }
         CHECK(source.Waits == 0, "cascade never waits for a tile");
         if (!actual) { continue; }
         CHECK(actual->Skipped == expected.Skipped && actual->Overlapped == expected.Overlapped,
@@ -178,6 +197,7 @@ int main() {
     Source untouched;
     CHECK(!LayPatchwork(untouched, over) && untouched.Calls.empty(),
           "invalid input is rejected before provider work");
+    CHECK(!PlanPatchworkTiles(over), "invalid coverage is rejected before planning");
   }
   return Report();
 }
