@@ -86,6 +86,12 @@ using the sampler's own coverage contract rather than a copied zoom constant.
    `PlanTerrainSourceTiles` now supplies halos, parents, vector/building and
    route tiles to `HeightSheets`, with independent grid/seam/budget controls.
    Path union and bounded path preparation are still to be integrated.
+   `world/ground/TerrainSamplingCoverage` owns normal/coarse field mapping.
+   `GroundStream::SamplingCoverage(TileId)` maps a source tile to the sampler's
+   configured grid and its optional three-level fallback without IO. Resident
+   queries and `KeepCoarse` consume this same mapping. Reject invalid grids or
+   a source tile coarser than the configured sampling grid; never invent finer
+   coordinates from an underspecified coarse tile.
 4. If confirmed 404s occur, add a typed bounded absence record with source
    revision/freshness rules; prove it differs from a cache miss. Do not cache
    403 as absent (Terrarium currently does), and retain retry/refusal policy.
