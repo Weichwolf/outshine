@@ -142,7 +142,7 @@ corpus-reference: ## explicitly pin generated reference images (CASES=...; REFER
 corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
 	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
 
-test: test-client-arguments test-client-data test-client-render all ## the fast gate
+test: test-client-arguments test-client-data test-client-render test-corpus-invariants all ## the fast gate
 	@$(RUN)
 
 suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/RuntimeScene/CameraBindingPrecedesDrawing)
@@ -196,6 +196,10 @@ test-reference-cache: ## validate immutable reference pins and missing/corrupt c
 .PHONY: test-client-render
 test-client-render: all ## exercise direct glTF/GLB capture, cameras, exact time and invalid input
 	@cd $(SELF_DIR) && python3 test/scripts/test_client_render.py
+
+.PHONY: test-corpus-invariants
+test-corpus-invariants: ## verify declared vendor relations and negative controls
+	@cd $(SELF_DIR) && python3 test/scripts/test_corpus_invariants.py
 
 .PHONY: render
 render: all ## capture an asset (ASSET=... OUTPUT=... RESOLUTION=1280x720 RENDER_ARGS=...)

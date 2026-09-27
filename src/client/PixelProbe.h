@@ -24,6 +24,9 @@ ParsePixelCoordinate(std::string_view value) noexcept;
 [[nodiscard]] std::expected<void, std::string>
 ReportPixel(Engine &engine, std::string_view name, PixelCoordinate at);
 
+[[nodiscard]] std::expected<void, std::string> SaveLinearImage(Engine &engine,
+                                                               std::string_view path);
+
 }
 
 #endif

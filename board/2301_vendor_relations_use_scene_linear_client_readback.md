@@ -1,5 +1,5 @@
 Type: defect
-State: active
+State: done
 Architecture: ready
 Parent: 2218
 Depends: 2300
@@ -40,5 +40,21 @@ acceptance. No case name or source-path branch in the evaluator.
   frame with the manifest's f32-ULP bound; no empty/black output can pass.
 - Mutating one panel, one channel, one rectangle, the scale or the output
   extent makes the corresponding relation fail. Missing linear readback fails.
-- `DirectionalLight` and other image-criterion cases retain their image gate.
+- Cases without `statedInvariants` retain their image gate; DirectionalLight's
+  declared highlight-hue relation uses linear values.
 - Focused client/harness tests, `make format` and `LINT_JOBS=2 make lint` pass.
+
+## Result
+
+`run --linear-out` writes the last captured RGBA32F frame as NumPy v1 through
+the public Renderer readback; the client test loads it and rejects a directory
+as output. The corpus evaluates all declared relation kinds and retains PNG
+comparison only as diagnosis for them. Synthetic mutations of channel, scale,
+rectangle, extent, ULP and relative/hue values fail. DirectionalLight's hue
+and all four EmissiveStrength relations pass. PointLightIntensityTest fails
+all five strict 32-ULP relations (largest 10,878–19,577 ULP); both normal-
+tangent cases fail their p95 relation bounds. Those are measured render defects
+or bound-specification questions, not missing oracle bytes or a false PNG gate.
+WI 2302 owns local-light precision; WI 2303 owns the tangent/material pair.
+The evaluator reproduces the historical integer-bit ULP distance, nearest-rank
+percentile and alpha-coverage selection.

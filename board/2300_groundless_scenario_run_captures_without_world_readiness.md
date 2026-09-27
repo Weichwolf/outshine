@@ -44,4 +44,6 @@ DirectionalLight, PointLightIntensityTest and SheenWoodLeatherSofa now reach the
 oracle comparison. Their image agreements are 37.6338%, 20.2521% and 97.5468%;
 none passes. Visual inspection shows mismatched sphere light gradients, missing
 square panel corners behind the point lights, and sofa edge/detail differences.
-These are separate render/material defects, not capture-readiness failures.
+These differences are separate from capture readiness. The PointLight asset
+explicitly rejects exact-picture agreement as its acceptance criterion;
+WI 2301 evaluates its declared scene-linear relations.

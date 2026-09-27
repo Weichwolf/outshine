@@ -5,11 +5,16 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <iosfwd>
 #include <limits>
 #include <print>
 #include <ranges>
@@ -140,6 +145,65 @@ ReportPixel(Engine &engine, std::string_view name, PixelCoordinate at) {
                (*normal)[2],
                (*identity)[0],
                engine.declaration().Ground.Declared ? "refined" : "groundless");
+  return {};
+}
+
+std::expected<void, std::string> SaveLinearImage(Engine &engine, std::string_view path) {
+  static_assert(std::endian::native == std::endian::little);
+  static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
+  const Extent extent = engine.swapChain().extent();
+  if (path.empty() || extent.WidthPx <= 0 || extent.HeightPx <= 0) {
+    return std::unexpected("linear output needs a path and positive frame extent");
+  }
+  const auto width = static_cast<size_t>(extent.WidthPx);
+  const auto height = static_cast<size_t>(extent.HeightPx);
+  if (height > std::numeric_limits<size_t>::max() / width / 4u) {
+    return std::unexpected("linear output extent exceeds addressable storage");
+  }
+  std::vector<float> values;
+  if (const auto read = engine.renderer().readPixels(Buffer::Linear, values); !read) {
+    return std::unexpected("linear output: " + read.error());
+  }
+  if (values.size() != width * height * 4u ||
+      !std::ranges::all_of(values, [](float value) { return std::isfinite(value); })) {
+    return std::unexpected("linear output has invalid attachment data");
+  }
+  std::string header = "{'descr': '<f4', 'fortran_order': False, 'shape': (" +
+                       std::to_string(height) + ", " + std::to_string(width) + ", 4), }";
+  header.append((16u - (10u + header.size() + 1u) % 16u) % 16u, ' ');
+  header.push_back('\n');
+  if (header.size() > std::numeric_limits<uint16_t>::max()) {
+    return std::unexpected("linear output header is too large");
+  }
+  const std::filesystem::path target(path);
+  std::error_code failure;
+  if (!target.parent_path().empty()) {
+    std::filesystem::create_directories(target.parent_path(), failure);
+    if (failure) { return std::unexpected("linear output directory: " + failure.message()); }
+  }
+  const std::filesystem::path staging = target.string() + ".writing";
+  std::ofstream out(staging, std::ios::binary | std::ios::trunc);
+  if (!out) { return std::unexpected("linear output cannot open file"); }
+  constexpr std::array<char, 8> magic{'\x93', 'N', 'U', 'M', 'P', 'Y', 1, 0};
+  const auto length = static_cast<uint16_t>(header.size());
+  const std::array<char, 2> sizeBytes{static_cast<char>(length & 0xffu),
+                                      static_cast<char>(length >> 8u)};
+  out.write(magic.data(), static_cast<std::streamsize>(magic.size()));
+  out.write(sizeBytes.data(), static_cast<std::streamsize>(sizeBytes.size()));
+  out.write(header.data(), static_cast<std::streamsize>(header.size()));
+  out.write(reinterpret_cast<const char *>(values.data()),
+            static_cast<std::streamsize>(values.size() * sizeof(float)));
+  out.close();
+  if (!out) {
+    std::filesystem::remove(staging, failure);
+    return std::unexpected("linear output write failed");
+  }
+  std::filesystem::rename(staging, target, failure);
+  if (failure) {
+    std::error_code ignored;
+    std::filesystem::remove(staging, ignored);
+    return std::unexpected("linear output rename: " + failure.message());
+  }
   return {};
 }
 

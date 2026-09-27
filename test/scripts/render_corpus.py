@@ -10,6 +10,7 @@ import argparse, json, math, os, pathlib, subprocess, sys, tempfile
 from PIL import Image
 import numpy as np
 from reference_store import resolve
+from corpus_invariants import evaluate
 
 TREE = pathlib.Path(__file__).resolve().parents[2]
 CLIENT = TREE / "build" / "outshine-client"
@@ -367,8 +368,14 @@ def main():
             run_name = name + "-" + pathlib.Path(scratch).name
             wrote = pathlib.Path(scratch) / "case.scn"
             wrote.write_text(scenario_for(declared, entry))
-            ran = subprocess.run([str(CLIENT), "run", "--rows", str(wrote), run_name],
+            relations = bool(declared.get("statedInvariants"))
+            linear = pathlib.Path(scratch) / "linear.npy"
+            command = [str(CLIENT), "run", "--rows"]
+            if relations:
+                command += ["--linear-out", str(linear)]
+            ran = subprocess.run([*command, str(wrote), run_name],
                                  capture_output=True, text=True, timeout=600)
+            linear_frame = np.load(linear, allow_pickle=False) if relations and linear.is_file() else None
         digest = ""
         for line in ran.stdout.splitlines():
             if line.startswith("ROW"):
@@ -383,7 +390,24 @@ def main():
             red.append((name, 0.0, 0, "missing fresh output"))
             continue
         agreeing, most, apart = scored(drew, reference)
-        if agreeing is None:
+        if relations:
+            try:
+                if linear_frame is None:
+                    raise ValueError("client returned no scene-linear attachment")
+                checks = evaluate(linear_frame, declared)
+            except (KeyError, TypeError, ValueError) as error:
+                red.append((name, 0.0, 0, str(error)))
+                print(f"FAILED {name}: {error}")
+                continue
+            for label, passed, detail in checks:
+                print(f"{'HELD ' if passed else 'APART'} {name}/{label}: {detail}")
+            if all(passed for _, passed, _ in checks):
+                held += 1
+            else:
+                red.append((name, agreeing or 0.0, most or 0, "declared linear relation failed"))
+            if agreeing is not None:
+                print(f"IMAGE {name:34s} {agreeing * 100:8.4f}% diagnostic only")
+        elif agreeing is None:
             red.append((name, 0.0, 0, "the frames are not the same shape"))
         elif agreeing >= kLeastAgreeing:
             held += 1
@@ -394,11 +418,8 @@ def main():
 
     print(f"\n{held} held, {len(red)} apart, {skipped} set aside with a reason, {unscored} "
           f"unscored (no reference or no prepared subject)")
-    print(f"the bar is {kLeastAgreeing * 100:.2f}% within {kMostDelta} of 255 OVER THE PIXELS "
-          f"EITHER PICTURE LIGHTS -- a pixel black in both agrees by construction and is not "
-          f"counted, because a frame that is mostly background scores its background")
-    print(f"the worst pixel is REPORTED and never gated, because one pixel at 255 is a hole rather "
-          f"than a tolerance")
+    print(f"image-criterion bar: {kLeastAgreeing * 100:.2f}% within {kMostDelta} of 255 over "
+          "pixels lit in either picture; relational cases use their declared scene-linear bound")
     return 1 if red or unscored else 0
 
 

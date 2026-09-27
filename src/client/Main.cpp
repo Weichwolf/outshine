@@ -171,6 +171,7 @@ void Usage(std::string_view verb = {}) {
         "  --rows                          machine-readable capture rows\n"
         "  --stats                         timing, readiness and source STAT rows\n"
         "  --probe-pixel <x,y>             inspect a final pixel; requires --quality refined\n"
+        "  --linear-out <file.npy>         save final scene-linear RGBA32F pixels\n"
         "  PIXEL row: name, x, y, RGBA8, linear RGB, device depth, normal XYZ, surface ID, "
         "quality.\n"
         "  measures additionally prints engine diagnostics and visible structure source keys.\n"
@@ -398,6 +399,7 @@ struct ScenarioRunOptions {
   bool SampleImages = false;
   bool AwaitRefined = false;
   std::optional<outshine::Client::PixelCoordinate> ProbePixel;
+  std::string LinearOutput;
 };
 
 [[nodiscard]] std::expected<void, int> ValidateScenarioRunOptions(const ScenarioRunOptions &options,
@@ -466,15 +468,7 @@ ReadCapturePixel(const char *value) {
 }
 
 [[nodiscard]] std::expected<bool, int>
-ReadRunValue(std::string_view flag, const char *value, ScenarioRunOptions &options, bool &hasTime) {
-  if (flag == "--cache-dir") {
-    if (value == nullptr || !outshine::Client::ValidCacheDirectory(value)) {
-      std::println(stderr, "outshine-client: --cache-dir requires a nonempty directory");
-      return std::unexpected(2);
-    }
-    options.CacheDirectory = value;
-    return true;
-  }
+ReadRunPath(std::string_view flag, const char *value, ScenarioRunOptions &options) {
   if (flag == "--into" || flag == "--view") {
     if (value == nullptr) {
       std::println(stderr, "outshine-client: {} requires a value", flag);
@@ -486,6 +480,30 @@ ReadRunValue(std::string_view flag, const char *value, ScenarioRunOptions &optio
       options.SelectedView = value;
     }
     return true;
+  }
+  if (flag == "--linear-out") {
+    if (value == nullptr || *value == '\0') {
+      std::println(stderr, "outshine-client: --linear-out requires a file path");
+      return std::unexpected(2);
+    }
+    options.LinearOutput = value;
+    return true;
+  }
+  return false;
+}
+
+[[nodiscard]] std::expected<bool, int>
+ReadRunValue(std::string_view flag, const char *value, ScenarioRunOptions &options, bool &hasTime) {
+  if (flag == "--cache-dir") {
+    if (value == nullptr || !outshine::Client::ValidCacheDirectory(value)) {
+      std::println(stderr, "outshine-client: --cache-dir requires a nonempty directory");
+      return std::unexpected(2);
+    }
+    options.CacheDirectory = value;
+    return true;
+  }
+  if (flag == "--into" || flag == "--view" || flag == "--linear-out") {
+    return ReadRunPath(flag, value, options);
   }
   if (flag == "--at-seconds") {
     if (value == nullptr) {
@@ -567,6 +585,13 @@ int CaptureView(outshine::Engine &engine,
     if (const auto probed = outshine::Client::ReportPixel(engine, named, *options.ProbePixel);
         !probed) {
       std::println(stderr, "outshine-client: {}", probed.error());
+      return 1;
+    }
+  }
+  if (!options.LinearOutput.empty()) {
+    if (const auto saved = outshine::Client::SaveLinearImage(engine, options.LinearOutput);
+        !saved) {
+      std::println(stderr, "outshine-client: {}", saved.error());
       return 1;
     }
   }
@@ -733,7 +758,13 @@ int RunScenario(int argc, const char *const *argv, bool everyMeasure) {
     }
     return result;
   }
-  const Shot shot = outshine::Shots::Draw(engine, named, true, options.Into);
+  Shot shot = outshine::Shots::Draw(engine, named, true, options.Into);
+  if (shot.Why.empty() && !options.LinearOutput.empty()) {
+    if (const auto saved = outshine::Client::SaveLinearImage(engine, options.LinearOutput);
+        !saved) {
+      shot.Why = saved.error();
+    }
+  }
   if (options.Rows) {
     Row(shot, named);
   } else {

@@ -92,8 +92,9 @@ class AssetRender(unittest.TestCase):
         shots_parent.mkdir(parents=True, exist_ok=True)
         shots = Path(tempfile.mkdtemp(prefix="client-groundless-", dir=shots_parent))
         self.addCleanup(shutil.rmtree, shots)
+        linear = shots / "scene.npy"
         result = subprocess.run([str(CLIENT), "run", "--rows", "--stats", "--into",
-                                 shots.name, scenario, "groundless"], cwd=ROOT,
+                                 shots.name, "--linear-out", linear, scenario, "groundless"], cwd=ROOT,
                                 capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         row = next(line.split("\t") for line in result.stdout.splitlines()
@@ -103,6 +104,16 @@ class AssetRender(unittest.TestCase):
         self.assertIn("STAT\tgroundless\trefined\t0\t", result.stdout)
         pixels = np.asarray(Image.open(shots / f"groundless-{row[2]}.png").convert("RGB"))
         self.assertTrue(np.any(pixels[..., 0] > 128))
+        radiance = np.load(linear, allow_pickle=False)
+        self.assertEqual(radiance.shape, (64, 128, 4))
+        self.assertEqual(radiance.dtype, np.dtype("<f4"))
+        self.assertTrue(np.isfinite(radiance).all())
+        self.assertGreater(float(radiance[..., 0].max()), 0.0)
+        invalid = subprocess.run([str(CLIENT), "run", "--into", shots.name,
+                                  "--linear-out", shots, scenario, "bad-linear"], cwd=ROOT,
+                                 capture_output=True, text=True, timeout=60)
+        self.assertEqual(invalid.returncode, 1)
+        self.assertIn("linear output", invalid.stdout + invalid.stderr)
 
     def test_stats_report_render_stages_and_failure(self):
         output = self.root / "stats.png"
