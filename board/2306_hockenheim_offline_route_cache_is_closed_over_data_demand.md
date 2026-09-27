@@ -92,9 +92,11 @@ conservative geometric coverage independently of that readiness.
    The planned set must be independent of resident mesh/field state; replay
    must require that same set. Keep the planning contract useful for any
    georeferenced path, not tied to Hockenheim or the client.
-   Settle the planned vector/classification coverage first; then include the
-   loaded vector-tile neighbours and building footprint height tiles through
-   the same source planner as refined candidates. Avoid a guessed radial pad.
+   `src/engine/streaming/TerrainSourceCoverage` owns the shared source planner:
+   valid native tile IDs, canonical unique output, 8192-field maximum (initial
+   budget; observed path needs 473), explicit refusal before oversized work.
+   Settle vectors/classification first, then include vector neighbours and
+   building footprint heights through that planner, not a guessed radial pad.
    `PlanPatchworkTiles(Around)` now provides canonical potential mesh tiles,
    independent of replies, without IO or waiting. Its independent-cell test
    covers ready/mixed/pending cascades, dateline and poles. Source-neighbour
