@@ -1,9 +1,9 @@
 Type: defect
-State: active
+State: open
 Architecture: ready
 Parent: 2128
 Depends: 2301
-Priority: P0
+Priority: P2
 Area: render, lighting
 Tags: khronos, precision, point-light
 
@@ -23,6 +23,17 @@ appearance difference: the asset explicitly disclaims exact appearance.
 frame shift. `SubjectDraw::PackedLights` separately rounds ECEF light position
 plus frame translation to float; `subjectLighting.glsl` subtracts the two
 rounded positions. This is a likely cancellation source, not yet a proven one.
+An experiment moved surface, light and camera into the shared asset-anchor
+frame. RGB+white failures only fell from 2280 to 2142 components; gray rose
+from 1143 to 1188. Its PNG changed by 0.0005 percentage points of oracle
+agreement. The experiment was reverted. Per-instance placement and the BRDF
+remain possible causes. At the worst sample, 10,878 ULP are only 1.98e-8
+absolute radiance at about 3.0e-5; do not confuse this with a visible defect.
+
+The 32-ULP bound is much stricter than the asset's stated "very nearly so".
+Retain the red diagnostic until an independent precision budget proves or
+replaces it. Priority is P2 behind contact, terrain and visible material gaps;
+do not add a per-instance light table solely to pass this bound.
 
 ## Contract and implementation
 
