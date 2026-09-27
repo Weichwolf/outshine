@@ -482,6 +482,7 @@ bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &er
     made.Revision = one.Attr("pin");
     made.Dataset = one.Attr("dataset");
     made.Location = one.Attr("location");
+    made.Endpoint = one.Attr("endpoint");
     if (!ReadProviderRank(one, made.Priority)) {
       error = Says::kInvalidProviderRank;
       return false;

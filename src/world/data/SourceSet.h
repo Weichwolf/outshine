@@ -77,7 +77,7 @@ public:
   [[nodiscard]] Ledger Counters() const;
 
 private:
-  void RecordStart(const SourceDecl &decl, bool first);
+  void RecordStart(const SourceDecl &decl, bool first, bool started);
 
   [[nodiscard]] Delivery ResumeRetry(Query &query, Transport &transport);
 

@@ -129,8 +129,8 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(*kept));
         }
       }
-      RecordStart(decl, true);
       query.Ticket_ = query.Current_->Begin(query.At_, transport);
+      RecordStart(decl, true, query.Ticket_ != Ticket::None);
       query.Phase_ = Query::Phase::InFlight;
     }
 
@@ -153,17 +153,17 @@ Delivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
   if (!std::isfinite(nowMs) || nowMs < 0.0) { return Refuse(query, kRetryCapMs); }
   if (nowMs < query.RetryAtMs_) { return Delivery::Waiting(); }
   query.RetryAtMs_ = 0.0;
-  RecordStart(query.Current_->Declaration(), false);
   query.Ticket_ = query.Current_->Begin(query.At_, transport);
+  RecordStart(query.Current_->Declaration(), false, query.Ticket_ != Ticket::None);
   query.Phase_ = Query::Phase::InFlight;
   return Delivery::Waiting();
 }
 
-void SourceSet::RecordStart(const SourceDecl &decl, bool first) {
+void SourceSet::RecordStart(const SourceDecl &decl, bool first, bool started) {
   const std::scoped_lock lock(LedgerMutex_);
   if (first) { Ledger_.Asked++; }
   Ledger_.ProviderStarts++;
-  if (decl.Latency != LatencyClass::Local) { Ledger_.RemoteStarts++; }
+  if (started && decl.Latency != LatencyClass::Local) { Ledger_.RemoteStarts++; }
 }
 
 std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
@@ -220,10 +220,13 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
 }
 
 Delivery SourceSet::Refuse(Query &query, double afterMs) {
+  const SourceDecl &decl = query.Current_->Declaration();
+  const std::string sourceId = decl.Id;
+  const std::string sourceRevision = decl.Revision;
   query.Finish();
   const std::scoped_lock lock(LedgerMutex_);
   ++Ledger_.Refused;
-  return Delivery::WireAfter(afterMs);
+  return Delivery::WireAfter(afterMs, sourceId, sourceRevision);
 }
 
 void SourceSet::Abandon(Query &query, Transport &transport) {

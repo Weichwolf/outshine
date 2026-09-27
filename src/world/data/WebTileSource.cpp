@@ -1,6 +1,9 @@
 #include "WebTileSource.h"
 #include <cstdint>
+#include <cstddef>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <vector>
 #include <utility>
 
@@ -32,6 +35,20 @@ Address WebTileSource::Serves(const Fetch &request) const noexcept {
   return Address::At(TileId{.Zoom = Decl_.MaxZoom,
                             .X = tileX >> static_cast<uint32_t>(steps),
                             .Y = tileY >> static_cast<uint32_t>(steps)});
+}
+
+std::string WebTileSource::Url(const Address &at) const {
+  const std::optional<TileId> tile = at.Tile();
+  if (!tile) { return {}; }
+  std::string url = Endpoint_;
+  const auto replace = [&url](std::string_view token, uint32_t value) {
+    const size_t at = url.find(token);
+    url.replace(at, token.size(), std::to_string(value));
+  };
+  replace("{z}", static_cast<uint32_t>(tile->Zoom));
+  replace("{x}", tile->X);
+  replace("{y}", tile->Y);
+  return url;
 }
 
 Ticket WebTileSource::Begin(const Address &at, Transport &transport) const {

@@ -36,6 +36,7 @@ struct SourceProvider {
   MissingDataPolicy Missing = MissingDataPolicy::Continue; ///< Missing-value behavior.
   std::string Dataset;                    ///< Stable dataset ID; required for semantic OSM chunks.
   std::string Location;                   ///< OSM file path, absolute or relative to Roots.Shipped.
+  std::string Endpoint;                   ///< HTTPS {z}/{x}/{y} tile URL; requires Dataset.
   std::optional<SourceCoverage> Coverage; ///< Required finite OSM chunk bounds.
 
   /// Compare the complete owned source declaration.

@@ -73,6 +73,10 @@ std::string ContentKey(const SourceDecl &decl, const Address &at) {
   subject += Name(decl.Kind);
   subject += '\n';
   subject += at.Text();
+  if (!decl.Endpoint.empty()) {
+    subject += '\n';
+    subject += decl.Endpoint;
+  }
   return Sha256Hex(subject);
 }
 

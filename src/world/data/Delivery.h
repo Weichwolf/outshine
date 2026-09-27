@@ -20,12 +20,16 @@ public:
   Delivery(Delivery &&other) noexcept
       : Where_(std::exchange(other.Where_, State::Consumed)),
         AfterMs_(std::exchange(other.AfterMs_, 0.0)),
+        SourceId_(std::move(other.SourceId_)),
+        SourceRevision_(std::move(other.SourceRevision_)),
         Answer_(std::move(other.Answer_)) {}
 
   Delivery &operator=(Delivery &&other) noexcept {
     if (this == &other) { return *this; }
     Where_ = std::exchange(other.Where_, State::Consumed);
     AfterMs_ = std::exchange(other.AfterMs_, 0.0);
+    SourceId_ = std::move(other.SourceId_);
+    SourceRevision_ = std::move(other.SourceRevision_);
     Answer_ = std::move(other.Answer_);
     return *this;
   }
@@ -57,13 +61,20 @@ public:
 
   [[nodiscard]] static Delivery Wire() { return Delivery(State::Refused); }
 
-  [[nodiscard]] static Delivery WireAfter(double afterMs) {
+  [[nodiscard]] static Delivery
+  WireAfter(double afterMs, std::string sourceId = {}, std::string sourceRevision = {}) {
     Delivery d(State::Refused);
     d.AfterMs_ = afterMs > 0.0 ? afterMs : 0.0;
+    d.SourceId_ = std::move(sourceId);
+    d.SourceRevision_ = std::move(sourceRevision);
     return d;
   }
 
   [[nodiscard]] double AfterMs() const noexcept { return AfterMs_; }
+
+  [[nodiscard]] const std::string &SourceId() const noexcept { return SourceId_; }
+
+  [[nodiscard]] const std::string &SourceRevision() const noexcept { return SourceRevision_; }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
 
@@ -78,6 +89,8 @@ private:
 
   State Where_;
   double AfterMs_ = 0.0;
+  std::string SourceId_;
+  std::string SourceRevision_;
   Answer Answer_;
 };
 

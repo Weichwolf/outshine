@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "StarBands.h"
+#include "SourceProviderValidation.h"
 #include "TerrariumDem.h"
 #include "VersatilesVector.h"
 
@@ -33,6 +34,10 @@ bool RegisterDeclared(SourceSet &set,
                       std::span<const SourceProvider> providers,
                       std::string_view starDirectory,
                       std::string &error) {
+  if (const auto valid = ValidateSourceProviders(providers); !valid) {
+    error = valid.error();
+    return false;
+  }
   std::vector<std::unique_ptr<Source>> candidates;
   candidates.reserve(providers.size());
   for (const SourceProvider &provider : providers) {
@@ -44,9 +49,11 @@ bool RegisterDeclared(SourceSet &set,
     const Rank order = static_cast<Rank>(provider.Priority);
     std::unique_ptr<Source> made;
     if (provider.Kind == "terrain") {
-      made = std::make_unique<TerrariumDem>(provider.Revision, order, provider.Missing);
+      made = std::make_unique<TerrariumDem>(
+          provider.Revision, order, provider.Missing, provider.Dataset, provider.Endpoint);
     } else if (provider.Kind == "vector") {
-      made = std::make_unique<VersatilesVector>(provider.Revision, order, provider.Missing);
+      made = std::make_unique<VersatilesVector>(
+          provider.Revision, order, provider.Missing, provider.Dataset, provider.Endpoint);
     } else if (provider.Kind == "stars") {
       made = std::make_unique<StarBands>(
           std::string(starDirectory), provider.Revision, order, provider.Missing);
@@ -80,6 +87,7 @@ std::span<const SourceProvider> ShippedProviders() {
        .Missing = MissingDataPolicy::Continue,
        .Dataset = "",
        .Location = "",
+       .Endpoint = "",
        .Coverage = {}},
       {.Kind = "vector",
        .Revision = "",
@@ -87,6 +95,7 @@ std::span<const SourceProvider> ShippedProviders() {
        .Missing = MissingDataPolicy::Continue,
        .Dataset = "",
        .Location = "",
+       .Endpoint = "",
        .Coverage = {}},
       {.Kind = "stars",
        .Revision = "",
@@ -94,6 +103,7 @@ std::span<const SourceProvider> ShippedProviders() {
        .Missing = MissingDataPolicy::Continue,
        .Dataset = "",
        .Location = "",
+       .Endpoint = "",
        .Coverage = {}},
   }};
   return shipped;

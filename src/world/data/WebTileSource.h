@@ -31,9 +31,10 @@ public:
   [[nodiscard]] Fetched Collect(const Address &at, Ticket ticket, Transport &transport) const final;
 
 protected:
-  explicit WebTileSource(SourceDecl decl) : Decl_(std::move(decl)) {}
+  WebTileSource(SourceDecl decl, std::string endpoint)
+      : Decl_(std::move(decl)), Endpoint_(std::move(endpoint)) {}
 
-  [[nodiscard]] virtual std::string Url(const Address &at) const = 0;
+  [[nodiscard]] std::string Url(const Address &at) const;
 
   [[nodiscard]] Meaning Classify(Replied said) const noexcept;
 
@@ -43,6 +44,7 @@ protected:
 
 private:
   SourceDecl Decl_;
+  std::string Endpoint_;
 };
 
 }

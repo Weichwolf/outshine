@@ -37,9 +37,31 @@ constexpr size_t kSha256HexDigits = 64;
   return false;
 }
 
+[[nodiscard]] bool ValidEndpoint(std::string_view endpoint) {
+  if (!endpoint.starts_with("https://") || endpoint.size() <= 8 ||
+      endpoint.find_first_of(" \t\r\n") != std::string_view::npos) {
+    return false;
+  }
+  for (const std::string_view token : {"{z}", "{x}", "{y}"}) {
+    const size_t at = endpoint.find(token);
+    if (at == std::string_view::npos ||
+        endpoint.find(token, at + token.size()) != std::string_view::npos) {
+      return false;
+    }
+  }
+  std::string remaining(endpoint);
+  for (const std::string_view token : {"{z}", "{x}", "{y}"}) {
+    remaining.erase(remaining.find(token), token.size());
+  }
+  return remaining.find_first_of("{}") == std::string::npos;
+}
+
 [[nodiscard]] std::expected<void, std::string> ValidateOsm(const SourceProvider &provider) {
   if (provider.Dataset.empty() || provider.Revision.empty() || provider.Location.empty()) {
     return std::unexpected("an osm provider requires dataset, pin and a local location");
+  }
+  if (!provider.Endpoint.empty()) {
+    return std::unexpected("an osm provider uses a pinned local location, not an endpoint");
   }
   if (provider.Missing != MissingDataPolicy::Fail) {
     return std::unexpected("an osm provider must fail when its source is absent");
@@ -66,6 +88,45 @@ constexpr size_t kSha256HexDigits = 64;
   return {};
 }
 
+[[nodiscard]] std::expected<void, std::string> ValidateTile(const SourceProvider &provider) {
+  if (!provider.Location.empty() || provider.Coverage) {
+    return std::unexpected("tile providers cannot declare location or coverage");
+  }
+  if (provider.Endpoint.empty() != provider.Dataset.empty()) {
+    return std::unexpected("a tile endpoint requires a stable dataset and vice versa");
+  }
+  if (!provider.Endpoint.empty() && !ValidEndpoint(provider.Endpoint)) {
+    return std::unexpected("a tile endpoint requires HTTPS and one each of {z}, {x}, {y}");
+  }
+  return {};
+}
+
+[[nodiscard]] std::expected<void, std::string>
+ValidateUnparameterized(const SourceProvider &provider) {
+  if (!provider.Dataset.empty() || !provider.Location.empty() || !provider.Endpoint.empty() ||
+      provider.Coverage) {
+    return std::unexpected("this provider cannot declare dataset, location or endpoint");
+  }
+  return {};
+}
+
+[[nodiscard]] std::expected<void, std::string> ValidateSource(const SourceProvider &provider,
+                                                              const SourceProvider *&firstOsm) {
+  if (provider.Kind == "osm") {
+    if (auto valid = ValidateOsm(provider); !valid) {
+      return std::unexpected(std::move(valid.error()));
+    }
+    if (firstOsm != nullptr &&
+        (firstOsm->Dataset != provider.Dataset || firstOsm->Revision != provider.Revision)) {
+      return std::unexpected("osm chunks must share one dataset and revision");
+    }
+    if (firstOsm == nullptr) { firstOsm = &provider; }
+    return {};
+  }
+  if (provider.Kind == "terrain" || provider.Kind == "vector") { return ValidateTile(provider); }
+  return ValidateUnparameterized(provider);
+}
+
 }
 
 std::expected<void, std::string>
@@ -81,17 +142,8 @@ ValidateSourceProviders(std::span<const SourceProvider> providers) {
     if (DuplicateRank(providers, at)) {
       return std::unexpected("provider kind '" + provider.Kind + "' declares the same rank twice");
     }
-    if (provider.Kind == "osm") {
-      if (auto valid = ValidateOsm(provider); !valid) {
-        return std::unexpected(std::move(valid.error()));
-      }
-      if (firstOsm != nullptr &&
-          (firstOsm->Dataset != provider.Dataset || firstOsm->Revision != provider.Revision)) {
-        return std::unexpected("osm chunks must share one dataset and revision");
-      }
-      if (firstOsm == nullptr) { firstOsm = &provider; }
-    } else if (!provider.Dataset.empty() || !provider.Location.empty() || provider.Coverage) {
-      return std::unexpected("only osm providers declare dataset, location or coverage");
+    if (auto valid = ValidateSource(provider, firstOsm); !valid) {
+      return std::unexpected(std::move(valid.error()));
     }
   }
   return {};

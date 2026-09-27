@@ -764,6 +764,7 @@ void WriteProviders(std::string &said, std::span<const Data::SourceProvider> pro
     Said(said, "pin", provider.Revision);
     Said(said, "dataset", provider.Dataset);
     Said(said, "location", provider.Location);
+    Said(said, "endpoint", provider.Endpoint);
     said += std::format(" rank=\"{}\"", provider.Priority);
     if (provider.Coverage) {
       Number(said, "westDeg", provider.Coverage->WestDeg);

@@ -32,6 +32,7 @@ struct SourceDecl {
 
   uint32_t Version = 1;
   std::string Revision;
+  std::string Endpoint;
 
   DataKind Kind = DataKind::Elevation;
   Scheme How = Scheme::TileZxy;

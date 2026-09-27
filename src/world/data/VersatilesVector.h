@@ -9,10 +9,11 @@ namespace outshine::Data {
 
 class VersatilesVector : public WebTileSource {
 public:
-  VersatilesVector(std::string revision, Rank order, AbsencePolicy absence);
-
-protected:
-  [[nodiscard]] std::string Url(const Address &at) const override;
+  VersatilesVector(std::string revision,
+                   Rank order,
+                   AbsencePolicy absence,
+                   std::string dataset = {},
+                   const std::string &endpoint = {});
 };
 
 }
