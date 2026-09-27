@@ -24,6 +24,18 @@ An isolated camera probe centred on missing `15/17165/11203` fetched and
 cached a 54,579-byte Terrarium PNG; that address was a real, previously
 unrequested byte tile. Offline replay then still failed on other addresses.
 At least part of the gap is demand closure, not missing-value policy.
+The client preloads before selecting `lap`, then fast-forwards 5,502 ticks
+without intermediate preload and waits only at the final frame. A paced
+online `--motion` run to 91.7 s fetched the route demand (244 remote starts,
+0 missing-contact frames, p99 11.91 ms). The next static offline capture
+had 538 hits, 0 misses, 0 remote starts and a PNG identical to the successful
+online static image (0/921600 pixels changed). The motion frame itself was
+unrefined and is not the static image oracle.
+Two discarded client experiments advanced without intermediate renders and
+called playable `Engine::preload`: every simulated second caused 181 remote
+starts and 43 offline misses; every tick caused 197 starts and 42 misses.
+Both fast-forwarded in a few wall seconds. Their failure does not yet
+separate real-time pacing from `renderer().render` as the missing trigger.
 
 ## Contract and ownership
 
@@ -48,10 +60,16 @@ At least part of the gap is demand closure, not missing-value policy.
    success and immediate offline replay. Compare the sets, marking each miss
    as never requested, confirmed absent, or evicted. Put traces under system
    tmp and keep only aggregate counts in normal client output.
-2. Make route-data demand a deterministic closure of the declared path and
-   capture quality. Preparation runs the same planner as capture. A cache
-   complete for that closure must replay offline regardless of IO timing.
-3. If confirmed 404s occur, add a typed bounded absence record with source
+2. Isolate pacing from rendering: run identical route ticks at real-time pace
+   without frame rendering and compare source address sets to `--motion`.
+   Locate the phase that submits each additional request. Select `lap` after
+   its route is published and before its own data preparation; initial preload
+   currently targets the previous view.
+3. Move required data-demand submission into world/view preparation, independent
+   of GPU drawing and worker timing. A preparation API awaits the complete
+   request closure under one bounded global deadline; playable `preload`
+   alone returns too early. Replay must require the same address set.
+4. If confirmed 404s occur, add a typed bounded absence record with source
    revision/freshness rules; prove it differs from a cache miss. Do not cache
    403 as absent (Terrarium currently does), and retain retry/refusal policy.
 
