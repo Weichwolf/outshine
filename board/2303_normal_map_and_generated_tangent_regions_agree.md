@@ -32,6 +32,12 @@ those dark pairs pass. This points to unmatched normal-footprint integration:
 the map gains finite specular width from its mip, but smooth geometry remains
 an ideal delta under punctual lighting. Confirm with float normal/confidence,
 roughness and radiance AOVs before implementing a shared specular-AA rule.
+NEGATIVE: applying `1-(|dFdx(n)|²+|dFdy(n)|²)/24` as a screen-space
+normal confidence to both paths reduced a few lit pair errors but made the
+dark pair reach 327/1253 linear peak radiance (geometry/map) and lowered PNG
+agreement. The trial was reverted. A derivative-sized GGX lobe under a delta
+light is too narrow for one raster sample; derive pixel-integrated specular
+energy or a bounded distribution before changing the production shader.
 
 ## Contract and implementation
 
