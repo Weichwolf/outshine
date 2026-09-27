@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2171
-Depends: 2301
+Depends: 2301, 2304
 Priority: P1
 Area: import, render, materials
 Tags: khronos, tangent, normal-map
@@ -38,6 +38,10 @@ dark pair reach 327/1253 linear peak radiance (geometry/map) and lowered PNG
 agreement. The trial was reverted. A derivative-sized GGX lobe under a delta
 light is too narrow for one raster sample; derive pixel-integrated specular
 energy or a bounded distribution before changing the production shader.
+At 2560×1440 with unchanged world framing, the ten lit p95 values fall to
+0.13–0.16, while the five dark pairs stay at 1. Enabling 128-frame temporal
+resolve at 1280×720 smooths the image but raises lit p95 to 0.35–0.41; it
+does not repair the material contract. WI 2304 owns pixel-footprint response.
 
 ## Contract and implementation
 
@@ -47,10 +51,9 @@ owns TBN reconstruction and normalScale, with the sampled normal texture read
 as linear data. Inspect the two public captures' linear radiance, normal and
 identity attachments at paired cells before changing the shader; distinguish
 wrong basis, wrong texel/UV, wrong normalScale and wrong direct-light response.
-Keep the glTF sampler unchanged. Derive any geometric normal-footprint variance
-from screen-space derivatives and apply the same roughness model to both paths;
-check that a zero-roughness surface and a mipped normal map conserve energy
-under movement. Do not add a sampler override or an asset-specific threshold.
+Keep the glTF sampler unchanged. Once WI 2304 defines the common specular
+footprint, compare both paths under the same source and moving camera. Do not
+add a sampler override or an asset-specific threshold.
 The same native material path must serve imported and generated geometry.
 No per-asset correction or softened bound.
 
