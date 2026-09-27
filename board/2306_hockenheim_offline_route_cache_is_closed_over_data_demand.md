@@ -20,6 +20,10 @@ offline run still failed with 49 misses. The missing addresses included
 online image does not prove a closed cache for the same timed camera path.
 `ContentStore` stores bytes only; `Meaning::Absent` is not persisted. The
 observations do not yet distinguish newly demanded tiles from explicit 404s.
+An isolated camera probe centred on missing `15/17165/11203` fetched and
+cached a 54,579-byte Terrarium PNG; that address was a real, previously
+unrequested byte tile. Offline replay then still failed on other addresses.
+At least part of the gap is demand closure, not missing-value policy.
 
 ## Contract and ownership
 
