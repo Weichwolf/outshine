@@ -9,66 +9,45 @@ Tags: architecture, providers, streaming, offline
 
 # Declared providers control the actual world sources
 
-## Current defect
+## Current defect and evidence
 
-Declared terrain/vector providers already reach `SourceSet`; an empty tile-provider
-list selects the shipped defaults. Offline uses the persistent source cache and
-never starts network transport. Pin, rank and absence policy are parsed and
-validated. Concrete endpoint choice and source diagnostics remain open.
-
-An explicit terrain provider plus pinned OSM route, with no vector provider,
-currently times out after 30 s: `vectors=absent`, `generator snapshot pending`.
-`GroundStack::Restand` returns before creating `OsmField` when vector zoom is
-zero. `Engine::Readiness` and world snapshot publication nevertheless require
-a vector snapshot. This forbids a valid terrain-only world and makes absence of
-a provider behave like missing data from a required provider.
-
-A no-route terrain-only capture exposes a second consumer defect. ClassField
-still requests fine/coarse vector tiles without a provider. After removing those
-requests, the same capture crashes in SDL Metal: SubjectDraw::Encode binds a
-null placement storage buffer for a ground-only frame.
+Terrain-only snapshot and ground-only draw were repaired by `2a60e9f09` and
+`03ce86e6a`. Public offline Hockenheim lap at 91.7 s now captures with
+16/16 terrain tiles, zero vector requests, zero network starts and a valid PNG.
+This does not close source selection: `RegisterDeclared` ignores provider input
+identity for terrain/vector. Both classes use fixed URLs. Distinct declarations
+with equal pin can therefore hit the same endpoint and cache key. The existing
+provider test proves metadata ordering, not distinct fetched bytes.
 
 ## Contract and ownership
 
-`GroundStack` owns vector-source capability. When no vector source exists,
-publish an empty/declared-feature `OsmField` at the ground classification's
-fine zoom for each focus tile; call `Declare`, never `Build` or vector IO.
-Apply the same source-capability rule to ClassField's fine/coarse fields.
-Keep its generation and source identity stable on unchanged focus and advance
-on a real focus/declaration change. The existing world/generator consumers
-receive a valid immutable empty feature snapshot. `GroundStack::Close` retires
-it. `Engine::loading()` reports zero vector source requests/arrivals; a declared
-feature snapshot does not counterfeit a fetched vector tile. Footprint tile
-span uses that same effective zoom. A declared vector source retains normal
-fetch, parse, ingestion and missing-data behavior. Terrain/OSM failures still
-block; no unconditional `settled()` bypass.
-
-SubjectDraw owns subject bindings. Bind placement storage only for actual
-subject batches; ground drawing has its own resources and must render when
-there are zero subject instances. A zero-subject frame must not submit null
-GPU storage bindings.
+- `SourceProvider` owns an optional HTTPS `endpoint` template for terrain/vector
+  tiles. It requires a stable `dataset` ID and exactly one each of `{z}`, `{x}`
+  and `{y}`. Empty endpoint chooses the shipped Terrarium/Versatiles source.
+  OSM uses its pinned local `location`; stars keep their shipped local source.
+- Scenario reader/writer and public validation preserve and reject this contract.
+  Invalid schemes, placeholders and attributes fail before source registration.
+  Validate again at the API boundary; parser validation alone is insufficient.
+- The data source owns URL expansion. Declared dataset, endpoint and pin reach
+  the transport and cache identity. Changing an endpoint or dataset cannot reuse
+  bytes from another source even when the declared pin is unchanged. Built-in
+  source cache keys stay compatible with existing content.
+- `SourceSet` retains per-kind rank, absence policy, retry and offline semantics.
+  A cache miss in offline mode reports source identity without network access.
+  Source revision and identity are visible in delivery/render diagnostics.
+- GroundStack/ClassField own the absence-of-vector path. No vector provider
+  means an empty immutable feature snapshot, no vector IO and no null GPU
+  placement binding. No fabricated elevation or general readiness bypass.
 
 ## Falsifiable acceptance
 
-- GroundStack test: explicit terrain-only source creates one settled empty
-  vector snapshot, no vector provider start; repeated focus keeps generation,
-  moved focus updates it. Declared vector features remain available.
-- Public `outshine-client run --offline --stats --view lap --at-seconds 91.7`
-  with pinned Hockenheim OSM plus explicit terrain-only provider captures a
-  PNG from the same route/DEM; `vector_wanted=vector_arrived=0`. Empty offline
-  terrain cache still fails explicitly, never invents elevation.
-- Shipped/default vector provider still requests MVT tiles and retains normal
-  PNG/counters. Compare terrain-only and vector-enabled PNGs at the same view;
-  this isolates source overlap without changing the road generator.
-- Ground-only renderer test draws a terrain tile with zero subjects and reads
-  pixels. Public no-route terrain-only capture completes without a GPU fault or
-  undeclared vector request.
-- `make format`, focused GroundStack/client cases and `make lint` pass.
-
-## Remaining provider work
-
-Two declared providers with distinct inputs must prove rank, policy, pin and
-endpoint selection without rebuild. A complete offline cache must reproduce
-its output; misses must report source ID with zero network calls. Record source
-revision in render diagnostics. Do not treat the terrain-only fix as closure
-of the full provider WI.
+- Two providers with different endpoint/dataset declarations reach different
+  transport URLs. Rank chooses first, `Continue` hands over on absent, `Fail`
+  terminates. Same pin but changed endpoint/dataset yields a distinct cache key.
+- Complete offline cache reproduces returned bytes with zero network starts;
+  a miss reports the selected source ID and does not invent elevation.
+- Public Hockenheim pinned-OSM plus explicit terrain-only offline capture at
+  91.7 s has `ground_arrived=ground_wanted>0`, `vector_wanted=vector_arrived=0`,
+  `remote_starts=0`; empty DEM cache fails explicitly. Shipped/default vector
+  source continues to request tiles. Inspect both PNGs.
+- `make format`, focused provider/scenario/client tests and `make lint` pass.
