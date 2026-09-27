@@ -2,6 +2,7 @@
 #define OUTSHINE_BASE_GEO_GEODESY_H
 
 #include <cmath>
+#include <limits>
 #include "Earth.h"
 #include "math/Vec3.h"
 #include "math/Units.h"
@@ -146,10 +147,12 @@ inline void GeoToEcef(const LongitudeLatitudeHeight &at, Vec3 &out) {
   return {.East = E, .North = N, .Up = U};
 }
 
-inline double Wrap180(double deg) {
-  while (deg > kDegPerHalfTurn) { deg -= kDegPerTurn; }
-  while (deg < -kDegPerHalfTurn) { deg += kDegPerTurn; }
-  return deg;
+inline double Wrap180(double deg) noexcept {
+  if (!std::isfinite(deg)) { return std::numeric_limits<double>::quiet_NaN(); }
+  const double wrapped = std::fmod(deg, kDegPerTurn);
+  if (wrapped > kDegPerHalfTurn) { return wrapped - kDegPerTurn; }
+  if (wrapped < -kDegPerHalfTurn) { return wrapped + kDegPerTurn; }
+  return wrapped;
 }
 
 [[nodiscard]] inline EastNorth EnuOffsetM(const LongitudeLatitudeHeight &from,
