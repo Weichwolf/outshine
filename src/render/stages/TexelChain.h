@@ -2,7 +2,6 @@
 #define OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
 
 #include <algorithm>
-#include "math/Vec3.h"
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -18,19 +17,41 @@ struct Texels {
 
 enum class TexelKind { Value, Direction };
 
-inline void RenormaliseDirection(std::span<float, 4> texel) {
-  Vec3f direction;
-  float length = 0.0f;
-  for (int axis = 0; axis < 3; ++axis) {
-    direction[axis] = texel[static_cast<size_t>(axis)] * 2.0f - 1.0f;
-    length += direction[axis] * direction[axis];
+inline void AddTexelMoment(std::span<const float, 4> source,
+                           double area,
+                           TexelKind kind,
+                           std::array<double, 4> &sum) {
+  if (kind == TexelKind::Value) {
+    for (size_t channel = 0; channel < 4; ++channel) { sum[channel] += source[channel] * area; }
+    return;
   }
-  length = std::sqrt(length);
-  texel[3] *= length;
-  if (length <= 0.0f) { return; }
-  for (int axis = 0; axis < 3; ++axis) {
-    texel[static_cast<size_t>(axis)] = (direction[axis] / length) * 0.5f + 0.5f;
+  std::array<double, 3> normal{};
+  double lengthSquared = 0.0;
+  for (size_t channel = 0; channel < 3; ++channel) {
+    normal[channel] = static_cast<double>(source[channel]) * 2.0 - 1.0;
+    lengthSquared += normal[channel] * normal[channel];
   }
+  if (lengthSquared <= 0.0) { return; }
+  const double weight =
+      std::clamp(static_cast<double>(source[3]), 0.0, 1.0) * area / std::sqrt(lengthSquared);
+  for (size_t channel = 0; channel < 3; ++channel) { sum[channel] += normal[channel] * weight; }
+}
+
+inline void WriteFilteredTexel(const std::array<double, 4> &sum,
+                               TexelKind kind,
+                               double area,
+                               std::span<float, 4> output) {
+  if (kind == TexelKind::Value) {
+    for (size_t channel = 0; channel < 4; ++channel) {
+      output[channel] = static_cast<float>(sum[channel] / area);
+    }
+    return;
+  }
+  const double length = std::sqrt(sum[0] * sum[0] + sum[1] * sum[1] + sum[2] * sum[2]);
+  output[0] = length > 0.0 ? static_cast<float>(sum[0] / length * 0.5 + 0.5) : 0.5f;
+  output[1] = length > 0.0 ? static_cast<float>(sum[1] / length * 0.5 + 0.5) : 0.5f;
+  output[2] = length > 0.0 ? static_cast<float>(sum[2] / length * 0.5 + 0.5) : 1.0f;
+  output[3] = static_cast<float>(std::clamp(length / area, 0.0, 1.0));
 }
 
 inline Texels
@@ -57,18 +78,12 @@ HalveInPlace(std::span<const float> from, Texels was, std::vector<float> &into, 
           const double width = std::min(right, static_cast<double>(sx + 1u)) -
                                std::max(left, static_cast<double>(sx));
           const size_t source = (static_cast<size_t>(sy) * fromWidth + sx) * 4u;
-          for (size_t channel = 0; channel < 4; ++channel) {
-            sum[channel] += from[source + channel] * width * height;
-          }
+          AddTexelMoment(
+              std::span<const float, 4>(from.data() + source, 4), width * height, kind, sum);
         }
       }
       const size_t at = (static_cast<size_t>(y) * toWidth + x) * 4u;
-      for (size_t channel = 0; channel < 4; ++channel) {
-        into[at + channel] = static_cast<float>(sum[channel] / area);
-      }
-      if (kind == TexelKind::Direction) {
-        RenormaliseDirection(std::span<float, 4>(into.data() + at, 4));
-      }
+      WriteFilteredTexel(sum, kind, area, std::span<float, 4>(into.data() + at, 4));
     }
   }
   return {.WidthPx = toWidth, .HeightPx = toHeight};

@@ -18,6 +18,14 @@ several dark pairs read 1. The earlier manifest derives this boundary between
 correct MikkTSpace and a deliberately flipped handedness bit. The new runner
 uses the earlier evaluator's nearest-rank quantile and per-channel relative
 denominator. Full PNG agreement (95.7750% / 89.7554%) is diagnostic only.
+The asset declares `NEAREST_MIPMAP_LINEAR`. Disabling mipmaps while changing
+the minification filter to linear makes all 25 relations pass, but confounds
+two variables; it is not a fix. Flipping tangent.w makes the ten lit pairs
+substantially worse, so handedness is not the primary defect. A direction-mip
+reduction independently violated the first-moment integral; its correction
+has an analytic test, but the 25 image relations remain red. Next isolate
+spatial filtering from mip choice with the declared sampler intact, then
+compare float normal/confidence and radiance AOVs across paired cells.
 
 ## Contract and implementation
 

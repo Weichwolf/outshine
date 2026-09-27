@@ -39,5 +39,24 @@ int main() {
       0.5, 0.5, 1, 1, 0.5, 0.5, 1, 1, 0.5, 0.5, 1, 1, 0.5, 0.5, 1, 1};
   (void)HalveInPlace(normal, {2, 2}, reduced, TexelKind::Direction);
   CHECK(reduced == std::vector<float>({0.5, 0.5, 1, 1}), "constant unit normal survives filtering");
+  const std::array<float, 16> varied{
+      1, 0.5, 0.5, 1, 1, 0.5, 0.5, 1, 0, 0.5, 0.5, 1, 0.5, 0.5, 1, 1};
+  (void)HalveInPlace(varied, {4, 1}, reduced, TexelKind::Direction);
+  std::vector<float> final;
+  (void)HalveInPlace(reduced, {2, 1}, final, TexelKind::Direction);
+  CHECK_NEAR((final[0] * 2.0f - 1.0f) * final[3],
+             0.25f,
+             1e-6f,
+             "normal x moment",
+             "mip partition preserves the source direction integral");
+  CHECK_NEAR((final[2] * 2.0f - 1.0f) * final[3],
+             0.25f,
+             1e-6f,
+             "normal z moment",
+             "mip partition preserves the source direction integral");
+  const std::array<float, 8> cancelling{1, 0.5, 0.5, 1, 0, 0.5, 0.5, 1};
+  (void)HalveInPlace(cancelling, {2, 1}, reduced, TexelKind::Direction);
+  CHECK(reduced == std::vector<float>({0.5f, 0.5f, 1.0f, 0.0f}),
+        "zero resultant keeps a finite neutral direction and zero confidence");
   return Report();
 }
