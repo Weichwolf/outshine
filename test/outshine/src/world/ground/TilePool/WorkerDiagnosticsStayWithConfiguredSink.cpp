@@ -48,7 +48,8 @@ public:
   }
 
 private:
-  outshine::Data::SourceDecl Decl_{.Id = "refusing", .Keeps = outshine::Data::Cacheability::Never};
+  outshine::Data::SourceDecl Decl_{
+      .Id = "refusing", .Revision = "fixture-1", .Keeps = outshine::Data::Cacheability::Never};
 };
 
 class RecordingSink final : public outshine::LogSink {
@@ -56,9 +57,15 @@ public:
   void Write(double,
              outshine::LogLevel,
              Saying who,
-             std::span<const outshine::LogField>) noexcept override {
+             std::span<const outshine::LogField> fields) noexcept override {
     const std::scoped_lock lock(Mutex_);
     Events_.emplace_back(who.Event == nullptr ? "" : who.Event);
+    if (who.Event != nullptr && std::string_view(who.Event) == "tile_refused") {
+      for (const outshine::LogField &field : fields) {
+        if (std::string_view(field.Key) == "source") { Source_ = field.Value; }
+        if (std::string_view(field.Key) == "revision") { Revision_ = field.Value; }
+      }
+    }
   }
 
   size_t Count(std::string_view event) const {
@@ -66,9 +73,16 @@ public:
     return static_cast<size_t>(std::ranges::count(Events_, event));
   }
 
+  bool Attributed(std::string_view source, std::string_view revision) const {
+    const std::scoped_lock lock(Mutex_);
+    return Source_ == source && Revision_ == revision;
+  }
+
 private:
   mutable std::mutex Mutex_;
   std::vector<std::string> Events_;
+  std::string Source_;
+  std::string Revision_;
 };
 
 }
@@ -97,6 +111,8 @@ int main() {
     CHECK(reply == TilePool::Reply::Refused, "the carrier reports the declared refusal");
     CHECK(sink.Count("tile_refused") == 1,
           "the carrier emits its refusal through the configured sink");
+    CHECK(sink.Attributed("refusing", "fixture-1"),
+          "refusal identifies the failed source and revision");
   }
   const size_t before = sink.Count("tile_refused");
   std::this_thread::sleep_for(std::chrono::milliseconds(5));

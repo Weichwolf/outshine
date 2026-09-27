@@ -4,6 +4,7 @@
 #include <chrono>
 #include <expected>
 #include <optional>
+#include <mutex>
 #include <cstdio>
 #include <print>
 #include <ratio>
@@ -38,8 +39,9 @@ public:
              outshine::LogLevel level,
              Saying who,
              std::span<const outshine::LogField> fields) noexcept override {
-    if (level == outshine::LogLevel::Debug && !Loud) { return; }
+    if (level == outshine::LogLevel::Debug) { return; }
     try {
+      const std::scoped_lock lock(Mutex_);
       std::print("t={:.1f} {:<5} {:<8} {:<7} {}",
                  simTimeS,
                  Name(level),
@@ -51,9 +53,9 @@ public:
     } catch (...) { ReportFailure(); }
   }
 
-  bool Loud = false;
-
 private:
+  std::mutex Mutex_;
+
   static void ReportFailure() noexcept { std::fputs("outshine-client: log sink failed\n", stderr); }
 
   static const char *Name(outshine::LogLevel level) {

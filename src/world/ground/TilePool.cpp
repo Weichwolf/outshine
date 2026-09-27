@@ -362,7 +362,11 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
       case Data::Delivery::State::Consumed:
       case Data::Delivery::State::Refused:
         RefuseUntil(key, Wire_.NowMs() + answer.AfterMs());
-        Log::Error(LogTag::World, "tile_refused", {{"request", key}});
+        Log::Error(LogTag::World,
+                   "tile_refused",
+                   {{"request", key},
+                    {"source", answer.SourceId()},
+                    {"revision", answer.SourceRevision()}});
         reply = Reply::Refused;
         break;
       case Data::Delivery::State::Delivered: break;
