@@ -36,6 +36,15 @@ called playable `Engine::preload`: every simulated second caused 181 remote
 starts and 43 offline misses; every tick caused 197 starts and 42 misses.
 Both fast-forwarded in a few wall seconds. Their failure does not yet
 separate real-time pacing from `renderer().render` as the missing trigger.
+The controlled paced 60-Hz motion without intermediate renders requested 538
+byte tiles into a fresh cache in 97.7 s. Its final screenshot failed because
+no frame was drawn, as expected for this temporary diagnostic. An immediate
+offline static capture from that cache succeeded with 538 hits, zero misses
+and zero remote starts. Its PNG matched the earlier online static image at
+all 921,600 pixels. The diagnostic code was removed. Thus wall-time pacing,
+not GPU rendering, closes this observed demand gap; fast-forward outruns
+asynchronous tile and candidate progress. It remains to identify which
+candidate phase creates the extra addresses and make its route demand explicit.
 
 ## Contract and ownership
 
@@ -60,11 +69,11 @@ separate real-time pacing from `renderer().render` as the missing trigger.
    success and immediate offline replay. Compare the sets, marking each miss
    as never requested, confirmed absent, or evicted. Put traces under system
    tmp and keep only aggregate counts in normal client output.
-2. Isolate pacing from rendering: run identical route ticks at real-time pace
-   without frame rendering and compare source address sets to `--motion`.
-   Locate the phase that submits each additional request. Select `lap` after
-   its route is published and before its own data preparation; initial preload
-   currently targets the previous view.
+2. Trace the candidate phase that submits each extra address when asynchronous
+   tile progress keeps up with route ticks. `lap` can be selected only after
+   the route is published by initial preload, so retain that bootstrap, then
+   prepare the selected route view explicitly. The initial preload alone
+   targets the previous view.
 3. Move required data-demand submission into world/view preparation, independent
    of GPU drawing and worker timing. A preparation API awaits the complete
    request closure under one bounded global deadline; playable `preload`
