@@ -14,10 +14,11 @@ Tags: architecture, providers, streaming, offline
 Terrain-only snapshot and ground-only draw were repaired by `2a60e9f09` and
 `03ce86e6a`. `b7ec9a19a` carries declared tile endpoints/datasets through
 validation, transport, fallback and cache identity; focused tests and both
-offline Hockenheim PNGs pass. The remaining gap is diagnostic: delivery holds
-source ID/revision, but a failed tile request still loses them at `TilePool` and
-the public client has only aggregate counters. A public empty-DEM-cache capture
-also needs an explicit failure assertion, distinct from the SourceSet unit case.
+offline Hockenheim PNGs pass. The remaining gap is successful-source reporting:
+the public client has only aggregate counters. `5d692d8de` adds source/pin/tile
+to refusal logs and serializes concurrent client log lines. An isolated empty
+offline DEM cache now fails with source `terrarium.s3`, revision `dem-test`,
+tile address, zero remote starts and no PNG.
 
 ## Contract and ownership
 
@@ -41,10 +42,11 @@ also needs an explicit failure assertion, distinct from the SourceSet unit case.
 
 ## Falsifiable acceptance
 
-- A public capture using an empty isolated DEM cache and `--offline` fails with
-  provider ID, revision and tile address in diagnostics, zero network starts and
-  no PNG. A complete offline cache reproduces the normal PNG.
-- `outshine-client --stats` identifies the selected DEM/vector source and
-  revision for a successful capture, without dumping every tile into logs.
-- SourceSet, TilePool and client failure tests prove the same attribution across
-  retries and fallback. `make format`, focused tests and `make lint` pass.
+- `outshine-client --stats` identifies each DEM/vector source actually used in
+  a successful capture, with revision and tile count. Mixed-source fallback
+  reports both sources; declarations alone do not count as use. Aggregate once
+  per distinct source, with bounded memory and no per-tile client log spam.
+- Complete offline cache reproduces the normal PNG; changing endpoint/dataset
+  under the same pin misses the previous cache and reports the new source.
+- SourceSet, TilePool and client tests prove attribution across retries and
+  fallback. `make format`, focused tests and `make lint` pass.
