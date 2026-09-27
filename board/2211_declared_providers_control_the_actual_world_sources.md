@@ -12,12 +12,12 @@ Tags: architecture, providers, streaming, offline
 ## Current defect and evidence
 
 Terrain-only snapshot and ground-only draw were repaired by `2a60e9f09` and
-`03ce86e6a`. Public offline Hockenheim lap at 91.7 s now captures with
-16/16 terrain tiles, zero vector requests, zero network starts and a valid PNG.
-This does not close source selection: `RegisterDeclared` ignores provider input
-identity for terrain/vector. Both classes use fixed URLs. Distinct declarations
-with equal pin can therefore hit the same endpoint and cache key. The existing
-provider test proves metadata ordering, not distinct fetched bytes.
+`03ce86e6a`. `b7ec9a19a` carries declared tile endpoints/datasets through
+validation, transport, fallback and cache identity; focused tests and both
+offline Hockenheim PNGs pass. The remaining gap is diagnostic: delivery holds
+source ID/revision, but a failed tile request still loses them at `TilePool` and
+the public client has only aggregate counters. A public empty-DEM-cache capture
+also needs an explicit failure assertion, distinct from the SourceSet unit case.
 
 ## Contract and ownership
 
@@ -41,13 +41,10 @@ provider test proves metadata ordering, not distinct fetched bytes.
 
 ## Falsifiable acceptance
 
-- Two providers with different endpoint/dataset declarations reach different
-  transport URLs. Rank chooses first, `Continue` hands over on absent, `Fail`
-  terminates. Same pin but changed endpoint/dataset yields a distinct cache key.
-- Complete offline cache reproduces returned bytes with zero network starts;
-  a miss reports the selected source ID and does not invent elevation.
-- Public Hockenheim pinned-OSM plus explicit terrain-only offline capture at
-  91.7 s has `ground_arrived=ground_wanted>0`, `vector_wanted=vector_arrived=0`,
-  `remote_starts=0`; empty DEM cache fails explicitly. Shipped/default vector
-  source continues to request tiles. Inspect both PNGs.
-- `make format`, focused provider/scenario/client tests and `make lint` pass.
+- A public capture using an empty isolated DEM cache and `--offline` fails with
+  provider ID, revision and tile address in diagnostics, zero network starts and
+  no PNG. A complete offline cache reproduces the normal PNG.
+- `outshine-client --stats` identifies the selected DEM/vector source and
+  revision for a successful capture, without dumping every tile into logs.
+- SourceSet, TilePool and client failure tests prove the same attribution across
+  retries and fallback. `make format`, focused tests and `make lint` pass.
