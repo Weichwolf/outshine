@@ -13,7 +13,6 @@
 #include <span>
 #include <utility>
 #include <string>
-#include <tuple>
 #include <vector>
 
 #include "ChunkSurface.h"
@@ -21,8 +20,7 @@
 #include "Geodesy.h"
 #include "TerrainGrid.h"
 #include "GroundLattice.h"
-#include "OsmField.h"
-#include "OsmLayer.h"
+#include "TerrainSourceCoverage.h"
 #include "TileGeodesy.h"
 #include "math/Vec3.h"
 
@@ -33,8 +31,6 @@ static_assert(kPatchGrid + 1 == Render::GroundLattice::kSide,
               "the surface the roads are draped on");
 
 namespace {
-
-constexpr uint8_t kPolygonFeature = 3;
 
 [[nodiscard]] double FractionOf(int k, uint32_t postings, int side) {
   return static_cast<double>(Ground::ChunkNodePosting(k, postings, side)) /
@@ -71,83 +67,37 @@ void CopiesEdgeIntoRim(std::vector<float> &page, const std::vector<bool> &missin
   }
 }
 
-struct SourceCoverage {
-  int FinestZoom;
-  int GroundZoom;
-};
-
-struct SourceTile {
-  int Zoom;
-  long X;
-  long Y;
-};
-
-void AppendBuildingHeightTiles(std::vector<Data::TileId> &tiles,
-                               const Ground::OsmField &vectors,
-                               int zoom) {
-  const int buildings = vectors.Layer(Ground::OsmLayer::Buildings);
-  for (const Ground::OsmField::Feature &feature : vectors.Features()) {
-    if (feature.Type != kPolygonFeature || std::cmp_not_equal(feature.Layer, buildings)) {
-      continue;
-    }
-    const Ground::TileSpot low = Ground::HeightField::SpotOf(
-        {.LongitudeDeg = feature.MinLon, .LatitudeDeg = feature.MaxLat}, zoom);
-    const Ground::TileSpot high = Ground::HeightField::SpotOf(
-        {.LongitudeDeg = feature.MaxLon, .LatitudeDeg = feature.MinLat}, zoom);
-    for (long y = low.Y; y <= high.Y; ++y) {
-      for (long x = low.X; x <= high.X; ++x) {
-        tiles.push_back(
-            {.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
-      }
+[[nodiscard]] std::expected<std::vector<Data::TileId>, std::string> SourceTilesFor(
+    const Patchwork &candidate, HeightSheets::FieldPreparation preparation, int groundZoom) {
+  constexpr size_t kMaximumAdditionalTiles = 256;
+  if (preparation.AdditionalTiles.size() > kMaximumAdditionalTiles) {
+    return std::unexpected("terrain field preparation exceeds its 256 additional tile budget");
+  }
+  if (preparation.FinestZoom < 0 || preparation.FinestZoom > Ground::HeightField::MaximumTileZoom) {
+    return std::unexpected("terrain field preparation has an invalid source zoom");
+  }
+  const uint32_t side = uint32_t{1} << static_cast<uint32_t>(preparation.FinestZoom);
+  for (const Data::TileId tile : preparation.AdditionalTiles) {
+    if (tile.Zoom != preparation.FinestZoom || tile.X >= side || tile.Y >= side) {
+      return std::unexpected("additional terrain tile is outside the candidate source grid");
     }
   }
-}
-
-[[nodiscard]] std::vector<Data::TileId> SourceTilesOf(const Patchwork &candidate,
-                                                      SourceCoverage coverage,
-                                                      const Ground::OsmField *vectors,
-                                                      std::span<const Data::TileId> additional) {
-  std::vector<Data::TileId> tiles;
-  constexpr size_t kNeighbours = 9;
-  tiles.reserve(candidate.Sheets.size() * kNeighbours * 2u);
-  const auto appendNeighbours = [&tiles](SourceTile source) {
-    for (long dy = -1; dy <= 1; ++dy) {
-      for (long dx = -1; dx <= 1; ++dx) {
-        long nx = source.X + dx;
-        const long ny = source.Y + dy;
-        if (ny < 0 || !Ground::WrapTile(source.Zoom, &nx, &ny)) { continue; }
-        tiles.push_back(
-            {.Zoom = source.Zoom, .X = static_cast<uint32_t>(nx), .Y = static_cast<uint32_t>(ny)});
-      }
-    }
-  };
+  std::vector<Data::TileId> sources;
+  sources.reserve(candidate.Sheets.size());
   for (const Sheet &sheet : candidate.Sheets) {
-    const int sourceZoom = SourceZoomOf(sheet, coverage.FinestZoom);
-    const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - sourceZoom);
-    const long x = static_cast<long>(sheet.Tile.X >> drop);
-    const long y = static_cast<long>(sheet.Tile.Y >> drop);
-    appendNeighbours({.Zoom = sourceZoom, .X = x, .Y = y});
-    if (coverage.GroundZoom >= 0 && coverage.GroundZoom < sourceZoom) {
-      const auto parentDrop = static_cast<uint32_t>(sourceZoom - coverage.GroundZoom);
-      appendNeighbours({.Zoom = coverage.GroundZoom,
-                        .X = static_cast<long>(static_cast<uint32_t>(x) >> parentDrop),
-                        .Y = static_cast<long>(static_cast<uint32_t>(y) >> parentDrop)});
+    const int zoom = SourceZoomOf(sheet, preparation.FinestZoom);
+    if (zoom < 0 || zoom > sheet.Tile.Zoom ||
+        sheet.Tile.Zoom > Ground::HeightField::MaximumTileZoom) {
+      return std::unexpected("terrain sheet has an invalid source zoom");
     }
+    const auto drop = static_cast<uint32_t>(sheet.Tile.Zoom - zoom);
+    sources.push_back({.Zoom = zoom, .X = sheet.Tile.X >> drop, .Y = sheet.Tile.Y >> drop});
   }
-  if (vectors != nullptr) {
-    for (const Ground::OsmField::Tile &tile : vectors->Tiles()) {
-      const int zoom = std::min(tile.Z, coverage.FinestZoom);
-      const auto drop = static_cast<uint32_t>(tile.Z - zoom);
-      appendNeighbours({.Zoom = zoom,
-                        .X = static_cast<long>(static_cast<uint32_t>(tile.X) >> drop),
-                        .Y = static_cast<long>(static_cast<uint32_t>(tile.Y) >> drop)});
-    }
-    AppendBuildingHeightTiles(tiles, *vectors, coverage.FinestZoom);
-  }
-  tiles.insert(tiles.end(), additional.begin(), additional.end());
-  const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
-  std::ranges::sort(tiles, {}, key);
-  tiles.erase(std::ranges::unique(tiles).begin(), tiles.end());
+  auto tiles = PlanTerrainSourceTiles(sources,
+                                      {.FinestZoom = preparation.FinestZoom,
+                                       .GroundZoom = groundZoom,
+                                       .Vectors = preparation.Vectors,
+                                       .AdditionalTiles = preparation.AdditionalTiles});
   return tiles;
 }
 
@@ -172,29 +122,12 @@ std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &ca
                                                              const Ground::GroundStream &ground,
                                                              FieldPreparation preparation) {
   if (!RequestsPrepared_) {
-    constexpr size_t kMaximumAdditionalTiles = 256;
-    if (preparation.AdditionalTiles.size() > kMaximumAdditionalTiles) {
-      return std::unexpected("terrain field preparation exceeds its 256 additional tile budget");
-    }
-    if (preparation.FinestZoom < 0 ||
-        preparation.FinestZoom > Ground::HeightField::MaximumTileZoom) {
-      return std::unexpected("terrain field preparation has an invalid source zoom");
-    }
-    const uint32_t side = uint32_t{1} << static_cast<uint32_t>(preparation.FinestZoom);
-    for (const Data::TileId tile : preparation.AdditionalTiles) {
-      if (tile.Zoom != preparation.FinestZoom || tile.X >= side || tile.Y >= side) {
-        return std::unexpected("additional terrain tile is outside the candidate source grid");
-      }
-    }
+    auto tiles = SourceTilesFor(candidate, preparation, ground.BlockZoom());
+    if (!tiles) { return std::unexpected(tiles.error()); }
     ForgetsFields();
-    const std::vector<Data::TileId> tiles =
-        SourceTilesOf(candidate,
-                      {.FinestZoom = preparation.FinestZoom, .GroundZoom = ground.BlockZoom()},
-                      preparation.Vectors,
-                      preparation.AdditionalTiles);
-    Requests_.reserve(tiles.size());
-    Fields_.reserve(tiles.size());
-    for (const Data::TileId tile : tiles) { Requests_.push_back({.Tile = tile}); }
+    Requests_.reserve(tiles->size());
+    Fields_.reserve(tiles->size());
+    for (const Data::TileId tile : *tiles) { Requests_.push_back({.Tile = tile}); }
     RequestsPrepared_ = true;
   }
   for (size_t checked = 0;

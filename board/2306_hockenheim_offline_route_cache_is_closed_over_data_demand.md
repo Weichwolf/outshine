@@ -11,47 +11,32 @@ Tags: hockenheim, offline, cache, route, reproducibility
 
 ## Reproduced defect
 
-On 2026-09-28, `outshine-client run --view lap --at-seconds 91.7` captured
-Hockenheim after 167 remote starts. The immediate identical `--offline` run
-failed in `HeightSheets` during `route advance`: 170 cache hits, 46 misses,
-zero remote starts. A second online success needed 4 remote starts; another
-offline run still failed with 49 misses. The missing addresses included
-`elevation/15/17165/11203` and coarser tiles around the lap. Thus a successful
-online image does not prove a closed cache for the same timed camera path.
-`ContentStore` stores bytes only; `Meaning::Absent` is not persisted. The
-observations do not yet distinguish newly demanded tiles from explicit 404s.
-An isolated camera probe centred on missing `15/17165/11203` fetched and
-cached a 54,579-byte Terrarium PNG; that address was a real, previously
-unrequested byte tile. Offline replay then still failed on other addresses.
-At least part of the gap is demand closure, not missing-value policy.
-The client preloads before selecting `lap`, then fast-forwards 5,502 ticks
-without intermediate preload and waits only at the final frame. A paced
-online `--motion` run to 91.7 s fetched the route demand (244 remote starts,
-0 missing-contact frames, p99 11.91 ms). The next static offline capture
-had 538 hits, 0 misses, 0 remote starts and a PNG identical to the successful
-online static image (0/921600 pixels changed). The motion frame itself was
-unrefined and is not the static image oracle.
-Fast-forward with playable preload every tick still left 42 offline misses;
-playable readiness alone does not close route demand.
-The controlled paced 60-Hz motion without intermediate renders requested 538
-byte tiles into a fresh cache in 97.7 s. Its final screenshot failed because
-no frame was drawn, as expected for this temporary diagnostic. An immediate
-offline static capture from that cache succeeded with 538 hits, zero misses
-and zero remote starts. Its PNG matched the earlier online static image at
-all 921,600 pixels. The diagnostic code was removed. Thus wall-time pacing,
-not GPU rendering, closes this observed demand gap; fast-forward outruns
-asynchronous tile and candidate progress. It remains to identify which
-candidate phase creates the extra addresses and make its route demand explicit.
-Content-store key reconstruction mapped every file in the two isolated caches
-to a tile address. Both contain the same 65 vector tiles. The paced cache has
-473 elevation tiles versus 129 after fast-forward with playable preload every
-tick: 344 elevation addresses occur only in the paced run. The gap includes
-source zooms 11, 14 and 15; it is not an OSM vector-download difference.
-`HeightSheets::SourceTilesOf` currently derives elevation requests from
-resident `Patchwork::Sheets`, so a candidate that has not reached its sheet
-phase cannot submit the full set. `GroundPatchwork` selects tiles from `Around`
-but changes coverage with tile readiness. Demand planning must enumerate the
-conservative geometric coverage independently of that readiness.
+On 2026-09-28, an online Hockenheim capture at 91.7 s (5,502 ticks)
+succeeded, but an immediate identical offline capture failed during route
+advance with unknown height tiles and zero remote starts. A missing tile
+`elevation/15/17165/11203` was fetched separately as a 54,579-byte Terrarium
+PNG: at least part of the gap is unsubmitted demand, not provider absence.
+Playable preload at every fast-forward tick still left 42 offline misses.
+
+A controlled fresh-cache run paced the same ticks at 60 Hz without intermediate
+rendering. It fetched 538 tiles. The immediate offline static capture had 538
+hits, zero misses and zero remote starts; all 921,600 pixels matched the online
+static image. Thus rendering is not required for this observed demand closure;
+fast-forward outruns asynchronous terrain candidate progress. Diagnostic code
+was removed. The paced motion image itself is not the static image oracle.
+
+Content-key reconstruction identified every entry in the isolated caches.
+Both runs contain the same 65 vector tiles. Paced execution fetched 473
+elevation tiles versus 129 with fast-forward/playable preload: 344 additional
+elevation addresses at source zooms 11, 14 and 15. Required demand is submitted
+by candidate sheet preparation, after residency-dependent patchwork selection.
+`PlanPatchworkTiles` and `PlanTerrainSourceTiles` now permit independent planning,
+but no route-path preparation consumes them yet.
+
+`GroundStream::TileAt` also calls `KeepCoarse` after its normal grid resolves;
+that sampler requests a field three zoom levels below its normal grid. The
+route plan must include those sampling requests as well as render-sheet demand,
+using the sampler's own coverage contract rather than a copied zoom constant.
 
 ## Contract and ownership
 
@@ -97,10 +82,10 @@ conservative geometric coverage independently of that readiness.
    budget; observed path needs 473), explicit refusal before oversized work.
    Settle vectors/classification first, then include vector neighbours and
    building footprint heights through that planner, not a guessed radial pad.
-   `PlanPatchworkTiles(Around)` now provides canonical potential mesh tiles,
-   independent of replies, without IO or waiting. Its independent-cell test
-   covers ready/mixed/pending cascades, dateline and poles. Source-neighbour
-   expansion, path union and bounded preparation are still to be integrated.
+   `PlanPatchworkTiles` plans potential mesh tiles without IO. The shared
+   `PlanTerrainSourceTiles` now supplies halos, parents, vector/building and
+   route tiles to `HeightSheets`, with independent grid/seam/budget controls.
+   Path union and bounded path preparation are still to be integrated.
 4. If confirmed 404s occur, add a typed bounded absence record with source
    revision/freshness rules; prove it differs from a cache miss. Do not cache
    403 as absent (Terrarium currently does), and retain retry/refusal policy.
