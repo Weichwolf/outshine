@@ -20,7 +20,7 @@
     "because": "The framing rule's own direction over a subject that MOVES, so the comparison is taken at every frame of the declared grid rather than at one pose. Nothing here is analytic: what is compared is which pixels each side covers at each sampled time and what colour each body wears there."
   },
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
   },
   "subjects": [

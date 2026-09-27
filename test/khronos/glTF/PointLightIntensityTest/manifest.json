@@ -103,7 +103,7 @@
     }
   ],
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
   },
   "scene": {
@@ -493,7 +493,7 @@
     {
       "frame": 0,
       "seconds": 0.0,
-      "sha256": "0fbd1c0ad58cca84e2c012c85de0ad957ec4061044f33d2d3cf37b3c16d8b1d1",
+      "sha256": "8213de925fd95ebef671ace8a278b2a7fffdb89016d0a5811b604ad90c95ba0e",
       "widthPx": 1280,
       "heightPx": 720
     }

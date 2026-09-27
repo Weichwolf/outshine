@@ -20,7 +20,7 @@
     "because": "Two separated bodies under the framing rule's general position, given DIFFERENT colours so a body drawn at the wrong place cannot hide inside the union of the two silhouettes."
   },
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
   },
   "subjects": [

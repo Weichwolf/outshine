@@ -20,7 +20,7 @@
     "because": "The framing rule's own direction over seven static bodies, one per mode. TRIANGLE_STRIP and TRIANGLE_FAN have to triangulate to the SAME surface both sides agree on, which is the whole of what this decides -- and the odd triangle of a strip is (i+1, i, i+2) rather than a sliding window, so a naive walk faces every second triangle the other way and the disagreement is a silhouette rather than a shade."
   },
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
   },
   "subjects": [

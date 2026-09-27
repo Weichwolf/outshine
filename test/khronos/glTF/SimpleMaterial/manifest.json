@@ -20,7 +20,7 @@
     "because": "A single triangle in the framing rule's general position: azimuth 35 deg and elevation 20 deg put its three edges at raster slopes that are none of 0, 1 or infinity, so no edge lies along a pixel row, column or diagonal. It is not an exact construction and does not claim to be -- Triangle already spends its camera on the lattice condition, and a second case doing the same would measure the same thing twice."
   },
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
   },
   "subjects": [

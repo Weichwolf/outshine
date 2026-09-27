@@ -20,7 +20,7 @@
     "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- over a modelled body. Nothing here is analytic and nothing claims to be: what is compared is which pixels the two sides cover and what colour each body wears, over the whole boundary rather than any one edge."
   },
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
   },
   "subjects": [
@@ -622,7 +622,7 @@
     {
       "frame": 0,
       "seconds": 0.0,
-      "sha256": "5b789797dcd681797ad030ad0a5e2611599038ceafe2661c69dec4d79f1187e9",
+      "sha256": "e9fa689d6c635267f37c35fd43d576563aeeb429d4d278a734b03db4ba084e24",
       "widthPx": 1280,
       "heightPx": 720
     }

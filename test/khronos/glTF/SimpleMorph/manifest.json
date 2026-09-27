@@ -20,7 +20,7 @@
     "because": "The framing rule's own direction over a subject whose VERTICES move rather than whose node does. The animated path is `weights`, so nothing about the node transform changes and the axis convention that every other animated case has to derive does not enter: what is compared is where the displaced vertices land at each sampled time."
   },
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
   },
   "subjects": [

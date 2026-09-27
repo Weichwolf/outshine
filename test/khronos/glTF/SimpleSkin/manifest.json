@@ -20,7 +20,7 @@
     "because": "The framing rule's own direction over a single static body. What this decides is the skin's BIND state: joints, inverse bind matrices and the JOINTS_0/WEIGHTS_0 attributes all have to resolve to the same surface both sides draw before any pose can be compared."
   },
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
   },
   "subjects": [

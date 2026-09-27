@@ -21,7 +21,7 @@
     "because": "A grid of spheres under the framing rule's general position. What decides it is not an edge but WHICH body wears WHICH material: every one of the 98 materials is given a distinct colour, so a binding that reached the wrong sphere is a whole sphere of the wrong hue and not a sub-pixel offset."
   },
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
   },
   "subjects": [

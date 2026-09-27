@@ -10,19 +10,22 @@ Depends: 2094
 ## Problem
 
 Drei 5.2.1-Pins lagen nur im flüchtigen Cache; ihre Bytes existierten weder lokal noch
-als Git-Objekte. Ein vollständiger GPU-Lauf reproduzierte 337/340 Referenzen. Die drei
-neu erzeugten Bilder sind plausibel, aber `SheenWoodLeatherSofa` ändert 2.039 Float-
-Komponenten allein mit dem Seed; der deklarierte estimatorfreie Render war unbelegt.
+als Git-Objekte. Cycles 5.2.2 reproduzierte 337/340 Referenzen und ersetzte die drei
+übrigen nach GPU- und Bildprüfung. `PointLightIntensityTest` und
+`SheenWoodLeatherSofa` sind selbst bei gleichem Seed nicht RAW-bitstabil;
+die Sofa-Behauptung eines estimatorfreien Renders ist widerlegt.
 Die lokale glTF-Importgrenze bleibt: Blender
 akzeptiert `KHR_node_visibility` nicht und wirft bei `AnimationPointerUVs` einen
 `KeyError: animations`.
 
 ## Decision
 
-Cycles 5.2.1 LTS auf verifiziertem METAL/GPU ist für die drei erneuerten Bilder der
-aktuelle Orakelstand. Nur vorbereitete `oracle.raw`-Produkte mit gesicherter
+Der aktuelle Cycles-Stand 5.2.2 auf verifiziertem METAL/GPU ist für die 176
+gerenderten Fälle deklariert. Nur vorbereitete Orakelprodukte mit gesicherter
 Provenienz, korrekter Auflösung und visueller Prüfung dürfen über
 `reference_from_oracle.py` gepinnt werden; der Cache prüft danach die neuen Bytes.
+RAW-Digests nur für wiederholbar bitstabile Fälle festschreiben; stochastische
+Bild-Pins sind feste Vergleichsaufnahmen, kein Beweis für RAW-Determinismus.
 Jeder deklarierte `seed-shift` wird pro Frame gegen den Default-RAW-Digest geprüft;
 Abweichung verweigert die Vorbereitung statt ein zufälliges Bild zu legitimieren.
 Keine CPU-Fallbacks und keine automatische Aktualisierung im Normaltest. Die drei
@@ -31,14 +34,12 @@ GPU-Orakel entscheiden erst nach fachlicher Prüfung.
 
 ## Proof
 
-- Cycles-Provenienz der drei erneuerten Aufnahmen: Blender 5.2.1 LTS, METAL, GPU
-  `Apple A18 Pro (GPU - 5 cores)`; Bilder visuell geprüft.
-- Nach Verlust des flüchtigen Caches wurden am 2026-09-27 337/340 Aufnahmen
-  aus Git-Objekten und lokalem Cycles 5.2.2 auf METAL/GPU bytegleich zu ihren
-  Pins restauriert. `DirectionalLight`, `PointLightIntensityTest` und
-  `SheenWoodLeatherSofa` bleiben verschieden; `make test-reference-cache` ist
-  rot. Die 5.2.1-Originalbytes oder ein gleichwertig verifiziertes Orakel
-  fehlen lokal. Keine Pins durch 5.2.2-Ergebnisse ersetzen.
+- Cycles 5.2.2 LTS, METAL/GPU `Apple A18 Pro (GPU - 5 cores)` für alle
+  176 gepinnten Fälle nachgewiesen; 337/340 PNGs bytegleich, drei neu gepinnt
+  und selbst geöffnet. `make test-reference-cache` prüft wieder alle 340.
+- Wiederholter Default-Render: `DirectionalLight` RAW-bitgleich; Point-Light
+  1/921.600 PNG-Pixel um 1/255 verschieden, Sofa 602/921.600 Pixel verschieden.
+  Deren RAW-Digests sind deshalb nicht gepinnt; der Sofa-Seed-Shift bleibt rot.
 - Positiv-/Negativkontrolle des Seed-Vergleichs grün; Sofa wird mit beiden beobachteten
   RAW-Digests ausdrücklich verweigert.
 - Ein verändertes Byte und eine fehlende Cache-Datei bleiben Negativkontrollen.

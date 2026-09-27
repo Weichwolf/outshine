@@ -142,7 +142,7 @@
     }
   ],
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
   },
   "scene": {
@@ -334,11 +334,20 @@
       }
     }
   ],
+  "oracleDigests": {
+    "default": {
+      "materialIndexRaw": "41e32cd14df7163ef0a12c580c86e6dc6a7f044423c85126898c2ab4c5ffc811",
+      "normalRaw": "4061ad07925955e9d44753ef4555e1a54b1d833ee60df5c62461f3ac97ecf452",
+      "objectIndexRaw": "34c6e6309614471420585c674f7bb0abce4966ecdc5d88ff07ec178992f7d37e",
+      "raw": "d960fa3718911b394de9ce23c9d17983b5846817ac799b528447fbd85e1dfde3",
+      "uvRaw": "cc8d2eabdb864667210d61c76c6c69bed1e9cdf5f5c2eaa4c868d958e2552779"
+    }
+  },
   "referenceImages": [
     {
       "frame": 0,
       "seconds": 0.0,
-      "sha256": "6ebf0b58c1d752f660ed706d670f7320a490c4536673ff9e1aa401e862d81f2b",
+      "sha256": "76395cb534d47bed5ef396bf7e218d09b1d95a20c64512d2fbc8e749b624f580",
       "widthPx": 1280,
       "heightPx": 720
     }

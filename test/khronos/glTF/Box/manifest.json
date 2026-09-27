@@ -20,7 +20,7 @@
     "because": "The framing rule's own direction -- azimuth 35 deg, elevation 20 deg -- is the whole placement, and it is chosen here for exactly the reason it exists: NEITHER angle is a multiple of 45 deg, so no silhouette edge of an axis-aligned cube lands on a raster row, column or diagonal, and no edge constant sits on a lattice step. An exact construction would have to spend the camera on the lattice condition, and this case has nothing to spend it on -- it is a solid with six coplanar faces and its interest is that both sides agree about which pixels are inside, not that any edge is analytically placed."
   },
   "blender": {
-    "version": "5.2.0",
+    "version": "5.2.2",
     "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
   },
   "subjects": [
