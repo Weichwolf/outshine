@@ -511,6 +511,15 @@ Loading Engine::loading() const {
   said.SourceDeliveries = static_cast<std::uint64_t>(sources.Sources.Delivered);
   said.SourceFromStore = static_cast<std::uint64_t>(sources.Sources.FromStore);
   said.SourceBytes = static_cast<std::uint64_t>(sources.Sources.DeliveredBytes);
+  for (const Data::SourceSet::Ledger::UsedSource &use : sources.Sources.Sources) {
+    if (use.Deliveries <= 0) { continue; }
+    said.Sources.push_back({.Kind = Data::Name(use.Kind),
+                            .Id = use.Id,
+                            .Revision = use.Revision,
+                            .Key = use.Key,
+                            .Priority = static_cast<int>(use.Order),
+                            .TileDeliveries = static_cast<std::uint64_t>(use.Deliveries)});
+  }
   return said;
 }
 

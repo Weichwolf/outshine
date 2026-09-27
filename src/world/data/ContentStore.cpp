@@ -80,6 +80,21 @@ std::string ContentKey(const SourceDecl &decl, const Address &at) {
   return Sha256Hex(subject);
 }
 
+std::string SourceKey(const SourceDecl &decl) {
+  std::string subject = decl.Id;
+  subject += '\n';
+  subject += std::to_string(decl.Version);
+  subject += '\n';
+  subject += decl.Revision;
+  subject += '\n';
+  subject += Name(decl.Kind);
+  subject += '\n';
+  subject += Name(decl.Wire);
+  subject += '\n';
+  subject += decl.Endpoint;
+  return Sha256Hex(subject);
+}
+
 ContentStore::ContentStore(const Config &config)
     : Directory_(config.Directory.empty() ? DefaultDirectory() : config.Directory),
       Using_(config.Using),

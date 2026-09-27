@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cassert>
 #include <memory>
 #include <mutex>
 #include <cstdint>
@@ -67,6 +68,16 @@ SourceSet::Registration SourceSet::AddAll(std::vector<std::unique_ptr<Source>> s
       }
     }
   }
+  std::vector<Ledger::UsedSource> added;
+  added.reserve(sources.size());
+  for (const auto &source : sources) {
+    const SourceDecl &decl = source->Declaration();
+    added.push_back({.Kind = decl.Kind,
+                     .Id = decl.Id,
+                     .Revision = decl.Revision,
+                     .Key = SourceKey(decl),
+                     .Order = decl.Order});
+  }
   Sources_.insert(Sources_.end(),
                   std::make_move_iterator(sources.begin()),
                   std::make_move_iterator(sources.end()));
@@ -79,6 +90,14 @@ SourceSet::Registration SourceSet::AddAll(std::vector<std::unique_ptr<Source>> s
                       if (da.Kind != db.Kind) { return da.Kind < db.Kind; }
                       return da.Order < db.Order;
                     });
+  const std::scoped_lock ledger(LedgerMutex_);
+  Ledger_.Sources.insert(Ledger_.Sources.end(),
+                         std::make_move_iterator(added.begin()),
+                         std::make_move_iterator(added.end()));
+  std::ranges::sort(Ledger_.Sources, [](const Ledger::UsedSource &a, const Ledger::UsedSource &b) {
+    if (a.Kind != b.Kind) { return a.Kind < b.Kind; }
+    return a.Order < b.Order;
+  });
   return Registration::Accepted;
 }
 
@@ -125,6 +144,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           Ledger_.Delivered++;
           Ledger_.FromStore++;
           Ledger_.DeliveredBytes += static_cast<long long>(kept->size());
+          RecordDelivery(decl);
           query.Finish();
           return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(*kept));
         }
@@ -166,6 +186,14 @@ void SourceSet::RecordStart(const SourceDecl &decl, bool first, bool started) {
   if (started && decl.Latency != LatencyClass::Local) { Ledger_.RemoteStarts++; }
 }
 
+void SourceSet::RecordDelivery(const SourceDecl &decl) {
+  const auto use = std::ranges::find_if(Ledger_.Sources, [&decl](const Ledger::UsedSource &row) {
+    return row.Kind == decl.Kind && row.Order == decl.Order;
+  });
+  assert(use != Ledger_.Sources.end());
+  if (use != Ledger_.Sources.end()) { ++use->Deliveries; }
+}
+
 std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
                                                    Fetched::Settled response,
                                                    double retryAfterS,
@@ -182,6 +210,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
       const std::scoped_lock lock(LedgerMutex_);
       ++Ledger_.Delivered;
       Ledger_.DeliveredBytes += static_cast<long long>(response.Bytes.size());
+      RecordDelivery(decl);
       query.Finish();
       return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(response.Bytes));
     }

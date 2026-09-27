@@ -4,10 +4,12 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "ContentStore.h"
 #include "Delivery.h"
+#include "DataKind.h"
 #include "Source.h"
 
 namespace outshine::Data {
@@ -68,16 +70,27 @@ public:
   static void Abandon(Query &query, Transport &transport);
 
   struct Ledger {
+    struct UsedSource {
+      DataKind Kind = DataKind::Elevation;
+      std::string Id;
+      std::string Revision;
+      std::string Key;
+      Rank Order = Rank{0};
+      long long Deliveries = 0;
+    };
+
     long long Asked = 0, Delivered = 0, HandedOver = 0, Vacant = 0, Undeclared = 0;
     long long Refused = 0, Retried = 0, FromStore = 0;
     long long ProviderStarts = 0, RemoteStarts = 0;
     long long DeliveredBytes = 0;
+    std::vector<UsedSource> Sources;
   };
 
   [[nodiscard]] Ledger Counters() const;
 
 private:
   void RecordStart(const SourceDecl &decl, bool first, bool started);
+  void RecordDelivery(const SourceDecl &decl);
 
   [[nodiscard]] Delivery ResumeRetry(Query &query, Transport &transport);
 

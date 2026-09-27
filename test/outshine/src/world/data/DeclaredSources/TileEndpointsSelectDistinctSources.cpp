@@ -26,7 +26,7 @@ public:
 
   outshine::Data::Wire Collect(outshine::Data::Ticket ticket) override {
     const size_t at = static_cast<size_t>(ticket) - 1;
-    if (Urls[at].starts_with("https://first.example/")) {
+    if (Urls[at].starts_with("https://first.example/") && !Urls[at].ends_with("/16/11.png")) {
       return outshine::Data::Wire::Answered(404, {});
     }
     return outshine::Data::Wire::Answered(200, {17, 42});
@@ -70,6 +70,8 @@ int main() {
   changedEndpoint.Endpoint = "https://third.example/dem/{z}/{x}/{y}.png";
   CHECK(ContentKey(sources.At(0).Declaration(), tile) != ContentKey(changedEndpoint, tile),
         "endpoint change under the same dataset and pin invalidates cache identity");
+  CHECK(SourceKey(sources.At(0).Declaration()) != SourceKey(changedEndpoint),
+        "source diagnostics distinguish a changed endpoint under the same pin");
   TileTransport transport;
   auto query = sources.Ask(request);
   Delivery delivered = sources.Collect(query, transport);
@@ -80,6 +82,17 @@ int main() {
   CHECK(transport.Urls == std::vector<std::string>({"https://first.example/dem/5/17/11.png",
                                                     "https://second.example/dem/5/17/11.png"}),
         "ranked providers expand their own tile endpoints in order");
+  const auto used = sources.Counters().Sources;
+  CHECK(used.size() == 2 && used[0].Id == "first-dem" && used[0].Deliveries == 0 &&
+            used[1].Id == "second-dem" && used[1].Revision == "same-pin" && used[1].Deliveries == 1,
+        "only the fallback that delivered bytes is counted as used");
+  auto preferredQuery =
+      sources.Ask(Fetch(DataKind::Elevation, Address::At(TileId{.Zoom = 5, .X = 16, .Y = 11})));
+  auto preferredAnswer = sources.Collect(preferredQuery, transport).Take();
+  const auto mixed = sources.Counters().Sources;
+  CHECK(preferredAnswer && preferredAnswer->SourceId == "first-dem" && mixed.size() == 2 &&
+            mixed[0].Deliveries == 1 && mixed[1].Deliveries == 1,
+        "partial source coverage records both preferred and fallback deliveries");
 
   auto failing = providers;
   failing[0].Missing = MissingDataPolicy::Fail;
@@ -108,8 +121,23 @@ int main() {
   auto cachedAnswer = cached.Collect(cachedQuery, offline).Take();
   CHECK(cachedAnswer && cachedAnswer->SourceId == "first-dem" &&
             cachedAnswer->Bytes == std::vector<uint8_t>({5, 9}) &&
-            cached.Counters().RemoteStarts == 0,
+            cached.Counters().RemoteStarts == 0 && cached.Counters().Sources[0].Deliveries == 1,
         "offline delivery uses the selected source's bytes without network");
+  auto changedEndpointProviders = failing;
+  changedEndpointProviders[0].Endpoint = "https://changed.example/dem/{z}/{x}/{y}.png";
+  SourceSet changedEndpointSources(cache);
+  error.clear();
+  CHECK(RegisterDeclared(changedEndpointSources, changedEndpointProviders, {}, error),
+        error.c_str());
+  auto changedEndpointQuery = changedEndpointSources.Ask(request);
+  const Delivery changedEndpointReply =
+      changedEndpointSources.Collect(changedEndpointQuery, offline);
+  CHECK(changedEndpointReply.Where() == Delivery::State::Refused &&
+            changedEndpointReply.SourceId() == "first-dem" &&
+            changedEndpointSources.Counters().Delivered == 0 &&
+            changedEndpointSources.Counters().RemoteStarts == 0 &&
+            changedEndpointSources.Counters().Sources[0].Key != cached.Counters().Sources[0].Key,
+        "changed endpoint under the same dataset and pin cannot consume old cached bytes");
   SourceSet missing(cache);
   error.clear();
   CHECK(RegisterDeclared(missing, providers, {}, error), error.c_str());

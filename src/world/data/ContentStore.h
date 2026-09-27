@@ -15,6 +15,7 @@
 namespace outshine::Data {
 
 [[nodiscard]] std::string ContentKey(const SourceDecl &decl, const Address &at);
+[[nodiscard]] std::string SourceKey(const SourceDecl &decl);
 
 class ContentStore {
 public:

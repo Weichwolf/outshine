@@ -91,6 +91,18 @@ struct Loading {
   std::uint64_t SourceFromStore = 0;  ///< Source deliveries read from the persistent cache.
   std::uint64_t SourceBytes = 0;      ///< Bytes delivered by sources, including cache hits.
 
+  /// One registered world-data source that delivered tiles during this engine lifetime.
+  struct UsedSource {
+    std::string Kind;                 ///< Elevation, vector or stars.
+    std::string Id;                   ///< Stable source dataset identity.
+    std::string Revision;             ///< Declared source pin, possibly empty for shipped defaults.
+    std::string Key;                  ///< Opaque fingerprint of dataset, endpoint, pin and format.
+    int Priority = 0;                 ///< Source order within its kind; lower is queried first.
+    std::uint64_t TileDeliveries = 0; ///< Completed requests, including repeats and cache hits.
+  };
+
+  std::vector<UsedSource> Sources; ///< Used sources only; bounded by registered source count.
+
   /// Ratio of arrived to wanted terrain/vector entries, without allocation.
   /// Returns one when nothing is wanted. Does not clamp inconsistent caller-created
   /// snapshots or establish readiness of generated geometry, uploads or rendering.

@@ -236,6 +236,23 @@ RequestedHelp(const outshine::Client::CommandLine &command) {
   return std::nullopt;
 }
 
+[[nodiscard]] std::string EncodeStatText(std::string_view value) {
+  constexpr std::string_view digits = "0123456789ABCDEF";
+  std::string result;
+  result.reserve(value.size());
+  for (const unsigned char byte : value) {
+    if ((byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') ||
+        (byte >= '0' && byte <= '9') || byte == '.' || byte == '_' || byte == '-') {
+      result += static_cast<char>(byte);
+    } else {
+      result += '%';
+      result += digits[byte >> 4u];
+      result += digits[byte & 15u];
+    }
+  }
+  return result;
+}
+
 void PrintStats(std::string_view name,
                 const outshine::Loading &loading,
                 double elapsedMs,
@@ -288,6 +305,17 @@ void PrintStats(std::string_view name,
   row("source_deliveries", loading.SourceDeliveries, "deliveries");
   row("source_from_store", loading.SourceFromStore, "deliveries");
   row("source_bytes", loading.SourceBytes, "bytes");
+  row("used_sources", loading.Sources.size(), "sources");
+  for (size_t index = 0; index < loading.Sources.size(); ++index) {
+    const outshine::Loading::UsedSource &source = loading.Sources[index];
+    const std::string prefix = "source_" + std::to_string(index) + "_";
+    row(prefix + "kind", EncodeStatText(source.Kind), "text");
+    row(prefix + "id", EncodeStatText(source.Id), "text");
+    row(prefix + "revision", EncodeStatText(source.Revision), "text");
+    row(prefix + "key", source.Key, "sha256");
+    row(prefix + "priority", source.Priority, "rank");
+    row(prefix + "tile_deliveries", source.TileDeliveries, "tiles");
+  }
 }
 
 [[nodiscard]] outshine::Roots ClientRoots(std::string_view cacheDirectory, bool offline) {
