@@ -22,18 +22,16 @@ VectorStreetGraphBuildJob::VectorStreetGraphBuildJob(Path::Network &&graph,
     : Graph_(std::move(graph)), HeightOf_(std::move(heightOf)) {}
 
 std::expected<VectorStreetGraphBuildJob, std::string>
-VectorStreetGraphBuildJob::Begin(const Ground::GroundStack &stack,
+VectorStreetGraphBuildJob::Begin(const Ground::OsmField &vectors,
+                                 const Ground::StreetField &ways,
                                  Path::Network::HeightSource heightOf) {
   const auto began = std::chrono::steady_clock::now();
-  const Ground::OsmField *const vectors = stack.Vectors();
-  if (vectors == nullptr) { return std::unexpected("vector streets are absent"); }
   auto created = Path::Network::Create(Path::Snap{.CellM = VectorStreetGraph::kNodeSnapM},
                                        Path::Sphere{.RadiusM = kWgs84A});
   if (!created) { return std::unexpected(std::string(created.error())); }
   if (!heightOf) { return std::unexpected("street corridor height source is absent"); }
   VectorStreetGraphBuildJob job(std::move(*created), std::move(heightOf));
-  if (const auto laid = VectorStreetGraph::LayWays(stack.Ways(), vectors->Points(), job.Graph_);
-      !laid) {
+  if (const auto laid = VectorStreetGraph::LayWays(ways, vectors.Points(), job.Graph_); !laid) {
     return std::unexpected(std::string(laid.error()));
   }
   job.Built_.Ways = job.Graph_.WayCount();

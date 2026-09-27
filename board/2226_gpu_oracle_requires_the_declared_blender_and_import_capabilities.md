@@ -33,8 +33,12 @@ GPU-Orakel entscheiden erst nach fachlicher Prüfung.
 
 - Cycles-Provenienz der drei erneuerten Aufnahmen: Blender 5.2.1 LTS, METAL, GPU
   `Apple A18 Pro (GPU - 5 cores)`; Bilder visuell geprüft.
-- Alle 340 deklarierten Referenzaufnahmen validieren Digest, Auflösung und Framezeit.
-  `make test-reference-cache` ist grün; normale Tests erzeugen keine Pins.
+- Nach Verlust des flüchtigen Caches wurden am 2026-09-27 337/340 Aufnahmen
+  aus Git-Objekten und lokalem Cycles 5.2.2 auf METAL/GPU bytegleich zu ihren
+  Pins restauriert. `DirectionalLight`, `PointLightIntensityTest` und
+  `SheenWoodLeatherSofa` bleiben verschieden; `make test-reference-cache` ist
+  rot. Die 5.2.1-Originalbytes oder ein gleichwertig verifiziertes Orakel
+  fehlen lokal. Keine Pins durch 5.2.2-Ergebnisse ersetzen.
 - Positiv-/Negativkontrolle des Seed-Vergleichs grün; Sofa wird mit beiden beobachteten
   RAW-Digests ausdrücklich verweigert.
 - Ein verändertes Byte und eine fehlende Cache-Datei bleiben Negativkontrollen.

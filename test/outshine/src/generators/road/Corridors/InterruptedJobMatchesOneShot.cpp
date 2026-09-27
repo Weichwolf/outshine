@@ -1,5 +1,6 @@
 #include "src/generators/road/Corridors.h"
 #include "src/generators/road/ProfiledRoadMesher.h"
+#include "PublishedRegion.h"
 #include "Check.h"
 
 #include <algorithm>
@@ -170,6 +171,8 @@ int main() {
             canceledMesh.parts() == 0 && canceledEarthworks.empty() && canceledMeasures.empty(),
         "canceled scratch retires without publishing and cannot resume");
   std::unique_ptr<Generators::Corridors::Job> stale = Generators::Corridors::Begin(site);
+  const Ground::RegionSources pinned =
+      Ground::RegionSources::Snapshot(&vectors, ways, Ground::WaterField{});
   auto changed = declared;
   changed.front().LatLon.front() += 0.0001;
   vectors.Declare(changed, *tile);
@@ -179,5 +182,19 @@ int main() {
   CHECK(!corridors.Advance(*stale, site, 1, 1, staleMesh, &staleEarthworks, &staleMeasures) &&
             staleMesh.parts() == 0 && staleEarthworks.empty() && staleMeasures.empty(),
         "a changed vector revision rejects stale work before publishing any product");
+  const Generators::Corridors::Site pinnedSite{.Vectors = pinned.Vectors.get(),
+                                               .Ways = pinned.Ways,
+                                               .Materials = materials,
+                                               .Vegetation = vegetation,
+                                               .Standing = frame,
+                                               .Draped = drape,
+                                               .Classes = noClasses,
+                                               .EyeLatDeg = origin.LatitudeDeg,
+                                               .EyeLonDeg = origin.LongitudeDeg,
+                                               .FocalPx = 800.0};
+  const Product retained = RunJob(corridors, pinnedSite, 1, 1);
+  CHECK(retained.Complete && SameGeometry(oneShot.Mesh, retained.Mesh) &&
+            oneShot.Earthworks == retained.Earthworks,
+        "a pinned candidate still builds its original corridors after ingest changes");
   return Report();
 }

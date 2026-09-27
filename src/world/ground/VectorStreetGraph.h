@@ -55,7 +55,9 @@ private:
 class VectorStreetGraphBuildJob {
 public:
   [[nodiscard]] static std::expected<VectorStreetGraphBuildJob, std::string>
-  Begin(const Ground::GroundStack &stack, Path::Network::HeightSource heightOf);
+  Begin(const Ground::OsmField &vectors,
+        const Ground::StreetField &ways,
+        Path::Network::HeightSource heightOf);
   VectorStreetGraphBuildJob(const VectorStreetGraphBuildJob &) = delete;
   VectorStreetGraphBuildJob &operator=(const VectorStreetGraphBuildJob &) = delete;
   VectorStreetGraphBuildJob(VectorStreetGraphBuildJob &&) noexcept = default;

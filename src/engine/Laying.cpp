@@ -1409,7 +1409,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
           World.Stack.Ground(),
           {.FinestZoom = coverage.Zoom,
            .RequestsMost = kTerrainSheetsPerFrame,
-           .Vectors = HeightCoverageVectors(state.Revision().Quality, World.Stack.Vectors()),
+           .Vectors = HeightCoverageVectors(state.Revision().Quality,
+                                            state.Candidate().Sources().Vectors.get()),
            .AdditionalTiles = state.RoadHeightTiles()});
       if (!prepared) {
         Error = prepared.error();
@@ -1586,6 +1587,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsNetwork) {
     return GroundBuildProgress::Ready;
   }
+  const Ground::RegionSources &sources = state.Candidate().Sources();
   GroundBuildProducts &build = state.Candidate().Products();
   const std::optional<GroundRevision> &publishedRevision = World.GroundPublished.Current();
   const GroundRevision &requestedRevision = state.Revision();
@@ -1594,12 +1596,12 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       publishedRevision->ResidentTiles != requestedRevision.ResidentTiles ||
       publishedRevision->VectorGeneration != requestedRevision.VectorGeneration ||
       publishedRevision->StreetTiles != requestedRevision.StreetTiles;
-  if (build.StreetGraph != nullptr &&
-      World.Stack.Ways().Ways().size() == build.StreetGraphWayCount && !sourcesChanged) {
+  if (build.StreetGraph != nullptr && sources.Ways.Ways().size() == build.StreetGraphWayCount &&
+      !sourcesChanged) {
     state.AdvanceStage();
     return GroundBuildProgress::Pending;
   }
-  if (World.Stack.Vectors() == nullptr) {
+  if (sources.Vectors == nullptr) {
     build.StreetGraph.reset();
     build.StreetGraphWayCount = 0;
     state.AdvanceStage();
@@ -1610,7 +1612,9 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
     auto fields =
         std::make_shared<const SourcedTerrainFields>(build.Sheets.SnapshotSourcedFields());
     auto started = outshine::Ground::VectorStreetGraphBuildJob::Begin(
-        World.Stack, [fields = std::move(fields), sourceZoom](LongitudeLatitude at) {
+        *sources.Vectors,
+        sources.Ways,
+        [fields = std::move(fields), sourceZoom](LongitudeLatitude at) {
           return fields->AslMAt(sourceZoom, at);
         });
     if (!started) {
@@ -1631,7 +1635,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   const double longestSliceMs = completed->value().LongestSliceMs;
   const outshine::Ground::VectorStreetGraph::Built &mapped = completed->value().Graph;
   build.StreetGraph = mapped.Graph;
-  build.StreetGraphWayCount = World.Stack.Ways().Ways().size();
+  build.StreetGraphWayCount = sources.Ways.Ways().size();
   Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
   Published.Places("network: laying ways", mapped.LayMs, "ms");
   Published.Places("network: weaving topology", mapped.WeaveMs, "ms");
@@ -1972,8 +1976,9 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   };
   std::vector<EarthworkStamp> corridors;
   std::vector<DiagnosticSample> notes;
-  const Generators::Corridors::Site site{.Vectors = World.Stack.Vectors(),
-                                         .Ways = World.Stack.Ways(),
+  const Ground::RegionSources &sources = state.Candidate().Sources();
+  const Generators::Corridors::Site site{.Vectors = sources.Vectors.get(),
+                                         .Ways = sources.Ways,
                                          .Materials = World.Stack.Materials(),
                                          .Vegetation = World.Stack.Vegetation(),
                                          .GroundClasses = &World.Stack.Classes(),
@@ -2019,7 +2024,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   }
   if (fieldMisses > 0) {
     if (firstFieldMiss) {
-      const Ground::OsmField *const shapes = World.Stack.Vectors();
+      const Ground::OsmField *const shapes = sources.Vectors.get();
       const int vectorZoom =
           shapes != nullptr && !shapes->Tiles().empty() ? shapes->Tiles().front().Z : -1;
       Error = std::format("{}: east {:.3f} m, north {:.3f} m, {} misses, sheet zoom {}, "
