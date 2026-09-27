@@ -23,9 +23,15 @@ the minification filter to linear makes all 25 relations pass, but confounds
 two variables; it is not a fix. Flipping tangent.w makes the ten lit pairs
 substantially worse, so handedness is not the primary defect. A direction-mip
 reduction independently violated the first-moment integral; its correction
-has an analytic test, but the 25 image relations remain red. Next isolate
-spatial filtering from mip choice with the declared sampler intact, then
-compare float normal/confidence and radiance AOVs across paired cells.
+has an analytic test, but the 25 image relations remain red. A controlled
+four-sampler experiment resolves the confound: both mip filters (9986, 9987)
+fail 15/15 NormalTangentTest relations; both non-mip filters (9728, 9729)
+pass 15/15. At the five dark pairs, the geometry emits zero while the mapped
+partner reaches 5.76–7.52 linear radiance. Removing Toksvig roughening makes
+those dark pairs pass. This points to unmatched normal-footprint integration:
+the map gains finite specular width from its mip, but smooth geometry remains
+an ideal delta under punctual lighting. Confirm with float normal/confidence,
+roughness and radiance AOVs before implementing a shared specular-AA rule.
 
 ## Contract and implementation
 
@@ -35,6 +41,10 @@ owns TBN reconstruction and normalScale, with the sampled normal texture read
 as linear data. Inspect the two public captures' linear radiance, normal and
 identity attachments at paired cells before changing the shader; distinguish
 wrong basis, wrong texel/UV, wrong normalScale and wrong direct-light response.
+Keep the glTF sampler unchanged. Derive any geometric normal-footprint variance
+from screen-space derivatives and apply the same roughness model to both paths;
+check that a zero-roughness surface and a mipped normal map conserve energy
+under movement. Do not add a sampler override or an asset-specific threshold.
 The same native material path must serve imported and generated geometry.
 No per-asset correction or softened bound.
 
