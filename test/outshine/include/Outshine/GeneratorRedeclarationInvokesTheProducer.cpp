@@ -63,6 +63,10 @@ int main() {
     earth.Ground.VegetationEnabled = false;
     earth.Ground.Origin.LatitudeDeg = 49;
     earth.Ground.Origin.LongitudeDeg = 10;
+    CHECK(engine.declare(earth), "viewless Earth declares");
+    const auto unframed = engine.assemble();
+    CHECK(!unframed && unframed.error().contains("ground detail needs"),
+          "Earth without a view or geometry rejects invalid ground detail projection");
     Scenario::View earthView;
     earthView.Id = "earth";
     earthView.Person = "first";
@@ -73,7 +77,7 @@ int main() {
     earthView.Geographic.SamplesHeight = false;
     earth.Views.push_back(earthView);
     CHECK(engine.declare(earth) && engine.assemble(),
-          "a world opens before replacing it with a groundless scene");
+          "Earth with an explicit view opens after invalid auto framing");
     scenario.Generators.push_back({.Kind = "redeclare-probe"});
     Scenario::View spaceView;
     spaceView.Id = "space";

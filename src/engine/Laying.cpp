@@ -60,6 +60,8 @@ constexpr auto MaterialCreationFailed = "could not create ground materials";
 constexpr auto CorridorTerrainIncomplete =
     "corridor generation reached terrain without a DEM field";
 constexpr auto GroundContactIncomplete = "ground patchwork has no ready contact terrain";
+constexpr auto GroundDetailCameraInvalid =
+    "ground detail needs a finite camera eye, positive lens and frame height";
 }
 
 constexpr uint64_t kLowWord = 0xFFFFFFFFULL;
@@ -71,6 +73,17 @@ static_assert(Ground::kStreamGrid == 2 * kPatchGrid,
               "re-derived rather than kept");
 
 namespace {
+
+bool ValidGroundDetailCamera(const Render::Viewpoint &view, Extent frame) {
+  if (frame.HeightPx <= 0) { return false; }
+  for (int axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(view.EyeM[axis])) { return false; }
+  }
+  if (view.Kind == Render::CameraKind::Orthographic) {
+    return std::isfinite(view.YMagM) && view.YMagM > 0.0;
+  }
+  return std::isfinite(view.YfovRad) && view.YfovRad > 0.0 && view.YfovRad < std::numbers::pi;
+}
 
 class ScopedCounter {
 public:
@@ -794,6 +807,12 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                                            LongitudeLatitude at,
                                            bool alsoWhenTilesLanded,
                                            GroundQuality quality) {
+  const Render::Viewpoint &view =
+      Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
+  if (!ValidGroundDetailCamera(view, Picture.Frame)) {
+    Error = Says::GroundDetailCameraInvalid;
+    return Laid::Refused;
+  }
   const Around &over = request.Coverage;
   const GroundRevision previous = World.GroundPublished.Current().value_or(GroundRevision{});
   const double atLat = at.LatitudeDeg;
@@ -829,7 +848,6 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
               transportLoader->Current()
           ? transportLoader->CompletedCount()
           : 0;
-  const Render::Viewpoint &view = Picture.Standing->Watching();
   const std::array<double, 3> projection{
       {static_cast<double>(view.Kind), view.YfovRad, view.YMagM}};
   const double visualRadiusM = Session.Declared.Ground.SightM > 0.0 ? Session.Declared.Ground.SightM
@@ -1366,7 +1384,13 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
   build.Sheets.Framed(standing);
   Published.Places(
       "ground refinement: source sheets", static_cast<double>(patchwork.Sheets.size()), "sheets");
-  const Render::Viewpoint &eye = Picture.Standing->Watching();
+  const Render::Viewpoint &eye =
+      Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
+  if (!ValidGroundDetailCamera(eye, Picture.Frame)) {
+    Error = Says::GroundDetailCameraInvalid;
+    World.GroundBuild.reset();
+    return GroundBuildProgress::Failed;
+  }
   Generators::TerrainRefinementDetail detail{.EyeM = eye.EyeM};
   if (eye.Kind == Render::CameraKind::Orthographic) {
     detail.OrthographicPxPerM = static_cast<double>(Picture.Frame.HeightPx) / (2.0 * eye.YMagM);
