@@ -63,6 +63,13 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   Carry it with refused delivery/job results through field decoding and stitching.
   Keep the failed raw address distinct from the aggregated field address.
   Success/pending paths allocate no diagnostic strings. No global last-error slot.
+  Store the failure in Delivery, TilePool Landing/Result/refusal CacheEntry,
+  TerrainBytes and TerrainGrid; move it through worker publication and stitching.
+  Bytes/Field/PollStitchedField expose an optional owned failure alongside status;
+  refusal cache hits reproduce the original failure. Decoding creates corrupt-
+  payload failures with the delivered source identity/address. Wire/Fetched must
+  explicitly distinguish offline miss from provider refusal, not infer it from
+  Ticket::None. Deadline/admission failures keep their own cause and context.
 - Exact source identity and served address must survive ancestor mapping and
   provider fallback. Preparation formats this owned failure; retain the generic
   field address as context, never as a substitute for the offending request.
