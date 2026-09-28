@@ -39,6 +39,7 @@ Keine Pose-/Höhenkorrektur aus diesem Befund ableiten; Material-ID ist keine Ob
 a25c12d76: CPU-Terrain-Geometrie reproduziert die Verdeckung bei 3.7342 m.
 Die Nahtsuche zieht innere Kachelränder auf Außenkanten eines überdeckenden Vorfahren,
 trotz vorhandener gleich feiner Nachbarn. Reparatur und Negativkontrollen gehören in 2166.
+6e88154b5 entfernt die Nahwand in geöffneten Client-PNGs von Graz und Wien.
 Die geodätische Kamera bleibt unverändert; der separate Datumvertrag bleibt offen.
 
 ## Implementierung

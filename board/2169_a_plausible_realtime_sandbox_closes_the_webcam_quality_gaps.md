@@ -27,21 +27,21 @@ Sieben Refined-PNGs geöffnet: DarmstadtWest, Rosenheim, Husum, Feldkirch, Malce
 Koerbersee, Hockenheimring unter `build/shots/places-refined-a25c12d76/`.
 Alle sieben pixelidentisch zu c9d6bb5fe: jeweils 0/921600 abweichende Pixel.
 Hockenheim Host p50/p95/p99: 3.7565/16.0601/17.1876 ms, 2996 Frames inklusive Aufbau;
-keine A18-Aussage. Logs: /tmp/outshine-repair-a25c12d76-{full-places,full-lint,gate-results}.log;
-Einzellogs: /tmp/outshine-repair-a25c12d76-case-logs; Gesamt-Gate rot.
+Keine A18-Aussage; Gesamt-Gate rot. /tmp/outshine-repair-a25c12d76-{full-places,full-lint,gate-results}.log.
 Drei aktuelle Client-Playable-PNGs geöffnet: `build/shots/places-playable-a25c12d76/`.
 Wien Nahwand, Graz vollständig verdeckt, Olympiaturm unvollständig; keine Refined-Abnahme.
 Feldkirchs Nahwand, Malcesines Faltenvorhang, geglättete Alpen, gezackte Ufer und uniforme
 Fassaden bleiben. Hockenheim wirkt wie eine Karte; Nähe/Bewegung brauchen eigene Abnahmen.
 Graz-Diagnose: CPU-Terrain-Dreieck trifft den Mittelstrahl bei 3.7342 m, passend zur Bildtiefe
-3.7348 m. Kachel 18/142294/92117 hat nahe 368-m-Knoten auf 518 m gezogene Randknoten.
-CoarseNeighbor wählt auf allen vier Seiten den überdeckenden Vorfahren 11/1111/719,
+3.7348 m; Kachel 18/142294/92117: 368-m-Knoten auf 518 m gezogen. CoarseNeighbor wählt 11/1111/719,
 obwohl gleich feine Nachbarn vorhanden sind; keine dieser Kanten ist dessen Außenkante.
-2166 repariert diese falsche Nahtzuordnung. Keine Kameraverschiebung und kein Shader-Fit.
+2166 repariert die Nahtzuordnung; Kameras unverändert. Vollständiges neues Gate noch offen.
 GPU-Warten: Graz 1731/2232 Hauptthread-Samples, 7.8 GB Prozess-Footprint;
 Olympiaturm 2078/2078, 15.3 GB. Snapshot-Kosten, keine isolierte Änderungskausalität (2228).
 2298s quellstabiles Shell-Fallback ist geprüft; Runtime-Fehlerzertifikate bleiben offen.
-Vegetation zuletzt; Hockenheim nur erster Integrationstest. ALLE Places bei JEDEM Code-Gate.
+6e88154b5: vier Owner-Tests PASS; aktuelle Playable-PNGs geöffnet, Graz/Wien ohne Nahwand.
+Neue Bilder: `build/shots/places-playable-6e88154b5/`; Olympiaturm bleibt unvollständig.
+Vegetation zuletzt; Hockenheim erster Integrationstest. ALLE Places bei JEDEM Code-Gate.
 
 ## Historischer Bildbefund (2026-09-07, Renderer 12ceb790)
 
