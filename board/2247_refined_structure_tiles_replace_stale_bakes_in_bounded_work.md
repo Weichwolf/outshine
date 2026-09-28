@@ -66,8 +66,8 @@ Revision comparisons cover vector source, DEM source, quality, camera-dependent
 detail inputs and candidate generation. Do not use a global reset or special
 case for Malcesine/Graz.
 
-An old-candidate worker may release a reservation only when vector generation,
-candidate height revision, footprint parameters and eye all still match.
+Reservation release belongs to the BuildingField domain, even after producer revisions
+change (8d094066c). A foreign domain never releases or lands the current owner’s slot.
 
 Refined now copies accepted CPU structure products and tile IDs, scans accepted tiles
 against vector, DEM raster, street and camera inputs, and replaces only stale
@@ -88,6 +88,10 @@ uploads are paced before readiness. The Wien shot kept digest `45d7bbaa` and
 reached Refined in 5,428 frames: simulation p99 9.37 ms, maximum 26.71 ms,
 9 frames over 16.67 ms overall. The largest remaining frame was in draw
 (108.72 ms); true GPU-resident handle reuse and Graz/Basel still need proof.
+
+497d94109 host sample: repeated Retable/UploadTables and Metal fence waits;
+Olympiaturm peak footprint 9.4 GB. Measure retained/cycled upload capacities before
+claiming a leak; bound unchanged-table rebuilds and preserve published resources.
 
 ## Implementation and acceptance
 
