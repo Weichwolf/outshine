@@ -76,15 +76,15 @@ include/complexity; full rerun pending.
 Wien/Places abort in DiscardFront -> TileWatermark::Release: Advance erases worker-owned
 reservations. Owner: TileWatermark.h/tests. Retain a sorted unavailable set independently
 of scanning; Release removes its tile and rewinds, preserving other held/accepted/skipped
-tiles. Rename the set; retain unheld-release assertions and snapshot ownership. Test
+tiles. 1e3fd8700 fixes scan retention but Wien still aborts: source equality is not owner
+identity. BuildingField copies/reset get fresh retained byte domains; moves transfer them.
+Whole queued builds capture that lease; owner mismatch discards without foreign Release.
+Test
 advanced release/retry/other-held/skipped/snapshot; restored erasure must FAIL. Format;
 TileWatermark/BuildingField/queue/Places; full lint/tidy/API; render all Places without
 vegetation and open PNGs. Backtrace: /tmp/outshine-places-94581ed9b-backtrace-full.log.
 
 Street digest: 25 owner and 35 queue checks PASS; scan/domain/generation mutants FAIL.
-Unknown street context invokes no terrain callbacks/resolution and allocates nothing.
-Independent 48-byte count/width/f64 oracle: /tmp/outshine-street-digest-oracle.log.
-Logs /tmp/outshine-street-digest-{controls,correct,queue-correct}.log.
 
 ## Exact height requests
 
