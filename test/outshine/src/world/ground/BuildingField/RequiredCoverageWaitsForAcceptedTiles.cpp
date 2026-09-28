@@ -40,6 +40,25 @@ int main() {
         "required coverage becomes ready only after its tile product is accepted");
   CHECK(field.SnapshotAccepted().Ingested(vectors),
         "accepted tile stays complete when copied into a candidate");
+  const auto priorFeatures = vectors.Features().size();
+  auto expanded = std::array{declared.front(), declared.front()};
+  expanded[1].Value = "second-house";
+  expanded[1].LatLon = {47.0002, 9.0002, 47.0002, 9.0004, 47.0004, 9.0004, 47.0004, 9.0002};
+  vectors.Declare(expanded, TileAt{.X = 8, .Y = 9});
+  CHECK(vectors.Features().size() > priorFeatures && vectors.Features().back().Tile == tile,
+        "replacement extends the feature run of an already accepted tile");
+  pending = field.PrepareAcceptance(tile, empty);
+  field.ReplaceAcceptance(std::move(pending), empty);
+  size_t resolutions = 0;
+  CHECK(!field.Next(
+            vectors,
+            [&resolutions](FeatureRun) {
+              ++resolutions;
+              return true;
+            },
+            1) &&
+            field.Ingested(vectors) && resolutions == 0,
+        "scan catches up after accepted replacement without reserving or resolving the tile again");
   field.ResetDerived();
   CHECK(!field.IngestedWithin(vectors, 0),
         "reset removes accepted coverage together with derived geometry");

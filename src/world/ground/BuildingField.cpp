@@ -55,6 +55,7 @@ BuildingField::Next(const OsmField &field,
                     size_t candidatesMost) {
   assert(Anchored_);
   const std::span<const OsmField::Feature> feats = field.Features();
+  Mark_.Advance(feats);
   if (Mark_.Done(feats)) { return std::nullopt; }
   const TileWatermark::Next next = Mark_.Ask(
       feats,
