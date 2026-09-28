@@ -65,22 +65,17 @@ Existing frame consumers stop hashing sources repeatedly; street scanning remain
 
 ## Evidence
 
-987af742a: 13 official focused tests, full lint 256/256 tidy units without findings,
-32/32 guards PASS. Actual-delivery/mutex fixture: 26 checks; independently blocking each
-of Queue/Cache/Index gives actual FAIL. Zero allocations for all inspection states.
-Index: 4096*32-byte entries + 1-byte domain = 131073 bytes before allocator/owner overhead;
-raster budget 16 MiB. Logs: /tmp/outshine-terrain-inspection-{focused,full-lint}.log.
-Pure source inspection: 33 direct checks PASS; restored resolver, ignored unknown scope
-and disabled metadata comparison each give actual FAIL. cf58d54a1 passed 4 focused tests,
-but tidy found two absent engine inspector initializers. 4871add5a wires both: 4 focused
-PASS, full lint 256/256 units without findings, 32/32 guards, API docs PASS; process exit 0.
-Logs: /tmp/outshine-source-inspector-wiring-{focused,full-lint}.log and gate-result.txt.
-d91dc0cdb implements request capture/acceptance/heap accounting and three owner fixtures;
-format 1203 files, zero errors. 46bbf8c48: HeightField 5, BuildingField 5, queue 4 PASS.
-Ancestor substitution, reversed order and block zoom instead of field zoom give actual FAIL.
-Logs: /tmp/outshine-height-request-{heightfield,buildingfield,queue,controls}.log.
-46bbf8c48: full lint PASS, 256/256 tidy units without findings, 32/32 guards, API docs;
-process exit 0. /tmp/outshine-height-request-full-lint.log and gate-result.txt. No frame claim.
+987af742a: 13 focused, full lint 256/256 without findings, 32 guards PASS; 26 delivery/mutex
+checks and three blocking mutants FAIL. Pure source inspection: 33 direct checks, three
+resolver/scope/metadata mutants FAIL; 4871add5a full gate PASS. Logs retained under /tmp.
+46bbf8c48: HeightField 5, BuildingField 5, queue 4, full lint 256/256 without findings,
+32 guards/API docs PASS. Request ancestor/order/zoom mutants FAIL. Logs:
+/tmp/outshine-height-request-{heightfield,buildingfield,queue,controls,full-lint}.log.
+Accepted-key cache: 9 direct checks PASS; restored rehash gives actual FAIL through a
+protected payload page, never watchdog/SIGNAL/BUILD. Independent little-endian FNV oracle
+matches 0x1ae933c37f74e20a; derivation /tmp/outshine-accepted-source-key-oracle.log.
+Logs /tmp/outshine-accepted-source-key-{controls,correct,restored-rehash}.log.
+Format: 1204 files, zero errors. Official focused/full cache gate pending; no frame claim.
 
 ## Active step: retain exact height requests
 
@@ -103,7 +98,9 @@ StructureBuildQueue owns coalesced preparation and immutable source metadata. Cl
 its jobs before Surrounds destroys Tasks or GroundStack; no reader survives its owner.
 Unknown/Pending retain coarse geometry and defer fine activation. Completion rechecks live
 vector/street/span/key/generation/scope and stamps; identical source refreshes acceptance
-without rebaking. Changed input revokes activation and requests existing replacement flow.
+without rebaking. Changed DEM content must request GroundWorldCandidate: terrain,
+footprints and pieces publish together. Fine-only replacement on unchanged terrain is
+forbidden. Delivery changes need revision invalidation distinct from shaped TerrainScope.
 Before replacing the frame validator, specify queue/byte caps, polling/backoff and error
 states; prove no retry storm, starvation or borrowed mutable reader. Runtime cost/visual
 acceptance remains open; standalone inspectors do not establish a bounded frame path.

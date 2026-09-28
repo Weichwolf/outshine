@@ -398,12 +398,7 @@ std::optional<uint64_t>
 StructureBuildQueue::QualifiedSourceKey(const Ground::BuildingField &footprints, uint32_t tile) {
   const auto *accepted = footprints.InputOfTile(tile);
   if (accepted == nullptr || !accepted->Qualified) { return std::nullopt; }
-  return StructureSourceKey({.Vector = accepted->Vector,
-                             .HeightSources = accepted->Sources,
-                             .HeightDigest = accepted->Bake.HeightRasterDigest,
-                             .StreetDigest = accepted->Bake.StreetDigest,
-                             .TileSpanM = accepted->Bake.TileSpanM,
-                             .FallbackHeights = false});
+  return accepted->SourceKey;
 }
 
 StructureBuildQueue::CellSourceState

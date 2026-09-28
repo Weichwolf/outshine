@@ -7,6 +7,7 @@
 #include "math/Vec3.h"
 #include "OsmField.h"
 #include "HeightField.h"
+#include "StructureSourceKey.h"
 
 #include <cstdint>
 #include <cassert>
@@ -74,6 +75,7 @@ public:
     std::array<GeoBounds, kStructureCellsPerTile> CellBounds{};
     std::array<float, kStructureCellsPerTile> CellMaxHeightM{};
     bool Qualified = false;
+    uint64_t SourceKey = 0;
     BakeInputs Bake;
     TerrainCertificate Terrain;
     HeightField::Request Heights;
@@ -109,11 +111,20 @@ public:
                  .CellBounds = baked.CellBounds,
                  .CellMaxHeightM = baked.CellMaxHeightM,
                  .Qualified = qualified,
+                 .SourceKey = 0,
                  .Bake = bake,
                  .Terrain = std::move(certificate),
                  .Heights = std::move(heights)} {
       std::ranges::sort(Input_.Sources);
       Input_.Sources.erase(std::ranges::unique(Input_.Sources).begin(), Input_.Sources.end());
+      if (qualified) {
+        Input_.SourceKey = StructureSourceKey({.Vector = Input_.Vector,
+                                               .HeightSources = Input_.Sources,
+                                               .HeightDigest = Input_.Bake.HeightRasterDigest,
+                                               .StreetDigest = Input_.Bake.StreetDigest,
+                                               .TileSpanM = Input_.Bake.TileSpanM,
+                                               .FallbackHeights = false});
+      }
     }
 
     [[maybe_unused]] const BuildingField *Owner_ = nullptr;
