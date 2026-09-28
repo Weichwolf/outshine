@@ -24,6 +24,18 @@ homogen; Wien/Rosenheim/Malcesine/Koerbersee stark nah verdeckt. Keine Kamerakor
 ist daraus allein bewiesen: zuerst Pose, Datum und tatsächlich deckende Oberfläche
 zuordnen. Keine gefitteten Place-Höhen, keine Geometrieausblendung für schöne Bilder.
 
+## Eingrenzung Graz, c9d6bb5fe
+
+Client-Playable-PNG und zusätzliche API-Aufnahme bleiben fast vollständig verdeckt.
+Neun Pixel: Surface-ID 2, front-facing; mittlere Normale (-0.97656, 0.21509, 0.00597).
+Reverse-Z bei unendlicher Perspektive: near 0.05 m / Tiefe 0.0133876521 = 3.7348 m
+vor der Kamera. Öffentliche sampleHeight-Abfrage am Standort und etwa 5 m in vier
+Himmelsrichtungen: 367.5069–367.6863 m ASL; deklarierte Kamera 390 m.
+Damit ist eine falsche Kamera-Höhe allein nicht belegt. Gezeichnete Fläche gegen
+Quellraster, Erdarbeiten und Seitenflächen prüfen; Datum bleibt separat ungeklärt.
+Logs: /tmp/outshine-graz-surface-height-probe-{results,Graz}.log.
+Keine Pose-/Höhenkorrektur aus diesem Befund ableiten; Material-ID ist keine Objekt-ID.
+
 ## Implementierung
 
 1. Referenzmanifest: Bildhash, ursprüngliche Breite/Höhe, Aufnahmezeit/Zeitzone,

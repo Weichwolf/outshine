@@ -177,6 +177,7 @@ int main() {
               std::nullopt) -> std::optional<std::pair<uint64_t, Generators::BakedTile>> {
     queue.Clear();
     prints.Release(0);
+    prints.BeginRefinement();
     prints.SeenWith(focalPx);
     allowCopy = true;
     CHECK(queue.Posts(stack,
@@ -208,8 +209,11 @@ int main() {
     return std::nullopt;
   };
   const auto nearSource = sourceProduct(eye, 720.0);
+  CHECK(nearSource.has_value(), "near source request lands");
+  if (!nearSource) { return Report(); }
   const auto farSource = sourceProduct({.LongitudeDeg = 9.5, .LatitudeDeg = 49.3274}, 10.0);
   CHECK(nearSource && farSource, "near and remote source requests both land after camera changes");
+  if (!farSource) { return Report(); }
   if (nearSource && farSource) {
     CHECK(nearSource->second.RequestedDetail == LevelOfDetail::Shell &&
               farSource->second.RequestedDetail == LevelOfDetail::Shell &&
@@ -226,6 +230,7 @@ int main() {
   CHECK(fineSource && fineSource->second.RequestedDetail == LevelOfDetail::Fine &&
             fineSource->second.FootprintDetails == std::vector{LevelOfDetail::Fine},
         "an explicit Fine source request is preserved");
+  if (!fineSource) { return Report(); }
   prints.SeenWith(720.0);
   queue.Clear();
   prints.Release(0);

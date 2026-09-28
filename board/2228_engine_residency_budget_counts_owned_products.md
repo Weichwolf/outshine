@@ -49,7 +49,7 @@ SceneRenderer::PieceBytesHeld and Effort::DeviceBytes. Widen totals to uint64_t;
 individual SDL buffer capacities stay uint32_t. Existing measurement flow converts
 only the completed total to double. No allocation, rendering or error contract changes.
 Tests cover empty, 4-GiB boundary, all streams at maximum, removal and reporting types.
-Twelve focused tests PASS; full Places/lint still running in the detached c9d6bb5fe checkout.
+Twelve focused tests and full lint/tidy/API PASS at c9d6bb5fe; Places remain red (2169).
 Gate: format, SubjectResidency/SubjectDraw/SceneResources, Places/PNGs, full lint/tidy/API.
 
 ## Active repair: immutable terrain-stamp accounting

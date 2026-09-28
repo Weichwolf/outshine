@@ -60,6 +60,10 @@ including movement between posting and landing. Explicit Fine must remain Fine. 
 normalization must fail; terrain revocation and retry controls must still pass unchanged.
 Gate: format, StructureBuildQueue/StructureBake/TilePieces, all Places and opened PNGs,
 full lint/tidy/API. Compare preparation cost and requested bytes without promising a timeout fix.
+c769a231a implements normalization. The fixture now enters the required refinement phase
+before FineOnly admission: 83 checks PASS; original code produces two actual FAILs.
+Format 1208 files PASS; full owner/Places/lint gates still pending.
+Logs: /tmp/outshine-source-fallback-{control-results,correct,original,final-format}.log.
 
 ## Remaining implementation order
 

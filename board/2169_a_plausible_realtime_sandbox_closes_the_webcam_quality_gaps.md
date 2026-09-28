@@ -17,29 +17,30 @@ Provider liefern OSM/DEM/Zeit/Wetter; deterministische Generatoren ergänzen pla
 Formen, Materialien und Population. Webcam-Paare prüfen Bildkohärenz und Größenordnung.
 Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren LOD unabhängig.
 
-## Aktuelle Place-Abnahme 2026-09-28
+## Aktuelle Place-Abnahme 2026-09-29
 
-4844c3196: alle zehn Places ohne Vegetation über den öffentlichen Client geprüft.
-Full lint/tidy/API PASS, 256/256 Tidy-Einheiten; 17 fokussierte Prüfungen PASS.
-Komplette Places-Suite: 38/44 PASS, 4 TIMEOUT, 2 UNPREPARED; Hockenheim separat PASS.
-Refined 7/10: DarmstadtWest, Rosenheim, Husum, Feldkirch, Malcesine, Koerbersee,
-Hockenheimring. Alle PNGs geöffnet: `build/shots/places-refined-4844c3196/`.
-Wien: 6144 Frames; normal noch 40/43 Gebäude-Tiles, zweite Variante in Earthworks mit
-49/49 akzeptiert. Graz/Olympiaturm überschreiten 120 s; kein grünes Gesamt-Gate.
-2315 beseitigt echte Timeout-Orphans; nach jeder Eskalation ist der alte Client beendet.
-Logs: /tmp/outshine-repair-4844c3196-{full-places,full-lint,gate-results}.log.
-Host p95/p99: Darmstadt 19.3496/19.8103 ms, Feldkirch 34.8442/36.7897 ms,
-Hockenheim 16.1216/17.2067 ms. Kalter Aufbau eingeschlossen, keine A18-Aussage.
-Graz-Probe: 8.0 GB Peak; der beseitigte Stempel-Scan fehlt, Metal waits dominieren jetzt.
-Kleinere Tabellen beweisen weder Stadt-Speichergewinn noch tragfähige Laufzeit (2247/2228).
-Als Nächstes Publikations-/Vorbereitungs- und Residency/Upload-Kosten sowie Runtime-LOD
-reparieren (2311/2312/2298/2247/2228); dann Terrain-Falten, Kanten, Fassaden und Licht.
-Darmstadt pixelidentisch; Feldkirch hat zwei Bildstände bei gleichen Dreieckszahlen:
-Quellen/Ladezustand/Temporalphase prüfen, keine unbelegte Regressionsursache behaupten.
-Malcesine bleibt Faltenvorhang, Koerbersee glatt, Husum gezackt, Fassaden repetitiv.
-Hockenheim wirkt wie eine Karte; Nähe/Bewegung bleiben eigene Abnahmen.
-Drei frische Playable-Diagnosen geöffnet: `build/shots/places-playable-4844c3196/`.
-Wien große Nahwand, Graz fast ganz verdeckt, Olympiaturm unvollständig; keine Abnahme.
+c9d6bb5fe: alle zehn Places ohne Vegetation über den öffentlichen Client geprüft.
+Full lint/tidy/API PASS, 256/256 Tidy-Einheiten; 12 fokussierte Tests PASS.
+Komplette Places-Suite: 36/44 PASS, 3 TIMEOUT, 5 UNPREPARED; Hockenheim separat PASS.
+Refined-PNGs für sieben Places: DarmstadtWest, Rosenheim, Husum, Feldkirch, Malcesine,
+Koerbersee, Hockenheimring. Alle geöffnet: `build/shots/places-refined-c9d6bb5fe/`.
+Darmstadt/Feldkirch scheitern je einmal an 6144 Frames, die zweite Variante besteht.
+Darmstadt wartet auf Sheet-Felder; Feldkirch auf Zellen nach fertiger Bodenpublikation.
+Wien/Graz/Olympiaturm bleiben rot. Keine verwaisten Clients; kein grünes Gesamt-Gate.
+Logs: /tmp/outshine-repair-c9d6bb5fe-{full-places,full-lint,gate-results}.log;
+Einzellogs sind vor erneutem Worktree-Gate unter /tmp/outshine-repair-c9d6bb5fe-case-logs gesichert.
+Hockenheim Host p50/p95/p99: 3.6724/16.0737/17.1737 ms, 3296 Frames inklusive Aufbau;
+keine A18-Aussage. Darmstadt pixelidentisch zu 4844c3196, 0/921600 abweichende Pixel.
+Feldkirchs Nahwand, Malcesines Faltenvorhang, geglättete Alpen, gezackte Ufer und uniforme
+Fassaden bleiben. Hockenheim wirkt wie eine Karte; Nähe/Bewegung brauchen eigene Abnahmen.
+Drei frische Client-Playable-Bilder geöffnet: `build/shots/places-playable-c9d6bb5fe/`.
+Wien Nahwand, Graz fast vollständig verdeckt, Olympiaturm unvollständig; keine Abnahme.
+Zusätzliche öffentliche API-Probe: Graz hat an neun Pixeln Surface-ID 2, stark geneigte
+Normalen und nahe Geometrie. Log: /tmp/outshine-playable-surface-probe-Graz.log.
+Surface-ID allein identifiziert noch keinen Generator. Rasterhöhe und gezeichnete Fläche
+jetzt am gleichen Ort vergleichen; keine Kameraoffsets fitten.
+2298 repariert als nächsten Slice kamerabhängige SourceGeometry; deren neue Gates sind offen.
+Danach Runtime-LOD/Residency und Terrain-Falten, Kanten, Fassaden und Licht vorantreiben.
 Vegetation zuletzt; Hockenheim nur erster Integrationstest. ALLE Places bei JEDEM Code-Gate.
 
 ## Historischer Bildbefund (2026-09-07, Renderer 12ceb790)
