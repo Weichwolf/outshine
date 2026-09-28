@@ -87,6 +87,14 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   replies through SourceSet: 404 alone hands over, 403 refuses without fallback,
   and a subsequent 200 remains fetchable. Existing raw cached bytes remain readable; any
   new record format is versioned. Do not pretend unavailable height is zero.
+  ContentStore::Lookup returns Bytes/Absent/Unknown; Read remains byte-compatible.
+  ContentStoreAbsence.cpp owns regular-file-only `.outshine-absence-v1` sidecars,
+  bounded expiry index (default 4096 entries, configurable, maximum 65536), atomic
+  publication and eviction. Config injects UTC seconds for expiry tests. TTL is
+  24 h without revision, seven days with a pin. Bytes win and invalidate absence.
+  Fetched carries explicit HTTP-not-found evidence; generic Absent cannot persist.
+  SourceSet consumes cached absence through the same Fail/Continue policy as 404;
+  cached Fail reports ConfirmedAbsent, never OfflineMiss or a fabricated height.
 
 Missing/cached-refusal, provider fallback and ancestor identity are implemented.
 Independent edge/diagonal stitch tests pass; removing raw-failure propagation fails
