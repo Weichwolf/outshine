@@ -63,5 +63,8 @@ Native adaptive case: 55 checks, zero failures in a direct optimized build. Remo
 region radius or using only the first target lower bound each causes actual FAIL.
 One-unit and arbitrary slices, exhausted initialization/child budgets, reversed pairs,
 parallel/tessellated/collapsed surfaces and source/cancel/copy/move guards pass.
-Full make format passes; official focused suite and full lint are still pending.
-Logs: /tmp/outshine-refinement-{direct,negative,format}.log. No runtime consumer.
+Commit 618371b14: make format, all four official focused suites and full make lint
+including clang-tidy pass. Gate result: /tmp/outshine-refinement-restored-gate-result.txt;
+logs: /tmp/outshine-refinement-restored-{focused,full-lint}.log. No runtime consumer.
+Native BuildingMesh/sloped/large-anchor/permutation controls and measured runtime
+scratch/query utility remain open; passing this CPU gate does not finish 2313.

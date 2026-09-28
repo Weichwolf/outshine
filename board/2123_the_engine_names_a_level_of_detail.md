@@ -32,22 +32,24 @@ Fernvegetation erhält Kronenvolumen und Coverage, nahe Blattgeometrie ein Overd
 
 ## Architekturentscheidung
 
-Nanite-inspirierte virtualisierte Geometrie mit Hardware-Rasterisierung über SDL_GPU.
-Cluster-Hierarchie mit konservativ fortgepflanztem geometrischem Fehler, gemeinsamen
-Grenzen und rissfreien Schnitten; GPU-Culling und LOD-Auswahl, seitenweises Streaming,
-residente Grobrepräsentation und feste Speicher-/Arbeitsbudgets. Visibility Buffer und
-nachgelagerte Materialauswertung als Ziel; Transparenz und Deformation über geeignete
-Renderpfade desselben nativen Geometriemodells.
+Ein natives Geometriemodell, residente Grobrepräsentation und renderer-eigene Auswahl
+nach konservativ projiziertem Fehler. Generatoren erzeugen quellenstabile Produkte;
+Renderer entscheidet pro Frame mit Hysterese und begrenzten Uploads. Feines Detail erst
+nach vollständigem Nachweis; unbekannte Schranke erhält den konservativen Fallback.
 
-Kein Software-Rasterizer. Daher keine ungeprüfte Übernahme von Nanites Mikrodreieck-
-Schwellen: projizierten Fehler und Rasterkosten gemeinsam messen, feines Oberflächendetail
-über Materialien. SDL_GPU-Indirektdraws haben eine hostseitige Anzahl; GPU-Ausgabelisten
-begrenzen, unbenutzte Einträge neutralisieren und Überlauf ohne Geometrieverlust behandeln.
-Fehlende Streamingseiten dürfen weder Löcher noch unbeschränktes Warten verursachen.
+Kein verpflichtender Visibility Buffer oder virtualisierter Clusterbaum für den nächsten
+LOD-Schritt. Vorhandenes flaches Cluster-Cooking und Hardware-Rasterisierung weiterverwenden.
+Der ungenutzte CookDag-Prototyp ist kein fertiger Hierarchiepfad. Eine vereinfachende
+Hierarchie oder Materialauswertung nach Sichtbarkeit braucht gemessenen Fehlernutzen,
+einen eigenen ausführbaren WI und SDL_GPU-konforme Kosten-/Überlaufverträge.
 
-Vorhandenes Cluster-Cooking erzeugt flache Cluster, noch keine vereinfachende Hierarchie.
-Den ungenutzten CookDag-Prototyp nicht als fertigen Hierarchiepfad zählen. Verarbeitung
-für importierte und generierte Assets außerhalb des Framepfads aufbauen und cachen.
+Gebäude: 2313 → 2312 → 2298. Wald: 2111 nutzt geteilte native Prototypen und eigene
+Coverage-Leiter. Terrain besitzt finale Form-/Fehlerzertifikate in 2166. Wasser und
+Straßen bewahren Inseln, Öffnungen und logisches Netz. Diese Pfade benötigen keine
+vorher fertige universelle Hierarchie. Alpha-Coverage, Beleuchtung und volumetrischer
+Fehler sind keine durch Dreiecksabstand bewiesenen Geometriefehler; getrennt messen.
+2314 verteilt später Kosten anhand sichtbaren Beitrags über alle Familien einschließlich
+Himmel/Wolken. Kontakt/Navigation und deren Residency bleiben davon unabhängig.
 
 Gebäude-LOD darf nicht vom Kameraort beim Bake abhängen. Hockenheim bei 74,85 s
 zeigt trotz identischer Endkamera nach `Refined` und Settle 5.679 abweichende

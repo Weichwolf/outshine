@@ -5,111 +5,68 @@ Priority: P1
 Area: include, engine, render, world
 Tags: architecture, audit
 Parent: 2169
-Depends: 2093, 2094, 2096, 2124, 2130, 2131, 2132, 2139, 2149, 2150, 2151, 2185, 2190, 2191, 2194, 2207, 2208, 2209, 2210, 2214
-# Engine contracts will match the streaming sandbox architecture
-## Entscheidung und Umfang
+Depends: 2093, 2094, 2096, 2124, 2130, 2131, 2132, 2149, 2150, 2151, 2185, 2190, 2191, 2194, 2207, 2208, 2209, 2210, 2214
 
-Quellprüfung 2026-09-08, keine vollständige Race-/Backend-Abnahme.
-Best Practice heißt überprüfbare Zuständigkeit, Lebensdauer, Datenverträge und Kosten.
-Keine komplette Neuschreibung und kein ECS-/Framegraph-Umbau ohne konkreten Befund.
-Bestehende RAII-GPU-Wrapper, TilePool, Worker, Renderplan, Registry und native
-Materialpfade weiterverwenden, sofern ihre Verträge halten.
+# Engine contracts match the streaming sandbox architecture
 
-| Historischer Auditbefund; aktuellen Status im WI prüfen | Verantwortliches WI |
+## Entscheidung
+
+Provider besitzen Quellen; Generatoren native CPU-Produkte; Simulation veränderlichen
+Weltzustand; Rendering/Audio konsumieren Snapshots. Integration koordiniert Lebensdauer,
+Versionsannahme und Budgets. Kein fremder Algorithmus in Engine::State, kein paralleler
+Geometrievertrag, kein generisches Framework ohne konkreten Consumer.
+RAII-GPU-Wrapper, TilePool, Worker, Renderplan, Registry und native Materialien erhalten,
+soweit ihre Verträge tragen. Strukturänderungen brauchen einen belegten Fehlernutzen.
+
+Öffentliche API bleibt formatunabhängig; Importtypen enden am Adapter (2150).
+SDL-Fenster-/Event-Adapter sind legitim, SDL in Generatoren/Szenariomodell nicht.
+Navigation, Kontakt und Render-LOD teilen Raumreferenzen, besitzen getrennte Produkte.
+Weltpositionen Double, GPU kamera-relativ Float mit gemeinsamem Frame-Ursprung.
+Queues, Abbruch, Arbeit und Speicher begrenzen; alte Ergebnisse ersetzen keine neuen.
+
+## Kleine Coding-Reserve
+
+| Rang | WI / Besitzer | Ausführbarer Schritt und Grenze |
+|---|---|---|
+| P0 zuerst | 2311 / engine streaming | Readiness-Miss von allokierender Revalidierung trennen; Zertifikate erhalten |
+| P0 | 2313 / generators building | Adaptive CPU-Beweise samt nativen Varianten und begrenztem Scratch abschließen |
+| P0 danach | 2312 / engine streaming | Proof-Phase im BuildTask; Referenz, Ergebnis und Quellannahme gemeinsam besitzen |
+| P0 danach | 2298 / render | Residentes natives LOD per Frame wählen; Kamera darf Bake nicht verändern |
+| P0 unabhängig | 2092 / client diagnostics | Hockenheim-Bewegung, Ausreißer und Qualitäts-/Kostenleiter messen |
+| P1 unabhängig | 2111 / generators + vegetation streaming | Geteilte native Baumprototypen in isoliertem Wald mit Nah/Fern/Nah abnehmen |
+| P1 unabhängig | 2172 / world + engine declaration | Gemeinsamen unveränderlichen Wetterzustand mit vorhandener Haze-Wirkung verbinden |
+
+2140 Wolken und 2314 gemeinsamer Budgetplaner bleiben Architecture: planned, bis die
+jeweiligen Eingangs-/Kostenverträge feststehen. Keine scheinbar ausführbare Reserve.
+Fehlgeschlagene Gates zuerst korrigieren. Ein blockiertes WI beendet weder Reserve noch Ziel.
+
+## Weitere Vertragsaufträge
+
+| Befund / Abnahme | Besitzer-WI |
 |---|---|
-| Target-/Kamerapublikation teilweise repariert; weitere Zustandsübergänge offen | 2191 |
-| Declaring.cpp: nicht behandeltes Event als Fehler mit gemeinsamem Error | 2191 |
-| SceneRenderer.cpp: CommandBuffer ungeprüft; NULL-Swapchain als Fehler | 2190 |
-| EngineHeld.h: gemeinsame Sim-/Render-/Audio-Daten, Booleans für Phasen | 2130, 2191 |
-| EngineHeld.h/Live/Asset: Gltf-Typen außerhalb Importgrenze | 2150 |
-| ScenarioRead/Write: getrennte Schema-Walks und unvollständige Tokenvalidierung | 2151, 2131 |
-| Grounds/Laying: globaler Aufbau und nachträgliche Terrainänderung | 2124, 2166, 2144 |
-| VegetationStreaming: statische Residency und unvollständige Distanzleiter | 2111, 2123, 2132 |
-| Prüfqualität und Mipmap-Vertrag getrennt nachweisen | 2094, 2179 |
+| Vollständige Gate-, öffentliche Header- und Shader-Belege | 2094, 2093, 2152 |
+| GPU-Submit/History/Retirement und Kandidatenpublikation | 2190, 2191, 2223 |
+| Begrenzte Jobs, Simulation und Produkt-Streaming | 2124, 2130, 2132 |
+| Natives Importmodell, Schema-/Parsing- und Providergrenzen | 2150, 2151, 2214, 2194 |
+| Kein allocator replacement in Library; atomisches Save, begrenzte Reader | 2209, 2210 |
+| Installierbare Ressourcen und host-eigene Diagnostik | 2207, 2208 |
+| Atomare Weltkronen, vollständige Residency, begrenzte Restphasen | 2225, 2228, 2234 |
+| Geländeform, logisches Netz und räumliche Anschlüsse | 2166, 2133, 2175 |
+| Konkrete Modul-/Namensdefekte, keine große Rename-Kampagne | 2139 |
 
-Ziel: Plattformadapter → Engine-Fassade → Simulation/Streaming/Rendering.
-Provider liefern versionierte Daten; Generatoren liefern native Produkte;
-Simulation besitzt veränderlichen Weltzustand; Renderer liest fertige Snapshots.
-Navigation, Kollisionsprodukte und sichtbare LOD teilen räumliche Referenzen,
-bleiben aber unabhängig resident und versioniert (2133, 2175, 2127).
-Öffentliche SDL-Fenster-/Event-Adapter sind legitim. Generatoren und Szenariomodell
-benötigen keine SDL-Typen. Öffentliche API darf keine Importimplementierung verlangen.
+Historische Quellaudits vom 2026-09-08 stehen in Git; ihr Fehlerstatus muss im
+zuständigen WI neu geprüft werden. Quellenprüfung ersetzt keine Race-/Bild-/Backend-Abnahme.
+Depends dieses Parent-WI betrifft die Gesamtvertragsabnahme. 2139 ist kein technischer
+Blocker dieser Abnahme; gezielte Ownership-Defekte liegen bei ihren ausführbaren Kindern.
 
-## Vertiefter Quellaudit 2026-09-08
+## Abnahme
 
-| Belegter Verstoß | Auftrag |
-|---|---|
-| Shaderpfade relativ zum Checkout, Client-Wurzeln fest | 2207 |
-| Globaler Logger, verschachtelte Scopes verlieren äußeren Kontext | 2208 |
-| Bibliothek ersetzt Host-new/delete; nothrow-Zähler asymmetrisch | 2209 |
-| Save überschreibt vor Erfolg; Szenario-/Restore-Reader unbegrenzt | 2210 |
-| Providerdeklaration ignoriert; Offline vor Cachezugriff abgelehnt | 2211 |
-| MVT-Value-Speicherzugriff repariert; Geometrievalidierung und atomare Kachelannahme offen | 2214 |
-| XML akzeptiert Zahlenpräfixe und ersetzt ungültige Tokens durch Defaults | 2151, 2194 |
-| Upload-/Submit-Fehler weiterverarbeitet; History vor Erfolg fortgeschrieben | 2190 |
-| Jobqueue unbeschränkt; Wait ohne ungültigen/verbrauchtem Handle-Zustand | 2124 |
-| Null Tidy-Befunde pauschal Fehler; MSL-Scanner prüft keine GLSL-Artefakte | 2094, 2152 |
+- [ ] Externer Client nutzt installierte öffentliche Header/Library; Fenster, Offscreen,
+      mehrere Engines, Redeclare, Fehler und Shutdown sind tatsächlich geprüft.
+- [ ] Ownership/Threading/Schema mit unabhängigen Orakeln und wirksamen Negativkontrollen.
+- [ ] Bewegung und Dauerlauf zeigen begrenzte CPU/GPU-Arbeit, Queues und Residency.
+- [ ] Strukturelle Änderungen bewahren Verhalten; fachliche Fixes erhalten neue Bildabnahme.
+- [ ] Vollständiges Lint samt API-Dokumentation und clang-tidy grün; reale Limits offen nennen.
 
-Prüfabdeckung 2094/2152 zuerst belastbar machen. Fachlich zuerst Fehler-/Speicher-/Zustandsverträge 2190/2191/2194 samt 2209/2210 und striktem Parsing. Resolver/Provider
-2207/2211 sowie Logger 2208 vor Abnahme des installierbaren, mehrinstanzfähigen Clients.
-Streaming 2124/2130/2132 parallel zur fachlichen Integrationsfolge P0–P5 aus 2169.
-Dies ist ein Quellaudit, keine behauptete Race-, Crash-, Bild- oder Performance-Abnahme.
-
-## Referenzen und Grenzen
-
-**Benchmark**: Unreal dient mit veröffentlichten Verfahren als Architekturvergleich;
-RAGE/Arma/Far Cry/DayZ/KCD/RDR liefern Qualitäts- und Skalierungsziele. Nicht öffentlich
-belegte interne Klassen, Kernzuordnungen und Algorithmen sind keine Spezifikation.
-Filament: Rendering, Materialphysik und API-Verträge, keine komplette Sandbox-Vorlage.
-https://github.com/google/filament/blob/main/filament/include/filament/Engine.h
-Cesium: Georeferenzierung, asynchrone Tile-Produkte, Refinement/Residency; weder
-Verkehrssimulation noch alleinige Vorlage für prozedurales Weltstreaming.
-https://cesium.com/learn/cesium-native/ref-doc/rendering-3d-tiles.html
-https://cesium.com/learn/cesium-native/ref-doc/selection-algorithm-details.html
-SDL3: normative Plattformverträge, insbesondere Threadbindung und GPU-Lebensdauer.
-https://wiki.libsdl.org/SDL3/CategoryGPU
-Khronos glTF: Asset-/Metallic-Roughness-Konventionen; GLSL implementiert die BRDF
-explizit. SpeedTree: Vegetationsreferenz erst in P4; CARLA/SUMO: Netze/Verkehr.
-Webcams bleiben Plausibilitätsmaßstab, kein Soll für einen echten Weltzustand.
-
-## Reihenfolge und Abnahme
-
-P0 zuerst sämtliche aktuellen Tidy-/Vertragsfehler (2094); GPU, Jobs und Streaming
-entlang ihrer Abhängigkeiten in vollständigen Schritten korrigieren (2190/2191, 2124, 2130/2132).
-2096/2139 nur zusammen mit tatsächlichen Vertragsverbesserungen; kein großer Rename
-als Ersatz für Bildqualität. 2150 nach dem begonnenen Submission-Fix priorisieren: ein natives Geometriemodell
-für Importer und Generatoren, keine herkunftsabhängige Runtime. 2151 anschließend
-schrittweise pro vollständigem Consumer.
-Unabhängige Bildarbeit aus 2169 läuft jetzt; offene Gesamtaudits sind kein Wartegate.
-Arbeitsreserve für Coding; fehlgeschlagene Gates zuerst reparieren:
-**Nächster Bildauftrag:** 2166 (ready). Der bestätigte Feld-Wait (2253) und die
-geschachtelte Pool-Zulassung (2254) sind behoben; verbleibende Latenz neu profilieren.
-1. **P1, 2166 (ready):** Malcesines Vorhang über Roh-/Stitch-/Press-/GPU-Proben lokalisieren
-   und die erste fehlerhafte Stufe korrigieren; kein Materialrauschen als Geometrieersatz.
-2. **P1, 2248 → 2247:** qualifizierte Quellenrevisionen und begrenzter Ersatz alter Bakes.
-3. **2224 / 2234:** Reviewbefunde zu publizierten Footprints und ungeteilten Restphasen;
-   tatsächliche Fehler mit Regression isolieren. **2179:** unabhängiger Mip-Filtervertrag.
-Strukturaudit aller Module und konkrete Zuständigkeiten: 2139.
-2230 bindet Capture an verwendete Produkte; 2150 migriert statischen nativen Import,
-danach native Animation. 2216-Restprüfungen begleiten Consumer; 2228 budgetiert Speicher.
-Bei Architekturfrage Befund ins WI und nächsten ready-Schritt nehmen. Ein Commit oder ein
-blockiertes WI erfüllt nicht das Engine-Ziel. Keine externe Gesamtblockade nachgewiesen.
-Depends sind technische Voraussetzungen, keine Prioritätskette oder bereits nutzbare
-Grundlagen mit offenen Restprüfungen. Historische Zahlen sind kein aktueller Gate-Status.
-Tidy null und vollständige API-Dokumentation sind Pflicht, keine alleinige Architekturabnahme.
-Öffentliche geliehene Surface-/Mess-/Diagnosefolgen verwenden `std::span<const T>`;
-Konfigurationsdaten werden erst im jeweiligen Kandidaten kopiert. Array-Aufrufer,
-Invalidierung und Retry gehören zu den jeweiligen öffentlichen Vertragsprüfungen.
-
-- [ ] Minimaler externer Client nutzt nur installierbare öffentliche Header/Library.
-- [ ] Fenster, Offscreen, mehrere Engines, Fehler/Redeclare und Shutdown geprüft.
-- [ ] Thread-/Ownership-/Schema-Orakel der Kinder inklusive Negativkontrollen grün.
-- [ ] Bewegte Places und Dauerlauf zeigen begrenzte Arbeit und CPU/GPU-Residency.
-- [ ] PNGs bleiben bei rein strukturellen Änderungen gleich; fachliche Fixes gegen
-      unabhängiges Oracle und visuell abnehmen, keine falschen Altbilder konservieren.
-- [ ] make lint einschließlich clang-tidy und relevante Make-Tests tatsächlich grün.
-## Bereits nutzbare Grundlagen
-Räumliche Klassifikationsabfrage und natives FrameBounds haben analytische Prüfungen;
-FrameBounds wird gemeinsam durch Engine und Importadapter genutzt. Historische Tidy-
-Zahlen sind kein aktueller Gate-Status. Aktuelle Belege stehen in den Implementierungs-
-commits; fehlende Gesamt-API-/Streaming-Abnahme bleibt Aufgabe dieses Parent-WI.
+Lokale Referenzen und Stand gehören in den fachlichen WI. Unreal/RAGE/Filament/Cesium
+sind Vergleiche, keine unbelegte interne Spezifikation. Messungen im Projekt entscheiden.

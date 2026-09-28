@@ -1,11 +1,11 @@
 Type: debt
 State: active
-Architecture: ready
+Architecture: planned
 Area: include, engine, world, render, generators, base
 Tags: architecture, owner
 Parent: 2188
 Depends:
-Priority: P0
+Priority: P2
 
 # Module boundaries expose real responsibilities and ownership
 
@@ -39,32 +39,19 @@ complete codec boundary. Track API growth, owner-crossing edits and cohesive res
 | assets/shaders | Declarative content and generated shader products remain outside runtime logic; packaging/provenance is an independent boundary. | 2207, 2152 |
 | test/ | Mirror actual module ownership; public API/client proves integration, local tests prove algorithms. Layer checks now walk transitive public headers. | 2094 |
 
-## Executable reserve and order
+## Priorität und ausführbare Grenzen
 
-Current slice: `GroundBuildSchedule` names the current phase and its state transition;
-`Engine::State` names ground candidate operations by what repeated calls actually advance.
-Migrate declarations, callers and schedule tests together. A formerly `BeginsGround*` call
-must continue to be safe while pending and must preserve candidate retry/publication order.
-1. The listed `Engine::State` verbs are migrated. Continue public API naming
-   under 2096. Runtime body-instance resizing is now named at both the scene
-   and render proxy boundary; keep names tied to operations, not metaphors.
-   Render-proxy setters must name reset, material copies, borrowed previous positions,
-   emission, placement, environment assignment and light insertion explicitly. RuntimeScene
-   owns subject preparation; the client owns platform/engine initialization. Migrate all
-   declarations and callers without aliases; preserve reset, borrow and failure behavior.
-   Implemented: ResetForShape, SetMaterials, SetEmission, SetPlacement, BindPreviousPositions,
-   AddLight, SetEnvironment, PrepareSubject and InitializeClientEngine; no aliases.
-   Verify SubjectProxy/Lens, format and full lint. RuntimeScene GPU tests remain unverified:
-   SDL video initialization is denied by sandbox XPC; some fixtures are unprepared. Continue
-   Implemented: DiagnosticLedger::ConfigureMetrics/BeginFrame/RecordMetric/Samples/
-   ConflictingMetricNames, TilePieces::SetSurfaces and Shipping::EnsureCatalogue.
-   All callers and forward declarations migrated; no compatibility aliases. Catalogue atomic
-   replacement and public diagnostic isolation suites pass. Other owner names remain open.
-2. The twelve-hour review through 21342822f found live derived-state invalidation in
-   GroundStack::Restand (2224) and unbounded remaining terrain phases (2234).
-3. Material/terrain work 2171/2166 proceeds independently under the order in 2188.
-WI 2188 maintains global priority against runtime defects. Vegetation features and a new
-threading model are not part of this refactor.
+Kein pauschaler Umbenennungsauftrag vor Bild-, Streaming- und Kostenarbeit.
+Ein Name rechtfertigt einen Schritt, wenn er Ownership, Nebenwirkung, Einheit oder
+Lebensdauer falsch bezeichnet und dadurch einen konkreten Vertragsfehler verdeckt.
+Diesen Befund mit vollständiger Caller-Migration im zuständigen WI aktivieren.
+Ohne solchen Befund bleibt dieser Modulaudit Architecture: planned.
+
+Proxy-/Client-Verben, DiagnosticLedger, TilePieces::SetSurfaces und Catalogue-Aufbau
+sind ohne Aliase migriert. Der vollständige Gate-Stand 5de351d40 bestätigt die
+betroffenen CPU-Pfade; GPU-Lifecycle und gesamte installierte API bleiben separate Abnahmen.
+2311s allokierender Readiness-Miss hat Vorrang vor weiterer Namensbereinigung.
+Keine neue Threading-, ECS- oder Service-Locator-Struktur aus einem Namensaudit ableiten.
 
 ## Re-audit after candidate routing
 

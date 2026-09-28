@@ -3,7 +3,7 @@ State: proposed
 Architecture: ready
 Parent: 2188
 Depends:
-Priority: P1
+Priority: P3
 Area: include, scenario, generators
 Tags: api, groundless, coordinates
 
@@ -46,3 +46,8 @@ simulation coordinate frame or imported glTF placements as a side effect.
    advance and render without terrain work; an Earth fixture still renders.
    Failures retain the previous published declaration. Check ownership and
    frame-time cost, run `make format`, focused suites and `make lint`.
+
+## Priorität
+
+Der belegte öffentliche Vertragsfehler bleibt offen. Nach der laufenden Earth-Streaming-/
+LOD-Abnahme bearbeiten; kein Blocker für Wald, Wetter, Wolken oder gemeinsames Framebudget.

@@ -6,30 +6,20 @@ Area: world, render, generators, navigation
 Tags: webcam, measured
 Depends: 2188, 2092, 2101, 2111, 2128, 2129, 2137, 2138, 2140, 2144, 2145, 2152, 2155, 2166, 2167, 2168, 2170, 2171, 2172, 2173, 2174, 2175, 2176, 2196, 2197, 2198, 2199, 2200, 2201, 2202, 2203, 2204, 2213
 
-# A plausible realtime sandbox closes the webcam quality gaps
+# A coherent realtime sandbox closes the webcam quality gaps
 
-## Auftrag und Abnahmemaßstab
+## Verbindliches Ziel
 
-Visueller Ausgangsbefund vom 2026-09-07, Renderer **12ceb790**. Ziel: eine plausible, annähernd fotorealistische
-Open-World-Sandbox in Echtzeit aus **OSM, DEM, Zeit und Wetter**. Die Webcam ist visuelle
-Referenz, kein Generatorinput und kein Auftrag zur Rekonstruktion ihres tatsächlichen Weltzustands.
-Belegte Gelände-/Netz-/Gebäudedaten erhalten; unbekannte Bauformen, Artenmischung, Materialdetail,
-Wolken und Population plausibel und deterministisch generieren. Keine Place-ID-Sondermodelle.
+Studio-Look zwischen Animation und Realismus gemäß AGENTS.md; Solarpunk-2050 als
+Default, belegte OSM-Formen und physikalische Verträge haben Vorrang. Keine fotografische
+Rekonstruktion, Place-Sondermodelle oder Kameraorte als Generatorparameter.
+Provider liefern OSM/DEM/Zeit/Wetter; deterministische Generatoren ergänzen plausible
+Formen, Materialien und Population. Webcam-Paare prüfen Bildkohärenz und Größenordnung.
+Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren LOD unabhängig.
 
-| Gegenstand | Maßstab |
-|---|---|
-| belegte Lage/DEM/OSM-Semantik | geographische und topologische Konsistenz innerhalb Quellunsicherheit |
-| ungetaggte Architektur/Geologie/Vegetation | plausible generische Formen/Verteilungen und korrekte Konstruktion |
-| Licht/Luft/Wasser/Material | physikalische Zusammenhänge, konsistente deklarierte Zeit/Wetterdaten |
-| Boote/Fahrzeuge/Menschen/einzelne Wolken | eigene plausible Sandbox; kein Fotozähl-/Pixeloracle |
-| Kamera | korrekt deklarierte Konventionen; Referenzpose kalibrieren, Restunsicherheit nennen |
-| Navigation/NPC/Map | logisches 2D-Netz mit Ebenen/Verbindungen, unabhängig vom Render-Mesh |
-| Kontakt/Darstellung | aus demselben räumlichen Alignment, mit getrennten LOD-/Fehlerverträgen |
+## Historischer Bildbefund
 
-Volumetrisches Licht ist eine Kernkompetenz. Lichtführung, Schatten, Atmosphäre und
-Farbgestaltung weltweit über Tages- und Jahreszeiten gemeinsam abnehmen; Details in 2172.
-
-## SOLL/IST – visuelle Befunde
+Stand 2026-09-07, Renderer 12ceb790; kein aktueller Gate- oder Bildstatus.
 
 | Place | SOLL als Plausibilitätsreferenz | IST im neuen PNG | zuständige WIs |
 |---|---|---|---|
@@ -48,38 +38,28 @@ Feldkirch wurden keine geschätzten Kameraoffsets eingetragen: Pose/Datum und fi
 müssen zuerst auseinandergehalten werden (2170). Tunnel, Nahfassaden, Schatten unter Brücken,
 Nacht und bewegte NPCs sind durch Außen-Standbilder nicht abgedeckt.
 
-## Verbindliche Arbeitsreihenfolge
+## Prioritäten und echte Blocker
 
-P0 priorisiert aktuelle rote Gates und belegte Lebensdauer-/Publikationsfehler.
-clang-tidy bleibt auf **null**; offene Gesamtaudits sperren unabhängige Bildarbeit nicht.
-Jetzt 2166 (Terrainvorhang lokalisieren und korrigieren), 2248 → 2247 (reproduzierbare Strukturprodukte) bearbeiten. Materialien und Licht
-auf einfachen Szenen parallel zur gebauten Welt entwickeln. Places ohne Vegetation.
-
-| Stufe | Arbeiten | Abnahme vor nächstem Ausbau |
+| Priorität | Nächste Arbeit | Blocker und Grenze |
 |---|---|---|
-| P0 Engine bereinigen | 2094 Gates; 2188 native API/Ownership/Lifecycle, 2190/2191 GPU, 2209 → 2194 Fehler/Allokation, 2124/2130/2132 Jobs und Streaming | null Tidy-Befunde; öffentliche Verträge dokumentiert und geprüft; relevante Tests und Negativkontrollen grün |
-| P1 Materialien und Lichtgrundlage | 2216 Materialverträge, 2179 Filterorakel, 2152 GLSL; 2171 zunächst analytische Flächen; 2167 direkt/indirekt, 2128 Schatten, 2155 Kameraantwort | MR/BRDF/Farbräume/Normalen/Maßstab und Belichtung auf einfachen unabhängigen Szenen überzeugend |
-| P2 Gelände und gebaute Welt | 2170 Pose/Datum; 2166/2144 Gelände; 2173 OSM; 2133 logisches Netz → 2121/2175 Anschlüsse/Bauwerke; 2138 Gebäude; 2145 Wasser/Ufer, 2129 Reflexionen; 2171 auf alle Generatoren übertragen | Städte/Landschaft ohne Pflanzen plausibel; Brücken/Tunnel/gestapelte Ebenen korrekt, Materialdetail und Nah-/Fernübergänge gut |
-| P3 Atmosphäre und Himmel | 2172 gemeinsamer Zeit-/Wetter-/Luftzustand; 2167 weltweite Beleuchtungsabnahme; 2213 Sonne/Mond/Sterne | klare Luft, Dämmerung, Nacht, Jahreszeiten und Hemisphären konsistent; Geländeabschattung und Himmelshelligkeit stimmen |
-| P4 Wolken | 2140 nutzt P3 für Dichte, Streuung, Verdeckung und Wolkenschatten | klar/bedeckt und Wetterwechsel zeitlich stabil; keine doppelte Atmosphärenkomposition |
-| P5 Vegetation | 2111 isolierter ebener Waldnachweis → Weltintegration; 2176 Arten; 2137 krautige Vegetation/Unterwuchs | Instancing, Culling, vollständige LOD-Leiter, Overdraw, Streaming und Standortplausibilität belegt |
-| P6 Population und Effekte | 2174 bewegte Sandbox-Population; 2137 Partikeleffekte; Audioausbau nach 2212 | auf konsistenten Navigations-/Simulationsverträgen aufbauende belebte Welt |
+| P0 | Rote Gates und bestätigte Lebensdauer-/Publikationsfehler | Nur betroffener Pfad gesperrt; keine globale Auditblockade |
+| P0 | Terrain-Provenienz 2310/2311; CPU-Verfeinerung 2313 → Runtime 2312 → Gebäude-LOD 2298 | Keine kleinere Schranke ohne vollständigen nativen Oberflächenbeweis |
+| P0 | 2092: zeitlich getaktete Hockenheim-Fahrt und übereinstimmende Qualitäts-/Kostentraces | CPU/Fence-Zeit ersetzt keine GPU-Passzeit und keinen A18-Nachweis |
+| P1 | 2111: nativer isolierter Wald; 2172: unveränderlicher Wetterzustand | Beide unabhängig von fertiger Stadt; Weltkronen benötigen atomare Publikation |
+| P1 | 2140: erste volumetrische Wolkenschicht; 2167/2171 Licht und Materialien | Wolken benötigen verbindlichen Wetter-/Kompositionsvertrag, keine fertige Vegetation |
+| P1 | Gelände, OSM-Bauwerke, Wasser und räumliche Anschlüsse | Nur tatsächliche gemeinsame Quellen-/Kontaktverträge blockieren |
+| P1 | 2314: gemeinsames Qualitätsbudget aus gemessenen Leitern ableiten | Erst Kosten/Qualität messen; kein vorgezogener generischer Solver |
+| P2 | Artenvielfalt, Unterwuchs, Population und vollständige Place-Abnahmen | Auf den jeweiligen funktionierenden Kern aufbauen |
 
-`Parent` bezeichnet Zugehörigkeit, `Depends` fachliche Voraussetzungen der vollständigen
-Abnahme. Die Tabelle priorisiert Arbeit; keine künstlichen Depends-Ketten nur für Reihenfolge.
-Insbesondere Materialgrundlagen benötigen keine fertige Stadt, Himmelskörper keine Wolken.
-2171s komplette Generatorabnahme folgt erst nach P2; deren Materialkern beginnt in P1. 2169 ist die Gesamtabnahme; Kinder hängen nicht auf 2169 zurück.
+Stadt, Wald, Infrastruktur, Himmel und Wolken teilen dasselbe Gesamtframebudget.
+Eine Großstadt und ein Wald müssen dieselbe Zeitobergrenze einhalten; kein künstliches
+Auffüllen freier Zeit. Keine festen Familienquoten. Sichtbarer Beitrag, Kosten und
+zeitliche Stabilität entscheiden. Himmel mit etwa 1/3–2/3 Bildanteil ist ein Kerninhalt;
+Wolken verändern auch Bodenlicht und Schatten. Alte P3–P5-Wartefolge ist aufgehoben.
+Depends dieses Gesamt-WI nennt Voraussetzungen der vollständigen Abnahme, keine
+Startblocker seiner Kinder. Reihenfolge steht in Priority und der kleinen Reserve 2188.
 
-2092/2143 messen Bewegung, Framezeiten und Speicher bei jeder Stufe. API-/Datenverträge,
-Streaming, LOD und Feature-Schalter gehören zur Grundlage, nicht in eine späte Optimierung.
-Plausibler gestalteter Look zählt; technische Geometrie-/Lichtfehler bleiben Fehler.
-Vor Weltvegetation: deklarierte ebene Waldfläche mit Dichte/Sichtweite/Kamerafahrt,
-CPU/GPU/Overdraw/Speicherspitzen und geöffneten PNGs. Kein Weltvegetationsausbau vorher.
-
-## Verbindliche Abnahmen je Kamera
-
-RDR2/GTA5 (PS4) bestimmen die visuelle Baseline; die folgenden offenen Kinder konkretisieren
-sie anhand der selbst geöffneten Webcams. Kein vorhergesagter exakter RAGE-Render.
+## Place-Abnahmen
 
 | Place | Abnahme-WI | Schwerpunkt |
 |---|---|---|
@@ -93,28 +73,19 @@ sie anhand der selbst geöffneten Webcams. Kein vorhergesagter exakter RAGE-Rend
 | Malcesine | [2203](2203_malcesine_meets_the_webcam_visual_acceptance.md) | Gegliederte Steilfelsen über mediterranem Seeufer |
 | Feldkirch | [2204](2204_feldkirch_meets_the_webcam_visual_acceptance.md) | Altstadt im bewaldeten Tal mit eingebundenem Flussraum |
 
-Alle Kinder müssen bestehen. Fotoartefakte, Logos, exakte Population und Wolkenpositionen
-sind kein Ziel. PNG-Abnahme erfolgt über den Client, mit kalibrierter Kamera und deklarierter
-Zeit/Wetterlage; kein Foto-Pixeloracle. Zusätzlich Bewegung, Unter-/Nahansichten und Transfer
-auf andere Seeds/Orte prüfen. Materialqualität bedeutet Khronos MR einschließlich BRDF,
-Farbräumen, Rauheit, Normalen und plausiblen Texturmaßstäben; kein bloßes Grundfarbenfeld.
+## Abnahme
 
-## Globale Abnahme
+- [ ] Alle neun Webcam-/Client-Paare selbst öffnen; Ursachen, verbleibende Grenzen,
+      verwendete Quellen, Kamera, Wetter, Digest und Kosten festhalten.
+- [ ] Bewegung sowie Nah-, Unter-, Tunnel- und mehrstöckige Ansichten prüfen;
+      mindestens ein unabhängiger Ort/Seed pro relevanter Generatorfamilie.
+- [ ] Materialien: Metallic-Roughness, BRDF/Farbräume, Maßstab und Normalen;
+      Tag/Nacht, klar/bedeckt/Regen/Nebel/Schnee und Jahreszeiten gemeinsam bewerten.
+- [ ] 720p60 auf Apple A18 Pro, 8 GB: 1000/60 = 16,666… ms Gesamtframe;
+      p50/p95/p99, Warmstand/Kaltstart/Bewegung, Speicher und Rückstau getrennt berichten.
+      Keine Addition isolierter p99 und kein Ersatz durch residente Standbilder.
+- [ ] LOD ändert weder logisches Netz noch Kontakt; Fehlerschranken und Qualitätsverluste
+      bleiben sichtbar. Relevante Orakel, API-Dokumentation und vollständiges Lint grün.
 
-- [ ] Alle neun Paare erneut visuell öffnen, jeweils Gesamtbild und ursachenspezifischen
-      Ausschnitt/AOV; Befund, noch offene Grenze, Digest und Kosten festhalten. Kein SSIM/
-      Pixelgleichheitsziel gegen unabhängig erzeugte Population oder unbekannte Webcam-Grade.
-- [ ] Kamera-/DEM-Korrespondenzen getrennt von generischer Material-/Formqualität prüfen.
-      Zusätzliche Nah-/Seit-/Unter-/Tunnelansichten und Dreiebenen-Verkehrsfixture nach 2175.
-- [ ] Kein Generator endet bei Fallback-RGB: 2171s Material-Coverage über alle Geometrieklassen.
-      2176 erweitert den vorhandenen Baumgenerator; 2111s Placement-Fix allein genügt nicht.
-- [ ] Tag/Nacht, klar/bedeckt/Regen/Nebel/Schnee und Jahreszeiten; mindestens ein nicht für
-      den Fotovergleich angepasster Ort/Seed je relevanter Generatorfamilie als Transferprobe.
-- [ ] 720p60 auf dem Projektziel Apple A18 Pro gemäß 2092, nicht nur residenter Stillrender.
-      1000/60 = 16,666… ms; jede neue Stufe mit CPU/GPU/Bytes und Gesamtframe messen.
-      Noch keine belastbaren Einzelpass-Etats: zuerst Profiling, keine addierten isolierten p99.
-- [ ] Logisches Netz unverändert bei Render-LOD/Unsichtbarkeit; räumlicher Kontakt und
-      Darstellung versioniert konsistent. Bekannte rote Orakel/Lint bleiben offen.
-
-Historische Renderreihen und vollständige Bildidentitäten stehen in Git. Aktuelle
-PNG-Referenzen: `build/shots/reference/terrain-20260908/`. Logs im System-Tempverzeichnis.
+Historische Bildidentitäten stehen in Git; PNGs unter build/shots/reference/,
+Logs im System-Tempverzeichnis. Unbekannte Wolkenpositionen sind kein Foto-Pixeloracle.
