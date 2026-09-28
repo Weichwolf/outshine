@@ -298,5 +298,33 @@ int main() {
   ready = finish();
   CHECK(ready.size() == 1, "new producer revision completes without an orphaned reservation");
   if (!ready.empty()) { queue.CommitsLandings(stack, prints, ready); }
+  auto lineOnly = buildings;
+  lineOnly.front().Area = false;
+  stack.Declares(lineOnly);
+  CHECK(stack.Restand(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+        "line-only vector input enters the source snapshot");
+  size_t terrainCalls = 0;
+  source.CopyField = [&terrainCalls](Data::TileId, HeightField::Block &) {
+    ++terrainCalls;
+    return false;
+  };
+  source.Sample = [&terrainCalls](LongitudeLatitude) -> std::optional<double> {
+    ++terrainCalls;
+    return std::nullopt;
+  };
+  prints.BeginRefinement();
+  CHECK(refine() == 1, "a vector tile without building polygons needs no DEM reservation");
+  ready = finish(true);
+  CHECK(ready.size() == 1 && ready.front().Baked->OccupiedCells == 0 && terrainCalls == 0,
+        "empty building geometry lands without invoking terrain resolvers");
+  if (!ready.empty()) { queue.CommitsLandings(stack, prints, ready); }
+  CHECK(StructureBuildQueue::QualifiedSources(stack, prints),
+        "proven building absence completes the qualified source snapshot");
+  stack.Declares(buildings);
+  CHECK(stack.Restand(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+        "a real building polygon replaces the line-only input");
+  prints.BeginRefinement();
+  CHECK(refine() == 0 && !StructureBuildQueue::QualifiedSources(stack, prints) && terrainCalls > 0,
+        "missing DEM for a real polygon still defers rather than certifying absence");
   return Report();
 }

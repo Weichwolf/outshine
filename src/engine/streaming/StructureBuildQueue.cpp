@@ -202,6 +202,18 @@ struct HeightResolutionStats {
   double &DurationMs;
 };
 
+bool QualifiedStructureHeights(const Ground::OsmField &vectors,
+                               Ground::FeatureRun over,
+                               const Ground::HeightField &heights) {
+  if (heights.Qualified()) { return true; }
+  if (heights.Fallback() || !heights.Blocks().empty()) { return false; }
+  const int layer = vectors.Layer(Ground::OsmLayer::Buildings);
+  return std::ranges::none_of(
+      vectors.Features().subspan(over.From, over.To - over.From), [layer](const auto &feature) {
+        return feature.Type == kPolygonFeature && std::cmp_equal(feature.Layer, layer);
+      });
+}
+
 bool ResolveHeights(const Ground::OsmField &vectors,
                     Ground::FeatureRun over,
                     int blockZoom,
@@ -230,7 +242,8 @@ bool ResolveHeights(const Ground::OsmField &vectors,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     return false;
   }
-  if (requirement == StructureBuildQueue::HeightRequirement::FineOnly && !pinned->Qualified()) {
+  if (requirement == StructureBuildQueue::HeightRequirement::FineOnly &&
+      !QualifiedStructureHeights(vectors, over, *pinned)) {
     ++stats.Deferred;
     stats.DurationMs +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
@@ -920,32 +933,38 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
     const std::optional<Data::TileSourceIdentity> vectorSource =
         VectorSource(*vectors, bake.Task.Tile());
-    landings.push_back({.Tile = bake.Task.Tile(),
-                        .Baked = &baked,
-                        .AnchorEcef = bake.Task.Raw().AnchorEcef,
-                        .SourceKey = bake.SourceKey,
-                        .Footprints = prints.PrepareAcceptance(
-                            bake.Task.Tile(),
-                            {.Prints = baked.Prints,
-                             .SeatSpreadM = baked.SeatSpreadM,
-                             .AcrossM = baked.AcrossM,
-                             .OccupiedCells = baked.OccupiedCells,
-                             .CellBounds = baked.CellBounds,
-                             .CellMaxHeightM = baked.CellMaxHeightM,
-                             .Triangles = triangles,
-                             .OsmHeights = baked.OsmHeights,
-                             .DefaultHeights = baked.DefaultHeights,
-                             .Fronted = baked.Fronted},
-                            bake.Task.Heights().Sources(),
-                            bake.Task.Heights().Qualified(),
-                            vectorSource,
-                            {.HeightRasterDigest = bake.Task.Heights().RasterDigest(),
-                             .StreetDigest = bake.StreetDigest,
-                             .FocalPx = bake.Revision.FocalPx,
-                             .TileSpanM = bake.Revision.TileSpanM,
-                             .Eye = bake.Revision.Eye},
-                            std::move(validated[at]),
-                            bake.Task.Heights().CaptureRequest())});
+    landings.push_back(
+        {.Tile = bake.Task.Tile(),
+         .Baked = &baked,
+         .AnchorEcef = bake.Task.Raw().AnchorEcef,
+         .SourceKey = bake.SourceKey,
+         .Footprints = prints.PrepareAcceptance(
+             bake.Task.Tile(),
+             {.Prints = baked.Prints,
+              .SeatSpreadM = baked.SeatSpreadM,
+              .AcrossM = baked.AcrossM,
+              .OccupiedCells = baked.OccupiedCells,
+              .CellBounds = baked.CellBounds,
+              .CellMaxHeightM = baked.CellMaxHeightM,
+              .Triangles = triangles,
+              .OsmHeights = baked.OsmHeights,
+              .DefaultHeights = baked.DefaultHeights,
+              .Fronted = baked.Fronted},
+             bake.Task.Heights().Sources(),
+             QualifiedStructureHeights(
+                 *vectors,
+                 {.From = vectors->Tiles()[bake.Task.Tile()].FirstFeature,
+                  .To = static_cast<size_t>(vectors->Tiles()[bake.Task.Tile()].FirstFeature) +
+                        vectors->Tiles()[bake.Task.Tile()].FeatureCount},
+                 bake.Task.Heights()),
+             vectorSource,
+             {.HeightRasterDigest = bake.Task.Heights().RasterDigest(),
+              .StreetDigest = bake.StreetDigest,
+              .FocalPx = bake.Revision.FocalPx,
+              .TileSpanM = bake.Revision.TileSpanM,
+              .Eye = bake.Revision.Eye},
+             std::move(validated[at]),
+             bake.Task.Heights().CaptureRequest())});
   }
   return landings;
 }
