@@ -179,7 +179,7 @@ int main() {
             return certificate.IsComplete() && certificate.TerrainScopeRevision() == terrainScope &&
                    (**revisions).AreCurrent(certificate.Dependencies());
           }};
-  CHECK(StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
+  CHECK(StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey),
         "accepted cell source still matches resident DEM and street data");
   CHECK(copiedFields == 0, "valid accepted certificate performs zero field copies");
   residentField.reset();
@@ -187,7 +187,7 @@ int main() {
   allocations = 0;
   measureAllocations = true;
   const bool rasterFreeCurrent =
-      StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey);
+      StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey);
   measureAllocations = false;
   CHECK(rasterFreeCurrent, "accepted certificate survives eviction of all input rasters");
   CHECK(allocations == 0, "valid certificate hit performs no heap allocation");
@@ -195,21 +195,116 @@ int main() {
   auto unrelated = demTile;
   unrelated.X ^= 1u;
   CHECK((**revisions).IssueDeliveryStamp(unrelated).has_value(), "unrelated terrain changes");
-  CHECK(StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey) &&
+  CHECK(StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey) &&
             copiedFields == 0,
         "another region preserves the zero-work hit");
   terrainScope = 12;
-  CHECK(!StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
+  CHECK(!StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey),
         "shape scope mismatch rejects accepted terrain");
   CHECK(copiedFields == 0, "readiness never prepares terrain on an invalid certificate");
   terrainScope = 11;
   prints.TilesSpan(2000);
-  CHECK(!StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
+  CHECK(!StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey),
         "changed tile span rejects the otherwise valid certificate");
   prints.TilesSpan(1000);
   CHECK((**revisions).IssueDeliveryStamp(demTile).has_value(), "contributing terrain changes");
-  CHECK(!StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
+  CHECK(!StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey),
         "changed DEM delivery rejects the accepted certificate");
   CHECK(copiedFields == 0, "stale readiness does not copy or queue terrain work");
+  using Validation = TerrainCertificate::Validation;
+  using State = StructureBuildQueue::CellSourceState;
+  size_t forbiddenCalls = 0;
+  size_t inspections = 0;
+  auto inspectedSource = heights;
+  inspectedSource.Sample = [&forbiddenCalls](LongitudeLatitude) {
+    ++forbiddenCalls;
+    return std::optional<double>{};
+  };
+  inspectedSource.CopyField = [&forbiddenCalls](Data::TileId, HeightField::Block &) {
+    ++forbiddenCalls;
+    return false;
+  };
+  inspectedSource.ResidentField = [&forbiddenCalls](Data::TileId) {
+    ++forbiddenCalls;
+    return std::shared_ptr<const TerrainField>{};
+  };
+  inspectedSource.CertificateCurrent = [&forbiddenCalls](const TerrainCertificate &) {
+    ++forbiddenCalls;
+    return false;
+  };
+  const std::array cases{std::pair{Validation::Current, State::Current},
+                         std::pair{Validation::Unknown, State::Unknown},
+                         std::pair{Validation::Stale, State::Stale},
+                         std::pair{Validation::ScopeChanged, State::ScopeChanged},
+                         std::pair{Validation::Pending, State::Pending}};
+  for (const auto &[validation, expected] : cases) {
+    inspectedSource.InspectCertificate = [validation, &inspections](const TerrainCertificate &) {
+      ++inspections;
+      return validation;
+    };
+    allocations = 0;
+    measureAllocations = true;
+    const auto actual =
+        StructureBuildQueue::InspectCellSource(stack, prints, inspectedSource, 0, *sourceKey);
+    measureAllocations = false;
+    CHECK(
+        actual == expected && allocations == 0 && forbiddenCalls == 0,
+        "pure source inspection preserves each metadata status without preparation or allocation");
+  }
+  CHECK(inspections == cases.size(),
+        "only the nonwaiting inspection callback consumes valid metadata");
+  inspectedSource.InspectCertificate = {};
+  allocations = 0;
+  measureAllocations = true;
+  const auto missingInspector =
+      StructureBuildQueue::InspectCellSource(stack, prints, inspectedSource, 0, *sourceKey);
+  measureAllocations = false;
+  CHECK(missingInspector == State::Unknown && allocations == 0 && forbiddenCalls == 0,
+        "missing inspector never falls back to blocking validation or a resident resolver");
+  inspectedSource.InspectCertificate = [&inspections](const TerrainCertificate &) {
+    ++inspections;
+    return Validation::Current;
+  };
+  inspectedSource.TerrainScope = 12;
+  CHECK(StructureBuildQueue::InspectCellSource(stack, prints, inspectedSource, 0, *sourceKey) ==
+            State::ScopeChanged,
+        "known shape mismatch cannot be overridden by an optimistic callback");
+  inspectedSource.TerrainScope = 11;
+  prints.TilesSpan(2000);
+  CHECK(StructureBuildQueue::InspectCellSource(stack, prints, inspectedSource, 0, *sourceKey) ==
+            State::Stale,
+        "changed span invalidates source metadata before terrain inspection");
+  prints.TilesSpan(1000);
+  CHECK(StructureBuildQueue::InspectCellSource(
+            stack, prints, inspectedSource, 0, *sourceKey ^ 1u) == State::Stale,
+        "another source key cannot be certified by a current terrain callback");
+  CHECK(StructureBuildQueue::InspectCellSource(stack,
+                                               prints,
+                                               inspectedSource,
+                                               static_cast<uint32_t>(vectors->Tiles().size()),
+                                               *sourceKey) == State::Unknown,
+        "absent tile has no source certificate");
+  CHECK(inspections == cases.size() && forbiddenCalls == 0,
+        "invalid source metadata invokes neither certificate callbacks nor preparation");
+  const auto *savedInput = prints.InputOfTile(0);
+  auto unscopedAcceptance = prints.PrepareAcceptance(
+      0,
+      accepted,
+      savedInput->Sources,
+      true,
+      savedInput->Vector,
+      savedInput->Bake,
+      TerrainCertificate::FromDelivery(demTile, (**revisions).CurrentStamp(demTile)));
+  prints.ReplaceAcceptance(std::move(unscopedAcceptance), accepted);
+  CHECK(StructureBuildQueue::QualifiedSourceKey(prints, 0) == sourceKey,
+        "changing only certificate scope preserves the geometry source key");
+  allocations = 0;
+  measureAllocations = true;
+  const auto unscopedState =
+      StructureBuildQueue::InspectCellSource(stack, prints, inspectedSource, 0, *sourceKey);
+  measureAllocations = false;
+  CHECK(unscopedState == State::Unknown && allocations == 0 && inspections == cases.size() &&
+            forbiddenCalls == 0,
+        "unknown accepted scope cannot become Current through an optimistic callback");
   return Report();
 }

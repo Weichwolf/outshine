@@ -329,7 +329,7 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
                                                       World.Pieces,
                                                       World.StructureBuilds);
     if (plan.Complete && !plan.Active &&
-        StructureBuildQueue::CellSourceCurrent(
+        StructureBuildQueue::ValidateResidentCellSource(
             World.Stack, footprints, heightAt, tile, *sourceKey)) {
       if (auto activated = ActivateStructureCells(
               World, Picture.Device, tile, *sourceKey, accepted->OccupiedCells, plan.Choices());

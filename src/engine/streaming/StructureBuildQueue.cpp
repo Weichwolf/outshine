@@ -260,31 +260,40 @@ bool ResolveHeights(const Ground::OsmField &vectors,
   return true;
 }
 
+bool AcceptedSourceMetadataCurrent(const Ground::OsmField &vectors,
+                                   const Ground::StreetField &streets,
+                                   const Ground::BuildingField &footprints,
+                                   uint32_t tile,
+                                   uint64_t sourceKey) {
+  if (tile >= vectors.Tiles().size()) { return false; }
+  const auto *accepted = footprints.InputOfTile(tile);
+  return accepted != nullptr && accepted->Qualified &&
+         accepted->Vector == vectors.Tiles()[tile].Source &&
+         accepted->Bake.TileSpanM == footprints.TileSpanM() &&
+         accepted->Bake.StreetDigest == StreetDigest(streets, vectors, tile) &&
+         StructureBuildQueue::QualifiedSourceKey(footprints, tile) == sourceKey;
+}
+
 bool CertifiedAcceptedSourceCurrent(const Ground::OsmField &vectors,
                                     const Ground::StreetField &streets,
                                     const Ground::BuildingField &footprints,
                                     const StructureBuildQueue::HeightSource &heightAt,
                                     uint32_t tile,
                                     uint64_t sourceKey) {
-  if (tile >= vectors.Tiles().size()) { return false; }
   const auto *accepted = footprints.InputOfTile(tile);
-  return accepted != nullptr && accepted->Qualified && accepted->Terrain.IsComplete() &&
-         accepted->Terrain.ScopeCurrent(heightAt.TerrainScope) && heightAt.CertificateCurrent &&
-         accepted->Vector == vectors.Tiles()[tile].Source &&
-         accepted->Bake.TileSpanM == footprints.TileSpanM() &&
-         accepted->Bake.StreetDigest == StreetDigest(streets, vectors, tile) &&
-         StructureBuildQueue::QualifiedSourceKey(footprints, tile) == sourceKey &&
-         heightAt.CertificateCurrent(accepted->Terrain);
+  return AcceptedSourceMetadataCurrent(vectors, streets, footprints, tile, sourceKey) &&
+         accepted->Terrain.IsComplete() && accepted->Terrain.ScopeCurrent(heightAt.TerrainScope) &&
+         heightAt.CertificateCurrent && heightAt.CertificateCurrent(accepted->Terrain);
 }
 
-bool CurrentCellSource(const Ground::GroundStack &stack,
-                       const Ground::OsmField &vectors,
-                       const Ground::BuildingField &footprints,
-                       const StructureBuildQueue::HeightSource &heightAt,
-                       uint32_t tile,
-                       uint64_t sourceKey,
-                       size_t &deferred,
-                       double &resolutionMs) {
+bool ValidateCellSource(const Ground::GroundStack &stack,
+                        const Ground::OsmField &vectors,
+                        const Ground::BuildingField &footprints,
+                        const StructureBuildQueue::HeightSource &heightAt,
+                        uint32_t tile,
+                        uint64_t sourceKey,
+                        size_t &deferred,
+                        double &resolutionMs) {
   if (CertifiedAcceptedSourceCurrent(
           vectors, stack.Ways(), footprints, heightAt, tile, sourceKey)) {
     return true;
@@ -397,11 +406,44 @@ StructureBuildQueue::QualifiedSourceKey(const Ground::BuildingField &footprints,
                              .FallbackHeights = false});
 }
 
-bool StructureBuildQueue::CellSourceCurrent(const Ground::GroundStack &stack,
-                                            const Ground::BuildingField &footprints,
-                                            const HeightSource &heightAt,
-                                            uint32_t tile,
-                                            uint64_t sourceKey) {
+StructureBuildQueue::CellSourceState
+StructureBuildQueue::InspectCellSource(const Ground::GroundStack &stack,
+                                       const Ground::BuildingField &footprints,
+                                       const HeightSource &heightAt,
+                                       uint32_t tile,
+                                       uint64_t sourceKey) {
+  const auto *vectors = stack.Vectors();
+  const auto *accepted = footprints.InputOfTile(tile);
+  if (vectors == nullptr || tile >= vectors->Tiles().size() || accepted == nullptr ||
+      !accepted->Qualified) {
+    return CellSourceState::Unknown;
+  }
+  if (sourceKey == 0 ||
+      !AcceptedSourceMetadataCurrent(*vectors, stack.Ways(), footprints, tile, sourceKey)) {
+    return CellSourceState::Stale;
+  }
+  if (!accepted->Terrain.ScopeCurrent(heightAt.TerrainScope)) {
+    return CellSourceState::ScopeChanged;
+  }
+  if (!accepted->Terrain.IsComplete() || accepted->Terrain.TerrainScopeRevision() == 0 ||
+      !heightAt.InspectCertificate) {
+    return CellSourceState::Unknown;
+  }
+  switch (heightAt.InspectCertificate(accepted->Terrain)) {
+    case Ground::TerrainCertificate::Validation::Current: return CellSourceState::Current;
+    case Ground::TerrainCertificate::Validation::Unknown: return CellSourceState::Unknown;
+    case Ground::TerrainCertificate::Validation::Stale: return CellSourceState::Stale;
+    case Ground::TerrainCertificate::Validation::ScopeChanged: return CellSourceState::ScopeChanged;
+    case Ground::TerrainCertificate::Validation::Pending: return CellSourceState::Pending;
+  }
+  std::unreachable();
+}
+
+bool StructureBuildQueue::ValidateResidentCellSource(const Ground::GroundStack &stack,
+                                                     const Ground::BuildingField &footprints,
+                                                     const HeightSource &heightAt,
+                                                     uint32_t tile,
+                                                     uint64_t sourceKey) {
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr || tile >= vectors->Tiles().size() || sourceKey == 0 ||
       QualifiedSourceKey(footprints, tile) != sourceKey) {
@@ -418,7 +460,7 @@ bool StructureBuildQueue::CellSourceCurrent(const Ground::GroundStack &stack,
   };
   size_t deferred = 0;
   double resolutionMs = 0;
-  return CurrentCellSource(
+  return ValidateCellSource(
       stack, *vectors, footprints, residentOnly, tile, sourceKey, deferred, resolutionMs);
 }
 
@@ -920,14 +962,14 @@ StructureBuildQueue::NextCellLanding(const Ground::GroundStack &stack,
   const bool residentCurrent =
       StreetDigest(stack.Ways(), *vectors, bake.Task.Tile()) == bake.StreetDigest &&
       PinnedHeightsResident(bake.Task.Heights(), heightAt);
-  if (!residentCurrent && !CurrentCellSource(stack,
-                                             *vectors,
-                                             footprints,
-                                             heightAt,
-                                             bake.Task.Tile(),
-                                             bake.SourceKey,
-                                             Deferred_,
-                                             resolutionMs)) {
+  if (!residentCurrent && !ValidateCellSource(stack,
+                                              *vectors,
+                                              footprints,
+                                              heightAt,
+                                              bake.Task.Tile(),
+                                              bake.SourceKey,
+                                              Deferred_,
+                                              resolutionMs)) {
     if (PinnedCellHeight_ && PinnedCellHeight_->Tile == bake.Task.Tile()) {
       PinnedCellHeight_.reset();
     }

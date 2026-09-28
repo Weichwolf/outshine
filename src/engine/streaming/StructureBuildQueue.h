@@ -26,6 +26,7 @@ class StructureBuildQueue {
 public:
   static constexpr size_t kCandidateWindow = 4;
   enum class HeightRequirement : uint8_t { AllowFallback, FineOnly };
+  enum class CellSourceState : uint8_t { Current, Unknown, Stale, ScopeChanged, Pending };
   enum class BuildPurpose : uint8_t { ViewDetail, SourceGeometry };
 
   struct HeightSourceRevision {
@@ -77,6 +78,8 @@ public:
     HeightSourceRevision Revision;
     uint64_t TerrainScope = 0;
     std::function<bool(const Ground::TerrainCertificate &)> CertificateCurrent;
+    std::function<Ground::TerrainCertificate::Validation(const Ground::TerrainCertificate &)>
+        InspectCertificate;
   };
 
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack,
@@ -98,11 +101,16 @@ public:
 
   [[nodiscard]] static std::optional<uint64_t>
   QualifiedSourceKey(const Ground::BuildingField &footprints, uint32_t tile);
-  [[nodiscard]] static bool CellSourceCurrent(const Ground::GroundStack &stack,
-                                              const Ground::BuildingField &footprints,
-                                              const HeightSource &heightAt,
-                                              uint32_t tile,
-                                              uint64_t sourceKey);
+  [[nodiscard]] static CellSourceState InspectCellSource(const Ground::GroundStack &stack,
+                                                         const Ground::BuildingField &footprints,
+                                                         const HeightSource &heightAt,
+                                                         uint32_t tile,
+                                                         uint64_t sourceKey);
+  [[nodiscard]] static bool ValidateResidentCellSource(const Ground::GroundStack &stack,
+                                                       const Ground::BuildingField &footprints,
+                                                       const HeightSource &heightAt,
+                                                       uint32_t tile,
+                                                       uint64_t sourceKey);
   [[nodiscard]] bool PostsCell(Ground::GroundStack &stack,
                                Ground::BuildingField &footprints,
                                LongitudeLatitude eye,

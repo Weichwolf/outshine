@@ -203,7 +203,7 @@ int main() {
   CHECK(acceptedKey.has_value(), "validated tile has a qualified source key");
   source.TerrainScope = 12;
   if (acceptedKey) {
-    CHECK(!StructureBuildQueue::CellSourceCurrent(stack, prints, source, 0, *acceptedKey),
+    CHECK(!StructureBuildQueue::ValidateResidentCellSource(stack, prints, source, 0, *acceptedKey),
           "readiness rejects frozen inputs from the previous terrain scope");
     CHECK(!queue.PostsCell(stack,
                            prints,

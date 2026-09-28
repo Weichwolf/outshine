@@ -151,7 +151,7 @@ int main() {
           [&residentField, demTile](Data::TileId at) {
             return at == demTile ? residentField : std::shared_ptr<const TerrainField>{};
           }};
-  CHECK(StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
+  CHECK(StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey),
         "accepted cell source still matches resident DEM and street data");
   prints.BeginRefinement();
   const LongitudeLatitude movedEye{.LongitudeDeg = eye.LongitudeDeg + 0.01,
@@ -175,8 +175,8 @@ int main() {
   CHECK(!queue.Complete(stack, prints, movedEye, [](uint32_t) { return false; }),
         "a near bake eye cannot certify missing view detail");
   const auto cellsReady = [&](uint32_t tileAt) {
-    return tileAt == 0 &&
-           StructureBuildQueue::CellSourceCurrent(stack, prints, heights, tileAt, *sourceKey);
+    return tileAt == 0 && StructureBuildQueue::ValidateResidentCellSource(
+                              stack, prints, heights, tileAt, *sourceKey);
   };
   CHECK(queue.Complete(stack, prints, laterEye, cellsReady) &&
             queue.Posts(stack,
@@ -237,7 +237,7 @@ int main() {
         "one tile burst reuses its pinned DEM without another field job");
   demRevision = "two";
   residentField = fieldOf(demTile);
-  CHECK(!StructureBuildQueue::CellSourceCurrent(stack, prints, heights, 0, *sourceKey),
+  CHECK(!StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey),
         "activation cannot trust an accepted key after live DEM revision changes");
   CHECK(!queue.Complete(stack, prints, laterEye, cellsReady),
         "stale active cells cannot satisfy a moved camera view");
