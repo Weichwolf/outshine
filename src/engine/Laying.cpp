@@ -1805,14 +1805,6 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() 
                          ? World.StructureBuilds.SourcesComplete(World.Stack, state.Footprints())
                          : StructuresReady(state.Footprints(), state.Revision());
   if (!ready) { return GroundBuildProgress::Pending; }
-  GroundBuildProducts &build = state.Candidate().Products();
-  const auto fieldsAt = std::chrono::steady_clock::now();
-  build.Sheets.ForgetsFields();
-  Published.RecordMetric(
-      "ground candidate: source field release",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - fieldsAt)
-          .count(),
-      "ms");
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
 }

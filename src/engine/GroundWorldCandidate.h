@@ -89,7 +89,9 @@ public:
         World_(renderer),
         Sources_(Ground::RegionSources::Snapshot(
             world.Stack.Vectors(), world.Stack.Ways(), world.Stack.WaterBodies())),
-        PieceSources_(pieces) {}
+        PieceSources_(pieces) {
+    Products_.Sheets.ForgetsFields();
+  }
 
   GroundWorldCandidate(const GroundWorldCandidate &) = delete;
   GroundWorldCandidate &operator=(const GroundWorldCandidate &) = delete;

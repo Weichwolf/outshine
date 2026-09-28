@@ -8,6 +8,7 @@
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <utility>
 
 namespace {
 class DelayedSource final : public outshine::Data::Source {
@@ -141,6 +142,15 @@ int main() {
   auto snapshot = sheets.SnapshotSourcedFields();
   HeightSheets cleared = sheets;
   cleared.ForgetsFields();
+  CHECK(sheets.HeapBytes() >= cleared.HeapBytes() + exact.Nodes.size() * sizeof(float),
+        "retained source rasters enter the height-sheet memory ledger");
+  HeightSheets published = sheets;
+  HeightSheets transferred = std::move(published);
+  published.Clear();
+  Ground::HeightField::Block publishedChild;
+  CHECK(transferred.CopySourcedField({.Zoom = 5, .X = 16, .Y = 16}, publishedChild) &&
+            publishedChild.Sources == child.Sources && publishedChild.Nodes == child.Nodes,
+        "published source ownership survives transfer and preserves ancestor resampling");
   Ground::HeightField::Block pinned;
   CHECK(snapshot.CopySourcedField({.Zoom = 4, .X = 8, .Y = 8}, pinned) &&
             pinned.Sources == exact.Sources && pinned.Nodes == exact.Nodes,

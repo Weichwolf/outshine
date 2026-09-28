@@ -486,8 +486,13 @@ uint64_t HeightSheets::Digest() const {
 }
 
 size_t HeightSheets::HeapBytes() const noexcept {
-  return Residency_.HeapBytes() + Fields_.capacity() * sizeof(decltype(Fields_)::value_type) +
-         Requests_.capacity() * sizeof(FieldRequest);
+  size_t bytes = Residency_.HeapBytes() +
+                 Fields_.capacity() * sizeof(decltype(Fields_)::value_type) +
+                 Requests_.capacity() * sizeof(FieldRequest);
+  for (const auto &entry : Fields_) {
+    if (entry.second) { bytes += entry.second->HeapBytes(); }
+  }
+  return bytes;
 }
 
 }
