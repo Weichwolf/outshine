@@ -23,21 +23,23 @@ class SceneRenderer;
 
 class SubjectProxy {
 public:
-  void Stands(const Shape &subject, const Vec3 &anchorEcefM);
+  void ResetForShape(const Shape &subject, const Vec3 &anchorEcefM);
 
-  void Posed(std::span<const float> previousPositionsM) { Previous_ = previousPositionsM; }
+  void BindPreviousPositions(std::span<const float> previousPositionsM) {
+    Previous_ = previousPositionsM;
+  }
 
-  [[nodiscard]] bool Wears(std::span<const uint32_t> partSlot,
-                           std::span<const SubjectMaterial> slots,
-                           std::string &error);
-  [[nodiscard]] bool Emits(size_t part, const std::array<float, 3> &radiance);
-  [[nodiscard]] bool Places(size_t part, const Mat4 &placement);
-  [[nodiscard]] bool Places(size_t part, size_t instance, const Mat4 &placement);
+  [[nodiscard]] bool SetMaterials(std::span<const uint32_t> partSlot,
+                                  std::span<const SubjectMaterial> slots,
+                                  std::string &error);
+  [[nodiscard]] bool SetEmission(size_t part, const std::array<float, 3> &radiance);
+  [[nodiscard]] bool SetPlacement(size_t part, const Mat4 &placement);
+  [[nodiscard]] bool SetPlacement(size_t part, size_t instance, const Mat4 &placement);
   [[nodiscard]] bool ResizeInstances(size_t instances);
 
-  void Lit(const outshine::PunctualLight &light) { Lights_.push_back(light); }
+  void AddLight(const outshine::PunctualLight &light) { Lights_.push_back(light); }
 
-  void Around(const SubjectEnvironment &environment) { Environment_ = environment; }
+  void SetEnvironment(const SubjectEnvironment &environment) { Environment_ = environment; }
 
   [[nodiscard]] const Shape *Shaped() const { return Shape_; }
 

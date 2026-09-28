@@ -405,7 +405,7 @@ private:
   void StandsKeyLight();
   void StandsShadowRadius();
   void ClearsSubject();
-  [[nodiscard]] bool CarriesBuilt(std::string &error);
+  [[nodiscard]] bool PrepareSubject(std::string &error);
   [[nodiscard]] bool JoinsSubjects(std::string &error);
   [[nodiscard]] bool StandsSubjects(std::string &error);
   [[nodiscard]] bool Build(std::string &error);

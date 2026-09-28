@@ -33,7 +33,7 @@ constexpr auto kInvalidLens =
     "the camera projection is invalid or cannot be represented by the GPU lens";
 }
 
-void SubjectProxy::Stands(const Shape &subject, const Vec3 &anchorEcefM) {
+void SubjectProxy::ResetForShape(const Shape &subject, const Vec3 &anchorEcefM) {
   Shape_ = &subject;
   for (int axis = 0; axis < 3; ++axis) { AnchorEcefM_[axis] = anchorEcefM[axis]; }
   const size_t parts = subject.Parts.size();
@@ -62,9 +62,9 @@ bool SubjectProxy::ResizeInstances(size_t instances) {
   return true;
 }
 
-bool SubjectProxy::Wears(std::span<const uint32_t> partSlot,
-                         std::span<const SubjectMaterial> slots,
-                         std::string &error) {
+bool SubjectProxy::SetMaterials(std::span<const uint32_t> partSlot,
+                                std::span<const SubjectMaterial> slots,
+                                std::string &error) {
   if (partSlot.size() != Parts()) {
     error = "the subject proxy stands over " + std::to_string(Parts()) +
             " parts and the surface table names a slot for " + std::to_string(partSlot.size());
@@ -75,17 +75,17 @@ bool SubjectProxy::Wears(std::span<const uint32_t> partSlot,
   return true;
 }
 
-bool SubjectProxy::Emits(size_t part, const std::array<float, 3> &radiance) {
+bool SubjectProxy::SetEmission(size_t part, const std::array<float, 3> &radiance) {
   if (part >= EmittedRadiance_.size()) { return false; }
   EmittedRadiance_[part] = radiance;
   return true;
 }
 
-bool SubjectProxy::Places(size_t part, const Mat4 &placement) {
-  return Places(part, 0, placement);
+bool SubjectProxy::SetPlacement(size_t part, const Mat4 &placement) {
+  return SetPlacement(part, 0, placement);
 }
 
-bool SubjectProxy::Places(size_t part, size_t instance, const Mat4 &placement) {
+bool SubjectProxy::SetPlacement(size_t part, size_t instance, const Mat4 &placement) {
   if (instance >= Instances_) { return false; }
   const size_t row = part * Instances_ + instance;
   if (row >= PartPlacement_.size()) { return false; }

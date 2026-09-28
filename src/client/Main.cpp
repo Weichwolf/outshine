@@ -325,11 +325,11 @@ void PrintStats(std::string_view name,
           .Offline = offline};
 }
 
-[[nodiscard]] bool
-Stands(outshine::Engine &engine,
-       outshine::Extent frame = {.WidthPx = outshine::Shots::kWidePx,
-                                 .HeightPx = outshine::Shots::kHighPx},
-       outshine::Roots roots = ClientRoots(outshine::Client::kDefaultCacheDirectory, false)) {
+[[nodiscard]] bool InitializeClientEngine(
+    outshine::Engine &engine,
+    outshine::Extent frame = {.WidthPx = outshine::Shots::kWidePx,
+                              .HeightPx = outshine::Shots::kHighPx},
+    outshine::Roots roots = ClientRoots(outshine::Client::kDefaultCacheDirectory, false)) {
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     std::println("outshine-client: SDL did not start");
     return false;
@@ -715,7 +715,9 @@ int CaptureView(outshine::Engine &engine,
 }
 
 [[nodiscard]] int PrepareScenarioRun(outshine::Engine &engine, const ScenarioRunOptions &options) {
-  if (!Stands(engine, {}, ClientRoots(options.CacheDirectory, options.Offline))) { return 2; }
+  if (!InitializeClientEngine(engine, {}, ClientRoots(options.CacheDirectory, options.Offline))) {
+    return 2;
+  }
   if (const auto read = engine.readScenario(options.Argv[0]); !read) {
     std::println("outshine-client: {} -- {}", options.Argv[0], read.error());
     return 1;
@@ -839,7 +841,7 @@ constexpr auto kHeightCoordinates =
   const double lat = *latitude;
   const double lon = *longitude;
   outshine::Engine engine;
-  if (!Stands(engine)) { return 2; }
+  if (!InitializeClientEngine(engine)) { return 2; }
   outshine::Scenario::Document stands;
   stands.Ground.Declared = true;
   stands.Ground.Origin.LatitudeDeg = lat;

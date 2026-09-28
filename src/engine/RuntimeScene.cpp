@@ -404,7 +404,7 @@ bool RuntimeScene::StandsSubjects(std::string &error) {
   if (!Pose(0.0, error)) { return false; }
   if (!JoinsSubjects(error)) { return false; }
   DrivenGeometry_ = Held_.Snapshot().clone();
-  return CarriesBuilt(error);
+  return PrepareSubject(error);
 }
 
 void RuntimeScene::ClearsSubject() {
@@ -423,7 +423,7 @@ void RuntimeScene::ClearsSubject() {
   }
 }
 
-bool RuntimeScene::CarriesBuilt(std::string &error) {
+bool RuntimeScene::PrepareSubject(std::string &error) {
   if (Declared_.Surfacing.empty()) {
     error = "the declaration carries a built subject and no surface -- a body without a "
             "material cannot be resolved, and an empty list is a refusal, not a "
@@ -611,12 +611,12 @@ std::expected<void, std::string> RuntimeScene::PlanBuild() {
   if (PendingDrivenParts_) {
     if (!Held_.HasGeometry()) {
       ClearsSubject();
-    } else if (!CarriesBuilt(error)) {
+    } else if (!PrepareSubject(error)) {
       return std::unexpected(std::move(error));
     }
   } else {
     if (!Held_.HasGeometry() && Declared_.Stands.empty()) { ClearsSubject(); }
-    if (Held_.HasGeometry() && Declared_.Stands.empty() && !CarriesBuilt(error)) {
+    if (Held_.HasGeometry() && Declared_.Stands.empty() && !PrepareSubject(error)) {
       return std::unexpected(std::move(error));
     }
     if (!Declared_.Stands.empty() && !StandsSubjects(error)) {
@@ -891,7 +891,7 @@ void RuntimeScene::StandsEnvironment() {
     AmbientStood_[channel] = environment.RadianceLinear[channel];
     GroundStood_[channel] = environment.GroundLinear[channel];
   }
-  Stood_.Around(environment);
+  Stood_.SetEnvironment(environment);
 }
 
 void RuntimeScene::ReadIrradiance(std::span<const float, Render::kIrradianceFloats> irradiance) {
@@ -931,7 +931,7 @@ void RuntimeScene::EmitsPerPart() {
       }
       radiance[static_cast<size_t>(channel)] = value;
     }
-    (void)Stood_.Emits(part, radiance);
+    (void)Stood_.SetEmission(part, radiance);
   }
 }
 
@@ -956,27 +956,27 @@ bool RuntimeScene::Stand(std::string &error) {
   const Vec3 anchorEcefM = {{kWgs84A, 0.0, 0.0}};
   if (!Reshape(error)) { return false; }
   ReshapeAgainMs_ = sinceStand();
-  Stood_.Stands(Shaped_, anchorEcefM);
+  Stood_.ResetForShape(Shaped_, anchorEcefM);
   ProxyStandsMs_ = sinceStand();
   const Mat4 unmoved;
   for (size_t part = 0; part < Stood_.Parts(); ++part) {
-    if (!Stood_.Places(part, unmoved)) { return false; }
+    if (!Stood_.SetPlacement(part, unmoved)) { return false; }
   }
   Camera_.Prepare(Camera_.HasOverride() ? Camera_.Override() : Render::Viewpoint{},
                   Camera_.HasOverride(),
                   DrivenParts_);
   PlacementUploadHistory_.Reset();
   if (Held_.IsAnimated() && RenderedPositionsM_.size() == Shaped_.VertexCount() * 3u) {
-    Stood_.Posed(RenderedPositionsM_);
+    Stood_.BindPreviousPositions(RenderedPositionsM_);
   }
   PlacesMs_ = sinceStand();
-  if (!Stood_.Wears(Materials_.PartSlots(), Materials_.Slots(), error)) { return false; }
+  if (!Stood_.SetMaterials(Materials_.PartSlots(), Materials_.Slots(), error)) { return false; }
   WearsMs_ = sinceStand();
   EmitsPerPart();
 
   LampsMs_ = sinceStand();
-  for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.Lit(placed); }
-  if (DeclaresKeyLight()) { Stood_.Lit(KeyLight()); }
+  for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.AddLight(placed); }
+  if (DeclaresKeyLight()) { Stood_.AddLight(KeyLight()); }
   LitMs_ = sinceStand();
   StandsEnvironment();
   MediumMs_ = sinceStand();
@@ -1092,12 +1092,12 @@ bool RuntimeScene::Carry(size_t body, const Bearing &held, std::string &error) {
   const size_t joined = DrivenParts_ < parts ? DrivenParts_ : parts;
   if (bodyMoved) {
     for (size_t part = 0; part < joined; ++part) {
-      if (!Stood_.Places(part, body, bodyM)) { return false; }
+      if (!Stood_.SetPlacement(part, body, bodyM)) { return false; }
     }
   }
   if (builtMoved) {
     for (size_t part = joined; part < parts; ++part) {
-      if (!Stood_.Places(part, body, held.AsBuilt)) { return false; }
+      if (!Stood_.SetPlacement(part, body, held.AsBuilt)) { return false; }
     }
   }
   PartBounds_.clear();
@@ -1313,7 +1313,7 @@ bool RuntimeScene::Draw(std::string &error) {
     }
     if (Held_.IsAnimated()) {
       CapturesRenderedPositions();
-      Stood_.Posed(RenderedPositionsM_);
+      Stood_.BindPreviousPositions(RenderedPositionsM_);
     }
   }
   TookDrawing_ = Heap::TakenUnder("render-frame") - beforeDraw;
