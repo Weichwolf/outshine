@@ -92,22 +92,28 @@ prüfbar bleiben. Kein per-Frame Retry-Sturm und kein sofortiger Geometrieverlus
 Kontrolle: Writer deterministisch halten, Frame-Inspektion liefert Pending ohne Wait;
 danach Release und gleiche Quelle revalidieren. Sleeps sind kein Synchronisationsbeweis.
 
-## Aktiver Foundation-Schritt: nicht wartende Inspektion
+## Metadaten-Foundation
 
-TerrainCertificate::Validation: Current, Unknown, Stale, ScopeChanged, Pending.
-TerrainRevisionIndex::TryInspectStamps liefert optionalen bestehenden Stamp-Status;
-nullopt bedeutet Contention. Blockierende/try-Inspektion teilen denselben Locked-Kern.
-TilePool::InspectCertificate versucht Queue-, Cache- und Index-Mutex jeweils einmal;
-keine Allokation, IO, Cache-Touches oder Optimistic-Current. Queue-Lock schützt Scope,
-Cache-Lock hält Indexzugriff; Busy liefert Pending. Vollständige Validierung bleibt.
-Private Test-Peers dürfen nur die echten Mutexes für deterministische Writer-Fixtures
-halten. Inspector muss vor Writer-Release Pending liefern; Watchdog schützt nur Test-Liveness.
-Current/Unknown/Stale/Domain/Scope, null Allokationen und blockierender Mutant prüfen.
-Dieser Slice hat noch keinen Frame-Consumer; Miss-Auflösung und koaleszierte Queue folgen.
-Format, TerrainRevisionIndex/TilePool-Suites, full lint einschließlich API/clang-tidy.
+TerrainCertificate::Validation trennt Current/Unknown/Stale/ScopeChanged/Pending.
+TryInspectStamps und blockierende Index-Inspektion teilen den Locked-Kern.
+TilePool::InspectCertificate versucht Queue-, Cache- und Index-Lock jeweils einmal;
+Scope unter Queue-Lock, Indexzugriff unter Cache-Lock. Busy liefert Pending.
+Kein IO/Cache-Touch/Optimistic-Current. Private Test-Peers halten nur echte Mutexes.
+26 direkte Lieferungs-/Mutex-Checks PASS; drei unabhängig blockierende Lock-Mutanten
+liefern tatsächliches FAIL. Watchdogs beweisen keine Framezeiten. Format 1202 Dateien.
+Logs: /tmp/outshine-terrain-inspection-verification.log und Case-Logs.
+987af742a: offizielle fokussierte/full Gates laufen; kein Frame-Consumer dieses Slices.
 
-Foundation implementiert: direkte echte Lieferungs-/Mutex-Fixture, 26 Checks PASS.
-Jeder unabhängig blockierende Queue-/Cache-/Index-Mutant liefert tatsächliches FAIL,
-kein BUILD/TIMEOUT. Scope/Domain/Stale/Unknown/Pending und null Allokationen sind belegt.
-Logs: /tmp/outshine-terrain-inspection-verification.log und gleichnamige Case-Logs.
-Format 1202 Dateien, null Fehler; offizielle fokussierte/full Gates noch ausstehend.
+## Aktiver Schritt: reine Building-Source-Inspektion
+
+StructureBuildQueue::HeightSource bekommt einen nicht wartenden InspectCertificate-
+Callback; InspectCellSource liefert eigenen CellSourceState mit denselben fünf Zuständen.
+Prüfe Vektor-/Street-/Span-/Source-Key-Metadaten, Scope und Zertifikat ohne Resolver,
+Callback-Kopien oder Allokation. Kein Fallback auf blockierendes CertificateCurrent.
+Gemeinsamer Metadatenvergleich verhindert Drift der Post-/Landing-Validierung.
+Bestehendes CellSourceCurrent heißt danach ValidateResidentCellSource; Verhalten und
+resident-validation Fixtures bleiben erhalten. Frame verwendet noch diesen Validator.
+HIT/MISS/Unknown/Pending/Stale/Scope und fehlender Callback: null Allokationen, null
+Sample/CopyField/ResidentField/CertificateCurrent-Aufrufe. Resolver-Mutant muss FAIL.
+Format, StructureBuildQueue-Suite, full lint. Queue-Consumer folgt erst mit Revalidierung;
+Worker dürfen keine ungeprüften Engine-/Stack-Callbacks aus dem Frame übernehmen.
