@@ -68,7 +68,10 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   Persist absence only for authoritative 404 under the same source key/revision,
   with bounded freshness for unpinned data and bounded metadata storage. Never
   cache 403, timeout, cancellation or corrupt bytes as absence. Terrarium's 403
-  handling must be corrected. Existing raw cached bytes remain readable; any
+  handling must be corrected by removing its special absence override; the shared
+  WebTileSource 404-only rule applies. A TerrariumDem test uses scripted HTTP
+  replies through SourceSet: 404 alone hands over, 403 refuses without fallback,
+  and a subsequent 200 remains fetchable. Existing raw cached bytes remain readable; any
   new record format is versioned. Do not pretend unavailable height is zero.
 
 ## Acceptance
