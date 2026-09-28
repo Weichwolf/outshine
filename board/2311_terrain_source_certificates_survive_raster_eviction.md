@@ -65,27 +65,20 @@ copy/share/resampling; BuildingField::AcceptedInput owns accepted source certifi
 
 ## Evidence
 
-5de351d40: 45 focused PASS, full lint 255/255 tidy-Units, zero findings. Historical fixtures
-cover delivery/absence, metadata/raster eviction, domain, seams/ancestors, scope,
-copy/share/resample, publication/decode and refreshed landing acceptance.
-Index payload: 4096*32-byte entries + 1-byte domain = 131073 bytes, excluding allocator/
-shared-owner overhead. Raster budget remains 16 MiB. No contended/A18 frame claim.
+987af742a: 13 official focused tests, full lint 256/256 tidy units without findings,
+32/32 guards PASS. Actual-delivery/mutex fixture: 26 checks; independently blocking each
+of Queue/Cache/Index gives actual FAIL. Zero allocations for all inspection states.
+Index: 4096*32-byte entries + 1-byte domain = 131073 bytes before allocator/owner overhead;
+raster budget 16 MiB. Logs: /tmp/outshine-terrain-inspection-{focused,full-lint}.log.
+Pure source inspection: 33 direct checks PASS; restored resolver, ignored unknown scope
+and disabled metadata comparison each give actual FAIL. cf58d54a1 passed 4 focused tests,
+but tidy found two absent engine inspector initializers. 4871add5a wires both: 4 focused
+PASS, full lint 256/256 units without findings, 32/32 guards, API docs PASS; process exit 0.
+Logs: /tmp/outshine-source-inspector-wiring-{focused,full-lint}.log and gate-result.txt.
+d91dc0cdb implements request capture/acceptance/heap accounting and three owner fixtures;
+format 1203 files, zero errors. Official focused/full gate pending. No frame-cost claim.
 
-987af742a: 13 official focused tests, full lint 256/256 tidy-Units without findings,
-32/32 guards PASS. Direct actual-delivery/mutex fixture: 26 checks. Three independent
-blocking Queue/Cache/Index mutants give actual FAIL, not BUILD/TIMEOUT. Zero allocations
-cover Current/Unknown/Stale/Domain/Scope/Pending. Format: 1202 files, zero errors.
-Logs: /tmp/outshine-terrain-inspection-{verification,focused,full-lint}.log and case logs;
-gate-result.txt identifies the checked commit. No Frame-consumer acceptance implied.
-
-Pure source inspection: 33 direct checks PASS. Restored resolver, ignored unknown scope
-and disabled metadata comparison each give actual FAIL. Existing resolver assertions stay.
-Logs: /tmp/outshine-source-inspection-verification.log and case logs; format 1202 files.
-cf58d54a1: 4 official focused tests PASS; full lint failed on two missing engine inspector
-initializers. Wire TilePool::InspectCertificate at both existing HeightSource boundaries;
-activation remains on ValidateResidentCellSource. Corrected full gate pending.
-
-## Active next step: retain exact height requests
+## Active step: retain exact height requests
 
 HeightField owns Request {Zoom, ordered TileSpots, Fallback}, captured from Blocks without
 sources/rasters. BuildingField::AcceptedInput owns this recipe; PendingAcceptance transfers
