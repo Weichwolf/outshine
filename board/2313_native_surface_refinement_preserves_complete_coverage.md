@@ -59,25 +59,15 @@ reaches [0.4921875, 0.5096568] m; this does not prove native adaptive code.
 
 ## Current evidence
 
-Commit 618371b14: make format, all four official focused suites and full make lint
-including clang-tidy pass. Gate result: /tmp/outshine-refinement-restored-gate-result.txt;
-logs: /tmp/outshine-refinement-restored-{focused,full-lint}.log. No runtime consumer.
-Native BuildingMesh/sloped/large-anchor/permutation controls and measured runtime
-scratch/query utility remain open; passing this CPU gate does not finish 2313.
+Native runtime scratch/query utility remains open; this CPU gate does not finish 2313.
 
 ## Move-Vertrag geprüft
 
-Der Review reproduzierte einen SEGV nach Move/Step: leere Quell-Heaps bei aktiver Phase.
-Explizite Move-Konstruktion/-Zuweisung übertragen nun alle Felder und widerrufen die
-Quelle per Cancel. Self-Move erhält Fortschritt; Copy bleibt unabhängig bei gepinnten Inputs.
-MovingProgressRevokesTheSource verschiebt nach jedem primitiven Arbeitsschritt, prüft
-Quellwiderruf, Reset/Wiederverwendung, aktives Ziel, Self-Move, Complete und Fehlerzustände.
-ASan/UBSan: 4741 Checks ohne Fehler; ursprüngliche Crash-Probe liefert erwarteten Fehler.
-Rückkehr zu impliziten Moves: tatsächliches FAIL, kein BUILD. Format: 1199 Dateien, null Fehler.
-Logs: /tmp/outshine-refinement-move-{sanitized,original-probe,mutant,format}.log.
-Commit ef78343aa: fünf fokussierte Tests PASS; full lint inklusive 256/256 tidy-Units
-mit null Findings und 32/32 Guards PASS. Logs: /tmp/outshine-refinement-move-
-{focused,full-lint}.log; gate-result.txt bestätigt den geprüften Commit.
+Commit ef78343aa behebt den reproduzierten Move/Step-SEGV: expliziter Feldtransfer,
+Quelle Cancel, Self-Move unverändert, Copy unabhängig. ASan/UBSan 4741 Checks,
+Crash-Probe und impliziter-Move-Mutant belegen Widerruf und Reset/Wiederverwendung.
+Fünf fokussierte Tests, full lint 256/256 tidy-Units ohne Findings, 32/32 Guards PASS.
+Logs: /tmp/outshine-refinement-move-{sanitized,original-probe,mutant,focused,full-lint}.log.
 
 ## Native utility probe and next proof decision
 
@@ -113,8 +103,17 @@ inequality holds; per-corner target switching yields 0 versus opening distance s
 Log: /tmp/outshine-review-convex-oracle.log. This supports the decision, not C++ rounding,
 budget/state or native runtime acceptance by itself.
 
-## Primitive state contract
+## Aktiver Schritt: vollständige Eckwerte und begrenzte Zielarbeit
 
-EvaluatePoint counts the interior sample and three enclosed corners separately.
-Target changes reset the corner maximum. Moves transfer the partial cursor/maximum;
-exhaustion retains complete parent coverage. Native cost utility remains open.
+EvaluatePoint zählt Innenprobe und Eckabfragen einzeln. Zielwechsel setzt das Maximum
+zurück; Moves übertragen Cursor/Maximum, Erschöpfung erhält Elternabdeckung.
+Seed prüft zunächst das gleichindizierte Zieldreieck als Hint; der reguläre Scan prüft
+jeden weiteren Kandidaten. Nullradius und vollständige Gleichheit aller drei Quell-
+ecken mit Ecken EINES Zieldreiecks beweisen konvexe Überdeckung und gerichteten Fehler 0.
+Kein Hash-/Indexbeweis. Auch degenerierte Regionen gelten; Lower darf dann exakt 0 sein.
+Erreicht ein partielles Eck-Maximum die vorhandene obere Schranke, restliche Ecken
+überspringen: das vollständige Maximum kann diese Schranke nicht mehr verbessern.
+Die Innenprobe jedes übrigen Ziels bleibt für vollständige Lower-Minima erforderlich.
+Gleichheit/Hint kosten begrenzte WorkUnits, keine Distanzabfrage. Caps unverändert.
+Native flache/geneigte Selbstflächen mit verkehrter Reihenfolge müssen unter Caps nützen;
+verschobene und gefüllte Öffnungen widerlegen falsche Korrespondenz. Bestehende Gates.
