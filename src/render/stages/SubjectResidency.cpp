@@ -211,7 +211,7 @@ bool SubjectResidency::ReplacesBuffers(std::span<const Crossing> crossings) cons
   });
 }
 
-bool SubjectResidency::SubmitPending(std::string &error) {
+bool SubjectResidency::SubmitPendingUploads(std::string &error) {
   if (StagedCount_ == 0) { return true; }
   const auto copy = BeginCopy(Device_, error);
   if (!copy) { return false; }
@@ -228,7 +228,7 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
     return false;
   }
   const uint32_t total = *measured;
-  if ((!deferred || ReplacesBuffers(what)) && !SubmitPending(error)) { return false; }
+  if ((!deferred || ReplacesBuffers(what)) && !SubmitPendingUploads(error)) { return false; }
   BufferChanges previous;
   if (!PrepareBuffers(what, previous, error)) { return false; }
   const bool accepted =
@@ -397,7 +397,7 @@ bool SubjectResidency::Grow(Stream which, Need need, std::string &error) {
   OwnedBuffer &held = Buffer(which);
   uint32_t *const stood = HeldAt(which);
   if (held && *stood >= need.Bytes) { return true; }
-  if (!SubmitPending(error)) { return false; }
+  if (!SubmitPendingUploads(error)) { return false; }
   uint32_t widened = *stood > 0 ? *stood : need.Bytes;
   while (widened < need.Bytes) {
     widened = static_cast<uint32_t>(

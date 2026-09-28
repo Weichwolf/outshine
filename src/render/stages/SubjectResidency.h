@@ -158,10 +158,7 @@ struct SubjectResidency {
   [[nodiscard]] bool FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error);
   void CommitCrossings();
 
-  void DropStaged() {
-    StagedCount_ = 0;
-    StagingUsed_ = 0;
-  }
+  [[nodiscard]] bool SubmitPendingUploads(std::string &error);
 
   [[nodiscard]] std::expected<BoundImage, std::string>
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
@@ -192,7 +189,6 @@ private:
   void RestoreBuffers(BufferChanges &previous);
   [[nodiscard]] bool StageUploads(std::span<Crossing> what, uint32_t total, std::string &error);
   [[nodiscard]] bool ReplacesBuffers(std::span<const Crossing> crossings) const;
-  [[nodiscard]] bool SubmitPending(std::string &error);
   void RecordCrossings(SDL_GPUCopyPass *copy);
   [[nodiscard]] static Range Take(std::vector<Range> &free, uint32_t count, uint32_t &top);
   static void Give(std::vector<Range> &free, Range back);

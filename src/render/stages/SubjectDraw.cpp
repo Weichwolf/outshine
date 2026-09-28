@@ -715,13 +715,14 @@ SubjectDraw::BeginMesh(const SubjectMesh &mesh) {
   std::string error;
   LastMeshUpload_ = {};
   const auto admissionAt = std::chrono::steady_clock::now();
-  if (!ValidateMesh(mesh, error)) { return std::unexpected(std::move(error)); }
+  if (!ValidateMesh(mesh, error) || !Bound().SubmitPendingUploads(error)) {
+    return std::unexpected(std::move(error));
+  }
   ++Reshaped_;
   PendingMesh_ = {};
   PendingDraws_ = nullptr;
   PendingIndices_ = nullptr;
   PendingIndexCount_ = 0;
-  Bound().DropStaged();
   Bound().Shape().Vertices = mesh.VertexCount;
   Bound().Shape().Indices = mesh.IndexCount;
   Bound().Shape().HasUv = mesh.Uv.Stands();
@@ -1441,10 +1442,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   }
   for (int part = 0; part < 16; part++) { Model[part] = pose.Model[part]; }
   RowsStale_ = true;
-  if (!HandStreams(pose, true, error)) {
-    Bound().DropStaged();
-    return false;
-  }
+  if (!HandStreams(pose, true, error)) { return false; }
   return true;
 }
 

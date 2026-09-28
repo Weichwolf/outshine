@@ -69,6 +69,19 @@ recover the exact accepted piece vertices/indices. Inject submission failure:
 generation/ownership stay unchanged and retry recovers all payloads. Establish
 the failing fixture before correction, then rerender the current motion cases.
 
+## Verified upload correction
+
+Independent poisoned GPU destinations failed both vertex/index readbacks before
+correction. BeginMesh now submits accepted residency uploads before mutation;
+SetPose failure no longer discards other owners' queued uploads. The fixture
+checks clear/replacement, submission refusal, unchanged generation/ownership,
+and successful retry against exact native bytes in the current bound buffers.
+Focused SubjectDraw/SubjectResidency: 3 PASS. The 46.883333-s offline motion
+PNG `geometry-check/preserved-uploads-mark2-lap-tick2813.png` was opened: prior
+sky-spanning wedges are absent. p50/p95/p99 2.296/8.850/13.383 ms; peak
+643.947 MiB. Remaining stations/full lap, ownership and refined convergence
+still require verification; this WI remains active.
+
 ## Falsifiable acceptance
 
 - Isolated native road plus one wall: camera jump and paced approach to the
