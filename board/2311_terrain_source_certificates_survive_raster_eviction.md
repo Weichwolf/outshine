@@ -108,6 +108,8 @@ states; prove no retry storm, starvation or borrowed mutable reader. Runtime cos
 acceptance remains open; standalone inspectors do not establish a bounded frame path.
 Inspection hashes tile way points and accepted sources each time; bound/cache this work
 under the actual owners/generations before claiming bounded frame inspection.
+StructureCellsReady only reads plan.Active: integrate validation/replacement for active
+fronts too; checking inactive activation alone cannot reject an expired fine front.
 
 Acceptance: make format; revision/terrain/HeightField/BuildingField/StructureBuildQueue/
 GroundPublication suites; full lint including clang-tidy/API guards. Render Hockenheim

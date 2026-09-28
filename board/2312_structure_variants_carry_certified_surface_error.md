@@ -76,12 +76,20 @@ These are native CPU proofs, not publication, transform or visual acceptance.
   Current GPU/visual acceptance is unverified; prior sandbox failures do not establish
   today's availability. Do not close this WI with CPU-only evidence.
 
-## BuildTask-Lebensdauerreview
+## Active step: transfer BuildTask ownership
 
-StructureBuildTask besitzt explizit defaultete Moves, aber Handle/State bleiben in der
-Quelle erhalten. Ein Move während Running verletzt die Destruktor-Assertion; RequestStop
-hat dann keinen Stopping-Owner. Der aktuelle Queuepfad verwendet deque und verschiebt
-Konstruktion vor PostSlice, kein nachgewiesener laufender Move in Produktion.
-Beim Phasenausbau expliziten Handle-/State-Transfer und leeren, zerstörbaren Quellzustand
-festlegen; Move-Zuweisung darf laufende Zielarbeit nicht freigeben. Negativkontrolle und
-laufender Worker-/Shutdown-Test vor Freigabe. Keine Behauptung eines heutigen Queue-Crashs.
+Existing defaulted moves copy Handle/Running while transferring payload and stop owner.
+A running source then fails destruction and cannot stop safely. Current deque production
+constructs before posting; no production move/crash has been observed. This base-owner
+repair is independent of 2313's adaptive comparison and precedes the phase expansion.
+Owner: StructureBuildTask.h/.cpp. Explicit moves transfer all stable heap payload, stop
+owner and handle; source becomes Empty/kNoTask. Empty permits stop/join/poll/destruction,
+never Start/Resume. Assignment requires a nonrunning destination; self-move preserves work.
+Worker closures already capture stable pointees, not the task object's address. Move may
+therefore transfer a Running owner; Clear/destruction still requires the sole owner Join.
+Preserve Ready, partial Completed, Running and final output/progress ownership. Fixture
+holds a real worker in its mesher while construction/assignment move; only destination
+stops/joins. Move partial completion before Resume; verify exactly-once output/payload
+release. Restored default moves must produce actual FAIL, not a timeout or build failure.
+Acceptance: make format; StructureBuildTask/StructureBuildQueue suites; full lint/tidy/API.
+No change to geometric errors, publication or today's renderer-selection contract.
