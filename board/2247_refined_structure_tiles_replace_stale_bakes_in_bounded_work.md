@@ -90,6 +90,9 @@ bytes, job references and retained transforms. Restored duplication must actuall
 Gate: make format; SubjectDraw/SceneResources suites; complete Places and opened PNGs;
 full lint/tidy/API. Measure actual byte savings and all Place frame costs; smaller tables
 alone neither prove an Engine residency ceiling nor close unchanged GPU-handle reuse.
+Real GPU fixture: shared tables 120 checks PASS; restored duplication 9 actual FAILs.
+Three source clusters: 3 * 12 * 4 = 144 bytes versus 9 * 12 * 4 = 432 bytes;
+all nine instance jobs and six transforms retained. Full runtime gates remain open.
 
 ## Implementation and acceptance
 

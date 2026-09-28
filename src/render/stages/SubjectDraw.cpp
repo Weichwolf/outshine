@@ -1201,6 +1201,7 @@ void SubjectDraw::OrderPieces() {
   std::vector<uint32_t> &order = TableOrder_;
   order.clear();
   size_t clusters = 0;
+  size_t uniqueClusters = 0;
   auto nextRow =
       static_cast<uint32_t>(std::max(Placed_.size() / 16u, static_cast<size_t>(SubjectRows_)));
   for (Piece &piece : Pieces_) {
@@ -1212,10 +1213,11 @@ void SubjectDraw::OrderPieces() {
         MaterialSlotFor(Pieces_[at]) < Slots.size()) {
       order.push_back(at);
       clusters += Pieces_[at].Clusters.size() * Pieces_[at].Rows.size();
+      uniqueClusters += Pieces_[at].Clusters.size();
     }
   }
   jobs.reserve(jobs.size() + clusters * DrawList::kJobWords);
-  spheres.reserve(spheres.size() + clusters * kSphereFloats);
+  spheres.reserve(spheres.size() + uniqueClusters * kSphereFloats);
   std::ranges::sort(order, [this](uint32_t a, uint32_t b) {
     const Piece &left = Pieces_[a];
     const Piece &right = Pieces_[b];
@@ -1257,6 +1259,22 @@ bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
     carried.Colour = CarriesColour(layout);
     (void)LayoutOf(carried, layout);
   }
+  const auto firstSphere = static_cast<uint32_t>(spheres.size() / kSphereFloats);
+  for (const DagCluster &cluster : one.Clusters) {
+    spheres.insert(spheres.end(),
+                   {cluster.SelfCenter[0],
+                    cluster.SelfCenter[1],
+                    cluster.SelfCenter[2],
+                    cluster.SelfRadius,
+                    cluster.ParentCenter[0],
+                    cluster.ParentCenter[1],
+                    cluster.ParentCenter[2],
+                    cluster.ParentRadius,
+                    cluster.SelfErr,
+                    cluster.ParentErr,
+                    0.0f,
+                    0.0f});
+  }
   const size_t runs = one.Clusters.empty() ? 1u : one.Rows.size();
   for (size_t instance = 0; instance < runs; ++instance) {
     const auto row = static_cast<uint32_t>(Batches.size());
@@ -1270,22 +1288,9 @@ bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
     batch.ModelSlot = one.FirstRow + static_cast<uint32_t>(instance);
     batch.Instances = one.Clusters.empty() ? static_cast<uint32_t>(one.Rows.size()) : 1u;
     batch.FirstJob = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords);
+    auto sphere = firstSphere;
     for (const DagCluster &cluster : one.Clusters) {
-      const auto sphere = static_cast<uint32_t>(spheres.size() / kSphereFloats);
-      spheres.insert(spheres.end(),
-                     {cluster.SelfCenter[0],
-                      cluster.SelfCenter[1],
-                      cluster.SelfCenter[2],
-                      cluster.SelfRadius,
-                      cluster.ParentCenter[0],
-                      cluster.ParentCenter[1],
-                      cluster.ParentCenter[2],
-                      cluster.ParentRadius,
-                      cluster.SelfErr,
-                      cluster.ParentErr,
-                      0.0f,
-                      0.0f});
-      jobs.insert(jobs.end(), {sphere, row, one.I.First + cluster.First, cluster.Count});
+      jobs.insert(jobs.end(), {sphere++, row, one.I.First + cluster.First, cluster.Count});
     }
     batch.JobCount = static_cast<uint32_t>(jobs.size() / DrawList::kJobWords) - batch.FirstJob;
     Batches.push_back(batch);
