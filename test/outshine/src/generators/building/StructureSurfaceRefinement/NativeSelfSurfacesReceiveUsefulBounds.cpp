@@ -27,33 +27,40 @@ int main() {
   plan.AnchorEcef = anchor;
   plan.HeightM = 9;
   plan.HeightMeasured = true;
-  plan.PitchedShare = 0;
   plan.Coarseness = LevelOfDetail::Fine;
   BuildingMesh generator;
   auto scratch = generator.Scratch();
-  Raised reference;
-  CHECK(generator.Mesh(plan, *scratch, reference), "native building geometry exists");
-  CHECK(!reference.WallRun.empty() && !reference.RoofRun.empty(),
-        "both surface streams participate");
-  Raised reordered = reference;
-  std::ranges::reverse(reordered.WallRun);
-  std::ranges::reverse(reordered.RoofRun);
-  StructureSurfaceRefinementTask task;
-  CHECK(task.Reset({reference, reordered, 53}), "reordered self geometry starts");
-  bool finished = false;
-  bool safe = true;
-  for (size_t slice = 0; slice < 2000; ++slice) {
-    const auto progress = task.Step(53);
-    if (const auto bound = task.Bound(53)) { safe &= bound->LowerDistanceM() == 0; }
-    if (!progress || *progress == StructureSurfaceErrorProgress::Complete) {
-      finished = progress.has_value();
-      break;
+  for (const double pitch : {0.0, 1.0}) {
+    plan.PitchedShare = pitch;
+    Raised reference;
+    CHECK(generator.Mesh(plan, *scratch, reference), "native building geometry exists");
+    CHECK(!reference.WallRun.empty() && !reference.RoofRun.empty(),
+          "both surface streams participate");
+    for (const bool reverse : {false, true}) {
+      Raised reordered = reference;
+      if (reverse) {
+        std::ranges::reverse(reordered.WallRun);
+        std::ranges::reverse(reordered.RoofRun);
+      }
+      StructureSurfaceRefinementTask task;
+      CHECK(task.Reset({reference, reordered, 53}), "native self geometry starts");
+      bool finished = false;
+      bool safe = true;
+      for (size_t slice = 0; slice < 2000; ++slice) {
+        const auto progress = task.Step(53);
+        if (const auto bound = task.Bound(53)) { safe &= bound->LowerDistanceM() == 0; }
+        if (!progress || *progress == StructureSurfaceErrorProgress::Complete) {
+          finished = progress.has_value();
+          break;
+        }
+      }
+      const auto bound = task.Bound(53);
+      CHECK(
+          finished && safe && bound && bound->UpperDistanceM() <= 0.02,
+          "flat and pitched equivalent surfaces obtain useful bounds despite reordered triangles");
+      CHECK(task.TriangleQueries() <= 131072 && task.RegionCount() <= 4096,
+            "native utility does not bypass work or scratch limits");
     }
   }
-  const auto bound = task.Bound(53);
-  CHECK(finished && safe && bound && bound->UpperDistanceM() <= 0.02,
-        "native equivalent surfaces obtain useful conservative precision under unchanged caps");
-  CHECK(task.TriangleQueries() <= 131072 && task.RegionCount() <= 4096,
-        "native utility does not bypass work or scratch limits");
   return Report();
 }

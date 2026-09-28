@@ -33,6 +33,15 @@ using DistanceArithmetic::Subtract;
   }
   return result;
 }
+
+[[nodiscard]] bool CornersCovered(const std::array<PointEnclosure, 3> &source,
+                                  const std::array<PointEnclosure, 3> &target) noexcept {
+  return std::ranges::all_of(source, [&target](const auto &point) {
+    return point.RadiusM == 0 && std::ranges::any_of(target, [&point](const auto &corner) {
+             return corner.RadiusM == 0 && point.EstimateM == corner.EstimateM;
+           });
+  });
+}
 }
 
 double StructureSurfaceErrorInterval::LowerDistanceM() const noexcept {
@@ -225,6 +234,12 @@ StructureSurfaceRefinementTask::EvaluatePoint() noexcept {
     return {};
   }
   const auto triangle = TriangleAt(*Inputs_[1 - Direction_], TargetCursor_);
+  if (EvaluationPoint_ == 0 && CornersCovered(Working_.Vertices, triangle)) {
+    Working_.UpperM = 0;
+    SampleLowerM_ = 0;
+    FinishEvaluation();
+    return {};
+  }
   const auto &point = EvaluationPoint_ == 0 ? Working_.Enclosure.InteriorSample
                                             : Working_.Vertices[EvaluationPoint_ - 1];
   const auto value = BoundPointTriangleDistance(
@@ -245,7 +260,10 @@ StructureSurfaceRefinementTask::EvaluatePoint() noexcept {
     TargetCornerUpperM_ = std::max(TargetCornerUpperM_, upper);
   }
   ++EvaluationPoint_;
-  if (EvaluationPoint_ <= Working_.Vertices.size()) { return {}; }
+  if (EvaluationPoint_ <= Working_.Vertices.size() &&
+      (EvaluationPoint_ == 1 || TargetCornerUpperM_ < Working_.UpperM)) {
+    return {};
+  }
   Working_.UpperM = std::min(Working_.UpperM, TargetCornerUpperM_);
   EvaluationPoint_ = 0;
   TargetCornerUpperM_ = 0;
@@ -280,6 +298,12 @@ StructureSurfaceRefinementTask::ProcessWork() noexcept {
       if (!region) { return std::unexpected(region.error()); }
       BeginEvaluation(*region);
       Phase_ = Phase::EvaluateSeed;
+      if (SeedCursor_ < IndexCount(*Inputs_[1 - Direction_]) &&
+          CornersCovered(Working_.Vertices, TriangleAt(*Inputs_[1 - Direction_], SeedCursor_))) {
+        Working_.UpperM = 0;
+        SampleLowerM_ = 0;
+        FinishEvaluation();
+      }
       return {};
     }
     case Phase::Split: return PrepareSplit();
