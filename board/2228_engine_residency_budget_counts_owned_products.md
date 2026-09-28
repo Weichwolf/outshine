@@ -51,7 +51,6 @@ only the completed total to double. No allocation, rendering or error contract c
 Test empty, 4-GiB boundary, all streams at maximum and removal without GPU allocation;
 verify the draw/renderer reporting types cannot truncate. Restored uint32_t must FAIL.
 Gate: format, SubjectResidency/SubjectDraw/SceneResources, Places/PNGs, full lint/tidy/API.
-This repairs an invalid meter; it does not establish why process memory peaks.
 
 ## Active repair: immutable terrain-stamp accounting
 

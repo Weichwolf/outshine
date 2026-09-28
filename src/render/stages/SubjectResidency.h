@@ -142,8 +142,8 @@ struct SubjectResidency {
 
   void ForgetStagedCount() { StagedThisFrame_ = 0; }
 
-  [[nodiscard]] uint32_t HeldBytes() const {
-    uint32_t bytes = 0;
+  [[nodiscard]] uint64_t HeldBytes() const {
+    uint64_t bytes = 0;
     for (const uint32_t one : Held_) { bytes += one; }
     return bytes;
   }

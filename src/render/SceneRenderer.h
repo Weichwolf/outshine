@@ -367,7 +367,7 @@ public:
     return ActiveState().Content.Subjects.Owned().TakeStagingAllocationAttempts();
   }
 
-  [[nodiscard]] uint32_t PieceBytesHeld() const {
+  [[nodiscard]] uint64_t PieceBytesHeld() const {
     return ActiveState().Content.Subjects.Resident().HeldBytes();
   }
 
@@ -567,7 +567,7 @@ public:
 
   struct Effort {
     double TookMs = 0.0;
-    uint32_t DeviceBytes = 0;
+    uint64_t DeviceBytes = 0;
     uint32_t Draws = 0;
     uint32_t Triangles = 0;
     uint32_t Surfaces = 0;
