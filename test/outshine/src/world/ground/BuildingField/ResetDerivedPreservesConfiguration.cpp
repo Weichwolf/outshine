@@ -20,6 +20,21 @@ int main() {
             measured.MeasurementBytes() >= 18u * sizeof(double),
         "heap budget includes all reserved contact measurements");
   BuildingField field;
+  const auto originalOwner = field.ReservationOwner();
+  BuildingField copied = field;
+  CHECK(copied.ReservationOwner() != originalOwner,
+        "copied reservation state has a distinct owner domain");
+  copied = field;
+  CHECK(copied.ReservationOwner() != originalOwner,
+        "copy assignment cannot alias a reservation owner");
+  BuildingField moved = std::move(copied);
+  const auto movedOwner = moved.ReservationOwner();
+  copied = std::move(moved);
+  CHECK(copied.ReservationOwner() == movedOwner,
+        "moves transfer the reservation domain with its state");
+  field.ResetDerived();
+  CHECK(field.ReservationOwner() != originalOwner,
+        "reset revokes the old domain while queued leases can keep it alive");
   const Vec3 anchor{{1.0, 2.0, 3.0}};
   field.AnchorAt(anchor);
   field.SeenWith(720.0);

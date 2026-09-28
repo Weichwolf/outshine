@@ -13,6 +13,7 @@
 #include <cassert>
 #include <functional>
 #include <optional>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -187,6 +188,10 @@ public:
        const std::function<bool(FeatureRun)> &groundStands,
        size_t candidatesMost);
 
+  [[nodiscard]] const std::shared_ptr<const void> &ReservationOwner() const noexcept {
+    return ReservationOwner_.Token;
+  }
+
   void Take(uint32_t tile) {
     Mark_.Take(tile);
     ++Taken_;
@@ -289,6 +294,23 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
+  struct ReservationDomain {
+    std::shared_ptr<const void> Token = std::make_shared<const uint8_t>(0);
+    ReservationDomain() = default;
+
+    ReservationDomain(const ReservationDomain &) : ReservationDomain() {}
+
+    ReservationDomain &operator=(const ReservationDomain &other) {
+      if (this != &other) { Token = std::make_shared<const uint8_t>(0); }
+      return *this;
+    }
+
+    ReservationDomain(ReservationDomain &&) noexcept = default;
+    ReservationDomain &operator=(ReservationDomain &&) noexcept = default;
+  };
+
+  ReservationDomain ReservationOwner_;
+
   struct Range {
     size_t First = 0;
     size_t Count = 0;

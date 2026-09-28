@@ -530,7 +530,8 @@ void StructureBuildQueue::DiscardFront(const Ground::OsmField &vectors,
   IdleRaw_.reserve(IdleRaw_.size() + 1u);
   IdleOut_.reserve(IdleOut_.size() + 1u);
   IdleScratch_.reserve(IdleScratch_.size() + 1u);
-  if (!stale.Replacement && stale.Revision.OwnsReservation(vectors, prints, eye, heightSource)) {
+  if (!stale.Replacement && stale.ReservationOwner == prints.ReservationOwner() &&
+      stale.Revision.OwnsReservation(vectors, prints, eye, heightSource)) {
     prints.Release(stale.Task.Tile());
   }
   IdleRaw_.push_back(stale.Task.TakeRaw());
@@ -547,8 +548,9 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
                                        HeightRequirement heights,
                                        std::optional<LevelOfDetail> detail,
                                        BuildPurpose purpose) {
-  while (!Queue_.empty() && !Queue_.front().Revision.Matches(
-                                vectors, prints, eye, heightSource, heights, detail, purpose)) {
+  while (!Queue_.empty() && (Queue_.front().ReservationOwner != prints.ReservationOwner() ||
+                             !Queue_.front().Revision.Matches(
+                                 vectors, prints, eye, heightSource, heights, detail, purpose))) {
     QueuedBuild &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
@@ -794,7 +796,8 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
              next->Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
          .StreetDigest = *streetDigest,
          .SourceKey = sourceKey,
-         .Replacement = replacement});
+         .Replacement = replacement,
+         .ReservationOwner = prints.ReservationOwner()});
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Queue_.back());
     SlowestTaskPostingMs_ = std::max(
@@ -872,8 +875,9 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   size_t acrossCount = 0;
   while (count < most && count < Queue_.size()) {
     QueuedBuild &bake = Queue_[count];
-    if (!bake.Finished || !bake.Revision.Matches(
-                              *vectors, prints, eye, heightAt.Revision, heights, detail, purpose)) {
+    if (!bake.Finished || bake.ReservationOwner != prints.ReservationOwner() ||
+        !bake.Revision.Matches(
+            *vectors, prints, eye, heightAt.Revision, heights, detail, purpose)) {
       break;
     }
     if (!bake.Task.Result().Status) {

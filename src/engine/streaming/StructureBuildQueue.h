@@ -218,6 +218,7 @@ private:
     size_t Tasks = 0;
     bool Finished = false;
     bool Replacement = false;
+    std::shared_ptr<const void> ReservationOwner = {};
   };
 
   template <typename T>

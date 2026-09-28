@@ -27,6 +27,7 @@ BuildingField BuildingField::SnapshotAccepted() const {
 }
 
 void BuildingField::ResetDerived() {
+  ReservationOwner_ = ReservationDomain{};
   ++Revision_;
   Prints_.clear();
   AcceptedTiles_.clear();

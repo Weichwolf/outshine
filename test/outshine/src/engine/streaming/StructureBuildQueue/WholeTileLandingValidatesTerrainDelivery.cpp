@@ -220,5 +220,25 @@ int main() {
                             .SourceKey = *acceptedKey}),
           "cell posting rejects frozen inputs even when producer generation is unchanged");
   }
+  source.TerrainScope = 11;
+  prints.ResetDerived();
+  CHECK(post() == 1, "a fresh reservation is captured by its original field");
+  BuildingField successor = prints.SnapshotAccepted();
+  CHECK(successor.ReservationOwner() != prints.ReservationOwner() && successor.IngestedTiles() == 0,
+        "successor snapshot drops pending reservations and gets its own owner");
+  successor.Take(0);
+  bool foreignLanding = false;
+  for (int attempt = 0; attempt < 100 && queue.Queued() != 0; ++attempt) {
+    const auto landing = queue.NextLandings(
+        stack, successor, eye, source, 1, StructureBuildQueue::HeightRequirement::AllowFallback);
+    CHECK(landing.has_value(), "foreign owner rejection preserves the bake error contract");
+    foreignLanding |= landing && !landing->empty();
+    (void)queue.AwaitSlice(0.02);
+  }
+  CHECK(!foreignLanding && queue.Queued() == 0 && successor.IngestedTiles() == 1,
+        "old jobs neither land into nor release another owner's same-tile reservation");
+  successor.Release(0);
+  CHECK(successor.IngestedTiles() == 0,
+        "only the successor owner releases its deliberately colliding reservation");
   return Report();
 }
