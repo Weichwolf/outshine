@@ -136,12 +136,9 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
       query.Current_ = query.Candidates_[query.Next_++];
       query.Attempts_ = 0;
       query.At_ = query.Current_->Serves(query.Request_);
-      const SourceDecl &decl = query.Current_->Declaration();
       if (auto stored = ReadStored(query)) { return std::move(*stored); }
       if (query.Current_ == nullptr) { continue; }
-      query.Ticket_ = query.Current_->Begin(query.At_, transport);
-      RecordStart(decl, true, query.Ticket_ != Ticket::None);
-      query.Phase_ = Query::Phase::InFlight;
+      if (auto refused = StartCurrent(query, transport)) { return std::move(*refused); }
     }
 
     Fetched answer = query.Current_->Collect(query.At_, query.Ticket_, transport);
@@ -196,10 +193,19 @@ Delivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
   if (!std::isfinite(nowMs) || nowMs < 0.0) { return Refuse(query, kRetryCapMs); }
   if (nowMs < query.RetryAtMs_) { return Delivery::Waiting(); }
   query.RetryAtMs_ = 0.0;
-  query.Ticket_ = query.Current_->Begin(query.At_, transport);
-  RecordStart(query.Current_->Declaration(), false, query.Ticket_ != Ticket::None);
-  query.Phase_ = Query::Phase::InFlight;
+  if (auto refused = StartCurrent(query, transport)) { return std::move(*refused); }
   return Delivery::Waiting();
+}
+
+std::optional<Delivery> SourceSet::StartCurrent(Query &query, Transport &transport) {
+  const auto started = query.Current_->Begin(query.At_, transport);
+  RecordStart(query.Current_->Declaration(),
+              query.Phase_ == Query::Phase::Ready,
+              started && *started != Ticket::None);
+  if (!started) { return Refuse(query, kRetryCapMs, started.error()); }
+  query.Ticket_ = *started;
+  query.Phase_ = Query::Phase::InFlight;
+  return std::nullopt;
 }
 
 void SourceSet::RecordStart(const SourceDecl &decl, bool first, bool started) {

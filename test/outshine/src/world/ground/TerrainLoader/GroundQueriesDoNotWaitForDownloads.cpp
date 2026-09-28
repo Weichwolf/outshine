@@ -26,8 +26,8 @@ public:
     return request.Where();
   }
 
-  outshine::Data::Ticket Begin(const outshine::Data::Address &,
-                               outshine::Data::Transport &) const override {
+  outshine::Data::FetchStart Begin(const outshine::Data::Address &,
+                                   outshine::Data::Transport &) const override {
     return outshine::Data::Ticket::None;
   }
 
@@ -46,7 +46,7 @@ public:
 
 class NoNetwork final : public outshine::Data::Transport {
 public:
-  outshine::Data::Ticket Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string &) override {
     return outshine::Data::Ticket::None;
   }
 

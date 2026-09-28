@@ -22,7 +22,7 @@ public:
 
   [[nodiscard]] virtual Address Serves(const Fetch &request) const noexcept = 0;
 
-  [[nodiscard]] virtual Ticket Begin(const Address &at, Transport &transport) const = 0;
+  [[nodiscard]] virtual FetchStart Begin(const Address &at, Transport &transport) const = 0;
 
   [[nodiscard]] virtual Fetched
   Collect(const Address &at, Ticket ticket, Transport &transport) const = 0;

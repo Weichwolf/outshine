@@ -5,7 +5,7 @@
 namespace {
 class NoTransport final : public outshine::Data::Transport {
 public:
-  outshine::Data::Ticket Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string &) override {
     return outshine::Data::Ticket::None;
   }
 

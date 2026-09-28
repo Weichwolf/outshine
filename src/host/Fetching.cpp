@@ -61,13 +61,14 @@ Fetching::Fetching(Config config) : Config_(std::move(config)) {
     Multi_ = nullptr;
     return;
   }
+  State_ = State::Ready;
   Worker_ = std::thread([this] { Work(); });
 }
 
 Fetching::~Fetching() {
   {
     const std::scoped_lock lock(Mutex_);
-    Stopping_ = true;
+    State_ = State::Stopping;
     for (auto &[ticket, transfer] : Transfers_) {
       (void)ticket;
       transfer.Cancelled.store(true, std::memory_order_relaxed);
@@ -81,14 +82,17 @@ Fetching::~Fetching() {
   }
 }
 
-Data::Ticket Fetching::Begin(const std::string &url) {
-  if (url.empty() || Multi_ == nullptr) { return Data::Ticket::None; }
+Data::FetchStart Fetching::Begin(const std::string &url) {
+  if (url.empty() || url.find('\0') != std::string::npos) {
+    return std::unexpected(Data::FetchFailureReason::InvalidRequest);
+  }
   uint64_t ticket = 0;
   {
     const std::scoped_lock lock(Mutex_);
-    if (Stopping_ || Transfers_.size() >= Config_.MaxRequests ||
+    if (State_ != State::Ready) { return std::unexpected(Data::FetchFailureReason::Unavailable); }
+    if (Transfers_.size() >= Config_.MaxRequests ||
         NextTicket_ == std::numeric_limits<uint64_t>::max()) {
-      return Data::Ticket::None;
+      return std::unexpected(Data::FetchFailureReason::CapacityRefused);
     }
     ticket = NextTicket_++;
     Transfers_.try_emplace(ticket);
@@ -164,7 +168,7 @@ bool Fetching::Await(double forMs) {
   return Landed_.wait_for(
              lock,
              std::chrono::microseconds(static_cast<long long>(forMs * kMicrosecondsPerMillisecond)),
-             [this, stood] { return Stopping_ || Completions_ != stood; }) &&
+             [this, stood] { return State_ != State::Ready || Completions_ != stood; }) &&
          Completions_ != stood;
 }
 
@@ -207,7 +211,7 @@ size_t Fetching::AddQueuedTransfers(void *multiHandle, size_t active) {
   auto *const multi = static_cast<CURLM *>(multiHandle);
   const auto capacity = static_cast<size_t>(Config_.ConcurrentTransfers);
   const std::scoped_lock lock(Mutex_);
-  while (!Stopping_ && active < capacity && !Queue_.empty()) {
+  while (State_ == State::Ready && active < capacity && !Queue_.empty()) {
     const uint64_t ticket = Queue_.front();
     Queue_.pop_front();
     const auto found = Transfers_.find(ticket);
@@ -279,6 +283,7 @@ void Fetching::FinishTransfers(void *multiHandle, bool failed) {
     transfer.Handle = nullptr;
   }
   if (failed) {
+    State_ = State::Failed;
     for (auto &[ticket, transfer] : Transfers_) {
       (void)ticket;
       if (transfer.Done) { continue; }
@@ -299,7 +304,7 @@ void Fetching::Work() {
     active = AddQueuedTransfers(multi, active);
     {
       const std::scoped_lock lock(Mutex_);
-      if (Stopping_) { break; }
+      if (State_ != State::Ready) { break; }
     }
     int running = 0;
     if (curl_multi_perform(multi, &running) != CURLM_OK) {

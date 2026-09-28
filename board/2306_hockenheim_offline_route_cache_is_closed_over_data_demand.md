@@ -65,9 +65,9 @@ old 403 rule fails independently. Full-lap/alternate-pacing proof remains open.
   a FIFO bounded by MaxRequests; transfers/payloads are freed, Collect consumes
   the cause once. HTTP 408 retries as timeout; cancel/body limits are terminal.
   Transport/Source::Begin returns FetchStart = expected<Ticket, FetchFailureReason>.
-  SourceSet records admission and owns refused context before Collect; retries
-  use the same start contract. Local sources may return successful Ticket::None;
-  native/offline refusal is unexpected, never inferred from None or last-error.
+  SourceSet::StartCurrent shares admission/context/phase changes with retry.
+  Local sources may return successful Ticket::None;
+  Native/offline refusal is unexpected, never inferred from None or last-error.
   Fetching uses Unavailable/Ready/Stopping/Failed states under Mutex; worker failure
   prevents new starts. Capacity/ticket exhaustion => CapacityRefused; empty/NUL
   URLs => InvalidRequest; offline => OfflineMiss; unavailable worker => Unavailable.
@@ -97,11 +97,11 @@ old 403 rule fails independently. Full-lap/alternate-pacing proof remains open.
 
 Missing/cached-refusal, provider fallback and ancestor identity are implemented.
 Edge/diagonal stitch tests pass; losing raw-failure propagation fails them.
-Confirmed 404 persists with bounded expiry; offline fallback, revision/expiry
-invalidations and evidence-negation tests pass. Native errors use real curl
+404 expiry/fallback/revision/evidence tests pass; native errors use real curl
 fixtures. Corrupt centre/edge/diagonal payloads retain raw provenance and refuse
-publication. Pre-landed waits are state-based; both negations fail. Admission
-failures and full-lap/pacing proof remain open.
+publication. Pre-landed waits are state-based; their negations fail. Typed native/
+source admission preserves causes across fallback/retry; losing them fails the
+independent native/context tests. Full-lap/pacing proof remains open.
 
 ## Acceptance
 

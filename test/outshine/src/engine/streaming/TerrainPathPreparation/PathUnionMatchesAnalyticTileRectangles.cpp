@@ -18,7 +18,7 @@ class NoNetwork final : public Data::Transport {
 public:
   size_t Starts = 0;
 
-  Data::Ticket Begin(const std::string &) override {
+  Data::FetchStart Begin(const std::string &) override {
     ++Starts;
     return Data::Ticket::None;
   }

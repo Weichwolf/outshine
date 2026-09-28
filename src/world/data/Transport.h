@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "FetchFailure.h"
+#include <expected>
 
 namespace outshine::Data {
 
@@ -90,11 +91,13 @@ private:
   FetchFailureReason Reason_ = FetchFailureReason::ProviderRefused;
 };
 
+using FetchStart = std::expected<Ticket, FetchFailureReason>;
+
 class Transport {
 public:
   virtual ~Transport() = default;
 
-  [[nodiscard]] virtual Ticket Begin(const std::string &url) = 0;
+  [[nodiscard]] virtual FetchStart Begin(const std::string &url) = 0;
 
   [[nodiscard]] virtual Wire Collect(Ticket ticket) = 0;
   virtual void Cancel(Ticket ticket) = 0;

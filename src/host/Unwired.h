@@ -7,8 +7,8 @@ namespace outshine {
 
 class Unwired final : public Data::Transport {
 public:
-  [[nodiscard]] Data::Ticket Begin([[maybe_unused]] const std::string &url) override {
-    return Data::Ticket::None;
+  [[nodiscard]] Data::FetchStart Begin([[maybe_unused]] const std::string &url) override {
+    return std::unexpected(Data::FetchFailureReason::Unavailable);
   }
 
   [[nodiscard]] Data::Wire Collect([[maybe_unused]] Data::Ticket ticket) override {

@@ -41,7 +41,7 @@ public:
   Fetching(const Fetching &) = delete;
   Fetching &operator=(const Fetching &) = delete;
 
-  [[nodiscard]] Data::Ticket Begin(const std::string &url) override;
+  [[nodiscard]] Data::FetchStart Begin(const std::string &url) override;
   [[nodiscard]] Data::Wire Collect(Data::Ticket ticket) override;
   void Cancel(Data::Ticket ticket) override;
   [[nodiscard]] bool Await(double forMs) override;
@@ -78,7 +78,8 @@ private:
   std::deque<uint64_t> Queue_;
   std::vector<uint64_t> CancelledTickets_;
   uint64_t NextTicket_ = 1;
-  bool Stopping_ = false;
+  enum class State { Unavailable, Ready, Stopping, Failed };
+  State State_ = State::Unavailable;
   void *Multi_ = nullptr;
   std::thread Worker_;
 };

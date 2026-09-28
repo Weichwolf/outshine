@@ -17,7 +17,7 @@ public:
   int Status = 403;
   std::vector<std::string> Urls;
 
-  Ticket Begin(const std::string &url) override {
+  FetchStart Begin(const std::string &url) override {
     Urls.push_back(url);
     return static_cast<Ticket>(Urls.size());
   }

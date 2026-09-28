@@ -12,7 +12,7 @@ using namespace outshine::Data;
 
 class NoTransport final : public Transport {
 public:
-  Ticket Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string &) override { return Ticket::None; }
 
   Wire Collect(Ticket) override { return Wire::Never(); }
 
@@ -29,7 +29,7 @@ public:
 
   Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
 
-  Ticket Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
   Fetched Collect(const Address &, Ticket, Transport &) const override {
     return Fetched::Working();

@@ -46,7 +46,7 @@ Coverage StarBands::Covers(const Fetch &request) const noexcept {
   return *band < kBands ? Coverage::Inside : Coverage::Outside;
 }
 
-Ticket StarBands::Begin(const Address &at, Transport &transport) const {
+FetchStart StarBands::Begin(const Address &at, Transport &transport) const {
   (void)at;
   (void)transport;
   return Ticket::None;

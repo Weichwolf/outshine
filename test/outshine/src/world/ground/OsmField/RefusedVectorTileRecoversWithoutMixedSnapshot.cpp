@@ -19,7 +19,7 @@ class ClockTransport final : public Transport {
 public:
   std::atomic<double> Now{0.0};
 
-  Ticket Begin(const std::string &) override { return Ticket::None; }
+  FetchStart Begin(const std::string &) override { return Ticket::None; }
 
   Wire Collect(Ticket) override { return Wire::Never(); }
 
@@ -38,7 +38,7 @@ public:
 
   Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
 
-  Ticket Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
   Fetched Collect(const Address &, Ticket, Transport &) const override {
     return Calls.fetch_add(1) == 0 ? Fetched::Meant(Meaning::Refused) : Fetched::Delivered(Bytes);

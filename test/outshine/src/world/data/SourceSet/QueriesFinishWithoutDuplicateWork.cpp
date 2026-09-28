@@ -19,7 +19,7 @@ public:
   int Begins = 0;
   int Cancels = 0;
 
-  Ticket Begin(const std::string &) override { return static_cast<Ticket>(++Begins); }
+  FetchStart Begin(const std::string &) override { return static_cast<Ticket>(++Begins); }
 
   Wire Collect(Ticket) override { return Wire::Never(); }
 
@@ -39,7 +39,7 @@ public:
 
   Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
 
-  Ticket Begin(const Address &, Transport &transport) const override {
+  FetchStart Begin(const Address &, Transport &transport) const override {
     return transport.Begin(Decl.Id);
   }
 

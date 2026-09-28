@@ -7,9 +7,9 @@ namespace outshine::Data {
 
 class OfflineTransport final : public Transport {
 public:
-  [[nodiscard]] Ticket Begin(const std::string &url) override {
+  [[nodiscard]] FetchStart Begin(const std::string &url) override {
     (void)url;
-    return Ticket::None;
+    return std::unexpected(FetchFailureReason::OfflineMiss);
   }
 
   [[nodiscard]] Wire Collect(Ticket ticket) override {

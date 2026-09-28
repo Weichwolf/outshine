@@ -27,7 +27,7 @@ public:
 
   [[nodiscard]] Coverage Covers(const Fetch &request) const noexcept final;
   [[nodiscard]] Address Serves(const Fetch &request) const noexcept final;
-  [[nodiscard]] Ticket Begin(const Address &at, Transport &transport) const final;
+  [[nodiscard]] FetchStart Begin(const Address &at, Transport &transport) const final;
   [[nodiscard]] Fetched Collect(const Address &at, Ticket ticket, Transport &transport) const final;
 
 protected:

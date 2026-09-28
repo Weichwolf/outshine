@@ -51,7 +51,7 @@ std::string WebTileSource::Url(const Address &at) const {
   return url;
 }
 
-Ticket WebTileSource::Begin(const Address &at, Transport &transport) const {
+FetchStart WebTileSource::Begin(const Address &at, Transport &transport) const {
   return transport.Begin(Url(at));
 }
 

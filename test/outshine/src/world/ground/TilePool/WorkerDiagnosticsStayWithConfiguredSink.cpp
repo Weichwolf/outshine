@@ -13,7 +13,7 @@ namespace {
 
 class RefusingTransport final : public outshine::Data::Transport {
 public:
-  outshine::Data::Ticket Begin(const std::string &) override {
+  outshine::Data::FetchStart Begin(const std::string &) override {
     return static_cast<outshine::Data::Ticket>(1);
   }
 
@@ -36,8 +36,8 @@ public:
     return request.Where();
   }
 
-  outshine::Data::Ticket Begin(const outshine::Data::Address &,
-                               outshine::Data::Transport &transport) const override {
+  outshine::Data::FetchStart Begin(const outshine::Data::Address &,
+                                   outshine::Data::Transport &transport) const override {
     return transport.Begin("fixture");
   }
 

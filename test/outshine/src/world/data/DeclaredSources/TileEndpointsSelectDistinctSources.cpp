@@ -19,7 +19,7 @@ class TileTransport final : public outshine::Data::Transport {
 public:
   std::vector<std::string> Urls;
 
-  outshine::Data::Ticket Begin(const std::string &url) override {
+  outshine::Data::FetchStart Begin(const std::string &url) override {
     Urls.push_back(url);
     return static_cast<outshine::Data::Ticket>(Urls.size());
   }

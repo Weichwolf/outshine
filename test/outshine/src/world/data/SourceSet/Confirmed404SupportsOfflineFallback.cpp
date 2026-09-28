@@ -23,7 +23,7 @@ public:
   int Begins = 0;
   double Clock = 0;
 
-  Ticket Begin(const std::string &url) override {
+  FetchStart Begin(const std::string &url) override {
     ++Begins;
     return url.starts_with("https://primary.example/") ? Ticket{1} : Ticket{2};
   }
@@ -54,7 +54,7 @@ public:
 
   Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
 
-  Ticket Begin(const Address &, Transport &) const override { return Ticket::None; }
+  FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
   Fetched Collect(const Address &, Ticket, Transport &) const override {
     return Fetched::Meant(Meaning::Absent);

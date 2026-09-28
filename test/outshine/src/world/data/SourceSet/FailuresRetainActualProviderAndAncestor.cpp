@@ -19,7 +19,7 @@ public:
   double Now = 0;
   bool Authorized = false;
 
-  Ticket Begin(const std::string &url) override {
+  FetchStart Begin(const std::string &url) override {
     return url.starts_with("https://primary.example/") ? Ticket{1} : Ticket{2};
   }
 

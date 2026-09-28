@@ -20,7 +20,8 @@ enum class FetchFailureReason : uint8_t {
   TimedOut,
   Cancelled,
   CorruptPayload,
-  CapacityRefused
+  CapacityRefused,
+  InvalidRequest
 };
 
 [[nodiscard]] constexpr std::string_view Name(FetchFailureReason reason) noexcept {
@@ -33,6 +34,7 @@ enum class FetchFailureReason : uint8_t {
     case FetchFailureReason::Cancelled: return "cancelled";
     case FetchFailureReason::CorruptPayload: return "corrupt payload";
     case FetchFailureReason::CapacityRefused: return "capacity refusal";
+    case FetchFailureReason::InvalidRequest: return "invalid request";
   }
   return "unknown failure";
 }

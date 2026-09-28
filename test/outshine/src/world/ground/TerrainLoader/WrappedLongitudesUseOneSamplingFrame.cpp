@@ -38,7 +38,7 @@ public:
     return request.Where();
   }
 
-  Data::Ticket Begin(const Data::Address &, Data::Transport &) const override {
+  Data::FetchStart Begin(const Data::Address &, Data::Transport &) const override {
     return Data::Ticket::None;
   }
 
@@ -49,7 +49,7 @@ public:
 
 class NoNetwork final : public Data::Transport {
 public:
-  Data::Ticket Begin(const std::string &) override { return Data::Ticket::None; }
+  Data::FetchStart Begin(const std::string &) override { return Data::Ticket::None; }
 
   Data::Wire Collect(Data::Ticket) override { return Data::Wire::Never(); }
 

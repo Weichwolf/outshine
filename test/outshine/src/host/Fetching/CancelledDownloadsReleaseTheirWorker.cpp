@@ -98,15 +98,20 @@ int main() {
     Fetching transport({.ConcurrentTransfers = 1, .MaxRequests = 2, .TimeoutS = 10});
     CHECK(transport.WorkerCount() == 1, "one multi worker owns every transfer");
     const auto slow = transport.Begin(url);
+    CHECK(slow.has_value(), "slow native transfer is admitted");
+    if (!slow) { return Report(); }
     CHECK(server.AwaitConnections(1), "first request occupies the sole worker");
     const auto next = transport.Begin(url);
-    CHECK(transport.Begin(url) == Data::Ticket::None,
+    CHECK(next.has_value(), "queued native transfer is admitted");
+    if (!next) { return Report(); }
+    const auto refused = transport.Begin(url);
+    CHECK(!refused && refused.error() == Data::FetchFailureReason::CapacityRefused,
           "the bounded request table refuses work beyond its declared capacity");
-    transport.Cancel(slow);
+    transport.Cancel(*slow);
     bool received = false;
     const auto deadline = Clock::now() + 3s;
     while (Clock::now() < deadline) {
-      auto response = transport.Collect(next).Take();
+      auto response = transport.Collect(*next).Take();
       if (response) {
         received = response->Status == 200 && response->Body == std::vector<uint8_t>({'O', 'K'});
         break;
@@ -114,11 +119,11 @@ int main() {
       (void)transport.Await(10.0);
     }
     CHECK(received, "cancel releases worker before the ten-second HTTP timeout");
-    auto cancelled = transport.Collect(slow);
+    auto cancelled = transport.Collect(*slow);
     CHECK(cancelled.Where() == Data::Wire::State::Unreachable &&
               cancelled.FailureReason() == Data::FetchFailureReason::Cancelled,
           "cancelled transfer releases its payload but retains its actual cause");
-    CHECK(transport.Collect(slow).FailureReason() == Data::FetchFailureReason::Unavailable,
+    CHECK(transport.Collect(*slow).FailureReason() == Data::FetchFailureReason::Unavailable,
           "cancel cause is consumed once");
   }
   const auto started = Clock::now();
@@ -133,7 +138,9 @@ int main() {
     Fetching transport({.ConcurrentTransfers = 1, .TimeoutS = 1});
     const auto timed = transport.Begin(url);
     CHECK(server.AwaitConnections(4), "real stalled HTTP transfer starts");
-    CHECK(AwaitFailure(transport, timed) == Data::FetchFailureReason::TimedOut,
+    CHECK(timed.has_value(), "timeout transfer is admitted");
+    if (!timed) { return Report(); }
+    CHECK(AwaitFailure(transport, *timed) == Data::FetchFailureReason::TimedOut,
           "native libcurl timeout is distinct from unreachable transport");
   }
   {
@@ -143,9 +150,11 @@ int main() {
     std::vector<Data::Ticket> cancelled;
     for (int i = 0; i < 5; ++i) {
       const auto queued = transport.Begin(url);
-      CHECK(queued != Data::Ticket::None, "cancelled queue entry releases request capacity");
-      cancelled.push_back(queued);
-      transport.Cancel(queued);
+      CHECK(queued && *queued != Data::Ticket::None,
+            "cancelled queue entry releases request capacity");
+      if (!queued) { continue; }
+      cancelled.push_back(*queued);
+      transport.Cancel(*queued);
     }
     CHECK(transport.Collect(cancelled.front()).FailureReason() ==
               Data::FetchFailureReason::Unavailable,
@@ -160,8 +169,18 @@ int main() {
     Fetching transport({.TimeoutS = 2, .MaxBodyBytes = 1});
     const auto ticket =
         transport.Begin("http://127.0.0.1:" + std::to_string(response.Port) + "/tile");
-    CHECK(AwaitFailure(transport, ticket) == Data::FetchFailureReason::CapacityRefused,
+    CHECK(ticket.has_value(), "body limit transfer is admitted");
+    if (!ticket) { return Report(); }
+    CHECK(AwaitFailure(transport, *ticket) == Data::FetchFailureReason::CapacityRefused,
           "native body budget refusal is retained through curl write failure");
+  }
+  {
+    Fetching transport({});
+    const auto empty = transport.Begin("");
+    const auto embedded = transport.Begin(std::string("http://127.0.0.1/") + '\0' + "hidden");
+    CHECK(!empty && empty.error() == Data::FetchFailureReason::InvalidRequest && !embedded &&
+              embedded.error() == Data::FetchFailureReason::InvalidRequest,
+          "empty and embedded-NUL URLs refuse before transport work");
   }
   return Report();
 }

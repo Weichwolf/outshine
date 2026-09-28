@@ -13,7 +13,7 @@ using namespace outshine::Data;
 
 class PendingTransport final : public Transport {
 public:
-  Ticket Begin(const std::string &) override { return static_cast<Ticket>(1); }
+  FetchStart Begin(const std::string &) override { return static_cast<Ticket>(1); }
 
   Wire Collect(Ticket) override { return Wire::Never(); }
 
@@ -36,7 +36,7 @@ public:
 
   Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
 
-  Ticket Begin(const Address &, Transport &transport) const override {
+  FetchStart Begin(const Address &, Transport &transport) const override {
     return transport.Begin("fixture");
   }
 

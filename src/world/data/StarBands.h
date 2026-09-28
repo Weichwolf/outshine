@@ -21,7 +21,7 @@ public:
     return request.Where();
   }
 
-  [[nodiscard]] Ticket Begin(const Address &at, Transport &transport) const override;
+  [[nodiscard]] FetchStart Begin(const Address &at, Transport &transport) const override;
   [[nodiscard]] Fetched
   Collect(const Address &at, Ticket ticket, Transport &transport) const override;
 

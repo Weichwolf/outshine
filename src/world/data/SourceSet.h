@@ -95,6 +95,7 @@ private:
   void RecordDelivery(const SourceDecl &decl);
 
   [[nodiscard]] Delivery ResumeRetry(Query &query, Transport &transport);
+  [[nodiscard]] std::optional<Delivery> StartCurrent(Query &query, Transport &transport);
 
   [[nodiscard]] Delivery Refuse(Query &query,
                                 double afterMs,
