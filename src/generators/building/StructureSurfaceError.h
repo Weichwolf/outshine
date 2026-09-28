@@ -24,6 +24,7 @@ struct StructureSurfaceErrorBound {
 
 enum class StructureSurfaceErrorFailure {
   InvalidSource,
+  InvalidBudget,
   InvalidGeometry,
   NonfiniteDistance,
   EmptyMismatch,

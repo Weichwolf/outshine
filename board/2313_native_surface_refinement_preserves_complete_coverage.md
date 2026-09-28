@@ -56,3 +56,12 @@ reaches [0.4921875, 0.5096568] m; this does not prove native adaptive code.
 - make format; make suite SUITE=outshine/src/generators/building/StructureSurfaceRefinement;
   existing TriangleDistance/TriangleRegion/StructureSurfaceError suites; full make lint.
   Measure native query counts and scratch bytes before selecting runtime caps.
+
+## Current evidence
+
+Native adaptive case: 55 checks, zero failures in a direct optimized build. Removing
+region radius or using only the first target lower bound each causes actual FAIL.
+One-unit and arbitrary slices, exhausted initialization/child budgets, reversed pairs,
+parallel/tessellated/collapsed surfaces and source/cancel/copy/move guards pass.
+Full make format passes; official focused suite and full lint are still pending.
+Logs: /tmp/outshine-refinement-{direct,negative,format}.log. No runtime consumer.
