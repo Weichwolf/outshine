@@ -236,8 +236,9 @@ private:
   [[nodiscard]] Reply FetchInto(const Data::Fetch &request, Landing *out);
   [[nodiscard]] std::optional<size_t> CacheEntryOf(std::string_view key) const;
   void IndexCacheEntry(std::string_view key, size_t entry);
-  void EraseCacheEntry(std::string_view key, size_t entry);
-  void RepointCacheEntry(CacheEntryMove move) noexcept;
+  void EraseCacheIndex(std::string_view key, size_t entry);
+  void RemoveCacheEntry(size_t entry);
+  void RepointCacheIndex(CacheEntryMove move) noexcept;
   [[nodiscard]] bool StoresDone(uint64_t key, Result result);
   [[nodiscard]] Reply PublishesCarried(const Job &job, Result result);
   void DeferredAdmission();

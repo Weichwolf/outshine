@@ -189,7 +189,7 @@ void TilePool::IndexCacheEntry(std::string_view key, size_t entry) {
   CacheAt_.insert(at, {.Digest = digest, .Entry = entry});
 }
 
-void TilePool::EraseCacheEntry(std::string_view key, size_t entry) {
+void TilePool::EraseCacheIndex(std::string_view key, size_t entry) {
   const uint64_t digest = RequestKey(key);
   const auto first = std::ranges::lower_bound(CacheAt_, digest, {}, &CacheIndex::Digest);
   const auto found =
@@ -200,7 +200,18 @@ void TilePool::EraseCacheEntry(std::string_view key, size_t entry) {
   CacheAt_.erase(found);
 }
 
-void TilePool::RepointCacheEntry(CacheEntryMove move) noexcept {
+void TilePool::RemoveCacheEntry(size_t entry) {
+  CacheBytes_ -= Cache_[entry].Data.size();
+  EraseCacheIndex(Cache_[entry].Key, entry);
+  const size_t last = Cache_.size() - 1u;
+  if (entry != last) {
+    Cache_[entry] = std::move(Cache_[last]);
+    RepointCacheIndex({.From = last, .To = entry});
+  }
+  Cache_.pop_back();
+}
+
+void TilePool::RepointCacheIndex(CacheEntryMove move) noexcept {
   const auto found = std::ranges::find_if(
       CacheAt_, [move](const CacheIndex &indexed) { return indexed.Entry == move.From; });
   assert(found != CacheAt_.end());
@@ -287,21 +298,18 @@ void TilePool::Remember(const std::string &key,
                         std::string_view sourceRevision,
                         bool absent) {
   const std::scoped_lock lock(CacheMutex_);
-  if (CacheEntryOf(key)) { return; }
+  if (const auto found = CacheEntryOf(key)) {
+    const CacheEntry &held = Cache_[*found];
+    if (held.RefusedUntilMs <= 0.0 || !held.Data.empty() || held.Absent) { return; }
+    RemoveCacheEntry(*found);
+  }
   long evicted = 0;
   while (!Cache_.empty() && CacheBytes_ + len > ByteBudget_) {
     size_t victim = 0;
     for (size_t i = 1; i < Cache_.size(); i++) {
       if (Cache_[i].Used < Cache_[victim].Used) { victim = i; }
     }
-    CacheBytes_ -= Cache_[victim].Data.size();
-    EraseCacheEntry(Cache_[victim].Key, victim);
-    const size_t last = Cache_.size() - 1u;
-    if (victim != last) {
-      Cache_[victim] = std::move(Cache_[last]);
-      RepointCacheEntry({.From = last, .To = victim});
-    }
-    Cache_.pop_back();
+    RemoveCacheEntry(victim);
     evicted++;
   }
   if (evicted > 0) {

@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace {
 using namespace outshine::Data;
@@ -100,6 +101,14 @@ int main() {
   CHECK(pool.BytesBlocking(request, &recovered) == outshine::Ground::TilePool::Reply::Ready &&
             !recovered.Failure && recovered.SourceId == "primary",
         "successful recovery clears previous diagnostic payloads");
+  const auto deliveries = sources.Counters().Delivered;
+  for (int repeat = 0; repeat < 2; ++repeat) {
+    CHECK(pool.BytesBlocking(request, &recovered) == outshine::Ground::TilePool::Reply::Ready &&
+              !recovered.Failure && recovered.Bytes == std::vector<uint8_t>({11, 22}),
+          "recovered bytes remain resident with no stale refusal");
+  }
+  CHECK(sources.Counters().Delivered == deliveries,
+        "repeated recovered requests do not consult source providers again");
   for (const auto reason : {FetchFailureReason::TimedOut,
                             FetchFailureReason::Cancelled,
                             FetchFailureReason::Unavailable}) {
