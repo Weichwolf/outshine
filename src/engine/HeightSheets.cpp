@@ -363,8 +363,16 @@ namespace {
   long nx = static_cast<long>(fine.Tile.X) + edge.StepX;
   const long ny = static_cast<long>(fine.Tile.Y) + edge.StepY;
   if (!Ground::WrapTile(fine.Tile.Zoom, &nx, &ny)) { return nullptr; }
+  if (index.Find({.Zoom = fine.Tile.Zoom,
+                  .X = static_cast<uint32_t>(nx),
+                  .Y = static_cast<uint32_t>(ny)}) != nullptr) {
+    return nullptr;
+  }
+  const uint32_t boundary = edge.AlongJ ? fine.Tile.X + (edge.StepX > 0 ? 1u : 0u)
+                                        : fine.Tile.Y + (edge.StepY > 0 ? 1u : 0u);
   for (int zoom = fine.Tile.Zoom - 1; zoom >= coarsest; --zoom) {
     const auto drop = static_cast<uint32_t>(fine.Tile.Zoom - zoom);
+    if (boundary % (1u << drop) != 0) { break; }
     const Data::TileId wanted{.Zoom = zoom,
                               .X = static_cast<uint32_t>(nx) >> drop,
                               .Y = static_cast<uint32_t>(ny) >> drop};

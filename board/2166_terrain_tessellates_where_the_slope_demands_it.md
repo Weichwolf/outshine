@@ -53,6 +53,8 @@ Add analytic fixtures for all four edges, multiple level gaps, overlapping ances
 same-level neighbors, true coarse neighbors and dateline. Restoring either missing
 check must fail. No camera/DEM fitting; overlapping fallback draw coverage remains separate.
 Gate: make format; HeightSheets suite; all Places and opened PNGs; full lint/tidy/API.
+56 analytic checks PASS; removing ancestor/peer guards produces 2/24 actual FAILs.
+Format 1209 files PASS; /tmp/outshine-terrain-neighbor-{control-results,correct,ancestor,peer}.log.
 
 ## Decision
 
