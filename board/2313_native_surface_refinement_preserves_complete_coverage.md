@@ -74,8 +74,8 @@ remain bounded and resumable, and preserve a complete certificate on exhaustion.
 
 ## Evidence and remaining work
 
-9bde2cd88: seven official focused tests and full lint PASS, 256/256 tidy-Units without
-findings, 32/32 guards. Logs: /tmp/outshine-convex-bound-{focused,full-lint}.log;
+5dbc9b7a7: seven official focused tests and full lint PASS, 256/256 tidy-Units without
+findings, 32/32 guards. Logs: /tmp/outshine-corner-coverage-{focused,full-lint}.log;
 gate-result.txt records the checked commit. ef78343aa previously proved explicit moves
 against the reproduced SEGV, implicit-move mutant, ASan/UBSan and full gates.
 
@@ -84,7 +84,7 @@ Current optimization: expanded native test fails against 9bde2cd88 and passes af
 3003 and analytical convex 456 checks pass ASan/UBSan. False match (X only), corner min
 and inverted pruning each cause actual FAIL, not BUILD. Logs:
 /tmp/outshine-corner-coverage-{controls,sanitized,pruning-control}.log and per-case logs.
-Format: 1201 files, zero errors. Official focused/full gates for this change remain pending.
+Format: 1201 files, zero errors. Official focused/full gates for this commit pass as recorded above.
 
 Local 20x30 m native probe: flat Fine/Shell uses 16052 queries for
 [1.899999979,1.911157473] m; pitched Fine/Shell 47541 for [3.447908072,3.465112777] m.
