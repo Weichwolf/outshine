@@ -1442,8 +1442,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   }
   for (int part = 0; part < 16; part++) { Model[part] = pose.Model[part]; }
   RowsStale_ = true;
-  if (!HandStreams(pose, true, error)) { return false; }
-  return true;
+  return HandStreams(pose, true, error);
 }
 
 bool SubjectDraw::SetLights(std::span<const SubjectLight> lights, std::string &error) {

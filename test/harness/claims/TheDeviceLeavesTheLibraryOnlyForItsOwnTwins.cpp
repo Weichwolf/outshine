@@ -26,8 +26,8 @@ constexpr const char *kDeviceWork[] = {
     "SDL_CreateGPUTexture",
 };
 
-[[nodiscard]] bool ProvesTheDevice(const std::string &path) {
-  return path.find("test/outshine/src/render/device/") != std::string::npos ||
+[[nodiscard]] bool ProvesRendererInternals(const std::string &path) {
+  return path.find("test/outshine/src/render/") != std::string::npos ||
          path.find("test/harness/") != std::string::npos;
 }
 
@@ -45,7 +45,7 @@ int main(void) {
       if (suffix != ".cpp" && suffix != ".h") { continue; }
       const std::string path = entry.string();
       if (path.rfind("src/render/", 0) == 0) { continue; }
-      if (ProvesTheDevice(path)) { continue; }
+      if (ProvesRendererInternals(path)) { continue; }
       ++walked;
       const std::string text = Slurp(entry);
       for (const char *verb : kDeviceWork) {
@@ -75,7 +75,7 @@ int main(void) {
         "src/render/ claims a window for the device, acquires a swapchain texture or a command "
         "buffer, or makes a GPU texture -- because a client that does those things is written "
         "against SDL_GPU whether it wants to be or not, and the renderer it holds is then not "
-        "swappable. The exception is the declared device-contract suite, whose fault injections "
+        "swappable. The exception is the mirrored internal render suite, whose fault injections "
         "prove SDL ownership "
         "and submission and which is not a client of it (board:2190)");
 

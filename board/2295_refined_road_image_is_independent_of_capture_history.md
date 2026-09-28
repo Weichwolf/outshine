@@ -76,7 +76,7 @@ correction. BeginMesh now submits accepted residency uploads before mutation;
 SetPose failure no longer discards other owners' queued uploads. The fixture
 checks clear/replacement, submission refusal, unchanged generation/ownership,
 and successful retry against exact native bytes in the current bound buffers.
-Focused SubjectDraw/SubjectResidency: 3 PASS. The 46.883333-s offline motion
+Focused render/device-boundary checks: 4 PASS. The 46.883333-s offline motion
 PNG `geometry-check/preserved-uploads-mark2-lap-tick2813.png` was opened: prior
 sky-spanning wedges are absent. p50/p95/p99 2.296/8.850/13.383 ms; peak
 643.947 MiB. Remaining stations/full lap, ownership and refined convergence
@@ -86,6 +86,7 @@ The device-boundary claim must admit mirrored internal renderer tests under
 `test/outshine/src/render/`, including independent GPU staging/readback oracles.
 Production clients and non-render components remain forbidden; insert a direct
 GPU-acquisition call outside render as an effective negative control.
+The injected engine-header call failed; removal restored PASS.
 
 ## Falsifiable acceptance
 
