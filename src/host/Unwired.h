@@ -2,6 +2,7 @@
 #define OUTSHINE_HOST_UNWIRED_H
 
 #include "Transport.h"
+#include <expected>
 
 namespace outshine {
 

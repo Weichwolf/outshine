@@ -1,3 +1,4 @@
+#include <expected>
 #include "Fetching.h"
 
 #include <algorithm>
@@ -83,7 +84,7 @@ Fetching::~Fetching() {
 }
 
 Data::FetchStart Fetching::Begin(const std::string &url) {
-  if (url.empty() || url.find('\0') != std::string::npos) {
+  if (url.empty() || url.contains('\0')) {
     return std::unexpected(Data::FetchFailureReason::InvalidRequest);
   }
   uint64_t ticket = 0;
