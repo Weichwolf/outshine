@@ -11,11 +11,9 @@ Tags: terrain, ownership, revisions
 
 ## Problem and existing capability
 
-Accepted readiness formerly re-resolved DEM after raster eviction. Larger caches/pins
-hid the ownership defect and increased memory. TilePool now owns TerrainRevisionIndex
-independently of raster residency. TerrainCertificate records owner, shape scope and
-requested-address stamps. TerrainField/HeightField preserve stitch dependencies through
-copy/share/resampling; BuildingField::AcceptedInput owns accepted source certificates.
+Accepted readiness formerly re-resolved DEM after raster eviction. TilePool owns revisions
+independently of residency; TerrainField/HeightField carry stitch dependencies and
+BuildingField::AcceptedInput owns accepted certificates.
 
 ## Binding ownership and validity
 
@@ -46,22 +44,24 @@ copy/share/resampling; BuildingField::AcceptedInput owns accepted source certifi
   return Pending BEFORE writer release. Watchdogs protect test liveness, never prove p99.
   Full blocking validation remains separate at preparation/publication boundaries.
 
-## Active step: pure building-source inspection
+## Pure building-source inspection
 
-- Owners: StructureBuildQueue.h/.cpp and HeightSource::InspectCertificate callback.
-  InspectCellSource returns its own five-state CellSourceState. It reads vector/street/
-  span/source-key metadata, known scope and certificate without callback copies or a
-  resolver. No fallback to blocking CertificateCurrent, even on misses/unknown/pending.
-- A shared AcceptedSourceMetadataCurrent comparison prevents post/landing drift.
-  Missing acceptance/inspection/scope is Unknown; known input differences are Stale or
-  ScopeChanged. Terrain callback statuses remain distinct. No certificate callback can
-  override known source differences or unknown accepted scope.
-- Former CellSourceCurrent is ValidateResidentCellSource; the allocating internal operation
-  is ValidateCellSource. Preserve their resident-resolution behavior and existing fixtures.
-  Frame activation still uses this explicit validator until revalidation is integrated.
-- Test HIT/MISS/Unknown/Pending/Stale/Scope and missing inspector for zero allocations and
-  zero Sample/CopyField/ResidentField/CertificateCurrent calls. Restore the resolver on the
-  pure path, ignore unknown scope or bypass metadata checks: each must produce actual FAIL.
+InspectCellSource separates five states without resolution, callback copies or blocking
+fallback. Shared checks cover vector/street/span/key/scope; fixtures require zero allocation
+and resolver calls. Restored resolution or ignored scope/metadata must give actual FAIL.
+Frame still uses ValidateResidentCellSource until bounded revalidation is integrated.
+
+## Active step: cache accepted source identity at its owner
+
+Move StructureSourceKey.h and fixtures to world/ground; preserve algorithm/key bytes.
+PendingAcceptance canonicalizes Sources and computes AcceptedInput::SourceKey once from
+its OWN immutable Vector/Sources/Bake data, only when Qualified. QualifiedSourceKey reads
+this scalar. Commit/replacement/snapshot/reset carry or recompute it with its owner.
+Certificate-only renewal preserves it. Test canonicalization, mutations, snapshots and
+unqualified acceptance. Protect an interior source-string page in a child and invoke the
+real queue getter: lookup must succeed; restored rehash must fail the parent check safely.
+Acceptance: format; native StructureSourceKey/BuildingField/queue suites; full lint/tidy/API.
+Existing frame consumers stop hashing sources repeatedly; street scanning remains.
 
 ## Evidence
 
@@ -107,8 +107,8 @@ without rebaking. Changed input revokes activation and requests existing replace
 Before replacing the frame validator, specify queue/byte caps, polling/backoff and error
 states; prove no retry storm, starvation or borrowed mutable reader. Runtime cost/visual
 acceptance remains open; standalone inspectors do not establish a bounded frame path.
-Inspection hashes tile way points and accepted sources each time; bound/cache this work
-under the actual owners/generations before claiming bounded frame inspection.
+Inspection scans tile way points; bound/cache street work under actual owners/generations
+before claiming bounded frame inspection.
 StructureCellsReady only reads plan.Active: integrate validation/replacement for active
 fronts too; checking inactive activation alone cannot reject an expired fine front.
 
