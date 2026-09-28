@@ -55,8 +55,4 @@ TerrariumDem::TerrariumDem(std::string revision,
     : WebTileSource(Declared(std::move(revision), order, absence, std::move(dataset), endpoint),
                     endpoint.empty() ? std::string(Says::kTile) : endpoint) {}
 
-bool TerrariumDem::CountsAbsent(int status) const noexcept {
-  return status == kHttpForbidden || status == kHttpNotFound;
-}
-
 }

@@ -25,6 +25,8 @@ road/building/material quality remains schematic; this is a data correctness fix
 Deleting `elevation/15/17165/11203` from a separate cache makes preparation fail
 before playback, with one cache miss, no PNG/network. The error instead reports
 stitched field `elevation/15/17164/11202`: the failing raw source address is lost.
+Terrarium now uses the shared 404-only absence rule. Scripted 404/403/401 and
+subsequent recovery pass; restoring the former 403 rule fails the same test.
 Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
 
 ## View preparation contract

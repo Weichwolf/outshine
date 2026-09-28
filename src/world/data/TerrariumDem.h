@@ -14,9 +14,6 @@ public:
                AbsencePolicy absence,
                std::string dataset = {},
                const std::string &endpoint = {});
-
-protected:
-  [[nodiscard]] bool CountsAbsent(int status) const noexcept override;
 };
 
 }
