@@ -18,20 +18,10 @@ advance with unknown height tiles and zero remote starts. A missing tile
 PNG: at least part of the gap is unsubmitted demand, not provider absence.
 Playable preload at every fast-forward tick still left 42 offline misses.
 
-A controlled fresh-cache run paced the same ticks at 60 Hz without intermediate
-rendering. It fetched 538 tiles. The immediate offline static capture had 538
-hits, zero misses and zero remote starts; all 921,600 pixels matched the online
-static image. Thus rendering is not required for this observed demand closure;
-fast-forward outruns asynchronous terrain candidate progress. Diagnostic code
-was removed. The paced motion image itself is not the static image oracle.
-
-Content-key reconstruction identified every entry in the isolated caches.
-Both runs contain the same 65 vector tiles. Paced execution fetched 473
-elevation tiles versus 129 with fast-forward/playable preload: 344 additional
-elevation addresses at source zooms 11, 14 and 15. Required demand is submitted
-by candidate sheet preparation, after residency-dependent patchwork selection.
-`PlanPatchworkTiles` and `PlanTerrainSourceTiles` now permit independent planning,
-but no route-path preparation consumes them yet.
+A paced run fetched 538 tiles (65 vector, 473 elevation); fast-forward fetched
+only 129 elevation tiles. Its immediate offline replay missed required fields.
+Pure patchwork/source planners and sampler coverage now exist; path preparation
+must consume them before playback.
 
 `GroundStream::TileAt` also calls `KeepCoarse` after its normal grid resolves;
 that sampler requests a field three zoom levels below its normal grid. The
@@ -54,6 +44,23 @@ using the sampler's own coverage contract rather than a copied zoom constant.
 - Keep the cache bounded, including metadata/negative entries. Do not fake
   terrain heights or broaden `settled()` to hide refused tiles. Existing raw
   cached bytes remain readable; any new record format is versioned.
+
+## View preparation API
+
+- `Engine::prepareViewData(durationS, patienceS)` synchronously prepares the
+  active static/route view from the current tick through ceil(duration/step)
+  ticks. It does not advance simulation, change the active view or draw/upload.
+  Groundless scenes return success; unsupported dynamic views are refused.
+- Route sampling shares the runtime camera-pose calculation. Geographic
+  conversion and sight-to-level calculation are shared with normal streaming.
+- `engine/streaming/TerrainPathPreparation` owns canonical bounded path/source
+  unions and vector-then-height settlement under one global deadline. At most
+  216001 points and 8192 unique addresses per kind; refuse before oversized IO.
+  OSM source windows use the same planner as `OsmField::Build`; classifier
+  windows come from `ClassField`, not copied grid/radius literals.
+- Client capture invokes this after bootstrap and view selection, before
+  advance, for both motion and static captures. Unknown/refused data includes
+  kind/address in the owned error. Native source identities remain on fetches.
 
 ## First falsification and implementation sequence
 
