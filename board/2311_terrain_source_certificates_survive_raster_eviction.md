@@ -79,7 +79,8 @@ d91dc0cdb implements request capture/acceptance/heap accounting and three owner 
 format 1203 files, zero errors. 46bbf8c48: HeightField 5, BuildingField 5, queue 4 PASS.
 Ancestor substitution, reversed order and block zoom instead of field zoom give actual FAIL.
 Logs: /tmp/outshine-height-request-{heightfield,buildingfield,queue,controls}.log.
-Full lint still running; no frame-cost claim.
+46bbf8c48: full lint PASS, 256/256 tidy units without findings, 32/32 guards, API docs;
+process exit 0. /tmp/outshine-height-request-full-lint.log and gate-result.txt. No frame claim.
 
 ## Active step: retain exact height requests
 
