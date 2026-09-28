@@ -51,7 +51,7 @@ fallback. Shared checks cover vector/street/span/key/scope; fixtures require zer
 and resolver calls. Restored resolution or ignored scope/metadata must give actual FAIL.
 Frame still uses ValidateResidentCellSource until bounded revalidation is integrated.
 
-## Active step: own street digests at ingestion
+## Street digest ownership
 
 StreetField owns immutable Way digests and OSM origin/generation. Reuse the existing
 OriginToken byte owner, never pin coordinates. Snapshots retain the same context; foreign
@@ -67,24 +67,24 @@ queue suites; full lint/tidy/API. Existing accepted source-key cache remains unc
 
 ## Evidence
 
-987af742a: 13 focused, full lint 256/256 without findings, 32 guards PASS; 26 delivery/mutex
-checks and three blocking mutants FAIL. Pure source inspection: 33 direct checks, three
-resolver/scope/metadata mutants FAIL; 4871add5a full gate PASS. Logs retained under /tmp.
-46bbf8c48: HeightField 5, BuildingField 5, queue 4, full lint 256/256 without findings,
-32 guards/API docs PASS. Request ancestor/order/zoom mutants FAIL. Logs:
-/tmp/outshine-height-request-{heightfield,buildingfield,queue,controls,full-lint}.log.
-Accepted-key cache: 9 direct checks PASS; restored rehash gives actual FAIL through a
-protected payload page, never watchdog/SIGNAL/BUILD. Independent little-endian FNV oracle
-matches 0x1ae933c37f74e20a; derivation /tmp/outshine-accepted-source-key-oracle.log.
-Logs /tmp/outshine-accepted-source-key-{controls,correct,restored-rehash}.log.
-41e159998: native key 1, BuildingField 5, queue 5 and full lint PASS; 256/256 tidy units,
-zero findings, 32 guards/API docs; process exit 0.
-Logs /tmp/outshine-accepted-source-key-{native,buildingfield,queue,full-lint}.log.
+Prior full gates PASS at 4871add5a, 46bbf8c48 and 41e159998; logs remain in Git history.
+63908c160: 19 focused PASS; full lint FAIL on three tidy findings. 94581ed9b fixes
+include/complexity; full rerun pending.
+
+## Active step: retain reservations past scan advancement
+
+Wien/Places abort in DiscardFront -> TileWatermark::Release: Advance erases worker-owned
+reservations. Owner: TileWatermark.h/tests. Retain a sorted unavailable set independently
+of scanning; Release removes its tile and rewinds, preserving other held/accepted/skipped
+tiles. Rename the set; retain unheld-release assertions and snapshot ownership. Test
+advanced release/retry/other-held/skipped/snapshot; restored erasure must FAIL. Format;
+TileWatermark/BuildingField/queue/Places; full lint/tidy/API; render all Places without
+vegetation and open PNGs. Backtrace: /tmp/outshine-places-94581ed9b-backtrace-full.log.
+
 Street digest: 25 owner and 35 queue checks PASS; scan/domain/generation mutants FAIL.
 Unknown street context invokes no terrain callbacks/resolution and allocates nothing.
 Independent 48-byte count/width/f64 oracle: /tmp/outshine-street-digest-oracle.log.
 Logs /tmp/outshine-street-digest-{controls,correct,queue-correct}.log.
-Format 1205 files, zero errors; official street gate pending; no frame-time claim.
 
 ## Exact height requests
 
