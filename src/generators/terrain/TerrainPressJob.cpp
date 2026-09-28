@@ -19,7 +19,8 @@ namespace outshine::Generators {
 struct TerrainPressJob::State {
   enum class Phase : uint8_t { Gather, Decide, Write, Reproject, Measure, Done };
 
-  std::vector<EarthworkStamp> Stamps;
+  const std::vector<EarthworkStamp> Stamps;
+  size_t StampBytes = 0;
   Patchwork *Candidate;
   TangentFrame Frame;
   TerrainPageLayout Layout;
@@ -52,6 +53,8 @@ struct TerrainPressJob::State {
         Frame(frame),
         Layout(layout),
         MostEarthworkM(mostEarthworkM) {
+    StampBytes = Stamps.capacity() * sizeof(EarthworkStamp);
+    for (const EarthworkStamp &stamp : Stamps) { StampBytes += stamp.HeapBytes(); }
     if (Stamps.empty() || !Layout.Valid()) { Current = Phase::Done; }
     if (Current == Phase::Done) { return; }
     const auto validSheets = static_cast<size_t>(std::count_if(
@@ -135,14 +138,12 @@ struct TerrainPressJob::State {
   }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    size_t bytes = Stamps.capacity() * sizeof(EarthworkStamp) +
-                   Positions.capacity() * sizeof(EastNorth) +
+    size_t bytes = StampBytes + Positions.capacity() * sizeof(EastNorth) +
                    (HeightsM.capacity() + PreviousM.capacity()) * sizeof(double) +
                    SourceSheets.capacity() * sizeof(size_t) +
                    PressResult.Refused.capacity() * sizeof(uint8_t) +
                    PressResult.DecidedBy.capacity() * sizeof(uint32_t) +
                    PressResult.Inside.capacity() * sizeof(EarthworkPointClaim);
-    for (const EarthworkStamp &one : Stamps) { bytes += one.HeapBytes(); }
     if (PressJob) { bytes += PressJob->HeapBytes(); }
     return bytes;
   }

@@ -59,6 +59,9 @@ omitting nested bytes must actually FAIL. Existing one-shot/sliced terrain oracl
 Gate: format, TerrainPress/EarthworkPress suites, all Places/PNGs, full lint/tidy/API.
 Repeat real Graz sample to check removal of this scan; do not promise all timeouts cured.
 Log: /tmp/outshine-repair-320e3c9a2-graz-sample.log.
+Repair: immutable stamps and cached owned bytes. Format 1206 files PASS; independent
+capacity/move fixture 5 checks PASS; omitted nested capacities produce 3 actual FAILs.
+Log: /tmp/outshine-terrain-accounting-verification.log. Runtime/full gates remain open.
 
 ## Decision
 
