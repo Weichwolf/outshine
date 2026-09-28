@@ -686,57 +686,59 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
     if (worn > 0.0) {
       const Vec3 wornMean = {{wornSum[0] / worn, wornSum[1] / worn, wornSum[2] / worn}};
       candidate.Grounding(wornMean);
-      Published.Places(
+      Published.RecordMetric(
           "lighting: the ground it bounces off, red", kPerMille * wornMean[0], "albedo/1000");
-      Published.Places("lighting: green", kPerMille * wornMean[1], "albedo/1000");
-      Published.Places("lighting: blue", kPerMille * wornMean[2], "albedo/1000");
+      Published.RecordMetric("lighting: green", kPerMille * wornMean[1], "albedo/1000");
+      Published.RecordMetric("lighting: blue", kPerMille * wornMean[2], "albedo/1000");
     }
   }
   const Render::SubjectEnvironment &lighting = candidate.AmbientStanding();
-  Published.Places("lighting: the sky's own radiance, red", lighting.RadianceLinear[0], "cd/m2");
-  Published.Places("lighting: sky green", lighting.RadianceLinear[1], "cd/m2");
-  Published.Places("lighting: sky blue", lighting.RadianceLinear[2], "cd/m2");
-  Published.Places(
+  Published.RecordMetric(
+      "lighting: the sky's own radiance, red", lighting.RadianceLinear[0], "cd/m2");
+  Published.RecordMetric("lighting: sky green", lighting.RadianceLinear[1], "cd/m2");
+  Published.RecordMetric("lighting: sky blue", lighting.RadianceLinear[2], "cd/m2");
+  Published.RecordMetric(
       "lighting: the ground's bounced radiance, red", lighting.GroundLinear[0], "cd/m2");
-  Published.Places("lighting: bounce green", lighting.GroundLinear[1], "cd/m2");
-  Published.Places("lighting: bounce blue", lighting.GroundLinear[2], "cd/m2");
-  Published.Places(
+  Published.RecordMetric("lighting: bounce green", lighting.GroundLinear[1], "cd/m2");
+  Published.RecordMetric("lighting: bounce blue", lighting.GroundLinear[2], "cd/m2");
+  Published.RecordMetric(
       "class field: the vegetation table is ready", wearing.Ready() ? 1.0 : 0.0, "yes/no");
-  Published.Places(
+  Published.RecordMetric(
       "class field: rows the table carries", static_cast<double>(wearing.TemplateCount()), "rows");
-  Published.Places("class field: features the fine tier holds",
-                   static_cast<double>(World.Stack.Classes().FeaturesHeld()),
-                   "features");
-  Published.Places("class field: of those it has taken",
-                   static_cast<double>(World.Stack.Classes().FeaturesTaken()),
-                   "features");
-  Published.Places("class field: it published a structure", classes ? 1.0 : 0.0, "yes/no");
-  Published.Places("class field: the version the colours used",
-                   classes ? static_cast<double>(classes->Version()) : -1.0,
-                   "version");
+  Published.RecordMetric("class field: features the fine tier holds",
+                         static_cast<double>(World.Stack.Classes().FeaturesHeld()),
+                         "features");
+  Published.RecordMetric("class field: of those it has taken",
+                         static_cast<double>(World.Stack.Classes().FeaturesTaken()),
+                         "features");
+  Published.RecordMetric("class field: it published a structure", classes ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric("class field: the version the colours used",
+                         classes ? static_cast<double>(classes->Version()) : -1.0,
+                         "version");
   if (classes) {
     uint64_t digest = kDigestBasis;
     const size_t words = classes->Bytes() / sizeof(uint32_t);
     for (size_t at = 0; at < words; ++at) {
       digest = (digest ^ classes->Words()[at]) * kDigestPrime;
     }
-    Published.Places("class field: the structure's digest, low half",
-                     static_cast<double>(digest & kLowWord),
-                     "digest");
-    Published.Places("class field: the structure's digest, high half",
-                     static_cast<double>(digest >> 32U),
-                     "digest");
+    Published.RecordMetric("class field: the structure's digest, low half",
+                           static_cast<double>(digest & kLowWord),
+                           "digest");
+    Published.RecordMetric("class field: the structure's digest, high half",
+                           static_cast<double>(digest >> 32U),
+                           "digest");
   }
-  Published.Places("class field: it calls itself complete",
-                   World.Stack.Classes().Complete() ? 1.0 : 0.0,
-                   "yes/no");
-  Published.Places("class field: tiles it waits for",
-                   static_cast<double>(World.Stack.Classes().PendingTiles()),
-                   "tiles");
-  Published.Places("class field: the fraction it has no data for",
-                   classes ? classes->NoDataFraction() : -1.0,
-                   "fraction");
-  Published.Places("class field: the materials are loaded", wearing.Ready() ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric("class field: it calls itself complete",
+                         World.Stack.Classes().Complete() ? 1.0 : 0.0,
+                         "yes/no");
+  Published.RecordMetric("class field: tiles it waits for",
+                         static_cast<double>(World.Stack.Classes().PendingTiles()),
+                         "tiles");
+  Published.RecordMetric("class field: the fraction it has no data for",
+                         classes ? classes->NoDataFraction() : -1.0,
+                         "fraction");
+  Published.RecordMetric(
+      "class field: the materials are loaded", wearing.Ready() ? 1.0 : 0.0, "yes/no");
   return out;
 }
 
@@ -770,35 +772,35 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
     build.Surfaces = TilePieces::Surfaces{.Walls = Render::PieceSurface::Registered(*first),
                                           .Roofs = Render::PieceSurface::Registered(*first + 1u)};
   }
-  Published.Places(
+  Published.RecordMetric(
       "rebuild: the ground ring took",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - clocks.PhaseAt)
           .count(),
       "ms");
   clocks.PhaseAt = std::chrono::steady_clock::now();
   clocks.CensusAt = clocks.PhaseAt;
-  Published.Places(
+  Published.RecordMetric(
       "buildings: the wall surface", static_cast<double>(build.Surfaces->Walls.Index), "index");
-  Published.Places(
+  Published.RecordMetric(
       "buildings: the roof surface", static_cast<double>(build.Surfaces->Roofs.Index), "index");
-  Published.Places("buildings: tiles handed to the arena as pieces",
-                   static_cast<double>(World.Pieces.Handed()),
-                   "tiles");
-  Published.Places(
+  Published.RecordMetric("buildings: tiles handed to the arena as pieces",
+                         static_cast<double>(World.Pieces.Handed()),
+                         "tiles");
+  Published.RecordMetric(
       "buildings: pieces the arena refused", static_cast<double>(World.Pieces.Refused()), "pieces");
-  Published.Places("buildings: triangles the tiles handed over",
-                   static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
-                   "triangles");
+  Published.RecordMetric("buildings: triangles the tiles handed over",
+                         static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
+                         "triangles");
   if (Picture.Standing) {
-    Published.Places("buildings: pieces standing in the arena",
-                     static_cast<double>(Picture.Device.PiecesStanding()),
-                     "pieces");
-    Published.Places("buildings: triangles the arena holds",
-                     static_cast<double>(Picture.Device.PieceTriangles()),
-                     "triangles");
-    Published.Places("buildings: bytes the arena holds on the device",
-                     static_cast<double>(Picture.Device.PieceBytesHeld()),
-                     "bytes");
+    Published.RecordMetric("buildings: pieces standing in the arena",
+                           static_cast<double>(Picture.Device.PiecesStanding()),
+                           "pieces");
+    Published.RecordMetric("buildings: triangles the arena holds",
+                           static_cast<double>(Picture.Device.PieceTriangles()),
+                           "triangles");
+    Published.RecordMetric("buildings: bytes the arena holds on the device",
+                           static_cast<double>(Picture.Device.PieceBytesHeld()),
+                           "bytes");
   }
   return true;
 }
@@ -869,59 +871,63 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                                    .TargetSourceZoom = over.Zoom},
                       .Quality = quality};
   if (quality == GroundQuality::Refined) { World.RequestedRefinedGround = request.Revision; }
-  Published.Places("building triangles the world meshed",
-                   static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
-                   "triangles");
-  Published.Places(
+  Published.RecordMetric("building triangles the world meshed",
+                         static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
+                         "triangles");
+  Published.RecordMetric(
       "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
-  Published.Places("world: published semantic region",
-                   World.Region ? static_cast<double>(World.Region->HeapBytes()) : 0.0,
-                   "bytes");
-  Published.Places("world: of that, the land classes",
-                   static_cast<double>(World.Stack.Classes().HeapBytes()),
-                   "bytes");
-  Published.Places(
+  Published.RecordMetric("world: published semantic region",
+                         World.Region ? static_cast<double>(World.Region->HeapBytes()) : 0.0,
+                         "bytes");
+  Published.RecordMetric("world: of that, the land classes",
+                         static_cast<double>(World.Stack.Classes().HeapBytes()),
+                         "bytes");
+  Published.RecordMetric(
       "world: the buildings", static_cast<double>(World.Stack.Footprints().HeapBytes()), "bytes");
-  Published.Places("world: of those, the footprints it keeps",
-                   static_cast<double>(World.Stack.Footprints().PrintBytes()),
-                   "bytes");
-  Published.Places("world: tiles baking on the workers right now",
-                   static_cast<double>(World.StructureBuilds.Queued()),
-                   "tiles");
-  Published.Places("world: the building pieces the device holds",
-                   Picture.Standing ? static_cast<double>(Picture.Device.PieceBytesHeld()) : 0.0,
-                   "bytes");
-  Published.Places(
+  Published.RecordMetric("world: of those, the footprints it keeps",
+                         static_cast<double>(World.Stack.Footprints().PrintBytes()),
+                         "bytes");
+  Published.RecordMetric("world: tiles baking on the workers right now",
+                         static_cast<double>(World.StructureBuilds.Queued()),
+                         "tiles");
+  Published.RecordMetric("world: the building pieces the device holds",
+                         Picture.Standing ? static_cast<double>(Picture.Device.PieceBytesHeld())
+                                          : 0.0,
+                         "bytes");
+  Published.RecordMetric(
       "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
-  Published.Places(
+  Published.RecordMetric(
       "world: the streets", static_cast<double>(World.Stack.Ways().HeapBytes()), "bytes");
-  Published.Places("world: the ceiling its fields stand under",
-                   static_cast<double>(Ground::GroundStack::kHoldsBytes),
-                   "bytes");
-  Published.Places("world: times a round stopped at that ceiling",
-                   static_cast<double>(World.Stack.OverCeiling()),
-                   "rounds");
-  Published.Places("world: and the OSM features",
-                   World.Stack.Vectors() != nullptr
-                       ? static_cast<double>(World.Stack.Vectors()->HeapBytes())
-                       : 0.0,
-                   "bytes");
-  Published.Places("tiles laid bare on the ellipsoid",
-                   static_cast<double>(sees->Pending + sees->Absent + sees->Refused),
-                   "tiles");
+  Published.RecordMetric("world: the ceiling its fields stand under",
+                         static_cast<double>(Ground::GroundStack::kHoldsBytes),
+                         "bytes");
+  Published.RecordMetric("world: times a round stopped at that ceiling",
+                         static_cast<double>(World.Stack.OverCeiling()),
+                         "rounds");
+  Published.RecordMetric("world: and the OSM features",
+                         World.Stack.Vectors() != nullptr
+                             ? static_cast<double>(World.Stack.Vectors()->HeapBytes())
+                             : 0.0,
+                         "bytes");
+  Published.RecordMetric("tiles laid bare on the ellipsoid",
+                         static_cast<double>(sees->Pending + sees->Absent + sees->Refused),
+                         "tiles");
   if (!World.GroundPublished.NeedsRebuild(
           request.Revision, alsoWhenTilesLanded, World.RimsMissing > 0)) {
     return Laid::Unchanged;
   }
 
-  Published.Places(
+  Published.RecordMetric(
       "rebuilds since the world stood", static_cast<double>(World.Relaid + 1u), "rebuilds");
-  Published.Places("rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
-  Published.Places("rebuild: tiles resident when it did", static_cast<double>(resident), "tiles");
-  Published.Places("rebuild: and resident the time before",
-                   static_cast<double>(previous.ResidentTiles),
-                   "tiles");
-  Published.Places("rebuild: the land classes were named anew", renamed ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric(
+      "rebuild: the eye walked into another tile", elsewhere ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric(
+      "rebuild: tiles resident when it did", static_cast<double>(resident), "tiles");
+  Published.RecordMetric("rebuild: and resident the time before",
+                         static_cast<double>(previous.ResidentTiles),
+                         "tiles");
+  Published.RecordMetric(
+      "rebuild: the land classes were named anew", renamed ? 1.0 : 0.0, "yes/no");
   return Laid::Wanted;
 }
 
@@ -933,19 +939,20 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
   const LongitudeLatitude eyeStands = CurrentGeographicFocus();
   const double atLat = eyeStands.LatitudeDeg;
   const double atLon = eyeStands.LongitudeDeg;
-  Published.Places("the ring centres this far from the world's anchor",
-                   std::hypot((atLat - anchorLat) * kMPerDegLat,
-                              (atLon - anchorLon) * kMPerDegLon * std::cos(anchorLat * kDeg2Rad)),
-                   "m");
+  Published.RecordMetric(
+      "the ring centres this far from the world's anchor",
+      std::hypot((atLat - anchorLat) * kMPerDegLat,
+                 (atLon - anchorLon) * kMPerDegLon * std::cos(anchorLat * kDeg2Rad)),
+      "m");
 
   const Around over = TerrainCoverageAt(eyeStands);
   const double tileSpanM = 40075017.0 * std::cos(atLat * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
-  Published.Places("the sight a scenario declares", TerrainSightM(), "m");
-  Published.Places("and what one tile spans at the finest zoom", tileSpanM, "m");
-  Published.Places("the elevation's own posting", World.Stack.Ground().PostM(anchorLat), "m");
-  Published.Places("and the drawn mesh's vertex spacing",
-                   over.Grid > 1 ? tileSpanM / static_cast<double>(over.Grid - 1) : 0.0,
-                   "m");
+  Published.RecordMetric("the sight a scenario declares", TerrainSightM(), "m");
+  Published.RecordMetric("and what one tile spans at the finest zoom", tileSpanM, "m");
+  Published.RecordMetric("the elevation's own posting", World.Stack.Ground().PostM(anchorLat), "m");
+  Published.RecordMetric("and the drawn mesh's vertex spacing",
+                         over.Grid > 1 ? tileSpanM / static_cast<double>(over.Grid - 1) : 0.0,
+                         "m");
   if (Session.Views) {
     const Scenario::View &camera = Session.Views->Active();
     if (camera.Placement == Scenario::CameraPlacement::Geodetic &&
@@ -1119,12 +1126,12 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
         tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.X)) * kDigestPrime;
         tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.Y)) * kDigestPrime;
       }
-      Published.Places("ground candidate: OSM tile order, low half",
-                       static_cast<double>(tileOrder & kLowWord),
-                       "digest");
-      Published.Places("ground candidate: OSM tile order, high half",
-                       static_cast<double>(tileOrder >> 32U),
-                       "digest");
+      Published.RecordMetric("ground candidate: OSM tile order, low half",
+                             static_cast<double>(tileOrder & kLowWord),
+                             "digest");
+      Published.RecordMetric("ground candidate: OSM tile order, high half",
+                             static_cast<double>(tileOrder >> 32U),
+                             "digest");
     }
     const size_t builtPads = yielding.size();
     if (shapes != nullptr) {
@@ -1134,39 +1141,39 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     const size_t builtLakes = yielding.size() - builtPads;
     if (Session.Declared.Render.Audits) {
       const uint64_t padStamps = DigestEarthworks(std::span(yielding).first(builtPads));
-      Published.Places("ground candidate: pad stamps digest, low half",
-                       static_cast<double>(padStamps & kLowWord),
-                       "digest");
-      Published.Places("ground candidate: pad stamps digest, high half",
-                       static_cast<double>(padStamps >> 32U),
-                       "digest");
+      Published.RecordMetric("ground candidate: pad stamps digest, low half",
+                             static_cast<double>(padStamps & kLowWord),
+                             "digest");
+      Published.RecordMetric("ground candidate: pad stamps digest, high half",
+                             static_cast<double>(padStamps >> 32U),
+                             "digest");
       const uint64_t lakeStamps =
           DigestEarthworks(std::span(yielding).subspan(builtPads, builtLakes));
-      Published.Places("ground candidate: lake stamps digest, low half",
-                       static_cast<double>(lakeStamps & kLowWord),
-                       "digest");
-      Published.Places("ground candidate: lake stamps digest, high half",
-                       static_cast<double>(lakeStamps >> 32U),
-                       "digest");
+      Published.RecordMetric("ground candidate: lake stamps digest, low half",
+                             static_cast<double>(lakeStamps & kLowWord),
+                             "digest");
+      Published.RecordMetric("ground candidate: lake stamps digest, high half",
+                             static_cast<double>(lakeStamps >> 32U),
+                             "digest");
     }
-    Published.Places("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
+    Published.RecordMetric("ground: lakes that press it", static_cast<double>(builtLakes), "lakes");
     yielding.insert(yielding.end(),
                     std::make_move_iterator(corridor.begin()),
                     std::make_move_iterator(corridor.end()));
     if (Session.Declared.Render.Audits) {
       const uint64_t corridorStamps =
           DigestEarthworks(std::span(yielding).subspan(builtPads + builtLakes, corridor.size()));
-      Published.Places("ground candidate: corridor stamps digest, low half",
-                       static_cast<double>(corridorStamps & kLowWord),
-                       "digest");
-      Published.Places("ground candidate: corridor stamps digest, high half",
-                       static_cast<double>(corridorStamps >> 32U),
-                       "digest");
+      Published.RecordMetric("ground candidate: corridor stamps digest, low half",
+                             static_cast<double>(corridorStamps & kLowWord),
+                             "digest");
+      Published.RecordMetric("ground candidate: corridor stamps digest, high half",
+                             static_cast<double>(corridorStamps >> 32U),
+                             "digest");
     }
-    Published.Places("ground: pads that press it", static_cast<double>(builtPads), "pads");
-    Published.Places("ground: corridor pieces that press it",
-                     static_cast<double>(yielding.size() - builtPads - builtLakes),
-                     "pieces");
+    Published.RecordMetric("ground: pads that press it", static_cast<double>(builtPads), "pads");
+    Published.RecordMetric("ground: corridor pieces that press it",
+                           static_cast<double>(yielding.size() - builtPads - builtLakes),
+                           "pieces");
     state.BeginsPressing(std::make_unique<Generators::TerrainPressJob>(
         std::move(yielding),
         patchwork,
@@ -1188,69 +1195,71 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
   if (!completed) { return true; }
   const Generators::PressedTerrain pressed_ = state.Pressing()->Take();
   state.FinishesPressing();
-  Published.Places("ground: pressing gather", pressed_.GatherMs, "ms");
-  Published.Places("ground: pressing decide", pressed_.DecideMs, "ms");
-  Published.Places("ground: pressing buckets", pressed_.BucketMs, "ms");
-  Published.Places("ground: pressing reject", pressed_.RejectMs, "ms");
-  Published.Places("ground: pressing apply", pressed_.ApplyMs, "ms");
-  Published.Places("ground: pressing write", pressed_.WriteMs, "ms");
-  Published.Places("ground: pressing floors", pressed_.FloorsMs, "ms");
-  Published.Places("ground: longest gather slice", pressed_.LongestGatherMs, "ms");
-  Published.Places("ground: longest decide slice", pressed_.LongestDecideMs, "ms");
-  Published.Places("ground: longest reject slice", pressed_.LongestRejectMs, "ms");
-  Published.Places("ground: longest initialize slice", pressed_.LongestInitializeMs, "ms");
-  Published.Places("ground: longest apply slice", pressed_.LongestApplyMs, "ms");
-  Published.Places("ground: longest write slice", pressed_.LongestWriteMs, "ms");
-  Published.Places("ground: longest reproject slice", pressed_.LongestReprojectMs, "ms");
-  Published.Places("ground: longest floors slice", pressed_.LongestFloorsMs, "ms");
-  Published.Places(
+  Published.RecordMetric("ground: pressing gather", pressed_.GatherMs, "ms");
+  Published.RecordMetric("ground: pressing decide", pressed_.DecideMs, "ms");
+  Published.RecordMetric("ground: pressing buckets", pressed_.BucketMs, "ms");
+  Published.RecordMetric("ground: pressing reject", pressed_.RejectMs, "ms");
+  Published.RecordMetric("ground: pressing apply", pressed_.ApplyMs, "ms");
+  Published.RecordMetric("ground: pressing write", pressed_.WriteMs, "ms");
+  Published.RecordMetric("ground: pressing floors", pressed_.FloorsMs, "ms");
+  Published.RecordMetric("ground: longest gather slice", pressed_.LongestGatherMs, "ms");
+  Published.RecordMetric("ground: longest decide slice", pressed_.LongestDecideMs, "ms");
+  Published.RecordMetric("ground: longest reject slice", pressed_.LongestRejectMs, "ms");
+  Published.RecordMetric("ground: longest initialize slice", pressed_.LongestInitializeMs, "ms");
+  Published.RecordMetric("ground: longest apply slice", pressed_.LongestApplyMs, "ms");
+  Published.RecordMetric("ground: longest write slice", pressed_.LongestWriteMs, "ms");
+  Published.RecordMetric("ground: longest reproject slice", pressed_.LongestReprojectMs, "ms");
+  Published.RecordMetric("ground: longest floors slice", pressed_.LongestFloorsMs, "ms");
+  Published.RecordMetric(
       "ground: lattice nodes the stamps pressed", static_cast<double>(pressed_.Nodes), "nodes");
-  Published.Places("ground: stamps refused as STRUCTURES, past the earthwork bound",
-                   static_cast<double>(pressed_.Structures),
-                   "yields");
-  Published.Places("ground: nodes held where a stamp still asked past the bound",
-                   static_cast<double>(pressed_.Held),
-                   "nodes");
-  Published.Places("ground: and the deepest it cut", pressed_.DeepestM, "m");
-  Published.Places("ground: and the highest it filled", pressed_.RaisedM, "m");
+  Published.RecordMetric("ground: stamps refused as STRUCTURES, past the earthwork bound",
+                         static_cast<double>(pressed_.Structures),
+                         "yields");
+  Published.RecordMetric("ground: nodes held where a stamp still asked past the bound",
+                         static_cast<double>(pressed_.Held),
+                         "nodes");
+  Published.RecordMetric("ground: and the deepest it cut", pressed_.DeepestM, "m");
+  Published.RecordMetric("ground: and the highest it filled", pressed_.RaisedM, "m");
   for (const auto &[what, floors] :
        {std::pair{"pads", &pressed_.Pads}, std::pair{"corridor pieces", &pressed_.Corridors}}) {
-    Published.Places(std::format("ground: {} with a lattice node inside", what),
-                     static_cast<double>(floors->Stamps),
-                     "stamps");
-    Published.Places(std::format("ground: {} no lattice node reaches", what),
-                     static_cast<double>(floors->Unreached),
-                     "stamps");
-    Published.Places(std::format("ground: nodes inside those {}", what),
-                     static_cast<double>(floors->Nodes),
-                     "nodes");
-    Published.Places(std::format("ground: of those {} nodes, another stamp decided", what),
-                     static_cast<double>(floors->Contested),
-                     "nodes");
-    Published.Places(
+    Published.RecordMetric(std::format("ground: {} with a lattice node inside", what),
+                           static_cast<double>(floors->Stamps),
+                           "stamps");
+    Published.RecordMetric(std::format("ground: {} no lattice node reaches", what),
+                           static_cast<double>(floors->Unreached),
+                           "stamps");
+    Published.RecordMetric(std::format("ground: nodes inside those {}", what),
+                           static_cast<double>(floors->Nodes),
+                           "nodes");
+    Published.RecordMetric(std::format("ground: of those {} nodes, another stamp decided", what),
+                           static_cast<double>(floors->Contested),
+                           "nodes");
+    Published.RecordMetric(
         std::format("ground: nodes inside {} above their plane after the press, worst", what),
         floors->AboveM,
         "m");
-    Published.Places(
+    Published.RecordMetric(
         std::format("ground: nodes inside {} that fill, below it after the press, worst", what),
         floors->BelowM,
         "m");
-    Published.Places(std::format("ground: nodes inside {} that do not fill, below it, worst", what),
-                     floors->UnfilledM,
-                     "m");
-    Published.Places(std::format("ground: those {} nodes above it before the press, worst", what),
-                     floors->WasAboveM,
-                     "m");
-    Published.Places(
+    Published.RecordMetric(
+        std::format("ground: nodes inside {} that do not fill, below it, worst", what),
+        floors->UnfilledM,
+        "m");
+    Published.RecordMetric(
+        std::format("ground: those {} nodes above it before the press, worst", what),
+        floors->WasAboveM,
+        "m");
+    Published.RecordMetric(
         std::format("ground: those filling {} nodes below it before the press, worst", what),
         floors->WasBelowM,
         "m");
   }
   const double pressingMs =
       pressed_.GatherMs + pressed_.DecideMs + pressed_.WriteMs + pressed_.FloorsMs;
-  Published.Places("ground: of that, pressing", pressingMs, "ms");
-  Published.Places("ground candidate: earthworks", pressingMs, "ms");
-  Published.Places(
+  Published.RecordMetric("ground: of that, pressing", pressingMs, "ms");
+  Published.RecordMetric("ground candidate: earthworks", pressingMs, "ms");
+  Published.RecordMetric(
       "ground candidate: longest earthwork slice", state.LongestPressingSliceMs(), "ms");
   state.AdvanceStage();
   return true;
@@ -1271,18 +1280,20 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
     Error = built.error();
     return false;
   }
-  Published.Places(
+  Published.RecordMetric(
       "water: of that, laying the surfaces",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - waterAt).count(),
       "ms");
-  Published.Places("water: surfaces laid", static_cast<double>(built->Laid), "surfaces");
-  Published.Places(
+  Published.RecordMetric("water: surfaces laid", static_cast<double>(built->Laid), "surfaces");
+  Published.RecordMetric(
       "water: surfaces refused", static_cast<double>(built->RefusedTopology), "surfaces");
-  Published.Places("water: surfaces refused by topology",
-                   static_cast<double>(built->RefusedTopology),
-                   "surfaces");
-  Published.Places("water: triangles", static_cast<double>(built->Triangles), "triangles");
-  if (built->Triangles > 0) { Published.Places("water: the geometry took it", 1.0, "yes/no"); }
+  Published.RecordMetric("water: surfaces refused by topology",
+                         static_cast<double>(built->RefusedTopology),
+                         "surfaces");
+  Published.RecordMetric("water: triangles", static_cast<double>(built->Triangles), "triangles");
+  if (built->Triangles > 0) {
+    Published.RecordMetric("water: the geometry took it", 1.0, "yes/no");
+  }
   return true;
 }
 
@@ -1290,13 +1301,14 @@ Engine::State::GroundBuildProgress
 Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
   if (!World.GroundBuild || !World.GroundBuild->Matches(request.Revision)) {
     if (World.GroundBuild) {
-      Published.Places("ground candidate: revision mismatch mask",
-                       static_cast<double>(World.GroundBuild->RevisionDifference(request.Revision)),
-                       "bits");
+      Published.RecordMetric(
+          "ground candidate: revision mismatch mask",
+          static_cast<double>(World.GroundBuild->RevisionDifference(request.Revision)),
+          "bits");
       if (World.GroundRetirement) { return GroundBuildProgress::Pending; }
-      Published.Places("ground candidate: canceled CPU products",
-                       static_cast<double>(World.GroundBuild->RetainedProductBytes()),
-                       "bytes");
+      Published.RecordMetric("ground candidate: canceled CPU products",
+                             static_cast<double>(World.GroundBuild->RetainedProductBytes()),
+                             "bytes");
       World.GroundRetirement = std::move(World.GroundBuild);
       return GroundBuildProgress::Pending;
     }
@@ -1319,12 +1331,12 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
         World.GroundBuild.reset();
         return GroundBuildProgress::Failed;
       }
-      Published.Places("semantic road route tiles requested",
-                       static_cast<double>(routeTiles->Tiles.size()),
-                       "tiles");
-      Published.Places("semantic road routes deferred by local tile budget",
-                       static_cast<double>(routeTiles->DeferredRoutes),
-                       "routes");
+      Published.RecordMetric("semantic road route tiles requested",
+                             static_cast<double>(routeTiles->Tiles.size()),
+                             "tiles");
+      Published.RecordMetric("semantic road routes deferred by local tile budget",
+                             static_cast<double>(routeTiles->DeferredRoutes),
+                             "routes");
       World.GroundBuild->SetRoadHeightCoverage(std::move(*routeTiles));
     }
     Cost.GroundBuildCreate.Took(
@@ -1333,12 +1345,12 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
     if (request.Revision.Quality == GroundQuality::Refined) {
       World.GroundBuild->Footprints().BeginRefinement();
     }
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: starts", static_cast<double>(World.GroundCandidates), "candidates");
     return GroundBuildProgress::Pending;
   }
   GroundBuildState &state = *World.GroundBuild;
-  Published.Places(
+  Published.RecordMetric(
       "ground candidate: progress", static_cast<double>(state.Progress()), "stage index");
   if (state.Prepared()) { return GroundBuildProgress::Ready; }
   const auto prepareAt = std::chrono::steady_clock::now();
@@ -1374,7 +1386,7 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
   GroundBuildState &state = *World.GroundBuild;
   GroundBuildProducts &build = state.Candidate().Products();
   build.Sheets.Framed(standing);
-  Published.Places(
+  Published.RecordMetric(
       "ground refinement: source sheets", static_cast<double>(patchwork.Sheets.size()), "sheets");
   const Render::Viewpoint &eye =
       Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
@@ -1402,7 +1414,7 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
     }
     roadCorridors = std::move(*corridorCoverage);
   }
-  Published.Places(
+  Published.RecordMetric(
       "ground refinement: road corridors", static_cast<double>(roadCorridors.size()), "edges");
   state.BeginsRefinement(std::make_unique<Generators::TerrainRefinementJob>(
       build.Sheets.BeginRefinement(patchwork,
@@ -1447,31 +1459,32 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
         return GroundBuildProgress::Failed;
       }
       if (!*refined) { return GroundBuildProgress::Pending; }
-      Published.Places("ground refinement: longest source selection slice",
-                       state.RefinementJob()->LongestSelectionMs(),
-                       "ms");
-      Published.Places(
+      Published.RecordMetric("ground refinement: longest source selection slice",
+                             state.RefinementJob()->LongestSelectionMs(),
+                             "ms");
+      Published.RecordMetric(
           "ground refinement: longest source", state.RefinementJob()->LongestSourceMs(), "ms");
-      Published.Places(
+      Published.RecordMetric(
           "ground refinement: patch deduplication", state.RefinementJob()->DeduplicationMs(), "ms");
       const auto replacementAt = std::chrono::steady_clock::now();
       patchwork.Sheets = std::move(*state.RefinementJob()).Take();
-      Published.Places("ground refinement: patch replacement",
-                       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
-                                                                 replacementAt)
-                           .count(),
-                       "ms");
+      Published.RecordMetric("ground refinement: patch replacement",
+                             std::chrono::duration<double, std::milli>(
+                                 std::chrono::steady_clock::now() - replacementAt)
+                                 .count(),
+                             "ms");
       const auto releaseAt = std::chrono::steady_clock::now();
       state.FinishesRefinement();
-      Published.Places(
+      Published.RecordMetric(
           "ground refinement: job release",
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - releaseAt)
               .count(),
           "ms");
-      Published.Places("ground: virtual tiles the lattice refines to",
-                       static_cast<double>(std::ranges::count_if(
-                           patchwork.Sheets, [](const Sheet &sheet) { return sheet.Virtual; })),
-                       "tiles");
+      Published.RecordMetric(
+          "ground: virtual tiles the lattice refines to",
+          static_cast<double>(std::ranges::count_if(
+              patchwork.Sheets, [](const Sheet &sheet) { return sheet.Virtual; })),
+          "tiles");
       state.AdvanceSheetPhase();
       return GroundBuildProgress::Pending;
     }
@@ -1487,13 +1500,14 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
               .count());
       if (!ready) { return GroundBuildProgress::Pending; }
-      Published.Places(
+      Published.RecordMetric(
           "ground: sheets the lattice haloed", static_cast<double>(job.Haloed()), "sheets");
       build.RimsMissing = build.Sheets.RimsMissing();
-      Published.Places("ground: rims copied for want of a neighbour",
-                       static_cast<double>(build.RimsMissing),
-                       "sheets");
-      Published.Places("ground candidate: longest halo slice", state.LongestHaloSliceMs(), "ms");
+      Published.RecordMetric("ground: rims copied for want of a neighbour",
+                             static_cast<double>(build.RimsMissing),
+                             "sheets");
+      Published.RecordMetric(
+          "ground candidate: longest halo slice", state.LongestHaloSliceMs(), "ms");
       state.FinishesHalos();
       state.AdvanceSheetPhase();
       return GroundBuildProgress::Pending;
@@ -1515,16 +1529,16 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
       meshing.LongestSliceMs = std::max(meshing.LongestSliceMs, sliceMs);
       state.SamplesProductPeak();
       if (meshing.NextSheet < patchwork.Sheets.size()) { return GroundBuildProgress::Pending; }
-      Published.Places(
+      Published.RecordMetric(
           "ground candidate: longest initial mesh slice", meshing.LongestSliceMs, "ms");
       if (Session.Declared.Render.Audits) {
         const uint64_t sourceSheets = DigestPatchwork(patchwork);
-        Published.Places("ground candidate: source sheets digest, low half",
-                         static_cast<double>(sourceSheets & kLowWord),
-                         "digest");
-        Published.Places("ground candidate: source sheets digest, high half",
-                         static_cast<double>(sourceSheets >> 32U),
-                         "digest");
+        Published.RecordMetric("ground candidate: source sheets digest, low half",
+                               static_cast<double>(sourceSheets & kLowWord),
+                               "digest");
+        Published.RecordMetric("ground candidate: source sheets digest, high half",
+                               static_cast<double>(sourceSheets >> 32U),
+                               "digest");
       }
       build.PositionsM = std::move(meshing.Mesh.PositionsM);
       build.Indices = std::move(meshing.Mesh.Indices);
@@ -1652,63 +1666,67 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   const outshine::Ground::VectorStreetGraph::Built &mapped = completed->value().Graph;
   build.StreetGraph = mapped.Graph;
   build.StreetGraphWayCount = sources.Ways.Ways().size();
-  Published.Places("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
-  Published.Places("network: laying ways", mapped.LayMs, "ms");
-  Published.Places("network: weaving topology", mapped.WeaveMs, "ms");
-  Published.Places("network: beginning weave", mapped.BeginWeaveMs, "ms");
-  Published.Places("network: cleaning weave temporaries", mapped.CleanupWeaveMs, "ms");
-  Published.Places("network: longest weave cleanup slice", mapped.CleanupWeaveLongestMs, "ms");
-  Published.Places("network: longest weave slice", mapped.WeaveLongestMs, "ms");
-  Published.Places("network: longest way sort slice", mapped.WeaveSlices.SortMs, "ms");
-  Published.Places("network: longest way merge slice", mapped.WeaveSlices.MergeMs, "ms");
-  Published.Places("network: longest way reserve slice", mapped.WeaveSlices.ReserveMs, "ms");
-  Published.Places("network: longest way copy slice", mapped.WeaveSlices.CopyMs, "ms");
-  Published.Places("network: beginning snap", mapped.WeaveSlices.BeginSnapMs, "ms");
-  Published.Places("network: longest snap slice", mapped.WeaveSlices.SnapMs, "ms");
-  Published.Places("network: longest edge creation slice", mapped.WeaveSlices.EdgesMs, "ms");
-  Published.Places("network: longest edge index slice", mapped.WeaveSlices.IndexMs, "ms");
-  Published.Places("network: beginning adjacency", mapped.WeaveSlices.AdjacencyBeginMs, "ms");
-  Published.Places("network: longest adjacency slice", mapped.WeaveSlices.AdjacencyMs, "ms");
-  Published.Places("network: longest tie slice", mapped.WeaveSlices.TieMs, "ms");
-  Published.Places("network: longest weave publish slice", mapped.WeaveSlices.PublishMs, "ms");
-  Published.Places("network: classifying crossings", mapped.CrossingsMs, "ms");
-  Published.Places("network: longest crossing slice", mapped.CrossingsLongestMs, "ms");
-  Published.Places("network: longest crossing setup slice", mapped.CrossingSlices.SetupMs, "ms");
-  Published.Places("network: longest crossing pair slice", mapped.CrossingSlices.TestMs, "ms");
-  Published.Places("network: crossing publication", mapped.CrossingSlices.PublishMs, "ms");
-  Published.Places("network: crossing point span", mapped.CrossingSweep.SpanMs, "ms");
-  Published.Places("network: crossing segment list", mapped.CrossingSweep.SegmentsMs, "ms");
-  Published.Places("network: crossing grid", mapped.CrossingSweep.GridMs, "ms");
-  Published.Places("network: crossing cell filing", mapped.CrossingSweep.FilingMs, "ms");
-  Published.Places("network: crossing pair tests", mapped.CrossingSweep.TestMs, "ms");
-  Published.Places("network: crossing candidate pairs",
-                   static_cast<double>(mapped.CrossingSweep.CandidatePairs),
-                   "pairs");
-  Published.Places("network: crossing cache", mapped.CrossingSweep.CacheMs, "ms");
-  Published.Places("network: elevating nodes", mapped.ElevateMs, "ms");
-  Published.Places("network: beginning elevation", mapped.BeginElevationMs, "ms");
-  Published.Places("network: longest elevation slice", mapped.ElevateLongestMs, "ms");
-  Published.Places(
+  Published.RecordMetric("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
+  Published.RecordMetric("network: laying ways", mapped.LayMs, "ms");
+  Published.RecordMetric("network: weaving topology", mapped.WeaveMs, "ms");
+  Published.RecordMetric("network: beginning weave", mapped.BeginWeaveMs, "ms");
+  Published.RecordMetric("network: cleaning weave temporaries", mapped.CleanupWeaveMs, "ms");
+  Published.RecordMetric(
+      "network: longest weave cleanup slice", mapped.CleanupWeaveLongestMs, "ms");
+  Published.RecordMetric("network: longest weave slice", mapped.WeaveLongestMs, "ms");
+  Published.RecordMetric("network: longest way sort slice", mapped.WeaveSlices.SortMs, "ms");
+  Published.RecordMetric("network: longest way merge slice", mapped.WeaveSlices.MergeMs, "ms");
+  Published.RecordMetric("network: longest way reserve slice", mapped.WeaveSlices.ReserveMs, "ms");
+  Published.RecordMetric("network: longest way copy slice", mapped.WeaveSlices.CopyMs, "ms");
+  Published.RecordMetric("network: beginning snap", mapped.WeaveSlices.BeginSnapMs, "ms");
+  Published.RecordMetric("network: longest snap slice", mapped.WeaveSlices.SnapMs, "ms");
+  Published.RecordMetric("network: longest edge creation slice", mapped.WeaveSlices.EdgesMs, "ms");
+  Published.RecordMetric("network: longest edge index slice", mapped.WeaveSlices.IndexMs, "ms");
+  Published.RecordMetric("network: beginning adjacency", mapped.WeaveSlices.AdjacencyBeginMs, "ms");
+  Published.RecordMetric("network: longest adjacency slice", mapped.WeaveSlices.AdjacencyMs, "ms");
+  Published.RecordMetric("network: longest tie slice", mapped.WeaveSlices.TieMs, "ms");
+  Published.RecordMetric(
+      "network: longest weave publish slice", mapped.WeaveSlices.PublishMs, "ms");
+  Published.RecordMetric("network: classifying crossings", mapped.CrossingsMs, "ms");
+  Published.RecordMetric("network: longest crossing slice", mapped.CrossingsLongestMs, "ms");
+  Published.RecordMetric(
+      "network: longest crossing setup slice", mapped.CrossingSlices.SetupMs, "ms");
+  Published.RecordMetric(
+      "network: longest crossing pair slice", mapped.CrossingSlices.TestMs, "ms");
+  Published.RecordMetric("network: crossing publication", mapped.CrossingSlices.PublishMs, "ms");
+  Published.RecordMetric("network: crossing point span", mapped.CrossingSweep.SpanMs, "ms");
+  Published.RecordMetric("network: crossing segment list", mapped.CrossingSweep.SegmentsMs, "ms");
+  Published.RecordMetric("network: crossing grid", mapped.CrossingSweep.GridMs, "ms");
+  Published.RecordMetric("network: crossing cell filing", mapped.CrossingSweep.FilingMs, "ms");
+  Published.RecordMetric("network: crossing pair tests", mapped.CrossingSweep.TestMs, "ms");
+  Published.RecordMetric("network: crossing candidate pairs",
+                         static_cast<double>(mapped.CrossingSweep.CandidatePairs),
+                         "pairs");
+  Published.RecordMetric("network: crossing cache", mapped.CrossingSweep.CacheMs, "ms");
+  Published.RecordMetric("network: elevating nodes", mapped.ElevateMs, "ms");
+  Published.RecordMetric("network: beginning elevation", mapped.BeginElevationMs, "ms");
+  Published.RecordMetric("network: longest elevation slice", mapped.ElevateLongestMs, "ms");
+  Published.RecordMetric(
       "network: longest node sample slice", mapped.ElevationSlices.SampleNodesMs, "ms");
-  Published.Places(
+  Published.RecordMetric(
       "network: longest point write slice", mapped.ElevationSlices.WritePointsMs, "ms");
-  Published.Places("network: longest station slice", mapped.ElevationSlices.StationsMs, "ms");
-  Published.Places("network: longest slope slice", mapped.ElevationSlices.SlopesMs, "ms");
-  Published.Places("network: longest grade slice", mapped.ElevationSlices.GradesMs, "ms");
-  Published.Places("network: publishing graph", mapped.PublishMs, "ms");
-  Published.Places("network: longest build slice", longestSliceMs, "ms");
-  Published.Places("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
-  Published.Places("network: edges", static_cast<double>(mapped.Edges), "edges");
-  Published.Places("network: nodes where three or more edges meet",
-                   static_cast<double>(mapped.Junctions),
-                   "nodes");
-  Published.Places(
+  Published.RecordMetric("network: longest station slice", mapped.ElevationSlices.StationsMs, "ms");
+  Published.RecordMetric("network: longest slope slice", mapped.ElevationSlices.SlopesMs, "ms");
+  Published.RecordMetric("network: longest grade slice", mapped.ElevationSlices.GradesMs, "ms");
+  Published.RecordMetric("network: publishing graph", mapped.PublishMs, "ms");
+  Published.RecordMetric("network: longest build slice", longestSliceMs, "ms");
+  Published.RecordMetric("network: nodes", static_cast<double>(mapped.Nodes), "nodes");
+  Published.RecordMetric("network: edges", static_cast<double>(mapped.Edges), "edges");
+  Published.RecordMetric("network: nodes where three or more edges meet",
+                         static_cast<double>(mapped.Junctions),
+                         "nodes");
+  Published.RecordMetric(
       "network: points with a height", static_cast<double>(mapped.Elevated.Points), "points");
-  Published.Places("network: points the ground refused a height",
-                   static_cast<double>(mapped.Elevated.Refused),
-                   "points");
-  Published.Places("network: steepest grade", mapped.Elevated.SteepestGrade, "m/m");
-  Published.Places(
+  Published.RecordMetric("network: points the ground refused a height",
+                         static_cast<double>(mapped.Elevated.Refused),
+                         "points");
+  Published.RecordMetric("network: steepest grade", mapped.Elevated.SteepestGrade, "m/m");
+  Published.RecordMetric(
       "network: steepest grade on a sealed way", mapped.Elevated.SteepestSealedGrade, "m/m");
   state.FinishStreetGraph();
   state.AdvanceStage();
@@ -1785,11 +1803,11 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
     alignedEdges += route.Alignment->Edges().size();
     terrainSources += route.Alignment->TerrainSources().size();
   }
-  Published.Places(
+  Published.RecordMetric(
       "semantic road alignments built", static_cast<double>(build.RoadAlignments.size()), "routes");
-  Published.Places(
+  Published.RecordMetric(
       "semantic road alignment source edges", static_cast<double>(alignedEdges), "edges");
-  Published.Places(
+  Published.RecordMetric(
       "semantic road alignment terrain sources", static_cast<double>(terrainSources), "sources");
   state.MarkRoadSurfaceBuilt();
   return GroundBuildProgress::Pending;
@@ -1807,7 +1825,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() 
   GroundBuildProducts &build = state.Candidate().Products();
   const auto fieldsAt = std::chrono::steady_clock::now();
   build.Sheets.ForgetsFields();
-  Published.Places(
+  Published.RecordMetric(
       "ground candidate: source field release",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - fieldsAt)
           .count(),
@@ -1857,10 +1875,10 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   GroundBuildState &state = *World.GroundBuild;
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
-  Published.Places("ground candidate: structure tiles to certify",
-                   static_cast<double>(state.Footprints().RefinementRemaining()),
-                   "tiles");
-  Published.Places(
+  Published.RecordMetric("ground candidate: structure tiles to certify",
+                         static_cast<double>(state.Footprints().RefinementRemaining()),
+                         "tiles");
+  Published.RecordMetric(
       "ground candidate: structure field ingested",
       World.Stack.Vectors() != nullptr && state.Footprints().Ingested(*World.Stack.Vectors()) ? 1.0
                                                                                               : 0.0,
@@ -1970,17 +1988,17 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
             .count());
     if (!retired) { return true; }
     state.AdvanceStage();
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: corridor job retirement", state.LongestCorridorRetirementMs(), "ms");
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: longest corridor slice", state.LongestCorridorSliceMs(), "ms");
     return true;
   }
   GroundBuildProducts &build = state.Candidate().Products();
   const TriangleBvh surface;
-  Published.Places("ground: triangles the drape can reach",
-                   static_cast<double>(build.Indices.size()) / 3.0,
-                   "triangles");
+  Published.RecordMetric("ground: triangles the drape can reach",
+                         static_cast<double>(build.Indices.size()) / 3.0,
+                         "triangles");
   Drape drapedOver{.Surface = surface, .Field = {}};
   size_t fieldMisses = 0;
   std::optional<Drape::EastNorth> firstFieldMiss;
@@ -2010,13 +2028,13 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   if (state.CorridorJob() == nullptr) {
     const auto jobAt = std::chrono::steady_clock::now();
     state.BeginsCorridors(Generators::Corridors::Begin(site));
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: corridor job admission",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - jobAt).count(),
         "ms");
     const auto inventoryAt = std::chrono::steady_clock::now();
     state.SamplesProductPeak();
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: corridor product inventory",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - inventoryAt)
             .count(),
@@ -2064,12 +2082,12 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
     return true;
   }
   for (const DiagnosticSample &one : notes) {
-    Published.Places(one.Name, one.Value, one.Unit.c_str());
+    Published.RecordMetric(one.Name, one.Value, one.Unit.c_str());
   }
-  Published.Places(
+  Published.RecordMetric(
       "ground candidate: corridor drape field misses", static_cast<double>(fieldMisses), "queries");
   state.HoldsCorridors(std::move(corridors));
-  Published.Places("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
+  Published.RecordMetric("ground candidate: corridors", state.CorridorJob()->WorkMs(), "ms");
   state.BeginsCorridorRetirement();
   state.SamplesCorridorSlice(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
@@ -2085,7 +2103,7 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
   if (!meshing.SheetsStitched) {
     if (!build.Sheets.Stitch(patchwork, Error)) { return false; }
     meshing.SheetsStitched = true;
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: sheet stitching",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
@@ -2094,7 +2112,7 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
   if (!meshing.ResidencyStarted) {
     if (!build.Sheets.BeginResidency(patchwork, Error)) { return false; }
     meshing.ResidencyStarted = true;
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: residency preparation",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
@@ -2112,11 +2130,11 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
     state.SamplesProductPeak();
     if (!*advanced) { return true; }
     meshing.ResidencyReady = true;
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: longest residency slice", meshing.LongestResidencySliceMs, "ms");
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: longest residency batch", build.Sheets.LongestResidencyBatchMs(), "ms");
-    Published.Places(
+    Published.RecordMetric(
         "ground candidate: residency finalize", build.Sheets.ResidencyFinalizeMs(), "ms");
     return true;
   }
@@ -2132,38 +2150,40 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
   meshing.LongestSliceMs = std::max(meshing.LongestSliceMs, sliceMs);
   state.SamplesProductPeak();
   if (meshing.NextSheet < patchwork.Sheets.size()) { return true; }
-  Published.Places("ground candidate: longest native mesh slice", meshing.LongestSliceMs, "ms");
+  Published.RecordMetric(
+      "ground candidate: longest native mesh slice", meshing.LongestSliceMs, "ms");
   build.PositionsM = std::move(meshing.Mesh.PositionsM);
   build.Indices = std::move(meshing.Mesh.Indices);
-  Published.Places(
+  Published.RecordMetric(
       "ground: height pages standing", static_cast<double>(build.Sheets.Standing()), "pages");
-  Published.Places(
+  Published.RecordMetric(
       "ground: tiles the lattice draws", static_cast<double>(build.Sheets.Instances()), "tiles");
   for (const auto &[name, kind] : {std::pair{"virtual", build.Sheets.Seams().Virtual},
                                    std::pair{"real", build.Sheets.Seams().Real}}) {
     const std::string at = std::string("ground: seam, ") + name + ", ";
-    Published.Places(at + "edges stitched", static_cast<double>(kind.Edges), "edges");
-    Published.Places(at + "even nodes off the coarser node, worst", kind.EvenM, "m");
-    Published.Places(
+    Published.RecordMetric(at + "edges stitched", static_cast<double>(kind.Edges), "edges");
+    Published.RecordMetric(at + "even nodes off the coarser node, worst", kind.EvenM, "m");
+    Published.RecordMetric(
         at + "odd nodes off the coarser chord before the stitch, worst", kind.OddBeforeM, "m");
-    Published.Places(at + "odd nodes off the coarser chord after it, worst", kind.OddAfterM, "m");
+    Published.RecordMetric(
+        at + "odd nodes off the coarser chord after it, worst", kind.OddAfterM, "m");
     if (kind.OddBeforeM > 0.0) {
-      Published.Places(at + "worst odd node longitude", kind.WorstLongitudeDeg, "deg");
-      Published.Places(at + "worst odd node latitude", kind.WorstLatitudeDeg, "deg");
-      Published.Places(at + "worst odd node fine zoom", kind.WorstFineZoom, "zoom");
-      Published.Places(at + "worst odd node coarse zoom", kind.WorstCoarseZoom, "zoom");
+      Published.RecordMetric(at + "worst odd node longitude", kind.WorstLongitudeDeg, "deg");
+      Published.RecordMetric(at + "worst odd node latitude", kind.WorstLatitudeDeg, "deg");
+      Published.RecordMetric(at + "worst odd node fine zoom", kind.WorstFineZoom, "zoom");
+      Published.RecordMetric(at + "worst odd node coarse zoom", kind.WorstCoarseZoom, "zoom");
     }
   }
   const uint64_t sheets = build.Sheets.Digest();
-  Published.Places(
+  Published.RecordMetric(
       "ground: the sheets' digest, low half", static_cast<double>(sheets & kLowWord), "digest");
-  Published.Places(
+  Published.RecordMetric(
       "ground: the sheets' digest, high half", static_cast<double>(sheets >> 32U), "digest");
-  Published.Places("ground: sheets NOT drawn for want of nodes",
-                   static_cast<double>(build.Sheets.Flat()),
-                   "tiles");
+  Published.RecordMetric("ground: sheets NOT drawn for want of nodes",
+                         static_cast<double>(build.Sheets.Flat()),
+                         "tiles");
   state.AdvanceStage();
-  Published.Places(
+  Published.RecordMetric(
       "ground candidate: terrain mesh",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
       "ms");
@@ -2194,7 +2214,7 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
             .count());
     if (!hasClasses) {
       state.ClassesUploaded();
-      Published.Places("ground candidate: class upload", state.TotalClassUploadMs(), "ms");
+      Published.RecordMetric("ground candidate: class upload", state.TotalClassUploadMs(), "ms");
     }
     sample();
     return true;
@@ -2212,17 +2232,17 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
             .count());
     if (*advanced) {
       const Render::GroundClassUploadMetrics &longest = state.LongestClassComponents();
-      Published.Places("ground class upload: allocation", longest.Storage.AllocationMs, "ms");
-      Published.Places("ground class upload: largest range",
-                       static_cast<double>(longest.Storage.BytesSubmitted),
-                       "bytes");
-      Published.Places("ground class upload: staging", longest.Storage.StagingMs, "ms");
-      Published.Places("ground class upload: submission", longest.Storage.SubmissionMs, "ms");
-      Published.Places(
+      Published.RecordMetric("ground class upload: allocation", longest.Storage.AllocationMs, "ms");
+      Published.RecordMetric("ground class upload: largest range",
+                             static_cast<double>(longest.Storage.BytesSubmitted),
+                             "bytes");
+      Published.RecordMetric("ground class upload: staging", longest.Storage.StagingMs, "ms");
+      Published.RecordMetric("ground class upload: submission", longest.Storage.SubmissionMs, "ms");
+      Published.RecordMetric(
           "ground class upload: source preparation", longest.SourcePreparationMs, "ms");
-      Published.Places("ground class upload: restore source", longest.RestoreSourceMs, "ms");
-      Published.Places("ground candidate: class upload", state.TotalClassUploadMs(), "ms");
-      Published.Places(
+      Published.RecordMetric("ground class upload: restore source", longest.RestoreSourceMs, "ms");
+      Published.RecordMetric("ground candidate: class upload", state.TotalClassUploadMs(), "ms");
+      Published.RecordMetric(
           "ground candidate: longest class upload slice", state.LongestClassUploadMs(), "ms");
       state.ClassesUploaded();
     }
@@ -2231,19 +2251,20 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
   }
   if (state.GeometrySubmissionStep() == GroundBuildState::GeometrySubmission::Begin) {
     const size_t drivenParts = Picture.Standing->DrivenParts();
-    Published.Places("restand: the carried count the world hands over",
-                     static_cast<double>(drivenParts),
-                     "carried");
-    Published.Places(
+    Published.RecordMetric("restand: the carried count the world hands over",
+                           static_cast<double>(drivenParts),
+                           "carried");
+    Published.RecordMetric(
         "restand: parts in the geometry", static_cast<double>(build.Ground.parts()), "parts");
     candidate.Digests(Session.Declared.Render.Audits);
     size_t handed = 0;
     for (int part = 0; part < build.Ground.parts(); ++part) {
       handed += build.Ground.trianglesOf(part).size() / 3u;
     }
-    Published.Places(
+    Published.RecordMetric(
         "the triangles handed to the renderer", static_cast<double>(handed), "triangles");
-    Published.Places("in this many parts", static_cast<double>(build.Ground.parts()), "parts");
+    Published.RecordMetric(
+        "in this many parts", static_cast<double>(build.Ground.parts()), "parts");
     auto began = candidate.BeginGroundGeometryBuild(
         std::move(build.Ground), build.GroundSurface, build.GroundMaterial);
     if (!began) {
@@ -2265,8 +2286,8 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
     return false;
   }
   if (!*advanced) { return true; }
-  Published.Places("ground candidate: final scene geometry slice", sliceMs, "ms");
-  Published.Places(
+  Published.RecordMetric("ground candidate: final scene geometry slice", sliceMs, "ms");
+  Published.RecordMetric(
       "ground candidate: longest scene geometry slice", state.LongestGeometrySliceMs(), "ms");
   state.AdvanceStage();
   return true;
@@ -2337,7 +2358,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundConstructionStage
         return GroundBuildProgress::Failed;
       }
       state.AdvanceStage();
-      Published.Places(
+      Published.RecordMetric(
           "ground candidate: water",
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
               .count(),
@@ -2428,159 +2449,171 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
     World.GroundBuild.reset();
     return false;
   }
-  Published.Places(
+  Published.RecordMetric(
       "ground candidate: publication",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   const GroundWorldCandidate::PublicationMetrics &publication = candidate.Publication();
-  Published.Places("ground publication: world owner swap", publication.WorldMs, "ms");
-  Published.Places("ground publication: CPU products", publication.ProductsMs, "ms");
-  Published.Places("ground publication: pieces", publication.PiecesMs, "ms");
-  Published.Places("ground publication: orphan structure pieces reclaimed",
-                   static_cast<double>(publication.OrphanStructurePieces),
-                   "pieces");
-  Published.Places("ground publication: resource binding", publication.BindingMs, "ms");
-  Published.Places("ground publication: revision", publication.RevisionMs, "ms");
-  Published.Places("ground publication: quality",
-                   state.Revision().Quality == GroundQuality::Refined ? 1.0 : 0.0,
-                   "0=playable 1=refined");
+  Published.RecordMetric("ground publication: world owner swap", publication.WorldMs, "ms");
+  Published.RecordMetric("ground publication: CPU products", publication.ProductsMs, "ms");
+  Published.RecordMetric("ground publication: pieces", publication.PiecesMs, "ms");
+  Published.RecordMetric("ground publication: orphan structure pieces reclaimed",
+                         static_cast<double>(publication.OrphanStructurePieces),
+                         "pieces");
+  Published.RecordMetric("ground publication: resource binding", publication.BindingMs, "ms");
+  Published.RecordMetric("ground publication: revision", publication.RevisionMs, "ms");
+  Published.RecordMetric("ground publication: quality",
+                         state.Revision().Quality == GroundQuality::Refined ? 1.0 : 0.0,
+                         "0=playable 1=refined");
   const uint64_t geometry = World.Pieces.Digest();
-  Published.Places(
+  Published.RecordMetric(
       "the geometry the world built, high half", static_cast<double>(geometry >> 32U), "digest");
-  Published.Places("and its low half", static_cast<double>(geometry & kLowWord), "digest");
-  Published.Places("ground candidate: direct CPU product peak",
-                   static_cast<double>(state.ProductPeakBytes()),
-                   "bytes");
-  Published.Places("ground candidate: CPU products retained for retirement",
-                   static_cast<double>(state.RetainedProductBytes()),
-                   "bytes");
-  Published.Places("ground candidate: candidate products retained for retirement",
-                   static_cast<double>(state.RetainedCandidateBytes()),
-                   "bytes");
-  Published.Places("ground candidate: patchwork retained for retirement",
-                   static_cast<double>(state.RetainedPatchworkBytes()),
-                   "bytes");
-  Published.Places("ground candidate: mesh products retained for retirement",
-                   static_cast<double>(state.RetainedMeshBytes()),
-                   "bytes");
+  Published.RecordMetric("and its low half", static_cast<double>(geometry & kLowWord), "digest");
+  Published.RecordMetric("ground candidate: direct CPU product peak",
+                         static_cast<double>(state.ProductPeakBytes()),
+                         "bytes");
+  Published.RecordMetric("ground candidate: CPU products retained for retirement",
+                         static_cast<double>(state.RetainedProductBytes()),
+                         "bytes");
+  Published.RecordMetric("ground candidate: candidate products retained for retirement",
+                         static_cast<double>(state.RetainedCandidateBytes()),
+                         "bytes");
+  Published.RecordMetric("ground candidate: patchwork retained for retirement",
+                         static_cast<double>(state.RetainedPatchworkBytes()),
+                         "bytes");
+  Published.RecordMetric("ground candidate: mesh products retained for retirement",
+                         static_cast<double>(state.RetainedMeshBytes()),
+                         "bytes");
   assert(!World.GroundRetirement);
   World.GroundRetirement = std::move(World.GroundBuild);
-  Published.Places(
+  Published.RecordMetric(
       "rebuild: of that, walking it into the proxy", Picture.Standing->BuildMs(), "ms");
   const Core::GeometryBuildSliceMetrics &slices = Picture.Standing->GeometrySlices();
-  Published.Places("geometry slice: shape cooking", slices.CookMs, "ms");
-  Published.Places("geometry slice: scene planning", slices.PlanMs, "ms");
-  Published.Places("geometry slice: subject binding", slices.BindMs, "ms");
-  Published.Places("geometry slice: draw planning", slices.DrawPlanMs, "ms");
-  Published.Places("geometry slice: CPU packing", slices.PackMs, "ms");
-  Published.Places("geometry slice: index upload", slices.IndexMs, "ms");
-  Published.Places("geometry slice: stream completion", slices.FinishMs, "ms");
-  Published.Places("geometry slice: finalization", slices.FinalizeMs, "ms");
-  Published.Places("rebuild: standing render plan", Picture.Standing->PlanMs(), "ms");
-  Published.Places("rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");
-  Published.Places(
+  Published.RecordMetric("geometry slice: shape cooking", slices.CookMs, "ms");
+  Published.RecordMetric("geometry slice: scene planning", slices.PlanMs, "ms");
+  Published.RecordMetric("geometry slice: subject binding", slices.BindMs, "ms");
+  Published.RecordMetric("geometry slice: draw planning", slices.DrawPlanMs, "ms");
+  Published.RecordMetric("geometry slice: CPU packing", slices.PackMs, "ms");
+  Published.RecordMetric("geometry slice: index upload", slices.IndexMs, "ms");
+  Published.RecordMetric("geometry slice: stream completion", slices.FinishMs, "ms");
+  Published.RecordMetric("geometry slice: finalization", slices.FinalizeMs, "ms");
+  Published.RecordMetric("rebuild: standing render plan", Picture.Standing->PlanMs(), "ms");
+  Published.RecordMetric(
+      "rebuild: of THAT, copying the subject", Picture.Standing->CarryMs(), "ms");
+  Published.RecordMetric(
       "rebuild: standing and submitting INSIDE Build", Picture.Standing->InsideMs(), "ms");
-  Published.Places("rebuild: shaping what was built", Picture.Standing->ReshapeMs(), "ms");
-  Published.Places("rebuild: composing it", Picture.Standing->ComposeMs(), "ms");
-  Published.Places("stand: shaping it a second time", Picture.Standing->ReshapeAgainMs(), "ms");
-  Published.Places("stand: the proxy taking it", Picture.Standing->ProxyStandsMs(), "ms");
-  Published.Places("stand: placing every part", Picture.Standing->PlacesMs(), "ms");
-  Published.Places("stand: dressing them", Picture.Standing->WearsMs(), "ms");
-  Published.Places("stand: their emitted radiance", Picture.Standing->LampsMs(), "ms");
-  Published.Places("stand: the lamps and the key", Picture.Standing->LitMs(), "ms");
-  Published.Places("stand: the medium's own tables", Picture.Standing->MediumMs(), "ms");
+  Published.RecordMetric("rebuild: shaping what was built", Picture.Standing->ReshapeMs(), "ms");
+  Published.RecordMetric("rebuild: composing it", Picture.Standing->ComposeMs(), "ms");
+  Published.RecordMetric(
+      "stand: shaping it a second time", Picture.Standing->ReshapeAgainMs(), "ms");
+  Published.RecordMetric("stand: the proxy taking it", Picture.Standing->ProxyStandsMs(), "ms");
+  Published.RecordMetric("stand: placing every part", Picture.Standing->PlacesMs(), "ms");
+  Published.RecordMetric("stand: dressing them", Picture.Standing->WearsMs(), "ms");
+  Published.RecordMetric("stand: their emitted radiance", Picture.Standing->LampsMs(), "ms");
+  Published.RecordMetric("stand: the lamps and the key", Picture.Standing->LitMs(), "ms");
+  Published.RecordMetric("stand: the medium's own tables", Picture.Standing->MediumMs(), "ms");
 
-  Published.Places("stand: times the sky was integrated",
-                   static_cast<double>(Picture.Standing->SkyIntegrations()),
-                   "integrations");
-  Published.Places("stand: sweeping the bounds to frame it", Picture.Standing->FramingMs(), "ms");
-  Published.Places("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
-  Published.Places("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
-  Published.Places(
+  Published.RecordMetric("stand: times the sky was integrated",
+                         static_cast<double>(Picture.Standing->SkyIntegrations()),
+                         "integrations");
+  Published.RecordMetric(
+      "stand: sweeping the bounds to frame it", Picture.Standing->FramingMs(), "ms");
+  Published.RecordMetric("rebuild: resolving its surface", Picture.Standing->ResolveMs(), "ms");
+  Published.RecordMetric("rebuild: and its bounds", Picture.Standing->BoundsMs(), "ms");
+  Published.RecordMetric(
       "rebuild: cutting it into clusters", Picture.Standing->Clustering().BuildMs, "ms");
-  Published.Places("cook: clusters with no parent above them",
-                   static_cast<double>(Picture.Standing->Clustering().RootClusters),
-                   "clusters");
-  Published.Places("cook: clusters in all",
-                   static_cast<double>(Picture.Standing->Clustering().Clusters),
-                   "clusters");
-  Published.Places(
+  Published.RecordMetric("cook: clusters with no parent above them",
+                         static_cast<double>(Picture.Standing->Clustering().RootClusters),
+                         "clusters");
+  Published.RecordMetric("cook: clusters in all",
+                         static_cast<double>(Picture.Standing->Clustering().Clusters),
+                         "clusters");
+  Published.RecordMetric(
       "rebuild: planning draw runs", Picture.Standing->TransferMetrics().DrawPlanMs, "ms");
-  Published.Places(
+  Published.RecordMetric(
       "rebuild: of the streams, packing them", Picture.Standing->TransferMetrics().PackingMs, "ms");
-  Published.Places("restand: the geometry handed over, digested",
-                   Picture.Standing->TransferMetrics().DigestValue(),
-                   "");
-  Published.Places(
+  Published.RecordMetric("restand: the geometry handed over, digested",
+                         Picture.Standing->TransferMetrics().DigestValue(),
+                         "");
+  Published.RecordMetric(
       "rebuild: digesting what it handed over", Picture.Standing->TransferMetrics().DigestMs, "ms");
-  Published.Places(
+  Published.RecordMetric(
       "rebuild: and the device taking them", Picture.Standing->TransferMetrics().UploadMs, "ms");
-  Published.Places(
+  Published.RecordMetric(
       "rebuild: mesh admission", Picture.Standing->TransferMetrics().MeshAdmissionMs, "ms");
-  Published.Places(
+  Published.RecordMetric(
       "rebuild: index upload", Picture.Standing->TransferMetrics().IndexUploadMs, "ms");
-  Published.Places(
+  Published.RecordMetric(
       "rebuild: stream upload", Picture.Standing->TransferMetrics().StreamUploadMs, "ms");
-  Published.Places(
+  Published.RecordMetric(
       "rebuild: draw table upload", Picture.Standing->TransferMetrics().TableUploadMs, "ms");
-  Published.Places("rebuild: residency upload attempts",
-                   static_cast<double>(Picture.Device.TakeUploadAttempts()),
-                   "uploads");
-  Published.Places("rebuild: bytes offered for upload",
-                   static_cast<double>(Picture.Device.TakeUploadBytes()),
-                   "bytes");
-  Published.Places("rebuild: device buffer allocation attempts",
-                   static_cast<double>(Picture.Device.TakeBufferAllocationAttempts()),
-                   "buffers");
-  Published.Places("rebuild: staging buffer allocation attempts",
-                   static_cast<double>(Picture.Device.TakeStagingAllocationAttempts()),
-                   "buffers");
-  Published.Places("rebuild: laying the surface", Picture.Standing->SurfaceMs(), "ms");
-  Published.Places("rebuild: settling placements and lights", Picture.Standing->StandMs(), "ms");
-  Published.Places("rebuild: and the streams to the device", Picture.Standing->SubmitMs(), "ms");
-  Published.Places(
+  Published.RecordMetric("rebuild: residency upload attempts",
+                         static_cast<double>(Picture.Device.TakeUploadAttempts()),
+                         "uploads");
+  Published.RecordMetric("rebuild: bytes offered for upload",
+                         static_cast<double>(Picture.Device.TakeUploadBytes()),
+                         "bytes");
+  Published.RecordMetric("rebuild: device buffer allocation attempts",
+                         static_cast<double>(Picture.Device.TakeBufferAllocationAttempts()),
+                         "buffers");
+  Published.RecordMetric("rebuild: staging buffer allocation attempts",
+                         static_cast<double>(Picture.Device.TakeStagingAllocationAttempts()),
+                         "buffers");
+  Published.RecordMetric("rebuild: laying the surface", Picture.Standing->SurfaceMs(), "ms");
+  Published.RecordMetric(
+      "rebuild: settling placements and lights", Picture.Standing->StandMs(), "ms");
+  Published.RecordMetric(
+      "rebuild: and the streams to the device", Picture.Standing->SubmitMs(), "ms");
+  Published.RecordMetric(
       "rebuild: and handing it to the device took",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt).count(),
       "ms");
   phaseAt = std::chrono::steady_clock::now();
-  Published.Places("restand: parts the proxy then stands with",
-                   static_cast<double>(Picture.Standing->PartsStanding()),
-                   "parts");
-  Published.Places("restand: instances it carries",
-                   static_cast<double>(Picture.Standing->InstancesStanding()),
-                   "instances");
-  Published.Places(
+  Published.RecordMetric("restand: parts the proxy then stands with",
+                         static_cast<double>(Picture.Standing->PartsStanding()),
+                         "parts");
+  Published.RecordMetric("restand: instances it carries",
+                         static_cast<double>(Picture.Standing->InstancesStanding()),
+                         "instances");
+  Published.RecordMetric(
       "restand: the near plane the renderer stands on", Picture.Standing->NearStanding(), "m");
   Core::ReportSubjectPlacements(Published, *Picture.Standing);
   World.GroundTiles = laid.Tiles;
-  Published.Places("tiles the ring laid", static_cast<double>(laid.Tiles), "tiles");
-  Published.Places("tiles it is still waiting for", static_cast<double>(laid.Pending), "tiles");
-  Published.Places("tiles the stack does not hold", static_cast<double>(laid.Absent), "tiles");
-  Published.Places("tiles it refused", static_cast<double>(laid.Refused), "tiles");
-  Published.Places("the sun stands this high", Picture.Standing->Standing().KeyElevationDeg, "deg");
-  Published.Places("and bears", Picture.Standing->Standing().KeyBearingDeg, "deg");
-  Published.Places("the light that reaches the ground", Picture.Standing->MeteredLux(), "lux");
-  Published.Places("and the exposure metered from it",
-                   Picture.Standing->Standing().KeyFromClock ? 1.0 : 0.0,
-                   "yes/no");
-  Published.Places("times the terrain was rebuilt", static_cast<double>(World.Relaid), "rebuilds");
+  Published.RecordMetric("tiles the ring laid", static_cast<double>(laid.Tiles), "tiles");
+  Published.RecordMetric(
+      "tiles it is still waiting for", static_cast<double>(laid.Pending), "tiles");
+  Published.RecordMetric(
+      "tiles the stack does not hold", static_cast<double>(laid.Absent), "tiles");
+  Published.RecordMetric("tiles it refused", static_cast<double>(laid.Refused), "tiles");
+  Published.RecordMetric(
+      "the sun stands this high", Picture.Standing->Standing().KeyElevationDeg, "deg");
+  Published.RecordMetric("and bears", Picture.Standing->Standing().KeyBearingDeg, "deg");
+  Published.RecordMetric(
+      "the light that reaches the ground", Picture.Standing->MeteredLux(), "lux");
+  Published.RecordMetric("and the exposure metered from it",
+                         Picture.Standing->Standing().KeyFromClock ? 1.0 : 0.0,
+                         "yes/no");
+  Published.RecordMetric(
+      "times the terrain was rebuilt", static_cast<double>(World.Relaid), "rebuilds");
   ++World.Rebuilds;
   World.RebuildMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rebuildBegan)
           .count();
-  Published.Places("and what the last rebuild took", World.RebuildMs, "ms");
-  Published.Places(
+  Published.RecordMetric("and what the last rebuild took", World.RebuildMs, "ms");
+  Published.RecordMetric(
       "rebuild: times the world was built WHOLE", static_cast<double>(World.Rebuilds), "rebuilds");
-  Published.Places("and how often it was asked about", static_cast<double>(World.Asked), "walks");
-  Published.Places(
+  Published.RecordMetric(
+      "and how often it was asked about", static_cast<double>(World.Asked), "walks");
+  Published.RecordMetric(
       "levels the cascade laid", static_cast<double>(over.Zoom - laid.CoarsestZoom + 1), "levels");
-  Published.Places(
+  Published.RecordMetric(
       "tiles it skipped as already covered", static_cast<double>(laid.Skipped), "tiles");
-  Published.Places("tiles the last rebuild laid bare", static_cast<double>(laid.Bare), "tiles");
+  Published.RecordMetric(
+      "tiles the last rebuild laid bare", static_cast<double>(laid.Bare), "tiles");
   World.Pending = laid.Pending;
   World.Bare = laid.Bare;
   World.Wanted = laid.Tiles;
-  Published.Places(
+  Published.RecordMetric(
       "tiles that overlap a finer level", static_cast<double>(laid.Overlapped), "tiles");
   return true;
 }

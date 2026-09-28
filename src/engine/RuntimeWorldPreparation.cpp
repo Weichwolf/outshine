@@ -79,7 +79,7 @@ void Engine::State::DeclareGroundFeatures() {
     told.push_back(std::move(made));
   }
   World.Stack.Declares(std::span<const Ground::OsmField::Declared>(told));
-  Published.Places(
+  Published.RecordMetric(
       "ground: structures a scenario declared", static_cast<double>(told.size()), "structures");
 }
 
@@ -136,15 +136,15 @@ bool Engine::State::PrepareRuntimeWorld() {
     how.FocusLonDeg = atLon;
     how.Seed = Session.Declared.Ground.Shape.Seed;
     World.Stack.Pool().Shapes(how);
-    Published.Places("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
+    Published.RecordMetric("ground: a declared relief stands in for the tiles", 1.0, "yes/no");
     const double hereM =
         World.Stack.Ground().At({.LongitudeDeg = atLon, .LatitudeDeg = atLat}).AslM().value_or(0.0);
     const double eastM = World.Stack.Ground()
                              .At({.LongitudeDeg = atLon + kEastStepDeg, .LatitudeDeg = atLat})
                              .AslM()
                              .value_or(0.0);
-    Published.Places("ground: the relief says this at the origin", hereM, "m");
-    Published.Places("ground: and this a kilometre east", eastM, "m");
+    Published.RecordMetric("ground: the relief says this at the origin", hereM, "m");
+    Published.RecordMetric("ground: and this a kilometre east", eastM, "m");
   }
 
   DeclareGroundFeatures();
@@ -185,25 +185,26 @@ void Engine::State::PollOsmTransport() {
   if (!World.OsmTransportLoader) { return; }
   const auto previous = World.OsmTransportLoader->Current();
   World.OsmTransportLoader->Poll();
-  Published.Places("semantic OSM jobs pending",
-                   static_cast<double>(World.OsmTransportLoader->PendingCount()),
-                   "jobs");
-  Published.Places("semantic OSM jobs completed",
-                   static_cast<double>(World.OsmTransportLoader->CompletedCount()),
-                   "jobs");
-  Published.Places("semantic OSM jobs canceled",
-                   static_cast<double>(World.OsmTransportLoader->CanceledCount()),
-                   "jobs");
+  Published.RecordMetric("semantic OSM jobs pending",
+                         static_cast<double>(World.OsmTransportLoader->PendingCount()),
+                         "jobs");
+  Published.RecordMetric("semantic OSM jobs completed",
+                         static_cast<double>(World.OsmTransportLoader->CompletedCount()),
+                         "jobs");
+  Published.RecordMetric("semantic OSM jobs canceled",
+                         static_cast<double>(World.OsmTransportLoader->CanceledCount()),
+                         "jobs");
   const auto &current = World.OsmTransportLoader->Current();
   if (!current || current == previous) { return; }
   const World::TransportLoadMetrics &metrics = current->Metrics();
-  Published.Places("semantic OSM source bytes", static_cast<double>(metrics.SourceBytes), "bytes");
-  Published.Places("semantic OSM read time", metrics.ReadMs, "ms");
-  Published.Places("semantic OSM parse time", metrics.ParseMs, "ms");
-  Published.Places("semantic OSM graph time", metrics.GraphMs, "ms");
-  Published.Places(
+  Published.RecordMetric(
+      "semantic OSM source bytes", static_cast<double>(metrics.SourceBytes), "bytes");
+  Published.RecordMetric("semantic OSM read time", metrics.ReadMs, "ms");
+  Published.RecordMetric("semantic OSM parse time", metrics.ParseMs, "ms");
+  Published.RecordMetric("semantic OSM graph time", metrics.GraphMs, "ms");
+  Published.RecordMetric(
       "semantic OSM named routes", static_cast<double>(current->RouteCount()), "routes");
-  Published.Places(
+  Published.RecordMetric(
       "semantic OSM route edges", static_cast<double>(current->RouteEdgeCount()), "edges");
 }
 

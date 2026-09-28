@@ -12,7 +12,7 @@ class OsmField;
 
 namespace outshine::Core {
 
-class Ledger;
+class DiagnosticLedger;
 class RuntimeScene;
 
 struct GroundRelief {
@@ -21,14 +21,14 @@ struct GroundRelief {
   double TallestDistanceM = 0.0;
 };
 
-void ReportBuildingFootprints(Ledger &report,
+void ReportBuildingFootprints(DiagnosticLedger &report,
                               const Ground::BuildingField &footprints,
                               const Ground::OsmField *vectors,
                               const TangentFrame &frame);
 
-void ReportGroundRelief(Ledger &report, GroundRelief relief);
+void ReportGroundRelief(DiagnosticLedger &report, GroundRelief relief);
 
-void ReportSubjectPlacements(Ledger &report, const RuntimeScene &scene);
+void ReportSubjectPlacements(DiagnosticLedger &report, const RuntimeScene &scene);
 
 }
 #endif

@@ -136,57 +136,58 @@ Result Engine::render(Extent frame) {
   if (!S_->EnsureRuntimeScene()) { return std::unexpected(S_->Error); }
   const auto began = std::chrono::steady_clock::now();
   if (!DrawScene(S_->Picture, S_->Error)) { return std::unexpected(S_->Error); }
-  S_->Published.Opens();
+  S_->Published.BeginFrame();
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   const Render::RenderFrameTiming &frameTiming = S_->Picture.Device.LastRenderFrameTiming();
-  S_->Published.Places(
+  S_->Published.RecordMetric(
       "render host last submitted: fence wait",
       frameTiming.PhaseMs[static_cast<size_t>(Render::RenderFramePhase::FenceWait)],
       "ms");
-  S_->Published.Places(
+  S_->Published.RecordMetric(
       "subject draws", static_cast<double>(S_->Picture.Device.SubjectDrawCount()), "draws");
-  S_->Published.Places(
+  S_->Published.RecordMetric(
       "the subject's own animation runs for", S_->Picture.Standing->DurationS(), "s");
-  S_->Published.Places("the frames its rate makes of that",
-                       static_cast<double>(S_->Picture.Standing->Frames()),
-                       "frames");
-  S_->Published.Places("and the instant it is posed at", S_->Picture.Standing->AtS(), "s");
-  S_->Published.Places(
+  S_->Published.RecordMetric("the frames its rate makes of that",
+                             static_cast<double>(S_->Picture.Standing->Frames()),
+                             "frames");
+  S_->Published.RecordMetric("and the instant it is posed at", S_->Picture.Standing->AtS(), "s");
+  S_->Published.RecordMetric(
       "the pose's own local transforms, digested", S_->Picture.Standing->LocalsDigest(), "");
-  S_->Published.Places(
+  S_->Published.RecordMetric(
       "the vertices it assembled from them, digested", S_->Picture.Standing->AssembledDigest(), "");
-  S_->Published.Places("the geometry the renderer was last offered, digested",
-                       S_->Picture.Standing->TransferMetrics().DigestValue(),
-                       "");
-  S_->Published.Places("subject residency upload attempts in all",
-                       static_cast<double>(S_->Picture.Device.TotalUploadAttempts()),
-                       "uploads");
-  S_->Published.Places("staged crossings recorded in copy passes",
-                       static_cast<double>(S_->Picture.Device.RecordedCrossings()),
-                       "crossings");
-  S_->Published.Places("subject clusters",
-                       static_cast<double>(S_->Picture.Standing->Shown().Clusters.size()),
-                       "clusters");
-  S_->Published.Places("cull: jobs it swept",
-                       static_cast<double>(Render::SubjectCullStage::JobsSweptTaken()),
-                       "jobs");
+  S_->Published.RecordMetric("the geometry the renderer was last offered, digested",
+                             S_->Picture.Standing->TransferMetrics().DigestValue(),
+                             "");
+  S_->Published.RecordMetric("subject residency upload attempts in all",
+                             static_cast<double>(S_->Picture.Device.TotalUploadAttempts()),
+                             "uploads");
+  S_->Published.RecordMetric("staged crossings recorded in copy passes",
+                             static_cast<double>(S_->Picture.Device.RecordedCrossings()),
+                             "crossings");
+  S_->Published.RecordMetric("subject clusters",
+                             static_cast<double>(S_->Picture.Standing->Shown().Clusters.size()),
+                             "clusters");
+  S_->Published.RecordMetric("cull: jobs it swept",
+                             static_cast<double>(Render::SubjectCullStage::JobsSweptTaken()),
+                             "jobs");
   if (!S_->Simulation->DynamicBodies.empty()) {
-    S_->Published.Places("bodies standing on no route",
-                         static_cast<double>(S_->Simulation->DynamicBodies.size()),
-                         "bodies");
-    S_->Published.Places(
+    S_->Published.RecordMetric("bodies standing on no route",
+                               static_cast<double>(S_->Simulation->DynamicBodies.size()),
+                               "bodies");
+    S_->Published.RecordMetric(
         "the first of them, up", S_->Simulation->DynamicBodies.front().Motion.PositionM[1], "m");
-    S_->Published.Places(
+    S_->Published.RecordMetric(
         "and how fast it falls", S_->Simulation->DynamicBodies.front().Motion.VelocityMs[1], "m/s");
   }
   if (S_->Session.Declared.Render.Audits) {
     Render::PyramidDepths depths;
     if (S_->Picture.Standing->Pyramid(depths) == Render::ReadState::Ready) {
-      S_->Published.Places(
+      S_->Published.RecordMetric(
           "cull: the pyramid's nearest depth", static_cast<double>(depths.Nearest), "0..1");
-      S_->Published.Places("cull: its farthest", static_cast<double>(depths.Farthest), "0..1");
-      S_->Published.Places("cull: and its mean", static_cast<double>(depths.Mean), "0..1");
+      S_->Published.RecordMetric(
+          "cull: its farthest", static_cast<double>(depths.Farthest), "0..1");
+      S_->Published.RecordMetric("cull: and its mean", static_cast<double>(depths.Mean), "0..1");
     }
   }
   {
@@ -213,18 +214,18 @@ Result Engine::render(Extent frame) {
       if (std::fabs(over) - radius > up * (ahead > 0.0 ? ahead : 0.0) + radius) { continue; }
       ++kept;
     }
-    S_->Published.Places(
+    S_->Published.RecordMetric(
         "ring: clusters a frustum would keep", static_cast<double>(kept), "clusters");
   }
-  S_->Published.Places(
+  S_->Published.RecordMetric(
       "subject draw calls", static_cast<double>(S_->Picture.Device.SubjectBatchCount()), "calls");
-  S_->Published.Places(
+  S_->Published.RecordMetric(
       "plan passes", static_cast<double>(S_->Picture.Standing->PlanPasses()), "passes");
   for (uint32_t at = 0; at < static_cast<uint32_t>(Render::kVertexLayouts.size()); ++at) {
     const uint32_t many =
         S_->Picture.Device.SubjectBatchesTaking(static_cast<Render::VertexLayout>(at));
     if (many == 0) { continue; }
-    S_->Published.Places(
+    S_->Published.RecordMetric(
         "draws taking vertex layout " + std::to_string(at), static_cast<double>(many), "draws");
   }
   S_->Drew();
@@ -239,7 +240,7 @@ Result Engine::inspect() {
                 "anything a readback could tell";
     return std::unexpected(S_->Error);
   }
-  S_->Published.Opens();
+  S_->Published.BeginFrame();
   S_->Inspected();
   return {};
 }

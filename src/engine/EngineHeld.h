@@ -40,7 +40,7 @@
 #include "Assembly.h"
 #include "SimulationState.h"
 #include "TriangleBvh.h"
-#include "Ledger.h"
+#include "DiagnosticLedger.h"
 #include "Mixer.h"
 #include "Tables.h"
 #include "ScenarioLayer.h"
@@ -412,7 +412,7 @@ struct Engine::State {
   Spent Cost;
   Ticks Ticking;
   std::optional<RouteCameraMotion> RouteCamera;
-  Core::Ledger Published;
+  Core::DiagnosticLedger Published;
   Host *Offered = nullptr;
   LogSink *Diagnostics = nullptr;
   std::string Error;

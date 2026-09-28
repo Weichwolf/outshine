@@ -49,7 +49,7 @@ int main() {
       };
       const TangentFrame frame = TangentFrame::At({});
       pieces.Framed(frame);
-      pieces.Wears({.Walls = Render::PieceSurface(0), .Roofs = Render::PieceSurface(0)});
+      pieces.SetSurfaces({.Walls = Render::PieceSurface(0), .Roofs = Render::PieceSurface(0)});
       const auto depth = [&]() {
         std::vector<float> values;
         if (!scene->Draw(error)) { return -1.0f; }

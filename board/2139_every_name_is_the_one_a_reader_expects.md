@@ -11,18 +11,12 @@ Priority: P0
 
 ## Audit scope and limits
 
-2026-09-18: inventory of every include/ and src/ module, reaches declarations, boundary
-headers and selected implementations/callers. This is a structural/dependency audit,
-not proof that every algorithm, race and failure path is correct. Line counts locate
-mixed ownership; no maximum file length or automatic split is an architectural oracle.
-Examples supplied by the user do not limit the audit to Live, Crown and Structure.
-The lexical audit found 261 classes, 903 structs, 31 public headers and 22
-dependency tiers; direction checks found no back edge but cannot prove ownership.
-Water triangulation now belongs to `generators/water` (2145). `Document.cpp`
-(2,268 lines) contains several glTF sections but one import owner; split it only
-when a complete codec boundary reduces change propagation. Track public API
-growth, owner-crossing edits, dependency edges and largest cohesive files, not
-a target count of types or an arbitrary line cap.
+Inventory covers include/, src/, reaches and boundary callers; dependency checks alone do
+not prove ownership or runtime correctness. File length locates mixed responsibilities,
+not an automatic split threshold. User examples do not limit this audit.
+Water triangulation belongs to generators/water (2145). Split Document.cpp only along a
+complete codec boundary. Track API growth, owner-crossing edits and cohesive responsibilities.
+
 ## Module decisions and implementation owners
 
 | Module | Finding and binding decision | WI |
@@ -51,12 +45,21 @@ Current slice: `GroundBuildSchedule` names the current phase and its state trans
 `Engine::State` names ground candidate operations by what repeated calls actually advance.
 Migrate declarations, callers and schedule tests together. A formerly `BeginsGround*` call
 must continue to be safe while pending and must preserve candidate retry/publication order.
-
 1. The listed `Engine::State` verbs are migrated. Continue public API naming
    under 2096. Runtime body-instance resizing is now named at both the scene
    and render proxy boundary; keep names tied to operations, not metaphors.
-   Audit remaining `Stands`, `Wears`, `Lit`, `Around` and `CarriesBuilt` with
-   their actual side effects before renaming each owner slice.
+   Render-proxy setters must name reset, material copies, borrowed previous positions,
+   emission, placement, environment assignment and light insertion explicitly. RuntimeScene
+   owns subject preparation; the client owns platform/engine initialization. Migrate all
+   declarations and callers without aliases; preserve reset, borrow and failure behavior.
+   Implemented: ResetForShape, SetMaterials, SetEmission, SetPlacement, BindPreviousPositions,
+   AddLight, SetEnvironment, PrepareSubject and InitializeClientEngine; no aliases.
+   Verify SubjectProxy/Lens, format and full lint. RuntimeScene GPU tests remain unverified:
+   SDL video initialization is denied by sandbox XPC; some fixtures are unprepared. Continue
+   Implemented: DiagnosticLedger::ConfigureMetrics/BeginFrame/RecordMetric/Samples/
+   ConflictingMetricNames, TilePieces::SetSurfaces and Shipping::EnsureCatalogue.
+   All callers and forward declarations migrated; no compatibility aliases. Catalogue atomic
+   replacement and public diagnostic isolation suites pass. Other owner names remain open.
 2. The twelve-hour review through 21342822f found live derived-state invalidation in
    GroundStack::Restand (2224) and unbounded remaining terrain phases (2234).
 3. Material/terrain work 2171/2166 proceeds independently under the order in 2188.
@@ -68,7 +71,6 @@ threading model are not part of this refactor.
 `Live` is no longer an engine state facade. `StructureBuildQueue` and
 `StructureBuildTask` schedule generator-owned products from `engine/streaming`.
 The layer contract rejects parent-path, absolute and physical build includes.
-
 `GroundBuildState` remains local to `Laying.cpp` because it coordinates one Engine-owned ground
 candidate. Its phase order is now owned by `GroundBuildSchedule`; production cannot start before
 candidate preparation and all sheet phases, and cannot pass Publication. That is a real state
@@ -86,7 +88,6 @@ provenance producer and included as `OutshineGenerated/CrownBuildIdentity.h`; la
 rejects physical build paths, parent-directory paths and absolute paths in source, headers and
 tests. C++ and GLSL include logical names from declared include roots; parent-directory paths
 are forbidden even when the dependency is allowed.
-
 Engine composes providers, generators, simulation, rendering, audio and UI. Domain modules
 own algorithms and data. Cross-module interfaces carry native values, owned immutable
 products or scoped borrows, not Engine::State/Live references. `SubjectPlacementHistory` names
@@ -94,10 +95,9 @@ the last placement-buffer upload; rendered vertex history remains separately own
 `RuntimeScene` and advances only after a successful frame submission. Published products have
 one commit owner; subsystem extraction must preserve rollback, generation and GPU lifetime.
 Use reaches plus resolved-header checks; do not add reverse edges to make a move compile.
-Audit class, struct, function and file names in every owner slice: a name states the domain
-object or operation, ownership and units when relevant. Reject generic wrappers, misleading
-source identities and verbs that hide side effects. Migrate callers and tests with each rename.
-
+Audit names in every owner slice: state the domain operation, ownership and units. Reject misleading
+source identities and verbs that hide side effects. Terrain publication uses `PublishDelivery`;
+cache reads and IO use `ReadCachedDelivery` and `FetchDelivery`. Migrate all callers and tests.
 For each slice migrate code, callers, build paths, tests and contracts together; remove the
 old implementation and storage. No facade containing the old monolith, service locator,
 parallel model or compatibility aliases. Do not invent an ECS/framework without a consumer.
@@ -106,8 +106,7 @@ names the immutable worker input, `RoadTerrainPinJob` owns bounded DEM selection
 and `HeightSheets` only snapshots candidate fields. Keep future names similarly
 literal: an API that copies, pins, publishes or retires must say so; migrate every
 caller when correcting it. Do not preserve poetic verbs through aliases.
-References: local SDL fa2c02b for platform lifetime; existing native Geometry, candidate
-owners and module contracts provide the project baseline. No proprietary architecture claim.
+References: local SDL fa2c02b; native Geometry, candidate owners and module contracts.
 
 ## Acceptance
 

@@ -13,7 +13,7 @@ namespace outshine {
 namespace {
 constexpr double kInvalidVelocityThresholdNdc = -1.0e3;
 
-void InspectShadow(Seen &picture, Core::Ledger &published) {
+void InspectShadow(Seen &picture, Core::DiagnosticLedger &published) {
   std::vector<float> depth;
   if (picture.Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
     double least = kBeyondAnyCoordinate;
@@ -24,24 +24,25 @@ void InspectShadow(Seen &picture, Core::Ledger &published) {
       most = std::max(static_cast<double>(one), most);
       if (one > 0.0f) { written += 1.0; }
     }
-    published.Places("the shadow atlas, least depth", least, "");
-    published.Places("the shadow atlas, most depth", most, "");
-    published.Places("texels above the clear", written, "texels");
-    published.Places(
+    published.RecordMetric("the shadow atlas, least depth", least, "");
+    published.RecordMetric("the shadow atlas, most depth", most, "");
+    published.RecordMetric("texels above the clear", written, "texels");
+    published.RecordMetric(
         "the shadow radius it stood on", picture.Standing->ShadowRadiusStanding(), "m");
   }
 }
 
-void InspectCulling(Seen &picture, Core::Ledger &published) {
+void InspectCulling(Seen &picture, Core::DiagnosticLedger &published) {
   Render::KeptDraws kept;
   if (picture.Device.ReadKeptIndices(kept) == Render::ReadState::Ready) {
-    published.Places(
+    published.RecordMetric(
         "cull: indices the subject cull kept", static_cast<double>(kept.Indices), "indices");
-    published.Places("cull: batches that kept any", static_cast<double>(kept.Batches), "batches");
+    published.RecordMetric(
+        "cull: batches that kept any", static_cast<double>(kept.Batches), "batches");
   }
 }
 
-void InspectIrradiance(Seen &picture, Core::Ledger &published) {
+void InspectIrradiance(Seen &picture, Core::DiagnosticLedger &published) {
   std::array<float, Render::kIrradianceFloats> held = {{}};
   if (picture.Device.ReadSkyIrradiance(held) == Render::ReadState::Ready) {
     picture.Standing->ReadIrradiance(held);
@@ -54,8 +55,8 @@ void InspectIrradiance(Seen &picture, Core::Ledger &published) {
           "the ambient the ground bounces, green",
           "the ambient the ground bounces, blue"};
       for (size_t at = 0; at < 3; ++at) {
-        published.Places(kSky[at], picture.Standing->AmbientStood()[at], "");
-        published.Places(kGround[at], picture.Standing->GroundStood()[at], "");
+        published.RecordMetric(kSky[at], picture.Standing->AmbientStood()[at], "");
+        published.RecordMetric(kGround[at], picture.Standing->GroundStood()[at], "");
       }
     }
     static const std::array<const char *const, Render::kIrradianceFloats> kNamed = {
@@ -66,12 +67,12 @@ void InspectIrradiance(Seen &picture, Core::Ledger &published) {
         "the device's transmittance toward the sun, green",
         "the device's transmittance toward the sun, blue"};
     for (size_t at = 0; at < Render::kIrradianceFloats; ++at) {
-      published.Places(kNamed[at], static_cast<double>(held[at]), "");
+      published.RecordMetric(kNamed[at], static_cast<double>(held[at]), "");
     }
   }
 }
 
-void InspectVelocity(Seen &picture, Core::Ledger &published) {
+void InspectVelocity(Seen &picture, Core::DiagnosticLedger &published) {
   std::vector<float> velocity;
   if (picture.Device.ReadSceneVelocity(velocity) == Render::ReadState::Ready) {
     double moving = 0.0;
@@ -86,12 +87,12 @@ void InspectVelocity(Seen &picture, Core::Ledger &published) {
       if (moved > 0.0) { moving += 1.0; }
       furthest = std::max(moved, furthest);
     }
-    published.Places("pixels the velocity target says moved", moving, "px");
-    published.Places("the furthest any of them moved", furthest, "ndc");
+    published.RecordMetric("pixels the velocity target says moved", moving, "px");
+    published.RecordMetric("the furthest any of them moved", furthest, "ndc");
   }
 }
 
-void InspectLinearColour(Seen &picture, Core::Ledger &published) {
+void InspectLinearColour(Seen &picture, Core::DiagnosticLedger &published) {
   std::vector<float> linear;
   if (picture.Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
     double brightest = 0.0;
@@ -102,11 +103,11 @@ void InspectLinearColour(Seen &picture, Core::Ledger &published) {
                         : brightest;
       }
     }
-    published.Places("the brightest the scene's linear buffer reached", brightest, "");
+    published.RecordMetric("the brightest the scene's linear buffer reached", brightest, "");
   }
 }
 
-void InspectPresentedColour(Seen &picture, Core::Ledger &published) {
+void InspectPresentedColour(Seen &picture, Core::DiagnosticLedger &published) {
   std::vector<uint8_t> shown;
   if (picture.Device.ReadPixels(shown) == Render::ReadState::Ready) {
     double peak = 0.0;
@@ -117,7 +118,7 @@ void InspectPresentedColour(Seen &picture, Core::Ledger &published) {
                    : peak;
       }
     }
-    published.Places("the brightest the presented frame shows", peak, "of 255");
+    published.RecordMetric("the brightest the presented frame shows", peak, "of 255");
   }
 }
 
@@ -130,27 +131,28 @@ void Engine::State::Inspected() {
   const uint64_t structures = World.Pieces.Digest();
   size_t structureTiles = 0;
   World.Pieces.ForEachDigest([&structureTiles](TilePieces::DigestRecord) { ++structureTiles; });
-  Published.Places(
+  Published.RecordMetric(
       "world: live structure digest high half", static_cast<double>(structures >> 32u), "digest");
-  Published.Places("world: live structure digest low half",
-                   static_cast<double>(static_cast<uint32_t>(structures)),
-                   "digest");
-  Published.Places("world: live structure tiles", static_cast<double>(structureTiles), "tiles");
-  Published.Places(
+  Published.RecordMetric("world: live structure digest low half",
+                         static_cast<double>(static_cast<uint32_t>(structures)),
+                         "digest");
+  Published.RecordMetric(
+      "world: live structure tiles", static_cast<double>(structureTiles), "tiles");
+  Published.RecordMetric(
       "render: live native pieces", static_cast<double>(Picture.Device.PiecesStanding()), "pieces");
-  Published.Places("render: live piece sources",
-                   static_cast<double>(Picture.Device.PieceSourceCount()),
-                   "pieces");
-  Published.Places("render: live native triangles",
-                   static_cast<double>(Picture.Device.PieceTriangles()),
-                   "triangles");
+  Published.RecordMetric("render: live piece sources",
+                         static_cast<double>(Picture.Device.PieceSourceCount()),
+                         "pieces");
+  Published.RecordMetric("render: live native triangles",
+                         static_cast<double>(Picture.Device.PieceTriangles()),
+                         "triangles");
   InspectShadow(Picture, Published);
   InspectCulling(Picture, Published);
   InspectIrradiance(Picture, Published);
   InspectVelocity(Picture, Published);
-  Published.Places("the exposure the picture applied",
-                   static_cast<double>(Picture.Device.ExposureApplied()),
-                   "1/(cd/m2)");
+  Published.RecordMetric("the exposure the picture applied",
+                         static_cast<double>(Picture.Device.ExposureApplied()),
+                         "1/(cd/m2)");
   InspectLinearColour(Picture, Published);
   InspectPresentedColour(Picture, Published);
 }

@@ -118,10 +118,11 @@ Result Engine::prepareViewData(double durationS, double patienceS) {
                                .Classification = classWindows,
                                .RoadTiles = roadTiles});
   if (!plan) { return std::unexpected(plan.error()); }
-  S_->Published.Places("view data: camera samples", static_cast<double>(path->size()), "points");
-  S_->Published.Places(
+  S_->Published.RecordMetric(
+      "view data: camera samples", static_cast<double>(path->size()), "points");
+  S_->Published.RecordMetric(
       "view data: planned fields", static_cast<double>(plan->Fields.size()), "tiles");
-  S_->Published.Places(
+  S_->Published.RecordMetric(
       "view data: planned vectors", static_cast<double>(plan->Vectors.size()), "tiles");
 
   return PrepareTerrainPath(std::move(*plan), S_->World.Stack, deadline);

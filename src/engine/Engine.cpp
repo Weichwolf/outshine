@@ -254,7 +254,7 @@ std::span<const std::string> Engine::unacted() const {
 }
 
 std::span<const DiagnosticSample> Engine::measures() const {
-  return S_->Published.Numbers();
+  return S_->Published.Samples();
 }
 
 bool Engine::State::StructureCellsReady(uint32_t tile, LongitudeLatitude eye) const {
@@ -364,20 +364,24 @@ Holds<Capture> Engine::beginCapture() {
     const std::string name = "capture: structure tile " + std::to_string(piece.Tile) +
                              (piece.Cell == 0 ? "" : " cell " + std::to_string(piece.Cell)) +
                              " digest ";
-    S_->Published.Places(name + "low half",
-                         static_cast<double>(piece.Digest & std::numeric_limits<uint32_t>::max()),
-                         "digest");
-    S_->Published.Places(name + "high half", static_cast<double>(piece.Digest >> 32u), "digest");
-    S_->Published.Places(
+    S_->Published.RecordMetric(
+        name + "low half",
+        static_cast<double>(piece.Digest & std::numeric_limits<uint32_t>::max()),
+        "digest");
+    S_->Published.RecordMetric(
+        name + "high half", static_cast<double>(piece.Digest >> 32u), "digest");
+    S_->Published.RecordMetric(
         name + "source low half",
         static_cast<double>(piece.SourceKey & std::numeric_limits<uint32_t>::max()),
         "key");
-    S_->Published.Places(
+    S_->Published.RecordMetric(
         name + "source high half", static_cast<double>(piece.SourceKey >> 32u), "key");
-    S_->Published.Places(name + "explicit detail",
-                         piece.Detail ? static_cast<double>(static_cast<int>(*piece.Detail)) : -1.0,
-                         "-1=automatic");
-    S_->Published.Places(name + "fallback heights", piece.FallbackHeights ? 1.0 : 0.0, "yes/no");
+    S_->Published.RecordMetric(name + "explicit detail",
+                               piece.Detail ? static_cast<double>(static_cast<int>(*piece.Detail))
+                                            : -1.0,
+                               "-1=automatic");
+    S_->Published.RecordMetric(
+        name + "fallback heights", piece.FallbackHeights ? 1.0 : 0.0, "yes/no");
   });
   return Capture(*this);
 }
@@ -579,7 +583,7 @@ std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPrel
 
 Result Engine::State::PumpPreload() {
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
-  Published.Opens();
+  Published.BeginFrame();
   PollOsmTransport();
   if (!RequestTerrainCoverage()) { return std::unexpected(Error); }
   const LongitudeLatitude stands = CurrentGeographicFocus();
@@ -597,7 +601,7 @@ Result Engine::State::PumpPreload() {
   if (!AdvanceStructureBuilds(kBakesLandedInPreload)) { return std::unexpected(Error); }
   const auto growthBegan = std::chrono::steady_clock::now();
   (void)GenerateInitialInstances(atLat, atLon);
-  Published.Places(
+  Published.RecordMetric(
       "preload: generator work",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - growthBegan)
           .count(),

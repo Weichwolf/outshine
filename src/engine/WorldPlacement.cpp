@@ -35,12 +35,13 @@ constexpr size_t kBaseSnapshotRows = 40;
 
 bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
   const Ground::OsmField *const vectors = GenerationFields(World).Vectors;
-  Published.Places(
+  Published.RecordMetric(
       "generators: bodies already placed", static_cast<double>(World.Placed), "bodies");
-  Published.Places(
+  Published.RecordMetric(
       "generators: a shipped catalogue stands", World.Shipping.Ready() ? 1.0 : 0.0, "yes/no");
-  Published.Places("generators: a ground table stands", World.Table ? 1.0 : 0.0, "yes/no");
-  Published.Places("generators: vector data stands", vectors != nullptr ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric("generators: a ground table stands", World.Table ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric(
+      "generators: vector data stands", vectors != nullptr ? 1.0 : 0.0, "yes/no");
   if (World.Placed > 0 || !World.Shipping.Ready() || !World.Table || vectors == nullptr) {
     return false;
   }
@@ -59,35 +60,35 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
       region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
   World.Reached = static_cast<int>(kBaseSnapshotRows) + (snapshot.Patch ? 1 : 0) +
                   (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
-  Published.Places("generators: the snapshot",
-                   static_cast<double>(static_cast<int>(how)),
-                   "0=taken 1=waiting 2=no ground");
-  Published.Places("generators: a patch of ground", snapshot.Patch ? 1.0 : 0.0, "yes/no");
-  Published.Places("generators: land classes", snapshot.Classes ? 1.0 : 0.0, "yes/no");
-  Published.Places("generators: OSM features", snapshot.Features ? 1.0 : 0.0, "yes/no");
-  Published.Places(
+  Published.RecordMetric("generators: the snapshot",
+                         static_cast<double>(static_cast<int>(how)),
+                         "0=taken 1=waiting 2=no ground");
+  Published.RecordMetric("generators: a patch of ground", snapshot.Patch ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric("generators: land classes", snapshot.Classes ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric("generators: OSM features", snapshot.Features ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric(
       "generators: the region it asks about, x", static_cast<double>(region.X()), "tile");
-  Published.Places("generators: and y", static_cast<double>(region.Y()), "tile");
-  Published.Places("generators: at zoom", static_cast<double>(vectors->Zoom()), "z");
-  Published.Places("generators: vector tiles that settled",
-                   static_cast<double>(vectors->Tiles().size()),
-                   "tiles");
-  Published.Places(
+  Published.RecordMetric("generators: and y", static_cast<double>(region.Y()), "tile");
+  Published.RecordMetric("generators: at zoom", static_cast<double>(vectors->Zoom()), "z");
+  Published.RecordMetric("generators: vector tiles that settled",
+                         static_cast<double>(vectors->Tiles().size()),
+                         "tiles");
+  Published.RecordMetric(
       "generators: vector tiles it refused", static_cast<double>(vectors->RefusedTiles()), "tiles");
-  Published.Places("generators: that region is settled",
-                   vectors->Settled(region.X(), region.Y()) ? 1.0 : 0.0,
-                   "yes/no");
+  Published.RecordMetric("generators: that region is settled",
+                         vectors->Settled(region.X(), region.Y()) ? 1.0 : 0.0,
+                         "yes/no");
   World.Grown = how == Generators::Snapped::Taken;
   if (how != Generators::Snapped::Taken) { return false; }
   const std::optional<Generators::Ground> over =
       Generators::Ground::Of(region, snapshot, coarseness);
-  Published.Places("generators: a ground of that snapshot", over ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric("generators: a ground of that snapshot", over ? 1.0 : 0.0, "yes/no");
   if (!over) { return false; }
   const Generators::RegionPool::Shape shape;
   const Generators::RegionPool::Extent extent{.Reached = over->Where(), .Anywhere = over->Where()};
   Generators::RegionPool pool(extent, shape);
   std::optional<Generators::RegionPool::Lease> lease = pool.TryAcquire(*over);
-  Published.Places("generators: a lease on the region", lease ? 1.0 : 0.0, "yes/no");
+  Published.RecordMetric("generators: a lease on the region", lease ? 1.0 : 0.0, "yes/no");
   if (!lease) { return false; }
   const Generators::GeneratorSet &placing = World.Shipping.Placing();
   std::vector<Generators::Yield> yields;
@@ -110,31 +111,31 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
       return false;
     }
     placed += one.Placed().Count;
-    Published.Places(std::format("generators: {} placed", called),
-                     static_cast<double>(one.Placed().Count),
-                     "bodies");
-    Published.Places(
+    Published.RecordMetric(std::format("generators: {} placed", called),
+                           static_cast<double>(one.Placed().Count),
+                           "bodies");
+    Published.RecordMetric(
         std::format("generators: and {} wanted ground another body already held", called),
         static_cast<double>(one.Claims(Generators::Claim::Outcome::Occupied)),
         "claims");
-    Published.Places(std::format("generators: and {} wanted ground off the region", called),
-                     static_cast<double>(one.Claims(Generators::Claim::Outcome::Outside)),
-                     "claims");
-    Published.Places(std::format("generators: and {} exhausted the region", called),
-                     static_cast<double>(one.Claims(Generators::Claim::Outcome::Full)),
-                     "claims");
+    Published.RecordMetric(std::format("generators: and {} wanted ground off the region", called),
+                           static_cast<double>(one.Claims(Generators::Claim::Outcome::Outside)),
+                           "claims");
+    Published.RecordMetric(std::format("generators: and {} exhausted the region", called),
+                           static_cast<double>(one.Claims(Generators::Claim::Outcome::Full)),
+                           "claims");
     for (const Generators::Yield::Note &note : one.Notes()) {
-      Published.Places(std::format("generators: {} {} count", called, note.Name),
-                       static_cast<double>(note.Times),
-                       "events");
+      Published.RecordMetric(std::format("generators: {} {} count", called, note.Name),
+                             static_cast<double>(note.Times),
+                             "events");
       if (note.Raised) {
-        Published.Places(
+        Published.RecordMetric(
             std::format("generators: {} {} peak", called, note.Name), note.Peak, "value");
       }
     }
   }
-  Published.Places("generators: bodies they placed", static_cast<double>(placed), "bodies");
-  Published.Places(
+  Published.RecordMetric("generators: bodies they placed", static_cast<double>(placed), "bodies");
+  Published.RecordMetric(
       "generators: makers that were asked", static_cast<double>(placing.Count()), "makers");
   if (placed == 0) { return false; }
   std::vector<WorldInstance> instances(placed);

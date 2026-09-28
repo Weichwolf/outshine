@@ -115,9 +115,9 @@ bool Engine::State::UpdateActiveCamera() {
     }
     station = **position;
   }
-  Published.Places("the standing eye, east", station[0], "m");
-  Published.Places("the standing eye, up", station[1], "m");
-  Published.Places("the standing eye, south", station[2], "m");
+  Published.RecordMetric("the standing eye, east", station[0], "m");
+  Published.RecordMetric("the standing eye, up", station[1], "m");
+  Published.RecordMetric("the standing eye, south", station[2], "m");
   Camera resolved = seen.Sees;
   resolved.PositionM = station;
   if (seen.Placement == Scenario::CameraPlacement::Geodetic && !seen.Sees.LooksAt) {
@@ -192,13 +192,13 @@ bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
     Error = "route camera cannot form a finite view basis";
     return false;
   }
-  Published.Places("the route camera's station", sample->Motion.StationM, "m");
-  Published.Places("the route camera's speed", sample->Motion.SpeedMps, "m/s");
-  Published.Places(
+  Published.RecordMetric("the route camera's station", sample->Motion.StationM, "m");
+  Published.RecordMetric("the route camera's speed", sample->Motion.SpeedMps, "m/s");
+  Published.RecordMetric(
       "the route camera's segment", static_cast<double>(sample->Pose.SegmentIndex), "segment");
-  Published.Places("the route camera's eye, east", sample->EyeM[0], "m");
-  Published.Places("the route camera's eye, up", sample->EyeM[1], "m");
-  Published.Places("the route camera's eye, south", sample->EyeM[2], "m");
+  Published.RecordMetric("the route camera's eye, east", sample->EyeM[0], "m");
+  Published.RecordMetric("the route camera's eye, up", sample->EyeM[1], "m");
+  Published.RecordMetric("the route camera's eye, south", sample->EyeM[2], "m");
   if (!ApplyCamera(*Picture.Standing, Picture.Device, view.Sees, *stood)) {
     Error = Says::kInvalidViewProjection;
     return false;
@@ -218,12 +218,12 @@ bool Engine::State::UpdateSceneBodyTransform(size_t which,
     return false;
   }
   if (which > 0) { return true; }
-  Published.Places("the body, east", body.PositionM[0], "m");
-  Published.Places("the body, up", body.PositionM[1], "m");
-  Published.Places("the body, south", body.PositionM[2], "m");
-  Published.Places("the mesh it carries, east", bodyFromWorld[12], "m");
-  Published.Places("the mesh it carries, up", bodyFromWorld[13], "m");
-  Published.Places("the mesh it carries, south", bodyFromWorld[14], "m");
+  Published.RecordMetric("the body, east", body.PositionM[0], "m");
+  Published.RecordMetric("the body, up", body.PositionM[1], "m");
+  Published.RecordMetric("the body, south", body.PositionM[2], "m");
+  Published.RecordMetric("the mesh it carries, east", bodyFromWorld[12], "m");
+  Published.RecordMetric("the mesh it carries, up", bodyFromWorld[13], "m");
+  Published.RecordMetric("the mesh it carries, south", bodyFromWorld[14], "m");
   return true;
 }
 
@@ -258,9 +258,9 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
           at[axis] + bodyFromWorld[8 + axis] * back + bodyFromWorld[4 + axis] * back * seen.RisesBy;
     }
   }
-  Published.Places("the carried eye, east", eye[0], "m");
-  Published.Places("the carried eye, up", eye[1], "m");
-  Published.Places("the carried eye, south", eye[2], "m");
+  Published.RecordMetric("the carried eye, east", eye[0], "m");
+  Published.RecordMetric("the carried eye, up", eye[1], "m");
+  Published.RecordMetric("the carried eye, south", eye[2], "m");
   const std::optional<Render::Viewpoint> stood =
       Render::Viewpoint::LookAt({.EyeM = eye, .AimM = seen.DistanceM > 0.0 ? at : ahead}, 0.0);
   if (!stood) {
@@ -448,33 +448,33 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   Cost.BakePosting.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)
           .count());
-  Published.Places("buildings: tiles posted to the bake",
-                   static_cast<double>(World.StructureBuilds.Posted()),
-                   "tiles");
-  Published.Places("buildings: tiles landed from it",
-                   static_cast<double>(World.StructureBuilds.Landed()),
-                   "tiles");
-  Published.Places("buildings: tiles in the bake right now",
-                   static_cast<double>(World.StructureBuilds.Queued()),
-                   "tiles");
-  Published.Places("buildings: tiles deferred for ground",
-                   static_cast<double>(World.StructureBuilds.Deferred()),
-                   "asks");
-  Published.Places("buildings: stale tiles discarded",
-                   static_cast<double>(World.StructureBuilds.Discarded()),
-                   "tiles");
-  Published.Places(
+  Published.RecordMetric("buildings: tiles posted to the bake",
+                         static_cast<double>(World.StructureBuilds.Posted()),
+                         "tiles");
+  Published.RecordMetric("buildings: tiles landed from it",
+                         static_cast<double>(World.StructureBuilds.Landed()),
+                         "tiles");
+  Published.RecordMetric("buildings: tiles in the bake right now",
+                         static_cast<double>(World.StructureBuilds.Queued()),
+                         "tiles");
+  Published.RecordMetric("buildings: tiles deferred for ground",
+                         static_cast<double>(World.StructureBuilds.Deferred()),
+                         "asks");
+  Published.RecordMetric("buildings: stale tiles discarded",
+                         static_cast<double>(World.StructureBuilds.Discarded()),
+                         "tiles");
+  Published.RecordMetric(
       "buildings: cells posted", static_cast<double>(World.StructureCellsPosted), "cells");
-  Published.Places(
+  Published.RecordMetric(
       "buildings: cells landed", static_cast<double>(World.StructureCellsLanded), "cells");
-  Published.Places("buildings: cell tiles activated",
-                   static_cast<double>(World.StructureTilesActivated),
-                   "tiles");
-  Published.Places(
+  Published.RecordMetric("buildings: cell tiles activated",
+                         static_cast<double>(World.StructureTilesActivated),
+                         "tiles");
+  Published.RecordMetric(
       "buildings: cells queued", static_cast<double>(World.StructureBuilds.QueuedCells()), "cells");
-  Published.Places("buildings: resident cells validated",
-                   static_cast<double>(World.StructureBuilds.FastCellValidations()),
-                   "cells");
+  Published.RecordMetric("buildings: resident cells validated",
+                         static_cast<double>(World.StructureBuilds.FastCellValidations()),
+                         "cells");
   return true;
 }
 
@@ -500,12 +500,12 @@ bool Engine::State::UpdateVegetation(bool prepare) {
                                : VegetationStreaming::ResourcePublication::Allowed;
   const auto publishedWorld = Picture.Device.PublishedWorld();
   const bool updated = World.Vegetation->Step(eye.EyeM, prepare, publication, Error);
-  Published.Places("flora: crown prototypes resident",
-                   static_cast<double>(World.Vegetation->Resident()),
-                   "prototypes");
-  Published.Places("flora: crown prototypes wanted",
-                   static_cast<double>(World.Vegetation->Wanted()),
-                   "prototypes");
+  Published.RecordMetric("flora: crown prototypes resident",
+                         static_cast<double>(World.Vegetation->Resident()),
+                         "prototypes");
+  Published.RecordMetric("flora: crown prototypes wanted",
+                         static_cast<double>(World.Vegetation->Wanted()),
+                         "prototypes");
   return updated;
 }
 
@@ -526,7 +526,7 @@ bool Engine::State::UpdateTriggers() {
                               " for entity " + std::to_string(fired.Body.Index) + ":" +
                               std::to_string(fired.Body.Generation));
   }
-  Published.Places(
+  Published.RecordMetric(
       "events a declared volume has fired", static_cast<double>(Session.Fired), "events");
   return true;
 }
@@ -643,7 +643,7 @@ Result Engine::advance() {
   [[maybe_unused]] const auto logs = S_->Logs();
   if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
   const auto began = std::chrono::steady_clock::now();
-  S_->Published.Opens();
+  S_->Published.BeginFrame();
   const auto updateAt = std::chrono::steady_clock::now();
   const bool updated = S_->Updates();
   const double updateMs =
@@ -673,46 +673,46 @@ void Engine::State::Drew() {
   const Heap::Tagged drew(kDrewTag);
   static const Heap::Tag kFrameMeasurementsTag("frame-measures");
   const Heap::Tagged measuring(kFrameMeasurementsTag);
-  Published.Places(
+  Published.RecordMetric(
       "bodies the world's generators placed", static_cast<double>(World.Placed), "bodies");
-  Published.Places(
+  Published.RecordMetric(
       "instances its draw sources made", static_cast<double>(World.Instanced), "instances");
-  Published.Places(
+  Published.RecordMetric(
       "how far the placement chain reached", static_cast<double>(World.Reached), "steps");
-  Published.Places(
+  Published.RecordMetric(
       "streets the world holds", static_cast<double>(World.Stack.Ways().Ways().size()), "ways");
-  Published.Places("water surfaces it holds",
-                   static_cast<double>(World.Stack.WaterBodies().Surfaces().size()),
-                   "surfaces");
-  Published.Places("building footprints it holds",
-                   static_cast<double>(World.Stack.Footprints().Footprints().size()),
-                   "footprints");
-  Published.Places("batches the picture draws",
-                   static_cast<double>(Picture.Device.SubjectBatchCount()),
-                   "batches");
-  Published.Places("stages the compiled plan runs",
-                   static_cast<double>(Picture.Standing->PlanStages()),
-                   "stages");
-  Published.Places(
+  Published.RecordMetric("water surfaces it holds",
+                         static_cast<double>(World.Stack.WaterBodies().Surfaces().size()),
+                         "surfaces");
+  Published.RecordMetric("building footprints it holds",
+                         static_cast<double>(World.Stack.Footprints().Footprints().size()),
+                         "footprints");
+  Published.RecordMetric("batches the picture draws",
+                         static_cast<double>(Picture.Device.SubjectBatchCount()),
+                         "batches");
+  Published.RecordMetric("stages the compiled plan runs",
+                         static_cast<double>(Picture.Standing->PlanStages()),
+                         "stages");
+  Published.RecordMetric(
       "passes it runs them in", static_cast<double>(Picture.Standing->PlanPasses()), "passes");
-  Published.Places("vertex uniform pushes the subject stages make",
-                   static_cast<double>(Picture.Device.SubjectUniformPushes()),
-                   "pushes");
-  Published.Places(
+  Published.RecordMetric("vertex uniform pushes the subject stages make",
+                         static_cast<double>(Picture.Device.SubjectUniformPushes()),
+                         "pushes");
+  Published.RecordMetric(
       "batches the shadow casts", static_cast<double>(Picture.Device.ShadowCastCount()), "batches");
-  Published.Places("placement rows the renderer has been sent",
-                   static_cast<double>(Picture.Device.SubjectPlacementsMoved()),
-                   "rows");
-  Published.Places("frames the subject drew shadowed",
-                   static_cast<double>(Picture.Device.ShadowedFrames()),
-                   "frames");
+  Published.RecordMetric("placement rows the renderer has been sent",
+                         static_cast<double>(Picture.Device.SubjectPlacementsMoved()),
+                         "rows");
+  Published.RecordMetric("frames the subject drew shadowed",
+                         static_cast<double>(Picture.Device.ShadowedFrames()),
+                         "frames");
   if (Heap::ProcessInstrumentationEnabled()) {
-    Published.Places("process C++ bytes allocated during drawing",
-                     static_cast<double>(Core::RuntimeScene::TookDrawing()),
-                     "bytes");
+    Published.RecordMetric("process C++ bytes allocated during drawing",
+                           static_cast<double>(Core::RuntimeScene::TookDrawing()),
+                           "bytes");
   }
-  Published.Places("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");
-  Published.Places("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
+  Published.RecordMetric("its centre, east", Picture.Standing->ShadowCentreStanding()[0], "m");
+  Published.RecordMetric("its centre, up", Picture.Standing->ShadowCentreStanding()[1], "m");
 }
 
 double Engine::stepSeconds() const {
