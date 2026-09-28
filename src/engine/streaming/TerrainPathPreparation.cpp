@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <expected>
 #include <span>
 #include <string>
@@ -175,7 +176,7 @@ Result SettleTiles(std::span<const Data::TileId> tiles,
 std::string Refusal(Data::TileId tile,
                     std::string_view kind,
                     const std::optional<Data::FetchFailure> &failure) {
-  const std::string context =
+  std::string context =
       std::format("view data preparation refused {}/{}/{}/{}", kind, tile.Zoom, tile.X, tile.Y);
   if (!failure) { return context; }
   return std::format("{}: {} at {}/{}; served={}; source={}; revision={}; key={}",
