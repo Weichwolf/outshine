@@ -35,8 +35,8 @@ public:
   ~StructureBuildTask();
   StructureBuildTask(const StructureBuildTask &) = delete;
   StructureBuildTask &operator=(const StructureBuildTask &) = delete;
-  StructureBuildTask(StructureBuildTask &&) noexcept;
-  StructureBuildTask &operator=(StructureBuildTask &&) noexcept;
+  StructureBuildTask(StructureBuildTask &&other) noexcept;
+  StructureBuildTask &operator=(StructureBuildTask &&other) noexcept;
 
   void Start(Tasks &pool, const StructureMesher &mesher);
   void Resume(Tasks &pool, const StructureMesher &mesher);

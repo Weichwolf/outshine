@@ -99,4 +99,6 @@ moves, shared source stop ownership and lost destination stop ownership each giv
 FAIL (exit 1), not SIGNAL/BUILD/TIMEOUT. Format: 1203 files, zero errors. Logs:
 /tmp/outshine-build-task-move-{controls,correct,default-moves,shared-source-stop,
 lost-destination-stop}.log. bc33d18d4: official BuildTask 1 and queue 4 PASS;
-logs /tmp/outshine-build-task-move-{focused,queue}.log. Full lint running; phases still open.
+logs /tmp/outshine-build-task-move-{focused,queue}.log. Full lint failed: two unnamed move
+parameters (readability-named-parameter); 256 units completed, all 32 guards/API docs PASS.
+Name both declarations; corrected full gate pending. Adaptive phases remain open.
