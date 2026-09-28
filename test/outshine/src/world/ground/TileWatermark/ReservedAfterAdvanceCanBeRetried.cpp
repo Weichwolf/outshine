@@ -57,7 +57,7 @@ int main() {
                                           [](size_t, size_t) { return true; });
     CHECK(firstReleased.Found && firstReleased.Tile == 0 && source.Takes() == 1,
           "releasing the earlier owner cannot release the replacement behind it");
-    std::_Exit(Report());
+    std::_Exit(Failures.Value() == 0 ? 0 : 1);
   }
   if (child > 0) {
     int status = 0;
