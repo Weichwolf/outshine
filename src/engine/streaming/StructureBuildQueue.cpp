@@ -446,7 +446,9 @@ bool StructureBuildQueue::ValidateResidentCellSource(const Ground::GroundStack &
     return true;
   }
   HeightSource residentOnly = heightAt;
+  residentOnly.Sample = {};
   residentOnly.CopyField = [&heightAt](Data::TileId at, Ground::HeightField::Block &into) {
+    if (heightAt.CopyResidentField) { return heightAt.CopyResidentField(at, into); }
     return heightAt.ResidentField &&
            Ground::HeightField::SharesField(heightAt.ResidentField(at), at, into);
   };

@@ -182,6 +182,47 @@ int main() {
   CHECK(StructureBuildQueue::ValidateResidentCellSource(stack, prints, heights, 0, *sourceKey),
         "accepted cell source still matches resident DEM and street data");
   CHECK(copiedFields == 0, "valid accepted certificate performs zero field copies");
+  auto canonicalSource = heights;
+  size_t residentCopies = 0;
+  size_t forbiddenResolverCalls = 0;
+  canonicalSource.CertificateCurrent = [](const TerrainCertificate &) { return false; };
+  canonicalSource.CopyField = [&forbiddenResolverCalls](Data::TileId, HeightField::Block &) {
+    ++forbiddenResolverCalls;
+    return false;
+  };
+  canonicalSource.Sample = [&forbiddenResolverCalls](LongitudeLatitude) -> std::optional<double> {
+    ++forbiddenResolverCalls;
+    return 100.0;
+  };
+  canonicalSource.ResidentField = [&forbiddenResolverCalls](Data::TileId) {
+    ++forbiddenResolverCalls;
+    return std::shared_ptr<const TerrainField>{};
+  };
+  canonicalSource.CopyResidentField = [block, &residentCopies](Data::TileId at,
+                                                               HeightField::Block &into) {
+    ++residentCopies;
+    into = block(at);
+    return true;
+  };
+  CHECK(StructureBuildQueue::ValidateResidentCellSource(
+            stack, prints, canonicalSource, 0, *sourceKey) &&
+            residentCopies > 0 && forbiddenResolverCalls == 0,
+        "resident validation preserves the accepted raster representation without resolution");
+  auto changedField = std::make_shared<TerrainField>(3, 3);
+  std::fill_n(changedField->Data(), 9, 101.0f);
+  for (const auto &source : residentField->Sources()) { changedField->AddSource(source); }
+  changedField->SetCertificate(residentField->Certificate());
+  canonicalSource.CopyResidentField = [changedField](Data::TileId at, HeightField::Block &into) {
+    return HeightField::SharesField(changedField, at, into);
+  };
+  CHECK(!StructureBuildQueue::ValidateResidentCellSource(
+            stack, prints, canonicalSource, 0, *sourceKey),
+        "changed resident raster cannot certify the accepted source key");
+  canonicalSource.CopyResidentField = [](Data::TileId, HeightField::Block &) { return false; };
+  CHECK(!StructureBuildQueue::ValidateResidentCellSource(
+            stack, prints, canonicalSource, 0, *sourceKey) &&
+            forbiddenResolverCalls == 0,
+        "missing canonical resident fields defer without IO or point fallback");
   residentField.reset();
   pinned.reset();
   allocations = 0;

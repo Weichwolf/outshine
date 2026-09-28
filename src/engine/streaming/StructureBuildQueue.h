@@ -75,6 +75,7 @@ public:
     std::function<std::optional<double>(LongitudeLatitude)> Sample;
     std::function<bool(Data::TileId, Ground::HeightField::Block &)> CopyField;
     std::function<std::shared_ptr<const Ground::TerrainField>(Data::TileId)> ResidentField;
+    std::function<bool(Data::TileId, Ground::HeightField::Block &)> CopyResidentField = {};
     HeightSourceRevision Revision;
     uint64_t TerrainScope = 0;
     std::function<bool(const Ground::TerrainCertificate &)> CertificateCurrent;

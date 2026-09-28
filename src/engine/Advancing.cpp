@@ -358,15 +358,27 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
 bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   if (!World.Stack.Opened()) { return true; }
   const LongitudeLatitude eye = CurrentGeographicFocus();
+  const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
   const StructureBuildQueue::HeightSource heightAt{
-      .Sample = [this](LongitudeLatitude at) { return World.Stack.Ground().Resident(at).AslM(); },
+      .Sample =
+          [this, finestZoom](LongitudeLatitude at) {
+            return World.GroundPublished.Current() ? World.Sheets.AslMAt(finestZoom, at)
+                                                   : World.Stack.Ground().Resident(at).AslM();
+          },
       .CopyField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
+            if (World.GroundPublished.Current()) {
+              return World.Sheets.CopySourcedField(tile, into);
+            }
             return Ground::HeightField::SharesField(
                 World.Stack.Ground().StitchedField(tile), tile, into);
           },
       .ResidentField =
           [this](Data::TileId tile) { return World.Stack.Ground().ResidentStitchedField(tile); },
+      .CopyResidentField =
+          [this](Data::TileId tile, Ground::HeightField::Block &into) {
+            return World.Sheets.CopySourcedField(tile, into);
+          },
       .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()},
       .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
       .CertificateCurrent =
