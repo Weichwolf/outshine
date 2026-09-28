@@ -22,7 +22,8 @@ hidden staging and complete wall/roof publication; atomic same-source mask repla
 canonical DEM identity sets and raster digest; semantic-only BuildingField footprints.
 Shell retains native rings, roofs and foundations, omitting secondary details. Roof,
 concavity and sloped-contact controls pass; triangle reduction alone proves no speedup.
-2310/2311 supply terrain scopes and bounded certificates; readiness performs no preparation.
+2310/2311 supply terrain scopes and bounded certificates. Certified readiness hits
+avoid preparation; the allocating miss path remains a P0 gap in 2311.
 At 5de351d40: 45 focused tests/full lint pass, 255/255 tidy units, zero findings.
 New geometry and runtime-error selection still need fresh visual/performance evidence.
 

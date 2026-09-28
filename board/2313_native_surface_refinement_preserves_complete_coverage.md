@@ -62,9 +62,23 @@ reaches [0.4921875, 0.5096568] m; this does not prove native adaptive code.
 Native adaptive case: 55 checks, zero failures in a direct optimized build. Removing
 region radius or using only the first target lower bound each causes actual FAIL.
 One-unit and arbitrary slices, exhausted initialization/child budgets, reversed pairs,
-parallel/tessellated/collapsed surfaces and source/cancel/copy/move guards pass.
+parallel/tessellated/collapsed surfaces and source/cancel/copy/destination-move guards pass.
 Commit 618371b14: make format, all four official focused suites and full make lint
 including clang-tidy pass. Gate result: /tmp/outshine-refinement-restored-gate-result.txt;
 logs: /tmp/outshine-refinement-restored-{focused,full-lint}.log. No runtime consumer.
 Native BuildingMesh/sloped/large-anchor/permutation controls and measured runtime
 scratch/query utility remain open; passing this CPU gate does not finish 2313.
+
+## Priorisierter Move-Vertragsfehler
+
+ASan/UBSan-Probe 2026-09-28: Reset(cap/frame), Step(100), move(task), dann Step auf
+dem Quellobjekt ergibt SEGV in UpdateUpper. Quelle meldet RegionCount=0 und weiterhin
+Bound; der implizite Move überträgt Heaps, lässt Phase/Teilfortschritt aktiv.
+Log: /tmp/outshine-review-moved-refiner.log; reproduzierbare Quelle im gleichen Temppräfix.
+Der bestehende Test benutzt nur das Move-Ziel und deckt diese Grenze nicht ab.
+Nächster Schritt vor weiteren Fixtures: expliziter Transfer mit gültigem widerrufenem
+Quellzustand. Ziel behält vollständigen Fortschritt; Quelle liefert kein Bound und
+Step einen erwarteten Fehler, darf Cancel/Reset und anschließend neue Arbeit ausführen.
+Copy bleibt unabhängig bei denselben gepinnten Inputs; Kopien außerhalb des Framepfads.
+Move-Konstruktion und -Zuweisung während Seed/Child/Split/Complete prüfen, auch Self-Move;
+Rückkehr zum impliziten Move muss den Guard tatsächlich verletzen. Kein Entfernen des Tests.

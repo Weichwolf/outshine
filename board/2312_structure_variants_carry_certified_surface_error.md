@@ -35,7 +35,8 @@ These are native CPU proofs, not publication, transform or visual acceptance.
    Never mutate RequestedDetail on a running bake. Separate captured source identity
    from explicit detail requests; cancellation revokes all phases and scoped views.
 3. Each SurfaceProof slice has a primitive-work cap and observes stop/source generation.
-   Scratch belongs to the task and participates in CPU residency accounting. Start with
+   Scratch belongs to the task and participates in CPU residency accounting. Task moves
+   transfer ownership and revoke source progress (2313); no worker reads released inputs. Start with
    2313's limits; measure native cell sizes, completion rate, query work and bytes first.
    Brute-force target search and 4096-region initialization can exhaust on dense cells.
    Add a conservative nearest-surface acceleration only if measurements justify it;
@@ -74,3 +75,13 @@ These are native CPU proofs, not publication, transform or visual acceptance.
   compare selection, silhouette, shadows, p50/p95/p99, CPU/GPU bytes and work/frame.
   Current GPU/visual acceptance is unverified; prior sandbox failures do not establish
   today's availability. Do not close this WI with CPU-only evidence.
+
+## BuildTask-Lebensdauerreview
+
+StructureBuildTask besitzt explizit defaultete Moves, aber Handle/State bleiben in der
+Quelle erhalten. Ein Move während Running verletzt die Destruktor-Assertion; RequestStop
+hat dann keinen Stopping-Owner. Der aktuelle Queuepfad verwendet deque und verschiebt
+Konstruktion vor PostSlice, kein nachgewiesener laufender Move in Produktion.
+Beim Phasenausbau expliziten Handle-/State-Transfer und leeren, zerstörbaren Quellzustand
+festlegen; Move-Zuweisung darf laufende Zielarbeit nicht freigeben. Negativkontrolle und
+laufender Worker-/Shutdown-Test vor Freigabe. Keine Behauptung eines heutigen Queue-Crashs.
