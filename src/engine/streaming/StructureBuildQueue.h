@@ -243,10 +243,7 @@ private:
                                             const QueuedBuild &bake,
                                             HeightRequirement heights,
                                             Ground::TerrainCertificate &validated);
-  void DiscardFront(const Ground::OsmField &vectors,
-                    Ground::BuildingField &prints,
-                    LongitudeLatitude eye,
-                    HeightSourceRevision heightSource);
+  void DiscardFront(Ground::BuildingField &prints);
   void DiscardStale(const Ground::OsmField &vectors,
                     Ground::BuildingField &prints,
                     LongitudeLatitude eye,

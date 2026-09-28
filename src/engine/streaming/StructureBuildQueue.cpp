@@ -525,10 +525,7 @@ void StructureBuildQueue::PostSlice(QueuedBuild &build) {
   build.Finished = false;
 }
 
-void StructureBuildQueue::DiscardFront(const Ground::OsmField &vectors,
-                                       Ground::BuildingField &prints,
-                                       LongitudeLatitude eye,
-                                       HeightSourceRevision heightSource) {
+void StructureBuildQueue::DiscardFront(Ground::BuildingField &prints) {
   QueuedBuild &stale = Queue_.front();
   IdleRaw_.reserve(IdleRaw_.size() + 1u);
   IdleOut_.reserve(IdleOut_.size() + 1u);
@@ -536,7 +533,7 @@ void StructureBuildQueue::DiscardFront(const Ground::OsmField &vectors,
   if (stale.ReservationOwner == prints.ReservationOwner()) {
     if (stale.Replacement) {
       prints.RetryRefinement(stale.Task.Tile());
-    } else if (stale.Revision.OwnsReservation(vectors, prints, eye, heightSource)) {
+    } else {
       prints.Release(stale.Task.Tile());
     }
   }
@@ -560,7 +557,7 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
     QueuedBuild &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
-    DiscardFront(vectors, prints, eye, heightSource);
+    DiscardFront(prints);
   }
 }
 
@@ -898,7 +895,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
         WholeTileSourceCurrent(stack, prints, heightAt, bake, heights, certificate);
     if (!current) {
       if (count != 0) { break; }
-      DiscardFront(*vectors, prints, eye, heightAt.Revision);
+      DiscardFront(prints);
       continue;
     }
     validated.push_back(std::move(certificate));

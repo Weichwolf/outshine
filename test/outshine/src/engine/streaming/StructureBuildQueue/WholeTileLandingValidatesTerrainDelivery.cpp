@@ -286,5 +286,17 @@ int main() {
   successor.Release(0);
   CHECK(successor.IngestedTiles() == 0,
         "only the successor owner releases its deliberately colliding reservation");
+  prints.ResetDerived();
+  CHECK(post() == 1, "current field reserves a tile before a producer revision change");
+  const auto reservationOwner = prints.ReservationOwner();
+  ++source.Revision.Value;
+  ready = finish();
+  CHECK(ready.empty() && queue.Queued() == 0 && prints.IngestedTiles() == 0 &&
+            prints.ReservationOwner() == reservationOwner,
+        "producer revision changes release the old job's reservation in the same domain");
+  CHECK(post() == 1, "new producer revision can reserve the released tile again");
+  ready = finish();
+  CHECK(ready.size() == 1, "new producer revision completes without an orphaned reservation");
+  if (!ready.empty()) { queue.CommitsLandings(stack, prints, ready); }
   return Report();
 }
