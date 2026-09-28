@@ -20,8 +20,8 @@ Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren 
 ## Aktuelle Place-Abnahme 2026-09-29
 
 6e88154b5: alle zehn Places ohne Vegetation über den öffentlichen Client geprüft und geöffnet.
-Vier fokussierte Tests PASS; vollständiger Lint/tidy/API läuft noch. Letzter vollständiger
-Lint a25c12d76 PASS (256/256 Tidy-Einheiten); kein Nachweis für den neuen Code.
+Vier fokussierte Tests und vollständiger Lint/tidy/API PASS: 256/256 Tidy-Einheiten,
+null Findings, 32 Repository-Prüfungen PASS; tatsächlicher Lint-Exit 0.
 Komplette Places-Suite: 38/44 PASS, 2 TIMEOUT, 4 UNPREPARED; Hockenheim separat PASS.
 Olympiaturm überschreitet beide Male 120 s; Graz/Wien erreichen nach 6144 Frames kein Refined.
 Graz: nur Gebäudedetail offen; Wien: Kandidat noch in structure-bakes bzw. earthworks.
@@ -29,7 +29,7 @@ Sieben Refined-PNGs: DarmstadtWest, Rosenheim, Husum, Feldkirch, Malcesine, Koer
 Hockenheimring unter `build/shots/places-refined-6e88154b5/`. Sechs pixelidentisch zu a25;
 Koerbersee: 4/921600 Pixel um höchstens 1/255 verändert, kein sichtbarer Qualitätsgewinn.
 Hockenheim Host p50/p95/p99: 3.7365/15.9389/17.1985 ms, 3005 Frames inklusive Aufbau.
-Keine A18-Aussage; Gesamt-Gate rot. /tmp/outshine-repair-6e88154b5-{full-places,gate-results}.log.
+Keine A18-Aussage; Gesamt-Gate rot. /tmp/outshine-repair-6e88154b5-{full-places,full-lint,gate-results}.log.
 Drei Playable-PNGs: `build/shots/places-playable-6e88154b5/`; Graz/Wien wieder ohne Nahwand,
 Olympiaturm unvollständig. Playable ersetzt keine Refined-Abnahme; Webcam-Vergleich fehlt.
 Feldkirchs Nahwand, Malcesines Faltenvorhang, geglättete Alpen, gezackte Ufer und uniforme

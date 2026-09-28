@@ -54,7 +54,7 @@ same-level neighbors, true coarse neighbors and dateline. Restoring either missi
 check must fail. No camera/DEM fitting; overlapping fallback draw coverage remains separate.
 Gate: make format; HeightSheets suite; all Places and opened PNGs; full lint/tidy/API.
 6e88154b5: 56 analytic checks, four owner tests PASS; omitted ancestor/peer guards: 2/24 FAILs.
-Format 1209 PASS; ten client PNGs opened, Graz/Wien walls removed. Places 38/44; full lint pending.
+Format 1209 PASS; ten client PNGs opened, Graz/Wien walls removed. Places 38/44; full lint/tidy/API PASS.
 
 ## Decision
 
