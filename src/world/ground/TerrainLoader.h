@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <expected>
 #include <string_view>
 #include <string>
@@ -14,6 +15,7 @@
 #include "GroundSample.h"
 #include "TileSourceIdentity.h"
 #include "TilePool.h"
+#include "TerrainSamplingCoverage.h"
 
 namespace outshine::Data {
 class SourceSet;
@@ -106,6 +108,9 @@ public:
   [[nodiscard]] int BlockZoom() const override { return Surface_.Z; }
 
   [[nodiscard]] double PostM(double latDeg) const override;
+
+  [[nodiscard]] std::optional<TerrainSamplingCoverage>
+  SamplingCoverage(Data::TileId source) const noexcept;
 
   [[nodiscard]] TilePool &Tiles() { return Tiles_; }
 

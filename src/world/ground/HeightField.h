@@ -20,7 +20,7 @@ namespace outshine::Ground {
 
 class HeightField {
 public:
-  static constexpr int MaximumTileZoom = 30;
+  static constexpr int MaximumTileZoom = Data::TileId::MaximumZoom;
 
   struct Block {
     TileSpot At;

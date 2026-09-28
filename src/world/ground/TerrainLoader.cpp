@@ -1,5 +1,6 @@
 #include "math/Units.h"
 #include "TerrainLoader.h"
+#include "TerrainSamplingCoverage.h"
 #include "GroundPollBudget.h"
 #include "math/Vec3.h"
 
@@ -43,7 +44,6 @@ constexpr size_t kByteBudget = size_t{64} * 1024 * 1024;
 constexpr size_t kPoolDecodedBytes = size_t{32} * 1024 * 1024;
 
 constexpr int kGroundSlots = 96;
-constexpr uint32_t kCoarseDrop = 3;
 constexpr int kCoarseSlots = 4;
 
 constexpr size_t kStitchRawBytes = size_t{8} * 1024 * 1024;
@@ -150,6 +150,16 @@ GroundStream::~GroundStream() {
   if (Held_ && Held_->Builds > 0) {}
 }
 
+std::optional<TerrainSamplingCoverage>
+GroundStream::SamplingCoverage(Data::TileId source) const noexcept {
+  if (Surface_.Z < 0 || source.Zoom < Surface_.Z || !TerrainSamplingCoverage::ForField(source)) {
+    return std::nullopt;
+  }
+  const auto drop = static_cast<uint32_t>(source.Zoom - Surface_.Z);
+  return TerrainSamplingCoverage::ForField(
+      {.Zoom = Surface_.Z, .X = source.X >> drop, .Y = source.Y >> drop});
+}
+
 const Tile *GroundStream::CoarseResident(long x, long y) const {
   Held &held = *Held_;
   for (Tile &t : held.Coarse) {
@@ -162,17 +172,20 @@ const Tile *GroundStream::CoarseResident(long x, long y) const {
 }
 
 void GroundStream::KeepCoarse(long x, long y) const {
+  const auto coverage = SamplingCoverage(
+      {.Zoom = Surface_.Z, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
+  if (!coverage || !coverage->Coarse) { return; }
+  const Data::TileId tile = *coverage->Coarse;
+  const long coarseX = static_cast<long>(tile.X);
+  const long coarseY = static_cast<long>(tile.Y);
   Held &held = *Held_;
   Tile *victim = held.Coarse.data();
   for (Tile &t : held.Coarse) {
-    if (t.Resident && t.X == x && t.Y == y) { return; }
+    if (t.Resident && t.X == coarseX && t.Y == coarseY) { return; }
     if (t.Used < victim->Used) { victim = &t; }
   }
-  const int zoom = Surface_.Z - static_cast<int>(kCoarseDrop);
-  if (zoom < 1) { return; }
   std::shared_ptr<const TerrainField> field;
-  const TilePool::Reply status = PollStitchedField(
-      {.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)}, field);
+  const TilePool::Reply status = PollStitchedField(tile, field);
   if (status == TilePool::Reply::Pending || status == TilePool::Reply::Deferred) { return; }
   const uint32_t stride = held.Stitched->Stride();
   const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
@@ -182,8 +195,8 @@ void GroundStream::KeepCoarse(long x, long y) const {
   const int gc =
       field != nullptr ? Ground::ChunkNodes({.Postings = colPostings, .Grid = Surface_.Grid}) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
-  victim->X = x;
-  victim->Y = y;
+  victim->X = coarseX;
+  victim->Y = coarseY;
   victim->Used = ++held.Clock;
   victim->Resident = true;
   victim->Hole = !square;
@@ -255,12 +268,13 @@ GroundSample GroundStream::Resident(LongitudeLatitude at) const {
   if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
   if (const Tile *fine = TileResident(hx, hy)) { return SampleFrom(*fine, Surface_.Z, at); }
 
-  const int zoom = Surface_.Z - static_cast<int>(kCoarseDrop);
-  long cx = static_cast<long>(static_cast<uint64_t>(hx) >> kCoarseDrop);
-  const long cy = static_cast<long>(static_cast<uint64_t>(hy) >> kCoarseDrop);
-  if (zoom >= 1 && WrapTile(zoom, &cx, &cy)) {
-    if (const Tile *coarse = CoarseResident(cx, cy)) {
-      return SampleFrom(*coarse, zoom, at).Coarser(kCoarseDrop);
+  const auto coverage = SamplingCoverage(
+      {.Zoom = Surface_.Z, .X = static_cast<uint32_t>(hx), .Y = static_cast<uint32_t>(hy)});
+  if (coverage && coverage->Coarse) {
+    const Data::TileId source = *coverage->Coarse;
+    if (const Tile *coarse =
+            CoarseResident(static_cast<long>(source.X), static_cast<long>(source.Y))) {
+      return SampleFrom(*coarse, source.Zoom, at).Coarser(coverage->Fine.Zoom - source.Zoom);
     }
   }
   return GroundSample::Waiting();
@@ -272,8 +286,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   for (Tile &t : held.Ground) {
     if (t.Resident && t.X == x && t.Y == y) {
       t.Used = ++held.Clock;
-      KeepCoarse(static_cast<long>(static_cast<uint64_t>(x) >> kCoarseDrop),
-                 static_cast<long>(static_cast<uint64_t>(y) >> kCoarseDrop));
+      KeepCoarse(x, y);
       return t.Hole ? nullptr : &t;
     }
     if (t.Used < victim->Used) { victim = &t; }
@@ -314,8 +327,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
   victim->Sources.assign(field->Sources().begin(), field->Sources().end());
-  KeepCoarse(static_cast<long>(static_cast<uint64_t>(x) >> kCoarseDrop),
-             static_cast<long>(static_cast<uint64_t>(y) >> kCoarseDrop));
+  KeepCoarse(x, y);
   return victim;
 }
 

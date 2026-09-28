@@ -10,6 +10,7 @@ namespace outshine::Data {
 enum class Scheme : uint8_t { TileZxy, WholeWorld };
 
 struct TileId {
+  static constexpr int MaximumZoom = 30;
   int Zoom = 0;
   uint32_t X = 0;
   uint32_t Y = 0;
