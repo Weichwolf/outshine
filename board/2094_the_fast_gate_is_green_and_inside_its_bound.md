@@ -1,11 +1,11 @@
 Type: bug
 State: active
-Architecture: planned
+Architecture: ready
 Priority: P0
 Parent: 2188
 Area: test, gate
 Tags: measured, gate
-Depends: 2093, 2131, 2152
+Depends:
 
 # Gates report complete evidence or fail
 
@@ -85,3 +85,12 @@ Diesen Befund nicht durch Historie-Umschreiben oder Änderung gültiger WI-IDs b
 Libraries und /opt/homebrew/lib-rpaths. Kein warnungsfreier Buildclaim. Doppelte Flag-
 Owner im Harness/Library-Pkgconfig lokalisieren und am Produzenten deduplizieren;
 Warnungen weder unterdrücken noch aus dem Log filtern. Relevanten Linkschritt erneut prüfen.
+
+Konkreter nächster Slice: test/run.sh::LayerLink ruft pkg-config separat für SDL3,
+SDL3_image und SDL3_ttf/shadercross auf. Deren transitive SDL-/rpath-Ausgaben werden
+verkettet. EIN gemeinsamer --libs-Aufruf mit allen vier Paketen liefert lokal genau
+ein -lSDL3 und ein Homebrew-rpath; den separaten Shadercross-rpath erhalten.
+Beide LayerLink-Arme auf denselben Produzenten führen. Unabhängige Flag-/Linkprobe
+prüft alle benötigten Libraries/Loaderpfade und Warnungsfreiheit, ohne stderr zu filtern.
+Format, betroffene öffentliche/Render-Suites und full lint; globale API-/Shaderaudits
+sind keine Startblocker dieses Schritts oder des oben genannten Board-ID-Guards.
