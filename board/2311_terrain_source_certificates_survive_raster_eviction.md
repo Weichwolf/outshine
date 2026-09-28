@@ -74,7 +74,8 @@ HeightSheets owns these references and accounts their bytes; prove move lifetime
 
 fef5b6197 retains canonical rasters; focused PASS, paced publication still FAIL at bakes.
 Advance the cursor only on a current source or successful posting; rejected input stays pending.
-Discarded replacements must rewind their owned tile.
+Discarded replacements rewind their tile. The retained owner domain alone authorizes release;
+changed producer/vector revisions must not orphan reservations in the same field.
 Repair owner: BuildingField retry cursor and StructureBuildQueue::DiscardFront. Foreign domains
 never rewind successors. Test pre-post refusal, revoked delivery, retry and no double take.
 After ground publication, use the
@@ -91,7 +92,6 @@ HeightField owns Request {Zoom, ordered TileSpots, Fallback}; accepted BuildingF
 capture it without rasters, snapshots copy it and HeapBytes counts it. Digest order matters;
 resolved ancestors/seam dependencies cannot reconstruct original requests. Legacy/manual
 acceptances have no invented recipe and retain explicit resident validation.
-
 ## Runtime integration contract
 
 Use synchronized TilePool::Field with worker-local HeightField; never copy GroundStream or
