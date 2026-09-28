@@ -50,7 +50,6 @@ InspectCellSource separates five states without resolution, callback copies or b
 fallback. Shared checks cover vector/street/span/key/scope; fixtures require zero allocation
 and resolver calls. Restored resolution or ignored scope/metadata must give actual FAIL.
 Frame still uses ValidateResidentCellSource until bounded revalidation is integrated.
-
 ## Street digest ownership
 
 StreetField owns immutable Way digests and OSM origin/generation. Reuse the existing
@@ -76,6 +75,7 @@ fef5b6197 retains canonical rasters; focused PASS, paced publication still FAIL 
 Advance the cursor only on a current source or successful posting; rejected input stays pending.
 Discarded replacements rewind their tile. The retained owner domain alone authorizes release;
 changed producer/vector revisions must not orphan reservations in the same field.
+Next must advance over retained tiles after a validated replacement grows the feature run.
 Repair owner: BuildingField retry cursor and StructureBuildQueue::DiscardFront. Foreign domains
 never rewind successors. Test pre-post refusal, revoked delivery, retry and no double take.
 After ground publication, use the
