@@ -66,9 +66,9 @@ queue suites; full lint/tidy/API. Existing accepted source-key cache remains unc
 
 497d94109: queue suite and both publication pacing variants PASS (15.1/14.9 s).
 Empty-building fixture: 69 checks PASS; restored old condition: three actual FAIL.
-Refined renders 7/10; Wien remains in earthworks, Graz/Olympiaturm time out.
-3420ca30a full lint PASS: 256/256 clang-tidy, API and shader guards clean.
-320e3c9a2 repairs timed-out process ownership (2315); complete Places/current lint open.
+4844c3196: 17 affected suites PASS; full lint PASS, 256/256 tidy, API/shader guards clean.
+Complete Places 38/44 PASS; Hockenheim separately PASS. Refined 7/10, all PNGs opened.
+Wien misses the frame cap in bakes/earthworks; Graz/Olympiaturm time out without orphans.
 StagesBakes must retain source rasters through publication/retirement for canonical live LOD.
 HeightSheets owns these references and accounts their bytes; prove move lifetime and missing IO.
 

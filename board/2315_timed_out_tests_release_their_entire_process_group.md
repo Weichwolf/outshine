@@ -48,6 +48,9 @@ execution budgets. All three real subprocess cases PASS; restored TERM-only clea
 produces three actual FAILs. Foreign sentinel remains alive in each repaired case.
 Harness claims and both Husum render variants: 34/34 PASS, Husum 17.5/17.3 s.
 No client survives this gate. Husum PNG opened: buildings and harbor visible; sawtooth
-shoreline, uniform facades and flat water remain. Full Places and current lint are open.
+shoreline, uniform facades and flat water remain. At 4844c3196 full lint/tidy/API PASS.
+Complete Places: 38/44 PASS, 4 TIMEOUT and 2 UNPREPARED in the three known red Places.
+All four timed-out clients are gone; Hockenheim separately PASS. Seven Refined PNGs and
+three fresh Playable diagnostics opened. No global quality PASS; no execution budget changed.
 Logs: /tmp/outshine-timeout-cleanup-{bounded-test,negative}.log and
 /tmp/outshine-timeout-cleanup-claims-and-husum.log.

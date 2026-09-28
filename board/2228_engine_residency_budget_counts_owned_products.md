@@ -52,7 +52,7 @@ on the meter; this proves overflow, not the cause of the measured process footpr
 320e3c9a2 Graz sample: 448/676 main-thread samples in TerrainPressJob::HeapBytes,
 called by CurrentProductBytes during pressing; 8.0-GB host peak, not Engine bytes.
 Owner: generators/terrain/TerrainPressJob.cpp. Its owned stamps never mutate;
-make that invariant explicit and sum outer/nested retained capacities once at adoption.
+2c31992cd makes stamps immutable and sums outer/nested retained capacities at adoption.
 HeapBytes retains dynamic work-vector and press-job capacities; no counters are removed.
 Test independent ring/seam/hole-capacity arithmetic, zero-work inputs and job moves;
 omitting nested bytes must actually FAIL. Existing one-shot/sliced terrain oracles remain.
@@ -61,7 +61,10 @@ Repeat real Graz sample to check removal of this scan; do not promise all timeou
 Log: /tmp/outshine-repair-320e3c9a2-graz-sample.log.
 Repair: immutable stamps and cached owned bytes. Format 1206 files PASS; independent
 capacity/move fixture 5 checks PASS; omitted nested capacities produce 3 actual FAILs.
-Log: /tmp/outshine-terrain-accounting-verification.log. Runtime/full gates remain open.
+4844c3196: 17 focused PASS, full lint/tidy/API PASS; Places 38/44, three Places still red.
+New Graz sample: scan absent, Metal waits dominate; snapshots cover different phases.
+Stale-earthwork variants now PASS, but restored scan also PASS with 23 checks: no causal
+claim for the earlier readiness failure. /tmp/outshine-terrain-accounting-runtime-verification.log.
 
 ## Decision
 
@@ -76,7 +79,6 @@ rejects or sheds a candidate before publication; it never frees a running produc
 The ground 512-MiB limit remains a GroundStack limit until an Engine budget replaces it.
 
 ## Sequence
-
 1. Inventory `Surrounds`, `State`, renderer residency and worker/candidate ownership.
 2. Add byte contracts from leaves upward. Empty retained capacity still counts; only
    genuinely unallocated products report zero. Start with Live slots/payloads, HeightSheets,
@@ -85,7 +87,6 @@ The ground 512-MiB limit remains a GroundStack limit until an Engine budget repl
 4. Set CPU/GPU budgets from device measurements and enforce them at candidate boundaries.
 
 ## Acceptance
-
 - A constructed Engine reports each owned CPU/GPU product once; a host allocation changes
   no Engine value.
 - Adding/removing each product changes only its declared category; the summed total is

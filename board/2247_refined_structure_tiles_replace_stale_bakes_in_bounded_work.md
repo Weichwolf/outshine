@@ -22,13 +22,6 @@ That candidate-wide path was rejected. Source and product revisions come from
 WI 2248. Its accepted-input identity contract is implemented; remaining
 source-lifecycle tests there do not block the per-tile product store.
 
-Basel Badischer at 47.568 N, 7.607 E reproduced the same scale failure on
-2026-09-23: after the native structure material fix, vegetation disabled, and
-cached input, the client processed more than 98,000 building candidates, then
-started another candidate and still missed Refined after 6,144 measured frames.
-Changing `sightM` from 4,000 to 500 did not change that outcome. Diagnose the
-candidate/revision trace before attributing every rebake to height quality.
-
 ## Decision
 
 Track accepted structure products by vector tile and exact height input
@@ -77,9 +70,9 @@ GPU-handle reuse and complete cancellation/eviction acceptance remain open.
 Olympiaturm sample: repeated Retable/UploadTables and Metal waits, 9.4 GB peak footprint.
 Measure retained/cycled capacities before calling this a leak.
 
-## Next executable repair: share each piece's cluster spheres
+## Implemented slice: share each piece's cluster spheres
 
-AppendPieceBatches currently duplicates the same 12 sphere/error floats per cluster for
+4844c3196 stops duplicating the same 12 sphere/error floats per cluster for
 every instance row. SubjectDraw.cpp owns the table; transforms and jobs remain per instance.
 Append immutable spheres once per piece, then reference their base plus cluster index from
 each instance job. No deduplication across pieces; preserve batch/model/material/index rows,
@@ -92,7 +85,9 @@ full lint/tidy/API. Measure actual byte savings and all Place frame costs; small
 alone neither prove an Engine residency ceiling nor close unchanged GPU-handle reuse.
 Real GPU fixture: shared tables 120 checks PASS; restored duplication 9 actual FAILs.
 Three source clusters: 3 * 12 * 4 = 144 bytes versus 9 * 12 * 4 = 432 bytes;
-all nine instance jobs and six transforms retained. Full runtime gates remain open.
+all nine instance jobs and six transforms retained. 17 focused/full lint/tidy/API PASS.
+Complete Places 38/44; Hockenheim separately PASS; seven Refined and three Playable PNGs
+opened. Large-scene timeouts persist; no measured city memory/frame saving is established.
 
 ## Implementation and acceptance
 

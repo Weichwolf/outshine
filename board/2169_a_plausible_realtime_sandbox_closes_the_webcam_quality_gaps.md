@@ -19,29 +19,30 @@ Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren 
 
 ## Aktuelle Place-Abnahme 2026-09-28
 
-497d94109: alle zehn Places ohne Vegetation über den öffentlichen Client geprüft.
+4844c3196: alle zehn Places ohne Vegetation über den öffentlichen Client geprüft.
+Full lint/tidy/API PASS, 256/256 Tidy-Einheiten; 17 fokussierte Prüfungen PASS.
+Komplette Places-Suite: 38/44 PASS, 4 TIMEOUT, 2 UNPREPARED; Hockenheim separat PASS.
 Refined 7/10: DarmstadtWest, Rosenheim, Husum, Feldkirch, Malcesine, Koerbersee,
-Hockenheimring. Alle sieben PNGs selbst geöffnet: `build/shots/places-refined-497d94109/`.
-Wien: 6144 Frames, Gebäudebau vollständig, Terrain-Earthworks noch Pending.
-Graz/Olympiaturm: jeweils 180-s-Limit überschritten; keine Refined-PNGs. Kein grünes Gate.
-Log: /tmp/outshine-repair-497d94109-place-results.log; einzelne -<Place>-refined.log.
-Host p95/p99: Darmstadt 19.3230/19.7850 ms, Feldkirch 34.6297/36.1997 ms,
-Hockenheim 16.9411/18.0855 ms. Kalter Aufbau eingeschlossen, keine A18-Aussage.
-Olympiaturm sample: 9.4 GB Peak-Footprint; Metal fence waits und volle SubjectDraw-
-Retable/UploadTables sichtbar. /tmp/outshine-repair-497d94109-olympiaturm-sample.log.
-Zuerst Publikations-/Vorbereitungsaufwand und Residency/Uploads reparieren (2311/2247/2228).
-Danach sichtbare Terrain-Falten (2166), Hafen-/Flusskanten, uniforme Fassaden und Licht.
-Rosenheim/Feldkirch sind wieder sichtbar; Malcesine hat weiterhin einen Faltenvorhang,
-Koerbersee glattes aufgeblähtes Relief, Husum gezackte Kanten, Darmstadt flachen Horizont.
-Hockenheim wirkt überwiegend wie eine Karte; Nähe/Bewegung bleiben eigene Abnahmen.
-Wien/Graz/Olympiaturm zusätzlich Playable aufgenommen und selbst geöffnet:
-`build/shots/places-playable-497d94109/`; Nahverdeckung/fehlende Inhalte bleiben rot.
-Vegetation kommt zuletzt. Hockenheim ist nur erster Integrationstest; ALLE Places
-gehören zu JEDEM Code-Gate. Frühere Playable-Diagnosen waren keine Qualitätsabnahme.
+Hockenheimring. Alle PNGs geöffnet: `build/shots/places-refined-4844c3196/`.
+Wien: 6144 Frames; normal noch 40/43 Gebäude-Tiles, zweite Variante in Earthworks mit
+49/49 akzeptiert. Graz/Olympiaturm überschreiten 120 s; kein grünes Gesamt-Gate.
+2315 beseitigt echte Timeout-Orphans; nach jeder Eskalation ist der alte Client beendet.
+Logs: /tmp/outshine-repair-4844c3196-{full-places,full-lint,gate-results}.log.
+Host p95/p99: Darmstadt 19.3496/19.8103 ms, Feldkirch 34.8442/36.7897 ms,
+Hockenheim 16.1216/17.2067 ms. Kalter Aufbau eingeschlossen, keine A18-Aussage.
+Graz-Probe: 8.0 GB Peak; der beseitigte Stempel-Scan fehlt, Metal waits dominieren jetzt.
+Kleinere Tabellen beweisen weder Stadt-Speichergewinn noch tragfähige Laufzeit (2247/2228).
+Als Nächstes Publikations-/Vorbereitungs- und Residency/Upload-Kosten sowie Runtime-LOD
+reparieren (2311/2312/2298/2247/2228); dann Terrain-Falten, Kanten, Fassaden und Licht.
+Darmstadt pixelidentisch; Feldkirch hat zwei Bildstände bei gleichen Dreieckszahlen:
+Quellen/Ladezustand/Temporalphase prüfen, keine unbelegte Regressionsursache behaupten.
+Malcesine bleibt Faltenvorhang, Koerbersee glatt, Husum gezackt, Fassaden repetitiv.
+Hockenheim wirkt wie eine Karte; Nähe/Bewegung bleiben eigene Abnahmen.
+Drei frische Playable-Diagnosen geöffnet: `build/shots/places-playable-4844c3196/`.
+Wien große Nahwand, Graz fast ganz verdeckt, Olympiaturm unvollständig; keine Abnahme.
+Vegetation zuletzt; Hockenheim nur erster Integrationstest. ALLE Places bei JEDEM Code-Gate.
 
-## Historischer Bildbefund
-
-Stand 2026-09-07, Renderer 12ceb790; kein aktueller Gate- oder Bildstatus.
+## Historischer Bildbefund (2026-09-07, Renderer 12ceb790)
 
 | Place | SOLL als Plausibilitätsreferenz | IST im neuen PNG | zuständige WIs |
 |---|---|---|---|
