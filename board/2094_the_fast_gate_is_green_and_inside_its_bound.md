@@ -79,18 +79,16 @@ Unabhängige temporäre Git-Fixtures müssen alte Wiedervergabe, zwei neue gleic
 aktuellen untracked Zwilling und zulässige Umbenennung einer bestehenden ID trennen.
 Diesen Befund nicht durch Historie-Umschreiben oder Änderung gültiger WI-IDs beheben.
 
-## Linker-Warnungen
+## SDL-Linkflags bereinigt
 
-618371b14 besteht lint/fokussierte Suites, deren Buildlog meldet jedoch doppelte SDL3-
-Libraries und /opt/homebrew/lib-rpaths. Kein warnungsfreier Buildclaim. Doppelte Flag-
-Owner im Harness/Library-Pkgconfig lokalisieren und am Produzenten deduplizieren;
-Warnungen weder unterdrücken noch aus dem Log filtern. Relevanten Linkschritt erneut prüfen.
-
-Aktiver Implementierungsschritt: test/run.sh::LayerLink ruft pkg-config separat für SDL3,
-SDL3_image und SDL3_ttf/shadercross auf. Deren transitive SDL-/rpath-Ausgaben werden
-verkettet. EIN gemeinsamer --libs-Aufruf mit allen vier Paketen liefert lokal genau
-ein -lSDL3 und ein Homebrew-rpath; den separaten Shadercross-rpath erhalten.
-Beide LayerLink-Arme auf denselben Produzenten führen. Unabhängige Flag-/Linkprobe
-prüft alle benötigten Libraries/Loaderpfade und Warnungsfreiheit, ohne stderr zu filtern.
-Format, betroffene öffentliche/Render-Suites und full lint; globale API-/Shaderaudits
-sind keine Startblocker dieses Schritts oder des oben genannten Board-ID-Guards.
+Commit 35ce31038: test/run.sh::LayerLink löst SDL3, SDL3_image, SDL3_ttf und
+SDL3_shadercross in einem pkg-config-Aufruf auf. Die bisherigen separaten Aufrufe
+verdoppelten transitive SDL3-/Homebrew-rpath-Flags. Ein gemeinsamer Case-Arm besitzt
+alle betroffenen Profile; der unterschiedliche Shadercross-rpath bleibt erhalten.
+Flag-Probe bestätigt alle benötigten Libraries genau einmal und beide Loaderpfade.
+Format, zehn fokussierte Tests, neun Client-Renderchecks und Client --help PASS;
+Build-/Renderlogs enthalten keine Warnungen. Full lint: 256/256 tidy-Units, null
+Findings, 32/32 Guards PASS. Keine Warnungsunterdrückung oder stderr-Filterung.
+Logs: /tmp/outshine-sdl-link-{flags,format,focused,client-render,client-help,full-lint}.log;
+/tmp/outshine-sdl-link-gate-result.txt ordnet den abgeschlossenen Lauf dem Commit zu.
+Globale API-/Shaderaudits blockieren den separaten Board-ID-Guard nicht.
