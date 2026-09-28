@@ -69,22 +69,19 @@ include/complexity; full rerun pending.
 StagesBakes must retain source rasters through publication/retirement for canonical live LOD.
 HeightSheets owns these references and accounts their bytes; prove move lifetime and missing IO.
 
-## Active repair: canonical resident terrain for building detail
+## Active repair: empty building tiles need no terrain proof
 
-fef5b6197 retains canonical rasters; focused PASS, paced publication still FAIL at bakes.
-Advance the cursor only on a current source or successful posting; rejected input stays pending.
-Discarded replacements rewind their tile. The retained owner domain alone authorizes release;
-changed producer/vector revisions must not orphan reservations in the same field.
-Next must advance over retained tiles after a validated replacement grows the feature run.
-Repair owner: BuildingField retry cursor and StructureBuildQueue::DiscardFront. Foreign domains
-never rewind successors. Test pre-post refusal, revoked delivery, retry and no double take.
-After ground publication, use the
-published HeightSheets source representation for whole/detail preparation and validation.
-Add optional CopyResidentField; legacy callers retain ResidentField fallback. Missing fields
-must defer without IO; preserve scope/source checks and conservative LOD bounds. Before
-publication retain the existing streaming path. Changed DEM still needs a joint candidate.
-Test resident-copy selection against a poisoned resolver and changed/missing raster; format,
-focused/source-field/Places suites, all ten no-vegetation renders, full lint/tidy/API.
+da305b934 diagnosis: refined candidate 48 accepted/taken, zero unqualified inputs and jobs;
+the 49th vector tile stalls. BlocksUnder returns an empty raster set when no building
+polygon exists, but FineOnly rejects it. No HeightField qualification rule may be weakened.
+Owner: StructureBuildQueue.cpp. Qualify the combined vector/height input only when terrain
+is qualified OR the captured vector run proves no building polygon and the nonfallback
+height set is empty. Preserve vector/street/generation/domain/scope checks at landing.
+Empty geometry still gets an accepted source key; missing terrain for a real polygon defers.
+Test a terrain-free line tile with poisoned resolvers, then a real polygon against the same
+missing terrain. Gate: format; queue/BuildingField/HeightField/Places; all ten renders and
+opened PNGs; full lint/tidy/API. Previous fixes retain canonical source rasters through
+publication, account bytes and retry owned reservations/refinement after rejected work.
 
 ## Exact height requests
 
