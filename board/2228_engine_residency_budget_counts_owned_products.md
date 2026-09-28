@@ -41,11 +41,17 @@ Host evidence: Graz at 8d094066c reached 14.0 GB peak process footprint and bloc
 in Metal fence waits (/tmp/outshine-repair-8d094066c-graz-sample.log). This exceeds
 the entire 8-GB target device capacity; it is not a measured Engine allocation total.
 
-Existing SubjectResidency::HeldBytes sums into uint32_t; SubjectDraw::HeldBytes,
-SceneRenderer::PieceBytesHeld and Effort::DeviceBytes preserve that truncation.
-Independent capacity probe: 2 * 2 GiB = 4294967296 expected bytes, actual 0; exit 1.
-Log: /tmp/outshine-residency-sum-probe.log. Widen this existing path before relying
-on the meter; this proves overflow, not the cause of the measured process footprint.
+## Active repair: GPU byte-total overflow
+
+Probe: two 2-GiB buffers report 0 instead of 4294967296 bytes (exit 1).
+Owners: SubjectResidency::HeldBytes, SubjectDraw::HeldBytes,
+SceneRenderer::PieceBytesHeld and Effort::DeviceBytes. Widen totals to uint64_t;
+individual SDL buffer capacities stay uint32_t. Existing measurement flow converts
+only the completed total to double. No allocation, rendering or error contract changes.
+Test empty, 4-GiB boundary, all streams at maximum and removal without GPU allocation;
+verify the draw/renderer reporting types cannot truncate. Restored uint32_t must FAIL.
+Gate: format, SubjectResidency/SubjectDraw/SceneResources, Places/PNGs, full lint/tidy/API.
+This repairs an invalid meter; it does not establish why process memory peaks.
 
 ## Active repair: immutable terrain-stamp accounting
 
@@ -54,11 +60,7 @@ called by CurrentProductBytes during pressing; 8.0-GB host peak, not Engine byte
 Owner: generators/terrain/TerrainPressJob.cpp. Its owned stamps never mutate;
 2c31992cd makes stamps immutable and sums outer/nested retained capacities at adoption.
 HeapBytes retains dynamic work-vector and press-job capacities; no counters are removed.
-Test independent ring/seam/hole-capacity arithmetic, zero-work inputs and job moves;
-omitting nested bytes must actually FAIL. Existing one-shot/sliced terrain oracles remain.
 Gate: format, TerrainPress/EarthworkPress suites, all Places/PNGs, full lint/tidy/API.
-Repeat real Graz sample to check removal of this scan; do not promise all timeouts cured.
-Log: /tmp/outshine-repair-320e3c9a2-graz-sample.log.
 Repair: immutable stamps and cached owned bytes. Format 1206 files PASS; independent
 capacity/move fixture 5 checks PASS; omitted nested capacities produce 3 actual FAILs.
 4844c3196: 17 focused PASS, full lint/tidy/API PASS; Places 38/44, three Places still red.
