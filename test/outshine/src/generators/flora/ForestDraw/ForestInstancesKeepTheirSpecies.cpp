@@ -64,7 +64,8 @@ int main() {
         "source species catalogue loads");
   Shipping shipping;
   CHECK(shipping.TreeFor(ClusterId{0}) == nullptr, "an unprepared catalogue resolves no tree");
-  CHECK(shipping.Stands(vegetation, "src/assets/world/species", error), "world catalogue stands");
+  CHECK(shipping.EnsureCatalogue(vegetation, "src/assets/world/species", error),
+        "world catalogue stands");
   CHECK(shipping.TreeFor(ClusterId{static_cast<uint32_t>(sources.size())}) == nullptr &&
             shipping.TreeFor(ClusterId{~0u}) == nullptr,
         "building and unknown clusters do not resolve as trees");
@@ -77,7 +78,7 @@ int main() {
           "each cluster retains its source species and prototype height");
   }
   const auto *first = shipping.TreeFor(ClusterId{0});
-  CHECK(shipping.Stands(vegetation, "src/assets/world/species", error) &&
+  CHECK(shipping.EnsureCatalogue(vegetation, "src/assets/world/species", error) &&
             shipping.TreeFor(ClusterId{0}) == first,
         "repeated preparation preserves the immutable prototype address");
   RegionPool pool({.Reached = region, .Anywhere = region}, {});

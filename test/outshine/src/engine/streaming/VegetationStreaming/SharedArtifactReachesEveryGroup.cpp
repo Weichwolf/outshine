@@ -44,7 +44,8 @@ int main() {
   CHECK(vegetation.Load("src/assets/world/vegetation.json", materials), "vegetation rules load");
   Generators::Shipping catalogue;
   std::string error;
-  CHECK(catalogue.Stands(vegetation, (directory / "species").string(), error), "two clusters load");
+  CHECK(catalogue.EnsureCatalogue(vegetation, (directory / "species").string(), error),
+        "two clusters load");
   const auto *species = catalogue.TreeFor(Generators::ClusterId{0});
   const auto *second = catalogue.TreeFor(Generators::ClusterId{1});
   CHECK(species && second && species->Definition() == second->Definition(),
@@ -113,10 +114,10 @@ int main() {
     crowns.reset();
     CHECK(renderer.PiecesStanding() == initialPieces,
           "destroying crowns releases all their render pieces");
-    CHECK(catalogue.Stands(vegetation, (directory / "species").string(), error, false) &&
+    CHECK(catalogue.EnsureCatalogue(vegetation, (directory / "species").string(), error, false) &&
               catalogue.TreeFor(Generators::ClusterId{0}) == nullptr,
           "species can be released after their crown users are destroyed");
-    CHECK(catalogue.Stands(vegetation, (directory / "species").string(), error, true),
+    CHECK(catalogue.EnsureCatalogue(vegetation, (directory / "species").string(), error, true),
           "species catalogue reactivates for the next residency cycle");
   }
   return Report();

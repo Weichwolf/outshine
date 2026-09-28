@@ -1900,7 +1900,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
     Error = "structure materials were not registered before baking";
     return false;
   }
-  build.Pieces.Wears(*build.Surfaces);
+  build.Pieces.SetSurfaces(*build.Surfaces);
   for (const StructureBuildQueue::Landing &landing : *ready) {
     if (!build.Pieces.Hands(
             landing.Tile, *landing.Baked, landing.AnchorEcef, Error, landing.SourceKey)) {

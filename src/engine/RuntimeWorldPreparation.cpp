@@ -167,10 +167,10 @@ bool Engine::State::PrepareRuntimeWorld() {
   }
   if (World.Stack.Vegetated()) {
     std::string why;
-    if (!World.Shipping.Stands(World.Stack.Vegetation(),
-                               std::string(Session.Under.Shipped) + "/world/species",
-                               why,
-                               declared.Ground.VegetationEnabled)) {
+    if (!World.Shipping.EnsureCatalogue(World.Stack.Vegetation(),
+                                        std::string(Session.Under.Shipped) + "/world/species",
+                                        why,
+                                        declared.Ground.VegetationEnabled)) {
       Error = std::move(why);
       return false;
     }

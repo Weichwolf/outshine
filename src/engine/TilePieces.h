@@ -32,7 +32,7 @@ public:
     Render::PieceSurface Roofs{2};
   };
 
-  void Wears(Surfaces these) noexcept {
+  void SetSurfaces(Surfaces these) noexcept {
     WallsSurface_ = these.Walls;
     RoofsSurface_ = these.Roofs;
   }

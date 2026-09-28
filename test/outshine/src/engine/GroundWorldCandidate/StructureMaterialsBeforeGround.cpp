@@ -48,14 +48,14 @@ int main() {
       CHECK(first && *first == 0, "first registered structure slot starts at zero");
       if (first) {
         auto &pieces = candidate.Products().Pieces;
-        pieces.Wears({.Walls = Render::PieceSurface::Registered(*first),
-                      .Roofs = Render::PieceSurface::Registered(*first + 2u)});
+        pieces.SetSurfaces({.Walls = Render::PieceSurface::Registered(*first),
+                            .Roofs = Render::PieceSurface::Registered(*first + 2u)});
         CHECK(!pieces.Hands(7, baked, {}, error) && renderer.PiecesStanding() == 0,
               "invalid registered roof rejects the whole tile");
         candidate.Products().Surfaces =
             TilePieces::Surfaces{.Walls = Render::PieceSurface::Registered(*first),
                                  .Roofs = Render::PieceSurface::Registered(*first + 1u)};
-        pieces.Wears(*candidate.Products().Surfaces);
+        pieces.SetSurfaces(*candidate.Products().Surfaces);
         CHECK(pieces.Hands(7, baked, {}, error) && renderer.PiecesStanding() == 2,
               "walls and roofs upload before terrain geometry exists");
       }

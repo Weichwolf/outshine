@@ -253,7 +253,7 @@ public:
             .count();
     phaseAt = std::chrono::steady_clock::now();
     world.Pieces = std::move(Products_.Pieces);
-    if (Products_.Surfaces) { world.Pieces.Wears(*Products_.Surfaces); }
+    if (Products_.Surfaces) { world.Pieces.SetSurfaces(*Products_.Surfaces); }
     world.StructureSurfaces = Products_.Surfaces;
     PublicationMetrics_.PiecesMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - phaseAt)

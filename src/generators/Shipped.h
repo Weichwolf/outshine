@@ -27,10 +27,10 @@ public:
   Shipping(const Shipping &) = delete;
   Shipping &operator=(const Shipping &) = delete;
 
-  [[nodiscard]] bool Stands(const outshine::Ground::VegetationTemplates &declared,
-                            std::string_view speciesDir,
-                            std::string &error,
-                            bool vegetation = true);
+  [[nodiscard]] bool EnsureCatalogue(const outshine::Ground::VegetationTemplates &declared,
+                                     std::string_view speciesDir,
+                                     std::string &error,
+                                     bool vegetation = true);
 
   [[nodiscard]] bool Ready() const { return !Made_.empty(); }
 

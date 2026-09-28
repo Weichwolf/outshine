@@ -43,10 +43,10 @@ constexpr Rank kRankFlora{200};
 
 }
 
-bool Shipping::Stands(const outshine::Ground::VegetationTemplates &declared,
-                      std::string_view speciesDir,
-                      std::string &error,
-                      bool vegetation) {
+bool Shipping::EnsureCatalogue(const outshine::Ground::VegetationTemplates &declared,
+                               std::string_view speciesDir,
+                               std::string &error,
+                               bool vegetation) {
   if (Ready() && VegetationEnabled_ == vegetation) { return true; }
   Shipping candidate;
   if (!candidate.BuildCatalogue(declared, speciesDir, error, vegetation)) { return false; }

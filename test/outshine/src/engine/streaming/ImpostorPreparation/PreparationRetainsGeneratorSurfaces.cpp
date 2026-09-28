@@ -569,7 +569,7 @@ int main() {
   Generators::Shipping catalogue;
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials) &&
-            catalogue.Stands(vegetation, "src/assets/world/species", error),
+            catalogue.EnsureCatalogue(vegetation, "src/assets/world/species", error),
         "world crown catalogue loads through the production species path");
   uint32_t birch = 0;
   while (const auto *one = catalogue.TreeFor(Generators::ClusterId{birch})) {
