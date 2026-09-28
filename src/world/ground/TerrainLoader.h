@@ -102,8 +102,10 @@ public:
 
   [[nodiscard]] std::shared_ptr<const TerrainField> StitchedField(Data::TileId of) const;
   [[nodiscard]] std::shared_ptr<const TerrainField> ResidentStitchedField(Data::TileId of) const;
-  [[nodiscard]] TilePool::Reply PollStitchedField(Data::TileId of,
-                                                  std::shared_ptr<const TerrainField> &out) const;
+  [[nodiscard]] TilePool::Reply
+  PollStitchedField(Data::TileId of,
+                    std::shared_ptr<const TerrainField> &out,
+                    std::optional<Data::FetchFailure> *failure = nullptr) const;
 
   [[nodiscard]] int BlockZoom() const override { return Surface_.Z; }
 

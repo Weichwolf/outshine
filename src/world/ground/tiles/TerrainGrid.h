@@ -9,6 +9,8 @@
 #include <vector>
 
 #include "TileSourceIdentity.h"
+#include "FetchFailure.h"
+#include <optional>
 #include "TileGeodesy.h"
 #include "TileMath.h"
 
@@ -111,7 +113,15 @@ public:
 
   static TerrainGrid Deferred() { return {State::Deferred, TerrainField()}; }
 
-  static TerrainGrid Refused() { return {State::Refused, TerrainField()}; }
+  static TerrainGrid Refused(std::optional<Data::FetchFailure> failure = std::nullopt) {
+    TerrainGrid grid(State::Refused, TerrainField());
+    grid.Failure_ = std::move(failure);
+    return grid;
+  }
+
+  [[nodiscard]] const std::optional<Data::FetchFailure> &Failure() const noexcept {
+    return Failure_;
+  }
 
   static TerrainGrid Holding(TerrainField &&field) { return {State::Decoded, std::move(field)}; }
 
@@ -132,6 +142,7 @@ private:
 
   State Where_;
   TerrainField Field_;
+  std::optional<Data::FetchFailure> Failure_;
 };
 
 }

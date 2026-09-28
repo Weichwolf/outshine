@@ -172,6 +172,23 @@ Result SettleTiles(std::span<const Data::TileId> tiles,
   return {};
 }
 
+std::string Refusal(Data::TileId tile,
+                    std::string_view kind,
+                    const std::optional<Data::FetchFailure> &failure) {
+  const std::string context =
+      std::format("view data preparation refused {}/{}/{}/{}", kind, tile.Zoom, tile.X, tile.Y);
+  if (!failure) { return context; }
+  return std::format("{}: {} at {}/{}; served={}; source={}; revision={}; key={}",
+                     context,
+                     Data::Name(failure->Reason),
+                     Data::Name(failure->Kind),
+                     failure->Requested.Text(),
+                     failure->Served ? failure->Served->Text() : "unknown",
+                     failure->SourceId,
+                     failure->SourceRevision,
+                     failure->SourceKey);
+}
+
 std::expected<bool, std::string>
 PollVector(Data::TileId tile, const Ground::GroundStack &stack, Ground::OsmField &vectors) {
   Ground::TilePool::Landing landed;
@@ -181,8 +198,7 @@ PollVector(Data::TileId tile, const Ground::GroundStack &stack, Ground::OsmField
     return true;
   }
   if (status == Ground::TilePool::Reply::Refused) {
-    return std::unexpected(
-        std::format("view data preparation refused vector/{}/{}/{}", tile.Zoom, tile.X, tile.Y));
+    return std::unexpected(Refusal(tile, "vector", landed.Failure));
   }
   if (status != Ground::TilePool::Reply::Ready) { return false; }
   if (tile.Zoom == vectors.Zoom()) {
@@ -201,10 +217,10 @@ PollVector(Data::TileId tile, const Ground::GroundStack &stack, Ground::OsmField
 
 std::expected<bool, std::string> PollField(Data::TileId tile, const Ground::GroundStack &stack) {
   std::shared_ptr<const Ground::TerrainField> field;
-  const auto status = stack.Ground().PollStitchedField(tile, field);
+  std::optional<Data::FetchFailure> failure;
+  const auto status = stack.Ground().PollStitchedField(tile, field, &failure);
   if (status == Ground::TilePool::Reply::Refused) {
-    return std::unexpected(
-        std::format("view data preparation refused elevation/{}/{}/{}", tile.Zoom, tile.X, tile.Y));
+    return std::unexpected(Refusal(tile, "elevation", failure));
   }
   if (status == Ground::TilePool::Reply::Ready && !field) {
     return std::unexpected("view data preparation received a ready field without data");

@@ -175,7 +175,7 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
       case TerrainBytes::State::Deferred: return TerrainGrid::Deferred();
       case TerrainBytes::State::NoTile: return TerrainGrid::NotHere();
       case TerrainBytes::State::Refused:
-      case TerrainBytes::State::Delivered: return TerrainGrid::Refused();
+      case TerrainBytes::State::Delivered: return TerrainGrid::Refused(answer.Failure());
     }
   }
   const Data::TileId source = delivered->At;
@@ -213,9 +213,14 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
   return grid;
 }
 
-TerrainGrid::State
-TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Side side) {
+TerrainGrid::State TerrainTiles::StitchEdge(TerrainField &self,
+                                            int z,
+                                            uint32_t nx,
+                                            uint32_t ny,
+                                            Side side,
+                                            std::optional<Data::FetchFailure> &failure) {
   const TerrainGrid neighbour = RawGrid({.Zoom = z, .X = nx, .Y = ny});
+  if (!failure && neighbour.Failure()) { failure = neighbour.Failure(); }
   const TerrainField *n = neighbour.TryField();
   if ((n == nullptr) || !n->Meshable()) { return neighbour.Where(); }
 
@@ -242,8 +247,11 @@ TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Si
   return TerrainGrid::State::Decoded;
 }
 
-TerrainGrid::State
-TerrainTiles::StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, Corner corner) {
+TerrainGrid::State TerrainTiles::StitchCorner(TerrainField &self,
+                                              float selfRawM,
+                                              Data::TileId of,
+                                              Corner corner,
+                                              std::optional<Data::FetchFailure> &failure) {
   const int z = of.Zoom;
   const uint32_t x = of.X;
   const uint32_t y = of.Y;
@@ -258,6 +266,9 @@ TerrainTiles::StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, 
   const TerrainGrid sideways = RawGrid({.Zoom = z, .X = acrossX, .Y = y});
   const TerrainGrid updown = RawGrid({.Zoom = z, .X = x, .Y = acrossY});
   const TerrainGrid diagonal = RawGrid({.Zoom = z, .X = acrossX, .Y = acrossY});
+  for (const TerrainGrid *grid : {&sideways, &updown, &diagonal}) {
+    if (!failure && grid->Failure()) { failure = grid->Failure(); }
+  }
   const TerrainField *a = sideways.TryField();
   const TerrainField *b = updown.TryField();
   const TerrainField *c = diagonal.TryField();
@@ -331,11 +342,12 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
                              field->AtM(field->Rows() - 1u, field->Cols() - 1u)}};
 
   TerrainGrid::State worst = TerrainGrid::State::Decoded;
+  std::optional<Data::FetchFailure> failure;
   const uint32_t n = 1u << static_cast<uint32_t>(z);
-  if (x > 0) { worst = Worse(worst, StitchEdge(*field, z, x - 1, y, Side::West)); }
-  if (x + 1 < n) { worst = Worse(worst, StitchEdge(*field, z, x + 1, y, Side::East)); }
-  if (y > 0) { worst = Worse(worst, StitchEdge(*field, z, x, y - 1, Side::North)); }
-  if (y + 1 < n) { worst = Worse(worst, StitchEdge(*field, z, x, y + 1, Side::South)); }
+  if (x > 0) { worst = Worse(worst, StitchEdge(*field, z, x - 1, y, Side::West, failure)); }
+  if (x + 1 < n) { worst = Worse(worst, StitchEdge(*field, z, x + 1, y, Side::East, failure)); }
+  if (y > 0) { worst = Worse(worst, StitchEdge(*field, z, x, y - 1, Side::North, failure)); }
+  if (y + 1 < n) { worst = Worse(worst, StitchEdge(*field, z, x, y + 1, Side::South, failure)); }
   for (const Corner corner :
        {Corner::NorthWest, Corner::NorthEast, Corner::SouthWest, Corner::SouthEast}) {
     const bool west = corner == Corner::NorthWest || corner == Corner::SouthWest;
@@ -344,9 +356,10 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
                   StitchCorner(*field,
                                rawCorners[(west ? 0u : 1u) + (north ? 0u : 2u)],
                                {.Zoom = z, .X = x, .Y = y},
-                               corner));
+                               corner,
+                               failure));
   }
-  if (worst == TerrainGrid::State::Refused) { return TerrainGrid::Refused(); }
+  if (worst == TerrainGrid::State::Refused) { return TerrainGrid::Refused(std::move(failure)); }
   if (worst == TerrainGrid::State::Deferred) { return TerrainGrid::Deferred(); }
   return grid;
 }

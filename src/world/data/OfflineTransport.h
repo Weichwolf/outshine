@@ -14,7 +14,7 @@ public:
 
   [[nodiscard]] Wire Collect(Ticket ticket) override {
     (void)ticket;
-    return Wire::Never();
+    return Wire::Never(FetchFailureReason::OfflineMiss);
   }
 
   void Cancel(Ticket ticket) override { (void)ticket; }

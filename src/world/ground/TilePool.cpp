@@ -169,7 +169,7 @@ size_t TilePool::ByteCacheBytes() const {
   size_t bytes = CapacityBytes(Cache_) + CapacityBytes(CacheAt_);
   for (const CacheEntry &e : Cache_) {
     bytes += e.Key.capacity() + e.SourceId.capacity() + e.SourceRevision.capacity() +
-             CapacityBytes(e.Data);
+             CapacityBytes(e.Data) + (e.Failure ? e.Failure->HeapBytes() : 0u);
   }
   return bytes;
 }
@@ -230,7 +230,8 @@ size_t TilePool::SchedulerBytes() const {
   bytes += Posted_.HeapBytes() + Done_.HeapBytes() + Awaiting_.HeapBytes();
   Done_.Visit([&bytes](uint64_t, const Result &result) {
     bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Build.Sources) +
-             CapacityBytes(result.Landed.Bytes) + (result.Field ? result.Field->HeapBytes() : 0u);
+             CapacityBytes(result.Landed.Bytes) + (result.Field ? result.Field->HeapBytes() : 0u) +
+             (result.Landed.Failure ? result.Landed.Failure->HeapBytes() : 0u);
     for (const auto &source : result.Build.Sources) {
       bytes += source.SourceId.capacity() + source.Revision.capacity();
     }
@@ -240,27 +241,35 @@ size_t TilePool::SchedulerBytes() const {
   return bytes;
 }
 
-void TilePool::RefuseUntil(const std::string &key, double untilMs) {
+void TilePool::RefuseUntil(const std::string &key,
+                           double untilMs,
+                           const std::optional<Data::FetchFailure> &failure) {
   const std::scoped_lock lock(CacheMutex_);
   if (const std::optional<size_t> found = CacheEntryOf(key)) {
     Cache_[*found].RefusedUntilMs = untilMs;
+    Cache_[*found].Failure = failure;
     return;
   }
   CacheEntry made;
   made.Key = key;
   made.RefusedUntilMs = untilMs;
+  made.Failure = failure;
   made.Used = ++CacheClock_;
   Cache_.push_back(std::move(made));
   IndexCacheEntry(key, Cache_.size() - 1u);
 }
 
 TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
+  out->Failure.reset();
   const std::scoped_lock lock(CacheMutex_);
   const std::optional<size_t> found = CacheEntryOf(key);
   if (!found) { return Reply::Pending; }
   CacheEntry &e = Cache_[*found];
   e.Used = ++CacheClock_;
-  if (e.RefusedUntilMs > 0.0 && e.RefusedUntilMs > Wire_.NowMs()) { return Reply::Refused; }
+  if (e.RefusedUntilMs > 0.0 && e.RefusedUntilMs > Wire_.NowMs()) {
+    out->Failure = e.Failure;
+    return Reply::Refused;
+  }
   if (e.Absent) { return Reply::Absent; }
   if (e.Data.empty() && e.RefusedUntilMs > 0.0) { return Reply::Pending; }
   out->Bytes.assign(e.Data.begin(), e.Data.end());
@@ -313,6 +322,7 @@ void TilePool::Remember(const std::string &key,
 }
 
 TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
+  out->Failure.reset();
   if (!tCarries) {
     const std::scoped_lock ledger(LedgerMutex_);
     Ledger_.FetchOnCompute++;
@@ -361,7 +371,8 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
         break;
       case Data::Delivery::State::Consumed:
       case Data::Delivery::State::Refused:
-        RefuseUntil(key, Wire_.NowMs() + answer.AfterMs());
+        out->Failure = answer.Failure();
+        RefuseUntil(key, Wire_.NowMs() + answer.AfterMs(), out->Failure);
         Log::Error(LogTag::World,
                    "tile_refused",
                    {{"request", key},
@@ -403,9 +414,8 @@ TilePool::Reply TilePool::Bytes(const Data::Fetch &request, Landing *out) {
   job.Ask = request;
   Result result;
   const Reply posted = Poll(job, &result);
-  if (posted != Reply::Ready) { return posted; }
-  *out = std::move(result.Landed);
-  return Reply::Ready;
+  if (posted == Reply::Ready || posted == Reply::Refused) { *out = std::move(result.Landed); }
+  return posted;
 }
 
 TilePool::Reply TilePool::BytesBlocking(const Data::Fetch &request, Landing *out) {
@@ -429,7 +439,7 @@ public:
       case TilePool::Reply::Ready: return Answered(landing);
       case TilePool::Reply::Absent:
       case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
-      case TilePool::Reply::Refused: return TerrainBytes::Wire();
+      case TilePool::Reply::Refused: return TerrainBytes::Wire(std::move(landing.Failure));
       case TilePool::Reply::Deferred:
       case TilePool::Reply::Pending:
         if (Pool_.Carries()) { tAwaited = RequestKey(request.Key()); }
@@ -855,6 +865,7 @@ TilePool::Reply TilePool::Mesh(Data::TileId of, int grid, TileBuild *out) {
 void TilePool::RunField(TerrainTiles &tiles, const Job &job, Result *out) {
   TerrainGrid grid = tiles.StitchedGrid(job.Z, job.X, job.Y);
   TerrainField *field = grid.TryFieldMutable();
+  out->Landed.Failure = grid.Failure();
   const Miss miss = MissOf(grid.Where());
   if (miss == Miss::None && field != nullptr) {
     out->Field = std::make_shared<const TerrainField>(std::move(*field));
@@ -869,7 +880,9 @@ void TilePool::RunField(TerrainTiles &tiles, const Job &job, Result *out) {
   }
 }
 
-TilePool::Reply TilePool::Field(Data::TileId of, std::shared_ptr<const TerrainField> *out) {
+TilePool::Reply TilePool::Field(Data::TileId of,
+                                std::shared_ptr<const TerrainField> *out,
+                                std::optional<Data::FetchFailure> *failure) {
   Job job;
   job.Kind = Rank::Field;
   job.Z = of.Zoom;
@@ -878,6 +891,7 @@ TilePool::Reply TilePool::Field(Data::TileId of, std::shared_ptr<const TerrainFi
   job.Key = FieldKey(of.Zoom, of.X, of.Y);
   Result result;
   const Reply state = Poll(job, &result);
+  if (failure != nullptr) { *failure = std::move(result.Landed.Failure); }
   if (state == Reply::Ready) { *out = std::move(result.Field); }
   return state;
 }

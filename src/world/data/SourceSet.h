@@ -94,7 +94,9 @@ private:
 
   [[nodiscard]] Delivery ResumeRetry(Query &query, Transport &transport);
 
-  [[nodiscard]] Delivery Refuse(Query &query, double afterMs);
+  [[nodiscard]] Delivery Refuse(Query &query,
+                                double afterMs,
+                                FetchFailureReason reason = FetchFailureReason::ProviderRefused);
 
   [[nodiscard]] std::optional<Delivery> ProcessResponse(Query &query,
                                                         Fetched::Settled response,

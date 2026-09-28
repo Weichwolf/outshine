@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "Address.h"
+#include "FetchFailure.h"
 
 namespace outshine::Data {
 
@@ -22,7 +23,8 @@ public:
         AfterMs_(std::exchange(other.AfterMs_, 0.0)),
         SourceId_(std::move(other.SourceId_)),
         SourceRevision_(std::move(other.SourceRevision_)),
-        Answer_(std::move(other.Answer_)) {}
+        Answer_(std::move(other.Answer_)),
+        Failure_(std::exchange(other.Failure_, std::nullopt)) {}
 
   Delivery &operator=(Delivery &&other) noexcept {
     if (this == &other) { return *this; }
@@ -31,6 +33,7 @@ public:
     SourceId_ = std::move(other.SourceId_);
     SourceRevision_ = std::move(other.SourceRevision_);
     Answer_ = std::move(other.Answer_);
+    Failure_ = std::exchange(other.Failure_, std::nullopt);
     return *this;
   }
 
@@ -61,14 +64,19 @@ public:
 
   [[nodiscard]] static Delivery Wire() { return Delivery(State::Refused); }
 
-  [[nodiscard]] static Delivery
-  WireAfter(double afterMs, std::string sourceId = {}, std::string sourceRevision = {}) {
+  [[nodiscard]] static Delivery WireAfter(double afterMs,
+                                          std::string sourceId = {},
+                                          std::string sourceRevision = {},
+                                          std::optional<FetchFailure> failure = std::nullopt) {
     Delivery d(State::Refused);
     d.AfterMs_ = afterMs > 0.0 ? afterMs : 0.0;
     d.SourceId_ = std::move(sourceId);
     d.SourceRevision_ = std::move(sourceRevision);
+    d.Failure_ = std::move(failure);
     return d;
   }
+
+  [[nodiscard]] const std::optional<FetchFailure> &Failure() const noexcept { return Failure_; }
 
   [[nodiscard]] double AfterMs() const noexcept { return AfterMs_; }
 
@@ -92,6 +100,7 @@ private:
   std::string SourceId_;
   std::string SourceRevision_;
   Answer Answer_;
+  std::optional<FetchFailure> Failure_;
 };
 
 }

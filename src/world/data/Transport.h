@@ -9,6 +9,8 @@
 #include <utility>
 #include <vector>
 
+#include "FetchFailure.h"
+
 namespace outshine::Data {
 
 enum class Ticket : uint64_t { None = 0 };
@@ -24,7 +26,8 @@ public:
       : Where_(std::exchange(other.Where_, State::Consumed)),
         Status_(std::exchange(other.Status_, 0)),
         Body_(std::move(other.Body_)),
-        RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)) {}
+        RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)),
+        Reason_(other.Reason_) {}
 
   Wire &operator=(Wire &&other) noexcept {
     if (this == &other) { return *this; }
@@ -32,6 +35,7 @@ public:
     Status_ = std::exchange(other.Status_, 0);
     Body_ = std::move(other.Body_);
     RetryAfterS_ = std::exchange(other.RetryAfterS_, 0.0);
+    Reason_ = other.Reason_;
     return *this;
   }
 
@@ -45,9 +49,19 @@ public:
     return {State::Answered, status, std::move(body), retryAfterS};
   }
 
-  [[nodiscard]] static Wire Unreachable() { return {State::Unreachable, 0, {}, 0.0}; }
+  [[nodiscard]] static Wire Unreachable() {
+    Wire wire(State::Unreachable, 0, {}, 0.0);
+    wire.Reason_ = FetchFailureReason::Unavailable;
+    return wire;
+  }
 
-  [[nodiscard]] static Wire Never() { return {State::Never, 0, {}, 0.0}; }
+  [[nodiscard]] static Wire Never(FetchFailureReason reason = FetchFailureReason::ProviderRefused) {
+    Wire wire(State::Never, 0, {}, 0.0);
+    wire.Reason_ = reason;
+    return wire;
+  }
+
+  [[nodiscard]] FetchFailureReason FailureReason() const noexcept { return Reason_; }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
 
@@ -72,6 +86,7 @@ private:
   int Status_;
   std::vector<uint8_t> Body_;
   double RetryAfterS_;
+  FetchFailureReason Reason_ = FetchFailureReason::ProviderRefused;
 };
 
 class Transport {

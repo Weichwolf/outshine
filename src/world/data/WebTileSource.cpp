@@ -61,9 +61,9 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
   switch (wire.Where()) {
     case Wire::State::Working: return Fetched::Working();
 
-    case Wire::State::Unreachable: return Fetched::Meant(Meaning::Retry);
+    case Wire::State::Unreachable: return Fetched::Meant(Meaning::Retry, wire.FailureReason());
     case Wire::State::Consumed:
-    case Wire::State::Never: return Fetched::Meant(Meaning::Refused);
+    case Wire::State::Never: return Fetched::Meant(Meaning::Refused, wire.FailureReason());
     case Wire::State::Answered: break;
   }
   std::optional<Wire::Response> answered = wire.Take();

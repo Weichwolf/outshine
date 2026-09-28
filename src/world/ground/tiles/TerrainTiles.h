@@ -38,7 +38,15 @@ public:
 
   static TerrainBytes Nothing() { return TerrainBytes(State::NoTile); }
 
-  static TerrainBytes Wire() { return TerrainBytes(State::Refused); }
+  static TerrainBytes Wire(std::optional<Data::FetchFailure> failure = std::nullopt) {
+    TerrainBytes bytes(State::Refused);
+    bytes.Failure_ = std::move(failure);
+    return bytes;
+  }
+
+  [[nodiscard]] const std::optional<Data::FetchFailure> &Failure() const noexcept {
+    return Failure_;
+  }
 
   [[nodiscard]] State Where() const { return Where_; }
 
@@ -53,6 +61,7 @@ private:
 
   State Where_;
   Payload Payload_;
+  std::optional<Data::FetchFailure> Failure_;
 };
 
 class TerrainSource {
@@ -163,11 +172,18 @@ private:
     }
   };
 
-  [[nodiscard]] TerrainGrid::State
-  StitchCorner(TerrainField &self, float selfRawM, Data::TileId of, Corner corner);
+  [[nodiscard]] TerrainGrid::State StitchCorner(TerrainField &self,
+                                                float selfRawM,
+                                                Data::TileId of,
+                                                Corner corner,
+                                                std::optional<Data::FetchFailure> &failure);
 
-  [[nodiscard]] TerrainGrid::State
-  StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Side side);
+  [[nodiscard]] TerrainGrid::State StitchEdge(TerrainField &self,
+                                              int z,
+                                              uint32_t nx,
+                                              uint32_t ny,
+                                              Side side,
+                                              std::optional<Data::FetchFailure> &failure);
 
   TerrainSource &Source_;
   EnuFrame Frame_;

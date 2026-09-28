@@ -23,8 +23,10 @@ both the online frame and the earlier paced-cache reference. PNG inspected:
 road/building/material quality remains schematic; this is a data correctness fix.
 
 Deleting `elevation/15/17165/11203` from a separate cache makes preparation fail
-before playback, with one cache miss, no PNG/network. The error instead reports
-stitched field `elevation/15/17164/11202`: the failing raw source address is lost.
+before playback, with one cache miss, no PNG/network. Owned failure propagation
+now reports raw requested/served `15/17165/11203`, `terrarium.s3`, its source key
+and offline-miss cause; stitched `15/17164/11202` remains separate context.
+The complete-cache replay still has 538 hits, no misses/network, identical pixels.
 Terrarium now uses the shared 404-only absence rule. Scripted 404/403/401 and
 subsequent recovery pass; restoring the former 403 rule fails the same test.
 Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
@@ -51,12 +53,12 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   deadline; bounded work units may overrun it. Partial cached progress survives
   failure. No fake heights, readiness weakening, or rendering-driven requests.
 
-## Remaining error and absence implementation
+## Error and absence contract
 
 - Owners: `world/data/{Delivery,SourceSet,ContentStore}`, `ground/TilePool`,
   `ground/TerrainLoader` and its terrain byte/stitch adapter; preparation consumes
   their typed outcome. Preserve status/progress contracts of current callers.
-- Introduce an owned `Data::FetchFailure`: kind, requested address, optional
+- Owned `Data::FetchFailure` carries kind, requested address, optional
   served address, source ID/revision and reason (unknown offline cache, provider
   refusal, timeout/cancellation, corrupt payload or capacity refusal). Sources
   identify the actual attempted provider; do not infer one from an empty result.
@@ -82,6 +84,11 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   replies through SourceSet: 404 alone hands over, 403 refuses without fallback,
   and a subsequent 200 remains fetchable. Existing raw cached bytes remain readable; any
   new record format is versioned. Do not pretend unavailable height is zero.
+
+Missing/cached-refusal, provider fallback and ancestor identity are implemented.
+Independent edge/diagonal stitch tests pass; removing raw-failure propagation fails
+them. Native timeout/cancel mapping, corrupt/capacity failures, persistent confirmed
+absence and full-lap/alternate-pacing proof remain open.
 
 ## Acceptance
 

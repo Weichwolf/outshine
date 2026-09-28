@@ -20,6 +20,7 @@
 #include "TerrainTiles.h"
 #include "TileMeshes.h"
 #include "Fetch.h"
+#include "FetchFailure.h"
 
 namespace outshine {
 class LogSink;
@@ -102,7 +103,9 @@ public:
 
   [[nodiscard]] Reply MeshAwaited(Data::TileId of, int grid, TileBuild *out) override;
 
-  [[nodiscard]] Reply Field(Data::TileId of, std::shared_ptr<const TerrainField> *out);
+  [[nodiscard]] Reply Field(Data::TileId of,
+                            std::shared_ptr<const TerrainField> *out,
+                            std::optional<Data::FetchFailure> *failure = nullptr);
 
   void ForgetMesh(int z, uint32_t x, uint32_t y);
 
@@ -111,6 +114,7 @@ public:
     std::string SourceId;
     std::string SourceRevision;
     Data::Address At = Data::Address::Whole(0);
+    std::optional<Data::FetchFailure> Failure;
   };
 
   [[nodiscard]] Reply Bytes(const Data::Fetch &request, Landing *out);
@@ -163,6 +167,7 @@ private:
     Data::Address At = Data::Address::Whole(0);
     bool Absent = false;
     double RefusedUntilMs = 0.0;
+    std::optional<Data::FetchFailure> Failure;
     uint64_t Used = 0;
   };
 
@@ -218,7 +223,9 @@ private:
   double TileDistance(Data::TileId of) const;
 
   [[nodiscard]] Reply Lookup(const std::string &key, Landing *out);
-  void RefuseUntil(const std::string &key, double untilMs);
+  void RefuseUntil(const std::string &key,
+                   double untilMs,
+                   const std::optional<Data::FetchFailure> &failure);
   void Remember(const std::string &key,
                 const uint8_t *data,
                 size_t len,

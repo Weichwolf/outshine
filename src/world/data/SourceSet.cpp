@@ -245,17 +245,25 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
     case Meaning::Refused: break;
     default: return Refuse(query, kRetryCapMs);
   }
-  return Refuse(query, validDelay ? std::max(retryAfterMs, kRetryCapMs) : kRetryCapMs);
+  return Refuse(
+      query, validDelay ? std::max(retryAfterMs, kRetryCapMs) : kRetryCapMs, response.Reason);
 }
 
-Delivery SourceSet::Refuse(Query &query, double afterMs) {
+Delivery SourceSet::Refuse(Query &query, double afterMs, FetchFailureReason reason) {
   const SourceDecl &decl = query.Current_->Declaration();
   const std::string sourceId = decl.Id;
   const std::string sourceRevision = decl.Revision;
+  FetchFailure failure{.Kind = query.Request_.Kind(),
+                       .Requested = query.Request_.Where(),
+                       .Served = query.At_,
+                       .SourceId = sourceId,
+                       .SourceRevision = sourceRevision,
+                       .SourceKey = SourceKey(decl),
+                       .Reason = reason};
   query.Finish();
   const std::scoped_lock lock(LedgerMutex_);
   ++Ledger_.Refused;
-  return Delivery::WireAfter(afterMs, sourceId, sourceRevision);
+  return Delivery::WireAfter(afterMs, sourceId, sourceRevision, std::move(failure));
 }
 
 void SourceSet::Abandon(Query &query, Transport &transport) {

@@ -113,7 +113,7 @@ struct GroundStream::Held {
         }
         case TilePool::Reply::Absent:
         case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
-        case TilePool::Reply::Refused: return TerrainBytes::Wire();
+        case TilePool::Reply::Refused: return TerrainBytes::Wire(std::move(landing.Failure));
         case TilePool::Reply::Deferred:
         case TilePool::Reply::Pending: break;
       }
@@ -386,10 +386,12 @@ std::shared_ptr<const TerrainField> GroundStream::ResidentStitchedField(Data::Ti
 }
 
 TilePool::Reply GroundStream::PollStitchedField(Data::TileId of,
-                                                std::shared_ptr<const TerrainField> &out) const {
+                                                std::shared_ptr<const TerrainField> &out,
+                                                std::optional<Data::FetchFailure> *failure) const {
+  if (failure != nullptr) { failure->reset(); }
   out = Held_->Stitched->HeldStitched(of);
   if (out) { return TilePool::Reply::Ready; }
-  const TilePool::Reply status = Held_->Pool.Field(of, &out);
+  const TilePool::Reply status = Held_->Pool.Field(of, &out, failure);
   if (status == TilePool::Reply::Ready) { Held_->Stitched->HoldsStitched(of, out); }
   return status;
 }
