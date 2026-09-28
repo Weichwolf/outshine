@@ -81,7 +81,9 @@ gate-result.txt identifies the checked commit. No Frame-consumer acceptance impl
 Pure source inspection: 33 direct checks PASS. Restored resolver, ignored unknown scope
 and disabled metadata comparison each give actual FAIL. Existing resolver assertions stay.
 Logs: /tmp/outshine-source-inspection-verification.log and case logs; format 1202 files.
-Official StructureBuildQueue suite/full lint for this change are pending.
+cf58d54a1: 4 official focused tests PASS; full lint failed on two missing engine inspector
+initializers. Wire TilePool::InspectCertificate at both existing HeightSource boundaries;
+activation remains on ValidateResidentCellSource. Corrected full gate pending.
 
 ## Runtime integration still open
 

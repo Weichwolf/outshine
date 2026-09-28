@@ -372,6 +372,10 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
       .CertificateCurrent =
           [this](const Ground::TerrainCertificate &certificate) {
             return World.Stack.Pool().CertificateCurrent(certificate);
+          },
+      .InspectCertificate =
+          [this](const Ground::TerrainCertificate &certificate) {
+            return World.Stack.Pool().InspectCertificate(certificate);
           }};
   if (World.GroundBuild) {
     const auto resumeAt = std::chrono::steady_clock::now();

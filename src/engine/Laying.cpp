@@ -1883,6 +1883,10 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
       .CertificateCurrent =
           [this](const Ground::TerrainCertificate &certificate) {
             return World.Stack.Pool().CertificateCurrent(certificate);
+          },
+      .InspectCertificate =
+          [this](const Ground::TerrainCertificate &certificate) {
+            return World.Stack.Pool().InspectCertificate(certificate);
           }};
   const auto landingAt = std::chrono::steady_clock::now();
   auto ready =
