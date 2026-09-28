@@ -7,45 +7,32 @@ Priority: P0
 Area: engine, render, streaming, road
 Tags: determinism, publication, shadow, hockenheim
 
-# Refined road image is independent of capture history
+# Published geometry stays valid across streaming and capture history
 
 ## Evidence
 
-At 74.850 s/station 1373.068 m, an early paced capture had a dark road
-(4,10,26) while a Refined still showed (91,88,83). A final Refined preload
-and renderer settle removed that dark wedge; both now report the same road
-surface ID, depth, normal and RGB. `RuntimeScene::BindBuild` also now clears
-empty replacement geometry and its shadows: a regression sees zero casters
-and a zero atlas instead of 92,672 stale pixels. Live structure-tile uploads
-enter the published renderer scope, preventing a retired candidate from
-receiving their piece handles; the candidate/live-tile fixture checks both.
+`RuntimeScene::BindBuild` now clears empty replacement geometry/shadows.
+Live structure uploads enter the published renderer scope. Their regression
+fixtures prove caster removal and candidate/live-tile ownership. Camera-local
+LOD remains implicated in small still/motion edge differences; it does not yet
+explain malformed polygons. WI 2298 owns source-keyed products and selection.
 
-One of 27 earlier fresh 91.433-s stills showed enormous overhead polygons;
-the other runs were clear with 538 cache deliveries and zero provider starts.
-No failing provenance row exists, so its precise cause remains unproved.
+Current `b6bf3b0e1` offline 220-s lap (`typed-admission-lap`, provider-check):
+13,200 frames and 4575.927 m; all 538 deliveries are cached, no provider starts,
+no contact gaps, p99 12.78 ms, peak heap 885.9 MiB. All frames are unrefined.
+Opened all twelve motion PNGs: marks 2–4 show gigantic ripped facades/roof
+triangles above the road; other marks remain schematic. The final motion frame
+also contains deformed distant structures. Same-build fast-forward at 220 s
+uses identical source counts but differs at 7348/921600 pixels, worst 195/255;
+both captures are Playable, neither Refined. This is not an approved low LOD.
+The artefact producer and whether corruption begins on CPU, GPU or temporal
+history remain unproved. Prior matching Refined stills do not close this case.
 
-The 74.85-s still/motion comparison had also mixed qualities: without a
-probe the still stopped at Playable, while motion reached Refined. That gave
-38,013/921,600 differing pixels (4.125%), mostly roofs and facades. With
-explicit `--quality refined` on both current captures, only 130 pixels differ
-(0.0141%), 120 by more than 1/255; worst is 112/255 at a building edge.
-The final road probe is (91,88,83) in both. Both PNGs were opened: no dark
-wedge or overhead polygon, but a few building edges differ. A same-build
-still with/without `--probe-pixel` was pixel-identical. Two no-probe stills
-varied only by 1/255. The 4,491-frame motion run had zero missing contacts,
-p99 13.13 ms, 11 frames over 16.67 ms and 538 cached deliveries.
-
-Tile 24 previously had identical source/height/street inputs but different
-camera-eye bakes (51/1337 Fine/Shell still, 38/1350 paced; eye offset about
-109 m). Camera-local LOD and 64-m bake reuse remain the leading explanation
-for the few large pixel differences, not yet a demonstrated cause of the rare
-polygon. WI 2298 specifies source-keyed cell/level products and render-time
-selection; this WI owns final image/shadow convergence and the rare failure.
-`measures --quality refined` now pins a capture and reports visible tile
-digest, source key, explicit detail and fallback status. At 74.85 s all 46
-source keys match; only tile 24's mesh digest differs, with `automatic` detail
-and no height fallback in both runs. This supports the camera-bake explanation
-for the edge pixels, but does not identify the rare polygon's producer.
+Reproduce current motion with `run --offline --view lap --at-seconds 220
+--motion --samples --cache-dir <complete-cache> --into provider-check --stats
+src/assets/places/Hockenheimring.scenario`. The trace and mark2/3/4 PNGs are
+retained there under `typed-admission-lap-lap-*`. Capture actual failing product
+bounds/revisions and AOV before altering generation, publication or shading.
 
 ## Ownership and solution direction
 

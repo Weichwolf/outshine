@@ -30,30 +30,15 @@ The pinned `src/assets/world/osm/HockenheimringGrandPrix.osm` resolves relation
 raceway, so the declared source supplies the semantic route. The normal
 candidate publishes a DEM-based native alignment and road surface.
 
-Warm/offline 220-s capture: 13,200 frames, 4575.927 m, no station regression,
-0 centre/near-edge contact gaps, eye clearance 1.513–1.555 m. p50/p95/p99:
-2.085/9.111/13.319 ms; 47 frames over 16.667 ms; 5,979 unrefined frames;
-629.7 MiB peak heap; 538/538 cache hits, no remote starts. The trace records
-all contacts and frame times. All eleven route-mark PNGs and the final PNG were
-opened. Mark 3 has a near-black foreground despite valid road contact; mark 4
-has an implausibly vast building wall. Grey asphalt, flat ground, schematic
-buildings and abrupt distance transitions still fail visual acceptance.
-The Refined pixel probe now confirms the dark mark-3 foreground in the paced
-run but a bright static render at the same pose/time; a rare static mark-4
-capture drew enormous overhead polygons while the paced run did not. WI 2295
-owns this path-dependent geometry/shadow defect. Contact and frame-time proofs
-remain valid, but Refined alone does not yet imply a stable image.
-Ein neuer warm/offline 220-s-Lauf nach der semantischen Footprint-Trennung
-(`f1a305e22`) und Quellnormalisierung (`5b2e5b633`) hat erneut 13 200 Frames,
-0 fehlende Fahrbahnkontakte und 538/538 Cache-Treffer. p50/p95/p99 sind
-2.277/9.810/14.466 ms, 69 Frames über 16.667 ms, 548.1 MiB Peak-Heap.
-Aber 11 962 Frames sind nicht Refined, gegenüber 5 979 zuvor. Alle elf
-Markierungen wurden geöffnet: Mark 3 hat keine schwarze Fahrbahn mehr; lange
-repetitive Gebäude bei Mark 3/4/7 und monotone Boden-/Straßenflächen bleiben.
-Die höhere Unrefined-Zahl ist eine Regression, keine Abnahme (WI 2298).
-Eine 60-s Diagnose nennt in 55 von 60 Sekundenproben `world ingestion pending`;
-die Bilddetail-Neubewertung aller akzeptierten Strukturkacheln hängt noch am
-semantischen Ground-Ready-Vertrag. WI 2298 trennt diese Zustände.
+Current `b6bf3b0e1` full offline lap after typed admission: 13,200 frames,
+4575.927 m, zero contact gaps/station regression, 538 cache hits, no misses or
+provider starts. Independent TSV check: maximum position step 0.504150 m;
+first/last-frame separation 0.000417 m. p50/p95/p99 2.720/8.922/12.780 ms;
+39 frames over 16.667 ms; peak heap 885.9 MiB. All frames remain unrefined.
+All twelve motion PNGs opened. Marks 2–4 show giant torn structure geometry;
+final fast-forward/motion frames differ at 7348/921600 pixels despite equal
+source counts. Functional/data evidence does not grant visual acceptance.
+WI 2295 owns the corrupt publication/history case; WI 2298 owns product LOD.
 
 ## Construction
 

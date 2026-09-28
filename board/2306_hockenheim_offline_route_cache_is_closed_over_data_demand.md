@@ -11,12 +11,14 @@ Tags: hockenheim, offline, cache, route, reproducibility
 
 ## Evidence and implemented capability
 
-Fast-forward preload fetched 65 vector/129 elevation tiles; paced playback
-needed 65/473. Bounded preparation at 91.7 s now closes that demand: 538 offline
-hits, no misses/network and identical PNGs. Visual quality remains schematic.
-Deleting raw `15/17165/11203` refuses before PNG with actual provider/key;
-stitched context stays separate. Terrarium uses 404-only absence; restoring its
-old 403 rule fails independently. Full-lap/alternate-pacing proof remains open.
+Prepared 220-s offline lap on `b6bf3b0e1`: 13,200 frames, 4575.927 m,
+538 cache hits, zero misses/provider/network starts; fast-forward capture has
+identical source counts. Trace: zero station regressions/contact gaps, maximum
+position step 0.504150 m, first/last-frame separation 0.000417 m. Frame p50/p95/
+p99: 2.720/8.922/12.780 ms; 39 over-budget frames; 885.9 MiB peak heap.
+All twelve motion PNGs and the fast still opened. Marks 2–4 have huge torn
+polygons; every frame is unrefined. Final still/motion differ at 7348/921600
+pixels. WI 2295 owns visual convergence; input closure is separately evidenced.
 
 ## View preparation contract
 
@@ -95,13 +97,11 @@ old 403 rule fails independently. Full-lap/alternate-pacing proof remains open.
   SourceSet consumes cached absence through the same Fail/Continue policy as 404;
   cached Fail reports ConfirmedAbsent, never OfflineMiss or a fabricated height.
 
-Missing/cached-refusal, provider fallback and ancestor identity are implemented.
-Edge/diagonal stitch tests pass; losing raw-failure propagation fails them.
-404 expiry/fallback/revision/evidence tests pass; native errors use real curl
-fixtures. Corrupt centre/edge/diagonal payloads retain raw provenance and refuse
-publication. Pre-landed waits are state-based; their negations fail. Typed native/
-source admission preserves causes across fallback/retry; losing them fails the
-independent native/context tests. Full-lap/pacing proof remains open.
+Owned transport/decoder failures, bounded absence, recovery and state-based
+landing waits have independent fixtures and effective negative controls.
+Admission context survives first/fallback/retry starts. Non-tile delivered
+addresses must also retain corrupt-payload context at terrain byte adapters.
+Exact alternate-pacing address-set and image convergence remain open.
 
 ## Acceptance
 
