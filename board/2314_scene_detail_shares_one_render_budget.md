@@ -50,6 +50,9 @@ matter when sky is occluded. Pixel area alone cannot rank all visible lighting e
    with deterministic ties and hysteresis. No fixed equal split. Compare small cases with
    independent exhaustive allocations; report regret rather than claim global optimality.
    Unknown costs stay conservative. Preserve one valid resident fallback per visible product.
+   Feasible choices also obey memory, upload and preparation caps (2228); no time-only
+   optimum that exceeds residency. Shared prototypes/atlases are charged once at their
+   owner, so marginal cost depends on current shared residency, not just instance count.
 6. Same budget means different geometry/instance/march counts. A budget-constrained fallback
    reports its quality shortfall and cannot falsely report Refined. Atmospheric radiance,
    transmittance, cloud shadow and history use one coherent state at every quality level.
@@ -65,3 +68,11 @@ matter when sky is occluded. Pixel area alone cannot rank all visible lighting e
 - Open decision: target-device GPU measurement/cost interface and cross-family quality
   calibration. Resolve with 2092's captures and 2111/2140's ladders before marking ready.
 - Focused owner tests, format/full lint, outshine-client renders and opened PNGs are required.
+
+## Gegenbeispiel zur Ratio-Heuristik
+
+Budget 10 Kosteneinheiten: A kostet 6 bei Gewinn 9, B/C je 5 bei Gewinn 7.
+Greedy wählt A wegen 9/6 = 1.5 > 7/5 = 1.4 und erreicht 9; B+C kostet 10 und
+liefert 14. Ratio allein ist kein Optimum. Diese unabhängige kleine Fixture muss den
+Regret 14−9 = 5 sichtbar machen. Beschränkte Austausch-/Bundle-Schritte erst nach
+Messung erwägen; gemeinsame Atlas-/Prototypkosten in beiden Orakeln berücksichtigen.

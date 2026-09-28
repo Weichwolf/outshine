@@ -1,9 +1,9 @@
 Type: defect
 State: active
-Architecture: planned
+Architecture: ready
 Priority: P0
 Parent: 2209
-Depends: 2191, 2222, 2223, 2224, 2225
+Depends:
 Area: engine, world, render, audio
 Tags: memory, budget, realtime
 
@@ -67,3 +67,20 @@ The ground 512-MiB limit remains a GroundStack limit until an Engine budget repl
 - A deliberately excessive candidate is rejected before publication; a later smaller
   candidate succeeds without a restart.
 - Moving-camera Places report p50/p95/p99 CPU/GPU residency and peak memory separately.
+
+## Nächster ausführbarer Slice und Abhängigkeiten
+
+Kapazitätsmessung braucht keine abgeschlossenen Publikations-/GPU-Umbauten. Keine
+synthetische Depends-Kette; atomare Enforcement-Integration benötigt später deren konkreten
+Commitvertrag. Zuerst StructureBuildQueue/StructureBuildTask und VegetationStreaming:
+Queue-/Idle-Kapazitäten, RawTile, HeightField-Borrows, MeshScratch/Progress, Models,
+Prototype-/Atlas-Metadaten einmal am tatsächlichen Besitzer erfassen. Neue Proof-Scratch
+2312 ergänzt dieselbe Kategorie; keine Doppelzählung gepinnter gemeinsamer Referenzen.
+Worker publiziert eigene Capacity-Werte nach jedem Slice synchronisiert; Renderthread
+liest keine parallel mutierten Vektoren. Renderer liefert requested buffer/texture bytes
+separat. Host-Prozesspeak ist zusätzliche Evidenz, kein Engine-Budgetzähler.
+Owner-Dateien: engine/streaming/StructureBuild{Queue,Task}, VegetationStreaming,
+render/scene/SceneResources und stages/SubjectResidency; Tests bei diesen Ownern.
+Negativkontrolle: zweiten In-flight-/Idle-Owner oder eine retained capacity auslassen.
+Gate: make format, betroffene Owner-Suites, full make lint. 8 GB Unified Memory ist
+keine frei verfügbare Engine-Allokation; gemessenen OS/Driver-Reservebedarf berücksichtigen.

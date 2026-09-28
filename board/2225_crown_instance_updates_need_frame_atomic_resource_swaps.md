@@ -11,7 +11,7 @@ Tags: streaming, ownership, transaction
 ## Problem
 
 `VegetationStreaming::Step` accepts a finished atlas and then creates prototypes or replaces instance rows
-on the published `RuntimeScene`. `Render::ImpostorInstances::Update` can fail after earlier groups changed. A frame can
+on the published `RuntimeScene`. `Render::ImpostorInstances::Update` batches its views, but later groups can fail after earlier groups changed. A frame can
 therefore contain a mix of old and new crown resources, while the CPU group state has already
 advanced. Rebuilding the complete world candidate per foliage update would reupload terrain and
 unrelated pieces, violating the streaming budget.
@@ -45,3 +45,25 @@ until the world transaction publishes.
   published image. The same oracle must fail when frame execution selects the candidate.
 - Update a dense forest while terrain streams; measure CPU/GPU p50/p95/p99, peak resource count and
   upload bytes. Show cost proportional to changed crown resources, not complete world size.
+
+## Re-audit 2026-09-28 und konkrete Integrationsgrenze
+
+Vorhanden: ImpostorInstances::Update bündelt alle Views; SceneResources::SetPieceInstances
+validiert Handles/Kapazitäten/Duplikate vor CPU-Mutation. Der aktuelle SubjectDraw-Setter
+hat danach keine behandelbare Fehlermöglichkeit. Kein behaupteter partieller View-Fehler.
+Zwischen mehreren Groups bleibt die Publikationsgrenze offen. HandTables mutiert Tabellen;
+bei Uploadfehler werden Jobs/Args leer und Retry bleibt möglich, kein garantiert alter Frame.
+PieceInstanceBatchRejectsPartialUpdates prüft ungültige Eingaben, keinen zweiten GPU-Upload.
+
+Erster Entwurf: VegetationStreaming bereitet geänderte Groups samt Rows als EINEN
+begrenzten Vorschlag vor. SceneResources besitzt validierte CPU-Kandidaten; SubjectDraw/
+SubjectResidency besitzen inaktive Tabellen/Buffer und deren Submit-/Retirementzustand.
+Erst vollständiger Upload/Submit publiziert Handles/Rows/Group-Phasen gemeinsam.
+Kein WorldContent-Klon und keine Stage-/Pipeline-Neuerstellung für gleiche PlanSpec.
+Alte GPU-Ressourcen bleiben bis letzter Nutzung; Abbruch verwirft nur Kandidaten.
+
+Vor Architecture: ready müssen Table-/Material-/Piece-Kandidaten und Fehlerkanäle
+vollständig festgelegt werden. Vorhandenen fail-closed Uploadvertrag erhalten, bis die
+stärkere alte-Frame-Verfügbarkeit bewiesen ist; Tests nicht nur auf grün umschreiben.
+Kontrollen: zweite Group, zweiter Material-/Buffer-Upload, Submit und laufender Ground-
+Kandidat; alte Bild-/Handle-/Residency-Snapshots unabhängig prüfen, Retry und Shutdown.

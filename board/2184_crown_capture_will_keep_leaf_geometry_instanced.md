@@ -1,46 +1,48 @@
 Type: defect
 State: active
-Architecture: planned
+Architecture: ready
 Priority: P1
-Area: generators, render
+Area: generators, render, engine
 Parent: 2111
 Depends:
 
-# Crown capture will keep leaf geometry instanced within the target memory
+# Instanced crown capture has a measured bounded working set
 
-Erster produktiver Koerbersee-Bake: 31 Arten angefragt, erste Art ash, kein Atlas
-nach mehreren Minuten. Prozessprobe: Validierung expandierter Geometrie; Physical
-footprint 8.2G, Peak 15.5G, siehe 2111 und build/world-crowns-prepare-sample.txt.
-Ein Artefaktgenerator, der 8 GB bereits allein überschreitet, ist nicht tragfähig.
+## Befund und vorhandene Fähigkeit
 
-Vor Implementierung: TreePrototype liefert zusätzlich native Rinde, ein natives
-Blatt-/Verbundblatt-Mesh und die vorhandenen Blattinstanzen als Modellmatrizen.
-Dieselben Card-Frames und Materialien wie GeometryAt, keine Blattreduktion und
-kein gröberer Rank. Bounds aus denselben transformierten Blattpunkten bestimmen,
-ohne diese Punkte sämtlich zu speichern. CrownAtlas zeichnet Rinde und instanzierte
-Blätter über vorhandenen Core::RuntimeScene/PieceMesh-Pfad; pro Kamera frische Capture-
-Residenz, wie bisher. Keine eigene zweite Shader- oder Capture-Geometrie.
+Historischer erster Koerbersee-Bake: 31 Arten, ash zuerst; expandierte Blattvalidierung
+mit 8.2 GB physical footprint und 15.5 GB Peak. Das überschreitet das 8-GB-Geräteziel
+bereits im Artefaktgenerator. Diese Zahlen bezeichnen den damaligen Pfad, nicht heute.
 
-Unreal/RAGE-Benchmark: Instanzen teilen Vertex-/Indexströme; abgeleitete Assets
-werden mit begrenzter Arbeitsmenge erzeugt. Hier existieren Rank.Cards und der
-bewiesene Rendererpfad bereits. Die Lücke ist ihre Verbindung vor dem Atlasbake.
+Der aktuelle Pfad ist bereits instanziert: engine/streaming/ImpostorPreparation.cpp
+ruft TreePrototype::InstancedGeometryAt(0), übergibt Rinde mit einer Instanz und das
+geteilte Blattmesh mit Placements an Render::ImpostorBaker. Nicht erneut implementieren.
+Render akzeptiert native ImpostorCapture; Bounds stammen aus denselben Blatttransforms.
+NativeGeometryBakesWithoutEngine und PreparationRetainsGeneratorSurfaces sind vorhandene
+Prüfungen, keine aktuelle Großarten-/Speicherabnahme. Alte „63 Tidy-Befunde“ sind historisch.
 
-Beweis: instanzierte Blattpositionen/Normalen/Materialien stimmen innerhalb
-abgeleiteter float-Rundungsgrenzen mit dem bestehenden vollständig expandierten
-Birken-Feinmesh überein; der Atlas bleibt relightbar und die echte World-Crown-
-Coverage-Prüfung gilt weiter. Falsche Blattorientierung als Negativkontrolle.
-Danach echte ash-/Koerbersee-Vorbereitung mit beobachtetem Speicher, kein Wechsel
-auf leichtere Arten. PNGs und Framekosten nach warmem Laden getrennt abnehmen.
+## Ausführbarer Rest
 
-## P0: vorhandene Atlasprojektion bereinigen
+Owner: flora/TreePrototype, engine/streaming/ImpostorPreparation, render/impostor/ImpostorBaker.
+Vor Änderung echte ash-/Koerbersee-Vorbereitung aus demselben Species-/Shape-Input messen:
+CPU-Kapazitäten, GPU requested bytes, Prozess-Peak und Phasenzeiten getrennt, Logs in Temp.
+Kein Wechsel auf eine leichtere Art oder kleineren Rank, um den Fehler verschwinden zu lassen.
 
-Randfüllung über nächste bedeckte Texel von Geometrie-/Materialausgabe trennen.
-RGBA8-Grenzen aus uint8_t ableiten, Deklarationen eindeutig halten. Unabhängiges
-3x3-Artefakt prüft Farbtransfer, Alpha-Erhalt, Normalraum und MR-Kanäle ohne GPU.
-Keine geänderte Darstellung und kein Arten-/Vegetationsausbau. Cache-Helfer aus
-2210 borgen den Atlas statt vertauschbarer Zähler; Prädikate vollständig prüfen.
+Falls der Peak weiterhin untragbar ist, erste expandierende/allokierende Phase lokalisieren
+und vollständig durch gebündelte Instanzen/Readback mit explizitem Cap ersetzen.
+Instanz- und Atlasgrenzen vor Allokation prüfen; Überschreitung liefert erwarteten Fehler
+und lässt das bestehende Cacheartefakt unverändert. Ein Bake gleichzeitig, Abbruch und
+Generationsprüfung vor Cache-Publikation; renderer-eigene Capture-Ressourcen korrekt retire.
+Native Nahgeometrie 2111 muss nicht auf den vollständigen Atlas-Messauftrag warten.
 
-Nachweis: beide CrownAtlas-Tests grün. Das unabhängige 3x3-Artefakt prüft
-Farbtransfer, unveränderte Coverage, Tangentennormalen und MR-Packing; vertauschte
-MR-Kanäle scheitern an allen neun Texeln. Randfüllung und Bytequantisierung bleiben
-unverändert. Vollständiges Lint: 187/187 Units, 63 Befunde; Writer bleibt rot.
+## Abnahme
+
+- [ ] Blattpositionen/Normalen/Materialien gegen unabhängig expandierte kleine Referenz;
+      Floatgrenzen herleiten. Falsche Blattorientierung und expandierter Großpfad scheitern.
+- [ ] Vorhandene unabhängige 3x3-Packing-Prüfung erhält Alpha, Normalraum und MR-Kanäle;
+      vertauschte MR-Kanäle verletzen das Oracle. Randfüllung ist keine neue Geometrie.
+- [ ] Echte ash-/Koerbersee-Vorbereitung endet innerhalb deklarierter Arbeits-/Speichercaps;
+      misslungener/abgebrochener Bake publiziert nichts und ein Retry ist möglich.
+- [ ] Atlas- und Welt-PNGs selbst öffnen; Warmrenderkosten getrennt von Artefaktkosten.
+- [ ] make format; fokussierte TreePrototype/ImpostorBaker/ImpostorPreparation/VegetationStreaming
+      Suites und vollständiges make lint. Device-Peak bleibt unabhängig nachzuweisen.
