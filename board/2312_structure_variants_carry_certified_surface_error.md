@@ -98,4 +98,5 @@ Direct implementation check: 20 checks PASS with real blocked workers. Restored 
 moves, shared source stop ownership and lost destination stop ownership each give actual
 FAIL (exit 1), not SIGNAL/BUILD/TIMEOUT. Format: 1203 files, zero errors. Logs:
 /tmp/outshine-build-task-move-{controls,correct,default-moves,shared-source-stop,
-lost-destination-stop}.log. Official focused/full gate pending; adaptive phases still open.
+lost-destination-stop}.log. bc33d18d4: official BuildTask 1 and queue 4 PASS;
+logs /tmp/outshine-build-task-move-{focused,queue}.log. Full lint running; phases still open.
