@@ -72,9 +72,11 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   empty refusals before admission, sharing cache-index removal with eviction.
   Repeated recovered requests deliver resident bytes without new fetches; the
   former early-return behavior fails this independent provider-delivery check. Decoding creates corrupt-
-  payload failures with the delivered source identity/address. Wire/Fetched must
-  explicitly distinguish offline miss from provider refusal, not infer it from
-  Ticket::None. Deadline/admission failures keep their own cause and context.
+  payload failures with delivered source identity/address. host/Fetching maps
+  curl timeout/body limits to TimedOut/CapacityRefused. Cancelled ticket IDs use
+  a FIFO bounded by MaxRequests; transfers/payloads are freed, Collect consumes
+  the cause once. HTTP 408 retries as timeout; cancel/body limits are terminal.
+  Deadline/admission failures keep their own cause; never infer from Ticket::None.
 - Exact source identity and served address must survive ancestor mapping and
   provider fallback. Preparation formats this owned failure; retain the generic
   field address as context, never as a substitute for the offending request.
@@ -83,9 +85,8 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   with bounded freshness for unpinned data and bounded metadata storage. Never
   cache 403, timeout, cancellation or corrupt bytes as absence. Terrarium's 403
   handling must be corrected by removing its special absence override; the shared
-  WebTileSource 404-only rule applies. A TerrariumDem test uses scripted HTTP
-  replies through SourceSet: 404 alone hands over, 403 refuses without fallback,
-  and a subsequent 200 remains fetchable. Existing raw cached bytes remain readable; any
+  WebTileSource 404-only rule applies. 403 refuses without fallback and later 200
+  remains fetchable. Existing raw cached bytes remain readable; any
   new record format is versioned. Do not pretend unavailable height is zero.
   ContentStore::Lookup returns Bytes/Absent/Unknown; Read remains byte-compatible.
   ContentStoreAbsence.cpp owns regular-file-only `.outshine-absence-v1` sidecars,
