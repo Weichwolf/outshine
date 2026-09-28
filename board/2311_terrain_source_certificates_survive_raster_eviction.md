@@ -51,17 +51,19 @@ fallback. Shared checks cover vector/street/span/key/scope; fixtures require zer
 and resolver calls. Restored resolution or ignored scope/metadata must give actual FAIL.
 Frame still uses ValidateResidentCellSource until bounded revalidation is integrated.
 
-## Active step: cache accepted source identity at its owner
+## Active step: own street digests at ingestion
 
-Move StructureSourceKey.h and fixtures to world/ground; preserve algorithm/key bytes.
-PendingAcceptance canonicalizes Sources and computes AcceptedInput::SourceKey once from
-its OWN immutable Vector/Sources/Bake data, only when Qualified. QualifiedSourceKey reads
-this scalar. Commit/replacement/snapshot/reset carry or recompute it with its owner.
-Certificate-only renewal preserves it. Test canonicalization, mutations, snapshots and
-unqualified acceptance. Protect an interior source-string page in a child and invoke the
-real queue getter: lookup must succeed; restored rehash must fail the parent check safely.
-Acceptance: format; native StructureSourceKey/BuildingField/queue suites; full lint/tidy/API.
-Existing frame consumers stop hashing sources repeatedly; street scanning remains.
+StreetField owns immutable Way digests and OSM origin/generation. Reuse the existing
+OriginToken byte owner, never pin coordinates. Snapshots retain the same context; foreign
+domains or later generations cannot hit even at equal counters. Ingest resets old derived
+data on context changes and computes the former engine digest (count/width/coordinate bits).
+SourceDigest(field,tile) returns optional scalar; unknown context never triggers lazy rehash.
+Empty unbound fields/untouched tiles retain the old empty digest. Settle/HeapBytes include
+cached words. Queue inspection/validation/post/landing consume them; unknown context defers
+before posting/resolution and cannot call Current. Test independent oracle, repeat ingest,
+snapshot, width/coordinate/domain/generation changes, unknown context and protected points.
+Restored scan must give actual FAIL. Acceptance: format; StreetField/OsmField/GroundStack/
+queue suites; full lint/tidy/API. Existing accepted source-key cache remains unchanged.
 
 ## Evidence
 
