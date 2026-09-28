@@ -80,7 +80,9 @@ Also open: fresh Hockenheim static/paced PNGs and cold/warm/moving cost evidence
 
 ## Readiness-Contention und Zustand
 
-InspectStamps/AreCurrent halten derzeit std::mutex; der Hit-Beleg ist unkontendiert.
+TilePool::CertificateCurrent hält QueueMutex_ und CacheMutex_, darunter sperrt
+TerrainRevisionIndex::AreCurrent seinen Mutex. Der Hit-Beleg ist unkontendiert.
+Ein try-lock nur im Index genügt deshalb nicht: alle drei Frame-Locks müssen nicht wartend sein.
 Null Allokationen beweisen keine begrenzte Wartezeit im Frame. Die reine Inspektion
 braucht zusätzlich einen nicht wartenden Versuch; bei Contention kein Current erfinden,
 sondern ValidationPending an begrenzte, pro Tile/Quelle zusammengefasste Vorbereitung
