@@ -80,6 +80,17 @@ int main() {
     std::filesystem::remove_all(markers);
     std::filesystem::create_directory(markers);
     const std::array<std::string, 3> keys{first, second, third};
+    {
+      ContentStore store(config);
+      for (const int index : order) {
+        (void)store.KeepAbsent(keys[static_cast<size_t>(index)], 10 * (index + 1));
+      }
+      CHECK(store.Lookup(first).Where == ContentStore::Presence::Unknown &&
+                store.Lookup(third).Where == ContentStore::Presence::Absent,
+            "API admission keeps the longest-lived evidence for every insertion order");
+    }
+    std::filesystem::remove_all(markers);
+    std::filesystem::create_directory(markers);
     for (const int index : order) {
       std::ofstream(markers / keys[static_cast<size_t>(index)]) << "outshine-absence-v1\n"
                                                                 << now + 10 * (index + 1) << "\n";

@@ -30,7 +30,7 @@ public:
     std::vector<uint8_t> Bytes;
   };
 
-  static constexpr int64_t UnpinnedAbsenceLifetimeS = 24 * 60 * 60;
+  static constexpr int64_t UnpinnedAbsenceLifetimeS = int64_t{24} * 60 * 60;
   static constexpr int64_t PinnedAbsenceLifetimeS = 7 * UnpinnedAbsenceLifetimeS;
   static constexpr size_t MaximumAbsenceEntries = 65536;
   static constexpr size_t DefaultAbsenceEntries = 4096;
