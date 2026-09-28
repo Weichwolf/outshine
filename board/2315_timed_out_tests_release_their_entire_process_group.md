@@ -20,7 +20,7 @@ Refined captures. Do not attribute the later contaminated failures to new engine
 
 RunWithTimeout sends TERM, then schedules KILL after two seconds. Parent exit wakes
 its caller, which invokes KillRunning and terminates the watchdog before escalation.
-KillRunning currently only sends TERM. A TERM-ignoring descendant therefore survives.
+The former KillRunning only sends TERM. A TERM-ignoring descendant therefore survives.
 
 ## Binding repair
 
@@ -40,3 +40,14 @@ Assert descendant death and a separately owned live sentinel remains unaffected.
 Restored TERM-only cleanup must produce actual test FAIL; cleanup the fixture afterward.
 Commands: python3 test/scripts/test_timeout_cleanup.py; make format; relevant harness
 claims; full Places suite and all Place PNGs opened; LINT_JOBS=2 make lint. Logs in temp.
+
+## Repair evidence
+
+320e3c9a2 implements bounded TERM/KILL cleanup before the next case, without changing
+execution budgets. All three real subprocess cases PASS; restored TERM-only cleanup
+produces three actual FAILs. Foreign sentinel remains alive in each repaired case.
+Harness claims and both Husum render variants: 34/34 PASS, Husum 17.5/17.3 s.
+No client survives this gate. Husum PNG opened: buildings and harbor visible; sawtooth
+shoreline, uniform facades and flat water remain. Full Places and current lint are open.
+Logs: /tmp/outshine-timeout-cleanup-{bounded-test,negative}.log and
+/tmp/outshine-timeout-cleanup-claims-and-husum.log.
