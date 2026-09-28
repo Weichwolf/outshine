@@ -98,8 +98,9 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
 
 Missing/cached-refusal, provider fallback and ancestor identity are implemented.
 Independent edge/diagonal stitch tests pass; removing raw-failure propagation fails
-them. Native timeout/cancel mapping, corrupt/capacity failures, persistent confirmed
-absence and full-lap/alternate-pacing proof remain open.
+them. Confirmed 404 persists with bounded expiry; offline fallback, revision/expiry
+invalidations, malformed records and evidence-negation tests pass. Native timeout/
+cancel mapping, corrupt/capacity failures and full-lap/pacing proof remain open.
 
 ## Acceptance
 

@@ -89,6 +89,8 @@ public:
   [[nodiscard]] Ledger Counters() const;
 
 private:
+  [[nodiscard]] std::optional<Delivery> ReadStored(Query &query);
+  [[nodiscard]] std::optional<Delivery> ProcessAbsence(Query &query);
   void RecordStart(const SourceDecl &decl, bool first, bool started);
   void RecordDelivery(const SourceDecl &decl);
 

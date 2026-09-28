@@ -12,6 +12,8 @@ namespace outshine::Data {
 
 enum class Meaning : uint8_t { Bytes, Absent, Refused, Retry };
 
+enum class AbsenceEvidence : uint8_t { Unknown, HttpNotFound };
+
 class Fetched {
 public:
   enum class State { Working, Settled, Consumed };
@@ -24,7 +26,8 @@ public:
         What_(std::exchange(other.What_, Meaning::Refused)),
         Bytes_(std::move(other.Bytes_)),
         RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)),
-        Reason_(other.Reason_) {}
+        Reason_(other.Reason_),
+        Evidence_(other.Evidence_) {}
 
   Fetched &operator=(Fetched &&other) noexcept {
     if (this == &other) { return *this; }
@@ -33,6 +36,7 @@ public:
     Bytes_ = std::move(other.Bytes_);
     RetryAfterS_ = std::exchange(other.RetryAfterS_, 0.0);
     Reason_ = other.Reason_;
+    Evidence_ = other.Evidence_;
     return *this;
   }
 
@@ -55,6 +59,12 @@ public:
     return made;
   }
 
+  [[nodiscard]] static Fetched NotFound() {
+    auto made = Meant(Meaning::Absent);
+    made.Evidence_ = AbsenceEvidence::HttpNotFound;
+    return made;
+  }
+
   [[nodiscard]] static Fetched Delivered(std::vector<uint8_t> bytes) {
     return {State::Settled, Meaning::Bytes, std::move(bytes)};
   }
@@ -66,13 +76,15 @@ public:
   struct Settled {
     Meaning What = Meaning::Refused;
     FetchFailureReason Reason = FetchFailureReason::ProviderRefused;
+    AbsenceEvidence Evidence = AbsenceEvidence::Unknown;
     std::vector<uint8_t> Bytes;
   };
 
   [[nodiscard]] std::optional<Settled> Take() {
     if (Where_ != State::Settled) { return std::nullopt; }
     Where_ = State::Consumed;
-    return Settled{.What = What_, .Reason = Reason_, .Bytes = std::move(Bytes_)};
+    return Settled{
+        .What = What_, .Reason = Reason_, .Evidence = Evidence_, .Bytes = std::move(Bytes_)};
   }
 
 private:
@@ -84,6 +96,7 @@ private:
   std::vector<uint8_t> Bytes_;
   double RetryAfterS_ = 0.0;
   FetchFailureReason Reason_ = FetchFailureReason::ProviderRefused;
+  AbsenceEvidence Evidence_ = AbsenceEvidence::Unknown;
 };
 
 }

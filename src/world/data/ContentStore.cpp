@@ -27,13 +27,23 @@ constexpr const char *kDefaultLeaf = "outshine-content";
 
 constexpr size_t kKeyCharacters = 64;
 
-[[nodiscard]] bool ValidKey(std::string_view key) {
+[[nodiscard]] std::string DefaultDirectory() {
+  std::error_code ec;
+  const std::filesystem::path base = std::filesystem::temp_directory_path(ec);
+  if (ec) { return {kDefaultLeaf}; }
+  return (base / kDefaultLeaf).string();
+}
+
+}
+
+[[nodiscard]] bool ContentStore::ValidKey(std::string_view key) {
   return key.size() == kKeyCharacters && std::ranges::all_of(key, [](char c) {
            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
          });
 }
 
-[[nodiscard]] std::optional<std::vector<uint8_t>> ReadEntry(const std::string &path, size_t limit) {
+[[nodiscard]] std::optional<std::vector<uint8_t>> ContentStore::ReadEntry(const std::string &path,
+                                                                          size_t limit) {
   std::error_code error;
   if (!std::filesystem::is_regular_file(std::filesystem::symlink_status(path, error)) || error) {
     return std::nullopt;
@@ -52,15 +62,6 @@ constexpr size_t kKeyCharacters = 64;
   }
   if (std::fclose(file.release()) != 0) { return std::nullopt; }
   return bytes;
-}
-
-[[nodiscard]] std::string DefaultDirectory() {
-  std::error_code ec;
-  const std::filesystem::path base = std::filesystem::temp_directory_path(ec);
-  if (ec) { return {kDefaultLeaf}; }
-  return (base / kDefaultLeaf).string();
-}
-
 }
 
 std::string ContentKey(const SourceDecl &decl, const Address &at) {
@@ -98,24 +99,28 @@ std::string SourceKey(const SourceDecl &decl) {
 ContentStore::ContentStore(const Config &config)
     : Directory_(config.Directory.empty() ? DefaultDirectory() : config.Directory),
       Using_(config.Using),
-      CapBytes_(config.CapBytes > 0 ? config.CapBytes : kDefaultCapBytes) {
+      CapBytes_(config.CapBytes > 0 ? config.CapBytes : kDefaultCapBytes),
+      AbsenceEntries_(std::clamp(config.AbsenceEntries, size_t{1}, MaximumAbsenceEntries)),
+      UtcSeconds_(config.UtcSeconds) {
   if (Using_ != Use::On) { return; }
   std::error_code ec;
   std::filesystem::create_directories(Directory_, ec);
 
-  struct Entry {
+  LoadAbsences();
+
+  struct StoredFile {
     std::filesystem::path Path;
     std::filesystem::file_time_type When;
     uintmax_t Bytes = 0;
   };
 
-  std::vector<Entry> entries;
+  std::vector<StoredFile> entries;
   uintmax_t total = 0;
   for (std::filesystem::directory_iterator it(Directory_, ec), end; !ec && it != end;
        it.increment(ec)) {
     if (!ValidKey(it->path().filename().string())) { continue; }
     if (!std::filesystem::is_regular_file(it->symlink_status(ec)) || ec) { continue; }
-    Entry e;
+    StoredFile e;
     e.Path = it->path();
     e.When = it->last_write_time(ec);
     if (ec) { break; }
@@ -127,8 +132,9 @@ ContentStore::ContentStore(const Config &config)
     entries.push_back(std::move(e));
   }
   if (total <= static_cast<uintmax_t>(CapBytes_)) { return; }
-  std::ranges::sort(entries, [](const Entry &a, const Entry &b) { return a.When < b.When; });
-  for (const Entry &e : entries) {
+  std::ranges::sort(entries,
+                    [](const StoredFile &a, const StoredFile &b) { return a.When < b.When; });
+  for (const StoredFile &e : entries) {
     if (total <= static_cast<uintmax_t>(CapBytes_)) { break; }
     std::error_code removeError;
     if (!std::filesystem::remove(e.Path, removeError)) { continue; }
@@ -141,14 +147,33 @@ ContentStore::ContentStore(const Config &config)
 std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key,
                                                        size_t mostBytes) const {
   if (Using_ != Use::On) { return std::nullopt; }
-  const size_t limit = mostBytes == 0 ? CapBytes_ : std::min(mostBytes, CapBytes_);
-  auto kept = ValidKey(key) ? ReadEntry(Directory_ + "/" + std::string(key), limit) : std::nullopt;
+  auto kept = ReadBytes(key, mostBytes);
   if (!kept) {
     Misses_.fetch_add(1, std::memory_order_relaxed);
     return std::nullopt;
   }
   Hits_.fetch_add(1, std::memory_order_relaxed);
   return kept;
+}
+
+std::optional<std::vector<uint8_t>> ContentStore::ReadBytes(std::string_view key,
+                                                            size_t mostBytes) const {
+  const size_t limit = mostBytes == 0 ? CapBytes_ : std::min(mostBytes, CapBytes_);
+  return ValidKey(key) ? ReadEntry(Directory_ + "/" + std::string(key), limit) : std::nullopt;
+}
+
+ContentStore::Entry ContentStore::Lookup(std::string_view key, size_t mostBytes) const {
+  if (Using_ != Use::On) { return {}; }
+  if (auto bytes = ReadBytes(key, mostBytes)) {
+    Hits_.fetch_add(1, std::memory_order_relaxed);
+    return {.Where = Presence::Bytes, .Bytes = std::move(*bytes)};
+  }
+  if (ValidKey(key) && HasAbsence(key)) {
+    Hits_.fetch_add(1, std::memory_order_relaxed);
+    return {.Where = Presence::Absent, .Bytes = {}};
+  }
+  Misses_.fetch_add(1, std::memory_order_relaxed);
+  return {};
 }
 
 bool ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes) {
@@ -163,6 +188,7 @@ bool ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes)
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
   }
+  ForgetAbsence(key);
   Writes_.fetch_add(1, std::memory_order_relaxed);
   return true;
 }

@@ -137,18 +137,8 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
       query.Attempts_ = 0;
       query.At_ = query.Current_->Serves(query.Request_);
       const SourceDecl &decl = query.Current_->Declaration();
-      if (decl.Keeps == Cacheability::Forever) {
-        if (std::optional<std::vector<uint8_t>> kept = Store_.Read(ContentKey(decl, query.At_))) {
-          const std::scoped_lock lock(LedgerMutex_);
-          Ledger_.Asked++;
-          Ledger_.Delivered++;
-          Ledger_.FromStore++;
-          Ledger_.DeliveredBytes += static_cast<long long>(kept->size());
-          RecordDelivery(decl);
-          query.Finish();
-          return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(*kept));
-        }
-      }
+      if (auto stored = ReadStored(query)) { return std::move(*stored); }
+      if (query.Current_ == nullptr) { continue; }
       query.Ticket_ = query.Current_->Begin(query.At_, transport);
       RecordStart(decl, true, query.Ticket_ != Ticket::None);
       query.Phase_ = Query::Phase::InFlight;
@@ -166,6 +156,39 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
       return std::move(*delivery);
     }
   }
+}
+
+std::optional<Delivery> SourceSet::ProcessAbsence(Query &query) {
+  if (query.Current_->Declaration().OnAbsent == AbsencePolicy::Fail) {
+    return Refuse(query, kRetryCapMs, FetchFailureReason::ConfirmedAbsent);
+  }
+  query.Current_ = nullptr;
+  query.Phase_ = Query::Phase::Ready;
+  const std::scoped_lock lock(LedgerMutex_);
+  ++Ledger_.HandedOver;
+  return std::nullopt;
+}
+
+std::optional<Delivery> SourceSet::ReadStored(Query &query) {
+  const SourceDecl &decl = query.Current_->Declaration();
+  if (decl.Keeps != Cacheability::Forever) { return std::nullopt; }
+  auto kept = Store_.Lookup(ContentKey(decl, query.At_));
+  if (kept.Where == ContentStore::Presence::Unknown) { return std::nullopt; }
+  if (kept.Where == ContentStore::Presence::Absent) {
+    {
+      const std::scoped_lock lock(LedgerMutex_);
+      ++Ledger_.Asked;
+    }
+    return ProcessAbsence(query);
+  }
+  const std::scoped_lock lock(LedgerMutex_);
+  ++Ledger_.Asked;
+  ++Ledger_.Delivered;
+  ++Ledger_.FromStore;
+  Ledger_.DeliveredBytes += static_cast<long long>(kept.Bytes.size());
+  RecordDelivery(decl);
+  query.Finish();
+  return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(kept.Bytes));
 }
 
 Delivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
@@ -215,12 +238,13 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
       return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(response.Bytes));
     }
     case Meaning::Absent: {
-      if (decl.OnAbsent == AbsencePolicy::Fail) { return Refuse(query, kRetryCapMs); }
-      query.Current_ = nullptr;
-      query.Phase_ = Query::Phase::Ready;
-      const std::scoped_lock lock(LedgerMutex_);
-      ++Ledger_.HandedOver;
-      return std::nullopt;
+      if (response.Evidence == AbsenceEvidence::HttpNotFound &&
+          decl.Keeps == Cacheability::Forever) {
+        const auto lifetime = decl.Revision.empty() ? ContentStore::UnpinnedAbsenceLifetimeS
+                                                    : ContentStore::PinnedAbsenceLifetimeS;
+        (void)Store_.KeepAbsent(ContentKey(decl, query.At_), lifetime);
+      }
+      return ProcessAbsence(query);
     }
     case Meaning::Retry:
       if (validDelay && query.Attempts_ < decl.RetryBudget) {

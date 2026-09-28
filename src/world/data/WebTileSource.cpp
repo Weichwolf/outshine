@@ -68,6 +68,7 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
   }
   std::optional<Wire::Response> answered = wire.Take();
   if (!answered) { return Fetched::Meant(Meaning::Refused); }
+  if (answered->Status == kHttpNotFound) { return Fetched::NotFound(); }
   const Meaning what = Classify({.Status = answered->Status, .Bytes = answered->Body.size()});
   if (what != Meaning::Bytes) { return Fetched::MeantAfter(what, wire.RetryAfterS()); }
   return Fetched::Delivered(std::move(answered->Body));

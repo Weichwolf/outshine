@@ -13,6 +13,7 @@
 namespace outshine::Data {
 
 enum class FetchFailureReason : uint8_t {
+  ConfirmedAbsent,
   OfflineMiss,
   ProviderRefused,
   Unavailable,
@@ -24,6 +25,7 @@ enum class FetchFailureReason : uint8_t {
 
 [[nodiscard]] constexpr std::string_view Name(FetchFailureReason reason) noexcept {
   switch (reason) {
+    case FetchFailureReason::ConfirmedAbsent: return "confirmed absence";
     case FetchFailureReason::OfflineMiss: return "offline cache miss";
     case FetchFailureReason::ProviderRefused: return "provider refusal";
     case FetchFailureReason::Unavailable: return "transport unavailable";
