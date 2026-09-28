@@ -15,7 +15,12 @@ namespace outshine::Generators {
 struct StructureSurfaceRefinementLimits {
   size_t MaxTriangleQueries = 131072;
   size_t MaxRegions = 4096;
-  double TargetUncertaintyM = 0.02;
+  static constexpr double DefaultTargetUncertaintyM = 0.02;
+  double TargetUncertaintyM = DefaultTargetUncertaintyM;
+};
+
+struct StructureSurfaceRefinementBudget {
+  size_t MaxWorkUnits = 128;
 };
 
 struct StructureSurfaceErrorInterval {
@@ -32,7 +37,7 @@ public:
   [[nodiscard]] std::expected<void, StructureSurfaceErrorFailure>
   Reset(StructureSurfacePair inputs, StructureSurfaceRefinementLimits limits = {}) noexcept;
   [[nodiscard]] std::expected<StructureSurfaceErrorProgress, StructureSurfaceErrorFailure>
-  Step(uint64_t currentSourceKey, size_t maxWorkUnits = 128) noexcept;
+  Step(uint64_t currentSourceKey, StructureSurfaceRefinementBudget budget = {}) noexcept;
   void Cancel() noexcept;
   [[nodiscard]] std::optional<StructureSurfaceErrorInterval>
   Bound(uint64_t currentSourceKey) const noexcept;
@@ -70,7 +75,7 @@ private:
   std::array<Region, 4> Children_;
   std::array<double, 2> LowerM_{};
   Region Working_;
-  std::optional<StructureSurfaceErrorBound> Bound_;
+  StructureSurfaceErrorBound Bound_;
   uint64_t SourceKey_ = 0;
   uint64_t NextSerial_ = 0;
   size_t Direction_ = 0;

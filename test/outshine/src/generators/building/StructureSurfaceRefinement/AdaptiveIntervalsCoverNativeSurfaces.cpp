@@ -34,7 +34,7 @@ Run(StructureSurfaceRefinementTask &task, uint64_t key, double truth, size_t sli
   for (size_t step = 0; step < 300000; ++step) {
     const size_t before = task.WorkUnits();
     const size_t queries = task.TriangleQueries();
-    const auto progress = task.Step(key, slice);
+    const auto progress = task.Step(key, {.MaxWorkUnits = slice});
     result.Paced &= task.WorkUnits() - before <= slice && task.TriangleQueries() - queries <= slice;
     if (!progress) {
       result.Safe = false;
@@ -64,7 +64,8 @@ int main() {
   Rectangle(frame, 1, 2, 2, 3);
   StructureSurfaceRefinementTask task;
   CHECK(task.Reset({.Reference = cap, .Variant = frame, .SourceKey = 7}), "native opening starts");
-  CHECK(task.Step(7, 0) && task.WorkUnits() == 0 && task.TriangleQueries() == 0 && !task.Bound(7),
+  CHECK(task.Step(7, {.MaxWorkUnits = 0}) && task.WorkUnits() == 0 && task.TriangleQueries() == 0 &&
+            !task.Bound(7),
         "zero slice cannot scan inputs or expose unvalidated coverage");
   const auto opening = Run(task, 7, 0.5);
   const auto openingBound = task.Bound(7);
@@ -149,7 +150,8 @@ int main() {
         "collapsed triangles remain valid surfaces rather than empty or undefined geometry");
 
   CHECK(task.Reset({.Reference = cap, .Variant = frame, .SourceKey = 15}), "source guard starts");
-  CHECK(task.Step(15, 100) && task.Bound(15), "coarse coverage exists during adaptive work");
+  CHECK(task.Step(15, {.MaxWorkUnits = 100}) && task.Bound(15),
+        "coarse coverage exists during adaptive work");
   auto copy = task;
   auto moved = std::move(copy);
   const auto originalProgress = Run(task, 15, 0.5, 29);
@@ -159,14 +161,16 @@ int main() {
             task.Bound(15)->UpperDistanceM() == moved.Bound(15)->UpperDistanceM(),
         "copied and moved tasks retain independent pending child and heap state");
   CHECK(!task.Bound(16), "a result cannot be read with a different source key");
-  CHECK(!task.Step(16, 1) && !task.Bound(15), "late source replacement revokes completed proof");
+  CHECK(!task.Step(16, {.MaxWorkUnits = 1}) && !task.Bound(15),
+        "late source replacement revokes completed proof");
   moved.Cancel();
-  CHECK(!moved.Step(15, 1) && !moved.Bound(15), "cancellation revokes every adaptive certificate");
+  CHECK(!moved.Step(15, {.MaxWorkUnits = 1}) && !moved.Bound(15),
+        "cancellation revokes every adaptive certificate");
   Raised invalid = frame;
   invalid.RoofRun.back() = std::numeric_limits<uint32_t>::max();
   CHECK(task.Reset({.Reference = cap, .Variant = invalid, .SourceKey = 17}),
         "late bad index remains paced validation");
-  CHECK(!task.Step(17, 128) && !task.Bound(17) && task.TriangleQueries() == 0,
+  CHECK(!task.Step(17, {.MaxWorkUnits = 128}) && !task.Bound(17) && task.TriangleQueries() == 0,
         "all native streams validate before any adaptive target query or certificate");
   CHECK(!task.Reset({.Reference = cap, .Variant = frame, .SourceKey = 18}, {.MaxRegions = 0}) &&
             !task.Bound(18),

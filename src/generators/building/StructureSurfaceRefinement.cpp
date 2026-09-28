@@ -2,6 +2,11 @@
 #include "DistanceInterval.h"
 #include "TriangleDistance.h"
 #include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <optional>
 #include <array>
 #include <cmath>
 #include <limits>
@@ -51,7 +56,7 @@ std::expected<void, StructureSurfaceErrorFailure>
 StructureSurfaceRefinementTask::Reset(StructureSurfacePair inputs,
                                       StructureSurfaceRefinementLimits limits) noexcept {
   Phase_ = Phase::Failed;
-  Bound_.reset();
+  Bound_ = {};
   Failure_ = StructureSurfaceErrorFailure::InvalidBudget;
   if (limits.MaxRegions == 0 || limits.MaxRegions > 4096 || limits.MaxTriangleQueries > 131072 ||
       !std::isfinite(limits.TargetUncertaintyM) || limits.TargetUncertaintyM < 0) {
@@ -75,8 +80,13 @@ StructureSurfaceRefinementTask::Reset(StructureSurfacePair inputs,
     Failure_ = reset.error();
     return std::unexpected(Failure_);
   }
-  Bound_ = Envelope_.Bound(SourceKey_);
-  Phase_ = Bound_ ? Phase::Complete : Phase::Envelope;
+  const auto coarse = Envelope_.Bound(SourceKey_);
+  if (coarse) {
+    Bound_ = *coarse;
+    Phase_ = Phase::Complete;
+  } else {
+    Phase_ = Phase::Envelope;
+  }
   return {};
 }
 
@@ -92,7 +102,7 @@ StructureSurfaceRefinementTask::PrepareRegion(std::array<PointEnclosure, 3> vert
 }
 
 void StructureSurfaceRefinementTask::BeginEvaluation(Region region) noexcept {
-  Working_ = std::move(region);
+  Working_ = region;
   TargetCursor_ = 0;
   SampleLowerM_ = std::numeric_limits<double>::infinity();
   SampleUpperM_ = std::numeric_limits<double>::infinity();
@@ -127,9 +137,9 @@ StructureSurfaceRefinementTask::PrepareSplit() noexcept {
 }
 
 void StructureSurfaceRefinementTask::UpdateUpper() noexcept {
-  Bound_->ReferenceToVariantM = Heaps_[0].front().UpperM;
-  Bound_->VariantToReferenceM = Heaps_[1].front().UpperM;
-  const double upper = Bound_->UpperDistanceM();
+  Bound_.ReferenceToVariantM = Heaps_[0].front().UpperM;
+  Bound_.VariantToReferenceM = Heaps_[1].front().UpperM;
+  const double upper = Bound_.UpperDistanceM();
   const double lower = std::max(LowerM_[0], LowerM_[1]);
   const double width =
       Subtract({.Lower = upper, .Upper = upper}, {.Lower = lower, .Upper = lower}).Upper;
@@ -141,11 +151,11 @@ void StructureSurfaceRefinementTask::FinishEvaluation() noexcept {
   const double lower = Subtract({.Lower = SampleLowerM_, .Upper = SampleLowerM_},
                                 {.Lower = deviation, .Upper = deviation})
                            .Lower;
-  LowerM_[Direction_] = std::max(LowerM_[Direction_], std::max(0.0, lower));
+  LowerM_[Direction_] = std::max({LowerM_[Direction_], 0.0, lower});
   auto &heap = Heaps_[Direction_];
   if (Phase_ == Phase::EvaluateSeed) {
     heap.push_back(Working_);
-    std::push_heap(heap.begin(), heap.end(), LowerPriority);
+    std::ranges::push_heap(heap, LowerPriority);
     SeedCursor_ += 3;
     if (SeedCursor_ == IndexCount(*Inputs_[Direction_])) {
       ++Direction_;
@@ -163,11 +173,11 @@ void StructureSurfaceRefinementTask::FinishEvaluation() noexcept {
     BeginEvaluation(Children_[ChildCursor_]);
     return;
   }
-  std::pop_heap(heap.begin(), heap.end(), LowerPriority);
+  std::ranges::pop_heap(heap, LowerPriority);
   heap.pop_back();
   for (const Region &child : Children_) {
     heap.push_back(child);
-    std::push_heap(heap.begin(), heap.end(), LowerPriority);
+    std::ranges::push_heap(heap, LowerPriority);
   }
   ++Splits_;
   UpdateUpper();
@@ -208,7 +218,9 @@ StructureSurfaceRefinementTask::ProcessWork() noexcept {
       const auto progress = Envelope_.Step(SourceKey_, {.MaxCorners = 1});
       if (!progress) { return std::unexpected(progress.error()); }
       if (*progress != StructureSurfaceErrorProgress::Complete) { return {}; }
-      Bound_ = Envelope_.Bound(SourceKey_);
+      const auto coarse = Envelope_.Bound(SourceKey_);
+      assert(coarse.has_value());
+      Bound_ = *coarse;
       const size_t triangles = (IndexCount(*Inputs_[0]) + IndexCount(*Inputs_[1])) / 3;
       if (triangles > Limits_.MaxRegions || Limits_.MaxTriangleQueries == 0) {
         Phase_ = Phase::Complete;
@@ -220,7 +232,7 @@ StructureSurfaceRefinementTask::ProcessWork() noexcept {
     }
     case Phase::Seed: {
       const double upper =
-          Direction_ == 0 ? Bound_->ReferenceToVariantM : Bound_->VariantToReferenceM;
+          Direction_ == 0 ? Bound_.ReferenceToVariantM : Bound_.VariantToReferenceM;
       const auto region = PrepareRegion(TriangleAt(*Inputs_[Direction_], SeedCursor_), upper);
       if (!region) { return std::unexpected(region.error()); }
       BeginEvaluation(*region);
@@ -237,22 +249,23 @@ StructureSurfaceRefinementTask::ProcessWork() noexcept {
 }
 
 std::expected<StructureSurfaceErrorProgress, StructureSurfaceErrorFailure>
-StructureSurfaceRefinementTask::Step(uint64_t currentSourceKey, size_t maxWorkUnits) noexcept {
+StructureSurfaceRefinementTask::Step(uint64_t currentSourceKey,
+                                     StructureSurfaceRefinementBudget budget) noexcept {
   if (Phase_ == Phase::Failed) { return std::unexpected(Failure_); }
   if (currentSourceKey != SourceKey_) {
     Phase_ = Phase::Failed;
     Failure_ = StructureSurfaceErrorFailure::SourceChanged;
-    Bound_.reset();
+    Bound_ = {};
     return std::unexpected(Failure_);
   }
-  while (maxWorkUnits > 0 && Phase_ != Phase::Complete) {
-    --maxWorkUnits;
+  while (budget.MaxWorkUnits > 0 && Phase_ != Phase::Complete) {
+    --budget.MaxWorkUnits;
     ++WorkUnits_;
     const auto processed = ProcessWork();
     if (!processed) {
       Phase_ = Phase::Failed;
       Failure_ = processed.error();
-      Bound_.reset();
+      Bound_ = {};
       return std::unexpected(Failure_);
     }
   }
@@ -264,13 +277,15 @@ void StructureSurfaceRefinementTask::Cancel() noexcept {
   Envelope_.Cancel();
   Phase_ = Phase::Failed;
   Failure_ = StructureSurfaceErrorFailure::Cancelled;
-  Bound_.reset();
+  Bound_ = {};
 }
 
 std::optional<StructureSurfaceErrorInterval>
 StructureSurfaceRefinementTask::Bound(uint64_t currentSourceKey) const noexcept {
-  if (!Bound_ || Phase_ == Phase::Failed || currentSourceKey != SourceKey_) { return std::nullopt; }
-  return StructureSurfaceErrorInterval{.Upper = *Bound_,
+  if (Phase_ == Phase::Envelope || Phase_ == Phase::Failed || currentSourceKey != SourceKey_) {
+    return std::nullopt;
+  }
+  return StructureSurfaceErrorInterval{.Upper = Bound_,
                                        .ReferenceToVariantLowerM = LowerM_[0],
                                        .VariantToReferenceLowerM = LowerM_[1]};
 }
