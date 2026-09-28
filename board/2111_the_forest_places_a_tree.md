@@ -40,6 +40,7 @@ Der vollständige Places-Lauf bestätigt den Blocker bei allen neun Orten: jewei
    Kamerafahrt; Vegetation über 2185 schaltbar. Zahlen vor dem Lauf festlegen.
 2. Geteilte Prototypen, hierarchisches Culling und instanzierte Nah-/Mittelgeometrie;
    Fern-Impostoren nach projiziertem Fehler, Übergänge mit stabiler Coverage.
+   Aggregierte Kronenvolumen nach dem folgenden Vertrag als Fernalternative prüfen.
    Keine vollständige Kopie jedes Blattes pro Baum und kein Billboard direkt am Auge.
 3. Räumliche Residency mit begrenzten Jobs, Uploads und Speicher. Daten und GPU-
    Ressourcen beim Verlassen freigeben; Rückkehr reproduziert denselben Bestand.
@@ -59,6 +60,19 @@ LOD-Zustand. Diese Trennung als Vergleich zu Outshines Prototyp-/Instanz-/Reside
 Besitzern messen; deren SDK ist keine notwendige Engine-Abhängigkeit.
 Referenz: https://docs9.speedtree.com/sdk/doku.php?id=culling-and-population-structures .
 
+## Fernwald als hierarchische Kronenoberfläche
+
+Entwurfsoption: dichte Laubbestände fern als gegliederte Kronenhülle darstellen.
+Deterministische Baumpositionen und artspezifische Kronenvolumen sind die gemeinsame
+Quelle für Nahbäume und räumlich geclusterte Fernprodukte; kein zweiter Zufallswald.
+Eine gefilterte Vereinigungsfläche kann die Hülle bilden; poröse Ränder, Lichtungen,
+Kronenhöhen und getrennte Silhouetten erhalten. Kein glatter Hügel oder massives Dach.
+Cluster-HLOD besitzt Ferngeometrie, Coverage und vereinfachte Lichtantwort; der
+Generator besitzt Baumparameter. Keine Fernhülle als Kontakt-/Navigationsgeometrie.
+Nadelwald, laublose Bestände und offene Baumgruppen brauchen eigene Darstellungen.
+Auswahl über projizierten Silhouettenfehler mit Hysterese; Übergang erhält Coverage
+und Helligkeit. Meshhülle gegen vorhandene Kronen-Impostoren messen, nicht voraussetzen.
+
 ## Abnahme
 
 - [ ] Isolierter dichter Wald bei Kamerabewegung: PNGs aller Distanzen geöffnet,
@@ -72,6 +86,8 @@ Referenz: https://docs9.speedtree.com/sdk/doku.php?id=culling-and-population-str
       Koerbersee, Wien, Rosenheim, Olympiaturm und Feldkirch.
 - [ ] Falsche Instanzmatrix, fehlender Handoff und deaktiviertes Culling verletzen
       jeweils das passende Korrektheits- bzw. Budgetoracle.
+- [ ] Kronenhülle gegen einzelne Bäume: schräge/oberseitige Gegenlichtfahrt, Lichtung,
+      Waldrand, Winter und Nadelwald. Falscher Clusterseed muss den Handoff-Test verletzen.
 
 Historische Implementierungsschritte und Messreihen: Git-Historie dieses WIs.
 Standframes mit fehlender oder ungeeigneter Vegetation belegen keinen vollen Wald.

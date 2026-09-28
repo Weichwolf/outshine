@@ -10,7 +10,6 @@ Tags: buildings, lod, determinism, streaming, hockenheim
 # Structure LOD products are source-keyed and selected at render time
 
 ## Problem and evidence
-
 `StructureBake.cpp` uses `RawTile::Eye` to choose Fine, Shell or Massed before
 building native geometry. Accepted tiles are reused within 64 m of their bake eye.
 Hockenheim tile 24 had identical source, DEM and street inputs but 51 Fine
@@ -48,7 +47,6 @@ remains Playable and reports its error; it cannot falsely report Refined.
 Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
 
 ## Verified foundation and remaining work
-
 - `StructureMesher` obeys explicit detail without camera/world-anchor gates.
   `RawTile::RequestedDetail` bakes Fine/Shell/Massed independently of eye/focal;
   invalid or mid-bake detail changes reject. `StructureCellOf` assigns an 8x8
@@ -71,40 +69,41 @@ Keep per-frame admission, upload, GPU bytes and CPU scratch bounded.
   sorted fast path and normalizes reversed/duplicate deliveries; accepted
   footprint inputs store the same canonical identity set. The raster digest
   still distinguishes changed sample values.
-- Fresh Hockenheim 74.85-s still/motion `refined` PNGs were opened: before
-  source-keyed cell selection, 120 building-edge pixels differed by >1/255
-  (worst 112); after it, only 6/921600 differ, each by 1/255. An eye-near
-  legacy tile no longer certifies `refined`; contact remains gap-free.
-- A false `refined` gate caused 120-s timeout and >84000 repeated DEM field
-  jobs: readiness must not prepare data. Posting and activation validate live
-  source; readiness compares resident revisions. Eight-request tile bursts and
-  a single <=2-MiB height pin with stale-landing eviction cut Hockenheim motion
-  field jobs 16361 -> 6097 and still `refined` time 9.57 -> 8.22 s at the same
-  16-MiB stitched-field budget. The opened still/motion PNGs differ by at most
-  1/255 with zero contact gaps. Motion p50/p95/p99 is 3.33/8.63/12.44 ms,
-  peak heap 688 MiB: both p50 and bytes regress against 2.48/8.38/12.39 ms
-  and 592 MiB. All 4491 paced frames remain unsettled. A 32/64-MiB cache
-  reduced jobs further but worsened memory and p50; global pinned heights
-  caused stale-source churn and was rejected. Resident identity skips DEM rebuild
-  on hits; misses run the full check. Static refined 8.22 -> 6.41 s; motion
-  p50/p95/p99 2.32/9.06/11.76 ms, 670 MiB, 6874 jobs (was 6097), 4491 unsettled
-  frames, zero gaps, identical PNG. Eviction revision and tighter bounds remain open.
+- Prior opened Hockenheim still/motion PNGs differ at only 6/921600 pixels by 1/255;
+  this selection-consistency baseline does not validate the new Shell geometry.
+- Readiness must never prepare data. WI2311 proves bounded certificates, zero-allocation
+  checks and validated activation. The raster budget stays 16 MiB; larger caches/pins
+  regressed costs. Prior motion: 3.33/8.63/12.44 ms, 688 MiB versus 2.48/8.38/12.39 ms,
+  592 MiB. New Hockenheim PNG/performance integration remains unverified.
+- Shell now reuses native footprint/roof/foundation surfaces and omits secondary
+  details. Eight BuildingMesh/StructureBake cases and full lint pass. The independent
+  roof-profile test fails before the fix; explicit box/flat controls and sloped-ground
+  contact pass. Geometry counts: pitched 12x16 m: Fine 84 -> Shell 72 triangles;
+  flat 24x30 m: 88 -> 76. These are geometry counts, not a frame-time claim.
+  Fresh render PNGs and certified approximation error remain open.
 
 ## Implementation order
 
-1. Retain bounded source-dependency certificates beyond stitched-cache eviction;
+1. 2310 fixes shape transitions; 2311 owns bounded source-dependency certificates;
    invalidate on new provider data, shape change or an arriving neighbour.
    `Forever` bytes can evict and partial stitches exist: without a valid
-   certificate, fully resolve. Measure cold/warm and moving-camera costs.
-2. Store certified simplification displacement per variant. Select with
-   projected error and hysteresis; replace the whole-cell bound only after
-   forced-coarse negative controls prove the tighter criterion.
+   certificate, fully resolve. Missing seams no longer enter stitched caches;
+   Late-neighbour oracle: two failures before fix; focused tests/full lint pass.
+   Copies/shares/resampling/GroundBlock retain missing boundaries; partial heights
+   cannot qualify Fine. Nine tests/full lint pass; baseline failed three checks.
+2. Shell now reuses ring/roof/foundation surfaces rather than boxing every part.
+   It drops door recesses,
+   roof plant/chimney details; Massed stays boxed. BuildingMesh owns the change and
+   keeps native payloads and footprint semantics unchanged. WI2312 owns certified
+   displacement per variant; bound both surface directions, including roof/overhang,
+   foundation/contact and filled concavities. Vertex samples cannot certify. Keep the
+   whole-cell bound until proof exists. Independent concave/roof/contact fixtures and
+   forced-coarse controls precede tighter projected selection and hysteresis;
+   source/variant keys and logical collision/navigation contracts remain unchanged.
 3. Admit visible cell detail by bounded priority. Keep the coarse resident
    safety net while Fine streams; reject stale source/failed upload without
    replaying legacy camera-local whole-tile geometry.
-
 ## Falsifiable acceptance
-
 - A synthetic tile with near/far buildings generates identical source-keyed
   variants for two camera eyes and reversed source order; changing a source
   revision changes only affected cell products. Forced coarse violates a

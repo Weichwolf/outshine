@@ -99,8 +99,8 @@ pixels. WI 2295 owns visual convergence; input closure is separately evidenced.
 
 Owned transport/decoder failures, bounded absence, recovery and state-based
 landing waits have independent fixtures and effective negative controls.
-Admission context survives first/fallback/retry starts. Non-tile delivered
-addresses must also retain corrupt-payload context at terrain byte adapters.
+Admission context survives first/fallback/retry starts. TerrainDelivery.h maps
+both adapters retain owned CorruptPayload context: five focused tests and full lint pass.
 Exact alternate-pacing address-set and image convergence remain open.
 
 ## Acceptance

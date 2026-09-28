@@ -79,8 +79,12 @@ and successful retry against exact native bytes in the current bound buffers.
 Focused render/device-boundary checks: 4 PASS. The 46.883333-s offline motion
 PNG `geometry-check/preserved-uploads-mark2-lap-tick2813.png` was opened: prior
 sky-spanning wedges are absent. p50/p95/p99 2.296/8.850/13.383 ms; peak
-643.947 MiB. Remaining stations/full lap, ownership and refined convergence
-still require verification; this WI remains active.
+643.947 MiB. Full lint at `b499baad8`: 251/251 tidy units, zero findings,
+32/32 repository checks and 32/32 documented public headers, no diagnostics.
+The current-client 220-s retry refused at SDL video initialization under the
+restricted session before data admission; it supplies no new image evidence.
+Remaining stations/full lap, ownership and refined convergence still require
+verification; this WI remains active.
 
 The device-boundary claim must admit mirrored internal renderer tests under
 `test/outshine/src/render/`, including independent GPU staging/readback oracles.
