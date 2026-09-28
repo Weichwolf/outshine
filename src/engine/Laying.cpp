@@ -938,25 +938,14 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
                               (atLon - anchorLon) * kMPerDegLon * std::cos(anchorLat * kDeg2Rad)),
                    "m");
 
-  Around over;
-  over.LatitudeDeg = atLat;
-  over.LongitudeDeg = atLon;
-  over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
-  {
-    const double tileSpanM = 40075017.0 * std::cos(atLat * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
-    const double nearest = 4.0 * tileSpanM;
-    const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
-    const double doublings = wanted > nearest ? std::log2(wanted / nearest) : 0.0;
-    over.Levels = 1 + static_cast<int>(std::ceil(doublings));
-    Published.Places("the sight a scenario declares", wanted, "m");
-    Published.Places("and what one tile spans at the finest zoom", tileSpanM, "m");
-    Published.Places("the elevation's own posting",
-                     World.Stack.Ground().PostM(declared.Ground.Origin.LatitudeDeg),
-                     "m");
-    Published.Places("and the drawn mesh's vertex spacing",
-                     over.Grid > 1 ? tileSpanM / static_cast<double>(over.Grid - 1) : 0.0,
-                     "m");
-  }
+  const Around over = TerrainCoverageAt(eyeStands);
+  const double tileSpanM = 40075017.0 * std::cos(atLat * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
+  Published.Places("the sight a scenario declares", TerrainSightM(), "m");
+  Published.Places("and what one tile spans at the finest zoom", tileSpanM, "m");
+  Published.Places("the elevation's own posting", World.Stack.Ground().PostM(anchorLat), "m");
+  Published.Places("and the drawn mesh's vertex spacing",
+                   over.Grid > 1 ? tileSpanM / static_cast<double>(over.Grid - 1) : 0.0,
+                   "m");
   if (Session.Views) {
     const Scenario::View &camera = Session.Views->Active();
     if (camera.Placement == Scenario::CameraPlacement::Geodetic &&
@@ -1320,8 +1309,11 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
                                                            request.Revision,
                                                            World.GroundCandidates);
     if (const auto *source = World.GroundBuild->TransportSnapshot()) {
-      auto routeTiles = RoadHeightCoverage::Select(
-          *source, {.Zoom = request.Coverage.Zoom, .MaximumEdges = 512, .MaximumTiles = 256});
+      auto routeTiles =
+          RoadHeightCoverage::Select(*source,
+                                     {.Zoom = request.Coverage.Zoom,
+                                      .MaximumEdges = RoadHeightCoverage::MaximumCandidateEdges,
+                                      .MaximumTiles = RoadHeightCoverage::MaximumCandidateTiles});
       if (!routeTiles) {
         Error = std::move(routeTiles.error());
         World.GroundBuild.reset();

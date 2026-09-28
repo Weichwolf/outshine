@@ -19,6 +19,15 @@
 
 namespace outshine::Ground {
 
+std::unique_ptr<OsmField> GroundStack::CreateVectorField() const {
+  const std::array<std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
+                                              OsmLayerName(OsmLayer::WaterPolygons),
+                                              OsmLayerName(OsmLayer::WaterLines),
+                                              OsmLayerName(OsmLayer::Streets),
+                                              OsmLayerName(OsmLayer::StreetPolygons)}};
+  return std::make_unique<OsmField>(VectorZoom_, std::span<const std::string>(layers));
+}
+
 bool GroundStack::Open(const World::StoragePaths &under,
                        std::span<const Data::SourceProvider> providers,
                        LongitudeLatitude focus,
@@ -140,12 +149,7 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   if (!Vegetated_) { return complete(); }
   const auto vectorAt = std::chrono::steady_clock::now();
   if (!Vectors_) {
-    const std::array<std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
-                                                OsmLayerName(OsmLayer::WaterPolygons),
-                                                OsmLayerName(OsmLayer::WaterLines),
-                                                OsmLayerName(OsmLayer::Streets),
-                                                OsmLayerName(OsmLayer::StreetPolygons)}};
-    Vectors_ = std::make_unique<OsmField>(VectorZoom_, std::span<const std::string>(layers));
+    Vectors_ = CreateVectorField();
     Footprints_.AnchorAt(Cls_.OriginEcef());
   }
   const uint64_t previousVectorGeneration = Vectors_->Generation();

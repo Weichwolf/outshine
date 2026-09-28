@@ -131,6 +131,16 @@ DeclaredCaptureRoute(const Engine &engine, std::string_view viewId) {
   return std::nullopt;
 }
 
+[[nodiscard]] std::expected<std::optional<CaptureRoute>, std::string>
+PrepareCapturePath(Engine &engine, std::string_view viewId, double durationS) {
+  auto route = DeclaredCaptureRoute(engine, viewId);
+  if (!route) { return std::unexpected(route.error()); }
+  if (const auto prepared = engine.prepareViewData(durationS, kRefinedPreloadBudgetS); !prepared) {
+    return std::unexpected(Refusal("view data preparation", prepared.error()));
+  }
+  return route;
+}
+
 [[nodiscard]] std::expected<MotionContact, std::string>
 ReadPublishedRoadContact(const Engine &engine, std::string_view routeId, const MotionState &state) {
   const auto pose = engine.sampleRoute(routeId, state.StationM);
@@ -335,7 +345,7 @@ CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
   const auto ticks = static_cast<size_t>(std::max(1.0, std::ceil(options.AtS / stepS)));
   ScenarioCaptureResult result;
   result.SimTimeS = static_cast<double>(ticks) * stepS;
-  const auto route = DeclaredCaptureRoute(engine, options.View);
+  const auto route = PrepareCapturePath(engine, options.View, result.SimTimeS);
   if (!route) { return std::unexpected(route.error()); }
   const bool isRoute = route->has_value();
   result.RouteLengthM = isRoute ? route->value().LengthM : 0.0;

@@ -29,6 +29,8 @@ int main() {
       CHECK(!engine.advance(), "capture refuses simulation advancement");
       CHECK(!engine.advance(0.0), "capture refuses elapsed-time simulation advancement");
       CHECK(!engine.preload(0.0), "capture refuses streaming advancement");
+      CHECK(!engine.prepareViewData(1.0, 0.0),
+            "capture refuses path data preparation even without ground");
       CHECK(!engine.declare(scene), "capture refuses declaration replacement");
       CHECK(!engine.assemble(), "capture refuses simulation replacement");
       CHECK(!engine.setSurfaces({}), "capture refuses overlay replacement");

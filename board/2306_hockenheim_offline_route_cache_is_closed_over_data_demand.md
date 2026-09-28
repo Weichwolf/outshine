@@ -9,111 +9,80 @@ Tags: hockenheim, offline, cache, route, reproducibility
 
 # Hockenheim offline route cache is closed over its data demand
 
-## Reproduced defect
+## Evidence and implemented capability
 
-On 2026-09-28, an online Hockenheim capture at 91.7 s (5,502 ticks)
-succeeded, but an immediate identical offline capture failed during route
-advance with unknown height tiles and zero remote starts. A missing tile
-`elevation/15/17165/11203` was fetched separately as a 54,579-byte Terrarium
-PNG: at least part of the gap is unsubmitted demand, not provider absence.
-Playable preload at every fast-forward tick still left 42 offline misses.
+Fast-forward/playable preload fetched 65 vector and 129 elevation tiles; a
+paced run fetched the same vectors and 473 elevation tiles. Immediate offline
+replay of the first cache missed required data. Independent patchwork, source
+and sampler coverage now feed bounded path preparation before client capture.
 
-A paced run fetched 538 tiles (65 vector, 473 elevation); fast-forward fetched
-only 129 elevation tiles. Its immediate offline replay missed required fields.
-Pure patchwork/source planners and sampler coverage now exist; path preparation
-must consume them before playback.
+Starting with that incomplete 194-entry cache, online preparation/capture at
+91.7 s fetched exactly the missing 344 elevation tiles. Immediate offline replay
+had 538 cache hits, zero misses/network starts, and pixel-identical output to
+both the online frame and the earlier paced-cache reference. PNG inspected:
+road/building/material quality remains schematic; this is a data correctness fix.
 
-`GroundStream::TileAt` also calls `KeepCoarse` after its normal grid resolves;
-that sampler requests a field three zoom levels below its normal grid. The
-route plan must include those sampling requests as well as render-sheet demand,
-using the sampler's own coverage contract rather than a copied zoom constant.
+Deleting `elevation/15/17165/11203` from a separate cache makes preparation fail
+before playback, with one cache miss, no PNG/network. The error instead reports
+stitched field `elevation/15/17164/11202`: the failing raw source address is lost.
+Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
 
-## Contract and ownership
+## View preparation contract
 
-- Client route preparation owns the declared station/time path; `HeightSheets`
-  and ground classification own their data requests. A capture-ready result
-  means all data requests that the same deterministic path can issue through
-  final publication are settled or explicitly absent. Worker scheduling and
-  cache speed must not change the *required address set*.
-- SourceSet/ContentStore distinguish bytes, confirmed absence and unknown
-  cache miss. Persist an absence only for an authoritative provider response
-  such as 404, under the same source key/revision; never turn 403, timeout,
-  cancellation or corrupt bytes into absence. Unpinned absence needs bounded
-  freshness. Offline must issue zero network starts and fail with source key,
-  tile address and cause when required data is unknown.
-- Keep the cache bounded, including metadata/negative entries. Do not fake
-  terrain heights or broaden `settled()` to hide refused tiles. Existing raw
-  cached bytes remain readable; any new record format is versioned.
+- `Engine::prepareViewData(durationS, patienceS)` prepares the active static/route
+  view through ceil(duration/step) future ticks. It does not advance simulation,
+  change the active view, draw or upload. Groundless scenes succeed; unsupported
+  dynamic views fail. Geographic camera height resolves under the same deadline.
+- Route pose, geographic conversion and sight-to-level calculation are shared
+  with runtime streaming. Capture invokes preparation after bootstrap/view
+  selection, before advancing, for both motion and static output.
+- `engine/streaming/TerrainPathPreparation` owns canonical unions and vector-then-
+  height settlement: at most 216001 points and 8192 unique addresses per kind.
+  Admit bounded batches, refuse oversized plans before oversized IO. OSM windows
+  share `OsmField::SourceWindow`; classifier windows come from `ClassField`.
+- `PlanPatchworkTiles` covers every possible mesh block independent of residency.
+  `PlanTerrainSourceTiles` supplies halos, parents, vector/building and route
+  fields to both candidates and path preparation. `GroundStream::SamplingCoverage`
+  owns normal/coarse mapping; every mesh block includes its coarse parents,
+  including seam crossings. Native grid maximum belongs to `Data::TileId`.
+- CPU/IO preparation is synchronous on the Engine/video thread with one global
+  deadline; bounded work units may overrun it. Partial cached progress survives
+  failure. No fake heights, readiness weakening, or rendering-driven requests.
 
-## View preparation API
+## Remaining error and absence implementation
 
-- `Engine::prepareViewData(durationS, patienceS)` synchronously prepares the
-  active static/route view from the current tick through ceil(duration/step)
-  ticks. It does not advance simulation, change the active view or draw/upload.
-  Groundless scenes return success; unsupported dynamic views are refused.
-- Route sampling shares the runtime camera-pose calculation. Geographic
-  conversion and sight-to-level calculation are shared with normal streaming.
-- `engine/streaming/TerrainPathPreparation` owns canonical bounded path/source
-  unions and vector-then-height settlement under one global deadline. At most
-  216001 points and 8192 unique addresses per kind; refuse before oversized IO.
-  OSM source windows use the same planner as `OsmField::Build`; classifier
-  windows come from `ClassField`, not copied grid/radius literals.
-- Client capture invokes this after bootstrap and view selection, before
-  advance, for both motion and static captures. Unknown/refused data includes
-  kind/address in the owned error. Native source identities remain on fetches.
-
-## First falsification and implementation sequence
-
-1. In an isolated cache, trace required source key/address/outcome for online
-   success and immediate offline replay. Compare the sets, marking each miss
-   as never requested, confirmed absent, or evicted. Put traces under system
-   tmp and keep only aggregate counts in normal client output.
-2. Trace the candidate phase that submits each extra address when asynchronous
-   tile progress keeps up with route ticks. `lap` can be selected only after
-   the route is published by initial preload, so retain that bootstrap, then
-   prepare the selected route view explicitly. The initial preload alone
-   targets the previous view.
-3. Move required data-demand submission into world/view preparation, independent
-   of GPU drawing and worker timing. A preparation API awaits the complete
-   request closure under one bounded global deadline; playable `preload`
-   alone returns too early. Factor a pure coverage-to-source-tile planner from
-   `GroundPatchwork` and `HeightSheets`: enumerate route camera positions from
-   the published alignment and speed profile, cover their possible 4x4 tile
-   blocks at each level, then expand source neighbours and ground-zoom parents.
-   Use bounded batches and an explicit tile-count refusal for oversized paths.
-   The planned set must be independent of resident mesh/field state; replay
-   must require that same set. Keep the planning contract useful for any
-   georeferenced path, not tied to Hockenheim or the client.
-   `src/engine/streaming/TerrainSourceCoverage` owns the shared source planner:
-   valid native tile IDs, canonical unique output, 8192-field maximum (initial
-   budget; observed path needs 473), explicit refusal before oversized work.
-   Settle vectors/classification first, then include vector neighbours and
-   building footprint heights through that planner, not a guessed radial pad.
-   `PlanPatchworkTiles` plans potential mesh tiles without IO. The shared
-   `PlanTerrainSourceTiles` now supplies halos, parents, vector/building and
-   route tiles to `HeightSheets`, with independent grid/seam/budget controls.
-   Path union and bounded path preparation are still to be integrated.
-   The implemented `world/ground/TerrainSamplingCoverage` owns field mapping.
-   `GroundStream::SamplingCoverage(TileId)` maps a source tile to the sampler's
-   configured grid and its optional three-level fallback without IO. Resident
-   queries and `KeepCoarse` consume this same mapping. Reject invalid grids or
-   a source tile coarser than the configured sampling grid; never invent finer
-   coordinates from an underspecified coarse tile.
-   `Data::TileId::MaximumZoom` owns the existing native grid limit of 30.
-   `HeightField` aliases it; sampling coverage must not include the field loader.
-4. If confirmed 404s occur, add a typed bounded absence record with source
-   revision/freshness rules; prove it differs from a cache miss. Do not cache
-   403 as absent (Terrarium currently does), and retain retry/refusal policy.
+- Owners: `world/data/{Delivery,SourceSet,ContentStore}`, `ground/TilePool`,
+  `ground/TerrainLoader` and its terrain byte/stitch adapter; preparation consumes
+  their typed outcome. Preserve status/progress contracts of current callers.
+- Introduce an owned `Data::FetchFailure`: kind, requested address, optional
+  served address, source ID/revision and reason (unknown offline cache, provider
+  refusal, timeout/cancellation, corrupt payload or capacity refusal). Sources
+  identify the actual attempted provider; do not infer one from an empty result.
+  Carry it with refused delivery/job results through field decoding and stitching.
+  Keep the failed raw address distinct from the aggregated field address.
+  Success/pending paths allocate no diagnostic strings. No global last-error slot.
+- Exact source identity and served address must survive ancestor mapping and
+  provider fallback. Preparation formats this owned failure; retain the generic
+  field address as context, never as a substitute for the offending request.
+- ContentStore distinguishes bytes, confirmed absence and unknown cache miss.
+  Persist absence only for authoritative 404 under the same source key/revision,
+  with bounded freshness for unpinned data and bounded metadata storage. Never
+  cache 403, timeout, cancellation or corrupt bytes as absence. Terrarium's 403
+  handling must be corrected. Existing raw cached bytes remain readable; any
+  new record format is versioned. Do not pretend unavailable height is zero.
 
 ## Acceptance
 
-- Online prepare/capture followed by offline capture in an isolated cache at
-  the same route/time succeeds with `remote_starts=0`, `store_misses=0` for
-  required addresses and pixel-identical PNG. Repeat with different worker
-  pacing; the demand set is equal. Hockenheim full-lap motion uses the same
-  closed data plan and keeps contact/route invariants from WI 2260.
-- Delete one required cached tile: offline fails with exact source/address and
-  no PNG or network. Inject 404, 403, timeout and corrupt payload independently:
-  only 404 may become an explicit absent record; no case invents elevation.
-- Focused SourceSet/ContentStore/HeightSheets/client cases, `make format` and
-  `LINT_JOBS=2 make lint` pass. Compare PNGs with `test/scripts/pixels.py`.
+- Analytical path rectangles, fallback seams, permutation/duplicate invariance,
+  invalid/budget input, no-IO planning, groundless API and capture mutation tests.
+  Removing the coarse-parent expansion must fail its independent oracle.
+- Online prepare/capture then immediate offline capture in an isolated cache
+  succeeds with zero required misses/network and identical pixels. Different
+  worker/playback pacing requires the same address set. Complete Hockenheim lap
+  uses this preparation and preserves WI 2260 route/contact invariants.
+- Delete one required tile: fail before PNG/network with the actual source key,
+  raw requested/served address and cause. Test ancestor mapping independently.
+- Inject 404, 403, timeout/cancellation and corrupt payload independently: only
+  404 may become confirmed absence; all other outcomes retain their cause.
+- Focused SourceSet/ContentStore/HeightSheets/path/client cases, `make format`
+  and `LINT_JOBS=2 make lint` pass. Compare via `test/scripts/pixels.py`.

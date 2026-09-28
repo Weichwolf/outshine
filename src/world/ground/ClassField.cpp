@@ -211,6 +211,10 @@ void ClassField::SubmitDue(double camE, double camN) {
   }
 }
 
+bool ClassField::HasSourceRequests() const noexcept {
+  return Opened_ && Veg_ != nullptr && Veg_->Ready() && HasVectorSource_ && Declared_.empty();
+}
+
 std::expected<void, std::string_view> ClassField::Update(TilePool &tiles, LongitudeLatitude at) {
   const auto fine = OsmField::Locate(at, Fine_.Zoom);
   if (!fine) { return std::unexpected(fine.error()); }
@@ -223,7 +227,7 @@ std::expected<void, std::string_view> ClassField::Update(TilePool &tiles, Longit
     Coarse_.Field = std::make_unique<OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
   }
   const double t0 = Clock();
-  if (HasVectorSource_ && Declared_.empty()) {
+  if (HasSourceRequests()) {
     const auto fineBuilt = Fine_.Field->Build(
         tiles, at, Fine_.TileRadius, (size_t{2} * kFineRings + 1) * (size_t{2} * kFineRings + 1));
     if (!fineBuilt) { return std::unexpected(fineBuilt.error()); }

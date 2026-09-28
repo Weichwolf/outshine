@@ -8,27 +8,36 @@ namespace outshine {
 
 namespace {
 constexpr int kZoomMost = 24;
+constexpr double kDefaultSightM = 240000.0;
+}
+
+double Engine::State::TerrainSightM() const noexcept {
+  return Session.Declared.Ground.SightM > 0.0 ? Session.Declared.Ground.SightM : kDefaultSightM;
+}
+
+Around Engine::State::TerrainCoverageAt(LongitudeLatitude focus) const {
+  Around over;
+  over.LatitudeDeg = focus.LatitudeDeg;
+  over.LongitudeDeg = focus.LongitudeDeg;
+  over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
+  {
+    const double tileSpanM =
+        40075017.0 * std::cos(over.LatitudeDeg * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
+    const double nearest = 4.0 * tileSpanM;
+    const double wanted = TerrainSightM();
+    over.Levels =
+        1 + static_cast<int>(std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0));
+  }
+  return over;
 }
 
 bool Engine::State::RequestTerrainCoverage() {
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }
-  Around over;
-  const LongitudeLatitude focus = CurrentGeographicFocus();
-  over.LatitudeDeg = focus.LatitudeDeg;
-  over.LongitudeDeg = focus.LongitudeDeg;
-  over.Zoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
+  Around over = TerrainCoverageAt(CurrentGeographicFocus());
   over.Asking = true;
   over.PlayableOnly = !World.GroundPublished.Current();
-  {
-    const double tileSpanM =
-        40075017.0 * std::cos(over.LatitudeDeg * kDeg2Rad) / std::ldexp(1.0, over.Zoom);
-    const double nearest = 4.0 * tileSpanM;
-    const double wanted = declared.Ground.SightM > 0.0 ? declared.Ground.SightM : 240000.0;
-    over.Levels =
-        1 + static_cast<int>(std::ceil(wanted > nearest ? std::log2(wanted / nearest) : 0.0));
-  }
   World.Stack.Pool().Focus({.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg});
   auto asked = World.Shipping.Covering().Lay(World.Stack.Pool(), over);
   if (!asked) {

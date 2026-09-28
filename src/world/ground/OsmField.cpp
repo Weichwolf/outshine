@@ -166,6 +166,14 @@ std::expected<OsmTileWindow, std::string_view> TileWindowFor(TileWindowRequest r
 }
 }
 
+std::expected<OsmTileWindow, std::string_view>
+OsmField::SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t tileBudget) {
+  const auto centre = Locate(at, zoom);
+  if (!centre) { return std::unexpected(centre.error()); }
+  return TileWindowFor(
+      {.Centre = *centre, .Zoom = zoom, .Radius = ringTiles, .Budget = tileBudget});
+}
+
 std::expected<int, std::string_view>
 OsmField::Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget) {
   return Build(tiles, at, ringTiles, tileBudget, ParseBudget{});
@@ -177,8 +185,7 @@ std::expected<int, std::string_view> OsmField::Build(
   if (parsing.TilesMost == 0) { return std::unexpected(Says::kOsmTileBudgetExceeded); }
   const auto centre = Locate(at, Zoom_);
   if (!centre) { return std::unexpected(centre.error()); }
-  const auto window =
-      TileWindowFor({.Centre = *centre, .Zoom = Zoom_, .Radius = ringTiles, .Budget = tileBudget});
+  const auto window = SourceWindow(at, Zoom_, ringTiles, tileBudget);
   if (!window) { return std::unexpected(window.error()); }
   if (CentreX_ != centre->X || CentreY_ != centre->Y) {
     Stage_ = SnapshotStage::Empty;

@@ -12,6 +12,9 @@
 namespace outshine {
 
 struct RoadHeightCoverage {
+  static constexpr size_t MaximumCandidateEdges = 512;
+  static constexpr size_t MaximumCandidateTiles = 256;
+
   struct Budget {
     int Zoom = 0;
     size_t MaximumEdges = 0;

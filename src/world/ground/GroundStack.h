@@ -111,6 +111,10 @@ public:
 
   void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }
 
+  [[nodiscard]] std::unique_ptr<OsmField> CreateVectorField() const;
+
+  [[nodiscard]] bool HasDeclaredVectors() const noexcept { return !Declared_.empty(); }
+
   [[nodiscard]] const OsmField *Vectors() const { return Vectors_.get(); }
 
   [[nodiscard]] bool HasVectorSource() const noexcept { return HasVectorSource_; }

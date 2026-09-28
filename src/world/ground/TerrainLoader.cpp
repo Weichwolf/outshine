@@ -160,6 +160,21 @@ GroundStream::SamplingCoverage(Data::TileId source) const noexcept {
       {.Zoom = Surface_.Z, .X = source.X >> drop, .Y = source.Y >> drop});
 }
 
+std::optional<TerrainSamplingCoverage>
+GroundStream::SamplingCoverage(LongitudeLatitude at) const noexcept {
+  if (!std::isfinite(at.LongitudeDeg) || !std::isfinite(at.LatitudeDeg) || Surface_.Z < 0 ||
+      Surface_.Z > Data::TileId::MaximumZoom) {
+    return std::nullopt;
+  }
+  const auto position = ToTileFracClamped(
+      {.LongitudeDeg = Wrap180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg}, Surface_.Z);
+  long x = static_cast<long>(std::floor(position.X));
+  const long y = static_cast<long>(std::floor(position.Y));
+  if (!WrapTile(Surface_.Z, &x, &y)) { return std::nullopt; }
+  return SamplingCoverage(Data::TileId{
+      .Zoom = Surface_.Z, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
+}
+
 const Tile *GroundStream::CoarseResident(long x, long y) const {
   Held &held = *Held_;
   for (Tile &t : held.Coarse) {

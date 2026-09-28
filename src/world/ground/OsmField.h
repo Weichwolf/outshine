@@ -76,6 +76,9 @@ public:
   [[nodiscard]] std::expected<int, std::string_view> Build(
       TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget, ParseBudget parsing);
 
+  [[nodiscard]] static std::expected<OsmTileWindow, std::string_view>
+  SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t tileBudget);
+
   struct BuildMetrics {
     double FetchMs = 0.0;
     double ParseMs = 0.0;

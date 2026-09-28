@@ -392,6 +392,18 @@ public:
   /// Notifications are not guaranteed for every error or at fixed time intervals.
   /// @return Readiness or an owned input, streaming, build, capacity or timeout error.
   [[nodiscard]] Result preload(double patienceS, const std::function<void(const Loading &)> &tell);
+  /// Prepare terrain source data along the active static or route camera path without advancing
+  /// time. Runs synchronously on the Engine/video thread; may allocate, perform IO and wait. Does
+  /// not draw, upload geometry, select a view or advance simulation. Groundless scenes succeed.
+  /// Requires assembled ground and an activated static/route view; other dynamic views fail.
+  /// @param durationS Finite nonnegative horizon in seconds, rounded up to simulation ticks.
+  /// At most 216001 sampled points and 8192 unique tiles per kind are admitted.
+  /// @param patienceS Finite nonnegative global budget including planning, parsing and IO.
+  /// Work units may overrun the budget; zero permits an attempt without waiting.
+  /// @return Success after admitted requests settle, or an owned input, capacity, provider,
+  /// decode or timeout error. Failures may retain partial cached data. Serialize with mutations;
+  /// capture transactions refuse this operation. References and simulation state remain valid.
+  [[nodiscard]] Result prepareViewData(double durationS, double patienceS);
   /// Copy current request and tile-pool counters without advancing streaming.
   /// Serialize with Engine mutations; this is not concurrent snapshot publication.
   /// @return Owned values; elapsed time and rate are zero outside preload notifications.

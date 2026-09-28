@@ -454,6 +454,16 @@ struct Engine::State {
   [[nodiscard]] Result PreloadTimeout(double bound, GroundQuality quality);
   void AwaitPreloadProgress(double seconds);
   [[nodiscard]] bool UpdateActiveCamera();
+
+  struct RouteCameraSample {
+    Motion::RouteMotionSample Motion;
+    RoutePose Pose;
+    Vec3 EyeM;
+    Vec3 AimM;
+  };
+
+  [[nodiscard]] Holds<RouteCameraSample> SampleRouteCamera(const Scenario::View &view,
+                                                           double timeS) const;
   [[nodiscard]] bool UpdateRouteCamera(const Scenario::View &view);
   [[nodiscard]] Holds<RouteInfo> PublishedRouteInfo(std::string_view name) const;
   [[nodiscard]] Holds<RoutePose> SamplePublishedRoute(std::string_view name, double stationM) const;
@@ -556,6 +566,16 @@ struct Engine::State {
   [[nodiscard]] bool GenerateInstancesForRegion(const Generators::Tile &region,
                                                 LevelOfDetail coarseness);
   [[nodiscard]] LongitudeLatitude CurrentGeographicFocus() const;
+  [[nodiscard]] LongitudeLatitude GeographicFocusFor(const Vec3 &eye) const;
+  [[nodiscard]] Around TerrainCoverageAt(LongitudeLatitude focus) const;
+  [[nodiscard]] double TerrainSightM() const noexcept;
+  [[nodiscard]] Holds<std::vector<Around>>
+  ViewPreparationPath(const Scenario::View &view,
+                      double durationS,
+                      std::chrono::steady_clock::time_point deadline) const;
+  [[nodiscard]] Holds<LongitudeLatitude>
+  PreparationFocus(const Scenario::View &view,
+                   std::chrono::steady_clock::time_point deadline) const;
   [[nodiscard]] bool EnsureRuntimeScene();
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateVegetation(bool prepare);

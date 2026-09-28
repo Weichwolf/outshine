@@ -35,6 +35,18 @@ class VegetationTemplates;
 
 class ClassField {
 public:
+  [[nodiscard]] bool HasSourceRequests() const noexcept;
+
+  struct SourceWindow {
+    int Zoom;
+    int Ring;
+  };
+
+  [[nodiscard]] std::array<SourceWindow, 2> RequestWindows() const noexcept {
+    return {{{.Zoom = Fine_.Zoom, .Ring = Fine_.TileRadius},
+             {.Zoom = Coarse_.Zoom, .Ring = Coarse_.TileRadius}}};
+  }
+
   void Declares(std::span<const OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
   }

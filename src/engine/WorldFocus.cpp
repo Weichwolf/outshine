@@ -23,6 +23,12 @@ LongitudeLatitude Engine::State::CurrentGeographicFocus() const {
     if (Picture.Standing == nullptr || !Picture.Standing->Watched()) { return stands; }
     eye = Picture.Standing->Watching().EyeM;
   }
+  return GeographicFocusFor(eye);
+}
+
+LongitudeLatitude Engine::State::GeographicFocusFor(const Vec3 &eye) const {
+  LongitudeLatitude stands{.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
+                           .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg};
   const TangentFrame anchored = TangentFrame::At(stands);
   Vec3 held;
   for (int axis = 0; axis < 3; ++axis) {

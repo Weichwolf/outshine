@@ -152,21 +152,15 @@ bool Engine::State::UpdateActiveCamera() {
   return true;
 }
 
-bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
+Holds<Engine::State::RouteCameraSample> Engine::State::SampleRouteCamera(const Scenario::View &view,
+                                                                         double timeS) const {
   if (!RouteCamera || RouteCamera->ViewId != view.Id) {
-    Error = "route view has no activated motion profile";
-    return false;
+    return std::unexpected("route view has no activated motion profile");
   }
-  const auto motion = RouteCamera->Speed.AtTime(Ticking.ElapsedS - RouteCamera->BeganAtS);
-  if (!motion) {
-    Error = "route camera time is outside its motion profile";
-    return false;
-  }
+  const auto motion = RouteCamera->Speed.AtTime(timeS - RouteCamera->BeganAtS);
+  if (!motion) { return std::unexpected("route camera time is outside its motion profile"); }
   const auto here = SamplePublishedRoute(RouteCamera->RouteId, motion->StationM);
-  if (!here) {
-    Error = here.error();
-    return false;
-  }
+  if (!here) { return std::unexpected(here.error()); }
   double aheadStationM = motion->StationM + view.Route.LookAheadM;
   if (RouteCamera->Route.Closed) {
     aheadStationM = std::fmod(aheadStationM, RouteCamera->Route.LengthM);
@@ -174,10 +168,7 @@ bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
     aheadStationM = std::min(aheadStationM, RouteCamera->Route.LengthM);
   }
   const auto ahead = SamplePublishedRoute(RouteCamera->RouteId, aheadStationM);
-  if (!ahead) {
-    Error = ahead.error();
-    return false;
-  }
+  if (!ahead) { return std::unexpected(ahead.error()); }
   const Vec3 right = Cross(here->Forward, here->Up);
   const Vec3 aheadRight = Cross(ahead->Forward, ahead->Up);
   const Vec3 seat =
@@ -186,18 +177,28 @@ bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
       seat - here->Forward * view.DistanceM + here->Up * (view.DistanceM * view.RisesBy);
   const Vec3 aim =
       ahead->PositionM + ahead->Up * view.Route.EyeHeightM + aheadRight * view.Route.LateralOffsetM;
-  const auto stood = Render::Viewpoint::LookAt({.EyeM = eye, .AimM = aim}, here->Up);
+  return RouteCameraSample{.Motion = *motion, .Pose = *here, .EyeM = eye, .AimM = aim};
+}
+
+bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
+  const auto sample = SampleRouteCamera(view, Ticking.ElapsedS);
+  if (!sample) {
+    Error = sample.error();
+    return false;
+  }
+  const auto stood =
+      Render::Viewpoint::LookAt({.EyeM = sample->EyeM, .AimM = sample->AimM}, sample->Pose.Up);
   if (!stood) {
     Error = "route camera cannot form a finite view basis";
     return false;
   }
-  Published.Places("the route camera's station", motion->StationM, "m");
-  Published.Places("the route camera's speed", motion->SpeedMps, "m/s");
+  Published.Places("the route camera's station", sample->Motion.StationM, "m");
+  Published.Places("the route camera's speed", sample->Motion.SpeedMps, "m/s");
   Published.Places(
-      "the route camera's segment", static_cast<double>(here->SegmentIndex), "segment");
-  Published.Places("the route camera's eye, east", eye[0], "m");
-  Published.Places("the route camera's eye, up", eye[1], "m");
-  Published.Places("the route camera's eye, south", eye[2], "m");
+      "the route camera's segment", static_cast<double>(sample->Pose.SegmentIndex), "segment");
+  Published.Places("the route camera's eye, east", sample->EyeM[0], "m");
+  Published.Places("the route camera's eye, up", sample->EyeM[1], "m");
+  Published.Places("the route camera's eye, south", sample->EyeM[2], "m");
   if (!ApplyCamera(*Picture.Standing, Picture.Device, view.Sees, *stood)) {
     Error = Says::kInvalidViewProjection;
     return false;

@@ -111,6 +111,8 @@ public:
 
   [[nodiscard]] std::optional<TerrainSamplingCoverage>
   SamplingCoverage(Data::TileId source) const noexcept;
+  [[nodiscard]] std::optional<TerrainSamplingCoverage>
+  SamplingCoverage(LongitudeLatitude at) const noexcept;
 
   [[nodiscard]] TilePool &Tiles() { return Tiles_; }
 
