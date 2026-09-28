@@ -1,7 +1,7 @@
 Type: feature
 State: open
 Architecture: planned
-Priority: P1
+Priority: P0
 Parent: 2169
 Area: client, scene, world
 Tags: webcam, measured
@@ -18,6 +18,11 @@ Mitte; Feldkirch einen deutlich anderen Vordergrund. Das belegt eine Abweichung,
 keine eindeutige fehlerhafte Kamerakomponente. DEM/Stamping können dieselbe Abweichung erzeugen.
 `HeightAslM` wird an eine öffentliche geodätische Höhe übergeben: ASL und Ellipsoid müssen
 an der Grenze explizit unterschieden werden. Der tatsächliche DEM-Provider-Datum ist zu prüfen.
+
+Aktuell 75623a5e1: Playable-PNGs aller zehn Places geöffnet. Graz/Feldkirch weitgehend
+homogen; Wien/Rosenheim/Malcesine/Koerbersee stark nah verdeckt. Keine Kamerakorrektur
+ist daraus allein bewiesen: zuerst Pose, Datum und tatsächlich deckende Oberfläche
+zuordnen. Keine gefitteten Place-Höhen, keine Geometrieausblendung für schöne Bilder.
 
 ## Implementierung
 

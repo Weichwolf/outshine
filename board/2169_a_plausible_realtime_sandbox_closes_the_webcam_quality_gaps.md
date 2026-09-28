@@ -1,7 +1,7 @@
 Type: feature
 State: open
 Architecture: planned
-Priority: P1
+Priority: P0
 Area: world, render, generators, navigation
 Tags: webcam, measured
 Depends: 2188, 2092, 2101, 2111, 2128, 2129, 2137, 2138, 2140, 2144, 2145, 2152, 2155, 2166, 2167, 2168, 2170, 2171, 2172, 2173, 2174, 2175, 2176, 2196, 2197, 2198, 2199, 2200, 2201, 2202, 2203, 2204, 2213
@@ -16,6 +16,22 @@ Rekonstruktion, Place-Sondermodelle oder Kameraorte als Generatorparameter.
 Provider liefern OSM/DEM/Zeit/Wetter; deterministische Generatoren ergänzen plausible
 Formen, Materialien und Population. Webcam-Paare prüfen Bildkohärenz und Größenordnung.
 Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren LOD unabhängig.
+
+## Aktuelle Place-Abnahme 2026-09-28
+
+75623a5e1: alle zehn Places ohne Vegetation tatsächlich gerendert; Refined 0/10, keine
+regulären Gate-PNGs. Terrain/Publikation oder Struktur-View-Detail bleiben Pending.
+Zusätzlich zehn Playable-Diagnose-PNGs erzeugt und ALLE selbst geöffnet:
+`build/shots/places-playable-75623a5e1/`. Das ist keine bestandene Qualitätsabnahme.
+Graz dunkel verdeckt, Feldkirch einfarbig grau, Malcesine/Koerbersee von Nahflächen
+verdeckt; Wien/Rosenheim starke Nahverdeckung. Darmstadt zeigt dünne hohe Spitzen;
+Olympiaturm große flache Farbflächen, Husum uniforme Häuser/Wasser. Ursachen sind offen.
+Host Olympiaturm p95 104.1059 ms, p99 229.7833 ms; sample meldet 15.8 GB Peak-Footprint.
+Kein A18-Beleg. Logs /tmp/outshine-places-owner-render.log und -olympiaturm-sample.log;
+Diagnose-Aufnahmeprotokoll /tmp/outshine-place-diagnostic-results.log.
+Priorität: tatsächliche Publikation/Bereitschaft, freie korrekte Kameras und sichtbare
+Geometrie/Licht/Materialien, gemessene Residency/Framekosten. Vegetation kommt zuletzt.
+Hockenheim ist nur erster Integrationstest. Alle Places gehören zu JEDEM Code-Gate.
 
 ## Historischer Bildbefund
 
@@ -45,11 +61,11 @@ Nacht und bewegte NPCs sind durch Außen-Standbilder nicht abgedeckt.
 | P0 | Rote Gates und bestätigte Lebensdauer-/Publikationsfehler | Nur betroffener Pfad gesperrt; keine globale Auditblockade |
 | P0 | Terrain-Provenienz 2310/2311; CPU-Verfeinerung 2313 → Runtime 2312 → Gebäude-LOD 2298 | Keine kleinere Schranke ohne vollständigen nativen Oberflächenbeweis |
 | P0 | 2092: zeitlich getaktete Hockenheim-Fahrt und übereinstimmende Qualitäts-/Kostentraces | CPU/Fence-Zeit ersetzt keine GPU-Passzeit und keinen A18-Nachweis |
-| P1 | 2111: nativer isolierter Wald; 2172: unveränderlicher Wetterzustand | Beide unabhängig von fertiger Stadt; Weltkronen benötigen atomare Publikation |
+| P1 | 2172: Wetterzustand; danach Wolken/Licht/Materialien | 2111 Vegetation folgt zuletzt; Weltkronen benötigen atomare Publikation |
 | P1 | 2140: erste volumetrische Wolkenschicht; 2167/2171 Licht und Materialien | Wolken benötigen verbindlichen Wetter-/Kompositionsvertrag, keine fertige Vegetation |
 | P1 | Gelände, OSM-Bauwerke, Wasser und räumliche Anschlüsse | Nur tatsächliche gemeinsame Quellen-/Kontaktverträge blockieren |
 | P1 | 2314: gemeinsames Qualitätsbudget aus gemessenen Leitern ableiten | Erst Kosten/Qualität messen; kein vorgezogener generischer Solver |
-| P2 | Artenvielfalt, Unterwuchs, Population und Place-Abnahmen | Auf den jeweiligen funktionierenden Kern aufbauen |
+| P2 zuletzt | 2111: Vegetation, Artenvielfalt und Unterwuchs | Place-Abnahmen laufen ab sofort, nicht erst hier |
 
 Stadt, Wald, Infrastruktur, Himmel und Wolken teilen dasselbe Gesamtframebudget.
 Eine Großstadt und ein Wald müssen dieselbe Zeitobergrenze einhalten; kein künstliches

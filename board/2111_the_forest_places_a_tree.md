@@ -1,12 +1,15 @@
 Type: feature
 State: open
 Architecture: ready
-Priority: P1
+Priority: P2
 Area: generators, world, engine, render
 Parent: 2169
 Depends:
 
 # Forests populate suitable ground with shared native quality levels
+
+Vegetation follows the integrated city/terrain/sky core by user direction (2026-09-28).
+The shared city/forest budget remains binding; this ordering is not a technical Depends.
 
 ## Goal and evidence
 

@@ -28,13 +28,19 @@ Queues, Abbruch, Arbeit und Speicher begrenzen; alte Ergebnisse ersetzen keine n
 
 | Rang | WI / Besitzer | Ausführbarer Schritt und Grenze |
 |---|---|---|
-| P0 zuerst | 2311 / engine streaming | Readiness-Miss von allokierender Revalidierung trennen; Zertifikate erhalten |
-| P0 | 2313 / generators building | Adaptive CPU-Beweise samt nativen Varianten und begrenztem Scratch abschließen |
-| P0 danach | 2312 / engine streaming | Proof-Phase im BuildTask; Referenz, Ergebnis und Quellannahme gemeinsam besitzen |
-| P0 danach | 2298 / render | Residentes natives LOD per Frame wählen; Kamera darf Bake nicht verändern |
-| P0 unabhängig | 2092 / client diagnostics | Hockenheim-Bewegung, Ausreißer und Qualitäts-/Kostenleiter messen |
-| P1 unabhängig | 2111 / generators + vegetation streaming | Geteilte native Baumprototypen in isoliertem Wald mit Nah/Fern/Nah abnehmen |
-| P1 unabhängig | 2172 / world + engine declaration | Gemeinsamen unveränderlichen Wetterzustand mit vorhandener Haze-Wirkung verbinden |
+| P0 zuerst | 2311 / engine streaming | Place-Absturz, Owner-Domänen und tatsächliche Refined-Bereitschaft beheben |
+| P0 unabhängig | 2228 / engine + render | Olympiaturm: residenten CPU/GPU-Bestand erfassen und begrenzen |
+| P0 unabhängig | 2092 / client diagnostics | Alle Places: gemessene Stadt-/Terrain-/Himmelkosten statt Hockenheim allein |
+| P0 danach | 2312 / engine streaming | Bewiesene adaptive CPU-Fähigkeit in gepaarte BuildTask-Phasen integrieren |
+| P0 danach | 2298 / render | Source-matching residentes LOD unter Bild-/Zeit-/Speicherabnahme auswählen |
+| P1 | 2172 / world + engine declaration | Wetterzustand integrieren; danach Wolken/Licht/Materialien vorantreiben |
+| P2 zuletzt | 2111 / generators + vegetation streaming | Vegetation implementieren und dann Stadt/Wald im selben Budget abnehmen |
+
+2313 liefert die CPU-Grundlage; weitere isolierte Detailbeweise brauchen einen konkreten
+Integrationsfehler. Jeder Code-/Shader-/Build-Schritt umfasst Places-Suite UND alle zehn
+Place-Renderings mit geöffneten PNGs. Hockenheim/Kamerarunde ist nur der erste Test.
+2170 ist P0-Architekturarbeit: Kamera-/Datum-/Verdeckungsursache belegen, keine freien
+Place-Offsets oder ausgeblendete Geometrie. 2230 prüft vollständige Snapshot-Bereitschaft.
 
 2140 Wolken und 2314 gemeinsamer Budgetplaner bleiben Architecture: planned, bis die
 jeweiligen Eingangs-/Kostenverträge feststehen. Keine scheinbar ausführbare Reserve.
