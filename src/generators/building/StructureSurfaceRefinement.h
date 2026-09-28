@@ -71,7 +71,7 @@ private:
   [[nodiscard]] std::expected<Region, StructureSurfaceErrorFailure>
   PrepareRegion(std::array<PointEnclosure, 3> vertices, double inheritedUpperM) noexcept;
   [[nodiscard]] std::expected<void, StructureSurfaceErrorFailure> PrepareSplit() noexcept;
-  [[nodiscard]] std::expected<void, StructureSurfaceErrorFailure> EvaluateTriangle() noexcept;
+  [[nodiscard]] std::expected<void, StructureSurfaceErrorFailure> EvaluatePoint() noexcept;
   void BeginEvaluation(Region region) noexcept;
   void FinishEvaluation() noexcept;
   void UpdateUpper() noexcept;
@@ -88,12 +88,13 @@ private:
   size_t Direction_ = 0;
   size_t SeedCursor_ = 0;
   size_t TargetCursor_ = 0;
+  size_t EvaluationPoint_ = 0;
   size_t ChildCursor_ = 0;
   size_t WorkUnits_ = 0;
   size_t TriangleQueries_ = 0;
   size_t Splits_ = 0;
   double SampleLowerM_ = 0;
-  double SampleUpperM_ = 0;
+  double TargetCornerUpperM_ = 0;
   Phase Phase_ = Phase::Failed;
   StructureSurfaceErrorFailure Failure_ = StructureSurfaceErrorFailure::InvalidSource;
 };

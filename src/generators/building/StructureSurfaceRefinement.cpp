@@ -60,12 +60,13 @@ StructureSurfaceRefinementTask::operator=(StructureSurfaceRefinementTask &&other
   Direction_ = other.Direction_;
   SeedCursor_ = other.SeedCursor_;
   TargetCursor_ = other.TargetCursor_;
+  EvaluationPoint_ = other.EvaluationPoint_;
   ChildCursor_ = other.ChildCursor_;
   WorkUnits_ = other.WorkUnits_;
   TriangleQueries_ = other.TriangleQueries_;
   Splits_ = other.Splits_;
   SampleLowerM_ = other.SampleLowerM_;
-  SampleUpperM_ = other.SampleUpperM_;
+  TargetCornerUpperM_ = other.TargetCornerUpperM_;
   Phase_ = other.Phase_;
   Failure_ = other.Failure_;
   other.Cancel();
@@ -137,8 +138,9 @@ StructureSurfaceRefinementTask::PrepareRegion(std::array<PointEnclosure, 3> vert
 void StructureSurfaceRefinementTask::BeginEvaluation(Region region) noexcept {
   Working_ = region;
   TargetCursor_ = 0;
+  EvaluationPoint_ = 0;
+  TargetCornerUpperM_ = 0;
   SampleLowerM_ = std::numeric_limits<double>::infinity();
-  SampleUpperM_ = std::numeric_limits<double>::infinity();
 }
 
 std::expected<void, StructureSurfaceErrorFailure>
@@ -217,28 +219,36 @@ void StructureSurfaceRefinementTask::FinishEvaluation() noexcept {
 }
 
 std::expected<void, StructureSurfaceErrorFailure>
-StructureSurfaceRefinementTask::EvaluateTriangle() noexcept {
+StructureSurfaceRefinementTask::EvaluatePoint() noexcept {
   if (TriangleQueries_ == Limits_.MaxTriangleQueries) {
     Phase_ = Phase::Complete;
     return {};
   }
   const auto triangle = TriangleAt(*Inputs_[1 - Direction_], TargetCursor_);
-  const auto value = BoundPointTriangleDistance(Working_.Enclosure.InteriorSample.EstimateM,
-                                                triangle[0].EstimateM,
-                                                triangle[1].EstimateM,
-                                                triangle[2].EstimateM);
+  const auto &point = EvaluationPoint_ == 0 ? Working_.Enclosure.InteriorSample
+                                            : Working_.Vertices[EvaluationPoint_ - 1];
+  const auto value = BoundPointTriangleDistance(
+      point.EstimateM, triangle[0].EstimateM, triangle[1].EstimateM, triangle[2].EstimateM);
   ++TriangleQueries_;
   if (!value) { return std::unexpected(StructureSurfaceErrorFailure::NonfiniteDistance); }
-  SampleLowerM_ = std::min(SampleLowerM_, value->LowerDistanceM);
-  SampleUpperM_ = std::min(SampleUpperM_, value->UpperDistanceM);
-  const double radius = Working_.Enclosure.RadiusM;
-  const double upper =
-      Add({.Lower = SampleUpperM_, .Upper = SampleUpperM_}, {.Lower = radius, .Upper = radius})
-          .Upper;
+  const double radius = EvaluationPoint_ == 0 ? Working_.Enclosure.RadiusM : point.RadiusM;
+  const double upper = Add({.Lower = value->UpperDistanceM, .Upper = value->UpperDistanceM},
+                           {.Lower = radius, .Upper = radius})
+                           .Upper;
   if (!std::isfinite(upper)) {
     return std::unexpected(StructureSurfaceErrorFailure::NonfiniteDistance);
   }
-  Working_.UpperM = std::min(Working_.UpperM, upper);
+  if (EvaluationPoint_ == 0) {
+    SampleLowerM_ = std::min(SampleLowerM_, value->LowerDistanceM);
+    Working_.UpperM = std::min(Working_.UpperM, upper);
+  } else {
+    TargetCornerUpperM_ = std::max(TargetCornerUpperM_, upper);
+  }
+  ++EvaluationPoint_;
+  if (EvaluationPoint_ <= Working_.Vertices.size()) { return {}; }
+  Working_.UpperM = std::min(Working_.UpperM, TargetCornerUpperM_);
+  EvaluationPoint_ = 0;
+  TargetCornerUpperM_ = 0;
   TargetCursor_ += 3;
   if (TargetCursor_ == IndexCount(*Inputs_[1 - Direction_])) { FinishEvaluation(); }
   return {};
@@ -274,7 +284,7 @@ StructureSurfaceRefinementTask::ProcessWork() noexcept {
     }
     case Phase::Split: return PrepareSplit();
     case Phase::EvaluateSeed:
-    case Phase::EvaluateChild: return EvaluateTriangle();
+    case Phase::EvaluateChild: return EvaluatePoint();
     case Phase::Complete:
     case Phase::Failed: return {};
   }

@@ -81,39 +81,40 @@ mit null Findings und 32/32 Guards PASS. Logs: /tmp/outshine-refinement-move-
 
 ## Native utility probe and next proof decision
 
-Optimized local probe against 618371b14 libraries, one 20x30 m building, flat/pitched:
-88/184 Fine triangles. Default caps leave identical Fine/Fine at [0,10.0267] or
-[0,6.9483] m after 131072 queries. Fine/Shell ends at [1.9000,10.0267] or
-[3.3963,6.9470] m. Six single runs take 106–144 ms locally; no p99/device claim.
-Scratch is 8192 retained Region slots plus 5 inline Regions, each 152 bytes:
-(8192+5)*152 = 1245944 bytes/task, despite the 4096 LIVE-region cap.
-Probe source/log: /tmp/outshine-review-native-proof.{cpp,log}. This is cost/utility
-inspection, no independent native-error oracle and no smaller runtime certificate.
+Fixed-target corner queries are implemented; official focused/full gates are pending.
+ASan/UBSan: existing adaptive 55 checks, move 4669 checks, analytic sloped/collapsed/
+translated/reversed/budget cases 456 checks PASS. Native reordered flat self: 5 checks PASS.
+Removing convex tightening fails useful precision; replacing corner max with min fails
+opening safety. Both are actual FAIL, not BUILD. Logs: /tmp/outshine-convex-bound-
+{verification,controls}.log and /tmp/outshine-convex-{native,missing-convex,wrong-corner-min}.log.
 
-Before a BVH, tighten each region against ONE fixed convex target triangle using
+Local 20x30 m native probe: flat Fine/Fine uses 61952 queries for a near-zero interval;
+Fine/Shell uses 64448 for [1.899999979,1.911157473] m. Pitched 184-triangle self and
+184/172 Fine/Shell exhaust 131072 queries during seeding: upper 37.214628331 m versus
+previous 6.9483/6.9470 m. Safe but worse utility; four queries/target need a measured
+follow-up, not larger caps or runtime acceptance. Log: /tmp/outshine-convex-probe.log.
+Six single runs 50–102 ms locally; no p99/device claim. Scratch remains (8192+5)*152 =
+1245944 bytes/task. Exact correspondence may shortcut only after full value verification;
+an early region exit may retain lower zero, never an incomplete all-target minimum.
+
+Before a BVH, each region is tightened against ONE fixed convex target triangle using
 its three enclosed corner-distance upper bounds. For p=sum(lambda_i*p_i), choose
 q_i in that target; q=sum(lambda_i*q_i) remains there, so distance(p,q) <= max_i U_i.
 Then minimize this maximum across targets. Never maximize per-corner minima from
 DIFFERENT targets: the filled-opening counterexample makes that unsafe.
 Combine this valid upper with the existing sample+radius/parent bounds; count every
 additional primitive query in sliced budgets. Existing all-target lower evidence stays.
-Prove convex containment, rounded corner deviations, degenerate targets, opening and
-native self-pairs independently before implementation. Exact triangle correspondence
+Retain independent containment, rounded corner, degenerate, opening and native controls. Exact triangle correspondence
 is optional only with full value verification; hashes alone certify nothing.
 
 Independent Fraction oracle: 7200 exact rational interior probes cover arbitrary/sloped,
 collapsed/collinear/self targets, binary scaling and large translations. Convex fixed-target
 inequality holds; per-corner target switching yields 0 versus opening distance squared 1/4.
 Log: /tmp/outshine-review-convex-oracle.log. This supports the decision, not C++ rounding,
-budget/state or native runtime acceptance of an implementation that does not yet exist.
+budget/state or native runtime acceptance by itself.
 
-## Aktiver Schritt: konvexe Zielschranke
+## Primitive state contract
 
-EvaluateTriangle erhält einen Cursor für Innenprobe und drei Eckproben am selben Ziel.
-Jede Distanzabfrage zählt einzeln; erst drei vollständige Eckproben liefern deren
-Maximum inklusive nach außen gerundeter PointEnclosure-Radien. Zielwechsel setzt
-dieses Maximum zurück. Sample-Lower bleibt ein Minimum über sämtliche Zieldreiecke.
-Move/Copy übernehmen Cursor und partielles Maximum; Erschöpfung erhält Elternabdeckung.
-Analytische geneigte/degenerierte Selbstflächen, Translation, Reihenfolge und Budget-
-abbruch prüfen Sicherheit und Nutzen. Native Gebäudemessung entscheidet den nächsten
-Optimierungsschritt; Query-Caps bleiben unverändert, keine Runtime-Freigabe.
+EvaluatePoint counts the interior sample and three enclosed corners separately.
+Target changes reset the corner maximum. Moves transfer the partial cursor/maximum;
+exhaustion retains complete parent coverage. Native cost utility remains open.
