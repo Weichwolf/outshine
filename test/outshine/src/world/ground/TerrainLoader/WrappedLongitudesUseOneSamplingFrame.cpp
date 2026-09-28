@@ -17,23 +17,31 @@
 using namespace outshine;
 
 namespace {
-constexpr std::array<uint8_t, 81> kGradientPng{137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 4, 0, 0, 0, 4, 8, 2, 0, 0, 0, 38, 147, 9, 41, 0, 0, 0, 24, 73, 68, 65, 84, 120, 156, 99, 104, 72, 97, 104, 72, 101, 104, 72, 99, 104, 72, 103, 96, 32, 142, 3, 0, 124, 247, 14, 89, 156, 77, 91, 71, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130};
+constexpr std::array<uint8_t, 81> kGradientPng{
+    137, 80, 78,  71, 13, 10,  26, 10,  0,   0,   0,  13,  73, 72,  68,  82, 0,   0,  0,  4,   0,
+    0,   0,  4,   8,  2,  0,   0,  0,   38,  147, 9,  41,  0,  0,   0,   24, 73,  68, 65, 84,  120,
+    156, 99, 104, 72, 97, 104, 72, 101, 104, 72,  99, 104, 72, 103, 96,  32, 142, 3,  0,  124, 247,
+    14,  89, 156, 77, 91, 71,  0,  0,   0,   0,   73, 69,  78, 68,  174, 66, 96,  130};
 
 class GradientSource final : public Data::Source {
 public:
-  Data::SourceDecl Decl{.Id = "longitude-gradient",
-                        .Revision = "analytic-v1",
-                        .Keeps = Data::Cacheability::Never};
+  Data::SourceDecl Decl{
+      .Id = "longitude-gradient", .Revision = "analytic-v1", .Keeps = Data::Cacheability::Never};
+
   const Data::SourceDecl &Declaration() const noexcept override { return Decl; }
+
   Data::Coverage Covers(const Data::Fetch &) const noexcept override {
     return Data::Coverage::Inside;
   }
+
   Data::Address Serves(const Data::Fetch &request) const noexcept override {
     return request.Where();
   }
+
   Data::Ticket Begin(const Data::Address &, Data::Transport &) const override {
     return Data::Ticket::None;
   }
+
   Data::Fetched Collect(const Data::Address &, Data::Ticket, Data::Transport &) const override {
     return Data::Fetched::Delivered(std::vector<uint8_t>(kGradientPng.begin(), kGradientPng.end()));
   }
@@ -42,7 +50,9 @@ public:
 class NoNetwork final : public Data::Transport {
 public:
   Data::Ticket Begin(const std::string &) override { return Data::Ticket::None; }
+
   Data::Wire Collect(Data::Ticket) override { return Data::Wire::Never(); }
+
   void Cancel(Data::Ticket) override {}
 };
 

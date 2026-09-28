@@ -86,7 +86,7 @@ using the sampler's own coverage contract rather than a copied zoom constant.
    `PlanTerrainSourceTiles` now supplies halos, parents, vector/building and
    route tiles to `HeightSheets`, with independent grid/seam/budget controls.
    Path union and bounded path preparation are still to be integrated.
-   `world/ground/TerrainSamplingCoverage` owns normal/coarse field mapping.
+   The implemented `world/ground/TerrainSamplingCoverage` owns field mapping.
    `GroundStream::SamplingCoverage(TileId)` maps a source tile to the sampler's
    configured grid and its optional three-level fallback without IO. Resident
    queries and `KeepCoarse` consume this same mapping. Reject invalid grids or

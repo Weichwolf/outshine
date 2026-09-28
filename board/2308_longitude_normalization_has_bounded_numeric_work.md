@@ -1,5 +1,5 @@
 Type: defect
-State: active
+State: done
 Architecture: ready
 Parent:
 Depends:
@@ -54,3 +54,13 @@ column fraction is 64/360; the original coordinate is clamped to a tile edge.
   `At` only to `Resident` is insufficient because both could be equally wrong.
 - `make format`, `make suite SUITE=outshine/src/base/geo/Geodesy` and
   `LINT_JOBS=2 make lint` pass.
+
+## Verification
+
+Independent integer-residue and sourced DEM-gradient cases pass. Restoring the
+old loop times out at two seconds; restoring either old interpolation path
+independently fails the gradient case. All three controls restore production
+inputs afterward. Format, full lint (zero clang-tidy findings) and five focused
+cases pass. Offline Hockenheim capture: 538 cache hits, zero misses/network
+starts, pixel-identical to the previous frame; PNG visually inspected.
+Route-demand closure remains WI 2306.

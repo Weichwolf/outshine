@@ -35,8 +35,8 @@ int main() {
               Wrap180(-13.5 + static_cast<double>(turns) * kDegPerTurn) == -13.5,
           "exact fractional positions are independent of longitude turns");
   }
-  CHECK(Wrap180(180.0) == 180.0 && Wrap180(-180.0) == -180.0 &&
-            Wrap180(540.0) == 180.0 && Wrap180(-540.0) == -180.0,
+  CHECK(Wrap180(180.0) == 180.0 && Wrap180(-180.0) == -180.0 && Wrap180(540.0) == 180.0 &&
+            Wrap180(-540.0) == -180.0,
         "the existing signs at the antimeridian remain part of the math contract");
   CHECK(!std::signbit(Wrap180(0.0)) && std::signbit(Wrap180(-0.0)) &&
             !std::signbit(Wrap180(360.0)) && std::signbit(Wrap180(-360.0)),

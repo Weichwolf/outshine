@@ -346,11 +346,8 @@ GroundSample GroundStream::At(LongitudeLatitude at) const {
   Held_->Pending = false;
   const Tile *t = TileAt(hx, hy);
   if (t == nullptr) { return Held_->Pending ? GroundSample::Waiting() : GroundSample::Missing(); }
-  return GroundSample::At(TileHeightAslM(t->H.data(),
-                                         t->Nodes,
-                                         t->Postings,
-                                         f.X - std::floor(f.X),
-                                         f.Y - std::floor(f.Y)));
+  return GroundSample::At(TileHeightAslM(
+      t->H.data(), t->Nodes, t->Postings, f.X - std::floor(f.X), f.Y - std::floor(f.Y)));
 }
 
 double GroundStream::PostM(double latDeg) const {
