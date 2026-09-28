@@ -71,18 +71,18 @@ Prior full gates PASS at 4871add5a, 46bbf8c48 and 41e159998; logs remain in Git 
 63908c160: 19 focused PASS; full lint FAIL on three tidy findings. 94581ed9b fixes
 include/complexity; full rerun pending.
 
-## Active step: retain reservations past scan advancement
+## Active repair: canonical resident terrain for building detail
 
-Wien/Places abort in DiscardFront -> TileWatermark::Release: Advance erases worker-owned
-reservations. Owner: TileWatermark.h/tests. Retain a sorted unavailable set independently
-of scanning; Release removes its tile and rewinds, preserving other held/accepted/skipped
-tiles. 1e3fd8700 fixes scan retention but Wien still aborts: source equality is not owner
-identity. BuildingField copies/reset get fresh retained byte domains; moves transfer them.
-Whole queued builds capture that lease; owner mismatch discards without foreign Release.
-Test
-advanced release/retry/other-held/skipped/snapshot; restored erasure must FAIL. Format;
-TileWatermark/BuildingField/queue/Places; full lint/tidy/API; render all Places without
-vegetation and open PNGs. Backtrace: /tmp/outshine-places-94581ed9b-backtrace-full.log.
+75623a5e1 fixes reservation ownership; 16138ffe3 fixes duplicate test verdicts.
+Wien/Graz also fail Refined at c8240a041; view-detail stalls predate recent provenance checks.
+Whole bakes use HeightSheets ancestor resampling; live detail uses raw GroundStream rasters.
+Owners: Advancing.cpp and StructureBuildQueue.h/.cpp. After ground publication, use the
+published HeightSheets source representation for whole/detail preparation and validation.
+Add optional CopyResidentField; legacy callers retain ResidentField fallback. Missing fields
+must defer without IO; preserve scope/source checks and conservative LOD bounds. Before
+publication retain the existing streaming path. Changed DEM still needs a joint candidate.
+Test resident-copy selection against a poisoned resolver and changed/missing raster; format,
+focused/source-field/Places suites, all ten no-vegetation renders, full lint/tidy/API.
 
 Street digest: 25 owner and 35 queue checks PASS; scan/domain/generation mutants FAIL.
 
