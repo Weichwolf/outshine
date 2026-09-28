@@ -101,4 +101,6 @@ FAIL (exit 1), not SIGNAL/BUILD/TIMEOUT. Format: 1203 files, zero errors. Logs:
 lost-destination-stop}.log. bc33d18d4: official BuildTask 1 and queue 4 PASS;
 logs /tmp/outshine-build-task-move-{focused,queue}.log. Full lint failed: two unnamed move
 parameters (readability-named-parameter); 256 units completed, all 32 guards/API docs PASS.
-Name both declarations; corrected full gate pending. Adaptive phases remain open.
+29610fade names both: 5 focused tests, full lint 256/256 units without findings,
+32/32 guards and API docs PASS; process exit 0. Logs /tmp/outshine-build-task-move-names-
+{focused,queue,full-lint}.log and gate-result.txt. Adaptive phases remain open.
