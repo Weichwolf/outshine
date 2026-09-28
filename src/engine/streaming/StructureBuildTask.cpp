@@ -34,9 +34,24 @@ StructureBuildTask::~StructureBuildTask() {
   assert(State_ != State::Running);
 }
 
-StructureBuildTask::StructureBuildTask(StructureBuildTask &&) noexcept = default;
+StructureBuildTask::StructureBuildTask(StructureBuildTask &&other) noexcept : State_(State::Empty) {
+  *this = std::move(other);
+}
 
-StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&) noexcept = default;
+StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) noexcept {
+  if (this == &other) { return *this; }
+  assert(State_ != State::Running);
+  Tile_ = std::exchange(other.Tile_, 0);
+  Raw_ = std::move(other.Raw_);
+  Heights_ = std::move(other.Heights_);
+  Output_ = std::move(other.Output_);
+  Scratch_ = std::move(other.Scratch_);
+  Progress_ = std::move(other.Progress_);
+  Stopping_ = std::move(other.Stopping_);
+  Handle_ = std::exchange(other.Handle_, Tasks::kNoTask);
+  State_ = std::exchange(other.State_, State::Empty);
+  return *this;
+}
 
 bool StructureBuildTask::Running() const noexcept {
   return State_ == State::Running;
@@ -103,7 +118,7 @@ void StructureBuildTask::Resume(Tasks &pool, const StructureMesher &mesher) {
 }
 
 void StructureBuildTask::RequestStop() noexcept {
-  Stopping_->store(true, std::memory_order_relaxed);
+  if (Stopping_) { Stopping_->store(true, std::memory_order_relaxed); }
 }
 
 bool StructureBuildTask::TakeCompletion(Tasks &pool) {

@@ -68,7 +68,7 @@ public:
   [[nodiscard]] std::unique_ptr<MeshScratch> TakeScratch() noexcept;
 
 private:
-  enum class State : uint8_t { Ready, Running, Completed };
+  enum class State : uint8_t { Empty, Ready, Running, Completed };
 
   void Posts(Tasks &pool, const StructureMesher &mesher);
 

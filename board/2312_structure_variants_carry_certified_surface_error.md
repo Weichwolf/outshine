@@ -93,3 +93,9 @@ stops/joins. Move partial completion before Resume; verify exactly-once output/p
 release. Restored default moves must produce actual FAIL, not a timeout or build failure.
 Acceptance: make format; StructureBuildTask/StructureBuildQueue suites; full lint/tidy/API.
 No change to geometric errors, publication or today's renderer-selection contract.
+
+Direct implementation check: 20 checks PASS with real blocked workers. Restored default
+moves, shared source stop ownership and lost destination stop ownership each give actual
+FAIL (exit 1), not SIGNAL/BUILD/TIMEOUT. Format: 1203 files, zero errors. Logs:
+/tmp/outshine-build-task-move-{controls,correct,default-moves,shared-source-stop,
+lost-destination-stop}.log. Official focused/full gate pending; adaptive phases still open.
