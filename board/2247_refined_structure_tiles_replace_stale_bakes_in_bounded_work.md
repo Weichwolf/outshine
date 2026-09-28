@@ -3,7 +3,7 @@ State: active
 Architecture: ready
 Parent: 2230
 Depends:
-Priority: P1
+Priority: P0
 Area: engine, ground, generators
 Tags: structures, determinism, realtime
 
@@ -69,29 +69,27 @@ case for Malcesine/Graz.
 Reservation release belongs to the BuildingField domain, even after producer revisions
 change (8d094066c). A foreign domain never releases or lands the current owner’s slot.
 
-Refined now copies accepted CPU structure products and tile IDs, scans accepted tiles
-against vector, DEM raster, street and camera inputs, and replaces only stale
-tiles before readiness. The street digest is captured at bake admission:
-recording it at commit falsely marked a tile current when roads arrived during
-the worker task. `GroundCandidatePacingReachesReadiness` now passes normal and
-validated pacing; Wien publishes a new Refined PNG within its frame limit.
-Wien exposes the next violation: `SceneResources::CopySourcesFrom` deep-copies
-98 immutable piece meshes (156.7 MB) in 23.7 ms; `RestorePieces` reuploads all
-of them in 58.4 ms on one candidate-preparation frame. Keep mutable rows,
-resident ID and slot state per world, share immutable CPU mesh payloads, and
-pace restoration before candidate readiness. Published resources must remain
-usable until replacement and retirement. True unchanged GPU-handle reuse is
-still unproven. DEM posting adequacy, cancellation, eviction/reload and
-Graz/Basel acceptance remain open.
-Immutable CPU piece payloads now remain shared across the candidate; piece
-uploads are paced before readiness. The Wien shot kept digest `45d7bbaa` and
-reached Refined in 5,428 frames: simulation p99 9.37 ms, maximum 26.71 ms,
-9 frames over 16.67 ms overall. The largest remaining frame was in draw
-(108.72 ms); true GPU-resident handle reuse and Graz/Basel still need proof.
+Current capability: accepted CPU tile products and immutable piece payloads survive
+candidate copying; restoration is paced. Queue/BuildingField/HeightField and both
+publication pacing variants pass at 1b1086740. At 497d94109, Refined captures succeed
+for 7/10 Places; Wien remains in earthworks, Graz/Olympiaturm time out. True unchanged
+GPU-handle reuse and complete cancellation/eviction acceptance remain open.
+Olympiaturm sample: repeated Retable/UploadTables and Metal waits, 9.4 GB peak footprint.
+Measure retained/cycled capacities before calling this a leak.
 
-497d94109 host sample: repeated Retable/UploadTables and Metal fence waits;
-Olympiaturm peak footprint 9.4 GB. Measure retained/cycled upload capacities before
-claiming a leak; bound unchanged-table rebuilds and preserve published resources.
+## Next executable repair: share each piece's cluster spheres
+
+AppendPieceBatches currently duplicates the same 12 sphere/error floats per cluster for
+every instance row. SubjectDraw.cpp owns the table; transforms and jobs remain per instance.
+Append immutable spheres once per piece, then reference their base plus cluster index from
+each instance job. No deduplication across pieces; preserve batch/model/material/index rows,
+source errors, instance transforms and draw coverage. Empty piece rows append no spheres.
+Owner/test: render/stages/SubjectDraw.cpp and its suite. Use real GPU table readback with
+multiple differently transformed instances and two distinct pieces; check exact sphere
+bytes, job references and retained transforms. Restored duplication must actually FAIL.
+Gate: make format; SubjectDraw/SceneResources suites; complete Places and opened PNGs;
+full lint/tidy/API. Measure actual byte savings and all Place frame costs; smaller tables
+alone neither prove an Engine residency ceiling nor close unchanged GPU-handle reuse.
 
 ## Implementation and acceptance
 
