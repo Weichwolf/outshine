@@ -44,7 +44,7 @@ for tool in clang-format clang-tidy; do
     exit 2
   }
 done
-for target in test-format test-tidy-analysis test-documentation test-reference-cache test-corpus-invariants db; do
+for target in test-format test-tidy-analysis test-documentation test-reference-cache test-corpus-invariants test-motion-trace db; do
   if ! make "$target"; then
     printf 'lint: prerequisite %s failed\n' "$target" >&2
     red=$((red + 1))

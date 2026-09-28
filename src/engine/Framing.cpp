@@ -137,6 +137,7 @@ Result Engine::render(Extent frame) {
   const auto began = std::chrono::steady_clock::now();
   if (!DrawScene(S_->Picture, S_->Error)) { return std::unexpected(S_->Error); }
   S_->Published.BeginFrame();
+  S_->PublishSubmittedCameraMeasurements();
   S_->Cost.Render.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
   const Render::RenderFrameTiming &frameTiming = S_->Picture.Device.LastRenderFrameTiming();

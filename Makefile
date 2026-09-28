@@ -142,7 +142,7 @@ corpus-reference: ## explicitly pin generated reference images (CASES=...; REFER
 corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
 	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
 
-test: test-client-arguments test-client-data test-client-render test-corpus-invariants all ## the fast gate
+test: test-client-arguments test-client-data test-client-render test-corpus-invariants test-motion-trace all ## the fast gate
 	@$(RUN)
 
 suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/RuntimeScene/CameraBindingPrecedesDrawing)
@@ -212,6 +212,9 @@ corpus-fetch: ## fetch pinned corpus inputs without Blender (MANIFEST=test/khron
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py fetch --manifest "$(MANIFEST)"
 
-.PHONY: test-writer-inventory
+.PHONY: test-writer-inventory test-motion-trace
+test-motion-trace: ## verify route-camera trace continuity and lap closure with analytic controls
+	@cd $(SELF_DIR) && python3 test/scripts/test_motion_trace.py
+
 test-writer-inventory: ## verify scenario writer source inventory
 	@cd $(SELF_DIR) && python3 test/scripts/test_grammar_vs_writer.py

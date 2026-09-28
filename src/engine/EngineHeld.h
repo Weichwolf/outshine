@@ -587,6 +587,7 @@ struct Engine::State {
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
   void PublishFrameMeasurements();
+  void PublishSubmittedCameraMeasurements();
   void PublishResourcePayloadMeasurements();
   void PublishAudioSnapshot();
   [[nodiscard]] bool IsAudioOccluded(const Vec3 &sourceM) const;

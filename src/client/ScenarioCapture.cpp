@@ -1,4 +1,5 @@
 #include "ScenarioCapture.h"
+#include "CaptureCameraBasis.h"
 
 #include <Outshine.h>
 #include "io/HeapProbe.h"
@@ -57,12 +58,65 @@ struct MotionState {
 struct MotionFrame {
   double TimeS = 0.0;
   MotionState State;
+  CaptureCameraBasis CameraBasis;
+  Vec3 CameraPositionM;
+  double CameraSerial = 0.0;
   double AdvanceMs = 0.0;
   double RenderMs = 0.0;
   bool Settled = false;
   std::array<bool, 3> Contact{};
   double EyeClearanceM = std::numeric_limits<double>::quiet_NaN();
 };
+
+struct SubmittedCamera {
+  CaptureCameraBasis Basis;
+  Vec3 PositionM;
+  double Serial = 0.0;
+};
+
+[[nodiscard]] std::optional<SubmittedCamera> ReadSubmittedCamera(const Engine &engine) {
+  constexpr std::array<std::string_view, 9> names{"render last submitted camera: eye east",
+                                                  "render last submitted camera: eye up",
+                                                  "render last submitted camera: eye south",
+                                                  "render last submitted camera: forward east",
+                                                  "render last submitted camera: forward up",
+                                                  "render last submitted camera: forward south",
+                                                  "render last submitted camera: up east",
+                                                  "render last submitted camera: up up",
+                                                  "render last submitted camera: up south"};
+  std::array<double, names.size()> fields{};
+  unsigned found = 0;
+  double serial = 0.0;
+  for (const auto &measure : engine.measures()) {
+    if (measure.Name == "render last submitted camera: serial") { serial = measure.Value; }
+    for (size_t field = 0; field < names.size(); ++field) {
+      if (measure.Name == names[field]) {
+        fields[field] = measure.Value;
+        found |= 1u << field;
+      }
+    }
+  }
+  constexpr unsigned allFields = (1u << names.size()) - 1u;
+  if (found != allFields || !std::isfinite(serial) || serial <= 0.0 ||
+      !std::ranges::all_of(fields, [](double value) { return std::isfinite(value); })) {
+    return std::nullopt;
+  }
+  const Vec3 forward{{fields[3], fields[4], fields[5]}};
+  const Vec3 up{{fields[6], fields[7], fields[8]}};
+  constexpr double basisTolerance = 1e-6;
+  if (std::abs(Dot(forward, forward) - 1.0) > basisTolerance ||
+      std::abs(Dot(up, up) - 1.0) > basisTolerance || std::abs(Dot(forward, up)) > basisTolerance) {
+    return std::nullopt;
+  }
+  Camera camera;
+  camera.PositionM = {{fields[0], fields[1], fields[2]}};
+  camera.LooksAt = true;
+  camera.LookAtM = camera.PositionM + forward;
+  camera.UpM = up;
+  const auto basis = CaptureCameraBasis::Of(camera);
+  if (!basis) { return std::nullopt; }
+  return SubmittedCamera{.Basis = *basis, .PositionM = camera.PositionM, .Serial = serial};
+}
 
 struct MotionContact {
   std::array<bool, 3> Tracks{};
@@ -193,7 +247,10 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
   trace << "time_s\tstation_m\tsegment\teast_m\tup_m\trenderer_z_m\tadvance_ms\trender_"
            "ms\tsettled\tcandidate_starts\tcandidate_last_progress\tprevious_fence_wait_ms\t"
            "previous_upload_attempts_current_residency\tprevious_crossings_current_residency\t"
-           "left_contact\tcenter_contact\tright_contact\teye_clearance_m\n";
+           "left_contact\tcenter_contact\tright_contact\teye_clearance_m\t"
+           "camera_frame_serial\tcamera_eye_east_m\tcamera_eye_up_m\tcamera_eye_south_m\t"
+           "camera_forward_east\tcamera_forward_up\tcamera_forward_south\t"
+           "camera_up_east\tcamera_up_up\tcamera_up_south\n";
   trace << std::fixed << std::setprecision(6);
   for (const MotionFrame &frame : frames) {
     trace << frame.TimeS << '\t' << frame.State.StationM << '\t' << frame.State.Segment << '\t'
@@ -202,7 +259,12 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
           << frame.State.CandidateStarts << '\t' << frame.State.CandidateProgress << '\t'
           << frame.State.PreviousFenceWaitMs << '\t' << frame.State.PreviousUploadAttempts << '\t'
           << frame.State.PreviousCrossings << '\t' << frame.Contact[0] << '\t' << frame.Contact[1]
-          << '\t' << frame.Contact[2] << '\t' << frame.EyeClearanceM << '\n';
+          << '\t' << frame.Contact[2] << '\t' << frame.EyeClearanceM;
+    trace << '\t' << frame.CameraSerial << std::setprecision(9);
+    for (const double component : frame.CameraPositionM) { trace << '\t' << component; }
+    for (const double component : frame.CameraBasis.Forward) { trace << '\t' << component; }
+    for (const double component : frame.CameraBasis.Up) { trace << '\t' << component; }
+    trace << std::setprecision(6) << '\n';
   }
   trace.close();
   if (!trace) { return std::unexpected("motion trace could not be written"); }
@@ -223,6 +285,8 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
   HeapProbe::ForgetPeak();
   const auto started = std::chrono::steady_clock::now();
   size_t nextMark = 0;
+  const auto previousCamera = ReadSubmittedCamera(engine);
+  double previousCameraSerial = previousCamera ? previousCamera->Serial : 0.0;
   for (size_t tick = 0; tick < schedule.Ticks; ++tick) {
     const auto began = std::chrono::steady_clock::now();
     if (const auto advanced = engine.advance(); !advanced) {
@@ -235,6 +299,11 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
       return std::unexpected(Refusal("motion render", rendered.error()));
     }
     const auto renderedAt = std::chrono::steady_clock::now();
+    const auto camera = ReadSubmittedCamera(engine);
+    if (!camera || camera->Serial <= previousCameraSerial) {
+      return std::unexpected("motion render did not submit a new valid camera frame");
+    }
+    previousCameraSerial = camera->Serial;
     const double advanceMs = std::chrono::duration<double, std::milli>(advancedAt - began).count();
     const double renderMs =
         std::chrono::duration<double, std::milli>(renderedAt - advancedAt).count();
@@ -243,6 +312,9 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
     if (!contact) { return std::unexpected(contact.error()); }
     MotionFrame frame{.TimeS = static_cast<double>(tick + 1) * schedule.StepS,
                       .State = *route,
+                      .CameraBasis = camera->Basis,
+                      .CameraPositionM = camera->PositionM,
+                      .CameraSerial = camera->Serial,
                       .AdvanceMs = advanceMs,
                       .RenderMs = renderMs,
                       .Settled = settled};

@@ -1636,6 +1636,8 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
 
   ActiveState().PrevMvp = Through().ViewProjection(ActiveState().Camera);
   ActiveState().Submitted = true;
+  LastSubmittedCamera_.Basis = ActiveState().Camera;
+  ++LastSubmittedCamera_.Serial;
   record(RenderFramePhase::Finish);
   timing.TotalMs = std::chrono::duration<double, std::milli>(phaseBegan - began).count();
   LastRenderFrameTiming_ = timing;

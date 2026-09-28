@@ -49,6 +49,27 @@ void Engine::State::PublishResourcePayloadMeasurements() {
                          "bytes");
 }
 
+void Engine::State::PublishSubmittedCameraMeasurements() {
+  const auto &frame = Picture.Device.LastSubmittedCamera();
+  if (frame.Serial == 0) { return; }
+  Published.RecordMetric(
+      "render last submitted camera: serial", static_cast<double>(frame.Serial), "frame");
+  constexpr std::array<const char *, 3> eyeNames{"render last submitted camera: eye east",
+                                                 "render last submitted camera: eye up",
+                                                 "render last submitted camera: eye south"};
+  constexpr std::array<const char *, 3> forwardNames{"render last submitted camera: forward east",
+                                                     "render last submitted camera: forward up",
+                                                     "render last submitted camera: forward south"};
+  constexpr std::array<const char *, 3> upNames{"render last submitted camera: up east",
+                                                "render last submitted camera: up up",
+                                                "render last submitted camera: up south"};
+  for (size_t axis = 0; axis < 3; ++axis) {
+    Published.RecordMetric(eyeNames[axis], frame.Basis.EyeM[axis], "m");
+    Published.RecordMetric(forwardNames[axis], frame.Basis.Forward[axis], "unit");
+    Published.RecordMetric(upNames[axis], frame.Basis.Up[axis], "unit");
+  }
+}
+
 void Engine::State::PublishFrameMeasurements() {
   static const Heap::Tag kFrameMeasurementsTag("frame-measurements");
   const Heap::Tagged measuring(kFrameMeasurementsTag);

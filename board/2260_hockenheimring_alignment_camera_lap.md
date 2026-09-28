@@ -76,6 +76,27 @@ WI 2295 owns the corrupt publication/history case; WI 2298 owns product LOD.
    resident while render tiles and LOD change. A missing geometry tile is a
    visible/readiness defect, not a route change.
 
+## Remaining motion proof contract
+
+SceneRenderer owns last-submitted camera basis/serial; update only after successful
+GPU submission. Failure/minimized skip preserves the snapshot and serial.
+Framing publishes this snapshot through existing Engine::measures. The client
+requires a newly submitted serial and finite orthonormal pose per captured frame;
+`CaptureCameraBasis.h` validates axes using public Camera::viewMatrix.
+ScenarioCapture records submitted position/forward/up after rendering,
+not a future simulation pose. Add finite/orthonormal checks and compare adjacent
+basis rotation and lap closure independently of position/contact. Smooth analytic
+turns pass; an injected orientation jump fails. Existing position-only TSVs do
+not prove orientation continuity; separate contact/readiness from camera basis.
+CPU oracle: `make suite SUITE=outshine/src/client/CaptureCameraBasis`.
+Owners: SceneRenderer.{h,cpp}, engine/FrameMeasurements.cpp, engine/Framing.cpp, client/ScenarioCapture.cpp.
+No additional public API or render-internal client dependency.
+CPU basis/failure: 2 PASS; transpose control: FAIL. motion_trace.py checks full
+clock/serial/contact, station/position/rotation steps and declared lap closure;
+limits are explicit in metres/radians. `make test-motion-trace` has analytic
+and jump/roll/stale/truncated/unfinished-lap controls; included in lint/fast gate.
+Actual GPU submission/skip and captured-lap acceptance remain unverified.
+
 ## Acceptance
 
 - One complete lap returns to the start with no jump in world position,

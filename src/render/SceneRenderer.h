@@ -582,6 +582,15 @@ public:
     return Spent_[static_cast<size_t>(stage)];
   }
 
+  struct SubmittedCameraFrame {
+    uint64_t Serial = 0;
+    CameraBasis Basis;
+  };
+
+  [[nodiscard]] const SubmittedCameraFrame &LastSubmittedCamera() const noexcept {
+    return LastSubmittedCamera_;
+  }
+
   [[nodiscard]] const RenderFrameTiming &LastRenderFrameTiming() const noexcept {
     return LastRenderFrameTiming_;
   }
@@ -666,6 +675,7 @@ private:
   [[nodiscard]] std::expected<void, std::string> RenderPublishedFrame();
   GpuSubmission Submission_;
   std::array<Effort, kStageCount> Spent_ = {{}};
+  SubmittedCameraFrame LastSubmittedCamera_;
   RenderFrameTiming LastRenderFrameTiming_;
   RenderFrameTiming WorstRenderFrameTiming_;
 
