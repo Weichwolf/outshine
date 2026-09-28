@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -19,6 +20,7 @@
 #include "TerrainGrid.h"
 #include "TerrainTiles.h"
 #include "TileMeshes.h"
+#include "TerrainRevisionIndex.h"
 #include "Fetch.h"
 #include "FetchFailure.h"
 
@@ -44,6 +46,8 @@ struct ShapedGround {
   double FocusLatDeg = 0.0;
   double FocusLonDeg = 0.0;
   uint64_t Seed = 0;
+
+  [[nodiscard]] bool operator==(const ShapedGround &) const noexcept = default;
 };
 
 using outshine::TileBuild;
@@ -55,6 +59,10 @@ public:
   void Shapes(const ShapedGround &how);
 
   [[nodiscard]] ShapedGround Shaped() const;
+
+  [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept {
+    return TerrainScopeRevision_.load(std::memory_order_acquire);
+  }
 
   struct Ledger {
     long long MeshTiles = 0, MeshAbsent = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
@@ -81,6 +89,7 @@ public:
     size_t ByteBudget = 0;
 
     size_t DecodedBytes = 0;
+    size_t TerrainRevisionEntries = 4096;
 
     int PollAttempts = 0;
 
@@ -116,6 +125,7 @@ public:
     std::string SourceKey;
     Data::Address At = Data::Address::Whole(0);
     std::optional<Data::FetchFailure> Failure;
+    std::optional<TerrainRevisionIndex::Stamp> TerrainStamp;
   };
 
   [[nodiscard]] Reply Bytes(const Data::Fetch &request, Landing *out);
@@ -125,6 +135,11 @@ public:
   [[nodiscard]] bool Carries() const { return !Carriers_.empty(); }
 
   size_t ByteCacheBytes() const;
+  [[nodiscard]] size_t TerrainMetadataBytes() const noexcept;
+  [[nodiscard]] TerrainRevisionIndex::Validation
+  InspectTerrainStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const;
+  [[nodiscard]] bool CertificateCurrent(const TerrainCertificate &certificate) const;
+  [[nodiscard]] bool ValidTerrainStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const;
 
   size_t DemCacheBytes() const;
 
@@ -141,11 +156,18 @@ public:
 private:
   enum class Rank { Fetch = 0, Mesh = 1, Field = 2 };
 
+  struct ReservationOwner {
+    uint64_t Key = 0;
+    uint64_t Admission = 0;
+  };
+
   struct Job {
     Rank Kind = Rank::Mesh;
     int Z = 0, Grid = 0;
     uint32_t X = 0, Y = 0;
     uint64_t Key = 0;
+    uint64_t Admission = 0;
+    uint64_t TerrainScope = 0;
     double TileDist = 0.0;
 
     std::optional<Data::Fetch> Ask;
@@ -157,6 +179,14 @@ private:
     std::shared_ptr<const TerrainField> Field;
     Landing Landed;
     bool Holds = false;
+    uint64_t Admission = 0;
+    uint64_t TerrainScope = 0;
+  };
+
+  struct Reservation {
+    uint64_t Admission = 0;
+    uint64_t TerrainScope = 0;
+    bool Parked = false;
   };
 
   struct CacheEntry {
@@ -171,6 +201,7 @@ private:
     double RefusedUntilMs = 0.0;
     std::optional<Data::FetchFailure> Failure;
     uint64_t Used = 0;
+    std::optional<TerrainRevisionIndex::Stamp> TerrainStamp;
   };
 
   struct CacheIndex {
@@ -213,30 +244,32 @@ private:
   [[nodiscard]] std::optional<Job> NextJob();
   [[nodiscard]] Result RunJob(TerrainTiles &tiles, const Job &job);
   void PublishResult(const Job &job, Result result);
+  [[nodiscard]] bool OwnsReservation(const Job &job) const noexcept;
+  [[nodiscard]] bool IsCurrentJob(const Job &job) const noexcept;
+  void ReleaseReservation(ReservationOwner owner);
+  void DiscardJob(const Job &job);
+  void ResumeDependants(uint64_t key, bool resume);
+  [[nodiscard]] bool AwaitDependency(const Job &job, uint64_t dependency);
+  [[nodiscard]] std::optional<Reply> TakeCompleted(const Job &job, Result *out);
   void Work(int slot);
   void Carry();
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
   static void RunField(TerrainTiles &tiles, const Job &job, Result *out);
 
   ShapedGround Shape_;
+  std::atomic<uint64_t> TerrainScopeRevision_{1};
   [[nodiscard]] Reply Poll(const Job &job, Result *out);
   void Lands(uint64_t key, bool holds);
   [[nodiscard]] bool Known(uint64_t key);
   double TileDistance(Data::TileId of) const;
 
-  [[nodiscard]] Reply Lookup(const std::string &key, Landing *out);
+  [[nodiscard]] Reply ReadCachedDelivery(const std::string &key, Landing *out);
   void RefuseUntil(const std::string &key,
                    double untilMs,
                    const std::optional<Data::FetchFailure> &failure);
-  void Remember(const std::string &key,
-                const uint8_t *data,
-                size_t len,
-                const Data::Address &at,
-                std::string_view sourceId,
-                std::string_view sourceRevision,
-                std::string_view sourceKey,
-                bool absent);
-  [[nodiscard]] Reply FetchInto(const Data::Fetch &request, Landing *out);
+  [[nodiscard]] std::optional<TerrainRevisionIndex::Stamp>
+  PublishDelivery(const Data::Fetch &request, const Landing &landing, bool absent);
+  [[nodiscard]] Reply FetchDelivery(const Data::Fetch &request, Landing *out);
   [[nodiscard]] std::optional<size_t> CacheEntryOf(std::string_view key) const;
   void IndexCacheEntry(std::string_view key, size_t entry);
   void EraseCacheIndex(std::string_view key, size_t entry);
@@ -250,6 +283,7 @@ private:
   Data::Transport &Wire_;
   const double OriginLatDeg_, OriginLonDeg_;
   const size_t ByteBudget_;
+  std::unique_ptr<TerrainRevisionIndex> TerrainRevisions_;
   std::shared_ptr<Ground::DecodedCache> Decoded_;
   const int PollAttempts_;
   const int CarrierCount_;
@@ -273,7 +307,9 @@ private:
   std::vector<Job> Queue_;
   std::vector<Job> Carrying_;
   FlatMap<Result> Done_;
-  FlatMap<bool> Posted_;
+  FlatMap<Reservation> Posted_;
+  uint64_t AdmissionClock_ = 0;
+  size_t CurrentParkedJobs_ = 0;
   RecentKeys<1024> Kept_;
   RecentKeys<1024> Passing_;
 

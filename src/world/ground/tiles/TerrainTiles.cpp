@@ -46,7 +46,8 @@ namespace {
   return revision;
 }
 
-[[nodiscard]] TerrainGrid DecodeRawGrid(Data::TileId of, TerrainBytes::Payload delivered) {
+[[nodiscard]] TerrainGrid
+DecodeRawGrid(Data::TileId of, TerrainBytes::Payload delivered, uint64_t terrainScope) {
   const auto corrupt = [&] {
     return TerrainGrid::Refused(
         Data::FetchFailure{.Kind = Data::DataKind::Elevation,
@@ -93,6 +94,8 @@ namespace {
   }
 
   if (!field->Meshable()) { return corrupt(); }
+  field->SetCertificate(
+      TerrainCertificate::FromDelivery(of, std::move(delivered.Stamp), terrainScope));
   return grid;
 }
 
@@ -212,11 +215,19 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
                      .Tile = of,
                      .SourceId = "shaped",
                      .Revision = ShapeRevision(Shape_)});
+    field.SetCertificate(
+        TerrainCertificate::FromDelivery(of, std::nullopt, Source_.TerrainScopeRevision()));
     return TerrainGrid::Holding(std::move(field));
   }
   {
     TerrainField cached;
-    if (Decoded_->Take(of, &cached)) { return TerrainGrid::Holding(std::move(cached)); }
+    if (Decoded_->Take(of, &cached) &&
+        (cached.Certificate().Dependencies().empty() ||
+         (cached.Certificate().IsComplete() &&
+          cached.Certificate().TerrainScopeRevision() == Source_.TerrainScopeRevision() &&
+          Source_.AreCurrent(cached.Certificate().Dependencies())))) {
+      return TerrainGrid::Holding(std::move(cached));
+    }
   }
 
   TerrainBytes answer = Source_.Take(of);
@@ -229,7 +240,7 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
       case TerrainBytes::State::Delivered: return TerrainGrid::Refused(answer.Failure());
     }
   }
-  TerrainGrid grid = DecodeRawGrid(of, std::move(*delivered));
+  TerrainGrid grid = DecodeRawGrid(of, std::move(*delivered), Source_.TerrainScopeRevision());
   if (const TerrainField *field = grid.TryField()) { Decoded_->Store(of, *field); }
   return grid;
 }
@@ -243,7 +254,10 @@ TerrainGrid::State TerrainTiles::StitchEdge(TerrainField &self,
   const TerrainGrid neighbour = RawGrid({.Zoom = z, .X = nx, .Y = ny});
   if (!failure && neighbour.Failure()) { failure = neighbour.Failure(); }
   const TerrainField *n = neighbour.TryField();
-  if ((n == nullptr) || !n->Meshable()) { return neighbour.Where(); }
+  if ((n == nullptr) || !n->Meshable()) {
+    self.MarkMissingBoundary();
+    return neighbour.Where();
+  }
 
   if (side == Side::West || side == Side::East) {
     const uint32_t selfCol = (side == Side::West) ? 0 : self.Cols() - 1;
@@ -265,6 +279,7 @@ TerrainGrid::State TerrainTiles::StitchEdge(TerrainField &self,
     }
   }
   self.AddSources(n->Sources());
+  self.MergeCertificate(n->Certificate());
   return TerrainGrid::State::Decoded;
 }
 
@@ -295,6 +310,7 @@ TerrainGrid::State TerrainTiles::StitchCorner(TerrainField &self,
   const TerrainField *c = diagonal.TryField();
   if ((a == nullptr) || (b == nullptr) || (c == nullptr) || !a->Meshable() || !b->Meshable() ||
       !c->Meshable()) {
+    self.MarkMissingBoundary();
     return Worse(Worse(sideways.Where(), updown.Where()), diagonal.Where());
   }
 
@@ -307,22 +323,37 @@ TerrainGrid::State TerrainTiles::StitchCorner(TerrainField &self,
             west ? 0u : self.Cols() - 1u,
             static_cast<float>(sum * kQuarterOfFour));
   self.AddSources(a->Sources());
+  self.MergeCertificate(a->Certificate());
   self.AddSources(b->Sources());
+  self.MergeCertificate(b->Certificate());
   self.AddSources(c->Sources());
+  self.MergeCertificate(c->Certificate());
   return TerrainGrid::State::Decoded;
 }
 
 std::shared_ptr<const TerrainField> TerrainTiles::HeldStitched(Data::TileId of) const {
   const auto found = Stitched_.find(of);
   if (found == Stitched_.end()) { return nullptr; }
+  if (!found->second.Field->Certificate().Dependencies().empty() &&
+      (found->second.Field->Certificate().TerrainScopeRevision() !=
+           Source_.TerrainScopeRevision() ||
+       !Source_.AreCurrent(found->second.Field->Certificate().Dependencies()))) {
+    return nullptr;
+  }
   return found->second.Field;
 }
 
 std::shared_ptr<const TerrainField> TerrainTiles::StitchedField(int z, uint32_t x, uint32_t y) {
   const Data::TileId of{.Zoom = z, .X = x, .Y = y};
   if (const auto found = Stitched_.find(of); found != Stitched_.end()) {
-    found->second.Seq = ++Seq_;
-    return found->second.Field;
+    if (found->second.Field->Certificate().Dependencies().empty() ||
+        (found->second.Field->Certificate().TerrainScopeRevision() ==
+             Source_.TerrainScopeRevision() &&
+         Source_.AreCurrent(found->second.Field->Certificate().Dependencies()))) {
+      found->second.Seq = ++Seq_;
+      return found->second.Field;
+    }
+    Stitched_.erase(found);
   }
   TerrainGrid grid = StitchedGrid(z, x, y);
   TerrainField *field = grid.TryFieldMutable();
@@ -334,7 +365,8 @@ std::shared_ptr<const TerrainField> TerrainTiles::StitchedField(int z, uint32_t 
 
 void TerrainTiles::HoldsStitched(Data::TileId of,
                                  const std::shared_ptr<const TerrainField> &shared) {
-  if (!shared || Config_.StitchedFieldBytes == 0 || shared->Bytes() > Config_.StitchedFieldBytes) {
+  if (!shared || shared->HasMissingBoundary() || Config_.StitchedFieldBytes == 0 ||
+      shared->Bytes() > Config_.StitchedFieldBytes) {
     return;
   }
   if (const auto existing = Stitched_.find(of); existing != Stitched_.end()) {
@@ -379,6 +411,14 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
                                {.Zoom = z, .X = x, .Y = y},
                                corner,
                                failure));
+  }
+  if (!field->Certificate().Dependencies().empty()) {
+    if (field->Certificate().TerrainScopeRevision() != Source_.TerrainScopeRevision()) {
+      return TerrainGrid::Deferred();
+    }
+    const auto validation = Source_.InspectStamps(field->Certificate().Dependencies());
+    if (validation == TerrainRevisionIndex::Validation::Stale) { return TerrainGrid::Deferred(); }
+    if (validation == TerrainRevisionIndex::Validation::Unknown) { field->InvalidateCertificate(); }
   }
   if (worst == TerrainGrid::State::Refused) { return TerrainGrid::Refused(std::move(failure)); }
   if (worst == TerrainGrid::State::Deferred) { return TerrainGrid::Deferred(); }

@@ -13,6 +13,8 @@
 #include "ChunkSurface.h"
 #include "GroundQuery.h"
 #include "GroundSample.h"
+#include "TerrainCertificate.h"
+#include <cstddef>
 #include "TileSourceIdentity.h"
 #include "TilePool.h"
 #include "TerrainSamplingCoverage.h"
@@ -49,7 +51,9 @@ public:
   static GroundBlock Over(const float *nodes,
                           TileSpot at,
                           Sampling raster,
-                          std::span<const Data::TileSourceIdentity> sources = {}) {
+                          std::span<const Data::TileSourceIdentity> sources = {},
+                          bool missingBoundary = false,
+                          const TerrainCertificate *certificate = nullptr) {
     GroundBlock out;
     out.Nodes_ = nodes;
     out.Zoom_ = at.Zoom;
@@ -58,6 +62,8 @@ public:
     out.Side_ = raster.Side;
     out.Postings_ = raster.Postings;
     out.Sources_ = sources;
+    out.MissingBoundary_ = missingBoundary;
+    out.Certificate_ = certificate;
     out.Where_ = nodes != nullptr ? State::Resolved : State::Missing;
     return out;
   }
@@ -78,12 +84,18 @@ public:
     return Sources_;
   }
 
+  [[nodiscard]] const TerrainCertificate *Certificate() const noexcept { return Certificate_; }
+
+  [[nodiscard]] bool HasMissingBoundary() const noexcept { return MissingBoundary_; }
+
 private:
   const float *Nodes_ = nullptr;
   long X_ = 0, Y_ = 0;
   int Zoom_ = 0, Side_ = 0;
   uint32_t Postings_ = 0;
   std::span<const Data::TileSourceIdentity> Sources_;
+  bool MissingBoundary_ = false;
+  const TerrainCertificate *Certificate_ = nullptr;
   State Where_ = State::Missing;
 };
 
@@ -107,6 +119,8 @@ public:
                     std::shared_ptr<const TerrainField> &out,
                     std::optional<Data::FetchFailure> *failure = nullptr) const;
 
+  [[nodiscard]] size_t HeapBytes() const;
+
   [[nodiscard]] int BlockZoom() const override { return Surface_.Z; }
 
   [[nodiscard]] double PostM(double latDeg) const override;
@@ -118,9 +132,15 @@ public:
 
   [[nodiscard]] TilePool &Tiles() { return Tiles_; }
 
+  [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept {
+    return Tiles_.TerrainScopeRevision();
+  }
+
 private:
   struct Held;
   friend struct Held;
+
+  void SynchronizeTerrainScope() const;
 
   [[nodiscard]] const struct Tile *TileAt(long x, long y) const;
   [[nodiscard]] const struct Tile *TileResident(long x, long y) const;

@@ -13,6 +13,7 @@
 #include "geo/Geodesy.h"
 #include "Digest.h"
 #include "TerrainGrid.h"
+#include "TerrainCertificate.h"
 #include "TerrainLoader.h"
 #include "TileGeodesy.h"
 
@@ -28,6 +29,8 @@ public:
     std::shared_ptr<const TerrainField> Terrain;
     std::vector<float> Nodes;
     std::vector<Data::TileSourceIdentity> Sources;
+    bool MissingBoundary = false;
+    TerrainCertificate Certificate;
   };
 
   [[nodiscard]] static TileSpot SpotOf(LongitudeLatitude at, int zoom) noexcept {
@@ -49,6 +52,8 @@ public:
     into.Terrain.reset();
     into.Nodes.assign(block.Nodes(), block.Nodes() + side * side);
     into.Sources.assign(block.Sources().begin(), block.Sources().end());
+    into.MissingBoundary = block.HasMissingBoundary();
+    into.Certificate = block.Certificate() != nullptr ? *block.Certificate() : TerrainCertificate{};
     return true;
   }
 
@@ -65,6 +70,8 @@ public:
     into.Nodes.assign(field.Data(),
                       field.Data() + static_cast<size_t>(field.Rows()) * field.Cols());
     into.Sources.assign(field.Sources().begin(), field.Sources().end());
+    into.MissingBoundary = field.HasMissingBoundary();
+    into.Certificate = field.Certificate();
     return true;
   }
 
@@ -87,6 +94,8 @@ public:
     sampled.Raster = {.Side = side, .Postings = static_cast<uint32_t>(side)};
     sampled.Nodes.resize(static_cast<size_t>(side) * static_cast<size_t>(side));
     sampled.Sources.assign(field.Sources().begin(), field.Sources().end());
+    sampled.MissingBoundary = field.HasMissingBoundary();
+    sampled.Certificate = field.Certificate();
     const auto x = static_cast<double>(static_cast<uint64_t>(child.X) -
                                        static_cast<uint64_t>(source.X) * scale);
     const auto y = static_cast<double>(static_cast<uint64_t>(child.Y) -
@@ -113,6 +122,8 @@ public:
     into.Raster = {.Side = static_cast<int>(field->Cols()), .Postings = field->Cols()};
     into.Nodes.clear();
     into.Sources.assign(field->Sources().begin(), field->Sources().end());
+    into.MissingBoundary = field->HasMissingBoundary();
+    into.Certificate = field->Certificate();
     into.Terrain = std::move(field);
     return true;
   }
@@ -171,15 +182,18 @@ public:
     return GroundSample::Missing();
   }
 
+  [[nodiscard]] const TerrainCertificate &Certificate() const noexcept { return Certificate_; }
+
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    size_t bytes = Sources_.capacity() * sizeof(Data::TileSourceIdentity);
+    size_t bytes =
+        Sources_.capacity() * sizeof(Data::TileSourceIdentity) + Certificate_.HeapBytes();
     for (const auto &source : Sources_) {
       bytes += source.SourceId.capacity() + source.Revision.capacity();
     }
     for (const Block &one : Blocks_) {
-      bytes += (one.Terrain ? one.Terrain->HeapBytes() : 0u) +
-               one.Nodes.capacity() * sizeof(float) +
-               one.Sources.capacity() * sizeof(Data::TileSourceIdentity);
+      bytes +=
+          (one.Terrain ? one.Terrain->HeapBytes() : 0u) + one.Nodes.capacity() * sizeof(float) +
+          one.Sources.capacity() * sizeof(Data::TileSourceIdentity) + one.Certificate.HeapBytes();
       for (const auto &source : one.Sources) {
         bytes += source.SourceId.capacity() + source.Revision.capacity();
       }
@@ -190,11 +204,18 @@ public:
 private:
   HeightField(int zoom, std::vector<Block> blocks, bool fallback)
       : Blocks_(std::move(blocks)), Zoom_(zoom), Fallback_(fallback) {
-    Qualified_ = !fallback;
+    Qualified_ = !fallback && !Blocks_.empty();
     for (const Block &block : Blocks_) {
-      Qualified_ = Qualified_ && !block.Sources.empty();
+      Qualified_ = Qualified_ && !block.Sources.empty() && !block.MissingBoundary;
       Sources_.insert(Sources_.end(), block.Sources.begin(), block.Sources.end());
     }
+    if (!Blocks_.empty()) {
+      Certificate_ = Blocks_.front().Certificate;
+      for (const auto &block : std::span(Blocks_).subspan(1)) {
+        Certificate_.Merge(block.Certificate);
+      }
+    }
+    if (!Qualified_) { Certificate_.Invalidate(); }
     std::ranges::sort(Sources_);
     Sources_.erase(std::ranges::unique(Sources_).begin(), Sources_.end());
     const auto fold = [this](uint32_t word) {
@@ -215,6 +236,7 @@ private:
     }
   }
 
+  TerrainCertificate Certificate_;
   std::vector<Block> Blocks_;
   std::vector<Data::TileSourceIdentity> Sources_;
   int Zoom_ = 0;

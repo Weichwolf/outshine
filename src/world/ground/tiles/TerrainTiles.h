@@ -6,11 +6,13 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "Address.h"
+#include "TerrainRevisionIndex.h"
 #include "TerrainGrid.h"
 #include "TileSourceIdentity.h"
 #include "TileGeodesy.h"
@@ -26,17 +28,20 @@ public:
     std::vector<uint8_t> Png;
     Data::TileSourceIdentity Source;
     std::string SourceKey;
+    std::optional<TerrainRevisionIndex::Stamp> Stamp;
   };
 
   static TerrainBytes From(Data::TileId at,
                            std::vector<uint8_t> png,
                            Data::TileSourceIdentity source,
-                           std::string sourceKey = {}) {
+                           std::string sourceKey = {},
+                           std::optional<TerrainRevisionIndex::Stamp> stamp = std::nullopt) {
     TerrainBytes b(State::Delivered);
     b.Payload_ = Payload{.At = at,
                          .Png = std::move(png),
                          .Source = std::move(source),
-                         .SourceKey = std::move(sourceKey)};
+                         .SourceKey = std::move(sourceKey),
+                         .Stamp = std::move(stamp)};
     return b;
   }
 
@@ -73,6 +78,20 @@ private:
 class TerrainSource {
 public:
   virtual ~TerrainSource() = default;
+
+  [[nodiscard]] virtual uint64_t TerrainScopeRevision() const noexcept { return 0; }
+
+  [[nodiscard]] virtual bool
+  AreCurrent([[maybe_unused]] std::span<const TerrainRevisionIndex::Stamp> stamps) const {
+    return false;
+  }
+
+  [[nodiscard]] virtual TerrainRevisionIndex::Validation
+  InspectStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const {
+    return AreCurrent(stamps) ? TerrainRevisionIndex::Validation::Current
+                              : TerrainRevisionIndex::Validation::Unknown;
+  }
+
   [[nodiscard]] virtual TerrainBytes Take(Data::TileId at) = 0;
 };
 
@@ -131,6 +150,10 @@ public:
   void Shapes(const Shaped &how) {
     if (Shape_ == how) { return; }
     Shape_ = how;
+    ClearStitched();
+  }
+
+  void ClearStitched() {
     Stitched_.clear();
     StitchedBytes_ = 0;
   }

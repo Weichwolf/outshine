@@ -7,8 +7,10 @@
 #include <mdspan>
 #include <span>
 #include <vector>
+#include <utility>
 
 #include "TileSourceIdentity.h"
+#include "TerrainCertificate.h"
 #include "FetchFailure.h"
 #include <optional>
 #include "TileGeodesy.h"
@@ -36,9 +38,24 @@ public:
 
   [[nodiscard]] bool Meshable() const { return Rows_ >= 2 && Cols_ >= 2; }
 
+  [[nodiscard]] bool HasMissingBoundary() const noexcept { return MissingBoundary_; }
+
+  void MarkMissingBoundary() noexcept {
+    MissingBoundary_ = true;
+    Certificate_.Invalidate();
+  }
+
+  [[nodiscard]] const TerrainCertificate &Certificate() const noexcept { return Certificate_; }
+
+  void SetCertificate(TerrainCertificate certificate) { Certificate_ = std::move(certificate); }
+
+  void InvalidateCertificate() noexcept { Certificate_.Invalidate(); }
+
+  void MergeCertificate(const TerrainCertificate &certificate) { Certificate_.Merge(certificate); }
+
   [[nodiscard]] size_t Bytes() const {
-    size_t bytes =
-        HeightsM_.size() * sizeof(float) + Sources_.size() * sizeof(Data::TileSourceIdentity);
+    size_t bytes = HeightsM_.size() * sizeof(float) +
+                   Sources_.size() * sizeof(Data::TileSourceIdentity) + Certificate_.Bytes();
     for (const auto &source : Sources_) {
       bytes += source.SourceId.size() + source.Revision.size();
     }
@@ -47,7 +64,8 @@ public:
 
   [[nodiscard]] size_t HeapBytes() const {
     size_t bytes = HeightsM_.capacity() * sizeof(float) +
-                   Sources_.capacity() * sizeof(Data::TileSourceIdentity);
+                   Sources_.capacity() * sizeof(Data::TileSourceIdentity) +
+                   Certificate_.HeapBytes();
     for (const auto &source : Sources_) {
       bytes += source.SourceId.capacity() + source.Revision.capacity();
     }
@@ -88,9 +106,11 @@ public:
   }
 
 private:
+  TerrainCertificate Certificate_;
   std::vector<float> HeightsM_;
   std::vector<Data::TileSourceIdentity> Sources_;
   uint32_t Rows_ = 0, Cols_ = 0;
+  bool MissingBoundary_ = false;
 };
 
 inline uint32_t PostingsPerEdge(uint32_t sourceEdge, uint32_t stride) {

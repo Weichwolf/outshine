@@ -1,10 +1,13 @@
 #include "math/Units.h"
 #include "TerrainLoader.h"
+#include "TerrainDelivery.h"
+#include "TerrainCertificate.h"
 #include "TerrainSamplingCoverage.h"
 #include "GroundPollBudget.h"
 #include "math/Vec3.h"
 
 #include <array>
+#include <cstddef>
 #include <expected>
 #include <string_view>
 #include <algorithm>
@@ -86,6 +89,8 @@ struct Tile {
   uint32_t Postings = 0;
   std::vector<float> H;
   std::vector<Data::TileSourceIdentity> Sources;
+  TerrainCertificate Certificate;
+  bool MissingBoundary = false;
   bool Resident = false;
   bool Hole = false;
   uint64_t Used = 0;
@@ -96,22 +101,26 @@ struct GroundStream::Held {
   public:
     explicit Oracle(Held &held) : Held_(held) {}
 
+    [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept override {
+      return Held_.Pool.TerrainScopeRevision();
+    }
+
+    [[nodiscard]] bool
+    AreCurrent(std::span<const TerrainRevisionIndex::Stamp> stamps) const override {
+      return Held_.Pool.ValidTerrainStamps(stamps);
+    }
+
+    [[nodiscard]] TerrainRevisionIndex::Validation
+    InspectStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const override {
+      return Held_.Pool.InspectTerrainStamps(stamps);
+    }
+
     TerrainBytes Take(Data::TileId at) override {
       Held_.Decodes++;
       const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(at));
       TilePool::Landing landing;
       switch (Held_.Pool.Bytes(request, &landing)) {
-        case TilePool::Reply::Ready: {
-          const std::optional<Data::TileId> landed = landing.At.Tile();
-          if (!landed) { return TerrainBytes::Wire(); }
-          return TerrainBytes::From(*landed,
-                                    std::move(landing.Bytes),
-                                    {.Kind = Data::DataKind::Elevation,
-                                     .Tile = *landed,
-                                     .SourceId = std::move(landing.SourceId),
-                                     .Revision = std::move(landing.SourceRevision)},
-                                    std::move(landing.SourceKey));
-        }
+        case TilePool::Reply::Ready: return FromTerrainDelivery(request, std::move(landing));
         case TilePool::Reply::Absent:
         case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
         case TilePool::Reply::Refused: return TerrainBytes::Wire(std::move(landing.Failure));
@@ -142,10 +151,38 @@ struct GroundStream::Held {
   long Builds = 0;
   long Decodes = 0;
   bool Pending = false;
+  uint64_t TerrainScopeRevision = 0;
 };
 
 GroundStream::GroundStream(TilePool &tiles, GroundSurface surface)
     : Tiles_(tiles), Surface_(surface), Held_(std::make_unique<Held>(tiles)) {}
+
+void GroundStream::SynchronizeTerrainScope() const {
+  const uint64_t revision = TerrainScopeRevision();
+  if (Held_->TerrainScopeRevision == revision) { return; }
+  Held_->Stitched->ClearStitched();
+  Held_->Ground = {};
+  Held_->Coarse = {};
+  Held_->Pending = false;
+  Held_->TerrainScopeRevision = revision;
+}
+
+size_t GroundStream::HeapBytes() const {
+  const auto tileBytes = [](std::span<const Tile> tiles) {
+    size_t bytes = 0;
+    for (const auto &tile : tiles) {
+      bytes += tile.H.capacity() * sizeof(float) +
+               tile.Sources.capacity() * sizeof(Data::TileSourceIdentity) +
+               tile.Certificate.HeapBytes();
+      for (const auto &source : tile.Sources) {
+        bytes += source.SourceId.capacity() + source.Revision.capacity();
+      }
+    }
+    return bytes;
+  };
+  return sizeof(Held) + sizeof(TerrainTiles) + Held_->Stitched->HeapBytes() +
+         tileBytes(Held_->Ground) + tileBytes(Held_->Coarse);
+}
 
 GroundStream::~GroundStream() {
   if (Held_ && Held_->Builds > 0) {}
@@ -216,11 +253,15 @@ void GroundStream::KeepCoarse(long x, long y) const {
   victim->Used = ++held.Clock;
   victim->Resident = true;
   victim->Hole = !square;
+  victim->MissingBoundary = !square || field->HasMissingBoundary();
+  victim->Certificate = field->Certificate();
+  if (victim->MissingBoundary) { victim->Certificate.Invalidate(); }
   victim->Nodes = square ? gr : 0;
   victim->Postings = square ? colPostings : 0;
   if (!square) {
     victim->H.clear();
     victim->Sources.clear();
+    victim->Certificate = {};
     return;
   }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
@@ -277,6 +318,7 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, LongitudeLatit
 }
 
 GroundSample GroundStream::Resident(LongitudeLatitude at) const {
+  SynchronizeTerrainScope();
   if (!std::isfinite(at.LongitudeDeg) || !std::isfinite(at.LatitudeDeg)) {
     return GroundSample::Missing();
   }
@@ -337,11 +379,15 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   victim->Used = ++held.Clock;
   victim->Resident = true;
   victim->Hole = !square;
+  victim->MissingBoundary = !square || field->HasMissingBoundary();
+  victim->Certificate = field->Certificate();
+  if (victim->MissingBoundary) { victim->Certificate.Invalidate(); }
   victim->Nodes = square ? gr : 0;
   victim->Postings = square ? colPostings : 0;
   if (!square) {
     victim->H.clear();
     victim->Sources.clear();
+    victim->Certificate = {};
     return nullptr;
   }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
@@ -351,6 +397,7 @@ const Tile *GroundStream::TileAt(long x, long y) const {
 }
 
 GroundSample GroundStream::At(LongitudeLatitude at) const {
+  SynchronizeTerrainScope();
   if (!std::isfinite(at.LongitudeDeg) || !std::isfinite(at.LatitudeDeg)) {
     return GroundSample::Missing();
   }
@@ -383,12 +430,14 @@ std::shared_ptr<const TerrainField> GroundStream::StitchedField(Data::TileId of)
 }
 
 std::shared_ptr<const TerrainField> GroundStream::ResidentStitchedField(Data::TileId of) const {
+  SynchronizeTerrainScope();
   return Held_->Stitched->HeldStitched(of);
 }
 
 TilePool::Reply GroundStream::PollStitchedField(Data::TileId of,
                                                 std::shared_ptr<const TerrainField> &out,
                                                 std::optional<Data::FetchFailure> *failure) const {
+  SynchronizeTerrainScope();
   if (failure != nullptr) { failure->reset(); }
   out = Held_->Stitched->HeldStitched(of);
   if (out) { return TilePool::Reply::Ready; }
@@ -398,6 +447,7 @@ TilePool::Reply GroundStream::PollStitchedField(Data::TileId of,
 }
 
 GroundBlock GroundStream::BlockAt(TileSpot at) const {
+  SynchronizeTerrainScope();
   if (at.Zoom != Surface_.Z) { return {}; }
   long hx = at.X;
   const long hy = at.Y;
@@ -408,7 +458,9 @@ GroundBlock GroundStream::BlockAt(TileSpot at) const {
   return GroundBlock::Over(t->H.data(),
                            {.Zoom = at.Zoom, .X = hx, .Y = hy},
                            {.Side = t->Nodes, .Postings = t->Postings},
-                           t->Sources);
+                           t->Sources,
+                           t->MissingBoundary,
+                           &t->Certificate);
 }
 
 void GroundBlock::AslMRow(LongitudeLatitude from,

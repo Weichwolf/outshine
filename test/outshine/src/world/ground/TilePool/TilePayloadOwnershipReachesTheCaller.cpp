@@ -88,8 +88,9 @@ int main() {
         "a pre-landed result avoids waiting for the deadline");
   CHECK(pool.Counters().Outstanding == 0,
         "a completed result retained for its caller is not counted as outstanding work");
-  CHECK(pool.ResidentBytes() ==
-            pool.ByteCacheBytes() + pool.DemCacheBytes() + pool.SchedulerBytes(),
-        "resident tile memory includes transport, terrain and scheduler storage exactly once");
+  CHECK(pool.ResidentBytes() == pool.ByteCacheBytes() + pool.DemCacheBytes() +
+                                    pool.SchedulerBytes() + pool.TerrainMetadataBytes(),
+        "resident tile memory includes transport, terrain, revision metadata and scheduler storage "
+        "exactly once");
   return Report();
 }
