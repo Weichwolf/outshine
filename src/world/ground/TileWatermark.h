@@ -50,7 +50,7 @@ public:
       if (!Taken(tile)) {
         if (Beyond(tiles, tile, over)) {
           Skipped_.insert(std::ranges::lower_bound(Skipped_, tile), tile);
-          Ahead_.insert(std::ranges::lower_bound(Ahead_, tile), tile);
+          Unavailable_.insert(std::ranges::lower_bound(Unavailable_, tile), tile);
           ++Beyond_;
         } else {
           Candidates_.push_back(Next{.From = at, .To = end, .Tile = tile, .Found = true});
@@ -87,23 +87,24 @@ public:
 
   void Take(uint32_t tile) {
     Takes_++;
-    Ahead_.insert(std::ranges::lower_bound(Ahead_, tile), tile);
+    Unavailable_.insert(std::ranges::lower_bound(Unavailable_, tile), tile);
   }
 
   void Release(uint32_t tile) {
-    const auto at = std::ranges::lower_bound(Ahead_, tile);
-    assert(at != Ahead_.end() && *at == tile && Takes_ > 0);
-    Ahead_.erase(at);
+    const auto at = std::ranges::lower_bound(Unavailable_, tile);
+    assert(at != Unavailable_.end() && *at == tile && Takes_ > 0);
+    Unavailable_.erase(at);
     --Takes_;
+    Mark_ = 0;
   }
 
   size_t ReleaseUnaccepted(std::span<const uint32_t> accepted) {
     assert(accepted.size() <= Takes_);
     const size_t released = Takes_ - accepted.size();
     if (released == 0) { return 0; }
-    Ahead_.clear();
-    Ahead_.reserve(accepted.size() + Skipped_.size());
-    std::ranges::set_union(accepted, Skipped_, std::back_inserter(Ahead_));
+    Unavailable_.clear();
+    Unavailable_.reserve(accepted.size() + Skipped_.size());
+    std::ranges::set_union(accepted, Skipped_, std::back_inserter(Unavailable_));
     Takes_ = accepted.size();
     Mark_ = 0;
     return released;
@@ -113,7 +114,6 @@ public:
     while (Mark_ < feats.size() && Taken(feats[Mark_].Tile)) {
       const uint32_t tile = feats[Mark_].Tile;
       while (Mark_ < feats.size() && feats[Mark_].Tile == tile) { Mark_++; }
-      Ahead_.erase(std::ranges::lower_bound(Ahead_, tile));
     }
   }
 
@@ -145,14 +145,18 @@ public:
 
   [[nodiscard]] int Deferrals() const { return Deferrals_; }
 
-  [[nodiscard]] size_t AheadCount() const { return Ahead_.size(); }
+  [[nodiscard]] size_t UnavailableCount() const { return Unavailable_.size(); }
 
   [[nodiscard]] size_t BeyondCount() const { return Beyond_; }
 
-  [[nodiscard]] size_t HeapBytes() const { return CapacityBytes(Ahead_) + CapacityBytes(Skipped_); }
+  [[nodiscard]] size_t HeapBytes() const {
+    return CapacityBytes(Unavailable_) + CapacityBytes(Skipped_);
+  }
 
 private:
-  [[nodiscard]] bool Taken(uint32_t tile) const { return std::ranges::binary_search(Ahead_, tile); }
+  [[nodiscard]] bool Taken(uint32_t tile) const {
+    return std::ranges::binary_search(Unavailable_, tile);
+  }
 
   [[nodiscard]] static bool
   Beyond(std::span<const OsmField::Tile> tiles, uint32_t tile, Reach over) {
@@ -163,7 +167,7 @@ private:
     return std::abs(across) > over.Rings || std::abs(down) > over.Rings;
   }
 
-  std::vector<uint32_t> Ahead_;
+  std::vector<uint32_t> Unavailable_;
   std::vector<uint32_t> Skipped_;
   size_t Beyond_ = 0;
   size_t Mark_ = 0;
