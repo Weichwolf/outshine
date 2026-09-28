@@ -67,3 +67,13 @@ P1 beside buildings/forest, rather than a late optional effect or a private time
 
 Local-reference investigation may compare existing Hillaire/Bruneton/Nubis material after
 consulting pinned clones. A new renderer technique needs a measured advantage, not a name.
+
+## Sichtbarkeit und Passgrenze
+
+SkyStage zeichnet derzeit fullscreen ohne Depth-Test; Bildanteil und tatsächlich
+bezahlte Arbeit sind daher nicht identisch. Einen späteren Sky-/Depth-Pfad erst nach
+GPU-Messung umordnen. Cloudmarch benötigt opaque scene depth: Rayende an Oberfläche,
+leere/verdeckt liegende Intervalle überspringen, Vordergrundnebel und Bergkontakt erhalten.
+Cloudshadow/Irradiance bleiben auch bei verdecktem Himmel wirksam und budgetiert.
+History/Upsampling achtet auf dünne Äste, Dächer und Disocclusion; Alpha-Geometrie darf
+keine falsche opaque Raygrenze erzeugen. Komposition/Pass-Reihenfolge vor ready festlegen.

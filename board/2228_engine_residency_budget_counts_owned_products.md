@@ -84,3 +84,6 @@ render/scene/SceneResources und stages/SubjectResidency; Tests bei diesen Ownern
 Negativkontrolle: zweiten In-flight-/Idle-Owner oder eine retained capacity auslassen.
 Gate: make format, betroffene Owner-Suites, full make lint. 8 GB Unified Memory ist
 keine frei verfügbare Engine-Allokation; gemessenen OS/Driver-Reservebedarf berücksichtigen.
+
+Konkretes Code-Gate: `make format`; `make suite SUITE='outshine/src/engine/streaming/StructureBuildQueue outshine/src/render/scene/SceneResources outshine/src/render/stages/SubjectResidency'`;
+`LINT_JOBS=2 make lint`. Neue Slice-Orakel liegen bei den genannten Ownern.

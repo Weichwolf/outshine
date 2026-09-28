@@ -110,3 +110,6 @@ Ground-/WorldContent-Neubau und keine Neuinstanziierung stabiler Weltobjekte pro
 Erster Snapshot-Slice erhält bestehende Deklaration; dynamische Wirkung folgt separat.
 Counter-/PNG-Kontrolle: Wind-/Zeitwechsel verändert Wetterverbraucher, bewahrt Geometrie-
 IDs und Uploads; absichtliche vollständige Redeclaration verletzt das Kostenoracle.
+
+Konkretes Code-Gate: `make format`; `make suite SUITE='outshine/include/Outshine outshine/src/scenario/ScenarioWrite outshine/src/world/sky/GroundAtmosphere'`;
+`LINT_JOBS=2 make lint`. Neue Slice-Orakel liegen bei den genannten Ownern.

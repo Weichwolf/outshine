@@ -46,3 +46,6 @@ Native Nahgeometrie 2111 muss nicht auf den vollständigen Atlas-Messauftrag war
 - [ ] Atlas- und Welt-PNGs selbst öffnen; Warmrenderkosten getrennt von Artefaktkosten.
 - [ ] make format; fokussierte TreePrototype/ImpostorBaker/ImpostorPreparation/VegetationStreaming
       Suites und vollständiges make lint. Device-Peak bleibt unabhängig nachzuweisen.
+
+Konkretes Code-Gate: `make format`; `make suite SUITE='outshine/src/render/impostor/ImpostorBaker outshine/src/engine/streaming/ImpostorPreparation outshine/src/engine/streaming/VegetationStreaming'`;
+`LINT_JOBS=2 make lint`. Neue Slice-Orakel liegen bei den genannten Ownern.

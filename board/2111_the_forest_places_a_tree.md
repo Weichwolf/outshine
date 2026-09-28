@@ -73,3 +73,6 @@ transmittance, motion and cost. No voxel/volume framework without a measured adv
 - make format; focused flora/ForestDraw/VegetationStreaming/publication suites; full lint.
   Run/render via outshine-client, then open Koerbersee/Wien/Rosenheim and mixed city/forest
   views. No A18/720p60 claim without target-device evidence.
+
+Konkretes Code-Gate: `make format`; `make suite SUITE='outshine/src/generators/flora/ForestDraw outshine/src/generators/flora/TreePrototype outshine/src/engine/streaming/VegetationStreaming'`;
+`LINT_JOBS=2 make lint`. Neue Slice-Orakel liegen bei den genannten Ownern.
