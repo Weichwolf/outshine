@@ -78,3 +78,10 @@ beide prüfen; Scratchpfade pro Prozess/Worktree statt geteilter /tmp/outshine-i
 Unabhängige temporäre Git-Fixtures müssen alte Wiedervergabe, zwei neue gleiche IDs,
 aktuellen untracked Zwilling und zulässige Umbenennung einer bestehenden ID trennen.
 Diesen Befund nicht durch Historie-Umschreiben oder Änderung gültiger WI-IDs beheben.
+
+## Linker-Warnungen
+
+618371b14 besteht lint/fokussierte Suites, deren Buildlog meldet jedoch doppelte SDL3-
+Libraries und /opt/homebrew/lib-rpaths. Kein warnungsfreier Buildclaim. Doppelte Flag-
+Owner im Harness/Library-Pkgconfig lokalisieren und am Produzenten deduplizieren;
+Warnungen weder unterdrücken noch aus dem Log filtern. Relevanten Linkschritt erneut prüfen.

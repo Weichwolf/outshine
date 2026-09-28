@@ -101,3 +101,12 @@ WeatherValidation's field schema supplies import/export/API bounds: cloud fracti
 nonnegative Haze within current GPU storage. No clamps or truncated number prefixes.
 Defaults/zero values and all seven cloud/wind fields survive roundtrip. Historical
 NaN/Inf/negative/token/retry/layer fixtures pass; full physical weather remains open.
+
+## Updategrenze
+
+WeatherSnapshot-Revision ist keine Terrain-/Geometrie-Quellrevision. Änderungen von Zeit,
+Wind oder CloudCover aktualisieren begrenzte Renderinputs/LUTs/History; kein kompletter
+Ground-/WorldContent-Neubau und keine Neuinstanziierung stabiler Weltobjekte pro Tick.
+Erster Snapshot-Slice erhält bestehende Deklaration; dynamische Wirkung folgt separat.
+Counter-/PNG-Kontrolle: Wind-/Zeitwechsel verändert Wetterverbraucher, bewahrt Geometrie-
+IDs und Uploads; absichtliche vollständige Redeclaration verletzt das Kostenoracle.

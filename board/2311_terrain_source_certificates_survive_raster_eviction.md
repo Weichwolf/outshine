@@ -77,3 +77,15 @@ Also open: fresh Hockenheim static/paced PNGs and cold/warm/moving cost evidence
   GroundPublication suites; full lint including clang-tidy/API guards.
 - Render Hockenheim static/paced through outshine-client, open PNGs and measure work,
   p50/p95/p99, CPU/GPU bytes. CPU evidence alone does not close visual integration.
+
+## Readiness-Contention und Zustand
+
+InspectStamps/AreCurrent halten derzeit std::mutex; der Hit-Beleg ist unkontendiert.
+Null Allokationen beweisen keine begrenzte Wartezeit im Frame. Die reine Inspektion
+braucht zusätzlich einen nicht wartenden Versuch; bei Contention kein Current erfinden,
+sondern ValidationPending an begrenzte, pro Tile/Quelle zusammengefasste Vorbereitung
+übergeben. Blockierende vollständige Validierung bleibt für Worker-/Publikationsgrenzen.
+Unknown/fehlende Metadaten, bekannte Stale-Quelle und abweichender Scope müssen getrennt
+prüfbar bleiben. Kein per-Frame Retry-Sturm und kein sofortiger Geometrieverlust.
+Kontrolle: Writer deterministisch halten, Frame-Inspektion liefert Pending ohne Wait;
+danach Release und gleiche Quelle revalidieren. Sleeps sind kein Synchronisationsbeweis.
