@@ -66,3 +66,15 @@ Existing per-unit records remain intact; malformed databases still cannot declar
 2. Resolve the separate `make test` failures in their owning WIs; neither gate may
    hide a failure by changing bounds, inputs or assertions.
 3. Complete the API-contract and shader-artifact audits required by 2188/2093/2152.
+
+## Belegter Board-Guard-Befund 2026-09-28
+
+ABoardIdIsIssuedOnce vergleicht historische Additions seit seiner Geburt nur mit IDs
+VOR dieser Grenze. Doppelte neue IDs innerhalb desselben Fensters und zwei aktuelle
+Dateien mit gleicher ID, einschließlich untracked Dateien, werden nicht zurückgewiesen.
+Eine versehentlich zweite 2140-Datei passierte lint-docs; vor Commit entfernt.
+Kleiner eigenständiger Schritt: aktuellen Boardbestand und historische Erstvergabe
+beide prüfen; Scratchpfade pro Prozess/Worktree statt geteilter /tmp/outshine-ids-*.
+Unabhängige temporäre Git-Fixtures müssen alte Wiedervergabe, zwei neue gleiche IDs,
+aktuellen untracked Zwilling und zulässige Umbenennung einer bestehenden ID trennen.
+Diesen Befund nicht durch Historie-Umschreiben oder Änderung gültiger WI-IDs beheben.

@@ -4,45 +4,41 @@ Architecture: planned
 Priority: P2
 Area: generators, world
 Tags: measured, determinism
+Depends:
 
-# The generators draw from ONE unit random, seeded by the PLACE
+# Generation seeds follow stable world identity and explicit streams
 
-**Benchmark** -- RAGE seeds one generator per system and replays a drive from it, which is only
-possible because there is one; Unreal's `FRandomStream` is a single named type every system
-holds an instance of. **Both agree: one implementation, many streams.** And a generator is the
-most dangerous place in the tree for determinism, because it is the only part that rolls dice:
-a seed taken from a counter depends on the order tiles arrive in.
+## Problem und vorhandene Fähigkeit
 
-## Where it stands, measured 2026-09-04
+Historischer Audit 2026-09-04 findet lokale Mixer in BuildingShape, Structures,
+AlpineLimit und TreeRandom sowie Tile::Seed. Ähnliche 24-bit-Ausgaben beweisen weder
+identische Zuständigkeit noch einen Fehler. Aktuelle Caller vor Migration erneut prüfen.
+Ein Zustandsstream für Baumwachstum und ein positionsbasierter Hash sind verschiedene
+Verträge. Ihre bloße Vereinheitlichung rechtfertigt keinen weltweiten Bildwechsel.
 
-| where | algorithm | to unit interval |
-|---|---|---|
-| `generators/building/BuildingShape.cpp:121` | the 32-bit bit mixer (`0x7feb352d`, `0x846ca68b`), file-local `UnitOf` | `>> 8` / 2^24 |
-| `generators/Structures.cpp:24` | splitmix64 | `& 0xFFFFFF` / 2^24 |
-| `world/ground/AlpineLimit.cpp:12` | three custom words | `& 0xFFFFFF` / 2^24 |
-| `generators/flora/TreeRandom.h` | xorshift32, used by every tree stage | `>> 8` / 2^24 |
+## Entscheidung
 
-Four intentions written four times, all ending in 24 bits over 2^24. `Tile::Seed`
-(`generators/base/Tile.cpp:23`) is already a proper splitmix64 seed mixer in the shared base and
-is the one to build on.
+Seeds stammen aus deklarierter Szenario-/Weltidentität, stabiler Objektidentität und
+expliziter Generator-/Streamversion. OSM-Objekte nutzen stabile Quellen-IDs; flächige
+prozedurale Population nutzt kanonische Weltzellen/Positionen mit deterministischer
+Grenzzuordnung. Kamera, Place-Fixture-ID, Arrival-Reihenfolge und Workerzahl sind keine Seeds.
+Ein OSM-Objekt darf beim Wechsel seiner Streamingkachel nicht neu gewürfelt werden.
+Für zustandsabhängige Streams bleibt die Ziehungsreihenfolge explizit und versioniert.
 
-## The solution
+Zuerst tatsächliche Instabilität oder inkonsistente Grenzzuordnung reproduzieren.
+Dann kleinste gemeinsame Seed-Ableitung in base/generators mit benannten Inputs festlegen;
+kein generischer Random-Service und keine unbelegte Behauptung über RAGE-Innereien.
+Unterschiedliche PRNGs dürfen bleiben, wenn ihr Vertrag und ihre Nutzung begründet sind.
+Seed-/Algorithmuswechsel invalidiert abgeleitete Caches und wird als bewusster visueller
+Versionswechsel abgenommen. Unveränderte Seeds bewahren bestehende Produkte.
 
-One `UnitOf(seed, stream)` in `generators/base/`, over `Tile::Seed`'s mixer, and every draw
-passes a stream id. The seed is `PlaceHash(LongitudeLatitude)` -- what storey counts already use
--- so a tree at a place branches the same way whatever order its tile arrived in. The xorshift
-STATE in `TreeRandom` stays as a stream that `UnitOf` seeds, because a grower needs a sequence
-and not a hash; what goes is its own seeding.
+## Widerlegbare Abnahme
 
-## What will be true
-
-- [ ] One mixer, one `UnitOf`; the four above call it with a stream id
-- [ ] Every generator seed is a function of the PLACE, never of a counter; a case shuffles tile
-      arrival order and the picture does not move
-- [ ] The commit renders all nine places and says their digests moved and why -- every
-      building's proportions, every tree's branching and every treeline's jitter change once
-
-## What will show I was wrong
-
-If `make shots` moves a digest AFTER the unification on a second run, the seed still reaches a
-counter somewhere and the case above has to find it before this closes.
+- [ ] Dasselbe Objekt nach anderer Arrival-Reihenfolge, Workerzahl, Kamera und
+      Partitionierung liefert identische deklarierte Eigenschaften/Geometrie.
+- [ ] Nachbarkacheln haben weder doppelte noch fehlende grenznahe Population.
+- [ ] Unabhängige feste Seed-Vektoren; Kamera-/Counter-basierte Mutation verursacht FAIL.
+- [ ] Änderungen an Weltseed oder Generatorversion wirken deterministisch und
+      invalidieren nur betroffene Produkte. Kein Runtime-Sonderpfad für Place-Namen.
+- [ ] Betroffene Client-PNGs öffnen und begründete Unterschiede nennen; fokussierte
+      Orakel, format und full lint. Reproduzierbare Bytes allein beweisen keine Verteilung.

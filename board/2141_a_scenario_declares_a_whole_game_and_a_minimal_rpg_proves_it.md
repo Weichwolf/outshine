@@ -4,7 +4,7 @@ Architecture: planned
 Priority: P2
 Area: scenario, engine
 Tags: architecture, owner, ai-first
-Depends: 2131, 2136, 2242
+Depends: 2130, 2242
 
 # Ein deklaratives Spiel mit wiederholbarem Zustand
 
@@ -88,3 +88,10 @@ Writer erhält Input und WheelStepPx mit geordneten bind-Einträgen und exakter
 Schrittweite. Public-API-Dispatchtest exportiert/reimportiert vor echten SDL-Ereignissen;
 der Altwriter verliert die Aktionen. Separate Fixture prüft Escaping, Null und
 Bruch-Schrittweite. Sieben Input-/Writer-Regressionen bestehen.
+
+## Abhängigkeiten
+
+Feste Tick-/Command-Grenzen (2130) und der gewählte ECMAScript-Vertrag (2242) tragen
+Runtime-Spielregeln. Drei deklarative NPCs brauchen weder tausend Minds (2136) noch
+die vollständige öffentliche Schemaabnahme (2131). Genutzte Sektionen separat validieren;
+Save nutzt 2210s atomaren Storage-Vertrag. Keine Netzwerk-/LLM-Pflicht für diesen Slice.

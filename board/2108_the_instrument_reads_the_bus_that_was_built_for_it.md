@@ -1,66 +1,45 @@
 Type: debt
-Depends: 2208
 State: open
 Architecture: planned
 Priority: P2
-Area: base, engine, world, client
-Tags: architecture, owner
+Area: diagnostics, engine, world, client
+Tags: architecture, owner, measured
 Supersedes: 2113
+Depends:
 
-# A number is a COUNTER a class declares, and the frame pulls it -- from every tier
+# Measurements have a consumer, units and bounded cost
 
-**Benchmark** -- Unreal declares a counter with `DECLARE_CYCLE_STAT` and it appears in `stat`
-groups without anyone writing a getter: the counter REGISTERS, it is not fetched; `UE_LOG` is
-for events and Insights for mass data. RAGE does the same through telemetry channels beside
-`bkBank`, logs for faults, the timebar for the frame. **Both agree**: three channels, and
-FREQUENCY decides which -- a rare event is a LOG line, a per-frame aggregate is a STAT, a per-
-entity-per-frame value is a TRACE. A measurement that needs its reader to know its name goes
-unread.
+## Revidierter Befund
 
-## Where it stands, measured 2026-09-04
+Der Audit vom 2026-09-04 ist kein aktueller Implementierungsstatus.
+WorldPlacement.cpp liest Yield::Notes und publiziert die Namen/Werte über DiagnosticLedger.
+Die Behauptung „ZERO readers“ und der daraus abgeleitete Blocker für 2111 sind erledigt.
+base/io/Telemetry.h/.cpp besitzt weiterhin keinen externen Source-/Sink-/Tick-Consumer.
+Ein allgemeiner TelemetryBus ist deshalb keine Voraussetzung für Profiling oder Wald.
+2208 besitzt host-eigenes Logging; dessen Gesamtabschluss blockiert numerische Traces nicht.
 
-```
-  LOG     LogTag enum in the door, 32 calls (23 error, 1 warn, 8 info)      DONE
-          events as declared labels                                          0 of 32; {"msg", ...} 11 times
-  STATS   Core::Ledger, engine tier only; world/ground CANNOT publish        the reason its
-          classes once logged their numbers as text
-          Making::NoteNames() / Yield::Notes() -- the pull pattern           exists; Notes() has ZERO readers
-  BUS     src/base/io/Telemetry.h: Register, SetSink, Tick, schema, row     no source, no sink, no Tick
-  CLIENT  PlaceCamera.cpp:372-406 three vector<double>, sorted for quantiles the hand-rolled shape
-  getters nobody reads                                                       StackProbe::*, TilePool::SchedulerBytes
-```
+## Architektur und Empfehlung
 
-The owner's rule from the round that took the percentile vectors out of `Laying.cpp` stands and
-narrows this item: a stat is a COUNTER or an EXTREME carried in O(1); nothing sorts, hashes or
-takes a quantile to print a number. The client's frame series is the exception that proves the
-shape -- p50/p95/p99 over 120 frames is what the frame bench IS -- and it belongs in one place.
+Domain-Owner liefern gebündelte native Werte; Engine aggregiert an der Messgrenze;
+Client hält begrenzte Framefolgen und berechnet p50/p95/p99 außerhalb des Framepfads.
+Einheit, Messintervall, Quelle und Vollständigkeit gehören zum Messvertrag.
+Host-/Fence-Wartezeit ist keine GPU-Passzeit. 2092 besitzt die konkrete Kostenmessung,
+2314 ihre spätere Verwendung im gemeinsamen Budget. Keine doppelte Statistik-Registry.
 
-## The solution
+Vor weiterer Infrastruktur genau den fehlenden Consumer und seinen Fehlernutzen benennen.
+Vorhandene Werte benutzen. Keine ungenutzten Getter oder Zähler allein für Vollständigkeit.
+Ein kurzlebiger Sample-Borrow darf nicht im Client gespeichert werden; Traces besitzen
+Kopien ihres begrenzten Datensatzes. Fehler-/Ereignislogs bleiben getrennt von Messreihen.
+Den ungenutzten TelemetryBus erst nach vollständiger Caller-/Public-Header-Prüfung in
+einem kleinen WI entfernen oder mit einem tatsächlich nötigen Consumer ersetzen.
+Nicht DiagnosticLedger pauschal nach base verschieben, um Domain-Owner zu koppeln.
 
-One pattern for every tier, the one `Making::NoteNames` already has: a class DECLARES what it
-counts (`static constexpr` names) and exposes the counts; the frame PULLS them into the ledger.
-`Yield::Notes()` gets its reader in `Asking.cpp` on the same day, which is what board:2111 is
-waiting on. The ledger's row moves DOWN to `base/` so `world/ground` can fill one without
-reaching the engine -- the ledger is a base type and the engine only owns the ONE that is
-published. `Telemetry.h` is either that row type or it is deleted; two mechanisms for one job is
-the finding, not the keeping.
+## Abnahme
 
-The log's events become declared labels: `namespace Says` per file, `constexpr` names, the
-eleven `{"msg", ...}` seams first, so a `static_assert` can hold the set the way the tree holds
-shader entries.
-
-## What will be true
-
-- [ ] `world/ground` publishes counters through the same pull the generators use; the
-      `Clock()` helpers and the getters nobody reads are gone or read
-- [ ] `Yield::Notes()` is read and its eight names stand in the ledger
-- [ ] `Telemetry.h` is the ledger's row or it is deleted
-- [ ] The client's quantiles are computed once, in `include/math/Quantile.h` (already there),
-      over a series the engine hands back (`Engine::bench` already does), and `PlaceCamera.cpp`
-      holds no vector of its own
-- [ ] 0 log calls carry a free-text `msg`; every event is a declared label
-
-## What will show I was wrong
-
-If declaring a counter costs more than a line, the declaration is too heavy and Unreal's
-free-text message was right. Count the lines a new counter needs before and after.
+- [ ] Jeder neue Messwert hat Leser, Einheit und dokumentierten Samplingzeitpunkt.
+- [ ] Bekannte analytische Folge ergibt unabhängige Quantile; fehlende/abgebrochene
+      Frames bleiben unvollständig statt still aus der Auswertung zu verschwinden.
+- [ ] Begrenzte Speicherung und gemessene Observer-Kosten; hot-path-Allokationen offen.
+- [ ] Keine zweite Messbus-Implementierung für dieselben Daten. Logging-Verträge unter 2208.
+- [ ] Fokussierte Tests und vollständiges Lint für einen aktivierten Consumer-Schritt;
+      Dokumentation allein erfüllt diesen WI nicht.
