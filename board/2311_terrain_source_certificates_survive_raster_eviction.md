@@ -59,17 +59,17 @@ domains or later generations cannot hit even at equal counters. Ingest resets ol
 data on context changes and computes the former engine digest (count/width/coordinate bits).
 SourceDigest(field,tile) returns optional scalar; unknown context never triggers lazy rehash.
 Empty unbound fields/untouched tiles retain the old empty digest. Settle/HeapBytes include
-cached words. Queue inspection/validation/post/landing consume them; unknown context defers
-before posting/resolution and cannot call Current. Test independent oracle, repeat ingest,
+cached words. Queue consumers defer unknown context without resolution. Test independent oracle,
 snapshot, width/coordinate/domain/generation changes, unknown context and protected points.
 Restored scan must give actual FAIL. Acceptance: format; StreetField/OsmField/GroundStack/
 queue suites; full lint/tidy/API. Existing accepted source-key cache remains unchanged.
 
 ## Evidence
 
-Prior full gates PASS at 4871add5a, 46bbf8c48 and 41e159998; logs remain in Git history.
 63908c160: 19 focused PASS; full lint FAIL on three tidy findings. 94581ed9b fixes
 include/complexity; full rerun pending.
+StagesBakes must retain source rasters through publication/retirement for canonical live LOD.
+HeightSheets owns these references and accounts their bytes; prove move lifetime and missing IO.
 
 ## Active repair: canonical resident terrain for building detail
 
