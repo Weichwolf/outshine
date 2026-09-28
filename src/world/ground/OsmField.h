@@ -147,6 +147,10 @@ public:
 
   [[nodiscard]] const void *OriginToken() const noexcept { return OriginToken_.get(); }
 
+  [[nodiscard]] std::shared_ptr<const void> ShareOriginToken() const noexcept {
+    return OriginToken_;
+  }
+
   [[nodiscard]] std::shared_ptr<const OsmField> SnapshotQueries() const;
 
   [[nodiscard]] size_t KeyCount() const { return Keys_.size(); }

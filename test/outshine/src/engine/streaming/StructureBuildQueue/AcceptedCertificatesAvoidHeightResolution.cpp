@@ -253,6 +253,31 @@ int main() {
   }
   CHECK(inspections == cases.size(),
         "only the nonwaiting inspection callback consumes valid metadata");
+  const std::array<std::string, 1> foreignLayers{"buildings"};
+  OsmField foreign(14, foreignLayers);
+  VegetationTemplates streetRules;
+  CHECK(streetRules.Load("src/assets/world/vegetation.json", stack.Materials()) &&
+            foreign.Declare(buildings, eye).has_value(),
+        "foreign street context prepares");
+  auto &ownedStreets = const_cast<StreetField &>(stack.Ways());
+  const StreetField originalStreets = ownedStreets;
+  (void)ownedStreets.Ingest(foreign, streetRules);
+  const size_t beforeUnknown = inspections;
+  inspectedSource.InspectCertificate = [&inspections](const TerrainCertificate &) {
+    ++inspections;
+    return Validation::Current;
+  };
+  allocations = 0;
+  measureAllocations = true;
+  const auto unknownStreet =
+      StructureBuildQueue::InspectCellSource(stack, prints, inspectedSource, 0, *sourceKey);
+  const bool residentUnknown = StructureBuildQueue::ValidateResidentCellSource(
+      stack, prints, inspectedSource, 0, *sourceKey);
+  measureAllocations = false;
+  CHECK(unknownStreet == State::Unknown && !residentUnknown && allocations == 0 &&
+            forbiddenCalls == 0 && inspections == beforeUnknown,
+        "foreign street input cannot invoke optimistic inspection or terrain preparation");
+  ownedStreets = originalStreets;
   inspectedSource.InspectCertificate = {};
   allocations = 0;
   measureAllocations = true;

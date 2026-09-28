@@ -3,6 +3,8 @@
 #include <span>
 #include <cstddef>
 #include <utility>
+#include <bit>
+#include "Digest.h"
 
 namespace outshine::Ground {
 
@@ -10,9 +12,35 @@ namespace {
 
 constexpr uint32_t kMaxRingPoints = 512;
 
+uint64_t DigestOfWays(const OsmField &field, std::span<const StreetField::Way> ways) {
+  uint64_t digest = kDigestBasis;
+  const auto fold = [&digest](uint64_t word) {
+    for (unsigned shift = 0; shift < 64u; shift += 8u) {
+      digest = DigestFolded(digest, static_cast<uint8_t>(word >> shift));
+    }
+  };
+  const std::span<const double> points = field.Points();
+  for (const StreetField::Way &way : ways) {
+    const size_t first = way.FirstPoint;
+    const size_t count = way.PointCount;
+    if (count < 2 || first + count > points.size() / 2u) { continue; }
+    fold(count);
+    fold(std::bit_cast<uint32_t>(way.HalfWidthM));
+    for (size_t at = 0; at < 2u * count; ++at) {
+      fold(std::bit_cast<uint64_t>(points[2u * first + at]));
+    }
+  }
+  return digest;
+}
+
 }
 
 uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
+  if (SourceOrigin_.get() != field.OriginToken() || SourceGeneration_ != field.Generation()) {
+    *this = StreetField{};
+    SourceOrigin_ = field.ShareOriginToken();
+    SourceGeneration_ = field.Generation();
+  }
   const std::span<const OsmField::Feature> feats = field.Features();
   if (Mark_.Done(feats)) { return static_cast<uint32_t>(Ways_.size()); }
 
@@ -56,7 +84,20 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
   }
 
   ByTile_.Set(next.Tile, firstWay, static_cast<uint32_t>(Ways_.size()));
+  if (next.Tile >= SourceDigests_.size()) {
+    SourceDigests_.resize(static_cast<size_t>(next.Tile) + 1, kDigestBasis);
+  }
+  SourceDigests_[next.Tile] = DigestOfWays(field, OfTile(static_cast<int>(next.Tile)));
   return static_cast<uint32_t>(Ways_.size());
+}
+
+std::optional<uint64_t> StreetField::SourceDigest(const OsmField &field,
+                                                  uint32_t tile) const noexcept {
+  if (SourceOrigin_ &&
+      (SourceOrigin_.get() != field.OriginToken() || SourceGeneration_ != field.Generation())) {
+    return std::nullopt;
+  }
+  return tile < SourceDigests_.size() ? SourceDigests_[tile] : kDigestBasis;
 }
 
 void StreetField::AppendFeature(const OsmField &field,

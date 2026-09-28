@@ -4,6 +4,8 @@
 #include <span>
 #include <cstdint>
 #include <vector>
+#include <memory>
+#include <optional>
 
 #include "Capacity.h"
 #include "OsmField.h"
@@ -35,6 +37,9 @@ public:
 
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
 
+  [[nodiscard]] std::optional<uint64_t> SourceDigest(const OsmField &field,
+                                                     uint32_t tile) const noexcept;
+
   [[nodiscard]] const std::vector<Way> &Ways() const { return Ways_; }
 
   [[nodiscard]] std::span<const Way> OfTile(int tile) const {
@@ -59,10 +64,14 @@ public:
 
   [[nodiscard]] long LayerSaidCount() const { return LayerSaid_; }
 
-  void Settle() { Ways_.shrink_to_fit(); }
+  void Settle() {
+    Ways_.shrink_to_fit();
+    SourceDigests_.shrink_to_fit();
+  }
 
   [[nodiscard]] size_t HeapBytes() const {
-    return CapacityBytes(Ways_) + Mark_.HeapBytes() + ByTile_.HeapBytes();
+    return CapacityBytes(Ways_) + CapacityBytes(SourceDigests_) + Mark_.HeapBytes() +
+           ByTile_.HeapBytes();
   }
 
   [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
@@ -81,6 +90,9 @@ private:
                      Shape shape);
   long InvalidLayers_ = 0;
   std::vector<Way> Ways_;
+  std::vector<uint64_t> SourceDigests_;
+  std::shared_ptr<const void> SourceOrigin_;
+  uint64_t SourceGeneration_ = 0;
   TileRanges ByTile_;
   TileWatermark Mark_;
   long Bridges_ = 0, Layered_ = 0, LayerSaid_ = 0;

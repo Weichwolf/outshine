@@ -77,21 +77,21 @@ Accepted-key cache: 9 direct checks PASS; restored rehash gives actual FAIL thro
 protected payload page, never watchdog/SIGNAL/BUILD. Independent little-endian FNV oracle
 matches 0x1ae933c37f74e20a; derivation /tmp/outshine-accepted-source-key-oracle.log.
 Logs /tmp/outshine-accepted-source-key-{controls,correct,restored-rehash}.log.
-41e159998: native key 1, BuildingField 5, queue 5 official tests PASS; full lint running.
+41e159998: native key 1, BuildingField 5, queue 5 and full lint PASS; 256/256 tidy units,
+zero findings, 32 guards/API docs; process exit 0.
 Logs /tmp/outshine-accepted-source-key-{native,buildingfield,queue,full-lint}.log.
-Format: 1204 files, zero errors; no frame-time claim.
+Street digest: 25 owner and 35 queue checks PASS; scan/domain/generation mutants FAIL.
+Unknown street context invokes no terrain callbacks/resolution and allocates nothing.
+Independent 48-byte count/width/f64 oracle: /tmp/outshine-street-digest-oracle.log.
+Logs /tmp/outshine-street-digest-{controls,correct,queue-correct}.log.
+Format 1205 files, zero errors; official street gate pending; no frame-time claim.
 
-## Active step: retain exact height requests
+## Exact height requests
 
-HeightField owns Request {Zoom, ordered TileSpots, Fallback}, captured from Blocks without
-sources/rasters. BuildingField::AcceptedInput owns this recipe; PendingAcceptance transfers
-it at preparation, snapshots copy it, HeapBytes counts it. StructureBuildQueue records the
-captured task recipe at whole-tile landing. Preserve order: RasterDigest folds field zoom,
-then block addresses and samples in order. Sources are resolved ancestors; certificate
-seam dependencies are not original requests. Neither can reconstruct the recipe.
-Test different requested children sharing one ancestor, order/zoom, producer destruction,
-snapshot/reset and heap accounting. Legacy/manual acceptances have no recipe; inspection
-still uses certificates, explicit resident validation remains available.
+HeightField owns Request {Zoom, ordered TileSpots, Fallback}; accepted BuildingField inputs
+capture it without rasters, snapshots copy it and HeapBytes counts it. Digest order matters;
+resolved ancestors/seam dependencies cannot reconstruct original requests. Legacy/manual
+acceptances have no invented recipe and retain explicit resident validation.
 
 ## Runtime integration contract
 
@@ -108,8 +108,8 @@ forbidden. Delivery changes need revision invalidation distinct from shaped Terr
 Before replacing the frame validator, specify queue/byte caps, polling/backoff and error
 states; prove no retry storm, starvation or borrowed mutable reader. Runtime cost/visual
 acceptance remains open; standalone inspectors do not establish a bounded frame path.
-Inspection scans tile way points; bound/cache street work under actual owners/generations
-before claiming bounded frame inspection.
+Cached source/street reads remove repeated hashing; remaining vector identity comparisons
+and preparation/task scheduling still need actual frame-cost acceptance.
 StructureCellsReady only reads plan.Active: integrate validation/replacement for active
 fronts too; checking inactive activation alone cannot reject an expired fine front.
 

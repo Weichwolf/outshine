@@ -4,7 +4,6 @@
 #include "StructureBuildQueue.h"
 
 #include <algorithm>
-#include <bit>
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -64,26 +63,9 @@ std::optional<Data::TileSourceIdentity> VectorSource(const Ground::OsmField &vec
   return vectors.Tiles()[tile].Source;
 }
 
-uint64_t
+std::optional<uint64_t>
 StreetDigest(const Ground::StreetField &streets, const Ground::OsmField &vectors, uint32_t tile) {
-  uint64_t digest = kDigestBasis;
-  const auto fold = [&digest](uint64_t word) {
-    for (unsigned shift = 0; shift < 64u; shift += 8u) {
-      digest = DigestFolded(digest, static_cast<uint8_t>(word >> shift));
-    }
-  };
-  const std::span<const double> points = vectors.Points();
-  for (const Ground::StreetField::Way &way : streets.OfTile(static_cast<int>(tile))) {
-    const size_t first = way.FirstPoint;
-    const size_t count = way.PointCount;
-    if (count < 2 || first + count > points.size() / 2u) { continue; }
-    fold(count);
-    fold(std::bit_cast<uint32_t>(way.HalfWidthM));
-    for (size_t at = 0; at < 2u * count; ++at) {
-      fold(std::bit_cast<uint64_t>(points[2u * first + at]));
-    }
-  }
-  return digest;
+  return streets.SourceDigest(vectors, tile);
 }
 
 int PitchedOf(std::string_view said) {
@@ -260,18 +242,24 @@ bool ResolveHeights(const Ground::OsmField &vectors,
   return true;
 }
 
-bool AcceptedSourceMetadataCurrent(const Ground::OsmField &vectors,
-                                   const Ground::StreetField &streets,
-                                   const Ground::BuildingField &footprints,
-                                   uint32_t tile,
-                                   uint64_t sourceKey) {
-  if (tile >= vectors.Tiles().size()) { return false; }
+StructureBuildQueue::CellSourceState
+InspectAcceptedSourceMetadata(const Ground::OsmField &vectors,
+                              const Ground::StreetField &streets,
+                              const Ground::BuildingField &footprints,
+                              uint32_t tile,
+                              uint64_t sourceKey) {
+  using State = StructureBuildQueue::CellSourceState;
+  if (tile >= vectors.Tiles().size()) { return State::Unknown; }
   const auto *accepted = footprints.InputOfTile(tile);
-  return accepted != nullptr && accepted->Qualified &&
-         accepted->Vector == vectors.Tiles()[tile].Source &&
-         accepted->Bake.TileSpanM == footprints.TileSpanM() &&
-         accepted->Bake.StreetDigest == StreetDigest(streets, vectors, tile) &&
-         StructureBuildQueue::QualifiedSourceKey(footprints, tile) == sourceKey;
+  if (accepted == nullptr || !accepted->Qualified) { return State::Unknown; }
+  if (sourceKey == 0 || accepted->Vector != vectors.Tiles()[tile].Source ||
+      accepted->Bake.TileSpanM != footprints.TileSpanM() ||
+      StructureBuildQueue::QualifiedSourceKey(footprints, tile) != sourceKey) {
+    return State::Stale;
+  }
+  const auto street = StreetDigest(streets, vectors, tile);
+  if (!street) { return State::Unknown; }
+  return accepted->Bake.StreetDigest == *street ? State::Current : State::Stale;
 }
 
 bool CertifiedAcceptedSourceCurrent(const Ground::OsmField &vectors,
@@ -281,7 +269,8 @@ bool CertifiedAcceptedSourceCurrent(const Ground::OsmField &vectors,
                                     uint32_t tile,
                                     uint64_t sourceKey) {
   const auto *accepted = footprints.InputOfTile(tile);
-  return AcceptedSourceMetadataCurrent(vectors, streets, footprints, tile, sourceKey) &&
+  return InspectAcceptedSourceMetadata(vectors, streets, footprints, tile, sourceKey) ==
+             StructureBuildQueue::CellSourceState::Current &&
          accepted->Terrain.IsComplete() && accepted->Terrain.ScopeCurrent(heightAt.TerrainScope) &&
          heightAt.CertificateCurrent && heightAt.CertificateCurrent(accepted->Terrain);
 }
@@ -297,6 +286,11 @@ bool ValidateCellSource(const Ground::GroundStack &stack,
   if (CertifiedAcceptedSourceCurrent(
           vectors, stack.Ways(), footprints, heightAt, tile, sourceKey)) {
     return true;
+  }
+  const auto street = StreetDigest(stack.Ways(), vectors, tile);
+  if (!street) {
+    ++deferred;
+    return false;
   }
   const auto &record = vectors.Tiles()[tile];
   const Ground::FeatureRun over{.From = record.FirstFeature,
@@ -316,7 +310,7 @@ bool ValidateCellSource(const Ground::GroundStack &stack,
   return StructureSourceKey({.Vector = VectorSource(vectors, tile),
                              .HeightSources = heights->Sources(),
                              .HeightDigest = heights->RasterDigest(),
-                             .StreetDigest = StreetDigest(stack.Ways(), vectors, tile),
+                             .StreetDigest = *street,
                              .TileSpanM = footprints.TileSpanM(),
                              .FallbackHeights = heights->Fallback()}) == sourceKey;
 }
@@ -413,15 +407,14 @@ StructureBuildQueue::InspectCellSource(const Ground::GroundStack &stack,
       !accepted->Qualified) {
     return CellSourceState::Unknown;
   }
-  if (sourceKey == 0 ||
-      !AcceptedSourceMetadataCurrent(*vectors, stack.Ways(), footprints, tile, sourceKey)) {
-    return CellSourceState::Stale;
-  }
+  const auto metadata =
+      InspectAcceptedSourceMetadata(*vectors, stack.Ways(), footprints, tile, sourceKey);
+  if (metadata == CellSourceState::Stale) { return metadata; }
   if (!accepted->Terrain.ScopeCurrent(heightAt.TerrainScope)) {
     return CellSourceState::ScopeChanged;
   }
-  if (!accepted->Terrain.IsComplete() || accepted->Terrain.TerrainScopeRevision() == 0 ||
-      !heightAt.InspectCertificate) {
+  if (metadata != CellSourceState::Current || !accepted->Terrain.IsComplete() ||
+      accepted->Terrain.TerrainScopeRevision() == 0 || !heightAt.InspectCertificate) {
     return CellSourceState::Unknown;
   }
   switch (heightAt.InspectCertificate(accepted->Terrain)) {
@@ -442,6 +435,10 @@ bool StructureBuildQueue::ValidateResidentCellSource(const Ground::GroundStack &
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr || tile >= vectors->Tiles().size() || sourceKey == 0 ||
       QualifiedSourceKey(footprints, tile) != sourceKey) {
+    return false;
+  }
+  if (InspectAcceptedSourceMetadata(*vectors, stack.Ways(), footprints, tile, sourceKey) !=
+      CellSourceState::Current) {
     return false;
   }
   if (CertifiedAcceptedSourceCurrent(
@@ -605,6 +602,10 @@ bool StructureBuildQueue::PostsCell(Ground::GroundStack &stack,
       accepted->Vector != VectorSource(*vectors, request.Tile) || CellQueued(request)) {
     return false;
   }
+  if (!stack.Ways().SourceDigest(*vectors, request.Tile)) {
+    ++Deferred_;
+    return false;
+  }
   const auto &tile = vectors->Tiles()[request.Tile];
   const Ground::FeatureRun over{.From = tile.FirstFeature,
                                 .To = static_cast<size_t>(tile.FirstFeature) + tile.FeatureCount};
@@ -629,11 +630,15 @@ bool StructureBuildQueue::PostsCell(Ground::GroundStack &stack,
   }
   if (!heights) { return false; }
   SlowestHeightResolutionMs_ = std::max(SlowestHeightResolutionMs_, heightResolutionMs);
-  const uint64_t streetDigest = StreetDigest(stack.Ways(), *vectors, request.Tile);
+  const auto streetDigest = StreetDigest(stack.Ways(), *vectors, request.Tile);
+  if (!streetDigest) {
+    ++Deferred_;
+    return false;
+  }
   const uint64_t pinnedKey = StructureSourceKey({.Vector = VectorSource(*vectors, request.Tile),
                                                  .HeightSources = heights->Sources(),
                                                  .HeightDigest = heights->RasterDigest(),
-                                                 .StreetDigest = streetDigest,
+                                                 .StreetDigest = *streetDigest,
                                                  .TileSpanM = footprints.TileSpanM(),
                                                  .FallbackHeights = heights->Fallback()});
   if (pinnedKey != request.SourceKey) { return false; }
@@ -667,7 +672,7 @@ bool StructureBuildQueue::PostsCell(Ground::GroundStack &stack,
                     .Purpose = BuildPurpose::ViewDetail},
        .Task = StructureBuildTask(
            request.Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
-       .StreetDigest = streetDigest,
+       .StreetDigest = *streetDigest,
        .SourceKey = request.SourceKey,
        .Cell = request.Cell});
   PostSlice(CellQueue_.back());
@@ -688,6 +693,10 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     return 0;
   }
   const Ground::OsmField &vectors = *stack.Vectors();
+  if (!stack.Ways().SourceDigest(vectors, 0)) {
+    ++Deferred_;
+    return 0;
+  }
   if (requirement == HeightRequirement::FineOnly && purpose == BuildPurpose::ViewDetail &&
       !cellReady && prints.RefinementComplete() && Queue_.empty() &&
       !AcceptedViewCurrent(prints, eye, cellReady)) {
@@ -735,6 +744,11 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
       ++Deferred_;
       break;
     }
+    const auto streetDigest = StreetDigest(stack.Ways(), vectors, next->Tile);
+    if (!streetDigest) {
+      ++Deferred_;
+      break;
+    }
     const BakeRevision revision{.Vectors = vectors.Generation(),
                                 .HeightSource = heightAt.Revision,
                                 .FocalPx = prints.FocalPx(),
@@ -747,11 +761,10 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
     const auto extractionAt = std::chrono::steady_clock::now();
     RawOf(vectors, prints, stack.Ways(), *next, eye, detail, std::nullopt, *raw);
-    const uint64_t streetDigest = StreetDigest(stack.Ways(), vectors, next->Tile);
     const uint64_t sourceKey = StructureSourceKey({.Vector = VectorSource(vectors, next->Tile),
                                                    .HeightSources = heights->Sources(),
                                                    .HeightDigest = heights->RasterDigest(),
-                                                   .StreetDigest = streetDigest,
+                                                   .StreetDigest = *streetDigest,
                                                    .TileSpanM = prints.TileSpanM(),
                                                    .FallbackHeights = heights->Fallback()});
     SlowestRawExtractionMs_ = std::max(
@@ -771,7 +784,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
         {.Revision = revision,
          .Task = StructureBuildTask(
              next->Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
-         .StreetDigest = streetDigest,
+         .StreetDigest = *streetDigest,
          .SourceKey = sourceKey,
          .Replacement = replacement});
     const auto postingAt = std::chrono::steady_clock::now();
