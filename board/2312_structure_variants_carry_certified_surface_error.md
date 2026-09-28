@@ -76,31 +76,41 @@ These are native CPU proofs, not publication, transform or visual acceptance.
   Current GPU/visual acceptance is unverified; prior sandbox failures do not establish
   today's availability. Do not close this WI with CPU-only evidence.
 
-## Active step: transfer BuildTask ownership
+## Verified task ownership
 
-Existing defaulted moves copy Handle/Running while transferring payload and stop owner.
-A running source then fails destruction and cannot stop safely. Current deque production
-constructs before posting; no production move/crash has been observed. This base-owner
-repair is independent of 2313's adaptive comparison and precedes the phase expansion.
-Owner: StructureBuildTask.h/.cpp. Explicit moves transfer all stable heap payload, stop
-owner and handle; source becomes Empty/kNoTask. Empty permits stop/join/poll/destruction,
-never Start/Resume. Assignment requires a nonrunning destination; self-move preserves work.
-Worker closures already capture stable pointees, not the task object's address. Move may
-therefore transfer a Running owner; Clear/destruction still requires the sole owner Join.
-Preserve Ready, partial Completed, Running and final output/progress ownership. Fixture
-holds a real worker in its mesher while construction/assignment move; only destination
-stops/joins. Move partial completion before Resume; verify exactly-once output/payload
-release. Restored default moves must produce actual FAIL, not a timeout or build failure.
-Acceptance: make format; StructureBuildTask/StructureBuildQueue suites; full lint/tidy/API.
-No change to geometric errors, publication or today's renderer-selection contract.
+29610fade: running/partial/final moves PASS; three ownership controls FAIL (exit 1).
+Five focused cases, full lint 256/256 tidy units, zero findings, 32 guards/API docs PASS.
+Logs /tmp/outshine-build-task-move-names-{focused,queue,full-lint}.log; process exit 0.
 
-Direct implementation check: 20 checks PASS with real blocked workers. Restored default
-moves, shared source stop ownership and lost destination stop ownership each give actual
-FAIL (exit 1), not SIGNAL/BUILD/TIMEOUT. Format: 1203 files, zero errors. Logs:
-/tmp/outshine-build-task-move-{controls,correct,default-moves,shared-source-stop,
-lost-destination-stop}.log. bc33d18d4: official BuildTask 1 and queue 4 PASS;
-logs /tmp/outshine-build-task-move-{focused,queue}.log. Full lint failed: two unnamed move
-parameters (readability-named-parameter); 256 units completed, all 32 guards/API docs PASS.
-29610fade names both: 5 focused tests, full lint 256/256 units without findings,
-32/32 guards and API docs PASS; process exit 0. Logs /tmp/outshine-build-task-move-names-
-{focused,queue,full-lint}.log and gate-result.txt. Adaptive phases remain open.
+## Active step: paired worker phases
+
+Owner: StructureBuildTask.h/.cpp, StructureBuildQueue.cpp and StructureBake.h. Keep task
+lifecycle separate from heap-owned phase state; running moves preserve worker pointees.
+Queue supplies an immutable qualified source/cell/detail proof request. Eye-selected
+whole-tile detail cannot supply one cell bound. Variant/Fine use the same captured raw
+geometry, HeightField and anchor. Create a separate Fine RawTile on the worker before
+starting its own bake progress. Never rewrite a started variant/detail request. Initially
+build the reference locally; cache reuse waits for exact source/cell/frame identity.
+
+Output.Tile currently means final completion: Poll/Resume uses its absence. Keep the
+variant private through Reference/SurfaceProof or the queue will land it and release inputs
+prematurely. The published coarse front remains usable. One post performs at most four
+64-structure ranges OR one 128-work proof slice; transitions add no second full slice.
+Check stop before transitions/steps. Use 2313 limits: 131072 queries, 4096 regions, 0.02 m
+uncertainty. Exhaustion preserves complete coverage; cancellation rejects late output.
+Proof failure retains the valid variant with an explicit failure result and no smaller
+error. Invalid geometry/source cannot become optimistic zero. No mutable owner callbacks.
+
+BakedTile carries optional native interval, reference/variant detail and cell identity.
+Queue rechecks the complete captured source receipt at landing. Renderer selection stays
+unchanged in this step. Account Fine raw copy, reference geometry, both bake progress
+buffers and proof scratch; production admission must reserve their configured maximum.
+HeapBytes cannot read live mutable worker state; publish counters through completion.
+Production proof requests stay disabled until byte limits/accounting are implemented.
+
+Acceptance: paced native Fine/Shell/Massed cells, immutable requests/common anchor, real
+cancellation and running/partial moves in EACH phase, exactly-once output, exhausted/failed
+proof and byte admission. Early Output.Tile, rewritten Fine request, lost phase ownership
+and ignored cancellation controls must actually FAIL. Format; StructureBuildTask/Bake/
+SurfaceRefinement/BuildQueue suites; full lint/tidy/API. Source revalidation (2311), resident
+transfer and GPU/visual acceptance remain open; CPU intervals alone cannot lower LOD error.
