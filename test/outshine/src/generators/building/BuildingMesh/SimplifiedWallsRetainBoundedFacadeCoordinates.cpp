@@ -42,7 +42,8 @@ int main() {
     CHECK(std::floor(leastBay / 256.0f) == std::floor(mostBay / 256.0f),
           "one wall never crosses into another facade style");
   }
-  CHECK(facadeTriangles > 0 && widestBaySpan > 1.0f, "simplified box walls retain repeating bays");
-  CHECK(widestStoreySpan > 1.0f, "simplified box walls retain storey height");
+  CHECK(facadeTriangles > 0 && widestBaySpan > 1.0f,
+        "simplified shell walls retain repeating bays");
+  CHECK(widestStoreySpan > 1.0f, "simplified shell walls retain storey height");
   return Report();
 }

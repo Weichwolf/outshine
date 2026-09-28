@@ -466,7 +466,7 @@ void Walls(const BuildingShape &s,
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
     const double bays = (s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
-    if (std::cmp_equal(i, s.FrontEdge) && bays >= 2.0) {
+    if (std::cmp_equal(i, s.FrontEdge) && bays >= 2.0 && site.Coarseness() == LevelOfDetail::Fine) {
       FrontWall(s, p, q, bays, lowZ, topZ, site);
       continue;
     }
@@ -883,7 +883,7 @@ void Box(const BuildingShape &s, std::span<const EastNorth> ring, Site &site) {
 }
 
 void RaisePart(const BuildingShape &s, Site &site) {
-  if (site.Coarseness() != LevelOfDetail::Fine) {
+  if (site.Coarseness() == LevelOfDetail::Massed) {
     Box(s, Hull(s.Ring), site);
     return;
   }
@@ -923,7 +923,7 @@ void RaisePart(const BuildingShape &s, Site &site) {
              deckZ,
              site);
     if (crowned) { Crown(s, {.Inner = crownInner, .Out = crownOut}, site); }
-    RoofPlant(s, deckZ, site);
+    if (site.Coarseness() == LevelOfDetail::Fine) { RoofPlant(s, deckZ, site); }
     return;
   }
 
@@ -939,7 +939,7 @@ void RaisePart(const BuildingShape &s, Site &site) {
            site);
   Gables(s, roof, wide, site);
   if (!wide.empty()) { Eaves(s, roof, wide, site); }
-  if (WantsChimney(s)) { Chimney(s, roof, site); }
+  if (site.Coarseness() == LevelOfDetail::Fine && WantsChimney(s)) { Chimney(s, roof, site); }
 }
 
 double StandBack(const Frontage &street, const EastNorth &p) {

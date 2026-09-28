@@ -29,7 +29,7 @@ int main() {
     fineTriangles[at] = (fine.WallRun.size() + fine.RoofRun.size()) / 3u;
     shellTriangles[at] = (shell.WallRun.size() + shell.RoofRun.size()) / 3u;
     CHECK(fineTriangles[at] > shellTriangles[at],
-          "Fine retains architectural detail while Shell uses the bounding proxy");
+          "Fine retains architectural detail while Shell omits secondary architectural geometry");
   }
   CHECK(fineTriangles[0] == fineTriangles[1] && shellTriangles[0] == shellTriangles[1],
         "world anchor changes coordinates, not the requested building detail level");
