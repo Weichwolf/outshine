@@ -34,6 +34,13 @@ struct StructureSurfaceErrorInterval {
 
 class StructureSurfaceRefinementTask {
 public:
+  StructureSurfaceRefinementTask() = default;
+  ~StructureSurfaceRefinementTask() = default;
+  StructureSurfaceRefinementTask(const StructureSurfaceRefinementTask &) = default;
+  StructureSurfaceRefinementTask &operator=(const StructureSurfaceRefinementTask &) = default;
+  StructureSurfaceRefinementTask(StructureSurfaceRefinementTask &&other) noexcept;
+  StructureSurfaceRefinementTask &operator=(StructureSurfaceRefinementTask &&other) noexcept;
+
   [[nodiscard]] std::expected<void, StructureSurfaceErrorFailure>
   Reset(StructureSurfacePair inputs, StructureSurfaceRefinementLimits limits = {}) noexcept;
   [[nodiscard]] std::expected<StructureSurfaceErrorProgress, StructureSurfaceErrorFailure>

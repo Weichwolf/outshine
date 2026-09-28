@@ -69,21 +69,17 @@ logs: /tmp/outshine-refinement-restored-{focused,full-lint}.log. No runtime cons
 Native BuildingMesh/sloped/large-anchor/permutation controls and measured runtime
 scratch/query utility remain open; passing this CPU gate does not finish 2313.
 
-## Priorisierter Move-Vertragsfehler
+## Move-Vertrag implementiert, vollständiges Gate ausstehend
 
-ASan/UBSan-Probe 2026-09-28: Reset(cap/frame), Step(100), move(task), dann Step auf
-dem Quellobjekt ergibt SEGV in UpdateUpper. Quelle meldet RegionCount=0 und weiterhin
-Bound; der implizite Move überträgt Heaps, lässt Phase/Teilfortschritt aktiv.
-Log: /tmp/outshine-review-moved-refiner.log; reproduzierbare Quelle im gleichen Temppräfix.
-Der bestehende Test benutzt nur das Move-Ziel und deckt diese Grenze nicht ab.
-Aktiver Slice: explizite Move-Konstruktion/-Zuweisung übertragen sämtliche Task-Felder;
-Self-Move erhält den Fortschritt. Danach Cancel auf der Quelle. Default-Copy bleibt.
-Transfer mit gültigem widerrufenem
-Quellzustand. Ziel behält vollständigen Fortschritt; Quelle liefert kein Bound und
-Step einen erwarteten Fehler, darf Cancel/Reset und anschließend neue Arbeit ausführen.
-Copy bleibt unabhängig bei denselben gepinnten Inputs; Kopien außerhalb des Framepfads.
-Move-Konstruktion und -Zuweisung während Seed/Child/Split/Complete prüfen, auch Self-Move;
-Rückkehr zum impliziten Move muss den Guard tatsächlich verletzen. Kein Entfernen des Tests.
+Der Review reproduzierte einen SEGV nach Move/Step: leere Quell-Heaps bei aktiver Phase.
+Explizite Move-Konstruktion/-Zuweisung übertragen nun alle Felder und widerrufen die
+Quelle per Cancel. Self-Move erhält Fortschritt; Copy bleibt unabhängig bei gepinnten Inputs.
+MovingProgressRevokesTheSource verschiebt nach jedem primitiven Arbeitsschritt, prüft
+Quellwiderruf, Reset/Wiederverwendung, aktives Ziel, Self-Move, Complete und Fehlerzustände.
+ASan/UBSan: 4741 Checks ohne Fehler; ursprüngliche Crash-Probe liefert erwarteten Fehler.
+Rückkehr zu impliziten Moves: tatsächliches FAIL, kein BUILD. Format: 1199 Dateien, null Fehler.
+Logs: /tmp/outshine-refinement-move-{sanitized,original-probe,mutant,format}.log.
+Fokussierte offizielle Suites und vollständiges Lint müssen diesen Commit noch bestätigen.
 
 ## Native utility probe and next proof decision
 

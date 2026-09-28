@@ -39,6 +39,39 @@ double StructureSurfaceErrorInterval::LowerDistanceM() const noexcept {
   return std::max(ReferenceToVariantLowerM, VariantToReferenceLowerM);
 }
 
+StructureSurfaceRefinementTask::StructureSurfaceRefinementTask(
+    StructureSurfaceRefinementTask &&other) noexcept {
+  *this = std::move(other);
+}
+
+StructureSurfaceRefinementTask &
+StructureSurfaceRefinementTask::operator=(StructureSurfaceRefinementTask &&other) noexcept {
+  if (this == &other) { return *this; }
+  Envelope_ = other.Envelope_;
+  Inputs_ = other.Inputs_;
+  Limits_ = other.Limits_;
+  Heaps_ = std::move(other.Heaps_);
+  Children_ = other.Children_;
+  LowerM_ = other.LowerM_;
+  Working_ = other.Working_;
+  Bound_ = other.Bound_;
+  SourceKey_ = other.SourceKey_;
+  NextSerial_ = other.NextSerial_;
+  Direction_ = other.Direction_;
+  SeedCursor_ = other.SeedCursor_;
+  TargetCursor_ = other.TargetCursor_;
+  ChildCursor_ = other.ChildCursor_;
+  WorkUnits_ = other.WorkUnits_;
+  TriangleQueries_ = other.TriangleQueries_;
+  Splits_ = other.Splits_;
+  SampleLowerM_ = other.SampleLowerM_;
+  SampleUpperM_ = other.SampleUpperM_;
+  Phase_ = other.Phase_;
+  Failure_ = other.Failure_;
+  other.Cancel();
+  return *this;
+}
+
 bool StructureSurfaceRefinementTask::LowerPriority(const Region &a, const Region &b) noexcept {
   return a.UpperM < b.UpperM || (a.UpperM == b.UpperM && a.Serial > b.Serial);
 }
