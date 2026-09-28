@@ -20,6 +20,10 @@ int main() {
                                   .SourceId = "osm",
                                   .Revision = "vector-a"};
   const BuildingField::Baked empty;
+  HeightField::Request request{
+      .Zoom = 15,
+      .Tiles = {{.Zoom = 15, .X = 9, .Y = 14}, {.Zoom = 15, .X = 8, .Y = 14}},
+      .Fallback = false};
   field.PreparesAcceptances({.Tiles = 1});
   field.Take(7);
   auto pending = field.PrepareAcceptance(7,
@@ -31,9 +35,12 @@ int main() {
                                           .StreetDigest = 19,
                                           .FocalPx = 90,
                                           .TileSpanM = 100,
-                                          .Eye = {.LongitudeDeg = 8, .LatitudeDeg = 47}});
+                                          .Eye = {.LongitudeDeg = 8, .LatitudeDeg = 47}},
+                                         {},
+                                         request);
   CHECK(field.InputOfTile(7) == nullptr,
         "preparing an empty tile does not publish its source identity");
+  request.Tiles.clear();
   source.Revision = "revision-b";
   vector.Revision = "vector-b";
   field.CommitAcceptance(std::move(pending), vectors, empty);
@@ -45,6 +52,11 @@ int main() {
             accepted->Bake.TileSpanM == 100 && accepted->Bake.Eye.LongitudeDeg == 8 &&
             accepted->Bake.Eye.LatitudeDeg == 47,
         "accepted empty tile owns both source revisions captured before publication");
+  CHECK(accepted && accepted->Heights.Zoom == 15 && !accepted->Heights.Fallback &&
+            accepted->Heights.Tiles.size() == 2 && accepted->Heights.Tiles[0].X == 9 &&
+            accepted->Heights.Tiles[1].X == 8,
+        "accepted recipe owns ordered child requests, independently of resolved ancestor sources");
+  const size_t accounted = field.HeapBytes();
   BuildingField snapshot = field.SnapshotAccepted();
   field.ResetDerived();
   CHECK(field.InputOfTile(7) == nullptr && snapshot.InputOfTile(7) &&
@@ -54,6 +66,18 @@ int main() {
             snapshot.InputOfTile(7)->Bake.HeightRasterDigest == 17 &&
             snapshot.InputOfTile(7)->Bake.StreetDigest == 19,
         "candidate snapshot retains source identity after source reset");
+  CHECK(snapshot.InputOfTile(7)->Heights.Tiles.size() == 2 &&
+            snapshot.InputOfTile(7)->Heights.Tiles[0].X == 9,
+        "snapshot owns request addresses after producer and accepted field reset");
+  BuildingField noRequests = snapshot;
+  auto replacement = noRequests.PrepareAcceptance(
+      7, empty, std::span(&source, 1), true, vector, BuildingField::BakeInputs{});
+  noRequests.ReplaceAcceptance(std::move(replacement), empty);
+  CHECK(noRequests.InputOfTile(7)->Heights.Tiles.empty(),
+        "legacy acceptances retain no invented requests");
+  CHECK(accounted >= snapshot.HeapBytes() &&
+            snapshot.HeapBytes() >= noRequests.HeapBytes() + 2 * sizeof(TileSpot),
+        "request address storage counts toward retained heap bytes");
   CHECK(snapshot.HeapBytes() >= sizeof(BuildingField::AcceptedInput),
         "retained source records count toward the streaming heap budget");
   return Report();

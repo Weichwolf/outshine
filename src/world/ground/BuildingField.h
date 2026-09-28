@@ -6,6 +6,7 @@
 #include <span>
 #include "math/Vec3.h"
 #include "OsmField.h"
+#include "HeightField.h"
 
 #include <cstdint>
 #include <cassert>
@@ -75,6 +76,7 @@ public:
     bool Qualified = false;
     BakeInputs Bake;
     TerrainCertificate Terrain;
+    HeightField::Request Heights;
   };
 
   class PendingAcceptance {
@@ -94,7 +96,8 @@ public:
                       std::span<const Data::TileSourceIdentity> sources,
                       bool qualified,
                       BakeInputs bake,
-                      TerrainCertificate certificate)
+                      TerrainCertificate certificate,
+                      HeightField::Request heights)
         : Owner_(owner),
           Tile_(tile),
           Prints_(baked.Prints.size()),
@@ -107,7 +110,8 @@ public:
                  .CellMaxHeightM = baked.CellMaxHeightM,
                  .Qualified = qualified,
                  .Bake = bake,
-                 .Terrain = std::move(certificate)} {
+                 .Terrain = std::move(certificate),
+                 .Heights = std::move(heights)} {
       std::ranges::sort(Input_.Sources);
       Input_.Sources.erase(std::ranges::unique(Input_.Sources).begin(), Input_.Sources.end());
     }
@@ -195,7 +199,8 @@ public:
                     bool qualified,
                     std::optional<Data::TileSourceIdentity> vector,
                     BakeInputs bake,
-                    TerrainCertificate certificate = {});
+                    TerrainCertificate certificate = {},
+                    HeightField::Request heights = {});
   void PreparesAcceptances(AcceptanceCapacity capacity);
   void
   CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
@@ -257,7 +262,8 @@ public:
       if (input.Vector) {
         bytes += input.Vector->SourceId.capacity() + input.Vector->Revision.capacity();
       }
-      bytes += CapacityBytes(input.Sources) + input.Terrain.HeapBytes();
+      bytes += CapacityBytes(input.Sources) + input.Terrain.HeapBytes() +
+               CapacityBytes(input.Heights.Tiles);
       for (const auto &source : input.Sources) {
         bytes += source.SourceId.capacity() + source.Revision.capacity();
       }

@@ -199,6 +199,11 @@ int main() {
   const auto *accepted = prints.InputOfTile(0);
   CHECK(accepted && source.CertificateCurrent(accepted->Terrain),
         "same-key re-resolution transfers the newly validated certificate to acceptance");
+  CHECK(accepted && accepted->Heights.Zoom == zoom && !accepted->Heights.Fallback &&
+            !accepted->Heights.Tiles.empty() && accepted->Heights.Tiles.front().Zoom == spot.Zoom &&
+            accepted->Heights.Tiles.front().X == spot.X &&
+            accepted->Heights.Tiles.front().Y == spot.Y,
+        "whole-tile landing retains captured DEM requests after releasing its bake task");
   const auto acceptedKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
   CHECK(acceptedKey.has_value(), "validated tile has a qualified source key");
   source.TerrainScope = 12;

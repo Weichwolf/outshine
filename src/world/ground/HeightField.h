@@ -23,6 +23,12 @@ class HeightField {
 public:
   static constexpr int MaximumTileZoom = Data::TileId::MaximumZoom;
 
+  struct Request {
+    int Zoom = 0;
+    std::vector<TileSpot> Tiles;
+    bool Fallback = false;
+  };
+
   struct Block {
     TileSpot At;
     Sampling Raster;
@@ -169,6 +175,13 @@ public:
   [[nodiscard]] uint64_t RasterDigest() const noexcept { return RasterDigest_; }
 
   [[nodiscard]] std::span<const Block> Blocks() const noexcept { return Blocks_; }
+
+  [[nodiscard]] Request CaptureRequest() const {
+    Request request{.Zoom = Zoom_, .Tiles = {}, .Fallback = Fallback_};
+    request.Tiles.reserve(Blocks_.size());
+    for (const Block &block : Blocks_) { request.Tiles.push_back(block.At); }
+    return request;
+  }
 
   [[nodiscard]] GroundSample At(LongitudeLatitude at) const noexcept {
     const TileSpot spot = SpotOf(at, Zoom_);

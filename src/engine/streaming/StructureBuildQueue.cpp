@@ -920,7 +920,8 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
                              .FocalPx = bake.Revision.FocalPx,
                              .TileSpanM = bake.Revision.TileSpanM,
                              .Eye = bake.Revision.Eye},
-                            std::move(validated[at]))});
+                            std::move(validated[at]),
+                            bake.Task.Heights().CaptureRequest())});
   }
   return landings;
 }
