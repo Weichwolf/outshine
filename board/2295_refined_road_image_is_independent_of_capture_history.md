@@ -53,6 +53,22 @@ Trace which `SceneResources::PlacePiece` owner creates sources absent from
 must release each owned handle exactly once. Prove the source/residency/owner
 count invariant at every publication boundary before changing shading.
 
+## Accepted-upload preservation step
+
+`SubjectDraw::BeginMesh` currently calls `SubjectResidency::DropStaged` before
+main-mesh replacement. That queue also owns already accepted independent piece
+uploads. The 46.883-s motion reproduces ripped structures with 326 live pieces/
+sources and 65 structure records. Queue cancellation is a concrete candidate.
+Own the pending queue in SubjectResidency. Submit accepted uploads before any
+BeginMesh generation/range/shape change; submission failure retains the queue
+and the prior mesh state for retry. Shared/borrowed passes obey the same rule.
+Expose one SubmitPendingUploads operation; remove discard-on-admission. No
+empty upload creates a command. A native GPU fixture stages a piece, poisons its
+destination independently, then clears/replaces the main mesh: readback must
+recover the exact accepted piece vertices/indices. Inject submission failure:
+generation/ownership stay unchanged and retry recovers all payloads. Establish
+the failing fixture before correction, then rerender the current motion cases.
+
 ## Falsifiable acceptance
 
 - Isolated native road plus one wall: camera jump and paced approach to the
