@@ -104,3 +104,9 @@ additional primitive query in sliced budgets. Existing all-target lower evidence
 Prove convex containment, rounded corner deviations, degenerate targets, opening and
 native self-pairs independently before implementation. Exact triangle correspondence
 is optional only with full value verification; hashes alone certify nothing.
+
+Independent Fraction oracle: 7200 exact rational interior probes cover arbitrary/sloped,
+collapsed/collinear/self targets, binary scaling and large translations. Convex fixed-target
+inequality holds; per-corner target switching yields 0 versus opening distance squared 1/4.
+Log: /tmp/outshine-review-convex-oracle.log. This supports the decision, not C++ rounding,
+budget/state or native runtime acceptance of an implementation that does not yet exist.
