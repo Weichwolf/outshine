@@ -1818,6 +1818,17 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   if (!World.GroundBuild) { return diagnostic; }
   const auto &footprints = World.GroundBuild->Footprints();
   const auto *vectors = World.Stack.Vectors();
+  diagnostic += World.GroundBuild->Revision().Quality == GroundQuality::Refined
+                    ? ", candidate quality=refined"
+                    : ", candidate quality=playable";
+  diagnostic += ", structure accepted/taken=" + std::to_string(footprints.AcceptedTiles().size()) +
+                "/" + std::to_string(footprints.IngestedTiles());
+  diagnostic += ", source refinement complete=" +
+                std::to_string(static_cast<int>(footprints.RefinementComplete()));
+  diagnostic +=
+      ", unqualified structure tiles=" +
+      std::to_string(std::ranges::count_if(footprints.AcceptedInputs(),
+                                           [](const auto &input) { return !input.Qualified; }));
   diagnostic += ", structure refinement=" + std::to_string(footprints.RefinementRemaining());
   if (const auto *worker = World.GroundBuild->StreetGraphWorker(); worker != nullptr) {
     diagnostic += ", network phase=" + std::string(worker->PhaseName()) +

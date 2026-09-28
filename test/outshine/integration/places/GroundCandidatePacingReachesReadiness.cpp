@@ -100,6 +100,7 @@ std::optional<ProductSignature> Builds(bool preload) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   if (!engine.settled(outshine::WorldQuality::Refined)) {
+    Note(engine.unsettledReasons(outshine::WorldQuality::Refined).c_str());
     const outshine::Loading loading = engine.loading();
     Note("refined timeout ground arrived", static_cast<double>(loading.GroundArrived), "tiles");
     Note("refined timeout ground wanted", static_cast<double>(loading.GroundWanted), "tiles");
