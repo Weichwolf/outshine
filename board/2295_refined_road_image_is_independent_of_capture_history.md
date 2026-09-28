@@ -82,6 +82,11 @@ sky-spanning wedges are absent. p50/p95/p99 2.296/8.850/13.383 ms; peak
 643.947 MiB. Remaining stations/full lap, ownership and refined convergence
 still require verification; this WI remains active.
 
+The device-boundary claim must admit mirrored internal renderer tests under
+`test/outshine/src/render/`, including independent GPU staging/readback oracles.
+Production clients and non-render components remain forbidden; insert a direct
+GPU-acquisition call outside render as an effective negative control.
+
 ## Falsifiable acceptance
 
 - Isolated native road plus one wall: camera jump and paced approach to the
