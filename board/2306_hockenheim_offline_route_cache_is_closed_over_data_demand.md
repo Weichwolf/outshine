@@ -25,7 +25,7 @@ road/building/material quality remains schematic.
 Deleting `elevation/15/17165/11203` from a separate cache makes preparation fail
 before playback, with one cache miss, no PNG/network. Owned failure propagation
 now reports raw requested/served `15/17165/11203`, `terrarium.s3`, its source key
-and offline-miss cause; stitched `15/17164/11202` remains separate context.
+and offline-miss cause; the stitched address remains separate context.
 Terrarium now uses the shared 404-only absence rule. Scripted 404/403/401 and
 subsequent recovery pass; restoring the former 403 rule fails the same test.
 
@@ -68,12 +68,12 @@ subsequent recovery pass; restoring the former 403 rule fails the same test.
   Bytes/Field/PollStitchedField expose an optional owned failure alongside status;
   refusal cache hits reproduce the original failure. Recovery replaces expired
   empty refusals before admission, sharing cache-index removal with eviction.
-  Repeated recovered requests deliver resident bytes without new fetches; the
-  Decoder failures retain delivered identity/address/key. Delivery/TilePool
+  Recovered requests deliver resident bytes without refetching. AwaitLanding
+  checks retained results under QueueMutex before waiting; pre-landed work cannot
+  lose its wakeup. Decoder failures retain delivered identity/address/key. Delivery/TilePool
   cache retain the key; TerrainBytes carries it to RawGrid. Invalid PNG, crop or
   served ancestry refuses the raw field; corrupt neighbours prevent publication.
-  host/Fetching maps
-  curl timeout/body limits to TimedOut/CapacityRefused. Cancelled ticket IDs use
+  host/Fetching maps curl timeout/body limits to TimedOut/CapacityRefused. Cancelled ticket IDs use
   a FIFO bounded by MaxRequests; transfers/payloads are freed, Collect consumes
   the cause once. HTTP 408 retries as timeout; cancel/body limits are terminal.
   Deadline/admission failures keep their own cause; never infer from Ticket::None.
