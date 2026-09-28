@@ -27,7 +27,7 @@ reaches [0.4921875, 0.5096568] m; this does not prove native adaptive code.
 - Two bounded heaps hold source-triangle regions, one per direction. Start each from
   all native wall/roof index runs. Each node owns three PointEnclosures, an interior
   sample, its enclosing radius and a conservative upper distance. Deterministic ties.
-- Evaluate one target triangle per work unit. Upper distance is the minimum valid
+- Evaluate one point/target-triangle query per work unit. Upper distance is the minimum valid
   target upper estimate plus region radius, rounded outward. The sample lower bound
   requires minima over ALL target triangles, minus its enclosure deviation rounded
   down. Samples establish lower evidence only; radius establishes interior coverage.
@@ -59,10 +59,6 @@ reaches [0.4921875, 0.5096568] m; this does not prove native adaptive code.
 
 ## Current evidence
 
-Native adaptive case: 55 checks, zero failures in a direct optimized build. Removing
-region radius or using only the first target lower bound each causes actual FAIL.
-One-unit and arbitrary slices, exhausted initialization/child budgets, reversed pairs,
-parallel/tessellated/collapsed surfaces and source/cancel/copy/destination-move guards pass.
 Commit 618371b14: make format, all four official focused suites and full make lint
 including clang-tidy pass. Gate result: /tmp/outshine-refinement-restored-gate-result.txt;
 logs: /tmp/outshine-refinement-restored-{focused,full-lint}.log. No runtime consumer.
@@ -110,3 +106,14 @@ collapsed/collinear/self targets, binary scaling and large translations. Convex 
 inequality holds; per-corner target switching yields 0 versus opening distance squared 1/4.
 Log: /tmp/outshine-review-convex-oracle.log. This supports the decision, not C++ rounding,
 budget/state or native runtime acceptance of an implementation that does not yet exist.
+
+## Aktiver Schritt: konvexe Zielschranke
+
+EvaluateTriangle erhält einen Cursor für Innenprobe und drei Eckproben am selben Ziel.
+Jede Distanzabfrage zählt einzeln; erst drei vollständige Eckproben liefern deren
+Maximum inklusive nach außen gerundeter PointEnclosure-Radien. Zielwechsel setzt
+dieses Maximum zurück. Sample-Lower bleibt ein Minimum über sämtliche Zieldreiecke.
+Move/Copy übernehmen Cursor und partielles Maximum; Erschöpfung erhält Elternabdeckung.
+Analytische geneigte/degenerierte Selbstflächen, Translation, Reihenfolge und Budget-
+abbruch prüfen Sicherheit und Nutzen. Native Gebäudemessung entscheidet den nächsten
+Optimierungsschritt; Query-Caps bleiben unverändert, keine Runtime-Freigabe.
