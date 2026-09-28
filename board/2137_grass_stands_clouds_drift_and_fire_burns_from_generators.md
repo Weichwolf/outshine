@@ -1,44 +1,48 @@
 Type: feature
 State: open
 Architecture: planned
-Priority: P1
+Priority: P2
 Parent: 2169
 Area: generators, render, engine
-Tags: architecture, vegetation, effects
-Depends: 2126, 2123, 2171
+Tags: vegetation, budget, streaming
+Depends:
 
-# Ground cover and particle effects use native generation and rendering contracts
+# Ground cover adds measured image value with bounded overdraw
 
-## Zuständigkeit und Reihenfolge
+## Scope und Priorität
 
-Nach 2169 erst P5 Vegetation, P6 Partikeleffekte. Wolken gehören ausschließlich
-2140/2172. Vorhandene Scatter-/Instanz-/Materialpfade prüfen und verwenden;
-keine vorgeschriebene Verzeichnisstruktur als Ersatz für einen Datenvertrag.
+Nach 2111s nativer Waldgrundlage; kein vollständiges globales Streaming als Startblocker.
+Krautige Vegetation nutzt native Mesh-/Material-/Instanzprodukte. Verholzte Sträucher
+teilen vorhandenes Wachstum 2176. Wolken liegen ausschließlich in 2140/2172.
+Partikel/Feuer/Rauch sind ein späterer eigenständiger Slice der Gesamtreserve 2169,
+keine zweite Runtime im selben Bodenvegetations-WI. Alte P5/P6-Wartefolge ist aufgehoben.
 
-## Umsetzung
+## Architektur und konkreter erster Entwurf
 
-- Bodenmaterial nach 2171 ohne Pflanzengeometrie abnehmen. Gräser/Stauden/Büschel
-  besitzen einen krautigen Generator; verholzte Sträucher teilen Wachstumsverfahren
-  mit 2176. Beide liefern native Geometrie und Materialien.
-- Standort-/Nutzungsmasken, Gelände sowie Gebäude-/Verkehrsfreiräume bestimmen Placement.
-  Seeds in Weltkoordinaten, stabile Tilegrenzen und deterministische Wiederkehr.
-  Gemeinsame Artenparameter, Wind, Instancing, LOD und räumliches Streaming.
-- Bodenzustand liefert Standort und Dichte, kennt keine einzelnen Halme. Mikrodetail
-  unter einem Pixel geht in gefilterte Materialwirkung über. Geometrie nur für sichtbaren
-  Zusatznutzen: Silhouette, Gegenlicht, flacher Blickwinkel; Entfernung allein genügt nicht.
-- Deklarierte Emitter für Feuer/Rauch/Niederschlag: begrenzte Lebenszeit, feste Partikel-/
-  Uploadbudgets, Abbruch/Freigabe, gemeinsame Licht-/Mediumverträge. Wetter aus 2172
-  liefert den Antrieb. Kein Screen-Space-Ersatz für räumliche Effekte.
-- Öffentliche Generator-/Szenarioverträge nach 2126; Features einzeln schaltbar.
-  Keine bestimmten Pflanzen oder Feuer nur für ein einzelnes Webcam-Bild erzeugen.
+Vorhandene Scatter-/Instanzpfade prüfen. Ein deklarierter ebener Teststreifen mit EINER
+Büschelform und einem geteilten Prototyp, Nah/Fern/Nah-Kamerafahrt; kein Artenframework.
+Ground besitzt Bodenzustand/Eignung und semantische Gebäude-/Straßen-/Wasserfreiräume;
+Generator besitzt Form/Placement, render residente Auswahl und Alpha-/Overdrawkosten.
+Seeds und Grenzzuordnung folgen stabiler Weltidentität (2098), nie Kamera oder Arrival.
+WeatherSnapshot liefert denselben Wind/Zeitvertrag wie Bäume und Wolken.
+
+Unter Pixelmaßstab geht Mikrodetail in gefilterte Materialwirkung über. Geometrie
+rechtfertigt sich durch Silhouette, Gegenlicht oder flachen Blickwinkel, nicht Entfernung
+allein. Boden-only ist unabhängiger Bild-/Kostenvergleich, keine vollständige Weltvorbedingung.
+Materialkerne aus 2171 verwenden; dessen gesamte Generatorabnahme blockiert den Prototyp nicht.
+Budget 2314 umfasst Vegetation, Infrastruktur und Himmel; Alpha-Overdraw und Schatten
+zählen vollständig, gemeinsame Prototypen werden einmal resident gehalten (2228).
+
+Vor ready: Owner-Dateien, native Inputs/Outputs, begrenzte Placement-/Upload-/Residency-
+Caps und Fehler-/Abbruchfluss festlegen. Öffentliche Client-Placement-Regeln 2126 sind
+nur für einen solchen API-Ausbau nötig; keine Pflicht für die interne bestehende Pipeline.
 
 ## Abnahme
 
-- [ ] Boden-only gegen Büschel bei Bewegung/Jahreszeitenwechsel: Mehrwert, Übergänge,
-      Overdraw, CPU/GPU und Speicherspitzen getrennt messen, PNGs selbst öffnen.
-- [ ] Tileeintritt, Grenzen und Seeds prüfen; keine Pflanzen in Gebäuden/Fahrbahnen.
-- [ ] Gegenlicht/Nah-/Fernsicht ohne flackernde Übergänge oder unbeschränkte Arbeit.
-- [ ] Emitter stoppen vollständig; Replay/Teilschritte stimmen innerhalb eines vorher
-      festgelegten Fehlerbudgets. Sättigung bleibt kontrolliert.
-- [ ] Fehlende Belegungsmasken, entkoppelte Windzeit und fehlende Freigabe werden
-      durch unabhängige Prüfungen erkannt. Cloud-Abnahme bleibt in 2140.
+- [ ] Boden-only/Büschel bei Bewegung und Jahreszeiten: opened PNGs, Mehrwert und
+      Übergänge; Overdraw/CPU/GPU/Bytes getrennt. Fehlende Büschel sind kein Timinggewinn.
+- [ ] Nachbartiles, Wiederkehr und Seeds; Gebäude/Fahrbahnen/Wasser bleiben frei.
+- [ ] Gegenlicht/Nah/Fern: stabile Coverage, begrenzte Arbeit, kein Windzeit-Sprung.
+- [ ] Falsche Matrix, verlorene Ausschlussmaske, unbeschränkte Population, deaktiviertes
+      Zeichnen und fehlende Freigabe verursachen unabhängige FAIL-Kontrollen.
+- [ ] make format; fokussierte Owner-Suites; full make lint; öffentliche Client-Fahrt.

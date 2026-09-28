@@ -5,7 +5,7 @@ Priority: P2
 Parent: 2169
 Area: generators, assets
 Tags: webcam, measured
-Depends: 2111, 2171
+Depends:
 
 # Tree species expand existing growth with distinct forms, materials and seasons
 
@@ -56,65 +56,38 @@ artspezifischen Metallic-Roughness-Vertrag. 2111 besitzt den fehlenden sichtbare
 Wahl: vorhandenen parametrischen Wachstumsbau erweitern; Unreal/RAGE sind visuelle
 Vegetationsbenchmarks. Art, Material und Standort bleiben Daten hinter derselben Generator-API.
 
-## Blattgenerator: Eingabevertrag vor Erweiterung
+## Implementierte Eingabe-/Wachstumsverträge
 
-Behobene Ursache: ungeprüfte Blattzahlen führten zu int-Überlauf vor size_t-
-Konversion, unbeschränkter Vervielfachung und Konversion vor Clamp. Nullspreizung
-lieferte NaN-Geometrie; Build konnte keinen Fehler melden und löschte den Altstand.
+TreeSpecies-Parse und direkte TreeLeaf-Aufrufe prüfen endliche Zahlen, Formen, Typen,
+Konversionen und abgeleitete Kosten vor Allokation. Keine String/Null-Defaults oder
+Bruchzähler; uint32-Seed ohne int-Zwischenschritt. Fehler erhalten vorherige Art/Geometrie.
+TreeLeaf-Build liefert expected und publiziert nur vollständige Kandidaten; Prototype
+und GeometryAt reichen Fehler weiter. Attribute endlich, Einheitsnormalen erforderlich.
 
-Vorhanden: zusammenhängende Meshpuffer, native Geometry-Übernahme, parametrische
-Blätter und unabhängiger baryzentrischer Fehler-/Flächentest. Diese erhalten.
-Implementiert: ein gemeinsamer geprüfter Blattvertrag für JSON und direkte Aufrufe;
-endliche fachliche Parameter, bekannte Form, begrenzte Stationen/Teilblätter und
-abgeleitete Vertex-/Index-/Scratchkosten vor Allokation. Budgets ausdrücklich als
-Enginegrenzen setzen und am vorhandenen Corpus prüfen; keine stillen Ersatzwerte.
-Größen erst nach Prüfung konvertieren, Überläufe vor Multiplikation ausschließen.
-LOD-Abstand und Flächenbudget als benannte Optionen statt austauschbarer float-Argumente.
-Build liefert nodiscard expected und publiziert nur vollständige Kandidaten.
-TreePrototype-Aufbau und beide GeometryAt-Pfade reichen Fehler weiter; leere Blattnetze
-sind kein Ersatz für eine abgelehnte Geometrie. Keine pauschalen noexcept-Zusagen.
-Verfahren: bestehende Kandidatenpublikation aus TreeSpecies::Parse und geprüfte
-uint32-Kapazität aus TreeGeometry erweitern; kein neuer Morphologiealgorithmus.
+| Grenze [SET], kein gemessenes Gesamtspeicherbudget | Vertrag |
+|---|---|
+| Blatt | 4..128 Segmente; 0..16 Leaflets, 0 verwendet fünf; 8192 Vertices/32768 Indizes vor LOD |
+| Broad/Pinnate | 3*(n+1) Vertices, 12*n Indizes; Pinnate Faktor 2*Leaflets+1 plus Achse 4/6 |
+| Palmate/Needle | sechs Ringe / höchstens 180 Nadeln |
+| Blattnutzdaten | 8192*8*4 = 256 KiB plus 32768*4 = 128 KiB; Kapazität/Scratch/Altstand/Instanzen zusätzlich |
+| Wachstum | 64 Leader/Whorlzweige/Trunkseiten; 4096 Trunkschritte/Whorlabstand; Order 0..8 |
+| Anteile | Bole/Break/OrderLen in [0,1], keine unzulässige Schritt-Konversion |
 
-Abnahme: alle Formen, kleinstes/größtes Budget, Budget+1, INT_MAX, NaN/Inf,
-Nullspreizung, unbekannte Form und ungültige LOD-Optionen; Fehler erhalten alte
-Vertex-/Indexdaten. Entfernte Validierung muss diese Tests brechen. Corpus bleibt
-ladbar, gültige Blattnetze behalten Positionen/Normalen/UVs/Indizes. Geänderte gültige
-Geometrie verlangt Place-PNG-Vergleich; reine Eingabeablehnung ist keine Bildabnahme.
-Rinde/Wachstumsbudgets sind dadurch noch nicht abgesichert; WI 2194/2209 bleiben offen.
+Historisch 474 Eingabechecks, drei Regressionen und alle 31 Profile grün. Grenz+1,
+INT_MAX, NaN/Inf, Nullspreizung, Formen/LOD, Recovery und volle Seeds bleiben Orakel.
+Keine Aussage zu Kosten maximaler Eingaben; Rinde/OOM unter 2194/2209.
 
-Gewählte Blattbudgets [SET]: 4..128 Segmente, 0..16 Leaflets (0 verwendet fünf),
-8192 Vertices und 32768 Indizes vor LOD. Broad: 3*(n+1) Vertices, 12*n Indizes;
-Pinnate multipliziert mit 2*Leaflets+1 und addiert 4/6 für die Achse. Palmate hat
-sechs Ringe, Needle höchstens 180 Nadeln. Nutzdaten maximal 256 KiB Vertexwerte
-(8192*8*4) plus 128 KiB Indizes (32768*4); Containerkapazität, Scratch, alter Stand
-und Instanzexpansion kommen hinzu. Kein gemessenes Frame-/Gesamtspeicherbudget.
-Shape-Validierung und expected-Publikation sind implementiert; erzeugte Attribute müssen endlich, Normalen einheitlich sein. OOM-Vertrag bleibt in 2194/2209.
+GrowOnce trennt Queue, Einzeltrieb, Richtung, Verzweigung und Abschluss. Spawn darf
+Queue reallokieren; Tip bleibt lokale Kopie, Pass-Kontext geliehen. FrameFrom verwendet
+zwei Kreuzprodukte. Historisch 180 Checks; max |dot(Dir,Up)| 0.0053 → 1.23e-7 bei
+459253 Nodes, 31 Profile. Reine Phasentrennung bewahrte 49540826 Snapshot-Bytes;
+Tannen-GLB über öffentlichen Client pixelgleich und PNGs geöffnet.
+Unbefriedigende Tannensilhouette bleibt; keine Arten-/Rinden-/Lichtqualitätsabnahme.
+Queue-/Scratch-Gesamtbudget und atomare Grower-Fehlerpublikation bleiben offen.
 
-## Numerische Artdeklaration vor Wachstum
-Vor Parse-Publikation werden alle gelesenen Zahlen typ- und darstellbarkeitsgeprüft; kein
-String/Null als Default, keine Brüche für Zähler, keine float-/int-Überläufe. Seed
-bleibt uint32 ohne int-Zwischenschritt; bisherige Blatt-Zahlenprüfung konsolidiert.
-Wachstumszähler erhalten explizite Enginegrenzen: 64 Leader/Whorlzweige/Trunkseiten,
-4096 Trunkschritte/Whorlabstand, Order 0..8. Bole-/Break-Anteile und OrderLen in [0,1]
-verhindern unzulässige Schritt-Konversionen. 31 Profile bleiben zulässig; keine
-Änderung gültiger Wachstumsarithmetik. Fehler behalten vorherige Art und Definition.
-Abnahme: Typen, Grenzen, Brüche, sehr große Zahlen, voller Seedbereich, Recovery und
-Corpus. Queue-/Blatt-/Scratch-Gesamtbudget, Grower-Publikation und abgeleitete Float-
-Überläufe bleiben offen; sichere Parse-Repräsentation beweist kein Echtzeitbudget.
-474 Checks sowie drei Blatt-/Wachstums-/Materialregressionen grün; Altimplementierung
-scheitert. Alle 31 Profile akzeptiert. Keine Aussage zu Gesamtkosten maximaler Eingaben.
+## Priorität statt Scheindependenz
 
-## Grower-Phasen
-GrowOnce trennt jetzt Queue-Abarbeitung, Einzeltrieb, Richtungsfortschritt, Verzweigung
-und Abschluss. Geliehener Growth-Pass-Kontext, Tip bleibt lokale Kopie: Spawn kann
-Queue reallokieren. Bounds separat messen; keine neue Allokation pro Schritt.
-Phasentrennung allein: 49.540.826 Snapshot-Bytes für 31 Profile exakt identisch.
-Altstand verletzt Frame-Orthogonalität bei sechs Arten: |dot(Dir,Up)| bis 0,0053.
-FrameFrom orthogonalisiert über zwei Kreuzprodukte und wird im Fortschritt wiederverwendet.
-180 Checks grün: Parallel-/Antiparallel-Proben, gültige Eltern/Node-Spans, endliche
-Frames und Wiederverwendung. Maximaler |dot| danach 1,23e-7 bei 459.253 Nodes.
-Explizite Work-Queue: Stamm mit vier plus drei Triebe mit je fünf Nodes = 19 verarbeitet.
-GLB-Diagnose über öffentlichen Export und outshine-client: Tannenäste vor/nachher
-pixelgleich, PNGs geöffnet. Silhouette mit langem kahlem Leittrieb und kurzen tiefen
-Ästen bleibt morphologisch unbefriedigend. Kein Rinden-/Licht-/Artenqualitätsnachweis. Queue-/Gesamtbudget und atomare Fehlerpublikation bleiben offen.
+P2 nach 2111s funktionierendem nativen Waldkern. Vorhandene Prototyp-/Materialverträge
+tragen isolierte Artenarbeit; weder komplette Weltstreaming-Abnahme 2111 noch alle
+Materialfamilien 2171 sind technische Startblocker. Wetter/Phänologie benötigt später
+2172s konkreten Snapshot-Vertrag, keine eigene Wetterinterpretation.

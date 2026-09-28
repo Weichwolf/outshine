@@ -49,7 +49,7 @@ Nacht und bewegte NPCs sind durch Außen-Standbilder nicht abgedeckt.
 | P1 | 2140: erste volumetrische Wolkenschicht; 2167/2171 Licht und Materialien | Wolken benötigen verbindlichen Wetter-/Kompositionsvertrag, keine fertige Vegetation |
 | P1 | Gelände, OSM-Bauwerke, Wasser und räumliche Anschlüsse | Nur tatsächliche gemeinsame Quellen-/Kontaktverträge blockieren |
 | P1 | 2314: gemeinsames Qualitätsbudget aus gemessenen Leitern ableiten | Erst Kosten/Qualität messen; kein vorgezogener generischer Solver |
-| P2 | Artenvielfalt, Unterwuchs, Population und vollständige Place-Abnahmen | Auf den jeweiligen funktionierenden Kern aufbauen |
+| P2 | Artenvielfalt, Unterwuchs, Population und Place-Abnahmen | Auf den jeweiligen funktionierenden Kern aufbauen |
 
 Stadt, Wald, Infrastruktur, Himmel und Wolken teilen dasselbe Gesamtframebudget.
 Eine Großstadt und ein Wald müssen dieselbe Zeitobergrenze einhalten; kein künstliches
@@ -89,3 +89,7 @@ Startblocker seiner Kinder. Reihenfolge steht in Priority und der kleinen Reserv
 
 Historische Bildidentitäten stehen in Git; PNGs unter build/shots/reference/,
 Logs im System-Tempverzeichnis. Unbekannte Wolkenpositionen sind kein Foto-Pixeloracle.
+
+Partikel/Feuer/Rauch/Niederschlag bleiben späterer Ausbau mit nativen Emittern,
+begrenzter Lebenszeit/Population/Uploads, Replay und vollständiger Freigabe. Erst einen
+eigenständigen ausführbaren WI aktivieren; kein paralleles Wolken-/Mediumsystem in 2137.

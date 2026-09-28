@@ -4,7 +4,7 @@ Architecture: planned
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
-Depends: 2173, 2166, 2179
+Depends: 2179
 Priority: P1
 
 # Procedural surfaces carry Khronos materials at every distance
@@ -104,7 +104,8 @@ Alpha-Coverage bei Mips/Bewegung, Normalvarianz und Rauheit, Anisotropie,
 Speicher-/Uploadbudget. Boxfilter und ein Materialatlas allein nehmen keine Welt ab.
 
 ## Plausibler Boden vor Einzelpflanzen
-Zuerst Gelände ohne Vegetationsgeometrie visuell abnehmen. Aus OSM/DEM, Höhe, Neigung,
+Isolierte Bodenmaterialien ohne Pflanzengeometrie abnehmen; keine fertige globale
+Gelände-/OSM-Abnahme als Blocker für den Materialkern oder 2111s nativen Wald. Aus OSM/DEM, Höhe, Neigung,
 Exposition, geografischer Lage, Klima und Jahreszeit plausible Anteile von Fels, Erde,
 Sand, Gras und Schnee ableiten; Feuchtigkeit/Temperatur zeitlich führen. Geologie,
 Wasser und Nutzung beeinflussen den Zustand: Höhe/Klima bestimmen ihn nicht eindeutig.
