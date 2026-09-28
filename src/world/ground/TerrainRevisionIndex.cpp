@@ -116,6 +116,19 @@ TerrainRevisionIndex::Validation
 TerrainRevisionIndex::InspectStamps(std::span<const Stamp> stamps) const {
   if (stamps.empty()) { return Validation::Unknown; }
   const std::scoped_lock lock(Mutex_);
+  return InspectStampsUnderLock(stamps);
+}
+
+std::optional<TerrainRevisionIndex::Validation>
+TerrainRevisionIndex::TryInspectStamps(std::span<const Stamp> stamps) const {
+  if (stamps.empty()) { return Validation::Unknown; }
+  const std::unique_lock lock(Mutex_, std::try_to_lock);
+  if (!lock.owns_lock()) { return std::nullopt; }
+  return InspectStampsUnderLock(stamps);
+}
+
+TerrainRevisionIndex::Validation
+TerrainRevisionIndex::InspectStampsUnderLock(std::span<const Stamp> stamps) const {
   auto result = Validation::Current;
   for (const auto &stamp : stamps) {
     if (stamp.Owner != Owner_ || stamp.RegistrationRevision == 0 || stamp.DeliveryRevision == 0) {

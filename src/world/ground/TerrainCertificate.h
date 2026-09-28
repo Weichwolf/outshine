@@ -16,6 +16,8 @@ namespace outshine::Ground {
 
 class TerrainCertificate {
 public:
+  enum class Validation : uint8_t { Current, Unknown, Stale, ScopeChanged, Pending };
+
   [[nodiscard]] static TerrainCertificate
   FromDelivery(Data::TileId requested,
                std::optional<TerrainRevisionIndex::Stamp> stamp,

@@ -139,6 +139,8 @@ public:
   [[nodiscard]] TerrainRevisionIndex::Validation
   InspectTerrainStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const;
   [[nodiscard]] bool CertificateCurrent(const TerrainCertificate &certificate) const;
+  [[nodiscard]] TerrainCertificate::Validation
+  InspectCertificate(const TerrainCertificate &certificate) const;
   [[nodiscard]] bool ValidTerrainStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const;
 
   size_t DemCacheBytes() const;
@@ -154,6 +156,7 @@ public:
   [[nodiscard]] bool AwaitLanding(double seconds);
 
 private:
+  friend struct TerrainInspectionTestPeer;
   enum class Rank { Fetch = 0, Mesh = 1, Field = 2 };
 
   struct ReservationOwner {

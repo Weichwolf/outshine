@@ -39,12 +39,16 @@ public:
   [[nodiscard]] std::expected<Stamp, Error> IssueDeliveryStamp(Data::TileId requested);
   [[nodiscard]] std::expected<Stamp, Error> RestoreCachedStamp(const Stamp &stamp);
   [[nodiscard]] Validation InspectStamps(std::span<const Stamp> stamps) const;
+  [[nodiscard]] std::optional<Validation> TryInspectStamps(std::span<const Stamp> stamps) const;
   [[nodiscard]] std::optional<Stamp> CurrentStamp(Data::TileId requested) const;
   [[nodiscard]] bool AreCurrent(std::span<const Stamp> stamps) const;
   [[nodiscard]] size_t EntryCount() const;
   [[nodiscard]] size_t PayloadCapacityBytes() const noexcept;
 
 private:
+  friend struct TerrainInspectionTestPeer;
+  [[nodiscard]] Validation InspectStampsUnderLock(std::span<const Stamp> stamps) const;
+
   struct Entry {
     Data::TileId Requested;
     uint64_t RegistrationRevision = 0;

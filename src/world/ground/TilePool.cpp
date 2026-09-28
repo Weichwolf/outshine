@@ -197,6 +197,30 @@ bool TilePool::CertificateCurrent(const TerrainCertificate &certificate) const {
          TerrainRevisions_->AreCurrent(certificate.Dependencies());
 }
 
+TerrainCertificate::Validation
+TilePool::InspectCertificate(const TerrainCertificate &certificate) const {
+  using Validation = TerrainCertificate::Validation;
+  if (!certificate.IsComplete() || certificate.TerrainScopeRevision() == 0) {
+    return Validation::Unknown;
+  }
+  const std::unique_lock queue(QueueMutex_, std::try_to_lock);
+  if (!queue.owns_lock()) { return Validation::Pending; }
+  if (certificate.TerrainScopeRevision() != TerrainScopeRevision()) {
+    return Validation::ScopeChanged;
+  }
+  const std::unique_lock cache(CacheMutex_, std::try_to_lock);
+  if (!cache.owns_lock()) { return Validation::Pending; }
+  if (!TerrainRevisions_) { return Validation::Unknown; }
+  const auto stamps = TerrainRevisions_->TryInspectStamps(certificate.Dependencies());
+  if (!stamps) { return Validation::Pending; }
+  switch (*stamps) {
+    case TerrainRevisionIndex::Validation::Current: return Validation::Current;
+    case TerrainRevisionIndex::Validation::Unknown: return Validation::Unknown;
+    case TerrainRevisionIndex::Validation::Stale: return Validation::Stale;
+  }
+  std::unreachable();
+}
+
 size_t TilePool::ByteCacheBytes() const {
   const std::scoped_lock lock(CacheMutex_);
   size_t bytes = CapacityBytes(Cache_) + CapacityBytes(CacheAt_);
