@@ -223,7 +223,7 @@ const Tile *GroundStream::TileResident(long x, long y) const {
 }
 
 GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, LongitudeLatitude at) const {
-  const Geo place = {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg};
+  const Geo place = {.LongitudeDeg = Wrap180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
   const TileFrac f = ToTileFracClamped(place, zoom);
   const double u = f.X - static_cast<double>(static_cast<long>(f.X));
   const double v = f.Y - static_cast<double>(static_cast<long>(f.Y));
@@ -261,6 +261,9 @@ GroundSample GroundStream::SampleFrom(const Tile &tile, int zoom, LongitudeLatit
 }
 
 GroundSample GroundStream::Resident(LongitudeLatitude at) const {
+  if (!std::isfinite(at.LongitudeDeg) || !std::isfinite(at.LatitudeDeg)) {
+    return GroundSample::Missing();
+  }
   const Geo place = {.LongitudeDeg = Wrap180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
@@ -332,6 +335,9 @@ const Tile *GroundStream::TileAt(long x, long y) const {
 }
 
 GroundSample GroundStream::At(LongitudeLatitude at) const {
+  if (!std::isfinite(at.LongitudeDeg) || !std::isfinite(at.LatitudeDeg)) {
+    return GroundSample::Missing();
+  }
   const Geo place = {.LongitudeDeg = Wrap180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
   const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = static_cast<long>(f.X);
@@ -343,8 +349,8 @@ GroundSample GroundStream::At(LongitudeLatitude at) const {
   return GroundSample::At(TileHeightAslM(t->H.data(),
                                          t->Nodes,
                                          t->Postings,
-                                         f.X - static_cast<double>(hx),
-                                         f.Y - static_cast<double>(hy)));
+                                         f.X - std::floor(f.X),
+                                         f.Y - std::floor(f.Y)));
 }
 
 double GroundStream::PostM(double latDeg) const {
