@@ -1796,7 +1796,7 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
   return GroundBuildProgress::Pending;
 }
 
-Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() {
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStructureBakes() const {
   GroundBuildState &state = *World.GroundBuild;
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsBakes) {
     return GroundBuildProgress::Ready;

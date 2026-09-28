@@ -304,7 +304,7 @@ private:
     std::shared_ptr<const void> Token = std::make_shared<const uint8_t>(0);
     ReservationDomain() = default;
 
-    ReservationDomain(const ReservationDomain &) : ReservationDomain() {}
+    ReservationDomain(const ReservationDomain &other) : ReservationDomain() {}
 
     ReservationDomain &operator=(const ReservationDomain &other) {
       if (this != &other) { Token = std::make_shared<const uint8_t>(0); }

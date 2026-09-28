@@ -367,7 +367,10 @@ RefinementSelection SelectRefinement(Ground::BuildingField &prints,
                                      const Ground::OsmField &vectors,
                                      const Ground::StreetField &streets,
                                      std::shared_ptr<const Ground::HeightField> &heights,
-                                     GroundStands &&groundStands) {
+                                     GroundStands &&groundStands,
+                                     size_t &remaining) {
+  if (remaining == 0) { return {.Next = std::nullopt, .Deferred = true}; }
+  --remaining;
   const std::optional<uint32_t> tile = prints.RefinementTile();
   if (!tile) { return {.Next = std::nullopt, .Deferred = true}; }
   const std::span<const Ground::OsmField::Feature> features = vectors.Features();
@@ -732,7 +735,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
   const size_t inFlightMost =
       std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow);
   const int blockZoom = stack.FinestZoomOf(Data::DataKind::Elevation);
-  size_t examined = 0;
+  size_t remaining = candidatesMost;
   while (Queue_.size() + CellQueue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;
     double heightResolutionMs = 0.0;
@@ -749,10 +752,8 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     std::optional<Ground::TileWatermark::Next> next;
     bool replacement = false;
     if (requirement == HeightRequirement::FineOnly && !prints.RefinementComplete()) {
-      if (examined >= candidatesMost) { break; }
-      ++examined;
       const RefinementSelection selected =
-          SelectRefinement(prints, vectors, stack.Ways(), heights, groundStands);
+          SelectRefinement(prints, vectors, stack.Ways(), heights, groundStands, remaining);
       if (selected.Deferred) { break; }
       if (!selected.Next) { continue; }
       next = selected.Next;
