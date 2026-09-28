@@ -1,95 +1,75 @@
 Type: feature
 State: open
-Architecture: planned
+Architecture: ready
 Priority: P1
-Area: generators, world, render
+Area: generators, world, engine, render
 Parent: 2169
-Depends: 2123, 2124, 2132, 2171, 2184, 2185
+Depends:
 
-# Forests will populate suitable ground within the streaming budget
+# Forests populate suitable ground with shared native quality levels
 
-## Ziel und aktueller Befund
+## Goal and evidence
 
-Dichte, plausible Wälder und Stadtbäume aus Daten und deterministischen Regeln.
-Priorität und Integrationsreihenfolge stehen in 2169. Erst isolierte ebene Waldszene,
-danach Weltintegration und Artenausbau in 2176. Keine Place-Sonderbehandlung.
+Dense plausible forests and city trees use source data and deterministic rules, with
+no Place-specific paths. Existing TreeGrower/TreeMesher/TreeFoliage/TreePrototype,
+ForestDraw, Shipping catalogue, native materials, instanced leaf geometry, crown atlas
+and VegetationStreaming are reusable. Do not replace the tree generator.
+Current world consumer primarily draws crown cards; placement covers only the eye region.
+Near cards, unsuitable scale/species, missing streamed re-entry and incomplete readiness
+remain visually rejected. Prior Places waited for 5–30 crown prototypes after terrain/OSM
+were ready. Completed preparation is not proof that the next render shares its demand.
 
-Vorhanden: Species-Identität, geografische Instanzmatrizen, native Materialien,
-geteilte Piece-Geometrie, Kronenatlas und begrenzter Dateicache. Der uncommittete
-VegetationStreaming-Consumer zeichnet Kronenkarten, ist aber keine abgenommene Waldpipeline.
-Koerbersee-c3a0846c zeigt vergrößerte pixelige Nahkarten und unpassende Arten;
-Rosenheim-4fda4e24 übergroße Kronen im Gebäudebereich. Visuell abgelehnt.
-Aktuelle Vergleichsbilder: `build/shots/reference/terrain-20260908/`.
+## Executable first slice
 
-Platzierung verarbeitet bislang nur die Augenkachel und bleibt danach stehen.
-Der Regionspool begrenzt gemeinsame Gebäude-/Flora-Platzierungen. Es fehlen
-räumlicher Wiedereintritt, Freigabe, vollständige Distanzleiter und Ökologie.
-Kronenkarten sind aktuell auch im Nahbereich aktiv; acht horizontale Ansichten
-reichen für steile Blickwinkel nicht. Alpha-Coverage über Mips und Übergänge offen.
+1. Add one deterministic isolated flat forest scenario under test/outshine/integration,
+   with explicit area/density/seed/view distance and near -> far -> near camera path.
+   Use one existing species profile and shared TreePrototype, not per-tree meshes.
+   Initial fixture: 128x128 m and 64 trees [SET], then raise density against measurements.
+   This is a calibration scene, not the final dense-forest acceptance.
+2. Connect ForestDraw/WorldPlacement native instances to shared near/mid prototype
+   geometry in VegetationStreaming. TreePrototype::InstancedGeometryAt already separates
+   bark/leaf geometry and placements. Reuse native geometry and stable species/material IDs.
+   Do not expand every leaf into every world tree. Generate outside the frame path.
+3. Select valid resident near/mid/far levels by conservative silhouette/coverage criteria
+   and hysteresis. A failed far atlas retains native geometry; a missing fine level reports
+   quality shortfall. No billboard at the eye and no biome/age change when switching rank.
+4. Compare the current far crowns with the new path in motion, backlight and steep views.
+   Demonstrate coverage/alpha mip stability. Measure triangles, instances, overdraw,
+   shadows, uploads, CPU/GPU cost and prototype/history bytes; open the PNGs.
 
-Zusätzlich ist die Preload-Abnahme inkonsistent: Malcesine meldet nach separater
-Vorbereitung bereit, der anschließende unveränderte Shot wartet jedoch auf 28 Kronen-
-prototypen und läuft ins Limit; Gelände/OSM sind vollständig resident. Leere oder
-veraltete Instanzgruppen dürfen keine Bereitschaft vortäuschen. Vorbereitung und
-Renderlauf müssen denselben vollständigen, versionierten Prototypbedarf prüfen.
-Der vollständige Places-Lauf bestätigt den Blocker bei allen neun Orten: jeweils
-0 ausstehende/fehlende Geländekacheln, aber 5–30 Kronenprototypen nach dem
-15-s-Limit. Preload-Abnahme bleibt offen; kein Wiederholen bis grün.
+## Ownership and integration
 
-## Umsetzung
+- Generators own growth, geometry, species and stable source-derived seeds. world owns
+  semantic placement/exclusion and versioned geographic cells. engine/streaming owns
+  prototype demand, bounded work/residency and handoff; render selects resident products.
+- Owners/files: flora/{TreePrototype,TreeGeometry,TreeMesher,ForestDraw,ModelLadder},
+  generators/Shipped, engine/WorldPlacement and streaming/VegetationStreaming; native
+  renderer instance/piece submission. Preserve generator-library independence and reaches.
+- Isolated native proof requires neither completed global streaming nor all material/
+  species WIs. 2225's atomic crown publication is required when streamed groups update
+  alongside a world candidate; 2184 supplies bounded atlas capture, not native near geometry.
+- After isolated proof, add bounded geographic re-entry/eviction and complete versioned
+  prototype demand shared by preload/render. Reject stale source and partial publication.
+  2282 supplies land-cover evidence; height/slope/climate guide plausible placement.
+  Roads/buildings/water remain free through shared semantic data, not render-depth guesses.
+- 2314 gives city and forest the SAME scene-render envelope, shared with sky/clouds.
+  No fixed vegetation quota. 2176 expands species AFTER the native forest proof; 2171/2167
+  own material/lighting improvements without blocking this first native integration.
 
-1. Isoliertes Waldszenario mit deklarierter Fläche, Dichte, Sichtweite, Seed und
-   Kamerafahrt; Vegetation über 2185 schaltbar. Zahlen vor dem Lauf festlegen.
-2. Geteilte Prototypen, hierarchisches Culling und instanzierte Nah-/Mittelgeometrie;
-   Fern-Impostoren nach projiziertem Fehler, Übergänge mit stabiler Coverage.
-   Aggregierte Kronenvolumen nach dem folgenden Vertrag als Fernalternative prüfen.
-   Keine vollständige Kopie jedes Blattes pro Baum und kein Billboard direkt am Auge.
-3. Räumliche Residency mit begrenzten Jobs, Uploads und Speicher. Daten und GPU-
-   Ressourcen beim Verlassen freigeben; Rückkehr reproduziert denselben Bestand.
-   Prototypmaterialien nicht für jede Kachel neu registrieren.
-4. Geeignete Landnutzung, Höhe, Neigung und Klima steuern Bestände. Gebäude, Wege
-   und Wasser aussparen; Überschneidungen entlang gemeinsamer räumlicher Daten prüfen.
-5. 2176 erweitert Arten/Morphologie/Phänologie; 2171 trägt Rinde, Blatt und Nadeln.
-   Blatttransmission, Wind und Schatten erst im vollständigen Kostenvertrag abnehmen.
+## Deferred hypothesis
 
-**Benchmark**: Unreal-HISM/HLOD und veröffentlichte SpeedTree-Verfahren liefern
-Instancing, räumliche Cluster und Distanzrepräsentationen. RAGE sowie Arma/Far Cry/
-DayZ/KCD/RDR liefern den sichtbaren Qualitätsmaßstab. Konkrete Strukturen nur aus
-belegten Verfahren übernehmen; aus Bildern keine Implementierung ableiten.
-Der bestehende Code ist ersetzbar, das vollständige Waldsystem ist die Abnahmeeinheit.
-SpeedTree trennt Basisbaum, viele Instanzen, sichtbare Zellen und kamerabezogenen
-LOD-Zustand. Diese Trennung als Vergleich zu Outshines Prototyp-/Instanz-/Residency-
-Besitzern messen; deren SDK ist keine notwendige Engine-Abhängigkeit.
-Referenz: https://docs9.speedtree.com/sdk/doku.php?id=culling-and-population-structures .
+Clustered crown volumes are an optional far alternative. Compare against current crowns
+before committing a new volume renderer: edges, clearings, winter, conifers, top views,
+transmittance, motion and cost. No voxel/volume framework without a measured advantage.
 
-## Fernwald als hierarchische Kronenoberfläche
+## Acceptance
 
-Entwurfsoption: dichte Laubbestände fern als gegliederte Kronenhülle darstellen.
-Deterministische Baumpositionen und artspezifische Kronenvolumen sind die gemeinsame
-Quelle für Nahbäume und räumlich geclusterte Fernprodukte; kein zweiter Zufallswald.
-Eine gefilterte Vereinigungsfläche kann die Hülle bilden; poröse Ränder, Lichtungen,
-Kronenhöhen und getrennte Silhouetten erhalten. Kein glatter Hügel oder massives Dach.
-Cluster-HLOD besitzt Ferngeometrie, Coverage und vereinfachte Lichtantwort; der
-Generator besitzt Baumparameter. Keine Fernhülle als Kontakt-/Navigationsgeometrie.
-Nadelwald, laublose Bestände und offene Baumgruppen brauchen eigene Darstellungen.
-Auswahl über projizierten Silhouettenfehler mit Hysterese; Übergang erhält Coverage
-und Helligkeit. Meshhülle gegen vorhandene Kronen-Impostoren messen, nicht voraussetzen.
-
-## Abnahme
-
-- [ ] Isolierter dichter Wald bei Kamerabewegung: PNGs aller Distanzen geöffnet,
-      plausible Silhouetten, keine Nahkarten, kein Flimmern/auffälliges LOD-Popping.
-- [ ] Framezeiten p50/p95/p99, Überschreitungen, CPU/GPU, Overdraw, Uploads und
-      Speicherspitzen auf Zielhardware; 2092/2143 samt Bewegung und Dauerlauf erfüllen.
-- [ ] Tilewechsel, Rückkehr und Kamerawechsel: stabile Seeds, begrenzte Residency,
-      keine verlorenen Bestände oder unbeschränkt wachsenden Materialkataloge.
-- [ ] Gebäude/Wege/Wasser bleiben frei; Arten und Dichte standortgerecht in 2176.
-- [ ] Weltintegration in allen relevanten Places visuell prüfen, besonders
-      Koerbersee, Wien, Rosenheim, Olympiaturm und Feldkirch.
-- [ ] Falsche Instanzmatrix, fehlender Handoff und deaktiviertes Culling verletzen
-      jeweils das passende Korrektheits- bzw. Budgetoracle.
-- [ ] Kronenhülle gegen einzelne Bäume: schräge/oberseitige Gegenlichtfahrt, Lichtung,
-      Waldrand, Winter und Nadelwald. Falscher Clusterseed muss den Handoff-Test verletzen.
-
-Historische Implementierungsschritte und Messreihen: Git-Historie dieses WIs.
-Standframes mit fehlender oder ungeeigneter Vegetation belegen keinen vollen Wald.
+- Near/mid/far/re-entry opened PNGs: plausible scale/silhouette, no near cards or popping,
+  stable coverage under changing light. Forced near impostor and disabled culling FAIL.
+- Source/seed/species IDs survive cell order and motion. Wrong instance matrix, lost
+  handoff, stale demand and second-upload refusal FAIL independent controls.
+- Dense isolated and world forests report cold/warm/moving p50/p95/p99, overruns, GPU
+  passes/overdraw, CPU/GPU bytes and bounded queues. Cheap missing trees cannot pass.
+- make format; focused flora/ForestDraw/VegetationStreaming/publication suites; full lint.
+  Run/render via outshine-client, then open Koerbersee/Wien/Rosenheim and mixed city/forest
+  views. No A18/720p60 claim without target-device evidence.

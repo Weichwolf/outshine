@@ -1,6 +1,6 @@
 Type: feature
 State: active
-Architecture: planned
+Architecture: ready
 Priority: P1
 Parent: 2169
 Area: world, scenario, render
@@ -9,12 +9,26 @@ Depends:
 
 # One weather snapshot drives air, light, water and surface state
 
-## IST
+## Current source audit and first executable slice
 
-`PlaceCamera.cpp` setzt Haze = 0 für sämtliche Places. Alle neun IST-Himmel sind wolkenlos,
-auch neben bedeckten Webcam-Bildern. `src/world/weather/WeatherProvider.h` hat Wind,
-CloudLayers und Visibility; `CalmWeather.h` liefert klare, windstille Defaults.
-Eine verfügbare Deklaration belegt noch keinen Verbraucher im Bild.
+Scenario::Weather validation/import/export preserve seven cloud/wind fields; Haze
+already reaches Declaration/RuntimeScene::EarthMedium. Cloud/wind fields have no
+render consumer. WeatherProvider/CalmWeather remain a provider boundary, not live weather.
+
+First slice: world/weather owns a small immutable WeatherSnapshot from existing
+Ground.Sky plus declared world time, with source/revision/validity and canonical units.
+Engine captures it at tick/frame boundaries; RuntimeScene and atmosphere consume its
+Haze instead of maintaining a parallel weather interpretation. Preserve clear-air output.
+Carry cloud/wind inputs unchanged for 2140; do not claim a visible effect until consumed.
+Convert meteorological wind-from to the native frame at the boundary; ambiguous
+provider percent/height datums require adapter contracts, not guessed renderer units.
+Owners: scenario/WeatherValidation, world/weather snapshot, engine/Declaring and
+RuntimeScene, render atmosphere inputs. No public schema expansion or weather IO on frame.
+Immutable snapshot failure retains the prior valid state; no partial consumer update.
+Tests: existing XML/API/roundtrip bounds, clear-air equivalence, wind-axis fixtures,
+source/time/revision coherence and late-result rejection. A disconnected Haze consumer
+and reversed wind-from conversion must FAIL. Format, focused suites, full lint and
+public-client clear/haze PNG comparison. Broader surface/water effects below are later slices.
 
 ## Weltweiter Licht- und Atmosphärenvertrag
 
@@ -80,19 +94,10 @@ Referenzen: https://sebh.github.io/publications/egsr2020.pdf ;
 https://ebruneton.github.io/precomputed_atmospheric_scattering/ ;
 https://advances.realtimerendering.com/s2019/index.htm .
 
-## Deklarationsvertrag und Export
-Scenario::Weather dokumentieren: dimensionslose Wolkenanteile, Basis AGL, Wind in
-m/s und meteorologische Herkunftsrichtung; derzeit keine Cloud-/Wind-Verbraucher.
-Haze skaliert nur Mie-Streuung/Extinktion, nicht Rayleigh/Ozon; >1 ist möglich.
-Writer erhält jetzt alle sieben Wind-/Wolkenfelder; Altcode verletzt den Roundtrip.
-Exakte Wetterwerte und Nullgrenzen bestehen. Gemeinsame Werte-/Typprüfung ist unten
-beschrieben; vollständige Wetterwirkung und räumliche Snapshot-Verträge bleiben offen.
+## Verified input boundary
 
-## Gemeinsame Wettergrenze
-Ein internes Feldschema verbindet XML-Namen, Member und Grenzen für Import/Export
-und API-Vorprüfung: Wolken [0,1], AGL/Windgeschwindigkeit >=0, Windrichtung endlich
-und unnormalisiert, Haze [0,float-max] für die aktuelle GPU-Verengung. Keine Clamps.
-XML verlangt vollständige endliche Zahlen; fehlende Attribute behalten Defaults.
-Ablehnung vor Veröffentlichung, einschließlich inaktiver Ground-Deklarationen.
-Nachweis: Altcode verletzt API-/Parser-/Exportkontrollen; acht Tests mit NaN/Inf,
-negativen Grenzen, Parser-Tokens, Erhaltung, Retry und Layer-Regression bestehen.
+WeatherValidation's field schema supplies import/export/API bounds: cloud fractions
+[0,1], nonnegative AGL/wind speed, finite unwrapped wind-from direction and finite
+nonnegative Haze within current GPU storage. No clamps or truncated number prefixes.
+Defaults/zero values and all seven cloud/wind fields survive roundtrip. Historical
+NaN/Inf/negative/token/retry/layer fixtures pass; full physical weather remains open.
