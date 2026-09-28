@@ -76,7 +76,9 @@ dem Quellobjekt ergibt SEGV in UpdateUpper. Quelle meldet RegionCount=0 und weit
 Bound; der implizite Move überträgt Heaps, lässt Phase/Teilfortschritt aktiv.
 Log: /tmp/outshine-review-moved-refiner.log; reproduzierbare Quelle im gleichen Temppräfix.
 Der bestehende Test benutzt nur das Move-Ziel und deckt diese Grenze nicht ab.
-Nächster Schritt vor weiteren Fixtures: expliziter Transfer mit gültigem widerrufenem
+Aktiver Slice: explizite Move-Konstruktion/-Zuweisung übertragen sämtliche Task-Felder;
+Self-Move erhält den Fortschritt. Danach Cancel auf der Quelle. Default-Copy bleibt.
+Transfer mit gültigem widerrufenem
 Quellzustand. Ziel behält vollständigen Fortschritt; Quelle liefert kein Bound und
 Step einen erwarteten Fehler, darf Cancel/Reset und anschließend neue Arbeit ausführen.
 Copy bleibt unabhängig bei denselben gepinnten Inputs; Kopien außerhalb des Framepfads.
