@@ -103,6 +103,19 @@ RUNNING_GROUPS=""
 KillRunning() {
   for runningGroup in $RUNNING_GROUPS; do
     kill -TERM -"$runningGroup" 2>/dev/null
+    kill -KILL -"$runningGroup" 2>/dev/null
+  done
+  for runningGroup in $RUNNING_GROUPS; do
+    cleanupAttempts=0
+    while kill -0 -"$runningGroup" 2>/dev/null; do
+      if [ "$cleanupAttempts" -ge 100 ]; then
+        printf 'run.sh: owned process group %s survived cleanup\n' "$runningGroup" >&2
+        return 1
+      fi
+      sleep 0.05
+      cleanupAttempts=$((cleanupAttempts + 1))
+    done
+    wait "$runningGroup" 2>/dev/null
   done
   RUNNING_GROUPS=""
 }
@@ -621,7 +634,7 @@ RunWithTimeout() {
   RUNNING_GROUPS="$child $watchdog"
   wait "$child" 2>/dev/null
   status=$?
-  KillRunning
+  KillRunning || Die "an owned process group survived cleanup; refusing another case"
   wait "$watchdog" 2>/dev/null
   return $status
 }
