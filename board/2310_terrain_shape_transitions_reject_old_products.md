@@ -9,57 +9,40 @@ Tags: terrain, ownership, revisions
 
 # Terrain shape transitions reject old products
 
-## Evidence and existing capability
+## Problem and implemented contract
 
-TilePool::RunJob calls TerrainTiles::Shapes only for a nonempty Kind.
-After shaped terrain is disabled, a reused worker can still generate the old shape.
-TerrainTiles clears its stitched cache on shape change; GroundStream has another
-stitched cache, and queued/done jobs currently have no shape-revision contract.
-GroundStream exposes usable partial heights; missing boundaries remain unqualified.
+RunJob previously installed Shapes only for nonempty Kind; a reused worker could
+retain old shaping after disable. Stitched caches and queued/done jobs lacked a
+shared shape-scope contract. TilePool now owns the declaration and terrain scope.
+Every job installs the COMPLETE declaration, including empty Kind; identical numeric
+fields/seed do not invalidate. Shape changes invalidate stitched/sampled query caches.
 
-## Ownership and implementation
+Admissions have unique ownership IDs and captured scope. A stale completion may
+release only its reservation, cannot erase a replacement or report Ready. Held
+meshes validate scope/owner; LRU eviction releases only its completed product.
+Old borrowed bytes remain immutable while future publication eligibility is revoked.
+Physical pending work stays bounded; cancellation cannot drain arbitrary work on frame.
+Partial stitched boundaries stay usable but never qualify Fine or enter complete caches.
 
-- TilePool owns the current declaration and a terrain-scope revision. A shape
-  transition includes empty Kind; identical declarations must not invalidate.
-- RunJob always installs the complete declaration, including empty Kind.
-  Compare all numeric fields and seed; geometry-relevant changes advance revision.
-- Field/mesh jobs capture their scope at admission. A stale completion may release
-  its own reservation but cannot replace or erase a newer job with the same key.
-  Stale done products are not returned as Ready. Retry uses the new declaration.
-- GroundStream caches attach the terrain scope and invalidate before lookup after
-  a transition. Sampled coarse/fine tiles obey the same scope. A borrowed old field
-  remains immutable; its validity for future publication is explicitly revoked.
-- Owners/files: world/ground/TilePool.h/.cpp, TerrainLoader.h/.cpp and
-  tiles/TerrainTiles.h/.cpp. Keep algorithms out of engine orchestration.
-  No format types or new public API. Unknown source remains missing, never zero.
-- No unbounded waiting, stale-work drain on the frame thread or global revision.
-  Preserve cancellation, bounded queues and independent raw provider bytes.
+## Evidence and remaining work
 
-## Current implementation
+At 5de351d40: terrain/ownership suites are part of 45 focused PASS; full lint passes
+255/255 tidy units, zero findings. Independent controlled IO barriers cover Field/Mesh,
+same-scope cancel/repost, A -> B -> empty declarations, cache reuse and old handles.
+Historical owner/scope mutations cause actual FAIL; tests and history preserve them.
+Remaining: render shape transitions through the public client/API with new-scope
+publication and retained old view until replacement. No current GPU acceptance.
 
-Worker declarations include empty Kind. Terrain-scope changes invalidate query
-stitched/sampled caches and building bake revisions. Admissions own unique IDs;
-old results/dependants cannot release replacements. Held meshes validate scope/owner;
-LRU eviction releases only its completed product. Physical waiting work is bounded.
-Controlled IO barriers cover Field/Mesh and same-scope cancel/repost. Removing
-release-owner or cached-scope validation fails the independent fixture; both restored.
-24 focused regressions and full lint pass: 251 tidy units, zero findings.
-Public documentation/repository guards pass. GPU transition render remains unverified
-in the prior sandbox; this WI stays active until that visual integration evidence exists.
+## Owners, errors and acceptance
 
-## Falsifiable acceptance
-
-- CPU fixture: provider -> shape A -> shape B -> empty Kind on the same worker;
-  check analytical heights and source origin/revision for each transition.
-- Equal declaration preserves a resident product; altered amplitude/seed/focus
-  invalidates it. Raw provider data is reused when returning to empty Kind.
-- Repeat through GroundStream, including sampled tiles and stitched cache hits.
-  Keep an old shared field: bytes remain unchanged, current lookup yields new scope.
-- Deterministically pause an old job, switch shape, admit a new job, release old:
-  old completion cannot publish, drop the new reservation or unblock Ready falsely.
-  Exercise both Field and Mesh; no timing-dependent sleeps as race specification.
-- Negative controls: restore nonempty-only update and remove stale-scope check;
-  the corresponding independent tests fail. No GPU needed for ownership tests.
-- make format; focused TerrainTiles/GroundStream/TilePool suites;
-  SDKROOT="$(xcrun --show-sdk-path)" LINT_JOBS=2 make lint.
-  Render the declared terrain transition through outshine-client when GPU access works.
+- world/ground/{TilePool,TerrainLoader,tiles/TerrainTiles} own state/cache algorithms.
+  Engine consumes source scope; it does not compute terrain or invent global epochs.
+  Unknown/refused provider input stays missing. Raw provider bytes are independently reusable.
+- Alter amplitude/seed/focus: invalidate; repeat declaration: retain. Return to empty:
+  preserve raw-source origin and analytical height. Exercise stitched/sampled cache hits.
+- Pause an old job, change scope, admit replacement, release old. Neither Field nor Mesh
+  may publish stale data or release the replacement. Timing sleeps are not race oracles.
+- Restore nonempty-only updates or remove owned-release/scope guards: independent tests FAIL.
+- make format; focused TilePool/TerrainLoader/HeightField/TerrainTiles suites; full lint.
+  Run declared terrain transitions via outshine-client, open PNGs and report source/scope,
+  holes, streaming work and frame costs. 2311 owns raster-free source certificates.
