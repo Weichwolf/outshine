@@ -82,3 +82,25 @@ Step einen erwarteten Fehler, darf Cancel/Reset und anschließend neue Arbeit au
 Copy bleibt unabhängig bei denselben gepinnten Inputs; Kopien außerhalb des Framepfads.
 Move-Konstruktion und -Zuweisung während Seed/Child/Split/Complete prüfen, auch Self-Move;
 Rückkehr zum impliziten Move muss den Guard tatsächlich verletzen. Kein Entfernen des Tests.
+
+## Native utility probe and next proof decision
+
+Optimized local probe against 618371b14 libraries, one 20x30 m building, flat/pitched:
+88/184 Fine triangles. Default caps leave identical Fine/Fine at [0,10.0267] or
+[0,6.9483] m after 131072 queries. Fine/Shell ends at [1.9000,10.0267] or
+[3.3963,6.9470] m. Six single runs take 106–144 ms locally; no p99/device claim.
+Scratch is 8192 retained Region slots plus 5 inline Regions, each 152 bytes:
+(8192+5)*152 = 1245944 bytes/task, despite the 4096 LIVE-region cap.
+Probe source/log: /tmp/outshine-review-native-proof.{cpp,log}. This is cost/utility
+inspection, no independent native-error oracle and no smaller runtime certificate.
+
+Before a BVH, tighten each region against ONE fixed convex target triangle using
+its three enclosed corner-distance upper bounds. For p=sum(lambda_i*p_i), choose
+q_i in that target; q=sum(lambda_i*q_i) remains there, so distance(p,q) <= max_i U_i.
+Then minimize this maximum across targets. Never maximize per-corner minima from
+DIFFERENT targets: the filled-opening counterexample makes that unsafe.
+Combine this valid upper with the existing sample+radius/parent bounds; count every
+additional primitive query in sliced budgets. Existing all-target lower evidence stays.
+Prove convex containment, rounded corner deviations, degenerate targets, opening and
+native self-pairs independently before implementation. Exact triangle correspondence
+is optional only with full value verification; hashes alone certify nothing.
