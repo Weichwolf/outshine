@@ -64,8 +64,9 @@ Restored scan must give actual FAIL. Acceptance: format; StreetField/OsmField/Gr
 queue suites; full lint/tidy/API. Existing accepted source-key cache remains unchanged.
 ## Evidence
 
-63908c160: 19 focused PASS; full lint FAIL on three tidy findings. 94581ed9b fixes
-include/complexity; full rerun pending.
+497d94109: queue suite and both publication pacing variants PASS (15.1/14.9 s).
+Empty-building fixture: 69 checks PASS; restored old condition: three actual FAIL.
+Darmstadt Refined renders; Wien reaches earthworks, Graz times out. Full Places/lint pending.
 StagesBakes must retain source rasters through publication/retirement for canonical live LOD.
 HeightSheets owns these references and accounts their bytes; prove move lifetime and missing IO.
 

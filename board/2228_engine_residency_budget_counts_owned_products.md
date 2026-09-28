@@ -22,7 +22,9 @@ Its former `std::map` page index hid allocator-node overhead; a deterministic `F
 now gives an exact retained-capacity value and keeps index failure atomic with height-page
 upload. Its stitch and pre-publication tile indices also use short-lived contiguous maps:
 duplicate identity or allocation failure rejects before either can mutate resident terrain.
-Shared terrain fields remain counted at their owning stream, not here.
+HeightSheets now retains canonical source rasters through publication and counts their
+referenced allocation capacities (fef5b6197). Shared references can overlap stream counts;
+the future global owner ledger must deduplicate allocations, not omit the retained fields.
 `StructureBakeProgress` uses the same bounded, contiguous `FlatMap` for its massing
 accumulator. Its slot traversal is deterministic for a fixed input and allocation failure
 reaches the existing structure-bake error boundary; per-node `std::map` overhead no longer
@@ -34,6 +36,10 @@ slots and nested attribute, name and pixel capacities. Renderer copies remain a 
 category, which exposes the real overlap while a ground candidate continues after cloning.
 Ground `Patchwork` and `EarthworkStamp` report phase-local sheet/node and ring/seam capacities;
 these values disappear from the candidate snapshot when their owning phase products retire.
+
+Host evidence: Graz at 8d094066c reached 14.0 GB peak process footprint and blocked
+in Metal fence waits (/tmp/outshine-repair-8d094066c-graz-sample.log). This exceeds
+the entire 8-GB target device capacity; it is not a measured Engine allocation total.
 
 ## Decision
 
