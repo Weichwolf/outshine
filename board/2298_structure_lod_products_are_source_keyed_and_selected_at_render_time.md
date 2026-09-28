@@ -44,6 +44,23 @@ New geometry and runtime-error selection still need fresh visual/performance evi
   source upgrade pending. Playable may expose a coarse fallback with its actual error.
   Missing proof retains the whole-cell guard. Near-boundary/invalid views choose Fine.
 
+## Active repair: camera-independent source fallback
+
+Laying posts SourceGeometry with no explicit level. BakeRevision permits eye/focal changes,
+but StructureBake's null-level branch still chooses geometry from that original eye/focal.
+This violates the source-product contract before cell refinement even begins.
+Independent of 2312: StructureBuildQueue resolves an omitted SourceGeometry level to Shell
+at both admission and landing. Explicit levels remain explicit; ViewDetail keeps its contract.
+The existing Shell generator retains rings, roofs and foundations. This is a source-stable
+Playable fallback, never a claim that Shell meets the Refined pixel bound. Cell selection,
+whole-cell error guard, qualified DEM/street receipts and atomic activation stay authoritative.
+Owner: streaming/StructureBuildQueue.cpp; extend its real whole-tile landing fixture.
+Check Shell metadata and identical nonempty geometry at remote eyes and different focal scales,
+including movement between posting and landing. Explicit Fine must remain Fine. Removing
+normalization must fail; terrain revocation and retry controls must still pass unchanged.
+Gate: format, StructureBuildQueue/StructureBake/TilePieces, all Places and opened PNGs,
+full lint/tidy/API. Compare preparation cost and requested bytes without promising a timeout fix.
+
 ## Remaining implementation order
 
 1. 2313 completes independent adaptive CPU evidence; 2312 transfers certified error
