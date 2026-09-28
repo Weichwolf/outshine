@@ -68,7 +68,10 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   Store the failure in Delivery, TilePool Landing/Result/refusal CacheEntry,
   TerrainBytes and TerrainGrid; move it through worker publication and stitching.
   Bytes/Field/PollStitchedField expose an optional owned failure alongside status;
-  refusal cache hits reproduce the original failure. Decoding creates corrupt-
+  refusal cache hits reproduce the original failure. Remember currently rejects
+  an existing expired refusal entry, so recovery never becomes resident. TilePool
+  removes that empty refusal before admission, sharing cache-index removal with
+  eviction. Repeated recovered requests must deliver bytes without new fetches. Decoding creates corrupt-
   payload failures with the delivered source identity/address. Wire/Fetched must
   explicitly distinguish offline miss from provider refusal, not infer it from
   Ticket::None. Deadline/admission failures keep their own cause and context.
