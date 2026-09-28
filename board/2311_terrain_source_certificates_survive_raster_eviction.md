@@ -85,15 +85,31 @@ cf58d54a1: 4 official focused tests PASS; full lint failed on two missing engine
 initializers. Wire TilePool::InspectCertificate at both existing HeightSource boundaries;
 activation remains on ValidateResidentCellSource. Corrected full gate pending.
 
-## Runtime integration still open
+## Active next step: retain exact height requests
 
-The current frame validator still allocates on misses and may wait. Replace it only with
-bounded coalesced preparation per tile/source; Unknown/Pending must not cause a retry storm,
-permanent activation starvation or immediate geometry loss. Source-matching completion
-refreshes acceptance without rebaking identical geometry; changed inputs revoke activation.
-Uninstrumented sources remain supported through explicit preparation, never optimistic hits.
-Worker inputs need owned immutable metadata and a proved source-reader lifetime/thread
-contract. Do not copy borrowed Engine-/Stack-capturing callbacks into a worker unexamined.
+HeightField owns Request {Zoom, ordered TileSpots, Fallback}, captured from Blocks without
+sources/rasters. BuildingField::AcceptedInput owns this recipe; PendingAcceptance transfers
+it at preparation, snapshots copy it, HeapBytes counts it. StructureBuildQueue records the
+captured task recipe at whole-tile landing. Preserve order: RasterDigest folds field zoom,
+then block addresses and samples in order. Sources are resolved ancestors; certificate
+seam dependencies are not original requests. Neither can reconstruct the recipe.
+Test different requested children sharing one ancestor, order/zoom, producer destruction,
+snapshot/reset and heap accounting. Legacy/manual acceptances have no recipe; inspection
+still uses certificates, explicit resident validation remains available.
+
+## Runtime integration contract
+
+Use synchronized TilePool::Field with worker-local HeightField; never copy GroundStream or
+Engine/Stack closures. TilePool consumes Field completions (Holds=false); TerrainTiles
+revalidates retained stitched/decoded stamps. No additional persistent field cache needed.
+StructureBuildQueue owns coalesced preparation and immutable source metadata. Clear joins
+its jobs before Surrounds destroys Tasks or GroundStack; no reader survives its owner.
+Unknown/Pending retain coarse geometry and defer fine activation. Completion rechecks live
+vector/street/span/key/generation/scope and stamps; identical source refreshes acceptance
+without rebaking. Changed input revokes activation and requests existing replacement flow.
+Before replacing the frame validator, specify queue/byte caps, polling/backoff and error
+states; prove no retry storm, starvation or borrowed mutable reader. Runtime cost/visual
+acceptance remains open; standalone inspectors do not establish a bounded frame path.
 
 Acceptance: make format; revision/terrain/HeightField/BuildingField/StructureBuildQueue/
 GroundPublication suites; full lint including clang-tidy/API guards. Render Hockenheim
