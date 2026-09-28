@@ -41,6 +41,12 @@ Host evidence: Graz at 8d094066c reached 14.0 GB peak process footprint and bloc
 in Metal fence waits (/tmp/outshine-repair-8d094066c-graz-sample.log). This exceeds
 the entire 8-GB target device capacity; it is not a measured Engine allocation total.
 
+Existing SubjectResidency::HeldBytes sums into uint32_t; SubjectDraw::HeldBytes,
+SceneRenderer::PieceBytesHeld and Effort::DeviceBytes preserve that truncation.
+Independent capacity probe: 2 * 2 GiB = 4294967296 expected bytes, actual 0; exit 1.
+Log: /tmp/outshine-residency-sum-probe.log. Widen this existing path before relying
+on the meter; this proves overflow, not the cause of the measured process footprint.
+
 ## Decision
 
 Each long-lived Engine product exposes owned CPU allocation capacity and requested GPU
