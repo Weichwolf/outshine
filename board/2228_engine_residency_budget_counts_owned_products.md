@@ -39,10 +39,10 @@ these values disappear from the candidate snapshot when their owning phase produ
 
 Host a25c12d76: Graz 7.8 GB footprint, 1731/2232 main-thread samples in Metal waits;
 Olympiaturm 15.3 GB, 2078/2078 in Metal waits; /tmp/outshine-repair-a25c12d76-{graz,olympiaturm}-sample.log.
-These are process snapshots, not Engine bytes or a controlled before/after comparison.
+6e88154b5 Olympiaturm vmmap at 40 s: footprint 8.1 GB, peak 8.6 GB; writable swap 4.0 GB, malloc swap 2.5 GB.
+Evidence: /tmp/outshine-repair-6e88154b5-olympiaturm-vmmap.log; process snapshots, not Engine bytes or controlled deltas.
 
 ## Active repair: GPU byte-total overflow
-
 c9d6bb5fe repairs the 4-GiB wrap: four checks PASS; restored uint32_t yields three FAILs.
 Owners: SubjectResidency::HeldBytes, SubjectDraw::HeldBytes,
 SceneRenderer::PieceBytesHeld and Effort::DeviceBytes. Widen totals to uint64_t;
