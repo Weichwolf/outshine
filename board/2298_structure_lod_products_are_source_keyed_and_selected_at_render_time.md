@@ -62,7 +62,9 @@ Gate: format, StructureBuildQueue/StructureBake/TilePieces, all Places and opene
 full lint/tidy/API. Compare preparation cost and requested bytes without promising a timeout fix.
 c769a231a implements normalization. The fixture now enters the required refinement phase
 before FineOnly admission: 83 checks PASS; original code produces two actual FAILs.
-Format 1208 files PASS; full owner/Places/lint gates still pending.
+Format 1208 files PASS. a25c12d76: 11 owner tests and full lint/tidy/API PASS;
+Places 38/44 PASS, six red cases (2169). All ten client PNGs opened; seven Refined
+images pixel-identical to c9d6bb5fe. Full logs: /tmp/outshine-repair-a25c12d76-*.log.
 Logs: /tmp/outshine-source-fallback-{control-results,correct,original,final-format}.log.
 
 ## Remaining implementation order

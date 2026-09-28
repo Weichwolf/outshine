@@ -36,6 +36,11 @@ Quellraster, Erdarbeiten und Seitenflächen prüfen; Datum bleibt separat ungekl
 Logs: /tmp/outshine-graz-surface-height-probe-{results,Graz}.log.
 Keine Pose-/Höhenkorrektur aus diesem Befund ableiten; Material-ID ist keine Objekt-ID.
 
+a25c12d76: CPU-Terrain-Geometrie reproduziert die Verdeckung bei 3.7342 m.
+Die Nahtsuche zieht innere Kachelränder auf Außenkanten eines überdeckenden Vorfahren,
+trotz vorhandener gleich feiner Nachbarn. Reparatur und Negativkontrollen gehören in 2166.
+Die geodätische Kamera bleibt unverändert; der separate Datumvertrag bleibt offen.
+
 ## Implementierung
 
 1. Referenzmanifest: Bildhash, ursprüngliche Breite/Höhe, Aufnahmezeit/Zeitzone,

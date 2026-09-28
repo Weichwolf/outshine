@@ -19,28 +19,28 @@ Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren 
 
 ## Aktuelle Place-Abnahme 2026-09-29
 
-c9d6bb5fe: alle zehn Places ohne Vegetation über den öffentlichen Client geprüft.
-Full lint/tidy/API PASS, 256/256 Tidy-Einheiten; 12 fokussierte Tests PASS.
-Komplette Places-Suite: 36/44 PASS, 3 TIMEOUT, 5 UNPREPARED; Hockenheim separat PASS.
-Refined-PNGs für sieben Places: DarmstadtWest, Rosenheim, Husum, Feldkirch, Malcesine,
-Koerbersee, Hockenheimring. Alle geöffnet: `build/shots/places-refined-c9d6bb5fe/`.
-Darmstadt/Feldkirch scheitern je einmal an 6144 Frames, die zweite Variante besteht.
-Darmstadt wartet auf Sheet-Felder; Feldkirch auf Zellen nach fertiger Bodenpublikation.
-Wien/Graz/Olympiaturm bleiben rot. Keine verwaisten Clients; kein grünes Gesamt-Gate.
-Logs: /tmp/outshine-repair-c9d6bb5fe-{full-places,full-lint,gate-results}.log;
-Einzellogs sind vor erneutem Worktree-Gate unter /tmp/outshine-repair-c9d6bb5fe-case-logs gesichert.
-Hockenheim Host p50/p95/p99: 3.6724/16.0737/17.1737 ms, 3296 Frames inklusive Aufbau;
-keine A18-Aussage. Darmstadt pixelidentisch zu 4844c3196, 0/921600 abweichende Pixel.
+a25c12d76: alle zehn Places ohne Vegetation über den öffentlichen Client geprüft.
+Full lint/tidy/API PASS, 256/256 Tidy-Einheiten; 11 fokussierte Tests PASS.
+Komplette Places-Suite: 38/44 PASS, 4 TIMEOUT, 2 UNPREPARED; Hockenheim separat PASS.
+Graz/Olympiaturm überschreiten beide Male 120 s; Wien erreicht nach 6144 Frames kein Refined.
+Sieben Refined-PNGs geöffnet: DarmstadtWest, Rosenheim, Husum, Feldkirch, Malcesine,
+Koerbersee, Hockenheimring unter `build/shots/places-refined-a25c12d76/`.
+Alle sieben pixelidentisch zu c9d6bb5fe: jeweils 0/921600 abweichende Pixel.
+Hockenheim Host p50/p95/p99: 3.7565/16.0601/17.1876 ms, 2996 Frames inklusive Aufbau;
+keine A18-Aussage. Logs: /tmp/outshine-repair-a25c12d76-{full-places,full-lint,gate-results}.log;
+Einzellogs: /tmp/outshine-repair-a25c12d76-case-logs; Gesamt-Gate rot.
+Drei aktuelle Client-Playable-PNGs geöffnet: `build/shots/places-playable-a25c12d76/`.
+Wien Nahwand, Graz vollständig verdeckt, Olympiaturm unvollständig; keine Refined-Abnahme.
 Feldkirchs Nahwand, Malcesines Faltenvorhang, geglättete Alpen, gezackte Ufer und uniforme
 Fassaden bleiben. Hockenheim wirkt wie eine Karte; Nähe/Bewegung brauchen eigene Abnahmen.
-Drei frische Client-Playable-Bilder geöffnet: `build/shots/places-playable-c9d6bb5fe/`.
-Wien Nahwand, Graz fast vollständig verdeckt, Olympiaturm unvollständig; keine Abnahme.
-Zusätzliche öffentliche API-Probe: Graz hat an neun Pixeln Surface-ID 2, stark geneigte
-Normalen und nahe Geometrie. Log: /tmp/outshine-playable-surface-probe-Graz.log.
-Surface-ID allein identifiziert noch keinen Generator. Rasterhöhe und gezeichnete Fläche
-jetzt am gleichen Ort vergleichen; keine Kameraoffsets fitten.
-2298 repariert als nächsten Slice kamerabhängige SourceGeometry; deren neue Gates sind offen.
-Danach Runtime-LOD/Residency und Terrain-Falten, Kanten, Fassaden und Licht vorantreiben.
+Graz-Diagnose: CPU-Terrain-Dreieck trifft den Mittelstrahl bei 3.7342 m, passend zur Bildtiefe
+3.7348 m. Kachel 18/142294/92117 hat nahe 368-m-Knoten auf 518 m gezogene Randknoten.
+CoarseNeighbor wählt auf allen vier Seiten den überdeckenden Vorfahren 11/1111/719,
+obwohl gleich feine Nachbarn vorhanden sind; keine dieser Kanten ist dessen Außenkante.
+2166 repariert diese falsche Nahtzuordnung. Keine Kameraverschiebung und kein Shader-Fit.
+GPU-Warten: Graz 1731/2232 Hauptthread-Samples, 7.8 GB Prozess-Footprint;
+Olympiaturm 2078/2078, 15.3 GB. Snapshot-Kosten, keine isolierte Änderungskausalität (2228).
+2298s quellstabiles Shell-Fallback ist geprüft; Runtime-Fehlerzertifikate bleiben offen.
 Vegetation zuletzt; Hockenheim nur erster Integrationstest. ALLE Places bei JEDEM Code-Gate.
 
 ## Historischer Bildbefund (2026-09-07, Renderer 12ceb790)

@@ -1,7 +1,7 @@
 Type: feature
 State: active
 Architecture: ready
-Priority: P1
+Priority: P0
 Parent: 2169
 Depends:
 Area: world, render
@@ -38,6 +38,21 @@ projected into the shot before attributing any visible defect to that seam.
 The measured shot had sim p99 12.67 ms and worst 318.54 ms. Global lattice
 density is therefore the wrong first knob; spend geometry where projected
 surface error and visible contribution justify it.
+
+## Active repair: stitch only actual neighboring edges
+
+Graz a25c12d76: 18/142294/92117 intersects the camera ray at 3.7342 m. A boundary
+node reaches 518 m beside 368-m source nodes. CoarseNeighbor selects covering ancestor
+11/1111/719 despite four same-zoom neighbors; none of those fine edges coincides with
+that ancestor's exterior. This copies remote heights into the local surface (2169).
+Owner: engine/HeightSheets.cpp, its existing indexed seam pass. Same-level neighbors
+prevent a coarse stitch. A coarser candidate must be geometrically across the shared
+edge; a covering ancestor is not a neighbor. Preserve valid coarse-edge interpolation,
+wrapped longitude, polar refusal, source heights, halos, and allocation/error flow.
+Add analytic fixtures for all four edges, multiple level gaps, overlapping ancestors,
+same-level neighbors, true coarse neighbors and dateline. Restoring either missing
+check must fail. No camera/DEM fitting; overlapping fallback draw coverage remains separate.
+Gate: make format; HeightSheets suite; all Places and opened PNGs; full lint/tidy/API.
 
 ## Decision
 

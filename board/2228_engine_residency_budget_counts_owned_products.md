@@ -37,9 +37,9 @@ category, which exposes the real overlap while a ground candidate continues afte
 Ground `Patchwork` and `EarthworkStamp` report phase-local sheet/node and ring/seam capacities;
 these values disappear from the candidate snapshot when their owning phase products retire.
 
-Host evidence: Graz at 8d094066c reached 14.0 GB peak process footprint and blocked
-in Metal fence waits (/tmp/outshine-repair-8d094066c-graz-sample.log). This exceeds
-the entire 8-GB target device capacity; it is not a measured Engine allocation total.
+Host a25c12d76: Graz 7.8 GB footprint, 1731/2232 main-thread samples in Metal waits;
+Olympiaturm 15.3 GB, 2078/2078 in Metal waits; /tmp/outshine-repair-a25c12d76-{graz,olympiaturm}-sample.log.
+These are process snapshots, not Engine bytes or a controlled before/after comparison.
 
 ## Active repair: GPU byte-total overflow
 
