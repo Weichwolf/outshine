@@ -75,6 +75,8 @@ public:
     std::function<bool(Data::TileId, Ground::HeightField::Block &)> CopyField;
     std::function<std::shared_ptr<const Ground::TerrainField>(Data::TileId)> ResidentField;
     HeightSourceRevision Revision;
+    uint64_t TerrainScope = 0;
+    std::function<bool(const Ground::TerrainCertificate &)> CertificateCurrent;
   };
 
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack,
@@ -119,7 +121,7 @@ public:
   NextLandings(Ground::GroundStack &stack,
                Ground::BuildingField &footprints,
                LongitudeLatitude eye,
-               HeightSourceRevision heightSource,
+               const HeightSource &heightAt,
                size_t most,
                HeightRequirement heights = HeightRequirement::AllowFallback,
                std::optional<LevelOfDetail> detail = std::nullopt,
@@ -220,6 +222,16 @@ private:
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
   void PostSlice(QueuedBuild &build);
+  [[nodiscard]] bool WholeTileSourceCurrent(const Ground::GroundStack &stack,
+                                            const Ground::BuildingField &prints,
+                                            const HeightSource &heightAt,
+                                            const QueuedBuild &bake,
+                                            HeightRequirement heights,
+                                            Ground::TerrainCertificate &validated);
+  void DiscardFront(const Ground::OsmField &vectors,
+                    Ground::BuildingField &prints,
+                    LongitudeLatitude eye,
+                    HeightSourceRevision heightSource);
   void DiscardStale(const Ground::OsmField &vectors,
                     Ground::BuildingField &prints,
                     LongitudeLatitude eye,

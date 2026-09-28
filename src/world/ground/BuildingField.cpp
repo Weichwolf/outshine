@@ -91,8 +91,9 @@ BuildingField::PrepareAcceptance(uint32_t tile,
                                  std::span<const Data::TileSourceIdentity> sources,
                                  bool qualified,
                                  std::optional<Data::TileSourceIdentity> vector,
-                                 BakeInputs bake) {
-  return {this, tile, baked, std::move(vector), sources, qualified, bake};
+                                 BakeInputs bake,
+                                 TerrainCertificate certificate) {
+  return {this, tile, baked, std::move(vector), sources, qualified, bake, std::move(certificate)};
 }
 
 void BuildingField::CommitAcceptance(PendingAcceptance pending,

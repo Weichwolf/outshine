@@ -14,8 +14,8 @@
 
 namespace outshine {
 
-struct StructureSourceInputs {
-  std::optional<Data::TileSourceIdentity> Vector;
+struct StructureSourceView {
+  const std::optional<Data::TileSourceIdentity> &Vector;
   std::span<const Data::TileSourceIdentity> HeightSources;
   uint64_t HeightDigest = 0;
   uint64_t StreetDigest = 0;
@@ -23,7 +23,7 @@ struct StructureSourceInputs {
   bool FallbackHeights = false;
 };
 
-[[nodiscard]] inline uint64_t StructureSourceKey(const StructureSourceInputs &inputs) {
+[[nodiscard]] inline uint64_t StructureSourceKey(const StructureSourceView &inputs) {
   uint64_t digest = kDigestBasis;
   const auto word = [&digest](uint64_t value) {
     for (unsigned shift = 0; shift < 64u; shift += 8u) {

@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_GROUNDPUBLICATION_H
 
 #include <array>
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -25,11 +26,33 @@ struct GroundRevision {
   uint64_t Footprints = 0;
   uint64_t VectorGeneration = 0;
   uint64_t TransportSourceGeneration = 0;
+  uint64_t TerrainScope = 0;
   size_t StreetTiles = 0;
   size_t WaterTiles = 0;
   std::array<double, 3> Projection{};
   GroundCoverage Coverage;
   GroundQuality Quality = GroundQuality::Refined;
+
+  [[nodiscard]] constexpr uint32_t
+  CandidateDifferenceMask(const GroundRevision &requested) const noexcept {
+    uint32_t difference = 0;
+    difference |= Region != requested.Region ? 1u << 0u : 0u;
+    difference |= Classes != requested.Classes ? 1u << 1u : 0u;
+    difference |= Footprints != requested.Footprints ? 1u << 2u : 0u;
+    difference |= StreetTiles != requested.StreetTiles ? 1u << 3u : 0u;
+    difference |= WaterTiles != requested.WaterTiles ? 1u << 4u : 0u;
+    difference |= Projection != requested.Projection ? 1u << 5u : 0u;
+    difference |= Coverage != requested.Coverage ? 1u << 6u : 0u;
+    difference |= Quality != requested.Quality ? 1u << 7u : 0u;
+    difference |= VectorGeneration != requested.VectorGeneration ? 1u << 8u : 0u;
+    difference |= TransportSourceGeneration != requested.TransportSourceGeneration ? 1u << 9u : 0u;
+    difference |= TerrainScope != requested.TerrainScope ? 1u << 10u : 0u;
+    return difference;
+  }
+
+  [[nodiscard]] constexpr bool MatchesCandidate(const GroundRevision &requested) const noexcept {
+    return CandidateDifferenceMask(requested) == 0;
+  }
 };
 
 class GroundPublication {
@@ -43,6 +66,7 @@ public:
            Current_->Classes != requested.Classes || Current_->Footprints != requested.Footprints ||
            Current_->VectorGeneration != requested.VectorGeneration ||
            Current_->TransportSourceGeneration != requested.TransportSourceGeneration ||
+           Current_->TerrainScope != requested.TerrainScope ||
            Current_->StreetTiles != requested.StreetTiles ||
            Current_->WaterTiles != requested.WaterTiles ||
            Current_->Projection != requested.Projection ||

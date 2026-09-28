@@ -15,8 +15,17 @@ int main() {
   CHECK(publication.Publish(initial), "the first complete ground revision publishes");
   CHECK(!publication.NeedsRebuild(initial, true, false),
         "the successfully published revision needs no duplicate build");
-  std::array<GroundRevision, 10> changed{
-      initial, initial, initial, initial, initial, initial, initial, initial, initial, initial};
+  std::array<GroundRevision, 11> changed{initial,
+                                         initial,
+                                         initial,
+                                         initial,
+                                         initial,
+                                         initial,
+                                         initial,
+                                         initial,
+                                         initial,
+                                         initial,
+                                         initial};
   ++changed[0].Region;
   ++changed[1].Classes;
   ++changed[2].Footprints;
@@ -27,7 +36,10 @@ int main() {
   changed[7].Projection[2] = 4;
   ++changed[8].VectorGeneration;
   ++changed[9].TransportSourceGeneration;
+  ++changed[10].TerrainScope;
   for (const GroundRevision &requested : changed) {
+    CHECK(!initial.MatchesCandidate(requested) && initial.CandidateDifferenceMask(requested) != 0,
+          "each changed construction input restarts an in-progress candidate");
     CHECK(publication.NeedsRebuild(requested, false, false),
           "region, source snapshot, data and projection changes rebuild independently of residency "
           "polling");
@@ -44,8 +56,18 @@ int main() {
   CHECK(!publication.NeedsRebuild(initial, false, true) &&
             publication.NeedsRebuild(initial, true, true),
         "missing neighbour rims remain eligible when residency updates are requested");
+  static_assert(GroundRevision{}.MatchesCandidate(GroundRevision{}));
+  GroundRevision residency = initial;
+  ++residency.ResidentTiles;
+  CHECK(initial.MatchesCandidate(residency),
+        "residency-only arrival does not restart an in-progress source snapshot");
+  CHECK(initial.CandidateDifferenceMask(changed[10]) == (1u << 10u),
+        "terrain scope has an independent diagnostic restart reason");
   GroundRevision playable = initial;
   playable.Quality = GroundQuality::Playable;
+  CHECK(!initial.MatchesCandidate(playable) &&
+            initial.CandidateDifferenceMask(playable) == (1u << 7u),
+        "construction quality changes restart the candidate with their own reason");
   CHECK(publication.Publish(playable) && !publication.NeedsRebuild(playable, false, false) &&
             publication.NeedsRebuild(initial, false, false),
         "a playable publication satisfies playability but remains eligible for refinement");
@@ -53,6 +75,8 @@ int main() {
         "a refined publication also satisfies the same playable coverage request");
   GroundRevision wider = initial;
   wider.Coverage.VisualRadiusM = 8000.0;
+  CHECK(!initial.MatchesCandidate(wider) && initial.CandidateDifferenceMask(wider) == (1u << 6u),
+        "changed coverage restarts construction even when source revisions repeat");
   CHECK(publication.NeedsRebuild(wider, false, false),
         "a coverage change rebuilds even when its quality label is unchanged");
   CHECK(publication.BeginCapture() && !publication.CanPublish(),

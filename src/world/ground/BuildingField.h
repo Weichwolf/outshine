@@ -74,6 +74,7 @@ public:
     std::array<float, kStructureCellsPerTile> CellMaxHeightM{};
     bool Qualified = false;
     BakeInputs Bake;
+    TerrainCertificate Terrain;
   };
 
   class PendingAcceptance {
@@ -92,7 +93,8 @@ public:
                       std::optional<Data::TileSourceIdentity> vector,
                       std::span<const Data::TileSourceIdentity> sources,
                       bool qualified,
-                      BakeInputs bake)
+                      BakeInputs bake,
+                      TerrainCertificate certificate)
         : Owner_(owner),
           Tile_(tile),
           Prints_(baked.Prints.size()),
@@ -104,7 +106,8 @@ public:
                  .CellBounds = baked.CellBounds,
                  .CellMaxHeightM = baked.CellMaxHeightM,
                  .Qualified = qualified,
-                 .Bake = bake} {
+                 .Bake = bake,
+                 .Terrain = std::move(certificate)} {
       std::ranges::sort(Input_.Sources);
       Input_.Sources.erase(std::ranges::unique(Input_.Sources).begin(), Input_.Sources.end());
     }
@@ -191,7 +194,8 @@ public:
                     std::span<const Data::TileSourceIdentity> sources,
                     bool qualified,
                     std::optional<Data::TileSourceIdentity> vector,
-                    BakeInputs bake);
+                    BakeInputs bake,
+                    TerrainCertificate certificate = {});
   void PreparesAcceptances(AcceptanceCapacity capacity);
   void
   CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
@@ -253,7 +257,7 @@ public:
       if (input.Vector) {
         bytes += input.Vector->SourceId.capacity() + input.Vector->Revision.capacity();
       }
-      bytes += CapacityBytes(input.Sources);
+      bytes += CapacityBytes(input.Sources) + input.Terrain.HeapBytes();
       for (const auto &source : input.Sources) {
         bytes += source.SourceId.capacity() + source.Revision.capacity();
       }

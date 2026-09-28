@@ -367,7 +367,12 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
           },
       .ResidentField =
           [this](Data::TileId tile) { return World.Stack.Ground().ResidentStitchedField(tile); },
-      .Revision = {}};
+      .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()},
+      .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
+      .CertificateCurrent =
+          [this](const Ground::TerrainCertificate &certificate) {
+            return World.Stack.Pool().CertificateCurrent(certificate);
+          }};
   if (World.GroundBuild) {
     const auto resumeAt = std::chrono::steady_clock::now();
     World.StructureBuilds.ResumeCompletedTasks();
@@ -401,7 +406,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
   auto ready = World.StructureBuilds.NextLandings(World.Stack,
                                                   World.Stack.Footprints(),
                                                   eye,
-                                                  heightAt.Revision,
+                                                  heightAt,
                                                   std::min(landsMost, size_t{1}),
                                                   StructureBuildQueue::HeightRequirement::FineOnly);
   Cost.BakeLanding.Took(

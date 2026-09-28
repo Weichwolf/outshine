@@ -248,30 +248,11 @@ public:
         Id_(id) {}
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
-    return Revision_.Region == revision.Region && Revision_.Classes == revision.Classes &&
-           Revision_.Footprints == revision.Footprints &&
-           Revision_.VectorGeneration == revision.VectorGeneration &&
-           Revision_.TransportSourceGeneration == revision.TransportSourceGeneration &&
-           Revision_.StreetTiles == revision.StreetTiles &&
-           Revision_.WaterTiles == revision.WaterTiles &&
-           Revision_.Projection == revision.Projection && Revision_.Coverage == revision.Coverage &&
-           Revision_.Quality == revision.Quality;
+    return Revision_.MatchesCandidate(revision);
   }
 
   [[nodiscard]] uint32_t RevisionDifference(const GroundRevision &revision) const noexcept {
-    uint32_t difference = 0;
-    difference |= Revision_.Region != revision.Region ? 1u << 0u : 0u;
-    difference |= Revision_.Classes != revision.Classes ? 1u << 1u : 0u;
-    difference |= Revision_.Footprints != revision.Footprints ? 1u << 2u : 0u;
-    difference |= Revision_.StreetTiles != revision.StreetTiles ? 1u << 3u : 0u;
-    difference |= Revision_.WaterTiles != revision.WaterTiles ? 1u << 4u : 0u;
-    difference |= Revision_.Projection != revision.Projection ? 1u << 5u : 0u;
-    difference |= Revision_.Coverage != revision.Coverage ? 1u << 6u : 0u;
-    difference |= Revision_.Quality != revision.Quality ? 1u << 7u : 0u;
-    difference |= Revision_.VectorGeneration != revision.VectorGeneration ? 1u << 8u : 0u;
-    difference |=
-        Revision_.TransportSourceGeneration != revision.TransportSourceGeneration ? 1u << 9u : 0u;
-    return difference;
+    return Revision_.CandidateDifferenceMask(revision);
   }
 
   [[nodiscard]] const Around &Coverage() const noexcept { return Coverage_; }
@@ -862,6 +843,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                                               ? World.Stack.Vectors()->Generation()
                                               : 0,
                       .TransportSourceGeneration = transportGeneration,
+                      .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
                       .StreetTiles = World.Stack.Ways().IngestedTiles(),
                       .WaterTiles = World.Stack.WaterBodies().IngestedTiles(),
                       .Projection = projection,
@@ -1625,6 +1607,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       !publishedRevision || publishedRevision->Region != requestedRevision.Region ||
       publishedRevision->ResidentTiles != requestedRevision.ResidentTiles ||
       publishedRevision->VectorGeneration != requestedRevision.VectorGeneration ||
+      publishedRevision->TerrainScope != requestedRevision.TerrainScope ||
       publishedRevision->StreetTiles != requestedRevision.StreetTiles;
   if (build.StreetGraph != nullptr && sources.Ways.Ways().size() == build.StreetGraphWayCount &&
       !sourcesChanged) {
@@ -1895,13 +1878,18 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
             return build.Sheets.CopySourcedField(tile, into);
           },
       .ResidentField = {},
-      .Revision = {.Value = state.Id()}};
+      .Revision = {.Value = state.Id()},
+      .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
+      .CertificateCurrent =
+          [this](const Ground::TerrainCertificate &certificate) {
+            return World.Stack.Pool().CertificateCurrent(certificate);
+          }};
   const auto landingAt = std::chrono::steady_clock::now();
   auto ready =
       World.StructureBuilds.NextLandings(World.Stack,
                                          state.Footprints(),
                                          CurrentGeographicFocus(),
-                                         heightAt.Revision,
+                                         heightAt,
                                          landsMost,
                                          heights,
                                          std::nullopt,
