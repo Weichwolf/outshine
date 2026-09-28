@@ -36,26 +36,22 @@ und BRDF sind Engine-Code; GLSL versteht glTF-Materialien nicht automatisch.
 3. Bodenklassen mit finaler Neigung/Krümmung, Höhe, Exposition, Feuchte und Nutzung mischen.
    Konstruierte Wände erhalten ihren eigenen Baustoff. Fels mit Schichtung, Brüchen,
    Schuttfuß und Vegetationsinseln; keine exakte Geologie ohne zusätzliche Quelldaten behaupten.
-4. Relief amplitudenbegrenzt und in 2166s finalem Fehlermaß enthalten; nahe Silhouetten
-   brauchen Geometrie. Subpixelstruktur gefiltert in Normal/Roughness überführen, keine
-   periodischen Streifen, kein World-Origin-Schwimmen. Wetterfeuchte aus 2172 später einspeisen.
-5. Native Materialien als deduplizierte Rezepte aus MR-Faktoren, Schichten, Maßstab, Seed und
-   Wetterzustand; Instanzen referenzieren Rezept plus Parameterdeltas. Ein Stadtpark braucht
-   Hunderte Varianten, die Welt Tausende; Shaderfamilien/Renderzustand bündeln und GPU-Parameter
-   tabellarisch binden. Keine festen Texturassets für generierte Oberflächen. Gefilterte
-   Tiles/Mips sind verwerfbare Caches derselben Funktionen, falls billiger als direkte GLSL-
-   Auswertung. Importierte glTF-Texturen bleiben Quelldaten.
-6. `decay` in [0,1] ist ein dimensionsloser Alterungsgrad pro Materialinstanz; das
-   native Rezept definiert die Reaktion. Es ist kein glTF-MR-Faktor und nicht das
-   unbenutzte Szenario-Metadatum `Scenario.Decay`. Regenlauf, Exposition, Feuchte,
-   Temperatur, Bewuchs und Nutzung lokalisieren Flecken, Korrosion, Moos und Abrieb.
-   Rost braucht oxidierbares Metall, Moos Feuchte/Licht; alle Kanäle teilen stabile
-   Koordinaten statt universellem Rauschen. Ein globaler, zur Laufzeit änderbarer
-   `decay`-Regler skaliert die lokale Instanzalterung vor dem Rezept: `d = clamp(
-   globalDecay * instanceDecay, 0, 1)`. Default `globalDecay=1`; `0` zeigt alle
-   alterungsfähigen Materialien neu, ohne Feuchte oder Schmutz aus Nutzung zu löschen.
-   Der Regler ändert Materialparameter, nicht Geometrie oder Materialidentität;
-   Ortsmasken und Seeds bleiben bei Regleränderung stabil.
+4. Tatsächliches Displacement verändert die Oberfläche: Amplituden-/Transformfehler
+   konservativ in Terrain-/Strukturzertifikate einschließen oder deren kleinere Auswahl
+   verweigern. Normal-/Bump-Shading ist kein Hausdorff-Nachweis; Bild-/Lichtverlust separat.
+   Subpixelstruktur gefiltert nach Normal/Roughness, kein World-Origin-Schwimmen.
+5. Native MR-Parameter/Materialbindungen wiederverwenden. Rezepte aus Schichten,
+   Weltmaßstab und stabilen Seeds deduplizieren; Varianten nur bei sichtbarem Nutzen.
+   Direkte GLSL-Funktionen gegen erzeugte gefilterte Tiles/Mips messen, kein dogmatischer
+   Textur- oder Procedural-Zwang. glTF-Texturen bleiben Quellen am Importadapter.
+   Keine neue Rezept-Registry oder Tausende Varianten vor dem funktionierenden Materialkern.
+6. decay in [0,1] bezeichnet Materialalterung, keinen MR-Faktor und nicht Scenario.Decay.
+   d = clamp(globalDecay * instanceDecay, 0, 1), Default globalDecay=1; 0 zeigt neu,
+   ohne Feuchte/Nutzungsschmutz zu löschen. Rezept und Exposition/Regenlauf/Feuchte/
+   Temperatur/Nutzung bestimmen Korrosion, Moos und Abrieb mit gemeinsamen Koordinaten.
+   Rost nur auf oxidierbarem Metall; Moos braucht geeignete Feuchte/Licht. Regler ändert
+   Parameter, weder Geometrie/Materialidentität noch lokale Seeds/Fleckenmuster.
+
 ## Abnahme
 
 - [ ] Native und importierte Material-Fixtures stimmen unter derselben Beleuchtung überein;
@@ -63,7 +59,7 @@ und BRDF sind Engine-Code; GLSL versteht glTF-Materialien nicht automatisch.
 - [ ] Malcesine und Koerbersee zeigen strukturierte Seitenflächen; Husums Quai bleibt Baustoff,
       Wasser horizontal. Distanzen 1/10/100/1000 m und bewegte Kamera auf Flimmern prüfen.
 - [ ] Parametervariation bleibt deterministisch und regional plausibel; kein Foto wird Input.
-      Katalog mit >1000 Rezepten und vielen Instanzen: stabile IDs, Deduplizierung,
+      Stresstest vorhandener Rezepte/Instanzen: stabile IDs, Deduplizierung,
       Streaming-/Cache-Eviction ohne Bildsprung, p95/p99 und Bytes messen.
 - [ ] Gleiche Betonkante trocken/feucht, neu/gealtert und um 180° gedreht:
       Ablaufspuren folgen Schwerkraft; Holz, Metall und Stein altern unterscheidbar.
