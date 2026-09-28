@@ -11,22 +11,12 @@ Tags: hockenheim, offline, cache, route, reproducibility
 
 ## Evidence and implemented capability
 
-Fast-forward/playable preload fetched 65 vector and 129 elevation tiles; a
-paced run fetched the same vectors and 473 elevation tiles. Immediate offline
-replay of the first cache missed required data. Independent patchwork, source
-and sampler coverage now feed bounded path preparation before client capture.
-
-Starting with that incomplete 194-entry cache, online preparation/capture at
-91.7 s fetched exactly the missing 344 elevation tiles. Immediate offline replay
-had 538 cache hits, zero misses/network starts, and pixel-identical output to
-the online/paced-cache frames. PNG inspected; visual quality remains schematic.
-
-Deleting `elevation/15/17165/11203` from a separate cache makes preparation fail
-before playback, with one cache miss, no PNG/network. Owned failure propagation
-now reports raw requested/served `15/17165/11203`, `terrarium.s3`, its source key
-and offline-miss cause; the stitched address remains separate context.
-Terrarium now uses the shared 404-only absence rule. Scripted 404/403/401 and
-subsequent recovery pass; restoring the former 403 rule fails the same test.
+Fast-forward preload fetched 65 vector/129 elevation tiles; paced playback
+needed 65/473. Bounded preparation at 91.7 s now closes that demand: 538 offline
+hits, no misses/network and identical PNGs. Visual quality remains schematic.
+Deleting raw `15/17165/11203` refuses before PNG with actual provider/key;
+stitched context stays separate. Terrarium uses 404-only absence; restoring its
+old 403 rule fails independently. Full-lap/alternate-pacing proof remains open.
 
 ## View preparation contract
 
@@ -74,7 +64,17 @@ subsequent recovery pass; restoring the former 403 rule fails the same test.
   host/Fetching maps curl timeout/body limits to TimedOut/CapacityRefused. Cancelled ticket IDs use
   a FIFO bounded by MaxRequests; transfers/payloads are freed, Collect consumes
   the cause once. HTTP 408 retries as timeout; cancel/body limits are terminal.
-  Deadline/admission failures keep their own cause; never infer from Ticket::None.
+  Transport/Source::Begin returns FetchStart = expected<Ticket, FetchFailureReason>.
+  SourceSet records admission and owns refused context before Collect; retries
+  use the same start contract. Local sources may return successful Ticket::None;
+  native/offline refusal is unexpected, never inferred from None or last-error.
+  Fetching uses Unavailable/Ready/Stopping/Failed states under Mutex; worker failure
+  prevents new starts. Capacity/ticket exhaustion => CapacityRefused; empty/NUL
+  URLs => InvalidRequest; offline => OfflineMiss; unavailable worker => Unavailable.
+  Deadline failures keep their own cause. Refused starts are terminal, perform no
+  Collect/Cancel or retry and cannot persist absence. Admission after cancellation
+  succeeds; independent native-capacity/URL, source/context and retry fixtures
+  prove this, including successful local None and source fallback/ancestor.
 - Exact source identity and served address must survive ancestor mapping and
   provider fallback. Preparation formats this owned failure; retain the generic
   field address as context, never as a substitute for the offending request.
