@@ -20,16 +20,14 @@ Starting with that incomplete 194-entry cache, online preparation/capture at
 91.7 s fetched exactly the missing 344 elevation tiles. Immediate offline replay
 had 538 cache hits, zero misses/network starts, and pixel-identical output to
 both the online frame and the earlier paced-cache reference. PNG inspected:
-road/building/material quality remains schematic; this is a data correctness fix.
+road/building/material quality remains schematic.
 
 Deleting `elevation/15/17165/11203` from a separate cache makes preparation fail
 before playback, with one cache miss, no PNG/network. Owned failure propagation
 now reports raw requested/served `15/17165/11203`, `terrarium.s3`, its source key
 and offline-miss cause; stitched `15/17164/11202` remains separate context.
-The complete-cache replay still has 538 hits, no misses/network, identical pixels.
 Terrarium now uses the shared 404-only absence rule. Scripted 404/403/401 and
 subsequent recovery pass; restoring the former 403 rule fails the same test.
-Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
 
 ## View preparation contract
 
@@ -64,15 +62,17 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   identify the actual attempted provider; do not infer one from an empty result.
   Carry it with refused delivery/job results through field decoding and stitching.
   Keep the failed raw address distinct from the aggregated field address.
-  Success/pending paths allocate no diagnostic strings. No global last-error slot.
+  No global last-error slot.
   Store the failure in Delivery, TilePool Landing/Result/refusal CacheEntry,
   TerrainBytes and TerrainGrid; move it through worker publication and stitching.
   Bytes/Field/PollStitchedField expose an optional owned failure alongside status;
   refusal cache hits reproduce the original failure. Recovery replaces expired
   empty refusals before admission, sharing cache-index removal with eviction.
   Repeated recovered requests deliver resident bytes without new fetches; the
-  former early-return behavior fails this independent provider-delivery check. Decoding creates corrupt-
-  payload failures with delivered source identity/address. host/Fetching maps
+  Decoder failures retain delivered identity/address/key. Delivery/TilePool
+  cache retain the key; TerrainBytes carries it to RawGrid. Invalid PNG, crop or
+  served ancestry refuses the raw field; corrupt neighbours prevent publication.
+  host/Fetching maps
   curl timeout/body limits to TimedOut/CapacityRefused. Cancelled ticket IDs use
   a FIFO bounded by MaxRequests; transfers/payloads are freed, Collect consumes
   the cause once. HTTP 408 retries as timeout; cancel/body limits are terminal.
@@ -98,10 +98,10 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   cached Fail reports ConfirmedAbsent, never OfflineMiss or a fabricated height.
 
 Missing/cached-refusal, provider fallback and ancestor identity are implemented.
-Edge/diagonal stitch tests pass; removing raw-failure propagation fails them. Confirmed 404 persists with bounded expiry; offline fallback, revision/expiry
-invalidations, malformed records and evidence-negation tests pass. Native timeout/
-cancel causes are implemented and proved by real loopback curl transfers. Corrupt
-payload/admission failures and full-lap/pacing proof remain open.
+Edge/diagonal stitch tests pass; losing raw-failure propagation fails them.
+Confirmed 404 persists with bounded expiry; offline fallback, revision/expiry
+invalidations and evidence-negation tests pass. Native errors use real curl
+fixtures. Corrupt payload/admission and full-lap/pacing proof remain open.
 
 ## Acceptance
 
