@@ -40,15 +40,20 @@ public:
   struct Answer {
     std::string SourceId;
     std::string SourceRevision;
+    std::string SourceKey;
     Address At = Address::Whole(0);
     std::vector<uint8_t> Bytes;
   };
 
-  [[nodiscard]] static Delivery
-  From(std::string sourceId, std::string sourceRevision, Address at, std::vector<uint8_t> bytes) {
+  [[nodiscard]] static Delivery From(std::string sourceId,
+                                     std::string sourceRevision,
+                                     Address at,
+                                     std::vector<uint8_t> bytes,
+                                     std::string sourceKey = {}) {
     Delivery d(State::Delivered);
     d.Answer_.SourceId = std::move(sourceId);
     d.Answer_.SourceRevision = std::move(sourceRevision);
+    d.Answer_.SourceKey = std::move(sourceKey);
     d.Answer_.At = at;
     d.Answer_.Bytes = std::move(bytes);
     return d;

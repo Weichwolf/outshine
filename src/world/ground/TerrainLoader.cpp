@@ -109,7 +109,8 @@ struct GroundStream::Held {
                                     {.Kind = Data::DataKind::Elevation,
                                      .Tile = *landed,
                                      .SourceId = std::move(landing.SourceId),
-                                     .Revision = std::move(landing.SourceRevision)});
+                                     .Revision = std::move(landing.SourceRevision)},
+                                    std::move(landing.SourceKey));
         }
         case TilePool::Reply::Absent:
         case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();

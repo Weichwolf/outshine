@@ -188,7 +188,7 @@ std::optional<Delivery> SourceSet::ReadStored(Query &query) {
   Ledger_.DeliveredBytes += static_cast<long long>(kept.Bytes.size());
   RecordDelivery(decl);
   query.Finish();
-  return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(kept.Bytes));
+  return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(kept.Bytes), SourceKey(decl));
 }
 
 Delivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
@@ -235,7 +235,8 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
       Ledger_.DeliveredBytes += static_cast<long long>(response.Bytes.size());
       RecordDelivery(decl);
       query.Finish();
-      return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(response.Bytes));
+      return Delivery::From(
+          decl.Id, decl.Revision, query.At_, std::move(response.Bytes), SourceKey(decl));
     }
     case Meaning::Absent: {
       if (response.Evidence == AbsenceEvidence::HttpNotFound &&

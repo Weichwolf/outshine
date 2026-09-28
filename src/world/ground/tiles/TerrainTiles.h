@@ -25,12 +25,18 @@ public:
     Data::TileId At;
     std::vector<uint8_t> Png;
     Data::TileSourceIdentity Source;
+    std::string SourceKey;
   };
 
-  static TerrainBytes
-  From(Data::TileId at, std::vector<uint8_t> png, Data::TileSourceIdentity source) {
+  static TerrainBytes From(Data::TileId at,
+                           std::vector<uint8_t> png,
+                           Data::TileSourceIdentity source,
+                           std::string sourceKey = {}) {
     TerrainBytes b(State::Delivered);
-    b.Payload_ = Payload{.At = at, .Png = std::move(png), .Source = std::move(source)};
+    b.Payload_ = Payload{.At = at,
+                         .Png = std::move(png),
+                         .Source = std::move(source),
+                         .SourceKey = std::move(sourceKey)};
     return b;
   }
 

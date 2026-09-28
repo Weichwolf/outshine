@@ -1,6 +1,8 @@
 #include "TilePool.h"
 #include "SourceSet.h"
 #include "Check.h"
+#include <chrono>
+#include <thread>
 #include <memory>
 #include <string>
 #include <utility>
@@ -48,6 +50,7 @@ int main() {
   auto source = std::make_unique<ByteSource>();
   const auto *probe = source.get();
   const auto *allocation = source->Bytes.data();
+  const auto sourceKey = SourceKey(source->Decl);
   CHECK(sources.Add(std::move(source)) == SourceSet::Registration::Accepted, "source registered");
   TilePool pool({}, sources, transport);
   const Fetch request(DataKind::Elevation, Address::Whole(0));
@@ -56,7 +59,8 @@ int main() {
         "source supplies tile bytes");
   CHECK(first.Bytes.data() == allocation && first.Bytes == std::vector<uint8_t>({1, 2, 3}),
         "caller receives the source allocation without an intermediate copy");
-  CHECK(first.SourceId == "owned" && first.SourceRevision == "fixture-r1",
+  CHECK(first.SourceId == "owned" && first.SourceRevision == "fixture-r1" &&
+            first.SourceKey == sourceKey,
         "caller receives the declared source identity with tile bytes");
   CHECK(sources.Add(std::make_unique<ByteSource>()) == SourceSet::Registration::Sealed &&
             sources.Count() == 1,
@@ -66,13 +70,22 @@ int main() {
   CHECK(pool.BytesBlocking(request, &cached) == TilePool::Reply::Ready,
         "cached tile remains available");
   CHECK(cached.Bytes == std::vector<uint8_t>({1, 2, 3}) && cached.SourceId == "owned" &&
-            cached.SourceRevision == "fixture-r1" && probe->Calls == 1,
+            cached.SourceRevision == "fixture-r1" && cached.SourceKey == sourceKey &&
+            probe->Calls == 1,
         "cache owns an independent payload and provenance snapshot without refetching");
   TilePool::Landing asynchronous;
   CHECK(pool.Bytes(Fetch(DataKind::Elevation, Address::Whole(1)), &asynchronous) ==
             TilePool::Reply::Pending,
         "a fresh request starts a carrier job");
-  CHECK(pool.AwaitLanding(5.0), "the carrier publishes the completed request");
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (pool.Counters().Held == 0 && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::yield();
+  }
+  CHECK(pool.Counters().Held == 1, "the carrier result exists before the landing wait");
+  const auto waiting = std::chrono::steady_clock::now();
+  CHECK(pool.AwaitLanding(0.25), "a pre-landed result is observable without another notification");
+  CHECK(std::chrono::steady_clock::now() - waiting < std::chrono::milliseconds(200),
+        "a pre-landed result avoids waiting for the deadline");
   CHECK(pool.Counters().Outstanding == 0,
         "a completed result retained for its caller is not counted as outstanding work");
   CHECK(pool.ResidentBytes() ==

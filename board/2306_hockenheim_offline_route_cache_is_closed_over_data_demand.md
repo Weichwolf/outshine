@@ -19,8 +19,7 @@ and sampler coverage now feed bounded path preparation before client capture.
 Starting with that incomplete 194-entry cache, online preparation/capture at
 91.7 s fetched exactly the missing 344 elevation tiles. Immediate offline replay
 had 538 cache hits, zero misses/network starts, and pixel-identical output to
-both the online frame and the earlier paced-cache reference. PNG inspected:
-road/building/material quality remains schematic.
+the online/paced-cache frames. PNG inspected; visual quality remains schematic.
 
 Deleting `elevation/15/17165/11203` from a separate cache makes preparation fail
 before playback, with one cache miss, no PNG/network. Owned failure propagation
@@ -40,8 +39,7 @@ subsequent recovery pass; restoring the former 403 rule fails the same test.
   selection, before advancing, for both motion and static output.
 - `engine/streaming/TerrainPathPreparation` owns canonical unions and vector-then-
   height settlement: at most 216001 points and 8192 unique addresses per kind.
-  Admit bounded batches, refuse oversized plans before oversized IO. OSM windows
-  share `OsmField::SourceWindow`; classifier windows come from `ClassField`.
+  Admit bounded batches, refuse oversized plans before IO. OSM windows share `OsmField::SourceWindow`; classifier windows come from `ClassField`.
 - `PlanPatchworkTiles` covers every possible mesh block independent of residency.
   `PlanTerrainSourceTiles` supplies halos, parents, vector/building and route
   fields to both candidates and path preparation. `GroundStream::SamplingCoverage`
@@ -55,7 +53,7 @@ subsequent recovery pass; restoring the former 403 rule fails the same test.
 
 - Owners: `world/data/{Delivery,SourceSet,ContentStore}`, `ground/TilePool`,
   `ground/TerrainLoader` and its terrain byte/stitch adapter; preparation consumes
-  their typed outcome. Preserve status/progress contracts of current callers.
+  their typed outcome.
 - Owned `Data::FetchFailure` carries kind, requested address, optional
   served address, source ID/revision and reason (unknown offline cache, provider
   refusal, timeout/cancellation, corrupt payload or capacity refusal). Sources
@@ -101,7 +99,9 @@ Missing/cached-refusal, provider fallback and ancestor identity are implemented.
 Edge/diagonal stitch tests pass; losing raw-failure propagation fails them.
 Confirmed 404 persists with bounded expiry; offline fallback, revision/expiry
 invalidations and evidence-negation tests pass. Native errors use real curl
-fixtures. Corrupt payload/admission and full-lap/pacing proof remain open.
+fixtures. Corrupt centre/edge/diagonal payloads retain raw provenance and refuse
+publication. Pre-landed waits are state-based; both negations fail. Admission
+failures and full-lap/pacing proof remain open.
 
 ## Acceptance
 

@@ -113,6 +113,7 @@ public:
     std::vector<uint8_t> Bytes;
     std::string SourceId;
     std::string SourceRevision;
+    std::string SourceKey;
     Data::Address At = Data::Address::Whole(0);
     std::optional<Data::FetchFailure> Failure;
   };
@@ -163,6 +164,7 @@ private:
     std::vector<uint8_t> Data;
     std::string SourceId;
     std::string SourceRevision;
+    std::string SourceKey;
 
     Data::Address At = Data::Address::Whole(0);
     bool Absent = false;
@@ -232,6 +234,7 @@ private:
                 const Data::Address &at,
                 std::string_view sourceId,
                 std::string_view sourceRevision,
+                std::string_view sourceKey,
                 bool absent);
   [[nodiscard]] Reply FetchInto(const Data::Fetch &request, Landing *out);
   [[nodiscard]] std::optional<size_t> CacheEntryOf(std::string_view key) const;

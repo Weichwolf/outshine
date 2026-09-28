@@ -179,24 +179,37 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
       case TerrainBytes::State::Delivered: return TerrainGrid::Refused(answer.Failure());
     }
   }
+  const auto corrupt = [&]() {
+    return TerrainGrid::Refused(
+        Data::FetchFailure{.Kind = Data::DataKind::Elevation,
+                           .Requested = Data::Address::At(of),
+                           .Served = Data::Address::At(delivered->At),
+                           .SourceId = std::move(delivered->Source.SourceId),
+                           .SourceRevision = std::move(delivered->Source.Revision),
+                           .SourceKey = std::move(delivered->SourceKey),
+                           .Reason = Data::FetchFailureReason::CorruptPayload});
+  };
   const Data::TileId source = delivered->At;
   std::vector<uint8_t> png = std::move(delivered->Png);
 
   const int steps = of.Zoom - source.Zoom;
-  if (steps < 0 || steps >= kZoomMost) { return TerrainGrid::Refused(); }
+  if (steps < 0 || steps >= kZoomMost) { return corrupt(); }
+  if ((of.X >> static_cast<uint32_t>(steps)) != source.X ||
+      (of.Y >> static_cast<uint32_t>(steps)) != source.Y) {
+    return corrupt();
+  }
   const uint32_t subDiv = 1u << static_cast<uint32_t>(steps);
   const uint32_t subX = of.X & (subDiv - 1);
   const uint32_t subY = of.Y & (subDiv - 1);
 
   TerrainGrid grid = TerrainGrid::FromTerrariumPng(png.data(), png.size());
   TerrainField *field = grid.TryFieldMutable();
-  if (field == nullptr) { return grid; }
-  field->AddSource(std::move(delivered->Source));
+  if (field == nullptr || !field->Meshable()) { return corrupt(); }
 
   if (subDiv > 1) {
     const uint32_t cropCols = field->Cols() / subDiv;
     const uint32_t cropRows = field->Rows() / subDiv;
-    if (cropCols < 2 || cropRows < 2) { return TerrainGrid::NotHere(); }
+    if (cropCols < 2 || cropRows < 2) { return corrupt(); }
 
     TerrainField cropped(cropRows, cropCols);
     for (uint32_t r = 0; r < cropRows; r++) {
@@ -204,12 +217,14 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
         cropped.SetM(r, c, field->AtM(subY * cropRows + r, subX * cropCols + c));
       }
     }
-    cropped.AddSources(field->Sources());
+    cropped.AddSource(std::move(delivered->Source));
     grid = TerrainGrid::Holding(std::move(cropped));
     field = grid.TryFieldMutable();
+  } else {
+    field->AddSource(std::move(delivered->Source));
   }
 
-  if (!field->Meshable()) { return TerrainGrid::NotHere(); }
+  if (!field->Meshable()) { return corrupt(); }
   Decoded_->Store(of, *field);
   return grid;
 }

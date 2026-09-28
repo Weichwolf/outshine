@@ -44,11 +44,12 @@ int main() {
         "source interpretation transfers the same allocation");
   CHECK(!fetched.Take(), "source payload is consumed exactly once");
   if (!settled) { return Report(); }
-  auto delivered =
-      Delivery::From("origin", "revision", Address::Whole(7), std::move(settled->Bytes));
+  auto delivered = Delivery::From(
+      "origin", "revision", Address::Whole(7), std::move(settled->Bytes), "source-key");
   const auto answer = delivered.Take();
   CHECK(answer && answer->SourceId == "origin" && answer->SourceRevision == "revision" &&
-            answer->Bytes.data() == storage && answer->Bytes == std::vector<uint8_t>({7, 8, 9}),
+            answer->SourceKey == "source-key" && answer->Bytes.data() == storage &&
+            answer->Bytes == std::vector<uint8_t>({7, 8, 9}),
         "delivery transfers original storage and source identity");
   CHECK(!delivered.Take(), "delivery payload is consumed exactly once");
   auto empty = Wire::Answered(204, {});

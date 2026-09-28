@@ -169,7 +169,8 @@ size_t TilePool::ByteCacheBytes() const {
   size_t bytes = CapacityBytes(Cache_) + CapacityBytes(CacheAt_);
   for (const CacheEntry &e : Cache_) {
     bytes += e.Key.capacity() + e.SourceId.capacity() + e.SourceRevision.capacity() +
-             CapacityBytes(e.Data) + (e.Failure ? e.Failure->HeapBytes() : 0u);
+             e.SourceKey.capacity() + CapacityBytes(e.Data) +
+             (e.Failure ? e.Failure->HeapBytes() : 0u);
   }
   return bytes;
 }
@@ -242,7 +243,9 @@ size_t TilePool::SchedulerBytes() const {
   Done_.Visit([&bytes](uint64_t, const Result &result) {
     bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Build.Sources) +
              CapacityBytes(result.Landed.Bytes) + (result.Field ? result.Field->HeapBytes() : 0u) +
-             (result.Landed.Failure ? result.Landed.Failure->HeapBytes() : 0u);
+             (result.Landed.Failure ? result.Landed.Failure->HeapBytes() : 0u) +
+             result.Landed.SourceId.capacity() + result.Landed.SourceRevision.capacity() +
+             result.Landed.SourceKey.capacity();
     for (const auto &source : result.Build.Sources) {
       bytes += source.SourceId.capacity() + source.Revision.capacity();
     }
@@ -286,6 +289,7 @@ TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
   out->Bytes.assign(e.Data.begin(), e.Data.end());
   out->SourceId = e.SourceId;
   out->SourceRevision = e.SourceRevision;
+  out->SourceKey = e.SourceKey;
   out->At = e.At;
   return Reply::Ready;
 }
@@ -296,6 +300,7 @@ void TilePool::Remember(const std::string &key,
                         const Data::Address &at,
                         std::string_view sourceId,
                         std::string_view sourceRevision,
+                        std::string_view sourceKey,
                         bool absent) {
   const std::scoped_lock lock(CacheMutex_);
   if (const auto found = CacheEntryOf(key)) {
@@ -321,6 +326,7 @@ void TilePool::Remember(const std::string &key,
   e.At = at;
   e.SourceId = sourceId;
   e.SourceRevision = sourceRevision;
+  e.SourceKey = sourceKey;
   e.Absent = absent;
   e.Used = ++CacheClock_;
   if (!absent && len > 0) { e.Data.assign(data, data + len); }
@@ -354,6 +360,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
       out->Bytes = std::move(taken->Bytes);
       out->SourceId = std::move(taken->SourceId);
       out->SourceRevision = std::move(taken->SourceRevision);
+      out->SourceKey = std::move(taken->SourceKey);
       out->At = taken->At;
       Remember(key,
                out->Bytes.data(),
@@ -361,6 +368,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
                taken->At,
                out->SourceId,
                out->SourceRevision,
+               out->SourceKey,
                false);
       reply = Reply::Ready;
       break;
@@ -369,7 +377,7 @@ TilePool::Reply TilePool::FetchInto(const Data::Fetch &request, Landing *out) {
       case Data::Delivery::State::Pending: (void)Wire_.Await(static_cast<double>(kPollMs)); break;
       case Data::Delivery::State::Vacant:
 
-        Remember(key, nullptr, 0, request.Where(), {}, {}, true);
+        Remember(key, nullptr, 0, request.Where(), {}, {}, {}, true);
         reply = Reply::Absent;
         break;
       case Data::Delivery::State::Undeclared:
@@ -465,7 +473,8 @@ private:
                               {.Kind = Data::DataKind::Elevation,
                                .Tile = *at,
                                .SourceId = std::move(landing.SourceId),
-                               .Revision = std::move(landing.SourceRevision)});
+                               .Revision = std::move(landing.SourceRevision)},
+                              std::move(landing.SourceKey));
   }
 
   TilePool &Pool_;
@@ -918,8 +927,9 @@ TilePool::Reply TilePool::MeshAwaited(Data::TileId of, int grid, TileBuild *out)
 bool TilePool::AwaitLanding(double seconds) {
   if (seconds <= 0.0) { return false; }
   std::unique_lock<std::mutex> lock(QueueMutex_);
-  return Landed_.wait_for(lock, std::chrono::duration<double>(seconds)) ==
-         std::cv_status::no_timeout;
+  const bool ready = Landed_.wait_for(
+      lock, std::chrono::duration<double>(seconds), [this] { return Stopping_ || !Done_.Empty(); });
+  return ready && !Done_.Empty();
 }
 
 void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
