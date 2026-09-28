@@ -1,6 +1,7 @@
 #include "StreetField.h"
 #include <cstdint>
 #include <span>
+#include <optional>
 #include <cstddef>
 #include <utility>
 #include <bit>

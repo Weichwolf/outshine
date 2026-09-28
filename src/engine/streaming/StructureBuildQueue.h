@@ -229,6 +229,11 @@ private:
   }
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
+  void PrepareViewRefinement(Ground::BuildingField &prints,
+                             LongitudeLatitude eye,
+                             HeightRequirement requirement,
+                             BuildPurpose purpose,
+                             const std::function<bool(uint32_t)> &cellReady);
   void PostSlice(QueuedBuild &build);
   [[nodiscard]] bool WholeTileSourceCurrent(const Ground::GroundStack &stack,
                                             const Ground::BuildingField &prints,

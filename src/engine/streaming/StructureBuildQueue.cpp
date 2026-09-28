@@ -680,6 +680,18 @@ bool StructureBuildQueue::PostsCell(Ground::GroundStack &stack,
   return true;
 }
 
+void StructureBuildQueue::PrepareViewRefinement(Ground::BuildingField &prints,
+                                                LongitudeLatitude eye,
+                                                HeightRequirement requirement,
+                                                BuildPurpose purpose,
+                                                const std::function<bool(uint32_t)> &cellReady) {
+  if (requirement == HeightRequirement::FineOnly && purpose == BuildPurpose::ViewDetail &&
+      !cellReady && prints.RefinementComplete() && Queue_.empty() &&
+      !AcceptedViewCurrent(prints, eye, cellReady)) {
+    prints.BeginRefinement();
+  }
+}
+
 size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                   Ground::BuildingField &prints,
                                   LongitudeLatitude eye,
@@ -697,11 +709,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     ++Deferred_;
     return 0;
   }
-  if (requirement == HeightRequirement::FineOnly && purpose == BuildPurpose::ViewDetail &&
-      !cellReady && prints.RefinementComplete() && Queue_.empty() &&
-      !AcceptedViewCurrent(prints, eye, cellReady)) {
-    prints.BeginRefinement();
-  }
+  PrepareViewRefinement(prints, eye, requirement, purpose, cellReady);
   size_t posted = 0;
   const size_t inFlightMost =
       std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow);
