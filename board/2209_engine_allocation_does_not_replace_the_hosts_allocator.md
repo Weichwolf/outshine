@@ -1,5 +1,7 @@
 Type: defect
 State: active
+Architecture: planned
+Priority: P0
 Parent: 2194
 Area: base, include, build
 Tags: architecture, audit, memory

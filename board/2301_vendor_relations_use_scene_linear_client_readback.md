@@ -2,7 +2,7 @@ Type: defect
 State: done
 Architecture: ready
 Parent: 2218
-Depends: 2300
+Depends:
 Priority: P0
 Area: test, client, render
 Tags: khronos, oracle, lighting

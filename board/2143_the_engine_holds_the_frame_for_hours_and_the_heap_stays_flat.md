@@ -1,5 +1,7 @@
 Type: proof
 State: open
+Architecture: planned
+Priority: P1
 Area: engine, test
 Tags: performance, owner, determinism
 Depends: 2092, 2132

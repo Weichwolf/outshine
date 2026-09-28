@@ -2,7 +2,7 @@ Type: defect
 State: open
 Architecture: investigation
 Parent: 2171
-Depends: 2301
+Depends:
 Priority: P1
 Area: render, materials
 Tags: specular, antialiasing, normal-map

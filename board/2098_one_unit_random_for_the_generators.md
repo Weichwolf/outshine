@@ -1,5 +1,7 @@
 Type: chore
 State: open
+Architecture: planned
+Priority: P2
 Area: generators, world
 Tags: measured, determinism
 

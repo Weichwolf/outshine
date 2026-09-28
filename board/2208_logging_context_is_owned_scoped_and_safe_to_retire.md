@@ -1,5 +1,7 @@
 Type: defect
 State: active
+Architecture: planned
+Priority: P2
 Parent: 2108
 Area: base, engine, include
 Tags: architecture, audit, lifecycle

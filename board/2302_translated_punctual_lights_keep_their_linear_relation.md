@@ -2,7 +2,7 @@ Type: defect
 State: open
 Architecture: ready
 Parent: 2128
-Depends: 2301
+Depends:
 Priority: P2
 Area: render, lighting
 Tags: khronos, precision, point-light

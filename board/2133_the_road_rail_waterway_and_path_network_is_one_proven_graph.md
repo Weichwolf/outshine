@@ -1,5 +1,7 @@
 Type: feature
 State: active
+Architecture: planned
+Priority: P1
 Area: world, navigation
 Tags: webcam, measured
 Parent: 2188
@@ -55,8 +57,7 @@ kein Ableiten des logischen Netzes aus einem sichtbarkeitsabhängigen Mesh.
 
 ## Aktueller Router und verbleibende Verträge
 
-2173 blockiert Providerintegration, nicht lokale Graphkorrekturen. Der
-vektorkachelbasierte Corridor-Builder in 2262 ist kein Ersatz für diesen
+2173 blockiert Providerintegration, nicht lokale Graphkorrekturen. Der vektorkachelbasierte Corridor-Builder in 2262 ist kein Ersatz für diesen
 OSM-ID-Graphen; sein XY-Snap darf keine logischen Abzweige bestimmen. Oneway/Splicing
 bewahren gerichtete Kanten; Index dedupliziert physische Segmente, lose Enden richten
 sich nach physischer Nachbarschaft. Einbahn-/Abzweigmatrix und Gegenproben bestehen.
@@ -89,8 +90,7 @@ https://www.asam.net/fileadmin/Standards/OpenDRIVE/ASAM_OpenDRIVE_BS_V1-7-0.html
 
 ReconstructRoute prüft Stationen vor Veröffentlichung; RouteSearch kapselt Suchzustand
 und unterscheidet große endliche Kosten von Überlauf. Analytische Routingkontrollen
-bestehen; globales Laufzeitbudget und Alternativpfade bei Überlauf bleiben offen.
-Kein produktiver Router-Aufruf im Client-Renderpfad.
+bestehen; globales Laufzeitbudget und Alternativpfade bei Überlauf bleiben offen. Kein produktiver Router-Aufruf im Client-Renderpfad.
 
 Grounds erneuert World.Network bisher nur bei geänderter Wegeanzahl. Auch bei
 gleicher Anzahl neu bauen, wenn publizierte gegenüber angeforderter Region,

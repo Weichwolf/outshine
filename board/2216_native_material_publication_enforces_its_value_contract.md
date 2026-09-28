@@ -1,5 +1,6 @@
 Type: defect
 State: active
+Priority: P1
 Parent: 2150
 Area: scene, base, import, render
 Tags: validation, materials, ownership

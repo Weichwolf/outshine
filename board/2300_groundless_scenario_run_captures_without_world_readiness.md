@@ -2,7 +2,7 @@ Type: defect
 State: done
 Architecture: ready
 Parent: 2195
-Depends: 2268
+Depends:
 Priority: P0
 Area: client, capture, khronos
 Tags: groundless, readiness

@@ -1,5 +1,7 @@
 Type: feature
 State: open
+Architecture: planned
+Priority: P1
 Area: world, render, generators, navigation
 Tags: webcam, measured
 Depends: 2188, 2092, 2101, 2111, 2128, 2129, 2137, 2138, 2140, 2144, 2145, 2152, 2155, 2166, 2167, 2168, 2170, 2171, 2172, 2173, 2174, 2175, 2176, 2196, 2197, 2198, 2199, 2200, 2201, 2202, 2203, 2204, 2213
@@ -50,8 +52,7 @@ Nacht und bewegte NPCs sind durch Außen-Standbilder nicht abgedeckt.
 
 P0 priorisiert aktuelle rote Gates und belegte Lebensdauer-/Publikationsfehler.
 clang-tidy bleibt auf **null**; offene Gesamtaudits sperren unabhängige Bildarbeit nicht.
-Jetzt 2166 (Terrainvorhang lokalisieren und korrigieren),
-2248 → 2247 (reproduzierbare Strukturprodukte) bearbeiten. Materialien und Licht
+Jetzt 2166 (Terrainvorhang lokalisieren und korrigieren), 2248 → 2247 (reproduzierbare Strukturprodukte) bearbeiten. Materialien und Licht
 auf einfachen Szenen parallel zur gebauten Welt entwickeln. Places ohne Vegetation.
 
 | Stufe | Arbeiten | Abnahme vor nächstem Ausbau |
@@ -67,8 +68,7 @@ auf einfachen Szenen parallel zur gebauten Welt entwickeln. Places ohne Vegetati
 `Parent` bezeichnet Zugehörigkeit, `Depends` fachliche Voraussetzungen der vollständigen
 Abnahme. Die Tabelle priorisiert Arbeit; keine künstlichen Depends-Ketten nur für Reihenfolge.
 Insbesondere Materialgrundlagen benötigen keine fertige Stadt, Himmelskörper keine Wolken.
-2171s komplette Generatorabnahme folgt erst nach P2; deren Materialkern beginnt in P1.
-2169 ist die Gesamtabnahme; Kinder hängen nicht auf 2169 zurück.
+2171s komplette Generatorabnahme folgt erst nach P2; deren Materialkern beginnt in P1. 2169 ist die Gesamtabnahme; Kinder hängen nicht auf 2169 zurück.
 
 2092/2143 messen Bewegung, Framezeiten und Speicher bei jeder Stufe. API-/Datenverträge,
 Streaming, LOD und Feature-Schalter gehören zur Grundlage, nicht in eine späte Optimierung.

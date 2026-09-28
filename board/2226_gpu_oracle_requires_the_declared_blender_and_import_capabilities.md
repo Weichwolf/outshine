@@ -1,5 +1,7 @@
 Type: bug
 State: active
+Architecture: planned
+Priority: P1
 Parent: 2094
 Area: test, khronos, oracle
 Tags: GPU, reproducibility, Blender

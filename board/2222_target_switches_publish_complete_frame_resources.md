@@ -1,5 +1,7 @@
 Type: defect
 State: active
+Architecture: planned
+Priority: P0
 Parent: 2191
 Depends:
 Area: render, engine, test

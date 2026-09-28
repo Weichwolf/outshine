@@ -1,5 +1,7 @@
 Type: defect
 State: active
+Architecture: planned
+Priority: P0
 Parent: 2191
 Area: engine, base, io
 Tags: architecture, audit, persistence
@@ -61,8 +63,7 @@ Tests prüfen Move-Konstruktion/-Zuweisung, Bytes/Metadaten, leere Antworten und
 - [ ] make lint einschließlich clang-tidy grün; neue fachliche Schritte mit Regressionen.
 
 ## Query-Zustandsmaschine
-Ready/InFlight/Backoff/Finished statt indirekter Ticket-/Zeit-Flags.
-Jedes terminale Ergebnis und Abandon schließen die Query; danach Consumed ohne Quellen-
+Ready/InFlight/Backoff/Finished statt indirekter Ticket-/Zeit-Flags. Jedes terminale Ergebnis und Abandon schließen die Query; danach Consumed ohne Quellen-
 oder Ledger-Zugriff. Move-Konstruktion überträgt Ticket und konsumiert die Quelle;
 Move-Zuweisung verbieten, damit ein aktives Ticket nicht ohne Abbruch überschrieben wird.
 Query an erzeugendes SourceSet binden; fremdes Collect ablehnen, Query unverändert.
@@ -90,8 +91,7 @@ Seek/Read/Close prüfen, Handles per RAII halten; ungültige Eingaben als Miss/F
 Keep nutzt WriteFileAtomically statt eigener Tempdatei-Implementierung; Ablehnung erhält
 vorige Bytes. Gesamtbudget während laufender Writes und Parserbudgets bleiben offen.
 Abnahme: temporäre Verzeichnisse, ungültige Schlüssel, fremde Dateien, Symlinks,
-Bytegrenzen, älteste eigene Datei und gescheiterte Veröffentlichung geprüft.
-Altstand verletzt die Negativkontrolle; vier IO-/Query-Regressionen bestehen.
+Bytegrenzen, älteste eigene Datei und gescheiterte Veröffentlichung geprüft. Altstand verletzt die Negativkontrolle; vier IO-/Query-Regressionen bestehen.
 Symlink-Prüfung ist keine Absicherung gegen gleichzeitig manipulierte Verzeichnisse.
 
 ## XML-Parserphasen und Geschwisteraufbau

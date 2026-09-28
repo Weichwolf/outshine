@@ -1,5 +1,7 @@
 Type: defect
 State: active
+Architecture: planned
+Priority: P2
 Parent: 2105
 Depends:
 Area: engine, generators, world

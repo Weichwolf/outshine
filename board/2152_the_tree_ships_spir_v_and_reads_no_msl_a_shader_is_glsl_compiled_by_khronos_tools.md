@@ -1,5 +1,7 @@
 Type: debt
 State: active
+Architecture: planned
+Priority: P1
 Parent: 2169
 Area: render, build
 Tags: webcam, measured

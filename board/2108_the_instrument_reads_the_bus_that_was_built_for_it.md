@@ -1,6 +1,8 @@
 Type: debt
 Depends: 2208
 State: open
+Architecture: planned
+Priority: P2
 Area: base, engine, world, client
 Tags: architecture, owner
 Supersedes: 2113

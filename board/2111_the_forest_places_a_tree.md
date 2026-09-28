@@ -1,5 +1,7 @@
 Type: feature
 State: open
+Architecture: planned
+Priority: P1
 Area: generators, world, render
 Parent: 2169
 Depends: 2123, 2124, 2132, 2171, 2184, 2185

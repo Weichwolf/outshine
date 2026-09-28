@@ -1,7 +1,9 @@
 Type: bug
 Parent: 2188
-Depends: 2211
+Depends:
 State: active
+Architecture: planned
+Priority: P1
 Area: include, scenario
 Tags: measured, gate, door
 Supersedes: 2107
@@ -91,14 +93,12 @@ bei geänderter Generierungsregion gleich. Fehlende Weiterleitung als Negativkon
 ## Dokument als native Deklaration
 Document::subject entfernt: glTF-Auswahl gehört zum internen Assetpfad, nicht zur
 öffentlichen Datenstruktur. Owned Container, Lebensdauer und Deklarationsgrenzen
-dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen.
-Body-Deklaration dokumentiert; ungenutzte Such-/Geometriehelfer entfernt.
+dokumentieren; interne First-glTF-Auswahl bleibt bis zur Assetmigration offen. Body-Deklaration dokumentiert; ungenutzte Such-/Geometriehelfer entfernt.
 Kind-/Instanznamen vor Aufbau auf leer/doppelt geprüft; getrennte Namensräume.
 API-Verträge dokumentiert; Altcode rot, drei Assembly-Regressionen mit Fehlererhalt grün.
 Body-/Kontakt-/Antriebsverträge geprüft; Anbindung, Kraftüberläufe, LoadFalloff und
 CircleM-Radius/Durchmesser bleiben offen. Player- und UI/Capacity-Writer erhalten
-Werte mit geprüften Rundläufen und Negativkontrollen; Nachweise in Git.
-Player-Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
+Werte mit geprüften Rundläufen und Negativkontrollen; Nachweise in Git. Player-Starts/Augenhöhe/Geh-/Laufgeschwindigkeit bleiben ohne Runtime-Anbindung.
 Region-/Placement-Export erhält geprüfte Metadaten, lokale/geografische Pose und
 Skalierungsachsen; unabhängige Rundläufe und Negativkontrollen grün. Details in Git.
 Geometrie-/Referenzvalidierung und Runtime-Anbindung bleiben offen.

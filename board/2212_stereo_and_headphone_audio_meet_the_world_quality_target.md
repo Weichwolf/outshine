@@ -1,5 +1,7 @@
 Type: feature
 State: active
+Architecture: planned
+Priority: P2
 Area: audio, engine, client, test
 Parent: 2169
 Depends: 2191

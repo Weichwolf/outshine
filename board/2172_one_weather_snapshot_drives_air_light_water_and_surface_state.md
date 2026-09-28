@@ -1,5 +1,7 @@
 Type: feature
 State: active
+Architecture: planned
+Priority: P1
 Parent: 2169
 Area: world, scenario, render
 Tags: webcam, measured

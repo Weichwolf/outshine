@@ -1,5 +1,7 @@
 Type: feature
 State: active
+Architecture: planned
+Priority: P1
 Parent: 2169
 Area: generators, world, physics
 Tags: webcam, measured
@@ -111,8 +113,7 @@ unzureichende Material-/Lichtqualität. p50/p95/p99 5.26/5.68/6.06 ms, 0/120 üb
 16.67 ms; Warmaufnahme, keine vollständige Streaming-/Bauwerksabnahme.
 Endliche Eingaben, Anschlussgradienten, Kontakt und komplexe Bauwerke bleiben offen.
 
-Höhenraten erfüllen nun bei s = u * Lfit/Lquelle die Kettenregel
-dh/ds = dh/du * Lquelle/Lfit. Steigender/fallender linearer Quellverlauf prüft
+Höhenraten erfüllen nun bei s = u * Lfit/Lquelle die Kettenregel dh/ds = dh/du * Lquelle/Lfit. Steigender/fallender linearer Quellverlauf prüft
 die Eintrittsnormalen analytisch; Altcode scheitert achtmal. Alle 13 ProfiledRoadMesher-/
 Kurventests grün. Fehlerzähler sind nichtnullable Referenzen. ProfiledRoadMesher ohne Tidy-
 Befunde; insgesamt 61, Writer rot. Wien geöffnet und pixelgleich zur Vorversion;

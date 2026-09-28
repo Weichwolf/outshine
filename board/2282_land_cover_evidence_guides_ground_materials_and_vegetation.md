@@ -3,7 +3,7 @@ State: open
 Architecture: ready
 Priority: P2
 Parent: 2169
-Depends: 2211
+Depends:
 Area: data, world, generators, render
 Tags: land-cover, imagery, materials, vegetation, streaming
 

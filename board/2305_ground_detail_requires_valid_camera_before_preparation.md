@@ -2,7 +2,7 @@ Type: defect
 State: done
 Architecture: ready
 Parent: 2191
-Depends: 2268
+Depends:
 Priority: P0
 Area: engine, ground, render
 Tags: camera, ground, headless, assertion

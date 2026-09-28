@@ -1,5 +1,7 @@
 Type: feature
 State: active
+Architecture: planned
+Priority: P2
 Area: scenario, engine
 Tags: architecture, owner, ai-first
 Depends: 2131, 2136, 2242

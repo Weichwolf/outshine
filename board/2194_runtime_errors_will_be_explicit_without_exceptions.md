@@ -1,5 +1,7 @@
 Type: debt
 State: active
+Architecture: planned
+Priority: P1
 Area: build, include, engine, generators, audio
 Parent: 2188
 Depends: 2209

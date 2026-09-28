@@ -1,5 +1,7 @@
 Type: chore
 State: active
+Architecture: planned
+Priority: P1
 Area: include, engine, world, import
 Tags: architecture, ownership, api
 Parent: 2188

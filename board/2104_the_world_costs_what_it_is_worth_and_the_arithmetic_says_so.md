@@ -1,5 +1,7 @@
 Type: debt
 State: active
+Architecture: planned
+Priority: P1
 Parent: 2188
 Area: world, generators, engine, base
 Tags: measured, memory, performance, owner

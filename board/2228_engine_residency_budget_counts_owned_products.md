@@ -1,5 +1,7 @@
 Type: defect
 State: active
+Architecture: planned
+Priority: P0
 Parent: 2209
 Depends: 2191, 2222, 2223, 2224, 2225
 Area: engine, world, render, audio

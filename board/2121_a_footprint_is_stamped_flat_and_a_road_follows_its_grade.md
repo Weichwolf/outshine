@@ -1,5 +1,7 @@
 Type: debt
 State: active
+Architecture: planned
+Priority: P0
 Area: world, render
 Tags: webcam, measured
 Parent: 2169
@@ -47,8 +49,7 @@ Vertex-/Indexreihenfolge für gültige Eingaben. Unabhängige Gerade mit Restint
 NaN/Inf, Quotientenüberlauf und ungültige Breiten prüfen; Negativkontrolle muss scheitern.
 
 Carriageway-Normalen aus Ableitungen derselben parametrischen Fläche bestimmen:
-S(s,t) = (C_E+t*L_E, H-t*tan(bank), C_N+t*L_N). Die Längsableitung enthält
-(1-curvature*t) und -t*sec²(bank)*bankRate. Analytische Geraden/Kreisbögen mit
+S(s,t) = (C_E+t*L_E, H-t*tan(bank), C_N+t*L_N). Die Längsableitung enthält (1-curvature*t) und -t*sec²(bank)*bankRate. Analytische Geraden/Kreisbögen mit
 Steigung und Bankwechsel unabhängig differenzieren; Deck als natives GLB ausgeben
 und über outshine-client vor/nach Korrektur visuell prüfen. Kein Driving-Gesamtnachweis.
 
@@ -97,8 +98,7 @@ Offen: robuste Profilintervallarithmetik und Fehlergrenze der festen Spiralquadr
 
 kTangentTolerance wird derzeit für Krümmung (1/m) und Profilstationen (m) benutzt,
 ist aber aus einem Winkel abgeleitet. Dimensionsrichtige Grenzwerte und den
-gewünschten Kontinuitätsvertrag separat festlegen; keine unbegründete C2-Pflicht
-als allgemeine Format-/Geometriebedingung übernehmen.
+gewünschten Kontinuitätsvertrag separat festlegen; keine unbegründete C2-Pflicht als allgemeine Format-/Geometriebedingung übernehmen.
 
 Nearest prüft endliche Eingaben/Suchgrenzen und berechnet Distanz mit hypot.
 Grobsuche und lokale Verfeinerung erhalten ausgewertete Randminima; Auswertungsfehler

@@ -1,5 +1,7 @@
 Type: debt
 State: active
+Architecture: planned
+Priority: P1
 Area: include, generators, engine
 Tags: architecture, ownership, generation
 Parent: 2188
@@ -96,8 +98,7 @@ Nachweise: Breiten 12/24/240 m, Regionsunabhängigkeit und Fehlererhalt bestehen
 Wandseiten statt Dachhüllbox messen (0,42 m Überstand bzw. 0,16 m Gesims). Typisierter
 Decoder prüft Position/Index exakt, UV/Normalen nach 16-Bit-Quantisierungsgrenze.
 Beide Gegenproben scheitern; lint 186/330, 32 Claims grün. Isolierter GLB-Clientrender
-build/shots/reference/building-width/structure.png belegte falsche Ausrichtung
-und Flächendiagonalen; Korrektur und neue Abnahme unten.
+build/shots/reference/building-width/structure.png belegte falsche Ausrichtung und Flächendiagonalen; Korrektur und neue Abnahme unten.
 
 ## Nativer Gebäuderaum
 

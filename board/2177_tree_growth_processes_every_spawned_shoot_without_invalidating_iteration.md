@@ -1,5 +1,7 @@
 Type: bug
 State: active
+Architecture: planned
+Priority: P1
 Area: generators
 Tags: measured, flora
 Depends:

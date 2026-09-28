@@ -1,5 +1,7 @@
 Type: bug
 State: active
+Architecture: planned
+Priority: P0
 Area: render, host
 Tags: architecture, gpu, lifecycle
 Parent: 2188
@@ -39,8 +41,7 @@ Die Validierung fand im Gelände-Vertexlayout instance_step_rate=1; SDL reservie
 dieses Feld und verlangt 0. Instancing bleibt über input_rate=INSTANCE aktiv; der
 statische Layoutaufbau sichert die reservierten Felder per static_assert. Referenz:
 https://wiki.libsdl.org/SDL3/SDL_GPUVertexBufferDescription
-Clients und fachliche Tests erhalten keine SDL_GPU-Ownership. Die alte Claim-Ausnahme
-für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
+Clients und fachliche Tests erhalten keine SDL_GPU-Ownership. Die alte Claim-Ausnahme für die nicht mehr vorhandene outshine/shader-Suite ist ersetzt.
 - [x] Reale Offscreen-Acquire-/Submit-Abbrüche liefern Fehler und publizieren weder
       ungeschriebene LUTs noch weitergeschaltete History; der nächste Frame erholt sich.
 - [x] Fusionierter Temporal-Pass liest seinen deklarierten Eingang statt seines Renderziels.
@@ -116,5 +117,4 @@ Private Compute-/Grafik-Encoder trennen Bindings und Attachments; der Dispatcher
 entscheidet PassKind. Reihenfolge, Touched-Zustand und Submission-Journal bleiben
 unverändert. SDL_gpu.h dokumentiert Begin-Handles ohne regulären Fehlerausgang;
 keine neue Null-Fehlersemantik. Sechs GPU-Regressionen normal/validiert bestehen,
-einschließlich Frame-/Schatten-Readback und injizierter Submission-Abbrüche.
-Clang-tidy 98 → 97; Ressourcen-Vorbedingungen bleiben separat offen.
+einschließlich Frame-/Schatten-Readback und injizierter Submission-Abbrüche. Clang-tidy 98 → 97; Ressourcen-Vorbedingungen bleiben separat offen.

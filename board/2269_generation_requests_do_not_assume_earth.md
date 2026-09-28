@@ -2,7 +2,7 @@ Type: design
 State: proposed
 Architecture: ready
 Parent: 2188
-Depends: 2268
+Depends:
 Priority: P1
 Area: include, scenario, generators
 Tags: api, groundless, coordinates

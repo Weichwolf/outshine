@@ -1,5 +1,7 @@
 Type: feature
 State: active
+Architecture: planned
+Priority: P1
 Area: scenario, engine, generators
 Tags: isolation, lifecycle
 Parent: 2169

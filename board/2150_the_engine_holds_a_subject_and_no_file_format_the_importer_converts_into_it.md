@@ -1,5 +1,7 @@
 Type: debt
 State: active
+Architecture: planned
+Priority: P1
 Area: engine, import, scene, render
 Tags: architecture, ownership, audit
 Parent: 2188
@@ -33,8 +35,7 @@ Vendor-Parameter und grüne Pfeilmarker. Keine Formatkonvention in der öffentli
 Ein kanonisches engine-eigenes Geometriemodell. Importer und Generatoren liefern
 identische native Produkte. glTF ist ein beliebiges unterstütztes Importformat;
 Document, Accessors, Dateinodes und Extension-Dispatch enden am Importadapter.
-Bestehende Geometry-, Material-, Transform- und GPU-Packing-Fähigkeiten nutzen,
-aber redundante CPU-Modelle und Rückkonvertierungen vollständig ablösen.
+Bestehende Geometry-, Material-, Transform- und GPU-Packing-Fähigkeiten nutzen, aber redundante CPU-Modelle und Rückkonvertierungen vollständig ablösen.
 ## Datenverträge
 - Mesh-Assets besitzen lokale Vertex-/Indexdaten, Submeshes, Bounds und Material-
   referenzen. Attribute, Topologie, Indexbreite und Validierung explizit definieren.
@@ -73,8 +74,7 @@ Render-SurfaceTable-Rückkonvertierung. Fehler verändern weder Bilder noch Inde
 Render::PrepareShape/AppendGeometry besitzen gepackte Attribute und Namen und
 übernehmen statische Part-Platzierung in Modellkoordinaten. CPU-Geometry bleibt
 lokal, Welt-/Instanzplatzierung bleibt Runtime-Aufgabe. Gemischte Views erst nach
-allen Appends binden. NativePlacementPreservesTheSurface prüft Bounds, Licht,
-Normalen, Spiegelung, Rebase und Quell-Clear unabhängig vom Importpfad.
+allen Appends binden. NativePlacementPreservesTheSurface prüft Bounds, Licht, Normalen, Spiegelung, Rebase und Quell-Clear unabhängig vom Importpfad.
 Fehlende Normalen werden als getrennte Flächennormalen aufbereitet; 2179 bleibt offen.
 
 AudioOcclusion.cpp leitet die Audio-BVH aus nativen Parts mit Platzierung ab;

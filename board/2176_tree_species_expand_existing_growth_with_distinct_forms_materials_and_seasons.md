@@ -1,5 +1,7 @@
 Type: feature
 State: open
+Architecture: planned
+Priority: P2
 Parent: 2169
 Area: generators, assets
 Tags: webcam, measured
@@ -87,8 +89,7 @@ Pinnate multipliziert mit 2*Leaflets+1 und addiert 4/6 für die Achse. Palmate h
 sechs Ringe, Needle höchstens 180 Nadeln. Nutzdaten maximal 256 KiB Vertexwerte
 (8192*8*4) plus 128 KiB Indizes (32768*4); Containerkapazität, Scratch, alter Stand
 und Instanzexpansion kommen hinzu. Kein gemessenes Frame-/Gesamtspeicherbudget.
-Shape-Validierung und expected-Publikation sind implementiert; erzeugte Attribute
-müssen endlich, Normalen einheitlich sein. OOM-Vertrag bleibt in 2194/2209.
+Shape-Validierung und expected-Publikation sind implementiert; erzeugte Attribute müssen endlich, Normalen einheitlich sein. OOM-Vertrag bleibt in 2194/2209.
 
 ## Numerische Artdeklaration vor Wachstum
 Vor Parse-Publikation werden alle gelesenen Zahlen typ- und darstellbarkeitsgeprüft; kein
@@ -116,5 +117,4 @@ Frames und Wiederverwendung. Maximaler |dot| danach 1,23e-7 bei 459.253 Nodes.
 Explizite Work-Queue: Stamm mit vier plus drei Triebe mit je fünf Nodes = 19 verarbeitet.
 GLB-Diagnose über öffentlichen Export und outshine-client: Tannenäste vor/nachher
 pixelgleich, PNGs geöffnet. Silhouette mit langem kahlem Leittrieb und kurzen tiefen
-Ästen bleibt morphologisch unbefriedigend. Kein Rinden-/Licht-/Artenqualitätsnachweis.
-Queue-/Gesamtbudget und atomare Fehlerpublikation bleiben offen.
+Ästen bleibt morphologisch unbefriedigend. Kein Rinden-/Licht-/Artenqualitätsnachweis. Queue-/Gesamtbudget und atomare Fehlerpublikation bleiben offen.

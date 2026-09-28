@@ -1,5 +1,7 @@
 Type: feature
 State: open
+Architecture: planned
+Priority: P2
 Parent: 2169
 Area: world, render, client
 Tags: webcam, acceptance

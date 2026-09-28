@@ -1,5 +1,7 @@
 Type: defect
 State: active
+Architecture: planned
+Priority: P1
 Parent: 2188
 Area: import, world
 Tags: correctness, memory, format, bounded

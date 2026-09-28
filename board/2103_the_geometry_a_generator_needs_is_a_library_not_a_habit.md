@@ -1,5 +1,7 @@
 Type: debt
 State: active
+Architecture: planned
+Priority: P2
 Area: base, generators
 Tags: architecture, owner
 Supersedes: 2116

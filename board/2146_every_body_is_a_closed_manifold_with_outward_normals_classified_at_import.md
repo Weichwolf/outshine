@@ -1,5 +1,7 @@
 Type: feature
 State: open
+Architecture: planned
+Priority: P2
 Area: import, engine, scenario
 Tags: architecture, owner, determinism
 Depends:

@@ -1,5 +1,7 @@
 Type: bug
 State: active
+Architecture: planned
+Priority: P0
 Area: render
 Tags: owner, audit
 

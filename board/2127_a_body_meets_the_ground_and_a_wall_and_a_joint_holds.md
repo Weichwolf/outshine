@@ -1,5 +1,7 @@
 Type: feature
 State: open
+Architecture: planned
+Priority: P1
 Area: actor, engine, world
 Tags: architecture, physics, owner
 Supersedes: 2118

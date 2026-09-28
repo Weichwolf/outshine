@@ -1,5 +1,7 @@
 Type: debt
 State: active
+Architecture: planned
+Priority: P1
 Parent: 2169
 Area: engine, generators
 Tags: webcam, measured

@@ -1,5 +1,7 @@
 Type: debt
 State: open
+Architecture: planned
+Priority: P1
 Area: engine, render, audio
 Tags: architecture, performance, determinism
 Parent: 2188

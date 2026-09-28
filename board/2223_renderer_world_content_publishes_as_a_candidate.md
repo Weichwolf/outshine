@@ -1,5 +1,7 @@
 Type: refactor
 State: active
+Architecture: planned
+Priority: P0
 Parent: 2191
 Depends: 2222
 Area: render, engine, test
@@ -48,16 +50,14 @@ Split `SceneRenderer` into target-owned `FrameResources` and a move-only interna
 `WorldContent`. `WorldContent` owns subject and glass residency, material tables, overlay atlas
 and quads, persistent light/sky/camera declarations, picture region and every binding whose
 lifetime follows a world rather than a target. It has no borrowed pointer into the published
-content. Target-dependent bindings stay in `FrameResources` and bind the selected content only
-after publication.
+content. Target-dependent bindings stay in `FrameResources` and bind the selected content only after publication.
 
 `RuntimeScene::Open` obtains an empty content candidate, builds the whole `RuntimeScene` through that candidate,
 then publishes it with a nonthrowing move after all uploads and UI composition succeed. The former
 content remains drawable until that move. Candidate destruction releases only its own GPU owners.
 The existing move-only `FrameResources` transaction from WI 2222 is the local reference: local
 RAII ownership, complete candidate construction, `static_assert`ed nonthrowing transfer, then one
-publication point. Snapshot/restore and clearing the active renderer during candidate construction
-are prohibited.
+publication point. Snapshot/restore and clearing the active renderer during candidate construction are prohibited.
 
 `Candidate_` darf daher kein vollständiger `SceneState` sein. Reiner Weltinhaltstausch baut nur
 `WorldContent` und seine Deklarationen. Bei unverändertem `PlanSpec` verwendet er den bestehenden

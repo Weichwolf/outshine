@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2260
-Depends: 2292
+Depends:
 Priority: P0
 Area: engine, render, streaming, road
 Tags: determinism, publication, shadow, hockenheim

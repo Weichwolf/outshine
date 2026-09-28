@@ -1,5 +1,6 @@
 Type: bug
 State: active
+Priority: P0
 Parent: 2191
 Depends:
 Architecture: ready
@@ -17,8 +18,7 @@ prüft das nicht. Invalidation muss die nächste abgeleitete Generation markiere
 der bisherige publizierte Owner bleibt bis zum gemeinsamen Commit nutzbar.
 Regression: publiziere A, liefere neue OSM-Kacheln, lehne B spät ab; prüfe alte
 Footprints/Netze samt Abfragen sowie Bild/Audio und danach gültigen B-Retry.
-Der ungenutzte `Cost.StreamedTiles`-Zähler mit unsigned Reset-Unterlauf ist entfernt;
-das repariert den ausstehenden Publikationsvertrag nicht.
+Der ungenutzte `Cost.StreamedTiles`-Zähler mit unsigned Reset-Unterlauf ist entfernt; das repariert den ausstehenden Publikationsvertrag nicht.
 
 `Core::RuntimeScene` besitzt native Weltinputs; `Render::WorldContent` besitzt daraus erzeugte
 GPU-Produkte. `Surrounds` besitzt Streamingzustand, logisches Netz und Ressourcenhalter.

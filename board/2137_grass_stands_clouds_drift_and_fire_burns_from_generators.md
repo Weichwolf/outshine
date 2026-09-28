@@ -1,5 +1,7 @@
 Type: feature
 State: open
+Architecture: planned
+Priority: P1
 Parent: 2169
 Area: generators, render, engine
 Tags: architecture, vegetation, effects

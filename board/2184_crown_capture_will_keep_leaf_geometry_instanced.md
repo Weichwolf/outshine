@@ -1,5 +1,7 @@
 Type: defect
 State: active
+Architecture: planned
+Priority: P1
 Area: generators, render
 Parent: 2111
 Depends:

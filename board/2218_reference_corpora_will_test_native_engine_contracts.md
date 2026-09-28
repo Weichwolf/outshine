@@ -1,5 +1,7 @@
 Type: debt
 State: open
+Architecture: planned
+Priority: P1
 Area: test, import, simulation
 Tags: reference, corpus, audit
 Parent: 2094
@@ -83,14 +85,12 @@ A/B/A nicht. Temporäre Änderung entfernt; Terrain-Invalidierung weiter in 2105
 ## Air-Aufnahmephase und implizite Draws
 Air bleibt nach Gebäuderevisionsfix rot. Zwei explizite render-Aufrufe statt einem
 lassen alle vier Assertions bestehen. Achtung: readPixels rendert intern erneut
-(Framing.cpp), ebenso saveScreenshot; damit wurden tatsächlich drei statt zwei
-Frames erzeugt. Die bisherigen Framebezeichnungen waren unvollständig.
+(Framing.cpp), ebenso saveScreenshot; damit wurden tatsächlich drei statt zwei Frames erzeugt. Die bisherigen Framebezeichnungen waren unvollständig.
 Belichtung, GPU-Irradianz, Sonnentransmission, Bodenlicht und Schatten-Extrema sind
 in vier inspizierten Aufnahmen gleich. Screenshot-Versuch liefert gleiche PNGs,
 fügt aber selbst Frames hinzu und isoliert daher die betroffenen Ausgaben nicht.
 Temporäre Instrumentierung entfernt. Folgemessung muss die bereits ausgelesenen
-RGBA-Daten speichern, ohne Screenshot-Aufruf oder weitere Draws.
-Readback-API auditieren: explizites Rendern und Kopieren eines fertigen Frames
+RGBA-Daten speichern, ohne Screenshot-Aufruf oder weitere Draws. Readback-API auditieren: explizites Rendern und Kopieren eines fertigen Frames
 trennen; dokumentierte bisherige Implizit-Draw-Aufrufer vollständig migrieren (2195).
 Keine pauschale Erhöhung von settleFrames als Reparatur. Der Frame muss seinen
 Vertrag erfüllen oder eine spezifizierte temporale Vorgeschichte benötigen.

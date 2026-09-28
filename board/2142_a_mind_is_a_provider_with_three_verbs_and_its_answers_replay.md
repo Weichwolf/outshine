@@ -1,5 +1,7 @@
 Type: feature
 State: open
+Architecture: planned
+Priority: P3
 Area: engine, actor, scenario
 Tags: architecture, owner, ai-first, determinism
 Depends: 2136, 2130

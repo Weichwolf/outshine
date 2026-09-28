@@ -1,5 +1,7 @@
 Type: bug
 State: active
+Architecture: planned
+Priority: P0
 Parent: 2191
 Area: engine, render, flora, test
 Tags: streaming, ownership, transaction

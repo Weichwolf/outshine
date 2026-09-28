@@ -2,7 +2,7 @@ Type: defect
 State: done
 Architecture: ready
 Parent: 2191
-Depends: 2294
+Depends:
 Priority: P0
 Area: engine, client, render
 Tags: publication, capture, hockenheim

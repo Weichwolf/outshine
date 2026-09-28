@@ -1,5 +1,6 @@
 Type: feature
 State: active
+Priority: P1
 Architecture: ready
 Parent: 2169
 Area: world, generators

@@ -1,5 +1,7 @@
 Type: bug
 State: open
+Architecture: planned
+Priority: P1
 Area: generators, base
 Tags: owner, determinism, audit
 

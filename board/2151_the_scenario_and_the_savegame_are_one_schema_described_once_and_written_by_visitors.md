@@ -1,5 +1,7 @@
 Type: debt
 State: active
+Architecture: planned
+Priority: P1
 Parent: 2188
 Area: scenario, import, engine
 Tags: architecture, validation, persistence
@@ -103,8 +105,7 @@ expliziter Importdiagnose aus der minimalen API entfernen; nicht still verwerfen
 
 ## Layer-Vertrag
 ReadScenario validiert vor MergeLayer; keine zweite Dokumentkopie nötig. Auswahl,
-Override-Reihenfolge, Nested-Ablehnung und Fehlererhaltung geprüft; öffentliche Layer
-dokumentiert. Test grün, entfernte Nested-Prüfung rot.
+Override-Reihenfolge, Nested-Ablehnung und Fehlererhaltung geprüft; öffentliche Layer dokumentiert. Test grün, entfernte Nested-Prüfung rot.
 Offen: native Windows-Pfadauflösung statt Slash-Erkennung; übrige Merge-Semantik auditieren.
 
 ## Grundlegende Weltparameter
@@ -116,5 +117,4 @@ Public-API-Positionsoracle/Trigger geprüft; Altcode verletzt die Schwerelosigke
 Gemeinsame finite Werteprüfung für Import/API/Export; Latitude [-90,90], Longitude
 endlich, übrige Größen nichtnegativ. Patience über geprüfte Millisekunden-Pollzahl
 begrenzen und auch GroundPoolConfig vor int-Cast prüfen; keine Doppelkonstante.
-Altcode verletzt API-/Roundtrip-Kontrollen; elf Tests einschließlich Fehlererhaltung,
-Defaults, Layern und exakten Pollbudget-Grenzen bestehen.
+Altcode verletzt API-/Roundtrip-Kontrollen; elf Tests einschließlich Fehlererhaltung, Defaults, Layern und exakten Pollbudget-Grenzen bestehen.

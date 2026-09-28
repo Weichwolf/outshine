@@ -1,5 +1,7 @@
 Type: feature
 State: open
+Architecture: planned
+Priority: P3
 Area: scenario, engine, world, generators
 Tags: architecture, owner, ai-first
 Depends: 2131, 2126

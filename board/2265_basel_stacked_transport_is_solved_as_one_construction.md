@@ -1,5 +1,6 @@
 Type: proof
 State: open
+Architecture: planned
 Parent: 2175
 Depends: 2133, 2173, 2121, 2259
 Priority: P1

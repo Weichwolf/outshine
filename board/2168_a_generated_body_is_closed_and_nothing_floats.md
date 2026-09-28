@@ -1,5 +1,7 @@
 Type: bug
 State: open
+Architecture: planned
+Priority: P1
 Parent: 2169
 Area: generators, render
 Tags: webcam, measured

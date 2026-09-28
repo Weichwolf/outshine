@@ -1,5 +1,7 @@
 Type: bug
 State: active
+Architecture: planned
+Priority: P0
 Area: engine, world
 Tags: measured, performance, determinism, owner
 Supersedes: 2109
@@ -106,8 +108,7 @@ When a vector window has settled while `ClassBuilder` rasterizes, `preload` must
 `AwaitProgress` waits either for a carrier landing or that worker's completion, capped by the
 existing preload wait. The worker wake and collect contract has a focused ClassBuilder test.
 Cause: ground ingestion required accepted structure bakes, while bakes waited for a published ground
-world.
-Structure scheduling is now allowed before the initial ground candidate; road/water ingestion gates
+world. Structure scheduling is now allowed before the initial ground candidate; road/water ingestion gates
 that candidate, while `StructureBuildQueue::Complete` gates final readiness and the footprint-revision
 rebuild. The focused Place control must prove the cycle is gone before changing carriers or timeouts.
 

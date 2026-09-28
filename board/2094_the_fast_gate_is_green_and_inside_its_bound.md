@@ -1,5 +1,7 @@
 Type: bug
 State: active
+Architecture: planned
+Priority: P0
 Parent: 2188
 Area: test, gate
 Tags: measured, gate

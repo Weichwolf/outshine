@@ -2,7 +2,7 @@ Type: defect
 State: active
 Architecture: ready
 Parent: 2171
-Depends: 2301, 2304
+Depends: 2304
 Priority: P1
 Area: import, render, materials
 Tags: khronos, tangent, normal-map

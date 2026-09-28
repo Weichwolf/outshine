@@ -1,5 +1,7 @@
 Type: bug
 State: active
+Architecture: planned
+Priority: P1
 Parent: 2169
 Area: world, render
 Tags: webcam, measured

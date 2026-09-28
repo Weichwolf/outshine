@@ -1,5 +1,6 @@
 Type: bug
 State: active
+Priority: P0
 Architecture: ready
 Area: engine, world
 Parent: 2169

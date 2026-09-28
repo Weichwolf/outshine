@@ -1,5 +1,7 @@
 Type: defect
 State: open
+Architecture: planned
+Priority: P1
 Parent: 2188
 Area: client, render, assets, build
 Tags: architecture, audit
