@@ -532,9 +532,12 @@ void StructureBuildQueue::DiscardFront(const Ground::OsmField &vectors,
   IdleRaw_.reserve(IdleRaw_.size() + 1u);
   IdleOut_.reserve(IdleOut_.size() + 1u);
   IdleScratch_.reserve(IdleScratch_.size() + 1u);
-  if (!stale.Replacement && stale.ReservationOwner == prints.ReservationOwner() &&
-      stale.Revision.OwnsReservation(vectors, prints, eye, heightSource)) {
-    prints.Release(stale.Task.Tile());
+  if (stale.ReservationOwner == prints.ReservationOwner()) {
+    if (stale.Replacement) {
+      prints.RetryRefinement(stale.Task.Tile());
+    } else if (stale.Revision.OwnsReservation(vectors, prints, eye, heightSource)) {
+      prints.Release(stale.Task.Tile());
+    }
   }
   IdleRaw_.push_back(stale.Task.TakeRaw());
   IdleOut_.push_back(stale.Task.TakeOutput());

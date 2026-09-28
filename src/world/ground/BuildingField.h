@@ -173,6 +173,12 @@ public:
     ++RefinementAt_;
   }
 
+  void RetryRefinement(uint32_t tile) noexcept {
+    const auto at = std::ranges::lower_bound(AcceptedTiles_, tile);
+    assert(RefinementActive_ && at != AcceptedTiles_.end() && *at == tile);
+    RefinementAt_ = std::min(RefinementAt_, static_cast<size_t>(at - AcceptedTiles_.begin()));
+  }
+
   [[nodiscard]] bool RefinementComplete() const noexcept {
     return RefinementActive_ && RefinementAt_ == RefinementEnd_;
   }

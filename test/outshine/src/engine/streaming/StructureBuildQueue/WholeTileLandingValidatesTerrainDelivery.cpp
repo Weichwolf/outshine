@@ -137,11 +137,20 @@ int main() {
     return queue.Posts(
         stack, prints, eye, source, 1, StructureBuildQueue::HeightRequirement::AllowFallback);
   };
-  const auto finish = [&] {
+  const auto finish = [&](bool refinement = false) {
     std::vector<StructureBuildQueue::Landing> landings;
     for (int attempt = 0; attempt < 100 && queue.Queued() != 0; ++attempt) {
-      auto ready = queue.NextLandings(
-          stack, prints, eye, source, 1, StructureBuildQueue::HeightRequirement::AllowFallback);
+      auto ready =
+          queue.NextLandings(stack,
+                             prints,
+                             eye,
+                             source,
+                             1,
+                             refinement ? StructureBuildQueue::HeightRequirement::FineOnly
+                                        : StructureBuildQueue::HeightRequirement::AllowFallback,
+                             std::nullopt,
+                             refinement ? StructureBuildQueue::BuildPurpose::SourceGeometry
+                                        : StructureBuildQueue::BuildPurpose::ViewDetail);
       CHECK(ready.has_value(), "whole-tile build completes without a mesher error");
       if (!ready) { break; }
       if (!ready->empty()) {
@@ -204,6 +213,37 @@ int main() {
             accepted->Heights.Tiles.front().X == spot.X &&
             accepted->Heights.Tiles.front().Y == spot.Y,
         "whole-tile landing retains captured DEM requests after releasing its bake task");
+  const auto refine = [&] {
+    return queue.Posts(stack,
+                       prints,
+                       eye,
+                       source,
+                       1,
+                       StructureBuildQueue::HeightRequirement::FineOnly,
+                       std::nullopt,
+                       StructureBuildQueue::BuildPurpose::SourceGeometry);
+  };
+  const auto takenBefore = prints.IngestedTiles();
+  prints.BeginRefinement();
+  field = std::make_shared<TerrainField>(*field);
+  std::fill_n(field->Data(), 9, 110.0f);
+  CHECK(refine() == 1 && prints.RefinementComplete(),
+        "changed terrain posts one replacement and advances the refinement cursor");
+  CHECK((**revisions).IssueDeliveryStamp(demTile).has_value(),
+        "a second terrain change revokes the posted replacement");
+  field = std::make_shared<TerrainField>(*field);
+  std::fill_n(field->Data(), 9, 120.0f);
+  field->SetCertificate(
+      TerrainCertificate::FromDelivery(demTile, (**revisions).CurrentStamp(demTile), 11));
+  ready = finish(true);
+  CHECK(ready.empty() && queue.Queued() == 0 && prints.RefinementRemaining() == 1,
+        "discarded owned replacement returns its tile to the refinement cursor");
+  CHECK(refine() == 1, "the replacement retries against the new terrain delivery");
+  ready = finish(true);
+  CHECK(ready.size() == 1, "the retried source replacement becomes a validated landing");
+  if (!ready.empty()) { queue.CommitsLandings(stack, prints, ready); }
+  CHECK(prints.RefinementComplete() && prints.IngestedTiles() == takenBefore,
+        "replacement retry completes without a second whole-tile reservation");
   const auto acceptedKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
   CHECK(acceptedKey.has_value(), "validated tile has a qualified source key");
   source.TerrainScope = 12;
