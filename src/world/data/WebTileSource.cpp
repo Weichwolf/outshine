@@ -61,7 +61,12 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
   switch (wire.Where()) {
     case Wire::State::Working: return Fetched::Working();
 
-    case Wire::State::Unreachable: return Fetched::Meant(Meaning::Retry, wire.FailureReason());
+    case Wire::State::Unreachable: {
+      const auto reason = wire.FailureReason();
+      const bool terminal =
+          reason == FetchFailureReason::Cancelled || reason == FetchFailureReason::CapacityRefused;
+      return Fetched::Meant(terminal ? Meaning::Refused : Meaning::Retry, reason);
+    }
     case Wire::State::Consumed:
     case Wire::State::Never: return Fetched::Meant(Meaning::Refused, wire.FailureReason());
     case Wire::State::Answered: break;
@@ -70,7 +75,11 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
   if (!answered) { return Fetched::Meant(Meaning::Refused); }
   if (answered->Status == kHttpNotFound) { return Fetched::NotFound(); }
   const Meaning what = Classify({.Status = answered->Status, .Bytes = answered->Body.size()});
-  if (what != Meaning::Bytes) { return Fetched::MeantAfter(what, wire.RetryAfterS()); }
+  if (what != Meaning::Bytes) {
+    const auto reason = answered->Status == kHttpTimeout ? FetchFailureReason::TimedOut
+                                                         : FetchFailureReason::ProviderRefused;
+    return Fetched::MeantAfter(what, wire.RetryAfterS(), reason);
+  }
   return Fetched::Delivered(std::move(answered->Body));
 }
 

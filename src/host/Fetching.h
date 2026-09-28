@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <deque>
 #include <map>
+#include <optional>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -55,7 +56,7 @@ private:
     std::atomic_bool Cancelled = false;
     size_t MaxBodyBytes = 0;
     bool Done = false;
-    bool Unreachable = false;
+    std::optional<Data::FetchFailureReason> Failure;
     int Status = 0;
     double RetryAfterS = 0.0;
     std::vector<uint8_t> Body;
@@ -67,6 +68,7 @@ private:
   void FinishTransfers(void *multi, bool failed);
   void Work();
   void WakeWorker() noexcept;
+  void RememberCancellation(uint64_t ticket);
 
   Config Config_;
   std::mutex Mutex_;
@@ -74,6 +76,7 @@ private:
   uint64_t Completions_ = 0;
   std::map<uint64_t, Transfer> Transfers_;
   std::deque<uint64_t> Queue_;
+  std::vector<uint64_t> CancelledTickets_;
   uint64_t NextTicket_ = 1;
   bool Stopping_ = false;
   void *Multi_ = nullptr;

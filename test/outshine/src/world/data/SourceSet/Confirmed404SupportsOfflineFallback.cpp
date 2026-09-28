@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -18,6 +19,7 @@ using namespace outshine::Data;
 class Http final : public Transport {
 public:
   int Status = 404;
+  std::optional<FetchFailureReason> Failure;
   int Begins = 0;
   double Clock = 0;
 
@@ -27,6 +29,7 @@ public:
   }
 
   Wire Collect(Ticket ticket) override {
+    if (Failure) { return Wire::Unreachable(*Failure); }
     return ticket == Ticket{1} ? Wire::Answered(Status, {}) : Wire::Answered(200, {11, 22});
   }
 
@@ -142,9 +145,29 @@ int main() {
       reply = sources.Collect(query, failed);
     }
     CHECK(reply.Where() == Delivery::State::Refused, "non-404 failure terminates with refusal");
+    CHECK(reply.Failure() &&
+              reply.Failure()->Reason == (status == 408 ? FetchFailureReason::TimedOut
+                                                        : FetchFailureReason::ProviderRefused),
+          "HTTP timeout remains distinct from provider refusal after retry exhaustion");
     CHECK(store.Lookup(ContentKey(sources.At(0).Declaration(), sources.At(0).Serves(request)))
                   .Where == ContentStore::Presence::Unknown,
           "forbidden, timeout and server errors never create absence evidence");
+  }
+  for (const auto reason : {FetchFailureReason::Cancelled, FetchFailureReason::CapacityRefused}) {
+    ContentStore store(config);
+    SourceSet sources(store);
+    Add(sources, std::string(Name(reason)));
+    Http failed;
+    failed.Failure = reason;
+    auto query = sources.Ask(request);
+    const auto reply = sources.Collect(query, failed);
+    CHECK(reply.Where() == Delivery::State::Refused && reply.Failure() &&
+              reply.Failure()->Reason == reason && sources.Counters().Retried == 0 &&
+              failed.Begins == 1,
+          "cancellation and body-budget refusals never restart a transfer");
+    CHECK(store.Lookup(ContentKey(sources.At(0).Declaration(), sources.At(0).Serves(request)))
+                  .Where == ContentStore::Presence::Unknown,
+          "terminal transport errors cannot create absence evidence");
   }
   {
     ContentStore store(config);

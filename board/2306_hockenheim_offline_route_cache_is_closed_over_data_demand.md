@@ -86,8 +86,8 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   cache 403, timeout, cancellation or corrupt bytes as absence. Terrarium's 403
   handling must be corrected by removing its special absence override; the shared
   WebTileSource 404-only rule applies. 403 refuses without fallback and later 200
-  remains fetchable. Existing raw cached bytes remain readable; any
-  new record format is versioned. Do not pretend unavailable height is zero.
+  remains fetchable. Existing raw cached bytes remain readable; never pretend
+  unavailable height is zero.
   ContentStore::Lookup returns Bytes/Absent/Unknown; Read remains byte-compatible.
   ContentStoreAbsence.cpp owns regular-file-only `.outshine-absence-v1` sidecars,
   bounded expiry index (default 4096 entries, configurable, maximum 65536), atomic
@@ -98,10 +98,10 @@ Full-lap/alternate-pacing proof and typed absence/error propagation remain open.
   cached Fail reports ConfirmedAbsent, never OfflineMiss or a fabricated height.
 
 Missing/cached-refusal, provider fallback and ancestor identity are implemented.
-Independent edge/diagonal stitch tests pass; removing raw-failure propagation fails
-them. Confirmed 404 persists with bounded expiry; offline fallback, revision/expiry
+Edge/diagonal stitch tests pass; removing raw-failure propagation fails them. Confirmed 404 persists with bounded expiry; offline fallback, revision/expiry
 invalidations, malformed records and evidence-negation tests pass. Native timeout/
-cancel mapping, corrupt/capacity failures and full-lap/pacing proof remain open.
+cancel causes are implemented and proved by real loopback curl transfers. Corrupt
+payload/admission failures and full-lap/pacing proof remain open.
 
 ## Acceptance
 

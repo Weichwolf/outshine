@@ -49,9 +49,10 @@ public:
     return {State::Answered, status, std::move(body), retryAfterS};
   }
 
-  [[nodiscard]] static Wire Unreachable() {
+  [[nodiscard]] static Wire
+  Unreachable(FetchFailureReason reason = FetchFailureReason::Unavailable) {
     Wire wire(State::Unreachable, 0, {}, 0.0);
-    wire.Reason_ = FetchFailureReason::Unavailable;
+    wire.Reason_ = reason;
     return wire;
   }
 

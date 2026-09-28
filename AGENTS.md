@@ -85,7 +85,8 @@ gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
   öffnen. Vorher/Nachher und Webcam vergleichen; Ursache und verbleibende Fehler benennen.
 - Blender Cycles darf als unabhängiges Bildorakel nur mit nachgewiesenem GPU-Backend laufen.
   Normale Tests starten keinen Referenzrenderer und ändern keine Pins.
-- Werkzeuge auf aktuellem stabilem Stand halten. Nach Updates Orakel-Provenienz und
+- Toolchains, Werkzeuge und Abhängigkeiten auf aktuellem stabilem Stand halten.
+  Nach Updates Orakel-Provenienz und
   Referenzbilder explizit neu prüfen und nur belegte Änderungen pinnen; keine alte
   Software allein zur Reproduktion veralteter Referenzbytes installieren.
 - Bildqualität, Korrektheit, Framezeit, Speicher und Streaming getrennt bewerten. Framezeiten als

@@ -5,6 +5,7 @@
 #include <chrono>
 #include <csignal>
 #include <poll.h>
+#include <optional>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <thread>
@@ -16,12 +17,14 @@ using namespace std::chrono_literals;
 
 class Server {
 public:
+  enum class ResponseMode { SecondOnly, Always };
+  ResponseMode Responses;
   int Listener = socket(AF_INET, SOCK_STREAM, 0);
   uint16_t Port = 0;
   std::atomic<unsigned> Accepted{0};
   std::jthread Worker;
 
-  Server() {
+  explicit Server(ResponseMode response = ResponseMode::SecondOnly) : Responses(response) {
     sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
@@ -41,7 +44,7 @@ public:
         const int client = accept(Listener, nullptr, nullptr);
         if (client < 0) { continue; }
         const unsigned count = ++Accepted;
-        if (count == 2) {
+        if (count == 2 || Responses == ResponseMode::Always) {
           pollfd request{.fd = client, .events = POLLIN, .revents = 0};
           char headers[4096];
           if (poll(&request, 1, 1000) > 0) { (void)recv(client, headers, sizeof(headers), 0); }
@@ -69,6 +72,18 @@ public:
     return Accepted >= count;
   }
 };
+
+std::optional<outshine::Data::FetchFailureReason> AwaitFailure(outshine::Fetching &transport,
+                                                               outshine::Data::Ticket ticket) {
+  const auto deadline = Clock::now() + 3s;
+  while (Clock::now() < deadline) {
+    auto reply = transport.Collect(ticket);
+    if (reply.Where() == outshine::Data::Wire::State::Unreachable) { return reply.FailureReason(); }
+    if (reply.Where() != outshine::Data::Wire::State::Working) { return std::nullopt; }
+    (void)transport.Await(10.0);
+  }
+  return std::nullopt;
+}
 }
 
 int main() {
@@ -99,8 +114,12 @@ int main() {
       (void)transport.Await(10.0);
     }
     CHECK(received, "cancel releases worker before the ten-second HTTP timeout");
-    CHECK(transport.Collect(slow).Where() == Data::Wire::State::Unreachable,
-          "cancelled transfer has no deliverable result");
+    auto cancelled = transport.Collect(slow);
+    CHECK(cancelled.Where() == Data::Wire::State::Unreachable &&
+              cancelled.FailureReason() == Data::FetchFailureReason::Cancelled,
+          "cancelled transfer releases its payload but retains its actual cause");
+    CHECK(transport.Collect(slow).FailureReason() == Data::FetchFailureReason::Unavailable,
+          "cancel cause is consumed once");
   }
   const auto started = Clock::now();
   {
@@ -110,5 +129,39 @@ int main() {
   }
   CHECK(Clock::now() - started < 3s,
         "shutdown aborts active transfer without waiting for HTTP timeout");
+  {
+    Fetching transport({.ConcurrentTransfers = 1, .TimeoutS = 1});
+    const auto timed = transport.Begin(url);
+    CHECK(server.AwaitConnections(4), "real stalled HTTP transfer starts");
+    CHECK(AwaitFailure(transport, timed) == Data::FetchFailureReason::TimedOut,
+          "native libcurl timeout is distinct from unreachable transport");
+  }
+  {
+    Fetching transport({.ConcurrentTransfers = 1, .MaxRequests = 2, .TimeoutS = 10});
+    (void)transport.Begin(url);
+    CHECK(server.AwaitConnections(5), "sole active slot prevents queued requests from starting");
+    std::vector<Data::Ticket> cancelled;
+    for (int i = 0; i < 5; ++i) {
+      const auto queued = transport.Begin(url);
+      CHECK(queued != Data::Ticket::None, "cancelled queue entry releases request capacity");
+      cancelled.push_back(queued);
+      transport.Cancel(queued);
+    }
+    CHECK(transport.Collect(cancelled.front()).FailureReason() ==
+              Data::FetchFailureReason::Unavailable,
+          "bounded cancellation history forgets the oldest ticket");
+    CHECK(transport.Collect(cancelled.back()).FailureReason() ==
+              Data::FetchFailureReason::Cancelled,
+          "newest queued cancellation retains its cause without a transfer");
+  }
+  {
+    Server response(Server::ResponseMode::Always);
+    CHECK(response.Port != 0, "body-budget fixture listens");
+    Fetching transport({.TimeoutS = 2, .MaxBodyBytes = 1});
+    const auto ticket =
+        transport.Begin("http://127.0.0.1:" + std::to_string(response.Port) + "/tile");
+    CHECK(AwaitFailure(transport, ticket) == Data::FetchFailureReason::CapacityRefused,
+          "native body budget refusal is retained through curl write failure");
+  }
   return Report();
 }

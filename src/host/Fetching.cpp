@@ -44,6 +44,7 @@ Fetching::Fetching(Config config) : Config_(std::move(config)) {
   Config_.TimeoutS = std::max(Config_.TimeoutS, 1L);
   Config_.MaxRequests = std::max(Config_.MaxRequests, size_t{1});
   Config_.MaxBodyBytes = std::max(Config_.MaxBodyBytes, size_t{1});
+  CancelledTickets_.reserve(Config_.MaxRequests);
   if (!Runtime().Ready()) { return; }
   CURLM *const multi = curl_multi_init();
   if (multi == nullptr) { return; }
@@ -104,16 +105,29 @@ Data::Wire Fetching::Collect(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) { return Data::Wire::Unreachable(); }
   const std::scoped_lock lock(Mutex_);
   const auto found = Transfers_.find(static_cast<uint64_t>(ticket));
-  if (found == Transfers_.end()) { return Data::Wire::Unreachable(); }
+  if (found == Transfers_.end()) {
+    const auto cancelled = std::ranges::find(CancelledTickets_, static_cast<uint64_t>(ticket));
+    if (cancelled == CancelledTickets_.end()) { return Data::Wire::Unreachable(); }
+    CancelledTickets_.erase(cancelled);
+    return Data::Wire::Unreachable(Data::FetchFailureReason::Cancelled);
+  }
   Transfer &done = found->second;
   if (!done.Done) { return Data::Wire::Working(); }
-  const bool unreachable = done.Unreachable;
+  const auto failure = done.Failure;
   const int status = done.Status;
   const double retryAfterS = done.RetryAfterS;
   std::vector<uint8_t> body = std::move(done.Body);
   Transfers_.erase(found);
-  if (unreachable) { return Data::Wire::Unreachable(); }
+  if (failure) { return Data::Wire::Unreachable(*failure); }
   return Data::Wire::Answered(status, std::move(body), retryAfterS);
+}
+
+void Fetching::RememberCancellation(uint64_t ticket) {
+  if (std::ranges::find(CancelledTickets_, ticket) != CancelledTickets_.end()) { return; }
+  if (CancelledTickets_.size() == Config_.MaxRequests) {
+    CancelledTickets_.erase(CancelledTickets_.begin());
+  }
+  CancelledTickets_.push_back(ticket);
 }
 
 void Fetching::Cancel(Data::Ticket ticket) {
@@ -122,8 +136,11 @@ void Fetching::Cancel(Data::Ticket ticket) {
     const std::scoped_lock lock(Mutex_);
     const auto found = Transfers_.find(static_cast<uint64_t>(ticket));
     if (found == Transfers_.end()) { return; }
+    RememberCancellation(static_cast<uint64_t>(ticket));
     if (found->second.Done) {
       Transfers_.erase(found);
+      ++Completions_;
+      Landed_.notify_all();
       return;
     }
     found->second.Cancelled.store(true, std::memory_order_relaxed);
@@ -131,6 +148,8 @@ void Fetching::Cancel(Data::Ticket ticket) {
     if (queued != Queue_.end()) {
       Queue_.erase(queued);
       Transfers_.erase(found);
+      ++Completions_;
+      Landed_.notify_all();
       return;
     }
   }
@@ -162,6 +181,7 @@ bool Fetching::ConfigureTransfer(void *handle, Transfer &transfer) const {
   const auto write = +[](const void *data, size_t, size_t byteCount, void *user) -> size_t {
     auto &active = *static_cast<Transfer *>(user);
     if (byteCount > active.MaxBodyBytes || active.Body.size() > active.MaxBodyBytes - byteCount) {
+      active.Failure = Data::FetchFailureReason::CapacityRefused;
       return 0;
     }
     const auto *source = static_cast<const uint8_t *>(data);
@@ -202,7 +222,7 @@ size_t Fetching::AddQueuedTransfers(void *multiHandle, size_t active) {
     }
     if (easy != nullptr) { curl_easy_cleanup(easy); }
     transfer.Done = true;
-    transfer.Unreachable = true;
+    transfer.Failure = Data::FetchFailureReason::Unavailable;
     ++Completions_;
     Landed_.notify_all();
   }
@@ -230,10 +250,16 @@ void Fetching::CollectCompletions(void *multiHandle, size_t &active) {
     transfer->Handle = nullptr;
     if (transfer->Cancelled.load(std::memory_order_relaxed)) {
       Transfers_.erase(transfer->Ticket);
+      ++Completions_;
+      Landed_.notify_all();
       continue;
     }
     transfer->Done = true;
-    transfer->Unreachable = message->data.result != CURLE_OK;
+    if (message->data.result != CURLE_OK && !transfer->Failure) {
+      transfer->Failure = message->data.result == CURLE_OPERATION_TIMEDOUT
+                              ? Data::FetchFailureReason::TimedOut
+                              : Data::FetchFailureReason::Unavailable;
+    }
     transfer->Status = static_cast<int>(status);
     transfer->RetryAfterS = static_cast<double>(retryAfter);
     ++Completions_;
@@ -257,7 +283,7 @@ void Fetching::FinishTransfers(void *multiHandle, bool failed) {
       (void)ticket;
       if (transfer.Done) { continue; }
       transfer.Done = true;
-      transfer.Unreachable = true;
+      if (!transfer.Failure) { transfer.Failure = Data::FetchFailureReason::Unavailable; }
       ++Completions_;
     }
     Landed_.notify_all();
