@@ -63,7 +63,6 @@ cached words. Queue consumers defer unknown context without resolution. Test ind
 snapshot, width/coordinate/domain/generation changes, unknown context and protected points.
 Restored scan must give actual FAIL. Acceptance: format; StreetField/OsmField/GroundStack/
 queue suites; full lint/tidy/API. Existing accepted source-key cache remains unchanged.
-
 ## Evidence
 
 63908c160: 19 focused PASS; full lint FAIL on three tidy findings. 94581ed9b fixes
@@ -74,9 +73,10 @@ HeightSheets owns these references and accounts their bytes; prove move lifetime
 ## Active repair: canonical resident terrain for building detail
 
 fef5b6197 retains canonical rasters; focused PASS, paced publication still FAIL at bakes.
-SelectRefinement advances before landing; discarded replacements must rewind their owned tile.
+Advance the cursor only on a current source or successful posting; rejected input stays pending.
+Discarded replacements must rewind their owned tile.
 Repair owner: BuildingField retry cursor and StructureBuildQueue::DiscardFront. Foreign domains
-never rewind successors. Test revoked replacement delivery, successful retry and no double take.
+never rewind successors. Test pre-post refusal, revoked delivery, retry and no double take.
 After ground publication, use the
 published HeightSheets source representation for whole/detail preparation and validation.
 Add optional CopyResidentField; legacy callers retain ResidentField fallback. Missing fields
