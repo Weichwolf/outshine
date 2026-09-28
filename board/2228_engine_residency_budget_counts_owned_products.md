@@ -47,6 +47,19 @@ Independent capacity probe: 2 * 2 GiB = 4294967296 expected bytes, actual 0; exi
 Log: /tmp/outshine-residency-sum-probe.log. Widen this existing path before relying
 on the meter; this proves overflow, not the cause of the measured process footprint.
 
+## Active repair: immutable terrain-stamp accounting
+
+320e3c9a2 Graz sample: 448/676 main-thread samples in TerrainPressJob::HeapBytes,
+called by CurrentProductBytes during pressing; 8.0-GB host peak, not Engine bytes.
+Owner: generators/terrain/TerrainPressJob.cpp. Its owned stamps never mutate;
+make that invariant explicit and sum outer/nested retained capacities once at adoption.
+HeapBytes retains dynamic work-vector and press-job capacities; no counters are removed.
+Test independent ring/seam/hole-capacity arithmetic, zero-work inputs and job moves;
+omitting nested bytes must actually FAIL. Existing one-shot/sliced terrain oracles remain.
+Gate: format, TerrainPress/EarthworkPress suites, all Places/PNGs, full lint/tidy/API.
+Repeat real Graz sample to check removal of this scan; do not promise all timeouts cured.
+Log: /tmp/outshine-repair-320e3c9a2-graz-sample.log.
+
 ## Decision
 
 Each long-lived Engine product exposes owned CPU allocation capacity and requested GPU
