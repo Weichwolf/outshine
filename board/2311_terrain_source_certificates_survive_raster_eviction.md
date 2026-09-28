@@ -91,3 +91,17 @@ Unknown/fehlende Metadaten, bekannte Stale-Quelle und abweichender Scope müssen
 prüfbar bleiben. Kein per-Frame Retry-Sturm und kein sofortiger Geometrieverlust.
 Kontrolle: Writer deterministisch halten, Frame-Inspektion liefert Pending ohne Wait;
 danach Release und gleiche Quelle revalidieren. Sleeps sind kein Synchronisationsbeweis.
+
+## Aktiver Foundation-Schritt: nicht wartende Inspektion
+
+TerrainCertificate::Validation: Current, Unknown, Stale, ScopeChanged, Pending.
+TerrainRevisionIndex::TryInspectStamps liefert optionalen bestehenden Stamp-Status;
+nullopt bedeutet Contention. Blockierende/try-Inspektion teilen denselben Locked-Kern.
+TilePool::InspectCertificate versucht Queue-, Cache- und Index-Mutex jeweils einmal;
+keine Allokation, IO, Cache-Touches oder Optimistic-Current. Queue-Lock schützt Scope,
+Cache-Lock hält Indexzugriff; Busy liefert Pending. Vollständige Validierung bleibt.
+Private Test-Peers dürfen nur die echten Mutexes für deterministische Writer-Fixtures
+halten. Inspector muss vor Writer-Release Pending liefern; Watchdog schützt nur Test-Liveness.
+Current/Unknown/Stale/Domain/Scope, null Allokationen und blockierender Mutant prüfen.
+Dieser Slice hat noch keinen Frame-Consumer; Miss-Auflösung und koaleszierte Queue folgen.
+Format, TerrainRevisionIndex/TilePool-Suites, full lint einschließlich API/clang-tidy.
