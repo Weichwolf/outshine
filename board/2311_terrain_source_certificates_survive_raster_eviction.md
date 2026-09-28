@@ -73,18 +73,17 @@ HeightSheets owns these references and accounts their bytes; prove move lifetime
 
 ## Active repair: canonical resident terrain for building detail
 
-75623a5e1 fixes reservation ownership; 16138ffe3 fixes duplicate test verdicts.
-Wien/Graz also fail Refined at c8240a041; view-detail stalls predate recent provenance checks.
-Whole bakes use HeightSheets ancestor resampling; live detail uses raw GroundStream rasters.
-Owners: Advancing.cpp and StructureBuildQueue.h/.cpp. After ground publication, use the
+fef5b6197 retains canonical rasters; focused PASS, paced publication still FAIL at bakes.
+SelectRefinement advances before landing; discarded replacements must rewind their owned tile.
+Repair owner: BuildingField retry cursor and StructureBuildQueue::DiscardFront. Foreign domains
+never rewind successors. Test revoked replacement delivery, successful retry and no double take.
+After ground publication, use the
 published HeightSheets source representation for whole/detail preparation and validation.
 Add optional CopyResidentField; legacy callers retain ResidentField fallback. Missing fields
 must defer without IO; preserve scope/source checks and conservative LOD bounds. Before
 publication retain the existing streaming path. Changed DEM still needs a joint candidate.
 Test resident-copy selection against a poisoned resolver and changed/missing raster; format,
 focused/source-field/Places suites, all ten no-vegetation renders, full lint/tidy/API.
-
-Street digest: 25 owner and 35 queue checks PASS; scan/domain/generation mutants FAIL.
 
 ## Exact height requests
 
