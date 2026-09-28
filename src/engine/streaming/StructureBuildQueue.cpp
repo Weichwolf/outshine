@@ -36,6 +36,13 @@ constexpr size_t kBuildsPerThread = 1;
 constexpr size_t kPinnedCellHeightBytesMost = size_t{2} * 1024u * 1024u;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
+[[nodiscard]] std::optional<LevelOfDetail>
+EffectiveDetail(std::optional<LevelOfDetail> detail, StructureBuildQueue::BuildPurpose purpose) {
+  return purpose == StructureBuildQueue::BuildPurpose::SourceGeometry
+             ? detail.value_or(LevelOfDetail::Shell)
+             : detail;
+}
+
 [[nodiscard]] bool EyeWithin(LongitudeLatitude from, LongitudeLatitude to) noexcept {
   const Ellipsoid earth{.SemiMajorM = kWgs84A, .Flattening = 1.0 - std::sqrt(1.0 - kWgs84E2)};
   const Geodesic distance =
@@ -722,6 +729,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose,
                                   const std::function<bool(uint32_t)> &cellReady) {
+  detail = EffectiveDetail(detail, purpose);
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
@@ -879,6 +887,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
                                   HeightRequirement heights,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose) {
+  detail = EffectiveDetail(detail, purpose);
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   const Ground::OsmField *vectors = stack.Vectors();

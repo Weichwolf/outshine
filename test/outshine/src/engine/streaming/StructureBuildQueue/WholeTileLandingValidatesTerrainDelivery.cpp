@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <system_error>
@@ -169,6 +170,63 @@ int main() {
         "valid certificate lands even when input raster access is unavailable");
   CHECK(copies == beforeLanding, "certified whole-tile landing never resolves heights again");
   if (ready.empty()) { return Report(); }
+  const auto sourceProduct =
+      [&](LongitudeLatitude postedEye,
+          double focalPx,
+          std::optional<LevelOfDetail> detail =
+              std::nullopt) -> std::optional<std::pair<uint64_t, Generators::BakedTile>> {
+    queue.Clear();
+    prints.Release(0);
+    prints.SeenWith(focalPx);
+    allowCopy = true;
+    CHECK(queue.Posts(stack,
+                      prints,
+                      postedEye,
+                      source,
+                      1,
+                      StructureBuildQueue::HeightRequirement::FineOnly,
+                      detail,
+                      StructureBuildQueue::BuildPurpose::SourceGeometry) == 1,
+          "source geometry admits the declared source independently of the camera");
+    const auto landedEye = LongitudeLatitude{.LongitudeDeg = postedEye.LongitudeDeg + 1.0,
+                                             .LatitudeDeg = postedEye.LatitudeDeg};
+    prints.SeenWith(focalPx * 2.0);
+    for (int attempt = 0; attempt < 100 && queue.Queued() != 0; ++attempt) {
+      auto landed = queue.NextLandings(stack,
+                                       prints,
+                                       landedEye,
+                                       source,
+                                       1,
+                                       StructureBuildQueue::HeightRequirement::FineOnly,
+                                       detail,
+                                       StructureBuildQueue::BuildPurpose::SourceGeometry);
+      CHECK(landed.has_value(), "camera changes do not invalidate source geometry completion");
+      if (!landed) { return std::nullopt; }
+      if (!landed->empty()) { return std::pair{landed->front().SourceKey, *landed->front().Baked}; }
+      (void)queue.AwaitSlice(0.02);
+    }
+    return std::nullopt;
+  };
+  const auto nearSource = sourceProduct(eye, 720.0);
+  const auto farSource = sourceProduct({.LongitudeDeg = 9.5, .LatitudeDeg = 49.3274}, 10.0);
+  CHECK(nearSource && farSource, "near and remote source requests both land after camera changes");
+  if (nearSource && farSource) {
+    CHECK(nearSource->second.RequestedDetail == LevelOfDetail::Shell &&
+              farSource->second.RequestedDetail == LevelOfDetail::Shell &&
+              nearSource->second.FootprintDetails == std::vector{LevelOfDetail::Shell} &&
+              farSource->second.FootprintDetails == std::vector{LevelOfDetail::Shell},
+          "implicit source products use explicit Shell geometry at both cameras");
+    CHECK(nearSource->first != 0 && nearSource->first == farSource->first &&
+              !nearSource->second.Built.WallRun.empty() &&
+              !nearSource->second.Built.RoofRun.empty() &&
+              nearSource->second.Digest == farSource->second.Digest,
+          "the same source produces identical nonempty wall and roof geometry");
+  }
+  const auto fineSource = sourceProduct(eye, 720.0, LevelOfDetail::Fine);
+  CHECK(fineSource && fineSource->second.RequestedDetail == LevelOfDetail::Fine &&
+            fineSource->second.FootprintDetails == std::vector{LevelOfDetail::Fine},
+        "an explicit Fine source request is preserved");
+  prints.SeenWith(720.0);
   queue.Clear();
   prints.Release(0);
   allowCopy = true;
