@@ -75,7 +75,9 @@ Accepted-key cache: 9 direct checks PASS; restored rehash gives actual FAIL thro
 protected payload page, never watchdog/SIGNAL/BUILD. Independent little-endian FNV oracle
 matches 0x1ae933c37f74e20a; derivation /tmp/outshine-accepted-source-key-oracle.log.
 Logs /tmp/outshine-accepted-source-key-{controls,correct,restored-rehash}.log.
-Format: 1204 files, zero errors. Official focused/full cache gate pending; no frame claim.
+41e159998: native key 1, BuildingField 5, queue 5 official tests PASS; full lint running.
+Logs /tmp/outshine-accepted-source-key-{native,buildingfield,queue,full-lint}.log.
+Format: 1204 files, zero errors; no frame-time claim.
 
 ## Active step: retain exact height requests
 
