@@ -375,9 +375,10 @@ RefinementSelection SelectRefinement(Ground::BuildingField &prints,
                              accepted->Bake.HeightRasterDigest == heights->RasterDigest() &&
                              accepted->Bake.StreetDigest == StreetDigest(streets, vectors, *tile) &&
                              accepted->Bake.TileSpanM == prints.TileSpanM();
-  const bool current = sourceCurrent;
-  prints.AdvanceRefinement();
-  if (current) { return {}; }
+  if (sourceCurrent) {
+    prints.AdvanceRefinement();
+    return {};
+  }
   return {.Next =
               Ground::TileWatermark::Next{.From = from, .To = to, .Tile = *tile, .Found = true}};
 }
@@ -805,6 +806,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
          .ReservationOwner = prints.ReservationOwner()});
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Queue_.back());
+    if (replacement) { prints.AdvanceRefinement(); }
     SlowestTaskPostingMs_ = std::max(
         SlowestTaskPostingMs_,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - postingAt)

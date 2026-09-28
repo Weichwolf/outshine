@@ -227,6 +227,12 @@ int main() {
   prints.BeginRefinement();
   field = std::make_shared<TerrainField>(*field);
   std::fill_n(field->Data(), 9, 110.0f);
+  CHECK((**revisions).IssueDeliveryStamp(demTile).has_value(),
+        "terrain delivery changes before replacement admission");
+  CHECK(refine() == 0 && queue.Queued() == 0 && prints.RefinementRemaining() == 1,
+        "refused replacement admission preserves the refinement cursor");
+  field->SetCertificate(
+      TerrainCertificate::FromDelivery(demTile, (**revisions).CurrentStamp(demTile), 11));
   CHECK(refine() == 1 && prints.RefinementComplete(),
         "changed terrain posts one replacement and advances the refinement cursor");
   CHECK((**revisions).IssueDeliveryStamp(demTile).has_value(),
