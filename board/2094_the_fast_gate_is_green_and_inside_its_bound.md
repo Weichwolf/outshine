@@ -86,7 +86,7 @@ Libraries und /opt/homebrew/lib-rpaths. Kein warnungsfreier Buildclaim. Doppelte
 Owner im Harness/Library-Pkgconfig lokalisieren und am Produzenten deduplizieren;
 Warnungen weder unterdrücken noch aus dem Log filtern. Relevanten Linkschritt erneut prüfen.
 
-Konkreter nächster Slice: test/run.sh::LayerLink ruft pkg-config separat für SDL3,
+Aktiver Implementierungsschritt: test/run.sh::LayerLink ruft pkg-config separat für SDL3,
 SDL3_image und SDL3_ttf/shadercross auf. Deren transitive SDL-/rpath-Ausgaben werden
 verkettet. EIN gemeinsamer --libs-Aufruf mit allen vier Paketen liefert lokal genau
 ein -lSDL3 und ein Homebrew-rpath; den separaten Shadercross-rpath erhalten.

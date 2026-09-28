@@ -69,7 +69,7 @@ logs: /tmp/outshine-refinement-restored-{focused,full-lint}.log. No runtime cons
 Native BuildingMesh/sloped/large-anchor/permutation controls and measured runtime
 scratch/query utility remain open; passing this CPU gate does not finish 2313.
 
-## Move-Vertrag implementiert, vollständiges Gate ausstehend
+## Move-Vertrag geprüft
 
 Der Review reproduzierte einen SEGV nach Move/Step: leere Quell-Heaps bei aktiver Phase.
 Explizite Move-Konstruktion/-Zuweisung übertragen nun alle Felder und widerrufen die
@@ -79,7 +79,9 @@ Quellwiderruf, Reset/Wiederverwendung, aktives Ziel, Self-Move, Complete und Feh
 ASan/UBSan: 4741 Checks ohne Fehler; ursprüngliche Crash-Probe liefert erwarteten Fehler.
 Rückkehr zu impliziten Moves: tatsächliches FAIL, kein BUILD. Format: 1199 Dateien, null Fehler.
 Logs: /tmp/outshine-refinement-move-{sanitized,original-probe,mutant,format}.log.
-Fokussierte offizielle Suites und vollständiges Lint müssen diesen Commit noch bestätigen.
+Commit ef78343aa: fünf fokussierte Tests PASS; full lint inklusive 256/256 tidy-Units
+mit null Findings und 32/32 Guards PASS. Logs: /tmp/outshine-refinement-move-
+{focused,full-lint}.log; gate-result.txt bestätigt den geprüften Commit.
 
 ## Native utility probe and next proof decision
 
