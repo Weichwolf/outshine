@@ -76,7 +76,10 @@ but tidy found two absent engine inspector initializers. 4871add5a wires both: 4
 PASS, full lint 256/256 units without findings, 32/32 guards, API docs PASS; process exit 0.
 Logs: /tmp/outshine-source-inspector-wiring-{focused,full-lint}.log and gate-result.txt.
 d91dc0cdb implements request capture/acceptance/heap accounting and three owner fixtures;
-format 1203 files, zero errors. Official focused/full gate pending. No frame-cost claim.
+format 1203 files, zero errors. 46bbf8c48: HeightField 5, BuildingField 5, queue 4 PASS.
+Ancestor substitution, reversed order and block zoom instead of field zoom give actual FAIL.
+Logs: /tmp/outshine-height-request-{heightfield,buildingfield,queue,controls}.log.
+Full lint still running; no frame-cost claim.
 
 ## Active step: retain exact height requests
 
@@ -103,6 +106,8 @@ without rebaking. Changed input revokes activation and requests existing replace
 Before replacing the frame validator, specify queue/byte caps, polling/backoff and error
 states; prove no retry storm, starvation or borrowed mutable reader. Runtime cost/visual
 acceptance remains open; standalone inspectors do not establish a bounded frame path.
+Inspection hashes tile way points and accepted sources each time; bound/cache this work
+under the actual owners/generations before claiming bounded frame inspection.
 
 Acceptance: make format; revision/terrain/HeightField/BuildingField/StructureBuildQueue/
 GroundPublication suites; full lint including clang-tidy/API guards. Render Hockenheim
