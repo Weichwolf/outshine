@@ -246,6 +246,7 @@ private:
   }
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
+  void RecycleOutput(StructureBuildTask &task);
   void PrepareViewRefinement(Ground::BuildingField &prints,
                              LongitudeLatitude eye,
                              HeightRequirement requirement,

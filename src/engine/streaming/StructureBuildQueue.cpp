@@ -540,6 +540,12 @@ std::unique_ptr<MeshScratch> StructureBuildQueue::LentScratch() {
   return one;
 }
 
+void StructureBuildQueue::RecycleOutput(StructureBuildTask &task) {
+  auto output = task.TakeOutput();
+  output->Tile.reset();
+  IdleOut_.push_back(std::move(output));
+}
+
 void StructureBuildQueue::PostSlice(QueuedBuild &build) {
   if (build.Tasks == 0) {
     build.Task.Start(*Pool_, *Mesher_);
@@ -562,7 +568,7 @@ void StructureBuildQueue::DiscardFront(Ground::BuildingField &prints) {
     }
   }
   IdleRaw_.push_back(stale.Task.TakeRaw());
-  IdleOut_.push_back(stale.Task.TakeOutput());
+  RecycleOutput(stale.Task);
   IdleScratch_.push_back(stale.Task.TakeScratch());
   Queue_.pop_front();
   ++Discarded_;
@@ -602,7 +608,7 @@ void StructureBuildQueue::RetireCellBuilds(BuildPurpose purpose) {
     if (!bake.Finished) { bake.Finished = bake.Task.TakeCompletion(*Pool_); }
     if (!bake.Finished) { break; }
     IdleRaw_.push_back(bake.Task.TakeRaw());
-    IdleOut_.push_back(bake.Task.TakeOutput());
+    RecycleOutput(bake.Task);
     IdleScratch_.push_back(bake.Task.TakeScratch());
     CellQueue_.pop_front();
     ++Discarded_;
@@ -1272,7 +1278,7 @@ StructureBuildQueue::NextCellLanding(const Ground::GroundStack &stack,
   QueuedBuild &bake = CellQueue_.front();
   const auto discard = [this, &bake] {
     IdleRaw_.push_back(bake.Task.TakeRaw());
-    IdleOut_.push_back(bake.Task.TakeOutput());
+    RecycleOutput(bake.Task);
     IdleScratch_.push_back(bake.Task.TakeScratch());
     CellQueue_.pop_front();
     ++Discarded_;
@@ -1335,7 +1341,7 @@ void StructureBuildQueue::CommitsCellLanding(const Landing &landing) noexcept {
   BakedMs_ += bake.Task.Result().BakeMs;
   SlowestBakeMs_ = std::max(SlowestBakeMs_, bake.Task.Result().BakeMs);
   IdleRaw_.push_back(bake.Task.TakeRaw());
-  IdleOut_.push_back(bake.Task.TakeOutput());
+  RecycleOutput(bake.Task);
   IdleScratch_.push_back(bake.Task.TakeScratch());
   CellQueue_.pop_front();
   ++Landed_;
@@ -1405,7 +1411,7 @@ void StructureBuildQueue::CommitsLandings(Ground::GroundStack &stack,
                {"cacheWriteMs", bake.Task.Result().CacheWriteMs},
                {"queued", static_cast<int>(Queue_.size() - 1)}});
     IdleRaw_.push_back(bake.Task.TakeRaw());
-    IdleOut_.push_back(bake.Task.TakeOutput());
+    RecycleOutput(bake.Task);
     IdleScratch_.push_back(bake.Task.TakeScratch());
     Queue_.pop_front();
     ++Landed_;
