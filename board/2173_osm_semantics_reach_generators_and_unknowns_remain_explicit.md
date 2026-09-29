@@ -28,6 +28,8 @@ Für räumliches Streaming muss WI 2280 referenzielle Vollständigkeit je konsum
 prüfen: offene Referenzen erhalten und relevante Nachbarn anfordern; erforderliche
 Gebäude-/Multipolygon- oder Straßenbezüge nie stillschweigend ignorieren. `OsmElements`
 prüft dafür die transitive Referenzhülle typisierter Produktwurzeln gemeinsam und zyklusfest.
+`world/ground/OsmBuildingFootprints` besitzt daraus Ringe/Koordinaten und pinnt den Quell-Snapshot;
+Tags bleiben über typisierte Original-ID erreichbar. Offene/mehrdeutige Ringketten verhindern Publikation.
 Der parameterlose Vollständigkeitscheck lokaler Komplettquellen bleibt unverändert.
 
 `StructureBuildQueue::RawOf` verliert zusätzlich Innenringe und Mindesthöhe und reduziert
