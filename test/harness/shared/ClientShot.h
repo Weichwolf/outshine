@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_TEST_CLIENTSHOT_H
 #define OUTSHINE_TEST_CLIENTSHOT_H
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -79,6 +80,11 @@ inline int ScorePlace(const char *place) {
     Unprepared(row.Why.c_str());
     return Report();
   }
+
+  constexpr double kFrameBudgetMs = 1000.0 / 60.0;
+  CHECK(row.Preloaded, "the complete world was preloaded before frame measurement");
+  CHECK(std::isfinite(row.P99Ms) && row.P99Ms > 0.0 && row.P99Ms <= kFrameBudgetMs,
+        "measured p99 stays within the 60 Hz frame budget, including reference images");
 
   // THE MEASURE'S OWN NEGATIVE CONTROL, and without it the bar below is a number nobody checked. A
   // bare ellipsoid under a sky IS a vertical gradient, so the statistic is run over one first -- if
