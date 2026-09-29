@@ -7,7 +7,7 @@ Priority: P0
 Area: render
 Tags: memory, realtime
 
-# Allocate optional subject attributes only when present
+# Allocate optional vertex streams only for their consumers
 
 ## Problem and evidence
 
@@ -21,18 +21,23 @@ Logs: /tmp/outshine-batch-readiness-973b697a5-Graz-gpu-streams.log.
 
 ## Decision and implementation
 
-Owner: render/stages/SubjectDraw::RoomForStreams. Guard optional main-mesh tangent/UV1
-capacity by the existing Shaping flags. Keep existing buffers and independent piece
-reservations; never release attributes still referenced by pieces. No shader/layout,
-index, source, visibility or quality changes. Keep emitted and velocity contracts.
-Absent optional streams require no allocation; present streams cover their full addressed
-range and retain existing failure propagation through BeginMesh/PlacePiece.
+Owner: render/stages/SubjectDraw::RoomForStreams and existing SubjectResidency::Cross.
+Reserve optional UV/colour/tangent/UV1 capacity only through their actual uploads.
+Cross already validates addressed bytes, allocates/preserves buffers and rolls back failed
+submission. Main HandStreams supplies only present Shaping attributes; PlacePiece supplies
+only its actual streams. Remove eager optional arena-wide reservation from RoomForStreams.
+Keep required position/normal/index, emitted and velocity contracts. Never release an
+optional buffer when the main mesh omits it: independent pieces may still own its data.
+No shader/layout/index/source/visibility/quality changes and no second allocator.
+Existing upload failures propagate without publishing incomplete streams. GPU test covers
+absent/present optional streams, high shared-arena offsets and independent data after clear.
 
 ## Acceptance
 
 GPU test under test/outshine/src/render/stages/SubjectDraw: main mesh after an independent
 piece reserves no tangent/UV1 buffers when absent; present streams allocate and upload;
-removal preserves independently owned tangent data. Check actual buffer capacities/data,
+removal preserves independently owned tangent/colour data. An untextured, untinted piece
+reserves neither UV nor colour storage; main-mesh absence must not grow these streams. Check actual buffer capacities/data,
 not an implementation helper. Restoring unconditional reservations must fail the test.
 make format; make suite SUITE='outshine/src/render/stages/SubjectDraw outshine/src/render/stages/SubjectResidency';
 LINT_JOBS=2 make lint; all Places via client, all ten PNGs personally opened and compared.
@@ -57,6 +62,11 @@ claims are withdrawn. Current validated Darmstadt/Feldkirch/Koerbersee/Malcesine
 images are 9218e7cc/7bdb269c/cb8319ab/2735cb40/d986fe9f; older copies are historical only.
 Restoring unconditional reservation yields actual exit 1, four failures in 54 checks;
 /tmp/outshine-2318-negative-control-results.log and /tmp/outshine-2318-negative-control/.
-Runtime byte comparison pending. Graz/Wien stop before Ground publication in this gate;
-faster case termination does not prove faster completed scenes. No smaller LOD bound.
+Instrumented Graz: same addressed main range, 4754565080 - 3888187352 = 866377728 fewer
+requested bytes, exactly absent Tangent 577585152 + UV1 288792576. Not physical residency.
+Probe still reaches its 150 s deadline (exit 124); no completed-scene speedup proved.
+Next repair is active: colour capacity still grows 787480576 -> 1574961152 for new
+building pieces with no colours, while the main colour range stays fixed. Remove this
+remaining arena-wide optional reservation and apply the same rule to UV storage.
+Logs /tmp/outshine-batch-readiness-4b9afb1de-Graz-gpu-streams.log. No smaller LOD bound.
 Logs: /tmp/outshine-repair-4b9afb1de-{focused,full-lint,full-places}.log.
