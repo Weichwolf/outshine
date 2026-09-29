@@ -124,6 +124,9 @@ public:
   Request(std::span<const Data::SourceProvider> providers,
           std::string_view shippedRoot,
           std::span<const OsmCircuitRequest> routes = {});
+  [[nodiscard]] std::expected<void, std::string>
+  RequestSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+                std::span<const OsmCircuitRequest> routes = {});
   void Poll();
 
   [[nodiscard]] Phase CurrentPhase() const noexcept { return Phase_; }
@@ -159,12 +162,23 @@ private:
                                        std::span<const OsmCircuitRequest> routes,
                                        const std::stop_token &stop);
 
+  [[nodiscard]] static LoadResult BuildSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+                                              std::span<const OsmCircuitRequest> routes,
+                                              const std::stop_token &stop);
+
+  [[nodiscard]] std::expected<void, std::string>
+  SetRequest(std::vector<Data::SourceProvider> providers,
+             std::string root,
+             std::shared_ptr<const Data::OsmSourceSnapshot> source,
+             std::span<const OsmCircuitRequest> routes);
+
   void StartRequested();
 
   Tasks *Tasks_;
   std::vector<Data::SourceProvider> Requested_;
   std::vector<OsmCircuitRequest> RequestedRoutes_;
   std::string Root_;
+  std::shared_ptr<const Data::OsmSourceSnapshot> RequestedSource_;
   std::optional<Pending> Pending_;
   std::shared_ptr<const TransportNetworkSnapshot> Current_;
   std::string Error_;

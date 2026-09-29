@@ -56,7 +56,22 @@ OsmTransportLoader::Request(std::span<const Data::SourceProvider> providers,
       return std::unexpected("semantic OSM source accepts only osm provider chunks");
     }
   }
-  if (routes.size() > kMaxRoutes || (!routes.empty() && providers.empty())) {
+  return SetRequest({providers.begin(), providers.end()}, std::string(shippedRoot), {}, routes);
+}
+
+std::expected<void, std::string>
+OsmTransportLoader::RequestSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+                                  std::span<const OsmCircuitRequest> routes) {
+  return SetRequest({}, {}, std::move(source), routes);
+}
+
+std::expected<void, std::string>
+OsmTransportLoader::SetRequest(std::vector<Data::SourceProvider> requested,
+                               std::string root,
+                               std::shared_ptr<const Data::OsmSourceSnapshot> source,
+                               std::span<const OsmCircuitRequest> routes) {
+  if (routes.size() > kMaxRoutes || (!routes.empty() && requested.empty() && !source)) {
+
     return std::unexpected("semantic OSM routes require 1 to 32 requests and a source");
   }
   for (size_t at = 0; at < routes.size(); ++at) {
@@ -69,12 +84,11 @@ OsmTransportLoader::Request(std::span<const Data::SourceProvider> providers,
       }
     }
   }
-  std::vector<Data::SourceProvider> requested(providers.begin(), providers.end());
   std::vector<OsmCircuitRequest> requestedRoutes(routes.begin(), routes.end());
   std::ranges::sort(requested, {}, &Data::SourceProvider::Priority);
-  const std::string root(shippedRoot);
-  if (requested == Requested_ && requestedRoutes == RequestedRoutes_ &&
-      (requested.empty() || root == Root_) && Phase_ != Phase::Failed) {
+  if (source == RequestedSource_ && requested == Requested_ &&
+      requestedRoutes == RequestedRoutes_ && (requested.empty() || root == Root_) &&
+      Phase_ != Phase::Failed) {
     return {};
   }
   if (Revision_ == std::numeric_limits<uint64_t>::max()) {
@@ -83,10 +97,11 @@ OsmTransportLoader::Request(std::span<const Data::SourceProvider> providers,
   ++Revision_;
   Requested_ = std::move(requested);
   RequestedRoutes_ = std::move(requestedRoutes);
-  Root_ = root;
+  Root_ = std::move(root);
+  RequestedSource_ = std::move(source);
   Error_.clear();
   if (Pending_) { (void)Pending_->Stop.request_stop(); }
-  if (Requested_.empty()) {
+  if (Requested_.empty() && !RequestedSource_) {
     Current_.reset();
     Phase_ = Phase::Inactive;
     return {};
@@ -120,7 +135,9 @@ void OsmTransportLoader::Poll() {
       }
     }
   }
-  if (!Pending_ && Phase_ == Phase::Loading && !Requested_.empty()) { StartRequested(); }
+  if (!Pending_ && Phase_ == Phase::Loading && (!Requested_.empty() || RequestedSource_)) {
+    StartRequested();
+  }
 }
 
 void OsmTransportLoader::StartRequested() {
@@ -128,11 +145,13 @@ void OsmTransportLoader::StartRequested() {
   std::vector<Data::SourceProvider> input = Requested_;
   std::vector<OsmCircuitRequest> routes = RequestedRoutes_;
   const std::string root = Root_;
+  const auto source = RequestedSource_;
   std::stop_source stop;
   const std::stop_token token = stop.get_token();
-  const Tasks::Handle handle =
-      Tasks_->Post([input = std::move(input), routes = std::move(routes), root, result, token] {
-        result->Value = Load(input, root, routes, token);
+  const Tasks::Handle handle = Tasks_->Post(
+      [input = std::move(input), routes = std::move(routes), root, source, result, token] {
+        result->Value =
+            source ? BuildSource(source, routes, token) : Load(input, root, routes, token);
       });
   Pending_.emplace(Pending{.Handle = handle,
                            .Revision = Revision_,
@@ -147,9 +166,17 @@ OsmTransportLoader::Load(std::span<const Data::SourceProvider> providers,
                          const std::stop_token &stop) {
   auto loaded = Data::OsmChunkSetLoader::Load(providers, shippedRoot, stop);
   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
+  return BuildSource(
+      std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)), routes, stop);
+}
+
+OsmTransportLoader::LoadResult
+OsmTransportLoader::BuildSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+                                std::span<const OsmCircuitRequest> routes,
+                                const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   const auto graphAt = std::chrono::steady_clock::now();
-  auto graph = TransportTopology::Build(loaded->Elements);
+  auto graph = TransportTopology::Build(source->Elements);
   const double graphMs = MillisecondsSince(graphAt);
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   if (!graph) {
@@ -163,7 +190,7 @@ OsmTransportLoader::Load(std::span<const Data::SourceProvider> providers,
   for (const OsmCircuitRequest &request : routes) {
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
     auto route = transport.Graph.ResolveCircuit(
-        loaded->Elements, request.RelationId, {}, kMaxRouteEdges - routeEdges);
+        source->Elements, request.RelationId, {}, kMaxRouteEdges - routeEdges);
     if (!route) {
       return std::unexpected("semantic OSM route '" + request.Id + "' failed at source object " +
                              std::to_string(route.error().SourceId) + " with code " +
@@ -174,9 +201,7 @@ OsmTransportLoader::Load(std::span<const Data::SourceProvider> providers,
   }
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   return std::make_shared<TransportNetworkSnapshot>(
-      std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)),
-      std::move(transport),
-      graphMs);
+      std::move(source), std::move(transport), graphMs);
 }
 
 }
