@@ -50,8 +50,11 @@ CPU-Vorbereitung und Simulation erklären sie nicht. Das beweist noch keine GPU-
 Den nächsten Profilvergleich auf identische Welt, Kamera und Messframes begrenzen:
 Das getrennte Abschalten von Terrain-Klassifizierung und prozeduralem Felsdetail
 beseitigt die Budgetverletzung nicht. Diese Materialpfade deshalb nicht ohne weiteren
-Nachweis umbauen. Als Nächstes Zeichenlast und Überzeichnung je Geometrieklasse isolieren;
-Host-Fence-Warten weiterhin nicht einer einzelnen GPU-Passzeit zuordnen. Diagnosevarianten
+Nachweis umbauen. Der Ausschluss der Subject-Zeichnungen beseitigt die Spitze bei weiterhin aktiven
+Uploads und Culling; alleiniger Terrain-Ausschluss tut dies nicht. Subject-Geometrie,
+insbesondere Gebäude-Detailauswahl und doppelte Darstellung, ist der nächste Prüfpfad.
+Dieser Ausschluss ist keine zulässige Optimierung. Host-Fence-Warten weiterhin nicht
+einer einzelnen GPU-Passzeit zuordnen. Diagnosevarianten
 mit verändertem Bild sind keine Abnahme und dürfen keine Baseline ersetzen. Erst den
 gemessenen dominanten Pfad optimieren; Weltinhalt und Materialgrenzen erhalten.
 
