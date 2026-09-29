@@ -22,6 +22,9 @@ quantifiziert. Nach Freigabe alter Zelljobs erreicht Wien die Veröffentlichung 
 Geländekandidaten; alle 49 Vektorkacheln sind angekommen. Die Refined-Abnahme bleibt bei
 „structure view detail pending“ stehen. Als Nächstes fehlende Zellprodukte, Quellenvalidierung
 und Aktivierung getrennt erfassen. Ein Playable-Bild beweist keine vollständige Stadt.
+Darmstadt bleibt visuell praktisch unverändert. Feldkirch weicht an Wasser-/Geländekanten
+vom erhaltenen Vorherbild ab; die massive Geländewand bleibt. Keine neue Baseline: Ursache
+und Verbesserung sind vor visueller Abnahme zu belegen.
 
 ## Umsetzung und Besitzer
 
