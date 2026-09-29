@@ -464,7 +464,7 @@ GroupIncludes() {
   includeSet="-Iinclude"
   case "$includeTier" in
     engine/streaming) includeSet="$includeSet -Ibuild/generated" ;;
-    generators/water) includeSet="$includeSet -Ithird_party" ;;
+    generators/building|generators/water) includeSet="$includeSet -Ithird_party" ;;
   esac
   for includeFrom in $includeTier $includeReaches; do
     for includeDir in $(find "src/$includeFrom" -type d | sort); do

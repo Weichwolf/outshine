@@ -504,8 +504,9 @@ void IncludeFootprint(BakedTile &out, const StructureCell &cell) {
   }
 }
 
-bool ValidStructureHeights(const RawTile::Structure &structure) {
-  return std::isfinite(structure.MinimumHeightM) && structure.MinimumHeightM >= 0.0 &&
+bool ValidStructureInput(const RawTile::Structure &structure, size_t holes) {
+  return structure.FirstHole <= holes && structure.HoleCount <= holes - structure.FirstHole &&
+         std::isfinite(structure.MinimumHeightM) && structure.MinimumHeightM >= 0.0 &&
          (structure.MinimumHeightM == 0.0 ||
           (std::isfinite(structure.HeightM) && structure.HeightM > structure.MinimumHeightM));
 }
@@ -563,7 +564,9 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   const Frontage street = NearestStreet(pts, ring, ways, &standBackM, stopping);
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
 
-  if (!ValidStructureHeights(one)) { return std::unexpected(StructureMeshError::InvalidPlan); }
+  if (!ValidStructureInput(one, raw.Holes.size())) {
+    return std::unexpected(StructureMeshError::InvalidPlan);
+  }
   BuildingField::Footprint fp{};
   fp.MinimumHeightM = static_cast<float>(one.MinimumHeightM);
   fp.FirstPoint = one.SourceFirst;
@@ -628,9 +631,6 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
     return {};
   }
 
-  if (one.FirstHole > raw.Holes.size() || one.HoleCount > raw.Holes.size() - one.FirstHole) {
-    return std::unexpected(StructureMeshError::InvalidPlan);
-  }
   StructurePlan plan;
   plan.InnerRings = std::span(raw.Holes).subspan(one.FirstHole, one.HoleCount);
   plan.RingPointsLatLon = raw.LatLon;

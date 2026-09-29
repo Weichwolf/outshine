@@ -20,7 +20,7 @@ public:
   struct Work {
     std::span<const Ground::BuildingField::Footprint> Footprints;
     std::span<const double> Points;
-    std::span<const GeographicRing> Rings = {};
+    std::span<const GeographicRing> Rings;
     uint64_t VectorGeneration = 0;
     size_t UnitsMost = 0;
   };
@@ -37,6 +37,9 @@ private:
 
   [[nodiscard]] std::expected<void, std::string_view> AppendHolePoint(Work work);
   void FinishStamp();
+  [[nodiscard]] std::expected<void, std::string_view> Choose(Work work);
+  [[nodiscard]] std::expected<void, std::string_view> AdvanceStep(Work work);
+  void AppendOuterPoint(Work work);
 
   TangentFrame Frame_;
   uint64_t VectorGeneration_ = 0;

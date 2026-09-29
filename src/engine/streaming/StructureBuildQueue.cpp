@@ -80,9 +80,9 @@ void AppendInnerRings(std::span<const GeographicRing> rings,
   for (const auto &hole : rings) {
     if (hole.Exterior) { break; }
     const auto holeFirst = static_cast<uint32_t>(raw.LatLon.size() / 2);
-    raw.LatLon.insert(raw.LatLon.end(),
-                      points.begin() + static_cast<size_t>(hole.First) * 2,
-                      points.begin() + (static_cast<size_t>(hole.First) + hole.Count) * 2);
+    const auto contour =
+        points.subspan(static_cast<size_t>(hole.First) * 2, static_cast<size_t>(hole.Count) * 2);
+    raw.LatLon.insert(raw.LatLon.end(), contour.begin(), contour.end());
     raw.Holes.push_back({.First = holeFirst, .Count = hole.Count, .Exterior = false});
   }
 }

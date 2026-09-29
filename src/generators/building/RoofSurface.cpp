@@ -33,6 +33,8 @@ constexpr double kOverhangM = 0.60;
 constexpr double kCorniceM = 0.16;
 constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
+constexpr double kCourtyardAreaToleranceM2 = 1.0e-6;
+constexpr double kCourtyardRelativeAreaTolerance = 1.0e-8;
 
 void PushTri(std::vector<EastNorth> &out,
              const EastNorth &a,
@@ -187,7 +189,8 @@ bool FillCourtyard(std::span<const EastNorth> plan,
     if (tris.size() != before) { actualArea += std::abs(area); }
   }
   if (tris.size() == first ||
-      std::abs(actualArea - expectedArea) > std::max(1e-6, expectedArea * 1e-8)) {
+      std::abs(actualArea - expectedArea) >
+          std::max(kCourtyardAreaToleranceM2, expectedArea * kCourtyardRelativeAreaTolerance)) {
     tris.resize(first);
     return false;
   }
@@ -416,7 +419,8 @@ void RoofSurface::Cover(std::span<const EastNorth> plan,
     scratch.Mine.clear();
     if (!Fill(plan, scratch, scratch.Mine, Shape_.Holes)) { return; }
     for (size_t at = 0; at + 2 < scratch.Mine.size(); at += 3) {
-      cells.Next().assign(scratch.Mine.begin() + at, scratch.Mine.begin() + at + 3);
+      const auto triangle = std::span(scratch.Mine).subspan(at, 3);
+      cells.Next().assign(triangle.begin(), triangle.end());
     }
   }
   for (int i = 0; i < n; i++) {

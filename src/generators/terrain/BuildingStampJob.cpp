@@ -34,88 +34,95 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
              RingCount_ != work.Rings.size()) {
     return std::unexpected("building stamp source dimensions changed during construction");
   }
-  size_t visited = 0;
-  while (visited < work.UnitsMost && Phase_ != Phase::Done) {
-    if (Phase_ == Phase::Choose) {
-      if (NextFootprint_ == footprints.size()) {
-        Phase_ = Phase::Done;
-        break;
-      }
-      const auto &footprint = footprints[NextFootprint_];
-      const size_t first = footprint.FirstPoint;
-      const size_t count = footprint.PointCount;
-      if (footprint.MinimumHeightM > 0.0f || count < 3 || first > points.size() / 2u ||
-          count > points.size() / 2u - first) {
-        ++NextFootprint_;
-        ++visited;
-        continue;
-      }
-      if (footprint.HoleCount != 0 &&
-          (footprint.FirstHole > work.Rings.size() ||
-           footprint.HoleCount > work.Rings.size() - footprint.FirstHole)) {
-        return std::unexpected("building courtyard ring range is invalid");
-      }
-      Current_ = EarthworkStamp{};
-      Current_.RingEastNorthM.reserve(count * 2u);
-      Current_.LowE = Current_.LowN = kBeyondAnyCoordinate;
-      Current_.HighE = Current_.HighN = -kBeyondAnyCoordinate;
-      NextPoint_ = 0;
-      NextHole_ = 0;
-      Phase_ = Phase::Ring;
-      ++visited;
-      continue;
-    }
-    const auto &footprint = footprints[NextFootprint_];
-    if (Phase_ == Phase::Ring) {
-      const size_t point = static_cast<size_t>(footprint.FirstPoint) + NextPoint_;
-      const EastNorthUp seated =
-          Frame_.ToLocalPosition({.LongitudeDeg = points[2u * point + 1u],
-                                  .LatitudeDeg = points[2u * point],
-                                  .HeightM = static_cast<double>(footprint.SeatM)});
-      Current_.RingEastNorthM.push_back(seated.EastM);
-      Current_.RingEastNorthM.push_back(seated.NorthM);
-      Current_.LowE = std::min(Current_.LowE, seated.EastM);
-      Current_.HighE = std::max(Current_.HighE, seated.EastM);
-      Current_.LowN = std::min(Current_.LowN, seated.NorthM);
-      Current_.HighN = std::max(Current_.HighN, seated.NorthM);
-      ++NextPoint_;
-      ++visited;
-      if (NextPoint_ == footprint.PointCount) {
-        const size_t first = static_cast<size_t>(footprint.FirstPoint) * 2u;
-        Current_.PlateauM = Frame_
-                                .ToLocalPosition({.LongitudeDeg = points[first + 1u],
-                                                  .LatitudeDeg = points[first],
-                                                  .HeightM = static_cast<double>(footprint.SeatM)})
-                                .UpM;
-        Current_.ApronM = kPadApronM;
-        Current_.YieldM =
-            std::fabs(static_cast<double>(footprint.SeatM) - static_cast<double>(footprint.BaseM));
-        NextSeam_ = 0;
-        Phase_ = Phase::Seam;
-      }
-      continue;
-    }
-    if (Phase_ == Phase::Holes) {
-      if (const auto appended = AppendHolePoint(work); !appended) {
-        return std::unexpected(appended.error());
-      }
-      ++visited;
-      if (NextHole_ == footprint.HoleCount) { FinishStamp(); }
-      continue;
-    }
-    Current_.SeamEastNorthM.push_back(Current_.RingEastNorthM[NextSeam_++]);
-    ++visited;
-    if (NextSeam_ == Current_.RingEastNorthM.size()) {
-      if (footprint.HoleCount == 0) {
-        FinishStamp();
-      } else {
-        NextPoint_ = 0;
-        Phase_ = Phase::Holes;
-      }
-    }
+  for (size_t visited = 0; visited < work.UnitsMost && Phase_ != Phase::Done; ++visited) {
+    if (const auto step = AdvanceStep(work); !step) { return std::unexpected(step.error()); }
   }
   if (Phase_ == Phase::Choose && NextFootprint_ == footprints.size()) { Phase_ = Phase::Done; }
   return Phase_ == Phase::Done;
+}
+
+std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
+  const auto footprints = work.Footprints;
+  const auto points = work.Points;
+  if (NextFootprint_ == footprints.size()) {
+    Phase_ = Phase::Done;
+    return {};
+  }
+  const auto &footprint = footprints[NextFootprint_];
+  const size_t first = footprint.FirstPoint;
+  const size_t count = footprint.PointCount;
+  if (footprint.MinimumHeightM > 0.0f || count < 3 || first > points.size() / 2u ||
+      count > points.size() / 2u - first) {
+    ++NextFootprint_;
+    return {};
+  }
+  if (footprint.HoleCount != 0 && (footprint.FirstHole > work.Rings.size() ||
+                                   footprint.HoleCount > work.Rings.size() - footprint.FirstHole)) {
+    return std::unexpected("building courtyard ring range is invalid");
+  }
+  Current_ = EarthworkStamp{};
+  Current_.RingEastNorthM.reserve(count * 2u);
+  Current_.LowE = Current_.LowN = kBeyondAnyCoordinate;
+  Current_.HighE = Current_.HighN = -kBeyondAnyCoordinate;
+  NextPoint_ = 0;
+  NextHole_ = 0;
+  Phase_ = Phase::Ring;
+  return {};
+}
+
+void BuildingStampJob::AppendOuterPoint(Work work) {
+  const auto &footprint = work.Footprints[NextFootprint_];
+  const auto points = work.Points;
+  const size_t point = static_cast<size_t>(footprint.FirstPoint) + NextPoint_;
+  const EastNorthUp seated =
+      Frame_.ToLocalPosition({.LongitudeDeg = points[2u * point + 1u],
+                              .LatitudeDeg = points[2u * point],
+                              .HeightM = static_cast<double>(footprint.SeatM)});
+  Current_.RingEastNorthM.push_back(seated.EastM);
+  Current_.RingEastNorthM.push_back(seated.NorthM);
+  Current_.LowE = std::min(Current_.LowE, seated.EastM);
+  Current_.HighE = std::max(Current_.HighE, seated.EastM);
+  Current_.LowN = std::min(Current_.LowN, seated.NorthM);
+  Current_.HighN = std::max(Current_.HighN, seated.NorthM);
+  ++NextPoint_;
+  if (NextPoint_ == footprint.PointCount) {
+    const size_t first = static_cast<size_t>(footprint.FirstPoint) * 2u;
+    Current_.PlateauM = Frame_
+                            .ToLocalPosition({.LongitudeDeg = points[first + 1u],
+                                              .LatitudeDeg = points[first],
+                                              .HeightM = static_cast<double>(footprint.SeatM)})
+                            .UpM;
+    Current_.ApronM = kPadApronM;
+    Current_.YieldM =
+        std::fabs(static_cast<double>(footprint.SeatM) - static_cast<double>(footprint.BaseM));
+    NextSeam_ = 0;
+    Phase_ = Phase::Seam;
+  }
+}
+
+std::expected<void, std::string_view> BuildingStampJob::AdvanceStep(Work work) {
+  switch (Phase_) {
+    case Phase::Choose: return Choose(work);
+    case Phase::Ring: AppendOuterPoint(work); return {};
+    case Phase::Holes:
+      if (const auto appended = AppendHolePoint(work); !appended) { return appended; }
+      if (NextHole_ == work.Footprints[NextFootprint_].HoleCount) { FinishStamp(); }
+      return {};
+    case Phase::Seam:
+      Current_.SeamEastNorthM.push_back(Current_.RingEastNorthM[NextSeam_++]);
+      if (NextSeam_ == Current_.RingEastNorthM.size()) {
+        if (work.Footprints[NextFootprint_].HoleCount == 0) {
+          FinishStamp();
+        } else {
+          NextPoint_ = 0;
+          Phase_ = Phase::Holes;
+        }
+      }
+      return {};
+    case Phase::Done: return {};
+    case Phase::Unstarted: return std::unexpected("building stamp phase is uninitialized");
+  }
+  return std::unexpected("building stamp phase is invalid");
 }
 
 void BuildingStampJob::FinishStamp() {
