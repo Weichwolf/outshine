@@ -18,8 +18,10 @@ Wien ist der erste Regressionsfall; die Lösung gilt für alle Places.
 ## Befund
 
 Der Nutzer sieht nur etwa zehn Prozent der Gebäude. Dieser Anteil ist noch nicht
-quantifiziert. Der letzte Refined-Lauf erreicht keine fertige Szene; ein Playable-Bild
-beweist daher weder Vollständigkeit noch korrekte Gebäude-Publikation.
+quantifiziert. Nach Freigabe alter Zelljobs erreicht Wien die Veröffentlichung des
+Geländekandidaten; alle 49 Vektorkacheln sind angekommen. Die Refined-Abnahme bleibt bei
+„structure view detail pending“ stehen. Als Nächstes fehlende Zellprodukte, Quellenvalidierung
+und Aktivierung getrennt erfassen. Ein Playable-Bild beweist keine vollständige Stadt.
 
 ## Umsetzung und Besitzer
 
