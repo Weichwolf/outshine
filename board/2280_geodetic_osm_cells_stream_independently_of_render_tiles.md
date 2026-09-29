@@ -106,3 +106,14 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   remains open and a raised building part preserves its clearance. The same two-region
   scene retains shared-node road connectivity and unchanged content during a full turn.
   A parser-only success or a source accessor without this client path is not completion.
+
+## Native geometry requirements
+
+`StructurePlan` and `BuildingShape::MassOf` accept one exterior ring only. Extend both.
+Keep terrain `FootAslM` separate from OSM `min_height`; native lower/top elevations share
+one terrain datum. Elevated parts acquire no ground plinth, pavement or clearance-closing walls.
+Carry holes through massing, roofs, inner walls and foundations. Reuse vendored Mapbox Earcut,
+already used by `WaterSurfaceBuilder`; no new triangulator. Keep courtyards empty after
+parapets/overhangs and at every enabled detail level. Explicit outlines, parts and holes
+must survive procedural subdivision and caps. Roof semantics must reach `BuildingShape::Order`:
+`RawTile::Pitched` currently reaches massed roofs but is lost before individual-building meshing.
