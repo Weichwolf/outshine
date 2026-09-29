@@ -95,3 +95,16 @@ Logs: /tmp/outshine-source-fallback-{control-results,correct,original,final-form
   against the same trace/build. CPU certificates do not substitute for opened PNGs.
 - make format; affected BuildingMesh/StructureBake/StructureBuildTask/StructureBuildQueue,
   StructureCellDetail/TilePieces suites; full lint including clang-tidy and API guards.
+
+## Runtime diagnosis at 6e88154b5
+
+Temporary public-client probes, same 6144-frame boundary: Graz has 45 incomplete tiles,
+all source-current; 2296 required cells minus 782 resident leaves 1514 missing. Next
+missing cells request Fine. Renderer requested subject bytes: Graz 4.9517 GB, Wien
+9.8074 GB; not physical GPU residency. Wien also ends at structure detail in this probe.
+Graz: 126/128 observed height-pin misses exceed 2 MiB; mean resolution 5.93 ms over
+these first observations, not a frame quantile or isolated cause. No source-key mismatches observed.
+Logs: /tmp/outshine-structure-readiness-6e88154b5-{Graz,Wien}.log. Three real Fine/Shell
+pairs cannot seed 2313's frontier; all stop with zero distance queries and 158–311 m bounds.
+Prioritize useful bounded native proof -> task/product transfer -> resident selection;
+raising cache/frame limits cannot replace this chain. Preserve whole-cell safety meanwhile.

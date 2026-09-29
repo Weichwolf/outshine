@@ -82,7 +82,7 @@ These are native CPU proofs, not publication, transform or visual acceptance.
 Five focused cases, full lint 256/256 tidy units, zero findings, 32 guards/API docs PASS.
 Logs /tmp/outshine-build-task-move-names-{focused,queue,full-lint}.log; process exit 0.
 
-## Active step: paired worker phases
+## Next step after dense-cell proof: paired worker phases
 
 Owner: StructureBuildTask.h/.cpp, StructureBuildQueue.cpp and StructureBake.h. Keep task
 lifecycle separate from heap-owned phase state; running moves preserve worker pointees.
@@ -114,3 +114,6 @@ proof and byte admission. Early Output.Tile, rewritten Fine request, lost phase 
 and ignored cancellation controls must actually FAIL. Format; StructureBuildTask/Bake/
 SurfaceRefinement/BuildQueue suites; full lint/tidy/API. Source revalidation (2311), resident
 transfer and GPU/visual acceptance remain open; CPU intervals alone cannot lower LOD error.
+
+Real-cell probe now blocks useful integration: all three Graz Fine/Shell pairs exhaust
+2313 seed capacity without queries. Complete its dense-cell hierarchy first; retain caps.

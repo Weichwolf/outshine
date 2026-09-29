@@ -101,3 +101,19 @@ per-corner target switching gives upper zero versus opening squared distance 1/4
 Log: /tmp/outshine-review-convex-oracle.log. This alone does not prove C++ rounding/runtime.
 2312 owns StructureBuildTask/product integration. This CPU work grants no smaller runtime
 LOD error; adaptive publication, source lifetime and independent visual acceptance remain open.
+
+## Active correction: dense-cell hierarchy before task integration
+
+6e88154b5 Graz pairs: Fine/Shell triangles 4884/4486, 13207/12293, 19083/17829.
+All exceed seed capacity: zero queries, bounds 310.998/157.921/231.442 m; single-house
+utility did not generalize. /tmp/outshine-native-pair-6e88154b5-Graz.log. Caps stay fixed.
+Owner: building/StructureSurfaceRefinement and a scoped native triangle index; base distance
+arithmetic supplies outward node bounds. Existing TriangleBvh reconstructs float edges and
+builds synchronously: its ray contract cannot certify original native coordinates.
+Build deterministic source/target hierarchies incrementally over original indexed vertices.
+A frontier node covers every descendant; refine node children atomically, then triangle regions.
+Target pruning needs proved lower bounds; preserve all-target minima and complete exhaustion.
+Count construction/traversal in work and scratch limits; cancellation/moves revoke views.
+Negatives: omitted descendant, inward box/pruned nearer target, partial child publication.
+Gate above plus >4096-triangle analytic/native pairs, reordered inputs, real-cell useful
+bounds under existing caps; then 2312 worker/product integration and 2298 renderer selection.
