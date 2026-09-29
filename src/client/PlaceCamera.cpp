@@ -341,11 +341,10 @@ bool MeasureFrames(Engine &engine,
       schedule.Wait(at);
     }
     const auto before = std::chrono::steady_clock::now();
-    if (!turn.empty()) {
-      if (const auto selected = engine.setView(turn[(at + 1) % count].Id); !selected) {
-        shot.Why = std::string(name) + " could not select its turn view: " + selected.error();
-        return false;
-      }
+    const auto selected = turn.empty() ? Result{} : engine.setView(turn[(at + 1) % count].Id);
+    if (!selected) {
+      shot.Why = std::string(name) + " could not select its turn view: " + selected.error();
+      return false;
     }
     if (const auto result = engine.advance(); !result) {
       shot.Why = std::string(name) + Says::kTimedAdvanceFailed + result.error();

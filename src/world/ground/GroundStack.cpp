@@ -174,10 +174,7 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   const SettlementInputs inputs{.Classes = classes ? classes->Version() : 0,
                                 .Vectors = Vectors_->Generation(),
                                 .Footprints = Footprints_.Revision()};
-  if (Settled_ == inputs && Cls_.Complete() && Vectors_->SettledWithin(budget.VectorRing) &&
-      Drained() && HeapBytes() <= kHoldsBytes) {
-    return complete();
-  }
+  if (CanReuseSettlement(inputs, budget.VectorRing)) { return complete(); }
   Settled_.reset();
   for (size_t pass = 0; pass < budget.IngestTilesMost; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
@@ -211,6 +208,11 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
     Settled_ = inputs;
   }
   return complete();
+}
+
+bool GroundStack::CanReuseSettlement(const SettlementInputs &inputs, int rings) const {
+  return Settled_ == inputs && Cls_.Complete() && Vectors_->SettledWithin(rings) && Drained() &&
+         HeapBytes() <= kHoldsBytes;
 }
 
 void GroundStack::RecordsRestand(RestandMetrics metrics) noexcept {

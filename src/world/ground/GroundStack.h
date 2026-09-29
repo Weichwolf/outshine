@@ -178,6 +178,8 @@ private:
     [[nodiscard]] bool operator==(const SettlementInputs &) const = default;
   };
 
+  [[nodiscard]] bool CanReuseSettlement(const SettlementInputs &inputs, int rings) const;
+
   std::optional<SettlementInputs> Settled_;
   bool Overflowing_ = false;
   std::unique_ptr<OsmField> Vectors_;
