@@ -30,7 +30,8 @@ TilePool::Field is synchronized and asynchronous. Terrain certificates survive e
   ordered HeightField request and cell/detail requests before posting. Hash equality is
   insufficient. Each bake keeps its own immutable RequestedCell/RequestedDetail.
 - Heap-owned preparation state remains stable across running owner moves. A worker uses
-  only captured values and synchronized TilePool::Field; never Engine/GroundStack closures
+  a bounded subset of existing immutable SourcedTerrainFields for published inputs;
+  TilePool::Field handles missing-source reconstruction. Never Engine/GroundStack closures
   or borrowed mutable GroundStream/HeightSheets. Clear cancels and joins before pool/world
   destruction. No worker self-post loop and no blocking wait inside a worker.
 - States: Preparing -> Ready -> Draining -> Finished; Deferred, Failed and Cancelled are
@@ -38,7 +39,8 @@ TilePool::Field is synchronized and asynchronous. Terrain certificates survive e
   Deferred yields. Frame owner resumes after completion with 1/2/4/8/16-frame retry spacing
   (16 maximum), reset on actual progress; cancellation/source replacement revokes the batch.
 - Preserve exact requested coordinates and order, qualification, boundary dependencies and
-  source bytes. Build HeightField on the worker. Reconstructed source key must match the
+  source bytes. Capture only selected source/ancestor entries, not the whole-world snapshot.
+  Reuse the existing ancestor-selection rule; build HeightField on the worker. Its key matches the
   complete captured receipt. Native field versus published-source resampling is an explicit
   equivalence gate, never silently accepted through matching addresses or ancestor IDs.
 - Ready fields are shared by admitted bake tasks and unstarted demand in this batch.
@@ -84,3 +86,14 @@ Whole-tile bootstrap preparation is separately visible, not falsely claimed repa
 - All ten Places through client, personally opened PNGs. Compare Graz/Wien preparation
   count/time, cell completion, p50/p95/p99 and CPU/GPU bytes on identical inputs. Retain
   current frame/timeout/quality limits. No claim of success from fewer calls alone.
+
+## Initial equivalence evidence
+
+4b54277f2 temporary worker diagnostic: three Graz tiles, 31 fields. Every native node
+matches the published source (max delta 0 m), equal raster sizes, full source lists and
+accepted/published/reconstructed digests; both fields remain qualified. Per-tile retained
+bytes 3176944/3204736, 3176988/3204780, 1853352/1869564 (published/native representation).
+This does not prove ancestor/seam variants or all Places. Wien yielded no published source:
+at 6144 frames its candidate was still in earthworks, so equivalence remains unmeasured.
+Logs /tmp/outshine-source-equivalence-4b54277f2-{Graz,Wien}.log. Diagnostic exits 1 reflect
+unmet Refined readiness; no source mismatch was observed in the measured Graz fields.
