@@ -89,12 +89,11 @@ Whole-tile bootstrap preparation is separately visible, not falsely claimed repa
 
 ## Evidence and implementation
 
-4b54277f2 worker diagnostic: three Graz tiles/31 fields; native and published nodes agree
-exactly, with equal raster sizes, source lists and digests. Both remain qualified. Wien had
-no published candidate after 6144 frames; reconstruction equivalence there stays unmeasured.
-Logs /tmp/outshine-source-equivalence-4b54277f2-{Graz,Wien}.log; Refined remained unmet.
+4b54277f2: 3 Graz tiles/31 fields match native/published rasters; Wien remains unmeasured.
 973b697a5: 24 focused PASS; complete lint/tidy/API PASS, all 258 units with zero findings.
-Places running; Graz/Wien/Olympiaturm Playable PNGs opened, unchanged from 89a13c893.
+Complete Places: 38/44 PASS, three TIMEOUT/three UNPREPARED; suite exit 2, pipeline exit 1.
+All ten PNGs opened, unchanged from 89a13c893. Graz normal times out; validated remains
+unready at 6144 frames (total builds landed/posted 642/648). Runtime improvement unproven.
 
 Runtime now submits up to eight missing cells together. One heap-stable preparation builds
 four requested fields per worker post and shares its final HeightField with those bakes.
@@ -115,5 +114,5 @@ Restored frame resolver, ignored admission/cancellation and stale-preparation mu
 exit 1 again after refactoring. Logs /tmp/outshine-{source-batch-tidy,repair-973b697a5}-*.log.
 Missing published snapshots currently defer; TilePool reconstruction remains to integrate.
 The old single-cell API/pin remains for its existing callers until this runtime gate passes.
-Native fallback, full byte-ledger accounting, remaining negative controls and measured
-Place improvement remain open. No reduced LOD bound or completed WI claimed.
+Native fallback, byte-ledger accounting, negative controls and measured improvement stay open.
+Diagnose batch refusal versus throughput next; no reduced LOD bound or completed WI claimed.
