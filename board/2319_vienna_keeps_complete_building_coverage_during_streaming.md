@@ -101,13 +101,13 @@ Ansichten nachweisen; Host und A18 Pro getrennt beurteilen. Logs im System-Tempv
 Die Lieferung scheitert an fehlenden Gebäuden, schlechteren Straßen/Materialien/Silhouetten,
 verlorenen OSM-Eigenschaften, überschrittenen Place-Budgets oder unbewiesenen Fehlerschranken.
 
-## Gemessener Warmstart-Engpass: Weld-Tabellen
+## Gemessener Warmstart-Engpass: Gebäude-Meshing
 
-BuildingScratch::ClearWelds scannt über FlatMap::Clear je Gebäude drei ganze
-Tabellenkapazitäten. Der warme Wien-Stack zeigt dort den größten aktiven Einzelblock.
-FlatMap nutzt bereits Epoch-Marken: trivial zerstörbare Werte durch Epoch-Wechsel
-in konstanter Arbeit leeren; nichttriviale Werte weiterhin sofort freigeben.
-Beim Epoch-Überlauf alle Slot-Marken zurücksetzen, damit alte Einträge nie wiederkehren.
-Kollisionen, Rehash, Erase, Move, Allokationsfehler und Speicherledger erhalten.
-Keine Mesh-/LOD-/Quelländerung. FlatMap-Suite, Building-Suiten und alle Place-Bilder
-prüfen; Warmstart erneut messen und anschließend vollständiges Lint ausführen.
+Das kapazitätsabhängige Leeren trivialer Weld-Tabellen ist durch Epoch-Wechsel ersetzt.
+Im Folgeprofil dominiert Site::Index/Corner; Wien bleibt beim vollständigen Preload rot.
+BuildingMesh sucht neue Positions-/Corner-Schlüssel vor Emplace nochmals mit Find.
+Den vorhandenen Emplace-Rückgabevertrag verwenden: Index aus dem Ergebnis übernehmen,
+Corner-Vertex ausschließlich bei tatsächlicher Einfügung anhängen. Reihenfolge, Schlüssel,
+Geometrie, LOD, Quellen und Fehlerweitergabe erhalten; keine neue Container-API.
+FlatMap-/Building-Suites, unveränderte Place-Bilder und vollständiges Lint prüfen.
+Der Warmstart entscheidet über den Nutzen; diese lokale Reparatur ersetzt keine LOD-Lösung.
