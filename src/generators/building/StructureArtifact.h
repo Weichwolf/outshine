@@ -19,7 +19,9 @@ StructureArtifactKey(const RawTile &raw,
                      const std::optional<Data::TileSourceIdentity> &source,
                      std::string_view producerVersion);
 
-[[nodiscard]] std::optional<std::vector<uint8_t>>
+enum class StructureArtifactError { InvalidKey, InvalidProduct, InvalidScalar, CapacityExceeded };
+
+[[nodiscard]] std::expected<std::vector<uint8_t>, StructureArtifactError>
 EncodeStructureArtifact(const BakedTile &tile, std::string_view inputKey);
 
 [[nodiscard]] std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,

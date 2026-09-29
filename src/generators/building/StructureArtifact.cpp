@@ -25,7 +25,10 @@ public:
       return Number(static_cast<uint8_t>(value));
     } else {
       if constexpr (std::is_floating_point_v<T>) {
-        if (!std::isfinite(value)) { return false; }
+        if (!std::isfinite(value)) {
+          Failure = StructureArtifactError::InvalidScalar;
+          return false;
+        }
       }
       if (Bytes.size() > kMostBytes - sizeof(T)) { return false; }
       using Word = std::conditional_t<sizeof(T) == 8,
@@ -53,6 +56,7 @@ public:
   }
 
   std::vector<uint8_t> Bytes;
+  StructureArtifactError Failure = StructureArtifactError::CapacityExceeded;
 };
 
 class Reader {
@@ -307,15 +311,16 @@ StructureArtifactKey(const RawTile &raw,
   return Sha256Hex(writer.Bytes.data(), writer.Bytes.size());
 }
 
-std::optional<std::vector<uint8_t>> EncodeStructureArtifact(const BakedTile &tile,
-                                                            std::string_view inputKey) {
-  if (!KeyValid(inputKey) || !Valid(tile)) { return std::nullopt; }
+std::expected<std::vector<uint8_t>, StructureArtifactError>
+EncodeStructureArtifact(const BakedTile &tile, std::string_view inputKey) {
+  if (!KeyValid(inputKey)) { return std::unexpected(StructureArtifactError::InvalidKey); }
+  if (!Valid(tile)) { return std::unexpected(StructureArtifactError::InvalidProduct); }
   Writer writer;
   writer.Bytes.insert(writer.Bytes.end(), kMagic.begin(), kMagic.end());
-  if (!writer.Number(kVersion)) { return std::nullopt; }
+  if (!writer.Number(kVersion)) { return std::unexpected(writer.Failure); }
   writer.Bytes.insert(writer.Bytes.end(), inputKey.begin(), inputKey.end());
   if (!Product(writer, tile) || writer.Bytes.size() > kMostBytes - kHashBytes) {
-    return std::nullopt;
+    return std::unexpected(writer.Failure);
   }
   const auto checksum = Sha256Hex(writer.Bytes.data(), writer.Bytes.size());
   writer.Bytes.insert(writer.Bytes.end(), checksum.begin(), checksum.end());

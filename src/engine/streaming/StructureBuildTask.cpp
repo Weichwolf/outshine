@@ -269,11 +269,16 @@ struct StructureBuildTask::Artifact {
 
   void AfterBake(Output &output) {
     if (!output.Tile || !output.Status) { return; }
-    Bytes = Generators::EncodeStructureArtifact(*output.Tile, Key);
-    if (!Bytes) {
-      Fail(output);
+    auto encoded = Generators::EncodeStructureArtifact(*output.Tile, Key);
+    if (!encoded) {
+      output.Tile.reset();
+      output.Status =
+          std::unexpected(encoded.error() == Generators::StructureArtifactError::CapacityExceeded
+                              ? Generators::StructureBakeErrorKind::ArtifactCapacityExceeded
+                              : Generators::StructureBakeErrorKind::ArtifactInvalidProduct);
       return;
     }
+    Bytes = std::move(*encoded);
     Product = std::move(output.Tile);
     output.Tile.reset();
     Stage = Phase::Write;
