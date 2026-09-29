@@ -51,12 +51,10 @@ constexpr const char *kMissingTimingSamples = " has no complete frame timing sam
 }
 
 constexpr std::uint8_t kByteMost = 255;
-constexpr double kProgressEveryS = 0.25;
 
 namespace {
 
 constexpr int kTimedFrames = 120;
-constexpr int kMaximumTimedFrames = 6144;
 
 }
 
@@ -295,25 +293,9 @@ namespace {
 bool PreloadShot(
     Engine &engine, std::string_view name, bool tells, double preloadSeconds, Shot &shot) {
   const auto asked = std::chrono::steady_clock::now();
-  Loading last;
-  const Result ready = engine.preload(preloadSeconds, [&](const Loading &how) {
-    if (!tells) { return; }
-    if (how.ElapsedS - last.ElapsedS < kProgressEveryS && how.share() < 1.0) { return; }
-    last = how;
-    std::print("\r    loading  terrain {}/{}  osm {}/{}  {} in flight  {:.1f} MB  "
-               "{:.0f} Mbit/s  {:.1f} s   ",
-               how.GroundArrived,
-               how.GroundWanted,
-               how.VectorArrived,
-               how.VectorWanted,
-               how.Outstanding,
-               how.FetchedMB,
-               how.Megabits,
-               how.ElapsedS);
-    std::fflush(stdout);
-  });
-  if (tells) { std::println(""); }
-
+  if (tells) { std::println("    loading {} to refined world quality", name); }
+  const Result ready = engine.preload(preloadSeconds, WorldQuality::Refined);
+  const Loading last = engine.loading();
   const auto stood = std::chrono::steady_clock::now();
   shot.StreamedS = last.ElapsedS;
   shot.Preloaded = ready.has_value();
@@ -335,14 +317,11 @@ bool MeasureFrames(Engine &engine, std::string_view name, Shot &shot) {
   std::vector<double> heldMs;
   std::vector<double> advancedMs;
   std::vector<double> renderedMs;
-  heldMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
-  advancedMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
-  renderedMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
+  heldMs.reserve(static_cast<std::size_t>(kTimedFrames));
+  advancedMs.reserve(static_cast<std::size_t>(kTimedFrames));
+  renderedMs.reserve(static_cast<std::size_t>(kTimedFrames));
   Client::FramePacer pacer;
-  const bool waitsForWorld = engine.declaration().Ground.Declared;
-  for (int at = 0; at < kMaximumTimedFrames &&
-                   (at < kTimedFrames || (waitsForWorld && !engine.settled(WorldQuality::Refined)));
-       ++at) {
+  for (int at = 0; at < kTimedFrames; ++at) {
     pacer.Wait();
     const auto before = std::chrono::steady_clock::now();
     if (const auto result = engine.advance(); !result) {
