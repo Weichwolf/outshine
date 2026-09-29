@@ -89,6 +89,9 @@ vergleichbarer Szenarioparameter. Kein allgemeiner `cachable`-Vertrag ist implem
    übernommenes, weiterhin gecachtes Feld darf die Preload-Schleife nicht erneut wecken.
    Publikation, Übernahme und Verdrängung pflegen diesen Zustand unter `QueueMutex_`.
    Vor dem Warten fertiggestellte Ergebnisse bleiben sofort beobachtbar.
+   `GroundStack` beobachtet zusätzlich eine Publikationsrevision pro wartendem Besitzer:
+   ein liegen gebliebenes Ergebnis ist kein erneuter Fortschritt. Die Condition Variable
+   prüft Revision und Abbruch unter demselben Mutex; neue Publikationen dürfen nicht verloren gehen.
 7. Jeder erfolgreiche Asset-Producer publiziert sein Ergebnis über diesen Pfad. Fehler,
    Abbruch und unvollständige Produkte werden nicht als Treffer gespeichert. Schreibfehler
    sichtbar melden; keine Cache-Erfolge behaupten. Ein beschädigter Eintrag wird als Miss
