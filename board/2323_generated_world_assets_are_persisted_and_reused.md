@@ -55,6 +55,11 @@ vergleichbarer Szenarioparameter. Kein allgemeiner `cachable`-Vertrag ist implem
    atomisches Publish und Runtime-Upload. Quelldaten und abgeleitete Produkte erhalten
    getrennte Namensräume und Verdrängungsbudgets; abgeleitete Produkte dürfen nicht die
    für ihren Wiederaufbau nötigen Quelldaten verdrängen. Kein synchrones Datei-IO im Framepfad.
+   Ein `world/data/ArtifactStore` besitzt die Verdrängung kompletter Manifest-/Block-Produkte:
+   erfolgreiche Zugriffe bestimmen LRU, referenzierte Blöcke bleiben erhalten, verwaiste
+   Blöcke werden gesammelt. Publish und Sammlung koordinieren laufende Schreibvorgänge.
+   Der bisherige dateiweise `ContentStore`-Sweep ist für diesen Produktgraphen ungeeignet;
+   das Bytebudget bleibt bestehen. Fehlende Blöcke bleiben ein Cache-Miss, nie gültige Geometrie.
 2. Schlüssel enthält Produktart, Producer-/Codec-Version, vollständige Parameter und Seed,
    OSM-/DEM-Inhaltsidentität, relevante Material-/Regelversionen, räumliche Zelle und LOD.
    Abhängigkeiten vor Lookup schließen. OSM-Tagänderung muss betroffene Produkte erneuern.
