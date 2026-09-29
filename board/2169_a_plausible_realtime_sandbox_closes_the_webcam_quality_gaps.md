@@ -34,12 +34,14 @@ Drei Playable-PNGs: `build/shots/places-playable-6e88154b5/`; Graz/Wien wieder o
 Olympiaturm unvollständig. Playable ersetzt keine Refined-Abnahme; Webcam-Vergleich fehlt.
 Feldkirchs Nahwand, Malcesines Faltenvorhang, geglättete Alpen, gezackte Ufer und uniforme
 Fassaden bleiben. Hockenheim wirkt wie eine Karte; Nähe/Bewegung brauchen eigene Abnahmen.
-Graz-Ursache: CPU-Terrain-Dreieck trifft Mittelstrahl bei 3.7342 m, Bildtiefe 3.7348 m;
-18/142294/92117: 368-m-Knoten auf 518 m gezogen. CoarseNeighbor wählte 11/1111/719 trotz
-gleich feiner Nachbarn; keine gemeinsame Außenkante. 2166 repariert dies ohne Kameraänderung.
+2166 belegt und repariert die falsche grobe Nachbarkante ohne Kameraänderung.
 GPU-Warten/Prozessspeicher unter 2228; kein Engine-Budget und keine isolierte Änderungskausalität.
 2298s quellstabiles Shell-Fallback ist geprüft; Runtime-Fehlerzertifikate bleiben offen.
 Vegetation zuletzt; Hockenheim erster Integrationstest. ALLE Places bei JEDEM Code-Gate.
+
+0d5962a2a: Graz/Wien/Olympiaturm erneut via Client Playable gerendert und geöffnet,
+alle pixelidentisch zu 6e. PNGs: `build/shots/places-playable-0d5962a2a/`;
+/tmp/outshine-0d5962a2a-*-pixels.log. Neue Places-Suite läuft; Lint mit 16 Tidy-Befunden rot.
 
 ## Historischer Bildbefund (2026-09-07, Renderer 12ceb790)
 

@@ -105,4 +105,6 @@ ASan/UBSan dense and move fixtures PASS:
 constants, two complex functions and a side-effecting condition. Fix by using Digest
 constants, explicit defaults and named seed/fold/search/sample steps; keep proof/work
 ordering. Format 1213 PASS. Focused/full gates for this correction are pending.
-Report: /tmp/outshine-lint.CBMvE9/tidy.unique (under system TMPDIR on this host).
+0d5962a2a: full lint exits 2, 32 rules PASS, tidy is the sole red guard;
+/tmp/outshine-repair-0d5962a2a-full-lint.log links the actual diagnostic report.
+bec05b615 contains the correction; its gates remain pending.
