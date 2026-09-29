@@ -37,3 +37,11 @@ not an implementation helper. Restoring unconditional reservations must fail the
 make format; make suite SUITE='outshine/src/render/stages/SubjectDraw outshine/src/render/stages/SubjectResidency';
 LINT_JOBS=2 make lint; all Places via client, all ten PNGs personally opened and compared.
 Compare requested buffer capacities in Graz; do not claim repaired readiness without its gate.
+
+## Current evidence
+
+4b9afb1de: format 1219 files PASS; six focused GPU tests PASS. New test: 54 checks,
+zero failures; all four optional-attribute combinations and independent-piece retention.
+Full lint/tidy/API and Places running in the frozen detached check worktree.
+Restored-reservation negative control, all ten PNG reviews and runtime byte comparison pending.
+Logs: /tmp/outshine-repair-4b9afb1de-{focused,full-lint,full-places}.log.
