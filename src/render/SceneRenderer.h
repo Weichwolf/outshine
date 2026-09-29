@@ -37,6 +37,7 @@
 
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
+#include "stages/SubjectResidency.h"
 #include "stages/AerialPerspectiveStage.h"
 #include "stages/CompositeTransmissionStage.h"
 #include "stages/MediumMultiScatterStage.h"
@@ -365,6 +366,10 @@ public:
 
   [[nodiscard]] size_t TakeStagingAllocationAttempts() {
     return ActiveState().Content.Subjects.Owned().TakeStagingAllocationAttempts();
+  }
+
+  [[nodiscard]] SubjectResidency::AllocationStats PieceAllocations() const {
+    return ActiveState().Content.Subjects.Resident().Allocations();
   }
 
   [[nodiscard]] uint64_t PieceBytesHeld() const {

@@ -148,6 +148,17 @@ struct SubjectResidency {
     return bytes;
   }
 
+  struct AllocationStats {
+    std::array<uint32_t, kStreams> StreamBytes{};
+    uint64_t TransferBytes = 0;
+    uint32_t VertexSlots = 0;
+    uint32_t FreeVertexSlots = 0;
+    uint32_t IndexSlots = 0;
+    uint32_t FreeIndexSlots = 0;
+  };
+
+  [[nodiscard]] AllocationStats Allocations() const;
+
   [[nodiscard]] Shaping &Shape() { return Shape_; }
 
   [[nodiscard]] const Shaping &Shape() const { return Shape_; }
@@ -213,7 +224,13 @@ private:
   Shaping Shape_;
 
   OwnedTransfer Staging_;
-  std::vector<OwnedTransfer> Retired_;
+
+  struct RetiredTransfer {
+    OwnedTransfer Buffer;
+    uint32_t Bytes = 0;
+  };
+
+  std::vector<RetiredTransfer> Retired_;
   uint32_t StagingBytes_ = 0;
   uint32_t StagingUsed_ = 0;
   uint32_t StagedThisFrame_ = 0;

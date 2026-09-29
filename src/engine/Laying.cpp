@@ -18,6 +18,7 @@
 #include "Heap.h"
 #include "TangentFrame.h"
 #include <array>
+#include <tuple>
 #include <cassert>
 #include <functional>
 #include <optional>
@@ -876,6 +877,41 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                          Picture.Standing ? static_cast<double>(Picture.Device.PieceBytesHeld())
                                           : 0.0,
                          "bytes");
+  if (Picture.Standing) {
+    const auto memory = Picture.Device.PieceAllocations();
+    constexpr std::array names{"world: subject position buffer",
+                               "world: subject emitted buffer",
+                               "world: subject normal buffer",
+                               "world: subject tangent buffer",
+                               "world: subject uv buffer",
+                               "world: subject uv1 buffer",
+                               "world: subject colour buffer",
+                               "world: subject previous position buffer",
+                               "world: subject placement buffer",
+                               "world: subject index buffer",
+                               "world: subject cluster sphere buffer",
+                               "world: subject cluster job buffer",
+                               "world: subject cluster batch buffer",
+                               "world: subject cluster kept buffer",
+                               "world: subject cluster slot buffer",
+                               "world: subject draw index buffer",
+                               "world: subject draw argument buffer"};
+    static_assert(names.size() == std::tuple_size_v<decltype(memory.StreamBytes)>);
+    for (size_t at = 0; at < names.size(); ++at) {
+      Published.RecordMetric(names[at], static_cast<double>(memory.StreamBytes[at]), "bytes");
+    }
+    Published.RecordMetric("world: subject transfer buffer capacity",
+                           static_cast<double>(memory.TransferBytes),
+                           "bytes");
+    Published.RecordMetric(
+        "world: subject vertex arena extent", static_cast<double>(memory.VertexSlots), "slots");
+    Published.RecordMetric(
+        "world: subject free vertex slots", static_cast<double>(memory.FreeVertexSlots), "slots");
+    Published.RecordMetric(
+        "world: subject index arena extent", static_cast<double>(memory.IndexSlots), "slots");
+    Published.RecordMetric(
+        "world: subject free index slots", static_cast<double>(memory.FreeIndexSlots), "slots");
+  }
   Published.RecordMetric(
       "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
   Published.RecordMetric(

@@ -148,6 +148,17 @@ std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels) {
 
 }
 
+SubjectResidency::AllocationStats SubjectResidency::Allocations() const {
+  AllocationStats result{.StreamBytes = Held_,
+                         .TransferBytes = uint64_t{StagingBytes_} + BulkBytes_,
+                         .VertexSlots = TopV_,
+                         .IndexSlots = TopI_};
+  for (const Range &range : FreeV_) { result.FreeVertexSlots += range.Count; }
+  for (const Range &range : FreeI_) { result.FreeIndexSlots += range.Count; }
+  for (const RetiredTransfer &transfer : Retired_) { result.TransferBytes += transfer.Bytes; }
+  return result;
+}
+
 size_t SubjectResidency::TakeUploadAttempts() {
   return std::exchange(UploadAttempts_, size_t{0});
 }
@@ -298,7 +309,9 @@ bool SubjectResidency::StageUploads(std::span<Crossing> what, uint32_t total, st
       error = std::format(Says::kPoseStagingFoundNoRoom, SDL_GetError());
       return false;
     }
-    if (Staging_ && StagedCount_ > 0) { Retired_.push_back(std::move(Staging_)); }
+    if (Staging_ && StagedCount_ > 0) {
+      Retired_.push_back({.Buffer = std::move(Staging_), .Bytes = StagingBytes_});
+    }
     Staging_ = std::move(fresh);
     StagingBytes_ = widened;
     StagingUsed_ = 0;
