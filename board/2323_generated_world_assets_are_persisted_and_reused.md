@@ -46,9 +46,13 @@ Die damalige Reparatur verhindert veraltete Geometrie bei geänderten Provider-D
 Diese Korrektheit erhalten; Wiederverwendung braucht vollständige Identität statt bloß
 vergleichbarer Szenarioparameter. Kein allgemeiner `cachable`-Vertrag ist implementiert.
 
+Gebäude-Quellprodukte werden mit Containerablage nach Prozessneustart wiederverwendet.
+Wien erreicht weiterhin keine vollständige Refined-Aufnahme innerhalb der Ladegrenze;
+verbleibende Erzeugung, Decode, Upload und Zellaktivierung getrennt eingrenzen.
+
 ## Architektur und Implementierung
 
-1. `world/data` besitzt begrenzte persistente Artefaktablage über `ContentStore`.
+1. `world/data` besitzt begrenzte persistente Artefaktablage über `ArtifactStore`.
    `content` besitzt native Geometrie-Codecs; der Gebäudeprodukt-Codec bleibt beim
    erzeugenden Modul, ohne umgekehrte Abhängigkeit von `content` auf Generatoren.
    `engine/streaming` orchestriert Lookup, begrenztes IO, Decode, Miss-Generierung,
