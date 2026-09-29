@@ -2,8 +2,8 @@ Type: feature
 State: open
 Architecture: ready
 Parent: 2173
-Depends: 2278
-Priority: P1
+Depends:
+Priority: P0
 Area: world, data, navigation, engine, streaming
 Tags: osm, worldwide, source-cells, residency
 
@@ -16,8 +16,9 @@ publishes one regional graph. This is sufficient for the early Hockenheim
 route, but increasing its chunk cap or declaring thousands of files in one
 scenario cannot make a worldwide source. Semantic graph residency must be
 independent of `Ground::VectorStreetGraph`, render LOD and camera tile eviction.
-Preserve the regional adapter; introduce cell identity and bounded residency
-before extending route distance or source acquisition.
+Preserve the regional adapter and connect the same original elements to building
+generation. Existing source identity and transport publication from 2278 are usable;
+completion of its deferred driving acceptance does not block the visual milestone.
 
 ## Architecture decision
 
@@ -32,8 +33,9 @@ before extending route distance or source acquisition.
    on the simulation thread. A single source declaration names the catalog,
    not one `SourceProvider` per cell. Specify ownership, path resolution and
    per-cell byte/hash pins in that manifest before parser implementation.
-3. `world/navigation` owns immutable per-cell semantic products and stable
-   cross-cell OSM IDs. Equal overlapping objects deduplicate; conflicting IDs
+3. `world/data` owns immutable decoded source regions and typed cross-cell OSM IDs.
+   `world/navigation` derives transport; `world/ground` supplies native building inputs
+   to the existing generators. Equal overlapping objects deduplicate; conflicting IDs
    reject replacement. A cell with unresolved way/relation references declares
    neighbor dependencies and cannot silently publish disconnected edges.
    A route pins its required graph cells; visual tile eviction is irrelevant.
@@ -51,26 +53,33 @@ a fast 180-degree turn must not expose holes or wait for disk, decode or generat
 Keep the configured horizon through resident distant representations. Detailed nearby
 products, movement prefetch and eviction hysteresis share a bounded working set.
 `engine/streaming` owns demand and retention; the renderer culls drawing independently.
-SSD holds versioned spatial products; RAM holds bounded decode/upload staging and active
+SSD holds downloaded original source bytes only, never generated geometry, LODs or
+material products. RAM holds bounded source indices, decode/upload staging and active
 CPU products; GPU residency holds immediately drawable representations. Derive disk
-capacity from reuse distance and product sizes, IO admission from latency and throughput;
+capacity from source reuse and byte sizes, IO admission from latency and throughput;
 a fixed quota that repeatedly evicts the active area is not an accepted budget.
 Acceptance includes rapid full rotations and movement back across cell boundaries:
 complete images, no frame-thread IO, bounded transient overlap and measured p99.
 
-## First executable slice and negative controls
+## First complete delivery
 
-- Implement and test only `GeoCellId` bounds, address normalization and a
-  small immutable local catalog lookup in `world/data`; leave Engine wiring
-  for the next slice. Verify exhaustive cover/disjointness at small levels,
-  antimeridian wrap, both poles, invalid levels/indices and deterministic
-  lookup independent of manifest row order. A deliberately Mercator-only
-  implementation must fail the polar test.
-- Then two adjacent source cells with one shared OSM node must preserve edge
-  identity as focus crosses the seam; same XY without shared ID stays separate.
-  Revision change, conflicting overlap and missing referenced node reject
-  the candidate while the last valid route remains usable.
-- Measure cold/warm cell load bytes/time, resident cells, queue depth and
-  p50/p95/p99 frame time while moving out and back. `make format`, focused
-  source/navigation/runtime suites and `LINT_JOBS=2 make lint` gate each code
-  slice. Hockenheim camera acceptance remains WI 2260.
+- Connect two adjacent original-source regions through the existing reader and source
+  identity to native transport and building products in outshine-client. Preserve IDs,
+  tags, relation roles, holes and building parts through generation. A source address or
+  manifest lookup alone does not complete the delivery. No Place-specific geometry.
+- Spatial responses may contain incomplete distant relations. Retain unresolved references
+  and compute closure for the consuming product: building multipolygons/parts and selected
+  transport connections must be complete; unrelated remote route members must not block
+  an otherwise complete building. Missing required dependencies remain Pending or fail
+  explicitly. Fully declared local chunk sets retain their existing strict contract.
+- Equal overlapping OSM objects deduplicate by typed identity; conflicting revisions reject
+  replacement. Shared nodes preserve network connectivity across the seam; equal coordinates
+  without shared IDs do not establish identity. Publication retains the previous valid world
+  until the replacement and its dependencies are complete.
+- Original source objects replace reduced map-tile structures in the connected region;
+  no duplicate overlay or silent fallback to missing semantics. A tagged chimney must reach
+  its own generator instead of the generic windowed facade. Unconsumed tags remain available.
+- Measure cold/warm source bytes, complete preload, resident bytes and the fixed-station
+  360-degree turn. Format, source/navigation/generator suites, full lint and opened Places
+  gate the integrated delivery. Regional source tests supplement all-Place acceptance;
+  Hockenheim driving and a completed worldwide router are not prerequisites.
