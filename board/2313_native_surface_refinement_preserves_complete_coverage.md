@@ -110,3 +110,7 @@ ordering. Format 1213 PASS. Focused/full gates for this correction are pending.
 bec05b615 correction in 36e376880: eleven focused tests PASS, all seven control runs
 match expected exits. Full lint/Places pending. /tmp/outshine-repair-36e376880-focused.log;
 /tmp/outshine-surface-hierarchy-36e376880-controls.log.
+
+36e376880 tidy finishes 257/257 with one remaining finding: adjacent sample-distance
+parameters. Pass the existing TriangleDistanceBound instead; no arithmetic/work changes.
+Format 1213 PASS. Corrected focused/tidy/full gates pending; do not call this green.

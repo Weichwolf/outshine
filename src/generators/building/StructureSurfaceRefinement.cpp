@@ -352,12 +352,11 @@ void StructureSurfaceRefinementTask::AdvanceTargetSearch() noexcept {
   std::ranges::push_heap(Targets_, LaterTarget);
 }
 
-void StructureSurfaceRefinementTask::AcceptSampleBound(double lowerM,
-                                                       double upperM,
+void StructureSurfaceRefinementTask::AcceptSampleBound(const TriangleDistanceBound &sample,
                                                        double regionUpperM) noexcept {
-  SampleLowerM_ = std::min(SampleLowerM_, lowerM);
-  if (upperM < SampleUpperM_) {
-    SampleUpperM_ = upperM;
+  SampleLowerM_ = std::min(SampleLowerM_, sample.LowerDistanceM);
+  if (sample.UpperDistanceM < SampleUpperM_) {
+    SampleUpperM_ = sample.UpperDistanceM;
     BestTarget_ = TargetCursor_;
   }
   Working_.UpperM = std::min(Working_.UpperM, regionUpperM);
@@ -423,7 +422,7 @@ StructureSurfaceRefinementTask::EvaluatePoint() noexcept {
     return std::unexpected(StructureSurfaceErrorFailure::NonfiniteDistance);
   }
   if (sample) {
-    AcceptSampleBound(value->LowerDistanceM, value->UpperDistanceM, upper);
+    AcceptSampleBound(*value, upper);
     return {};
   }
   TargetCornerUpperM_ = std::max(TargetCornerUpperM_, upper);

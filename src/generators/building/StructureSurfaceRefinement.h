@@ -5,6 +5,7 @@
 #include "StructureSurfaceIndex.h"
 #include <limits>
 #include "TriangleRegion.h"
+#include "TriangleDistance.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -99,7 +100,7 @@ private:
   [[nodiscard]] std::expected<void, StructureSurfaceErrorFailure> FoldBounds() noexcept;
   void BeginCornerQueries() noexcept;
   void AdvanceTargetSearch() noexcept;
-  void AcceptSampleBound(double lowerM, double upperM, double regionUpperM) noexcept;
+  void AcceptSampleBound(const TriangleDistanceBound &sample, double regionUpperM) noexcept;
   void BeginEvaluation(Region region) noexcept;
   void FinishEvaluation() noexcept;
   void KeepRegion(const Region &region);
