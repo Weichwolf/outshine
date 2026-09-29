@@ -25,6 +25,7 @@ int main() {
     constexpr std::array<float, 9> emitted{};
     constexpr std::array<float, 6> uv{0, 0, 1, 0, 0, 1};
     constexpr std::array<float, 12> tangents{1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1};
+    constexpr std::array<float, 12> colours{1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1};
     constexpr std::array<uint32_t, 3> indices{0, 1, 2};
     const std::array<StoredVertex, 3> vertices{
         StoredVertex::Of({{-1, -1, 0}}, {{0, 0}}, {{0, 0, 1}}),
@@ -47,11 +48,15 @@ int main() {
         draw.SetNativePieceSurfaces(slots);
         CHECK(draw.PlacePiece(PieceMesh{.Verts = vertices, .Indices = indices}, error) != kNoPiece,
               "independent piece precedes the main mesh in the shared arena");
+        const auto &resident = draw.Resident();
+        using Stream = SubjectResidency::Stream;
+        CHECK(resident.HeldOf(Stream::Uv) == 0 && resident.HeldOf(Stream::Colour) == 0,
+              "untextured untinted pieces reserve neither optional stream");
         DrawList draws;
-        const auto layout =
-            mapped ? (second ? VertexLayout::PositionNormalUvUv1Tangent
-                             : VertexLayout::PositionNormalUvTangent)
-                   : (second ? VertexLayout::PositionNormalUvUv1 : VertexLayout::PositionNormalUv);
+        const auto layout = mapped ? (second ? VertexLayout::PositionNormalUvUv1TangentColour
+                                             : VertexLayout::PositionNormalUvTangent)
+                                   : (second ? VertexLayout::PositionNormalUvUv1Colour
+                                             : VertexLayout::PositionNormalUv);
         CHECK(draws.Add(DrawItem{.IndexCount = 3, .Layout = layout}, error), "draw adds");
         draws.Compile();
         SubjectMesh mesh;
@@ -62,6 +67,7 @@ int main() {
         mesh.Uv.From = uv.data();
         if (mapped) { mesh.Tangents.From = tangents.data(); }
         if (second) { mesh.Uv1.From = uv.data(); }
+        if (second) { mesh.Colours.From = colours.data(); }
         mesh.VertexCount = 3;
         mesh.Indices = indices.data();
         mesh.IndexCount = 3;
@@ -70,8 +76,8 @@ int main() {
         CHECK(ticket.has_value(), "main mesh admitted after the independent piece");
         if (!ticket) { continue; }
         CHECK(draw.FinishMesh(*ticket, mesh, error), "main mesh uploads complete");
-        const auto &resident = draw.Resident();
-        using Stream = SubjectResidency::Stream;
+        CHECK((resident.HeldOf(Stream::Colour) != 0) == second,
+              "only a colour consumer reserves the colour stream");
         CHECK((resident.HeldOf(Stream::Tangent) != 0) == mapped,
               "only a tangent consumer reserves the tangent stream");
         CHECK((resident.HeldOf(Stream::Uv1) != 0) == second,
@@ -84,6 +90,8 @@ int main() {
                                      offset + sizeof(expected)) == ReadState::Ready &&
                  std::memcmp(readback.Rows() + offset, expected.data(), sizeof(expected)) == 0;
         };
+        CHECK(verify(Stream::Uv, uv, resident.SubjectVertices().First),
+              "main UVs reach their independently addressed GPU range");
         if (mapped) {
           CHECK(verify(Stream::Tangent, tangents, resident.SubjectVertices().First),
                 "main tangents reach their independently addressed GPU range");
@@ -91,19 +99,33 @@ int main() {
         if (second) {
           CHECK(verify(Stream::Uv1, uv, resident.SubjectVertices().First),
                 "main second UVs reach their independently addressed GPU range");
+          CHECK(verify(Stream::Colour, colours, resident.SubjectVertices().First),
+                "main colours reach their independently addressed GPU range");
         }
         const auto pieceFirst = resident.VertexRoom();
         CHECK(draw.PlacePiece(PieceMesh{.Tangents = tangents,
                                         .Verts = vertices,
                                         .Indices = indices,
+                                        .Colours = colours,
                                         .Textured = true},
                               error) != kNoPiece,
               "independent tangent-bearing piece reserves and uploads its own range");
+        const auto colourBytes = resident.HeldOf(Stream::Colour);
+        const auto uvBytes = resident.HeldOf(Stream::Uv);
+        for (int extra = 0; extra < 3; ++extra) {
+          CHECK(draw.PlacePiece(PieceMesh{.Verts = vertices, .Indices = indices}, error) !=
+                    kNoPiece,
+                "untextured untinted pieces extend the arena beyond its spare capacity");
+        }
+        CHECK(resident.HeldOf(Stream::Colour) == colourBytes &&
+                  resident.HeldOf(Stream::Uv) == uvBytes,
+              "arena growth without consumers does not grow optional streams");
         const SubjectMesh empty;
         const auto cleared = draw.BeginMesh(empty);
         CHECK(cleared.has_value(), "main mesh clears without retiring independent pieces");
-        CHECK(draw.PiecesStanding() == 2 && verify(Stream::Tangent, tangents, pieceFirst),
-              "independent tangent data survives removal of the main mesh");
+        CHECK(draw.PiecesStanding() == 5 && verify(Stream::Tangent, tangents, pieceFirst) &&
+                  verify(Stream::Colour, colours, pieceFirst),
+              "independent tangent and colour data survive removal of the main mesh");
       }
     }
   }
