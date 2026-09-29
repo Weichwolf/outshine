@@ -35,6 +35,13 @@ nicht durch die Kamera. Die reparierten Nachbarschaftsprüfungen bleiben erhalte
 Feldkirchs sichtbare Hangwand gehört bis zum Quellen-/Oberflächenvergleich in 2166;
 Pose niemals zum Verstecken eines Geometriefehlers verändern.
 
+Flensburg: Die veröffentlichte Richtung 1° ist keine abgenommene Kalibrierung.
+Der OSM-Grundriss von Sankt Nikolai (Way 87700216) liegt vom veröffentlichten Standort
+bei etwa 27°; die Diagnose mit diesem Bearing verbessert Kirchen-/Hafenanordnung.
+Grundrisszentrum ist nicht Turmspitze: weitere unabhängige Korrespondenzen fehlen.
+Der dargestellte massige Runddachbau bleibt ein separater Semantik-/Geometriebefund;
+keine weitere Poseänderung darf ihn als passende Kirche ausgeben.
+
 ## Architektur und Implementierung
 
 1. Vergleichswerkzeug und references.json besitzen Referenzmetadaten: Originalmaß,
