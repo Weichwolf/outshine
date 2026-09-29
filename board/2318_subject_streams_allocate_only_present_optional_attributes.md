@@ -83,3 +83,11 @@ Six new earlier-byte checks FAIL on d35b9a1ed (90 checks, exit 1), proving the r
 Do not accept d35b9a1ed or its incomplete Places run. Repair above is active; retain tests.
 Evidence /tmp/outshine-2318-prior-stream-data/{build,run}.log. Full gates must rerun.
 Logs /tmp/outshine-repair-d35b9a1ed-*.log and /tmp/outshine-2318-consumers-negative-control*.
+
+6521238ba reserves present attributes through shared RoomForOptionalStreams/Grow before
+Cross, bounded by each consumer's range. Old contents survive geometric buffer growth.
+Format 1219 PASS; six GPU tests PASS, 90 checks including earlier-byte reads AFTER growth.
+Restored arena-wide reservation causes ten failures; restored replacement without copying
+causes six failures, both actual exit 1. No test or limit was weakened.
+Full lint/tidy/API and Places/PNGs run against 6521238ba; runtime byte comparison is pending.
+Logs /tmp/outshine-repair-6521238ba-*.log and /tmp/outshine-2318-preserve-*-control*.
