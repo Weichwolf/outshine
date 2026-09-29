@@ -1,6 +1,6 @@
 Type: feature
 State: active
-Priority: P1
+Priority: P0
 Architecture: ready
 Parent: 2169
 Area: world, generators
@@ -11,23 +11,17 @@ Depends:
 
 ## Belegter IST-Zustand
 
-`StructureBuildQueue::RawOf` übergibt Straßenlinien mit Halbbreite sowie Gebäude-
-Außenringe, `height` und einen aus `roof:shape` abgeleiteten Pitched-Wert. Innenringe
-werden übersprungen. Der aktuelle Renderlog meldet für Feldkirch 31 673 Gebäude,
-1 147 mit OSM-Höhe und 30 526 mit Default: 30 526 / 31 673 = 96,4 % Default.
-Das ist eine Laufstatistik dieses Providerpfads, keine Aussage über die gesamte OSM-Datenbank.
-Die wiederholten hohen Prismen in Olympiaturm und den Städten sind sichtbar; welchen
-Anteil Quellenverlust und Defaultgenerator haben, muss die Provenienz zeigen.
-`StructureBuildQueue::PitchedOf` reduziert sogar ein vorhandenes `roof:shape`
-auf flach/geneigt; `BuildingShape::RoofOf` erfindet daraus Giebel, Walm oder
-Mansarde. Der gepinnte Hockenheim-Roh-OSM-Ausschnitt enthält keine Gebäude;
-er belegt keine Dach-Tag-Abdeckung. Eine weltweite Quote wird erst aus einem
-versionierten, regional geschichteten OSM-Sample mit Nenner Gebäude/Parts,
-Provider-Tagverlust und `roof:shape`/Höhen-/Material-Abdeckung berichtet.
-`BuildingShape::MassOf` wendet `RowCut` auch auf Hall/Block an; `WingParts`
-verwirft deren Nutzung und klassifiziert kleinere Teile neu als Block/Haus.
-Ein analytischer L-Grundriss beweist den Fehler. Die Hockenheim-Fassade blieb
-nach dessen Behebung pixelgleich; sie hat eine andere, noch offene Ursache.
+Rosenheims gecachter Gebäudelayer liefert Höhe und vereinzelt Mindesthöhe, aber keine
+Objektklasse, Geschosse oder Dachtypen. Der POI-Layer enthält Bauwerksklassen, darunter
+Glocken- und Aussichtstürme; ein unabhängiger Identitätsnachweis zum Gebäudepolygon fehlt.
+Schornsteine sind in diesem Kachelausschnitt nicht als solche gekennzeichnet. Die konkrete
+Verwechslung bleibt deshalb offen; schlanke Form allein beweist keinen Schornstein.
+`StructureBuildQueue::RawOf` verliert zusätzlich Innenringe und Mindesthöhe und reduziert
+Dachformen auf flach/geneigt. `RawTile::Structure` trägt keine Bauwerksklasse oder Quell-ID.
+Damit ist ein Generatorwechsel allein unzureichend: ursprüngliche OSM-Semantik muss über
+allgemeine Provider-/Identitätsverträge bis zum passenden Generator erhalten bleiben.
+Vorhandene Roh-OSM-Reader und revisionsgebundene Quellen wiederverwenden. Keine
+POI-Zuordnung nur durch Nähe oder ungeprüfte MVT-ID; keine Wohnfassade aus bloßer Höhe.
 
 ## Implementierung
 
