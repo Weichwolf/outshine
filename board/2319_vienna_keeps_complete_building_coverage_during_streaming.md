@@ -100,3 +100,14 @@ und mit erhaltenen Vorherbildern vergleichen. Kostenänderungen bei denselben Qu
 Ansichten nachweisen; Host und A18 Pro getrennt beurteilen. Logs im System-Tempverzeichnis.
 Die Lieferung scheitert an fehlenden Gebäuden, schlechteren Straßen/Materialien/Silhouetten,
 verlorenen OSM-Eigenschaften, überschrittenen Place-Budgets oder unbewiesenen Fehlerschranken.
+
+## Gemessener Warmstart-Engpass: Weld-Tabellen
+
+BuildingScratch::ClearWelds scannt über FlatMap::Clear je Gebäude drei ganze
+Tabellenkapazitäten. Der warme Wien-Stack zeigt dort den größten aktiven Einzelblock.
+FlatMap nutzt bereits Epoch-Marken: trivial zerstörbare Werte durch Epoch-Wechsel
+in konstanter Arbeit leeren; nichttriviale Werte weiterhin sofort freigeben.
+Beim Epoch-Überlauf alle Slot-Marken zurücksetzen, damit alte Einträge nie wiederkehren.
+Kollisionen, Rehash, Erase, Move, Allokationsfehler und Speicherledger erhalten.
+Keine Mesh-/LOD-/Quelländerung. FlatMap-Suite, Building-Suiten und alle Place-Bilder
+prüfen; Warmstart erneut messen und anschließend vollständiges Lint ausführen.
