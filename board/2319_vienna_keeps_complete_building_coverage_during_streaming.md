@@ -55,6 +55,23 @@ Quellen-Bakes und ihre Reservationsbesitzer bleiben unangetastet. Der vorhandene
 muss den Wechsel mit belegten Zellplätzen ausführen; ohne Freigabe darf er nicht bestehen.
 make format; StructureBuildQueue-Suite; make lint; vollständige Place-Bilder vergleichen.
 
+## Nächster vollständiger Detailübergang
+
+Advancing wechselt nach jedem angenommenen Acht-Zellen-Batch zur nächsten Kachel;
+TilePieces ersetzt die Ganzkachel erst bei vollständiger Zellabdeckung. Dadurch sammelt
+der Client Detailprodukte vieler unfertiger Kacheln, bevor er alte Produkte freigeben kann.
+Im vorhandenen Diagnoseprofil landen zahlreiche Zellen ohne eine einzige Aktivierung.
+Der Planer soll begonnene Kacheln bis zur vollständigen Aktivierung priorisieren. Solange
+alle fehlenden Zellen bereits laufen, auf deren Abschluss warten; fehlende oder abgelehnte
+Quellen ohne laufende Arbeit dürfen andere Kacheln nicht blockieren. Batch-, Worker- und
+Framegrenzen erhalten. Keine Zelle weglassen und keine Genauigkeitsgrenze verändern.
+Besitzer: Advancing/StructureCellPlanner; TilePieces behält die atomare Aktivierung und
+quellgültige Ganzkachel bis zum Ersatz. Kontrollierter Planerfall muss frühere Aktivierung
+bei identischem Arbeitsumfang zeigen; Quellenverweigerung muss weiterhin Fortschritt auf
+anderen Kacheln erlauben. Anschließend Wien im Client mit identischen Quellen vergleichen:
+Zeit bis erster Detailaktivierung, Spitzen-Residency, vollständiges Bild und Framekosten.
+Bleiben die gemessenen Kosten unverändert, ist dieser Ansatz keine belegte Beschleunigung.
+
 ## Fertig, wenn
 
 Wien zeigt bei gleicher Kamera die vorhandenen Gebäude ohne Publikationslöcher; Kaltstart,
