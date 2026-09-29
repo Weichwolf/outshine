@@ -25,8 +25,8 @@ enum class OsmFootprintErrorCode : uint8_t {
 
 struct OsmFootprintError {
   OsmFootprintErrorCode Code;
-  Data::OsmElementId Source;
-  std::optional<Data::MissingOsmReference> Missing;
+  Data::OsmElementId Source{};
+  std::optional<Data::MissingOsmReference> Missing = std::nullopt;
 };
 
 class OsmBuildingFootprints {

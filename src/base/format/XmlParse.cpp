@@ -63,7 +63,7 @@ bool Xml::Parse(const char *text, size_t length, ParseBudget budget) {
   Text_.assign(text, length);
   Nodes_.emplace_back();
 
-  ParseState state{.Budget = budget};
+  ParseState state{.Budget = budget, .DecodedAttribute = {}};
   if (Text_.starts_with(kUtf8Bom)) { state.At = kUtf8Bom.size(); }
   while (state.At < length) {
     if (!ParseMarkup(state)) { return false; }

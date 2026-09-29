@@ -52,7 +52,7 @@ struct ReferenceClosure {
   std::optional<MissingOsmReference> Admit(OsmElementId owner, OsmElementId target) {
     switch (target.Kind) {
       case OsmElementKind::Node:
-        if (Source.FindNode(target.Id)) { return std::nullopt; }
+        if (Source.FindNode(target.Id) != nullptr) { return std::nullopt; }
         break;
       case OsmElementKind::Way:
         if (const OsmWay *way = Source.FindWay(target.Id)) {
