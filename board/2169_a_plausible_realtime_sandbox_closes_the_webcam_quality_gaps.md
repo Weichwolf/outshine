@@ -27,10 +27,10 @@ Komplette Places-Suite: 37/44 PASS, 1 FAIL, 2 TIMEOUT, 4 UNPREPARED; Exit 2.
 Olympiaturm überschreitet beide Male 120 s; Graz/Wien erreichen nach 6144 Frames kein Refined.
 Graz: Gebäudedetail offen, Terrain abgeschlossen. Das ist keine Freigabe kleinerer LOD-Fehler.
 Zusätzlicher FAIL: HockenheimPublishedRouteHasWorldPose bei Quellenwechsel (Zeile 130).
-Die zusammengesetzte Prüfung trennt declare/assemble/alte Route noch nicht; Ursache offen.
-Validierte Variante PASS. Fall separat wiederholen und ursächlich prüfen, nicht wegmitteln.
+2316 reproduziert alte Route/Kontakt durch Deklarationsreuse; wechselnde Sonne maskierte es.
+4b54277f2 repariert den Quellen-/Routenvergleich; zehn fokussierte Tests und Gegenproben PASS.
 Neun fokussierte Geometriefälle PASS. Voller Lint Exit 2: 16 Tidy-Befunde, 32 Regeltests PASS.
-Korrektur bec05b615 ist in Prüfstand 36e376880; dessen eigener Gate läuft noch.
+36e376880 hatte noch einen Tidy-Befund; c8c670ea9 korrigiert ihn. Gesamt-Gate 4b54277f2 läuft.
 Logs /tmp/outshine-repair-0d5962a2a-{full-places,full-lint,gate-results}.log;
 Einzelfälle unter /tmp/outshine-repair-0d5962a2a-case-logs/ archiviert.
 Hockenheim separat PASS; Host p50/p95/p99 3.7060/15.8987/16.8651 ms; 3001 Frames
