@@ -26,8 +26,9 @@ Der Original-API-Ausschnitt enthält unvollständige Fernrelationen. `OsmChunkSe
 verwirft derzeit jede fehlende Referenz, auch weit entfernte Routen- und Grenzmitglieder.
 Für räumliches Streaming muss WI 2280 referenzielle Vollständigkeit je konsumiertem Produkt
 prüfen: offene Referenzen erhalten und relevante Nachbarn anfordern; erforderliche
-Gebäude-/Multipolygon- oder Straßenbezüge nie stillschweigend ignorieren. Den strikten
-Vertrag vollständig deklarierter lokaler Quellen nicht durch Abschalten der Prüfung schwächen.
+Gebäude-/Multipolygon- oder Straßenbezüge nie stillschweigend ignorieren. `OsmElements`
+prüft dafür die transitive Referenzhülle typisierter Produktwurzeln gemeinsam und zyklusfest.
+Der parameterlose Vollständigkeitscheck lokaler Komplettquellen bleibt unverändert.
 
 `StructureBuildQueue::RawOf` verliert zusätzlich Innenringe und Mindesthöhe und reduziert
 Dachformen auf flach/geneigt. `RawTile::Structure` trägt keine Bauwerksklasse oder Quell-ID.
