@@ -1,5 +1,5 @@
 Type: defect
-State: active
+State: done
 Architecture: ready
 Parent: 2188
 Depends:
@@ -64,5 +64,8 @@ Targeted clang-tidy on Declaring/StructureSurfaceRefinement has zero user findin
 Logs /tmp/outshine-route-source-{format,focused,control-results,targeted-tidy}.log.
 4b54277f2: fourteen focused tests and all surface/route controls PASS. Full lint exits 0,
 including 257 clang-tidy units without findings and all repository/API guards. Both route
-source cases also PASS in the ongoing Places suite. Full Places/render gate remains open;
+source cases PASS in the completed Places suite: 38/44 PASS, zero FAIL, two Olympiaturm
+timeouts and four Graz/Wien UNPREPARED. These existing detail/cost failures remain open.
+All ten current client PNGs personally opened and pixel-identical to 0d5962a2a; standalone
+Hockenheim exits 0. Source-publication defect closed; overall visual/runtime goal stays open;
 /tmp/outshine-repair-4b54277f2-{gate-results,full-lint,full-places}.log.

@@ -115,5 +115,5 @@ match expected exits. Full lint/Places pending. /tmp/outshine-repair-36e376880-f
 parameters. Pass the existing TriangleDistanceBound instead; no arithmetic/work changes.
 c8c670ea9 passes the existing bound as one value. Format 1213 and ten focused tests PASS;
 4b54277f2: fourteen focused tests, all surface/route controls and full lint/tidy/API PASS.
-Tidy checks 257 units without findings; full Places/render gate still running.
-Logs /tmp/outshine-repair-4b54277f2-{gate-results,full-lint}.log; runtime integration open.
+Tidy checks 257 units without findings; Places 38/44 PASS, 2 TIMEOUT, 4 UNPREPARED.
+All ten PNGs opened, unchanged; logs /tmp/outshine-repair-4b54277f2-*.log. Runtime remains open.
