@@ -49,3 +49,11 @@ Häuser; dieselbe Straßenfahrt verbindet Details mit der Gesamtstadt ohne Sprü
 Ein zugemauerter Hof, schwebender Eingang oder blockierte Durchfahrt widerlegt das Ergebnis.
 Besitzerdateien: StructureBuildQueue, StructureBake, BuildingShape, BuildingMesh, FacadeUv.
 make format; betroffene Generator-Suites; make lint; alle Places rendern und PNGs öffnen.
+
+## Archivbild bestimmt den Detailmaßstab
+
+Rosenheim und Darmstadt zeigen vor allem Dachform, Staffelung, Gauben, Kamine und
+verschiedene Fassadenrhythmen. Flensburg verlangt Backstein, steile Giebel und Kirchen-
+/Spirentypen; ein schmaler Baukörper wird nicht automatisch zum Fenster-Hochhaus.
+Erste Lieferung kombiniert native Dach-/Sockeldetails mit korrekter OSM-Klasse;
+Bauteile unter einem Pixel werden gefiltert, nicht vollständig für die Ferne erzeugt.

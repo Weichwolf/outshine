@@ -91,3 +91,10 @@ P2 nach 2111s funktionierendem nativen Waldkern. Vorhandene Prototyp-/Materialve
 tragen isolierte Artenarbeit; weder komplette Weltstreaming-Abnahme 2111 noch alle
 Materialfamilien 2171 sind technische Startblocker. Wetter/Phänologie benötigt später
 2172s konkreten Snapshot-Vertrag, keine eigene Wetterinterpretation.
+
+## Sichtbarer Jahreszeitenvertrag aus dem Archiv
+
+Flensburg/Rosenheim: laublos im Winter, Austrieb im Frühjahr, geschlossene Kronen im
+Sommer und regional gestaffelte Herbstfarbe. Koerbersee: Nadelwald, Solitäre, Waldgrenze
+und freie Almen bleiben verschieden. Kronen verdecken tatsächlich Häuser; fehlende
+Vegetation bleibt eine große Bildlücke, auch wenn ihre Umsetzung ausdrücklich zuletzt folgt.

@@ -48,3 +48,10 @@ Bewegungsunschärfe aus Simulationszeit/Belichtungsdauer, nicht schwankender CPU
 
 Wahl: Filament als physikalische Referenz und deklarative Zeit/Wetter-Looks als Sandbox-
 Struktur; Unreal-CineCamera/RAGE-Look als Vergleich. Fassadengeometrie gehört in 2138/2171.
+
+## Archivziel Nacht
+
+Rosenheim 15.07.2025 23:00 wird von einzelnen Fenstern, Straßen-/Gebäudelicht und
+roten Hindernisleuchten getragen. Keine globale Aufhellung der Tagesszene. Lokale
+Emission, tatsächlicher Lichtbeitrag und Reflexion bleiben getrennt; die Kamerareaktion
+erhält dunkle Zonen. Langzeitbelichtungs-Spuren sind kein Echtzeit-Bewegungsziel.

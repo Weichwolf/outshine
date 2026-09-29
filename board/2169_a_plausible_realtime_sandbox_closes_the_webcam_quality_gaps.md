@@ -5,85 +5,63 @@ Priority: P0
 Area: engine, world, render, simulation, audio
 Tags: sandbox, visual, integration
 
-# Outshine: eine glaubwürdige, spielbare Welt aus OSM und DEM
+# Outshine: acht glaubwürdige Webcam-Welten im 720p60-Budget
 
-## Der fertige Zustand
+## Jetzt erreichen
 
-Du stehst auf einer Straße in Wien. Um dich herum stehen vollständige Häuserzeilen mit
-Eingängen, tiefen Fenstern, unterschiedlichen Baustoffen, Dachkanten und plausiblen Höfen.
-Asphalt, Bordstein, Gehweg und Gebäudesockel treffen sich räumlich. Die Straße führt über
-eine tragende Brücke weiter; darunter fließen Wasser und Verkehr ungehindert.
-Du gehst, steigst in ein Fahrzeug und fährst aus der Stadt über Land bis in die Berge.
-Es gibt keine Ladeunterbrechung, verschwundene Häuser oder springende Straßenkontakte.
-Nähe, Stadt und Horizont gehören zur selben Welt; grobere Ferndarstellung bleibt kohärent.
+Ich entwickle eine prozedurale Open-World-Sandbox. Der aktuelle Meilenstein ist die
+bestmögliche plausible Annäherung an acht Foto-Webcams über Jahres- und Tageszeiten,
+Wetter und Kameradrehung. Der Maßstab ist das geöffnete Bild innerhalb des Budgets.
+OSM-Originaldaten, DEM, Wetter, Zeit und Kamera liefern die Welt; Fotos nur den Vergleich.
+Die Auswahl und Quellen stehen in WI 2324. Physik, Runden, Verkehrssimulation und Spiel
+folgen später. Straßenfortschritt erhalten; Brücken und komplexe Anschlüsse reparieren.
 
-OSM liefert Netze, Grundrisse, Nutzung und belegte Maße; DEM liefert die große Geländeform.
-Deterministische Konstruktionsregeln ergänzen fehlende Gebäudeform, Details und Oberflächen.
-Das Ergebnis ist eine plausible Spielwelt, keine behauptete fotografische Rekonstruktion.
-Der Default ist Solarpunk 2050: elektrifizierte Mobilität, Energieanlagen und begrünte
-Architektur mit materialgerechter Alterung. Szenarien bestimmen Epoche, Regeln und Besetzung;
-belegte Formen und physikalische Anschlüsse haben Vorrang vor einer Stilannahme.
+## Was die Archivbilder verlangen
 
-RDR2/GTA5 auf PS4 setzen den Maßstab für räumliche Dichte, Detailhierarchie, Licht,
-Bewegung und zusammenhängende Bildwirkung. Outshine hat einen eigenen physikalisch
-plausiblen Studio-Look. Nahansicht muss tragen: eine Fenstertextur auf einem Prisma reicht nicht.
-Wolken, Atmosphäre, Sonne und lokale Lichter beleuchten dieselben Materialien. Regen verändert
-Wasser, Glanz, Sicht und Geräusche. Menschen und Fahrzeuge bewegen sich nach Weltregeln.
-Schritte, Reifen, Antriebe, Wetter und Umgebung sind räumlich hörbar, auch über Kopfhörer.
+Rosenheim zeigt reale Dach-/Fassadenunterschiede, schlanke Sonderbauten, abgestufte Berge,
+wechselnde Sichtweite und nachts lokale Lichtinseln. Flensburg zeigt Backstein, Giebel,
+einen maßgebenden Kirchturm, Hafen und jahreszeitlich wechselnde Kronen. Koerbersee zeigt
+scharfe Grate, Schutt, Schnee nach Exposition, einen reflektierenden See und Wolken im Relief.
+Die übrigen fünf Ansichten ergänzen dichte Stadt, Brücken, Kai, Tal und felsige Seeufer.
 
-Der Spieler kann mit erklärten Objekten, Türen und Figuren interagieren, Aufgaben verfolgen,
-Besitz verändern und den Zustand speichern. Eine Szenariodatei beschreibt solche Spiele;
-Engine-Code enthält weder Wien-Sonderfälle noch fest verdrahtete Missionen.
+Geöffnete Outshine-Bilder zeigen dagegen repetitive Fenstergitter, generische Türme,
+plastische Geländeformen, flache Wasserflächen und leeren Himmel. Kamerafit ist teilweise
+ungeprüft. Das sind konkrete Bildlücken; grüne Tests oder weitere interne Verträge schließen sie nicht.
+Archivbefunde: build/shots/reference/webcams/archive-review-20260929/ mit Einzelmetadaten.
 
-## Lieferweg: jede Stufe erweitert dieselbe spielbare Welt
+## Lieferweg nach Wirkung und echten Abhängigkeiten
 
-| Stufe | Konkretes Ergebnis | Träger-WIs | Wirkliche Voraussetzungen |
+| Priorität | Sichtbare Lieferung | WI | Technischer Zusammenhang |
 |---|---|---|---|
-| 0 / P0 | Vorhandene Städte vollständig zeigen; Wien verliert keine Gebäude | 2319, 2224, 2243 | Verluststelle in Quelle, Bake, Residency oder Publikation beheben |
-| 1 / P0 | Begeh- und befahrbarer Straßenraum mit Knoten, Brücken und Tunneln | 2133, 2281, 2121, 2175, 2257 | Semantisches Netz 2278 und gemeinsamer räumlicher Bezug |
-| 2 / P1 | Glaubwürdige Nahansicht: Baustoffe, Gebäudemassen und räumliche Fassaden | 2171, 2173, 2138, 2168 | Vorhandener Materialpfad; Gebäudesemantik und zugängliche Straßenfront |
-| 3 / P1 | Stadt, Wasser und Landschaft bilden ein kohärentes beleuchtetes Bild | 2166, 2145, 2129, 2167, 2128, 2155 | Gültige Oberflächen und Materialantwort; kein fertiger Wetterausbau nötig |
-| 4 / P1 | Tatsächliches Fahren und Gehen mit Kontakten, Steuerung und Kamera | 2127, 2297, 2261 | Räumliche Straße, Kollisionsprodukte und fester Simulationstakt |
-| 5 / P1 | Tag/Nacht, Regen und Wolken verändern Bild, Fahrbahn und Akustik konsistent | 2172, 2140, 2213, 2212 | Ein gemeinsamer Zeit-/Wetterzustand; Licht und Materialantwort |
-| 6 / P1 | Verkehr und Fußgänger beleben den benutzbaren Straßenraum | 2136, 2130, 2133 | Navigation, Kontakte, Animation und begrenzte Verhaltensarbeit |
-| 7 / P1 | Ein deklaratives Spiel mit Interaktion, Aufgabe, UI und speicherbarem Zustand | 2141, 2135, 2242, 2151 | Stabile Weltidentitäten, Simulation und versionierter Spielzustand |
-| 8 / P2 zuletzt | Vegetation vervollständigt Stadt und Landschaft im selben Budget | 2111, 2176, 2282 | Tragfähige Szene, Standorte und gemeinsame Qualitäts-/Kostenstufen |
+| P0 | Acht passende Perspektiven und vollständige residente Welt | 2324, 2170, 2319, 2322 | Kamera getrennt von Quell-/LOD-/Publikationsfehlern lösen |
+| P0 | Richtige Großformen, durchgehende Straßen, korrekte Wasser-/Hanganschlüsse | 2166, 2280, 2173, 2281, 2145 | Originalsemantik/DEM; bestehende Straßen erhalten |
+| P1 | Lesbare Dächer, Baustoffe und räumliche Fassaden | 2171, 2138 | Materialpfad vorhanden; OSM-Parts/Klassen bestimmen Form |
+| P1 | Zusammenhängendes Sonnen-/Himmelslicht, Schatten und Belichtung | 2167, 2128, 2155 | Gültige Oberflächen; Kameraantwort ohne fertige Vegetation liefern |
+| P1 | Wolken, Dunst und Nebel ändern Himmel UND Weltbeleuchtung | 2172, 2140 | Gemeinsamer Wetter-Snapshot; kein fertiger Regen-/Schneesolver nötig |
+| P1 | Wasser reflektiert Berge, Stadt und Himmel mit windabhängiger Oberfläche | 2145, 2129 | Korrekte Wasserfläche; vorhandene Szene als Reflexionsquelle |
+| P1 | Schnee, Schmelze und Nässe ändern dieselben Materialien plausibel | 2325 | Wetterhistorie/Zeit und Materialzustand; keine weiße Höhenmaske |
+| P1 | Nacht bleibt Stadt: Fenster, Straßenlicht, Reflexion und dunkler Himmel | 2128, 2155, 2213 | Lokale Emission/Beleuchtung und Kameraantwort |
+| P2 zuletzt | Vegetation schließt Dichte, Silhouette und Jahreszeiten | 2111, 2176, 2282 | Standorte, gemeinsame LODs und verbleibendes Szenenbudget |
 
-Stufen ordnen Lieferungen, keine monolithische Wasserfallentwicklung. Materialien können
-während Straßenarbeit entstehen; Kontakt/Steuerung beginnt am ersten gültigen Straßenstück.
-Hockenheim liefert den ersten integrierten Fahrfall. Wien und die anderen Places verhindern,
-dass daraus eine Rennstrecken-Demo statt einer weltweit nutzbaren Sandbox wird.
-Die kleine unmittelbar ausführbare Reserve und Modulbesitzer stehen in 2188.
+Nicht auf alle Systeme warten: Jede Lieferung verbessert ein sichtbares Teilbild in
+derselben Welt. Himmel und Wolken erhalten hohes Gewicht; Mikrodetails ersetzen weder
+Großform noch Licht. Kleine ausführbare Reserve und Owner stehen in 2188.
 
-## Architektur, die das ermöglicht
+## Dauerhafte Grenzen
 
-Provider → semantische Welt → native Generatoren → versionierte Weltprodukte.
-Simulation besitzt Zustand; Renderer und Audio konsumieren konsistente Snapshots.
-Logische Navigation, physischer Kontakt und Render-LOD sind getrennte Produkte mit denselben
-Quellidentitäten und Raumreferenzen. Darstellungswechsel verändern keine Verkehrsverbindung.
-Generatoren bauen Form; Materialien beschreiben Oberflächen; Beleuchtung macht sie sichtbar.
-Ein Materialshader kaschiert weder falsche Geometrie noch fehlende Gebäude.
+Alle acht Places rendern nach Änderungen und persönlich mit erhaltenen Bildern vergleichen.
+240 km konfigurierte Sicht und Rundum-Verfügbarkeit erhalten. Höchstens zehn Sekunden
+Preload, dann 60 Frames/360° in einer Sekunde und nur das letzte Hash-PNG. p99 <= 1000/60 ms.
+Host-Kosten und A18 Pro 8-GB-Nachweis getrennt; Speicherbudget schließt OS-/Treiberreserve ein.
+Stadt, Terrain, Wasser, Himmel und später Wald teilen dieses Budget ohne feste Klassenquoten.
+Nur Netzwerkquellen persistent cachen; unveränderte Welt bleibt resident.
 
-Streaming lädt vor der Bewegung, hält eine gültige Darstellung und ersetzt nur passende
-Produkte. Sichtbarkeit, Instancing, Detailwahl, Uploads und Residency begrenzen die Kosten.
-2298/2312 liefern nutzbares Gebäude-LOD; weitere isolierte Beweisverfeinerung ist kein Meilenstein.
-Gemeinsames Ziel: A18 Pro, 8 GB, 720p60. Stadt und Wald halten dieselbe Zeitobergrenze.
-OSM-Bauwerke, Terrain, Vegetation, Himmel und Wolken teilen Budget nach sichtbarem Nutzen;
-keine festen Klassenquoten. Himmel/Wolken erhalten ihrem großen Bildanteil entsprechendes Gewicht.
-2092/2228/2314 begleiten jede Stufe mit Laufzeit-, Speicher- und Qualitätsentscheidungen.
+Es geht um plausible Gesamtwirkung, nicht die exakte Wolke, parkende Autos oder jede
+unbekannte Bauzier eines Fotos. Schnee braucht Wettergeschichte; Tagesdatum allein reicht nicht.
+Keine Orts-Sondermodelle, Satellitenbilder, Foto-Texturen oder verschleiernde Unschärfe.
 
-## Was heute fehlt
+## Spätere Sandbox
 
-Wien/Graz/Olympiaturm erreichen keine vollständige Refined-Szene. Die geöffneten Bilder zeigen
-fehlende Stadtteile, repetitive Fassaden, schwache Straßenräume, flaches Wasser, Terrainwände
-und überglättete Berge. Der behauptete AAA-Maßstab ist damit noch nicht erreicht.
-Die jetzigen Referenzen liegen unter build/shots/reference/6521238ba/; Historie und technische
-Prüfprotokolle stehen in Git und System-Temp-Logs, nicht als Fortschrittstagebuch im Backlog.
-
-## Fertige Lieferungen sind sichtbar und benutzbar
-
-Jede Lieferung benennt ein vorher fehlendes Spielergebnis und zeigt es im Client in Nähe und
-Bewegung. Alle Places bleiben dabei verbindlich: Wien, DarmstadtWest, Graz, Rosenheim, Husum,
-Feldkirch, Malcesine, Koerbersee, Olympiaturm und Hockenheimring. Kein grüner Einzeltest ersetzt sie.
-Tag/Nacht, Wetter, Kaltstart, Warmstand und Bewegung gehören zum Endzustand. Host-Messungen
-beweisen keine A18-Leistung. Ein schönes Standbild beweist weder Kontakte noch Streaming.
+Nach dem visuellen Meilenstein folgen Gehen/Fahren mit Kontakten, Verkehr und Figuren,
+Interaktion, Audio, Aufgaben und persistenter Spielzustand. Vorhandene Fähigkeiten bleiben
+erhalten; ihre Weiterentwicklung verdrängt jetzt keine sichtbare Webcam-Annäherung.

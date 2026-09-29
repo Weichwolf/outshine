@@ -77,3 +77,10 @@ leere/verdeckt liegende Intervalle überspringen, Vordergrundnebel und Bergkonta
 Cloudshadow/Irradiance bleiben auch bei verdecktem Himmel wirksam und budgetiert.
 History/Upsampling achtet auf dünne Äste, Dächer und Disocclusion; Alpha-Geometrie darf
 keine falsche opaque Raygrenze erzeugen. Komposition/Pass-Reihenfolge vor ready festlegen.
+
+## Archivziel für die erste Lieferung
+
+Rosenheim 15.07.2025 zeigt helle gebrochene Wolken mit dunkleren Basen; Koerbersee
+15.07.2025 zeigt Wolken zwischen Kamera und Bergen. Eine reine Himmelstextur genügt
+daher nicht. Zuerst bedeckt/gebrochen plus Bergkontakt mit derselben Dichte für
+Transmittanz und Bodenlicht liefern. Exakte fotografierte Wolkenform ist kein Ziel.

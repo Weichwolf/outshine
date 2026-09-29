@@ -16,7 +16,7 @@ Beobachtete Landschaft, Bebauung, Licht und Wetter haben Vorrang vor Solarpunk-S
 Hockenheim-Kamerarunde, Fahrzeugrunde, Fahrdynamik und Physik sind vorerst keine Entwicklungs-
 oder Meilensteinziele. Ich erhalte vorhandene Fähigkeiten; ihr Ausbau kommt später mit
 Spielersteuerung, Verkehr, Figuren, Interaktion und Audio für die vollständige Sandbox zurück.
-Der statische Place Hockenheimring und die allgemeine 360°-Place-Abnahme bleiben erhalten.
+Die allgemeine 360°-Place-Abnahme bleibt erhalten. Mein visueller Fokus sind acht Webcam-Szenen.
 
 Ich nehme die aktuelle Maschine als unmittelbare Entwicklungs- und Messplattform: maximale
 Webcam-Annäherung innerhalb desselben 720p60-Budgets, separat vom A18-Pro-Nachweis. Während
@@ -90,8 +90,8 @@ entsprechendes Gewicht. Weniger Systeme mit kohärenter Wirkung sind besser als 
   Ausschließlich der letzte Frame wird als Hash-PNG gespeichert; er zeigt die Ausgangsrichtung.
   Keine versteckten Zusatzframes, ausgelassenen Inhalte oder verkürzte Sichtweite.
 - Mindestens ein echter Place ist Pflicht im Gate. Alle Places bleiben visuelle Regressionen:
-  Wien, DarmstadtWest, Graz, Rosenheim, Husum, Feldkirch, Malcesine, Koerbersee, Olympiaturm,
-  Hockenheimring, Venice, CentralPark, Shibuya und Jura. Ich prüfe auch die Welt während der Drehung.
+  Rosenheim, Flensburg, DarmstadtWest, Wien, Husum, Feldkirch, Malcesine und Koerbersee.
+  Ich prüfe Archivbilder über Jahres-/Tageszeiten und Wetter sowie die Welt während der Drehung.
 - Ich rendere über outshine-client, öffne erzeugte Hash-PNGs unter `build/shots/places/` selbst
   und erhalte alte Bilder. Artefakte aus Prüf-Worktrees stelle ich eindeutig zugeordnet auch im
   Haupt-Checkout bereit. Jede Bildänderung ohne belegte Verbesserung gilt als Verschlechterung;

@@ -89,25 +89,18 @@ einen neuen End-to-End-WaterField-Test. Lokale Triangulationsreferenz:
 `/Users/cosmo/Git/earcut.hpp` bei `f25bc76` (ISC); vor Übernahme Lizenz,
 Degeneratfälle und Arbeitsbudget prüfen.
 
-Quell-/Test-/Header-Audit: WaterField::Tessellate hatte keinen Aufrufer. Der aktive
-Pfad in Engine::State::Grounds baute einen Fan in native Geometry.
-Der tote Earclip-/Flussstreifenpfad mit abweichend interleavten ECEF-Daten ist
-entfernt, ebenso sein exklusiver Anchor-Zustand und der GroundStack-Setup-Aufruf.
-WaterField hält geografische Wasserdaten und Pegel. Der alte Build und die damaligen
-Aufnahmeprüfungen waren grün; Wien blieb zunächst pixelgleich. Der Fan ist inzwischen
-ersetzt. Wasser-, Bed- und Bank-Verträge oben gelten weiterhin.
+## Vorhandener Polygonpfad und offene Lieferung
 
-## Implementierter Polygon-Schnitt, 2026-09-23
+WaterField und GroundSnapshot halten Außen-/Innenringe und einen gemeinsamen Pegel.
+AppendWaterSurfaceGeometry trianguliert konkave Polygone mit Löchern in native Geometry;
+der Basin-Stamp erhält Inseln. Earcut f25bc76/ISC ist gepinnt. Der alte Fan ist ersetzt.
+Offen bleiben selbstschneidende Ringe, Tilegrenzen, Flussprofile, Ufer/Quai und geschützte
+Gerinne. Malcesines künstliche Steilwände und dunkler Fußstreifen bleiben sichtbare Fehler.
 
-`WaterField` veröffentlicht Außen- und Innenringe atomar pro Body; unbrauchbare Innenringe
-verwerfen den ganzen Body. `GroundSnapshot` erhält dieselben Ringe für die logische Fläche.
-`Generators::AppendWaterSurfaceGeometry` trianguliert konkave Polygone mit Löchern in native
-`Geometry`; lokale Earcut-Quelle `f25bc76` samt ISC-Lizenz ist gepinnt. Der Basin-Stamp
-respektiert Inseln. Ein Pegel aus `WaterField` gilt für Karte, Basin und Surface. Der
-MVT-End-to-End-Test prüft Insel, konkave Einbuchtung, Winding und ungültiges Loch; ein
-separater Basin-Test hat eine wirksame Negativkontrolle. Beide Suites und `make lint` grün.
-Wien/Malcesine gerendert und geöffnet: 3,1070 %/3,5207 % Pixel gegenüber vorigem Stand
-geändert; p99 11,94/10,48 ms. Das Wasser ist kohärenter, aber Malcesines künstliche
-Steilwände und der dunkle Streifen am Fuß bleiben sichtbar. Lochfall nur analytisch
-abgenommen; Place-Kameras zeigen ihn nicht. Offen: selbstschneidende/degenerierte Ringe,
-Tilegrenzen, Flussprofil, Ufer/Quai, geschützte Gerinne, Revisions- und Budgetbeweis.
+## Archivziel
+
+Koerbersee braucht lesbare Berg-/Waldreflexion, Malcesine ruhige Fernflächen und feine
+windabhängige Wellen, Husum einen sauberen Kai-/Wasserkontakt. Gemeinsame Wasserparameter
+mit physikalisch unterschiedlichen Zuständen statt einer globalen blauen Fläche.
+Der genaue historische Tidenstand ist aus OSM und Momentanwetter nicht ableitbar;
+fehlende Pegeldaten bleiben unbewiesen, keine Foto-basierte Höhenkorrektur.

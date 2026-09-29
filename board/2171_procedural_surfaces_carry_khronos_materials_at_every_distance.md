@@ -65,3 +65,10 @@ Fenster, Rahmen und Fugen behalten ihren Flächenanteil auch unter einem Pixel.
 Keine neue Geometrie, Farbpalette oder LOD-Fehlerschranke. Analytische Flächenmittel und
 unabhängige numerische Integration prüfen den Filter; Darmstadt/Husum und alle Places
 prüfen Bildwirkung, Flimmern und Kosten. Räumliche Fassadendetails bleiben WI 2138.
+
+## Archivvergleich
+
+Rosenheim/Flensburg unterscheiden warmen Ziegel, hellen Putz, Backstein, dunkle Dächer
+und Glas schon aus der Webcam-Perspektive. Erst diese Flächenanteile und Maßstäbe lösen,
+dann Mikrostruktur. 2325 steuert Nässe/Schnee materialgebunden. Kamera-Sensorflecken,
+Kompressionsrauschen und fehlende Vegetation sind keine Materialvorlagen.
