@@ -69,6 +69,18 @@ int main() {
       CHECK(renderer.PlaceStructurePiece({.Verts = rigid, .Indices = indices}).has_value(),
             "rigid piece shares the arena");
       CHECK(scene->Draw(error), "mixed geometry renders");
+      const auto &camera = renderer.LastSubmittedCamera().Basis;
+      const auto &spent = renderer.Spent(Stage::Subjects);
+      std::fprintf(stderr,
+                   "camera=(%g,%g,%g), forward=(%g,%g,%g), draws=%u triangles=%u\n",
+                   camera.EyeM[0],
+                   camera.EyeM[1],
+                   camera.EyeM[2],
+                   camera.Forward[0],
+                   camera.Forward[1],
+                   camera.Forward[2],
+                   spent.Draws,
+                   spent.Triangles);
       renderer.WaitForGpu();
       std::vector<float> depth;
       std::vector<float> velocity;
