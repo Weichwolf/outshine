@@ -11,14 +11,15 @@ Tags: places, screenshots
 
 ## Ergebnis und Entscheidung
 
-`outshine-client shots` lädt die Welt vollständig für die deklarierte Ansicht,
-misst genau 120 Frames für p50/p95/p99 und speichert das Bild. Die Messung darf
-nicht auf bis zu 6144 Frames wachsen, während die Welt noch verfeinert wird.
-Bei 60 Hz benötigen 120 Frames 120/60 = 2 Sekunden; langsamere Frames bleiben
-als Überschreitung sichtbar. Laden und Messzeit werden getrennt ausgewiesen.
-Warmes Laden ab Cache soll höchstens ein bis zwei Sekunden benötigen. Der aktuelle
-Cache enthält Quelldaten; Generierung und GPU-Upload folgen erneut. Diese Schritte
-getrennt messen und den belegten Engpass beheben, keine Ladegrenzen erhöhen.
+`outshine-client shots` erreicht innerhalb höchstens zehn Sekunden die vollständige
+Refined-Welt. Danach folgen genau 60 Messframes bei 60 Hz: 60/60 = eine Sekunde für
+360 Grad Kameradrehung am unveränderten Standort. Pitch und Höhe bleiben erhalten;
+der letzte Frame kehrt exakt zur deklarierten Ausgangsrichtung zurück und wird als
+einziges PNG gespeichert. Keine zusätzlichen Capture- oder Einschwingframes danach.
+p50/p95/p99 werden aus diesen Frames bestimmt; langsame Ausführung bleibt als
+Budgetverletzung sichtbar und darf weder Frames überspringen noch die Drehung verkürzen.
+CPU-Framezeit und echte GPU-Zeit getrennt ausweisen; fehlende GPU-Messung nicht umdeuten.
+Netzwerkquellen bleiben gecacht; die Welt darf keine persistenten Geometrieprodukte benötigen.
 
 ## Implementierung
 
@@ -50,6 +51,16 @@ innerhalb `FlushPreloadGround` → `Grounds` → `RingWanted`; erst den Stillsta
 ## Abnahme
 
 Format, fokussierte Client-/Preload-Prüfung, alle Places und vollständiger Lint.
-Je erfolgreicher Messung genau 120 Samples; fehlende Weltprodukte verhindern den
-Beginn der Messung. Ladezeit separat prüfen. Ein schnelles leeres Bild oder fehlende
+Je erfolgreicher Messung genau 60 Samples und 360 Grad; fehlende Weltprodukte verhindern
+den Beginn der Messung. Preload maximal zehn Sekunden, gemessene Drehung maximal eine
+Sekunde und p99 höchstens 1000/60 ms prüfen; Wartezeit und Arbeitszeit getrennt erfassen.
+Mindestens ein echter Place bleibt verpflichtend im Gate. Referenzbilder umgehen keine
+Zeit-, Sample- oder Vollständigkeitsprüfung. Ladezeit separat prüfen. Ein schnelles leeres Bild oder fehlende
 Gebäude widerlegen die Lieferung. Zielgeräte-Budget bleibt separat nachzuweisen.
+
+## Visuelle Referenz
+
+Passende Places mit `https://www.foto-webcam.eu` vergleichen: Kamera, Blickwinkel,
+Bildzeit samt Zeitzone, Jahreszeit und Wetter zuordnen. Unbekannte Bedingungen offenlassen.
+Ziel ist größtmögliche sichtbare Annäherung innerhalb 720p60 auf A18 Pro; Host-Zahlen
+ersetzen keine Zielgeräte-Abnahme. Referenzbilder erst bei tatsächlicher Recherche zuordnen.
