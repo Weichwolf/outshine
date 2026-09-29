@@ -41,7 +41,6 @@ public:
   void Opens(Tasks *pool, const StructureMesher *mesher) {
     Pool_ = pool;
     Mesher_ = mesher;
-    if (!ArtifactIo_) { ArtifactIo_ = std::make_unique<Tasks>(1); }
   }
 
   struct BakeRevision {
@@ -328,7 +327,6 @@ private:
   std::array<DeferredPreparation, 64> DeferredPreparations_{};
   size_t DeferredPreparationAt_ = 0;
   uint64_t PreparationTick_ = 0;
-  std::unique_ptr<Tasks> ArtifactIo_;
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;

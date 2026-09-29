@@ -37,13 +37,6 @@ constexpr size_t kBuildsPerThread = 1;
 constexpr size_t kPinnedCellHeightBytesMost = size_t{2} * 1024u * 1024u;
 constexpr double kBytesPerMB = 1024.0 * 1024.0;
 
-[[nodiscard]] std::optional<LevelOfDetail>
-EffectiveDetail(std::optional<LevelOfDetail> detail, StructureBuildQueue::BuildPurpose purpose) {
-  return purpose == StructureBuildQueue::BuildPurpose::SourceGeometry
-             ? detail.value_or(LevelOfDetail::Shell)
-             : detail;
-}
-
 [[nodiscard]] bool EyeWithin(LongitudeLatitude from, LongitudeLatitude to) noexcept {
   const Ellipsoid earth{.SemiMajorM = kWgs84A, .Flattening = 1.0 - std::sqrt(1.0 - kWgs84E2)};
   const Geodesic distance =
@@ -928,29 +921,23 @@ bool StructureBuildQueue::PostPreparedCell(const Ground::GroundStack &stack,
           .count());
   std::unique_ptr<StructureBuildTask::Output> output = Borrowed(IdleOut_);
   *output = {};
-  CellQueue_.push_back(
-      {.Revision = {.Vectors = vectors->Generation(),
-                    .HeightSource = heightAt.Revision,
-                    .TileSpanM = footprints.TileSpanM(),
-                    .Eye = eye,
-                    .RequestedDetail = request.Detail,
-                    .Purpose = BuildPurpose::ViewDetail},
-       .Task = StructureBuildTask(
-           request.Tile,
-           std::move(raw),
-           std::move(heights),
-           std::move(output),
-           LentScratch(),
-           std::nullopt,
-           StructureBuildTask::CacheRequest{.Store = stack.ArtifactStore(),
-                                            .Io = ArtifactIo_.get(),
-                                            .Source = VectorSource(*vectors, request.Tile),
-                                            .SourceKey = request.SourceKey,
-                                            .ResidentBytesMost = Ground::GroundStack::kHoldsBytes}),
-       .StreetDigest = *streetDigest,
-       .SourceKey = request.SourceKey,
-       .Cell = request.Cell,
-       .ReservationOwner = std::move(owner)});
+  CellQueue_.push_back({.Revision = {.Vectors = vectors->Generation(),
+                                     .HeightSource = heightAt.Revision,
+                                     .TileSpanM = footprints.TileSpanM(),
+                                     .Eye = eye,
+                                     .RequestedDetail = request.Detail,
+                                     .Purpose = BuildPurpose::ViewDetail},
+                        .Task = StructureBuildTask(request.Tile,
+                                                   std::move(raw),
+                                                   std::move(heights),
+                                                   std::move(output),
+                                                   LentScratch(),
+                                                   std::nullopt,
+                                                   std::nullopt),
+                        .StreetDigest = *streetDigest,
+                        .SourceKey = request.SourceKey,
+                        .Cell = request.Cell,
+                        .ReservationOwner = std::move(owner)});
   PostSlice(CellQueue_.back());
   ++Posted_;
   return true;
@@ -977,7 +964,6 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose,
                                   const std::function<bool(uint32_t)> &cellReady) {
-  detail = EffectiveDetail(detail, purpose);
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
@@ -1063,24 +1049,18 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     output->FinalizationMs = 0.0;
     output->LastQueueMs = 0.0;
     output->LastTaskMs = 0.0;
-    Queue_.push_back(
-        {.Revision = revision,
-         .Task = StructureBuildTask(next->Tile,
-                                    std::move(raw),
-                                    std::move(heights),
-                                    std::move(output),
-                                    LentScratch(),
-                                    std::nullopt,
-                                    StructureBuildTask::CacheRequest{
-                                        .Store = stack.ArtifactStore(),
-                                        .Io = ArtifactIo_.get(),
-                                        .Source = VectorSource(vectors, next->Tile),
-                                        .SourceKey = sourceKey,
-                                        .ResidentBytesMost = Ground::GroundStack::kHoldsBytes}),
-         .StreetDigest = *streetDigest,
-         .SourceKey = sourceKey,
-         .Replacement = replacement,
-         .ReservationOwner = prints.ReservationOwner()});
+    Queue_.push_back({.Revision = revision,
+                      .Task = StructureBuildTask(next->Tile,
+                                                 std::move(raw),
+                                                 std::move(heights),
+                                                 std::move(output),
+                                                 LentScratch(),
+                                                 std::nullopt,
+                                                 std::nullopt),
+                      .StreetDigest = *streetDigest,
+                      .SourceKey = sourceKey,
+                      .Replacement = replacement,
+                      .ReservationOwner = prints.ReservationOwner()});
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Queue_.back());
     if (replacement) { prints.AdvanceRefinement(); }
@@ -1145,7 +1125,6 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
                                   HeightRequirement heights,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose) {
-  detail = EffectiveDetail(detail, purpose);
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   RetireCellBuilds(purpose);

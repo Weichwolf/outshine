@@ -214,18 +214,21 @@ int main() {
   const auto farSource = sourceProduct({.LongitudeDeg = 9.5, .LatitudeDeg = 49.3274}, 10.0);
   CHECK(nearSource && farSource, "near and remote source requests both land after camera changes");
   if (!farSource) { return Report(); }
-  if (nearSource && farSource) {
-    CHECK(nearSource->second.RequestedDetail == LevelOfDetail::Shell &&
-              farSource->second.RequestedDetail == LevelOfDetail::Shell &&
-              nearSource->second.FootprintDetails == std::vector{LevelOfDetail::Shell} &&
-              farSource->second.FootprintDetails == std::vector{LevelOfDetail::Shell},
-          "implicit source products use explicit Shell geometry at both cameras");
-    CHECK(nearSource->first != 0 && nearSource->first == farSource->first &&
-              !nearSource->second.Built.WallRun.empty() &&
-              !nearSource->second.Built.RoofRun.empty() &&
-              nearSource->second.Digest == farSource->second.Digest,
-          "the same source produces identical nonempty wall and roof geometry");
-  }
+  CHECK(!nearSource->second.RequestedDetail && !farSource->second.RequestedDetail &&
+            nearSource->second.FootprintDetails == std::vector{LevelOfDetail::Fine} &&
+            farSource->second.FootprintDetails == std::vector{LevelOfDetail::Massed},
+        "implicit source products retain nearby detail and aggregate remote buildings");
+  CHECK(nearSource->first != 0 && nearSource->first == farSource->first &&
+            !nearSource->second.Built.WallRun.empty() && !farSource->second.Built.WallRun.empty() &&
+            !farSource->second.Built.RoofRun.empty(),
+        "view-dependent fallback keeps source identity and visible remote geometry");
+  const auto nearShell = sourceProduct(eye, 720.0, LevelOfDetail::Shell);
+  const auto farShell =
+      sourceProduct({.LongitudeDeg = 9.5, .LatitudeDeg = 49.3274}, 10.0, LevelOfDetail::Shell);
+  CHECK(nearShell && farShell && nearShell->second.Digest == farShell->second.Digest &&
+            nearShell->second.RequestedDetail == LevelOfDetail::Shell &&
+            farShell->second.RequestedDetail == LevelOfDetail::Shell,
+        "explicit LOD products remain independent of camera position and focal length");
   const auto fineSource = sourceProduct(eye, 720.0, LevelOfDetail::Fine);
   CHECK(fineSource && fineSource->second.RequestedDetail == LevelOfDetail::Fine &&
             fineSource->second.FootprintDetails == std::vector{LevelOfDetail::Fine},
