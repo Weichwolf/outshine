@@ -1928,7 +1928,7 @@ std::expected<SDL_GPUPresentMode, std::string> SceneRenderer::ClaimWindow(SDL_Wi
     return std::unexpected(ActiveState().WhyNot);
   }
   constexpr std::array modes = {
-      SDL_GPU_PRESENTMODE_MAILBOX, SDL_GPU_PRESENTMODE_IMMEDIATE, SDL_GPU_PRESENTMODE_VSYNC};
+      SDL_GPU_PRESENTMODE_VSYNC, SDL_GPU_PRESENTMODE_MAILBOX, SDL_GPU_PRESENTMODE_IMMEDIATE};
   ActiveState().WhyNot = Says::kNoPresentMode;
   for (const SDL_GPUPresentMode mode : modes) {
     if (!SDL_WindowSupportsGPUPresentMode(Device_.Get(), window, mode)) { continue; }

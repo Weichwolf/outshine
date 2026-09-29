@@ -1,4 +1,5 @@
 #include "ScenarioCapture.h"
+#include "FramePacer.h"
 #include "CaptureCameraBasis.h"
 
 #include <Outshine.h>
@@ -23,7 +24,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
-#include <thread>
+#include <cstdint>
 #include <vector>
 
 namespace outshine::Client {
@@ -283,11 +284,13 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
   frames.reserve(schedule.Ticks);
   frameMs.reserve(schedule.Ticks);
   HeapProbe::ForgetPeak();
-  const auto started = std::chrono::steady_clock::now();
+  FramePacer pacer(static_cast<std::uint64_t>(
+      std::ceil(std::max(schedule.StepS, 1.0 / 60.0) * 1'000'000'000.0)));
   size_t nextMark = 0;
   const auto previousCamera = ReadSubmittedCamera(engine);
   double previousCameraSerial = previousCamera ? previousCamera->Serial : 0.0;
   for (size_t tick = 0; tick < schedule.Ticks; ++tick) {
+    pacer.Wait();
     const auto began = std::chrono::steady_clock::now();
     if (const auto advanced = engine.advance(); !advanced) {
       return std::unexpected(Refusal("motion advance", advanced.error()));
@@ -333,11 +336,6 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
       }
     }
     (void)HeapProbe::Sample();
-    const auto due =
-        started +
-        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-            std::chrono::duration<double>(static_cast<double>(tick + 1) * schedule.StepS));
-    std::this_thread::sleep_until(due);
   }
   std::ranges::sort(frameMs);
   const auto p50 = QuantileOf(frameMs, 0.50);
@@ -378,7 +376,9 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
                                                             bool isRoute,
                                                             bool awaitRefined,
                                                             ScenarioCaptureResult &result) {
+  FramePacer pacer;
   for (size_t tick = 0; tick < schedule.Ticks; ++tick) {
+    pacer.Wait();
     if (const auto advanced = engine.advance(); !advanced) {
       return std::unexpected(Refusal("route advance", advanced.error()));
     }

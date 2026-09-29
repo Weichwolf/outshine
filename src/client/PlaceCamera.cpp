@@ -1,6 +1,7 @@
 #include "math/Units.h"
 #include "math/Quantile.h"
 #include "PlaceCamera.h"
+#include "FramePacer.h"
 
 #include "io/HeapProbe.h"
 
@@ -338,10 +339,12 @@ bool MeasureFrames(Engine &engine, std::string_view name, Shot &shot) {
   heldMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
   advancedMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
   renderedMs.reserve(static_cast<std::size_t>(kMaximumTimedFrames));
+  Client::FramePacer pacer;
   const bool waitsForWorld = engine.declaration().Ground.Declared;
   for (int at = 0; at < kMaximumTimedFrames &&
                    (at < kTimedFrames || (waitsForWorld && !engine.settled(WorldQuality::Refined)));
        ++at) {
+    pacer.Wait();
     const auto before = std::chrono::steady_clock::now();
     if (const auto result = engine.advance(); !result) {
       shot.Why = std::string(name) + Says::kTimedAdvanceFailed + result.error();
