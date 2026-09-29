@@ -930,7 +930,16 @@ bool StructureBuildQueue::PostPreparedCell(const Ground::GroundStack &stack,
                     .RequestedDetail = request.Detail,
                     .Purpose = BuildPurpose::ViewDetail},
        .Task = StructureBuildTask(
-           request.Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
+           request.Tile,
+           std::move(raw),
+           std::move(heights),
+           std::move(output),
+           LentScratch(),
+           std::nullopt,
+           StructureBuildTask::CacheRequest{.Store = stack.ArtifactStore(),
+                                            .Io = ArtifactIo_.get(),
+                                            .Source = VectorSource(*vectors, request.Tile),
+                                            .SourceKey = request.SourceKey}),
        .StreetDigest = *streetDigest,
        .SourceKey = request.SourceKey,
        .Cell = request.Cell,
@@ -1040,22 +1049,29 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extractionAt)
             .count());
     std::unique_ptr<StructureBuildTask::Output> output = Borrowed(IdleOut_);
-    output->Status = {};
-    output->Tile.reset();
+    *output = {};
     output->BakeMs = 0.0;
     output->LastRanges = 0;
     output->LastRangeMs = 0.0;
     output->FinalizationMs = 0.0;
     output->LastQueueMs = 0.0;
     output->LastTaskMs = 0.0;
-    Queue_.push_back(
-        {.Revision = revision,
-         .Task = StructureBuildTask(
-             next->Tile, std::move(raw), std::move(heights), std::move(output), LentScratch()),
-         .StreetDigest = *streetDigest,
-         .SourceKey = sourceKey,
-         .Replacement = replacement,
-         .ReservationOwner = prints.ReservationOwner()});
+    Queue_.push_back({.Revision = revision,
+                      .Task = StructureBuildTask(next->Tile,
+                                                 std::move(raw),
+                                                 std::move(heights),
+                                                 std::move(output),
+                                                 LentScratch(),
+                                                 std::nullopt,
+                                                 StructureBuildTask::CacheRequest{
+                                                     .Store = stack.ArtifactStore(),
+                                                     .Io = ArtifactIo_.get(),
+                                                     .Source = VectorSource(vectors, next->Tile),
+                                                     .SourceKey = sourceKey}),
+                      .StreetDigest = *streetDigest,
+                      .SourceKey = sourceKey,
+                      .Replacement = replacement,
+                      .ReservationOwner = prints.ReservationOwner()});
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Queue_.back());
     if (replacement) { prints.AdvanceRefinement(); }
@@ -1381,6 +1397,9 @@ void StructureBuildQueue::CommitsLandings(Ground::GroundStack &stack,
                {"blocks", baked.Blocks},
                {"unsupportedMeshes", static_cast<double>(baked.UnsupportedMeshes)},
                {"bakeMs", bake.Task.Result().BakeMs},
+               {"cacheHit", bake.Task.Result().CacheHit ? 1 : 0},
+               {"cacheReadMs", bake.Task.Result().CacheReadMs},
+               {"cacheWriteMs", bake.Task.Result().CacheWriteMs},
                {"queued", static_cast<int>(Queue_.size() - 1)}});
     IdleRaw_.push_back(bake.Task.TakeRaw());
     IdleOut_.push_back(bake.Task.TakeOutput());

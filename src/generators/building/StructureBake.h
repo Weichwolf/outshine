@@ -33,7 +33,8 @@ enum class StructureBakeErrorKind {
   InvalidDetail,
   ChangedDetail,
   InvalidCell,
-  ChangedCell
+  ChangedCell,
+  ArtifactFailure
 };
 
 using StructureBakeError = std::variant<StructureMeshError, ClusterError, StructureBakeErrorKind>;
@@ -51,6 +52,7 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError, Struct
     case StructureBakeErrorKind::ChangedDetail: return "structure detail changed during bake";
     case StructureBakeErrorKind::InvalidCell: return "unsupported structure cell";
     case StructureBakeErrorKind::ChangedCell: return "structure cell changed during bake";
+    case StructureBakeErrorKind::ArtifactFailure: return "structure artifact cache failed";
   }
   return "unknown structure bake error";
 }

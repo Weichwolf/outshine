@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <bit>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -13,6 +14,7 @@
 #include <utility>
 
 #include "Heap.h"
+#include "StructureArtifact.h"
 
 namespace outshine {
 
@@ -200,12 +202,103 @@ struct StructureBuildTask::Comparison {
   Phase Phase_ = Phase::Reference;
 };
 
+struct StructureBuildTask::Artifact {
+  enum class Phase { Identity, Read, Decode, Bake, Write, Done };
+
+  explicit Artifact(CacheRequest request, std::optional<ProofRequest> proof)
+      : Request(std::move(request)), Proof(proof) {}
+
+  bool BeforeBake(const Generators::RawTile &raw,
+                  const Ground::HeightField &heights,
+                  const StructureMesher &mesher,
+                  Output &output) {
+    const auto began = std::chrono::steady_clock::now();
+    switch (Stage) {
+      case Phase::Identity: {
+        std::string producer(mesher.ArtifactVersion());
+        if (!producer.empty() && Proof) {
+          producer += ":proof:" + std::to_string(Proof->Limits.MaxTriangleQueries) + ":" +
+                      std::to_string(Proof->Limits.MaxRegions) + ":" +
+                      std::to_string(std::bit_cast<uint64_t>(Proof->Limits.TargetUncertaintyM));
+        }
+        auto key = Generators::StructureArtifactKey(raw, heights, Request.Source, producer);
+        if (!key || !Request.Store || !Request.Store->Enabled() || !Request.Io) {
+          Fail(output);
+          return true;
+        }
+        Key = std::move(*key);
+        Stage = Phase::Read;
+        return true;
+      }
+      case Phase::Read:
+        Bytes = Request.Store->Read(Key, Generators::kStructureArtifactBytesMost);
+        output.CacheReadMs +=
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                .count();
+        Stage = Phase::Decode;
+        return true;
+      case Phase::Decode:
+        if (Bytes) {
+          output.Tile = Generators::DecodeStructureArtifact(*Bytes, Key, Request.SourceKey);
+        }
+        Bytes.reset();
+        if (output.Tile) {
+          output.CacheHit = true;
+          Stage = Phase::Done;
+          return true;
+        }
+        Stage = Phase::Bake;
+        return false;
+      case Phase::Write:
+        if (!Bytes || !Request.Store->Keep(Key, Bytes->data(), Bytes->size())) {
+          Fail(output);
+        } else {
+          output.Tile = std::move(Product);
+          Stage = Phase::Done;
+        }
+        Bytes.reset();
+        output.CacheWriteMs +=
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                .count();
+        return true;
+      case Phase::Bake: return false;
+      case Phase::Done: return true;
+    }
+    return true;
+  }
+
+  void AfterBake(Output &output) {
+    if (!output.Tile || !output.Status) { return; }
+    Bytes = Generators::EncodeStructureArtifact(*output.Tile, Key);
+    if (!Bytes) {
+      Fail(output);
+      return;
+    }
+    Product = std::move(output.Tile);
+    output.Tile.reset();
+    Stage = Phase::Write;
+  }
+
+  static void Fail(Output &output) {
+    output.Tile.reset();
+    output.Status = std::unexpected(Generators::StructureBakeErrorKind::ArtifactFailure);
+  }
+
+  CacheRequest Request;
+  std::optional<ProofRequest> Proof;
+  Phase Stage = Phase::Identity;
+  std::string Key;
+  std::optional<std::vector<uint8_t>> Bytes;
+  std::optional<Generators::BakedTile> Product;
+};
+
 StructureBuildTask::StructureBuildTask(uint32_t tile,
                                        std::unique_ptr<Generators::RawTile> raw,
                                        std::shared_ptr<const Ground::HeightField> heights,
                                        std::unique_ptr<Output> output,
                                        std::unique_ptr<MeshScratch> scratch,
-                                       std::optional<ProofRequest> proof)
+                                       std::optional<ProofRequest> proof,
+                                       std::optional<CacheRequest> cache)
     : Tile_(tile),
       Raw_(std::move(raw)),
       Heights_(std::move(heights)),
@@ -213,7 +306,8 @@ StructureBuildTask::StructureBuildTask(uint32_t tile,
       Scratch_(std::move(scratch)),
       Progress_(std::make_unique<Generators::StructureBakeProgress>()),
       Stopping_(std::make_shared<std::atomic_bool>(false)),
-      Comparison_(proof ? std::make_unique<Comparison>(*proof) : nullptr) {
+      Comparison_(proof ? std::make_unique<Comparison>(*proof) : nullptr),
+      Artifact_(cache ? std::make_unique<Artifact>(std::move(*cache), proof) : nullptr) {
   assert(Raw_ != nullptr && Heights_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
 }
 
@@ -236,9 +330,15 @@ StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) no
   Progress_ = std::move(other.Progress_);
   Stopping_ = std::move(other.Stopping_);
   Comparison_ = std::move(other.Comparison_);
+  Artifact_ = std::move(other.Artifact_);
+  ActivePool_ = std::exchange(other.ActivePool_, nullptr);
   Handle_ = std::exchange(other.Handle_, Tasks::kNoTask);
   State_ = std::exchange(other.State_, State::Empty);
   return *this;
+}
+
+bool StructureBuildTask::AwaitCompletion(double seconds) const {
+  return Running() && ActivePool_->AwaitCompletion(seconds);
 }
 
 bool StructureBuildTask::Running() const noexcept {
@@ -253,11 +353,17 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   Generators::StructureBakeProgress *const progress = Progress_.get();
   Output *const output = Output_.get();
   Comparison *const comparison = Comparison_.get();
+  Artifact *const artifact = Artifact_.get();
   const std::shared_ptr<std::atomic_bool> stopping = Stopping_;
   const auto posted = std::chrono::steady_clock::now();
   State_ = State::Running;
-  Handle_ =
-      pool.Post([raw, heights, &mesher, scratch, progress, output, comparison, stopping, posted] {
+  ActivePool_ = artifact && (artifact->Stage == Artifact::Phase::Read ||
+                             artifact->Stage == Artifact::Phase::Write)
+                    ? artifact->Request.Io
+                    : &pool;
+  assert(ActivePool_ != nullptr);
+  Handle_ = ActivePool_->Post(
+      [raw, heights, &mesher, scratch, progress, output, comparison, artifact, stopping, posted] {
         const auto began = std::chrono::steady_clock::now();
         output->LastQueueMs = std::chrono::duration<double, std::milli>(began - posted).count();
         static const Heap::Tag kBakingTag("structure-bake");
@@ -265,6 +371,11 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
         output->LastRanges = 0;
         output->LastProofWork = 0;
         output->LastRangeMs = 0.0;
+        if (stopping->load(std::memory_order_relaxed)) {
+          output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+          return;
+        }
+        if (artifact && artifact->BeforeBake(*raw, *heights, mesher, *output)) { return; }
         if (comparison && comparison->Variant) {
           comparison->Advance(*heights, mesher, *scratch, *output, *stopping);
         } else {
@@ -282,6 +393,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
         const double taskMs =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
                 .count();
+        if (artifact) { artifact->AfterBake(*output); }
         output->LastTaskMs = taskMs;
         output->BakeMs += taskMs;
       });
@@ -302,7 +414,8 @@ void StructureBuildTask::RequestStop() noexcept {
 }
 
 bool StructureBuildTask::TakeCompletion(Tasks &pool) {
-  if (State_ != State::Running || !pool.Done(Handle_)) { return false; }
+  (void)pool;
+  if (State_ != State::Running || !ActivePool_->Done(Handle_)) { return false; }
   Handle_ = Tasks::kNoTask;
   State_ = State::Completed;
   return true;
@@ -310,7 +423,8 @@ bool StructureBuildTask::TakeCompletion(Tasks &pool) {
 
 void StructureBuildTask::Join(Tasks &pool) {
   if (State_ != State::Running) { return; }
-  pool.Wait(Handle_);
+  (void)pool;
+  ActivePool_->Wait(Handle_);
   Handle_ = Tasks::kNoTask;
   State_ = State::Completed;
 }

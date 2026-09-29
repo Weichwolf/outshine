@@ -86,6 +86,8 @@ public:
 
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
 
+  [[nodiscard]] std::shared_ptr<Data::ContentStore> ArtifactStore() const { return Store_; }
+
   struct SourceCounters {
     Data::SourceSet::Ledger Sources;
     Data::ContentStore::Ledger Store;
@@ -158,7 +160,7 @@ private:
   [[nodiscard]] std::expected<TileAt, std::string_view>
   ValidatePosition(LongitudeLatitude at) const;
 
-  std::unique_ptr<Data::ContentStore> Store_;
+  std::shared_ptr<Data::ContentStore> Store_;
   std::unique_ptr<Data::SourceSet> Sources_;
   std::unique_ptr<TilePool> Pool_;
   std::unique_ptr<GroundStream> Ground_;

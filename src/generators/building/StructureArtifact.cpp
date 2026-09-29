@@ -13,7 +13,7 @@ namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
 constexpr uint32_t kVersion = 1;
 constexpr size_t kHashBytes = 64;
-constexpr size_t kMostBytes = size_t{64} * 1024 * 1024;
+constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
 
 class Writer {
@@ -233,6 +233,78 @@ bool KeyValid(std::string_view key) {
            return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f');
          });
 }
+}
+
+std::optional<std::string>
+StructureArtifactKey(const RawTile &raw,
+                     const Ground::HeightField &heights,
+                     const std::optional<Data::TileSourceIdentity> &source,
+                     std::string_view producerVersion) {
+  if (producerVersion.empty()) { return std::nullopt; }
+  Writer writer;
+  const auto text = [&](std::string_view value) {
+    if (!writer.Number(static_cast<uint64_t>(value.size()))) { return false; }
+    for (const char byte : value) {
+      if (!writer.Number(static_cast<uint8_t>(byte))) { return false; }
+    }
+    return true;
+  };
+  const auto identity = [&](const Data::TileSourceIdentity &value) {
+    return writer.Number(value.From) && writer.Number(value.Kind) &&
+           writer.Number(value.Tile.Zoom) && writer.Number(value.Tile.X) &&
+           writer.Number(value.Tile.Y) && text(value.SourceId) && text(value.Revision);
+  };
+  const auto structure = [](auto &archive, const RawTile::Structure &value) {
+    return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
+           archive.Number(value.SourceFirst) && archive.Number(value.Cell.Index) &&
+           bounds(archive, value.Cell.Footprint) && archive.Number(value.HeightM) &&
+           archive.Number(value.Pitched);
+  };
+  const auto way = [](auto &archive, const RawTile::Way &value) {
+    return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
+           archive.Number(value.HalfWidthM);
+  };
+  if (!text(kMagic) || !writer.Number(kVersion) || !text(producerVersion) ||
+      !writer.Number(source.has_value()) || (source && !identity(*source)) ||
+      !writer.List(raw.LatLon, scalar) || !writer.List(raw.Structures, structure) ||
+      !writer.List(raw.Ways, way) || !writer.Maybe(raw.RequestedDetail, scalar) ||
+      !writer.Maybe(raw.RequestedCell, scalar) || !writer.Number(raw.TileSpanM) ||
+      !writer.Number(raw.Extent) || !writer.Number(raw.ClusterTriangles)) {
+    return std::nullopt;
+  }
+  for (size_t at = 0; at < 3; ++at) {
+    if (!writer.Number(raw.AnchorEcef[at])) { return std::nullopt; }
+  }
+  if (!raw.RequestedDetail &&
+      (!writer.Number(raw.Eye.LongitudeDeg) || !writer.Number(raw.Eye.LatitudeDeg) ||
+       !writer.Number(raw.FocalPx))) {
+    return std::nullopt;
+  }
+  if (!writer.Number(heights.Fallback()) ||
+      !writer.Number(static_cast<uint64_t>(heights.Blocks().size()))) {
+    return std::nullopt;
+  }
+  for (const auto &block : heights.Blocks()) {
+    if (!writer.Number(block.At.Zoom) || !writer.Number(block.At.X) || !writer.Number(block.At.Y) ||
+        !writer.Number(block.Raster.Side) || !writer.Number(block.Raster.Postings) ||
+        !writer.Number(block.MissingBoundary) ||
+        !writer.Number(static_cast<uint64_t>(block.Sources.size()))) {
+      return std::nullopt;
+    }
+    for (const auto &heightSource : block.Sources) {
+      if (!identity(heightSource)) { return std::nullopt; }
+    }
+    const auto nodes =
+        block.Terrain
+            ? std::span(block.Terrain->Data(),
+                        static_cast<size_t>(block.Terrain->Rows()) * block.Terrain->Cols())
+            : std::span<const float>(block.Nodes);
+    if (!writer.Number(static_cast<uint64_t>(nodes.size()))) { return std::nullopt; }
+    for (const float node : nodes) {
+      if (!writer.Number(node)) { return std::nullopt; }
+    }
+  }
+  return Sha256Hex(writer.Bytes.data(), writer.Bytes.size());
 }
 
 std::optional<std::vector<uint8_t>> EncodeStructureArtifact(const BakedTile &tile,

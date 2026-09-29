@@ -124,6 +124,8 @@ public:
   StructureMesher(const StructureMesher &) = delete;
   StructureMesher &operator=(const StructureMesher &) = delete;
 
+  [[nodiscard]] virtual std::string_view ArtifactVersion() const noexcept { return {}; }
+
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
 
   [[nodiscard]] virtual std::expected<void, StructureMeshError>

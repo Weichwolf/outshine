@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "HeightField.h"
+#include "ContentStore.h"
 #include "StructureBake.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
@@ -21,10 +22,20 @@ public:
     Generators::StructureSurfaceRefinementLimits Limits;
   };
 
+  struct CacheRequest {
+    std::shared_ptr<Data::ContentStore> Store;
+    Tasks *Io = nullptr;
+    std::optional<Data::TileSourceIdentity> Source;
+    uint64_t SourceKey = 0;
+  };
+
   struct Output {
     std::optional<Generators::BakedTile> Tile;
     std::expected<void, Generators::StructureBakeError> Status;
     double BakeMs = 0.0;
+    double CacheReadMs = 0.0;
+    double CacheWriteMs = 0.0;
+    bool CacheHit = false;
     size_t LastRanges = 0;
     size_t LastProofWork = 0;
     double LastRangeMs = 0.0;
@@ -38,7 +49,8 @@ public:
                      std::shared_ptr<const Ground::HeightField> heights,
                      std::unique_ptr<Output> output,
                      std::unique_ptr<MeshScratch> scratch,
-                     std::optional<ProofRequest> proof = std::nullopt);
+                     std::optional<ProofRequest> proof = std::nullopt,
+                     std::optional<CacheRequest> cache = std::nullopt);
   ~StructureBuildTask();
   StructureBuildTask(const StructureBuildTask &) = delete;
   StructureBuildTask &operator=(const StructureBuildTask &) = delete;
@@ -52,6 +64,7 @@ public:
   void Join(Tasks &pool);
 
   [[nodiscard]] bool Running() const noexcept;
+  [[nodiscard]] bool AwaitCompletion(double seconds) const;
 
   static constexpr size_t StructuresPerRange = 64;
   static constexpr size_t RangesPerTask = 4;
@@ -76,6 +89,7 @@ public:
 
 private:
   struct Comparison;
+  struct Artifact;
 
   enum class State : uint8_t { Empty, Ready, Running, Completed };
 
@@ -89,6 +103,8 @@ private:
   std::unique_ptr<Generators::StructureBakeProgress> Progress_;
   std::shared_ptr<std::atomic_bool> Stopping_;
   std::unique_ptr<Comparison> Comparison_;
+  std::unique_ptr<Artifact> Artifact_;
+  Tasks *ActivePool_ = nullptr;
   Tasks::Handle Handle_ = Tasks::kNoTask;
   State State_ = State::Ready;
 };

@@ -41,6 +41,7 @@ public:
   void Opens(Tasks *pool, const StructureMesher *mesher) {
     Pool_ = pool;
     Mesher_ = mesher;
+    if (!ArtifactIo_) { ArtifactIo_ = std::make_unique<Tasks>(1); }
   }
 
   struct BakeRevision {
@@ -214,10 +215,10 @@ public:
       if (batch && batch->Preparation->Running()) { return Pool_->AwaitCompletion(seconds); }
     }
     for (const QueuedBuild &build : Queue_) {
-      if (build.Task.Running()) { return Pool_->AwaitCompletion(seconds); }
+      if (build.Task.Running()) { return build.Task.AwaitCompletion(seconds); }
     }
     for (const QueuedBuild &build : CellQueue_) {
-      if (build.Task.Running()) { return Pool_->AwaitCompletion(seconds); }
+      if (build.Task.Running()) { return build.Task.AwaitCompletion(seconds); }
     }
     return false;
   }
@@ -326,6 +327,7 @@ private:
   std::array<DeferredPreparation, 64> DeferredPreparations_{};
   size_t DeferredPreparationAt_ = 0;
   uint64_t PreparationTick_ = 0;
+  std::unique_ptr<Tasks> ArtifactIo_;
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;
