@@ -11,9 +11,15 @@ Depends: 2092, 2111, 2138, 2154, 2166, 2170, 2171, 2172, 2173, 2176, 2195
 
 ## Referenz und Vertrag
 
-Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
-Quelle: `build/shots/webcam/rosenheim_2026-09-07_1240.jpg` (5184 × 3174 px, aus dem Bildheader).
-SHA-256: `8f90c46f0cc39ae4720527addc686bf3f4de87983d8ce0f08c4465eb26d41929`.
+Aktuelle Vergleichsquelle: [Foto-Webcam Rosenheim](https://www.foto-webcam.eu/webcam/rosenheim/).
+Gesicherte Aufnahme unter `build/shots/reference/webcams/rosenheim-20260929T142932Z.jpg`,
+Metadaten in der benachbarten JSON-Datei. Eingeblendete Aufnahmezeit: 29.09.2026 16:20;
+Abrufzeit ist davon getrennt. Der Place verwendet noch einen anderen Zeitpunkt.
+Der früher referenzierte Pfad `build/shots/webcam/rosenheim_2026-09-07_1240.jpg` fehlt
+im aktuellen Checkout; daraus keine aktuelle Bildabnahme ableiten.
+Der sichtbare Schornstein links und Kirchturm rechts erhalten im Client generische
+Fensterfassaden. WI 2173 muss ihre Original-OSM-Identität und Klasse bis zum Generator
+führen; weder Foto-Sondergeometrie noch Zuordnung allein anhand der schlanken Form.
 Place: `Rosenheim` in `src/assets/places/Rosenheim.scenario`; IST: `build/shots/places/Rosenheim-*.png`.
 Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
 Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
