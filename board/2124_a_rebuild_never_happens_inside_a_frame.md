@@ -107,3 +107,12 @@ NextJob besitzt priorisierte Queue-Entnahme und Shutdown-Warten, RunJob die Mesh
 Field-Ausführung, PublishResult die gesperrte Ergebnisübergabe. Work koordiniert
 Abhängigkeiten und Zeitmessung. Priorität, Locks und Fehlerzustände bleiben erhalten.
 Diese Strukturkorrektur nimmt keine neue Streaming-Fähigkeit ab.
+
+## Aktiver Schritt: residente unveränderte Welt
+
+`GroundStack::Restand` erhält den abgeschlossenen Zustand anhand von Klassen-, Vektor-
+und Footprint-Revision. Unveränderte vollständige Eingaben überspringen erneute Ingestion,
+Heap-Vollzählung und shrink-to-fit. Quellen-Polling bleibt aktiv; neue Revisionen,
+ausstehende Inhalte und Ortswechsel durchlaufen weiterhin den normalen Pfad. Close/Open
+verwirft den Abschlussstempel. Stationäre Wiederholung, neue deklarierte Inhalte und
+Ortswechsel prüfen; anschließend Place-Drehung und vollständige Gates.
