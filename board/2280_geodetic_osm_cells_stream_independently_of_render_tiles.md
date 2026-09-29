@@ -86,10 +86,12 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
 
 ## Active implementation boundary
 
-- Replace transport-owned raw source storage with a shared immutable source snapshot owned
-  by `world/data`; `OsmTransportLoader` consumes it to derive its existing graph. Ground
-  building extraction consumes the same snapshot directly, never through navigation.
-  Preserve the strict `OsmChunkSetLoader` adapter for declared complete fixture sets.
+- The shared immutable `OsmSourceSnapshot` exists in `world/data`; transport consumes it.
+  Connect ground building extraction directly. Keep strict complete-set validation unchanged.
+- `BuildingField::Footprint::FirstPoint` currently indexes `OsmField::Points`; Laying passes
+  that buffer to BuildingStampJob. Native source products must own/share their ring coordinates
+  and revision. Meshing, footprints, terrain stamps and GroundDiagnostics consume that same
+  immutable geometry owner; no copied MVT surrogate and no index across unrelated buffers.
 - `world/ground` resolves closed ways and multipolygon member chains by typed source ID,
   including inner rings and building-part membership. Keep source tags in the snapshot;
   native building inputs reference their source object and carry interpreted geometry.
@@ -108,12 +110,11 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   A parser-only success or a source accessor without this client path is not completion.
 
 ## Native geometry requirements
-
 `StructurePlan` and `BuildingShape::MassOf` accept one exterior ring only. Extend both.
 Keep terrain `FootAslM` separate from OSM `min_height`; native lower/top elevations share
 one terrain datum. Elevated parts acquire no ground plinth, pavement or clearance-closing walls.
 Carry holes through massing, roofs, inner walls and foundations. Reuse vendored Mapbox Earcut,
 already used by `WaterSurfaceBuilder`; no new triangulator. Keep courtyards empty after
 parapets/overhangs and at every enabled detail level. Explicit outlines, parts and holes
-must survive procedural subdivision and caps. Roof semantics must reach `BuildingShape::Order`:
-`RawTile::Pitched` currently reaches massed roofs but is lost before individual-building meshing.
+must survive procedural subdivision and caps. Exact roof semantics must reach BuildingShape::Order;
+the existing PitchedShare preserves only flat/pitched/unknown, not the source roof family.
