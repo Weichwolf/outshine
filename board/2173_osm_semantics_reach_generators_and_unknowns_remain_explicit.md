@@ -25,9 +25,14 @@ POI-Zuordnung nur durch Nähe oder ungeprüfte MVT-ID; keine Wohnfassade aus blo
 
 ## Implementierung
 
-1. Provider-Schema gegen originale OSM-Semantik prüfen: Tiles können Tags schon vor
-   outshine verlieren. Verfügbare/fehlende Tags pro Zoom zählen; erforderliche Semantik
-   im Providervertrag sichern. Quellwechsel/Ergänzung weiterhin ausschließlich OSM.
+1. Rohe OSM-Nodes, Ways und Relations sind die verbindliche semantische Weltquelle.
+   `world/data` liest Original-IDs, vollständige Tags, Nodefolgen und Relationsrollen;
+   revisionsgebundene räumliche Indizes dürfen diese Informationen nicht reduzieren.
+   `OsmXmlReader` und `OsmChunkSetLoader` wiederverwenden; XML/PBF bleiben Adapterformate.
+   VersaTiles-Kartenkacheln ersetzen diese Quelle nicht. Den bisherigen Gebäude- und
+   Straßenimport durch native OSM-Produkte ersetzen, nicht mit einem optionalen Overlay
+   dauerhaft weiterführen. Fehlende Quelldaten explizit melden; keine stillschweigende
+   Rückkehr zu semantisch reduzierten Kartenkacheln. WI 2280 besitzt weltweites Streaming.
 2. `RawTile`/`StructureBuildQueue`/`src/generators/building/StructureBake.*`: stabile Feature-ID,
    Multipolygon mit Löchern, building/part, height/min_height, levels/min_level,
    roof shape/height/levels/direction/orientation, Material/Farbe und Nutzung erhalten.
@@ -91,10 +96,9 @@ Hockenheim-Datengate: VersaTiles `versatiles.osm` v1 z14 im 5x5-Fenster um
 14/8581/5603 liefert 348 `kind=track`, 226 `kind=service`, aber kein
 `kind=raceway` und kein `highway=raceway`; ein POI `sport=motor` identifiziert
 keine befahrbare Runde. Für WI 2260 müssen OSM-Way-/Relation-ID, `highway=raceway`,
-Pit-/Service-/Access- und Richtungssemantik am Providervertrag überleben. Ein
-gepinnter Roh-OSM-Overlay ist zulässig, wenn die Vektorkacheln die Semantik
-nachweislich verlieren; die Zuordnung muss aus Quell-IDs entstehen, nicht aus
-Place-Namen oder kamerafesten Heuristiken. Fehlende Identität explizit melden.
+Pit-/Service-/Access- und Richtungssemantik am Providervertrag überleben. Die Roh-OSM-Quelle ersetzt hier den Kartenkachelvertrag; die Zuordnung entsteht aus
+Original-IDs, nicht aus Place-Namen oder kamerafesten Heuristiken. Fehlende Identität
+explizit melden.
 Im 25-Tile-Fenster tragen alle 1 162 `streets`-Features MVT-IDs; 98 IDs erscheinen
 in mehreren Tiles. Der Decoder erhält nun diese optionalen 64-Bit-Provider-IDs.
 Sie sind **keine belegten OSM-Way-IDs**: kein
