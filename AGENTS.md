@@ -22,6 +22,32 @@ haben Vorrang vor Stilannahmen. Kein Anspruch, den wirklichen Zustand von 2050 v
 Diese Datei enthält dauerhafte Regeln. Stand, Prioritäten, Befunde und konkrete Entscheidungen
 gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
 
+## Verbindlicher Arbeitsfokus
+
+- Das Arbeitsergebnis ist eine sichtbar bessere, spielbare Outshine-Welt. Implementiere Features
+  durchgängig von Daten/Generator über Runtime bis zum geöffneten Bild oder benutzbaren Verhalten.
+  Ein neuer interner Vertrag, ein grüner Test oder ein Commit allein ist kein Produktfortschritt.
+- Visuelle Qualität hat Vorrang bei der Wahl der nächsten Arbeit: vollständige Szenen, nutzbarer
+  Straßenraum, plausible Materialien, räumliche Gebäudedetails, Licht und lebendige Welt.
+  Die aktuelle Lieferreihenfolge steht im Feature-Backlog; Nutzeranweisungen bestimmen sie.
+- 720p bei 60 fps auf Apple A18 Pro mit 8 GB ist eine verbindliche Laufzeitgrenze jeder Lieferung.
+  Ist sie noch verletzt oder auf dem Zielgerät nicht gemessen, bleibt das ausdrücklich offen.
+  Keine Zielgeräte-Leistung aus Host-Zahlen ableiten. Überlast durch Sichtbarkeit, Instancing,
+  geeignete Details und begrenzte Arbeit lösen; nicht durch verschwundene Weltinhalte kaschieren.
+- Wähle den kleinsten vollständigen Schritt mit erkennbarem Bild- oder Spielgewinn. Beginne mit
+  einem konkreten Defizit im Client und ende mit derselben Szene/Funktion in verbessertem Zustand.
+  Keine Serie isolierter Grundlagenarbeiten in der Hoffnung auf später automatisch schnellen Ausbau.
+- Repariere Abstürze, Datenverlust und falsche Weltgeometrie unmittelbar. Andere interne Arbeiten
+  müssen einen konkreten Feature-Blocker oder gemessenen Laufzeit-/Speicherengpass beseitigen.
+  Keine Architektur-, Benennungs-, Abstraktions- oder Beweiskampagne um ihrer selbst willen.
+- Codequalität dient Wartbarkeit, Korrektheit und Liefergeschwindigkeit. Interne Eleganz ist kein
+  eigenständiges Lieferziel; funktionierende einfache Lösungen haben Vorrang vor zusätzlicher Struktur.
+- Nach einer notwendigen Reparatur sofort wieder am betroffenen Feature arbeiten. Eine grüne
+  technische Prüfung ersetzt weder visuelle Abnahme noch Runtime-Integration und beendet kein Ziel.
+- Vor einem weiteren Detailausbau prüfen: Welches sichtbare oder spielbare Ergebnis wird dadurch
+  möglich? Fehlt eine konkrete Antwort, bearbeite den nächsten ausführbaren Feature-Schritt.
+  Melde keinen visuellen Fortschritt, wenn sich nur interne Infrastruktur verändert hat.
+
 ## Verantwortung
 
 - Du trägst technische und künstlerische Verantwortung für Architektur, C++/GLSL, Werkzeuge,
@@ -101,12 +127,19 @@ gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
   implementiert freigegebene Schritte, prüft und committet.
 - Die Architekturrunde hält eine kleine geordnete Reserve ausführbarer WIs bereit. `Parent`
   bezeichnet Zugehörigkeit; `Depends` nur echte technische Blocker. Priorität steht im Feld.
-- Ein ausführbarer WI hat `Architecture: ready` und nennt Besitzer/Dateien, Daten- und Fehlerfluss,
-  unveränderliche Verträge, Negativkontrolle und Abnahmebefehle.
+- Ein ausführbarer WI hat `Architecture: ready` und nennt das sichtbare/spielbare Ergebnis,
+  Besitzer/Dateien, Daten- und Fehlerfluss, unveränderliche Verträge und kurze Abnahmebefehle.
+  Eine knappe Widerlegung beschreibt, woran die Lieferung scheitern würde; detaillierte Testfälle
+  und Negativkontroll-Protokolle gehören in Tests und Logs, nicht in den Feature-Backlog.
 - Coding entscheidet lokale Details. Fehlt eine Architekturentscheidung, Befund im WI markieren
   und den nächsten unabhängigen ready-WI bearbeiten. Nicht improvisieren.
+- Das Backlog beschreibt Features und den Weg zum vollständigen Spielerlebnis: gewünschtes Ergebnis,
+  vorhandene Fähigkeit, Besitzer, Implementierung, echte Abhängigkeiten und kurze Fertig-Kriterien.
+  Die Übersicht verbindet diese Lieferungen zu einer spielbaren Welt, nicht zu einer Liste interner Aufgaben.
 - Architektur ändert bei Fragen den verbindlichen Vertrag. Git enthält den Verlauf; WIs sind keine
-  Tagebücher und bleiben unter 120 Zeilen sowie 12 KiB.
+  Testprotokolle oder Tagebücher und bleiben unter 120 Zeilen sowie 12 KiB. Keine laufenden Testzahlen,
+  Mutationsberichte, Commit-Chroniken oder Logauszüge im WI. Prüfbelege gehören in System-Temp-Logs
+  und Git; im WI bleiben nur Befunde, die den nächsten Implementierungsschritt tatsächlich ändern.
 - Coding arbeitet die Reserve ohne erneute Freigabe ab. Ein Commit oder blockierter Einzel-WI
   beendet das Gesamtziel nicht. Abschluss nennt Commit und tatsächliche Prüfbelege.
 
