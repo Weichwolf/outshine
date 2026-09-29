@@ -10,7 +10,6 @@ Depends:
 # OSM semantics reach generators and unknowns remain explicit
 
 ## Belegter IST-Zustand
-
 Rosenheims gecachter Gebäudelayer liefert Höhe und vereinzelt Mindesthöhe, aber keine
 Objektklasse, Geschosse oder Dachtypen. Der POI-Layer enthält Bauwerksklassen, darunter
 Glocken- und Aussichtstürme; ein unabhängiger Identitätsnachweis zum Gebäudepolygon fehlt.
@@ -35,12 +34,13 @@ Gültige API-Chunks überschreiten das allgemeine XML-DOM-Slotlimit bereits unte
 `OsmXmlReader` nutzt längengebundene Element-/Attributbudgets bei unverändertem 4-MiB-Limit;
 `Xml` behält seine Default-Grenzen für Szenarien. Keine gekürzten Originaldaten als Umgehung.
 
-`StructureBuildQueue::RawOf` verliert zusätzlich Innenringe und Mindesthöhe und reduziert
-Dachformen auf flach/geneigt. `RawTile::Structure` trägt keine Bauwerksklasse oder Quell-ID.
+`StructureBuildQueue::RawOf` erhält jetzt Innenringe und numerische Mindesthöhe bis zu
+Mesh und Terrain-Stempel. Dachformen bleiben auf flach/geneigt reduziert; Bauwerksklasse
+und Original-ID fehlen weiterhin im Bake. Die visuelle Place-Abnahme der Hofgeometrie ist offen.
 Damit ist ein Generatorwechsel allein unzureichend: ursprüngliche OSM-Semantik muss über
 allgemeine Provider-/Identitätsverträge bis zum passenden Generator erhalten bleiben.
-Vorhandene Roh-OSM-Reader und revisionsgebundene Quellen wiederverwenden. Keine
-POI-Zuordnung nur durch Nähe oder ungeprüfte MVT-ID; keine Wohnfassade aus bloßer Höhe.
+Roh-OSM-Reader und revisionsgebundene Quellen wiederverwenden. Keine POI-Zuordnung allein
+durch Nähe oder ungeprüfte MVT-ID; keine Wohnfassade aus bloßer Höhe.
 
 ## Implementierung
 

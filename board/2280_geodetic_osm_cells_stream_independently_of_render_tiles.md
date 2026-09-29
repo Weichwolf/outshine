@@ -85,18 +85,18 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
 - `OsmSourceSnapshot` is shared source ownership, not a transport publication prerequisite.
   Spatial source readiness precedes independent building/transport derivation; the existing
   OsmTransportLoader always builds a globally validated graph and cannot gate spatial buildings.
-- `BuildingField::Footprint::FirstPoint` currently indexes `OsmField::Points`; Laying passes
-  that buffer to BuildingStampJob. Native source products must own/share their ring coordinates
+- `BuildingField::Footprint::FirstPoint` indexes `OsmField::Points`, FirstHole its Rings;
+  Laying passes both to BuildingStampJob. Native products must own/share ring coordinates
   and revision. Meshing, footprints, terrain stamps and GroundDiagnostics consume that same
   immutable geometry owner; no copied MVT surrogate and no index across unrelated buffers.
 - `OsmBuildingFootprints` now owns closed ways and outer/inner multipolygon chains, pins
   the source snapshot and retains typed IDs and tags. Product-root closure is implemented.
   Point structures and type=building groups remain unsupported; part ownership and semantics
   remain open. Preserve strict local complete-set and graph validation.
-- Extend `StructureBake::RawTile` and `StructurePlan` together: outer/inner rings, top and
-  minimum height, roof form and building/industrial class must survive through meshing.
-  The current exterior-only `RawOf` loop and height/pitched pair are insufficient. Do not
-  encode original objects into reduced vector-tile properties as an intermediate fix.
+- `RawTile`, `StructurePlan` and terrain stamps now retain inner rings and minimum height.
+  Courtyards bypass solid aggregation; their roofs and floors preserve all inner boundaries.
+  Native source ownership, precise roof forms and building classes still need connection.
+  Do not encode original objects into reduced vector-tile properties as an intermediate fix.
 - `StructureBuildQueue` admits source-backed building jobs with the existing DEM sampling,
   cancellation, cell batching and atomic replacement. Source coverage owns replacement
   selection; render-tile overlap must not duplicate an original building. Keep existing
@@ -106,7 +106,7 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   scene retains shared-node road connectivity and unchanged content during a full turn.
   A parser-only success or a source accessor without this client path is not completion.
 ## Native geometry requirements
-`StructurePlan` and `BuildingShape::MassOf` accept one exterior ring only. Extend both.
+`StructurePlan` and `BuildingShape::MassOf` accept an exterior with inner rings; Place acceptance is pending.
 Carry `MinimumHeightM` through RawTile, StructurePlan and massing; top and lower heights share BaseAslM.
 Elevated parts receive no plinth, pavement or ground stamp; coarse meshes preserve the clearance.
 Do not aggregate raised parts with grounded buildings. Invalid or inverted height intervals fail.
