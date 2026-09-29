@@ -90,12 +90,28 @@ class Catalog(unittest.TestCase):
         actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}
         self.assertEqual(set(actual), {'DarmstadtWest', 'Wien', 'Rosenheim', 'Husum', 'Olympiaturm',
                                        'Graz', 'Koerbersee', 'Malcesine', 'Feldkirch',
-                                       'Hockenheimring'})
+                                       'Hockenheimring', 'Venice', 'CentralPark', 'Shibuya', 'Jura'})
         self.assertEqual(actual['Malcesine'], ['45.744855', '10.800445', '140', '290', '-2',
                                               '38.04', '1280', '720', '2026-09-07T10:40:00Z'])
         self.assertEqual(actual['Husum'][-1], '2026-09-07T10:30:00Z')
         self.assertEqual(actual['Hockenheimring'][:6],
                          ['49.3274', '8.5659', '900', '90', '-60', '55'])
+
+    def test_terrain_relative_historical_cameras(self):
+        expected = {
+            'Venice': ('45.438', '12.3358', '30', '11:11'),
+            'CentralPark': ('40.7968', '-73.952', '218.32', '16:56'),
+            'Shibuya': ('35.6595', '139.7005', '40', '02:41'),
+            'Jura': ('47.2492', '7.5108', '156.53', '11:30'),
+        }
+        rows = self.run_client('places', directory=ROOT / 'src/assets/places').stdout.splitlines()
+        actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}
+        for name, (lat, lon, bearing, time) in expected.items():
+            with self.subTest(place=name):
+                self.assertEqual(actual[name], [lat, lon, '60', bearing, '-6', '55',
+                                                '1280', '720', f'2026-06-21T{time}:00Z'])
+                source = (ROOT / f'src/assets/places/{name}.scenario').read_text()
+                self.assertIn('samplesHeight="yes"', source)
 
     def test_empty_offline_cache_does_not_fall_back_to_global_cache(self):
         cache = self.directory / 'empty-cache'

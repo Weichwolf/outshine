@@ -136,10 +136,9 @@ PlaceViewIndex(std::span<const Scenario::View> views) {
   Mat4 matrix;
   const double aspect =
       static_cast<double>(declared.Render.Frame.WidthPx) / declared.Render.Frame.HeightPx;
-  if (standing.SamplesHeight || !validPosition(standing.Geodetic) ||
-      !validPosition(declared.Ground.Origin) || !std::isfinite(standing.Geodetic.HeightM) ||
-      !std::isfinite(standing.BearingDeg) || !std::isfinite(standing.PitchDeg) ||
-      std::abs(standing.PitchDeg) > kDegPerHalfTurn / 2 ||
+  if (!validPosition(standing.Geodetic) || !validPosition(declared.Ground.Origin) ||
+      !std::isfinite(standing.Geodetic.HeightM) || !std::isfinite(standing.BearingDeg) ||
+      !std::isfinite(standing.PitchDeg) || std::abs(standing.PitchDeg) > kDegPerHalfTurn / 2 ||
       !projection.projectionMatrix(aspect, matrix)) {
     return std::unexpected(path.string() + Says::kInvalidCamera);
   }
