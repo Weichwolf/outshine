@@ -48,7 +48,9 @@ bool GroundStack::Open(const World::StoragePaths &under,
   Close();
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = under.Cache;
-  Store_ = std::make_shared<outshine::Data::ContentStore>(keeping);
+  Store_ = std::make_unique<outshine::Data::ContentStore>(keeping);
+  keeping.Directory = Store_->Directory() + "/derived";
+  Artifacts_ = std::make_shared<outshine::Data::ContentStore>(keeping);
   Sources_ = std::make_unique<outshine::Data::SourceSet>(*Store_);
   outshine::Data::SourceSet &sources = *Sources_;
   std::string refused;
@@ -99,6 +101,7 @@ void GroundStack::Close() {
   Pool_.reset();
   Sources_.reset();
   Store_.reset();
+  Artifacts_.reset();
   HasVectorSource_ = false;
   VectorZoom_ = kFineZoom;
   Opened_ = false;

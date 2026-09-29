@@ -52,7 +52,9 @@ vergleichbarer Szenarioparameter. Kein allgemeiner `cachable`-Vertrag ist implem
    `content` besitzt native Geometrie-Codecs; der Gebäudeprodukt-Codec bleibt beim
    erzeugenden Modul, ohne umgekehrte Abhängigkeit von `content` auf Generatoren.
    `engine/streaming` orchestriert Lookup, begrenztes IO, Decode, Miss-Generierung,
-   atomisches Publish und Runtime-Upload. Kein synchrones Datei-IO im Framepfad.
+   atomisches Publish und Runtime-Upload. Quelldaten und abgeleitete Produkte erhalten
+   getrennte Namensräume und Verdrängungsbudgets; abgeleitete Produkte dürfen nicht die
+   für ihren Wiederaufbau nötigen Quelldaten verdrängen. Kein synchrones Datei-IO im Framepfad.
 2. Schlüssel enthält Produktart, Producer-/Codec-Version, vollständige Parameter und Seed,
    OSM-/DEM-Inhaltsidentität, relevante Material-/Regelversionen, räumliche Zelle und LOD.
    Abhängigkeiten vor Lookup schließen. OSM-Tagänderung muss betroffene Produkte erneuern.
@@ -61,7 +63,11 @@ vergleichbarer Szenarioparameter. Kein allgemeiner `cachable`-Vertrag ist implem
 3. Native Artefakte enthalten vollständige Produktdaten und lokale Ressourcenreferenzen.
    Keine GPU-Handles, Borrowed-Spans oder laufzeitspezifischen Terrain-Zertifikate speichern.
    Quellen beim Laden validieren und aktuelle Nachweise binden. Alle Größen, Indizes,
-   Checksummen, Versionen und Ressourcenbezüge vor Publikation prüfen.
+   Checksummen, Versionen und Ressourcenbezüge vor Publikation prüfen. Große Produkte
+   in begrenzte inhaltsadressierte Blöcke zerlegen; ein erst nach vollständigem Publish
+   sichtbares Manifest verbindet sie. Die bisherige 64-MiB-Grenze pro Gesamtprodukt
+   scheitert an Wien und ist kein belastbarer Asset-Vertrag. Stückweise kodieren und
+   dekodieren, statt zusätzlich zum residenten Produkt eine vollständige Bytekopie zu halten.
 4. Erster Durchstich: Gebäude-Source- und Zell-LOD-Produkte über `StructureBuildQueue`
    lesen/schreiben; notwendige Geometrie-, Material- und Clusterdaten vollständig erhalten.
    Gleiches Eingabemanifest im zweiten Client-Prozess muss ohne erneuten Structure-Bake
