@@ -33,7 +33,13 @@ Zellen; der Vergleichsstand hatte nach 392 Zellen noch keine aktiviert. Das bele
 Übergang, keine Beschleunigung: beide erreichen kein vollständiges Refined-Bild. Bereits
 nach 30 Sekunden meldet macOS rund 10,6–10,7 GB Spitzen-Footprint, vor dem vollständigen
 Detailübergang. Den Speicherbesitz von Ganzkacheln, Geländekandidat und Renderprodukten
-als nächsten Ursachenpfad trennen; Zellreihenfolge allein löst diesen Überhang nicht.
+als Ursachenpfad trennen; Zellreihenfolge allein löst diesen Überhang nicht.
+Der weitere normale Client-Diagnoselauf (20cee1daf) misst nach Veröffentlichung
+8.054.090.928 Byte aktuelle GPU-Streamkapazität bei 291.609.831 Byte Weltfeldern.
+SubjectResidency::HeldBytes zählt Bufferkapazität, keine kumulativen Uploads. Malloc hält
+3.758.627.168 Byte; diese Zähler nicht zum Prozess-Footprint addieren. Nächster Messpunkt:
+aktive Vertex-/Indexranges gegen freie Bereiche und High-Water-Ende derselben Residency.
+Erst dann Fragmentierung, übergroße Geometrie oder Produktüberlappung reparieren.
 Darmstadt bleibt visuell praktisch unverändert. Feldkirch weicht an Wasser-/Geländekanten
 vom erhaltenen Vorherbild ab; die massive Geländewand bleibt. Keine neue Baseline: Ursache
 und Verbesserung sind vor visueller Abnahme zu belegen.
