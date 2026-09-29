@@ -71,12 +71,6 @@ contracts do not prove publication, transforms or visual acceptance.
   static/paced Hockenheim supplements them. Compare selection, silhouette, shadows,
   p50/p95/p99, CPU/GPU bytes and work/frame. CPU-only evidence cannot close this WI.
 
-## Verified task ownership
-
-29610fade: running/partial/final moves PASS; three ownership controls FAIL (exit 1).
-Five focused cases, full lint 256/256 tidy units, zero findings, 32 guards/API docs PASS.
-Logs /tmp/outshine-build-task-move-names-{focused,queue,full-lint}.log; process exit 0.
-
 ## Next step after dense-cell proof: paired worker phases
 
 Owner: StructureBuildTask.h/.cpp, StructureBuildQueue.cpp and StructureBake.h. Keep task
@@ -96,7 +90,12 @@ Transitions never add a second full phase allowance. Resume through the existing
 no worker self-post loop or unbounded Tasks backlog. Keep 131072 queries/4096 regions/
 0.02 m width. Exhaustion preserves coverage; cancellation rejects late output.
 Proof failure retains the valid variant with an explicit failure result and no smaller
-error. Invalid geometry/source cannot become optimistic zero. No mutable owner callbacks.
+error. AccountMesh currently skips UnsupportedFootprint while incrementing UnsupportedMeshes:
+reject proof qualification if either product skipped meshes, has NoGround or FallbackHeights.
+Reject selected invalid/oversized rings too: BakeOne silently skips them before its counters.
+Two identically incomplete/empty products cannot certify the requested source cell.
+Require explicit cell/detail, nonzero source identity and common anchor; never infer them
+from eye-selected mixed detail. No mutable owner callbacks or optimistic failure zero.
 
 BakedTile carries optional native interval, reference/variant detail and cell identity.
 Queue rechecks the complete captured source receipt at landing. Renderer selection stays
@@ -108,7 +107,8 @@ Production proof requests stay disabled until byte limits/accounting are impleme
 Acceptance: paced native Fine/Shell/Massed cells, immutable requests/common anchor, real
 cancellation and running/partial moves in EACH phase, exactly-once output, exhausted/failed
 proof and byte admission. Early Output.Tile, rewritten Fine request, lost phase ownership
-and ignored cancellation controls must actually FAIL. Format; StructureBuildTask/Bake/
+and ignored cancellation/omitted-mesh qualification controls must actually FAIL. Format;
+StructureBuildTask/Bake/
 SurfaceRefinement/BuildQueue suites; full lint/tidy/API. Source revalidation (2311), resident
 transfer and GPU/visual acceptance remain open; CPU intervals alone cannot lower LOD error.
 
