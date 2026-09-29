@@ -93,8 +93,8 @@ Whole-tile bootstrap preparation is separately visible, not falsely claimed repa
 exactly, with equal raster sizes, source lists and digests. Both remain qualified. Wien had
 no published candidate after 6144 frames; reconstruction equivalence there stays unmeasured.
 Logs /tmp/outshine-source-equivalence-4b54277f2-{Graz,Wien}.log; Refined remained unmet.
-a96116dc6: 24 focused PASS; full lint exit 2, 14 findings and one incomplete Tidy unit.
-Direct includes/defaults and function boundaries corrected; complete new gate pending.
+973b697a5: 24 focused PASS; complete lint/tidy/API PASS, all 258 units with zero findings.
+Places running; Graz/Wien/Olympiaturm Playable PNGs opened, unchanged from 89a13c893.
 
 Runtime now submits up to eight missing cells together. One heap-stable preparation builds
 four requested fields per worker post and shares its final HeightField with those bakes.
@@ -109,10 +109,10 @@ Four preparation slots retain reservations until all borrowers finish. A 64-tick
 refusal ledger spaces missing-source retries 1/2/4/8/16 frames and suppresses identical
 oversized inputs while retained. No persistent field cache is added.
 
-Format 1218 PASS, eleven focused tests PASS. Eight real mixed-detail cell products land from
+Format 1218 PASS, 24 focused tests PASS. Eight real mixed-detail cell products land from
 one capture without frame copies; running moves, cancellation and byte refusal are covered.
 Restored frame resolver, ignored admission/cancellation and stale-preparation mutants each
-exit 1 again after refactoring. Logs /tmp/outshine-source-batch-tidy-*.log; full gate pending.
+exit 1 again after refactoring. Logs /tmp/outshine-{source-batch-tidy,repair-973b697a5}-*.log.
 Missing published snapshots currently defer; TilePool reconstruction remains to integrate.
 The old single-cell API/pin remains for its existing callers until this runtime gate passes.
 Native fallback, full byte-ledger accounting, remaining negative controls and measured
