@@ -913,16 +913,17 @@ void RaisePart(const BuildingShape &s, Site &site) {
   std::vector<EastNorth> &crownInner = scratch.CrownInner;
   std::vector<EastNorth> &crownOut = scratch.CrownOut;
   RoofSurface::Widened(s.Ring, s.OverhangM, {}, overhang);
-  RoofSurface::Widened(s.Ring, -kParapetThickM, {}, crownInner);
-  RoofSurface::Widened(s.Ring, kCorniceM, {}, crownOut);
+  if (s.Roof == RoofKind::Flat) {
+    RoofSurface::Widened(s.Ring, -kParapetThickM, {}, crownInner);
+    RoofSurface::Widened(s.Ring, kCorniceM, {}, crownOut);
+  }
   const bool crowned = s.Roof == RoofKind::Flat && crownInner.size() == s.Ring.size() &&
                        crownOut.size() == s.Ring.size() && s.HalfVm > 2.2 && s.RiseM > 0.0;
   const double flatTopZ = crowned ? EavesZ(s) - 0.34 : EavesZ(s) + s.RiseM;
   const double wallTopZ = s.Roof != RoofKind::Flat ? EavesZ(s) : flatTopZ;
   if (s.OnGround()) {
     Plinth(s, roof, overhang, s.SeatM, site);
-    std::vector<EastNorth> &proud = scratch.Proud;
-    RoofSurface::Widened(s.Ring, kPlinthProudM, {}, proud);
+    const std::vector<EastNorth> &proud = scratch.Proud;
     std::vector<EastNorth> &foot = scratch.Foot;
     RefinedLike(s.Ring, overhang, proud, roof, scratch, foot);
     Floor(s,
@@ -946,8 +947,7 @@ void RaisePart(const BuildingShape &s, Site &site) {
     return;
   }
 
-  std::vector<EastNorth> &wide = scratch.Wide;
-  RoofSurface::Widened(s.Ring, s.OverhangM, {}, wide);
+  const std::vector<EastNorth> &wide = overhang;
   std::vector<EastNorth> &covered = scratch.Covered;
   Refined(s.Ring, wide, roof, true, scratch, covered);
   Covering(s,

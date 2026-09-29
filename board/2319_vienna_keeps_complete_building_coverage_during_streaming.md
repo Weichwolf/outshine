@@ -20,6 +20,8 @@ Straßen und Terrain-Anschlüsse bleiben erhalten; keine Sichtweitenkürzung ode
 Implizite Quellenaufträge wählen wieder Fine/Shell/Massed nach Entfernung. Explizite
 Detailaufträge bleiben kameraunabhängig. Der persistente Gebäudeprodukt-Cache ist vom
 Runtime-Pfad getrennt. Diese Reparatur allein löst das Ladeproblem der drei Städte nicht.
+Fine erzeugt Dach-/Sockelumrisse nur einmal je Gebäudeform; ungenutzte Attika-Umrisse
+entfallen bei geneigten Dächern. Das ändert keine Geometrie und ersetzt keine LOD-Auswahl.
 Ganzkacheln bleiben bis zur atomaren Übernahme quellgültiger Zellen sichtbar; abgelöste
 Jobs und übergebene CPU-Bakes werden freigegeben. Starre Pieces teilen den Vertexbuffer
 mit der Darstellung voriger Positionen. Diese funktionierenden Verträge bleiben erhalten.

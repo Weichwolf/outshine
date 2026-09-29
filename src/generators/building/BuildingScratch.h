@@ -86,7 +86,7 @@ struct BuildingScratch final : MeshScratch {
   Slots<BuildingShape> Parts, Stacked;
   std::vector<EastNorth> Inner;
 
-  std::vector<EastNorth> Overhang, CrownInner, CrownOut, Proud, Foot, Wide, Covered, Tris, Refined;
+  std::vector<EastNorth> Overhang, CrownInner, CrownOut, Proud, Foot, Covered, Tris, Refined;
   std::vector<double> Breaks, Other, At;
 
   std::vector<uint32_t> Poly;
