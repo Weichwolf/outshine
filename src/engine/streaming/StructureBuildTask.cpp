@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <ratio>
 #include <utility>
 
@@ -15,12 +16,50 @@
 
 namespace outshine {
 
+namespace {
+void BakeVariant(const Generators::RawTile *raw,
+                 const Ground::HeightField *heights,
+                 const StructureMesher &mesher,
+                 MeshScratch *scratch,
+                 Generators::StructureBakeProgress *progress,
+                 StructureBuildTask::Output *output,
+                 const std::shared_ptr<std::atomic_bool> &stopping) {
+  for (size_t range = 0; range < StructureBuildTask::RangesPerTask && !output->Tile; ++range) {
+    const auto rangeBegan = std::chrono::steady_clock::now();
+    const auto advanced = progress->AdvanceStructures(
+        *raw, *heights, mesher, *scratch, StructureBuildTask::StructuresPerRange, stopping.get());
+    const double rangeMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rangeBegan)
+            .count();
+    output->LastRangeMs = std::max(output->LastRangeMs, rangeMs);
+    if (!advanced) {
+      output->Status = std::unexpected(advanced.error());
+      break;
+    }
+    ++output->LastRanges;
+    if (*advanced) {
+      const auto finalizationBegan = std::chrono::steady_clock::now();
+      auto finalized = progress->Finalize(*raw, mesher, *scratch, stopping.get());
+      output->FinalizationMs = std::chrono::duration<double, std::milli>(
+                                   std::chrono::steady_clock::now() - finalizationBegan)
+                                   .count();
+      if (!finalized) {
+        output->Status = std::unexpected(finalized.error());
+        break;
+      }
+      output->Tile = std::move(*finalized);
+    }
+  }
+}
+}
+
 struct StructureBuildTask::Comparison {
   enum class Phase { Reference, Surface, Complete };
 
   explicit Comparison(ProofRequest request) : Request(request) {}
 
   void Finish(Output &output, std::optional<Generators::StructureSurfaceErrorFailure> failure) {
+    assert(Variant.has_value());
     Variant->SurfaceFailure = failure;
     output.Tile = std::move(Variant);
     Phase_ = Phase::Complete;
@@ -58,51 +97,68 @@ struct StructureBuildTask::Comparison {
       return;
     }
     if (Phase_ == Phase::Reference) {
-      for (size_t range = 0; range < RangesPerTask; ++range) {
-        const auto began = std::chrono::steady_clock::now();
-        const auto advanced = ReferenceProgress.AdvanceStructures(
-            ReferenceRaw, heights, mesher, scratch, StructuresPerRange, &stopping);
-        output.LastRangeMs = std::max(
-            output.LastRangeMs,
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                .count());
-        if (!advanced) {
-          if (stopping.load(std::memory_order_relaxed)) {
-            output.Status = std::unexpected(StructureBakeErrorKind::Cancelled);
-          } else {
-            Finish(output, StructureSurfaceErrorFailure::InvalidGeometry);
-          }
-          return;
-        }
-        ++output.LastRanges;
-        if (!*advanced) { continue; }
-        const auto finalizedAt = std::chrono::steady_clock::now();
-        auto reference = ReferenceProgress.Finalize(ReferenceRaw, mesher, scratch, &stopping);
-        output.FinalizationMs = std::chrono::duration<double, std::milli>(
-                                    std::chrono::steady_clock::now() - finalizedAt)
-                                    .count();
+      AdvanceReference(heights, mesher, scratch, output, stopping);
+    } else {
+      AdvanceSurface(output, stopping);
+    }
+  }
+
+  void AdvanceReference(const Ground::HeightField &heights,
+                        const StructureMesher &mesher,
+                        MeshScratch &scratch,
+                        Output &output,
+                        const std::atomic_bool &stopping) {
+    using namespace Generators;
+    for (size_t range = 0; range < RangesPerTask; ++range) {
+      const auto began = std::chrono::steady_clock::now();
+      const auto advanced = ReferenceProgress.AdvanceStructures(
+          ReferenceRaw, heights, mesher, scratch, StructuresPerRange, &stopping);
+      output.LastRangeMs = std::max(
+          output.LastRangeMs,
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count());
+      if (!advanced) {
         if (stopping.load(std::memory_order_relaxed)) {
           output.Status = std::unexpected(StructureBakeErrorKind::Cancelled);
-          return;
-        }
-        if (!reference || !CompleteGeometry(*reference)) {
+        } else {
           Finish(output, StructureSurfaceErrorFailure::InvalidGeometry);
-          return;
         }
-        Reference = std::move(*reference);
-        const auto reset = Surface.Reset({.Reference = Reference->Built,
-                                          .Variant = Variant->Built,
-                                          .SourceKey = Request.SourceKey},
-                                         Request.Limits);
-        if (!reset) {
-          Finish(output, reset.error());
-          return;
-        }
-        Phase_ = Phase::Surface;
         return;
       }
+      ++output.LastRanges;
+      if (!*advanced) { continue; }
+      const auto finalizedAt = std::chrono::steady_clock::now();
+      auto reference = ReferenceProgress.Finalize(ReferenceRaw, mesher, scratch, &stopping);
+      output.FinalizationMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - finalizedAt)
+              .count();
+      if (stopping.load(std::memory_order_relaxed)) {
+        output.Status = std::unexpected(StructureBakeErrorKind::Cancelled);
+        return;
+      }
+      if (!reference || !CompleteGeometry(*reference)) {
+        Finish(output, StructureSurfaceErrorFailure::InvalidGeometry);
+        return;
+      }
+      Reference = std::move(*reference);
+      assert(Reference.has_value() && Variant.has_value());
+      const auto reset = Surface.Reset({.Reference = Reference->Built,
+                                        .Variant = Variant->Built,
+                                        .SourceKey = Request.SourceKey},
+                                       Request.Limits);
+      if (!reset) {
+        Finish(output, reset.error());
+        return;
+      }
+      Phase_ = Phase::Surface;
       return;
     }
+    return;
+  }
+
+  void AdvanceSurface(Output &output, const std::atomic_bool &stopping) {
+    using namespace Generators;
+    assert(Variant.has_value());
     assert(Phase_ == Phase::Surface);
     const auto began = std::chrono::steady_clock::now();
     constexpr size_t kWorkPerPost = 8192;
@@ -213,35 +269,11 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
         if (comparison && comparison->Variant) {
           comparison->Advance(*heights, mesher, *scratch, *output, *stopping);
         } else {
-          for (size_t range = 0; range < RangesPerTask && !output->Tile; ++range) {
-            const auto rangeBegan = std::chrono::steady_clock::now();
-            const auto advanced = progress->AdvanceStructures(
-                *raw, *heights, mesher, *scratch, StructuresPerRange, stopping.get());
-            const double rangeMs = std::chrono::duration<double, std::milli>(
-                                       std::chrono::steady_clock::now() - rangeBegan)
-                                       .count();
-            output->LastRangeMs = std::max(output->LastRangeMs, rangeMs);
-            if (!advanced) {
-              output->Status = std::unexpected(advanced.error());
-              break;
-            }
-            ++output->LastRanges;
-            if (*advanced) {
-              const auto finalizationBegan = std::chrono::steady_clock::now();
-              auto finalized = progress->Finalize(*raw, mesher, *scratch, stopping.get());
-              output->FinalizationMs = std::chrono::duration<double, std::milli>(
-                                           std::chrono::steady_clock::now() - finalizationBegan)
-                                           .count();
-              if (!finalized) {
-                output->Status = std::unexpected(finalized.error());
-                break;
-              }
-              if (comparison) {
-                comparison->Begin(std::move(*finalized), *raw, *output);
-                break;
-              }
-              output->Tile = std::move(*finalized);
-            }
+          BakeVariant(raw, heights, mesher, scratch, progress, output, stopping);
+          if (comparison && output->Tile) {
+            auto variant = std::move(*output->Tile);
+            output->Tile.reset();
+            comparison->Begin(std::move(variant), *raw, *output);
           }
         }
         if (comparison && stopping->load(std::memory_order_relaxed)) {
