@@ -19,6 +19,15 @@
 
 namespace outshine::Ground {
 
+namespace {
+
+double ElapsedMs(std::chrono::steady_clock::time_point began) {
+  return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+      .count();
+}
+
+}
+
 std::unique_ptr<OsmField> GroundStack::CreateVectorField() const {
   const std::array<std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
                                               OsmLayerName(OsmLayer::WaterPolygons),
@@ -131,12 +140,8 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
                                                            RestandBudget budget) {
   const auto restandAt = std::chrono::steady_clock::now();
   RestandMetrics metrics;
-  const auto elapsedMs = [](std::chrono::steady_clock::time_point began) {
-    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-        .count();
-  };
   const auto complete = [&] -> std::expected<void, std::string_view> {
-    metrics.TotalMs = elapsedMs(restandAt);
+    metrics.TotalMs = ElapsedMs(restandAt);
     RecordsRestand(metrics);
     return {};
   };
@@ -145,7 +150,7 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   if (!Pool_) { return complete(); }
   const auto classificationAt = std::chrono::steady_clock::now();
   const auto classified = Cls_.Update(*Pool_, at);
-  metrics.ClassificationMs = elapsedMs(classificationAt);
+  metrics.ClassificationMs = ElapsedMs(classificationAt);
   if (!classified) { return std::unexpected(classified.error()); }
   Stood_ = at;
   if (!Vegetated_) { return complete(); }
@@ -168,19 +173,26 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
     Ways_ = StreetField{};
     WaterBodies_ = WaterField{};
   }
-  metrics.VectorsMs = elapsedMs(vectorAt);
+  metrics.VectorsMs = ElapsedMs(vectorAt);
   if (!Vectors_->SettledWithin(0)) { return complete(); }
   const auto classes = Cls_.Read();
   const SettlementInputs inputs{.Classes = classes ? classes->Version() : 0,
                                 .Vectors = Vectors_->Generation(),
                                 .Footprints = Footprints_.Revision()};
   if (CanReuseSettlement(inputs, budget.VectorRing)) { return complete(); }
+  IngestLayers(inputs, budget, metrics);
+  return complete();
+}
+
+void GroundStack::IngestLayers(const SettlementInputs &inputs,
+                               RestandBudget budget,
+                               RestandMetrics &metrics) {
   Settled_.reset();
   for (size_t pass = 0; pass < budget.IngestTilesMost; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       const auto settleAt = std::chrono::steady_clock::now();
       Settle();
-      metrics.SettlementMs += elapsedMs(settleAt);
+      metrics.SettlementMs += ElapsedMs(settleAt);
       Settled_ = inputs;
       if (HeapBytes() > kHoldsBytes) {
         ++Overflowed_;
@@ -192,10 +204,10 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     const auto streetsAt = std::chrono::steady_clock::now();
     (void)Ways_.Ingest(*Vectors_, Templates_);
-    metrics.StreetsMs += elapsedMs(streetsAt);
+    metrics.StreetsMs += ElapsedMs(streetsAt);
     const auto waterAt = std::chrono::steady_clock::now();
     (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
-    metrics.WaterMs += elapsedMs(waterAt);
+    metrics.WaterMs += ElapsedMs(waterAt);
     const size_t after =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     if (after != before) { Settled_.reset(); }
@@ -204,10 +216,9 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   if (Drained() && !Settled_) {
     const auto settleAt = std::chrono::steady_clock::now();
     Settle();
-    metrics.SettlementMs += elapsedMs(settleAt);
+    metrics.SettlementMs += ElapsedMs(settleAt);
     Settled_ = inputs;
   }
-  return complete();
 }
 
 bool GroundStack::CanReuseSettlement(const SettlementInputs &inputs, int rings) const {

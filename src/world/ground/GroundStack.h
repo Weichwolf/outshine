@@ -178,6 +178,8 @@ private:
     [[nodiscard]] bool operator==(const SettlementInputs &) const = default;
   };
 
+  void IngestLayers(const SettlementInputs &inputs, RestandBudget budget, RestandMetrics &metrics);
+
   [[nodiscard]] bool CanReuseSettlement(const SettlementInputs &inputs, int rings) const;
 
   std::optional<SettlementInputs> Settled_;
