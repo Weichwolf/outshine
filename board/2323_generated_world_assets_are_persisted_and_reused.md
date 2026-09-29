@@ -56,8 +56,8 @@ muss die Korrektheit bei geänderten Provider-Daten erhalten. Wien lädt noch ni
    und kein dauerhaft wachsender Restgraph. Bytebudget und begrenzte IO-Puffer bleiben bestehen.
    Nächster Durchstich: verlustfreie Blockkompression im Container. Beobachtete identische
    CentralPark-Produkte werden vor ihrer Wiederverwendung verdrängt; allein deren Byteumfang
-   überschreitet die aktuelle Plattenquote. Zunächst den bereits eingebundenen zlib-Codec
-   mit schneller Kompressionsstufe prüfen; keine eigene Kompression entwickeln. Blockweise
+   überschreitet die aktuelle Plattenquote. LZ4 über `pkg-config liblz4` anbinden: die gepaarte
+   Stichprobe dekodiert schneller als zlib bei ausreichender Verdichtung. Blockweise
    rohe/komprimierte Länge und Codec versionieren, unkomprimierbare Blöcke roh speichern.
    Leser begrenzen Eingabe und Ausgabe vor Allokation, prüfen exakte entpackte Länge und
    vorhandene Inhaltsprüfsumme. Alte rohe Container bleiben lesbar. IO und Codec-Arbeit
