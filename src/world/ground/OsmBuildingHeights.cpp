@@ -1,12 +1,18 @@
 #include "OsmBuildingHeights.h"
 
 #include <charconv>
+#include <cstddef>
+#include <expected>
+#include <optional>
+#include <span>
 #include <cmath>
 #include <string_view>
 #include <system_error>
 
 namespace outshine::Ground {
 namespace {
+
+constexpr double kMetresPerFoot = 0.3048;
 
 std::string_view Trim(std::string_view value) noexcept {
   const auto first = value.find_first_not_of(" \t\r\n");
@@ -27,7 +33,7 @@ OsmHeightValue Parse(std::string_view text, bool metric) noexcept {
   if (!unit.empty()) {
     if (!metric) { return std::unexpected(OsmHeightError::InvalidUnit); }
     if (unit == "ft" || unit == "feet" || unit == "'") {
-      value *= 0.3048;
+      value *= kMetresPerFoot;
     } else if (unit != "m") {
       return std::unexpected(OsmHeightError::InvalidUnit);
     }
@@ -40,10 +46,10 @@ ReadValue(std::span<const Data::OsmTag> tags, std::string_view key, bool metric)
   const Data::OsmTag *found = nullptr;
   for (const auto &tag : tags) {
     if (tag.Key != key) { continue; }
-    if (found) { return std::unexpected(OsmHeightError::DuplicateTag); }
+    if (found != nullptr) { return std::unexpected(OsmHeightError::DuplicateTag); }
     found = &tag;
   }
-  return found ? Parse(found->Value, metric) : OsmHeightValue{std::nullopt};
+  return found != nullptr ? Parse(found->Value, metric) : OsmHeightValue{std::nullopt};
 }
 
 }
