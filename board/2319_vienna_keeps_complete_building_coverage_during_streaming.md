@@ -15,106 +15,62 @@ Die aus vorhandenen Quelldaten erzeugte Stadt steht vollständig im Bild. Ein ne
 Kandidat oder Detailwechsel darf keine bereits sichtbaren Gebäude verschwinden lassen.
 Wien ist der erste Regressionsfall; die Lösung gilt für alle Places.
 
-## Befund
+## Aktueller Blocker
 
-Der Nutzer sieht nur etwa zehn Prozent der Gebäude. Dieser Anteil ist noch nicht
-quantifiziert. Freigabe alter Zelljobs ermöglicht die Veröffentlichung des Geländekandidaten,
-sichert sie aber noch nicht innerhalb der Aufnahmegrenzen: Wien endet je nach Lauf bereits
-bei Quellen-Bakes oder erst bei fehlenden Detailzellen. Graz und Olympiaturm erreichen die
-Abnahme ebenfalls nicht zuverlässig. Als Nächstes verfügbare Worker-Zeit, fehlende Zellprodukte,
-Quellenvalidierung und Aktivierung trennen. Auch mit blockierendem Client-Pacing verarbeitet
-Wien alle Quellen, liefert aber innerhalb der unveränderten Zeitgrenze kein vollständiges Bild.
-Die nächste Diagnose muss den Übergang zu residenten und aktiven Detailzellen während
-desselben Client-Laufs erfassen. Ein vorhandenes instrumentiertes Profil zeigt vor allem Renderer-/Fence-Warten und hohen
-Speicher-Footprint; im normalen Client mit Job-Fortschritt, Uploads und Residency korrelieren.
-Ein Playable-Bild beweist keine vollständige Stadt. Der instrumentierte normale Client
-aktiviert mit kachelweiser Fertigstellung erstmals eine Detailkachel nach 85 gelandeten
-Zellen; der Vergleichsstand hatte nach 392 Zellen noch keine aktiviert. Das belegt den
-Übergang, keine Beschleunigung: beide erreichen kein vollständiges Refined-Bild. Bereits
-nach 30 Sekunden meldet macOS rund 10,6–10,7 GB Spitzen-Footprint, vor dem vollständigen
-Detailübergang. Den Speicherbesitz von Ganzkacheln, Geländekandidat und Renderprodukten
-als Ursachenpfad trennen; Zellreihenfolge allein löst diesen Überhang nicht.
-Der weitere normale Client-Diagnoselauf (20cee1daf) misst nach Veröffentlichung
-8.054.090.928 Byte aktuelle GPU-Streamkapazität bei 291.609.831 Byte Weltfeldern.
-SubjectResidency::HeldBytes zählt Bufferkapazität, keine kumulativen Uploads. Malloc hält
-3.758.627.168 Byte; diese Zähler nicht zum Prozess-Footprint addieren. Nächster Messpunkt:
-aktive Vertex-/Indexranges gegen freie Bereiche und High-Water-Ende derselben Residency.
-Erst dann Fragmentierung, übergroße Geometrie oder Produktüberlappung reparieren.
-Darmstadt bleibt visuell praktisch unverändert. Feldkirch weicht an Wasser-/Geländekanten
-vom erhaltenen Vorherbild ab; die massive Geländewand bleibt. Keine neue Baseline: Ursache
-und Verbesserung sind vor visueller Abnahme zu belegen.
+Wien und weitere dichte Places erreichen die vollständige Refined-Darstellung nicht
+zuverlässig innerhalb der bestehenden Ladegrenze. Bereits vorhandene Quelldaten und
+persistente Gebäudeprodukte reichen dafür noch nicht. Ein Playable-Bild oder einzelne
+aktivierte Detailkacheln beweisen keine vollständige Stadt.
+CentralPark meldet auch im unmittelbar folgenden Lauf keine Gebäude-Cachetreffer.
+Ob Produkte verdrängt wurden oder ihre Eingaben/Schlüssel wechseln, ist noch ungeklärt.
+Vor einem Eingriff dieselben Produktschlüssel über beide Läufe verfolgen und beobachtete
+Löschung, Wiederanlage, Eingangsdaten und Cachetreffer zeitlich zuordnen.
+Keine Cachequote aus dem schlechten Istverbrauch ableiten oder ohne Bedarfsnachweis erhöhen.
 
-## Speicherbedarf begründen
+## Vorhandene Fähigkeit
 
-Hoher Prozess-Footprint ist kein Bedarfsnachweis. Die aktuelle Prozessaufnahme enthält
-umfangreiche leere residente malloc-Bereiche; aktive Allokationen und Grafikresidency
-sind noch keinem vollständigen Besitzerinventar zugeordnet. `Heap::TakenAt` ist kumuliert,
-`SubjectResidency::HeldBytes` zählt Kapazität. Beide ersetzen keine aktive Bytebilanz.
-Für denselben identifizierten Place-Prozess Kaltstart, warmen Refined-Zustand und Bewegung
-messen: native Produkte, Terrainfelder, Scratch, aktive/freie Vertex- und Indexranges,
-Transferbuffer, Renderziele und gleichzeitig gehaltene Kandidaten. Je Besitzer Menge,
-Elementgröße, Kapazität und Freigabegrenze ausweisen; OS-Footprint separat führen.
-Doppelhaltung und Reserven zuerst an ihrer Ursache reduzieren. Keine Sichtweiten- oder
-Qualitätskürzung und kein höheres Budget aus dem schlechten Istwert ableiten.
-
-Nächster Eingriff: `SubjectDraw` lädt starre Piece-Positionen nochmals in `Previous`;
-Hockenheim reserviert dafür dieselbe Kapazität wie für `Vertex`. Starre DrawBatches
-kennzeichnen ihre Bewegungsart und binden für vorige Positionen denselben Vertexbuffer.
-Vorige Objekt-/Kameramatrizen bleiben unverändert; verformbare Subjects behalten ihren
-separaten Posebuffer. `Previous` nur bis zum Subject-Bereich reservieren. Beim Wechsel
-der Bewegungsart auch innerhalb derselben Pipeline Vertexbindungen erneuern. Mixed-
-Subject/Piece-Fälle müssen korrekte Bewegungsvektoren und begrenzte Bufferkapazität
-belegen; anschließend alle Places, Upload-Bytes und Residency vergleichen. Kompakte
-Normaldaten bleiben der nächste Kandidat: vier vorhandene statt zwölf expandierte Byte.
-
-Konkrete CPU-Reparatur: `StructureBuildQueue::IdleOut_` hält fertige `BakedTile`-Vektoren
-bis zur nächsten Ausleihe, obwohl diese dann vollständig verworfen werden. Nach Commit
-oder Discard das Produkt freigeben und nur die Ergebnishülle recyceln. Landing-Borrows
-enden am Commit; Geometrieübernahme vorher abschließen. Heap und Framekosten nachmessen.
+Abgelöste Zelljobs werden freigegeben; der Planer priorisiert vollständige Detailkacheln.
+TilePieces behält die quellgültige Ganzkachel bis zur atomaren Detailaktivierung.
+Fertige CPU-Bake-Vektoren werden nach Commit/Discard freigegeben.
+Starre Pieces verwenden ihren Vertexbuffer auch für vorige Positionen; deformierende
+Subjects behalten einen separaten Posebuffer. Objekt- und Kamerabewegung bleiben erhalten.
+Im vergleichbaren Hockenheim-Profil sinkt die reservierte Previous-Kapazität von
+242.221.056 auf 5.984.256 Byte: 236.236.800 Byte vermiedene Doppelhaltung.
+Das ist ein Kapazitätsnachweis, kein Nachweis für notwendigen Gesamtspeicher oder A18-Laufzeit.
+Der warme Client benötigt weiterhin mehr als das angestrebte Ladebudget; die vollständige
+Lint- und Place-Abnahme der letzten Implementierung ist noch offen.
 
 ## Umsetzung und Besitzer
 
-Engine/GroundPublication und GroundWorldCandidate besitzen Kandidat und Veröffentlichung;
-StructureBuildQueue besitzt Quelldaten/Bakes, TilePieces aktive Gebäudeprodukte.
-Für identische Kamera und Quellen den Weg Quelle → erzeugte Gebäude → residente Pieces
-→ aktive Auswahl → sichtbare Geometrie verfolgen. Verluststelle mit vorhandenen früheren
-Bildern und Source-/Cell-Identitäten eingrenzen. Verdeckung von fehlender Geometrie trennen.
-Dann den verantwortlichen Übergang reparieren: die bisherige gültige Darstellung bleibt,
-bis eine vollständige quellpassende Ersatzdarstellung übernommen werden kann.
-Kein dauerhaftes Fine-Erzwingen, keine Place-Sonderregel, keine angehobenen Frame-Limits.
-LOD-Zertifikate sind nur dann ein Blocker, wenn der konkrete Verlustpfad das belegt.
+GroundPublication/GroundWorldCandidate besitzen Kandidat und Veröffentlichung;
+StructureBuildQueue besitzt Quellen-Bakes, ArtifactStore persistente Produkte und
+Verdrängung, TilePieces aktive Gebäudeprodukte, SubjectResidency die GPU-Reserven.
+Für identische Kamera und Quellen den Weg Quelle → Cacheprodukt → residente Pieces
+→ aktive Auswahl → sichtbare Geometrie verfolgen. Den ersten belegten Engpass reparieren.
+Cache-Schlüssel müssen alle produktbestimmenden Eingaben enthalten; positionsabhängige
+Indizes nicht entfernen, ohne das gespeicherte Produkt korrekt neu zu binden.
+Bei Verdrängung den tatsächlich benötigten räumlichen Arbeitssatz und Wiederverwendung
+bestimmen; IO, Compute und Upload getrennt begrenzen. Keine synchrone Nachladung im Frame.
+Eine gültige Darstellung bleibt verfügbar, bis ein vollständiger quellpassender Ersatz
+übernommen wird. Frustum-Culling darf die notwendige Rundum-Residency nicht entfernen.
+Keine Place-Sonderpfade, Sichtweitenkürzung, ausgelassenen Gebäude oder erhöhten Gate-Limits.
+Kompakte Normalattribute sind eine spätere Speicheroption, kein Ersatz für vollständiges Laden.
 
-## Nächste Reparatur: freie Arbeit für die neue Stadt
+## Speicher und Abnahme
 
-Während GroundBuild aktiv ist, bedient Advancing nur den Kandidatenpfad. Alte CellQueue-
-Ergebnisse werden dort nicht abgeholt, zählen aber gegen dieselbe Zulassungsgrenze wie
-neue Quellen-Bakes. StructureBuildQueue muss beim Wechsel zu SourceGeometry alte
-Detailvorbereitungen und Zelljobs abbrechen und nach Abschluss begrenzt freigeben.
-Keine Warteoperation im Frame, keine höhere Queue-Grenze; residente Gebäude bleiben erhalten.
-Quellen-Bakes und ihre Reservationsbesitzer bleiben unangetastet. Der vorhandene Queue-Fall
-muss den Wechsel mit belegten Zellplätzen ausführen; ohne Freigabe darf er nicht bestehen.
-make format; StructureBuildQueue-Suite; make lint; vollständige Place-Bilder vergleichen.
-
-## Nächster vollständiger Detailübergang
-
-Advancing wechselt nach jedem angenommenen Acht-Zellen-Batch zur nächsten Kachel;
-TilePieces ersetzt die Ganzkachel erst bei vollständiger Zellabdeckung. Dadurch sammelt
-der Client Detailprodukte vieler unfertiger Kacheln, bevor er alte Produkte freigeben kann.
-Im vorhandenen Diagnoseprofil landen zahlreiche Zellen ohne eine einzige Aktivierung.
-Der Planer soll begonnene Kacheln bis zur vollständigen Aktivierung priorisieren. Solange
-alle fehlenden Zellen bereits laufen, auf deren Abschluss warten; fehlende oder abgelehnte
-Quellen ohne laufende Arbeit dürfen andere Kacheln nicht blockieren. Batch-, Worker- und
-Framegrenzen erhalten. Keine Zelle weglassen und keine Genauigkeitsgrenze verändern.
-Besitzer: Advancing/StructureCellPlanner; TilePieces behält die atomare Aktivierung und
-quellgültige Ganzkachel bis zum Ersatz. Kontrollierter Planerfall muss frühere Aktivierung
-bei identischem Arbeitsumfang zeigen; Quellenverweigerung muss weiterhin Fortschritt auf
-anderen Kacheln erlauben. Anschließend Wien im Client mit identischen Quellen vergleichen:
-Zeit bis erster Detailaktivierung, Spitzen-Residency, vollständiges Bild und Framekosten.
-Bleiben die gemessenen Kosten unverändert, ist dieser Ansatz keine belegte Beschleunigung.
+Hoher Verbrauch rechtfertigt keinen Bedarf. Je Besitzer aktive Menge, Elementgröße,
+Kapazität, temporäre Überlappung und Freigabegrenze bestimmen. CPU-Produkte, GPU-Streams,
+Transferbuffer und Prozess-Footprint getrennt führen; Unified Memory nicht doppelt zählen.
+Kaltstart, warmes Laden und Bewegung unterscheiden. Host-Ergebnisse belegen keine A18-Leistung.
+Nach Codeänderungen: `make format`, betroffene Suite, `LINT_JOBS=2 make lint` und
+`JOBS=1 make suite SUITE=outshine/integration/places`; Logs im System-Tempverzeichnis.
+Alle tatsächlichen Hash-PNGs öffnen und mit erhaltenen Vorherbildern vergleichen.
+Fehlende Bilder, unvollständige Quellen und nicht erklärte Bildverschlechterungen bleiben rot.
 
 ## Fertig, wenn
 
-Wien zeigt bei gleicher Kamera die vorhandenen Gebäude ohne Publikationslöcher; Kaltstart,
-Bewegung und Nachladen verlieren keine bereits vorhandene quellgültige Stadt. Vorher/Nachher
-persönlich öffnen, fehlende oder verdeckte Gebäude unterscheidbar belegen. Alle Places
-auf gleiche Regression prüfen. Straßen, Materialien und Fassaden bleiben eigene Lieferungen.
+Wien zeigt bei gleicher Kamera die vorhandenen Gebäude ohne Publikationslöcher.
+Warme Produkte werden wiederverwendet; Laden, Bewegung und schnelle Kameradrehung verlieren
+keine quellgültige Stadt. Volle konfigurierte Sichtweite und Qualitätsanforderungen bleiben
+erhalten. Alle Places bestätigen vollständige Bilder und ihre Laufzeit-/Speicherbudgets.
+Straßen, Materialien und räumliche Fassadendetails bleiben anschließende Feature-Lieferungen.
