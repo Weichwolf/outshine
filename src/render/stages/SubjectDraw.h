@@ -445,6 +445,8 @@ private:
   bool TablesStale_ = false;
 
   [[nodiscard]] bool RoomForStreams(std::string &error);
+  [[nodiscard]] bool
+  RoomForOptionalStreams(uint32_t vertexEnd, VertexRunsCarried carried, std::string &error);
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildSubjectBatches(std::string &error);
   void PrepareSubjectTables();

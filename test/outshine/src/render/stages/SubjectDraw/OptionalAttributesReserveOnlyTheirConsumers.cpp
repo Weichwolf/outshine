@@ -110,6 +110,12 @@ int main() {
                                         .Textured = true},
                               error) != kNoPiece,
               "independent tangent-bearing piece reserves and uploads its own range");
+        CHECK(verify(Stream::Uv, uv, resident.SubjectVertices().First),
+              "later piece growth preserves the earlier main UV bytes");
+        if (second) {
+          CHECK(verify(Stream::Colour, colours, resident.SubjectVertices().First),
+                "later piece growth preserves the earlier main colour bytes");
+        }
         const auto colourBytes = resident.HeldOf(Stream::Colour);
         const auto uvBytes = resident.HeldOf(Stream::Uv);
         for (int extra = 0; extra < 3; ++extra) {

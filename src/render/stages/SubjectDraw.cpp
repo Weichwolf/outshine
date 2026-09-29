@@ -607,13 +607,35 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
          (!Binding().WritesVelocity ||
           res.Grow(
               S::Previous, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error)) &&
-         (subject == 0 || res.Grow(S::Emitted,
-                                   {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)},
-                                   error)) &&
+         (subject == 0 ||
+          (res.Grow(
+               S::Emitted, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error) &&
+           RoomForOptionalStreams(res.SubjectVertices().First + res.Shape().Vertices,
+                                  {.Uv = res.Shape().HasUv,
+                                   .Uv1 = res.Shape().HasUv1,
+                                   .Tangent = res.Shape().HasTangent,
+                                   .Colour = res.Shape().HasColour},
+                                  error))) &&
          res.Grow(S::Index,
                   {.Usage = kIndexUse,
                    .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t))},
                   error);
+}
+
+bool SubjectDraw::RoomForOptionalStreams(uint32_t vertexEnd,
+                                         VertexRunsCarried carried,
+                                         std::string &error) {
+  using S = SubjectResidency::Stream;
+  const auto grow = [&](S stream, bool present, uint32_t components) {
+    return !present ||
+           Bound().Grow(stream,
+                        {.Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+                         .Bytes = vertexEnd * components * static_cast<uint32_t>(sizeof(float))},
+                        error);
+  };
+  return grow(S::Uv, carried.Uv, kPairFloats) && grow(S::Uv1, carried.Uv1, kPairFloats) &&
+         grow(S::Tangent, carried.Tangent, kQuadFloats) &&
+         grow(S::Colour, carried.Colour, kQuadFloats);
 }
 
 bool SubjectDraw::ValidateBatch(const SubjectMesh &mesh,
@@ -961,12 +983,11 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
     res.GiveVertices(v);
     res.GiveIndices(i);
   };
-  if (!RoomForStreams(error) ||
-      (!piece.Tangents.empty() &&
-       !res.Grow(SubjectResidency::Stream::Tangent,
-                 {.Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                  .Bytes = (v.First + verts) * kQuadFloats * static_cast<uint32_t>(sizeof(float))},
-                 error))) {
+  if (!RoomForStreams(error) || !RoomForOptionalStreams(v.First + verts,
+                                                        {.Uv = piece.Textured,
+                                                         .Tangent = !piece.Tangents.empty(),
+                                                         .Colour = !piece.Colours.empty()},
+                                                        error)) {
     giveBack();
     return kNoPiece;
   }
