@@ -10,11 +10,8 @@ Depends:
 # OSM semantics reach generators and unknowns remain explicit
 
 ## Belegter IST-Zustand
-Rosenheims gecachter Gebäudelayer liefert Höhe und vereinzelt Mindesthöhe, aber keine
-Objektklasse, Geschosse oder Dachtypen. Der POI-Layer enthält Bauwerksklassen, darunter
-Glocken- und Aussichtstürme; ein unabhängiger Identitätsnachweis zum Gebäudepolygon fehlt.
-Schornsteine sind in diesem Kachelausschnitt nicht als solche gekennzeichnet. Die konkrete
-Verwechslung bleibt deshalb offen; schlanke Form allein beweist keinen Schornstein.
+Rosenheims Gebäudekacheln verlieren Klasse, Geschosse und Dachtypen. POI-Klassen haben
+keinen bewiesenen Identitätsbezug zu Gebäuden; schlanke Form beweist keinen Schornstein.
 Original-OSM liefert dagegen Weg [619896097](https://www.openstreetmap.org/way/619896097)
 mit `man_made=chimney`, `building=yes`, `height=80`. Seine Lage ergibt vom Place aus
 etwa 160,2° Bearing und 478 m Abstand, passend zum linken Referenzbereich. Die Identität
@@ -30,17 +27,22 @@ prüft dafür die transitive Referenzhülle typisierter Produktwurzeln gemeinsam
 `world/ground/OsmBuildingFootprints` besitzt daraus Ringe/Koordinaten und pinnt den Quell-Snapshot;
 Tags bleiben über typisierte Original-ID erreichbar. Offene/mehrdeutige Ringketten verhindern Publikation.
 Der parameterlose Vollständigkeitscheck lokaler Komplettquellen bleibt unverändert.
-Gültige API-Chunks überschreiten das allgemeine XML-DOM-Slotlimit bereits unter 4 MiB.
-`OsmXmlReader` nutzt längengebundene Element-/Attributbudgets bei unverändertem 4-MiB-Limit;
-`Xml` behält seine Default-Grenzen für Szenarien. Keine gekürzten Originaldaten als Umgehung.
+`OsmXmlReader` erhält Originaldaten mit längengebundenem DOM-Budget und 4-MiB-Limit.
 
 `StructureBuildQueue::RawOf` erhält jetzt Innenringe und numerische Mindesthöhe bis zu
 Mesh und Terrain-Stempel. Dachformen bleiben auf flach/geneigt reduziert; Bauwerksklasse
 und Original-ID fehlen weiterhin im Bake. Die visuelle Place-Abnahme der Hofgeometrie ist offen.
-Damit ist ein Generatorwechsel allein unzureichend: ursprüngliche OSM-Semantik muss über
-allgemeine Provider-/Identitätsverträge bis zum passenden Generator erhalten bleiben.
-Roh-OSM-Reader und revisionsgebundene Quellen wiederverwenden. Keine POI-Zuordnung allein
-durch Nähe oder ungeprüfte MVT-ID; keine Wohnfassade aus bloßer Höhe.
+Originalsemantik über revisionsgebundene Provider erhalten; keine Identitätszuordnung allein durch Nähe.
+
+## Aktueller Lieferblocker
+Feldkirch und Wien brechen nach Weitergabe von `min_height` mit ungültigem Höhenintervall ab.
+Feldkirchs Quellkachel enthält `height=4`, `min_height=7`; der räumlich passende Original-Part
+987120770 enthält nur `building:levels=1`, `building:min_level=2`, keine metrischen Höhen.
+Die Identität über die MVT-ID ist nicht bewiesen. Aus Kachelzahlen lässt sich weder eine
+vermessene Gesamthöhe noch eine belegte zusätzliche Baukörperhöhe ableiten. Kein blindes
+Addieren, Ignorieren der Mindesthöhe oder Verwerfen des Bauwerks. Die Quellnormalisierung
+muss Rohwerte, Widerspruch und deklarierte Ableitung getrennt erhalten; der native Generator
+bekommt erst ein gültiges aufgelöstes Intervall. Wiens konkrete Quelle ist noch zu lokalisieren.
 
 ## Implementierung
 
@@ -103,8 +105,6 @@ durch Nähe oder ungeprüfte MVT-ID; keine Wohnfassade aus bloßer Höhe.
       Flachdächer in der historischen Stadt. Sichtbare Form, Schatten,
       Stadtsilhouette und Framekosten entscheiden über den `plausible`-Prior.
 
-Wahl: OSM-Semantik plus generische prozedurale Bauformen; Unreal-PCG ist das strukturelle
-Vorbild, RAGE die visuelle Referenz, kein belegter Quellcodevertrag.
 [OSM Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_Buildings).
 
 ## Verkehr und Vegetation am selben Eingangsvertrag
