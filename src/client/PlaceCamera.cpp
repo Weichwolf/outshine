@@ -297,7 +297,7 @@ bool PreloadShot(
   const Result ready = engine.preload(preloadSeconds, WorldQuality::Refined);
   const Loading last = engine.loading();
   const auto stood = std::chrono::steady_clock::now();
-  shot.StreamedS = last.ElapsedS;
+  shot.StreamedS = last.PreloadMs / 1000.0;
   shot.Preloaded = ready.has_value();
   shot.LoadingMs = std::chrono::duration<double, std::milli>(stood - asked).count();
   if (!ready) {
