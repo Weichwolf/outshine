@@ -108,3 +108,7 @@ unrelated source release and lifetime after the original owner releases its refe
 Format 1214 PASS; four SourcedTerrainFields/HeightSheets tests PASS. Full lint/Places pending.
 Worker assembly, transient preparation-byte admission and runtime batch/queue integration
 remain open; this subset alone does not remove synchronous preparation from PostsCell.
+
+9218f118d full tidy finishes 257 units with five findings: three direct-include diagnostics
+and two signed shift operands. Add cstddef/expected and cast validated zoom to uint32_t;
+format 1214 PASS. Repository rules still running; corrected-code gates remain pending.

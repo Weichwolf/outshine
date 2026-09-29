@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstddef>
+#include <expected>
 #include <cmath>
 #include <optional>
 #include <ranges>
@@ -52,8 +54,9 @@ SourcedTerrainFields::Capture(std::span<const Entry> fields,
   if (bytes > bytesMost) { return std::unexpected(CaptureError::OverBudget); }
   for (const Ground::TileSpot request : requests) {
     if (request.Zoom < 0 || request.Zoom > Ground::HeightField::MaximumTileZoom || request.X < 0 ||
-        request.Y < 0 || static_cast<uint64_t>(request.X) >= (uint64_t{1} << request.Zoom) ||
-        static_cast<uint64_t>(request.Y) >= (uint64_t{1} << request.Zoom)) {
+        request.Y < 0 ||
+        static_cast<uint64_t>(request.X) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom)) ||
+        static_cast<uint64_t>(request.Y) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom))) {
       return std::unexpected(CaptureError::InvalidRequest);
     }
     const auto found = SourceFor(fields,
