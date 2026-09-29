@@ -16,6 +16,19 @@ Objektklasse, Geschosse oder Dachtypen. Der POI-Layer enthält Bauwerksklassen, 
 Glocken- und Aussichtstürme; ein unabhängiger Identitätsnachweis zum Gebäudepolygon fehlt.
 Schornsteine sind in diesem Kachelausschnitt nicht als solche gekennzeichnet. Die konkrete
 Verwechslung bleibt deshalb offen; schlanke Form allein beweist keinen Schornstein.
+Original-OSM liefert dagegen Weg [619896097](https://www.openstreetmap.org/way/619896097)
+mit `man_made=chimney`, `building=yes`, `height=80`. Seine Lage ergibt vom Place aus
+etwa 160,2° Bearing und 478 m Abstand, passend zum linken Referenzbereich. Die Identität
+zum bisherigen MVT-Polygon bleibt separat zu belegen; keine Übertragung allein durch Nähe.
+Bei mehreren Tags hat die explizite Sonderbauwerksklasse Vorrang vor `building=yes`.
+
+Der Original-API-Ausschnitt enthält unvollständige Fernrelationen. `OsmChunkSetLoader`
+verwirft derzeit jede fehlende Referenz, auch weit entfernte Routen- und Grenzmitglieder.
+Für räumliches Streaming muss WI 2280 referenzielle Vollständigkeit je konsumiertem Produkt
+prüfen: offene Referenzen erhalten und relevante Nachbarn anfordern; erforderliche
+Gebäude-/Multipolygon- oder Straßenbezüge nie stillschweigend ignorieren. Den strikten
+Vertrag vollständig deklarierter lokaler Quellen nicht durch Abschalten der Prüfung schwächen.
+
 `StructureBuildQueue::RawOf` verliert zusätzlich Innenringe und Mindesthöhe und reduziert
 Dachformen auf flach/geneigt. `RawTile::Structure` trägt keine Bauwerksklasse oder Quell-ID.
 Damit ist ein Generatorwechsel allein unzureichend: ursprüngliche OSM-Semantik muss über
@@ -92,27 +105,10 @@ Vorbild, RAGE die visuelle Referenz, kein belegter Quellcodevertrag.
 
 Auch OSM node/way/relation IDs, highway/railway, bridge/tunnel/layer, access/oneway,
 lanes/turn restrictions, gauge/electrified sowie tree/species/genus/leaf_type durchreichen.
-Hockenheim-Datengate: VersaTiles `versatiles.osm` v1 z14 im 5x5-Fenster um
-14/8581/5603 liefert 348 `kind=track`, 226 `kind=service`, aber kein
-`kind=raceway` und kein `highway=raceway`; ein POI `sport=motor` identifiziert
-keine befahrbare Runde. Für WI 2260 müssen OSM-Way-/Relation-ID, `highway=raceway`,
-Pit-/Service-/Access- und Richtungssemantik am Providervertrag überleben. Die Roh-OSM-Quelle ersetzt hier den Kartenkachelvertrag; die Zuordnung entsteht aus
-Original-IDs, nicht aus Place-Namen oder kamerafesten Heuristiken. Fehlende Identität
-explizit melden.
-Im 25-Tile-Fenster tragen alle 1 162 `streets`-Features MVT-IDs; 98 IDs erscheinen
-in mehreren Tiles. Der Decoder erhält nun diese optionalen 64-Bit-Provider-IDs.
-Sie sind **keine belegten OSM-Way-IDs**: kein
-geprüfter Hockenheim-Raceway-Way passt direkt oder durch einfache Dezimalskalierung.
-Roh-OSM zeigt stattdessen 24 `highway=raceway`-Ways und die eindeutige
-Grand-Prix-Relation 284588 mit 16 Haupt-Ways und eigener Pitlane-Rolle; das
-Quellpin steht in WI 2260. Der allgemeine semantische Provider muss Node-/Way-/
-Relation-IDs, Mitgliedsrolle, Tag-Provenienz und gerichtete Nodefolge liefern.
-`Data::OsmXmlReader` erhält diese Elemente im gepinnten Ausschnitt;
-`World::TransportTopology` baut daraus einen revisionsgebundenen logischen Graphen
-und löst die Hockenheim-Relation ohne Place-Zweig auf. Ein versionierter
-Streaming-Provider und die Veröffentlichung dieses Graphen in der Welt fehlen noch
-(ausführbarer Vertrag 2278).
-Ein MVT-Feature-ID-Join ist erst nach einem unabhängigen Nachweis zulässig.
-Ein auf Bildkacheln generalisierter Linienzug ohne IDs ist keine vollständige logische
-Karte. 2133 besitzt Konnektivität, 2175 Bauwerke, 2176 Artenauswahl. Fehlende Tags werden
-gezählt und plausibel ergänzt; keine vermeintliche Messgenauigkeit aus Defaults.
+MVT-Feature-IDs sind keine nachgewiesenen OSM-IDs; kein Join ohne unabhängigen Nachweis.
+`Data::OsmXmlReader` erhält Originalelemente und Tags. `World::TransportTopology` und
+`OsmTransportLoader` besitzen bereits revisionsgebundene native Verkehrsprodukte und
+Quellen; diesen Straßenfortschritt erhalten. Der allgemeine räumliche Eingangsvertrag
+muss dieselbe Quelle auch Gebäude- und Vegetationsgeneratoren zugänglich machen.
+WI 2280 besitzt weltweites Streaming, 2133 Konnektivität, 2175 Bauwerke, 2176 Artenauswahl.
+Fehlende Tags bleiben unbekannt oder markiert plausibel ergänzt; Defaults sind keine Messung.
