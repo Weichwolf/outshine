@@ -48,10 +48,15 @@ at 0/921600 differing pixels versus 973b697a5. Flat/repeated facades, empty sky,
 water and sparse Olympiaturm coverage remain; no fresh local webcam reference available.
 The building-arena metric and subject bytes share one owner but different capture times;
 never subtract these stale/current snapshots as if they represented separate categories.
-Full Places suite still running in the frozen detached check worktree. Restored-reservation
-negative control, five remaining PNG reviews and runtime byte comparison pending.
-Darmstadt/Feldkirch pass both cases; actual validated ROW images 9218e7cc/7bdb269c opened.
-The former Darmstadt a63db0fc copy was stale, so its identity claim is withdrawn.
-Five old 973b697a5 Refined archive selections mismatch their logs (2169); do not use
-those copies as commit-specific baselines. Current PNGs carry per-place ROW manifests.
+Full Places suite: 38/44 PASS, two Olympiaturm TIMEOUTs and four Graz/Wien UNPREPARED;
+pipeline exit 1. All ten current PNGs personally opened; Refined selections use terminal
+ROW logs, timestamps and per-place provenance JSON. Husum/Hockenheim also match valid
+973b697a5 images at 0/921600 differing pixels. Known terrain/material gaps remain (2169).
+Five old Refined archive selections mismatch their 973b697a5 logs; their old identity
+claims are withdrawn. Current validated Darmstadt/Feldkirch/Koerbersee/Malcesine/Rosenheim
+images are 9218e7cc/7bdb269c/cb8319ab/2735cb40/d986fe9f; older copies are historical only.
+Restoring unconditional reservation yields actual exit 1, four failures in 54 checks;
+/tmp/outshine-2318-negative-control-results.log and /tmp/outshine-2318-negative-control/.
+Runtime byte comparison pending. Graz/Wien stop before Ground publication in this gate;
+faster case termination does not prove faster completed scenes. No smaller LOD bound.
 Logs: /tmp/outshine-repair-4b9afb1de-{focused,full-lint,full-places}.log.

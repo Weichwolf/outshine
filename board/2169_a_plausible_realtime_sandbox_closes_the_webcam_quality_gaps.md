@@ -19,22 +19,23 @@ Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren 
 
 ## Aktuelle Place-Abnahme 2026-09-29
 
-973b697a5: Client-Läufe belegt, aber Bildzuordnung bei fünf Refined-Places fehlerhaft:
-Darmstadt, Feldkirch, Koerbersee, Malcesine und Rosenheim wurden aus älteren PNG-Namen
-kopiert statt aus dem ROW des abgeschlossenen Logs. Pixelidentitätsclaim zurückgezogen.
-Husum/Hockenheim sowie die drei commitbenannten Playable-PNGs stimmen mit ihren Läufen
-überein. 4b9afb1de prüft die Bilder neu mit ROW-Provenienz. Alte Kopien bleiben erhalten.
-973b697a5 komplette Places-Suite: 38/44 PASS,
-0 FAIL, 3 TIMEOUT, 3 UNPREPARED; Exit 2, Gesamtpipeline Exit 1.
-Olympiaturm beide Male und Graz normal überschreiten 120 s; Wien/Graz bleiben ohne Refined.
-Graz validated: 6144 Frames, Gebäudedetail offen, gesamte Build-Landungen/Posts 642/648.
-Queue=0 zählt nur ganze Tiles; noch keine isolierte Ursache oder Durchsatzverbesserung belegt.
-2316s Quellenwechsel-/Routenabnahmen bleiben grün. 24 fokussierte Tests sowie vollständiger
-Lint/tidy/API PASS, alle 258 Einheiten ohne Befund. 2317s Worker-Batches sind integriert,
-ihre Runtime-Abnahme bleibt rot; gezielte Diagnose trennt Quellenablehnung und Zellarbeit.
-Logs /tmp/outshine-repair-973b697a5-{full-places,full-lint,gate-results,visual-review}.log;
-Einzelfälle unter /tmp/outshine-repair-973b697a5-case-logs/ archiviert.
-Hockenheim separat Client Exit 0; keine A18-Aussage. Gesamt-Gate bleibt rot.
+4b9afb1de: vollständiger Lint/tidy/API PASS; 258/258 Einheiten ohne Befund.
+Places: 38/44 PASS, 0 FAIL, 2 TIMEOUT (Olympiaturm), 4 UNPREPARED (Graz/Wien);
+Suite Exit 2, Gesamtpipeline Exit 1. Hockenheim separat Client Exit 0.
+Sechs fokussierte GPU-Tests PASS; rückgebaute optionale Pufferreservierung erzeugt vier
+reale FAILs. Das beweist die Speicher-Reparatur, nicht fertige Runtime-LOD oder A18-Leistung.
+Graz/Wien erreichen nach 6144 Frames noch nicht die Ground-Publikation; deshalb sind
+kürzere Fallzeiten kein Nachweis schnellerer fertiger Szenen. Quellen-/Routenabnahmen grün.
+Alle zehn aktuellen Client-PNGs ohne Vegetation persönlich geöffnet. Refined-Artefakte
+unter `build/shots/places-refined-4b9afb1de/`, Auswahl über abgeschlossene ROW-Logs und
+PNG-Zeitstempel, je Place mit Provenienz-JSON. Drei Playable-Diagnosen separat unter
+`build/shots/places-playable-4b9afb1de/`. Diese drei sowie Husum/Hockenheim haben je
+0/921600 abweichende Pixel gegenüber korrekt zugeordneten 973b697a5-Bildern.
+Korrektur: Fünf Refined-Kopien unter dem alten 973b697a5-Namen waren ältere PNGs
+(Darmstadt/Feldkirch/Koerbersee/Malcesine/Rosenheim). Deren Pixelidentitätsclaim ist
+zurückgezogen; sie bleiben als historische Bilder erhalten, nicht als Commit-Baseline.
+Logs /tmp/outshine-repair-4b9afb1de-{full-places,full-lint,gate-results,visual-review}.log;
+Einzelfälle unter /tmp/outshine-repair-4b9afb1de-case-logs/ archiviert. Gesamt-Gate rot.
 Graz/Wien bleiben ohne fehlerhafte Nahwand; Olympiaturm unvollständig. Playable ersetzt
 keine Refined-Abnahme; Webcam-Vergleich fehlt. 2166 belegt/repariert die falsche grobe
 Nachbarkante ohne Kameraänderung; der vollständige 6e-Gate hatte grünen Lint/tidy/API.
