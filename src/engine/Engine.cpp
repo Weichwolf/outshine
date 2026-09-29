@@ -556,9 +556,7 @@ Result Engine::State::FinishesPreload(GroundQuality quality) {
   const bool continuingCandidate = World.GroundBuild != nullptr;
   const bool structuresReady =
       !continuingCandidate && published && StructuresReady(World.Stack.Footprints(), *published);
-  if ((!published || structuresReady || continuingCandidate) && !Grounds(true, quality)) {
-    return std::unexpected(Error);
-  }
+  if (!Grounds(true, quality)) { return std::unexpected(Error); }
   if (structuresReady && !UpdateVegetation(true)) { return std::unexpected(Error); }
   return {};
 }

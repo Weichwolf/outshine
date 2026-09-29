@@ -25,7 +25,10 @@ getrennt messen und den belegten Engpass beheben, keine Ladegrenzen erhöhen.
 `client/PlaceCamera.cpp` besitzt Preload, feste Messung und Capture. Vor der Messung
 muss Refined erreicht sein; ein Ladefehler liefert kein unvollständiges Erfolgsbild.
 `engine/Engine.cpp` besitzt den vorhandenen qualitätsabhängigen Preload-Vertrag.
-Prüfen, dass dieser dieselben benötigten Weltprodukte wie der Runtime-Pfad fertigstellt.
+Der Preload darf neue Ground-Revisionen nicht von fertigen Details der alten Revision
+abhängig machen: Koerbersee wartet bei Footprint-Revision 3/4 ohne Kandidat und ohne
+laufenden Bake. `Grounds` prüft wie im Runtime-Pfad selbst Revisionswechsel und
+Unchanged; alte Details sind keine Eintrittsbedingung für diese Prüfung.
 Die feste Messung ist kein Ersatz für Laden und führt keine Refined-Warteschleife.
 Screenshot-Capture und notwendige Renderer-Initialisierung explizit abgrenzen.
 Vorhandene Hash-PNGs erhalten; vollständige Inhalte und Bildänderungen selbst prüfen.
