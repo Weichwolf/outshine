@@ -36,6 +36,77 @@ bool IsBuilding(std::span<const Data::OsmTag> tags) {
   });
 }
 
+std::expected<std::vector<Data::OsmElementId>, OsmFootprintError>
+SelectBuildingRoots(const Data::OsmElements &source) {
+  for (const auto &node : source.Nodes()) {
+    if (!IsBuilding(node.Tags)) { continue; }
+    if (Ambiguous(node.Tags)) {
+      return std::unexpected(
+          OsmFootprintError{.Code = OsmFootprintErrorCode::AmbiguousTag,
+                            .Source = {.Kind = Data::OsmElementKind::Node, .Id = node.Id}});
+    }
+    if (IsBuilding(node.Tags)) {
+      return std::unexpected(
+          OsmFootprintError{.Code = OsmFootprintErrorCode::UnsupportedGeometry,
+                            .Source = {.Kind = Data::OsmElementKind::Node, .Id = node.Id}});
+    }
+  }
+  std::vector<Data::OsmElementId> roots;
+  std::set<uint64_t> relationWays;
+  for (const auto &relation : source.Relations()) {
+    if (!IsBuilding(relation.Tags)) { continue; }
+    if (Ambiguous(relation.Tags)) {
+      return std::unexpected(
+          OsmFootprintError{.Code = OsmFootprintErrorCode::AmbiguousTag,
+                            .Source = {.Kind = Data::OsmElementKind::Relation, .Id = relation.Id}});
+    }
+    roots.push_back({.Kind = Data::OsmElementKind::Relation, .Id = relation.Id});
+    for (const auto &member : relation.Members) {
+      if (member.Kind == Data::OsmElementKind::Way) { relationWays.insert(member.Id); }
+    }
+  }
+  for (const auto &way : source.Ways()) {
+    if (!IsBuilding(way.Tags)) { continue; }
+    if (Ambiguous(way.Tags)) {
+      return std::unexpected(
+          OsmFootprintError{.Code = OsmFootprintErrorCode::AmbiguousTag,
+                            .Source = {.Kind = Data::OsmElementKind::Way, .Id = way.Id}});
+    }
+    if (!relationWays.contains(way.Id)) {
+      roots.push_back({.Kind = Data::OsmElementKind::Way, .Id = way.Id});
+    }
+  }
+  return roots;
+}
+
+std::expected<std::vector<uint64_t>, OsmFootprintErrorCode>
+CloseRing(std::vector<uint64_t> ring,
+          const std::vector<const Data::OsmWay *> &ways,
+          const std::map<uint64_t, std::vector<size_t>> &junctions,
+          std::vector<bool> &used,
+          size_t remaining) {
+  while (ring.front() != ring.back()) {
+    const auto &incident = junctions.find(ring.back())->second;
+    const size_t next = used[incident[0]] ? incident[1] : incident[0];
+    if (used[next]) {
+      return std::unexpected(
+          OsmFootprintError{.Code = OsmFootprintErrorCode::InvalidRing, .Source = source});
+    }
+    used[next] = true;
+    const auto &nodes = ways[next]->NodeIds;
+    if (nodes.size() - 1 > remaining - (ring.size() - 1)) {
+      return std::unexpected(
+          OsmFootprintError{.Code = OsmFootprintErrorCode::PointBudgetExceeded, .Source = source});
+    }
+    if (nodes.front() == ring.back()) {
+      ring.insert(ring.end(), nodes.begin() + 1, nodes.end());
+    } else {
+      ring.insert(ring.end(), nodes.rbegin() + 1, nodes.rend());
+    }
+  }
+  return ring;
+}
+
 }
 
 std::span<const Data::OsmTag> OsmBuildingFootprints::Tags(const Building &building) const noexcept {
@@ -100,62 +171,58 @@ OsmBuildingFootprints::AppendRelation(const Data::OsmRelation &relation, size_t 
       }
     }
     std::ranges::sort(ways, {}, [](const Data::OsmWay *way) { return way->Id; });
-    std::map<uint64_t, std::vector<size_t>> junctions;
-    std::vector<bool> used(ways.size());
-    for (size_t at = 0; at < ways.size(); ++at) {
-      const auto &nodes = ways[at]->NodeIds;
-      if (nodes.size() < 2) {
-        return std::unexpected(
-            OsmFootprintError{.Code = OsmFootprintErrorCode::InvalidRing, .Source = source});
-      }
-      if (nodes.front() == nodes.back()) { continue; }
-      junctions[nodes.front()].push_back(at);
-      junctions[nodes.back()].push_back(at);
+    if (auto appended = AppendWays(ways, source, exterior, maxPoints); !appended) {
+      return appended;
     }
-    for (const auto &[node, incident] : junctions) {
-      (void)node;
-      if (incident.size() != 2) {
-        return std::unexpected(
-            OsmFootprintError{.Code = OsmFootprintErrorCode::AmbiguousJunction, .Source = source});
-      }
-    }
-    for (size_t at = 0; at < ways.size(); ++at) {
-      if (used[at]) { continue; }
-      const size_t remaining = maxPoints - Points_.size() / 2;
-      if (ways[at]->NodeIds.size() - 1 > remaining) {
-        return std::unexpected(OsmFootprintError{.Code = OsmFootprintErrorCode::PointBudgetExceeded,
-                                                 .Source = source});
-      }
-      std::vector<uint64_t> ring = ways[at]->NodeIds;
-      used[at] = true;
-      while (ring.front() != ring.back()) {
-        const auto &incident = junctions.find(ring.back())->second;
-        const size_t next = used[incident[0]] ? incident[1] : incident[0];
-        if (used[next]) {
-          return std::unexpected(
-              OsmFootprintError{.Code = OsmFootprintErrorCode::InvalidRing, .Source = source});
-        }
-        used[next] = true;
-        const auto &nodes = ways[next]->NodeIds;
-        if (nodes.size() - 1 > remaining - (ring.size() - 1)) {
-          return std::unexpected(OsmFootprintError{
-              .Code = OsmFootprintErrorCode::PointBudgetExceeded, .Source = source});
-        }
-        if (nodes.front() == ring.back()) {
-          ring.insert(ring.end(), nodes.begin() + 1, nodes.end());
-        } else {
-          ring.insert(ring.end(), nodes.rbegin() + 1, nodes.rend());
-        }
-      }
-      if (auto appended = AppendRing(ring, source, exterior, maxPoints); !appended) {
-        return appended;
-      }
-      hasExterior = hasExterior || exterior;
-    }
+    hasExterior = hasExterior || (exterior && !ways.empty());
   }
   if (!hasExterior) {
     return std::unexpected(
         OsmFootprintError{.Code = OsmFootprintErrorCode::InvalidRing, .Source = source});
+  }
+  return {};
+}
+
+std::expected<void, OsmFootprintError>
+OsmBuildingFootprints::AppendWays(const std::vector<const Data::OsmWay *> &ways,
+                                  Data::OsmElementId source,
+                                  bool exterior,
+                                  size_t maxPoints) {
+  std::map<uint64_t, std::vector<size_t>> junctions;
+  std::vector<bool> used(ways.size());
+  for (size_t at = 0; at < ways.size(); ++at) {
+    const auto &nodes = ways[at]->NodeIds;
+    if (nodes.size() < 2) {
+      return std::unexpected(
+          OsmFootprintError{.Code = OsmFootprintErrorCode::InvalidRing, .Source = source});
+    }
+    if (nodes.front() == nodes.back()) { continue; }
+    junctions[nodes.front()].push_back(at);
+    junctions[nodes.back()].push_back(at);
+  }
+  for (const auto &[node, incident] : junctions) {
+    (void)node;
+    if (incident.size() != 2) {
+      return std::unexpected(
+          OsmFootprintError{.Code = OsmFootprintErrorCode::AmbiguousJunction, .Source = source});
+    }
+  }
+  for (size_t at = 0; at < ways.size(); ++at) {
+    if (used[at]) { continue; }
+    const size_t remaining = maxPoints - Points_.size() / 2;
+    if (ways[at]->NodeIds.size() - 1 > remaining) {
+      return std::unexpected(
+          OsmFootprintError{.Code = OsmFootprintErrorCode::PointBudgetExceeded, .Source = source});
+    }
+    std::vector<uint64_t> ring = ways[at]->NodeIds;
+    used[at] = true;
+    auto closed = CloseRing(std::move(ring), ways, junctions, used, remaining);
+    if (!closed) {
+      return std::unexpected(OsmFootprintError{.Code = closed.error(), .Source = source});
+    }
+    if (auto appended = AppendRing(*closed, source, exterior, maxPoints); !appended) {
+      return appended;
+    }
   }
   return {};
 }
@@ -166,45 +233,9 @@ OsmBuildingFootprints::Build(std::shared_ptr<const Data::OsmSourceSnapshot> sour
   if (!source) {
     return std::unexpected(OsmFootprintError{.Code = OsmFootprintErrorCode::MissingSource});
   }
-  for (const auto &node : source->Elements.Nodes()) {
-    if (!IsBuilding(node.Tags)) { continue; }
-    if (Ambiguous(node.Tags)) {
-      return std::unexpected(
-          OsmFootprintError{.Code = OsmFootprintErrorCode::AmbiguousTag,
-                            .Source = {.Kind = Data::OsmElementKind::Node, .Id = node.Id}});
-    }
-    if (IsBuilding(node.Tags)) {
-      return std::unexpected(
-          OsmFootprintError{.Code = OsmFootprintErrorCode::UnsupportedGeometry,
-                            .Source = {.Kind = Data::OsmElementKind::Node, .Id = node.Id}});
-    }
-  }
-  std::vector<Data::OsmElementId> roots;
-  std::set<uint64_t> relationWays;
-  for (const auto &relation : source->Elements.Relations()) {
-    if (!IsBuilding(relation.Tags)) { continue; }
-    if (Ambiguous(relation.Tags)) {
-      return std::unexpected(
-          OsmFootprintError{.Code = OsmFootprintErrorCode::AmbiguousTag,
-                            .Source = {.Kind = Data::OsmElementKind::Relation, .Id = relation.Id}});
-    }
-    roots.push_back({.Kind = Data::OsmElementKind::Relation, .Id = relation.Id});
-    for (const auto &member : relation.Members) {
-      if (member.Kind == Data::OsmElementKind::Way) { relationWays.insert(member.Id); }
-    }
-  }
-  for (const auto &way : source->Elements.Ways()) {
-    if (!IsBuilding(way.Tags)) { continue; }
-    if (Ambiguous(way.Tags)) {
-      return std::unexpected(
-          OsmFootprintError{.Code = OsmFootprintErrorCode::AmbiguousTag,
-                            .Source = {.Kind = Data::OsmElementKind::Way, .Id = way.Id}});
-    }
-    if (!relationWays.contains(way.Id)) {
-      roots.push_back({.Kind = Data::OsmElementKind::Way, .Id = way.Id});
-    }
-  }
-  if (const auto missing = source->Elements.FirstMissingReference(roots)) {
+  auto roots = SelectBuildingRoots(source->Elements);
+  if (!roots) { return std::unexpected(roots.error()); }
+  if (const auto missing = source->Elements.FirstMissingReference(*roots)) {
     return std::unexpected(
         OsmFootprintError{.Code = OsmFootprintErrorCode::MissingReference,
                           .Source = {.Kind = missing->OwnerKind, .Id = missing->OwnerId},
@@ -212,7 +243,7 @@ OsmBuildingFootprints::Build(std::shared_ptr<const Data::OsmSourceSnapshot> sour
   }
   OsmBuildingFootprints result;
   result.Source_ = std::move(source);
-  for (const Data::OsmElementId root : roots) {
+  for (const Data::OsmElementId root : *roots) {
     const size_t first = result.Rings_.size();
     auto appended =
         root.Kind == Data::OsmElementKind::Way

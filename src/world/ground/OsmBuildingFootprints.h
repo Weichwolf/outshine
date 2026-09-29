@@ -66,6 +66,12 @@ private:
   [[nodiscard]] std::expected<void, OsmFootprintError>
   AppendRelation(const Data::OsmRelation &relation, size_t maxPoints);
 
+  [[nodiscard]] std::expected<void, OsmFootprintError>
+  AppendWays(const std::vector<const Data::OsmWay *> &ways,
+             Data::OsmElementId source,
+             bool exterior,
+             size_t maxPoints);
+
   std::shared_ptr<const Data::OsmSourceSnapshot> Source_;
   std::vector<Building> Buildings_;
   std::vector<Ring> Rings_;
