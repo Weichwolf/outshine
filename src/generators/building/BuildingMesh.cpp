@@ -70,6 +70,7 @@ bool ValidPlanParameters(const StructurePlan &plan) {
                           plan.SeatAslM,
                           plan.FootAslM,
                           plan.HeightM,
+                          plan.MinimumHeightM,
                           plan.AnchorEcef[0],
                           plan.AnchorEcef[1],
                           plan.AnchorEcef[2],
@@ -157,9 +158,16 @@ public:
     Up_ = axes.Up;
     for (int c = 0; c < 3; c++) { Origin_[c] = origin[c] - plan.AnchorEcef[c]; }
     Coarseness_ = plan.Coarseness;
+    MinimumHeightM_ = plan.MinimumHeightM;
   }
 
   [[nodiscard]] LevelOfDetail Coarseness() const { return Coarseness_; }
+
+  [[nodiscard]] double LowerZ(const BuildingShape &shape) const {
+    if (shape.OnGround()) { return shape.SoleM; }
+    const double lower = shape.SeatM + shape.FootM - kSinkM;
+    return MinimumHeightM_ > 0.0 ? std::max(MinimumHeightM_, lower) : lower;
+  }
 
   [[nodiscard]] BuildingScratch &Scratch() { return Scratch_; }
 
@@ -268,6 +276,7 @@ private:
   BuildingScratch &Scratch_;
   Vec3 Origin_, East_, North_, Up_;
   LevelOfDetail Coarseness_ = LevelOfDetail::Fine;
+  double MinimumHeightM_ = 0.0;
 };
 
 class FoundationGround {
@@ -883,7 +892,7 @@ void Box(const BuildingShape &s, std::span<const EastNorth> ring, Site &site) {
 void RaiseShell(const BuildingShape &s, Site &site) {
   const RoofSurface roof(s);
   BuildingScratch &scratch = site.Scratch();
-  const double lowZ = s.OnGround() ? s.SoleM : s.SeatM + s.FootM - kSinkM;
+  const double lowZ = site.LowerZ(s);
   const double topZ = EavesZ(s) + (s.Roof == RoofKind::Flat ? s.RiseM : 0.0);
   std::vector<EastNorth> &covered = scratch.Covered;
   Refined(s.Ring, {}, roof, false, scratch, covered);
@@ -906,7 +915,7 @@ void RaisePart(const BuildingShape &s, Site &site) {
   }
   const RoofSurface roof(s);
   BuildingScratch &scratch = site.Scratch();
-  const double lowZ = s.OnGround() ? s.SoleM : s.SeatM + s.FootM - kSinkM;
+  const double lowZ = site.LowerZ(s);
   std::vector<EastNorth> &overhang = scratch.Overhang;
   std::vector<EastNorth> &crownInner = scratch.CrownInner;
   std::vector<EastNorth> &crownOut = scratch.CrownOut;
@@ -1045,6 +1054,7 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
   };
   const auto mass = MassOf(plan.RingLatLon,
                            {.HeightM = plan.HeightM,
+                            .MinimumHeightM = plan.MinimumHeightM,
                             .HeightMeasured = plan.HeightMeasured,
                             .PitchedShare = plan.PitchedShare},
                            plan.Street,
@@ -1056,8 +1066,8 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
   Site site(plan, scratch, into);
   const FoundationGround ground(plan);
   for (BuildingShape &part : parts) {
-    part.SeatM = PlinthTopZ(part, ground);
-    part.SoleM = PlinthFootZ(part, ground);
+    part.SeatM = plan.MinimumHeightM > 0.0 ? 0.0 : PlinthTopZ(part, ground);
+    part.SoleM = plan.MinimumHeightM > 0.0 ? plan.MinimumHeightM : PlinthFootZ(part, ground);
   }
   for (const BuildingShape &part : parts) {
     RaisePart(part, site);

@@ -67,6 +67,7 @@ struct BuildingScratch;
 
 struct Order {
   double HeightM = 0.0;
+  double MinimumHeightM = 0.0;
   bool HeightMeasured = false;
   double PitchedShare = -1.0;
 };

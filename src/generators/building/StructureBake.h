@@ -70,6 +70,7 @@ struct RawTile {
     uint32_t SourceFirst = 0;
     StructureCell Cell;
     double HeightM = 0.0;
+    double MinimumHeightM = 0.0;
     int Pitched = -1;
   };
 

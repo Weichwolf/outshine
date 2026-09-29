@@ -552,12 +552,19 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   const Frontage street = NearestStreet(pts, ring, ways, &standBackM, stopping);
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
 
+  if (!std::isfinite(one.MinimumHeightM) || one.MinimumHeightM < 0.0 ||
+      (one.MinimumHeightM > 0.0 &&
+       (!std::isfinite(one.HeightM) || one.HeightM <= one.MinimumHeightM))) {
+    return std::unexpected(StructureMeshError::InvalidPlan);
+  }
   BuildingField::Footprint fp{};
+  fp.MinimumHeightM = static_cast<float>(one.MinimumHeightM);
   fp.FirstPoint = one.SourceFirst;
   fp.PointCount = ring.Count;
   fp.Street = street;
   if (street.Known) { out.Fronted++; }
-  if (one.HeightM > 0.0 && std::fabs(one.HeightM - kFillHeightM) > kSameHeightM) {
+  if (one.HeightM > 0.0 &&
+      (one.MinimumHeightM > 0.0 || std::fabs(one.HeightM - kFillHeightM) > kSameHeightM)) {
     fp.HeightM = static_cast<float>(one.HeightM);
     fp.Source = BuildingField::HeightSource::Osm;
     out.OsmHeights++;
@@ -597,7 +604,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   out.Prints.push_back(fp);
   out.FootprintDetails.push_back(level);
 
-  if (level >= LevelOfDetail::Massed) {
+  if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0) {
     const auto lumped =
         Lump(lumps,
              {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
@@ -620,7 +627,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.SeatAslM = fp.SeatM;
   plan.FootAslM = fp.FootM;
   plan.CornerAslM = std::span<const double>(corners.data(), corners.size());
-  plan.HeightM = fp.HeightM;
+  plan.HeightM = one.MinimumHeightM > 0.0 ? one.HeightM : fp.HeightM;
+  plan.MinimumHeightM = one.MinimumHeightM;
   plan.HeightMeasured = fp.Source == BuildingField::HeightSource::Osm;
   plan.PitchedShare = static_cast<double>(one.Pitched);
   plan.Street = fp.Street;

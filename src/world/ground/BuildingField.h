@@ -32,6 +32,7 @@ public:
   struct Footprint {
     uint32_t FirstPoint = 0, PointCount = 0;
     float HeightM = 0.0f;
+    float MinimumHeightM = 0.0f;
     float BaseM = 0.0f;
     float SeatM = 0.0f;
     float FootM = 0.0f;

@@ -453,7 +453,7 @@ void SplitHeight(BuildingShape *s, Roofing under) {
   const double roofShare = s->Use == BuildingUse::Spire ? 0.72 : 0.45;
   s->RiseM = s->Roof == RoofKind::Flat ? std::min(rise, kFlatRiseShare * under.TopM)
                                        : std::min({rise, roofShare * under.TopM, kRiseMostM});
-  s->EavesM = std::max(under.TopM - s->RiseM, kEavesLeastM);
+  s->EavesM = std::max(under.TopM - s->RiseM, std::min(kEavesLeastM, under.TopM));
   s->RiseM = std::max(under.TopM - s->EavesM, 0.0);
 
   const double want = FloorPreferenceM(s->Use);
@@ -470,6 +470,7 @@ void SplitHeight(BuildingShape *s, Roofing under) {
 struct PartOrder {
   double FootM = 0.0;
   double TopOverFootM = 0.0;
+  bool ExactHeight = false;
   double PitchedShare = -1.0;
   uint32_t Seed = 0;
   bool HeightMeasured = false;
@@ -544,7 +545,8 @@ void Finish(FootprintPiece &piece, const PartOrder &order, BuildingShape &s) {
   s.Ident = static_cast<int>(Mix(order.Seed ^ kIdentWord) % static_cast<uint32_t>(kIdentCount));
   s.FootM = order.FootM;
 
-  const double top = std::max(order.TopOverFootM, kLeastTopM);
+  const double top =
+      order.ExactHeight ? order.TopOverFootM : std::max(order.TopOverFootM, kLeastTopM);
   const double aspect = s.HalfUm / s.HalfVm;
   s.Use = order.Use ? *order.Use : UseOf({.AreaM2 = s.AreaM2, .Aspect = aspect, .HeightM = top});
   s.PeriodM = std::max(kPeriodLeastM,
@@ -797,7 +799,9 @@ MassOf(std::span<const double> ringLatLon,
                                            kFloorSpireM,
                                            kTallFloorM});
   constexpr double maxHeightM = leastFloorM * (std::numeric_limits<int>::max() - 1);
-  if (!std::isfinite(order.HeightM) || order.HeightM > maxHeightM) {
+  if (!std::isfinite(order.HeightM) || order.HeightM > maxHeightM ||
+      !std::isfinite(order.MinimumHeightM) || order.MinimumHeightM < 0.0 ||
+      (order.MinimumHeightM > 0.0 && order.HeightM <= order.MinimumHeightM)) {
     return std::unexpected(StructureMeshError::InvalidPlan);
   }
   scratch.Parts.Reset();
@@ -808,7 +812,10 @@ MassOf(std::span<const double> ringLatLon,
   if (SignedArea(outline) < 0.0) { std::ranges::reverse(outline); }
 
   PartOrder whole;
-  whole.TopOverFootM = std::max(order.HeightM, kLeastTopM);
+  whole.FootM = order.MinimumHeightM;
+  whole.ExactHeight = order.MinimumHeightM > 0.0;
+  whole.TopOverFootM = order.MinimumHeightM > 0.0 ? order.HeightM - order.MinimumHeightM
+                                                  : std::max(order.HeightM, kLeastTopM);
   whole.Seed = SeedOfPlace({.LongitudeDeg = ringLatLon[1], .LatitudeDeg = ringLatLon[0]});
   whole.HeightMeasured = order.HeightMeasured;
   whole.PitchedShare = order.PitchedShare;
@@ -816,6 +823,11 @@ MassOf(std::span<const double> ringLatLon,
   WholeOf(outline, scratch.Whole);
   Finish(scratch.Whole, whole, one);
   if (!one.Valid()) { return {}; }
+  if (order.MinimumHeightM > 0.0) {
+    FaceTheStreet(&one, street);
+    scratch.Parts.Next() = one;
+    return scratch.Parts.Standing();
+  }
 
   WholeOf(outline, scratch.Whole);
   const int plots =

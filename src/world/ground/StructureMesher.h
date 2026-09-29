@@ -78,6 +78,7 @@ struct StructurePlan {
   std::span<const double> CornerAslM;
 
   double HeightM = 0.0;
+  double MinimumHeightM = 0.0;
   bool HeightMeasured = false;
   Frontage Street;
 

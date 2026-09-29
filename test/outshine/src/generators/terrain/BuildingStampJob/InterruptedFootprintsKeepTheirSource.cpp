@@ -13,7 +13,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr std::array<double, 8> points{0, 0, 0, 0.001, 0.001, 0.001, 0.001, 0};
-  std::array<Ground::BuildingField::Footprint, 3> prints{};
+  std::array<Ground::BuildingField::Footprint, 4> prints{};
   prints[0].PointCount = 4;
   prints[0].SeatM = 12;
   prints[0].BaseM = 10;
@@ -22,6 +22,9 @@ int main() {
   prints[2].PointCount = 4;
   prints[2].SeatM = 18;
   prints[2].BaseM = 12;
+  prints[3] = prints[0];
+  prints[3].MinimumHeightM = 5;
+  prints[3].SeatM = 50;
   const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
   std::optional<std::vector<EarthworkStamp>> oracle;
   for (const size_t budget : {size_t{1}, size_t{7}, size_t{1024}}) {
@@ -56,7 +59,7 @@ int main() {
     if (!done) { continue; }
     auto stamps = std::move(job).Take();
     CHECK(stamps.has_value() && stamps->size() == 2,
-          "invalid polygon is skipped and both complete pads publish");
+          "invalid and raised polygons create no stamp; both grounded pads publish");
     if (!stamps || stamps->size() != 2) { continue; }
     const EastNorthUp first =
         frame.ToLocalPosition({.LongitudeDeg = points[1], .LatitudeDeg = points[0], .HeightM = 12});

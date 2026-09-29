@@ -19,7 +19,7 @@
 namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
-constexpr uint32_t kVersion = 1;
+constexpr uint32_t kVersion = 2;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -186,12 +186,13 @@ constexpr auto cluster = [](auto &archive, auto &value) {
 constexpr auto footprint = [](auto &archive, auto &value) {
   auto &street = value.Street;
   return archive.Number(value.FirstPoint) && archive.Number(value.PointCount) &&
-         archive.Number(value.HeightM) && archive.Number(value.BaseM) &&
-         archive.Number(value.SeatM) && archive.Number(value.FootM) &&
-         archive.Number(value.Source) && archive.Number(street.Known) &&
-         archive.Number(street.KerbEm) && archive.Number(street.KerbNm) &&
-         archive.Number(street.AlongE) && archive.Number(street.AlongN) &&
-         archive.Number(street.ToStreetE) && archive.Number(street.ToStreetN);
+         archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
+         archive.Number(value.BaseM) && archive.Number(value.SeatM) &&
+         archive.Number(value.FootM) && archive.Number(value.Source) &&
+         archive.Number(street.Known) && archive.Number(street.KerbEm) &&
+         archive.Number(street.KerbNm) && archive.Number(street.AlongE) &&
+         archive.Number(street.AlongN) && archive.Number(street.ToStreetE) &&
+         archive.Number(street.ToStreetN);
 };
 constexpr auto surface = [](auto &archive, auto &value) {
   return archive.Number(value.Upper.ReferenceToVariantM) &&
@@ -257,6 +258,8 @@ bool Valid(const BakedTile &tile) {
   }
   if (!std::ranges::all_of(tile.Prints, [](const Ground::BuildingField::Footprint &item) {
         return item.Source <= Ground::BuildingField::HeightSource::Default &&
+               item.MinimumHeightM >= 0.0f &&
+               (item.MinimumHeightM == 0.0f || item.MinimumHeightM < item.HeightM) &&
                item.PointCount >= 3 &&
                item.PointCount <= std::numeric_limits<uint32_t>::max() - item.FirstPoint;
       })) {
@@ -356,7 +359,7 @@ StructureArtifactKey(const RawTile &raw,
     return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
            archive.Number(value.SourceFirst) && archive.Number(value.Cell.Index) &&
            bounds(archive, value.Cell.Footprint) && archive.Number(value.HeightM) &&
-           archive.Number(value.Pitched);
+           archive.Number(value.MinimumHeightM) && archive.Number(value.Pitched);
   };
   const auto way = [](auto &archive, const RawTile::Way &value) {
     return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
