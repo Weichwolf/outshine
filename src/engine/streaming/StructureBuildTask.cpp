@@ -281,6 +281,13 @@ struct StructureBuildTask::Artifact {
     Stage = Phase::Read;
   }
 
+  void CancelIfStopping(Output &output, const std::atomic_bool &stopping, Tasks *activePool) {
+    if (!stopping.load(std::memory_order_relaxed)) { return; }
+    Release(activePool);
+    output.Tile.reset();
+    output.Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+  }
+
   void Release(Tasks *activePool) {
     if (!Input && !Pending) { return; }
     const auto close = [this] {
@@ -469,11 +476,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
       return;
     }
     if (artifact && artifact->BeforeBake(*raw, *heights, mesher, *output, *stopping)) {
-      if (stopping->load(std::memory_order_relaxed)) {
-        artifact->Release(activePool);
-        output->Tile.reset();
-        output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
-      }
+      artifact->CancelIfStopping(*output, *stopping, activePool);
       return;
     }
     if (comparison && comparison->Variant) {

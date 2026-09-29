@@ -150,7 +150,7 @@ bool ArtifactStore::Writer::Publish() {
   std::array<uint8_t, kFooterBytes> footer{};
   const auto size = static_cast<uint64_t>(manifest->size());
   for (size_t i = 0; i < sizeof(size); ++i) { footer[i] = static_cast<uint8_t>(size >> (8 * i)); }
-  std::copy(kFooterMagic.begin(), kFooterMagic.end(), footer.begin() + sizeof(size));
+  std::ranges::copy(kFooterMagic, footer.begin() + sizeof(size));
   if (!Write(state.Output.get(), *manifest) || !Write(state.Output.get(), footer)) {
     state.Failed = true;
     return false;

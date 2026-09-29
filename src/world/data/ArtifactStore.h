@@ -18,7 +18,7 @@ class ArtifactStore {
 public:
   struct Config {
     std::string Directory;
-    size_t CapBytes = size_t{2} << 30;
+    size_t CapBytes = size_t{2} * 1024 * 1024 * 1024;
   };
 
   class Reader {
