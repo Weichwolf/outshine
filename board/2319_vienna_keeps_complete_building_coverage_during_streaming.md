@@ -33,20 +33,34 @@ Damit erklärt `lumped=0` keinen defekten Zweig: Diese Regel entlastet die nähe
 Fehler angenommen wird. Shell erzeugt inzwischen native Grundrisse, Dächer und Sockel;
 der Name allein garantiert keine kleine Geometrie. Published-Byte-Summen sind kein Peak-RAM.
 
-## Nächster vollständiger Schritt
+## Nächste Lieferung: funktionierende entfernungsabhängige LOD wiederherstellen
 
-1. `StructureBake` und `BuildingMesh` getrennt nach Quellenprodukt und Zellprodukt betrachten:
-   Welche Geometrie wird für dieselbe Stadt mehrfach erzeugt und welche bleibt resident?
-   Fine/Shell/Massed an identischen Quelldaten vergleichen; Generierungszeit, Dreiecke,
-   Upload und belegte Silhouetten-/Oberflächenabweichung bestimmen. Keine weitere Cachekampagne.
-2. Vorhandene quellgültige Produkte innerhalb ihrer nachgewiesenen Qualitätsgrenzen
-   wiederverwenden. `StructureCellPlanner` darf teure Fine-Zellen nur verlangen, wenn die
-   vorhandene Darstellung das projizierte Fehlerbudget tatsächlich nicht nachweislich erfüllt.
-   Kleinere Schranken benötigen die Runtime-Übertragung aus WI 2312; CPU-Beweise allein reichen nicht.
-3. Entfernte Zusammenfassung vor Geometrieerzeugung an nachgewiesene räumliche Fehler binden.
-   Die derzeitige Blockgröße nicht willkürlich verkleinern oder Grenzwerte erhöhen.
-   Gebäudehöhen, Silhouetten, Öffnungen und Materialwirkung getrennt erhalten und prüfen.
-   Fehlender Nachweis erhält den konservativen Fallback und bleibt als Kostenblocker offen.
+Jura muss entfernte Bebauung vor der Geometrieerzeugung vereinfachen und zusammenfassen;
+Nahdetails entstehen nur bei nahen Gebäuden. Spätere Vegetation teilt dasselbe Framebudget.
+Mesh-Zeichenarbeit erklärt die gemessene Spitze; Terrain- und Beleuchtungsvereinfachungen
+beseitigen sie nicht. Keine neue Hierarchie vor Klärung der bestehenden Regression.
+
+`a0f49bb7f` machte Refined von expliziten Zellprodukten abhängig. Deren Auswahl verwendet
+den ganzen Zellumfang als Fehler und ersetzt damit die feinere Gebäudeauswahl im Quellbake.
+Der ältere Generator wählte Shell anhand Architektur-/Quellauflösung und Massed anhand
+Blockbreite. Diese Auswahl allein beseitigt Juras Spitze nicht: `4d9f4639d` ersetzte
+am 28. September die günstigen Shell-Hüllen durch native Dach-/Sockelgeometrie.
+Auswahl UND tatsächlich erzeugte Shell-Komplexität sind deshalb gemeinsam zu reparieren. `fe6910850` dokumentiert zugleich, weshalb reine Gebäude-Pixelgröße keine
+zulässige Schranke für das Zusammenfassen weit auseinanderstehender Häuser ist.
+
+1. Frühere Auswahl auf denselben heutigen Jura-Quellen als Diagnose vergleichen:
+   erzeugte Geometrie, Ladezeit, Drehung und tatsächliche Bilder. Keine automatische Abnahme
+   historischer Fehlerwerte; Generatoren und Shell-Geometrie haben sich ebenfalls geändert.
+2. Bestehenden Fine/Shell/Massed-Pfad reparieren. `StructureCellPlanner` darf früh gewählte
+   entfernte Vereinfachung nicht pauschal in teure Fine-Zellen zurückverwandeln. Auswahl vor
+   Detailgenerierung, quellgültige Produkte und atomare Ablösung gemeinsam erhalten.
+3. Kleinere Runtime-Schranken müssen die tatsächlich erzeugte Geometrie einschließen;
+   vorhandene Übertragung aus WI 2312 nutzen. Keine Komplett-Neuentwicklung und keine
+   Grenzwertanhebung, um die Regression zu verdecken. Quell- und Zellgeometrie nicht doppelt halten.
+4. Jura ist der erste vollständige Durchstich; danach Wien, CentralPark und Shibuya.
+   Gebäude, markante Höhen, Zwischenräume, Materialien und Straßen bleiben erhalten.
+   Vorhandenes Massed mittelt Höhen: Bildvergleich muss insbesondere Hochpunkte und
+   Hangstaffelung prüfen. Eine neue räumliche Hierarchie ist vorerst nicht freigegeben.
 
 ## Besitzer und unveränderliche Verträge
 

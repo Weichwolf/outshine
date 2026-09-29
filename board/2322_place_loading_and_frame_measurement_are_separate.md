@@ -48,7 +48,7 @@ Anlaufausreißer mehrerer Stadtansichten. Jura überschreitet das Framebudget we
 bei bereits residenter Welt. Die Phasenmessung lokalisiert die Spitze im Host-Fence-Warten;
 CPU-Vorbereitung und Simulation erklären sie nicht. Das beweist noch keine GPU-Passzeit.
 Den nächsten Profilvergleich auf identische Welt, Kamera und Messframes begrenzen:
-Das getrennte Abschalten von Terrain-Klassifizierung und prozeduralem Felsdetail
+Das getrennte Abschalten von Terrain-Klassifizierung, prozeduralem Felsdetail und Mesh-Beleuchtung
 beseitigt die Budgetverletzung nicht. Diese Materialpfade deshalb nicht ohne weiteren
 Nachweis umbauen. Der Ausschluss der Subject-Zeichnungen beseitigt die Spitze bei weiterhin aktiven
 Uploads und Culling; alleiniger Terrain-Ausschluss tut dies nicht. Subject-Geometrie,
