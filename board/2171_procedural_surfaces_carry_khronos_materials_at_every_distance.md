@@ -54,3 +54,14 @@ Baustoffe; Bewegung, Streiflicht und Entfernung erhalten die Wirkung ohne Textur
 Alle Places profitieren vom selben Materialpfad; keine Ortskorrektur. Kosten bleiben begrenzt.
 Vertauschte Daten-/Farbkanäle oder falscher Weltmaßstab müssen diese Abnahme sichtbar verletzen.
 make format; betroffene Material-/Shader-Suites; make lint; alle Places rendern und PNGs öffnen.
+
+## Aktiver Schritt: Fassaden behalten ihren Materialanteil in Entfernung
+
+`facadePattern.glsl` blendet Fenster und Rahmen bei großen Pixelfußabdrücken vollständig
+aus. Entfernte Fassaden werden dadurch zu hellen Wandflächen; die Materialverteilung
+verschwindet statt gefiltert zu werden. `periodicBand.glsl` integriert periodische Bänder
+über den Pixelfußabdruck. Fassade nutzt getrennte horizontale/vertikale Ableitungen;
+Fenster, Rahmen und Fugen behalten ihren Flächenanteil auch unter einem Pixel.
+Keine neue Geometrie, Farbpalette oder LOD-Fehlerschranke. Analytische Flächenmittel und
+unabhängige numerische Integration prüfen den Filter; Darmstadt/Husum und alle Places
+prüfen Bildwirkung, Flimmern und Kosten. Räumliche Fassadendetails bleiben WI 2138.
