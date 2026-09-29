@@ -44,6 +44,19 @@ Darmstadt bleibt visuell praktisch unverändert. Feldkirch weicht an Wasser-/Gel
 vom erhaltenen Vorherbild ab; die massive Geländewand bleibt. Keine neue Baseline: Ursache
 und Verbesserung sind vor visueller Abnahme zu belegen.
 
+## Speicherbedarf begründen
+
+Hoher Prozess-Footprint ist kein Bedarfsnachweis. Die aktuelle Prozessaufnahme enthält
+umfangreiche leere residente malloc-Bereiche; aktive Allokationen und Grafikresidency
+sind noch keinem vollständigen Besitzerinventar zugeordnet. `Heap::TakenAt` ist kumuliert,
+`SubjectResidency::HeldBytes` zählt Kapazität. Beide ersetzen keine aktive Bytebilanz.
+Für denselben identifizierten Place-Prozess Kaltstart, warmen Refined-Zustand und Bewegung
+messen: native Produkte, Terrainfelder, Scratch, aktive/freie Vertex- und Indexranges,
+Transferbuffer, Renderziele und gleichzeitig gehaltene Kandidaten. Je Besitzer Menge,
+Elementgröße, Kapazität und Freigabegrenze ausweisen; OS-Footprint separat führen.
+Doppelhaltung und Reserven zuerst an ihrer Ursache reduzieren. Keine Sichtweiten- oder
+Qualitätskürzung und kein höheres Budget aus dem schlechten Istwert ableiten.
+
 ## Umsetzung und Besitzer
 
 Engine/GroundPublication und GroundWorldCandidate besitzen Kandidat und Veröffentlichung;
