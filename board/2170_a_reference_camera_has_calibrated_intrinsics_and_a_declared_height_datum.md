@@ -1,71 +1,75 @@
 Type: feature
 State: open
-Architecture: planned
+Architecture: ready
 Priority: P0
 Parent: 2169
 Area: client, scene, world
 Tags: webcam, measured
 Depends:
 
-# A reference camera has calibrated intrinsics and a declared height datum
+# Acht Webcam-Kameras mit nachvollziehbarer Projektion und Höhenreferenz
 
-## Befund und Grenze
+## Ergebnis
 
-Audit 2026-09-07, Commit 12ceb790, siehe 2169. `src/client/PlaceCamera.cpp` erklärt
-neun Kameras mit geschätzter Höhe/Pitch, festem 1280×720 und vertikalem FOV. Die JPGs
-haben unterschiedliche Seitenverhältnisse. Graz zeigt den Hügel links statt rechts der
-Mitte; Feldkirch einen deutlich anderen Vordergrund. Das belegt eine Abweichung, noch
-keine eindeutige fehlerhafte Kamerakomponente. DEM/Stamping können dieselbe Abweichung erzeugen.
-`HeightAslM` wird an eine öffentliche geodätische Höhe übergeben: ASL und Ellipsoid müssen
-an der Grenze explizit unterschieden werden. Der tatsächliche DEM-Provider-Datum ist zu prüfen.
+Webcam und Client zeigen dieselbe räumliche Ansicht ohne Bildstreckung oder
+ortsabhängige Geländeänderung. Restfehler und unsichere Kameraparameter bleiben sichtbar.
+Der Vergleich trennt falsche Pose von fehlerhafter Weltgeometrie.
 
-Aktuell 75623a5e1: Playable-PNGs aller zehn Places geöffnet. Graz/Feldkirch weitgehend
-homogen; Wien/Rosenheim/Malcesine/Koerbersee stark nah verdeckt. Keine Kamerakorrektur
-ist daraus allein bewiesen: zuerst Pose, Datum und tatsächlich deckende Oberfläche
-zuordnen. Keine gefitteten Place-Höhen, keine Geometrieausblendung für schöne Bilder.
+## Vorhandene Fähigkeit und offene Grenze
 
-## Eingrenzung Graz, c9d6bb5fe
+PlaceCamera liest acht deklarative Szenarien unter src/assets/places; Position,
+Bearing, Pitch und vertikaler FOV stehen in den Szenarien, nicht in einer Kameratabelle.
+references.json enthält Archivquellen und vorläufige Kameraprovenienz. Kein Fit ist
+abgenommen. Bildabmessungen, Crop/Hauptpunkt und verifizierte Zeitzone fehlen noch.
+Flensburg übernimmt veröffentlichte Position, Bearing und 66 m Höhe; Pitch ist
+geschätzt, Höhenbezug ungeklärt. Ein fehlendes vollständiges Rendering sperrt den Fit.
 
-Client-Playable-PNG und zusätzliche API-Aufnahme bleiben fast vollständig verdeckt.
-Neun Pixel: Surface-ID 2, front-facing; mittlere Normale (-0.97656, 0.21509, 0.00597).
-Reverse-Z bei unendlicher Perspektive: near 0.05 m / Tiefe 0.0133876521 = 3.7348 m
-vor der Kamera. Öffentliche sampleHeight-Abfrage am Standort und etwa 5 m in vier
-Himmelsrichtungen: 367.5069–367.6863 m ASL; deklarierte Kamera 390 m.
-Damit ist eine falsche Kamera-Höhe allein nicht belegt. Gezeichnete Fläche gegen
-Quellraster, Erdarbeiten und Seitenflächen prüfen; Datum bleibt separat ungeklärt.
-Logs: /tmp/outshine-graz-surface-height-probe-{results,Graz}.log.
-Keine Pose-/Höhenkorrektur aus diesem Befund ableiten; Material-ID ist keine Objekt-ID.
+ResolveGeodeticCamera in src/engine/GeodeticCamera.h übernimmt heightM direkt;
+bei samplesHeight addiert es GroundSample::AslM vor TangentFrame::ToLocalPosition.
+Die ECEF-Umrechnung in src/base/geo/Geodesy.h verwendet HeightM als Ellipsoidhöhe.
+Damit sind Kamera- und DEM-Höhenbezug noch kein durchgängig belegter Vertrag.
+Eine Differenz beweist keinen pauschalen Place-Offset: Providerdatum zuerst prüfen.
 
-a25c12d76: CPU-Terrain-Geometrie reproduziert die Verdeckung bei 3.7342 m.
-Die Nahtsuche zieht innere Kachelränder auf Außenkanten eines überdeckenden Vorfahren,
-trotz vorhandener gleich feiner Nachbarn. Reparatur und Negativkontrollen gehören in 2166.
-6e88154b5 entfernt die Nahwand in geöffneten Client-PNGs von Graz und Wien.
-Die geodätische Kamera bleibt unverändert; der separate Datumvertrag bleibt offen.
+Die frühere Graz-Nahwand entstand nachweislich durch eine falsche Terrain-Naht,
+nicht durch die Kamera. Die reparierten Nachbarschaftsprüfungen bleiben erhalten.
+Feldkirchs sichtbare Hangwand gehört bis zum Quellen-/Oberflächenvergleich in 2166;
+Pose niemals zum Verstecken eines Geometriefehlers verändern.
 
-## Implementierung
+## Architektur und Implementierung
 
-1. Referenzmanifest: Bildhash, ursprüngliche Breite/Höhe, Aufnahmezeit/Zeitzone,
-   veröffentlichte Position/Bearing/Sektor samt Quelle, geschätzte Werte mit Unsicherheit.
-   Kein Stretch eines 3:2-Fotos auf 16:9. Crop/Letterbox und Hauptpunkt deklarieren.
-2. `PlaceCamera` und `include/`-Kamera-/Geodäsiegrenze: FOV eindeutig vertikal in Grad;
-   vfov = 2 atan(tan(hfov/2) / aspect). Für Crops die Intrinsics mittransformieren.
-   Rechtshändig, glTF-Kamera blickt lokal -Z, Up +Y; geodätische Basis explizit umrechnen.
-3. Höhenquelle deklarieren; orthometrisch H nach ellipsoidisch h = H + N nur mit zum
-   DEM passendem Geoidmodell. Kein pauschaler Höhenoffset je Place.
-4. Pro Kamera mehrere statische, räumlich verteilte Korrespondenzen erfassen: Uferknicke,
-   Brückenachsen, DEM-Gipfel. Gebäudedachhöhen nur bei belegtem OSM-Wert. Bearing, Pitch,
-   Roll, FOV und Höhe begrenzt fitten; Restfehler und Parameterunsicherheit ausgeben.
-   Zur Validierung Korrespondenzen zurückhalten. Stempel-freie DEM-Ansicht gegen finale
-   Oberfläche trennt Kalibrierfehler von Geländezerstörung.
+1. Vergleichswerkzeug und references.json besitzen Referenzmetadaten: Originalmaß,
+   Aufnahmezeit mit belegter Zeitzone oder ausdrücklich unbekanntem Offset,
+   veröffentlichte Pose/Bildwinkel samt Quelle und Unsicherheit. Kein Foto im Runtimepfad.
+2. Szenario-Projektion bleibt vertikaler FOV in Grad. Für ein horizontales Bildfeld gilt
+   vfov = 2 atan(tan(hfov/2) / aspect). Crop und Hauptpunkt im Vergleich explizit
+   transformieren; keine 3:2-Aufnahme auf 16:9 strecken. Nicht unterstützte Intrinsics
+   melden statt stillschweigend mit einem symmetrischen Frustum gleichsetzen.
+3. DEM-Provider und öffentliche Geodäsiegrenze erhalten belegte Höhenreferenzen.
+   Orthometrisch H nach ellipsoidisch h = H + N nur mit passendem Geoidmodell;
+   dessen Einführung braucht einen expliziten Quelldatenvertrag. Keine erfundenen N-Werte.
+   Bis zur Klärung Höhenunsicherheit ausweisen und keine endgültige Kalibrierung behaupten.
+4. Zuerst eine vollständig ladende Szene kalibrieren, danach alle acht: verteilte
+   Uferknicke, Brückenachsen und DEM-Gipfel mit unabhängigen geodätischen Punkten
+   zuordnen. Dachhöhen nur bei belegtem OSM-Wert. Bearing, Pitch und FOV innerhalb
+   dokumentierter Unsicherheit fitten; Höhe erst nach geklärtem Datum freigeben.
+   Roll nicht stillschweigend fitten, solange der Szenariovertrag ihn nicht abbildet.
+5. Korrespondenzen für unabhängige Validierung zurückhalten. Restfehler in Pixeln und
+   Parameterunsicherheit speichern; quellreines DEM gegen finale Erdarbeiten vergleichen.
+   Unverfügbare Daten bleiben ein benannter Fehler, kein angenommener Nullfehler.
 
-## Abnahme
+## Besitzer und unveränderliche Verträge
 
-- [ ] Alle neun Manifeste enthalten Herkunft/Datum/Intrinsics und unverzerrte Vergleiche.
-- [ ] Synthetische bekannte Kamera wird innerhalb numerischer Toleranz rekonstruiert;
-      absichtlicher Roll-/FOV-/Datumfehler erhöht den unabhängigen Projektionsfehler.
-- [ ] Reale Restfehler in Pixeln samt Unsicherheit dokumentiert; keine harte Pixelgrenze
-      unterhalb der DEM-/Metadatenauflösung. Keine poseabhängigen Gelände-Sonderfälle.
+src/assets/places besitzt Szenarien und Referenzmanifest; test/scripts besitzt das
+Offline-Vergleichswerkzeug. PlaceCamera lädt und validiert den Katalog. Scenario und
+GeodeticCamera besitzen die Runtime-Kamera; Geodesy die Höhen-/Koordinatengrenze.
+Keine Referenzfoto-Abhängigkeit der Engine, keine Place-Sondergeometrie, kein verdeckter
+Kameraoffset. Bestehende Straßen-/Terrainanschlüsse und 360-Grad-Verfügbarkeit erhalten.
 
-Wahl: übliche photogrammetrische Kalibrierung und glTF/Cesium-kompatible Grenze.
-Unreal/RAGE liefern die visuelle Vergleichsklasse; ihre internen Webcam-Fits sind kein
-verfügbarer Implementierungsvertrag. Die Sandbox erhält dadurch keine Foto-Abhängigkeit.
+## Abnahme und Widerlegung
+
+Alle acht Referenzen enthalten Provenienz, Bildmaß, Projektion und Höhenstatus.
+Synthetische bekannte Kameras prüfen Projektion unabhängig; falscher FOV oder Datum
+muss den Projektionsfehler erhöhen. Zurückgehaltene reale Punkte dürfen nicht durch
+mehr freie Fit-Parameter scheinbar besser werden. Keine Pixelgrenze unterhalb der
+Quellauflösung behaupten. Fehlendes Bild oder ungeklärtes Datum verhindert Abschluss.
+make format; Kamera-/Szenario-Suiten; acht Places mit geöffnetem Vergleich; make lint.
