@@ -33,6 +33,17 @@ bis eine vollständige quellpassende Ersatzdarstellung übernommen werden kann.
 Kein dauerhaftes Fine-Erzwingen, keine Place-Sonderregel, keine angehobenen Frame-Limits.
 LOD-Zertifikate sind nur dann ein Blocker, wenn der konkrete Verlustpfad das belegt.
 
+## Nächste Reparatur: freie Arbeit für die neue Stadt
+
+Während GroundBuild aktiv ist, bedient Advancing nur den Kandidatenpfad. Alte CellQueue-
+Ergebnisse werden dort nicht abgeholt, zählen aber gegen dieselbe Zulassungsgrenze wie
+neue Quellen-Bakes. StructureBuildQueue muss beim Wechsel zu SourceGeometry alte
+Detailvorbereitungen und Zelljobs abbrechen und nach Abschluss begrenzt freigeben.
+Keine Warteoperation im Frame, keine höhere Queue-Grenze; residente Gebäude bleiben erhalten.
+Quellen-Bakes und ihre Reservationsbesitzer bleiben unangetastet. Der vorhandene Queue-Fall
+muss den Wechsel mit belegten Zellplätzen ausführen; ohne Freigabe darf er nicht bestehen.
+make format; StructureBuildQueue-Suite; make lint; vollständige Place-Bilder vergleichen.
+
 ## Fertig, wenn
 
 Wien zeigt bei gleicher Kamera die vorhandenen Gebäude ohne Publikationslöcher; Kaltstart,
