@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "OsmSourceSnapshot.h"
+#include "OsmBuildingHeights.h"
 
 namespace outshine::Ground {
 
@@ -55,6 +56,10 @@ public:
   [[nodiscard]] std::span<const double> Points() const noexcept { return Points_; }
 
   [[nodiscard]] std::span<const Data::OsmTag> Tags(const Building &building) const noexcept;
+
+  [[nodiscard]] OsmBuildingHeights Heights(const Building &building) const noexcept {
+    return OsmBuildingHeights::Read(Tags(building));
+  }
 
 private:
   OsmBuildingFootprints() = default;
