@@ -36,10 +36,10 @@ schläft nicht pauschal im advance-Hot-Path. Worker-Budgets bleiben getrennte Ve
 ## Offene Wirkung im Client
 
 Die geöffneten Darmstadt-, Husum- und Koerbersee-Bilder zeigen keine sichtbare Verbesserung;
-Feldkirch erreicht wieder das erhaltene frühere Bild, behält aber die falsche Geländewand.
+Feldkirch erreicht wieder das erhaltene frühere Bild, behält aber die auffällige massive Geländewand.
 Malcesine verändert einzelne Terrain-/Gebäudekanten ohne belegte Verbesserung. Deshalb
 bleibt die Bildreproduzierbarkeit unter geänderter Frame-Taktung offen; keine neue Baseline.
-Graz und Wien erreichen weiterhin keine vollständige Aufnahme innerhalb der bisherigen
+Graz, Olympiaturm und Wien erreichen weiterhin keine vollständige Aufnahme innerhalb der bisherigen
 Grenzen. Pacing allein schließt ihre Ladefehler nicht. Ein CPU-Vorher/Nachher-Vergleich und
 Fenster-/Kamerafahrt-Abnahme fehlen; vorhandene Place-Ergebnisse sind keine Zielgeräte-Freigabe.
 

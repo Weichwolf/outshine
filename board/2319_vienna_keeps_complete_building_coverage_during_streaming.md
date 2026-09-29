@@ -27,7 +27,13 @@ Wien alle Quellen, liefert aber innerhalb der unveränderten Zeitgrenze kein vol
 Die nächste Diagnose muss den Übergang zu residenten und aktiven Detailzellen während
 desselben Client-Laufs erfassen. Ein vorhandenes instrumentiertes Profil zeigt vor allem Renderer-/Fence-Warten und hohen
 Speicher-Footprint; im normalen Client mit Job-Fortschritt, Uploads und Residency korrelieren.
-Ein Playable-Bild beweist keine vollständige Stadt.
+Ein Playable-Bild beweist keine vollständige Stadt. Der instrumentierte normale Client
+aktiviert mit kachelweiser Fertigstellung erstmals eine Detailkachel nach 85 gelandeten
+Zellen; der Vergleichsstand hatte nach 392 Zellen noch keine aktiviert. Das belegt den
+Übergang, keine Beschleunigung: beide erreichen kein vollständiges Refined-Bild. Bereits
+nach 30 Sekunden meldet macOS rund 10,6–10,7 GB Spitzen-Footprint, vor dem vollständigen
+Detailübergang. Den Speicherbesitz von Ganzkacheln, Geländekandidat und Renderprodukten
+als nächsten Ursachenpfad trennen; Zellreihenfolge allein löst diesen Überhang nicht.
 Darmstadt bleibt visuell praktisch unverändert. Feldkirch weicht an Wasser-/Geländekanten
 vom erhaltenen Vorherbild ab; die massive Geländewand bleibt. Keine neue Baseline: Ursache
 und Verbesserung sind vor visueller Abnahme zu belegen.
