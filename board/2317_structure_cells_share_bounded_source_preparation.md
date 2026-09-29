@@ -88,7 +88,7 @@ Whole-tile bootstrap preparation is separately visible, not falsely claimed repa
 4b54277f2: 3 Graz tiles/31 fields match native/published rasters; Wien remains unmeasured.
 973b697a5: 24 focused PASS; complete lint/tidy/API PASS, all 258 units with zero findings.
 Complete Places: 38/44 PASS, three TIMEOUT/three UNPREPARED; suite exit 2, pipeline exit 1.
-All ten PNGs opened, unchanged from 89a13c893. Graz normal times out; validated remains
+Five Refined PNGs were stale copies; their identity claim is withdrawn (2169). Graz remains
 unready at 6144 frames (total builds landed/posted 642/648). Runtime improvement unproven.
 
 Runtime now submits up to eight missing cells together. One heap-stable preparation builds

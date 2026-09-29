@@ -19,10 +19,12 @@ Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren 
 
 ## Aktuelle Place-Abnahme 2026-09-29
 
-973b697a5: alle zehn Places ohne Vegetation via Client gerendert, PNGs selbst geöffnet.
-Alle pixelidentisch zu 89a13c893 (je 0/921600 Pixel). Refined-PNGs unter
-`build/shots/places-refined-973b697a5/`; Graz/Wien/Olympiaturm als Playable unter
-`build/shots/places-playable-973b697a5/`. Komplette Places-Suite: 38/44 PASS,
+973b697a5: Client-Läufe belegt, aber Bildzuordnung bei fünf Refined-Places fehlerhaft:
+Darmstadt, Feldkirch, Koerbersee, Malcesine und Rosenheim wurden aus älteren PNG-Namen
+kopiert statt aus dem ROW des abgeschlossenen Logs. Pixelidentitätsclaim zurückgezogen.
+Husum/Hockenheim sowie die drei commitbenannten Playable-PNGs stimmen mit ihren Läufen
+überein. 4b9afb1de prüft die Bilder neu mit ROW-Provenienz. Alte Kopien bleiben erhalten.
+973b697a5 komplette Places-Suite: 38/44 PASS,
 0 FAIL, 3 TIMEOUT, 3 UNPREPARED; Exit 2, Gesamtpipeline Exit 1.
 Olympiaturm beide Male und Graz normal überschreiten 120 s; Wien/Graz bleiben ohne Refined.
 Graz validated: 6144 Frames, Gebäudedetail offen, gesamte Build-Landungen/Posts 642/648.

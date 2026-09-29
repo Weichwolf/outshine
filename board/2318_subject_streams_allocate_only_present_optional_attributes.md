@@ -49,5 +49,9 @@ water and sparse Olympiaturm coverage remain; no fresh local webcam reference av
 The building-arena metric and subject bytes share one owner but different capture times;
 never subtract these stale/current snapshots as if they represented separate categories.
 Full Places suite still running in the frozen detached check worktree. Restored-reservation
-negative control, seven remaining PNG reviews and runtime byte comparison pending.
+negative control, five remaining PNG reviews and runtime byte comparison pending.
+Darmstadt/Feldkirch pass both cases; actual validated ROW images 9218e7cc/7bdb269c opened.
+The former Darmstadt a63db0fc copy was stale, so its identity claim is withdrawn.
+Five old 973b697a5 Refined archive selections mismatch their logs (2169); do not use
+those copies as commit-specific baselines. Current PNGs carry per-place ROW manifests.
 Logs: /tmp/outshine-repair-4b9afb1de-{focused,full-lint,full-places}.log.
