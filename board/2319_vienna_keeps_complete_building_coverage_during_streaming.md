@@ -15,18 +15,24 @@ Die aus vorhandenen Quelldaten erzeugte Stadt steht vollständig im Bild. Ein ne
 Kandidat oder Detailwechsel darf keine bereits sichtbaren Gebäude verschwinden lassen.
 Wien ist der erste Regressionsfall; die Lösung gilt für alle Places.
 
-## Aktueller Blocker
+## Aktueller Blocker und nächste Reparatur
 
-Wien und weitere dichte Places erreichen die vollständige Refined-Darstellung nicht
-zuverlässig innerhalb der bestehenden Ladegrenze. Bereits vorhandene Quelldaten und
-persistente Gebäudeprodukte reichen dafür noch nicht. Ein Playable-Bild oder einzelne
-aktivierte Detailkacheln beweisen keine vollständige Stadt.
-CentralPark verdrängt Produkte vor ihrer Wiederverwendung: identische Schlüssel werden
-nach beobachteter Löschung im Folgelauf erneut angelegt. Schon die wiedererzeugte Teilmenge
-überschreitet die rohe Plattenquote. Verlustfreie LZ4-Blockkompression ist implementiert;
-jetzt vollständigen gespeicherten Arbeitssatz, Cachetreffer und warme Ladezeit im Client
-prüfen. Schlüsselinstabilität ist damit nicht als zusätzliche Ursache ausgeschlossen.
-Keine Cachequote aus dem schlechten Istverbrauch ableiten oder ohne Bedarfsnachweis erhöhen.
+`c769a231a` erzwingt Shell für implizite SourceGeometry-Aufträge und umgeht damit die
+vorhandene entfernungsabhängige Zusammenfassung vor der Generierung. Diesen Zwang
+entfernen. Implizite Aufträge wählen wieder Fine/Shell/Massed nach Projektionsbeitrag;
+explizite LOD-Aufträge bleiben deterministisch und kameraunabhängig. Quellrevision und
+Reservierungsbesitz bleiben von Kamerabewegung unabhängig, damit laufende Arbeit landet.
+Das Kamera-/LOD-abhängige Erstprodukt ist eine Zwischenrepräsentation; die bestehende
+Zellverfeinerung bleibt für die aktuelle Detailabnahme zuständig. Keine kleinere
+Fehlerschranke behaupten und keine fehlenden Gebäude als Zusammenfassung ausgeben.
+Der Test, der implizit überall Shell verlangt, spezifiziert die verworfene Architektur.
+Er muss stattdessen entfernte Zusammenfassung, erhaltene nahe Details, stabile explizite
+LOD-Produkte und Landung nach Kamerabewegung prüfen.
+Netzwerk-Quelldaten bleiben gecacht. Der Wiederherstellungsnachweis darf keine persistenten
+Geometrieprodukte voraussetzen; deren Runtime-Anbindung gemäß Nutzerauftrag entfernen.
+Cachedateien erhalten. Kompression allein hat CentralPark nicht vollständig laden lassen.
+Abnahme: CentralPark, Wien und Shibuya aus denselben Quelldaten mit voller Sichtweite,
+Generierungs-/Uploadmengen und vollständigen Bildern; anschließend alle Places.
 
 ## Vorhandene Fähigkeit
 
