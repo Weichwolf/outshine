@@ -98,4 +98,5 @@ Nine focused tests PASS; format 1213 files, zero errors. Forced collisions remai
 false match, omitted descendant, inward box and omitted move cancellation actually FAIL.
 Logs: /tmp/outshine-surface-hierarchy-final-{format,focused}.log and
 /tmp/outshine-surface-hierarchy-control-results.log. Full lint/Places remain pending;
-runtime integration remains open.
+ASan/UBSan dense and move fixtures PASS:
+/tmp/outshine-surface-hierarchy-sanitized-results.log. Runtime integration remains open.

@@ -105,6 +105,8 @@ missing cells request Fine. Renderer requested subject bytes: Graz 4.9517 GB, Wi
 Graz: 126/128 observed height-pin misses exceed 2 MiB; mean resolution 5.93 ms over
 these first observations, not a frame quantile or isolated cause. No source-key mismatches observed.
 Logs: /tmp/outshine-structure-readiness-6e88154b5-{Graz,Wien}.log. Three real Fine/Shell
-pairs cannot seed 2313's frontier; all stop with zero distance queries and 158–311 m bounds.
+pairs previously stopped with zero queries and 158–311 m bounds. 0d5962a2a resolves
+this CPU limit: Shell uppers 4.10–5.40 m, Massed 63.01–66.04 m, widths <0.02 m;
+/tmp/outshine-native-witness-{shell,massed}-Graz.log. Runtime still uses the old guard.
 Prioritize useful bounded native proof -> task/product transfer -> resident selection;
 raising cache/frame limits cannot replace this chain. Preserve whole-cell safety meanwhile.

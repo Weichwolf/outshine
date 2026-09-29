@@ -16,13 +16,10 @@ roof/footprint/foundation surfaces, but CPU primitive evidence alone cannot just
 smaller runtime LOD errors. Vertex samples miss a filled opening: a 3x3 m cap over a
 1x1 m opening has zero corner error and 0.5 m directed surface error.
 
-At 5de351d40: 45 focused tests and full lint pass, 255/255 tidy units, zero findings.
-TriangleDistance uses outward convex interpolation for upper estimates and support
-planes for lower estimates. The independent Decimal-160 experiment covered 6000
-queries, permutations, binary scales and collapsed targets. TriangleRegion encloses
-rounded midpoint/interior samples. StructureSurfaceError validates complete native
-index runs before exposing a resumable coarse envelope. 2313 owns adaptive precision.
-These are native CPU proofs, not publication, transform or visual acceptance.
+TriangleDistance supplies outward upper/lower distances; TriangleRegion encloses
+rounded subdivision samples. StructureSurfaceError validates complete native streams
+before publishing a coarse envelope. 2313 owns adaptive precision. These tested CPU
+contracts do not prove publication, transforms or visual acceptance.
 
 ## Binding ownership and implementation order
 
@@ -38,9 +35,8 @@ These are native CPU proofs, not publication, transform or visual acceptance.
    Scratch belongs to the task and participates in CPU residency accounting. Task moves
    transfer ownership and revoke source progress (2313); no worker reads released inputs. Start with
    2313's limits; measure native cell sizes, completion rate, query work and bytes first.
-   Brute-force target search and 4096-region initialization can exhaust on dense cells.
-   Add a conservative nearest-surface acceleration only if measurements justify it;
-   its pruned regions must supply valid lower bounds, not sampled guesses.
+   2313 now covers dense cells with incremental native hierarchies and nearest-witness
+   queries. Do not rebuild indices per slice or couple one tiny slice to one frame.
 4. BakedTile owns optional geometric error plus source/detail/product identity. Move it
    through queue landings and TilePieces resident metadata without losing provenance.
    Validate pinned generation, vector/street inputs and terrain certificate at activation;
@@ -71,10 +67,9 @@ These are native CPU proofs, not publication, transform or visual acceptance.
 - make format; focused StructureSurfaceRefinement/StructureSurfaceError, BuildingMesh,
   StructureBake, StructureBuildTask, StructureBuildQueue, TilePieces and StructureCellDetail
   suites; full lint with clang-tidy and public API guards.
-- Render same-build static/paced Hockenheim through outshine-client, open PNGs and
-  compare selection, silhouette, shadows, p50/p95/p99, CPU/GPU bytes and work/frame.
-  Current GPU/visual acceptance is unverified; prior sandbox failures do not establish
-  today's availability. Do not close this WI with CPU-only evidence.
+- Render all ten Places without vegetation through outshine-client and open their PNGs;
+  static/paced Hockenheim supplements them. Compare selection, silhouette, shadows,
+  p50/p95/p99, CPU/GPU bytes and work/frame. CPU-only evidence cannot close this WI.
 
 ## Verified task ownership
 
@@ -94,10 +89,12 @@ build the reference locally; cache reuse waits for exact source/cell/frame ident
 
 Output.Tile currently means final completion: Poll/Resume uses its absence. Keep the
 variant private through Reference/SurfaceProof or the queue will land it and release inputs
-prematurely. The published coarse front remains usable. One post performs at most four
-64-structure ranges OR one 128-work proof slice; transitions add no second full slice.
-Check stop before transitions/steps. Use 2313 limits: 131072 queries, 4096 regions, 0.02 m
-uncertainty. Exhaustion preserves complete coverage; cancellation rejects late output.
+prematurely. The published coarse front remains usable. Bake posts keep at most four
+64-structure ranges. Proof posts batch 128-work slices up to 8192 units or a 2 ms soft
+deadline [initial caps, measure]; check stop between slices and before transitions.
+Transitions never add a second full phase allowance. Resume through the existing queue;
+no worker self-post loop or unbounded Tasks backlog. Keep 131072 queries/4096 regions/
+0.02 m width. Exhaustion preserves coverage; cancellation rejects late output.
 Proof failure retains the valid variant with an explicit failure result and no smaller
 error. Invalid geometry/source cannot become optimistic zero. No mutable owner callbacks.
 
@@ -115,5 +112,8 @@ and ignored cancellation controls must actually FAIL. Format; StructureBuildTask
 SurfaceRefinement/BuildQueue suites; full lint/tidy/API. Source revalidation (2311), resident
 transfer and GPU/visual acceptance remain open; CPU intervals alone cannot lower LOD error.
 
-Real-cell probe now blocks useful integration: all three Graz Fine/Shell pairs exhaust
-2313 seed capacity without queries. Complete its dense-cell hierarchy first; retain caps.
+0d5962a2a resolves dense-cell initialization: three Graz Shell/Massed pairs each finish
+within unchanged caps, widths <0.02 m. Shell max 1070814 units means 8366 posts at128,
+but 131 at8192 before deadlines. Scratch peaks 7257456 bytes/task in these probes.
+Admission must bound reference/raw/bake/index bytes together, not just region count.
+Logs /tmp/outshine-native-witness-{shell,massed}-Graz.log; production proof remains off.
