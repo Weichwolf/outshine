@@ -164,6 +164,7 @@ private:
   std::shared_ptr<Data::ContentStore> Artifacts_;
   std::unique_ptr<Data::SourceSet> Sources_;
   std::unique_ptr<TilePool> Pool_;
+  TilePool::LandingCursor LandingCursor_;
   std::unique_ptr<GroundStream> Ground_;
   std::vector<OsmField::Declared> Declared_;
   ClassField Cls_;

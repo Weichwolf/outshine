@@ -153,7 +153,12 @@ public:
 
   int InFlightCap() const { return static_cast<int>(Threads_.size()); }
 
+  struct LandingCursor {
+    uint64_t Revision = 0;
+  };
+
   [[nodiscard]] bool AwaitLanding(double seconds);
+  [[nodiscard]] bool AwaitLanding(double seconds, LandingCursor &cursor);
 
 private:
   friend struct TerrainInspectionTestPeer;
@@ -316,6 +321,7 @@ private:
   std::vector<Job> Carrying_;
   FlatMap<Result> Done_;
   size_t UnclaimedResults_ = 0;
+  uint64_t CompletionRevision_ = 0;
   FlatMap<Reservation> Posted_;
   uint64_t AdmissionClock_ = 0;
   size_t CurrentParkedJobs_ = 0;

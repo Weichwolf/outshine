@@ -99,6 +99,7 @@ void GroundStack::Close() {
   Vectors_.reset();
   Ground_.reset();
   Pool_.reset();
+  LandingCursor_ = {};
   Sources_.reset();
   Store_.reset();
   Artifacts_.reset();
@@ -211,7 +212,7 @@ void GroundStack::RecordsRestand(RestandMetrics metrics) noexcept {
 bool GroundStack::AwaitProgress(double seconds) {
   if (seconds <= 0.0 || !Pool_) { return false; }
   if (Cls_.Building()) { return Cls_.AwaitBuild(seconds); }
-  return Pool_->AwaitLanding(seconds);
+  return Pool_->AwaitLanding(seconds, LandingCursor_);
 }
 
 void GroundStack::Settle() {

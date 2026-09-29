@@ -638,12 +638,11 @@ bool TilePool::StoresDone(uint64_t key, Result result) {
   if (Result *const replaced = Done_.Find(key)) {
     Acknowledge(*replaced);
     *replaced = std::move(result);
-    ++UnclaimedResults_;
-    return true;
+  } else if (!Done_.Emplace(key, std::move(result))) {
+    return false;
   }
-  const auto stored = Done_.Emplace(key, std::move(result));
-  if (!stored) { return false; }
   ++UnclaimedResults_;
+  ++CompletionRevision_;
   return true;
 }
 
@@ -1122,6 +1121,18 @@ bool TilePool::AwaitLanding(double seconds) {
     return Stopping_ || UnclaimedResults_ != 0;
   });
   return ready && UnclaimedResults_ != 0;
+}
+
+bool TilePool::AwaitLanding(double seconds, LandingCursor &cursor) {
+  if (seconds <= 0.0) { return false; }
+  std::unique_lock<std::mutex> lock(QueueMutex_);
+  const bool ready =
+      Landed_.wait_for(lock, std::chrono::duration<double>(seconds), [this, &cursor] {
+        return Stopping_ || cursor.Revision != CompletionRevision_;
+      });
+  if (!ready || cursor.Revision == CompletionRevision_) { return false; }
+  cursor.Revision = CompletionRevision_;
+  return true;
 }
 
 void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
