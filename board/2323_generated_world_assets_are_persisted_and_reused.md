@@ -17,6 +17,17 @@ berechnet. Wien bleibt vollständig sichtbar; Kaltaufbau, warmer Prozessstart, G
 und einzelne Frames erhalten getrennte Kosten. Ziel: warmes Weltladen in ein bis zwei
 Sekunden, Darstellung innerhalb 1000/60 ms. Die 120 Messframes bleiben erhalten.
 
+## Unveränderliche Qualität
+
+Cache und Streaming erhalten optische und funktionale Qualität der OSM-Infrastruktur.
+Keine fehlenden Gebäude, unterbrochenen Verkehrsnetze, verlorenen Tags oder reduzierten
+Sichtweiten als Kostenoptimierung. Die konfigurierte Standardsichtweite beträgt 240 km
+(`kSightUnsaidM`); dichte und dünne Regionen erfüllen denselben Sichtweitenvertrag.
+LOD und räumliche Bündelung begrenzen Arbeit bei erhaltener Weltabdeckung und Funktion.
+CentralPark, Shibuya und Wien sind ausdrücklich gegen frühere funktionierende Git-Stände
+zu prüfen. Die berichtete Echtzeitregression bleibt bis zur gemessenen Wiederherstellung
+offen; identische Cache-Bilder allein beweisen keine ausreichende Ausgangsqualität.
+
 ## Audit des vorhandenen Pfads
 
 | Erzeuger / Besitzer | Wiederverwendung heute | Fehlende Integration |
