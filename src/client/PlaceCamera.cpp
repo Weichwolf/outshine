@@ -51,6 +51,7 @@ constexpr const char *kMissingTimingSamples = " has no complete frame timing sam
 }
 
 constexpr std::uint8_t kByteMost = 255;
+constexpr double kMillisecondsPerSecond = 1000.0;
 
 namespace {
 
@@ -297,7 +298,7 @@ bool PreloadShot(
   const Result ready = engine.preload(preloadSeconds, WorldQuality::Refined);
   const Loading last = engine.loading();
   const auto stood = std::chrono::steady_clock::now();
-  shot.StreamedS = last.PreloadMs / 1000.0;
+  shot.StreamedS = last.PreloadMs / kMillisecondsPerSecond;
   shot.Preloaded = ready.has_value();
   shot.LoadingMs = std::chrono::duration<double, std::milli>(stood - asked).count();
   if (!ready) {
