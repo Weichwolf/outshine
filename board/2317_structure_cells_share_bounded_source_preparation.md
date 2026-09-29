@@ -87,32 +87,33 @@ Whole-tile bootstrap preparation is separately visible, not falsely claimed repa
   count/time, cell completion, p50/p95/p99 and CPU/GPU bytes on identical inputs. Retain
   current frame/timeout/quality limits. No claim of success from fewer calls alone.
 
-## Initial equivalence evidence
+## Evidence and implementation
 
-4b54277f2 temporary worker diagnostic: three Graz tiles, 31 fields. Every native node
-matches the published source (max delta 0 m), equal raster sizes, full source lists and
-accepted/published/reconstructed digests; both fields remain qualified. Per-tile retained
-bytes 3176944/3204736, 3176988/3204780, 1853352/1869564 (published/native representation).
-This does not prove ancestor/seam variants or all Places. Wien yielded no published source:
-at 6144 frames its candidate was still in earthworks, so equivalence remains unmeasured.
-Logs /tmp/outshine-source-equivalence-4b54277f2-{Graz,Wien}.log. Diagnostic exits 1 reflect
-unmet Refined readiness; no source mismatch was observed in the measured Graz fields.
+4b54277f2 worker diagnostic: three Graz tiles/31 fields; native and published nodes agree
+exactly, with equal raster sizes, source lists and digests. Both remain qualified. Wien had
+no published candidate after 6144 frames; reconstruction equivalence there stays unmeasured.
+Logs /tmp/outshine-source-equivalence-4b54277f2-{Graz,Wien}.log; Refined remained unmet.
+89a13c893 gate: lint/tidy/API PASS, Places 38/44 PASS, two TIMEOUT/four UNPREPARED.
+All ten PNGs opened, unchanged; /tmp/outshine-repair-89a13c893-* preserves that baseline.
 
-## Implemented source subset
+Runtime now submits up to eight missing cells together. One heap-stable preparation builds
+four requested fields per worker post and shares its final HeightField with those bakes.
+Exact immutable rasters are shared; ancestors are resampled. Capture, ordered requests,
+block storage and copied source/certificate metadata enter admission before assembly.
+Fourfold metadata reservation covers block copies, aggregate growth and transient old/new
+aggregate storage; raster bytes count once per retained source plus sampled child nodes.
+This is a conservative reservation for current containers, not an allocator-wide hard cap.
+Full vector/request/source/shape/terrain receipt is rechecked before posting; revoked batches
+cannot land. The new landing path never falls back to a synchronous height resolver.
+Four preparation slots retain reservations until all borrowers finish. A 64-ticket bounded
+refusal ledger spaces missing-source retries 1/2/4/8/16 frames and suppresses identical
+oversized inputs while retained. No persistent field cache is added.
 
-SourcedTerrainFields::Capture retains only the exact/ancestor entries required by ordered
-requests, rejects missing/invalid requests and an insufficient retained-byte reservation.
-Shared ancestor rasters count once. Copy and Capture use the same source-selection function.
-New fixture covers exact precedence, shared-ancestor budget, one-byte-short refusal,
-unrelated source release and lifetime after the original owner releases its references.
-Format 1214 PASS; four SourcedTerrainFields/HeightSheets tests PASS.
-Worker assembly, transient preparation-byte admission and runtime batch/queue integration
-remain open; this subset alone does not remove synchronous preparation from PostsCell.
-
-89a13c893: full lint/tidy/API PASS, 257 units without findings after direct-include and
-unsigned-shift fixes. Complete Places: 38/44 PASS, two Olympiaturm TIMEOUT, four Graz/Wien
-UNPREPARED; actual suite exit 2, pipeline exit 1. Separate Hockenheim client exit 0.
-All ten client PNGs personally opened, pixel-identical to 4b54277f2 (0/921600 each);
-Graz/Wien/Olympiaturm remain Playable diagnostics, not Refined acceptance. Known image
-defects persist. No runtime improvement claimed. Logs /tmp/outshine-repair-89a13c893-*,
-case-logs/ archive; build/shots/places-{refined,playable}-89a13c893/.
+Format 1218 PASS, eleven focused tests PASS. Eight real mixed-detail cell products land from
+one capture without frame copies; running moves, cancellation and byte refusal are covered.
+Restored frame resolver, ignored admission/cancellation and stale-preparation mutants each
+exit 1. Logs /tmp/outshine-source-batch-{focused,format,controls}.log. Full gate pending.
+Missing published snapshots currently defer; TilePool reconstruction remains to integrate.
+The old single-cell API/pin remains for its existing callers until this runtime gate passes.
+Native fallback, full byte-ledger accounting, remaining negative controls and measured
+Place improvement remain open. No reduced LOD bound or completed WI claimed.

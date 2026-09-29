@@ -307,7 +307,6 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
   const auto tiles = footprints.AcceptedTiles();
   if (vectors == nullptr || tiles.empty()) { return true; }
   constexpr size_t kTilesExaminedPerFrame = 4;
-  constexpr size_t kCellsPerTileVisit = 8;
   const size_t examinedMost = std::min(kTilesExaminedPerFrame, tiles.size());
   for (size_t examined = 0; examined < examinedMost; ++examined) {
     const uint32_t tile = tiles[World.StructurePlanAt % tiles.size()];
@@ -341,11 +340,18 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
       nextTile();
       return true;
     }
-    if (plan.Missing && World.StructureBuilds.PostsCell(
-                            World.Stack, World.Stack.Footprints(), eye, heightAt, *plan.Missing)) {
-      ++World.StructureCellsPosted;
-      if (++World.StructurePlanBurst == kCellsPerTileVisit) { nextTile(); }
-      return true;
+    if (plan.MissingCount != 0) {
+      const size_t posted =
+          World.StructureBuilds.PostsCells(World.Stack,
+                                           World.Stack.Footprints(),
+                                           eye,
+                                           heightAt,
+                                           std::span(plan.MissingBatch).first(plan.MissingCount));
+      if (posted != 0) {
+        World.StructureCellsPosted += posted;
+        nextTile();
+        return true;
+      }
     }
     if (plan.Missing && World.StructureBuilds.Queued() + World.StructureBuilds.QueuedCells() > 0) {
       return true;
@@ -388,6 +394,10 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
       .InspectCertificate =
           [this](const Ground::TerrainCertificate &certificate) {
             return World.Stack.Pool().InspectCertificate(certificate);
+          },
+      .CaptureFields =
+          [this](std::span<const Ground::TileSpot> requests, size_t bytesMost) {
+            return World.Sheets.CaptureSourcedFields(requests, bytesMost);
           }};
   if (World.GroundBuild) {
     const auto resumeAt = std::chrono::steady_clock::now();

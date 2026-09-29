@@ -18,6 +18,8 @@ struct StructureCellPlan {
   std::array<TilePieces::CellSelection, Ground::kStructureCellsPerTile> Selected{};
   size_t Count = 0;
   std::optional<StructureBuildQueue::CellRequest> Missing;
+  std::array<StructureBuildQueue::CellRequest, 8> MissingBatch{};
+  size_t MissingCount = 0;
   bool Complete = false;
   bool Active = false;
 
@@ -49,7 +51,12 @@ PlanStructureCells(uint32_t tile,
     plan.Complete = false;
     const StructureBuildQueue::CellRequest request{
         .Tile = tile, .Cell = cell, .Detail = detail, .SourceKey = sourceKey};
-    if (!plan.Missing && !queue.CellQueued(request)) { plan.Missing = request; }
+    if (!queue.CellQueued(request)) {
+      if (!plan.Missing) { plan.Missing = request; }
+      if (plan.MissingCount < plan.MissingBatch.size()) {
+        plan.MissingBatch[plan.MissingCount++] = request;
+      }
+    }
   }
   plan.Active = plan.Complete && pieces.CellsActive(tile, plan.Choices(), sourceKey);
   return plan;

@@ -114,6 +114,12 @@ bool HeightSheets::CopySourcedField(Data::TileId tile, Ground::HeightField::Bloc
   return SourcedTerrainFields::Copy(Fields_, tile, into);
 }
 
+std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>
+HeightSheets::CaptureSourcedFields(std::span<const Ground::TileSpot> requests,
+                                   size_t bytesMost) const {
+  return SourcedTerrainFields::Capture(Fields_, requests, bytesMost);
+}
+
 SourcedTerrainFields HeightSheets::SnapshotSourcedFields() const {
   return SourcedTerrainFields(Fields_);
 }

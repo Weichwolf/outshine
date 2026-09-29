@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 #define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 
+#include <array>
 #include <expected>
 #include <functional>
 #include <cstdint>
@@ -17,6 +18,7 @@
 #include "GroundStack.h"
 #include "StructureBake.h"
 #include "StructureBuildTask.h"
+#include "StructureSourcePreparation.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
 
@@ -81,6 +83,9 @@ public:
     std::function<bool(const Ground::TerrainCertificate &)> CertificateCurrent;
     std::function<Ground::TerrainCertificate::Validation(const Ground::TerrainCertificate &)>
         InspectCertificate;
+    std::function<std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>(
+        std::span<const Ground::TileSpot>, size_t)>
+        CaptureFields;
   };
 
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack,
@@ -118,6 +123,12 @@ public:
                                const HeightSource &heightAt,
                                CellRequest request);
 
+  [[nodiscard]] size_t PostsCells(Ground::GroundStack &stack,
+                                  Ground::BuildingField &footprints,
+                                  LongitudeLatitude eye,
+                                  const HeightSource &heightAt,
+                                  std::span<const CellRequest> requests);
+
   struct Landing {
     uint32_t Tile = 0;
     const Generators::BakedTile *Baked = nullptr;
@@ -148,7 +159,7 @@ public:
 
   [[nodiscard]] size_t Queued() const { return Queue_.size(); }
 
-  [[nodiscard]] size_t QueuedCells() const { return CellQueue_.size(); }
+  [[nodiscard]] size_t QueuedCells() const;
 
   [[nodiscard]] size_t FastCellValidations() const noexcept { return FastCellValidations_; }
 
@@ -199,6 +210,9 @@ public:
 
   [[nodiscard]] bool AwaitSlice(double seconds) const {
     if (Pool_ == nullptr) { return false; }
+    for (const auto &batch : PreparedCells_) {
+      if (batch && batch->Preparation->Running()) { return Pool_->AwaitCompletion(seconds); }
+    }
     for (const QueuedBuild &build : Queue_) {
       if (build.Task.Running()) { return Pool_->AwaitCompletion(seconds); }
     }
@@ -259,6 +273,50 @@ private:
     std::shared_ptr<const Ground::HeightField> Heights;
   };
 
+  struct PreparedCells {
+    Ground::BuildingField::AcceptedInput Receipt;
+    std::array<CellRequest, 8> Requests{};
+    size_t Count = 0;
+    size_t Next = 0;
+    uint64_t Generation = 0;
+    uint64_t Scope = 0;
+    HeightSourceRevision Revision;
+    LongitudeLatitude Eye;
+    std::unique_ptr<StructureSourcePreparation> Preparation;
+    bool Revoked = false;
+  };
+
+  void AdvancePreparedCells(const Ground::GroundStack &stack,
+                            const Ground::BuildingField &footprints,
+                            const HeightSource &heightAt);
+  [[nodiscard]] bool PostPreparedCell(const Ground::GroundStack &stack,
+                                      const Ground::BuildingField &footprints,
+                                      LongitudeLatitude eye,
+                                      const HeightSource &heightAt,
+                                      CellRequest request,
+                                      std::shared_ptr<const Ground::HeightField> heights,
+                                      std::shared_ptr<const void> owner);
+
+  struct DeferredPreparation {
+    uint64_t Generation = 0;
+    uint64_t Scope = 0;
+    HeightSourceRevision Revision;
+    uint64_t SourceKey = 0;
+    uint32_t Tile = 0;
+    uint64_t Until = 0;
+    uint64_t Delay = 1;
+  };
+
+  void DeferPreparation(uint32_t tile,
+                        uint64_t sourceKey,
+                        uint64_t generation,
+                        const HeightSource &heightAt,
+                        bool permanent);
+
+  std::array<std::shared_ptr<PreparedCells>, kCandidateWindow> PreparedCells_{};
+  std::array<DeferredPreparation, 64> DeferredPreparations_{};
+  size_t DeferredPreparationAt_ = 0;
+  uint64_t PreparationTick_ = 0;
   Tasks *Pool_ = nullptr;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;
