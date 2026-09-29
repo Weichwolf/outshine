@@ -103,6 +103,8 @@ void GroundStack::Close() {
   HasVectorSource_ = false;
   VectorZoom_ = kFineZoom;
   Opened_ = false;
+  Settled_.reset();
+  LastRestand_ = {};
   WorstRestand_ = {};
 }
 
@@ -146,7 +148,6 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   metrics.ClassificationMs = elapsedMs(classificationAt);
   if (!classified) { return std::unexpected(classified.error()); }
   Stood_ = at;
-  Settled_ = false;
   if (!Vegetated_) { return complete(); }
   const auto vectorAt = std::chrono::steady_clock::now();
   if (!Vectors_) {
@@ -169,12 +170,21 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   }
   metrics.VectorsMs = elapsedMs(vectorAt);
   if (!Vectors_->SettledWithin(0)) { return complete(); }
+  const auto classes = Cls_.Read();
+  const SettlementInputs inputs{.Classes = classes ? classes->Version() : 0,
+                                .Vectors = Vectors_->Generation(),
+                                .Footprints = Footprints_.Revision()};
+  if (Settled_ == inputs && Cls_.Complete() && Vectors_->SettledWithin(budget.VectorRing) &&
+      Drained() && HeapBytes() <= kHoldsBytes) {
+    return complete();
+  }
+  Settled_.reset();
   for (size_t pass = 0; pass < budget.IngestTilesMost; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
       const auto settleAt = std::chrono::steady_clock::now();
       Settle();
       metrics.SettlementMs += elapsedMs(settleAt);
-      Settled_ = true;
+      Settled_ = inputs;
       if (HeapBytes() > kHoldsBytes) {
         ++Overflowed_;
         Overflowing_ = true;
@@ -191,18 +201,20 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
     metrics.WaterMs += elapsedMs(waterAt);
     const size_t after =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
+    if (after != before) { Settled_.reset(); }
     if (after == before || Drained()) { break; }
   }
   if (Drained() && !Settled_) {
     const auto settleAt = std::chrono::steady_clock::now();
     Settle();
     metrics.SettlementMs += elapsedMs(settleAt);
-    Settled_ = true;
+    Settled_ = inputs;
   }
   return complete();
 }
 
 void GroundStack::RecordsRestand(RestandMetrics metrics) noexcept {
+  LastRestand_ = metrics;
   if (metrics.TotalMs > WorstRestand_.TotalMs) { WorstRestand_ = metrics; }
 }
 

@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <string>
 #include <system_error>
+#include <thread>
 
 namespace {
 
@@ -74,6 +75,21 @@ int main() {
   const auto repeated = stack.Restand(first, {.IngestTilesMost = 1, .VectorRing = 0});
   CHECK(repeated && stack.Vectors()->Generation() == firstGeneration,
         "same-focus restand does not republish an unchanged empty vector snapshot");
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!stack.Classes().Complete() && std::chrono::steady_clock::now() < deadline) {
+    CHECK(stack.Restand(first, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+          "pending classification continues to completion at a stationary eye");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  CHECK(stack.Classes().Complete(), "classification completed before testing resident reuse");
+  for (int frame = 0; frame < 60; ++frame) {
+    CHECK(stack.Restand(first, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+          "resident world remains usable throughout stationary frames");
+    const auto &cost = stack.LastRestand();
+    CHECK(cost.StreetsMs == 0.0 && cost.WaterMs == 0.0 && cost.SettlementMs == 0.0 &&
+              stack.Vectors()->Generation() == firstGeneration,
+          "unchanged completed inputs skip ingestion and compaction without republishing");
+  }
   const auto shifted = stack.Restand(moved, {.IngestTilesMost = 1, .VectorRing = 0});
   CHECK(shifted && stack.Vectors()->Generation() > firstGeneration &&
             stack.Vectors()->CentreX() != firstX,

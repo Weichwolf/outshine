@@ -140,6 +140,8 @@ public:
   [[nodiscard]] std::expected<void, std::string_view> Restand(LongitudeLatitude at,
                                                               RestandBudget budget);
 
+  [[nodiscard]] const RestandMetrics &LastRestand() const noexcept { return LastRestand_; }
+
   [[nodiscard]] const RestandMetrics &WorstRestand() const noexcept { return WorstRestand_; }
 
   [[nodiscard]] bool AwaitProgress(double seconds);
@@ -168,7 +170,15 @@ private:
   GroundMaterials Materials_;
   VegetationTemplates Templates_;
   std::size_t Overflowed_ = 0;
-  bool Settled_ = false;
+
+  struct SettlementInputs {
+    uint64_t Classes = 0;
+    uint64_t Vectors = 0;
+    uint64_t Footprints = 0;
+    [[nodiscard]] bool operator==(const SettlementInputs &) const = default;
+  };
+
+  std::optional<SettlementInputs> Settled_;
   bool Overflowing_ = false;
   std::unique_ptr<OsmField> Vectors_;
   bool HasVectorSource_ = false;
@@ -180,6 +190,7 @@ private:
   std::optional<LongitudeLatitude> Stood_;
   bool Vegetated_ = false;
   bool Opened_ = false;
+  RestandMetrics LastRestand_;
   RestandMetrics WorstRestand_;
 };
 
