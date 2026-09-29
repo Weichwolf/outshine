@@ -1,13 +1,20 @@
 #include "Sha256.h"
 
 #include <array>
+#include <algorithm>
+#include <limits>
+#ifdef __APPLE__
+#include <CommonCrypto/CommonDigest.h>
+#endif
 #include <span>
 #include <cstdint>
+#include <cstddef>
 #include <cstring>
 #include <string>
 #include <string_view>
 
 namespace outshine {
+#ifndef __APPLE__
 namespace {
 
 constexpr std::array<uint32_t, 64> kRoundConstants = {
@@ -86,8 +93,30 @@ void Compress(std::span<uint32_t, 8> state, std::span<const uint8_t, 64> block) 
 }
 
 }
+#endif
 
 std::string Sha256Hex(const void *data, size_t bytes) {
+#ifdef __APPLE__
+  CC_SHA256_CTX state;
+  (void)CC_SHA256_Init(&state);
+  const auto *cursor = static_cast<const uint8_t *>(data);
+  for (size_t left = bytes; left != 0;) {
+    const auto count = static_cast<CC_LONG>(
+        std::min(left, static_cast<size_t>(std::numeric_limits<CC_LONG>::max())));
+    (void)CC_SHA256_Update(&state, cursor, count);
+    cursor += count;
+    left -= count;
+  }
+  std::array<unsigned char, CC_SHA256_DIGEST_LENGTH> digest{};
+  (void)CC_SHA256_Final(digest.data(), &state);
+  static constexpr std::string_view kHex = "0123456789abcdef";
+  std::string out(digest.size() * 2, '0');
+  for (size_t at = 0; at < digest.size(); ++at) {
+    out[at * 2] = kHex[digest[at] >> 4u];
+    out[at * 2 + 1] = kHex[digest[at] & 15u];
+  }
+  return out;
+#else
   std::array<uint32_t, 8> state = kInitialState;
   const auto *p = static_cast<const uint8_t *>(data);
   size_t left = bytes;
@@ -98,7 +127,7 @@ std::string Sha256Hex(const void *data, size_t bytes) {
   }
 
   std::array<uint8_t, 128> tail = {{}};
-  std::memcpy(tail.data(), p, left);
+  if (left != 0) { std::memcpy(tail.data(), p, left); }
   tail[left] = 0x80;
   const size_t tailBlocks = (left + 9 > 64) ? 2u : 1u;
   const uint64_t bits = static_cast<uint64_t>(bytes) * 8u;
@@ -120,6 +149,7 @@ std::string Sha256Hex(const void *data, size_t bytes) {
     }
   }
   return out;
+#endif
 }
 
 std::string Sha256Hex(std::string_view text) {
