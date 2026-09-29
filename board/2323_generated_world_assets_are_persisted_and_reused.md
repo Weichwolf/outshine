@@ -54,7 +54,7 @@ muss die Korrektheit bei geänderten Provider-Daten erhalten. Wien lädt noch ni
    Reader hält denselben Dateisnapshot bis zum Ende. LRU verdrängt ganze Produkte;
    erfolgreiche Zugriffe aktualisieren die Nutzung. Keine produktübergreifenden Blockdateien
    und kein dauerhaft wachsender Restgraph. Bytebudget und begrenzte IO-Puffer bleiben bestehen.
-   Nächster Durchstich: verlustfreie Blockkompression im Container. Beobachtete identische
+   Implementiert, vollständige Abnahme offen: LZ4-Blockkompression. Beobachtete identische
    CentralPark-Produkte werden vor ihrer Wiederverwendung verdrängt; allein deren Byteumfang
    überschreitet die aktuelle Plattenquote. LZ4 über `pkg-config liblz4` anbinden: die gepaarte
    Stichprobe dekodiert schneller als zlib bei ausreichender Verdichtung. Blockweise

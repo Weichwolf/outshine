@@ -21,10 +21,11 @@ Wien und weitere dichte Places erreichen die vollständige Refined-Darstellung n
 zuverlässig innerhalb der bestehenden Ladegrenze. Bereits vorhandene Quelldaten und
 persistente Gebäudeprodukte reichen dafür noch nicht. Ein Playable-Bild oder einzelne
 aktivierte Detailkacheln beweisen keine vollständige Stadt.
-CentralPark meldet auch im unmittelbar folgenden Lauf keine Gebäude-Cachetreffer.
-Ob Produkte verdrängt wurden oder ihre Eingaben/Schlüssel wechseln, ist noch ungeklärt.
-Vor einem Eingriff dieselben Produktschlüssel über beide Läufe verfolgen und beobachtete
-Löschung, Wiederanlage, Eingangsdaten und Cachetreffer zeitlich zuordnen.
+CentralPark verdrängt Produkte vor ihrer Wiederverwendung: identische Schlüssel werden
+nach beobachteter Löschung im Folgelauf erneut angelegt. Schon die wiedererzeugte Teilmenge
+überschreitet die rohe Plattenquote. Verlustfreie LZ4-Blockkompression ist implementiert;
+jetzt vollständigen gespeicherten Arbeitssatz, Cachetreffer und warme Ladezeit im Client
+prüfen. Schlüsselinstabilität ist damit nicht als zusätzliche Ursache ausgeschlossen.
 Keine Cachequote aus dem schlechten Istverbrauch ableiten oder ohne Bedarfsnachweis erhöhen.
 
 ## Vorhandene Fähigkeit
@@ -38,7 +39,8 @@ Im vergleichbaren Hockenheim-Profil sinkt die reservierte Previous-Kapazität vo
 242.221.056 auf 5.984.256 Byte: 236.236.800 Byte vermiedene Doppelhaltung.
 Das ist ein Kapazitätsnachweis, kein Nachweis für notwendigen Gesamtspeicher oder A18-Laufzeit.
 Der warme Client benötigt weiterhin mehr als das angestrebte Ladebudget; die vollständige
-Lint- und Place-Abnahme der letzten Implementierung ist noch offen.
+Place-Abnahme bleibt wegen fehlender Aufnahmen rot; der vollständige Lint der
+Speicherreparatur ist bestanden. Die Kompressionsänderung durchläuft ihr eigenes Gate.
 
 ## Umsetzung und Besitzer
 
