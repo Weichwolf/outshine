@@ -34,10 +34,12 @@ int main() {
     return std::fread(bytes.data(), 1, bytes.size(), file.get()) == bytes.size();
   };
   const size_t resident = product.Built.WallCorners.size() * sizeof(StoredVertex);
-  CHECK(!ReadStructureProduct(source, written, resident - 1, 0),
+  CHECK(!ReadStructureProduct(
+            source, {.EncodedBytes = written, .ResidentBytesMost = resident - 1}, 0),
         "native residency budget is enforced independently of encoded block size");
   std::rewind(file.get());
-  const auto decoded = ReadStructureProduct(source, written, resident, 0);
+  const auto decoded =
+      ReadStructureProduct(source, {.EncodedBytes = written, .ResidentBytesMost = resident}, 0);
   CHECK(decoded && decoded->Built.WallCorners.size() == product.Built.WallCorners.size() &&
             decoded->Built.WallCorners.front().pos[0] == 17.0f &&
             decoded->Built.WallCorners.back().pos[2] == 29.0f &&

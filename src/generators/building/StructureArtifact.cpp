@@ -90,8 +90,8 @@ class Reader {
 public:
   explicit Reader(std::span<const uint8_t> bytes) : Bytes(bytes), Remaining(bytes.size()) {}
 
-  Reader(const StructureArtifactSource &source, size_t bytes, size_t residentBytesMost)
-      : Remaining(bytes), AllocationLeft(residentBytesMost), Source(&source) {}
+  Reader(const StructureArtifactSource &source, StructureArtifactReadLimits limits)
+      : Remaining(limits.EncodedBytes), AllocationLeft(limits.ResidentBytesMost), Source(&source) {}
 
   bool Get(std::span<uint8_t> into) {
     if (into.size() > Remaining) { return false; }
@@ -332,11 +332,10 @@ WriteStructureProduct(const BakedTile &tile, const StructureArtifactSink &sink, 
 }
 
 std::optional<BakedTile> ReadStructureProduct(const StructureArtifactSource &source,
-                                              size_t encodedBytes,
-                                              size_t residentBytesMost,
+                                              StructureArtifactReadLimits limits,
                                               uint64_t currentSourceKey) {
-  if (!source || encodedBytes == 0 || residentBytesMost == 0) { return std::nullopt; }
-  Reader reader(source, encodedBytes, residentBytesMost);
+  if (!source || limits.EncodedBytes == 0 || limits.ResidentBytesMost == 0) { return std::nullopt; }
+  Reader reader(source, limits);
   BakedTile tile;
   if (!Product(reader, tile) || reader.Remaining != 0 || !Valid(tile)) { return std::nullopt; }
   if (tile.SurfaceError) {

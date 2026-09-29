@@ -28,6 +28,11 @@ enum class StructureArtifactError {
   WriteFailed
 };
 
+struct StructureArtifactReadLimits {
+  size_t EncodedBytes = 0;
+  size_t ResidentBytesMost = 0;
+};
+
 using StructureArtifactSink = std::function<bool(std::span<const uint8_t>)>;
 using StructureArtifactSource = std::function<bool(std::span<uint8_t>)>;
 
@@ -35,8 +40,7 @@ using StructureArtifactSource = std::function<bool(std::span<uint8_t>)>;
 WriteStructureProduct(const BakedTile &tile, const StructureArtifactSink &sink, size_t blockBytes);
 
 [[nodiscard]] std::optional<BakedTile> ReadStructureProduct(const StructureArtifactSource &source,
-                                                            size_t encodedBytes,
-                                                            size_t residentBytesMost,
+                                                            StructureArtifactReadLimits limits,
                                                             uint64_t currentSourceKey);
 
 [[nodiscard]] std::expected<std::vector<uint8_t>, StructureArtifactError>

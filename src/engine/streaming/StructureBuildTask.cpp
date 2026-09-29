@@ -214,6 +214,8 @@ struct StructureBuildTask::Artifact {
   explicit Artifact(CacheRequest request, std::optional<ProofRequest> proof)
       : Request(std::move(request)), Proof(proof) {}
 
+  bool UsesIo() const { return Stage == Phase::Read || Stage == Phase::Write; }
+
   bool BeforeBake(const Generators::RawTile &raw,
                   const Ground::HeightField &heights,
                   const StructureMesher &mesher,
@@ -277,7 +279,6 @@ struct StructureBuildTask::Artifact {
     Key = std::move(*key);
     Limits.EncodedBytesMost = Request.ResidentBytesMost + sizeof(Generators::BakedTile);
     Stage = Phase::Read;
-    return;
   }
 
   void Decode(Output &output, const std::atomic_bool &stopping) {
@@ -303,8 +304,7 @@ struct StructureBuildTask::Artifact {
             });
         output.Tile = Generators::ReadStructureProduct(
             [&](std::span<uint8_t> into) { return reader.Read(into); },
-            encodedBytes,
-            Request.ResidentBytesMost,
+            {.EncodedBytes = encodedBytes, .ResidentBytesMost = Request.ResidentBytesMost},
             Request.SourceKey);
       }
     }
@@ -434,10 +434,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   const std::shared_ptr<std::atomic_bool> stopping = Stopping_;
   const auto posted = std::chrono::steady_clock::now();
   State_ = State::Running;
-  ActivePool_ = artifact != nullptr && (artifact->Stage == Artifact::Phase::Read ||
-                                        artifact->Stage == Artifact::Phase::Write)
-                    ? artifact->Request.Io
-                    : &pool;
+  ActivePool_ = artifact != nullptr && artifact->UsesIo() ? artifact->Request.Io : &pool;
   assert(ActivePool_ != nullptr);
   Handle_ = ActivePool_->Post(
       [raw, heights, &mesher, scratch, progress, output, comparison, artifact, stopping, posted] {

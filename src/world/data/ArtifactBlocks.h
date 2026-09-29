@@ -12,10 +12,10 @@
 
 namespace outshine::Data {
 
-inline constexpr size_t kArtifactManifestBytesMost = 1024 * 1024;
+inline constexpr size_t kArtifactManifestBytesMost = size_t{1024} * 1024;
 
 struct ArtifactLimits {
-  size_t BlockBytes = 4 * 1024 * 1024;
+  size_t BlockBytes = size_t{4} * 1024 * 1024;
   size_t EncodedBytesMost = 0;
 };
 
