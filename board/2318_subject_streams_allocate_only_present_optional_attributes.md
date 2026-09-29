@@ -42,6 +42,12 @@ Compare requested buffer capacities in Graz; do not claim repaired readiness wit
 
 4b9afb1de: format 1219 files PASS; six focused GPU tests PASS. New test: 54 checks,
 zero failures; all four optional-attribute combinations and independent-piece retention.
-Full lint/tidy/API and Places running in the frozen detached check worktree.
-Restored-reservation negative control, all ten PNG reviews and runtime byte comparison pending.
+Full lint/tidy/API PASS: 258/258 tidy units, zero findings; 32 repository guards PASS.
+Graz/Wien/Olympiaturm Playable client renders PASS, PNGs personally opened: each unchanged
+at 0/921600 differing pixels versus 973b697a5. Flat/repeated facades, empty sky, flat Wien
+water and sparse Olympiaturm coverage remain; no fresh local webcam reference available.
+The building-arena metric and subject bytes share one owner but different capture times;
+never subtract these stale/current snapshots as if they represented separate categories.
+Full Places suite still running in the frozen detached check worktree. Restored-reservation
+negative control, seven remaining PNG reviews and runtime byte comparison pending.
 Logs: /tmp/outshine-repair-4b9afb1de-{focused,full-lint,full-places}.log.
