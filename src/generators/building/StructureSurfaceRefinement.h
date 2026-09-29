@@ -62,8 +62,8 @@ public:
 
 private:
   struct Region {
-    std::array<PointEnclosure, 3> Vertices;
-    TriangleRegionEnclosure Enclosure;
+    std::array<PointEnclosure, 3> Vertices{};
+    TriangleRegionEnclosure Enclosure{};
     double UpperM = 0;
     uint64_t Serial = 0;
     size_t Node = std::numeric_limits<size_t>::max();
@@ -95,6 +95,11 @@ private:
   [[nodiscard]] std::expected<Region, StructureSurfaceErrorFailure>
   PrepareNode(size_t node, double inheritedUpperM) noexcept;
   [[nodiscard]] bool Hierarchical() const noexcept;
+  [[nodiscard]] std::expected<void, StructureSurfaceErrorFailure> PrepareSeed() noexcept;
+  [[nodiscard]] std::expected<void, StructureSurfaceErrorFailure> FoldBounds() noexcept;
+  void BeginCornerQueries() noexcept;
+  void AdvanceTargetSearch() noexcept;
+  void AcceptSampleBound(double lowerM, double upperM, double regionUpperM) noexcept;
   void BeginEvaluation(Region region) noexcept;
   void FinishEvaluation() noexcept;
   void KeepRegion(const Region &region);

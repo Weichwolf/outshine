@@ -1,5 +1,9 @@
 #include "StructureSurfaceIndex.h"
 #include "DistanceInterval.h"
+#include "Digest.h"
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <algorithm>
 #include <bit>
 #include <cassert>
@@ -18,12 +22,12 @@ StructureSurfaceIndex::MatchOf(const std::array<PointEnclosure, 3> &vertices) co
     }
   }
   std::ranges::sort(points);
-  uint64_t key = 14695981039346656037ull;
+  uint64_t key = kDigestBasis;
   for (const auto &point : points) {
-    for (double coordinate : point) {
-      const uint64_t bits = std::bit_cast<uint64_t>(coordinate == 0 ? 0.0 : coordinate);
+    for (const double coordinate : point) {
+      const auto bits = std::bit_cast<uint64_t>(coordinate == 0 ? 0.0 : coordinate);
       key ^= bits;
-      key *= 1099511628211ull;
+      key *= kDigestPrime;
       key ^= key >> 32;
     }
   }

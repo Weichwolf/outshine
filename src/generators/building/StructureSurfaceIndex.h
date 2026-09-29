@@ -15,8 +15,8 @@ namespace outshine::Generators {
 class StructureSurfaceIndex {
 public:
   struct Node {
-    Vec3f MinM;
-    Vec3f MaxM;
+    Vec3f MinM{};
+    Vec3f MaxM{};
     uint32_t First = 0;
     uint32_t Count = 0;
     uint32_t Left = 0;

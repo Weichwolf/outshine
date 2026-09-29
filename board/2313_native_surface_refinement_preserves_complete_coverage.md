@@ -97,6 +97,12 @@ and splits; retain every intermediate state/bound, revocation/reset and self-mov
 Nine focused tests PASS; format 1213 files, zero errors. Forced collisions remain safe;
 false match, omitted descendant, inward box and omitted move cancellation actually FAIL.
 Logs: /tmp/outshine-surface-hierarchy-final-{format,focused}.log and
-/tmp/outshine-surface-hierarchy-control-results.log. Full lint/Places remain pending;
+/tmp/outshine-surface-hierarchy-control-results.log. Full lint/Places are not green;
 ASan/UBSan dense and move fixtures PASS:
 /tmp/outshine-surface-hierarchy-sanitized-results.log. Runtime integration remains open.
+
+0d5962a2a full tidy found 16 issues: direct includes/initializers, duplicate hash
+constants, two complex functions and a side-effecting condition. Fix by using Digest
+constants, explicit defaults and named seed/fold/search/sample steps; keep proof/work
+ordering. Format 1213 PASS. Focused/full gates for this correction are pending.
+Report: /tmp/outshine-lint.CBMvE9/tidy.unique (under system TMPDIR on this host).
