@@ -22,7 +22,10 @@ quantifiziert. Freigabe alter Zelljobs ermöglicht die Veröffentlichung des Gel
 sichert sie aber noch nicht innerhalb der Aufnahmegrenzen: Wien endet je nach Lauf bereits
 bei Quellen-Bakes oder erst bei fehlenden Detailzellen. Graz und Olympiaturm erreichen die
 Abnahme ebenfalls nicht zuverlässig. Als Nächstes verfügbare Worker-Zeit, fehlende Zellprodukte,
-Quellenvalidierung und Aktivierung trennen. Ein Playable-Bild beweist keine vollständige Stadt.
+Quellenvalidierung und Aktivierung trennen. Auch mit blockierendem Client-Pacing verarbeitet
+Wien alle Quellen, liefert aber innerhalb der unveränderten Zeitgrenze kein vollständiges Bild.
+Die nächste Diagnose muss den Übergang zu residenten und aktiven Detailzellen während
+desselben Client-Laufs erfassen. Ein Playable-Bild beweist keine vollständige Stadt.
 Darmstadt bleibt visuell praktisch unverändert. Feldkirch weicht an Wasser-/Geländekanten
 vom erhaltenen Vorherbild ab; die massive Geländewand bleibt. Keine neue Baseline: Ursache
 und Verbesserung sind vor visueller Abnahme zu belegen.
