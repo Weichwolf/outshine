@@ -15,7 +15,7 @@ Der Client erzeugt bei freier CPU keine ungebremste Frame-Schleife. Normale Dars
 und Place-Aufnahmen takten mit höchstens 60 Frames pro Sekunde; wartende Threads schlafen.
 Simulation, Qualitätsanforderung und verfügbare Weltinhalte bleiben unverändert.
 
-## Befund und Entscheidung
+## Ausgangsbefund und Entscheidung
 
 PlaceCamera::MeasureFrames ruft advance/render unmittelbar hintereinander auf.
 SceneRenderer::ClaimWindow bevorzugt Mailbox und Immediate vor VSync. Swapchain-Warten
@@ -32,6 +32,16 @@ Warten liegt außerhalb gemessener advance/render-Zeiten; tatsächliche verstric
 bleibt separat sichtbar. Explizite ungedrosselte Messung muss als solche erkennbar sein.
 Renderer bevorzugt VSync für Fenster; SDL begrenzt eingereichte Frames. Die Engine
 schläft nicht pauschal im advance-Hot-Path. Worker-Budgets bleiben getrennte Verträge.
+
+## Offene Wirkung im Client
+
+Die geöffneten Darmstadt-, Husum- und Koerbersee-Bilder zeigen keine sichtbare Verbesserung;
+Feldkirch erreicht wieder das erhaltene frühere Bild, behält aber die falsche Geländewand.
+Malcesine verändert einzelne Terrain-/Gebäudekanten ohne belegte Verbesserung. Deshalb
+bleibt die Bildreproduzierbarkeit unter geänderter Frame-Taktung offen; keine neue Baseline.
+Graz und Wien erreichen weiterhin keine vollständige Aufnahme innerhalb der bisherigen
+Grenzen. Pacing allein schließt ihre Ladefehler nicht. Ein CPU-Vorher/Nachher-Vergleich und
+Fenster-/Kamerafahrt-Abnahme fehlen; vorhandene Place-Ergebnisse sind keine Zielgeräte-Freigabe.
 
 ## Abnahme
 
