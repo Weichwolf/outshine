@@ -41,26 +41,20 @@ Messframe ausschließlich den Readback, ohne weitere Renderframes.
 Screenshot-Capture und notwendige Renderer-Initialisierung explizit abgrenzen.
 Vorhandene Hash-PNGs erhalten; vollständige Inhalte und Bildänderungen selbst prüfen.
 
-## Nächster Engpass: erste vollständige Renderbereitschaft
+## Verbleibender Engpass: Renderarbeit während der Drehung
 
-Die absolute Frame-Zeitplanung verhindert aufsummierte Sleep-Verzögerungen. Mehrere
-Stadtansichten überschreiten dennoch p99; ihr langsamster Frame ist häufig Frame 2.
-`SceneRenderer` erlaubt zwei Frames gleichzeitig und wartet dann erstmals auf ein altes
-GPU-Fence. Darmstadts Phasenmessung lokalisiert den größten Ausreißer im Fence-Warten,
-nicht in der Simulation. Das ist Host-Wartezeit, noch keine GPU-Ausführungszeit.
+Absolute Frame-Zeitplanung und GPU-Vorbereitung innerhalb des Preloads beseitigen
+Anlaufausreißer mehrerer Stadtansichten. Jura überschreitet das Framebudget weiterhin
+bei bereits residenter Welt. Die Phasenmessung lokalisiert die Spitze im Host-Fence-Warten;
+CPU-Vorbereitung und Simulation erklären sie nicht. Das beweist noch keine GPU-Passzeit.
+Den nächsten Profilvergleich auf identische Welt, Kamera und Messframes begrenzen:
+Terrain-Klassifizierung, Materialberechnung und Zeichenlast gezielt isolieren. Diagnose-
+varianten mit verändertem Bild sind keine Abnahme und dürfen keine Baseline ersetzen.
+Erst den gemessenen dominanten Pfad optimieren; Weltinhalt und Materialgrenzen erhalten.
 
-`PrepareFrame` erzeugt Tabellen, Placements und Schattenvorbereitung erst beim Rendern;
-`SubjectResidency` reicht unmittelbare Kopien ohne Abschluss-Fence ein. Zuerst trennen,
-welcher Anteil aus diesen Initialisierungen und welcher aus den ersten GPU-Pässen stammt.
-Vorbereitbare Tabellen/Uploads gehören in die bestehende Zehn-Sekunden-Ladefrist, mit
-nichtblockierender Fence-Abfrage, Fehlerabschluss und gültiger Weltgeneration. Keine
-zusätzlichen Renderframes zum Verbergen des Ausreißers und kein pauschales GPU-Idle-Warten
-im Framepfad. Tatsächliche Arbeit bleibt gemessen; unvollständige GPU-Produkte sind nicht
-renderbereit. Bestehende 60 Messframes, Rundum-Abdeckung und letztes Capture erhalten.
-
-Die idempotente Terrain-Lieferrevision ist bereits vorhanden; geänderte Bytes oder
-Provenienz vergeben weiterhin eine neue Revision. Die Stadt-Ladefehler bleiben WI 2319,
-stationäre Wiederholungsarbeit WI 2124. Keine weitere Cachekampagne.
+Die idempotente Terrain-Lieferrevision ist vorhanden; geänderte Bytes oder Provenienz
+vergeben weiterhin eine neue Revision. Stadt-Ladefehler bleiben WI 2319, stationäre
+Wiederholungsarbeit WI 2124. Keine weitere Cachekampagne.
 
 ## Aktive Umsetzung
 
@@ -75,12 +69,13 @@ vorbereitet und erst nach erfolgreicher GPU-Submission als gültig markiert. Sie
 GPU-Vorbereitungsprodukt innerhalb der Ladefrist, kein zusätzlicher Szenenframe.
 Keine Zeit-/Kamerafortschaltung oder Manipulation der Frame-Fences/Capture-Historie.
 Groundlose und Playable-Preloads behalten ihren bisherigen Vertrag.
-Das Experiment muss zeigen, welcher Teil des Anlaufausreißers danach noch besteht;
-es verspricht keine bereits gemessene vollständige GPU-Entlastung.
+Die Initialisierung bleibt vollständig im Ladebudget. Verbleibende Renderkosten während
+der Drehung separat beheben; die GPU-Vorbereitung ist kein Beleg für allgemeine Budgettreue.
 
 ## Abnahme
 
-Format, fokussierte Client-/Preload-Prüfung, alle Places und vollständiger Lint.
+Format, fokussierte Client-/Preload-Prüfung, alle 14 Places und vollständiger Lint.
+Hockenheimring wird als statische Übersicht gerendert; Routentests ersetzen dieses Bild nicht.
 Je erfolgreicher Messung genau 60 Samples und 360 Grad; fehlende Weltprodukte verhindern
 den Beginn der Messung. Preload maximal zehn Sekunden, gemessene Drehung maximal eine
 Sekunde und p99 höchstens 1000/60 ms prüfen; Wartezeit und Arbeitszeit getrennt erfassen.
