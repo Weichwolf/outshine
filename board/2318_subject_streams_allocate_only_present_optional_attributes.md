@@ -21,16 +21,17 @@ Logs: /tmp/outshine-batch-readiness-973b697a5-Graz-gpu-streams.log.
 
 ## Decision and implementation
 
-Owner: render/stages/SubjectDraw::RoomForStreams and existing SubjectResidency::Cross.
-Reserve optional UV/colour/tangent/UV1 capacity only through their actual uploads.
-Cross already validates addressed bytes, allocates/preserves buffers and rolls back failed
-submission. Main HandStreams supplies only present Shaping attributes; PlacePiece supplies
-only its actual streams. Remove eager optional arena-wide reservation from RoomForStreams.
+Owner: SubjectDraw::{RoomForStreams,PlacePiece}; existing SubjectResidency::Grow/Cross.
+Reserve optional UV/colour/tangent/UV1 only through each actual consumer's addressed range.
+Use Grow BEFORE partial uploads: it flushes pending data, grows geometrically and copies
+existing contents. Cross replaces storage transactionally but does NOT copy prior bytes.
+A shared private RoomForOptionalStreams helper handles present attributes for the main
+mesh and for incoming pieces. Never size their attributes from unrelated VertexRoom.
 Keep required position/normal/index, emitted and velocity contracts. Never release an
 optional buffer when the main mesh omits it: independent pieces may still own its data.
 No shader/layout/index/source/visibility/quality changes and no second allocator.
-Existing upload failures propagate without publishing incomplete streams. GPU test covers
-absent/present optional streams, high shared-arena offsets and independent data after clear.
+GPU readback must prove older main/piece bytes survive later consumer growth, plus
+absent-consumer capacity stability and independent data after main-mesh removal.
 
 ## Acceptance
 
@@ -76,5 +77,9 @@ UV/colour/tangent/UV1 capacity through the existing transactional Cross path. Re
 streams remain unchanged. Format 1219 PASS; six focused GPU tests PASS, 84 checks.
 Restored 4b9afb1de arena-wide UV/colour reservation yields exit 1 and ten real failures,
 including growth without new consumers; GPU readback preserves present and independent data.
-Full lint/tidy/API, Places/PNGs and the new runtime byte comparison remain pending.
+d35b9a1ed gate aborted after full lint PASS: Cross growth loses prior UV/colour contents.
+The old 84 checks missed this because they read earlier values BEFORE later growth.
+Six new earlier-byte checks FAIL on d35b9a1ed (90 checks, exit 1), proving the regression.
+Do not accept d35b9a1ed or its incomplete Places run. Repair above is active; retain tests.
+Evidence /tmp/outshine-2318-prior-stream-data/{build,run}.log. Full gates must rerun.
 Logs /tmp/outshine-repair-d35b9a1ed-*.log and /tmp/outshine-2318-consumers-negative-control*.
