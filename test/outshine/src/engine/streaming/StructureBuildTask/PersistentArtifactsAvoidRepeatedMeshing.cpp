@@ -52,8 +52,8 @@ int main() {
   block.Nodes.assign(4, 0.0f);
   const auto heights = Ground::HeightField::Of(0, {block});
   const auto run = [&](const RawTile &input, CountingMesh &mesher) {
-    auto store = std::make_shared<Data::ContentStore>(
-        Data::ContentStore::Config{.Directory = root.string(), .UtcSeconds = {}});
+    auto store = std::make_shared<Data::ArtifactStore>(
+        Data::ArtifactStore::Config{.Directory = root.string()});
     Tasks compute(1), io(1);
     StructureBuildTask task(
         0,
@@ -108,7 +108,7 @@ int main() {
         "producer version invalidates derived content");
   CHECK(!StructureArtifactKey(raw, *heights, std::nullopt, ""),
         "unversioned producer cannot create a cache identity");
-  if (key) { std::ofstream(root / *key, std::ios::binary) << "broken"; }
+  if (key) { std::ofstream(root / (*key + ".asset"), std::ios::binary) << "broken"; }
   CountingMesh repair;
   auto repaired = run(raw, repair);
   CHECK(repaired->Status && repaired->Tile && !repaired->CacheHit && repair.Calls > 0,

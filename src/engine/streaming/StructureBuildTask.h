@@ -8,7 +8,7 @@
 #include <optional>
 
 #include "HeightField.h"
-#include "ContentStore.h"
+#include "ArtifactStore.h"
 #include "StructureBake.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
@@ -23,7 +23,7 @@ public:
   };
 
   struct CacheRequest {
-    std::shared_ptr<Data::ContentStore> Store;
+    std::shared_ptr<Data::ArtifactStore> Store;
     Tasks *Io = nullptr;
     std::optional<Data::TileSourceIdentity> Source;
     uint64_t SourceKey = 0;

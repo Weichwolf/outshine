@@ -10,6 +10,7 @@
 #include <string_view>
 
 #include "ContentStore.h"
+#include "ArtifactStore.h"
 #include "DeclaredSources.h"
 #include "SourceSet.h"
 #include "TerrainLoader.h"
@@ -86,7 +87,7 @@ public:
 
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
 
-  [[nodiscard]] std::shared_ptr<Data::ContentStore> ArtifactStore() const { return Artifacts_; }
+  [[nodiscard]] std::shared_ptr<Data::ArtifactStore> ArtifactStore() const { return Artifacts_; }
 
   struct SourceCounters {
     Data::SourceSet::Ledger Sources;
@@ -161,7 +162,7 @@ private:
   ValidatePosition(LongitudeLatitude at) const;
 
   std::unique_ptr<Data::ContentStore> Store_;
-  std::shared_ptr<Data::ContentStore> Artifacts_;
+  std::shared_ptr<Data::ArtifactStore> Artifacts_;
   std::unique_ptr<Data::SourceSet> Sources_;
   std::unique_ptr<TilePool> Pool_;
   TilePool::LandingCursor LandingCursor_;

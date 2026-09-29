@@ -214,7 +214,7 @@ struct StructureBuildTask::Artifact {
   explicit Artifact(CacheRequest request, std::optional<ProofRequest> proof)
       : Request(std::move(request)), Proof(proof) {}
 
-  bool UsesIo() const { return Stage == Phase::Read || Stage == Phase::Write; }
+  [[nodiscard]] bool UsesIo() const { return Stage == Phase::Read || Stage == Phase::Write; }
 
   bool BeforeBake(const Generators::RawTile &raw,
                   const Ground::HeightField &heights,
@@ -225,7 +225,7 @@ struct StructureBuildTask::Artifact {
     switch (Stage) {
       case Phase::Identity: Identify(raw, heights, mesher, output); return true;
       case Phase::Read:
-        Bytes = Request.Store->Read(Key, Data::kArtifactManifestBytesMost);
+        Input = Request.Store->Read(Key, Limits);
         output.CacheReadMs +=
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
                 .count();
@@ -241,13 +241,13 @@ struct StructureBuildTask::Artifact {
         Stage = Phase::Bake;
         return false;
       case Phase::Write:
-        if (!Bytes || !Request.Store->Keep(Key, Bytes->data(), Bytes->size())) {
+        if (!Pending || !Pending->Publish() || !Request.Store->Trim()) {
           Fail(output);
         } else {
           output.Tile = std::move(Product);
           Stage = Phase::Done;
         }
-        Bytes.reset();
+        Pending.reset();
         output.CacheWriteMs +=
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
                 .count();
@@ -281,34 +281,44 @@ struct StructureBuildTask::Artifact {
     Stage = Phase::Read;
   }
 
-  void Decode(Output &output, const std::atomic_bool &stopping) {
-    if (Bytes) {
-      auto manifest = Data::DecodeArtifactManifest(*Bytes, Key, Limits);
-      Bytes.reset();
-      if (manifest) {
-        const auto encodedBytes = static_cast<size_t>(manifest->Bytes);
-        Data::ArtifactBlockReader reader(
-            std::move(*manifest), [&](std::string_view blockKey, size_t mostBytes) {
-              if (stopping.load(std::memory_order_relaxed)) {
-                return std::optional<std::vector<uint8_t>>{};
-              }
-              const auto readBegan = std::chrono::steady_clock::now();
-              std::optional<std::vector<uint8_t>> loaded;
-              const auto job = Request.Io->Post(
-                  [&, blockKey, mostBytes] { loaded = Request.Store->Read(blockKey, mostBytes); });
-              Request.Io->Wait(job);
-              output.CacheReadMs += std::chrono::duration<double, std::milli>(
-                                        std::chrono::steady_clock::now() - readBegan)
-                                        .count();
-              return loaded;
-            });
-        output.Tile = Generators::ReadStructureProduct(
-            [&](std::span<uint8_t> into) { return reader.Read(into); },
-            {.EncodedBytes = encodedBytes, .ResidentBytesMost = Request.ResidentBytesMost},
-            Request.SourceKey);
-      }
+  void Release(Tasks *activePool) {
+    if (!Input && !Pending) { return; }
+    const auto close = [this] {
+      Input.reset();
+      Pending.reset();
+    };
+    if (activePool == Request.Io) {
+      close();
+    } else {
+      const auto job = Request.Io->Post(close);
+      Request.Io->Wait(job);
     }
-    Bytes.reset();
+  }
+
+  void Decode(Output &output, const std::atomic_bool &stopping) {
+    if (Input) {
+      const auto encodedBytes = static_cast<size_t>(Input->Manifest().Bytes);
+      Data::ArtifactBlockReader reader(
+          Input->Manifest(), [&](std::string_view blockKey, size_t mostBytes) {
+            if (stopping.load(std::memory_order_relaxed)) {
+              return std::optional<std::vector<uint8_t>>{};
+            }
+            const auto readBegan = std::chrono::steady_clock::now();
+            std::optional<std::vector<uint8_t>> loaded;
+            const auto job = Request.Io->Post(
+                [&, blockKey, mostBytes] { loaded = Input->ReadBlock(blockKey, mostBytes); });
+            Request.Io->Wait(job);
+            output.CacheReadMs += std::chrono::duration<double, std::milli>(
+                                      std::chrono::steady_clock::now() - readBegan)
+                                      .count();
+            return loaded;
+          });
+      output.Tile = Generators::ReadStructureProduct(
+          [&](std::span<uint8_t> into) { return reader.Read(into); },
+          {.EncodedBytes = encodedBytes, .ResidentBytesMost = Request.ResidentBytesMost},
+          Request.SourceKey);
+    }
+    Release(nullptr);
   }
 
   void AfterBake(Output &output, const std::atomic_bool &stopping) {
@@ -319,7 +329,8 @@ struct StructureBuildTask::Artifact {
           const auto writeBegan = std::chrono::steady_clock::now();
           bool written = false;
           const auto job = Request.Io->Post([&, blockKey, bytes] {
-            written = Request.Store->Keep(blockKey, bytes.data(), bytes.size());
+            if (!Pending) { Pending = Request.Store->Begin(Key, Limits); }
+            written = Pending && Pending->Append(blockKey, bytes);
           });
           Request.Io->Wait(job);
           output.CacheWriteMs += std::chrono::duration<double, std::milli>(
@@ -332,6 +343,7 @@ struct StructureBuildTask::Artifact {
         [&](std::span<const uint8_t> bytes) { return writer.Append(bytes); },
         Limits.BlockBytes);
     if (!encoded) {
+      Release(nullptr);
       output.Tile.reset();
       auto failure = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
       if (encoded.error() == Generators::StructureArtifactError::CapacityExceeded) {
@@ -343,11 +355,6 @@ struct StructureBuildTask::Artifact {
         failure = Generators::StructureBakeErrorKind::Cancelled;
       }
       output.Status = std::unexpected(failure);
-      return;
-    }
-    Bytes = Data::EncodeArtifactManifest(writer.Manifest(), Key, Limits);
-    if (!Bytes) {
-      Fail(output);
       return;
     }
     Product = std::move(output.Tile);
@@ -365,7 +372,8 @@ struct StructureBuildTask::Artifact {
   std::optional<ProofRequest> Proof;
   Phase Stage = Phase::Identity;
   std::string Key;
-  std::optional<std::vector<uint8_t>> Bytes;
+  std::unique_ptr<Data::ArtifactStore::Reader> Input;
+  std::unique_ptr<Data::ArtifactStore::Writer> Pending;
   std::optional<Generators::BakedTile> Product;
 };
 
@@ -436,47 +444,58 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   State_ = State::Running;
   ActivePool_ = artifact != nullptr && artifact->UsesIo() ? artifact->Request.Io : &pool;
   assert(ActivePool_ != nullptr);
-  Handle_ = ActivePool_->Post(
-      [raw, heights, &mesher, scratch, progress, output, comparison, artifact, stopping, posted] {
-        const auto began = std::chrono::steady_clock::now();
-        output->LastQueueMs = std::chrono::duration<double, std::milli>(began - posted).count();
-        static const Heap::Tag kBakingTag("structure-bake");
-        const Heap::Tagged baking(kBakingTag);
-        output->LastRanges = 0;
-        output->LastProofWork = 0;
-        output->LastRangeMs = 0.0;
-        if (stopping->load(std::memory_order_relaxed)) {
-          output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
-          return;
-        }
-        if (artifact && artifact->BeforeBake(*raw, *heights, mesher, *output, *stopping)) {
-          if (stopping->load(std::memory_order_relaxed)) {
-            output->Tile.reset();
-            output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
-          }
-          return;
-        }
-        if (comparison && comparison->Variant) {
-          comparison->Advance(*heights, mesher, *scratch, *output, *stopping);
-        } else {
-          BakeVariant(raw, heights, mesher, scratch, progress, output, stopping);
-          if (comparison && output->Tile) {
-            auto variant = std::move(*output->Tile);
-            output->Tile.reset();
-            comparison->Begin(std::move(variant), *raw, *output);
-          }
-        }
-        if (comparison && stopping->load(std::memory_order_relaxed)) {
-          output->Tile.reset();
-          output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
-        }
-        const double taskMs =
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-                .count();
-        if (artifact) { artifact->AfterBake(*output, *stopping); }
-        output->LastTaskMs = taskMs;
-        output->BakeMs += taskMs;
-      });
+  Tasks *const activePool = ActivePool_;
+  Handle_ = ActivePool_->Post([raw,
+                               heights,
+                               &mesher,
+                               scratch,
+                               progress,
+                               output,
+                               comparison,
+                               artifact,
+                               stopping,
+                               posted,
+                               activePool] {
+    const auto began = std::chrono::steady_clock::now();
+    output->LastQueueMs = std::chrono::duration<double, std::milli>(began - posted).count();
+    static const Heap::Tag kBakingTag("structure-bake");
+    const Heap::Tagged baking(kBakingTag);
+    output->LastRanges = 0;
+    output->LastProofWork = 0;
+    output->LastRangeMs = 0.0;
+    if (stopping->load(std::memory_order_relaxed)) {
+      if (artifact != nullptr) { artifact->Release(activePool); }
+      output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+      return;
+    }
+    if (artifact && artifact->BeforeBake(*raw, *heights, mesher, *output, *stopping)) {
+      if (stopping->load(std::memory_order_relaxed)) {
+        artifact->Release(activePool);
+        output->Tile.reset();
+        output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+      }
+      return;
+    }
+    if (comparison && comparison->Variant) {
+      comparison->Advance(*heights, mesher, *scratch, *output, *stopping);
+    } else {
+      BakeVariant(raw, heights, mesher, scratch, progress, output, stopping);
+      if (comparison && output->Tile) {
+        auto variant = std::move(*output->Tile);
+        output->Tile.reset();
+        comparison->Begin(std::move(variant), *raw, *output);
+      }
+    }
+    if (comparison && stopping->load(std::memory_order_relaxed)) {
+      output->Tile.reset();
+      output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+    }
+    const double taskMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    if (artifact) { artifact->AfterBake(*output, *stopping); }
+    output->LastTaskMs = taskMs;
+    output->BakeMs += taskMs;
+  });
 }
 
 void StructureBuildTask::Start(Tasks &pool, const StructureMesher &mesher) {

@@ -49,8 +49,8 @@ bool GroundStack::Open(const World::StoragePaths &under,
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = under.Cache;
   Store_ = std::make_unique<outshine::Data::ContentStore>(keeping);
-  keeping.Directory = Store_->Directory() + "/derived";
-  Artifacts_ = std::make_shared<outshine::Data::ContentStore>(keeping);
+  Artifacts_ = std::make_shared<Data::ArtifactStore>(
+      Data::ArtifactStore::Config{.Directory = Store_->Directory() + "/derived"});
   Sources_ = std::make_unique<outshine::Data::SourceSet>(*Store_);
   outshine::Data::SourceSet &sources = *Sources_;
   std::string refused;
