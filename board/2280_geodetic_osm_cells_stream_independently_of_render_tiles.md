@@ -106,15 +106,15 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   scene retains shared-node road connectivity and unchanged content during a full turn.
   A parser-only success or a source accessor without this client path is not completion.
 ## Native geometry requirements
-`StructurePlan` and `BuildingShape::MassOf` accept an exterior with inner rings; Place acceptance is pending.
-Carry `MinimumHeightM` through RawTile, StructurePlan and massing; top and lower heights share BaseAslM.
-Elevated parts receive no plinth, pavement or ground stamp; coarse meshes preserve the clearance.
-Do not aggregate raised parts with grounded buildings. Invalid or inverted height intervals fail.
-Carry inner rings from source extraction through RawTile, StructurePlan, roofs and inward walls.
-Use Mapbox Earcut before splitting roof triangles at creases. Keep courtyard massing unsplit;
-Massed retains the perforated shell instead of filling its bounding box. No aggregate may close holes.
-Footprints retain source ring ranges; BuildingStampJob passes holes to EarthworkStamp's existing
-HoleRingsEastNorthM. Mesh and stamp rings use the same pinned point buffer and source revision.
-The existing tile adapter groups each exterior with its following interiors; native multipolygons
-require explicit containment ownership. Both enter the same format-independent ring contract.
+`StructurePlan`/`BuildingShape::MassOf` preserve exterior, holes and raised-part clearance at every LOD.
+Raised parts have no plinth, pavement or ground stamp; aggregation cannot fill holes or clearance.
+Mapbox Earcut supplies perforated roof/floor triangles before roof-crease clipping; massing stays unsplit.
+Mesh and EarthworkStamp holes share pinned points and source revision; native multipolygons need containment ownership.
 Exact roof semantics still need BuildingShape::Order; PitchedShare is not the source roof family.
+
+`world/ground/OsmBuildingHeights` reads metric height/min_height and levels/min_level
+from retained original tags. Missing, valid explicit and malformed/duplicate values remain
+separate; units normalize at this boundary, raw strings stay in the pinned source.
+`OsmBuildingFootprints::Heights` exposes those values to native job construction. No tile
+sentinel becomes measured height. Contradictory intervals are resolved only by a declared
+generator policy; parsing neither adds heights nor discards the original building.
