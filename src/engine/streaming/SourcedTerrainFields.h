@@ -23,6 +23,9 @@ public:
   [[nodiscard]] static std::expected<SourcedTerrainFields, CaptureError> Capture(
       std::span<const Entry> fields, std::span<const Ground::TileSpot> requests, size_t bytesMost);
   [[nodiscard]] size_t RetainedBytes() const noexcept;
+  [[nodiscard]] bool FitsPreparation(std::span<const Ground::TileSpot> requests,
+                                     size_t bytesMost) const;
+  [[nodiscard]] bool ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
 
   SourcedTerrainFields() = default;
 

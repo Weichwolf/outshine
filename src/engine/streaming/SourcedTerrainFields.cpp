@@ -78,6 +78,60 @@ SourcedTerrainFields::Capture(std::span<const Entry> fields,
   return captured;
 }
 
+bool SourcedTerrainFields::FitsPreparation(std::span<const Ground::TileSpot> requests,
+                                           size_t bytesMost) const {
+  size_t bytes = RetainedBytes();
+  const auto charge = [&bytes, bytesMost](size_t count, size_t size) {
+    if (size == 0) { return true; }
+    if (bytes > bytesMost || count > (bytesMost - bytes) / size) { return false; }
+    bytes += count * size;
+    return true;
+  };
+  if (!charge(1, sizeof(Ground::HeightField)) ||
+      !charge(requests.size(), sizeof(Ground::TileSpot) + sizeof(Ground::HeightField::Block))) {
+    return false;
+  }
+  for (const auto request : requests) {
+    if (request.Zoom < 0 || request.Zoom > Ground::HeightField::MaximumTileZoom || request.X < 0 ||
+        request.Y < 0 ||
+        static_cast<uint64_t>(request.X) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom)) ||
+        static_cast<uint64_t>(request.Y) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom))) {
+      return false;
+    }
+    const Data::TileId tile{.Zoom = request.Zoom,
+                            .X = static_cast<uint32_t>(request.X),
+                            .Y = static_cast<uint32_t>(request.Y)};
+    const auto found = SourceFor(Fields_, tile);
+    if (found == Fields_.end()) { return false; }
+    const auto &field = *found->second;
+    if (field.Rows() != field.Cols()) { return false; }
+    if (!charge(4, field.Certificate().HeapBytes())) { return false; }
+    for (const auto &source : field.Sources()) {
+      if (!charge(4,
+                  sizeof(Data::TileSourceIdentity) + source.SourceId.capacity() +
+                      source.Revision.capacity() + 2)) {
+        return false;
+      }
+    }
+    if (found->first != tile) {
+      const auto scale = uint64_t{1} << static_cast<uint32_t>(tile.Zoom - found->first.Zoom);
+      const size_t side = std::min<size_t>((field.Cols() - 1u + scale - 1u) / scale + 1u, 257u);
+      if (!charge(side * side, sizeof(float))) { return false; }
+    }
+  }
+  return true;
+}
+
+bool SourcedTerrainFields::ShareSourcedField(Data::TileId tile,
+                                             Ground::HeightField::Block &into) const {
+  if (tile.Zoom < 0 || tile.Zoom > Ground::HeightField::MaximumTileZoom) { return false; }
+  const auto found = SourceFor(Fields_, tile);
+  if (found == Fields_.end()) { return false; }
+  return found->first == tile ? Ground::HeightField::SharesField(found->second, tile, into)
+                              : Ground::HeightField::ResamplesSourcedAncestor(
+                                    *found->second, found->first, tile, into);
+}
+
 bool SourcedTerrainFields::Copy(std::span<const Entry> fields,
                                 Data::TileId tile,
                                 Ground::HeightField::Block &into) {
