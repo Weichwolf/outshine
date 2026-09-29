@@ -188,13 +188,12 @@ public:
     const auto cn = static_cast<int64_t>(std::llround(v.P.NorthM * 1000.0));
     const auto cz = static_cast<int64_t>(std::llround(v.Z * 1000.0));
     const BuildingPositionKey key{.EastMm = ce, .NorthMm = cn, .HeightMm = cz};
-    if (const uint32_t *found = Scratch_.Welded.Find(key)) { return *found; }
-    const auto made = static_cast<uint32_t>(Scratch_.Welded.Size());
-    if (!Scratch_.Welded.Emplace(key, made)) {
+    const auto made = Scratch_.Welded.Emplace(key, static_cast<uint32_t>(Scratch_.Welded.Size()));
+    if (!made) {
       Status_ = std::unexpected(StructureMeshError::BuildFailed);
       return 0;
     }
-    return made;
+    return *made->first;
   }
 
   void Tri(const Vtx &given0, const Vtx &given1, const Vtx &given2) {
@@ -255,14 +254,13 @@ private:
                                 .TextureU = std::bit_cast<uint32_t>(vertex.texture[0]),
                                 .TextureV = std::bit_cast<uint32_t>(vertex.texture[1])};
     auto &corners = Scratch_.Corners[static_cast<size_t>(side)];
-    if (const uint32_t *found = corners.Find(key)) { return *found; }
-    const auto made = static_cast<uint32_t>(soup.size());
-    if (!corners.Emplace(key, made)) {
+    const auto made = corners.Emplace(key, static_cast<uint32_t>(soup.size()));
+    if (!made) {
       Status_ = std::unexpected(StructureMeshError::BuildFailed);
       return 0;
     }
-    soup.push_back(vertex);
-    return made;
+    if (made->second) { soup.push_back(vertex); }
+    return *made->first;
   }
 
   std::expected<void, StructureMeshError> Status_;
