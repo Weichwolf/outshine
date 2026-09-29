@@ -254,8 +254,6 @@ void GroundStream::KeepCoarse(long x, long y) const {
   victim->Resident = true;
   victim->Hole = !square;
   victim->MissingBoundary = !square || field->HasMissingBoundary();
-  victim->Certificate = field->Certificate();
-  if (victim->MissingBoundary) { victim->Certificate.Invalidate(); }
   victim->Nodes = square ? gr : 0;
   victim->Postings = square ? colPostings : 0;
   if (!square) {
@@ -264,6 +262,8 @@ void GroundStream::KeepCoarse(long x, long y) const {
     victim->Certificate = {};
     return;
   }
+  victim->Certificate = field->Certificate();
+  if (victim->MissingBoundary) { victim->Certificate.Invalidate(); }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
   victim->Sources.assign(field->Sources().begin(), field->Sources().end());
 }
@@ -380,8 +380,6 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   victim->Resident = true;
   victim->Hole = !square;
   victim->MissingBoundary = !square || field->HasMissingBoundary();
-  victim->Certificate = field->Certificate();
-  if (victim->MissingBoundary) { victim->Certificate.Invalidate(); }
   victim->Nodes = square ? gr : 0;
   victim->Postings = square ? colPostings : 0;
   if (!square) {
@@ -390,6 +388,8 @@ const Tile *GroundStream::TileAt(long x, long y) const {
     victim->Certificate = {};
     return nullptr;
   }
+  victim->Certificate = field->Certificate();
+  if (victim->MissingBoundary) { victim->Certificate.Invalidate(); }
   FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
   victim->Sources.assign(field->Sources().begin(), field->Sources().end());
   KeepCoarse(x, y);

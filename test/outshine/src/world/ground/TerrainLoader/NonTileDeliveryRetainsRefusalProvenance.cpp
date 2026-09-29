@@ -72,6 +72,10 @@ int main() {
         if (!refused) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
       } while (!refused && std::chrono::steady_clock::now() < deadline);
       CHECK(refused, "both terrain adapters reach an explicit terminal refusal");
+      if (!workerField) {
+        CHECK(ground.BlockAt({.Zoom = 4, .X = 8, .Y = 8}).Where() == GroundBlock::State::Missing,
+              "a refused field remains missing when queried as a generator block");
+      }
     }
     CHECK(failure && failure->Kind == Data::DataKind::Elevation &&
               failure->Reason == Data::FetchFailureReason::CorruptPayload &&
