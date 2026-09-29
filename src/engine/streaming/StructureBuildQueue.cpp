@@ -134,6 +134,7 @@ void RawOf(const Ground::OsmField &vectors,
                                 .SourceFirst = ring.First,
                                 .Cell = assignedCell.value_or(Generators::StructureCell{}),
                                 .HeightM = heightM,
+                                .MinimumHeightM = vectors.Num(f, "min_height", 0.0),
                                 .Pitched = pitched});
     }
   }
