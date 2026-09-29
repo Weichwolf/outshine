@@ -3,6 +3,7 @@
 #include "PlaceCamera.h"
 #include "PlaceTurn.h"
 #include "FramePacer.h"
+#include "FrameSchedule.h"
 
 #include "io/HeapProbe.h"
 
@@ -332,8 +333,13 @@ bool MeasureFrames(Engine &engine,
   renderedMs.reserve(count);
   Client::FramePacer pacer;
   const auto began = std::chrono::steady_clock::now();
+  const Client::FrameSchedule schedule(SDL_GetTicksNS());
   for (std::size_t at = 0; at < count; ++at) {
-    pacer.Wait();
+    if (turn.empty()) {
+      pacer.Wait();
+    } else {
+      schedule.Wait(at);
+    }
     const auto before = std::chrono::steady_clock::now();
     if (!turn.empty()) {
       if (const auto selected = engine.setView(turn[(at + 1) % count].Id); !selected) {
