@@ -93,10 +93,10 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   that buffer to BuildingStampJob. Native source products must own/share their ring coordinates
   and revision. Meshing, footprints, terrain stamps and GroundDiagnostics consume that same
   immutable geometry owner; no copied MVT surrogate and no index across unrelated buffers.
-- `world/ground` resolves closed ways and multipolygon member chains by typed source ID,
-  including inner rings and building-part membership. Keep source tags in the snapshot;
-  native inputs reference their source object and geometry. Product-root closure gates publication;
-  unrelated route references do not. Preserve strict local complete-set and graph validation.
+- `OsmBuildingFootprints` now owns closed ways and outer/inner multipolygon chains, pins
+  the source snapshot and retains typed IDs and tags. Product-root closure is implemented.
+  Point structures and type=building groups are explicitly unsupported; part/outline ownership
+  and semantic interpretation remain open. Preserve strict local complete-set and graph validation.
 - Extend `StructureBake::RawTile` and `StructurePlan` together: outer/inner rings, top and
   minimum height, roof form and building/industrial class must survive through meshing.
   The current exterior-only `RawOf` loop and height/pitched pair are insufficient. Do not

@@ -32,7 +32,7 @@ prüft dafür die transitive Referenzhülle typisierter Produktwurzeln gemeinsam
 Tags bleiben über typisierte Original-ID erreichbar. Offene/mehrdeutige Ringketten verhindern Publikation.
 Der parameterlose Vollständigkeitscheck lokaler Komplettquellen bleibt unverändert.
 Gültige API-Chunks überschreiten das allgemeine XML-DOM-Slotlimit bereits unter 4 MiB.
-`OsmXmlReader` erhält längengebundene Element-/Attributbudgets bei unverändertem 4-MiB-Limit;
+`OsmXmlReader` nutzt längengebundene Element-/Attributbudgets bei unverändertem 4-MiB-Limit;
 `Xml` behält seine Default-Grenzen für Szenarien. Keine gekürzten Originaldaten als Umgehung.
 
 `StructureBuildQueue::RawOf` verliert zusätzlich Innenringe und Mindesthöhe und reduziert
