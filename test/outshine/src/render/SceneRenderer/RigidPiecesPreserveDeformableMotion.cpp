@@ -78,6 +78,22 @@ int main() {
                 velocity.size() == 64u * 64u * 2u,
             "motion attachment is readable");
       if (depth.size() == 64u * 64u && velocity.size() == 64u * 64u * 2u) {
+        size_t covered = 0;
+        for (size_t pixel = 0; pixel < depth.size(); ++pixel) {
+          if (depth[pixel] <= 0) { continue; }
+          if (covered == 0) {
+            std::fprintf(stderr,
+                         "first covered pixel=(%zu,%zu), depth=%g, velocity=(%g,%g)\n",
+                         pixel % 64u,
+                         pixel / 64u,
+                         depth[pixel],
+                         velocity[2u * pixel],
+                         velocity[2u * pixel + 1u]);
+          }
+          ++covered;
+        }
+        std::fprintf(
+            stderr, "covered pixels=%zu, batches=%u\n", covered, renderer.SubjectBatchCount());
         constexpr size_t left = 32u * 64u + 16u;
         constexpr size_t right = 32u * 64u + 48u;
         std::fprintf(stderr,
