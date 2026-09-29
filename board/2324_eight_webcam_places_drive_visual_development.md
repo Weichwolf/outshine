@@ -41,7 +41,8 @@ Bestehende Szenarien außerhalb der Auswahl bleiben unter src/assets/diagnostic-
 für explizite Regressionen erhalten; alte rote Befunde werden dadurch nicht grün.
 PlaceCamera lädt weiterhin Verzeichnisinhalt; keine fest kodierte Ortsliste im Renderer.
 ClientShot nimmt für erhaltene Diagnosen einen expliziten Katalog; acht Render-Fälle
-bleiben in integration/places. Neue Flensburg-Kamera nutzt veröffentlichte Position/Bearing;
+bleiben in integration/places. Erhaltene Diagnose-Renderfälle liegen unter
+test/outshine/integration/world_regressions; die Engine verweist nicht auf ihre Tests. Neue Flensburg-Kamera nutzt veröffentlichte Position/Bearing;
 Höhendatum, Pitch und aus Bildwinkel abgeleiteter FOV bleiben bis WI 2170 vorläufig.
 
 2170 fixiert Pose/Intrinsics vor geometrischen Bildurteilen. Archivbilder sind Referenz,
