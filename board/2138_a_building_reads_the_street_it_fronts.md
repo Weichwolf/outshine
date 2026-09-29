@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P1
 Parent: 2169
@@ -69,3 +69,9 @@ Zerlegung darf keine neue Bauwerksidentität oder andere Dachfamilie erfinden; u
 Formen benötigen einen expliziten gebäudebezogenen Entwurf vor WingParts/StackDeep.
 Kuppeln nicht pauschal entfernen: belegte runde Bauten erhalten ihre Form. Eine Kirche
 wird durch bloßes Ersetzen der Kuppel durch ein Flachdach nicht korrekt.
+
+Die unabhängige Reparatur der bestehenden Zerlegung kann vor 2173 erfolgen:
+PartOrder trägt die am Gesamtgrundriss gewählte Dachfamilie durch WingParts und
+StackDeep; Finish wählt sie nur, solange noch kein Entwurf vorhanden ist.
+Grundrisse, Quellenhöhen und echte runde Bauten erhalten. Keine Freigabe als fertige
+Kirchendarstellung; native OSM-Klasse und belegte Parts bleiben Aufgabe von 2173/2280.
