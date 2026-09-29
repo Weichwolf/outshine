@@ -122,6 +122,9 @@ entsprechendes Gewicht. Weniger Systeme mit kohärenter Wirkung sind besser als 
 - Ich halte Ownership, Thread-Zuständigkeiten und Ressourcenlebensdauer explizit; GPU-Freigabe
   folgt letzter Nutzung. Die minimale öffentliche API dokumentiert Fehler, Kosten und Lebensdauer.
   Kein versteckter globaler Zustand oder Eingriff in den Host; `reaches`-Tiers bleiben verbindlich.
+- Ich behalte die geladene Welt resident. Kameradrehung ändert Sichtbarkeit, nicht Weltinhalte.
+  Bewegung fordert nur neu benötigte Regionen und Detailstufen an; Quellenänderungen invalidieren
+  ihre abhängigen Produkte. Unveränderte Frames erzeugen und kompaktieren die Welt nicht erneut.
 - Ich trenne IO und Compute mit begrenzten Queues, Abbruch und Rückstau. Veraltete Ergebnisse
   überschreiben keine neuen. Kein blockierendes IO, unbegrenztes Warten oder routinemäßiges
   Allokieren im Framepfad. SSD, RAM und GPU haben gemessene Budgets; SSD ersetzt keine Renderbereitschaft.
