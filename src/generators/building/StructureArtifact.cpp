@@ -4,6 +4,14 @@
 #include <array>
 #include <bit>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 #include <limits>
 #include <type_traits>
 #include <utility>
@@ -25,7 +33,7 @@ public:
 
   bool Flush() {
     if (Bytes.empty()) { return true; }
-    if (!Sink || !(*Sink)(Bytes)) {
+    if (Sink == nullptr || !(*Sink)(Bytes)) {
       Failure = StructureArtifactError::WriteFailed;
       return false;
     }
@@ -45,7 +53,7 @@ public:
           return false;
         }
       }
-      if (Sink) {
+      if (Sink != nullptr) {
         if (BlockBytes < sizeof(T)) { return false; }
         if (Bytes.size() > BlockBytes - sizeof(T) && !Flush()) { return false; }
       } else if (Bytes.size() > kMostBytes - sizeof(T)) {
@@ -65,10 +73,7 @@ public:
 
   template <typename T, typename Visit> bool List(const std::vector<T> &items, Visit visit) {
     if (!Number(static_cast<uint64_t>(items.size()))) { return false; }
-    for (const auto &item : items) {
-      if (!visit(*this, item)) { return false; }
-    }
-    return true;
+    return std::ranges::all_of(items, [&](const auto &item) { return visit(*this, item); });
   }
 
   template <typename T, typename Visit> bool Maybe(const std::optional<T> &item, Visit visit) {
@@ -90,7 +95,7 @@ public:
 
   bool Get(std::span<uint8_t> into) {
     if (into.size() > Remaining) { return false; }
-    if (Source) {
+    if (Source != nullptr) {
       if (!(*Source)(into)) { return false; }
     } else {
       std::copy_n(Bytes.begin(), into.size(), into.begin());
@@ -274,6 +279,45 @@ bool KeyValid(std::string_view key) {
            return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f');
          });
 }
+
+bool Text(Writer &writer, std::string_view value) {
+  return writer.Number(static_cast<uint64_t>(value.size())) &&
+         std::ranges::all_of(value,
+                             [&](char byte) { return writer.Number(static_cast<uint8_t>(byte)); });
+}
+
+bool Identity(Writer &writer, const Data::TileSourceIdentity &value) {
+  return writer.Number(value.From) && writer.Number(value.Kind) && writer.Number(value.Tile.Zoom) &&
+         writer.Number(value.Tile.X) && writer.Number(value.Tile.Y) &&
+         Text(writer, value.SourceId) && Text(writer, value.Revision);
+}
+
+bool HeightInputs(Writer &writer, const Ground::HeightField &heights) {
+  if (!writer.Number(heights.CaptureRequest().Zoom) || !writer.Number(heights.Fallback()) ||
+      !writer.Number(static_cast<uint64_t>(heights.Blocks().size()))) {
+    return false;
+  }
+  for (const auto &block : heights.Blocks()) {
+    if (!writer.Number(block.At.Zoom) || !writer.Number(block.At.X) || !writer.Number(block.At.Y) ||
+        !writer.Number(block.Raster.Side) || !writer.Number(block.Raster.Postings) ||
+        !writer.Number(block.MissingBoundary) ||
+        !writer.Number(static_cast<uint64_t>(block.Sources.size())) ||
+        !std::ranges::all_of(block.Sources,
+                             [&](const auto &source) { return Identity(writer, source); })) {
+      return false;
+    }
+    const auto nodes =
+        block.Terrain
+            ? std::span(block.Terrain->Data(),
+                        static_cast<size_t>(block.Terrain->Rows()) * block.Terrain->Cols())
+            : std::span<const float>(block.Nodes);
+    if (!writer.Number(static_cast<uint64_t>(nodes.size())) ||
+        !std::ranges::all_of(nodes, [&](float node) { return writer.Number(node); })) {
+      return false;
+    }
+  }
+  return true;
+}
 }
 
 std::expected<void, StructureArtifactError>
@@ -309,18 +353,6 @@ StructureArtifactKey(const RawTile &raw,
                      std::string_view producerVersion) {
   if (producerVersion.empty()) { return std::nullopt; }
   Writer writer;
-  const auto text = [&](std::string_view value) {
-    if (!writer.Number(static_cast<uint64_t>(value.size()))) { return false; }
-    for (const char byte : value) {
-      if (!writer.Number(static_cast<uint8_t>(byte))) { return false; }
-    }
-    return true;
-  };
-  const auto identity = [&](const Data::TileSourceIdentity &value) {
-    return writer.Number(value.From) && writer.Number(value.Kind) &&
-           writer.Number(value.Tile.Zoom) && writer.Number(value.Tile.X) &&
-           writer.Number(value.Tile.Y) && text(value.SourceId) && text(value.Revision);
-  };
   const auto structure = [](auto &archive, const RawTile::Structure &value) {
     return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
            archive.Number(value.SourceFirst) && archive.Number(value.Cell.Index) &&
@@ -331,8 +363,8 @@ StructureArtifactKey(const RawTile &raw,
     return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
            archive.Number(value.HalfWidthM);
   };
-  if (!text(kMagic) || !writer.Number(kVersion) || !text(producerVersion) ||
-      !writer.Number(source.has_value()) || (source && !identity(*source)) ||
+  if (!Text(writer, kMagic) || !writer.Number(kVersion) || !Text(writer, producerVersion) ||
+      !writer.Number(source.has_value()) || (source && !Identity(writer, *source)) ||
       !writer.List(raw.LatLon, scalar) || !writer.List(raw.Structures, structure) ||
       !writer.List(raw.Ways, way) || !writer.Maybe(raw.RequestedDetail, scalar) ||
       !writer.Maybe(raw.RequestedCell, scalar) || !writer.Number(raw.TileSpanM) ||
@@ -347,30 +379,7 @@ StructureArtifactKey(const RawTile &raw,
        !writer.Number(raw.FocalPx))) {
     return std::nullopt;
   }
-  if (!writer.Number(heights.CaptureRequest().Zoom) || !writer.Number(heights.Fallback()) ||
-      !writer.Number(static_cast<uint64_t>(heights.Blocks().size()))) {
-    return std::nullopt;
-  }
-  for (const auto &block : heights.Blocks()) {
-    if (!writer.Number(block.At.Zoom) || !writer.Number(block.At.X) || !writer.Number(block.At.Y) ||
-        !writer.Number(block.Raster.Side) || !writer.Number(block.Raster.Postings) ||
-        !writer.Number(block.MissingBoundary) ||
-        !writer.Number(static_cast<uint64_t>(block.Sources.size()))) {
-      return std::nullopt;
-    }
-    for (const auto &heightSource : block.Sources) {
-      if (!identity(heightSource)) { return std::nullopt; }
-    }
-    const auto nodes =
-        block.Terrain
-            ? std::span(block.Terrain->Data(),
-                        static_cast<size_t>(block.Terrain->Rows()) * block.Terrain->Cols())
-            : std::span<const float>(block.Nodes);
-    if (!writer.Number(static_cast<uint64_t>(nodes.size()))) { return std::nullopt; }
-    for (const float node : nodes) {
-      if (!writer.Number(node)) { return std::nullopt; }
-    }
-  }
+  if (!HeightInputs(writer, heights)) { return std::nullopt; }
   return Sha256Hex(writer.Bytes.data(), writer.Bytes.size());
 }
 

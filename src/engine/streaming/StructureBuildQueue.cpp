@@ -939,7 +939,8 @@ bool StructureBuildQueue::PostPreparedCell(const Ground::GroundStack &stack,
            StructureBuildTask::CacheRequest{.Store = stack.ArtifactStore(),
                                             .Io = ArtifactIo_.get(),
                                             .Source = VectorSource(*vectors, request.Tile),
-                                            .SourceKey = request.SourceKey}),
+                                            .SourceKey = request.SourceKey,
+                                            .ResidentBytesMost = Ground::GroundStack::kHoldsBytes}),
        .StreetDigest = *streetDigest,
        .SourceKey = request.SourceKey,
        .Cell = request.Cell,
@@ -1056,22 +1057,24 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
     output->FinalizationMs = 0.0;
     output->LastQueueMs = 0.0;
     output->LastTaskMs = 0.0;
-    Queue_.push_back({.Revision = revision,
-                      .Task = StructureBuildTask(next->Tile,
-                                                 std::move(raw),
-                                                 std::move(heights),
-                                                 std::move(output),
-                                                 LentScratch(),
-                                                 std::nullopt,
-                                                 StructureBuildTask::CacheRequest{
-                                                     .Store = stack.ArtifactStore(),
-                                                     .Io = ArtifactIo_.get(),
-                                                     .Source = VectorSource(vectors, next->Tile),
-                                                     .SourceKey = sourceKey}),
-                      .StreetDigest = *streetDigest,
-                      .SourceKey = sourceKey,
-                      .Replacement = replacement,
-                      .ReservationOwner = prints.ReservationOwner()});
+    Queue_.push_back(
+        {.Revision = revision,
+         .Task = StructureBuildTask(next->Tile,
+                                    std::move(raw),
+                                    std::move(heights),
+                                    std::move(output),
+                                    LentScratch(),
+                                    std::nullopt,
+                                    StructureBuildTask::CacheRequest{
+                                        .Store = stack.ArtifactStore(),
+                                        .Io = ArtifactIo_.get(),
+                                        .Source = VectorSource(vectors, next->Tile),
+                                        .SourceKey = sourceKey,
+                                        .ResidentBytesMost = Ground::GroundStack::kHoldsBytes}),
+         .StreetDigest = *streetDigest,
+         .SourceKey = sourceKey,
+         .Replacement = replacement,
+         .ReservationOwner = prints.ReservationOwner()});
     const auto postingAt = std::chrono::steady_clock::now();
     PostSlice(Queue_.back());
     if (replacement) { prints.AdvanceRefinement(); }

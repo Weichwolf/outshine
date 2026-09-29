@@ -55,14 +55,18 @@ int main() {
     auto store = std::make_shared<Data::ContentStore>(
         Data::ContentStore::Config{.Directory = root.string(), .UtcSeconds = {}});
     Tasks compute(1), io(1);
-    StructureBuildTask task(0,
-                            std::make_unique<RawTile>(input),
-                            heights,
-                            std::make_unique<StructureBuildTask::Output>(),
-                            mesher.Scratch(),
-                            std::nullopt,
-                            StructureBuildTask::CacheRequest{
-                                .Store = store, .Io = &io, .Source = std::nullopt, .SourceKey = 1});
+    StructureBuildTask task(
+        0,
+        std::make_unique<RawTile>(input),
+        heights,
+        std::make_unique<StructureBuildTask::Output>(),
+        mesher.Scratch(),
+        std::nullopt,
+        StructureBuildTask::CacheRequest{.Store = store,
+                                         .Io = &io,
+                                         .Source = std::nullopt,
+                                         .SourceKey = 1,
+                                         .ResidentBytesMost = kStructureArtifactBytesMost});
     task.Start(compute, mesher);
     for (size_t slice = 0; slice < 128; ++slice) {
       task.Join(compute);

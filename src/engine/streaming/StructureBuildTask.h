@@ -27,6 +27,7 @@ public:
     Tasks *Io = nullptr;
     std::optional<Data::TileSourceIdentity> Source;
     uint64_t SourceKey = 0;
+    size_t ResidentBytesMost = 0;
   };
 
   struct Output {
