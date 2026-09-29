@@ -43,6 +43,21 @@ before extending route distance or source acquisition.
    overload defers work rather than blocking a frame. No global `OsmElements`
    merge and no graph reconstruction from rendered street meshes.
 
+## Camera turns and storage hierarchy
+
+Streaming demand covers all azimuths around the camera, independently of the render
+frustum. Distance-appropriate render products remain resident before visibility changes;
+a fast 180-degree turn must not expose holes or wait for disk, decode or generation.
+Keep the configured horizon through resident distant representations. Detailed nearby
+products, movement prefetch and eviction hysteresis share a bounded working set.
+`engine/streaming` owns demand and retention; the renderer culls drawing independently.
+SSD holds versioned spatial products; RAM holds bounded decode/upload staging and active
+CPU products; GPU residency holds immediately drawable representations. Derive disk
+capacity from reuse distance and product sizes, IO admission from latency and throughput;
+a fixed quota that repeatedly evicts the active area is not an accepted budget.
+Acceptance includes rapid full rotations and movement back across cell boundaries:
+complete images, no frame-thread IO, bounded transient overlap and measured p99.
+
 ## First executable slice and negative controls
 
 - Implement and test only `GeoCellId` bounds, address normalization and a

@@ -164,6 +164,14 @@ Ich behandle den Gesamtauftrag erst als erreicht, wenn diese Ergebnisse integrie
 - Ich trenne im Streaming IO und Compute und sichere begrenzte Queues, Abbruch und Rückstau.
   Veraltete Ergebnisse überschreiben keinen neueren Zustand. Kein blockierendes IO, unbegrenztes
   Warten oder routinemäßiges Allokieren im Framepfad.
+- Ich nutze SSD, RAM und GPU-Residency als begrenzte Speicherhierarchie: persistente räumlich
+  gebündelte Produkte, asynchrones Vorausladen und einen gemessenen aktiven Arbeitssatz.
+  Ich leite Plattenbudget und IO-Budget aus Wiederverwendung, Latenz und Schreibvolumen ab;
+  SSD-Zugriffe dürfen keinen Frame blockieren. Eine SSD-Kopie allein ist keine Renderbereitschaft.
+- Ich halte die Umgebung rund um die Kamera renderbereit. Eine schnelle Drehung darf weder
+  fehlende Welt noch synchrones Nachladen auslösen. Frustum-Culling begrenzt Zeichenarbeit,
+  nicht die notwendige Rundum-Residency. Entfernungsgestufte Darstellungen erhalten die volle
+  Sichtweite; Vorausladen und Hysterese sichern Bewegung und Detailwechsel.
 - Ich verwende einen festen Simulationszeitschritt mit begrenztem Aufholen und interpoliere
   gültige Zustände für die Darstellung. Sichtbarkeit, LOD, Instancing und Uploads haben Budgets.
   Überlast reduziert Detail kontrolliert oder verschiebt Arbeit.
