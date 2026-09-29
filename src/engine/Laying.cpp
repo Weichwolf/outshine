@@ -1088,6 +1088,7 @@ Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
   }
   const auto advanced = state.Stamping()->Advance({.Footprints = state.Footprints().Footprints(),
                                                    .Points = shapes.Points(),
+                                                   .Rings = shapes.Rings(),
                                                    .VectorGeneration = shapes.Generation(),
                                                    .UnitsMost = kEarthworkStampUnitsPerFrame});
   if (!advanced) {

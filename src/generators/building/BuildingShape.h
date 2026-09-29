@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_BUILDINGSHAPE_H
 #define OUTSHINE_GENERATORS_BUILDING_BUILDINGSHAPE_H
 
+#include "GeographicRing.h"
 #include <span>
 #include <expected>
 #include "Earth.h"
@@ -24,6 +25,7 @@ struct Boxed {
 
 struct BuildingShape {
   std::vector<EastNorth> Ring;
+  std::vector<std::vector<EastNorth>> Holes;
   size_t TidiedAway = 0;
 
   std::vector<uint8_t> PartyWallEdges;
@@ -76,7 +78,9 @@ struct Order {
 MassOf(std::span<const double> ringLatLon,
        Order order,
        const Frontage &street,
-       BuildingScratch &scratch);
+       BuildingScratch &scratch,
+       std::span<const GeographicRing> innerRings = {},
+       std::span<const double> ringPointsLatLon = {});
 
 }
 #endif

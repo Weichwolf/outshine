@@ -19,7 +19,7 @@
 namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
-constexpr uint32_t kVersion = 2;
+constexpr uint32_t kVersion = 3;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -186,6 +186,7 @@ constexpr auto cluster = [](auto &archive, auto &value) {
 constexpr auto footprint = [](auto &archive, auto &value) {
   auto &street = value.Street;
   return archive.Number(value.FirstPoint) && archive.Number(value.PointCount) &&
+         archive.Number(value.FirstHole) && archive.Number(value.HoleCount) &&
          archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
          archive.Number(value.BaseM) && archive.Number(value.SeatM) &&
          archive.Number(value.FootM) && archive.Number(value.Source) &&
@@ -357,9 +358,15 @@ StructureArtifactKey(const RawTile &raw,
   Writer writer;
   const auto structure = [](auto &archive, const RawTile::Structure &value) {
     return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
-           archive.Number(value.SourceFirst) && archive.Number(value.Cell.Index) &&
-           bounds(archive, value.Cell.Footprint) && archive.Number(value.HeightM) &&
-           archive.Number(value.MinimumHeightM) && archive.Number(value.Pitched);
+           archive.Number(value.SourceFirst) && archive.Number(value.FirstHole) &&
+           archive.Number(value.HoleCount) && archive.Number(value.SourceFirstHole) &&
+           archive.Number(value.Cell.Index) && bounds(archive, value.Cell.Footprint) &&
+           archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
+           archive.Number(value.Pitched);
+  };
+  const auto ring = [](auto &archive, const GeographicRing &value) {
+    return archive.Number(value.First) && archive.Number(value.Count) &&
+           archive.Number(value.Exterior);
   };
   const auto way = [](auto &archive, const RawTile::Way &value) {
     return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
@@ -368,9 +375,10 @@ StructureArtifactKey(const RawTile &raw,
   if (!Text(writer, kMagic) || !writer.Number(kVersion) || !Text(writer, producerVersion) ||
       !writer.Number(source.has_value()) || (source && !Identity(writer, *source)) ||
       !writer.List(raw.LatLon, scalar) || !writer.List(raw.Structures, structure) ||
-      !writer.List(raw.Ways, way) || !writer.Maybe(raw.RequestedDetail, scalar) ||
-      !writer.Maybe(raw.RequestedCell, scalar) || !writer.Number(raw.TileSpanM) ||
-      !writer.Number(raw.Extent) || !writer.Number(raw.ClusterTriangles)) {
+      !writer.List(raw.Holes, ring) || !writer.List(raw.Ways, way) ||
+      !writer.Maybe(raw.RequestedDetail, scalar) || !writer.Maybe(raw.RequestedCell, scalar) ||
+      !writer.Number(raw.TileSpanM) || !writer.Number(raw.Extent) ||
+      !writer.Number(raw.ClusterTriangles)) {
     return std::nullopt;
   }
   for (size_t at = 0; at < 3; ++at) {

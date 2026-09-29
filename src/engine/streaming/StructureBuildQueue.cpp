@@ -74,6 +74,19 @@ int PitchedOf(std::string_view said) {
   return said == "flat" ? 0 : 1;
 }
 
+void AppendInnerRings(std::span<const GeographicRing> rings,
+                      std::span<const double> points,
+                      Generators::RawTile &raw) {
+  for (const auto &hole : rings) {
+    if (hole.Exterior) { break; }
+    const auto holeFirst = static_cast<uint32_t>(raw.LatLon.size() / 2);
+    raw.LatLon.insert(raw.LatLon.end(),
+                      points.begin() + static_cast<size_t>(hole.First) * 2,
+                      points.begin() + (static_cast<size_t>(hole.First) + hole.Count) * 2);
+    raw.Holes.push_back({.First = holeFirst, .Count = hole.Count, .Exterior = false});
+  }
+}
+
 void RawOf(const Ground::OsmField &vectors,
            const Ground::BuildingField &prints,
            const Ground::StreetField &streets,
@@ -84,6 +97,7 @@ void RawOf(const Ground::OsmField &vectors,
            Generators::RawTile &raw) {
   raw.LatLon.clear();
   raw.Structures.clear();
+  raw.Holes.clear();
   raw.Ways.clear();
   raw.AnchorEcef = prints.Anchor();
   raw.Eye = eye;
@@ -129,9 +143,15 @@ void RawOf(const Ground::OsmField &vectors,
       raw.LatLon.insert(raw.LatLon.end(),
                         points.begin() + static_cast<long>(ring.First) * 2,
                         points.begin() + static_cast<long>(ring.First + ring.Count) * 2);
+      const auto firstHole = static_cast<uint32_t>(raw.Holes.size());
+      AppendInnerRings(
+          vectors.Rings().subspan(f.FirstRing + r + 1, f.RingCount - r - 1), points, raw);
       raw.Structures.push_back({.LocalFirst = local,
                                 .PointCount = ring.Count,
                                 .SourceFirst = ring.First,
+                                .FirstHole = firstHole,
+                                .HoleCount = static_cast<uint32_t>(raw.Holes.size()) - firstHole,
+                                .SourceFirstHole = f.FirstRing + r + 1,
                                 .Cell = assignedCell.value_or(Generators::StructureCell{}),
                                 .HeightM = heightM,
                                 .MinimumHeightM = vectors.Num(f, "min_height", 0.0),

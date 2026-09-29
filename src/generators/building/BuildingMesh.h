@@ -11,7 +11,7 @@ namespace outshine::Generators {
 class BuildingMesh : public StructureMesher {
 public:
   [[nodiscard]] std::string_view ArtifactVersion() const noexcept override {
-    return "outshine-building-mesh-2";
+    return "outshine-building-mesh-3";
   }
 
   [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override;

@@ -159,11 +159,13 @@ double UnitOf(uint32_t seed, int stream) {
          kMantissaSteps;
 }
 
-void RingInMetres(std::span<const double> latLon, std::vector<EastNorth> &ring) {
+void RingInMetres(std::span<const double> latLon,
+                  LongitudeLatitude origin,
+                  std::vector<EastNorth> &ring) {
   ring.clear();
   if (latLon.size() < 6) { return; }
-  const double refLat = latLon[0];
-  const double refLon = latLon[1];
+  const double refLat = origin.LatitudeDeg;
+  const double refLon = origin.LongitudeDeg;
   for (size_t k = 0; k + 1 < latLon.size(); k += 2) {
     const EastNorth p = EnuOffsetM({.LongitudeDeg = refLon, .LatitudeDeg = refLat},
                                    {.LongitudeDeg = latLon[k + 1], .LatitudeDeg = latLon[k]});
@@ -187,6 +189,28 @@ double SignedArea(std::span<const EastNorth> ring) {
     a += p.EastM * q.NorthM - q.EastM * p.NorthM;
   }
   return 0.5 * a;
+}
+
+bool AssignHoles(BuildingShape &shape,
+                 std::span<const GeographicRing> innerRings,
+                 std::span<const double> ringPointsLatLon,
+                 LongitudeLatitude origin) {
+  for (const auto &inner : innerRings) {
+    if (inner.Exterior || inner.Count < 3 || inner.First > ringPointsLatLon.size() / 2 ||
+        inner.Count > ringPointsLatLon.size() / 2 - inner.First) {
+      return false;
+    }
+    const auto points = ringPointsLatLon.subspan(static_cast<size_t>(inner.First) * 2,
+                                                 static_cast<size_t>(inner.Count) * 2);
+    if (!std::ranges::all_of(points, [](double value) { return std::isfinite(value); })) {
+      return false;
+    }
+    auto &hole = shape.Holes.emplace_back();
+    RingInMetres(points, origin, hole);
+    if (hole.size() < 3) { return false; }
+    if (SignedArea(hole) > 0.0) { std::ranges::reverse(hole); }
+  }
+  return true;
 }
 
 void WholeOf(std::span<const EastNorth> ring, FootprintPiece &p) {
@@ -516,6 +540,7 @@ size_t TidyRing(std::vector<EastNorth> &ring, std::vector<uint8_t> &party) {
 
 void Finish(FootprintPiece &piece, const PartOrder &order, BuildingShape &s) {
   s.Ring.clear();
+  s.Holes.clear();
   s.PartyWallEdges.clear();
   s.TidiedAway = 0;
   s.FrontEdge = -1;
@@ -790,7 +815,9 @@ std::expected<std::span<BuildingShape>, StructureMeshError>
 MassOf(std::span<const double> ringLatLon,
        Order order,
        const Frontage &street,
-       BuildingScratch &scratch) {
+       BuildingScratch &scratch,
+       std::span<const GeographicRing> innerRings,
+       std::span<const double> ringPointsLatLon) {
   constexpr double leastFloorM = std::min({kFloorOutbuildingM,
                                            kFloorHouseM,
                                            kFloorBlockM,
@@ -807,7 +834,9 @@ MassOf(std::span<const double> ringLatLon,
   scratch.Parts.Reset();
   scratch.Stacked.Reset();
   std::vector<EastNorth> &outline = scratch.Outline;
-  RingInMetres(ringLatLon, outline);
+  if (ringLatLon.size() < 6) { return std::unexpected(StructureMeshError::InvalidPlan); }
+  const LongitudeLatitude origin{.LongitudeDeg = ringLatLon[1], .LatitudeDeg = ringLatLon[0]};
+  RingInMetres(ringLatLon, origin, outline);
   if (outline.size() < 3) { return {}; }
   if (SignedArea(outline) < 0.0) { std::ranges::reverse(outline); }
 
@@ -823,7 +852,10 @@ MassOf(std::span<const double> ringLatLon,
   WholeOf(outline, scratch.Whole);
   Finish(scratch.Whole, whole, one);
   if (!one.Valid()) { return {}; }
-  if (order.MinimumHeightM > 0.0) {
+  if (!AssignHoles(one, innerRings, ringPointsLatLon, origin)) {
+    return std::unexpected(StructureMeshError::InvalidPlan);
+  }
+  if (order.MinimumHeightM > 0.0 || !one.Holes.empty()) {
     FaceTheStreet(&one, street);
     scratch.Parts.Next() = one;
     return scratch.Parts.Standing();

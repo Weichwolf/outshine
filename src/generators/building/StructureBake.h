@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
+#include "GeographicRing.h"
 #include <array>
 #include <expected>
 #include <atomic>
@@ -68,6 +69,7 @@ struct RawTile {
     uint32_t LocalFirst = 0;
     uint32_t PointCount = 0;
     uint32_t SourceFirst = 0;
+    uint32_t FirstHole = 0, HoleCount = 0, SourceFirstHole = 0;
     StructureCell Cell;
     double HeightM = 0.0;
     double MinimumHeightM = 0.0;
@@ -82,6 +84,7 @@ struct RawTile {
 
   std::vector<double> LatLon;
   std::vector<Structure> Structures;
+  std::vector<GeographicRing> Holes;
   std::vector<Way> Ways;
   Vec3 AnchorEcef;
   LongitudeLatitude Eye;
@@ -93,7 +96,8 @@ struct RawTile {
   uint32_t ClusterTriangles = 0;
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return CapacityBytes(LatLon) + CapacityBytes(Structures) + CapacityBytes(Ways);
+    return CapacityBytes(LatLon) + CapacityBytes(Structures) + CapacityBytes(Holes) +
+           CapacityBytes(Ways);
   }
 };
 

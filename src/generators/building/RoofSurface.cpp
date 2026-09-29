@@ -2,6 +2,7 @@
 #include <algorithm>
 #include "math/Units.h"
 #include "RoofSurface.h"
+#include <mapbox/earcut.hpp>
 
 #include <cstddef>
 #include <limits>
@@ -132,6 +133,67 @@ struct Ear {
   return nearest <= marginM * marginM;
 }
 
+double PolygonArea(std::span<const EastNorth> ring) {
+  double twice = 0.0;
+  for (size_t at = 0; at < ring.size(); ++at) {
+    const auto &a = ring[at];
+    const auto &b = ring[(at + 1) % ring.size()];
+    twice += a.EastM * b.NorthM - a.NorthM * b.EastM;
+  }
+  return 0.5 * std::abs(twice);
+}
+
+bool FillCourtyard(std::span<const EastNorth> plan,
+                   std::span<const std::vector<EastNorth>> holes,
+                   std::vector<EastNorth> &tris) {
+  std::vector<std::vector<std::array<double, 2>>> polygon;
+  std::vector<EastNorth> vertices;
+  double expectedArea = PolygonArea(plan);
+  const auto append = [&](std::span<const EastNorth> ring) {
+    auto &points = polygon.emplace_back();
+    points.reserve(ring.size());
+    for (const auto &point : ring) {
+      points.push_back({point.EastM, point.NorthM});
+      vertices.push_back(point);
+    }
+  };
+  append(plan);
+  for (const auto &hole : holes) {
+    if (hole.size() < 3 ||
+        !std::ranges::all_of(hole, [&](const auto &point) { return Inside(plan, point, 0.0); })) {
+      return false;
+    }
+    expectedArea -= PolygonArea(hole);
+    append(hole);
+  }
+  if (expectedArea <= 0.0 || vertices.size() > std::numeric_limits<uint32_t>::max()) {
+    return false;
+  }
+  const auto indices = mapbox::earcut<uint32_t>(polygon);
+  const size_t first = tris.size();
+  double actualArea = 0.0;
+  for (size_t at = 0; at + 2 < indices.size(); at += 3) {
+    const auto &a = vertices[indices[at]];
+    const auto &b = vertices[indices[at + 1]];
+    const auto &c = vertices[indices[at + 2]];
+    const double area = 0.5 * ((b.EastM - a.EastM) * (c.NorthM - a.NorthM) -
+                               (b.NorthM - a.NorthM) * (c.EastM - a.EastM));
+    const size_t before = tris.size();
+    if (area > 0.0) {
+      PushTri(tris, a, b, c);
+    } else {
+      PushTri(tris, a, c, b);
+    }
+    if (tris.size() != before) { actualArea += std::abs(area); }
+  }
+  if (tris.size() == first ||
+      std::abs(actualArea - expectedArea) > std::max(1e-6, expectedArea * 1e-8)) {
+    tris.resize(first);
+    return false;
+  }
+  return true;
+}
+
 int Deduped(std::span<Line> lines, int n) {
   int kept = 0;
   for (int i = 0; i < n; i++) {
@@ -254,7 +316,9 @@ double RoofSurface::HeightAt(const EastNorth &enu) const noexcept {
 
 bool RoofSurface::Fill(std::span<const EastNorth> plan,
                        BuildingScratch &scratch,
-                       std::vector<EastNorth> &tris) {
+                       std::vector<EastNorth> &tris,
+                       std::span<const std::vector<EastNorth>> holes) {
+  if (!holes.empty()) { return FillCourtyard(plan, holes, tris); }
   const size_t first = tris.size();
   if (!EarClip(plan, scratch.Poly, tris)) {
     tris.resize(first);
@@ -346,7 +410,15 @@ void RoofSurface::Cover(std::span<const EastNorth> plan,
   Slots<std::vector<EastNorth>> &cells = scratch.Cells;
   Slots<std::vector<EastNorth>> &next = scratch.NextCells;
   cells.Reset();
-  cells.Next().assign(plan.begin(), plan.end());
+  if (Shape_.Holes.empty()) {
+    cells.Next().assign(plan.begin(), plan.end());
+  } else {
+    scratch.Mine.clear();
+    if (!Fill(plan, scratch, scratch.Mine, Shape_.Holes)) { return; }
+    for (size_t at = 0; at + 2 < scratch.Mine.size(); at += 3) {
+      cells.Next().assign(scratch.Mine.begin() + at, scratch.Mine.begin() + at + 3);
+    }
+  }
   for (int i = 0; i < n; i++) {
     next.Reset();
     for (std::vector<EastNorth> &cell : cells.Standing()) {

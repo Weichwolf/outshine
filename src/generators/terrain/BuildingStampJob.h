@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_TERRAIN_BUILDINGSTAMPJOB_H
 #define OUTSHINE_GENERATORS_TERRAIN_BUILDINGSTAMPJOB_H
 
+#include "GeographicRing.h"
 #include "BuildingField.h"
 #include "GroundMesher.h"
 #include "TangentFrame.h"
@@ -19,6 +20,7 @@ public:
   struct Work {
     std::span<const Ground::BuildingField::Footprint> Footprints;
     std::span<const double> Points;
+    std::span<const GeographicRing> Rings = {};
     uint64_t VectorGeneration = 0;
     size_t UnitsMost = 0;
   };
@@ -31,7 +33,10 @@ public:
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
 private:
-  enum class Phase : uint8_t { Unstarted, Choose, Ring, Seam, Done };
+  enum class Phase : uint8_t { Unstarted, Choose, Ring, Seam, Holes, Done };
+
+  [[nodiscard]] std::expected<void, std::string_view> AppendHolePoint(Work work);
+  void FinishStamp();
 
   TangentFrame Frame_;
   uint64_t VectorGeneration_ = 0;
@@ -39,6 +44,8 @@ private:
   EarthworkStamp Current_;
   size_t FootprintCount_ = 0;
   size_t PointCount_ = 0;
+  size_t RingCount_ = 0;
+  size_t NextHole_ = 0;
   size_t NextFootprint_ = 0;
   size_t NextPoint_ = 0;
   size_t NextSeam_ = 0;

@@ -18,6 +18,7 @@
 #include "MvtLayer.h"
 #include "TilePool.h"
 #include "TileSourceIdentity.h"
+#include "GeographicRing.h"
 
 namespace outshine::Ground {
 
@@ -39,10 +40,7 @@ struct OnLayers {
 
 class OsmField {
 public:
-  struct Ring {
-    uint32_t First = 0, Count = 0;
-    bool Exterior = true;
-  };
+  using Ring = GeographicRing;
 
   struct Feature {
     uint32_t FirstRing = 0, RingCount = 0;

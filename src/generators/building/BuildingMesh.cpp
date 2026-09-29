@@ -464,16 +464,20 @@ void Walls(const BuildingShape &s,
            std::span<const EastNorth> wide,
            double lowZ,
            double topZ,
-           Site &site) {
-  const size_t n = s.Ring.size();
+           Site &site,
+           std::span<const EastNorth> boundary = {}) {
+  const bool exterior = boundary.empty();
+  const std::span<const EastNorth> ring = exterior ? std::span(s.Ring) : boundary;
+  const size_t n = ring.size();
   std::vector<double> &breaks = site.Scratch().Breaks;
   for (size_t i = 0; i < n; i++) {
-    const EastNorth &p = s.Ring[i];
-    const EastNorth &q = s.Ring[(i + 1) % n];
+    const EastNorth &p = ring[i];
+    const EastNorth &q = ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
-    const double bays = (s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
-    if (std::cmp_equal(i, s.FrontEdge) && bays >= 2.0 && site.Coarseness() == LevelOfDetail::Fine) {
+    const double bays = (exterior && s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
+    if ((exterior && std::cmp_equal(i, s.FrontEdge)) && bays >= 2.0 &&
+        site.Coarseness() == LevelOfDetail::Fine) {
       FrontWall(s, p, q, bays, lowZ, topZ, site);
       continue;
     }
@@ -494,7 +498,7 @@ void Walls(const BuildingShape &s,
                 bays * now,
                 lowZ,
                 topZ,
-                std::cmp_equal(i, s.FrontEdge) ? Fields::Entrance : Fields::Back,
+                (exterior && std::cmp_equal(i, s.FrontEdge)) ? Fields::Entrance : Fields::Back,
                 site);
       was = now;
     }
@@ -583,7 +587,7 @@ void Plinth(const BuildingShape &s,
 void Floor(const BuildingShape &s, std::span<const EastNorth> ring, double atZ, Site &site) {
   std::vector<EastNorth> &tris = site.Scratch().Tris;
   tris.clear();
-  (void)RoofSurface::Fill(ring, site.Scratch(), tris);
+  (void)RoofSurface::Fill(ring, site.Scratch(), tris, s.Holes);
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
     site.Tri(Face(s, tris[i + 2], atZ, Facade::Plinth),
              Face(s, tris[i + 1], atZ, Facade::Plinth),
@@ -594,16 +598,18 @@ void Floor(const BuildingShape &s, std::span<const EastNorth> ring, double atZ, 
 void Gables(const BuildingShape &s,
             const RoofSurface &roof,
             std::span<const EastNorth> wide,
-            Site &site) {
-  const size_t n = s.Ring.size();
+            Site &site,
+            std::span<const EastNorth> boundary = {}) {
+  const std::span<const EastNorth> ring = boundary.empty() ? std::span(s.Ring) : boundary;
+  const size_t n = ring.size();
   const double eaves = EavesZ(s);
   std::vector<double> &breaks = site.Scratch().Breaks;
   for (size_t i = 0; i < n; i++) {
-    const EastNorth &p = s.Ring[i];
-    const EastNorth &q = s.Ring[(i + 1) % n];
+    const EastNorth &p = ring[i];
+    const EastNorth &q = ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
-    const double bays = (s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
+    const double bays = (boundary.empty() && s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     const bool overhung = wide.size() == n;
     BreaksBoth(roof,
                {.Face = {.From = p, .To = q},
@@ -904,7 +910,25 @@ void RaiseShell(const BuildingShape &s, Site &site) {
   if (s.Roof != RoofKind::Flat) { Gables(s, roof, {}, site); }
 }
 
+void RaiseCourtyard(const BuildingShape &s, Site &site) {
+  const RoofSurface roof(s);
+  const double low = site.LowerZ(s);
+  const double top = EavesZ(s) + (s.Roof == RoofKind::Flat ? s.RiseM : 0.0);
+  Floor(s, s.Ring, low, site);
+  Walls(s, roof, {}, low, top, site);
+  for (const auto &hole : s.Holes) { Walls(s, roof, {}, low, top, site, hole); }
+  Covering(s, roof, s.Ring, top - kSlabM, site);
+  if (s.Roof != RoofKind::Flat) {
+    Gables(s, roof, {}, site);
+    for (const auto &hole : s.Holes) { Gables(s, roof, {}, site, hole); }
+  }
+}
+
 void RaisePart(const BuildingShape &s, Site &site) {
+  if (!s.Holes.empty()) {
+    RaiseCourtyard(s, site);
+    return;
+  }
   if (site.Coarseness() == LevelOfDetail::Shell) {
     RaiseShell(s, site);
     return;
@@ -1058,11 +1082,20 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
                             .HeightMeasured = plan.HeightMeasured,
                             .PitchedShare = plan.PitchedShare},
                            plan.Street,
-                           scratch);
+                           scratch,
+                           plan.InnerRings,
+                           plan.RingPointsLatLon);
   if (!mass) { return std::unexpected(mass.error()); }
   const std::span<BuildingShape> parts = *mass;
   if (parts.empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
 
+  for (const auto &part : parts) {
+    if (part.Holes.empty()) { continue; }
+    scratch.Tris.clear();
+    if (!RoofSurface::Fill(part.Ring, scratch, scratch.Tris, part.Holes)) {
+      return std::unexpected(StructureMeshError::BuildFailed);
+    }
+  }
   Site site(plan, scratch, into);
   const FoundationGround ground(plan);
   for (BuildingShape &part : parts) {

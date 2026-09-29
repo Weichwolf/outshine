@@ -14,6 +14,7 @@
 #include <scene/LevelOfDetail.h>
 
 #include "StoredVertex.h"
+#include "GeographicRing.h"
 #include "TileMeshes.h"
 
 namespace outshine {
@@ -70,6 +71,8 @@ inline constexpr double kPitchedShareUnknown = -1.0;
 
 struct StructurePlan {
   std::span<const double> RingLatLon;
+  std::span<const GeographicRing> InnerRings;
+  std::span<const double> RingPointsLatLon;
   double BaseAslM = 0.0;
 
   double SeatAslM = 0.0;

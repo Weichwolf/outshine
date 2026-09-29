@@ -28,8 +28,10 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
   if (Phase_ == Phase::Unstarted) {
     FootprintCount_ = footprints.size();
     PointCount_ = points.size();
+    RingCount_ = work.Rings.size();
     Phase_ = Phase::Choose;
-  } else if (FootprintCount_ != footprints.size() || PointCount_ != points.size()) {
+  } else if (FootprintCount_ != footprints.size() || PointCount_ != points.size() ||
+             RingCount_ != work.Rings.size()) {
     return std::unexpected("building stamp source dimensions changed during construction");
   }
   size_t visited = 0;
@@ -48,11 +50,17 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
         ++visited;
         continue;
       }
+      if (footprint.HoleCount != 0 &&
+          (footprint.FirstHole > work.Rings.size() ||
+           footprint.HoleCount > work.Rings.size() - footprint.FirstHole)) {
+        return std::unexpected("building courtyard ring range is invalid");
+      }
       Current_ = EarthworkStamp{};
       Current_.RingEastNorthM.reserve(count * 2u);
       Current_.LowE = Current_.LowN = kBeyondAnyCoordinate;
       Current_.HighE = Current_.HighN = -kBeyondAnyCoordinate;
       NextPoint_ = 0;
+      NextHole_ = 0;
       Phase_ = Phase::Ring;
       ++visited;
       continue;
@@ -87,17 +95,58 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
       }
       continue;
     }
+    if (Phase_ == Phase::Holes) {
+      if (const auto appended = AppendHolePoint(work); !appended) {
+        return std::unexpected(appended.error());
+      }
+      ++visited;
+      if (NextHole_ == footprint.HoleCount) { FinishStamp(); }
+      continue;
+    }
     Current_.SeamEastNorthM.push_back(Current_.RingEastNorthM[NextSeam_++]);
     ++visited;
     if (NextSeam_ == Current_.RingEastNorthM.size()) {
-      Stamps_.push_back(std::move(Current_));
-      Current_ = EarthworkStamp{};
-      ++NextFootprint_;
-      Phase_ = Phase::Choose;
+      if (footprint.HoleCount == 0) {
+        FinishStamp();
+      } else {
+        NextPoint_ = 0;
+        Phase_ = Phase::Holes;
+      }
     }
   }
   if (Phase_ == Phase::Choose && NextFootprint_ == footprints.size()) { Phase_ = Phase::Done; }
   return Phase_ == Phase::Done;
+}
+
+void BuildingStampJob::FinishStamp() {
+  Stamps_.push_back(std::move(Current_));
+  Current_ = EarthworkStamp{};
+  ++NextFootprint_;
+  Phase_ = Phase::Choose;
+}
+
+std::expected<void, std::string_view> BuildingStampJob::AppendHolePoint(Work work) {
+  const auto &footprint = work.Footprints[NextFootprint_];
+  const auto &ring = work.Rings[static_cast<size_t>(footprint.FirstHole) + NextHole_];
+  if (ring.Exterior || ring.Count < 3 || ring.First > work.Points.size() / 2 ||
+      ring.Count > work.Points.size() / 2 - ring.First) {
+    return std::unexpected("building courtyard coordinates are invalid");
+  }
+  if (NextPoint_ == 0) {
+    Current_.HoleRingsEastNorthM.emplace_back().reserve(static_cast<size_t>(ring.Count) * 2);
+  }
+  const size_t point = static_cast<size_t>(ring.First) + NextPoint_;
+  const auto local = Frame_.ToLocalPosition({.LongitudeDeg = work.Points[point * 2 + 1],
+                                             .LatitudeDeg = work.Points[point * 2],
+                                             .HeightM = footprint.SeatM});
+  auto &hole = Current_.HoleRingsEastNorthM.back();
+  hole.push_back(local.EastM);
+  hole.push_back(local.NorthM);
+  if (++NextPoint_ == ring.Count) {
+    NextPoint_ = 0;
+    ++NextHole_;
+  }
+  return {};
 }
 
 std::expected<std::vector<EarthworkStamp>, std::string_view> BuildingStampJob::Take() && {

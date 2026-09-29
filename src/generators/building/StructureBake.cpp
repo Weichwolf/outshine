@@ -567,6 +567,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   BuildingField::Footprint fp{};
   fp.MinimumHeightM = static_cast<float>(one.MinimumHeightM);
   fp.FirstPoint = one.SourceFirst;
+  fp.FirstHole = one.SourceFirstHole;
+  fp.HoleCount = one.HoleCount;
   fp.PointCount = ring.Count;
   fp.Street = street;
   if (street.Known) { out.Fronted++; }
@@ -610,7 +612,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   out.Prints.push_back(fp);
   out.FootprintDetails.push_back(level);
 
-  if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0) {
+  if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0 && one.HoleCount == 0) {
     const auto lumped =
         Lump(lumps,
              {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
@@ -626,7 +628,12 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
     return {};
   }
 
+  if (one.FirstHole > raw.Holes.size() || one.HoleCount > raw.Holes.size() - one.FirstHole) {
+    return std::unexpected(StructureMeshError::InvalidPlan);
+  }
   StructurePlan plan;
+  plan.InnerRings = std::span(raw.Holes).subspan(one.FirstHole, one.HoleCount);
+  plan.RingPointsLatLon = raw.LatLon;
   plan.RingLatLon = std::span<const double>(pts.data() + static_cast<size_t>(ring.First) * 2,
                                             static_cast<size_t>(ring.Count) * 2);
   plan.BaseAslM = fp.BaseM;
