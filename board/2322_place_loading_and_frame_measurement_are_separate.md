@@ -65,13 +65,16 @@ stationäre Wiederholungsarbeit WI 2124. Keine weitere Cachekampagne.
 ## Aktive Umsetzung
 
 Für Refined-Preload einer assemblierten Ground-Szene mit aktiver Kamera bereitet
-`SceneRenderer::PrepareWorldUploads` vorhandene Tabellen/Placements vor und reicht
+`SceneRenderer::PrepareWorldResources` vorhandene Tabellen/Placements vor und reicht
 noch ausstehende Uploads mit einem eigenen OwnedFence ein. Die Engine fragt dessen
 Abschluss innerhalb derselben Ladefrist ab und gibt zwischen Abfragen CPU-Zeit frei.
 Währenddessen wird keine neue Welt publiziert; das Fence gehört zum vorbereiteten
 Stand. Fehler/Timeout geben die Diagnose zurück und behalten gültige Ressourcen.
-Keine Render-/Zeit-/Kamerafortschaltung, keine Manipulation der Frame-Fences oder
-Capture-Historie. Groundlose und Playable-Preloads behalten ihren bisherigen Vertrag.
+Die vorhandene gecachte Schattenkarte wird im eigenen LightVisibility-Pass ebenfalls
+vorbereitet und erst nach erfolgreicher GPU-Submission als gültig markiert. Sie ist ein
+GPU-Vorbereitungsprodukt innerhalb der Ladefrist, kein zusätzlicher Szenenframe.
+Keine Zeit-/Kamerafortschaltung oder Manipulation der Frame-Fences/Capture-Historie.
+Groundlose und Playable-Preloads behalten ihren bisherigen Vertrag.
 Das Experiment muss zeigen, welcher Teil des Anlaufausreißers danach noch besteht;
 es verspricht keine bereits gemessene vollständige GPU-Entlastung.
 
