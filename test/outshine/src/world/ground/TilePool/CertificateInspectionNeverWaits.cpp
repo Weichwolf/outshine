@@ -4,6 +4,9 @@
 #include "Transport.h"
 #include "Check.h"
 #include <array>
+#include <atomic>
+#include <cstdint>
+#include <utility>
 #include <chrono>
 #include <cstdlib>
 #include <future>
@@ -43,6 +46,7 @@ public:
 class Provider final : public Source {
 public:
   SourceDecl Decl{.Id = "inspection-dem", .Keeps = Cacheability::Never};
+  std::atomic<uint8_t> Content{7};
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
@@ -53,7 +57,7 @@ public:
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
   Fetched Collect(const Address &, Ticket, Transport &) const override {
-    return Fetched::Delivered({42, 7});
+    return Fetched::Delivered({42, Content.load()});
   }
 };
 
@@ -93,7 +97,9 @@ int main() {
   ContentStore store({.Using = ContentStore::Use::Off});
   SourceSet sources(store);
   NoNetwork transport;
-  CHECK(sources.Add(std::make_unique<Provider>()) == SourceSet::Registration::Accepted,
+  auto provider = std::make_unique<Provider>();
+  Provider *const observed = provider.get();
+  CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
         "local provider registers");
   TilePool pool({.Threads = 1, .ByteBudget = 2, .TerrainRevisionEntries = 2, .Carriers = 1},
                 sources,
@@ -135,10 +141,19 @@ int main() {
   }
 
   (void)deliver(b);
+  const auto identical = deliver(a);
+  CHECK(identical.Dependencies().size() == 1 && certificate.Dependencies().size() == 1 &&
+            identical.Dependencies().front() == certificate.Dependencies().front(),
+        "identical bytes retain provenance after raw cache eviction");
+  inspected = Inspect(pool, certificate);
+  CHECK(inspected.State == Validation::Current && inspected.Allocations == 0,
+        "identical redelivery keeps the old certificate current without allocation");
+  (void)deliver(b);
+  observed->Content.store(8);
   const auto later = deliver(a);
   CHECK(later.Dependencies().size() == 1 && certificate.Dependencies().size() == 1 &&
             later.Dependencies().front() != certificate.Dependencies().front(),
-        "raw eviction followed by another address delivery produces a genuinely new stamp");
+        "changed source bytes after raw eviction produce a genuinely new stamp");
   inspected = Inspect(pool, certificate);
   CHECK(inspected.State == Validation::Stale && inspected.Allocations == 0,
         "a fresh delivery invalidates old stamps without allocation");
