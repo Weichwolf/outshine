@@ -21,7 +21,6 @@ limits is not the repair. Existing HeightField::Request preserves exact ordered 
 TilePool::Field is synchronized and asynchronous. Terrain certificates survive eviction.
 
 ## Ownership and implementation
-
 - StructureBuildQueue owns a bounded source-preparation batch for up to eight missing
   cells from one accepted tile/source, matching the existing eight-cell planner burst.
   StructureCellPlanner supplies the ordered missing requests; Advancing submits one batch.
@@ -61,7 +60,6 @@ TilePool::Field is synchronized and asynchronous. Terrain certificates survive e
   terrain. Source revalidation of already active fronts remains required by 2311.
 
 ## Integration boundary
-
 Owners/files: engine/streaming/StructureBuildQueue, StructureBuildTask and a private
 StructureSourcePreparation owner; StructureCellPlanner, engine/Advancing and existing
 GroundWorldCandidate coordination. Ground::TilePool/HeightField keep their current data
@@ -71,7 +69,6 @@ Whole-tile bootstrap preparation is separately visible, not falsely claimed repa
 2312's paired geometry/proof phases consume this source owner; no smaller LOD bounds here.
 
 ## Acceptance and negative controls
-
 - Same-source multi-cell demand prepares once; independent sources never share. All eight
   cell results retain exact detail/cell/source identity, including partial completion.
 - Existing pinned source versus worker reconstruction agrees on request, raster digest,
@@ -88,7 +85,6 @@ Whole-tile bootstrap preparation is separately visible, not falsely claimed repa
   current frame/timeout/quality limits. No claim of success from fewer calls alone.
 
 ## Evidence and implementation
-
 4b54277f2: 3 Graz tiles/31 fields match native/published rasters; Wien remains unmeasured.
 973b697a5: 24 focused PASS; complete lint/tidy/API PASS, all 258 units with zero findings.
 Complete Places: 38/44 PASS, three TIMEOUT/three UNPREPARED; suite exit 2, pipeline exit 1.
@@ -115,4 +111,8 @@ exit 1 again after refactoring. Logs /tmp/outshine-{source-batch-tidy,repair-973
 Missing published snapshots currently defer; TilePool reconstruction remains to integrate.
 The old single-cell API/pin remains for its existing callers until this runtime gate passes.
 Native fallback, byte-ledger accounting, negative controls and measured improvement stay open.
-Diagnose batch refusal versus throughput next; no reduced LOD bound or completed WI claimed.
+Instrumented 973b697a5 Graz still exceeds 150 s; 128 captures observed, no logged refusal.
+One-second sample: 632/731 main-thread samples wait on a GPU fence; build workers mostly idle.
+Host footprint 7.0 GB, peak 7.7 GB; neither Engine residency nor a causal frame-time result.
+Logs /tmp/outshine-batch-readiness-973b697a5-Graz-{sampled.log,stack.txt}.
+Next: intermediate cell/source and requested-memory snapshots; runtime acceptance remains red.
