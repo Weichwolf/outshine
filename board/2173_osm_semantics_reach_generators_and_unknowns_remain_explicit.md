@@ -66,17 +66,17 @@ POI-Zuordnung nur durch Nähe oder ungeprüfte MVT-ID; keine Wohnfassade aus blo
    ConstructionResult. `plausible` ist der visuelle Standard, `osm-only` der
    strikt quellentreue Prüfmodus. Kein Place-Namen-Preset. Explizites OSM hat
    in beiden Modi Vorrang; Policy-Wechsel darf keine belegte Dachform ändern.
-   Der visuelle Solarpunk-2050-Default darf unbelegte Dach-/Fassadendetails,
-   Begrünung und Energieanlagen nur als markierte plausible Konstruktionen
-   ergänzen. Dachfläche, Last, Sonne, Wasser und Wartungszugang begrenzen sie;
-   `osm-only` und explizite OSM-Material-/Formangaben haben Vorrang.
+   Der Webcam-Meilenstein ergänzt unbelegte Details passend zu Nutzung, Region
+   und Aufnahmezeit; keine Solarpunk-Umgestaltung der beobachteten Bebauung.
+   Dachfläche, Last, Sonne, Wasser und Wartungszugang begrenzen Konstruktionen;
+   explizite OSM-Material-/Formangaben haben Vorrang.
 4. OSM-Brücken/Tunnel/Layers und Stützmauern als Konstruktionen erhalten. Einheitliches
    Höhen-/Kontaktmodell mit 2121; keine Brücke als auf DEM gepresstes Straßenband.
-5. Ausführbarer Massing-Schritt: `generators/building/BuildingShape.cpp` wendet
-   `RowCut` nur auf Terrace an; `WingParts` erhält die Nutzung des Ganzen.
-   Hall-/Terrace-/L-Grundrisse prüfen Teile, Nutzung, Höhe und Dach. Hockenheim
-   Markierungen 3/4 vor/nach öffnen. `make format`, Building-Suite und
-   `LINT_JOBS=2 make lint` müssen bestehen.
+5. Vorhandenes Massing erhalten: `BuildingShape::RowCut` ist bereits auf Terrace
+   beschränkt. Als nächste vollständige Lieferung Originalklassen und Dachformen
+   durch WI 2280 in den Client integrieren: Rosenheims belegter Schornstein ohne
+   Wohnfassade, Flensburgs Kirchenklasse ohne höhenbasierte Bürohausannahme.
+   Dachlose Quellen bleiben plausible Konstruktionen, keine vermessenen Formen.
 
 ## Abnahme
 
@@ -84,16 +84,16 @@ POI-Zuordnung nur durch Nähe oder ungeprüfte MVT-ID; keine Wohnfassade aus blo
       und Brücke überlebt Provider → RawTile → Generator; Tagverlust ist lokalisierbar.
 - [ ] Entfernen expliziter Höhe wechselt sichtbar/protokolliert zur abgeleiteten Verteilung;
       bekannte Höhen werden nie durch die Verteilung überschrieben.
-- [ ] Olympiaturm/Graz/Feldkirch: plausible Nutzungs- und Höhenverteilung ohne Place-ID-Regeln;
+- [ ] Rosenheim/Flensburg/Feldkirch: plausible Nutzungs- und Höhenverteilung ohne Place-ID-Regeln;
       keine Pflicht zur Kopie ungetaggter Landmarken. Tile-/LOD-Wechsel ändert keine Höhe.
 - [ ] `roof:shape=gabled|hipped|flat|mansard` und unbekannter Tag erreichen
       den Generator unterscheidbar; explizite Formen bleiben über Tilefolge,
       LOD und erneuten Import stabil. Ohne Dachtag wird keine Form als gemessen
       ausgegeben. Regionale Stichprobe nennt Dach-Tag-Anteil mit Zähler/Nenner.
 - [ ] Gleiche OSM-/DEM-/Seed-Eingabe rendert unter beiden Policies stabil;
-      nur unbelegte Dächer wechseln. Hockenheim und eine historisch dichte
-      Stadt mit gepinnten OSM-Daten in gleichen Kamera-/Lichtlagen als PNG
-      öffnen: weder serielle Einfamilienhausdächer am Ring noch ausschließlich
+      nur unbelegte Dächer wechseln. Rosenheim und Flensburg mit gepinnten
+      OSM-Daten in gleichen Kamera-/Lichtlagen als PNG öffnen und gegen die
+      Webcam prüfen: keine Wohnfassaden an Sonderbauwerken oder pauschalen
       Flachdächer in der historischen Stadt. Sichtbare Form, Schatten,
       Stadtsilhouette und Framekosten entscheiden über den `plausible`-Prior.
 
