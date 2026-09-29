@@ -344,7 +344,9 @@ void PublishConfiguration(Kept &session,
                                                      std::string &error) {
   if (!picture.Standing || HasGeneratedContent(scenario) || HasGeneratedContent(session.Declared) ||
       !SamePicture(picture.Shown, declared) || !SameStand(picture.Shown, declared) ||
-      session.Declared.Ground.VegetationEnabled != scenario.Ground.VegetationEnabled) {
+      session.Declared.Ground.VegetationEnabled != scenario.Ground.VegetationEnabled ||
+      session.Declared.Providers != scenario.Providers ||
+      session.Declared.Routes != scenario.Routes) {
     return std::nullopt;
   }
   if (!SameSurfaces(picture.Shown.Surfaces, declared.Surfaces) &&

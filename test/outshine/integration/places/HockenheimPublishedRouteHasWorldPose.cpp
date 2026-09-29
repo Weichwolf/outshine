@@ -26,6 +26,7 @@ int main() {
     scene.Render.Declared = true;
     scene.Render.Frame = {160, 90};
     scene.Lit.Declared = true;
+    scene.Time = {.Declared = true, .Live = false, .Start = "2026-09-07T10:40:00Z"};
     scene.Providers.push_back(
         {.Kind = "osm",
          .Revision = "pin-r1",
@@ -124,10 +125,41 @@ int main() {
       const auto refined = engine.preload(0.0, WorldQuality::Refined);
       CHECK(!refined && !engine.settled(WorldQuality::Refined),
             "an incomplete vector fixture cannot claim refined coverage");
+      CHECK(engine.declare(scene) && engine.assemble() && engine.routeInfo("circuit") &&
+                engine.sampleRouteContact("circuit", 0.0, 0.0),
+            "unchanged source and route preserve the published alignment across reuse");
+      auto invalid = scene;
+      invalid.Routes.front().Id.clear();
+      CHECK(!engine.declare(invalid) && engine.routeInfo("circuit") &&
+                engine.sampleRouteContact("circuit", 0.0, 0.0),
+            "a rejected declaration preserves the valid published route and contact");
       scene.Providers.front().Revision = "pin-r2";
-      CHECK(engine.declare(scene) && engine.assemble() && !engine.routeInfo("circuit") &&
-                !engine.sampleRouteContact("circuit", 0.0, 0.0),
-            "a new source revision cannot expose the previously published alignment");
+      const auto changedSource = engine.declare(scene);
+      CHECK(changedSource,
+            changedSource ? "new source declaration succeeds" : changedSource.error().c_str());
+      if (changedSource) {
+        CHECK(!engine.routeInfo("circuit") && !engine.sampleRoute("circuit", 0.0) &&
+                  !engine.sampleRouteContact("circuit", 0.0, 0.0),
+              "a declared source change revokes old metadata, pose and native contact");
+        CHECK(engine.assemble() && !engine.routeInfo("circuit") &&
+                  !engine.sampleRouteContact("circuit", 0.0, 0.0),
+              "a new source revision cannot expose the previously published alignment");
+        const auto rebuiltUntil = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+        while (!engine.routeInfo("circuit") && std::chrono::steady_clock::now() < rebuiltUntil) {
+          const auto advanced = engine.advance();
+          CHECK(advanced, advanced ? "replacement source advances" : advanced.error().c_str());
+          if (!advanced) { break; }
+          if (!engine.routeInfo("circuit")) { SDL_Delay(1); }
+        }
+        CHECK(engine.routeInfo("circuit") && engine.sampleRoute("circuit", 0.0) &&
+                  engine.sampleRouteContact("circuit", 0.0, 0.0),
+              "the replacement source publishes a usable route through ordinary advancement");
+        ++scene.Routes.front().OsmRelationId;
+        CHECK(engine.declare(scene) && !engine.routeInfo("circuit") &&
+                  !engine.sampleRoute("circuit", 0.0) &&
+                  !engine.sampleRouteContact("circuit", 0.0, 0.0),
+              "a changed relation under the same route name cannot reuse old source geometry");
+      }
     }
   }
   SDL_Quit();

@@ -48,3 +48,18 @@ by forcing a full reset; freeze declared time and verify this with the unchanged
   declaration cases; full lint/tidy/API; all Places and personally opened client PNGs.
 - Finish the independent c8c670ea9 surface-proof parameter gate in the combined repaired
   snapshot. CPU surface proofs still grant no smaller runtime building LOD error.
+
+## Implemented and focused evidence
+
+Fixed-clock original engine fails 3/3 executions, always on reused publication:
+/tmp/outshine-route-fixed-probe/results.log. Source comparisons now route changes
+through existing complete preparation/reset. No separate invalidation state added.
+The fixture fixes time, keeps all old requirements, checks immediate metadata/pose/
+contact refusal, valid-source reuse, rejected-declaration preservation, successful
+source rebuild, and changed relation under the same route name.
+
+Format 1213 PASS; ten focused tests PASS. Correct control exits 0; original reuse,
+omitted provider guard and omitted route guard each actually exit 1 (not build failures).
+Targeted clang-tidy on Declaring/StructureSurfaceRefinement has zero user findings.
+Logs /tmp/outshine-route-source-{format,focused,control-results,targeted-tidy}.log.
+Full lint/tidy/API and Places remain pending; do not close the observed failure yet.
