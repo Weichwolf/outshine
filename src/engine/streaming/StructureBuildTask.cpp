@@ -153,7 +153,6 @@ struct StructureBuildTask::Comparison {
       Phase_ = Phase::Surface;
       return;
     }
-    return;
   }
 
   void AdvanceSurface(Output &output, const std::atomic_bool &stopping) {
