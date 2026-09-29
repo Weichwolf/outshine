@@ -96,15 +96,16 @@ Logs: /tmp/outshine-source-fallback-{control-results,correct,original,final-form
 - make format; affected BuildingMesh/StructureBake/StructureBuildTask/StructureBuildQueue,
   StructureCellDetail/TilePieces suites; full lint including clang-tidy and API guards.
 
-## Runtime diagnosis at 6e88154b5
+## Runtime diagnosis
 
-Temporary public-client probes, same 6144-frame boundary: Graz has 45 incomplete tiles,
-all source-current; 2296 required cells minus 782 resident leaves 1514 missing. Next
-missing cells request Fine. Renderer requested subject bytes: Graz 4.9517 GB, Wien
-9.8074 GB; not physical GPU residency. Wien also ends at structure detail in this probe.
-Graz: 126/128 observed height-pin misses exceed 2 MiB; mean resolution 5.93 ms over
-these first observations, not a frame quantile or isolated cause. No source-key mismatches observed.
-Logs: /tmp/outshine-structure-readiness-6e88154b5-{Graz,Wien}.log. Three real Fine/Shell
+4b54277f2 Graz probe at 6144 frames: 45 incomplete, source-current tiles; 2296 required
+minus 901 resident = 1395 missing cells, next requests Fine. 975 cell landings and one
+queued cell prove ongoing work: the user-facing queue=0 counts WHOLE tiles only.
+126/128 height-pin observations exceed 2 MiB; mean resolution 8.41 ms, not a quantile
+or isolated causal cost. No source-key mismatches. /tmp/outshine-structure-readiness-4b54277f2-Graz.log.
+6e renderer requested subject bytes: Graz 4.9517 GB, Wien 9.8074 GB; not GPU residency.
+2311 must coalesce bounded preparation without increasing the cache/frame limits.
+Three real Fine/Shell
 pairs previously stopped with zero queries and 158–311 m bounds. 0d5962a2a resolves
 this CPU limit: Shell uppers 4.10–5.40 m, Massed 63.01–66.04 m, widths <0.02 m;
 /tmp/outshine-native-witness-{shell,massed}-Graz.log. Runtime still uses the old guard.

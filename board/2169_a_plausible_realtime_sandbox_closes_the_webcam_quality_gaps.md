@@ -24,7 +24,8 @@ Alle pixelidentisch zu 0d5962a2a. Refined-PNGs unter `build/shots/places-refined
 Graz/Wien/Olympiaturm als Playable unter `build/shots/places-playable-4b54277f2/`.
 Komplette Places-Suite: 38/44 PASS, 0 FAIL, 2 TIMEOUT, 4 UNPREPARED; Exit 2.
 Olympiaturm überschreitet beide Male 120 s; Graz/Wien erreichen nach 6144 Frames kein Refined.
-Graz: Gebäudedetail offen, Terrain abgeschlossen, Queue leer, 764/767 Landungen.
+Graz: Gebäudedetail offen, Terrain abgeschlossen; Queue=0 zählt nur ganze Tiles.
+Aktuelle Diagnose: 975 Zell-Landungen, eine Zelle in Arbeit; kein belegter Stillstand (2298).
 2316 repariert veraltete Routen/Kontakte nach Quellenwechsel; beide Place-Varianten PASS.
 14 fokussierte Tests und alle Oberflächen-/Routen-Gegenproben PASS. Voller Lint Exit 0:
 257 Tidy-Einheiten ohne Befund, sämtliche Repository-/API-Regeln PASS.
