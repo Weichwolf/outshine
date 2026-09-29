@@ -80,6 +80,8 @@ source errors, instance transforms and draw coverage. Empty piece rows append no
 Owner/test: render/stages/SubjectDraw.cpp and its suite. Use real GPU table readback with
 multiple differently transformed instances and two distinct pieces; check exact sphere
 bytes, job references and retained transforms. Restored duplication must actually FAIL.
+GpuSubmission failure recovery must expect the same shared sphere and distinct batch rows;
+the old duplicated-sphere expectation contradicts both this contract and the culling shader.
 Gate: make format; SubjectDraw/SceneResources suites; complete Places and opened PNGs;
 full lint/tidy/API. Measure actual byte savings and all Place frame costs; smaller tables
 alone neither prove an Engine residency ceiling nor close unchanged GPU-handle reuse.

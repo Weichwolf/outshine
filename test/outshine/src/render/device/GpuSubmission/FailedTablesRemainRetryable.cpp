@@ -438,10 +438,10 @@ void Tables(SDL_GPUDevice *device) {
       CHECK(draw.HandTables(error), "retry without another scene mutation succeeds");
       CHECK(draw.ClusterJobs() == 2 && draw.ClusterBatchRows() == 2,
             "both instance jobs are published only after recovery");
-      const std::vector<uint32_t> expected{0, 0, 0, 3, 1, 1, 0, 3};
+      const std::vector<uint32_t> expected{0, 0, 0, 3, 0, 1, 0, 3};
       CHECK(Read(device, draw.Resident().Buffer(SubjectResidency::Stream::ClusterJobs).Get(), 8) ==
                 expected,
-            "GPU jobs contain both triangles with distinct batch and sphere rows");
+            "GPU jobs share the source sphere and retain distinct instance batches");
     }
   }
 }
