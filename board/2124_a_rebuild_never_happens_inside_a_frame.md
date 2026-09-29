@@ -6,113 +6,59 @@ Area: engine, world
 Parent: 2169
 Depends:
 
-# Rebuilds will leave the frame path and update only changed regions
+# Eine geladene Welt bleibt bei Drehung und Bewegung stabil
 
-## Befund und Ziel
+## Ergebnis
 
-Updates erreicht Grounds(false); Ringbewegung und ankommende Ergebnisse können
-weltweite Arbeit auslösen. Statische Place-Frames messen diese Kosten nicht.
-Geänderte Kacheln und ihre Randabhängigkeiten bestimmen die Arbeit, nicht der Ring.
+Die vollständige Welt bleibt rund um die Kamera resident. Drehen ändert Sichtbarkeit,
+Bewegen ergänzt nur neu benötigte Regionen und Detailstufen. Unveränderte Frames lösen
+keine erneute Ingestion, Kompaktierung oder Generierung aus. Geänderte Quellen betreffen
+nur ihre Produkte und direkten Randabhängigkeiten; alte vollständige Produkte bleiben
+bis zum gültigen Ersatz sichtbar. Sichtweite und Straßenqualität bleiben erhalten.
 
-Vorhanden: Worker-Bakes, TilePool-Felder und geteilte DecodedCache-Daten.
-Ergebnisse tragen ihre Bytes statt sie nach Übergabe erneut aus einem LRU zu lesen.
-Diese Schritte nehmen weder das gesamte Rebuild noch dessen bewegten Framepfad ab.
-Historische Messungen und korrigierte Fehlinterpretationen stehen in Git.
+## Vorhandene Fähigkeit und offene Kosten
 
-**Benchmark**: Unreal trennt FIoDispatcher und asynchrone Aufbauarbeit; RAGE trennt
-Streaming-Threads und Compute. Übernommen: abgeschlossene Produkte per Snapshot,
-begrenzte Übergabe, bisherige vollständige Welt bleibt bis zum Austausch sichtbar.
+Worker-Bakes, geteilte Quelldaten und Terrain-Felder sind vorhanden. DEM-Höhenabfragen
+melden Pending statt den Frame auf Netzwerk-IO warten zu lassen. Wasseraufnahme hält
+bereits geprüfte Höhen und veröffentlicht erst vollständige Tiles; ihre Arbeit ist begrenzt.
+`GroundStack::Restand` merkt abgeschlossene Klassen-, Vektor- und Footprint-Revisionen.
+Gleiche vollständige Eingaben überspringen Ingestion und shrink-to-fit; Quellen-Polling
+und Gesamt-Speichergrenze bleiben aktiv. Close/Open verwirft den Abschlussstempel.
 
-## Umsetzung
+Offen: `Grounds` fragt über `RingWanted` und `Focuses` auch ohne Quellenänderung erneut
+Terrain-Abdeckung und Speicherbestände ab. Rezentrieren und neue Ergebnisse können noch
+weltweite Aufbau-/Uploadarbeit auslösen. Eine schnelle stationäre Ansicht beweist weder
+begrenzte Arbeit bei Bewegung noch das Budget aller Blickrichtungen.
 
-1. Graph, Alignment, Render- und Kontaktprodukte getrennt versionieren. Sicht-LOD
-   darf Navigation/Physik nicht neu erzeugen; alle nutzen konsistente Strukturdaten.
-2. Ground-/Straßen-/Wasseraufbau und Pressing auf Worker aus unveränderlichem Snapshot.
-   Tileänderungen invalidieren nur betroffene Produkte plus direkte Randabhängigkeiten.
-3. Persistente Cluster-/Instanzbereiche; Upload nur geänderter Bereiche. Retable darf
-   bei Ankunft einer Kachel nicht alle Cluster neu bauen. Jobs nach Budget übernehmen.
-4. Beim Rezentrieren nur verlassene Ressourcen freigeben und neue Arbeit anfordern.
-   Abgebrochene/überholte Jobs dürfen keine alte Generation veröffentlichen.
-5. Frame übernimmt vollständigen Snapshot atomar und blockiert weder auf IO noch Worker.
+## Architektur und Umsetzung
 
-## Abnahme
+1. `GroundStack` besitzt Quellaufnahme und Revisionen; `GroundPublication` besitzt
+   Kandidat und atomare Aktivierung. Provider pollen weiter, ohne fertige Inhalte erneut
+   aufzubauen. Quellen-, Terrain-, Footprint- und Projektionsänderungen bleiben getrennt.
+2. `Laying` übernimmt abgeschlossene Workerprodukte aus unveränderlichen Eingaben.
+   Coverage-Anfragen nur bei relevanten Änderungen wiederholen; Pending und Ankunft müssen
+   Fortschritt auslösen. Keine pauschale Abkürzung anhand unveränderter Kameraposition.
+3. Terrain, Straßen und Wasser invalidieren geänderte Regionen plus Randabhängigkeiten.
+   LOD ändert Darstellung, nicht logische Netze oder Physik. Bestehende Render-/Kontakt-
+   Raumreferenzen bleiben konsistent; Terrain- und Quellenzertifikate bleiben verbindlich.
+4. Cluster-/Instanzbereiche resident halten und nur geänderte Bereiche hochladen.
+   Übernahme, Uploads, Queue und temporäre Überlappung begrenzen. Abgelöste Generationen
+   dürfen weder publizieren noch unbegrenzt Ressourcen behalten.
+5. Speichergrenzen gelten auch bei unveränderten semantischen Revisionen: Terrain-Pool und
+   Workerprodukte können unabhängig wachsen. Zählkosten durch Besitzer-Akkumulation lösen,
+   falls gemessen relevant; niemals die Gesamtgrenze durch einen Kamera-Schnellpfad umgehen.
 
-- [ ] Eine Kachel Bewegung kostet proportional deren Änderungen, nicht den ganzen Ring.
-- [ ] Laufende Kamera in allen Places: 720p60 nach 2092, Spitzen und Perzentile angeben.
-- [ ] Während Aufbau bleibt vorherige vollständige Welt sichtbar, ohne Teil-Snapshot.
-- [ ] Brückenrampe, Tunnelportal und gestapelter Knoten: Sim/Render/Kontakt konsistent.
-- [ ] Keine Frame-Allokationen, unbeschränkten Uploads oder Speicherzunahme im Dauerlauf.
-- [ ] Synchrone Rebuild-Mutation verletzt das Frame-/Blockierungsoracle beim Tilewechsel.
+`Tasks` besitzt Queue und Ergebnislebensdauer. Queue-Sättigung, unbekannte/konsumierte
+Handles und Shutdown brauchen definierten Abschluss. Ein unbewiesener Leak ist kein
+Grund für einen Umbau; begrenzte Übergabe und gemessene Kosten entscheiden die Lieferung.
+Nur Netzwerkquellen werden persistent gecacht, keine generierten Produkte.
 
-Nächster Schritt: tatsächliche Aufruf-/Kostenkette beim Rezentrieren erfassen und
-verbliebene weltweite Arbeit durch persistente, versionierte Produkte ersetzen.
+## Abnahme und Widerlegung
 
-## Job-Vertrag an der Übergabe
-
-Tasks::Post (src/base/io/Tasks.cpp) wächst Queue_ ohne Kapazitätsablehnung; Done_ hält
-Ergebnisse bis zum konsumierenden Poll/Wait. Wait wartet nur auf Done_.contains und
-besitzt keinen Fehler für unbekannte oder bereits konsumierte Handles. Work ruft Jobs
-ohne definierten Fehler-/Abbruchabschluss auf. Gegenbeispiel zum pauschalen Leak-Vorwurf:
-VegetationStreaming konsumiert seinen einzelnen Job; ein Leak dieses Consumers ist nicht belegt.
-Job-Slots/Queue begrenzen, ungültige Handles explizit ablehnen, Generation/Abbruch und
-Fehlerabschluss modellieren. Worker-Warten außerhalb des Framepfads ist legitim.
-- [ ] Sättigung, alter Handle, konsumierter Handle und Shutdown mit laufendem Job
-      enden definiert; Frameübernahme bleibt nichtblockierend und budgetiert.
-
-## Download-/Query-Pfad
-
-Place-Rerender: Stack-Sampling belegt Hauptthread in WaterField::Ingest ->
-GroundStream::At -> Oracle::Take -> BytesBlocking -> Fetching::Await.
-Damit blockiert DEM-Nachladen Fortschritt und Preload-Frist trotz IO-Workern.
-Oracle liefert jetzt über TilePool::Bytes Pending und löst später erneut auf.
-Verzögerte Quelle prüft Worker-Zuständigkeit, Pending und spätere korrekte Höhe;
-Altpfad scheitert. Fetching bricht aktive Requests über libcurl-XFERINFO ab,
-auch beim Shutdown. Lokaler HTTP-Test mit einem Worker prüft Freigabe vor Timeout.
-Offen: Carrier-Serialisierung, Queue-Budgets, Mainthread-Decodierung/Aufbau und
-OSM-Gesamtdurchsatz bei kaltem Cache. Der Fix ist keine Streaming-Gesamtabnahme.
-
-## Water admission: bounded height sampling
-
-Rosenheim 8e6642f9: der längste erfolgreiche `GroundStack::Restand` braucht
-23.58 ms, davon Wasser 23.54 ms. `WaterField::Ingest` prüft in einem Aufruf
-484 Punkte in 21.09 ms; die längste `GroundStream::At`-Abfrage braucht 5.44 ms.
-Die Validierung fragt bei Pending erneut und die Materialisierung ein zweites Mal. Besitzer sind
-`WaterField` (Aufnahmezustand und staged Höhen) und `GroundStream` (Höhenquelle).
-
-Wasser-Tiles über mehrere Frames mit gemeinsamem Zeit- und Punktbudget für die
-bis zu vier Kandidaten prüfen. Pro gültigem Ring Höhe oder Loch in stabiler
-Punktreihenfolge merken; Pending wiederholt nur den betroffenen Punkt. Erst nach
-vollständiger Prüfung aus den gemerkten Höhen atomar Courses/Surfaces/Levels
-publizieren und `TileWatermark::Take` ausführen. OSM-Generation verwirft den
-Aufnahmezustand, alte Revisionen dürfen nichts veröffentlichen. Kein grober
-`Resident`-Fallback für definitive Wasserhöhen. Negativkontrolle: Pending nach
-mehreren erfolgreichen Punkten darf keine Teilprodukte und keine doppelten
-Punktabfragen erzeugen. Implementiert: 128 Schritte/2 ms pro Aufnahme, höchstens
-vier staged Kandidaten, Revisionswechsel verwirft sie. Der gezielte Test prüft
-Pending mitten im Ring, Revisionswechsel, große Ringe und Profilgleichheit.
-Zwischenstand: Rosenheim 0/4203 statt 8/3344 Frames über 16.67 ms; der längste
-Wasseraufruf 9.37 ms, davon eine Höhenabfrage 9.00 ms. `TileAt`/`KeepCoarse`
-übernehmen gestitchte Raster jetzt über `TilePool::Field` vom Worker. Der
-gemeinsame Decoded-Cache erlaubt mindestens 32 MiB Arbeitsmenge: Bei konfigurierten
-0 Bytes hatten die wiederaufgenommenen Field-Jobs zuvor alle Vorfelder verworfen
-und endlos neu begonnen. Der Null-Budget-Test verlangt Worker-Field-Fortschritt,
-Pending-Auflösung und identische Quellenrevision. Rosenheim bleibt 8e6642f9;
-Wasseraufruf höchstens 0.376 ms, Höhenabfrage 0.137 ms. 2/3755 Frames liegen
-über 16.67 ms; Draw erreicht 18.53 ms. `FillNodeHeights` bleibt auf dem
-Hauptthread und muss bei einem gemessenen Ausreißer ebenfalls zum Workerprodukt.
-
-## Worker-Phasen
-
-NextJob besitzt priorisierte Queue-Entnahme und Shutdown-Warten, RunJob die Mesh-/
-Field-Ausführung, PublishResult die gesperrte Ergebnisübergabe. Work koordiniert
-Abhängigkeiten und Zeitmessung. Priorität, Locks und Fehlerzustände bleiben erhalten.
-Diese Strukturkorrektur nimmt keine neue Streaming-Fähigkeit ab.
-
-## Aktiver Schritt: residente unveränderte Welt
-
-`GroundStack::Restand` erhält den abgeschlossenen Zustand anhand von Klassen-, Vektor-
-und Footprint-Revision. Unveränderte vollständige Eingaben überspringen erneute Ingestion
-und shrink-to-fit. Quellen-Polling und die Gesamt-Speichergrenze bleiben aktiv; neue Revisionen,
-ausstehende Inhalte und Ortswechsel durchlaufen weiterhin den normalen Pfad. Close/Open
-verwirft den Abschlussstempel. Stationäre Wiederholung, neue deklarierte Inhalte und
-Ortswechsel prüfen; anschließend Place-Drehung und vollständige Gates.
+`make format`, betroffene GroundStack-/Streaming-/Publikations-Suites,
+`LINT_JOBS=2 make lint` und alle Places über outshine-client. Tatsächliche PNGs öffnen.
+Nach maximal zehn Sekunden vollständigem Preload: 60 Frames, 360° in höchstens einer
+Sekunde, p99 höchstens 1000/60 ms. Stationäre Wiederholung, neue Quelldaten und Ortswechsel
+prüfen; Arbeit beim Tilewechsel muss von Änderungen statt vom gesamten Weltring abhängen.
+Fehlende Inhalte, schlechtere Straßen, alte Veröffentlichungen, blockierendes IO oder
+unbegrenztes Speicherwachstum widerlegen die Lieferung. Host und A18 Pro getrennt abnehmen.
