@@ -70,3 +70,11 @@ building pieces with no colours, while the main colour range stays fixed. Remove
 remaining arena-wide optional reservation and apply the same rule to UV storage.
 Logs /tmp/outshine-batch-readiness-4b9afb1de-Graz-gpu-streams.log. No smaller LOD bound.
 Logs: /tmp/outshine-repair-4b9afb1de-{focused,full-lint,full-places}.log.
+
+d35b9a1ed removes eager optional reservation entirely; actual present uploads now own
+UV/colour/tangent/UV1 capacity through the existing transactional Cross path. Required
+streams remain unchanged. Format 1219 PASS; six focused GPU tests PASS, 84 checks.
+Restored 4b9afb1de arena-wide UV/colour reservation yields exit 1 and ten real failures,
+including growth without new consumers; GPU readback preserves present and independent data.
+Full lint/tidy/API, Places/PNGs and the new runtime byte comparison remain pending.
+Logs /tmp/outshine-repair-d35b9a1ed-*.log and /tmp/outshine-2318-consumers-negative-control*.
