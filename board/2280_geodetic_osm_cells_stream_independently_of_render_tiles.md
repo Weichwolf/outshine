@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Parent: 2173
 Depends:
@@ -83,3 +83,26 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   360-degree turn. Format, source/navigation/generator suites, full lint and opened Places
   gate the integrated delivery. Regional source tests supplement all-Place acceptance;
   Hockenheim driving and a completed worldwide router are not prerequisites.
+
+## Active implementation boundary
+
+- Replace transport-owned raw source storage with a shared immutable source snapshot owned
+  by `world/data`; `OsmTransportLoader` consumes it to derive its existing graph. Ground
+  building extraction consumes the same snapshot directly, never through navigation.
+  Preserve the strict `OsmChunkSetLoader` adapter for declared complete fixture sets.
+- `world/ground` resolves closed ways and multipolygon member chains by typed source ID,
+  including inner rings and building-part membership. Keep source tags in the snapshot;
+  native building inputs reference their source object and carry interpreted geometry.
+  Missing required members prevent publication; unrelated route relations do not.
+- Extend `StructureBake::RawTile` and `StructurePlan` together: outer/inner rings, top and
+  minimum height, roof form and building/industrial class must survive through meshing.
+  The current exterior-only `RawOf` loop and height/pitched pair are insufficient. Do not
+  encode original objects into reduced vector-tile properties as an intermediate fix.
+- `StructureBuildQueue` admits source-backed building jobs with the existing DEM sampling,
+  cancellation, cell batching and atomic replacement. Source coverage owns replacement
+  selection; render-tile overlap must not duplicate an original building. Keep existing
+  roads until their original-source replacement is complete and visually verified.
+- First visible acceptance: a source-tagged chimney has no residential windows; a courtyard
+  remains open and a raised building part preserves its clearance. The same two-region
+  scene retains shared-node road connectivity and unchanged content during a full turn.
+  A parser-only success or a source accessor without this client path is not completion.
