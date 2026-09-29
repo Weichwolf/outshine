@@ -33,7 +33,7 @@ offen; identische Cache-Bilder allein beweisen keine ausreichende Ausgangsqualit
 | Erzeuger / Besitzer | Wiederverwendung heute | Fehlende Integration |
 |---|---|---|
 | Registrierte `Generator::make`, `engine/Declaring.cpp` | Keine Ergebnisablage; Redeclaration ruft Producer erneut auf | Versions- und Abhängigkeitsidentität, native Produktablage und Wiederaufnahme |
-| Gebäude, `StructureBake`, `StructureBuildQueue` | Laufende Queue und residente Stücke | Persistente Source-/Zell-/LOD-Produkte einschließlich Geometrie und Fehlerdaten |
+| Gebäude, `StructureBake`, `StructureBuildQueue` | Versionierte Source-/Zell-/LOD-Artefakte und asynchroner Runtime-Lookup implementiert | Prozessneustart, vollständige Places und Kosten noch abnehmen |
 | Terrain, `HeightSheets`, `TerrainRefinementJob`, `TerrainPressJob` | Quelldaten und prozesslokale Felder | Finale verformte Geometrie, Seiten und wiederverwendbare abgeleitete Produkte |
 | Straßen, `Corridors`, `RoadMesher`, `RoadSurfaceBuilder` | Kandidaten und residente Welt | Netzabhängige Profile, Kreuzungen, Meshes und Kontaktprodukte |
 | Wasser, `WaterSurfaceBuilder`, `WaterDepth` | Kandidaten und residente Welt | Quellengebundene Wassergeometrie und statische Tiefenprodukte |

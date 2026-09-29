@@ -280,7 +280,7 @@ StructureArtifactKey(const RawTile &raw,
        !writer.Number(raw.FocalPx))) {
     return std::nullopt;
   }
-  if (!writer.Number(heights.Fallback()) ||
+  if (!writer.Number(heights.CaptureRequest().Zoom) || !writer.Number(heights.Fallback()) ||
       !writer.Number(static_cast<uint64_t>(heights.Blocks().size()))) {
     return std::nullopt;
   }

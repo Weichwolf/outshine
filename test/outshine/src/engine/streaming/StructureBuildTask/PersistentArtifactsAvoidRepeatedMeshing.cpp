@@ -89,6 +89,21 @@ int main() {
   }
   const auto key = StructureArtifactKey(raw, *heights, std::nullopt, second.ArtifactVersion());
   CHECK(key.has_value(), "complete manifest has an identity");
+  CHECK(StructureArtifactKey(
+            raw, *Ground::HeightField::Of(1, {block}), std::nullopt, second.ArtifactVersion()) !=
+            key,
+        "sampling zoom participates even when supplied block bytes match");
+  auto changedBlock = block;
+  changedBlock.Nodes.front() = 1.0f;
+  CHECK(StructureArtifactKey(raw,
+                             *Ground::HeightField::Of(0, {changedBlock}),
+                             std::nullopt,
+                             second.ArtifactVersion()) != key,
+        "DEM sample bytes participate in identity");
+  CHECK(StructureArtifactKey(raw, *heights, std::nullopt, "changed-producer") != key,
+        "producer version invalidates derived content");
+  CHECK(!StructureArtifactKey(raw, *heights, std::nullopt, ""),
+        "unversioned producer cannot create a cache identity");
   if (key) { std::ofstream(root / *key, std::ios::binary) << "broken"; }
   CountingMesh repair;
   auto repaired = run(raw, repair);
