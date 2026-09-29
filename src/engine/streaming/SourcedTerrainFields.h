@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_SOURCEDTERRAINFIELDS_H
 #define OUTSHINE_ENGINE_STREAMING_SOURCEDTERRAINFIELDS_H
 
+#include <cstddef>
+#include <expected>
 #include <memory>
 #include <optional>
 #include <span>
@@ -15,6 +17,12 @@ namespace outshine {
 class SourcedTerrainFields {
 public:
   using Entry = std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>;
+
+  enum class CaptureError { InvalidRequest, MissingSource, OverBudget };
+
+  [[nodiscard]] static std::expected<SourcedTerrainFields, CaptureError> Capture(
+      std::span<const Entry> fields, std::span<const Ground::TileSpot> requests, size_t bytesMost);
+  [[nodiscard]] size_t RetainedBytes() const noexcept;
 
   SourcedTerrainFields() = default;
 

@@ -97,3 +97,14 @@ This does not prove ancestor/seam variants or all Places. Wien yielded no publis
 at 6144 frames its candidate was still in earthworks, so equivalence remains unmeasured.
 Logs /tmp/outshine-source-equivalence-4b54277f2-{Graz,Wien}.log. Diagnostic exits 1 reflect
 unmet Refined readiness; no source mismatch was observed in the measured Graz fields.
+
+## Implemented source subset
+
+SourcedTerrainFields::Capture retains only the exact/ancestor entries required by ordered
+requests, rejects missing/invalid requests and an insufficient retained-byte reservation.
+Shared ancestor rasters count once. Copy and Capture use the same source-selection function.
+New fixture covers exact precedence, shared-ancestor budget, one-byte-short refusal,
+unrelated source release and lifetime after the original owner releases its references.
+Format 1214 PASS; four SourcedTerrainFields/HeightSheets tests PASS. Full lint/Places pending.
+Worker assembly, transient preparation-byte admission and runtime batch/queue integration
+remain open; this subset alone does not remove synchronous preparation from PostsCell.
