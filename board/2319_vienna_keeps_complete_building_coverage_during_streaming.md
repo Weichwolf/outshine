@@ -7,78 +7,64 @@ Depends:
 Area: engine, streaming, render
 Tags: buildings, publication, visual
 
-# Wien behält seine Gebäude während Laden und Bewegung
+# Wien lädt seine vollständige Stadt innerhalb des Place-Budgets
 
 ## Ergebnis
 
-Die aus vorhandenen Quelldaten erzeugte Stadt steht vollständig im Bild. Ein neuer
-Kandidat oder Detailwechsel darf keine bereits sichtbaren Gebäude verschwinden lassen.
-Wien ist der erste Regressionsfall; die Lösung gilt für alle Places.
+Wien, CentralPark und Shibuya stehen aus gecachten Netzwerkquellen vollständig innerhalb
+zehn Sekunden bereit. Die anschließende 360°-Drehung verliert keine Gebäude. Bestehende
+Straßen und Terrain-Anschlüsse bleiben erhalten; keine Sichtweitenkürzung oder Place-Sonderpfade.
 
-## Aktueller Blocker und nächste Reparatur
+## Vorhandene Fähigkeit und tatsächlicher Engpass
 
-`c769a231a` erzwingt Shell für implizite SourceGeometry-Aufträge und umgeht damit die
-vorhandene entfernungsabhängige Zusammenfassung vor der Generierung. Diesen Zwang
-entfernen. Implizite Aufträge wählen wieder Fine/Shell/Massed nach Projektionsbeitrag;
-explizite LOD-Aufträge bleiben deterministisch und kameraunabhängig. Quellrevision und
-Reservierungsbesitz bleiben von Kamerabewegung unabhängig, damit laufende Arbeit landet.
-Das Kamera-/LOD-abhängige Erstprodukt ist eine Zwischenrepräsentation; die bestehende
-Zellverfeinerung bleibt für die aktuelle Detailabnahme zuständig. Keine kleinere
-Fehlerschranke behaupten und keine fehlenden Gebäude als Zusammenfassung ausgeben.
-Der Test, der implizit überall Shell verlangt, spezifiziert die verworfene Architektur.
-Er muss stattdessen entfernte Zusammenfassung, erhaltene nahe Details, stabile explizite
-LOD-Produkte und Landung nach Kamerabewegung prüfen.
-Netzwerk-Quelldaten bleiben gecacht. Der Wiederherstellungsnachweis darf keine persistenten
-Geometrieprodukte voraussetzen; deren Runtime-Anbindung gemäß Nutzerauftrag entfernen.
-Cachedateien erhalten. Kompression allein hat CentralPark nicht vollständig laden lassen.
-Abnahme: CentralPark, Wien und Shibuya aus denselben Quelldaten mit voller Sichtweite,
-Generierungs-/Uploadmengen und vollständigen Bildern; anschließend alle Places.
+Implizite Quellenaufträge wählen wieder Fine/Shell/Massed nach Entfernung. Explizite
+Detailaufträge bleiben kameraunabhängig. Der persistente Gebäudeprodukt-Cache ist vom
+Runtime-Pfad getrennt. Diese Reparatur allein löst das Ladeproblem der drei Städte nicht.
+Ganzkacheln bleiben bis zur atomaren Übernahme quellgültiger Zellen sichtbar; abgelöste
+Jobs und übergebene CPU-Bakes werden freigegeben. Starre Pieces teilen den Vertexbuffer
+mit der Darstellung voriger Positionen. Diese funktionierenden Verträge bleiben erhalten.
 
-## Vorhandene Fähigkeit
+Die Zusammenfassung setzt acht Blöcke je Quellkachel voraus. Bei Wiens Zoom 14 ergeben
+sich rund 1.629 m Kachelbreite und 101,8 m angenommener Fehler (Breite / 16).
+Bei 720 Pixel Bildhöhe und 38,04° Bildwinkel beträgt die Brennweite etwa 1.044 Pixel;
+101,8 m × 1.044 px / 1 px + 128 m Schutzabstand erlauben Massed erst ab etwa 106 km.
+Damit erklärt `lumped=0` keinen defekten Zweig: Diese Regel entlastet die nähere Stadt kaum.
+`StructureCellDetail` verlangt außerdem meist Fine, weil der ganze Zellumfang als
+Fehler angenommen wird. Shell erzeugt inzwischen native Grundrisse, Dächer und Sockel;
+der Name allein garantiert keine kleine Geometrie. Published-Byte-Summen sind kein Peak-RAM.
 
-Abgelöste Zelljobs werden freigegeben; der Planer priorisiert vollständige Detailkacheln.
-TilePieces behält die quellgültige Ganzkachel bis zur atomaren Detailaktivierung.
-Fertige CPU-Bake-Vektoren werden nach Commit/Discard freigegeben.
-Starre Pieces verwenden ihren Vertexbuffer auch für vorige Positionen; deformierende
-Subjects behalten einen separaten Posebuffer. Objekt- und Kamerabewegung bleiben erhalten.
-Im vergleichbaren Hockenheim-Profil sinkt die reservierte Previous-Kapazität von
-242.221.056 auf 5.984.256 Byte: 236.236.800 Byte vermiedene Doppelhaltung.
-Das ist ein Kapazitätsnachweis, kein Nachweis für notwendigen Gesamtspeicher oder A18-Laufzeit.
-Der warme Client benötigt weiterhin mehr als das angestrebte Ladebudget; die vollständige
-Place-Abnahme bleibt wegen fehlender Aufnahmen rot; der vollständige Lint der
-Speicherreparatur ist bestanden. Die Kompressionsänderung durchläuft ihr eigenes Gate.
+## Nächster vollständiger Schritt
 
-## Umsetzung und Besitzer
+1. `StructureBake` und `BuildingMesh` getrennt nach Quellenprodukt und Zellprodukt betrachten:
+   Welche Geometrie wird für dieselbe Stadt mehrfach erzeugt und welche bleibt resident?
+   Fine/Shell/Massed an identischen Quelldaten vergleichen; Generierungszeit, Dreiecke,
+   Upload und belegte Silhouetten-/Oberflächenabweichung bestimmen. Keine weitere Cachekampagne.
+2. Vorhandene quellgültige Produkte innerhalb ihrer nachgewiesenen Qualitätsgrenzen
+   wiederverwenden. `StructureCellPlanner` darf teure Fine-Zellen nur verlangen, wenn die
+   vorhandene Darstellung das projizierte Fehlerbudget tatsächlich nicht nachweislich erfüllt.
+   Kleinere Schranken benötigen die Runtime-Übertragung aus WI 2312; CPU-Beweise allein reichen nicht.
+3. Entfernte Zusammenfassung vor Geometrieerzeugung an nachgewiesene räumliche Fehler binden.
+   Die derzeitige Blockgröße nicht willkürlich verkleinern oder Grenzwerte erhöhen.
+   Gebäudehöhen, Silhouetten, Öffnungen und Materialwirkung getrennt erhalten und prüfen.
+   Fehlender Nachweis erhält den konservativen Fallback und bleibt als Kostenblocker offen.
 
-GroundPublication/GroundWorldCandidate besitzen Kandidat und Veröffentlichung;
-StructureBuildQueue besitzt Quellen-Bakes, ArtifactStore persistente Produkte und
-Verdrängung, TilePieces aktive Gebäudeprodukte, SubjectResidency die GPU-Reserven.
-Für identische Kamera und Quellen den Weg Quelle → Cacheprodukt → residente Pieces
-→ aktive Auswahl → sichtbare Geometrie verfolgen. Den ersten belegten Engpass reparieren.
-Cache-Schlüssel müssen alle produktbestimmenden Eingaben enthalten; positionsabhängige
-Indizes nicht entfernen, ohne das gespeicherte Produkt korrekt neu zu binden.
-Bei Verdrängung den tatsächlich benötigten räumlichen Arbeitssatz und Wiederverwendung
-bestimmen; IO, Compute und Upload getrennt begrenzen. Keine synchrone Nachladung im Frame.
-Eine gültige Darstellung bleibt verfügbar, bis ein vollständiger quellpassender Ersatz
-übernommen wird. Frustum-Culling darf die notwendige Rundum-Residency nicht entfernen.
-Keine Place-Sonderpfade, Sichtweitenkürzung, ausgelassenen Gebäude oder erhöhten Gate-Limits.
-Kompakte Normalattribute sind eine spätere Speicheroption, kein Ersatz für vollständiges Laden.
+## Besitzer und unveränderliche Verträge
 
-## Speicher und Abnahme
+`StructureBuildQueue` besitzt Aufträge und begrenzte Worker-Arbeit; `BuildingField` die
+quellqualifizierten Eingaben; `TilePieces` aktive Produkte und Auswahl; `SubjectResidency`
+die GPU-Reserven. `GroundPublication` besitzt Kandidat und Veröffentlichung.
+Quellrevision, Terrain-Zertifikat und Produktidentität gelten bis zur Aktivierung.
+Veraltete Ergebnisse dürfen weder neue Produkte ersetzen noch gültige Gebäude entfernen.
+Frustum-Culling reduziert Zeichenarbeit, nicht die notwendige Rundum-Verfügbarkeit.
+Nur Netzwerkquellen werden persistent gecacht; vorhandene Cachedateien bleiben erhalten.
+CPU-/GPU-Produkte und temporäre Überlappung haben begrenzte Besitzer und Freigabegrenzen.
+Unified Memory nicht doppelt zählen; hoher Verbrauch rechtfertigt keinen Bedarf.
 
-Hoher Verbrauch rechtfertigt keinen Bedarf. Je Besitzer aktive Menge, Elementgröße,
-Kapazität, temporäre Überlappung und Freigabegrenze bestimmen. CPU-Produkte, GPU-Streams,
-Transferbuffer und Prozess-Footprint getrennt führen; Unified Memory nicht doppelt zählen.
-Kaltstart, warmes Laden und Bewegung unterscheiden. Host-Ergebnisse belegen keine A18-Leistung.
-Nach Codeänderungen: `make format`, betroffene Suite, `LINT_JOBS=2 make lint` und
-`JOBS=1 make suite SUITE=outshine/integration/places`; Logs im System-Tempverzeichnis.
-Alle tatsächlichen Hash-PNGs öffnen und mit erhaltenen Vorherbildern vergleichen.
-Fehlende Bilder, unvollständige Quellen und nicht erklärte Bildverschlechterungen bleiben rot.
+## Abnahme und Widerlegung
 
-## Fertig, wenn
-
-Wien zeigt bei gleicher Kamera die vorhandenen Gebäude ohne Publikationslöcher.
-Warme Produkte werden wiederverwendet; Laden, Bewegung und schnelle Kameradrehung verlieren
-keine quellgültige Stadt. Volle konfigurierte Sichtweite und Qualitätsanforderungen bleiben
-erhalten. Alle Places bestätigen vollständige Bilder und ihre Laufzeit-/Speicherbudgets.
-Straßen, Materialien und räumliche Fassadendetails bleiben anschließende Feature-Lieferungen.
+`make format`, betroffene Generator-/Queue-/Planer-Suites, `LINT_JOBS=2 make lint` und
+`JOBS=1 make suite SUITE=outshine/integration/places`. Alle tatsächlichen Hash-PNGs öffnen
+und mit erhaltenen Vorherbildern vergleichen. Kostenänderungen bei denselben Quellen und
+Ansichten nachweisen; Host und A18 Pro getrennt beurteilen. Logs im System-Tempverzeichnis.
+Die Lieferung scheitert an fehlenden Gebäuden, schlechteren Straßen/Materialien/Silhouetten,
+verlorenen OSM-Eigenschaften, überschrittenen Place-Budgets oder unbewiesenen Fehlerschranken.
