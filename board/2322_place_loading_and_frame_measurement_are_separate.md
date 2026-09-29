@@ -35,13 +35,17 @@ Vorhandene Hash-PNGs erhalten; vollständige Inhalte und Bildänderungen selbst 
 
 ## Nächster Engpass
 
-Vollständiges Koerbersee erreicht die feste Messung und dasselbe Bild, überschreitet
-aber das warme Ladeziel. Ein anderer Lauf bleibt bei Source-Bakes ohne aktive Jobs
-stehen; die Ankunftsreihenfolge ist deshalb weiter zu prüfen. Ein Stack-Sample zeigt
-zusätzlich wiederholte vollständige Speicherzählung und Patchwork-Anfragen innerhalb
-von `FlushPreloadGround` → `Grounds` → `RingWanted`. Vor weiterem Detailausbau prüfen,
-welche Arbeit nur bei geändertem Quell-/Kamerastand erforderlich ist. Keine benötigte
-Revision überspringen und keine Speichergrenze durch abgeschaltete Prüfung umgehen.
+Graz erhält identische Terrain-Bytes aus derselben Quelle erneut. `TilePool` vergibt
+jedes Mal eine neue Lieferrevision; bereits gehaltene Kandidatenfelder werden dadurch
+stale und ihre Gebäudeaufträge endlos zurückgestellt. `TerrainRevisionIndex` muss
+identische Lieferungen bei noch vorhandener Registrierung idempotent erkennen.
+`TilePool` liefert dafür einen SHA-256-Fingerprint aus angefragter/gelieferter Adresse,
+Quellidentität, Abwesenheitsstatus und Payload. Geänderte Bytes oder Provenienz vergeben
+weiterhin eine neue Revision. Unbekannte/eviktierte Registrierungen bleiben konservativ;
+keine Freigabe durch bloß gleiche Koordinaten oder deaktivierte Zertifikatsprüfung.
+Metadaten bleiben im bestehenden begrenzten Index, ohne Terrain-Bytes dort zu halten.
+Zusätzlich zeigt ein Stack-Sample wiederholte Speicherzählung und Patchwork-Anfragen
+innerhalb `FlushPreloadGround` → `Grounds` → `RingWanted`; erst den Stillstand schließen.
 
 ## Abnahme
 
