@@ -504,6 +504,17 @@ void IncludeFootprint(BakedTile &out, const StructureCell &cell) {
   }
 }
 
+bool ValidStructureHeights(const RawTile::Structure &structure) {
+  return std::isfinite(structure.MinimumHeightM) && structure.MinimumHeightM >= 0.0 &&
+         (structure.MinimumHeightM == 0.0 ||
+          (std::isfinite(structure.HeightM) && structure.HeightM > structure.MinimumHeightM));
+}
+
+bool HasSourceHeight(const RawTile::Structure &structure) {
+  return structure.HeightM > 0.0 && (structure.MinimumHeightM > 0.0 ||
+                                     std::fabs(structure.HeightM - kFillHeightM) > kSameHeightM);
+}
+
 std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 const outshine::Ground::HeightField &heights,
                                                 const StructureMesher &mesher,
@@ -552,19 +563,14 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   const Frontage street = NearestStreet(pts, ring, ways, &standBackM, stopping);
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
 
-  if (!std::isfinite(one.MinimumHeightM) || one.MinimumHeightM < 0.0 ||
-      (one.MinimumHeightM > 0.0 &&
-       (!std::isfinite(one.HeightM) || one.HeightM <= one.MinimumHeightM))) {
-    return std::unexpected(StructureMeshError::InvalidPlan);
-  }
+  if (!ValidStructureHeights(one)) { return std::unexpected(StructureMeshError::InvalidPlan); }
   BuildingField::Footprint fp{};
   fp.MinimumHeightM = static_cast<float>(one.MinimumHeightM);
   fp.FirstPoint = one.SourceFirst;
   fp.PointCount = ring.Count;
   fp.Street = street;
   if (street.Known) { out.Fronted++; }
-  if (one.HeightM > 0.0 &&
-      (one.MinimumHeightM > 0.0 || std::fabs(one.HeightM - kFillHeightM) > kSameHeightM)) {
+  if (HasSourceHeight(one)) {
     fp.HeightM = static_cast<float>(one.HeightM);
     fp.Source = BuildingField::HeightSource::Osm;
     out.OsmHeights++;
