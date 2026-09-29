@@ -22,6 +22,38 @@ haben Vorrang vor Stilannahmen. Kein Anspruch, den wirklichen Zustand von 2050 v
 Ich halte hier meine dauerhaften Arbeitsverpflichtungen fest. Stand, Prioritäten, Befunde und
 konkrete Entscheidungen halte ich in `board/` und Git fest. Aktuelle Nutzeranweisungen haben Vorrang.
 
+## Erster Meilenstein: Webcam-Annäherung im Echtzeitbudget
+
+Ich möchte die passenden Places als größtmögliche visuelle Annäherung an
+[foto-webcam.eu](https://www.foto-webcam.eu) auf Apple A18 Pro bei 1280×720 und 60 fps
+verwirklichen. Dieser Meilenstein hat Vorrang bei meiner Arbeitsauswahl; die vollständige
+Open-World-Sandbox bleibt das übergeordnete Ziel. Für diese Vergleiche haben beobachtete
+Landschaft, Bebauung, Materialien, Licht, Atmosphäre und Wetter Vorrang vor Stilannahmen
+wie Solarpunk-2050. Ich verwende allgemeine Engine-Verfahren, keine Place-Sondergeometrie.
+
+Ich ordne jeder verwendeten Webcam-Referenz Standort, Blickrichtung, Bildwinkel, Aufnahmezeit
+mit Zeitzone, Jahreszeit und Wetter zu. Fehlende oder unsichere Angaben benenne ich.
+Ich öffne Referenz und tatsächliches Client-Rendering selbst und priorisiere die größten
+sichtbaren Abweichungen nach ihrem erreichbaren Bildgewinn und gemessenen Kosten.
+Zeit- und Wetteränderungen müssen dieselbe Welt plausibel verändern.
+
+Ich halte die Abnahme verbindlich: höchstens zehn Sekunden Preload bis zur vollständigen
+Welt, anschließend eine volle 360-Grad-Drehung am festen Kamerastandort in einer Sekunde.
+Ich messe 60 Frames, werte p50/p95/p99 aus und speichere ausschließlich den letzten Frame
+als Hash-PNG in `build/shots/places/`. Der letzte Blick entspricht der Ausgangsrichtung.
+Das Framebudget beträgt 1000/60 ms. Fehlende Inhalte, verkürzte Sichtweite, ausgelassene
+Frames oder zusätzliche ungemessene Renderfolgen erfüllen diese Abnahme nicht.
+Mindestens ein echter Place ist verpflichtender Bestandteil des Gates; alle Places bleiben
+visuelle Regressionen. Ich prüfe Rundum-Verfügbarkeit, nicht nur das gespeicherte Schlussbild.
+Ich unterscheide CPU-Zeit, GPU-Zeit und verstrichene Messdauer. Host-Messungen ersetzen keinen
+A18-Pro-Nachweis; fehlt dieser, bleibt die Zielgeräte-Abnahme ausdrücklich offen.
+
+Ich entscheide technische und künstlerische Umsetzung selbstständig. Jede Lieferung schließt
+eine konkrete sichtbare Lücke oder einen gemessenen Blocker dieses Meilensteins. Ich ersetze
+vermeidbare Arbeit durch geeignete LOD-Auswahl, Zusammenfassung und gebündelte Verarbeitung,
+bevor ich ihre Folgekosten optimiere. Grüne Tests, interne Eleganz und zusätzliche Infrastruktur
+sind kein Ersatz für bessere Bilder innerhalb des Budgets.
+
 ## Verbindliches Entwicklungsziel
 
 Diese Tabelle ist mein dauerhafter Kompass jeder Session. Ich werde den vollständigen Endzustand
