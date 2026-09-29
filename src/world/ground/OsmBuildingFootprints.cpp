@@ -88,15 +88,11 @@ CloseRing(std::vector<uint64_t> ring,
   while (ring.front() != ring.back()) {
     const auto &incident = junctions.find(ring.back())->second;
     const size_t next = used[incident[0]] ? incident[1] : incident[0];
-    if (used[next]) {
-      return std::unexpected(
-          OsmFootprintError{.Code = OsmFootprintErrorCode::InvalidRing, .Source = source});
-    }
+    if (used[next]) { return std::unexpected(OsmFootprintErrorCode::InvalidRing); }
     used[next] = true;
     const auto &nodes = ways[next]->NodeIds;
     if (nodes.size() - 1 > remaining - (ring.size() - 1)) {
-      return std::unexpected(
-          OsmFootprintError{.Code = OsmFootprintErrorCode::PointBudgetExceeded, .Source = source});
+      return std::unexpected(OsmFootprintErrorCode::PointBudgetExceeded);
     }
     if (nodes.front() == ring.back()) {
       ring.insert(ring.end(), nodes.begin() + 1, nodes.end());
