@@ -111,4 +111,6 @@ remain open; this subset alone does not remove synchronous preparation from Post
 
 9218f118d full tidy finishes 257 units with five findings: three direct-include diagnostics
 and two signed shift operands. Add cstddef/expected and cast validated zoom to uint32_t;
-format 1214 PASS. Repository rules still running; corrected-code gates remain pending.
+89a13c893: format 1214, four focused tests and full lint/tidy/API PASS (257 units, zero
+findings). Places gate running; three Playable PNGs opened. Runtime integration stays open.
+Logs /tmp/outshine-repair-89a13c893-{gate-results,focused,full-lint}.log.
