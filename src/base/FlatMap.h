@@ -58,10 +58,16 @@ public:
   }
 
   void Clear() noexcept {
+    if constexpr (std::is_trivially_destructible_v<Value>) {
+      if (Epoch_ != std::numeric_limits<uint32_t>::max()) {
+        ++Epoch_;
+        Held_ = 0;
+        return;
+      }
+    }
     for (size_t at = 0; at < Capacity_; ++at) {
       Slot &one = Slots_.get()[at];
-      if (one.Epoch != Epoch_) { continue; }
-      one.Held.reset();
+      if (one.Epoch == Epoch_) { one.Held.reset(); }
       one.Epoch = 0u;
     }
     if (++Epoch_ == 0u) { Epoch_ = 1u; }
