@@ -521,7 +521,10 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   }
   if (raw.RequestedCell && one.Cell.Index != *raw.RequestedCell) { return {}; }
   const Ring ring{.First = one.LocalFirst, .Count = one.PointCount};
-  if (ring.Count < 3 || ring.Count > kMostRingPoints) { return {}; }
+  if (ring.Count < 3 || ring.Count > kMostRingPoints) {
+    ++out.SkippedRings;
+    return {};
+  }
   const Seated seated = RingBase(heights, pts, ring, corners);
   if (!seated.Stood) {
     ++out.NoGround;
@@ -688,6 +691,7 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     out.Blocks = 0;
     out.NoGround = 0;
     out.UnsupportedMeshes = 0;
+    out.SkippedRings = 0;
     out.FallbackHeights = heights.Fallback();
     out.RequestedDetail = raw.RequestedDetail;
     out.RequestedCell = raw.RequestedCell;

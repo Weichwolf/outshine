@@ -16,11 +16,17 @@ namespace outshine {
 
 class StructureBuildTask {
 public:
+  struct ProofRequest {
+    uint64_t SourceKey = 0;
+    Generators::StructureSurfaceRefinementLimits Limits;
+  };
+
   struct Output {
     std::optional<Generators::BakedTile> Tile;
     std::expected<void, Generators::StructureBakeError> Status;
     double BakeMs = 0.0;
     size_t LastRanges = 0;
+    size_t LastProofWork = 0;
     double LastRangeMs = 0.0;
     double FinalizationMs = 0.0;
     double LastQueueMs = 0.0;
@@ -31,7 +37,8 @@ public:
                      std::unique_ptr<Generators::RawTile> raw,
                      std::shared_ptr<const Ground::HeightField> heights,
                      std::unique_ptr<Output> output,
-                     std::unique_ptr<MeshScratch> scratch);
+                     std::unique_ptr<MeshScratch> scratch,
+                     std::optional<ProofRequest> proof = std::nullopt);
   ~StructureBuildTask();
   StructureBuildTask(const StructureBuildTask &) = delete;
   StructureBuildTask &operator=(const StructureBuildTask &) = delete;
@@ -68,6 +75,8 @@ public:
   [[nodiscard]] std::unique_ptr<MeshScratch> TakeScratch() noexcept;
 
 private:
+  struct Comparison;
+
   enum class State : uint8_t { Empty, Ready, Running, Completed };
 
   void Posts(Tasks &pool, const StructureMesher &mesher);
@@ -79,6 +88,7 @@ private:
   std::unique_ptr<MeshScratch> Scratch_;
   std::unique_ptr<Generators::StructureBakeProgress> Progress_;
   std::shared_ptr<std::atomic_bool> Stopping_;
+  std::unique_ptr<Comparison> Comparison_;
   Tasks::Handle Handle_ = Tasks::kNoTask;
   State State_ = State::Ready;
 };

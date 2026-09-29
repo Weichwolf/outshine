@@ -20,6 +20,7 @@
 #include "spatial/ClusterCook.h"
 #include "scene/LevelOfDetail.h"
 #include "StructureCell.h"
+#include "StructureSurfaceRefinement.h"
 
 namespace outshine::Generators {
 
@@ -109,6 +110,9 @@ struct BakedTile {
   int Blocks = 0;
   int NoGround = 0;
   size_t UnsupportedMeshes = 0;
+  size_t SkippedRings = 0;
+  std::optional<StructureSurfaceErrorInterval> SurfaceError;
+  std::optional<StructureSurfaceErrorFailure> SurfaceFailure;
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
     return Built.HeapBytes() + Walls.HeapBytes() + Roofs.HeapBytes() + CapacityBytes(Prints) +
