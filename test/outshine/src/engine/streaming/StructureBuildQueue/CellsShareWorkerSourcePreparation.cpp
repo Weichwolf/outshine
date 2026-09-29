@@ -211,6 +211,54 @@ int main() {
     (void)queue.AwaitSlice(0.02);
   }
   CHECK(queue.QueuedCells() == 0, "revoked demand leaves no queued cells");
+  CHECK(queue.PostsCells(stack, prints, eye, heights, requests) == 8,
+        "live detail demand exists before a ground replacement starts");
+  bool heldLanding = false;
+  for (size_t attempt = 0; attempt < 100 && !heldLanding; ++attempt) {
+    const auto ready = queue.NextCellLanding(stack, prints, heights);
+    heldLanding = ready && ready->has_value();
+    if (!heldLanding) { (void)queue.AwaitSlice(0.02); }
+  }
+  CHECK(heldLanding && queue.QueuedCells() != 0,
+        "completed detail work retains shared admission slots until a consumer retires it");
+  auto candidate = prints.SnapshotAccepted();
+  candidate.ResetDerived();
+  auto candidateHeights = heights;
+  candidateHeights.CopyField = [&block](Data::TileId, HeightField::Block &into) {
+    into = block;
+    return true;
+  };
+  candidateHeights.Revision.Value = 2;
+  bool sourceLanded = false;
+  for (size_t attempt = 0; attempt < 100 && (!sourceLanded || queue.QueuedCells() != 0);
+       ++attempt) {
+    const auto ready = queue.NextLandings(stack,
+                                          candidate,
+                                          eye,
+                                          candidateHeights,
+                                          1,
+                                          StructureBuildQueue::HeightRequirement::FineOnly,
+                                          std::nullopt,
+                                          StructureBuildQueue::BuildPurpose::SourceGeometry);
+    CHECK(ready.has_value(), "source replacement does not publish cancelled cell errors");
+    if (ready && !ready->empty()) {
+      queue.CommitsLandings(stack, candidate, *ready);
+      sourceLanded = true;
+    }
+    (void)queue.Posts(stack,
+                      candidate,
+                      eye,
+                      candidateHeights,
+                      1,
+                      StructureBuildQueue::HeightRequirement::FineOnly,
+                      std::nullopt,
+                      StructureBuildQueue::BuildPurpose::SourceGeometry);
+    (void)queue.AwaitSlice(0.02);
+  }
+  CHECK(sourceLanded && queue.QueuedCells() == 0 && candidate.AcceptedTiles().size() == 1,
+        "candidate source geometry progresses without a live-view cell consumer or larger queue");
+  CHECK(prints.Revision() == revision && StructureBuildQueue::QualifiedSourceKey(prints, 0) == key,
+        "retiring pending detail does not delete or change the published source snapshot");
   queue.Clear();
   return Report();
 }

@@ -585,6 +585,30 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
   }
 }
 
+void StructureBuildQueue::RetireCellBuilds() {
+  for (auto &batch : PreparedCells_) {
+    if (!batch) { continue; }
+    batch->Revoked = true;
+    batch->Preparation->Cancel();
+    const auto state = batch->Preparation->Advance();
+    if (state != StructureSourcePreparation::State::Preparing && batch.use_count() == 1) {
+      batch.reset();
+    }
+  }
+  for (QueuedBuild &bake : CellQueue_) { bake.Task.RequestStop(); }
+  while (!CellQueue_.empty()) {
+    QueuedBuild &bake = CellQueue_.front();
+    if (!bake.Finished) { bake.Finished = bake.Task.TakeCompletion(*Pool_); }
+    if (!bake.Finished) { break; }
+    IdleRaw_.push_back(bake.Task.TakeRaw());
+    IdleOut_.push_back(bake.Task.TakeOutput());
+    IdleScratch_.push_back(bake.Task.TakeScratch());
+    CellQueue_.pop_front();
+    ++Discarded_;
+  }
+  PinnedCellHeight_.reset();
+}
+
 void StructureBuildQueue::ResumeCompletedTasks() {
   const auto resume = [this](std::deque<QueuedBuild> &queue) {
     for (QueuedBuild &bake : queue) {
@@ -940,6 +964,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
+  if (purpose == BuildPurpose::SourceGeometry) { RetireCellBuilds(); }
   const Ground::OsmField &vectors = *stack.Vectors();
   if (!stack.Ways().SourceDigest(vectors, 0)) {
     ++Deferred_;
@@ -1097,6 +1122,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   detail = EffectiveDetail(detail, purpose);
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
+  if (purpose == BuildPurpose::SourceGeometry) { RetireCellBuilds(); }
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
   DiscardStale(*vectors, prints, eye, heightAt.Revision, heights, detail, purpose);
