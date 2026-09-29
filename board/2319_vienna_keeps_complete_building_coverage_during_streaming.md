@@ -18,10 +18,11 @@ Wien ist der erste Regressionsfall; die Lösung gilt für alle Places.
 ## Befund
 
 Der Nutzer sieht nur etwa zehn Prozent der Gebäude. Dieser Anteil ist noch nicht
-quantifiziert. Nach Freigabe alter Zelljobs erreicht Wien die Veröffentlichung des
-Geländekandidaten; alle 49 Vektorkacheln sind angekommen. Die Refined-Abnahme bleibt bei
-„structure view detail pending“ stehen. Als Nächstes fehlende Zellprodukte, Quellenvalidierung
-und Aktivierung getrennt erfassen. Ein Playable-Bild beweist keine vollständige Stadt.
+quantifiziert. Freigabe alter Zelljobs ermöglicht die Veröffentlichung des Geländekandidaten,
+sichert sie aber noch nicht innerhalb der Aufnahmegrenzen: Wien endet je nach Lauf bereits
+bei Quellen-Bakes oder erst bei fehlenden Detailzellen. Graz und Olympiaturm erreichen die
+Abnahme ebenfalls nicht zuverlässig. Als Nächstes verfügbare Worker-Zeit, fehlende Zellprodukte,
+Quellenvalidierung und Aktivierung trennen. Ein Playable-Bild beweist keine vollständige Stadt.
 Darmstadt bleibt visuell praktisch unverändert. Feldkirch weicht an Wasser-/Geländekanten
 vom erhaltenen Vorherbild ab; die massive Geländewand bleibt. Keine neue Baseline: Ursache
 und Verbesserung sind vor visueller Abnahme zu belegen.
