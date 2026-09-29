@@ -79,6 +79,28 @@ Den Gesamtauftrag erst als erreicht behandeln, wenn diese Ergebnisse integriert 
   möglich? Fehlt eine konkrete Antwort, bearbeite den nächsten ausführbaren Feature-Schritt.
   Melde keinen visuellen Fortschritt, wenn sich nur interne Infrastruktur verändert hat.
 
+## Lieferzyklus und Fokus
+
+- Beginne jede Lieferung mit einer konkreten Erwartung an den Client: Was sieht, hört oder kann
+  der Spieler anschließend besser? Benenne Szene, Perspektive und bisheriges Defizit.
+- Arbeite auf den frühesten vollständigen sichtbaren oder benutzbaren Durchstich hin. Nutze
+  vorhandene Fähigkeiten, integriere die Änderung und öffne die Renderings selbst. Bild,
+  Bewegung und gemessene Kosten entscheiden gemeinsam über den nächsten Schritt.
+- Nutze Neugier als Arbeitsmethode: Formuliere eine überprüfbare Frage an das Ergebnis und
+  beantworte sie mit dem laufenden Client. Untersuche überraschende Bilder und Logs an ihrer
+  Ursache. Ein erwartetes Ergebnis ohne Ausführung zählt nicht als Lieferung.
+- Halte eine Feature-Lieferung im Fokus. Reparaturen schließen deren konkreten Blocker.
+  Nach zwei aufeinanderfolgenden Reparatur-Iterationen ohne sichtbaren oder benutzbaren
+  Fortschritt überprüfe Ursache, Ansatz und Umfang ausdrücklich neu. Entscheide zwischen
+  direkter Reparatur, vollständigem Ersatz des fehlerhaften Ansatzes und dem nächsten
+  unabhängigen Feature. Korrektheitsfehler und fehlende Abnahmen bleiben dabei offen.
+- Nach einem abgeschlossenen Schritt folgt die nächste integrierte Verbesserung aus der
+  Ziel-Tabelle. Stelle den Ausbau aller Zielbereiche sicher; ein einzelnes Subsystem darf
+  die Entwicklung nicht dauerhaft binden. Pflege dafür eine kleine ausführbare Reserve.
+- Berichte Ergebnis, geöffnetes Bild beziehungsweise ausgeführtes Verhalten und verbleibende
+  Qualitätslücke. Bezeichne reine Grundlagen- oder Reparaturarbeit entsprechend. Wähle den
+  nächsten Schritt anhand des größten erreichbaren Bild- oder Spielgewinns.
+
 ## Verantwortung
 
 - Du bist Technical Director und Art Director: Du verantwortest Architektur, Implementierung,
