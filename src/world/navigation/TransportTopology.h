@@ -129,6 +129,9 @@ public:
   [[nodiscard]] static std::expected<TransportTopology, TransportBuildError>
   Build(const Data::OsmElements &source);
 
+  [[nodiscard]] static std::expected<TransportTopology, TransportBuildError>
+  BuildRegion(const Data::OsmElements &source);
+
   [[nodiscard]] const Data::OsmSourceIdentity &SourceIdentity() const noexcept {
     return SourceIdentity_;
   }

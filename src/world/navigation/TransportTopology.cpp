@@ -60,6 +60,11 @@ TransportTopology::Build(const Data::OsmElements &source) {
     return std::unexpected(TransportBuildError{.Code = TransportBuildErrorCode::MissingSourceObject,
                                                .SourceId = missing->OwnerId});
   }
+  return BuildRegion(source);
+}
+
+std::expected<TransportTopology, TransportBuildError>
+TransportTopology::BuildRegion(const Data::OsmElements &source) {
   TransportTopology built;
   built.SourceIdentity_ = source.SourceIdentity();
   built.Nodes_.reserve(source.Nodes().size());
@@ -74,6 +79,11 @@ TransportTopology::Build(const Data::OsmElements &source) {
       return std::unexpected(TransportBuildError{.Code = described.error(), .SourceId = way.Id});
     }
     if (!described->TransportTagged) { continue; }
+    if (std::ranges::any_of(way.NodeIds,
+                            [&source](uint64_t id) { return source.FindNode(id) == nullptr; })) {
+      return std::unexpected(TransportBuildError{
+          .Code = TransportBuildErrorCode::MissingSourceObject, .SourceId = way.Id});
+    }
     if (described->Modes == 0) { ++built.UnclassifiedWayCount_; }
     if (const auto appended = AppendWayEdges(built.Edges_, way, *described); !appended) {
       return std::unexpected(appended.error());

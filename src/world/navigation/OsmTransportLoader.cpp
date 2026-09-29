@@ -176,7 +176,7 @@ OsmTransportLoader::BuildSource(std::shared_ptr<const Data::OsmSourceSnapshot> s
                                 const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   const auto graphAt = std::chrono::steady_clock::now();
-  auto graph = TransportTopology::Build(source->Elements);
+  auto graph = TransportTopology::BuildRegion(source->Elements);
   const double graphMs = MillisecondsSince(graphAt);
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   if (!graph) {
