@@ -3,6 +3,7 @@
 
 #include "StructureBake.h"
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -19,7 +20,24 @@ StructureArtifactKey(const RawTile &raw,
                      const std::optional<Data::TileSourceIdentity> &source,
                      std::string_view producerVersion);
 
-enum class StructureArtifactError { InvalidKey, InvalidProduct, InvalidScalar, CapacityExceeded };
+enum class StructureArtifactError {
+  InvalidKey,
+  InvalidProduct,
+  InvalidScalar,
+  CapacityExceeded,
+  WriteFailed
+};
+
+using StructureArtifactSink = std::function<bool(std::span<const uint8_t>)>;
+using StructureArtifactSource = std::function<bool(std::span<uint8_t>)>;
+
+[[nodiscard]] std::expected<void, StructureArtifactError>
+WriteStructureProduct(const BakedTile &tile, const StructureArtifactSink &sink, size_t blockBytes);
+
+[[nodiscard]] std::optional<BakedTile> ReadStructureProduct(const StructureArtifactSource &source,
+                                                            size_t encodedBytes,
+                                                            size_t residentBytesMost,
+                                                            uint64_t currentSourceKey);
 
 [[nodiscard]] std::expected<std::vector<uint8_t>, StructureArtifactError>
 EncodeStructureArtifact(const BakedTile &tile, std::string_view inputKey);

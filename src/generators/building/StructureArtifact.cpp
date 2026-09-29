@@ -18,6 +18,21 @@ constexpr std::string_view kMagic = "outshine-structure";
 
 class Writer {
 public:
+  Writer() = default;
+
+  Writer(const StructureArtifactSink &sink, size_t blockBytes)
+      : Sink(&sink), BlockBytes(blockBytes) {}
+
+  bool Flush() {
+    if (Bytes.empty()) { return true; }
+    if (!Sink || !(*Sink)(Bytes)) {
+      Failure = StructureArtifactError::WriteFailed;
+      return false;
+    }
+    Bytes.clear();
+    return true;
+  }
+
   template <typename T> bool Number(const T &value) {
     if constexpr (std::is_enum_v<T>) {
       return Number(static_cast<std::underlying_type_t<T>>(value));
@@ -30,7 +45,12 @@ public:
           return false;
         }
       }
-      if (Bytes.size() > kMostBytes - sizeof(T)) { return false; }
+      if (Sink) {
+        if (BlockBytes < sizeof(T)) { return false; }
+        if (Bytes.size() > BlockBytes - sizeof(T) && !Flush()) { return false; }
+      } else if (Bytes.size() > kMostBytes - sizeof(T)) {
+        return false;
+      }
       using Word = std::conditional_t<sizeof(T) == 8,
                                       uint64_t,
                                       std::conditional_t<sizeof(T) == 4, uint32_t, uint8_t>>;
@@ -57,11 +77,28 @@ public:
 
   std::vector<uint8_t> Bytes;
   StructureArtifactError Failure = StructureArtifactError::CapacityExceeded;
+  const StructureArtifactSink *Sink = nullptr;
+  size_t BlockBytes = 0;
 };
 
 class Reader {
 public:
-  explicit Reader(std::span<const uint8_t> bytes) : Bytes(bytes) {}
+  explicit Reader(std::span<const uint8_t> bytes) : Bytes(bytes), Remaining(bytes.size()) {}
+
+  Reader(const StructureArtifactSource &source, size_t bytes, size_t residentBytesMost)
+      : Remaining(bytes), AllocationLeft(residentBytesMost), Source(&source) {}
+
+  bool Get(std::span<uint8_t> into) {
+    if (into.size() > Remaining) { return false; }
+    if (Source) {
+      if (!(*Source)(into)) { return false; }
+    } else {
+      std::copy_n(Bytes.begin(), into.size(), into.begin());
+      Bytes = Bytes.subspan(into.size());
+    }
+    Remaining -= into.size();
+    return true;
+  }
 
   template <typename T> bool Number(T &value) {
     if constexpr (std::is_enum_v<T>) {
@@ -75,17 +112,17 @@ public:
       value = underlying != 0;
       return true;
     } else {
-      if (Bytes.size() < sizeof(T)) { return false; }
+      std::array<uint8_t, sizeof(T)> encoded{};
+      if (!Get(encoded)) { return false; }
       using Word = std::conditional_t<sizeof(T) == 8,
                                       uint64_t,
                                       std::conditional_t<sizeof(T) == 4, uint32_t, uint8_t>>;
       static_assert(sizeof(Word) == sizeof(T));
       Word bits = 0;
       for (size_t i = 0; i < sizeof(T); ++i) {
-        bits |= static_cast<Word>(static_cast<Word>(Bytes[i]) << (i * 8));
+        bits |= static_cast<Word>(static_cast<Word>(encoded[i]) << (i * 8));
       }
       value = std::bit_cast<T>(bits);
-      Bytes = Bytes.subspan(sizeof(T));
       if constexpr (std::is_floating_point_v<T>) { return std::isfinite(value); }
       return true;
     }
@@ -93,9 +130,7 @@ public:
 
   template <typename T, typename Visit> bool List(std::vector<T> &items, Visit visit) {
     uint64_t count = 0;
-    if (!Number(count) || count > Bytes.size() || count > AllocationLeft / sizeof(T)) {
-      return false;
-    }
+    if (!Number(count) || count > Remaining || count > AllocationLeft / sizeof(T)) { return false; }
     AllocationLeft -= static_cast<size_t>(count) * sizeof(T);
     items.resize(static_cast<size_t>(count));
     for (auto &item : items) {
@@ -116,7 +151,9 @@ public:
   }
 
   std::span<const uint8_t> Bytes;
+  size_t Remaining = 0;
   size_t AllocationLeft = kMostBytes;
+  const StructureArtifactSource *Source = nullptr;
 };
 
 constexpr auto scalar = [](auto &archive, auto &value) { return archive.Number(value); };
@@ -239,6 +276,32 @@ bool KeyValid(std::string_view key) {
 }
 }
 
+std::expected<void, StructureArtifactError>
+WriteStructureProduct(const BakedTile &tile, const StructureArtifactSink &sink, size_t blockBytes) {
+  if (!Valid(tile)) { return std::unexpected(StructureArtifactError::InvalidProduct); }
+  if (!sink || blockBytes < sizeof(uint64_t) || blockBytes > kMostBytes) {
+    return std::unexpected(StructureArtifactError::CapacityExceeded);
+  }
+  Writer writer(sink, blockBytes);
+  if (!Product(writer, tile) || !writer.Flush()) { return std::unexpected(writer.Failure); }
+  return {};
+}
+
+std::optional<BakedTile> ReadStructureProduct(const StructureArtifactSource &source,
+                                              size_t encodedBytes,
+                                              size_t residentBytesMost,
+                                              uint64_t currentSourceKey) {
+  if (!source || encodedBytes == 0 || residentBytesMost == 0) { return std::nullopt; }
+  Reader reader(source, encodedBytes, residentBytesMost);
+  BakedTile tile;
+  if (!Product(reader, tile) || reader.Remaining != 0 || !Valid(tile)) { return std::nullopt; }
+  if (tile.SurfaceError) {
+    if (currentSourceKey == 0) { return std::nullopt; }
+    tile.SurfaceError->Upper.SourceKey = currentSourceKey;
+  }
+  return tile;
+}
+
 std::optional<std::string>
 StructureArtifactKey(const RawTile &raw,
                      const Ground::HeightField &heights,
@@ -347,8 +410,9 @@ std::optional<BakedTile> DecodeStructureArtifact(std::span<const uint8_t> bytes,
     return std::nullopt;
   }
   reader.Bytes = reader.Bytes.subspan(kHashBytes);
+  reader.Remaining -= kHashBytes;
   BakedTile tile;
-  if (!Product(reader, tile) || !reader.Bytes.empty() || !Valid(tile)) { return std::nullopt; }
+  if (!Product(reader, tile) || reader.Remaining != 0 || !Valid(tile)) { return std::nullopt; }
   if (tile.SurfaceError) {
     if (currentSourceKey == 0) { return std::nullopt; }
     tile.SurfaceError->Upper.SourceKey = currentSourceKey;
