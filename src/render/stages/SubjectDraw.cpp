@@ -1661,8 +1661,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
   }
 
-  size_t bound = kPipelines;
-  VertexMotion boundMotion = VertexMotion::Deforming;
+  std::pair bound{kPipelines, VertexMotion::Deforming};
   uint32_t boundSlot = kNoSlot;
   const bool cut = Bound().Buffer(SubjectResidency::Stream::DrawIndex) &&
                    Bound().Buffer(SubjectResidency::Stream::DrawArguments) && !Args_.empty();
@@ -1678,15 +1677,11 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     const VertexLayout wanted = BatchLayout[at];
     const size_t wantedPipeline =
         PipelineAt(surface.Domain, wanted, surface.Kind, surface.CullsBack);
-    if (wantedPipeline != bound) {
+    const std::pair wantedBinding{wantedPipeline, batch.Motion};
+    if (wantedBinding != bound) {
       SDL_BindGPUGraphicsPipeline(into.Pass, Binding().Pipelines[wantedPipeline].Get());
-
-      boundSlot = kNoSlot;
-    }
-    if (wantedPipeline != bound || batch.Motion != boundMotion) {
       BindVertexStreams(into, wanted, batch.Motion);
-      boundMotion = batch.Motion;
-      bound = wantedPipeline;
+      bound = wantedBinding;
       boundSlot = kNoSlot;
     }
     if (boundSlot != batch.MaterialSlot) {
