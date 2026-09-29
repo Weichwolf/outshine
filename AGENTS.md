@@ -31,6 +31,15 @@ Open-World-Sandbox bleibt das übergeordnete Ziel. Für diese Vergleiche haben b
 Landschaft, Bebauung, Materialien, Licht, Atmosphäre und Wetter Vorrang vor Stilannahmen
 wie Solarpunk-2050. Ich verwende allgemeine Engine-Verfahren, keine Place-Sondergeometrie.
 
+Ich verwende als externe Welteingaben ausschließlich OSM-Originaldaten mit ihren Tags,
+DEM, Wetter, Datum/Uhrzeit und Kamera mit Position, Blickrichtung und Projektion. Jahreszeit
+und Sonnenstand leite ich daraus ab. Materialien, Gebäudedetails und Vegetation entstehen
+prozedural aus allgemeinen Regeln und deterministischen Seeds; fehlende Quelldetails
+ersetze ich durch plausible Gestaltung, nicht durch weitere ortsspezifische Datenquellen.
+Webcam-Fotos sind ausschließlich Vergleichsreferenzen. Ich verwende sie weder als Texturen
+noch zur Geometrieerzeugung oder als versteckte Place-Eingaben. Keine Satellitenbilder,
+Photogrammetrie oder manuell nachgebaute Referenzgebäude als Abkürzung zum Meilenstein.
+
 Ich ordne jeder verwendeten Webcam-Referenz Standort, Blickrichtung, Bildwinkel, Aufnahmezeit
 mit Zeitzone, Jahreszeit und Wetter zu. Fehlende oder unsichere Angaben benenne ich.
 Ich öffne Referenz und tatsächliches Client-Rendering selbst und priorisiere die größten
