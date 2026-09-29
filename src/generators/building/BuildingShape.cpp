@@ -474,6 +474,7 @@ struct PartOrder {
   uint32_t Seed = 0;
   bool HeightMeasured = false;
   std::optional<BuildingUse> Use;
+  std::optional<RoofKind> Roof;
 };
 
 size_t TidyRing(std::vector<EastNorth> &ring, std::vector<uint8_t> &party) {
@@ -551,7 +552,7 @@ void Finish(FootprintPiece &piece, const PartOrder &order, BuildingShape &s) {
                        kPeriodHalvesLeast * s.HalfUm /
                            std::max(kPeriodHalvesLeast, std::round(s.HalfUm / kPeriodPerHalfM)));
   s.Storeys = std::max(1, static_cast<int>(std::lround(top / FloorPreferenceM(s.Use))));
-  s.Roof = RoofOf(s, order.PitchedShare);
+  s.Roof = order.Roof ? *order.Roof : RoofOf(s, order.PitchedShare);
   SplitHeight(&s, {.TopM = top, .PitchDeg = PitchDegOf(s.Use, s.Seed, order.HeightMeasured)});
 
   const double bay = BayPreferenceM(s.Use);
@@ -772,6 +773,7 @@ void StackDeep(Order order, BuildingScratch &scratch) {
     o.HeightMeasured = order.HeightMeasured;
     o.PitchedShare = order.PitchedShare;
     o.Use = s.Use;
+    o.Roof = s.Roof;
     BuildingShape &top = scratch.Made;
     Finish(cap, o, top);
     BuildingShape &base = scratch.Stacked.Next();
@@ -816,6 +818,7 @@ MassOf(std::span<const double> ringLatLon,
   WholeOf(outline, scratch.Whole);
   Finish(scratch.Whole, whole, one);
   if (!one.Valid()) { return {}; }
+  whole.Roof = one.Roof;
 
   WholeOf(outline, scratch.Whole);
   const int plots =
