@@ -17,6 +17,11 @@ namespace outshine::Data {
 class OsmChunkSetLoader {
 public:
   [[nodiscard]] static std::expected<OsmSourceSnapshot, std::string>
+  LoadRegion(std::span<const SourceProvider> providers,
+             std::string_view shippedRoot,
+             const std::stop_token &stop = {});
+
+  [[nodiscard]] static std::expected<OsmSourceSnapshot, std::string>
   Load(std::span<const SourceProvider> providers,
        std::string_view shippedRoot,
        const std::stop_token &stop = {});

@@ -37,9 +37,9 @@ constexpr std::string_view kSha256PinPrefix = "sha256:";
 }
 
 std::expected<OsmSourceSnapshot, std::string>
-OsmChunkSetLoader::Load(std::span<const SourceProvider> providers,
-                        std::string_view shippedRoot,
-                        const std::stop_token &stop) {
+OsmChunkSetLoader::LoadRegion(std::span<const SourceProvider> providers,
+                              std::string_view shippedRoot,
+                              const std::stop_token &stop) {
   std::vector<OsmElements> chunks;
   std::vector<SourceCoverage> coverage;
   chunks.reserve(providers.size());
@@ -90,15 +90,24 @@ OsmChunkSetLoader::Load(std::span<const SourceProvider> providers,
   parseMs += MillisecondsSince(mergeAt);
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   if (!merged) { return std::unexpected(ElementError(merged.error())); }
-  if (const auto missing = merged->FirstMissingReference()) {
-    return std::unexpected("semantic OSM source element " + std::to_string(missing->OwnerId) +
-                           " refers to missing element " + std::to_string(missing->MissingId));
-  }
   return OsmSourceSnapshot{.Elements = std::move(*merged),
                            .Coverage = std::move(coverage),
                            .SourceBytes = bytes,
                            .ReadMs = readMs,
                            .ParseMs = parseMs};
+}
+
+std::expected<OsmSourceSnapshot, std::string>
+OsmChunkSetLoader::Load(std::span<const SourceProvider> providers,
+                        std::string_view shippedRoot,
+                        const std::stop_token &stop) {
+  auto loaded = LoadRegion(providers, shippedRoot, stop);
+  if (!loaded) { return loaded; }
+  if (const auto missing = loaded->Elements.FirstMissingReference()) {
+    return std::unexpected("semantic OSM source element " + std::to_string(missing->OwnerId) +
+                           " refers to missing element " + std::to_string(missing->MissingId));
+  }
+  return loaded;
 }
 
 }
