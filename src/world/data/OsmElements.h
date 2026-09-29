@@ -13,6 +13,13 @@ namespace outshine::Data {
 
 enum class OsmElementKind : uint8_t { Node, Way, Relation };
 
+struct OsmElementId {
+  OsmElementKind Kind = OsmElementKind::Node;
+  uint64_t Id = 0;
+
+  [[nodiscard]] bool operator==(const OsmElementId &) const = default;
+};
+
 struct OsmSourceIdentity {
   std::string DatasetId;
   std::string Revision;
@@ -102,6 +109,8 @@ public:
   [[nodiscard]] const OsmWay *FindWay(uint64_t id) const noexcept;
   [[nodiscard]] const OsmRelation *FindRelation(uint64_t id) const noexcept;
   [[nodiscard]] std::optional<MissingOsmReference> FirstMissingReference() const noexcept;
+  [[nodiscard]] std::optional<MissingOsmReference>
+  FirstMissingReference(std::span<const OsmElementId> roots) const;
 
 private:
   friend class OsmXmlReader;

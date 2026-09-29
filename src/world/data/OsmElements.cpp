@@ -132,4 +132,63 @@ std::optional<MissingOsmReference> OsmElements::FirstMissingReference() const no
   return std::nullopt;
 }
 
+std::optional<MissingOsmReference>
+OsmElements::FirstMissingReference(std::span<const OsmElementId> roots) const {
+  std::vector<bool> visitedWays(Ways_.size());
+  std::vector<bool> visitedRelations(Relations_.size());
+  std::vector<OsmElementId> pending;
+  const auto admit = [&](OsmElementId owner,
+                         OsmElementId target) -> std::optional<MissingOsmReference> {
+    switch (target.Kind) {
+      case OsmElementKind::Node:
+        if (FindNode(target.Id)) { return std::nullopt; }
+        break;
+      case OsmElementKind::Way:
+        if (const OsmWay *way = FindWay(target.Id)) {
+          const auto index = static_cast<size_t>(way - Ways_.data());
+          if (!visitedWays[index]) {
+            visitedWays[index] = true;
+            pending.push_back(target);
+          }
+          return std::nullopt;
+        }
+        break;
+      case OsmElementKind::Relation:
+        if (const OsmRelation *relation = FindRelation(target.Id)) {
+          const auto index = static_cast<size_t>(relation - Relations_.data());
+          if (!visitedRelations[index]) {
+            visitedRelations[index] = true;
+            pending.push_back(target);
+          }
+          return std::nullopt;
+        }
+        break;
+    }
+    return MissingOsmReference{.OwnerKind = owner.Kind,
+                               .OwnerId = owner.Id,
+                               .MissingKind = target.Kind,
+                               .MissingId = target.Id};
+  };
+  for (const OsmElementId root : roots) {
+    if (const auto missing = admit(root, root)) { return missing; }
+  }
+  for (size_t next = 0; next < pending.size(); ++next) {
+    const OsmElementId owner = pending[next];
+    if (owner.Kind == OsmElementKind::Way) {
+      for (const uint64_t node : FindWay(owner.Id)->NodeIds) {
+        if (const auto missing = admit(owner, {.Kind = OsmElementKind::Node, .Id = node})) {
+          return missing;
+        }
+      }
+    } else {
+      for (const OsmRelationMember &member : FindRelation(owner.Id)->Members) {
+        if (const auto missing = admit(owner, {.Kind = member.Kind, .Id = member.Id})) {
+          return missing;
+        }
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 }
