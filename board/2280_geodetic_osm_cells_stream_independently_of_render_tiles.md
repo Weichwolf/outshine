@@ -44,7 +44,6 @@ completion of its deferred driving acceptance does not block the visual mileston
    budgets. Candidate publication is atomic per coherent source revision;
    overload defers work rather than blocking a frame. No global `OsmElements`
    merge and no graph reconstruction from rendered street meshes.
-
 ## Camera turns and storage hierarchy
 
 Streaming demand covers all azimuths around the camera, independently of the render
@@ -95,8 +94,8 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   immutable geometry owner; no copied MVT surrogate and no index across unrelated buffers.
 - `OsmBuildingFootprints` now owns closed ways and outer/inner multipolygon chains, pins
   the source snapshot and retains typed IDs and tags. Product-root closure is implemented.
-  Point structures and type=building groups are explicitly unsupported; part/outline ownership
-  and semantic interpretation remain open. Preserve strict local complete-set and graph validation.
+  Point structures and type=building groups remain unsupported; part ownership and semantics
+  remain open. Preserve strict local complete-set and graph validation.
 - Extend `StructureBake::RawTile` and `StructurePlan` together: outer/inner rings, top and
   minimum height, roof form and building/industrial class must survive through meshing.
   The current exterior-only `RawOf` loop and height/pitched pair are insufficient. Do not
@@ -109,10 +108,11 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   remains open and a raised building part preserves its clearance. The same two-region
   scene retains shared-node road connectivity and unchanged content during a full turn.
   A parser-only success or a source accessor without this client path is not completion.
-
 ## Native geometry requirements
 `StructurePlan` and `BuildingShape::MassOf` accept one exterior ring only. Extend both.
-Keep terrain `FootAslM` separate from OSM `min_height`; lower/top elevations share one terrain datum. Elevated parts acquire no ground plinth, pavement or clearance-closing walls.
+Carry `MinimumHeightM` through RawTile, StructurePlan and massing; top and lower heights share BaseAslM.
+Elevated parts receive no plinth, pavement or ground stamp; coarse meshes preserve the clearance.
+Do not aggregate raised parts with grounded buildings. Invalid or inverted height intervals fail.
 Carry holes through massing, roofs, inner walls and foundations. Reuse vendored Mapbox Earcut,
 already used by `WaterSurfaceBuilder`; no new triangulator. Keep courtyards empty after
 parapets/overhangs and at every enabled detail level. Explicit outlines, parts and holes
