@@ -19,23 +19,21 @@ Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren 
 
 ## Aktuelle Place-Abnahme 2026-09-29
 
-4b9afb1de: vollständiger Lint/tidy/API PASS; 258/258 Einheiten ohne Befund.
+6521238ba: vollständiger Lint/tidy/API PASS; sechs fokussierte GPU-Tests mit 90 Checks PASS.
+Zwei echte Negativkontrollen: zehn FAILs bei unnötiger Reservierung, sechs bei Datenverlust.
 Places: 38/44 PASS, 0 FAIL, 2 TIMEOUT (Olympiaturm), 4 UNPREPARED (Graz/Wien);
 Suite Exit 2, Gesamtpipeline Exit 1. Hockenheim separat Client Exit 0.
-Sechs fokussierte GPU-Tests PASS; rückgebaute optionale Pufferreservierung erzeugt vier
-reale FAILs. Das beweist die Speicher-Reparatur, nicht fertige Runtime-LOD oder A18-Leistung.
-Graz/Wien erreichen nach 6144 Frames noch nicht die Ground-Publikation; deshalb sind
-kürzere Fallzeiten kein Nachweis schnellerer fertiger Szenen. Quellen-/Routenabnahmen grün.
-Alle zehn aktuellen Client-PNGs ohne Vegetation persönlich geöffnet. Refined-Artefakte
-unter `build/shots/reference/4b9afb1de/`, einschließlich drei Playable-Diagnosen.
-Nach verschwundenen Master-Kopien aus Worktree-Originalen wiederhergestellt; Ursache offen.
-Zuordnung durch ROW-Logs und Gate-Zeitgrenzen, je Place Provenienz-JSON. Playable/Husum/Hockenheim je
-0/921600 abweichende Pixel gegenüber korrekt zugeordneten 973b697a5-Bildern.
-Korrektur: Fünf Refined-Kopien unter dem alten 973b697a5-Namen waren ältere PNGs
-(Darmstadt/Feldkirch/Koerbersee/Malcesine/Rosenheim). Deren Pixelidentitätsclaim ist
-zurückgezogen; sie bleiben als historische Bilder erhalten, nicht als Commit-Baseline.
-Logs /tmp/outshine-repair-4b9afb1de-{full-places,full-lint,gate-results,visual-review}.log;
-Einzelfälle unter /tmp/outshine-repair-4b9afb1de-case-logs/ archiviert. Gesamt-Gate rot.
+Alle zehn aktuellen Client-PNGs ohne Vegetation persönlich geöffnet. Referenzen samt
+ROW-/Zeitstempel-Provenienz unter `build/shots/reference/{4b9afb1de,6521238ba}/`.
+Neun pixelgleich zu 4b9afb1de; Darmstadt 2/921600 Pixel mit höchstens 1/255 Abweichung.
+Graz/Wien/Olympiaturm nur Playable-Diagnosen; sie ersetzen keine Refined-Abnahme.
+Alte Master-Kopien verschwanden, Ursache offen. 4b9-Originale aus dem eingefrorenen Worktree
+anhand ROW-Logs und Gate-Zeitgrenzen wiederhergestellt. Frühere fünf falsch zugeordnete
+973b697a5-Refined-Kopien gelten weiterhin NICHT als Commit-Baseline.
+Logs /tmp/outshine-repair-6521238ba-{full-places,full-lint,gate-results}.log;
+Einzelfälle unter /tmp/outshine-repair-6521238ba-case-logs/. Gesamt-Gate bleibt rot.
+Graz-Probe: Exit 1 nach 6144 Frames, 49/49 Struktur-Tiles, noch earthworks.
+Farbspeicher wächst nur für tatsächliche Verbraucher (2318); keine fertige Szene bewiesen.
 Graz/Wien bleiben ohne fehlerhafte Nahwand; Olympiaturm unvollständig. Playable ersetzt
 keine Refined-Abnahme; Webcam-Vergleich fehlt. 2166 belegt/repariert die falsche grobe
 Nachbarkante ohne Kameraänderung; der vollständige 6e-Gate hatte grünen Lint/tidy/API.

@@ -89,11 +89,21 @@ Cross, bounded by each consumer's range. Old contents survive geometric buffer g
 Format 1219 PASS; six GPU tests PASS, 90 checks including earlier-byte reads AFTER growth.
 Restored arena-wide reservation causes ten failures; restored replacement without copying
 causes six failures, both actual exit 1. No test or limit was weakened.
-Full lint/tidy/API PASS on 6521238ba. Places suite still running; runtime byte comparison pending.
-Six current PNGs personally opened: Graz/Wien/Olympiaturm Playable, Darmstadt/Feldkirch/Husum
-Refined. Against recovered 4b9afb1de references: five pixel-identical; Darmstadt differs in
-2/921600 pixels by at most 1/255. Known terrain walls, jagged banks and material gaps remain.
+Full lint/tidy/API PASS on 6521238ba. Full Places: 38/44 PASS, two Olympiaturm TIMEOUTs,
+four Graz/Wien UNPREPARED; pipeline exit 1. Hockenheim client exit 0. These existing
+readiness failures remain open under 2298/2317; this repair does not close the scene gate.
+All ten current PNGs personally opened: Graz/Wien/Olympiaturm Playable, seven Refined.
+Against recovered 4b9afb1de references: nine pixel-identical; Darmstadt differs in
+2/921600 pixels by at most 1/255. Terrain walls, jagged banks and material gaps remain.
 References and per-place provenance: build/shots/reference/{4b9afb1de,6521238ba}/.
-Old master archive directories disappeared; original frozen-tree PNGs recovered with ROW
-and gate-time bounds. Cause unproven. Current suite still reports Graz UNPREPARED.
-Logs /tmp/outshine-repair-6521238ba-*.log and /tmp/outshine-2318-preserve-*-control*.
+Old master archives disappeared; frozen-tree originals recovered with ROW and gate-time
+bounds. Cause unproven. No fresh webcam comparison. Playable does not prove Refined.
+Graz runtime probe: actual exit 1 at 6144 frames, ground phase earthworks, 49/49 accepted
+structure tiles. Colour grows once to 20255088 = 18907136 offset + 1347952 uploaded bytes;
+subsequent uncoloured pieces do not grow it. Last same-time subject request 2453683200
+bytes for 98 pieces/16418876 triangles. This is not physical GPU residency or an isolated
+whole-scene saving: old/new probes reached different phases. No ready-scene speedup proved.
+Logs /tmp/outshine-batch-readiness-6521238ba-Graz-gpu-streams.log and *-gpu-stream-run.log;
+/tmp/outshine-repair-6521238ba-*.log and /tmp/outshine-2318-preserve-*-control*.
+Next: integrate bounded structure proof/selection (2312/2298); optional stream repair is
+implemented and locally proved, but this WI remains active until the full scene gate passes.
