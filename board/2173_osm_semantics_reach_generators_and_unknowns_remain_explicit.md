@@ -26,7 +26,6 @@ Gebäude-/Multipolygon- oder Straßenbezüge nie stillschweigend ignorieren. `Os
 prüft dafür die transitive Referenzhülle typisierter Produktwurzeln gemeinsam und zyklusfest.
 `world/ground/OsmBuildingFootprints` besitzt daraus Ringe/Koordinaten und pinnt den Quell-Snapshot;
 Tags bleiben über typisierte Original-ID erreichbar. Offene/mehrdeutige Ringketten verhindern Publikation.
-Der parameterlose Vollständigkeitscheck lokaler Komplettquellen bleibt unverändert.
 `OsmXmlReader` erhält Originaldaten mit längengebundenem DOM-Budget und 4-MiB-Limit.
 
 `StructureBuildQueue::RawOf` erhält jetzt Innenringe und numerische Mindesthöhe bis zu
@@ -34,15 +33,16 @@ Mesh und Terrain-Stempel. Dachformen bleiben auf flach/geneigt reduziert; Bauwer
 und Original-ID fehlen weiterhin im Bake. Die visuelle Place-Abnahme der Hofgeometrie ist offen.
 Originalsemantik über revisionsgebundene Provider erhalten; keine Identitätszuordnung allein durch Nähe.
 
-## Aktueller Lieferblocker
+## Lieferblocker
 Feldkirch und Wien brechen nach Weitergabe von `min_height` mit ungültigem Höhenintervall ab.
 Feldkirchs Quellkachel enthält `height=4`, `min_height=7`; der räumlich passende Original-Part
 987120770 enthält nur `building:levels=1`, `building:min_level=2`, keine metrischen Höhen.
-Die Identität über die MVT-ID ist nicht bewiesen. Aus Kachelzahlen lässt sich weder eine
-vermessene Gesamthöhe noch eine belegte zusätzliche Baukörperhöhe ableiten. Kein blindes
+MVT-Identität und Höhenprovenienz sind nicht bewiesen. Kein blindes
 Addieren, Ignorieren der Mindesthöhe oder Verwerfen des Bauwerks. Die Quellnormalisierung
 muss Rohwerte, Widerspruch und deklarierte Ableitung getrennt erhalten; der native Generator
-bekommt erst ein gültiges aufgelöstes Intervall. Wiens konkrete Quelle ist noch zu lokalisieren.
+bekommt erst ein gültiges aufgelöstes Intervall. Wien: Originalwege 241884106/1235545599
+haben `min_height=5.5` ohne Gesamthöhe; die Kachel liefert jeweils `height=min_height=5`.
+Fehlende Gesamthöhe braucht Baukörperableitung oberhalb der Mindesthöhe; Kachel-Defaults sind keine Messung.
 
 ## Implementierung
 
