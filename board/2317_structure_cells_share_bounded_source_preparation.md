@@ -105,12 +105,14 @@ requests, rejects missing/invalid requests and an insufficient retained-byte res
 Shared ancestor rasters count once. Copy and Capture use the same source-selection function.
 New fixture covers exact precedence, shared-ancestor budget, one-byte-short refusal,
 unrelated source release and lifetime after the original owner releases its references.
-Format 1214 PASS; four SourcedTerrainFields/HeightSheets tests PASS. Full lint/Places pending.
+Format 1214 PASS; four SourcedTerrainFields/HeightSheets tests PASS.
 Worker assembly, transient preparation-byte admission and runtime batch/queue integration
 remain open; this subset alone does not remove synchronous preparation from PostsCell.
 
-9218f118d full tidy finishes 257 units with five findings: three direct-include diagnostics
-and two signed shift operands. Add cstddef/expected and cast validated zoom to uint32_t;
-89a13c893: format 1214, four focused tests and full lint/tidy/API PASS (257 units, zero
-findings). Places gate running; three Playable PNGs opened. Runtime integration stays open.
-Logs /tmp/outshine-repair-89a13c893-{gate-results,focused,full-lint}.log.
+89a13c893: full lint/tidy/API PASS, 257 units without findings after direct-include and
+unsigned-shift fixes. Complete Places: 38/44 PASS, two Olympiaturm TIMEOUT, four Graz/Wien
+UNPREPARED; actual suite exit 2, pipeline exit 1. Separate Hockenheim client exit 0.
+All ten client PNGs personally opened, pixel-identical to 4b54277f2 (0/921600 each);
+Graz/Wien/Olympiaturm remain Playable diagnostics, not Refined acceptance. Known image
+defects persist. No runtime improvement claimed. Logs /tmp/outshine-repair-89a13c893-*,
+case-logs/ archive; build/shots/places-{refined,playable}-89a13c893/.

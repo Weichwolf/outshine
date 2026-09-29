@@ -19,20 +19,20 @@ Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren 
 
 ## Aktuelle Place-Abnahme 2026-09-29
 
-4b54277f2: alle zehn Places ohne Vegetation via Client gerendert, PNGs selbst geöffnet.
-Alle pixelidentisch zu 0d5962a2a. Refined-PNGs unter `build/shots/places-refined-4b54277f2/`;
-Graz/Wien/Olympiaturm als Playable unter `build/shots/places-playable-4b54277f2/`.
-Komplette Places-Suite: 38/44 PASS, 0 FAIL, 2 TIMEOUT, 4 UNPREPARED; Exit 2.
-Olympiaturm überschreitet beide Male 120 s; Graz/Wien erreichen nach 6144 Frames kein Refined.
+89a13c893: alle zehn Places ohne Vegetation via Client gerendert, PNGs selbst geöffnet.
+Alle pixelidentisch zu 4b54277f2 (je 0/921600 Pixel). Refined-PNGs unter
+`build/shots/places-refined-89a13c893/`; Graz/Wien/Olympiaturm als Playable unter
+`build/shots/places-playable-89a13c893/`. Komplette Places-Suite: 38/44 PASS,
+0 FAIL, 2 TIMEOUT, 4 UNPREPARED; Exit 2, Gesamtpipeline Exit 1.
+Olympiaturm überschreitet beide Male 120 s; Graz/Wien erreichen kein Refined.
 Graz: Gebäudedetail offen, Terrain abgeschlossen; Queue=0 zählt nur ganze Tiles.
-Aktuelle Diagnose: 975 Zell-Landungen, eine Zelle in Arbeit; kein belegter Stillstand (2298).
+Diagnose 4b: 975 Zell-Landungen, eine Zelle in Arbeit; kein belegter Stillstand (2298).
 2316 repariert veraltete Routen/Kontakte nach Quellenwechsel; beide Place-Varianten PASS.
-14 fokussierte Tests und alle Oberflächen-/Routen-Gegenproben PASS. Voller Lint Exit 0:
-257 Tidy-Einheiten ohne Befund, sämtliche Repository-/API-Regeln PASS.
-Logs /tmp/outshine-repair-4b54277f2-{full-places,full-lint,gate-results,visual-review}.log;
-Einzelfälle unter /tmp/outshine-repair-4b54277f2-case-logs/ archiviert.
-Hockenheim separat PASS; Host p50/p95/p99 3.7395/15.8779/17.0557 ms; 2999 Frames
-inklusive Aufbau, 7141344 Dreiecke. Keine A18-Aussage; Gesamt-Gate bleibt rot.
+Vier fokussierte Quellen-/HeightSheets-Tests und voller Lint/tidy/API PASS;
+257 Tidy-Einheiten ohne Befund. 2317s begrenzte Quellenaufnahme ist noch nicht integriert.
+Logs /tmp/outshine-repair-89a13c893-{full-places,full-lint,gate-results,visual-review}.log;
+Einzelfälle unter /tmp/outshine-repair-89a13c893-case-logs/ archiviert.
+Hockenheim separat Client Exit 0; keine A18-Aussage. Gesamt-Gate bleibt rot.
 Graz/Wien bleiben ohne fehlerhafte Nahwand; Olympiaturm unvollständig. Playable ersetzt
 keine Refined-Abnahme; Webcam-Vergleich fehlt. 2166 belegt/repariert die falsche grobe
 Nachbarkante ohne Kameraänderung; der vollständige 6e-Gate hatte grünen Lint/tidy/API.
