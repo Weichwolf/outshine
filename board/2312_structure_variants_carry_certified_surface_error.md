@@ -28,7 +28,9 @@ contracts do not prove publication, transforms or visual acceptance.
    StructureSurfaceError contracts; no importer types or alternate geometry model.
 2. StructureBuildTask owns phases Variant -> Reference -> SurfaceProof -> Complete.
    Publish the resident coarse safety net before requesting comparison work. Reuse a
-   matching pinned Fine reference when available; otherwise generate it on the worker.
+   matching pinned Fine reference when available. Full paired generation remains an
+   independent validation path: measured Jura preload exceeds its budget when enabled
+   per runtime cell. WI 2319 owns generator-derived bounds for fast initial selection.
    Never mutate RequestedDetail on a running bake. Separate captured source identity
    from explicit detail requests; cancellation revokes all phases and scoped views.
 3. Each SurfaceProof slice has a primitive-work cap and observes stop/source generation.
@@ -67,53 +69,22 @@ contracts do not prove publication, transforms or visual acceptance.
 - make format; focused StructureSurfaceRefinement/StructureSurfaceError, BuildingMesh,
   StructureBake, StructureBuildTask, StructureBuildQueue, TilePieces and StructureCellDetail
   suites; full lint with clang-tidy and public API guards.
-- Render all ten Places without vegetation through outshine-client and open their PNGs;
-  static/paced Hockenheim supplements them. Compare selection, silhouette, shadows,
+- Render all fourteen Places without vegetation through outshine-client and open their PNGs;
+  the static Hockenheimring Place is included; laps remain deferred. Compare selection, silhouette, shadows,
   p50/p95/p99, CPU/GPU bytes and work/frame. CPU-only evidence cannot close this WI.
 
-## Next step after dense-cell proof: paired worker phases
+## Existing paired-worker path and remaining integration
 
-Owner: StructureBuildTask.h/.cpp, StructureBuildQueue.cpp and StructureBake.h. Keep task
-lifecycle separate from heap-owned phase state; running moves preserve worker pointees.
-Queue supplies an immutable qualified source/cell/detail proof request. Eye-selected
-whole-tile detail cannot supply one cell bound. Variant/Fine use the same captured raw
-geometry, HeightField and anchor. Create a separate Fine RawTile on the worker before
-starting its own bake progress. Never rewrite a started variant/detail request. Initially
-build the reference locally; cache reuse waits for exact source/cell/frame identity.
+StructureBuildTask implements Variant -> Reference -> SurfaceProof -> Complete with
+private intermediate products. Output.Tile remains final completion; cancellation and
+running moves preserve ownership. Work is bounded per post; exhaustion retains a complete
+upper bound. Invalid, omitted or fallback geometry cannot qualify a smaller error.
 
-Output.Tile currently means final completion: Poll/Resume uses its absence. Keep the
-variant private through Reference/SurfaceProof or the queue will land it and release inputs
-prematurely. The published coarse front remains usable. Bake posts keep at most four
-64-structure ranges. Proof posts batch 128-work slices up to 8192 units or a 2 ms soft
-deadline [initial caps, measure]; check stop between slices and before transitions.
-Transitions never add a second full phase allowance. Resume through the existing queue;
-no worker self-post loop or unbounded Tasks backlog. Keep 131072 queries/4096 regions/
-0.02 m width. Exhaustion preserves coverage; cancellation rejects late output.
-Proof failure retains the valid variant with an explicit failure result and no smaller
-error. AccountMesh currently skips UnsupportedFootprint while incrementing UnsupportedMeshes:
-reject proof qualification if either product skipped meshes, has NoGround or FallbackHeights.
-Reject selected invalid/oversized rings too: BakeOne silently skips them before its counters.
-Two identically incomplete/empty products cannot certify the requested source cell.
-Require explicit cell/detail, nonzero source identity and common anchor; never infer them
-from eye-selected mixed detail. No mutable owner callbacks or optimistic failure zero.
+Runtime proof requests remain disabled. Initial LOD must not generate a second complete
+Fine scene to choose Shell. Use the existing paired path as an independent check of the
+fast generator bounds from WI 2319. Reuse of resident Fine products requires exact
+source/cell/frame identity and complete byte admission, including raw, meshes and scratch.
 
-BakedTile carries optional native interval, reference/variant detail and cell identity.
-Queue rechecks the complete captured source receipt at landing. Renderer selection stays
-unchanged in this step. Account Fine raw copy, reference geometry, both bake progress
-buffers and proof scratch; production admission must reserve their configured maximum.
-HeapBytes cannot read live mutable worker state; publish counters through completion.
-Production proof requests stay disabled until byte limits/accounting are implemented.
-
-Acceptance: paced native Fine/Shell/Massed cells, immutable requests/common anchor, real
-cancellation and running/partial moves in EACH phase, exactly-once output, exhausted/failed
-proof and byte admission. Early Output.Tile, rewritten Fine request, lost phase ownership
-and ignored cancellation/omitted-mesh qualification controls must actually FAIL. Format;
-StructureBuildTask/Bake/
-SurfaceRefinement/BuildQueue suites; full lint/tidy/API. Source revalidation (2311), resident
-transfer and GPU/visual acceptance remain open; CPU intervals alone cannot lower LOD error.
-
-0d5962a2a resolves dense-cell initialization: three Graz Shell/Massed pairs each finish
-within unchanged caps, widths <0.02 m. Shell max 1070814 units means 8366 posts at128,
-but 131 at8192 before deadlines. Scratch peaks 7257456 bytes/task in these probes.
-Admission must bound reference/raw/bake/index bytes together, not just region count.
-Logs /tmp/outshine-native-witness-{shell,massed}-Graz.log; production proof remains off.
+Still open: source revalidation through landing, resident error transfer, conservative
+render transform/precision enclosure and visual acceptance. CPU intervals alone do not
+lower runtime LOD error or establish the Place budget.

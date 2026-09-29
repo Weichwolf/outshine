@@ -56,9 +56,13 @@ zulässige Schranke für das Zusammenfassen weit auseinanderstehender Häuser is
 2. Bestehenden Fine/Shell/Massed-Pfad reparieren. `StructureCellPlanner` darf früh gewählte
    entfernte Vereinfachung nicht pauschal in teure Fine-Zellen zurückverwandeln. Auswahl vor
    Detailgenerierung, quellgültige Produkte und atomare Ablösung gemeinsam erhalten.
-3. Kleinere Runtime-Schranken müssen die tatsächlich erzeugte Geometrie einschließen;
-   vorhandene Übertragung aus WI 2312 nutzen. Keine Komplett-Neuentwicklung und keine
-   Grenzwertanhebung, um die Regression zu verdecken. Quell- und Zellgeometrie nicht doppelt halten.
+3. Kleinere Runtime-Schranken entstehen beim Generator aus begrenzten Änderungen an
+   denselben Gebäudeformen. Gemeinsame Flächen, entfernte Aufbauten, Dachüberstände,
+   Sockel und konkave Grundrisse vollständig einschließen; unbekannte Fälle bleiben Fine.
+   WI 2312 prüft diese Schranken unabhängig an nativen Fine/Shell-Paaren. Den bestehenden
+   vollständigen Paarvergleich nicht pro Ladezelle aktivieren: Auf echten Jura-Eingaben
+   überschreitet er das Preload-Budget. Keine zusätzliche Fine-Erzeugung nur zum Nachweis.
+   Quellidentität, Terrain und Transformationspräzision bleiben Teil der Runtime-Gültigkeit.
 4. Jura ist der erste vollständige Durchstich; danach Wien, CentralPark, Shibuya und Olympiaturm.
    Gebäude, markante Höhen, Zwischenräume, Materialien und Straßen bleiben erhalten.
    Vorhandenes Massed mittelt Höhen: Bildvergleich muss insbesondere Hochpunkte und
