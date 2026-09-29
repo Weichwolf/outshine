@@ -10,12 +10,9 @@ Tags: osm, worldwide, source-cells, residency
 # Geodetic OSM cells stream independently of render tiles
 
 ## Problem and boundary
-
-WI 2278's `OsmTransportLoader` accepts at most four local XML chunks and
-publishes one regional graph. This is sufficient for the early Hockenheim
-route, but increasing its chunk cap or declaring thousands of files in one
-scenario cannot make a worldwide source. Semantic graph residency must be
-independent of `Ground::VectorStreetGraph`, render LOD and camera tile eviction.
+`OsmTransportLoader` accepts four local XML chunks and publishes one regional graph.
+Worldwide semantic residency must be independent of VectorStreetGraph, render LOD
+and camera tile eviction; a larger chunk cap does not establish that ownership.
 Preserve the regional adapter and connect the same original elements to building
 generation. Existing source identity and transport publication from 2278 are usable;
 completion of its deferred driving acceptance does not block the visual milestone.
@@ -113,8 +110,11 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
 Carry `MinimumHeightM` through RawTile, StructurePlan and massing; top and lower heights share BaseAslM.
 Elevated parts receive no plinth, pavement or ground stamp; coarse meshes preserve the clearance.
 Do not aggregate raised parts with grounded buildings. Invalid or inverted height intervals fail.
-Carry holes through massing, roofs, inner walls and foundations. Reuse vendored Mapbox Earcut,
-already used by `WaterSurfaceBuilder`; no new triangulator. Keep courtyards empty after
-parapets/overhangs and at every enabled detail level. Explicit outlines, parts and holes
-must survive procedural subdivision and caps. Exact roof semantics must reach BuildingShape::Order;
-the existing PitchedShare preserves only flat/pitched/unknown, not the source roof family.
+Carry inner rings from source extraction through RawTile, StructurePlan, roofs and inward walls.
+Use Mapbox Earcut before splitting roof triangles at creases. Keep courtyard massing unsplit;
+Massed retains the perforated shell instead of filling its bounding box. No aggregate may close holes.
+Footprints retain source ring ranges; BuildingStampJob passes holes to EarthworkStamp's existing
+HoleRingsEastNorthM. Mesh and stamp rings use the same pinned point buffer and source revision.
+The existing tile adapter groups each exterior with its following interiors; native multipolygons
+require explicit containment ownership. Both enter the same format-independent ring contract.
+Exact roof semantics still need BuildingShape::Order; PitchedShare is not the source roof family.
