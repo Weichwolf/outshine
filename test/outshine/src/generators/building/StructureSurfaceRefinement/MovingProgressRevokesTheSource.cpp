@@ -91,7 +91,8 @@ int main() {
       break;
     }
   }
-  CHECK(complete && transfers > 1000 && moving.Splits() > 0,
+  CHECK(complete && transfers + 1 == moving.WorkUnits() && moving.TriangleQueries() > 0 &&
+            moving.Splits() > 0,
         "single-unit transfers cover validation, seeds, split preparation and partial children");
   CHECK(equal, "copy and every transfer preserve the unshifted task's exact progress and bounds");
   CHECK(reusable, "moved-from tasks can cancel, reset and prepare independent inputs");

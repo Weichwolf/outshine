@@ -60,6 +60,12 @@ StructureSurfaceRefinementTask::operator=(StructureSurfaceRefinementTask &&other
   Inputs_ = other.Inputs_;
   Limits_ = other.Limits_;
   Heaps_ = std::move(other.Heaps_);
+  Indices_ = std::move(other.Indices_);
+  NodeUpperM_ = std::move(other.NodeUpperM_);
+  SettledUpperM_ = other.SettledUpperM_;
+  Targets_ = std::move(other.Targets_);
+  Match_ = other.Match_;
+  ChildCount_ = other.ChildCount_;
   Children_ = other.Children_;
   LowerM_ = other.LowerM_;
   Working_ = other.Working_;
@@ -75,11 +81,18 @@ StructureSurfaceRefinementTask::operator=(StructureSurfaceRefinementTask &&other
   TriangleQueries_ = other.TriangleQueries_;
   Splits_ = other.Splits_;
   SampleLowerM_ = other.SampleLowerM_;
+  SampleUpperM_ = other.SampleUpperM_;
+  BestTarget_ = other.BestTarget_;
   TargetCornerUpperM_ = other.TargetCornerUpperM_;
   Phase_ = other.Phase_;
   Failure_ = other.Failure_;
   other.Cancel();
   return *this;
+}
+
+bool StructureSurfaceRefinementTask::LaterTarget(const TargetNode &a,
+                                                 const TargetNode &b) noexcept {
+  return a.LowerM > b.LowerM || (a.LowerM == b.LowerM && a.Node > b.Node);
 }
 
 bool StructureSurfaceRefinementTask::LowerPriority(const Region &a, const Region &b) noexcept {
@@ -92,7 +105,9 @@ size_t StructureSurfaceRefinementTask::RegionCount() const noexcept {
 
 size_t StructureSurfaceRefinementTask::ScratchCapacityBytes() const noexcept {
   return (Heaps_[0].capacity() + Heaps_[1].capacity()) * sizeof(Region) + sizeof(Children_) +
-         sizeof(Working_);
+         sizeof(Working_) + Targets_.capacity() * sizeof(TargetNode) + Indices_[0].CapacityBytes() +
+         Indices_[1].CapacityBytes() +
+         (NodeUpperM_[0].capacity() + NodeUpperM_[1].capacity()) * sizeof(double);
 }
 
 std::expected<void, StructureSurfaceErrorFailure>
@@ -117,7 +132,12 @@ StructureSurfaceRefinementTask::Reset(StructureSurfacePair inputs,
   TriangleQueries_ = 0;
   Splits_ = 0;
   LowerM_ = {};
+  SettledUpperM_ = {};
+  Match_.reset();
+  Targets_.clear();
+  ChildCount_ = 4;
   for (auto &heap : Heaps_) { heap.clear(); }
+  for (auto &bounds : NodeUpperM_) { bounds.clear(); }
   const auto reset = Envelope_.Reset(inputs);
   if (!reset) {
     Failure_ = reset.error();
@@ -146,33 +166,73 @@ StructureSurfaceRefinementTask::PrepareRegion(std::array<PointEnclosure, 3> vert
 
 void StructureSurfaceRefinementTask::BeginEvaluation(Region region) noexcept {
   Working_ = region;
-  TargetCursor_ = 0;
+  Match_.reset();
+  if (region.Node == std::numeric_limits<size_t>::max() &&
+      std::ranges::all_of(region.Vertices, [](const auto &point) { return point.RadiusM == 0; })) {
+    Match_ = Indices_[1 - Direction_].MatchOf(region.Vertices);
+  }
+  TargetCursor_ = std::numeric_limits<size_t>::max();
+  Targets_.clear();
+  Targets_.push_back({.Node = 0,
+                      .LowerM = Indices_[1 - Direction_].LowerDistance(
+                          0, region.Enclosure.InteriorSample.EstimateM)});
   EvaluationPoint_ = 0;
   TargetCornerUpperM_ = 0;
   SampleLowerM_ = std::numeric_limits<double>::infinity();
+  SampleUpperM_ = std::numeric_limits<double>::infinity();
+  BestTarget_ = std::numeric_limits<size_t>::max();
+}
+
+bool StructureSurfaceRefinementTask::Hierarchical() const noexcept {
+  return (IndexCount(*Inputs_[0]) + IndexCount(*Inputs_[1])) / 3 > Limits_.MaxRegions;
+}
+
+std::expected<StructureSurfaceRefinementTask::Region, StructureSurfaceErrorFailure>
+StructureSurfaceRefinementTask::PrepareNode(size_t node, double inheritedUpperM) noexcept {
+  const auto &index = Indices_[Direction_];
+  inheritedUpperM = std::min(inheritedUpperM, NodeUpperM_[Direction_][node]);
+  if (index.At(node).Count == 1) {
+    return PrepareRegion(index.Triangle(index.At(node).First), inheritedUpperM);
+  }
+  return Region{.UpperM = inheritedUpperM, .Serial = NextSerial_++, .Node = node};
 }
 
 std::expected<void, StructureSurfaceErrorFailure>
 StructureSurfaceRefinementTask::PrepareSplit() noexcept {
-  if (RegionCount() + 3 > Limits_.MaxRegions) {
+  const auto upper = [this](size_t direction) {
+    return Heaps_[direction].empty() ? -1.0 : Heaps_[direction].front().UpperM;
+  };
+  Direction_ = upper(0) >= upper(1) ? 0 : 1;
+  const Region &parent = Heaps_[Direction_].front();
+  const bool node = parent.Node != std::numeric_limits<size_t>::max();
+  ChildCount_ = node ? 2 : 4;
+  if (RegionCount() + ChildCount_ - 1 > Limits_.MaxRegions) {
     Phase_ = Phase::Complete;
     return {};
   }
-  Direction_ = Heaps_[0].front().UpperM >= Heaps_[1].front().UpperM ? 0 : 1;
-  const Region &parent = Heaps_[Direction_].front();
-  const auto &v = parent.Vertices;
-  const auto ab = EnclosePointBlend({v[0], v[1]}, 0.5);
-  const auto bc = EnclosePointBlend({v[1], v[2]}, 0.5);
-  const auto ca = EnclosePointBlend({v[2], v[0]}, 0.5);
-  if (!ab || !bc || !ca) {
-    return std::unexpected(StructureSurfaceErrorFailure::NonfiniteDistance);
-  }
-  const std::array<std::array<PointEnclosure, 3>, 4> corners{
-      {{v[0], *ab, *ca}, {*ab, v[1], *bc}, {*ca, *bc, v[2]}, {*ab, *bc, *ca}}};
-  for (size_t child = 0; child < Children_.size(); ++child) {
-    const auto region = PrepareRegion(corners[child], parent.UpperM);
-    if (!region) { return std::unexpected(region.error()); }
-    Children_[child] = *region;
+  if (node) {
+    const auto &branch = Indices_[Direction_].At(parent.Node);
+    const std::array children{branch.Left, branch.Right};
+    for (size_t child = 0; child < ChildCount_; ++child) {
+      const auto region = PrepareNode(children[child], parent.UpperM);
+      if (!region) { return std::unexpected(region.error()); }
+      Children_[child] = *region;
+    }
+  } else {
+    const auto &v = parent.Vertices;
+    const auto ab = EnclosePointBlend({v[0], v[1]}, 0.5);
+    const auto bc = EnclosePointBlend({v[1], v[2]}, 0.5);
+    const auto ca = EnclosePointBlend({v[2], v[0]}, 0.5);
+    if (!ab || !bc || !ca) {
+      return std::unexpected(StructureSurfaceErrorFailure::NonfiniteDistance);
+    }
+    const std::array<std::array<PointEnclosure, 3>, 4> corners{
+        {{v[0], *ab, *ca}, {*ab, v[1], *bc}, {*ca, *bc, v[2]}, {*ab, *bc, *ca}}};
+    for (size_t child = 0; child < ChildCount_; ++child) {
+      const auto region = PrepareRegion(corners[child], parent.UpperM);
+      if (!region) { return std::unexpected(region.error()); }
+      Children_[child] = *region;
+    }
   }
   ChildCursor_ = 0;
   BeginEvaluation(Children_[0]);
@@ -181,13 +241,54 @@ StructureSurfaceRefinementTask::PrepareSplit() noexcept {
 }
 
 void StructureSurfaceRefinementTask::UpdateUpper() noexcept {
-  Bound_.ReferenceToVariantM = Heaps_[0].front().UpperM;
-  Bound_.VariantToReferenceM = Heaps_[1].front().UpperM;
+  const auto upperOf = [this](size_t direction) {
+    if (Heaps_[direction].empty()) { return SettledUpperM_[direction]; }
+    return std::max(SettledUpperM_[direction], Heaps_[direction].front().UpperM);
+  };
+  Bound_.ReferenceToVariantM = upperOf(0);
+  Bound_.VariantToReferenceM = upperOf(1);
   const double upper = Bound_.UpperDistanceM();
   const double lower = std::max(LowerM_[0], LowerM_[1]);
   const double width =
       Subtract({.Lower = upper, .Upper = upper}, {.Lower = lower, .Upper = lower}).Upper;
-  Phase_ = width <= Limits_.TargetUncertaintyM ? Phase::Complete : Phase::Split;
+  Phase_ = (Heaps_[0].empty() && Heaps_[1].empty()) || width <= Limits_.TargetUncertaintyM
+               ? Phase::Complete
+               : Phase::Split;
+}
+
+void StructureSurfaceRefinementTask::KeepRegion(const Region &region) {
+  const double lower = std::max(LowerM_[0], LowerM_[1]);
+  const double width =
+      Subtract({.Lower = region.UpperM, .Upper = region.UpperM}, {.Lower = lower, .Upper = lower})
+          .Upper;
+  if (width <= Limits_.TargetUncertaintyM || region.UpperM == 0) {
+    SettledUpperM_[Direction_] = std::max(SettledUpperM_[Direction_], region.UpperM);
+  } else {
+    auto &heap = Heaps_[Direction_];
+    heap.push_back(region);
+    std::ranges::push_heap(heap, LowerPriority);
+  }
+}
+
+void StructureSurfaceRefinementTask::AdvanceSeed() noexcept {
+  const bool indexed = Hierarchical();
+  SeedCursor_ += indexed ? 1 : 3;
+  if (SeedCursor_ ==
+      (indexed ? Indices_[Direction_].NodeCount() : IndexCount(*Inputs_[Direction_]))) {
+    ++Direction_;
+    SeedCursor_ = 0;
+  }
+  if (Direction_ != Inputs_.size()) {
+    Phase_ = Phase::Seed;
+    return;
+  }
+  if (!indexed) {
+    UpdateUpper();
+    return;
+  }
+  Direction_ = 0;
+  SeedCursor_ = Indices_[0].NodeCount();
+  Phase_ = Phase::Fold;
 }
 
 void StructureSurfaceRefinementTask::FinishEvaluation() noexcept {
@@ -198,39 +299,74 @@ void StructureSurfaceRefinementTask::FinishEvaluation() noexcept {
   LowerM_[Direction_] = std::max({LowerM_[Direction_], 0.0, lower});
   auto &heap = Heaps_[Direction_];
   if (Phase_ == Phase::EvaluateSeed) {
-    heap.push_back(Working_);
-    std::ranges::push_heap(heap, LowerPriority);
-    SeedCursor_ += 3;
-    if (SeedCursor_ == IndexCount(*Inputs_[Direction_])) {
-      ++Direction_;
-      SeedCursor_ = 0;
-    }
-    if (Direction_ == Inputs_.size()) {
-      UpdateUpper();
+    if (Hierarchical()) {
+      NodeUpperM_[Direction_].back() = Working_.UpperM;
     } else {
-      Phase_ = Phase::Seed;
+      KeepRegion(Working_);
     }
+    AdvanceSeed();
     return;
   }
   Children_[ChildCursor_++] = Working_;
-  if (ChildCursor_ < Children_.size()) {
+  if (ChildCursor_ < ChildCount_) {
     BeginEvaluation(Children_[ChildCursor_]);
     return;
   }
   std::ranges::pop_heap(heap, LowerPriority);
   heap.pop_back();
-  for (const Region &child : Children_) {
-    heap.push_back(child);
-    std::ranges::push_heap(heap, LowerPriority);
-  }
+  for (size_t child = 0; child < ChildCount_; ++child) { KeepRegion(Children_[child]); }
   ++Splits_;
   UpdateUpper();
 }
 
 std::expected<void, StructureSurfaceErrorFailure>
 StructureSurfaceRefinementTask::EvaluatePoint() noexcept {
-  if (TriangleQueries_ == Limits_.MaxTriangleQueries) {
-    Phase_ = Phase::Complete;
+  if (Working_.Node != std::numeric_limits<size_t>::max()) {
+    SampleLowerM_ = 0;
+    FinishEvaluation();
+    return {};
+  }
+  const auto &index = Indices_[1 - Direction_];
+  if (Match_) {
+    const auto candidate = index.NextMatch(*Match_);
+    if (candidate && CornersCovered(Working_.Vertices, index.Triangle(*candidate))) {
+      Working_.UpperM = 0;
+      SampleLowerM_ = 0;
+      FinishEvaluation();
+      return {};
+    }
+    if (Match_->Remaining == 0) { Match_.reset(); }
+    return {};
+  }
+  const auto corners = [this] {
+    assert(BestTarget_ != std::numeric_limits<size_t>::max());
+    TargetCursor_ = BestTarget_;
+    EvaluationPoint_ = 1;
+    TargetCornerUpperM_ = 0;
+  };
+  if (TargetCursor_ == std::numeric_limits<size_t>::max()) {
+    if (Targets_.empty()) {
+      corners();
+      return {};
+    }
+    const auto next = Targets_.front();
+    std::ranges::pop_heap(Targets_, LaterTarget);
+    Targets_.pop_back();
+    if (next.LowerM >= SampleLowerM_ && next.LowerM >= SampleUpperM_) {
+      Targets_.clear();
+      corners();
+      return {};
+    }
+    const auto &branch = index.At(next.Node);
+    if (branch.Count == 1) {
+      TargetCursor_ = static_cast<size_t>(branch.First) * 3;
+      return {};
+    }
+    const Vec3 sample = Working_.Enclosure.InteriorSample.EstimateM;
+    Targets_.push_back({.Node = branch.Left, .LowerM = index.LowerDistance(branch.Left, sample)});
+    std::ranges::push_heap(Targets_, LaterTarget);
+    Targets_.push_back({.Node = branch.Right, .LowerM = index.LowerDistance(branch.Right, sample)});
+    std::ranges::push_heap(Targets_, LaterTarget);
     return {};
   }
   const auto triangle = TriangleAt(*Inputs_[1 - Direction_], TargetCursor_);
@@ -240,35 +376,50 @@ StructureSurfaceRefinementTask::EvaluatePoint() noexcept {
     FinishEvaluation();
     return {};
   }
-  const auto &point = EvaluationPoint_ == 0 ? Working_.Enclosure.InteriorSample
-                                            : Working_.Vertices[EvaluationPoint_ - 1];
+  if (TriangleQueries_ == Limits_.MaxTriangleQueries) {
+    Phase_ = Phase::Complete;
+    return {};
+  }
+  const bool sample = EvaluationPoint_ == 0;
+  const auto &point =
+      sample ? Working_.Enclosure.InteriorSample : Working_.Vertices[EvaluationPoint_ - 1];
   const auto value = BoundPointTriangleDistance(
       point.EstimateM, triangle[0].EstimateM, triangle[1].EstimateM, triangle[2].EstimateM);
   ++TriangleQueries_;
   if (!value) { return std::unexpected(StructureSurfaceErrorFailure::NonfiniteDistance); }
-  const double radius = EvaluationPoint_ == 0 ? Working_.Enclosure.RadiusM : point.RadiusM;
+  const double radius = sample ? Working_.Enclosure.RadiusM : point.RadiusM;
   const double upper = Add({.Lower = value->UpperDistanceM, .Upper = value->UpperDistanceM},
                            {.Lower = radius, .Upper = radius})
                            .Upper;
   if (!std::isfinite(upper)) {
     return std::unexpected(StructureSurfaceErrorFailure::NonfiniteDistance);
   }
-  if (EvaluationPoint_ == 0) {
+  if (sample) {
     SampleLowerM_ = std::min(SampleLowerM_, value->LowerDistanceM);
+    if (value->UpperDistanceM < SampleUpperM_) {
+      SampleUpperM_ = value->UpperDistanceM;
+      BestTarget_ = TargetCursor_;
+    }
     Working_.UpperM = std::min(Working_.UpperM, upper);
-  } else {
-    TargetCornerUpperM_ = std::max(TargetCornerUpperM_, upper);
+    const double lower = std::max(LowerM_[0], LowerM_[1]);
+    const double width = Subtract({.Lower = Working_.UpperM, .Upper = Working_.UpperM},
+                                  {.Lower = lower, .Upper = lower})
+                             .Upper;
+    if (width <= Limits_.TargetUncertaintyM) {
+      SampleLowerM_ = 0;
+      FinishEvaluation();
+    } else {
+      TargetCursor_ = std::numeric_limits<size_t>::max();
+      if (Targets_.empty()) { corners(); }
+    }
+    return {};
   }
-  ++EvaluationPoint_;
-  if (EvaluationPoint_ <= Working_.Vertices.size() &&
-      (EvaluationPoint_ == 1 || TargetCornerUpperM_ < Working_.UpperM)) {
+  TargetCornerUpperM_ = std::max(TargetCornerUpperM_, upper);
+  if (++EvaluationPoint_ <= Working_.Vertices.size() && TargetCornerUpperM_ < Working_.UpperM) {
     return {};
   }
   Working_.UpperM = std::min(Working_.UpperM, TargetCornerUpperM_);
-  EvaluationPoint_ = 0;
-  TargetCornerUpperM_ = 0;
-  TargetCursor_ += 3;
-  if (TargetCursor_ == IndexCount(*Inputs_[1 - Direction_])) { FinishEvaluation(); }
+  FinishEvaluation();
   return {};
 }
 
@@ -282,11 +433,24 @@ StructureSurfaceRefinementTask::ProcessWork() noexcept {
       const auto coarse = Envelope_.Bound(SourceKey_);
       assert(coarse.has_value());
       Bound_ = *coarse;
-      const size_t triangles = (IndexCount(*Inputs_[0]) + IndexCount(*Inputs_[1])) / 3;
-      if (triangles > Limits_.MaxRegions || Limits_.MaxTriangleQueries == 0) {
+      if (Limits_.MaxRegions < 2 || Limits_.MaxTriangleQueries == 0) {
         Phase_ = Phase::Complete;
       } else {
         for (auto &heap : Heaps_) { heap.reserve(Limits_.MaxRegions); }
+        Targets_.reserve(std::max(IndexCount(*Inputs_[0]), IndexCount(*Inputs_[1])) / 3);
+        Indices_[0].Reset(*Inputs_[0]);
+        Indices_[1].Reset(*Inputs_[1]);
+        Phase_ = Phase::Index;
+      }
+      return {};
+    }
+    case Phase::Index: {
+      if (Indices_[Direction_].Step() && ++Direction_ == Inputs_.size()) {
+        Direction_ = 0;
+        if (Hierarchical()) {
+          NodeUpperM_[0].reserve(Indices_[0].NodeCount());
+          NodeUpperM_[1].reserve(Indices_[1].NodeCount());
+        }
         Phase_ = Phase::Seed;
       }
       return {};
@@ -294,16 +458,44 @@ StructureSurfaceRefinementTask::ProcessWork() noexcept {
     case Phase::Seed: {
       const double upper =
           Direction_ == 0 ? Bound_.ReferenceToVariantM : Bound_.VariantToReferenceM;
-      const auto region = PrepareRegion(TriangleAt(*Inputs_[Direction_], SeedCursor_), upper);
+      size_t cursor = SeedCursor_;
+      if (Hierarchical()) {
+        const auto &node = Indices_[Direction_].At(SeedCursor_);
+        NodeUpperM_[Direction_].push_back(upper);
+        if (node.Count > 1) {
+          AdvanceSeed();
+          return {};
+        }
+        cursor = static_cast<size_t>(node.First) * 3;
+      }
+      const auto region = PrepareRegion(TriangleAt(*Inputs_[Direction_], cursor), upper);
       if (!region) { return std::unexpected(region.error()); }
       BeginEvaluation(*region);
       Phase_ = Phase::EvaluateSeed;
-      if (SeedCursor_ < IndexCount(*Inputs_[1 - Direction_]) &&
-          CornersCovered(Working_.Vertices, TriangleAt(*Inputs_[1 - Direction_], SeedCursor_))) {
+      if (cursor < IndexCount(*Inputs_[1 - Direction_]) &&
+          CornersCovered(Working_.Vertices, TriangleAt(*Inputs_[1 - Direction_], cursor))) {
         Working_.UpperM = 0;
         SampleLowerM_ = 0;
         FinishEvaluation();
       }
+      return {};
+    }
+    case Phase::Fold: {
+      const size_t cursor = --SeedCursor_;
+      const auto &node = Indices_[Direction_].At(cursor);
+      auto &bounds = NodeUpperM_[Direction_];
+      if (node.Count > 1) { bounds[cursor] = std::max(bounds[node.Left], bounds[node.Right]); }
+      if (SeedCursor_ > 0) { return {}; }
+      if (++Direction_ < Inputs_.size()) {
+        SeedCursor_ = Indices_[Direction_].NodeCount();
+        return {};
+      }
+      for (Direction_ = 0; Direction_ < Inputs_.size(); ++Direction_) {
+        const auto root = PrepareNode(0, NodeUpperM_[Direction_][0]);
+        if (!root) { return std::unexpected(root.error()); }
+        KeepRegion(*root);
+      }
+      UpdateUpper();
       return {};
     }
     case Phase::Split: return PrepareSplit();

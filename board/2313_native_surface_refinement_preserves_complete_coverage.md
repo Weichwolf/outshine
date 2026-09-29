@@ -9,111 +9,93 @@ Tags: geometry, proof, lod, bounded
 
 # Native surface refinement preserves complete coverage
 
-## Problem and existing capability
+## Problem and measured failure
 
-2312 supplies outward point/triangle distances, enclosed triangle regions and a
-resumable native coarse envelope. Vertex-only error misses the filled opening:
-its Hausdorff distance is 0.5 m despite coincident source vertices. Coarse envelopes
-alone are too loose. Adaptive refinement must cover every wall/roof interior,
-remain bounded and resumable, and preserve a complete certificate on exhaustion.
+Native vertex distances miss a filled opening: a 3x3 m cap over a 1x1 m opening
+has zero corner error but Hausdorff distance 0.5 m. Complete interiors need proof.
+At 6e88154b5, Graz Fine/Shell pairs have 4884/4486, 13207/12293 and 19083/17829
+triangles. Flat initialization exceeds 4096 regions, performs zero queries and retains
+310.998/157.921/231.442 m coarse bounds. Single-building utility did not generalize.
+Log: /tmp/outshine-native-pair-6e88154b5-Graz.log. Do not increase caps to hide this.
 
-## Ownership and dataflow
+## Owners and immutable inputs
 
-- generators/building/StructureSurfaceRefinement.h/.cpp owns a worker-side task
-  composed with StructureSurfaceErrorTask. Preserve the existing coarse contract.
-- Inputs: immutable scoped Raised pair, pinned source key, common frame. Views never
-  outlive the pinned meshes. Validate all native streams before publishing any bound.
-- Two deterministic bounded heaps own source regions, one per direction. Each region
-  holds three PointEnclosures, interior sample, radius, upper bound and serial tie.
-- Largest-upper regions split into four enclosed children. Retain the parent's
-  certificate until all four children are complete; publish replacement atomically.
-  Children may inherit parent upper bounds. Every exposed result covers both surfaces.
-- Limits: 65536 triangles/input, 131072 distance queries, 4096 live regions,
-  target interval width 0.02 m [SET]. WorkUnits bound validation, queries and matching.
-  Reusable scratch, capacities, query count and splits are measured. No frame consumer.
-- Insufficient initialization capacity or zero query budget retains coarse coverage.
-  Exhaustion retains the last complete upper/lower interval; nonfinite arithmetic fails
-  closed. Source changes/cancellation revoke results. Copy is independent; moves revoke
-  the source, preserve partial state, and allow reset. Self-Move preserves progress.
+- generators/building/StructureSurfaceRefinement owns resumable comparison composed
+  with StructureSurfaceError. Inputs are immutable scoped Raised views in one frame,
+  from one pinned source. Validate every native stream before publishing any bound.
+- StructureSurfaceIndex owns incremental hierarchy and matching scratch over original
+  indexed wall/roof vertices. Existing ray TriangleBvh reconstructs float edges and
+  builds synchronously; that contract cannot certify original native coordinates.
+- Keep 65536 triangles/input, 131072 queries, 4096 live regions and 0.02 m target width.
+  Count construction/traversal/matching in WorkUnits and retained capacities in bytes.
+  Every Step is resumable; cancellation/source changes revoke every certificate.
+- Copy preserves independent progress. Moves preserve all cursors/heaps/views and revoke
+  the source; reset and self-move remain valid. Inputs outlive every task copy.
 
-## Conservative bounds and bounded target work
+## Complete hierarchy and target search
 
-- Each sample lower distance requires minima over ALL target triangles, minus its
-  enclosure deviation rounded down. Samples alone never certify interior coverage.
-- Sample upper plus region radius, rounded outward, is one valid whole-region upper.
-- Another upper uses ONE fixed convex target: max of the three enclosed corner-distance
-  uppers, including outward-added corner radii. For p=sum(lambda_i*p_i), choose q_i in
-  that target; q=sum(lambda_i*q_i) stays inside it, so distance(p,q) <= max_i U_i.
-  Minimize these maxima across targets and combine with sample/parent bounds.
-  Per-corner minima from DIFFERENT targets are unsafe: the filled opening disproves them.
-- EvaluatePoint counts the interior and three corner queries separately. Target changes
-  reset the maximum. Moves transfer the partial cursor/maximum. Query caps stay unchanged.
-- Once the partial corner maximum reaches the current region upper, remaining corners
-  cannot improve the computed maximum; skip them. Keep the target's interior sample for
-  complete lower minima. Never publish a smaller partial maximum as whole-region proof.
-- Seed checks the same-index target as a hint, then the regular scan checks other targets.
-  Zero enclosure radii plus full equality of ALL source corners with corners of ONE target
-  prove convex containment and directed error zero, including degenerate triangles.
-  Complete that region with lower zero. Indices/hashes alone never prove correspondence.
-  Matching is bounded work, not a distance query. Nonmatching inputs use the regular proof.
+- Build deterministic balanced topology incrementally in original triangle order;
+  fold exact stored-vertex AABBs outward. Each source node covers every descendant.
+- Evaluate every original leaf before dense adaptive refinement; fold leaf upper
+  certificates upward. Until both roots finish, publish the existing coarse envelope.
+  This prevents one detailed facade consuming the budget before other roofs are seen.
+- Two largest-upper heaps cover both directions. Split nodes into two descendants,
+  triangle regions into four enclosed children. Keep the parent until ALL children
+  finish; replace atomically. Fully settled regions retain their maximum certificate.
+- Best-first target search orders nodes by outward point/AABB lower distance. Prune
+  only when no descendant can lower the complete sample minimum or improve its witness.
+  Node traversal, hash probes and each triangle query consume bounded work units.
+- Canonical coordinate hashes are hints. Full equality of ALL source corners with
+  corners of ONE target and zero enclosure radii proves convex containment/zero error.
+  Cap each match/insertion at 64 probes; collisions fall back to geometric proof.
+- Complete sample minimum minus sample deviation rounded down is a lower bound.
+  Partial minima are never lower evidence. Sample distance plus region radius rounded
+  outward is a whole-region upper. Early settled uppers publish sample lower zero.
+- Pick ONE target witness from the nearest-sample search. Max of its three enclosed
+  corner-distance uppers is another whole-region upper by convexity. Never switch
+  targets per corner. Stop corners when their partial max cannot improve the prior upper.
+- Exhaustion retains complete coverage, including during seeding/partial children.
+  Nonfinite arithmetic fails closed. No runtime LOD grant follows from CPU proof alone.
 
 ## Falsifiable acceptance
 
-- Filled opening contains analytic 0.5 m at every certificate and resolves width <=0.02 m.
-  Reverse directions/order; differently tessellated, parallel, sloped, collapsed and
-  translated surfaces preserve safety. Native flat/pitched self pairs remain useful
-  under caps even after triangle-order reversal. No place/vertex-only oracle.
-- One-unit/arbitrary slices, exhausted seeds/partial children, cancellation, stale keys,
-  copy/move/reset and invalid input cannot expose partial or obsolete coverage.
-- Wrong corner min, false coordinate correspondence, wrong pruning, omitted radius,
-  midpoint deviation, all-target lower minimum or source guard must cause actual FAIL.
-  Analytical/rational controls supplement regressions and native utility measurements.
-- make format; make suite SUITE=outshine/src/generators/building/StructureSurfaceRefinement;
-  existing TriangleDistance/TriangleRegion/StructureSurfaceError suites; full make lint.
-  Measure query counts, time and actual scratch before choosing runtime caps.
+- Opening, planes, slopes, translations, collapsed triangles, reverse directions/order
+  and native flat/pitched self pairs contain independent analytic truth at every bound.
+- 48x48 grids exceed flat seed capacity. Distances 0/2 m and isolated 5 m peak remain
+  enclosed and reach <=0.02 m width under unchanged caps in either triangle order.
+- One-unit/arbitrary slices, cap exhaustion, cancellation, stale keys, copy/move/reset
+  cannot expose partial or obsolete coverage. Zero target width completes exact self.
+- Forced hash collisions must remain correct. False coordinate match, omitted descendant,
+  inward box, nearer-target pruning and live moved-from task must actually FAIL.
+- make format; StructureSurfaceIndex/Refinement/Error and TriangleDistance/Region suites;
+  full make lint including tidy/API; all Places via client and personally opened PNGs.
 
-## Evidence and remaining work
+## Current measured implementation
 
-5dbc9b7a7: seven official focused tests and full lint PASS, 256/256 tidy-Units without
-findings, 32/32 guards. Logs: /tmp/outshine-corner-coverage-{focused,full-lint}.log;
-gate-result.txt records the checked commit. ef78343aa previously proved explicit moves
-against the reproduced SEGV, implicit-move mutant, ASan/UBSan and full gates.
+Dense hierarchy, bounded coordinate matching and nearest-witness queries implemented.
+Three Graz cells (35/67/120 structures), same raw source/height field/anchor, normal caps:
 
-Current optimization: expanded native test fails against 9bde2cd88 and passes afterward:
-16 checks cover flat/pitched and original/reversed orders. Existing adaptive 55, move
-3003 and analytical convex 456 checks pass ASan/UBSan. False match (X only), corner min
-and inverted pruning each cause actual FAIL, not BUILD. Logs:
-/tmp/outshine-corner-coverage-{controls,sanitized,pruning-control}.log and per-case logs.
-Format: 1201 files, zero errors. Official focused/full gates for this commit pass as recorded above.
+| Pair | Upper m | Width m | Queries | WorkUnits | Scratch bytes |
+| --- | --- | --- | --- | --- | --- |
+| Fine/Shell 35 | 5.39355547 | 0.01041373 | 5425 | 273511 | 2813376 |
+| Fine/Shell 67 | 4.19171936 | 0.01342433 | 10115 | 675793 | 5019312 |
+| Fine/Shell 120 | 4.09557385 | 0.01240434 | 11447 | 1070814 | 7257456 |
+| Fine/Massed 35 | 64.3713712 | 0.0181950 | 7593 | 190853 | 2127232 |
+| Fine/Massed 67 | 66.0309054 | 0.0169132 | 15973 | 465656 | 3320400 |
+| Fine/Massed 120 | 63.0093669 | 0.0133916 | 22713 | 812135 | 4512912 |
 
-Local 20x30 m native probe: flat Fine/Shell uses 16052 queries for
-[1.899999979,1.911157473] m; pitched Fine/Shell 47541 for [3.447908072,3.465112777] m.
-Their widths are respectively 0.011157494/0.017204705 m, below 0.02 m. Exact self pairs
-use zero distance queries after complete value matching. Six single runs take 0.27–98 ms;
-no p99/device claim. Log: /tmp/outshine-corner-coverage-probe.log.
-Scratch remains two retained 4096-slot heaps plus five Regions, each 152 bytes:
-(8192+5)*152 = 1245944 bytes/task despite the 4096 LIVE cap. Runtime utility still needs
-scratch/concurrency budgets, broader native profiles and independent image acceptance.
+Widths = upper minus lower. Temporary probes use frozen 6e runtime plus explicit new
+proof sources; they are not production integration or a green Place gate. Single host
+proof durations: Shell 36.7/83.8/126.2 ms, Massed 31.3/51.7/82.0 ms; no p99/device claim.
+Logs: /tmp/outshine-native-witness-{shell,massed}-Graz.log. At 128 work units/post,
+ceil(1070814/128)=8366 posts for one cell: do not couple one tiny slice to each frame.
+2312 owns measured worker batching/admission and product transfer; 2298 owns selection.
 
-Independent Fraction oracle: 7200 rational interior probes cover arbitrary/sloped,
-degenerate/self targets, scaling and large translations. Fixed-target inequality holds;
-per-corner target switching gives upper zero versus opening squared distance 1/4.
-Log: /tmp/outshine-review-convex-oracle.log. This alone does not prove C++ rounding/runtime.
-2312 owns StructureBuildTask/product integration. This CPU work grants no smaller runtime
-LOD error; adaptive publication, source lifetime and independent visual acceptance remain open.
-
-## Active correction: dense-cell hierarchy before task integration
-
-6e88154b5 Graz pairs: Fine/Shell triangles 4884/4486, 13207/12293, 19083/17829.
-All exceed seed capacity: zero queries, bounds 310.998/157.921/231.442 m; single-house
-utility did not generalize. /tmp/outshine-native-pair-6e88154b5-Graz.log. Caps stay fixed.
-Owner: building/StructureSurfaceRefinement and a scoped native triangle index; base distance
-arithmetic supplies outward node bounds. Existing TriangleBvh reconstructs float edges and
-builds synchronously: its ray contract cannot certify original native coordinates.
-Build deterministic source/target hierarchies incrementally over original indexed vertices.
-A frontier node covers every descendant; refine node children atomically, then triangle regions.
-Target pruning needs proved lower bounds; preserve all-target minima and complete exhaustion.
-Count construction/traversal in work and scratch limits; cancellation/moves revoke views.
-Negatives: omitted descendant, inward box/pruned nearer target, partial child publication.
-Gate above plus >4096-triangle analytic/native pairs, reordered inputs, real-cell useful
-bounds under existing caps; then 2312 worker/product integration and 2298 renderer selection.
+The move fixture's old >1000-step minimum wrongly penalized the faster algorithm.
+Replace only that specification with one transfer per actual work unit, nonzero queries
+and splits; retain every intermediate state/bound, revocation/reset and self-move check.
+Nine focused tests PASS; format 1213 files, zero errors. Forced collisions remain safe;
+false match, omitted descendant, inward box and omitted move cancellation actually FAIL.
+Logs: /tmp/outshine-surface-hierarchy-final-{format,focused}.log and
+/tmp/outshine-surface-hierarchy-control-results.log. Full lint/Places remain pending;
+runtime integration remains open.
