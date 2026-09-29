@@ -232,14 +232,14 @@ int main() {
   bool sourceLanded = false;
   for (size_t attempt = 0; attempt < 100 && (!sourceLanded || queue.QueuedCells() != 0);
        ++attempt) {
-    const auto ready = queue.NextLandings(stack,
-                                          candidate,
-                                          eye,
-                                          candidateHeights,
-                                          1,
-                                          StructureBuildQueue::HeightRequirement::FineOnly,
-                                          std::nullopt,
-                                          StructureBuildQueue::BuildPurpose::SourceGeometry);
+    auto ready = queue.NextLandings(stack,
+                                    candidate,
+                                    eye,
+                                    candidateHeights,
+                                    1,
+                                    StructureBuildQueue::HeightRequirement::FineOnly,
+                                    std::nullopt,
+                                    StructureBuildQueue::BuildPurpose::SourceGeometry);
     CHECK(ready.has_value(), "source replacement does not publish cancelled cell errors");
     if (ready && !ready->empty()) {
       queue.CommitsLandings(stack, candidate, *ready);
