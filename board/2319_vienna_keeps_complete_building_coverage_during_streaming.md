@@ -11,7 +11,7 @@ Tags: buildings, publication, visual
 
 ## Ergebnis
 
-Wien, CentralPark und Shibuya stehen aus gecachten Netzwerkquellen vollständig innerhalb
+Wien, CentralPark, Shibuya und Olympiaturm stehen aus gecachten Netzwerkquellen vollständig innerhalb
 zehn Sekunden bereit. Die anschließende 360°-Drehung verliert keine Gebäude. Bestehende
 Straßen und Terrain-Anschlüsse bleiben erhalten; keine Sichtweitenkürzung oder Place-Sonderpfade.
 
@@ -48,16 +48,18 @@ am 28. September die günstigen Shell-Hüllen durch native Dach-/Sockelgeometrie
 Auswahl UND tatsächlich erzeugte Shell-Komplexität sind deshalb gemeinsam zu reparieren. `fe6910850` dokumentiert zugleich, weshalb reine Gebäude-Pixelgröße keine
 zulässige Schranke für das Zusammenfassen weit auseinanderstehender Häuser ist.
 
-1. Frühere Auswahl auf denselben heutigen Jura-Quellen als Diagnose vergleichen:
-   erzeugte Geometrie, Ladezeit, Drehung und tatsächliche Bilder. Keine automatische Abnahme
-   historischer Fehlerwerte; Generatoren und Shell-Geometrie haben sich ebenfalls geändert.
+1. Günstige native Shell-Hüllen sind implementiert; mit historischer Auswahl verschwindet
+   Juras dauerhafte Framezeitspitze im wiederholten Diagnosevergleich, mit regulärer Auswahl
+   kehrt sie zurück. Der nächste Schritt ist die geometrisch begründete Shell-Auswahl.
+   Historische Architektur-/Quellauflösung ist kein Fehlerbeweis für ausgelassene Dachdetails;
+   Bildänderungen und ein einzelner Ausreißer verhindern eine pauschale Qualitätsfreigabe.
 2. Bestehenden Fine/Shell/Massed-Pfad reparieren. `StructureCellPlanner` darf früh gewählte
    entfernte Vereinfachung nicht pauschal in teure Fine-Zellen zurückverwandeln. Auswahl vor
    Detailgenerierung, quellgültige Produkte und atomare Ablösung gemeinsam erhalten.
 3. Kleinere Runtime-Schranken müssen die tatsächlich erzeugte Geometrie einschließen;
    vorhandene Übertragung aus WI 2312 nutzen. Keine Komplett-Neuentwicklung und keine
    Grenzwertanhebung, um die Regression zu verdecken. Quell- und Zellgeometrie nicht doppelt halten.
-4. Jura ist der erste vollständige Durchstich; danach Wien, CentralPark und Shibuya.
+4. Jura ist der erste vollständige Durchstich; danach Wien, CentralPark, Shibuya und Olympiaturm.
    Gebäude, markante Höhen, Zwischenräume, Materialien und Straßen bleiben erhalten.
    Vorhandenes Massed mittelt Höhen: Bildvergleich muss insbesondere Hochpunkte und
    Hangstaffelung prüfen. Eine neue räumliche Hierarchie ist vorerst nicht freigegeben.
