@@ -285,7 +285,7 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
   frameMs.reserve(schedule.Ticks);
   HeapProbe::ForgetPeak();
   FramePacer pacer(static_cast<std::uint64_t>(
-      std::ceil(std::max(schedule.StepS, 1.0 / 60.0) * 1'000'000'000.0)));
+      std::ceil(std::max(schedule.StepS, 1.0 / kFrameRateHz) * kNanosecondsPerSecond)));
   size_t nextMark = 0;
   const auto previousCamera = ReadSubmittedCamera(engine);
   double previousCameraSerial = previousCamera ? previousCamera->Serial : 0.0;

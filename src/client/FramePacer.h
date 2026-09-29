@@ -7,9 +7,14 @@
 
 namespace outshine::Client {
 
+inline constexpr std::uint64_t kFrameRateHz = 60;
+inline constexpr std::uint64_t kNanosecondsPerSecond = 1'000'000'000;
+inline constexpr std::uint64_t kFramePeriodNs =
+    (kNanosecondsPerSecond + kFrameRateHz - 1) / kFrameRateHz;
+
 class FramePacer {
 public:
-  explicit FramePacer(std::uint64_t periodNs = 16'666'667) noexcept : PeriodNs_(periodNs) {}
+  explicit FramePacer(std::uint64_t periodNs = kFramePeriodNs) noexcept : PeriodNs_(periodNs) {}
 
   template <class Clock, class Sleep> void Wait(Clock clock, Sleep sleep) noexcept {
     auto now = clock();
