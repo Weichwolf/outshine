@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-#include "OsmElements.h"
+#include "OsmSourceSnapshot.h"
 #include "Tasks.h"
 #include "TransportTopology.h"
 #include <world/SourceProvider.h>
@@ -47,28 +47,32 @@ struct ResolvedTransport {
 };
 
 class TransportNetworkSnapshot {
-  Data::OsmElements Source_;
+  std::shared_ptr<const Data::OsmSourceSnapshot> Source_;
   ResolvedTransport Transport_;
-  std::vector<Data::SourceCoverage> Coverage_;
   TransportLoadMetrics Metrics_;
 
 public:
-  TransportNetworkSnapshot(Data::OsmElements source,
+  TransportNetworkSnapshot(std::shared_ptr<const Data::OsmSourceSnapshot> source,
                            ResolvedTransport transport,
-                           std::vector<Data::SourceCoverage> coverage,
-                           TransportLoadMetrics metrics)
-      : Source_(std::move(source)),
-        Transport_(std::move(transport)),
-        Coverage_(std::move(coverage)),
-        Metrics_(metrics) {
-    assert(Source_.SourceIdentity() == Transport_.Graph.SourceIdentity());
+                           double graphMs)
+      : Source_(std::move(source)), Transport_(std::move(transport)) {
+    assert(Source_);
+    assert(Source_->Elements.SourceIdentity() == Transport_.Graph.SourceIdentity());
     assert(std::ranges::all_of(Transport_.Routes, [this](const NamedCircuitRoute &route) {
-      return route.Circuit.SourceIdentity == Source_.SourceIdentity();
+      return route.Circuit.SourceIdentity == Source_->Elements.SourceIdentity();
     }));
+    Metrics_ = {.SourceBytes = Source_->SourceBytes,
+                .ReadMs = Source_->ReadMs,
+                .ParseMs = Source_->ParseMs,
+                .GraphMs = graphMs};
+  }
+
+  [[nodiscard]] const std::shared_ptr<const Data::OsmSourceSnapshot> &Source() const noexcept {
+    return Source_;
   }
 
   [[nodiscard]] const Data::OsmSourceIdentity &SourceIdentity() const noexcept {
-    return Source_.SourceIdentity();
+    return Source_->Elements.SourceIdentity();
   }
 
   [[nodiscard]] const TransportTopology &Topology() const noexcept { return Transport_.Graph; }
@@ -95,14 +99,14 @@ public:
   }
 
   [[nodiscard]] std::span<const Data::SourceCoverage> Coverage() const noexcept {
-    return Coverage_;
+    return Source_->Coverage;
   }
 
   [[nodiscard]] const TransportLoadMetrics &Metrics() const noexcept { return Metrics_; }
 
   [[nodiscard]] std::expected<CircuitRoute, CircuitError>
   ResolveCircuit(uint64_t relationId, std::string_view memberRole = {}) const {
-    return Transport_.Graph.ResolveCircuit(Source_, relationId, memberRole);
+    return Transport_.Graph.ResolveCircuit(Source_->Elements, relationId, memberRole);
   }
 };
 

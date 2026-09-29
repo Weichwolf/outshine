@@ -9,22 +9,14 @@
 #include <string_view>
 #include <vector>
 
-#include "OsmElements.h"
+#include "OsmSourceSnapshot.h"
 #include <world/SourceProvider.h>
 
 namespace outshine::Data {
 
-struct OsmChunkSet {
-  OsmElements Elements;
-  std::vector<SourceCoverage> Coverage;
-  size_t SourceBytes = 0;
-  double ReadMs = 0.0;
-  double ParseMs = 0.0;
-};
-
 class OsmChunkSetLoader {
 public:
-  [[nodiscard]] static std::expected<OsmChunkSet, std::string>
+  [[nodiscard]] static std::expected<OsmSourceSnapshot, std::string>
   Load(std::span<const SourceProvider> providers,
        std::string_view shippedRoot,
        const std::stop_token &stop = {});

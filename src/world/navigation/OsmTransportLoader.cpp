@@ -174,13 +174,9 @@ OsmTransportLoader::Load(std::span<const Data::SourceProvider> providers,
   }
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   return std::make_shared<TransportNetworkSnapshot>(
-      std::move(loaded->Elements),
+      std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)),
       std::move(transport),
-      std::move(loaded->Coverage),
-      TransportLoadMetrics{.SourceBytes = loaded->SourceBytes,
-                           .ReadMs = loaded->ReadMs,
-                           .ParseMs = loaded->ParseMs,
-                           .GraphMs = graphMs});
+      graphMs);
 }
 
 }

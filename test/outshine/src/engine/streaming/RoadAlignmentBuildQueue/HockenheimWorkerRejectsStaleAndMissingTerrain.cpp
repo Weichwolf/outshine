@@ -31,10 +31,11 @@ int main() {
   if (!circuit) { return Report(); }
   ResolvedTransport transport{.Graph = std::move(*topology),
                               .Routes = {{.Id = "grand-prix", .Circuit = std::move(*circuit)}}};
-  auto source = std::make_shared<const TransportNetworkSnapshot>(std::move(*elements),
-                                                                 std::move(transport),
-                                                                 std::vector<SourceCoverage>{},
-                                                                 TransportLoadMetrics{});
+  auto source = std::make_shared<const TransportNetworkSnapshot>(
+      std::make_shared<const OsmSourceSnapshot>(
+          OsmSourceSnapshot{.Elements = std::move(*elements)}),
+      std::move(transport),
+      0.0);
   const auto coverage =
       RoadHeightCoverage::Select(*source, {.Zoom = 15, .MaximumEdges = 512, .MaximumTiles = 256});
   CHECK(coverage && coverage->SelectedRouteIndices == std::vector<size_t>{0} &&

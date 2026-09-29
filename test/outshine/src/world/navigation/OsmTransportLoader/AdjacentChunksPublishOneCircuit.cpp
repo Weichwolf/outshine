@@ -100,6 +100,13 @@ int main() {
     return Report();
   }
 
+  const auto sharedSource = first->Source();
+  CHECK(sharedSource && sharedSource->Elements.Nodes().size() == 3 &&
+            sharedSource->Elements.Ways().size() == 3 &&
+            sharedSource->Elements.Relations().size() == 1 && sharedSource->Coverage.size() == 2 &&
+            sharedSource->SourceBytes > 0,
+        "one shared original source retains cross-region objects and coverage");
+
   {
     std::ofstream changed(secondPath, std::ios::binary | std::ios::trunc);
     changed << "<osm version='0.6'><node id='2' lat='0.5' lon='0.001'/></osm>";
@@ -128,6 +135,14 @@ int main() {
   CHECK(!loader.Request(providers, ".", std::span(&routeRequest, 1)) && loader.Current() &&
             loader.Current()->SourceIdentity().Revision == "r2",
         "mixed source revisions reject before scheduling or changing publication");
+
+  CHECK(loader.Current()->Source() != sharedSource &&
+            sharedSource->Elements.SourceIdentity().Revision == "r1" &&
+            sharedSource->Elements.FindRelation(9)->Members.size() == 3,
+        "publishing a new revision leaves pinned original objects and member roles intact");
+  CHECK(loader.Request({}, ".") && !loader.Current() &&
+            sharedSource->Elements.FindWay(10)->NodeIds == std::vector<uint64_t>({1, 2}),
+        "a source consumer retains its immutable objects after transport publication retires");
 
   std::error_code cleanupError;
   std::filesystem::remove(firstPath, cleanupError);

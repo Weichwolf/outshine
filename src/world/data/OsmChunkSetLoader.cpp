@@ -37,7 +37,7 @@ constexpr std::string_view kSha256PinPrefix = "sha256:";
 
 }
 
-std::expected<OsmChunkSet, std::string>
+std::expected<OsmSourceSnapshot, std::string>
 OsmChunkSetLoader::Load(std::span<const SourceProvider> providers,
                         std::string_view shippedRoot,
                         const std::stop_token &stop) {
@@ -95,11 +95,11 @@ OsmChunkSetLoader::Load(std::span<const SourceProvider> providers,
     return std::unexpected("semantic OSM source element " + std::to_string(missing->OwnerId) +
                            " refers to missing element " + std::to_string(missing->MissingId));
   }
-  return OsmChunkSet{.Elements = std::move(*merged),
-                     .Coverage = std::move(coverage),
-                     .SourceBytes = bytes,
-                     .ReadMs = readMs,
-                     .ParseMs = parseMs};
+  return OsmSourceSnapshot{.Elements = std::move(*merged),
+                           .Coverage = std::move(coverage),
+                           .SourceBytes = bytes,
+                           .ReadMs = readMs,
+                           .ParseMs = parseMs};
 }
 
 }
