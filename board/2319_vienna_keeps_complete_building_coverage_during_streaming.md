@@ -62,6 +62,16 @@ zulässige Schranke für das Zusammenfassen weit auseinanderstehender Häuser is
    Vorhandenes Massed mittelt Höhen: Bildvergleich muss insbesondere Hochpunkte und
    Hangstaffelung prüfen. Eine neue räumliche Hierarchie ist vorerst nicht freigegeben.
 
+## Vier durchgängige Darstellungsstufen
+
+Der gemeinsame Vertrag besitzt bereits Fine/Shell/Massed/Skyline. Der Gebäude-Bake
+und die Zellauswahl akzeptieren jedoch höchstens Massed; Skyline ist dort nicht angebunden.
+Keine zusätzliche parallele LOD-API. Die vier gewünschten sichtbaren Stufen müssen
+Generator, Anfrage, Publikation und Auswahl durchgängig abbilden: Nahdetails, vereinfachte
+Einzelobjekte, einfache Hüllen/Kronen und zusammengefasste Siedlungs-/Waldmassen.
+Die heutige Enum-Semantik passt dazu nicht vollständig; Zuordnung vor Runtime-Änderungen
+explizit entscheiden. Vegetation nutzt denselben Vertrag, wird aber weiterhin zuletzt umgesetzt.
+
 ## Besitzer und unveränderliche Verträge
 
 `StructureBuildQueue` besitzt Aufträge und begrenzte Worker-Arbeit; `BuildingField` die
