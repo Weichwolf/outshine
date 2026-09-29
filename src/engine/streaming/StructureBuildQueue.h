@@ -294,7 +294,7 @@ private:
                                                const Ground::BuildingField &footprints,
                                                const HeightSource &heightAt,
                                                const QueuedBuild &bake);
-  void RetireCellBuilds();
+  void RetireCellBuilds(BuildPurpose purpose);
   void AdvancePreparedCells(const Ground::GroundStack &stack,
                             const Ground::BuildingField &footprints,
                             const HeightSource &heightAt);

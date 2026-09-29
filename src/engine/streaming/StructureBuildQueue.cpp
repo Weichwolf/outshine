@@ -585,7 +585,8 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField &vectors,
   }
 }
 
-void StructureBuildQueue::RetireCellBuilds() {
+void StructureBuildQueue::RetireCellBuilds(BuildPurpose purpose) {
+  if (purpose != BuildPurpose::SourceGeometry) { return; }
   for (auto &batch : PreparedCells_) {
     if (!batch) { continue; }
     batch->Revoked = true;
@@ -964,7 +965,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
-  if (purpose == BuildPurpose::SourceGeometry) { RetireCellBuilds(); }
+  RetireCellBuilds(purpose);
   const Ground::OsmField &vectors = *stack.Vectors();
   if (!stack.Ways().SourceDigest(vectors, 0)) {
     ++Deferred_;
@@ -1122,7 +1123,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   detail = EffectiveDetail(detail, purpose);
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
-  if (purpose == BuildPurpose::SourceGeometry) { RetireCellBuilds(); }
+  RetireCellBuilds(purpose);
   const Ground::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr) { return landings; }
   DiscardStale(*vectors, prints, eye, heightAt.Revision, heights, detail, purpose);
