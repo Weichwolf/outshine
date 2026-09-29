@@ -16,11 +16,14 @@
 #include <limits>
 #include <system_error>
 #include <utility>
+#include <lz4.h>
 
 namespace outshine::Data {
 namespace {
 using File = std::unique_ptr<std::FILE, decltype(&std::fclose)>;
-constexpr std::string_view kFooterMagic = "OSAFILE1";
+constexpr std::string_view kLegacyMagic = "OSAFILE1";
+constexpr std::string_view kFooterMagic = "OSAFILE2";
+constexpr uint64_t kCompressed = uint64_t{1} << 63;
 constexpr size_t kFooterBytes = sizeof(uint64_t) + kFooterMagic.size();
 constexpr size_t kAttempts = 64;
 
@@ -43,7 +46,31 @@ void Touch(const std::string &path) {
   std::filesystem::last_write_time(path, std::filesystem::file_time_type::clock::now(), error);
 }
 
-std::optional<ArtifactManifest>
+std::optional<std::vector<uint8_t>>
+ReadPayload(std::FILE *file, size_t bytes, uint64_t stored, bool compressed) {
+  if (bytes > LZ4_MAX_INPUT_SIZE) { return std::nullopt; }
+  std::vector<uint8_t> result(bytes);
+  if (compressed) {
+    std::vector<uint8_t> input(static_cast<size_t>(stored));
+    if (std::fread(input.data(), 1, input.size(), file) != input.size()) { return std::nullopt; }
+    const int produced = LZ4_decompress_safe(reinterpret_cast<const char *>(input.data()),
+                                             reinterpret_cast<char *>(result.data()),
+                                             static_cast<int>(stored),
+                                             static_cast<int>(bytes));
+    if (produced < 0 || std::cmp_not_equal(produced, bytes)) { return std::nullopt; }
+  } else if (std::fread(result.data(), 1, result.size(), file) != result.size()) {
+    return std::nullopt;
+  }
+  return result;
+}
+
+struct Container {
+  ArtifactManifest Manifest;
+  uint64_t StoredBytes = 0;
+  bool Framed = false;
+};
+
+std::optional<Container>
 ReadManifest(std::FILE *file, std::string_view key, ArtifactLimits limits, size_t capBytes) {
   if (std::fseek(file, 0, SEEK_END) != 0) { return std::nullopt; }
   const long end = std::ftell(file);
@@ -52,8 +79,11 @@ ReadManifest(std::FILE *file, std::string_view key, ArtifactLimits limits, size_
     return std::nullopt;
   }
   std::array<uint8_t, kFooterBytes> footer{};
-  if (std::fread(footer.data(), 1, footer.size(), file) != footer.size() ||
-      !std::equal(kFooterMagic.begin(), kFooterMagic.end(), footer.begin() + sizeof(uint64_t))) {
+  if (std::fread(footer.data(), 1, footer.size(), file) != footer.size()) { return std::nullopt; }
+  const bool framed =
+      std::equal(kFooterMagic.begin(), kFooterMagic.end(), footer.begin() + sizeof(uint64_t));
+  if (!framed &&
+      !std::equal(kLegacyMagic.begin(), kLegacyMagic.end(), footer.begin() + sizeof(uint64_t))) {
     return std::nullopt;
   }
   uint64_t count = 0;
@@ -66,10 +96,12 @@ ReadManifest(std::FILE *file, std::string_view key, ArtifactLimits limits, size_
   std::vector<uint8_t> bytes(static_cast<size_t>(count));
   if (std::fread(bytes.data(), 1, bytes.size(), file) != bytes.size()) { return std::nullopt; }
   auto manifest = DecodeArtifactManifest(bytes, key, limits);
-  if (!manifest || manifest->Bytes != available - count || std::fseek(file, 0, SEEK_SET) != 0) {
+  if (!manifest || (!framed && manifest->Bytes != available - count) ||
+      std::fseek(file, 0, SEEK_SET) != 0) {
     return std::nullopt;
   }
-  return manifest;
+  return Container{
+      .Manifest = std::move(*manifest), .StoredBytes = available - count, .Framed = framed};
 }
 }
 
@@ -77,6 +109,8 @@ struct ArtifactStore::Reader::State {
   File Input{nullptr, &std::fclose};
   ArtifactManifest Manifest;
   size_t Next = 0;
+  uint64_t Remaining = 0;
+  bool Framed = false;
 };
 
 ArtifactStore::Reader::Reader(std::unique_ptr<State> state) : State_(std::move(state)) {}
@@ -92,10 +126,28 @@ std::optional<std::vector<uint8_t>> ArtifactStore::Reader::ReadBlock(std::string
   if (State_->Next == State_->Manifest.Blocks.size()) { return std::nullopt; }
   const auto &block = State_->Manifest.Blocks[State_->Next];
   if (block.Key != key || block.Bytes != bytes) { return std::nullopt; }
-  std::vector<uint8_t> result(bytes);
-  if (std::fread(result.data(), 1, result.size(), State_->Input.get()) != result.size()) {
+  uint64_t stored = bytes;
+  bool compressed = false;
+  if (State_->Framed) {
+    std::array<uint8_t, sizeof(uint64_t)> header{};
+    if (State_->Remaining < header.size() ||
+        std::fread(header.data(), 1, header.size(), State_->Input.get()) != header.size()) {
+      return std::nullopt;
+    }
+    State_->Remaining -= header.size();
+    stored = 0;
+    for (size_t i = 0; i < header.size(); ++i) { stored |= uint64_t{header[i]} << (8 * i); }
+    compressed = (stored & kCompressed) != 0;
+    stored &= ~kCompressed;
+  }
+  if (stored == 0 || stored > bytes || stored > State_->Remaining ||
+      (!compressed && stored != bytes) ||
+      (State_->Next + 1 == State_->Manifest.Blocks.size() && stored != State_->Remaining)) {
     return std::nullopt;
   }
+  auto result = ReadPayload(State_->Input.get(), bytes, stored, compressed);
+  if (!result) { return std::nullopt; }
+  State_->Remaining -= stored;
   ++State_->Next;
   return result;
 }
@@ -108,6 +160,7 @@ struct ArtifactStore::Writer::State {
   ArtifactLimits Limits;
   ArtifactManifest Manifest;
   size_t CapBytes = 0;
+  size_t StoredBytes = 0;
   bool Failed = false;
 
   ~State() {
@@ -131,12 +184,33 @@ bool ArtifactStore::Writer::Append(std::string_view key, std::span<const uint8_t
   if (!ValidKey(key) || bytes.empty() || bytes.size() > state.Limits.BlockBytes ||
       state.Manifest.Bytes > state.Limits.EncodedBytesMost ||
       bytes.size() > state.Limits.EncodedBytesMost - state.Manifest.Bytes ||
-      metadata > state.CapBytes || state.Manifest.Bytes > state.CapBytes - metadata ||
-      bytes.size() > state.CapBytes - metadata - state.Manifest.Bytes ||
-      metadata - kFooterBytes > kArtifactManifestBytesMost || !Write(state.Output.get(), bytes)) {
+      metadata > state.CapBytes || metadata - kFooterBytes > kArtifactManifestBytesMost ||
+      bytes.size() > LZ4_MAX_INPUT_SIZE) {
     state.Failed = true;
     return false;
   }
+  std::vector<uint8_t> compressed(bytes.size());
+  const int compressedBytes = LZ4_compress_default(reinterpret_cast<const char *>(bytes.data()),
+                                                   reinterpret_cast<char *>(compressed.data()),
+                                                   static_cast<int>(bytes.size()),
+                                                   static_cast<int>(compressed.size()));
+  const bool smaller = compressedBytes > 0 && std::cmp_less(compressedBytes, bytes.size());
+  const auto payload =
+      smaller ? std::span<const uint8_t>(compressed.data(), static_cast<size_t>(compressedBytes))
+              : bytes;
+  std::array<uint8_t, sizeof(uint64_t)> header{};
+  const uint64_t record = payload.size() | (smaller ? kCompressed : uint64_t{0});
+  for (size_t i = 0; i < header.size(); ++i) {
+    header[i] = static_cast<uint8_t>(record >> (8 * i));
+  }
+  if (state.StoredBytes > state.CapBytes - metadata ||
+      header.size() > state.CapBytes - metadata - state.StoredBytes ||
+      payload.size() > state.CapBytes - metadata - state.StoredBytes - header.size() ||
+      !Write(state.Output.get(), header) || !Write(state.Output.get(), payload)) {
+    state.Failed = true;
+    return false;
+  }
+  state.StoredBytes += header.size() + payload.size();
   state.Manifest.Blocks.push_back({.Key = std::string(key), .Bytes = bytes.size()});
   state.Manifest.Bytes += bytes.size();
   return true;
@@ -187,7 +261,9 @@ std::unique_ptr<ArtifactStore::Reader> ArtifactStore::Read(std::string_view key,
   if (!manifest) { return {}; }
   auto state = std::make_unique<Reader::State>();
   state->Input = std::move(file);
-  state->Manifest = std::move(*manifest);
+  state->Manifest = std::move(manifest->Manifest);
+  state->Remaining = manifest->StoredBytes;
+  state->Framed = manifest->Framed;
   Touch(path);
   return std::unique_ptr<Reader>(new Reader(std::move(state)));
 }

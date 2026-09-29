@@ -17,6 +17,8 @@ this tree outrank analogy to another engine.
 
 ## Build and test
 
+Native asset caching requires LZ4 (`liblz4` in `pkg-config`), alongside the existing SDL3 dependencies.
+
 ```sh
 make            # liboutshine.a + libgenerators.a, and regenerate STATE.md
 sh test/gate.sh # the fast gate, under a minute, and it prints what it does NOT cover
