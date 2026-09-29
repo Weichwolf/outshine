@@ -21,6 +21,7 @@ int main() {
     CHECK(device, "GPU device opens");
     if (!device) { return Report(); }
     constexpr std::array<float, 9> positions{-1, -1, 0, 1, -1, 0, 0, 1, 0};
+    constexpr std::array<float, 9> previous{-1, -1, 0, 1, -1, 0, 0, 0.5f, 0};
     constexpr std::array<float, 9> normals{0, 0, 1, 0, 0, 1, 0, 0, 1};
     constexpr std::array<float, 9> emitted{};
     constexpr std::array<float, 6> uv{0, 0, 1, 0, 0, 1};
@@ -65,6 +66,7 @@ int main() {
         SubjectMesh mesh;
         mesh.Verts.From = positions.data();
         mesh.Positions = positions;
+        mesh.PrevVerts.From = previous.data();
         mesh.Emitted.From = emitted.data();
         mesh.Normals.From = normals.data();
         mesh.Uv.From = uv.data();
@@ -107,7 +109,7 @@ int main() {
         }
         const auto previousBytes = resident.HeldOf(Stream::Previous);
         CHECK(previousBytes != 0 &&
-                  verify(Stream::Previous, positions, resident.SubjectVertices().First),
+                  verify(Stream::Previous, previous, resident.SubjectVertices().First),
               "subject previous pose remains independently addressed after a rigid piece");
         const auto pieceFirst = resident.VertexRoom();
         CHECK(draw.PlacePiece(PieceMesh{.Tangents = tangents,
@@ -133,7 +135,8 @@ int main() {
         CHECK(resident.HeldOf(Stream::Colour) == colourBytes &&
                   resident.HeldOf(Stream::Uv) == uvBytes,
               "arena growth without consumers does not grow optional streams");
-        CHECK(resident.HeldOf(Stream::Previous) == previousBytes,
+        CHECK(resident.HeldOf(Stream::Previous) == previousBytes &&
+                  verify(Stream::Previous, previous, resident.SubjectVertices().First),
               "rigid arena growth does not expand deformable pose storage");
         const SubjectMesh empty;
         const auto cleared = draw.BeginMesh(empty);
