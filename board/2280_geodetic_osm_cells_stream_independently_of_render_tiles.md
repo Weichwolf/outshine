@@ -82,9 +82,9 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
 
 ## Active implementation boundary
 
-- `OsmSourceSnapshot` is shared source ownership, not a transport publication prerequisite.
-  Spatial source readiness precedes independent building/transport derivation; the existing
-  OsmTransportLoader always builds a globally validated graph and cannot gate spatial buildings.
+- `engine/streaming/OsmSourceLoader` owns cancellable source IO/parse and publishes one shared
+  `OsmSourceSnapshot`. Buildings and `OsmTransportLoader::RequestSource` derive independently;
+  graph failure must not reject complete buildings. Retain strict legacy chunk-set loading.
 - `BuildingField::Footprint::FirstPoint` indexes `OsmField::Points`, FirstHole its Rings;
   Laying passes both to BuildingStampJob. Native products must own/share ring coordinates
   and revision. Meshing, footprints, terrain stamps and GroundDiagnostics consume that same
@@ -97,7 +97,7 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   Courtyards bypass solid aggregation; their roofs and floors preserve all inner boundaries.
   Native source ownership, precise roof forms and building classes still need connection.
   Do not encode original objects into reduced vector-tile properties as an intermediate fix.
-- `StructureBuildQueue` admits source-backed building jobs with the existing DEM sampling,
+- Source failure retains prior data. `StructureBuildQueue` admits native jobs with existing DEM sampling,
   cancellation, cell batching and atomic replacement. Source coverage owns replacement
   selection; render-tile overlap must not duplicate an original building. Keep existing
   roads until their original-source replacement is complete and visually verified.
