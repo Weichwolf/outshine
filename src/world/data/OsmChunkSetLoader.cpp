@@ -20,7 +20,6 @@ namespace outshine::Data {
 
 namespace {
 
-constexpr size_t kMaxChunkBytes = size_t{4} * 1024u * 1024u;
 constexpr size_t kMaxTotalBytes = size_t{16} * 1024u * 1024u;
 constexpr size_t kMaxInputElements = 1000000;
 constexpr std::string_view kSha256PinPrefix = "sha256:";
@@ -54,7 +53,7 @@ OsmChunkSetLoader::Load(std::span<const SourceProvider> providers,
     const std::filesystem::path path =
         location.is_absolute() ? location : std::filesystem::path(shippedRoot) / location;
     const auto readAt = std::chrono::steady_clock::now();
-    auto xml = ReadTextFile(path.string(), kMaxChunkBytes);
+    auto xml = ReadTextFile(path.string(), kMaxOsmXmlBytes);
     readMs += MillisecondsSince(readAt);
     if (!xml) { return std::unexpected(std::move(xml.error())); }
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }

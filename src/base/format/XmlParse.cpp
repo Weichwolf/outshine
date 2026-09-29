@@ -36,6 +36,7 @@ bool NameChar(char c) {
 }
 
 struct Xml::ParseState {
+  ParseBudget Budget;
   std::array<uint32_t, kXmlMaxDepth> Stack{};
   std::array<uint32_t, kXmlMaxDepth> LastChild{};
   size_t Depth = 0;
@@ -45,6 +46,10 @@ struct Xml::ParseState {
 };
 
 bool Xml::Parse(const char *text, size_t length) {
+  return Parse(text, length, {});
+}
+
+bool Xml::Parse(const char *text, size_t length, ParseBudget budget) {
   Error_.clear();
   SiblingSteps_ = 0;
   Nodes_.clear();
@@ -58,7 +63,7 @@ bool Xml::Parse(const char *text, size_t length) {
   Text_.assign(text, length);
   Nodes_.emplace_back();
 
-  ParseState state;
+  ParseState state{.Budget = budget};
   if (Text_.starts_with(kUtf8Bom)) { state.At = kUtf8Bom.size(); }
   while (state.At < length) {
     if (!ParseMarkup(state)) { return false; }
@@ -167,8 +172,9 @@ bool Xml::ParseOpeningTag(ParseState &state) {
                   at);
   }
   if (closed) { return Refuse("a document carries one root element and this is a second", at); }
-  if (Nodes_.size() >= kXmlMaxNodes) {
-    return Refuse("the document reaches the element bound of " + std::to_string(kXmlMaxNodes), at);
+  if (Nodes_.size() >= state.Budget.NodeSlots) {
+    return Refuse(
+        "the document reaches the element bound of " + std::to_string(state.Budget.NodeSlots), at);
   }
 
   Nodes_.emplace_back();
@@ -254,9 +260,9 @@ bool Xml::ParseAttribute(ParseState &state, uint32_t made) {
   const size_t value = at;
   while (at < length && Text_[at] != quote) { ++at; }
   if (at >= length) { return Refuse("an attribute's value never closes", attribute); }
-  if (Attributes_.size() >= kXmlMaxAttributes) {
+  if (Attributes_.size() >= state.Budget.Attributes) {
     return Refuse("the document reaches the attribute bound of " +
-                      std::to_string(kXmlMaxAttributes),
+                      std::to_string(state.Budget.Attributes),
                   attribute);
   }
   Attribute one;

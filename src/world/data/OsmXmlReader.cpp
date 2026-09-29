@@ -147,8 +147,13 @@ std::expected<OsmElements, OsmXmlError> OsmXmlReader::Read(std::string_view xml,
   if (identity.DatasetId.empty() || identity.Revision.empty()) {
     return std::unexpected(OsmXmlError::InvalidSourceIdentity);
   }
+  if (xml.size() > kMaxOsmXmlBytes) { return std::unexpected(OsmXmlError::BudgetExceeded); }
+  constexpr size_t kShortestXmlElementBytes = 4;
+  constexpr size_t kShortestXmlAttributeBytes = 4;
+  const Xml::ParseBudget budget{.NodeSlots = xml.size() / kShortestXmlElementBytes + 1,
+                                .Attributes = xml.size() / kShortestXmlAttributeBytes};
   Xml document;
-  if (!document.Parse(xml.data(), xml.size())) {
+  if (!document.Parse(xml.data(), xml.size(), budget)) {
     return std::unexpected(OsmXmlError::InvalidDocument);
   }
   const Xml::Ref root = document.Root();

@@ -134,7 +134,13 @@ public:
 
   [[nodiscard]] Unread FirstUnread() const;
 
+  struct ParseBudget {
+    size_t NodeSlots = kXmlMaxNodes;
+    size_t Attributes = kXmlMaxAttributes;
+  };
+
   [[nodiscard]] bool Parse(const char *text, size_t length);
+  [[nodiscard]] bool Parse(const char *text, size_t length, ParseBudget budget);
 
   [[nodiscard]] Ref Root() const { return {this, Root_}; }
 
