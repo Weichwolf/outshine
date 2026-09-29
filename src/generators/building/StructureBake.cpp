@@ -621,6 +621,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.CornerAslM = std::span<const double>(corners.data(), corners.size());
   plan.HeightM = fp.HeightM;
   plan.HeightMeasured = fp.Source == BuildingField::HeightSource::Osm;
+  plan.PitchedShare = static_cast<double>(one.Pitched);
   plan.Street = fp.Street;
   plan.AnchorEcef = raw.AnchorEcef;
   plan.Coarseness = level;

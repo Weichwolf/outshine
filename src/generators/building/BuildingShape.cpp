@@ -351,6 +351,7 @@ struct Proportions {
 
 [[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double pitchedShare) {
   const double aspect = s.HalfUm / s.HalfVm;
+  if (pitchedShare == 0.0) { return RoofKind::Flat; }
   if (ReadsAsRound(s)) { return RoofKind::Dome; }
 
   const bool pitchable =
@@ -749,7 +750,7 @@ void WingParts(const PartOrder &whole, BuildingScratch &scratch) {
   if (wingPart.Valid()) { scratch.Parts.Next() = wingPart; }
 }
 
-void StackDeep(bool heightMeasured, BuildingScratch &scratch) {
+void StackDeep(Order order, BuildingScratch &scratch) {
   for (BuildingShape &s : scratch.Parts.Standing()) {
     const bool deep = std::min(s.HalfUm, s.HalfVm) >= kDeepFromHalfM &&
                       s.Storeys >= kDeepFromStoreys && s.Roof == RoofKind::Flat;
@@ -768,7 +769,8 @@ void StackDeep(bool heightMeasured, BuildingScratch &scratch) {
     o.FootM = s.FootM + lower;
     o.TopOverFootM = s.EavesM + s.RiseM - lower;
     o.Seed = Mix(s.Seed + kOutbuildingWord);
-    o.HeightMeasured = heightMeasured;
+    o.HeightMeasured = order.HeightMeasured;
+    o.PitchedShare = order.PitchedShare;
     o.Use = s.Use;
     BuildingShape &top = scratch.Made;
     Finish(cap, o, top);
@@ -826,7 +828,7 @@ MassOf(std::span<const double> ringLatLon,
   }
   if (scratch.Parts.Count() == 0) { scratch.Parts.Next() = one; }
 
-  StackDeep(order.HeightMeasured, scratch);
+  StackDeep(order, scratch);
   for (BuildingShape &s : scratch.Parts.Standing()) { FaceTheStreet(&s, street); }
   return scratch.Parts.Standing();
 }
