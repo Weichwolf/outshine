@@ -84,7 +84,12 @@ vergleichbarer Szenarioparameter. Kein allgemeiner `cachable`-Vertrag ist implem
    Abhängigkeiten. Nicht identifizierbare Eingaben sind ein Vertragsfehler; keine stillen
    dauerhaften Bypässe. Dynamischer Simulationszustand ist kein generiertes Asset;
    seine statischen Vorlagen und vorberechneten Produkte sind dennoch zu cachen.
-6. Jeder erfolgreiche Asset-Producer publiziert sein Ergebnis über diesen Pfad. Fehler,
+6. `TilePool` trennt gehaltene Cache-Ergebnisse von noch nicht übernommenen
+   Fertigmeldungen. `AwaitLanding` wartet auf unübernommene Ergebnisse; ein bereits
+   übernommenes, weiterhin gecachtes Feld darf die Preload-Schleife nicht erneut wecken.
+   Publikation, Übernahme und Verdrängung pflegen diesen Zustand unter `QueueMutex_`.
+   Vor dem Warten fertiggestellte Ergebnisse bleiben sofort beobachtbar.
+7. Jeder erfolgreiche Asset-Producer publiziert sein Ergebnis über diesen Pfad. Fehler,
    Abbruch und unvollständige Produkte werden nicht als Treffer gespeichert. Schreibfehler
    sichtbar melden; keine Cache-Erfolge behaupten. Ein beschädigter Eintrag wird als Miss
    neu aufgebaut. Speicher- und Plattenbudgets begrenzen Residency und Eviktion.
