@@ -897,8 +897,9 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                                "world: subject draw index buffer",
                                "world: subject draw argument buffer"};
     static_assert(names.size() == std::tuple_size_v<decltype(memory.StreamBytes)>);
-    for (size_t at = 0; at < names.size(); ++at) {
-      Published.RecordMetric(names[at], static_cast<double>(memory.StreamBytes[at]), "bytes");
+    for (size_t stream = 0; stream < names.size(); ++stream) {
+      Published.RecordMetric(
+          names[stream], static_cast<double>(memory.StreamBytes[stream]), "bytes");
     }
     Published.RecordMetric("world: subject transfer buffer capacity",
                            static_cast<double>(memory.TransferBytes),
