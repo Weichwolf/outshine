@@ -36,10 +36,11 @@ TerrainRevisionIndex::Create(size_t entriesMost) {
 }
 
 std::expected<TerrainRevisionIndex::Stamp, TerrainRevisionIndex::Error>
-TerrainRevisionIndex::IssueDeliveryStamp(Data::TileId requested) {
+TerrainRevisionIndex::IssueDeliveryStamp(Data::TileId requested,
+                                         std::optional<DeliveryFingerprint> fingerprint) {
   if (!ValidTile(requested)) { return std::unexpected(Error::InvalidTile); }
   const std::scoped_lock lock(Mutex_);
-  return Register(requested, std::nullopt);
+  return Register(requested, std::nullopt, fingerprint);
 }
 
 std::expected<TerrainRevisionIndex::Stamp, TerrainRevisionIndex::Error>
@@ -70,18 +71,28 @@ TerrainRevisionIndex::RestoreCachedStamp(const Stamp &stamp) {
 }
 
 std::expected<TerrainRevisionIndex::Stamp, TerrainRevisionIndex::Error>
-TerrainRevisionIndex::Register(Data::TileId requested, std::optional<uint64_t> retainedDelivery) {
+TerrainRevisionIndex::Register(Data::TileId requested,
+                               std::optional<uint64_t> retainedDelivery,
+                               std::optional<DeliveryFingerprint> fingerprint) {
   if (RegistrationClock_ == std::numeric_limits<uint64_t>::max()) {
     Entries_.clear();
     return std::unexpected(Error::RevisionExhausted);
   }
   auto position = std::ranges::lower_bound(
       Entries_, Order(requested), {}, [](const Entry &entry) { return Order(entry.Requested); });
+  if (fingerprint && position != Entries_.end() && position->Requested == requested &&
+      position->Fingerprint == fingerprint) {
+    return Stamp{.Requested = requested,
+                 .RegistrationRevision = position->RegistrationRevision,
+                 .DeliveryRevision = position->DeliveryRevision,
+                 .Owner = Owner_};
+  }
   const auto revision = ++RegistrationClock_;
   const auto delivery = retainedDelivery.value_or(revision);
   if (position != Entries_.end() && position->Requested == requested) {
     position->RegistrationRevision = revision;
     position->DeliveryRevision = delivery;
+    position->Fingerprint = fingerprint;
   } else {
     if (Entries_.size() == EntriesMost_) {
       Entries_.erase(std::ranges::min_element(Entries_, {}, &Entry::RegistrationRevision));
@@ -92,7 +103,8 @@ TerrainRevisionIndex::Register(Data::TileId requested, std::optional<uint64_t> r
     Entries_.insert(position,
                     Entry{.Requested = requested,
                           .RegistrationRevision = revision,
-                          .DeliveryRevision = delivery});
+                          .DeliveryRevision = delivery,
+                          .Fingerprint = fingerprint});
   }
   return Stamp{.Requested = requested,
                .RegistrationRevision = revision,

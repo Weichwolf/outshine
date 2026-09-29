@@ -55,13 +55,22 @@ public:
   SourceDecl Decl{.Id = "revision-dem", .Keeps = Cacheability::Never};
   mutable std::atomic<unsigned> Calls = 0;
   std::atomic<bool> Absent = false;
+  std::atomic<bool> Stable = false;
+  std::atomic<bool> ShiftServed = false;
   std::shared_ptr<FirstDeliveryGate> Gate;
 
   const SourceDecl &Declaration() const noexcept override { return Decl; }
 
   Coverage Covers(const Fetch &) const noexcept override { return Coverage::Inside; }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  Address Serves(const Fetch &request) const noexcept override {
+    if (ShiftServed && request.Where().Tile()) {
+      auto tile = *request.Where().Tile();
+      tile.X ^= 1u;
+      return Address::At(tile);
+    }
+    return request.Where();
+  }
 
   FetchStart Begin(const Address &, Transport &) const override { return Ticket::None; }
 
@@ -69,7 +78,7 @@ public:
     const auto serial = ++Calls;
     if (serial == 1 && Gate) { Gate->Pause(); }
     if (Absent) { return Fetched::NotFound(); }
-    return Fetched::Delivered({static_cast<uint8_t>(serial), 42});
+    return Fetched::Delivered({Stable ? uint8_t{7} : static_cast<uint8_t>(serial), 42});
   }
 };
 }
@@ -154,6 +163,37 @@ int main() {
           "replaced delivery cannot certify current terrain");
     CHECK(delayed.TerrainStamp && pool.ValidTerrainStamps(std::array{*delayed.TerrainStamp}),
           "latest published bytes retain their exact stamp");
+  }
+  {
+    ContentStore store({.Using = ContentStore::Use::Off});
+    SourceSet sources(store);
+    NoNetwork transport;
+    auto provider = std::make_unique<Provider>();
+    auto *observed = provider.get();
+    observed->Stable = true;
+    CHECK(sources.Add(std::move(provider)) == SourceSet::Registration::Accepted,
+          "stable terrain provider registers");
+    TilePool pool({.ByteBudget = 2, .TerrainRevisionEntries = 8}, sources, transport);
+    TilePool::Landing first, neighbour, again, relocated;
+    CHECK(pool.BytesBlocking(askA, &first) == TilePool::Reply::Ready && first.TerrainStamp,
+          "first immutable payload has a certificate");
+    CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready &&
+              pool.BytesBlocking(askA, &again) == TilePool::Reply::Ready,
+          "evicted bytes are delivered again");
+    CHECK(observed->Calls == 3 && first.Bytes == again.Bytes &&
+              first.TerrainStamp == again.TerrainStamp,
+          "identical re-delivery preserves certificates held by in-flight world candidates");
+    CHECK(first.TerrainStamp && pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
+          "candidate can continue after raw-byte cache eviction and identical refill");
+    CHECK(pool.BytesBlocking(askB, &neighbour) == TilePool::Reply::Ready,
+          "evict the first address before changing served provenance");
+    observed->ShiftServed = true;
+    CHECK(pool.BytesBlocking(askA, &relocated) == TilePool::Reply::Ready &&
+              relocated.Bytes == first.Bytes && relocated.At != first.At,
+          "negative control delivers equal bytes from a different source address");
+    CHECK(relocated.TerrainStamp != first.TerrainStamp && first.TerrainStamp &&
+              !pool.ValidTerrainStamps(std::array{*first.TerrainStamp}),
+          "equal bytes cannot hide changed terrain provenance");
   }
   return Report();
 }

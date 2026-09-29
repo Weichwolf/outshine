@@ -1,4 +1,5 @@
 #include "Digest.h"
+#include "Sha256.h"
 #include "math/Units.h"
 #include "TilePool.h"
 #include "TerrainDelivery.h"
@@ -364,13 +365,31 @@ TilePool::Reply TilePool::ReadCachedDelivery(const std::string &key, Landing *ou
 
 std::optional<TerrainRevisionIndex::Stamp>
 TilePool::PublishDelivery(const Data::Fetch &request, const Landing &landing, bool absent) {
-  const std::scoped_lock lock(CacheMutex_);
   const std::string key = request.Key();
+  std::optional<TerrainRevisionIndex::DeliveryFingerprint> fingerprint;
+  if (request.Kind() == Data::DataKind::Elevation) {
+    std::string identity;
+    const auto append = [&identity](std::string_view value) {
+      identity += std::to_string(value.size()) + ":";
+      identity += value;
+    };
+    append(key);
+    append(landing.SourceId);
+    append(landing.SourceRevision);
+    append(landing.SourceKey);
+    append(landing.At.Text());
+    append(absent ? "absent" : "present");
+    append(Sha256Hex(landing.Bytes.data(), landing.Bytes.size()));
+    const std::string digest = Sha256Hex(identity);
+    fingerprint.emplace();
+    std::ranges::copy(digest, fingerprint->begin());
+  }
+  const std::scoped_lock lock(CacheMutex_);
   const size_t len = absent ? 0u : landing.Bytes.size();
   std::optional<TerrainRevisionIndex::Stamp> stamp;
   if (TerrainRevisions_ && request.Kind() == Data::DataKind::Elevation) {
     if (const auto tile = request.Where().Tile()) {
-      auto observed = TerrainRevisions_->IssueDeliveryStamp(*tile);
+      auto observed = TerrainRevisions_->IssueDeliveryStamp(*tile, fingerprint);
       if (observed) { stamp = std::move(*observed); }
     }
   }

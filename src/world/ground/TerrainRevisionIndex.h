@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_TERRAINREVISIONINDEX_H
 
 #include "Address.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -26,6 +27,8 @@ public:
   };
   enum class Validation : uint8_t { Current, Unknown, Stale };
 
+  using DeliveryFingerprint = std::array<char, 64>;
+
   struct Stamp {
     Data::TileId Requested;
     uint64_t RegistrationRevision = 0;
@@ -36,7 +39,9 @@ public:
 
   [[nodiscard]] static std::expected<std::unique_ptr<TerrainRevisionIndex>, Error>
   Create(size_t entriesMost = 4096);
-  [[nodiscard]] std::expected<Stamp, Error> IssueDeliveryStamp(Data::TileId requested);
+  [[nodiscard]] std::expected<Stamp, Error>
+  IssueDeliveryStamp(Data::TileId requested,
+                     std::optional<DeliveryFingerprint> fingerprint = std::nullopt);
   [[nodiscard]] std::expected<Stamp, Error> RestoreCachedStamp(const Stamp &stamp);
   [[nodiscard]] Validation InspectStamps(std::span<const Stamp> stamps) const;
   [[nodiscard]] std::optional<Validation> TryInspectStamps(std::span<const Stamp> stamps) const;
@@ -53,11 +58,14 @@ private:
     Data::TileId Requested;
     uint64_t RegistrationRevision = 0;
     uint64_t DeliveryRevision = 0;
+    std::optional<DeliveryFingerprint> Fingerprint;
   };
 
   explicit TerrainRevisionIndex(size_t entriesMost);
-  [[nodiscard]] std::expected<Stamp, Error> Register(Data::TileId requested,
-                                                     std::optional<uint64_t> retainedDelivery);
+  [[nodiscard]] std::expected<Stamp, Error>
+  Register(Data::TileId requested,
+           std::optional<uint64_t> retainedDelivery,
+           std::optional<DeliveryFingerprint> fingerprint = std::nullopt);
   std::shared_ptr<const Domain> Owner_ = std::make_shared<const Domain>();
   mutable std::mutex Mutex_;
   std::vector<Entry> Entries_;
