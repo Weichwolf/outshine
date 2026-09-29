@@ -86,16 +86,17 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
 
 ## Active implementation boundary
 
-- The shared immutable `OsmSourceSnapshot` exists in `world/data`; transport consumes it.
-  Connect ground building extraction directly. Keep strict complete-set validation unchanged.
+- `OsmSourceSnapshot` is shared source ownership, not a transport publication prerequisite.
+  Spatial source readiness precedes independent building/transport derivation; the existing
+  OsmTransportLoader always builds a globally validated graph and cannot gate spatial buildings.
 - `BuildingField::Footprint::FirstPoint` currently indexes `OsmField::Points`; Laying passes
   that buffer to BuildingStampJob. Native source products must own/share their ring coordinates
   and revision. Meshing, footprints, terrain stamps and GroundDiagnostics consume that same
   immutable geometry owner; no copied MVT surrogate and no index across unrelated buffers.
 - `world/ground` resolves closed ways and multipolygon member chains by typed source ID,
   including inner rings and building-part membership. Keep source tags in the snapshot;
-  native building inputs reference their source object and carry interpreted geometry.
-  Missing required members prevent publication; unrelated route relations do not.
+  native inputs reference their source object and geometry. Product-root closure gates publication;
+  unrelated route references do not. Preserve strict local complete-set and graph validation.
 - Extend `StructureBake::RawTile` and `StructurePlan` together: outer/inner rings, top and
   minimum height, roof form and building/industrial class must survive through meshing.
   The current exterior-only `RawOf` loop and height/pitched pair are insufficient. Do not
@@ -111,8 +112,7 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
 
 ## Native geometry requirements
 `StructurePlan` and `BuildingShape::MassOf` accept one exterior ring only. Extend both.
-Keep terrain `FootAslM` separate from OSM `min_height`; native lower/top elevations share
-one terrain datum. Elevated parts acquire no ground plinth, pavement or clearance-closing walls.
+Keep terrain `FootAslM` separate from OSM `min_height`; lower/top elevations share one terrain datum. Elevated parts acquire no ground plinth, pavement or clearance-closing walls.
 Carry holes through massing, roofs, inner walls and foundations. Reuse vendored Mapbox Earcut,
 already used by `WaterSurfaceBuilder`; no new triangulator. Keep courtyards empty after
 parapets/overhangs and at every enabled detail level. Explicit outlines, parts and holes
