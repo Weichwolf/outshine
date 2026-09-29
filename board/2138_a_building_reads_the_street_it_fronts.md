@@ -57,3 +57,15 @@ verschiedene Fassadenrhythmen. Flensburg verlangt Backstein, steile Giebel und K
 /Spirentypen; ein schmaler Baukörper wird nicht automatisch zum Fenster-Hochhaus.
 Erste Lieferung kombiniert native Dach-/Sockeldetails mit korrekter OSM-Klasse;
 Bauteile unter einem Pixel werden gefiltert, nicht vollständig für die Ferne erzeugt.
+
+## Bauwerksform vor der Zerlegung festlegen
+
+Flensburgs originaler Sankt-Nikolai-Grundriss (OSM Way 87700216, building=church,
+height=40) erzeugt bereits in MassOf einen Kuppel-Hauptkörper. WingParts zerlegt
+zuerst; Finish/RoofOf interpretiert den Teil danach wegen Füllgrad/Seitenverhältnis
+als rund. Originaldaten allein reparieren dieses allgemeine Generatorproblem nicht.
+StructurePlan/Order müssen belegte Bauwerksklasse und Dachform bis in alle Teile tragen.
+Zerlegung darf keine neue Bauwerksidentität oder andere Dachfamilie erfinden; unbekannte
+Formen benötigen einen expliziten gebäudebezogenen Entwurf vor WingParts/StackDeep.
+Kuppeln nicht pauschal entfernen: belegte runde Bauten erhalten ihre Form. Eine Kirche
+wird durch bloßes Ersetzen der Kuppel durch ein Flachdach nicht korrekt.
