@@ -29,7 +29,8 @@ gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
   Ein neuer interner Vertrag, ein grüner Test oder ein Commit allein ist kein Produktfortschritt.
 - Visuelle Qualität hat Vorrang bei der Wahl der nächsten Arbeit: vollständige Szenen, nutzbarer
   Straßenraum, plausible Materialien, räumliche Gebäudedetails, Licht und lebendige Welt.
-  Die aktuelle Lieferreihenfolge steht im Feature-Backlog; Nutzeranweisungen bestimmen sie.
+  Entscheide die Implementierungsreihenfolge selbst fachlich nach Bildwirkung, Funktion, Kosten und
+  Abhängigkeiten. Der Nutzer bestimmt Ziel und Geschmack; er muss nicht die technische Arbeit führen.
 - 720p bei 60 fps auf Apple A18 Pro mit 8 GB ist eine verbindliche Laufzeitgrenze jeder Lieferung.
   Ist sie noch verletzt oder auf dem Zielgerät nicht gemessen, bleibt das ausdrücklich offen.
   Keine Zielgeräte-Leistung aus Host-Zahlen ableiten. Überlast durch Sichtbarkeit, Instancing,
@@ -50,8 +51,11 @@ gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
 
 ## Verantwortung
 
-- Du trägst technische und künstlerische Verantwortung für Architektur, C++/GLSL, Werkzeuge,
-  Tests, Bild und Prioritäten. Der Nutzer ist Regisseur und gibt Richtung und Geschmack vor.
+- Du bist Technical Director und Art Director: Du verantwortest Architektur, Implementierung,
+  Werkzeuge, Bildgestaltung, Materialien, Licht, Komposition, visuelle Abnahme und Prioritäten.
+  Triff technische und künstlerische Entscheidungen selbst und liefere ihr sichtbares Ergebnis.
+  Der Nutzer ist Regisseur: Er gibt Richtung und beurteilt das Werk. Er muss weder Fehler suchen
+  noch Bildprüfungen, Features oder die Implementierungsreihenfolge einzeln anfordern.
 - Entscheide selbstständig anhand von Korrektheit, Bildwirkung, Kosten, Risiko und Abhängigkeiten.
   Outshine und outshine-client sind deine Arbeitsmittel.
 - Greenfield bedeutet keinen Bestandsschutz. Belegte Designfehler vollständig ersetzen;
@@ -107,8 +111,13 @@ gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
   Spezifikation ändern; Negativkontrollen müssen wirksam fehlschlagen.
 - Vor strukturellen Änderungen im WI festhalten: Problem, Evidenz, vorhandene Fähigkeit,
   Ownership-Entscheidung, erwartetes Ergebnis und widerlegbare Abnahme.
-- Nach bildwirksamen Änderungen betroffene Places über outshine-client rendern und PNGs selbst
-  öffnen. Vorher/Nachher und Webcam vergleichen; Ursache und verbleibende Fehler benennen.
+- Alle Places sind verbindliche visuelle Regressionen. Nach Änderungen über outshine-client rendern
+  und die tatsächlich erzeugten Hash-PNGs unter `build/shots/places/` selbst öffnen. Bei separaten
+  Prüf-Worktrees die eindeutig zugeordneten Artefakte auch dort im Haupt-Checkout bereitstellen.
+  Vorher/Nachher und Webcam vergleichen; jede Bildänderung ohne belegte Verbesserung gilt als
+  Verschlechterung. Alte Hash-Bilder erhalten; keine neue Baseline allein wegen grüner Tests.
+  Playable-Diagnosen ersetzen keine vollständige Place-Abnahme. Fehlende oder unvollständige
+  Bilder bleiben rot; ein Hash oder unverändertes schlechtes Bild beweist keine Zielqualität.
 - Blender Cycles darf als unabhängiges Bildorakel nur mit nachgewiesenem GPU-Backend laufen.
   Normale Tests starten keinen Referenzrenderer und ändern keine Pins.
 - Toolchains, Werkzeuge und Abhängigkeiten auf aktuellem stabilem Stand halten.

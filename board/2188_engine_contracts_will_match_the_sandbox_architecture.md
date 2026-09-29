@@ -62,7 +62,8 @@ Runtime-Zertifikate dürfen nicht optimistisch sein; sie sind Mittel für eine b
 
 ## Arbeitsvertrag
 
-2169 beschreibt den Endzustand und die Lieferstufen. Feature-WIs halten Ergebnis, vorhandene
+2169 beschreibt den Endzustand und die Lieferstufen. Die technische Reihenfolge entscheidet der
+Engine-Verantwortliche nach Wirkung, Kosten und Abhängigkeiten; der Nutzer muss sie nicht vorgeben. Feature-WIs halten Ergebnis, vorhandene
 Fähigkeit, Besitzer, Daten-/Fehlerfluss, nächste Implementierung und kurze Fertig-Kriterien.
 Depends nennt nur technische Blocker, Parent nur Zugehörigkeit. Keine Test-Tagebücher;
 konkrete Läufe, Mutationen und Messprotokolle stehen in Git und System-Temp-Logs.
