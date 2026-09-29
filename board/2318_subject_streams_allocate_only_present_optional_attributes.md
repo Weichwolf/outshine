@@ -89,5 +89,11 @@ Cross, bounded by each consumer's range. Old contents survive geometric buffer g
 Format 1219 PASS; six GPU tests PASS, 90 checks including earlier-byte reads AFTER growth.
 Restored arena-wide reservation causes ten failures; restored replacement without copying
 causes six failures, both actual exit 1. No test or limit was weakened.
-Full lint/tidy/API and Places/PNGs run against 6521238ba; runtime byte comparison is pending.
+Full lint/tidy/API PASS on 6521238ba. Places suite still running; runtime byte comparison pending.
+Six current PNGs personally opened: Graz/Wien/Olympiaturm Playable, Darmstadt/Feldkirch/Husum
+Refined. Against recovered 4b9afb1de references: five pixel-identical; Darmstadt differs in
+2/921600 pixels by at most 1/255. Known terrain walls, jagged banks and material gaps remain.
+References and per-place provenance: build/shots/reference/{4b9afb1de,6521238ba}/.
+Old master archive directories disappeared; original frozen-tree PNGs recovered with ROW
+and gate-time bounds. Cause unproven. Current suite still reports Graz UNPREPARED.
 Logs /tmp/outshine-repair-6521238ba-*.log and /tmp/outshine-2318-preserve-*-control*.

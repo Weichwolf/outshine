@@ -27,9 +27,9 @@ reale FAILs. Das beweist die Speicher-Reparatur, nicht fertige Runtime-LOD oder 
 Graz/Wien erreichen nach 6144 Frames noch nicht die Ground-Publikation; deshalb sind
 kürzere Fallzeiten kein Nachweis schnellerer fertiger Szenen. Quellen-/Routenabnahmen grün.
 Alle zehn aktuellen Client-PNGs ohne Vegetation persönlich geöffnet. Refined-Artefakte
-unter `build/shots/places-refined-4b9afb1de/`, Auswahl über abgeschlossene ROW-Logs und
-PNG-Zeitstempel, je Place mit Provenienz-JSON. Drei Playable-Diagnosen separat unter
-`build/shots/places-playable-4b9afb1de/`. Diese drei sowie Husum/Hockenheim haben je
+unter `build/shots/reference/4b9afb1de/`, einschließlich drei Playable-Diagnosen.
+Nach verschwundenen Master-Kopien aus Worktree-Originalen wiederhergestellt; Ursache offen.
+Zuordnung durch ROW-Logs und Gate-Zeitgrenzen, je Place Provenienz-JSON. Playable/Husum/Hockenheim je
 0/921600 abweichende Pixel gegenüber korrekt zugeordneten 973b697a5-Bildern.
 Korrektur: Fünf Refined-Kopien unter dem alten 973b697a5-Namen waren ältere PNGs
 (Darmstadt/Feldkirch/Koerbersee/Malcesine/Rosenheim). Deren Pixelidentitätsclaim ist
