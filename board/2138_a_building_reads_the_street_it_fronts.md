@@ -70,8 +70,12 @@ Formen benötigen einen expliziten gebäudebezogenen Entwurf vor WingParts/Stack
 Kuppeln nicht pauschal entfernen: belegte runde Bauten erhalten ihre Form. Eine Kirche
 wird durch bloßes Ersetzen der Kuppel durch ein Flachdach nicht korrekt.
 
-Die unabhängige Reparatur der bestehenden Zerlegung kann vor 2173 erfolgen:
-PartOrder trägt die am Gesamtgrundriss gewählte Dachfamilie durch WingParts und
-StackDeep; Finish wählt sie nur, solange noch kein Entwurf vorhanden ist.
-Grundrisse, Quellenhöhen und echte runde Bauten erhalten. Keine Freigabe als fertige
-Kirchendarstellung; native OSM-Klasse und belegte Parts bleiben Aufgabe von 2173/2280.
+Die pauschale Vererbung der heuristisch am Gesamtgrundriss gewählten Dachfamilie
+ist verworfen: Sie ersetzt im Flensburg-Vergleich zusätzlich geneigte Nachbardächer
+durch Flachdächer und erzeugt statt der Kirche einen Bürohochhauskörper.
+Nur explizite Quelldachangaben dürfen ungeprüft als bindender Entwurf an Teile gehen.
+Bei unbekannter Dachform müssen Gebäudeklasse, belegte Parts und konstruktive Rollen
+zuerst den Entwurf bestimmen. Die bisherige UseOf-Höhenheuristik (40 m => Tower)
+ist dafür unzureichend. Nächster Durchstich: native OSM-Klasse und Dach-/Part-Semantik
+von 2173/2280 bis StructurePlan/Order; dann klassengerechte Baukörper und Fassaden.
+Keine weitere isolierte Dachheuristik als Ersatz für diesen Datenpfad.
