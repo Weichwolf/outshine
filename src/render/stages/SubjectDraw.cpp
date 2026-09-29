@@ -612,8 +612,10 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
          (subject == 0 ||
           (res.Grow(
                S::Emitted, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error) &&
-           res.Grow(S::Tangent, {.Usage = vertex, .Bytes = bytes(subject, kQuadFloats)}, error) &&
-           res.Grow(S::Uv1, {.Usage = vertex, .Bytes = bytes(subject, kPairFloats)}, error))) &&
+           (!res.Shape().HasTangent ||
+            res.Grow(S::Tangent, {.Usage = vertex, .Bytes = bytes(subject, kQuadFloats)}, error)) &&
+           (!res.Shape().HasUv1 ||
+            res.Grow(S::Uv1, {.Usage = vertex, .Bytes = bytes(subject, kPairFloats)}, error)))) &&
          res.Grow(S::Index,
                   {.Usage = kIndexUse,
                    .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t))},
