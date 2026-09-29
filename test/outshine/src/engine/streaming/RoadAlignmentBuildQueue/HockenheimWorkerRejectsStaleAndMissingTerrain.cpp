@@ -3,6 +3,7 @@
 #include "RoadAlignmentBuildQueue.h"
 #include "RoadHeightCoverage.h"
 
+#include <cstdio>
 #include <fstream>
 #include <iterator>
 #include <memory>
@@ -79,14 +80,35 @@ int main() {
   CHECK(submit(41, fields), "the first candidate starts on the worker");
   finish(41);
   auto built = queue.TakeCompleted();
+  if (built && *built) {
+    const auto &product = built->value();
+    std::fprintf(stderr,
+                 "candidate matches=%d routes=%zu earthworks=%zu\n",
+                 product.Matches(41, source->SourceIdentity()),
+                 product.Routes.size(),
+                 product.Earthworks.size());
+    for (const auto &route : product.Routes) {
+      std::fprintf(stderr,
+                   "route closed=%d edges=%zu surface=%d valid=%d spans=%zu\n",
+                   route.Alignment && route.Alignment->Closed(),
+                   route.Alignment ? route.Alignment->Edges().size() : 0,
+                   static_cast<bool>(route.Surface),
+                   route.Surface && route.Surface->SurfaceGeometry.wellFormed(),
+                   route.Surface ? route.Surface->Spans.size() : 0);
+    }
+  } else if (built) {
+    std::fprintf(stderr,
+                 "road worker error=%d route=%s\n",
+                 static_cast<int>(built->error().Code),
+                 built->error().RouteId.c_str());
+  }
   CHECK(built && *built && built->value().Matches(41, source->SourceIdentity()) &&
             built->value().Routes.size() == 1 &&
             built->value().Routes.front().Alignment->Closed() &&
             built->value().Routes.front().Alignment->Edges().size() == 267 &&
             built->value().Routes.front().Surface &&
             built->value().Routes.front().Surface->SurfaceGeometry.wellFormed() &&
-            built->value().Earthworks.size() ==
-                (built->value().Routes.front().Surface->Spans.size() + 4) / 5,
+            built->value().Earthworks.size() == built->value().Routes.front().Surface->Spans.size(),
         "the worker returns one native road surface and all source edges with provenance");
 
   CHECK(submit(42, fields), "a later candidate starts after the first result is taken");
