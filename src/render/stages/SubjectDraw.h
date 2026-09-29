@@ -240,7 +240,7 @@ private:
   static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;
 
   void PushFrameUniforms(const FrameContext &ctx, const PassRecording &into);
-  void BindVertexStreams(const PassRecording &into, VertexLayout layout) const;
+  void BindVertexStreams(const PassRecording &into, VertexLayout layout, VertexMotion motion) const;
   [[nodiscard]] static long ColourAttachment(std::span<const Resource> colours, Resource which);
   [[nodiscard]] static bool ConfigureKind(const Gpu &gpu,
                                           const SourceOptions &options,

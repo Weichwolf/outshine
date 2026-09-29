@@ -604,9 +604,9 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
   using S = SubjectResidency::Stream;
   return res.Grow(S::Vertex, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
          res.Grow(S::Normal, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
-         (!Binding().WritesVelocity ||
+         (!Binding().WritesVelocity || subject == 0 ||
           res.Grow(
-              S::Previous, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error)) &&
+              S::Previous, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error)) &&
          (subject == 0 ||
           (res.Grow(
                S::Emitted, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error) &&
@@ -998,7 +998,7 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   };
   const auto vertexUse = SDL_GPU_BUFFERUSAGE_VERTEX;
   const uint32_t positionBytes = verts * kPositionFloats * static_cast<uint32_t>(sizeof(float));
-  std::array<SubjectResidency::Crossing, 7> crossings = {{
+  std::array<SubjectResidency::Crossing, 6> crossings = {{
       {.Which = SubjectResidency::Stream::Vertex,
        .Usage = vertexUse,
        .Bytes = positionBytes,
@@ -1017,12 +1017,6 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
        .Offset = i.First * static_cast<uint32_t>(sizeof(uint32_t)),
        .Writes = WriteRebased,
        .Carrying = &rebased},
-      {.Which = SubjectResidency::Stream::Previous,
-       .Usage = vertexUse,
-       .Bytes = Binding().WritesVelocity ? positionBytes : 0u,
-       .Offset = floatsAt(kPositionFloats),
-       .Writes = WritePiecePositions,
-       .Carrying = &carrying},
       {.Which = SubjectResidency::Stream::Uv,
        .Usage = vertexUse,
        .Bytes = piece.Textured ? verts * kPairFloats * static_cast<uint32_t>(sizeof(float)) : 0u,
@@ -1296,6 +1290,7 @@ bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
   for (size_t instance = 0; instance < runs; ++instance) {
     const auto row = static_cast<uint32_t>(Batches.size());
     DrawBatch batch{};
+    batch.Motion = VertexMotion::Rigid;
     batch.FirstIndex = one.I.First;
     batch.IndexCount = one.IndexCount;
     batch.MaterialSlot = MaterialSlotFor(one);
@@ -1610,7 +1605,9 @@ void SubjectDraw::PushFrameUniforms(const FrameContext &ctx, const PassRecording
       into.Commands, 1, lights.data(), static_cast<uint32_t>(lights.size() * sizeof(float)));
 }
 
-void SubjectDraw::BindVertexStreams(const PassRecording &into, VertexLayout layout) const {
+void SubjectDraw::BindVertexStreams(const PassRecording &into,
+                                    VertexLayout layout,
+                                    VertexMotion motion) const {
   const bool textured = CarriesUv(layout);
   const bool lit = CarriesNormal(layout);
   const bool mapped = CarriesTangent(layout);
@@ -1642,8 +1639,9 @@ void SubjectDraw::BindVertexStreams(const PassRecording &into, VertexLayout layo
   }
 
   if (Binding().WritesVelocity) {
-    runs[count++] = SDL_GPUBufferBinding{
-        .buffer = Bound().Buffer(SubjectResidency::Stream::Previous).Get(), .offset = 0};
+    const auto stream = motion == VertexMotion::Rigid ? SubjectResidency::Stream::Vertex
+                                                      : SubjectResidency::Stream::Previous;
+    runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Buffer(stream).Get(), .offset = 0};
   }
   SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), count);
 }
@@ -1664,6 +1662,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   }
 
   size_t bound = kPipelines;
+  VertexMotion boundMotion = VertexMotion::Deforming;
   uint32_t boundSlot = kNoSlot;
   const bool cut = Bound().Buffer(SubjectResidency::Stream::DrawIndex) &&
                    Bound().Buffer(SubjectResidency::Stream::DrawArguments) && !Args_.empty();
@@ -1682,7 +1681,11 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     if (wantedPipeline != bound) {
       SDL_BindGPUGraphicsPipeline(into.Pass, Binding().Pipelines[wantedPipeline].Get());
 
-      BindVertexStreams(into, wanted);
+      boundSlot = kNoSlot;
+    }
+    if (wantedPipeline != bound || batch.Motion != boundMotion) {
+      BindVertexStreams(into, wanted, batch.Motion);
+      boundMotion = batch.Motion;
       bound = wantedPipeline;
       boundSlot = kNoSlot;
     }

@@ -41,6 +41,7 @@ int main() {
         gpu.SurfaceFormat = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
         gpu.Width = gpu.Height = 32;
         CHECK(gpu.SceneColours.Add(Resource::SceneLinear), "scene attachment adds");
+        CHECK(gpu.SceneColours.Add(Resource::SceneVelocity), "motion attachment adds");
         CHECK(draw.Configure(gpu, error), "native pipelines configure");
         const std::array<SubjectMaterial, 1> materials{};
         CHECK(draw.AppendMaterials(materials, error), "material registers");
@@ -50,6 +51,8 @@ int main() {
               "independent piece precedes the main mesh in the shared arena");
         const auto &resident = draw.Resident();
         using Stream = SubjectResidency::Stream;
+        CHECK(resident.HeldOf(Stream::Previous) == 0,
+              "rigid pieces require no duplicate previous-position buffer");
         CHECK(resident.HeldOf(Stream::Uv) == 0 && resident.HeldOf(Stream::Colour) == 0,
               "untextured untinted pieces reserve neither optional stream");
         DrawList draws;
@@ -102,6 +105,10 @@ int main() {
           CHECK(verify(Stream::Colour, colours, resident.SubjectVertices().First),
                 "main colours reach their independently addressed GPU range");
         }
+        const auto previousBytes = resident.HeldOf(Stream::Previous);
+        CHECK(previousBytes != 0 &&
+                  verify(Stream::Previous, positions, resident.SubjectVertices().First),
+              "subject previous pose remains independently addressed after a rigid piece");
         const auto pieceFirst = resident.VertexRoom();
         CHECK(draw.PlacePiece(PieceMesh{.Tangents = tangents,
                                         .Verts = vertices,
@@ -126,6 +133,8 @@ int main() {
         CHECK(resident.HeldOf(Stream::Colour) == colourBytes &&
                   resident.HeldOf(Stream::Uv) == uvBytes,
               "arena growth without consumers does not grow optional streams");
+        CHECK(resident.HeldOf(Stream::Previous) == previousBytes,
+              "rigid arena growth does not expand deformable pose storage");
         const SubjectMesh empty;
         const auto cleared = draw.BeginMesh(empty);
         CHECK(cleared.has_value(), "main mesh clears without retiring independent pieces");

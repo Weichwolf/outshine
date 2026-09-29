@@ -201,6 +201,8 @@ struct DrawItem {
   uint32_t Submitted = 0;
 };
 
+enum class VertexMotion : uint8_t { Deforming, Rigid };
+
 struct DrawBatch {
   uint32_t FirstIndex = 0;
   uint32_t IndexCount = 0;
@@ -215,6 +217,7 @@ struct DrawBatch {
 
   uint32_t FirstJob = 0;
   uint32_t JobCount = 0;
+  VertexMotion Motion = VertexMotion::Deforming;
 };
 
 struct IndexRun {
