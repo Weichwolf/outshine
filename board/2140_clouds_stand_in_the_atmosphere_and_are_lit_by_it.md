@@ -5,7 +5,7 @@ Priority: P1
 Parent: 2169
 Area: world, generators, render
 Tags: clouds, weather, lighting, budget
-Depends:
+Depends: 2172
 
 # Weather generates clouds that share atmosphere and ground lighting
 

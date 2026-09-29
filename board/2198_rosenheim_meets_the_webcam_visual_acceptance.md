@@ -11,20 +11,12 @@ Depends: 2092, 2111, 2138, 2154, 2166, 2170, 2171, 2172, 2173, 2176, 2195
 
 ## Referenz und Vertrag
 
-Aktuelle Vergleichsquelle: [Foto-Webcam Rosenheim](https://www.foto-webcam.eu/webcam/rosenheim/).
-Gesicherte Aufnahme unter `build/shots/reference/webcams/rosenheim-20260929T142932Z.jpg`,
-Metadaten in der benachbarten JSON-Datei. Eingeblendete Aufnahmezeit: 29.09.2026 16:20;
-Abrufzeit ist davon getrennt. Der Place verwendet noch einen anderen Zeitpunkt.
-Der früher referenzierte Pfad `build/shots/webcam/rosenheim_2026-09-07_1240.jpg` fehlt
-im aktuellen Checkout; daraus keine aktuelle Bildabnahme ableiten.
-Der sichtbare Schornstein links und Kirchturm rechts erhalten im Client generische
-Fensterfassaden. WI 2173 muss ihre Original-OSM-Identität und Klasse bis zum Generator
-führen; weder Foto-Sondergeometrie noch Zuordnung allein anhand der schlanken Form.
-Place: `Rosenheim` in `src/assets/places/Rosenheim.scenario`; IST: `build/shots/places/Rosenheim-*.png`.
-Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
-Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
-Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind
-visueller Maßstab, keine Behauptung über proprietäre RAGE-Technik oder ein exaktes Zielbild.
+Quelle: https://www.foto-webcam.eu/webcam/rosenheim/ mit Archiv.
+Gesichtete Jahres-/Tageszeiten und Einzelmetadaten stehen unter
+build/shots/reference/webcams/archive-review-20260929/; src/assets/places/references.json
+verknüpft sie mit dem Place. WI 2324 hält Auswahl und Herkunft, WI 2170 den Kamerafit.
+Archivzeit ist nicht Abrufzeit. Pose/Höhendatum und Wettergleichheit sind noch nicht
+vollständig kalibriert; daraus keine pixelgenaue Übereinstimmung behaupten.
 
 ## Erwartetes Gesamtbild
 

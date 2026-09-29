@@ -3,7 +3,7 @@ State: open
 Architecture: ready
 Priority: P1
 Parent: 2169
-Depends: 2172, 2171
+Depends: 2172
 Area: world, render, generators
 Tags: weather, seasons, materials
 
@@ -19,6 +19,8 @@ Rosenheim 15.01.2025 und 15.07.2025. Quelle/Metadaten in WI 2324.
 
 ## Vorhanden und Umsetzung
 
+Der Wetter-Snapshot aus 2172 ist der technische Blocker; die bestehende MR-Bindung
+genügt zum Start, die vollständige Materialfamilie aus 2171 ist kein Blocker.
 WeatherProvider hat Wind, Wolken und Sichtweite; Temperatur/Niederschlag, Historie und
 Oberflächenzustand fehlen als durchgängiger Vertrag. Materialparameter existieren in 2171.
 world/weather erweitert den Snapshot in SI-Einheiten um belegte Temperatur/Niederschlag

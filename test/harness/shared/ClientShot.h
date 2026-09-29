@@ -30,10 +30,10 @@ struct ClientRow {
   bool Read = false;
 };
 
-inline int ScorePlace(const char *place) {
+inline int ScorePlace(const char *place, const char *catalog = "src/assets/places") {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string command =
-      std::string("build/outshine-client shots --no-vegetation --rows ") + place + " 2>&1";
+  const std::string command = std::string("build/outshine-client --places ") + catalog +
+                              " shots --no-vegetation --rows " + place + " 2>&1";
   std::FILE *const running = popen(command.c_str(), "r");
   if (running == nullptr) {
     Unprepared("the client did not start");

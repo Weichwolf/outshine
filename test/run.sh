@@ -242,7 +242,7 @@ TestProfile() {
     outshine/src/audio/*) printf '%s' 'profile/audio' ;;
     outshine/src/base/io/Png | outshine/src/base/io/Tasks) printf '%s' 'profile/base' ;;
     outshine/src/*) printf '%s' 'profile/internal' ;;
-    outshine/integration/places) printf '%s' 'profile/engine' ;;
+    outshine/integration/places|outshine/integration/world_regressions) printf '%s' 'profile/engine' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -305,7 +305,7 @@ LayerSanitiser() {
 
 LayerValidation() {
   case "$1" in
-    outshine/integration/places) printf '%s' "-DNDEBUG"; return ;;
+    outshine/integration/places|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
   esac
   case "$(TestProfile "$1")" in
     profile/device) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;

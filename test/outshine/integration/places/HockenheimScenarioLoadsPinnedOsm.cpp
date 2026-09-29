@@ -11,7 +11,7 @@ int main() {
   Engine engine;
   CHECK(engine.setRoots({.Shipped = "src/assets", .Offline = true}),
         "scenario sources resolve inside the shipped asset root");
-  CHECK(engine.readScenario("src/assets/places/Hockenheimring.scenario"),
+  CHECK(engine.readScenario("src/assets/diagnostic-places/Hockenheimring.scenario"),
         "the authored Hockenheim scenario declares a pinned semantic OSM source");
   CHECK(engine.assemble(), "the pinned source queues without a renderer or terrain fetch");
 

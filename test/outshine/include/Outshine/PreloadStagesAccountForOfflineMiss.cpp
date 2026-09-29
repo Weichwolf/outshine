@@ -15,12 +15,13 @@ int main() {
 
   {
     Engine engine;
-    const bool assembled = engine.setRoots({.Assets = "src/assets/drive",
-                                            .Shipped = "src/assets",
-                                            .Cache = directory,
-                                            .Offline = true}) &&
-                           engine.readScenario("src/assets/places/Hockenheimring.scenario") &&
-                           engine.assemble();
+    const bool assembled =
+        engine.setRoots({.Assets = "src/assets/drive",
+                         .Shipped = "src/assets",
+                         .Cache = directory,
+                         .Offline = true}) &&
+        engine.readScenario("src/assets/diagnostic-places/Hockenheimring.scenario") &&
+        engine.assemble();
     CHECK(assembled, "offline world assembles from pinned local OSM");
     if (!assembled) { return Report(); }
     const auto ready = engine.preload(0.1);

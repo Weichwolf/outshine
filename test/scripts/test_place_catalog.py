@@ -79,7 +79,7 @@ class Catalog(unittest.TestCase):
         self.assertIn('exactly one geodetic view',
                       self.run_client('places', success=False).stderr)
 
-        source = (ROOT / 'src/assets/places/Hockenheimring.scenario').read_text()
+        source = (ROOT / 'src/assets/diagnostic-places/Hockenheimring.scenario').read_text()
         first = source.index('<view id="overview"')
         last = source.index('</view>', first) + len('</view>')
         path.write_text(source[:first] + source[last:])
@@ -88,14 +88,12 @@ class Catalog(unittest.TestCase):
     def test_shipped_catalog_migration(self):
         rows = self.run_client('places', directory=ROOT / 'src/assets/places').stdout.splitlines()
         actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}
-        self.assertEqual(set(actual), {'DarmstadtWest', 'Wien', 'Rosenheim', 'Husum', 'Olympiaturm',
-                                       'Graz', 'Koerbersee', 'Malcesine', 'Feldkirch',
-                                       'Hockenheimring', 'Venice', 'CentralPark', 'Shibuya', 'Jura'})
+        self.assertEqual(set(actual), {'DarmstadtWest', 'Wien', 'Rosenheim', 'Husum',
+                                       'Koerbersee', 'Malcesine', 'Feldkirch', 'Flensburg'})
         self.assertEqual(actual['Malcesine'], ['45.744855', '10.800445', '140', '290', '-2',
                                               '38.04', '1280', '720', '2026-09-07T10:40:00Z'])
         self.assertEqual(actual['Husum'][-1], '2026-09-07T10:30:00Z')
-        self.assertEqual(actual['Hockenheimring'][:6],
-                         ['49.3274', '8.5659', '900', '90', '-60', '55'])
+        self.assertEqual(actual['Flensburg'][:3], ['54.781286', '9.433995', '66'])
 
     def test_terrain_relative_historical_cameras(self):
         expected = {
@@ -104,13 +102,13 @@ class Catalog(unittest.TestCase):
             'Shibuya': ('35.6595', '139.7005', '40', '02:41'),
             'Jura': ('47.2492', '7.5108', '156.53', '11:30'),
         }
-        rows = self.run_client('places', directory=ROOT / 'src/assets/places').stdout.splitlines()
+        rows = self.run_client('places', directory=ROOT / 'src/assets/diagnostic-places').stdout.splitlines()
         actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}
         for name, (lat, lon, bearing, time) in expected.items():
             with self.subTest(place=name):
                 self.assertEqual(actual[name], [lat, lon, '60', bearing, '-6', '55',
                                                 '1280', '720', f'2026-06-21T{time}:00Z'])
-                source = (ROOT / f'src/assets/places/{name}.scenario').read_text()
+                source = (ROOT / f'src/assets/diagnostic-places/{name}.scenario').read_text()
                 self.assertIn('samplesHeight="yes"', source)
 
     def test_empty_offline_cache_does_not_fall_back_to_global_cache(self):
@@ -118,7 +116,7 @@ class Catalog(unittest.TestCase):
         cache.mkdir()
         result = self.run_client('shots', '--rows', '--stats', '--offline', '--cache-dir', str(cache),
                                  '--preload-seconds', '0.2', 'Hockenheimring', success=False,
-                                 directory=ROOT / 'src/assets/places')
+                                 directory=ROOT / 'src/assets/diagnostic-places')
         stats = {fields[2]: fields[3] for fields in
                  (row.split('\t') for row in result.stdout.splitlines())
                  if len(fields) == 5 and fields[0] == 'STAT'}

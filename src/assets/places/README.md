@@ -1,24 +1,20 @@
-# Place-Szenarien
+# Acht Webcam-Places
 
-Jede `.scenario`-Datei ist ein normales Outshine-Szenario. Der Dateistamm ist der Name.
+Der Standardkatalog enthält Rosenheim, Flensburg, DarmstadtWest, Wien, Husum, Feldkirch,
+Malcesine und Koerbersee. `references.json` verknüpft Kamera, Archivaufnahme und Herkunft.
+Bilder bleiben unter build/shots/reference/webcams/. Sie sind ausschließlich Vergleichsmittel.
+
+Jede .scenario-Datei ist ein normales Outshine-Szenario. Der Dateistamm ist der Name.
 `outshine-client --places <Verzeichnis> places|shots|prepare|roundtrip` lädt den Katalog;
-Standard ist `src/assets/places`. `run <Datei>` verwendet dieselbe öffentliche Szenario-API.
-Neue Places benötigen keine C++-Änderung und keinen Rebuild. Ausgabe von `places` ist TSV:
-Name, Breitengrad, Längengrad, Höhe in m, Bearing in Grad, Pitch in Grad, vertikaler FOV
-in Grad, Breite/Höhe in px, UTC-Zeit. Namen: ASCII-Buchstaben, Ziffern, `_` und `-`.
+Standard ist src/assets/places. Neue Szenarien benötigen keinen Renderer-Sonderpfad.
+Kataloge verlangen eine geodätische Kamera, feste Uhr und positive Rendergröße.
 
-Der Place-Katalog verlangt Welt, positive Rendergröße, feste Uhr und eine geodätische
-Kamera mit expliziter Höhe. Das Verzeichnis darf höchstens 4096 Einträge enthalten;
-je Szenario höchstens 1 MiB. Dies sind gesetzte IO-Grenzen, keine Engine-Weltgrenzen.
-Fehlende, leere oder ungültige Kataloge liefern einen Fehler; kein eingebauter Ersatz.
+WI 2324 beschreibt Bildaufgaben und Auswahl; WI 2170 kalibriert Kameras. Bestehende
+Höhen/Pitch/FOV sind teilweise Schätzungen, keine bestätigte Fotoausrichtung. Flensburg
+verwendet veröffentlichte Position/Bearing/Höhe und aus 57 Grad horizontalem Sektor bei
+16:9 abgeleiteten vertikalen FOV; Pitch und Höhendatum sind noch offen. Wetter und Zeit
+müssen für quantitative Vergleiche zusammenpassen; Archivbilder sind keine Wetterquelle.
 
-Die neun ausgelagerten Kameras stammen unverändert aus Commit 631d20ce und seinen
-Nachfolgern. Höhe und Pitch sind Schätzungen. Die ursprüngliche Höhe war als ASL
-bezeichnet, wurde aber ohne Datumkonvertierung übergeben. WI 2170 muss Datum, Pose,
-FOV und Bildausschnitt kalibrieren; die Migration behauptet keine neue Genauigkeit.
-1280×720, haze=0 und die übrigen Szenenwerte erhalten den bisherigen Renderzustand.
-Die Webcam-JPGs haben andere Seitenverhältnisse; deren Anpassung gehört ebenfalls in 2170.
-
-Bilder dienen der Qualitätsprüfung nach WI 2169 und dessen Place-Abnahmen. Keine
-Foto-Rekonstruktion und keine pro Place kodierte Geometrie. Wetter und Beleuchtung
-müssen als deklarierte Eingänge ausgebaut werden (WI 2172).
+Die übrigen erhaltenen Szenarien liegen unter src/assets/diagnostic-places und sind mit
+--places explizit aufrufbar. Ihre bisherigen roten Befunde bleiben offen. Standardabnahme:
+acht vollständige Welten, <=10 s Preload, 60 Frames/360 Grad in <=1 s, p99 <=1000/60 ms.

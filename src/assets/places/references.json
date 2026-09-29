@@ -1,0 +1,374 @@
+{
+  "purpose": "comparison only; images must never become generator inputs",
+  "reviewDate": "2026-09-29",
+  "archiveDirectory": "build/shots/reference/webcams/archive-review-20260929",
+  "places": [
+    {
+      "place": "Rosenheim",
+      "webcam": "https://www.foto-webcam.eu/webcam/rosenheim/",
+      "cameraCalibration": "provisional; height datum, pitch and intrinsics require WI 2170; no accepted photo fit",
+      "references": [
+        {
+          "page": "https://www.foto-webcam.eu/webcam/rosenheim/2024/10/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/rosenheim/2024/10/15/1200_la.jpg",
+          "imageFile": "rosenheim-2024-10-15-1200_la.jpg",
+          "cameraTimeShown": "15.10.24 12:00",
+          "weatherLabel": "14.7°C",
+          "exifLabel": "(f/8.0  1/200s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:39.992416+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/01/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/rosenheim/2025/01/15/1200_la.jpg",
+          "imageFile": "rosenheim-2025-01-15-1200_la.jpg",
+          "cameraTimeShown": "15.01.25 12:00",
+          "weatherLabel": "3.0°C",
+          "exifLabel": "(f/6.3  1/125s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:39.466754+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/04/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/rosenheim/2025/04/15/1200_la.jpg",
+          "imageFile": "rosenheim-2025-04-15-1200_la.jpg",
+          "cameraTimeShown": "15.04.25 12:00",
+          "weatherLabel": "24.2°C",
+          "exifLabel": "(f/9.0  1/200s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:39.530388+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/06/21/1900",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/rosenheim/2025/06/21/1900_la.jpg",
+          "imageFile": "rosenheim-2025-06-21-1900_la.jpg",
+          "cameraTimeShown": "21.06.25 19:00",
+          "weatherLabel": "27.2°C",
+          "exifLabel": "(f/8.0  1/200s  iso100)",
+          "retrievedUtc": "2026-09-29T17:17:34.195041+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/0530",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/0530_la.jpg",
+          "imageFile": "rosenheim-2025-07-15-0530_la.jpg",
+          "cameraTimeShown": "15.07.25 05:30",
+          "weatherLabel": "16.2°C",
+          "exifLabel": "(f/3.5  1/15s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:39.982023+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/1200_la.jpg",
+          "imageFile": "rosenheim-2025-07-15-1200_la.jpg",
+          "cameraTimeShown": "15.07.25 12:00",
+          "weatherLabel": "26.4°C",
+          "exifLabel": "(f/9.0  1/200s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:39.550649+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/2100",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/2100_la.jpg",
+          "imageFile": "rosenheim-2025-07-15-2100_la.jpg",
+          "cameraTimeShown": "15.07.25 21:00",
+          "weatherLabel": "18.9°C",
+          "exifLabel": "(f/3.5  1/8s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:40.017171+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/2300",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/2300_la.jpg",
+          "imageFile": "rosenheim-2025-07-15-2300_la.jpg",
+          "cameraTimeShown": "15.07.25 23:00",
+          "weatherLabel": "17.3°C",
+          "exifLabel": "(f/3.5  20s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:40.415518+00:00",
+          "suitableForGeometry": true
+        }
+      ],
+      "publishedCamera": {
+        "latitude": 47.860299,
+        "longitude": 12.131823,
+        "elevation": 450,
+        "direction": 185,
+        "sector": 52,
+        "focalLen": 22
+      }
+    },
+    {
+      "place": "Flensburg",
+      "webcam": "https://www.foto-webcam.eu/webcam/flensburg/",
+      "cameraCalibration": "provisional; height datum, pitch and intrinsics require WI 2170; no accepted photo fit",
+      "references": [
+        {
+          "page": "https://www.foto-webcam.eu/webcam/flensburg/2024/10/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/flensburg/2024/10/15/1200_la.jpg",
+          "imageFile": "flensburg-2024-10-15-1200_la.jpg",
+          "cameraTimeShown": "15.10.24 12:00",
+          "weatherLabel": "12.4°C",
+          "exifLabel": "(f/10  1/250s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:41.019988+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/flensburg/2025/01/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/flensburg/2025/01/15/1200_la.jpg",
+          "imageFile": "flensburg-2025-01-15-1200_la.jpg",
+          "cameraTimeShown": "15.01.25 12:00",
+          "weatherLabel": "6.4°C",
+          "exifLabel": "(f/6.3  1/125s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:40.509113+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/flensburg/2025/04/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/flensburg/2025/04/15/1200_la.jpg",
+          "imageFile": "flensburg-2025-04-15-1200_la.jpg",
+          "cameraTimeShown": "15.04.25 12:00",
+          "weatherLabel": "15.8°C",
+          "exifLabel": "(f/10  1/250s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:40.499686+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/flensburg/2025/07/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/flensburg/2025/07/15/1200_la.jpg",
+          "imageFile": "flensburg-2025-07-15-1200_la.jpg",
+          "cameraTimeShown": "15.07.25 12:00",
+          "weatherLabel": "19.8°C",
+          "exifLabel": "(f/7.1  1/160s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:40.908306+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/flensburg/2025/07/15/2100",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/flensburg/2025/07/15/2100_la.jpg",
+          "imageFile": "flensburg-2025-07-15-2100_la.jpg",
+          "cameraTimeShown": "15.07.25 21:00",
+          "weatherLabel": "16.5°C",
+          "exifLabel": "(f/5.0  1/60s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:41.009536+00:00",
+          "suitableForGeometry": true
+        }
+      ],
+      "publishedCamera": {
+        "latitude": 54.781286,
+        "longitude": 9.433995,
+        "elevationM": 66,
+        "bearingDeg": 1,
+        "horizontalSectorDeg": 57,
+        "verticalFovDerivation": "2 atan(tan(57 degrees / 2) * 720 / 1280)",
+        "pitchDeg": -7,
+        "pitchProvenance": "initial estimate, not calibrated",
+        "heightDatum": "published elevation, conversion to engine datum unverified",
+        "elevation": 66,
+        "direction": 1,
+        "sector": 57,
+        "focalLen": 20
+      }
+    },
+    {
+      "place": "DarmstadtWest",
+      "webcam": "https://www.foto-webcam.eu/webcam/darmstadt-west/",
+      "cameraCalibration": "provisional; height datum, pitch and intrinsics require WI 2170; no accepted photo fit",
+      "references": [
+        {
+          "page": "https://www.foto-webcam.eu/webcam/darmstadt-west/2025/07/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/darmstadt-west/2025/07/15/1200_la.jpg",
+          "imageFile": "darmstadt-west-2025-07-15-1200_la.jpg",
+          "cameraTimeShown": "15.07.25 12:00",
+          "weatherLabel": "21.3°C",
+          "exifLabel": "(f/9.0  1/200s  iso100)",
+          "retrievedUtc": "2026-09-29T17:20:01.167076+00:00",
+          "suitableForGeometry": true
+        }
+      ],
+      "publishedCamera": {
+        "latitude": 49.875871,
+        "longitude": 8.662596,
+        "elevation": 165,
+        "direction": 252,
+        "sector": 63,
+        "focalLen": 18
+      }
+    },
+    {
+      "place": "Wien",
+      "webcam": "https://www.foto-webcam.eu/webcam/wien/",
+      "cameraCalibration": "provisional; height datum, pitch and intrinsics require WI 2170; no accepted photo fit",
+      "references": [
+        {
+          "page": "https://www.foto-webcam.eu/webcam/wien/2025/07/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/wien/2025/07/15/1200_la.jpg",
+          "imageFile": "wien-2025-07-15-1200_la.jpg",
+          "cameraTimeShown": "15.07.25 12:00",
+          "weatherLabel": "27.4°C",
+          "exifLabel": "(f/10  1/320s  iso100)",
+          "retrievedUtc": "2026-09-29T17:20:01.737714+00:00",
+          "suitableForGeometry": true
+        }
+      ],
+      "publishedCamera": {
+        "latitude": 48.233518,
+        "longitude": 16.411176,
+        "elevation": 250,
+        "direction": 210,
+        "sector": 63,
+        "focalLen": 18
+      }
+    },
+    {
+      "place": "Husum",
+      "webcam": "https://www.foto-webcam.eu/webcam/husum-hafenklappbruecke/",
+      "cameraCalibration": "provisional; height datum, pitch and intrinsics require WI 2170; no accepted photo fit",
+      "references": [
+        {
+          "page": "https://www.foto-webcam.eu/webcam/husum-hafenklappbruecke/2025/07/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/husum-hafenklappbruecke/2025/07/15/1200_la.jpg",
+          "imageFile": "husum-hafenklappbruecke-2025-07-15-1200_la.jpg",
+          "cameraTimeShown": "15.07.25 12:00",
+          "weatherLabel": "10.6°C",
+          "exifLabel": "4.07V    (f/7.1  1/125s  iso100)",
+          "retrievedUtc": "2026-09-29T17:20:02.660764+00:00",
+          "suitableForGeometry": true
+        }
+      ],
+      "publishedCamera": {
+        "latitude": 54.474171,
+        "longitude": 9.0459823,
+        "elevation": 14,
+        "direction": 35,
+        "sector": 63,
+        "focalLen": 18
+      }
+    },
+    {
+      "place": "Feldkirch",
+      "webcam": "https://www.foto-webcam.eu/webcam/feldkirch/",
+      "cameraCalibration": "provisional; height datum, pitch and intrinsics require WI 2170; no accepted photo fit",
+      "references": [
+        {
+          "page": "https://www.foto-webcam.eu/webcam/feldkirch/2025/07/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/feldkirch/2025/07/15/1200_la.jpg",
+          "imageFile": "feldkirch-2025-07-15-1200_la.jpg",
+          "cameraTimeShown": "15.07.25 12:00",
+          "weatherLabel": "17.9°C",
+          "exifLabel": "14.0V    (f/7.1  1/125s  iso100)",
+          "retrievedUtc": "2026-09-29T17:20:03.178860+00:00",
+          "suitableForGeometry": true
+        }
+      ],
+      "publishedCamera": {
+        "latitude": 47.232575,
+        "longitude": 9.598371,
+        "elevation": 614,
+        "direction": 1,
+        "sector": 113,
+        "focalLen": 10
+      }
+    },
+    {
+      "place": "Malcesine",
+      "webcam": "https://www.foto-webcam.eu/webcam/malcesine/",
+      "cameraCalibration": "provisional; height datum, pitch and intrinsics require WI 2170; no accepted photo fit",
+      "references": [
+        {
+          "page": "https://www.foto-webcam.eu/webcam/malcesine/2025/07/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/malcesine/2025/07/15/1200_la.jpg",
+          "imageFile": "malcesine-2025-07-15-1200_la.jpg",
+          "cameraTimeShown": "15.07.25 12:00",
+          "weatherLabel": "31.6°C",
+          "exifLabel": "(f/9.0  1/200s  iso100)",
+          "retrievedUtc": "2026-09-29T17:20:03.667007+00:00",
+          "suitableForGeometry": true
+        }
+      ],
+      "publishedCamera": {
+        "latitude": 45.744855,
+        "longitude": 10.800445,
+        "elevation": 113,
+        "direction": 290,
+        "sector": 63,
+        "focalLen": 18
+      }
+    },
+    {
+      "place": "Koerbersee",
+      "webcam": "https://www.foto-webcam.eu/webcam/koerbersee/",
+      "cameraCalibration": "provisional; height datum, pitch and intrinsics require WI 2170; no accepted photo fit",
+      "references": [
+        {
+          "page": "https://www.foto-webcam.eu/webcam/koerbersee/2024/10/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/koerbersee/2024/10/15/1200_la.jpg",
+          "imageFile": "koerbersee-2024-10-15-1200_la.jpg",
+          "cameraTimeShown": "15.10.24 12:00",
+          "weatherLabel": "14.0°C    65%    0km/h",
+          "exifLabel": "14.1V    (f/7.1  1/125s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:41.930799+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/01/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/koerbersee/2025/01/15/1200_la.jpg",
+          "imageFile": "koerbersee-2025-01-15-1200_la.jpg",
+          "cameraTimeShown": "15.01.25 12:00",
+          "weatherLabel": "-3.4°C    94%    0km/h     Schnee: 92cm",
+          "exifLabel": "14.4V    (f/11  1/320s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:41.419821+00:00",
+          "suitableForGeometry": false
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/02/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/koerbersee/2025/02/15/1200_la.jpg",
+          "imageFile": "koerbersee-2025-02-15-1200_la.jpg",
+          "cameraTimeShown": "15.02.25 12:00",
+          "weatherLabel": "-1.0°C    45%    0km/h     Schnee: 118cm",
+          "exifLabel": "14.4V    (f/11  1/400s  iso100)",
+          "retrievedUtc": "2026-09-29T17:17:33.684597+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/04/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/koerbersee/2025/04/15/1200_la.jpg",
+          "imageFile": "koerbersee-2025-04-15-1200_la.jpg",
+          "cameraTimeShown": "15.04.25 12:00",
+          "weatherLabel": "10.2°C    66%    0km/h     Schnee: 45cm",
+          "exifLabel": "14.2V    (f/10  1/250s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:41.535084+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/07/15/1200",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/koerbersee/2025/07/15/1200_la.jpg",
+          "imageFile": "koerbersee-2025-07-15-1200_la.jpg",
+          "cameraTimeShown": "15.07.25 12:00",
+          "weatherLabel": "12.2°C    94%    0km/h",
+          "exifLabel": "13.9V    (f/8.0  1/160s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:41.511408+00:00",
+          "suitableForGeometry": true
+        },
+        {
+          "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/07/15/2100",
+          "imageUrl": "https://www.foto-webcam.eu/webcam/koerbersee/2025/07/15/2100_la.jpg",
+          "imageFile": "koerbersee-2025-07-15-2100_la.jpg",
+          "cameraTimeShown": "15.07.25 21:00",
+          "weatherLabel": "11.1°C    97%    0km/h",
+          "exifLabel": "13.0V    (f/3.5  1/8s  iso100)",
+          "retrievedUtc": "2026-09-29T17:16:41.943224+00:00",
+          "suitableForGeometry": true
+        }
+      ],
+      "publishedCamera": {
+        "latitude": 47.256121,
+        "longitude": 10.115857,
+        "elevation": 1772,
+        "direction": 240,
+        "sector": 57,
+        "focalLen": 20
+      }
+    }
+  ]
+}

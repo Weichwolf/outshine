@@ -11,14 +11,12 @@ Depends: 2092, 2111, 2129, 2137, 2138, 2144, 2145, 2154, 2166, 2167, 2170, 2171,
 
 ## Referenz und Vertrag
 
-Sichtprüfung der Webcam am 2026-09-08; dies ist das noch offene SOLL, keine Render-Abnahme.
-Quelle: `build/shots/webcam/koerbersee_2026-09-07_1240.jpg` (6000 × 4000 px, aus dem Bildheader).
-SHA-256: `80c10e343d693a07f30d63f246b7975bf701d571927dc9e72615c30d792dfac7`.
-Place: `Koerbersee` in `src/assets/places/Koerbersee.scenario`; IST: `build/shots/places/Koerbersee-*.png`.
-Pose/Intrinsics aus WI 2170 übernehmen und im Vergleichsmanifest fixieren; vorhandene
-Höhe/Pitch sind Schätzungen. Gleiche kalibrierte Kamera, unverzerrtes Seitenverhältnis.
-Gemeinsamer Abnahmevertrag und Integrationsreihenfolge: WI 2169. RDR2/GTA5 auf PS4 sind
-visueller Maßstab, keine Behauptung über proprietäre RAGE-Technik oder ein exaktes Zielbild.
+Quelle: https://www.foto-webcam.eu/webcam/koerbersee/ mit Archiv.
+Gesichtete Jahres-/Tageszeiten und Einzelmetadaten stehen unter
+build/shots/reference/webcams/archive-review-20260929/; src/assets/places/references.json
+verknüpft sie mit dem Place. WI 2324 hält Auswahl und Herkunft, WI 2170 den Kamerafit.
+Archivzeit ist nicht Abrufzeit. Pose/Höhendatum und Wettergleichheit sind noch nicht
+vollständig kalibriert; daraus keine pixelgenaue Übereinstimmung behaupten.
 
 ## Erwartetes Gesamtbild
 

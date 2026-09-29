@@ -22,7 +22,7 @@ Ich nehme die aktuelle Maschine als unmittelbare Entwicklungs- und Messplattform
 Webcam-Annäherung innerhalb desselben 720p60-Budgets, separat vom A18-Pro-Nachweis. Während
 aktiver Arbeit nutze ich Live-Webcams gezielt für verschiedene Tageszeiten und Wetterlagen.
 Ich sichere Vergleichsaufnahme und Metadaten zeitgleich; wechselnde Live-Bilder sind keine
-reproduzierbare Baseline. Rosenheim und Flensburg sind Kandidaten für bebaute Ansichten.
+reproduzierbare Baseline. Rosenheim und Flensburg sind feste Referenzen für bebaute Ansichten.
 Ich suche passende Webcam-Ansichten selbstständig; diese ausdrücklich erlaubte Referenzsuche
 ist eine Ausnahme von der allgemeinen Regel ohne Websuche. Ich behaupte keinen unbelegten
 24/7-Betrieb und blockiere Featurearbeit nicht durch Warten auf bestimmtes Wetter.
