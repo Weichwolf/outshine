@@ -1,117 +1,56 @@
 Type: feature
 State: active
-Architecture: planned
+Architecture: ready
 Parent: 2169
-Area: world, render
-Tags: webcam, measured
-Depends: 2179
+Area: world, render, generators
+Tags: materials, visual
+Depends:
 Priority: P1
 
-# Procedural surfaces carry Khronos materials at every distance
+# Baustoffe wirken in Nähe, Bewegung und Licht glaubwürdig
 
-## IST
+## Ergebnis
 
-590696be3: Bodenpalette mit Roughness und dielektrischem Glanz; Native/Ground-Vergleich,
-Fallback und Slope-Mix grün; Malcesine-8dd84aa7 geprüft. Instanzierte Masked-/DoubleSided-
-Farbmaps greifen; Alpha-Coverage, Normalmaps und Blatttransmission bleiben offen (2111).
-Alle neun Render zeigen einfarbige Dächer/Wände/Boden. Die Slope-Regel in
-`groundClass.glsl`/`groundLit.glsl` mischt Richtung Rock, erzeugt aber keine Felsstruktur.
-Malcesines Falten und Husums Böschungen bleiben falsch. Steilheit beweist keinen Fels:
-Betonquai, Mauer, Straßeneinschnitt und Erdhügel sind Gegenbeispiele. Native Map-Anbindung,
-normalScale/occlusionStrength und Alpha-Verhalten brauchen Nachweis. Upload, Texturkanäle
-und BRDF sind Engine-Code; GLSL versteht glTF-Materialien nicht automatisch.
+Eine Straße zeigt körnigen Asphalt, mineralischen Beton, verputzte Fassaden, glaubwürdiges
+Glas und gegliederte Dachoberflächen. Sie unterscheiden sich durch Maßstab, Rauheit, Relief
+und Lichtantwort. Keine uniforme Farbfläche und keine aufgemalte Fensterreihe ersetzt Geometrie.
 
-## Implementierung
+## Vorhanden und offen
 
-1. Ein Khronos-kompatibler Materialpfad für importierte und generierte Oberflächen:
-   lineare Faktoren; sRGB nur Farb-/Emissionsmaps, Roughness/Metalness/Normal/AO linear;
-   Kanalbelegung, UV-Sets/Transform, Alpha Mask/Blend, DoubleSided und Tangentenhandedness
-   durch die öffentliche Tür. Nichtuniforme Skalierung über inverse-transpose behandeln.
-2. Prozedurale Oberflächenschichten in Weltmetern: Triplanar für Terrain/Seitenwände,
-   objektgebundene Fassaden-/Dachkoordinaten. Albedo, Normal, Roughness, AO und begrenztes
-   Relief gemeinsam erzeugen. Feinstruktur direkt prozedural in GLSL auswerten:
-   Poren, Asphaltkörnung, Holzfasern und Rindenfurchen verwenden dieselben stabilen
-   Materialkoordinaten und Seeds für Farbe, Roughness und Bump-/Normalableitungen.
-   Makroform bleibt DEM/OSM, Mesorelief darf plausibel erfunden sein.
-3. Bodenklassen mit finaler Neigung/Krümmung, Höhe, Exposition, Feuchte und Nutzung mischen.
-   Konstruierte Wände erhalten ihren eigenen Baustoff. Fels mit Schichtung, Brüchen,
-   Schuttfuß und Vegetationsinseln; keine exakte Geologie ohne zusätzliche Quelldaten behaupten.
-4. Tatsächliches Displacement verändert die Oberfläche: Amplituden-/Transformfehler
-   konservativ in Terrain-/Strukturzertifikate einschließen oder deren kleinere Auswahl
-   verweigern. Normal-/Bump-Shading ist kein Hausdorff-Nachweis; Bild-/Lichtverlust separat.
-   Subpixelstruktur gefiltert nach Normal/Roughness, kein World-Origin-Schwimmen.
-5. Native MR-Parameter/Materialbindungen wiederverwenden. Rezepte aus Schichten,
-   Weltmaßstab und stabilen Seeds deduplizieren; Varianten nur bei sichtbarem Nutzen.
-   Direkte GLSL-Funktionen gegen erzeugte gefilterte Tiles/Mips messen, kein dogmatischer
-   Textur- oder Procedural-Zwang. glTF-Texturen bleiben Quellen am Importadapter.
-   Keine neue Rezept-Registry oder Tausende Varianten vor dem funktionierenden Materialkern.
-6. decay in [0,1] bezeichnet Materialalterung, keinen MR-Faktor und nicht Scenario.Decay.
-   d = clamp(globalDecay * instanceDecay, 0, 1), Default globalDecay=1; 0 zeigt neu,
-   ohne Feuchte/Nutzungsschmutz zu löschen. Rezept und Exposition/Regenlauf/Feuchte/
-   Temperatur/Nutzung bestimmen Korrosion, Moos und Abrieb mit gemeinsamen Koordinaten.
-   Rost nur auf oxidierbarem Metall; Moos braucht geeignete Feuchte/Licht. Regler ändert
-   Parameter, weder Geometrie/Materialidentität noch lokale Seeds/Fleckenmuster.
+Native MR-Materialien, UVs und Materialbindung existieren. Die geöffneten Places wirken dennoch
+flach und repetitiv. GroundMaterials trägt bereits GrainSizeM, HeightAmplitudeM und Rauheit.
+Diese vorhandene Materialbeschreibung mit stabiler Oberflächenauswertung verbinden.
 
-## Abnahme
+## Umsetzung
 
-- [ ] Native und importierte Material-Fixtures stimmen unter derselben Beleuchtung überein;
-      Normal-/Roughness-/Metallkanal-Tausch geht rot. Vorhandene rote Vendor-Orakel bleiben offen.
-- [ ] Malcesine und Koerbersee zeigen strukturierte Seitenflächen; Husums Quai bleibt Baustoff,
-      Wasser horizontal. Distanzen 1/10/100/1000 m und bewegte Kamera auf Flimmern prüfen.
-- [ ] Parametervariation bleibt deterministisch und regional plausibel; kein Foto wird Input.
-      Stresstest vorhandener Rezepte/Instanzen: stabile IDs, Deduplizierung,
-      Streaming-/Cache-Eviction ohne Bildsprung, p95/p99 und Bytes messen.
-- [ ] Gleiche Betonkante trocken/feucht, neu/gealtert und um 180° gedreht:
-      Ablaufspuren folgen Schwerkraft; Holz, Metall und Stein altern unterscheidbar.
-      `globalDecay=0` entfernt Alterung, `globalDecay=1` nutzt die lokalen Werte;
-      `instanceDecay=1` sättigt das Rezept. Glas rostet nie. Regler-Sweep ohne
-      Geometrie-Neubau und ohne Sprung der Fleckenmuster nachweisen.
+1. Eine bestehende Straßen-/Gebäudeszene unter gleicher Kamera und Beleuchtung verbessern:
+   Asphalt, Beton, Putz, Glas und Dach als kleine erste Materialfamilie. Rezepte und Maßstäbe
+   im bestehenden Materialdatenpfad halten; keine zusätzliche Registry vor sichtbarem Nutzen.
+2. GroundMaterials besitzt Terrain-/Bodenparameter; SubjectMaterials die native Bindung.
+   Generatoren liefern Gebäudekoordinaten in Metern; groundLit/groundClass und subjectLighting
+   konsumieren dieselben physikalischen Parameter. Stabile Welt-/Objektkoordinaten verwenden.
+3. Farbe, Roughness und gefiltertes Normal-/Bump-Detail gemeinsam auswerten. Putz bleibt matt,
+   Glas zeigt Reflexion und Tiefe, Metall verwendet korrekte Metalness. Lineare Datenkanäle,
+   sRGB-Farbe und vorhandenen Metallic-Roughness-Pfad erhalten. Keine Helligkeitskosmetik.
+4. Materialwechsel folgt Konstruktion und Nutzung: Sockel, Wand, Fensterrahmen, Glas, Dach,
+   Asphalt und Bordstein besitzen sinnvolle Grenzen. Feuchte/Alterung ergänzt das Material;
+   sie ist kein zufälliger Schmutzfilter und benötigt keinen vorgezogenen Wettersolver.
+5. Frequenzen in der Entfernung filtern; Muster dürfen nicht schwimmen oder flimmern.
+   Echtes Displacement verändert Kontakt/Geometrie und benötigt deren Fehlergrenzen;
+   der erste Schritt verwendet Oberflächennormalen und überdeckt keine Terrainfehler.
 
-Referenzen: [Filament](https://google.github.io/filament/main/filament.html), [glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
+## Grenzen und Abhängigkeiten
 
-## Vollständigkeit pro Geometrieerzeuger
+Kein Startblocker durch Wolken, NPCs, Vegetation oder den vollständigen Import-Orakelkatalog.
+Vorhandene rote Materialbefunde bleiben offen; betroffene Verträge beim Ändern reparieren.
+2138 liefert Fensterlaibungen, Rahmen und Eingänge. 2167/2128 liefern Licht und Schatten;
+Materialien werden zunächst im bestehenden Licht beurteilt, nicht bis dahin zurückgestellt.
+Unbekannte oder ungültige Materialdaten ergeben einen expliziten Fehler/definierten Fallback.
 
-Materialerzeugung ist für jede sichtbare Oberfläche Pflicht, nicht nur für Terrain oder
-importiertes glTF. Generator-Ausgang → Material-ID → Upload → Draw separat inventarisieren:
+## Fertig, wenn
 
-| Geometrie | erforderliche Materialunterscheidung |
-|---|---|
-| Terrain/Fels/Seitenfläche/Schutt | Substrat, Relief, Rauheit, Feuchte |
-| Gebäude/Dach/Fenster/Fundament | Putz, Ziegel, Stein, Holz, Glas, beschichtetes/blankes Metall |
-| Straße/Weg/Platz/Markierung | Asphalt, Beton, Pflaster, Erde, Farbe; trockene/nasse Oberfläche |
-| Gleis/Weiche/Schwelle/Schotter | blanker Schienenkopf, oxidierte Seiten, Holz/Beton, Gestein |
-| Brücke/Tunnel/Quai/Geländer | jeweiliger Baustoff, Fahrbelag, Abrieb/Nässe; Unterseite eingeschlossen |
-| Baum/Strauch/Gras/Totholz | Rinde/Holz/Blattober-/unterseite/Nadel, artspezifisch in 2176 |
-| Wasser/Schnee/Eis | dielektrisches MR plus passende Transmission/Volumen-/Streumodelle |
-| generierte Props/Partikel | Oberflächenmaterial bzw. expliziter Emissions-/Volumenvertrag |
-
-Holz/Stein/Blatt/Asphalt sind Dielektrika; MR ersetzt weder Blattstreuung noch Wasserabsorption.
-
-- [ ] Coverage-Report nennt jeden Generator und jede ausgegebene Oberflächenklasse samt
-      Materialbindung; fehlende/ungültige ID geht rot. Bewusstes Debugmaterial ist markiert.
-- [ ] Materialatlas und Nah-/Fernbilder aller Tabellenzeilen samt Brückenunterseite und
-      Tunnelinnenwand. Alle Generatoren nutzen denselben Khronos-Vertrag; privates RGB+Glanz
-      oder ein einheitliches Defaultmaterial verletzt das Oracle.
-## Verbleibender Filtervertrag
-
-Native Farb-/Normal-/MR-Bilder und flächenintegrierte Mips sind implementiert.
-Der rote externe Filter-/Wiederholungsnachweis bleibt in 2179. Noch offen:
-Alpha-Coverage bei Mips/Bewegung, Normalvarianz und Rauheit, Anisotropie,
-Speicher-/Uploadbudget. Boxfilter und ein Materialatlas allein nehmen keine Welt ab.
-
-## Plausibler Boden vor Einzelpflanzen
-Isolierte Bodenmaterialien ohne Pflanzengeometrie abnehmen; keine fertige globale
-Gelände-/OSM-Abnahme als Blocker für den Materialkern oder 2111s nativen Wald. Aus OSM/DEM, Höhe, Neigung,
-Exposition, geografischer Lage, Klima und Jahreszeit plausible Anteile von Fels, Erde,
-Sand, Gras und Schnee ableiten; Feuchtigkeit/Temperatur zeitlich führen. Geologie,
-Wasser und Nutzung beeinflussen den Zustand: Höhe/Klima bestimmen ihn nicht eindeutig.
-Fehlende Daten deterministisch plausibel ergänzen, kein digitaler Zwilling. Drei Ebenen:
-Bodenzustand, räumliche Materialmischung, PBR-Darstellung. Große Farbflächen, mittlere
-Strukturen und gefilterte Mikrodetails trennen; nicht nur grünes Normalrauschen. Natürlicher
-Boden ist dielektrisch (Metallic=0); BaseColor/Roughness/Normal erzeugen, Nässe/Schnee/Gras
-mit passenden Lichtreaktionen statt falscher Metalness darstellen. Gemeinsame Standort-/
-Dichtedaten verbinden Bodenmaterial und Vegetationsplatzierung. Abnahme: kahle Testlandschaft
-mit Fels/Wiese/Erde, Nah-/Fernansicht, flacher Blick, Gegenlicht, Tag/Jahreszeit/Wetterwechsel
-und Bewegung; stimmiger künstlerischer Look ist zulässig. Streamingnähte, Wiederholungen und
-Flimmern bleiben Fehler. Einzelhalme erst ergänzen, wo projizierte Größe, Blickwinkel und
-Silhouette beitragen; keine pauschale Metergrenze. Vegetationsgeometrie folgt in 2137/2176.
+Darmstadt, Husum und Wien zeigen in Straßenhöhe bei 5/30/200 m unterscheidbare plausible
+Baustoffe; Bewegung, Streiflicht und Entfernung erhalten die Wirkung ohne Texturschwimmen.
+Alle Places profitieren vom selben Materialpfad; keine Ortskorrektur. Kosten bleiben begrenzt.
+Vertauschte Daten-/Farbkanäle oder falscher Weltmaßstab müssen diese Abnahme sichtbar verletzen.
+make format; betroffene Material-/Shader-Suites; make lint; alle Places rendern und PNGs öffnen.

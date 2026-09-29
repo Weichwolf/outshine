@@ -3,7 +3,7 @@ State: active
 Architecture: ready
 Parent: 2298
 Depends: 2313
-Priority: P0
+Priority: P1
 Area: generators, engine, render
 Tags: geometry, lod, proof, bounded
 

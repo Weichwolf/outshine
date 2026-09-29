@@ -1,118 +1,89 @@
 Type: feature
-State: open
+State: active
 Architecture: planned
 Priority: P0
-Area: world, render, generators, navigation
-Tags: webcam, measured
-Depends: 2188, 2092, 2101, 2111, 2128, 2129, 2137, 2138, 2140, 2144, 2145, 2152, 2155, 2166, 2167, 2168, 2170, 2171, 2172, 2173, 2174, 2175, 2176, 2196, 2197, 2198, 2199, 2200, 2201, 2202, 2203, 2204, 2213
+Area: engine, world, render, simulation, audio
+Tags: sandbox, visual, integration
 
-# A coherent realtime sandbox closes the webcam quality gaps
+# Outshine: eine glaubwürdige, spielbare Welt aus OSM und DEM
 
-## Verbindliches Ziel
+## Der fertige Zustand
 
-Studio-Look zwischen Animation und Realismus gemäß AGENTS.md; Solarpunk-2050 als
-Default, belegte OSM-Formen und physikalische Verträge haben Vorrang. Keine fotografische
-Rekonstruktion, Place-Sondermodelle oder Kameraorte als Generatorparameter.
-Provider liefern OSM/DEM/Zeit/Wetter; deterministische Generatoren ergänzen plausible
-Formen, Materialien und Population. Webcam-Paare prüfen Bildkohärenz und Größenordnung.
-Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren LOD unabhängig.
+Du stehst auf einer Straße in Wien. Um dich herum stehen vollständige Häuserzeilen mit
+Eingängen, tiefen Fenstern, unterschiedlichen Baustoffen, Dachkanten und plausiblen Höfen.
+Asphalt, Bordstein, Gehweg und Gebäudesockel treffen sich räumlich. Die Straße führt über
+eine tragende Brücke weiter; darunter fließen Wasser und Verkehr ungehindert.
+Du gehst, steigst in ein Fahrzeug und fährst aus der Stadt über Land bis in die Berge.
+Es gibt keine Ladeunterbrechung, verschwundene Häuser oder springende Straßenkontakte.
+Nähe, Stadt und Horizont gehören zur selben Welt; grobere Ferndarstellung bleibt kohärent.
 
-## Aktuelle Place-Abnahme 2026-09-29
+OSM liefert Netze, Grundrisse, Nutzung und belegte Maße; DEM liefert die große Geländeform.
+Deterministische Konstruktionsregeln ergänzen fehlende Gebäudeform, Details und Oberflächen.
+Das Ergebnis ist eine plausible Spielwelt, keine behauptete fotografische Rekonstruktion.
+Der Default ist Solarpunk 2050: elektrifizierte Mobilität, Energieanlagen und begrünte
+Architektur mit materialgerechter Alterung. Szenarien bestimmen Epoche, Regeln und Besetzung;
+belegte Formen und physikalische Anschlüsse haben Vorrang vor einer Stilannahme.
 
-6521238ba: vollständiger Lint/tidy/API PASS; sechs fokussierte GPU-Tests mit 90 Checks PASS.
-Zwei echte Negativkontrollen: zehn FAILs bei unnötiger Reservierung, sechs bei Datenverlust.
-Places: 38/44 PASS, 0 FAIL, 2 TIMEOUT (Olympiaturm), 4 UNPREPARED (Graz/Wien);
-Suite Exit 2, Gesamtpipeline Exit 1. Hockenheim separat Client Exit 0.
-Alle zehn aktuellen Client-PNGs ohne Vegetation persönlich geöffnet. Referenzen samt
-ROW-/Zeitstempel-Provenienz unter `build/shots/reference/{4b9afb1de,6521238ba}/`.
-Neun pixelgleich zu 4b9afb1de; Darmstadt 2/921600 Pixel mit höchstens 1/255 Abweichung.
-Graz/Wien/Olympiaturm nur Playable-Diagnosen; sie ersetzen keine Refined-Abnahme.
-Alte Master-Kopien verschwanden, Ursache offen. 4b9-Originale aus dem eingefrorenen Worktree
-anhand ROW-Logs und Gate-Zeitgrenzen wiederhergestellt. Frühere fünf falsch zugeordnete
-973b697a5-Refined-Kopien gelten weiterhin NICHT als Commit-Baseline.
-Logs /tmp/outshine-repair-6521238ba-{full-places,full-lint,gate-results}.log;
-Einzelfälle unter /tmp/outshine-repair-6521238ba-case-logs/. Gesamt-Gate bleibt rot.
-Graz-Probe: Exit 1 nach 6144 Frames, 49/49 Struktur-Tiles, noch earthworks.
-Farbspeicher wächst nur für tatsächliche Verbraucher (2318); keine fertige Szene bewiesen.
-Graz/Wien bleiben ohne fehlerhafte Nahwand; Olympiaturm unvollständig. Playable ersetzt
-keine Refined-Abnahme; Webcam-Vergleich fehlt. 2166 belegt/repariert die falsche grobe
-Nachbarkante ohne Kameraänderung; der vollständige 6e-Gate hatte grünen Lint/tidy/API.
-Feldkirchs Nahwand, Malcesines Faltenvorhang, geglättete Alpen, gezackte Ufer und uniforme
-Fassaden bleiben. Hockenheim wirkt wie eine Karte; Nähe/Bewegung brauchen eigene Abnahmen.
-GPU-Warten/Prozessspeicher unter 2228; kein Engine-Budget und keine isolierte Änderungskausalität.
-2298s quellstabiles Shell-Fallback ist geprüft; Runtime-Fehlerzertifikate bleiben offen.
-Vegetation zuletzt; Hockenheim erster Integrationstest. ALLE Places bei JEDEM Code-Gate.
-## Historischer Bildbefund (2026-09-07, Renderer 12ceb790)
+RDR2/GTA5 auf PS4 setzen den Maßstab für räumliche Dichte, Detailhierarchie, Licht,
+Bewegung und zusammenhängende Bildwirkung. Outshine hat einen eigenen physikalisch
+plausiblen Studio-Look. Nahansicht muss tragen: eine Fenstertextur auf einem Prisma reicht nicht.
+Wolken, Atmosphäre, Sonne und lokale Lichter beleuchten dieselben Materialien. Regen verändert
+Wasser, Glanz, Sicht und Geräusche. Menschen und Fahrzeuge bewegen sich nach Weltregeln.
+Schritte, Reifen, Antriebe, Wetter und Umgebung sind räumlich hörbar, auch über Kopfhörer.
 
-| Place | SOLL als Plausibilitätsreferenz | IST im neuen PNG | zuständige WIs |
+Der Spieler kann mit erklärten Objekten, Türen und Figuren interagieren, Aufgaben verfolgen,
+Besitz verändern und den Zustand speichern. Eine Szenariodatei beschreibt solche Spiele;
+Engine-Code enthält weder Wien-Sonderfälle noch fest verdrahtete Missionen.
+
+## Lieferweg: jede Stufe erweitert dieselbe spielbare Welt
+
+| Stufe | Konkretes Ergebnis | Träger-WIs | Wirkliche Voraussetzungen |
 |---|---|---|---|
-| DarmstadtWest | strukturierte rote/graue Dachlandschaft, diffuse helle Fassaden, Baumzwischenräume | repetitive Prismen, leere Fassaden, kaum Vegetation, klarer Himmel | 2173, 2138, 2171, 2111, 2167, 2172 |
-| Wien | Brücke mit lesbarer Konstruktion, bewachsene Insel, spiegelndes Wasser, Luftperspektive | dünnes Brückenband, kahle Insel, dunkle uniforme Wasserfläche, flache Stadt | 2133, 2175, 2145, 2129, 2111, 2172 |
-| Rosenheim | gegliederte Stadt, markante ferne Grate, tiefer gestaffelte Luft | uniforme Dach-/Wandmassen, gerundete Bergformen, fehlende Kronen | 2166, 2173, 2138, 2171, 2111 |
-| Husum | gebaute vertikale Kaikante, verschiedene Fronten, reflektierendes Hafenwasser | helle gezahnte Böschung, durchgehende helle Bänder, uniformes Wasser, grobe Bauformen | 2121, 2145, 2175, 2138, 2129, 2171 |
-| Olympiaturm | Sportfelder, niedrige Baukomplexe, gegliederte Wohnbauten, hohe Kronendeckung | sehr hohe uniforme Blöcke, kahle Freiflächen, fehlende Feld-/Straßendetails | 2173, 2111, 2176, 2138, 2137, 2175 |
-| Graz | Hügel rechts der Mitte, differenzierte Industrie/Stadt, schlanke hohe Bäume | Hügel weit links, auffällige helle Hangflächen, uniforme Blöcke, kahle Stadt | 2170, 2166, 2173, 2138, 2176 |
-| Koerbersee | gegliederte felsige Seitenflächen, alpine Baumgruppen, Wiesen, spiegelnder See | grobes aufgeblähtes Relief, große Farbpatches, keine lesbaren Bäume, dunkler See | 2166, 2171, 2111, 2176, 2129, 2167 |
-| Malcesine | gegliederte Felswand, bewachsene Halbinsel, strukturierte Wasserreflexion | senkrechter Faltenvorhang/Zähne, kahle Landzunge, fast konstante Wasserfläche | 2166, 2144, 2145, 2171, 2176, 2129 |
-| Feldkirch | bewaldete Hänge, eingebundene Fluss-/Straßenräume, gegliederte Stadt | abrupte Nahwand rechts, tiefer Ufergraben, kahle Hänge, uniforme Gebäude | 2170, 2121, 2166, 2145, 2175, 2176, 2138 |
+| 0 / P0 | Vorhandene Städte vollständig zeigen; Wien verliert keine Gebäude | 2319, 2224, 2243 | Verluststelle in Quelle, Bake, Residency oder Publikation beheben |
+| 1 / P0 | Begeh- und befahrbarer Straßenraum mit Knoten, Brücken und Tunneln | 2133, 2281, 2121, 2175, 2257 | Semantisches Netz 2278 und gemeinsamer räumlicher Bezug |
+| 2 / P1 | Glaubwürdige Nahansicht: Baustoffe, Gebäudemassen und räumliche Fassaden | 2171, 2173, 2138, 2168 | Vorhandener Materialpfad; Gebäudesemantik und zugängliche Straßenfront |
+| 3 / P1 | Stadt, Wasser und Landschaft bilden ein kohärentes beleuchtetes Bild | 2166, 2145, 2129, 2167, 2128, 2155 | Gültige Oberflächen und Materialantwort; kein fertiger Wetterausbau nötig |
+| 4 / P1 | Tatsächliches Fahren und Gehen mit Kontakten, Steuerung und Kamera | 2127, 2297, 2261 | Räumliche Straße, Kollisionsprodukte und fester Simulationstakt |
+| 5 / P1 | Tag/Nacht, Regen und Wolken verändern Bild, Fahrbahn und Akustik konsistent | 2172, 2140, 2213, 2212 | Ein gemeinsamer Zeit-/Wetterzustand; Licht und Materialantwort |
+| 6 / P1 | Verkehr und Fußgänger beleben den benutzbaren Straßenraum | 2136, 2130, 2133 | Navigation, Kontakte, Animation und begrenzte Verhaltensarbeit |
+| 7 / P1 | Ein deklaratives Spiel mit Interaktion, Aufgabe, UI und speicherbarem Zustand | 2141, 2135, 2242, 2151 | Stabile Weltidentitäten, Simulation und versionierter Spielzustand |
+| 8 / P2 zuletzt | Vegetation vervollständigt Stadt und Landschaft im selben Budget | 2111, 2176, 2282 | Tragfähige Szene, Standorte und gemeinsame Qualitäts-/Kostenstufen |
 
-Sichtbefund ist hoch sicher; allein daraus abgeleitete Ursache bleibt Hypothese. Bei Graz/
-Feldkirch wurden keine geschätzten Kameraoffsets eingetragen: Pose/Datum und finale Geländeform
-müssen zuerst auseinandergehalten werden (2170). Tunnel, Nahfassaden, Schatten unter Brücken,
-Nacht und bewegte NPCs sind durch Außen-Standbilder nicht abgedeckt.
+Stufen ordnen Lieferungen, keine monolithische Wasserfallentwicklung. Materialien können
+während Straßenarbeit entstehen; Kontakt/Steuerung beginnt am ersten gültigen Straßenstück.
+Hockenheim liefert den ersten integrierten Fahrfall. Wien und die anderen Places verhindern,
+dass daraus eine Rennstrecken-Demo statt einer weltweit nutzbaren Sandbox wird.
+Die kleine unmittelbar ausführbare Reserve und Modulbesitzer stehen in 2188.
 
-## Prioritäten und echte Blocker
+## Architektur, die das ermöglicht
 
-| Priorität | Nächste Arbeit | Blocker und Grenze |
-|---|---|---|
-| P0 | Rote Gates und bestätigte Lebensdauer-/Publikationsfehler | Nur betroffener Pfad gesperrt; keine globale Auditblockade |
-| P0 | Terrain-Provenienz 2310/2311; CPU-Verfeinerung 2313 → Runtime 2312 → Gebäude-LOD 2298 | Keine kleinere Schranke ohne vollständigen nativen Oberflächenbeweis |
-| P0 | 2092: zeitlich getaktete Hockenheim-Fahrt und übereinstimmende Qualitäts-/Kostentraces | CPU/Fence-Zeit ersetzt keine GPU-Passzeit und keinen A18-Nachweis |
-| P1 | 2172: Wetterzustand; danach Wolken/Licht/Materialien | 2111 Vegetation folgt zuletzt; Weltkronen benötigen atomare Publikation |
-| P1 | 2140: erste volumetrische Wolkenschicht; 2167/2171 Licht und Materialien | Wolken benötigen verbindlichen Wetter-/Kompositionsvertrag, keine fertige Vegetation |
-| P1 | Gelände, OSM-Bauwerke, Wasser und räumliche Anschlüsse | Nur tatsächliche gemeinsame Quellen-/Kontaktverträge blockieren |
-| P1 | 2314: gemeinsames Qualitätsbudget aus gemessenen Leitern ableiten | Erst Kosten/Qualität messen; kein vorgezogener generischer Solver |
-| P2 zuletzt | 2111: Vegetation, Artenvielfalt und Unterwuchs | Place-Abnahmen laufen ab sofort, nicht erst hier |
+Provider → semantische Welt → native Generatoren → versionierte Weltprodukte.
+Simulation besitzt Zustand; Renderer und Audio konsumieren konsistente Snapshots.
+Logische Navigation, physischer Kontakt und Render-LOD sind getrennte Produkte mit denselben
+Quellidentitäten und Raumreferenzen. Darstellungswechsel verändern keine Verkehrsverbindung.
+Generatoren bauen Form; Materialien beschreiben Oberflächen; Beleuchtung macht sie sichtbar.
+Ein Materialshader kaschiert weder falsche Geometrie noch fehlende Gebäude.
 
-Stadt, Wald, Infrastruktur, Himmel und Wolken teilen dasselbe Gesamtframebudget.
-Eine Großstadt und ein Wald müssen dieselbe Zeitobergrenze einhalten; kein künstliches
-Auffüllen freier Zeit. Keine festen Familienquoten. Sichtbarer Beitrag, Kosten und
-zeitliche Stabilität entscheiden. Himmel mit etwa 1/3–2/3 Bildanteil ist ein Kerninhalt;
-Wolken verändern auch Bodenlicht und Schatten. Alte P3–P5-Wartefolge ist aufgehoben.
-Depends dieses Gesamt-WI nennt Voraussetzungen der vollständigen Abnahme, keine
-Startblocker seiner Kinder. Reihenfolge steht in Priority und der kleinen Reserve 2188.
+Streaming lädt vor der Bewegung, hält eine gültige Darstellung und ersetzt nur passende
+Produkte. Sichtbarkeit, Instancing, Detailwahl, Uploads und Residency begrenzen die Kosten.
+2298/2312 liefern nutzbares Gebäude-LOD; weitere isolierte Beweisverfeinerung ist kein Meilenstein.
+Gemeinsames Ziel: A18 Pro, 8 GB, 720p60. Stadt und Wald halten dieselbe Zeitobergrenze.
+OSM-Bauwerke, Terrain, Vegetation, Himmel und Wolken teilen Budget nach sichtbarem Nutzen;
+keine festen Klassenquoten. Himmel/Wolken erhalten ihrem großen Bildanteil entsprechendes Gewicht.
+2092/2228/2314 begleiten jede Stufe mit Laufzeit-, Speicher- und Qualitätsentscheidungen.
 
-## Place-Abnahmen
+## Was heute fehlt
 
-| Place | Abnahme-WI | Schwerpunkt |
-|---|---|---|
-| DarmstadtWest | [2196](2196_darmstadtwest_meets_the_webcam_visual_acceptance.md) | Dachlandschaft und diffuse Stadttiefe |
-| Wien | [2197](2197_wien_meets_the_webcam_visual_acceptance.md) | Flussinseln, tragende Brücke und Stadtpanorama |
-| Rosenheim | [2198](2198_rosenheim_meets_the_webcam_visual_acceptance.md) | Stadt vor einer gestaffelten Alpenkulisse |
-| Husum | [2199](2199_husum_meets_the_webcam_visual_acceptance.md) | Gebaute Hafenkante und lebendiges Wasser |
-| Olympiaturm | [2200](2200_olympiaturm_meets_the_webcam_visual_acceptance.md) | Sportcampus, Wohnstaffelung und dichtes Stadtgrün |
-| Graz | [2201](2201_graz_meets_the_webcam_visual_acceptance.md) | Bahnraum, Industrie und bewaldeter Stadthügel |
-| Koerbersee | [2202](2202_koerbersee_meets_the_webcam_visual_acceptance.md) | Alpine Geländeformen, Bergsee und standortgerechte Vegetation |
-| Malcesine | [2203](2203_malcesine_meets_the_webcam_visual_acceptance.md) | Gegliederte Steilfelsen über mediterranem Seeufer |
-| Feldkirch | [2204](2204_feldkirch_meets_the_webcam_visual_acceptance.md) | Altstadt im bewaldeten Tal mit eingebundenem Flussraum |
+Wien/Graz/Olympiaturm erreichen keine vollständige Refined-Szene. Die geöffneten Bilder zeigen
+fehlende Stadtteile, repetitive Fassaden, schwache Straßenräume, flaches Wasser, Terrainwände
+und überglättete Berge. Der behauptete AAA-Maßstab ist damit noch nicht erreicht.
+Die jetzigen Referenzen liegen unter build/shots/reference/6521238ba/; Historie und technische
+Prüfprotokolle stehen in Git und System-Temp-Logs, nicht als Fortschrittstagebuch im Backlog.
 
-## Abnahme
+## Fertige Lieferungen sind sichtbar und benutzbar
 
-- [ ] Alle neun Webcam-/Client-Paare selbst öffnen; Ursachen, verbleibende Grenzen,
-      verwendete Quellen, Kamera, Wetter, Digest und Kosten festhalten.
-- [ ] Bewegung sowie Nah-, Unter-, Tunnel- und mehrstöckige Ansichten prüfen;
-      mindestens ein unabhängiger Ort/Seed pro relevanter Generatorfamilie.
-- [ ] Materialien: Metallic-Roughness, BRDF/Farbräume, Maßstab und Normalen;
-      Tag/Nacht, klar/bedeckt/Regen/Nebel/Schnee und Jahreszeiten gemeinsam bewerten.
-- [ ] 720p60 auf Apple A18 Pro, 8 GB: 1000/60 = 16,666… ms Gesamtframe;
-      p50/p95/p99, Warmstand/Kaltstart/Bewegung, Speicher und Rückstau getrennt berichten.
-      Keine Addition isolierter p99 und kein Ersatz durch residente Standbilder.
-- [ ] LOD ändert weder logisches Netz noch Kontakt; Fehlerschranken und Qualitätsverluste
-      bleiben sichtbar. Relevante Orakel, API-Dokumentation und vollständiges Lint grün.
-
-Historische Bildidentitäten stehen in Git; PNGs unter build/shots/reference/,
-Logs im System-Tempverzeichnis. Unbekannte Wolkenpositionen sind kein Foto-Pixeloracle.
-
-Partikel/Feuer/Rauch/Niederschlag bleiben späterer Ausbau mit nativen Emittern,
-begrenzter Lebenszeit/Population/Uploads, Replay und vollständiger Freigabe. Erst einen
-eigenständigen ausführbaren WI aktivieren; kein paralleles Wolken-/Mediumsystem in 2137.
+Jede Lieferung benennt ein vorher fehlendes Spielergebnis und zeigt es im Client in Nähe und
+Bewegung. Alle Places bleiben dabei verbindlich: Wien, DarmstadtWest, Graz, Rosenheim, Husum,
+Feldkirch, Malcesine, Koerbersee, Olympiaturm und Hockenheimring. Kein grüner Einzeltest ersetzt sie.
+Tag/Nacht, Wetter, Kaltstart, Warmstand und Bewegung gehören zum Endzustand. Host-Messungen
+beweisen keine A18-Leistung. Ein schönes Standbild beweist weder Kontakte noch Streaming.

@@ -11,7 +11,7 @@ Depends:
 
 ## Belegter IST-Zustand
 
-`src/engine/streaming/StructureBuildQueue.cpp::RawOf` leert `raw.Ways`, füllt im gelesenen Pfad nur
+`StructureBuildQueue::RawOf` übergibt Straßenlinien mit Halbbreite sowie Gebäude-
 Außenringe, `height` und einen aus `roof:shape` abgeleiteten Pitched-Wert. Innenringe
 werden übersprungen. Der aktuelle Renderlog meldet für Feldkirch 31 673 Gebäude,
 1 147 mit OSM-Höhe und 30 526 mit Default: 30 526 / 31 673 = 96,4 % Default.

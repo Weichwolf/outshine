@@ -1,0 +1,41 @@
+Type: defect
+State: active
+Architecture: ready
+Priority: P0
+Parent: 2169
+Depends:
+Area: engine, streaming, render
+Tags: buildings, publication, visual
+
+# Wien behält seine Gebäude während Laden und Bewegung
+
+## Ergebnis
+
+Die aus vorhandenen Quelldaten erzeugte Stadt steht vollständig im Bild. Ein neuer
+Kandidat oder Detailwechsel darf keine bereits sichtbaren Gebäude verschwinden lassen.
+Wien ist der erste Regressionsfall; die Lösung gilt für alle Places.
+
+## Befund
+
+Der Nutzer sieht nur etwa zehn Prozent der Gebäude. Dieser Anteil ist noch nicht
+quantifiziert. Der letzte Refined-Lauf erreicht keine fertige Szene; ein Playable-Bild
+beweist daher weder Vollständigkeit noch korrekte Gebäude-Publikation.
+
+## Umsetzung und Besitzer
+
+Engine/GroundPublication und GroundWorldCandidate besitzen Kandidat und Veröffentlichung;
+StructureBuildQueue besitzt Quelldaten/Bakes, TilePieces aktive Gebäudeprodukte.
+Für identische Kamera und Quellen den Weg Quelle → erzeugte Gebäude → residente Pieces
+→ aktive Auswahl → sichtbare Geometrie verfolgen. Verluststelle mit vorhandenen früheren
+Bildern und Source-/Cell-Identitäten eingrenzen. Verdeckung von fehlender Geometrie trennen.
+Dann den verantwortlichen Übergang reparieren: die bisherige gültige Darstellung bleibt,
+bis eine vollständige quellpassende Ersatzdarstellung übernommen werden kann.
+Kein dauerhaftes Fine-Erzwingen, keine Place-Sonderregel, keine angehobenen Frame-Limits.
+LOD-Zertifikate sind nur dann ein Blocker, wenn der konkrete Verlustpfad das belegt.
+
+## Fertig, wenn
+
+Wien zeigt bei gleicher Kamera die vorhandenen Gebäude ohne Publikationslöcher; Kaltstart,
+Bewegung und Nachladen verlieren keine bereits vorhandene quellgültige Stadt. Vorher/Nachher
+persönlich öffnen, fehlende oder verdeckte Gebäude unterscheidbar belegen. Alle Places
+auf gleiche Regression prüfen. Straßen, Materialien und Fassaden bleiben eigene Lieferungen.

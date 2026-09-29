@@ -1,7 +1,7 @@
 Type: feature
 State: active
 Architecture: planned
-Priority: P1
+Priority: P0
 Area: world, navigation
 Tags: webcam, measured
 Parent: 2188

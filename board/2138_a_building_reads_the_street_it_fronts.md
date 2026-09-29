@@ -1,55 +1,51 @@
 Type: feature
 State: open
-Architecture: planned
+Architecture: ready
 Priority: P1
 Parent: 2169
 Area: generators, world
-Tags: webcam, measured
-Depends: 2173, 2121
+Tags: buildings, visual
+Depends: 2173
 
-# Buildings receive their street and generate functional facades
+# Häuser besitzen Straßenfront, Eingänge und räumliche Fassaden
 
-## IST / Reparatur
+## Ergebnis
 
-`StructureBuildQueue.cpp::RawOf` leert `RawTile::Ways` und füllt sie im gelesenen Pfad nicht.
-`StructureBake::NearestStreet`/Frontage können so ihre Straße nicht kennen. Die frühere
-Abhängigkeit 2157 ist geschlossen/historisch und wurde durch die tatsächlichen offenen
-Träger ersetzt. Alle Stadtbilder zeigen fast fensterlose Prismen.
+In Straßenhöhe sind Häuser gebaute Körper: Sockel, Erdgeschoss, Eingang, zurückliegende
+Verglasung, Rahmen, Laibungen, Dachkante und Entwässerung erzeugen räumliche Tiefe.
+Nutzung und Konstruktion bestimmen den Rhythmus; keine identische Fenstertextur auf allen Flächen.
+Höfe und Durchfahrten bleiben frei. Hallen, Wohnhäuser und geschlossene Blockränder unterscheiden sich.
 
-1. Straßenlinien samt Klasse/Halbbreite aus derselben Semantik wie 2133 an den Bake reichen;
-   über Tilegrenzen Nachbarschaft berücksichtigen. Eingänge zur zugänglichen Front,
-   nicht zum geometrisch nächstgelegenen unzugänglichen Autobahn-/Brückensegment ausrichten.
-2. Nutzung, Dachform und belegte Höhen aus 2173; gemeinsame Brandwand/Traufe, Innenhöfe,
-   Erdgeschoss, Türen/Fenster/Reveals, Sockel, Dachentwässerung und Dachaufbauten generieren.
-   Geometrie nach projizierter Größe staffeln (2123), Materialdetail in 2171.
-3. Funktionale Straßenkante: Gehweg, Bordstein mit Fläche, Markierungen, Einfahrten,
-   Übergänge und Entwässerung. 2121 besitzt Höhen-/Junction-Solve, dieses WI deren Bebauung.
+## Vorhanden und Umsetzung
 
-## Begrenzter Konstruktionsraum
+StructureBuildQueue::RawOf übergibt bereits Straßenlinien mit Halbbreite. BuildingShape und
+BuildingMesh erzeugen native Körper, Dächer und einzelne Details. Den bestehenden Generator
+fortführen; keine zweite Hausbibliothek und keine Place-Sondermodelle.
 
-Kein Katalog fertiger Häuser, der OSM-Grundrisse verbiegt. Ein endlicher Satz
-parametrischer Regeln zerlegt den tatsächlichen Grundriss in Baukörper, Hof,
-Geschosse, Dachflächen, Sockel und Fronten. Fenster-, Tür-, Dach- und Materialmodule
-sind wiederverwendbare Details, keine Quelle für Topologie oder Gebäudehöhe.
-Explizite OSM-Maße, Geschosse, Eingänge, `building:part`, `min_height`, Nachbarwände,
-Straßenzugang und Gelände-/Durchfahrtbedingungen sind harte Constraints. Fehlende
-Werte erhalten typ-/ortsabhängige plausible Priors und einen stabilen Seed; diese
-Annahmen bleiben im ConstructionResult sichtbar. Ästhetische Rhythmen, Dachneigung
-und Fassadenstil sind weiche Scores nach erfüllter Funktion, nicht umgekehrt.
-Der Solver bearbeitet ein Gebäude plus betroffene Nachbarn/Anschlüsse mit begrenzter
-Kandidatenzahl und Arbeit. Zellen dienen Index, Streaming und lokalem Konfliktfenster;
-Gebäude- und Straßenkonturen bleiben kontinuierlich über Zellgrenzen. Bei Widerspruch
-oder Budgetende: diagnostizierte konservative Konstruktion nur wenn alle harten
-Verträge gelten, sonst kein physisch gültiges Gebäude. Kein stilles Weglassen.
+1. 2173 erhält belegte Grundrisse, Innenringe, Parts, Höhe/Geschosse und Dachform. Diese Daten
+   plus Gelände und zugängliche Straßenfront bestimmen einen stabilen Konstruktionsplan.
+2. StructureBake/Frontage wählen einen erreichbaren Zugang. Räumlich nahe Autobahn, Brücke
+   oder Tunnel ist keine passende Hausfront. Nachbar-Tiles dürfen den Zugang nicht ändern.
+3. BuildingShape zerlegt Grundriss und Nutzung in Baukörper, Geschosse, Hof und Dach.
+   BuildingMesh erzeugt zunächst einen vollständig detaillierten Straßenabschnitt:
+   Eingang mit Schwelle, Fensterlaibungen/Rahmen, Sockel und sauberer Dachabschluss.
+4. Materialzuweisungen folgen diesen Bauteilen (2171). Glas liegt hinter Rahmen/Laibung;
+   Türen landen auf begehbarem Niveau, Brandwände bleiben geschlossen. Kein Detail durchdringt
+   Nachbarbau, Durchfahrt oder Dach. Unbelegte Details variieren deterministisch nach Gebäude-ID.
+5. In Entfernung verlieren dieselben Gebäude kleine Details kontrolliert. Footprint, Nutzung,
+   Kontakt und Identität bleiben stabil; kein zweiter quellenfremder LOD-Baukörper.
 
-- [ ] Fronted-Counter mit/ohne Ways unterscheidet sich; falsch zugeordnete Straße scheitert
-      am Zugangsoracle. Straße/Parzelle über Tilekante bleibt dieselbe.
-- [ ] Darmstadt/Husum/Rosenheim/Graz: variierende plausible Fassaden und Dächer bei 200/30/5 m,
-      keine Pflicht zur Kopie einer konkreten Fassade. Alle Körper erfüllen 2168.
-- [ ] Gleicher OSM-/DEM-/Regelstand liefert unabhängig von Tile-Reihenfolge dasselbe
-      Gebäude; geänderte Seeds variieren nur unbelegte Details. Gegenproben für
-      blockierten Eingang, kollidierendes `building:part`, Hang und freie Durchfahrt.
-- [ ] Wiederholung/LOD-Flimmern/Kosten unter Bewegung nach 2092; Defaultverteilung im Manifest.
+## Fehler und Abhängigkeiten
 
-Wahl: Straßenbezug als PCG-Eingang wie Unreal; RAGE als visuelle Frontage-Referenz.
-Keine nachträgliche bloße Textur über falsche Gebäudemassen.
+Belegte Maße/Parts und freie Durchfahrten sind harte Grenzen. Widersprüche melden;
+keine angeblich gültige Konstruktion durch stilles Weglassen. Fehlende Attribute bekommen
+explizite plausible Defaults. Kein Warten auf einen fertigen weltweiten Router oder Vegetation.
+2173 blockiert die vollständige semantische Konstruktion; 2171 kann gleichzeitig entstehen.
+
+## Fertig, wenn
+
+Darmstadt, Husum, Rosenheim und Wien zeigen bei 5/30/200 m glaubwürdige unterschiedliche
+Häuser; dieselbe Straßenfahrt verbindet Details mit der Gesamtstadt ohne Sprünge.
+Ein zugemauerter Hof, schwebender Eingang oder blockierte Durchfahrt widerlegt das Ergebnis.
+Besitzerdateien: StructureBuildQueue, StructureBake, BuildingShape, BuildingMesh, FacadeUv.
+make format; betroffene Generator-Suites; make lint; alle Places rendern und PNGs öffnen.

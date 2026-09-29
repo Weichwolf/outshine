@@ -4,7 +4,7 @@ Architecture: ready
 Parent: 2123
 Supersedes: 2232
 Depends: 2312
-Priority: P0
+Priority: P1
 Area: generators, world, engine, render
 Tags: buildings, lod, determinism, streaming, hockenheim
 

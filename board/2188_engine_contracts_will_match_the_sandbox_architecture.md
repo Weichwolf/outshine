@@ -1,78 +1,72 @@
 Type: debt
 State: active
-Architecture: planned
-Priority: P1
-Area: include, engine, render, world
-Tags: architecture, audit
+Architecture: ready
+Priority: P0
+Area: engine, world, render, simulation, audio
+Tags: architecture, integration
 Parent: 2169
-Depends: 2093, 2094, 2096, 2124, 2130, 2131, 2132, 2149, 2150, 2151, 2185, 2190, 2191, 2194, 2207, 2208, 2209, 2210, 2214
+Depends:
 
-# Engine contracts match the streaming sandbox architecture
+# Engine-Design und ausführbarer Weg zur Outshine-Sandbox
 
-## Entscheidung
+## Zuständigkeiten und Datenfluss
 
-Provider besitzen Quellen; Generatoren native CPU-Produkte; Simulation veränderlichen
-Weltzustand; Rendering/Audio konsumieren Snapshots. Integration koordiniert Lebensdauer,
-Versionsannahme und Budgets. Kein fremder Algorithmus in Engine::State, kein paralleler
-Geometrievertrag, kein generisches Framework ohne konkreten Consumer.
-RAII-GPU-Wrapper, TilePool, Worker, Renderplan, Registry und native Materialien erhalten,
-soweit ihre Verträge tragen. Strukturänderungen brauchen einen belegten Fehlernutzen.
-
-Öffentliche API bleibt formatunabhängig; Importtypen enden am Adapter (2150).
-SDL-Fenster-/Event-Adapter sind legitim, SDL in Generatoren/Szenariomodell nicht.
-Navigation, Kontakt und Render-LOD teilen Raumreferenzen, besitzen getrennte Produkte.
-Weltpositionen Double, GPU kamera-relativ Float mit gemeinsamem Frame-Ursprung.
-Queues, Abbruch, Arbeit und Speicher begrenzen; alte Ergebnisse ersetzen keine neuen.
-
-## Kleine Coding-Reserve
-
-| Rang | WI / Besitzer | Ausführbarer Schritt und Grenze |
+| System | Besitzt und liefert | Grenze |
 |---|---|---|
-| P0 zuerst | 2311 / engine streaming | Place-Absturz, Owner-Domänen und tatsächliche Refined-Bereitschaft beheben |
-| P0 unabhängig | 2228 / engine + render | Olympiaturm: residenten CPU/GPU-Bestand erfassen und begrenzen |
-| P0 unabhängig | 2092 / client diagnostics | Alle Places: gemessene Stadt-/Terrain-/Himmelkosten statt Hockenheim allein |
-| P0 danach | 2312 / engine streaming | Bewiesene adaptive CPU-Fähigkeit in gepaarte BuildTask-Phasen integrieren |
-| P0 danach | 2298 / render | Source-matching residentes LOD unter Bild-/Zeit-/Speicherabnahme auswählen |
-| P1 | 2172 / world + engine declaration | Wetterzustand integrieren; danach Wolken/Licht/Materialien vorantreiben |
-| P2 zuletzt | 2111 / generators + vegetation streaming | Vegetation implementieren und dann Stadt/Wald im selben Budget abnehmen |
+| Provider / world | OSM-/DEM-Daten, Provenienz, semantische Netze und Gebäudeattribute | Keine Rendergeometrie als Navigationsquelle |
+| generators | Native Straßen, Gebäude, Gelände, Wasser; Materialkoordinaten und Kontaktprodukte | Kein Renderer, kein Szenario-Sonderfall |
+| engine streaming | Begrenzte Jobs, Abbruch, Residency und konsistente Publikation | Keine fremden Generatoralgorithmen im Koordinator |
+| simulation | Fester Tick, Körper, Fahrzeuge, Agenten, Interaktion und Spielzustand | Rendering interpoliert, bestimmt aber nicht Physik oder Regeln |
+| render | Sichtbarkeit, Instancing, LOD, Materialauswertung, Licht, Schatten und Atmosphäre | GPU-Produkte mit eindeutiger Lebensdauer; gemeinsame Weltreferenz |
+| audio | Räumliche Quellen und akustische Szene aus Weltzustand | Eigene Echtzeitgrenzen; keine Renderabhängigkeit |
+| scenario / UI | Deklarative Inhalte, Regeln und begrenzte Commands; versioniertes Savegame | Skripte besitzen weder Weltobjekte noch Renderer |
 
-2313 liefert die CPU-Grundlage; weitere isolierte Detailbeweise brauchen einen konkreten
-Integrationsfehler. Jeder Code-/Shader-/Build-Schritt umfasst Places-Suite UND alle zehn
-Place-Renderings mit geöffneten PNGs. Hockenheim/Kamerarunde ist nur der erste Test.
-2170 ist P0-Architekturarbeit: Kamera-/Datum-/Verdeckungsursache belegen, keine freien
-Place-Offsets oder ausgeblendete Geometrie. 2230 prüft vollständige Snapshot-Bereitschaft.
+Ein engine-eigenes Geometriemodell; Importformate enden am Adapter. Weltpositionen Double,
+GPU kamera-relatives Float. Navigation, Kontakt und Darstellung teilen stabile Identitäten.
+Quellrevisionen reisen mit Produkten; veraltete Ergebnisse dürfen keine neuen verdrängen.
+Fehler lassen eine gültige Darstellung stehen oder melden eine sichtbare Lücke ausdrücklich.
+Sichtbarkeit und Budget begrenzen Arbeit vor Erzeugung/Upload; Überlast ist kein stiller Datenverlust.
 
-2140 Wolken und 2314 gemeinsamer Budgetplaner bleiben Architecture: planned, bis die
-jeweiligen Eingangs-/Kostenverträge feststehen. Keine scheinbar ausführbare Reserve.
-Fehlgeschlagene Gates zuerst korrigieren. Ein blockiertes WI beendet weder Reserve noch Ziel.
+## Jetzt ausführen
 
-## Weitere Vertragsaufträge
+| Reihenfolge | WI | Fertiges Ergebnis | Besitzer / konkreter nächster Schritt |
+|---|---|---|---|
+| 1 / P0 | 2319 | Wien zeigt vollständige Gebäudedeckung | GroundPublication/TilePieces: Verlust zwischen Quelle, Bake und aktiver Darstellung lokalisieren und reparieren |
+| 2 / P0 | 2281, 2121, 2133 | Ein durchgehend nutzbarer Straßenraum | RoadAlignment/Contact und semantisches Netz: Knoten, Straßenprofil, Geländeanschluss und getrennte Ebenen verbinden |
+| 3 / P1 | 2171 | Lesbare Baustoffe statt flacher Farbflächen | GroundMaterials/SubjectMaterials/Shader: Asphalt, Beton, Putz, Glas und Dachmaterial in derselben Szene |
+| 4 / P1 | 2173 → 2138 | Gebäude mit plausibler Masse und echter Nahgeometrie | BuildingShape/BuildingMesh: Semantik, Hof, Eingang, Fensterlaibung und Dachabschluss |
 
-| Befund / Abnahme | Besitzer-WI |
-|---|---|
-| Vollständige Gate-, öffentliche Header- und Shader-Belege | 2094, 2093, 2152 |
-| GPU-Submit/History/Retirement und Kandidatenpublikation | 2190, 2191, 2223 |
-| Begrenzte Jobs, Simulation und Produkt-Streaming | 2124, 2130, 2132 |
-| Natives Importmodell, Schema-/Parsing- und Providergrenzen | 2150, 2151, 2214, 2194 |
-| Kein allocator replacement in Library; atomisches Save, begrenzte Reader | 2209, 2210 |
-| Installierbare Ressourcen und host-eigene Diagnostik | 2207, 2208 |
-| Atomare Weltkronen, vollständige Residency, begrenzte Restphasen | 2225, 2228, 2234 |
-| Geländeform, logisches Netz und räumliche Anschlüsse | 2166, 2133, 2175 |
-| Konkrete Modul-/Namensdefekte, keine große Rename-Kampagne | 2139 |
+Materialarbeit braucht keinen fertigen Wetter-/NPC-/Vegetationsausbau. Fassadendetails brauchen
+keinen vollständigen weltweiten Router; lokale zugängliche Straßenfront reicht als Eingang.
+Ein blockierter Schritt sperrt nur seinen Pfad. Bereits begonnene LOD-Arbeit abschließen,
+aber nicht vor vollständige Stadt und nutzbare Straße schieben. Keine weitere CPU-Präzisionsreserve.
 
-Historische Quellaudits vom 2026-09-08 stehen in Git; ihr Fehlerstatus muss im
-zuständigen WI neu geprüft werden. Quellenprüfung ersetzt keine Race-/Bild-/Backend-Abnahme.
-Depends dieses Parent-WI betrifft die Gesamtvertragsabnahme. 2139 ist kein technischer
-Blocker dieser Abnahme; gezielte Ownership-Defekte liegen bei ihren ausführbaren Kindern.
+## Danach integrieren, nicht als getrennte Demos stehen lassen
 
-## Abnahme
+| Lieferung | WIs | Einbindung in dieselbe Szene |
+|---|---|---|
+| Physisches Fahren/Gehen | 2127, 2297, 2261 | Steuerung → fester Tick → Straßen-/Terrainkontakt → Kamera und Audio |
+| Glaubwürdiges Gesamtbild | 2167, 2128, 2129, 2155 | Materialien mit Himmel, Schatten, Reflexionen und konsistenter Belichtung verbinden |
+| Wetter und Tageszeit | 2172, 2140, 2213, 2212 | Ein Zustand steuert Luft, Wolken, Oberflächen, Licht und Geräusche |
+| Belebte Straßen | 2136, 2130 | Agenten verwenden logische Wege und gültige Kontakte; Entfernung reduziert Aufwand |
+| Spielbare Sandbox | 2141, 2135, 2242, 2151 | Interaktion/Regeln/UI und persistenter Zustand über die öffentliche API |
+| Vegetation zuletzt | 2111, 2176, 2282 | Standortgerechte Pflanzen ergänzen fertige Weltprodukte und teilen das Framebudget |
 
-- [ ] Externer Client nutzt installierte öffentliche Header/Library; Fenster, Offscreen,
-      mehrere Engines, Redeclare, Fehler und Shutdown sind tatsächlich geprüft.
-- [ ] Ownership/Threading/Schema mit unabhängigen Orakeln und wirksamen Negativkontrollen.
-- [ ] Bewegung und Dauerlauf zeigen begrenzte CPU/GPU-Arbeit, Queues und Residency.
-- [ ] Strukturelle Änderungen bewahren Verhalten; fachliche Fixes erhalten neue Bildabnahme.
-- [ ] Vollständiges Lint samt API-Dokumentation und clang-tidy grün; reale Limits offen nennen.
+## Laufzeit ist Teil jeder Lieferung
 
-Lokale Referenzen und Stand gehören in den fachlichen WI. Unreal/RAGE/Filament/Cesium
-sind Vergleiche, keine unbelegte interne Spezifikation. Messungen im Projekt entscheiden.
+2132 lädt vor Bewegung. 2228 zählt tatsächliche Besitzer; 2298 wählt gültige residente Details.
+2314 verteilt Detail erst auf Basis gemessener Kosten-/Qualitätsstufen. Keine allgemeine
+Budgetmaschine als Vorbedingung für einen sichtbaren Baustoff oder eine funktionierende Straße.
+Fehlende Gebäude, verlorene Kontakte und Überschreiben aktueller Quellen sind Fehler, keine LOD.
+Runtime-Zertifikate dürfen nicht optimistisch sein; sie sind Mittel für eine bessere Szene.
+
+## Arbeitsvertrag
+
+2169 beschreibt den Endzustand und die Lieferstufen. Feature-WIs halten Ergebnis, vorhandene
+Fähigkeit, Besitzer, Daten-/Fehlerfluss, nächste Implementierung und kurze Fertig-Kriterien.
+Depends nennt nur technische Blocker, Parent nur Zugehörigkeit. Keine Test-Tagebücher;
+konkrete Läufe, Mutationen und Messprotokolle stehen in Git und System-Temp-Logs.
+Code bleibt durch Format, fokussierte Tests, vollständigen Lint/API und alle Places abgesichert.
+Abnahmebefehle: make format; betroffene make suite; LINT_JOBS=2 make lint;
+outshine-client run/render gemäß Szenario/Asset, alle zehn Place-PNGs persönlich öffnen.
+Die Widerlegung ist konkret: eine Lieferung ohne ihr sichtbares/spielbares Ergebnis bleibt offen.
