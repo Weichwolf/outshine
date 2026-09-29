@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
@@ -79,6 +80,14 @@ int main() {
       if (depth.size() == 64u * 64u && velocity.size() == 64u * 64u * 2u) {
         constexpr size_t left = 32u * 64u + 16u;
         constexpr size_t right = 32u * 64u + 48u;
+        std::fprintf(stderr,
+                     "left depth=%g velocity=(%g,%g); right depth=%g velocity=(%g,%g)\n",
+                     depth[left],
+                     velocity[2u * left],
+                     velocity[2u * left + 1u],
+                     depth[right],
+                     velocity[2u * right],
+                     velocity[2u * right + 1u]);
         CHECK(depth[left] > 0 && depth[right] > 0, "both triangles cover their probes");
         CHECK(std::abs(velocity[2u * left] - 0.25f / 2.0f) < 0.001f &&
                   std::abs(velocity[2u * left + 1u]) < 0.001f,
