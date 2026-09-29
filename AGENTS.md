@@ -22,6 +22,36 @@ haben Vorrang vor Stilannahmen. Kein Anspruch, den wirklichen Zustand von 2050 v
 Diese Datei enthält dauerhafte Regeln. Stand, Prioritäten, Befunde und konkrete Entscheidungen
 gehören in `board/` und Git. Aktuelle Nutzeranweisungen gehen dieser Datei vor.
 
+## Verbindliches Entwicklungsziel
+
+Diese Tabelle ist der dauerhafte Kompass jeder Session. Verfolge den vollständigen Endzustand
+aktiv bis zur sichtbaren und spielbaren Umsetzung; nicht nur eine bequem prüfbare Teilmenge.
+Sie beschreibt Zielbereiche, keine vom Regisseur vorgegebene Implementierungsreihenfolge.
+Als Technical Director und Art Director entscheidest du die nächste Lieferung selbst anhand
+von Wirkung, Abhängigkeiten und gemessenen Kosten. Der Feature-Backlog konkretisiert den Weg.
+
+| Bereich | Was erreicht werden muss | Umsetzung |
+|---|---|---|
+| Vollständige Welt | Städte ohne fehlende Gebäude oder stockendes Nachladen | Quelle, Generierung und Publikation durchgängig verbinden; gültige Welt bis zum passenden Ersatz erhalten |
+| Straßen und Bauwerke | Zusammenhängende begeh- und befahrbare Straßenräume | OSM-Netze in Profile, Kreuzungen, Gehwege, Brücken und Tunnel übersetzen; Navigation, Darstellung und Kontakt räumlich verbinden |
+| Gebäude | Glaubwürdige Massen und räumliche Nahdetails | Grundrisse, Höfe, Parts und Geschosse erhalten; Eingänge, Laibungen, Rahmen, Sockel und Dachdetails geometrisch erzeugen |
+| Materialien | Lesbare Baustoffe statt flacher repetitiver Flächen | Asphalt, Putz, Beton, Glas und Dächer mit korrektem Maßstab, Rauheit, Normaldetail, Reflexion und plausibler Alterung ausstatten |
+| Terrain und Wasser | Glaubwürdiges Relief und gebaute Anschlüsse | Finale Geometrie gezielt verfeinern; Straßenanschlüsse, Ufer und Wasserstände lösen; Wasser mit Reflexion und Bewegung darstellen |
+| Licht und Atmosphäre | Tiefe und zusammenhängende Bildwirkung | Gerichtetes Himmelslicht, stabile Schatten, lokale Beleuchtung, Reflexionen, Atmosphäre und konsistente Belichtung integrieren |
+| Wetter und Wolken | Lebendiger Himmel und konsistente Umweltveränderung | Volumetrische Wolken und gemeinsamen Wetterzustand für Licht, Sichtweite, Nässe, Wasser und Geräusche verwenden |
+| Bewegung und Physik | Eine benutzbare Welt statt einer Kameraansicht | Spielersteuerung, Fahrzeugdynamik, Rad-/Bodenkontakte, Kollisionen und Animation auf festem Simulationstakt verbinden |
+| Belebung und Spiel | Verkehr, Figuren und eine persistente Sandbox | Agenten auf logischen Wegen simulieren; Interaktion, Aufgaben, UI und speicherbaren Spielzustand über Szenarien steuern |
+| Audio | Räumliche akustische Glaubwürdigkeit | Schritte, Reifen, Antriebe und Umwelt mit Entfernung, Verdeckung und Raumwirkung verbinden |
+| Vegetation zuletzt | Standortgerechte natürliche Dichte | Bäume, Sträucher und Unterwuchs mit Wind, Schatten und abgestuften Darstellungen integrieren |
+| 720p60 durchgehend | Qualität innerhalb des gemeinsamen Budgets | Sichtbarkeit, Instancing, wirksames LOD, vorausladendes Streaming und begrenzte Residency; Stadt, Wald und Himmel teilen die Zeitobergrenze |
+
+RDR2/GTA5-Niveau entsteht aus dem Zusammenspiel dieser Systeme in derselben Welt.
+Ihre bloße Existenz, korrekte Einzelalgorithmen oder grüne Tests reichen nicht.
+Vor jeder Arbeitsauswahl benennen: Welcher Zielbereich verbessert sich im Client konkret?
+Nach jeder Lieferung prüfen: Ist dieses Ergebnis sichtbar/benutzbar, und welche Lücke bleibt?
+Notwendige Reparaturen schließen einen benannten Blocker; danach folgt wieder Featurearbeit.
+Den Gesamtauftrag erst als erreicht behandeln, wenn diese Ergebnisse integriert und belegt sind.
+
 ## Verbindlicher Arbeitsfokus
 
 - Das Arbeitsergebnis ist eine sichtbar bessere, spielbare Outshine-Welt. Implementiere Features
