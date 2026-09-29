@@ -31,6 +31,13 @@ abhängig machen: Koerbersee wartet bei Footprint-Revision 3/4 ohne Kandidat und
 laufenden Bake. `Grounds` prüft wie im Runtime-Pfad selbst Revisionswechsel und
 Unchanged; alte Details sind keine Eintrittsbedingung für diese Prüfung.
 Die feste Messung ist kein Ersatz für Laden und führt keine Refined-Warteschleife.
+Die Place-Drehung deklariert vor assemble einen festen Katalog aus Ausgangsblick und
+59 Zwischenblicken. `Engine::setView` wählt diese vor jedem advance; keine neue Kamera-API
+und keine Renderer-Sonderbewegung. Bearing/Pitch-Kameras ändern nur den Bearing; explizite
+LookAt-Kameras drehen Ziel und Up um die lokale geodätische Hochachse durch den Kamerastandort.
+Die letzte Auswahl verwendet unverändert den Ausgangsblick. Die Drehung wird nur von `Take`
+angefordert; allgemeine Szenario-Aufnahmen behalten ihre Kamera. Capture pinnt nach dem letzten
+Messframe ausschließlich den Readback, ohne weitere Renderframes.
 Screenshot-Capture und notwendige Renderer-Initialisierung explizit abgrenzen.
 Vorhandene Hash-PNGs erhalten; vollständige Inhalte und Bildänderungen selbst prüfen.
 
