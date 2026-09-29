@@ -35,6 +35,24 @@ FrameMeasurements exposes HOST phases; per-pass GPU execution is not yet measure
   GPU passes, upload/IO, queues and CPU/GPU bytes separately. Do not sum asynchronous p99.
   Resolve per-pass/cross-family calibration into 2314 before implementing a budget planner.
 
+## Executable budget gates
+
+ClientShot currently parses timing and over-budget rows without enforcing them; a matching
+reference image also returns early. It proves neither CPU/GPU time nor peak memory limits.
+Move budget scoring into a shared test-harness evaluator with explicit measurement profiles.
+Keep image acceptance independent; no reference-match shortcut may bypass budget checks.
+Profiles own device/backend/build/resolution, workload, units, derivation and declared limits;
+reject absent or incompatible measurements as unproven. Do not invent A18 GPU measurements.
+CPU critical-path time, actual GPU execution and end-to-end cadence have separate limits;
+frame pacing sleep is excluded from CPU work but retained in cadence and readiness time.
+Derive app memory from measured platform allowance minus explicit reserve; account shared
+allocations once and include staging, old/new products and transient peaks. Device 8 GB is
+not an allocation allowance. Existing owner byte limits remain deterministic unit-test gates.
+Evaluator boundary tests cover exactly-at-limit, over-limit, missing metrics and incompatible
+profiles; runtime controls add actual excess work/storage and must trip the relevant gate.
+Implement CPU/work and owned-byte checks using existing metrics first; missing native GPU
+measurement remains an open acceptance item. Do not defer useful checks until all profilers exist.
+
 ## Binding budget and acceptance
 
 - 60 Hz gives 1000/60 = 16.6667 ms/frame. City and forest receive the same total render

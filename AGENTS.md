@@ -178,6 +178,19 @@ Den Gesamtauftrag erst als erreicht behandeln, wenn diese Ergebnisse integriert 
   Software allein zur Reproduktion veralteter Referenzbytes installieren.
 - Bildqualität, Korrektheit, Framezeit, Speicher und Streaming getrennt bewerten. Framezeiten als
   p50/p95/p99; Warmstand, Kaltstart und Bewegung unterscheiden.
+- Tests prüfen neben Korrektheit die hergeleiteten CPU-/GPU-/Speicherbudgets. Ein Budget nennt
+  Einheit, Herkunft, Lastfall, Messprofil und Besitzer. Prüfe algorithmische Arbeits-/Bytegrenzen
+  deterministisch und reale Laufzeit zusätzlich auf dem deklarierten Gerät. Überschreitungen
+  lassen das zugehörige Gate scheitern; bloß ausgegebene Messwerte gelten nicht als Prüfung.
+- 60 Hz bedeutet 1000/60 ms pro Frame. CPU-Kritischer-Pfad und GPU-Ausführung werden getrennt
+  gemessen; asynchrone Zeiten nicht addieren, Fence-Warten nicht als GPU-Zeit ausgeben.
+  Speicherbudget aus verfügbarem App-Budget mit OS-/Treiberreserve herleiten; 8 GB Gerätespeicher
+  sind kein App-Budget. Geteilten Speicher nicht doppelt zählen. Peaks und temporäre Überlappung
+  beim Streaming einschließen. Fehlende Messbarkeit bleibt unbewiesen, nicht bestanden.
+- Budget-Gates erhalten feste Inhalte und Qualitätsanforderungen, Kalt-/Warmstand und Bewegung.
+  Ein Referenzbild darf Budgetprüfungen nicht überspringen. Kalibrierte Host-Regressionen und
+  Zielgeräte-Abnahme getrennt führen; Grenzen weder aus dem aktuellen schlechten Istwert
+  ableiten noch erhöhen, um einen roten Lauf zu verdecken.
 - Nachweise nach Komplexität aufbauen: Transformation, Gerade, Kurve/Profil, Fläche/Querschnitt,
   Fahrspur/Knoten, Brücke/Tunnel, Großszene. Kleine Fälle analytisch prüfen; komplexe zusätzlich
   mit Bewegung, Kontakt, Streaming und visueller Abnahme.
