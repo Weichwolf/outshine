@@ -394,15 +394,6 @@ Shot Draw(Engine &engine,
       return shot;
     }
 
-    const int settle = engine.renderer().settleFrames();
-    const int wanted = settle > 2 ? settle : 2;
-    for (int at = 0; at < wanted; ++at) {
-      if (const auto rendered = engine.renderer().render(Extent{}); !rendered) {
-        shot.Why = std::string(name) + " did not render: " + rendered.error();
-        return shot;
-      }
-    }
-
     const auto measured = [&engine](const char *what) {
       for (const DiagnosticSample &held : engine.measures()) {
         if (held.Name == what) { return held.Value; }
@@ -418,7 +409,6 @@ Shot Draw(Engine &engine,
         return shot;
       }
     }
-    shot.SettledOver = static_cast<double>(wanted);
     shot.PosedAtS = measured("and the instant it is posed at");
 
     std::error_code failed;
