@@ -41,19 +41,26 @@ Messframe ausschließlich den Readback, ohne weitere Renderframes.
 Screenshot-Capture und notwendige Renderer-Initialisierung explizit abgrenzen.
 Vorhandene Hash-PNGs erhalten; vollständige Inhalte und Bildänderungen selbst prüfen.
 
-## Nächster Engpass
+## Nächster Engpass: erste vollständige Renderbereitschaft
 
-Graz erhält identische Terrain-Bytes aus derselben Quelle erneut. `TilePool` vergibt
-jedes Mal eine neue Lieferrevision; bereits gehaltene Kandidatenfelder werden dadurch
-stale und ihre Gebäudeaufträge endlos zurückgestellt. `TerrainRevisionIndex` muss
-identische Lieferungen bei noch vorhandener Registrierung idempotent erkennen.
-`TilePool` liefert dafür einen SHA-256-Fingerprint aus angefragter/gelieferter Adresse,
-Quellidentität, Abwesenheitsstatus und Payload. Geänderte Bytes oder Provenienz vergeben
-weiterhin eine neue Revision. Unbekannte/eviktierte Registrierungen bleiben konservativ;
-keine Freigabe durch bloß gleiche Koordinaten oder deaktivierte Zertifikatsprüfung.
-Metadaten bleiben im bestehenden begrenzten Index, ohne Terrain-Bytes dort zu halten.
-Zusätzlich zeigt ein Stack-Sample wiederholte Speicherzählung und Patchwork-Anfragen
-innerhalb `FlushPreloadGround` → `Grounds` → `RingWanted`; erst den Stillstand schließen.
+Die absolute Frame-Zeitplanung verhindert aufsummierte Sleep-Verzögerungen. Mehrere
+Stadtansichten überschreiten dennoch p99; ihr langsamster Frame ist häufig Frame 2.
+`SceneRenderer` erlaubt zwei Frames gleichzeitig und wartet dann erstmals auf ein altes
+GPU-Fence. Darmstadts Phasenmessung lokalisiert den größten Ausreißer im Fence-Warten,
+nicht in der Simulation. Das ist Host-Wartezeit, noch keine GPU-Ausführungszeit.
+
+`PrepareFrame` erzeugt Tabellen, Placements und Schattenvorbereitung erst beim Rendern;
+`SubjectResidency` reicht unmittelbare Kopien ohne Abschluss-Fence ein. Zuerst trennen,
+welcher Anteil aus diesen Initialisierungen und welcher aus den ersten GPU-Pässen stammt.
+Vorbereitbare Tabellen/Uploads gehören in die bestehende Zehn-Sekunden-Ladefrist, mit
+nichtblockierender Fence-Abfrage, Fehlerabschluss und gültiger Weltgeneration. Keine
+zusätzlichen Renderframes zum Verbergen des Ausreißers und kein pauschales GPU-Idle-Warten
+im Framepfad. Tatsächliche Arbeit bleibt gemessen; unvollständige GPU-Produkte sind nicht
+renderbereit. Bestehende 60 Messframes, Rundum-Abdeckung und letztes Capture erhalten.
+
+Die idempotente Terrain-Lieferrevision ist bereits vorhanden; geänderte Bytes oder
+Provenienz vergeben weiterhin eine neue Revision. Die Stadt-Ladefehler bleiben WI 2319,
+stationäre Wiederholungsarbeit WI 2124. Keine weitere Cachekampagne.
 
 ## Abnahme
 
