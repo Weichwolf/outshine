@@ -40,10 +40,12 @@ namespace outshine {
   const double depthM = (bounds.MaxLatDeg - bounds.MinLatDeg) * kMPerDegLat;
   const double wholeCellErrorM =
       std::hypot(std::hypot(widthM, depthM), static_cast<double>(maxHeightM)) + 10.0;
-  if (!Generators::Unseen(wholeCellErrorM, focalPx, awayM)) { return LevelOfDetail::Fine; }
+  if (!Generators::WithinProjectedError(wholeCellErrorM, focalPx, awayM)) {
+    return LevelOfDetail::Fine;
+  }
   const double massedErrorM = wholeCellErrorM + 2.0 * tileSpanM / Generators::kStructureCellSide;
-  return Generators::Unseen(massedErrorM, focalPx, awayM) ? LevelOfDetail::Massed
-                                                          : LevelOfDetail::Shell;
+  return Generators::WithinProjectedError(massedErrorM, focalPx, awayM) ? LevelOfDetail::Massed
+                                                                        : LevelOfDetail::Shell;
 }
 
 }

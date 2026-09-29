@@ -371,8 +371,9 @@ void Corridors::PaveLane(const Paving &on,
     return;
   }
   if (pass == Pass::Designing) {
-    if (Unseen(2.0 * static_cast<double>(lane.HalfWidthM), on.FocalPx, AwayM(on, lane))) {
-      ++into.UnseenWays;
+    if (WithinProjectedError(
+            2.0 * static_cast<double>(lane.HalfWidthM), on.FocalPx, AwayM(on, lane))) {
+      ++into.WithinProjectedErrorWays;
       return;
     }
     DesignLane(on, lane, laneAt, into);
@@ -1534,7 +1535,7 @@ bool Corridors::Lay(const Site &site,
               "nodes");
         Notes(into,
               "streets: ways under a pixel wide, left to the ground",
-              static_cast<double>(into.UnseenWays),
+              static_cast<double>(into.WithinProjectedErrorWays),
               "ways");
         Notes(into,
               "streets: legs cut back to a junction's rim",
@@ -2208,7 +2209,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
             "nodes");
       Notes(into,
             "streets: ways under a pixel wide, left to the ground",
-            static_cast<double>(into.UnseenWays),
+            static_cast<double>(into.WithinProjectedErrorWays),
             "ways");
       Notes(into,
             "streets: legs cut back to a junction's rim",

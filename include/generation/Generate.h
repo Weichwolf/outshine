@@ -56,7 +56,8 @@ inline constexpr double kErrorPx = 1.0;
 /// @return True if all inputs are valid and errorM * focalPx <= kErrorPx * awayM.
 /// Invalid values return false, including invalid projection values with zero error.
 /// This function neither measures the displacement bound nor verifies occlusion.
-[[nodiscard]] constexpr bool Unseen(double errorM, double focalPx, double awayM) noexcept {
+[[nodiscard]] constexpr bool
+WithinProjectedError(double errorM, double focalPx, double awayM) noexcept {
   if (!std::isfinite(errorM) || errorM < 0.0 || !std::isfinite(focalPx) || !(focalPx > 0.0) ||
       !std::isfinite(awayM) || !(awayM > 0.0)) {
     return false;
@@ -64,10 +65,6 @@ inline constexpr double kErrorPx = 1.0;
   return errorM * focalPx <= kErrorPx * awayM;
 }
 
-/// Select the coarser representation in constant time, without allocation.
-/// @param one Valid representation class.
-/// @param two Valid representation class.
-/// @return The class with the greater coarseness; does not validate enum values.
 /// Borrowed, case-sensitive generator setting; values are not parsed or normalized.
 /// Both views remain valid only during make. Copy their characters to retain them.
 /// The receiving generator defines supported names, units, duplicates and value syntax.

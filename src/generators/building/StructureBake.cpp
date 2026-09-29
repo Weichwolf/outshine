@@ -585,11 +585,12 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
     const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
     const double conservativeAwayM =
         std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
-    if (Unseen(std::max(kArchitectureM, statedM), raw.FocalPx, conservativeAwayM)) {
+    if (WithinProjectedError(std::max(kArchitectureM, statedM), raw.FocalPx, conservativeAwayM)) {
       level = LevelOfDetail::Shell;
     }
-    if (level == LevelOfDetail::Shell &&
-        Unseen(0.5 * raw.TileSpanM / kBlocksPerTile, raw.FocalPx, conservativeAwayM)) {
+    if (level == LevelOfDetail::Shell && WithinProjectedError(0.5 * raw.TileSpanM / kBlocksPerTile,
+                                                              raw.FocalPx,
+                                                              conservativeAwayM)) {
       level = LevelOfDetail::Massed;
     }
   }
