@@ -223,6 +223,7 @@ int main() {
         "completed detail work retains shared admission slots until a consumer retires it");
   auto candidate = prints.SnapshotAccepted();
   candidate.ResetDerived();
+  candidate.BeginRefinement();
   auto candidateHeights = heights;
   candidateHeights.CopyField = [&block](Data::TileId, HeightField::Block &into) {
     into = block;
