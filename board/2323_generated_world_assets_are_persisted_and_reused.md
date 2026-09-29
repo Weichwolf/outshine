@@ -18,7 +18,6 @@ und einzelne Frames erhalten getrennte Kosten. Ziel: warmes Weltladen in ein bis
 Sekunden, Darstellung innerhalb 1000/60 ms. Die 120 Messframes bleiben erhalten.
 
 ## Unveränderliche Qualität
-
 Cache und Streaming erhalten optische und funktionale Qualität der OSM-Infrastruktur.
 Keine fehlenden Gebäude, unterbrochenen Verkehrsnetze, verlorenen Tags oder reduzierten
 Sichtweiten als Kostenoptimierung. Die konfigurierte Standardsichtweite beträgt 240 km
@@ -29,7 +28,6 @@ zu prüfen. Die berichtete Echtzeitregression bleibt bis zur gemessenen Wiederhe
 offen; identische Cache-Bilder allein beweisen keine ausreichende Ausgangsqualität.
 
 ## Audit des vorhandenen Pfads
-
 | Erzeuger / Besitzer | Wiederverwendung heute | Fehlende Integration |
 |---|---|---|
 | Registrierte `Generator::make`, `engine/Declaring.cpp` | Keine Ergebnisablage; Redeclaration ruft Producer erneut auf | Versions- und Abhängigkeitsidentität, native Produktablage und Wiederaufnahme |
@@ -40,18 +38,10 @@ offen; identische Cache-Bilder allein beweisen keine ausreichende Ausgangsqualit
 | Vegetation, `TreePrototype`, `TreeMesher`, `Forest` | Prototypen im Prozess; persistente Impostor-Atlanten | Baumgeometrie, LODs und deterministische Platzierung |
 | `ImpostorCache` / `VegetationStreaming` | Persistentes Encode/Decode und asynchrones Lesen vorhanden | Schreibfehler erreichen über PreparedError_ bereits die Runtime; übrige Produkte fehlen |
 
-`ContentStore` hält vor allem Provider-Bytes. Das ist kein Cache generierter Welt-Assets.
-Der öffentliche Vertrag schließt seit `45370314d` einen Ergebnis-Cache ausdrücklich aus:
-Die damalige Reparatur verhindert veraltete Geometrie bei geänderten Provider-Daten.
-Diese Korrektheit erhalten; Wiederverwendung braucht vollständige Identität statt bloß
-vergleichbarer Szenarioparameter. Kein allgemeiner `cachable`-Vertrag ist implementiert.
-
-Gebäude-Quellprodukte werden mit Containerablage nach Prozessneustart wiederverwendet.
-Wien erreicht weiterhin keine vollständige Refined-Aufnahme innerhalb der Ladegrenze;
-verbleibende Erzeugung, Decode, Upload und Zellaktivierung getrennt eingrenzen.
+`ContentStore` speichert Provider-Bytes, keine Generatorprodukte. Vollständige Identität
+muss die Korrektheit bei geänderten Provider-Daten erhalten. Wien lädt noch nicht vollständig.
 
 ## Architektur und Implementierung
-
 1. `world/data` besitzt begrenzte persistente Artefaktablage über `ArtifactStore`.
    `content` besitzt native Geometrie-Codecs; der Gebäudeprodukt-Codec bleibt beim
    erzeugenden Modul, ohne umgekehrte Abhängigkeit von `content` auf Generatoren.
@@ -64,6 +54,18 @@ verbleibende Erzeugung, Decode, Upload und Zellaktivierung getrennt eingrenzen.
    Reader hält denselben Dateisnapshot bis zum Ende. LRU verdrängt ganze Produkte;
    erfolgreiche Zugriffe aktualisieren die Nutzung. Keine produktübergreifenden Blockdateien
    und kein dauerhaft wachsender Restgraph. Bytebudget und begrenzte IO-Puffer bleiben bestehen.
+   Nächster Durchstich: verlustfreie Blockkompression im Container. Beobachtete identische
+   CentralPark-Produkte werden vor ihrer Wiederverwendung verdrängt; allein deren Byteumfang
+   überschreitet die aktuelle Plattenquote. Zunächst den bereits eingebundenen zlib-Codec
+   mit schneller Kompressionsstufe prüfen; keine eigene Kompression entwickeln. Blockweise
+   rohe/komprimierte Länge und Codec versionieren, unkomprimierbare Blöcke roh speichern.
+   Leser begrenzen Eingabe und Ausgabe vor Allokation, prüfen exakte entpackte Länge und
+   vorhandene Inhaltsprüfsumme. Alte rohe Container bleiben lesbar. IO und Codec-Arbeit
+   bleiben außerhalb des Framepfads; kein vollständiges Produkt zusätzlich puffern.
+   Abnahme: unveränderte Produktbytes/Bilder, begrenzte Scratch-Bytes, kleinere vollständige
+   Stadt-Arbeitssätze und wiederverwendete Produkte im zweiten Prozess. Eine Stichprobe
+   entscheidet weder Codec-Leistung noch ausreichende Cachekapazität; vollständige Produkte
+   und warme Ladezeit messen. Keine Quote erhöhen, um weiterhin redundante Bytes zu halten.
 2. Schlüssel enthält Produktart, Producer-/Codec-Version, vollständige Parameter und Seed,
    OSM-/DEM-Inhaltsidentität, relevante Material-/Regelversionen, räumliche Zelle und LOD.
    Abhängigkeiten vor Lookup schließen. OSM-Tagänderung muss betroffene Produkte erneuern.
