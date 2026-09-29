@@ -27,6 +27,18 @@ SourceFor(std::span<const SourcedTerrainFields::Entry> fields, Data::TileId tile
   return fields.end();
 }
 
+std::optional<Data::TileId> RequestedTile(Ground::TileSpot request) {
+  if (request.Zoom < 0 || request.Zoom > Ground::HeightField::MaximumTileZoom || request.X < 0 ||
+      request.Y < 0 ||
+      static_cast<uint64_t>(request.X) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom)) ||
+      static_cast<uint64_t>(request.Y) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom))) {
+    return std::nullopt;
+  }
+  return Data::TileId{.Zoom = request.Zoom,
+                      .X = static_cast<uint32_t>(request.X),
+                      .Y = static_cast<uint32_t>(request.Y)};
+}
+
 }
 
 size_t SourcedTerrainFields::RetainedBytes() const noexcept {
@@ -53,16 +65,9 @@ SourcedTerrainFields::Capture(std::span<const Entry> fields,
   size_t bytes = captured.Fields_.capacity() * sizeof(Entry);
   if (bytes > bytesMost) { return std::unexpected(CaptureError::OverBudget); }
   for (const Ground::TileSpot request : requests) {
-    if (request.Zoom < 0 || request.Zoom > Ground::HeightField::MaximumTileZoom || request.X < 0 ||
-        request.Y < 0 ||
-        static_cast<uint64_t>(request.X) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom)) ||
-        static_cast<uint64_t>(request.Y) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom))) {
-      return std::unexpected(CaptureError::InvalidRequest);
-    }
-    const auto found = SourceFor(fields,
-                                 {.Zoom = request.Zoom,
-                                  .X = static_cast<uint32_t>(request.X),
-                                  .Y = static_cast<uint32_t>(request.Y)});
+    const auto tile = RequestedTile(request);
+    if (!tile) { return std::unexpected(CaptureError::InvalidRequest); }
+    const auto found = SourceFor(fields, *tile);
     if (found == fields.end()) { return std::unexpected(CaptureError::MissingSource); }
     if (std::ranges::any_of(captured.Fields_,
                             [&found](const Entry &entry) { return entry.first == found->first; })) {
@@ -82,8 +87,7 @@ bool SourcedTerrainFields::FitsPreparation(std::span<const Ground::TileSpot> req
                                            size_t bytesMost) const {
   size_t bytes = RetainedBytes();
   const auto charge = [&bytes, bytesMost](size_t count, size_t size) {
-    if (size == 0) { return true; }
-    if (bytes > bytesMost || count > (bytesMost - bytes) / size) { return false; }
+    if (bytes > bytesMost || (size != 0 && count > (bytesMost - bytes) / size)) { return false; }
     bytes += count * size;
     return true;
   };
@@ -92,16 +96,9 @@ bool SourcedTerrainFields::FitsPreparation(std::span<const Ground::TileSpot> req
     return false;
   }
   for (const auto request : requests) {
-    if (request.Zoom < 0 || request.Zoom > Ground::HeightField::MaximumTileZoom || request.X < 0 ||
-        request.Y < 0 ||
-        static_cast<uint64_t>(request.X) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom)) ||
-        static_cast<uint64_t>(request.Y) >= (uint64_t{1} << static_cast<uint32_t>(request.Zoom))) {
-      return false;
-    }
-    const Data::TileId tile{.Zoom = request.Zoom,
-                            .X = static_cast<uint32_t>(request.X),
-                            .Y = static_cast<uint32_t>(request.Y)};
-    const auto found = SourceFor(Fields_, tile);
+    const auto tile = RequestedTile(request);
+    if (!tile) { return false; }
+    const auto found = SourceFor(Fields_, *tile);
     if (found == Fields_.end()) { return false; }
     const auto &field = *found->second;
     if (field.Rows() != field.Cols()) { return false; }
@@ -113,8 +110,8 @@ bool SourcedTerrainFields::FitsPreparation(std::span<const Ground::TileSpot> req
         return false;
       }
     }
-    if (found->first != tile) {
-      const auto scale = uint64_t{1} << static_cast<uint32_t>(tile.Zoom - found->first.Zoom);
+    if (found->first != *tile) {
+      const auto scale = uint64_t{1} << static_cast<uint32_t>(tile->Zoom - found->first.Zoom);
       const size_t side = std::min<size_t>((field.Cols() - 1u + scale - 1u) / scale + 1u, 257u);
       if (!charge(side * side, sizeof(float))) { return false; }
     }

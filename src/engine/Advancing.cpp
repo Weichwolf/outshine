@@ -15,6 +15,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <span>
 #include <utility>
 #include <vector>
 #include <expected>

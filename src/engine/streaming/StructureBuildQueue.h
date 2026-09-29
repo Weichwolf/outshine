@@ -85,7 +85,7 @@ public:
         InspectCertificate;
     std::function<std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>(
         std::span<const Ground::TileSpot>, size_t)>
-        CaptureFields;
+        CaptureFields = nullptr;
   };
 
   [[nodiscard]] size_t Posts(Ground::GroundStack &stack,
@@ -286,6 +286,14 @@ private:
     bool Revoked = false;
   };
 
+  void AdvancePreparedCell(std::shared_ptr<PreparedCells> &batch,
+                           const Ground::GroundStack &stack,
+                           const Ground::BuildingField &footprints,
+                           const HeightSource &heightAt);
+  [[nodiscard]] bool ValidateCellLandingSource(const Ground::GroundStack &stack,
+                                               const Ground::BuildingField &footprints,
+                                               const HeightSource &heightAt,
+                                               const QueuedBuild &bake);
   void AdvancePreparedCells(const Ground::GroundStack &stack,
                             const Ground::BuildingField &footprints,
                             const HeightSource &heightAt);
