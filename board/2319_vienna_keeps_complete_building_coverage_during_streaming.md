@@ -65,6 +65,11 @@ Layout/Shader gemeinsam ändern, gemischte importierte und generierte Geometrie 
 adressieren. Ersparnis an Kapazität und Transfers getrennt von tatsächlichem DRAM-Verkehr
 messen; zusätzliche Shaderkosten und alle Places entscheiden über die Übernahme.
 
+Konkrete CPU-Reparatur: `StructureBuildQueue::IdleOut_` hält fertige `BakedTile`-Vektoren
+bis zur nächsten Ausleihe, obwohl diese dann vollständig verworfen werden. Nach Commit
+oder Discard das Produkt freigeben und nur die Ergebnishülle recyceln. Landing-Borrows
+enden am Commit; Geometrieübernahme vorher abschließen. Heap und Framekosten nachmessen.
+
 ## Umsetzung und Besitzer
 
 Engine/GroundPublication und GroundWorldCandidate besitzen Kandidat und Veröffentlichung;
