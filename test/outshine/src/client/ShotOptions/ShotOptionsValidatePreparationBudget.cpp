@@ -6,7 +6,7 @@ int main() {
   using namespace outshine::Test;
   using outshine::Client::ReadShotOptions;
   const auto defaults = ReadShotOptions({});
-  CHECK(defaults && defaults->PreloadSeconds == 15.0 && defaults->Vegetation &&
+  CHECK(defaults && defaults->PreloadSeconds == 10.0 && defaults->Vegetation &&
             !defaults->Offline && defaults->CacheDirectory == "/tmp/outshine-drive-cache",
         "defaults preserve existing capture behavior");
   const char *valid[] = {"--rows",

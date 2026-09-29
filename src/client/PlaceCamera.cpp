@@ -1,6 +1,7 @@
 #include "math/Units.h"
 #include "math/Quantile.h"
 #include "PlaceCamera.h"
+#include "PlaceTurn.h"
 #include "FramePacer.h"
 
 #include "io/HeapProbe.h"
@@ -234,6 +235,9 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation, 
   }
 
   Scenario::Document stands = place.Declaration;
+  stands.Views = PlaceTurn(place.Declaration.Views.front(),
+                           {.LongitudeDeg = stands.Ground.Origin.LongitudeDeg,
+                            .LatitudeDeg = stands.Ground.Origin.LatitudeDeg});
   stands.Render.Audits = Audits;
   stands.Ground.VegetationEnabled = stands.Ground.VegetationEnabled && vegetation;
 
@@ -282,7 +286,8 @@ Shot Take(const Place &place, bool tells, bool vegetation, double preloadSeconds
   Engine engine;
   Shot shot;
   if (!OpenPlace(engine, place, shot, vegetation, std::move(roots))) { return shot; }
-  Shot drawn = Draw(engine, place.Name, tells, "places", preloadSeconds);
+  Shot drawn =
+      Draw(engine, place.Name, tells, "places", preloadSeconds, engine.declaration().Views);
   drawn.StandingMs = shot.StandingMs;
   drawn.LoadingAtEnd = engine.loading();
   drawn.Playable = engine.settled(WorldQuality::Playable);
@@ -313,20 +318,36 @@ bool PreloadShot(
   return true;
 }
 
-bool MeasureFrames(Engine &engine, std::string_view name, Shot &shot) {
+bool MeasureFrames(Engine &engine,
+                   std::string_view name,
+                   Shot &shot,
+                   std::span<const Scenario::View> turn) {
+  const auto count = turn.empty() ? static_cast<std::size_t>(kTimedFrames) : turn.size();
   constexpr double kBytesPerMiB = 1024 * 1024;
   std::vector<double> heldMs;
   std::vector<double> advancedMs;
   std::vector<double> renderedMs;
-  heldMs.reserve(static_cast<std::size_t>(kTimedFrames));
-  advancedMs.reserve(static_cast<std::size_t>(kTimedFrames));
-  renderedMs.reserve(static_cast<std::size_t>(kTimedFrames));
+  heldMs.reserve(count);
+  advancedMs.reserve(count);
+  renderedMs.reserve(count);
   Client::FramePacer pacer;
-  for (int at = 0; at < kTimedFrames; ++at) {
+  const auto began = std::chrono::steady_clock::now();
+  for (std::size_t at = 0; at < count; ++at) {
     pacer.Wait();
     const auto before = std::chrono::steady_clock::now();
+    if (!turn.empty()) {
+      if (const auto selected = engine.setView(turn[(at + 1) % count].Id); !selected) {
+        shot.Why = std::string(name) + " could not select its turn view: " + selected.error();
+        return false;
+      }
+    }
     if (const auto result = engine.advance(); !result) {
       shot.Why = std::string(name) + Says::kTimedAdvanceFailed + result.error();
+      return false;
+    }
+    if (!turn.empty() && !engine.settled(WorldQuality::Refined)) {
+      shot.Why = std::string(name) + " lost complete world coverage during its turn: " +
+                 engine.unsettledReasons(WorldQuality::Refined);
       return false;
     }
     const auto advanced = std::chrono::steady_clock::now();
@@ -342,6 +363,9 @@ bool MeasureFrames(Engine &engine, std::string_view name, Shot &shot) {
     if (heldMs.back() > heldMs[shot.WorstAt]) { shot.WorstAt = heldMs.size() - 1; }
     shot.OverBudget += heldMs.back() > kFrameBudgetMs ? 1u : 0u;
   }
+  shot.MeasurementMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  shot.TurnDegrees = turn.empty() ? 0.0 : 2.0 * kDegPerHalfTurn;
   shot.Frames = heldMs.size();
   shot.PeakHeapMB = static_cast<double>(HeapProbe::PeakLiveBytes()) / kBytesPerMiB;
   shot.PeakCostMs = HeapProbe::SampleCostMs();
@@ -376,11 +400,12 @@ Shot Draw(Engine &engine,
           std::string_view name,
           bool tells,
           std::string_view under,
-          double preloadSeconds) {
+          double preloadSeconds,
+          std::span<const Scenario::View> turn) {
   Shot shot;
   HeapProbe::ForgetPeak();
   if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
-  if (!MeasureFrames(engine, name, shot)) { return shot; }
+  if (!MeasureFrames(engine, name, shot, turn)) { return shot; }
   if (engine.declaration().Ground.Declared && !engine.settled(WorldQuality::Refined)) {
     shot.Why = std::string(name) + " did not reach refined world quality after " +
                std::to_string(shot.Frames) +

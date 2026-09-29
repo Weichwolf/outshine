@@ -25,6 +25,7 @@ struct ClientRow {
   double P50Ms = 0.0, P95Ms = 0.0, P99Ms = 0.0;
   double Frames = 0.0, OverBudget = 0.0, WorstAt = 0.0;
   double Triangles = 0.0, BareTiles = 0.0, Variation = 0.0;
+  double MeasurementMs = 0.0, LoadingMs = 0.0, TurnDegrees = 0.0;
   bool Preloaded = false;
   bool Read = false;
 };
@@ -51,7 +52,7 @@ inline int ScorePlace(const char *place) {
       if (*at != '\t') { break; }
     }
     if (field.size() >= 2 && field[0] == "CONTROL") { control = std::atof(field[1].c_str()); }
-    if (field.size() >= 17 && field[0] == "ROW") {
+    if (field.size() >= 20 && field[0] == "ROW") {
       row.Read = true;
       row.Name = field[1];
       row.Digest = field[2];
@@ -66,6 +67,9 @@ inline int ScorePlace(const char *place) {
       row.BareTiles = std::atof(field[11].c_str());
       row.Variation = std::atof(field[12].c_str());
       row.Preloaded = field[13] == "1";
+      row.MeasurementMs = std::atof(field[16].c_str());
+      row.LoadingMs = std::atof(field[17].c_str());
+      row.TurnDegrees = std::atof(field[18].c_str());
       row.Why = field.back();
     }
   }
@@ -82,6 +86,12 @@ inline int ScorePlace(const char *place) {
   }
 
   constexpr double kFrameBudgetMs = 1000.0 / 60.0;
+  CHECK(row.Frames == 60.0 && row.TurnDegrees == 360.0,
+        "a place measures every frame of its complete 60-frame turn");
+  CHECK(std::isfinite(row.MeasurementMs) && row.MeasurementMs > 0.0 && row.MeasurementMs <= 1000.0,
+        "the complete measured turn fits one second including pacing");
+  CHECK(std::isfinite(row.LoadingMs) && row.LoadingMs >= 0.0 && row.LoadingMs <= 10000.0,
+        "complete world preload fits ten seconds");
   CHECK(row.Preloaded, "the complete world was preloaded before frame measurement");
   CHECK(std::isfinite(row.P99Ms) && row.P99Ms > 0.0 && row.P99Ms <= kFrameBudgetMs,
         "measured p99 stays within the 60 Hz frame budget, including reference images");

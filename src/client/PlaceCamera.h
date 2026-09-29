@@ -51,6 +51,8 @@ struct Shot {
 
   double StandingMs = 0.0, LoadingMs = 0.0, StreamedS = 0.0;
 
+  double MeasurementMs = 0.0, TurnDegrees = 0.0;
+
   double SettledOver = 0.0, PosedAtS = 0.0;
   bool Preloaded = false;
   bool Kept = false;
@@ -65,7 +67,8 @@ struct Shot {
                         std::string_view name,
                         bool tells,
                         std::string_view under = "places",
-                        double preloadSeconds = Client::kDefaultPreloadSeconds);
+                        double preloadSeconds = Client::kDefaultPreloadSeconds,
+                        std::span<const Scenario::View> turn = {});
 
 [[nodiscard]] std::expected<std::vector<Place>, std::string>
 LoadPlaces(const std::filesystem::path &directory);

@@ -111,7 +111,7 @@ void Tell(const Shot &shot, std::string_view name) {
 
 void Row(const Shot &shot, std::string_view name) {
   std::println("ROW\t{}\t{}\t{}\t{:.4f}\t{:.4f}\t{:.4f}\t{}\t{}\t{}\t{:.0f}\t{:.0f}\t{:.4f}\t{}\t{:"
-               ".0f}\t{:.4f}\t{}",
+               ".0f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.0f}\t{}",
                name,
                shot.Digest.empty() ? "-" : std::string_view{shot.Digest},
                shot.Kept ? 1 : 0,
@@ -127,6 +127,9 @@ void Row(const Shot &shot, std::string_view name) {
                shot.Preloaded ? 1 : 0,
                shot.SettledOver,
                shot.PosedAtS,
+               shot.MeasurementMs,
+               shot.LoadingMs,
+               shot.TurnDegrees,
                shot.Why.empty() ? "-" : std::string_view{shot.Why});
 }
 
@@ -183,7 +186,7 @@ void Usage(std::string_view verb = {}) {
         verb);
   } else if (verb == "shots") {
     std::println("Usage: outshine-client shots [options] [--all | <place> ...]\n"
-                 "  --preload-seconds <seconds>     positive preparation timeout, default 15\n"
+                 "  --preload-seconds <seconds>     positive preparation timeout, default 10\n"
                  "  --cache-dir <directory>         default /tmp/outshine-drive-cache\n"
                  "  --offline                       use only cached and shipped sources\n"
                  "  --no-vegetation                 disable vegetation in captured scenarios\n"
