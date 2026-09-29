@@ -114,4 +114,6 @@ match expected exits. Full lint/Places pending. /tmp/outshine-repair-36e376880-f
 36e376880 tidy finishes 257/257 with one remaining finding: adjacent sample-distance
 parameters. Pass the existing TriangleDistanceBound instead; no arithmetic/work changes.
 c8c670ea9 passes the existing bound as one value. Format 1213 and ten focused tests PASS;
-targeted Declaring/SurfaceRefinement tidy has zero user findings. Full 4b54277f2 gate pending.
+4b54277f2: fourteen focused tests, all surface/route controls and full lint/tidy/API PASS.
+Tidy checks 257 units without findings; full Places/render gate still running.
+Logs /tmp/outshine-repair-4b54277f2-{gate-results,full-lint}.log; runtime integration open.

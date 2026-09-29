@@ -62,4 +62,7 @@ Format 1213 PASS; ten focused tests PASS. Correct control exits 0; original reus
 omitted provider guard and omitted route guard each actually exit 1 (not build failures).
 Targeted clang-tidy on Declaring/StructureSurfaceRefinement has zero user findings.
 Logs /tmp/outshine-route-source-{format,focused,control-results,targeted-tidy}.log.
-Full lint/tidy/API and Places remain pending; do not close the observed failure yet.
+4b54277f2: fourteen focused tests and all surface/route controls PASS. Full lint exits 0,
+including 257 clang-tidy units without findings and all repository/API guards. Both route
+source cases also PASS in the ongoing Places suite. Full Places/render gate remains open;
+/tmp/outshine-repair-4b54277f2-{gate-results,full-lint,full-places}.log.
