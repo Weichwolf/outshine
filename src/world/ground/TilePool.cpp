@@ -621,13 +621,30 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   }
 }
 
+void TilePool::Acknowledge(Result &result) {
+  if (result.Delivered == Delivery::Taken) { return; }
+  assert(UnclaimedResults_ > 0);
+  --UnclaimedResults_;
+  result.Delivered = Delivery::Taken;
+}
+
+void TilePool::EraseDone(uint64_t key) {
+  if (Result *result = Done_.Find(key)) { Acknowledge(*result); }
+  Done_.Erase(key);
+}
+
 bool TilePool::StoresDone(uint64_t key, Result result) {
+  result.Delivered = Delivery::Pending;
   if (Result *const replaced = Done_.Find(key)) {
+    Acknowledge(*replaced);
     *replaced = std::move(result);
+    ++UnclaimedResults_;
     return true;
   }
   const auto stored = Done_.Emplace(key, std::move(result));
-  return stored.has_value();
+  if (!stored) { return false; }
+  ++UnclaimedResults_;
+  return true;
 }
 
 TilePool::Reply TilePool::PublishesCarried(const Job &job, Result result) {
@@ -865,7 +882,7 @@ void TilePool::Lands(uint64_t key, bool holds) {
   if (!oldest || kept.Holds(*oldest)) { return; }
   if (const Result *done = Done_.Find(*oldest)) {
     ReleaseReservation({.Key = *oldest, .Admission = done->Admission});
-    Done_.Erase(*oldest);
+    EraseDone(*oldest);
   }
 }
 
@@ -925,9 +942,10 @@ std::optional<TilePool::Reply> TilePool::TakeCompleted(const Job &job, Result *o
   const Reservation *owner = Posted_.Find(job.Key);
   if (done->TerrainScope != scope || owner == nullptr || owner->Admission != done->Admission) {
     ReleaseReservation({.Key = job.Key, .Admission = done->Admission});
-    Done_.Erase(job.Key);
+    EraseDone(job.Key);
     return std::nullopt;
   }
+  Acknowledge(*done);
   if (done->State == Reply::Absent || done->State == Reply::Undeclared) {
     out->State = done->State;
     return out->State;
@@ -935,7 +953,7 @@ std::optional<TilePool::Reply> TilePool::TakeCompleted(const Job &job, Result *o
   if (!done->Holds) {
     *out = std::move(*done);
     ReleaseReservation({.Key = job.Key, .Admission = out->Admission});
-    Done_.Erase(job.Key);
+    EraseDone(job.Key);
   } else {
     *out = *done;
   }
@@ -1100,9 +1118,10 @@ TilePool::Reply TilePool::MeshAwaited(Data::TileId of, int grid, TileBuild *out)
 bool TilePool::AwaitLanding(double seconds) {
   if (seconds <= 0.0) { return false; }
   std::unique_lock<std::mutex> lock(QueueMutex_);
-  const bool ready = Landed_.wait_for(
-      lock, std::chrono::duration<double>(seconds), [this] { return Stopping_ || !Done_.Empty(); });
-  return ready && !Done_.Empty();
+  const bool ready = Landed_.wait_for(lock, std::chrono::duration<double>(seconds), [this] {
+    return Stopping_ || UnclaimedResults_ != 0;
+  });
+  return ready && UnclaimedResults_ != 0;
 }
 
 void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
@@ -1111,7 +1130,7 @@ void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
   if (const Reservation *held = Posted_.Find(key)) {
     ReleaseReservation({.Key = key, .Admission = held->Admission});
   }
-  Done_.Erase(key);
+  EraseDone(key);
 }
 
 bool TilePool::Known(uint64_t key) {

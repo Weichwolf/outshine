@@ -176,7 +176,10 @@ private:
     std::optional<Data::Fetch> Ask;
   };
 
+  enum class Delivery { Pending, Taken };
+
   struct Result {
+    Delivery Delivered = Delivery::Pending;
     Reply State = Reply::Pending;
     TileBuild Build;
     std::shared_ptr<const TerrainField> Field;
@@ -279,6 +282,8 @@ private:
   void RemoveCacheEntry(size_t entry);
   void RepointCacheIndex(CacheEntryMove move) noexcept;
   [[nodiscard]] bool StoresDone(uint64_t key, Result result);
+  void Acknowledge(Result &result);
+  void EraseDone(uint64_t key);
   [[nodiscard]] Reply PublishesCarried(const Job &job, Result result);
   void DeferredAdmission();
 
@@ -310,6 +315,7 @@ private:
   std::vector<Job> Queue_;
   std::vector<Job> Carrying_;
   FlatMap<Result> Done_;
+  size_t UnclaimedResults_ = 0;
   FlatMap<Reservation> Posted_;
   uint64_t AdmissionClock_ = 0;
   size_t CurrentParkedJobs_ = 0;
