@@ -57,6 +57,14 @@ Elementgröße, Kapazität und Freigabegrenze ausweisen; OS-Footprint separat f�
 Doppelhaltung und Reserven zuerst an ihrer Ursache reduzieren. Keine Sichtweiten- oder
 Qualitätskürzung und kein höheres Budget aus dem schlechten Istwert ableiten.
 
+`StoredVertex::normWord` hält die Normale bereits in vier Byte; `WritePieceNormals`
+expandiert sie beim Upload auf drei Float-Werte. Der zusätzliche Speicher beträgt
+acht Byte pro Vertex. Nach der Residency-Aufschlüsselung kompakte Normaldaten bis zum
+Vertexshader als konkreten Kandidaten prüfen: vorhandene Quantisierung erhalten,
+Layout/Shader gemeinsam ändern, gemischte importierte und generierte Geometrie korrekt
+adressieren. Ersparnis an Kapazität und Transfers getrennt von tatsächlichem DRAM-Verkehr
+messen; zusätzliche Shaderkosten und alle Places entscheiden über die Übernahme.
+
 ## Umsetzung und Besitzer
 
 Engine/GroundPublication und GroundWorldCandidate besitzen Kandidat und Veröffentlichung;

@@ -145,6 +145,10 @@ Den Gesamtauftrag erst als erreicht behandeln, wenn diese Ergebnisse integriert 
 - Simulation hat festen Zeitschritt und begrenztes Aufholen; Darstellung interpoliert gültige
   Zustände. Sichtbarkeit, LOD, Instancing und Uploads haben Budgets. Überlast reduziert Detail
   kontrolliert oder verschiebt Arbeit.
+- Prozedurale Darstellung soll Speicherverkehr durch begrenzte Berechnung ersetzen. Kompakte
+  Parameter, Instanzen und Attribute bis zum Verbraucher erhalten; Details nach sichtbarem
+  Beitrag erzeugen. Residency, Upload-Bytes und tatsächlichen Speicherverkehr getrennt bewerten.
+  Compute-/Bandbreiten-Tausch braucht gemessene Framekosten und erhaltene Bildqualität.
 - Daten sind cachefreundlich, gebündelt und deterministisch verarbeitet. Seeds und Merge-Reihenfolge
   sind explizit. Szenarien und Spielzustand sind versioniert, validiert, speicherbar und replaybar.
 - HTML beschreibt die dokumentierte UI-Teilmenge, CSS ihre Darstellung und ECMAScript Verhalten.
