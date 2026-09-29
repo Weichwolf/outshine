@@ -381,6 +381,9 @@ public:
   [[nodiscard]] Result preload(double patienceS);
   /// Wait for a declared streaming quality using the same synchronous budget contract.
   /// Playable matches preload(patienceS); Refined waits for complete published coverage.
+  /// For assembled ground with an active view, Refined completes current world uploads and
+  /// the cached shadow atlas within the same budget, without producing scene frames or
+  /// advancing camera/simulation time.
   /// @param patienceS Finite nonnegative time budget in seconds.
   /// @param required Required published world quality.
   /// @return Success only at the requested readiness, or an owned error.

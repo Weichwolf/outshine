@@ -149,6 +149,10 @@ public:
     ActiveState().RegionAspect = into.Aspect;
   }
 
+  [[nodiscard]] std::expected<OwnedFence, std::string> PrepareWorldResources();
+
+  [[nodiscard]] bool WorldResourcesComplete(const OwnedFence &fence) const;
+
   [[nodiscard]] std::expected<void, std::string> RenderFrame();
 
   [[nodiscard]] bool Drew() const { return ActiveState().Submitted; }

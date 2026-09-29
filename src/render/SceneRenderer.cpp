@@ -1515,6 +1515,38 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
   return {};
 }
 
+std::expected<OwnedFence, std::string> SceneRenderer::PrepareWorldResources() {
+  const auto published = PublishedWorld();
+  if (const auto prepared = PrepareFrame(); !prepared) { return std::unexpected(prepared.error()); }
+  SDL_GPUCommandBuffer *commands = Submission_.Acquire(Submission_.Context, Device_.Get());
+  if (commands == nullptr) { return std::unexpected(SDL_GetError()); }
+  std::string error;
+  if (!ActiveState().Content.Subjects.FlushCrossings(commands, error) ||
+      (ActiveState().Content.DrawsGlass &&
+       !ActiveState().Content.Glass.FlushCrossings(commands, error))) {
+    SDL_CancelGPUCommandBuffer(commands);
+    return std::unexpected(std::move(error));
+  }
+  StageSubmission preparation;
+  for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
+    const auto &declared = ActiveState().Plan->Passes()[pass];
+    if (declared.Count == 1 &&
+        ActiveState().Plan->Order()[declared.First] == Stage::LightVisibility) {
+      EncodePass(commands, pass, preparation);
+    }
+  }
+  SDL_GPUFence *fence = Submission_.Submit(Submission_.Context, commands);
+  if (fence == nullptr) { return std::unexpected(SDL_GetError()); }
+  ActiveState().Content.Subjects.CommitCrossings();
+  if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
+  preparation.Commit();
+  return OwnedFence(Device_.Get(), fence);
+}
+
+bool SceneRenderer::WorldResourcesComplete(const OwnedFence &fence) const {
+  return fence && Submission_.QueryFence(Submission_.Context, Device_.Get(), fence.Get());
+}
+
 std::expected<void, std::string> SceneRenderer::RenderFrame() {
   const auto published = PublishedWorld();
   return RenderPublishedFrame();

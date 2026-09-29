@@ -449,6 +449,8 @@ struct Engine::State {
   enum class PreloadFlush : uint8_t { Pending, Ready };
 
   [[nodiscard]] Result FinishesPreload(GroundQuality quality);
+  [[nodiscard]] Result CompletePreloadResources(std::chrono::steady_clock::time_point began,
+                                                double bound);
   [[nodiscard]] std::expected<PreloadFlush, std::string> FlushPreloadGround(
       std::chrono::steady_clock::time_point began, double bound, GroundQuality quality);
   [[nodiscard]] Result PreloadTimeout(double bound, GroundQuality quality);

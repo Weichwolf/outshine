@@ -561,6 +561,22 @@ Result Engine::State::FinishesPreload(GroundQuality quality) {
   return {};
 }
 
+Result Engine::State::CompletePreloadResources(std::chrono::steady_clock::time_point began,
+                                               double bound) {
+  if (!Session.Views || !Picture.Standing) { return {}; }
+  auto uploads = Picture.Device.PrepareWorldResources();
+  if (!uploads) { return std::unexpected(uploads.error()); }
+  for (;;) {
+    const double elapsed =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+    if (elapsed >= bound) {
+      return std::unexpected("world GPU resources did not complete within the preload budget");
+    }
+    if (Picture.Device.WorldResourcesComplete(*uploads)) { return {}; }
+    std::this_thread::sleep_for(std::chrono::duration<double>(std::min(0.001, bound - elapsed)));
+  }
+}
+
 std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPreloadGround(
     std::chrono::steady_clock::time_point began, double bound, GroundQuality quality) {
   for (size_t advance = 0; advance < kPreloadGroundAdvancesMost; ++advance) {
@@ -569,6 +585,11 @@ std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPrel
     }
     if (Readiness(quality).Ready() &&
         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() < bound) {
+      if (quality == GroundQuality::Refined) {
+        if (const auto uploaded = CompletePreloadResources(began, bound); !uploaded) {
+          return std::unexpected(uploaded.error());
+        }
+      }
       return PreloadFlush::Ready;
     }
     if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
