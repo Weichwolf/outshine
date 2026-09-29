@@ -49,8 +49,8 @@ int main() {
   CHECK(built->Buildings().size() == 1 && built->Rings().size() == 2 &&
             built->Points().size() == 16,
         "joined outer ways and one courtyard produce one building without duplicate ways");
-  CHECK(built->Rings()[0].Exterior && !built->Rings()[1].Exterior &&
-            built->Rings()[0].PointCount == 4 && built->Rings()[1].PointCount == 4,
+  CHECK(built->Rings()[0].Exterior && !built->Rings()[1].Exterior && built->Rings()[0].Count == 4 &&
+            built->Rings()[1].Count == 4,
         "ring roles and open coordinate spans survive reversed member directions");
   CHECK(built->Points()[0] == 0 && built->Points()[1] == 0 && built->Points()[6] == 4 &&
             built->Points()[7] == 0,

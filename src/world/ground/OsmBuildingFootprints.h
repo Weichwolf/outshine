@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "OsmSourceSnapshot.h"
+#include "GeographicRing.h"
 #include "OsmBuildingHeights.h"
 
 namespace outshine::Ground {
@@ -32,11 +33,7 @@ struct OsmFootprintError {
 
 class OsmBuildingFootprints {
 public:
-  struct Ring {
-    size_t FirstPoint = 0;
-    size_t PointCount = 0;
-    bool Exterior = true;
-  };
+  using Ring = GeographicRing;
 
   struct Building {
     Data::OsmElementId Source;

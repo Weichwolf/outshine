@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <span>
 #include <vector>
 #include <map>
@@ -141,7 +142,9 @@ std::expected<void, OsmFootprintError> OsmBuildingFootprints::AppendRing(
     Points_.push_back(node.LatitudeDeg);
     Points_.push_back(node.LongitudeDeg);
   }
-  Rings_.push_back({.FirstPoint = first, .PointCount = nodes.size(), .Exterior = exterior});
+  Rings_.push_back({.First = static_cast<uint32_t>(first),
+                    .Count = static_cast<uint32_t>(nodes.size()),
+                    .Exterior = exterior});
   return {};
 }
 
@@ -235,6 +238,7 @@ OsmBuildingFootprints::Build(std::shared_ptr<const Data::OsmSourceSnapshot> sour
   if (!source) {
     return std::unexpected(OsmFootprintError{.Code = OsmFootprintErrorCode::MissingSource});
   }
+  maxPoints = std::min(maxPoints, static_cast<size_t>(std::numeric_limits<uint32_t>::max()));
   auto roots = SelectBuildingRoots(source->Elements);
   if (!roots) { return std::unexpected(roots.error()); }
   if (const auto missing = source->Elements.FirstMissingReference(*roots)) {
