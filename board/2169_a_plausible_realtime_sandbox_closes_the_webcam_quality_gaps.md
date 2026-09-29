@@ -19,30 +19,30 @@ Navigation und Kontakt teilen Raumreferenzen mit Darstellung, bleiben von deren 
 
 ## Aktuelle Place-Abnahme 2026-09-29
 
-6e88154b5: alle zehn Places ohne Vegetation über den öffentlichen Client geprüft und geöffnet.
-Vier fokussierte Tests und vollständiger Lint/tidy/API PASS: 256/256 Tidy-Einheiten,
-null Findings, 32 Repository-Prüfungen PASS; tatsächlicher Lint-Exit 0.
-Komplette Places-Suite: 38/44 PASS, 2 TIMEOUT, 4 UNPREPARED; Hockenheim separat PASS.
+0d5962a2a: alle zehn Places ohne Vegetation via Client gerendert, PNGs selbst geöffnet.
+Alle pixelidentisch zu 6e88154b5. Sechs neue Refined-PNGs plus Hockenheim unter
+`build/shots/places-refined-0d5962a2a/`; Graz/Wien/Olympiaturm als Playable unter
+`build/shots/places-playable-0d5962a2a/`. /tmp/outshine-0d5962a2a-*-pixels.log.
+Komplette Places-Suite: 37/44 PASS, 1 FAIL, 2 TIMEOUT, 4 UNPREPARED; Exit 2.
 Olympiaturm überschreitet beide Male 120 s; Graz/Wien erreichen nach 6144 Frames kein Refined.
-Graz: nur Gebäudedetail offen; Wien: Kandidat noch in structure-bakes bzw. earthworks.
-Sieben Refined-PNGs: DarmstadtWest, Rosenheim, Husum, Feldkirch, Malcesine, Koerbersee,
-Hockenheimring unter `build/shots/places-refined-6e88154b5/`. Sechs pixelidentisch zu a25;
-Koerbersee: 4/921600 Pixel um höchstens 1/255 verändert, kein sichtbarer Qualitätsgewinn.
-Hockenheim Host p50/p95/p99: 3.7365/15.9389/17.1985 ms, 3005 Frames inklusive Aufbau.
-Keine A18-Aussage; Gesamt-Gate rot. /tmp/outshine-repair-6e88154b5-{full-places,full-lint,gate-results}.log.
-Drei Playable-PNGs: `build/shots/places-playable-6e88154b5/`; Graz/Wien wieder ohne Nahwand,
-Olympiaturm unvollständig. Playable ersetzt keine Refined-Abnahme; Webcam-Vergleich fehlt.
+Graz: Gebäudedetail offen, Terrain abgeschlossen. Das ist keine Freigabe kleinerer LOD-Fehler.
+Zusätzlicher FAIL: HockenheimPublishedRouteHasWorldPose bei Quellenwechsel (Zeile 130).
+Die zusammengesetzte Prüfung trennt declare/assemble/alte Route noch nicht; Ursache offen.
+Validierte Variante PASS. Fall separat wiederholen und ursächlich prüfen, nicht wegmitteln.
+Neun fokussierte Geometriefälle PASS. Voller Lint Exit 2: 16 Tidy-Befunde, 32 Regeltests PASS.
+Korrektur bec05b615 ist in Prüfstand 36e376880; dessen eigener Gate läuft noch.
+Logs /tmp/outshine-repair-0d5962a2a-{full-places,full-lint,gate-results}.log;
+Einzelfälle unter /tmp/outshine-repair-0d5962a2a-case-logs/ archiviert.
+Hockenheim separat PASS; Host p50/p95/p99 3.7060/15.8987/16.8651 ms; 3001 Frames
+inklusive Aufbau, 7141344 Dreiecke. Keine A18-Aussage; Gesamt-Gate rot.
+Graz/Wien bleiben ohne fehlerhafte Nahwand; Olympiaturm unvollständig. Playable ersetzt
+keine Refined-Abnahme; Webcam-Vergleich fehlt. 2166 belegt/repariert die falsche grobe
+Nachbarkante ohne Kameraänderung; der vollständige 6e-Gate hatte grünen Lint/tidy/API.
 Feldkirchs Nahwand, Malcesines Faltenvorhang, geglättete Alpen, gezackte Ufer und uniforme
 Fassaden bleiben. Hockenheim wirkt wie eine Karte; Nähe/Bewegung brauchen eigene Abnahmen.
-2166 belegt und repariert die falsche grobe Nachbarkante ohne Kameraänderung.
 GPU-Warten/Prozessspeicher unter 2228; kein Engine-Budget und keine isolierte Änderungskausalität.
 2298s quellstabiles Shell-Fallback ist geprüft; Runtime-Fehlerzertifikate bleiben offen.
 Vegetation zuletzt; Hockenheim erster Integrationstest. ALLE Places bei JEDEM Code-Gate.
-
-0d5962a2a: Graz/Wien/Olympiaturm erneut via Client Playable gerendert und geöffnet,
-alle pixelidentisch zu 6e. PNGs: `build/shots/places-playable-0d5962a2a/`;
-/tmp/outshine-0d5962a2a-*-pixels.log. Neue Places-Suite läuft; Lint mit 16 Tidy-Befunden rot.
-
 ## Historischer Bildbefund (2026-09-07, Renderer 12ceb790)
 
 | Place | SOLL als Plausibilitätsreferenz | IST im neuen PNG | zuständige WIs |

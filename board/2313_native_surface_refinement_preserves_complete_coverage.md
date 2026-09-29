@@ -107,4 +107,6 @@ constants, explicit defaults and named seed/fold/search/sample steps; keep proof
 ordering. Format 1213 PASS. Focused/full gates for this correction are pending.
 0d5962a2a: full lint exits 2, 32 rules PASS, tidy is the sole red guard;
 /tmp/outshine-repair-0d5962a2a-full-lint.log links the actual diagnostic report.
-bec05b615 contains the correction; its gates remain pending.
+bec05b615 correction in 36e376880: eleven focused tests PASS, all seven control runs
+match expected exits. Full lint/Places pending. /tmp/outshine-repair-36e376880-focused.log;
+/tmp/outshine-surface-hierarchy-36e376880-controls.log.
