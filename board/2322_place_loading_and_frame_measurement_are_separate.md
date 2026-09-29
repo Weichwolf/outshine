@@ -33,6 +33,16 @@ Die feste Messung ist kein Ersatz für Laden und führt keine Refined-Warteschle
 Screenshot-Capture und notwendige Renderer-Initialisierung explizit abgrenzen.
 Vorhandene Hash-PNGs erhalten; vollständige Inhalte und Bildänderungen selbst prüfen.
 
+## Nächster Engpass
+
+Vollständiges Koerbersee erreicht die feste Messung und dasselbe Bild, überschreitet
+aber das warme Ladeziel. Ein anderer Lauf bleibt bei Source-Bakes ohne aktive Jobs
+stehen; die Ankunftsreihenfolge ist deshalb weiter zu prüfen. Ein Stack-Sample zeigt
+zusätzlich wiederholte vollständige Speicherzählung und Patchwork-Anfragen innerhalb
+von `FlushPreloadGround` → `Grounds` → `RingWanted`. Vor weiterem Detailausbau prüfen,
+welche Arbeit nur bei geändertem Quell-/Kamerastand erforderlich ist. Keine benötigte
+Revision überspringen und keine Speichergrenze durch abgeschaltete Prüfung umgehen.
+
 ## Abnahme
 
 Format, fokussierte Client-/Preload-Prüfung, alle Places und vollständiger Lint.
