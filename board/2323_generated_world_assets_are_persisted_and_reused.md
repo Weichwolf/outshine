@@ -38,7 +38,7 @@ offen; identische Cache-Bilder allein beweisen keine ausreichende Ausgangsqualit
 | Straßen, `Corridors`, `RoadMesher`, `RoadSurfaceBuilder` | Kandidaten und residente Welt | Netzabhängige Profile, Kreuzungen, Meshes und Kontaktprodukte |
 | Wasser, `WaterSurfaceBuilder`, `WaterDepth` | Kandidaten und residente Welt | Quellengebundene Wassergeometrie und statische Tiefenprodukte |
 | Vegetation, `TreePrototype`, `TreeMesher`, `Forest` | Prototypen im Prozess; persistente Impostor-Atlanten | Baumgeometrie, LODs und deterministische Platzierung |
-| `ImpostorCache` / `VegetationStreaming` | Persistentes Encode/Decode und asynchrones Lesen vorhanden | Schreibfehler werden durch verworfenes Publish-Ergebnis verdeckt |
+| `ImpostorCache` / `VegetationStreaming` | Persistentes Encode/Decode und asynchrones Lesen vorhanden | Schreibfehler erreichen über PreparedError_ bereits die Runtime; übrige Produkte fehlen |
 
 `ContentStore` hält vor allem Provider-Bytes. Das ist kein Cache generierter Welt-Assets.
 Der öffentliche Vertrag schließt seit `45370314d` einen Ergebnis-Cache ausdrücklich aus:
@@ -49,7 +49,8 @@ vergleichbarer Szenarioparameter. Kein allgemeiner `cachable`-Vertrag ist implem
 ## Architektur und Implementierung
 
 1. `world/data` besitzt begrenzte persistente Artefaktablage über `ContentStore`.
-   `content` besitzt versionierte native Codecs; Generatoren bleiben reine Produzenten.
+   `content` besitzt native Geometrie-Codecs; der Gebäudeprodukt-Codec bleibt beim
+   erzeugenden Modul, ohne umgekehrte Abhängigkeit von `content` auf Generatoren.
    `engine/streaming` orchestriert Lookup, begrenztes IO, Decode, Miss-Generierung,
    atomisches Publish und Runtime-Upload. Kein synchrones Datei-IO im Framepfad.
 2. Schlüssel enthält Produktart, Producer-/Codec-Version, vollständige Parameter und Seed,
@@ -66,6 +67,13 @@ vergleichbarer Szenarioparameter. Kein allgemeiner `cachable`-Vertrag ist implem
    Gleiches Eingabemanifest im zweiten Client-Prozess muss ohne erneuten Structure-Bake
    dasselbe vollständige Place-Bild erzeugen. Dann Terrain-/Straßen-/Wasserprodukte über
    denselben Speichervertrag integrieren, registrierte Generatoren und Vegetation ergänzen.
+   `StructureBuildTask` erhält Lookup-/Bake-/Publish-Phasen über getrennte IO-/Compute-Queues.
+   `BakedTile` umfasst `Raised`, Cluster, Footprints und Oberflächenfehler, nicht nur Meshes.
+   `RawTile` und die tatsächlich verwendeten HeightField-Raster bestimmen die Eingaben;
+   `SourceFirst` und AnchorEcef sind derzeit kontextabhängig und müssen beim Laden korrekt
+   zugeordnet werden. Keine prozesslokalen SourceKeys als persistente Identität verwenden.
+   Explizites RequestedDetail umgeht bereits die kameraabhängige LOD-Wahl im Bake;
+   adaptive Altprodukte brauchen dagegen Eye/FocalPx im Manifest bis zu ihrer Ablösung.
 5. Registry-Producer brauchen explizite Producer-Version und vollständige deklarierte
    Abhängigkeiten. Nicht identifizierbare Eingaben sind ein Vertragsfehler; keine stillen
    dauerhaften Bypässe. Dynamischer Simulationszustand ist kein generiertes Asset;
