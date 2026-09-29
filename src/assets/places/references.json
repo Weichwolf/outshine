@@ -16,7 +16,10 @@
           "weatherLabel": "14.7°C",
           "exifLabel": "(f/8.0  1/200s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:39.992416+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "1793afd1e16c7a14d0057db42d15c4dfa3618010792b4869458fcf6871b1d5ca"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/01/15/1200",
@@ -26,7 +29,10 @@
           "weatherLabel": "3.0°C",
           "exifLabel": "(f/6.3  1/125s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:39.466754+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "e26b3651c9250ab252a9b21f495f3cdedc836df526d36bb368404174e8f480e6"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/04/15/1200",
@@ -36,7 +42,10 @@
           "weatherLabel": "24.2°C",
           "exifLabel": "(f/9.0  1/200s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:39.530388+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "9db582c47f324228665db1f69810f639ef5a2d811ff4967d2b9c4d5cfed2d4df"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/06/21/1900",
@@ -46,7 +55,10 @@
           "weatherLabel": "27.2°C",
           "exifLabel": "(f/8.0  1/200s  iso100)",
           "retrievedUtc": "2026-09-29T17:17:34.195041+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "6d367678f6ad5d84d2172d0bf82801fe6af90306c643f51b3b006714b3b3c10f"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/0530",
@@ -56,7 +68,10 @@
           "weatherLabel": "16.2°C",
           "exifLabel": "(f/3.5  1/15s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:39.982023+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "a1186855b710ff7e8b541bc4d0f6ffff55b861f6a05fffaeb6a60db638dc5e78"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/1200",
@@ -66,7 +81,10 @@
           "weatherLabel": "26.4°C",
           "exifLabel": "(f/9.0  1/200s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:39.550649+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "c2b35db9afecf94ea77a39d5c1d9f3de7a913b0a3e84b802bd3074c359aa40a8"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/2100",
@@ -76,7 +94,10 @@
           "weatherLabel": "18.9°C",
           "exifLabel": "(f/3.5  1/8s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:40.017171+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "4bc50b0f83aee6de59586ea833f9b3f466804f148cb285512e0dee731c6e90dc"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/rosenheim/2025/07/15/2300",
@@ -86,7 +107,10 @@
           "weatherLabel": "17.3°C",
           "exifLabel": "(f/3.5  20s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:40.415518+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "fa850950e971e52b4d32dcfd3fc301ff6e35151586895dc11c7117522a36b401"
         }
       ],
       "publishedCamera": {
@@ -111,7 +135,10 @@
           "weatherLabel": "12.4°C",
           "exifLabel": "(f/10  1/250s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:41.019988+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "fe1e61f1045702a45a0c644a41761b7af9487cf6e6d1f8abdb627de96bac1f54"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/flensburg/2025/01/15/1200",
@@ -121,7 +148,10 @@
           "weatherLabel": "6.4°C",
           "exifLabel": "(f/6.3  1/125s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:40.509113+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "f0840a1bd681eaa60daab2ad204d1da1599113e97181f90c4c7a1774cca47504"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/flensburg/2025/04/15/1200",
@@ -131,7 +161,10 @@
           "weatherLabel": "15.8°C",
           "exifLabel": "(f/10  1/250s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:40.499686+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "7af23c3f9d7e7a6e00b5171601036ee615f28527c1b5d2a97f95a49e6976c825"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/flensburg/2025/07/15/1200",
@@ -141,7 +174,10 @@
           "weatherLabel": "19.8°C",
           "exifLabel": "(f/7.1  1/160s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:40.908306+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "211d9c06f86a5ec28517466ce4c5563bc4b193879098d1aa11737c15d3aa8529"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/flensburg/2025/07/15/2100",
@@ -151,7 +187,10 @@
           "weatherLabel": "16.5°C",
           "exifLabel": "(f/5.0  1/60s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:41.009536+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "684ff950b1b7323983c0c0b45e431365fc1d9252710a78905c378fc0558dcaf7"
         }
       ],
       "publishedCamera": {
@@ -183,7 +222,10 @@
           "weatherLabel": "21.3°C",
           "exifLabel": "(f/9.0  1/200s  iso100)",
           "retrievedUtc": "2026-09-29T17:20:01.167076+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "9c9144c8727fab9d1df46b0a0e5960aefb0622caf720ea1e47bb2d2e219fd842"
         }
       ],
       "publishedCamera": {
@@ -208,7 +250,10 @@
           "weatherLabel": "27.4°C",
           "exifLabel": "(f/10  1/320s  iso100)",
           "retrievedUtc": "2026-09-29T17:20:01.737714+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "fe23b4559d04ccc35d839a63723c756849341db9d49960f9c3b5d3dcd84162c8"
         }
       ],
       "publishedCamera": {
@@ -233,7 +278,10 @@
           "weatherLabel": "10.6°C",
           "exifLabel": "4.07V    (f/7.1  1/125s  iso100)",
           "retrievedUtc": "2026-09-29T17:20:02.660764+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "64f61038edfd0a090112dfd26ce84e0949b2e29b6c52da35888f4dbae12ce3da"
         }
       ],
       "publishedCamera": {
@@ -258,7 +306,10 @@
           "weatherLabel": "17.9°C",
           "exifLabel": "14.0V    (f/7.1  1/125s  iso100)",
           "retrievedUtc": "2026-09-29T17:20:03.178860+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "79a852b69ba024b482054507c448ce1d576b22fc5cee78c3b60848be005718a3"
         }
       ],
       "publishedCamera": {
@@ -283,7 +334,10 @@
           "weatherLabel": "31.6°C",
           "exifLabel": "(f/9.0  1/200s  iso100)",
           "retrievedUtc": "2026-09-29T17:20:03.667007+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "c4e042f01ddeae410ec8f3783c9e0aa5c7e0413cd3034fc437399f75278abe6c"
         }
       ],
       "publishedCamera": {
@@ -308,7 +362,10 @@
           "weatherLabel": "14.0°C    65%    0km/h",
           "exifLabel": "14.1V    (f/7.1  1/125s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:41.930799+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "dbf92aa053492fcf8e6bd3d750e44f99ef30828478e62915356161adf5c6937e"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/01/15/1200",
@@ -318,7 +375,10 @@
           "weatherLabel": "-3.4°C    94%    0km/h     Schnee: 92cm",
           "exifLabel": "14.4V    (f/11  1/320s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:41.419821+00:00",
-          "suitableForGeometry": false
+          "suitableForGeometry": false,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "0a70361b92a99392b48931cdf811c1e275821a6ae91ecf08c8e70a27f831468b"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/02/15/1200",
@@ -328,7 +388,10 @@
           "weatherLabel": "-1.0°C    45%    0km/h     Schnee: 118cm",
           "exifLabel": "14.4V    (f/11  1/400s  iso100)",
           "retrievedUtc": "2026-09-29T17:17:33.684597+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "1c08ca97329e174dd347be8dcbfe106e5586ae1fd8eb21294a7ee5fa04ab238c"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/04/15/1200",
@@ -338,7 +401,10 @@
           "weatherLabel": "10.2°C    66%    0km/h     Schnee: 45cm",
           "exifLabel": "14.2V    (f/10  1/250s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:41.535084+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "a8d37c71460a9a8b487e977f4b8037fdd0a22939e2c3a8be598aae8f6cd37b5c"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/07/15/1200",
@@ -348,7 +414,10 @@
           "weatherLabel": "12.2°C    94%    0km/h",
           "exifLabel": "13.9V    (f/8.0  1/160s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:41.511408+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "3259d1bf572eeb1db05307758789602946e450676065c529013d20dffca88d5c"
         },
         {
           "page": "https://www.foto-webcam.eu/webcam/koerbersee/2025/07/15/2100",
@@ -358,7 +427,10 @@
           "weatherLabel": "11.1°C    97%    0km/h",
           "exifLabel": "13.0V    (f/3.5  1/8s  iso100)",
           "retrievedUtc": "2026-09-29T17:16:41.943224+00:00",
-          "suitableForGeometry": true
+          "suitableForGeometry": true,
+          "referenceImageWidthPx": 816,
+          "referenceImageHeightPx": 459,
+          "referenceImageSha256": "7b261844dc161662855b7e04d39e2560cb07db983c5c7164057b23bdf67919df"
         }
       ],
       "publishedCamera": {
