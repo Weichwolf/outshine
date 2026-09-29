@@ -350,11 +350,11 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
                                            std::span(plan.MissingBatch).first(plan.MissingCount));
       if (posted != 0) {
         World.StructureCellsPosted += posted;
-        nextTile();
         return true;
       }
     }
-    if (plan.Missing && World.StructureBuilds.Queued() + World.StructureBuilds.QueuedCells() > 0) {
+    if (!plan.Complete &&
+        World.StructureBuilds.Queued() + World.StructureBuilds.QueuedCells() > 0) {
       return true;
     }
     nextTile();
