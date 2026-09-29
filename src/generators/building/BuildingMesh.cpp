@@ -882,7 +882,26 @@ void Box(const BuildingShape &s, std::span<const EastNorth> ring, Site &site) {
   Floor(s, ring, lowZ, site);
 }
 
+void RaiseShell(const BuildingShape &s, Site &site) {
+  const RoofSurface roof(s);
+  BuildingScratch &scratch = site.Scratch();
+  const double lowZ = s.OnGround() ? s.SoleM : s.SeatM + s.FootM - kSinkM;
+  const double topZ = EavesZ(s) + (s.Roof == RoofKind::Flat ? s.RiseM : 0.0);
+  std::vector<EastNorth> &covered = scratch.Covered;
+  Refined(s.Ring, {}, roof, false, scratch, covered);
+  const std::span<const EastNorth> ring =
+      covered.empty() ? std::span<const EastNorth>(s.Ring) : std::span<const EastNorth>(covered);
+  Floor(s, ring, lowZ, site);
+  Walls(s, roof, {}, lowZ, topZ, site);
+  Covering(s, roof, ring, topZ - kSlabM, site);
+  if (s.Roof != RoofKind::Flat) { Gables(s, roof, {}, site); }
+}
+
 void RaisePart(const BuildingShape &s, Site &site) {
+  if (site.Coarseness() == LevelOfDetail::Shell) {
+    RaiseShell(s, site);
+    return;
+  }
   if (site.Coarseness() == LevelOfDetail::Massed) {
     Box(s, Hull(s.Ring), site);
     return;

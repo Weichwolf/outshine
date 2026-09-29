@@ -103,6 +103,7 @@ int main() {
         "independent bounding-box cap detects an incorrectly filled footprint notch");
   CHECK(!SlopedRoof(boxed, axes), "independent flat box lacks the pitched-profile signature");
   Generators::BuildingMesh mesher;
+  size_t fineIndices = 0;
   for (const auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     StructurePlan plan;
     plan.AnchorEcef = anchor;
@@ -131,6 +132,13 @@ int main() {
           "pitched plan meshes at each explicit level");
     CHECK(LowestPoint(mesh, axes) <= 0.0,
           "foundation reaches the lowest declared terrain level despite the two-metre slope");
+    const size_t indices = mesh.WallRun.size() + mesh.RoofRun.size();
+    if (detail == LevelOfDetail::Fine) { fineIndices = indices; }
+    if (detail == LevelOfDetail::Shell) {
+      CHECK(indices * 2 < fineIndices,
+            "distant shell uses less than half the fine geometry while preserving roof and "
+            "foundation");
+    }
     if (detail == LevelOfDetail::Massed) {
       CHECK(!SlopedRoof(mesh, axes), "coarse flat cap is an effective missing-profile control");
     } else {
