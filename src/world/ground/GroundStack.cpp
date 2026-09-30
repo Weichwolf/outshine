@@ -44,7 +44,8 @@ bool GroundStack::Open(const World::StoragePaths &under,
                        Sink &say,
                        LogSink *diagnostics,
                        double patienceS,
-                       const Data::ProviderRegistry *registry) {
+                       const Data::ProviderRegistry *registry,
+                       Tasks *compute) {
   const auto position = OsmField::Locate(focus, kFineZoom);
   if (!position) {
     say.Refuse(std::string(position.error()));
@@ -82,6 +83,7 @@ bool GroundStack::Open(const World::StoragePaths &under,
   surface.Grid = outshine::Ground::kStreamGrid;
   surface.Z = FinestZoomOf(Data::DataKind::Elevation) - 1;
   auto poolConfig = *config;
+  poolConfig.Compute = compute;
   poolConfig.Diagnostics = diagnostics;
   Pool_ = std::make_unique<outshine::Ground::TilePool>(poolConfig, sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);

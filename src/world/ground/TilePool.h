@@ -20,6 +20,7 @@
 #include "TerrainGrid.h"
 #include "TerrainTiles.h"
 #include "TileMeshes.h"
+#include "Tasks.h"
 #include "TerrainRevisionIndex.h"
 #include <world/data/Fetch.h>
 #include <world/data/FetchFailure.h>
@@ -86,6 +87,7 @@ public:
     double OriginLatDeg = 0.0;
     double OriginLonDeg = 0.0;
     int Threads = 1;
+    Tasks *Compute = nullptr;
     size_t ByteBudget = 0;
 
     size_t DecodedBytes = 0;
@@ -149,9 +151,9 @@ public:
 
   [[nodiscard]] size_t ResidentBytes() const;
 
-  int ThreadCount() const { return static_cast<int>(Threads_.size()); }
+  int ThreadCount() const { return static_cast<int>(Contexts_.size()); }
 
-  int InFlightCap() const { return static_cast<int>(Threads_.size()); }
+  int InFlightCap() const { return static_cast<int>(Contexts_.size()); }
 
   struct LandingCursor {
     uint64_t Revision = 0;
@@ -252,7 +254,7 @@ private:
     size_t Count = 0;
   };
 
-  [[nodiscard]] std::optional<Job> NextJob();
+  [[nodiscard]] std::optional<Job> NextJob(int slot);
   [[nodiscard]] Result RunJob(TerrainTiles &tiles, const Job &job);
   void PublishResult(const Job &job, Result result);
   [[nodiscard]] bool OwnsReservation(const Job &job) const noexcept;
@@ -263,6 +265,9 @@ private:
   [[nodiscard]] bool AwaitDependency(const Job &job, uint64_t dependency);
   [[nodiscard]] std::optional<Reply> TakeCompleted(const Job &job, Result *out);
   void Work(int slot);
+  void ScheduleCompute();
+  void ScheduleComputeLocked();
+  void FinishCompute(int slot);
   void Carry();
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
   static void RunField(TerrainTiles &tiles, const Job &job, Result *out);
@@ -313,6 +318,13 @@ private:
   Ledger Ledger_;
 
   std::vector<std::atomic<size_t>> ContextBytes_;
+  struct ComputeContext;
+  std::vector<std::unique_ptr<ComputeContext>> Contexts_;
+  enum class ComputeState { Idle, Queued, Working };
+  std::vector<ComputeState> ComputeStates_;
+  size_t ActiveCompute_ = 0;
+  std::unique_ptr<Tasks> OwnedCompute_;
+  Tasks *Compute_ = nullptr;
 
   mutable std::mutex QueueMutex_;
   std::condition_variable Wake_;
@@ -331,7 +343,6 @@ private:
   long long Posts_ = 0, Repeats_ = 0;
   double FocusLatDeg_ = 0.0, FocusLonDeg_ = 0.0;
   bool Stopping_ = false;
-  std::vector<std::thread> Threads_;
   std::vector<std::thread> Carriers_;
   FlatMap<std::vector<Job>> Awaiting_;
   size_t ParkedJobs_ = 0;

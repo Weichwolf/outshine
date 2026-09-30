@@ -224,10 +224,11 @@ struct Surrounds {
   }
 
   std::unique_ptr<Data::Transport> Wire;
+  Data::ProviderRegistry Providers;
+  std::unique_ptr<Tasks> Pool;
   Ground::GroundStack Stack;
   std::shared_ptr<const Ground::PublishedRegion> Region;
   Generators::Registry Offering;
-  Data::ProviderRegistry Providers;
   Generators::Shipping Shipping;
 
   using Standing = WorldInstance;
@@ -253,7 +254,6 @@ struct Surrounds {
   size_t StreetGraphWayCount = 0;
   std::vector<NamedRoadAlignment> RoadAlignments;
   bool PiecesFramed = false;
-  std::unique_ptr<Tasks> Pool;
   RoadAlignmentBuildQueue RoadAlignmentBuilds;
   std::unique_ptr<outshine::OsmSourceLoader> OsmSourceLoader;
   std::vector<World::OsmCircuitRequest> OsmRoutes;

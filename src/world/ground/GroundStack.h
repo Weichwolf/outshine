@@ -68,7 +68,8 @@ public:
                           Sink &say,
                           LogSink *diagnostics,
                           double patienceS = 0.0,
-                          const Data::ProviderRegistry *registry = nullptr);
+                          const Data::ProviderRegistry *registry = nullptr,
+                          Tasks *compute = nullptr);
   void Close();
 
   [[nodiscard]] bool Opened() const { return Opened_; }

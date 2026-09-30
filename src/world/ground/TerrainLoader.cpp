@@ -18,7 +18,6 @@
 #include <memory>
 #include <ratio>
 #include <span>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -29,6 +28,7 @@
 
 #include "Log.h"
 #include "SourceSet.h"
+#include "Tasks.h"
 #include "TerrainTiles.h"
 #include "TileGeodesy.h"
 
@@ -37,8 +37,6 @@ using namespace outshine::Ground;
 using outshine::Ground::TilePool;
 
 namespace {
-
-constexpr int kMaxTileThreads = 6;
 
 constexpr int kMaxTileCarriers = 6;
 
@@ -58,10 +56,7 @@ double Clamped01(double v) {
 
 int DerivedThreads(int workers) {
   if (workers > 0 && workers <= 32) { return workers; }
-  const unsigned hw = std::thread::hardware_concurrency();
-  int n = hw > 3u ? static_cast<int>(hw) - 2 : 1;
-  n = std::min(n, kMaxTileThreads);
-  return n;
+  return Tasks::ComputeThreads();
 }
 
 }
@@ -495,7 +490,7 @@ std::expected<TilePool::Config, std::string_view> GroundPoolConfig(LongitudeLati
   config.OriginLatDeg = at.LatitudeDeg;
   config.OriginLonDeg = at.LongitudeDeg;
   config.Threads = DerivedThreads(how.Workers);
-  config.Carriers = std::min(config.Threads, kMaxTileCarriers);
+  config.Carriers = how.Workers > 0 ? std::min(config.Threads, kMaxTileCarriers) : 2;
   config.ByteBudget = kByteBudget;
   config.DecodedBytes = kPoolDecodedBytes;
   config.PollAttempts = *attempts;

@@ -80,7 +80,52 @@ uint64_t RequestKey(std::string_view key) {
   return (kVectorKind << kKindShift) | (h & kVectorMask);
 }
 
+class PoolTerrain : public TerrainSource {
+public:
+  explicit PoolTerrain(TilePool &pool) : Pool_(pool) {}
+
+  [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept override {
+    return Pool_.TerrainScopeRevision();
+  }
+
+  [[nodiscard]] bool
+  AreCurrent(std::span<const TerrainRevisionIndex::Stamp> stamps) const override {
+    return Pool_.ValidTerrainStamps(stamps);
+  }
+
+  [[nodiscard]] TerrainRevisionIndex::Validation
+  InspectStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const override {
+    return Pool_.InspectTerrainStamps(stamps);
+  }
+
+  TerrainBytes Take(Data::TileId at) override {
+    const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(at));
+    TilePool::Landing landing;
+    const TilePool::Reply asked = Pool_.Bytes(request, &landing);
+    switch (asked) {
+      case TilePool::Reply::Ready: return FromTerrainDelivery(request, std::move(landing));
+      case TilePool::Reply::Absent:
+      case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
+      case TilePool::Reply::Refused: return TerrainBytes::Wire(std::move(landing.Failure));
+      case TilePool::Reply::Deferred:
+      case TilePool::Reply::Pending: tAwaited = RequestKey(request.Key()); break;
+    }
+    return TerrainBytes::Waiting();
+  }
+
+private:
+  TilePool &Pool_;
+};
+
 }
+
+struct TilePool::ComputeContext {
+  PoolTerrain Source;
+  TerrainTiles Tiles;
+
+  ComputeContext(TilePool &pool, EnuFrame frame, const std::shared_ptr<DecodedCache> &decoded)
+      : Source(pool), Tiles(Source, frame, TerrainTiles::Config{.Shared = decoded}) {}
+};
 
 TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport)
     : Sources_(sources),
@@ -103,15 +148,16 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
     Log::Error(LogTag::World, "invalid_terrain_revision_capacity");
   }
   Sources_.Seal();
-  const int n = config.Threads > 0 ? config.Threads : 1;
-  ContextBytes_ = std::vector<std::atomic<size_t>>(static_cast<size_t>(n));
-  Threads_.reserve(static_cast<size_t>(n));
-  for (int i = 0; i < n; i++) {
-    Threads_.emplace_back([this, i] {
-      const LogThreadSinkScope logs(Diagnostics_);
-      Work(i);
-    });
+  if (config.Compute) {
+    Compute_ = config.Compute;
+  } else {
+    OwnedCompute_ = std::make_unique<Tasks>(config.Threads > 0 ? config.Threads : 1);
+    Compute_ = OwnedCompute_.get();
   }
+  const int n = Compute_->Threads();
+  ContextBytes_ = std::vector<std::atomic<size_t>>(static_cast<size_t>(n));
+  Contexts_.resize(static_cast<size_t>(n));
+  ComputeStates_.resize(static_cast<size_t>(n), ComputeState::Idle);
   const int carriers = CarrierCount_ > 0 ? CarrierCount_ : 2;
   Carriers_.reserve(static_cast<size_t>(carriers));
   for (int i = 0; i < carriers; i++) {
@@ -134,7 +180,10 @@ TilePool::~TilePool() {
     Stopping_ = true;
   }
   Wake_.notify_all();
-  for (std::thread &t : Threads_) { t.join(); }
+  {
+    std::unique_lock lock(QueueMutex_);
+    Landed_.wait(lock, [this] { return ActiveCompute_ == 0; });
+  }
   for (std::thread &t : Carriers_) { t.join(); }
 }
 
@@ -296,7 +345,8 @@ size_t TilePool::SchedulerBytes() const {
     for (const Job &job : jobs) { bytes += job.Ask ? job.Ask->Key().capacity() : 0u; }
     return bytes;
   };
-  size_t bytes = jobBytes(Queue_) + jobBytes(Carrying_);
+  size_t bytes = jobBytes(Queue_) + jobBytes(Carrying_) + CapacityBytes(Contexts_) +
+                 CapacityBytes(ComputeStates_);
   bytes += Posted_.HeapBytes() + Done_.HeapBytes() + Awaiting_.HeapBytes();
   Done_.Visit([&bytes](uint64_t, const Result &result) {
     bytes += CapacityBytes(result.Build.Nodes) + CapacityBytes(result.Build.Sources) +
@@ -525,50 +575,6 @@ TilePool::Reply TilePool::BytesBlocking(const Data::Fetch &request, Landing *out
 
 namespace {
 
-class PoolTerrain : public TerrainSource {
-public:
-  explicit PoolTerrain(TilePool &pool) : Pool_(pool) {}
-
-  [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept override {
-    return Pool_.TerrainScopeRevision();
-  }
-
-  [[nodiscard]] bool
-  AreCurrent(std::span<const TerrainRevisionIndex::Stamp> stamps) const override {
-    return Pool_.ValidTerrainStamps(stamps);
-  }
-
-  [[nodiscard]] TerrainRevisionIndex::Validation
-  InspectStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const override {
-    return Pool_.InspectTerrainStamps(stamps);
-  }
-
-  TerrainBytes Take(Data::TileId at) override {
-    const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(at));
-    TilePool::Landing landing;
-    const TilePool::Reply asked =
-        Pool_.Carries() ? Pool_.Bytes(request, &landing) : Pool_.BytesBlocking(request, &landing);
-    switch (asked) {
-      case TilePool::Reply::Ready: return FromTerrainDelivery(request, std::move(landing));
-      case TilePool::Reply::Absent:
-      case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
-      case TilePool::Reply::Refused: return TerrainBytes::Wire(std::move(landing.Failure));
-      case TilePool::Reply::Deferred:
-      case TilePool::Reply::Pending:
-        if (Pool_.Carries()) { tAwaited = RequestKey(request.Key()); }
-        break;
-    }
-    return TerrainBytes::Waiting();
-  }
-
-private:
-  TilePool &Pool_;
-};
-
-}
-
-namespace {
-
 enum class Miss { None, Hole, Wait, Refused };
 
 [[nodiscard]] Miss MissOf(TerrainGrid::State state) {
@@ -692,16 +698,17 @@ void TilePool::Carry() {
       const std::scoped_lock lock(QueueMutex_);
       const Reply said = PublishesCarried(job, std::move(result));
       ResumeDependants(job.Key, said != Reply::Pending);
+      ScheduleComputeLocked();
       Landed_.notify_all();
       Wake_.notify_all();
     }
   }
 }
 
-std::optional<TilePool::Job> TilePool::NextJob() {
-  std::unique_lock<std::mutex> lock(QueueMutex_);
-  Wake_.wait(lock, [this] { return Stopping_ || !Queue_.empty(); });
-  if (Stopping_) { return std::nullopt; }
+std::optional<TilePool::Job> TilePool::NextJob(int slot) {
+  const std::scoped_lock lock(QueueMutex_);
+  ComputeStates_[static_cast<size_t>(slot)] = ComputeState::Working;
+  if (Stopping_ || Queue_.empty()) { return std::nullopt; }
   size_t best = 0;
   for (size_t i = 1; i < Queue_.size(); i++) {
     const Job &a = Queue_[i];
@@ -799,6 +806,7 @@ bool TilePool::AwaitDependency(const Job &job, uint64_t dependency) {
   if (Done_.Holds(dependency)) {
     Queue_.push_back(job);
     lock.unlock();
+    ScheduleCompute();
     Wake_.notify_all();
     return true;
   }
@@ -816,6 +824,41 @@ bool TilePool::AwaitDependency(const Job &job, uint64_t dependency) {
   return true;
 }
 
+void TilePool::ScheduleCompute() {
+  const std::scoped_lock lock(QueueMutex_);
+  ScheduleComputeLocked();
+}
+
+void TilePool::ScheduleComputeLocked() {
+  if (Stopping_) { return; }
+  const auto queued = static_cast<size_t>(std::ranges::count(ComputeStates_, ComputeState::Queued));
+  size_t waiting = Queue_.size() > queued ? Queue_.size() - queued : 0;
+  for (size_t slot = 0; slot < ComputeStates_.size() && waiting != 0; ++slot) {
+    if (ComputeStates_[slot] != ComputeState::Idle) { continue; }
+    ComputeStates_[slot] = ComputeState::Queued;
+    ++ActiveCompute_;
+    --waiting;
+    if (!Compute_->PostDetached([this, slot] {
+          {
+            const LogThreadSinkScope logs(Diagnostics_);
+            Work(static_cast<int>(slot));
+          }
+          FinishCompute(static_cast<int>(slot));
+        })) {
+      ComputeStates_[slot] = ComputeState::Idle;
+      --ActiveCompute_;
+    }
+  }
+}
+
+void TilePool::FinishCompute(int slot) {
+  const std::scoped_lock lock(QueueMutex_);
+  ComputeStates_[static_cast<size_t>(slot)] = ComputeState::Idle;
+  --ActiveCompute_;
+  ScheduleComputeLocked();
+  Landed_.notify_all();
+}
+
 void TilePool::Work(int slot) {
   static const Heap::Tag kWorkingTag("tile-worker");
   const Heap::Tagged working(kWorkingTag);
@@ -827,52 +870,51 @@ void TilePool::Work(int slot) {
     Log::Error(LogTag::World, "tilepool_origin_too_polar", {{"lat", OriginLatDeg_}});
     std::abort();
   }
-  PoolTerrain source(*this);
-  TerrainTiles::Config config;
-  config.Shared = Decoded_;
-  TerrainTiles tiles(source, frame, config);
-
-  ContextBytes_[static_cast<size_t>(slot)].store(tiles.HeapBytes(), std::memory_order_relaxed);
-
-  for (;;) {
-    const auto next = NextJob();
-    if (!next) { break; }
-    const Job &job = *next;
-    Result result;
-    const double blockedBefore = tFetchBlockedMs;
-    const auto t0 = std::chrono::steady_clock::now();
+  auto &context = Contexts_[static_cast<size_t>(slot)];
+  if (!context) { context = std::make_unique<ComputeContext>(*this, frame, Decoded_); }
+  TerrainTiles &tiles = context->Tiles;
+  const auto retainBytes = [&] {
+    ContextBytes_[static_cast<size_t>(slot)].store(sizeof(ComputeContext) - sizeof(TerrainTiles) +
+                                                       tiles.HeapBytes(),
+                                                   std::memory_order_relaxed);
+  };
+  retainBytes();
+  const auto next = NextJob(slot);
+  if (!next) { return; }
+  const Job &job = *next;
+  Result result;
+  const double blockedBefore = tFetchBlockedMs;
+  const auto t0 = std::chrono::steady_clock::now();
+  tAwaited = 0;
+  tWorkingJob = job.Key;
+  tWorkingAdmission = job.Admission;
+  result = RunJob(tiles, job);
+  retainBytes();
+  tWorkingJob = 0;
+  tWorkingAdmission = 0;
+  if (result.State == Reply::Pending && tAwaited != 0) {
+    const uint64_t awaited = tAwaited;
     tAwaited = 0;
-    tWorkingJob = job.Key;
-    tWorkingAdmission = job.Admission;
-    result = RunJob(tiles, job);
-    tWorkingJob = 0;
-    tWorkingAdmission = 0;
-    if (result.State == Reply::Pending && tAwaited != 0) {
-      const uint64_t awaited = tAwaited;
-      tAwaited = 0;
-      if (AwaitDependency(job, awaited)) { continue; }
-    }
-    tAwaited = 0;
-    const double spanMs =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-
-    const double cpuMs = spanMs - (tFetchBlockedMs - blockedBefore);
-    {
-      const std::scoped_lock ledger(LedgerMutex_);
-      if (job.Kind == Rank::Mesh) {
-        Ledger_.MeshTiles++;
-        Ledger_.MeshCpuMs += cpuMs;
-        if (result.State == Reply::Absent) { Ledger_.MeshAbsent++; }
-      } else if (job.Kind == Rank::Field) {
-        Ledger_.FieldTiles++;
-        Ledger_.FieldCpuMs += cpuMs;
-      }
-    }
-    StackProbe::Mark();
-    ContextBytes_[static_cast<size_t>(slot)].store(tiles.HeapBytes(), std::memory_order_relaxed);
-    PublishResult(job, std::move(result));
+    if (AwaitDependency(job, awaited)) { return; }
   }
-  ContextBytes_[static_cast<size_t>(slot)].store(0, std::memory_order_relaxed);
+  tAwaited = 0;
+  const double spanMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+
+  const double cpuMs = spanMs - (tFetchBlockedMs - blockedBefore);
+  {
+    const std::scoped_lock ledger(LedgerMutex_);
+    if (job.Kind == Rank::Mesh) {
+      Ledger_.MeshTiles++;
+      Ledger_.MeshCpuMs += cpuMs;
+      if (result.State == Reply::Absent) { Ledger_.MeshAbsent++; }
+    } else if (job.Kind == Rank::Field) {
+      Ledger_.FieldTiles++;
+      Ledger_.FieldCpuMs += cpuMs;
+    }
+  }
+  StackProbe::Mark();
+  PublishResult(job, std::move(result));
 }
 
 void TilePool::Lands(uint64_t key, bool holds) {
@@ -965,6 +1007,7 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   const uint64_t scope = job.Kind == Rank::Fetch ? 0 : TerrainScopeRevision();
   if (const std::optional<Reply> completed = TakeCompleted(job, out)) {
     lock.unlock();
+    ScheduleCompute();
     Wake_.notify_all();
     return *completed;
   }
@@ -1008,6 +1051,7 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   const bool carries = posting.Kind == Rank::Fetch;
   (carries ? Carrying_ : Queue_).push_back(posting);
   lock.unlock();
+  ScheduleCompute();
   Wake_.notify_all();
   return Reply::Pending;
 }

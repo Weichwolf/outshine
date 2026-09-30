@@ -145,6 +145,7 @@ bool Engine::State::PrepareRuntimeWorld() {
   Collecting say;
   const World::StoragePaths worldStorage{.Shipped = Session.Under.Shipped,
                                          .Cache = Session.Under.Cache};
+  if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Stack.Opened() && !World.Stack.Open(worldStorage,
                                                  tileProviders,
                                                  {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
@@ -152,7 +153,8 @@ bool Engine::State::PrepareRuntimeWorld() {
                                                  say,
                                                  Diagnostics,
                                                  Session.Declared.Ground.PatienceS,
-                                                 &World.Providers)) {
+                                                 &World.Providers,
+                                                 World.Pool.get())) {
     Error = say.WhyNot();
     return false;
   }
