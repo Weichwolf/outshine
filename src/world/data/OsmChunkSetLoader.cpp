@@ -24,6 +24,13 @@ constexpr size_t kMaxTotalBytes = size_t{16} * 1024u * 1024u;
 constexpr size_t kMaxInputElements = 1000000;
 constexpr std::string_view kSha256PinPrefix = "sha256:";
 
+[[nodiscard]] std::string_view PayloadDigest(const SourceProvider &provider) noexcept {
+  if (!provider.PayloadSha256.empty()) { return provider.PayloadSha256; }
+  const std::string_view pin(provider.Revision);
+  if (!pin.starts_with(kSha256PinPrefix)) { return {}; }
+  return pin.substr(kSha256PinPrefix.size());
+}
+
 [[nodiscard]] double MillisecondsSince(std::chrono::steady_clock::time_point began) {
   return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
       .count();
@@ -59,11 +66,7 @@ OsmChunkSetLoader::LoadRegion(std::span<const SourceProvider> providers,
     readMs += MillisecondsSince(readAt);
     if (!xml) { return std::unexpected(std::move(xml.error())); }
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
-    const std::string_view digest =
-        !provider.PayloadSha256.empty() ? std::string_view(provider.PayloadSha256)
-        : std::string_view(provider.Revision).starts_with(kSha256PinPrefix)
-            ? std::string_view(provider.Revision).substr(kSha256PinPrefix.size())
-            : std::string_view{};
+    const std::string_view digest = PayloadDigest(provider);
     const std::string actualDigest = Sha256Hex(*xml);
     if (!digest.empty() && actualDigest != digest) {
       return std::unexpected("semantic OSM source '" + provider.Location +

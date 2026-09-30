@@ -93,7 +93,8 @@ std::span<const SourceProvider> ShippedProviders() {
        .Dataset = "",
        .Location = "",
        .Endpoint = "",
-       .Coverage = {}},
+       .Coverage = {},
+       .PayloadSha256 = ""},
       {.Kind = "stars",
        .Revision = "",
        .Priority = 2,
@@ -101,7 +102,8 @@ std::span<const SourceProvider> ShippedProviders() {
        .Dataset = "",
        .Location = "",
        .Endpoint = "",
-       .Coverage = {}},
+       .Coverage = {},
+       .PayloadSha256 = ""},
   }};
   return shipped;
 }
