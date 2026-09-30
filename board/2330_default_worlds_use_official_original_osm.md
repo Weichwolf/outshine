@@ -33,6 +33,10 @@ alte Bilder bleiben erhalten, fehlende Bilder werden nicht als Erfolg gewertet.
   Räumliche Nachfrage, Quellenabdeckung, Revision und Byte-Pins sind explizit.
   IO/Parse laufen in begrenzten Jobs; Cache enthält ausschließlich Netzantworten.
   Gleichartige Anfragen teilen Quelle/Resultat. Kein synchrones IO beim Zeichnen.
+  `kind=osm` deklariert entweder eine lokale Originaldatei oder exakt den offiziellen
+  API-Basisendpoint samt Bounds. Ein IO-Worker beschafft begrenzte Originalantworten
+  über bestehende Transport-/Cache-Verträge; Compute-Jobs prüfen Pins, parsen und mergen.
+  Abbruch und Ablauf der gemeinsamen Anfragefrist erhalten den bisherigen Snapshot.
 - Ein gemeinsamer gepinnter `OsmSourceSnapshot` hält typisierte IDs, Nodes,
   Way-Referenzen, Relationsrollen und alle Tags. Konsumierte Produkte fordern
   ihre transitive Referenzhülle an; fremde unvollständige Fernrelationen bleiben
