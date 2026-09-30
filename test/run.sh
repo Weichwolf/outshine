@@ -320,7 +320,7 @@ LayerLink() {
     profile/base) printf '%s' "-lz" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     *) printf '%s' "" ;;
   esac
@@ -475,7 +475,7 @@ GroupIncludes() {
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
   case "$includeTier" in render) includeSet="$includeSet $(pkg-config --cflags sdl3-shadercross)" ;; esac
   case "$1" in
-    src/world/data) includeSet="$includeSet $(pkg-config --cflags liblz4)" ;;
+    src/world/data) includeSet="$includeSet $(pkg-config --cflags liblz4 libtiff-4)" ;;
     src/content/shade | src/engine) includeSet="$includeSet $(pkg-config --cflags sdl3-image)" ;;
   esac
   printf '%s' "$includeSet"

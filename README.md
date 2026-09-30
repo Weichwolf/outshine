@@ -18,6 +18,7 @@ this tree outrank analogy to another engine.
 ## Build and test
 
 Native asset caching requires LZ4 (`liblz4` in `pkg-config`), alongside the existing SDL3 dependencies.
+Native Copernicus raster decoding requires libtiff 4.7 (`libtiff-4` in `pkg-config`).
 
 ```sh
 make            # liboutshine.a + libgenerators.a, and regenerate STATE.md
