@@ -19,12 +19,17 @@ und `OriginalStructureInput` sind vorhanden. Ihr vollständiger Client-Anschluss
 `5644a79c6` trennt den gemeinsamen Datenstand von den jeweiligen Antwort-Prüfsummen;
 der Snapshot erhält alle Tags sowie die geprüften Pins der zusammengeführten Quelldateien.
 Automatische API-Beschaffung und native Gebäude-/Wasserpublikation bleiben offen.
+`5fa0fcbf3` besteht fokussierte Quellenprüfungen und den vollständigen Lint samt
+clang-tidy/API. Das Place-Gate bleibt rot: Originaldaten sind nicht angebunden;
+alte Bilder bleiben erhalten, fehlende Bilder werden nicht als Erfolg gewertet.
 
 ## Architektur und Implementierung
 - Den unerlaubten Default und dessen impliziten Endpoint entfernen. Vorhandene
   Cache-Dateien und Regression-Bilder erhalten. Ohne erforderliche Originalquelle
   explizit fehlschlagen; keine leere Stadt als vollständige Welt veröffentlichen.
 - `world/data` beschafft bounded Regionsdaten von `api.openstreetmap.org/api/0.6`.
+  Abfrage: `map?bbox=west,south,east,north`; erforderliche Originalobjekte über
+  `way/{id}/full` beziehungsweise `relation/{id}/full` ergänzen und Hülle erneut prüfen.
   Räumliche Nachfrage, Quellenabdeckung, Revision und Byte-Pins sind explizit.
   IO/Parse laufen in begrenzten Jobs; Cache enthält ausschließlich Netzantworten.
   Gleichartige Anfragen teilen Quelle/Resultat. Kein synchrones IO beim Zeichnen.
