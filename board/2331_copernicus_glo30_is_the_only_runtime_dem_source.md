@@ -21,8 +21,15 @@ die übrigen erlaubten Eingaben. Fehlende GLO-30-Daten sind kein Meeresspiegelwe
 Der GLO-30-COG für N54/E009 ist über Bytebereiche erreichbar. Sein Header deklariert
 2400×3600 Float32-Samples, Deflate mit Float-Predictor und 1024×1024-Blöcke;
 EPSG:4326, PixelIsPoint und eingebettete Übersichtsstufen. Georeferenz übernehmen,
-keine quadratischen Samples oder feste Längenauflösung annehmen. Vertikales Datum,
-NoData und Metadatenrevision vor Freigabe des Adapters verbindlich prüfen.
+keine quadratischen Samples oder feste Längenauflösung annehmen.
+Das [Copernicus-Produkthandbuch 5.0 vom 29.11.2022](https://dataspace.copernicus.eu/sites/default/files/media/files/2024-06/geo1988-copernicusdem-spe-002_producthandbook_i5.0.pdf)
+belegt orthometrische Meter über EGM2008 (EPSG:3855), keine Ellipsoidhöhen.
+Die Spezifikation nennt NoData -32767 ausdrücklich für EEA-10; diesen Wert nicht
+ungeprüft auf GLO-30 übertragen. Raster-NoData-Metadaten und nichtendliche Samples
+beachten; fehlende Dateien bleiben fehlende Quellen. Das Bucket-Readme beschreibt
+entfernte Ost-/Südrandposts und gemittelte Übersichten, keine Grenzpost-Duplikation.
+Die erste reale Bereichsantwort liefert 16384 von 32964108 Bytes mit starkem ETag;
+Folgeblöcke müssen diese Objektidentität halten. Uploaddatum ist kein Aufnahmedatum.
 `world/data/CopernicusDem` nutzt libtiff hinter privaten, begrenzten IO-Callbacks;
 kein eigener TIFF-Decoder oder allgemeiner GIS-Stack. Originalblöcke/Übersichten
 liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
@@ -36,9 +43,10 @@ liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
   Vor Implementierung offiziellen Bezugsweg, Raster-/Höhendatum, NoData und
   Revisions-/Byte-Pins anhand der Produktmetadaten festlegen. Keine behauptete
   Gleichheit von DSM-Oberfläche, nacktem Boden und lokalem Wasserstand.
-- Bounded TIFF/COG-Decode liefert georeferenzierte Höhensamples an bestehende
-  Terrainfelder. Codec-/IO-Details enden am Adapter; Generatoren lesen native Meter.
-  Einen vorhandenen kleinen TIFF-Codec prüfen, keinen allgemeinen GIS-Stack einbauen.
+- Bounded libtiff-Decode liefert georeferenzierte Höhensamples an bestehende
+  Terrainfelder. Native 1°-Quelladressen bleiben von Mercator-Renderadressen getrennt;
+  Datumsbezug, Resampling und fehlende Nachbarposts erhalten explizite Herkunft.
+  Codec-/IO-Details enden am Adapter; Generatoren lesen native Meter.
 - Räumlich benötigte Rasterblöcke gebündelt beschaffen. Bei Bereichsanfragen
   Antwortbereich und gemeinsame Dateirevision prüfen; keine gemischten Versionen.
   Nur empfangene Quellbytes persistent cachen. Reprojektion, Terrainfelder,
