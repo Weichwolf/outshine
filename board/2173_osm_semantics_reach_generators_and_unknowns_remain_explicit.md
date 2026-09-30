@@ -18,11 +18,10 @@ etwa 160,2° Bearing und 478 m Abstand, passend zum linken Referenzbereich. Die 
 zum bisherigen MVT-Polygon bleibt separat zu belegen; keine Übertragung allein durch Nähe.
 Bei mehreren Tags hat die explizite Sonderbauwerksklasse Vorrang vor `building=yes`.
 
-Der Original-API-Ausschnitt enthält unvollständige Fernrelationen. `OsmChunkSetLoader`
-verwirft derzeit jede fehlende Referenz, auch weit entfernte Routen- und Grenzmitglieder.
+Der Original-API-Ausschnitt enthält unvollständige Fernrelationen. `OsmChunkSetLoader::LoadRegion`
+erhält sie; der strikte `Load`-Pfad fordert weiterhin vollständige Referenzen.
 Für räumliches Streaming muss WI 2280 referenzielle Vollständigkeit je konsumiertem Produkt
-prüfen: offene Referenzen erhalten und relevante Nachbarn anfordern; erforderliche
-Gebäude-/Multipolygon- oder Straßenbezüge nie stillschweigend ignorieren. `OsmElements`
+prüfen: offene Referenzen erhalten, relevante Nachbarn anfordern; keine nötigen Bezüge ignorieren. `OsmElements`
 prüft dafür die transitive Referenzhülle typisierter Produktwurzeln gemeinsam und zyklusfest.
 `world/ground/OsmBuildingFootprints` besitzt daraus Ringe/Koordinaten und pinnt den Quell-Snapshot;
 Tags bleiben über typisierte Original-ID erreichbar. Offene/mehrdeutige Ringketten verhindern Publikation.
@@ -42,7 +41,8 @@ Addieren, Ignorieren der Mindesthöhe oder Verwerfen des Bauwerks. Die Quellnorm
 muss Rohwerte, Widerspruch und deklarierte Ableitung getrennt erhalten; der native Generator
 bekommt erst ein gültiges aufgelöstes Intervall. Wien: Originalwege 241884106/1235545599
 haben `min_height=5.5` ohne Gesamthöhe; die Kachel liefert jeweils `height=min_height=5`.
-Fehlende Gesamthöhe braucht Baukörperableitung oberhalb der Mindesthöhe; Kachel-Defaults sind keine Messung.
+`OsmBuildingHeights::Resolve` liefert Herkunft und gültiges Intervall aus expliziter Policy.
+Metrische Widersprüche bleiben Fehler; Geschosskonflikte bleiben markiert. Runtime-Anbindung ist offen.
 
 ## Implementierung
 
