@@ -11,6 +11,9 @@ Tags: copernicus, original-source, webcam
 
 ## Ergebnis und Iststand
 Alle natürlichen Places verwenden ausschließlich Copernicus GLO-30 als DEM.
+Der native COG-Decoder liest Metadaten und einzelne Höhenblöcke aus gelieferten
+Originalbereichen; Datei, Länge und Revision bleiben gekoppelt. Native Beschaffung,
+Quelladressen, Cache-Receipts und die Übergabe an Runtime-Terrainfelder fehlen noch.
 Der bisherige `TerrariumDem`-Default liefert eine andere Quelle und erfüllt diesen
 Auftrag nicht. Decoder und historische Prüfdateien bleiben erhalten; der Runtime-
 Quellenpfad wird ersetzt. Alte Provider und unbenutzte Quellenpfade entfernen;
