@@ -291,10 +291,10 @@ private:
     std::shared_ptr<const void> ReservationOwner = nullptr;
   };
 
-  [[nodiscard]] Landing PrepareLanding(QueuedBuild &bake,
-                                       Ground::BuildingField &prints,
-                                       const Ground::OsmField *vectors,
-                                       Ground::TerrainCertificate certificate);
+  [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
+                                              Ground::BuildingField &prints,
+                                              const Ground::OsmField *vectors,
+                                              Ground::TerrainCertificate certificate);
 
   template <typename T>
   [[nodiscard]] static std::unique_ptr<T> Borrowed(std::vector<std::unique_ptr<T>> &idle) {
