@@ -1,5 +1,5 @@
 Type: bug
-State: active
+State: done
 Architecture: ready
 Priority: P0
 Parent: 2145
@@ -34,3 +34,10 @@ Kandidaten initialisieren; Publikation erhält vorhandene Quellen-/GPU-Daten.
 - Klassifikationsupload vor und nach Geometry-Build liefert dieselben Terrain-Pixel.
   Wasseraktivierung färbt weder Berge noch Straßen um.
 - Format, fokussierte RuntimeScene-Suite, Places und vollständiger Lint.
+
+## Lieferung
+`bed8cb572` und `6317e1dcb` erhalten passende Frame-Ressourcen und Ground-Daten.
+GPU-Abnahme prüft Plan-Rückkehr, Abbruch und Upload vor/nach Geometry-Build.
+Vollständiger Lint einschließlich clang-tidy/API ist für `6317e1dcb` grün.
+Flensburg rendert wieder mit erhaltenem Terrainbild; die vier bekannten
+Wien-/Feldkirch-Vorbereitungsfehler und offene Wasserqualität bleiben separat rot.
