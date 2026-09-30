@@ -5,7 +5,7 @@ Priority: P0
 Parent: 2145
 Area: engine, render
 Tags: water, webcam
-Depends:
+Depends: 2328
 
 # Existing water geometry renders as its own dielectric surface
 
