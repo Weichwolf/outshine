@@ -10,12 +10,13 @@ Tags: copernicus, original-source, webcam
 # Copernicus GLO-30 supplies terrain without a substitute elevation provider
 
 ## Ergebnis und Iststand
-Alle natürlichen Places verwenden ausschließlich Copernicus GLO-30 als DEM.
+Ziel: Alle natürlichen Places verwenden ausschließlich Copernicus GLO-30 als DEM.
 Der native COG-Decoder liest Metadaten und einzelne Höhenblöcke aus gelieferten
 Originalbereichen; Datei, Länge und Revision bleiben gekoppelt. Öffentliche Quelladressen
 unterscheiden native 1°-Zellen, Mercator-Kacheln und Produktindizes; Provider, Lieferung
-und Rohdaten-Cache erhalten diese Identität. Bereichsbeschaffung, Cache-Receipts und
-die Übergabe an Runtime-Terrainfelder fehlen noch.
+und Rohdaten-Cache erhalten diese Identität. `CopernicusDem` beschafft Originalbereiche
+über `SourceSet`; Receipts und Bytes bleiben beim erneuten Öffnen des Caches gekoppelt.
+Die Übergabe nativer Meter an Runtime-Terrainfelder fehlt noch.
 Der bisherige `TerrariumDem`-Default liefert eine andere Quelle und erfüllt diesen
 Auftrag nicht. Decoder und historische Prüfdateien bleiben erhalten; der Runtime-
 Quellenpfad wird ersetzt. Alte Provider und unbenutzte Quellenpfade entfernen;
@@ -54,9 +55,10 @@ liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
   Terrainfelder. `Address::AtCell` trennt native 1°-Quellzellen von `Address::At`-Renderkacheln;
   Datumsbezug, Resampling und fehlende Nachbarposts erhalten explizite Herkunft.
   Codec-/IO-Details enden am Adapter; Generatoren lesen native Meter.
-- Räumlich benötigte Rasterblöcke gebündelt beschaffen. Bei Bereichsanfragen
-  Antwortbereich und gemeinsame Dateirevision prüfen; keine gemischten Versionen.
-  Nur empfangene Quellbytes persistent cachen. Reprojektion, Terrainfelder,
+- Räumlich benötigte Rasterblöcke gebündelt beschaffen. `Fetch` trägt Bereich und ETag-Pin;
+  SourceSet prüft Antwortbereich, Dateilänge und Revision vor Lieferung und Cache.
+  Atomare Rohdateneinträge koppeln Originalbytes und Receipt; HTTP 412 meldet Quellenänderung.
+  Reprojektion, Terrainfelder,
   Normalen und Höhenatlanten bleiben begrenzte RAM-/GPU-Produkte.
 - Bestehende Terrain-Zertifikate erhalten Originalidentität, Transformation und
   Fehlerherkunft. Kein engerer Oberflächenfehler allein durch einen Quellenwechsel.
