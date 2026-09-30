@@ -3,7 +3,7 @@ State: open
 Architecture: planned
 Priority: P0
 Parent: 2166
-Depends:
+Depends: 2334
 Area: world, data, terrain, engine
 Tags: copernicus, original-source, webcam
 
