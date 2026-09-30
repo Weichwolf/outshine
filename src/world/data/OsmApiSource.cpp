@@ -2,26 +2,38 @@
 
 #include "OsmXmlReader.h"
 #include "SourceProviderValidation.h"
+#include <world/SourceProvider.h>
 
 #include <format>
+#include <cstdint>
+#include <expected>
+#include <memory>
 #include <span>
+#include <string>
 #include <utility>
 
 namespace outshine::Data {
+namespace {
+constexpr int kHttpOk = 200;
+constexpr int kHttpNotFound = 404;
+constexpr int kHttpRequestTimeout = 408;
+constexpr int kHttpTooManyRequests = 429;
+constexpr int kHttpServerError = 500;
+}
 
 std::expected<std::unique_ptr<OsmApiSource>, std::string>
 OsmApiSource::Create(const SourceProvider &provider, uint32_t region) {
-  if (provider.Kind != "osm" || provider.Endpoint.empty()) {
+  if (provider.Kind != "osm" || provider.Endpoint.empty() || !provider.Coverage) {
     return std::unexpected("an original OSM API source requires an osm endpoint declaration");
   }
   if (auto valid = ValidateSourceProviders(std::span(&provider, 1)); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
-  return std::unique_ptr<OsmApiSource>(new OsmApiSource(provider, region));
+  return std::unique_ptr<OsmApiSource>(new OsmApiSource(provider, *provider.Coverage, region));
 }
 
-OsmApiSource::OsmApiSource(const SourceProvider &provider, uint32_t region) : Region_(region) {
-  const auto &bounds = *provider.Coverage;
+OsmApiSource::OsmApiSource(const SourceProvider &provider, SourceCoverage bounds, uint32_t region)
+    : Region_(region) {
   Decl_.Id = provider.Dataset;
   Decl_.Revision = provider.Revision;
   Decl_.Endpoint = std::format("{}/map?bbox={},{},{},{}",
@@ -67,11 +79,12 @@ Fetched OsmApiSource::Collect(const Address &at, Ticket ticket, Transport &trans
   const double retryAfterS = wire.RetryAfterS();
   auto response = wire.Take();
   if (!response) { return Fetched::Meant(Meaning::Refused, wire.FailureReason()); }
-  if (response->Status == 200 && !response->Body.empty()) {
+  if (response->Status == kHttpOk && !response->Body.empty()) {
     return Fetched::Delivered(std::move(response->Body));
   }
-  if (response->Status == 404) { return Fetched::NotFound(); }
-  if (response->Status == 408 || response->Status == 429 || response->Status >= 500) {
+  if (response->Status == kHttpNotFound) { return Fetched::NotFound(); }
+  if (response->Status == kHttpRequestTimeout || response->Status == kHttpTooManyRequests ||
+      response->Status >= kHttpServerError) {
     return Fetched::MeantAfter(Meaning::Retry, retryAfterS);
   }
   return Fetched::Meant(Meaning::Refused);

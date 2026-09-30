@@ -56,33 +56,32 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     Error = "semantic OSM routes require a source";
     return false;
   }
-  if (!osmProviders.empty() || World.OsmSourceLoader || World.OsmTransportLoader) {
-    if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-    if (!World.OsmSourceLoader) {
-      if (!World.Wire) {
-        if (Session.Under.Offline) {
-          World.Wire = std::make_unique<Data::OfflineTransport>();
-        } else {
-          World.Wire = std::make_unique<Fetching>(
-              Fetching::Config{.ConcurrentTransfers = 2, .ConnectionsPerHost = 2});
-        }
+  if (osmProviders.empty() && !World.OsmSourceLoader && !World.OsmTransportLoader) { return true; }
+  if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
+  if (!World.OsmSourceLoader) {
+    if (!World.Wire) {
+      if (Session.Under.Offline) {
+        World.Wire = std::make_unique<Data::OfflineTransport>();
+      } else {
+        World.Wire = std::make_unique<Fetching>(
+            Fetching::Config{.ConcurrentTransfers = 2, .ConnectionsPerHost = 2});
       }
-      World.OsmSourceLoader =
-          std::make_unique<OsmSourceLoader>(*World.Pool, World.Wire.get(), Session.Under.Cache);
     }
-    if (!World.OsmTransportLoader) {
-      World.OsmTransportLoader = std::make_unique<World::OsmTransportLoader>(*World.Pool);
-    }
-    if (auto requested = World.OsmSourceLoader->Request(osmProviders, Session.Under.Shipped);
-        !requested) {
-      Error = std::move(requested.error());
-      return false;
-    }
-    World.OsmRoutes = std::move(routes);
-    if (World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Ready ||
-        World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Inactive) {
-      return SubmitOsmTransportSource();
-    }
+    World.OsmSourceLoader =
+        std::make_unique<OsmSourceLoader>(*World.Pool, World.Wire.get(), Session.Under.Cache);
+  }
+  if (!World.OsmTransportLoader) {
+    World.OsmTransportLoader = std::make_unique<World::OsmTransportLoader>(*World.Pool);
+  }
+  if (auto requested = World.OsmSourceLoader->Request(osmProviders, Session.Under.Shipped);
+      !requested) {
+    Error = std::move(requested.error());
+    return false;
+  }
+  World.OsmRoutes = std::move(routes);
+  if (World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Ready ||
+      World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Inactive) {
+    return SubmitOsmTransportSource();
   }
   return true;
 }

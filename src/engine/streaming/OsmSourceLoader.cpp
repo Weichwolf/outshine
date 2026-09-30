@@ -2,6 +2,7 @@
 
 #include "OsmChunkSetLoader.h"
 #include "OsmApiReader.h"
+#include "ContentStore.h"
 #include "SourceProviderValidation.h"
 
 #include <algorithm>
@@ -16,6 +17,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace outshine {
@@ -125,7 +127,7 @@ void OsmSourceLoader::StartRequested() {
     if (remote) {
       if (!access->Store) {
         access->Store = std::make_unique<Data::ContentStore>(
-            Data::ContentStore::Config{.Directory = access->Directory});
+            Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
       }
       const double deadlineMs = access->Wire->NowMs() + kAcquireBudgetMs;
       read = [access, deadlineMs](const auto &provider, const auto &stopToken) {

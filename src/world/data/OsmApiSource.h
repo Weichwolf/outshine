@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_DATA_OSMAPISOURCE_H
 
 #include "Source.h"
+#include <world/SourceProvider.h>
 
 #include <cstdint>
 #include <expected>
@@ -28,7 +29,7 @@ public:
   Collect(const Address &at, Ticket ticket, Transport &transport) const override;
 
 private:
-  OsmApiSource(const SourceProvider &provider, uint32_t region);
+  OsmApiSource(const SourceProvider &provider, SourceCoverage bounds, uint32_t region);
   SourceDecl Decl_;
   uint32_t Region_;
 };

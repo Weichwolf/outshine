@@ -738,13 +738,12 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
         signalled);
     if (signalled || remaining() <= 0.0) { return; }
   }
+  const bool sourceWorker = World.OsmSourceLoader && World.OsmSourceLoader->PendingCount() > 0;
   const bool worldWorker =
-      World.RoadAlignmentBuilds.Busy() ||
-      (World.OsmSourceLoader && World.OsmSourceLoader->PendingCount() > 0) ||
+      World.RoadAlignmentBuilds.Busy() || sourceWorker ||
       (World.OsmTransportLoader && World.OsmTransportLoader->PendingCount() > 0);
   if (worldWorker && World.Pool) {
     const auto began = std::chrono::steady_clock::now();
-    const bool sourceWorker = World.OsmSourceLoader && World.OsmSourceLoader->PendingCount() > 0;
     const bool signalled = sourceWorker ? World.OsmSourceLoader->AwaitSlice(remaining())
                                         : World.Pool->AwaitCompletion(remaining());
     record({.Milliseconds = waited.WorldWorkerMs,

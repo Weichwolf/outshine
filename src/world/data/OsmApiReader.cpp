@@ -4,9 +4,15 @@
 #include "SourceSet.h"
 
 #include <cmath>
+#include <expected>
+#include <stop_token>
+#include <string>
 #include <utility>
 
 namespace outshine::Data {
+namespace {
+constexpr double kIoAwaitMs = 5.0;
+}
 
 std::expected<OsmSourceChunk, std::string> ReadOsmApiRegion(const SourceProvider &provider,
                                                             ContentStore &store,
@@ -27,7 +33,7 @@ std::expected<OsmSourceChunk, std::string> ReadOsmApiRegion(const SourceProvider
     const double nowMs = wire.NowMs();
     if (stop.stop_requested() || !std::isfinite(nowMs) || !std::isfinite(deadlineMs) ||
         nowMs >= deadlineMs) {
-      sources.Abandon(query, wire);
+      SourceSet::Abandon(query, wire);
       return std::unexpected(stop.stop_requested()
                                  ? "original OSM source acquisition canceled"
                                  : "original OSM source acquisition deadline exceeded");
@@ -43,11 +49,11 @@ std::expected<OsmSourceChunk, std::string> ReadOsmApiRegion(const SourceProvider
     if (delivery.Where() != Delivery::State::Pending) {
       const auto reason =
           delivery.Failure() ? delivery.Failure()->Reason : FetchFailureReason::ProviderRefused;
-      sources.Abandon(query, wire);
+      SourceSet::Abandon(query, wire);
       return std::unexpected("original OSM source '" + url +
                              "' failed: " + std::string(Name(reason)));
     }
-    (void)wire.Await(5.0);
+    (void)wire.Await(kIoAwaitMs);
   }
 }
 

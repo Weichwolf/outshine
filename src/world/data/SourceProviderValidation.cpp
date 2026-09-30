@@ -62,7 +62,8 @@ constexpr size_t kSha256HexDigits = 64;
   return remaining.find_first_of("{}") == std::string::npos;
 }
 
-[[nodiscard]] std::expected<void, std::string> ValidateOsmLocation(const SourceProvider &provider) {
+[[nodiscard]] std::expected<void, std::string> ValidateOsmLocation(const SourceProvider &provider,
+                                                                   const SourceCoverage &bounds) {
   if (provider.Location.empty() == provider.Endpoint.empty()) {
     return std::unexpected(
         "an osm provider requires exactly one local location or official API endpoint");
@@ -71,7 +72,6 @@ constexpr size_t kSha256HexDigits = 64;
     if (provider.Endpoint != kOfficialOsmApi) {
       return std::unexpected("an osm endpoint must be the official original OSM API");
     }
-    const auto &bounds = *provider.Coverage;
     if ((bounds.EastDeg - bounds.WestDeg) * (bounds.NorthDeg - bounds.SouthDeg) >
         kOsmApiMaximumAreaDeg2) {
       return std::unexpected(
@@ -116,7 +116,7 @@ constexpr size_t kSha256HexDigits = 64;
     return std::unexpected(
         "an osm provider requires finite west/south/east/north coverage without wrapping");
   }
-  return ValidateOsmLocation(provider);
+  return ValidateOsmLocation(provider, *provider.Coverage);
 }
 
 [[nodiscard]] std::expected<void, std::string> ValidateTile(const SourceProvider &provider) {
