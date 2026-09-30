@@ -3,7 +3,7 @@ State: open
 Architecture: planned
 Priority: P0
 Parent: 2166
-Depends:
+Depends: 2332
 Area: world, data, terrain, engine
 Tags: copernicus, original-source, webcam
 
@@ -13,7 +13,8 @@ Tags: copernicus, original-source, webcam
 Alle natürlichen Places verwenden ausschließlich Copernicus GLO-30 als DEM.
 Der bisherige `TerrariumDem`-Default liefert eine andere Quelle und erfüllt diesen
 Auftrag nicht. Decoder und historische Prüfdateien bleiben erhalten; der Runtime-
-Quellenpfad wird ersetzt. Kamera, Zeit, offizielle OSM-Daten und Open-Meteo bleiben
+Quellenpfad wird ersetzt. Alte Provider und unbenutzte Quellenpfade entfernen;
+gemeinsam genutzte Terrain-/Straßenlogik erhalten. Kamera, Zeit, offizielle OSM-Daten und Open-Meteo bleiben
 die übrigen erlaubten Eingaben. Fehlende GLO-30-Daten sind kein Meeresspiegelwert.
 
 ## Belegter Rastervertrag und Decoderwahl
@@ -27,6 +28,9 @@ kein eigener TIFF-Decoder oder allgemeiner GIS-Stack. Originalblöcke/Übersicht
 liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
 
 ## Architektur und konkrete Umsetzung
+- GLO-30 nutzt die öffentliche Providerregistrierung aus 2332, denselben Transport,
+  Rohdaten-Cache und Fehlerfluss wie ein Provider eines Bibliotheksnutzers. Kein
+  paralleler privater Copernicus-Pfad. Der öffentliche S3-Bucket verwendet HTTPS.
 - `world/data` besitzt GLO-30-Beschaffung, Produktidentität und Originalbytes.
   Vor Implementierung offiziellen Bezugsweg, Raster-/Höhendatum, NoData und
   Revisions-/Byte-Pins anhand der Produktmetadaten festlegen. Keine behauptete

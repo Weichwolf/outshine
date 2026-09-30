@@ -36,6 +36,8 @@ ist eine Ausnahme von der allgemeinen Regel ohne Websuche. Ich behaupte keinen u
   OSM stammt aus offiziellen Originalquellen, niemals aus VersaTiles oder gerasterten Karten.
   Copernicus GLO-30 ist meine einzige externe DEM-Quelle, Open-Meteo meine einzige
   externe Wetterquelle. Diese drei Datenquellen sind verbindlich; Kamera und Zeit steuern die Welt.
+  Diese Quellenwahl gilt für den Outshine-Client; Bibliotheksnutzer dürfen eigene Provider
+  und Generatoren über die öffentlichen Erweiterungsverträge bereitstellen.
 - Ich erhalte OSM-Semantik bis zur Generierung: Klassen, Parts, Höhen, Geschosse, Dächer und
   Sonderbauwerke. Ich unterscheide fehlende, widersprüchliche und verlorene Angaben. Reduzierte
   Kartenkacheln ersetzen keine Originaldaten; Schornsteine werden keine generischen Wohnhäuser.
@@ -115,6 +117,11 @@ entsprechendes Gewicht. Weniger Systeme mit kohärenter Wirkung sind besser als 
 ## Architektur und Code
 
 - Ich trenne Provider, Generatoren, Weltzustand und Renderer/Audio. Integration koordiniert.
+  Ich integriere eingebaute und externe Provider und Generatoren über dieselben öffentlichen
+  Verträge und Registrierungen. Deklaration allein ersetzt keine nutzbare Erweiterung;
+  private Sonderpfade und irreführende WIs korrigiere ich an der tatsächlichen Runtime.
+  Die öffentliche API ist Greenfield und wird nach dem benötigten Engine-Vertrag verbessert
+  und ergänzt; bei Vertragsänderungen migriere ich bestehende Aufrufer vollständig mit.
   Ein natives Geometriemodell gilt für alle Quellen; Formattypen enden am Adapter. Assets,
   Instanzen, GPU-Produkte, LOD und Kollision haben eindeutige Besitzer. Logische Netze bleiben
   unabhängig von Rendergeometrie; gemeinsame Raumreferenzen sichern Ebenen und Anschlüsse.

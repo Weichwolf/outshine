@@ -28,6 +28,12 @@ Hockenheim capture did **not** close its offline route-data demand: an
 immediate offline replay missed 46 tiles and failed. WI 2306 owns that P0
 streaming/cache-closure defect; do not infer offline replay from this result.
 
+This is configuration of built-in providers, not public implementation registration.
+`Source`, `Transport` and `RegisterDeclared` remain private, and the factory hardcodes
+the supported producers. WI 2332 owns that extension gap; this historical result
+does not prove that library users can supply their own providers or that all runtime
+generators use the public contract.
+
 ## Contract and ownership
 
 - `SourceProvider` owns an optional HTTPS `endpoint` template for terrain/vector
