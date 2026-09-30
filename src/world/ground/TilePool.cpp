@@ -277,6 +277,7 @@ size_t TilePool::ByteCacheBytes() const {
   for (const CacheEntry &e : Cache_) {
     bytes += e.Key.capacity() + e.SourceId.capacity() + e.SourceRevision.capacity() +
              e.SourceKey.capacity() + CapacityBytes(e.Data) +
+             (e.Range ? e.Range->EntityTag.capacity() : 0u) +
              (e.Failure ? e.Failure->HeapBytes() : 0u);
   }
   return bytes;
@@ -353,7 +354,8 @@ size_t TilePool::SchedulerBytes() const {
              CapacityBytes(result.Landed.Bytes) + (result.Field ? result.Field->HeapBytes() : 0u) +
              (result.Landed.Failure ? result.Landed.Failure->HeapBytes() : 0u) +
              result.Landed.SourceId.capacity() + result.Landed.SourceRevision.capacity() +
-             result.Landed.SourceKey.capacity();
+             result.Landed.SourceKey.capacity() +
+             (result.Landed.Range ? result.Landed.Range->EntityTag.capacity() : 0u);
     for (const auto &source : result.Build.Sources) {
       bytes += source.SourceId.capacity() + source.Revision.capacity();
     }
@@ -384,6 +386,7 @@ void TilePool::RefuseUntil(const std::string &key,
 TilePool::Reply TilePool::ReadCachedDelivery(const std::string &key, Landing *out) {
   out->Failure.reset();
   out->TerrainStamp.reset();
+  out->Range.reset();
   const std::scoped_lock lock(CacheMutex_);
   const std::optional<size_t> found = CacheEntryOf(key);
   if (!found) { return Reply::Pending; }
@@ -410,6 +413,7 @@ TilePool::Reply TilePool::ReadCachedDelivery(const std::string &key, Landing *ou
   out->SourceRevision = e.SourceRevision;
   out->SourceKey = e.SourceKey;
   out->At = e.At;
+  out->Range = e.Range;
   return Reply::Ready;
 }
 
@@ -463,6 +467,7 @@ TilePool::PublishDelivery(const Data::Fetch &request, const Landing &landing, bo
   e.SourceId = landing.SourceId;
   e.SourceRevision = landing.SourceRevision;
   e.SourceKey = landing.SourceKey;
+  e.Range = landing.Range;
   e.Absent = absent;
   e.TerrainStamp = stamp;
   e.Used = ++CacheClock_;
@@ -476,6 +481,7 @@ TilePool::PublishDelivery(const Data::Fetch &request, const Landing &landing, bo
 TilePool::Reply TilePool::FetchDelivery(const Data::Fetch &request, Landing *out) {
   out->Failure.reset();
   out->TerrainStamp.reset();
+  out->Range.reset();
   if (!tCarries) {
     const std::scoped_lock ledger(LedgerMutex_);
     Ledger_.FetchOnCompute++;
@@ -501,6 +507,7 @@ TilePool::Reply TilePool::FetchDelivery(const Data::Fetch &request, Landing *out
       out->SourceRevision = std::move(taken->SourceRevision);
       out->SourceKey = std::move(taken->SourceKey);
       out->At = taken->At;
+      out->Range = std::move(taken->Range);
       out->TerrainStamp = PublishDelivery(request, *out, false);
       reply = Reply::Ready;
       break;

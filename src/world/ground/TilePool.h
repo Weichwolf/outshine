@@ -126,6 +126,7 @@ public:
     std::string SourceRevision;
     std::string SourceKey;
     Data::Address At = Data::Address::Whole(0);
+    std::optional<Data::RangeResponse> Range = std::nullopt;
     std::optional<Data::FetchFailure> Failure;
     std::optional<TerrainRevisionIndex::Stamp> TerrainStamp;
   };
@@ -210,6 +211,7 @@ private:
     std::string SourceKey;
 
     Data::Address At = Data::Address::Whole(0);
+    std::optional<Data::RangeResponse> Range = std::nullopt;
     bool Absent = false;
     double RefusedUntilMs = 0.0;
     std::optional<Data::FetchFailure> Failure;
