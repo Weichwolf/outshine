@@ -728,7 +728,8 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
            signalled);
     if (signalled || remaining() <= 0.0) { return; }
   }
-  if (!World.Stack.Classes().Building() && World.Stack.Pool().Counters().Outstanding > 0) {
+  if (World.Stack.Opened() && !World.Stack.Classes().Building() &&
+      World.Stack.Pool().Counters().Outstanding > 0) {
     const auto began = std::chrono::steady_clock::now();
     const bool signalled = World.Stack.AwaitProgress(remaining());
     record(
