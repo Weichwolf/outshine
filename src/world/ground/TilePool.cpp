@@ -148,7 +148,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
     Log::Error(LogTag::World, "invalid_terrain_revision_capacity");
   }
   Sources_.Seal();
-  if (config.Compute) {
+  if (config.Compute != nullptr) {
     Compute_ = config.Compute;
   } else {
     OwnedCompute_ = std::make_unique<Tasks>(config.Threads > 0 ? config.Threads : 1);
