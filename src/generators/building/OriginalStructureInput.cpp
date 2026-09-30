@@ -4,26 +4,36 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <limits>
+#include <span>
 #include <utility>
 
 namespace outshine::Generators {
 namespace {
 
+constexpr double kLongitudePeriodDeg = 360.0;
+
 std::expected<GeographicRing, OriginalStructureInputError>
-PointRing(RawTile &raw, uint32_t point, double widthM) {
+PointRing(RawTile &raw, const OriginalStructurePolicy &policy, uint32_t point) {
+  const double widthM = policy.PointWidthM;
   if (!std::isfinite(widthM) || widthM <= 0.0) {
     return std::unexpected(OriginalStructureInputError::InvalidPointPolicy);
   }
+  const size_t pointAt = static_cast<size_t>(point) * 2;
   const auto frame = TangentFrame::At(
-      {.LongitudeDeg = raw.LatLon[2 * point + 1], .LatitudeDeg = raw.LatLon[2 * point]});
+      {.LongitudeDeg = raw.LatLon[pointAt + 1], .LatitudeDeg = raw.LatLon[pointAt]});
   const auto first = static_cast<uint32_t>(raw.LatLon.size() / 2);
   const double half = widthM / 2.0;
-  for (const auto corner :
-       std::array<EastNorth, 4>{{{-half, -half}, {half, -half}, {half, half}, {-half, half}}}) {
+  for (const auto corner : std::array<EastNorth, 4>{{{.EastM = -half, .NorthM = -half},
+                                                     {.EastM = half, .NorthM = -half},
+                                                     {.EastM = half, .NorthM = half},
+                                                     {.EastM = -half, .NorthM = half}}}) {
     const auto at = frame.ApproximateGeographicAt(corner);
     raw.LatLon.push_back(at.LatitudeDeg);
-    raw.LatLon.push_back(std::remainder(at.LongitudeDeg, 360.0));
+    raw.LatLon.push_back(std::remainder(at.LongitudeDeg, kLongitudePeriodDeg));
   }
   return GeographicRing{.First = first, .Count = 4, .Exterior = true};
 }
@@ -62,24 +72,22 @@ OriginalStructureInput(const outshine::Ground::OsmBuildingFootprints &buildings,
       if (policy.PointsMost - raw.LatLon.size() / 2 < 4) {
         return std::unexpected(OriginalStructureInputError::PointBudgetExceeded);
       }
-      const auto generated = PointRing(raw, *building.PointIndex, policy.PointWidthM);
+      const auto generated = PointRing(raw, policy, *building.PointIndex);
       if (!generated) { return std::unexpected(generated.error()); }
       ring = *generated;
     } else {
       const auto rings = buildings.Rings().subspan(building.FirstRing, building.RingCount);
-      if (rings.empty() || !rings.front().Exterior) {
+      if (rings.empty() || !rings.front().Exterior ||
+          std::ranges::any_of(rings.subspan(1), [](const auto &hole) { return hole.Exterior; })) {
         return std::unexpected(OriginalStructureInputError::UnassignedCourtyard);
       }
       ring = rings.front();
-      for (const auto &hole : rings.subspan(1)) {
-        if (hole.Exterior) {
-          return std::unexpected(OriginalStructureInputError::UnassignedCourtyard);
-        }
-      }
       firstHole = static_cast<uint32_t>(building.FirstRing + 1);
       holeCount = static_cast<uint32_t>(building.RingCount - 1);
     }
-    const auto points = std::span<const double>(raw.LatLon).subspan(2 * ring.First, 2 * ring.Count);
+    const auto points =
+        std::span<const double>(raw.LatLon)
+            .subspan(static_cast<size_t>(ring.First) * 2, static_cast<size_t>(ring.Count) * 2);
     const auto cell = StructureCellOf(bounds, points);
     if (!cell) { return std::unexpected(OriginalStructureInputError::InvalidCell); }
     raw.Structures.push_back({.LocalFirst = ring.First,
