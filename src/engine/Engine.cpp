@@ -307,6 +307,8 @@ bool Engine::State::RefinedGroundClassified(const GroundRevision &revision) cons
 }
 
 WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
+  const std::string_view osmBlocker = OsmTransportBlocker(Session.Declared.Providers, World);
+  if (!Session.Declared.Ground.Declared) { return {{osmBlocker}}; }
   const auto *vectors = World.Stack.Vectors();
   const auto &ground = World.GroundPublished.Current();
   const bool refined = quality == GroundQuality::Refined;
@@ -314,7 +316,6 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const bool currentRevision =
       World.RequestedRefinedGround &&
       !World.GroundPublished.NeedsRebuild(*World.RequestedRefinedGround, false, false);
-  const std::string_view osmBlocker = OsmTransportBlocker(Session.Declared.Providers, World);
   return {{RequiredBlocker(refined, World.AskedWanted > 0, Says::kNoTerrainRequests),
            RequiredBlocker(refined, World.AskedPending == 0, Says::kPendingTerrain),
            RequiredBlocker(refined, World.Bare == 0, Says::kMissingTerrain),
@@ -361,9 +362,7 @@ Holds<Capture> Engine::beginCapture() {
   if (!S_->Picture.Standing) {
     return std::unexpected("capture requires a declared and assembled render scene");
   }
-  if (S_->Session.Declared.Ground.Declared && !settled()) {
-    return std::unexpected("capture requires a settled published world");
-  }
+  if (!settled()) { return std::unexpected("capture requires a settled published world"); }
   if (S_->Session.Declared.Ground.Declared && !S_->World.GroundPublished.BeginCapture()) {
     return std::unexpected("capture could not pin the published ground");
   }
@@ -614,6 +613,13 @@ Result Engine::State::PumpPreload() {
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.BeginFrame();
   PollOsmTransport();
+  if ((World.OsmSourceLoader &&
+       World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Failed) ||
+      (World.OsmTransportLoader &&
+       World.OsmTransportLoader->CurrentPhase() == World::OsmTransportLoader::Phase::Failed)) {
+    return std::unexpected(std::string(OsmTransportBlocker(Session.Declared.Providers, World)));
+  }
+  if (!Session.Declared.Ground.Declared) { return {}; }
   if (!RequestTerrainCoverage()) { return std::unexpected(Error); }
   const LongitudeLatitude stands = CurrentGeographicFocus();
   const double atLat = stands.LatitudeDeg;
@@ -798,7 +804,7 @@ Result Engine::preloadWithQuality(double patienceS,
   const double bound = patienceS;
   const GroundQuality quality =
       required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
-  if (!S_->Session.Declared.Ground.Declared) {
+  if (!S_->Session.Declared.Ground.Declared && S_->Readiness(quality).Ready()) {
     ReportPreload(*this, began, tell);
     return timed(Result{});
   }
@@ -809,6 +815,9 @@ Result Engine::preloadWithQuality(double patienceS,
     ++S_->PreloadPumps;
     if (!pumped) { return timed(pumped); }
     ReportPreload(*this, began, tell);
+    if (!S_->Session.Declared.Ground.Declared && S_->Readiness(quality).Ready()) {
+      return timed(Result{});
+    }
     if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate()) {
       const auto flushAt = std::chrono::steady_clock::now();
       const auto finished = S_->FlushPreloadGround(began, bound, quality);
@@ -822,7 +831,6 @@ Result Engine::preloadWithQuality(double patienceS,
     }
     const double leftS =
         bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-    if (!S_->World.Stack.Opened()) { continue; }
     const double waitS = leftS < kMostWaitS ? leftS : kMostWaitS;
     const auto awaitAt = std::chrono::steady_clock::now();
     S_->AwaitPreloadProgress(waitS);
