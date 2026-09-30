@@ -59,6 +59,15 @@ struct StructureSourceView {
     const auto &identity = inputs.Original->Snapshot->Elements.SourceIdentity();
     bytes(identity.DatasetId);
     bytes(identity.Revision);
+    std::vector<std::string_view> payloads;
+    payloads.reserve(inputs.Original->Snapshot->Chunks.size());
+    for (const auto &chunk : inputs.Original->Snapshot->Chunks) {
+      payloads.push_back(chunk.PayloadSha256);
+    }
+    std::ranges::sort(payloads);
+    payloads.erase(std::ranges::unique(payloads).begin(), payloads.end());
+    word(payloads.size());
+    for (const auto payload : payloads) { bytes(payload); }
     const auto &bounds = inputs.Original->Bounds;
     word(std::bit_cast<uint64_t>(bounds.WestDeg));
     word(std::bit_cast<uint64_t>(bounds.SouthDeg));
