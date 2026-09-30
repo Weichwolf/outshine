@@ -1279,15 +1279,20 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
 
 bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
                                        const Ground::RegionSources &sources,
-                                       Geometry &ground,
-                                       MaterialInstance ringSurface) {
+                                       Geometry &ground) {
   const auto waterAt = std::chrono::steady_clock::now();
   const Ground::WaterField &water = sources.WaterBodies;
   const Ground::OsmField *const vectors = sources.Vectors.get();
   const std::span<const double> points =
       vectors != nullptr ? vectors->Points() : std::span<const double>{};
+  if (water.Surfaces().empty()) { return true; }
+  const auto surface = ground.addSurface("water", Generators::WaterSurfaceMaterial());
+  if (!surface) {
+    Error = Says::MaterialCreationFailed;
+    return false;
+  }
   const auto built =
-      Generators::AppendWaterSurfaceGeometry(ground, ringSurface, water, points, standing);
+      Generators::AppendWaterSurfaceGeometry(ground, *surface, water, points, standing);
   if (!built) {
     Error = built.error();
     return false;
@@ -2383,8 +2388,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundConstructionStage
     case Core::GroundBuildSchedule::Stage::NeedsWater: {
       const auto began = std::chrono::steady_clock::now();
       GroundBuildProducts &build = state.Candidate().Products();
-      if (!BuildWaterSurfaces(
-              standing, state.Candidate().Sources(), build.Ground, build.GroundSurface)) {
+      if (!BuildWaterSurfaces(standing, state.Candidate().Sources(), build.Ground)) {
         return GroundBuildProgress::Failed;
       }
       state.AdvanceStage();

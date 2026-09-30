@@ -3,6 +3,7 @@
 
 #include "WaterField.h"
 #include "scene/Geometry.h"
+#include "scene/Material.h"
 
 #include <cstddef>
 #include <expected>
@@ -20,6 +21,8 @@ struct WaterSurfaceMetrics {
   size_t RefusedTopology = 0;
   size_t Triangles = 0;
 };
+
+[[nodiscard]] Material WaterSurfaceMaterial() noexcept;
 
 [[nodiscard]] std::expected<WaterSurfaceMetrics, std::string>
 AppendWaterSurfaceGeometry(Geometry &geometry,

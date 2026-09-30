@@ -24,6 +24,8 @@ namespace {
 
 constexpr double kAbsoluteAreaToleranceM2 = 1e-5;
 constexpr double kRelativeAreaTolerance = 1e-6;
+constexpr float kWaterRoughness = 0.08f;
+constexpr float kWaterIor = 1.333f;
 
 struct WaterVertex {
   double EastM;
@@ -118,6 +120,16 @@ std::optional<std::vector<uint32_t>> TriangulateWaterPolygon(const WaterPolygon 
   return oriented;
 }
 
+}
+
+Material WaterSurfaceMaterial() noexcept {
+  Material material;
+  material.BaseColour = {{1.0f, 1.0f, 1.0f, 1.0f}};
+  material.Roughness = kWaterRoughness;
+  material.Transmission = 1.0f;
+  material.Ior = kWaterIor;
+  material.DoubleSided = true;
+  return material;
 }
 
 std::expected<WaterSurfaceMetrics, std::string>
