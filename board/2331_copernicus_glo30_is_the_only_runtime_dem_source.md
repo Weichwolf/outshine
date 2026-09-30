@@ -1,6 +1,6 @@
 Type: feature
-State: open
-Architecture: planned
+State: active
+Architecture: ready
 Priority: P0
 Parent: 2166
 Depends: 2334
@@ -28,9 +28,11 @@ Die Spezifikation nennt NoData -32767 ausdrücklich für EEA-10; diesen Wert nic
 ungeprüft auf GLO-30 übertragen. Raster-NoData-Metadaten und nichtendliche Samples
 beachten; fehlende Dateien bleiben fehlende Quellen. Das Bucket-Readme beschreibt
 entfernte Ost-/Südrandposts und gemittelte Übersichten, keine Grenzpost-Duplikation.
-Die erste reale Bereichsantwort liefert 16384 von 32964108 Bytes mit starkem ETag;
-Folgeblöcke müssen diese Objektidentität halten. Uploaddatum ist kein Aufnahmedatum.
-`world/data/CopernicusDem` nutzt libtiff hinter privaten, begrenzten IO-Callbacks;
+`world/data/CopernicusRaster` liest unveränderliche Originalbereiche mit deklarierter
+Dateilänge über begrenzte libtiff-Callbacks. Fehlende Bytes liefern einen Bereichsbedarf,
+kein IO auf Compute. Metadaten und ausgewählte Blöcke sind getrennte endliche Aufträge.
+PixelIsPoint und gemittelte Übersichten behalten ihren jeweiligen Sample-Ursprung;
+gesonderte X-/Y-Abstände und NoData bleiben erhalten. libtiff begrenzt Allokationen;
 kein eigener TIFF-Decoder oder allgemeiner GIS-Stack. Originalblöcke/Übersichten
 liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
 
