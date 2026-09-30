@@ -31,7 +31,7 @@ enum class CopernicusProblem { MissingBytes, InvalidRaster, CapacityRefused };
 
 struct CopernicusFailure {
   CopernicusProblem Problem = CopernicusProblem::InvalidRaster;
-  std::optional<ByteRange> Needed;
+  std::optional<ByteRange> Needed = std::nullopt;
 };
 
 struct CopernicusLevel {

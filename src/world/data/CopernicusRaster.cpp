@@ -43,7 +43,7 @@ constexpr double kDegreeTolerance = 1e-8;
 struct Reader {
   CopernicusObject Original;
   uint64_t Position = 0;
-  std::optional<ByteRange> Needed;
+  std::optional<ByteRange> Needed = std::nullopt;
 
   [[nodiscard]] CopernicusFailure Failure() const {
     return {.Problem = Needed ? CopernicusProblem::MissingBytes : CopernicusProblem::InvalidRaster,
@@ -76,10 +76,9 @@ std::expected<void, CopernicusFailure> Validate(CopernicusObject original) {
   return {};
 }
 
-tmsize_t Read(thandle_t handle, void *destination, tmsize_t count) {
-  auto &reader = *static_cast<Reader *>(handle);
-  if (count <= 0) { return 0; }
-  const auto bytes = static_cast<uint64_t>(count);
+tmsize_t Read(Reader &reader, std::span<uint8_t> destination) {
+  if (destination.empty()) { return 0; }
+  const auto bytes = static_cast<uint64_t>(destination.size());
   if (reader.Position > reader.Original.TotalBytes ||
       bytes > reader.Original.TotalBytes - reader.Position || bytes > kMostEncodedBlockBytes) {
     return 0;
@@ -89,14 +88,14 @@ tmsize_t Read(thandle_t handle, void *destination, tmsize_t count) {
   for (const auto &part : reader.Original.Parts) {
     if (part.Origin.Bytes.First > covered) { break; }
     const uint64_t partEnd = part.Origin.Bytes.First + part.Bytes.size();
-    if (partEnd > covered) { covered = partEnd; }
+    covered = std::max(covered, partEnd);
     if (covered >= end) { break; }
   }
   if (covered < end) {
     if (!reader.Needed) { reader.Needed = ByteRange{.First = covered, .Length = end - covered}; }
     return 0;
   }
-  auto *out = static_cast<uint8_t *>(destination);
+  auto *out = destination.data();
   for (const auto &part : reader.Original.Parts) {
     const uint64_t first = part.Origin.Bytes.First;
     if (first >= end) { break; }
@@ -109,15 +108,22 @@ tmsize_t Read(thandle_t handle, void *destination, tmsize_t count) {
     }
   }
   reader.Position = end;
-  return count;
+  return static_cast<tmsize_t>(destination.size());
 }
 
-tmsize_t Write(thandle_t, void *, tmsize_t) {
+tmsize_t Write([[maybe_unused]] thandle_t source,
+               [[maybe_unused]] void *bytes,
+               [[maybe_unused]] tmsize_t count) {
   return 0;
 }
 
-toff_t Seek(thandle_t handle, toff_t offset, int whence) {
-  auto &reader = *static_cast<Reader *>(handle);
+struct FileSeek {
+  toff_t Offset = 0;
+  int Whence = SEEK_SET;
+};
+
+toff_t Seek(Reader &reader, FileSeek by) {
+  const auto [offset, whence] = by;
   uint64_t position = offset;
   if (whence != SEEK_SET) {
     if (whence != SEEK_CUR && whence != SEEK_END) { return std::numeric_limits<toff_t>::max(); }
@@ -138,7 +144,7 @@ toff_t Seek(thandle_t handle, toff_t offset, int whence) {
   return position;
 }
 
-int Close(thandle_t) {
+int Close([[maybe_unused]] thandle_t source) {
   return 0;
 }
 
@@ -146,13 +152,21 @@ toff_t Size(thandle_t handle) {
   return static_cast<Reader *>(handle)->Original.TotalBytes;
 }
 
-int Map(thandle_t, void **, toff_t *) {
+int Map([[maybe_unused]] thandle_t source,
+        [[maybe_unused]] void **base,
+        [[maybe_unused]] toff_t *size) {
   return 0;
 }
 
-void Unmap(thandle_t, void *, toff_t) {}
+void Unmap([[maybe_unused]] thandle_t source,
+           [[maybe_unused]] void *base,
+           [[maybe_unused]] toff_t size) {}
 
-int Quiet(TIFF *, void *, const char *, const char *, va_list) {
+int Quiet([[maybe_unused]] TIFF *raster,
+          [[maybe_unused]] void *context,
+          [[maybe_unused]] const char *unit,
+          [[maybe_unused]] const char *format,
+          [[maybe_unused]] va_list arguments) {
   return 1;
 }
 
@@ -167,17 +181,24 @@ RasterHandle Open(Reader &reader) {
   TIFFOpenOptionsSetWarnAboutUnknownTags(options.get(), 0);
   TIFFOpenOptionsSetErrorHandlerExtR(options.get(), &Quiet, nullptr);
   TIFFOpenOptionsSetWarningHandlerExtR(options.get(), &Quiet, nullptr);
-  return {TIFFClientOpenExt("copernicus-original",
-                            "rm",
-                            &reader,
-                            &Read,
-                            &Write,
-                            &Seek,
-                            &Close,
-                            &Size,
-                            &Map,
-                            &Unmap,
-                            options.get()),
+  return {TIFFClientOpenExt(
+              "copernicus-original",
+              "rm",
+              &reader,
+              +[](thandle_t source, void *bytes, tmsize_t count) -> tmsize_t {
+                if (count <= 0) { return 0; }
+                return Read(*static_cast<Reader *>(source),
+                            {static_cast<uint8_t *>(bytes), static_cast<size_t>(count)});
+              },
+              &Write,
+              +[](thandle_t source, toff_t offset, int whence) {
+                return Seek(*static_cast<Reader *>(source), {.Offset = offset, .Whence = whence});
+              },
+              &Close,
+              &Size,
+              &Map,
+              &Unmap,
+              options.get()),
           &TIFFClose};
 }
 
@@ -205,7 +226,12 @@ std::optional<uint16_t> GeoKey(std::span<const uint16_t> keys, uint16_t wanted) 
 
 std::expected<CopernicusLevel, CopernicusFailure> Level(TIFF *raster, uint64_t totalBytes) {
   CopernicusLevel level;
-  uint16_t bits = 0, samples = 0, format = 0, compression = 0, predictor = 0, planar = 0;
+  uint16_t bits = 0;
+  uint16_t samples = 0;
+  uint16_t format = 0;
+  uint16_t compression = 0;
+  uint16_t predictor = 0;
+  uint16_t planar = 0;
   if (TIFFGetField(raster, TIFFTAG_IMAGEWIDTH, &level.Columns) != 1 ||
       TIFFGetField(raster, TIFFTAG_IMAGELENGTH, &level.Rows) != 1 ||
       TIFFGetField(raster, TIFFTAG_TILEWIDTH, &level.BlockColumns) != 1 ||
@@ -232,7 +258,8 @@ std::expected<CopernicusLevel, CopernicusFailure> Level(TIFF *raster, uint64_t t
   if (blocks > kMostBlocks) {
     return std::unexpected(CopernicusFailure{.Problem = CopernicusProblem::CapacityRefused});
   }
-  uint64_t *offsets = nullptr, *counts = nullptr;
+  const uint64_t *offsets = nullptr;
+  const uint64_t *counts = nullptr;
   if (TIFFNumberOfTiles(raster) != blocks ||
       TIFFGetField(raster, TIFFTAG_TILEOFFSETS, &offsets) != 1 ||
       TIFFGetField(raster, TIFFTAG_TILEBYTECOUNTS, &counts) != 1 || offsets == nullptr ||
@@ -263,8 +290,9 @@ std::expected<void, CopernicusFailure> Locate(TIFF *raster, CopernicusLevel &lev
       !(scale[1] > 0)) {
     return std::unexpected(CopernicusFailure{});
   }
-  const auto angular = GeoKey(keys, kAngularUnitsKey), vertical = GeoKey(keys, kVerticalTypeKey),
-             units = GeoKey(keys, kVerticalUnitsKey);
+  const auto angular = GeoKey(keys, kAngularUnitsKey);
+  const auto vertical = GeoKey(keys, kVerticalTypeKey);
+  const auto units = GeoKey(keys, kVerticalUnitsKey);
   if ((angular && *angular != kAngularDegrees) || (vertical && *vertical != kEgm2008) ||
       (units && *units != kMeters)) {
     return std::unexpected(CopernicusFailure{});
@@ -331,6 +359,7 @@ std::expected<CopernicusRaster, CopernicusFailure> ReadCopernicusRaster(Copernic
   CopernicusRaster result{.ObjectKey = std::string(original.ObjectKey),
                           .TotalBytes = original.TotalBytes,
                           .EntityTag = std::string(original.EntityTag),
+                          .Levels = {},
                           .NoData = *noData};
   result.Levels.push_back(std::move(*root));
   while (TIFFLastDirectory(raster.get()) == 0) {
@@ -392,7 +421,8 @@ std::expected<CopernicusBlock, CopernicusFailure> ReadCopernicusBlock(
       .Stride = layout.BlockColumns,
       .HeightsM = std::vector<float>(static_cast<size_t>(layout.BlockColumns) * layout.BlockRows),
       .NoData = metadata.NoData};
-  const auto bytes = static_cast<tmsize_t>(result.HeightsM.size() * sizeof(float));
+  const auto bytes =
+      static_cast<tmsize_t>(result.HeightsM.size()) * static_cast<tmsize_t>(sizeof(float));
   if (TIFFTileSize64(raster.get()) != static_cast<uint64_t>(bytes) ||
       TIFFReadEncodedTile(raster.get(), block, result.HeightsM.data(), bytes) != bytes) {
     return std::unexpected(reader.Failure());
