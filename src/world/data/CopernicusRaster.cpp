@@ -111,12 +111,6 @@ tmsize_t Read(Reader &reader, std::span<uint8_t> destination) {
   return static_cast<tmsize_t>(destination.size());
 }
 
-tmsize_t Write([[maybe_unused]] thandle_t source,
-               [[maybe_unused]] void *bytes,
-               [[maybe_unused]] tmsize_t count) {
-  return 0;
-}
-
 struct FileSeek {
   toff_t Offset = 0;
   int Whence = SEEK_SET;
@@ -152,24 +146,6 @@ toff_t Size(thandle_t handle) {
   return static_cast<Reader *>(handle)->Original.TotalBytes;
 }
 
-int Map([[maybe_unused]] thandle_t source,
-        [[maybe_unused]] void **base,
-        [[maybe_unused]] toff_t *size) {
-  return 0;
-}
-
-void Unmap([[maybe_unused]] thandle_t source,
-           [[maybe_unused]] void *base,
-           [[maybe_unused]] toff_t size) {}
-
-int Quiet([[maybe_unused]] TIFF *raster,
-          [[maybe_unused]] void *context,
-          [[maybe_unused]] const char *unit,
-          [[maybe_unused]] const char *format,
-          [[maybe_unused]] va_list arguments) {
-  return 1;
-}
-
 using RasterHandle = std::unique_ptr<TIFF, decltype(&TIFFClose)>;
 
 RasterHandle Open(Reader &reader) {
@@ -179,25 +155,32 @@ RasterHandle Open(Reader &reader) {
   TIFFOpenOptionsSetMaxSingleMemAlloc(options.get(), kMostAllocationBytes);
   TIFFOpenOptionsSetMaxCumulatedMemAlloc(options.get(), kMostTiffBytes);
   TIFFOpenOptionsSetWarnAboutUnknownTags(options.get(), 0);
-  TIFFOpenOptionsSetErrorHandlerExtR(options.get(), &Quiet, nullptr);
-  TIFFOpenOptionsSetWarningHandlerExtR(options.get(), &Quiet, nullptr);
+  constexpr auto quiet = +[]([[maybe_unused]] TIFF *raster,
+                             [[maybe_unused]] void *context,
+                             [[maybe_unused]] const char *const unit,
+                             [[maybe_unused]] const char *format,
+                             [[maybe_unused]] va_list arguments) { return 1; };
+  TIFFOpenOptionsSetErrorHandlerExtR(options.get(), quiet, nullptr);
+  TIFFOpenOptionsSetWarningHandlerExtR(options.get(), quiet, nullptr);
   return {TIFFClientOpenExt(
               "copernicus-original",
               "rm",
               &reader,
-              +[](thandle_t source, void *bytes, tmsize_t count) -> tmsize_t {
+              +[](void *const source, void *bytes, tmsize_t count) -> tmsize_t {
                 if (count <= 0) { return 0; }
                 return Read(*static_cast<Reader *>(source),
                             {static_cast<uint8_t *>(bytes), static_cast<size_t>(count)});
               },
-              &Write,
-              +[](thandle_t source, toff_t offset, int whence) {
+              +[]([[maybe_unused]] void *const source,
+                  [[maybe_unused]] void *bytes,
+                  [[maybe_unused]] tmsize_t count) -> tmsize_t { return 0; },
+              +[](thandle_t source, const toff_t offset, int whence) {
                 return Seek(*static_cast<Reader *>(source), {.Offset = offset, .Whence = whence});
               },
               &Close,
               &Size,
-              &Map,
-              &Unmap,
+              nullptr,
+              nullptr,
               options.get()),
           &TIFFClose};
 }
