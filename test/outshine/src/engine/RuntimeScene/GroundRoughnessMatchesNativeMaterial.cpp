@@ -34,7 +34,7 @@ int main() {
       Unprepared(error.c_str());
       return Report();
     }
-    const auto render = [&](float roughness, bool ground, int mode) {
+    const auto render = [&](float roughness, bool ground, int mode, bool paletteFirst = false) {
       const bool classified = mode == 1;
       const bool mixed = mode == 2;
       Material material;
@@ -60,7 +60,7 @@ int main() {
       CHECK(prepared.has_value(), "private world prepared");
       if (!prepared) { return std::vector<float>{}; }
       candidate.GroundIs(ground ? surface->index() : -1);
-      if (!candidate.SetGeometry(std::move(geometry), 0, material, error)) {
+      if (!paletteFirst && !candidate.SetGeometry(std::move(geometry), 0, material, error)) {
         CHECK(false, error.c_str());
         return std::vector<float>{};
       }
@@ -99,6 +99,21 @@ int main() {
                                           90,
                                           mixed ? -5.0f : 90.0f};
       CHECK(renderer.SetGroundClasses(classes, palette, error), "ground palette uploaded");
+      if (paletteFirst) {
+        Geometry intermediate = geometry.clone();
+        Material clear;
+        clear.Transmission = 1.0f;
+        CHECK(intermediate.addSurface("transmission-plan", clear).has_value(),
+              "candidate temporarily requires a transmission plan");
+        if (!candidate.SetGeometry(std::move(intermediate), 0, material, error)) {
+          CHECK(false, error.c_str());
+          return std::vector<float>{};
+        }
+      }
+      if (paletteFirst && !candidate.SetGeometry(std::move(geometry), 0, material, error)) {
+        CHECK(false, error.c_str());
+        return std::vector<float>{};
+      }
       const auto published = candidate.Publish(scene);
       CHECK(published.has_value(), "complete fixture published");
       if (!published) { return std::vector<float>{}; }
@@ -127,6 +142,9 @@ int main() {
       const auto native = render(roughness, false, 0);
       for (int mode : {0, 1, 2}) {
         const auto ground = render(roughness, true, mode);
+        const auto earlyPalette = render(roughness, true, mode, true);
+        CHECK(ground == earlyPalette,
+              "classification uploaded before geometry retains the same ground pixels");
         CHECK(native.size() == 32u * 32u * 4u && ground.size() == native.size(),
               "both material paths produced complete linear frames");
         if (native.size() != 32u * 32u * 4u || ground.size() != native.size()) { continue; }

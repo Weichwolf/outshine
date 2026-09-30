@@ -325,11 +325,13 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
   }
   ActiveState().Content.Glass.AttachPipelines(State_.Frame.GlassPipelines, State_.Frame.Handles);
   ActiveState().Content.Glass.Shares(ActiveState().Content.Subjects.Owned());
-  const auto ground =
-      ActiveState().Content.Ground.Replace(State_.Frame.Handles.Device, {}, {}, Submission_);
-  if (!ground) {
-    ActiveState().WhyNot = ground.error();
-    return std::unexpected(ActiveState().WhyNot);
+  if (!ActiveState().Content.Ground.Ready()) {
+    const auto ground =
+        ActiveState().Content.Ground.Replace(State_.Frame.Handles.Device, {}, {}, Submission_);
+    if (!ground) {
+      ActiveState().WhyNot = ground.error();
+      return std::unexpected(ActiveState().WhyNot);
+    }
   }
   ActiveState().Content.Subjects.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                              .Palette = ActiveState().Content.Ground.Palette()});
