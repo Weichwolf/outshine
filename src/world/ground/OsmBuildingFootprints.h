@@ -39,6 +39,7 @@ public:
     Data::OsmElementId Source;
     size_t FirstRing = 0;
     size_t RingCount = 0;
+    std::optional<uint32_t> PointIndex = std::nullopt;
   };
 
   [[nodiscard]] static std::expected<OsmBuildingFootprints, OsmFootprintError>

@@ -45,6 +45,7 @@ bool IsBuilding(std::span<const Data::OsmTag> tags) {
 
 std::expected<std::vector<Data::OsmElementId>, OsmFootprintError>
 SelectBuildingRoots(const Data::OsmElements &source) {
+  std::vector<Data::OsmElementId> roots;
   for (const auto &node : source.Nodes()) {
     if (!IsBuilding(node.Tags)) { continue; }
     if (Ambiguous(node.Tags)) {
@@ -52,13 +53,8 @@ SelectBuildingRoots(const Data::OsmElements &source) {
           OsmFootprintError{.Code = OsmFootprintErrorCode::AmbiguousTag,
                             .Source = {.Kind = Data::OsmElementKind::Node, .Id = node.Id}});
     }
-    if (IsBuilding(node.Tags)) {
-      return std::unexpected(
-          OsmFootprintError{.Code = OsmFootprintErrorCode::UnsupportedGeometry,
-                            .Source = {.Kind = Data::OsmElementKind::Node, .Id = node.Id}});
-    }
+    roots.push_back({.Kind = Data::OsmElementKind::Node, .Id = node.Id});
   }
-  std::vector<Data::OsmElementId> roots;
   std::set<uint64_t> relationWays;
   for (const auto &relation : source.Relations()) {
     if (!IsBuilding(relation.Tags)) { continue; }
@@ -113,6 +109,9 @@ CloseRing(std::vector<uint64_t> ring,
 }
 
 std::span<const Data::OsmTag> OsmBuildingFootprints::Tags(const Building &building) const noexcept {
+  if (building.Source.Kind == Data::OsmElementKind::Node) {
+    return Source_->Elements.FindNode(building.Source.Id)->Tags;
+  }
   if (building.Source.Kind == Data::OsmElementKind::Way) {
     return Source_->Elements.FindWay(building.Source.Id)->Tags;
   }
@@ -250,6 +249,18 @@ OsmBuildingFootprints::Build(std::shared_ptr<const Data::OsmSourceSnapshot> sour
   OsmBuildingFootprints result;
   result.Source_ = std::move(source);
   for (const Data::OsmElementId root : *roots) {
+    if (root.Kind == Data::OsmElementKind::Node) {
+      const size_t point = result.Points_.size() / 2;
+      if (point >= maxPoints) {
+        return std::unexpected(
+            OsmFootprintError{.Code = OsmFootprintErrorCode::PointBudgetExceeded, .Source = root});
+      }
+      const auto &node = *result.Source_->Elements.FindNode(root.Id);
+      result.Points_.push_back(node.LatitudeDeg);
+      result.Points_.push_back(node.LongitudeDeg);
+      result.Buildings_.push_back({.Source = root, .PointIndex = static_cast<uint32_t>(point)});
+      continue;
+    }
     const size_t first = result.Rings_.size();
     auto appended =
         root.Kind == Data::OsmElementKind::Way

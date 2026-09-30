@@ -16,7 +16,7 @@ std::shared_ptr<const outshine::Data::OsmSourceSnapshot> Source(std::string_view
                                          {.DatasetId = "original-buildings", .Revision = "r1"});
   if (!read) { return {}; }
   return std::make_shared<const outshine::Data::OsmSourceSnapshot>(
-      outshine::Data::OsmSourceSnapshot{.Elements = std::move(*read)});
+      outshine::Data::OsmSourceSnapshot{.Elements = std::move(*read), .Coverage = {}});
 }
 
 constexpr std::string_view kNodes = "<node id='1' lat='0' lon='0'/><node id='2' lat='0' lon='4'/>"
@@ -116,5 +116,29 @@ int main() {
       8);
   CHECK(!openRelation && openRelation.error().Code == OsmFootprintErrorCode::AmbiguousJunction,
         "an open member chain cannot invent its missing closing edge");
+  const auto pointSource =
+      Source(std::string(kNodes) +
+             "<node id='9' lat='54.79' lon='9.43'><tag k='building' v='toilets'/>"
+             "<tag k='building:levels' v='1'/><tag k='operator' v='original'/></node>"
+             "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='1'/>"
+             "<tag k='building' v='yes'/></way>");
+  const auto mixed = OsmBuildingFootprints::Build(pointSource, 4);
+  CHECK(mixed && mixed->Buildings().size() == 2 && mixed->Rings().size() == 1 &&
+            mixed->Points().size() == 8,
+        "point building and area building coexist without an invented footprint");
+  if (mixed) {
+    const auto &point = mixed->Buildings().front();
+    CHECK(point.Source.Kind == OsmElementKind::Node && point.Source.Id == 9 && point.PointIndex &&
+              point.RingCount == 0 && !mixed->Buildings().back().PointIndex,
+          "point identity and geometry kind remain distinct from area geometry");
+    CHECK(point.PointIndex && mixed->Points()[2 * *point.PointIndex] == 54.79 &&
+              mixed->Points()[2 * *point.PointIndex + 1] == 9.43 &&
+              mixed->Tags(point).size() == 3 && mixed->Heights(point).Levels &&
+              **mixed->Heights(point).Levels == 1,
+          "point location, complete tags and original storeys reach native consumers");
+  }
+  const auto pointLimited = OsmBuildingFootprints::Build(pointSource, 3);
+  CHECK(!pointLimited && pointLimited.error().Code == OsmFootprintErrorCode::PointBudgetExceeded,
+        "point buildings consume the same coordinate budget as rings");
   return Report();
 }

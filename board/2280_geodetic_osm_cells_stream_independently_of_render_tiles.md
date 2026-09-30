@@ -91,8 +91,8 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   pauschal OsmField-Puffer durch. Native und bestehende Produkte teilen denselben Vertrag.
 - `OsmBuildingFootprints` now owns closed ways and outer/inner multipolygon chains, pins
   the source snapshot and retains typed IDs and tags. Product-root closure is implemented.
-  Point structures and type=building groups remain unsupported; part ownership and semantics
-  remain open. Preserve strict local complete-set and graph validation.
+  Point structures retain position/typed ID/tags without fabricated rings; generator policy
+  and type=building groups/part ownership remain open. Preserve strict source/graph validation.
 - `RawTile`, `StructurePlan` and terrain stamps now retain inner rings and minimum height.
   Courtyards bypass solid aggregation; their roofs and floors preserve all inner boundaries.
   Native source ownership, precise roof forms and building classes still need connection.
