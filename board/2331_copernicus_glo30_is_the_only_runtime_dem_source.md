@@ -3,7 +3,7 @@ State: open
 Architecture: planned
 Priority: P0
 Parent: 2166
-Depends: 2334, 2335
+Depends: 2334
 Area: world, data, terrain, engine
 Tags: copernicus, original-source, webcam
 
@@ -60,6 +60,8 @@ liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
 - IO, Decode und Upload haben begrenzte Arbeit, klare Besitzer und Abbruch.
   Downloads laufen gebündelt parallel über libcurl-Multi; Decode/Resampling verwendet
   einen Compute-Worker. Render-/Audioarbeit und IO blockieren diesen nicht.
+  Der gemeinsame Terrain-Executor ist verfügbar; die übrigen Umstellungen in 2335
+  blockieren den DSM-Adapter nicht mehr.
   Kein Netz-/Dateizugriff im Framepfad; Drehung verwendet residente Terrainprodukte.
 
 ## Abnahme
