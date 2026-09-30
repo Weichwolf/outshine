@@ -5,7 +5,7 @@
 
 namespace outshine::Data {
 
-enum class DataKind : uint8_t { Elevation, VectorMap, StarCatalogue };
+enum class DataKind : uint8_t { Elevation, VectorMap, StarCatalogue, OriginalOsm };
 
 [[nodiscard]] const char *Name(DataKind kind) noexcept;
 

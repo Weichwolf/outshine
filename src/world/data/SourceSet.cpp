@@ -169,7 +169,7 @@ std::optional<Delivery> SourceSet::ProcessAbsence(Query &query) {
 std::optional<Delivery> SourceSet::ReadStored(Query &query) {
   const SourceDecl &decl = query.Current_->Declaration();
   if (decl.Keeps != Cacheability::Forever) { return std::nullopt; }
-  auto kept = Store_.Lookup(ContentKey(decl, query.At_));
+  auto kept = Store_.Lookup(ContentKey(decl, query.At_), decl.MaximumPayloadBytes);
   if (kept.Where == ContentStore::Presence::Unknown) { return std::nullopt; }
   if (kept.Where == ContentStore::Presence::Absent) {
     {
@@ -232,6 +232,9 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
   const bool validDelay = std::isfinite(retryAfterMs) && retryAfterMs >= 0.0;
   switch (response.What) {
     case Meaning::Bytes: {
+      if (decl.MaximumPayloadBytes != 0 && response.Bytes.size() > decl.MaximumPayloadBytes) {
+        return Refuse(query, kRetryCapMs, FetchFailureReason::CapacityRefused);
+      }
       if (decl.Keeps == Cacheability::Forever) {
         (void)Store_.Keep(
             ContentKey(decl, query.At_), response.Bytes.data(), response.Bytes.size());

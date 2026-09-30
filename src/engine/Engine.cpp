@@ -737,7 +737,9 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
       (World.OsmTransportLoader && World.OsmTransportLoader->PendingCount() > 0);
   if (worldWorker && World.Pool) {
     const auto began = std::chrono::steady_clock::now();
-    const bool signalled = World.Pool->AwaitCompletion(remaining());
+    const bool sourceWorker = World.OsmSourceLoader && World.OsmSourceLoader->PendingCount() > 0;
+    const bool signalled = sourceWorker ? World.OsmSourceLoader->AwaitSlice(remaining())
+                                        : World.Pool->AwaitCompletion(remaining());
     record({.Milliseconds = waited.WorldWorkerMs,
             .Calls = waited.WorldWorkerCalls,
             .Signals = waited.WorldWorkerSignals},

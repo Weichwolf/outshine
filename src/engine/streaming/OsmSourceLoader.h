@@ -2,6 +2,8 @@
 #define OUTSHINE_ENGINE_STREAMING_OSMSOURCELOADER_H
 
 #include "OsmSourceSnapshot.h"
+#include "OsmChunkSetLoader.h"
+#include "Transport.h"
 #include "Tasks.h"
 #include <world/SourceProvider.h>
 
@@ -15,6 +17,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <variant>
 
 namespace outshine {
 
@@ -22,7 +25,9 @@ class OsmSourceLoader {
 public:
   enum class Phase : uint8_t { Inactive, Loading, Ready, Failed };
 
-  explicit OsmSourceLoader(Tasks &tasks) : Tasks_(&tasks) {}
+  explicit OsmSourceLoader(Tasks &tasks,
+                           Data::Transport *wire = nullptr,
+                           std::string cacheDirectory = {});
 
   ~OsmSourceLoader();
   OsmSourceLoader(const OsmSourceLoader &) = delete;
@@ -31,6 +36,7 @@ public:
   [[nodiscard]] std::expected<void, std::string>
   Request(std::span<const Data::SourceProvider> providers, std::string_view root);
   void Poll();
+  [[nodiscard]] bool AwaitSlice(double seconds) const;
 
   [[nodiscard]] Phase CurrentPhase() const noexcept { return Phase_; }
 
@@ -44,20 +50,27 @@ public:
 
 private:
   using LoadResult = std::expected<std::shared_ptr<const Data::OsmSourceSnapshot>, std::string>;
+  using ReadResult = std::expected<std::vector<Data::OsmSourceChunk>, std::string>;
 
   struct Result {
-    std::optional<LoadResult> Value;
+    std::variant<std::monostate, ReadResult, LoadResult> Value;
   };
 
   struct Pending {
     Tasks::Handle Handle = Tasks::kNoTask;
+    Tasks *Owner = nullptr;
     uint64_t Revision = 0;
     std::shared_ptr<Result> Output;
     std::stop_source Stop;
   };
 
   void StartRequested();
+  void StartDecode(std::vector<Data::OsmSourceChunk> input, std::stop_source stop);
+  void CompletePending(Pending finished);
+  struct Access;
   Tasks *Tasks_;
+  Tasks Io_{1};
+  std::shared_ptr<Access> Access_;
   std::vector<Data::SourceProvider> Requested_;
   std::string Root_;
   std::optional<Pending> Pending_;

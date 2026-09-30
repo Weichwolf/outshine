@@ -14,6 +14,7 @@ struct OsmChunkProvenance {
   std::string Location;
   std::string PayloadSha256;
   bool PinVerified = false;
+  bool FromStore = false;
 };
 
 struct OsmSourceSnapshot {

@@ -47,38 +47,79 @@ std::expected<OsmSourceSnapshot, std::string>
 OsmChunkSetLoader::LoadRegion(std::span<const SourceProvider> providers,
                               std::string_view shippedRoot,
                               const std::stop_token &stop) {
+  auto read = ReadRegion(providers, shippedRoot, stop);
+  if (!read) { return std::unexpected(std::move(read.error())); }
+  return ParseRegion(*read, stop);
+}
+
+std::expected<std::vector<OsmSourceChunk>, std::string>
+OsmChunkSetLoader::ReadRegion(std::span<const SourceProvider> providers,
+                              std::string_view shippedRoot,
+                              const std::stop_token &stop,
+                              const RemoteRead &remoteRead) {
+  std::vector<OsmSourceChunk> chunks;
+  chunks.reserve(providers.size());
+  size_t bytes = 0;
+  for (const auto &provider : providers) {
+    if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
+    OsmSourceChunk chunk;
+    if (!provider.Endpoint.empty()) {
+      if (!remoteRead) { return std::unexpected("official original OSM needs a source transport"); }
+      auto fetched = remoteRead(provider, stop);
+      if (!fetched) { return std::unexpected(std::move(fetched.error())); }
+      chunk = std::move(*fetched);
+    } else {
+      const std::filesystem::path location(provider.Location);
+      const auto path =
+          location.is_absolute() ? location : std::filesystem::path(shippedRoot) / location;
+      const auto began = std::chrono::steady_clock::now();
+      auto xml = ReadTextFile(path.string(), kMaxOsmXmlBytes);
+      if (!xml) { return std::unexpected(std::move(xml.error())); }
+      chunk = {.Provider = provider,
+               .Xml = std::move(*xml),
+               .Origin = provider.Location,
+               .ReadMs = MillisecondsSince(began),
+               .FromStore = false};
+    }
+    if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
+    if (chunk.Xml.size() > kMaxOsmXmlBytes || chunk.Xml.size() > kMaxTotalBytes - bytes) {
+      return std::unexpected("semantic OSM source exceeds the byte budget");
+    }
+    bytes += chunk.Xml.size();
+    chunks.push_back(std::move(chunk));
+  }
+  return chunks;
+}
+
+std::expected<OsmSourceSnapshot, std::string>
+OsmChunkSetLoader::ParseRegion(std::span<const OsmSourceChunk> input, const std::stop_token &stop) {
   std::vector<OsmElements> chunks;
   std::vector<SourceCoverage> coverage;
   std::vector<OsmChunkProvenance> provenance;
-  chunks.reserve(providers.size());
-  coverage.reserve(providers.size());
-  provenance.reserve(providers.size());
+  chunks.reserve(input.size());
+  coverage.reserve(input.size());
+  provenance.reserve(input.size());
   size_t bytes = 0;
   double readMs = 0.0;
   double parseMs = 0.0;
-  for (const SourceProvider &provider : providers) {
+  for (const OsmSourceChunk &source : input) {
+    const auto &provider = source.Provider;
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
-    const std::filesystem::path location(provider.Location);
-    const std::filesystem::path path =
-        location.is_absolute() ? location : std::filesystem::path(shippedRoot) / location;
-    const auto readAt = std::chrono::steady_clock::now();
-    auto xml = ReadTextFile(path.string(), kMaxOsmXmlBytes);
-    readMs += MillisecondsSince(readAt);
-    if (!xml) { return std::unexpected(std::move(xml.error())); }
-    if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
+    const auto parseAt = std::chrono::steady_clock::now();
+    const std::string_view xml(source.Xml);
+    readMs += source.ReadMs;
+    if (xml.size() > kMaxOsmXmlBytes || xml.size() > kMaxTotalBytes - bytes) {
+      return std::unexpected("semantic OSM source exceeds the total byte budget");
+    }
+    bytes += xml.size();
     const std::string_view digest = PayloadDigest(provider);
-    const std::string actualDigest = Sha256Hex(*xml);
+    const std::string actualDigest = Sha256Hex(xml);
     if (!digest.empty() && actualDigest != digest) {
       return std::unexpected("semantic OSM source '" + provider.Location +
                              "' does not match its sha256 pin");
     }
-    if (xml->size() > kMaxTotalBytes - bytes) {
-      return std::unexpected("semantic OSM source exceeds the total byte budget");
-    }
-    bytes += xml->size();
-    const auto parseAt = std::chrono::steady_clock::now();
     auto parsed =
-        OsmXmlReader::Read(*xml, {.DatasetId = provider.Dataset, .Revision = provider.Revision});
+        OsmXmlReader::Read(xml, {.DatasetId = provider.Dataset, .Revision = provider.Revision});
     parseMs += MillisecondsSince(parseAt);
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
     if (!parsed) {
@@ -91,9 +132,10 @@ OsmChunkSetLoader::LoadRegion(std::span<const SourceProvider> providers,
                              "' has no declared coverage");
     }
     coverage.push_back(*provider.Coverage);
-    provenance.push_back({.Location = provider.Location,
+    provenance.push_back({.Location = source.Origin,
                           .PayloadSha256 = actualDigest,
-                          .PinVerified = !digest.empty()});
+                          .PinVerified = !digest.empty(),
+                          .FromStore = source.FromStore});
     chunks.push_back(std::move(*parsed));
   }
 

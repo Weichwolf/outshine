@@ -62,12 +62,34 @@ constexpr size_t kSha256HexDigits = 64;
   return remaining.find_first_of("{}") == std::string::npos;
 }
 
-[[nodiscard]] std::expected<void, std::string> ValidateOsm(const SourceProvider &provider) {
-  if (provider.Dataset.empty() || provider.Revision.empty() || provider.Location.empty()) {
-    return std::unexpected("an osm provider requires dataset, pin and a local location");
+[[nodiscard]] std::expected<void, std::string> ValidateOsmLocation(const SourceProvider &provider) {
+  if (provider.Location.empty() == provider.Endpoint.empty()) {
+    return std::unexpected(
+        "an osm provider requires exactly one local location or official API endpoint");
   }
   if (!provider.Endpoint.empty()) {
-    return std::unexpected("an osm provider uses a pinned local location, not an endpoint");
+    if (provider.Endpoint != kOfficialOsmApi) {
+      return std::unexpected("an osm endpoint must be the official original OSM API");
+    }
+    const auto &bounds = *provider.Coverage;
+    if ((bounds.EastDeg - bounds.WestDeg) * (bounds.NorthDeg - bounds.SouthDeg) >
+        kOsmApiMaximumAreaDeg2) {
+      return std::unexpected(
+          "an original OSM API map request exceeds its 0.25 square-degree area limit");
+    }
+    return {};
+  }
+  const size_t colon = provider.Location.find(':');
+  const size_t slash = provider.Location.find('/');
+  if (colon != std::string::npos && (slash == std::string::npos || colon < slash)) {
+    return std::unexpected("an osm provider location must be a local file path");
+  }
+  return {};
+}
+
+[[nodiscard]] std::expected<void, std::string> ValidateOsmPins(const SourceProvider &provider) {
+  if (provider.Dataset.empty() || provider.Revision.empty()) {
+    return std::unexpected("an osm provider requires dataset and revision");
   }
   if (provider.Missing != MissingDataPolicy::Fail) {
     return std::unexpected("an osm provider must fail when its source is absent");
@@ -85,16 +107,16 @@ constexpr size_t kSha256HexDigits = 64;
   if (!provider.PayloadSha256.empty() && !ValidDigest(provider.PayloadSha256)) {
     return std::unexpected("an osm response sha256 requires 64 lowercase hexadecimal digits");
   }
-  const size_t colon = provider.Location.find(':');
-  const size_t slash = provider.Location.find('/');
-  if (colon != std::string::npos && (slash == std::string::npos || colon < slash)) {
-    return std::unexpected("an osm provider location must be a local file path");
-  }
+  return {};
+}
+
+[[nodiscard]] std::expected<void, std::string> ValidateOsm(const SourceProvider &provider) {
+  if (auto valid = ValidateOsmPins(provider); !valid) { return valid; }
   if (!provider.Coverage || !ValidCoverage(*provider.Coverage)) {
     return std::unexpected(
         "an osm provider requires finite west/south/east/north coverage without wrapping");
   }
-  return {};
+  return ValidateOsmLocation(provider);
 }
 
 [[nodiscard]] std::expected<void, std::string> ValidateTile(const SourceProvider &provider) {

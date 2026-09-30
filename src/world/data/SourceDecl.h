@@ -15,7 +15,7 @@ enum class Rank : int32_t {};
 
 using AbsencePolicy = MissingDataPolicy;
 
-enum class WireFormat : uint8_t { TerrariumPng, MapboxVectorTile, StarBandBinary };
+enum class WireFormat : uint8_t { TerrariumPng, MapboxVectorTile, StarBandBinary, OsmXml };
 [[nodiscard]] const char *Name(WireFormat wire) noexcept;
 
 enum class LatencyClass : uint8_t { Local, Regional, Distant };
@@ -53,6 +53,8 @@ struct SourceDecl {
   size_t TypicalPayloadBytes = 0;
 
   int RetryBudget = 0;
+  size_t MaximumPayloadBytes = 0;
+  std::string PayloadSha256;
 };
 
 }

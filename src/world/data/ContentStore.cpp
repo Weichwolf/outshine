@@ -78,6 +78,10 @@ std::string ContentKey(const SourceDecl &decl, const Address &at) {
     subject += '\n';
     subject += decl.Endpoint;
   }
+  if (!decl.PayloadSha256.empty()) {
+    subject += '\n';
+    subject += decl.PayloadSha256;
+  }
   return Sha256Hex(subject);
 }
 
@@ -93,6 +97,10 @@ std::string SourceKey(const SourceDecl &decl) {
   subject += Name(decl.Wire);
   subject += '\n';
   subject += decl.Endpoint;
+  if (!decl.PayloadSha256.empty()) {
+    subject += '\n';
+    subject += decl.PayloadSha256;
+  }
   return Sha256Hex(subject);
 }
 

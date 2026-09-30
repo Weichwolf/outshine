@@ -1,6 +1,7 @@
 #include "OsmSourceLoader.h"
 
 #include "OsmChunkSetLoader.h"
+#include "OsmApiReader.h"
 #include "SourceProviderValidation.h"
 
 #include <algorithm>
@@ -20,12 +21,25 @@
 namespace outshine {
 namespace {
 constexpr size_t kMaxChunks = 4;
+constexpr double kAcquireBudgetMs = 10000.0;
+}
+
+struct OsmSourceLoader::Access {
+  Data::Transport *Wire = nullptr;
+  std::string Directory;
+  std::unique_ptr<Data::ContentStore> Store;
+};
+
+OsmSourceLoader::OsmSourceLoader(Tasks &tasks, Data::Transport *wire, std::string cacheDirectory)
+    : Tasks_(&tasks), Access_(std::make_shared<Access>()) {
+  Access_->Wire = wire;
+  Access_->Directory = std::move(cacheDirectory);
 }
 
 OsmSourceLoader::~OsmSourceLoader() {
   if (Pending_) {
     (void)Pending_->Stop.request_stop();
-    Tasks_->Wait(Pending_->Handle);
+    Pending_->Owner->Wait(Pending_->Handle);
   }
 }
 
@@ -62,39 +76,86 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers, std::s
 }
 
 void OsmSourceLoader::Poll() {
-  if (Pending_ && Tasks_->Done(Pending_->Handle)) {
-    const Pending finished = std::move(*Pending_);
+  if (Pending_ && Pending_->Owner->Done(Pending_->Handle)) {
+    Pending finished = std::move(*Pending_);
     Pending_.reset();
-    if (finished.Revision == Revision_) {
-      if (!finished.Output->Value) {
-        Error_ = "original OSM worker returned no result";
-        Phase_ = Phase::Failed;
-      } else if (!*finished.Output->Value) {
-        Error_ = std::move(finished.Output->Value->error());
-        Phase_ = Phase::Failed;
-      } else {
-        Current_ = std::move(**finished.Output->Value);
-        Phase_ = Phase::Ready;
-        Error_.clear();
-      }
-    }
+    CompletePending(std::move(finished));
   }
   if (!Pending_ && Phase_ == Phase::Loading) { StartRequested(); }
+}
+
+bool OsmSourceLoader::AwaitSlice(double seconds) const {
+  return Pending_ && Pending_->Owner->AwaitCompletion(seconds);
+}
+
+void OsmSourceLoader::CompletePending(Pending finished) {
+  if (finished.Revision != Revision_) { return; }
+  if (auto *read = std::get_if<ReadResult>(&finished.Output->Value)) {
+    if (*read) {
+      StartDecode(std::move(**read), std::move(finished.Stop));
+      return;
+    }
+    Error_ = std::move(read->error());
+  } else if (auto *loaded = std::get_if<LoadResult>(&finished.Output->Value)) {
+    if (*loaded) {
+      Current_ = std::move(**loaded);
+      Phase_ = Phase::Ready;
+      Error_.clear();
+      return;
+    }
+    Error_ = std::move(loaded->error());
+  } else {
+    Error_ = "original OSM worker returned no result";
+  }
+  Phase_ = Phase::Failed;
 }
 
 void OsmSourceLoader::StartRequested() {
   auto result = std::make_shared<Result>();
   std::stop_source stop;
   const auto token = stop.get_token();
-  const auto handle = Tasks_->Post([input = Requested_, root = Root_, result, token] {
-    auto loaded = Data::OsmChunkSetLoader::LoadRegion(input, root, token);
+  const auto handle = Io_.Post([input = Requested_, root = Root_, access = Access_, result, token] {
+    const bool remote =
+        std::ranges::any_of(input, [](const auto &provider) { return !provider.Endpoint.empty(); });
+    if (remote && !access->Wire) {
+      result->Value = ReadResult(std::unexpected("official original OSM needs a source transport"));
+      return;
+    }
+    Data::OsmChunkSetLoader::RemoteRead read;
+    if (remote) {
+      if (!access->Store) {
+        access->Store = std::make_unique<Data::ContentStore>(
+            Data::ContentStore::Config{.Directory = access->Directory});
+      }
+      const double deadlineMs = access->Wire->NowMs() + kAcquireBudgetMs;
+      read = [access, deadlineMs](const auto &provider, const auto &stopToken) {
+        return Data::ReadOsmApiRegion(
+            provider, *access->Store, *access->Wire, deadlineMs, stopToken);
+      };
+    }
+    result->Value = Data::OsmChunkSetLoader::ReadRegion(input, root, token, read);
+  });
+  Pending_.emplace(Pending{.Handle = handle,
+                           .Owner = &Io_,
+                           .Revision = Revision_,
+                           .Output = std::move(result),
+                           .Stop = std::move(stop)});
+}
+
+void OsmSourceLoader::StartDecode(std::vector<Data::OsmSourceChunk> input, std::stop_source stop) {
+  auto result = std::make_shared<Result>();
+  const auto token = stop.get_token();
+  const auto handle = Tasks_->Post([input = std::move(input), result, token] {
+    auto loaded = Data::OsmChunkSetLoader::ParseRegion(input, token);
     if (!loaded) {
-      result->Value = std::unexpected(std::move(loaded.error()));
+      result->Value = LoadResult(std::unexpected(std::move(loaded.error())));
     } else {
-      result->Value = std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded));
+      result->Value =
+          LoadResult(std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)));
     }
   });
   Pending_.emplace(Pending{.Handle = handle,
+                           .Owner = Tasks_,
                            .Revision = Revision_,
                            .Output = std::move(result),
                            .Stop = std::move(stop)});

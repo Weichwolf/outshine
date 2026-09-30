@@ -59,7 +59,16 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   if (!osmProviders.empty() || World.OsmSourceLoader || World.OsmTransportLoader) {
     if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
     if (!World.OsmSourceLoader) {
-      World.OsmSourceLoader = std::make_unique<OsmSourceLoader>(*World.Pool);
+      if (!World.Wire) {
+        if (Session.Under.Offline) {
+          World.Wire = std::make_unique<Data::OfflineTransport>();
+        } else {
+          World.Wire = std::make_unique<Fetching>(
+              Fetching::Config{.ConcurrentTransfers = 2, .ConnectionsPerHost = 2});
+        }
+      }
+      World.OsmSourceLoader =
+          std::make_unique<OsmSourceLoader>(*World.Pool, World.Wire.get(), Session.Under.Cache);
     }
     if (!World.OsmTransportLoader) {
       World.OsmTransportLoader = std::make_unique<World::OsmTransportLoader>(*World.Pool);

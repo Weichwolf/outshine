@@ -7,6 +7,7 @@ const char *Name(WireFormat wire) noexcept {
     case WireFormat::TerrariumPng: return "terrarium-png";
     case WireFormat::MapboxVectorTile: return "mvt";
     case WireFormat::StarBandBinary: return "star-band";
+    case WireFormat::OsmXml: return "osm-xml";
   }
   return "";
 }
