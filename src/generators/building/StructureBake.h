@@ -88,6 +88,7 @@ struct RawTile {
   std::vector<Structure> Structures;
   std::vector<GeographicRing> Holes;
   std::vector<Way> Ways;
+  StructureOriginalSource Original;
   Vec3 AnchorEcef;
   LongitudeLatitude Eye;
   std::optional<LevelOfDetail> RequestedDetail;

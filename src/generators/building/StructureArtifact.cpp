@@ -356,6 +356,11 @@ StructureArtifactKey(const RawTile &raw,
                      std::string_view producerVersion) {
   if (producerVersion.empty()) { return std::nullopt; }
   Writer writer;
+  if (raw.Original.Snapshot) {
+    const uint64_t original = StructureSourceKey(
+        {.Vector = std::nullopt, .HeightSources = {}, .Original = &raw.Original});
+    if (!writer.Number(original)) { return std::nullopt; }
+  }
   const auto structure = [](auto &archive, const RawTile::Structure &value) {
     return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
            archive.Number(value.SourceFirst) && archive.Number(value.FirstHole) &&

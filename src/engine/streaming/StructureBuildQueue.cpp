@@ -77,6 +77,7 @@ int PitchedOf(std::string_view said) {
 void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &raw) {
   if (baked.Coordinates) { return; }
   baked.Coordinates = std::make_shared<Ground::BuildingField::Geometry>();
+  baked.Coordinates->Original = raw.Original;
   size_t source = 0;
   for (auto &footprint : baked.Prints) {
     while (source < raw.Structures.size() &&
@@ -115,6 +116,7 @@ void RawOf(const Ground::OsmField &vectors,
   raw.Structures.clear();
   raw.Holes.clear();
   raw.Ways.clear();
+  raw.Original = {};
   raw.AnchorEcef = prints.Anchor();
   raw.Eye = eye;
   raw.RequestedDetail = detail;
@@ -1073,7 +1075,8 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                                    .HeightDigest = heights->RasterDigest(),
                                                    .StreetDigest = *streetDigest,
                                                    .TileSpanM = prints.TileSpanM(),
-                                                   .FallbackHeights = heights->Fallback()});
+                                                   .FallbackHeights = heights->Fallback(),
+                                                   .Original = &raw->Original});
     SlowestRawExtractionMs_ = std::max(
         SlowestRawExtractionMs_,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extractionAt)
