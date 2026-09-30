@@ -34,7 +34,7 @@ int groundCrossX(vec2 a, vec2 b, float cy, float xa, float xb) {
 int groundCrossY(vec2 a, vec2 b, float cx, float ya, float yb) {
   if ((a.x <= cx) == (b.x <= cx)) { return 0; }
   const float yi = a.y + (cx - a.x) * (b.y - a.y) / (b.x - a.x);
-  if (yi < ya || yi >= yb) { return 0; }
+  if (yi <= ya || yi > yb) { return 0; }
   return b.x > a.x ? -1 : 1;
 }
 

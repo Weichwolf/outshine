@@ -63,7 +63,7 @@ inline int CrossY(Edge of, double cx, Span within) {
   const double y1 = of.To[1];
   if ((x0 <= cx) == (x1 <= cx)) { return 0; }
   const double yi = y0 + (cx - x0) * (y1 - y0) / (x1 - x0);
-  if (yi < within.Least || yi >= within.Most) { return 0; }
+  if (yi <= within.Least || yi > within.Most) { return 0; }
   return x1 > x0 ? -1 : 1;
 }
 

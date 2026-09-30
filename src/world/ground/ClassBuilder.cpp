@@ -77,20 +77,15 @@ void CatmullPoint(
   for (int a = 0; a < 2; a++) { out[a] = ((t2 - t) * b1[a] + (t - t1) * b2[a]) / (t2 - t1); }
 }
 
-void CurveRing(
-    const float *pts, uint32_t first, uint32_t count, bool closed, std::vector<float> &out) {
+void CurveLine(const float *pts, uint32_t first, uint32_t count, std::vector<float> &out) {
   out.clear();
   if (count < 2) { return; }
   const auto P = [&](int i) -> const float * {
     const int n = static_cast<int>(count);
-    if (closed) {
-      i = ((i % n) + n) % n;
-    } else {
-      i = std::clamp(i, 0, n - 1);
-    }
+    i = std::clamp(i, 0, n - 1);
     return pts + (static_cast<size_t>(first) + static_cast<size_t>(i)) * 2;
   };
-  const int spans = closed ? static_cast<int>(count) : static_cast<int>(count) - 1;
+  const int spans = static_cast<int>(count) - 1;
   for (int s = 0; s < spans; s++) {
     const float *p0 = P(s - 1);
     const float *p1 = P(s);
@@ -113,11 +108,9 @@ void CurveRing(
       out.push_back(q[1]);
     }
   }
-  if (!closed) {
-    const float *last = pts + (static_cast<size_t>(first) + count - 1) * 2;
-    out.push_back(last[0]);
-    out.push_back(last[1]);
-  }
+  const float *last = pts + (static_cast<size_t>(first) + count - 1) * 2;
+  out.push_back(last[0]);
+  out.push_back(last[1]);
 }
 
 }
@@ -226,21 +219,19 @@ void ClassBuilder::BuildFeatureEdges(const Job &job, const Feature &feature) {
   if (feature.Form == Shape::Polygon) {
     for (uint32_t k = 0; k < feature.RingCount; k++) {
       const Ring &ring = job.Rings[feature.FirstRing + k];
-      CurveRing(job.Pts.data(), ring.First, ring.Count, true, curve);
-      const size_t nc = curve.size() / 2;
-      for (size_t s = 0; s < nc; s++) {
-        const size_t a = s;
-        const size_t b = (s + 1) % nc;
-        ex.push_back(curve[a * 2]);
-        ex.push_back(curve[a * 2 + 1]);
-        ex.push_back(curve[b * 2]);
-        ex.push_back(curve[b * 2 + 1]);
+      for (uint32_t s = 0; s < ring.Count; s++) {
+        const size_t a = static_cast<size_t>(ring.First) + s;
+        const size_t b = static_cast<size_t>(ring.First) + (s + 1) % ring.Count;
+        ex.push_back(job.Pts[a * 2]);
+        ex.push_back(job.Pts[a * 2 + 1]);
+        ex.push_back(job.Pts[b * 2]);
+        ex.push_back(job.Pts[b * 2 + 1]);
       }
     }
   } else {
     for (uint32_t k = 0; k < feature.RingCount; k++) {
       const Ring &ring = job.Rings[feature.FirstRing + k];
-      CurveRing(job.Pts.data(), ring.First, ring.Count, false, curve);
+      CurveLine(job.Pts.data(), ring.First, ring.Count, curve);
       const size_t nc = curve.size() / 2;
       for (size_t i = 0; i + 1 < nc; i++) {
         ex.push_back(curve[i * 2]);
