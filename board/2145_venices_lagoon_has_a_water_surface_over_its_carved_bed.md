@@ -27,6 +27,9 @@ ist zusätzlich gegen ursprüngliches DEM und Terrain-Stamps zu prüfen.
 Einzelne gekachelte Binnenflächen erhalten unabhängig aus DEM-Randproben geschätzte
 Pegel. Diese Heuristik beweist weder gemeinsame Pegel noch einen Meereswasserstand.
 2326 korrigiert abweichend geglättete Materialgrenzen; das repariert keine fehlende Küste.
+`WaterField` lehnt Ringe über 512 Punkten ab; `BuildWaterSurfaces` zählt verweigerte
+Topologie nur als Metrik und meldet trotzdem Erfolg. Eine vollständige Welt ist damit
+nicht bewiesen. Diese Grenze darf beim Original-OSM-Anschluss keine Gewässer löschen.
 
 ## Implementierung und Besitz
 - `world/ground` leitet native WaterBody-Produkte aus dem gemeinsamen Original-OSM-
@@ -61,6 +64,9 @@ Pegel. Diese Heuristik beweist weder gemeinsame Pegel noch einen Meereswassersta
 - Engine koordiniert begrenzte IO-/Compute-Arbeit und atomare Veröffentlichung.
   Quellenfehler erhalten den Altstand und einen roten Befund. Keine generierten
   Runtime-Disk-Caches, Kamera-Sonderfälle oder Foto-basierte Geometriekorrekturen.
+  Fehlende nötige Gewässer/ungültige Ringe verhindern vollständige Publikation.
+  Große Ringe räumlich aufteilen oder unter bewiesenem Projektionsfehler vereinfachen;
+  Quellringe, Inseln und Körper-ID erhalten. Budgets verzögern Arbeit, entfernen sie nicht.
 - OSM-Quai/Stützmauer erhält Wand, Oberkante und Material; natürliche Böschung bleibt
   separat. Bed/Bank-Deformation respektiert gültiges Bergrelief und Gebäudefreiraum.
   Brücken stehen über erhaltenem Wasser; Straßen werden nicht auf dessen Pegel gedrückt.
