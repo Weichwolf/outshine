@@ -167,7 +167,7 @@ private:
                                               const std::stop_token &stop);
 
   [[nodiscard]] std::expected<void, std::string>
-  SetRequest(std::vector<Data::SourceProvider> providers,
+  SetRequest(std::vector<Data::SourceProvider> requested,
              std::string root,
              std::shared_ptr<const Data::OsmSourceSnapshot> source,
              std::span<const OsmCircuitRequest> routes);
