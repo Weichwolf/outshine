@@ -102,6 +102,7 @@ struct RawTile {
 };
 
 struct BakedTile {
+  std::shared_ptr<outshine::Ground::BuildingField::Geometry> Coordinates;
   Raised Built;
   ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;

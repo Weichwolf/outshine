@@ -1070,21 +1070,18 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
 }
 }
 
-Engine::State::GroundBuildProgress
-Engine::State::BuildGroundBuildingStamps(const TangentFrame &standing,
-                                         GroundBuildState &state,
-                                         const Ground::OsmField &shapes,
-                                         std::vector<EarthworkStamp> &yielding) {
+Engine::State::GroundBuildProgress Engine::State::BuildGroundBuildingStamps(
+    const TangentFrame &standing, GroundBuildState &state, std::vector<EarthworkStamp> &yielding) {
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.Stamping() == nullptr) {
-    state.BeginsStamping(std::make_unique<Generators::BuildingStampJob>(
-        standing, state.Revision().VectorGeneration));
+    state.BeginsStamping(
+        std::make_unique<Generators::BuildingStampJob>(standing, state.Footprints().Revision()));
   }
-  const auto advanced = state.Stamping()->Advance({.Footprints = state.Footprints().Footprints(),
-                                                   .Points = shapes.Points(),
-                                                   .Rings = shapes.Rings(),
-                                                   .VectorGeneration = shapes.Generation(),
-                                                   .UnitsMost = kEarthworkStampUnitsPerFrame});
+  const auto advanced =
+      state.Stamping()->Advance({.Products = &state.Footprints(),
+                                 .Footprints = state.Footprints().Footprints(),
+                                 .VectorGeneration = state.Footprints().Revision(),
+                                 .UnitsMost = kEarthworkStampUnitsPerFrame});
   if (!advanced) {
     Error = std::string(advanced.error());
     return GroundBuildProgress::Failed;
@@ -1121,8 +1118,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
         World.GroundBuild.reset();
         return true;
       }
-      const GroundBuildProgress stamped =
-          BuildGroundBuildingStamps(standing, state, *shapes, yielding);
+      const GroundBuildProgress stamped = BuildGroundBuildingStamps(standing, state, yielding);
       if (stamped != GroundBuildProgress::Ready) { return stamped != GroundBuildProgress::Failed; }
     } else if (state.Stamping() != nullptr) {
       World.GroundBuild.reset();

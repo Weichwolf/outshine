@@ -1195,10 +1195,25 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
       {.Prints = printCount, .Spread = spreadCount, .Across = acrossCount, .Tiles = count});
   landings.reserve(count);
   for (size_t at = 0; at < count; ++at) {
-    const QueuedBuild &bake = Queue_[at];
-    const auto &completed = bake.Task.Result().Tile;
+    QueuedBuild &bake = Queue_[at];
+    auto &completed = bake.Task.Result().Tile;
     if (!completed) { std::terminate(); }
-    const Generators::BakedTile &baked = *completed;
+    Generators::BakedTile &baked = *completed;
+    if (!baked.Coordinates) {
+      baked.Coordinates = std::make_shared<Ground::BuildingField::Geometry>();
+      size_t source = 0;
+      for (auto &footprint : baked.Prints) {
+        const auto &structures = bake.Task.Raw().Structures;
+        while (source < structures.size() &&
+               structures[source].SourceFirst != footprint.FirstPoint) {
+          ++source;
+        }
+        if (source == structures.size()) { std::terminate(); }
+        footprint.FirstPoint = structures[source].LocalFirst;
+        footprint.FirstHole = structures[source].FirstHole;
+        ++source;
+      }
+    }
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
     const std::optional<Data::TileSourceIdentity> vectorSource =
         VectorSource(*vectors, bake.Task.Tile());
@@ -1209,7 +1224,8 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
          .SourceKey = bake.SourceKey,
          .Footprints = prints.PrepareAcceptance(
              bake.Task.Tile(),
-             {.Prints = baked.Prints,
+             {.Coordinates = baked.Coordinates,
+              .Prints = baked.Prints,
               .SeatSpreadM = baked.SeatSpreadM,
               .AcrossM = baked.AcrossM,
               .OccupiedCells = baked.OccupiedCells,
@@ -1374,13 +1390,16 @@ void StructureBuildQueue::CommitsLandings(Ground::GroundStack &stack,
     if (!completed) { std::terminate(); }
     const Generators::BakedTile &baked = *completed;
     assert(landing.Tile == bake.Task.Tile() && landing.Baked == &baked && landing.Footprints);
-    if (!landing.Footprints) { std::terminate(); }
+    if (!landing.Footprints || !baked.Coordinates) { std::terminate(); }
+    baked.Coordinates->Points = std::move(bake.Task.Raw().LatLon);
+    baked.Coordinates->Rings = std::move(bake.Task.Raw().Holes);
     BakedMs_ += bake.Task.Result().BakeMs;
     SlowestBakeMs_ = std::max(SlowestBakeMs_, bake.Task.Result().BakeMs);
     assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
            IdleScratch_.size() < IdleScratch_.capacity());
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-    const Ground::BuildingField::Baked product{.Prints = baked.Prints,
+    const Ground::BuildingField::Baked product{.Coordinates = baked.Coordinates,
+                                               .Prints = baked.Prints,
                                                .SeatSpreadM = baked.SeatSpreadM,
                                                .AcrossM = baked.AcrossM,
                                                .OccupiedCells = baked.OccupiedCells,

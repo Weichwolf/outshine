@@ -43,7 +43,17 @@ public:
     [[nodiscard]] bool operator==(const Footprint &) const noexcept = default;
   };
 
+  struct Geometry {
+    std::vector<double> Points;
+    std::vector<GeographicRing> Rings;
+
+    [[nodiscard]] size_t HeapBytes() const noexcept {
+      return CapacityBytes(Points) + CapacityBytes(Rings);
+    }
+  };
+
   struct Baked {
+    std::shared_ptr<const Geometry> Coordinates;
     std::span<const Footprint> Prints;
     std::span<const double> SeatSpreadM;
     std::span<const double> AcrossM;
@@ -72,6 +82,7 @@ public:
   };
 
   struct AcceptedInput {
+    std::shared_ptr<const Geometry> Coordinates;
     std::optional<Data::TileSourceIdentity> Vector;
     std::vector<Data::TileSourceIdentity> Sources;
     uint64_t OccupiedCells = 0;
@@ -108,7 +119,8 @@ public:
           Prints_(baked.Prints.size()),
           Spread_(baked.SeatSpreadM.size()),
           Across_(baked.AcrossM.size()),
-          Input_{.Vector = std::move(vector),
+          Input_{.Coordinates = baked.Coordinates,
+                 .Vector = std::move(vector),
                  .Sources = std::vector<Data::TileSourceIdentity>(sources.begin(), sources.end()),
                  .OccupiedCells = baked.OccupiedCells,
                  .CellBounds = baked.CellBounds,
@@ -247,6 +259,15 @@ public:
                         : std::span<const Footprint>{Prints_.data() + r.First, r.Count};
   }
 
+  [[nodiscard]] const Geometry *GeometryOfFootprint(size_t index) const noexcept {
+    const auto at = std::ranges::upper_bound(
+        Products_, index, {}, [](const TileProduct &product) { return product.Prints.First; });
+    if (at == Products_.begin()) { return nullptr; }
+    const size_t product = static_cast<size_t>(at - Products_.begin() - 1);
+    const Range range = Products_[product].Prints;
+    return index < range.First + range.Count ? AcceptedInputs_[product].Coordinates.get() : nullptr;
+  }
+
   [[nodiscard]] const AcceptedInput *InputOfTile(uint32_t tile) const noexcept {
     const auto at = std::ranges::lower_bound(AcceptedTiles_, tile);
     if (at == AcceptedTiles_.end() || *at != tile) { return nullptr; }
@@ -283,6 +304,7 @@ public:
                    CapacityBytes(AcceptedInputs_) + CapacityBytes(Products_) + Mark_.HeapBytes() +
                    MeasurementBytes();
     for (const AcceptedInput &input : AcceptedInputs_) {
+      if (input.Coordinates) { bytes += input.Coordinates->HeapBytes(); }
       if (input.Vector) {
         bytes += input.Vector->SourceId.capacity() + input.Vector->Revision.capacity();
       }

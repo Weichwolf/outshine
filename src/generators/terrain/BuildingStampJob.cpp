@@ -26,12 +26,13 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
   }
   if (work.UnitsMost == 0) { return std::unexpected("building stamp work budget is zero"); }
   if (Phase_ == Phase::Unstarted) {
+    Products_ = work.Products;
     FootprintCount_ = footprints.size();
     PointCount_ = points.size();
     RingCount_ = work.Rings.size();
     Phase_ = Phase::Choose;
-  } else if (FootprintCount_ != footprints.size() || PointCount_ != points.size() ||
-             RingCount_ != work.Rings.size()) {
+  } else if (Products_ != work.Products || FootprintCount_ != footprints.size() ||
+             PointCount_ != points.size() || RingCount_ != work.Rings.size()) {
     return std::unexpected("building stamp source dimensions changed during construction");
   }
   for (size_t visited = 0; visited < work.UnitsMost && Phase_ != Phase::Done; ++visited) {
@@ -43,11 +44,16 @@ std::expected<bool, std::string_view> BuildingStampJob::Advance(Work work) {
 
 std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
   const auto footprints = work.Footprints;
-  const auto points = work.Points;
   if (NextFootprint_ == footprints.size()) {
     Phase_ = Phase::Done;
     return {};
   }
+  Geometry_ = work.Products ? work.Products->GeometryOfFootprint(NextFootprint_) : nullptr;
+  if (work.Products && !Geometry_) {
+    return std::unexpected("building footprint has no pinned geometry");
+  }
+  const auto points = PointsOf(work);
+  const auto rings = RingsOf(work);
   const auto &footprint = footprints[NextFootprint_];
   const size_t first = footprint.FirstPoint;
   const size_t count = footprint.PointCount;
@@ -56,8 +62,8 @@ std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
     ++NextFootprint_;
     return {};
   }
-  if (footprint.HoleCount != 0 && (footprint.FirstHole > work.Rings.size() ||
-                                   footprint.HoleCount > work.Rings.size() - footprint.FirstHole)) {
+  if (footprint.HoleCount != 0 && (footprint.FirstHole > rings.size() ||
+                                   footprint.HoleCount > rings.size() - footprint.FirstHole)) {
     return std::unexpected("building courtyard ring range is invalid");
   }
   Current_ = EarthworkStamp{};
@@ -72,7 +78,7 @@ std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
 
 void BuildingStampJob::AppendOuterPoint(Work work) {
   const auto &footprint = work.Footprints[NextFootprint_];
-  const auto points = work.Points;
+  const auto points = PointsOf(work);
   const size_t point = static_cast<size_t>(footprint.FirstPoint) + NextPoint_;
   const EastNorthUp seated =
       Frame_.ToLocalPosition({.LongitudeDeg = points[2u * point + 1u],
@@ -134,17 +140,18 @@ void BuildingStampJob::FinishStamp() {
 
 std::expected<void, std::string_view> BuildingStampJob::AppendHolePoint(Work work) {
   const auto &footprint = work.Footprints[NextFootprint_];
-  const auto &ring = work.Rings[static_cast<size_t>(footprint.FirstHole) + NextHole_];
-  if (ring.Exterior || ring.Count < 3 || ring.First > work.Points.size() / 2 ||
-      ring.Count > work.Points.size() / 2 - ring.First) {
+  const auto points = PointsOf(work);
+  const auto &ring = RingsOf(work)[static_cast<size_t>(footprint.FirstHole) + NextHole_];
+  if (ring.Exterior || ring.Count < 3 || ring.First > points.size() / 2 ||
+      ring.Count > points.size() / 2 - ring.First) {
     return std::unexpected("building courtyard coordinates are invalid");
   }
   if (NextPoint_ == 0) {
     Current_.HoleRingsEastNorthM.emplace_back().reserve(static_cast<size_t>(ring.Count) * 2);
   }
   const size_t point = static_cast<size_t>(ring.First) + NextPoint_;
-  const auto local = Frame_.ToLocalPosition({.LongitudeDeg = work.Points[point * 2 + 1],
-                                             .LatitudeDeg = work.Points[point * 2],
+  const auto local = Frame_.ToLocalPosition({.LongitudeDeg = points[point * 2 + 1],
+                                             .LatitudeDeg = points[point * 2],
                                              .HeightM = footprint.SeatM});
   auto &hole = Current_.HoleRingsEastNorthM.back();
   hole.push_back(local.EastM);

@@ -543,11 +543,8 @@ struct Engine::State {
   [[nodiscard]] std::expected<GroundRequest, Laid> RingWanted(bool alsoWhenTilesLanded,
                                                               GroundQuality quality);
 
-  [[nodiscard]] GroundBuildProgress
-  BuildGroundBuildingStamps(const TangentFrame &standing,
-                            GroundBuildState &state,
-                            const Ground::OsmField &shapes,
-                            std::vector<EarthworkStamp> &yielding);
+  [[nodiscard]] GroundBuildProgress BuildGroundBuildingStamps(
+      const TangentFrame &standing, GroundBuildState &state, std::vector<EarthworkStamp> &yielding);
   [[nodiscard]] bool PressGroundEarthworks(const TangentFrame &standing,
                                            Patchwork &patchwork,
                                            GroundBuildState &state);
