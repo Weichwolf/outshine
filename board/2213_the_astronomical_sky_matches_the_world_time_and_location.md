@@ -11,12 +11,21 @@ Depends: 2172, 2128, 2155
 
 ## Ziel
 
-Sonne, Mond und Sterne bilden weltweit zu jeder Tages- und Jahreszeit einen
+Sonne, Mond, Planeten und Sterne bilden weltweit zu jeder Tages- und Jahreszeit einen
 glaubwürdigen Himmel. Beide Hemisphären, Polartag/-nacht und hohe Beobachterstandorte
 gehören zum allgemeinen Vertrag. Referenzbilder sind keine austauschbaren Skyboxen.
 
 ## Umsetzung
 
+- Vorhandenen HYG-v4.1/Hipparcos-Datensatz nutzen: `src/assets/sky/stars/manifest.txt`
+  nennt 8920 Sterne bis Magnitude 6.5 in 53520 Bytes. Source-Version/Lizenz erhalten;
+  Positionsquantisierung und gebackene Epoche gegen Ort/UTC-Auswertung prüfen.
+  Größere Kataloge erst bei belegtem Bildgewinn, keine zusätzliche Live-Abfrage.
+- Merkur, Venus, Mars, Jupiter und Saturn sowie situationsabhängig Uranus/Neptun
+  aus versionierten astronomischen Modellen für dieselbe UTC und Beobachterposition
+  berechnen. Topozentrische Richtung, Helligkeit, Phase und scheinbare Größe gegen
+  unabhängige Ephemeriden prüfen. Subpixelobjekte erhalten energieerhaltende Abbildung,
+  gemeinsame atmosphärische Extinktion und Wolkenverdeckung; keine eigene Live-Quelle.
 - Eine deklarierte UTC-Zeit und geodätische Beobachterposition mit eindeutigem Höhenbezug
   verwenden. Sonnen-/Mondrichtung, scheinbare Scheibengröße, Mondphase und beleuchtete
   Mondseite konsistent ableiten. Astronomische Modelle und ihre Genauigkeit belegen;

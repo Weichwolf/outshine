@@ -38,6 +38,9 @@ ist eine Ausnahme von der allgemeinen Regel ohne Websuche. Ich behaupte keinen u
   externe Wetterquelle. Diese drei Datenquellen sind verbindlich; Kamera und Zeit steuern die Welt.
   Diese Quellenwahl gilt für den Outshine-Client; Bibliotheksnutzer dürfen eigene Provider
   und Generatoren über die öffentlichen Erweiterungsverträge bereitstellen.
+  Für den astronomischen Himmel ist ein fester, versionierter und lizenzierter
+  Sternenkatalog erlaubt. Sonne, Mond und sichtbare Planeten leite ich aus astronomischen
+  Modellen, UTC und Beobachterposition ab; dafür nutze ich keine zusätzliche Live-Quelle.
 - Ich erhalte OSM-Semantik bis zur Generierung: Klassen, Parts, Höhen, Geschosse, Dächer und
   Sonderbauwerke. Ich unterscheide fehlende, widersprüchliche und verlorene Angaben. Reduzierte
   Kartenkacheln ersetzen keine Originaldaten; Schornsteine werden keine generischen Wohnhäuser.
