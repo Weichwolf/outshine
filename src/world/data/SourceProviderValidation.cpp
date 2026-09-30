@@ -19,6 +19,12 @@ constexpr double kLatitudeLimitDeg = 90.0;
 constexpr std::string_view kSha256PinPrefix = "sha256:";
 constexpr size_t kSha256HexDigits = 64;
 
+[[nodiscard]] bool ValidDigest(std::string_view digest) {
+  return digest.size() == kSha256HexDigits && std::ranges::all_of(digest, [](char digit) {
+           return (digit >= '0' && digit <= '9') || (digit >= 'a' && digit <= 'f');
+         });
+}
+
 [[nodiscard]] bool ValidCoverage(const SourceCoverage &bounds) noexcept {
   return std::isfinite(bounds.WestDeg) && std::isfinite(bounds.SouthDeg) &&
          std::isfinite(bounds.EastDeg) && std::isfinite(bounds.NorthDeg) &&
@@ -69,12 +75,15 @@ constexpr size_t kSha256HexDigits = 64;
   if (std::string_view(provider.Revision).starts_with(kSha256PinPrefix)) {
     const std::string_view digest =
         std::string_view(provider.Revision).substr(kSha256PinPrefix.size());
-    const bool lowercaseHex = std::ranges::all_of(digest, [](char digit) {
-      return (digit >= '0' && digit <= '9') || (digit >= 'a' && digit <= 'f');
-    });
-    if (digest.size() != kSha256HexDigits || !lowercaseHex) {
+    if (!ValidDigest(digest)) {
       return std::unexpected("an osm sha256 pin requires 64 lowercase hexadecimal digits");
     }
+    if (!provider.PayloadSha256.empty() && provider.PayloadSha256 != digest) {
+      return std::unexpected("an osm response digest contradicts its legacy sha256 pin");
+    }
+  }
+  if (!provider.PayloadSha256.empty() && !ValidDigest(provider.PayloadSha256)) {
+    return std::unexpected("an osm response sha256 requires 64 lowercase hexadecimal digits");
   }
   const size_t colon = provider.Location.find(':');
   const size_t slash = provider.Location.find('/');
@@ -135,6 +144,9 @@ ValidateSourceProviders(std::span<const SourceProvider> providers) {
   for (size_t at = 0; at < providers.size(); ++at) {
     const SourceProvider &provider = providers[at];
     if (provider.Kind.empty()) { return std::unexpected("a provider kind must not be empty"); }
+    if (provider.Kind != "osm" && !provider.PayloadSha256.empty()) {
+      return std::unexpected("only an osm provider can declare a response sha256");
+    }
     if (provider.Missing != MissingDataPolicy::Continue &&
         provider.Missing != MissingDataPolicy::Fail) {
       return std::unexpected("a provider declares an invalid missing-data policy");

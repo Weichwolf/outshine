@@ -42,8 +42,10 @@ OsmChunkSetLoader::LoadRegion(std::span<const SourceProvider> providers,
                               const std::stop_token &stop) {
   std::vector<OsmElements> chunks;
   std::vector<SourceCoverage> coverage;
+  std::vector<OsmChunkProvenance> provenance;
   chunks.reserve(providers.size());
   coverage.reserve(providers.size());
+  provenance.reserve(providers.size());
   size_t bytes = 0;
   double readMs = 0.0;
   double parseMs = 0.0;
@@ -57,8 +59,13 @@ OsmChunkSetLoader::LoadRegion(std::span<const SourceProvider> providers,
     readMs += MillisecondsSince(readAt);
     if (!xml) { return std::unexpected(std::move(xml.error())); }
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
-    if (std::string_view(provider.Revision).starts_with(kSha256PinPrefix) &&
-        Sha256Hex(*xml) != std::string_view(provider.Revision).substr(kSha256PinPrefix.size())) {
+    const std::string_view digest =
+        !provider.PayloadSha256.empty() ? std::string_view(provider.PayloadSha256)
+        : std::string_view(provider.Revision).starts_with(kSha256PinPrefix)
+            ? std::string_view(provider.Revision).substr(kSha256PinPrefix.size())
+            : std::string_view{};
+    const std::string actualDigest = Sha256Hex(*xml);
+    if (!digest.empty() && actualDigest != digest) {
       return std::unexpected("semantic OSM source '" + provider.Location +
                              "' does not match its sha256 pin");
     }
@@ -81,6 +88,9 @@ OsmChunkSetLoader::LoadRegion(std::span<const SourceProvider> providers,
                              "' has no declared coverage");
     }
     coverage.push_back(*provider.Coverage);
+    provenance.push_back({.Location = provider.Location,
+                          .PayloadSha256 = actualDigest,
+                          .PinVerified = !digest.empty()});
     chunks.push_back(std::move(*parsed));
   }
 
@@ -94,7 +104,8 @@ OsmChunkSetLoader::LoadRegion(std::span<const SourceProvider> providers,
                            .Coverage = std::move(coverage),
                            .SourceBytes = bytes,
                            .ReadMs = readMs,
-                           .ParseMs = parseMs};
+                           .ParseMs = parseMs,
+                           .Chunks = std::move(provenance)};
 }
 
 std::expected<OsmSourceSnapshot, std::string>

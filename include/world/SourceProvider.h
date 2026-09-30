@@ -31,13 +31,15 @@ struct SourceCoverage {
 /// construction may allocate and perform IO; the value itself has no thread affinity.
 struct SourceProvider {
   std::string Kind;     ///< Registered source category such as terrain, vector or stars.
-  std::string Revision; ///< Source revision; OSM sha256: pins verify the file bytes.
+  std::string Revision; ///< Shared dataset revision; legacy OSM sha256: pins verify file bytes.
   int Priority = 0;     ///< Ordering among sources of the same category; lower is earlier.
   MissingDataPolicy Missing = MissingDataPolicy::Continue; ///< Missing-value behavior.
   std::string Dataset;                    ///< Stable dataset ID; required for semantic OSM chunks.
   std::string Location;                   ///< OSM file path, absolute or relative to Roots.Shipped.
   std::string Endpoint;                   ///< HTTPS {z}/{x}/{y} tile URL; requires Dataset.
   std::optional<SourceCoverage> Coverage; ///< Required finite OSM chunk bounds.
+  std::string
+      PayloadSha256; ///< Optional 64-digit lowercase OSM response digest, separate from revision.
 
   /// Compare the complete owned source declaration.
   /// @return True when all source fields are equal.
