@@ -23,16 +23,22 @@ std::string Address::Text() const {
   std::array<char, kTextBytes> text{};
   char *at = text.data();
   char *const end = text.data() + text.size();
-  if (How_ == Scheme::TileZxy) {
-    at = Wrote(at, end, static_cast<long long>(Held_.Zoom));
+  if (const auto tile = Tile()) {
+    at = Wrote(at, end, tile->Zoom);
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, static_cast<long long>(Held_.X));
+    at = Wrote(at, end, tile->X);
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, static_cast<long long>(Held_.Y));
+    at = Wrote(at, end, tile->Y);
+  } else if (const auto cell = Cell()) {
+    if (at < end) { *at++ = 'g'; }
+    if (at < end) { *at++ = '/'; }
+    at = Wrote(at, end, cell->SouthDeg);
+    if (at < end) { *at++ = '/'; }
+    at = Wrote(at, end, cell->WestDeg);
   } else {
     if (at < end) { *at++ = 'w'; }
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, static_cast<long long>(Held_.X));
+    at = Wrote(at, end, *Index());
   }
   return {text.data(), static_cast<size_t>(at - text.data())};
 }
