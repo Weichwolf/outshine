@@ -21,6 +21,7 @@
 #include "scene/Geometry.h"
 #include "world/EntityRegistry.h"
 #include "world/Route.h"
+#include "world/Provider.h"
 
 namespace outshine {
 
@@ -297,6 +298,13 @@ public:
   /// @return Empty or duplicate-kind diagnostic while retaining all prior registrations;
   /// otherwise success.
   [[nodiscard]] Result registerGenerator(const Generators::Generator &generator);
+  /// Borrow a provider factory until Engine destruction; retain its stable address.
+  /// Call on the Engine/setup thread with no open frame. Registration copies its kind
+  /// and performs no IO. Existing configured sources remain unchanged; subsequent world
+  /// setup resolves provider declarations through this catalogue.
+  /// @param provider Borrowed factory whose lifetime covers the Engine.
+  /// @return Success or empty/duplicate-kind or mutation-permission error. May allocate.
+  [[nodiscard]] Result registerProvider(const Data::Provider &provider);
   /// Select an exact declared view identifier; camera application occurs during advance().
   /// @param view Borrowed identifier, not retained. No case folding or fallback lookup.
   /// @return Error for missing/unknown views, preserving the active selection; otherwise success.

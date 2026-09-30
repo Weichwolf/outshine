@@ -11,7 +11,7 @@
 
 #include "TileSourceIdentity.h"
 #include "TerrainCertificate.h"
-#include "FetchFailure.h"
+#include <world/data/FetchFailure.h>
 #include <optional>
 #include "TileGeodesy.h"
 #include "TileMath.h"

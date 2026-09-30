@@ -6,8 +6,8 @@
 #include <optional>
 #include <vector>
 
-#include "Address.h"
-#include "FetchFailure.h"
+#include <world/data/Address.h>
+#include <world/data/FetchFailure.h>
 
 namespace outshine::Data {
 

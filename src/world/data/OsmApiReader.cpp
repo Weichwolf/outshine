@@ -1,6 +1,6 @@
 #include "OsmApiReader.h"
 
-#include "OsmApiSource.h"
+#include "DeclaredSources.h"
 #include "SourceSet.h"
 
 #include <cmath>
@@ -18,9 +18,15 @@ std::expected<OsmSourceChunk, std::string> ReadOsmApiRegion(const SourceProvider
                                                             ContentStore &store,
                                                             Transport &wire,
                                                             double deadlineMs,
-                                                            const std::stop_token &stop) {
-  auto source = OsmApiSource::Create(provider, 0);
+                                                            const std::stop_token &stop,
+                                                            const ProviderRegistry *registry,
+                                                            std::string_view shippedRoot) {
+  auto source = MakeDeclaredSource(provider, shippedRoot, registry);
   if (!source) { return std::unexpected(std::move(source.error())); }
+  if ((*source)->Declaration().Kind != DataKind::OriginalOsm ||
+      (*source)->Declaration().Wire != WireFormat::OsmXml) {
+    return std::unexpected("an original OSM provider must supply original OSM XML");
+  }
   const std::string url = (*source)->Declaration().Endpoint;
   SourceSet sources(store);
   if (sources.Add(std::move(*source)) != SourceSet::Registration::Accepted) {

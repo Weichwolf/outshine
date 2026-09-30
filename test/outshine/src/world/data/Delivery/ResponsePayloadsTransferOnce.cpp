@@ -1,6 +1,6 @@
 #include "Delivery.h"
-#include "Fetched.h"
-#include "Transport.h"
+#include <world/data/Fetched.h>
+#include <world/data/Transport.h>
 #include "Check.h"
 #include <type_traits>
 #include <utility>

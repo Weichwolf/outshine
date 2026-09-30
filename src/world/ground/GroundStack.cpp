@@ -43,7 +43,8 @@ bool GroundStack::Open(const World::StoragePaths &under,
                        Data::Transport &wire,
                        Sink &say,
                        LogSink *diagnostics,
-                       double patienceS) {
+                       double patienceS,
+                       const Data::ProviderRegistry *registry) {
   const auto position = OsmField::Locate(focus, kFineZoom);
   if (!position) {
     say.Refuse(std::string(position.error()));
@@ -61,8 +62,8 @@ bool GroundStack::Open(const World::StoragePaths &under,
   Sources_ = std::make_unique<outshine::Data::SourceSet>(*Store_);
   outshine::Data::SourceSet &sources = *Sources_;
   std::string refused;
-  const bool registered =
-      outshine::Data::RegisterDeclared(sources, providers, under.Shipped + "/sky", refused);
+  const bool registered = outshine::Data::RegisterDeclared(
+      sources, providers, under.Shipped + "/sky", refused, registry);
   if (!registered) {
     say.Refuse(refused);
     Close();

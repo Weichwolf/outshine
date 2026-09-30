@@ -13,7 +13,7 @@
 #include "DeclaredSources.h"
 #include "SourceSet.h"
 #include "TerrainLoader.h"
-#include "SourceDecl.h"
+#include <world/data/SourceDecl.h>
 #include "BuildingField.h"
 #include "ClassField.h"
 #include "GroundMaterials.h"
@@ -67,7 +67,8 @@ public:
                           Data::Transport &wire,
                           Sink &say,
                           LogSink *diagnostics,
-                          double patienceS = 0.0);
+                          double patienceS = 0.0,
+                          const Data::ProviderRegistry *registry = nullptr);
   void Close();
 
   [[nodiscard]] bool Opened() const { return Opened_; }

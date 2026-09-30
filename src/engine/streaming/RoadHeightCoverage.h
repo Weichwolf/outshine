@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "Address.h"
+#include <world/data/Address.h>
 #include "OsmTransportLoader.h"
 
 namespace outshine {

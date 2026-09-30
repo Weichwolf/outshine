@@ -4,6 +4,7 @@
 #include "PlaceTurn.h"
 #include "FramePacer.h"
 #include "FrameSchedule.h"
+#include "WorldSourcePolicy.h"
 
 #include "io/HeapProbe.h"
 
@@ -243,6 +244,10 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation, 
   stands.Ground.VegetationEnabled = stands.Ground.VegetationEnabled && vegetation;
 
   const auto began = std::chrono::steady_clock::now();
+  if (const auto sources = Client::ValidateWorldSources(stands); !sources) {
+    shot.Why = std::string(place.Name) + " has invalid world sources: " + sources.error();
+    return false;
+  }
   if (const auto declared = engine.declare(stands); !declared) {
     shot.Why = std::string(place.Name) + " was not declared: " + declared.error();
     return false;

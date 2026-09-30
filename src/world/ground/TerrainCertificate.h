@@ -2,7 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_TERRAINCERTIFICATE_H
 
 #include "TerrainRevisionIndex.h"
-#include "Address.h"
+#include <world/data/Address.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>

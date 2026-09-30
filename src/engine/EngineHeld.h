@@ -227,6 +227,7 @@ struct Surrounds {
   Ground::GroundStack Stack;
   std::shared_ptr<const Ground::PublishedRegion> Region;
   Generators::Registry Offering;
+  Data::ProviderRegistry Providers;
   Generators::Shipping Shipping;
 
   using Standing = WorldInstance;

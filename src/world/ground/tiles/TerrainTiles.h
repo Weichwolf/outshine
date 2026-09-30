@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include "Address.h"
+#include <world/data/Address.h>
 #include "TerrainRevisionIndex.h"
 #include "TerrainGrid.h"
 #include "TileSourceIdentity.h"

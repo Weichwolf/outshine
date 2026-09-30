@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_TERRAINRESIDENCY_H
 #define OUTSHINE_ENGINE_STREAMING_TERRAINRESIDENCY_H
 
-#include "Address.h"
+#include <world/data/Address.h>
 #include "FlatMap.h"
 #include "GroundMesher.h"
 #include "TangentFrame.h"

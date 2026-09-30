@@ -258,6 +258,15 @@ Result Engine::registerGenerator(const Generators::Generator &generator) {
                              : Says::kDuplicateGeneratorKind);
 }
 
+Result Engine::registerProvider(const Data::Provider &provider) {
+  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
+  const auto registered = S_->World.Providers.registerProvider(provider);
+  if (registered) { return {}; }
+  return std::unexpected(registered.error() == Data::ProviderRegistry::RegistrationError::EmptyKind
+                             ? "provider kind must not be empty"
+                             : "provider kind is already registered");
+}
+
 std::span<const std::string> Engine::unacted() const {
   return S_->Session.Carried;
 }

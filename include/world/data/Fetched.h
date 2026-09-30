@@ -1,0 +1,151 @@
+#ifndef OUTSHINE_WORLD_DATA_FETCHED_H
+#define OUTSHINE_WORLD_DATA_FETCHED_H
+
+#include <optional>
+#include <cstdint>
+#include <utility>
+#include <vector>
+
+#include "FetchFailure.h"
+
+namespace outshine::Data {
+
+/// Provider interpretation before shared scheduling and retry policy.
+enum class Meaning : uint8_t {
+  Bytes,   ///< Complete encoded source payload.
+  Absent,  ///< Authoritative absence.
+  Refused, ///< Terminal acquisition refusal.
+  Retry    ///< Retryable acquisition failure.
+};
+
+/// Evidence supporting absence; access failures do not constitute absence.
+enum class AbsenceEvidence : uint8_t {
+  Unknown,     ///< No authoritative HTTP absence evidence.
+  HttpNotFound ///< HTTP 404 was returned by the selected source.
+};
+
+/// Move-only provider reply owning source bytes and failure classification.
+/// Working retains no ticket; the query owns active work. Take consumes a settled
+/// reply once. Moves are constant-time; factories may allocate the payload vector.
+class Fetched {
+public:
+  /// Reply lifecycle; consumed values expose no payload.
+  enum class State {
+    Working, ///< Work remains pending.
+    Settled, ///< Terminal reply can be consumed.
+    Consumed ///< Payload has already transferred or the value was moved from.
+  };
+
+  /// Payload ownership cannot be implicitly copied.
+  Fetched(const Fetched &) = delete;
+  /// Payload ownership cannot be implicitly duplicated.
+  Fetched &operator=(const Fetched &) = delete;
+
+  /// Transfer payload ownership without allocation.
+  /// @param other Reply left consumed.
+  Fetched(Fetched &&other) noexcept
+      : Where_(std::exchange(other.Where_, State::Consumed)),
+        What_(std::exchange(other.What_, Meaning::Refused)),
+        Bytes_(std::move(other.Bytes_)),
+        RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)),
+        Reason_(other.Reason_),
+        Evidence_(other.Evidence_) {}
+
+  /// Release the old payload and transfer ownership without allocation.
+  /// @param other Reply left consumed; self-assignment has no effect.
+  /// @return This reply.
+  Fetched &operator=(Fetched &&other) noexcept {
+    if (this == &other) { return *this; }
+    Where_ = std::exchange(other.Where_, State::Consumed);
+    What_ = std::exchange(other.What_, Meaning::Refused);
+    Bytes_ = std::move(other.Bytes_);
+    RetryAfterS_ = std::exchange(other.RetryAfterS_, 0.0);
+    Reason_ = other.Reason_;
+    Evidence_ = other.Evidence_;
+    return *this;
+  }
+
+  /// Report unfinished work without allocation.
+  /// @return Working reply, with no owned bytes.
+  [[nodiscard]] static Fetched Working() { return {State::Working, Meaning::Retry, {}}; }
+
+  /// Settle a classification without payload or absence evidence.
+  /// @param what Result interpretation.
+  /// @param reason Failure reason when relevant.
+  /// @return Settled reply; no allocation.
+  [[nodiscard]] static Fetched
+  Meant(Meaning what, FetchFailureReason reason = FetchFailureReason::ProviderRefused) {
+    Fetched made(State::Settled, what, {});
+    made.Reason_ = reason;
+    return made;
+  }
+
+  /// Settle a classification with a provider retry delay.
+  /// @param what Result interpretation.
+  /// @param retryAfterS Retry delay in seconds; shared scheduling interprets it.
+  /// @param reason Failure reason when relevant.
+  /// @return Settled reply; no allocation.
+  [[nodiscard]] static Fetched
+  MeantAfter(Meaning what,
+             double retryAfterS,
+             FetchFailureReason reason = FetchFailureReason::ProviderRefused) {
+    Fetched made(State::Settled, what, {});
+    made.RetryAfterS_ = retryAfterS;
+    made.Reason_ = reason;
+    return made;
+  }
+
+  /// Record an authoritative HTTP 404 independently of other failures.
+  /// @return Settled absence carrying HttpNotFound evidence; no allocation.
+  [[nodiscard]] static Fetched NotFound() {
+    auto made = Meant(Meaning::Absent);
+    made.Evidence_ = AbsenceEvidence::HttpNotFound;
+    return made;
+  }
+
+  /// Transfer complete encoded source bytes without copying or allocating.
+  /// @param bytes Owned response, validated by the native consumer.
+  /// @return Settled Bytes reply owning the vector.
+  [[nodiscard]] static Fetched Delivered(std::vector<uint8_t> bytes) {
+    return {State::Settled, Meaning::Bytes, std::move(bytes)};
+  }
+
+  /// Inspect the reply lifecycle.
+  /// @return Current state; constant-time, no allocation.
+  [[nodiscard]] State Where() const noexcept { return Where_; }
+
+  /// Inspect the provider retry delay.
+  /// @return Seconds; constant-time, no allocation.
+  [[nodiscard]] double RetryAfterS() const noexcept { return RetryAfterS_; }
+
+  /// Owned terminal classification and encoded source payload.
+  struct Settled {
+    Meaning What = Meaning::Refused;                                 ///< Result interpretation.
+    FetchFailureReason Reason = FetchFailureReason::ProviderRefused; ///< Failure reason.
+    AbsenceEvidence Evidence = AbsenceEvidence::Unknown; ///< Authoritative absence evidence.
+    std::vector<uint8_t> Bytes; ///< Owned source bytes; consumer enforces byte limits.
+  };
+
+  /// Consume a settled reply exactly once by moving its bytes.
+  /// @return Owned terminal reply or nothing when not settled; no allocation.
+  [[nodiscard]] std::optional<Settled> Take() {
+    if (Where_ != State::Settled) { return std::nullopt; }
+    Where_ = State::Consumed;
+    return Settled{
+        .What = What_, .Reason = Reason_, .Evidence = Evidence_, .Bytes = std::move(Bytes_)};
+  }
+
+private:
+  Fetched(State where, Meaning what, std::vector<uint8_t> bytes)
+      : Where_(where), What_(what), Bytes_(std::move(bytes)) {}
+
+  State Where_;
+  Meaning What_;
+  std::vector<uint8_t> Bytes_;
+  double RetryAfterS_ = 0.0;
+  FetchFailureReason Reason_ = FetchFailureReason::ProviderRefused;
+  AbsenceEvidence Evidence_ = AbsenceEvidence::Unknown;
+};
+
+}
+#endif

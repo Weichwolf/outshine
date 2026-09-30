@@ -1,6 +1,7 @@
 #include "CommandLine.h"
 #include "ProcessBoundary.h"
 #include "ShotOptions.h"
+#include "WorldSourcePolicy.h"
 #include <chrono>
 #include <expected>
 #include <optional>
@@ -723,6 +724,10 @@ int CaptureView(outshine::Engine &engine,
   }
   if (const auto read = engine.readScenario(options.Argv[0]); !read) {
     std::println("outshine-client: {} -- {}", options.Argv[0], read.error());
+    return 1;
+  }
+  if (const auto sources = outshine::Client::ValidateWorldSources(engine.declaration()); !sources) {
+    std::println("outshine-client: {} -- {}", options.Argv[0], sources.error());
     return 1;
   }
   if (options.ProbePixel) {

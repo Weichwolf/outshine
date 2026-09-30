@@ -12,8 +12,8 @@
 #include <string_view>
 #include <vector>
 
-#include "Address.h"
-#include "SourceDecl.h"
+#include <world/data/Address.h>
+#include <world/data/SourceDecl.h>
 
 namespace outshine::Data {
 

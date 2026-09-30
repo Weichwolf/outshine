@@ -155,7 +155,8 @@ ValidateUnparameterized(const SourceProvider &provider) {
     return {};
   }
   if (provider.Kind == "terrain" || provider.Kind == "vector") { return ValidateTile(provider); }
-  return ValidateUnparameterized(provider);
+  if (provider.Kind == "stars") { return ValidateUnparameterized(provider); }
+  return {};
 }
 
 }

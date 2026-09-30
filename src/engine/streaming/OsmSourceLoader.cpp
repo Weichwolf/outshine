@@ -30,6 +30,7 @@ struct OsmSourceLoader::Access {
   Data::Transport *Wire = nullptr;
   std::string Directory;
   std::unique_ptr<Data::ContentStore> Store;
+  const Data::ProviderRegistry *Registry = nullptr;
 };
 
 OsmSourceLoader::OsmSourceLoader(Tasks &tasks, Data::Transport *wire, std::string cacheDirectory)
@@ -46,7 +47,9 @@ OsmSourceLoader::~OsmSourceLoader() {
 }
 
 std::expected<void, std::string>
-OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers, std::string_view root) {
+OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers,
+                         std::string_view root,
+                         const Data::ProviderRegistry *registry) {
   if (auto valid = Data::ValidateSourceProviders(providers); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
@@ -56,7 +59,8 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers, std::s
   }
   std::vector<Data::SourceProvider> requested(providers.begin(), providers.end());
   std::ranges::sort(requested, {}, &Data::SourceProvider::Priority);
-  if (requested == Requested_ && (requested.empty() || root == Root_) && Phase_ != Phase::Failed) {
+  if (requested == Requested_ && (requested.empty() || root == Root_) &&
+      registry == Access_->Registry && Phase_ != Phase::Failed) {
     return {};
   }
   if (Revision_ == std::numeric_limits<uint64_t>::max()) {
@@ -65,6 +69,7 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers, std::s
   ++Revision_;
   Requested_ = std::move(requested);
   Root_ = root;
+  Access_->Registry = registry;
   Error_.clear();
   if (Pending_) { (void)Pending_->Stop.request_stop(); }
   if (Requested_.empty()) {
@@ -116,9 +121,15 @@ void OsmSourceLoader::StartRequested() {
   auto result = std::make_shared<Result>();
   std::stop_source stop;
   const auto token = stop.get_token();
-  const auto handle = Io_.Post([input = Requested_, root = Root_, access = Access_, result, token] {
-    const bool remote =
-        std::ranges::any_of(input, [](const auto &provider) { return !provider.Endpoint.empty(); });
+  const auto handle = Io_.Post([input = Requested_,
+                                root = Root_,
+                                access = Access_,
+                                registry = Access_->Registry,
+                                result,
+                                token] {
+    const bool remote = registry != nullptr || std::ranges::any_of(input, [](const auto &provider) {
+                          return !provider.Endpoint.empty();
+                        });
     if (remote && !access->Wire) {
       result->Value = ReadResult(std::unexpected("official original OSM needs a source transport"));
       return;
@@ -130,9 +141,9 @@ void OsmSourceLoader::StartRequested() {
             Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
       }
       const double deadlineMs = access->Wire->NowMs() + kAcquireBudgetMs;
-      read = [access, deadlineMs](const auto &provider, const auto &stopToken) {
+      read = [access, deadlineMs, root, registry](const auto &provider, const auto &stopToken) {
         return Data::ReadOsmApiRegion(
-            provider, *access->Store, *access->Wire, deadlineMs, stopToken);
+            provider, *access->Store, *access->Wire, deadlineMs, stopToken, registry, root);
       };
     }
     result->Value = Data::OsmChunkSetLoader::ReadRegion(input, root, token, read);

@@ -2,10 +2,10 @@
 #include "TerrainSamplingCoverage.h"
 #include "SourceSet.h"
 #include "Check.h"
-#include "Address.h"
+#include <world/data/Address.h>
 #include "ContentStore.h"
 #include "TilePool.h"
-#include "Transport.h"
+#include <world/data/Transport.h>
 
 #include <array>
 #include <cstdint>

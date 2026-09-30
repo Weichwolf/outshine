@@ -32,20 +32,12 @@ constexpr double kEastStepDeg = 0.0138;
 }
 
 bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders) {
+  Data::RegisterShippedProviders(World.Providers);
   std::vector<Data::SourceProvider> osmProviders;
   tileProviders.reserve(Session.Declared.Providers.size());
   osmProviders.reserve(Session.Declared.Providers.size());
   for (const Data::SourceProvider &provider : Session.Declared.Providers) {
-    if (provider.Kind == "vector") {
-      Error = "world data requires original OSM; vector-map tile providers are not permitted";
-      return false;
-    }
     (provider.Kind == "osm" ? osmProviders : tileProviders).push_back(provider);
-  }
-  if (Session.Declared.Ground.Declared && Session.Declared.Ground.Shape.Kind.empty() &&
-      Session.Declared.Ground.Osm.empty() && osmProviders.empty()) {
-    Error = "world data requires an official original OSM source; no map-tile fallback exists";
-    return false;
   }
   std::vector<World::OsmCircuitRequest> routes;
   routes.reserve(Session.Declared.Routes.size());
@@ -73,7 +65,8 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   if (!World.OsmTransportLoader) {
     World.OsmTransportLoader = std::make_unique<World::OsmTransportLoader>(*World.Pool);
   }
-  if (auto requested = World.OsmSourceLoader->Request(osmProviders, Session.Under.Shipped);
+  if (auto requested =
+          World.OsmSourceLoader->Request(osmProviders, Session.Under.Shipped, &World.Providers);
       !requested) {
     Error = std::move(requested.error());
     return false;
@@ -158,7 +151,8 @@ bool Engine::State::PrepareRuntimeWorld() {
                                                  *World.Wire,
                                                  say,
                                                  Diagnostics,
-                                                 Session.Declared.Ground.PatienceS)) {
+                                                 Session.Declared.Ground.PatienceS,
+                                                 &World.Providers)) {
     Error = say.WhyNot();
     return false;
   }

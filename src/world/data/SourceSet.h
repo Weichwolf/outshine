@@ -9,8 +9,8 @@
 
 #include "ContentStore.h"
 #include "Delivery.h"
-#include "DataKind.h"
-#include "Source.h"
+#include <world/data/DataKind.h>
+#include <world/data/Source.h>
 
 namespace outshine::Data {
 

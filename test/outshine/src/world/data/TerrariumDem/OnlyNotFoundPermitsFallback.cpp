@@ -2,7 +2,7 @@
 #include "ContentStore.h"
 #include "SourceSet.h"
 #include "TerrariumDem.h"
-#include "Transport.h"
+#include <world/data/Transport.h>
 
 #include <memory>
 #include <string>

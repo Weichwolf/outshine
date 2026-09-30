@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_DATA_OSMAPISOURCE_H
 #define OUTSHINE_WORLD_DATA_OSMAPISOURCE_H
 
-#include "Source.h"
+#include <world/data/Source.h>
 #include <world/SourceProvider.h>
 
 #include <cstdint>

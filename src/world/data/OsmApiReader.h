@@ -3,7 +3,8 @@
 
 #include "ContentStore.h"
 #include "OsmChunkSetLoader.h"
-#include "Transport.h"
+#include <world/data/Transport.h>
+#include <world/Provider.h>
 
 namespace outshine::Data {
 
@@ -12,7 +13,9 @@ ReadOsmApiRegion(const SourceProvider &provider,
                  ContentStore &store,
                  Transport &wire,
                  double deadlineMs,
-                 const std::stop_token &stop);
+                 const std::stop_token &stop,
+                 const ProviderRegistry *registry = nullptr,
+                 std::string_view shippedRoot = {});
 
 }
 #endif

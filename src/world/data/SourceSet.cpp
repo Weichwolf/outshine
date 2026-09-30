@@ -301,7 +301,9 @@ Delivery SourceSet::Refuse(Query &query, double afterMs, FetchFailureReason reas
 }
 
 void SourceSet::Abandon(Query &query, Transport &transport) {
-  if (query.Ticket_ != Ticket::None) { transport.Cancel(query.Ticket_); }
+  if (query.Ticket_ != Ticket::None && query.Current_ != nullptr) {
+    query.Current_->Cancel(query.Ticket_, transport);
+  }
   query.Finish();
 }
 

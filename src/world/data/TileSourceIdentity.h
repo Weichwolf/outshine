@@ -5,8 +5,8 @@
 #include <string>
 #include <tuple>
 
-#include "Address.h"
-#include "DataKind.h"
+#include <world/data/Address.h>
+#include <world/data/DataKind.h>
 
 namespace outshine::Data {
 

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_TERRAINREVISIONINDEX_H
 #define OUTSHINE_WORLD_GROUND_TERRAINREVISIONINDEX_H
 
-#include "Address.h"
+#include <world/data/Address.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>

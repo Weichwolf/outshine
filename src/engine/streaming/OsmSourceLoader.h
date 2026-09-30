@@ -3,9 +3,10 @@
 
 #include "OsmSourceSnapshot.h"
 #include "OsmChunkSetLoader.h"
-#include "Transport.h"
+#include <world/data/Transport.h>
 #include "Tasks.h"
 #include <world/SourceProvider.h>
+#include <world/Provider.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -34,7 +35,9 @@ public:
   OsmSourceLoader &operator=(const OsmSourceLoader &) = delete;
 
   [[nodiscard]] std::expected<void, std::string>
-  Request(std::span<const Data::SourceProvider> providers, std::string_view root);
+  Request(std::span<const Data::SourceProvider> providers,
+          std::string_view root,
+          const Data::ProviderRegistry *registry = nullptr);
   void Poll();
   [[nodiscard]] bool AwaitSlice(double seconds) const;
 

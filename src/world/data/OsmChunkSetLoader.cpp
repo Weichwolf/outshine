@@ -63,7 +63,7 @@ OsmChunkSetLoader::ReadRegion(std::span<const SourceProvider> providers,
   for (const auto &provider : providers) {
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
     OsmSourceChunk chunk;
-    if (!provider.Endpoint.empty()) {
+    if (remoteRead || !provider.Endpoint.empty()) {
       if (!remoteRead) { return std::unexpected("official original OSM needs a source transport"); }
       auto fetched = remoteRead(provider, stop);
       if (!fetched) { return std::unexpected(std::move(fetched.error())); }

@@ -21,8 +21,8 @@
 #include "TerrainTiles.h"
 #include "TileMeshes.h"
 #include "TerrainRevisionIndex.h"
-#include "Fetch.h"
-#include "FetchFailure.h"
+#include <world/data/Fetch.h>
+#include <world/data/FetchFailure.h>
 
 namespace outshine {
 class LogSink;
