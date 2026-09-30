@@ -9,6 +9,7 @@
 #include <optional>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <thread>
 
@@ -53,6 +54,7 @@ public:
 private:
   struct Transfer {
     ~Transfer();
+    void ReadHeader(std::string_view line);
 
     uint64_t Ticket = 0;
     std::string Url;

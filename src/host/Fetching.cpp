@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -25,12 +26,17 @@ namespace {
 constexpr double kMicrosecondsPerMillisecond = 1000.0;
 constexpr long kPollMostMs = 1000;
 constexpr size_t kEntityTagMostBytes = 1024;
+constexpr unsigned char kFirstVisibleAscii = 0x21;
+constexpr unsigned char kDeleteAscii = 0x7f;
+constexpr int kHttpSuccessFirst = 200;
+constexpr int kHttpRedirectFirst = 300;
 
 [[nodiscard]] bool StrongEntityTag(std::string_view tag) {
   return tag.size() >= 2 && tag.size() <= kEntityTagMostBytes && tag.front() == '"' &&
          tag.back() == '"' &&
-         std::ranges::all_of(tag.substr(1, tag.size() - 2),
-                             [](unsigned char c) { return c >= 0x21 && c != '"' && c != 0x7f; });
+         std::ranges::all_of(tag.substr(1, tag.size() - 2), [](unsigned char c) {
+           return c >= kFirstVisibleAscii && c != '"' && c != kDeleteAscii;
+         });
 }
 
 [[nodiscard]] bool HeaderName(std::string_view name, std::string_view wanted) {
@@ -49,9 +55,11 @@ constexpr size_t kEntityTagMostBytes = 1024;
 [[nodiscard]] std::optional<Data::RangeResponse> ParseRange(std::string_view text) {
   if (!text.starts_with("bytes ")) { return std::nullopt; }
   text.remove_prefix(6);
-  uint64_t first = 0, last = 0, total = 0;
-  const char *const end = text.data() + text.size();
-  const auto a = std::from_chars(text.data(), end, first);
+  uint64_t first = 0;
+  uint64_t last = 0;
+  uint64_t total = 0;
+  const char *const end = text.end();
+  const auto a = std::from_chars(text.begin(), end, first);
   if (a.ec != std::errc{} || a.ptr == end || *a.ptr != '-') { return std::nullopt; }
   const auto b = std::from_chars(a.ptr + 1, end, last);
   if (b.ec != std::errc{} || b.ptr == end || *b.ptr != '/') { return std::nullopt; }
@@ -80,6 +88,34 @@ private:
 
 Fetching::Transfer::~Transfer() {
   curl_slist_free_all(static_cast<curl_slist *>(Headers));
+}
+
+void Fetching::Transfer::ReadHeader(std::string_view line) {
+  if (!Range) { return; }
+  if (line.starts_with("HTTP/")) {
+    Partial.reset();
+    EntityTag.clear();
+    InvalidRangeHeaders = false;
+    Body.clear();
+    return;
+  }
+  const auto colon = line.find(':');
+  if (colon == std::string_view::npos) { return; }
+  const auto name = line.substr(0, colon);
+  const auto value = TrimHeader(line.substr(colon + 1));
+  if (HeaderName(name, "content-range")) {
+    if (Partial) { InvalidRangeHeaders = true; }
+    Partial = ParseRange(value);
+    if (!Partial) { InvalidRangeHeaders = true; }
+  } else if (HeaderName(name, "etag")) {
+    if (!EntityTag.empty() || !StrongEntityTag(value)) {
+      InvalidRangeHeaders = true;
+    } else {
+      EntityTag = value;
+    }
+  } else if (HeaderName(name, "content-encoding") && value != "identity") {
+    InvalidRangeHeaders = true;
+  }
 }
 
 Fetching::Fetching(Config config) : Config_(std::move(config)) {
@@ -195,7 +231,7 @@ Data::Wire Fetching::Collect(Data::Ticket ticket) {
   std::vector<uint8_t> body = std::move(done.Body);
   Transfers_.erase(found);
   if (failure) { return Data::Wire::Unreachable(*failure); }
-  if (status == 206 && partial) {
+  if (status == Data::kHttpPartialContent && partial) {
     return Data::Wire::Answered(std::move(body), std::move(*partial));
   }
   return Data::Wire::Answered(status, std::move(body), retryAfterS);
@@ -260,32 +296,7 @@ bool Fetching::ConfigureTransfer(void *handle, Transfer &transfer) const {
   }
   const auto header = +[](const char *data, size_t, size_t byteCount, void *user) -> size_t {
     auto &active = *static_cast<Transfer *>(user);
-    if (!active.Range) { return byteCount; }
-    const std::string_view line(data, byteCount);
-    if (line.starts_with("HTTP/")) {
-      active.Partial.reset();
-      active.EntityTag.clear();
-      active.InvalidRangeHeaders = false;
-      active.Body.clear();
-      return byteCount;
-    }
-    const auto colon = line.find(':');
-    if (colon == std::string_view::npos) { return byteCount; }
-    const auto name = line.substr(0, colon);
-    const auto value = TrimHeader(line.substr(colon + 1));
-    if (HeaderName(name, "content-range")) {
-      if (active.Partial) { active.InvalidRangeHeaders = true; }
-      active.Partial = ParseRange(value);
-      if (!active.Partial) { active.InvalidRangeHeaders = true; }
-    } else if (HeaderName(name, "etag")) {
-      if (!active.EntityTag.empty() || !StrongEntityTag(value)) {
-        active.InvalidRangeHeaders = true;
-      } else {
-        active.EntityTag = value;
-      }
-    } else if (HeaderName(name, "content-encoding") && value != "identity") {
-      active.InvalidRangeHeaders = true;
-    }
+    active.ReadHeader(std::string_view(data, byteCount));
     return byteCount;
   };
   const auto progress = +[](void *data, curl_off_t, curl_off_t, curl_off_t, curl_off_t) -> int {
@@ -384,9 +395,10 @@ void Fetching::CollectCompletions(void *multiHandle, size_t &active) {
                               ? Data::FetchFailureReason::TimedOut
                               : Data::FetchFailureReason::Unavailable;
     }
-    if (!transfer->Failure && transfer->Range && status >= 200 && status < 300 &&
-        (status != 206 || transfer->InvalidRangeHeaders || !transfer->Partial ||
-         transfer->Partial->Bytes != *transfer->Range ||
+    if (!transfer->Failure && transfer->Range && status >= kHttpSuccessFirst &&
+        status < kHttpRedirectFirst &&
+        (status != Data::kHttpPartialContent || transfer->InvalidRangeHeaders ||
+         !transfer->Partial || transfer->Partial->Bytes != *transfer->Range ||
          transfer->Body.size() != transfer->Range->Length ||
          !StrongEntityTag(transfer->EntityTag) ||
          (!transfer->IfMatch.empty() && transfer->EntityTag != transfer->IfMatch))) {

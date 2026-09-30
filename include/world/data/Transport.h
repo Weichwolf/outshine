@@ -15,6 +15,9 @@
 
 namespace outshine::Data {
 
+/// HTTP status for one successful, validated partial-content response.
+inline constexpr int kHttpPartialContent = 206;
+
 /// Transport/provider query identity; None denotes no cancellable in-flight work.
 enum class Ticket : uint64_t {
   None = 0 ///< No active cancellable query.
@@ -106,7 +109,7 @@ public:
   /// @param range Validated interval, complete length and strong ETag.
   /// @return HTTP-206 reply owning body and metadata; no allocation.
   [[nodiscard]] static Wire Answered(std::vector<uint8_t> body, RangeResponse range) {
-    Wire wire(State::Answered, 206, std::move(body), 0.0);
+    Wire wire(State::Answered, kHttpPartialContent, std::move(body), 0.0);
     wire.Range_ = std::move(range);
     return wire;
   }
