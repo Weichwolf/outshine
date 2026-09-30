@@ -18,8 +18,8 @@ int main() {
   CHECK(delivered.Where() == TerrainBytes::State::Delivered && !delivered.Failure(),
         "tile delivery retains the normal payload state");
   auto payload = delivered.Take();
-  CHECK(payload && payload->Png.data() == allocation &&
-            payload->Png == std::vector<uint8_t>({1, 2, 3}),
+  CHECK(payload && std::get<std::vector<uint8_t>>(payload->Samples).data() == allocation &&
+            std::get<std::vector<uint8_t>>(payload->Samples) == std::vector<uint8_t>({1, 2, 3}),
         "the adapter moves the existing byte allocation without copying it");
   CHECK(payload && payload->At == ancestor && payload->Source.Tile == ancestor &&
             payload->Source.Kind == Data::DataKind::Elevation &&

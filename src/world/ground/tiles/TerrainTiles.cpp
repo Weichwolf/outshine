@@ -8,6 +8,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <variant>
+#include <span>
 #include "math/Units.h"
 #include "math/Vec4.h"
 #include "TerrainTiles.h"
@@ -59,8 +61,6 @@ DecodeRawGrid(Data::TileId of, TerrainBytes::Payload delivered, uint64_t terrain
                            .Reason = Data::FetchFailureReason::CorruptPayload});
   };
   const Data::TileId source = delivered.At;
-  std::vector<uint8_t> png = std::move(delivered.Png);
-
   const int steps = of.Zoom - source.Zoom;
   if (steps < 0 || steps >= kZoomMost) { return corrupt(); }
   if ((of.X >> static_cast<uint32_t>(steps)) != source.X ||
@@ -71,7 +71,19 @@ DecodeRawGrid(Data::TileId of, TerrainBytes::Payload delivered, uint64_t terrain
   const uint32_t subX = of.X & (subDiv - 1);
   const uint32_t subY = of.Y & (subDiv - 1);
 
-  TerrainGrid grid = TerrainGrid::FromTerrariumPng(png.data(), png.size());
+  TerrainGrid grid = TerrainGrid::Deferred();
+  if (auto *meters = std::get_if<TerrainField>(&delivered.Samples)) {
+    const size_t postings = static_cast<size_t>(meters->Rows()) * meters->Cols();
+    if (!meters->Meshable() ||
+        !std::ranges::all_of(std::span(meters->Data(), postings),
+                             [](float height) { return std::isfinite(height); })) {
+      return corrupt();
+    }
+    grid = TerrainGrid::Holding(std::move(*meters));
+  } else {
+    const auto &png = std::get<std::vector<uint8_t>>(delivered.Samples);
+    grid = TerrainGrid::FromTerrariumPng(png.data(), png.size());
+  }
   TerrainField *field = grid.TryFieldMutable();
   if (field == nullptr || !field->Meshable()) { return corrupt(); }
 

@@ -10,6 +10,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <variant>
 
 #include <world/data/Address.h>
 #include "TerrainRevisionIndex.h"
@@ -25,7 +26,7 @@ public:
 
   struct Payload {
     Data::TileId At;
-    std::vector<uint8_t> Png;
+    std::variant<std::vector<uint8_t>, TerrainField> Samples;
     Data::TileSourceIdentity Source;
     std::string SourceKey;
     std::optional<TerrainRevisionIndex::Stamp> Stamp;
@@ -38,7 +39,21 @@ public:
                            std::optional<TerrainRevisionIndex::Stamp> stamp = std::nullopt) {
     TerrainBytes b(State::Delivered);
     b.Payload_ = Payload{.At = at,
-                         .Png = std::move(png),
+                         .Samples = std::move(png),
+                         .Source = std::move(source),
+                         .SourceKey = std::move(sourceKey),
+                         .Stamp = std::move(stamp)};
+    return b;
+  }
+
+  static TerrainBytes From(Data::TileId at,
+                           TerrainField meters,
+                           Data::TileSourceIdentity source,
+                           std::string sourceKey = {},
+                           std::optional<TerrainRevisionIndex::Stamp> stamp = std::nullopt) {
+    TerrainBytes b(State::Delivered);
+    b.Payload_ = Payload{.At = at,
+                         .Samples = std::move(meters),
                          .Source = std::move(source),
                          .SourceKey = std::move(sourceKey),
                          .Stamp = std::move(stamp)};

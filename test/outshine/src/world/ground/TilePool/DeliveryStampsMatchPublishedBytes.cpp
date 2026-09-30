@@ -121,7 +121,8 @@ int main() {
     CHECK(observed->Calls == (evictMetadata ? 2u : 3u), "retained bytes re-certify without IO");
     CHECK((next.Bytes == first.Bytes) == evictMetadata, "fresh bytes replace evicted bytes");
     auto payload = FromTerrainDelivery(askA, next).Take();
-    CHECK(payload && payload->Stamp == next.TerrainStamp && payload->Png == next.Bytes,
+    CHECK(payload && payload->Stamp == next.TerrainStamp &&
+              std::get<std::vector<uint8_t>>(payload->Samples) == next.Bytes,
           "terrain adapter preserves exact byte/stamp pair");
     CHECK(pool.TerrainMetadataBytes() > 0, "metadata storage is accounted separately");
     if (!evictMetadata && next.TerrainStamp) {
