@@ -43,11 +43,11 @@ private:
   void AppendOuterPoint(Work work);
 
   [[nodiscard]] std::span<const double> PointsOf(Work work) const noexcept {
-    return Geometry_ ? std::span<const double>(Geometry_->Points) : work.Points;
+    return Geometry_ != nullptr ? std::span<const double>(Geometry_->Points) : work.Points;
   }
 
   [[nodiscard]] std::span<const GeographicRing> RingsOf(Work work) const noexcept {
-    return Geometry_ ? std::span<const GeographicRing>(Geometry_->Rings) : work.Rings;
+    return Geometry_ != nullptr ? std::span<const GeographicRing>(Geometry_->Rings) : work.Rings;
   }
 
   const Ground::BuildingField *Products_ = nullptr;

@@ -1080,6 +1080,8 @@ Engine::State::GroundBuildProgress Engine::State::BuildGroundBuildingStamps(
   const auto advanced =
       state.Stamping()->Advance({.Products = &state.Footprints(),
                                  .Footprints = state.Footprints().Footprints(),
+                                 .Points = {},
+                                 .Rings = {},
                                  .VectorGeneration = state.Footprints().Revision(),
                                  .UnitsMost = kEarthworkStampUnitsPerFrame});
   if (!advanced) {

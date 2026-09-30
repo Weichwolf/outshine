@@ -48,8 +48,9 @@ std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
     Phase_ = Phase::Done;
     return {};
   }
-  Geometry_ = work.Products ? work.Products->GeometryOfFootprint(NextFootprint_) : nullptr;
-  if (work.Products && !Geometry_) {
+  Geometry_ =
+      work.Products != nullptr ? work.Products->GeometryOfFootprint(NextFootprint_) : nullptr;
+  if (work.Products != nullptr && Geometry_ == nullptr) {
     return std::unexpected("building footprint has no pinned geometry");
   }
   const auto points = PointsOf(work);

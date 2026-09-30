@@ -74,6 +74,22 @@ int PitchedOf(std::string_view said) {
   return said == "flat" ? 0 : 1;
 }
 
+void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &raw) {
+  if (baked.Coordinates) { return; }
+  baked.Coordinates = std::make_shared<Ground::BuildingField::Geometry>();
+  size_t source = 0;
+  for (auto &footprint : baked.Prints) {
+    while (source < raw.Structures.size() &&
+           raw.Structures[source].SourceFirst != footprint.FirstPoint) {
+      ++source;
+    }
+    if (source == raw.Structures.size()) { std::terminate(); }
+    footprint.FirstPoint = raw.Structures[source].LocalFirst;
+    footprint.FirstHole = raw.Structures[source].FirstHole;
+    ++source;
+  }
+}
+
 void AppendInnerRings(std::span<const GeographicRing> rings,
                       std::span<const double> points,
                       Generators::RawTile &raw) {
@@ -1199,21 +1215,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
     auto &completed = bake.Task.Result().Tile;
     if (!completed) { std::terminate(); }
     Generators::BakedTile &baked = *completed;
-    if (!baked.Coordinates) {
-      baked.Coordinates = std::make_shared<Ground::BuildingField::Geometry>();
-      size_t source = 0;
-      for (auto &footprint : baked.Prints) {
-        const auto &structures = bake.Task.Raw().Structures;
-        while (source < structures.size() &&
-               structures[source].SourceFirst != footprint.FirstPoint) {
-          ++source;
-        }
-        if (source == structures.size()) { std::terminate(); }
-        footprint.FirstPoint = structures[source].LocalFirst;
-        footprint.FirstHole = structures[source].FirstHole;
-        ++source;
-      }
-    }
+    PrepareGeometry(baked, bake.Task.Raw());
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
     const std::optional<Data::TileSourceIdentity> vectorSource =
         VectorSource(*vectors, bake.Task.Tile());
