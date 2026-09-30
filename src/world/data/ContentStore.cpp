@@ -85,6 +85,18 @@ std::string ContentKey(const SourceDecl &decl, const Address &at) {
   return Sha256Hex(subject);
 }
 
+std::string ContentKey(const SourceDecl &decl,
+                       const Address &at,
+                       const std::optional<ByteRange> &range,
+                       std::string_view entityTag) {
+  auto object = ContentKey(decl, at);
+  if (!range) { return object; }
+  std::string subject =
+      object + "/r/" + std::to_string(range->First) + "/" + std::to_string(range->Length) + "/";
+  subject += entityTag;
+  return Sha256Hex(subject);
+}
+
 std::string SourceKey(const SourceDecl &decl) {
   std::string subject = decl.Id;
   subject += '\n';

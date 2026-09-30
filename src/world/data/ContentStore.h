@@ -14,10 +14,15 @@
 
 #include <world/data/Address.h>
 #include <world/data/SourceDecl.h>
+#include <world/data/Transport.h>
 
 namespace outshine::Data {
 
 [[nodiscard]] std::string ContentKey(const SourceDecl &decl, const Address &at);
+[[nodiscard]] std::string ContentKey(const SourceDecl &decl,
+                                     const Address &at,
+                                     const std::optional<ByteRange> &range,
+                                     std::string_view entityTag);
 [[nodiscard]] std::string SourceKey(const SourceDecl &decl);
 
 class ContentStore {
