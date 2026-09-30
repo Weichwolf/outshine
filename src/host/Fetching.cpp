@@ -4,12 +4,15 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <mutex>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -21,6 +24,42 @@ namespace {
 
 constexpr double kMicrosecondsPerMillisecond = 1000.0;
 constexpr long kPollMostMs = 1000;
+constexpr size_t kEntityTagMostBytes = 1024;
+
+[[nodiscard]] bool StrongEntityTag(std::string_view tag) {
+  return tag.size() >= 2 && tag.size() <= kEntityTagMostBytes && tag.front() == '"' &&
+         tag.back() == '"' &&
+         std::ranges::all_of(tag.substr(1, tag.size() - 2),
+                             [](unsigned char c) { return c >= 0x21 && c != '"' && c != 0x7f; });
+}
+
+[[nodiscard]] bool HeaderName(std::string_view name, std::string_view wanted) {
+  return std::ranges::equal(name, wanted, [](char left, char right) {
+    return (left >= 'A' && left <= 'Z' ? left + ('a' - 'A') : left) == right;
+  });
+}
+
+[[nodiscard]] std::string_view TrimHeader(std::string_view text) {
+  const auto first = text.find_first_not_of(" \t\r\n");
+  if (first == std::string_view::npos) { return {}; }
+  const auto last = text.find_last_not_of(" \t\r\n");
+  return text.substr(first, last - first + 1);
+}
+
+[[nodiscard]] std::optional<Data::RangeResponse> ParseRange(std::string_view text) {
+  if (!text.starts_with("bytes ")) { return std::nullopt; }
+  text.remove_prefix(6);
+  uint64_t first = 0, last = 0, total = 0;
+  const char *const end = text.data() + text.size();
+  const auto a = std::from_chars(text.data(), end, first);
+  if (a.ec != std::errc{} || a.ptr == end || *a.ptr != '-') { return std::nullopt; }
+  const auto b = std::from_chars(a.ptr + 1, end, last);
+  if (b.ec != std::errc{} || b.ptr == end || *b.ptr != '/') { return std::nullopt; }
+  const auto c = std::from_chars(b.ptr + 1, end, total);
+  if (c.ec != std::errc{} || c.ptr != end || last < first || last >= total) { return std::nullopt; }
+  return Data::RangeResponse{
+      .Bytes = {.First = first, .Length = last - first + 1}, .TotalBytes = total, .EntityTag = {}};
+}
 
 class CurlRuntime {
 public:
@@ -37,6 +76,10 @@ private:
   return runtime;
 }
 
+}
+
+Fetching::Transfer::~Transfer() {
+  curl_slist_free_all(static_cast<curl_slist *>(Headers));
 }
 
 Fetching::Fetching(Config config) : Config_(std::move(config)) {
@@ -84,6 +127,25 @@ Fetching::~Fetching() {
 }
 
 Data::FetchStart Fetching::Begin(const std::string &url) {
+  return Start(url, std::nullopt, {});
+}
+
+Data::FetchStart
+Fetching::Begin(const std::string &url, Data::ByteRange range, std::string_view entityTag) {
+  if (range.Length == 0 ||
+      range.First > std::numeric_limits<uint64_t>::max() - (range.Length - 1) ||
+      (!entityTag.empty() && !StrongEntityTag(entityTag))) {
+    return std::unexpected(Data::FetchFailureReason::InvalidRequest);
+  }
+  if (range.Length > Config_.MaxBodyBytes) {
+    return std::unexpected(Data::FetchFailureReason::CapacityRefused);
+  }
+  return Start(url, range, entityTag);
+}
+
+Data::FetchStart Fetching::Start(const std::string &url,
+                                 std::optional<Data::ByteRange> range,
+                                 std::string_view entityTag) {
   if (url.empty() || url.contains('\0')) {
     return std::unexpected(Data::FetchFailureReason::InvalidRequest);
   }
@@ -97,9 +159,16 @@ Data::FetchStart Fetching::Begin(const std::string &url) {
     }
     ticket = NextTicket_++;
     Transfers_.try_emplace(ticket);
-    Transfers_.at(ticket).Ticket = ticket;
-    Transfers_.at(ticket).Url = url;
-    Transfers_.at(ticket).MaxBodyBytes = Config_.MaxBodyBytes;
+    auto &transfer = Transfers_.at(ticket);
+    transfer.Ticket = ticket;
+    transfer.Url = url;
+    transfer.Range = range;
+    transfer.IfMatch = entityTag;
+    transfer.MaxBodyBytes = range ? static_cast<size_t>(range->Length) : Config_.MaxBodyBytes;
+    if (range) {
+      transfer.RangeText =
+          std::to_string(range->First) + "-" + std::to_string(range->First + range->Length - 1);
+    }
     Queue_.push_back(ticket);
   }
   WakeWorker();
@@ -121,9 +190,14 @@ Data::Wire Fetching::Collect(Data::Ticket ticket) {
   const auto failure = done.Failure;
   const int status = done.Status;
   const double retryAfterS = done.RetryAfterS;
+  auto partial = std::move(done.Partial);
+  if (partial) { partial->EntityTag = std::move(done.EntityTag); }
   std::vector<uint8_t> body = std::move(done.Body);
   Transfers_.erase(found);
   if (failure) { return Data::Wire::Unreachable(*failure); }
+  if (status == 206 && partial) {
+    return Data::Wire::Answered(std::move(body), std::move(*partial));
+  }
   return Data::Wire::Answered(status, std::move(body), retryAfterS);
 }
 
@@ -179,6 +253,41 @@ void Fetching::WakeWorker() noexcept {
 
 bool Fetching::ConfigureTransfer(void *handle, Transfer &transfer) const {
   auto *const easy = static_cast<CURL *>(handle);
+  if (transfer.Range) { transfer.Body.reserve(transfer.MaxBodyBytes); }
+  if (!transfer.IfMatch.empty()) {
+    transfer.Headers = curl_slist_append(nullptr, ("If-Match: " + transfer.IfMatch).c_str());
+    if (transfer.Headers == nullptr) { return false; }
+  }
+  const auto header = +[](const char *data, size_t, size_t byteCount, void *user) -> size_t {
+    auto &active = *static_cast<Transfer *>(user);
+    if (!active.Range) { return byteCount; }
+    const std::string_view line(data, byteCount);
+    if (line.starts_with("HTTP/")) {
+      active.Partial.reset();
+      active.EntityTag.clear();
+      active.InvalidRangeHeaders = false;
+      active.Body.clear();
+      return byteCount;
+    }
+    const auto colon = line.find(':');
+    if (colon == std::string_view::npos) { return byteCount; }
+    const auto name = line.substr(0, colon);
+    const auto value = TrimHeader(line.substr(colon + 1));
+    if (HeaderName(name, "content-range")) {
+      if (active.Partial) { active.InvalidRangeHeaders = true; }
+      active.Partial = ParseRange(value);
+      if (!active.Partial) { active.InvalidRangeHeaders = true; }
+    } else if (HeaderName(name, "etag")) {
+      if (!active.EntityTag.empty() || !StrongEntityTag(value)) {
+        active.InvalidRangeHeaders = true;
+      } else {
+        active.EntityTag = value;
+      }
+    } else if (HeaderName(name, "content-encoding") && value != "identity") {
+      active.InvalidRangeHeaders = true;
+    }
+    return byteCount;
+  };
   const auto progress = +[](void *data, curl_off_t, curl_off_t, curl_off_t, curl_off_t) -> int {
     const auto &active = *static_cast<Transfer *>(data);
     return static_cast<int>(active.Cancelled.load(std::memory_order_relaxed));
@@ -200,10 +309,20 @@ bool Fetching::ConfigureTransfer(void *handle, Transfer &transfer) const {
          curl_easy_setopt(easy, CURLOPT_XFERINFOFUNCTION, progress) == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, write) == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_WRITEDATA, static_cast<void *>(&transfer)) == CURLE_OK &&
+         curl_easy_setopt(easy, CURLOPT_HEADERFUNCTION, header) == CURLE_OK &&
+         curl_easy_setopt(easy, CURLOPT_HEADERDATA, static_cast<void *>(&transfer)) == CURLE_OK &&
+         curl_easy_setopt(easy,
+                          CURLOPT_RANGE,
+                          transfer.Range ? transfer.RangeText.c_str() : nullptr) == CURLE_OK &&
+         curl_easy_setopt(easy, CURLOPT_HTTPHEADER, static_cast<curl_slist *>(transfer.Headers)) ==
+             CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L) == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_TIMEOUT, Config_.TimeoutS) == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L) == CURLE_OK &&
-         curl_easy_setopt(easy, CURLOPT_ACCEPT_ENCODING, "") == CURLE_OK &&
+         curl_easy_setopt(easy, CURLOPT_ACCEPT_ENCODING, transfer.Range ? "identity" : "") ==
+             CURLE_OK &&
+         curl_easy_setopt(easy, CURLOPT_HTTP_CONTENT_DECODING, transfer.Range ? 0L : 1L) ==
+             CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_USERAGENT, Config_.UserAgent.c_str()) == CURLE_OK &&
          curl_easy_setopt(easy, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS) == CURLE_OK;
 }
@@ -264,6 +383,14 @@ void Fetching::CollectCompletions(void *multiHandle, size_t &active) {
       transfer->Failure = message->data.result == CURLE_OPERATION_TIMEDOUT
                               ? Data::FetchFailureReason::TimedOut
                               : Data::FetchFailureReason::Unavailable;
+    }
+    if (!transfer->Failure && transfer->Range && status >= 200 && status < 300 &&
+        (status != 206 || transfer->InvalidRangeHeaders || !transfer->Partial ||
+         transfer->Partial->Bytes != *transfer->Range ||
+         transfer->Body.size() != transfer->Range->Length ||
+         !StrongEntityTag(transfer->EntityTag) ||
+         (!transfer->IfMatch.empty() && transfer->EntityTag != transfer->IfMatch))) {
+      transfer->Failure = Data::FetchFailureReason::CorruptPayload;
     }
     transfer->Status = static_cast<int>(status);
     transfer->RetryAfterS = static_cast<double>(retryAfter);

@@ -6,6 +6,7 @@
 #include <optional>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -17,6 +18,23 @@ namespace outshine::Data {
 /// Transport/provider query identity; None denotes no cancellable in-flight work.
 enum class Ticket : uint64_t {
   None = 0 ///< No active cancellable query.
+};
+
+/// One requested contiguous source-byte interval; construction does not validate it.
+struct ByteRange {
+  uint64_t First = 0;  ///< First byte offset in the unencoded source object.
+  uint64_t Length = 0; ///< Positive number of bytes; First + Length - 1 must fit uint64_t.
+
+  /// Compare start and length without allocation.
+  /// @return True for identical byte intervals.
+  [[nodiscard]] bool operator==(const ByteRange &) const noexcept = default;
+};
+
+/// Validated partial-response identity, owned independently of the transport ticket.
+struct RangeResponse {
+  ByteRange Bytes;         ///< Exact interval supplied by this response.
+  uint64_t TotalBytes = 0; ///< Known complete source-object length, including this interval.
+  std::string EntityTag;   ///< Strong HTTP ETag, including quotes, for subsequent If-Match.
 };
 
 /// Move-only transport reply owning an HTTP body or acquisition failure.
@@ -45,6 +63,7 @@ public:
         Status_(std::exchange(other.Status_, 0)),
         Body_(std::move(other.Body_)),
         RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)),
+        Range_(std::move(other.Range_)),
         Reason_(other.Reason_) {}
 
   /// Release old bytes and transfer response ownership without allocation.
@@ -56,6 +75,7 @@ public:
     Status_ = std::exchange(other.Status_, 0);
     Body_ = std::move(other.Body_);
     RetryAfterS_ = std::exchange(other.RetryAfterS_, 0.0);
+    Range_ = std::move(other.Range_);
     Reason_ = other.Reason_;
     return *this;
   }
@@ -79,6 +99,16 @@ public:
   /// @return Answered reply; no allocation.
   [[nodiscard]] static Wire Answered(int status, std::vector<uint8_t> body, double retryAfterS) {
     return {State::Answered, status, std::move(body), retryAfterS};
+  }
+
+  /// Transfer validated partial bytes and their source-object identity without copying.
+  /// @param body Owned bytes matching range.Bytes.Length.
+  /// @param range Validated interval, complete length and strong ETag.
+  /// @return HTTP-206 reply owning body and metadata; no allocation.
+  [[nodiscard]] static Wire Answered(std::vector<uint8_t> body, RangeResponse range) {
+    Wire wire(State::Answered, 206, std::move(body), 0.0);
+    wire.Range_ = std::move(range);
+    return wire;
   }
 
   /// Report retryable transport failure without allocation.
@@ -114,8 +144,9 @@ public:
 
   /// Owned HTTP status and complete encoded response body.
   struct Response {
-    int Status = 0;            ///< HTTP status code.
-    std::vector<uint8_t> Body; ///< Owned complete response bytes.
+    int Status = 0;                     ///< HTTP status code.
+    std::vector<uint8_t> Body;          ///< Owned complete response bytes.
+    std::optional<RangeResponse> Range; ///< Owned validated partial-response metadata, if any.
   };
 
   /// Consume an answered response exactly once by moving its body.
@@ -123,7 +154,7 @@ public:
   [[nodiscard]] std::optional<Response> Take() {
     if (Where_ != State::Answered) { return std::nullopt; }
     Where_ = State::Consumed;
-    return Response{.Status = Status_, .Body = std::move(Body_)};
+    return Response{.Status = Status_, .Body = std::move(Body_), .Range = std::move(Range_)};
   }
 
 private:
@@ -134,6 +165,7 @@ private:
   int Status_;
   std::vector<uint8_t> Body_;
   double RetryAfterS_;
+  std::optional<RangeResponse> Range_;
   FetchFailureReason Reason_ = FetchFailureReason::ProviderRefused;
 };
 
@@ -153,6 +185,21 @@ public:
   /// @param url Borrowed URL; copy it if retained.
   /// @return Active ticket or start failure; may allocate bounded query storage.
   [[nodiscard]] virtual FetchStart Begin(const std::string &url) = 0;
+
+  /// Start one bounded unencoded byte interval, optionally pinned to a strong ETag.
+  /// @param url Borrowed URL; implementation copies retained values.
+  /// @param range Positive interval fitting uint64_t and the implementation's body budget.
+  /// @param entityTag Empty for initial discovery, otherwise quoted strong If-Match value.
+  /// @return Active ticket or classified failure. Default refuses unsupported ranges.
+  /// A successful reply validates HTTP 206, exact bytes, total length and strong ETag;
+  /// ignored or mismatched ranges fail. HTTP errors retain their status. No waiting for IO.
+  [[nodiscard]] virtual FetchStart
+  Begin(const std::string &url, ByteRange range, std::string_view entityTag = {}) {
+    (void)url;
+    (void)range;
+    (void)entityTag;
+    return std::unexpected(FetchFailureReason::ProviderRefused);
+  }
 
   /// Poll one active acquisition without waiting for remote IO.
   /// @param ticket Active identity returned by Begin.

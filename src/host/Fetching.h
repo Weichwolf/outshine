@@ -42,6 +42,8 @@ public:
   Fetching &operator=(const Fetching &) = delete;
 
   [[nodiscard]] Data::FetchStart Begin(const std::string &url) override;
+  [[nodiscard]] Data::FetchStart
+  Begin(const std::string &url, Data::ByteRange range, std::string_view entityTag = {}) override;
   [[nodiscard]] Data::Wire Collect(Data::Ticket ticket) override;
   void Cancel(Data::Ticket ticket) override;
   [[nodiscard]] bool Await(double forMs) override;
@@ -50,8 +52,17 @@ public:
 
 private:
   struct Transfer {
+    ~Transfer();
+
     uint64_t Ticket = 0;
     std::string Url;
+    std::optional<Data::ByteRange> Range;
+    std::string RangeText;
+    std::string EntityTag;
+    std::string IfMatch;
+    std::optional<Data::RangeResponse> Partial;
+    bool InvalidRangeHeaders = false;
+    void *Headers = nullptr;
     void *Handle = nullptr;
     std::atomic_bool Cancelled = false;
     size_t MaxBodyBytes = 0;
@@ -63,6 +74,8 @@ private:
   };
 
   [[nodiscard]] size_t AddQueuedTransfers(void *multi, size_t active);
+  [[nodiscard]] Data::FetchStart
+  Start(const std::string &url, std::optional<Data::ByteRange> range, std::string_view entityTag);
   void CollectCompletions(void *multi, size_t &active);
   [[nodiscard]] bool ConfigureTransfer(void *handle, Transfer &transfer) const;
   void FinishTransfers(void *multi, bool failed);
