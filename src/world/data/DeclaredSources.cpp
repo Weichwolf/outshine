@@ -16,6 +16,7 @@
 #include "ReadTextFile.h"
 #include "OsmXmlReader.h"
 #include <expected>
+#include <exception>
 #include <filesystem>
 #include <cstdint>
 
@@ -42,22 +43,26 @@ public:
     Decl_.PayloadSha256 = provider.PayloadSha256;
   }
 
-  const SourceDecl &Declaration() const noexcept override { return Decl_; }
+  [[nodiscard]] const SourceDecl &Declaration() const noexcept override { return Decl_; }
 
-  Coverage Covers(const Fetch &request) const noexcept override {
+  [[nodiscard]] Coverage Covers(const Fetch &request) const noexcept override {
     return request.Kind() == DataKind::OriginalOsm && request.Where().Index() == 0
                ? Coverage::Inside
                : Coverage::Outside;
   }
 
-  Address Serves(const Fetch &request) const noexcept override { return request.Where(); }
+  [[nodiscard]] Address Serves(const Fetch &request) const noexcept override {
+    return request.Where();
+  }
 
-  FetchStart Begin(const Address &at, Transport &) const override {
+  FetchStart Begin(const Address &at, [[maybe_unused]] Transport &transport) const override {
     return at.Index() == 0 ? FetchStart(Ticket::None)
                            : std::unexpected(FetchFailureReason::InvalidRequest);
   }
 
-  Fetched Collect(const Address &at, Ticket, Transport &) const override {
+  Fetched Collect(const Address &at,
+                  [[maybe_unused]] Ticket ticket,
+                  [[maybe_unused]] Transport &transport) const override {
     if (at.Index() != 0) {
       return Fetched::Meant(Meaning::Refused, FetchFailureReason::InvalidRequest);
     }
@@ -72,10 +77,10 @@ private:
 
 class TerrainProvider final : public Provider {
 public:
-  std::string_view kind() const override { return "terrain"; }
+  [[nodiscard]] std::string_view kind() const override { return "terrain"; }
 
-  std::expected<std::unique_ptr<Source>, std::string> make(const SourceProvider &provider,
-                                                           std::string_view) const override {
+  [[nodiscard]] std::expected<std::unique_ptr<Source>, std::string>
+  make(const SourceProvider &provider, [[maybe_unused]] std::string_view root) const override {
     return std::make_unique<TerrariumDem>(provider.Revision,
                                           static_cast<Rank>(provider.Priority),
                                           provider.Missing,
@@ -86,10 +91,10 @@ public:
 
 class VectorProvider final : public Provider {
 public:
-  std::string_view kind() const override { return "vector"; }
+  [[nodiscard]] std::string_view kind() const override { return "vector"; }
 
-  std::expected<std::unique_ptr<Source>, std::string> make(const SourceProvider &provider,
-                                                           std::string_view) const override {
+  [[nodiscard]] std::expected<std::unique_ptr<Source>, std::string>
+  make(const SourceProvider &provider, [[maybe_unused]] std::string_view root) const override {
     if (provider.Dataset.empty() || provider.Endpoint.empty()) {
       return std::unexpected(
           "a vector-tile fixture requires an explicit dataset and endpoint; no default exists");
@@ -104,10 +109,10 @@ public:
 
 class StarsProvider final : public Provider {
 public:
-  std::string_view kind() const override { return "stars"; }
+  [[nodiscard]] std::string_view kind() const override { return "stars"; }
 
-  std::expected<std::unique_ptr<Source>, std::string> make(const SourceProvider &provider,
-                                                           std::string_view root) const override {
+  [[nodiscard]] std::expected<std::unique_ptr<Source>, std::string>
+  make(const SourceProvider &provider, std::string_view root) const override {
     return std::make_unique<StarBands>((std::filesystem::path(root) / "sky").string(),
                                        provider.Revision,
                                        static_cast<Rank>(provider.Priority),
@@ -117,10 +122,10 @@ public:
 
 class OriginalOsmProvider final : public Provider {
 public:
-  std::string_view kind() const override { return "osm"; }
+  [[nodiscard]] std::string_view kind() const override { return "osm"; }
 
-  std::expected<std::unique_ptr<Source>, std::string> make(const SourceProvider &provider,
-                                                           std::string_view root) const override {
+  [[nodiscard]] std::expected<std::unique_ptr<Source>, std::string>
+  make(const SourceProvider &provider, std::string_view root) const override {
     if (provider.Endpoint.empty()) { return std::make_unique<LocalOsmSource>(provider, root); }
     auto made = OsmApiSource::Create(provider, 0);
     if (!made) { return std::unexpected(std::move(made.error())); }
@@ -138,7 +143,10 @@ void RegisterShippedProviders(ProviderRegistry &registry) {
   const std::array<const Provider *, 4> providers = {{&terrain, &vector, &stars, &osm}};
   for (const Provider *provider : providers) {
     if (registry.named(provider->kind()) != nullptr) { continue; }
-    (void)registry.registerProvider(*provider);
+    const auto registered = registry.registerProvider(*provider);
+    if (!registered && registered.error() != ProviderRegistry::RegistrationError::DuplicateKind) {
+      std::terminate();
+    }
   }
 }
 
