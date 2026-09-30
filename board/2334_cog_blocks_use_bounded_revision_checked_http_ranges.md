@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: done
 Architecture: ready
 Priority: P0
 Parent: 2331
@@ -13,8 +13,9 @@ Tags: copernicus, cog, memory, io
 Provider laden benötigte Originalbytebereiche statt vollständiger GLO-30-Dateien.
 Der gemessene Flensburg-COG umfasst 32 964 108 Bytes; sein Header und einzelne
 komprimierte Rasterblöcke benötigen nur einen Teil davon. Der gemeinsame Transport
-unterstützt bisher ausschließlich vollständige Antworten. GLO-30-Decodierung und
-Terrainintegration bleiben WI 2331; dieser Baustein ist deren Beschaffungsvertrag.
+unterstützt jetzt vollständige und begrenzte, revisionsgeprüfte Bereichsantworten.
+GLO-30-Decodierung und Terrainintegration bleiben WI 2331; dieser Baustein ist
+deren Beschaffungsvertrag, keine fertige DSM- oder Place-Integration.
 
 ## Vertrag und Umsetzung
 - `world/data/Transport.h` erhält einen öffentlichen Bytebereich aus Startoffset
