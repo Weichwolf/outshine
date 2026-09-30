@@ -1,119 +1,68 @@
 Type: feature
 State: active
-Architecture: ready
+Architecture: planned
 Priority: P1
 Parent: 2169
-Area: world, scenario, render
-Tags: webcam, measured
 Depends:
+Area: public-api, world, scenario, render
+Tags: webcam, open-meteo, weather
 
-# One weather snapshot drives air, light, water and surface state
+# One public weather provider drives a coherent world state
 
-## Current source audit and first executable slice
+## Ergebnis und Iststand
+Open-Meteo liefert das Wetter für Atmosphäre, Licht, Wolken, Wasser und Materialien.
+Bibliotheksnutzer können ihren eigenen Wetterprovider über denselben öffentlichen
+Vertrag einsetzen. Die Umsetzung folgt auf DSM und die Wiederherstellung der OSM-Places.
+Die vorhandenen Scenario-Felder bewahren sieben Wolken-/Windwerte; Haze erreicht bereits
+EarthMedium. Wolken-/Windwerte besitzen noch keine Renderwirkung. Die privaten
+WeatherProvider/CalmWeather-Typen sind weder Live-Beschaffung noch öffentliche Erweiterung.
 
-Scenario::Weather validation/import/export preserve seven cloud/wind fields; Haze
-already reaches Declaration/RuntimeScene::EarthMedium. Cloud/wind fields have no
-render consumer. WeatherProvider/CalmWeather remain a provider boundary, not live weather.
-Open-Meteo ist die einzige externe Wetterquelle. `world/weather` adaptiert Antworten
-mit Ort, Gültigkeitszeit, Einheiten und Provenienz in denselben Snapshot; nur empfangene
-Originalantworten werden persistent gecacht. Live- und historische Place-Zeitpunkte
-verwenden passende Daten; fehlende Angaben werden keine behaupteten Messwerte.
+## Öffentlicher Quellen- und Snapshotvertrag
+- Die bestehende Providerregistrierung und der gemeinsame Source-/Transportpfad erhalten
+  die native Datenart Wetter. Open-Meteo-JSON endet im Adapter; keine private zweite Factory.
+  Vor Umsetzung öffentliche Nachfrage nach Ort/UTC-Zeit und WeatherSnapshot festlegen.
+  API ist Greenfield; bestehende Scenario-/API-Aufrufer vollständig migrieren.
+- Ein unveränderlicher Snapshot besitzt Quelle, Revision, Ort, räumliche Auflösung,
+  Gültigkeitszeit, Einheiten und Höhenbezug. Fehlende, deklarierte und aus Messwerten
+  abgeleitete Größen bleiben unterscheidbar. Replay pinnt genau diesen Zustand.
+- Der Client nutzt ausschließlich Open-Meteo. Forecast-/Archivantworten müssen zum
+  geforderten Place-Zeitpunkt passen; Modellwerte werden keine behaupteten Stationsmessungen.
+  Nur empfangene Originalantworten persistent cachen. Begrenzte parallele IO verwendet
+  denselben Transport wie DSM/OSM; Interpretation läuft auf dem einzigen Compute-Worker.
+- Engine publiziert zusammenhängende Snapshots an Tick-/Framegrenzen; Fehler erhalten
+  den letzten gültigen Zustand. Veraltete Antworten überschreiben keinen neueren Bedarf.
+  Keine IO oder unbeschränkte Arbeit im Frame; keine erfundene Live-Calm-Weather-Antwort.
 
-First slice: world/weather owns a small immutable WeatherSnapshot from existing
-Ground.Sky plus declared world time, with source/revision/validity and canonical units.
-Engine captures it at tick/frame boundaries; RuntimeScene and atmosphere consume its
-Haze instead of maintaining a parallel weather interpretation. Preserve clear-air output.
-Carry cloud/wind inputs unchanged for 2140; do not claim a visible effect until consumed.
-Convert meteorological wind-from to the native frame at the boundary; ambiguous
-provider percent/height datums require adapter contracts, not guessed renderer units.
-Owners: scenario/WeatherValidation, world/weather snapshot, engine/Declaring and
-RuntimeScene, render atmosphere inputs. No public schema expansion or weather IO on frame.
-Immutable snapshot failure retains the prior valid state; no partial consumer update.
-Tests: existing XML/API/roundtrip bounds, clear-air equivalence, wind-axis fixtures,
-source/time/revision coherence and late-result rejection. A disconnected Haze consumer
-and reversed wind-from conversion must FAIL. Format, focused suites, full lint and
-public-client clear/haze PNG comparison. Broader surface/water effects below are later slices.
+## Wirkung und Besitzer
+world/weather normalisiert Einheiten, UTC und meteorologischen Wind-from in die native
+Raumbasis. Niederschlag, Temperatur, Sichtweite, Wind und Wolkenanteile/-basis treiben
+Atmosphäre, 2140 Wolken, 2167 indirektes Licht, 2129 Wasser und Materialien gemeinsam.
+Haze-/Klarluftverhalten erhalten; Wolkenform folgt Seed, räumlicher Korrelation und Wind.
+Ihre einzelne Form bleibt prozedural. Feuchte/Schnee/Pfützen werden zeitlich integriert;
+Wettervorgeschichte und Anfangszustand besitzt 2325. Kein Regen-Bool für alle Oberflächen.
 
-## Weltweiter Licht- und Atmosphärenvertrag
+Homogene Sichtweitennäherung: beta_total = -ln(0.02)/V = 3.912/V, mit V in Metern.
+Rayleigh-/Aerosolanteile getrennt bilanzieren; kein doppelt gezählter Molekülanteil.
+Höhenprofile und lokale Nebelvolumen erhalten eigenen räumlichen Zustand. Sonne/Mond,
+Schatten, Luftperspektive und Belichtung folgen demselben Weltzustand; keine Place-Looks.
+Lokale Nebelbänke, Tunnelabluft und Lichtkegel integrieren dieselben Lichter/Caster aus
+2128. 2213 besitzt den astronomischen Himmel, 2155 dessen Farb-/Belichtungsantwort.
 
-Volumetrisches Licht, Schatten, Luftperspektive und Farbgestaltung sind eine gemeinsame
-Kernkompetenz. Ort, Datum, Uhrzeit, Höhe und Wetter treiben denselben konsistenten
-Zustand für direkte/indirekte Beleuchtung, Medium und Belichtung. Sonnen- und lokale
-Lichtquellen einschließlich Abschattung integrieren; klare Luft braucht subtile Tiefe,
-Nebel/Gegenlicht stärkere Streuung. Keine fest eingestellten Place-/Sonnenuntergangs-Looks.
-Lokale Nebelbänke, Tunnelabluft und Straßenlichtkegel sind räumlich begrenzte Medien,
-keine globale Haze-Erhöhung. Ihre Streuung nutzt dieselben lokalen Lichter und Caster
-wie 2128; Extinktion und Luftperspektive dürfen nicht doppelt gezählt werden.
-
-Abnahmematrix: beide Hemisphären, Äquator, mittlere Breiten, Polarregionen und Hochgebirge;
-Jahreszeiten, Morgen/Mittag/Abend/Nacht, Polartag und Polarnacht; klar/bedeckt/Nebel.
-Astronomisch unmögliche Kombinationen ausschließen. Repräsentative Fälle prüfen den
-allgemeinen Vertrag, ohne Vollabdeckung sämtlicher Orte/Zeitpunkte zu behaupten.
-Bei Kamera-, Zeit- und Wetterübergängen auf Flimmern, Nachziehen, Kontrast-/Farbsprünge
-prüfen; lesbare Schatten und stabile Tiefenstaffelung erhalten. 2092 misst Frame-/Speicherkosten.
-Zuständigkeiten: 2167 indirektes Licht, 2128 Schatten/Lichter, 2140 Wolken, 2155 Farbantwort;
-2213 verbindet Sonne, Mond und Sternenhimmel mit demselben Weltzustand.
-
-## Implementierung
-
-1. Zeitgestempelter räumlicher Wetter-Snapshot aus Provider/Scenario, mit Quelle, Einheiten,
-   Höhenbezug, Gültigkeit und Auflösung; Replay friert genau diese Daten ein. Vorhandene
-   Scenario-Felder wiederverwenden, keine zweite konkurrierende Wetterdeklaration.
-2. Wind (NED → Weltbasis), Sichtweite, Wolkenanteile/Basis, Niederschlag und Temperatur
-   konsistent an Atmosphäre, 2140, 2167, 2129 und Materialien liefern. Nicht vorhandene
-   Größen explizit als plausible Ableitung kennzeichnen; keine historische Messung erfinden.
-3. Sichtweite auf Aerosolextinktion abbilden, Rayleigh nicht doppelt zählen. Homogene
-   Näherung: beta_total = -ln(0.02)/V = 3.912/V; Aerosolanteil aus Gesamtextinktion minus
-   Molekülanteil mit gültigen Grenzen. Höhenprofile/Nebel getrennt deklarieren.
-4. Feuchte-/Schnee-/Pfützenzustand zeitlich integrieren, nicht Regen-Bool auf alle Flächen
-   setzen. Ohne Wettervorgeschichte plausiblen Anfangszustand deklarieren. Wolkenfeld aus
-   Seed, räumlicher Korrelation und Wind erzeugen; seine einzelne Form ist erfunden.
-5. Asynchrone Abfrage, begrenzte räumliche Updates und stetige zeitliche Übergänge.
-   Uhrzeit, Sonnenrichtung, Belichtung, Wolkenlicht und Boden benutzen denselben Snapshot.
-
-## Abnahme
-
-- [ ] Klar/bedeckt/Regen/Nebel/Schnee bei identischem Ort ergeben physikalisch zusammenhängende
-      Änderungen. Keine Forderung nach der einzelnen Wolke des Webcam-Fotos.
-- [ ] Winddrehen bewegt Wolken und Wasser konsistent; Sichtweitenreihe hat monotonen
-      Kontrastverlust. Snapshot-Replay liefert identischen Zustand; absichtliches Abklemmen
-      eines Verbrauchers scheitert am jeweiligen Wirkungsoracle.
-- [ ] Keine Wetter-IO/Generierung blockiert einen Frame; 2092 misst Wechsel unter Bewegung.
-- [ ] Nachtstraße mit Laternen, bewegtem Scheinwerfer und lokalem Nebel: Kegel und
-      Verdeckung reagieren auf Licht/Caster; ohne Nebel verschwindet nur die Streuung.
-      Räumliche Auflösung und zeitliche Reprojektion messen, Ghosting im Schwenk geht rot.
-
-Wahl: eine deklarative Wetterquelle mit physikalischen Verbrauchern statt handgemalter
-Place-Looks. Unreal-Atmosphäre ist die technische Referenz, RAGE-Timecycle nur das
-vergleichbare Organisationsprinzip, keine übernommene proprietäre Implementierung.
-
-Experiment: Hillaire 2020 (dynamische Sky-View-/Aerial-Perspective-LUTs) gegen
-Bruneton 2017 (vorberechnete Streuung) auf denselben klaren und dunstigen
-Snapshots messen. Sonne am Zenit/Horizont, Hochlage und Wetterwechsel prüfen;
-separate Sky-/Ground-Irradiance und Transmittance-AOVs müssen konsistent sein.
-CPU/GPU-p95, LUT-Bytes und Update-Spitzen auf A18 Pro entscheiden, nicht PC-Zeiten.
-Die RDR2-SIGGRAPH-2019-Präsentation ist Vorbild für geteilte Atmosphäre,
-Wolken/Fog und Sky-Irradiance, nicht für eine kopierte Implementierung.
+Wetter-/Zeitrevisionen invalidieren begrenzte Renderinputs, LUTs und History, keine
+Terrain-/Geometrieprodukte. Hillaire-Sky-/Aerial-LUTs und Bruneton-Streuung anhand gleicher
+Klar-/Dunstfälle, Hochlage, Zenit/Horizont und Wechsel messen. Konsistente Sky-/Ground-
+Irradiance und Transmittance sind verbindlich; Hostzeiten beweisen kein A18-Pro-Budget.
 Referenzen: https://sebh.github.io/publications/egsr2020.pdf ;
 https://ebruneton.github.io/precomputed_atmospheric_scattering/ ;
 https://advances.realtimerendering.com/s2019/index.htm .
 
-## Verified input boundary
-
-WeatherValidation's field schema supplies import/export/API bounds: cloud fractions
-[0,1], nonnegative AGL/wind speed, finite unwrapped wind-from direction and finite
-nonnegative Haze within current GPU storage. No clamps or truncated number prefixes.
-Defaults/zero values and all seven cloud/wind fields survive roundtrip. Historical
-NaN/Inf/negative/token/retry/layer fixtures pass; full physical weather remains open.
-
-## Updategrenze
-
-WeatherSnapshot-Revision ist keine Terrain-/Geometrie-Quellrevision. Änderungen von Zeit,
-Wind oder CloudCover aktualisieren begrenzte Renderinputs/LUTs/History; kein kompletter
-Ground-/WorldContent-Neubau und keine Neuinstanziierung stabiler Weltobjekte pro Tick.
-Erster Snapshot-Slice erhält bestehende Deklaration; dynamische Wirkung folgt separat.
-Counter-/PNG-Kontrolle: Wind-/Zeitwechsel verändert Wetterverbraucher, bewahrt Geometrie-
-IDs und Uploads; absichtliche vollständige Redeclaration verletzt das Kostenoracle.
-
-Konkretes Code-Gate: `make format`; `make suite SUITE='outshine/include/Outshine outshine/src/scenario/ScenarioWrite outshine/src/world/sky/GroundAtmosphere'`;
-`LINT_JOBS=2 make lint`. Neue Slice-Orakel liegen bei den genannten Ownern.
+## Abnahme
+Eigener Provider nur mit öffentlichen Includes erreicht das Wetter im Client-Bild.
+Klar/bedeckt/Regen/Nebel/Schnee und Windwechsel ergeben zusammenhängende Wirkung,
+monotonen Sichtweiten-Kontrastverlust und reproduzierbaren Snapshot-Replay. Prüfung
+über Hemisphären, Äquator, Polarregion, Hochlage, Jahres-/Tageszeiten und Polartag/-nacht.
+Nachtstraße/Lichtkegel reagieren auf Nebel und Caster; Schwenks erzeugen kein Ghosting.
+Wetterwechsel erhalten Weltgeometrie und Uploads. Fehlende Daten bleiben sichtbar;
+physikalisch ungültige Werte, Einheiten und wind-from-Umkehrungen werden erkannt.
+Quelle/Gültigkeit, Place-PNG und getrennte CPU/GPU-/Speicherbudgets nach 2092 belegen
+Integration. Erhaltene sieben Scenario-Werte und API-/Replay-Verträge bleiben vollständig.

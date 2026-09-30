@@ -3,7 +3,7 @@ State: open
 Architecture: planned
 Priority: P0
 Parent: 2166
-Depends: 2334
+Depends: 2334, 2335
 Area: world, data, terrain, engine
 Tags: copernicus, original-source, webcam
 
@@ -58,6 +58,8 @@ liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
   behandeln. Ableitungen vom Terrain erhalten Herkunft und Unsicherheit; weder
   Städte noch reale steile Hänge pauschal glätten. Wasser besitzt eigene Pegel.
 - IO, Decode und Upload haben begrenzte Arbeit, klare Besitzer und Abbruch.
+  Downloads laufen gebündelt parallel über libcurl-Multi; Decode/Resampling verwendet
+  einen Compute-Worker. Render-/Audioarbeit und IO blockieren diesen nicht.
   Kein Netz-/Dateizugriff im Framepfad; Drehung verwendet residente Terrainprodukte.
 
 ## Abnahme
