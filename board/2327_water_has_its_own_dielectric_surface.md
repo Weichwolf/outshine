@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: done
 Architecture: ready
 Priority: P0
 Parent: 2145
@@ -11,9 +11,9 @@ Depends: 2328
 
 ## Ergebnis und vorhandene Fähigkeit
 Wasser verwendet seine eigenen Dreiecke und ein eigenes lichtdurchlässiges Material.
-Die Wasserdreiecke existieren bereits; `Laying::BuildWaterSurfaces` reicht jedoch
-das Terrain-Material weiter. Dadurch werden Wasseroberfläche und Terrain gemeinsam
-klassifiziert und beleuchtet. Der Renderer besitzt bereits den Transmission-Pass.
+Die Wasserdreiecke existieren bereits. Vor der Reparatur reichte
+`Laying::BuildWaterSurfaces` das Terrain-Material weiter; Wasser und Terrain wurden
+gemeinsam klassifiziert und beleuchtet. Der vorhandene Transmission-Pass ist wiederverwendet.
 
 ## Implementierung und Besitz
 - Engine erzeugt ein eigenes natives Material für den vorhandenen Wasser-Part und
@@ -34,6 +34,15 @@ klassifiziert und beleuchtet. Der Renderer besitzt bereits den Transmission-Pass
   und Terrain-Materialien behalten ihre bisherigen Handles und Eigenschaften.
 - Runtime ordnet Wasser dem Transmission-Pass und Terrain der Ground-Domain zu.
   Eine Rückbindung des Wassers an GroundSurface verletzt diesen Vertrag.
-- Flensburg und ein Binnengewässer zeigen den getrennten Wasserpfad im echten
-  Place-Rendering; Bilder öffnen, Ufer und Budget vergleichen. Unverbesserte oder
-  fehlerhafte Flächen bleiben rot. Format, fokussierte Suiten und vollständiger Lint.
+- Vorhandene Flächen in Körbersee/Husum zeigen den getrennten Wasserpfad im echten
+  Place-Rendering; Bilder öffnen, Ufer und Budget vergleichen. Flensburg behält sein
+  Bild: Die fehlende Meeresabdeckung bleibt rot in 2145 und ist keine Materialaufgabe.
+  Format, fokussierte Suiten und vollständiger Lint.
+
+## Lieferung
+`8131c8a3c` bindet bestehende Wassergeometrie an ihr natives Dielektrikum. 2328 erhält
+bei Renderplanwechsel die passenden Frame- und Terrain-Ressourcen. 2329 dämpft den
+durchscheinenden Untergrund um den bereits reflektierten Anteil. Unveränderte Stadt-
+und Terrainbereiche bleiben erhalten; dies beweist keine vollständige Gewässerquelle.
+Die integrierte Abnahme auf `0edf6a076` einschließlich vollständigem Lint ist bestätigt.
+Wien/Feldkirchs bestehende Gebäude-Eingabefehler sperren weiterhin das Gesamt-Place-Gate.

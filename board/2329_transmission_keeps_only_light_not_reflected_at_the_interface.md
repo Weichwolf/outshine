@@ -1,5 +1,5 @@
 Type: bug
-State: active
+State: done
 Architecture: ready
 Priority: P0
 Parent: 2145
@@ -12,8 +12,8 @@ Depends:
 ## Ergebnis und vorhandene Fähigkeit
 Bei flachem Blick spiegeln Wasserflächen stärker und zeigen weniger Untergrund.
 Der bestehende GGX-Pfad berechnet Fresnel bereits für reflektiertes Licht. Der
-Transmission-Zweig in `render/shaders/litFragment.glsl` addiert jedoch den ganzen
-Hintergrund unabhängig von dieser Reflexion. Körbersee zeigt deshalb zu viel Bett.
+Transmission-Zweig in `render/shaders/litFragment.glsl` addierte den ganzen
+Hintergrund unabhängig von dieser Reflexion. Dadurch schien zu viel Seebett durch.
 
 ## Implementierung und Besitz
 - Derselbe normalisierte Blickvektor, Shading-Normal und Material-Fresnel gelten
@@ -35,3 +35,11 @@ Hintergrund unabhängig von dieser Reflexion. Körbersee zeigt deshalb zu viel B
 - Körbersee/Husum öffnen und mit dem vorherigen Commit vergleichen. Bestehende
   Straßen-/Terrain-Pixel erhalten; CPU/GPU-Kosten im Place-Budget. Fokussierte
   GPU-Abnahme, Shader-Artefakte und vollständiger Lint.
+
+## Lieferung
+`0edf6a076` verwendet die verbleibende dielektrische Energie für Transmission.
+Das GPU-Orakel trennt Hintergrund und Beleuchtung; Körbersee/Husum zeigen weniger
+Untergrund. Fehlende Szenenreflexion und die falschen Ufer bleiben 2145/2129.
+Vollständiger Lint/Shader-Abnahme auf demselben Commit bestätigt; die vorhandenen
+Wien/Feldkirch-Eingabefehler bleiben offen. Bilder und Gate liegen commitgebunden
+unter `build/shots/reference/0edf6a076/`.
