@@ -506,14 +506,25 @@ void IncludeFootprint(BakedTile &out, const StructureCell &cell) {
 
 bool ValidStructureInput(const RawTile::Structure &structure, size_t holes) {
   return structure.FirstHole <= holes && structure.HoleCount <= holes - structure.FirstHole &&
+         (!structure.HeightOrigin ||
+          (std::isfinite(structure.HeightM) && structure.HeightM > 0.0)) &&
          std::isfinite(structure.MinimumHeightM) && structure.MinimumHeightM >= 0.0 &&
          (structure.MinimumHeightM == 0.0 ||
           (std::isfinite(structure.HeightM) && structure.HeightM > structure.MinimumHeightM));
 }
 
 bool HasSourceHeight(const RawTile::Structure &structure) {
+  if (structure.HeightOrigin) { return structure.HeightM > 0.0; }
   return structure.HeightM > 0.0 && (structure.MinimumHeightM > 0.0 ||
                                      std::fabs(structure.HeightM - kFillHeightM) > kSameHeightM);
+}
+
+BuildingField::HeightSource HeightSourceOf(const RawTile::Structure &structure) noexcept {
+  if (structure.HeightOrigin &&
+      *structure.HeightOrigin != outshine::Ground::OsmHeightOrigin::MetricTag) {
+    return BuildingField::HeightSource::Default;
+  }
+  return BuildingField::HeightSource::Osm;
 }
 
 std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
@@ -577,16 +588,16 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   if (street.Known) { out.Fronted++; }
   if (HasSourceHeight(one)) {
     fp.HeightM = static_cast<float>(one.HeightM);
-    fp.Source = BuildingField::HeightSource::Osm;
-    out.OsmHeights++;
+    fp.Source = HeightSourceOf(one);
   } else {
     const int storeys = DefaultStoreys(
         {.AreaM2 = RingAreaM2(pts, ring), .AcrossM = AcrossM(pts, ring), .StandBackM = standBackM},
         {.LongitudeDeg = LonOf(pts, ring.First), .LatitudeDeg = LatOf(pts, ring.First)});
     fp.HeightM = static_cast<float>(static_cast<double>(storeys) * kStoreyM + kRoofAllowanceM);
     fp.Source = BuildingField::HeightSource::Default;
-    out.DefaultHeights++;
   }
+  out.OsmHeights += static_cast<int>(fp.Source == BuildingField::HeightSource::Osm);
+  out.DefaultHeights += static_cast<int>(fp.Source == BuildingField::HeightSource::Default);
   fp.BaseM = static_cast<float>(base);
   fp.FootM = static_cast<float>(base);
   fp.SeatM = static_cast<float>(seat);

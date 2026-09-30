@@ -10,7 +10,9 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <span>
+#include <string>
 
 int main() {
   using namespace outshine;
@@ -57,6 +59,31 @@ int main() {
           "independent ENU projection places the lowest generated surface at min_height");
   }
   BuildingScratch massScratch;
+  raw.RequestedDetail = LevelOfDetail::Fine;
+  raw.Structures[0].HeightM = 5;
+  raw.Structures[0].MinimumHeightM = 0;
+  std::optional<std::string> previousKey;
+  for (const auto origin : {Ground::OsmHeightOrigin::MetricTag,
+                            Ground::OsmHeightOrigin::Levels,
+                            Ground::OsmHeightOrigin::Policy}) {
+    raw.Structures[0].HeightOrigin = origin;
+    BakedTile product;
+    const auto baked = BakeStructures(raw, *heights, mesher, *scratch, product);
+    const bool measured = origin == Ground::OsmHeightOrigin::MetricTag;
+    CHECK(baked && product.Prints.size() == 1 && product.Prints[0].HeightM == 5 &&
+              (product.Prints[0].Source == Ground::BuildingField::HeightSource::Osm) == measured &&
+              product.OsmHeights == (measured ? 1 : 0) &&
+              product.DefaultHeights == (measured ? 0 : 1),
+          "resolved five-metre heights bypass tile-default inference without losing provenance");
+    const auto identity =
+        StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion());
+    CHECK(identity && identity != previousKey,
+          "height provenance participates in product identity");
+    previousKey = identity;
+  }
+  raw.Structures[0].HeightM = 12;
+  raw.Structures[0].MinimumHeightM = 5;
+  raw.Structures[0].HeightOrigin.reset();
   const auto thin = MassOf(
       raw.LatLon, {.HeightM = 5.5, .MinimumHeightM = 5, .HeightMeasured = true}, {}, massScratch);
   CHECK(thin && thin->size() == 1 && std::abs(thin->front().TopM() - 5.5) < 1e-9 &&
