@@ -1,106 +1,62 @@
 Type: bug
 State: active
 Architecture: planned
-Priority: P1
+Priority: P0
 Parent: 2169
 Area: world, render
-Tags: webcam, measured
-Depends: 2121, 2173
+Tags: webcam, water, coastline, osm
+Depends:
 
 # Water bodies have coherent levels, valid surfaces and constructed banks
 
-## IST
+## Ergebnis und vorhandene Fähigkeit
+Wasser folgt Original-OSM-Körpern, hat zusammenhängende Pegel und plausible Anschlüsse.
+Flensburgs Hafen/Förde, Husums Kai und Malcesines Ufer enthalten keine künstlichen
+Wasserfälle, erhöhten Meeresflächen oder überfluteten Gebäude.
+`WaterField` hält bereits Außen-/Innenringe und einen gemeinsamen Pegel pro Fläche.
+`WaterSurfaceBuilder` trianguliert konkave Flächen und Inseln; Basin-Stamps erhalten
+Innenringe. Earcut f25bc76/ISC ist gepinnt. Straßenqualität bleibt erhalten.
 
-Wasserflächen existieren. Der frühere Fan-Pfad überdeckte aber konkave Einbuchtungen und
-Inseln. Der Polygonpfad ist jetzt aktiv und dieselbe `WaterField::Surface::LevelM` versorgt
-logische Fläche, Bodenform und Renderoberfläche. Aktuelle Bilder zeigen weiterhin dunkle
-Wasserflächen, gezahnte/geböschte Ufer und in Husum durchquerende helle Bänder.
+## Aktueller Blocker
+Flensburg zeigt weiterhin künstliche Höhenkanten und falsche Wasserwirkung.
+Die bestehende Kachelquelle enthält Hafen/Förde in einer separaten `ocean`-Ebene;
+`GroundStack::CreateVectorField` lädt sie nicht, und die Klassifikation kennt nur
+`water_polygons/ocean`. Die Runtime veröffentlicht Binnenflächen, keine vollständige
+Meeresfläche. Das erklärt fehlende Abdeckung; die genaue Herkunft jeder Höhenkante
+ist zusätzlich gegen ursprüngliches DEM und Terrain-Stamps zu prüfen.
+Einzelne gekachelte Binnenflächen erhalten unabhängig aus DEM-Randproben geschätzte
+Pegel. Diese Heuristik beweist weder gemeinsame Pegel noch einen Meereswasserstand.
+2326 korrigiert abweichend geglättete Materialgrenzen; das repariert keine fehlende Küste.
 
-## Implementierung
-
-- Besitzgrenze: `WaterField` hält geografische Körper, Ringe und Pegel. Ein
-  `Generators::WaterSurfaceBuilder` erhält einen unveränderlichen, für die
-  Kandidatenrevision gepinnten Input aus Ringen, Pegeln, Höhen und TangentFrame
-  und liefert native `Geometry` samt Zählern/Fehlern. `Engine::State` plant,
-  veröffentlicht und meldet nur; dort entstehen keine Dreiecke. Basin-Stamps
-  werden vom selben validierten Wasserkörper abgeleitet, nicht aus einem zweiten
-  unabhängigen Ring-Walk. Keine `Engine::State`- oder Renderer-Abhängigkeit im
-  Generator. Methoden heißen nach `Build`, `Advance`, `Take` und `Cancel` statt
-  nach einem allgemeinen `Grounds`-/`Laying`-Vorgang.
-- Ein WaterBody-Modell für Geometrie, Niveau/Datum, Outer-/Inner-Ringe, Bed und Bank.
-  Polygon-Clipping/Triangulation für konkave Multipolygone und Inseln; Tilegrenzen teilen IDs.
-- Niveau für See zusammenhängend; Fluss längs stetig mit plausibler Falllinie, Meer mit
-  deklariertem Referenzniveau. Zeitabhängige Pegel nur aus vorhandenen Daten oder ausdrücklich
-  simuliert, niemals als exakter beobachteter Wasserstand behaupten.
-- OSM-Quai/Stützmauer als Wand mit Oberkante, Fundament und Material; natürliche Böschung
-  separat. Basin-Press-Apron nicht pauschal zum sichtbaren Ufer machen. Höhenänderungen begrenzen
-  und mit Quelle protokollieren; gültigen Berg nicht an den See-Level ziehen.
-- Derselbe ausgeschnittene Wasserkörper beliefert Bed, Surface und 2129; Unterschiede nach
-  Ablehnungsgrund zählen. Wasser unter Brücken erhalten; Straße nicht auf Wasserniveau pressen.
-  2257 ergänzt geschützte Gerinne auch für `WaterField::Course`, nicht nur Polygonflächen;
-  Konflikte mit Pads/Korridoren werden konstruktiv gelöst oder abgelehnt.
+## Implementierung und Besitz
+- `world/ground` leitet native WaterBody-Produkte aus dem gemeinsamen Original-OSM-
+  Snapshot ab: typed Node/Way/Relation-ID, Tags, Außen-/Innenringe, Klasse und Pegelherkunft.
+  Geschlossene Wasserflächen und Multipolygone erhalten getrennte Außenkomponenten
+  mit eindeutig zugeordneten Inseln. Fehlende oder widersprüchliche Daten bleiben benannt.
+- Gerichtete `natural=coastline`-Ketten erzeugen mit deklarierter Quellenabdeckung
+  Marineflächen. Anschlüsse an Nachbarregionen sind Quellenabhängigkeiten; unvollständige
+  Ketten erzeugen keinen geratenen Wasser-/Landabschluss. Den regionalen Abschluss-
+  und Fehlervertrag vor Runtime-Anschluss festlegen. Keine neue Abhängigkeit von MVT.
+- Binnenpegel gelten für den ursprünglichen zusammenhängenden Körper, nicht für dessen
+  Renderstücke. Meer nutzt ein ausdrücklich deklariertes Referenzniveau im DEM-Datum.
+  Ein exakter historischer Tidenstand ist mit den erlaubten Eingaben nicht gegeben.
+  Flüsse behalten ein stetiges Profil entlang ihrer gerichteten Verbindung.
+- `Generators::WaterSurfaceBuilder` erhält gepinnte Ringe/Pegel und TangentFrame,
+  liefert native Geometry und lokale Fehler. Materialgrenzen, logische Fläche,
+  Wasseroberfläche und Basin-Stamps verwenden denselben Körper und dieselbe Revision.
+  Wasser ist eine eigene Oberfläche; ein blaues Terrain-Material ersetzt sie nicht.
+- Engine koordiniert begrenzte IO-/Compute-Arbeit und atomare Veröffentlichung.
+  Quellenfehler erhalten den Altstand und einen roten Befund. Keine generierten
+  Runtime-Disk-Caches, Kamera-Sonderfälle oder Foto-basierte Geometriekorrekturen.
+- OSM-Quai/Stützmauer erhält Wand, Oberkante und Material; natürliche Böschung bleibt
+  separat. Bed/Bank-Deformation respektiert gültiges Bergrelief und Gebäudefreiraum.
+  Brücken stehen über erhaltenem Wasser; Straßen werden nicht auf dessen Pegel gedrückt.
+  Geschützte Gerinne aus 2257 gelten auch für Liniengewässer. Reflexion folgt in 2129.
 
 ## Abnahme
-
-- [ ] Konvexer See reproduziert bestehende Geometrie; konkaver Ring mit Insel
-      beweist Innen-/Außenfläche und Winding analytisch. Offener, degenerierter
-      oder selbstschneidender Ring liefert einen lokalen Fehler mit Body-ID.
-      Unterbrochene Arbeit und Retry ergeben identische Indizes und Pegel; ein
-      späterer Kandidat ändert den gepinnten Input nicht rückwirkend.
-- [ ] Konkaver See mit Insel, Fluss über Tilegrenze, Hafen mit Brücke: keine Landüberdeckung,
-      fehlende Surface oder Höhensprünge. Absichtlich falscher Ring erzeugt lokalen roten Befund.
-- [ ] Husum ohne Treppen/Bänder im Wasser; Malcesine ohne künstlichen Uferkamm;
-      Koerbersee hat eine durchgehende Oberfläche. Venice-Regression zusätzlich erhalten.
-- [ ] Water-ID/Bed/Surface-Counter und Querschnitte erklären jeden Unterschied. Reflexion
-      separat in 2129 abnehmen; geometrische Korrektheit nicht aus dunkler Farbe ableiten.
-
-Wahl: getrennte Wasseroberfläche und Geländeform wie öffentliche Unreal-Water-Konzepte;
-RAGE ist visuelle Referenz. Ein Deckel allein behebt keine falsche Uferkonstruktion.
-
-## P0: Wasseraufnahme in prüfbare Phasen trennen
-
-WaterField nutzt gemeinsame Ringauswahl und Höhenleser; Flussprofile und
-Flächenpegel sind getrennt. Bestehende Filter, Pegelheuristik und Reihenfolge
-bleiben erhalten. Deklarierte Ringe prüfen Pending→Ready, fehlende Höhen,
-Tunnel-/Größen-/Layerfilter, beide Flussrichtungen und niedrigen Flächenpegel
-samt Ausreißer. Test grün; ausgeschaltete Pending-Sperre scheitert siebenmal.
-Wien ohne Vegetation geöffnet: 0/921600 Pixel verändert; p50/p95/p99
-5.14/5.79/6.14 ms, 0/120 über 16.67 ms. Keine vollständige Wasserabnahme.
-Aufnahme/Bereitschaft ohne Diagnose. Aktive Flächengenerierung, Löcher und
-Writer-Coverage bleiben offen.
-Die doppelte Abfrage vor/nach Mark_.Take setzt derzeit stabile GroundQuery-
-Antworten voraus. Übergang Ready→Pending und atomare Veröffentlichung separat
-prüfen; die Aufteilung allein beweist diesen Lebensdauervertrag nicht.
-
-## P0: ein Datenmodell, ein aktiver Geometriepfad
-
-Quellaudit 2026-09-23: `OsmVector`/`OsmField` erhalten Außen- und Innenringe
-mit `Feature.FirstRing/RingCount` und `Ring.Exterior`. `WaterField::UsableRing`
-verwirft dagegen jeden Innenring; `WaterField::Surface` enthält nur einen
-Außenring. Der aktive Fan kann Inseln somit auch mit einem besseren
-Triangulator nicht sehen. Zuerst `WaterField` auf einen pro Feature/äußerem
-Teil zusammengehörigen Body mit geordneten Ringreferenzen, Pegel und
-Quellrevision umstellen. Ein ungültiger Innenring verwirft den betroffenen
-Body mit Diagnose, statt ihn still als Wasser zu füllen. Pegel aus dem
-zugehörigen Außenring ableiten; Innenringe benötigen keine eigene Pegelprobe.
-Paced Admission, Retry und Revisionswechsel dürfen keinen Teil-Body
-veröffentlichen. Der bestehende MVT-Ringtest liefert ein Loch-Fixture für
-einen neuen End-to-End-WaterField-Test. Lokale Triangulationsreferenz:
-`/Users/cosmo/Git/earcut.hpp` bei `f25bc76` (ISC); vor Übernahme Lizenz,
-Degeneratfälle und Arbeitsbudget prüfen.
-
-## Vorhandener Polygonpfad und offene Lieferung
-
-WaterField und GroundSnapshot halten Außen-/Innenringe und einen gemeinsamen Pegel.
-AppendWaterSurfaceGeometry trianguliert konkave Polygone mit Löchern in native Geometry;
-der Basin-Stamp erhält Inseln. Earcut f25bc76/ISC ist gepinnt. Der alte Fan ist ersetzt.
-Offen bleiben selbstschneidende Ringe, Tilegrenzen, Flussprofile, Ufer/Quai und geschützte
-Gerinne. Malcesines künstliche Steilwände und dunkler Fußstreifen bleiben sichtbare Fehler.
-
-## Archivziel
-
-Koerbersee braucht lesbare Berg-/Waldreflexion, Malcesine ruhige Fernflächen und feine
-windabhängige Wellen, Husum einen sauberen Kai-/Wasserkontakt. Gemeinsame Wasserparameter
-mit physikalisch unterschiedlichen Zuständen statt einer globalen blauen Fläche.
-Der genaue historische Tidenstand ist aus OSM und Momentanwetter nicht ableitbar;
-fehlende Pegeldaten bleiben unbewiesen, keine Foto-basierte Höhenkorrektur.
+- Konkaver See mit Insel, Fluss über Regionsgrenze und Hafen mit Brücke bleiben
+  vollständig, ohne Landüberdeckung, Pegelsprung oder künstliche Höhenkante.
+- Originalquelle, Körper-ID, Pegelherkunft und Terrain-Querschnitt erklären jeden
+  Anschluss. Ungültige Topologie erzeugt einen lokalen Fehler und keine Ersatzfläche.
+- Flensburg/Husum/Malcesine/Koerbersee verbessern Wasser-/Landkontakt sichtbar im
+  Place-Budget. Erhaltene Venice-Diagnose bleibt offen, bis sie tatsächlich korrekt ist.
