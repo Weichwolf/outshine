@@ -26,6 +26,7 @@ public:
   [[nodiscard]] static int ComputeThreads();
 
   [[nodiscard]] Handle Post(Job job);
+  [[nodiscard]] bool PostDetached(Job job);
   [[nodiscard]] bool Done(Handle which);
   [[nodiscard]] bool AwaitCompletion(double seconds);
   void Wait(Handle which);
@@ -36,9 +37,11 @@ private:
   struct Posted {
     Handle Which = kNoTask;
     Job Run;
+    bool Tracked = true;
   };
 
   void Work();
+  [[nodiscard]] Handle Post(Job job, bool tracked);
 
   std::mutex Mutex_;
   std::condition_variable Wake_;

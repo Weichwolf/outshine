@@ -1,6 +1,5 @@
 #include "Tasks.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <chrono>
 #include <cstdint>
@@ -10,16 +9,8 @@
 
 namespace outshine {
 
-namespace {
-
-constexpr int kThreadsTheFrameKeeps = 2;
-constexpr int kMostComputeThreads = 8;
-
-}
-
 int Tasks::ComputeThreads() {
-  const auto hardware = static_cast<int>(std::thread::hardware_concurrency());
-  return std::clamp(hardware - kThreadsTheFrameKeeps, 1, kMostComputeThreads);
+  return 1;
 }
 
 Tasks::Tasks(int threads) {
@@ -41,11 +32,20 @@ Tasks::~Tasks() {
 }
 
 Tasks::Handle Tasks::Post(Job job) {
+  return Post(std::move(job), true);
+}
+
+bool Tasks::PostDetached(Job job) {
+  return Post(std::move(job), false) != kNoTask;
+}
+
+Tasks::Handle Tasks::Post(Job job, bool tracked) {
   Handle which = kNoTask;
   {
     const std::scoped_lock lock(Mutex_);
+    if (Stopping_) { return kNoTask; }
     which = Next_++;
-    Queue_.push_back({.Which = which, .Run = std::move(job)});
+    Queue_.push_back({.Which = which, .Run = std::move(job), .Tracked = tracked});
   }
   Wake_.notify_one();
   return which;
@@ -85,7 +85,7 @@ void Tasks::Work() {
     taken.Run();
     {
       const std::scoped_lock lock(Mutex_);
-      Done_.insert(taken.Which);
+      if (taken.Tracked) { Done_.insert(taken.Which); }
     }
     Landed_.notify_all();
   }
