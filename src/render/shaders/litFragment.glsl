@@ -63,7 +63,10 @@ void main() {
     medium = exp(log(max(surface.attenuationColour, vec3(1e-5))) *
                  (surface.thickness / surface.attenuationDistance));
   }
-  shaded.rgb += texelFetch(behindMap, ivec2(gl_FragCoord.xy), 0).rgb * albedo * medium * surface.transmission;
+  vec3 view = normalize(lights.viewPosition.xyz - position * lights.viewPosition.w);
+  vec3 reflected = brdfFresnel(f0, f90, clamp(dot(shadingNormal, view), 0.0, 1.0));
+  vec3 transmitted = (vec3(1.0) - reflected) * (1.0 - metalness) * surface.transmission;
+  shaded.rgb += texelFetch(behindMap, ivec2(gl_FragCoord.xy), 0).rgb * albedo * medium * transmitted;
 #endif
   outputSurface(shaded, shadingNormal, surface.identity);
 }
