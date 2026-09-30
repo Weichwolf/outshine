@@ -41,10 +41,23 @@ Pegel. Diese Heuristik beweist weder gemeinsame Pegel noch einen Meereswassersta
   Renderstücke. Meer nutzt ein ausdrücklich deklariertes Referenzniveau im DEM-Datum.
   Ein exakter historischer Tidenstand ist mit den erlaubten Eingaben nicht gegeben.
   Flüsse behalten ein stetiges Profil entlang ihrer gerichteten Verbindung.
+- Kein Grundwasser-Mesh pro Terrain-Kachel und keine Begrenzung aller Gewässer auf NN.
+  OSM bestimmt Gewässerexistenz; Körperpegel und DEM nutzen denselben Höhenbezug.
+  Seen unter Meereshöhe bleiben zulässig. Regionen teilen nur Darstellung und LOD,
+  nicht den Pegel unabhängiger Gewässer. Das Meer bleibt erdkrümmungsgerecht.
+- Wasser darf im begrenzten Uferband unter Gelände reichen; Tiefentest verdeckt Land.
+  Quellenabdeckung und Inseln begrenzen die Fläche weiterhin. Ein globales Niveau
+  würde trockene Senken fluten. Tiefendifferenz steuert Uferübergang und Absorption;
+  kein Anheben der gesamten Wasserfläche zur Reparatur eines fehlerhaften Ufers.
 - `Generators::WaterSurfaceBuilder` erhält gepinnte Ringe/Pegel und TangentFrame,
   liefert native Geometry und lokale Fehler. Materialgrenzen, logische Fläche,
   Wasseroberfläche und Basin-Stamps verwenden denselben Körper und dieselbe Revision.
   Wasser ist eine eigene Oberfläche; ein blaues Terrain-Material ersetzt sie nicht.
+- 2327 trennt vorhandene Wasserdreiecke vom Terrain-Material. Danach erhält derselbe
+  Renderpfad zeit-/windabhängige Normalen und begrenzte geometrische Wellen; feine
+  Wellen laufen im Shader, nahe Silhouetten brauchen ausreichend tessellierte LODs.
+  Wetteränderung regeneriert weder Gewässergrenzen noch Terrain. Transmission nutzt
+  Fresnel und Wassertiefe; bekannte fehlende Reflexionen bleiben Aufgabe von 2129.
 - Engine koordiniert begrenzte IO-/Compute-Arbeit und atomare Veröffentlichung.
   Quellenfehler erhalten den Altstand und einen roten Befund. Keine generierten
   Runtime-Disk-Caches, Kamera-Sonderfälle oder Foto-basierte Geometriekorrekturen.
