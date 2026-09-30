@@ -7,114 +7,72 @@ Priority: P0
 Area: world, data, navigation, engine, streaming
 Tags: osm, worldwide, source-cells, residency
 
-# Geodetic OSM cells stream independently of render tiles
+# Original OSM supplies coherent roads and buildings independently of render tiles
 
-## Problem and boundary
-`OsmSourceLoader` beschafft lokale/API-Originaldaten; der Transportloader nutzt denselben Snapshot.
-Worldwide semantic residency must be independent of VectorStreetGraph, render LOD
-and camera tile eviction; a larger chunk cap does not establish that ownership.
-Preserve the regional adapter and connect the same original elements to building
-generation. Existing source identity and transport publication from 2278 are usable;
-completion of its deferred driving acceptance does not block the visual milestone.
+## Ergebnis und Iststand
+Originalobjekte liefern native Verkehrs- und Gebäudeprodukte bis ins Client-Bild.
+Quellenresidenz bleibt unabhängig von Render-LOD, Frustum und Kacheleviktion.
+Vorhanden: regionale Originalbeschaffung, gemeinsame Snapshots, Transportprodukte,
+Footprint-Hüllen und `OriginalStructureInput`. Der native Gebäudeanschluss fehlt.
+Weltweite Zellnachfrage bleibt Teil dieser Lieferung; größere Chunk-Limits ersetzen sie nicht.
+Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
 
-## Architecture decision
+## Besitzer und Quellenvertrag
+- `world/data` besitzt unveränderliche Quellregionen und typisierte OSM-IDs.
+  `GeoCellId(level,x,y)` teilt Länge [-180,180) und Breite [-90,90], level <= 24,
+  Achsen < 2^level; x umläuft, y nicht. Bounds sind halboffen außer am Nordpol.
+  Diese Quellenzellen sind weder Metergrid noch Mercator-Render-/DEM-Kacheln.
+- `OsmCellSource` adressiert (Dataset, Revision, GeoCellId) und liefert begrenzte
+  Bytes oder typisierte Fehler. Eine Deklaration bezeichnet den Katalog.
+  Vor Manifest-Implementierung Schema, Pfadauflösung, Besitzer und Zell-Pins festlegen;
+  lokale Dateien verwenden denselben Vertrag. IO/Parse laufen außerhalb der Simulation.
+- Gleiche überlappende Objekte deduplizieren nach typisierter ID; Konflikte verwerfen
+  den Ersatz. Geteilte Nodes verbinden Netze; gleiche Koordinaten beweisen keine Identität.
+  Konsumierte Produkte verlangen vollständige Referenzhüllen und fehlende Nachbarzellen.
+  Fremde unvollständige Fernrelationen bleiben erhalten und blockieren keine Gebäude.
+  Vollständig deklarierte lokale Chunk-Sets behalten ihre strikte Prüfung.
+- `world/navigation` leitet Verkehrsnetze ab; Routen pinnen benötigte Graphzellen.
+  `world/ground` liefert native Gebäudeinputs an bestehende Generatoren.
+  `engine/streaming` besitzt Nachfrage, begrenzte Jobs, Abbruch und Retention.
+  Kein globaler Objektmerge und kein Graph aus Straßen-Rendergeometrie.
 
-1. `world/data` owns `GeoCellId(level,x,y)` with `level <= 24` and each axis
-   below `2^level`. It partitions longitude `[-180,180)` and latitude
-   `[-90,90]`; x wraps at the antimeridian, y does not wrap at a pole. Bounds
-   are half-open except the outer north/pole edge. This is a source index,
-   not a metre grid or the Mercator `TileId` used by DEM/vector rendering.
-2. A versioned `OsmCellSource` contract maps `(dataset, revision, GeoCellId)`
-   to bounded byte acquisition or a typed missing/error result. The initial
-   local fixture adapter may use an indexed manifest; it cannot read or parse
-   on the simulation thread. A single source declaration names the catalog,
-   not one `SourceProvider` per cell. Specify ownership, path resolution and
-   per-cell byte/hash pins in that manifest before parser implementation.
-3. `world/data` owns immutable decoded source regions and typed cross-cell OSM IDs.
-   `world/navigation` derives transport; `world/ground` supplies native building inputs
-   to the existing generators. Equal overlapping objects deduplicate; conflicting IDs
-   reject replacement. A cell with unresolved way/relation references declares
-   neighbor dependencies and cannot silently publish disconnected edges.
-   A route pins its required graph cells; visual tile eviction is irrelevant.
-4. `engine/streaming` schedules cells for camera and active route corridors
-   with bounded admission, stale-request cancellation and explicit retention
-   budgets. Candidate publication is atomic per coherent source revision;
-   overload defers work rather than blocking a frame. No global `OsmElements`
-   merge and no graph reconstruction from rendered street meshes.
-## Camera turns and storage hierarchy
+## Konkreter Runtime-Anschluss
+- Engine und `OsmTransportLoader::RequestSource` teilen den gepinnten Snapshot.
+  `GroundInputsReady` wartet auf verlangte Produkte, nicht pauschal auf alle Graphen.
+- `OriginalStructureInput` liefert `RawTile` an `StructureBuildQueue`.
+  Terrain-Anfragen folgen dessen Geometrie statt reduzierten `OsmField`-Features.
+  Quellenidentität, DEM-Zertifikat und Geometriebesitzer qualifizieren Jobs und Publikation.
+  Keine zweite Gebäudequeue, kein MVT-Zwischenformat, kein persistenter Produkt-Cache.
+- `BuildingField::AcceptedInput` pinnt Geometrie und Quelle je Produkt; Indizes gelten
+  nur in dessen Points/Rings. `BuildingStampJob` und `Laying` verwenden diese Besitzer.
+  OSM verformt DEM über dieselben Terrain-Stempel wie vorhandene Straßen und Gebäude.
+  Ersatz publiziert atomar; Fehler erhalten gültigen Altstand und Straßenqualität.
+- Gepinnte Original-IDs erschließen sämtliche Tags für `StructurePlan`/`BuildingMesh`.
+  Klassen, Dachformen und Material bleiben erhalten; `PitchedShare` ersetzt keinen Dachtag.
+  Schornsteine erhalten keine Wohnfassade. Parts behalten Höhenintervalle und Besitzer.
+- `OsmBuildingHeights` normalisiert Höhe/min_height und levels/min_level an der Grenze.
+  Fehlende, gültige und fehlerhafte Angaben bleiben getrennt; Originalstrings bleiben erhalten.
+  Widersprüche löst explizite Generatorpolitik; kein Sentinel wird zur gemessenen Höhe.
+- Außenring, Höfe und erhöhte Parts bleiben bei jedem LOD erhalten. Kein Stamp, Sockel
+  oder Pflaster unter erhöhten Parts; Zusammenfassung füllt weder Hof noch Durchfahrt.
+  Earcut trianguliert perforierte Dächer/Böden vor Dachfaltung; Massing bleibt ungeteilt.
+  Mesh und Stempel teilen Punkte und Revision; Innenringe brauchen eindeutige Außenbesitzer.
 
-Streaming demand covers all azimuths around the camera, independently of the render
-frustum. Distance-appropriate render products remain resident before visibility changes;
-a fast 180-degree turn must not expose holes or wait for disk, decode or generation.
-Keep the configured horizon through resident distant representations. Detailed nearby
-products, movement prefetch and eviction hysteresis share a bounded working set.
-`engine/streaming` owns demand and retention; the renderer culls drawing independently.
-SSD holds downloaded original source bytes only, never generated geometry, LODs or
-material products. RAM holds bounded source indices, decode/upload staging and active
-CPU products; GPU residency holds immediately drawable representations. Derive disk
-capacity from source reuse and byte sizes, IO admission from latency and throughput;
-a fixed quota that repeatedly evicts the active area is not an accepted budget.
-Acceptance includes rapid full rotations and movement back across cell boundaries:
-complete images, no frame-thread IO, bounded transient overlap and measured p99.
+## Nachfrage und Speicher
+Alle Azimute erhalten entfernungsangemessene residente Produkte bis zur konfigurierten
+Sichtweite. Frustum begrenzt nur Zeichnen. Bewegung fragt neue Regionen mit Hysterese an;
+Überlast verschiebt Arbeit ohne Frame-Blockade. Kohärente Quellenstände publizieren atomar.
+SSD hält nur empfangene Rohbytes. RAM hält begrenzte Indizes, Staging und CPU-Produkte;
+GPU-Produkte sind vor Drehung zeichenbereit. Budgets folgen Bytes, Wiederverwendung,
+IO-Latenz und Durchsatz; ständig verdrängte aktive Regionen sind keine gültige Residenz.
 
-## First complete delivery
-
-- Connect two adjacent original-source regions through the existing reader and source
-  identity to native transport and building products in outshine-client. Preserve IDs,
-  tags, relation roles, holes and building parts through generation. A source address or
-  manifest lookup alone does not complete the delivery. No Place-specific geometry.
-- Spatial responses may contain incomplete distant relations. Retain unresolved references
-  and compute closure for the consuming product: building multipolygons/parts and selected
-  transport connections must be complete; unrelated remote route members must not block
-  an otherwise complete building. Missing required dependencies remain Pending or fail
-  explicitly. Fully declared local chunk sets retain their existing strict contract.
-- Equal overlapping OSM objects deduplicate by typed identity; conflicting revisions reject
-  replacement. Shared nodes preserve network connectivity across the seam; equal coordinates
-  without shared IDs do not establish identity. Publication retains the previous valid world
-  until the replacement and its dependencies are complete.
-- Original source objects replace reduced map-tile structures in the connected region;
-  no duplicate overlay or silent fallback to missing semantics. A tagged chimney must reach
-  its own generator instead of the generic windowed facade. Unconsumed tags remain available.
-- Measure cold/warm source bytes, complete preload, resident bytes and the fixed-station
-  360-degree turn. Format, source/navigation/generator suites, full lint and opened Places
-  gate the integrated delivery. Regional source tests supplement all-Place acceptance;
-  Hockenheim driving and a completed worldwide router are not prerequisites.
-
-## Active implementation boundary
-- `engine/streaming/OsmSourceLoader` owns cancellable source IO/parse and publishes one shared
-  `OsmSourceSnapshot`; Engine und `OsmTransportLoader::RequestSource` teilen diesen Stand.
-  Native Gebäude fehlen; `GroundInputsReady` muss produktbezogen statt pauschal auf den Graphen warten.
-- `BuildingField::AcceptedInput` erhält pro Produkt den gepinnten Geometriebesitzer samt
-  Quellenidentität; Footprint-Indizes gelten ausschließlich in dessen Points/Rings.
-  `BuildingStampJob` verarbeitet die zugehörigen Produktranges; `Laying` reicht nicht mehr
-  pauschal OsmField-Puffer durch. Native und bestehende Produkte teilen denselben Vertrag.
-- `OsmBuildingFootprints` now owns closed ways and outer/inner multipolygon chains, pins
-  the source snapshot and retains typed IDs and tags. Product-root closure is implemented.
-  Points retain typed IDs/tags; generator policy and building-group/part ownership remain open.
-- `RawTile`, `StructurePlan` and terrain stamps now retain inner rings and minimum height.
-  Courtyards bypass solid aggregation; their roofs and floors preserve all inner boundaries.
-  Native source ownership, precise roof forms and building classes still need connection.
-  Do not encode original objects into reduced vector-tile properties as an intermediate fix.
-- Nächste Runtime-Lieferung: `OriginalStructureInput` liefert den bestehenden `RawTile`-Vertrag
-  an `StructureBuildQueue`; Terrain-Anfragen folgen dessen Geometrie statt `OsmField`-Features.
-  Quelle, DEM-Zertifikat und Geometriebesitzer qualifizieren gemeinsame Jobs und Publikation.
-  Keine zweite Gebäudequeue, kein MVT-Zwischenformat, kein zusätzlicher Produkt-Cache.
-  Der Generator liest Klassen/Dächer/Material aus gepinnten Original-IDs und reicht sie an
-  den bestehenden `StructurePlan`/`BuildingMesh`; `PitchedShare` ersetzt keinen expliziten Dachtag.
-  Vollständige Abdeckung ersetzt Kachelgebäude atomar; Fehler erhalten Altstand und Straßen.
-- First visible acceptance: a source-tagged chimney has no residential windows; a courtyard
-  remains open and a raised building part preserves its clearance. The same two-region
-  scene retains shared-node road connectivity and unchanged content during a full turn.
-  A parser-only success or a source accessor without this client path is not completion.
-## Native geometry requirements
-`StructurePlan`/`BuildingShape::MassOf` preserve exterior, holes and raised-part clearance at every LOD.
-Raised parts have no plinth, pavement or ground stamp; aggregation cannot fill holes or clearance.
-Mapbox Earcut supplies perforated roof/floor triangles before roof-crease clipping; massing stays unsplit.
-Mesh and EarthworkStamp holes share pinned points and source revision; native multipolygons need containment ownership.
-Exact roof semantics still need BuildingShape::Order; PitchedShare is not the source roof family.
-`world/ground/OsmBuildingHeights` reads metric height/min_height and levels/min_level
-from retained original tags. Missing, valid explicit and malformed/duplicate values remain
-separate; units normalize at this boundary, raw strings stay in the pinned source.
-`OsmBuildingFootprints::Heights` exposes those values to native job construction. No tile
-sentinel becomes measured height. Contradictory intervals are resolved only by a declared
-generator policy; parsing neither adds heights nor discards the original building.
+## Widerlegbare Abnahme
+Zwei benachbarte Originalregionen liefern im Client Gebäude und verbundene Straßen.
+Geteilte Nodes verbinden über die Grenze; Quellenkonflikte erhalten den Altstand.
+Ein getaggter Schornstein hat keine Wohnfenster, ein Hof bleibt offen, ein erhöhtes Part
+behält Durchfahrt und unverformten Boden. Bodenberührende Gebäude stempeln das Terrain.
+Originalprodukte ersetzen Kachelprodukte ohne Dopplung. IDs, Tags und Rollen bleiben verfügbar.
+Volle Drehung und Rückkehr über die Grenze zeigen vollständige unveränderte Welt ohne Frame-IO.
+Kalt/warm: Quellenbytes, komplettes Preload, Residenz und p99 messen. Parser allein genügt nicht.
+Format, fokussierte Quellen-/Generator-/Terrainprüfungen, vollständiger Lint und Place-Bilder
+nach AGENTS; regionale Diagnosen ersetzen kein echtes Place-Gate. Quellenanschluss: 2330.

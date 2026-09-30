@@ -139,6 +139,9 @@ entsprechendes Gewicht. Weniger Systeme mit kohärenter Wirkung sind besser als 
   HTML/CSS/ECMAScript bleiben die dokumentierte UI-Teilmenge; Generatoren eine eigene Bibliothek.
 - Ich nutze C++23, RAII, Composition und Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
+  CPU/GPU-Verträge sichern Größe, Alignment und relevante Offsets verbindlich mit
+  `static_assert`. Sonst nutze ich es für echte Typ-/Binärverträge; Beispielrechnungen
+  und Verhalten gehören in Tests, nicht als Testblöcke in Produktionsheader.
   `src/` enthält keine Kommentare, `include/` nur hilfreiches API-Doxygen; Tests dürfen Kommentare haben.
 
 ## Board, Git und Prüfungen
@@ -146,6 +149,14 @@ entsprechendes Gewicht. Weniger Systeme mit kohärenter Wirkung sind besser als 
 - Ich lese `board/`, relevante Historie und `make help`. WIs beschreiben Features, keine
   Testprotokolle: Ergebnis, vorhandene Fähigkeit, Besitzer/Dateien, Daten-/Fehlerfluss,
   Implementierung, Invarianten und kurze widerlegbare Abnahme. Maximal 120 Zeilen und 12 KiB.
+  Ich strebe höchstens 80 Zeilen und 6 KiB an; gemeinsame Regeln verlinke ich statt sie zu kopieren.
+  Chronik und ausführliche Prüfbelege bleiben in Git und Logs.
+- Ich suche zuerst Pfade und Symbole, lese dann gezielte Ausschnitte von höchstens 160 Zeilen.
+  Werkzeugausgaben bleiben gewöhnlich unter 2000 Tokens pro Aufruf; weitere Ausschnitte
+  folgen bei Bedarf. Vollständige Logs bleiben in Tempdateien; ich lese Status, Zusammenfassung
+  und gezielte Fehlerstellen. Trunkierte Ausgabe verkleinere ich, statt sie größer erneut abzurufen.
+  Übergaben enthalten nur aktiven Auftrag, Entscheidungen, Änderungen, Prüfstatus und nächsten Schritt.
+  Große Dateien trenne ich beim betroffenen Ausbau nach Besitzern und Phasen, nicht nach Zeilenzahl.
 - Ich halte eine kleine priorisierte Reserve mit `Architecture: ready`. `Parent` ist Zugehörigkeit,
   `Depends` nur ein technischer Blocker. Fehlende Verträge entscheide ich vor Implementierung;
   bis dahin bearbeite ich unabhängige ready-WIs. IDs vergebe ich aus der gesamten Git-Historie.

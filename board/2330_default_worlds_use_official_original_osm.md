@@ -12,19 +12,12 @@ Tags: osm, official-source, webcam
 ## Ergebnis und vorhandene Fähigkeit
 Der Client lädt Original-Nodes, Ways und Relations der offiziellen OSM-API und
 behält sämtliche Tags. Dieselbe Quelle liefert Gebäude, Verkehrsnetze und Wasser.
-VersaTiles ist ausdrücklich nicht autorisiert. `fd80cb726` entfernt den Default und
-verweigert reduzierte Kartenkacheln am Client-Eingang; die Places haben noch keine Originalquelle.
-`OsmXmlReader`, `OsmSourceLoader`, native Verkehrsprodukte, `OsmBuildingFootprints`
-und `OriginalStructureInput` sind vorhanden. Ihr vollständiger Client-Anschluss fehlt.
-`5644a79c6` trennt den gemeinsamen Datenstand von den jeweiligen Antwort-Prüfsummen;
-der Snapshot erhält alle Tags sowie die geprüften Pins der zusammengeführten Quelldateien.
-`aa4db4193` beschafft deklarierte Regionen automatisch über den bestehenden Transport
-und Rohdaten-Cache; ein eigener IO-Worker hält Compute frei. `1cab1f3fa` bindet
-Vorladen und Aufnahme an vollständige Quellenprodukte, auch ohne Terrain.
-Der echte Client lädt Flensburgs Kameraausschnitt von der offiziellen API und erneut
-offline aus denselben Rohbytes. Automatische Place-Nachfrage, native Gebäude-/
-Wasserpublikation und vollständige Sichtabdeckung bleiben offen. Das Place-Gate bleibt
-rot; erhaltene Bilder und eine erfolgreiche Quellen-Diagnose ersetzen keine Stadt.
+VersaTiles und reduzierte Kartenkacheln sind am Client-Eingang ausgeschlossen.
+Vorhanden: Originalreader, gemeinsame Snapshots mit getrennten Revisions-/Byte-Pins,
+begrenzte API-/Cache-Beschaffung auf IO-Worker und produktbezogene Vorladebereitschaft.
+Flensburgs Kameraausschnitt lädt über die offizielle API und offline aus denselben Rohbytes.
+Automatische Place-Nachfrage, native Gebäude-/Wasserpublikation und vollständige Sicht
+fehlen. Das Place-Gate bleibt rot; eine Quellen-Diagnose ersetzt keine Stadt.
 
 ## Architektur und Implementierung
 - Den unerlaubten Default und dessen impliziten Endpoint entfernen. Vorhandene
