@@ -12,8 +12,10 @@ Tags: copernicus, original-source, webcam
 ## Ergebnis und Iststand
 Alle natürlichen Places verwenden ausschließlich Copernicus GLO-30 als DEM.
 Der native COG-Decoder liest Metadaten und einzelne Höhenblöcke aus gelieferten
-Originalbereichen; Datei, Länge und Revision bleiben gekoppelt. Native Beschaffung,
-Quelladressen, Cache-Receipts und die Übergabe an Runtime-Terrainfelder fehlen noch.
+Originalbereichen; Datei, Länge und Revision bleiben gekoppelt. Öffentliche Quelladressen
+unterscheiden native 1°-Zellen, Mercator-Kacheln und Produktindizes; Provider, Lieferung
+und Rohdaten-Cache erhalten diese Identität. Bereichsbeschaffung, Cache-Receipts und
+die Übergabe an Runtime-Terrainfelder fehlen noch.
 Der bisherige `TerrariumDem`-Default liefert eine andere Quelle und erfüllt diesen
 Auftrag nicht. Decoder und historische Prüfdateien bleiben erhalten; der Runtime-
 Quellenpfad wird ersetzt. Alte Provider und unbenutzte Quellenpfade entfernen;
@@ -49,7 +51,7 @@ liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
   Revisions-/Byte-Pins anhand der Produktmetadaten festlegen. Keine behauptete
   Gleichheit von DSM-Oberfläche, nacktem Boden und lokalem Wasserstand.
 - Bounded libtiff-Decode liefert georeferenzierte Höhensamples an bestehende
-  Terrainfelder. Native 1°-Quelladressen bleiben von Mercator-Renderadressen getrennt;
+  Terrainfelder. `Address::AtCell` trennt native 1°-Quellzellen von `Address::At`-Renderkacheln;
   Datumsbezug, Resampling und fehlende Nachbarposts erhalten explizite Herkunft.
   Codec-/IO-Details enden am Adapter; Generatoren lesen native Meter.
 - Räumlich benötigte Rasterblöcke gebündelt beschaffen. Bei Bereichsanfragen
