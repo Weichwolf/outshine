@@ -22,10 +22,15 @@ Frame. Ein schon vorhandener privater `Candidate::Frame` bleibt jedoch erhalten;
 Beim Wiederverwenden den privaten Frame freigeben und Bindings auf den publizierten
 Frame setzen. Besitz bleibt eindeutig; Abbruch erhält die bisher veröffentlichte Welt.
 Keine unterdrückten Passes, Ersatztexturen oder Entfernung des Wasser-Materials.
+Bereits hochgeladene Ground-Klassen und Palette sind Weltinhalt, keine Frame-Ressource.
+Plan-Reuse darf sie nicht leeren. Leere Bindings nur für einen noch unbestückten
+Kandidaten initialisieren; Publikation erhält vorhandene Quellen-/GPU-Daten.
 
 ## Abnahme
 - Veröffentlichte transmissive Welt → privater opaker Plan → ursprünglicher Plan:
   Nach Publikation stimmen echte lineare GPU-Pixel mit der Ausgangswelt überein.
 - Gegenrichtung und Abbruch erhalten die zugehörigen Bilder. Kein fehlendes Ziel,
   abgestürzter Treiber oder stale Binding. Flensburg muss wieder tatsächlich rendern.
+- Klassifikationsupload vor und nach Geometry-Build liefert dieselben Terrain-Pixel.
+  Wasseraktivierung färbt weder Berge noch Straßen um.
 - Format, fokussierte RuntimeScene-Suite, Places und vollständiger Lint.
