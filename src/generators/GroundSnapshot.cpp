@@ -1,5 +1,7 @@
 #include "GroundSnapshot.h"
 
+#include <algorithm>
+#include <limits>
 #include <memory>
 #include <cmath>
 #include <cstddef>
@@ -29,44 +31,84 @@ std::shared_ptr<const GroundTable> TableOf(const outshine::Ground::VegetationTem
 }
 
 std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Fields &stands) {
-  if (stands.Vectors == nullptr || stands.Footprints == nullptr || stands.WaterBodies == nullptr ||
-      stands.Ways == nullptr) {
+  if (stands.Footprints == nullptr || stands.WaterBodies == nullptr || stands.Ways == nullptr) {
     return nullptr;
   }
-  if (!stands.Vectors->Settled(region.X(), region.Y())) { return nullptr; }
-  const int tile = stands.Vectors->TileIndex(region.X(), region.Y());
-  const std::span<const double> points = stands.Vectors->Points();
+  const bool vectorsReady = stands.Vectors && stands.Vectors->Settled(region.X(), region.Y());
+  const bool native =
+      std::ranges::any_of(stands.Footprints->AcceptedInputs(), [](const auto &input) {
+        return input.Coordinates && input.Coordinates->Original.Snapshot;
+      });
+  if (!vectorsReady && !native) { return nullptr; }
+  const int tile = vectorsReady ? stands.Vectors->TileIndex(region.X(), region.Y()) : -1;
+  const std::span<const double> points =
+      vectorsReady ? stands.Vectors->Points() : std::span<const double>{};
+  const auto southwest = region.Geo({.EastM = 0, .NorthM = 0});
+  const auto northeast = region.Geo({.EastM = region.SpanEm(), .NorthM = region.SpanNm()});
 
   std::vector<FeatureField::Feature> features;
   std::vector<FeatureField::Ring> rings;
   std::vector<FeatureField::Vertex> vertices;
-  const auto appendRing = [&](FeatureField::Ring over) {
+  const auto appendRing = [&](FeatureField::Ring over, std::span<const double> coordinates) {
     rings.push_back({.First = static_cast<uint32_t>(vertices.size()), .Count = over.Count});
     for (uint32_t k = 0; k < over.Count; k++) {
       const EastNorth on =
-          region.Enu({.LongitudeDeg = points[(static_cast<size_t>(over.First) + k) * 2 + 1],
-                      .LatitudeDeg = points[(static_cast<size_t>(over.First) + k) * 2]});
+          region.Enu({.LongitudeDeg = coordinates[(static_cast<size_t>(over.First) + k) * 2 + 1],
+                      .LatitudeDeg = coordinates[(static_cast<size_t>(over.First) + k) * 2]});
       vertices.push_back({.Em = static_cast<float>(on.EastM), .Nm = static_cast<float>(on.NorthM)});
     }
   };
-  const auto take = [&](const FeatureField::Feature &proto, FeatureField::Ring over) {
+  const auto take = [&](const FeatureField::Feature &proto,
+                        FeatureField::Ring over,
+                        std::span<const double> coordinates) {
     const uint32_t least = proto.Form == FeatureForm::Ribbon ? 2u : 3u;
     if (over.Count < least) { return; }
     FeatureField::Feature f = proto;
     f.FirstRing = static_cast<uint32_t>(rings.size());
     f.RingCount = 1;
-    appendRing(over);
+    appendRing(over, coordinates);
     features.push_back(f);
   };
 
-  for (const outshine::Ground::BuildingField::Footprint &fp : stands.Footprints->OfTile(tile)) {
-    FeatureField::Feature f{};
-    f.CoverRow = stands.BuiltRow;
-    f.Kind = FeatureKind::Structure;
-    f.Form = FeatureForm::Area;
-    f.Base = FeatureLevel::At(fp.BaseM);
-    f.Top = FeatureLevel::At(fp.BaseM + fp.HeightM);
-    take(f, {.First = fp.FirstPoint, .Count = fp.PointCount});
+  const auto accepted = stands.Footprints->AcceptedInputs();
+  const auto acceptedTiles = stands.Footprints->AcceptedTiles();
+  for (size_t product = 0; product < accepted.size(); ++product) {
+    const auto *geometry = accepted[product].Coordinates.get();
+    const bool original = geometry && geometry->Original.Snapshot;
+    if (!original && std::cmp_not_equal(acceptedTiles[product], tile)) { continue; }
+    const auto coordinates = geometry ? std::span<const double>(geometry->Points) : points;
+    for (const auto &fp : stands.Footprints->OfTile(static_cast<int>(acceptedTiles[product]))) {
+      if (original) {
+        double west = std::numeric_limits<double>::infinity();
+        double south = west, east = -west, north = -west;
+        for (size_t point = fp.FirstPoint;
+             point < static_cast<size_t>(fp.FirstPoint) + fp.PointCount;
+             ++point) {
+          west = std::min(west, coordinates[point * 2u + 1u]);
+          east = std::max(east, coordinates[point * 2u + 1u]);
+          south = std::min(south, coordinates[point * 2u]);
+          north = std::max(north, coordinates[point * 2u]);
+        }
+        if (east < southwest.LongitudeDeg || west > northeast.LongitudeDeg ||
+            north < southwest.LatitudeDeg || south > northeast.LatitudeDeg) {
+          continue;
+        }
+      }
+      FeatureField::Feature f{};
+      f.CoverRow = stands.BuiltRow;
+      f.Kind = FeatureKind::Structure;
+      f.Form = FeatureForm::Area;
+      f.Base = FeatureLevel::At(fp.BaseM + fp.MinimumHeightM);
+      f.Top = FeatureLevel::At(fp.BaseM + fp.HeightM);
+      take(f, {.First = fp.FirstPoint, .Count = fp.PointCount}, coordinates);
+      if (fp.PointCount < 3) { continue; }
+      auto &added = features.back();
+      if (!geometry) { continue; }
+      for (const auto &hole : std::span(geometry->Rings).subspan(fp.FirstHole, fp.HoleCount)) {
+        appendRing({.First = hole.First, .Count = hole.Count}, coordinates);
+        ++added.RingCount;
+      }
+    }
   }
   for (const outshine::Ground::WaterField::Surface &s : stands.WaterBodies->OfTile(tile)) {
     FeatureField::Feature f{};
@@ -78,7 +120,7 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     const auto surfaceRings = stands.WaterBodies->RingsOf(s);
     f.RingCount = static_cast<uint32_t>(surfaceRings.size());
     for (const auto &ring : surfaceRings) {
-      appendRing({.First = ring.FirstPoint, .Count = ring.PointCount});
+      appendRing({.First = ring.FirstPoint, .Count = ring.PointCount}, points);
     }
     features.push_back(f);
   }
@@ -89,7 +131,7 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
     f.Form = w.Form == outshine::Ground::StreetField::Shape::Ribbon ? FeatureForm::Ribbon
                                                                     : FeatureForm::Area;
     f.HalfWidthM = w.HalfWidthM;
-    take(f, {.First = w.FirstPoint, .Count = w.PointCount});
+    take(f, {.First = w.FirstPoint, .Count = w.PointCount}, points);
   }
 
   return FeatureField::Of(std::span<const FeatureField::Feature>(features.data(), features.size()),

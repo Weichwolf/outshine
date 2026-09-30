@@ -279,6 +279,15 @@ public:
     return RoadHeightCoverage_.Tiles;
   }
 
+  void AddStructureHeightCoverage(std::span<const Data::TileId> tiles) {
+    auto &all = RoadHeightCoverage_.Tiles;
+    all.insert(all.end(), tiles.begin(), tiles.end());
+    std::ranges::sort(all, [](const auto &a, const auto &b) {
+      return std::tie(a.Zoom, a.X, a.Y) < std::tie(b.Zoom, b.X, b.Y);
+    });
+    all.erase(std::ranges::unique(all).begin(), all.end());
+  }
+
   [[nodiscard]] std::span<const size_t> RoadRouteIndices() const noexcept {
     return RoadHeightCoverage_.SelectedRouteIndices;
   }
@@ -725,6 +734,7 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
 bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
                                             GroundBuildProducts &build,
                                             Phasing &clocks) {
+  build.Pieces.Framed(standing);
   Core::ReportBuildingFootprints(
       Published, World.Stack.Footprints(), World.Stack.Vectors(), standing);
   if (!build.Surfaces) {
@@ -1115,8 +1125,8 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
       return true;
     }
     std::vector<EarthworkStamp> yielding;
-    if (shapes != nullptr) {
-      if (shapes->Generation() != state.Revision().VectorGeneration) {
+    if (shapes != nullptr || !state.Footprints().Footprints().empty()) {
+      if (shapes != nullptr && shapes->Generation() != state.Revision().VectorGeneration) {
         World.GroundBuild.reset();
         return true;
       }
@@ -1449,6 +1459,25 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
   GroundBuildProducts &build = state.Candidate().Products();
   switch (state.CurrentSheetPhase()) {
     case Core::GroundBuildSchedule::SheetPhase::NeedsFields: {
+      const auto *snapshot = state.TransportSnapshot();
+      const auto original = World.StructureBuilds.PrepareOriginal(
+          snapshot ? snapshot->Source() : nullptr,
+          {.Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0},
+           .PointWidthM = 2.0,
+           .PointsMost = 262144});
+      if (!original) {
+        Error = original.error();
+        World.GroundBuild.reset();
+        return GroundBuildProgress::Failed;
+      }
+      if (!*original) { return GroundBuildProgress::Pending; }
+      const auto heightTiles = World.StructureBuilds.OriginalHeightTiles(coverage.Zoom);
+      if (!heightTiles) {
+        Error = heightTiles.error();
+        World.GroundBuild.reset();
+        return GroundBuildProgress::Failed;
+      }
+      state.AddStructureHeightCoverage(*heightTiles);
       const auto prepared = build.Sheets.PrepareFields(
           patchwork,
           World.Stack.Ground(),

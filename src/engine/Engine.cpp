@@ -286,6 +286,9 @@ bool Engine::State::StructuresReady(const Ground::BuildingField &footprints,
       return StructureCellsReady(tile, eye);
     });
   }
+  if (World.StructureBuilds.HasOriginal()) {
+    return World.StructureBuilds.SourcesComplete(World.Stack, footprints);
+  }
   const Ground::OsmField *const vectors = World.Stack.Vectors();
   if (vectors == nullptr) { return true; }
   const double tileSpanM = footprints.TileSpanM();

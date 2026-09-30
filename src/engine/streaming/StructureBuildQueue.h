@@ -15,6 +15,7 @@
 #include "math/Vec3.h"
 
 #include "HeightField.h"
+#include "OriginalStructurePreparation.h"
 #include "GroundStack.h"
 #include "StructureBake.h"
 #include "StructureBuildTask.h"
@@ -43,6 +44,14 @@ public:
     Mesher_ = mesher;
   }
 
+  [[nodiscard]] std::expected<bool, std::string>
+  PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+                  Generators::OriginalStructurePolicy policy);
+  [[nodiscard]] std::expected<std::vector<Data::TileId>, std::string>
+  OriginalHeightTiles(int zoom) const;
+
+  [[nodiscard]] bool HasOriginal() const noexcept { return Original_ != nullptr; }
+
   struct BakeRevision {
     uint64_t Vectors = 0;
     HeightSourceRevision HeightSource;
@@ -52,6 +61,16 @@ public:
     std::optional<LevelOfDetail> RequestedDetail;
     BuildPurpose Purpose = BuildPurpose::ViewDetail;
     bool FallbackHeights = false;
+    const Data::OsmSourceSnapshot *Original = nullptr;
+
+    [[nodiscard]] bool Matches(const Ground::OsmField *vectors,
+                               const Ground::BuildingField &footprints,
+                               LongitudeLatitude eye,
+                               HeightSourceRevision heightSource,
+                               HeightRequirement heights = HeightRequirement::AllowFallback,
+                               std::optional<LevelOfDetail> detail = std::nullopt,
+                               BuildPurpose purpose = BuildPurpose::ViewDetail,
+                               const Data::OsmSourceSnapshot *original = nullptr) const noexcept;
 
     [[nodiscard]] bool Matches(const Ground::OsmField &vectors,
                                const Ground::BuildingField &footprints,
@@ -59,17 +78,29 @@ public:
                                HeightSourceRevision heightSource,
                                HeightRequirement heights = HeightRequirement::AllowFallback,
                                std::optional<LevelOfDetail> detail = std::nullopt,
-                               BuildPurpose purpose = BuildPurpose::ViewDetail) const noexcept;
+                               BuildPurpose purpose = BuildPurpose::ViewDetail) const noexcept {
+      return Matches(&vectors, footprints, eye, heightSource, heights, detail, purpose);
+    }
+
+    [[nodiscard]] bool
+    OwnsReservation(const Ground::OsmField *vectors,
+                    const Ground::BuildingField &footprints,
+                    LongitudeLatitude eye,
+                    HeightSourceRevision heightSource,
+                    const Data::OsmSourceSnapshot *original = nullptr) const noexcept {
+      (void)eye;
+      return (Original ? Original == original : vectors && Vectors == vectors->Generation()) &&
+             HeightSource == heightSource &&
+             (RequestedDetail || Purpose == BuildPurpose::SourceGeometry ||
+              FocalPx == footprints.FocalPx()) &&
+             TileSpanM == footprints.TileSpanM();
+    }
 
     [[nodiscard]] bool OwnsReservation(const Ground::OsmField &vectors,
                                        const Ground::BuildingField &footprints,
                                        LongitudeLatitude eye,
                                        HeightSourceRevision heightSource) const noexcept {
-      (void)eye;
-      return Vectors == vectors.Generation() && HeightSource == heightSource &&
-             (RequestedDetail || Purpose == BuildPurpose::SourceGeometry ||
-              FocalPx == footprints.FocalPx()) &&
-             TileSpanM == footprints.TileSpanM();
+      return OwnsReservation(&vectors, footprints, eye, heightSource);
     }
   };
 
@@ -157,7 +188,10 @@ public:
                        std::span<Landing> landings) noexcept;
   void Clear();
 
-  [[nodiscard]] size_t Queued() const { return Queue_.size(); }
+  [[nodiscard]] size_t Queued() const {
+    return Queue_.size() +
+           static_cast<size_t>(OriginalPreparation_ && OriginalPreparation_->Running());
+  }
 
   [[nodiscard]] size_t QueuedCells() const;
 
@@ -210,6 +244,9 @@ public:
 
   [[nodiscard]] bool AwaitSlice(double seconds) const {
     if (Pool_ == nullptr) { return false; }
+    if (OriginalPreparation_ && OriginalPreparation_->Running()) {
+      return OriginalPreparation_->AwaitSlice(seconds);
+    }
     for (const auto &batch : PreparedCells_) {
       if (batch && batch->Preparation->Running()) { return Pool_->AwaitCompletion(seconds); }
     }
@@ -223,6 +260,14 @@ public:
   }
 
 private:
+  [[nodiscard]] size_t PostsOriginal(Ground::GroundStack &stack,
+                                     Ground::BuildingField &footprints,
+                                     LongitudeLatitude eye,
+                                     const HeightSource &heightAt,
+                                     HeightRequirement requirement,
+                                     std::optional<LevelOfDetail> detail,
+                                     BuildPurpose purpose);
+
   struct QueuedBuild {
     BakeRevision Revision;
     StructureBuildTask Task;
@@ -259,7 +304,7 @@ private:
                                             HeightRequirement heights,
                                             Ground::TerrainCertificate &validated);
   void DiscardFront(Ground::BuildingField &prints);
-  void DiscardStale(const Ground::OsmField &vectors,
+  void DiscardStale(const Ground::OsmField *vectors,
                     Ground::BuildingField &prints,
                     LongitudeLatitude eye,
                     HeightSourceRevision heightSource,
@@ -328,6 +373,9 @@ private:
   size_t DeferredPreparationAt_ = 0;
   uint64_t PreparationTick_ = 0;
   Tasks *Pool_ = nullptr;
+  std::unique_ptr<OriginalStructurePreparation> OriginalPreparation_;
+  std::shared_ptr<const Data::OsmSourceSnapshot> PreparingOriginal_;
+  std::shared_ptr<const Generators::RawTile> Original_;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;
   std::deque<QueuedBuild> CellQueue_;
