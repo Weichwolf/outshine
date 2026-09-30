@@ -18,10 +18,13 @@ verweigert reduzierte Kartenkacheln am Client-Eingang; die Places haben noch kei
 und `OriginalStructureInput` sind vorhanden. Ihr vollständiger Client-Anschluss fehlt.
 `5644a79c6` trennt den gemeinsamen Datenstand von den jeweiligen Antwort-Prüfsummen;
 der Snapshot erhält alle Tags sowie die geprüften Pins der zusammengeführten Quelldateien.
-Automatische API-Beschaffung und native Gebäude-/Wasserpublikation bleiben offen.
-`5fa0fcbf3` besteht fokussierte Quellenprüfungen und den vollständigen Lint samt
-clang-tidy/API. Das Place-Gate bleibt rot: Originaldaten sind nicht angebunden;
-alte Bilder bleiben erhalten, fehlende Bilder werden nicht als Erfolg gewertet.
+`aa4db4193` beschafft deklarierte Regionen automatisch über den bestehenden Transport
+und Rohdaten-Cache; ein eigener IO-Worker hält Compute frei. `1cab1f3fa` bindet
+Vorladen und Aufnahme an vollständige Quellenprodukte, auch ohne Terrain.
+Der echte Client lädt Flensburgs Kameraausschnitt von der offiziellen API und erneut
+offline aus denselben Rohbytes. Automatische Place-Nachfrage, native Gebäude-/
+Wasserpublikation und vollständige Sichtabdeckung bleiben offen. Das Place-Gate bleibt
+rot; erhaltene Bilder und eine erfolgreiche Quellen-Diagnose ersetzen keine Stadt.
 
 ## Architektur und Implementierung
 - Den unerlaubten Default und dessen impliziten Endpoint entfernen. Vorhandene
@@ -37,6 +40,9 @@ alte Bilder bleiben erhalten, fehlende Bilder werden nicht als Erfolg gewertet.
   API-Basisendpoint samt Bounds. Ein IO-Worker beschafft begrenzte Originalantworten
   über bestehende Transport-/Cache-Verträge; Compute-Jobs prüfen Pins, parsen und mergen.
   Abbruch und Ablauf der gemeinsamen Anfragefrist erhalten den bisherigen Snapshot.
+- Bereitschaft prüft angeforderte Produkte unabhängig von Terrain oder Renderziel.
+  Vorladen wartet auf deren tatsächliche Worker; terminale Quellenfehler verhindern
+  Aufnahme und Publikation. Szenen ohne angeforderte Weltprodukte sind sofort bereit.
 - Ein gemeinsamer gepinnter `OsmSourceSnapshot` hält typisierte IDs, Nodes,
   Way-Referenzen, Relationsrollen und alle Tags. Konsumierte Produkte fordern
   ihre transitive Referenzhülle an; fremde unvollständige Fernrelationen bleiben

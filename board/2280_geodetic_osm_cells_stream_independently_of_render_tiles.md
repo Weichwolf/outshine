@@ -10,7 +10,7 @@ Tags: osm, worldwide, source-cells, residency
 # Geodetic OSM cells stream independently of render tiles
 
 ## Problem and boundary
-`OsmTransportLoader` accepts four local XML chunks and publishes one regional graph.
+`OsmSourceLoader` beschafft lokale/API-Originaldaten; der Transportloader nutzt denselben Snapshot.
 Worldwide semantic residency must be independent of VectorStreetGraph, render LOD
 and camera tile eviction; a larger chunk cap does not establish that ownership.
 Preserve the regional adapter and connect the same original elements to building
@@ -81,7 +81,6 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   Hockenheim driving and a completed worldwide router are not prerequisites.
 
 ## Active implementation boundary
-
 - `engine/streaming/OsmSourceLoader` owns cancellable source IO/parse and publishes one shared
   `OsmSourceSnapshot`; Engine und `OsmTransportLoader::RequestSource` teilen diesen Stand.
   Native Gebäude fehlen; `GroundInputsReady` muss produktbezogen statt pauschal auf den Graphen warten.
@@ -91,16 +90,18 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   pauschal OsmField-Puffer durch. Native und bestehende Produkte teilen denselben Vertrag.
 - `OsmBuildingFootprints` now owns closed ways and outer/inner multipolygon chains, pins
   the source snapshot and retains typed IDs and tags. Product-root closure is implemented.
-  Point structures retain position/typed ID/tags without fabricated rings; generator policy
-  and type=building groups/part ownership remain open. Preserve strict source/graph validation.
+  Points retain typed IDs/tags; generator policy and building-group/part ownership remain open.
 - `RawTile`, `StructurePlan` and terrain stamps now retain inner rings and minimum height.
   Courtyards bypass solid aggregation; their roofs and floors preserve all inner boundaries.
   Native source ownership, precise roof forms and building classes still need connection.
   Do not encode original objects into reduced vector-tile properties as an intermediate fix.
-- `StructureBuildQueue` extrahiert native Jobs aus `OsmBuildingFootprints` mit unveränderten
-  IDs/Tags; bestehende DEM-Sampling-, Zell-, Abbruch- und Publikationsverträge bleiben erhalten.
-  Acceptance prüft Originalquelle, Geometriebesitzer und DEM gemeinsam; Quellenfehler erhalten
-  den Altstand. Vollständige Quellabdeckung ersetzt Kachelgebäude atomar, Straßen bleiben erhalten.
+- Nächste Runtime-Lieferung: `OriginalStructureInput` liefert den bestehenden `RawTile`-Vertrag
+  an `StructureBuildQueue`; Terrain-Anfragen folgen dessen Geometrie statt `OsmField`-Features.
+  Quelle, DEM-Zertifikat und Geometriebesitzer qualifizieren gemeinsame Jobs und Publikation.
+  Keine zweite Gebäudequeue, kein MVT-Zwischenformat, kein zusätzlicher Produkt-Cache.
+  Der Generator liest Klassen/Dächer/Material aus gepinnten Original-IDs und reicht sie an
+  den bestehenden `StructurePlan`/`BuildingMesh`; `PitchedShare` ersetzt keinen expliziten Dachtag.
+  Vollständige Abdeckung ersetzt Kachelgebäude atomar; Fehler erhalten Altstand und Straßen.
 - First visible acceptance: a source-tagged chimney has no residential windows; a courtyard
   remains open and a raised building part preserves its clearance. The same two-region
   scene retains shared-node road connectivity and unchanged content during a full turn.
@@ -111,7 +112,6 @@ Raised parts have no plinth, pavement or ground stamp; aggregation cannot fill h
 Mapbox Earcut supplies perforated roof/floor triangles before roof-crease clipping; massing stays unsplit.
 Mesh and EarthworkStamp holes share pinned points and source revision; native multipolygons need containment ownership.
 Exact roof semantics still need BuildingShape::Order; PitchedShare is not the source roof family.
-
 `world/ground/OsmBuildingHeights` reads metric height/min_height and levels/min_level
 from retained original tags. Missing, valid explicit and malformed/duplicate values remain
 separate; units normalize at this boundary, raw strings stay in the pinned source.
