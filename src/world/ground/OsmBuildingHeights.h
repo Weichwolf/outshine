@@ -10,8 +10,29 @@
 
 namespace outshine::Ground {
 
-enum class OsmHeightError : uint8_t { InvalidNumber, InvalidUnit, DuplicateTag };
+enum class OsmHeightError : uint8_t {
+  InvalidNumber,
+  InvalidUnit,
+  DuplicateTag,
+  InvalidPolicy,
+  InvalidInterval
+};
 using OsmHeightValue = std::expected<std::optional<double>, OsmHeightError>;
+
+enum class OsmHeightOrigin : uint8_t { MetricTag, Levels, Policy };
+
+struct OsmHeightPolicy {
+  double StoreyHeightM;
+  double BodyHeightM;
+};
+
+struct OsmHeightInterval {
+  double TopM;
+  double MinimumM;
+  OsmHeightOrigin TopOrigin;
+  OsmHeightOrigin MinimumOrigin;
+  bool ConflictingLevels;
+};
 
 struct OsmBuildingHeights {
   OsmHeightValue TopM;
@@ -20,6 +41,8 @@ struct OsmBuildingHeights {
   OsmHeightValue MinimumLevel;
 
   [[nodiscard]] static OsmBuildingHeights Read(std::span<const Data::OsmTag> tags) noexcept;
+  [[nodiscard]] std::expected<OsmHeightInterval, OsmHeightError>
+  Resolve(OsmHeightPolicy policy) const noexcept;
 };
 
 }

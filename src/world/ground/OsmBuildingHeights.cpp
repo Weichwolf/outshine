@@ -61,4 +61,39 @@ OsmBuildingHeights OsmBuildingHeights::Read(std::span<const Data::OsmTag> tags) 
           .MinimumLevel = ReadValue(tags, "building:min_level", false)};
 }
 
+std::expected<OsmHeightInterval, OsmHeightError>
+OsmBuildingHeights::Resolve(OsmHeightPolicy policy) const noexcept {
+  for (const auto &value : {TopM, MinimumM, Levels, MinimumLevel}) {
+    if (!value) { return std::unexpected(value.error()); }
+    if (*value && (!std::isfinite(**value) || **value < 0.0)) {
+      return std::unexpected(OsmHeightError::InvalidNumber);
+    }
+  }
+  if (!std::isfinite(policy.StoreyHeightM) || policy.StoreyHeightM <= 0.0 ||
+      !std::isfinite(policy.BodyHeightM) || policy.BodyHeightM <= 0.0) {
+    return std::unexpected(OsmHeightError::InvalidPolicy);
+  }
+  const double minimum = MinimumM->value_or(MinimumLevel->value_or(0.0) * policy.StoreyHeightM);
+  const double levelTop = Levels->value_or(0.0) * policy.StoreyHeightM;
+  const bool conflict =
+      Levels->has_value() &&
+      (levelTop <= minimum || (MinimumLevel->has_value() && **Levels <= **MinimumLevel));
+  const bool useLevels = Levels->has_value() && !conflict;
+  const double top = TopM->value_or(useLevels ? levelTop : minimum + policy.BodyHeightM);
+  if (!std::isfinite(minimum) || !std::isfinite(top) || top <= minimum) {
+    return std::unexpected(OsmHeightError::InvalidInterval);
+  }
+  return OsmHeightInterval{
+      .TopM = top,
+      .MinimumM = minimum,
+      .TopOrigin = TopM->has_value()
+                       ? OsmHeightOrigin::MetricTag
+                       : (useLevels ? OsmHeightOrigin::Levels : OsmHeightOrigin::Policy),
+      .MinimumOrigin =
+          MinimumM->has_value()
+              ? OsmHeightOrigin::MetricTag
+              : (MinimumLevel->has_value() ? OsmHeightOrigin::Levels : OsmHeightOrigin::Policy),
+      .ConflictingLevels = conflict};
+}
+
 }
