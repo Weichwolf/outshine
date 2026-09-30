@@ -16,7 +16,9 @@ Originalbereichen; Datei, Länge und Revision bleiben gekoppelt. Öffentliche Qu
 unterscheiden native 1°-Zellen, Mercator-Kacheln und Produktindizes; Provider, Lieferung
 und Rohdaten-Cache erhalten diese Identität. `CopernicusDem` beschafft Originalbereiche
 über `SourceSet`; Receipts und Bytes bleiben beim erneuten Öffnen des Caches gekoppelt.
-Die Übergabe nativer Meter an Runtime-Terrainfelder fehlt noch.
+Runtime-Residency erhält die Bereichs-Receipts; Terrainfelder übernehmen native
+Float-Meter ohne PNG-Umweg. Georeferenziertes Resampling nativer Rasterzellen,
+deren vollständige Quellprovenienz und der Client-Default fehlen noch.
 Der bisherige `TerrariumDem`-Default liefert eine andere Quelle und erfüllt diesen
 Auftrag nicht. Decoder und historische Prüfdateien bleiben erhalten; der Runtime-
 Quellenpfad wird ersetzt. Alte Provider und unbenutzte Quellenpfade entfernen;
