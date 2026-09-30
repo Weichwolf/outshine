@@ -652,6 +652,12 @@ std::expected<void, std::string> RuntimeScene::BindBuild() {
       return std::unexpected(std::move(error));
     }
     Renderer_->SetPictureRegion({});
+    Stood_ = Render::SubjectProxy{};
+    Stood_.ResetForShape(Shaped_, Vec3{});
+    StandsLighting();
+    if (!Render::BindIllumination(*Renderer_, Stood_, Scratch_, error)) {
+      return std::unexpected(std::move(error));
+    }
     return {};
   }
   Renderer_->SetPictureRegion({.X = Declared_.PictureLeftFrac,
@@ -975,10 +981,8 @@ bool RuntimeScene::Stand(std::string &error) {
   EmitsPerPart();
 
   LampsMs_ = sinceStand();
-  for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.AddLight(placed); }
-  if (DeclaresKeyLight()) { Stood_.AddLight(KeyLight()); }
+  StandsLighting();
   LitMs_ = sinceStand();
-  StandsEnvironment();
   MediumMs_ = sinceStand();
 
   Render::Viewpoint eye = Camera_.Prepared().Eye;
@@ -1000,6 +1004,12 @@ bool RuntimeScene::Stand(std::string &error) {
   }
   FramingMs_ = sinceStand();
   return true;
+}
+
+void RuntimeScene::StandsLighting() {
+  for (const PunctualLight &placed : Shaped_.Lamps) { Stood_.AddLight(placed); }
+  if (DeclaresKeyLight()) { Stood_.AddLight(KeyLight()); }
+  StandsEnvironment();
 }
 
 bool RuntimeScene::Submit(std::string &error) {

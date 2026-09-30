@@ -372,6 +372,16 @@ bool Aim(SceneRenderer &renderer,
   return true;
 }
 
+bool BindIllumination(SceneRenderer &renderer,
+                      const SubjectProxy &proxy,
+                      SubjectScratch &scratch,
+                      std::string &error) {
+  if (!PlaceLights(proxy, scratch.Lights, error)) { return false; }
+  if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
+  renderer.SetSubjectEnvironment(proxy.IndirectLight());
+  return true;
+}
+
 bool Surface(SceneRenderer &renderer,
              const SubjectProxy &proxy,
              [[maybe_unused]] const SubjectView &view,
@@ -383,10 +393,7 @@ bool Surface(SceneRenderer &renderer,
   }
   if (!Agrees(proxy, *proxy.Shaped(), error)) { return false; }
   if (!renderer.SetSubjectMaterials(proxy.Slots(), error)) { return false; }
-  if (!PlaceLights(proxy, scratch.Lights, error)) { return false; }
-  if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
-  renderer.SetSubjectEnvironment(proxy.IndirectLight());
-  return true;
+  return BindIllumination(renderer, proxy, scratch, error);
 }
 
 bool Show(SceneRenderer &renderer,

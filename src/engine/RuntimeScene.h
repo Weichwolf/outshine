@@ -403,6 +403,7 @@ private:
   [[nodiscard]] PunctualLight KeyLight() const;
 
   void StandsKeyLight();
+  void StandsLighting();
   void StandsShadowRadius();
   void ClearsSubject();
   [[nodiscard]] bool PrepareSubject(std::string &error);

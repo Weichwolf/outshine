@@ -153,6 +153,11 @@ struct SubjectScratch {
                         SubjectScratch &scratch,
                         std::string &error);
 
+[[nodiscard]] bool BindIllumination(SceneRenderer &renderer,
+                                    const SubjectProxy &proxy,
+                                    SubjectScratch &scratch,
+                                    std::string &error);
+
 [[nodiscard]] bool Surface(SceneRenderer &renderer,
                            const SubjectProxy &proxy,
                            const SubjectView &view,
