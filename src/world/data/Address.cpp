@@ -35,10 +35,10 @@ std::string Address::Text() const {
     at = Wrote(at, end, cell->SouthDeg);
     if (at < end) { *at++ = '/'; }
     at = Wrote(at, end, cell->WestDeg);
-  } else {
+  } else if (const auto index = Index()) {
     if (at < end) { *at++ = 'w'; }
     if (at < end) { *at++ = '/'; }
-    at = Wrote(at, end, *Index());
+    at = Wrote(at, end, *index);
   }
   return {text.data(), static_cast<size_t>(at - text.data())};
 }
