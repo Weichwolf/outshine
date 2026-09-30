@@ -314,6 +314,7 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
       Candidate_ && State_.Ready && State_.Plan != nullptr && State_.Frame.Width == frame.WidthPx &&
       State_.Frame.Height == frame.HeightPx && State_.Plan->Specification() == plan.Specification();
   if (!reusesFrame) { return false; }
+  Candidate_->Frame.reset();
   ActiveState().Plan = State_.Plan;
   ActiveState().Content.DrawsGlass = plan.Holds(Stage::SubjectsTransmissive);
   ActiveState().Content.Subjects.AttachPipelines(State_.Frame.SubjectPipelines,
