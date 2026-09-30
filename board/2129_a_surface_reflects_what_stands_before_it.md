@@ -5,7 +5,7 @@ Priority: P1
 Parent: 2169
 Area: world, render
 Tags: webcam, measured
-Depends: 2145, 2167
+Depends: 2327
 
 # Water and rough surfaces reflect the generated world
 
@@ -13,6 +13,12 @@ Depends: 2145, 2167
 
 Husum, Wien, Koerbersee und Malcesine zeigen fast strukturlose dunkle Wasserflächen;
 die Fotos spiegeln Himmel/Ufer/Berge. Die zu spiegelnde Welt ist die generierte Sandbox.
+
+Die erste Lieferung nutzt bereits vorhandene, getrennt gerenderte Wasserflächen.
+Vollständige Küstenmigration aus 2145 und indirektes Licht aus 2167 sind keine Blocker
+dieses lokalen Renderpfads. Falsche Pegel/fehlende Flächen bleiben bei 2145 sichtbar offen.
+2167 besitzt den gemeinsamen Specular-IBL-Vertrag; dessen konkrete Textur-/Sampler-
+Bindung und Lebensdauer vor Anschluss festlegen. Keine zweite konkurrierende IBL-Lösung.
 
 1. WaterBody-Geometrie aus 2145 erhält dielektrisches Fresnel, Absorption/Transmission,
    Tiefe und wind-/Fetch-abhängige mehrskalige Normalen. Ufer-/Fließschaum nur wo begründet.

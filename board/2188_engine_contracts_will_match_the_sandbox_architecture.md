@@ -23,7 +23,7 @@ Quellwechsel invalidieren gezielt; Zeit/Wetter erzeugen keine unveränderte Stad
 |---|---|---|---|
 | 1 / P0 | 2324, 2170 | Acht Webcam-Kameras mit Archiv und transparentem Kalibrierstatus | assets/places, client/PlaceCamera, Vergleichsmanifest |
 | 2 / P0 | 2319, 2322 | Vollständige Stadt und Rundumsicht innerhalb der Lade-/Framegrenzen | StructureBuildQueue, StructureCellPlanner, TilePieces, GroundPublication |
-| 3 / P0 | 2166, 2280, 2173 | Kein künstlicher Hangwall; Originalformen und Bauwerksklassen erhalten | GroundLattice/DEM, OsmSourceSnapshot, BuildingShape/Bake |
+| 3 / P0 | 2166, 2280, 2173, 2145 | Originalformen und Bauwerksklassen; zusammenhängende Gewässer ohne künstliche Uferwände | GroundLattice/DEM, OsmSourceSnapshot, BuildingShape/Bake, WaterField |
 | 4 / P1 | 2171, 2138 | Rosenheim/Husum: Dach, Wand, Glas und Sockel klar lesbar | BuildingMesh, FacadeUv, Materialshader |
 | 5 / P1 | 2172, 2140 | Koerbersee/Rosenheim: bedeckter Himmel und kohärentes Weltlicht | WeatherSnapshot, SkyStage, Cloud-Komposition/Irradiance |
 
@@ -35,7 +35,8 @@ Snapshot, nicht den vollständigen Schneesolver. Vegetation bleibt zuletzt.
 
 ## Anschlusslieferungen
 
-2145/2129: korrekte Ufer und reflektierendes Wasser. 2167/2128/2155: Schattenfüllung,
+2129: Reflexion vorhandener Wasserflächen nach 2327, unabhängig vom vollständigen
+Küstenumbau in 2145. 2167/2128/2155: Schattenfüllung,
 lokales Nachtlicht, stabile HDR-Antwort. 2325: Nässe, Schnee und Schmelze aus Wetterzustand.
 2111/2176/2282: danach standortgerechte Dichte und Phänologie im gemeinsamen Budget.
 Physik, Hockenheim-Runde, Verkehrssimulation, Audio und Spiel folgen nach dem Meilenstein.
