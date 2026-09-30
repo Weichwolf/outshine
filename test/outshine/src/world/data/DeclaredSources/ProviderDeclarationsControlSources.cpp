@@ -16,7 +16,11 @@ int main() {
        .Revision = "dem-2026-09",
        .Priority = -9,
        .Missing = MissingDataPolicy::Fail},
-      {.Kind = "vector", .Revision = "osm-2026-09", .Priority = std::numeric_limits<int>::max()},
+      {.Kind = "vector",
+       .Revision = "osm-2026-09",
+       .Priority = std::numeric_limits<int>::max(),
+       .Dataset = "test.vector",
+       .Endpoint = "https://fixture.invalid/{z}/{x}/{y}"},
   }};
   std::string error;
   CHECK(RegisterDeclared(sources, declared, "sky", error), error.c_str());

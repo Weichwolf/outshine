@@ -11,7 +11,7 @@
 #include "StarBands.h"
 #include "SourceProviderValidation.h"
 #include "TerrariumDem.h"
-#include "VersatilesVector.h"
+#include "VectorTileSource.h"
 
 namespace outshine::Data {
 
@@ -52,7 +52,12 @@ bool RegisterDeclared(SourceSet &set,
       made = std::make_unique<TerrariumDem>(
           provider.Revision, order, provider.Missing, provider.Dataset, provider.Endpoint);
     } else if (provider.Kind == "vector") {
-      made = std::make_unique<VersatilesVector>(
+      if (provider.Dataset.empty() || provider.Endpoint.empty()) {
+        error =
+            "a vector-tile fixture requires an explicit dataset and endpoint; no default exists";
+        return false;
+      }
+      made = std::make_unique<VectorTileSource>(
           provider.Revision, order, provider.Missing, provider.Dataset, provider.Endpoint);
     } else if (provider.Kind == "stars") {
       made = std::make_unique<StarBands>(
@@ -80,18 +85,10 @@ bool RegisterDeclared(SourceSet &set,
 }
 
 std::span<const SourceProvider> ShippedProviders() {
-  static const std::array<SourceProvider, 3> shipped = {{
+  static const std::array<SourceProvider, 2> shipped = {{
       {.Kind = "terrain",
        .Revision = "",
        .Priority = 0,
-       .Missing = MissingDataPolicy::Continue,
-       .Dataset = "",
-       .Location = "",
-       .Endpoint = "",
-       .Coverage = {}},
-      {.Kind = "vector",
-       .Revision = "",
-       .Priority = 1,
        .Missing = MissingDataPolicy::Continue,
        .Dataset = "",
        .Location = "",

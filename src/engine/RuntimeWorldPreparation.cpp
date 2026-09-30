@@ -36,7 +36,16 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   tileProviders.reserve(Session.Declared.Providers.size());
   osmProviders.reserve(Session.Declared.Providers.size());
   for (const Data::SourceProvider &provider : Session.Declared.Providers) {
+    if (provider.Kind == "vector") {
+      Error = "world data requires original OSM; vector-map tile providers are not permitted";
+      return false;
+    }
     (provider.Kind == "osm" ? osmProviders : tileProviders).push_back(provider);
+  }
+  if (Session.Declared.Ground.Declared && Session.Declared.Ground.Shape.Kind.empty() &&
+      Session.Declared.Ground.Osm.empty() && osmProviders.empty()) {
+    Error = "world data requires an official original OSM source; no map-tile fallback exists";
+    return false;
   }
   std::vector<World::OsmCircuitRequest> routes;
   routes.reserve(Session.Declared.Routes.size());

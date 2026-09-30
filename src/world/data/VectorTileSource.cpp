@@ -1,18 +1,13 @@
-#include "VersatilesVector.h"
+#include "VectorTileSource.h"
 
 #include <cstdint>
 #include <cstddef>
 #include <string>
-#include <string_view>
 #include <utility>
 
 namespace outshine::Data {
 
 constexpr size_t kTypicalPayloadBytes = 80000;
-
-namespace Says {
-inline constexpr std::string_view kTile = "https://tiles.versatiles.org/tiles/osm/{z}/{x}/{y}";
-}
 
 namespace {
 
@@ -22,7 +17,7 @@ namespace {
                                   std::string dataset,
                                   std::string endpoint) {
   SourceDecl d;
-  d.Id = dataset.empty() ? "versatiles.osm" : std::move(dataset);
+  d.Id = std::move(dataset);
   d.Version = 1;
   d.Revision = std::move(revision);
   d.Endpoint = std::move(endpoint);
@@ -45,12 +40,12 @@ namespace {
 
 }
 
-VersatilesVector::VersatilesVector(std::string revision,
+VectorTileSource::VectorTileSource(std::string revision,
                                    Rank order,
                                    AbsencePolicy absence,
                                    std::string dataset,
                                    const std::string &endpoint)
     : WebTileSource(Declared(std::move(revision), order, absence, std::move(dataset), endpoint),
-                    endpoint.empty() ? std::string(Says::kTile) : endpoint) {}
+                    endpoint) {}
 
 }
