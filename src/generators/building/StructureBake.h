@@ -76,6 +76,7 @@ struct RawTile {
     double MinimumHeightM = 0.0;
     int Pitched = -1;
     std::optional<outshine::Ground::OsmHeightOrigin> HeightOrigin = std::nullopt;
+    Data::OsmElementId OriginalId{};
   };
 
   struct Way {

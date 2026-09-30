@@ -28,7 +28,16 @@ int main() {
   RawTile raw;
   raw.Original = {.Snapshot = source,
                   .Bounds = {.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}};
+  raw.Structures.push_back({.OriginalId = {.Kind = Data::OsmElementKind::Node, .Id = 1}});
   const auto key = StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test");
+  raw.Structures.front().OriginalId.Kind = Data::OsmElementKind::Way;
+  CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
+        "equal numeric IDs of different OSM element kinds cannot alias a product");
+  raw.Structures.front().OriginalId.Kind = Data::OsmElementKind::Node;
+  raw.Structures.front().OriginalId.Id = 2;
+  CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
+        "different original elements cannot share product identity");
+  raw.Structures.front().OriginalId.Id = 1;
   RawTile copy = raw;
   source.reset();
   raw.Original = {};

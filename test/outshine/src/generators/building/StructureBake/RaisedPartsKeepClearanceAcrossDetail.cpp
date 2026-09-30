@@ -5,6 +5,7 @@
 #include "BuildingShape.h"
 #include "Geodesy.h"
 #include "Check.h"
+#include "OsmXmlReader.h"
 
 #include <algorithm>
 #include <array>
@@ -93,6 +94,30 @@ int main() {
   raw.Structures[0].MinimumHeightM = 6;
   CHECK(key && key != StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion()),
         "input identity includes the lower elevation");
+  auto original = Data::OsmXmlReader::Read(
+      R"(<osm version="0.6"><node id="7" lat="47" lon="9"><tag k="building" v="yes"/></node></osm>)",
+      {.DatasetId = "native", .Revision = "one"});
+  CHECK(original.has_value(), "native source fixture parses");
+  if (!original) { return Report(); }
+  raw.Original.Snapshot = std::make_shared<const Data::OsmSourceSnapshot>(
+      Data::OsmSourceSnapshot{.Elements = std::move(*original), .Coverage = {}});
+  raw.Structures[0].OriginalId = {.Kind = Data::OsmElementKind::Node, .Id = 7};
+  BakedTile native;
+  CHECK(BakeStructures(raw, *heights, mesher, *scratch, native).has_value(),
+        "declared generated footprint accepts its existing original point identity");
+  raw.Structures[0].OriginalId.Id = 8;
+  BakedTile missingNative;
+  CHECK(!BakeStructures(raw, *heights, mesher, *scratch, missingNative),
+        "missing original element cannot silently generate a native product");
+  raw.Structures[0].OriginalId = {.Kind = Data::OsmElementKind::Way, .Id = 7};
+  BakedTile wrongKind;
+  CHECK(!BakeStructures(raw, *heights, mesher, *scratch, wrongKind),
+        "matching numeric node ID does not satisfy a way reference");
+  raw.Original = {};
+  BakedTile missingOwner;
+  CHECK(!BakeStructures(raw, *heights, mesher, *scratch, missingOwner),
+        "original identity without its owner cannot fall back to legacy input");
+  raw.Structures[0].OriginalId = {};
   for (const double invalid : {-1.0, 12.0, 13.0, std::numeric_limits<double>::quiet_NaN()}) {
     raw.Structures[0].MinimumHeightM = invalid;
     BakedTile product;

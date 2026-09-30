@@ -504,8 +504,21 @@ void IncludeFootprint(BakedTile &out, const StructureCell &cell) {
   }
 }
 
-bool ValidStructureInput(const RawTile::Structure &structure, size_t holes) {
-  return structure.FirstHole <= holes && structure.HoleCount <= holes - structure.FirstHole &&
+bool HasOriginalElement(const RawTile &raw, Data::OsmElementId id) {
+  if (!raw.Original.Snapshot) { return id.Id == 0; }
+  const auto &elements = raw.Original.Snapshot->Elements;
+  switch (id.Kind) {
+    case Data::OsmElementKind::Node: return elements.FindNode(id.Id) != nullptr;
+    case Data::OsmElementKind::Way: return elements.FindWay(id.Id) != nullptr;
+    case Data::OsmElementKind::Relation: return elements.FindRelation(id.Id) != nullptr;
+  }
+  return false;
+}
+
+bool ValidStructureInput(const RawTile::Structure &structure, const RawTile &raw) {
+  const size_t holes = raw.Holes.size();
+  return HasOriginalElement(raw, structure.OriginalId) && structure.FirstHole <= holes &&
+         structure.HoleCount <= holes - structure.FirstHole &&
          (!structure.HeightOrigin ||
           (std::isfinite(structure.HeightM) && structure.HeightM > 0.0)) &&
          std::isfinite(structure.MinimumHeightM) && structure.MinimumHeightM >= 0.0 &&
@@ -575,9 +588,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   const Frontage street = NearestStreet(pts, ring, ways, &standBackM, stopping);
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
 
-  if (!ValidStructureInput(one, raw.Holes.size())) {
-    return std::unexpected(StructureMeshError::InvalidPlan);
-  }
+  if (!ValidStructureInput(one, raw)) { return std::unexpected(StructureMeshError::InvalidPlan); }
   BuildingField::Footprint fp{};
   fp.MinimumHeightM = static_cast<float>(one.MinimumHeightM);
   fp.FirstPoint = one.SourceFirst;

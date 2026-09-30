@@ -78,6 +78,7 @@ void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &ra
   if (baked.Coordinates) { return; }
   baked.Coordinates = std::make_shared<Ground::BuildingField::Geometry>();
   baked.Coordinates->Original = raw.Original;
+  if (raw.Original.Snapshot) { baked.Coordinates->Sources.reserve(baked.Prints.size()); }
   size_t source = 0;
   for (auto &footprint : baked.Prints) {
     while (source < raw.Structures.size() &&
@@ -87,6 +88,9 @@ void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &ra
     if (source == raw.Structures.size()) { std::terminate(); }
     footprint.FirstPoint = raw.Structures[source].LocalFirst;
     footprint.FirstHole = raw.Structures[source].FirstHole;
+    if (raw.Original.Snapshot) {
+      baked.Coordinates->Sources.push_back(raw.Structures[source].OriginalId);
+    }
     ++source;
   }
 }

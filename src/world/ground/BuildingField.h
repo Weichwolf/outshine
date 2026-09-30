@@ -47,9 +47,10 @@ public:
     StructureOriginalSource Original;
     std::vector<double> Points;
     std::vector<GeographicRing> Rings;
+    std::vector<Data::OsmElementId> Sources;
 
     [[nodiscard]] size_t HeapBytes() const noexcept {
-      return CapacityBytes(Points) + CapacityBytes(Rings);
+      return CapacityBytes(Points) + CapacityBytes(Rings) + CapacityBytes(Sources);
     }
   };
 

@@ -368,7 +368,8 @@ StructureArtifactKey(const RawTile &raw,
            archive.Number(value.Cell.Index) && bounds(archive, value.Cell.Footprint) &&
            archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
            archive.Number(value.Pitched) && archive.Number(value.HeightOrigin.has_value()) &&
-           (!value.HeightOrigin || archive.Number(*value.HeightOrigin));
+           (!value.HeightOrigin || archive.Number(*value.HeightOrigin)) &&
+           archive.Number(value.OriginalId.Kind) && archive.Number(value.OriginalId.Id);
   };
   const auto ring = [](auto &archive, const GeographicRing &value) {
     return archive.Number(value.First) && archive.Number(value.Count) &&
