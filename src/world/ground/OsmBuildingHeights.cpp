@@ -14,6 +14,11 @@ namespace {
 
 constexpr double kMetresPerFoot = 0.3048;
 
+OsmHeightOrigin Origin(bool metric, bool levels) noexcept {
+  if (metric) { return OsmHeightOrigin::MetricTag; }
+  return levels ? OsmHeightOrigin::Levels : OsmHeightOrigin::Policy;
+}
+
 std::string_view Trim(std::string_view value) noexcept {
   const auto first = value.find_first_not_of(" \t\r\n");
   if (first == std::string_view::npos) { return {}; }
@@ -83,17 +88,12 @@ OsmBuildingHeights::Resolve(OsmHeightPolicy policy) const noexcept {
   if (!std::isfinite(minimum) || !std::isfinite(top) || top <= minimum) {
     return std::unexpected(OsmHeightError::InvalidInterval);
   }
-  return OsmHeightInterval{
-      .TopM = top,
-      .MinimumM = minimum,
-      .TopOrigin = TopM->has_value()
-                       ? OsmHeightOrigin::MetricTag
-                       : (useLevels ? OsmHeightOrigin::Levels : OsmHeightOrigin::Policy),
-      .MinimumOrigin =
-          MinimumM->has_value()
-              ? OsmHeightOrigin::MetricTag
-              : (MinimumLevel->has_value() ? OsmHeightOrigin::Levels : OsmHeightOrigin::Policy),
-      .ConflictingLevels = conflict};
+  return OsmHeightInterval{.TopM = top,
+                           .MinimumM = minimum,
+                           .TopOrigin = Origin(TopM->has_value(), useLevels),
+                           .MinimumOrigin =
+                               Origin(MinimumM->has_value(), MinimumLevel->has_value()),
+                           .ConflictingLevels = conflict};
 }
 
 }
