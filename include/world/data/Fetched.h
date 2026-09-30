@@ -7,12 +7,13 @@
 #include <vector>
 
 #include "FetchFailure.h"
+#include "Transport.h"
 
 namespace outshine::Data {
 
 /// Provider interpretation before shared scheduling and retry policy.
 enum class Meaning : uint8_t {
-  Bytes,   ///< Complete encoded source payload.
+  Bytes,   ///< Complete declared payload or one received original interval with its receipt.
   Absent,  ///< Authoritative absence.
   Refused, ///< Terminal acquisition refusal.
   Retry    ///< Retryable acquisition failure.
@@ -47,6 +48,7 @@ public:
       : Where_(std::exchange(other.Where_, State::Consumed)),
         What_(std::exchange(other.What_, Meaning::Refused)),
         Bytes_(std::move(other.Bytes_)),
+        Range_(std::move(other.Range_)),
         RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)),
         Reason_(other.Reason_),
         Evidence_(other.Evidence_) {}
@@ -59,6 +61,7 @@ public:
     Where_ = std::exchange(other.Where_, State::Consumed);
     What_ = std::exchange(other.What_, Meaning::Refused);
     Bytes_ = std::move(other.Bytes_);
+    Range_ = std::move(other.Range_);
     RetryAfterS_ = std::exchange(other.RetryAfterS_, 0.0);
     Reason_ = other.Reason_;
     Evidence_ = other.Evidence_;
@@ -103,11 +106,15 @@ public:
     return made;
   }
 
-  /// Transfer complete encoded source bytes without copying or allocating.
+  /// Transfer original source bytes without copying or allocating.
   /// @param bytes Owned response, validated by the native consumer.
+  /// @param range Validated HTTP receipt for a partial payload; empty for a whole payload.
   /// @return Settled Bytes reply owning the vector.
-  [[nodiscard]] static Fetched Delivered(std::vector<uint8_t> bytes) {
-    return {State::Settled, Meaning::Bytes, std::move(bytes)};
+  [[nodiscard]] static Fetched Delivered(std::vector<uint8_t> bytes,
+                                         std::optional<RangeResponse> range = std::nullopt) {
+    Fetched made(State::Settled, Meaning::Bytes, std::move(bytes));
+    made.Range_ = std::move(range);
+    return made;
   }
 
   /// Inspect the reply lifecycle.
@@ -124,6 +131,7 @@ public:
     FetchFailureReason Reason = FetchFailureReason::ProviderRefused; ///< Failure reason.
     AbsenceEvidence Evidence = AbsenceEvidence::Unknown; ///< Authoritative absence evidence.
     std::vector<uint8_t> Bytes; ///< Owned source bytes; consumer enforces byte limits.
+    std::optional<RangeResponse> Range = std::nullopt; ///< Original partial-response identity.
   };
 
   /// Consume a settled reply exactly once by moving its bytes.
@@ -131,8 +139,11 @@ public:
   [[nodiscard]] std::optional<Settled> Take() {
     if (Where_ != State::Settled) { return std::nullopt; }
     Where_ = State::Consumed;
-    return Settled{
-        .What = What_, .Reason = Reason_, .Evidence = Evidence_, .Bytes = std::move(Bytes_)};
+    return Settled{.What = What_,
+                   .Reason = Reason_,
+                   .Evidence = Evidence_,
+                   .Bytes = std::move(Bytes_),
+                   .Range = std::move(Range_)};
   }
 
 private:
@@ -142,6 +153,7 @@ private:
   State Where_;
   Meaning What_;
   std::vector<uint8_t> Bytes_;
+  std::optional<RangeResponse> Range_ = std::nullopt;
   double RetryAfterS_ = 0.0;
   FetchFailureReason Reason_ = FetchFailureReason::ProviderRefused;
   AbsenceEvidence Evidence_ = AbsenceEvidence::Unknown;

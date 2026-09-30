@@ -18,6 +18,14 @@ namespace outshine::Data {
 /// HTTP status for one successful, validated partial-content response.
 inline constexpr int kHttpPartialContent = 206;
 
+/// Maximum retained HTTP revision-tag bytes, including quotes.
+inline constexpr size_t MaximumEntityTagBytes = 1024;
+
+/// Validate a bounded strong HTTP ETag, including its surrounding quotes.
+/// @param tag Borrowed HTTP field value; weak tags and control bytes are rejected.
+/// @return True for a strong tag; no allocation, at most MaximumEntityTagBytes inspected.
+[[nodiscard]] bool StrongEntityTag(std::string_view tag) noexcept;
+
 /// Transport/provider query identity; None denotes no cancellable in-flight work.
 enum class Ticket : uint64_t {
   None = 0 ///< No active cancellable query.
@@ -27,6 +35,10 @@ enum class Ticket : uint64_t {
 struct ByteRange {
   uint64_t First = 0;  ///< First byte offset in the unencoded source object.
   uint64_t Length = 0; ///< Positive number of bytes; First + Length - 1 must fit uint64_t.
+
+  /// Validate positive length and inclusive-end arithmetic without allocation.
+  /// @return True when the original interval can be represented; constant-time.
+  [[nodiscard]] bool Valid() const noexcept;
 
   /// Compare start and length without allocation.
   /// @return True for identical byte intervals.
@@ -38,6 +50,11 @@ struct RangeResponse {
   ByteRange Bytes;         ///< Exact interval supplied by this response.
   uint64_t TotalBytes = 0; ///< Known complete source-object length, including this interval.
   std::string EntityTag;   ///< Strong HTTP ETag, including quotes, for subsequent If-Match.
+
+  /// Validate received length, complete-object bounds and a bounded strong revision tag.
+  /// @param received Actual original body bytes, without a cache envelope.
+  /// @return True for a consistent receipt; no allocation.
+  [[nodiscard]] bool Valid(size_t received) const noexcept;
 };
 
 /// Move-only transport reply owning an HTTP body or acquisition failure.

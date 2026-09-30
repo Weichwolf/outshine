@@ -25,19 +25,10 @@ namespace {
 
 constexpr double kMicrosecondsPerMillisecond = 1000.0;
 constexpr long kPollMostMs = 1000;
-constexpr size_t kEntityTagMostBytes = 1024;
-constexpr unsigned char kFirstVisibleAscii = 0x21;
-constexpr unsigned char kDeleteAscii = 0x7f;
 constexpr int kHttpSuccessFirst = 200;
 constexpr int kHttpRedirectFirst = 300;
 
-[[nodiscard]] bool StrongEntityTag(std::string_view tag) {
-  return tag.size() >= 2 && tag.size() <= kEntityTagMostBytes && tag.front() == '"' &&
-         tag.back() == '"' &&
-         std::ranges::all_of(tag.substr(1, tag.size() - 2), [](unsigned char c) {
-           return c >= kFirstVisibleAscii && c != '"' && c != kDeleteAscii;
-         });
-}
+using Data::StrongEntityTag;
 
 [[nodiscard]] bool HeaderName(std::string_view name, std::string_view wanted) {
   return std::ranges::equal(name, wanted, [](char left, char right) {
@@ -168,9 +159,7 @@ Data::FetchStart Fetching::Begin(const std::string &url) {
 
 Data::FetchStart
 Fetching::Begin(const std::string &url, Data::ByteRange range, std::string_view entityTag) {
-  if (range.Length == 0 ||
-      range.First > std::numeric_limits<uint64_t>::max() - (range.Length - 1) ||
-      (!entityTag.empty() && !StrongEntityTag(entityTag))) {
+  if (!range.Valid() || (!entityTag.empty() && !StrongEntityTag(entityTag))) {
     return std::unexpected(Data::FetchFailureReason::InvalidRequest);
   }
   if (range.Length > Config_.MaxBodyBytes) {

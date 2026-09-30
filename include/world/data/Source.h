@@ -48,6 +48,16 @@ public:
   /// @return Owned ticket or start failure; None is valid only for immediately collectable work.
   [[nodiscard]] virtual FetchStart Begin(const Address &at, Transport &transport) const = 0;
 
+  /// Start admitted source demand including its interval and revision pin on an IO worker.
+  /// Whole-payload providers inherit forwarding; partial demand requires an override.
+  /// @param request Borrowed demand at Serves' resolved address; copy retained values.
+  /// @param transport Transport retained until completion or cancellation.
+  /// @return Owned ticket or refusal; default rejects unsupported partial demand.
+  [[nodiscard]] virtual FetchStart Begin(const Fetch &request, Transport &transport) const {
+    if (request.Range()) { return std::unexpected(FetchFailureReason::ProviderRefused); }
+    return Begin(request.Where(), transport);
+  }
+
   /// Poll remote work or complete bounded local IO on an IO worker; transfer payload ownership.
   /// @param at Address passed to Begin.
   /// @param ticket Active ticket owned by this query until terminal completion.
