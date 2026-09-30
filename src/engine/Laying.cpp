@@ -288,6 +288,22 @@ public:
     all.erase(std::ranges::unique(all).begin(), all.end());
   }
 
+  [[nodiscard]] std::expected<bool, std::string> PrepareOriginalHeights(StructureBuildQueue &queue,
+                                                                        int zoom) {
+    const auto *snapshot = TransportSnapshot();
+    const auto prepared =
+        queue.PrepareOriginal(snapshot != nullptr ? snapshot->Source() : nullptr,
+                              {.Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0},
+                               .PointWidthM = 2.0,
+                               .PointsMost = 262144});
+    if (!prepared) { return std::unexpected(prepared.error()); }
+    if (!*prepared) { return false; }
+    const auto tiles = queue.OriginalHeightTiles(zoom);
+    if (!tiles) { return std::unexpected(tiles.error()); }
+    AddStructureHeightCoverage(*tiles);
+    return true;
+  }
+
   [[nodiscard]] std::span<const size_t> RoadRouteIndices() const noexcept {
     return RoadHeightCoverage_.SelectedRouteIndices;
   }
@@ -1074,9 +1090,11 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
 }
 
 [[nodiscard]] bool SameVectorRevision(const Ground::OsmField *pinned,
-                                      const Ground::OsmField *live) noexcept {
+                                      const Ground::OsmField *live,
+                                      uint64_t generation) noexcept {
   if (pinned == nullptr || live == nullptr) { return pinned == live; }
-  return pinned->OriginToken() == live->OriginToken() && pinned->Generation() == live->Generation();
+  return pinned->OriginToken() == live->OriginToken() &&
+         pinned->Generation() == live->Generation() && pinned->Generation() == generation;
 }
 }
 
@@ -1120,16 +1138,12 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
   if (state.Pressing() == nullptr) {
     const Ground::OsmField *const live = World.Stack.Vectors();
     const Ground::OsmField *const shapes = state.Candidate().Sources().Vectors.get();
-    if (!SameVectorRevision(shapes, live)) {
+    if (!SameVectorRevision(shapes, live, state.Revision().VectorGeneration)) {
       World.GroundBuild.reset();
       return true;
     }
     std::vector<EarthworkStamp> yielding;
     if (shapes != nullptr || !state.Footprints().Footprints().empty()) {
-      if (shapes != nullptr && shapes->Generation() != state.Revision().VectorGeneration) {
-        World.GroundBuild.reset();
-        return true;
-      }
       const GroundBuildProgress stamped = BuildGroundBuildingStamps(standing, state, yielding);
       if (stamped != GroundBuildProgress::Ready) { return stamped != GroundBuildProgress::Failed; }
     } else if (state.Stamping() != nullptr) {
@@ -1459,25 +1473,13 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
   GroundBuildProducts &build = state.Candidate().Products();
   switch (state.CurrentSheetPhase()) {
     case Core::GroundBuildSchedule::SheetPhase::NeedsFields: {
-      const auto *snapshot = state.TransportSnapshot();
-      const auto original = World.StructureBuilds.PrepareOriginal(
-          snapshot ? snapshot->Source() : nullptr,
-          {.Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0},
-           .PointWidthM = 2.0,
-           .PointsMost = 262144});
+      const auto original = state.PrepareOriginalHeights(World.StructureBuilds, coverage.Zoom);
       if (!original) {
         Error = original.error();
         World.GroundBuild.reset();
         return GroundBuildProgress::Failed;
       }
       if (!*original) { return GroundBuildProgress::Pending; }
-      const auto heightTiles = World.StructureBuilds.OriginalHeightTiles(coverage.Zoom);
-      if (!heightTiles) {
-        Error = heightTiles.error();
-        World.GroundBuild.reset();
-        return GroundBuildProgress::Failed;
-      }
-      state.AddStructureHeightCoverage(*heightTiles);
       const auto prepared = build.Sheets.PrepareFields(
           patchwork,
           World.Stack.Ground(),

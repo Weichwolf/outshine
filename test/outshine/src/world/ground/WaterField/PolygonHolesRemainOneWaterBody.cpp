@@ -141,12 +141,17 @@ int main() {
     BuildingField footprints;
     StreetField streets;
     Generators::Tile region(6, 32, 32);
-    const auto features = Generators::FeaturesOver(
-        region,
-        {.Vectors = &field, .Footprints = &footprints, .WaterBodies = &water, .Ways = &streets});
+    const auto features = Generators::FeaturesOver(region,
+                                                   {.Vectors = &field,
+                                                    .Footprints = &footprints,
+                                                    .WaterBodies = &water,
+                                                    .Ways = &streets,
+                                                    .WetRow = 19});
     CHECK(features && features->Count() == 1 && features->Rings(features->At(0)).size() == 2,
           "native ground snapshot retains both rings");
     if (features && features->Count() == 1) {
+      CHECK(features->At(0).CoverRow == 19 && features->At(0).Top.AslM() == 10.0f,
+            "water classification retains its requested material and analytical ten-metre level");
       const auto points = field.Points();
       const auto wet = region.Enu(Midpoint(points, rings[0].FirstPoint, rings[1].FirstPoint));
       const auto inner =

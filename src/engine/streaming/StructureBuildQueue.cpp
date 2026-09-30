@@ -17,6 +17,7 @@
 #include <ratio>
 #include <span>
 #include <vector>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -555,7 +556,9 @@ StructureBuildQueue::PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapsh
     return true;
   }
   if (Original_ && Original_->Original.Snapshot == source) { return true; }
-  if (!Pool_) { return std::unexpected("original structures require an open worker pool"); }
+  if (Pool_ == nullptr) {
+    return std::unexpected("original structures require an open worker pool");
+  }
   PreparingOriginal_ = source;
   OriginalPreparation_ =
       std::make_unique<OriginalStructurePreparation>(*Pool_, std::move(source), policy);
@@ -607,7 +610,7 @@ bool StructureBuildQueue::SourcesComplete(const Ground::GroundStack &stack,
                                           const Ground::BuildingField &footprints) const {
   if (Original_) {
     const auto *input = footprints.InputOfTile(0);
-    return Queue_.empty() && input && input->Qualified && input->Coordinates &&
+    return Queue_.empty() && input != nullptr && input->Qualified && input->Coordinates &&
            input->Coordinates->Original.Snapshot == Original_->Original.Snapshot;
   }
   return Queue_.empty() && QualifiedSources(stack, footprints);
@@ -1078,10 +1081,10 @@ size_t StructureBuildQueue::PostsOriginal(Ground::GroundStack &stack,
                                           HeightRequirement requirement,
                                           std::optional<LevelOfDetail> detail,
                                           BuildPurpose purpose) {
-  if (!Pool_ || !Mesher_ || !prints.Anchored() || !Queue_.empty()) { return 0; }
+  if (Pool_ == nullptr || Mesher_ == nullptr || !prints.Anchored() || !Queue_.empty()) { return 0; }
   RetireCellBuilds(purpose);
   const auto *accepted = prints.InputOfTile(0);
-  if (accepted && accepted->Coordinates &&
+  if (accepted != nullptr && accepted->Coordinates &&
       accepted->Coordinates->Original.Snapshot == Original_->Original.Snapshot &&
       accepted->Terrain.ScopeCurrent(heightAt.TerrainScope) && accepted->Qualified &&
       (Original_->Structures.empty() ||
@@ -1143,7 +1146,7 @@ size_t StructureBuildQueue::PostsOriginal(Ground::GroundStack &stack,
                               .Purpose = purpose,
                               .FallbackHeights = heights->Fallback(),
                               .Original = raw->Original.Snapshot.get()};
-  if (!accepted) { prints.Take(0); }
+  if (accepted == nullptr) { prints.Take(0); }
   auto output = Borrowed(IdleOut_);
   *output = {};
   Queue_.push_back({.Revision = revision,
@@ -1174,6 +1177,19 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
   if (Original_) {
     return PostsOriginal(stack, prints, eye, heightAt, requirement, detail, purpose);
   }
+  return PostsVectors(
+      stack, prints, eye, heightAt, candidatesMost, requirement, detail, purpose, cellReady);
+}
+
+size_t StructureBuildQueue::PostsVectors(Ground::GroundStack &stack,
+                                         Ground::BuildingField &prints,
+                                         LongitudeLatitude eye,
+                                         const HeightSource &heightAt,
+                                         size_t candidatesMost,
+                                         HeightRequirement requirement,
+                                         std::optional<LevelOfDetail> detail,
+                                         BuildPurpose purpose,
+                                         const std::function<bool(uint32_t)> &cellReady) {
   if (Pool_ == nullptr || Mesher_ == nullptr || stack.Vectors() == nullptr || !prints.Anchored()) {
     return 0;
   }
@@ -1401,52 +1417,59 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
       {.Prints = printCount, .Spread = spreadCount, .Across = acrossCount, .Tiles = count});
   landings.reserve(count);
   for (size_t at = 0; at < count; ++at) {
-    QueuedBuild &bake = Queue_[at];
-    auto &completed = bake.Task.Result().Tile;
-    if (!completed) { std::terminate(); }
-    Generators::BakedTile &baked = *completed;
-    PrepareGeometry(baked, bake.Task.Raw());
-    const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-    const std::optional<Data::TileSourceIdentity> vectorSource =
-        baked.Coordinates->Original.Snapshot ? std::nullopt
-                                             : VectorSource(*vectors, bake.Task.Tile());
-    landings.push_back(
-        {.Tile = bake.Task.Tile(),
-         .Baked = &baked,
-         .AnchorEcef = bake.Task.Raw().AnchorEcef,
-         .SourceKey = bake.SourceKey,
-         .Footprints = prints.PrepareAcceptance(
-             bake.Task.Tile(),
-             {.Coordinates = baked.Coordinates,
-              .Prints = baked.Prints,
-              .SeatSpreadM = baked.SeatSpreadM,
-              .AcrossM = baked.AcrossM,
-              .OccupiedCells = baked.OccupiedCells,
-              .CellBounds = baked.CellBounds,
-              .CellMaxHeightM = baked.CellMaxHeightM,
-              .Triangles = triangles,
-              .OsmHeights = baked.OsmHeights,
-              .DefaultHeights = baked.DefaultHeights,
-              .Fronted = baked.Fronted},
-             bake.Task.Heights().Sources(),
-             baked.Coordinates->Original.Snapshot
-                 ? bake.Task.Raw().Structures.empty() || bake.Task.Heights().Qualified()
-                 : QualifiedStructureHeights(
-                       *vectors,
-                       {.From = vectors->Tiles()[bake.Task.Tile()].FirstFeature,
-                        .To = static_cast<size_t>(vectors->Tiles()[bake.Task.Tile()].FirstFeature) +
-                              vectors->Tiles()[bake.Task.Tile()].FeatureCount},
-                       bake.Task.Heights()),
-             vectorSource,
-             {.HeightRasterDigest = bake.Task.Heights().RasterDigest(),
-              .StreetDigest = bake.StreetDigest,
-              .FocalPx = bake.Revision.FocalPx,
-              .TileSpanM = bake.Revision.TileSpanM,
-              .Eye = bake.Revision.Eye},
-             std::move(validated[at]),
-             bake.Task.Heights().CaptureRequest())});
+    landings.push_back(PrepareLanding(Queue_[at], prints, vectors, std::move(validated[at])));
   }
   return landings;
+}
+
+StructureBuildQueue::Landing
+StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
+                                    Ground::BuildingField &prints,
+                                    const Ground::OsmField *vectors,
+                                    Ground::TerrainCertificate certificate) {
+  auto &completed = bake.Task.Result().Tile;
+  if (!completed) { std::terminate(); }
+  Generators::BakedTile &baked = *completed;
+  PrepareGeometry(baked, bake.Task.Raw());
+  const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
+  const std::optional<Data::TileSourceIdentity> vectorSource =
+      baked.Coordinates->Original.Snapshot ? std::nullopt
+                                           : VectorSource(*vectors, bake.Task.Tile());
+  return Landing{
+      .Tile = bake.Task.Tile(),
+      .Baked = &baked,
+      .AnchorEcef = bake.Task.Raw().AnchorEcef,
+      .SourceKey = bake.SourceKey,
+      .Footprints = prints.PrepareAcceptance(
+          bake.Task.Tile(),
+          {.Coordinates = baked.Coordinates,
+           .Prints = baked.Prints,
+           .SeatSpreadM = baked.SeatSpreadM,
+           .AcrossM = baked.AcrossM,
+           .OccupiedCells = baked.OccupiedCells,
+           .CellBounds = baked.CellBounds,
+           .CellMaxHeightM = baked.CellMaxHeightM,
+           .Triangles = triangles,
+           .OsmHeights = baked.OsmHeights,
+           .DefaultHeights = baked.DefaultHeights,
+           .Fronted = baked.Fronted},
+          bake.Task.Heights().Sources(),
+          baked.Coordinates->Original.Snapshot
+              ? bake.Task.Raw().Structures.empty() || bake.Task.Heights().Qualified()
+              : QualifiedStructureHeights(
+                    *vectors,
+                    {.From = vectors->Tiles()[bake.Task.Tile()].FirstFeature,
+                     .To = static_cast<size_t>(vectors->Tiles()[bake.Task.Tile()].FirstFeature) +
+                           vectors->Tiles()[bake.Task.Tile()].FeatureCount},
+                    bake.Task.Heights()),
+          vectorSource,
+          {.HeightRasterDigest = bake.Task.Heights().RasterDigest(),
+           .StreetDigest = bake.StreetDigest,
+           .FocalPx = bake.Revision.FocalPx,
+           .TileSpanM = bake.Revision.TileSpanM,
+           .Eye = bake.Revision.Eye},
+          std::move(certificate),
+          bake.Task.Heights().CaptureRequest())};
 }
 
 bool StructureBuildQueue::ValidateCellLandingSource(const Ground::GroundStack &stack,

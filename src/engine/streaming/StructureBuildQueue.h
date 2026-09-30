@@ -89,7 +89,8 @@ public:
                     HeightSourceRevision heightSource,
                     const Data::OsmSourceSnapshot *original = nullptr) const noexcept {
       (void)eye;
-      return (Original ? Original == original : vectors && Vectors == vectors->Generation()) &&
+      return (Original != nullptr ? Original == original
+                                  : vectors != nullptr && Vectors == vectors->Generation()) &&
              HeightSource == heightSource &&
              (RequestedDetail || Purpose == BuildPurpose::SourceGeometry ||
               FocalPx == footprints.FocalPx()) &&
@@ -260,6 +261,15 @@ public:
   }
 
 private:
+  [[nodiscard]] size_t PostsVectors(Ground::GroundStack &stack,
+                                    Ground::BuildingField &prints,
+                                    LongitudeLatitude eye,
+                                    const HeightSource &heightAt,
+                                    size_t candidatesMost,
+                                    HeightRequirement requirement,
+                                    std::optional<LevelOfDetail> detail,
+                                    BuildPurpose purpose,
+                                    const std::function<bool(uint32_t)> &cellReady);
   [[nodiscard]] size_t PostsOriginal(Ground::GroundStack &stack,
                                      Ground::BuildingField &footprints,
                                      LongitudeLatitude eye,
@@ -280,6 +290,11 @@ private:
     bool Replacement = false;
     std::shared_ptr<const void> ReservationOwner = nullptr;
   };
+
+  [[nodiscard]] Landing PrepareLanding(QueuedBuild &bake,
+                                       Ground::BuildingField &prints,
+                                       const Ground::OsmField *vectors,
+                                       Ground::TerrainCertificate certificate);
 
   template <typename T>
   [[nodiscard]] static std::unique_ptr<T> Borrowed(std::vector<std::unique_ptr<T>> &idle) {
