@@ -85,10 +85,10 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
 - `engine/streaming/OsmSourceLoader` owns cancellable source IO/parse and publishes one shared
   `OsmSourceSnapshot`; Engine und `OsmTransportLoader::RequestSource` teilen diesen Stand.
   Native Gebäude fehlen; `GroundInputsReady` muss produktbezogen statt pauschal auf den Graphen warten.
-- `BuildingField::Footprint::FirstPoint` indexes `OsmField::Points`, FirstHole its Rings;
-  Laying passes both to BuildingStampJob. Native products must own/share ring coordinates
-  and revision. Meshing, footprints and terrain stamps consume that same immutable geometry
-  owner; no copied MVT surrogate and no index across unrelated buffers.
+- `BuildingField::AcceptedInput` erhält pro Produkt den gepinnten Geometriebesitzer samt
+  Quellenidentität; Footprint-Indizes gelten ausschließlich in dessen Points/Rings.
+  `BuildingStampJob` verarbeitet die zugehörigen Produktranges; `Laying` reicht nicht mehr
+  pauschal OsmField-Puffer durch. Native und bestehende Produkte teilen denselben Vertrag.
 - `OsmBuildingFootprints` now owns closed ways and outer/inner multipolygon chains, pins
   the source snapshot and retains typed IDs and tags. Product-root closure is implemented.
   Point structures and type=building groups remain unsupported; part ownership and semantics
@@ -97,10 +97,10 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
   Courtyards bypass solid aggregation; their roofs and floors preserve all inner boundaries.
   Native source ownership, precise roof forms and building classes still need connection.
   Do not encode original objects into reduced vector-tile properties as an intermediate fix.
-- Source failure retains prior data. `StructureBuildQueue` admits native jobs with existing DEM sampling,
-  cancellation, cell batching and atomic replacement. Source coverage owns replacement
-  selection; render-tile overlap must not duplicate an original building. Keep existing
-  roads until their original-source replacement is complete and visually verified.
+- `StructureBuildQueue` extrahiert native Jobs aus `OsmBuildingFootprints` mit unveränderten
+  IDs/Tags; bestehende DEM-Sampling-, Zell-, Abbruch- und Publikationsverträge bleiben erhalten.
+  Acceptance prüft Originalquelle, Geometriebesitzer und DEM gemeinsam; Quellenfehler erhalten
+  den Altstand. Vollständige Quellabdeckung ersetzt Kachelgebäude atomar, Straßen bleiben erhalten.
 - First visible acceptance: a source-tagged chimney has no residential windows; a courtyard
   remains open and a raised building part preserves its clearance. The same two-region
   scene retains shared-node road connectivity and unchanged content during a full turn.
