@@ -804,10 +804,6 @@ Result Engine::preloadWithQuality(double patienceS,
   const double bound = patienceS;
   const GroundQuality quality =
       required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
-  if (!S_->Session.Declared.Ground.Declared && S_->Readiness(quality).Ready()) {
-    ReportPreload(*this, began, tell);
-    return timed(Result{});
-  }
   for (;;) {
     const auto pumpAt = std::chrono::steady_clock::now();
     const auto pumped = S_->PumpPreload();
