@@ -241,6 +241,7 @@ public:
                     TerrainCertificate certificate = {},
                     HeightField::Request heights = {});
   void PreparesAcceptances(AcceptanceCapacity capacity);
+  void CommitAcceptance(PendingAcceptance pending, const Baked &baked) noexcept;
   void
   CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
   void ReplaceAcceptance(PendingAcceptance pending, const Baked &baked) noexcept;

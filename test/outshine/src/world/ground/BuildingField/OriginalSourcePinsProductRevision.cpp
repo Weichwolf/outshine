@@ -21,12 +21,13 @@ int main() {
   geometry->Original = {.Snapshot = source,
                         .Bounds = {.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}};
   Field field;
-  Ground::OsmField vectors(14, {});
   Field::Baked product{.Coordinates = geometry};
   field.PreparesAcceptances({.Tiles = 1});
   field.Take(0);
   auto pending = field.PrepareAcceptance(0, product, {}, true);
-  field.CommitAcceptance(std::move(pending), vectors, product);
+  field.CommitAcceptance(std::move(pending), product);
+  CHECK(field.AcceptedTiles().size() == 1,
+        "native product publication retains its reservation without a vector-tile field");
   const uint64_t firstKey = field.InputOfTile(0)->SourceKey;
   const uint64_t firstRevision = field.Revision();
   Field snapshot = field.SnapshotAccepted();

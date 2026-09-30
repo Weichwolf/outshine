@@ -110,6 +110,11 @@ BuildingField::PrepareAcceptance(uint32_t tile,
 void BuildingField::CommitAcceptance(PendingAcceptance pending,
                                      const OsmField &field,
                                      const Baked &baked) noexcept {
+  CommitAcceptance(std::move(pending), baked);
+  Mark_.Advance(field.Features());
+}
+
+void BuildingField::CommitAcceptance(PendingAcceptance pending, const Baked &baked) noexcept {
   assert(pending.Owner_ == this && pending.Prints_ == baked.Prints.size() &&
          pending.Spread_ == baked.SeatSpreadM.size() && pending.Across_ == baked.AcrossM.size());
   assert(Prints_.capacity() - Prints_.size() >= baked.Prints.size() &&
@@ -154,7 +159,6 @@ void BuildingField::CommitAcceptance(PendingAcceptance pending,
   AcceptedInputs_.insert(AcceptedInputs_.begin() + static_cast<ptrdiff_t>(at),
                          std::move(pending.Input_));
   AcceptedTiles_.insert(nextTile, pending.Tile_);
-  Mark_.Advance(field.Features());
   ++Accepted_;
   ++Revision_;
 }
