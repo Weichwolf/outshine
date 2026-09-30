@@ -8,6 +8,7 @@ const char *Name(WireFormat wire) noexcept {
     case WireFormat::MapboxVectorTile: return "mvt";
     case WireFormat::StarBandBinary: return "star-band";
     case WireFormat::OsmXml: return "osm-xml";
+    case WireFormat::CopernicusCog: return "copernicus-cog";
   }
   return "";
 }

@@ -5,6 +5,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "ContentStore.h"
@@ -46,9 +47,10 @@ public:
 
     enum class Phase { Ready, InFlight, Backoff, Finished };
 
-    Query(const SourceSet &owner, Fetch request) : Owner_(&owner), Request_(request) {}
+    Query(const SourceSet &owner, Fetch request) : Owner_(&owner), Request_(std::move(request)) {}
 
     void Finish() noexcept;
+    [[nodiscard]] std::string CacheKey() const;
 
     const SourceSet *Owner_;
     Phase Phase_ = Phase::Ready;
@@ -90,12 +92,14 @@ public:
 
 private:
   [[nodiscard]] std::optional<Delivery> ReadStored(Query &query);
+  [[nodiscard]] Delivery Deliver(Query &query, Fetched::Settled response);
   [[nodiscard]] std::optional<Delivery> ProcessAbsence(Query &query);
   void RecordStart(const SourceDecl &decl, bool first, bool started);
   void RecordDelivery(const SourceDecl &decl);
 
   [[nodiscard]] Delivery ResumeRetry(Query &query, Transport &transport);
   [[nodiscard]] std::optional<Delivery> StartCurrent(Query &query, Transport &transport);
+  [[nodiscard]] std::optional<Delivery> StartNext(Query &query, Transport &transport);
 
   [[nodiscard]] Delivery Refuse(Query &query,
                                 double afterMs,

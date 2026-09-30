@@ -8,9 +8,14 @@
 #include <mutex>
 #include <cstdint>
 #include <iterator>
+#include <limits>
+#include <span>
+#include <string>
 #include <utility>
 #include <optional>
 #include <vector>
+
+#include "SourceRange.h"
 
 namespace outshine::Data {
 
@@ -21,12 +26,32 @@ constexpr double kRetryBaseMs = 250.0;
 constexpr double kRetryCapMs = 4000.0;
 constexpr int kRetryCapExponent = 4;
 static_assert(kRetryBaseMs * (1U << static_cast<unsigned>(kRetryCapExponent)) == kRetryCapMs);
+
+bool Matches(const Fetch &request, const std::optional<RangeResponse> &origin, size_t bytes) {
+  if (!request.Range()) { return !origin; }
+  return origin && origin->Valid(bytes) && origin->Bytes == *request.Range() &&
+         (request.EntityTag().empty() || request.EntityTag() == origin->EntityTag);
+}
+
+std::optional<FetchFailureReason> ValidateDemand(const Fetch &request, size_t maximum) {
+  const auto &range = request.Range();
+  if (!range) { return std::nullopt; }
+  if (!range->Valid() || (!request.EntityTag().empty() && !StrongEntityTag(request.EntityTag()))) {
+    return FetchFailureReason::InvalidRequest;
+  }
+  if (range->Length > std::numeric_limits<size_t>::max() - MaximumRangeRecordOverhead ||
+      (maximum != 0 && range->Length > maximum)) {
+    return FetchFailureReason::CapacityRefused;
+  }
+  return std::nullopt;
+}
+
 }
 
 SourceSet::Query::Query(Query &&other) noexcept
     : Owner_(std::exchange(other.Owner_, nullptr)),
       Phase_(std::exchange(other.Phase_, Phase::Finished)),
-      Request_(other.Request_),
+      Request_(std::move(other.Request_)),
       Candidates_(std::move(other.Candidates_)),
       Next_(std::exchange(other.Next_, 0)),
       Current_(std::exchange(other.Current_, nullptr)),
@@ -41,6 +66,10 @@ void SourceSet::Query::Finish() noexcept {
   Current_ = nullptr;
   RetryAtMs_ = 0.0;
   Next_ = Candidates_.size();
+}
+
+std::string SourceSet::Query::CacheKey() const {
+  return ContentKey(Current_->Declaration(), At_, Request_.Range(), Request_.EntityTag());
 }
 
 SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
@@ -127,18 +156,8 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
   }
   for (;;) {
     if (query.Phase_ == Query::Phase::Ready) {
-      if (query.Next_ >= query.Candidates_.size()) {
-        const std::scoped_lock lock(LedgerMutex_);
-        query.Finish();
-        Ledger_.Vacant++;
-        return Delivery::Nothing();
-      }
-      query.Current_ = query.Candidates_[query.Next_++];
-      query.Attempts_ = 0;
-      query.At_ = query.Current_->Serves(query.Request_);
-      if (auto stored = ReadStored(query)) { return std::move(*stored); }
+      if (auto delivery = StartNext(query, transport)) { return std::move(*delivery); }
       if (query.Current_ == nullptr) { continue; }
-      if (auto refused = StartCurrent(query, transport)) { return std::move(*refused); }
     }
 
     Fetched answer = query.Current_->Collect(query.At_, query.Ticket_, transport);
@@ -155,6 +174,25 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
   }
 }
 
+std::optional<Delivery> SourceSet::StartNext(Query &query, Transport &transport) {
+  if (query.Next_ >= query.Candidates_.size()) {
+    const std::scoped_lock lock(LedgerMutex_);
+    query.Finish();
+    Ledger_.Vacant++;
+    return Delivery::Nothing();
+  }
+  query.Current_ = query.Candidates_[query.Next_++];
+  query.Attempts_ = 0;
+  query.At_ = query.Current_->Serves(query.Request_);
+  if (const auto problem =
+          ValidateDemand(query.Request_, query.Current_->Declaration().MaximumPayloadBytes)) {
+    return Refuse(query, kRetryCapMs, *problem);
+  }
+  if (auto stored = ReadStored(query)) { return stored; }
+  if (query.Current_ == nullptr) { return std::nullopt; }
+  return StartCurrent(query, transport);
+}
+
 std::optional<Delivery> SourceSet::ProcessAbsence(Query &query) {
   if (query.Current_->Declaration().OnAbsent == AbsencePolicy::Fail) {
     return Refuse(query, kRetryCapMs, FetchFailureReason::ConfirmedAbsent);
@@ -169,7 +207,10 @@ std::optional<Delivery> SourceSet::ProcessAbsence(Query &query) {
 std::optional<Delivery> SourceSet::ReadStored(Query &query) {
   const SourceDecl &decl = query.Current_->Declaration();
   if (decl.Keeps != Cacheability::Forever) { return std::nullopt; }
-  auto kept = Store_.Lookup(ContentKey(decl, query.At_), decl.MaximumPayloadBytes);
+  const auto &range = query.Request_.Range();
+  const size_t maximum = range ? static_cast<size_t>(range->Length) + MaximumRangeRecordOverhead
+                               : decl.MaximumPayloadBytes;
+  auto kept = Store_.Lookup(query.CacheKey(), maximum);
   if (kept.Where == ContentStore::Presence::Unknown) { return std::nullopt; }
   if (kept.Where == ContentStore::Presence::Absent) {
     {
@@ -178,6 +219,11 @@ std::optional<Delivery> SourceSet::ReadStored(Query &query) {
     }
     return ProcessAbsence(query);
   }
+  std::optional<RangeResponse> origin = std::nullopt;
+  if (range) {
+    origin = UnpackSourceRange(kept.Bytes);
+    if (!Matches(query.Request_, origin, kept.Bytes.size())) { return std::nullopt; }
+  }
   const std::scoped_lock lock(LedgerMutex_);
   ++Ledger_.Asked;
   ++Ledger_.Delivered;
@@ -185,7 +231,8 @@ std::optional<Delivery> SourceSet::ReadStored(Query &query) {
   Ledger_.DeliveredBytes += static_cast<long long>(kept.Bytes.size());
   RecordDelivery(decl);
   query.Finish();
-  return Delivery::From(decl.Id, decl.Revision, query.At_, std::move(kept.Bytes), SourceKey(decl));
+  return Delivery::From(
+      decl.Id, decl.Revision, query.At_, std::move(kept.Bytes), SourceKey(decl), std::move(origin));
 }
 
 Delivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
@@ -198,7 +245,12 @@ Delivery SourceSet::ResumeRetry(Query &query, Transport &transport) {
 }
 
 std::optional<Delivery> SourceSet::StartCurrent(Query &query, Transport &transport) {
-  const auto started = query.Current_->Begin(query.At_, transport);
+  const auto &range = query.Request_.Range();
+  const Fetch served =
+      range
+          ? Fetch(query.Request_.Kind(), query.At_, *range, std::string(query.Request_.EntityTag()))
+          : Fetch(query.Request_.Kind(), query.At_);
+  const auto started = query.Current_->Begin(served, transport);
   RecordStart(query.Current_->Declaration(),
               query.Phase_ == Query::Phase::Ready,
               started && *started != Ticket::None);
@@ -223,6 +275,36 @@ void SourceSet::RecordDelivery(const SourceDecl &decl) {
   if (use != Ledger_.Sources.end()) { ++use->Deliveries; }
 }
 
+Delivery SourceSet::Deliver(Query &query, Fetched::Settled response) {
+  const SourceDecl &decl = query.Current_->Declaration();
+  if (decl.MaximumPayloadBytes != 0 && response.Bytes.size() > decl.MaximumPayloadBytes) {
+    return Refuse(query, kRetryCapMs, FetchFailureReason::CapacityRefused);
+  }
+  if (!Matches(query.Request_, response.Range, response.Bytes.size())) {
+    return Refuse(query, kRetryCapMs, FetchFailureReason::CorruptPayload);
+  }
+  if (decl.Keeps == Cacheability::Forever) {
+    if (response.Range) {
+      auto record = PackSourceRange(response.Bytes, *response.Range);
+      if (!record) { return Refuse(query, kRetryCapMs, FetchFailureReason::CapacityRefused); }
+      (void)Store_.Keep(query.CacheKey(), record->data(), record->size());
+    } else {
+      (void)Store_.Keep(query.CacheKey(), response.Bytes.data(), response.Bytes.size());
+    }
+  }
+  const std::scoped_lock lock(LedgerMutex_);
+  ++Ledger_.Delivered;
+  Ledger_.DeliveredBytes += static_cast<long long>(response.Bytes.size());
+  RecordDelivery(decl);
+  query.Finish();
+  return Delivery::From(decl.Id,
+                        decl.Revision,
+                        query.At_,
+                        std::move(response.Bytes),
+                        SourceKey(decl),
+                        std::move(response.Range));
+}
+
 std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
                                                    Fetched::Settled response,
                                                    double retryAfterS,
@@ -231,28 +313,13 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
   const double retryAfterMs = retryAfterS * kMsPerS;
   const bool validDelay = std::isfinite(retryAfterMs) && retryAfterMs >= 0.0;
   switch (response.What) {
-    case Meaning::Bytes: {
-      if (decl.MaximumPayloadBytes != 0 && response.Bytes.size() > decl.MaximumPayloadBytes) {
-        return Refuse(query, kRetryCapMs, FetchFailureReason::CapacityRefused);
-      }
-      if (decl.Keeps == Cacheability::Forever) {
-        (void)Store_.Keep(
-            ContentKey(decl, query.At_), response.Bytes.data(), response.Bytes.size());
-      }
-      const std::scoped_lock lock(LedgerMutex_);
-      ++Ledger_.Delivered;
-      Ledger_.DeliveredBytes += static_cast<long long>(response.Bytes.size());
-      RecordDelivery(decl);
-      query.Finish();
-      return Delivery::From(
-          decl.Id, decl.Revision, query.At_, std::move(response.Bytes), SourceKey(decl));
-    }
+    case Meaning::Bytes: return Deliver(query, std::move(response));
     case Meaning::Absent: {
       if (response.Evidence == AbsenceEvidence::HttpNotFound &&
           decl.Keeps == Cacheability::Forever) {
         const auto lifetime = decl.Revision.empty() ? ContentStore::UnpinnedAbsenceLifetimeS
                                                     : ContentStore::PinnedAbsenceLifetimeS;
-        (void)Store_.KeepAbsent(ContentKey(decl, query.At_), lifetime);
+        (void)Store_.KeepAbsent(query.CacheKey(), lifetime);
       }
       return ProcessAbsence(query);
     }

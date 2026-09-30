@@ -22,7 +22,8 @@ enum class WireFormat : uint8_t {
   TerrariumPng,     ///< RGB Terrarium height encoding; retained for explicit fixtures.
   MapboxVectorTile, ///< Legacy map-tile encoding; not original OSM.
   StarBandBinary,   ///< Built-in star catalogue band encoding.
-  OsmXml            ///< Original OSM XML including nodes, ways, relations and tags.
+  OsmXml,           ///< Original OSM XML including nodes, ways, relations and tags.
+  CopernicusCog     ///< Original Copernicus GLO-30 Float32 GeoTIFF byte intervals.
 };
 /// Describe a WireFormat value without allocation.
 /// @param wire Value to describe.

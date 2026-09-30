@@ -8,6 +8,7 @@
 
 #include <world/data/Address.h>
 #include <world/data/FetchFailure.h>
+#include <world/data/Transport.h>
 
 namespace outshine::Data {
 
@@ -43,19 +44,22 @@ public:
     std::string SourceKey;
     Address At = Address::Whole(0);
     std::vector<uint8_t> Bytes;
+    std::optional<RangeResponse> Range = std::nullopt;
   };
 
   [[nodiscard]] static Delivery From(std::string sourceId,
                                      std::string sourceRevision,
                                      Address at,
                                      std::vector<uint8_t> bytes,
-                                     std::string sourceKey = {}) {
+                                     std::string sourceKey = {},
+                                     std::optional<RangeResponse> range = std::nullopt) {
     Delivery d(State::Delivered);
     d.Answer_.SourceId = std::move(sourceId);
     d.Answer_.SourceRevision = std::move(sourceRevision);
     d.Answer_.SourceKey = std::move(sourceKey);
     d.Answer_.At = at;
     d.Answer_.Bytes = std::move(bytes);
+    d.Answer_.Range = std::move(range);
     return d;
   }
 

@@ -13,6 +13,12 @@ public:
     return std::unexpected(FetchFailureReason::OfflineMiss);
   }
 
+  [[nodiscard]] FetchStart Begin([[maybe_unused]] const std::string &url,
+                                 [[maybe_unused]] ByteRange range,
+                                 [[maybe_unused]] std::string_view entityTag = {}) override {
+    return std::unexpected(FetchFailureReason::OfflineMiss);
+  }
+
   [[nodiscard]] Wire Collect(Ticket ticket) override {
     (void)ticket;
     return Wire::Never(FetchFailureReason::OfflineMiss);

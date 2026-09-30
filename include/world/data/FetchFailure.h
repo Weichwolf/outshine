@@ -22,7 +22,8 @@ enum class FetchFailureReason : uint8_t {
   Cancelled,       ///< Owner cancelled acquisition.
   CorruptPayload,  ///< Bytes fail encoding or digest validation.
   CapacityRefused, ///< A declared work/byte capacity was exceeded.
-  InvalidRequest   ///< Invalid address or request.
+  InvalidRequest,  ///< Invalid address or request.
+  SourceChanged    ///< Original object no longer matches the requested revision pin.
 };
 
 /// Describe a failure without allocation.
@@ -39,6 +40,7 @@ enum class FetchFailureReason : uint8_t {
     case FetchFailureReason::CorruptPayload: return "corrupt payload";
     case FetchFailureReason::CapacityRefused: return "capacity refusal";
     case FetchFailureReason::InvalidRequest: return "invalid request";
+    case FetchFailureReason::SourceChanged: return "source changed";
   }
   return "unknown failure";
 }
