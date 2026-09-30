@@ -16,6 +16,16 @@ Auftrag nicht. Decoder und historische Prüfdateien bleiben erhalten; der Runtim
 Quellenpfad wird ersetzt. Kamera, Zeit, offizielle OSM-Daten und Open-Meteo bleiben
 die übrigen erlaubten Eingaben. Fehlende GLO-30-Daten sind kein Meeresspiegelwert.
 
+## Belegter Rastervertrag und Decoderwahl
+Der GLO-30-COG für N54/E009 ist über Bytebereiche erreichbar. Sein Header deklariert
+2400×3600 Float32-Samples, Deflate mit Float-Predictor und 1024×1024-Blöcke;
+EPSG:4326, PixelIsPoint und eingebettete Übersichtsstufen. Georeferenz übernehmen,
+keine quadratischen Samples oder feste Längenauflösung annehmen. Vertikales Datum,
+NoData und Metadatenrevision vor Freigabe des Adapters verbindlich prüfen.
+`world/data/CopernicusDem` nutzt libtiff hinter privaten, begrenzten IO-Callbacks;
+kein eigener TIFF-Decoder oder allgemeiner GIS-Stack. Originalblöcke/Übersichten
+liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
+
 ## Architektur und konkrete Umsetzung
 - `world/data` besitzt GLO-30-Beschaffung, Produktidentität und Originalbytes.
   Vor Implementierung offiziellen Bezugsweg, Raster-/Höhendatum, NoData und

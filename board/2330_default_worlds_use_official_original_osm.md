@@ -16,8 +16,9 @@ VersaTiles und reduzierte Kartenkacheln sind am Client-Eingang ausgeschlossen.
 Vorhanden: Originalreader, gemeinsame Snapshots mit getrennten Revisions-/Byte-Pins,
 begrenzte API-/Cache-Beschaffung auf IO-Worker und produktbezogene Vorladebereitschaft.
 Flensburgs Kameraausschnitt lädt über die offizielle API und offline aus denselben Rohbytes.
-Automatische Place-Nachfrage, native Gebäude-/Wasserpublikation und vollständige Sicht
-fehlen. Das Place-Gate bleibt rot; eine Quellen-Diagnose ersetzt keine Stadt.
+Native Gebäude erreichen die gemeinsame Queue, Terrain-Stempel und beleuchtete Client-Bilder.
+Automatische Nachfrage, native Wasser-/Straßendarstellung und volle Quellenabdeckung fehlen.
+Das Place-Gate bleibt rot; analytisches Terrain und regionale Sicht sind nur Diagnosen.
 
 ## Architektur und Implementierung
 - Den unerlaubten Default und dessen impliziten Endpoint entfernen. Vorhandene
@@ -55,6 +56,16 @@ fehlen. Das Place-Gate bleibt rot; eine Quellen-Diagnose ersetzt keine Stadt.
 - Originalquellen ersetzen den bisherigen Laufzeitpfad, nicht ein zusätzliches Overlay.
   Weltinhalte bleiben rundum resident. Umfang oder fehlende Daten verkürzen die
   konfigurierte Sicht nicht; unvollständige Nachfrage bleibt ausdrücklich unvollständig.
+
+## Verbindliche Lieferreihenfolge
+1. P0: Kamera/Sichtweite fordern gemeinsame Originalregionen an (2280); Default-OSM
+   und Copernicus-Adapter (2331) liefern echte Quellen statt Place-Sonderpfaden.
+2. P0: Flensburg integriert native Straßen, Gebäude und Wasser (2145); bestehende
+   Straßenprofile/Stempel erhalten. Klassen, Parts und Dächer anschließen (2173).
+3. P1: Native Detailzellen, frühe Zusammenfassung und residente Rundum-LOD (2298/2312)
+   erfüllen Preload/p99; keine kleinere Fehlerschranke allein aus CPU-Beweisen.
+4. Alle acht Places aus denselben Verträgen im vollständigen Gate abnehmen;
+   fehlende Abdeckung bleibt rot. Danach Materialien, Details, Licht und Wolken ausbauen.
 
 ## Abnahme
 Ein echter Client-Place zeigt eine vollständige native Quelle bis ins Bild. Netzwerk-
