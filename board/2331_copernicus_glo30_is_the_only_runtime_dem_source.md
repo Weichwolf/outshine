@@ -3,7 +3,7 @@ State: open
 Architecture: planned
 Priority: P0
 Parent: 2166
-Depends: 2332
+Depends:
 Area: world, data, terrain, engine
 Tags: copernicus, original-source, webcam
 
@@ -28,7 +28,8 @@ kein eigener TIFF-Decoder oder allgemeiner GIS-Stack. Originalblöcke/Übersicht
 liefern native Meter an bestehende Terrainfelder; das Providerformat endet dort.
 
 ## Architektur und konkrete Umsetzung
-- GLO-30 nutzt die öffentliche Providerregistrierung aus 2332, denselben Transport,
+- Die öffentliche Providerregistrierung aus 2332 ist verfügbar; die übrige
+  Erweiterungsarbeit dort blockiert den GLO-30-Adapter nicht. GLO-30 nutzt denselben Transport,
   Rohdaten-Cache und Fehlerfluss wie ein Provider eines Bibliotheksnutzers. Kein
   paralleler privater Copernicus-Pfad. Der öffentliche S3-Bucket verwendet HTTPS.
 - `world/data` besitzt GLO-30-Beschaffung, Produktidentität und Originalbytes.
