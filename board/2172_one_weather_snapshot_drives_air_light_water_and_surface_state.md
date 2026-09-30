@@ -14,6 +14,10 @@ Depends:
 Scenario::Weather validation/import/export preserve seven cloud/wind fields; Haze
 already reaches Declaration/RuntimeScene::EarthMedium. Cloud/wind fields have no
 render consumer. WeatherProvider/CalmWeather remain a provider boundary, not live weather.
+Open-Meteo ist die einzige externe Wetterquelle. `world/weather` adaptiert Antworten
+mit Ort, Gültigkeitszeit, Einheiten und Provenienz in denselben Snapshot; nur empfangene
+Originalantworten werden persistent gecacht. Live- und historische Place-Zeitpunkte
+verwenden passende Daten; fehlende Angaben werden keine behaupteten Messwerte.
 
 First slice: world/weather owns a small immutable WeatherSnapshot from existing
 Ground.Sky plus declared world time, with source/revision/validity and canonical units.

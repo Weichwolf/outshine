@@ -11,7 +11,8 @@ Tags: osm, streaming, source-identity, hockenheim
 
 ## Problem and evidence
 
-The runtime asks `Data::SourceSet` for Terrarium elevation and VersaTiles MVT.
+The old runtime asked `Data::SourceSet` for Terrarium elevation and VersaTiles MVT;
+WI 2330 removes the map-tile fallback and requires official original OSM for natural worlds.
 MVT z14 at Hockenheim omits `highway=raceway`; its feature IDs are not proven
 OSM Way IDs. The authored scenario now declares a SHA-256-pinned semantic OSM
 source, loaded and published as a native graph even without a renderer. The

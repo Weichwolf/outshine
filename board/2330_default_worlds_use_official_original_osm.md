@@ -12,10 +12,13 @@ Tags: osm, official-source, webcam
 ## Ergebnis und vorhandene Fähigkeit
 Der Client lädt Original-Nodes, Ways und Relations der offiziellen OSM-API und
 behält sämtliche Tags. Dieselbe Quelle liefert Gebäude, Verkehrsnetze und Wasser.
-VersaTiles ist ausdrücklich nicht autorisiert. Der ausgelieferte Default registriert
-trotzdem diesen Anbieter; weitere Materialreparaturen können den Quellenfehler nicht lösen.
+VersaTiles ist ausdrücklich nicht autorisiert. `fd80cb726` entfernt den Default und
+verweigert reduzierte Kartenkacheln am Client-Eingang; die Places haben noch keine Originalquelle.
 `OsmXmlReader`, `OsmSourceLoader`, native Verkehrsprodukte, `OsmBuildingFootprints`
 und `OriginalStructureInput` sind vorhanden. Ihr vollständiger Client-Anschluss fehlt.
+`5644a79c6` trennt den gemeinsamen Datenstand von den jeweiligen Antwort-Prüfsummen;
+der Snapshot erhält alle Tags sowie die geprüften Pins der zusammengeführten Quelldateien.
+Automatische API-Beschaffung und native Gebäude-/Wasserpublikation bleiben offen.
 
 ## Architektur und Implementierung
 - Den unerlaubten Default und dessen impliziten Endpoint entfernen. Vorhandene

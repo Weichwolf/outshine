@@ -32,7 +32,8 @@ streaming/cache-closure defect; do not infer offline replay from this result.
 
 - `SourceProvider` owns an optional HTTPS `endpoint` template for terrain/vector
   tiles. It requires a stable `dataset` ID and exactly one each of `{z}`, `{x}`
-  and `{y}`. Empty endpoint chooses the shipped Terrarium/Versatiles source.
+  and `{y}`. Empty terrain endpoint historically selected Terrarium. WI 2330 removes
+  the implicit vector source and rejects reduced map tiles at the client boundary.
   OSM uses its pinned local `location`; stars keep their shipped local source.
 - Scenario reader/writer and public validation preserve and reject this contract.
   Invalid schemes, placeholders and attributes fail before source registration.

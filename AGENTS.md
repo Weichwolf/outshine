@@ -34,7 +34,8 @@ ist eine Ausnahme von der allgemeinen Regel ohne Websuche. Ich behaupte keinen u
   Welteingaben. Jahreszeit und Sonnenstand leite ich daraus ab. Allgemeine deterministische
   Generatoren ergänzen plausible Details; exakte fotografische Rekonstruktion ist damit nicht gegeben.
   OSM stammt aus offiziellen Originalquellen, niemals aus VersaTiles oder gerasterten Karten.
-  Copernicus GLO-30 und Open-Meteo sind als DEM- beziehungsweise Wetterquellen erlaubt.
+  Copernicus GLO-30 ist meine einzige externe DEM-Quelle, Open-Meteo meine einzige
+  externe Wetterquelle. Diese drei Datenquellen sind verbindlich; Kamera und Zeit steuern die Welt.
 - Ich erhalte OSM-Semantik bis zur Generierung: Klassen, Parts, Höhen, Geschosse, Dächer und
   Sonderbauwerke. Ich unterscheide fehlende, widersprüchliche und verlorene Angaben. Reduzierte
   Kartenkacheln ersetzen keine Originaldaten; Schornsteine werden keine generischen Wohnhäuser.
