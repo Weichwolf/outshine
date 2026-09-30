@@ -54,6 +54,7 @@
 #include "GroundStack.h"
 #include "PublishedRegion.h"
 #include "OsmTransportLoader.h"
+#include "OsmSourceLoader.h"
 #include "GroundMesher.h"
 #include "spatial/Drape.h"
 #include "TileGeodesy.h"
@@ -253,6 +254,8 @@ struct Surrounds {
   bool PiecesFramed = false;
   std::unique_ptr<Tasks> Pool;
   RoadAlignmentBuildQueue RoadAlignmentBuilds;
+  std::unique_ptr<outshine::OsmSourceLoader> OsmSourceLoader;
+  std::vector<World::OsmCircuitRequest> OsmRoutes;
   std::unique_ptr<World::OsmTransportLoader> OsmTransportLoader;
   StructureBuildQueue StructureBuilds;
   size_t StructurePlanAt = 0;
@@ -275,6 +278,16 @@ struct Surrounds {
   TriangleBvh AudioOcclusion;
   std::vector<float> GroundPositionsM;
   std::vector<uint32_t> GroundIndex;
+
+  [[nodiscard]] bool CurrentTransportReady() const noexcept {
+    if (!OsmTransportLoader ||
+        OsmTransportLoader->CurrentPhase() != World::OsmTransportLoader::Phase::Ready) {
+      return false;
+    }
+    return !OsmSourceLoader ||
+           (OsmSourceLoader->CurrentPhase() == outshine::OsmSourceLoader::Phase::Ready &&
+            OsmTransportLoader->Current()->Source() == OsmSourceLoader->Current());
+  }
 };
 
 struct Spent {
@@ -564,6 +577,7 @@ struct Engine::State {
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
   void DeclareGroundFeatures();
   void PollOsmTransport();
+  [[nodiscard]] bool SubmitOsmTransportSource();
   bool GenerateInitialInstances(double atLat, double atLon);
   [[nodiscard]] bool GenerateInstancesForRegion(const Generators::Tile &region,
                                                 LevelOfDetail coarseness);

@@ -242,10 +242,8 @@ public:
       : Coverage_(coverage),
         Revision_(revision),
         Candidate_(renderer, world, footprints),
-        TransportSnapshot_(world.OsmTransportLoader && world.OsmTransportLoader->CurrentPhase() ==
-                                                           World::OsmTransportLoader::Phase::Ready
-                               ? world.OsmTransportLoader->Current()
-                               : nullptr),
+        TransportSnapshot_(world.CurrentTransportReady() ? world.OsmTransportLoader->Current()
+                                                         : nullptr),
         Id_(id) {}
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
@@ -827,11 +825,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   const uint64_t footprints = World.Stack.Footprints().Revision();
   const World::OsmTransportLoader *const transportLoader = World.OsmTransportLoader.get();
   const uint64_t transportGeneration =
-      transportLoader != nullptr &&
-              transportLoader->CurrentPhase() == World::OsmTransportLoader::Phase::Ready &&
-              transportLoader->Current()
-          ? transportLoader->CompletedCount()
-          : 0;
+      World.CurrentTransportReady() ? transportLoader->CompletedCount() : 0;
   const std::array<double, 3> projection{
       {static_cast<double>(view.Kind), view.YfovRad, view.YMagM}};
   const double visualRadiusM = Session.Declared.Ground.SightM > 0.0 ? Session.Declared.Ground.SightM
@@ -2338,6 +2332,11 @@ bool Engine::State::AdvancesGroundRetirement() {
 }
 
 bool Engine::State::GroundInputsReady(GroundQuality quality) const {
+  if (World.OsmSourceLoader &&
+      World.OsmSourceLoader->CurrentPhase() != OsmSourceLoader::Phase::Inactive &&
+      !World.CurrentTransportReady()) {
+    return false;
+  }
   return Session.Declared.Ground.Declared && Picture.Standing != nullptr && World.Stack.Opened() &&
          GroundSourcesReady(World.Stack, quality);
 }

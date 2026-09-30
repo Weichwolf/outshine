@@ -55,12 +55,21 @@ constexpr auto kDuplicateGeneratorKind = "generator kind is already registered";
 namespace {
 
 [[nodiscard]] std::string_view OsmTransportBlocker(std::span<const Data::SourceProvider> providers,
-                                                   const World::OsmTransportLoader *loader) {
+                                                   const Surrounds &world) {
   const bool requested = std::ranges::any_of(
       providers, [](const Data::SourceProvider &provider) { return provider.Kind == "osm"; });
   if (!requested) { return {}; }
+  if (world.OsmSourceLoader) {
+    if (world.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Failed) {
+      return world.OsmSourceLoader->Error();
+    }
+    if (world.OsmSourceLoader->CurrentPhase() != OsmSourceLoader::Phase::Ready) {
+      return Says::kPendingOsmTransport;
+    }
+  }
+  const auto *loader = world.OsmTransportLoader.get();
   if (loader == nullptr) { return Says::kPendingOsmTransport; }
-  if (loader->CurrentPhase() == World::OsmTransportLoader::Phase::Ready) { return {}; }
+  if (world.CurrentTransportReady()) { return {}; }
   if (loader->CurrentPhase() == World::OsmTransportLoader::Phase::Failed) {
     return loader->Error();
   }
@@ -305,8 +314,7 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const bool currentRevision =
       World.RequestedRefinedGround &&
       !World.GroundPublished.NeedsRebuild(*World.RequestedRefinedGround, false, false);
-  const std::string_view osmBlocker =
-      OsmTransportBlocker(Session.Declared.Providers, World.OsmTransportLoader.get());
+  const std::string_view osmBlocker = OsmTransportBlocker(Session.Declared.Providers, World);
   return {{RequiredBlocker(refined, World.AskedWanted > 0, Says::kNoTerrainRequests),
            RequiredBlocker(refined, World.AskedPending == 0, Says::kPendingTerrain),
            RequiredBlocker(refined, World.Bare == 0, Says::kMissingTerrain),
@@ -725,6 +733,7 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
   }
   const bool worldWorker =
       World.RoadAlignmentBuilds.Busy() ||
+      (World.OsmSourceLoader && World.OsmSourceLoader->PendingCount() > 0) ||
       (World.OsmTransportLoader && World.OsmTransportLoader->PendingCount() > 0);
   if (worldWorker && World.Pool) {
     const auto began = std::chrono::steady_clock::now();
