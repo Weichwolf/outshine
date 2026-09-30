@@ -83,12 +83,12 @@ complete images, no frame-thread IO, bounded transient overlap and measured p99.
 ## Active implementation boundary
 
 - `engine/streaming/OsmSourceLoader` owns cancellable source IO/parse and publishes one shared
-  `OsmSourceSnapshot`. Buildings and `OsmTransportLoader::RequestSource` derive independently;
-  graph failure must not reject complete buildings. Retain strict legacy chunk-set loading.
+  `OsmSourceSnapshot`; Engine und `OsmTransportLoader::RequestSource` teilen diesen Stand.
+  Native Gebäude fehlen; `GroundInputsReady` muss produktbezogen statt pauschal auf den Graphen warten.
 - `BuildingField::Footprint::FirstPoint` indexes `OsmField::Points`, FirstHole its Rings;
   Laying passes both to BuildingStampJob. Native products must own/share ring coordinates
-  and revision. Meshing, footprints, terrain stamps and GroundDiagnostics consume that same
-  immutable geometry owner; no copied MVT surrogate and no index across unrelated buffers.
+  and revision. Meshing, footprints and terrain stamps consume that same immutable geometry
+  owner; no copied MVT surrogate and no index across unrelated buffers.
 - `OsmBuildingFootprints` now owns closed ways and outer/inner multipolygon chains, pins
   the source snapshot and retains typed IDs and tags. Product-root closure is implemented.
   Point structures and type=building groups remain unsupported; part ownership and semantics
