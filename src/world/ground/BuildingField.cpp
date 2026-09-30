@@ -184,7 +184,7 @@ void BuildingField::ReplaceAcceptance(PendingAcceptance pending, const Baked &ba
       !same(Across_, old.Across, baked.AcrossM) || before.Vector != after.Vector ||
       before.Sources != after.Sources || before.OccupiedCells != after.OccupiedCells ||
       before.CellBounds != after.CellBounds || before.CellMaxHeightM != after.CellMaxHeightM ||
-      before.Qualified != after.Qualified ||
+      before.Qualified != after.Qualified || before.SourceKey != after.SourceKey ||
       before.Bake.HeightRasterDigest != after.Bake.HeightRasterDigest ||
       before.Bake.StreetDigest != after.Bake.StreetDigest ||
       before.Bake.TileSpanM != after.Bake.TileSpanM;

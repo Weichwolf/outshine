@@ -44,6 +44,7 @@ public:
   };
 
   struct Geometry {
+    StructureOriginalSource Original;
     std::vector<double> Points;
     std::vector<GeographicRing> Rings;
 
@@ -133,12 +134,14 @@ public:
       std::ranges::sort(Input_.Sources);
       Input_.Sources.erase(std::ranges::unique(Input_.Sources).begin(), Input_.Sources.end());
       if (qualified) {
-        Input_.SourceKey = StructureSourceKey({.Vector = Input_.Vector,
-                                               .HeightSources = Input_.Sources,
-                                               .HeightDigest = Input_.Bake.HeightRasterDigest,
-                                               .StreetDigest = Input_.Bake.StreetDigest,
-                                               .TileSpanM = Input_.Bake.TileSpanM,
-                                               .FallbackHeights = false});
+        Input_.SourceKey = StructureSourceKey(
+            {.Vector = Input_.Vector,
+             .HeightSources = Input_.Sources,
+             .HeightDigest = Input_.Bake.HeightRasterDigest,
+             .StreetDigest = Input_.Bake.StreetDigest,
+             .TileSpanM = Input_.Bake.TileSpanM,
+             .FallbackHeights = false,
+             .Original = Input_.Coordinates ? &Input_.Coordinates->Original : nullptr});
       }
     }
 

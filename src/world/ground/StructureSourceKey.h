@@ -3,6 +3,9 @@
 
 #include "Digest.h"
 #include "TileSourceIdentity.h"
+#include "OsmSourceSnapshot.h"
+
+#include <memory>
 
 #include <bit>
 #include <cstdint>
@@ -14,6 +17,11 @@
 
 namespace outshine {
 
+struct StructureOriginalSource {
+  std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot;
+  Data::SourceCoverage Bounds;
+};
+
 struct StructureSourceView {
   const std::optional<Data::TileSourceIdentity> &Vector;
   std::span<const Data::TileSourceIdentity> HeightSources;
@@ -21,6 +29,7 @@ struct StructureSourceView {
   uint64_t StreetDigest = 0;
   double TileSpanM = 0;
   bool FallbackHeights = false;
+  const StructureOriginalSource *Original = nullptr;
 };
 
 [[nodiscard]] inline uint64_t StructureSourceKey(const StructureSourceView &inputs) {
@@ -45,6 +54,17 @@ struct StructureSourceView {
   };
   word(static_cast<uint64_t>(inputs.Vector.has_value()));
   if (inputs.Vector) { source(*inputs.Vector); }
+  if (inputs.Original != nullptr && inputs.Original->Snapshot) {
+    bytes("original-osm");
+    const auto &identity = inputs.Original->Snapshot->Elements.SourceIdentity();
+    bytes(identity.DatasetId);
+    bytes(identity.Revision);
+    const auto &bounds = inputs.Original->Bounds;
+    word(std::bit_cast<uint64_t>(bounds.WestDeg));
+    word(std::bit_cast<uint64_t>(bounds.SouthDeg));
+    word(std::bit_cast<uint64_t>(bounds.EastDeg));
+    word(std::bit_cast<uint64_t>(bounds.NorthDeg));
+  }
   std::span<const Data::TileSourceIdentity> heights = inputs.HeightSources;
   std::vector<Data::TileSourceIdentity> normalized;
   if (!std::ranges::is_sorted(heights) || std::ranges::adjacent_find(heights) != heights.end()) {
