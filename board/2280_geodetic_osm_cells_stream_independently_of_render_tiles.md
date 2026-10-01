@@ -23,10 +23,15 @@ Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
   `GeoCellId(level,x,y)` teilt Länge [-180,180) und Breite [-90,90], level <= 24,
   Achsen < 2^level; x umläuft, y nicht. Bounds sind halboffen außer am Nordpol.
   Diese Quellenzellen sind weder Metergrid noch Mercator-Render-/DEM-Kacheln.
-- `OsmCellSource` adressiert (Dataset, Revision, GeoCellId) und liefert begrenzte
-  Bytes oder typisierte Fehler. Eine Deklaration bezeichnet den Katalog.
-  Vor Manifest-Implementierung Schema, Pfadauflösung, Besitzer und Zell-Pins festlegen;
-  lokale Dateien verwenden denselben Vertrag. IO/Parse laufen außerhalb der Simulation.
+- `OsmApiSource` adressiert (Dataset, Revision, GeoCellId) über den öffentlichen
+  Provider-/Source-Vertrag. Ein offizieller API-Provider ohne Bounds bezeichnet den
+  Katalog; jede Zelladresse bestimmt ihre Bbox und ihren eigenen Rohdaten-Cachekey.
+  Es gibt keinen zusätzlichen Netzwerk-Katalog und kein generiertes Manifest.
+  API-Zellen beginnen bei Level 9: 360 * 180 / 4^9 = 0.2471923828125 Quadratgrad
+  unterschreitet das 0.25-Quadratgrad-Limit. Dichtere Antworten verlangen Verfeinerung.
+  Globale Payload-Pins sind für Kataloge ungültig; Zellantworten behalten eigene Pins.
+  Begrenzte Originaldateien/API-Regionen bleiben explizite Eingaben. IO/Parse laufen
+  außerhalb der Simulation; die Kamera fordert Quellenzellen unabhängig vom Render-LOD an.
 - Gleiche überlappende Objekte deduplizieren nach typisierter ID; Konflikte verwerfen
   den Ersatz. Geteilte Nodes verbinden Netze; gleiche Koordinaten beweisen keine Identität.
   Konsumierte Produkte verlangen vollständige Referenzhüllen und fehlende Nachbarzellen.
