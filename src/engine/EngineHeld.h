@@ -256,6 +256,7 @@ struct Surrounds {
   bool PiecesFramed = false;
   RoadAlignmentBuildQueue RoadAlignmentBuilds;
   std::unique_ptr<outshine::OsmSourceLoader> OsmSourceLoader;
+  std::optional<std::array<double, 3>> OriginalSourceDemand;
   std::vector<World::OsmCircuitRequest> OsmRoutes;
   std::unique_ptr<World::OsmTransportLoader> OsmTransportLoader;
   StructureBuildQueue StructureBuilds;
@@ -577,6 +578,7 @@ struct Engine::State {
   UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
+  [[nodiscard]] bool RequestOriginalCells();
   void DeclareGroundFeatures();
   void PollOsmSources();
   [[nodiscard]] bool SubmitOsmTransportSource();

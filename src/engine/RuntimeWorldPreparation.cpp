@@ -2,8 +2,11 @@
 #include "Heap.h"
 #include "OfflineTransport.h"
 #include "math/Units.h"
+#include "OsmXmlReader.h"
 
 #include <cmath>
+#include <algorithm>
+#include <array>
 #include <memory>
 #include <numbers>
 #include <span>
@@ -62,13 +65,21 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     World.OsmSourceLoader =
         std::make_unique<OsmSourceLoader>(*World.Pool, World.Wire.get(), Session.Under.Cache);
   }
-  if (auto requested =
-          World.OsmSourceLoader->Request(osmProviders, Session.Under.Shipped, &World.Providers);
-      !requested) {
+  World.OsmRoutes = std::move(routes);
+  World.OriginalSourceDemand.reset();
+  if (osmProviders.size() == 1 && !osmProviders.front().Coverage &&
+      osmProviders.front().Location.empty()) {
+    if (!World.OsmRoutes.empty()) {
+      Error = "OSM catalogue routes require native cell transport integration";
+      return false;
+    }
+    if (!RequestOriginalCells()) { return false; }
+  } else if (auto requested = World.OsmSourceLoader->Request(
+                 osmProviders, Session.Under.Shipped, &World.Providers);
+             !requested) {
     Error = std::move(requested.error());
     return false;
   }
-  World.OsmRoutes = std::move(routes);
   if (World.OsmRoutes.empty()) {
     World.OsmTransportLoader.reset();
   } else if (!World.OsmTransportLoader) {
@@ -78,6 +89,39 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
       World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Inactive) {
     return SubmitOsmTransportSource();
   }
+  return true;
+}
+
+bool Engine::State::RequestOriginalCells() {
+  if (!World.OsmSourceLoader) { return true; }
+  const auto found = std::ranges::find_if(Session.Declared.Providers, [](const auto &provider) {
+    return provider.Kind == "osm" && !provider.Coverage && provider.Location.empty();
+  });
+  if (found == Session.Declared.Providers.end()) { return true; }
+  constexpr int level = 9;
+  constexpr size_t maximumCells = size_t{1} << (2 * level);
+  constexpr size_t maximumBytes = 32 * Data::kMaxOsmXmlBytes;
+  const auto focus = CurrentGeographicFocus();
+  const std::array demand{focus.LatitudeDeg, focus.LongitudeDeg, TerrainSightM()};
+  if (World.OriginalSourceDemand == demand) { return true; }
+  auto cells = Data::CellsAround(demand[0], demand[1], demand[2], level, maximumCells);
+  if (!cells) {
+    Error = std::move(cells.error());
+    return false;
+  }
+  if (auto requested = World.OsmSourceLoader->RequestCells(
+          *found,
+          *cells,
+          {.CellsMost = maximumCells, .SnapshotBytesMost = maximumBytes},
+          Session.Under.Shipped,
+          &World.Providers);
+      !requested) {
+    Error = std::move(requested.error());
+    return false;
+  }
+  World.OriginalSourceDemand = demand;
+  Published.RecordMetric(
+      "original OSM requested cells", static_cast<double>(cells->size()), "cells");
   return true;
 }
 
@@ -220,9 +264,10 @@ bool Engine::State::PrepareRuntimeWorld() {
 
 void Engine::State::PollOsmSources() {
   if (World.OsmSourceLoader) {
-    const auto previousSource = World.OsmSourceLoader->Current();
+    const auto previousRevision = World.OsmSourceLoader->PublishedRevision();
     World.OsmSourceLoader->Poll();
-    if (World.OsmSourceLoader->Current() != previousSource && World.CurrentOriginalReady()) {
+    if (World.OsmSourceLoader->PublishedRevision() != previousRevision &&
+        World.CurrentOriginalReady() && World.OsmSourceLoader->Current()) {
       const auto &source = *World.OsmSourceLoader->Current();
       Published.RecordMetric(
           "original OSM source bytes", static_cast<double>(source.SourceBytes), "bytes");

@@ -731,8 +731,13 @@ int CaptureView(outshine::Engine &engine,
     std::println("outshine-client: {} -- {}", options.Argv[0], read.error());
     return 1;
   }
-  if (const auto sources = outshine::Client::ValidateWorldSources(engine.declaration()); !sources) {
+  auto declaration = engine.declaration();
+  if (const auto sources = outshine::Client::ConfigureWorldSources(declaration); !sources) {
     std::println("outshine-client: {} -- {}", options.Argv[0], sources.error());
+    return 1;
+  }
+  if (const auto declared = engine.declare(declaration); !declared) {
+    std::println("outshine-client: {} -- {}", options.Argv[0], declared.error());
     return 1;
   }
   if (options.ProbePixel) {

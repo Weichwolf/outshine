@@ -626,6 +626,7 @@ std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPrel
 Result Engine::State::PumpPreload() {
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.BeginFrame();
+  if (!RequestOriginalCells()) { return std::unexpected(Error); }
   PollOsmSources();
   if ((World.OsmSourceLoader &&
        World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Failed) ||

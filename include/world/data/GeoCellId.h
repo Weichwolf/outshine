@@ -4,6 +4,10 @@
 #include <world/SourceProvider.h>
 #include <cstdint>
 #include <optional>
+#include <cstddef>
+#include <expected>
+#include <string>
+#include <vector>
 
 namespace outshine::Data {
 
@@ -32,6 +36,14 @@ struct GeoCellId {
   /// @return True for the same source cell; no allocation.
   [[nodiscard]] bool operator==(const GeoCellId &) const noexcept = default;
 };
+
+/// Cover a WGS84 surface-distance disc with geographic cells, independent of view direction.
+/// Conservative spherical bounds use the minimum WGS84 curvature radius; poles and wrapping
+/// are included. Latitude/longitude are degrees, radius is metres. Invalid inputs or a cell
+/// count above cellsMost fail before allocation; no coverage is truncated. Allocates the result.
+/// @return Unique cells in X/Y order, or an input/capacity error. No IO or shared state.
+[[nodiscard]] std::expected<std::vector<GeoCellId>, std::string>
+CellsAround(double latitudeDeg, double longitudeDeg, double radiusM, int level, size_t cellsMost);
 
 }
 

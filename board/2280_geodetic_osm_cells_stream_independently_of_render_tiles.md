@@ -14,7 +14,8 @@ Alle Places laden offizielle OSM-Originaldaten und Copernicus GLO-30 über diese
 öffentlichen Providerverträge. Tags, Provenienz und vollständige Weltabdeckung bleiben
 bis zur atomaren Publikation erhalten. Originalreader, paralleles IO, Quellcache,
 getrennte Zell-Snapshots und native GLO-30-Samples existieren. Gebäude publizieren
-getrennte Originalprodukte und Terrain-Stempel; Kameranachfrage, native Straßen/Wasser
+getrennte Originalprodukte und Terrain-Stempel; der Client deklariert den offiziellen
+Katalog und die Engine fordert den vollständigen Positionsradius an. Native Straßen/Wasser
 und vollständige Place-Abnahme sind offen. Keine reduzierte Kartenquelle als Ersatz.
 
 ## Nächste Lieferung und Besitzer
@@ -30,6 +31,11 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   erforderliche Referenzhüllen. Begrenzte Originaldateien/-regionen bleiben Diagnosen.
   Dataset/Revision, typisierte IDs, Rollen und sämtliche Tags erhalten; widersprüchliche
   Überlappungen verwerfen, gleiche Objekte und konsumierte Relationswege eindeutig besitzen.
+  CellsAround plant den vollständigen Radius mit WGS84-Krümmungsschranke, Datumsgrenze und Polen.
+  API-Level 9 umfasst 360×180/512² = 0,2472 Grad² je Zelle, unter dem API-Flächenlimit.
+  Snapshot-Admittanz: 32×4 MiB = 128 MiB inklusive gepinnter Altstände, keine Vorallokation.
+  Das ist eine Quellgrenze, kein bewiesenes App-Budget. Zu große urbane Antworten brauchen
+  adaptive Quellzellen; globale Grobquellen und die vollständige Place-Abnahme bleiben offen.
 - GLO-30: `CopernicusRaster`/libtiff liefern native Meter aus Original-COG-Blöcken/Übersichten.
   HTTP-Bereiche, Dateilänge, starke Revisionspins und Receipt vor Cache/Lieferung prüfen.
   PixelIsPoint, Sample-Ursprung, X/Y-Abstände und Raster-NoData aus Metadaten lesen.
@@ -40,7 +46,8 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   Client-Pfaden entfernen; vorhandene Dateien erhalten. RAM-/GPU-Produkte bleiben resident.
   Client, Shots und Prepare teilen dauerhaften SDL-Nutzerspeicher; kein Temp-Default.
   Die vorhandene Kronenvorbereitung übergibt Atlanten direkt im RAM; kein Runtime-Diskcache.
-  Explizite Cachepfade bleiben erhalten. Fehlende Place-Provider sind noch anzuschließen.
+  Explizite Cachepfade bleiben erhalten. Per-Zell-Bytes qualifizieren den Katalog `current`;
+  dieser Name behauptet keinen atomaren weltweiten OSM-Zeitstand.
   Quellen, Parse/Build-Scratch, gepinnte Altstände und GPU-Produkte getrennt begrenzen.
 - Unveränderte Zellen/Produkte übernehmen, veraltete Jobs abbrechen, geänderte Produkte
   gezielt ersetzen. Kandidaten veröffentlichen geschlossen; Fehler erhalten gültigen Altstand.

@@ -563,6 +563,7 @@ bool Engine::State::UpdateTriggers() {
 }
 
 bool Engine::State::Updates() {
+  if (!RequestOriginalCells()) { return false; }
   PollOsmSources();
   if (Session.Declared.Ground.Declared) {
     const LongitudeLatitude stands = CurrentGeographicFocus();
