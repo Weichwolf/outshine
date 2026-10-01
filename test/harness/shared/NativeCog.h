@@ -17,11 +17,15 @@
 
 namespace outshine::Test {
 
+enum class NativeCogProfile { Analytic, LargeBlock, LargeBlockOverlapsHeader };
+
 inline float NativeHeight(double latitude, double longitude) {
   return static_cast<float>(10 * latitude + 2 * longitude - 600);
 }
 
-inline std::vector<uint8_t> NativeCog(Data::CellId at, bool missing = false) {
+inline std::vector<uint8_t> NativeCog(Data::CellId at,
+                                      bool missing = false,
+                                      NativeCogProfile profile = NativeCogProfile::Analytic) {
   const char *temp = std::getenv("TMPDIR");
   std::string path = std::string(temp ? temp : "/tmp") + "/outshine-native-cog-XXXXXX";
   const int descriptor = mkstemp(path.data());
@@ -37,7 +41,8 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at, bool missing = false) {
       return {};
     }
     // Original blocks stay outside the initial header so the runtime must fetch pinned ranges.
-    CHECK(ftruncate(descriptor, 32768) == 0,
+    CHECK(ftruncate(descriptor,
+                    profile == NativeCogProfile::LargeBlockOverlapsHeader ? 8 : 32768) == 0,
           "native fixture separates metadata and original blocks");
     const std::array<TIFFFieldInfo, 3> fields = {
         {{33550, TIFF_VARIABLE2, TIFF_VARIABLE2, TIFF_DOUBLE, FIELD_CUSTOM, 1, 1, "PixelScale"},
@@ -45,13 +50,16 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at, bool missing = false) {
          {34735, TIFF_VARIABLE2, TIFF_VARIABLE2, TIFF_SHORT, FIELD_CUSTOM, 1, 1, "GeoKeys"}}};
     CHECK(TIFFMergeFieldInfo(file.get(), fields.data(), fields.size()) == 0,
           "fixture registers georeference");
-    const uint32_t baseColumns = at.SouthDeg % 2 == 0 ? 128 : 64;
-    for (uint32_t level = 0; level < 2; ++level) {
-      const uint32_t columns = baseColumns >> level, rows = 128u >> level;
+    const bool large = profile != NativeCogProfile::Analytic;
+    const uint32_t baseColumns = large ? 1024 : (at.SouthDeg % 2 == 0 ? 128 : 64);
+    const uint32_t baseRows = large ? 1024 : 128;
+    const uint32_t blockSide = large ? 1024 : 16;
+    for (uint32_t level = 0; level < (large ? 1u : 2u); ++level) {
+      const uint32_t columns = baseColumns >> level, rows = baseRows >> level;
       CHECK(TIFFSetField(file.get(), TIFFTAG_IMAGEWIDTH, columns) == 1 &&
                 TIFFSetField(file.get(), TIFFTAG_IMAGELENGTH, rows) == 1 &&
-                TIFFSetField(file.get(), TIFFTAG_TILEWIDTH, 16u) == 1 &&
-                TIFFSetField(file.get(), TIFFTAG_TILELENGTH, 16u) == 1 &&
+                TIFFSetField(file.get(), TIFFTAG_TILEWIDTH, blockSide) == 1 &&
+                TIFFSetField(file.get(), TIFFTAG_TILELENGTH, blockSide) == 1 &&
                 TIFFSetField(file.get(), TIFFTAG_BITSPERSAMPLE, 32) == 1 &&
                 TIFFSetField(file.get(), TIFFTAG_SAMPLESPERPIXEL, 1) == 1 &&
                 TIFFSetField(file.get(), TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP) == 1 &&
@@ -74,23 +82,32 @@ inline std::vector<uint8_t> NativeCog(Data::CellId at, bool missing = false) {
               "fixture names its geographic source cell independently of Mercator");
       }
       const double offsetX = level == 0 ? 0 : 0.5 / baseColumns;
-      const double offsetY = level == 0 ? 0 : 0.5 / 128;
-      for (uint32_t row = 0; row < rows; row += 16) {
-        for (uint32_t col = 0; col < columns; col += 16) {
-          std::array<float, 256> heights;
-          for (uint32_t y = 0; y < 16; ++y) {
-            for (uint32_t x = 0; x < 16; ++x) {
-              heights[y * 16 + x] =
+      const double offsetY = level == 0 ? 0 : 0.5 / baseRows;
+      std::vector<float> heights(static_cast<size_t>(blockSide) * blockSide);
+      uint32_t noise = 1;
+      for (uint32_t row = 0; row < rows; row += blockSide) {
+        for (uint32_t col = 0; col < columns; col += blockSide) {
+          for (uint32_t y = 0; y < blockSide; ++y) {
+            for (uint32_t x = 0; x < blockSide; ++x) {
+              const size_t index = static_cast<size_t>(y) * blockSide + x;
+              heights[index] =
                   missing ? std::numeric_limits<float>::quiet_NaN()
                           : NativeHeight(
                                 at.SouthDeg + 1 - offsetY - static_cast<double>(row + y) / rows,
                                 at.WestDeg + offsetX + static_cast<double>(col + x) / columns);
+              if (large && !missing && (row + y < rows / 2 || col + x >= columns / 2)) {
+                noise ^= noise << 13;
+                noise ^= noise >> 17;
+                noise ^= noise << 5;
+                heights[index] += static_cast<float>(noise & 0x00ffffffu) / 65536.0f;
+              }
             }
           }
           CHECK(TIFFWriteEncodedTile(file.get(),
                                      TIFFComputeTile(file.get(), col, row, 0, 0),
                                      heights.data(),
-                                     sizeof(heights)) == sizeof(heights),
+                                     static_cast<tmsize_t>(heights.size() * sizeof(float))) ==
+                    static_cast<tmsize_t>(heights.size() * sizeof(float)),
                 "native analytic samples are encoded by an independent writer");
         }
       }
