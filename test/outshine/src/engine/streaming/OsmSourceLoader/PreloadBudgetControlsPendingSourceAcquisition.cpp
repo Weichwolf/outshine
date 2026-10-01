@@ -17,13 +17,14 @@ public:
   std::atomic<double> ClockMs{0};
   std::atomic<bool> Released{false};
   size_t Canceled = 0;
+  double ReadyAtMs = 12000;
 
   outshine::Data::FetchStart Begin(const std::string &) override {
     return static_cast<outshine::Data::Ticket>(1);
   }
 
   outshine::Data::Wire Collect(outshine::Data::Ticket) override {
-    if (ClockMs < 12000) { return outshine::Data::Wire::Working(); }
+    if (ClockMs < ReadyAtMs) { return outshine::Data::Wire::Working(); }
     const std::string body = "<osm version='0.6'><node id='1' lat='0' lon='0'/></osm>";
     return outshine::Data::Wire::Answered(200, std::vector<uint8_t>(body.begin(), body.end()));
   }
@@ -70,18 +71,18 @@ int main() {
   const OsmSourceLoader::CellLimits limits{.CellsMost = 1, .SnapshotBytesMost = 1024 * 1024};
   Tasks compute(1);
   DelayedWire wire;
+  wire.ReadyAtMs = 21000;
   OsmSourceLoader loader(compute, &wire, directory);
   CHECK(loader.RequestCells(provider, cells, limits, ".") &&
             Await(loader, [&wire] { return wire.ClockMs >= 3000; }),
         "source IO is pending before the caller updates its budget");
   CHECK(loader.SetAcquisitionBudget(20).has_value(), "longer preparation budget accepted");
   wire.Released = true;
-  CHECK(
-      Await(loader,
-            [&loader] { return loader.CurrentPhase() != OsmSourceLoader::Phase::Loading; }) &&
-          loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
-          loader.CurrentCells().size() == 1 && wire.ClockMs == 12000 && wire.Canceled == 0,
-      "in-flight source acquisition completes beyond the old default under the new caller budget");
+  CHECK(Await(loader,
+              [&loader] { return loader.CurrentPhase() != OsmSourceLoader::Phase::Loading; }) &&
+            loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+            loader.CurrentCells().size() == 1 && wire.ClockMs == 21000 && wire.Canceled == 0,
+        "the renewed caller budget starts when granted instead of at the earlier source epoch");
   for (const double invalid : {-1.0,
                                std::numeric_limits<double>::max(),
                                std::numeric_limits<double>::infinity(),

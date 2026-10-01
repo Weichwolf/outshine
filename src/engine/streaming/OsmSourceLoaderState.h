@@ -13,9 +13,21 @@ struct OsmSourceLoader::Access {
   std::string Directory;
   std::unique_ptr<Data::ContentStore> Store;
   const Data::ProviderRegistry *Registry = nullptr;
-  uint64_t DeadlineRevision = 0;
-  double BeganMs = 0;
+  uint64_t AcquisitionRevision = 0;
+  uint64_t AppliedBudgetRevision = 0;
+  double DeadlineMs = 0;
   std::atomic<double> AcquisitionBudgetMs{DefaultAcquisitionBudgetS * kMsPerS};
+  std::atomic<uint64_t> BudgetRevision{0};
+
+  [[nodiscard]] double CurrentDeadline(uint64_t revision) {
+    const auto budgetRevision = BudgetRevision.load(std::memory_order_acquire);
+    if (AcquisitionRevision != revision || AppliedBudgetRevision != budgetRevision) {
+      AcquisitionRevision = revision;
+      AppliedBudgetRevision = budgetRevision;
+      DeadlineMs = Wire->NowMs() + AcquisitionBudgetMs.load(std::memory_order_relaxed);
+    }
+    return DeadlineMs;
+  }
 };
 
 struct OsmSourceLoader::Cells {

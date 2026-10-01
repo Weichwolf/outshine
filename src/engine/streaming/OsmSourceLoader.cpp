@@ -49,6 +49,7 @@ std::expected<void, std::string> OsmSourceLoader::SetAcquisitionBudget(double se
     return std::unexpected("invalid original OSM acquisition budget");
   }
   Access_->AcquisitionBudgetMs.store(milliseconds, std::memory_order_relaxed);
+  Access_->BudgetRevision.fetch_add(1, std::memory_order_release);
   return {};
 }
 
@@ -178,13 +179,7 @@ void OsmSourceLoader::StartRequested() {
         access->Store = std::make_unique<Data::ContentStore>(
             Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
       }
-      if (access->DeadlineRevision != revision) {
-        access->DeadlineRevision = revision;
-        access->BeganMs = access->Wire->NowMs();
-      }
-      const auto deadline = [access] {
-        return access->BeganMs + access->AcquisitionBudgetMs.load(std::memory_order_relaxed);
-      };
+      const auto deadline = [access, revision] { return access->CurrentDeadline(revision); };
       auto read = cells.empty() ? Data::ReadOsmApiRegions(input,
                                                           *access->Store,
                                                           *access->Wire,
