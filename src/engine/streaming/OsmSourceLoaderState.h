@@ -22,6 +22,8 @@ struct OsmSourceLoader::Cells {
   };
 
   CellLimits Limits;
+  std::vector<Data::GeoCellId> Roots;
+  std::vector<Data::GeoCellId> PublishedRoots;
   std::vector<Data::GeoCellId> Wanted;
   std::vector<CellSource> Preparing;
   std::vector<CellSource> Published;
@@ -34,6 +36,9 @@ struct OsmSourceLoader::Cells {
   [[nodiscard]] std::vector<Data::GeoCellId> NextBatch() const;
   [[nodiscard]] std::vector<CellSource>
   Reuse(std::span<const Data::GeoCellId> wanted, bool published, bool pending) const;
+  [[nodiscard]] std::vector<Data::GeoCellId>
+  SelectLeaves(std::span<const Data::GeoCellId> roots, bool published, bool pending) const;
+  [[nodiscard]] std::expected<void, std::string> Refine(std::span<const Data::GeoCellId> cells);
   [[nodiscard]] bool Ready() const noexcept;
   [[nodiscard]] std::expected<void, std::string> Stage(std::vector<CellSource> ready);
 };

@@ -129,6 +129,21 @@ int main() {
   CHECK(!ReadOsmApiRegion(changed, store, forbidden, 1100, {}) &&
             store.Counters().Writes == absentWrites,
         "a forbidden response is not cached as original data or confirmed absence");
+  auto api = OsmApiSource::Create(provider, 0);
+  CHECK(api.has_value(), "official bounded source created for refusal classification");
+  if (api) {
+    ApiWire capacity;
+    capacity.Status = 400;
+    capacity.Xml = "You requested too many nodes (limit is 50000). Either request a smaller area, "
+                   "or use planet.osm";
+    auto rejected = (*api)->Collect(Address::Whole(0), 1, capacity).Take();
+    CHECK(rejected && rejected->Reason == FetchFailureReason::CapacityRefused,
+          "the official node-limit refusal is classified as capacity at the HTTP boundary");
+    capacity.Xml = "The requested bounds are invalid";
+    auto invalid = (*api)->Collect(Address::Whole(0), 1, capacity).Take();
+    CHECK(invalid && invalid->Reason == FetchFailureReason::ProviderRefused,
+          "an unrelated HTTP 400 cannot trigger subdivision");
+  }
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "isolated original-response cache removed");

@@ -18,6 +18,7 @@
 namespace outshine::Data {
 namespace {
 constexpr int kHttpOk = 200;
+constexpr int kHttpBadRequest = 400;
 constexpr int kHttpNotFound = 404;
 constexpr int kHttpRequestTimeout = 408;
 constexpr int kHttpTooManyRequests = 429;
@@ -107,6 +108,13 @@ Fetched OsmApiSource::Collect(const Address &at, Ticket ticket, Transport &trans
   if (!response) { return Fetched::Meant(Meaning::Refused, wire.FailureReason()); }
   if (response->Status == kHttpOk && !response->Body.empty()) {
     return Fetched::Delivered(std::move(response->Body));
+  }
+  if (response->Status == kHttpBadRequest) {
+    const std::string_view message(reinterpret_cast<const char *>(response->Body.data()),
+                                   response->Body.size());
+    if (message.starts_with("You requested too many nodes (limit is ")) {
+      return Fetched::Meant(Meaning::Refused, FetchFailureReason::CapacityRefused);
+    }
   }
   if (response->Status == kHttpNotFound) { return Fetched::NotFound(); }
   if (response->Status == kHttpRequestTimeout || response->Status == kHttpTooManyRequests ||

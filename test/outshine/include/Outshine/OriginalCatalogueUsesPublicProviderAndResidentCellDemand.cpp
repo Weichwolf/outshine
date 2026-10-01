@@ -66,7 +66,7 @@ int main() {
                                 .Revision = "fixture-r1",
                                 .Missing = Data::MissingDataPolicy::Fail,
                                 .Dataset = "public.original.fixture",
-                                 .Endpoint = "https://api.openstreetmap.org/api/0.6"});
+                                .Endpoint = "https://api.openstreetmap.org/api/0.6"});
   Engine engine;
   CHECK(engine.registerProvider(provider) && engine.setRoots({.Offline = true}) &&
             engine.declare(document) && engine.assemble(),

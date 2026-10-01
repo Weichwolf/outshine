@@ -36,9 +36,9 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   Snapshot-Admittanz: 32×4 MiB = 128 MiB inklusive gepinnter Altstände, keine Vorallokation.
   Das ist eine Quellgrenze, kein bewiesenes App-Budget. Das API-Flächenlimit garantiert nicht
   das Node-Limit: Flensburg scheitert derzeit an einer Antwort mit mehr als 50.000 Nodes.
-  Nächster Schritt: Kapazitätsablehnung am HTTP-Adapter typisieren und die betroffene Zelle
-  durch vier flächendeckende Kinder ersetzen. Zellzahl, Tiefe, Speicher und Gesamtdauer bleiben
-  begrenzt; erst die vollständige Blattmenge publizieren. Unveränderte Blätter wiederverwenden.
+  Der HTTP-Adapter typisiert Kapazitätsablehnungen; OsmCellRefinement ersetzt betroffene Zellen
+  durch vier flächendeckende Kinder. Zellzahl, Tiefe, Speicher und Gesamtdauer bleiben begrenzt.
+  Erst die vollständige Blattmenge publizieren; unveränderte Pläne und Blätter wiederverwenden.
   Globale Grobquellen und die vollständige Place-Abnahme bleiben offen.
 - GLO-30: `CopernicusRaster`/libtiff liefern native Meter aus Original-COG-Blöcken/Übersichten.
   HTTP-Bereiche, Dateilänge, starke Revisionspins und Receipt vor Cache/Lieferung prüfen.

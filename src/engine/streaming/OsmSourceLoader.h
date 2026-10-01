@@ -29,6 +29,7 @@ public:
   struct CellLimits {
     size_t CellsMost = 0;
     size_t SnapshotBytesMost = 0;
+    int LevelMost = Data::GeoCellId::MaximumLevel;
 
     [[nodiscard]] bool operator==(const CellLimits &) const = default;
   };
@@ -82,6 +83,7 @@ private:
   struct Result {
     std::variant<std::monostate, ReadResult, LoadResult, CellLoadResult> Value;
     std::optional<double> ReadMs;
+    std::vector<Data::GeoCellId> Refine;
   };
 
   struct Pending {

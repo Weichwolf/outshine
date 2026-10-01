@@ -78,20 +78,26 @@ MakeChunk(const SourceProvider &provider, const Region &region, std::optional<Ge
   return chunk;
 }
 
-std::expected<bool, std::string>
+enum class Collected { Pending, Ready, Refine };
+
+std::expected<Collected, std::string>
 CollectRegion(Region &region, OsmSourceChunk &chunk, Transport &wire, double beganMs) {
-  if (!region.Query) { return false; }
+  if (!region.Query) { return Collected::Pending; }
   auto delivery = region.Sources.Collect(*region.Query, wire);
   if (auto answer = delivery.Take()) {
     chunk.Xml.assign(answer->Bytes.begin(), answer->Bytes.end());
     chunk.ReadMs = wire.NowMs() - beganMs;
     chunk.FromStore = region.Sources.Counters().FromStore != 0;
     region.Query.reset();
-    return true;
+    return Collected::Ready;
   }
-  if (delivery.Where() == Delivery::State::Pending) { return false; }
+  if (delivery.Where() == Delivery::State::Pending) { return Collected::Pending; }
   const auto reason =
       delivery.Failure() ? delivery.Failure()->Reason : FetchFailureReason::ProviderRefused;
+  if (chunk.Cell && reason == FetchFailureReason::CapacityRefused) {
+    region.Query.reset();
+    return Collected::Refine;
+  }
   return std::unexpected("original OSM source '" + chunk.Origin +
                          "' failed: " + std::string(Name(reason)));
 }
@@ -120,6 +126,7 @@ std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourcePro
   std::vector<double> beganMs(providers.size());
   size_t next = 0;
   size_t completed = 0;
+  std::vector<GeoCellId> refine;
   while (completed < regions.size()) {
     const double nowMs = wire.NowMs();
     if (stop.stop_requested() || !std::isfinite(nowMs) || !std::isfinite(deadlineMs) ||
@@ -137,13 +144,16 @@ std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourcePro
     for (size_t at = 0; at < next; ++at) {
       auto ready = CollectRegion(*regions[at], chunks[at], wire, beganMs[at]);
       if (!ready) { return std::unexpected(std::move(ready.error())); }
-      completed += static_cast<size_t>(*ready);
+      if (*ready == Collected::Refine) { refine.push_back(*chunks[at].Cell); }
+      completed += static_cast<size_t>(*ready != Collected::Pending);
     }
     if (completed == regions.size()) { break; }
     if (next < regions.size() && next - completed < kConcurrentRegions) { continue; }
     (void)wire.Await(std::min(kIoAwaitMs, std::max(0.0, deadlineMs - wire.NowMs())));
   }
-  return OsmSourceRead{.Chunks = std::move(chunks), .ElapsedMs = wire.NowMs() - began};
+  std::erase_if(chunks, [](const auto &chunk) { return chunk.Xml.empty(); });
+  return OsmSourceRead{
+      .Chunks = std::move(chunks), .Refine = std::move(refine), .ElapsedMs = wire.NowMs() - began};
 }
 }
 

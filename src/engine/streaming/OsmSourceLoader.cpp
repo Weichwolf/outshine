@@ -64,6 +64,8 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers,
   ++Revision_;
   Scope_ = Scope::Region;
   if (Cells_) {
+    Cells_->Roots.clear();
+    Cells_->PublishedRoots.clear();
     Cells_->Wanted.clear();
     Cells_->Preparing.clear();
     Cells_->Published.clear();
@@ -101,6 +103,18 @@ bool OsmSourceLoader::AwaitSlice(double seconds) const {
 void OsmSourceLoader::CompletePending(Pending finished) {
   if (finished.Revision != Revision_) { return; }
   if (auto *read = std::get_if<ReadResult>(&finished.Output->Value)) {
+    if (*read && Scope_ == Scope::Cells) {
+      if (auto refined = Cells_->Refine(finished.Output->Refine); !refined) {
+        Error_ = std::move(refined.error());
+        Cells_->Preparing.clear();
+        Phase_ = Phase::Failed;
+        return;
+      }
+      if ((**read).empty()) {
+        CompleteCells({});
+        return;
+      }
+    }
     if (*read) {
       StartDecode(std::move(**read), std::move(finished.Stop), finished.Output->ReadMs);
       return;
@@ -171,6 +185,7 @@ void OsmSourceLoader::StartRequested() {
                                       root);
       if (read) {
         result->ReadMs = read->ElapsedMs;
+        result->Refine = std::move(read->Refine);
         result->Value = ReadResult(std::move(read->Chunks));
       } else {
         result->Value = ReadResult(std::unexpected(std::move(read.error())));

@@ -55,16 +55,18 @@ std::vector<OsmSourceLoader::CellSource> OsmSourceLoader::Cells::Reuse(
   std::vector<CellSource> preparing(wanted.size());
   for (size_t at = 0; at < wanted.size(); ++at) {
     if (published) {
-      const auto found = std::ranges::find_if(Published, [wanted, at](const auto &entry) {
-        return entry.Snapshot->Cell == wanted[at];
-      });
-      if (found != Published.end()) { preparing[at] = *found; }
+      const auto found = std::ranges::lower_bound(
+          Published, wanted[at], Before, [](const auto &entry) { return *entry.Snapshot->Cell; });
+      if (found != Published.end() && found->Snapshot->Cell == wanted[at]) {
+        preparing[at] = *found;
+      }
     }
     if (pending && !preparing[at].Snapshot) {
-      const auto found = std::ranges::find_if(Preparing, [wanted, at](const auto &entry) {
-        return entry.Snapshot && entry.Snapshot->Cell == wanted[at];
-      });
-      if (found != Preparing.end()) { preparing[at] = *found; }
+      const auto found = std::ranges::lower_bound(Wanted, wanted[at], Before);
+      const auto index = static_cast<size_t>(found - Wanted.begin());
+      if (found != Wanted.end() && *found == wanted[at] && index < Preparing.size()) {
+        preparing[at] = Preparing[index];
+      }
     }
   }
   return preparing;
@@ -124,7 +126,9 @@ OsmSourceLoader::RequestCells(const Data::SourceProvider &provider,
   }
   if (provider.Kind != "osm" || provider.Coverage || !provider.Location.empty() ||
       limits.CellsMost == 0 || limits.CellsMost > std::numeric_limits<size_t>::max() / 2 ||
-      limits.SnapshotBytesMost == 0 || cells.size() > limits.CellsMost ||
+      limits.SnapshotBytesMost == 0 || limits.LevelMost < 9 ||
+      limits.LevelMost > Data::GeoCellId::MaximumLevel || cells.size() > limits.CellsMost ||
+      std::ranges::any_of(cells, [limits](auto cell) { return cell.Level > limits.LevelMost; }) ||
       !std::ranges::all_of(cells, ValidCell)) {
     return std::unexpected("original OSM cell demand requires a catalogue and bounded valid cells");
   }
@@ -139,8 +143,18 @@ OsmSourceLoader::RequestCells(const Data::SourceProvider &provider,
                  })) > limits.CellsMost * 2)) {
     return std::unexpected("original OSM cell demand cannot reduce limits below pinned snapshots");
   }
+  for (auto cell : wanted) {
+    while (cell.Level > 0) {
+      --cell.Level;
+      cell.X /= 2;
+      cell.Y /= 2;
+      if (std::ranges::binary_search(wanted, cell, Before)) {
+        return std::unexpected("original OSM cell demand contains overlapping ancestors");
+      }
+    }
+  }
   if (Scope_ == Scope::Cells && Requested_.front() == provider && Root_ == root &&
-      Access_->Registry == registry && Cells_->Wanted == wanted && Cells_->Limits == limits &&
+      Access_->Registry == registry && Cells_->Roots == wanted && Cells_->Limits == limits &&
       Phase_ != Phase::Failed) {
     return {};
   }
@@ -152,14 +166,20 @@ OsmSourceLoader::RequestCells(const Data::SourceProvider &provider,
                          Cells_->PublishedRegistry == registry;
   const bool pending = Scope_ == Scope::Cells && Requested_.front() == provider && Root_ == root &&
                        Access_->Registry == registry;
-  auto preparing = Cells_->Reuse(wanted, published, pending);
+  auto leaves = Cells_->SelectLeaves(wanted, published, pending);
+  if (leaves.size() > limits.CellsMost ||
+      std::ranges::any_of(leaves, [limits](auto cell) { return cell.Level > limits.LevelMost; })) {
+    return std::unexpected("original OSM resident leaves exceed requested cell limits");
+  }
+  auto preparing = Cells_->Reuse(leaves, published, pending);
   ++Revision_;
   Scope_ = Scope::Cells;
   Requested_.assign(1, provider);
   Root_ = root;
   Access_->Registry = registry;
   Cells_->Limits = limits;
-  Cells_->Wanted = std::move(wanted);
+  Cells_->Roots = std::move(wanted);
+  Cells_->Wanted = std::move(leaves);
   Cells_->Preparing = std::move(preparing);
   Error_.clear();
   if (Pending_) { (void)Pending_->Stop.request_stop(); }
@@ -178,6 +198,7 @@ void OsmSourceLoader::CompleteCells(std::vector<CellSource> ready) {
   }
   if (!Cells_->Ready()) { return; }
   Cells_->Published = std::move(Cells_->Preparing);
+  Cells_->PublishedRoots = Cells_->Roots;
   Cells_->PublishedProvider = Requested_.front();
   Cells_->PublishedRoot = Root_;
   Cells_->PublishedRegistry = Access_->Registry;

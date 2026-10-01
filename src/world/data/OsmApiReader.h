@@ -10,6 +10,7 @@ namespace outshine::Data {
 
 struct OsmSourceRead {
   std::vector<OsmSourceChunk> Chunks;
+  std::vector<GeoCellId> Refine;
   double ElapsedMs = 0.0;
 };
 
