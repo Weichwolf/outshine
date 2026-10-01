@@ -59,6 +59,9 @@ Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
   Terrain-Anfragen folgen dessen Geometrie statt reduzierten `OsmField`-Features.
   Quellenidentität, DEM-Zertifikat und Geometriebesitzer qualifizieren Jobs und Publikation.
   Keine zweite Gebäudequeue, kein MVT-Zwischenformat, kein persistenter Produkt-Cache.
+  Ein Kandidat hält getrennte Gebäudeprodukte je Original-Snapshot. Compute prüft
+  gemeinsame Dataset-/Revisionsidentität, widersprüchliche Duplikate und Relation-Member;
+  gleiche typisierte IDs erhalten genau einen Besitzer. Fehler erhalten den Altstand.
 - `BuildingField::AcceptedInput` pinnt Geometrie und Quelle je Produkt; Indizes gelten
   nur in dessen Points/Rings. `BuildingStampJob` und `Laying` verwenden diese Besitzer.
   OSM verformt DEM über dieselben Terrain-Stempel wie vorhandene Straßen und Gebäude.
