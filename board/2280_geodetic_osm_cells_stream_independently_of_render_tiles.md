@@ -14,7 +14,10 @@ Originalobjekte liefern native Verkehrs- und Gebäudeprodukte bis ins Client-Bil
 Quellenresidenz bleibt unabhängig von Render-LOD, Frustum und Kacheleviktion.
 Vorhanden: regionale Originalbeschaffung, gemeinsame Snapshots und Transportprodukte;
 native Gebäude mit gepinnten Koordinaten, Terrain-Zertifikaten und Stempeln im Client.
-Regionale Diagnosen sind sichtbar; native Detailzellen und vollständige Places fehlen.
+Öffentliche `GeoCellId`-Adressen und der registrierte Original-API-Katalog liefern
+begrenzte Zellantworten mit getrennten Raw-Cachekeys; alte Quelladressen bleiben stabil.
+Regionale Diagnosen sind sichtbar; automatische Nachfrage, residente Zellprodukte
+und vollständige Places fehlen. Der regionale Snapshot ersetzt keine weltweite Residenz.
 Weltweite Zellnachfrage bleibt Teil dieser Lieferung; größere Chunk-Limits ersetzen sie nicht.
 Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
 
