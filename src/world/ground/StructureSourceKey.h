@@ -49,6 +49,11 @@ struct StructureSourceView {
     word(static_cast<uint64_t>(value.Tile.Zoom));
     word(value.Tile.X);
     word(value.Tile.Y);
+    if (value.NativeCell) {
+      bytes("native-cell");
+      word(static_cast<uint32_t>(value.NativeCell->SouthDeg));
+      word(static_cast<uint32_t>(value.NativeCell->WestDeg));
+    }
     bytes(value.SourceId);
     bytes(value.Revision);
   };

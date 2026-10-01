@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_DATA_TILESOURCEIDENTITY_H
 
 #include <compare>
+#include <optional>
 #include <string>
 #include <tuple>
 
@@ -15,21 +16,37 @@ struct TileSourceIdentity {
 
   Origin From = Origin::Provider;
   DataKind Kind = DataKind::Elevation;
-  TileId Tile;
+  TileId Tile{};
+  std::optional<CellId> NativeCell = std::nullopt;
   std::string SourceId;
   std::string Revision;
 
   [[nodiscard]] bool operator==(const TileSourceIdentity &) const noexcept = default;
 
   [[nodiscard]] std::strong_ordering operator<=>(const TileSourceIdentity &other) const {
-    return std::tie(From, Kind, Tile.Zoom, Tile.X, Tile.Y, SourceId, Revision) <=>
-           std::tie(other.From,
-                    other.Kind,
-                    other.Tile.Zoom,
-                    other.Tile.X,
-                    other.Tile.Y,
-                    other.SourceId,
-                    other.Revision);
+    const bool native = NativeCell.has_value();
+    const bool otherNative = other.NativeCell.has_value();
+    const CellId cell = NativeCell.value_or(CellId{});
+    const CellId otherCell = other.NativeCell.value_or(CellId{});
+    return std::tie(From,
+                    Kind,
+                    native,
+                    cell.SouthDeg,
+                    cell.WestDeg,
+                    Tile.Zoom,
+                    Tile.X,
+                    Tile.Y,
+                    SourceId,
+                    Revision) <=> std::tie(other.From,
+                                           other.Kind,
+                                           otherNative,
+                                           otherCell.SouthDeg,
+                                           otherCell.WestDeg,
+                                           other.Tile.Zoom,
+                                           other.Tile.X,
+                                           other.Tile.Y,
+                                           other.SourceId,
+                                           other.Revision);
   }
 };
 

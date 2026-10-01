@@ -3,6 +3,7 @@
 #include "math/Units.h"
 #include "TilePool.h"
 #include "TerrainDelivery.h"
+#include "CopernicusTerrain.h"
 #include "math/Vec3.h"
 
 #include <algorithm>
@@ -82,7 +83,9 @@ uint64_t RequestKey(std::string_view key) {
 
 class PoolTerrain : public TerrainSource {
 public:
-  explicit PoolTerrain(TilePool &pool) : Pool_(pool) {}
+  explicit PoolTerrain(TilePool &pool) : Pool_(pool), Native_(pool) {}
+
+  [[nodiscard]] size_t HeapBytes() const noexcept { return Native_.HeapBytes(); }
 
   [[nodiscard]] uint64_t TerrainScopeRevision() const noexcept override {
     return Pool_.TerrainScopeRevision();
@@ -99,6 +102,11 @@ public:
   }
 
   TerrainBytes Take(Data::TileId at) override {
+    if (Pool_.HasNativeTerrain()) {
+      auto delivery = Native_.Take(at);
+      if (Native_.Awaiting()) { tAwaited = RequestKey(Native_.Awaiting()->Key()); }
+      return delivery;
+    }
     const Data::Fetch request(Data::DataKind::Elevation, Data::Address::At(at));
     TilePool::Landing landing;
     const TilePool::Reply asked = Pool_.Bytes(request, &landing);
@@ -115,6 +123,7 @@ public:
 
 private:
   TilePool &Pool_;
+  CopernicusTerrain Native_;
 };
 
 }
@@ -148,6 +157,12 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
     Log::Error(LogTag::World, "invalid_terrain_revision_capacity");
   }
   Sources_.Seal();
+  for (size_t index = 0; index < Sources_.Count(); ++index) {
+    const auto &decl = Sources_.At(index).Declaration();
+    NativeTerrain_ = NativeTerrain_ || (decl.Kind == Data::DataKind::Elevation &&
+                                        decl.How == Data::Scheme::GeographicCell &&
+                                        decl.Wire == Data::WireFormat::CopernicusCog);
+  }
   if (config.Compute != nullptr) {
     Compute_ = config.Compute;
   } else {
@@ -882,7 +897,8 @@ void TilePool::Work(int slot) {
   TerrainTiles &tiles = context->Tiles;
   const auto retainBytes = [&] {
     ContextBytes_[static_cast<size_t>(slot)].store(sizeof(ComputeContext) - sizeof(TerrainTiles) +
-                                                       tiles.HeapBytes(),
+                                                       tiles.HeapBytes() +
+                                                       context->Source.HeapBytes(),
                                                    std::memory_order_relaxed);
   };
   retainBytes();

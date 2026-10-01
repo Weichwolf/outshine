@@ -133,6 +133,8 @@ public:
 
   [[nodiscard]] Reply Bytes(const Data::Fetch &request, Landing *out);
 
+  [[nodiscard]] bool HasNativeTerrain() const noexcept { return NativeTerrain_; }
+
   [[nodiscard]] Reply BytesBlocking(const Data::Fetch &request, Landing *out);
 
   [[nodiscard]] bool Carries() const { return !Carriers_.empty(); }
@@ -300,6 +302,7 @@ private:
   void DeferredAdmission();
 
   Data::SourceSet &Sources_;
+  bool NativeTerrain_ = false;
   Data::Transport &Wire_;
   const double OriginLatDeg_, OriginLonDeg_;
   const size_t ByteBudget_;
