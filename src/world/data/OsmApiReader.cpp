@@ -118,6 +118,16 @@ std::expected<size_t, std::string> PollStarted(std::span<const std::unique_ptr<R
   return completed;
 }
 
+bool BeginRegion(Region &region, ContentStore &store, std::vector<GeoCellId> &refine) {
+  const auto cell = region.At.GeoCell();
+  if (cell && store.CoversCellChildren(region.Sources.At(0).Declaration(), *cell)) {
+    refine.push_back(*cell);
+    return true;
+  }
+  region.Query.emplace(region.Sources.Ask(Fetch(DataKind::OriginalOsm, region.At)));
+  return false;
+}
+
 std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourceProvider> providers,
                                                        std::span<const GeoCellId> cells,
                                                        ContentStore &store,
@@ -152,8 +162,7 @@ std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourcePro
                                  : "original OSM source acquisition deadline exceeded");
     }
     while (next < regions.size() && next - completed < kConcurrentRegions) {
-      regions[next]->Query.emplace(
-          regions[next]->Sources.Ask(Fetch(DataKind::OriginalOsm, regions[next]->At)));
+      completed += static_cast<size_t>(BeginRegion(*regions[next], store, refine));
       beganMs[next] = nowMs;
       ++next;
     }

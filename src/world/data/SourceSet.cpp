@@ -210,7 +210,10 @@ std::optional<Delivery> SourceSet::ReadStored(Query &query) {
   const auto &range = query.Request_.Range();
   const size_t maximum = range ? static_cast<size_t>(range->Length) + MaximumRangeRecordOverhead
                                : decl.MaximumPayloadBytes;
-  auto kept = Store_.Lookup(query.CacheKey(), maximum);
+  const auto cell = query.At_.GeoCell();
+  auto kept = !range && decl.Kind == DataKind::OriginalOsm && cell
+                  ? Store_.LookupCell(decl, *cell)
+                  : Store_.Lookup(query.CacheKey(), maximum);
   if (kept.Where == ContentStore::Presence::Unknown) { return std::nullopt; }
   if (kept.Where == ContentStore::Presence::Absent) {
     {
@@ -289,7 +292,12 @@ Delivery SourceSet::Deliver(Query &query, Fetched::Settled response) {
       if (!record) { return Refuse(query, kRetryCapMs, FetchFailureReason::CapacityRefused); }
       (void)Store_.Keep(query.CacheKey(), record->data(), record->size());
     } else {
-      (void)Store_.Keep(query.CacheKey(), response.Bytes.data(), response.Bytes.size());
+      const auto cell = query.At_.GeoCell();
+      if (decl.Kind == DataKind::OriginalOsm && cell) {
+        (void)Store_.KeepCell(decl, *cell, response.Bytes);
+      } else {
+        (void)Store_.Keep(query.CacheKey(), response.Bytes.data(), response.Bytes.size());
+      }
     }
   }
   const std::scoped_lock lock(LedgerMutex_);

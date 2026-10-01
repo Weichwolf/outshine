@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -13,6 +14,7 @@
 #include <vector>
 
 #include <world/data/Address.h>
+#include <world/data/GeoCellId.h>
 #include <world/data/SourceDecl.h>
 #include <world/data/Transport.h>
 
@@ -59,6 +61,12 @@ public:
   [[nodiscard]] bool Keep(std::string_view key, const uint8_t *data, size_t bytes);
   [[nodiscard]] Entry Lookup(std::string_view key, size_t mostBytes = 0) const;
   [[nodiscard]] bool KeepAbsent(std::string_view key, int64_t lifetimeS);
+  [[nodiscard]] bool
+  KeepCell(const SourceDecl &decl, GeoCellId cell, std::span<const uint8_t> bytes);
+  [[nodiscard]] Entry LookupCell(const SourceDecl &decl, GeoCellId cell);
+  [[nodiscard]] bool CoversCellChildren(const SourceDecl &decl,
+                                        GeoCellId cell,
+                                        size_t probesMost = MaximumAbsenceEntries) const;
 
   [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }
 
@@ -72,6 +80,10 @@ public:
   [[nodiscard]] Ledger Counters() const;
 
 private:
+  [[nodiscard]] bool
+  WriteCellReceipt(const SourceDecl &decl, GeoCellId cell, std::span<const uint8_t> bytes);
+  [[nodiscard]] std::optional<std::vector<uint8_t>> ReadCell(const SourceDecl &decl,
+                                                             GeoCellId cell) const;
   [[nodiscard]] static bool ValidKey(std::string_view key);
   [[nodiscard]] static std::optional<std::vector<uint8_t>> ReadEntry(const std::string &path,
                                                                      size_t limit);

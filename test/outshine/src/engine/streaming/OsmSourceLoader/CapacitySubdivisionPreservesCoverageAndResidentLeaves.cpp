@@ -147,6 +147,20 @@ int main() {
             deeper.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
             deeper.CurrentCells().size() == 16 && nested.Starts == 21,
         "repeated subdivision publishes sixteen leaves after one parent and four child refusals");
+  {
+    ApiWire offline;
+    offline.BlockLeaves = true;
+    OsmSourceLoader fresh(compute, &offline, directory);
+    CHECK(fresh.RequestCells(provider, roots, limits, ".") && Settled(fresh) &&
+              fresh.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              fresh.CurrentCells().size() == 4 && offline.Starts == 0,
+          "a fresh loader reconstructs complete four-child source coverage without network starts");
+    CHECK(fresh.RequestCells(revision, roots, limits, ".") && Settled(fresh) &&
+              fresh.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              fresh.CurrentCells().size() == 16 && offline.Starts == 0,
+          "a new source revision reconstructs nested cached leaves without retrying overloaded "
+          "parents");
+  }
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "isolated adaptive source cache removed");
