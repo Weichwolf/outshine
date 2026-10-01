@@ -91,7 +91,8 @@ int main() {
       .Heights = {.StoreyHeightM = 3, .BodyHeightM = 9}, .PointWidthM = 2, .PointsMost = 64};
   bool prepared = false;
   for (int attempt = 0; attempt < 100 && !prepared; ++attempt) {
-    const auto ready = queue.PrepareOriginal(source, policy);
+    const auto ready =
+        queue.PrepareOriginal(source, policy, stack.FinestZoomOf(Data::DataKind::Elevation));
     CHECK(ready.has_value(), "native preparation accepts complete consumed references");
     if (!ready) { break; }
     prepared = *ready;
@@ -213,7 +214,8 @@ int main() {
       Data::OsmSourceSnapshot{.Elements = std::move(*empty), .Coverage = source->Coverage});
   bool replacementPrepared = false;
   for (int attempt = 0; attempt < 100 && !replacementPrepared; ++attempt) {
-    const auto ready = queue.PrepareOriginal(emptySource, policy);
+    const auto ready =
+        queue.PrepareOriginal(emptySource, policy, stack.FinestZoomOf(Data::DataKind::Elevation));
     CHECK(ready.has_value(), "empty original replacement prepares");
     if (!ready) { break; }
     replacementPrepared = *ready;

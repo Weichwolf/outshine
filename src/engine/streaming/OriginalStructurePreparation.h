@@ -7,9 +7,11 @@
 #include <expected>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <stop_token>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace outshine {
 
@@ -19,7 +21,8 @@ public:
 
   OriginalStructurePreparation(Tasks &pool,
                                std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                               Generators::OriginalStructurePolicy policy);
+                               Generators::OriginalStructurePolicy policy,
+                               int heightZoom);
   ~OriginalStructurePreparation();
   OriginalStructurePreparation(const OriginalStructurePreparation &) = delete;
   OriginalStructurePreparation &operator=(const OriginalStructurePreparation &) = delete;
@@ -38,10 +41,13 @@ public:
 
   [[nodiscard]] std::string_view Error() const noexcept { return Error_; }
 
+  [[nodiscard]] std::span<const Data::TileId> HeightTiles() const noexcept { return HeightTiles_; }
+
 private:
   struct Output {
     std::expected<Generators::RawTile, std::string> Value =
         std::unexpected("original structure preparation has not completed");
+    std::vector<Data::TileId> HeightTiles;
   };
 
   Tasks *Pool_;
@@ -49,6 +55,7 @@ private:
   std::stop_source Stop_;
   std::shared_ptr<Output> Output_;
   std::shared_ptr<const Generators::RawTile> Input_;
+  std::vector<Data::TileId> HeightTiles_;
   std::string Error_;
   Phase Phase_ = Phase::Working;
 };

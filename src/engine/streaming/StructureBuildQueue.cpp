@@ -537,60 +537,53 @@ bool StructureBuildQueue::BakeRevision::Matches(
 
 std::expected<bool, std::string>
 StructureBuildQueue::PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                                     Generators::OriginalStructurePolicy policy) {
+                                     Generators::OriginalStructurePolicy policy,
+                                     int heightZoom) {
   if (OriginalPreparation_) {
-    if (PreparingOriginal_ != source) { OriginalPreparation_->Cancel(); }
+    if (PreparingOriginal_ != source || PreparingOriginalHeightZoom_ != heightZoom) {
+      OriginalPreparation_->Cancel();
+    }
     const auto phase = OriginalPreparation_->Poll();
     if (phase == OriginalStructurePreparation::Phase::Working) { return false; }
-    if (PreparingOriginal_ == source) {
+    if (PreparingOriginal_ == source && PreparingOriginalHeightZoom_ == heightZoom) {
       if (phase == OriginalStructurePreparation::Phase::Failed) {
         return std::unexpected(std::string(OriginalPreparation_->Error()));
       }
       Original_ = OriginalPreparation_->Input();
+      const auto tiles = OriginalPreparation_->HeightTiles();
+      OriginalHeightTiles_.assign(tiles.begin(), tiles.end());
+      OriginalHeightZoom_ = heightZoom;
     }
     OriginalPreparation_.reset();
     PreparingOriginal_.reset();
+    PreparingOriginalHeightZoom_ = -1;
   }
   if (!source) {
     Original_.reset();
+    OriginalHeightTiles_.clear();
+    OriginalHeightZoom_ = -1;
     return true;
   }
-  if (Original_ && Original_->Original.Snapshot == source) { return true; }
+  if (Original_ && Original_->Original.Snapshot == source && OriginalHeightZoom_ == heightZoom) {
+    return true;
+  }
   if (Pool_ == nullptr) {
     return std::unexpected("original structures require an open worker pool");
   }
   PreparingOriginal_ = source;
+  PreparingOriginalHeightZoom_ = heightZoom;
   OriginalPreparation_ =
-      std::make_unique<OriginalStructurePreparation>(*Pool_, std::move(source), policy);
+      std::make_unique<OriginalStructurePreparation>(*Pool_, std::move(source), policy, heightZoom);
   return false;
 }
 
-std::expected<std::vector<Data::TileId>, std::string>
+std::expected<std::span<const Data::TileId>, std::string>
 StructureBuildQueue::OriginalHeightTiles(int zoom) const {
-  std::vector<Data::TileId> tiles;
-  if (!Original_ || Original_->Structures.empty()) { return tiles; }
-  if (zoom < 0 || zoom > Ground::HeightField::MaximumTileZoom) {
-    return std::unexpected("original buildings require a valid terrain zoom");
+  if (!Original_) { return std::span<const Data::TileId>(); }
+  if (zoom != OriginalHeightZoom_) {
+    return std::unexpected("original building terrain demand requires preparation at this zoom");
   }
-  const auto &bounds = Original_->Original.Bounds;
-  const auto low = Ground::HeightField::SpotOf(
-      {.LongitudeDeg = bounds.WestDeg, .LatitudeDeg = bounds.NorthDeg}, zoom);
-  const auto high = Ground::HeightField::SpotOf(
-      {.LongitudeDeg = bounds.EastDeg, .LatitudeDeg = bounds.SouthDeg}, zoom);
-  constexpr long maximumBlocks = 64;
-  const long width = high.X - low.X + 1;
-  const long height = high.Y - low.Y + 1;
-  if (width < 1 || height < 1 || width > maximumBlocks || height > maximumBlocks ||
-      width * height > maximumBlocks) {
-    return std::unexpected("original building region exceeds terrain block admission");
-  }
-  tiles.reserve(static_cast<size_t>(width * height));
-  for (long y = low.Y; y <= high.Y; ++y) {
-    for (long x = low.X; x <= high.X; ++x) {
-      tiles.push_back({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
-    }
-  }
-  return tiles;
+  return std::span<const Data::TileId>(OriginalHeightTiles_);
 }
 
 bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
@@ -1662,6 +1655,9 @@ void StructureBuildQueue::Clear() {
   OriginalPreparation_.reset();
   PreparingOriginal_.reset();
   Original_.reset();
+  OriginalHeightTiles_.clear();
+  OriginalHeightZoom_ = -1;
+  PreparingOriginalHeightZoom_ = -1;
   for (const auto &batch : PreparedCells_) {
     if (batch) { batch->Preparation->Cancel(); }
   }

@@ -68,7 +68,8 @@ int main() {
   for (int attempt = 0; attempt < 200 && prepared && !*prepared; ++attempt) {
     prepared = structures.PrepareOriginal(
         source,
-        {.Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0}, .PointWidthM = 2, .PointsMost = 3});
+        {.Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0}, .PointWidthM = 2, .PointsMost = 3},
+        9);
     if (prepared && !*prepared) { (void)tasks.AwaitCompletion(0.05); }
   }
   const auto heightTiles = structures.OriginalHeightTiles(9);

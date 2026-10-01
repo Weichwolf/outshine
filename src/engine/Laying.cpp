@@ -295,7 +295,8 @@ public:
         queue.PrepareOriginal(OriginalSource_,
                               {.Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0},
                                .PointWidthM = 2.0,
-                               .PointsMost = 262144});
+                               .PointsMost = 262144},
+                              zoom);
     if (!prepared) { return std::unexpected(prepared.error()); }
     if (!*prepared) { return false; }
     const auto tiles = queue.OriginalHeightTiles(zoom);

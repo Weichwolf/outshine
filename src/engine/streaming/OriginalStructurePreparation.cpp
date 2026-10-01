@@ -1,18 +1,96 @@
 #include "OriginalStructurePreparation.h"
+#include "HeightField.h"
 
 #include "OsmBuildingFootprints.h"
 #include "TangentFrame.h"
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <cmath>
 #include <expected>
 #include <memory>
+#include <span>
 #include <stop_token>
 #include <string>
 #include <utility>
+#include <tuple>
+#include <vector>
 
 namespace outshine {
 namespace {
+
+constexpr long kMaximumHeightBlocks = 64;
+
+struct OriginalTerrainRange {
+  long West;
+  long East;
+  long North;
+  long South;
+};
+
+std::expected<OriginalTerrainRange, std::string>
+FootprintTerrainRange(std::span<const double> points, int zoom, const std::stop_token &stop) {
+  const long side = static_cast<long>(std::ldexp(1.0, zoom));
+  const auto first =
+      Ground::HeightField::SpotOf({.LongitudeDeg = points[1], .LatitudeDeg = points[0]}, zoom);
+  OriginalTerrainRange range{.West = first.X, .East = first.X, .North = first.Y, .South = first.Y};
+  for (size_t point = 0; point < points.size(); point += 2) {
+    if (stop.stop_requested()) { return std::unexpected("original terrain demand canceled"); }
+    const auto at = Ground::HeightField::SpotOf(
+        {.LongitudeDeg = points[point + 1], .LatitudeDeg = points[point]}, zoom);
+    if (at.Y < 0 || at.Y >= side) {
+      return std::unexpected("original building lies outside the terrain grid");
+    }
+    long column = at.X;
+    if (column - first.X > side / 2) { column -= side; }
+    if (column - first.X < -side / 2) { column += side; }
+    range.West = std::min(range.West, column);
+    range.East = std::max(range.East, column);
+    range.North = std::min(range.North, at.Y);
+    range.South = std::max(range.South, at.Y);
+  }
+  const long width = range.East - range.West + 1;
+  const long height = range.South - range.North + 1;
+  if (width > kMaximumHeightBlocks || height > kMaximumHeightBlocks ||
+      width * height > kMaximumHeightBlocks) {
+    return std::unexpected("original building footprint exceeds terrain block admission");
+  }
+  return range;
+}
+
+std::expected<std::vector<Data::TileId>, std::string>
+OriginalHeightCoverage(const Generators::RawTile &raw, int zoom, const std::stop_token &stop) {
+  if (zoom < 0 || zoom > Ground::HeightField::MaximumTileZoom) {
+    return std::unexpected("original buildings require a valid terrain zoom");
+  }
+  if (raw.Structures.empty()) { return std::vector<Data::TileId>(); }
+  const auto key = [](Data::TileId tile) { return std::tuple(tile.X, tile.Y); };
+  std::vector<Data::TileId> tiles;
+  tiles.reserve(kMaximumHeightBlocks);
+  for (const auto &building : raw.Structures) {
+    const auto points = std::span(raw.LatLon)
+                            .subspan(static_cast<size_t>(building.LocalFirst) * 2,
+                                     static_cast<size_t>(building.PointCount) * 2);
+    const auto range = FootprintTerrainRange(points, zoom, stop);
+    if (!range) { return std::unexpected(range.error()); }
+    for (long y = range->North; y <= range->South; ++y) {
+      for (long x = range->West; x <= range->East; ++x) {
+        long column = x;
+        (void)Ground::WrapTile(zoom, &column, &y);
+        const Data::TileId tile{
+            .Zoom = zoom, .X = static_cast<uint32_t>(column), .Y = static_cast<uint32_t>(y)};
+        const auto at = std::ranges::lower_bound(tiles, key(tile), {}, key);
+        if (at != tiles.end() && *at == tile) { continue; }
+        if (tiles.size() == static_cast<size_t>(kMaximumHeightBlocks)) {
+          return std::unexpected("original building footprints exceed terrain block admission");
+        }
+        tiles.insert(at, tile);
+      }
+    }
+  }
+  return tiles;
+}
 
 std::expected<Generators::RawTile, std::string>
 PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
@@ -62,11 +140,23 @@ PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
 OriginalStructurePreparation::OriginalStructurePreparation(
     Tasks &pool,
     std::shared_ptr<const Data::OsmSourceSnapshot> source,
-    Generators::OriginalStructurePolicy policy)
+    Generators::OriginalStructurePolicy policy,
+    int heightZoom)
     : Pool_(&pool), Output_(std::make_shared<Output>()) {
-  Handle_ =
-      pool.Post([source = std::move(source), policy, output = Output_, stop = Stop_.get_token()] {
-        output->Value = PrepareOriginal(source, policy, stop);
+  Handle_ = pool.Post(
+      [source = std::move(source), policy, heightZoom, output = Output_, stop = Stop_.get_token()] {
+        auto raw = PrepareOriginal(source, policy, stop);
+        if (!raw) {
+          output->Value = std::unexpected(std::move(raw.error()));
+          return;
+        }
+        auto tiles = OriginalHeightCoverage(*raw, heightZoom, stop);
+        if (!tiles) {
+          output->Value = std::unexpected(std::move(tiles.error()));
+          return;
+        }
+        output->HeightTiles = std::move(*tiles);
+        output->Value = std::move(*raw);
       });
 }
 
@@ -80,6 +170,7 @@ OriginalStructurePreparation::Phase OriginalStructurePreparation::Poll() {
   Handle_ = Tasks::kNoTask;
   if (Output_->Value) {
     Input_ = std::make_shared<const Generators::RawTile>(std::move(*Output_->Value));
+    HeightTiles_ = std::move(Output_->HeightTiles);
     Phase_ = Phase::Ready;
   } else {
     Error_ = std::move(Output_->Value.error());

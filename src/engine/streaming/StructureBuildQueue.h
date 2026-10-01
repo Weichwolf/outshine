@@ -46,8 +46,9 @@ public:
 
   [[nodiscard]] std::expected<bool, std::string>
   PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                  Generators::OriginalStructurePolicy policy);
-  [[nodiscard]] std::expected<std::vector<Data::TileId>, std::string>
+                  Generators::OriginalStructurePolicy policy,
+                  int heightZoom);
+  [[nodiscard]] std::expected<std::span<const Data::TileId>, std::string>
   OriginalHeightTiles(int zoom) const;
 
   [[nodiscard]] bool HasOriginal() const noexcept { return Original_ != nullptr; }
@@ -391,6 +392,9 @@ private:
   std::unique_ptr<OriginalStructurePreparation> OriginalPreparation_;
   std::shared_ptr<const Data::OsmSourceSnapshot> PreparingOriginal_;
   std::shared_ptr<const Generators::RawTile> Original_;
+  std::vector<Data::TileId> OriginalHeightTiles_;
+  int OriginalHeightZoom_ = -1;
+  int PreparingOriginalHeightZoom_ = -1;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;
   std::deque<QueuedBuild> CellQueue_;
