@@ -38,6 +38,9 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   Öffentliche Registrierung gilt für eingebaute wie externe Provider; Fehler kein Leerprodukt.
 - Nur Original-Netzwerkbytes persistent cachen. Generator-Artefakt-Lookups/-Writes aus
   Client-Pfaden entfernen; vorhandene Dateien erhalten. RAM-/GPU-Produkte bleiben resident.
+  Client, Shots und Prepare teilen dauerhaften SDL-Nutzerspeicher; kein Temp-Default.
+  Die vorhandene Kronenvorbereitung übergibt Atlanten direkt im RAM; kein Runtime-Diskcache.
+  Explizite Cachepfade bleiben erhalten. Fehlende Place-Provider sind noch anzuschließen.
   Quellen, Parse/Build-Scratch, gepinnte Altstände und GPU-Produkte getrennt begrenzen.
 - Unveränderte Zellen/Produkte übernehmen, veraltete Jobs abbrechen, geänderte Produkte
   gezielt ersetzen. Kandidaten veröffentlichen geschlossen; Fehler erhalten gültigen Altstand.

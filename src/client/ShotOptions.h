@@ -11,7 +11,7 @@
 namespace outshine::Client {
 
 inline constexpr double kDefaultPreloadSeconds = 10.0;
-inline constexpr std::string_view kDefaultCacheDirectory = "/tmp/outshine-drive-cache";
+inline constexpr std::string_view kDefaultCacheDirectory;
 
 [[nodiscard]] constexpr bool ValidCacheDirectory(std::string_view path) noexcept {
   return !path.empty() && !path.starts_with("--");

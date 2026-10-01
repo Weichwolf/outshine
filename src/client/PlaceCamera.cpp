@@ -5,6 +5,7 @@
 #include "FramePacer.h"
 #include "FrameSchedule.h"
 #include "WorldSourcePolicy.h"
+#include "SourceCache.h"
 
 #include "io/HeapProbe.h"
 
@@ -227,7 +228,10 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation, 
     return false;
   }
   if (Telling != nullptr) { engine.logsTo(Telling); }
-  if (const auto rooted = engine.setRoots(std::move(roots)); !rooted) {
+  if (const auto rooted = Client::WithSourceCache(std::move(roots)).and_then([&](Roots resolved) {
+        return engine.setRoots(std::move(resolved));
+      });
+      !rooted) {
     shot.Why = "the engine rejected its roots: " + rooted.error();
     return false;
   }
@@ -269,9 +273,7 @@ std::string Prepare(const Place &place, double patienceS) {
                  place,
                  shot,
                  true,
-                 Roots{.Assets = "src/assets/drive",
-                       .Shipped = "src/assets",
-                       .Cache = "/tmp/outshine-drive-cache"})) {
+                 Roots{.Assets = "src/assets/drive", .Shipped = "src/assets", .Cache = {}})) {
     return shot.Why;
   }
   double last = 0;

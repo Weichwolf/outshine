@@ -21,7 +21,10 @@ constexpr auto Tree = "vegetation source cannot produce its tree prototype";
 }
 
 VegetationStreaming::VegetationStreaming(Render::SceneRenderer &renderer, const Config &config)
-    : Renderer_(&renderer), Cache_(Io_, config.Cache), Shape_(config.Shape) {}
+    : Renderer_(&renderer),
+      Cache_(Io_, config.Cache),
+      CacheUse_(config.Cache.Store.Using),
+      Shape_(config.Shape) {}
 
 VegetationStreaming::~VegetationStreaming() {
   if (Preparing_ != Tasks::kNoTask) { Preparation_.Wait(Preparing_); }
@@ -90,7 +93,7 @@ bool VegetationStreaming::PollPreparation(bool prepare, std::string &error) {
         error = Failure_;
         return false;
       }
-      Groups_[PreparingGroup_].State = Phase::Wanted;
+      Groups_[PreparingGroup_].State = PreparedAtlas_ ? Phase::Prepared : Phase::Wanted;
     } else if (!prepare) {
       error = Says::Preparation;
       return false;
@@ -100,10 +103,20 @@ bool VegetationStreaming::PollPreparation(bool prepare, std::string &error) {
 }
 
 bool VegetationStreaming::AcceptCacheResult(std::string &error) {
-  auto loaded = Cache_.Take();
+  const bool prepared = Preparing_ == Tasks::kNoTask && PreparedAtlas_.has_value();
+  auto loaded = prepared ? std::optional<Data::ImpostorCache::Loaded>(
+                               {.Provenance = Groups_[PreparingGroup_].Provenance,
+                                .Atlas = std::move(PreparedAtlas_),
+                                .Error = {}})
+                         : Cache_.Take();
+  if (prepared) { PreparedAtlas_.reset(); }
   if (!loaded) { return true; }
   for (auto &group : Groups_) {
-    if (group.State != Phase::Reading || group.Provenance != loaded->Provenance) { continue; }
+    if ((group.State != Phase::Reading && group.State != Phase::Prepared &&
+         group.State != Phase::Missing) ||
+        group.Provenance != loaded->Provenance) {
+      continue;
+    }
     if (!loaded->Atlas) {
       group.State = Phase::Missing;
       continue;
@@ -120,7 +133,7 @@ bool VegetationStreaming::AcceptCacheResult(std::string &error) {
 }
 
 void VegetationStreaming::PrepareNext() {
-  if (Preparing_ == Tasks::kNoTask) {
+  if (Preparing_ == Tasks::kNoTask && !PreparedAtlas_) {
     const auto missing = std::ranges::find(Groups_, Phase::Missing, &Group::State);
     if (missing != Groups_.end()) {
       PreparingGroup_ = static_cast<size_t>(missing - Groups_.begin());
@@ -133,8 +146,11 @@ void VegetationStreaming::PrepareNext() {
           PreparedError_ = Says::Tree;
           return;
         }
-        auto atlas = BakeImpostorAtlas(*tree, Shape_, PreparedError_);
-        if (atlas) { (void)Cache_.Publish(*atlas, group.Provenance, PreparedError_); }
+        PreparedAtlas_ = BakeImpostorAtlas(*tree, Shape_, PreparedError_);
+        if (PreparedAtlas_ && CacheUse_ == Data::ContentStore::Use::On) {
+          (void)Cache_.Publish(*PreparedAtlas_, group.Provenance, PreparedError_);
+          PreparedAtlas_.reset();
+        }
       });
     }
   }
@@ -152,6 +168,10 @@ bool VegetationStreaming::Step(const Vec3 &eye,
   if (publication == ResourcePublication::Allowed && !AcceptCacheResult(error)) { return false; }
   for (auto &group : Groups_) {
     if (group.State != Phase::Wanted) { continue; }
+    if (CacheUse_ == Data::ContentStore::Use::Off) {
+      group.State = Phase::Missing;
+      continue;
+    }
     if (Cache_.Read(group.Provenance) == Data::ImpostorCache::Request::Full) { break; }
     group.State = Phase::Reading;
   }

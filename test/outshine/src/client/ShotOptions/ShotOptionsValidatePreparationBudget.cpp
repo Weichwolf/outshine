@@ -1,4 +1,5 @@
 #include "src/client/ShotOptions.h"
+#include "src/client/SourceCache.h"
 #include "Check.h"
 #include <array>
 
@@ -7,8 +8,17 @@ int main() {
   using outshine::Client::ReadShotOptions;
   const auto defaults = ReadShotOptions({});
   CHECK(defaults && defaults->PreloadSeconds == 10.0 && defaults->Vegetation &&
-            !defaults->Offline && defaults->CacheDirectory == "/tmp/outshine-drive-cache",
-        "defaults preserve existing capture behavior");
+            !defaults->Offline && defaults->CacheDirectory.empty(),
+        "default cache is resolved from persistent platform storage at client startup");
+  const auto first = outshine::Client::WithSourceCache({});
+  const auto second = outshine::Client::WithSourceCache({});
+  CHECK(first && second && !first->Cache.empty() && first->Cache == second->Cache,
+        "separate client roots select the same persistent source cache");
+  const auto explicitRoots = outshine::Client::WithSourceCache(
+      {.Assets = "assets", .Shipped = "shipped", .Cache = "/tmp/explicit-cache", .Offline = true});
+  CHECK(explicitRoots && explicitRoots->Assets == "assets" && explicitRoots->Shipped == "shipped" &&
+            explicitRoots->Cache == "/tmp/explicit-cache" && explicitRoots->Offline,
+        "explicit cache, library roots and offline policy are preserved");
   const char *valid[] = {"--rows",
                          "--stats",
                          "--measures",

@@ -80,7 +80,11 @@ int main() {
   if (!live) { return Report(); }
   const std::array<WorldInstance, 2> instances{{{.Cluster = 0}, {.Cluster = 1}}};
   const auto initialPieces = renderer.PiecesStanding();
-  for (int cycle = 0; cycle < 3; ++cycle) {
+  for (int cycle = 0; cycle < 4; ++cycle) {
+    if (cycle == 3) {
+      config.Cache.Store.Using = Data::ContentStore::Use::Off;
+      config.Cache.Store.Directory = (directory / "unwritten").string();
+    }
     auto crowns = VegetationStreaming::Create(
         renderer, catalogue, instances, TangentFrame::At({}), config, error);
     CHECK(crowns && crowns->Wanted() == 2, "both cluster groups are retained");
@@ -89,7 +93,7 @@ int main() {
     bool stepped = true;
     while (!crowns->Ready() && std::chrono::steady_clock::now() < deadline) {
       if (!crowns->Step(
-              {{0, 0, 10}}, false, VegetationStreaming::ResourcePublication::Allowed, error)) {
+              {{0, 0, 10}}, cycle == 3, VegetationStreaming::ResourcePublication::Allowed, error)) {
         stepped = false;
         break;
       }
@@ -112,6 +116,8 @@ int main() {
             "rebound crown groups retain every resident prototype");
     }
     crowns.reset();
+    CHECK(!std::filesystem::exists(directory / "unwritten"),
+          "RAM-only preparation publishes every group without creating an artifact cache");
     CHECK(renderer.PiecesStanding() == initialPieces,
           "destroying crowns releases all their render pieces");
     CHECK(catalogue.EnsureCatalogue(vegetation, (directory / "species").string(), error, false) &&

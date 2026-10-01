@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_VEGETATIONSTREAMING_H
 
 #include "ImpostorCache.h"
+#include <optional>
 #include "ImpostorAtlasShape.h"
 #include "ImpostorInstances.h"
 #include "WorldPlacement.h"
@@ -35,7 +36,7 @@ public:
   [[nodiscard]] size_t Wanted() const { return Groups_.size(); }
 
 private:
-  enum class Phase { Wanted, Reading, Missing, Preparing, Resident };
+  enum class Phase { Wanted, Reading, Missing, Preparing, Prepared, Resident };
 
   struct Group {
     const Generators::TreeSpecies *Species = nullptr;
@@ -54,7 +55,9 @@ private:
   Tasks Io_{2};
   Tasks Preparation_{1};
   Data::ImpostorCache Cache_;
+  Data::ContentStore::Use CacheUse_;
   Content::ImpostorAtlasShape Shape_;
+  std::optional<Content::ImpostorAtlas> PreparedAtlas_;
   Tasks::Handle Preparing_ = Tasks::kNoTask;
   size_t PreparingGroup_ = 0;
   std::string PreparedError_, Failure_;

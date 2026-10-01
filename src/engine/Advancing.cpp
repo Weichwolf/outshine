@@ -516,8 +516,7 @@ bool Engine::State::UpdateVegetation(bool prepare) {
   if (World.GroundBuild) { return true; }
   if (!World.Vegetation) {
     VegetationStreaming::Config config;
-    config.Cache.Store.Directory =
-        Session.Under.Cache.empty() ? std::string{} : Session.Under.Cache + "/crowns";
+    config.Cache.Store.Using = Data::ContentStore::Use::Off;
     const auto frame =
         TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                           .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});

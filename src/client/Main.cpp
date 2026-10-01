@@ -1,6 +1,7 @@
 #include "CommandLine.h"
 #include "ProcessBoundary.h"
 #include "ShotOptions.h"
+#include "SourceCache.h"
 #include "WorldSourcePolicy.h"
 #include <chrono>
 #include <expected>
@@ -172,7 +173,7 @@ void Usage(std::string_view verb = {}) {
         "  --samples                       save route-decile PNGs; requires --motion\n"
         "  --quality playable|refined      minimum final capture quality (default playable)\n"
         "  --into <folder>                 relative to build/shots/ (default khronos)\n"
-        "  --cache-dir <directory>         default /tmp/outshine-drive-cache\n"
+        "  --cache-dir <directory>         default SDL user-data directory/sources\n"
         "  --offline                       use only cached and shipped sources\n"
         "  --rows                          machine-readable capture rows\n"
         "  --stats                         timing, readiness and source STAT rows\n"
@@ -188,7 +189,7 @@ void Usage(std::string_view verb = {}) {
   } else if (verb == "shots") {
     std::println("Usage: outshine-client shots [options] [--all | <place> ...]\n"
                  "  --preload-seconds <seconds>     positive preparation timeout, default 10\n"
-                 "  --cache-dir <directory>         default /tmp/outshine-drive-cache\n"
+                 "  --cache-dir <directory>         default SDL user-data directory/sources\n"
                  "  --offline                       use only cached and shipped sources\n"
                  "  --no-vegetation                 disable vegetation in captured scenarios\n"
                  "  --audit                         run image audit\n"
@@ -339,7 +340,11 @@ void PrintStats(std::string_view name,
     return false;
   }
   engine.logsTo(&gTelling);
-  if (const auto rooted = engine.setRoots(std::move(roots)); !rooted) {
+  if (const auto rooted = outshine::Client::WithSourceCache(std::move(roots))
+                              .and_then([&](outshine::Roots resolved) {
+                                return engine.setRoots(std::move(resolved));
+                              });
+      !rooted) {
     std::println("outshine-client: the engine rejected its roots -- {}", rooted.error());
     return false;
   }
