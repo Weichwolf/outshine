@@ -26,6 +26,8 @@ und veröffentlicht vollständige Nachfrage atomar; Fehler erhalten den gültige
 Explizite Zell-/Snapshot-Quoten zählen gepinnte Altstände weiter. Reale RAM-Spitzen sind offen.
 Flensburgs Kameraausschnitt lädt über die offizielle API und offline aus denselben Rohbytes.
 Native Gebäude erreichen die gemeinsame Queue, Terrain-Stempel und beleuchtete Client-Bilder.
+Der regionale Gebäudejob pinnt Originaldaten direkt; ihre eigene Publikationsrevision
+invalidiert Kandidaten ohne Verkehrsgraph. Nur deklarierte Routen fordern dessen Aufbau.
 Automatische Nachfrage, native Wasser-/Straßendarstellung und volle Quellenabdeckung fehlen.
 Weltweite Abdeckung braucht residente Quellenzellen statt größere regionale Träger.
 Das Place-Gate bleibt rot; analytisches Terrain und regionale Sicht sind nur Diagnosen.
@@ -44,6 +46,7 @@ Das Place-Gate bleibt rot; analytisches Terrain und regionale Sicht sind nur Dia
   beschafft begrenzt parallele Antworten; Compute-Jobs prüfen Pins und parsen je Zelle.
   Abbruch/Frist erhalten den Altstand; Beschaffungszeit misst verstrichene Zeit.
 - Bereitschaft prüft angeforderte Produkte unabhängig von Terrain oder Renderziel.
+  Originalquellen und verlangte Verkehrsgraphen haben getrennte Bereitschaft und Revisionen.
   Vorladen wartet auf deren tatsächliche Worker; terminale Quellenfehler verhindern
   Aufnahme und Publikation. Szenen ohne angeforderte Weltprodukte sind sofort bereit.
 - Je Quellenzelle hält ein gepinnter `OsmSourceSnapshot` typisierte IDs, Nodes,

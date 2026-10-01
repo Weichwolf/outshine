@@ -60,6 +60,8 @@ Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
 - `BuildingField::AcceptedInput` pinnt Geometrie und Quelle je Produkt; Indizes gelten
   nur in dessen Points/Rings. `BuildingStampJob` und `Laying` verwenden diese Besitzer.
   OSM verformt DEM über dieselben Terrain-Stempel wie vorhandene Straßen und Gebäude.
+  Regionale Gebäudekandidaten pinnen die Originalquelle direkt. Ihre Publikationsrevision
+  erneuert Kandidaten unabhängig vom nur für deklarierte Routen benötigten Verkehrsgraphen.
   Ersatz publiziert atomar; Fehler erhalten gültigen Altstand und Straßenqualität.
 - Original-IDs erschließen Tags für `StructurePlan`/`BuildingMesh` gemäß 2173;
   Klassen, Dächer, Material und Parts bleiben erhalten. Schornsteine sind keine Wohnhäuser.

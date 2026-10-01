@@ -21,6 +21,8 @@ Terrain-Worker; Float-Meter, Zellgrenzen, fehlende Posts und Originalrevisionen
 bleiben erhalten. IO verwendet denselben Providervertrag für eingebaute und externe
 Quellen. Der eingebaute Terrain-Default ist GLO-30; reale Place-Bilder und Budgets
 sind noch nicht abgenommen. Native Zertifikate bleiben unbewiesen.
+Die Engine wählt ihr Terrain-Raster unabhängig vom Quellen-Zelllevel; native
+1°-Adressierung setzt weder Render-Zoom noch Geländeabdeckung auf eine Weltkachel zurück.
 Decoder und historische Prüfdateien bleiben erhalten. Alte Provider und unbenutzte Quellenpfade entfernen;
 gemeinsam genutzte Terrain-/Straßenlogik erhalten. Kamera, Zeit, offizielle OSM-Daten und Open-Meteo bleiben
 die übrigen erlaubten Eingaben. Fehlende GLO-30-Daten sind kein Meeresspiegelwert.
