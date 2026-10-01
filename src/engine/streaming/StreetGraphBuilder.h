@@ -45,7 +45,7 @@ public:
 
   [[nodiscard]] static Built BuildOneShot(const Ground::StreetField &ways,
                                           std::span<const double> points,
-                                          Path::Network::HeightSource heightOf);
+                                          const Path::Network::HeightSource &heightOf);
 
 private:
   friend class StreetGraphBuildJob;

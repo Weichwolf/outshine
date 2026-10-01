@@ -22,7 +22,7 @@ constexpr auto kInvalidStreetPointRange =
 
 StreetGraphBuilder::Built StreetGraphBuilder::BuildOneShot(const Ground::StreetField &ways,
                                                            std::span<const double> points,
-                                                           Path::Network::HeightSource heightOf) {
+                                                           const Path::Network::HeightSource &heightOf) {
   Built made;
   auto created =
       Path::Network::Create(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = kWgs84A});
