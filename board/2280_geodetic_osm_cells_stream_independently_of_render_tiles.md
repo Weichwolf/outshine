@@ -44,6 +44,9 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   Globale Grobquellen und die vollständige Place-Abnahme bleiben offen.
 - GLO-30: `CopernicusRaster`/libtiff liefern native Meter aus Original-COG-Blöcken/Übersichten.
   HTTP-Bereiche, Dateilänge, starke Revisionspins und Receipt vor Cache/Lieferung prüfen.
+  Vor der Dekodierung fehlende Abschnitte des vollständigen komprimierten Originalblocks
+  laden; libtiffs interne Lesestücke sind keine vollständigen Blöcke. Metadatenbereiche
+  wiederverwenden, überlappende Requests vermeiden, Byte-/Abschnittsgrenzen erhalten.
   PixelIsPoint, Sample-Ursprung, X/Y-Abstände und Raster-NoData aus Metadaten lesen.
   EGM2008-Höhen sind keine Ellipsoidhöhen; DSM-Dächer/Bäume sind kein bewiesener nackter Boden.
 - Native 1°-DEM- und geodätische OSM-Quellzellen bleiben unabhängig von Renderkacheln.
