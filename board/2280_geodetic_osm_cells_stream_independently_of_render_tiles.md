@@ -16,6 +16,8 @@ Vorhanden: regionale Originalbeschaffung, gemeinsame Snapshots und Transportprod
 native Gebäude mit gepinnten Koordinaten, Terrain-Zertifikaten und Stempeln im Client.
 Öffentliche `GeoCellId`-Adressen und der registrierte Original-API-Katalog liefern
 begrenzte Zellantworten mit getrennten Raw-Cachekeys; alte Quelladressen bleiben stabil.
+`ReadOsmApiCells` beschafft begrenzte Zelljobs; `ParseCell` hält Herkunft und Elemente
+je Zelle getrennt. Zellantworten dürfen nicht zum regionalen Snapshot verschmelzen.
 Regionale Diagnosen sind sichtbar; automatische Nachfrage, residente Zellprodukte
 und vollständige Places fehlen. Der regionale Snapshot ersetzt keine weltweite Residenz.
 Weltweite Zellnachfrage bleibt Teil dieser Lieferung; größere Chunk-Limits ersetzen sie nicht.
@@ -23,9 +25,7 @@ Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
 
 ## Besitzer und Quellenvertrag
 - `world/data` besitzt unveränderliche Quellregionen und typisierte OSM-IDs.
-  `GeoCellId(level,x,y)` teilt Länge [-180,180) und Breite [-90,90], level <= 24,
-  Achsen < 2^level; x umläuft, y nicht. Bounds sind halboffen außer am Nordpol.
-  Diese Quellenzellen sind weder Metergrid noch Mercator-Render-/DEM-Kacheln.
+  Der öffentliche `GeoCellId`-Vertrag gilt unabhängig von Render-/DEM-Adressierung.
 - `OsmApiSource` adressiert (Dataset, Revision, GeoCellId) über den öffentlichen
   Provider-/Source-Vertrag. Ein offizieller API-Provider ohne Bounds bezeichnet den
   Katalog; jede Zelladresse bestimmt ihre Bbox und ihren eigenen Rohdaten-Cachekey.
@@ -46,7 +46,10 @@ Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
   Kein globaler Objektmerge und kein Graph aus Straßen-Rendergeometrie.
 
 ## Konkreter Runtime-Anschluss
-- Engine und `OsmTransportLoader::RequestSource` teilen den gepinnten Snapshot.
+- `OsmSourceLoader` besitzt Zellzustände nach Dataset, Revision und Adresse und nutzt
+  seine bestehenden IO-/Compute-Phasen. Der regionale `Current()`-Snapshot bleibt
+  expliziten Diagnosen vorbehalten; keine zusätzliche IO-/Gebäudequeue.
+  Verkehrs- und Gebäudejobs pinnen ihre benötigten Zell-Snapshots.
   `GroundInputsReady` wartet auf verlangte Produkte, nicht pauschal auf alle Graphen.
 - `OriginalStructureInput` liefert `RawTile` an `StructureBuildQueue`.
   Terrain-Anfragen folgen dessen Geometrie statt reduzierten `OsmField`-Features.
@@ -56,12 +59,10 @@ Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
   nur in dessen Points/Rings. `BuildingStampJob` und `Laying` verwenden diese Besitzer.
   OSM verformt DEM über dieselben Terrain-Stempel wie vorhandene Straßen und Gebäude.
   Ersatz publiziert atomar; Fehler erhalten gültigen Altstand und Straßenqualität.
-- Gepinnte Original-IDs erschließen sämtliche Tags für `StructurePlan`/`BuildingMesh`.
-  Klassen, Dachformen und Material bleiben erhalten; `PitchedShare` ersetzt keinen Dachtag.
-  Schornsteine erhalten keine Wohnfassade. Parts behalten Höhenintervalle und Besitzer.
-- `OsmBuildingHeights` normalisiert Höhe/min_height und levels/min_level an der Grenze.
-  Fehlende, gültige und fehlerhafte Angaben bleiben getrennt; Originalstrings bleiben erhalten.
-  Widersprüche löst explizite Generatorpolitik; kein Sentinel wird zur gemessenen Höhe.
+- Original-IDs erschließen Tags für `StructurePlan`/`BuildingMesh` gemäß 2173;
+  Klassen, Dächer, Material und Parts bleiben erhalten. Schornsteine sind keine Wohnhäuser.
+  `OsmBuildingHeights` normalisiert Höhen/Geschosse an der Grenze; fehlende, gültige und
+  fehlerhafte Angaben bleiben getrennt. Kein Sentinel wird zur gemessenen Höhe.
 - Außenring, Höfe und erhöhte Parts bleiben bei jedem LOD erhalten. Kein Stamp, Sockel
   oder Pflaster unter erhöhten Parts; Zusammenfassung füllt weder Hof noch Durchfahrt.
   Earcut trianguliert perforierte Dächer/Böden vor Dachfaltung; Massing bleibt ungeteilt.
@@ -71,9 +72,8 @@ Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
 Alle Azimute erhalten entfernungsangemessene residente Produkte bis zur konfigurierten
 Sichtweite. Frustum begrenzt nur Zeichnen. Bewegung fragt neue Regionen mit Hysterese an;
 Überlast verschiebt Arbeit ohne Frame-Blockade. Kohärente Quellenstände publizieren atomar.
-SSD hält nur empfangene Rohbytes. RAM hält begrenzte Indizes, Staging und CPU-Produkte;
-GPU-Produkte sind vor Drehung zeichenbereit. Budgets folgen Bytes, Wiederverwendung,
-IO-Latenz und Durchsatz; ständig verdrängte aktive Regionen sind keine gültige Residenz.
+SSD hält nur Rohbytes; RAM hält Indizes, Staging und CPU-Produkte. GPU-Produkte sind
+vor Drehung zeichenbereit. Budgets nach AGENTS; aktive Regionen werden nicht ständig verdrängt.
 
 ## Widerlegbare Abnahme
 Zwei benachbarte Originalregionen liefern im Client Gebäude und verbundene Straßen.

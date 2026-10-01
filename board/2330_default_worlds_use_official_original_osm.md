@@ -19,11 +19,12 @@ Die Runtime lädt bis zu zwei unabhängige Originalregionen gleichzeitig; gemein
 Frist und Abbruch räumen laufende Tickets auf. Parsing bleibt auf dem Compute-Worker.
 Der registrierte API-Katalog bedient öffentliche geodätische Zelladressen samt
 separaten Rohdaten-Cachekeys. Seine automatische Nachfrage und Publikation fehlen.
+Begrenzte Zelljobs liefern getrennte geparste Snapshots; der einzelne Bestand wird
+ohne zusätzliche Elementkopie übernommen. Zellantworten werden nicht global gemergt.
 Flensburgs Kameraausschnitt lädt über die offizielle API und offline aus denselben Rohbytes.
 Native Gebäude erreichen die gemeinsame Queue, Terrain-Stempel und beleuchtete Client-Bilder.
 Automatische Nachfrage, native Wasser-/Straßendarstellung und volle Quellenabdeckung fehlen.
-Vier Antworten mit jeweils höchstens 4 MiB begrenzen den regionalen Träger auf 16 MiB.
-Weltweite Abdeckung braucht unabhängige residente Quellenzellen statt größere globale Merges.
+Weltweite Abdeckung braucht residente Quellenzellen statt größere regionale Träger.
 Das Place-Gate bleibt rot; analytisches Terrain und regionale Sicht sind nur Diagnosen.
 
 ## Architektur und Implementierung
@@ -33,24 +34,22 @@ Das Place-Gate bleibt rot; analytisches Terrain und regionale Sicht sind nur Dia
 - `world/data` beschafft bounded Regionsdaten von `api.openstreetmap.org/api/0.6`.
   Abfrage: `map?bbox=west,south,east,north`; erforderliche Originalobjekte über
   `way/{id}/full` beziehungsweise `relation/{id}/full` ergänzen und Hülle erneut prüfen.
-  Räumliche Nachfrage, Quellenabdeckung, Revision und Byte-Pins sind explizit.
-  IO/Parse laufen in begrenzten Jobs; Cache enthält ausschließlich Netzantworten.
-  Gleichartige Anfragen teilen Quelle/Resultat. Kein synchrones IO beim Zeichnen.
+  Nachfrage, Abdeckung, Revision und Byte-Pins sind explizit. Begrenzte IO-/Parse-Jobs
+  teilen gleichartige Anfragen; Cache hält Netzantworten. Kein IO beim Zeichnen.
   `kind=osm` deklariert entweder eine lokale Originaldatei oder exakt den offiziellen
-  API-Basisendpoint samt Bounds. Ein IO-Worker beschafft begrenzt parallele Originalantworten
-  über bestehende Transport-/Cache-Verträge; Compute-Jobs prüfen Pins, parsen und mergen.
-  Abbruch und Ablauf der gemeinsamen Anfragefrist erhalten den bisherigen Snapshot.
-  Gemeldete Beschaffungszeit ist verstrichene Zeit, keine Summe überlappender Downloads.
+  API-Basisendpoint: mit Bounds als Region, ohne Bounds als Zellkatalog. Ein IO-Worker
+  beschafft begrenzt parallele Antworten; Compute-Jobs prüfen Pins und parsen je Zelle.
+  Abbruch/Frist erhalten den Altstand; Beschaffungszeit misst verstrichene Zeit.
 - Bereitschaft prüft angeforderte Produkte unabhängig von Terrain oder Renderziel.
   Vorladen wartet auf deren tatsächliche Worker; terminale Quellenfehler verhindern
   Aufnahme und Publikation. Szenen ohne angeforderte Weltprodukte sind sofort bereit.
-- Ein gemeinsamer gepinnter `OsmSourceSnapshot` hält typisierte IDs, Nodes,
+- Je Quellenzelle hält ein gepinnter `OsmSourceSnapshot` typisierte IDs, Nodes,
   Way-Referenzen, Relationsrollen und alle Tags. Konsumierte Produkte fordern
   ihre transitive Referenzhülle an; fremde unvollständige Fernrelationen bleiben
   erhalten und sperren kein unabhängiges vollständiges Produkt.
-- Dataset-Revision und Datei-Prüfsumme getrennt halten: benachbarte unterschiedliche
-  Originalantworten müssen unter einer Region konsistent zusammengeführt werden
-  können, ohne ihre jeweiligen Byte-Pins zu verlieren. Konflikte erhalten den Altstand.
+- Dataset-Revision und Datei-Prüfsumme getrennt halten. Die Runtime hält Zellbestände
+  unabhängig; gemeinsame typisierte Referenzen schließen konsumierte Produkte.
+  Begrenzte Diagnosen dürfen Regionen zusammenführen. Konflikte erhalten den Altstand.
 - Native Gebäudejobs verwenden `OriginalStructureInput`, bestehende DEM-Zertifikate,
   Zell-/LOD-Planung und atomare Publikation. Kein Umweg über reduzierte MVT-Properties.
   Sonderbauwerksklasse, Parts, Höfe, Höhe/Mindesthöhe und Dachangaben erreichen
@@ -65,7 +64,7 @@ Das Place-Gate bleibt rot; analytisches Terrain und regionale Sicht sind nur Dia
   konfigurierte Sicht nicht; unvollständige Nachfrage bleibt ausdrücklich unvollständig.
 
 ## Verbindliche Lieferreihenfolge
-1. P0: Kamera/Sichtweite fordern gemeinsame Originalregionen an (2280); Default-OSM
+1. P0: Kamera/Sichtweite fordern native Originalzellen an (2280); Default-OSM
    und Copernicus-Adapter (2331) liefern echte Quellen statt Place-Sonderpfaden.
 2. P0: Flensburg integriert native Straßen, Gebäude und Wasser (2145); bestehende
    Straßenprofile/Stempel erhalten. Klassen, Parts und Dächer anschließen (2173).
