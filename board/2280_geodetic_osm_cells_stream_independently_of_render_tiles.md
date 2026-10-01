@@ -38,6 +38,9 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   das Node-Limit von 50.000; überlastete Zellen liefern kein gültiges Leerprodukt.
   Der HTTP-Adapter typisiert Kapazitätsablehnungen; OsmCellRefinement ersetzt betroffene Zellen
   durch vier flächendeckende Kinder. Zellzahl, Tiefe, Speicher und Gesamtdauer bleiben begrenzt.
+  IO bevorzugt bereits verfeinerte Blätter vor weiteren groben Kapazitätsproben. Begrenzte
+  Vorbereitungen hinterlassen vollständige Original-Teilregionen; die globale Publikation
+  bleibt atomar. Diese Reihenfolge senkt weder die Gesamtanfragen noch beweist sie das Ladebudget.
   Erst die vollständige Blattmenge publizieren; unveränderte Pläne und Blätter wiederverwenden.
   Quellzellen nicht allein am Sichtkreis wegschneiden: nodebasierte API-Abfragen können
   über äußere Nodes auch Geometrie innerhalb des Radius liefern. Objektabschluss zuerst beweisen.
