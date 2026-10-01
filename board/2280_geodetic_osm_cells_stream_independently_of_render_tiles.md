@@ -49,9 +49,12 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
 - Nur Original-Netzwerkbytes persistent cachen. Generator-Artefakt-Lookups/-Writes aus
   Client-Pfaden entfernen; vorhandene Dateien erhalten. RAM-/GPU-Produkte bleiben resident.
   Client, Shots und Prepare teilen dauerhaften SDL-Nutzerspeicher; kein Temp-Default.
-  Als Nächstes vollständige Blattpläne in neuen Prozessen aus adressqualifizierten Netzwerk-
-  Receipts rekonstruieren: warme Starts dürfen überlastete Eltern nicht erneut remote abfragen.
-  ContentStore/SourceSet besitzen diese Quellidentität; keine Generatorprodukte persistieren.
+  ContentStore/SourceSet speichern adressqualifizierte Netzwerk-Receipts mit Payload-Digest.
+  Neue Prozesse rekonstruieren vollständige Blattabdeckung aus vorhandenen Originalbytes;
+  überlastete Eltern brauchen bei vollständigem Quellcache keine erneute Remote-Abfrage.
+  Fehlende oder beschädigte Bytes sind keine Abdeckung. Keine Generatorprodukte persistieren.
+  Als Nächstes Quellabfragen außerhalb des vollständigen Bedarfs entfernen und den tatsächlichen
+  Place-Aufbau messen; Cache-Erkennung allein beweist weder Ladebudget noch Bildqualität.
   Die vorhandene Kronenvorbereitung übergibt Atlanten direkt im RAM; kein Runtime-Diskcache.
   Explizite Cachepfade bleiben erhalten. Per-Zell-Bytes qualifizieren den Katalog `current`;
   dieser Name behauptet keinen atomaren weltweiten OSM-Zeitstand.

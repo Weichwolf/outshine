@@ -75,6 +75,10 @@
 
 ## Architektur und Code
 
+- Sobald ich unklare oder fachlich falsche Namen für Klassen, Funktionen, Namespaces
+  oder andere Bezeichner erkenne, korrigiere ich sie. Namen entsprechen ihrer Bedeutung
+  und Zuständigkeit; Dateien liegen beim verantwortlichen Modul. Ich migriere sämtliche
+  Aufrufer einschließlich der öffentlichen API, statt alte Namen durch Alias-Schichten zu erhalten.
 - Ich trenne Provider, Generatoren, Weltzustand und Renderer/Audio; Engine koordiniert.
   Eingebaute und externe Erweiterungen verwenden dieselben öffentlichen Verträge und Registrierungen.
   Die API ist Greenfield; Verbesserungen migrieren sämtliche Aufrufer. Private Sonderpfade korrigiere ich.
