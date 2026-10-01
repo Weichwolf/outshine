@@ -22,7 +22,7 @@ constexpr double kIoAwaitMs = 5.0;
 constexpr size_t kConcurrentRegions = 2;
 
 struct Region {
-  Region(ContentStore &store, Transport &wire) : Sources(store), Wire(wire) {}
+  Region(ContentStore &store, Transport &wire, Address at) : Sources(store), Wire(wire), At(at) {}
 
   ~Region() {
     if (Query) { SourceSet::Abandon(*Query, Wire); }
@@ -30,6 +30,7 @@ struct Region {
 
   SourceSet Sources;
   Transport &Wire;
+  Address At;
   std::optional<SourceSet::Query> Query;
 };
 
@@ -37,22 +38,44 @@ std::expected<std::unique_ptr<Region>, std::string> MakeRegion(const SourceProvi
                                                                ContentStore &store,
                                                                Transport &wire,
                                                                const ProviderRegistry *registry,
-                                                               std::string_view shippedRoot) {
+                                                               std::string_view shippedRoot,
+                                                               std::optional<GeoCellId> cell) {
   auto source = MakeDeclaredSource(provider, shippedRoot, registry);
   if (!source) { return std::unexpected(std::move(source.error())); }
   if ((*source)->Declaration().Kind != DataKind::OriginalOsm ||
       (*source)->Declaration().Wire != WireFormat::OsmXml) {
     return std::unexpected("an original OSM provider must supply original OSM XML");
   }
-  if ((*source)->Declaration().How != Scheme::WholeWorld) {
+  if (!cell && (*source)->Declaration().How != Scheme::WholeWorld) {
     return std::unexpected("an original OSM catalogue requires geographic cell demand");
   }
-  auto region = std::make_unique<Region>(store, wire);
+  const auto at = cell ? Address::AtGeoCell(*cell) : Address::Whole(0);
+  if (cell && ((*source)->Declaration().How != Scheme::GeodeticGrid ||
+               (*source)->Covers(Fetch(DataKind::OriginalOsm, at)) != Coverage::Inside ||
+               (*source)->Serves(Fetch(DataKind::OriginalOsm, at)) != at)) {
+    return std::unexpected("an original OSM catalogue refused geographic cell demand");
+  }
+  auto region = std::make_unique<Region>(store, wire, at);
   if (region->Sources.Add(std::move(*source)) != SourceSet::Registration::Accepted) {
     return std::unexpected("original OSM source registration failed");
   }
   region->Sources.Seal();
   return region;
+}
+
+OsmSourceChunk
+MakeChunk(const SourceProvider &provider, const Region &region, std::optional<GeoCellId> cell) {
+  const auto &declaration = region.Sources.At(0).Declaration();
+  OsmSourceChunk chunk{
+      .Provider = provider, .Xml = {}, .Origin = declaration.Endpoint, .Cell = cell};
+  if (cell) {
+    chunk.Provider.Dataset = declaration.Id;
+    chunk.Provider.Revision = declaration.Revision;
+    chunk.Provider.PayloadSha256 = declaration.PayloadSha256;
+    chunk.Provider.Coverage = cell->Bounds();
+    chunk.Origin += "/" + region.At.Text();
+  }
+  return chunk;
 }
 
 std::expected<bool, std::string>
@@ -72,27 +95,26 @@ CollectRegion(Region &region, OsmSourceChunk &chunk, Transport &wire, double beg
   return std::unexpected("original OSM source '" + chunk.Origin +
                          "' failed: " + std::string(Name(reason)));
 }
-}
 
-std::expected<OsmSourceRead, std::string>
-ReadOsmApiRegions(std::span<const SourceProvider> providers,
-                  ContentStore &store,
-                  Transport &wire,
-                  double deadlineMs,
-                  const std::stop_token &stop,
-                  const ProviderRegistry *registry,
-                  std::string_view shippedRoot) {
+std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourceProvider> providers,
+                                                       std::span<const GeoCellId> cells,
+                                                       ContentStore &store,
+                                                       Transport &wire,
+                                                       double deadlineMs,
+                                                       const std::stop_token &stop,
+                                                       const ProviderRegistry *registry,
+                                                       std::string_view shippedRoot) {
   const double began = wire.NowMs();
   std::vector<std::unique_ptr<Region>> regions;
   std::vector<OsmSourceChunk> chunks;
   regions.reserve(providers.size());
   chunks.reserve(providers.size());
-  for (const auto &provider : providers) {
-    auto region = MakeRegion(provider, store, wire, registry, shippedRoot);
+  for (size_t at = 0; at < providers.size(); ++at) {
+    const auto &provider = providers[at];
+    const auto cell = cells.empty() ? std::nullopt : std::optional(cells[at]);
+    auto region = MakeRegion(provider, store, wire, registry, shippedRoot, cell);
     if (!region) { return std::unexpected(std::move(region.error())); }
-    chunks.push_back({.Provider = provider,
-                      .Xml = {},
-                      .Origin = (*region)->Sources.At(0).Declaration().Endpoint});
+    chunks.push_back(MakeChunk(provider, **region, cell));
     regions.push_back(std::move(*region));
   }
   std::vector<double> beganMs(providers.size());
@@ -108,7 +130,7 @@ ReadOsmApiRegions(std::span<const SourceProvider> providers,
     }
     while (next < regions.size() && next - completed < kConcurrentRegions) {
       regions[next]->Query.emplace(
-          regions[next]->Sources.Ask(Fetch(DataKind::OriginalOsm, Address::Whole(0))));
+          regions[next]->Sources.Ask(Fetch(DataKind::OriginalOsm, regions[next]->At)));
       beganMs[next] = nowMs;
       ++next;
     }
@@ -122,6 +144,36 @@ ReadOsmApiRegions(std::span<const SourceProvider> providers,
     (void)wire.Await(std::min(kIoAwaitMs, std::max(0.0, deadlineMs - wire.NowMs())));
   }
   return OsmSourceRead{.Chunks = std::move(chunks), .ElapsedMs = wire.NowMs() - began};
+}
+}
+
+std::expected<OsmSourceRead, std::string> ReadOsmApiCells(const SourceProvider &catalogue,
+                                                          std::span<const GeoCellId> cells,
+                                                          ContentStore &store,
+                                                          Transport &wire,
+                                                          double deadlineMs,
+                                                          const std::stop_token &stop,
+                                                          const ProviderRegistry *registry,
+                                                          std::string_view shippedRoot) {
+  if (cells.empty() || cells.size() > kConcurrentRegions) {
+    return std::unexpected("original OSM cell jobs require one or two geographic cells");
+  }
+  if (cells.size() == kConcurrentRegions && cells.front() == cells.back()) {
+    return std::unexpected("original OSM cell jobs require distinct addresses");
+  }
+  const std::vector<SourceProvider> providers(cells.size(), catalogue);
+  return ReadRequests(providers, cells, store, wire, deadlineMs, stop, registry, shippedRoot);
+}
+
+std::expected<OsmSourceRead, std::string>
+ReadOsmApiRegions(std::span<const SourceProvider> providers,
+                  ContentStore &store,
+                  Transport &wire,
+                  double deadlineMs,
+                  const std::stop_token &stop,
+                  const ProviderRegistry *registry,
+                  std::string_view shippedRoot) {
+  return ReadRequests(providers, {}, store, wire, deadlineMs, stop, registry, shippedRoot);
 }
 
 std::expected<OsmSourceChunk, std::string> ReadOsmApiRegion(const SourceProvider &provider,

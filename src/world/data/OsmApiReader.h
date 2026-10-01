@@ -14,6 +14,16 @@ struct OsmSourceRead {
 };
 
 [[nodiscard]] std::expected<OsmSourceRead, std::string>
+ReadOsmApiCells(const SourceProvider &catalogue,
+                std::span<const GeoCellId> cells,
+                ContentStore &store,
+                Transport &wire,
+                double deadlineMs,
+                const std::stop_token &stop,
+                const ProviderRegistry *registry = nullptr,
+                std::string_view shippedRoot = {});
+
+[[nodiscard]] std::expected<OsmSourceRead, std::string>
 ReadOsmApiRegions(std::span<const SourceProvider> providers,
                   ContentStore &store,
                   Transport &wire,

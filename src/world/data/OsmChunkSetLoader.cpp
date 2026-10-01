@@ -1,9 +1,11 @@
 #include "OsmChunkSetLoader.h"
 
 #include <chrono>
+#include <algorithm>
 #include <cstddef>
 #include <expected>
 #include <filesystem>
+#include <optional>
 #include <ratio>
 #include <span>
 #include <stop_token>
@@ -39,6 +41,23 @@ constexpr std::string_view kSha256PinPrefix = "sha256:";
 [[nodiscard]] std::string ElementError(const OsmMergeError &error) {
   return "semantic OSM merge failed at source element " + std::to_string(error.Id) + " with code " +
          std::to_string(static_cast<int>(error.Code));
+}
+
+std::expected<OsmElements, OsmMergeError> FinishChunks(std::vector<OsmElements> &chunks) {
+  if (chunks.size() != 1) { return OsmElements::Merge(chunks, kMaxInputElements); }
+  const auto &single = chunks.front();
+  size_t remaining = kMaxInputElements;
+  for (const auto [count, kind] :
+       {std::pair{single.Nodes().size(), OsmElementKind::Node},
+        std::pair{single.Ways().size(), OsmElementKind::Way},
+        std::pair{single.Relations().size(), OsmElementKind::Relation}}) {
+    if (count > remaining) {
+      return std::unexpected(
+          OsmMergeError{.Code = OsmMergeErrorCode::BudgetExceeded, .Kind = kind, .Id = 0});
+    }
+    remaining -= count;
+  }
+  return std::move(chunks.front());
 }
 
 }
@@ -93,6 +112,23 @@ OsmChunkSetLoader::ReadRegion(std::span<const SourceProvider> providers,
 
 std::expected<OsmSourceSnapshot, std::string>
 OsmChunkSetLoader::ParseRegion(std::span<const OsmSourceChunk> input, const std::stop_token &stop) {
+  if (std::ranges::any_of(input, [](const auto &chunk) { return chunk.Cell.has_value(); })) {
+    return std::unexpected("geographic OSM cells require independent parsing");
+  }
+  return ParseChunks(input, stop);
+}
+
+std::expected<OsmSourceSnapshot, std::string>
+OsmChunkSetLoader::ParseCell(const OsmSourceChunk &input, const std::stop_token &stop) {
+  const auto bounds = input.Cell ? input.Cell->Bounds() : std::nullopt;
+  if (!bounds || bounds != input.Provider.Coverage) {
+    return std::unexpected("original OSM cell address does not match its coverage");
+  }
+  return ParseChunks(std::span(&input, 1), stop);
+}
+
+std::expected<OsmSourceSnapshot, std::string>
+OsmChunkSetLoader::ParseChunks(std::span<const OsmSourceChunk> input, const std::stop_token &stop) {
   std::vector<OsmElements> chunks;
   std::vector<SourceCoverage> coverage;
   std::vector<OsmChunkProvenance> provenance;
@@ -141,7 +177,7 @@ OsmChunkSetLoader::ParseRegion(std::span<const OsmSourceChunk> input, const std:
 
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   const auto mergeAt = std::chrono::steady_clock::now();
-  auto merged = OsmElements::Merge(chunks, kMaxInputElements);
+  auto merged = FinishChunks(chunks);
   parseMs += MillisecondsSince(mergeAt);
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   if (!merged) { return std::unexpected(ElementError(merged.error())); }
@@ -150,7 +186,8 @@ OsmChunkSetLoader::ParseRegion(std::span<const OsmSourceChunk> input, const std:
                            .SourceBytes = bytes,
                            .ReadMs = readMs,
                            .ParseMs = parseMs,
-                           .Chunks = std::move(provenance)};
+                           .Chunks = std::move(provenance),
+                           .Cell = input.size() == 1 ? input.front().Cell : std::nullopt};
 }
 
 std::expected<OsmSourceSnapshot, std::string>

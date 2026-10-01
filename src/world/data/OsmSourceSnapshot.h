@@ -2,11 +2,13 @@
 #define OUTSHINE_WORLD_DATA_OSMSOURCESNAPSHOT_H
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "OsmElements.h"
 #include <world/SourceProvider.h>
+#include <world/data/GeoCellId.h>
 
 namespace outshine::Data {
 
@@ -24,6 +26,7 @@ struct OsmSourceSnapshot {
   double ReadMs = 0.0;
   double ParseMs = 0.0;
   std::vector<OsmChunkProvenance> Chunks;
+  std::optional<GeoCellId> Cell = std::nullopt;
 };
 
 }

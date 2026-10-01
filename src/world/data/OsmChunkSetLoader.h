@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <expected>
 #include <functional>
+#include <optional>
 #include <span>
 #include <stop_token>
 #include <string>
@@ -21,6 +22,7 @@ struct OsmSourceChunk {
   std::string Origin;
   double ReadMs = 0.0;
   bool FromStore = false;
+  std::optional<GeoCellId> Cell = std::nullopt;
 };
 
 class OsmChunkSetLoader {
@@ -38,6 +40,9 @@ public:
   ParseRegion(std::span<const OsmSourceChunk> input, const std::stop_token &stop = {});
 
   [[nodiscard]] static std::expected<OsmSourceSnapshot, std::string>
+  ParseCell(const OsmSourceChunk &input, const std::stop_token &stop = {});
+
+  [[nodiscard]] static std::expected<OsmSourceSnapshot, std::string>
   LoadRegion(std::span<const SourceProvider> providers,
              std::string_view shippedRoot,
              const std::stop_token &stop = {});
@@ -46,6 +51,10 @@ public:
   Load(std::span<const SourceProvider> providers,
        std::string_view shippedRoot,
        const std::stop_token &stop = {});
+
+private:
+  [[nodiscard]] static std::expected<OsmSourceSnapshot, std::string>
+  ParseChunks(std::span<const OsmSourceChunk> input, const std::stop_token &stop);
 };
 
 }
