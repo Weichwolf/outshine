@@ -37,10 +37,18 @@ size_t OsmSourceLoader::Cells::ChargedBytes() const noexcept {
   return bytes;
 }
 
-std::vector<Data::GeoCellId> OsmSourceLoader::Cells::NextBatch() const {
+std::vector<Data::GeoCellId> OsmSourceLoader::Cells::NextAcquisitionBatch() const {
   std::vector<Data::GeoCellId> batch;
-  for (size_t at = 0; at < Wanted.size() && batch.size() < 2; ++at) {
-    if (!Preparing[at].Snapshot) { batch.push_back(Wanted[at]); }
+  batch.reserve(3);
+  const auto acquisitionOrder = [](Data::GeoCellId left, Data::GeoCellId right) {
+    return left.Level != right.Level ? left.Level > right.Level : Before(left, right);
+  };
+  for (size_t at = 0; at < Wanted.size(); ++at) {
+    if (Preparing[at].Snapshot) { continue; }
+    const auto position = std::ranges::lower_bound(batch, Wanted[at], acquisitionOrder);
+    if (position - batch.begin() == 2) { continue; }
+    batch.insert(position, Wanted[at]);
+    if (batch.size() > 2) { batch.pop_back(); }
   }
   return batch;
 }

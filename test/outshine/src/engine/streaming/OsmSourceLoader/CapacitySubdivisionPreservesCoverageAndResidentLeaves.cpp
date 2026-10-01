@@ -13,10 +13,12 @@
 #include <thread>
 
 namespace {
-class ApiWire final : public outshine::Data::Transport {
+class CapacityLimitedOsmTransport final : public outshine::Data::Transport {
 public:
   std::atomic<int> Starts{0}, Blocked{0};
   std::atomic<bool> BlockLeaves{false};
+  std::atomic<double> BlockFromWest{1000};
+  std::atomic<int> BlockedLaterRegion{0};
   double WidthMost = 0.4;
   std::map<outshine::Data::Ticket, std::array<double, 4>> Bounds;
 
@@ -34,6 +36,10 @@ public:
 
   outshine::Data::Wire Collect(outshine::Data::Ticket ticket) override {
     const auto bounds = Bounds.at(ticket);
+    if (bounds[0] >= BlockFromWest) {
+      ++BlockedLaterRegion;
+      return outshine::Data::Wire::Working();
+    }
     const bool crowded = bounds[2] - bounds[0] > WidthMost;
     if (!crowded && BlockLeaves) {
       ++Blocked;
@@ -88,7 +94,7 @@ int main() {
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated adaptive source cache created");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   Tasks compute(1);
-  ApiWire wire;
+  CapacityLimitedOsmTransport wire;
   OsmSourceLoader loader(compute, &wire, directory);
   CHECK(loader.RequestCells(provider, roots, limits, ".") && Settled(loader) &&
             loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
@@ -139,7 +145,7 @@ int main() {
             Settled(loader) && loader.CurrentPhase() == OsmSourceLoader::Phase::Failed &&
             loader.Error().find("level budget") != std::string_view::npos,
         "the depth bound terminates overloaded demand explicitly");
-  ApiWire nested;
+  CapacityLimitedOsmTransport nested;
   nested.WidthMost = 0.2;
   OsmSourceLoader deeper(compute, &nested, directory);
   revision.Revision = "adaptive-nested";
@@ -148,7 +154,7 @@ int main() {
             deeper.CurrentCells().size() == 16 && nested.Starts == 21,
         "repeated subdivision publishes sixteen leaves after one parent and four child refusals");
   {
-    ApiWire offline;
+    CapacityLimitedOsmTransport offline;
     offline.BlockLeaves = true;
     OsmSourceLoader fresh(compute, &offline, directory);
     CHECK(fresh.RequestCells(provider, roots, limits, ".") && Settled(fresh) &&
@@ -160,6 +166,29 @@ int main() {
               fresh.CurrentCells().size() == 16 && offline.Starts == 0,
           "a new source revision reconstructs nested cached leaves without retrying overloaded "
           "parents");
+  }
+  {
+    CapacityLimitedOsmTransport interrupted;
+    const std::array demand{roots[0],
+                            GeoCellId{.Level = 9, .X = 271, .Y = 411},
+                            GeoCellId{.Level = 9, .X = 272, .Y = 411}};
+    interrupted.BlockFromWest = demand.back().Bounds()->WestDeg;
+    revision.Revision = "adaptive-interrupted";
+    OsmSourceLoader preparing(compute, &interrupted, directory);
+    CHECK(preparing.RequestCells(revision, demand, limits, ".") &&
+              Await(preparing, [&interrupted] { return interrupted.BlockedLaterRegion != 0; }) &&
+              preparing.CurrentCells().empty(),
+          "an unfinished later region prevents global publication");
+    CapacityLimitedOsmTransport cached;
+    cached.BlockLeaves = true;
+    OsmSourceLoader resumed(compute, &cached, directory);
+    CHECK(resumed.RequestCells(revision, std::span(demand).first(2), limits, ".") &&
+              Settled(resumed) && resumed.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              resumed.CurrentCells().size() == 8 && cached.Starts == 0,
+          "finite acquisition completes refined source regions before probing later roots");
+    interrupted.BlockFromWest = 1000;
+    CHECK(Settled(preparing) && preparing.CurrentCells().size() == 12 && interrupted.Starts == 15,
+          "prioritization retains all twelve leaves and performs each original request once");
   }
   std::error_code error;
   std::filesystem::remove_all(directory, error);

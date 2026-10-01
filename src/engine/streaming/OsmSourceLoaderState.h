@@ -48,7 +48,7 @@ struct OsmSourceLoader::Cells {
   const Data::ProviderRegistry *PublishedRegistry = nullptr;
 
   [[nodiscard]] size_t ChargedBytes() const noexcept;
-  [[nodiscard]] std::vector<Data::GeoCellId> NextBatch() const;
+  [[nodiscard]] std::vector<Data::GeoCellId> NextAcquisitionBatch() const;
   [[nodiscard]] std::vector<CellSource>
   Reuse(std::span<const Data::GeoCellId> wanted, bool published, bool pending) const;
   [[nodiscard]] std::vector<Data::GeoCellId>

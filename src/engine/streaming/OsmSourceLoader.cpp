@@ -158,7 +158,8 @@ void OsmSourceLoader::StartRequested() {
   auto result = std::make_shared<Result>();
   std::stop_source stop;
   const auto token = stop.get_token();
-  auto cells = Scope_ == Scope::Cells ? Cells_->NextBatch() : std::vector<Data::GeoCellId>{};
+  auto cells =
+      Scope_ == Scope::Cells ? Cells_->NextAcquisitionBatch() : std::vector<Data::GeoCellId>{};
   const auto handle = Io_.Post([input = Requested_,
                                 cells = std::move(cells),
                                 revision = Revision_,
