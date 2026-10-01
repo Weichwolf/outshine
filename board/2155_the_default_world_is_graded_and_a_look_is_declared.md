@@ -1,57 +1,41 @@
 Type: feature
 State: open
-Architecture: planned
+Architecture: ready
 Priority: P1
 Parent: 2169
-Area: render, scenario
-Tags: webcam, measured
-Depends: 2170, 2167
+Depends:
+Area: render, engine
+Tags: lighting, shadows, hdr, night
 
-# A declared camera response preserves credible scene lighting
+# Light and camera response make the world coherent
 
-## IST / Ziel
+## Ergebnis und vorhandene Fähigkeit
+Sonne, Himmel und lokale Lichter beleuchten eine zusammenhängende Welt. Schatten,
+Atmosphäre, Spiegelungen und Belichtung erzeugen räumliche Tiefe; nachts bleibt die
+Stadt lesbar. HDR-/Material-/Sky-Pfade existieren, kohärente Weltwirkung ist unzureichend.
 
-Kameraantwort zuerst auf analytischen HDR-/Lichtszenen prüfen (2169 P1).
-Wetter-/Himmelswechsel erweitern später die Integrationsabnahme; 2172 blockiert
-den Belichtungs-/Farbraumvertrag nicht.
+## Besitzer und nächste Lieferung
+SceneRenderer, SkyStage und vorhandene Pass-/Materialpfade besitzen Licht und Sichtbarkeit.
+Kameraantwort besitzt Belichtung/Tonemapping. Zuerst indirekte Himmelsfüllung, stabile
+Sonnenschatten und Belichtung in einer Stadt-/Bergansicht liefern; vorhandene Pässe nutzen.
 
-Der aktuelle Renderplan meldet `autoExposure` ohne Body und aliasiert den Meter neutral.
-Ein physikalisch glaubhafter Default-Look bleibt Ziel; mehr Grain oder Blur ist kein Beweis
-für Fotorealismus. Die frühere Behauptung, ein bestimmter Tonemapper mache automatisch ein
-Spielbild, wird durch getrennte lineare Licht- und Kameraabnahme ersetzt.
+## Umsetzung und Invarianten
+- Geometrie, Licht, Schatten und Wasser teilen Frame-Ursprung und Datumsbezug aus 2188.
+  Atmosphäre/Sonne/Wolken verwenden denselben Weltzustand aus 2172.
+- Gerichtete Schatten nach sichtbarer Bedeutung staffeln; lokale Lichter/Schatten begrenzt
+  bündeln. Schattenkontakt erhalten, keine globale Überfüllung oder verschwundene Fernwelt.
+- Himmel füllt beschattete Flächen plausibel. Reflexion vorhandener Welt mit Roughness,
+  Sichtbarkeit und vollständiger Mipkette; Wasser keine zweite Lichtberechnung.
+- Emissive Fenster, Straßen-/Gebäudelicht und ihre Reflexion tragen die Nacht. In der
+  Ferne kompakte Lichtbeiträge statt voller Detailgeometrie und Einzel-Schatten pro Fenster.
+- Belichtung und HDR-Antwort bleiben zeitlich stabil; physikalisch gleiche Eingaben
+  erzeugen gleiche Antwort. Bloom/Glare ergänzt Licht, kaschiert keine falsche Geometrie.
+- SDL-Submission und Ressourcenwechsel erfolgen atomar auf zulässigem Thread. Keine
+  doppelten/mismatched Frameprodukte oder ungeprüften GPU-Zeitbehauptungen.
+- Client-Presentation und Idle-Warten geben dem OS CPU-Zeit; begrenzte Frames in Flight
+  und deadline-/ereignisorientiertes Pacing statt Busy-Wait oder ungeregelter SDL-Schleife.
 
-Künstlerischer Abnahmemaßstab: ein bewusst gestalteter, plausibler Look ist ein
-vollwertiges Ziel und besser als verfehlter Realismus. Lichtführung, Farbgestaltung,
-Tiefe und Materiallesbarkeit als Gesamtbild beurteilen, auch in Bewegung. RDR2/GTA5
-bleiben Qualitätsreferenzen; keine Pflicht zur Fotokopie. Gewollte Vereinfachung ist
-zulässig, Geometrie-/Lichtfehler zu kaschieren nicht.
-
-Belichtungsmessung mit robuster Luminanzverteilung, zeitlicher Adaptation, deklariertem
-EV-Bias und HDR-Shoulder implementieren. Ein Exposure gilt für Sky/Ground/Subjects/Water.
-Linear-HDR-AOV und finale Display-Ausgabe sichern; Farbraum/Output-Transfer genau einmal.
-Look bleibt deklarierbar und zeit-/wetterabhängig; Kameraoptik, Vignette, Grain und
-Shutter sind nachvollziehbare Parameter, keine Place-spezifische Bildkosmetik.
-Bewegungsunschärfe aus Simulationszeit/Belichtungsdauer, nicht schwankender CPU-Framezeit;
-180° bei 60 Hz ergibt 0,5/60 s = 1/120 s. Bei eingefrorener Kamera kein erfundenes Motion Blur.
-
-- [ ] Exposure-Reihe erhält Highlights/Farbverhältnisse, Adaptation pumpt bei Kameraschwenk
-      nicht; lineare Beleuchtungsorakel bleiben vor Tone-Mapping prüfbar.
-- [ ] Identity-Look reproduziert denselben aktuellen linearen Eingang bei gleicher Ausgabe-
-      Transformation; kein Zwang, alte falsche Shader-Digests wiederherzustellen.
-- [ ] Bedeckter Mittag, Sonne, Dämmerung, Nacht visuell abnehmen; keine Pflicht zur unbekannten
-      Webcam-Automatik. Material-/Geometriefehler bleiben in scharfen Diagnosebildern sichtbar.
-- [ ] Post-Kosten in 2092 inklusive Bewegung/History und kompletter Welt messen.
-- [ ] Dieselbe dichte Stadt bei Mittag und Nacht: emissive Flächen, direkte
-      Beleuchtung, Reflexion, Medium und Belichtung als getrennte lineare AOVs;
-      Look/Glare erst danach. Nacht darf farbkräftig sein, aber Highlights nicht
-      clippen oder dunkle Geometrie verdecken. Standbild und Schwenk beurteilen.
-
-Wahl: Filament als physikalische Referenz und deklarative Zeit/Wetter-Looks als Sandbox-
-Struktur; Unreal-CineCamera/RAGE-Look als Vergleich. Fassadengeometrie gehört in 2138/2171.
-
-## Archivziel Nacht
-
-Rosenheim 15.07.2025 23:00 wird von einzelnen Fenstern, Straßen-/Gebäudelicht und
-roten Hindernisleuchten getragen. Keine globale Aufhellung der Tagesszene. Lokale
-Emission, tatsächlicher Lichtbeitrag und Reflexion bleiben getrennt; die Kamerareaktion
-erhält dunkle Zonen. Langzeitbelichtungs-Spuren sind kein Echtzeit-Bewegungsziel.
+## Abnahme
+Morgen/Mittag/Abend/Nacht und klar/bedeckt zeigen nachvollziehbare Tiefe und Material.
+Weltursprung-/Kamerabewegung verschiebt keine Schatten oder Reflexionsobjekte. Bildgewinn
+und GPU-/Hostkosten getrennt nachweisen; keine überhöhten Grenzwerte für einen schönen Screenshot.

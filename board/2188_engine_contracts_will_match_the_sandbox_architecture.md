@@ -1,50 +1,46 @@
-Type: debt
-State: active
+Type: feature
+State: open
 Architecture: ready
 Priority: P0
-Area: engine, world, render, simulation, audio
-Tags: architecture, integration
 Parent: 2169
 Depends:
+Area: public-api, engine, world, generators, render
+Tags: extension, ownership, native-model
 
-# Ausführbarer Weg zur Webcam-Annäherung
+# The public engine supports built-in and external world producers
 
-## Besitzer und Datenfluss
+## Ergebnis und vorhandene Fähigkeit
+Bibliotheksnutzer liefern eigene Provider, Generatoren und deklarative Szenarien über
+nutzbare öffentliche Verträge. Eingebaute Produzenten verwenden exakt denselben Weg.
+Providerregistrierung und native API bestehen. `generation/Generate.h::Request` trägt
+Ort, Extent, Seed, Ground und Coarseness, aber keinen Entfernungs-/Projektions-/Fehlervertrag.
+Private Generator-/Importsonderpfade und vollständige externe Runtime-Abnahme sind offen.
 
-Provider liefern OSM/DEM/Wetter mit Provenienz. World hält semantische Formen und Zustand.
-Generatoren erzeugen native Geometrie/Materialparameter. Engine koordiniert begrenzte Jobs,
-Residency und Publikation. Render konsumiert Snapshots; keine Generatoraufrufe im Frame.
-Double-Welt und kamera-relative GPU-Daten teilen Ursprung und Höhenbezug.
-Quellwechsel invalidieren gezielt; Zeit/Wetter erzeugen keine unveränderte Stadt neu.
+## Besitzer und nächste Lieferung
+`include/` besitzt minimale native Verträge; Engine koordiniert, `world/data` adaptiert
+Quellenformate, Generatoren bleiben eigene Bibliothek. Zuerst den öffentlichen Generator-Request um
+Raumreferenz, Entfernung/Projektion und erlaubten Fehler ergänzen; das native Produkt
+liefert Bounds/Fehler oder eine explizit unbekannte Schranke. Eingebaute/externe Erzeuger
+und Aufrufer gemeinsam migrieren. Wetter erhält einen öffentlichen Orts-/UTC-Snapshot
+mit Einheiten, Gültigkeitsfenster und Herkunft. Danach externe Produzenten bis zur Runtime ersetzen.
+Greenfield-API verbessern und alle Aufrufer migrieren; Deklaration ist kein Runtime-Nachweis.
 
-## Kleine ausführbare Reserve
+## Gemeinsame Engine-Verträge
+- Ein natives Geometrie-/Material-/Instanzmodell für Importer und Generatoren. Adapter
+  beenden Formattypen; Handles, Borrowed-Spans, Ressourcen und Kollisionsprodukte besitzen
+  erklärte Lebensdauer/Kosten. Keine privaten builtin-Umwege oder Eingriffe in den Host.
+- Weltpositionen Double, GPU kamera-relative Floats; rechtshändig Y-up, CCW, ENU,
+  Einheitsnormalen. Geometrie, Licht, Schatten und Kontakt teilen Frame-Ursprung/Höhendatum.
+- Generatoranforderungen gelten nicht nur für die Erde: Raumreferenz, Entfernung und
+  Fehler/Budget explizit übergeben; keine versteckten OSM-/DEM-Annahmen für Bibliotheksnutzer.
+- Source-/Producer-Version, Parameter/Seed und konsumierte Abhängigkeiten bestimmen
+  Produktidentität. Fehler, Abbruch, Kosten und letzte Nutzung an Grenzen explizit führen.
+- `reaches`-Tiers, Groundless- und glTF-Szenarien erhalten. Szenarien vollständig
+  roundtrippen; Imports/Plugins liefern native Produzenten, keine Place-Sonderklasse.
+- Frame-/Ressourcenwechsel und CPU/GPU-ABI verbindlich prüfen; keine Host-Allokator-
+  Ersetzung, versteckten Globals oder synchronen Produceraufrufe im Renderer.
 
-| Reihenfolge | WI | Nächste vollständige Lieferung | Owner |
-|---|---|---|---|
-| 1 / P0 | 2324, 2170 | Acht Webcam-Kameras mit Archiv und transparentem Kalibrierstatus | assets/places, client/PlaceCamera, Vergleichsmanifest |
-| 2 / P0 | 2319, 2322 | Vollständige Stadt und Rundumsicht innerhalb der Lade-/Framegrenzen | StructureBuildQueue, StructureCellPlanner, TilePieces, GroundPublication |
-| 3 / P0 | 2166, 2280, 2173, 2145 | Originalformen und Bauwerksklassen; zusammenhängende Gewässer ohne künstliche Uferwände | GroundLattice/DEM, OsmSourceSnapshot, BuildingShape/Bake, WaterField |
-| 4 / P1 | 2171, 2138 | Rosenheim/Husum: Dach, Wand, Glas und Sockel klar lesbar | BuildingMesh, FacadeUv, Materialshader |
-| 5 / P1 | 2172, 2140 | Koerbersee/Rosenheim: bedeckter Himmel und kohärentes Weltlicht | WeatherSnapshot, SkyStage, Cloud-Komposition/Irradiance |
-
-Materialarbeit kann parallel zu ungelöster Ferndarstellung vorbereitet werden; keine
-zweite Architekturkampagne. Jeder Schritt endet im geöffneten Bild. Bei zwei Reparaturen
-ohne Bildgewinn Ansatz neu entscheiden und ein unabhängiges sichtbares Feature liefern.
-2138 braucht Gebäudesemantik, nicht fertige weltweite Navigation. Wolken brauchen den
-Snapshot, nicht den vollständigen Schneesolver. Vegetation bleibt zuletzt.
-
-## Anschlusslieferungen
-
-2129: Reflexion vorhandener Wasserflächen nach 2327, unabhängig vom vollständigen
-Küstenumbau in 2145. 2167/2128/2155: Schattenfüllung,
-lokales Nachtlicht, stabile HDR-Antwort. 2325: Nässe, Schnee und Schmelze aus Wetterzustand.
-2111/2176/2282: danach standortgerechte Dichte und Phänologie im gemeinsamen Budget.
-Physik, Hockenheim-Runde, Verkehrssimulation, Audio und Spiel folgen nach dem Meilenstein.
-
-## Gemeinsame Abnahme
-
-2324 benennt genau acht Standard-Places. Kamerafit, Form, Materialien, Licht/Wetter und
-Kosten getrennt bewerten. Alle Bilder öffnen; kein erfolgreicher Hash ersetzt Bildqualität.
-Keine Grenzwerterhöhung, verschwundene Inhalte oder schlechtere Straßen als Optimierung.
-Format, fokussierte Suite, vollständiger Lint/API und Place-Gate gehören zur Lieferung.
-Board enthält Entscheidungen und kurze Fertig-Kriterien; Messprotokolle bleiben in Temp/Git.
+## Abnahme
+Ein Bibliotheksnutzer ersetzt Provider und Generator, baut/zeichnet native Produkte
+und erhält Fehler/Abbruch ohne private Includes oder Sondercode. Builtins gehen denselben
+Weg. Öffentliche Header, Runtime und Dokumentation beschreiben denselben Vertrag.

@@ -1,67 +1,56 @@
 Type: feature
 State: active
-Architecture: planned
+Architecture: ready
 Priority: P0
-Area: engine, world, render, simulation, audio
-Tags: sandbox, visual, integration
+Parent:
+Depends:
+Area: client, world, generators, render, gameplay
+Tags: vision, webcam, sandbox
 
-# Outshine: acht glaubwürdige Webcam-Welten im 720p60-Budget
+# Outshine becomes a believable data-driven open-world sandbox
 
-## Jetzt erreichen
+## Ergebnis und erster Meilenstein
+Die Welt wirkt vollständig, zusammenhängend und glaubwürdig. Zuerst nähere ich acht
+Places an reale Webcams über Tages-/Jahreszeiten und Wetter an. Danach wachsen daraus
+Spielersteuerung, Verkehr, Figuren, Interaktion und Audio. Regeln/Budgets stehen in
+AGENTS.md; dieses Board beschreibt den Weg. RDR2/GTA5 sind Qualitätsmaßstäbe.
 
-Ich entwickle eine prozedurale Open-World-Sandbox. Der aktuelle Meilenstein ist die
-bestmögliche plausible Annäherung an acht Foto-Webcams über Jahres- und Tageszeiten,
-Wetter und Kameradrehung. Der Maßstab ist das geöffnete Bild innerhalb des Budgets.
-OSM-Originaldaten, DEM, Wetter, Zeit und Kamera liefern die Welt; Fotos nur den Vergleich.
-Die Auswahl und Quellen stehen in WI 2324. Physik, Runden, Verkehrssimulation und Spiel
-folgen später. Straßenfortschritt erhalten; Brücken und komplexe Anschlüsse reparieren.
+| Place | foto-webcam.eu/webcam/ | Entscheidende Bildwirkung |
+|---|---|---|
+| Rosenheim | rosenheim | Dächer, Sonderbauten, gestaffelte Alpen, Nachtlicht |
+| Flensburg | flensburg | Backstein, Kirchturm, Hafen und korrekte Küste |
+| DarmstadtWest | darmstadt-west | Dachlandschaft, Fassaden und diffuse Stadttiefe |
+| Wien | wien | Vollständige dichte Stadt, Donau, Brücken, Fernverbände |
+| Husum | husum-hafenklappbruecke | Kai, Giebel, Brücke, Hafenwasser und Nässe |
+| Feldkirch | feldkirch | Altstadt, Fluss, Tal und saubere Hanganschlüsse |
+| Malcesine | malcesine | See, Felsufer, Spiegelung und Dunst |
+| Koerbersee | koerbersee | Grate, Schnee/Schmelze, Bergsee und Wolken im Relief |
 
-## Was die Archivbilder verlangen
-
-Rosenheim zeigt reale Dach-/Fassadenunterschiede, schlanke Sonderbauten, abgestufte Berge,
-wechselnde Sichtweite und nachts lokale Lichtinseln. Flensburg zeigt Backstein, Giebel,
-einen maßgebenden Kirchturm, Hafen und jahreszeitlich wechselnde Kronen. Koerbersee zeigt
-scharfe Grate, Schutt, Schnee nach Exposition, einen reflektierenden See und Wolken im Relief.
-Die übrigen fünf Ansichten ergänzen dichte Stadt, Brücken, Kai, Tal und felsige Seeufer.
-
-Geöffnete Outshine-Bilder zeigen dagegen repetitive Fenstergitter, generische Türme,
-plastische Geländeformen, flache Wasserflächen und leeren Himmel. Kamerafit ist teilweise
-ungeprüft. Das sind konkrete Bildlücken; grüne Tests oder weitere interne Verträge schließen sie nicht.
-Archivbefunde: build/shots/reference/webcams/archive-review-20260929/ mit Einzelmetadaten.
-
-## Lieferweg nach Wirkung und echten Abhängigkeiten
-
-| Priorität | Sichtbare Lieferung | WI | Technischer Zusammenhang |
+## Arbeitsweg nach Priorität
+| Phase | Lieferung | Kinder | Zusammenhang |
 |---|---|---|---|
-| P0 | Acht passende Perspektiven und vollständige residente Welt | 2324, 2170, 2319, 2322 | Kamera getrennt von Quell-/LOD-/Publikationsfehlern lösen |
-| P0 | Richtige Großformen, durchgehende Straßen, korrekte Wasser-/Hanganschlüsse | 2166, 2280, 2173, 2281, 2145 | Originalsemantik/DEM; bestehende Straßen erhalten |
-| P1 | Lesbare Dächer, Baustoffe und räumliche Fassaden | 2171, 2138 | Materialpfad vorhanden; OSM-Parts/Klassen bestimmen Form |
-| P1 | Zusammenhängendes Sonnen-/Himmelslicht, Schatten und Belichtung | 2167, 2128, 2155 | Gültige Oberflächen; Kameraantwort ohne fertige Vegetation liefern |
-| P1 | Wolken, Dunst und Nebel ändern Himmel UND Weltbeleuchtung | 2172, 2140 | Gemeinsamer Wetter-Snapshot; kein fertiger Regen-/Schneesolver nötig |
-| P1 | Wasser reflektiert Berge, Stadt und Himmel mit windabhängiger Oberfläche | 2145, 2129 | Korrekte Wasserfläche; vorhandene Szene als Reflexionsquelle |
-| P1 | Schnee, Schmelze und Nässe ändern dieselben Materialien plausibel | 2325 | Wetterhistorie/Zeit und Materialzustand; keine weiße Höhenmaske |
-| P1 | Nacht bleibt Stadt: Fenster, Straßenlicht, Reflexion und dunkler Himmel | 2128, 2155, 2213 | Lokale Emission/Beleuchtung und Kameraantwort |
-| P2 zuletzt | Vegetation schließt Dichte, Silhouette und Jahreszeiten | 2111, 2176, 2282 | Standorte, gemeinsame LODs und verbleibendes Szenenbudget |
+| P0 jetzt | Vollständige Welt aus Originaldaten, schnelle warme Starts | 2280 | Laufende Quellen-/Produktintegration abschließen |
+| P0 Reserve | Gemeinsamer Generator-Fehler-/Raumvertrag | 2188 | Fehlende Schnittstelle für 2336 und Wetter-Snapshot für 2172 liefern |
+| P0 | Ferndarstellung ohne Löcher oder Datenmengenexplosion | 2336 | Native Detailhierarchie begrenzt Arbeit vor Geometrie |
+| P0 | Richtige Straßen, Bauwerke, Gelände und Gewässer | 2281, 2173, 2145 | Vorhandene Formen erhalten, reale Geometriefehler beseitigen |
+| P1 | Lesbare Materialien, kohärentes Licht, Wetter und Himmel | 2171, 2155, 2172 | Mit vorhandenen Oberflächen liefern; kein Warten auf Vegetation |
+| P2 zuletzt | Vegetation vom Fernwald bis zum Grashalm | 2111 | Standortdaten und gemeinsame Detail-/Residency-Verträge |
+| P3 | Spielbare, bevölkerte Sandbox | 2136 | Visuelle Welt um Simulation und Interaktion ergänzen |
 
-Nicht auf alle Systeme warten: Jede Lieferung verbessert ein sichtbares Teilbild in
-derselben Welt. Himmel und Wolken erhalten hohes Gewicht; Mikrodetails ersetzen weder
-Großform noch Licht. Kleine ausführbare Reserve und Owner stehen in 2188.
+## Arbeitsfähige Reserve
+2280 ist das aktive Kind. Danach 2188s fehlende Verträge liefern; native Formen in
+2173/2281 und Baustoffe 2171 können ihre vorhandenen Inputs unabhängig verwenden.
+2336/2145/2111/2136 brauchen noch benannte Architekturentscheidungen. Reihenfolge ist
+Priorität; `Depends` nennt nur den fehlenden konsumierten Vertrag, keine pauschale Gesamtabnahme.
 
-## Dauerhafte Grenzen
-
-Alle acht Places rendern nach Änderungen und persönlich mit erhaltenen Bildern vergleichen.
-240 km konfigurierte Sicht und Rundum-Verfügbarkeit erhalten. Höchstens zehn Sekunden
-Preload, dann 60 Frames/360° in einer Sekunde und nur das letzte Hash-PNG. p99 <= 1000/60 ms.
-Host-Kosten und A18 Pro 8-GB-Nachweis getrennt; Speicherbudget schließt OS-/Treiberreserve ein.
-Stadt, Terrain, Wasser, Himmel und später Wald teilen dieses Budget ohne feste Klassenquoten.
-Nur Netzwerkquellen persistent cachen; unveränderte Welt bleibt resident.
-
-Es geht um plausible Gesamtwirkung, nicht die exakte Wolke, parkende Autos oder jede
-unbekannte Bauzier eines Fotos. Schnee braucht Wettergeschichte; Tagesdatum allein reicht nicht.
-Keine Orts-Sondermodelle, Satellitenbilder, Foto-Texturen oder verschleiernde Unschärfe.
-
-## Spätere Sandbox
-
-Nach dem visuellen Meilenstein folgen Gehen/Fahren mit Kontakten, Verkehr und Figuren,
-Interaktion, Audio, Aufgaben und persistenter Spielzustand. Vorhandene Fähigkeiten bleiben
-erhalten; ihre Weiterentwicklung verdrängt jetzt keine sichtbare Webcam-Annäherung.
+## Abnahme und Zuständigkeit
+`src/assets/places` und `client/PlaceCamera` besitzen den Katalog und die Aufnahme.
+Kamera, FOV, Pose, Höhendatum, Zeit und Quellenfit getrennt von Weltfehlern prüfen;
+unbekannte Kalibrierung bleibt benannt. Referenzmanifest und vorhandene Archivbilder
+unter build/shots/reference/webcams bleiben erhalten. Fotos liefern keine Weltgeometrie.
+Alle acht Bilder persönlich vergleichen; Form, Material, Licht/Wetter und Kosten getrennt
+bewerten. Der nächste Schritt muss Bildgewinn oder einen konkreten Bildblocker liefern.
+Historische Places bleiben ausdrücklich aufrufbare Diagnosen, kein erweitertes Pflichtgate.
+Hockenheim-Runden und Physik-Ausbau warten auf Phase P3; vorhandene Fähigkeiten erhalten.
+Der spätere Maßstab reicht nahtlos vom Planeten über Flug bis zur unmittelbaren Umgebung.
+Kein Kind kann durch Tests allein fehlende Runtime-Inhalte oder Bilder für fertig erklären.

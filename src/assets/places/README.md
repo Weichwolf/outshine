@@ -9,7 +9,7 @@ Jede .scenario-Datei ist ein normales Outshine-Szenario. Der Dateistamm ist der 
 Standard ist src/assets/places. Neue Szenarien benötigen keinen Renderer-Sonderpfad.
 Kataloge verlangen eine geodätische Kamera, feste Uhr und positive Rendergröße.
 
-WI 2324 beschreibt Bildaufgaben und Auswahl; WI 2170 kalibriert Kameras. Bestehende
+WI 2169 beschreibt Bildaufgaben, Auswahl und Kamerakalibrierung. Bestehende
 Höhen/Pitch/FOV sind teilweise Schätzungen, keine bestätigte Fotoausrichtung. Flensburg
 verwendet veröffentlichte Position/Bearing/Höhe und aus 57 Grad horizontalem Sektor bei
 16:9 abgeleiteten vertikalen FOV; Pitch und Höhendatum sind noch offen. Wetter und Zeit
