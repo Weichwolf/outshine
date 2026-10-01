@@ -324,9 +324,9 @@ struct CopernicusTerrain::Impl {
     return true;
   }
 
-  Step<Data::CopernicusBlock> DecodeBlock(Cell &cell, size_t level, uint32_t index) {
+  Step<Data::CopernicusBlock> LoadBlock(Cell &cell, size_t level, uint32_t index) {
     auto parts = PartsOf(cell);
-    std::vector<TilePool::Landing> acquired;
+    std::vector<std::vector<uint8_t>> acquired;
     const auto encoded = cell.Metadata.Levels[level].Blocks[index];
     while (const auto missing = FirstMissingRange(encoded, parts)) {
       if (parts.size() >= kPartMost) {
@@ -341,9 +341,10 @@ struct CopernicusTerrain::Impl {
           landing->SourceId != cell.SourceId) {
         return std::unexpected(Failed(cell.At, Data::FetchFailureReason::CorruptPayload, &cell));
       }
-      acquired.push_back(std::move(*landing));
-      const auto &held = acquired.back();
-      parts.push_back({.ObjectKey = cell.ObjectKey, .Origin = *held.Range, .Bytes = held.Bytes});
+      auto origin = std::move(*landing->Range);
+      acquired.push_back(std::move(landing->Bytes));
+      parts.push_back(
+          {.ObjectKey = cell.ObjectKey, .Origin = std::move(origin), .Bytes = acquired.back()});
       std::ranges::sort(
           parts, {}, [](const Data::CopernicusPart &part) { return part.Origin.Bytes.First; });
     }
@@ -368,7 +369,7 @@ struct CopernicusTerrain::Impl {
     }
     if (found->Touched == Sequence) { return std::unexpected(Issue{}); }
     found->Touched = Sequence;
-    auto decoded = DecodeBlock(cell, level, index);
+    auto decoded = LoadBlock(cell, level, index);
     if (!decoded) { return std::unexpected(std::move(decoded.error())); }
     auto compact = Compact(std::move(*decoded));
     const size_t bytes = compact.HeightsM.capacity() * sizeof(float);
