@@ -26,8 +26,8 @@ Script/ActionHostAdapter und Ui::Markup/Style/Layout bestehen und bleiben verwen
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
 |---|---|---|
-| world/data | öffentliche Provider → Originalbytes/Quellbelege | Formate enden am Adapter; Netzwerkcache gehört hierher |
-| world | Originalobjekte → native Semantik/Topologie | IDs, Tags, Herkunft, Raum-/Höhenbezug; keine GPU-Objekte |
+| sources + import | öffentliche Provider → Originalbytes → native Inputs | Netzwerkcache bei sources; Formate enden im Adapter |
+| world | native Produkte → generischer Weltzustand | Geometrie, Identitäten, Topologie und Herkunft; keine Quell-/Generatorinputs |
 | engine/streaming | Position/Höhe/Projektion → Bedarf/residente Produkte | Plan, begrenzte Jobs, Invalidierung, geschlossene Publikation |
 | generators | native Inputs + Detailauftrag → native Produkte | Pure Seeds/Versionen; kein Renderer, Netzwerk oder versteckter Weltbesitz |
 | physics + SimulationState | Commands + Kontakte → Simulationssnapshot | Fester Takt, Massen/Kräfte/Gelenke; eigene Lebensdauer |
@@ -93,8 +93,9 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
 1. Alle Architekturverstöße priorisiert beheben: Weltprodukte ohne Quellformate/Generatorinputs;
    konkrete Provider/Decoder und OSM-Topologieadapter aus world; Physik korrekt zuordnen.
    Diese Grenzen durch Include-/Typprüfungen erzwingen, nicht allein durch Verhaltensfälle.
-   Nächste Einheit: GroundStack und VectorStreetGraphs Job-Koordination nach engine/streaming;
-   native Felder/Netze bleiben lesbare Produkte. Weltobjekte besitzen keine Quelle/Jobqueue.
+   Nächste Einheit: SurfacePreparation und StreetGraphBuilder nach engine/streaming;
+   StreetGraphPreparation nutzt den gemeinsamen Compute-Worker, Shared-Auftragsbesitz und Abbruch.
+   Native Felder/Netze bleiben lesbare Produkte. Weltobjekte besitzen keine Quelle/Jobqueue.
 2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
 3. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
 4. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
