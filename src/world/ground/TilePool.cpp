@@ -642,8 +642,9 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
          {"y", static_cast<int>(job.Y)},
          {"stage", stage},
          {"rc", static_cast<int>(state)},
-         {"reason", out->Landed.Failure ? std::string(Data::Name(out->Landed.Failure->Reason))
-                                       : "invalid grid"},
+         {"reason",
+          out->Landed.Failure ? std::string(Data::Name(out->Landed.Failure->Reason))
+                              : "invalid grid"},
          {"request", out->Landed.Failure ? out->Landed.Failure->Requested.Text() : std::string{}},
          {"source", out->Landed.Failure ? out->Landed.Failure->SourceId : std::string{}}});
     const std::scoped_lock ledger(LedgerMutex_);
