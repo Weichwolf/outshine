@@ -136,11 +136,11 @@ int main() {
     capacity.Status = 400;
     capacity.Xml = "You requested too many nodes (limit is 50000). Either request a smaller area, "
                    "or use planet.osm";
-    auto rejected = (*api)->Collect(Address::Whole(0), 1, capacity).Take();
+    auto rejected = (*api)->Collect(Address::Whole(0), static_cast<Ticket>(1), capacity).Take();
     CHECK(rejected && rejected->Reason == FetchFailureReason::CapacityRefused,
           "the official node-limit refusal is classified as capacity at the HTTP boundary");
     capacity.Xml = "The requested bounds are invalid";
-    auto invalid = (*api)->Collect(Address::Whole(0), 1, capacity).Take();
+    auto invalid = (*api)->Collect(Address::Whole(0), static_cast<Ticket>(1), capacity).Take();
     CHECK(invalid && invalid->Reason == FetchFailureReason::ProviderRefused,
           "an unrelated HTTP 400 cannot trigger subdivision");
   }

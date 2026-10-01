@@ -39,7 +39,8 @@ public:
     Bounds.erase(ticket);
     const std::string body = crowded ? "You requested too many nodes (limit is 50000). Either "
                                        "request a smaller area, or use planet.osm"
-                                     : "<osm version='0.6'><node id='" + std::to_string(ticket) +
+                                     : "<osm version='0.6'><node id='" +
+                                           std::to_string(static_cast<uint64_t>(ticket)) +
                                            "' lat='" + std::to_string((bounds[1] + bounds[3]) / 2) +
                                            "' lon='" + std::to_string((bounds[0] + bounds[2]) / 2) +
                                            "'><tag k='custom:unknown' v='kept'/></node></osm>";
