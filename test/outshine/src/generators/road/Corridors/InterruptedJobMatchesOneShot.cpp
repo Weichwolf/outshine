@@ -31,7 +31,7 @@ Product RunJob(const Generators::Corridors &corridors,
   constexpr size_t kSlicesMost = 1024;
   for (size_t slice = 0; slice < kSlicesMost; ++slice) {
     const auto advanced = corridors.Advance(
-        *job, site, lanesMost, nodesMost, product.Mesh, &product.Earthworks, &product.Measures);
+        *job, site, lanesMost, nodesMost, product.Mesh, product.Earthworks, product.Measures);
     if (!advanced) { return product; }
     if (*advanced) {
       for (size_t retired = 0; retired < kSlicesMost; ++retired) {
@@ -140,7 +140,7 @@ int main() {
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   Product oneShot;
-  oneShot.Complete = corridors.Lay(site, oneShot.Mesh, &oneShot.Earthworks, &oneShot.Measures);
+  oneShot.Complete = corridors.Lay(site, oneShot.Mesh, oneShot.Earthworks, oneShot.Measures);
   CHECK(oneShot.Complete && oneShot.Mesh.wellFormed() && !oneShot.Earthworks.empty(),
         "one-shot road construction produces complete geometry and earthworks");
 
@@ -160,14 +160,14 @@ int main() {
   Geometry canceledMesh;
   std::vector<EarthworkStamp> canceledEarthworks;
   std::vector<DiagnosticSample> canceledMeasures;
-  const auto started = corridors.Advance(
-      *canceled, site, 1, 1, canceledMesh, &canceledEarthworks, &canceledMeasures);
+  const auto started =
+      corridors.Advance(*canceled, site, 1, 1, canceledMesh, canceledEarthworks, canceledMeasures);
   CHECK(started.has_value() && !*started, "a road job has a cancellable intermediate state");
   bool retired = false;
   for (size_t step = 0; step < 1024 && !retired; ++step) { retired = canceled->RetireStep(1); }
   CHECK(retired &&
             !corridors.Advance(
-                *canceled, site, 1, 1, canceledMesh, &canceledEarthworks, &canceledMeasures) &&
+                *canceled, site, 1, 1, canceledMesh, canceledEarthworks, canceledMeasures) &&
             canceledMesh.parts() == 0 && canceledEarthworks.empty() && canceledMeasures.empty(),
         "canceled scratch retires without publishing and cannot resume");
   std::unique_ptr<Generators::Corridors::Job> stale = Generators::Corridors::Begin(site);
@@ -179,7 +179,7 @@ int main() {
   Geometry staleMesh;
   std::vector<EarthworkStamp> staleEarthworks;
   std::vector<DiagnosticSample> staleMeasures;
-  CHECK(!corridors.Advance(*stale, site, 1, 1, staleMesh, &staleEarthworks, &staleMeasures) &&
+  CHECK(!corridors.Advance(*stale, site, 1, 1, staleMesh, staleEarthworks, staleMeasures) &&
             staleMesh.parts() == 0 && staleEarthworks.empty() && staleMeasures.empty(),
         "a changed vector revision rejects stale work before publishing any product");
   const Generators::Corridors::Site pinnedSite{.Vectors = pinned.Vectors.get(),

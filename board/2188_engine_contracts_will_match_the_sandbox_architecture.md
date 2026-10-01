@@ -24,6 +24,8 @@ Schwerkraft; Rigid/Wrench/Prismatic liefern Grundlagen, keinen vollständigen We
 Script/ActionHostAdapter und Ui::Markup/Style/Layout bestehen und bleiben verwendbar.
 SurfacePreparation und Straßenaufträge gehören engine/streaming. StreetGraphPreparation
 nutzt den gemeinsamen Compute-Worker mit Abbruch und geteiltem Auftragsbesitz.
+Generatoren konsumieren immutable ClassStructure mit dessen Raumbezug; ClassField
+und ClassBuilder liegen noch unter world und müssen ihre Besitzer wechseln.
 
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
@@ -95,8 +97,8 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
 1. Alle Architekturverstöße priorisiert beheben: Weltprodukte ohne Quellformate/Generatorinputs;
    konkrete Provider/Decoder und OSM-Topologieadapter aus world; Physik korrekt zuordnen.
    Diese Grenzen durch Include-/Typprüfungen erzwingen, nicht allein durch Verhaltensfälle.
-   Nächste Einheit: Generatoren konsumieren immutable ClassStructure statt ClassField;
-   Klassifikations-Ingestion/Jobkoordination nach engine/streaming, pure Rasterisierung nach generators.
+   Nächste Einheit: Klassifikations-Ingestion/Jobkoordination nach engine/streaming,
+   pure Rasterisierung nach generators; Generatoren bleiben unabhängig vom Controller.
    ClassBuilder verliert seinen privaten Thread zugunsten desselben Compute-Workers.
    Native Felder/Netze bleiben lesbare Produkte; Weltobjekte besitzen keine Quelle/Jobqueue.
 2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.

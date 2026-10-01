@@ -216,14 +216,14 @@ PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how
 
 Snapped SnapshotOver(const Tile &region,
                      const outshine::GroundQuery &heights,
-                     const outshine::Ground::ClassField &classes,
+                     std::shared_ptr<const ClassStructure> classes,
                      const Fields &stands,
                      std::shared_ptr<const GroundTable> table,
                      Ground::Snapshot *out) {
   Snapped how = Snapped::Taken;
   out->Patch = PatchOver(region, heights, &how);
   if (!out->Patch) { return how; }
-  out->Classes = classes.Read();
+  out->Classes = std::move(classes);
   out->Features = FeaturesOver(region, stands);
   out->Table = std::move(table);
   return out->Patch && out->Classes && out->Features ? Snapped::Taken : Snapped::Waiting;

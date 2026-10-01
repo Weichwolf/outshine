@@ -2110,7 +2110,6 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                                          .Ways = sources.Ways,
                                          .Materials = World.Stack.Materials(),
                                          .Vegetation = World.Stack.Vegetation(),
-                                         .GroundClasses = &World.Stack.Classes(),
                                          .Ground = &World.Stack.Ground(),
                                          .Network = build.StreetGraph.get(),
                                          .Standing = standing,
@@ -2144,8 +2143,8 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                                                         kCorridorLanesPerFrame,
                                                         kCorridorNodesPerFrame,
                                                         build.Ground,
-                                                        &corridors,
-                                                        &notes);
+                                                        corridors,
+                                                        notes);
   state.SamplesProductPeak();
   if (!paved) {
     Error = paved.error();

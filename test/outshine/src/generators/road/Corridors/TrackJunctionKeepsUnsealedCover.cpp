@@ -117,7 +117,7 @@ int main() {
     Geometry mesh;
     std::vector<EarthworkStamp> earthworks;
     std::vector<DiagnosticSample> measures;
-    CHECK(corridors.Lay(site, mesh, &earthworks, &measures) && mesh.wellFormed(),
+    CHECK(corridors.Lay(site, mesh, earthworks, measures) && mesh.wellFormed(),
           "the joined roads publish valid geometry");
     Geometry sliced;
     std::vector<EarthworkStamp> slicedEarthworks;
@@ -126,7 +126,7 @@ int main() {
     bool complete = false;
     for (size_t step = 0; step < 1024 && !complete; ++step) {
       const auto advanced =
-          corridors.Advance(*job, site, 1, 1, sliced, &slicedEarthworks, &slicedMeasures);
+          corridors.Advance(*job, site, 1, 1, sliced, slicedEarthworks, slicedMeasures);
       if (!advanced) { break; }
       complete = *advanced;
     }

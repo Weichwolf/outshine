@@ -20,9 +20,10 @@ constexpr auto kInvalidStreetPointRange =
     "vector street point range exceeds the supplied coordinate stream";
 }
 
-StreetGraphBuilder::Built StreetGraphBuilder::BuildOneShot(const Ground::StreetField &ways,
-                                                           std::span<const double> points,
-                                                           const Path::Network::HeightSource &heightOf) {
+StreetGraphBuilder::Built
+StreetGraphBuilder::BuildOneShot(const Ground::StreetField &ways,
+                                 std::span<const double> points,
+                                 const Path::Network::HeightSource &heightOf) {
   Built made;
   auto created =
       Path::Network::Create(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = kWgs84A});

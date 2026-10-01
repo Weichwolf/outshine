@@ -135,12 +135,6 @@ def header_dependencies(source, directories, root):
     return visited
 
 
-def public_dependencies(source, directories, root, include):
-    return {public_owner(header, include)
-            for header in header_dependencies(source, directories, root)
-            if header.is_relative_to(include)}
-
-
 def native_product_boundary(headers):
     allowed_private = ('src/world/products/', 'src/base/', 'src/content/')
     return [f'{header}: native world product depends on a non-product implementation'
@@ -151,6 +145,13 @@ def native_product_boundary(headers):
 def world_state_boundary(headers):
     return [f'{header}: world state depends on engine orchestration'
             for header in sorted(headers) if header.startswith('src/engine/')]
+
+
+def generator_product_boundary(headers):
+    controllers = ('src/engine/', 'src/world/ground/ClassField.h',
+                   'src/world/ground/ClassBuilder.h')
+    return [f'{header}: generator depends on classification or engine orchestration'
+            for header in sorted(headers) if header.startswith(controllers)]
 
 
 def main():
@@ -184,6 +185,7 @@ def main():
              for p in src.rglob('reaches')}
     commands = []
     public_edges = set()
+    generator_violations = []
     for entry in json.loads((root / 'compile_commands.json').read_text()):
         source = pathlib.Path(entry['file']).resolve()
         if not source.is_relative_to(src):
@@ -194,11 +196,17 @@ def main():
             if directory.is_relative_to(src):
                 includes.append(str(directory.relative_to(src)))
         commands.append((str(source.relative_to(src)), includes))
-        for target in public_dependencies(source, directories, root, include):
+        dependencies = header_dependencies(source, directories, root)
+        for target in {public_owner(header, include)
+                       for header in dependencies if header.is_relative_to(include)}:
             public_edges.add((str(source.relative_to(src)), target))
+        if source.is_relative_to(src / 'generators'):
+            generator_violations.extend(generator_product_boundary(
+                {str(header.relative_to(root)) for header in dependencies
+                 if header.is_relative_to(root)}))
     if not graph or not commands:
         raise RuntimeError('missing tier graph or compilation commands')
-    violations = errors(graph, commands, public_edges)
+    violations = errors(graph, commands, public_edges) + generator_violations
     if native_product_boundary({'src/world/products/BuildingGeometry.h', 'src/base/math/Capacity.h'}):
         raise RuntimeError('native product positive control failed')
     if not native_product_boundary({'src/world/data/OsmElements.h'}):
@@ -207,6 +215,12 @@ def main():
         raise RuntimeError('world state positive control failed')
     if not world_state_boundary({'src/engine/streaming/SurfacePreparation.h'}):
         raise RuntimeError('world state negative control failed')
+    if generator_product_boundary({'src/world/ground/ClassStructure.h'}):
+        raise RuntimeError('generator product positive control failed')
+    for controller in ('src/world/ground/ClassField.h', 'src/world/ground/ClassBuilder.h',
+                       'src/engine/streaming/SurfacePreparation.h'):
+        if not generator_product_boundary({controller}):
+            raise RuntimeError('generator product negative control failed')
     directories = sorted({directory for entry in json.loads(
         (root / 'compile_commands.json').read_text()) for directory in include_directories(entry)})
     for product in (src / 'world' / 'products').glob('*.h'):

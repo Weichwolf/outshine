@@ -322,18 +322,14 @@ std::vector<double> Corridors::ReachedAlong(std::span<const RoadStation> along) 
 void Corridors::MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into) {
   double overWaterM = 0.0;
   for (size_t at = 1; at < into.Along.size(); ++at) {
-    double lat = 0.0;
-    double lon = 0.0;
     const double midE = 0.5 * (into.Along[at - 1].EastM + into.Along[at].EastM);
     const double midN = 0.5 * (into.Along[at - 1].NorthM + into.Along[at].NorthM);
     const LongitudeLatitude midAt =
         on.Standing.ApproximateGeographicAt({.EastM = midE, .NorthM = midN});
-    lat = midAt.LatitudeDeg;
-    lon = midAt.LongitudeDeg;
     double edgeM = 0.0;
     int second = -1;
-    const int which = on.GroundClasses->ClassAt(
-        *on.Classes, {.LongitudeDeg = lon, .LatitudeDeg = lat}, &edgeM, &second);
+    const EastNorth classified = on.Classes->Frame().ToLocalGroundPosition(midAt);
+    const int which = on.Classes->Evaluate(classified.EastM, classified.NorthM, &edgeM, &second);
     ++into.AskedOverBridge;
     if (which < 0 || static_cast<size_t>(which) >= on.Vegetation.TemplateCount()) { continue; }
     ++into.NamedOverBridge;
@@ -415,9 +411,7 @@ void Corridors::PaveEdge(const Paving &on,
     ++into.RefusedWays;
     return;
   }
-  if (lane.Bridge && on.WaterRow >= 0 && on.Classes && on.GroundClasses != nullptr) {
-    MarksWaterCrossing(on, laneAt, into);
-  }
+  if (lane.Bridge && on.WaterRow >= 0 && on.Classes) { MarksWaterCrossing(on, laneAt, into); }
   DeckOrRamp(lane, edge, into);
   into.LaidWays += lane.Bridge ? 1u : 0u;
   into.GroundWays += lane.Bridge ? 0u : 1u;
@@ -1414,12 +1408,11 @@ Corridors::SharedNodesOf(const outshine::Ground::StreetField &ways,
 
 bool Corridors::Lay(const Site &site,
                     Geometry &ground,
-                    std::vector<EarthworkStamp> *corridorOut,
-                    std::vector<DiagnosticSample> *notes) const {
+                    std::vector<EarthworkStamp> &corridor,
+                    std::vector<DiagnosticSample> &notes) const {
   const TangentFrame &standing = site.Standing;
   const std::shared_ptr<const ClassStructure> &classStructure = site.Classes;
   const Drape &drapedOver = site.Draped;
-  std::vector<EarthworkStamp> &corridor = *corridorOut;
   RoadMeshBuffers pavement;
   Paved into;
   Notes(into,
@@ -1438,7 +1431,6 @@ bool Corridors::Lay(const Site &site,
     sharedNodes = SharedNodesOf(ways, vectors->Points());
     paving.emplace(Paving{.Materials = site.Materials,
                           .Vegetation = site.Vegetation,
-                          .GroundClasses = site.GroundClasses,
                           .Ground = site.Ground,
                           .Network = site.Network,
                           .Ways = ways,
@@ -1628,7 +1620,7 @@ bool Corridors::Lay(const Site &site,
       "streets: everything Paves did",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pavesAt).count(),
       "ms");
-  *notes = std::move(into.Notes);
+  notes = std::move(into.Notes);
   return true;
 }
 
@@ -1746,8 +1738,8 @@ struct Corridors::JobSlice {
   const outshine::Ground::OsmField *vectors;
   const Paving *paving;
   Geometry &ground;
-  std::vector<EarthworkStamp> *corridor;
-  std::vector<DiagnosticSample> *notes;
+  std::vector<EarthworkStamp> &corridor;
+  std::vector<DiagnosticSample> &notes;
   std::chrono::steady_clock::time_point began;
   size_t lanesMost;
   size_t nodesMost;
@@ -1765,8 +1757,8 @@ Corridors::Advance(Job &job,
                    size_t lanesMost,
                    size_t nodesMost,
                    Geometry &ground,
-                   std::vector<EarthworkStamp> *corridor,
-                   std::vector<DiagnosticSample> *notes) const {
+                   std::vector<EarthworkStamp> &corridor,
+                   std::vector<DiagnosticSample> &notes) const {
   if (job.Retirement != Job::RetireStage::Active) {
     return std::unexpected(Says::kRetiredCorridorJob);
   }
@@ -1786,7 +1778,6 @@ Corridors::Advance(Job &job,
   if (vectors != nullptr) {
     paving.emplace(Paving{.Materials = site.Materials,
                           .Vegetation = site.Vegetation,
-                          .GroundClasses = site.GroundClasses,
                           .Ground = site.Ground,
                           .Network = site.Network,
                           .Ways = ways,
@@ -2428,8 +2419,8 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
     return std::unexpected(Says::kStaleCorridorInput);
   }
   const auto &ground = slice.ground;
-  auto *corridor = slice.corridor;
-  auto *notes = slice.notes;
+  auto &corridor = slice.corridor;
+  auto &notes = slice.notes;
   const auto elapsed = [&slice] { return slice.Elapsed(); };
   Paved &into = job.Work;
   if (job.TransferPart >= 0) {
@@ -2481,8 +2472,8 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
           static_cast<double>(job.StageAdvances[stage]),
           "frames");
   }
-  *corridor = std::move(job.Corridor);
-  *notes = std::move(into.Notes);
+  corridor = std::move(job.Corridor);
+  notes = std::move(into.Notes);
   job.Phase = Job::Stage::Done;
   return true;
 }

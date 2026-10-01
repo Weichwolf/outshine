@@ -57,7 +57,7 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   if (vectors == nullptr) { return false; }
   Generators::Ground::Snapshot snapshot;
   const Generators::Snapped how = Generators::SnapshotOver(
-      region, World.Stack.Ground(), World.Stack.Classes(), stands, World.Table, &snapshot);
+      region, World.Stack.Ground(), World.Stack.Classes().Read(), stands, World.Table, &snapshot);
   World.Reached = static_cast<int>(kBaseSnapshotRows) + (snapshot.Patch ? 1 : 0) +
                   (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
   Published.RecordMetric("generators: the snapshot",

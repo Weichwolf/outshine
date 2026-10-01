@@ -20,7 +20,7 @@
 #include "Earth.h"
 #include "curve/Fit.h"
 #include "GroundMesher.h"
-#include "ClassField.h"
+#include "ClassStructure.h"
 #include "GroundMaterials.h"
 #include "OsmField.h"
 #include "RoadMesher.h"
@@ -42,7 +42,6 @@ public:
     const outshine::Ground::StreetField &Ways;
     const outshine::Ground::GroundMaterials &Materials;
     const outshine::Ground::VegetationTemplates &Vegetation;
-    const outshine::Ground::ClassField *GroundClasses = nullptr;
     const outshine::Ground::GroundStream *Ground = nullptr;
     const Path::Network *Network = nullptr;
     const TangentFrame &Standing;
@@ -56,8 +55,8 @@ public:
 
   [[nodiscard]] bool Lay(const Site &site,
                          Geometry &ground,
-                         std::vector<EarthworkStamp> *corridor,
-                         std::vector<DiagnosticSample> *notes) const;
+                         std::vector<EarthworkStamp> &corridor,
+                         std::vector<DiagnosticSample> &notes) const;
 
 private:
   struct Meets {
@@ -69,7 +68,6 @@ private:
   struct Paving {
     const outshine::Ground::GroundMaterials &Materials;
     const outshine::Ground::VegetationTemplates &Vegetation;
-    const outshine::Ground::ClassField *GroundClasses = nullptr;
     const outshine::Ground::GroundStream *Ground = nullptr;
     const Path::Network *Network = nullptr;
     const outshine::Ground::StreetField &Ways;
@@ -460,8 +458,8 @@ public:
           size_t lanesMost,
           size_t nodesMost,
           Geometry &ground,
-          std::vector<EarthworkStamp> *corridor,
-          std::vector<DiagnosticSample> *notes) const;
+          std::vector<EarthworkStamp> &corridor,
+          std::vector<DiagnosticSample> &notes) const;
 
 private:
   const RoadMesher &Sweeper_;
