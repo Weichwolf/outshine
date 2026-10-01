@@ -1,4 +1,11 @@
 #include "OsmApiRegion.h"
+#include <expected>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 #include "DeclaredSources.h"
 
 namespace outshine::Data {

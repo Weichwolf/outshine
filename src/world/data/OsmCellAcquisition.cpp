@@ -1,4 +1,10 @@
 #include "OsmCellAcquisition.h"
+#include <cstddef>
+#include <expected>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
 #include "OsmApiRegion.h"
 #include <algorithm>
 #include <utility>
@@ -9,7 +15,7 @@ struct OsmCellAcquisition::Impl {
     std::unique_ptr<OsmApiRegion> Region;
     OsmSourceChunk Chunk;
     double BeganMs = 0;
-    bool Refine = false;
+    OsmApiRegion::Collected Outcome = OsmApiRegion::Collected::Pending;
   };
 
   SourceProvider Catalogue;
@@ -55,10 +61,15 @@ std::expected<void, std::string> OsmCellAcquisition::Start(GeoCellId cell) {
   std::vector<GeoCellId> refine;
   const auto began = state.Wire.NowMs();
   const bool cachedChildren = (*region)->Begin(state.Store, refine);
+  auto outcome =
+      cachedChildren
+          ? std::expected<OsmApiRegion::Collected, std::string>(OsmApiRegion::Collected::Refine)
+          : (*region)->Collect(chunk, began);
+  if (!outcome) { return std::unexpected(std::move(outcome.error())); }
   state.Queries.push_back({.Region = std::move(*region),
                            .Chunk = std::move(chunk),
                            .BeganMs = began,
-                           .Refine = cachedChildren});
+                           .Outcome = *outcome});
   return {};
 }
 
@@ -66,16 +77,17 @@ std::expected<std::optional<OsmSourceRead>, std::string> OsmCellAcquisition::Tak
   auto &state = *Impl_;
   for (size_t index = 0; index < state.Queries.size(); ++index) {
     auto &entry = state.Queries[index];
-    auto result =
-        entry.Refine
-            ? std::expected<OsmApiRegion::Collected, std::string>(OsmApiRegion::Collected::Refine)
-            : entry.Region->Collect(entry.Chunk, entry.BeganMs);
+    auto result = entry.Outcome == OsmApiRegion::Collected::Pending
+                      ? entry.Region->Collect(entry.Chunk, entry.BeganMs)
+                      : std::expected<OsmApiRegion::Collected, std::string>(entry.Outcome);
     if (!result) { return std::unexpected(std::move(result.error())); }
     if (*result == OsmApiRegion::Collected::Pending) { continue; }
     OsmSourceRead ready;
     ready.ElapsedMs = state.Wire.NowMs() - entry.BeganMs;
     if (*result == OsmApiRegion::Collected::Refine) {
-      ready.Refine.push_back(*entry.Chunk.Cell);
+      const auto cell = entry.Chunk.Cell;
+      if (!cell) { return std::unexpected("original OSM acquisition lost its cell address"); }
+      ready.Refine.push_back(*cell);
     } else {
       ready.Chunks.push_back(std::move(entry.Chunk));
     }

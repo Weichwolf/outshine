@@ -54,7 +54,8 @@ int main() {
       cells[index] = {.Level = 9, .X = static_cast<uint32_t>(256 + index), .Y = 256};
       CHECK(reader.Start(cells[index]), "each independent cell enters bounded acquisition");
     }
-    CHECK(!reader.Start({.Level = 9, .X = 300, .Y = 256}) && reader.PendingCount() == cells.size(),
+    CHECK(wire.Starts == 8 && !reader.Start({.Level = 9, .X = 300, .Y = 256}) &&
+              reader.PendingCount() == cells.size(),
           "pending capacity rejects additional work before any transfer can begin");
     for (size_t index = 1; index < cells.size(); ++index) {
       auto ready = reader.TakeReady();
