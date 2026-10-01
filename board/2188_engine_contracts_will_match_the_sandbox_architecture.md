@@ -17,7 +17,8 @@ ProviderRegistry/SourceSet, native Geometry/Material, Double-Welt und kamera-rel
 GPU-Daten bestehen. Generate::Request trägt Ort/Seed/Ground/Coarseness, aber keinen
 Projektions-/Fehlervertrag. Native StructureBake-Pfade umgehen diesen Generatorvertrag.
 OriginalStructurePreparation fordert Terrain nach einem gemeinsamen heightZoom an;
-RawTile hält vollständige SourceSnapshots gepinnt. SimulationState integriert bisher
+RawTile hält derzeit vollständige SourceSnapshots gepinnt; dieser Besitz wird durch
+geschlossene Objektinputs mit schwachem Archivbezug ersetzt. SimulationState integriert bisher
 Schwerkraft; Rigid/Wrench/Prismatic liefern Grundlagen, keinen vollständigen Weltkontakt.
 Script/ActionHostAdapter und Ui::Markup/Style/Layout bestehen und bleiben verwendbar.
 
@@ -49,7 +50,9 @@ beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
 - SourceReceipt identifiziert Originalquelle, Adresse, Revision/Digest und Gültigkeit.
   Produktpins halten konsumierte Inputs, nicht automatisch vollständige OSM-Zellarchive.
   Alle Originaltags bleiben im Quellcache; konsumierte Semantik/Herkunft bleibt am Produkt.
-  Zell-Snapshots nach abgeschlossener Ingestion freigeben, soweit kein tatsächlicher Nutzer sie braucht.
+  Gebäudeinputs übernehmen ausschließlich ihre typisierten Wurzeln samt transitiven Referenzen,
+  Tags und Quellbelegen. Ein schwacher Archivbezug dient der Wiederverwendungsprüfung, nicht
+  dem Produktbesitz. Zell-Snapshots freigeben, soweit kein tatsächlicher Nutzer sie braucht.
 - Geometrie, Kontakte, Licht und Wasser teilen expliziten Frame-Ursprung/Höhendatum.
   Double-Welt → kamera-relative Floats; rechtshändig Y-up/CCW. Erde ist ein Raumadapter,
   keine versteckte Voraussetzung jedes externen Generators.
