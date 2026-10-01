@@ -18,9 +18,12 @@ begrenzte API-/Cache-Beschaffung auf IO-Worker und produktbezogene Vorladebereit
 Die Runtime lädt bis zu zwei unabhängige Originalregionen gleichzeitig; gemeinsame
 Frist und Abbruch räumen laufende Tickets auf. Parsing bleibt auf dem Compute-Worker.
 Der registrierte API-Katalog bedient öffentliche geodätische Zelladressen samt
-separaten Rohdaten-Cachekeys. Seine automatische Nachfrage und Publikation fehlen.
+separaten Rohdaten-Cachekeys. Automatische Kameranachfrage und Renderpublikation fehlen.
 Begrenzte Zelljobs liefern getrennte geparste Snapshots; der einzelne Bestand wird
 ohne zusätzliche Elementkopie übernommen. Zellantworten werden nicht global gemergt.
+Der Runtime-Lader übernimmt unveränderte Zell-Snapshots, beschafft nur fehlende Zellen
+und veröffentlicht vollständige Nachfrage atomar; Fehler erhalten den gültigen Altstand.
+Explizite Zell-/Snapshot-Quoten zählen gepinnte Altstände weiter. Reale RAM-Spitzen sind offen.
 Flensburgs Kameraausschnitt lädt über die offizielle API und offline aus denselben Rohbytes.
 Native Gebäude erreichen die gemeinsame Queue, Terrain-Stempel und beleuchtete Client-Bilder.
 Automatische Nachfrage, native Wasser-/Straßendarstellung und volle Quellenabdeckung fehlen.

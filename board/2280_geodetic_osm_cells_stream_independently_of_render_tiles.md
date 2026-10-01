@@ -18,8 +18,10 @@ native Gebäude mit gepinnten Koordinaten, Terrain-Zertifikaten und Stempeln im 
 begrenzte Zellantworten mit getrennten Raw-Cachekeys; alte Quelladressen bleiben stabil.
 `ReadOsmApiCells` beschafft begrenzte Zelljobs; `ParseCell` hält Herkunft und Elemente
 je Zelle getrennt. Zellantworten dürfen nicht zum regionalen Snapshot verschmelzen.
-Regionale Diagnosen sind sichtbar; automatische Nachfrage, residente Zellprodukte
-und vollständige Places fehlen. Der regionale Snapshot ersetzt keine weltweite Residenz.
+`OsmSourceLoader::RequestCells` hält vollständige Zellmengen resident und übernimmt auch
+fertige unveröffentlichte Snapshots; bestehende IO-/Compute-Phasen publizieren Ersatz atomar.
+Regionale Diagnosen sind sichtbar; Kameranachfrage, native Zellprodukte und vollständige
+Places fehlen. Der regionale Snapshot ersetzt keine weltweite Residenz.
 Weltweite Zellnachfrage bleibt Teil dieser Lieferung; größere Chunk-Limits ersetzen sie nicht.
 Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
 
@@ -74,6 +76,9 @@ Sichtweite. Frustum begrenzt nur Zeichnen. Bewegung fragt neue Regionen mit Hyst
 Überlast verschiebt Arbeit ohne Frame-Blockade. Kohärente Quellenstände publizieren atomar.
 SSD hält nur Rohbytes; RAM hält Indizes, Staging und CPU-Produkte. GPU-Produkte sind
 vor Drehung zeichenbereit. Budgets nach AGENTS; aktive Regionen werden nicht ständig verdrängt.
+Der Lader verlangt Zell-/Snapshot-Grenzen und zählt auch weiter gepinnte Altstände.
+Die Snapshot-Charge zählt Strukturen und reservierte Kapazitäten konservativ; sie ersetzt
+keine Messung von RSS, Allocator-Reserve oder transienten Parse-/Publikationsspitzen.
 
 ## Widerlegbare Abnahme
 Zwei benachbarte Originalregionen liefern im Client Gebäude und verbundene Straßen.
