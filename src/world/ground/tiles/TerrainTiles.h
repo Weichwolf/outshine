@@ -184,12 +184,13 @@ public:
   [[nodiscard]] std::shared_ptr<const TerrainField> HeldStitched(Data::TileId of) const;
   void HoldsStitched(Data::TileId of, const std::shared_ptr<const TerrainField> &shared);
 
-  TerrainGrid::State NodesOf(Data::TileId of,
-                             int grid,
-                             std::vector<float> *out,
-                             std::vector<Data::TileSourceIdentity> *sources,
-                             uint32_t *postings,
-                             int *side);
+  TerrainGrid::State SampleNodeHeights(Data::TileId of,
+                                       int grid,
+                                       std::vector<float> *out,
+                                       std::vector<Data::TileSourceIdentity> *sources,
+                                       uint32_t *postings,
+                                       int *side,
+                                       std::optional<Data::FetchFailure> *failure = nullptr);
 
   [[nodiscard]] uint32_t Stride() const { return Config_.Stride; }
 

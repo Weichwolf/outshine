@@ -60,6 +60,21 @@ int main() {
     CHECK(failure.Served ==
               Data::Address::At({.Zoom = 4, .X = missing.X >> 1u, .Y = missing.Y >> 1u}),
           "stitching retains the failed neighbour's served ancestor");
+    std::vector<float> heights{1.0f};
+    std::vector<Data::TileSourceIdentity> sources;
+    uint32_t postings = 1;
+    int side = 1;
+    std::optional<Data::FetchFailure> meshFailure;
+    CHECK(
+        tiles.SampleNodeHeights(
+            {.Zoom = 5, .X = 17, .Y = 11}, 4, &heights, &sources, &postings, &side, &meshFailure) ==
+                TerrainGrid::State::Refused &&
+            meshFailure && meshFailure->Requested == failure.Requested &&
+            meshFailure->Served == failure.Served && meshFailure->SourceId == failure.SourceId &&
+            meshFailure->SourceRevision == failure.SourceRevision &&
+            meshFailure->SourceKey == failure.SourceKey && meshFailure->Reason == failure.Reason &&
+            heights.empty() && sources.empty() && postings == 0 && side == 0,
+        "mesh height sampling retains raw failure and produces no partial grid");
   }
   return Report();
 }

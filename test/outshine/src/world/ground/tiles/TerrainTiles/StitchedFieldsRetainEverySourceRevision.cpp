@@ -109,10 +109,19 @@ int main() {
   std::vector<Data::TileSourceIdentity> meshSources;
   uint32_t postings = 0;
   int side = 0;
-  CHECK(shaped.NodesOf({.Zoom = 0, .X = 0, .Y = 0}, 4, &nodes, &meshSources, &postings, &side) ==
+  std::optional<Data::FetchFailure> failure(
+      Data::FetchFailure{.Kind = Data::DataKind::Elevation,
+                         .Requested = Data::Address::At({.Zoom = 0, .X = 0, .Y = 0}),
+                         .Served = Data::Address::At({.Zoom = 0, .X = 0, .Y = 0}),
+                         .SourceId = "previous",
+                         .SourceRevision = "r0",
+                         .SourceKey = "previous-key",
+                         .Reason = Data::FetchFailureReason::OfflineMiss});
+  CHECK(shaped.SampleNodeHeights(
+            {.Zoom = 0, .X = 0, .Y = 0}, 4, &nodes, &meshSources, &postings, &side, &failure) ==
                 TerrainGrid::State::Decoded &&
-            before && std::ranges::equal(before->Sources(), meshSources),
-        "sampled mesh product retains the stitched source set");
+            before && std::ranges::equal(before->Sources(), meshSources) && !failure,
+        "sampled mesh product retains sources and clears a previous failure");
   shaped.Shapes({.Kind = "sineRidge", .AmplitudeM = 30.0, .WavelengthM = 100.0});
   CHECK(shaped.StitchedField(0, 0, 0) == before,
         "repeating unchanged shape parameters preserves the stitched cache");

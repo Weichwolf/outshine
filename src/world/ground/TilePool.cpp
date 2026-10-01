@@ -548,7 +548,9 @@ TilePool::Reply TilePool::FetchDelivery(const Data::Fetch &request, Landing *out
                    "tile_refused",
                    {{"request", key},
                     {"source", answer.SourceId()},
-                    {"revision", answer.SourceRevision()}});
+                    {"revision", answer.SourceRevision()},
+                    {"reason",
+                     answer.Failure() ? Data::Name(answer.Failure()->Reason) : "unknown failure"}});
         reply = Reply::Refused;
         break;
       case Data::Delivery::State::Delivered: break;
@@ -613,13 +615,14 @@ enum class Miss { None, Hole, Wait, Refused };
 }
 
 void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
-  const TerrainGrid::State stood = tiles.NodesOf({.Zoom = job.Z, .X = job.X, .Y = job.Y},
-                                                 job.Grid,
-                                                 &out->Build.Nodes,
-                                                 &out->Build.Sources,
-                                                 &out->Build.Postings,
-                                                 &out->Build.Side);
-  Miss miss = MissOf(stood);
+  const TerrainGrid::State state = tiles.SampleNodeHeights({.Zoom = job.Z, .X = job.X, .Y = job.Y},
+                                                           job.Grid,
+                                                           &out->Build.Nodes,
+                                                           &out->Build.Sources,
+                                                           &out->Build.Postings,
+                                                           &out->Build.Side,
+                                                           &out->Landed.Failure);
+  Miss miss = MissOf(state);
   const char *stage = "source";
   if (miss == Miss::None && (out->Build.Side < 2 || out->Build.Nodes.empty())) {
     miss = Miss::Refused;
@@ -630,13 +633,17 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
     return;
   }
   if (miss == Miss::Refused) {
-    Log::Warn(LogTag::World,
-              "tile_mesh_refused",
-              {{"z", job.Z},
-               {"x", static_cast<int>(job.X)},
-               {"y", static_cast<int>(job.Y)},
-               {"stage", stage},
-               {"rc", static_cast<int>(stood)}});
+    Log::Warn(
+        LogTag::World,
+        "tile_mesh_refused",
+        {{"z", job.Z},
+         {"x", static_cast<int>(job.X)},
+         {"y", static_cast<int>(job.Y)},
+         {"stage", stage},
+         {"rc", static_cast<int>(state)},
+         {"reason", out->Landed.Failure ? Data::Name(out->Landed.Failure->Reason) : "invalid grid"},
+         {"request", out->Landed.Failure ? out->Landed.Failure->Requested.Text() : std::string{}},
+         {"source", out->Landed.Failure ? out->Landed.Failure->SourceId : std::string{}}});
     const std::scoped_lock ledger(LedgerMutex_);
     Ledger_.MeshRefused++;
   }

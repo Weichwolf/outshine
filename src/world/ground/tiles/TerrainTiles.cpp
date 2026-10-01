@@ -453,19 +453,24 @@ void FillNodeHeights(const TerrainField &field,
   }
 }
 
-TerrainGrid::State TerrainTiles::NodesOf(Data::TileId of,
-                                         int grid,
-                                         std::vector<float> *out,
-                                         std::vector<Data::TileSourceIdentity> *sources,
-                                         uint32_t *postings,
-                                         int *side) {
+TerrainGrid::State TerrainTiles::SampleNodeHeights(Data::TileId of,
+                                                   int grid,
+                                                   std::vector<float> *out,
+                                                   std::vector<Data::TileSourceIdentity> *sources,
+                                                   uint32_t *postings,
+                                                   int *side,
+                                                   std::optional<Data::FetchFailure> *failure) {
   out->clear();
   sources->clear();
   *postings = 0;
   *side = 0;
+  if (failure != nullptr) { failure->reset(); }
   const TerrainGrid stitched = StitchedGrid(of.Zoom, of.X, of.Y);
   const TerrainField *field = stitched.TryField();
-  if (field == nullptr) { return stitched.Where(); }
+  if (field == nullptr) {
+    if (failure != nullptr) { *failure = stitched.Failure(); }
+    return stitched.Where();
+  }
   const uint32_t rows = PostingsPerEdge(field->Rows(), Config_.Stride);
   const uint32_t cols = PostingsPerEdge(field->Cols(), Config_.Stride);
   const int nodes = ChunkNodes({.Postings = rows, .Grid = grid});
