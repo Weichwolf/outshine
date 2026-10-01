@@ -16,12 +16,12 @@ Originalbereichen; Datei, Länge und Revision bleiben gekoppelt. Öffentliche Qu
 unterscheiden native 1°-Zellen, Mercator-Kacheln und Produktindizes; Provider, Lieferung
 und Rohdaten-Cache erhalten diese Identität. `CopernicusDem` beschafft Originalbereiche
 über `SourceSet`; Receipts und Bytes bleiben beim erneuten Öffnen des Caches gekoppelt.
-Runtime-Residency erhält die Bereichs-Receipts; Terrainfelder übernehmen native
-Float-Meter ohne PNG-Umweg. Georeferenziertes Resampling nativer Rasterzellen,
-deren vollständige Quellprovenienz und der Client-Default fehlen noch.
-Der bisherige `TerrariumDem`-Default liefert eine andere Quelle und erfüllt diesen
-Auftrag nicht. Decoder und historische Prüfdateien bleiben erhalten; der Runtime-
-Quellenpfad wird ersetzt. Alte Provider und unbenutzte Quellenpfade entfernen;
+`CopernicusTerrain` resampelt native Zellen und Übersichten auf dem gemeinsamen
+Terrain-Worker; Float-Meter, Zellgrenzen, fehlende Posts und Originalrevisionen
+bleiben erhalten. IO verwendet denselben Providervertrag für eingebaute und externe
+Quellen. Der eingebaute Terrain-Default ist GLO-30; reale Place-Bilder und Budgets
+sind noch nicht abgenommen. Native Zertifikate bleiben unbewiesen.
+Decoder und historische Prüfdateien bleiben erhalten. Alte Provider und unbenutzte Quellenpfade entfernen;
 gemeinsam genutzte Terrain-/Straßenlogik erhalten. Kamera, Zeit, offizielle OSM-Daten und Open-Meteo bleiben
 die übrigen erlaubten Eingaben. Fehlende GLO-30-Daten sind kein Meeresspiegelwert.
 
