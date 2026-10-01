@@ -62,6 +62,13 @@ int main() {
     const auto loaded = routed.preload(2.0);
     CHECK(!loaded && !loaded.error().empty() && !routed.settled(),
           "a demanded incomplete transport product still blocks publication");
+    double originalBytes = -1, routedBytes = -1;
+    for (const DiagnosticSample &sample : routed.measures()) {
+      if (sample.Name == "original OSM source bytes") { originalBytes = sample.Value; }
+      if (sample.Name == "semantic OSM source bytes") { routedBytes = sample.Value; }
+    }
+    CHECK(originalBytes == static_cast<double>(xml.size()) && routedBytes == -1,
+          "original acquisition and transport publication have distinct diagnostic completion");
   }
   std::error_code error;
   std::filesystem::remove(path, error);

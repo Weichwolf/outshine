@@ -225,9 +225,15 @@ void Engine::State::PollOsmSources() {
     if (World.OsmSourceLoader->Current() != previousSource && World.CurrentOriginalReady()) {
       const auto &source = *World.OsmSourceLoader->Current();
       Published.RecordMetric(
-          "semantic OSM source bytes", static_cast<double>(source.SourceBytes), "bytes");
-      Published.RecordMetric("semantic OSM read time", source.ReadMs, "ms");
-      Published.RecordMetric("semantic OSM parse time", source.ParseMs, "ms");
+          "original OSM source bytes", static_cast<double>(source.SourceBytes), "bytes");
+      Published.RecordMetric("original OSM read time", source.ReadMs, "ms");
+      Published.RecordMetric("original OSM parse time", source.ParseMs, "ms");
+      if (!World.OsmTransportLoader) {
+        Published.RecordMetric(
+            "semantic OSM source bytes", static_cast<double>(source.SourceBytes), "bytes");
+        Published.RecordMetric("semantic OSM read time", source.ReadMs, "ms");
+        Published.RecordMetric("semantic OSM parse time", source.ParseMs, "ms");
+      }
       if (!SubmitOsmTransportSource()) { return; }
     }
   }
