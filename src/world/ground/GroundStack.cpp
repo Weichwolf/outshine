@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <expected>
 #include <array>
 #include "GroundStack.h"
@@ -20,6 +21,8 @@
 namespace outshine::Ground {
 
 namespace {
+
+constexpr int kGeographicTerrainRenderZoom = 14;
 
 double ElapsedMs(std::chrono::steady_clock::time_point began) {
   return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
@@ -126,7 +129,10 @@ int GroundStack::FinestZoomOf(Data::DataKind kind) const {
   for (size_t at = 0; at < Sources_->Count(); ++at) {
     const Data::SourceDecl &decl = Sources_->At(at).Declaration();
     if (decl.Kind != kind) { continue; }
-    finest = decl.MaxZoom > finest ? decl.MaxZoom : finest;
+    const int zoom = kind == Data::DataKind::Elevation && decl.How == Data::Scheme::GeographicCell
+                         ? kGeographicTerrainRenderZoom
+                         : decl.MaxZoom;
+    finest = std::max(finest, zoom);
   }
   return finest;
 }

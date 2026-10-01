@@ -58,6 +58,8 @@ int main() {
                    1.0),
         "explicit terrain-only provider opens without an implicit vector source");
   if (!stack.Opened()) { return Report(); }
+  CHECK(stack.FinestZoomOf(Data::DataKind::Elevation) > 0,
+        "native geographic terrain retains a regional render grid independent of its cell level");
   CHECK(!stack.HasVectorSource() && stack.VectorZoom() == kFineZoom,
         "the empty vector snapshot uses the ground classification's spatial grid");
   const auto firstRestand = stack.Restand(first, {.IngestTilesMost = 1, .VectorRing = 0});
