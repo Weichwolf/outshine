@@ -34,8 +34,12 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   CellsAround plant den vollständigen Radius mit WGS84-Krümmungsschranke, Datumsgrenze und Polen.
   API-Level 9 umfasst 360×180/512² = 0,2472 Grad² je Zelle, unter dem API-Flächenlimit.
   Snapshot-Admittanz: 32×4 MiB = 128 MiB inklusive gepinnter Altstände, keine Vorallokation.
-  Das ist eine Quellgrenze, kein bewiesenes App-Budget. Zu große urbane Antworten brauchen
-  adaptive Quellzellen; globale Grobquellen und die vollständige Place-Abnahme bleiben offen.
+  Das ist eine Quellgrenze, kein bewiesenes App-Budget. Das API-Flächenlimit garantiert nicht
+  das Node-Limit: Flensburg scheitert derzeit an einer Antwort mit mehr als 50.000 Nodes.
+  Nächster Schritt: Kapazitätsablehnung am HTTP-Adapter typisieren und die betroffene Zelle
+  durch vier flächendeckende Kinder ersetzen. Zellzahl, Tiefe, Speicher und Gesamtdauer bleiben
+  begrenzt; erst die vollständige Blattmenge publizieren. Unveränderte Blätter wiederverwenden.
+  Globale Grobquellen und die vollständige Place-Abnahme bleiben offen.
 - GLO-30: `CopernicusRaster`/libtiff liefern native Meter aus Original-COG-Blöcken/Übersichten.
   HTTP-Bereiche, Dateilänge, starke Revisionspins und Receipt vor Cache/Lieferung prüfen.
   PixelIsPoint, Sample-Ursprung, X/Y-Abstände und Raster-NoData aus Metadaten lesen.
