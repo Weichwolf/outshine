@@ -22,8 +22,9 @@ begrenzte Zellantworten mit getrennten Raw-Cachekeys; alte Quelladressen bleiben
 je Zelle getrennt. Zellantworten dürfen nicht zum regionalen Snapshot verschmelzen.
 `OsmSourceLoader::RequestCells` hält vollständige Zellmengen resident und übernimmt auch
 fertige unveröffentlichte Snapshots; bestehende IO-/Compute-Phasen publizieren Ersatz atomar.
-Regionale Diagnosen sind sichtbar; Kameranachfrage, native Zellprodukte und vollständige
-Places fehlen. Der regionale Snapshot ersetzt keine weltweite Residenz.
+Native Gebäudeprodukte halten getrennte Quellen, deduplizieren typisierte IDs und
+verformen Terrain über bestehende Stempel. Kameranachfrage, globale Grobstufen und
+vollständige Places fehlen; regionale Diagnosen ersetzen keine weltweite Residenz.
 Weltweite Zellnachfrage bleibt Teil dieser Lieferung; größere Chunk-Limits ersetzen sie nicht.
 
 ## Weltbedarf von Boden bis Orbit

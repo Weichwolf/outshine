@@ -30,6 +30,8 @@ Der regionale Gebäudejob pinnt Originaldaten direkt; ihre eigene Publikationsre
 invalidiert Kandidaten ohne Verkehrsgraph. Nur deklarierte Routen fordern dessen Aufbau.
 Terrainbedarf folgt den Grundrissen, nicht der Quellen-Bbox. Gemeinsamer Compute-Worker
 und bestehende Queue halten die vorbereiteten Felder je Quelle und Terrain-Zoom im RAM.
+Getrennte Zellprodukte prüfen gemeinsame Originalobjekte und konsumierte Relationswege;
+ihre ausgewählte Objektmenge gehört zur Produktidentität und Terrain-Publikation.
 Automatische Nachfrage, native Wasser-/Straßendarstellung und volle Quellenabdeckung fehlen.
 Weltweite Abdeckung braucht residente Quellenzellen statt größere regionale Träger.
 Das Place-Gate bleibt rot; analytisches Terrain und regionale Sicht sind nur Diagnosen.
