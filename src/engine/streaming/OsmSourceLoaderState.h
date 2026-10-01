@@ -11,6 +11,9 @@
 #include <math/Units.h>
 
 namespace outshine {
+namespace Data {
+class OsmCellAcquisition;
+}
 
 struct OsmSourceLoader::Access {
   Data::Transport *Wire = nullptr;
@@ -77,6 +80,20 @@ struct OsmSourceLoader::CellPipeline {
   Tasks::Handle Handle = Tasks::kNoTask;
   std::stop_source Stop;
   uint64_t Revision = 0;
+  void Acquire(const std::shared_ptr<Access> &access,
+               Data::SourceProvider provider,
+               const Data::ProviderRegistry *registry,
+               std::string root,
+               uint64_t revision,
+               const std::stop_token &stop) const;
+  [[nodiscard]] std::expected<void, std::string>
+  StartQueued(Data::OsmCellAcquisition &reader) const;
+  [[nodiscard]] bool Deliver(Data::OsmSourceRead ready,
+                             Access &access,
+                             uint64_t revision,
+                             const std::stop_token &stop) const;
+  [[nodiscard]] static bool DeadlineExceeded(Access &access, uint64_t revision);
+  void Fail(std::string error) const;
 };
 }
 

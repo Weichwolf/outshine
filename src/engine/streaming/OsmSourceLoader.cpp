@@ -120,7 +120,7 @@ void OsmSourceLoader::Poll() {
 }
 
 bool OsmSourceLoader::AwaitSlice(double seconds) {
-  if (CellPipeline_) { return Io_.AwaitCompletion(std::min(seconds, 0.005)); }
+  if (CellPipeline_) { return Io_.AwaitCompletion(std::min(seconds, MaximumIoAwaitSeconds)); }
   return Pending_ && Pending_->Owner->AwaitCompletion(seconds);
 }
 
@@ -143,11 +143,7 @@ void OsmSourceLoader::CompletePending(Pending finished) {
     Error_ = std::move(loaded->error());
   } else if (auto *cells = std::get_if<CellLoadResult>(&finished.Output->Value)) {
     if (*cells) {
-      if (CellPipeline_ && CellPipeline_->Revision == Revision_) {
-        for (const auto &entry : **cells) {
-          std::erase(CellPipeline_->Assigned, *entry.Snapshot->Cell);
-        }
-      }
+      ReleaseAssignedCells(**cells);
       CompleteCells(std::move(**cells));
       return;
     }
@@ -163,8 +159,6 @@ void OsmSourceLoader::StartRegionAcquisition() {
   auto result = std::make_shared<Result>();
   std::stop_source stop;
   const auto token = stop.get_token();
-  auto cells =
-      Scope_ == Scope::Cells ? Cells_->NextAcquisitionBatch() : std::vector<Data::GeoCellId>{};
   const auto handle = Io_.Post([input = Requested_,
                                 revision = Revision_,
                                 root = Root_,

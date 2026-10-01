@@ -80,6 +80,7 @@ public:
   }
 
 private:
+  static constexpr double MaximumIoAwaitSeconds = 0.005;
   using LoadResult = std::expected<std::shared_ptr<const Data::OsmSourceSnapshot>, std::string>;
   using ReadResult = std::expected<std::vector<Data::OsmSourceChunk>, std::string>;
   using CellLoadResult = std::expected<std::vector<CellSource>, std::string>;
@@ -100,6 +101,9 @@ private:
   void StartRegionAcquisition();
   void StartCellPipeline();
   void PumpCellPipeline();
+  void ConsumeAcquiredCell();
+  void QueueMissingCells();
+  void ReleaseAssignedCells(std::span<const CellSource> ready);
   void CancelCellPipeline();
   void StartDecode(std::vector<Data::OsmSourceChunk> input,
                    std::stop_source stop,
