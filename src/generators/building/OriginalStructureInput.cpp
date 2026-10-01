@@ -8,8 +8,10 @@
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <memory>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace outshine::Generators {
 namespace {

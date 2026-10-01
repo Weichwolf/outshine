@@ -22,14 +22,14 @@ struct SourceProvenance {
   std::string DatasetId;
   std::string Revision;
   std::vector<std::string> PayloadSha256;
-  std::optional<GeoCellId> Cell;
+  std::optional<GeoCellId> Cell = std::nullopt;
 
   [[nodiscard]] bool operator==(const SourceProvenance &) const = default;
 };
 
 struct ProductOrigin {
-  std::shared_ptr<const SourceProvenance> Provenance;
-  SourceCoverage Bounds;
+  std::shared_ptr<const SourceProvenance> Provenance = nullptr;
+  SourceCoverage Bounds{};
   uint64_t Selection = 0;
 };
 

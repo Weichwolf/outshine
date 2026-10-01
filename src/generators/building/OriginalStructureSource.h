@@ -8,9 +8,9 @@
 namespace outshine::Generators {
 
 struct OriginalStructureSource {
-  std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot;
-  std::weak_ptr<const Data::OsmSourceSnapshot> Archive;
-  Data::ProductOrigin Origin;
+  std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot = nullptr;
+  std::weak_ptr<const Data::OsmSourceSnapshot> Archive = Snapshot;
+  Data::ProductOrigin Origin{};
 };
 
 [[nodiscard]] inline std::shared_ptr<const Data::SourceProvenance>
