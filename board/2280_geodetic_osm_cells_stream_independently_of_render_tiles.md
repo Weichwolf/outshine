@@ -25,6 +25,12 @@ vollständige Nachfrage an `OsmSourceLoader`; `Laying` koordiniert Terrain und P
 Tasks/Fetching nutzen begrenztes paralleles IO und genau einen gemeinsamen Compute-
 Worker; verbleibende private ClassBuilder-/VectorStreetGraphWorker-Threads migrieren.
 Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerge.
+Der serielle Read-/Decode-Zyklus wird durch eine begrenzte Pipeline ersetzt: ein IO-
+Besitzer betreibt bis zu acht unabhängige Quellenanfragen; fertige Zellen gehen einzeln
+über höchstens zwei wartende XML-Produkte an den gemeinsamen Compute-Worker. Keine
+Thread-Sicherheitsannahme über externe Provider/Transports. Ein langsamer Request hält
+fertige Nachbarn nicht zurück. Revision/Abbruch gelten für IO, Übergabe und Decode;
+atomare Publikation und vorhandene Snapshot-Admittanz bleiben verbindlich.
 
 ## Quellen- und Produktvertrag
 - OSM: offizieller API-Katalog über GeoCellId, `map?bbox=west,south,east,north` und
