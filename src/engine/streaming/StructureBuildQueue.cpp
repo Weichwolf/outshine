@@ -77,8 +77,8 @@ int PitchedOf(std::string_view said) {
 
 void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &raw) {
   if (baked.Coordinates) { return; }
-  baked.Coordinates = std::make_shared<Ground::BuildingField::Geometry>();
-  baked.Coordinates->Original = raw.Original;
+  baked.Coordinates = std::make_shared<Ground::BuildingGeometry>();
+  baked.Coordinates->Origin = raw.Original.Origin;
   if (raw.Original.Snapshot) { baked.Coordinates->Sources.reserve(baked.Prints.size()); }
   size_t source = 0;
   for (auto &footprint : baked.Prints) {
@@ -90,7 +90,8 @@ void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &ra
     footprint.FirstPoint = raw.Structures[source].LocalFirst;
     footprint.FirstHole = raw.Structures[source].FirstHole;
     if (raw.Original.Snapshot) {
-      baked.Coordinates->Sources.push_back(raw.Structures[source].OriginalId);
+      const auto id = raw.Structures[source].OriginalId;
+      baked.Coordinates->Sources.push_back({.Id = id.Id, .Kind = static_cast<uint8_t>(id.Kind)});
     }
     ++source;
   }
@@ -578,7 +579,7 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
   }
   if (Originals_.size() == sources.size() && OriginalHeightZoom_ == heightZoom &&
       std::ranges::equal(Originals_, sources, {}, [](const auto &product) {
-        return product.Input->Original.Snapshot;
+        return product.Input->Original.Archive.lock();
       })) {
     return true;
   }
@@ -625,8 +626,10 @@ bool StructureBuildQueue::SourcesComplete(const Ground::GroundStack &stack,
     for (size_t tile = 0; tile < Originals_.size(); ++tile) {
       const auto *input = footprints.InputOfTile(static_cast<uint32_t>(tile));
       if (input == nullptr || !input->Qualified || !input->Coordinates ||
-          input->Coordinates->Original.Snapshot.get() != OriginalFor(static_cast<uint32_t>(tile)) ||
-          input->Coordinates->Original.Selection != Originals_[tile].Input->Original.Selection) {
+          input->Coordinates->Origin.Provenance !=
+              Originals_[tile].Input->Original.Origin.Provenance ||
+          input->Coordinates->Origin.Selection !=
+              Originals_[tile].Input->Original.Origin.Selection) {
         return false;
       }
     }
@@ -1106,8 +1109,8 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
   const auto &original = Originals_[tile].Input;
   const auto *accepted = prints.InputOfTile(tile);
   if (accepted != nullptr && accepted->Coordinates &&
-      accepted->Coordinates->Original.Snapshot == original->Original.Snapshot &&
-      accepted->Coordinates->Original.Selection == original->Original.Selection &&
+      accepted->Coordinates->Origin.Provenance == original->Original.Origin.Provenance &&
+      accepted->Coordinates->Origin.Selection == original->Original.Origin.Selection &&
       accepted->Terrain.ScopeCurrent(heightAt.TerrainScope) && accepted->Qualified &&
       (original->Structures.empty() ||
        (heightAt.CertificateCurrent && heightAt.CertificateCurrent(accepted->Terrain))) &&
@@ -1161,7 +1164,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                                                  .HeightDigest = heights->RasterDigest(),
                                                  .TileSpanM = prints.TileSpanM(),
                                                  .FallbackHeights = heights->Fallback(),
-                                                 .Original = &raw->Original});
+                                                 .Origin = &raw->Original.Origin});
   const BakeRevision revision{.HeightSource = heightAt.Revision,
                               .FocalPx = prints.FocalPx(),
                               .TileSpanM = prints.TileSpanM(),
@@ -1300,7 +1303,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::GroundStack &stack,
                                                    .StreetDigest = *streetDigest,
                                                    .TileSpanM = prints.TileSpanM(),
                                                    .FallbackHeights = heights->Fallback(),
-                                                   .Original = &raw->Original});
+                                                   .Origin = &raw->Original.Origin});
     SlowestRawExtractionMs_ = std::max(
         SlowestRawExtractionMs_,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extractionAt)
@@ -1347,8 +1350,8 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::GroundStack &stac
   if (bake.Task.Raw().Original.Snapshot) {
     const auto &captured = bake.Task.Heights();
     const bool current = bake.Task.Raw().Original.Snapshot.get() == OriginalFor(bake.Task.Tile()) &&
-                         bake.Task.Raw().Original.Selection ==
-                             Originals_[bake.Task.Tile()].Input->Original.Selection &&
+                         bake.Task.Raw().Original.Origin.Selection ==
+                             Originals_[bake.Task.Tile()].Input->Original.Origin.Selection &&
                          InstrumentedHeightsCurrent(captured, heightAt) &&
                          (heights == HeightRequirement::AllowFallback ||
                           bake.Task.Raw().Structures.empty() || captured.Qualified());
@@ -1471,7 +1474,7 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
   PrepareGeometry(baked, bake.Task.Raw());
   const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
   const std::optional<Data::TileSourceIdentity> vectorSource =
-      baked.Coordinates->Original.Snapshot ? std::nullopt
+      baked.Coordinates->Origin.Provenance ? std::nullopt
                                            : VectorSource(*vectors, bake.Task.Tile());
   return Landing{
       .Tile = bake.Task.Tile(),
@@ -1492,7 +1495,7 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
            .DefaultHeights = baked.DefaultHeights,
            .Fronted = baked.Fronted},
           bake.Task.Heights().Sources(),
-          baked.Coordinates->Original.Snapshot
+          baked.Coordinates->Origin.Provenance
               ? bake.Task.Raw().Structures.empty() || bake.Task.Heights().Qualified()
               : QualifiedStructureHeights(
                     *vectors,

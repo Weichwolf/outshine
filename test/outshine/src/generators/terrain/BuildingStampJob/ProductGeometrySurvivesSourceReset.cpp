@@ -13,9 +13,9 @@ int main() {
   Field field;
   Ground::OsmField vectors(14, {});
   field.AnchorAt({{1, 2, 3}});
-  std::array<std::weak_ptr<const Field::Geometry>, 2> owners;
+  std::array<std::weak_ptr<const Ground::BuildingGeometry>, 2> owners;
   for (uint32_t tile = 0; tile < 2; ++tile) {
-    auto geometry = std::make_shared<Field::Geometry>();
+    auto geometry = std::make_shared<Ground::BuildingGeometry>();
     const double longitude = static_cast<double>(tile) * 0.01;
     geometry->Points = {
         0, longitude, 0, longitude + 0.001, 0.001, longitude + 0.001, 0.001, longitude};

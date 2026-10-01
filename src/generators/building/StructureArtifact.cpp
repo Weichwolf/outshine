@@ -358,7 +358,7 @@ StructureArtifactKey(const RawTile &raw,
   Writer writer;
   if (raw.Original.Snapshot) {
     const uint64_t original = StructureSourceKey(
-        {.Vector = std::nullopt, .HeightSources = {}, .Original = &raw.Original});
+        {.Vector = std::nullopt, .HeightSources = {}, .Origin = &raw.Original.Origin});
     if (!writer.Number(original)) { return std::nullopt; }
   }
   const auto structure = [](auto &archive, const RawTile::Structure &value) {

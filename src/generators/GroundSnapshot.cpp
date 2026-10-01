@@ -84,7 +84,7 @@ public:
     const auto tiles = stands.Footprints->AcceptedTiles();
     for (size_t product = 0; product < accepted.size(); ++product) {
       const auto *geometry = accepted[product].Coordinates.get();
-      const bool original = geometry != nullptr && geometry->Original.Snapshot;
+      const bool original = geometry != nullptr && geometry->Origin.Provenance;
       if (!original && std::cmp_not_equal(tiles[product], tile)) { continue; }
       const auto coordinates =
           geometry != nullptr ? std::span<const double>(geometry->Points) : points;
@@ -160,7 +160,7 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
       stands.Vectors != nullptr && stands.Vectors->Settled(region.X(), region.Y());
   const bool native =
       std::ranges::any_of(stands.Footprints->AcceptedInputs(), [](const auto &input) {
-        return input.Coordinates && input.Coordinates->Original.Snapshot;
+        return input.Coordinates && input.Coordinates->Origin.Provenance;
       });
   if (!vectorsReady && !native) { return nullptr; }
   const int tile = vectorsReady ? stands.Vectors->TileIndex(region.X(), region.Y()) : -1;

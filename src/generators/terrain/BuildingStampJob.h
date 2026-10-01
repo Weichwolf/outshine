@@ -51,7 +51,7 @@ private:
   }
 
   const Ground::BuildingField *Products_ = nullptr;
-  const Ground::BuildingField::Geometry *Geometry_ = nullptr;
+  const Ground::BuildingGeometry *Geometry_ = nullptr;
   TangentFrame Frame_;
   uint64_t VectorGeneration_ = 0;
   std::vector<EarthworkStamp> Stamps_;

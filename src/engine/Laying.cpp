@@ -259,8 +259,8 @@ public:
       if (accepted.size() != OriginalSources_.size()) { return false; }
       for (size_t tile = 0; tile < OriginalSources_.size(); ++tile) {
         const auto *input = Footprints().InputOfTile(static_cast<uint32_t>(tile));
-        if (!input || !input->Coordinates || !input->Coordinates->Original.Snapshot ||
-            input->Coordinates->Original.Snapshot->Cell != OriginalSources_[tile]->Cell) {
+        if (!input || !input->Coordinates || !input->Coordinates->Origin.Provenance ||
+            input->Coordinates->Origin.Provenance->Cell != OriginalSources_[tile]->Cell) {
           return false;
         }
       }

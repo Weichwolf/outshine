@@ -3,6 +3,7 @@
 
 #include "GeographicRing.h"
 #include "OsmBuildingHeights.h"
+#include "OriginalStructureSource.h"
 #include <array>
 #include <expected>
 #include <atomic>
@@ -89,7 +90,7 @@ struct RawTile {
   std::vector<Structure> Structures;
   std::vector<GeographicRing> Holes;
   std::vector<Way> Ways;
-  StructureOriginalSource Original;
+  OriginalStructureSource Original;
   Vec3 AnchorEcef;
   LongitudeLatitude Eye;
   std::optional<LevelOfDetail> RequestedDetail;
@@ -106,7 +107,7 @@ struct RawTile {
 };
 
 struct BakedTile {
-  std::shared_ptr<outshine::Ground::BuildingField::Geometry> Coordinates;
+  std::shared_ptr<outshine::Ground::BuildingGeometry> Coordinates;
   Raised Built;
   ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;

@@ -191,11 +191,16 @@ int main() {
         "cross-cell duplicates and consumed member ways produce exactly two buildings");
   const auto *first = prints.InputOfTile(0);
   const auto *next = prints.InputOfTile(1);
-  CHECK(first && next && first->Coordinates->Original.Snapshot == source &&
-            next->Coordinates->Original.Snapshot == neighbor && !first->Vector && !next->Vector,
-        "each accepted product retains its own original snapshot without a vector tile");
-  const Data::OsmElementId part{.Kind = Data::OsmElementKind::Way, .Id = 11};
-  const Data::OsmElementId relation{.Kind = Data::OsmElementKind::Relation, .Id = 20};
+  CHECK(first && next && first->Coordinates->Origin.Provenance &&
+            first->Coordinates->Origin.Provenance->Cell == source->Cell &&
+            next->Coordinates->Origin.Provenance &&
+            next->Coordinates->Origin.Provenance->Cell == neighbor->Cell && !first->Vector &&
+            !next->Vector,
+        "each accepted product identifies its source archive without owning the complete cell");
+  const Data::SourceObjectId part{.Id = 11,
+                                  .Kind = static_cast<uint8_t>(Data::OsmElementKind::Way)};
+  const Data::SourceObjectId relation{.Id = 20,
+                                      .Kind = static_cast<uint8_t>(Data::OsmElementKind::Relation)};
   CHECK(first && next && first->Coordinates->Sources.size() == 1 &&
             next->Coordinates->Sources.size() == 1 && first->Coordinates->Sources[0] == part &&
             next->Coordinates->Sources[0] == relation,

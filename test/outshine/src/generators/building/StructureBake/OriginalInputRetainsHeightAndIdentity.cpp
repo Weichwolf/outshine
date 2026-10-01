@@ -29,8 +29,9 @@ int main() {
   const auto footprints = Ground::OsmBuildingFootprints::Build(source, 4);
   CHECK(footprints.has_value(), "original raised part has a closed footprint");
   if (!footprints) { return Report(); }
-  const StructureOriginalSource original{
-      .Snapshot = source, .Bounds = {.WestDeg = -1, .SouthDeg = -1, .EastDeg = 1, .NorthDeg = 1}};
+  const OriginalStructureSource original{
+      .Snapshot = source,
+      .Origin = {.Bounds = {.WestDeg = -1, .SouthDeg = -1, .EastDeg = 1, .NorthDeg = 1}}};
   const OriginalStructurePolicy policy{.Heights = {.StoreyHeightM = 3, .BodyHeightM = 4},
                                        .PointsMost = 4};
   auto raw = OriginalStructureInput(*footprints, original, policy);
@@ -41,8 +42,9 @@ int main() {
             part.HeightOrigin == Ground::OsmHeightOrigin::Policy,
         "missing top uses an explicit four metre body above original clearance");
   CHECK(part.OriginalId.Kind == Data::OsmElementKind::Way && part.OriginalId.Id == 10 &&
-            raw->Original.Snapshot == source,
-        "worker input retains typed identity and the complete original source");
+            raw->Original.Archive.lock() == source &&
+            raw->Original.Snapshot->Elements.FindWay(10) != nullptr,
+        "worker input retains typed identity, closed native inputs and its archive association");
   CHECK(part.PointCount == 4 && raw->LatLon.size() == 8 && part.HoleCount == 0,
         "source footprint reaches the generator without duplicated closing point");
   raw->TileSpanM = 1000;

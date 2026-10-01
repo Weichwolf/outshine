@@ -129,7 +129,7 @@ PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
   }
   if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
   auto raw = Generators::OriginalStructureInput(
-      *buildings, {.Snapshot = std::move(source), .Bounds = bounds}, policy);
+      *buildings, {.Snapshot = std::move(source), .Origin = {.Bounds = bounds}}, policy);
   if (!raw) {
     return std::unexpected("original building input failed with code " +
                            std::to_string(static_cast<int>(raw.error())));
@@ -236,13 +236,13 @@ PrepareProducts(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> 
       return (id.Kind == Data::OsmElementKind::Way && consumedWays.contains(id.Id)) ||
              !owned.emplace(id.Kind, id.Id).second;
     });
-    raw.Original.Selection = kDigestBasis;
+    raw.Original.Origin.Selection = kDigestBasis;
     for (const auto &structure : raw.Structures) {
-      raw.Original.Selection =
-          DigestFolded(raw.Original.Selection, static_cast<uint8_t>(structure.OriginalId.Kind));
+      raw.Original.Origin.Selection = DigestFolded(raw.Original.Origin.Selection,
+                                                   static_cast<uint8_t>(structure.OriginalId.Kind));
       for (unsigned shift = 0; shift < 64u; shift += 8u) {
-        raw.Original.Selection = DigestFolded(
-            raw.Original.Selection, static_cast<uint8_t>(structure.OriginalId.Id >> shift));
+        raw.Original.Origin.Selection = DigestFolded(
+            raw.Original.Origin.Selection, static_cast<uint8_t>(structure.OriginalId.Id >> shift));
       }
     }
     auto tiles = OriginalHeightCoverage(raw, heightZoom, stop);

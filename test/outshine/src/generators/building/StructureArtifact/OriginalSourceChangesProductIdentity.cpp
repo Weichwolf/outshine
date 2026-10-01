@@ -27,7 +27,8 @@ int main() {
   if (!heights) { return Report(); }
   RawTile raw;
   raw.Original = {.Snapshot = source,
-                  .Bounds = {.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}};
+                  .Origin = {.Provenance = DescribeOsmSource(*source),
+                             .Bounds = {.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
   raw.Structures.push_back({.OriginalId = {.Kind = Data::OsmElementKind::Node, .Id = 1}});
   const auto key = StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test");
   raw.Structures.front().OriginalId.Kind = Data::OsmElementKind::Way;
@@ -46,16 +47,18 @@ int main() {
         "copied worker input retains original tags after producer release");
   CHECK(key && key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
         "original and unqualified inputs cannot share product identity");
-  copy.Original.Bounds.EastDeg = 2;
+  copy.Original.Origin.Bounds.EastDeg = 2;
+  copy.Original.Origin.Provenance = DescribeOsmSource(*copy.Original.Snapshot);
   CHECK(key != StructureArtifactKey(copy, *heights, std::nullopt, "native-input-test"),
         "native source coverage participates in product identity");
   auto next = Data::OsmXmlReader::Read(R"(<osm version="0.6"/>)",
                                        {.DatasetId = "native-buildings", .Revision = "two"});
   CHECK(next.has_value(), "replacement fixture parses");
   if (!next) { return Report(); }
-  copy.Original.Bounds.EastDeg = 1;
+  copy.Original.Origin.Bounds.EastDeg = 1;
   copy.Original.Snapshot = std::make_shared<const Data::OsmSourceSnapshot>(
       Data::OsmSourceSnapshot{.Elements = std::move(*next), .Coverage = {}});
+  copy.Original.Origin.Provenance = DescribeOsmSource(*copy.Original.Snapshot);
   CHECK(key != StructureArtifactKey(copy, *heights, std::nullopt, "native-input-test"),
         "original revision changes identity even when mesh parameters are equal");
   CHECK(held.expired(), "last worker release retires the original source owner");

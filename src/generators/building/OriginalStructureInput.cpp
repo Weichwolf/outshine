@@ -42,7 +42,7 @@ PointRing(RawTile &raw, const OriginalStructurePolicy &policy, uint32_t point) {
 
 std::expected<RawTile, OriginalStructureInputError>
 OriginalStructureInput(const outshine::Ground::OsmBuildingFootprints &buildings,
-                       StructureOriginalSource source,
+                       OriginalStructureSource source,
                        OriginalStructurePolicy policy) {
   if (source.Snapshot.get() != &buildings.Source()) {
     return std::unexpected(OriginalStructureInputError::SourceMismatch);
@@ -57,7 +57,7 @@ OriginalStructureInput(const outshine::Ground::OsmBuildingFootprints &buildings,
   raw.LatLon.assign(buildings.Points().begin(), buildings.Points().end());
   raw.Holes.assign(buildings.Rings().begin(), buildings.Rings().end());
   raw.Structures.reserve(buildings.Buildings().size());
-  const auto &coverage = raw.Original.Bounds;
+  const auto &coverage = raw.Original.Origin.Bounds;
   const outshine::Ground::GeoBounds bounds{.MinLonDeg = coverage.WestDeg,
                                            .MinLatDeg = coverage.SouthDeg,
                                            .MaxLonDeg = coverage.EastDeg,
@@ -102,6 +102,22 @@ OriginalStructureInput(const outshine::Ground::OsmBuildingFootprints &buildings,
                               .HeightOrigin = height->TopOrigin,
                               .OriginalId = building.Source});
   }
+  std::vector<Data::OsmElementId> roots;
+  roots.reserve(raw.Structures.size());
+  for (const auto &structure : raw.Structures) { roots.push_back(structure.OriginalId); }
+  auto selected = raw.Original.Snapshot->Elements.SelectReferenced(roots);
+  if (!selected) { return std::unexpected(OriginalStructureInputError::MissingReference); }
+  raw.Original.Origin.Provenance = DescribeOsmSource(*raw.Original.Snapshot);
+  raw.Original.Archive = raw.Original.Snapshot;
+  const auto &archive = *raw.Original.Snapshot;
+  raw.Original.Snapshot = std::make_shared<const Data::OsmSourceSnapshot>(
+      Data::OsmSourceSnapshot{.Elements = std::move(*selected),
+                              .Coverage = archive.Coverage,
+                              .SourceBytes = archive.SourceBytes,
+                              .ReadMs = archive.ReadMs,
+                              .ParseMs = archive.ParseMs,
+                              .Chunks = archive.Chunks,
+                              .Cell = archive.Cell});
   return raw;
 }
 

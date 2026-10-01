@@ -14,6 +14,7 @@ struct OriginalStructurePolicy {
 
 enum class OriginalStructureInputError : uint8_t {
   SourceMismatch,
+  MissingReference,
   InvalidHeight,
   InvalidPointPolicy,
   InvalidCell,
@@ -23,7 +24,7 @@ enum class OriginalStructureInputError : uint8_t {
 
 [[nodiscard]] std::expected<RawTile, OriginalStructureInputError>
 OriginalStructureInput(const outshine::Ground::OsmBuildingFootprints &buildings,
-                       StructureOriginalSource source,
+                       OriginalStructureSource source,
                        OriginalStructurePolicy policy);
 
 }

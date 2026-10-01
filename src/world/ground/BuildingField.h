@@ -8,6 +8,7 @@
 #include "OsmField.h"
 #include "HeightField.h"
 #include "StructureSourceKey.h"
+#include "BuildingGeometry.h"
 
 #include <cstdint>
 #include <cassert>
@@ -43,19 +44,8 @@ public:
     [[nodiscard]] bool operator==(const Footprint &) const noexcept = default;
   };
 
-  struct Geometry {
-    StructureOriginalSource Original;
-    std::vector<double> Points;
-    std::vector<GeographicRing> Rings;
-    std::vector<Data::OsmElementId> Sources;
-
-    [[nodiscard]] size_t HeapBytes() const noexcept {
-      return CapacityBytes(Points) + CapacityBytes(Rings) + CapacityBytes(Sources);
-    }
-  };
-
   struct Baked {
-    std::shared_ptr<const Geometry> Coordinates;
+    std::shared_ptr<const BuildingGeometry> Coordinates;
     std::span<const Footprint> Prints;
     std::span<const double> SeatSpreadM;
     std::span<const double> AcrossM;
@@ -84,7 +74,7 @@ public:
   };
 
   struct AcceptedInput {
-    std::shared_ptr<const Geometry> Coordinates;
+    std::shared_ptr<const BuildingGeometry> Coordinates;
     std::optional<Data::TileSourceIdentity> Vector;
     std::vector<Data::TileSourceIdentity> Sources;
     uint64_t OccupiedCells = 0;
@@ -142,7 +132,7 @@ public:
              .StreetDigest = Input_.Bake.StreetDigest,
              .TileSpanM = Input_.Bake.TileSpanM,
              .FallbackHeights = false,
-             .Original = Input_.Coordinates ? &Input_.Coordinates->Original : nullptr});
+             .Origin = Input_.Coordinates ? &Input_.Coordinates->Origin : nullptr});
       }
     }
 
@@ -264,7 +254,7 @@ public:
                         : std::span<const Footprint>{Prints_.data() + r.First, r.Count};
   }
 
-  [[nodiscard]] const Geometry *GeometryOfFootprint(size_t index) const noexcept {
+  [[nodiscard]] const BuildingGeometry *GeometryOfFootprint(size_t index) const noexcept {
     const auto at = std::ranges::upper_bound(
         Products_, index, {}, [](const TileProduct &product) { return product.Prints.First; });
     if (at == Products_.begin()) { return nullptr; }

@@ -3,7 +3,7 @@
 
 #include "Digest.h"
 #include "TileSourceIdentity.h"
-#include "OsmSourceSnapshot.h"
+#include "SourceProvenance.h"
 
 #include <memory>
 
@@ -17,12 +17,6 @@
 
 namespace outshine {
 
-struct StructureOriginalSource {
-  std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot;
-  Data::SourceCoverage Bounds;
-  uint64_t Selection = 0;
-};
-
 struct StructureSourceView {
   const std::optional<Data::TileSourceIdentity> &Vector;
   std::span<const Data::TileSourceIdentity> HeightSources;
@@ -30,7 +24,7 @@ struct StructureSourceView {
   uint64_t StreetDigest = 0;
   double TileSpanM = 0;
   bool FallbackHeights = false;
-  const StructureOriginalSource *Original = nullptr;
+  const Data::ProductOrigin *Origin = nullptr;
 };
 
 [[nodiscard]] inline uint64_t StructureSourceKey(const StructureSourceView &inputs) {
@@ -60,22 +54,20 @@ struct StructureSourceView {
   };
   word(static_cast<uint64_t>(inputs.Vector.has_value()));
   if (inputs.Vector) { source(*inputs.Vector); }
-  if (inputs.Original != nullptr && inputs.Original->Snapshot) {
-    bytes("original-osm");
-    word(inputs.Original->Selection);
-    const auto &identity = inputs.Original->Snapshot->Elements.SourceIdentity();
+  if (inputs.Origin != nullptr && inputs.Origin->Provenance) {
+    bytes("source-provenance-v1");
+    word(inputs.Origin->Selection);
+    const auto &identity = *inputs.Origin->Provenance;
     bytes(identity.DatasetId);
     bytes(identity.Revision);
     std::vector<std::string_view> payloads;
-    payloads.reserve(inputs.Original->Snapshot->Chunks.size());
-    for (const auto &chunk : inputs.Original->Snapshot->Chunks) {
-      payloads.push_back(chunk.PayloadSha256);
-    }
+    payloads.reserve(identity.PayloadSha256.size());
+    for (const auto &payload : identity.PayloadSha256) { payloads.push_back(payload); }
     std::ranges::sort(payloads);
     payloads.erase(std::ranges::unique(payloads).begin(), payloads.end());
     word(payloads.size());
     for (const auto payload : payloads) { bytes(payload); }
-    const auto &bounds = inputs.Original->Bounds;
+    const auto &bounds = inputs.Origin->Bounds;
     word(std::bit_cast<uint64_t>(bounds.WestDeg));
     word(std::bit_cast<uint64_t>(bounds.SouthDeg));
     word(std::bit_cast<uint64_t>(bounds.EastDeg));

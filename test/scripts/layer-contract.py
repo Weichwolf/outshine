@@ -115,11 +115,10 @@ def public_owner(header, include):
     return PUBLIC_TIERS[key]
 
 
-def public_dependencies(source, directories, root, include):
+def header_dependencies(source, directories, root):
     expression = re.compile(r'^\s*#\s*include\s*[<"]([^>"]+)[>"]', re.MULTILINE)
     pending = [source]
     visited = set()
-    owners = set()
     while pending:
         current = pending.pop()
         if current in visited:
@@ -132,10 +131,21 @@ def public_dependencies(source, directories, root, include):
             resolved = next((candidate.resolve() for candidate in candidates if candidate.is_file()), None)
             if resolved is None or not resolved.is_relative_to(root):
                 continue
-            if resolved.is_relative_to(include):
-                owners.add(public_owner(resolved, include))
             pending.append(resolved)
-    return owners
+    return visited
+
+
+def public_dependencies(source, directories, root, include):
+    return {public_owner(header, include)
+            for header in header_dependencies(source, directories, root)
+            if header.is_relative_to(include)}
+
+
+def native_product_boundary(headers):
+    allowed_private = ('src/world/products/', 'src/base/', 'src/content/')
+    return [f'{header}: native world product depends on a non-product implementation'
+            for header in sorted(headers)
+            if header.startswith('src/') and not header.startswith(allowed_private)]
 
 
 def main():
@@ -184,6 +194,16 @@ def main():
     if not graph or not commands:
         raise RuntimeError('missing tier graph or compilation commands')
     violations = errors(graph, commands, public_edges)
+    if native_product_boundary({'src/world/products/BuildingGeometry.h', 'src/base/math/Capacity.h'}):
+        raise RuntimeError('native product positive control failed')
+    if not native_product_boundary({'src/world/data/OsmElements.h'}):
+        raise RuntimeError('native product negative control failed')
+    directories = sorted({directory for entry in json.loads(
+        (root / 'compile_commands.json').read_text()) for directory in include_directories(entry)})
+    for product in (src / 'world' / 'products').glob('*.h'):
+        dependencies = header_dependencies(product, directories, root)
+        violations.extend(native_product_boundary(
+            {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
     for tree in (src, include, root / 'test'):
         for source in tree.rglob('*'):
             if source.suffix not in {'.h', '.hpp', '.cpp', '.inc', '.glsl', '.vert', '.frag', '.comp'}:

@@ -168,7 +168,9 @@ int main() {
         "complete native objects publish without a vector tile watermark");
   if (!landed) { return Report(); }
   const auto *accepted = prints.InputOfTile(0);
-  CHECK(accepted && accepted->Coordinates && accepted->Coordinates->Original.Snapshot == source &&
+  CHECK(accepted && accepted->Coordinates && accepted->Coordinates->Origin.Provenance &&
+            accepted->Coordinates->Origin.Provenance->DatasetId ==
+                source->Elements.SourceIdentity().DatasetId &&
             accepted->Coordinates->Sources.size() == 2 && !accepted->Vector,
         "published geometry owns original identity and retains both typed IDs");
   const WaterField water;
