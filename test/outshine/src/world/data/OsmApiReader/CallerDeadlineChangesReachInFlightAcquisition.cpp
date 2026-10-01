@@ -44,9 +44,11 @@ int main() {
   const std::vector<SourceProvider> providers{
       {.Kind = "osm",
        .Revision = "bounded",
+       .Missing = MissingDataPolicy::Fail,
        .Dataset = "openstreetmap.original",
        .Endpoint = std::string(kOfficialOsmApi),
-       .Coverage = SourceCoverage{.WestDeg = -1, .SouthDeg = -1, .EastDeg = 1, .NorthDeg = 1}}};
+       .Coverage =
+           SourceCoverage{.WestDeg = -0.1, .SouthDeg = -0.1, .EastDeg = 0.1, .NorthDeg = 0.1}}};
   ContentStore store({.Using = ContentStore::Use::Off});
   DelayedWire fixed;
   CHECK(!ReadOsmApiRegions(providers, store, fixed, 10, {}) && fixed.ClockMs == 10 &&

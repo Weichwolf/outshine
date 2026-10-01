@@ -63,6 +63,7 @@ int main() {
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   SourceProvider provider{.Kind = "osm",
                           .Revision = "longer",
+                          .Missing = MissingDataPolicy::Fail,
                           .Dataset = "openstreetmap.original",
                           .Endpoint = std::string(kOfficialOsmApi)};
   const std::array cells{GeoCellId{.Level = 9, .X = 256, .Y = 256}};
