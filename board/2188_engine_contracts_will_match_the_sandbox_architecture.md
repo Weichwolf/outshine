@@ -17,8 +17,9 @@ ProviderRegistry/SourceSet, native Geometry/Material, Double-Welt und kamera-rel
 GPU-Daten bestehen. Generate::Request trägt Ort/Seed/Ground/Coarseness, aber keinen
 Projektions-/Fehlervertrag. Native StructureBake-Pfade umgehen diesen Generatorvertrag.
 OriginalStructurePreparation fordert Terrain nach einem gemeinsamen heightZoom an;
-RawTile hält derzeit vollständige SourceSnapshots gepinnt; dieser Besitz wird durch
-geschlossene Objektinputs mit schwachem Archivbezug ersetzt. SimulationState integriert bisher
+RawTile hält geschlossene OSM-Objektinputs mit schwachem Archivbezug; publizierte
+BuildingGeometry hält native Polygone und generische Quellbelege. Vollständige
+Archive verbleiben noch im Quellenladepfad, nicht am publizierten Gebäude. SimulationState integriert bisher
 Schwerkraft; Rigid/Wrench/Prismatic liefern Grundlagen, keinen vollständigen Weltkontakt.
 Script/ActionHostAdapter und Ui::Markup/Style/Layout bestehen und bleiben verwendbar.
 
@@ -47,7 +48,7 @@ beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
 | world/navigation: OSM-Auflösung und Netze | import besitzt OSM-Auflösung; world besitzt generische Topologie |
 | BuildingField::Geometry: OSM-Snapshot/IDs | Quellunabhängige Provenienz/Objektidentität, keine Parserarchive |
 | actor/body: Rigid/Prismatic | physics besitzt Simulation; actor konsumiert sie |
-| import: Decoder und Rendererprodukte | import liefert native CPU-Assets; render besitzt GPU-Produkte |
+| import: unnötige Rendererfreigabe | Native CPU-Assets; 15 TUs besitzen keine transitive Render-Abhängigkeit |
 | private Builtin-Bakes neben Generator-API | Ein öffentlicher Input-/Productvertrag für Builtins und Erweiterungen |
 | Testprofile mit eigenen Include-Listen | Profile aus demselben Modulgraphen ableiten; Fixtures explizit besitzen |
 `world` konsumiert weder sources, import noch generators. Engine verbindet diese Module.
