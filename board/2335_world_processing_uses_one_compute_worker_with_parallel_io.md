@@ -16,7 +16,9 @@ Terrain, Original-OSM-Parsing, Struktur- und Straßenalignment-Aufträge teilen 
 den Engine-Executor mit einem Worker. Terrain gibt ihn nach jedem Auftrag und bei
 fehlenden Bytes frei; IO läuft unabhängig. Der Executor lebt länger als seine Nutzer.
 ClassBuilder und VectorStreetGraphWorker besitzen noch private Compute-Threads.
-OsmChunkSetLoader liest mehrere Quellregionen noch nacheinander; diese Pfade bleiben offen.
+Original-OSM beschafft zwei unabhängige Regionen gleichzeitig auf einem IO-Worker;
+ein gemeinsamer Termin begrenzt den Batch, Parsing/Merge teilen den Compute-Worker.
+Automatische weltweite Quellenzellen fehlen noch; die vierteilige Region ist eine Diagnose.
 
 ## Architektur und Umsetzung
 - Engine besitzt einen gemeinsamen Compute-Executor. Terrain-Decode/Resampling,
@@ -30,8 +32,10 @@ OsmChunkSetLoader liest mehrere Quellregionen noch nacheinander; diese Pfade ble
   unabhängige Quelldaten werden gebündelt angefordert, nicht seriell abgewartet.
   Lokale IO hat begrenzte eigene Arbeiter. Anzahl und In-flight-Bytes folgen
   deklarierten IO-/Speicherbudgets, nicht der Anzahl logischer CPU-Kerne.
-- Original-OSM-Regionen in `world/data/OsmChunkSetLoader` gebündelt beschaffen;
+- Original-OSM-Regionen in `world/data/OsmApiReader` gebündelt beschaffen;
   Auswertung und deterministische Zusammenführung bleiben auf dem Compute-Worker.
+  Jede Antwort behält Pins und Herkunft; Fehler brechen Geschwisteranfragen ab.
+  Laufzeit misst das gemeinsame Intervall statt einzelne IO-Zeiten zu addieren.
 - IO wartet unabhängig vom Compute-Executor. Ein Compute-Job mit fehlenden Bytes
   publiziert Bedarf und gibt den Worker frei; keine blockierende Downloadschleife
   auf dem einzigen Compute-Worker. HTTP-Buchhaltung ist keine Geometriearbeit.

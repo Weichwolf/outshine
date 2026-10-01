@@ -15,9 +15,13 @@ behält sämtliche Tags. Dieselbe Quelle liefert Gebäude, Verkehrsnetze und Was
 VersaTiles und reduzierte Kartenkacheln sind am Client-Eingang ausgeschlossen.
 Vorhanden: Originalreader, gemeinsame Snapshots mit getrennten Revisions-/Byte-Pins,
 begrenzte API-/Cache-Beschaffung auf IO-Worker und produktbezogene Vorladebereitschaft.
+Die Runtime lädt bis zu zwei unabhängige Originalregionen gleichzeitig; gemeinsame
+Frist und Abbruch räumen laufende Tickets auf. Parsing bleibt auf dem Compute-Worker.
 Flensburgs Kameraausschnitt lädt über die offizielle API und offline aus denselben Rohbytes.
 Native Gebäude erreichen die gemeinsame Queue, Terrain-Stempel und beleuchtete Client-Bilder.
 Automatische Nachfrage, native Wasser-/Straßendarstellung und volle Quellenabdeckung fehlen.
+Vier Antworten mit jeweils höchstens 4 MiB begrenzen den regionalen Träger auf 16 MiB.
+Weltweite Abdeckung braucht unabhängige residente Quellenzellen statt größere globale Merges.
 Das Place-Gate bleibt rot; analytisches Terrain und regionale Sicht sind nur Diagnosen.
 
 ## Architektur und Implementierung
@@ -31,9 +35,10 @@ Das Place-Gate bleibt rot; analytisches Terrain und regionale Sicht sind nur Dia
   IO/Parse laufen in begrenzten Jobs; Cache enthält ausschließlich Netzantworten.
   Gleichartige Anfragen teilen Quelle/Resultat. Kein synchrones IO beim Zeichnen.
   `kind=osm` deklariert entweder eine lokale Originaldatei oder exakt den offiziellen
-  API-Basisendpoint samt Bounds. Ein IO-Worker beschafft begrenzte Originalantworten
+  API-Basisendpoint samt Bounds. Ein IO-Worker beschafft begrenzt parallele Originalantworten
   über bestehende Transport-/Cache-Verträge; Compute-Jobs prüfen Pins, parsen und mergen.
   Abbruch und Ablauf der gemeinsamen Anfragefrist erhalten den bisherigen Snapshot.
+  Gemeldete Beschaffungszeit ist verstrichene Zeit, keine Summe überlappender Downloads.
 - Bereitschaft prüft angeforderte Produkte unabhängig von Terrain oder Renderziel.
   Vorladen wartet auf deren tatsächliche Worker; terminale Quellenfehler verhindern
   Aufnahme und Publikation. Szenen ohne angeforderte Weltprodukte sind sofort bereit.
