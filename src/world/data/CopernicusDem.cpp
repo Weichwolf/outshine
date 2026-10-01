@@ -37,7 +37,7 @@ CopernicusDem::CopernicusDem(std::string revision,
                              std::string dataset) {
   Decl_.Id = std::move(dataset);
   Decl_.Revision = std::move(revision);
-  Decl_.Endpoint = "https://copernicus-dem-30m.s3.amazonaws.com/";
+  Decl_.Endpoint = Endpoint;
   Decl_.Kind = DataKind::Elevation;
   Decl_.How = Scheme::GeographicCell;
   Decl_.Wire = WireFormat::CopernicusCog;

@@ -1,4 +1,5 @@
 #include "SourceProviderValidation.h"
+#include "CopernicusDem.h"
 
 #include <algorithm>
 #include <cmath>
@@ -132,6 +133,18 @@ constexpr size_t kSha256HexDigits = 64;
   return {};
 }
 
+[[nodiscard]] std::expected<void, std::string> ValidateTerrain(const SourceProvider &provider) {
+  if (!provider.Location.empty() || provider.Coverage || !provider.PayloadSha256.empty()) {
+    return std::unexpected(
+        "Copernicus terrain does not accept a file, chunk coverage or whole-response digest");
+  }
+  if (!provider.Endpoint.empty() && provider.Endpoint != CopernicusDem::Endpoint) {
+    return std::unexpected(
+        "the built-in terrain provider uses the official Copernicus GLO-30 endpoint");
+  }
+  return {};
+}
+
 [[nodiscard]] std::expected<void, std::string>
 ValidateUnparameterized(const SourceProvider &provider) {
   if (!provider.Dataset.empty() || !provider.Location.empty() || !provider.Endpoint.empty() ||
@@ -154,7 +167,8 @@ ValidateUnparameterized(const SourceProvider &provider) {
     if (firstOsm == nullptr) { firstOsm = &provider; }
     return {};
   }
-  if (provider.Kind == "terrain" || provider.Kind == "vector") { return ValidateTile(provider); }
+  if (provider.Kind == "terrain") { return ValidateTerrain(provider); }
+  if (provider.Kind == "vector") { return ValidateTile(provider); }
   if (provider.Kind == "stars") { return ValidateUnparameterized(provider); }
   return {};
 }

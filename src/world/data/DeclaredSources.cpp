@@ -10,7 +10,7 @@
 
 #include "StarBands.h"
 #include "SourceProviderValidation.h"
-#include "TerrariumDem.h"
+#include "CopernicusDem.h"
 #include "VectorTileSource.h"
 #include "OsmApiSource.h"
 #include "ReadTextFile.h"
@@ -81,11 +81,11 @@ public:
 
   [[nodiscard]] std::expected<std::unique_ptr<Source>, std::string>
   make(const SourceProvider &provider, [[maybe_unused]] std::string_view root) const override {
-    return std::make_unique<TerrariumDem>(provider.Revision,
-                                          static_cast<Rank>(provider.Priority),
-                                          provider.Missing,
-                                          provider.Dataset,
-                                          provider.Endpoint);
+    return std::make_unique<CopernicusDem>(
+        provider.Revision,
+        static_cast<Rank>(provider.Priority),
+        provider.Missing,
+        provider.Dataset.empty() ? std::string(CopernicusDem::Dataset) : provider.Dataset);
   }
 };
 
@@ -210,7 +210,7 @@ std::span<const SourceProvider> ShippedProviders() {
       {.Kind = "terrain",
        .Revision = "",
        .Priority = 0,
-       .Missing = MissingDataPolicy::Continue,
+       .Missing = MissingDataPolicy::Fail,
        .Dataset = "",
        .Location = "",
        .Endpoint = "",
