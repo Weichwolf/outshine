@@ -44,6 +44,9 @@ std::expected<std::unique_ptr<Region>, std::string> MakeRegion(const SourceProvi
       (*source)->Declaration().Wire != WireFormat::OsmXml) {
     return std::unexpected("an original OSM provider must supply original OSM XML");
   }
+  if ((*source)->Declaration().How != Scheme::WholeWorld) {
+    return std::unexpected("an original OSM catalogue requires geographic cell demand");
+  }
   auto region = std::make_unique<Region>(store, wire);
   if (region->Sources.Add(std::move(*source)) != SourceSet::Registration::Accepted) {
     return std::unexpected("original OSM source registration failed");

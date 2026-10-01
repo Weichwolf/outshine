@@ -65,5 +65,13 @@ int main() {
             document.Providers.front().Dataset == "openstreetmap" &&
             document.Providers.front().Location == "region.osm",
         "source identity and bounds reach the native declaration");
+  const std::string catalogue =
+      "<scenario><providers><provider kind='osm' dataset='openstreetmap.original' "
+      "endpoint='https://api.openstreetmap.org/api/0.6' pin='cells-r1' "
+      "whenAbsent='fail'/></providers></scenario>";
+  CHECK(ReadScenario(catalogue.data(), catalogue.size(), document, error) &&
+            document.Providers.size() == 1 && !document.Providers.front().Coverage &&
+            document.Providers.front().Endpoint == "https://api.openstreetmap.org/api/0.6",
+        "an official catalogue declares a source whose individual requests supply bounded cells");
   return Report();
 }

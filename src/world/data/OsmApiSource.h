@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace outshine::Data {
@@ -29,9 +30,10 @@ public:
   Collect(const Address &at, Ticket ticket, Transport &transport) const override;
 
 private:
-  OsmApiSource(const SourceProvider &provider, SourceCoverage bounds, uint32_t region);
+  OsmApiSource(const SourceProvider &provider, uint32_t region);
+  [[nodiscard]] bool Accepts(const Address &at) const noexcept;
   SourceDecl Decl_;
-  uint32_t Region_;
+  std::optional<uint32_t> Region_;
 };
 
 }

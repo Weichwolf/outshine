@@ -37,7 +37,8 @@ struct SourceProvider {
   std::string Dataset;  ///< Stable dataset ID; required for semantic OSM chunks.
   std::string Location; ///< OSM file path, absolute or relative to Roots.Shipped.
   std::string Endpoint; ///< Source-specific HTTPS endpoint; built-in terrain uses official GLO-30.
-  std::optional<SourceCoverage> Coverage; ///< Required finite OSM chunk bounds.
+  std::optional<SourceCoverage>
+      Coverage; ///< OSM chunk bounds; absent for an official API catalogue.
   std::string
       PayloadSha256; ///< Optional 64-digit lowercase OSM response digest, separate from revision.
 

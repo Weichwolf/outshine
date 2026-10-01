@@ -113,6 +113,13 @@ constexpr size_t kSha256HexDigits = 64;
 
 [[nodiscard]] std::expected<void, std::string> ValidateOsm(const SourceProvider &provider) {
   if (auto valid = ValidateOsmPins(provider); !valid) { return valid; }
+  if (!provider.Coverage && provider.Location.empty() && provider.Endpoint == kOfficialOsmApi) {
+    if (!provider.PayloadSha256.empty() ||
+        std::string_view(provider.Revision).starts_with(kSha256PinPrefix)) {
+      return std::unexpected("an original OSM catalogue requires independent cell payload pins");
+    }
+    return {};
+  }
   if (!provider.Coverage || !ValidCoverage(*provider.Coverage)) {
     return std::unexpected(
         "an osm provider requires finite west/south/east/north coverage without wrapping");

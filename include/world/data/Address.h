@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_DATA_ADDRESS_H
 #define OUTSHINE_WORLD_DATA_ADDRESS_H
 
+#include "GeoCellId.h"
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -10,9 +11,10 @@ namespace outshine::Data {
 
 /// Address family; source addresses remain separate from render ownership.
 enum class Scheme : uint8_t {
-  TileZxy,       ///< Web-Mercator tile coordinates.
-  WholeWorld,    ///< Source-defined indexed whole-domain products.
-  GeographicCell ///< One-degree WGS84 source cell, independent of Mercator render tiles.
+  TileZxy,        ///< Web-Mercator tile coordinates.
+  WholeWorld,     ///< Source-defined indexed whole-domain products.
+  GeographicCell, ///< One-degree WGS84 source cell, independent of Mercator render tiles.
+  GeodeticGrid    ///< Geographic quadtree source cell with independent latitude/longitude axes.
 };
 
 /// Web-Mercator z/x/y address. Sources validate zoom and coordinates before use.
@@ -60,11 +62,17 @@ public:
   /// @return Value owning the geographic cell coordinates.
   static Address AtCell(CellId cell) { return Address(cell); }
 
+  /// Construct a geographic quadtree source address without allocation.
+  /// @param cell Geographic partition coordinates; coverage is validated by the source.
+  /// @return Value owning those coordinates.
+  static Address AtGeoCell(GeoCellId cell) { return Address(cell); }
+
   /// Inspect the address family.
   /// @return Stored scheme; no allocation.
   [[nodiscard]] Scheme How() const noexcept {
     if (std::holds_alternative<TileId>(Held_)) { return Scheme::TileZxy; }
-    return std::holds_alternative<CellId>(Held_) ? Scheme::GeographicCell : Scheme::WholeWorld;
+    if (std::holds_alternative<CellId>(Held_)) { return Scheme::GeographicCell; }
+    return std::holds_alternative<GeoCellId>(Held_) ? Scheme::GeodeticGrid : Scheme::WholeWorld;
   }
 
   /// Read coordinates only when this is a tile address.
@@ -88,7 +96,14 @@ public:
     return std::nullopt;
   }
 
-  /// Serialize as z/x/y, w/index or g/south/west for identity and diagnostics.
+  /// Read coordinates only for a geographic quadtree address.
+  /// @return Copied cell ID or nothing; no allocation.
+  [[nodiscard]] std::optional<GeoCellId> GeoCell() const noexcept {
+    if (const auto *cell = std::get_if<GeoCellId>(&Held_)) { return *cell; }
+    return std::nullopt;
+  }
+
+  /// Serialize as z/x/y, w/index, g/south/west or q/level/x/y for identity and diagnostics.
   /// @return Owned string; may allocate.
   [[nodiscard]] std::string Text() const;
 
@@ -109,7 +124,9 @@ private:
 
   explicit Address(CellId cell) : Held_(cell) {}
 
-  std::variant<TileId, uint32_t, CellId> Held_;
+  explicit Address(GeoCellId cell) : Held_(cell) {}
+
+  std::variant<TileId, uint32_t, CellId, GeoCellId> Held_;
 };
 
 }
