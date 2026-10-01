@@ -62,5 +62,22 @@ int main() {
         "empty product selection has no dependencies");
   CHECK(source->Relations().size() == 5 && source->FindRelation(5)->Tags.size() == 2,
         "product validation neither filters source elements nor strips their tags");
+  const auto selected = source->SelectReferenced(cycle);
+  CHECK(selected && selected->Nodes().size() == 3 && selected->Ways().size() == 1 &&
+            selected->Relations().size() == 2 && !selected->FirstMissingReference(),
+        "owned product closure contains every cyclic dependency exactly once");
+  CHECK(selected && selected->SourceIdentity() == source->SourceIdentity() &&
+            *selected->FindWay(1) == *source->FindWay(1) &&
+            *selected->FindRelation(1) == *source->FindRelation(1),
+        "selection preserves tags, node order, relation roles and dataset revision");
+  const auto brokenSelection = source->SelectReferenced(nested);
+  CHECK(!brokenSelection && brokenSelection.error().OwnerKind == OsmElementKind::Way &&
+            brokenSelection.error().OwnerId == 2 && brokenSelection.error().MissingId == 99,
+        "owned selection refuses the same missing transitive dependency");
+  const auto emptySelection = source->SelectReferenced({});
+  CHECK(emptySelection && emptySelection->Nodes().empty() && emptySelection->Ways().empty() &&
+            emptySelection->Relations().empty() &&
+            emptySelection->SourceIdentity() == source->SourceIdentity(),
+        "an empty product owns no unrelated objects and retains its source identity");
   return Report();
 }

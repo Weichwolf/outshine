@@ -113,6 +113,8 @@ public:
   [[nodiscard]] std::optional<MissingOsmReference> FirstMissingReference() const noexcept;
   [[nodiscard]] std::optional<MissingOsmReference>
   FirstMissingReference(std::span<const OsmElementId> roots) const;
+  [[nodiscard]] std::expected<OsmElements, MissingOsmReference>
+  SelectReferenced(std::span<const OsmElementId> roots) const;
 
 private:
   friend class OsmXmlReader;

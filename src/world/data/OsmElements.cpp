@@ -52,6 +52,7 @@ std::expected<void, OsmMergeError> SortUnique(std::vector<Element> &elements, Os
 
 struct ReferenceClosure {
   const OsmElements &Source;
+  std::vector<bool> Nodes;
   std::vector<bool> Ways;
   std::vector<bool> Relations;
   std::vector<OsmElementId> Pending;
@@ -59,7 +60,10 @@ struct ReferenceClosure {
   std::optional<MissingOsmReference> Admit(OsmElementId owner, OsmElementId target) {
     switch (target.Kind) {
       case OsmElementKind::Node:
-        if (Source.FindNode(target.Id) != nullptr) { return std::nullopt; }
+        if (const OsmNode *node = Source.FindNode(target.Id)) {
+          Nodes[static_cast<size_t>(node - Source.Nodes().data())] = true;
+          return std::nullopt;
+        }
         break;
       case OsmElementKind::Way:
         if (const OsmWay *way = Source.FindWay(target.Id)) {
@@ -87,7 +91,42 @@ struct ReferenceClosure {
                                .MissingKind = target.Kind,
                                .MissingId = target.Id};
   }
+
+  std::optional<MissingOsmReference> Complete(std::span<const OsmElementId> roots) {
+    for (const OsmElementId root : roots) {
+      if (const auto missing = Admit(root, root)) { return missing; }
+    }
+    size_t next = 0;
+    while (next < Pending.size()) {
+      const OsmElementId owner = Pending[next++];
+      if (owner.Kind == OsmElementKind::Way) {
+        for (const uint64_t node : Source.FindWay(owner.Id)->NodeIds) {
+          if (const auto missing = Admit(owner, {.Kind = OsmElementKind::Node, .Id = node})) {
+            return missing;
+          }
+        }
+      } else {
+        for (const OsmRelationMember &member : Source.FindRelation(owner.Id)->Members) {
+          if (const auto missing = Admit(owner, {.Kind = member.Kind, .Id = member.Id})) {
+            return missing;
+          }
+        }
+      }
+    }
+    return std::nullopt;
+  }
 };
+
+template <typename Element>
+std::vector<Element> CopySelected(std::span<const Element> elements,
+                                  const std::vector<bool> &selected) {
+  std::vector<Element> result;
+  result.reserve(static_cast<size_t>(std::ranges::count(selected, true)));
+  for (size_t index = 0; index < elements.size(); ++index) {
+    if (selected[index]) { result.push_back(elements[index]); }
+  }
+  return result;
+}
 
 }
 
@@ -196,30 +235,27 @@ std::optional<MissingOsmReference> OsmElements::FirstMissingReference() const no
 std::optional<MissingOsmReference>
 OsmElements::FirstMissingReference(std::span<const OsmElementId> roots) const {
   ReferenceClosure closure{.Source = *this,
+                           .Nodes = std::vector<bool>(Nodes_.size()),
                            .Ways = std::vector<bool>(Ways_.size()),
                            .Relations = std::vector<bool>(Relations_.size()),
                            .Pending = {}};
-  for (const OsmElementId root : roots) {
-    if (const auto missing = closure.Admit(root, root)) { return missing; }
-  }
-  size_t next = 0;
-  while (next < closure.Pending.size()) {
-    const OsmElementId owner = closure.Pending[next++];
-    if (owner.Kind == OsmElementKind::Way) {
-      for (const uint64_t node : FindWay(owner.Id)->NodeIds) {
-        if (const auto missing = closure.Admit(owner, {.Kind = OsmElementKind::Node, .Id = node})) {
-          return missing;
-        }
-      }
-    } else {
-      for (const OsmRelationMember &member : FindRelation(owner.Id)->Members) {
-        if (const auto missing = closure.Admit(owner, {.Kind = member.Kind, .Id = member.Id})) {
-          return missing;
-        }
-      }
-    }
-  }
-  return std::nullopt;
+  return closure.Complete(roots);
+}
+
+std::expected<OsmElements, MissingOsmReference>
+OsmElements::SelectReferenced(std::span<const OsmElementId> roots) const {
+  ReferenceClosure closure{.Source = *this,
+                           .Nodes = std::vector<bool>(Nodes_.size()),
+                           .Ways = std::vector<bool>(Ways_.size()),
+                           .Relations = std::vector<bool>(Relations_.size()),
+                           .Pending = {}};
+  if (const auto missing = closure.Complete(roots)) { return std::unexpected(*missing); }
+  OsmElements result;
+  result.SourceIdentity_ = SourceIdentity_;
+  result.Nodes_ = CopySelected(Nodes(), closure.Nodes);
+  result.Ways_ = CopySelected(Ways(), closure.Ways);
+  result.Relations_ = CopySelected(Relations(), closure.Relations);
+  return result;
 }
 
 }
