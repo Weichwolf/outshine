@@ -39,6 +39,8 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   Der HTTP-Adapter typisiert Kapazitätsablehnungen; OsmCellRefinement ersetzt betroffene Zellen
   durch vier flächendeckende Kinder. Zellzahl, Tiefe, Speicher und Gesamtdauer bleiben begrenzt.
   Erst die vollständige Blattmenge publizieren; unveränderte Pläne und Blätter wiederverwenden.
+  Quellzellen nicht allein am Sichtkreis wegschneiden: nodebasierte API-Abfragen können
+  über äußere Nodes auch Geometrie innerhalb des Radius liefern. Objektabschluss zuerst beweisen.
   Globale Grobquellen und die vollständige Place-Abnahme bleiben offen.
 - GLO-30: `CopernicusRaster`/libtiff liefern native Meter aus Original-COG-Blöcken/Übersichten.
   HTTP-Bereiche, Dateilänge, starke Revisionspins und Receipt vor Cache/Lieferung prüfen.
@@ -53,8 +55,10 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   Neue Prozesse rekonstruieren vollständige Blattabdeckung aus vorhandenen Originalbytes;
   überlastete Eltern brauchen bei vollständigem Quellcache keine erneute Remote-Abfrage.
   Fehlende oder beschädigte Bytes sind keine Abdeckung. Keine Generatorprodukte persistieren.
-  Als Nächstes Quellabfragen außerhalb des vollständigen Bedarfs entfernen und den tatsächlichen
-  Place-Aufbau messen; Cache-Erkennung allein beweist weder Ladebudget noch Bildqualität.
+  Das öffentliche Preload-Budget besitzt auch die Quellenfrist, einschließlich laufender IO.
+  Prepare darf Originalbytes separat vorbereiten; Shots behalten unverändert ihr Zehn-Sekunden-Gate.
+  Als Nächstes vollständigen Quellcache vorbereiten und den tatsächlichen Place-Aufbau messen;
+  Cache-Erkennung und Vorbereitung allein beweisen weder Ladebudget noch Bildqualität.
   Die vorhandene Kronenvorbereitung übergibt Atlanten direkt im RAM; kein Runtime-Diskcache.
   Explizite Cachepfade bleiben erhalten. Per-Zell-Bytes qualifizieren den Katalog `current`;
   dieser Name behauptet keinen atomaren weltweiten OSM-Zeitstand.
