@@ -55,7 +55,9 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   Neue Prozesse rekonstruieren vollständige Blattabdeckung aus vorhandenen Originalbytes;
   überlastete Eltern brauchen bei vollständigem Quellcache keine erneute Remote-Abfrage.
   Fehlende oder beschädigte Bytes sind keine Abdeckung. Keine Generatorprodukte persistieren.
-  Das öffentliche Preload-Budget besitzt auch die Quellenfrist, einschließlich laufender IO.
+  `engine/EnginePreload.cpp` übergibt das öffentliche Preload-Budget auch als Quellenfrist,
+  einschließlich laufender IO. Terrain-Sampling erhält ursprüngliche Fehleradresse,
+  Quelle und Fehlergrund bis zur Runtime; eine Ablehnung liefert kein partielles Mesh.
   Prepare darf Originalbytes separat vorbereiten; Shots behalten unverändert ihr Zehn-Sekunden-Gate.
   Als Nächstes vollständigen Quellcache vorbereiten und den tatsächlichen Place-Aufbau messen;
   Cache-Erkennung und Vorbereitung allein beweisen weder Ladebudget noch Bildqualität.
