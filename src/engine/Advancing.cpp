@@ -564,7 +564,7 @@ bool Engine::State::UpdateTriggers() {
 }
 
 bool Engine::State::Updates() {
-  PollOsmTransport();
+  PollOsmSources();
   if (Session.Declared.Ground.Declared) {
     const LongitudeLatitude stands = CurrentGeographicFocus();
     if (World.Stack.Opened()) {

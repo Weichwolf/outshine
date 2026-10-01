@@ -15,7 +15,8 @@ int main() {
   CHECK(publication.Publish(initial), "the first complete ground revision publishes");
   CHECK(!publication.NeedsRebuild(initial, true, false),
         "the successfully published revision needs no duplicate build");
-  std::array<GroundRevision, 11> changed{initial,
+  std::array<GroundRevision, 12> changed{initial,
+                                         initial,
                                          initial,
                                          initial,
                                          initial,
@@ -37,6 +38,7 @@ int main() {
   ++changed[8].VectorGeneration;
   ++changed[9].TransportSourceGeneration;
   ++changed[10].TerrainScope;
+  ++changed[11].OriginalSourceGeneration;
   for (const GroundRevision &requested : changed) {
     CHECK(!initial.MatchesCandidate(requested) && initial.CandidateDifferenceMask(requested) != 0,
           "each changed construction input restarts an in-progress candidate");
@@ -63,6 +65,8 @@ int main() {
         "residency-only arrival does not restart an in-progress source snapshot");
   CHECK(initial.CandidateDifferenceMask(changed[10]) == (1u << 10u),
         "terrain scope has an independent diagnostic restart reason");
+  CHECK(initial.CandidateDifferenceMask(changed[11]) == (1u << 11u),
+        "an original source replacement restarts buildings independently of a transport graph");
   GroundRevision playable = initial;
   playable.Quality = GroundQuality::Playable;
   CHECK(!initial.MatchesCandidate(playable) &&

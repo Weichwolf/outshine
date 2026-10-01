@@ -26,6 +26,7 @@ struct GroundRevision {
   uint64_t Footprints = 0;
   uint64_t VectorGeneration = 0;
   uint64_t TransportSourceGeneration = 0;
+  uint64_t OriginalSourceGeneration = 0;
   uint64_t TerrainScope = 0;
   size_t StreetTiles = 0;
   size_t WaterTiles = 0;
@@ -47,6 +48,7 @@ struct GroundRevision {
     difference |= VectorGeneration != requested.VectorGeneration ? 1u << 8u : 0u;
     difference |= TransportSourceGeneration != requested.TransportSourceGeneration ? 1u << 9u : 0u;
     difference |= TerrainScope != requested.TerrainScope ? 1u << 10u : 0u;
+    difference |= OriginalSourceGeneration != requested.OriginalSourceGeneration ? 1u << 11u : 0u;
     return difference;
   }
 
@@ -66,6 +68,7 @@ public:
            Current_->Classes != requested.Classes || Current_->Footprints != requested.Footprints ||
            Current_->VectorGeneration != requested.VectorGeneration ||
            Current_->TransportSourceGeneration != requested.TransportSourceGeneration ||
+           Current_->OriginalSourceGeneration != requested.OriginalSourceGeneration ||
            Current_->TerrainScope != requested.TerrainScope ||
            Current_->StreetTiles != requested.StreetTiles ||
            Current_->WaterTiles != requested.WaterTiles ||

@@ -182,6 +182,7 @@ void OsmSourceLoader::CompleteCells(std::vector<CellSource> ready) {
   Cells_->PublishedRoot = Root_;
   Cells_->PublishedRegistry = Access_->Registry;
   Current_.reset();
+  PublishedRevision_ = Revision_;
   Phase_ = Cells_->Wanted.empty() ? Phase::Inactive : Phase::Ready;
 }
 

@@ -280,14 +280,19 @@ struct Surrounds {
   std::vector<float> GroundPositionsM;
   std::vector<uint32_t> GroundIndex;
 
+  [[nodiscard]] bool CurrentOriginalReady() const noexcept {
+    return OsmSourceLoader &&
+           OsmSourceLoader->CurrentPhase() == outshine::OsmSourceLoader::Phase::Ready &&
+           OsmSourceLoader->Current();
+  }
+
   [[nodiscard]] bool CurrentTransportReady() const noexcept {
     if (!OsmTransportLoader ||
         OsmTransportLoader->CurrentPhase() != World::OsmTransportLoader::Phase::Ready) {
       return false;
     }
-    return !OsmSourceLoader ||
-           (OsmSourceLoader->CurrentPhase() == outshine::OsmSourceLoader::Phase::Ready &&
-            OsmTransportLoader->Current()->Source() == OsmSourceLoader->Current());
+    return !OsmSourceLoader || (CurrentOriginalReady() && OsmTransportLoader->Current()->Source() ==
+                                                              OsmSourceLoader->Current());
   }
 };
 
@@ -573,7 +578,7 @@ struct Engine::State {
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
   void DeclareGroundFeatures();
-  void PollOsmTransport();
+  void PollOsmSources();
   [[nodiscard]] bool SubmitOsmTransportSource();
   bool GenerateInitialInstances(double atLat, double atLon);
   [[nodiscard]] bool GenerateInstancesForRegion(const Generators::Tile &region,

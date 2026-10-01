@@ -25,6 +25,7 @@ int main() {
          .Location = "src/assets/world/osm/HockenheimringGrandPrix.osm",
          .Coverage = Data::SourceCoverage{
              .WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34}});
+    document.Routes.push_back({.Id = "grand-prix", .OsmRelationId = 284588});
     CHECK(engine.setRoots({.Shipped = ".", .Offline = true}) && engine.setRenderTarget({64, 64}) &&
               engine.declare(document) && engine.assemble(),
           "groundless public declaration queues the pinned semantic source");

@@ -76,6 +76,7 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers,
   if (Pending_) { (void)Pending_->Stop.request_stop(); }
   if (Requested_.empty()) {
     Current_.reset();
+    PublishedRevision_ = Revision_;
     Phase_ = Phase::Inactive;
     return {};
   }
@@ -108,6 +109,7 @@ void OsmSourceLoader::CompletePending(Pending finished) {
   } else if (auto *loaded = std::get_if<LoadResult>(&finished.Output->Value)) {
     if (*loaded) {
       Current_ = std::move(**loaded);
+      PublishedRevision_ = Revision_;
       Phase_ = Phase::Ready;
       Error_.clear();
       return;

@@ -64,6 +64,8 @@ public:
 
   [[nodiscard]] Phase CurrentPhase() const noexcept { return Phase_; }
 
+  [[nodiscard]] uint64_t PublishedRevision() const noexcept { return PublishedRevision_; }
+
   [[nodiscard]] std::string_view Error() const noexcept { return Error_; }
 
   [[nodiscard]] size_t PendingCount() const noexcept { return Pending_ ? 1 : 0; }
@@ -109,6 +111,7 @@ private:
   std::shared_ptr<const Data::OsmSourceSnapshot> Current_;
   std::string Error_;
   uint64_t Revision_ = 0;
+  uint64_t PublishedRevision_ = 0;
   Phase Phase_ = Phase::Inactive;
   Scope Scope_ = Scope::Region;
 };

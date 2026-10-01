@@ -242,6 +242,7 @@ public:
       : Coverage_(coverage),
         Revision_(revision),
         Candidate_(renderer, world, footprints),
+        OriginalSource_(world.CurrentOriginalReady() ? world.OsmSourceLoader->Current() : nullptr),
         TransportSnapshot_(world.CurrentTransportReady() ? world.OsmTransportLoader->Current()
                                                          : nullptr),
         Id_(id) {}
@@ -290,9 +291,8 @@ public:
 
   [[nodiscard]] std::expected<bool, std::string> PrepareOriginalHeights(StructureBuildQueue &queue,
                                                                         int zoom) {
-    const auto *snapshot = TransportSnapshot();
     const auto prepared =
-        queue.PrepareOriginal(snapshot != nullptr ? snapshot->Source() : nullptr,
+        queue.PrepareOriginal(OriginalSource_,
                               {.Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0},
                                .PointWidthM = 2.0,
                                .PointsMost = 262144});
@@ -596,6 +596,7 @@ private:
   Around Coverage_;
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
+  std::shared_ptr<const Data::OsmSourceSnapshot> OriginalSource_;
   std::shared_ptr<const World::TransportNetworkSnapshot> TransportSnapshot_;
   RoadHeightCoverage RoadHeightCoverage_;
   bool RoadAlignmentRequested_ = false;
@@ -864,6 +865,8 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
                                               ? World.Stack.Vectors()->Generation()
                                               : 0,
                       .TransportSourceGeneration = transportGeneration,
+                      .OriginalSourceGeneration =
+                          World.OsmSourceLoader ? World.OsmSourceLoader->PublishedRevision() : 0,
                       .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
                       .StreetTiles = World.Stack.Ways().IngestedTiles(),
                       .WaterTiles = World.Stack.WaterBodies().IngestedTiles(),
@@ -2368,9 +2371,10 @@ bool Engine::State::AdvancesGroundRetirement() {
 bool Engine::State::GroundInputsReady(GroundQuality quality) const {
   if (World.OsmSourceLoader &&
       World.OsmSourceLoader->CurrentPhase() != OsmSourceLoader::Phase::Inactive &&
-      !World.CurrentTransportReady()) {
+      !World.CurrentOriginalReady()) {
     return false;
   }
+  if (!World.OsmRoutes.empty() && !World.CurrentTransportReady()) { return false; }
   return Session.Declared.Ground.Declared && Picture.Standing != nullptr && World.Stack.Opened() &&
          GroundSourcesReady(World.Stack, quality);
 }

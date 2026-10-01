@@ -39,6 +39,7 @@ constexpr auto kPendingClassification = "terrain classification pending";
 constexpr auto kPendingVectors = "vector tiles pending";
 constexpr auto kPendingVegetation = "vegetation prototypes pending";
 constexpr auto kPendingOsmTransport = "semantic OSM transport source pending";
+constexpr auto kPendingOsmSource = "original OSM source pending";
 
 constexpr auto kInvalidHeightCoordinate =
     "height query requires finite longitude in [-180,180] and latitude in [-90,90] degrees";
@@ -54,8 +55,8 @@ constexpr auto kDuplicateGeneratorKind = "generator kind is already registered";
 
 namespace {
 
-[[nodiscard]] std::string_view OsmTransportBlocker(std::span<const Data::SourceProvider> providers,
-                                                   const Surrounds &world) {
+[[nodiscard]] std::string_view OsmWorldBlocker(std::span<const Data::SourceProvider> providers,
+                                               const Surrounds &world) {
   const bool requested = std::ranges::any_of(
       providers, [](const Data::SourceProvider &provider) { return provider.Kind == "osm"; });
   if (!requested) { return {}; }
@@ -63,10 +64,11 @@ namespace {
     if (world.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Failed) {
       return world.OsmSourceLoader->Error();
     }
-    if (world.OsmSourceLoader->CurrentPhase() != OsmSourceLoader::Phase::Ready) {
-      return Says::kPendingOsmTransport;
-    }
   }
+  if (!world.CurrentOriginalReady()) {
+    return world.OsmRoutes.empty() ? Says::kPendingOsmSource : Says::kPendingOsmTransport;
+  }
+  if (world.OsmRoutes.empty()) { return {}; }
   const auto *loader = world.OsmTransportLoader.get();
   if (loader == nullptr) { return Says::kPendingOsmTransport; }
   if (world.CurrentTransportReady()) { return {}; }
@@ -319,7 +321,7 @@ bool Engine::State::RefinedGroundClassified(const GroundRevision &revision) cons
 }
 
 WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
-  const std::string_view osmBlocker = OsmTransportBlocker(Session.Declared.Providers, World);
+  const std::string_view osmBlocker = OsmWorldBlocker(Session.Declared.Providers, World);
   if (!Session.Declared.Ground.Declared) { return {{osmBlocker}}; }
   const auto *vectors = World.Stack.Vectors();
   const auto &ground = World.GroundPublished.Current();
@@ -624,12 +626,12 @@ std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPrel
 Result Engine::State::PumpPreload() {
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.BeginFrame();
-  PollOsmTransport();
+  PollOsmSources();
   if ((World.OsmSourceLoader &&
        World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Failed) ||
       (World.OsmTransportLoader &&
        World.OsmTransportLoader->CurrentPhase() == World::OsmTransportLoader::Phase::Failed)) {
-    return std::unexpected(std::string(OsmTransportBlocker(Session.Declared.Providers, World)));
+    return std::unexpected(std::string(OsmWorldBlocker(Session.Declared.Providers, World)));
   }
   if (!Session.Declared.Ground.Declared) { return {}; }
   if (!RequestTerrainCoverage()) { return std::unexpected(Error); }
