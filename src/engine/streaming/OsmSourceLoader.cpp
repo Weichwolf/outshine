@@ -1,4 +1,5 @@
 #include "OsmSourceLoader.h"
+#include "OsmSourceLoaderState.h"
 
 #include "OsmChunkSetLoader.h"
 #include "OsmApiReader.h"
@@ -27,13 +28,6 @@ constexpr size_t kMaxChunks = 4;
 constexpr double kAcquireBudgetMs = 10000.0;
 }
 
-struct OsmSourceLoader::Access {
-  Data::Transport *Wire = nullptr;
-  std::string Directory;
-  std::unique_ptr<Data::ContentStore> Store;
-  const Data::ProviderRegistry *Registry = nullptr;
-};
-
 OsmSourceLoader::OsmSourceLoader(Tasks &tasks, Data::Transport *wire, std::string cacheDirectory)
     : Tasks_(&tasks), Access_(std::make_shared<Access>()) {
   Access_->Wire = wire;
@@ -60,7 +54,7 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers,
   }
   std::vector<Data::SourceProvider> requested(providers.begin(), providers.end());
   std::ranges::sort(requested, {}, &Data::SourceProvider::Priority);
-  if (requested == Requested_ && (requested.empty() || root == Root_) &&
+  if (Scope_ == Scope::Region && requested == Requested_ && (requested.empty() || root == Root_) &&
       registry == Access_->Registry && Phase_ != Phase::Failed) {
     return {};
   }
@@ -68,6 +62,13 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers,
     return std::unexpected("original OSM source revision is exhausted");
   }
   ++Revision_;
+  Scope_ = Scope::Region;
+  if (Cells_) {
+    Cells_->Wanted.clear();
+    Cells_->Preparing.clear();
+    Cells_->Published.clear();
+    Cells_->PublishedProvider.reset();
+  }
   Requested_ = std::move(requested);
   Root_ = root;
   Access_->Registry = registry;
@@ -112,9 +113,16 @@ void OsmSourceLoader::CompletePending(Pending finished) {
       return;
     }
     Error_ = std::move(loaded->error());
+  } else if (auto *cells = std::get_if<CellLoadResult>(&finished.Output->Value)) {
+    if (*cells) {
+      CompleteCells(std::move(**cells));
+      return;
+    }
+    Error_ = std::move(cells->error());
   } else {
     Error_ = "original OSM worker returned no result";
   }
+  if (Scope_ == Scope::Cells) { Cells_->Preparing.clear(); }
   Phase_ = Phase::Failed;
 }
 
@@ -122,7 +130,10 @@ void OsmSourceLoader::StartRequested() {
   auto result = std::make_shared<Result>();
   std::stop_source stop;
   const auto token = stop.get_token();
+  auto cells = Scope_ == Scope::Cells ? Cells_->NextBatch() : std::vector<Data::GeoCellId>{};
   const auto handle = Io_.Post([input = Requested_,
+                                cells = std::move(cells),
+                                revision = Revision_,
                                 root = Root_,
                                 access = Access_,
                                 registry = Access_->Registry,
@@ -140,9 +151,22 @@ void OsmSourceLoader::StartRequested() {
         access->Store = std::make_unique<Data::ContentStore>(
             Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
       }
-      const double deadlineMs = access->Wire->NowMs() + kAcquireBudgetMs;
-      auto read = Data::ReadOsmApiRegions(
-          input, *access->Store, *access->Wire, deadlineMs, token, registry, root);
+      if (access->DeadlineRevision != revision) {
+        access->DeadlineRevision = revision;
+        access->DeadlineMs = access->Wire->NowMs() + kAcquireBudgetMs;
+      }
+      auto read =
+          cells.empty()
+              ? Data::ReadOsmApiRegions(
+                    input, *access->Store, *access->Wire, access->DeadlineMs, token, registry, root)
+              : Data::ReadOsmApiCells(input.front(),
+                                      cells,
+                                      *access->Store,
+                                      *access->Wire,
+                                      access->DeadlineMs,
+                                      token,
+                                      registry,
+                                      root);
       if (read) {
         result->ReadMs = read->ElapsedMs;
         result->Value = ReadResult(std::move(read->Chunks));
@@ -165,7 +189,25 @@ void OsmSourceLoader::StartDecode(std::vector<Data::OsmSourceChunk> input,
                                   std::optional<double> readMs) {
   auto result = std::make_shared<Result>();
   const auto token = stop.get_token();
-  const auto handle = Tasks_->Post([input = std::move(input), result, token, readMs] {
+  const bool cells = Scope_ == Scope::Cells;
+  const auto handle = Tasks_->Post([input = std::move(input), result, token, readMs, cells] {
+    if (cells) {
+      std::vector<CellSource> ready;
+      ready.reserve(input.size());
+      for (const auto &chunk : input) {
+        auto loaded = Data::OsmChunkSetLoader::ParseCell(chunk, token);
+        if (!loaded) {
+          result->Value = CellLoadResult(std::unexpected(std::move(loaded.error())));
+          return;
+        }
+        const size_t charged = loaded->StorageChargeBytes();
+        ready.push_back(
+            {.Snapshot = std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)),
+             .ChargedBytes = charged});
+      }
+      result->Value = CellLoadResult(std::move(ready));
+      return;
+    }
     auto loaded = Data::OsmChunkSetLoader::ParseRegion(input, token);
     if (!loaded) {
       result->Value = LoadResult(std::unexpected(std::move(loaded.error())));

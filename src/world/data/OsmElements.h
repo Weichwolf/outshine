@@ -105,6 +105,8 @@ public:
 
   [[nodiscard]] std::span<const OsmRelation> Relations() const noexcept { return Relations_; }
 
+  [[nodiscard]] size_t StorageChargeBytes() const noexcept;
+
   [[nodiscard]] const OsmNode *FindNode(uint64_t id) const noexcept;
   [[nodiscard]] const OsmWay *FindWay(uint64_t id) const noexcept;
   [[nodiscard]] const OsmRelation *FindRelation(uint64_t id) const noexcept;

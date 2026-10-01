@@ -8,12 +8,19 @@
 #include <optional>
 #include <ranges>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
 namespace outshine::Data {
 
 namespace {
+
+size_t TagCharge(const std::vector<OsmTag> &tags) noexcept {
+  size_t bytes = tags.capacity() * sizeof(OsmTag);
+  for (const auto &tag : tags) { bytes += tag.Key.capacity() + tag.Value.capacity() + 2; }
+  return bytes;
+}
 
 template <typename Element>
 const Element *FindById(const std::vector<Element> &elements, uint64_t id) noexcept {
@@ -82,6 +89,21 @@ struct ReferenceClosure {
   }
 };
 
+}
+
+size_t OsmElements::StorageChargeBytes() const noexcept {
+  size_t bytes = sizeof(OsmElements) + SourceIdentity_.DatasetId.capacity() +
+                 SourceIdentity_.Revision.capacity() + 2 + Nodes_.capacity() * sizeof(OsmNode) +
+                 Ways_.capacity() * sizeof(OsmWay) + Relations_.capacity() * sizeof(OsmRelation);
+  for (const auto &node : Nodes_) { bytes += TagCharge(node.Tags); }
+  for (const auto &way : Ways_) {
+    bytes += way.NodeIds.capacity() * sizeof(uint64_t) + TagCharge(way.Tags);
+  }
+  for (const auto &relation : Relations_) {
+    bytes += relation.Members.capacity() * sizeof(OsmRelationMember) + TagCharge(relation.Tags);
+    for (const auto &member : relation.Members) { bytes += member.Role.capacity() + 1; }
+  }
+  return bytes;
 }
 
 std::expected<OsmElements, OsmMergeError> OsmElements::Merge(std::span<const OsmElements> chunks,

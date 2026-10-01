@@ -26,6 +26,18 @@ class OsmSourceLoader {
 public:
   enum class Phase : uint8_t { Inactive, Loading, Ready, Failed };
 
+  struct CellLimits {
+    size_t CellsMost = 0;
+    size_t SnapshotBytesMost = 0;
+
+    [[nodiscard]] bool operator==(const CellLimits &) const = default;
+  };
+
+  struct CellSource {
+    std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot;
+    size_t ChargedBytes = 0;
+  };
+
   explicit OsmSourceLoader(Tasks &tasks,
                            Data::Transport *wire = nullptr,
                            std::string cacheDirectory = {});
@@ -38,6 +50,15 @@ public:
   Request(std::span<const Data::SourceProvider> providers,
           std::string_view root,
           const Data::ProviderRegistry *registry = nullptr);
+
+  [[nodiscard]] std::expected<void, std::string>
+  RequestCells(const Data::SourceProvider &provider,
+               std::span<const Data::GeoCellId> cells,
+               CellLimits limits,
+               std::string_view root,
+               const Data::ProviderRegistry *registry = nullptr);
+  [[nodiscard]] std::span<const CellSource> CurrentCells() const noexcept;
+  [[nodiscard]] size_t CellSnapshotChargeBytes() const noexcept;
   void Poll();
   [[nodiscard]] bool AwaitSlice(double seconds) const;
 
@@ -54,9 +75,10 @@ public:
 private:
   using LoadResult = std::expected<std::shared_ptr<const Data::OsmSourceSnapshot>, std::string>;
   using ReadResult = std::expected<std::vector<Data::OsmSourceChunk>, std::string>;
+  using CellLoadResult = std::expected<std::vector<CellSource>, std::string>;
 
   struct Result {
-    std::variant<std::monostate, ReadResult, LoadResult> Value;
+    std::variant<std::monostate, ReadResult, LoadResult, CellLoadResult> Value;
     std::optional<double> ReadMs;
   };
 
@@ -73,10 +95,14 @@ private:
                    std::stop_source stop,
                    std::optional<double> readMs);
   void CompletePending(Pending finished);
+  void CompleteCells(std::vector<CellSource> ready);
   struct Access;
+  struct Cells;
+  enum class Scope : uint8_t { Region, Cells };
   Tasks *Tasks_;
   Tasks Io_{1};
   std::shared_ptr<Access> Access_;
+  std::unique_ptr<Cells> Cells_;
   std::vector<Data::SourceProvider> Requested_;
   std::string Root_;
   std::optional<Pending> Pending_;
@@ -84,6 +110,7 @@ private:
   std::string Error_;
   uint64_t Revision_ = 0;
   Phase Phase_ = Phase::Inactive;
+  Scope Scope_ = Scope::Region;
 };
 
 }

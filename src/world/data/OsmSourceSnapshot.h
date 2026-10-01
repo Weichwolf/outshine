@@ -27,6 +27,8 @@ struct OsmSourceSnapshot {
   double ParseMs = 0.0;
   std::vector<OsmChunkProvenance> Chunks;
   std::optional<GeoCellId> Cell = std::nullopt;
+
+  [[nodiscard]] size_t StorageChargeBytes() const noexcept;
 };
 
 }
