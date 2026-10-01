@@ -71,7 +71,7 @@ beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
   Öffentliche API ist Greenfield; sämtliche Builtins und Aufrufer zusammen migrieren.
 
 ## Ausführbare Lieferung
-1. 2280s unabhängige Erwerbspipeline an die Runtime anschließen; Rohbytes/Decode getrennt begrenzen.
+1. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
 2. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
 3. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
 4. Wettervertrag für 2172 sowie Command-/Snapshot-Grenze für 2136 vervollständigen.

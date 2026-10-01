@@ -31,6 +31,8 @@ Besitzer betreibt bis zu acht unabhängige Quellenanfragen; fertige Zellen gehen
 Thread-Sicherheitsannahme über externe Provider/Transports. Ein langsamer Request hält
 fertige Nachbarn nicht zurück. Revision/Abbruch gelten für IO, Übergabe und Decode;
 atomare Publikation und vorhandene Snapshot-Admittanz bleiben verbindlich.
+`OsmCellAcquisition` und `OsmCellPipeline` setzen diesen Erwerb bereits um; der Client
+begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist noch offen.
 
 ## Quellen- und Produktvertrag
 - OSM: offizieller API-Katalog über GeoCellId, `map?bbox=west,south,east,north` und
@@ -71,8 +73,10 @@ atomare Publikation und vorhandene Snapshot-Admittanz bleiben verbindlich.
   einschließlich laufender IO. Terrain-Sampling erhält ursprüngliche Fehleradresse,
   Quelle und Fehlergrund bis zur Runtime; eine Ablehnung liefert kein partielles Mesh.
   Prepare darf Originalbytes separat vorbereiten; Shots behalten unverändert ihr Zehn-Sekunden-Gate.
-  Als Nächstes vollständigen Quellcache vorbereiten und den tatsächlichen Place-Aufbau messen;
-  Cache-Erkennung und Vorbereitung allein beweisen weder Ladebudget noch Bildqualität.
+  Als Nächstes 2188s Produkt-/Pinvertrag und 2336s Detailbedarf vor Terrainarbeit anschließen:
+  native Zellen ingestieren, ohne sämtliche Roh-Snapshots bis zur fertigen Fernwelt zu halten.
+  Originalcache vollständig vorbereiten und tatsächlichen Place-Aufbau messen; Erwerb allein
+  beweist weder das Ladebudget noch Bildqualität. Keine weitere reine Wartezeit-Optimierung.
   Die vorhandene Kronenvorbereitung übergibt Atlanten direkt im RAM; kein Runtime-Diskcache.
   Explizite Cachepfade bleiben erhalten. Per-Zell-Bytes qualifizieren den Katalog `current`;
   dieser Name behauptet keinen atomaren weltweiten OSM-Zeitstand.
