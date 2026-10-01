@@ -60,7 +60,7 @@ int main() {
   using namespace outshine::Test;
   OriginalProvider provider;
   Scenario::Document document;
-  document.Ground.Origin = {.LongitudeDeg = 9.433995, .LatitudeDeg = 54.781286};
+  document.Ground.Origin = {.LatitudeDeg = 54.781286, .LongitudeDeg = 9.433995};
   document.Ground.SightM = 1.0;
   document.Providers.push_back({.Kind = "osm",
                                 .Revision = "fixture-r1",
