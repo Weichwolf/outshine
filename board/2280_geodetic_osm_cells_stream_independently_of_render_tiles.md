@@ -35,7 +35,7 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
   API-Level 9 umfasst 360×180/512² = 0,2472 Grad² je Zelle, unter dem API-Flächenlimit.
   Snapshot-Admittanz: 32×4 MiB = 128 MiB inklusive gepinnter Altstände, keine Vorallokation.
   Das ist eine Quellgrenze, kein bewiesenes App-Budget. Das API-Flächenlimit garantiert nicht
-  das Node-Limit: Flensburg scheitert derzeit an einer Antwort mit mehr als 50.000 Nodes.
+  das Node-Limit von 50.000; überlastete Zellen liefern kein gültiges Leerprodukt.
   Der HTTP-Adapter typisiert Kapazitätsablehnungen; OsmCellRefinement ersetzt betroffene Zellen
   durch vier flächendeckende Kinder. Zellzahl, Tiefe, Speicher und Gesamtdauer bleiben begrenzt.
   Erst die vollständige Blattmenge publizieren; unveränderte Pläne und Blätter wiederverwenden.
@@ -49,6 +49,9 @@ Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerg
 - Nur Original-Netzwerkbytes persistent cachen. Generator-Artefakt-Lookups/-Writes aus
   Client-Pfaden entfernen; vorhandene Dateien erhalten. RAM-/GPU-Produkte bleiben resident.
   Client, Shots und Prepare teilen dauerhaften SDL-Nutzerspeicher; kein Temp-Default.
+  Als Nächstes vollständige Blattpläne in neuen Prozessen aus adressqualifizierten Netzwerk-
+  Receipts rekonstruieren: warme Starts dürfen überlastete Eltern nicht erneut remote abfragen.
+  ContentStore/SourceSet besitzen diese Quellidentität; keine Generatorprodukte persistieren.
   Die vorhandene Kronenvorbereitung übergibt Atlanten direkt im RAM; kein Runtime-Diskcache.
   Explizite Cachepfade bleiben erhalten. Per-Zell-Bytes qualifizieren den Katalog `current`;
   dieser Name behauptet keinen atomaren weltweiten OSM-Zeitstand.
