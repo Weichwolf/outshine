@@ -14,6 +14,8 @@ Originalobjekte liefern native Verkehrs- und Gebäudeprodukte bis ins Client-Bil
 Quellenresidenz bleibt unabhängig von Render-LOD, Frustum und Kacheleviktion.
 Vorhanden: regionale Originalbeschaffung, gemeinsame Snapshots und Transportprodukte;
 native Gebäude mit gepinnten Koordinaten, Terrain-Zertifikaten und Stempeln im Client.
+Der gemeinsame Compute-Worker plant DEM-Felder aus Gebäudegrundrissen statt Quellen-Bboxes;
+unveränderte Nachfrage verwendet den vorbereiteten RAM-Bestand ohne erneute Geometriesuche.
 Öffentliche `GeoCellId`-Adressen und der registrierte Original-API-Katalog liefern
 begrenzte Zellantworten mit getrennten Raw-Cachekeys; alte Quelladressen bleiben stabil.
 `ReadOsmApiCells` beschafft begrenzte Zelljobs; `ParseCell` hält Herkunft und Elemente
