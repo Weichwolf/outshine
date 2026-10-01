@@ -30,7 +30,8 @@ AGENTS.md; dieses Board beschreibt den Weg. RDR2/GTA5 sind Qualitätsmaßstäbe.
 ## Arbeitsweg nach Priorität
 | Phase | Lieferung | Kinder | Zusammenhang |
 |---|---|---|---|
-| P0 jetzt | Gemeinsames Engine-Design und vollständige Originalwelt | 2188, 2280 | Verträge, paralleler Erwerb, begrenzte Ingestion und Residency gemeinsam liefern |
+| P0 jetzt | Architekturgrenzen tatsächlich durchsetzen | 2188 | Generische Welt, eigene Provider/Adapter und öffentliche Generatorverträge; alle erkannten Verstöße beheben |
+| P0 danach | Vollständige Originalwelt | 2280 | Erwerb, begrenzte Ingestion und Residency über die korrigierten Verträge liefern |
 | P0 | Ferndarstellung ohne Löcher oder Datenmengenexplosion | 2336 | Native Detailhierarchie begrenzt Arbeit vor Geometrie |
 | P0 | Richtige Straßen, Bauwerke, Gelände und Gewässer | 2281, 2173, 2145 | Vorhandene Formen erhalten, reale Geometriefehler beseitigen |
 | P1 | Lesbare Materialien, kohärentes Licht, Wetter und Himmel | 2171, 2155, 2172 | Mit vorhandenen Oberflächen liefern; kein Warten auf Vegetation |
@@ -38,7 +39,7 @@ AGENTS.md; dieses Board beschreibt den Weg. RDR2/GTA5 sind Qualitätsmaßstäbe.
 | P3 | Physikalische, programmierbare und bevölkerte Sandbox | 2136 | Gemeinsame Physik/Commands für JS, UI, LLM-NPCs und bewegliche Systeme |
 
 ## Arbeitsfähige Reserve
-2188 und 2280 sind aktiv: grundlegendes Design und die aktuelle Ladepipeline. Danach den
+2188 ist aktiv: Architekturgrenzen haben Vorrang; 2280 wartet auf die korrigierten Besitzer. Danach den
 Projektions-/Fehlervertrag in native Detailplanung überführen; native Formen in
 2173/2281 und Baustoffe 2171 können ihre vorhandenen Inputs unabhängig verwenden.
 2336s globale Grobquelle und 2145s Küstenabschluss brauchen noch belegte Quellenverträge.

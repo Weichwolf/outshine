@@ -39,6 +39,21 @@ Bibliotheksnutzer ersetzen Provider/Generator/Host über öffentliche Registrier
 Physik liegt fachlich unter physics; actor/body und unspezifische Subject-Bezeichner
 beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
 
+## Korrektur der Modulgrenzen
+| Heute vermischt | Zielbesitzer und gerichtete Grenze |
+|---|---|
+| world/data: IO, Cache, OSM, Copernicus, MVT | sources besitzt Provider/Netzwerkbytes; import besitzt Formate/Adapter |
+| world/ground: OSM/MVT-Ingestion und Produkte | import übersetzt; generators erzeugt; world hält native Produkte |
+| world/navigation: OSM-Auflösung und Netze | import besitzt OSM-Auflösung; world besitzt generische Topologie |
+| BuildingField::Geometry: OSM-Snapshot/IDs | Quellunabhängige Provenienz/Objektidentität, keine Parserarchive |
+| actor/body: Rigid/Prismatic | physics besitzt Simulation; actor konsumiert sie |
+| import: Decoder und Rendererprodukte | import liefert native CPU-Assets; render besitzt GPU-Produkte |
+| private Builtin-Bakes neben Generator-API | Ein öffentlicher Input-/Productvertrag für Builtins und Erweiterungen |
+| Testprofile mit eigenen Include-Listen | Profile aus demselben Modulgraphen ableiten; Fixtures explizit besitzen |
+`world` konsumiert weder sources, import noch generators. Engine verbindet diese Module.
+Quellformate enden im Adapter; Generatorinputs gehören dem jeweiligen Generatorvertrag.
+Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeitsgrenze.
+
 ## Verbindliche gemeinsame Verträge
 - WorldDemand enthält vollständige räumliche Abdeckung, Kamera-/Höhenbezug, Projektion
   und Qualitätsauftrag. Blickrichtung beeinflusst Sichtbarkeit, nicht Rundum-Residency.
@@ -74,10 +89,13 @@ beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
   Öffentliche API ist Greenfield; sämtliche Builtins und Aufrufer zusammen migrieren.
 
 ## Ausführbare Lieferung
-1. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
-2. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
-3. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
-4. Wettervertrag für 2172 sowie Command-/Snapshot-Grenze für 2136 vervollständigen.
+1. Alle Architekturverstöße priorisiert beheben: Weltprodukte ohne Quellformate/Generatorinputs;
+   konkrete Provider/Decoder und OSM-Topologieadapter aus world; Physik korrekt zuordnen.
+   Diese Grenzen durch Include-/Typprüfungen erzwingen, nicht allein durch Verhaltensfälle.
+2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
+3. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
+4. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
+5. Wettervertrag für 2172 sowie Command-/Snapshot-Grenze für 2136 vervollständigen.
 Andere Features konsumieren jeweils den fehlenden Teilvertrag, keine pauschale Gesamtabnahme.
 
 ## Abnahme

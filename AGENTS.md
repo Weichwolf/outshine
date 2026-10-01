@@ -86,6 +86,10 @@
 - Ich trenne Provider, Generatoren, Weltzustand und Renderer/Audio; Engine koordiniert.
   Eingebaute und externe Erweiterungen verwenden dieselben öffentlichen Verträge und Registrierungen.
   Die API ist Greenfield; Verbesserungen migrieren sämtliche Aufrufer. Private Sonderpfade korrigiere ich.
+- `world` bleibt eine generische 3D-Welt. Es kennt keine konkreten Provider, Quellformate
+  oder Generator-Eingabetypen. Adapter und Generatoren besitzen diese Daten; Weltprodukte
+  tragen ausschließlich native Inhalte und quellunabhängige Herkunft. Abhängigkeitsprüfungen
+  sichern diese Grenze; bloß bestandene Verhaltensprüfungen belegen keine saubere Architektur.
 - Ein natives Geometriemodell gilt für alle Quellen; Formattypen enden am Adapter. Assets,
   Instanzen, GPU-Produkte, LOD und Kollision haben eindeutige Besitzer. Logische Netze bleiben
   unabhängig von Rendergeometrie. Gemeinsame Raum-/Höhenbezüge sichern Geometrie und Anschlüsse.
