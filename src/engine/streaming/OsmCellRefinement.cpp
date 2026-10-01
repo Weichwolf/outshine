@@ -51,7 +51,7 @@ std::vector<Data::GeoCellId> OsmSourceLoader::Cells::SelectLeaves(
       const auto cell = entry.Snapshot->Cell;
       assert(cell);
       const auto at = RootPosition(roots, *cell);
-      if (at && use[*at]) { plans[*at].push_back(leaf); }
+      if (at && use[*at]) { plans[*at].push_back(*cell); }
     }
   }
   std::vector<Data::GeoCellId> leaves;
