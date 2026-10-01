@@ -57,7 +57,7 @@ ImpostorCache::Request ImpostorCache::Read(std::string provenance) {
 }
 
 std::optional<ImpostorCache::Loaded> ImpostorCache::Take() {
-  if (Pending_.empty() || !Tasks_->Done(Pending_.front().Job)) { return std::nullopt; }
+  if (Pending_.empty() || !Tasks_->TakeCompletion(Pending_.front().Job)) { return std::nullopt; }
   Loaded result = std::move(*Pending_.front().Result);
   Pending_.pop_front();
   return result;

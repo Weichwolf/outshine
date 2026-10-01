@@ -517,7 +517,7 @@ void StructureBuildTask::RequestStop() noexcept {
 
 bool StructureBuildTask::TakeCompletion(Tasks &pool) {
   (void)pool;
-  if (State_ != State::Running || !ActivePool_->Done(Handle_)) { return false; }
+  if (State_ != State::Running || !ActivePool_->TakeCompletion(Handle_)) { return false; }
   Handle_ = Tasks::kNoTask;
   State_ = State::Completed;
   return true;

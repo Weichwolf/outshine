@@ -64,7 +64,7 @@ public:
 bool AwaitDone(Tasks &compute, Tasks::Handle handle) {
   const auto deadline = std::chrono::steady_clock::now() + 3s;
   while (std::chrono::steady_clock::now() < deadline) {
-    if (compute.Done(handle)) { return true; }
+    if (compute.TakeCompletion(handle)) { return true; }
     (void)compute.AwaitCompletion(0.01);
   }
   return false;

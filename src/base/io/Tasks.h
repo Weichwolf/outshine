@@ -27,7 +27,7 @@ public:
 
   [[nodiscard]] Handle Post(Job job);
   [[nodiscard]] bool PostDetached(Job job);
-  [[nodiscard]] bool Done(Handle which);
+  [[nodiscard]] bool TakeCompletion(Handle which);
   [[nodiscard]] bool AwaitCompletion(double seconds);
   void Wait(Handle which);
 

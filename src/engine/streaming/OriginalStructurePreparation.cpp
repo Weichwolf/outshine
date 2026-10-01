@@ -286,7 +286,7 @@ OriginalStructurePreparation::~OriginalStructurePreparation() {
 }
 
 OriginalStructurePreparation::Phase OriginalStructurePreparation::Poll() {
-  if (Handle_ == Tasks::kNoTask || !Pool_->Done(Handle_)) { return Phase_; }
+  if (Handle_ == Tasks::kNoTask || !Pool_->TakeCompletion(Handle_)) { return Phase_; }
   Handle_ = Tasks::kNoTask;
   if (Output_->Value) {
     Products_ = std::move(*Output_->Value);

@@ -96,7 +96,7 @@ int main() {
     }
     std::atomic<bool> ran{false};
     const auto job = compute.Post([&ran] { ran = true; });
-    while (!compute.Done(job) && std::chrono::steady_clock::now() < until) {
+    while (!compute.TakeCompletion(job) && std::chrono::steady_clock::now() < until) {
       (void)compute.AwaitCompletion(0.01);
     }
     CHECK(wire.Starts == 2 && ran && loader.Current() == source,

@@ -112,7 +112,7 @@ OsmTransportLoader::SetRequest(std::vector<Data::SourceProvider> requested,
 }
 
 void OsmTransportLoader::Poll() {
-  if (Pending_ && Tasks_->Done(Pending_->Handle)) {
+  if (Pending_ && Tasks_->TakeCompletion(Pending_->Handle)) {
     const Pending finished = std::move(*Pending_);
     Pending_.reset();
     if (finished.Revision != Revision_) {

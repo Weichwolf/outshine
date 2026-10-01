@@ -51,7 +51,7 @@ Tasks::Handle Tasks::Post(Job job, bool tracked) {
   return which;
 }
 
-bool Tasks::Done(Handle which) {
+bool Tasks::TakeCompletion(Handle which) {
   const std::scoped_lock lock(Mutex_);
   const auto at = Done_.find(which);
   if (at == Done_.end()) { return false; }

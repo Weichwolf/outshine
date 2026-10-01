@@ -87,7 +87,7 @@ size_t VegetationStreaming::Resident() const {
 
 bool VegetationStreaming::PollPreparation(bool prepare, std::string &error) {
   if (Preparing_ != Tasks::kNoTask) {
-    if (Preparation_.Done(Preparing_)) {
+    if (Preparation_.TakeCompletion(Preparing_)) {
       Preparing_ = Tasks::kNoTask;
       if (!PreparedError_.empty()) {
         Failure_ = PreparedError_;

@@ -3,6 +3,10 @@
 
 #include "OsmSourceLoader.h"
 #include "ContentStore.h"
+#include "OsmApiReader.h"
+#include <condition_variable>
+#include <deque>
+#include <mutex>
 #include <atomic>
 #include <math/Units.h>
 
@@ -48,7 +52,8 @@ struct OsmSourceLoader::Cells {
   const Data::ProviderRegistry *PublishedRegistry = nullptr;
 
   [[nodiscard]] size_t ChargedBytes() const noexcept;
-  [[nodiscard]] std::vector<Data::GeoCellId> NextAcquisitionBatch() const;
+  [[nodiscard]] std::vector<Data::GeoCellId>
+  NextAcquisitionBatch(std::span<const Data::GeoCellId> assigned = {}) const;
   [[nodiscard]] std::vector<CellSource>
   Reuse(std::span<const Data::GeoCellId> wanted, bool published, bool pending) const;
   [[nodiscard]] std::vector<Data::GeoCellId>
@@ -58,6 +63,21 @@ struct OsmSourceLoader::Cells {
   [[nodiscard]] std::expected<void, std::string> Stage(std::vector<CellSource> ready);
 };
 
+struct OsmSourceLoader::CellPipeline {
+  struct Exchange {
+    std::mutex Mutex;
+    std::condition_variable Changed;
+    std::deque<Data::GeoCellId> Requests;
+    std::deque<Data::OsmSourceRead> Ready;
+    std::string Error;
+  };
+
+  std::shared_ptr<Exchange> Shared = std::make_shared<Exchange>();
+  std::vector<Data::GeoCellId> Assigned;
+  Tasks::Handle Handle = Tasks::kNoTask;
+  std::stop_source Stop;
+  uint64_t Revision = 0;
+};
 }
 
 #endif

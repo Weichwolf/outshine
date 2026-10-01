@@ -172,7 +172,8 @@ int main() {
     const auto probe = compute.Post([] {});
     const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     bool probeDone = false;
-    while (!(probeDone = compute.Done(probe)) && std::chrono::steady_clock::now() < until) {
+    while (!(probeDone = compute.TakeCompletion(probe)) &&
+           std::chrono::steady_clock::now() < until) {
       (void)compute.AwaitCompletion(0.01);
     }
     CHECK(probeDone && loader.CurrentCells()[0].Snapshot == retained,

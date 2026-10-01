@@ -126,7 +126,7 @@ bool RoadAlignmentBuildQueue::TryStart(Tasks &tasks, RoadAlignmentBuildRequest r
 
 void RoadAlignmentBuildQueue::Poll(Tasks &tasks, uint64_t activeCandidateGeneration) {
   if (Completed_ && CompletedGeneration_ != activeCandidateGeneration) { Completed_.reset(); }
-  if (!Pending_ || !tasks.Done(Pending_->Handle)) { return; }
+  if (!Pending_ || !tasks.TakeCompletion(Pending_->Handle)) { return; }
   const Pending finished = std::move(*Pending_);
   Pending_.reset();
   if (finished.CandidateGeneration != activeCandidateGeneration) { return; }

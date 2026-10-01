@@ -37,14 +37,17 @@ size_t OsmSourceLoader::Cells::ChargedBytes() const noexcept {
   return bytes;
 }
 
-std::vector<Data::GeoCellId> OsmSourceLoader::Cells::NextAcquisitionBatch() const {
+std::vector<Data::GeoCellId>
+OsmSourceLoader::Cells::NextAcquisitionBatch(std::span<const Data::GeoCellId> assigned) const {
   std::vector<Data::GeoCellId> batch;
   batch.reserve(3);
   const auto acquisitionOrder = [](Data::GeoCellId left, Data::GeoCellId right) {
     return left.Level != right.Level ? left.Level > right.Level : Before(left, right);
   };
   for (size_t at = 0; at < Wanted.size(); ++at) {
-    if (Preparing[at].Snapshot) { continue; }
+    if (Preparing[at].Snapshot || std::ranges::find(assigned, Wanted[at]) != assigned.end()) {
+      continue;
+    }
     const auto position = std::ranges::lower_bound(batch, Wanted[at], acquisitionOrder);
     if (position - batch.begin() == 2) { continue; }
     batch.insert(position, Wanted[at]);
@@ -191,6 +194,7 @@ OsmSourceLoader::RequestCells(const Data::SourceProvider &provider,
   Cells_->Preparing = std::move(preparing);
   Error_.clear();
   if (Pending_) { (void)Pending_->Stop.request_stop(); }
+  CancelCellPipeline();
   Phase_ = Phase::Loading;
   if (Cells_->Ready()) { CompleteCells({}); }
   Poll();

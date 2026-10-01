@@ -64,7 +64,7 @@ void StructureSourcePreparation::Join() {
 StructureSourcePreparation::State StructureSourcePreparation::Advance() {
   if (!Work_) { return State::Cancelled; }
   if (Running()) {
-    if (!Pool_->Done(Handle_)) { return State::Preparing; }
+    if (!Pool_->TakeCompletion(Handle_)) { return State::Preparing; }
     Handle_ = Tasks::kNoTask;
   }
   if (Work_->Stopping.load(std::memory_order_relaxed)) {

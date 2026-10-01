@@ -91,7 +91,7 @@ int main() {
   const auto job =
       worker.Post([&] { atlas = BakeImpostorAtlas(*tree, {.Pixels = 128, .Views = 4}, error); });
   bool finished = false;
-  while (!(finished = worker.Done(job)) &&
+  while (!(finished = worker.TakeCompletion(job)) &&
          std::chrono::steady_clock::now() - captureStarted < std::chrono::seconds(30)) {
     drawForeground(1);
   }

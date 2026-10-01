@@ -1,4 +1,6 @@
 #include "Check.h"
+#include "DeclaredSources.h"
+#include "ContentStore.h"
 #include "OsmSourceLoader.h"
 #include "SourceProviderValidation.h"
 
@@ -174,9 +176,20 @@ int main() {
                             GeoCellId{.Level = 9, .X = 272, .Y = 411}};
     interrupted.BlockFromWest = demand.back().Bounds()->WestDeg;
     revision.Revision = "adaptive-interrupted";
+    ContentStore acquired({.Directory = directory, .UtcSeconds = {}});
+    auto catalogue = MakeDeclaredSource(revision, ".", nullptr);
+    CHECK(catalogue, "the original catalogue supplies the same cache identity");
+    if (!catalogue) { return Report(); }
     OsmSourceLoader preparing(compute, &interrupted, directory);
     CHECK(preparing.RequestCells(revision, demand, limits, ".") &&
-              Await(preparing, [&interrupted] { return interrupted.BlockedLaterRegion != 0; }) &&
+              Await(preparing,
+                    [&] {
+                      return interrupted.BlockedLaterRegion != 0 &&
+                             acquired.HasCompleteChildCoverage((*catalogue)->Declaration(),
+                                                               demand[0]) &&
+                             acquired.HasCompleteChildCoverage((*catalogue)->Declaration(),
+                                                               demand[1]);
+                    }) &&
               preparing.CurrentCells().empty(),
           "an unfinished later region prevents global publication");
     CapacityLimitedOsmTransport cached;
@@ -185,7 +198,7 @@ int main() {
     CHECK(resumed.RequestCells(revision, std::span(demand).first(2), limits, ".") &&
               Settled(resumed) && resumed.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
               resumed.CurrentCells().size() == 8 && cached.Starts == 0,
-          "finite acquisition completes refined source regions before probing later roots");
+          "complete source regions remain reusable while an independent later root is blocked");
     interrupted.BlockFromWest = 1000;
     CHECK(Settled(preparing) && preparing.CurrentCells().size() == 12 && interrupted.Starts == 15,
           "prioritization retains all twelve leaves and performs each original request once");

@@ -37,10 +37,12 @@ OsmSourceLoader::OsmSourceLoader(Tasks &tasks, Data::Transport *wire, std::strin
 }
 
 OsmSourceLoader::~OsmSourceLoader() {
+  CancelCellPipeline();
   if (Pending_) {
     (void)Pending_->Stop.request_stop();
     Pending_->Owner->Wait(Pending_->Handle);
   }
+  if (CellPipeline_) { Io_.Wait(CellPipeline_->Handle); }
 }
 
 std::expected<void, std::string> OsmSourceLoader::SetAcquisitionBudget(double seconds) {
@@ -88,6 +90,7 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers,
   Access_->Registry = registry;
   Error_.clear();
   if (Pending_) { (void)Pending_->Stop.request_stop(); }
+  CancelCellPipeline();
   if (Requested_.empty()) {
     Current_.reset();
     PublishedRevision_ = Revision_;
@@ -100,33 +103,30 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers,
 }
 
 void OsmSourceLoader::Poll() {
-  if (Pending_ && Pending_->Owner->Done(Pending_->Handle)) {
+  if (Pending_ && Pending_->Owner->TakeCompletion(Pending_->Handle)) {
     Pending finished = std::move(*Pending_);
     Pending_.reset();
     CompletePending(std::move(finished));
   }
-  if (!Pending_ && Phase_ == Phase::Loading) { StartRequested(); }
+  if (CellPipeline_) { PumpCellPipeline(); }
+  if (!Pending_ && !CellPipeline_ && Phase_ == Phase::Loading) {
+    if (Scope_ == Scope::Cells) {
+      StartCellPipeline();
+      PumpCellPipeline();
+    } else {
+      StartRegionAcquisition();
+    }
+  }
 }
 
-bool OsmSourceLoader::AwaitSlice(double seconds) const {
+bool OsmSourceLoader::AwaitSlice(double seconds) {
+  if (CellPipeline_) { return Io_.AwaitCompletion(std::min(seconds, 0.005)); }
   return Pending_ && Pending_->Owner->AwaitCompletion(seconds);
 }
 
 void OsmSourceLoader::CompletePending(Pending finished) {
-  if (finished.Revision != Revision_) { return; }
+  if (finished.Revision != Revision_ || Phase_ != Phase::Loading) { return; }
   if (auto *read = std::get_if<ReadResult>(&finished.Output->Value)) {
-    if (*read && Scope_ == Scope::Cells) {
-      if (auto refined = Cells_->Refine(finished.Output->Refine); !refined) {
-        Error_ = std::move(refined.error());
-        Cells_->Preparing.clear();
-        Phase_ = Phase::Failed;
-        return;
-      }
-      if ((**read).empty()) {
-        CompleteCells({});
-        return;
-      }
-    }
     if (*read) {
       StartDecode(std::move(**read), std::move(finished.Stop), finished.Output->ReadMs);
       return;
@@ -143,6 +143,11 @@ void OsmSourceLoader::CompletePending(Pending finished) {
     Error_ = std::move(loaded->error());
   } else if (auto *cells = std::get_if<CellLoadResult>(&finished.Output->Value)) {
     if (*cells) {
+      if (CellPipeline_ && CellPipeline_->Revision == Revision_) {
+        for (const auto &entry : **cells) {
+          std::erase(CellPipeline_->Assigned, *entry.Snapshot->Cell);
+        }
+      }
       CompleteCells(std::move(**cells));
       return;
     }
@@ -154,14 +159,13 @@ void OsmSourceLoader::CompletePending(Pending finished) {
   Phase_ = Phase::Failed;
 }
 
-void OsmSourceLoader::StartRequested() {
+void OsmSourceLoader::StartRegionAcquisition() {
   auto result = std::make_shared<Result>();
   std::stop_source stop;
   const auto token = stop.get_token();
   auto cells =
       Scope_ == Scope::Cells ? Cells_->NextAcquisitionBatch() : std::vector<Data::GeoCellId>{};
   const auto handle = Io_.Post([input = Requested_,
-                                cells = std::move(cells),
                                 revision = Revision_,
                                 root = Root_,
                                 access = Access_,
@@ -181,26 +185,10 @@ void OsmSourceLoader::StartRequested() {
             Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
       }
       const auto deadline = [access, revision] { return access->CurrentDeadline(revision); };
-      auto read = cells.empty() ? Data::ReadOsmApiRegions(input,
-                                                          *access->Store,
-                                                          *access->Wire,
-                                                          deadline(),
-                                                          token,
-                                                          registry,
-                                                          root,
-                                                          deadline)
-                                : Data::ReadOsmApiCells(input.front(),
-                                                        cells,
-                                                        *access->Store,
-                                                        *access->Wire,
-                                                        deadline(),
-                                                        token,
-                                                        registry,
-                                                        root,
-                                                        deadline);
+      auto read = Data::ReadOsmApiRegions(
+          input, *access->Store, *access->Wire, deadline(), token, registry, root, deadline);
       if (read) {
         result->ReadMs = read->ElapsedMs;
-        result->Refine = std::move(read->Refine);
         result->Value = ReadResult(std::move(read->Chunks));
       } else {
         result->Value = ReadResult(std::unexpected(std::move(read.error())));

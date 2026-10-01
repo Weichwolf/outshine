@@ -47,7 +47,7 @@ int main(void) {
           "**A JOB RUNS ON A WORKER, NEVER ON THE POSTER'S THREAD**: the frame posts and keeps "
           "going; a pool that runs the job inline is a function call wearing a pool's name");
     for (int at = 0; at < kJobs; ++at) {
-      CHECK(!pool.Done(posted[static_cast<size_t>(at)]),
+      CHECK(!pool.TakeCompletion(posted[static_cast<size_t>(at)]),
             "a handle waited on is spent -- Done answers once, so a result is consumed once");
       break;
     }
@@ -89,8 +89,8 @@ int main(void) {
     const Tasks::Handle posted = pool.Post([] {});
     CHECK(pool.AwaitCompletion(1.0),
           "a completion wait wakes for a worker result without consuming its handle");
-    CHECK(pool.Done(posted), "Done consumes a completed handle exactly once");
-    CHECK(!pool.Done(posted), "a consumed completion cannot be consumed again");
+    CHECK(pool.TakeCompletion(posted), "TakeCompletion consumes a completed handle exactly once");
+    CHECK(!pool.TakeCompletion(posted), "a consumed completion cannot be consumed again");
   }
 
   Covers("board:2122 the compute pool: every job runs once on a worker, the poster consumes in "
