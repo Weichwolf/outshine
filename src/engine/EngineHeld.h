@@ -578,6 +578,7 @@ struct Engine::State {
   UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
+  [[nodiscard]] bool RequestOsmSources(std::span<const Data::SourceProvider> providers);
   [[nodiscard]] bool RequestOriginalCells();
   void DeclareGroundFeatures();
   void PollOsmSources();

@@ -36,6 +36,7 @@ ConfigureWorldSources(Scenario::Document &scenario) {
         return provider.Kind == "osm" || provider.Kind == "vector";
       })) {
     scenario.Providers.push_back({.Kind = "osm",
+                                  .Location = {},
                                   .Revision = "current",
                                   .Missing = Data::MissingDataPolicy::Fail,
                                   .Dataset = "openstreetmap.original",

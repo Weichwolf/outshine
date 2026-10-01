@@ -13,6 +13,10 @@
 
 namespace outshine::Data {
 namespace {
+constexpr double kPoleLatitudeDeg = 90.0;
+constexpr double kHalfLongitudeDeg = 180.0;
+constexpr double kFullLongitudeDeg = 2.0 * kHalfLongitudeDeg;
+
 struct Columns {
   uint32_t First = 0;
   uint32_t Last = 0;
@@ -28,8 +32,9 @@ uint32_t CellAt(double coordinate, double halfRange, uint32_t count) {
 std::expected<std::vector<GeoCellId>, std::string>
 CellsAround(double latitudeDeg, double longitudeDeg, double radiusM, int level, size_t cellsMost) {
   if (!std::isfinite(latitudeDeg) || !std::isfinite(longitudeDeg) || !std::isfinite(radiusM) ||
-      latitudeDeg < -90.0 || latitudeDeg > 90.0 || longitudeDeg < -180.0 || longitudeDeg > 180.0 ||
-      radiusM < 0.0 || level < 0 || level > GeoCellId::MaximumLevel || cellsMost == 0) {
+      latitudeDeg < -kPoleLatitudeDeg || latitudeDeg > kPoleLatitudeDeg ||
+      longitudeDeg < -kHalfLongitudeDeg || longitudeDeg > kHalfLongitudeDeg || radiusM < 0.0 ||
+      level < 0 || level > GeoCellId::MaximumLevel || cellsMost == 0) {
     return std::unexpected("invalid geographic source demand");
   }
   const uint32_t count = uint32_t{1} << static_cast<unsigned>(level);
@@ -37,33 +42,37 @@ CellsAround(double latitudeDeg, double longitudeDeg, double radiusM, int level, 
   const double angular = std::min(std::numbers::pi, radiusM / minimumRadiusM);
   const double latitude = latitudeDeg * kDeg2Rad;
   const double latitudeSpan = angular * kRad2Deg;
-  const double south = std::max(-90.0, std::nextafter(latitudeDeg - latitudeSpan, -INFINITY));
-  const double north = std::min(90.0, std::nextafter(latitudeDeg + latitudeSpan, INFINITY));
-  const uint32_t firstRow = CellAt(south, 90.0, count);
-  const uint32_t lastRow = CellAt(north, 90.0, count);
+  const double south =
+      std::max(-kPoleLatitudeDeg, std::nextafter(latitudeDeg - latitudeSpan, -INFINITY));
+  const double north =
+      std::min(kPoleLatitudeDeg, std::nextafter(latitudeDeg + latitudeSpan, INFINITY));
+  const uint32_t firstRow = CellAt(south, kPoleLatitudeDeg, count);
+  const uint32_t lastRow = CellAt(north, kPoleLatitudeDeg, count);
   std::array<Columns, 2> columns{};
   size_t ranges = 1;
-  if (south == -90.0 || north == 90.0) {
-    columns[0] = {0, count - 1};
+  if (south == -kPoleLatitudeDeg || north == kPoleLatitudeDeg) {
+    columns[0] = {.First = 0, .Last = count - 1};
   } else {
     const double longitudeSpan =
         std::asin(std::clamp(std::sin(angular) / std::cos(latitude), 0.0, 1.0)) * kRad2Deg;
     const double west = std::nextafter(longitudeDeg - longitudeSpan, -INFINITY);
     const double east = std::nextafter(longitudeDeg + longitudeSpan, INFINITY);
-    if (west < -180.0) {
-      columns[0] = {0, CellAt(east, 180.0, count)};
-      columns[1] = {CellAt(west + 360.0, 180.0, count), count - 1};
+    if (west < -kHalfLongitudeDeg) {
+      columns[0] = {.First = 0, .Last = CellAt(east, kHalfLongitudeDeg, count)};
+      columns[1] = {.First = CellAt(west + kFullLongitudeDeg, kHalfLongitudeDeg, count),
+                    .Last = count - 1};
       ranges = 2;
-    } else if (east > 180.0) {
-      columns[0] = {0, CellAt(east - 360.0, 180.0, count)};
-      columns[1] = {CellAt(west, 180.0, count), count - 1};
+    } else if (east > kHalfLongitudeDeg) {
+      columns[0] = {.First = 0, .Last = CellAt(east - kFullLongitudeDeg, kHalfLongitudeDeg, count)};
+      columns[1] = {.First = CellAt(west, kHalfLongitudeDeg, count), .Last = count - 1};
       ranges = 2;
     } else {
-      columns[0] = {CellAt(west, 180.0, count), CellAt(east, 180.0, count)};
+      columns[0] = {.First = CellAt(west, kHalfLongitudeDeg, count),
+                    .Last = CellAt(east, kHalfLongitudeDeg, count)};
     }
   }
   if (ranges == 2 && columns[0].Last >= columns[1].First) {
-    columns[0] = {0, count - 1};
+    columns[0] = {.First = 0, .Last = count - 1};
     ranges = 1;
   }
   const size_t rows = static_cast<size_t>(lastRow - firstRow) + 1;

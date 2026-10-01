@@ -1,6 +1,14 @@
 #include "OsmSourceLoaderState.h"
 
 #include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
 #include <optional>
 #include <ranges>
 #include <tuple>
@@ -27,7 +35,7 @@ std::vector<Data::GeoCellId> OsmSourceLoader::Cells::SelectLeaves(
     std::span<const Data::GeoCellId> roots, bool published, bool pending) const {
   std::vector<std::vector<Data::GeoCellId>> plans(roots.size());
   if (pending) {
-    for (auto leaf : Wanted) {
+    for (const auto leaf : Wanted) {
       const auto at = RootPosition(roots, leaf);
       if (at && std::ranges::binary_search(Roots, roots[*at], Before)) {
         plans[*at].push_back(leaf);
@@ -40,8 +48,9 @@ std::vector<Data::GeoCellId> OsmSourceLoader::Cells::SelectLeaves(
       use[at] = plans[at].empty() && std::ranges::binary_search(PublishedRoots, roots[at], Before);
     }
     for (const auto &entry : Published) {
-      const auto leaf = *entry.Snapshot->Cell;
-      const auto at = RootPosition(roots, leaf);
+      const auto cell = entry.Snapshot->Cell;
+      assert(cell);
+      const auto at = RootPosition(roots, *cell);
       if (at && use[*at]) { plans[*at].push_back(leaf); }
     }
   }

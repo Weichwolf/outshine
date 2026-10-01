@@ -102,6 +102,21 @@ CollectRegion(Region &region, OsmSourceChunk &chunk, Transport &wire, double beg
                          "' failed: " + std::string(Name(reason)));
 }
 
+std::expected<size_t, std::string> PollStarted(std::span<const std::unique_ptr<Region>> regions,
+                                               std::span<OsmSourceChunk> chunks,
+                                               std::span<const double> beganMs,
+                                               Transport &wire,
+                                               std::vector<GeoCellId> &refine) {
+  size_t completed = 0;
+  for (size_t at = 0; at < regions.size(); ++at) {
+    auto ready = CollectRegion(*regions[at], chunks[at], wire, beganMs[at]);
+    if (!ready) { return std::unexpected(std::move(ready.error())); }
+    if (*ready == Collected::Refine && chunks[at].Cell) { refine.push_back(*chunks[at].Cell); }
+    completed += static_cast<size_t>(*ready != Collected::Pending);
+  }
+  return completed;
+}
+
 std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourceProvider> providers,
                                                        std::span<const GeoCellId> cells,
                                                        ContentStore &store,
@@ -141,12 +156,9 @@ std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourcePro
       beganMs[next] = nowMs;
       ++next;
     }
-    for (size_t at = 0; at < next; ++at) {
-      auto ready = CollectRegion(*regions[at], chunks[at], wire, beganMs[at]);
-      if (!ready) { return std::unexpected(std::move(ready.error())); }
-      if (*ready == Collected::Refine) { refine.push_back(*chunks[at].Cell); }
-      completed += static_cast<size_t>(*ready != Collected::Pending);
-    }
+    auto ready = PollStarted(std::span(regions).first(next), chunks, beganMs, wire, refine);
+    if (!ready) { return std::unexpected(std::move(ready.error())); }
+    completed += *ready;
     if (completed == regions.size()) { break; }
     if (next < regions.size() && next - completed < kConcurrentRegions) { continue; }
     (void)wire.Await(std::min(kIoAwaitMs, std::max(0.0, deadlineMs - wire.NowMs())));

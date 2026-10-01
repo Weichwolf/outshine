@@ -5,6 +5,7 @@
 #include "OsmXmlReader.h"
 
 #include <cmath>
+#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <memory>
@@ -67,19 +68,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   }
   World.OsmRoutes = std::move(routes);
   World.OriginalSourceDemand.reset();
-  if (osmProviders.size() == 1 && !osmProviders.front().Coverage &&
-      osmProviders.front().Location.empty()) {
-    if (!World.OsmRoutes.empty()) {
-      Error = "OSM catalogue routes require native cell transport integration";
-      return false;
-    }
-    if (!RequestOriginalCells()) { return false; }
-  } else if (auto requested = World.OsmSourceLoader->Request(
-                 osmProviders, Session.Under.Shipped, &World.Providers);
-             !requested) {
-    Error = std::move(requested.error());
-    return false;
-  }
+  if (!RequestOsmSources(osmProviders)) { return false; }
   if (World.OsmRoutes.empty()) {
     World.OsmTransportLoader.reset();
   } else if (!World.OsmTransportLoader) {
@@ -92,6 +81,23 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   return true;
 }
 
+bool Engine::State::RequestOsmSources(std::span<const Data::SourceProvider> providers) {
+  if (providers.size() == 1 && !providers.front().Coverage && providers.front().Location.empty()) {
+    if (!World.OsmRoutes.empty()) {
+      Error = "OSM catalogue routes require native cell transport integration";
+      return false;
+    }
+    return RequestOriginalCells();
+  }
+  if (auto requested =
+          World.OsmSourceLoader->Request(providers, Session.Under.Shipped, &World.Providers);
+      !requested) {
+    Error = std::move(requested.error());
+    return false;
+  }
+  return true;
+}
+
 bool Engine::State::RequestOriginalCells() {
   if (!World.OsmSourceLoader) { return true; }
   const auto found = std::ranges::find_if(Session.Declared.Providers, [](const auto &provider) {
@@ -99,7 +105,7 @@ bool Engine::State::RequestOriginalCells() {
   });
   if (found == Session.Declared.Providers.end()) { return true; }
   constexpr int level = 9;
-  constexpr size_t maximumCells = size_t{1} << (2 * level);
+  constexpr size_t maximumCells = size_t{1} << static_cast<unsigned>(2 * level);
   constexpr size_t maximumBytes = 32 * Data::kMaxOsmXmlBytes;
   const auto focus = CurrentGeographicFocus();
   const std::array demand{focus.LatitudeDeg, focus.LongitudeDeg, TerrainSightM()};
