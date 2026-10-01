@@ -111,7 +111,8 @@ std::expected<size_t, std::string> PollStarted(std::span<const std::unique_ptr<R
   for (size_t at = 0; at < regions.size(); ++at) {
     auto ready = CollectRegion(*regions[at], chunks[at], wire, beganMs[at]);
     if (!ready) { return std::unexpected(std::move(ready.error())); }
-    if (*ready == Collected::Refine && chunks[at].Cell) { refine.push_back(*chunks[at].Cell); }
+    const auto cell = chunks[at].Cell;
+    if (*ready == Collected::Refine && cell) { refine.push_back(*cell); }
     completed += static_cast<size_t>(*ready != Collected::Pending);
   }
   return completed;
