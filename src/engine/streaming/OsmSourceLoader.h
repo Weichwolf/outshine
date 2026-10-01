@@ -57,6 +57,7 @@ private:
 
   struct Result {
     std::variant<std::monostate, ReadResult, LoadResult> Value;
+    std::optional<double> ReadMs;
   };
 
   struct Pending {
@@ -68,7 +69,9 @@ private:
   };
 
   void StartRequested();
-  void StartDecode(std::vector<Data::OsmSourceChunk> input, std::stop_source stop);
+  void StartDecode(std::vector<Data::OsmSourceChunk> input,
+                   std::stop_source stop,
+                   std::optional<double> readMs);
   void CompletePending(Pending finished);
   struct Access;
   Tasks *Tasks_;

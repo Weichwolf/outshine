@@ -8,6 +8,20 @@
 
 namespace outshine::Data {
 
+struct OsmSourceRead {
+  std::vector<OsmSourceChunk> Chunks;
+  double ElapsedMs = 0.0;
+};
+
+[[nodiscard]] std::expected<OsmSourceRead, std::string>
+ReadOsmApiRegions(std::span<const SourceProvider> providers,
+                  ContentStore &store,
+                  Transport &wire,
+                  double deadlineMs,
+                  const std::stop_token &stop,
+                  const ProviderRegistry *registry = nullptr,
+                  std::string_view shippedRoot = {});
+
 [[nodiscard]] std::expected<OsmSourceChunk, std::string>
 ReadOsmApiRegion(const SourceProvider &provider,
                  ContentStore &store,

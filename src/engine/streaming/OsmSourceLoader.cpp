@@ -11,6 +11,7 @@
 #include <expected>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <ranges>
 #include <span>
 #include <stop_token>
@@ -99,7 +100,7 @@ void OsmSourceLoader::CompletePending(Pending finished) {
   if (finished.Revision != Revision_) { return; }
   if (auto *read = std::get_if<ReadResult>(&finished.Output->Value)) {
     if (*read) {
-      StartDecode(std::move(**read), std::move(finished.Stop));
+      StartDecode(std::move(**read), std::move(finished.Stop), finished.Output->ReadMs);
       return;
     }
     Error_ = std::move(read->error());
@@ -134,19 +135,23 @@ void OsmSourceLoader::StartRequested() {
       result->Value = ReadResult(std::unexpected("official original OSM needs a source transport"));
       return;
     }
-    Data::OsmChunkSetLoader::RemoteRead read;
     if (remote) {
       if (!access->Store) {
         access->Store = std::make_unique<Data::ContentStore>(
             Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
       }
       const double deadlineMs = access->Wire->NowMs() + kAcquireBudgetMs;
-      read = [access, deadlineMs, root, registry](const auto &provider, const auto &stopToken) {
-        return Data::ReadOsmApiRegion(
-            provider, *access->Store, *access->Wire, deadlineMs, stopToken, registry, root);
-      };
+      auto read = Data::ReadOsmApiRegions(
+          input, *access->Store, *access->Wire, deadlineMs, token, registry, root);
+      if (read) {
+        result->ReadMs = read->ElapsedMs;
+        result->Value = ReadResult(std::move(read->Chunks));
+      } else {
+        result->Value = ReadResult(std::unexpected(std::move(read.error())));
+      }
+    } else {
+      result->Value = Data::OsmChunkSetLoader::ReadRegion(input, root, token);
     }
-    result->Value = Data::OsmChunkSetLoader::ReadRegion(input, root, token, read);
   });
   Pending_.emplace(Pending{.Handle = handle,
                            .Owner = &Io_,
@@ -155,14 +160,17 @@ void OsmSourceLoader::StartRequested() {
                            .Stop = std::move(stop)});
 }
 
-void OsmSourceLoader::StartDecode(std::vector<Data::OsmSourceChunk> input, std::stop_source stop) {
+void OsmSourceLoader::StartDecode(std::vector<Data::OsmSourceChunk> input,
+                                  std::stop_source stop,
+                                  std::optional<double> readMs) {
   auto result = std::make_shared<Result>();
   const auto token = stop.get_token();
-  const auto handle = Tasks_->Post([input = std::move(input), result, token] {
+  const auto handle = Tasks_->Post([input = std::move(input), result, token, readMs] {
     auto loaded = Data::OsmChunkSetLoader::ParseRegion(input, token);
     if (!loaded) {
       result->Value = LoadResult(std::unexpected(std::move(loaded.error())));
     } else {
+      if (readMs) { loaded->ReadMs = *readMs; }
       result->Value =
           LoadResult(std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)));
     }
