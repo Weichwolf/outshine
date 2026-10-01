@@ -6,6 +6,9 @@
 #include <atomic>
 #include <charconv>
 #include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <system_error>
 #include <map>
 #include <thread>
 
@@ -80,9 +83,13 @@ int main() {
                                 .Endpoint = std::string(kOfficialOsmApi)};
   const std::array roots{GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   const OsmSourceLoader::CellLimits limits{.CellsMost = 32, .SnapshotBytesMost = 1024 * 1024};
+  auto directory =
+      (std::filesystem::temp_directory_path() / "outshine-adaptive-cells-XXXXXX").string();
+  CHECK(mkdtemp(directory.data()) != nullptr, "isolated adaptive source cache created");
+  if (!std::filesystem::is_directory(directory)) { return Report(); }
   Tasks compute(1);
   ApiWire wire;
-  OsmSourceLoader loader(compute, &wire);
+  OsmSourceLoader loader(compute, &wire, directory);
   CHECK(loader.RequestCells(provider, roots, limits, ".") && Settled(loader) &&
             loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
             loader.CurrentCells().size() == 4 && wire.Starts == 5,
@@ -134,10 +141,14 @@ int main() {
         "the depth bound terminates overloaded demand explicitly");
   ApiWire nested;
   nested.WidthMost = 0.2;
-  OsmSourceLoader deeper(compute, &nested);
-  CHECK(deeper.RequestCells(provider, roots, limits, ".") && Settled(deeper) &&
+  OsmSourceLoader deeper(compute, &nested, directory);
+  revision.Revision = "adaptive-nested";
+  CHECK(deeper.RequestCells(revision, roots, limits, ".") && Settled(deeper) &&
             deeper.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
             deeper.CurrentCells().size() == 16 && nested.Starts == 21,
         "repeated subdivision publishes sixteen leaves after one parent and four child refusals");
+  std::error_code error;
+  std::filesystem::remove_all(directory, error);
+  CHECK(!error, "isolated adaptive source cache removed");
   return Report();
 }
