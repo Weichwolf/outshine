@@ -75,6 +75,10 @@
 
 ## Architektur und Code
 
+- Ich überarbeite oder ersetze schlechte Implementierungen, sobald ich sie erkenne.
+  Das ist eine ständige Pflicht, keine gesondert zu beauftragende Aufräumarbeit.
+  Funktion, Bildqualität, gemessene Kosten und klare Zuständigkeiten entscheiden;
+  bestehender Code und bereits investierte Arbeit rechtfertigen keinen schlechten Ansatz.
 - Sobald ich unklare oder fachlich falsche Namen für Klassen, Funktionen, Namespaces
   oder andere Bezeichner erkenne, korrigiere ich sie. Namen entsprechen ihrer Bedeutung
   und Zuständigkeit; Dateien liegen beim verantwortlichen Modul. Ich migriere sämtliche
