@@ -283,7 +283,7 @@ struct Surrounds {
   [[nodiscard]] bool CurrentOriginalReady() const noexcept {
     return OsmSourceLoader &&
            OsmSourceLoader->CurrentPhase() == outshine::OsmSourceLoader::Phase::Ready &&
-           OsmSourceLoader->Current();
+           (OsmSourceLoader->Current() || !OsmSourceLoader->CurrentCells().empty());
   }
 
   [[nodiscard]] bool CurrentTransportReady() const noexcept {

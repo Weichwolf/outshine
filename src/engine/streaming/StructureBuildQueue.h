@@ -48,10 +48,14 @@ public:
   PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
                   Generators::OriginalStructurePolicy policy,
                   int heightZoom);
+  [[nodiscard]] std::expected<bool, std::string>
+  PrepareOriginal(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+                  Generators::OriginalStructurePolicy policy,
+                  int heightZoom);
   [[nodiscard]] std::expected<std::span<const Data::TileId>, std::string>
   OriginalHeightTiles(int zoom) const;
 
-  [[nodiscard]] bool HasOriginal() const noexcept { return Original_ != nullptr; }
+  [[nodiscard]] bool HasOriginal() const noexcept { return !Originals_.empty(); }
 
   struct BakeRevision {
     uint64_t Vectors = 0;
@@ -271,7 +275,8 @@ private:
                                     std::optional<LevelOfDetail> detail,
                                     BuildPurpose purpose,
                                     const std::function<bool(uint32_t)> &cellReady);
-  [[nodiscard]] size_t PostsOriginal(Ground::GroundStack &stack,
+  [[nodiscard]] size_t PostsOriginal(uint32_t tile,
+                                     Ground::GroundStack &stack,
                                      Ground::BuildingField &footprints,
                                      LongitudeLatitude eye,
                                      const HeightSource &heightAt,
@@ -390,8 +395,9 @@ private:
   uint64_t PreparationTick_ = 0;
   Tasks *Pool_ = nullptr;
   std::unique_ptr<OriginalStructurePreparation> OriginalPreparation_;
-  std::shared_ptr<const Data::OsmSourceSnapshot> PreparingOriginal_;
-  std::shared_ptr<const Generators::RawTile> Original_;
+  std::vector<std::shared_ptr<const Data::OsmSourceSnapshot>> PreparingOriginals_;
+  std::vector<OriginalStructurePreparation::Product> Originals_;
+  [[nodiscard]] const Data::OsmSourceSnapshot *OriginalFor(uint32_t tile) const noexcept;
   std::vector<Data::TileId> OriginalHeightTiles_;
   int OriginalHeightZoom_ = -1;
   int PreparingOriginalHeightZoom_ = -1;

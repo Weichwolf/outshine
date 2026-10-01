@@ -25,6 +25,22 @@ fertige unveröffentlichte Snapshots; bestehende IO-/Compute-Phasen publizieren 
 Regionale Diagnosen sind sichtbar; Kameranachfrage, native Zellprodukte und vollständige
 Places fehlen. Der regionale Snapshot ersetzt keine weltweite Residenz.
 Weltweite Zellnachfrage bleibt Teil dieser Lieferung; größere Chunk-Limits ersetzen sie nicht.
+
+## Weltbedarf von Boden bis Orbit
+- Am Boden bleibt der vollständige 240-km-Umkreis um die Position resident; Blickrichtung
+  begrenzt nur Zeichenarbeit. Höhe über Gelände erweitert die Abdeckung bis zum
+  konservativen Ellipsoid-Horizont einschließlich sichtbarer Gelände-/Bauwerkshöhen.
+- Aus dem Orbit steht zuerst eine vollständige grobe Erdansicht bereit. Geodätische
+  Hierarchie und Bildschirmfehler fordern anschließend auflösbare Originaldetails an.
+  Globale Vollauflösung ist keine Ladebedingung; unverfügbare Grobdaten bleiben offen.
+- Globale Grobdarstellung und lokale Detailprodukte stammen aus denselben erlaubten
+  Quellen. Erdansicht, hohe Aussicht und Boden-Place messen eigene Preload-/Bytebudgets.
+- Boden, Flug in mehreren Kilometern Höhe und Orbit verwenden dieselbe Hierarchie.
+  Übergänge bleiben geschlossen und stetig; sichtbarer Fehler steuert Verfeinerung.
+  Subpixel-Relief entfällt zugunsten des Ellipsoids, ohne sichtbare Küsten zu verlieren.
+- Nahtloser Zoom reicht vom Planeten bis zum einzelnen Grashalm; dieselbe Welt,
+  kamera-relative Präzision und konsistente Eltern-/Kindabdeckung tragen alle Maßstäbe.
+  Vegetation folgt zuletzt; Architektur und Generatorvertrag müssen sie ermöglichen.
 Fahrabnahme und weltweiter Router blockieren den visuellen Meilenstein nicht.
 
 ## Besitzer und Quellenvertrag

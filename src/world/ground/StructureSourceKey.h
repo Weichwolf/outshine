@@ -20,6 +20,7 @@ namespace outshine {
 struct StructureOriginalSource {
   std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot;
   Data::SourceCoverage Bounds;
+  uint64_t Selection = 0;
 };
 
 struct StructureSourceView {
@@ -61,6 +62,7 @@ struct StructureSourceView {
   if (inputs.Vector) { source(*inputs.Vector); }
   if (inputs.Original != nullptr && inputs.Original->Snapshot) {
     bytes("original-osm");
+    word(inputs.Original->Selection);
     const auto &identity = inputs.Original->Snapshot->Elements.SourceIdentity();
     bytes(identity.DatasetId);
     bytes(identity.Revision);

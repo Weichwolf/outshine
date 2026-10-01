@@ -10,6 +10,8 @@
 #include <cmath>
 #include <expected>
 #include <memory>
+#include <queue>
+#include <set>
 #include <span>
 #include <stop_token>
 #include <string>
@@ -135,29 +137,147 @@ PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
   return std::move(*raw);
 }
 
+template <typename Element, typename Access>
+std::expected<void, std::string>
+VerifySharedElements(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+                     Access access,
+                     const std::stop_token &stop) {
+  struct Cursor {
+    std::span<const Element> Elements;
+    size_t At = 0;
+
+    [[nodiscard]] const Element &Current() const { return Elements[At]; }
+  };
+
+  const auto later = [](const Cursor &a, const Cursor &b) {
+    return a.Current().Id > b.Current().Id;
+  };
+  std::vector<Cursor> storage;
+  storage.reserve(sources.size());
+  for (const auto &source : sources) {
+    const auto elements = access(source->Elements);
+    if (!elements.empty()) { storage.push_back({.Elements = elements}); }
+  }
+  std::priority_queue<Cursor, std::vector<Cursor>, decltype(later)> pending(later,
+                                                                            std::move(storage));
+  const Element *last = nullptr;
+  while (!pending.empty()) {
+    if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
+    auto next = pending.top();
+    pending.pop();
+    const auto &element = next.Current();
+    if (last && last->Id == element.Id && *last != element) {
+      return std::unexpected("original cells disagree at object " + std::to_string(element.Id));
+    }
+    last = &element;
+    if (++next.At < next.Elements.size()) { pending.push(next); }
+  }
+  return {};
+}
+
+std::expected<void, std::string>
+VerifySources(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+              const std::stop_token &stop) {
+  for (const auto &source : sources) {
+    if (!source ||
+        source->Elements.SourceIdentity() != sources.front()->Elements.SourceIdentity()) {
+      return std::unexpected("original building cells require one dataset revision");
+    }
+  }
+  if (sources.size() < 2) { return {}; }
+  if (auto checked = VerifySharedElements<Data::OsmNode>(
+          sources, [](const auto &elements) { return elements.Nodes(); }, stop);
+      !checked) {
+    return checked;
+  }
+  if (auto checked = VerifySharedElements<Data::OsmWay>(
+          sources, [](const auto &elements) { return elements.Ways(); }, stop);
+      !checked) {
+    return checked;
+  }
+  return VerifySharedElements<Data::OsmRelation>(
+      sources, [](const auto &elements) { return elements.Relations(); }, stop);
+}
+
+void RecordConsumedWays(const Generators::RawTile &raw, std::set<uint64_t> &consumedWays) {
+  for (const auto &structure : raw.Structures) {
+    if (structure.OriginalId.Kind != Data::OsmElementKind::Relation) { continue; }
+    const auto *relation = raw.Original.Snapshot->Elements.FindRelation(structure.OriginalId.Id);
+    for (const auto &member : relation->Members) {
+      if (member.Kind == Data::OsmElementKind::Way) { consumedWays.insert(member.Id); }
+    }
+  }
+}
+
+std::expected<std::vector<OriginalStructurePreparation::Product>, std::string>
+PrepareProducts(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+                Generators::OriginalStructurePolicy policy,
+                int heightZoom,
+                const std::stop_token &stop) {
+  if (auto checked = VerifySources(sources, stop); !checked) {
+    return std::unexpected(std::move(checked.error()));
+  }
+  std::vector<Generators::RawTile> inputs;
+  inputs.reserve(sources.size());
+  std::set<uint64_t> consumedWays;
+  for (const auto &source : sources) {
+    auto raw = PrepareOriginal(source, policy, stop);
+    if (!raw) { return std::unexpected(std::move(raw.error())); }
+    RecordConsumedWays(*raw, consumedWays);
+    inputs.push_back(std::move(*raw));
+  }
+  std::set<std::pair<Data::OsmElementKind, uint64_t>> owned;
+  std::vector<OriginalStructurePreparation::Product> products;
+  products.reserve(inputs.size());
+  for (auto &raw : inputs) {
+    if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
+    std::erase_if(raw.Structures, [&](const auto &structure) {
+      const auto id = structure.OriginalId;
+      return (id.Kind == Data::OsmElementKind::Way && consumedWays.contains(id.Id)) ||
+             !owned.emplace(id.Kind, id.Id).second;
+    });
+    raw.Original.Selection = kDigestBasis;
+    for (const auto &structure : raw.Structures) {
+      raw.Original.Selection =
+          DigestFolded(raw.Original.Selection, static_cast<uint8_t>(structure.OriginalId.Kind));
+      for (unsigned shift = 0; shift < 64u; shift += 8u) {
+        raw.Original.Selection = DigestFolded(
+            raw.Original.Selection, static_cast<uint8_t>(structure.OriginalId.Id >> shift));
+      }
+    }
+    auto tiles = OriginalHeightCoverage(raw, heightZoom, stop);
+    if (!tiles) { return std::unexpected(std::move(tiles.error())); }
+    products.push_back({.Input = std::make_shared<const Generators::RawTile>(std::move(raw)),
+                        .HeightTiles = std::move(*tiles)});
+  }
+  return products;
+}
+
 }
 
 OriginalStructurePreparation::OriginalStructurePreparation(
     Tasks &pool,
-    std::shared_ptr<const Data::OsmSourceSnapshot> source,
+    std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
     Generators::OriginalStructurePolicy policy,
     int heightZoom)
     : Pool_(&pool), Output_(std::make_shared<Output>()) {
-  Handle_ = pool.Post(
-      [source = std::move(source), policy, heightZoom, output = Output_, stop = Stop_.get_token()] {
-        auto raw = PrepareOriginal(source, policy, stop);
-        if (!raw) {
-          output->Value = std::unexpected(std::move(raw.error()));
-          return;
-        }
-        auto tiles = OriginalHeightCoverage(*raw, heightZoom, stop);
-        if (!tiles) {
-          output->Value = std::unexpected(std::move(tiles.error()));
-          return;
-        }
-        output->HeightTiles = std::move(*tiles);
-        output->Value = std::move(*raw);
-      });
+  Handle_ = pool.Post([sources = std::vector(sources.begin(), sources.end()),
+                       policy,
+                       heightZoom,
+                       output = Output_,
+                       stop = Stop_.get_token()] {
+    output->Value = PrepareProducts(sources, policy, heightZoom, stop);
+    if (!output->Value) { return; }
+    for (const auto &product : *output->Value) {
+      output->HeightTiles.insert(
+          output->HeightTiles.end(), product.HeightTiles.begin(), product.HeightTiles.end());
+    }
+    std::ranges::sort(output->HeightTiles, [](const auto &a, const auto &b) {
+      return std::tie(a.Zoom, a.X, a.Y) < std::tie(b.Zoom, b.X, b.Y);
+    });
+    output->HeightTiles.erase(std::ranges::unique(output->HeightTiles).begin(),
+                              output->HeightTiles.end());
+  });
 }
 
 OriginalStructurePreparation::~OriginalStructurePreparation() {
@@ -169,7 +289,7 @@ OriginalStructurePreparation::Phase OriginalStructurePreparation::Poll() {
   if (Handle_ == Tasks::kNoTask || !Pool_->Done(Handle_)) { return Phase_; }
   Handle_ = Tasks::kNoTask;
   if (Output_->Value) {
-    Input_ = std::make_shared<const Generators::RawTile>(std::move(*Output_->Value));
+    Products_ = std::move(*Output_->Value);
     HeightTiles_ = std::move(Output_->HeightTiles);
     Phase_ = Phase::Ready;
   } else {

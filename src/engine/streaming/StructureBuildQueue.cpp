@@ -539,47 +539,66 @@ std::expected<bool, std::string>
 StructureBuildQueue::PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
                                      Generators::OriginalStructurePolicy policy,
                                      int heightZoom) {
+  return PrepareOriginal(
+      source ? std::span(&source, 1) : std::span(&source, 0), policy, heightZoom);
+}
+
+std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
+    std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+    Generators::OriginalStructurePolicy policy,
+    int heightZoom) {
+  if (sources.size() > std::numeric_limits<uint32_t>::max()) {
+    return std::unexpected("original building cells exceed product address admission");
+  }
   if (OriginalPreparation_) {
-    if (PreparingOriginal_ != source || PreparingOriginalHeightZoom_ != heightZoom) {
-      OriginalPreparation_->Cancel();
-    }
+    const bool same = std::ranges::equal(PreparingOriginals_, sources) &&
+                      PreparingOriginalHeightZoom_ == heightZoom;
+    if (!same) { OriginalPreparation_->Cancel(); }
     const auto phase = OriginalPreparation_->Poll();
     if (phase == OriginalStructurePreparation::Phase::Working) { return false; }
-    if (PreparingOriginal_ == source && PreparingOriginalHeightZoom_ == heightZoom) {
+    if (same) {
       if (phase == OriginalStructurePreparation::Phase::Failed) {
         return std::unexpected(std::string(OriginalPreparation_->Error()));
       }
-      Original_ = OriginalPreparation_->Input();
+      const auto products = OriginalPreparation_->Products();
+      Originals_.assign(products.begin(), products.end());
       const auto tiles = OriginalPreparation_->HeightTiles();
       OriginalHeightTiles_.assign(tiles.begin(), tiles.end());
       OriginalHeightZoom_ = heightZoom;
     }
     OriginalPreparation_.reset();
-    PreparingOriginal_.reset();
+    PreparingOriginals_.clear();
     PreparingOriginalHeightZoom_ = -1;
   }
-  if (!source) {
-    Original_.reset();
+  if (sources.empty()) {
+    Originals_.clear();
     OriginalHeightTiles_.clear();
     OriginalHeightZoom_ = -1;
     return true;
   }
-  if (Original_ && Original_->Original.Snapshot == source && OriginalHeightZoom_ == heightZoom) {
+  if (Originals_.size() == sources.size() && OriginalHeightZoom_ == heightZoom &&
+      std::ranges::equal(Originals_, sources, {}, [](const auto &product) {
+        return product.Input->Original.Snapshot;
+      })) {
     return true;
   }
   if (Pool_ == nullptr) {
     return std::unexpected("original structures require an open worker pool");
   }
-  PreparingOriginal_ = source;
+  PreparingOriginals_.assign(sources.begin(), sources.end());
   PreparingOriginalHeightZoom_ = heightZoom;
   OriginalPreparation_ =
-      std::make_unique<OriginalStructurePreparation>(*Pool_, std::move(source), policy, heightZoom);
+      std::make_unique<OriginalStructurePreparation>(*Pool_, sources, policy, heightZoom);
   return false;
+}
+
+const Data::OsmSourceSnapshot *StructureBuildQueue::OriginalFor(uint32_t tile) const noexcept {
+  return tile < Originals_.size() ? Originals_[tile].Input->Original.Snapshot.get() : nullptr;
 }
 
 std::expected<std::span<const Data::TileId>, std::string>
 StructureBuildQueue::OriginalHeightTiles(int zoom) const {
-  if (!Original_) { return std::span<const Data::TileId>(); }
+  if (!HasOriginal()) { return std::span<const Data::TileId>(); }
   if (zoom != OriginalHeightZoom_) {
     return std::unexpected("original building terrain demand requires preparation at this zoom");
   }
@@ -590,7 +609,7 @@ bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
                                    const Ground::BuildingField &footprints,
                                    LongitudeLatitude eye,
                                    const std::function<bool(uint32_t)> &cellReady) const {
-  if (Original_) {
+  if (HasOriginal()) {
     return SourcesComplete(stack, footprints) && AcceptedViewCurrent(footprints, eye, cellReady);
   }
   const Ground::OsmField *const vectors = stack.Vectors();
@@ -601,10 +620,17 @@ bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
 
 bool StructureBuildQueue::SourcesComplete(const Ground::GroundStack &stack,
                                           const Ground::BuildingField &footprints) const {
-  if (Original_) {
-    const auto *input = footprints.InputOfTile(0);
-    return Queue_.empty() && input != nullptr && input->Qualified && input->Coordinates &&
-           input->Coordinates->Original.Snapshot == Original_->Original.Snapshot;
+  if (HasOriginal()) {
+    if (!Queue_.empty() || footprints.AcceptedTiles().size() != Originals_.size()) { return false; }
+    for (size_t tile = 0; tile < Originals_.size(); ++tile) {
+      const auto *input = footprints.InputOfTile(static_cast<uint32_t>(tile));
+      if (input == nullptr || !input->Qualified || !input->Coordinates ||
+          input->Coordinates->Original.Snapshot.get() != OriginalFor(static_cast<uint32_t>(tile)) ||
+          input->Coordinates->Original.Selection != Originals_[tile].Input->Original.Selection) {
+        return false;
+      }
+    }
+    return true;
   }
   return Queue_.empty() && QualifiedSources(stack, footprints);
 }
@@ -679,16 +705,16 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField *vectors,
                                        HeightRequirement heights,
                                        std::optional<LevelOfDetail> detail,
                                        BuildPurpose purpose) {
-  while (!Queue_.empty() && (Queue_.front().ReservationOwner != prints.ReservationOwner() ||
-                             !Queue_.front().Revision.Matches(
-                                 vectors,
-                                 prints,
-                                 eye,
-                                 heightSource,
-                                 heights,
-                                 detail,
-                                 purpose,
-                                 Original_ ? Original_->Original.Snapshot.get() : nullptr))) {
+  while (!Queue_.empty() &&
+         (Queue_.front().ReservationOwner != prints.ReservationOwner() ||
+          !Queue_.front().Revision.Matches(vectors,
+                                           prints,
+                                           eye,
+                                           heightSource,
+                                           heights,
+                                           detail,
+                                           purpose,
+                                           OriginalFor(Queue_.front().Task.Tile())))) {
     QueuedBuild &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
@@ -1067,7 +1093,8 @@ void StructureBuildQueue::PrepareViewRefinement(Ground::BuildingField &prints,
   }
 }
 
-size_t StructureBuildQueue::PostsOriginal(Ground::GroundStack &stack,
+size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
+                                          Ground::GroundStack &stack,
                                           Ground::BuildingField &prints,
                                           LongitudeLatitude eye,
                                           const HeightSource &heightAt,
@@ -1076,26 +1103,30 @@ size_t StructureBuildQueue::PostsOriginal(Ground::GroundStack &stack,
                                           BuildPurpose purpose) {
   if (Pool_ == nullptr || Mesher_ == nullptr || !prints.Anchored() || !Queue_.empty()) { return 0; }
   RetireCellBuilds(purpose);
-  const auto *accepted = prints.InputOfTile(0);
+  const auto &original = Originals_[tile].Input;
+  const auto *accepted = prints.InputOfTile(tile);
   if (accepted != nullptr && accepted->Coordinates &&
-      accepted->Coordinates->Original.Snapshot == Original_->Original.Snapshot &&
+      accepted->Coordinates->Original.Snapshot == original->Original.Snapshot &&
+      accepted->Coordinates->Original.Selection == original->Original.Selection &&
       accepted->Terrain.ScopeCurrent(heightAt.TerrainScope) && accepted->Qualified &&
-      (Original_->Structures.empty() ||
+      (original->Structures.empty() ||
        (heightAt.CertificateCurrent && heightAt.CertificateCurrent(accepted->Terrain))) &&
       (purpose == BuildPurpose::SourceGeometry || EyeWithin(accepted->Bake.Eye, eye))) {
     return 0;
   }
   const int zoom = stack.FinestZoomOf(Data::DataKind::Elevation);
-  const auto tiles = OriginalHeightTiles(zoom);
-  if (!tiles) {
+  if (zoom != OriginalHeightZoom_) {
     ++Deferred_;
     return 0;
   }
+  const auto &tiles = Originals_[tile].HeightTiles;
   const auto gather = [&](bool fine) -> std::optional<std::vector<Ground::HeightField::Block>> {
     std::vector<Ground::HeightField::Block> blocks;
-    blocks.reserve(tiles->size());
-    for (const auto tile : *tiles) {
-      if (!Gathers({.Zoom = zoom, .X = static_cast<long>(tile.X), .Y = static_cast<long>(tile.Y)},
+    blocks.reserve(tiles.size());
+    for (const auto heightTile : tiles) {
+      if (!Gathers({.Zoom = zoom,
+                    .X = static_cast<long>(heightTile.X),
+                    .Y = static_cast<long>(heightTile.Y)},
                    fine,
                    heightAt,
                    blocks)) {
@@ -1113,13 +1144,13 @@ size_t StructureBuildQueue::PostsOriginal(Ground::GroundStack &stack,
   }
   auto heights = Ground::HeightField::Of(zoom, std::move(*blocks), fallback);
   if (!InstrumentedHeightsCurrent(*heights, heightAt) ||
-      (requirement == HeightRequirement::FineOnly && !Original_->Structures.empty() &&
+      (requirement == HeightRequirement::FineOnly && !original->Structures.empty() &&
        !heights->Qualified())) {
     ++Deferred_;
     return 0;
   }
   auto raw = Borrowed(IdleRaw_);
-  *raw = *Original_;
+  *raw = *original;
   raw->AnchorEcef = prints.Anchor();
   raw->Eye = eye;
   raw->FocalPx = prints.FocalPx();
@@ -1139,11 +1170,11 @@ size_t StructureBuildQueue::PostsOriginal(Ground::GroundStack &stack,
                               .Purpose = purpose,
                               .FallbackHeights = heights->Fallback(),
                               .Original = raw->Original.Snapshot.get()};
-  if (accepted == nullptr) { prints.Take(0); }
+  if (accepted == nullptr) { prints.Take(tile); }
   auto output = Borrowed(IdleOut_);
   *output = {};
   Queue_.push_back({.Revision = revision,
-                    .Task = StructureBuildTask(0,
+                    .Task = StructureBuildTask(tile,
                                                std::move(raw),
                                                std::move(heights),
                                                std::move(output),
@@ -1167,8 +1198,21 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
                                   std::optional<LevelOfDetail> detail,
                                   BuildPurpose purpose,
                                   const std::function<bool(uint32_t)> &cellReady) {
-  if (Original_) {
-    return PostsOriginal(stack, prints, eye, heightAt, requirement, detail, purpose);
+  if (candidatesMost == 0) { return 0; }
+  if (HasOriginal()) {
+    for (size_t tile = 0; tile < Originals_.size(); ++tile) {
+      if (const auto posted = PostsOriginal(static_cast<uint32_t>(tile),
+                                            stack,
+                                            prints,
+                                            eye,
+                                            heightAt,
+                                            requirement,
+                                            detail,
+                                            purpose)) {
+        return posted;
+      }
+    }
+    return 0;
   }
   return PostsVectors(
       stack, prints, eye, heightAt, candidatesMost, requirement, detail, purpose, cellReady);
@@ -1302,8 +1346,9 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::GroundStack &stac
                                                  Ground::TerrainCertificate &validated) {
   if (bake.Task.Raw().Original.Snapshot) {
     const auto &captured = bake.Task.Heights();
-    const bool current = Original_ &&
-                         bake.Task.Raw().Original.Snapshot == Original_->Original.Snapshot &&
+    const bool current = bake.Task.Raw().Original.Snapshot.get() == OriginalFor(bake.Task.Tile()) &&
+                         bake.Task.Raw().Original.Selection ==
+                             Originals_[bake.Task.Tile()].Input->Original.Selection &&
                          InstrumentedHeightsCurrent(captured, heightAt) &&
                          (heights == HeightRequirement::AllowFallback ||
                           bake.Task.Raw().Structures.empty() || captured.Qualified());
@@ -1359,7 +1404,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
   if (Pool_ == nullptr || most == 0) { return landings; }
   RetireCellBuilds(purpose);
   const Ground::OsmField *vectors = stack.Vectors();
-  if (vectors == nullptr && !Original_) { return landings; }
+  if (vectors == nullptr && !HasOriginal()) { return landings; }
   DiscardStale(vectors, prints, eye, heightAt.Revision, heights, detail, purpose);
   ResumeCompletedTasks();
   std::vector<Ground::TerrainCertificate> validated;
@@ -1378,7 +1423,7 @@ StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
                                heights,
                                detail,
                                purpose,
-                               Original_ ? Original_->Original.Snapshot.get() : nullptr)) {
+                               OriginalFor(bake.Task.Tile()))) {
       break;
     }
     if (!bake.Task.Result().Status) {
@@ -1653,8 +1698,8 @@ void StructureBuildQueue::CommitsLandings(Ground::GroundStack &stack,
 void StructureBuildQueue::Clear() {
   if (OriginalPreparation_) { OriginalPreparation_->Cancel(); }
   OriginalPreparation_.reset();
-  PreparingOriginal_.reset();
-  Original_.reset();
+  PreparingOriginals_.clear();
+  Originals_.clear();
   OriginalHeightTiles_.clear();
   OriginalHeightZoom_ = -1;
   PreparingOriginalHeightZoom_ = -1;

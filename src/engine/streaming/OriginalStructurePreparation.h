@@ -19,10 +19,16 @@ class OriginalStructurePreparation {
 public:
   enum class Phase : uint8_t { Working, Ready, Failed };
 
-  OriginalStructurePreparation(Tasks &pool,
-                               std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                               Generators::OriginalStructurePolicy policy,
-                               int heightZoom);
+  struct Product {
+    std::shared_ptr<const Generators::RawTile> Input;
+    std::vector<Data::TileId> HeightTiles;
+  };
+
+  OriginalStructurePreparation(
+      Tasks &pool,
+      std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+      Generators::OriginalStructurePolicy policy,
+      int heightZoom);
   ~OriginalStructurePreparation();
   OriginalStructurePreparation(const OriginalStructurePreparation &) = delete;
   OriginalStructurePreparation &operator=(const OriginalStructurePreparation &) = delete;
@@ -35,9 +41,7 @@ public:
 
   [[nodiscard]] bool AwaitSlice(double seconds) const;
 
-  [[nodiscard]] const std::shared_ptr<const Generators::RawTile> &Input() const noexcept {
-    return Input_;
-  }
+  [[nodiscard]] std::span<const Product> Products() const noexcept { return Products_; }
 
   [[nodiscard]] std::string_view Error() const noexcept { return Error_; }
 
@@ -45,7 +49,7 @@ public:
 
 private:
   struct Output {
-    std::expected<Generators::RawTile, std::string> Value =
+    std::expected<std::vector<Product>, std::string> Value =
         std::unexpected("original structure preparation has not completed");
     std::vector<Data::TileId> HeightTiles;
   };
@@ -54,7 +58,7 @@ private:
   Tasks::Handle Handle_ = Tasks::kNoTask;
   std::stop_source Stop_;
   std::shared_ptr<Output> Output_;
-  std::shared_ptr<const Generators::RawTile> Input_;
+  std::vector<Product> Products_;
   std::vector<Data::TileId> HeightTiles_;
   std::string Error_;
   Phase Phase_ = Phase::Working;

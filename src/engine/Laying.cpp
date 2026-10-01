@@ -242,10 +242,34 @@ public:
       : Coverage_(coverage),
         Revision_(revision),
         Candidate_(renderer, world, footprints),
-        OriginalSource_(world.CurrentOriginalReady() ? world.OsmSourceLoader->Current() : nullptr),
         TransportSnapshot_(world.CurrentTransportReady() ? world.OsmTransportLoader->Current()
                                                          : nullptr),
-        Id_(id) {}
+        Id_(id) {
+    if (!world.CurrentOriginalReady()) { return; }
+    if (world.OsmSourceLoader->Current()) {
+      OriginalSources_.push_back(world.OsmSourceLoader->Current());
+    } else {
+      for (const auto &cell : world.OsmSourceLoader->CurrentCells()) {
+        OriginalSources_.push_back(cell.Snapshot);
+      }
+    }
+    const auto accepted = Footprints().AcceptedTiles();
+    const auto sameLayout = [&] {
+      if (accepted.empty()) { return true; }
+      if (accepted.size() != OriginalSources_.size()) { return false; }
+      for (size_t tile = 0; tile < OriginalSources_.size(); ++tile) {
+        const auto *input = Footprints().InputOfTile(static_cast<uint32_t>(tile));
+        if (!input || !input->Coordinates || !input->Coordinates->Original.Snapshot ||
+            input->Coordinates->Original.Snapshot->Cell != OriginalSources_[tile]->Cell) {
+          return false;
+        }
+      }
+      return true;
+    }();
+    if (sameLayout) { return; }
+    for (const auto tile : accepted) { Candidate_.Products().Pieces.Forgets(tile); }
+    Footprints().ResetDerived();
+  }
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
     return Revision_.MatchesCandidate(revision);
@@ -292,7 +316,7 @@ public:
   [[nodiscard]] std::expected<bool, std::string> PrepareOriginalHeights(StructureBuildQueue &queue,
                                                                         int zoom) {
     const auto prepared =
-        queue.PrepareOriginal(OriginalSource_,
+        queue.PrepareOriginal(OriginalSources_,
                               {.Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0},
                                .PointWidthM = 2.0,
                                .PointsMost = 262144},
@@ -597,7 +621,7 @@ private:
   Around Coverage_;
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
-  std::shared_ptr<const Data::OsmSourceSnapshot> OriginalSource_;
+  std::vector<std::shared_ptr<const Data::OsmSourceSnapshot>> OriginalSources_;
   std::shared_ptr<const World::TransportNetworkSnapshot> TransportSnapshot_;
   RoadHeightCoverage RoadHeightCoverage_;
   bool RoadAlignmentRequested_ = false;
