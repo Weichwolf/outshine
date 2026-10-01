@@ -97,9 +97,11 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
 1. Alle Architekturverstöße priorisiert beheben: Weltprodukte ohne Quellformate/Generatorinputs;
    konkrete Provider/Decoder und OSM-Topologieadapter aus world; Physik korrekt zuordnen.
    Diese Grenzen durch Include-/Typprüfungen erzwingen, nicht allein durch Verhaltensfälle.
-   Nächste Einheit: Klassifikations-Ingestion/Jobkoordination nach engine/streaming,
-   pure Rasterisierung nach generators; Generatoren bleiben unabhängig vom Controller.
-   ClassBuilder verliert seinen privaten Thread zugunsten desselben Compute-Workers.
+   Nächste Einheit: ClassField wird engine/streaming/ClassificationPreparation,
+   ClassBuilder wird generators/terrain/ClassificationRasterizer ohne IO oder eigenen Thread.
+   Rasterisierung liefert Grid und zurückgebbare Inputs; Engine kombiniert Fine/Coarse nur
+   im selben Raumbezug/Quellstand. Gemeinsamer Compute-Worker, geteilter Auftragsbesitz und
+   Revision/Abbruch verhindern stale Publikation und blockierende Controller-Freigabe.
    Native Felder/Netze bleiben lesbare Produkte; Weltobjekte besitzen keine Quelle/Jobqueue.
 2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
 3. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
