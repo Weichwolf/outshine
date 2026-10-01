@@ -97,11 +97,11 @@ void Engine::State::PublishFrameMeasurements() {
       Published.RecordMetric(
           "worst successful update: streaming and bakes", worst.StreamingMs, "ms");
       Published.RecordMetric("worst successful update: piece handoff", worst.PieceHandoffMs, "ms");
-      Published.RecordMetric("worst successful update: tile restand", worst.RestandMs, "ms");
+      Published.RecordMetric("worst successful update: tile restand", worst.AdvanceAtMs, "ms");
       Published.RecordMetric("worst successful update: structure bakes", worst.BakesMs, "ms");
       Published.RecordMetric("worst successful update: world growth", worst.GrowthMs, "ms");
       Published.RecordMetric("worst successful update: streaming other",
-                             worst.StreamingMs - worst.PieceHandoffMs - worst.RestandMs -
+                             worst.StreamingMs - worst.PieceHandoffMs - worst.AdvanceAtMs -
                                  worst.BakesMs - worst.GrowthMs,
                              "ms");
       Published.RecordMetric("worst successful update: simulation", worst.SimulationMs, "ms");
@@ -116,8 +116,8 @@ void Engine::State::PublishFrameMeasurements() {
     Published.RecordMetric("scene advance time, most", Cost.SceneAdvance.MostMs(), "ms");
     Published.RecordMetric("streaming and bake time, most", Cost.Streaming.MostMs(), "ms");
     Published.RecordMetric("piece handoff time, most", Cost.PieceHandoff.MostMs(), "ms");
-    Published.RecordMetric("tile restand time, most", Cost.Restand.MostMs(), "ms");
-    const Ground::RestandMetrics &restand = World.Stack.WorstRestand();
+    Published.RecordMetric("tile restand time, most", Cost.AdvanceAt.MostMs(), "ms");
+    const Ground::SurfacePreparationMetrics &restand = World.Stack.WorstAdvance();
     Published.RecordMetric("worst tile restand: total", restand.TotalMs, "ms");
     Published.RecordMetric("worst tile restand: classification", restand.ClassificationMs, "ms");
     Published.RecordMetric("worst tile restand: vectors", restand.VectorsMs, "ms");

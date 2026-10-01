@@ -51,7 +51,7 @@
 #include "Views.h"
 #include "Sink.h"
 #include "DeclaredSources.h"
-#include "GroundStack.h"
+#include "SurfacePreparation.h"
 #include "PublishedRegion.h"
 #include "OsmTransportLoader.h"
 #include "OsmSourceLoader.h"
@@ -226,7 +226,7 @@ struct Surrounds {
   std::unique_ptr<Data::Transport> Wire;
   Data::ProviderRegistry Providers;
   std::unique_ptr<Tasks> Pool;
-  Ground::GroundStack Stack;
+  Ground::SurfacePreparation Stack;
   std::shared_ptr<const Ground::PublishedRegion> Region;
   Generators::Registry Offering;
   Generators::Shipping Shipping;
@@ -304,7 +304,7 @@ struct Spent {
     double TotalMs = 0.0;
     double StreamingMs = 0.0;
     double PieceHandoffMs = 0.0;
-    double RestandMs = 0.0;
+    double AdvanceAtMs = 0.0;
     double BakesMs = 0.0;
     double GrowthMs = 0.0;
     double SimulationMs = 0.0;
@@ -368,7 +368,7 @@ struct Spent {
   Counter SceneAdvance;
   Counter Streaming;
   Counter PieceHandoff;
-  Counter Restand;
+  Counter AdvanceAt;
   Counter Bakes;
   Counter BakeResume;
   Counter BakeLanding;
@@ -396,7 +396,7 @@ struct Spent {
     WorstSuccessfulUpdate = {.TotalMs = milliseconds,
                              .StreamingMs = streamsGround ? Streaming.LastMs() : 0.0,
                              .PieceHandoffMs = streamsGround ? PieceHandoff.LastMs() : 0.0,
-                             .RestandMs = streamsGround ? Restand.LastMs() : 0.0,
+                             .AdvanceAtMs = streamsGround ? AdvanceAt.LastMs() : 0.0,
                              .BakesMs = streamsGround ? Bakes.LastMs() : 0.0,
                              .GrowthMs = streamsGround ? Growth.LastMs() : 0.0,
                              .SimulationMs = Simulation.LastMs(),

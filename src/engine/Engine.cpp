@@ -522,7 +522,7 @@ Loading Engine::loading() const {
   said.Outstanding = counted.Outstanding > 0 ? static_cast<size_t>(counted.Outstanding) : 0;
   said.FetchedMB = counted.FetchedMB;
   said.MeanFetchMs = counted.Posts > 0 ? counted.FetchMs / static_cast<double>(counted.Posts) : 0.0;
-  const Ground::GroundStack::SourceCounters sources = S_->World.Stack.Counters();
+  const Ground::SurfacePreparation::SourceCounters sources = S_->World.Stack.Counters();
   said.StoreHits = static_cast<std::uint64_t>(sources.Store.Hits);
   said.StoreMisses = static_cast<std::uint64_t>(sources.Store.Misses);
   said.StoreWrites = static_cast<std::uint64_t>(sources.Store.Writes);
@@ -625,7 +625,7 @@ Result Engine::State::PumpPreload() {
   const double atLon = stands.LongitudeDeg;
   HandsPiecesOver();
   const int vectorRing = World.GroundPublished.Current() ? Ground::kVectorRing : 0;
-  const auto streamed = World.Stack.Restand(
+  const auto streamed = World.Stack.AdvanceAt(
       stands, {.IngestTilesMost = Ground::kVectorTiles, .VectorRing = vectorRing});
   if (!streamed) {
     Error = streamed.error();
@@ -645,7 +645,7 @@ Result Engine::State::PumpPreload() {
 
 Result Engine::State::PreloadOverflow() {
   Error = "the world at this place holds " + std::to_string(World.Stack.HeapBytes()) +
-          " bytes against a ceiling of " + std::to_string(Ground::GroundStack::kHoldsBytes) +
+          " bytes against a ceiling of " + std::to_string(Ground::SurfacePreparation::kHoldsBytes) +
           ", so it stopped ingesting part-way. What it did take depends on which tiles had "
           "landed when the round ran, which is a picture the declaration does not name";
   return std::unexpected(Error);

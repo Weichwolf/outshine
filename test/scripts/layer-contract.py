@@ -148,6 +148,11 @@ def native_product_boundary(headers):
             if header.startswith('src/') and not header.startswith(allowed_private)]
 
 
+def world_state_boundary(headers):
+    return [f'{header}: world state depends on engine orchestration'
+            for header in sorted(headers) if header.startswith('src/engine/')]
+
+
 def main():
     good = {'base': [], 'render': ['base'], 'world': ['base']}
     controls = [
@@ -198,11 +203,21 @@ def main():
         raise RuntimeError('native product positive control failed')
     if not native_product_boundary({'src/world/data/OsmElements.h'}):
         raise RuntimeError('native product negative control failed')
+    if world_state_boundary({'src/world/products/BuildingGeometry.h', 'src/base/io/Tasks.h'}):
+        raise RuntimeError('world state positive control failed')
+    if not world_state_boundary({'src/engine/streaming/SurfacePreparation.h'}):
+        raise RuntimeError('world state negative control failed')
     directories = sorted({directory for entry in json.loads(
         (root / 'compile_commands.json').read_text()) for directory in include_directories(entry)})
     for product in (src / 'world' / 'products').glob('*.h'):
         dependencies = header_dependencies(product, directories, root)
         violations.extend(native_product_boundary(
+            {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
+    for source in (src / 'world').rglob('*'):
+        if source.suffix not in {'.h', '.cpp'}:
+            continue
+        dependencies = header_dependencies(source, directories, root)
+        violations.extend(world_state_boundary(
             {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
     for tree in (src, include, root / 'test'):
         for source in tree.rglob('*'):

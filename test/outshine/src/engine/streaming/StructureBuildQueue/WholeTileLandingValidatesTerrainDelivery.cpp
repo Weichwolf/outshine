@@ -1,7 +1,7 @@
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "Digest.h"
-#include "GroundStack.h"
+#include "SurfacePreparation.h"
 #include "OfflineTransport.h"
 #include "Sink.h"
 #include "StructureBuildQueue.h"
@@ -57,7 +57,7 @@ int main() {
   TemporaryCache cache;
   SilentSink sink;
   Data::OfflineTransport wire;
-  GroundStack stack;
+  SurfacePreparation stack;
   const LongitudeLatitude eye{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
   CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string()},
@@ -78,7 +78,7 @@ int main() {
        .LatLon = {49.32739, 8.56589, 49.32739, 8.56591, 49.32741, 8.56591, 49.32741, 8.56589}},
   }};
   stack.Declares(buildings);
-  CHECK(stack.Restand(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+  CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "declared building enters the vector snapshot");
   const OsmField *vectors = stack.Vectors();
   CHECK(vectors && vectors->Tiles().size() == 1 && !vectors->Rings().empty(),
@@ -367,7 +367,7 @@ int main() {
   auto lineOnly = buildings;
   lineOnly.front().Area = false;
   stack.Declares(lineOnly);
-  CHECK(stack.Restand(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+  CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "line-only vector input enters the source snapshot");
   size_t terrainCalls = 0;
   source.CopyField = [&terrainCalls](Data::TileId, HeightField::Block &) {
@@ -387,7 +387,7 @@ int main() {
   CHECK(StructureBuildQueue::QualifiedSources(stack, prints),
         "proven building absence completes the qualified source snapshot");
   stack.Declares(buildings);
-  CHECK(stack.Restand(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+  CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "a real building polygon replaces the line-only input");
   prints.BeginRefinement();
   CHECK(refine() == 0 && !StructureBuildQueue::QualifiedSources(stack, prints) && terrainCalls > 0,

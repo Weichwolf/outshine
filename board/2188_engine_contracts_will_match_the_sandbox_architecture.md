@@ -22,6 +22,8 @@ BuildingGeometry hält native Polygone und generische Quellbelege. Vollständige
 Archive verbleiben noch im Quellenladepfad, nicht am publizierten Gebäude. SimulationState integriert bisher
 Schwerkraft; Rigid/Wrench/Prismatic liefern Grundlagen, keinen vollständigen Weltkontakt.
 Script/ActionHostAdapter und Ui::Markup/Style/Layout bestehen und bleiben verwendbar.
+SurfacePreparation und Straßenaufträge gehören engine/streaming. StreetGraphPreparation
+nutzt den gemeinsamen Compute-Worker mit Abbruch und geteiltem Auftragsbesitz.
 
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
@@ -93,9 +95,10 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
 1. Alle Architekturverstöße priorisiert beheben: Weltprodukte ohne Quellformate/Generatorinputs;
    konkrete Provider/Decoder und OSM-Topologieadapter aus world; Physik korrekt zuordnen.
    Diese Grenzen durch Include-/Typprüfungen erzwingen, nicht allein durch Verhaltensfälle.
-   Nächste Einheit: SurfacePreparation und StreetGraphBuilder nach engine/streaming;
-   StreetGraphPreparation nutzt den gemeinsamen Compute-Worker, Shared-Auftragsbesitz und Abbruch.
-   Native Felder/Netze bleiben lesbare Produkte. Weltobjekte besitzen keine Quelle/Jobqueue.
+   Nächste Einheit: Generatoren konsumieren immutable ClassStructure statt ClassField;
+   Klassifikations-Ingestion/Jobkoordination nach engine/streaming, pure Rasterisierung nach generators.
+   ClassBuilder verliert seinen privaten Thread zugunsten desselben Compute-Workers.
+   Native Felder/Netze bleiben lesbare Produkte; Weltobjekte besitzen keine Quelle/Jobqueue.
 2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
 3. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
 4. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.

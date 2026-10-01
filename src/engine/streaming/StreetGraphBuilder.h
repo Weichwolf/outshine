@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUND_VECTORSTREETGRAPH_H
-#define OUTSHINE_WORLD_GROUND_VECTORSTREETGRAPH_H
+#ifndef OUTSHINE_ENGINE_STREAMING_STREETGRAPHBUILDER_H
+#define OUTSHINE_ENGINE_STREAMING_STREETGRAPHBUILDER_H
 
 #include <cstddef>
 #include <cstdint>
@@ -9,12 +9,12 @@
 #include <string>
 #include <string_view>
 
-#include "GroundStack.h"
+#include "StreetField.h"
 #include "Wayfinding.h"
 
 namespace outshine::Ground {
 
-class VectorStreetGraph {
+class StreetGraphBuilder {
 public:
   struct Built {
     std::shared_ptr<const Path::Network> Graph;
@@ -43,28 +43,30 @@ public:
     double PublishMs = 0.0;
   };
 
-  [[nodiscard]] static Built BuildOneShot(const Ground::GroundStack &stack);
+  [[nodiscard]] static Built BuildOneShot(const Ground::StreetField &ways,
+                                          std::span<const double> points,
+                                          Path::Network::HeightSource heightOf);
 
 private:
-  friend class VectorStreetGraphBuildJob;
+  friend class StreetGraphBuildJob;
   static constexpr double kNodeSnapM = 2.0;
   [[nodiscard]] static std::expected<void, std::string_view>
   LayWays(const Ground::StreetField &ways, std::span<const double> points, Path::Network &graph);
 };
 
-class VectorStreetGraphBuildJob {
+class StreetGraphBuildJob {
 public:
-  [[nodiscard]] static std::expected<VectorStreetGraphBuildJob, std::string>
+  [[nodiscard]] static std::expected<StreetGraphBuildJob, std::string>
   Begin(const Ground::OsmField &vectors,
         const Ground::StreetField &ways,
         Path::Network::HeightSource heightOf);
-  VectorStreetGraphBuildJob(const VectorStreetGraphBuildJob &) = delete;
-  VectorStreetGraphBuildJob &operator=(const VectorStreetGraphBuildJob &) = delete;
-  VectorStreetGraphBuildJob(VectorStreetGraphBuildJob &&) noexcept = default;
-  VectorStreetGraphBuildJob &operator=(VectorStreetGraphBuildJob &&) noexcept = default;
+  StreetGraphBuildJob(const StreetGraphBuildJob &) = delete;
+  StreetGraphBuildJob &operator=(const StreetGraphBuildJob &) = delete;
+  StreetGraphBuildJob(StreetGraphBuildJob &&) noexcept = default;
+  StreetGraphBuildJob &operator=(StreetGraphBuildJob &&) noexcept = default;
 
   [[nodiscard]] std::expected<bool, std::string> Advance(size_t itemsMost);
-  [[nodiscard]] std::expected<VectorStreetGraph::Built, std::string_view> Take() &&;
+  [[nodiscard]] std::expected<StreetGraphBuilder::Built, std::string_view> Take() &&;
 
   [[nodiscard]] double LongestSliceMs() const noexcept { return LongestSliceMs_; }
 
@@ -82,7 +84,7 @@ private:
     Publish,
     Done
   };
-  VectorStreetGraphBuildJob(Path::Network &&graph, Path::Network::HeightSource heightOf);
+  StreetGraphBuildJob(Path::Network &&graph, Path::Network::HeightSource heightOf);
   [[nodiscard]] std::expected<void, std::string> BeginWeave();
   [[nodiscard]] std::expected<void, std::string> AdvanceWeave(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> CleanupWeave(size_t itemsMost);
@@ -97,7 +99,7 @@ private:
   std::unique_ptr<Path::NetworkCrossingJob> Crossings_;
   std::unique_ptr<Path::NetworkElevationJob> Elevation_;
   Path::Network::HeightSource HeightOf_;
-  VectorStreetGraph::Built Built_;
+  StreetGraphBuilder::Built Built_;
   double LongestSliceMs_ = 0.0;
   Stage Stage_ = Stage::BeginWeave;
 };

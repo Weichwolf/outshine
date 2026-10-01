@@ -191,7 +191,7 @@ std::string Refusal(Data::TileId tile,
 }
 
 std::expected<bool, std::string>
-PollVector(Data::TileId tile, const Ground::GroundStack &stack, Ground::OsmField &vectors) {
+PollVector(Data::TileId tile, const Ground::SurfacePreparation &stack, Ground::OsmField &vectors) {
   Ground::TilePool::Landing landed;
   const auto status =
       stack.Pool().Bytes({Data::DataKind::VectorMap, Data::Address::At(tile)}, &landed);
@@ -216,7 +216,8 @@ PollVector(Data::TileId tile, const Ground::GroundStack &stack, Ground::OsmField
   return true;
 }
 
-std::expected<bool, std::string> PollField(Data::TileId tile, const Ground::GroundStack &stack) {
+std::expected<bool, std::string> PollField(Data::TileId tile,
+                                           const Ground::SurfacePreparation &stack) {
   std::shared_ptr<const Ground::TerrainField> field;
   std::optional<Data::FetchFailure> failure;
   const auto status = stack.Ground().PollStitchedField(tile, field, &failure);
@@ -259,7 +260,7 @@ std::expected<TerrainPathPlan, std::string> PlanTerrainPath(std::span<const Arou
 
 std::expected<void, std::string>
 PrepareTerrainPath(TerrainPathPlan plan,
-                   const Ground::GroundStack &stack,
+                   const Ground::SurfacePreparation &stack,
                    std::chrono::steady_clock::time_point deadline) {
   auto vectors = stack.CreateVectorField();
   if (const auto read =

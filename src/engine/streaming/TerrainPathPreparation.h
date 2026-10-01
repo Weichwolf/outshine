@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include "GroundMesher.h"
-#include "GroundStack.h"
+#include "SurfacePreparation.h"
 
 namespace outshine {
 
@@ -29,7 +29,7 @@ struct TerrainPathSources {
 
 [[nodiscard]] std::expected<void, std::string>
 PrepareTerrainPath(TerrainPathPlan plan,
-                   const Ground::GroundStack &stack,
+                   const Ground::SurfacePreparation &stack,
                    std::chrono::steady_clock::time_point deadline);
 }
 #endif

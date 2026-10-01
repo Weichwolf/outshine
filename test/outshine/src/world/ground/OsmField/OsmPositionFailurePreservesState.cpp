@@ -1,6 +1,6 @@
 #include "OsmField.h"
 #include "TileGeodesy.h"
-#include "GroundStack.h"
+#include "SurfacePreparation.h"
 #include "Check.h"
 #include <array>
 #include <cfenv>
@@ -31,7 +31,7 @@ int main() {
   TilePool pool({}, sources, transport);
   ClassField classes;
   classes.Open(0, 0);
-  GroundStack stack;
+  SurfacePreparation stack;
   const std::array<std::string, 1> layers{"transportation"};
   const std::array<OsmField::Declared, 1> input{
       {{.Layer = "transportation", .Key = "kind", .Value = "road", .LatLon = {0, 0, 1, 1}}}};
@@ -64,7 +64,7 @@ int main() {
               field.CentreX() == 8192 && field.CentreY() == 8192,
           "failure preserves declaration, storage and streaming state");
     const auto classified = classes.Update(pool, at);
-    const auto streamed = stack.Restand(
+    const auto streamed = stack.AdvanceAt(
         at, {.IngestTilesMost = Ground::kVectorTiles, .VectorRing = Ground::kVectorRing});
     CHECK(!classified && !streamed,
           "position errors propagate through classification and ground stack");

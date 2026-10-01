@@ -1,4 +1,4 @@
-#include "VectorStreetGraph.h"
+#include "StreetGraphBuilder.h"
 
 #include <chrono>
 #include <cstddef>
@@ -20,10 +20,10 @@ constexpr auto kInvalidStreetPointRange =
     "vector street point range exceeds the supplied coordinate stream";
 }
 
-VectorStreetGraph::Built VectorStreetGraph::BuildOneShot(const Ground::GroundStack &stack) {
+StreetGraphBuilder::Built StreetGraphBuilder::BuildOneShot(const Ground::StreetField &ways,
+                                                           std::span<const double> points,
+                                                           Path::Network::HeightSource heightOf) {
   Built made;
-  const Ground::OsmField *const vectors = stack.Vectors();
-  if (vectors == nullptr) { return made; }
   auto created =
       Path::Network::Create(Path::Snap{.CellM = kNodeSnapM}, Path::Sphere{.RadiusM = kWgs84A});
   if (!created) {
@@ -38,7 +38,7 @@ VectorStreetGraph::Built VectorStreetGraph::BuildOneShot(const Ground::GroundSta
     phaseBegan = now;
     return ms;
   };
-  if (const auto laid = LayWays(stack.Ways(), vectors->Points(), *graph); !laid) {
+  if (const auto laid = LayWays(ways, points, *graph); !laid) {
     made.Refusal = laid.error();
     return made;
   }
@@ -55,16 +55,15 @@ VectorStreetGraph::Built VectorStreetGraph::BuildOneShot(const Ground::GroundSta
   made.Nodes = graph->NodeCount();
   made.Edges = graph->EdgeCount();
   made.Junctions = graph->JunctionCount();
-  made.Elevated =
-      graph->Elevate([&stack](LongitudeLatitude at) { return stack.Ground().At(at).AslM(); });
+  made.Elevated = graph->Elevate(heightOf);
   made.ElevateMs = phaseMs();
   made.Graph = std::move(graph);
   return made;
 }
 
-std::expected<void, std::string_view> VectorStreetGraph::LayWays(const Ground::StreetField &ways,
-                                                                 std::span<const double> points,
-                                                                 Path::Network &graph) {
+std::expected<void, std::string_view> StreetGraphBuilder::LayWays(const Ground::StreetField &ways,
+                                                                  std::span<const double> points,
+                                                                  Path::Network &graph) {
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
     const Ground::StreetField::Way &lane = ways.Ways()[at];
     if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }

@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUND_GROUNDSTACK_H
-#define OUTSHINE_WORLD_GROUND_GROUNDSTACK_H
+#ifndef OUTSHINE_ENGINE_STREAMING_SURFACEPREPARATION_H
+#define OUTSHINE_ENGINE_STREAMING_SURFACEPREPARATION_H
 
 #include <memory>
 #include <cstddef>
@@ -34,15 +34,15 @@ namespace outshine::Ground {
 
 constexpr int kVectorRing = 3;
 constexpr int kVectorTiles = (2 * kVectorRing + 1) * (2 * kVectorRing + 1);
-constexpr size_t kVectorParseTilesPerRestand = 2;
+constexpr size_t kVectorParseTilesPerAdvanceAt = 2;
 constexpr size_t kFrameIngestTiles = 1;
 
-struct RestandBudget {
+struct SurfacePreparationBudget {
   size_t IngestTilesMost = 0;
   int VectorRing = 0;
 };
 
-struct RestandMetrics {
+struct SurfacePreparationMetrics {
   double TotalMs = 0.0;
   double ClassificationMs = 0.0;
   double VectorsMs = 0.0;
@@ -52,14 +52,14 @@ struct RestandMetrics {
   double SettlementMs = 0.0;
 };
 
-class GroundStack {
+class SurfacePreparation {
 public:
-  GroundStack() = default;
+  SurfacePreparation() = default;
 
-  ~GroundStack() { Close(); }
+  ~SurfacePreparation() { Close(); }
 
-  GroundStack(const GroundStack &) = delete;
-  GroundStack &operator=(const GroundStack &) = delete;
+  SurfacePreparation(const SurfacePreparation &) = delete;
+  SurfacePreparation &operator=(const SurfacePreparation &) = delete;
 
   [[nodiscard]] bool Open(const World::StoragePaths &under,
                           std::span<const Data::SourceProvider> providers,
@@ -139,12 +139,16 @@ public:
 
   [[nodiscard]] bool Vegetated() const { return Vegetated_; }
 
-  [[nodiscard]] std::expected<void, std::string_view> Restand(LongitudeLatitude at,
-                                                              RestandBudget budget);
+  [[nodiscard]] std::expected<void, std::string_view> AdvanceAt(LongitudeLatitude at,
+                                                                SurfacePreparationBudget budget);
 
-  [[nodiscard]] const RestandMetrics &LastRestand() const noexcept { return LastRestand_; }
+  [[nodiscard]] const SurfacePreparationMetrics &LastAdvance() const noexcept {
+    return LastAdvance_;
+  }
 
-  [[nodiscard]] const RestandMetrics &WorstRestand() const noexcept { return WorstRestand_; }
+  [[nodiscard]] const SurfacePreparationMetrics &WorstAdvance() const noexcept {
+    return WorstAdvance_;
+  }
 
   [[nodiscard]] bool AwaitProgress(double seconds);
 
@@ -158,7 +162,7 @@ public:
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:
-  void RecordsRestand(RestandMetrics metrics) noexcept;
+  void RecordAdvance(SurfacePreparationMetrics metrics) noexcept;
   [[nodiscard]] std::expected<TileAt, std::string_view>
   ValidatePosition(LongitudeLatitude at) const;
 
@@ -180,7 +184,9 @@ private:
     [[nodiscard]] bool operator==(const SettlementInputs &) const = default;
   };
 
-  void IngestLayers(const SettlementInputs &inputs, RestandBudget budget, RestandMetrics &metrics);
+  void IngestLayers(const SettlementInputs &inputs,
+                    SurfacePreparationBudget budget,
+                    SurfacePreparationMetrics &metrics);
 
   [[nodiscard]] bool CanReuseSettlement(const SettlementInputs &inputs, int rings) const;
 
@@ -196,8 +202,8 @@ private:
   std::optional<LongitudeLatitude> Stood_;
   bool Vegetated_ = false;
   bool Opened_ = false;
-  RestandMetrics LastRestand_;
-  RestandMetrics WorstRestand_;
+  SurfacePreparationMetrics LastAdvance_;
+  SurfacePreparationMetrics WorstAdvance_;
 };
 
 }

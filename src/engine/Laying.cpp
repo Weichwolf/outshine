@@ -50,8 +50,8 @@
 #include "WaterSurfaceBuilder.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
-#include "VectorStreetGraph.h"
-#include "VectorStreetGraphWorker.h"
+#include "StreetGraphBuilder.h"
+#include "StreetGraphPreparation.h"
 #include "RoadHeightCoverage.h"
 #include "RoadRefinementCoverage.h"
 
@@ -212,7 +212,7 @@ uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
   return digest;
 }
 
-bool GroundSourcesReady(const Ground::GroundStack &stack, GroundQuality quality) {
+bool GroundSourcesReady(const Ground::SurfacePreparation &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
 }
 
@@ -468,11 +468,11 @@ public:
 
   void FinishesCorridors() noexcept { CorridorJob_.reset(); }
 
-  [[nodiscard]] VectorStreetGraphWorker *StreetGraphWorker() noexcept {
+  [[nodiscard]] StreetGraphPreparation *StreetGraphWorker() noexcept {
     return StreetGraphWorker_.get();
   }
 
-  void BeginStreetGraph(std::unique_ptr<VectorStreetGraphWorker> worker) noexcept {
+  void BeginStreetGraph(std::unique_ptr<StreetGraphPreparation> worker) noexcept {
     StreetGraphWorker_ = std::move(worker);
   }
 
@@ -631,7 +631,7 @@ private:
   std::unique_ptr<Generators::BuildingStampJob> Stamping_;
   std::unique_ptr<Generators::TerrainPressJob> Pressing_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
-  std::unique_ptr<VectorStreetGraphWorker> StreetGraphWorker_;
+  std::unique_ptr<StreetGraphPreparation> StreetGraphWorker_;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<EarthworkStamp> Corridors_;
@@ -966,7 +966,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   Published.RecordMetric(
       "world: the streets", static_cast<double>(World.Stack.Ways().HeapBytes()), "bytes");
   Published.RecordMetric("world: the ceiling its fields stand under",
-                         static_cast<double>(Ground::GroundStack::kHoldsBytes),
+                         static_cast<double>(Ground::SurfacePreparation::kHoldsBytes),
                          "bytes");
   Published.RecordMetric("world: times a round stopped at that ceiling",
                          static_cast<double>(World.Stack.OverCeiling()),
@@ -1715,10 +1715,15 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
     return GroundBuildProgress::Pending;
   }
   if (state.StreetGraphWorker() == nullptr) {
+    if (!World.Pool) {
+      Error = "street graph preparation requires the shared compute worker";
+      World.GroundBuild.reset();
+      return GroundBuildProgress::Failed;
+    }
     const int sourceZoom = state.Coverage().Zoom;
     auto fields =
         std::make_shared<const SourcedTerrainFields>(build.Sheets.SnapshotSourcedFields());
-    auto started = outshine::Ground::VectorStreetGraphBuildJob::Begin(
+    auto started = outshine::Ground::StreetGraphBuildJob::Begin(
         *sources.Vectors,
         sources.Ways,
         [fields = std::move(fields), sourceZoom](LongitudeLatitude at) {
@@ -1729,7 +1734,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
       World.GroundBuild.reset();
       return GroundBuildProgress::Failed;
     }
-    state.BeginStreetGraph(std::make_unique<VectorStreetGraphWorker>(std::move(*started)));
+    state.BeginStreetGraph(
+        std::make_unique<StreetGraphPreparation>(*World.Pool, std::move(*started)));
     return GroundBuildProgress::Pending;
   }
   auto completed = state.StreetGraphWorker()->Collect();
@@ -1740,7 +1746,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
     return GroundBuildProgress::Failed;
   }
   const double longestSliceMs = completed->value().LongestSliceMs;
-  const outshine::Ground::VectorStreetGraph::Built &mapped = completed->value().Graph;
+  const outshine::Ground::StreetGraphBuilder::Built &mapped = completed->value().Graph;
   build.StreetGraph = mapped.Graph;
   build.StreetGraphWayCount = sources.Ways.Ways().size();
   Published.RecordMetric("network: ways it holds", static_cast<double>(mapped.Ways), "ways");

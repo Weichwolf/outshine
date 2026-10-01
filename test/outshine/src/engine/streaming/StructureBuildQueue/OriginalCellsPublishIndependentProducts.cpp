@@ -1,7 +1,7 @@
 #include "BuildingMesh.h"
 #include "BuildingStampJob.h"
 #include "Check.h"
-#include "GroundStack.h"
+#include "SurfacePreparation.h"
 #include "GroundSnapshot.h"
 #include "OfflineTransport.h"
 #include "OsmXmlReader.h"
@@ -83,7 +83,7 @@ int main() {
   const auto cache = std::filesystem::temp_directory_path() /
                      ("outshine-original-cell-products-" +
                       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  GroundStack stack;
+  SurfacePreparation stack;
   const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
   CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.string()},
                    providers,

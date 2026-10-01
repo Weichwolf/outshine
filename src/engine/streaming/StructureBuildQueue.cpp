@@ -334,7 +334,7 @@ bool CertifiedAcceptedSourceCurrent(const Ground::OsmField &vectors,
          heightAt.CertificateCurrent && heightAt.CertificateCurrent(accepted->Terrain);
 }
 
-bool ValidateCellSource(const Ground::GroundStack &stack,
+bool ValidateCellSource(const Ground::SurfacePreparation &stack,
                         const Ground::OsmField &vectors,
                         const Ground::BuildingField &footprints,
                         const StructureBuildQueue::HeightSource &heightAt,
@@ -459,7 +459,7 @@ StructureBuildQueue::QualifiedSourceKey(const Ground::BuildingField &footprints,
 }
 
 StructureBuildQueue::CellSourceState
-StructureBuildQueue::InspectCellSource(const Ground::GroundStack &stack,
+StructureBuildQueue::InspectCellSource(const Ground::SurfacePreparation &stack,
                                        const Ground::BuildingField &footprints,
                                        const HeightSource &heightAt,
                                        uint32_t tile,
@@ -490,7 +490,7 @@ StructureBuildQueue::InspectCellSource(const Ground::GroundStack &stack,
   std::unreachable();
 }
 
-bool StructureBuildQueue::ValidateResidentCellSource(const Ground::GroundStack &stack,
+bool StructureBuildQueue::ValidateResidentCellSource(const Ground::SurfacePreparation &stack,
                                                      const Ground::BuildingField &footprints,
                                                      const HeightSource &heightAt,
                                                      uint32_t tile,
@@ -606,7 +606,7 @@ StructureBuildQueue::OriginalHeightTiles(int zoom) const {
   return std::span<const Data::TileId>(OriginalHeightTiles_);
 }
 
-bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
+bool StructureBuildQueue::Complete(const Ground::SurfacePreparation &stack,
                                    const Ground::BuildingField &footprints,
                                    LongitudeLatitude eye,
                                    const std::function<bool(uint32_t)> &cellReady) const {
@@ -619,7 +619,7 @@ bool StructureBuildQueue::Complete(const Ground::GroundStack &stack,
           AcceptedViewCurrent(footprints, eye, cellReady) && footprints.Ingested(*vectors));
 }
 
-bool StructureBuildQueue::SourcesComplete(const Ground::GroundStack &stack,
+bool StructureBuildQueue::SourcesComplete(const Ground::SurfacePreparation &stack,
                                           const Ground::BuildingField &footprints) const {
   if (HasOriginal()) {
     if (!Queue_.empty() || footprints.AcceptedTiles().size() != Originals_.size()) { return false; }
@@ -638,7 +638,7 @@ bool StructureBuildQueue::SourcesComplete(const Ground::GroundStack &stack,
   return Queue_.empty() && QualifiedSources(stack, footprints);
 }
 
-bool StructureBuildQueue::QualifiedSources(const Ground::GroundStack &stack,
+bool StructureBuildQueue::QualifiedSources(const Ground::SurfacePreparation &stack,
                                            const Ground::BuildingField &footprints) {
   const Ground::OsmField *const vectors = stack.Vectors();
   return vectors == nullptr ||
@@ -805,7 +805,7 @@ size_t StructureBuildQueue::QueuedCells() const {
   return count;
 }
 
-size_t StructureBuildQueue::PostsCells(Ground::GroundStack &stack,
+size_t StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
                                        Ground::BuildingField &footprints,
                                        LongitudeLatitude eye,
                                        const HeightSource &heightAt,
@@ -883,7 +883,7 @@ size_t StructureBuildQueue::PostsCells(Ground::GroundStack &stack,
   return requests.size();
 }
 
-void StructureBuildQueue::AdvancePreparedCells(const Ground::GroundStack &stack,
+void StructureBuildQueue::AdvancePreparedCells(const Ground::SurfacePreparation &stack,
                                                const Ground::BuildingField &footprints,
                                                const HeightSource &heightAt) {
   for (auto &batch : PreparedCells_) {
@@ -892,7 +892,7 @@ void StructureBuildQueue::AdvancePreparedCells(const Ground::GroundStack &stack,
 }
 
 void StructureBuildQueue::AdvancePreparedCell(std::shared_ptr<PreparedCells> &batch,
-                                              const Ground::GroundStack &stack,
+                                              const Ground::SurfacePreparation &stack,
                                               const Ground::BuildingField &footprints,
                                               const HeightSource &heightAt) {
   const auto *vectors = stack.Vectors();
@@ -960,7 +960,7 @@ void StructureBuildQueue::AdvancePreparedCell(std::shared_ptr<PreparedCells> &ba
   if (batch->Next == batch->Count && batch.use_count() == 1) { batch.reset(); }
 }
 
-bool StructureBuildQueue::PostsCell(Ground::GroundStack &stack,
+bool StructureBuildQueue::PostsCell(Ground::SurfacePreparation &stack,
                                     Ground::BuildingField &footprints,
                                     LongitudeLatitude eye,
                                     const HeightSource &heightAt,
@@ -1030,7 +1030,7 @@ bool StructureBuildQueue::PostsCell(Ground::GroundStack &stack,
   return PostPreparedCell(stack, footprints, eye, heightAt, request, std::move(heights), {});
 }
 
-bool StructureBuildQueue::PostPreparedCell(const Ground::GroundStack &stack,
+bool StructureBuildQueue::PostPreparedCell(const Ground::SurfacePreparation &stack,
                                            const Ground::BuildingField &footprints,
                                            LongitudeLatitude eye,
                                            const HeightSource &heightAt,
@@ -1097,7 +1097,7 @@ void StructureBuildQueue::PrepareViewRefinement(Ground::BuildingField &prints,
 }
 
 size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
-                                          Ground::GroundStack &stack,
+                                          Ground::SurfacePreparation &stack,
                                           Ground::BuildingField &prints,
                                           LongitudeLatitude eye,
                                           const HeightSource &heightAt,
@@ -1192,7 +1192,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
   return 1;
 }
 
-size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
+size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
                                   Ground::BuildingField &prints,
                                   LongitudeLatitude eye,
                                   const HeightSource &heightAt,
@@ -1221,7 +1221,7 @@ size_t StructureBuildQueue::Posts(Ground::GroundStack &stack,
       stack, prints, eye, heightAt, candidatesMost, requirement, detail, purpose, cellReady);
 }
 
-size_t StructureBuildQueue::PostsVectors(Ground::GroundStack &stack,
+size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                          Ground::BuildingField &prints,
                                          LongitudeLatitude eye,
                                          const HeightSource &heightAt,
@@ -1341,7 +1341,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::GroundStack &stack,
   return posted;
 }
 
-bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::GroundStack &stack,
+bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparation &stack,
                                                  const Ground::BuildingField &prints,
                                                  const HeightSource &heightAt,
                                                  const QueuedBuild &bake,
@@ -1395,7 +1395,7 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::GroundStack &stac
 }
 
 std::expected<std::vector<StructureBuildQueue::Landing>, Generators::StructureBakeError>
-StructureBuildQueue::NextLandings(Ground::GroundStack &stack,
+StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
                                   Ground::BuildingField &prints,
                                   LongitudeLatitude eye,
                                   const HeightSource &heightAt,
@@ -1513,7 +1513,7 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
           bake.Task.Heights().CaptureRequest())};
 }
 
-bool StructureBuildQueue::ValidateCellLandingSource(const Ground::GroundStack &stack,
+bool StructureBuildQueue::ValidateCellLandingSource(const Ground::SurfacePreparation &stack,
                                                     const Ground::BuildingField &footprints,
                                                     const HeightSource &heightAt,
                                                     const QueuedBuild &bake) {
@@ -1543,7 +1543,7 @@ bool StructureBuildQueue::ValidateCellLandingSource(const Ground::GroundStack &s
 }
 
 std::expected<std::optional<StructureBuildQueue::Landing>, Generators::StructureBakeError>
-StructureBuildQueue::NextCellLanding(const Ground::GroundStack &stack,
+StructureBuildQueue::NextCellLanding(const Ground::SurfacePreparation &stack,
                                      const Ground::BuildingField &footprints,
                                      const HeightSource &heightAt) {
   if (Pool_ == nullptr) { return std::nullopt; }
@@ -1640,7 +1640,7 @@ bool StructureBuildQueue::CellQueued(CellRequest request) const noexcept {
   });
 }
 
-void StructureBuildQueue::CommitsLandings(Ground::GroundStack &stack,
+void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
                                           Ground::BuildingField &footprints,
                                           std::span<Landing> landings) noexcept {
   for (Landing &landing : landings) {

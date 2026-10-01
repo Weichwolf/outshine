@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "GroundStack.h"
+#include "SurfacePreparation.h"
 #include "OfflineTransport.h"
 #include "Sink.h"
 
@@ -46,7 +46,7 @@ int main() {
   SilentSink sink;
   Data::OfflineTransport wire;
   const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
-  GroundStack stack;
+  SurfacePreparation stack;
   const LongitudeLatitude first{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
   CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string()},
@@ -62,8 +62,8 @@ int main() {
         "native geographic terrain retains a regional render grid independent of its cell level");
   CHECK(!stack.HasVectorSource() && stack.VectorZoom() == kFineZoom,
         "the empty vector snapshot uses the ground classification's spatial grid");
-  const auto firstRestand = stack.Restand(first, {.IngestTilesMost = 1, .VectorRing = 0});
-  CHECK(firstRestand.has_value(), "terrain-only restand publishes an empty vector snapshot");
+  const auto firstAdvanceAt = stack.AdvanceAt(first, {.IngestTilesMost = 1, .VectorRing = 0});
+  CHECK(firstAdvanceAt.has_value(), "terrain-only restand publishes an empty vector snapshot");
   const OsmField *vectors = stack.Vectors();
   CHECK(vectors && vectors->Zoom() == kFineZoom && vectors->Features().empty() &&
             vectors->Tiles().size() == 1 && vectors->PendingTiles() == 0 &&
@@ -74,25 +74,25 @@ int main() {
   if (!vectors) { return Report(); }
   const uint64_t firstGeneration = vectors->Generation();
   const int firstX = vectors->CentreX();
-  const auto repeated = stack.Restand(first, {.IngestTilesMost = 1, .VectorRing = 0});
+  const auto repeated = stack.AdvanceAt(first, {.IngestTilesMost = 1, .VectorRing = 0});
   CHECK(repeated && stack.Vectors()->Generation() == firstGeneration,
         "same-focus restand does not republish an unchanged empty vector snapshot");
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!stack.Classes().Complete() && std::chrono::steady_clock::now() < deadline) {
-    CHECK(stack.Restand(first, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+    CHECK(stack.AdvanceAt(first, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
           "pending classification continues to completion at a stationary eye");
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   CHECK(stack.Classes().Complete(), "classification completed before testing resident reuse");
   for (int frame = 0; frame < 60; ++frame) {
-    CHECK(stack.Restand(first, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+    CHECK(stack.AdvanceAt(first, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
           "resident world remains usable throughout stationary frames");
-    const auto &cost = stack.LastRestand();
+    const auto &cost = stack.LastAdvance();
     CHECK(cost.StreetsMs == 0.0 && cost.WaterMs == 0.0 && cost.SettlementMs == 0.0 &&
               stack.Vectors()->Generation() == firstGeneration,
           "unchanged completed inputs skip ingestion and compaction without republishing");
   }
-  const auto shifted = stack.Restand(moved, {.IngestTilesMost = 1, .VectorRing = 0});
+  const auto shifted = stack.AdvanceAt(moved, {.IngestTilesMost = 1, .VectorRing = 0});
   CHECK(shifted && stack.Vectors()->Generation() > firstGeneration &&
             stack.Vectors()->CentreX() != firstX,
         "cross-tile focus change publishes a new empty vector generation");
@@ -105,7 +105,7 @@ int main() {
        .LatLon = {49.3274, 8.6159, 49.3275, 8.6160}},
   }};
   stack.Declares(declared);
-  const auto withFeature = stack.Restand(moved, {.IngestTilesMost = 1, .VectorRing = 0});
+  const auto withFeature = stack.AdvanceAt(moved, {.IngestTilesMost = 1, .VectorRing = 0});
   CHECK(withFeature && stack.Vectors()->Features().size() == 1 &&
             stack.Vectors()->PendingTiles() == 0,
         "scenario-declared features coexist with absence of a remote vector provider");

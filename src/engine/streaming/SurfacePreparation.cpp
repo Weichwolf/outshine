@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <expected>
 #include <array>
-#include "GroundStack.h"
+#include "SurfacePreparation.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -31,7 +31,7 @@ double ElapsedMs(std::chrono::steady_clock::time_point began) {
 
 }
 
-std::unique_ptr<OsmField> GroundStack::CreateVectorField() const {
+std::unique_ptr<OsmField> SurfacePreparation::CreateVectorField() const {
   const std::array<std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
                                               OsmLayerName(OsmLayer::WaterPolygons),
                                               OsmLayerName(OsmLayer::WaterLines),
@@ -40,15 +40,15 @@ std::unique_ptr<OsmField> GroundStack::CreateVectorField() const {
   return std::make_unique<OsmField>(VectorZoom_, std::span<const std::string>(layers));
 }
 
-bool GroundStack::Open(const World::StoragePaths &under,
-                       std::span<const Data::SourceProvider> providers,
-                       LongitudeLatitude focus,
-                       Data::Transport &wire,
-                       Sink &say,
-                       LogSink *diagnostics,
-                       double patienceS,
-                       const Data::ProviderRegistry *registry,
-                       Tasks *compute) {
+bool SurfacePreparation::Open(const World::StoragePaths &under,
+                              std::span<const Data::SourceProvider> providers,
+                              LongitudeLatitude focus,
+                              Data::Transport &wire,
+                              Sink &say,
+                              LogSink *diagnostics,
+                              double patienceS,
+                              const Data::ProviderRegistry *registry,
+                              Tasks *compute) {
   const auto position = OsmField::Locate(focus, kFineZoom);
   if (!position) {
     say.Refuse(std::string(position.error()));
@@ -108,7 +108,7 @@ bool GroundStack::Open(const World::StoragePaths &under,
   return true;
 }
 
-void GroundStack::Close() {
+void SurfacePreparation::Close() {
   Vectors_.reset();
   Ground_.reset();
   Pool_.reset();
@@ -119,11 +119,11 @@ void GroundStack::Close() {
   VectorZoom_ = kFineZoom;
   Opened_ = false;
   Settled_.reset();
-  LastRestand_ = {};
-  WorstRestand_ = {};
+  LastAdvance_ = {};
+  WorstAdvance_ = {};
 }
 
-int GroundStack::FinestZoomOf(Data::DataKind kind) const {
+int SurfacePreparation::FinestZoomOf(Data::DataKind kind) const {
   int finest = 0;
   if (!Sources_) { return finest; }
   for (size_t at = 0; at < Sources_->Count(); ++at) {
@@ -137,7 +137,8 @@ int GroundStack::FinestZoomOf(Data::DataKind kind) const {
   return finest;
 }
 
-std::expected<TileAt, std::string_view> GroundStack::ValidatePosition(LongitudeLatitude at) const {
+std::expected<TileAt, std::string_view>
+SurfacePreparation::ValidatePosition(LongitudeLatitude at) const {
   const auto fine = OsmField::Locate(at, kFineZoom);
   if (!fine) { return std::unexpected(fine.error()); }
   const auto coarse = OsmField::Locate(at, kCoarseZoom);
@@ -145,13 +146,13 @@ std::expected<TileAt, std::string_view> GroundStack::ValidatePosition(LongitudeL
   return OsmField::Locate(at, VectorZoom_);
 }
 
-std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
-                                                           RestandBudget budget) {
+std::expected<void, std::string_view>
+SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget budget) {
   const auto restandAt = std::chrono::steady_clock::now();
-  RestandMetrics metrics;
+  SurfacePreparationMetrics metrics;
   const auto complete = [&] -> std::expected<void, std::string_view> {
     metrics.TotalMs = ElapsedMs(restandAt);
-    RecordsRestand(metrics);
+    RecordAdvance(metrics);
     return {};
   };
   const auto vectorTile = ValidatePosition(at);
@@ -171,7 +172,7 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   const uint64_t previousVectorGeneration = Vectors_->Generation();
   if (HasVectorSource_ && Declared_.empty()) {
     const auto built = Vectors_->Build(
-        *Pool_, at, budget.VectorRing, kVectorTiles, {.TilesMost = kVectorParseTilesPerRestand});
+        *Pool_, at, budget.VectorRing, kVectorTiles, {.TilesMost = kVectorParseTilesPerAdvanceAt});
     if (!built) { return std::unexpected(built.error()); }
     metrics.VectorBuild = Vectors_->LastBuildMetrics();
   } else {
@@ -193,9 +194,9 @@ std::expected<void, std::string_view> GroundStack::Restand(LongitudeLatitude at,
   return complete();
 }
 
-void GroundStack::IngestLayers(const SettlementInputs &inputs,
-                               RestandBudget budget,
-                               RestandMetrics &metrics) {
+void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
+                                      SurfacePreparationBudget budget,
+                                      SurfacePreparationMetrics &metrics) {
   Settled_.reset();
   for (size_t pass = 0; pass < budget.IngestTilesMost; ++pass) {
     if (HeapBytes() > kHoldsBytes) {
@@ -230,23 +231,23 @@ void GroundStack::IngestLayers(const SettlementInputs &inputs,
   }
 }
 
-bool GroundStack::CanReuseSettlement(const SettlementInputs &inputs, int rings) const {
+bool SurfacePreparation::CanReuseSettlement(const SettlementInputs &inputs, int rings) const {
   return Settled_ == inputs && Cls_.Complete() && Vectors_->SettledWithin(rings) && Drained() &&
          HeapBytes() <= kHoldsBytes;
 }
 
-void GroundStack::RecordsRestand(RestandMetrics metrics) noexcept {
-  LastRestand_ = metrics;
-  if (metrics.TotalMs > WorstRestand_.TotalMs) { WorstRestand_ = metrics; }
+void SurfacePreparation::RecordAdvance(SurfacePreparationMetrics metrics) noexcept {
+  LastAdvance_ = metrics;
+  if (metrics.TotalMs > WorstAdvance_.TotalMs) { WorstAdvance_ = metrics; }
 }
 
-bool GroundStack::AwaitProgress(double seconds) {
+bool SurfacePreparation::AwaitProgress(double seconds) {
   if (seconds <= 0.0 || !Pool_) { return false; }
   if (Cls_.Building()) { return Cls_.AwaitBuild(seconds); }
   return Pool_->AwaitLanding(seconds, LandingCursor_);
 }
 
-void GroundStack::Settle() {
+void SurfacePreparation::Settle() {
   Cls_.Settle();
   Footprints_.Settle();
   Ways_.Settle();
@@ -254,23 +255,23 @@ void GroundStack::Settle() {
   if (Vectors_) { Vectors_->Settle(); }
 }
 
-bool GroundStack::Drained() const {
+bool SurfacePreparation::Drained() const {
   if (!Vegetated_ || !Vectors_) { return true; }
   return Ways_.Ingested(*Vectors_) && WaterBodies_.Ingested(*Vectors_);
 }
 
-bool GroundStack::Ingested() const {
+bool SurfacePreparation::Ingested() const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
   return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Drained();
 }
 
-bool GroundStack::IngestedWithin(int rings) const {
+bool SurfacePreparation::IngestedWithin(int rings) const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
          Ways_.IngestedWithin(*Vectors_, rings) && WaterBodies_.IngestedWithin(*Vectors_, rings);
 }
 
-std::string GroundStack::IngestionStatus() const {
+std::string SurfacePreparation::IngestionStatus() const {
   if (!Vectors_) { return "vectors=absent"; }
   return "streets=" + std::to_string(Ways_.IngestedTiles()) + "/" +
          std::to_string(static_cast<int>(Ways_.Ingested(*Vectors_))) +

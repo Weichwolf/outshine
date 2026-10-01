@@ -23,7 +23,7 @@ und vollständige Place-Abnahme sind offen. Keine reduzierte Kartenquelle als Er
 vollständige Nachfrage an `OsmSourceLoader`; `Laying` koordiniert Terrain und Produkte.
 `world/data`, SourceSet und ContentStore besitzen Originalbytes/Receipt. Bestehende
 Tasks/Fetching nutzen begrenztes paralleles IO und genau einen gemeinsamen Compute-
-Worker; verbleibende private ClassBuilder-/VectorStreetGraphWorker-Threads migrieren.
+Worker; StreetGraphPreparation nutzt ihn bereits, ClassBuilder besitzt noch einen eigenen Thread.
 Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerge.
 Der serielle Read-/Decode-Zyklus wird durch eine begrenzte Pipeline ersetzt: ein IO-
 Besitzer betreibt bis zu acht unabhängige Quellenanfragen; fertige Zellen gehen einzeln

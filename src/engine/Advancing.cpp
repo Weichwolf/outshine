@@ -570,8 +570,8 @@ bool Engine::State::Updates() {
     if (World.Stack.Opened()) {
       const auto streamingFrom = std::chrono::steady_clock::now();
       {
-        static const Heap::Tag kRestandingTag("world-restand");
-        const Heap::Tagged restanding(kRestandingTag);
+        static const Heap::Tag kAdvanceAtingTag("world-restand");
+        const Heap::Tagged restanding(kAdvanceAtingTag);
         const auto handoffAt = std::chrono::steady_clock::now();
         HandsPiecesOver();
         Cost.PieceHandoff.Took(
@@ -579,9 +579,9 @@ bool Engine::State::Updates() {
                 .count());
         const int vectorRing = World.GroundPublished.Current() ? Ground::kVectorRing : 0;
         const auto restandAt = std::chrono::steady_clock::now();
-        const auto streamed = World.Stack.Restand(
+        const auto streamed = World.Stack.AdvanceAt(
             stands, {.IngestTilesMost = Ground::kFrameIngestTiles, .VectorRing = vectorRing});
-        Cost.Restand.Took(
+        Cost.AdvanceAt.Took(
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - restandAt)
                 .count());
         if (!streamed) {
