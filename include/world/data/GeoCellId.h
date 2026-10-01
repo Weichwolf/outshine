@@ -41,6 +41,8 @@ struct GeoCellId {
 /// Conservative spherical bounds use the minimum WGS84 curvature radius; poles and wrapping
 /// are included. Latitude/longitude are degrees, radius is metres. Invalid inputs or a cell
 /// count above cellsMost fail before allocation; no coverage is truncated. Allocates the result.
+/// Keep the rectangular query envelope: node-based source queries can return in-disc geometry
+/// through outlying nodes. This envelope alone does not prove global object-reference closure.
 /// @return Unique cells in X/Y order, or an input/capacity error. No IO or shared state.
 [[nodiscard]] std::expected<std::vector<GeoCellId>, std::string>
 CellsAround(double latitudeDeg, double longitudeDeg, double radiusM, int level, size_t cellsMost);

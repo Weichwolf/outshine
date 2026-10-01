@@ -7,6 +7,9 @@
 #include "SourceProviderValidation.h"
 
 #include <algorithm>
+#include <atomic>
+#include <cmath>
+#include <math/Units.h>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -25,7 +28,6 @@
 namespace outshine {
 namespace {
 constexpr size_t kMaxChunks = 4;
-constexpr double kAcquireBudgetMs = 10000.0;
 }
 
 OsmSourceLoader::OsmSourceLoader(Tasks &tasks, Data::Transport *wire, std::string cacheDirectory)
@@ -39,6 +41,15 @@ OsmSourceLoader::~OsmSourceLoader() {
     (void)Pending_->Stop.request_stop();
     Pending_->Owner->Wait(Pending_->Handle);
   }
+}
+
+std::expected<void, std::string> OsmSourceLoader::SetAcquisitionBudget(double seconds) {
+  const double milliseconds = seconds * kMsPerS;
+  if (!std::isfinite(milliseconds) || milliseconds < 0) {
+    return std::unexpected("invalid original OSM acquisition budget");
+  }
+  Access_->AcquisitionBudgetMs.store(milliseconds, std::memory_order_relaxed);
+  return {};
 }
 
 std::expected<void, std::string>
@@ -169,20 +180,28 @@ void OsmSourceLoader::StartRequested() {
       }
       if (access->DeadlineRevision != revision) {
         access->DeadlineRevision = revision;
-        access->DeadlineMs = access->Wire->NowMs() + kAcquireBudgetMs;
+        access->BeganMs = access->Wire->NowMs();
       }
-      auto read =
-          cells.empty()
-              ? Data::ReadOsmApiRegions(
-                    input, *access->Store, *access->Wire, access->DeadlineMs, token, registry, root)
-              : Data::ReadOsmApiCells(input.front(),
-                                      cells,
-                                      *access->Store,
-                                      *access->Wire,
-                                      access->DeadlineMs,
-                                      token,
-                                      registry,
-                                      root);
+      const auto deadline = [access] {
+        return access->BeganMs + access->AcquisitionBudgetMs.load(std::memory_order_relaxed);
+      };
+      auto read = cells.empty() ? Data::ReadOsmApiRegions(input,
+                                                          *access->Store,
+                                                          *access->Wire,
+                                                          deadline(),
+                                                          token,
+                                                          registry,
+                                                          root,
+                                                          deadline)
+                                : Data::ReadOsmApiCells(input.front(),
+                                                        cells,
+                                                        *access->Store,
+                                                        *access->Wire,
+                                                        deadline(),
+                                                        token,
+                                                        registry,
+                                                        root,
+                                                        deadline);
       if (read) {
         result->ReadMs = read->ElapsedMs;
         result->Refine = std::move(read->Refine);

@@ -24,6 +24,8 @@ namespace outshine {
 
 class OsmSourceLoader {
 public:
+  static constexpr double DefaultAcquisitionBudgetS = 10.0;
+  [[nodiscard]] std::expected<void, std::string> SetAcquisitionBudget(double seconds);
   enum class Phase : uint8_t { Inactive, Loading, Ready, Failed };
 
   struct CellLimits {

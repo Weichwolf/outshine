@@ -21,6 +21,8 @@ int main() {
   const auto equator = CellsAround(0.0, 0.0, radius, 9, 262144);
   CHECK(equator && includes(*equator, 0.0, 0.0), "origin remains in full source demand");
   if (equator) {
+    CHECK(includes(*equator, 2.13, -2.13) && includes(*equator, 2.13, 2.13),
+          "the source query envelope retains outer nodes of a way crossing the requested disc");
     const double equatorialEnd = radius / kWgs84A * kRad2Deg;
     CHECK(includes(*equator, 0.0, equatorialEnd) && includes(*equator, 0.0, -equatorialEnd),
           "analytic WGS84 equatorial geodesic endpoints remain covered");

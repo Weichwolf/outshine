@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -128,14 +129,16 @@ bool BeginRegion(Region &region, const ContentStore &store, std::vector<GeoCellI
   return false;
 }
 
-std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourceProvider> providers,
-                                                       std::span<const GeoCellId> cells,
-                                                       ContentStore &store,
-                                                       Transport &wire,
-                                                       double deadlineMs,
-                                                       const std::stop_token &stop,
-                                                       const ProviderRegistry *registry,
-                                                       std::string_view shippedRoot) {
+std::expected<OsmSourceRead, std::string>
+ReadRequests(std::span<const SourceProvider> providers,
+             std::span<const GeoCellId> cells,
+             ContentStore &store,
+             Transport &wire,
+             double deadlineMs,
+             const std::stop_token &stop,
+             const ProviderRegistry *registry,
+             std::string_view shippedRoot,
+             const std::function<double()> &currentDeadline) {
   const double began = wire.NowMs();
   std::vector<std::unique_ptr<Region>> regions;
   std::vector<OsmSourceChunk> chunks;
@@ -155,8 +158,9 @@ std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourcePro
   std::vector<GeoCellId> refine;
   while (completed < regions.size()) {
     const double nowMs = wire.NowMs();
-    if (stop.stop_requested() || !std::isfinite(nowMs) || !std::isfinite(deadlineMs) ||
-        nowMs >= deadlineMs) {
+    const double untilMs = currentDeadline ? currentDeadline() : deadlineMs;
+    if (stop.stop_requested() || !std::isfinite(nowMs) || !std::isfinite(untilMs) ||
+        nowMs >= untilMs) {
       return std::unexpected(stop.stop_requested()
                                  ? "original OSM source acquisition canceled"
                                  : "original OSM source acquisition deadline exceeded");
@@ -171,7 +175,7 @@ std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourcePro
     completed += *ready;
     if (completed == regions.size()) { break; }
     if (next < regions.size() && next - completed < kConcurrentRegions) { continue; }
-    (void)wire.Await(std::min(kIoAwaitMs, std::max(0.0, deadlineMs - wire.NowMs())));
+    (void)wire.Await(std::min(kIoAwaitMs, std::max(0.0, untilMs - wire.NowMs())));
   }
   std::erase_if(chunks, [](const auto &chunk) { return chunk.Xml.empty(); });
   return OsmSourceRead{
@@ -179,14 +183,16 @@ std::expected<OsmSourceRead, std::string> ReadRequests(std::span<const SourcePro
 }
 }
 
-std::expected<OsmSourceRead, std::string> ReadOsmApiCells(const SourceProvider &catalogue,
-                                                          std::span<const GeoCellId> cells,
-                                                          ContentStore &store,
-                                                          Transport &wire,
-                                                          double deadlineMs,
-                                                          const std::stop_token &stop,
-                                                          const ProviderRegistry *registry,
-                                                          std::string_view shippedRoot) {
+std::expected<OsmSourceRead, std::string>
+ReadOsmApiCells(const SourceProvider &catalogue,
+                std::span<const GeoCellId> cells,
+                ContentStore &store,
+                Transport &wire,
+                double deadlineMs,
+                const std::stop_token &stop,
+                const ProviderRegistry *registry,
+                std::string_view shippedRoot,
+                const std::function<double()> &currentDeadline) {
   if (cells.empty() || cells.size() > kConcurrentRegions) {
     return std::unexpected("original OSM cell jobs require one or two geographic cells");
   }
@@ -194,7 +200,8 @@ std::expected<OsmSourceRead, std::string> ReadOsmApiCells(const SourceProvider &
     return std::unexpected("original OSM cell jobs require distinct addresses");
   }
   const std::vector<SourceProvider> providers(cells.size(), catalogue);
-  return ReadRequests(providers, cells, store, wire, deadlineMs, stop, registry, shippedRoot);
+  return ReadRequests(
+      providers, cells, store, wire, deadlineMs, stop, registry, shippedRoot, currentDeadline);
 }
 
 std::expected<OsmSourceRead, std::string>
@@ -204,8 +211,10 @@ ReadOsmApiRegions(std::span<const SourceProvider> providers,
                   double deadlineMs,
                   const std::stop_token &stop,
                   const ProviderRegistry *registry,
-                  std::string_view shippedRoot) {
-  return ReadRequests(providers, {}, store, wire, deadlineMs, stop, registry, shippedRoot);
+                  std::string_view shippedRoot,
+                  const std::function<double()> &currentDeadline) {
+  return ReadRequests(
+      providers, {}, store, wire, deadlineMs, stop, registry, shippedRoot, currentDeadline);
 }
 
 std::expected<OsmSourceChunk, std::string> ReadOsmApiRegion(const SourceProvider &provider,

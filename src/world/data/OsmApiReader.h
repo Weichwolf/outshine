@@ -5,6 +5,7 @@
 #include "OsmChunkSetLoader.h"
 #include <world/data/Transport.h>
 #include <world/Provider.h>
+#include <functional>
 
 namespace outshine::Data {
 
@@ -22,7 +23,8 @@ ReadOsmApiCells(const SourceProvider &catalogue,
                 double deadlineMs,
                 const std::stop_token &stop,
                 const ProviderRegistry *registry = nullptr,
-                std::string_view shippedRoot = {});
+                std::string_view shippedRoot = {},
+                const std::function<double()> &currentDeadline = {});
 
 [[nodiscard]] std::expected<OsmSourceRead, std::string>
 ReadOsmApiRegions(std::span<const SourceProvider> providers,
@@ -31,7 +33,8 @@ ReadOsmApiRegions(std::span<const SourceProvider> providers,
                   double deadlineMs,
                   const std::stop_token &stop,
                   const ProviderRegistry *registry = nullptr,
-                  std::string_view shippedRoot = {});
+                  std::string_view shippedRoot = {},
+                  const std::function<double()> &currentDeadline = {});
 
 [[nodiscard]] std::expected<OsmSourceChunk, std::string>
 ReadOsmApiRegion(const SourceProvider &provider,

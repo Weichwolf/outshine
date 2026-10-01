@@ -44,7 +44,6 @@ constexpr auto kPendingOsmSource = "original OSM source pending";
 constexpr auto kInvalidHeightCoordinate =
     "height query requires finite longitude in [-180,180] and latitude in [-90,90] degrees";
 constexpr auto kHeightOutsideCoverage = "height query is outside Mercator terrain coverage";
-constexpr auto kInvalidPreloadBudget = "preload requires finite nonnegative seconds";
 constexpr auto kForeignSwapChain = "the swap chain belongs to another engine";
 constexpr auto kTargetInsideFrame = "end the open frame before changing its target";
 constexpr auto kNullWindow = "the target window is null";
@@ -89,8 +88,6 @@ RequiredBlocker(bool required, bool ready, std::string_view reason) noexcept {
 }
 
 }
-
-constexpr double kBitsPerByte = 8.0;
 
 Engine::Engine() : S_(std::make_unique<State>()) {}
 
@@ -497,7 +494,6 @@ double Engine::loadProgress() const {
   return static_cast<double>(wanted - missing) / static_cast<double>(wanted);
 }
 
-constexpr double kMostWaitS = 0.05;
 constexpr size_t kPreloadGroundAdvancesMost = 16;
 
 Loading Engine::loading() const {
@@ -546,18 +542,6 @@ Loading Engine::loading() const {
                             .TileDeliveries = static_cast<std::uint64_t>(use.Deliveries)});
   }
   return said;
-}
-
-namespace {
-void ReportPreload(const Engine &engine,
-                   std::chrono::steady_clock::time_point began,
-                   const std::function<void(const Loading &)> &tell) {
-  if (!tell) { return; }
-  Loading said = engine.loading();
-  said.ElapsedS = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-  said.Megabits = said.ElapsedS > 0.0 ? said.FetchedMB * kBitsPerByte / said.ElapsedS : 0.0;
-  tell(said);
-}
 }
 
 bool Engine::State::CanFinishPreload() const {
@@ -776,78 +760,6 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
   waited.IdleMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   ++waited.IdleCalls;
-}
-
-Result Engine::preload(double patienceS) {
-  return preloadWithQuality(patienceS, WorldQuality::Playable, {});
-}
-
-Result Engine::preload(double patienceS, const std::function<void(const Loading &)> &tell) {
-  return preloadWithQuality(patienceS, WorldQuality::Playable, tell);
-}
-
-Result Engine::preload(double patienceS, WorldQuality required) {
-  return preloadWithQuality(patienceS, required, {});
-}
-
-Result Engine::preloadWithQuality(double patienceS,
-                                  WorldQuality required,
-                                  const std::function<void(const Loading &)> &tell) {
-  [[maybe_unused]] const auto logs = S_->Logs();
-  if (const auto permission = S_->MutationPermission(); !permission) { return permission; }
-  if (!std::isfinite(patienceS) || patienceS < 0.0) {
-    return std::unexpected(Says::kInvalidPreloadBudget);
-  }
-  const auto began = std::chrono::steady_clock::now();
-  S_->LastPreloadMs = 0.0;
-  S_->PreloadPumpMs = 0.0;
-  S_->PreloadFlushMs = 0.0;
-  S_->PreloadAwaitMs = 0.0;
-  S_->PreloadPumps = 0;
-  S_->PreloadFlushes = 0;
-  S_->PreloadAwaits = 0;
-  S_->PreloadWaited = {};
-  const auto elapsedMs = [](std::chrono::steady_clock::time_point started) {
-    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
-        .count();
-  };
-  const auto timed = [this, began](Result result) -> Result {
-    S_->LastPreloadMs =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    return result;
-  };
-  const double bound = patienceS;
-  const GroundQuality quality =
-      required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
-  for (;;) {
-    const auto pumpAt = std::chrono::steady_clock::now();
-    const auto pumped = S_->PumpPreload();
-    S_->PreloadPumpMs += elapsedMs(pumpAt);
-    ++S_->PreloadPumps;
-    if (!pumped) { return timed(pumped); }
-    ReportPreload(*this, began, tell);
-    if (!S_->Session.Declared.Ground.Declared && S_->Readiness(quality).Ready()) {
-      return timed(Result{});
-    }
-    if (S_->CanBeginGroundCandidate() || S_->CanAdvanceGroundCandidate()) {
-      const auto flushAt = std::chrono::steady_clock::now();
-      const auto finished = S_->FlushPreloadGround(began, bound, quality);
-      S_->PreloadFlushMs += elapsedMs(flushAt);
-      ++S_->PreloadFlushes;
-      if (!finished) { return timed(std::unexpected(finished.error())); }
-      if (*finished == State::PreloadFlush::Ready) { return timed(Result{}); }
-    }
-    if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >= bound) {
-      return timed(S_->PreloadTimeout(bound, quality));
-    }
-    const double leftS =
-        bound - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-    const double waitS = leftS < kMostWaitS ? leftS : kMostWaitS;
-    const auto awaitAt = std::chrono::steady_clock::now();
-    S_->AwaitPreloadProgress(waitS);
-    S_->PreloadAwaitMs += elapsedMs(awaitAt);
-    ++S_->PreloadAwaits;
-  }
 }
 
 Result Engine::setView(std::string_view view) {

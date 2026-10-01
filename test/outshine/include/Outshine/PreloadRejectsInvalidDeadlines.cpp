@@ -10,6 +10,7 @@ int main() {
   Engine engine;
   size_t callbacks = 0;
   for (double seconds : {-1.0,
+                         std::numeric_limits<double>::max(),
                          std::numeric_limits<double>::quiet_NaN(),
                          std::numeric_limits<double>::infinity(),
                          -std::numeric_limits<double>::infinity()}) {

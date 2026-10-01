@@ -3,6 +3,8 @@
 
 #include "OsmSourceLoader.h"
 #include "ContentStore.h"
+#include <atomic>
+#include <math/Units.h>
 
 namespace outshine {
 
@@ -12,7 +14,8 @@ struct OsmSourceLoader::Access {
   std::unique_ptr<Data::ContentStore> Store;
   const Data::ProviderRegistry *Registry = nullptr;
   uint64_t DeadlineRevision = 0;
-  double DeadlineMs = 0;
+  double BeganMs = 0;
+  std::atomic<double> AcquisitionBudgetMs{DefaultAcquisitionBudgetS * kMsPerS};
 };
 
 struct OsmSourceLoader::Cells {
