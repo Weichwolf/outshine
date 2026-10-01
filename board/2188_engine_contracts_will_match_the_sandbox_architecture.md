@@ -46,9 +46,9 @@ beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
 | world/data: IO, Cache, OSM, Copernicus, MVT | sources besitzt Provider/Netzwerkbytes; import besitzt Formate/Adapter |
 | world/ground: OSM/MVT-Ingestion und Produkte | import übersetzt; generators erzeugt; world hält native Produkte |
 | world/navigation: OSM-Auflösung und Netze | import besitzt OSM-Auflösung; world besitzt generische Topologie |
-| BuildingField::Geometry: OSM-Snapshot/IDs | Quellunabhängige Provenienz/Objektidentität, keine Parserarchive |
+| Gebäude-Publikation (bereinigt) | BuildingGeometry trägt nur native Polygone und generische Provenienz/IDs |
 | actor/body: Rigid/Prismatic | physics besitzt Simulation; actor konsumiert sie |
-| import: unnötige Rendererfreigabe | Native CPU-Assets; 15 TUs besitzen keine transitive Render-Abhängigkeit |
+| import (bereinigt) | Native CPU-Assets ohne Rendererfreigabe; keine transitive Render-Abhängigkeit |
 | private Builtin-Bakes neben Generator-API | Ein öffentlicher Input-/Productvertrag für Builtins und Erweiterungen |
 | Testprofile mit eigenen Include-Listen | Profile aus demselben Modulgraphen ableiten; Fixtures explizit besitzen |
 `world` konsumiert weder sources, import noch generators. Engine verbindet diese Module.
@@ -93,6 +93,8 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
 1. Alle Architekturverstöße priorisiert beheben: Weltprodukte ohne Quellformate/Generatorinputs;
    konkrete Provider/Decoder und OSM-Topologieadapter aus world; Physik korrekt zuordnen.
    Diese Grenzen durch Include-/Typprüfungen erzwingen, nicht allein durch Verhaltensfälle.
+   Nächste Einheit: GroundStack und VectorStreetGraphs Job-Koordination nach engine/streaming;
+   native Felder/Netze bleiben lesbare Produkte. Weltobjekte besitzen keine Quelle/Jobqueue.
 2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
 3. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
 4. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
