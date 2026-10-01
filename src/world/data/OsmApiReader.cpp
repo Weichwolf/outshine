@@ -118,9 +118,9 @@ std::expected<size_t, std::string> PollStarted(std::span<const std::unique_ptr<R
   return completed;
 }
 
-bool BeginRegion(Region &region, ContentStore &store, std::vector<GeoCellId> &refine) {
+bool BeginRegion(Region &region, const ContentStore &store, std::vector<GeoCellId> &refine) {
   const auto cell = region.At.GeoCell();
-  if (cell && store.CoversCellChildren(region.Sources.At(0).Declaration(), *cell)) {
+  if (cell && store.HasCompleteChildCoverage(region.Sources.At(0).Declaration(), *cell)) {
     refine.push_back(*cell);
     return true;
   }

@@ -30,20 +30,22 @@ int main() {
   for (size_t at = 0; at < children.size(); ++at) {
     CHECK(store.KeepCell(source, children[at], payload),
           "original cell bytes stored with address receipt");
-    CHECK(store.CoversCellChildren(source, root) == (at + 1 == children.size()),
+    CHECK(store.HasCompleteChildCoverage(source, root) == (at + 1 == children.size()),
           "coverage requires every child, including the final quadrant");
   }
-  CHECK(!store.CoversCellChildren(source, root, 3),
+  CHECK(!store.HasCompleteChildCoverage(source, root, 3),
         "bounded traversal fails instead of claiming partial coverage");
   auto other = source;
   other.Revision = "v2";
-  CHECK(!store.CoversCellChildren(other, root), "another revision cannot reuse source coverage");
+  CHECK(!store.HasCompleteChildCoverage(other, root),
+        "another revision cannot reuse source coverage");
   other = source;
   other.Endpoint += "/other";
-  CHECK(!store.CoversCellChildren(other, root), "another endpoint cannot reuse source coverage");
+  CHECK(!store.HasCompleteChildCoverage(other, root),
+        "another endpoint cannot reuse source coverage");
   {
     ContentStore fresh({.Directory = path});
-    CHECK(fresh.CoversCellChildren(source, root),
+    CHECK(fresh.HasCompleteChildCoverage(source, root),
           "coverage survives destruction of the receiving process state");
     CHECK(fresh.LookupCell(source, children[0]).Bytes ==
               std::vector<uint8_t>(payload.begin(), payload.end()),
@@ -51,18 +53,20 @@ int main() {
   }
   const auto key = ContentKey(source, Address::AtGeoCell(children[0]));
   std::ofstream(path + "/" + key, std::ios::binary) << "<y/>";
-  CHECK(!store.CoversCellChildren(source, root) &&
+  CHECK(!store.HasCompleteChildCoverage(source, root) &&
             store.LookupCell(source, children[0]).Where == ContentStore::Presence::Unknown,
         "same-size changed bytes fail the received payload digest");
   CHECK(store.KeepCell(source, children[0], payload),
         "a new received response replaces the corrupt entry");
   std::filesystem::remove(path + "/" + key);
-  CHECK(!store.CoversCellChildren(source, root), "a receipt without source bytes is not coverage");
+  CHECK(!store.HasCompleteChildCoverage(source, root),
+        "a receipt without source bytes is not coverage");
   CHECK(store.Keep(key, payload.data(), payload.size()), "legacy flat payload preserved");
-  CHECK(store.KeepCell(source, root, payload) && !store.CoversCellChildren(source, root),
+  CHECK(store.KeepCell(source, root, payload) && !store.HasCompleteChildCoverage(source, root),
         "cached parent bytes are served directly rather than forcing refinement");
   ContentStore disabled({.Directory = path, .Using = ContentStore::Use::Off});
-  CHECK(!disabled.CoversCellChildren(source, root) && !disabled.KeepCell(source, root, payload) &&
+  CHECK(!disabled.HasCompleteChildCoverage(source, root) &&
+            !disabled.KeepCell(source, root, payload) &&
             disabled.LookupCell(source, root).Where == ContentStore::Presence::Unknown,
         "disabled source cache does not read or write receipts");
   std::error_code error;

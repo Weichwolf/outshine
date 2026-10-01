@@ -3,19 +3,28 @@
 #include "Sha256.h"
 #include "WriteFileAtomically.h"
 
+#include <algorithm>
 #include <array>
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 namespace outshine::Data {
 namespace {
 constexpr std::string_view kCellReceipt = "outshine-source-cell-v1\n";
-constexpr size_t kReceiptMost = 256;
+constexpr size_t kSha256HexChars = 64;
+constexpr size_t kReceiptMost = kCellReceipt.size() + 2 * (kSha256HexChars + 1);
 
-std::string CellPath(const ContentStore &store, const SourceDecl &decl, GeoCellId cell) {
+std::string
+CellReceiptDirectory(const ContentStore &store, const SourceDecl &decl, GeoCellId cell) {
   std::string path = store.Directory() + "/cells/" + SourceKey(decl);
   for (int level = cell.Level - 1; level >= 0; --level) {
     const auto bit = static_cast<unsigned>(level);
@@ -32,12 +41,12 @@ std::array<GeoCellId, 4> Children(GeoCellId cell) {
            {.Level = cell.Level + 1, .X = cell.X * 2 + 1, .Y = cell.Y * 2 + 1}}};
 }
 
-bool Cacheable(const SourceDecl &decl, GeoCellId cell) {
+bool CacheableOsmCell(const SourceDecl &decl, GeoCellId cell) {
   return cell.Valid() && decl.Kind == DataKind::OriginalOsm && decl.How == Scheme::GeodeticGrid &&
          decl.Keeps == Cacheability::Forever;
 }
 
-bool CellDirectory(const ContentStore &store, const std::string &path, bool create) {
+bool EnsureCellDirectory(const ContentStore &store, const std::string &path, bool create) {
   auto current = std::filesystem::path(store.Directory());
   const auto relative = std::filesystem::path(path).lexically_relative(current);
   for (const auto &part : relative) {
@@ -56,8 +65,8 @@ bool CellDirectory(const ContentStore &store, const std::string &path, bool crea
 bool ContentStore::WriteCellReceipt(const SourceDecl &decl,
                                     GeoCellId cell,
                                     std::span<const uint8_t> bytes) {
-  const std::string path = CellPath(*this, decl, cell);
-  if (!CellDirectory(*this, path, true)) {
+  const std::string path = CellReceiptDirectory(*this, decl, cell);
+  if (!EnsureCellDirectory(*this, path, true)) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
   }
@@ -74,24 +83,25 @@ bool ContentStore::WriteCellReceipt(const SourceDecl &decl,
 bool ContentStore::KeepCell(const SourceDecl &decl,
                             GeoCellId cell,
                             std::span<const uint8_t> bytes) {
-  if (!Cacheable(decl, cell) || !Enabled()) { return false; }
+  if (!CacheableOsmCell(decl, cell) || !Enabled()) { return false; }
   return Keep(ContentKey(decl, Address::AtGeoCell(cell)), bytes.data(), bytes.size()) &&
          WriteCellReceipt(decl, cell, bytes);
 }
 
-std::optional<std::vector<uint8_t>> ContentStore::ReadCell(const SourceDecl &decl,
-                                                           GeoCellId cell) const {
-  const auto path = CellPath(*this, decl, cell);
-  if (!CellDirectory(*this, path, false)) { return std::nullopt; }
+std::optional<std::vector<uint8_t>> ContentStore::ReadVerifiedCellBytes(const SourceDecl &decl,
+                                                                        GeoCellId cell) const {
+  const auto path = CellReceiptDirectory(*this, decl, cell);
+  if (!EnsureCellDirectory(*this, path, false)) { return std::nullopt; }
   const auto receipt = ReadEntry(path + "/receipt", kReceiptMost);
   if (!receipt) { return std::nullopt; }
   const std::string_view record(reinterpret_cast<const char *>(receipt->data()), receipt->size());
   const std::string key = ContentKey(decl, Address::AtGeoCell(cell));
   const std::string prefix = std::string(kCellReceipt) + key + '\n';
-  if (!record.starts_with(prefix) || record.size() != prefix.size() + 65 || record.back() != '\n') {
+  if (!record.starts_with(prefix) || record.size() != prefix.size() + kSha256HexChars + 1 ||
+      record.back() != '\n') {
     return std::nullopt;
   }
-  const auto digest = record.substr(prefix.size(), 64);
+  const auto digest = record.substr(prefix.size(), kSha256HexChars);
   if (!ValidKey(digest)) { return std::nullopt; }
   auto bytes = ReadBytes(key, decl.MaximumPayloadBytes);
   if (!bytes || Sha256Hex(bytes->data(), bytes->size()) != digest) { return std::nullopt; }
@@ -99,14 +109,14 @@ std::optional<std::vector<uint8_t>> ContentStore::ReadCell(const SourceDecl &dec
 }
 
 ContentStore::Entry ContentStore::LookupCell(const SourceDecl &decl, GeoCellId cell) {
-  if (!Cacheable(decl, cell) || !Enabled()) { return {}; }
-  if (auto bytes = ReadCell(decl, cell)) {
+  if (!CacheableOsmCell(decl, cell) || !Enabled()) { return {}; }
+  if (auto bytes = ReadVerifiedCellBytes(decl, cell)) {
     Hits_.fetch_add(1, std::memory_order_relaxed);
     return {.Where = Presence::Bytes, .Bytes = std::move(*bytes)};
   }
   std::error_code error;
   const auto receipt =
-      std::filesystem::symlink_status(CellPath(*this, decl, cell) + "/receipt", error);
+      std::filesystem::symlink_status(CellReceiptDirectory(*this, decl, cell) + "/receipt", error);
   if (std::filesystem::exists(receipt)) {
     Misses_.fetch_add(1, std::memory_order_relaxed);
     return {};
@@ -116,10 +126,10 @@ ContentStore::Entry ContentStore::LookupCell(const SourceDecl &decl, GeoCellId c
   return kept;
 }
 
-bool ContentStore::CoversCellChildren(const SourceDecl &decl,
-                                      GeoCellId cell,
-                                      size_t probesMost) const {
-  if (!Cacheable(decl, cell) || !Enabled() || cell.Level == GeoCellId::MaximumLevel ||
+bool ContentStore::HasCompleteChildCoverage(const SourceDecl &decl,
+                                            GeoCellId cell,
+                                            size_t probesMost) const {
+  if (!CacheableOsmCell(decl, cell) || !Enabled() || cell.Level == GeoCellId::MaximumLevel ||
       ReadBytes(ContentKey(decl, Address::AtGeoCell(cell)), decl.MaximumPayloadBytes)) {
     return false;
   }
@@ -128,19 +138,14 @@ bool ContentStore::CoversCellChildren(const SourceDecl &decl,
     --probesMost;
     std::error_code error;
     if (!std::filesystem::is_directory(
-            std::filesystem::symlink_status(CellPath(*this, decl, leaf), error))) {
+            std::filesystem::symlink_status(CellReceiptDirectory(*this, decl, leaf), error))) {
       return false;
     }
-    if (ReadCell(decl, leaf)) { return true; }
+    if (ReadVerifiedCellBytes(decl, leaf)) { return true; }
     if (leaf.Level == GeoCellId::MaximumLevel) { return false; }
-    for (const auto child : Children(leaf)) {
-      if (!self(self, child)) { return false; }
-    }
-    return true;
+    return std::ranges::all_of(Children(leaf), [&](const auto child) { return self(self, child); });
   };
-  for (const auto child : Children(cell)) {
-    if (!covered(covered, child)) { return false; }
-  }
-  return true;
+  return std::ranges::all_of(Children(cell),
+                             [&](const auto child) { return covered(covered, child); });
 }
 }

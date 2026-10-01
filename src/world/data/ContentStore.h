@@ -64,9 +64,9 @@ public:
   [[nodiscard]] bool
   KeepCell(const SourceDecl &decl, GeoCellId cell, std::span<const uint8_t> bytes);
   [[nodiscard]] Entry LookupCell(const SourceDecl &decl, GeoCellId cell);
-  [[nodiscard]] bool CoversCellChildren(const SourceDecl &decl,
-                                        GeoCellId cell,
-                                        size_t probesMost = MaximumAbsenceEntries) const;
+  [[nodiscard]] bool HasCompleteChildCoverage(const SourceDecl &decl,
+                                              GeoCellId cell,
+                                              size_t probesMost = MaximumAbsenceEntries) const;
 
   [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }
 
@@ -82,8 +82,8 @@ public:
 private:
   [[nodiscard]] bool
   WriteCellReceipt(const SourceDecl &decl, GeoCellId cell, std::span<const uint8_t> bytes);
-  [[nodiscard]] std::optional<std::vector<uint8_t>> ReadCell(const SourceDecl &decl,
-                                                             GeoCellId cell) const;
+  [[nodiscard]] std::optional<std::vector<uint8_t>> ReadVerifiedCellBytes(const SourceDecl &decl,
+                                                                          GeoCellId cell) const;
   [[nodiscard]] static bool ValidKey(std::string_view key);
   [[nodiscard]] static std::optional<std::vector<uint8_t>> ReadEntry(const std::string &path,
                                                                      size_t limit);
