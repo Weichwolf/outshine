@@ -18,7 +18,8 @@ Flensburgs künstliche Wasserfälle und überflutete Gebäude bleiben reale Fehl
 
 ## Besitzer und nächste Lieferung
 `world/ground` hält finales Terrain sowie semantische WaterBody-Produkte mit Original-ID,
-Außen-/Innenringen und Pegelherkunft. Native WaterSurfaceBuilder/WaterDepth liefern
+Außen-/Innenringen und Pegelherkunft. WaterField ist derzeit tile-/OsmField-gebunden und liefert Surface-Ringe ohne globale
+WaterBody-Identität/Pegelherkunft. Diesen Vertrag ablösen. Native WaterSurfaceBuilder/WaterDepth liefern
 Flächen/Tiefen; Laying koordiniert Carving, Material und Publikation.
 Zuerst Flensburgs Originalküste und Pegel-/Terrainursache bis ins richtige Bild lösen.
 Den Abschlussvertrag offener Küsten und benötigter Nachbarzellen vor Implementierung

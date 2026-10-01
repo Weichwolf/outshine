@@ -24,6 +24,9 @@ bestehende Produktselektoren konsumieren dieselbe Eltern-/Kindhierarchie.
 2188 liefert den noch fehlenden öffentlichen Abstands-/Fehlervertrag; dessen übrige
 Erweiterungen sind kein zusätzlicher Blocker. Zuerst native Gebäude vor Geometrieerzeugung nach Entfernung/Fehler bündeln und die
 volle Rundumsicht eines dichten Places halten; globale Grobquellen anschließend belegen.
+Detailbedarf muss vor OriginalHeightCoverage liegen: entfernte Gebäude brauchen nicht
+den gleichen heightZoom und Terrainumfang wie Nahdetails. Produktpins halten native
+Semantik/Quellbelege, keine flächendeckenden feinen Zellarchive.
 Die weltweite Grobquelle ist noch kein fertiger Vertrag: ein kleinzelliger OSM-API-
 Katalog allein liefert keine schnelle Erdansicht. Erlaubte Originalübersichten,
 Quellenumfang und Lade-/Bytekosten nachweisen; keine heimliche vierte Quelle oder

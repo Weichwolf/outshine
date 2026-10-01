@@ -12,7 +12,8 @@ Tags: vision, webcam, sandbox
 ## Ergebnis und erster Meilenstein
 Die Welt wirkt vollständig, zusammenhängend und glaubwürdig. Zuerst nähere ich acht
 Places an reale Webcams über Tages-/Jahreszeiten und Wetter an. Danach wachsen daraus
-Spielersteuerung, Verkehr, Figuren, Interaktion und Audio. Regeln/Budgets stehen in
+physikalisch konsistente bewegliche Systeme, LLM-NPCs, JavaScript, HTML/CSS, Interaktion
+und Audio. GTA5/RDR2 prägen die Optik; technische Grenzen bestimmen den erreichbaren Look. Regeln/Budgets stehen in
 AGENTS.md; dieses Board beschreibt den Weg. RDR2/GTA5 sind Qualitätsmaßstäbe.
 
 | Place | foto-webcam.eu/webcam/ | Entscheidende Bildwirkung |
@@ -29,18 +30,19 @@ AGENTS.md; dieses Board beschreibt den Weg. RDR2/GTA5 sind Qualitätsmaßstäbe.
 ## Arbeitsweg nach Priorität
 | Phase | Lieferung | Kinder | Zusammenhang |
 |---|---|---|---|
-| P0 jetzt | Vollständige Welt aus Originaldaten, schnelle warme Starts | 2280 | Laufende Quellen-/Produktintegration abschließen |
-| P0 Reserve | Gemeinsamer Generator-Fehler-/Raumvertrag | 2188 | Fehlende Schnittstelle für 2336 und Wetter-Snapshot für 2172 liefern |
+| P0 jetzt | Gemeinsames Engine-Design und vollständige Originalwelt | 2188, 2280 | Verträge, paralleler Erwerb, begrenzte Ingestion und Residency gemeinsam liefern |
 | P0 | Ferndarstellung ohne Löcher oder Datenmengenexplosion | 2336 | Native Detailhierarchie begrenzt Arbeit vor Geometrie |
 | P0 | Richtige Straßen, Bauwerke, Gelände und Gewässer | 2281, 2173, 2145 | Vorhandene Formen erhalten, reale Geometriefehler beseitigen |
 | P1 | Lesbare Materialien, kohärentes Licht, Wetter und Himmel | 2171, 2155, 2172 | Mit vorhandenen Oberflächen liefern; kein Warten auf Vegetation |
 | P2 zuletzt | Vegetation vom Fernwald bis zum Grashalm | 2111 | Standortdaten und gemeinsame Detail-/Residency-Verträge |
-| P3 | Spielbare, bevölkerte Sandbox | 2136 | Visuelle Welt um Simulation und Interaktion ergänzen |
+| P3 | Physikalische, programmierbare und bevölkerte Sandbox | 2136 | Gemeinsame Physik/Commands für JS, UI, LLM-NPCs und bewegliche Systeme |
 
 ## Arbeitsfähige Reserve
-2280 ist das aktive Kind. Danach 2188s fehlende Verträge liefern; native Formen in
+2188 und 2280 sind aktiv: grundlegendes Design und die aktuelle Ladepipeline. Danach den
+Projektions-/Fehlervertrag in native Detailplanung überführen; native Formen in
 2173/2281 und Baustoffe 2171 können ihre vorhandenen Inputs unabhängig verwenden.
-2336/2145/2111/2136 brauchen noch benannte Architekturentscheidungen. Reihenfolge ist
+2336s globale Grobquelle und 2145s Küstenabschluss brauchen noch belegte Quellenverträge.
+2136 besitzt den Ausbau der gemeinsamen Physik und asynchronen NPC-Entscheidungen. Reihenfolge ist
 Priorität; `Depends` nennt nur den fehlenden konsumierten Vertrag, keine pauschale Gesamtabnahme.
 
 ## Abnahme und Zuständigkeit

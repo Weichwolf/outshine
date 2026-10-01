@@ -3,42 +3,59 @@ State: open
 Architecture: planned
 Priority: P3
 Parent: 2169
-Depends:
+Depends: 2188
 Area: gameplay, simulation, physics, audio, script, engine
-Tags: sandbox, agents, interaction
+Tags: sandbox, agents, interaction, llm, programmable-physics
 
-# The visual world becomes a playable and populated sandbox
+# One physical world supports players, LLM NPCs and scripts
 
-## Ergebnis und vorhandene Fähigkeit
-Spieler erkunden dieselbe prozedurale Welt zu Fuß, im Fahrzeug und im Flug; Verkehr,
-Figuren, Interaktion, räumliches Audio und persistenter Spielzustand machen sie zur Sandbox.
-Deklarative Szenarien, begrenzte Commands, starre Körper, importierte Animationen,
-UI-/Script- und Audiopfade bestehen; vollständige Kontakte, Bevölkerung und Spielablauf fehlen.
-Diese Phase folgt dem visuellen Meilenstein, vorhandene Fähigkeiten bleiben erhalten.
+## Ergebnis und belegter Iststand
+Spieler, LLM-NPCs, JavaScript und HTML/CSS-Oberflächen interagieren mit derselben
+weltweiten Sandbox. Konsistente Massen, Kräfte, Beschleunigungen und Gelenke erlauben
+unterschiedliche bewegliche Systeme; Fahrzeuge, Flugzeuge und Vegetation sind Beispiele,
+keine abgeschlossene Featureliste. Die visuelle Welt bleibt die erste Lieferung.
+Rigid/Wrench integrieren lineare und rotatorische Bewegung; Prismatic liefert Reaktionen.
+SimulationState::Integrate verwendet bisher nur Schwerkraft, keinen allgemeinen Weltkontakt.
+Script/ActionHostAdapter, Ui::Markup/Style/Layout, Commands, Audio und importierte
+Animationen bestehen. Ein vollständiger Kontakt-/Gelenkpfad und LLM-NPC-Entscheidungen fehlen.
 
-## Architektur und nächste Lieferung
-SimulationState verarbeitet deterministische feste Schritte und publiziert eigene
-Snapshots an Render/Audio. Programme/Host-Provider liefern begrenzte Commands/Events.
-Zuerst Spielerbewegung und verlässlichen Kontakt in einer vorhandenen Welt liefern;
-danach Fahrzeug-/Verkehrsfluss und Figuren. Verträge für Kontakte, Agent-Pose und
-Spielzustand vor Ausbau entscheiden; keine unbewiesene Architektur als `ready` erklären.
+## Besitzer und Architektur
+`physics` besitzt Körper, Kräfte, Kontakt-/Gelenklösung; actor/body fachlich dorthin migrieren.
+SimulationState besitzt festen Takt, Entities und Commands. 2188 liefert die gemeinsame
+Raum-/Command-/Snapshot-Grenze. Render/Audio konsumieren immutable Posen/Zustände.
+Script/UI/Host liefern Commands und Events, keine Objektzeiger oder eigene Physik.
+Vor Solver-Ausbau vorhandenen Kern und etablierte lokal verfügbare Kerne abgleichen;
+Kontakt-/Gelenkkern sowie Kosten entscheiden. Daher bleibt die Solverarchitektur `planned`.
 
-## Umsetzung und Invarianten
-- Logische OSM-Netze bleiben unabhängig von Render-LOD; Kontaktprodukte kommen aus
-  denselben nativen Bauwerken/Terrain. Körper treffen Boden, Wände, Brücken und Tunnel.
-- Spielersteuerung, Flug und Fahrzeuge verwenden die gemeinsame Raumreferenz.
-  Hockenheim-Runden werden spätere Integrationstests, kein Ersatz für Sandbox-Funktionen.
-- Bevölkerung/Verkehr deterministisch aus Standort/Nutzung/Zeit ableiten. Agenten als
-  kompakte Zustands-/Posezeilen, räumliche Aktivierung und begrenzte Update-/Animationsraten.
-  Entfernte Akteure erhalten logische Zustände statt vollständiger Simulation pro Objekt.
-- Verhalten als Programme/Zustandsautomaten; optionale Host-Antworten asynchron als
-  replaybare Events. Kein Frame wartet auf Netzwerk-/Modellantwort oder Audioarbeit.
-- Räumliches Audio, Occlusion und optionaler HRTF-Ausgang nutzen die tatsächliche Welt.
-  HTML/CSS/ECMAScript-Teilmenge und UI senden begrenzte Commands, besitzen keine Weltobjekte.
-- Spielzustand, Szenarien, Saves und Replay versionieren; begrenztes IO/atomarer Ersatz
-  erhält letzten vollständigen Stand. Bibliotheksnutzer steuern Inhalte über die öffentliche API.
+## Physik und bewegliche Systeme
+- SI-Einheiten, Masse/Trägheitsschwerpunkt und Orientierung explizit; Kraft/Angriffspunkt
+  erzeugen Beschleunigung/Drehmoment. Gemeinsamer Kontaktpfad für Terrain, Körper und Bauwerke.
+- Statische Kontaktgeometrie bleibt unabhängig von Render-LOD. Räumliche Broadphase,
+  Shape-Narrowphase und begrenzte Kontakt-/Gelenklösung erhalten stabile lokale Kontakte.
+  Gelenke tragen Grenzen, Motoren und Reaktionen; kein getrenntes Fahrzeug-Sonderphysiksystem.
+- Fester Takt mit begrenztem Aufholen; Impulse, Reibung, Restitution und schnelle Bewegung
+  konsistent lösen. Energie-/Impulserhaltung und dissipative Effekte unterscheiden.
+- Fahrzeugreifen, Aerodynamik, Auftrieb und Windlast sind Kraftmodelle auf denselben Körpern.
+  Vegetationsbiegung konsumiert Wind/Steifigkeit/Masse; Distanz begrenzt aktive Freiheitsgrade,
+  ohne sichtbare Form-/Bewegungssprünge. Keine vollständige Fernsimulation jedes Blattes.
 
-## Abnahme
-Ein kleiner deklarativer Spielablauf beweist Erkunden, Kontakt, Verkehr/Figur, Interaktion,
-Audio und Save/Replay in derselben Welt. Langlauf und Bewegung erhalten deterministischen
-Zustand, begrenzten Speicher und Renderbudget; keine zweite Demo-/Szenario-Engine.
+## LLM NPCs, JS und UI
+- LLMs erzeugen begrenzte Ziele, Dialog und Entscheidungen asynchron. Deterministische
+  lokale Steuerung führt sie über dieselben validierten Commands aus wie JS und UI.
+- Entity-/Tick-/Versionsbezug, begrenzte Queues und Antwortfristen; stale Antworten verwerfen.
+  Simulation wartet nicht. Modellkonfiguration gehört dem Host; keine Modellabhängigkeit im Physikkern.
+- Antworten als replaybare Events protokollieren. Spielzustand/Saves besitzen atomare,
+  versionierte Publikation. Replay fragt kein Modell erneut für aufgezeichnete Entscheidungen.
+- JS/HTML/CSS erhalten die dokumentierte Teilmenge. Kräfte, Impulse, Gelenkantriebe und
+  Interaktionen ändern die Welt über physikalische Regeln, nicht direkte Renderpose-Manipulation.
+- Navigation konsumiert logische OSM-Netze. Räumliche Aktivierung, begrenzte Entscheidungs-
+  und Animationsraten; entfernte Akteure bleiben kompakter Spielzustand.
+- Audio/Occlusion und Animation verwenden dieselben Weltkontakte/Posen. Hockenheim-Runden
+  sind spätere Integrationen, keine Voraussetzung der allgemeinen Sandbox.
+
+## Nächste Lieferung und Abnahme
+Nach dem visuellen Meilenstein: allgemeiner Körper-/Weltkontakt und ein Gelenkantrieb,
+dann ein durch JS und aufgezeichnete LLM-Events steuerbarer NPC im bestehenden Place.
+Kontakt und Bewegung folgen Massen/Kräften; Straßen/Brücken und Terrain stimmen überein.
+Spieler, Script, NPC, Audio und Save/Replay laufen in derselben Welt ohne zweite Demo-Engine.
+Das gemeinsame Render-/Speicherbudget bleibt verbindlich; keine Detailklasse erhält einen Freibrief.

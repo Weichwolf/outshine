@@ -18,7 +18,9 @@ komplexe Anschlüsse und Ebenen sind noch nicht vollständig angeschlossen.
 
 ## Nächste Lieferung und Besitzer
 `world/transport` hält das logische Netz unabhängig von Rendergeometrie. Original-
-Zell-Snapshots liefern IDs/Tags und vollständige konsumierte Referenzen. Bestehende
+Zell-Snapshots liefern IDs/Tags und vollständige konsumierte Referenzen. Native
+Straßen-/Kontakte konsumieren anschließend semantische Produkte und Quellbelege;
+vollständige Roh-Snapshots nicht allein wegen einer Renderinstanz dauerhaft pinnen. Bestehende
 RoadAlignmentBuildQueue und `generators/road` erzeugen Profile und native Produkte;
 `Laying` koordiniert Terrainkontakt und atomare Publikation. Den vorhandenen regionalen
 Anschluss auf allgemeine Originalstraßen erweitern, ohne ausschließlich deklarierte Routen.

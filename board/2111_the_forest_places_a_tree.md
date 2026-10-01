@@ -21,6 +21,8 @@ Original-OSM-Landcover/Baumdaten und Terrain/Wetter liefern Standortparameter.
 Bestehende Generatoren/Prototypen wiederverwenden; VegetationStreaming koordiniert
 begrenzte native Produkte und ForestDraw die Instanzen. Zuerst einen geeigneten Place
 mit vorhandener Art und echter Nah-/Mittelgeometrie statt Kronenkarten verbessern.
+Renderinstanzen, prozedurale Form und spätere physikalische Windbiegung teilen
+Standort/Identität und 2172s Wind; 2136 besitzt die allgemeine physikalische Wirkung.
 2336 muss den gemeinsamen Eltern-/Kind- und Fehler-/Residency-Vertrag bereitstellen;
 fehlende Vertragsfähigkeit, nicht eine feste Klassenquote, ist der technische Blocker.
 

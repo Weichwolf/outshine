@@ -17,7 +17,9 @@ nicht vollständig; Fassaden wirken repetitiv. Rosenheims Schornsteine sind kein
 
 ## Nächste Lieferung und Besitzer
 OsmBuildingFootprints/OsmBuildingHeights normalisieren Formen und Einheiten.
-StructurePlan/StructureBake/BuildingMesh konsumieren gepinnte Original-IDs und Tags.
+StructureBake/BuildingMesh konsumieren gepinnte Original-IDs und Tags. Native
+Footprints/Höhen und Nahdetails müssen denselben öffentlichen Produktvertrag aus 2188
+nutzen; Abstand/Fehler vor Terrain- und Detailarbeit auswerten.
 Zuerst Sonderbauwerksklasse und Dachform im nativen Rosenheim-/Flensburg-Bild liefern;
 danach zusammenhängende Straßenfront, Eingang und räumliche Fenster an Nahgebäuden.
 Bestehende Queue/Publikation verwenden; kein MVT-Zwischenformat oder Ortsmodell.

@@ -17,7 +17,9 @@ Wolkenrenderer und kohärenter Materialzustand fehlen. Himmel umfasst häufig 1/
 des Bildes; Wolken sind eine zentrale Lieferung, kein später Restbudget-Effekt.
 
 ## Nächste Lieferung und Besitzer
-`world/weather/WeatherProvider` liefert einen validierten UTC-/Orts-/Höhen-Snapshot.
+`world/weather/WeatherProvider` ist derzeit ein internes Abfrageinterface ohne UTC,
+Gültigkeit und Herkunft. Durch den öffentlichen Snapshot aus 2188 ersetzen; keine
+zweite parallele Wetterwelt.
 2188 liefert den noch fehlenden öffentlichen Wetter-Snapshotvertrag.
 Open-Meteo nutzt öffentliche Provider-/IO-/Quellcache-Verträge; fehlende/alte Werte
 bleiben sichtbar. Zuerst Snapshot und eine begrenzte Wolkenschicht samt Weltlicht anbinden.
