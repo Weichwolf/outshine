@@ -688,6 +688,9 @@ private:
   RenderFrameTiming LastRenderFrameTiming_;
   RenderFrameTiming WorstRenderFrameTiming_;
 
+  void CreateSampler(FrameResources &frame, Resource resource);
+  void CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, Resource resource);
+  void CommitSubmittedFrame(StageSubmission &stageSubmission);
   void Create(FrameResources &frame, const Compiled &plan, Resource resource);
   [[nodiscard]] static bool Created(const FrameResources &frame, Resource resource);
   [[nodiscard]] bool Configure(Stage stage,

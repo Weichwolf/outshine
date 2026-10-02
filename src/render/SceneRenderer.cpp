@@ -462,6 +462,56 @@ bool SceneRenderer::ConfigurePlanStages(FrameResources &frame,
   return true;
 }
 
+void SceneRenderer::CreateSampler(FrameResources &frame, Resource resource) {
+  SDL_GPUSamplerCreateInfo wanted{};
+  wanted.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+  wanted.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+  wanted.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+  wanted.min_filter = SDL_GPU_FILTER_LINEAR;
+  wanted.mag_filter = SDL_GPU_FILTER_LINEAR;
+  wanted.mipmap_mode = resource == Resource::LinearSampler ? SDL_GPU_SAMPLERMIPMAPMODE_LINEAR
+                                                           : SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+  OwnedSampler &into = resource == Resource::LinearSampler ? frame.Samp : frame.LutSamp;
+  into = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
+}
+
+void SceneRenderer::CreateAtmosphereLut(FrameResources &frame,
+                                        const Compiled &plan,
+                                        Resource resource) {
+  SDL_GPUTextureCreateInfo wanted{};
+  wanted.type = SDL_GPU_TEXTURETYPE_2D;
+  wanted.format = FormatOf(plan.Format(resource));
+  wanted.usage = SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+
+  struct LutShape {
+    uint32_t WidthPx;
+    uint32_t HeightPx;
+    OwnedTexture *Into;
+  };
+
+  const LutShape shape = [&frame, resource] -> LutShape {
+    switch (resource) {
+      case Resource::MultiScatterLut:
+        return {.WidthPx = kMultiScatterLutSize,
+                .HeightPx = kMultiScatterLutSize,
+                .Into = &frame.MultiScatterLut};
+      case Resource::SkyViewLut:
+        return {
+            .WidthPx = kSkyViewLutWidth, .HeightPx = kSkyViewLutHeight, .Into = &frame.SkyViewLut};
+      default:
+        return {.WidthPx = kTransmittanceLutWidth,
+                .HeightPx = kTransmittanceLutHeight,
+                .Into = &frame.TransmittanceLut};
+    }
+  }();
+  wanted.width = shape.WidthPx;
+  wanted.height = shape.HeightPx;
+  wanted.layer_count_or_depth = 1;
+  wanted.num_levels = 1;
+  wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
+  *shape.Into = OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
+}
+
 void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource resource) {
   const auto target = [&](Resource of, SDL_GPUTextureUsageFlags usage) {
     SDL_GPUTextureCreateInfo wanted{};
@@ -479,17 +529,8 @@ void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource
       SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
 
   switch (resource) {
-    case Resource::LinearSampler: {
-      SDL_GPUSamplerCreateInfo wanted{};
-      wanted.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-      wanted.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-      wanted.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-      wanted.min_filter = SDL_GPU_FILTER_LINEAR;
-      wanted.mag_filter = SDL_GPU_FILTER_LINEAR;
-      wanted.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-      frame.Samp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
-      return;
-    }
+    case Resource::LinearSampler:
+    case Resource::LutSampler: CreateSampler(frame, resource); return;
 
     case Resource::OverlayAtlas: return;
     case Resource::SceneHdr: frame.HdrTex = target(resource, colour); return;
@@ -520,50 +561,7 @@ void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource
     case Resource::TransmittanceLut:
     case Resource::MultiScatterLut:
     case Resource::SkyViewLut: {
-      SDL_GPUTextureCreateInfo wanted{};
-      wanted.type = SDL_GPU_TEXTURETYPE_2D;
-      wanted.format = FormatOf(plan.Format(resource));
-      wanted.usage = SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-
-      struct LutShape {
-        uint32_t WidthPx;
-        uint32_t HeightPx;
-        OwnedTexture *Into;
-      };
-
-      const LutShape shape = [&frame, resource] -> LutShape {
-        switch (resource) {
-          case Resource::MultiScatterLut:
-            return {.WidthPx = kMultiScatterLutSize,
-                    .HeightPx = kMultiScatterLutSize,
-                    .Into = &frame.MultiScatterLut};
-          case Resource::SkyViewLut:
-            return {.WidthPx = kSkyViewLutWidth,
-                    .HeightPx = kSkyViewLutHeight,
-                    .Into = &frame.SkyViewLut};
-          default:
-            return {.WidthPx = kTransmittanceLutWidth,
-                    .HeightPx = kTransmittanceLutHeight,
-                    .Into = &frame.TransmittanceLut};
-        }
-      }();
-      wanted.width = shape.WidthPx;
-      wanted.height = shape.HeightPx;
-      wanted.layer_count_or_depth = 1;
-      wanted.num_levels = 1;
-      wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
-      *shape.Into = OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
-      return;
-    }
-    case Resource::LutSampler: {
-      SDL_GPUSamplerCreateInfo wanted{};
-      wanted.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-      wanted.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-      wanted.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-      wanted.min_filter = SDL_GPU_FILTER_LINEAR;
-      wanted.mag_filter = SDL_GPU_FILTER_LINEAR;
-      wanted.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-      frame.LutSamp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
+      CreateAtmosphereLut(frame, plan, resource);
       return;
     }
     case Resource::AtmosphereUniform:
@@ -1555,6 +1553,23 @@ std::expected<void, std::string> SceneRenderer::RenderFrame() {
   return RenderPublishedFrame();
 }
 
+void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission) {
+  ActiveState().Content.Subjects.CommitCrossings();
+  if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
+  stageSubmission.Commit();
+  LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
+  for (int axis = 0; axis < 3; axis++) {
+    ActiveState().PrevEye[axis] = ActiveState().Camera.EyeM[axis];
+  }
+  ActiveState().Content.Subjects.CarryFrame();
+  ActiveState().Content.Glass.CarryFrame();
+
+  ActiveState().PrevMvp = Through().ViewProjection(ActiveState().Camera);
+  ActiveState().Submitted = true;
+  LastSubmittedCamera_.Basis = ActiveState().Camera;
+  ++LastSubmittedCamera_.Serial;
+}
+
 std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   const auto began = std::chrono::steady_clock::now();
   auto phaseBegan = began;
@@ -1659,20 +1674,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     return std::unexpected(std::move(error));
   }
   record(RenderFramePhase::Submit);
-  ActiveState().Content.Subjects.CommitCrossings();
-  if (ActiveState().Content.DrawsGlass) { ActiveState().Content.Glass.CommitCrossings(); }
-  stageSubmission.Commit();
-  LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
-  for (int axis = 0; axis < 3; axis++) {
-    ActiveState().PrevEye[axis] = ActiveState().Camera.EyeM[axis];
-  }
-  ActiveState().Content.Subjects.CarryFrame();
-  ActiveState().Content.Glass.CarryFrame();
-
-  ActiveState().PrevMvp = Through().ViewProjection(ActiveState().Camera);
-  ActiveState().Submitted = true;
-  LastSubmittedCamera_.Basis = ActiveState().Camera;
-  ++LastSubmittedCamera_.Serial;
+  CommitSubmittedFrame(stageSubmission);
   record(RenderFramePhase::Finish);
   timing.TotalMs = std::chrono::duration<double, std::milli>(phaseBegan - began).count();
   LastRenderFrameTiming_ = timing;
