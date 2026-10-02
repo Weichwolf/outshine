@@ -17,6 +17,7 @@ struct ProjectedErrorBudget {
   /// @param minimumDistanceM Finite positive distance estimate in metres for the candidate bounds.
   /// Invalid inputs and positive errors that underflow the estimate are rejected conservatively.
   /// The caller owns both estimates; acceptance does not prove their correctness or visibility.
+  /// @return True for validated zero displacement or a finite estimate within the allowance.
   [[nodiscard]] constexpr bool Allows(double errorM, double minimumDistanceM) const noexcept {
     if (!std::isfinite(errorM) || errorM < 0.0 || !std::isfinite(FocalPx) || !(FocalPx > 0.0) ||
         !std::isfinite(AllowedErrorPx) || AllowedErrorPx < 0.0 ||
@@ -32,6 +33,7 @@ struct ProjectedErrorBudget {
   }
 
   /// Compare every quality input; changing the allowance invalidates dependent detail products.
+  /// @return True if the focal length and pixel allowance match exactly.
   [[nodiscard]] constexpr bool operator==(const ProjectedErrorBudget &) const noexcept = default;
 };
 
