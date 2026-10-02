@@ -304,6 +304,16 @@ private:
     return pass == Pass::Designing ? "designing" : "paving";
   }
 
+  void PaveLanes(const Paving &on,
+                 Paved &into,
+                 std::vector<EarthworkStamp> &corridor,
+                 RoadMeshBuffers &pavement,
+                 std::chrono::steady_clock::time_point &tookFrom) const;
+  void RaiseJunctionsAndRecordRoadMeasurements(const Site &site,
+                                               int waterRow,
+                                               Paved &into,
+                                               RoadMeshBuffers &pavement) const;
+
   void PaveLane(const Paving &on,
                 Pass pass,
                 size_t laneAt,

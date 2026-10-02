@@ -1406,6 +1406,144 @@ Corridors::SharedNodesOf(const outshine::Ground::StreetField &ways,
   return shared;
 }
 
+void Corridors::PaveLanes(const Paving &on,
+                          Paved &into,
+                          std::vector<EarthworkStamp> &corridor,
+                          RoadMeshBuffers &pavement,
+                          std::chrono::steady_clock::time_point &tookFrom) const {
+  const auto since = [&tookFrom] {
+    const auto was = tookFrom;
+    tookFrom = std::chrono::steady_clock::now();
+    return std::chrono::duration<double, std::milli>(tookFrom - was).count();
+  };
+  static const Heap::Tag kPavingHeapTag("road-pave");
+  const Heap::Tagged pavingHeap(kPavingHeapTag);
+  for (const Pass pass : {Pass::Designing, Pass::Paving}) {
+    const std::string_view doing = Doing(pass);
+    for (size_t laneAt = 0; laneAt < on.Ways.Ways().size(); ++laneAt) {
+      PaveLane(on, pass, laneAt, into, corridor, pavement);
+    }
+    Notes(into, std::format("streets: of that, {} every lane", doing), since(), "ms");
+    Notes(into, std::format("streets: of {}, the fit", doing), into.FitMs, "ms");
+    Notes(into, std::format("streets: of {}, the water", doing), into.WaterMs, "ms");
+    Notes(into, std::format("streets: of {}, the sweep", doing), into.SweepMs, "ms");
+    Notes(into, std::format("streets: of {}, the yields", doing), into.YieldsMs, "ms");
+    Notes(into,
+          std::format("streets: of {}, stations paved", doing),
+          static_cast<double>(into.EdgeStations),
+          "stations");
+    into.FitMs = 0.0;
+    into.WaterMs = 0.0;
+    into.SweepMs = 0.0;
+    if (pass == Pass::Designing) {
+      SplitsEdges(into);
+      ShapesJunctions(on, into);
+      corridor.insert(corridor.end(),
+                      std::make_move_iterator(into.UnderJunctions.begin()),
+                      std::make_move_iterator(into.UnderJunctions.end()));
+      into.UnderJunctions.clear();
+      Notes(into,
+            "streets: edges the ways split into",
+            static_cast<double>(into.Edges.size()),
+            "edges");
+      Notes(into,
+            "streets: junctions shaped",
+            static_cast<double>(into.Junctions.size()),
+            "junctions");
+      Notes(into,
+            "streets: nodes where a way continues",
+            static_cast<double>(into.Continuations),
+            "nodes");
+      Notes(into,
+            "streets: ways under a pixel wide, left to the ground",
+            static_cast<double>(into.UnseenWays),
+            "ways");
+      Notes(into,
+            "streets: legs cut back to a junction's rim",
+            static_cast<double>(into.LegsCut),
+            "legs");
+      Notes(into, "streets: and the deepest cut", into.DeepestCutM, "m");
+      Notes(into, "streets: and the steepest junction plane", into.SteepestJunction, "m/m");
+      Notes(into,
+            "streets: junctions held to the steepest paved grade",
+            static_cast<double>(into.JunctionsLevelled),
+            "junctions");
+      Notes(into, "streets: of that, shaping the junctions", since(), "ms");
+    }
+  }
+}
+
+void Corridors::RaiseJunctionsAndRecordRoadMeasurements(const Site &site,
+                                                        int waterRow,
+                                                        Paved &into,
+                                                        RoadMeshBuffers &pavement) const {
+  const auto &ways = site.Ways;
+  const auto &classStructure = site.Classes;
+  Notes(into,
+        "streets: stations under a bridge asked",
+        static_cast<double>(into.AskedOverBridge),
+        "stations");
+  Notes(into,
+        "streets: of those a class named",
+        static_cast<double>(into.NamedOverBridge),
+        "stations");
+  Notes(into, "streets: and of those, water", static_cast<double>(into.WetOverBridge), "stations");
+  Notes(into, "streets: the water class the table names", static_cast<double>(waterRow), "index");
+  Notes(into, "streets: a class structure stood", classStructure ? 1.0 : 0.0, "yes/no");
+  Notes(
+      into, "streets: decks a WATERWAY raised", static_cast<double>(into.DecksOverWater), "decks");
+  Notes(into, "streets: and the clearance the widest one took", into.MostOverWaterM, "m");
+  Notes(into,
+        "streets: stations an approach ramp moved",
+        static_cast<double>(into.RampStations),
+        "stations");
+  Notes(into, "streets: and the longest approach", into.LongestRampM, "m");
+  Notes(into, "streets: and the most a rim lifted a road", into.MostLiftedM, "m");
+  const auto junctionsAt = std::chrono::steady_clock::now();
+  Notes(into,
+        "streets: junction bodies raised",
+        static_cast<double>(RaisesTheJunctionBodies(into, pavement)),
+        "junctions");
+  Notes(into,
+        "streets: of that, raising the junction bodies",
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - junctionsAt)
+            .count(),
+        "ms");
+  TellsWhatTheFitFound(into);
+  Notes(into,
+        "streets: ways laid as ribbons, all of them FLOATING",
+        static_cast<double>(into.LaidWays),
+        "ways");
+  Notes(into,
+        "streets: ways the GROUND carries instead",
+        static_cast<double>(into.GroundWays),
+        "ways");
+  Notes(into, "streets: ways the field holds", static_cast<double>(ways.Ways().size()), "ways");
+  Notes(into,
+        "streets: features it walked at all",
+        static_cast<double>(ways.LookedCount()),
+        "features");
+  Notes(into,
+        "streets: features no rule named",
+        static_cast<double>(ways.UnruledCount()),
+        "features");
+  Notes(into,
+        "streets: features a rule gave no width",
+        static_cast<double>(ways.UnwidthedCount()),
+        "features");
+  Notes(into,
+        "streets: features that are tunnels",
+        static_cast<double>(ways.TunnelCount()),
+        "features");
+  Notes(into, "streets: ways OSM calls a bridge", static_cast<double>(ways.BridgeCount()), "ways");
+  Notes(into, "streets: ways that state a layer", static_cast<double>(ways.LayeredCount()), "ways");
+  Notes(into,
+        "streets: ways whose layer is a STRING",
+        static_cast<double>(ways.LayerSaidCount()),
+        "ways");
+  Notes(into, "streets: ways it refused", static_cast<double>(into.RefusedWays), "ways");
+}
+
 bool Corridors::Lay(const Site &site,
                     Geometry &ground,
                     std::vector<EarthworkStamp> &corridor,
@@ -1485,127 +1623,8 @@ bool Corridors::Lay(const Site &site,
   Notes(into, "streets: decks a crossing raised", static_cast<double>(into.DecksRaised), "decks");
   Notes(into, "streets: and the most one stands over what it crosses", into.MostRaisedM, "m");
   Notes(into, "streets: of that, raising the decks", since(), "ms");
-  if (paving) {
-    const Paving &on = *paving;
-    static const Heap::Tag kPavingHeapTag("road-pave");
-    const Heap::Tagged pavingHeap(kPavingHeapTag);
-    for (const Pass pass : {Pass::Designing, Pass::Paving}) {
-      const std::string_view doing = Doing(pass);
-      for (size_t laneAt = 0; laneAt < ways.Ways().size(); ++laneAt) {
-        PaveLane(on, pass, laneAt, into, corridor, pavement);
-      }
-      Notes(into, std::format("streets: of that, {} every lane", doing), since(), "ms");
-      Notes(into, std::format("streets: of {}, the fit", doing), into.FitMs, "ms");
-      Notes(into, std::format("streets: of {}, the water", doing), into.WaterMs, "ms");
-      Notes(into, std::format("streets: of {}, the sweep", doing), into.SweepMs, "ms");
-      Notes(into, std::format("streets: of {}, the yields", doing), into.YieldsMs, "ms");
-      Notes(into,
-            std::format("streets: of {}, stations paved", doing),
-            static_cast<double>(into.EdgeStations),
-            "stations");
-      into.FitMs = 0.0;
-      into.WaterMs = 0.0;
-      into.SweepMs = 0.0;
-      if (pass == Pass::Designing) {
-        SplitsEdges(into);
-        ShapesJunctions(on, into);
-        corridor.insert(corridor.end(),
-                        std::make_move_iterator(into.UnderJunctions.begin()),
-                        std::make_move_iterator(into.UnderJunctions.end()));
-        into.UnderJunctions.clear();
-        Notes(into,
-              "streets: edges the ways split into",
-              static_cast<double>(into.Edges.size()),
-              "edges");
-        Notes(into,
-              "streets: junctions shaped",
-              static_cast<double>(into.Junctions.size()),
-              "junctions");
-        Notes(into,
-              "streets: nodes where a way continues",
-              static_cast<double>(into.Continuations),
-              "nodes");
-        Notes(into,
-              "streets: ways under a pixel wide, left to the ground",
-              static_cast<double>(into.UnseenWays),
-              "ways");
-        Notes(into,
-              "streets: legs cut back to a junction's rim",
-              static_cast<double>(into.LegsCut),
-              "legs");
-        Notes(into, "streets: and the deepest cut", into.DeepestCutM, "m");
-        Notes(into, "streets: and the steepest junction plane", into.SteepestJunction, "m/m");
-        Notes(into,
-              "streets: junctions held to the steepest paved grade",
-              static_cast<double>(into.JunctionsLevelled),
-              "junctions");
-        Notes(into, "streets: of that, shaping the junctions", since(), "ms");
-      }
-    }
-  }
-  Notes(into,
-        "streets: stations under a bridge asked",
-        static_cast<double>(into.AskedOverBridge),
-        "stations");
-  Notes(into,
-        "streets: of those a class named",
-        static_cast<double>(into.NamedOverBridge),
-        "stations");
-  Notes(into, "streets: and of those, water", static_cast<double>(into.WetOverBridge), "stations");
-  Notes(into, "streets: the water class the table names", static_cast<double>(waterRow), "index");
-  Notes(into, "streets: a class structure stood", classStructure ? 1.0 : 0.0, "yes/no");
-  Notes(
-      into, "streets: decks a WATERWAY raised", static_cast<double>(into.DecksOverWater), "decks");
-  Notes(into, "streets: and the clearance the widest one took", into.MostOverWaterM, "m");
-  Notes(into,
-        "streets: stations an approach ramp moved",
-        static_cast<double>(into.RampStations),
-        "stations");
-  Notes(into, "streets: and the longest approach", into.LongestRampM, "m");
-  Notes(into, "streets: and the most a rim lifted a road", into.MostLiftedM, "m");
-  const auto junctionsAt = std::chrono::steady_clock::now();
-  Notes(into,
-        "streets: junction bodies raised",
-        static_cast<double>(RaisesTheJunctionBodies(into, pavement)),
-        "junctions");
-  Notes(into,
-        "streets: of that, raising the junction bodies",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - junctionsAt)
-            .count(),
-        "ms");
-  TellsWhatTheFitFound(into);
-  Notes(into,
-        "streets: ways laid as ribbons, all of them FLOATING",
-        static_cast<double>(into.LaidWays),
-        "ways");
-  Notes(into,
-        "streets: ways the GROUND carries instead",
-        static_cast<double>(into.GroundWays),
-        "ways");
-  Notes(into, "streets: ways the field holds", static_cast<double>(ways.Ways().size()), "ways");
-  Notes(into,
-        "streets: features it walked at all",
-        static_cast<double>(ways.LookedCount()),
-        "features");
-  Notes(into,
-        "streets: features no rule named",
-        static_cast<double>(ways.UnruledCount()),
-        "features");
-  Notes(into,
-        "streets: features a rule gave no width",
-        static_cast<double>(ways.UnwidthedCount()),
-        "features");
-  Notes(into,
-        "streets: features that are tunnels",
-        static_cast<double>(ways.TunnelCount()),
-        "features");
-  Notes(into, "streets: ways OSM calls a bridge", static_cast<double>(ways.BridgeCount()), "ways");
-  Notes(into, "streets: ways that state a layer", static_cast<double>(ways.LayeredCount()), "ways");
-  Notes(into,
-        "streets: ways whose layer is a STRING",
-        static_cast<double>(ways.LayerSaidCount()),
-        "ways");
-  Notes(into, "streets: ways it refused", static_cast<double>(into.RefusedWays), "ways");
+  if (paving) { PaveLanes(*paving, into, corridor, pavement, tookFrom); }
+  RaiseJunctionsAndRecordRoadMeasurements(site, waterRow, into, pavement);
   const size_t pavedTriangles = pavement.Index.size() / 3;
   Notes(into, "streets: triangles", static_cast<double>(pavedTriangles), "triangles");
   const auto handingAt = std::chrono::steady_clock::now();
