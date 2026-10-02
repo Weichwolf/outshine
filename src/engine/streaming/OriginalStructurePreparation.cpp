@@ -20,6 +20,7 @@
 #include <utility>
 #include <tuple>
 #include <vector>
+#include <variant>
 
 namespace outshine {
 namespace {
@@ -97,49 +98,11 @@ OriginalHeightCoverage(const Generators::RawTile &raw, int zoom, const std::stop
 }
 
 std::expected<Generators::RawTile, std::string>
-PrepareOriginal(const std::shared_ptr<const Data::OsmSourceSnapshot> &source,
-                outshine::Generators::Osm::StructurePolicy policy,
-                const std::stop_token &stop) {
-  if (!source || source->Coverage.empty()) {
-    return std::unexpected("original buildings require declared source coverage");
-  }
-  if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
-  auto buildings = outshine::Generators::Osm::BuildingFootprints::Build(source, policy.PointsMost);
-  if (!buildings) {
-    return std::unexpected("original building footprint failed at object " +
-                           std::to_string(buildings.error().Source.Id) + " with code " +
-                           std::to_string(static_cast<int>(buildings.error().Code)));
-  }
-  Data::SourceCoverage bounds = source->Coverage.front();
-  for (const auto &coverage : source->Coverage) {
-    bounds.WestDeg = std::min(bounds.WestDeg, coverage.WestDeg);
-    bounds.SouthDeg = std::min(bounds.SouthDeg, coverage.SouthDeg);
-    bounds.EastDeg = std::max(bounds.EastDeg, coverage.EastDeg);
-    bounds.NorthDeg = std::max(bounds.NorthDeg, coverage.NorthDeg);
-  }
-  const auto points = buildings->Points();
-  for (size_t point = 0; point < points.size(); point += 2u) {
-    const auto at =
-        TangentFrame::At({.LongitudeDeg = points[point + 1u], .LatitudeDeg = points[point]});
-    const double half = policy.PointWidthM / 2.0;
-    const auto low = at.ApproximateGeographicAt({.EastM = -half, .NorthM = -half});
-    const auto high = at.ApproximateGeographicAt({.EastM = half, .NorthM = half});
-    bounds.WestDeg = std::min(bounds.WestDeg, low.LongitudeDeg);
-    bounds.SouthDeg = std::min(bounds.SouthDeg, low.LatitudeDeg);
-    bounds.EastDeg = std::max(bounds.EastDeg, high.LongitudeDeg);
-    bounds.NorthDeg = std::max(bounds.NorthDeg, high.LatitudeDeg);
-  }
-  if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
-  auto described =
-      outshine::Generators::Osm::DescribeStructures(*buildings, source, {.Bounds = bounds}, policy);
-  if (!described) {
-    return std::unexpected("original building input failed with code " +
-                           std::to_string(static_cast<int>(described.error())));
-  }
-  auto raw = Generators::StructureInput(std::move(described->Footprints));
+NativeInput(Generators::Osm::StructureDescription described, std::weak_ptr<const void> archive) {
+  auto raw = Generators::StructureInput(std::move(described.Footprints));
   if (!raw) { return std::unexpected("native building footprints have an invalid cell"); }
-  raw->SourceInputs.Objects = std::move(described->Source);
-  raw->SourceInputs.Archive = std::move(described->Archive);
+  raw->SourceInputs.Objects = std::move(described.Source);
+  raw->SourceInputs.Archive = std::move(archive);
   return std::move(*raw);
 }
 
@@ -213,23 +176,54 @@ void RecordConsumedWays(const Generators::RawTile &raw, std::set<uint64_t> &cons
   }
 }
 
-std::expected<std::vector<OriginalStructurePreparation::Product>, std::string>
-PrepareProducts(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-                outshine::Generators::Osm::StructurePolicy policy,
-                int heightZoom,
-                const std::stop_token &stop) {
+std::expected<std::vector<Generators::RawTile>, std::string>
+PrepareInputs(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+              Generators::Osm::StructurePolicy policy,
+              const std::stop_token &stop) {
   if (auto checked = VerifySources(sources, stop); !checked) {
     return std::unexpected(std::move(checked.error()));
   }
   std::vector<Generators::RawTile> inputs;
   inputs.reserve(sources.size());
-  std::set<uint64_t> consumedWays;
   for (const auto &source : sources) {
-    auto raw = PrepareOriginal(source, policy, stop);
+    auto description = Generators::Osm::PrepareStructureCell(source, policy, stop);
+    if (!description) { return std::unexpected(std::move(description.error())); }
+    auto raw = NativeInput(std::move(*description), source);
     if (!raw) { return std::unexpected(std::move(raw.error())); }
-    RecordConsumedWays(*raw, consumedWays);
     inputs.push_back(std::move(*raw));
   }
+  return inputs;
+}
+
+std::expected<std::vector<Generators::RawTile>, std::string>
+PrepareInputs(std::span<const std::shared_ptr<const Generators::Osm::StructureCell>> cells,
+              [[maybe_unused]] Generators::Osm::StructurePolicy policy,
+              const std::stop_token &stop) {
+  if (auto checked = Generators::Osm::VerifyStructureCells(cells, stop); !checked) {
+    return std::unexpected(std::move(checked.error()));
+  }
+  std::vector<Generators::RawTile> inputs;
+  inputs.reserve(cells.size());
+  for (const auto &cell : cells) {
+    if (stop.stop_requested()) { return std::unexpected("native building preparation canceled"); }
+    auto raw = NativeInput(cell->Description, cell);
+    if (!raw) { return std::unexpected(std::move(raw.error())); }
+    inputs.push_back(std::move(*raw));
+  }
+  return inputs;
+}
+
+std::expected<std::vector<OriginalStructurePreparation::Product>, std::string>
+PrepareProducts(const OriginalStructurePreparation::Inputs &sources,
+                Generators::Osm::StructurePolicy policy,
+                int heightZoom,
+                const std::stop_token &stop) {
+  auto prepared = std::visit(
+      [&](const auto &input) { return PrepareInputs(std::span(input), policy, stop); }, sources);
+  if (!prepared) { return std::unexpected(std::move(prepared.error())); }
+  auto inputs = std::move(*prepared);
+  std::set<uint64_t> consumedWays;
+  for (const auto &raw : inputs) { RecordConsumedWays(raw, consumedWays); }
   std::set<std::pair<uint8_t, uint64_t>> owned;
   std::vector<OriginalStructurePreparation::Product> products;
   products.reserve(inputs.size());
@@ -262,12 +256,9 @@ PrepareProducts(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> 
 }
 
 OriginalStructurePreparation::OriginalStructurePreparation(
-    Tasks &pool,
-    std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-    outshine::Generators::Osm::StructurePolicy policy,
-    int heightZoom)
+    Tasks &pool, Inputs inputs, outshine::Generators::Osm::StructurePolicy policy, int heightZoom)
     : Pool_(&pool), Output_(std::make_shared<Output>()) {
-  Handle_ = pool.Post([sources = std::vector(sources.begin(), sources.end()),
+  Handle_ = pool.Post([sources = std::move(inputs),
                        policy,
                        heightZoom,
                        output = Output_,

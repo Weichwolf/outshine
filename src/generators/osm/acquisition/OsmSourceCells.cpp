@@ -124,15 +124,11 @@ std::expected<void, std::string> SourceAcquisition::Cells::Stage(std::vector<Cel
   std::vector<size_t> positions;
   positions.reserve(ready.size());
   for (const auto &entry : ready) {
-    if (!entry.Snapshot) {
+    if ((!entry.Snapshot && !entry.Product) || (entry.Snapshot && entry.Product)) {
       return std::unexpected("original OSM cell result does not belong to current demand");
     }
-    const auto cell = entry.Snapshot->Cell;
-    if (!cell) {
-      return std::unexpected("original OSM cell result does not belong to current demand");
-    }
-    const auto at = std::ranges::find(Wanted, *cell);
-    if (at == Wanted.end()) {
+    const auto at = std::ranges::lower_bound(Wanted, entry.Address, Before);
+    if (at == Wanted.end() || *at != entry.Address) {
       return std::unexpected("original OSM cell result does not belong to current demand");
     }
     positions.push_back(static_cast<size_t>(at - Wanted.begin()));
@@ -146,7 +142,9 @@ std::expected<void, std::string> SourceAcquisition::Cells::Stage(std::vector<Cel
     entry.Address = Wanted[positions[index]];
     entry.State = CellState::Validated;
     if (Destination == Target::Inputs) {
-      Tracked.push_back({.Snapshot = entry.Snapshot, .ChargedBytes = entry.ChargedBytes});
+      Tracked.push_back({.Snapshot = entry.Snapshot ? std::shared_ptr<const void>(entry.Snapshot)
+                                                    : std::shared_ptr<const void>(entry.Product),
+                         .ChargedBytes = entry.ChargedBytes});
     } else {
       entry.Snapshot.reset();
       entry.ChargedBytes = 0;
@@ -184,6 +182,9 @@ SourceAcquisition::RequestCells(const Data::SourceProvider &provider,
                                 CellLimits limits,
                                 std::string_view root,
                                 const Data::ProviderRegistry *registry) {
+  if (Target_ == Target::Cache && Compiler_) {
+    return std::unexpected("source cache preparation cannot own a cell compiler");
+  }
   if (Target_ == Target::Cache && Access_->Directory.empty()) {
     return std::unexpected("OSM cache preparation requires a persistent source cache directory");
   }

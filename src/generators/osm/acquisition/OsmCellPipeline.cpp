@@ -182,10 +182,7 @@ void SourceAcquisition::ConsumeAcquiredCell() {
 
 void SourceAcquisition::ReleaseAssignedCells(std::span<const CellSource> ready) {
   if (!CellPipeline_ || CellPipeline_->Revision != Revision_) { return; }
-  for (const auto &entry : ready) {
-    const auto cell = entry.Snapshot->Cell;
-    if (cell) { std::erase(CellPipeline_->Assigned, *cell); }
-  }
+  for (const auto &entry : ready) { std::erase(CellPipeline_->Assigned, entry.Address); }
 }
 
 void SourceAcquisition::QueueMissingCells() {

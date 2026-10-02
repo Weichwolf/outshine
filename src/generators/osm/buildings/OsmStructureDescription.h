@@ -15,6 +15,11 @@ struct StructurePolicy {
   size_t PointsMost = 0;
 };
 
+inline constexpr StructurePolicy kDefaultStructurePolicy{
+    .Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0},
+    .PointWidthM = 2.0,
+    .PointsMost = 262144};
+
 enum class StructureDescriptionError : uint8_t {
   SourceMismatch,
   MissingReference,

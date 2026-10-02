@@ -249,17 +249,26 @@ public:
       OriginalSources_.push_back(world.OsmSource->Current());
     } else {
       for (const auto &cell : world.OsmSource->CurrentCells()) {
-        OriginalSources_.push_back(cell.Snapshot);
+        if (cell.Product) {
+          OriginalCells_.push_back(
+              std::static_pointer_cast<const Generators::Osm::StructureCell>(cell.Product));
+        } else {
+          OriginalSources_.push_back(cell.Snapshot);
+        }
       }
     }
     const auto accepted = Footprints().AcceptedTiles();
     const auto sameLayout = [&] {
       if (accepted.empty()) { return true; }
-      if (accepted.size() != OriginalSources_.size()) { return false; }
-      for (size_t tile = 0; tile < OriginalSources_.size(); ++tile) {
+      const size_t count = OriginalSources_.size() + OriginalCells_.size();
+      if (accepted.size() != count) { return false; }
+      for (size_t tile = 0; tile < count; ++tile) {
         const auto *input = Footprints().InputOfTile(static_cast<uint32_t>(tile));
         if (!input || !input->Coordinates || !input->Coordinates->Origin.Provenance ||
-            input->Coordinates->Origin.Provenance->Cell != OriginalSources_[tile]->Cell) {
+            input->Coordinates->Origin.Provenance->Cell !=
+                (OriginalCells_.empty()
+                     ? OriginalSources_[tile]->Cell
+                     : OriginalCells_[tile]->Description.Footprints.Origin.Provenance->Cell)) {
           return false;
         }
       }
@@ -314,12 +323,11 @@ public:
 
   [[nodiscard]] std::expected<bool, std::string> PrepareOriginalHeights(StructureBuildQueue &queue,
                                                                         int zoom) {
-    const auto prepared =
-        queue.PrepareOriginal(OriginalSources_,
-                              {.Heights = {.StoreyHeightM = 2.9, .BodyHeightM = 9.0},
-                               .PointWidthM = 2.0,
-                               .PointsMost = 262144},
-                              zoom);
+    const auto prepared = !OriginalCells_.empty()
+                              ? queue.PrepareOriginal(OriginalCells_, zoom)
+                              : queue.PrepareOriginal(OriginalSources_,
+                                                      Generators::Osm::kDefaultStructurePolicy,
+                                                      zoom);
     if (!prepared) { return std::unexpected(prepared.error()); }
     if (!*prepared) { return false; }
     const auto tiles = queue.OriginalHeightTiles(zoom);
@@ -621,6 +629,7 @@ private:
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
   std::vector<std::shared_ptr<const Data::OsmSourceSnapshot>> OriginalSources_;
+  std::vector<std::shared_ptr<const Generators::Osm::StructureCell>> OriginalCells_;
   std::shared_ptr<const World::TransportNetworkSnapshot> TransportSnapshot_;
   RoadHeightCoverage RoadHeightCoverage_;
   bool RoadAlignmentRequested_ = false;

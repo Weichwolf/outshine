@@ -37,7 +37,7 @@ struct SourceAcquisition::Access {
 
 struct SourceAcquisition::Cells {
   struct Retained {
-    std::weak_ptr<const Data::OsmSourceSnapshot> Snapshot;
+    std::weak_ptr<const void> Snapshot;
     size_t ChargedBytes = 0;
   };
 

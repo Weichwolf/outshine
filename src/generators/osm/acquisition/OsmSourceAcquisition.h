@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_ACQUISITION_OSMSOURCEACQUISITION_H
 
 #include "OsmSourceSnapshot.h"
+#include "OsmCellProduct.h"
 #include "OsmChunkSetLoader.h"
 #include <world/data/Transport.h>
 #include "Tasks.h"
@@ -40,6 +41,7 @@ public:
 
   struct CellSource {
     std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot;
+    std::shared_ptr<const CellProduct> Product = nullptr;
     size_t ChargedBytes = 0;
     Data::GeoCellId Address{};
     CellState State = CellState::Missing;
@@ -53,7 +55,8 @@ public:
   explicit SourceAcquisition(Workers workers,
                              Data::Transport *wire = nullptr,
                              std::string cacheDirectory = {},
-                             Target target = Target::Inputs);
+                             Target target = Target::Inputs,
+                             std::shared_ptr<const CellCompiler> compiler = {});
 
   ~SourceAcquisition();
   SourceAcquisition(const SourceAcquisition &) = delete;
@@ -111,6 +114,10 @@ private:
     std::stop_source Stop;
   };
 
+  [[nodiscard]] static std::expected<CellSource, std::string>
+  DecodeCell(const Data::OsmSourceChunk &input,
+             const std::stop_token &stop,
+             const std::shared_ptr<const CellCompiler> &compiler);
   void StartRegionAcquisition();
   void StartCellPipeline();
   void PumpCellPipeline();
@@ -130,6 +137,7 @@ private:
   struct CellPipeline;
   enum class Scope : uint8_t { Region, Cells };
   const Target Target_;
+  const std::shared_ptr<const CellCompiler> Compiler_;
   Tasks *Tasks_;
   Tasks &Io_;
   std::shared_ptr<Access> Access_;

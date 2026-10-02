@@ -5,6 +5,7 @@
 #include "math/Units.h"
 #include "OsmXmlReader.h"
 #include "OsmSourceDemand.h"
+#include "OsmStructureCell.h"
 
 #include <cmath>
 #include <cstddef>
@@ -71,7 +72,9 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     World.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
         Generators::Osm::SourceAcquisition::Workers{.Compute = *World.Pool, .Io = *World.Io},
         World.Wire.get(),
-        Session.Under.Cache);
+        Session.Under.Cache,
+        Generators::Osm::SourceAcquisition::Target::Inputs,
+        Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
   World.OsmRoutes = std::move(routes);
   World.OriginalSourceDemand.reset();

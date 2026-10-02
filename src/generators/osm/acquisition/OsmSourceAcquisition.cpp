@@ -33,8 +33,10 @@ constexpr size_t kMaxChunks = 4;
 SourceAcquisition::SourceAcquisition(Workers workers,
                                      Data::Transport *wire,
                                      std::string cacheDirectory,
-                                     Target target)
+                                     Target target,
+                                     std::shared_ptr<const CellCompiler> compiler)
     : Target_(target),
+      Compiler_(std::move(compiler)),
       Tasks_(&workers.Compute),
       Io_(workers.Io),
       Access_(std::make_shared<Access>()) {
@@ -221,33 +223,31 @@ void SourceAcquisition::StartDecode(std::vector<Data::OsmSourceChunk> input,
   auto result = std::make_shared<Result>();
   const auto token = stop.get_token();
   const bool cells = Scope_ == Scope::Cells;
-  const auto handle = Tasks_->Post([input = std::move(input), result, token, readMs, cells] {
-    if (cells) {
-      std::vector<CellSource> ready;
-      ready.reserve(input.size());
-      for (const auto &chunk : input) {
-        auto loaded = Data::OsmChunkSetLoader::ParseCell(chunk, token);
-        if (!loaded) {
-          result->Value = CellLoadResult(std::unexpected(std::move(loaded.error())));
+  const auto handle =
+      Tasks_->Post([input = std::move(input), result, token, readMs, cells, compiler = Compiler_] {
+        if (cells) {
+          std::vector<CellSource> ready;
+          ready.reserve(input.size());
+          for (const auto &chunk : input) {
+            auto cell = DecodeCell(chunk, token, compiler);
+            if (!cell) {
+              result->Value = CellLoadResult(std::unexpected(std::move(cell.error())));
+              return;
+            }
+            ready.push_back(std::move(*cell));
+          }
+          result->Value = CellLoadResult(std::move(ready));
           return;
         }
-        const size_t charged = loaded->StorageChargeBytes();
-        ready.push_back(
-            {.Snapshot = std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)),
-             .ChargedBytes = charged});
-      }
-      result->Value = CellLoadResult(std::move(ready));
-      return;
-    }
-    auto loaded = Data::OsmChunkSetLoader::ParseRegion(input, token);
-    if (!loaded) {
-      result->Value = LoadResult(std::unexpected(std::move(loaded.error())));
-    } else {
-      if (readMs) { loaded->ReadMs = *readMs; }
-      result->Value =
-          LoadResult(std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)));
-    }
-  });
+        auto loaded = Data::OsmChunkSetLoader::ParseRegion(input, token);
+        if (!loaded) {
+          result->Value = LoadResult(std::unexpected(std::move(loaded.error())));
+        } else {
+          if (readMs) { loaded->ReadMs = *readMs; }
+          result->Value =
+              LoadResult(std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)));
+        }
+      });
   Pending_.emplace(Pending{.Handle = handle,
                            .Owner = Tasks_,
                            .Revision = Revision_,

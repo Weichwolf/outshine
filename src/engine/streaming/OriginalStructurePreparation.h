@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_ORIGINALSTRUCTUREPREPARATION_H
 
 #include "OsmStructureDescription.h"
+#include "OsmStructureCell.h"
 #include "StructureBake.h"
 #include "Tasks.h"
 #include <world/data/Address.h>
@@ -14,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <variant>
 
 namespace outshine {
 
@@ -26,11 +28,14 @@ public:
     std::vector<Data::TileId> HeightTiles;
   };
 
-  OriginalStructurePreparation(
-      Tasks &pool,
-      std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-      outshine::Generators::Osm::StructurePolicy policy,
-      int heightZoom);
+  using SourceInputs = std::vector<std::shared_ptr<const Data::OsmSourceSnapshot>>;
+  using CellInputs = std::vector<std::shared_ptr<const Generators::Osm::StructureCell>>;
+  using Inputs = std::variant<SourceInputs, CellInputs>;
+
+  OriginalStructurePreparation(Tasks &pool,
+                               Inputs inputs,
+                               outshine::Generators::Osm::StructurePolicy policy,
+                               int heightZoom);
   ~OriginalStructurePreparation();
   OriginalStructurePreparation(const OriginalStructurePreparation &) = delete;
   OriginalStructurePreparation &operator=(const OriginalStructurePreparation &) = delete;

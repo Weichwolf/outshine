@@ -52,6 +52,9 @@ public:
   PrepareOriginal(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
                   outshine::Generators::Osm::StructurePolicy policy,
                   int heightZoom);
+  [[nodiscard]] std::expected<bool, std::string>
+  PrepareOriginal(std::span<const std::shared_ptr<const Generators::Osm::StructureCell>> cells,
+                  int heightZoom);
   [[nodiscard]] std::expected<std::span<const Data::TileId>, std::string>
   OriginalHeightTiles(int zoom) const;
 
@@ -395,7 +398,11 @@ private:
   uint64_t PreparationTick_ = 0;
   Tasks *Pool_ = nullptr;
   std::unique_ptr<OriginalStructurePreparation> OriginalPreparation_;
-  std::vector<std::shared_ptr<const Data::OsmSourceSnapshot>> PreparingOriginals_;
+  std::vector<std::shared_ptr<const void>> PreparingOriginals_;
+  [[nodiscard]] std::expected<bool, std::string>
+  PrepareOriginalInputs(OriginalStructurePreparation::Inputs inputs,
+                        Generators::Osm::StructurePolicy policy,
+                        int heightZoom);
   std::vector<OriginalStructurePreparation::Product> Originals_;
   [[nodiscard]] const Data::SourceObjects *InputObjectsFor(uint32_t tile) const noexcept;
   std::vector<Data::TileId> OriginalHeightTiles_;

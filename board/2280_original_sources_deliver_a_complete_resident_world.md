@@ -83,8 +83,12 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   müssen diese Metadaten noch übernehmen. Eine pauschale Ablehnung verliert keine Ursache.
   Internet-Erwerb erhält seine eigene Frist und darf länger dauern. Erst mit vollständigem
   Quellcache gilt das Zehn-Sekunden-Gate; ein frischer Offline-Prozess prüft den warmen Aufbau.
-  Als Nächstes 2188s Produkt-/Pinvertrag und 2336s Detailbedarf vor Terrainarbeit anschließen:
-  native Zellen ingestieren, ohne sämtliche Roh-Snapshots bis zur fertigen Fernwelt zu halten.
+  CellCompiler überführt jede dekodierte Zelle auf dem gemeinsamen Compute-Worker in native
+  Inputs vor dem vollständigen Erwerb. StructureCell hält Gebäudegrundrisse, konsumierte
+  Referenzhüllen samt Tags und binäre SHA-256-Identitäten aller Originalobjekte; vollständige
+  Archive werden freigegeben. OriginalStructurePreparation prüft Überlappungen und globale
+  Relations-/Objektbesitzer, bevor StructureBuildQueue Terrainbedarf und Weltprodukte liefert.
+  2188s öffentlicher Lebenszyklus und 2336s Detailbedarf vor Terrainarbeit bleiben offen.
   SourceAcquisition trennt Cache-Vorbereitung von residenten Eingaben: dekodierte Zellen
   nach Validierung freigeben, vollständige qualifizierte Byte-Abdeckung zuletzt auf IO prüfen.
   PlaceSourcePreparation verdrahtet registrierte Provider, HTTP und geliehene GenOSM-Worker;
@@ -94,8 +98,6 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   SourceDemand hält gemeinsame Zelllimits; GeodeticCamera denselben geografischen Fokus.
   Originalcache vollständig vorbereiten und tatsächlichen Place-Aufbau messen; Erwerb allein
   beweist weder das Ladebudget noch Bildqualität. Keine weitere reine Wartezeit-Optimierung.
-  Geschlossene dekodierte Teilregionen geben native Erzeugung frei, während weitere Quellen
-  laden. Decode und Erzeugung teilen den Compute-Worker; Produkte ersetzen unnötige Archivpins.
   Vollständigkeit folgt dem gesamten Weltbedarf, nicht dem Ende eines einzelnen IO-Auftrags.
   Die vorhandene Kronenvorbereitung übergibt Atlanten direkt im RAM; kein Runtime-Diskcache.
   Explizite Cachepfade bleiben erhalten. Per-Zell-Bytes qualifizieren den Katalog `current`;

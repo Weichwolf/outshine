@@ -17,6 +17,7 @@
 #include <ratio>
 #include <span>
 #include <vector>
+#include <variant>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -548,6 +549,27 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
     std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
     outshine::Generators::Osm::StructurePolicy policy,
     int heightZoom) {
+  return PrepareOriginalInputs(
+      OriginalStructurePreparation::SourceInputs(sources.begin(), sources.end()),
+      policy,
+      heightZoom);
+}
+
+std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
+    std::span<const std::shared_ptr<const Generators::Osm::StructureCell>> cells, int heightZoom) {
+  return PrepareOriginalInputs(
+      OriginalStructurePreparation::CellInputs(cells.begin(), cells.end()), {}, heightZoom);
+}
+
+std::expected<bool, std::string>
+StructureBuildQueue::PrepareOriginalInputs(OriginalStructurePreparation::Inputs inputs,
+                                           Generators::Osm::StructurePolicy policy,
+                                           int heightZoom) {
+  const auto sources = std::visit(
+      [](const auto &values) {
+        return std::vector<std::shared_ptr<const void>>(values.begin(), values.end());
+      },
+      inputs);
   if (sources.size() > std::numeric_limits<uint32_t>::max()) {
     return std::unexpected("original building cells exceed product address admission");
   }
@@ -589,7 +611,7 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
   PreparingOriginals_.assign(sources.begin(), sources.end());
   PreparingOriginalHeightZoom_ = heightZoom;
   OriginalPreparation_ =
-      std::make_unique<OriginalStructurePreparation>(*Pool_, sources, policy, heightZoom);
+      std::make_unique<OriginalStructurePreparation>(*Pool_, std::move(inputs), policy, heightZoom);
   return false;
 }
 
