@@ -549,6 +549,10 @@ void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource
       return;
     case Resource::FrameTex: frame.FrameTex = target(resource, colour); return;
 
+    case Resource::AtmosphereUniform:
+    case Resource::CascadeUniform:
+    case Resource::VegetationTable:
+    case Resource::Meter:
     case Resource::Surface:
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
@@ -564,8 +568,6 @@ void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource
       CreateAtmosphereLut(frame, plan, resource);
       return;
     }
-    case Resource::AtmosphereUniform:
-    case Resource::CascadeUniform:
     case Resource::IrradianceBuffer: {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage =
@@ -587,8 +589,6 @@ void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource
           OwnedBuffer(frame.Handles.Device, SDL_CreateGPUBuffer(frame.Handles.Device, &wanted));
       return;
     }
-    case Resource::VegetationTable:
-    case Resource::Meter:
     case Resource::ShadowAtlas: {
       SDL_GPUTextureCreateInfo wanted{};
       wanted.type = SDL_GPU_TEXTURETYPE_2D;
@@ -615,6 +615,40 @@ void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource
   }
 }
 
+SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts() const noexcept {
+  FrameGraphAllocations counts;
+  const auto count = [&counts](const FrameResources &frame) {
+    const std::array textures{&frame.Offscreen,
+                              &frame.HdrTex,
+                              &frame.VelTex,
+                              &frame.DepthTex,
+                              &frame.FrameTex,
+                              &frame.TransmittanceLut,
+                              &frame.MultiScatterLut,
+                              &frame.SkyViewLut,
+                              &frame.ShadowAtlas,
+                              &frame.TransmissiveTex,
+                              &frame.CompositedTex,
+                              &frame.AerialTex,
+                              &frame.ShadingNormalTex,
+                              &frame.SurfaceIdentityTex,
+                              frame.LinearTex.data(),
+                              &frame.LinearTex[1]};
+    for (const OwnedTexture *texture : textures) {
+      counts.Textures += static_cast<size_t>(static_cast<bool>(*texture));
+    }
+    for (const OwnedBuffer *buffer : {&frame.IrradianceBuffer, &frame.Pyramid}) {
+      counts.Buffers += static_cast<size_t>(static_cast<bool>(*buffer));
+    }
+    for (const OwnedSampler *sampler : {&frame.Samp, &frame.LutSamp}) {
+      counts.Samplers += static_cast<size_t>(static_cast<bool>(*sampler));
+    }
+  };
+  count(State_.Frame);
+  if (Candidate_ && Candidate_->Frame) { count(*Candidate_->Frame); }
+  return counts;
+}
+
 bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
   switch (resource) {
     case Resource::LinearSampler: return static_cast<bool>(frame.Samp);
@@ -631,14 +665,14 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::MultiScatterLut: return static_cast<bool>(frame.MultiScatterLut);
     case Resource::SkyViewLut: return static_cast<bool>(frame.SkyViewLut);
     case Resource::LutSampler: return static_cast<bool>(frame.LutSamp);
-    case Resource::AtmosphereUniform:
-    case Resource::CascadeUniform:
     case Resource::IrradianceBuffer: return static_cast<bool>(frame.IrradianceBuffer);
     case Resource::DepthPyramid: return static_cast<bool>(frame.Pyramid);
-    case Resource::VegetationTable:
-    case Resource::Meter:
     case Resource::ShadowAtlas: return static_cast<bool>(frame.ShadowAtlas);
     case Resource::SceneLinear: return frame.LinearTex[0] && frame.LinearTex[1];
+    case Resource::AtmosphereUniform:
+    case Resource::CascadeUniform:
+    case Resource::VegetationTable:
+    case Resource::Meter:
     case Resource::OverlayAtlas:
     case Resource::Surface:
     case Resource::ClusterSphere:

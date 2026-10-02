@@ -48,6 +48,13 @@ void Engine::State::PublishResourcePayloadMeasurements() {
   Published.RecordMetric("height page CPU payload capacity",
                          static_cast<double>(Picture.Device.HeightPageSourceBytes()),
                          "bytes");
+  const auto frame = Picture.Device.FrameGraphAllocationCounts();
+  Published.RecordMetric(
+      "frame graph GPU textures held", static_cast<double>(frame.Textures), "textures");
+  Published.RecordMetric(
+      "frame graph GPU buffers held", static_cast<double>(frame.Buffers), "buffers");
+  Published.RecordMetric(
+      "frame graph GPU samplers held", static_cast<double>(frame.Samplers), "samplers");
 }
 
 void Engine::State::PublishSubmittedCameraMeasurements() {

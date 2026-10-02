@@ -382,6 +382,14 @@ public:
 
   [[nodiscard]] ReadState ReadSkyIrradiance(std::span<float, kIrradianceFloats> out);
 
+  struct FrameGraphAllocations {
+    size_t Textures = 0;
+    size_t Buffers = 0;
+    size_t Samplers = 0;
+  };
+
+  [[nodiscard]] FrameGraphAllocations FrameGraphAllocationCounts() const noexcept;
+
   [[nodiscard]] ReadState ReadPyramid(PyramidDepths &into);
 
   [[nodiscard]] ReadState ReadShadingNormal(std::vector<float> &xyz);

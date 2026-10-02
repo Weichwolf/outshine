@@ -56,6 +56,8 @@ Sonnenschatten und Belichtung in einer Stadt-/Bergansicht liefern; vorhandene P�
   erzeugen gleiche Antwort. Bloom/Glare erg채nzt Licht, kaschiert keine falsche Geometrie.
 - SDL-Submission und Ressourcenwechsel erfolgen atomar auf zul채ssigem Thread. Keine
   doppelten/mismatched Frameprodukte oder ungepr체ften GPU-Zeitbehauptungen.
+- Logische Eingaben und CPU-Belichtung erzeugen keine fremden GPU-Ziele; gepushte
+  Uniforms sind keine Storage-Puffer. Frame-Inventar z채hlt tats채chlich gehaltene Ressourcen.
 - Client-Presentation und Idle-Warten geben dem OS CPU-Zeit; begrenzte Frames in Flight
   und deadline-/ereignisorientiertes Pacing statt Busy-Wait oder ungeregelter SDL-Schleife.
 
