@@ -188,6 +188,29 @@ struct Arc {
   return worst;
 }
 
+template <class Probe> double MinimiseArcDeviation(double low, double high, const Probe &probe) {
+  double nearRadius = high - kGoldenCut * (high - low);
+  double farRadius = low + kGoldenCut * (high - low);
+  double nearShare = probe(nearRadius);
+  double farShare = probe(farRadius);
+  for (int step = 0; step < kSpiralSteps && high - low > kRadiusExactM; ++step) {
+    if (nearShare < farShare) {
+      high = farRadius;
+      farRadius = nearRadius;
+      farShare = nearShare;
+      nearRadius = high - kGoldenCut * (high - low);
+      nearShare = probe(nearRadius);
+    } else {
+      low = nearRadius;
+      nearRadius = farRadius;
+      nearShare = farShare;
+      farRadius = low + kGoldenCut * (high - low);
+      farShare = probe(farRadius);
+    }
+  }
+  return 0.5 * (low + high);
+}
+
 [[nodiscard]] std::expected<Bend, Refusal> BendOver(std::span<const double> points,
                                                     std::span<const Turned> legs,
                                                     size_t at,
@@ -269,28 +292,7 @@ struct Arc {
                                 withinM);
     };
 
-    double low = tightestM;
-    double high = byRoom;
-    double nearRadius = high - kGoldenCut * (high - low);
-    double farRadius = low + kGoldenCut * (high - low);
-    double nearShare = probe(nearRadius);
-    double farShare = probe(farRadius);
-    for (int step = 0; step < kSpiralSteps && high - low > kRadiusExactM; ++step) {
-      if (nearShare < farShare) {
-        high = farRadius;
-        farRadius = nearRadius;
-        farShare = nearShare;
-        nearRadius = high - kGoldenCut * (high - low);
-        nearShare = probe(nearRadius);
-      } else {
-        low = nearRadius;
-        nearRadius = farRadius;
-        nearShare = farShare;
-        farRadius = low + kGoldenCut * (high - low);
-        farShare = probe(farRadius);
-      }
-    }
-    bend.RadiusM = 0.5 * (low + high);
+    bend.RadiusM = MinimiseArcDeviation(tightestM, byRoom, probe);
   }
   if (bend.RadiusM < tightestM) {
     return std::unexpected(Refusal{
