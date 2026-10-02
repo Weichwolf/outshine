@@ -35,7 +35,7 @@ AGENTS.md; dieses Board beschreibt den Weg. RDR2/GTA5 sind Qualitätsmaßstäbe.
 | P0 | Ferndarstellung ohne Löcher oder Datenmengenexplosion | 2336 | Native Detailhierarchie begrenzt Arbeit vor Geometrie |
 | P0 | Richtige Straßen, Bauwerke, Gelände und Gewässer | 2281, 2173, 2145 | Vorhandene Formen erhalten, reale Geometriefehler beseitigen |
 | P1 | Relief und Oberflächen mit lesbarem Maßstab | 2337 | Bestehende Terrainverfeinerung; Quellrelief von plausibler Ergänzung trennen |
-| P1 | Lesbare Materialien, kohärentes Licht, Wetter und Himmel | 2171, 2155, 2172 | Mit vorhandenen Oberflächen liefern; kein Warten auf Vegetation |
+| P1 | Lesbare Materialien, kohärentes Licht, Ausgabeprofile, Wetter und Himmel | 2171, 2155, 2172 | Mit vorhandenen Oberflächen liefern; kein Warten auf Vegetation |
 | P2 zuletzt | Vegetation vom Fernwald bis zum Grashalm | 2111 | Standortdaten und gemeinsame Detail-/Residency-Verträge |
 | P3 | Physikalische, programmierbare und bevölkerte Sandbox | 2136 | Gemeinsame Physik/Commands für JS, UI, LLM-NPCs und bewegliche Systeme |
 
@@ -92,7 +92,8 @@ Priorität; `Depends` nennt nur den fehlenden konsumierten Vertrag, keine pausch
 ## Abnahme und Zuständigkeit
 `src/assets/places` und `client/PlaceCamera` besitzen den Katalog und die Aufnahme.
 Kamera, FOV, Pose, Höhendatum, Zeit und Quellenfit getrennt von Weltfehlern prüfen;
-unbekannte Kalibrierung bleibt benannt. Referenzmanifest und vorhandene Archivbilder
+unbekannte Kalibrierung bleibt benannt. Profil, Rendermaß und Zielrate sind explizit; Qualität hat Vorrang vor Pixelzahl.
+480p30 auf A18 Pro bleibt eine Hypothese bis zur Gerätemessung. Referenzmanifest und Archivbilder
 unter build/shots/reference/webcams bleiben erhalten. Fotos liefern keine Weltgeometrie.
 Alle acht Bilder persönlich vergleichen; Form, Material, Licht/Wetter und Kosten getrennt
 bewerten. Der nächste Schritt muss Bildgewinn oder einen konkreten Bildblocker liefern.

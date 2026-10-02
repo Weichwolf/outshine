@@ -20,6 +20,20 @@ TemporalResolve/Tonemap bestehen; Kamera-Fit und zeitliche Bildqualität sind no
 Kameraantwort besitzt Belichtung/Tonemapping. Zuerst indirekte Himmelsfüllung, stabile
 Sonnenschatten und Belichtung in einer Stadt-/Bergansicht liefern; vorhandene Pässe nutzen.
 
+## Ausgabeprofile und künstlerischer Schwerpunkt
+- Öffentliche Extent-/RenderTarget-Verträge erlauben bereits frei gewählte Maße.
+  Renderauflösung, Ausgabeauflösung und Zielrate getrennt konfigurieren; native Renderer-
+  Ressourcen folgen dem tatsächlichen Extent. 480p (16:9: rund 854×480), 1280×720,
+  1920×1080 (1080p), darüber explizite Maße. Das angefragte „1920p“ meint 1080p.
+- Zielraten 25/30/60 fps ergeben 1000/fps = 40/33,33/16,67 ms pro Frame.
+  Profil trägt gemeinsame Qualitäts-/Zeit-/Speicherwerte; framerateabhängige Simulation
+  ist verboten. Das vorhandene 720p60-Gate bleibt bis zum expliziten Profilausbau lesbar.
+- Hohe Material-/Licht-/Schattenqualität zuerst erhalten; Rendermaß und Rekonstruktion
+  nach gemessenem Bildgewinn wählen. 480p30 auf A18 Pro ist unbewiesen, kein Geräteclaim.
+  Temporale Verfahren müssen auch bei 25/30 fps und Drehung stabile Details erhalten.
+- Client/Shots konfigurieren Profil und Pacing gemeinsam; keine heimliche Reduktion bei
+  Budgetfehlern. Referenzvergleich verwendet gleiche Kamera, Zeit und dokumentierte Maße.
+
 ## Kamera und bewegtes Bild
 - PlaceCamera und der Referenzkatalog besitzen Kamera/FOV, Höhendatum, Aufnahmezeit
   und Kalibrierstatus. Zuerst horizontale Landmarken/Relief mit unveränderter Geometrie

@@ -53,6 +53,19 @@ Kontakt-/Gelenkkern sowie Kosten entscheiden. Daher bleibt die Solverarchitektur
 - Audio/Occlusion und Animation verwenden dieselben Weltkontakte/Posen. Hockenheim-Runden
   sind spätere Integrationen, keine Voraussetzung der allgemeinen Sandbox.
 
+## Persistenz und Spatial Audio
+- Save/Load besitzt stabile Entity-/Asset-IDs, Quell-/Producer-Versionen, Weltänderungen,
+  Physikzustand sowie nötigen Script-/NPC-/Replay-Zustand. Transaktional laden/publizieren;
+  fehlerhafte/incompatible Saves verändern keinen gültigen Weltstand.
+- Szenario-Autorendaten, Netzquellcache und Spielstand getrennt besitzen. Ein Spielstand
+  ist kein Generatorcache; native Produkte aus referenzierten Inputs/Versionen rekonstruieren.
+- Spatial Audio verwendet AudioScene/AudioOcclusion und denselben Listener-/Entity-Snapshot:
+  Entfernung, Richtung, Doppler und geometrische Verdeckung mit begrenzter Stimmenzahl.
+  Audio wartet weder auf Netzwerk noch LLM oder Geometrieaufbau.
+- Simulation bleibt fester Takt unabhängig von 25/30/60-fps-Ausgabe. Schlafende Körper
+  aktivieren bei relevanten Kräften/Kontakten/Commands; entfernte NPCs reduzieren Aufwand,
+  ohne kausale Spielzustandsänderungen oder sichtbare Interaktionen zu verlieren.
+
 ## Nächste Lieferung und Abnahme
 Nach dem visuellen Meilenstein: allgemeiner Körper-/Weltkontakt und ein Gelenkantrieb,
 dann ein durch JS und aufgezeichnete LLM-Events steuerbarer NPC im bestehenden Place.

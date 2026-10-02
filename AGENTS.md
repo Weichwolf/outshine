@@ -67,16 +67,20 @@
 
 ## Abnahme und Budget
 
-- Verbindlich sind 1280×720 bei 60 fps auf A18 Pro mit 8 GB Gerätespeicher. Die aktuelle Maschine
-  ist die unmittelbare Entwicklungsplattform; ihre Messungen ersetzen keinen A18-Pro-Nachweis.
+- Ich priorisiere kohärentes Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl.
+  Auflösung und Zielrate sind unabhängige Profile; 480p, 720p, 1080p (1920×1080) und höhere Auflösungen
+  sowie 25/30/60 fps sind vorgesehen. Maße stehen explizit als Breite×Höhe im Profil.
+  1280×720@60 bleibt das vorhandene Messprofil; hohe Qualität bei 480p30 auf A18 Pro ist
+  eine zu prüfende Hypothese. Kein Profilwechsel darf als Optimierungsbeweis gelten.
+  A18 Pro hat 8 GB Gerätespeicher. Die aktuelle Maschine ersetzt keinen Gerätenachweis.
 - Alle acht Webcam-Places aus dem Parent-WI 2169 sind visuelle Regressionen. Mindestens ein echter Place
   gehört ins Gate. Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs unter
   `build/shots/places/` selbst. Alte Bilder bleiben erhalten; Worktree-Bilder kommen eindeutig
   zugeordnet auch ins Haupt-Checkout. Fehlende oder unvollständige Bilder bleiben rot.
-- Höchstens zehn Sekunden bis zur vollständigen Welt; danach genau 60 Frames und 360° Drehung
+- Höchstens zehn Sekunden bis zur vollständigen Welt; danach genau so viele Frames wie die Profilzielrate und 360° Drehung
   in einer Sekunde am festen Standort. Nur das letzte Bild wird gespeichert und zeigt die
   Ausgangsrichtung. Ich messe p50/p95/p99 ohne Zusatzframes, Inhaltsverlust oder Sichtweitenkürzung.
-- Das Framebudget ist 1000/60 ms, auch für p99. Stadt, Terrain, Wasser, Himmel und Vegetation
+- Das Framebudget ist 1000/Ziel-fps ms, auch für p99; Lastfall und Profil bleiben fest. Stadt, Terrain, Wasser, Himmel und Vegetation
   teilen es nach Bildgewinn und gemessenen Kosten, ohne feste Klassenquoten.
 - Ich prüfe Korrektheit, Bildqualität, CPU, GPU, Speicher und Laden getrennt in Kaltstart,
   Warmstand und Bewegung. Asynchrone Zeiten addiere ich nicht; Fence-Warten ist keine GPU-Zeit.
@@ -119,6 +123,10 @@
 - Ich verarbeite deterministisch, cachefreundlich und gebündelt mit expliziten Seeds und
   Merge-Reihenfolgen. Frühe Zusammenfassung, LOD und Instancing vermeiden Geometriearbeit;
   kompakte Parameter ersetzen redundante Produkte, wenn gemessene Kosten dafür sprechen.
+- Eigene Szenarien und glTF münden in dieselben nativen Welt-/Assetprodukte. Save/Load
+  erhält logischen Welt-/Simulationszustand und Quell-/Producer-Versionen, keinen versteckten
+  Generatorcache. Spatial Audio konsumiert dieselben Posen/Kontakte. Telemetrie und Logging
+  ergänze ich nach konkretem Diagnosebedarf, mit begrenzten Kosten am Hot Path.
 - Ich erhalte versionierte Szenarien und Replay-Verträge. Simulation nutzt festen Takt und
   begrenztes Aufholen; Skripte senden begrenzte Commands und besitzen keine Weltobjekte.
 - Ich nutze RAII, Composition und Zustandsautomaten. Runtime ohne Exceptions; behandelbare

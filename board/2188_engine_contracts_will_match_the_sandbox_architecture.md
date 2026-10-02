@@ -17,9 +17,8 @@ ProviderRegistry/SourceSet, native Geometry/Material, Double-Welt und kamera-rel
 GPU-Daten bestehen. Generate::Request trägt Ort/Seed/Ground/Coarseness, aber keinen
 Projektions-/Fehlervertrag. Native StructureBake-Pfade umgehen diesen Generatorvertrag.
 OriginalStructurePreparation fordert Terrain nach einem gemeinsamen heightZoom an;
-RawTile hält geschlossene OSM-Objektinputs mit schwachem Archivbezug; publizierte
-BuildingGeometry hält native Polygone und generische Quellbelege. Vollständige
-Archive verbleiben noch im Quellenladepfad, nicht am publizierten Gebäude. SimulationState integriert bisher
+RawTile hält geschlossene OSM-Inputs mit schwachem Archivbezug; BuildingGeometry hält
+native Polygone/Quellbelege. Vollständige Archive verbleiben im Quellenladepfad. SimulationState integriert bisher
 Schwerkraft; Rigid/Wrench/Prismatic liefern Grundlagen, keinen vollständigen Weltkontakt.
 Script/ActionHostAdapter und Ui::Markup/Style/Layout bestehen und bleiben verwendbar.
 SurfacePreparation und Straßenaufträge gehören engine/streaming. StreetGraphPreparation
@@ -95,7 +94,9 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
   Replay nutzt aufgezeichnete Events statt erneut Modellantworten anzufordern.
 - Wetter liefert einen öffentlichen Orts-/UTC-/Höhen-Snapshot mit Einheiten, Gültigkeit
   und Herkunft. Physikalische Wind-/Wasser-/Materialzustände konsumieren denselben Snapshot.
-- Groundless/glTF, Audio, Szenario-Roundtrip und deklarative Spielabläufe bleiben nutzbar.
+- Szenario/glTF-Loader publizieren dieselben nativen Assets; Formattypen enden im Adapter.
+  Spatial Audio und Save/Load teilen Entity-/Pose-/Versionsverträge aus 2136.
+  Groundless, Szenario-Roundtrip und deklarative Spielabläufe bleiben nutzbar.
   Öffentliche API ist Greenfield; sämtliche Builtins und Aufrufer zusammen migrieren.
 
 ## Ausführbare Lieferung
