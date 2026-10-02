@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadAlignment.h"
@@ -37,7 +37,7 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "nonuniform", .Revision = "r1"});
   CHECK(source.has_value(), "the nonuniform graded road source parses");
   if (!source) { return Report(); }
-  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
+  const auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);
   CHECK(topology.has_value(), "the nonuniform graded road has motor topology");
   if (!topology) { return Report(); }
 
@@ -121,7 +121,7 @@ int main() {
       OsmXmlReader::Read(equalXml, {.DatasetId = "equal-spacing", .Revision = "r1"});
   CHECK(equalSource.has_value(), "the near-equal-spaced road source parses");
   if (!equalSource) { return Report(); }
-  const auto equalTopology = outshine::Import::OsmTransportImport::Build(*equalSource);
+  const auto equalTopology = outshine::Generators::Osm::TransportBuilder::Build(*equalSource);
   CHECK(equalTopology.has_value(), "the near-equal-spaced road has motor topology");
   if (!equalTopology) { return Report(); }
   const std::array equalRoute{

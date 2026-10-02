@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "EarthworkPress.h"
 #include "OsmXmlReader.h"
@@ -29,10 +29,11 @@ int main() {
   auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the circuit source parses");
   if (!source) { return Report(); }
-  auto topology = outshine::Import::OsmTransportImport::Build(*source);
+  auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);
   CHECK(topology.has_value(), "the circuit topology builds");
   if (!topology) { return Report(); }
-  auto route = outshine::Import::OsmTransportImport::ResolveCircuit(*topology, *source, 284588);
+  auto route =
+      outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*topology, *source, 284588);
   CHECK(route.has_value(), "the directed source circuit resolves");
   if (!route) { return Report(); }
 

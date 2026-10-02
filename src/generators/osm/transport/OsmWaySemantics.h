@@ -1,12 +1,12 @@
-#ifndef OUTSHINE_IMPORT_TRANSPORT_OSMWAYSEMANTICS_H
-#define OUTSHINE_IMPORT_TRANSPORT_OSMWAYSEMANTICS_H
+#ifndef OUTSHINE_GENERATORS_OSM_TRANSPORT_OSMWAYSEMANTICS_H
+#define OUTSHINE_GENERATORS_OSM_TRANSPORT_OSMWAYSEMANTICS_H
 
 #include <cstdint>
 #include <expected>
 
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 
-namespace outshine::Import {
+namespace outshine::Generators::Osm {
 
 enum class OsmWayTravel : uint8_t { Forward, Reverse, Both };
 

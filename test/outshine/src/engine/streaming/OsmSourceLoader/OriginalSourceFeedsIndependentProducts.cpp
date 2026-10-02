@@ -1,6 +1,6 @@
 #include "OsmSourceLoader.h"
 #include "OsmBuildingFootprints.h"
-#include "OsmTransportLoader.h"
+#include "OsmTransportPreparation.h"
 #include "StructureBuildQueue.h"
 #include "Check.h"
 
@@ -75,7 +75,7 @@ int main() {
   const auto heightTiles = structures.OriginalHeightTiles(9);
   CHECK(prepared && *prepared && structures.HasOriginal() && heightTiles && !heightTiles->empty(),
         "native building preparation requests terrain before a transport graph exists");
-  OsmTransportLoader transport(tasks);
+  outshine::Generators::Osm::TransportPreparation transport(tasks);
   CHECK(transport.RequestSource(source).has_value(), "transport accepts the same source");
   CHECK(WaitFor(transport, tasks) && transport.Current() && transport.Source() == source &&
             transport.Current()->Topology().Edges().size() == 2,

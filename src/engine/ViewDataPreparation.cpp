@@ -97,9 +97,9 @@ Result Engine::prepareViewData(double durationS, double patienceS) {
   auto path = S_->ViewPreparationPath(view, durationS, deadline);
   if (!path) { return std::unexpected(path.error()); }
   std::vector<Data::TileId> roadTiles;
-  if (S_->World.OsmTransportLoader && S_->World.OsmTransportLoader->Current()) {
+  if (S_->World.OsmTransport && S_->World.OsmTransport->Current()) {
     const auto coverage =
-        RoadHeightCoverage::Select(*S_->World.OsmTransportLoader->Current(),
+        RoadHeightCoverage::Select(*S_->World.OsmTransport->Current(),
                                    {.Zoom = path->front().Zoom,
                                     .MaximumEdges = RoadHeightCoverage::MaximumCandidateEdges,
                                     .MaximumTiles = RoadHeightCoverage::MaximumCandidateTiles});

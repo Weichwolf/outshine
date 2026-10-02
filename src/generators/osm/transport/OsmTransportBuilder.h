@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_IMPORT_TRANSPORT_OSMTRANSPORTIMPORT_H
-#define OUTSHINE_IMPORT_TRANSPORT_OSMTRANSPORTIMPORT_H
+#ifndef OUTSHINE_GENERATORS_OSM_TRANSPORT_OSMTRANSPORTBUILDER_H
+#define OUTSHINE_GENERATORS_OSM_TRANSPORT_OSMTRANSPORTBUILDER_H
 
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +9,7 @@
 #include "OsmElements.h"
 #include "TransportTopology.h"
 
-namespace outshine::Import {
+namespace outshine::Generators::Osm {
 
 enum class TransportBuildErrorCode : uint8_t {
   MissingSourceObject,
@@ -46,7 +46,7 @@ struct CircuitError {
   uint64_t SourceId = 0;
 };
 
-class OsmTransportImport {
+class TransportBuilder {
 public:
   [[nodiscard]] static std::expected<World::TransportTopology, TransportBuildError>
   Build(const Data::OsmElements &source);

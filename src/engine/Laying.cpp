@@ -242,8 +242,7 @@ public:
       : Coverage_(coverage),
         Revision_(revision),
         Candidate_(renderer, world, footprints),
-        TransportSnapshot_(world.CurrentTransportReady() ? world.OsmTransportLoader->Current()
-                                                         : nullptr),
+        TransportSnapshot_(world.CurrentTransportReady() ? world.OsmTransport->Current() : nullptr),
         Id_(id) {
     if (!world.CurrentOriginalReady()) { return; }
     if (world.OsmSourceLoader->Current()) {
@@ -874,7 +873,8 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   const bool elsewhere = from != previous.Region;
   const bool renamed = classes != previous.Classes;
   const uint64_t footprints = World.Stack.Footprints().Revision();
-  const OsmTransportLoader *const transportLoader = World.OsmTransportLoader.get();
+  const Generators::Osm::TransportPreparation *const transportLoader =
+      World.OsmTransport.get();
   const uint64_t transportGeneration =
       World.CurrentTransportReady() ? transportLoader->CompletedCount() : 0;
   const std::array<double, 3> projection{

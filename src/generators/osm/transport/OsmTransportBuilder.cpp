@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "OsmWaySemantics.h"
 
 #include <algorithm>
@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace outshine::Import {
+namespace outshine::Generators::Osm {
 
 namespace {
 
@@ -59,7 +59,7 @@ std::expected<void, TransportBuildError> AppendWayEdges(std::vector<World::Trans
 }
 
 std::expected<World::TransportTopology, TransportBuildError>
-OsmTransportImport::Build(const Data::OsmElements &source) {
+TransportBuilder::Build(const Data::OsmElements &source) {
   if (const auto missing = source.FirstMissingReference()) {
     return std::unexpected(TransportBuildError{.Code = TransportBuildErrorCode::MissingSourceObject,
                                                .SourceId = missing->OwnerId});
@@ -68,7 +68,7 @@ OsmTransportImport::Build(const Data::OsmElements &source) {
 }
 
 std::expected<World::TransportTopology, TransportBuildError>
-OsmTransportImport::BuildRegion(const Data::OsmElements &source) {
+TransportBuilder::BuildRegion(const Data::OsmElements &source) {
   std::vector<World::TransportNode> nodes;
   std::vector<World::TransportEdge> edges;
   size_t unclassified = 0;

@@ -234,7 +234,7 @@ TestProfile() {
     outshine/src/world/data/MvtLayer | outshine/src/world/ground/OsmStorageUsage)
       printf '%s' 'profile/vector' ;;
     outshine/src/world/data/OsmXmlReader) printf '%s' 'profile/osm-xml' ;;
-    outshine/src/import/transport/OsmTransportImport) printf '%s' 'profile/transport-topology' ;;
+    outshine/src/generators/osm/TransportBuilder) printf '%s' 'profile/transport-topology' ;;
     outshine/src/world/navigation/TransportTopology) printf '%s' 'profile/transport-native' ;;
     outshine/src/diagnostics/ProcessHeap | outshine/src/engine/WorldInstanceSink)
       printf '%s' 'profile/diagnostics' ;;
@@ -255,7 +255,7 @@ LayerIncludes() {
     profile/vector) printf '%s' "-Isrc/world/data -Isrc/base/spatial" ;;
     profile/osm-xml) printf '%s' "-Isrc/world/data -Isrc/world/products -Isrc/base/format" ;;
     profile/transport-native) printf '%s' "-Iinclude -Isrc/world/navigation -Isrc/world/products" ;;
-    profile/transport-topology) printf '%s' "-Isrc/world/navigation -Isrc/world/products -Isrc/import/transport -Isrc/world/data -Isrc/base/format" ;;
+    profile/transport-topology) GroupIncludes src/generators/osm/transport ;;
     profile/diagnostics) LayerIncludes profile/internal ;;
     profile/internal|profile/device) printf '%s ' "-I. -Isrc/base -Isrc/actor/body -Isrc/world/ground/tiles"; LayerIncludes profile/engine ;;
     # THE PRUNE IS A HARNESS TOOL AND ITS INCLUDES ARE DECLARED HERE LIKE EVERY OTHER SET. It
@@ -332,6 +332,10 @@ ImportGroups() {
   find src/import -name '*.cpp' | sort | tr '\n' ' '
 }
 
+GeneratorGroups() {
+  find src/generators -name '*.cpp' | sort | tr '\n' ' '
+}
+
 EngineRootGroups() {
   find src/engine -maxdepth 1 -name '*.cpp' | sort | tr '\n' ' '
 }
@@ -343,7 +347,7 @@ LayerGroups() {
     profile/vector) printf '%s' "src/world/data/MvtLayer.cpp" ;;
     profile/osm-xml) printf '%s' "src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/transport-native) printf '%s' "src/world/navigation/TransportTopology.cpp" ;;
-    profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/import/transport/OsmWaySemantics.cpp src/import/transport/CircuitRoute.cpp src/import/transport/OsmTransportImport.cpp src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
+    profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/generators/osm/transport src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/diagnostics) LayerGroups profile/internal; printf ' %s' "src/diagnostics" ;;
     profile/internal|profile/device) LayerGroups profile/engine ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
@@ -351,8 +355,8 @@ LayerGroups() {
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     profile/base) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io" ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
-    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles src/generators/base src/generators/building src/generators/flora src/generators/road src/generators/terrain src/generators/water src/generators src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     *) return 1 ;;
   esac
 }

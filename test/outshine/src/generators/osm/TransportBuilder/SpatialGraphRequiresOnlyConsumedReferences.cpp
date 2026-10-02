@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "TransportTopology.h"
 #include "OsmXmlReader.h"
 #include "Check.h"
@@ -19,25 +19,25 @@ int main() {
                                          {.DatasetId = "spatial", .Revision = "r1"});
   CHECK(source.has_value(), "spatial source retains open references");
   if (!source) { return Report(); }
-  const auto region = outshine::Import::OsmTransportImport::BuildRegion(*source);
+  const auto region = outshine::Generators::Osm::TransportBuilder::BuildRegion(*source);
   CHECK(region && region->Edges().size() == 2 && region->FindNode(1) && region->FindNode(2),
         "complete transport way survives unrelated open route and building references");
-  CHECK(!outshine::Import::OsmTransportImport::Build(*source),
+  CHECK(!outshine::Generators::Osm::TransportBuilder::Build(*source),
         "strict whole-source graph contract remains strict");
   const auto missing =
       OsmXmlReader::Read("<osm version='0.6'><node id='1' lat='0' lon='0'/>" + way + "</osm>",
                          {.DatasetId = "spatial", .Revision = "r2"});
   CHECK(missing.has_value(), "incomplete transport source parses without discarding references");
   if (missing) {
-    const auto rejected = outshine::Import::OsmTransportImport::BuildRegion(*missing);
+    const auto rejected = outshine::Generators::Osm::TransportBuilder::BuildRegion(*missing);
     CHECK(!rejected &&
               rejected.error().Code ==
-                  outshine::Import::TransportBuildErrorCode::MissingSourceObject &&
+                  outshine::Generators::Osm::TransportBuildErrorCode::MissingSourceObject &&
               rejected.error().SourceId == 10,
           "a missing consumed node still rejects the complete candidate graph");
   }
   if (region) {
-    CHECK(!outshine::Import::OsmTransportImport::ResolveCircuit(*region, *source, 20),
+    CHECK(!outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*region, *source, 20),
           "requesting the incomplete route remains a failure rather than a truncated route");
   }
   return Report();

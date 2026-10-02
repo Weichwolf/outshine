@@ -241,8 +241,8 @@ def main():
             {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
     if transport_product_boundary({'src/world/navigation/TransportTopology.h', 'src/world/products/SourceIdentity.h'}):
         raise RuntimeError('native transport positive control failed')
-    for forbidden in ('src/world/data/OsmElements.h', 'src/import/transport/OsmTransportImport.h',
-                      'src/engine/streaming/OsmTransportLoader.h'):
+    for forbidden in ('src/world/data/OsmElements.h', 'src/generators/osm/transport/OsmTransportBuilder.h',
+                      'src/generators/osm/preparation/OsmTransportPreparation.h'):
         if not transport_product_boundary({forbidden}):
             raise RuntimeError('native transport negative control failed')
     for product in (src / 'world' / 'navigation').glob('*.h'):

@@ -13,7 +13,7 @@
 #include <string_view>
 #include <system_error>
 
-namespace outshine::Import {
+namespace outshine::Generators::Osm {
 
 namespace {
 

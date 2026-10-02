@@ -43,7 +43,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   for (const Data::SourceProvider &provider : Session.Declared.Providers) {
     (provider.Kind == "osm" ? osmProviders : tileProviders).push_back(provider);
   }
-  std::vector<OsmCircuitRequest> routes;
+  std::vector<Generators::Osm::CircuitRequest> routes;
   routes.reserve(Session.Declared.Routes.size());
   for (const Scenario::RouteDeclaration &declared : Session.Declared.Routes) {
     routes.push_back({.Id = declared.Id, .RelationId = declared.OsmRelationId});
@@ -52,7 +52,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     Error = "semantic OSM routes require a source";
     return false;
   }
-  if (osmProviders.empty() && !World.OsmSourceLoader && !World.OsmTransportLoader) { return true; }
+  if (osmProviders.empty() && !World.OsmSourceLoader && !World.OsmTransport) { return true; }
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.OsmSourceLoader) {
     if (!World.Wire) {
@@ -72,9 +72,9 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   World.OriginalSourceDemand.reset();
   if (!RequestOsmSources(osmProviders)) { return false; }
   if (World.OsmRoutes.empty()) {
-    World.OsmTransportLoader.reset();
-  } else if (!World.OsmTransportLoader) {
-    World.OsmTransportLoader = std::make_unique<OsmTransportLoader>(*World.Pool);
+    World.OsmTransport.reset();
+  } else if (!World.OsmTransport) {
+    World.OsmTransport = std::make_unique<Generators::Osm::TransportPreparation>(*World.Pool);
   }
   if (World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Ready ||
       World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Inactive) {
@@ -134,9 +134,9 @@ bool Engine::State::RequestOriginalCells() {
 }
 
 bool Engine::State::SubmitOsmTransportSource() {
-  if (!World.OsmTransportLoader) { return true; }
+  if (!World.OsmTransport) { return true; }
   auto requested =
-      World.OsmTransportLoader->RequestSource(World.OsmSourceLoader->Current(), World.OsmRoutes);
+      World.OsmTransport->RequestSource(World.OsmSourceLoader->Current(), World.OsmRoutes);
   if (!requested) {
     Error = std::move(requested.error());
     return false;
@@ -281,7 +281,7 @@ void Engine::State::PollOsmSources() {
           "original OSM source bytes", static_cast<double>(source.SourceBytes), "bytes");
       Published.RecordMetric("original OSM read time", source.ReadMs, "ms");
       Published.RecordMetric("original OSM parse time", source.ParseMs, "ms");
-      if (!World.OsmTransportLoader) {
+      if (!World.OsmTransport) {
         Published.RecordMetric(
             "semantic OSM source bytes", static_cast<double>(source.SourceBytes), "bytes");
         Published.RecordMetric("semantic OSM read time", source.ReadMs, "ms");
@@ -290,22 +290,21 @@ void Engine::State::PollOsmSources() {
       if (!SubmitOsmTransportSource()) { return; }
     }
   }
-  const auto previous = World.OsmTransportLoader ? World.OsmTransportLoader->Current() : nullptr;
-  if (World.OsmTransportLoader) { World.OsmTransportLoader->Poll(); }
+  const auto previous = World.OsmTransport ? World.OsmTransport->Current() : nullptr;
+  if (World.OsmTransport) { World.OsmTransport->Poll(); }
   Published.RecordMetric(
       "semantic OSM jobs pending",
-      static_cast<double>(
-          (World.OsmTransportLoader ? World.OsmTransportLoader->PendingCount() : 0) +
-          (World.OsmSourceLoader ? World.OsmSourceLoader->PendingCount() : 0)),
+      static_cast<double>((World.OsmTransport ? World.OsmTransport->PendingCount() : 0) +
+                          (World.OsmSourceLoader ? World.OsmSourceLoader->PendingCount() : 0)),
       "jobs");
-  if (!World.OsmTransportLoader) { return; }
+  if (!World.OsmTransport) { return; }
   Published.RecordMetric("semantic OSM jobs completed",
-                         static_cast<double>(World.OsmTransportLoader->CompletedCount()),
+                         static_cast<double>(World.OsmTransport->CompletedCount()),
                          "jobs");
   Published.RecordMetric("semantic OSM jobs canceled",
-                         static_cast<double>(World.OsmTransportLoader->CanceledCount()),
+                         static_cast<double>(World.OsmTransport->CanceledCount()),
                          "jobs");
-  const auto &current = World.OsmTransportLoader->Current();
+  const auto &current = World.OsmTransport->Current();
   if (!current || current == previous) { return; }
   const World::TransportLoadMetrics &metrics = current->Metrics();
   Published.RecordMetric(

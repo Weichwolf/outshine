@@ -1,7 +1,7 @@
 #include "OsmSourceLoader.h"
 #include "SourceProviderValidation.h"
 #include "OsmBuildingFootprints.h"
-#include "OsmTransportLoader.h"
+#include "OsmTransportPreparation.h"
 #include "Check.h"
 
 #include <array>
@@ -73,12 +73,15 @@ int main() {
       const auto buildings = Ground::OsmBuildingFootprints::Build(source, 3);
       CHECK(buildings && buildings->Buildings().size() == 1 && &buildings->Source() == source.get(),
             "building product consumes the fetched original snapshot");
-      OsmTransportLoader transport(compute);
+      outshine::Generators::Osm::TransportPreparation transport(compute);
       CHECK(transport.RequestSource(source), "native transport consumes the same original source");
       const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
       do {
         transport.Poll();
-        if (transport.CurrentPhase() != OsmTransportLoader::Phase::Loading) { break; }
+        if (transport.CurrentPhase() !=
+            outshine::Generators::Osm::TransportPreparation::Phase::Loading) {
+          break;
+        }
         (void)compute.AwaitCompletion(0.01);
       } while (std::chrono::steady_clock::now() < until);
       CHECK(transport.Current() && transport.Current()->Topology().Edges().size() == 2,

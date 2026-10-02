@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadAlignment.h"
@@ -23,7 +23,7 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "cusp", .Revision = "r1"});
   CHECK(source.has_value(), "the source with a sharp turn parses");
   if (!source) { return Report(); }
-  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
+  const auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);
   CHECK(topology.has_value(), "a connected logical way may still have impossible geometry");
   if (!topology) { return Report(); }
 

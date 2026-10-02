@@ -1,4 +1,4 @@
-#include "OsmTransportLoader.h"
+#include "OsmTransportPreparation.h"
 #include "Check.h"
 
 #include <chrono>
@@ -10,10 +10,12 @@
 
 namespace {
 
-bool WaitFor(outshine::OsmTransportLoader &source, outshine::Tasks &tasks) {
+bool WaitFor(outshine::Generators::Osm::TransportPreparation &source, outshine::Tasks &tasks) {
   for (int attempt = 0; attempt < 200; ++attempt) {
     source.Poll();
-    if (source.CurrentPhase() != outshine::OsmTransportLoader::Phase::Loading) { return true; }
+    if (source.CurrentPhase() != outshine::Generators::Osm::TransportPreparation::Phase::Loading) {
+      return true;
+    }
     (void)tasks.AwaitCompletion(0.05);
   }
   return false;
@@ -37,15 +39,17 @@ int main() {
   using namespace outshine::World;
 
   Tasks tasks(1);
-  OsmTransportLoader source(tasks);
+  outshine::Generators::Osm::TransportPreparation source(tasks);
   const auto hockenheim =
       Region("src/assets/world/osm/HockenheimringGrandPrix.osm",
              "pin-r1",
              {.WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34});
-  const OsmCircuitRequest mainRoute{.Id = "grand-prix", .RelationId = 284588};
+  const outshine::Generators::Osm::CircuitRequest mainRoute{.Id = "grand-prix",
+                                                            .RelationId = 284588};
   CHECK(source.Request(std::span(&hockenheim, 1), ".", std::span(&mainRoute, 1)),
         "versioned regional source and named route are queued");
-  CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Ready,
+  CHECK(WaitFor(source, tasks) &&
+            source.CurrentPhase() == outshine::Generators::Osm::TransportPreparation::Phase::Ready,
         "background import publishes a complete native graph");
   const auto original = source.Current();
   bool circuitValid = false;
@@ -58,10 +62,13 @@ int main() {
         "published source IDs resolve the independent Hockenheim circuit oracle");
   if (!original) { return Report(); }
 
-  const OsmCircuitRequest missingRoute{.Id = "missing", .RelationId = 999999};
+  const outshine::Generators::Osm::CircuitRequest missingRoute{.Id = "missing",
+                                                               .RelationId = 999999};
   CHECK(source.Request(std::span(&hockenheim, 1), ".", std::span(&missingRoute, 1)),
         "a replacement route request queues against the same source");
-  CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Failed &&
+  CHECK(WaitFor(source, tasks) &&
+            source.CurrentPhase() ==
+                outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
             source.Error().find("999999") != std::string_view::npos &&
             source.Current() == original && source.Current()->FindRoute("grand-prix") != nullptr,
         "missing relation leaves the previous named route and graph published");
@@ -69,7 +76,9 @@ int main() {
   auto wrongPin = hockenheim;
   wrongPin.Revision = "sha256:" + std::string(64, '0');
   CHECK(source.Request(std::span(&wrongPin, 1), "."), "well-formed digest pin is queued");
-  CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Failed &&
+  CHECK(WaitFor(source, tasks) &&
+            source.CurrentPhase() ==
+                outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
             source.Error().find("sha256") != std::string_view::npos && source.Current() == original,
         "different source bytes cannot publish under a declared digest pin");
 
@@ -87,7 +96,9 @@ int main() {
             "<tag k='highway' v='residential'/></way></osm>";
   }
   CHECK(source.Request(std::span(&changed, 1), "."), "replacement source is queued");
-  CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Failed &&
+  CHECK(WaitFor(source, tasks) &&
+            source.CurrentPhase() ==
+                outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
             source.Error().find("9") != std::string_view::npos &&
             source.Error().find("2") != std::string_view::npos,
         "missing source node rejects the replacement with IDs");
@@ -101,7 +112,9 @@ int main() {
             "<tag k='highway' v='residential'/></way></osm>";
   }
   CHECK(source.Request(std::span(&changed, 1), "."), "same revision retries after failure");
-  CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Ready &&
+  CHECK(WaitFor(source, tasks) &&
+            source.CurrentPhase() ==
+                outshine::Generators::Osm::TransportPreparation::Phase::Ready &&
             source.Current() && source.Current()->Topology().FindNode(2) != nullptr,
         "valid retry atomically replaces the failed candidate");
 
@@ -117,7 +130,9 @@ int main() {
         "third revision replaces the desired state without queuing another build");
   release.set_value();
   tasks.Wait(blocker);
-  CHECK(WaitFor(source, tasks) && source.CurrentPhase() == OsmTransportLoader::Phase::Ready &&
+  CHECK(WaitFor(source, tasks) &&
+            source.CurrentPhase() ==
+                outshine::Generators::Osm::TransportPreparation::Phase::Ready &&
             source.Current() && source.Current()->SourceIdentity().Revision == "r5" &&
             source.CanceledCount() == 1,
         "only the newest revision publishes after one stale build is canceled");

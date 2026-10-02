@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_STREAMING_OSMTRANSPORTLOADER_H
-#define OUTSHINE_ENGINE_STREAMING_OSMTRANSPORTLOADER_H
+#ifndef OUTSHINE_GENERATORS_OSM_PREPARATION_OSMTRANSPORTPREPARATION_H
+#define OUTSHINE_GENERATORS_OSM_PREPARATION_OSMTRANSPORTPREPARATION_H
 
 #include <cstddef>
 #include <algorithm>
@@ -20,32 +20,32 @@
 #include "TransportNetworkSnapshot.h"
 #include <world/SourceProvider.h>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 
-struct OsmCircuitRequest {
+struct CircuitRequest {
   std::string Id;
   uint64_t RelationId = 0;
 
-  [[nodiscard]] bool operator==(const OsmCircuitRequest &) const = default;
+  [[nodiscard]] bool operator==(const CircuitRequest &) const = default;
 };
 
-class OsmTransportLoader {
+class TransportPreparation {
 public:
   enum class Phase : uint8_t { Inactive, Loading, Ready, Failed };
 
-  explicit OsmTransportLoader(Tasks &tasks) : Tasks_(&tasks) {}
+  explicit TransportPreparation(Tasks &tasks) : Tasks_(&tasks) {}
 
-  ~OsmTransportLoader();
-  OsmTransportLoader(const OsmTransportLoader &) = delete;
-  OsmTransportLoader &operator=(const OsmTransportLoader &) = delete;
+  ~TransportPreparation();
+  TransportPreparation(const TransportPreparation &) = delete;
+  TransportPreparation &operator=(const TransportPreparation &) = delete;
 
   [[nodiscard]] std::expected<void, std::string>
   Request(std::span<const Data::SourceProvider> providers,
           std::string_view shippedRoot,
-          std::span<const OsmCircuitRequest> routes = {});
+          std::span<const CircuitRequest> routes = {});
   [[nodiscard]] std::expected<void, std::string>
   RequestSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                std::span<const OsmCircuitRequest> routes = {});
+                std::span<const CircuitRequest> routes = {});
   void Poll();
 
   [[nodiscard]] Phase CurrentPhase() const noexcept { return Phase_; }
@@ -88,24 +88,24 @@ private:
 
   [[nodiscard]] static LoadResult Load(std::span<const Data::SourceProvider> providers,
                                        std::string_view shippedRoot,
-                                       std::span<const OsmCircuitRequest> routes,
+                                       std::span<const CircuitRequest> routes,
                                        const std::stop_token &stop);
 
   [[nodiscard]] static LoadResult BuildSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                                              std::span<const OsmCircuitRequest> routes,
+                                              std::span<const CircuitRequest> routes,
                                               const std::stop_token &stop);
 
   [[nodiscard]] std::expected<void, std::string>
   SetRequest(std::vector<Data::SourceProvider> requested,
              std::string root,
              std::shared_ptr<const Data::OsmSourceSnapshot> source,
-             std::span<const OsmCircuitRequest> routes);
+             std::span<const CircuitRequest> routes);
 
   void StartRequested();
 
   Tasks *Tasks_;
   std::vector<Data::SourceProvider> Requested_;
-  std::vector<OsmCircuitRequest> RequestedRoutes_;
+  std::vector<CircuitRequest> RequestedRoutes_;
   std::string Root_;
   std::shared_ptr<const Data::OsmSourceSnapshot> RequestedSource_;
   std::optional<Pending> Pending_;

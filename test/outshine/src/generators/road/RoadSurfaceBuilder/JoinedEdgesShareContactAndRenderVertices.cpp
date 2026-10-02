@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "EarthworkPress.h"
 #include "OsmXmlReader.h"
@@ -32,7 +32,7 @@ int main() {
   auto source = OsmXmlReader::Read(xml, {.DatasetId = "analytic", .Revision = "r1"});
   CHECK(source.has_value(), "the analytic road source parses");
   if (!source) { return Report(); }
-  auto topology = outshine::Import::OsmTransportImport::Build(*source);
+  auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);
   CHECK(topology.has_value(), "the road topology builds");
   if (!topology) { return Report(); }
 

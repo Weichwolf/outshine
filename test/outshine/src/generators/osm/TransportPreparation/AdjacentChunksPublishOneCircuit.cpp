@@ -1,4 +1,4 @@
-#include "OsmTransportLoader.h"
+#include "OsmTransportPreparation.h"
 #include "Check.h"
 
 #include <array>
@@ -13,10 +13,12 @@
 
 namespace {
 
-bool WaitFor(outshine::OsmTransportLoader &source, outshine::Tasks &tasks) {
+bool WaitFor(outshine::Generators::Osm::TransportPreparation &source, outshine::Tasks &tasks) {
   for (int attempt = 0; attempt < 200; ++attempt) {
     source.Poll();
-    if (source.CurrentPhase() != outshine::OsmTransportLoader::Phase::Loading) { return true; }
+    if (source.CurrentPhase() != outshine::Generators::Osm::TransportPreparation::Phase::Loading) {
+      return true;
+    }
     (void)tasks.AwaitCompletion(0.05);
   }
   return false;
@@ -68,7 +70,7 @@ int main() {
   }
 
   Tasks tasks(1);
-  OsmTransportLoader loader(tasks);
+  outshine::Generators::Osm::TransportPreparation loader(tasks);
   std::array providers{
       Chunk(secondPath.string(),
             1,
@@ -78,10 +80,11 @@ int main() {
             0,
             "r1",
             {.WestDeg = 0.0, .SouthDeg = 0.0, .EastDeg = 0.001, .NorthDeg = 0.001})};
-  const OsmCircuitRequest routeRequest{.Id = "three-edge", .RelationId = 9};
+  const outshine::Generators::Osm::CircuitRequest routeRequest{.Id = "three-edge", .RelationId = 9};
   CHECK(loader.Request(providers, ".", std::span(&routeRequest, 1)),
         "shuffled adjacent source declarations and route are queued");
-  CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmTransportLoader::Phase::Ready,
+  CHECK(WaitFor(loader, tasks) &&
+            loader.CurrentPhase() == outshine::Generators::Osm::TransportPreparation::Phase::Ready,
         "cross-chunk nodes and relation publish only after both chunks close");
   const auto first = loader.Current();
   bool circuitReady = false;
@@ -111,7 +114,9 @@ int main() {
   }
   for (auto &provider : providers) { provider.Revision = "r2"; }
   CHECK(loader.Request(providers, ".", std::span(&routeRequest, 1)), "changed revision is queued");
-  CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmTransportLoader::Phase::Failed &&
+  CHECK(WaitFor(loader, tasks) &&
+            loader.CurrentPhase() ==
+                outshine::Generators::Osm::TransportPreparation::Phase::Failed &&
             loader.Error().find("2") != std::string_view::npos && loader.Current() == first &&
             loader.Current()->FindRoute("three-edge") != nullptr,
         "conflicting cross-chunk ID rejects replacement and retains the published graph");
@@ -122,7 +127,9 @@ int main() {
   }
   CHECK(loader.Request(providers, ".", std::span(&routeRequest, 1)),
         "same revision retries after corrected source bytes");
-  CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmTransportLoader::Phase::Ready &&
+  CHECK(WaitFor(loader, tasks) &&
+            loader.CurrentPhase() ==
+                outshine::Generators::Osm::TransportPreparation::Phase::Ready &&
             loader.Current() && loader.Current()->SourceIdentity().Revision == "r2" &&
             loader.Current()->Topology().Edges().size() == first->Topology().Edges().size() &&
             loader.Current()->FindRoute("three-edge") != nullptr &&

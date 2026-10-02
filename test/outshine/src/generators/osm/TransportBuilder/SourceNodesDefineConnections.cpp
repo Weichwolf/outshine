@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "OsmXmlReader.h"
 #include "TransportTopology.h"
 #include "Check.h"
@@ -47,7 +47,7 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "osm-analytical", .Revision = "r1"});
   CHECK(source.has_value(), "analytical transport source parses");
   if (!source) { return Report(); }
-  const auto built = outshine::Import::OsmTransportImport::Build(*source);
+  const auto built = outshine::Generators::Osm::TransportBuilder::Build(*source);
   CHECK(built.has_value(), "the complete source builds one native topology");
   if (!built) { return Report(); }
   const TransportTopology &graph = *built;

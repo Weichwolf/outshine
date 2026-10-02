@@ -68,10 +68,12 @@ namespace {
     return world.OsmRoutes.empty() ? Says::kPendingOsmSource : Says::kPendingOsmTransport;
   }
   if (world.OsmRoutes.empty()) { return {}; }
-  const auto *loader = world.OsmTransportLoader.get();
+  const auto *loader = world.OsmTransport.get();
   if (loader == nullptr) { return Says::kPendingOsmTransport; }
   if (world.CurrentTransportReady()) { return {}; }
-  if (loader->CurrentPhase() == OsmTransportLoader::Phase::Failed) { return loader->Error(); }
+  if (loader->CurrentPhase() == Generators::Osm::TransportPreparation::Phase::Failed) {
+    return loader->Error();
+  }
   return Says::kPendingOsmTransport;
 }
 
@@ -612,8 +614,8 @@ Result Engine::State::PumpPreload() {
   PollOsmSources();
   if ((World.OsmSourceLoader &&
        World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Failed) ||
-      (World.OsmTransportLoader &&
-       World.OsmTransportLoader->CurrentPhase() == OsmTransportLoader::Phase::Failed)) {
+      (World.OsmTransport && World.OsmTransport->CurrentPhase() ==
+                                 Generators::Osm::TransportPreparation::Phase::Failed)) {
     return std::unexpected(std::string(OsmWorldBlocker(Session.Declared.Providers, World)));
   }
   if (!Session.Declared.Ground.Declared) { return {}; }
@@ -736,9 +738,8 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
     if (signalled || remaining() <= 0.0) { return; }
   }
   const bool sourceWorker = World.OsmSourceLoader && World.OsmSourceLoader->PendingCount() > 0;
-  const bool worldWorker =
-      World.RoadAlignmentBuilds.Busy() || sourceWorker ||
-      (World.OsmTransportLoader && World.OsmTransportLoader->PendingCount() > 0);
+  const bool worldWorker = World.RoadAlignmentBuilds.Busy() || sourceWorker ||
+                           (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
   if (worldWorker && World.Pool) {
     const auto began = std::chrono::steady_clock::now();
     const bool signalled = sourceWorker ? World.OsmSourceLoader->AwaitSlice(remaining())

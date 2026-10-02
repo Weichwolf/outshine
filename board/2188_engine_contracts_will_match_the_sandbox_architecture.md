@@ -29,7 +29,7 @@ liegt unter generators/terrain; world hält nur den immutable Klassifikationssna
 Fine/Coarse behalten ihren Raumbezug und die jeweils konsumierte Quellrevision.
 GroundClassBuffer besitzt GPU-Packing und Digest unter render; ClassStructure bleibt ein natives CPU-Produkt.
 Engine publiziert beide zusammen; render hält nur seinen Uploadpuffer. Native Netze halten keine
-Quellarchive. OSM-Adapter/Jobs liegen noch in import/engine/world: unzulässige Kernkopplung.
+Quellarchive. Netz-/Routenaufbau und Vorbereitung gehören generators/osm; Quellenerwerb und konkrete Engine-Kopplung bleiben offen.
 
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
@@ -53,7 +53,7 @@ beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
 |---|---|
 | world/data: IO, Cache, OSM, Copernicus, MVT | Allgemeine Dienste getrennt; konkrete Quellen/Adapter gehören ihrer Generator-Erweiterung |
 | world/ground: OSM/MVT-Ingestion und Produkte | generators/osm übersetzt Original-OSM; world hält ausschließlich native Produkte |
-| import/transport + engine/streaming: OSM | generators/osm besitzt Beschaffung, Decode, Netze/Routen und Jobs; Kern kennt keine OSM-Typen |
+| world/data + engine: OSM-Quellen und Pipeline-Typen | generators/osm besitzt Beschaffung, Decode und Jobs; Engine konsumiert den allgemeinen Generatorvertrag |
 | Gebäude-Publikation (bereinigt) | BuildingGeometry trägt nur native Polygone und generische Provenienz/IDs |
 | actor/body: Rigid/Prismatic | physics besitzt Simulation; actor konsumiert sie |
 | import (bereinigt) | Native CPU-Assets ohne Rendererfreigabe; keine transitive Render-Abhängigkeit |

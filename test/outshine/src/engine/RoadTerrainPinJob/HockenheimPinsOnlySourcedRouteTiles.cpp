@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadAlignment.h"
@@ -26,11 +26,11 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the route source parses");
   if (!source) { return Report(); }
-  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
+  const auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);
   CHECK(topology.has_value(), "the source builds a logical topology");
   if (!topology) { return Report(); }
   const auto route =
-      outshine::Import::OsmTransportImport::ResolveCircuit(*topology, *source, 284588);
+      outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*topology, *source, 284588);
   CHECK(route.has_value(), "the circuit retains directed source edges");
   if (!route) { return Report(); }
 

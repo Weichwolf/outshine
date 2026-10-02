@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace outshine::Import {
+namespace outshine::Generators::Osm {
 
 namespace {
 
@@ -97,11 +97,11 @@ SelectEdges(const World::TransportTopology &graph,
 }
 
 std::expected<World::CircuitRoute, CircuitError>
-OsmTransportImport::ResolveCircuit(const World::TransportTopology &graph,
-                                   const Data::OsmElements &source,
-                                   uint64_t relationId,
-                                   std::string_view memberRole,
-                                   size_t maxEdges) {
+TransportBuilder::ResolveCircuit(const World::TransportTopology &graph,
+                                 const Data::OsmElements &source,
+                                 uint64_t relationId,
+                                 std::string_view memberRole,
+                                 size_t maxEdges) {
   if (source.SourceIdentity() != graph.SourceIdentity()) {
     return std::unexpected(
         CircuitError{.Code = CircuitErrorCode::SourceMismatch, .SourceId = relationId});

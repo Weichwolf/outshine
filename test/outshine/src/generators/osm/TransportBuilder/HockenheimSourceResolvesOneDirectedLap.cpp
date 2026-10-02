@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "OsmXmlReader.h"
 #include "TransportTopology.h"
 #include "Check.h"
@@ -46,14 +46,16 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the pinned Hockenheim source parses");
   if (!source) { return Report(); }
-  const auto graph = outshine::Import::OsmTransportImport::Build(*source);
+  const auto graph = outshine::Generators::Osm::TransportBuilder::Build(*source);
   CHECK(graph.has_value(), "the complete source builds a native logical transport graph");
   if (!graph) { return Report(); }
-  const auto route = outshine::Import::OsmTransportImport::ResolveCircuit(*graph, *source, 284588);
+  const auto route =
+      outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*graph, *source, 284588);
   const auto undersizedBudget =
-      outshine::Import::OsmTransportImport::ResolveCircuit(*graph, *source, 284588, {}, 266);
+      outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*graph, *source, 284588, {}, 266);
   CHECK(!undersizedBudget &&
-            undersizedBudget.error().Code == outshine::Import::CircuitErrorCode::TooManyEdges &&
+            undersizedBudget.error().Code ==
+                outshine::Generators::Osm::CircuitErrorCode::TooManyEdges &&
             undersizedBudget.error().SourceId == 284588,
         "route edge budget rejects before selecting an overlong circuit");
   CHECK(route && route->EdgeIds.size() == 267 && graph->UnclassifiedPathCount() == 0,
@@ -96,8 +98,8 @@ int main() {
         OsmXmlReader::Read(reversedWay, {.DatasetId = "openstreetmap", .Revision = "reversed-way"});
     CHECK(changedSource.has_value(), "the reversed way remains valid OSM source");
     if (changedSource) {
-      const auto changedGraph = outshine::Import::OsmTransportImport::Build(*changedSource);
-      CHECK(changedGraph && !outshine::Import::OsmTransportImport::ResolveCircuit(
+      const auto changedGraph = outshine::Generators::Osm::TransportBuilder::Build(*changedSource);
+      CHECK(changedGraph && !outshine::Generators::Osm::TransportBuilder::ResolveCircuit(
                                 *changedGraph, *changedSource, 284588),
             "reversing one source way breaks the directed circuit rather than teleporting");
     }
@@ -111,8 +113,8 @@ int main() {
         OsmXmlReader::Read(pitAsMain, {.DatasetId = "openstreetmap", .Revision = "pit-as-main"});
     CHECK(changedSource.has_value(), "the altered relation remains valid OSM source");
     if (changedSource) {
-      const auto changedGraph = outshine::Import::OsmTransportImport::Build(*changedSource);
-      CHECK(changedGraph && !outshine::Import::OsmTransportImport::ResolveCircuit(
+      const auto changedGraph = outshine::Generators::Osm::TransportBuilder::Build(*changedSource);
+      CHECK(changedGraph && !outshine::Generators::Osm::TransportBuilder::ResolveCircuit(
                                 *changedGraph, *changedSource, 284588),
             "promoting the pit branch to the main role rejects the ambiguous route");
     }
@@ -130,9 +132,9 @@ int main() {
         missingMember, {.DatasetId = "openstreetmap", .Revision = "missing-member"});
     CHECK(changedSource.has_value(), "an incomplete relation remains syntactically valid");
     if (changedSource) {
-      const auto refused = outshine::Import::OsmTransportImport::Build(*changedSource);
+      const auto refused = outshine::Generators::Osm::TransportBuilder::Build(*changedSource);
       CHECK(!refused && refused.error().Code ==
-                            outshine::Import::TransportBuildErrorCode::MissingSourceObject,
+                            outshine::Generators::Osm::TransportBuildErrorCode::MissingSourceObject,
             "a missing pinned member rejects the graph before route publication");
     }
   }

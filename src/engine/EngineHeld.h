@@ -53,7 +53,7 @@
 #include "DeclaredSources.h"
 #include "SurfacePreparation.h"
 #include "PublishedRegion.h"
-#include "OsmTransportLoader.h"
+#include "OsmTransportPreparation.h"
 #include "OsmSourceLoader.h"
 #include "GroundMesher.h"
 #include "StreetGraphBuilder.h"
@@ -262,8 +262,8 @@ struct Surrounds {
   RoadAlignmentBuildQueue RoadAlignmentBuilds;
   std::unique_ptr<outshine::OsmSourceLoader> OsmSourceLoader;
   std::optional<std::array<double, 3>> OriginalSourceDemand;
-  std::vector<OsmCircuitRequest> OsmRoutes;
-  std::unique_ptr<outshine::OsmTransportLoader> OsmTransportLoader;
+  std::vector<Generators::Osm::CircuitRequest> OsmRoutes;
+  std::unique_ptr<Generators::Osm::TransportPreparation> OsmTransport;
   StructureBuildQueue StructureBuilds;
   size_t StructurePlanAt = 0;
   size_t StructurePlanBurst = 0;
@@ -293,12 +293,12 @@ struct Surrounds {
   }
 
   [[nodiscard]] bool CurrentTransportReady() const noexcept {
-    if (!OsmTransportLoader ||
-        OsmTransportLoader->CurrentPhase() != outshine::OsmTransportLoader::Phase::Ready) {
+    if (!OsmTransport ||
+        OsmTransport->CurrentPhase() != Generators::Osm::TransportPreparation::Phase::Ready) {
       return false;
     }
     return !OsmSourceLoader ||
-           (CurrentOriginalReady() && OsmTransportLoader->Source() == OsmSourceLoader->Current());
+           (CurrentOriginalReady() && OsmTransport->Source() == OsmSourceLoader->Current());
   }
 };
 

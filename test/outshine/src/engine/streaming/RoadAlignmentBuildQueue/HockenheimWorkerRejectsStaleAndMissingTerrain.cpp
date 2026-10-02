@@ -1,4 +1,4 @@
-#include "OsmTransportImport.h"
+#include "OsmTransportBuilder.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadAlignmentBuildQueue.h"
@@ -25,10 +25,11 @@ int main() {
   auto elements = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(elements.has_value(), "the route source parses");
   if (!elements) { return Report(); }
-  auto topology = outshine::Import::OsmTransportImport::Build(*elements);
+  auto topology = outshine::Generators::Osm::TransportBuilder::Build(*elements);
   CHECK(topology.has_value(), "the route topology builds");
   if (!topology) { return Report(); }
-  auto circuit = outshine::Import::OsmTransportImport::ResolveCircuit(*topology, *elements, 284588);
+  auto circuit =
+      outshine::Generators::Osm::TransportBuilder::ResolveCircuit(*topology, *elements, 284588);
   CHECK(circuit.has_value(), "the source circuit resolves");
   if (!circuit) { return Report(); }
   ResolvedTransport transport{.Graph = std::move(*topology),
