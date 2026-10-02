@@ -62,7 +62,8 @@ std::shared_ptr<const ClassStructure> Build(ClassificationBuild &builder,
   CHECK(builder.Submit(std::move(job)), "a bounded classification request is queued");
   CHECK(builder.AwaitCompletion(3), "classification reaches a terminal result");
   auto result = builder.Collect();
-  CHECK(result && result->Structure, "a completed native product is delivered once");
+  CHECK(result && result->Structure && result->Upload,
+        "a completed native product and its render upload are delivered together");
   CHECK(!builder.Collect(), "a result cannot be collected twice");
   return result ? result->Structure : nullptr;
 }
@@ -84,7 +85,8 @@ int main() {
     gate.Open->store(true);
     CHECK(builder.AwaitCompletion(3), "queued cancellation completes");
     auto canceled = builder.Collect();
-    CHECK(canceled && !canceled->Structure && canceled->Returned.Raster.Points.size() == 8,
+    CHECK(canceled && !canceled->Structure && !canceled->Upload &&
+              canceled->Returned.Raster.Points.size() == 8,
           "canceled work returns owned inputs without publishing a product");
   }
   const auto first = Build(builder, Job(3, ClassGrain::Fine, {1, 1, 1}));

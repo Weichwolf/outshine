@@ -690,11 +690,13 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
 Engine::State::Classed Engine::State::Classify(std::span<const float> groundPositionsM,
                                                GroundWorldCandidate &candidate) {
   Classed out;
-  const std::shared_ptr<const ClassStructure> classes = World.Stack.Classes().Read();
+  const auto publication = World.Stack.Classes().ReadPublication();
+  const auto &classes = publication.Classes;
   const Ground::VegetationTemplates &wearing = World.Stack.Vegetation();
   const Medium fallback = kEarthAir;
   if (classes && wearing.Ready()) {
     out.Structure = classes;
+    out.Upload = publication.Upload;
     out.Palette = PaletteOver(wearing, fallback);
   }
   if (out.Structure && !out.Palette.empty()) {
@@ -746,12 +748,9 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
   Published.RecordMetric("class field: the version the colours used",
                          classes ? static_cast<double>(classes->Version()) : -1.0,
                          "version");
-  if (classes) {
-    uint64_t digest = kDigestBasis;
-    const size_t words = classes->Bytes() / sizeof(uint32_t);
-    for (size_t at = 0; at < words; ++at) {
-      digest = (digest ^ classes->Words()[at]) * kDigestPrime;
-    }
+  if (publication.Upload) {
+    const uint64_t digest = publication.Upload->Digest();
+    Published.RecordMetric("class field: CPU packing", publication.Upload->PackMs(), "ms");
     Published.RecordMetric("class field: the structure's digest, low half",
                            static_cast<double>(digest & kLowWord),
                            "digest");
@@ -1641,6 +1640,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundClasses() {
   Classed classed = Classify(build.PositionsM, state.Candidate());
   build.ClassPalette = std::move(classed.Palette);
   build.ClassStructure = std::move(classed.Structure);
+  build.ClassUpload = std::move(classed.Upload);
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
 }
@@ -2296,9 +2296,9 @@ bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
   if (state.GeometrySubmissionStep() == GroundBuildState::GeometrySubmission::Classes) {
     const auto classesBegan = std::chrono::steady_clock::now();
     Render::GroundClassUploadMetrics upload;
-    const bool hasClasses = build.ClassStructure && !build.ClassPalette.empty();
+    const bool hasClasses = build.ClassUpload && !build.ClassPalette.empty();
     if (hasClasses && !candidate.BeginGroundClasses(
-                          build.ClassStructure, std::move(build.ClassPalette), Error, &upload)) {
+                          build.ClassUpload, std::move(build.ClassPalette), Error, &upload)) {
       return false;
     }
     state.ClassesStarted();

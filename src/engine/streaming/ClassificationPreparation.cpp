@@ -63,7 +63,7 @@ void ClassificationPreparation::Close() {
     tier->ArraysLent = false;
   }
   const std::scoped_lock lock(Mu_);
-  Published_.reset();
+  Published_ = {};
   Opened_ = false;
 }
 
@@ -89,7 +89,7 @@ void ClassificationPreparation::Settle() {
 size_t ClassificationPreparation::HeapBytes() const {
   const std::scoped_lock lk(Mu_);
   return Fine_.HeapBytes() + Coarse_.HeapBytes() + (Builder_ ? Builder_->HeapBytes() : 0) +
-         (Published_ ? Published_->Bytes() : 0);
+         (Published_.Upload ? Published_.Upload->HeapBytes() : 0);
 }
 
 void ClassificationPreparation::Ingest(Tier &t) {
@@ -335,7 +335,7 @@ void ClassificationPreparation::CollectFinished() {
   t.Have = true;
   if (!Fine_.Have || !Coarse_.Have || Fine_.Stale || Coarse_.Stale) { return; }
   const std::scoped_lock lk(Mu_);
-  Published_ = std::move(done->Structure);
+  Published_ = {.Classes = std::move(done->Structure), .Upload = std::move(done->Upload)};
 }
 
 bool ClassificationPreparation::Complete() const {

@@ -60,7 +60,17 @@ public:
 
   [[nodiscard]] std::expected<void, std::string_view> Update(TilePool &tiles, LongitudeLatitude at);
 
+  struct Publication {
+    std::shared_ptr<const ClassStructure> Classes;
+    std::shared_ptr<const Render::GroundClassBuffer> Upload;
+  };
+
   std::shared_ptr<const ClassStructure> Read() const {
+    const std::scoped_lock lk(Mu_);
+    return Published_.Classes;
+  }
+
+  [[nodiscard]] Publication ReadPublication() const {
     const std::scoped_lock lk(Mu_);
     return Published_;
   }
@@ -204,7 +214,7 @@ private:
   std::optional<ClassGrain> Submitted_;
 
   mutable std::mutex Mu_;
-  std::shared_ptr<const ClassStructure> Published_;
+  Publication Published_;
 
   TangentFrame Frame_;
   Vec2 Cam_ = {{0, 0}};

@@ -143,8 +143,9 @@ def native_product_boundary(headers):
 
 
 def world_state_boundary(headers):
-    return [f'{header}: world state depends on engine or generator implementation'
-            for header in sorted(headers) if header.startswith(('src/engine/', 'src/generators/'))]
+    return [f'{header}: world state depends on engine, generator or renderer implementation'
+            for header in sorted(headers)
+            if header.startswith(('src/engine/', 'src/generators/', 'src/render/'))]
 
 
 def generator_product_boundary(headers):
@@ -216,6 +217,8 @@ def main():
         raise RuntimeError('world state negative control failed')
     if not world_state_boundary({'src/generators/terrain/ClassificationRasterizer.h'}):
         raise RuntimeError('world generator negative control failed')
+    if not world_state_boundary({'src/render/device/GroundClassBuffer.h'}):
+        raise RuntimeError('world renderer negative control failed')
     if generator_product_boundary({'src/world/ground/ClassStructure.h'}):
         raise RuntimeError('generator product positive control failed')
     for controller in ('src/engine/streaming/ClassificationPreparation.h',

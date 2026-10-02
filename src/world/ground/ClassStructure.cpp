@@ -1,18 +1,15 @@
 #include "math/Vec2.h"
 #include "ClassStructure.h"
 
-#include <array>
 #include <algorithm>
-#include <chrono>
 #include <cmath>
-#include <cstdint>
+#include <cstddef>
 #include <cstring>
+#include <cstdint>
 #include <memory>
 #include <utility>
 
 namespace outshine {
-
-constexpr double kMsPerMicrosecond = 1e-3;
 
 constexpr unsigned kWindShift = 24u;
 
@@ -23,13 +20,6 @@ constexpr uint32_t kFullByte = 0xFF;
 constexpr uint32_t kByteMask = 0xFFu;
 
 namespace {
-
-double Clock() {
-  using namespace std::chrono;
-  return static_cast<double>(
-             duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count()) *
-         kMsPerMicrosecond;
-}
 
 struct Edge {
   Vec2f From;
@@ -88,49 +78,16 @@ ClassStructure::ClassStructure(const TangentFrame &frame,
                                std::shared_ptr<const Grid> fine,
                                std::shared_ptr<const Grid> coarse,
                                FromRun of)
-    : Frame_(frame), Fine_(std::move(fine)), Coarse_(std::move(coarse)), Version_(of.Version) {
-  const double t0 = Clock();
-  Pack(of.UnmappedRow);
-  Measures_.PackMs = Clock() - t0;
+    : Frame_(frame),
+      Fine_(std::move(fine)),
+      Coarse_(std::move(coarse)),
+      UnmappedRow_(of.UnmappedRow),
+      Version_(of.Version) {
   Measures_.BuildMs = of.BuildMs;
   Measures_.Overflow = of.Overflow;
   Measures_.Edges = static_cast<long>((Fine_->Edges.size() + Coarse_->Edges.size()) / 4);
   Measures_.Seeds = static_cast<long>((Fine_->Seeds.size() + Coarse_->Seeds.size()) / 3);
   Probe();
-}
-
-void ClassStructure::Pack(int unmappedRow) {
-  constexpr uint32_t kHead = 4;
-  constexpr uint32_t kHdrWords = 12;
-  Words_.assign(kHead + 2u * kHdrWords, 0u);
-  Words_[2] = static_cast<uint32_t>(unmappedRow);
-  const std::array<const Grid *, 2> grids = {Fine_.get(), Coarse_.get()};
-  for (uint32_t b = 0; b < 2; b++) {
-    const Grid &B = *grids[b];
-    const uint32_t h = kHead + b * kHdrWords;
-    Words_[b] = B.W > 0 ? h : 0u;
-    if (B.W == 0) { continue; }
-    Words_[h + 0] = static_cast<uint32_t>(B.W);
-    Words_[h + 1] = static_cast<uint32_t>(B.H);
-    const auto oe = static_cast<float>(B.OrgE);
-    const auto on = static_cast<float>(B.OrgN);
-    const auto cm = static_cast<float>(B.CellM);
-    std::memcpy(&Words_[h + 2], &oe, 4);
-    std::memcpy(&Words_[h + 3], &on, 4);
-    std::memcpy(&Words_[h + 4], &cm, 4);
-    Words_[h + 5] = static_cast<uint32_t>(Words_.size());
-    Words_.insert(Words_.end(), B.Cells.begin(), B.Cells.end());
-    Words_[h + 6] = static_cast<uint32_t>(Words_.size());
-    Words_.insert(Words_.end(), B.Seeds.begin(), B.Seeds.end());
-    Words_[h + 7] = static_cast<uint32_t>(Words_.size());
-    Words_.insert(Words_.end(), B.Refs.begin(), B.Refs.end());
-    Words_[h + 8] = static_cast<uint32_t>(Words_.size());
-    const size_t at = Words_.size();
-    Words_.resize(at + B.Edges.size());
-    if (!B.Edges.empty()) {
-      std::memcpy(Words_.data() + at, B.Edges.data(), B.Edges.size() * sizeof(float));
-    }
-  }
 }
 
 void ClassStructure::Probe() {

@@ -4,6 +4,7 @@
 #include "EngineHeld.h"
 #include "WorldCandidate.h"
 #include "ClassStructure.h"
+#include "GroundClassBuffer.h"
 #include <chrono>
 #include <expected>
 #include <limits>
@@ -25,6 +26,7 @@ struct GroundBuildProducts {
   std::vector<uint32_t> Indices;
   std::vector<float> ClassPalette;
   std::shared_ptr<const ClassStructure> ClassStructure;
+  std::shared_ptr<const Render::GroundClassBuffer> ClassUpload;
   Material GroundMaterial;
   MaterialInstance GroundSurface;
   std::shared_ptr<const Path::Network> StreetGraph;
@@ -79,6 +81,7 @@ public:
                   .Indices = {},
                   .ClassPalette = {},
                   .ClassStructure = {},
+                  .ClassUpload = {},
                   .GroundMaterial = {},
                   .GroundSurface = {},
                   .StreetGraph = world.StreetGraph,
@@ -146,18 +149,18 @@ public:
     return PublicationMetrics_;
   }
 
-  [[nodiscard]] bool BeginGroundClasses(std::shared_ptr<const ClassStructure> structure,
+  [[nodiscard]] bool BeginGroundClasses(std::shared_ptr<const Render::GroundClassBuffer> packed,
                                         std::vector<float> palette,
                                         std::string &error,
                                         Render::GroundClassUploadMetrics *metrics = nullptr) {
-    if (!structure) {
-      error = "ground classification has no structure";
+    if (!packed) {
+      error = "ground classification has no upload product";
       return false;
     }
     const auto prepareAt = std::chrono::steady_clock::now();
     const auto retainedPalette = std::make_shared<const std::vector<float>>(std::move(palette));
-    Render::GroundClassificationSource source{.Classes = {structure, structure->Words()},
-                                              .ClassWords = structure->Bytes() / sizeof(uint32_t),
+    Render::GroundClassificationSource source{.Classes = {packed, packed->Words().data()},
+                                              .ClassWords = packed->Words().size(),
                                               .Palette = {retainedPalette, retainedPalette->data()},
                                               .PaletteFloats = retainedPalette->size()};
     const double preparationMs =

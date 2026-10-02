@@ -64,6 +64,10 @@ int main() {
   if (rule == nullptr) { return Report(); }
   CHECK(field.ClassAt({}, nullptr, nullptr) == rule->Tpl,
         "initial area classifies camera position");
+  const auto firstPublication = field.ReadPublication();
+  CHECK(firstPublication.Classes && firstPublication.Upload &&
+            firstPublication.Classes == field.Read(),
+        "native CPU snapshot and prepared renderer upload publish together");
   const auto fine = field.FineSubmits();
   const auto coarse = field.CoarseSubmits();
   area[0].Layer = "excluded-test-layer";
@@ -73,6 +77,12 @@ int main() {
         "empty generation rebuilds both tiers");
   CHECK(field.ClassAt({}, nullptr, nullptr) == -1,
         "empty generation removes previous area classification");
+  const auto emptyPublication = field.ReadPublication();
+  CHECK(emptyPublication.Classes && emptyPublication.Upload &&
+            emptyPublication.Upload != firstPublication.Upload,
+        "empty source replacement publishes a new paired renderer product");
+  CHECK(firstPublication.Classes->Evaluate(0, 0, nullptr, nullptr) == rule->Tpl,
+        "held prior native publication stays usable after renderer replacement");
   std::array<OsmField::Declared, 1> street{{{.Layer = "streets",
                                              .Key = "kind",
                                              .Value = "residential",

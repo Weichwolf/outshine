@@ -495,6 +495,7 @@ struct Engine::State {
   struct Classed {
     std::vector<float> Palette;
     std::shared_ptr<const ClassStructure> Structure;
+    std::shared_ptr<const Render::GroundClassBuffer> Upload;
   };
 
   static constexpr size_t kPaletteStride = 4u;

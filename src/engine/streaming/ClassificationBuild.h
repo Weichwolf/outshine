@@ -7,6 +7,7 @@
 #include <optional>
 #include <stop_token>
 #include "ClassificationRasterizer.h"
+#include "GroundClassBuffer.h"
 #include "Tasks.h"
 #include "TangentFrame.h"
 
@@ -32,6 +33,7 @@ public:
 
   struct Handback {
     std::shared_ptr<const ClassStructure> Structure;
+    std::shared_ptr<const Render::GroundClassBuffer> Upload;
     Job Returned;
     double BuildMs = 0;
   };

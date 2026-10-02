@@ -37,6 +37,7 @@ struct ClassificationBuild::Work {
   uint64_t Version = 0;
   std::atomic<size_t> HeapBytes{0};
   std::atomic<size_t> InputBytes{0};
+  std::atomic<size_t> UploadBytes{0};
 };
 
 ClassificationBuild::ClassificationBuild(Tasks &pool)
@@ -66,7 +67,8 @@ bool ClassificationBuild::Submit(Job job) {
   }
   {
     const std::scoped_lock lock(Work_->Mutex);
-    Work_->Result.emplace(Handback{.Structure = {}, .Returned = std::move(*Work_->Pending)});
+    Work_->Result.emplace(
+        Handback{.Structure = {}, .Upload = {}, .Returned = std::move(*Work_->Pending)});
     Work_->Pending.reset();
     Work_->Status = Work::Stage::Done;
   }
@@ -107,6 +109,8 @@ void ClassificationBuild::Run(Work &work, const std::stop_token &stop) {
                                 .UnmappedRow = job.UnmappedRow,
                                 .BuildMs = built->BuildMs,
                                 .Overflow = built->Overflow});
+    result.Upload = std::make_shared<const Render::GroundClassBuffer>(*result.Structure);
+    work.UploadBytes.store(result.Upload->HeapBytes(), std::memory_order_relaxed);
     work.HeapBytes.store(GridBytes(*work.Fine) + GridBytes(*work.Coarse) +
                              work.Rasterizer.ScratchBytes(),
                          std::memory_order_relaxed);
@@ -123,9 +127,13 @@ void ClassificationBuild::Run(Work &work, const std::stop_token &stop) {
 std::optional<ClassificationBuild::Handback> ClassificationBuild::Collect() {
   const std::scoped_lock lock(Work_->Mutex);
   if (Work_->Status != Work::Stage::Done) { return std::nullopt; }
-  if (Stop_.stop_requested() && Work_->Result) { Work_->Result->Structure.reset(); }
+  if (Stop_.stop_requested() && Work_->Result) {
+    Work_->Result->Structure.reset();
+    Work_->Result->Upload.reset();
+  }
   Work_->Status = Work::Stage::Idle;
   Work_->InputBytes.store(0, std::memory_order_relaxed);
+  Work_->UploadBytes.store(0, std::memory_order_relaxed);
   return std::exchange(Work_->Result, std::nullopt);
 }
 
@@ -139,6 +147,7 @@ bool ClassificationBuild::AwaitCompletion(double seconds) {
 
 size_t ClassificationBuild::HeapBytes() const {
   return Work_->HeapBytes.load(std::memory_order_relaxed) +
-         Work_->InputBytes.load(std::memory_order_relaxed);
+         Work_->InputBytes.load(std::memory_order_relaxed) +
+         Work_->UploadBytes.load(std::memory_order_relaxed);
 }
 }

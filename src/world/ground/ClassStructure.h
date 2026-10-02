@@ -26,7 +26,7 @@ public:
   struct Measures {
     long Edges = 0, Seeds = 0, Probes = 0, NoData = 0;
     int Overflow = 0;
-    double BuildMs = 0.0, PackMs = 0.0;
+    double BuildMs = 0.0;
   };
 
   struct FromRun {
@@ -43,9 +43,11 @@ public:
 
   [[nodiscard]] const TangentFrame &Frame() const { return Frame_; }
 
-  [[nodiscard]] const uint32_t *Words() const { return Words_.data(); }
+  [[nodiscard]] const Grid &Fine() const { return *Fine_; }
 
-  [[nodiscard]] size_t Bytes() const { return Words_.size() * sizeof(uint32_t); }
+  [[nodiscard]] const Grid &Coarse() const { return *Coarse_; }
+
+  [[nodiscard]] int UnmappedRow() const { return UnmappedRow_; }
 
   [[nodiscard]] uint64_t Version() const { return Version_; }
 
@@ -69,12 +71,11 @@ private:
   };
 
   [[nodiscard]] static Sample EvaluateGrid(const Grid &B, Vec2 at);
-  void Pack(int unmappedRow);
   void Probe();
 
   TangentFrame Frame_;
   std::shared_ptr<const Grid> Fine_, Coarse_;
-  std::vector<uint32_t> Words_;
+  int UnmappedRow_;
   Measures Measures_;
   uint64_t Version_;
 };
