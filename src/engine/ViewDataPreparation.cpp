@@ -107,9 +107,10 @@ Result Engine::prepareViewData(double durationS, double patienceS) {
     roadTiles = coverage->Tiles;
   }
   const auto classification = S_->World.Stack.Classes().RequestWindows();
-  const auto classWindows = S_->World.Stack.Classes().HasSourceRequests()
-                                ? std::span<const Ground::ClassField::SourceWindow>(classification)
-                                : std::span<const Ground::ClassField::SourceWindow>();
+  const auto classWindows =
+      S_->World.Stack.Classes().HasSourceRequests()
+          ? std::span<const Ground::ClassificationPreparation::SourceWindow>(classification)
+          : std::span<const Ground::ClassificationPreparation::SourceWindow>();
   const bool vectors = S_->World.Stack.HasVectorSource() && !S_->World.Stack.HasDeclaredVectors() &&
                        S_->World.Stack.Vegetated();
   auto plan = PlanTerrainPath(*path,

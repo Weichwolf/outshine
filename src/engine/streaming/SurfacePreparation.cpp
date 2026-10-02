@@ -44,11 +44,11 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
                               std::span<const Data::SourceProvider> providers,
                               LongitudeLatitude focus,
                               Data::Transport &wire,
+                              Tasks &compute,
                               Sink &say,
                               LogSink *diagnostics,
                               double patienceS,
-                              const Data::ProviderRegistry *registry,
-                              Tasks *compute) {
+                              const Data::ProviderRegistry *registry) {
   const auto position = OsmField::Locate(focus, kFineZoom);
   if (!position) {
     say.Refuse(std::string(position.error()));
@@ -86,13 +86,13 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
   surface.Grid = outshine::Ground::kStreamGrid;
   surface.Z = FinestZoomOf(Data::DataKind::Elevation) - 1;
   auto poolConfig = *config;
-  poolConfig.Compute = compute;
+  poolConfig.Compute = &compute;
   poolConfig.Diagnostics = diagnostics;
   Pool_ = std::make_unique<outshine::Ground::TilePool>(poolConfig, sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
   SurfaceZoom_ = surface.Z;
   Cls_.SetVectorSource(HasVectorSource_);
-  Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg);
+  Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg, compute);
 
   const std::string &assets = under.Shipped;
   Vegetated_ = Materials_.Load((assets + "/world/ground-materials.json").c_str()) &&
@@ -109,6 +109,7 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
 }
 
 void SurfacePreparation::Close() {
+  Cls_.Close();
   Vectors_.reset();
   Ground_.reset();
   Pool_.reset();

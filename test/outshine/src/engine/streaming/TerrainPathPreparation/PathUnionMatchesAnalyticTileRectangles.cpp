@@ -63,7 +63,8 @@ int main() {
   Ground::TilePool pool({}, sources, transport);
   Ground::GroundStream ground(pool, {.Z = 5, .Grid = 4});
   const std::array path{Point(20.25), Point(22.25)};
-  const std::array classification{Ground::ClassField::SourceWindow{.Zoom = 5, .Ring = 1}};
+  const std::array classification{
+      Ground::ClassificationPreparation::SourceWindow{.Zoom = 5, .Ring = 1}};
   const auto planned =
       PlanTerrainPath(path, ground, {.VectorZoom = 6, .Classification = classification});
   CHECK(planned, "two camera positions produce an admitted data plan without IO");
@@ -102,7 +103,8 @@ int main() {
   invalid[1] = path[1];
   invalid[1].LongitudeDeg = std::numeric_limits<double>::infinity();
   CHECK(!PlanTerrainPath(invalid, ground, {}), "invalid geography is refused");
-  const std::array hugeWindow{Ground::ClassField::SourceWindow{.Zoom = 14, .Ring = 1000}};
+  const std::array hugeWindow{
+      Ground::ClassificationPreparation::SourceWindow{.Zoom = 14, .Ring = 1000}};
   CHECK(!PlanTerrainPath(path, ground, {.Classification = hugeWindow}),
         "oversized windows are refused before enumerating millions of cells");
   CHECK(pool.Counters().Posts == 0 && pool.Counters().Fetches == 0 && transport.Starts == 0,

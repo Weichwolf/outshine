@@ -205,11 +205,11 @@ bool Engine::State::PrepareRuntimeWorld() {
                                                  tileProviders,
                                                  {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
                                                  *World.Wire,
+                                                 *World.Pool,
                                                  say,
                                                  Diagnostics,
                                                  Session.Declared.Ground.PatienceS,
-                                                 &World.Providers,
-                                                 World.Pool.get())) {
+                                                 &World.Providers)) {
     Error = say.WhyNot();
     return false;
   }

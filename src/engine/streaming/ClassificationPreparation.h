@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUND_CLASSFIELD_H
-#define OUTSHINE_WORLD_GROUND_CLASSFIELD_H
+#ifndef OUTSHINE_ENGINE_STREAMING_CLASSIFICATIONPREPARATION_H
+#define OUTSHINE_ENGINE_STREAMING_CLASSIFICATIONPREPARATION_H
 
 #include <array>
 #include <cstdint>
@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "math/Vec2.h"
-#include "ClassBuilder.h"
+#include "ClassificationBuild.h"
 #include "OsmField.h"
 #include "TilePool.h"
 #include "TangentFrame.h"
@@ -33,7 +33,7 @@ constexpr double kCoarseReachM = 3800.0;
 
 class VegetationTemplates;
 
-class ClassField {
+class ClassificationPreparation {
 public:
   [[nodiscard]] bool HasSourceRequests() const noexcept;
 
@@ -55,7 +55,8 @@ public:
 
   void SetVectorSource(bool available) noexcept { HasVectorSource_ = available; }
 
-  void Open(double lat, double lon);
+  void Open(double lat, double lon, Tasks &compute);
+  void Close();
 
   [[nodiscard]] std::expected<void, std::string_view> Update(TilePool &tiles, LongitudeLatitude at);
 
@@ -76,9 +77,9 @@ public:
     return Frame_.ToLocalGroundPosition(at);
   }
 
-  [[nodiscard]] int
-  ClassAt(const ClassStructure &held, LongitudeLatitude at, double *edgeM, int *runnerUp) const {
-    const EastNorth on = Project(at);
+  [[nodiscard]] static int
+  ClassAt(const ClassStructure &held, LongitudeLatitude at, double *edgeM, int *runnerUp) {
+    const EastNorth on = held.Frame().ToLocalGroundPosition(at);
     return held.Evaluate(on.EastM, on.NorthM, edgeM, runnerUp);
   }
 
@@ -96,7 +97,9 @@ public:
 
   [[nodiscard]] bool Building() const { return Submitted_.has_value(); }
 
-  [[nodiscard]] bool AwaitBuild(double seconds) { return Builder_.AwaitCompletion(seconds); }
+  [[nodiscard]] bool AwaitBuild(double seconds) {
+    return Builder_ && Builder_->AwaitCompletion(seconds);
+  }
 
   int PendingTiles() const {
     return Fine_.Field ? Fine_.Field->PendingTiles() + Coarse_.Field->PendingTiles() : -1;
@@ -145,9 +148,9 @@ private:
     std::vector<float> Pts;
     uint64_t Generation = 0;
     size_t PtsDone = 0;
-    std::vector<ClassBuilder::Ring> Rings;
+    std::vector<Generators::ClassificationRasterizer::Ring> Rings;
     size_t RingsDone = 0;
-    std::vector<ClassBuilder::Feature> Feats;
+    std::vector<Generators::ClassificationRasterizer::Feature> Feats;
     size_t FeatsDone = 0;
     double OrgE = 0, OrgN = 0;
     bool Have = false;
@@ -176,8 +179,9 @@ private:
   void Ingest(Tier &t);
   void CollectFinished();
   void AppendFeature(Tier &t, const OsmField::Feature &f);
-  void SubmitDue(double camE, double camN);
-  ClassBuilder::Job LendTo(Tier &t, ClassGrain grain, double camE, double camN);
+  [[nodiscard]] bool SubmitDue(double camE, double camN);
+  ClassificationBuild::Job LendTo(Tier &t, ClassGrain grain, double camE, double camN);
+  [[nodiscard]] ClassificationBuild::SourceRevision SourceRevision() const;
 
   Tier &TierOf(ClassGrain grain) { return grain == ClassGrain::Fine ? Fine_ : Coarse_; }
 
@@ -195,7 +199,8 @@ private:
                 .HalfCells = kCoarseSide,
                 .SlackM = kCoarseReachM}};
 
-  ClassBuilder Builder_;
+  std::unique_ptr<ClassificationBuild> Builder_;
+  uint64_t FrameRevision_ = 0;
   std::optional<ClassGrain> Submitted_;
 
   mutable std::mutex Mu_;

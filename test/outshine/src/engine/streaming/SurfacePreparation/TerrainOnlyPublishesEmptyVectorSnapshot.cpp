@@ -46,6 +46,7 @@ int main() {
   SilentSink sink;
   Data::OfflineTransport wire;
   const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
+  Tasks sourceCompute(1);
   SurfacePreparation stack;
   const LongitudeLatitude first{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
@@ -53,6 +54,7 @@ int main() {
                    providers,
                    first,
                    wire,
+                   sourceCompute,
                    sink,
                    nullptr,
                    1.0),

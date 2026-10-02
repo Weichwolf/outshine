@@ -1,9 +1,8 @@
 #include "math/Units.h"
 #include "math/Vec2.h"
-#include "ClassBuilder.h"
+#include "ClassificationRasterizer.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -11,14 +10,13 @@
 #include <cstring>
 #include <vector>
 #include <memory>
-#include <mutex>
 #include <utility>
 #include <optional>
+#include <stop_token>
 
 #include "Capacity.h"
-#include "StackProbe.h"
 
-namespace outshine::Ground {
+namespace outshine::Generators {
 
 constexpr double kMsPerMicrosecond = 1e-3;
 
@@ -27,11 +25,6 @@ constexpr int kSignedByteMost = 127;
 constexpr int kSignedByteBias = 128;
 
 namespace {
-
-size_t GridBytes(const ClassStructure::Grid &g) {
-  return CapacityBytes(g.Cells) + CapacityBytes(g.Seeds) + CapacityBytes(g.Refs) +
-         CapacityBytes(g.Edges);
-}
 
 double Clock() {
   using namespace std::chrono;
@@ -115,48 +108,7 @@ void CurveLine(const float *pts, uint32_t first, uint32_t count, std::vector<flo
 
 }
 
-ClassBuilder::ClassBuilder()
-    : Fine_(std::make_shared<const ClassStructure::Grid>()),
-      Coarse_(std::make_shared<const ClassStructure::Grid>()),
-      Thread_([this] { Run(); }) {}
-
-ClassBuilder::~ClassBuilder() {
-  {
-    const std::scoped_lock lk(Mu_);
-    Stop_ = true;
-  }
-  Cv_.notify_all();
-  Thread_.join();
-}
-
-void ClassBuilder::Submit(Job job) {
-  {
-    const std::scoped_lock lk(Mu_);
-    assert(Stage_ == Stage::Idle);
-    Pending_ = std::move(job);
-    Stage_ = Stage::Building;
-  }
-  Cv_.notify_one();
-}
-
-std::optional<ClassBuilder::Handback> ClassBuilder::Collect() {
-  const std::scoped_lock lk(Mu_);
-  if (Stage_ != Stage::Done) { return {}; }
-  std::optional<Handback> out = std::move(Result_);
-  Result_.reset();
-  Stage_ = Stage::Idle;
-  return out;
-}
-
-bool ClassBuilder::AwaitCompletion(double seconds) {
-  if (seconds <= 0.0) { return false; }
-  std::unique_lock<std::mutex> lk(Mu_);
-  return Cv_.wait_for(lk, std::chrono::duration<double>(seconds), [this] {
-    return Stop_ || Stage_ != Stage::Building;
-  });
-}
-
-size_t ClassBuilder::ScratchBytes() const {
+size_t ClassificationRasterizer::ScratchBytes() const {
   const Workspace &w = Workspace_;
   return CapacityBytes(w.Base) + CapacityBytes(w.BaseRank) + CapacityBytes(w.SeedHead) +
          CapacityBytes(w.SeedNext) + CapacityBytes(w.SeedCount) + CapacityBytes(w.Edges) +
@@ -166,53 +118,18 @@ size_t ClassBuilder::ScratchBytes() const {
          CapacityBytes(w.Seeds);
 }
 
-void ClassBuilder::Run() {
-  StackProbe::Enter(StackProbe::Purpose::Class);
-  for (;;) {
-    Job job;
-    {
-      std::unique_lock<std::mutex> lk(Mu_);
-      Cv_.wait(lk, [this] { return Stop_ || Pending_.has_value(); });
-      if (Stop_ || !Pending_) { return; }
-      job = std::move(*Pending_);
-      Pending_.reset();
-    }
-    auto grid = std::make_shared<ClassStructure::Grid>();
-    int overflow = 0;
-    const double t0 = Clock();
-    LayDown(job, *grid, overflow);
-    const double buildMs = Clock() - t0;
-
-    if (job.Grain == ClassGrain::Fine) {
-      Fine_ = std::move(grid);
-    } else {
-      Coarse_ = std::move(grid);
-    }
-    Version_++;
-    Handback y;
-    y.Structure = std::make_shared<const ClassStructure>(
-        job.Frame,
-        Fine_,
-        Coarse_,
-        ClassStructure::FromRun{.Version = Version_,
-                                .UnmappedRow = job.UnmappedRow,
-                                .BuildMs = buildMs,
-                                .Overflow = overflow});
-    y.Returned = std::move(job);
-    HeapBytes_.store(GridBytes(*Fine_) + GridBytes(*Coarse_) + ScratchBytes(),
-                     std::memory_order_relaxed);
-
-    StackProbe::Mark();
-    {
-      const std::scoped_lock lk(Mu_);
-      Result_ = std::move(y);
-      Stage_ = Stage::Done;
-    }
-    Cv_.notify_one();
-  }
+std::optional<ClassificationRasterizer::Built>
+ClassificationRasterizer::Build(const Input &input, const std::stop_token &stop) {
+  Stop_ = stop;
+  if (Stop_.stop_requested()) { return std::nullopt; }
+  auto grid = std::make_shared<ClassStructure::Grid>();
+  int overflow = 0;
+  const double began = Clock();
+  if (!LayDown(input, *grid, overflow)) { return std::nullopt; }
+  return Built{.Grid = std::move(grid), .BuildMs = Clock() - began, .Overflow = overflow};
 }
 
-void ClassBuilder::BuildFeatureEdges(const Job &job, const Feature &feature) {
+void ClassificationRasterizer::BuildFeatureEdges(const Input &job, const Feature &feature) {
   auto &ex = Workspace_.Edges;
   auto &curve = Workspace_.Curve;
   ex.clear();
@@ -222,16 +139,16 @@ void ClassBuilder::BuildFeatureEdges(const Job &job, const Feature &feature) {
       for (uint32_t s = 0; s < ring.Count; s++) {
         const size_t a = static_cast<size_t>(ring.First) + s;
         const size_t b = static_cast<size_t>(ring.First) + (s + 1) % ring.Count;
-        ex.push_back(job.Pts[a * 2]);
-        ex.push_back(job.Pts[a * 2 + 1]);
-        ex.push_back(job.Pts[b * 2]);
-        ex.push_back(job.Pts[b * 2 + 1]);
+        ex.push_back(job.Points[a * 2]);
+        ex.push_back(job.Points[a * 2 + 1]);
+        ex.push_back(job.Points[b * 2]);
+        ex.push_back(job.Points[b * 2 + 1]);
       }
     }
   } else {
     for (uint32_t k = 0; k < feature.RingCount; k++) {
       const Ring &ring = job.Rings[feature.FirstRing + k];
-      CurveLine(job.Pts.data(), ring.First, ring.Count, curve);
+      CurveLine(job.Points.data(), ring.First, ring.Count, curve);
       const size_t nc = curve.size() / 2;
       for (size_t i = 0; i + 1 < nc; i++) {
         ex.push_back(curve[i * 2]);
@@ -243,9 +160,9 @@ void ClassBuilder::BuildFeatureEdges(const Job &job, const Feature &feature) {
   }
 }
 
-void ClassBuilder::IndexFeatureEdges(const Feature &feature,
-                                     const ClassStructure::Grid &grid,
-                                     const RasterWindow &window) {
+void ClassificationRasterizer::IndexFeatureEdges(const Feature &feature,
+                                                 const ClassStructure::Grid &grid,
+                                                 const RasterWindow &window) {
   const double cell = grid.CellM;
   const size_t ne = Workspace_.Edges.size() / 4;
   auto &ex = Workspace_.Edges;
@@ -297,7 +214,7 @@ void ClassBuilder::IndexFeatureEdges(const Feature &feature,
   }
 }
 
-void ClassBuilder::ScanlineHits(double northM, size_t &nextEdge) {
+void ClassificationRasterizer::ScanlineHits(double northM, size_t &nextEdge) {
   const size_t ne = Workspace_.Edges.size() / 4;
   auto &ex = Workspace_.Edges;
   auto &byY = Workspace_.ByY;
@@ -329,11 +246,11 @@ void ClassBuilder::ScanlineHits(double northM, size_t &nextEdge) {
   std::ranges::sort(hits, [](const Hit &a, const Hit &b) { return a.X < b.X; });
 }
 
-void ClassBuilder::SeedCell(const Feature &feature,
-                            ClassStructure::Grid &grid,
-                            const RasterWindow &window,
-                            CellSample sample,
-                            int &overflow) {
+void ClassificationRasterizer::SeedCell(const Feature &feature,
+                                        ClassStructure::Grid &grid,
+                                        const RasterWindow &window,
+                                        CellSample sample,
+                                        int &overflow) {
   const int W = grid.W;
   auto &ceHead = Workspace_.CellHead;
   auto &ceNext = Workspace_.CellNext;
@@ -360,7 +277,7 @@ void ClassBuilder::SeedCell(const Feature &feature,
     if (nce != 0) { overflow++; }
 
     if (feature.Form == Shape::Polygon && wind != 0) {
-      base[ci] = static_cast<uint8_t>(feature.Tpl);
+      base[ci] = static_cast<uint8_t>(feature.ClassRow);
       baseRank[ci] = static_cast<uint8_t>(feature.Rank);
     }
     return;
@@ -374,7 +291,7 @@ void ClassBuilder::SeedCell(const Feature &feature,
   seedHead[ci] = static_cast<int32_t>(grid.Seeds.size() / 3);
   seedCount[ci]++;
   grid.Seeds.push_back(
-      static_cast<uint32_t>(feature.Tpl) | (static_cast<uint32_t>(feature.Rank) << 8u) |
+      static_cast<uint32_t>(feature.ClassRow) | (static_cast<uint32_t>(feature.Rank) << 8u) |
       (nce << 16u) |
       (static_cast<uint32_t>(static_cast<uint8_t>(
            std::max(kSignedByteLeast, std::min(kSignedByteMost, wind)) + kSignedByteBias))
@@ -388,10 +305,10 @@ void ClassBuilder::SeedCell(const Feature &feature,
   }
 }
 
-void ClassBuilder::ScanFeature(const Feature &feature,
-                               ClassStructure::Grid &grid,
-                               const RasterWindow &window,
-                               int &overflow) {
+void ClassificationRasterizer::ScanFeature(const Feature &feature,
+                                           ClassStructure::Grid &grid,
+                                           const RasterWindow &window,
+                                           int &overflow) {
   const double cell = grid.CellM;
   const size_t ne = Workspace_.Edges.size() / 4;
   auto &ex = Workspace_.Edges;
@@ -412,6 +329,7 @@ void ClassBuilder::ScanFeature(const Feature &feature,
   size_t nextE = 0;
 
   for (int j = j0; j <= j1; j++) {
+    if (Stop_.stop_requested()) { return; }
     const double cy = grid.OrgN + static_cast<double>(j) * cell;
     ScanlineHits(cy, nextE);
 
@@ -428,7 +346,7 @@ void ClassBuilder::ScanFeature(const Feature &feature,
   }
 }
 
-void ClassBuilder::PackGrid(ClassStructure::Grid &grid) {
+void ClassificationRasterizer::PackGrid(ClassStructure::Grid &grid) {
   const int W = grid.W;
   const int H = grid.H;
   auto &base = Workspace_.Base;
@@ -455,11 +373,11 @@ void ClassBuilder::PackGrid(ClassStructure::Grid &grid) {
   grid.Seeds.swap(seeds);
 }
 
-void ClassBuilder::RasterizeFeature(const Job &job,
-                                    const Feature &feature,
-                                    uint32_t &generation,
-                                    ClassStructure::Grid &grid,
-                                    int &overflow) {
+void ClassificationRasterizer::RasterizeFeature(const Input &job,
+                                                const Feature &feature,
+                                                uint32_t &generation,
+                                                ClassStructure::Grid &grid,
+                                                int &overflow) {
   const int W = grid.W;
   const int H = grid.H;
   const double cell = grid.CellM;
@@ -482,7 +400,7 @@ void ClassBuilder::RasterizeFeature(const Job &job,
   grid.Edges.insert(grid.Edges.end(), Workspace_.Edges.begin(), Workspace_.Edges.end());
 }
 
-void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &out, int &overflow) {
+bool ClassificationRasterizer::LayDown(const Input &job, ClassStructure::Grid &out, int &overflow) {
   out.W = out.H = job.HalfCells * 2;
   out.CellM = job.CellM;
   out.OrgE = std::floor(job.CamE / job.CellM - job.HalfCells) * job.CellM;
@@ -495,10 +413,13 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &out, int &overf
   Workspace_.SeedCount.assign(cells, 0);
   std::ranges::fill(Workspace_.CellStamp, 0u);
   uint32_t generation = 0;
-  for (const Feature &feature : job.Feats) {
+  for (const Feature &feature : job.Features) {
+    if (Stop_.stop_requested()) { return false; }
     RasterizeFeature(job, feature, generation, out, overflow);
   }
+  if (Stop_.stop_requested()) { return false; }
   PackGrid(out);
+  return true;
 }
 
 }

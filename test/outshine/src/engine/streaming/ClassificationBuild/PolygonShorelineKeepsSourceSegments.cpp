@@ -1,4 +1,4 @@
-#include "ClassBuilder.h"
+#include "ClassificationBuild.h"
 #include "Check.h"
 
 #include <utility>
@@ -7,23 +7,24 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  ClassBuilder::Job job;
+  ClassificationBuild::Job job;
   job.Frame = TangentFrame::At({});
-  job.CellM = 2;
-  job.HalfCells = 16;
-  job.Pts = {-12, -12, 12, -12, 12, 12, -12, 12, -4, -4, -4, 4, 4, 4, 4, -4};
-  job.Rings = {{0, 4}, {4, 4}};
-  job.Feats = {{.FirstRing = 0,
-                .RingCount = 2,
-                .Rank = 1,
-                .Tpl = 3,
-                .Form = ClassBuilder::Shape::Polygon,
-                .MinE = -12,
-                .MinN = -12,
-                .MaxE = 12,
-                .MaxN = 12}};
-  ClassBuilder builder;
-  builder.Submit(std::move(job));
+  job.Raster.CellM = 2;
+  job.Raster.HalfCells = 16;
+  job.Raster.Points = {-12, -12, 12, -12, 12, 12, -12, 12, -4, -4, -4, 4, 4, 4, 4, -4};
+  job.Raster.Rings = {{0, 4}, {4, 4}};
+  job.Raster.Features = {{.FirstRing = 0,
+                          .RingCount = 2,
+                          .Rank = 1,
+                          .ClassRow = 3,
+                          .Form = Generators::ClassificationRasterizer::Shape::Polygon,
+                          .MinE = -12,
+                          .MinN = -12,
+                          .MaxE = 12,
+                          .MaxN = 12}};
+  Tasks compute(1);
+  ClassificationBuild builder(compute);
+  CHECK(builder.Submit(std::move(job)), "classification uses the shared compute queue");
   CHECK(builder.AwaitCompletion(5), "shoreline classification completes");
   const auto result = builder.Collect();
   CHECK(result.has_value(), "shoreline classification publishes");

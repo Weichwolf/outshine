@@ -15,7 +15,7 @@
 #include "TerrainLoader.h"
 #include <world/data/SourceDecl.h>
 #include "BuildingField.h"
-#include "ClassField.h"
+#include "ClassificationPreparation.h"
 #include "GroundMaterials.h"
 #include "OsmField.h"
 #include "StreetField.h"
@@ -65,11 +65,11 @@ public:
                           std::span<const Data::SourceProvider> providers,
                           LongitudeLatitude focus,
                           Data::Transport &wire,
+                          Tasks &compute,
                           Sink &say,
                           LogSink *diagnostics,
                           double patienceS = 0.0,
-                          const Data::ProviderRegistry *registry = nullptr,
-                          Tasks *compute = nullptr);
+                          const Data::ProviderRegistry *registry = nullptr);
   void Close();
 
   [[nodiscard]] bool Opened() const { return Opened_; }
@@ -107,7 +107,7 @@ public:
 
   [[nodiscard]] const GroundQuery *TryGround() const noexcept { return Ground_.get(); }
 
-  [[nodiscard]] const ClassField &Classes() const { return Cls_; }
+  [[nodiscard]] const ClassificationPreparation &Classes() const { return Cls_; }
 
   [[nodiscard]] const GroundMaterials &Materials() const { return Materials_; }
 
@@ -172,7 +172,7 @@ private:
   TilePool::LandingCursor LandingCursor_;
   std::unique_ptr<GroundStream> Ground_;
   std::vector<OsmField::Declared> Declared_;
-  ClassField Cls_;
+  ClassificationPreparation Cls_;
   GroundMaterials Materials_;
   VegetationTemplates Templates_;
   std::size_t Overflowed_ = 0;

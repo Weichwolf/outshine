@@ -54,6 +54,7 @@ int main() {
   TemporaryCache cache;
   SilentSink sink;
   Data::OfflineTransport wire;
+  Tasks sourceCompute(1);
   SurfacePreparation stack;
   const LongitudeLatitude eye{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
@@ -61,6 +62,7 @@ int main() {
                    providers,
                    eye,
                    wire,
+                   sourceCompute,
                    sink,
                    nullptr,
                    1.0),

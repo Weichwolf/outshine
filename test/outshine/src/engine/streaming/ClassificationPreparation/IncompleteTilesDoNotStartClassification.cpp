@@ -1,4 +1,4 @@
-#include "ClassField.h"
+#include "ClassificationPreparation.h"
 #include "ContentStore.h"
 #include "SourceSet.h"
 #include <world/data/Transport.h>
@@ -51,9 +51,10 @@ int main() {
   CHECK(sources.Add(std::make_unique<PendingSource>()) == Data::SourceSet::Registration::Accepted,
         "pending vector source registers");
   TilePool pool({.PollAttempts = 1, .Carriers = 1}, sources, transport);
-  ClassField field;
+  Tasks compute(1);
+  ClassificationPreparation field;
   field.SetVegetation(&templates);
-  field.Open(0, 0);
+  field.Open(0, 0, compute);
   CHECK(field.Update(pool, {}).has_value(), "classification requests its source tiles");
   CHECK(field.PendingTiles() > 0, "the source fields remain incomplete");
   CHECK(field.FineSubmits() == 0 && field.CoarseSubmits() == 0,

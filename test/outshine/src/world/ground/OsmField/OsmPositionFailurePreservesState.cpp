@@ -29,8 +29,9 @@ int main() {
   Data::SourceSet sources(store);
   NoTransport transport;
   TilePool pool({}, sources, transport);
-  ClassField classes;
-  classes.Open(0, 0);
+  Tasks compute(1);
+  ClassificationPreparation classes;
+  classes.Open(0, 0, compute);
   SurfacePreparation stack;
   const std::array<std::string, 1> layers{"transportation"};
   const std::array<OsmField::Declared, 1> input{

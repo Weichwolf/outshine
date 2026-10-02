@@ -20,7 +20,7 @@ struct TerrainPathPlan {
 
 struct TerrainPathSources {
   int VectorZoom = -1;
-  std::span<const Ground::ClassField::SourceWindow> Classification;
+  std::span<const Ground::ClassificationPreparation::SourceWindow> Classification;
   std::span<const Data::TileId> RoadTiles;
 };
 

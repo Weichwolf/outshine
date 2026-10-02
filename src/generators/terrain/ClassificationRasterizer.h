@@ -1,23 +1,16 @@
-#ifndef OUTSHINE_WORLD_GROUND_CLASSBUILDER_H
-#define OUTSHINE_WORLD_GROUND_CLASSBUILDER_H
+#ifndef OUTSHINE_GENERATORS_TERRAIN_CLASSIFICATIONRASTERIZER_H
+#define OUTSHINE_GENERATORS_TERRAIN_CLASSIFICATIONRASTERIZER_H
 
-#include <atomic>
-#include <condition_variable>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <optional>
-#include <thread>
+#include <stop_token>
 #include <vector>
-
 #include "ClassStructure.h"
-#include "TangentFrame.h"
 
-namespace outshine::Ground {
-
-enum class ClassGrain { Fine, Coarse };
-
-class ClassBuilder {
+namespace outshine::Generators {
+class ClassificationRasterizer {
 public:
   struct Ring {
     uint32_t First = 0, Count = 0;
@@ -28,40 +21,29 @@ public:
   struct Feature {
     uint32_t FirstRing = 0, RingCount = 0;
     int Rank = 0;
-    uint16_t Tpl = 0;
+    uint16_t ClassRow = 0;
     Shape Form = Shape::Polygon;
     float WidthM = 0.0f;
     float MinE = 0, MinN = 0, MaxE = 0, MaxN = 0;
   };
 
-  struct Job {
-    ClassGrain Grain = ClassGrain::Fine;
-
-    TangentFrame Frame;
+  struct Input {
     double CamE = 0, CamN = 0;
     double CellM = 1;
     int HalfCells = 0;
-    int UnmappedRow = 0;
-    std::vector<float> Pts;
+    std::vector<float> Points;
     std::vector<Ring> Rings;
-    std::vector<Feature> Feats;
+    std::vector<Feature> Features;
   };
 
-  struct Handback {
-    std::shared_ptr<const ClassStructure> Structure;
-    Job Returned;
+  struct Built {
+    std::shared_ptr<const ClassStructure::Grid> Grid;
+    double BuildMs = 0;
+    int Overflow = 0;
   };
 
-  ClassBuilder();
-  ~ClassBuilder();
-  ClassBuilder(const ClassBuilder &) = delete;
-  ClassBuilder &operator=(const ClassBuilder &) = delete;
-
-  void Submit(Job job);
-  std::optional<Handback> Collect();
-  [[nodiscard]] bool AwaitCompletion(double seconds);
-
-  size_t HeapBytes() const { return HeapBytes_.load(std::memory_order_relaxed); }
+  [[nodiscard]] std::optional<Built> Build(const Input &input, const std::stop_token &stop = {});
+  [[nodiscard]] size_t ScratchBytes() const;
 
 private:
   struct Hit {
@@ -90,7 +72,7 @@ private:
     int I, J, Winding;
   };
 
-  void BuildFeatureEdges(const Job &job, const Feature &feature);
+  void BuildFeatureEdges(const Input &job, const Feature &feature);
   void IndexFeatureEdges(const Feature &feature,
                          const ClassStructure::Grid &grid,
                          const RasterWindow &window);
@@ -105,32 +87,16 @@ private:
                    const RasterWindow &window,
                    int &overflow);
   void PackGrid(ClassStructure::Grid &grid);
-  void RasterizeFeature(const Job &job,
+  void RasterizeFeature(const Input &job,
                         const Feature &feature,
                         uint32_t &generation,
                         ClassStructure::Grid &grid,
                         int &overflow);
 
-  void Run();
-  void LayDown(const Job &job, ClassStructure::Grid &out, int &overflow);
-  size_t ScratchBytes() const;
+  bool LayDown(const Input &job, ClassStructure::Grid &out, int &overflow);
 
-  enum class Stage { Idle, Building, Done };
-
-  mutable std::mutex Mu_;
-  std::condition_variable Cv_;
-  std::optional<Job> Pending_;
-  std::optional<Handback> Result_;
-  Stage Stage_ = Stage::Idle;
-  bool Stop_ = false;
-
-  std::shared_ptr<const ClassStructure::Grid> Fine_, Coarse_;
   Workspace Workspace_;
-  uint64_t Version_ = 0;
-  std::atomic<size_t> HeapBytes_{0};
-
-  std::thread Thread_;
+  std::stop_token Stop_;
 };
-
 }
 #endif

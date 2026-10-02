@@ -83,12 +83,14 @@ int main() {
   const auto cache = std::filesystem::temp_directory_path() /
                      ("outshine-original-cell-products-" +
                       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  Tasks sourceCompute(1);
   SurfacePreparation stack;
   const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
   CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.string()},
                    providers,
                    eye,
                    wire,
+                   sourceCompute,
                    sink,
                    nullptr,
                    1.0),

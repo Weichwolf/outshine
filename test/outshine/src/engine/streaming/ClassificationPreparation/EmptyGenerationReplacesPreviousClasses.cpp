@@ -1,4 +1,4 @@
-#include "ClassField.h"
+#include "ClassificationPreparation.h"
 #include <world/data/Transport.h>
 #include "ContentStore.h"
 #include "SourceSet.h"
@@ -22,7 +22,8 @@ public:
   void Cancel(outshine::Data::Ticket) override {}
 };
 
-bool Complete(outshine::Ground::ClassField &field, outshine::Ground::TilePool &pool) {
+bool Complete(outshine::Ground::ClassificationPreparation &field,
+              outshine::Ground::TilePool &pool) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   do {
     if (!field.Update(pool, outshine::LongitudeLatitude{})) { return false; }
@@ -46,9 +47,10 @@ int main() {
   Data::SourceSet sources(store);
   NoTransport transport;
   TilePool pool({}, sources, transport);
-  ClassField field;
+  Tasks compute(1);
+  ClassificationPreparation field;
   field.SetVegetation(&templates);
-  field.Open(0, 0);
+  field.Open(0, 0, compute);
   std::array<OsmField::Declared, 1> area{
       {{.Layer = "land",
         .Key = "kind",
