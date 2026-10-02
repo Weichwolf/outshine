@@ -222,7 +222,7 @@ LogSink *Telling = nullptr;
 bool Audits = false;
 
 namespace {
-bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation, Roots roots) {
+bool OpenPlace(Engine &engine, const Place &place, Shot &shot, Roots roots) {
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     shot.Why = "SDL did not start, so nothing can be drawn";
     return false;
@@ -245,7 +245,6 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, bool vegetation, 
                            {.LongitudeDeg = stands.Ground.Origin.LongitudeDeg,
                             .LatitudeDeg = stands.Ground.Origin.LatitudeDeg});
   stands.Render.Audits = Audits;
-  stands.Ground.VegetationEnabled = stands.Ground.VegetationEnabled && vegetation;
 
   const auto began = std::chrono::steady_clock::now();
   if (const auto sources = Client::ConfigureWorldSources(stands); !sources) {
@@ -272,7 +271,6 @@ std::string Prepare(const Place &place, double patienceS) {
   if (!OpenPlace(engine,
                  place,
                  shot,
-                 true,
                  Roots{.Assets = "src/assets/drive", .Shipped = "src/assets", .Cache = {}})) {
     return shot.Why;
   }
@@ -290,10 +288,10 @@ std::string Prepare(const Place &place, double patienceS) {
   return ready ? std::string{} : ready.error();
 }
 
-Shot Take(const Place &place, bool tells, bool vegetation, double preloadSeconds, Roots roots) {
+Shot Take(const Place &place, bool tells, double preloadSeconds, Roots roots) {
   Engine engine;
   Shot shot;
-  if (!OpenPlace(engine, place, shot, vegetation, std::move(roots))) { return shot; }
+  if (!OpenPlace(engine, place, shot, std::move(roots))) { return shot; }
   Shot drawn =
       Draw(engine, place.Name, tells, "places", preloadSeconds, engine.declaration().Views);
   drawn.StandingMs = shot.StandingMs;

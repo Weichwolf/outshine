@@ -22,7 +22,6 @@ struct ShotOptions {
   bool Measures = false;
   bool Stats = false;
   bool Audit = false;
-  bool Vegetation = true;
   bool Offline = false;
   bool All = false;
   double PreloadSeconds = kDefaultPreloadSeconds;
@@ -50,8 +49,6 @@ ReadPreloadSeconds(std::string_view number) {
     options.Stats = true;
   } else if (argument == "--audit") {
     options.Audit = true;
-  } else if (argument == "--no-vegetation") {
-    options.Vegetation = false;
   } else if (argument == "--offline") {
     options.Offline = true;
   } else {

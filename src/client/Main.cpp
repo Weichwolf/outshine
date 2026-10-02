@@ -191,7 +191,6 @@ void Usage(std::string_view verb = {}) {
                  "  --preload-seconds <seconds>     positive preparation timeout, default 10\n"
                  "  --cache-dir <directory>         default SDL user-data directory/sources\n"
                  "  --offline                       use only cached and shipped sources\n"
-                 "  --no-vegetation                 disable vegetation in captured scenarios\n"
                  "  --audit                         run image audit\n"
                  "  --measures                      print engine diagnostic samples\n"
                  "  --rows                          machine-readable capture rows\n"
@@ -407,7 +406,6 @@ int TakeShots(std::span<const Place> places, int argc, const char *const *argv) 
     }
   }
   std::println("CONTROL\t{:.4f}", outshine::Shots::ControlVariation());
-  std::println("SCENARIO\tvegetation={}", options.Vegetation ? "yes" : "no");
   std::println("PRELOAD\t{} s", options.PreloadSeconds);
   int refused = 0;
   for (const Place *const one : taking) {
@@ -415,7 +413,6 @@ int TakeShots(std::span<const Place> places, int argc, const char *const *argv) 
     const auto began = std::chrono::steady_clock::now();
     const Shot shot = outshine::Shots::Take(*one,
                                             !options.Rows,
-                                            options.Vegetation,
                                             options.PreloadSeconds,
                                             ClientRoots(options.CacheDirectory, options.Offline));
     ReportShot(shot, one->Name, options, began);

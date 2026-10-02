@@ -10,7 +10,7 @@
 
 #include "Check.h"
 
-// THE CASE DRIVES THE SAME COMMAND A PERSON DOES. `build/outshine-client shots --no-vegetation
+// THE CASE DRIVES THE SAME COMMAND A PERSON DOES. `build/outshine-client shots
 // --rows <place>` is what `make shots` runs; a case that reached around it into the library would
 // be scoring a path nobody uses. So the binary is run, its machine-readable row is read, and the
 // ORACLES are applied here -- the instrument is the library's, the judgement is the test's, and
@@ -32,8 +32,8 @@ struct ClientRow {
 
 inline int ScorePlace(const char *place, const char *catalog = "src/assets/places") {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string command = std::string("build/outshine-client --places ") + catalog +
-                              " shots --no-vegetation --rows " + place + " 2>&1";
+  const std::string command =
+      std::string("build/outshine-client --places ") + catalog + " shots --rows " + place + " 2>&1";
   std::FILE *const running = popen(command.c_str(), "r");
   if (running == nullptr) {
     Unprepared("the client did not start");
