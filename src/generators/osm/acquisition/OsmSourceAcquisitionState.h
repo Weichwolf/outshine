@@ -42,6 +42,7 @@ struct SourceAcquisition::Cells {
   };
 
   CellLimits Limits;
+  Target Destination = Target::Inputs;
   std::vector<Data::GeoCellId> Roots;
   std::vector<Data::GeoCellId> PublishedRoots;
   std::vector<Data::GeoCellId> Wanted;

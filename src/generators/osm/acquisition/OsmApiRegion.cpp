@@ -105,6 +105,14 @@ std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(Data::OsmSou
                          "' failed: " + std::string(Data::Name(reason)) + context);
 }
 
+bool ApiRegion::HasCachedCoverage(Data::ContentStore &store) const {
+  const auto cell = Address_.GeoCell();
+  if (!cell) { return false; }
+  const auto &declaration = Sources_.At(0).Declaration();
+  return store.LookupCell(declaration, *cell).Where == Data::ContentStore::Presence::Bytes ||
+         store.HasCompleteChildCoverage(declaration, *cell);
+}
+
 bool ApiRegion::Begin(const Data::ContentStore &store, std::vector<Data::GeoCellId> &refine) {
   const auto cell = Address_.GeoCell();
   if (cell && store.CanResumeFromChildren(Sources_.At(0).Declaration(), *cell)) {

@@ -48,10 +48,8 @@ std::vector<Data::GeoCellId> SourceAcquisition::Cells::SelectLeaves(
       use[at] = plans[at].empty() && std::ranges::binary_search(PublishedRoots, roots[at], Before);
     }
     for (const auto &entry : Published) {
-      const auto cell = entry.Snapshot->Cell;
-      assert(cell);
-      const auto at = RootPosition(roots, *cell);
-      if (at && use[*at]) { plans[*at].push_back(*cell); }
+      const auto at = RootPosition(roots, entry.Address);
+      if (at && use[*at]) { plans[*at].push_back(entry.Address); }
     }
   }
   std::vector<Data::GeoCellId> leaves;
@@ -75,7 +73,8 @@ SourceAcquisition::Cells::Refine(std::span<const Data::GeoCellId> cells) {
   for (size_t index = 0; index < cells.size(); ++index) {
     const auto cell = cells[index];
     const auto at = std::ranges::find(Wanted, cell);
-    if (at == Wanted.end() || Preparing[static_cast<size_t>(at - Wanted.begin())].Snapshot ||
+    if (at == Wanted.end() ||
+        Preparing[static_cast<size_t>(at - Wanted.begin())].State == CellState::Validated ||
         std::ranges::find(cells.first(index), cell) != cells.first(index).end()) {
       return std::unexpected("original OSM subdivision does not belong to pending demand");
     }

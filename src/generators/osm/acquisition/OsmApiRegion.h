@@ -26,6 +26,7 @@ public:
   [[nodiscard]] Data::OsmSourceChunk Chunk(const Data::SourceProvider &provider,
                                            std::optional<Data::GeoCellId> cell) const;
   [[nodiscard]] bool Begin(const Data::ContentStore &store, std::vector<Data::GeoCellId> &refine);
+  [[nodiscard]] bool HasCachedCoverage(Data::ContentStore &store) const;
   [[nodiscard]] std::expected<Collected, std::string> Collect(Data::OsmSourceChunk &chunk,
                                                               double beganMs);
 

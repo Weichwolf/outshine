@@ -32,8 +32,12 @@ constexpr size_t kMaxChunks = 4;
 
 SourceAcquisition::SourceAcquisition(Workers workers,
                                      Data::Transport *wire,
-                                     std::string cacheDirectory)
-    : Tasks_(&workers.Compute), Io_(workers.Io), Access_(std::make_shared<Access>()) {
+                                     std::string cacheDirectory,
+                                     Target target)
+    : Target_(target),
+      Tasks_(&workers.Compute),
+      Io_(workers.Io),
+      Access_(std::make_shared<Access>()) {
   Access_->Wire = wire;
   Access_->Directory = std::move(cacheDirectory);
 }
@@ -61,6 +65,9 @@ std::expected<void, std::string>
 SourceAcquisition::Request(std::span<const Data::SourceProvider> providers,
                            std::string_view root,
                            const Data::ProviderRegistry *registry) {
+  if (Target_ == Target::Cache) {
+    return std::unexpected("OSM cache preparation requires geodetic catalogue cells");
+  }
   if (auto valid = Data::ValidateSourceProviders(providers); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
@@ -127,8 +134,16 @@ bool SourceAcquisition::AwaitSlice(double seconds) {
 }
 
 void SourceAcquisition::CompletePending(Pending finished) {
-  if (finished.Revision != Revision_ || Phase_ != Phase::Loading) { return; }
-  if (auto *read = std::get_if<ReadResult>(&finished.Output->Value)) {
+  if (finished.Revision != Revision_ || (Phase_ != Phase::Loading && Phase_ != Phase::Verifying)) {
+    return;
+  }
+  if (auto *proof = std::get_if<CacheProofResult>(&finished.Output->Value)) {
+    if (*proof) {
+      PublishCells();
+      return;
+    }
+    Error_ = std::move(proof->error());
+  } else if (auto *read = std::get_if<ReadResult>(&finished.Output->Value)) {
     if (*read) {
       StartDecode(std::move(**read), std::move(finished.Stop), finished.Output->ReadMs);
       return;

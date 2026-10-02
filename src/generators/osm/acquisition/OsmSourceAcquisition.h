@@ -26,7 +26,9 @@ class SourceAcquisition {
 public:
   static constexpr double DefaultAcquisitionBudgetS = 10.0;
   [[nodiscard]] std::expected<void, std::string> SetAcquisitionBudget(double seconds);
-  enum class Phase : uint8_t { Inactive, Loading, Ready, Failed };
+  enum class Phase : uint8_t { Inactive, Loading, Verifying, Ready, Failed };
+  enum class Target : uint8_t { Inputs, Cache };
+  enum class CellState : uint8_t { Missing, Validated };
 
   struct CellLimits {
     size_t CellsMost = 0;
@@ -39,6 +41,8 @@ public:
   struct CellSource {
     std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot;
     size_t ChargedBytes = 0;
+    Data::GeoCellId Address{};
+    CellState State = CellState::Missing;
   };
 
   struct Workers {
@@ -48,7 +52,8 @@ public:
 
   explicit SourceAcquisition(Workers workers,
                              Data::Transport *wire = nullptr,
-                             std::string cacheDirectory = {});
+                             std::string cacheDirectory = {},
+                             Target target = Target::Inputs);
 
   ~SourceAcquisition();
   SourceAcquisition(const SourceAcquisition &) = delete;
@@ -67,6 +72,7 @@ public:
                const Data::ProviderRegistry *registry = nullptr);
   [[nodiscard]] std::span<const CellSource> CurrentCells() const noexcept;
   [[nodiscard]] size_t CellSnapshotChargeBytes() const noexcept;
+  [[nodiscard]] size_t PreparedCellCount() const noexcept;
   void Poll();
   [[nodiscard]] bool AwaitSlice(double seconds);
 
@@ -89,9 +95,10 @@ private:
   using LoadResult = std::expected<std::shared_ptr<const Data::OsmSourceSnapshot>, std::string>;
   using ReadResult = std::expected<std::vector<Data::OsmSourceChunk>, std::string>;
   using CellLoadResult = std::expected<std::vector<CellSource>, std::string>;
+  using CacheProofResult = std::expected<std::monostate, std::string>;
 
   struct Result {
-    std::variant<std::monostate, ReadResult, LoadResult, CellLoadResult> Value;
+    std::variant<std::monostate, ReadResult, LoadResult, CellLoadResult, CacheProofResult> Value;
     std::optional<double> ReadMs;
   };
 
@@ -115,10 +122,13 @@ private:
                    std::optional<double> readMs);
   void CompletePending(Pending finished);
   void CompleteCells(std::vector<CellSource> ready);
+  void VerifyCache();
+  void PublishCells();
   struct Access;
   struct Cells;
   struct CellPipeline;
   enum class Scope : uint8_t { Region, Cells };
+  const Target Target_;
   Tasks *Tasks_;
   Tasks &Io_;
   std::shared_ptr<Access> Access_;

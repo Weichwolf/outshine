@@ -85,6 +85,9 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   Quellcache gilt das Zehn-Sekunden-Gate; ein frischer Offline-Prozess prüft den warmen Aufbau.
   Als Nächstes 2188s Produkt-/Pinvertrag und 2336s Detailbedarf vor Terrainarbeit anschließen:
   native Zellen ingestieren, ohne sämtliche Roh-Snapshots bis zur fertigen Fernwelt zu halten.
+  SourceAcquisition trennt Cache-Vorbereitung von residenten Eingaben: dekodierte Zellen
+  nach Validierung freigeben, vollständige qualifizierte Byte-Abdeckung zuletzt auf IO prüfen.
+  Cache-Bereitschaft liefert keine Weltprodukte; der Prepare-Client muss diesen Pfad noch anschließen.
   Originalcache vollständig vorbereiten und tatsächlichen Place-Aufbau messen; Erwerb allein
   beweist weder das Ladebudget noch Bildqualität. Keine weitere reine Wartezeit-Optimierung.
   Geschlossene dekodierte Teilregionen geben native Erzeugung frei, während weitere Quellen
