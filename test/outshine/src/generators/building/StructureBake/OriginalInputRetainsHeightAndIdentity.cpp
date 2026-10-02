@@ -1,4 +1,5 @@
-#include "OriginalStructureInput.h"
+#include "OriginalBuildingInput.h"
+#include "OsmStructureDescription.h"
 #include "BuildingMesh.h"
 #include "Geodesy.h"
 #include "OsmXmlReader.h"
@@ -26,20 +27,20 @@ int main() {
   if (!parsed) { return Report(); }
   auto source = std::make_shared<const Data::OsmSourceSnapshot>(
       Data::OsmSourceSnapshot{.Elements = std::move(*parsed), .Coverage = {}});
-  const auto footprints = Ground::OsmBuildingFootprints::Build(source, 4);
+  const auto footprints = outshine::Generators::Osm::BuildingFootprints::Build(source, 4);
   CHECK(footprints.has_value(), "original raised part has a closed footprint");
   if (!footprints) { return Report(); }
   const OriginalStructureSource original{
       .Snapshot = source,
       .Origin = {.Bounds = {.WestDeg = -1, .SouthDeg = -1, .EastDeg = 1, .NorthDeg = 1}}};
-  const OriginalStructurePolicy policy{.Heights = {.StoreyHeightM = 3, .BodyHeightM = 4},
-                                       .PointsMost = 4};
-  auto raw = OriginalStructureInput(*footprints, original, policy);
+  const outshine::Generators::Osm::StructurePolicy policy{
+      .Heights = {.StoreyHeightM = 3, .BodyHeightM = 4}, .PointsMost = 4};
+  auto raw = outshine::Test::OriginalBuildingInput(*footprints, original, policy);
   CHECK(raw && raw->Structures.size() == 1, "native input produces one building part");
   if (!raw || raw->Structures.size() != 1) { return Report(); }
   const auto &part = raw->Structures.front();
   CHECK(part.MinimumHeightM == 5.5 && part.HeightM == 9.5 &&
-            part.HeightOrigin == Ground::OsmHeightOrigin::Policy,
+            part.HeightOrigin == outshine::Ground::BuildingHeightOrigin::Generated,
         "missing top uses an explicit four metre body above original clearance");
   CHECK(part.OriginalId.Kind == Data::OsmElementKind::Way && part.OriginalId.Id == 10 &&
             raw->Original.Archive.lock() == source &&
@@ -76,11 +77,13 @@ int main() {
         "generated surfaces preserve the original clearance above DEM");
   auto limited = policy;
   limited.PointsMost = 3;
-  const auto rejected = OriginalStructureInput(*footprints, original, limited);
-  CHECK(!rejected && rejected.error() == OriginalStructureInputError::PointBudgetExceeded,
+  const auto rejected = outshine::Test::OriginalBuildingInput(*footprints, original, limited);
+  CHECK(!rejected && rejected.error() ==
+                         outshine::Generators::Osm::StructureDescriptionError::PointBudgetExceeded,
         "coordinate budget is enforced before materializing input");
-  const auto unowned = OriginalStructureInput(*footprints, {}, policy);
-  CHECK(!unowned && unowned.error() == OriginalStructureInputError::SourceMismatch,
+  const auto unowned = outshine::Test::OriginalBuildingInput(*footprints, {}, policy);
+  CHECK(!unowned &&
+            unowned.error() == outshine::Generators::Osm::StructureDescriptionError::SourceMismatch,
         "geometry cannot be published without its original source owner");
   auto pointParsed = Data::OsmXmlReader::Read(
       R"(<osm version="0.6"><node id="20" lat="0" lon="0">
@@ -91,25 +94,32 @@ int main() {
   if (!pointParsed) { return Report(); }
   const auto pointSource = std::make_shared<const Data::OsmSourceSnapshot>(
       Data::OsmSourceSnapshot{.Elements = std::move(*pointParsed), .Coverage = {}});
-  const auto pointFootprints = Ground::OsmBuildingFootprints::Build(pointSource, 1);
+  const auto pointFootprints = outshine::Generators::Osm::BuildingFootprints::Build(pointSource, 1);
   CHECK(pointFootprints.has_value(), "point building preserves its original position");
   if (!pointFootprints) { return Report(); }
   auto pointOriginal = original;
   pointOriginal.Snapshot = pointSource;
   auto pointPolicy = policy;
   pointPolicy.PointsMost = 5;
-  const auto noWidth = OriginalStructureInput(*pointFootprints, pointOriginal, pointPolicy);
-  CHECK(!noWidth && noWidth.error() == OriginalStructureInputError::InvalidPointPolicy,
+  const auto noWidth =
+      outshine::Test::OriginalBuildingInput(*pointFootprints, pointOriginal, pointPolicy);
+  CHECK(!noWidth && noWidth.error() ==
+                        outshine::Generators::Osm::StructureDescriptionError::InvalidPointPolicy,
         "point geometry requires an explicit generator width");
   pointPolicy.PointWidthM = 4;
-  const auto pointRaw = OriginalStructureInput(*pointFootprints, pointOriginal, pointPolicy);
+  const auto pointRaw =
+      outshine::Test::OriginalBuildingInput(*pointFootprints, pointOriginal, pointPolicy);
   CHECK(pointRaw && pointRaw->Structures.size() == 1 && pointRaw->LatLon.size() == 10 &&
             pointRaw->Structures.front().OriginalId.Kind == Data::OsmElementKind::Node &&
-            pointRaw->Structures.front().HeightOrigin == Ground::OsmHeightOrigin::Levels,
+            pointRaw->Structures.front().HeightOrigin ==
+                outshine::Ground::BuildingHeightOrigin::Storeys,
         "generated point footprint retains node identity and level-derived height");
   pointPolicy.PointsMost = 4;
-  const auto pointLimited = OriginalStructureInput(*pointFootprints, pointOriginal, pointPolicy);
-  CHECK(!pointLimited && pointLimited.error() == OriginalStructureInputError::PointBudgetExceeded,
+  const auto pointLimited =
+      outshine::Test::OriginalBuildingInput(*pointFootprints, pointOriginal, pointPolicy);
+  CHECK(!pointLimited &&
+            pointLimited.error() ==
+                outshine::Generators::Osm::StructureDescriptionError::PointBudgetExceeded,
         "generated corners and retained source point share the coordinate budget");
   return Report();
 }

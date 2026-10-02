@@ -1,4 +1,5 @@
-#include "OriginalStructureInput.h"
+#include "OriginalBuildingInput.h"
+#include "OsmStructureDescription.h"
 #include "BuildingMesh.h"
 #include "Geodesy.h"
 #include "OsmXmlReader.h"
@@ -41,11 +42,11 @@ int main() {
         .Cell = Data::GeoCellId{.Level = 9, .X = 256, .Y = 256}});
     archive = source;
     archiveBytes = source->StorageChargeBytes();
-    const auto footprints = Ground::OsmBuildingFootprints::Build(source, 4);
+    const auto footprints = outshine::Generators::Osm::BuildingFootprints::Build(source, 4);
     CHECK(footprints.has_value(),
           "building footprint is closed independently of the unrelated route");
     if (!footprints) { return Report(); }
-    auto prepared = OriginalStructureInput(
+    auto prepared = outshine::Test::OriginalBuildingInput(
         *footprints,
         {.Snapshot = source, .Origin = {.Bounds = source->Coverage.front()}},
         {.Heights = {.StoreyHeightM = 3, .BodyHeightM = 9}, .PointsMost = 4});

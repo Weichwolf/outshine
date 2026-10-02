@@ -22,7 +22,10 @@ und vollständige Place-Abnahme sind offen. Keine reduzierte Kartenquelle als Er
 Nach 2188 übergibt Engine allgemeinen Weltbedarf an registrierte Generatoren. Die OSM-
 Erweiterung unter `generators/osm` besitzt Provider, Adapter, Zellplanung und Erzeugung.
 `SourceAcquisition`, `TransportPreparation`, Provider und API-/Zellerwerber liegen bereits
-dort. Decoder/Validierung bleiben in world/data, Engine-Aufrufer sind noch spezialisiert.
+dort. OSM-Gebäudeparser und Strukturadapter liegen in `generators/osm/buildings`; native
+StructureFootprints/Höhenintervalle enthalten keine Tags oder Quellformate; der Gebäudebake
+übernimmt native Ringe/Höhen über seinen eigenen StructureInput. XML-Decoder/Validierung bleiben in
+world/data, Engine-Aufrufer sind noch spezialisiert.
 Allgemeine SourceSet-/ContentStore-Dienste halten Netzwerkbytes/Receipt. Bestehende
 Tasks/Fetching nutzen begrenztes paralleles IO und genau einen gemeinsamen Compute-
 Worker; StreetGraphPreparation und ClassificationBuild nutzen ihn ohne eigene Compute-Threads.

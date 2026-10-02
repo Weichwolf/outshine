@@ -46,11 +46,11 @@ public:
 
   [[nodiscard]] std::expected<bool, std::string>
   PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                  Generators::OriginalStructurePolicy policy,
+                  outshine::Generators::Osm::StructurePolicy policy,
                   int heightZoom);
   [[nodiscard]] std::expected<bool, std::string>
   PrepareOriginal(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-                  Generators::OriginalStructurePolicy policy,
+                  outshine::Generators::Osm::StructurePolicy policy,
                   int heightZoom);
   [[nodiscard]] std::expected<std::span<const Data::TileId>, std::string>
   OriginalHeightTiles(int zoom) const;

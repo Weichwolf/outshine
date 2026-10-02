@@ -64,13 +64,13 @@ int main() {
   raw.Structures[0].HeightM = 5;
   raw.Structures[0].MinimumHeightM = 0;
   std::optional<std::string> previousKey;
-  for (const auto origin : {Ground::OsmHeightOrigin::MetricTag,
-                            Ground::OsmHeightOrigin::Levels,
-                            Ground::OsmHeightOrigin::Policy}) {
+  for (const auto origin : {outshine::Ground::BuildingHeightOrigin::Declared,
+                            outshine::Ground::BuildingHeightOrigin::Storeys,
+                            outshine::Ground::BuildingHeightOrigin::Generated}) {
     raw.Structures[0].HeightOrigin = origin;
     BakedTile product;
     const auto baked = BakeStructures(raw, *heights, mesher, *scratch, product);
-    const bool measured = origin == Ground::OsmHeightOrigin::MetricTag;
+    const bool measured = origin == outshine::Ground::BuildingHeightOrigin::Declared;
     CHECK(baked && product.Prints.size() == 1 && product.Prints[0].HeightM == 5 &&
               (product.Prints[0].Source == Ground::BuildingField::HeightSource::Osm) == measured &&
               product.OsmHeights == (measured ? 1 : 0) &&

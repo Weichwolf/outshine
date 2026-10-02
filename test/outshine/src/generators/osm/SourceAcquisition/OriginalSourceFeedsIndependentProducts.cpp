@@ -61,7 +61,7 @@ int main() {
   const auto source = loader.Current();
   const auto sourceRevision = loader.PublishedRevision();
   CHECK(sourceRevision != 0, "the original source has its own publication revision");
-  const auto footprints = Ground::OsmBuildingFootprints::Build(source, 3);
+  const auto footprints = outshine::Generators::Osm::BuildingFootprints::Build(source, 3);
   CHECK(footprints && &footprints->Source() == source.get() && footprints->Buildings().size() == 1,
         "building product pins the same original snapshot");
   StructureBuildQueue structures;

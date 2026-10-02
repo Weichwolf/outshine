@@ -18,7 +18,8 @@ GPU-Daten bestehen. Generate::Request trägt Ort/Seed/Ground/Coarseness, aber ke
 Projektions-/Fehlervertrag. Native StructureBake-Pfade umgehen diesen Generatorvertrag.
 OriginalStructurePreparation fordert Terrain nach einem gemeinsamen heightZoom an;
 RawTile hält geschlossene OSM-Inputs mit schwachem Archivbezug; BuildingGeometry hält
-native Polygone/Quellbelege. Vollständige Archive verbleiben im Quellenladepfad. SimulationState integriert bisher
+native Polygone/Quellbelege; StructureFootprints/BuildingHeightInterval tragen native Ringe/Höhen. OSM-Tagparser,
+Grundrisse und Strukturadapter gehören generators/osm/buildings. Archive bleiben im Quellenladepfad. SimulationState integriert bisher
 Schwerkraft; Rigid/Wrench/Prismatic liefern Grundlagen, keinen vollständigen Weltkontakt.
 Script/ActionHostAdapter und Ui::Markup/Style/Layout bestehen und bleiben verwendbar.
 SurfacePreparation und Straßenaufträge liegen noch unter engine/streaming. StreetGraphPreparation
@@ -111,7 +112,6 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
 3. 2280s Pipeline mit nativer Ingestion, Produkt-/Pinbesitz und gemeinsamen Jobdiensten verbinden.
 4. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
 5. Wettervertrag für 2172 sowie Command-/Snapshot-Grenze für 2136 vervollständigen.
-Andere Features konsumieren jeweils den fehlenden Teilvertrag, keine pauschale Gesamtabnahme.
 
 ## Abnahme
 Ein externer Provider/Generator ersetzt Builtins bis zum Bild ohne private Includes.

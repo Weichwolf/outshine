@@ -16,7 +16,8 @@ Bakes und Terrain-Stempel existieren. Klasse/Dach-Tags erreichen den Meshplan no
 nicht vollständig; Fassaden wirken repetitiv. Rosenheims Schornsteine sind keine Wohnhäuser.
 
 ## Nächste Lieferung und Besitzer
-OsmBuildingFootprints/OsmBuildingHeights normalisieren Formen und Einheiten.
+`generators/osm/buildings` normalisiert Original-Grundrisse und Tags/Einheiten;
+BuildingHeightInterval ist das native Höhenprodukt.
 StructureBake/BuildingMesh konsumieren gepinnte Original-IDs und Tags. Native
 Footprints/Höhen und Nahdetails müssen denselben öffentlichen Produktvertrag aus 2188
 nutzen; Abstand/Fehler vor Terrain- und Detailarbeit auswerten.

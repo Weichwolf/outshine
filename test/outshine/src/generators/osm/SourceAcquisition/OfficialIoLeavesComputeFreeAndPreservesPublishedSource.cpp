@@ -74,7 +74,7 @@ int main() {
           "official source acquisition and native compute publication complete asynchronously");
     const auto source = loader.Current();
     if (source) {
-      const auto buildings = Ground::OsmBuildingFootprints::Build(source, 3);
+      const auto buildings = outshine::Generators::Osm::BuildingFootprints::Build(source, 3);
       CHECK(buildings && buildings->Buildings().size() == 1 && &buildings->Source() == source.get(),
             "building product consumes the fetched original snapshot");
       outshine::Generators::Osm::TransportPreparation transport(compute);

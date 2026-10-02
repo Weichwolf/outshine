@@ -2,7 +2,7 @@
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
 #include "GeographicRing.h"
-#include "OsmBuildingHeights.h"
+#include "BuildingHeightInterval.h"
 #include "OriginalStructureSource.h"
 #include <array>
 #include <expected>
@@ -76,7 +76,7 @@ struct RawTile {
     double HeightM = 0.0;
     double MinimumHeightM = 0.0;
     int Pitched = -1;
-    std::optional<outshine::Ground::OsmHeightOrigin> HeightOrigin = std::nullopt;
+    std::optional<outshine::Ground::BuildingHeightOrigin> HeightOrigin = std::nullopt;
     Data::OsmElementId OriginalId{};
   };
 

@@ -534,7 +534,7 @@ bool HasSourceHeight(const RawTile::Structure &structure) {
 
 BuildingField::HeightSource HeightSourceOf(const RawTile::Structure &structure) noexcept {
   if (structure.HeightOrigin &&
-      *structure.HeightOrigin != outshine::Ground::OsmHeightOrigin::MetricTag) {
+      *structure.HeightOrigin != outshine::Ground::BuildingHeightOrigin::Declared) {
     return BuildingField::HeightSource::Default;
   }
   return BuildingField::HeightSource::Osm;

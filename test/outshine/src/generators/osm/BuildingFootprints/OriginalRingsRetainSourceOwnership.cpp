@@ -43,7 +43,7 @@ int main() {
       "<relation id='30'><member type='way' ref='999' role=''/>"
       "<tag k='type' v='route'/><tag k='type' v='unknown-route'/></relation>";
   auto source = Source(polygon);
-  auto built = OsmBuildingFootprints::Build(source, 8);
+  auto built = outshine::Generators::Osm::BuildingFootprints::Build(source, 8);
   CHECK(built.has_value(), "complete building survives an unrelated incomplete route");
   if (!built) { return Report(); }
   CHECK(built->Buildings().size() == 1 && built->Rings().size() == 2 &&
@@ -66,11 +66,12 @@ int main() {
                                   return tag.Key == "custom:original" && tag.Value == "retained";
                                 }),
         "the geometry owner pins all original tags beyond caller source lifetime");
-  const auto limited = OsmBuildingFootprints::Build(Source(polygon), 7);
-  CHECK(!limited && limited.error().Code == OsmFootprintErrorCode::PointBudgetExceeded,
+  const auto limited = outshine::Generators::Osm::BuildingFootprints::Build(Source(polygon), 7);
+  CHECK(!limited && limited.error().Code ==
+                        outshine::Generators::Osm::FootprintErrorCode::PointBudgetExceeded,
         "one point below the required budget rejects the whole candidate");
 
-  const auto chimney = OsmBuildingFootprints::Build(
+  const auto chimney = outshine::Generators::Osm::BuildingFootprints::Build(
       Source(std::string(kNodes) +
              "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='1'/>"
              "<tag k='building' v='yes'/><tag k='man_made' v='chimney'/>"
@@ -81,40 +82,45 @@ int main() {
                 chimney->Tags(chimney->Buildings()[0]),
                 [](const auto &tag) { return tag.Key == "man_made" && tag.Value == "chimney"; }),
         "chimney classification remains original data instead of a height-derived house");
-  const auto missing = OsmBuildingFootprints::Build(
+  const auto missing = outshine::Generators::Osm::BuildingFootprints::Build(
       Source("<way id='10'><nd ref='99'/><tag k='building' v='yes'/></way>"), 8);
-  CHECK(!missing && missing.error().Code == OsmFootprintErrorCode::MissingReference &&
+  CHECK(!missing &&
+            missing.error().Code ==
+                outshine::Generators::Osm::FootprintErrorCode::MissingReference &&
             missing.error().Missing && missing.error().Missing->MissingId == 99,
         "missing required nodes carry the exact dependency instead of dropping the building");
-  const auto open = OsmBuildingFootprints::Build(
+  const auto open = outshine::Generators::Osm::BuildingFootprints::Build(
       Source(std::string(kNodes) + "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/>"
                                    "<tag k='building' v='yes'/></way>"),
       8);
-  CHECK(!open && open.error().Code == OsmFootprintErrorCode::InvalidRing,
+  CHECK(!open && open.error().Code == outshine::Generators::Osm::FootprintErrorCode::InvalidRing,
         "open standalone ways are not silently closed with invented geometry");
-  const auto ambiguous = OsmBuildingFootprints::Build(
+  const auto ambiguous = outshine::Generators::Osm::BuildingFootprints::Build(
       Source(std::string(kNodes) +
              "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='1'/>"
              "<tag k='building' v='yes'/><tag k='building' v='no'/></way>"),
       8);
-  CHECK(!ambiguous && ambiguous.error().Code == OsmFootprintErrorCode::AmbiguousTag,
+  CHECK(!ambiguous &&
+            ambiguous.error().Code == outshine::Generators::Osm::FootprintErrorCode::AmbiguousTag,
         "contradictory classification cannot disappear behind a first-tag choice");
-  const auto duplicated = OsmBuildingFootprints::Build(
+  const auto duplicated = outshine::Generators::Osm::BuildingFootprints::Build(
       Source(std::string(kNodes) +
              "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='1'/></way>"
              "<relation id='20'><member type='way' ref='10' role='outer'/>"
              "<member type='way' ref='10' role='inner'/>"
              "<tag k='type' v='multipolygon'/><tag k='building' v='yes'/></relation>"),
       8);
-  CHECK(!duplicated && duplicated.error().Code == OsmFootprintErrorCode::AmbiguousJunction,
+  CHECK(!duplicated && duplicated.error().Code ==
+                           outshine::Generators::Osm::FootprintErrorCode::AmbiguousJunction,
         "one source way cannot be both shell and courtyard");
-  const auto openRelation = OsmBuildingFootprints::Build(
+  const auto openRelation = outshine::Generators::Osm::BuildingFootprints::Build(
       Source(std::string(kNodes) +
              "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/></way>"
              "<relation id='20'><member type='way' ref='10' role='outer'/>"
              "<tag k='type' v='multipolygon'/><tag k='building' v='yes'/></relation>"),
       8);
-  CHECK(!openRelation && openRelation.error().Code == OsmFootprintErrorCode::AmbiguousJunction,
+  CHECK(!openRelation && openRelation.error().Code ==
+                             outshine::Generators::Osm::FootprintErrorCode::AmbiguousJunction,
         "an open member chain cannot invent its missing closing edge");
   const auto pointSource =
       Source(std::string(kNodes) +
@@ -122,7 +128,7 @@ int main() {
              "<tag k='building:levels' v='1'/><tag k='operator' v='original'/></node>"
              "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='1'/>"
              "<tag k='building' v='yes'/></way>");
-  const auto mixed = OsmBuildingFootprints::Build(pointSource, 4);
+  const auto mixed = outshine::Generators::Osm::BuildingFootprints::Build(pointSource, 4);
   CHECK(mixed && mixed->Buildings().size() == 2 && mixed->Rings().size() == 1 &&
             mixed->Points().size() == 8,
         "point building and area building coexist without an invented footprint");
@@ -137,8 +143,9 @@ int main() {
               **mixed->Heights(point).Levels == 1,
           "point location, complete tags and original storeys reach native consumers");
   }
-  const auto pointLimited = OsmBuildingFootprints::Build(pointSource, 3);
-  CHECK(!pointLimited && pointLimited.error().Code == OsmFootprintErrorCode::PointBudgetExceeded,
+  const auto pointLimited = outshine::Generators::Osm::BuildingFootprints::Build(pointSource, 3);
+  CHECK(!pointLimited && pointLimited.error().Code ==
+                             outshine::Generators::Osm::FootprintErrorCode::PointBudgetExceeded,
         "point buildings consume the same coordinate budget as rings");
   return Report();
 }

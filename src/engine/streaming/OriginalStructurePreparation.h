@@ -1,8 +1,10 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_ORIGINALSTRUCTUREPREPARATION_H
 #define OUTSHINE_ENGINE_STREAMING_ORIGINALSTRUCTUREPREPARATION_H
 
-#include "OriginalStructureInput.h"
+#include "OsmStructureDescription.h"
+#include "StructureBake.h"
 #include "Tasks.h"
+#include <world/data/Address.h>
 
 #include <expected>
 #include <cstdint>
@@ -27,7 +29,7 @@ public:
   OriginalStructurePreparation(
       Tasks &pool,
       std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-      Generators::OriginalStructurePolicy policy,
+      outshine::Generators::Osm::StructurePolicy policy,
       int heightZoom);
   ~OriginalStructurePreparation();
   OriginalStructurePreparation(const OriginalStructurePreparation &) = delete;

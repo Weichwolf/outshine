@@ -538,7 +538,7 @@ bool StructureBuildQueue::BakeRevision::Matches(
 
 std::expected<bool, std::string>
 StructureBuildQueue::PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                                     Generators::OriginalStructurePolicy policy,
+                                     outshine::Generators::Osm::StructurePolicy policy,
                                      int heightZoom) {
   return PrepareOriginal(
       source ? std::span(&source, 1) : std::span(&source, 0), policy, heightZoom);
@@ -546,7 +546,7 @@ StructureBuildQueue::PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapsh
 
 std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
     std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-    Generators::OriginalStructurePolicy policy,
+    outshine::Generators::Osm::StructurePolicy policy,
     int heightZoom) {
   if (sources.size() > std::numeric_limits<uint32_t>::max()) {
     return std::unexpected("original building cells exceed product address admission");

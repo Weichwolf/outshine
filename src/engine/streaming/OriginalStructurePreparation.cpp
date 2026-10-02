@@ -1,4 +1,5 @@
 #include "OriginalStructurePreparation.h"
+#include "StructureInput.h"
 #include "HeightField.h"
 
 #include "OsmBuildingFootprints.h"
@@ -95,14 +96,14 @@ OriginalHeightCoverage(const Generators::RawTile &raw, int zoom, const std::stop
 }
 
 std::expected<Generators::RawTile, std::string>
-PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                Generators::OriginalStructurePolicy policy,
+PrepareOriginal(const std::shared_ptr<const Data::OsmSourceSnapshot> &source,
+                outshine::Generators::Osm::StructurePolicy policy,
                 const std::stop_token &stop) {
   if (!source || source->Coverage.empty()) {
     return std::unexpected("original buildings require declared source coverage");
   }
   if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
-  auto buildings = Ground::OsmBuildingFootprints::Build(source, policy.PointsMost);
+  auto buildings = outshine::Generators::Osm::BuildingFootprints::Build(source, policy.PointsMost);
   if (!buildings) {
     return std::unexpected("original building footprint failed at object " +
                            std::to_string(buildings.error().Source.Id) + " with code " +
@@ -128,12 +129,16 @@ PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
     bounds.NorthDeg = std::max(bounds.NorthDeg, high.LatitudeDeg);
   }
   if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
-  auto raw = Generators::OriginalStructureInput(
-      *buildings, {.Snapshot = std::move(source), .Origin = {.Bounds = bounds}}, policy);
-  if (!raw) {
+  auto described =
+      outshine::Generators::Osm::DescribeStructures(*buildings, source, {.Bounds = bounds}, policy);
+  if (!described) {
     return std::unexpected("original building input failed with code " +
-                           std::to_string(static_cast<int>(raw.error())));
+                           std::to_string(static_cast<int>(described.error())));
   }
+  auto raw = Generators::StructureInput(std::move(described->Footprints));
+  if (!raw) { return std::unexpected("native building footprints have an invalid cell"); }
+  raw->Original.Snapshot = std::move(described->Source);
+  raw->Original.Archive = std::move(described->Archive);
   return std::move(*raw);
 }
 
@@ -211,7 +216,7 @@ void RecordConsumedWays(const Generators::RawTile &raw, std::set<uint64_t> &cons
 
 std::expected<std::vector<OriginalStructurePreparation::Product>, std::string>
 PrepareProducts(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-                Generators::OriginalStructurePolicy policy,
+                outshine::Generators::Osm::StructurePolicy policy,
                 int heightZoom,
                 const std::stop_token &stop) {
   if (auto checked = VerifySources(sources, stop); !checked) {
@@ -258,7 +263,7 @@ PrepareProducts(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> 
 OriginalStructurePreparation::OriginalStructurePreparation(
     Tasks &pool,
     std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-    Generators::OriginalStructurePolicy policy,
+    outshine::Generators::Osm::StructurePolicy policy,
     int heightZoom)
     : Pool_(&pool), Output_(std::make_shared<Output>()) {
   Handle_ = pool.Post([sources = std::vector(sources.begin(), sources.end()),

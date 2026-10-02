@@ -89,7 +89,7 @@ int main() {
   Generators::BuildingMesh mesher;
   StructureBuildQueue queue;
   queue.Opens(&pool, &mesher);
-  const Generators::OriginalStructurePolicy policy{
+  const outshine::Generators::Osm::StructurePolicy policy{
       .Heights = {.StoreyHeightM = 3, .BodyHeightM = 9}, .PointWidthM = 2, .PointsMost = 64};
   bool prepared = false;
   for (int attempt = 0; attempt < 100 && !prepared; ++attempt) {

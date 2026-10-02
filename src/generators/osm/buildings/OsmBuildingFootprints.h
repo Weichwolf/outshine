@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUND_OSMBUILDINGFOOTPRINTS_H
-#define OUTSHINE_WORLD_GROUND_OSMBUILDINGFOOTPRINTS_H
+#ifndef OUTSHINE_GENERATORS_OSM_BUILDINGS_OSMBUILDINGFOOTPRINTS_H
+#define OUTSHINE_GENERATORS_OSM_BUILDINGS_OSMBUILDINGFOOTPRINTS_H
 
 #include <cstddef>
 #include <cstdint>
@@ -13,9 +13,9 @@
 #include "GeographicRing.h"
 #include "OsmBuildingHeights.h"
 
-namespace outshine::Ground {
+namespace outshine::Generators::Osm {
 
-enum class OsmFootprintErrorCode : uint8_t {
+enum class FootprintErrorCode : uint8_t {
   MissingSource,
   MissingReference,
   AmbiguousTag,
@@ -25,13 +25,13 @@ enum class OsmFootprintErrorCode : uint8_t {
   PointBudgetExceeded
 };
 
-struct OsmFootprintError {
-  OsmFootprintErrorCode Code;
+struct FootprintError {
+  FootprintErrorCode Code;
   Data::OsmElementId Source{};
   std::optional<Data::MissingOsmReference> Missing = std::nullopt;
 };
 
-class OsmBuildingFootprints {
+class BuildingFootprints {
 public:
   using Ring = GeographicRing;
 
@@ -42,7 +42,7 @@ public:
     std::optional<uint32_t> PointIndex = std::nullopt;
   };
 
-  [[nodiscard]] static std::expected<OsmBuildingFootprints, OsmFootprintError>
+  [[nodiscard]] static std::expected<BuildingFootprints, FootprintError>
   Build(std::shared_ptr<const Data::OsmSourceSnapshot> source, size_t maxPoints);
 
   [[nodiscard]] const Data::OsmSourceSnapshot &Source() const noexcept { return *Source_; }
@@ -55,21 +55,21 @@ public:
 
   [[nodiscard]] std::span<const Data::OsmTag> Tags(const Building &building) const noexcept;
 
-  [[nodiscard]] OsmBuildingHeights Heights(const Building &building) const noexcept {
-    return OsmBuildingHeights::Read(Tags(building));
+  [[nodiscard]] BuildingHeights Heights(const Building &building) const noexcept {
+    return BuildingHeights::Read(Tags(building));
   }
 
 private:
-  OsmBuildingFootprints() = default;
+  BuildingFootprints() = default;
 
-  [[nodiscard]] std::expected<void, OsmFootprintError> AppendRing(std::span<const uint64_t> nodes,
-                                                                  Data::OsmElementId source,
-                                                                  bool exterior,
-                                                                  size_t maxPoints);
-  [[nodiscard]] std::expected<void, OsmFootprintError>
+  [[nodiscard]] std::expected<void, FootprintError> AppendRing(std::span<const uint64_t> nodes,
+                                                               Data::OsmElementId source,
+                                                               bool exterior,
+                                                               size_t maxPoints);
+  [[nodiscard]] std::expected<void, FootprintError>
   AppendRelation(const Data::OsmRelation &relation, size_t maxPoints);
 
-  [[nodiscard]] std::expected<void, OsmFootprintError>
+  [[nodiscard]] std::expected<void, FootprintError>
   AppendWays(const std::vector<const Data::OsmWay *> &ways,
              Data::OsmElementId source,
              bool exterior,
