@@ -124,6 +124,8 @@ private:
   [[nodiscard]] bool
   ReadMaterialColours(const Json::Ref &declaration, size_t index, outshine::Material &into);
   [[nodiscard]] bool
+  ReadMaterialFactors(const Json::Ref &declaration, size_t index, outshine::Material &surface);
+  [[nodiscard]] bool
   ReadMaterialTextures(const Json::Ref &declaration, size_t index, Material &material);
 
   struct MeshAt {

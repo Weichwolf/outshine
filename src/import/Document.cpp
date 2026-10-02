@@ -1881,16 +1881,9 @@ bool Document::ReadMaterialTextures(const Json::Ref &declaration,
   return true;
 }
 
-bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
-  Material material;
-  material.Name = declaration["name"].Str("");
-  material.Surface.DoubleSided = declaration["doubleSided"].Bool(false);
-
-  const Json::Ref pbr = declaration["pbrMetallicRoughness"];
-  material.Surface.Metalness = static_cast<float>(pbr["metallicFactor"].Num(1.0));
-  material.Surface.Roughness = static_cast<float>(pbr["roughnessFactor"].Num(1.0));
-  if (!ReadMaterialColours(declaration, index, material.Surface)) { return false; }
-
+bool Document::ReadMaterialFactors(const Json::Ref &declaration,
+                                   size_t index,
+                                   outshine::Material &surface) {
   const Json::Ref specular = declaration["extensions"][kSpecular];
   const Json::Ref volume = declaration["extensions"][kVolume];
   const Json::Ref sheen = declaration["extensions"][kSheen];
@@ -1914,65 +1907,77 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       {.At = declaration["extensions"][kIor]["ior"],
        .Named = "ior",
        .Within = kAtLeastZero,
-       .Into = &material.Surface.Ior},
+       .Into = &surface.Ior},
       {.At = specular["specularFactor"],
        .Named = "specularFactor",
        .Within = kAtLeastZero,
-       .Into = &material.Surface.SpecularFactor},
+       .Into = &surface.SpecularFactor},
       {.At = declaration["extensions"][kTransmission]["transmissionFactor"],
        .Named = "transmissionFactor",
        .Within = kUnitInterval,
-       .Into = &material.Surface.Transmission},
+       .Into = &surface.Transmission},
       {.At = volume["thicknessFactor"],
        .Named = "thicknessFactor",
        .Within = kAtLeastZero,
-       .Into = &material.Surface.Thickness},
+       .Into = &surface.Thickness},
       {.At = volume["attenuationDistance"],
        .Named = "attenuationDistance",
        .Within = kAboveZero,
-       .Into = &material.Surface.AttenuationDistance},
+       .Into = &surface.AttenuationDistance},
       {.At = sheen["sheenRoughnessFactor"],
        .Named = "sheenRoughnessFactor",
        .Within = kUnitInterval,
-       .Into = &material.Surface.SheenRoughness},
+       .Into = &surface.SheenRoughness},
       {.At = clearcoat["clearcoatFactor"],
        .Named = "clearcoatFactor",
        .Within = kUnitInterval,
-       .Into = &material.Surface.Clearcoat},
+       .Into = &surface.Clearcoat},
       {.At = clearcoat["clearcoatRoughnessFactor"],
        .Named = "clearcoatRoughnessFactor",
        .Within = kUnitInterval,
-       .Into = &material.Surface.ClearcoatRoughness},
+       .Into = &surface.ClearcoatRoughness},
       {.At = anisotropy["anisotropyStrength"],
        .Named = "anisotropyStrength",
        .Within = kUnitInterval,
-       .Into = &material.Surface.Anisotropy},
+       .Into = &surface.Anisotropy},
       {.At = anisotropy["anisotropyRotation"],
        .Named = "anisotropyRotation",
        .Within = kAnyNumber,
-       .Into = &material.Surface.AnisotropyRotationRad},
+       .Into = &surface.AnisotropyRotationRad},
       {.At = iridescence["iridescenceFactor"],
        .Named = "iridescenceFactor",
        .Within = kUnitInterval,
-       .Into = &material.Surface.Iridescence},
+       .Into = &surface.Iridescence},
       {.At = iridescence["iridescenceIor"],
        .Named = "iridescenceIor",
        .Within = Ranged{.Low = 1.0},
-       .Into = &material.Surface.IridescenceIor},
+       .Into = &surface.IridescenceIor},
       {.At = iridescence["iridescenceThicknessMinimum"],
        .Named = "iridescenceThicknessMinimum",
        .Within = kAtLeastZero,
-       .Into = &material.Surface.IridescenceThicknessMinNm},
+       .Into = &surface.IridescenceThicknessMinNm},
       {.At = iridescence["iridescenceThicknessMaximum"],
        .Named = "iridescenceThicknessMaximum",
        .Within = kAtLeastZero,
-       .Into = &material.Surface.IridescenceThicknessMaxNm},
+       .Into = &surface.IridescenceThicknessMaxNm},
   }};
-  ;
 
-  for (const FactorRow &row : factors) {
-    if (!Factor(row.At, row.Named, index, row.Within, *row.Into)) { return false; }
-  }
+  return std::ranges::all_of(factors, [this, index](const FactorRow &row) {
+    return Factor(row.At, row.Named, index, row.Within, *row.Into);
+  });
+}
+
+bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
+  Material material;
+  material.Name = declaration["name"].Str("");
+  material.Surface.DoubleSided = declaration["doubleSided"].Bool(false);
+
+  const Json::Ref pbr = declaration["pbrMetallicRoughness"];
+  material.Surface.Metalness = static_cast<float>(pbr["metallicFactor"].Num(1.0));
+  material.Surface.Roughness = static_cast<float>(pbr["roughnessFactor"].Num(1.0));
+  if (!ReadMaterialColours(declaration, index, material.Surface)) { return false; }
+
+  if (!ReadMaterialFactors(declaration, index, material.Surface)) { return false; }
 
   const Json::Ref strength = declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
   if (strength.Valid()) {
