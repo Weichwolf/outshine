@@ -211,9 +211,8 @@ std::optional<Delivery> SourceSet::ReadStored(Query &query) {
   const size_t maximum = range ? static_cast<size_t>(range->Length) + MaximumRangeRecordOverhead
                                : decl.MaximumPayloadBytes;
   const auto cell = query.At_.GeoCell();
-  auto kept = !range && decl.Kind == DataKind::OriginalOsm && cell
-                  ? Store_.LookupCell(decl, *cell)
-                  : Store_.Lookup(query.CacheKey(), maximum);
+  auto kept =
+      !range && cell ? Store_.LookupCell(decl, *cell) : Store_.Lookup(query.CacheKey(), maximum);
   if (kept.Where == ContentStore::Presence::Unknown) { return std::nullopt; }
   if (kept.Where == ContentStore::Presence::Absent) {
     {
@@ -293,7 +292,7 @@ Delivery SourceSet::Deliver(Query &query, Fetched::Settled response) {
       (void)Store_.Keep(query.CacheKey(), record->data(), record->size());
     } else {
       const auto cell = query.At_.GeoCell();
-      if (decl.Kind == DataKind::OriginalOsm && cell) {
+      if (cell) {
         (void)Store_.KeepCell(decl, *cell, response.Bytes);
       } else {
         (void)Store_.Keep(query.CacheKey(), response.Bytes.data(), response.Bytes.size());

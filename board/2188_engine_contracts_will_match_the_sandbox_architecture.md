@@ -34,7 +34,7 @@ Quellarchive. OSM-Provider, Erwerb, Zellverfeinerung und Netz-/Routenaufbau lieg
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
 |---|---|---|
-| IO/Cache/Jobs | begrenzte Aufträge → Bytes/Arbeitsresultate | Allgemeine Dienste ohne Quellsemantik; keine eigene Weltplanung |
+| IO/Cache/Jobs | begrenzte Aufträge → Bytes/Arbeitsresultate | Quellunabhängig; Zellabdeckung folgt Adresse, Cachepolicy und Payload-Digest; keine Weltplanung |
 | world | native Produkte → generischer Weltzustand | Geometrie, Identitäten, Topologie und Herkunft; keine Quell-/Generatorinputs |
 | engine | Szenario + Kamera/Zeit/Qualität → versionierter Weltbedarf | Registrieren, koordinieren, native Produkte geschlossen publizieren |
 | generators/<domain> | Bedarf + 0:N Provider/Inputs → native Produkte | Eigene Beschaffung/Adapter/Erzeugung; gemeinsame Dienste, kein Weltbesitz |

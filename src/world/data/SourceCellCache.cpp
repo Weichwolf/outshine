@@ -41,9 +41,8 @@ std::array<GeoCellId, 4> Children(GeoCellId cell) {
            {.Level = cell.Level + 1, .X = cell.X * 2 + 1, .Y = cell.Y * 2 + 1}}};
 }
 
-bool CacheableOsmCell(const SourceDecl &decl, GeoCellId cell) {
-  return cell.Valid() && decl.Kind == DataKind::OriginalOsm && decl.How == Scheme::GeodeticGrid &&
-         decl.Keeps == Cacheability::Forever;
+bool CacheableCell(const SourceDecl &decl, GeoCellId cell) {
+  return cell.Valid() && decl.How == Scheme::GeodeticGrid && decl.Keeps == Cacheability::Forever;
 }
 
 bool EnsureCellDirectory(const ContentStore &store, const std::string &path, bool create) {
@@ -83,7 +82,7 @@ bool ContentStore::WriteCellReceipt(const SourceDecl &decl,
 bool ContentStore::KeepCell(const SourceDecl &decl,
                             GeoCellId cell,
                             std::span<const uint8_t> bytes) {
-  if (!CacheableOsmCell(decl, cell) || !Enabled()) { return false; }
+  if (!CacheableCell(decl, cell) || !Enabled()) { return false; }
   return Keep(ContentKey(decl, Address::AtGeoCell(cell)), bytes.data(), bytes.size()) &&
          WriteCellReceipt(decl, cell, bytes);
 }
@@ -109,7 +108,7 @@ std::optional<std::vector<uint8_t>> ContentStore::ReadVerifiedCellBytes(const So
 }
 
 ContentStore::Entry ContentStore::LookupCell(const SourceDecl &decl, GeoCellId cell) {
-  if (!CacheableOsmCell(decl, cell) || !Enabled()) { return {}; }
+  if (!CacheableCell(decl, cell) || !Enabled()) { return {}; }
   if (auto bytes = ReadVerifiedCellBytes(decl, cell)) {
     Hits_.fetch_add(1, std::memory_order_relaxed);
     return {.Where = Presence::Bytes, .Bytes = std::move(*bytes)};
@@ -129,7 +128,7 @@ ContentStore::Entry ContentStore::LookupCell(const SourceDecl &decl, GeoCellId c
 bool ContentStore::HasCompleteChildCoverage(const SourceDecl &decl,
                                             GeoCellId cell,
                                             size_t probesMost) const {
-  if (!CacheableOsmCell(decl, cell) || !Enabled() || cell.Level == GeoCellId::MaximumLevel ||
+  if (!CacheableCell(decl, cell) || !Enabled() || cell.Level == GeoCellId::MaximumLevel ||
       ReadBytes(ContentKey(decl, Address::AtGeoCell(cell)), decl.MaximumPayloadBytes)) {
     return false;
   }
