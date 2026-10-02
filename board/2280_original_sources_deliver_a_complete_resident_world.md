@@ -68,8 +68,9 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   Client-Pfaden entfernen; vorhandene Dateien erhalten. RAM-/GPU-Produkte bleiben resident.
   Client, Shots und Prepare teilen dauerhaften SDL-Nutzerspeicher; kein Temp-Default.
   ContentStore/SourceSet speichern adressqualifizierte Netzwerk-Receipts mit Payload-Digest.
-  Neue Prozesse rekonstruieren vollständige Blattabdeckung aus vorhandenen Originalbytes;
-  überlastete Eltern brauchen bei vollständigem Quellcache keine erneute Remote-Abfrage.
+  Neue Prozesse rekonstruieren vorhandene Blattpartitionen aus verifizierten Originalbytes.
+  Auch Teilbestände vermeiden erneute Elternproben; alle fehlenden Quadranten bleiben Pflicht.
+  Vorhandene Teilbytes beweisen keine vollständige Abdeckung.
   Fehlende oder beschädigte Bytes sind keine Abdeckung. Keine Generatorprodukte persistieren.
   `engine/EnginePreload.cpp` übergibt das öffentliche Preload-Budget auch als Quellenfrist,
   einschließlich laufender IO. Terrain-Sampling erhält ursprüngliche Fehleradresse,

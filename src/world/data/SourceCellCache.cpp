@@ -128,10 +128,35 @@ ContentStore::Entry ContentStore::LookupCell(const SourceDecl &decl, GeoCellId c
 bool ContentStore::HasCompleteChildCoverage(const SourceDecl &decl,
                                             GeoCellId cell,
                                             size_t probesMost) const {
-  if (!CacheableCell(decl, cell) || !Enabled() || cell.Level == GeoCellId::MaximumLevel ||
-      ReadBytes(ContentKey(decl, Address::AtGeoCell(cell)), decl.MaximumPayloadBytes)) {
+  return HasChildCoverage(decl, cell, probesMost, ChildCoverage::Complete);
+}
+
+bool ContentStore::CanResumeFromChildren(const SourceDecl &decl,
+                                         GeoCellId cell,
+                                         size_t probesMost) const {
+  return HasChildCoverage(decl, cell, probesMost, ChildCoverage::Any);
+}
+
+bool ContentStore::HasChildCoverage(const SourceDecl &decl,
+                                    GeoCellId cell,
+                                    size_t probesMost,
+                                    ChildCoverage required) const {
+  if (!CacheableCell(decl, cell) || !Enabled() || cell.Level == GeoCellId::MaximumLevel) {
     return false;
   }
+  std::error_code receiptError;
+  const bool hasReceipt = std::filesystem::exists(std::filesystem::symlink_status(
+      CellReceiptDirectory(*this, decl, cell) + "/receipt", receiptError));
+  if (ReadVerifiedCellBytes(decl, cell) ||
+      (!hasReceipt &&
+       ReadBytes(ContentKey(decl, Address::AtGeoCell(cell)), decl.MaximumPayloadBytes))) {
+    return false;
+  }
+  const auto childrenMeet = [&](const auto &visit, GeoCellId parent) {
+    const auto children = Children(parent);
+    return required == ChildCoverage::Complete ? std::ranges::all_of(children, visit)
+                                               : std::ranges::any_of(children, visit);
+  };
   const auto covered = [&](const auto &self, GeoCellId leaf) -> bool {
     if (probesMost == 0) { return false; }
     --probesMost;
@@ -142,9 +167,8 @@ bool ContentStore::HasCompleteChildCoverage(const SourceDecl &decl,
     }
     if (ReadVerifiedCellBytes(decl, leaf)) { return true; }
     if (leaf.Level == GeoCellId::MaximumLevel) { return false; }
-    return std::ranges::all_of(Children(leaf), [&](const auto child) { return self(self, child); });
+    return childrenMeet([&](const auto child) { return self(self, child); }, leaf);
   };
-  return std::ranges::all_of(Children(cell),
-                             [&](const auto child) { return covered(covered, child); });
+  return childrenMeet([&](const auto child) { return covered(covered, child); }, cell);
 }
 }

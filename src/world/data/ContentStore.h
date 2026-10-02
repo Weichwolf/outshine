@@ -67,6 +67,9 @@ public:
   [[nodiscard]] bool HasCompleteChildCoverage(const SourceDecl &decl,
                                               GeoCellId cell,
                                               size_t probesMost = MaximumAbsenceEntries) const;
+  [[nodiscard]] bool CanResumeFromChildren(const SourceDecl &decl,
+                                           GeoCellId cell,
+                                           size_t probesMost = MaximumAbsenceEntries) const;
 
   [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }
 
@@ -80,6 +83,11 @@ public:
   [[nodiscard]] Ledger Counters() const;
 
 private:
+  enum class ChildCoverage { Any, Complete };
+  [[nodiscard]] bool HasChildCoverage(const SourceDecl &decl,
+                                      GeoCellId cell,
+                                      size_t probesMost,
+                                      ChildCoverage required) const;
   [[nodiscard]] bool
   WriteCellReceipt(const SourceDecl &decl, GeoCellId cell, std::span<const uint8_t> bytes);
   [[nodiscard]] std::optional<std::vector<uint8_t>> ReadVerifiedCellBytes(const SourceDecl &decl,

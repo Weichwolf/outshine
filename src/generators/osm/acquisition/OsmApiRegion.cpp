@@ -107,7 +107,7 @@ std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(Data::OsmSou
 
 bool ApiRegion::Begin(const Data::ContentStore &store, std::vector<Data::GeoCellId> &refine) {
   const auto cell = Address_.GeoCell();
-  if (cell && store.HasCompleteChildCoverage(Sources_.At(0).Declaration(), *cell)) {
+  if (cell && store.CanResumeFromChildren(Sources_.At(0).Declaration(), *cell)) {
     refine.push_back(*cell);
     return true;
   }
