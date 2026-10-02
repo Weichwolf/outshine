@@ -67,7 +67,9 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
       }
     }
     World.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
-        *World.Pool, *World.Io, World.Wire.get(), Session.Under.Cache);
+        Generators::Osm::SourceAcquisition::Workers{.Compute = *World.Pool, .Io = *World.Io},
+        World.Wire.get(),
+        Session.Under.Cache);
   }
   World.OsmRoutes = std::move(routes);
   World.OriginalSourceDemand.reset();

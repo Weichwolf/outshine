@@ -100,7 +100,8 @@ int main() {
   Tasks compute(1);
   Tasks io(1);
   CapacityLimitedOsmTransport wire;
-  outshine::Generators::Osm::SourceAcquisition loader(compute, io, &wire, directory);
+  outshine::Generators::Osm::SourceAcquisition loader(
+      {.Compute = compute, .Io = io}, &wire, directory);
   CHECK(loader.RequestCells(provider, roots, limits, ".") && Settled(loader) &&
             loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
             loader.CurrentCells().size() == 4 && wire.Starts == 5,
@@ -154,7 +155,8 @@ int main() {
         "the depth bound terminates overloaded demand explicitly");
   CapacityLimitedOsmTransport nested;
   nested.WidthMost = 0.2;
-  outshine::Generators::Osm::SourceAcquisition deeper(compute, io, &nested, directory);
+  outshine::Generators::Osm::SourceAcquisition deeper(
+      {.Compute = compute, .Io = io}, &nested, directory);
   revision.Revision = "adaptive-nested";
   CHECK(deeper.RequestCells(revision, roots, limits, ".") && Settled(deeper) &&
             deeper.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
@@ -163,7 +165,8 @@ int main() {
   {
     CapacityLimitedOsmTransport offline;
     offline.BlockLeaves = true;
-    outshine::Generators::Osm::SourceAcquisition fresh(compute, io, &offline, directory);
+    outshine::Generators::Osm::SourceAcquisition fresh(
+        {.Compute = compute, .Io = io}, &offline, directory);
     CHECK(fresh.RequestCells(provider, roots, limits, ".") && Settled(fresh) &&
               fresh.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
               fresh.CurrentCells().size() == 4 && offline.Starts == 0,
@@ -185,7 +188,8 @@ int main() {
     auto catalogue = MakeDeclaredSource(revision, ".", nullptr);
     CHECK(catalogue, "the original catalogue supplies the same cache identity");
     if (!catalogue) { return Report(); }
-    outshine::Generators::Osm::SourceAcquisition preparing(compute, io, &interrupted, directory);
+    outshine::Generators::Osm::SourceAcquisition preparing(
+        {.Compute = compute, .Io = io}, &interrupted, directory);
     CHECK(preparing.RequestCells(revision, demand, limits, ".") &&
               Await(preparing,
                     [&] {
@@ -199,7 +203,8 @@ int main() {
           "an unfinished later region prevents global publication");
     CapacityLimitedOsmTransport cached;
     cached.BlockLeaves = true;
-    outshine::Generators::Osm::SourceAcquisition resumed(compute, io, &cached, directory);
+    outshine::Generators::Osm::SourceAcquisition resumed(
+        {.Compute = compute, .Io = io}, &cached, directory);
     CHECK(resumed.RequestCells(revision, std::span(demand).first(2), limits, ".") &&
               Settled(resumed) &&
               resumed.CurrentPhase() ==

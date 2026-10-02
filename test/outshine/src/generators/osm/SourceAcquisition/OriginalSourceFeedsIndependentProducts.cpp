@@ -49,7 +49,7 @@ int main() {
       .Coverage = Data::SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
   Tasks tasks(1);
   Tasks io(1);
-  outshine::Generators::Osm::SourceAcquisition loader(tasks, io);
+  outshine::Generators::Osm::SourceAcquisition loader({.Compute = tasks, .Io = io});
   CHECK(loader.PublishedRevision() == 0, "no source is published before the first request");
   CHECK(loader.Request(providers, ".").has_value(), "original source admitted");
   CHECK(WaitFor(loader, tasks) &&

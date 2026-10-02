@@ -41,10 +41,14 @@ public:
     size_t ChargedBytes = 0;
   };
 
-  SourceAcquisition(Tasks &compute,
-                    Tasks &io,
-                    Data::Transport *wire = nullptr,
-                    std::string cacheDirectory = {});
+  struct Workers {
+    Tasks &Compute;
+    Tasks &Io;
+  };
+
+  explicit SourceAcquisition(Workers workers,
+                             Data::Transport *wire = nullptr,
+                             std::string cacheDirectory = {});
 
   ~SourceAcquisition();
   SourceAcquisition(const SourceAcquisition &) = delete;

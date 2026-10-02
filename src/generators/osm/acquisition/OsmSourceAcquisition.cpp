@@ -30,11 +30,10 @@ namespace {
 constexpr size_t kMaxChunks = 4;
 }
 
-SourceAcquisition::SourceAcquisition(Tasks &compute,
-                                     Tasks &io,
+SourceAcquisition::SourceAcquisition(Workers workers,
                                      Data::Transport *wire,
                                      std::string cacheDirectory)
-    : Tasks_(&compute), Io_(io), Access_(std::make_shared<Access>()) {
+    : Tasks_(&workers.Compute), Io_(workers.Io), Access_(std::make_shared<Access>()) {
   Access_->Wire = wire;
   Access_->Directory = std::move(cacheDirectory);
 }

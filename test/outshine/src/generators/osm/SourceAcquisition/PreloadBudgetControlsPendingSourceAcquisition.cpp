@@ -75,7 +75,8 @@ int main() {
   Tasks io(1);
   DelayedWire wire;
   wire.ReadyAtMs = 21000;
-  outshine::Generators::Osm::SourceAcquisition loader(compute, io, &wire, directory);
+  outshine::Generators::Osm::SourceAcquisition loader(
+      {.Compute = compute, .Io = io}, &wire, directory);
   CHECK(loader.RequestCells(provider, cells, limits, ".") &&
             Await(loader, [&wire] { return wire.ClockMs >= 3000; }),
         "source IO is pending before the caller updates its budget");
@@ -98,7 +99,8 @@ int main() {
   }
   DelayedWire bounded;
   bounded.Released = true;
-  outshine::Generators::Osm::SourceAcquisition shortLoader(compute, io, &bounded, directory);
+  outshine::Generators::Osm::SourceAcquisition shortLoader(
+      {.Compute = compute, .Io = io}, &bounded, directory);
   provider.Revision = "shorter";
   CHECK(shortLoader.SetAcquisitionBudget(5) &&
             shortLoader.RequestCells(provider, cells, limits, ".") &&

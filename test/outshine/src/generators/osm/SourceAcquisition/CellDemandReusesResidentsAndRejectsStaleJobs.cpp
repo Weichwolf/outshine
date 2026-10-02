@@ -92,7 +92,8 @@ int main() {
     ApiWire wire;
     Tasks compute(1);
     Tasks io(1);
-    outshine::Generators::Osm::SourceAcquisition loader(compute, io, &wire, directory);
+    outshine::Generators::Osm::SourceAcquisition loader(
+        {.Compute = compute, .Io = io}, &wire, directory);
     const SourceProvider provider{.Kind = "osm",
                                   .Revision = "resident-r1",
                                   .Missing = MissingDataPolicy::Fail,

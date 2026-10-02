@@ -83,7 +83,8 @@ int main() {
       guardExpired = !releaseCompute;
     });
     DelayedCellTransport wire;
-    outshine::Generators::Osm::SourceAcquisition loader(compute, io, &wire, directory);
+    outshine::Generators::Osm::SourceAcquisition loader(
+        {.Compute = compute, .Io = io}, &wire, directory);
     const SourceProvider provider{.Kind = "osm",
                                   .Revision = "pipeline",
                                   .Missing = MissingDataPolicy::Fail,
