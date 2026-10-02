@@ -55,6 +55,7 @@
 #include "PublishedRegion.h"
 #include "OsmTransportPreparation.h"
 #include "OsmSourceAcquisition.h"
+#include "InstancePlacementInputs.h"
 #include "GroundMesher.h"
 #include "StreetGraphBuilder.h"
 #include "spatial/Drape.h"
@@ -276,6 +277,7 @@ struct Surrounds {
   double RebuildMs = 0.0;
   size_t Rebuilds = 0;
   bool Grown = false;
+  std::optional<InstancePlacementInputs> EmptyPlacementInputs;
   std::chrono::steady_clock::time_point LaidAt;
   std::shared_ptr<const Generators::GroundTable> Table;
   size_t GroundTiles = 0;

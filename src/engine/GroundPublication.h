@@ -34,6 +34,8 @@ struct GroundRevision {
   GroundCoverage Coverage;
   GroundQuality Quality = GroundQuality::Refined;
 
+  [[nodiscard]] bool operator==(const GroundRevision &) const = default;
+
   [[nodiscard]] constexpr uint32_t
   CandidateDifferenceMask(const GroundRevision &requested) const noexcept {
     uint32_t difference = 0;

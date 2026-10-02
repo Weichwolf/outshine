@@ -674,6 +674,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.Instances.clear();
   S_->World.Placed = S_->World.Instanced = 0;
   S_->World.Grown = false;
+  S_->World.EmptyPlacementInputs.reset();
   S_->Picture.Shown = std::move(declared);
   if (!S_->Picture.Targeted) {
     S_->Picture.PendingGeometry = std::move(prepared->Headless.Geometry);

@@ -1,8 +1,11 @@
 #include "EngineHeld.h"
 #include "WorldInstanceSink.h"
+#include "InstancePlacementInputs.h"
+#include "ClassStructure.h"
 
 #include <cstddef>
 #include <format>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -17,6 +20,24 @@ constexpr auto InstanceBudget = "generated instance count exceeds the prepared o
 
 namespace {
 constexpr size_t kBaseSnapshotRows = 40;
+
+InstancePlacementInputs PlacementInputs(const Surrounds &world,
+                                        const Generators::Tile &region,
+                                        LevelOfDetail coarseness,
+                                        const Generators::Fields &stands,
+                                        const std::shared_ptr<const ClassStructure> &classes) {
+  return {.Cell = {region.Zoom(), region.X(), region.Y()},
+          .Detail = coarseness,
+          .Terrain = world.Stack.Pool().TerrainScopeRevision(),
+          .Features = stands.Vectors->Generation(),
+          .Footprints = stands.Footprints ? stands.Footprints->Revision() : 0,
+          .StreetTiles = stands.Ways ? stands.Ways->IngestedTiles() : 0,
+          .WaterTiles = stands.WaterBodies ? stands.WaterBodies->IngestedTiles() : 0,
+          .Publication = world.GroundPublished.Current(),
+          .Classes = {.Owner = classes},
+          .Table = {.Owner = world.Table},
+          .FeatureOrigin = {.Owner = stands.Vectors->ShareOriginToken()}};
+}
 
 [[nodiscard]] Generators::Fields GenerationFields(const Surrounds &world) {
   if (world.GroundPublished.Current()) {
@@ -55,9 +76,12 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   const Generators::Fields stands = GenerationFields(World);
   const Ground::OsmField *const vectors = stands.Vectors;
   if (vectors == nullptr) { return false; }
+  const auto classes = World.Stack.Classes().Read();
+  const auto inputs = PlacementInputs(World, region, coarseness, stands, classes);
+  if (World.EmptyPlacementInputs == inputs) { return false; }
   Generators::Ground::Snapshot snapshot;
   const Generators::Snapped how = Generators::SnapshotOver(
-      region, World.Stack.Ground(), World.Stack.Classes().Read(), stands, World.Table, &snapshot);
+      region, World.Stack.Ground(), classes, stands, World.Table, &snapshot);
   World.Reached = static_cast<int>(kBaseSnapshotRows) + (snapshot.Patch ? 1 : 0) +
                   (snapshot.Classes ? 2 : 0) + (snapshot.Features ? 4 : 0);
   Published.RecordMetric("generators: the snapshot",
@@ -137,7 +161,11 @@ bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
   Published.RecordMetric("generators: bodies they placed", static_cast<double>(placed), "bodies");
   Published.RecordMetric(
       "generators: makers that were asked", static_cast<double>(placing.Count()), "makers");
-  if (placed == 0) { return false; }
+  if (placed == 0) {
+    World.EmptyPlacementInputs = inputs;
+    return false;
+  }
+  World.EmptyPlacementInputs.reset();
   std::vector<WorldInstance> instances(placed);
   WorldInstanceSink sink(instances, region);
   World.Shipping.Drawing().Draw(*over,
