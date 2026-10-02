@@ -1,4 +1,5 @@
 #include "Tasks.h"
+#include <variant>
 
 #include <cstddef>
 #include <chrono>
@@ -87,7 +88,7 @@ void Tasks::Work() {
       Queue_.pop_front();
     }
     StepResult result = StepResult::Complete;
-    if (auto *job = std::get_if<Job>(&taken.Run)) {
+    if (const auto *job = std::get_if<Job>(&taken.Run)) {
       (*job)();
     } else {
       result = std::get<Step>(taken.Run)();
