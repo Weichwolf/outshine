@@ -21,6 +21,23 @@ BuildingMesh/FacadeUv liefern passende Geometrie/UVs; Materialshader konsumieren
 Zuerst Asphalt, Wand und Dach eines bebauten Places sichtbar unterscheiden, ohne
 Place-Texturen, neue Materialregistry oder vervielfachte Meshdaten.
 
+## Konkrete Shaderverfahren und Integration
+- Metrische Fassadenkoordinaten aus 2173s Plan: versetztes Backsteinraster mit gefilterten
+  Fugenabständen, Putzkorn/Betonporen und Dachdeckung mit festen realen Längen. Cell-Hash
+  variiert einzelne Steine/Ziegel; Objekt-Seed, Exposition und Ablaufspuren variieren
+  Alterung über größere Skalen. Keine gleich große Zufallstextur auf jedem Gebäudekörper.
+- Höhenableitungen liefern Bumpnormalen; größere Vertiefungen kommen aus Geometrie.
+  Pixel-Derivate/Footprint filtern periodische Muster und Noise vor BRDF-Auswertung;
+  Normalvarianz verbreitert die spekulare Antwort statt fernes Normalflimmern zu erhalten.
+- Glas teilt Fensterplan/Normale: Fresnel und Roughness-gerechte Welt-/Himmelsreflexion,
+  Energieaufteilung für Transmission und begrenzte Innenraumwirkung. Analytisches
+  Box-Interior-Mapping ist eine plausible Ergänzung, kein Ersatz für betretbare Räume.
+  Fernfenster integrieren zu stabilem Material-/Nachtlichtbeitrag statt Einzelöffnungen.
+- Material-/Instanzparameter einmal im gemeinsamen Compute vorbereiten und geschlossen
+  publizieren; Surfacing/material.glsl/facadePattern konsumieren dieselben Maße und Seeds.
+  Rockdetail aus 2337 teilt Filter-/BRDF-Konventionen. Keine doppelte Materialwelt oder
+  pro Frame erzeugte Textur; GPU-Kosten folgen aktiven sichtbaren Materialvarianten.
+
 ## Umsetzung und Invarianten
 - Khronos Metallic-Roughness, explizite BRDF und korrekte Farbräume verwenden. Physikalische
   Einheiten/Skalen bleiben von Geometrieerzeugung bis Shader konsistent; keine Showroom-Werte.

@@ -24,6 +24,20 @@ Zuerst Sonderbauwerksklasse und Dachform im nativen Rosenheim-/Flensburg-Bild li
 danach zusammenhängende Straßenfront, Eingang und räumliche Fenster an Nahgebäuden.
 Bestehende Queue/Publikation verwenden; kein MVT-Zwischenformat oder Ortsmodell.
 
+## Parametrische Gebäudestruktur
+- Originalringe/Parts und Höhen definieren zuerst Hülle, offene Höfe und Dachplan.
+  Fronten aus Straßenkontakt und Nutzung bestimmen Eingangsseite; Geschosshöhe,
+  Fensterachsen und Achsränder als ein stabiler Plan je Gebäude, nicht Shaderzufall.
+- BuildingMesh erzeugt nahe Laibungen, Rahmen, Traufen, Dachkanten und belegte Balkone/
+  Gauben aus diesem Plan. Wiederholbare Formen teilen Geometrie; Position/Variation sind
+  kompakte Instanzen. Mittlere Hüllen und Fernverbände konsumieren denselben Plan (2336).
+- FacadeUv kodiert heute Stil/Achsen/Geschosse; facadePattern zeichnet flache Fenster.
+  Diesen Pfad zu explizitem metrischem Fassaden-/Materialparametervertrag ausbauen.
+  Gebäudeform und Öffnungsposition sind Generatorarbeit, Baustoff/Glasantwort ist 2171.
+- Detail/Abstandsfehler vor Mesh/Instanzen prüfen; konservative Bounds und Produktversion
+  umfassen tatsächliche Dach-/Fassadengeometrie. Unbekannte Öffnungen/Dekoration bleiben
+  deterministische Ergänzung, nicht nachträglich als Originaltags ausgegeben.
+
 ## Umsetzung und Invarianten
 - building/part, height/min_height, levels/min_level, roof shape/height/levels/direction,
   Nutzung, Material und Farbe erhalten. Metrische Höhe hat Vorrang; fehlende Werte

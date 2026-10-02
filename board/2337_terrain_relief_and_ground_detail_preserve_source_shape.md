@@ -12,7 +12,8 @@ Tags: terrain, relief, rock, ground-detail
 ## Ergebnis und vorhandene Fähigkeit
 Körbersee/Malcesine zeigen lesbare Grate, Rinnen, Fels-/Schutt-/Wiesenwechsel und
 Nahboden ohne gleichförmiges Rauschen. TerrainRefinement, TerrainPress, TerrainMesh,
-GroundLattice und groundRock.glsl bestehen. Die durchgehende Bildwirkung aus finalem
+GroundLattice und groundRock.glsl bestehen. Die aktuelle groundRock.glsl nutzt isotropes Value-Noise für Farbe/Bump; gerichtete
+Schichtung und Bruchlinien fehlen. Die durchgehende Bildwirkung aus finalem
 Relief, Oberflächenmaßstab und gefilterter Ergänzung ist nicht belegt.
 
 ## Besitzer und nächste Lieferung
@@ -21,6 +22,24 @@ Geometrie und Fehler; world hält native Produkte. GroundMaterials und Renderer 
 Baustoffparameter/Filter (2171). Engine koordiniert Bedarf und geschlossene Publikation.
 Zuerst ein vollständiges Körbersee-Bild mit quellengetreuer Silhouette, korrektem See
 und lesbaren Hangflächen liefern; vorhandene Felder/Pässe ausbauen, keinen zweiten Terrainpfad.
+
+## Gewählter prozeduraler Aufbau
+1. Aus finalem Höhenfeld Neigung, Exposition und Tal-/Hangrichtung ableiten; robuste
+   Frames haben eine feste Ersatzachse auf flachen Flächen. Raumbezug/Seeds bleiben
+   über Tile-/LOD-Grenzen stabil, ohne kamera-relative Noise-Koordinaten.
+2. Richtungsabhängige Schichtfelder mit begrenztem Domain-Warp kombinieren. Ridge-Noise
+   liefert plausible Rinnen; Voronoi-Zellgrenzen liefern sparsame Bruchlinien. Hang-/
+   Expositionsparameter steuern Verteilung, nicht neue Fullscreen-Felder pro Effekt.
+   Das ist eine plausible Geologiegrammatik, keine aus GLO-30 erkannte Gesteinsart.
+3. Derselbe metrische Höhen-/Materialentwurf speist Geometrie und Shader. Rinnen mit
+   sichtbarer Form erzeugt TerrainRefinement/Press im Compute-Worker; Feinrisse liefern
+   Normalen/Roughness in groundRock. Silhouettenfehler begrenzen geometrische Ergänzung.
+4. Pixel-Footprint wählt eine begrenzte Frequenzmenge; unterschwellige Risse integrieren
+   zu mittlerer Farbe und Normalvarianz/Roughness. fwidth/Signed-Distance-Antialiasing
+   glättet Bruchlinien. Fernrelief bekommt keine hochfrequente Pixelarbeit.
+5. GroundMaterials hält metrische Parameter; GroundClassBuffer/GroundStorage transportieren
+   render-eigene Daten. groundLit komponiert eine BRDF mit 2155s Licht und 2172s Zustand.
+   Parameter/Version und native Bounds gehen durch 2188s öffentliche Produktgrenze.
 
 ## Umsetzung und Invarianten
 - Grobrelief, Hangneigung und Exposition bestimmen plausible Fels/Schutt/Boden-Verteilung;

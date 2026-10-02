@@ -43,7 +43,8 @@ AGENTS.md; dieses Board beschreibt den Weg. RDR2/GTA5 sind Qualitätsmaßstäbe.
 Archivbilder aller acht Kameras sind erneut gesichtet; Sommer, Dunst, bedeckter Himmel,
 Hafen-Niedrigwasser und alpiner Winter zeigen unterschiedliche Anforderungen. Der
 Idealzustand ist eine geschlossene Welt mit korrekten großen Formen, metrischen
-Oberflächen, kohärenter Beleuchtung und stabiler Darstellung. Detail folgt Bildwirkung.
+Oberflächen, kohärenter Beleuchtung und stabiler Darstellung. Detail folgt Bildwirkung. Verfahren für Fels stehen in 2337, Gebäudestruktur in 2173
+und prozedurale Baustoff-/Glasantwort in 2171; sie sind Entwürfe, keine Runtime-Beweise.
 
 ```mermaid
 flowchart LR
