@@ -16,8 +16,8 @@ unterschiedliche bewegliche Systeme; Fahrzeuge, Flugzeuge und Vegetation sind Be
 keine abgeschlossene Featureliste. Die visuelle Welt bleibt die erste Lieferung.
 Rigid/Wrench integrieren lineare und rotatorische Bewegung; Prismatic liefert Reaktionen.
 SimulationState::Integrate verwendet bisher nur Schwerkraft, keinen allgemeinen Weltkontakt.
-Script/ActionHostAdapter, Ui::Markup/Style/Layout, Commands, Audio und importierte
-Animationen bestehen. Ein vollständiger Kontakt-/Gelenkpfad und LLM-NPC-Entscheidungen fehlen.
+ActionHostAdapter, Ui::Markup/Style/Layout, Commands, Audio und importierte Animationen
+bestehen; save/restore speichert bisher numerische Traits, keinen vollständigen Weltstand. Ein vollständiger Kontakt-/Gelenkpfad und LLM-NPC-Entscheidungen fehlen.
 
 ## Besitzer und Architektur
 `physics` besitzt Körper, Kräfte, Kontakt-/Gelenklösung; actor/body fachlich dorthin migrieren.
@@ -52,6 +52,21 @@ Kontakt-/Gelenkkern sowie Kosten entscheiden. Daher bleibt die Solverarchitektur
   und Animationsraten; entfernte Akteure bleiben kompakter Spielzustand.
 - Audio/Occlusion und Animation verwenden dieselben Weltkontakte/Posen. Hockenheim-Runden
   sind spätere Integrationen, keine Voraussetzung der allgemeinen Sandbox.
+
+## Von Weltzustand zu jedem Ton und jeder Aktion
+- Simulation erzeugt begrenzte versionierte Ereignisse aus Kontaktimpuls, Material,
+  Schritt/Antrieb und Interaktion. Räumlich relevante Klangquellen verwenden stabile IDs;
+  hörbare Qualität entscheidet Stimmen-/Updateaufwand, stumme Quellen keine PCM-Arbeit.
+- Prozeduraler Umweltsound nutzt gefiltertes Noise/Resonanzen für Wind/Regen/Wasser;
+  Ereignis- und Antriebsparameter steuern Klang ohne Netzwerk im Audiopfad. Mixer übernimmt
+  Blockverarbeitung, Panning/Doppler, Verdeckung, Busse/Headroom und Limiting. Feste Seeds
+  und samplegenaue Zeit erhalten Zustände bei Stummschaltung; kein Reset nach Sichtwechsel.
+- Dialog/Sprachblöcke sind begrenzte asynchrone Host-Ausgaben; keine zusätzliche versteckte
+  Geodatenquelle. Räumliche Mischung und Latenz bleiben Eigentum des Audio-Pfads.
+- Beobachtung/Navigation → lokale Steuerung oder JS/UI/LLM → validiertes Command →
+  begrenzte Kontakt-/Gelenklösung → neuer Pose-/Spielzustand → Render/Audio/Events.
+  Jede Aktion trägt Entity/Tick/Version; relevante Kontakte und Spielkausalität bleiben
+  trotz Schlaf-/Fernzustand erhalten. Der komplette Pfad ist noch kein Runtime-Beweis.
 
 ## Persistenz und Spatial Audio
 - Save/Load besitzt stabile Entity-/Asset-IDs, Quell-/Producer-Versionen, Weltänderungen,
