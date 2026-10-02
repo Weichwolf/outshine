@@ -127,7 +127,7 @@ public:
 
   [[nodiscard]] BuildingField &Footprints() { return Footprints_; }
 
-  void SeeFootprintsWith(double focalPx) { Footprints_.SeenWith(focalPx); }
+  void SeeFootprintsWith(ProjectedErrorBudget projection) { Footprints_.SeenWith(projection); }
 
   void FootprintTilesSpan(double tileSpanM) { Footprints_.TilesSpan(tileSpanM); }
 

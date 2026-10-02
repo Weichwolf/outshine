@@ -128,7 +128,7 @@ void RawOf(const Ground::OsmField &vectors,
   raw.Eye = eye;
   raw.RequestedDetail = detail;
   raw.RequestedCell = cell;
-  raw.FocalPx = prints.FocalPx();
+  raw.Projection = prints.Projection();
   raw.TileSpanM = prints.TileSpanM();
   raw.Extent = vectors.Extent();
   raw.ClusterTriangles = Render::kClusterTriangles;
@@ -1178,7 +1178,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
   *raw = *original;
   raw->AnchorEcef = prints.Anchor();
   raw->Eye = eye;
-  raw->FocalPx = prints.FocalPx();
+  raw->Projection = prints.Projection();
   raw->TileSpanM = prints.TileSpanM();
   raw->RequestedDetail = detail;
   const uint64_t sourceKey = StructureSourceKey({.Vector = std::nullopt,
@@ -1188,7 +1188,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                                                  .FallbackHeights = heights->Fallback(),
                                                  .Origin = &raw->SourceInputs.Origin});
   const BakeRevision revision{.HeightSource = heightAt.Revision,
-                              .FocalPx = prints.FocalPx(),
+                              .Projection = prints.Projection(),
                               .TileSpanM = prints.TileSpanM(),
                               .Eye = eye,
                               .RequestedDetail = detail,
@@ -1309,7 +1309,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
     }
     const BakeRevision revision{.Vectors = vectors.Generation(),
                                 .HeightSource = heightAt.Revision,
-                                .FocalPx = prints.FocalPx(),
+                                .Projection = prints.Projection(),
                                 .TileSpanM = prints.TileSpanM(),
                                 .Eye = eye,
                                 .RequestedDetail = detail,
@@ -1529,7 +1529,7 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
           vectorSource,
           {.HeightRasterDigest = bake.Task.Heights().RasterDigest(),
            .StreetDigest = bake.StreetDigest,
-           .FocalPx = bake.Revision.FocalPx,
+           .Projection = bake.Revision.Projection,
            .TileSpanM = bake.Revision.TileSpanM,
            .Eye = bake.Revision.Eye},
           std::move(certificate),

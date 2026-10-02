@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 #define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDQUEUE_H
 
+#include <scene/ProjectedErrorBudget.h>
 #include <array>
 #include <expected>
 #include <functional>
@@ -63,7 +64,7 @@ public:
   struct BakeRevision {
     uint64_t Vectors = 0;
     HeightSourceRevision HeightSource;
-    double FocalPx = 0.0;
+    ProjectedErrorBudget Projection{};
     double TileSpanM = 0.0;
     LongitudeLatitude Eye;
     std::optional<LevelOfDetail> RequestedDetail;
@@ -101,7 +102,7 @@ public:
                                       : vectors != nullptr && Vectors == vectors->Generation()) &&
              HeightSource == heightSource &&
              (RequestedDetail || Purpose == BuildPurpose::SourceGeometry ||
-              FocalPx == footprints.FocalPx()) &&
+              Projection == footprints.Projection()) &&
              TileSpanM == footprints.TileSpanM();
     }
 

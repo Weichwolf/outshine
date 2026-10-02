@@ -16,10 +16,10 @@ int main() {
   CHECK(!footprints.Anchored(), "a default footprint field refuses bake admission");
   footprints.AnchorAt({{0, 0, 0}});
   CHECK(footprints.Anchored(), "an anchored field admits bake scheduling");
-  footprints.SeenWith(720.0);
+  footprints.SeenWith({.FocalPx = 720.0});
   footprints.TilesSpan(2400.0);
   const StructureBuildQueue::BakeRevision revision{.Vectors = vectors.Generation(),
-                                                   .FocalPx = footprints.FocalPx(),
+                                                   .Projection = footprints.Projection(),
                                                    .TileSpanM = footprints.TileSpanM(),
                                                    .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
   CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
@@ -34,7 +34,7 @@ int main() {
         "another candidate cannot release the stale bake's footprint reservation");
   const StructureBuildQueue::BakeRevision fallbackRevision{
       .Vectors = vectors.Generation(),
-      .FocalPx = footprints.FocalPx(),
+      .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
       .FallbackHeights = true};
@@ -52,10 +52,15 @@ int main() {
                          {},
                          StructureBuildQueue::HeightRequirement::FineOnly),
         "refined accepts a queued fine bake");
-  footprints.SeenWith(1080.0);
+  footprints.SeenWith({.FocalPx = 1080.0});
   CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "changed focal scale makes a bake stale");
-  footprints.SeenWith(720.0);
+  footprints.SeenWith({.FocalPx = 720.0, .AllowedErrorPx = 0.25});
+  CHECK(!revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}) &&
+            !revision.OwnsReservation(
+                vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
+        "a changed pixel allowance revokes an implicit view bake and its reservation");
+  footprints.SeenWith({.FocalPx = 720.0});
   footprints.ResetDerived();
   CHECK(revision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "accepted footprints do not invalidate sibling bakes");
@@ -68,7 +73,7 @@ int main() {
       "camera movement cannot strand a discarded bake's footprint reservation");
   const StructureBuildQueue::BakeRevision sourceRevision{
       .Vectors = vectors.Generation(),
-      .FocalPx = footprints.FocalPx(),
+      .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
       .Purpose = StructureBuildQueue::BuildPurpose::SourceGeometry};
@@ -96,7 +101,7 @@ int main() {
         "source qualification still rejects a changed height snapshot");
   const StructureBuildQueue::BakeRevision explicitRevision{
       .Vectors = vectors.Generation(),
-      .FocalPx = footprints.FocalPx(),
+      .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47},
       .RequestedDetail = LevelOfDetail::Shell};
@@ -107,7 +112,7 @@ int main() {
                                  StructureBuildQueue::HeightRequirement::AllowFallback,
                                  LevelOfDetail::Shell),
         "source-keyed detail survives a remote camera eye");
-  footprints.SeenWith(1080.0);
+  footprints.SeenWith({.FocalPx = 1080.0});
   CHECK(sourceRevision.Matches(vectors,
                                footprints,
                                {.LongitudeDeg = 9.01, .LatitudeDeg = 47},
@@ -145,11 +150,11 @@ int main() {
                                   StructureBuildQueue::HeightRequirement::AllowFallback,
                                   LevelOfDetail::Shell),
         "explicit detail still rejects a changed spatial scale");
-  footprints.SeenWith(720.0);
+  footprints.SeenWith({.FocalPx = 720.0});
   footprints.TilesSpan(2400.0);
   const StructureBuildQueue::BakeRevision vectorRevision{
       .Vectors = vectors.Generation(),
-      .FocalPx = footprints.FocalPx(),
+      .Projection = footprints.Projection(),
       .TileSpanM = footprints.TileSpanM(),
       .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}};
   CHECK(vectorRevision.Matches(vectors, footprints, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),

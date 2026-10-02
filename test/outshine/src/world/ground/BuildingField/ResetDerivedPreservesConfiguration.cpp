@@ -37,7 +37,7 @@ int main() {
         "reset revokes the old domain while queued leases can keep it alive");
   const Vec3 anchor{{1.0, 2.0, 3.0}};
   field.AnchorAt(anchor);
-  field.SeenWith(720.0);
+  field.SeenWith({.FocalPx = 720.0, .AllowedErrorPx = 0.25});
   field.TilesSpan(2400.0);
   const std::array<BuildingField::Footprint, 1> prints{{{.HeightM = 12.0f}}};
   const std::array<double, 1> spread{2.0}, across{8.0};
@@ -73,7 +73,8 @@ int main() {
     CHECK(field.TrianglesHanded() == 0 && field.OsmHeights() == 0, "derived counters reset");
     CHECK(field.SeatSpreadM().empty() && field.FootprintAcrossM().empty(),
           "derived measurements reset");
-    CHECK(field.FocalPx() == 720.0 && field.TileSpanM() == 2400.0,
+    CHECK(field.Projection().FocalPx == 720.0 && field.Projection().AllowedErrorPx == 0.25 &&
+              field.TileSpanM() == 2400.0,
           "generation configuration survives");
     CHECK(field.Anchor()[0] == 1.0 && field.Anchor()[1] == 2.0 && field.Anchor()[2] == 3.0,
           "world anchor survives");

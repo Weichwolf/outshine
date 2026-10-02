@@ -83,7 +83,7 @@ int main() {
         "cold request bakes and publishes its complete product");
   CountingMesh second;
   raw.Eye = {.LongitudeDeg = 10, .LatitudeDeg = 48};
-  raw.FocalPx = 1234;
+  raw.Projection.FocalPx = 1234;
   auto warm = run(raw, second);
   CHECK(warm->Status && warm->Tile && warm->CacheHit && second.Calls == 0,
         "fresh store, tasks and producer load explicit LOD without invoking mesher");

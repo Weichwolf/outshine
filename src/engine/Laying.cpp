@@ -1930,7 +1930,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                                          .CensusAt = state.Began(),
                                          .EyeLatDeg = coverage.LatitudeDeg,
                                          .EyeLonDeg = coverage.LongitudeDeg,
-                                         .FocalPx = build.Footprints.FocalPx()};
+                                         .Projection = build.Footprints.Projection()};
   if (state.CorridorJob() == nullptr) {
     const auto jobAt = std::chrono::steady_clock::now();
     state.BeginsCorridors(Generators::Corridors::Begin(site));

@@ -124,7 +124,7 @@ int main() {
   BuildingField &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000);
-  prints.SeenWith(720);
+  prints.SeenWith({.FocalPx = 720});
   BuildingField::Baked accepted{.OccupiedCells = 255};
   prints.PreparesAcceptances({.Tiles = 1});
   prints.Take(0);
@@ -135,7 +135,7 @@ int main() {
                                           tile.Source,
                                           {.HeightRasterDigest = pinned->RasterDigest(),
                                            .StreetDigest = kDigestBasis,
-                                           .FocalPx = 720,
+                                           .Projection = {.FocalPx = 720},
                                            .TileSpanM = 1000,
                                            .Eye = eye},
                                           {},

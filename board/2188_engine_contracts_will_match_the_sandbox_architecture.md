@@ -14,8 +14,8 @@ Outshine besitzt eine gemeinsame Architektur für die weltweite visuelle Welt un
 spätere physikalische, programmierbare Sandbox. Eingebaute und externe Erweiterungen
 verwenden dieselben öffentlichen Verträge. Vorhandene Systeme migrieren; keine zweite Engine.
 ProviderRegistry/SourceSet, native Geometry/Material, Double-Welt und kamera-relative
-GPU-Daten bestehen. Generate::Request trägt Ort/Seed/Ground/Coarseness und ProjectedErrorBudget
-für Brennweite/Pixelfehler. Abstand/Produktschranken und zustandsbehaftete Generatorintegration fehlen.
+GPU-Daten bestehen. Generate::Request und native Gebäude-/Straßenaufträge tragen ProjectedErrorBudget.
+Revisionen/Produktschlüssel erfassen Qualität; Abstand/Produktschranken und Generatorlebenszyklus fehlen.
 Native StructureBake-Pfade umgehen den Generatorlebenszyklus; OriginalStructurePreparation nutzt einen heightZoom.
 RawTile hält SourceObjects mit schwachem Archivbezug; OSM besitzt den geschlossenen SourceCapture. BuildingGeometry hält
 native Polygone/Quellbelege; StructureFootprints/BuildingHeightInterval tragen native Ringe/Höhen. OSM-Tagparser,

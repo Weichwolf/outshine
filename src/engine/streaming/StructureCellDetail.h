@@ -13,18 +13,20 @@
 
 namespace outshine {
 
-[[nodiscard]] inline LevelOfDetail RequestedStructureCellDetail(const Ground::GeoBounds &bounds,
-                                                                float maxHeightM,
-                                                                double tileSpanM,
-                                                                LongitudeLatitude eye,
-                                                                double focalPx) noexcept {
+[[nodiscard]] inline LevelOfDetail
+RequestedStructureCellDetail(const Ground::GeoBounds &bounds,
+                             float maxHeightM,
+                             double tileSpanM,
+                             LongitudeLatitude eye,
+                             ProjectedErrorBudget projection) noexcept {
   constexpr double kMaxLatitudeDeg = kDegPerHalfTurn / 2.0;
   if (!std::isfinite(bounds.MinLonDeg) || !std::isfinite(bounds.MaxLonDeg) ||
       !std::isfinite(bounds.MinLatDeg) || !std::isfinite(bounds.MaxLatDeg) ||
       !(bounds.MinLonDeg <= bounds.MaxLonDeg) || !(bounds.MinLatDeg <= bounds.MaxLatDeg) ||
       !std::isfinite(maxHeightM) || !(maxHeightM > 0) || !std::isfinite(tileSpanM) ||
       !(tileSpanM > 0) || !std::isfinite(eye.LongitudeDeg) || !std::isfinite(eye.LatitudeDeg) ||
-      std::abs(eye.LatitudeDeg) > kMaxLatitudeDeg || !std::isfinite(focalPx) || !(focalPx > 0)) {
+      std::abs(eye.LatitudeDeg) > kMaxLatitudeDeg || !std::isfinite(projection.FocalPx) ||
+      !(projection.FocalPx > 0)) {
     return LevelOfDetail::Fine;
   }
   const double centreLon = 0.5 * (bounds.MinLonDeg + bounds.MaxLonDeg);
@@ -40,7 +42,6 @@ namespace outshine {
   const double depthM = (bounds.MaxLatDeg - bounds.MinLatDeg) * kMPerDegLat;
   const double wholeCellErrorM =
       std::hypot(std::hypot(widthM, depthM), static_cast<double>(maxHeightM)) + 10.0;
-  const ProjectedErrorBudget projection{.FocalPx = focalPx};
   if (!projection.Allows(wholeCellErrorM, awayM)) { return LevelOfDetail::Fine; }
   const double massedErrorM = wholeCellErrorM + 2.0 * tileSpanM / Generators::kStructureCellSide;
   return projection.Allows(massedErrorM, awayM) ? LevelOfDetail::Massed : LevelOfDetail::Shell;

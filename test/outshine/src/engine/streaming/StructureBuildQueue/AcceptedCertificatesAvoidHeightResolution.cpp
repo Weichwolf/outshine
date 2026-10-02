@@ -114,7 +114,7 @@ int main() {
   BuildingField &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000);
-  prints.SeenWith(720);
+  prints.SeenWith({.FocalPx = 720});
   const int zoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   std::string demRevision = "one";
   auto revisions = TerrainRevisionIndex::Create(32);
@@ -155,7 +155,7 @@ int main() {
                                           tile.Source,
                                           {.HeightRasterDigest = pinned->RasterDigest(),
                                            .StreetDigest = kDigestBasis,
-                                           .FocalPx = 720,
+                                           .Projection = {.FocalPx = 720},
                                            .TileSpanM = 1000,
                                            .Eye = eye},
                                           pinned->Certificate());

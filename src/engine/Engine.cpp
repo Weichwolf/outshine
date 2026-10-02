@@ -281,8 +281,13 @@ bool Engine::State::StructureCellsReady(uint32_t tile, LongitudeLatitude eye) co
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
   if (vectors == nullptr || accepted == nullptr || !sourceKey) { return false; }
   if (accepted->OccupiedCells == 0) { return true; }
-  const auto plan = PlanStructureCells(
-      tile, *accepted, *sourceKey, eye, footprints.FocalPx(), World.Pieces, World.StructureBuilds);
+  const auto plan = PlanStructureCells(tile,
+                                       *accepted,
+                                       *sourceKey,
+                                       eye,
+                                       footprints.Projection(),
+                                       World.Pieces,
+                                       World.StructureBuilds);
   return plan.Active;
 }
 

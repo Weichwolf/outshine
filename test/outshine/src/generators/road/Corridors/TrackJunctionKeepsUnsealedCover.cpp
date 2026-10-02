@@ -113,7 +113,7 @@ int main() {
                                            .Classes = noClasses,
                                            .EyeLatDeg = origin.LatitudeDeg,
                                            .EyeLonDeg = origin.LongitudeDeg,
-                                           .FocalPx = 800.0};
+                                           .Projection = {.FocalPx = 800.0}};
     Geometry mesh;
     std::vector<EarthworkStamp> earthworks;
     std::vector<DiagnosticSample> measures;

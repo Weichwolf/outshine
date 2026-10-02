@@ -367,8 +367,7 @@ void Corridors::PaveLane(const Paving &on,
     return;
   }
   if (pass == Pass::Designing) {
-    if (ProjectedErrorBudget{.FocalPx = on.FocalPx}.Allows(
-            2.0 * static_cast<double>(lane.HalfWidthM), AwayM(on, lane))) {
+    if (on.Projection.Allows(2.0 * static_cast<double>(lane.HalfWidthM), AwayM(on, lane))) {
       ++into.UnseenWays;
       return;
     }
@@ -1581,7 +1580,7 @@ bool Corridors::Lay(const Site &site,
                           .WaterRow = waterRow,
                           .EyeLatDeg = site.EyeLatDeg,
                           .EyeLonDeg = site.EyeLonDeg,
-                          .FocalPx = site.FocalPx});
+                          .Projection = site.Projection});
   }
 
   auto tookFrom = std::chrono::steady_clock::now();
@@ -1809,7 +1808,7 @@ Corridors::Advance(Job &job,
                           .WaterRow = waterRow,
                           .EyeLatDeg = site.EyeLatDeg,
                           .EyeLonDeg = site.EyeLonDeg,
-                          .FocalPx = site.FocalPx});
+                          .Projection = site.Projection});
   }
   const JobSlice slice{.site = site,
                        .ways = ways,

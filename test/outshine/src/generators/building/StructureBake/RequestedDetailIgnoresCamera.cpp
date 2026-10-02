@@ -34,14 +34,14 @@ int main() {
        {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     raw.RequestedDetail = detail;
     raw.Eye = {.LongitudeDeg = 9.0, .LatitudeDeg = 47.0};
-    raw.FocalPx = 1000.0;
+    raw.Projection.FocalPx = 1000.0;
     auto nearScratch = mesher.Scratch();
     Generators::BakedTile near;
     CHECK(Generators::BakeStructures(raw, *heights, mesher, *nearScratch, near).has_value(),
           "requested structure detail bakes near the source");
 
     raw.Eye = {.LongitudeDeg = 0.0, .LatitudeDeg = 0.0};
-    raw.FocalPx = 1.0;
+    raw.Projection.FocalPx = 1.0;
     auto farScratch = mesher.Scratch();
     Generators::BakedTile far;
     CHECK(Generators::BakeStructures(raw, *heights, mesher, *farScratch, far).has_value(),
@@ -133,7 +133,7 @@ int main() {
       {.PointCount = 4, .SourceFirst = 0, .Cell = *westCell, .HeightM = 12.0},
       {.LocalFirst = 4, .PointCount = 4, .SourceFirst = 4, .Cell = *eastCell, .HeightM = 16.0}};
   cellRaw.TileSpanM = 1000.0;
-  cellRaw.FocalPx = 1000.0;
+  cellRaw.Projection.FocalPx = 1000.0;
   cellRaw.RequestedDetail = LevelOfDetail::Fine;
   cellRaw.RequestedCell = westCell->Index;
   auto westScratch = mesher.Scratch();
@@ -148,7 +148,7 @@ int main() {
             west.FootprintBounds->MaxLonDeg == westCell->Footprint.MaxLonDeg,
         "one cell bake owns only its structure and the full footprint bounds");
   cellRaw.Eye = {.LongitudeDeg = 0, .LatitudeDeg = 0};
-  cellRaw.FocalPx = 1;
+  cellRaw.Projection.FocalPx = 1;
   auto movedScratch = mesher.Scratch();
   Generators::BakedTile moved;
   CHECK(Generators::BakeStructures(cellRaw, *heights, mesher, *movedScratch, moved).has_value() &&

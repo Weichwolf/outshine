@@ -37,13 +37,15 @@ int main() {
     const BuildingField::Baked emptyBake;
     footprints.PreparesAcceptances({.Tiles = 1});
     footprints.Take(0);
-    auto acceptance = footprints.PrepareAcceptance(
-        0,
-        emptyBake,
-        std::span(&heightSource, 1),
-        true,
-        ingest.Tiles().front().Source,
-        {.HeightRasterDigest = 17, .StreetDigest = 19, .FocalPx = 90, .TileSpanM = 100});
+    auto acceptance = footprints.PrepareAcceptance(0,
+                                                   emptyBake,
+                                                   std::span(&heightSource, 1),
+                                                   true,
+                                                   ingest.Tiles().front().Source,
+                                                   {.HeightRasterDigest = 17,
+                                                    .StreetDigest = 19,
+                                                    .Projection = {.FocalPx = 90},
+                                                    .TileSpanM = 100});
     footprints.CommitAcceptance(std::move(acceptance), ingest, emptyBake);
     old = std::make_shared<const PublishedRegion>(RegionSources::Snapshot(&ingest, ways, water),
                                                   footprints.SnapshotAccepted());

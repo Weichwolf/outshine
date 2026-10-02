@@ -78,13 +78,16 @@ int main() {
   const BuildingField::Baked empty;
   field.PreparesAcceptances({.Tiles = 1});
   field.Take(7);
-  auto pending = field.PrepareAcceptance(
-      7,
-      empty,
-      sources,
-      true,
-      vector,
-      {.HeightRasterDigest = 17, .StreetDigest = 19, .FocalPx = 0, .TileSpanM = 100, .Eye = {}});
+  auto pending = field.PrepareAcceptance(7,
+                                         empty,
+                                         sources,
+                                         true,
+                                         vector,
+                                         {.HeightRasterDigest = 17,
+                                          .StreetDigest = 19,
+                                          .Projection = {.FocalPx = 0},
+                                          .TileSpanM = 100,
+                                          .Eye = {}});
   sources.front().SourceId.front() = 'x';
   vector.Revision = "producer-changed";
   field.CommitAcceptance(std::move(pending), vectors, empty);

@@ -94,7 +94,7 @@ int main() {
   BuildingField &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000);
-  prints.SeenWith(720);
+  prints.SeenWith({.FocalPx = 720});
   const int zoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   std::string demRevision = "one";
   const auto spot = HeightField::SpotOf(eye, zoom);
@@ -130,7 +130,7 @@ int main() {
                                           tile.Source,
                                           {.HeightRasterDigest = pinned->RasterDigest(),
                                            .StreetDigest = kDigestBasis,
-                                           .FocalPx = 720,
+                                           .Projection = {.FocalPx = 720},
                                            .TileSpanM = 1000,
                                            .Eye = eye});
   prints.CommitAcceptance(std::move(pending), *vectors, accepted);
@@ -267,7 +267,7 @@ int main() {
                                           changedVector,
                                           {.HeightRasterDigest = pinned->RasterDigest(),
                                            .StreetDigest = kDigestBasis,
-                                           .FocalPx = 720,
+                                           .Projection = {.FocalPx = 720},
                                            .TileSpanM = 1000,
                                            .Eye = eye});
   prints.ReplaceAcceptance(std::move(revised), accepted);
@@ -285,7 +285,7 @@ int main() {
                                            tile.Source,
                                            {.HeightRasterDigest = pinned->RasterDigest(),
                                             .StreetDigest = kDigestBasis,
-                                            .FocalPx = 720,
+                                            .Projection = {.FocalPx = 720},
                                             .TileSpanM = 1000,
                                             .Eye = eye});
   prints.ReplaceAcceptance(std::move(restored), accepted);
@@ -301,7 +301,7 @@ int main() {
                                             tile.Source,
                                             {.HeightRasterDigest = pinned->RasterDigest(),
                                              .StreetDigest = kDigestBasis,
-                                             .FocalPx = 720,
+                                             .Projection = {.FocalPx = 720},
                                              .TileSpanM = 1000,
                                              .Eye = eye});
   prints.ReplaceAcceptance(std::move(relocated), movedCell);

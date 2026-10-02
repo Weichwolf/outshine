@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 #define OUTSHINE_WORLD_GROUND_BUILDINGFIELD_H
 
+#include <scene/ProjectedErrorBudget.h>
 #include <algorithm>
 #include <array>
 #include <span>
@@ -68,7 +69,7 @@ public:
   struct BakeInputs {
     uint64_t HeightRasterDigest = 0;
     uint64_t StreetDigest = 0;
-    double FocalPx = 0.0;
+    ProjectedErrorBudget Projection{};
     double TileSpanM = 0.0;
     LongitudeLatitude Eye;
   };
@@ -144,13 +145,13 @@ public:
     AcceptedInput Input_;
   };
 
-  void SeenWith(double focalPx) { FocalPx_ = focalPx; }
+  void SeenWith(ProjectedErrorBudget projection) { Projection_ = projection; }
 
   void TilesSpan(double tileSpanM) { TileSpanM_ = tileSpanM; }
 
   [[nodiscard]] double CarriesFromM() const { return outshine::CarriesFromM(TileSpanM_); }
 
-  [[nodiscard]] double FocalPx() const { return FocalPx_; }
+  [[nodiscard]] ProjectedErrorBudget Projection() const noexcept { return Projection_; }
 
   [[nodiscard]] double TileSpanM() const { return TileSpanM_; }
 
@@ -361,7 +362,7 @@ private:
   size_t RefinementAt_ = 0, RefinementEnd_ = 0;
   bool RefinementActive_ = false;
   TileWatermark Mark_;
-  double FocalPx_ = 0.0;
+  ProjectedErrorBudget Projection_{};
   double TileSpanM_ = 0.0;
   Vec3 Anchor_;
   bool Anchored_ = false;

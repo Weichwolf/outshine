@@ -97,7 +97,7 @@ int main() {
   BuildingField &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000);
-  prints.SeenWith(720);
+  prints.SeenWith({.FocalPx = 720});
   const int zoom = stack.FinestZoomOf(Data::DataKind::Elevation);
   const auto spot = HeightField::SpotOf(eye, zoom);
   const Data::TileId demTile{
@@ -180,7 +180,7 @@ int main() {
     queue.Clear();
     prints.Release(0);
     prints.BeginRefinement();
-    prints.SeenWith(focalPx);
+    prints.SeenWith({.FocalPx = focalPx});
     allowCopy = true;
     CHECK(queue.Posts(stack,
                       prints,
@@ -193,7 +193,7 @@ int main() {
           "source geometry admits the declared source independently of the camera");
     const auto landedEye = LongitudeLatitude{.LongitudeDeg = postedEye.LongitudeDeg + 1.0,
                                              .LatitudeDeg = postedEye.LatitudeDeg};
-    prints.SeenWith(focalPx * 2.0);
+    prints.SeenWith({.FocalPx = focalPx * 2.0});
     for (int attempt = 0; attempt < 100 && queue.Queued() != 0; ++attempt) {
       auto landed = queue.NextLandings(stack,
                                        prints,
@@ -236,7 +236,7 @@ int main() {
             fineSource->second.FootprintDetails == std::vector{LevelOfDetail::Fine},
         "an explicit Fine source request is preserved");
   if (!fineSource) { return Report(); }
-  prints.SeenWith(720.0);
+  prints.SeenWith({.FocalPx = 720.0});
   queue.Clear();
   prints.Release(0);
   allowCopy = true;

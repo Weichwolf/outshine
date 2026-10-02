@@ -252,8 +252,8 @@ bool Engine::State::PrepareRuntimeWorld() {
     const double highPx = Session.Declared.Render.Frame.HeightPx > 0
                               ? static_cast<double>(Session.Declared.Render.Frame.HeightPx)
                               : static_cast<double>(kFrameUnsaidHighPx);
-    World.Stack.SeeFootprintsWith(highPx /
-                                  (2.0 * std::tan(fovDeg * std::numbers::pi / kDegPerTurn)));
+    World.Stack.SeeFootprintsWith(
+        {.FocalPx = highPx / (2.0 * std::tan(fovDeg * std::numbers::pi / kDegPerTurn))});
     const int vectorZoom = World.Stack.VectorZoom();
     const double vectorSpanM = Data::kMercatorGirthM *
                                std::cos(Session.Declared.Ground.Origin.LatitudeDeg * kDeg2Rad) /

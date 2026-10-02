@@ -84,7 +84,7 @@ int main() {
   const TangentFrame frame = TangentFrame::At(eye);
   prints.AnchorAt(frame.OriginEcef());
   prints.TilesSpan(1000);
-  prints.SeenWith(720);
+  prints.SeenWith({.FocalPx = 720});
   Tasks pool(1);
   Generators::BuildingMesh mesher;
   StructureBuildQueue queue;

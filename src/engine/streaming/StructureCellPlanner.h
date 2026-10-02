@@ -33,7 +33,7 @@ PlanStructureCells(uint32_t tile,
                    const Ground::BuildingField::AcceptedInput &source,
                    uint64_t sourceKey,
                    LongitudeLatitude eye,
-                   double focalPx,
+                   ProjectedErrorBudget projection,
                    const TilePieces &pieces,
                    const StructureBuildQueue &queue) noexcept {
   StructureCellPlan plan;
@@ -45,7 +45,7 @@ PlanStructureCells(uint32_t tile,
                                                      source.CellMaxHeightM[cell - 1u],
                                                      source.Bake.TileSpanM,
                                                      eye,
-                                                     focalPx);
+                                                     projection);
     plan.Selected[plan.Count++] = {.Cell = cell, .Detail = detail};
     if (pieces.HasCell(tile, cell, detail, sourceKey)) { continue; }
     plan.Complete = false;

@@ -624,7 +624,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
     const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
     const double conservativeAwayM =
         std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
-    const ProjectedErrorBudget projection{.FocalPx = raw.FocalPx};
+    const auto &projection = raw.Projection;
     if (projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
       level = LevelOfDetail::Shell;
     }

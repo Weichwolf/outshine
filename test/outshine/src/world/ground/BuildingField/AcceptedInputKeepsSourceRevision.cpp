@@ -33,7 +33,7 @@ int main() {
                                          vector,
                                          {.HeightRasterDigest = 17,
                                           .StreetDigest = 19,
-                                          .FocalPx = 90,
+                                          .Projection = {.FocalPx = 90},
                                           .TileSpanM = 100,
                                           .Eye = {.LongitudeDeg = 8, .LatitudeDeg = 47}},
                                          {},
@@ -48,7 +48,7 @@ int main() {
   CHECK(accepted && accepted->Qualified && accepted->Sources.size() == 1 &&
             accepted->Sources.front().Revision == "revision-a" && accepted->Vector &&
             accepted->Vector->Revision == "vector-a" && accepted->Bake.HeightRasterDigest == 17 &&
-            accepted->Bake.StreetDigest == 19 && accepted->Bake.FocalPx == 90 &&
+            accepted->Bake.StreetDigest == 19 && accepted->Bake.Projection.FocalPx == 90 &&
             accepted->Bake.TileSpanM == 100 && accepted->Bake.Eye.LongitudeDeg == 8 &&
             accepted->Bake.Eye.LatitudeDeg == 47,
         "accepted empty tile owns both source revisions captured before publication");

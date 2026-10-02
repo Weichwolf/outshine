@@ -393,7 +393,7 @@ StructureArtifactKey(const RawTile &raw,
   }
   if (!raw.RequestedDetail &&
       (!writer.Number(raw.Eye.LongitudeDeg) || !writer.Number(raw.Eye.LatitudeDeg) ||
-       !writer.Number(raw.FocalPx))) {
+       !writer.Number(raw.Projection.FocalPx) || !writer.Number(raw.Projection.AllowedErrorPx))) {
     return std::nullopt;
   }
   if (!HeightInputs(writer, heights)) { return std::nullopt; }

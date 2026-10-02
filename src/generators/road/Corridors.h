@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_ROAD_CORRIDORS_H
 #define OUTSHINE_GENERATORS_ROAD_CORRIDORS_H
 
+#include <scene/ProjectedErrorBudget.h>
 #include <array>
 #include <expected>
 #include <chrono>
@@ -50,7 +51,7 @@ public:
     std::chrono::steady_clock::time_point CensusAt;
     double EyeLatDeg = 0.0;
     double EyeLonDeg = 0.0;
-    double FocalPx = 0.0;
+    ProjectedErrorBudget Projection{};
   };
 
   [[nodiscard]] bool Lay(const Site &site,
@@ -80,7 +81,7 @@ private:
     int WaterRow = -1;
     double EyeLatDeg = 0.0;
     double EyeLonDeg = 0.0;
-    double FocalPx = 0.0;
+    ProjectedErrorBudget Projection{};
   };
 
   struct Edge {

@@ -38,7 +38,7 @@ int main() {
   Generators::RawTile raw;
   raw.LatLon = {47, 9, 47, 9.0001, 47.0001, 9.0001, 47.0001, 9};
   raw.Structures.push_back({.PointCount = 4, .Cell = {.Index = 1}, .HeightM = 6});
-  raw.FocalPx = 1000;
+  raw.Projection.FocalPx = 1000;
   raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
   raw.TileSpanM = 1000;
   Ground::HeightField::Block block;

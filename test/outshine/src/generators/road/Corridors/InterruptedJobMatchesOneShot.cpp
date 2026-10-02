@@ -136,7 +136,7 @@ int main() {
                                          .Classes = noClasses,
                                          .EyeLatDeg = origin.LatitudeDeg,
                                          .EyeLonDeg = origin.LongitudeDeg,
-                                         .FocalPx = 800.0};
+                                         .Projection = {.FocalPx = 800.0}};
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
   Product oneShot;
@@ -191,7 +191,7 @@ int main() {
                                                .Classes = noClasses,
                                                .EyeLatDeg = origin.LatitudeDeg,
                                                .EyeLonDeg = origin.LongitudeDeg,
-                                               .FocalPx = 800.0};
+                                               .Projection = {.FocalPx = 800.0}};
   const Product retained = RunJob(corridors, pinnedSite, 1, 1);
   CHECK(retained.Complete && SameGeometry(oneShot.Mesh, retained.Mesh) &&
             oneShot.Earthworks == retained.Earthworks,

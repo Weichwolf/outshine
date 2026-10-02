@@ -43,6 +43,16 @@ int main() {
   CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
         "different original elements cannot share product identity");
   raw.Structures.front().SourceId.Id = 1;
+  raw.Projection.AllowedErrorPx = 0.25;
+  CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
+        "implicit view products include their pixel allowance in the input identity");
+  raw.RequestedDetail = LevelOfDetail::Fine;
+  const auto explicitKey = StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test");
+  raw.Projection.AllowedErrorPx = 2.0;
+  CHECK(explicitKey == StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
+        "an explicit geometric variant remains independent of the view selection allowance");
+  raw.RequestedDetail.reset();
+  raw.Projection.AllowedErrorPx = 1.0;
   RawTile copy = raw;
   source.reset();
   raw.SourceInputs = {};

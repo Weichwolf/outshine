@@ -325,7 +325,7 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
                                                       *accepted,
                                                       *sourceKey,
                                                       eye,
-                                                      footprints.FocalPx(),
+                                                      footprints.Projection(),
                                                       World.Pieces,
                                                       World.StructureBuilds);
     if (plan.Complete && !plan.Active &&

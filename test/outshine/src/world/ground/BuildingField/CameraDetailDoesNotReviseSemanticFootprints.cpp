@@ -37,7 +37,7 @@ int main() {
   const auto input = [](double focal, double eyeLon) {
     return BuildingField::BakeInputs{.HeightRasterDigest = 5,
                                      .StreetDigest = 6,
-                                     .FocalPx = focal,
+                                     .Projection = {.FocalPx = focal},
                                      .TileSpanM = 1000,
                                      .Eye = {.LongitudeDeg = eyeLon, .LatitudeDeg = 47}};
   };

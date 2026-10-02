@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREBAKE_H
 
+#include <scene/ProjectedErrorBudget.h>
 #include "GeographicRing.h"
 #include "BuildingHeightInterval.h"
 #include "StructureSourceInputs.h"
@@ -95,7 +96,7 @@ struct RawTile {
   LongitudeLatitude Eye;
   std::optional<LevelOfDetail> RequestedDetail;
   std::optional<uint32_t> RequestedCell;
-  double FocalPx = 0.0;
+  ProjectedErrorBudget Projection{};
   double TileSpanM = 0.0;
   int Extent = 4096;
   uint32_t ClusterTriangles = 0;
