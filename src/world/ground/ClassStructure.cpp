@@ -127,7 +127,9 @@ void ClassStructure::Pack(int unmappedRow) {
     Words_[h + 8] = static_cast<uint32_t>(Words_.size());
     const size_t at = Words_.size();
     Words_.resize(at + B.Edges.size());
-    std::memcpy(&Words_[at], B.Edges.data(), B.Edges.size() * 4);
+    if (!B.Edges.empty()) {
+      std::memcpy(Words_.data() + at, B.Edges.data(), B.Edges.size() * sizeof(float));
+    }
   }
 }
 
