@@ -102,8 +102,8 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
 1. Alle Architekturverstöße priorisiert beheben: Weltprodukte ohne Quellformate/Generatorinputs;
    konkrete Provider/Decoder und OSM-Topologieadapter aus world; Physik korrekt zuordnen.
    Diese Grenzen durch Include-/Typprüfungen erzwingen, nicht allein durch Verhaltensfälle.
-   Nächste Einheit: Native Feld-/Netzprodukte von OSM-Ingestion trennen; Decoder/Tags/Objektauflösung
-   nach import, Quellanforderung/Cache nach sources. Beide verwenden öffentliche Quellenverträge.
+   Nächste Einheit: OSM-Netz-/Routenauflösung nach import, Transportjobs nach engine;
+   world hält native Topologie/Routen ohne DOM, SourceReceipt bleibt quellunabhängig.
    Generische Weltprodukte konsumieren weder Importformate noch Generatorinputs; Engine verbindet sie.
    Native Felder/Netze bleiben lesbare Produkte; Weltobjekte besitzen keine Quelle/Jobqueue.
 2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
