@@ -17,4 +17,8 @@ müssen für quantitative Vergleiche zusammenpassen; Archivbilder sind keine Wet
 
 Die übrigen erhaltenen Szenarien liegen unter src/assets/diagnostic-places und sind mit
 --places explizit aufrufbar. Ihre bisherigen roten Befunde bleiben offen. Standardabnahme:
-acht vollständige Welten, <=10 s Preload, 60 Frames/360 Grad in <=1 s, p99 <=1000/60 ms.
+acht vollständige Welten ab vorbereitetem Quellcache, <=10 s Aufbau, 60 Frames/360 Grad
+in <=1 s, p99 <=1000/60 ms. Internet-Erwerb ist eine separate Vorbereitung ohne Zehn-Sekunden-Limit.
+`make prepare-place PLACE=Wien PREPARE_SECONDS=1800` bereitet Quellen vor;
+`build/outshine-client shots --offline Wien` misst danach im frischen Prozess ohne Netzwerk.
+Fehlende Cachebytes sind eine unerfüllte Voraussetzung, kein Beleg für zu langsamen Warmaufbau.

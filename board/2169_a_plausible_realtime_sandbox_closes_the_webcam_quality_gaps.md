@@ -65,7 +65,7 @@ Ist bezeichnet vorhandenen Code, nicht bestandene vollständige Place-Integratio
 
 | Beitrag | Verfahren und vorhandener Code / verbleibende Lücke | Kind |
 |---|---|---|
-| Abdeckung, Horizont, Rundumsicht | Originalzellen/residente Eltern; SourceLoader existiert, vollständiger Aufbau offen | 2280, 2336 |
+| Abdeckung, Horizont, Rundumsicht | Originalzellen/residente Eltern; SourceAcquisition existiert, vollständiger Aufbau offen | 2280, 2336 |
 | Gipfel, Hänge, Täler | GLO-30 → endgültiges Kontaktrelief → konservative Verfeinerung; TerrainRefinement besteht | 2337, 2145 |
 | Felsrinnen, Risse, Schutt/Boden | Gerichtete Schichtung/Ridges/Bruchlinien, gefiltertes Detail; groundRock bisher isotrop | 2337 |
 | Häuser, Hallen, Höfe, Kirchen/Türme | Semantischer Körper-/Parts-/Dachplan; BuildingMesh besteht, Klassen/Dächer lückenhaft | 2173 |

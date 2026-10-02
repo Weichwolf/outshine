@@ -20,8 +20,9 @@ und vollständige Place-Abnahme sind offen. Keine reduzierte Kartenquelle als Er
 
 ## Nächste Lieferung und Besitzer
 Nach 2188 übergibt Engine allgemeinen Weltbedarf an registrierte Generatoren. Die OSM-
-Erweiterung unter `generators/osm` plant Originalzellen und besitzt Provider, Adapter,
-`SourceAcquisition` und native Erzeugung liegen dort; konkrete Decoder/Provider bleiben noch in world/data, Engine-Aufrufer sind noch spezialisiert.
+Erweiterung unter `generators/osm` besitzt Provider, Adapter, Zellplanung und Erzeugung.
+`SourceAcquisition` und `TransportPreparation` liegen bereits dort; konkrete Decoder/
+Provider bleiben in world/data, Engine-Aufrufer sind noch spezialisiert.
 Allgemeine SourceSet-/ContentStore-Dienste halten Netzwerkbytes/Receipt. Bestehende
 Tasks/Fetching nutzen begrenztes paralleles IO und genau einen gemeinsamen Compute-
 Worker; StreetGraphPreparation und ClassificationBuild nutzen ihn ohne eigene Compute-Threads.
@@ -73,11 +74,15 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   `engine/EnginePreload.cpp` übergibt das öffentliche Preload-Budget auch als Quellenfrist,
   einschließlich laufender IO. Terrain-Sampling erhält ursprüngliche Fehleradresse,
   Quelle und Fehlergrund bis zur Runtime; eine Ablehnung liefert kein partielles Mesh.
-  Prepare darf Originalbytes separat vorbereiten; Shots behalten unverändert ihr Zehn-Sekunden-Gate.
+  Internet-Erwerb erhält seine eigene Frist und darf länger dauern. Erst mit vollständigem
+  Quellcache gilt das Zehn-Sekunden-Gate; ein frischer Offline-Prozess prüft den warmen Aufbau.
   Als Nächstes 2188s Produkt-/Pinvertrag und 2336s Detailbedarf vor Terrainarbeit anschließen:
   native Zellen ingestieren, ohne sämtliche Roh-Snapshots bis zur fertigen Fernwelt zu halten.
   Originalcache vollständig vorbereiten und tatsächlichen Place-Aufbau messen; Erwerb allein
   beweist weder das Ladebudget noch Bildqualität. Keine weitere reine Wartezeit-Optimierung.
+  Geschlossene dekodierte Teilregionen geben native Erzeugung frei, während weitere Quellen
+  laden. Decode und Erzeugung teilen den Compute-Worker; Produkte ersetzen unnötige Archivpins.
+  Vollständigkeit folgt dem gesamten Weltbedarf, nicht dem Ende eines einzelnen IO-Auftrags.
   Die vorhandene Kronenvorbereitung übergibt Atlanten direkt im RAM; kein Runtime-Diskcache.
   Explizite Cachepfade bleiben erhalten. Per-Zell-Bytes qualifizieren den Katalog `current`;
   dieser Name behauptet keinen atomaren weltweiten OSM-Zeitstand.
@@ -87,8 +92,9 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
 
 ## Weitere Integration und Abnahme
 Straßen/Wasser konsumieren dieselben Originalbestände (2281/2145); Klassifikation 2173.
-2336 besitzt Bedarf/LOD über Boden, Flug und Orbit. Die vorhandene Quell-/Produkt-API
-ermöglicht diese Kinder bereits; deren vollständige Fertigstellung blockiert diesen Anschluss nicht.
+2336 besitzt Bedarf/LOD über Boden, Flug und Orbit. Vorhandene native Produkte bleiben nutzbar;
+2188s allgemeiner Lebenszyklus ersetzt konkrete Engine-Aufrufe. Kinder brauchen ihren
+konsumierten Teilvertrag, keine pauschale Fertigstellung aller anderen Features.
 Ein frischer warmer Prozess liefert belegte Quellcachehits ohne Remote-Starts und ohne
 Generator-Diskcache. Ziel: vollständiger warmer Aufbau in ein bis zwei Sekunden; das
 verbindliche Place-Gate aus AGENTS bleibt maßgeblich. Keine fehlenden Ferngebäude,

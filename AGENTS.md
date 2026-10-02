@@ -84,7 +84,10 @@
   gehört ins Gate. Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs unter
   `build/shots/places/` selbst. Alte Bilder bleiben erhalten; Worktree-Bilder kommen eindeutig
   zugeordnet auch ins Haupt-Checkout. Fehlende oder unvollständige Bilder bleiben rot.
-- Höchstens zehn Sekunden bis zur vollständigen Welt; danach genau so viele Frames wie die Profilzielrate und 360° Drehung
+- Ab vollständig vorbereitetem Netzwerk-Quellcache höchstens zehn Sekunden bis zur vollständigen Welt.
+  Internet-Erwerb darf davor länger dauern; unvollständiger Cache belegt keine Verletzung des Warmbudgets.
+  Ich bereite fehlende Quellen separat vor und messe danach in einem frischen Prozess ohne Netzwerkzugriff.
+  Danach genau so viele Frames wie die Profilzielrate und 360° Drehung
   in einer Sekunde am festen Standort. Nur das letzte Bild wird gespeichert und zeigt die
   Ausgangsrichtung. Ich messe p50/p95/p99 ohne Zusatzframes, Inhaltsverlust oder Sichtweitenkürzung.
 - Das Framebudget ist 1000/Ziel-fps ms, auch für p99; Lastfall und Profil bleiben fest. Stadt, Terrain, Wasser, Himmel und Vegetation
