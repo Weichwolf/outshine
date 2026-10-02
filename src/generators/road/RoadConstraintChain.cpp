@@ -64,6 +64,16 @@ RoadConstraintChain::Build(const World::TransportTopology &topology,
     return std::unexpected(Error(RoadConstraintErrorCode::SourceMismatch));
   }
   if (!terrain.Qualified()) {
+    const World::TransportEdge *edge =
+        selectedEdges.empty() ? nullptr : topology.FindEdge(selectedEdges.front());
+    const World::TransportNode *node =
+        edge != nullptr ? topology.FindNode(edge->FromNodeId) : nullptr;
+    if (node != nullptr &&
+        !terrain.At({.LongitudeDeg = node->LongitudeDeg, .LatitudeDeg = node->LatitudeDeg})
+             .AslM()) {
+      return std::unexpected(
+          Error(RoadConstraintErrorCode::MissingTerrain, edge->Id, node->SourceNodeId));
+    }
     return std::unexpected(Error(RoadConstraintErrorCode::UnqualifiedTerrain));
   }
   if (selectedEdges.empty()) {
