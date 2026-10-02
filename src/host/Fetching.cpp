@@ -264,7 +264,6 @@ bool Fetching::Await(double forMs) {
   if (!std::isfinite(forMs) || forMs <= 0.0) { return false; }
   std::unique_lock<std::mutex> lock(Mutex_);
   const uint64_t stood = Completions_;
-  if (Transfers_.empty()) { return false; }
   return Landed_.wait_for(
              lock,
              std::chrono::microseconds(static_cast<long long>(forMs * kMicrosecondsPerMillisecond)),
