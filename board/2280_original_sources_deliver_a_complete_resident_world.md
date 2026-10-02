@@ -21,8 +21,8 @@ und vollständige Place-Abnahme sind offen. Keine reduzierte Kartenquelle als Er
 ## Nächste Lieferung und Besitzer
 Nach 2188 übergibt Engine allgemeinen Weltbedarf an registrierte Generatoren. Die OSM-
 Erweiterung unter `generators/osm` besitzt Provider, Adapter, Zellplanung und Erzeugung.
-`SourceAcquisition` und `TransportPreparation` liegen bereits dort; konkrete Decoder/
-Provider bleiben in world/data, Engine-Aufrufer sind noch spezialisiert.
+`SourceAcquisition`, `TransportPreparation`, Provider und API-/Zellerwerber liegen bereits
+dort. Decoder/Validierung bleiben in world/data, Engine-Aufrufer sind noch spezialisiert.
 Allgemeine SourceSet-/ContentStore-Dienste halten Netzwerkbytes/Receipt. Bestehende
 Tasks/Fetching nutzen begrenztes paralleles IO und genau einen gemeinsamen Compute-
 Worker; StreetGraphPreparation und ClassificationBuild nutzen ihn ohne eigene Compute-Threads.
@@ -33,7 +33,7 @@ Besitzer betreibt bis zu acht unabhängige Quellenanfragen; fertige Zellen gehen
 Thread-Sicherheitsannahme über externe Provider/Transports. Ein langsamer Request hält
 fertige Nachbarn nicht zurück. Revision/Abbruch gelten für IO, Übergabe und Decode;
 atomare Publikation und vorhandene Snapshot-Admittanz bleiben verbindlich.
-`OsmCellAcquisition` und `OsmCellPipeline` setzen diesen Erwerb bereits um; IO und Decode nutzen explizit geliehene Queues. Der Client
+`CellAcquisition` und `OsmCellPipeline` setzen diesen Erwerb bereits um; IO und Decode nutzen explizit geliehene Queues. Der Client
 begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist noch offen.
 
 ## Quellen- und Produktvertrag

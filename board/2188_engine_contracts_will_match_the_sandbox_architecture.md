@@ -29,7 +29,7 @@ liegt unter generators/terrain; world hält nur den immutable Klassifikationssna
 Fine/Coarse behalten ihren Raumbezug und die jeweils konsumierte Quellrevision.
 GroundClassBuffer besitzt GPU-Packing und Digest unter render; ClassStructure bleibt ein natives CPU-Produkt.
 Engine publiziert beide zusammen; render hält nur seinen Uploadpuffer. Native Netze halten keine
-Quellarchive. OSM-Erwerb, Zellverfeinerung und Netz-/Routenaufbau liegen unter generators/osm und nutzen geliehene Engine-Queues; Decoder/Provider in world/data und konkrete Engine-Kopplung bleiben offen.
+Quellarchive. OSM-Provider, Erwerb, Zellverfeinerung und Netz-/Routenaufbau liegen unter generators/osm und nutzen geliehene Engine-Queues. Generische Quellenkonfiguration erhält den Registry-Auftrag explizit; Builtin-Komposition liegt unter generators. Decoder/Validierung in world/data und konkrete Engine-Kopplung bleiben offen.
 
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
