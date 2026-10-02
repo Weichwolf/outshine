@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 namespace outshine {
@@ -70,21 +71,52 @@ void Engine::State::PublishSubmittedCameraMeasurements() {
   }
 }
 
-void Engine::State::PublishFrameMeasurements() {
-  static const Heap::Tag kFrameMeasurementsTag("frame-measurements");
-  const Heap::Tagged measuring(kFrameMeasurementsTag);
-  if (Heap::ProcessInstrumentationEnabled()) {
-    PublishResourcePayloadMeasurements();
-    Published.RecordMetric(
-        "process C++ heap live bytes", static_cast<double>(Heap::LiveBytes()), "bytes");
-    for (size_t at = 0; at < Heap::TagCount(); ++at) {
-      const char *const tag = Heap::TagAt(at);
-      if (tag == nullptr || Heap::TakenAt(at) == 0) { continue; }
-      Published.RecordMetric(std::string("process C++ bytes allocated under ") + tag,
-                             static_cast<double>(Heap::TakenAt(at)),
-                             "bytes");
-    }
+void Engine::State::PublishGroundPreparationMeasurements() {
+  Published.RecordMetric("ground candidate time, most", Cost.Ground.MostMs(), "ms");
+  Published.RecordMetric("ground request time, most", Cost.GroundRequest.MostMs(), "ms");
+  Published.RecordMetric("ground candidate begin time, most", Cost.GroundBuildBegin.MostMs(), "ms");
+  Published.RecordMetric(
+      "ground candidate creation time, most", Cost.GroundBuildCreate.MostMs(), "ms");
+  Published.RecordMetric(
+      "ground candidate preparation time, most", Cost.GroundBuildPrepare.MostMs(), "ms");
+  Published.RecordMetric("ground retirement time, most", Cost.GroundRetirement.MostMs(), "ms");
+  Published.RecordMetric("ground retirement time, last", Cost.GroundRetirement.LastMs(), "ms");
+  Published.RecordMetric(
+      "ground retirement slices", static_cast<double>(Cost.GroundRetirement.Taken()), "slices");
+  static constexpr std::array<std::string_view, Spent::kGroundPhaseCount> kGroundPhases{
+      "candidate",
+      "patchwork",
+      "sheet fields",
+      "sheet refinement",
+      "sheet halos",
+      "sheet mesh",
+      "classes",
+      "surface",
+      "models",
+      "network",
+      "road alignments",
+      "corridors",
+      "structure bake",
+      "earthworks",
+      "terrain mesh",
+      "water",
+      "geometry",
+      "publication"};
+  for (size_t phase = 0; phase < Cost.GroundPhases.size(); ++phase) {
+    if (Cost.GroundPhases[phase].Taken() == 0) { continue; }
+    Published.RecordMetric(std::string("ground phase ") + std::string(kGroundPhases[phase]) +
+                               " time, most",
+                           Cost.GroundPhases[phase].MostMs(),
+                           "ms");
+    Published.RecordMetric(std::string("ground phase ") + std::string(kGroundPhases[phase]) +
+                               " advances",
+                           static_cast<double>(Cost.GroundPhases[phase].Taken()),
+                           "frames");
   }
+  Published.RecordMetric("vegetation update time, most", Cost.Crowns.MostMs(), "ms");
+}
+
+void Engine::State::PublishAdvanceMeasurements() {
   if (Cost.Advance.Taken() > 0) {
     Published.RecordMetric("the step's own time, last", Cost.Advance.LastMs(), "ms");
     Published.RecordMetric("the step's own time, least", Cost.Advance.LeastMs(), "ms");
@@ -173,50 +205,103 @@ void Engine::State::PublishFrameMeasurements() {
         "structure task posting time, most", World.StructureBuilds.SlowestTaskPostingMs(), "ms");
     Published.RecordMetric("world growth time, most", Cost.Growth.MostMs(), "ms");
     Published.RecordMetric("simulation core time, most", Cost.Simulation.MostMs(), "ms");
-    Published.RecordMetric("ground candidate time, most", Cost.Ground.MostMs(), "ms");
-    Published.RecordMetric("ground request time, most", Cost.GroundRequest.MostMs(), "ms");
-    Published.RecordMetric(
-        "ground candidate begin time, most", Cost.GroundBuildBegin.MostMs(), "ms");
-    Published.RecordMetric(
-        "ground candidate creation time, most", Cost.GroundBuildCreate.MostMs(), "ms");
-    Published.RecordMetric(
-        "ground candidate preparation time, most", Cost.GroundBuildPrepare.MostMs(), "ms");
-    Published.RecordMetric("ground retirement time, most", Cost.GroundRetirement.MostMs(), "ms");
-    Published.RecordMetric("ground retirement time, last", Cost.GroundRetirement.LastMs(), "ms");
-    Published.RecordMetric(
-        "ground retirement slices", static_cast<double>(Cost.GroundRetirement.Taken()), "slices");
-    static constexpr std::array<std::string_view, Spent::kGroundPhaseCount> kGroundPhases{
-        "candidate",
-        "patchwork",
-        "sheet fields",
-        "sheet refinement",
-        "sheet halos",
-        "sheet mesh",
-        "classes",
-        "surface",
-        "models",
-        "network",
-        "road alignments",
-        "corridors",
-        "structure bake",
-        "earthworks",
-        "terrain mesh",
-        "water",
-        "geometry",
-        "publication"};
-    for (size_t phase = 0; phase < Cost.GroundPhases.size(); ++phase) {
-      if (Cost.GroundPhases[phase].Taken() == 0) { continue; }
-      Published.RecordMetric(std::string("ground phase ") + std::string(kGroundPhases[phase]) +
-                                 " time, most",
-                             Cost.GroundPhases[phase].MostMs(),
-                             "ms");
-      Published.RecordMetric(std::string("ground phase ") + std::string(kGroundPhases[phase]) +
-                                 " advances",
-                             static_cast<double>(Cost.GroundPhases[phase].Taken()),
-                             "frames");
-    }
-    Published.RecordMetric("vegetation update time, most", Cost.Crowns.MostMs(), "ms");
+    PublishGroundPreparationMeasurements();
   }
+}
+
+void Engine::State::PublishGroundMemoryMeasurements() {
+  Published.RecordMetric("building triangles the world meshed",
+                         static_cast<double>(World.Stack.Footprints().TrianglesHanded()),
+                         "triangles");
+  Published.RecordMetric(
+      "world: the bytes its fields hold", static_cast<double>(World.Stack.HeapBytes()), "bytes");
+  Published.RecordMetric("world: published semantic region",
+                         World.Region ? static_cast<double>(World.Region->HeapBytes()) : 0.0,
+                         "bytes");
+  Published.RecordMetric("world: of that, the land classes",
+                         static_cast<double>(World.Stack.Classes().HeapBytes()),
+                         "bytes");
+  Published.RecordMetric(
+      "world: the buildings", static_cast<double>(World.Stack.Footprints().HeapBytes()), "bytes");
+  Published.RecordMetric("world: of those, the footprints it keeps",
+                         static_cast<double>(World.Stack.Footprints().PrintBytes()),
+                         "bytes");
+  Published.RecordMetric("world: tiles baking on the workers right now",
+                         static_cast<double>(World.StructureBuilds.Queued()),
+                         "tiles");
+  Published.RecordMetric("world: the building pieces the device holds",
+                         Picture.Standing ? static_cast<double>(Picture.Device.PieceBytesHeld())
+                                          : 0.0,
+                         "bytes");
+  if (Picture.Standing) {
+    const auto memory = Picture.Device.PieceAllocations();
+    constexpr std::array names{"world: subject position buffer",
+                               "world: subject emitted buffer",
+                               "world: subject normal buffer",
+                               "world: subject tangent buffer",
+                               "world: subject uv buffer",
+                               "world: subject uv1 buffer",
+                               "world: subject colour buffer",
+                               "world: subject previous position buffer",
+                               "world: subject placement buffer",
+                               "world: subject index buffer",
+                               "world: subject cluster sphere buffer",
+                               "world: subject cluster job buffer",
+                               "world: subject cluster batch buffer",
+                               "world: subject cluster kept buffer",
+                               "world: subject cluster slot buffer",
+                               "world: subject draw index buffer",
+                               "world: subject draw argument buffer"};
+    static_assert(names.size() == std::tuple_size_v<decltype(memory.StreamBytes)>);
+    for (size_t stream = 0; stream < names.size(); ++stream) {
+      Published.RecordMetric(
+          names[stream], static_cast<double>(memory.StreamBytes[stream]), "bytes");
+    }
+    Published.RecordMetric("world: subject transfer buffer capacity",
+                           static_cast<double>(memory.TransferBytes),
+                           "bytes");
+    Published.RecordMetric(
+        "world: subject vertex arena extent", static_cast<double>(memory.VertexSlots), "slots");
+    Published.RecordMetric(
+        "world: subject free vertex slots", static_cast<double>(memory.FreeVertexSlots), "slots");
+    Published.RecordMetric(
+        "world: subject index arena extent", static_cast<double>(memory.IndexSlots), "slots");
+    Published.RecordMetric(
+        "world: subject free index slots", static_cast<double>(memory.FreeIndexSlots), "slots");
+  }
+  Published.RecordMetric(
+      "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
+  Published.RecordMetric(
+      "world: the streets", static_cast<double>(World.Stack.Ways().HeapBytes()), "bytes");
+  Published.RecordMetric("world: the ceiling its fields stand under",
+                         static_cast<double>(Ground::SurfacePreparation::kHoldsBytes),
+                         "bytes");
+  Published.RecordMetric("world: times a round stopped at that ceiling",
+                         static_cast<double>(World.Stack.OverCeiling()),
+                         "rounds");
+  Published.RecordMetric("world: and the OSM features",
+                         World.Stack.Vectors() != nullptr
+                             ? static_cast<double>(World.Stack.Vectors()->HeapBytes())
+                             : 0.0,
+                         "bytes");
+}
+
+void Engine::State::PublishFrameMeasurements() {
+  static const Heap::Tag kFrameMeasurementsTag("frame-measurements");
+  const Heap::Tagged measuring(kFrameMeasurementsTag);
+  if (Heap::ProcessInstrumentationEnabled()) {
+    PublishResourcePayloadMeasurements();
+    Published.RecordMetric(
+        "process C++ heap live bytes", static_cast<double>(Heap::LiveBytes()), "bytes");
+    for (size_t at = 0; at < Heap::TagCount(); ++at) {
+      const char *const tag = Heap::TagAt(at);
+      if (tag == nullptr || Heap::TakenAt(at) == 0) { continue; }
+      Published.RecordMetric(std::string("process C++ bytes allocated under ") + tag,
+                             static_cast<double>(Heap::TakenAt(at)),
+                             "bytes");
+    }
+  }
+  PublishAdvanceMeasurements();
   if (Picture.Standing) {
     for (size_t at = 0; at < Render::kStageCount; ++at) {
       const auto stage = static_cast<Render::Stage>(at);

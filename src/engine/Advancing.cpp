@@ -362,11 +362,9 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
   return true;
 }
 
-bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
-  if (!World.Stack.Opened()) { return true; }
-  const LongitudeLatitude eye = CurrentGeographicFocus();
+StructureBuildQueue::HeightSource Engine::State::StructureHeightSource() {
   const int finestZoom = World.Stack.FinestZoomOf(Data::DataKind::Elevation);
-  const StructureBuildQueue::HeightSource heightAt{
+  return StructureBuildQueue::HeightSource{
       .Sample =
           [this, finestZoom](LongitudeLatitude at) {
             return World.GroundPublished.Current() ? World.Sheets.AslMAt(finestZoom, at)
@@ -400,6 +398,12 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
           [this](std::span<const Ground::TileSpot> requests, size_t bytesMost) {
             return World.Sheets.CaptureSourcedFields(requests, bytesMost);
           }};
+}
+
+bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
+  if (!World.Stack.Opened()) { return true; }
+  const LongitudeLatitude eye = CurrentGeographicFocus();
+  const StructureBuildQueue::HeightSource heightAt = StructureHeightSource();
   if (World.GroundBuild) {
     const auto resumeAt = std::chrono::steady_clock::now();
     World.StructureBuilds.ResumeCompletedTasks();

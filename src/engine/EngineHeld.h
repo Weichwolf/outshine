@@ -56,10 +56,15 @@
 #include "OsmTransportLoader.h"
 #include "OsmSourceLoader.h"
 #include "GroundMesher.h"
+#include "StreetGraphBuilder.h"
 #include "spatial/Drape.h"
 #include "TileGeodesy.h"
 #include "SceneRenderer.h"
 #include "ScenarioRead.h"
+
+namespace outshine::Generators {
+struct PressedTerrain;
+}
 
 namespace outshine {
 struct GroundBuildProducts;
@@ -608,6 +613,22 @@ struct Engine::State {
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();
+  void PublishGroundPreparationMeasurements();
+  void PublishAdvanceMeasurements();
+  void PublishGroundMemoryMeasurements();
+  void PublishEarthworkMeasurements(const Generators::PressedTerrain &pressed,
+                                    double longestSliceMs);
+  [[nodiscard]] StructureBuildQueue::HeightSource StructureHeightSource();
+  void PublishStreetGraphMeasurements(const Ground::StreetGraphBuilder::Built &mapped,
+                                      double longestSliceMs);
+  [[nodiscard]] GroundBuildProgress AdvanceGroundSheetMesh(const TangentFrame &standing,
+                                                           const Patchwork &patchwork);
+  void PublishGroundCandidateMeasurements(const GroundWorldCandidate &candidate,
+                                          const GroundBuildState &state);
+  void PublishGroundRenderMeasurements(std::chrono::steady_clock::time_point phaseAt);
+  void FinishGroundPublication(const Patchwork &laid,
+                               const Around &over,
+                               std::chrono::steady_clock::time_point rebuildBegan);
   void PublishFrameMeasurements();
   void PublishSubmittedCameraMeasurements();
   void PublishResourcePayloadMeasurements();
