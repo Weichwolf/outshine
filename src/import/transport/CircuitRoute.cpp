@@ -1,4 +1,4 @@
-#include "TransportTopology.h"
+#include "OsmTransportImport.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace outshine::World {
+namespace outshine::Import {
 
 namespace {
 
@@ -24,21 +24,21 @@ bool IsCircuit(const Data::OsmRelation &relation) {
   return kinds == 1;
 }
 
-std::expected<const TransportEdge *, CircuitError>
-ResolveSegment(const TransportTopology &graph, const Data::OsmWay &way, size_t segment) {
-  const TransportEdgeId forwardId{.WayId = way.Id,
-                                  .SegmentOrdinal = static_cast<uint32_t>(segment),
-                                  .Direction = EdgeDirection::Forward};
-  const TransportEdgeId reverseId{.WayId = way.Id,
-                                  .SegmentOrdinal = static_cast<uint32_t>(segment),
-                                  .Direction = EdgeDirection::Reverse};
-  const TransportEdge *forward = graph.FindEdge(forwardId);
-  const TransportEdge *reverse = graph.FindEdge(reverseId);
+std::expected<const World::TransportEdge *, CircuitError>
+ResolveSegment(const World::TransportTopology &graph, const Data::OsmWay &way, size_t segment) {
+  const World::TransportEdgeId forwardId{.PathId = way.Id,
+                                         .SegmentOrdinal = static_cast<uint32_t>(segment),
+                                         .Direction = World::EdgeDirection::Forward};
+  const World::TransportEdgeId reverseId{.PathId = way.Id,
+                                         .SegmentOrdinal = static_cast<uint32_t>(segment),
+                                         .Direction = World::EdgeDirection::Reverse};
+  const World::TransportEdge *forward = graph.FindEdge(forwardId);
+  const World::TransportEdge *reverse = graph.FindEdge(reverseId);
   if (forward != nullptr && reverse != nullptr) {
     return std::unexpected(
         CircuitError{.Code = CircuitErrorCode::AmbiguousDirection, .SourceId = way.Id});
   }
-  const TransportEdge *edge = forward != nullptr ? forward : reverse;
+  const World::TransportEdge *edge = forward != nullptr ? forward : reverse;
   if (edge == nullptr) {
     return std::unexpected(CircuitError{.Code = CircuitErrorCode::MissingEdge, .SourceId = way.Id});
   }
@@ -48,20 +48,20 @@ ResolveSegment(const TransportTopology &graph, const Data::OsmWay &way, size_t s
   if (edge->FromNodeId != expectedFrom || edge->ToNodeId != expectedTo) {
     return std::unexpected(CircuitError{.Code = CircuitErrorCode::MissingEdge, .SourceId = way.Id});
   }
-  if (edge->Modes == 0 || edge->Access == TransportAccess::Forbidden) {
+  if (edge->Modes == 0 || edge->Access == World::TransportAccess::Forbidden) {
     return std::unexpected(
         CircuitError{.Code = CircuitErrorCode::UnusableEdge, .SourceId = way.Id});
   }
   return edge;
 }
 
-std::expected<std::vector<const TransportEdge *>, CircuitError>
-SelectEdges(const TransportTopology &graph,
+std::expected<std::vector<const World::TransportEdge *>, CircuitError>
+SelectEdges(const World::TransportTopology &graph,
             const Data::OsmElements &source,
             const Data::OsmRelation &relation,
             std::string_view memberRole,
             size_t maxEdges) {
-  std::vector<const TransportEdge *> selected;
+  std::vector<const World::TransportEdge *> selected;
   for (const Data::OsmRelationMember &member : relation.Members) {
     if (member.Role != memberRole) { continue; }
     if (member.Kind != Data::OsmElementKind::Way) {
@@ -96,12 +96,13 @@ SelectEdges(const TransportTopology &graph,
 
 }
 
-std::expected<CircuitRoute, CircuitError>
-TransportTopology::ResolveCircuit(const Data::OsmElements &source,
-                                  uint64_t relationId,
-                                  std::string_view memberRole,
-                                  size_t maxEdges) const {
-  if (source.SourceIdentity() != SourceIdentity_) {
+std::expected<World::CircuitRoute, CircuitError>
+OsmTransportImport::ResolveCircuit(const World::TransportTopology &graph,
+                                   const Data::OsmElements &source,
+                                   uint64_t relationId,
+                                   std::string_view memberRole,
+                                   size_t maxEdges) {
+  if (source.SourceIdentity() != graph.SourceIdentity()) {
     return std::unexpected(
         CircuitError{.Code = CircuitErrorCode::SourceMismatch, .SourceId = relationId});
   }
@@ -114,28 +115,30 @@ TransportTopology::ResolveCircuit(const Data::OsmElements &source,
     return std::unexpected(
         CircuitError{.Code = CircuitErrorCode::NotCircuit, .SourceId = relationId});
   }
-  const auto selected = SelectEdges(*this, source, *relation, memberRole, maxEdges);
+  const auto selected = SelectEdges(graph, source, *relation, memberRole, maxEdges);
   if (!selected) { return std::unexpected(selected.error()); }
-  std::unordered_map<uint64_t, const TransportEdge *> outgoing;
+  std::unordered_map<uint64_t, const World::TransportEdge *> outgoing;
   outgoing.reserve(selected->size());
-  for (const TransportEdge *edge : *selected) {
+  for (const World::TransportEdge *edge : *selected) {
     if (!outgoing.emplace(edge->FromNodeId, edge).second) {
       return std::unexpected(
           CircuitError{.Code = CircuitErrorCode::AmbiguousDirection, .SourceId = edge->FromNodeId});
     }
   }
-  const TransportEdge *first = *std::min_element(
-      selected->begin(),
-      selected->end(),
-      [](const TransportEdge *left, const TransportEdge *right) { return left->Id < right->Id; });
-  CircuitRoute route{.SourceIdentity = SourceIdentity_,
-                     .RelationId = relationId,
-                     .StartNodeId = first->FromNodeId,
-                     .EdgeIds = {}};
+  const World::TransportEdge *first =
+      *std::min_element(selected->begin(),
+                        selected->end(),
+                        [](const World::TransportEdge *left, const World::TransportEdge *right) {
+                          return left->Id < right->Id;
+                        });
+  World::CircuitRoute route{.SourceIdentity = graph.SourceIdentity(),
+                            .SourceRouteId = relationId,
+                            .StartNodeId = first->FromNodeId,
+                            .EdgeIds = {}};
   route.EdgeIds.reserve(selected->size());
-  std::unordered_set<const TransportEdge *> visited;
+  std::unordered_set<const World::TransportEdge *> visited;
   visited.reserve(selected->size());
-  const TransportEdge *current = first;
+  const World::TransportEdge *current = first;
   for (size_t step = 0; step < selected->size(); ++step) {
     if (!visited.insert(current).second) {
       return std::unexpected(CircuitError{.Code = CircuitErrorCode::DisconnectedRoute,
@@ -143,7 +146,7 @@ TransportTopology::ResolveCircuit(const Data::OsmElements &source,
     }
     route.EdgeIds.push_back(current->Id);
     const auto next = outgoing.find(current->ToNodeId);
-    if (next == outgoing.end() || !CanContinue(*current, *next->second)) {
+    if (next == outgoing.end() || !World::TransportTopology::CanContinue(*current, *next->second)) {
       return std::unexpected(
           CircuitError{.Code = CircuitErrorCode::DisconnectedRoute, .SourceId = current->ToNodeId});
     }

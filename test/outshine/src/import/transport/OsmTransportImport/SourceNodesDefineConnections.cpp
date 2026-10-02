@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "OsmXmlReader.h"
 #include "TransportTopology.h"
 #include "Check.h"
@@ -46,17 +47,17 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "osm-analytical", .Revision = "r1"});
   CHECK(source.has_value(), "analytical transport source parses");
   if (!source) { return Report(); }
-  const auto built = TransportTopology::Build(*source);
+  const auto built = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(built.has_value(), "the complete source builds one native topology");
   if (!built) { return Report(); }
   const TransportTopology &graph = *built;
   const auto forward = [](uint64_t wayId) {
     return TransportEdgeId{
-        .WayId = wayId, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
+        .PathId = wayId, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
   };
   const auto reverse = [](uint64_t wayId) {
     return TransportEdgeId{
-        .WayId = wayId, .SegmentOrdinal = 0, .Direction = EdgeDirection::Reverse};
+        .PathId = wayId, .SegmentOrdinal = 0, .Direction = EdgeDirection::Reverse};
   };
   const TransportEdge *road = graph.FindEdge(forward(10));
   const TransportEdge *bridge = graph.FindEdge(forward(11));
@@ -94,7 +95,7 @@ int main() {
             graph.FindEdge(reverse(30))->ToNodeId == 11,
         "oneway=-1 reverses source way direction without renumbering its segment");
   CHECK(graph.FindEdge(forward(40)) && graph.FindEdge(reverse(40)) &&
-            graph.UnclassifiedWayCount() == 1 && graph.FindEdge(forward(50))->Modes == 0 &&
+            graph.UnclassifiedPathCount() == 1 && graph.FindEdge(forward(50))->Modes == 0 &&
             !graph.FindEdge(forward(60))->Allows(TransportMode::Motor),
         "two-way, unknown and forbidden source semantics remain distinct");
   bool outgoingBySourceNode = true;

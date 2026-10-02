@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "EarthworkPress.h"
 #include "HeightField.h"
@@ -168,10 +169,11 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "pinned OSM circuit parses");
   if (!source) { return Report(); }
-  const auto topology = TransportTopology::Build(*source);
+  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "pinned transport topology builds");
   if (!topology) { return Report(); }
-  const auto route = topology->ResolveCircuit(*source, 284588);
+  const auto route =
+      outshine::Import::OsmTransportImport::ResolveCircuit(*topology, *source, 284588);
   CHECK(route.has_value() && route->EdgeIds.size() == 267,
         "the 267-edge closed route resolves without pitlane");
   if (!route) { return Report(); }

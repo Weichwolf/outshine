@@ -13,12 +13,10 @@
 
 namespace {
 
-bool WaitFor(outshine::World::OsmTransportLoader &source, outshine::Tasks &tasks) {
+bool WaitFor(outshine::OsmTransportLoader &source, outshine::Tasks &tasks) {
   for (int attempt = 0; attempt < 200; ++attempt) {
     source.Poll();
-    if (source.CurrentPhase() != outshine::World::OsmTransportLoader::Phase::Loading) {
-      return true;
-    }
+    if (source.CurrentPhase() != outshine::OsmTransportLoader::Phase::Loading) { return true; }
     (void)tasks.AwaitCompletion(0.05);
   }
   return false;
@@ -100,7 +98,7 @@ int main() {
     return Report();
   }
 
-  const auto sharedSource = first->Source();
+  const auto sharedSource = loader.Source();
   CHECK(sharedSource && sharedSource->Elements.Nodes().size() == 3 &&
             sharedSource->Elements.Ways().size() == 3 &&
             sharedSource->Elements.Relations().size() == 1 && sharedSource->Coverage.size() == 2 &&
@@ -136,7 +134,7 @@ int main() {
             loader.Current()->SourceIdentity().Revision == "r2",
         "mixed source revisions reject before scheduling or changing publication");
 
-  CHECK(loader.Current()->Source() != sharedSource &&
+  CHECK(loader.Source() != sharedSource &&
             sharedSource->Elements.SourceIdentity().Revision == "r1" &&
             sharedSource->Elements.FindRelation(9)->Members.size() == 3,
         "publishing a new revision leaves pinned original objects and member roles intact");

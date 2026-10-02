@@ -75,10 +75,9 @@ int main() {
   const auto heightTiles = structures.OriginalHeightTiles(9);
   CHECK(prepared && *prepared && structures.HasOriginal() && heightTiles && !heightTiles->empty(),
         "native building preparation requests terrain before a transport graph exists");
-  World::OsmTransportLoader transport(tasks);
+  OsmTransportLoader transport(tasks);
   CHECK(transport.RequestSource(source).has_value(), "transport accepts the same source");
-  CHECK(WaitFor(transport, tasks) && transport.Current() &&
-            transport.Current()->Source() == source &&
+  CHECK(WaitFor(transport, tasks) && transport.Current() && transport.Source() == source &&
             transport.Current()->Topology().Edges().size() == 2,
         "transport uses source memory after the original file has been removed");
   if (!transport.Current()) { return Report(); }
@@ -89,7 +88,7 @@ int main() {
   replacement[0].Revision = "r2";
   CHECK(loader.Request(replacement, ".").has_value(), "changed revision requests replacement");
   CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmSourceLoader::Phase::Failed &&
-            loader.Current() == source && transport.Current()->Source() == source &&
+            loader.Current() == source && transport.Source() == source &&
             loader.PublishedRevision() == sourceRevision,
         "failed source replacement retains both valid published products");
   {
@@ -98,7 +97,7 @@ int main() {
   }
   CHECK(loader.Request(replacement, ".").has_value() && WaitFor(loader, tasks) &&
             loader.CurrentPhase() == OsmSourceLoader::Phase::Ready && loader.Current() != source &&
-            loader.PublishedRevision() > sourceRevision && transport.Current()->Source() == source,
+            loader.PublishedRevision() > sourceRevision && transport.Source() == source,
         "a successful source replacement advances independently of the previously pinned graph");
   const auto replacementRevision = loader.PublishedRevision();
   CHECK(loader.Request({}, ".").has_value() &&

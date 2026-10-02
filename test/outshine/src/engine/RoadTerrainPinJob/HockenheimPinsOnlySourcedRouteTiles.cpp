@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadAlignment.h"
@@ -25,10 +26,11 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the route source parses");
   if (!source) { return Report(); }
-  const auto topology = TransportTopology::Build(*source);
+  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "the source builds a logical topology");
   if (!topology) { return Report(); }
-  const auto route = topology->ResolveCircuit(*source, 284588);
+  const auto route =
+      outshine::Import::OsmTransportImport::ResolveCircuit(*topology, *source, 284588);
   CHECK(route.has_value(), "the circuit retains directed source edges");
   if (!route) { return Report(); }
 
@@ -61,7 +63,7 @@ int main() {
                                      {.Zoom = zoom, .MaximumTiles = tiles.size()});
   CHECK(selected && *selected == tiles,
         "tile selection equals independently computed source-node coverage");
-  const OsmSourceIdentity stale{.DatasetId = "openstreetmap", .Revision = "previous"};
+  const SourceIdentity stale{.DatasetId = "openstreetmap", .Revision = "previous"};
   const auto staleSelection = RoadTerrainPinJob::SelectTiles(
       *topology, stale, route->EdgeIds, {.Zoom = zoom, .MaximumTiles = tiles.size()});
   CHECK(!staleSelection && staleSelection.error().Code == RoadTerrainPinErrorCode::SourceMismatch,

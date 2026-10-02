@@ -257,8 +257,8 @@ struct Surrounds {
   RoadAlignmentBuildQueue RoadAlignmentBuilds;
   std::unique_ptr<outshine::OsmSourceLoader> OsmSourceLoader;
   std::optional<std::array<double, 3>> OriginalSourceDemand;
-  std::vector<World::OsmCircuitRequest> OsmRoutes;
-  std::unique_ptr<World::OsmTransportLoader> OsmTransportLoader;
+  std::vector<OsmCircuitRequest> OsmRoutes;
+  std::unique_ptr<outshine::OsmTransportLoader> OsmTransportLoader;
   StructureBuildQueue StructureBuilds;
   size_t StructurePlanAt = 0;
   size_t StructurePlanBurst = 0;
@@ -289,11 +289,11 @@ struct Surrounds {
 
   [[nodiscard]] bool CurrentTransportReady() const noexcept {
     if (!OsmTransportLoader ||
-        OsmTransportLoader->CurrentPhase() != World::OsmTransportLoader::Phase::Ready) {
+        OsmTransportLoader->CurrentPhase() != outshine::OsmTransportLoader::Phase::Ready) {
       return false;
     }
-    return !OsmSourceLoader || (CurrentOriginalReady() && OsmTransportLoader->Current()->Source() ==
-                                                              OsmSourceLoader->Current());
+    return !OsmSourceLoader ||
+           (CurrentOriginalReady() && OsmTransportLoader->Source() == OsmSourceLoader->Current());
   }
 };
 

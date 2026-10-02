@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadAlignment.h"
@@ -30,7 +31,7 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "analytic", .Revision = "r1"});
   CHECK(source.has_value(), "the analytic road source parses");
   if (!source) { return Report(); }
-  const auto topology = TransportTopology::Build(*source);
+  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "the analytic road source builds topology");
   if (!topology) { return Report(); }
 
@@ -46,9 +47,9 @@ int main() {
                     .Revision = "r1"}};
   const auto heights = Ground::HeightField::Of(14, {block});
   const TransportEdgeId first{
-      .WayId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
+      .PathId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
   const TransportEdgeId second{
-      .WayId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
+      .PathId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
   const std::array route{first, second};
   const auto constraints =
       RoadConstraintChain::Build(*topology, source->SourceIdentity(), route, *heights);
@@ -102,7 +103,7 @@ int main() {
         "reported station length matches an independent dense pose integration");
 
   const TransportEdgeId bridge{
-      .WayId = 30, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
+      .PathId = 30, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
   const std::array bridgeRoute{bridge};
   const auto bridgeConstraints =
       RoadConstraintChain::Build(*topology, source->SourceIdentity(), bridgeRoute, *heights);

@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadHeightCoverage.h"
@@ -21,10 +22,10 @@ int main() {
   auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the source parses");
   if (!source) { return Report(); }
-  auto topology = TransportTopology::Build(*source);
+  auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "the source builds a topology");
   if (!topology) { return Report(); }
-  auto circuit = topology->ResolveCircuit(*source, 284588);
+  auto circuit = outshine::Import::OsmTransportImport::ResolveCircuit(*topology, *source, 284588);
   CHECK(circuit.has_value(), "the 267-edge route resolves");
   if (!circuit) { return Report(); }
   ResolvedTransport transport{.Graph = std::move(*topology),

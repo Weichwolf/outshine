@@ -10,12 +10,10 @@
 
 namespace {
 
-bool WaitFor(outshine::World::OsmTransportLoader &source, outshine::Tasks &tasks) {
+bool WaitFor(outshine::OsmTransportLoader &source, outshine::Tasks &tasks) {
   for (int attempt = 0; attempt < 200; ++attempt) {
     source.Poll();
-    if (source.CurrentPhase() != outshine::World::OsmTransportLoader::Phase::Loading) {
-      return true;
-    }
+    if (source.CurrentPhase() != outshine::OsmTransportLoader::Phase::Loading) { return true; }
     (void)tasks.AwaitCompletion(0.05);
   }
   return false;

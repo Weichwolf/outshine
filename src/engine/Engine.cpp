@@ -71,9 +71,7 @@ namespace {
   const auto *loader = world.OsmTransportLoader.get();
   if (loader == nullptr) { return Says::kPendingOsmTransport; }
   if (world.CurrentTransportReady()) { return {}; }
-  if (loader->CurrentPhase() == World::OsmTransportLoader::Phase::Failed) {
-    return loader->Error();
-  }
+  if (loader->CurrentPhase() == OsmTransportLoader::Phase::Failed) { return loader->Error(); }
   return Says::kPendingOsmTransport;
 }
 
@@ -615,7 +613,7 @@ Result Engine::State::PumpPreload() {
   if ((World.OsmSourceLoader &&
        World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Failed) ||
       (World.OsmTransportLoader &&
-       World.OsmTransportLoader->CurrentPhase() == World::OsmTransportLoader::Phase::Failed)) {
+       World.OsmTransportLoader->CurrentPhase() == OsmTransportLoader::Phase::Failed)) {
     return std::unexpected(std::string(OsmWorldBlocker(Session.Declared.Providers, World)));
   }
   if (!Session.Declared.Ground.Declared) { return {}; }

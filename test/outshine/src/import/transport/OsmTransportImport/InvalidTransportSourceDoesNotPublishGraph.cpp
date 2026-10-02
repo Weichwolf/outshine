@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "OsmXmlReader.h"
 #include "TransportTopology.h"
 #include "Check.h"
@@ -37,36 +38,38 @@ int main() {
 
   struct Rejected {
     std::string Xml;
-    TransportBuildErrorCode Code;
+    outshine::Import::TransportBuildErrorCode Code;
   };
 
   const std::array rejected{
       Rejected{Source("<nd ref='1'/><nd ref='9'/>", ""),
-               TransportBuildErrorCode::MissingSourceObject},
+               outshine::Import::TransportBuildErrorCode::MissingSourceObject},
       Rejected{Source(refs, "<tag k='oneway' v='sideways'/>"),
-               TransportBuildErrorCode::InvalidOneway},
-      Rejected{Source(refs, "<tag k='layer' v='1.5'/>"), TransportBuildErrorCode::InvalidLayer},
+               outshine::Import::TransportBuildErrorCode::InvalidOneway},
+      Rejected{Source(refs, "<tag k='layer' v='1.5'/>"),
+               outshine::Import::TransportBuildErrorCode::InvalidLayer},
       Rejected{Source(refs, "<tag k='width' v='12 yards'/>"),
-               TransportBuildErrorCode::InvalidWidth},
-      Rejected{Source(refs, "<tag k='lanes' v='1;2'/>"), TransportBuildErrorCode::InvalidLaneCount},
+               outshine::Import::TransportBuildErrorCode::InvalidWidth},
+      Rejected{Source(refs, "<tag k='lanes' v='1;2'/>"),
+               outshine::Import::TransportBuildErrorCode::InvalidLaneCount},
       Rejected{Source("<nd ref='1'/><nd ref='1'/>", ""),
-               TransportBuildErrorCode::DegenerateSegment},
+               outshine::Import::TransportBuildErrorCode::DegenerateSegment},
       Rejected{Source(refs, "<tag k='oneway' v='yes'/><tag k='oneway' v='no'/>"),
-               TransportBuildErrorCode::AmbiguousTag},
+               outshine::Import::TransportBuildErrorCode::AmbiguousTag},
   };
   for (const Rejected &caseInput : rejected) {
     const auto parsed = OsmXmlReader::Read(caseInput.Xml, {.DatasetId = "osm", .Revision = "r2"});
     CHECK(parsed.has_value(), "invalid transport semantics remain valid source XML");
     if (!parsed) { continue; }
-    const auto built = TransportTopology::Build(*parsed);
+    const auto built = outshine::Import::OsmTransportImport::Build(*parsed);
     CHECK(!built && built.error().Code == caseInput.Code && built.error().SourceId != 0,
           "invalid source semantics reject the whole graph with source provenance");
   }
   const auto corrected = OsmXmlReader::Read(validXml, {.DatasetId = "osm", .Revision = "r3"});
   CHECK(corrected.has_value(), "the corrected revision parses");
   if (!corrected) { return Report(); }
-  const auto recovered = TransportTopology::Build(*corrected);
-  CHECK(recovered && recovered->Edges().size() == 1 && recovered->Edges()[0].Id.WayId == 7 &&
+  const auto recovered = outshine::Import::OsmTransportImport::Build(*corrected);
+  CHECK(recovered && recovered->Edges().size() == 1 && recovered->Edges()[0].Id.PathId == 7 &&
             recovered->SourceIdentity().Revision == "r3",
         "a corrected revision publishes a complete source-keyed graph");
   return Report();

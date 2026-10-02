@@ -56,11 +56,11 @@ class RoadConstraintChain {
 public:
   [[nodiscard]] static std::expected<RoadConstraintChain, RoadConstraintError>
   Build(const World::TransportTopology &topology,
-        const Data::OsmSourceIdentity &selectionSource,
+        const Data::SourceIdentity &selectionSource,
         std::span<const World::TransportEdgeId> selectedEdges,
         const ::outshine::Ground::HeightField &terrain);
 
-  [[nodiscard]] const Data::OsmSourceIdentity &SourceIdentity() const noexcept {
+  [[nodiscard]] const Data::SourceIdentity &SourceIdentity() const noexcept {
     return SourceIdentity_;
   }
 
@@ -81,7 +81,7 @@ public:
   [[nodiscard]] double EstimatedLengthM() const noexcept { return EstimatedLengthM_; }
 
 private:
-  Data::OsmSourceIdentity SourceIdentity_;
+  Data::SourceIdentity SourceIdentity_;
   uint64_t TerrainDigest_ = 0;
   std::vector<Data::TileSourceIdentity> TerrainSources_;
   LongitudeLatitude Anchor_;

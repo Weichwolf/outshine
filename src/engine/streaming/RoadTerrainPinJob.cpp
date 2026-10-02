@@ -31,7 +31,7 @@ Error(RoadTerrainPinErrorCode code, World::TransportEdgeId edge = {}, uint64_t n
 
 std::expected<std::vector<Data::TileId>, RoadTerrainPinError>
 RoadTerrainPinJob::SelectTiles(const World::TransportTopology &topology,
-                               const Data::OsmSourceIdentity &selectionSource,
+                               const Data::SourceIdentity &selectionSource,
                                std::span<const World::TransportEdgeId> route,
                                RoadTerrainTileSelectionRequest request) {
   if (topology.SourceIdentity() != selectionSource) {
@@ -72,7 +72,7 @@ RoadTerrainPinJob::SelectTiles(const World::TransportTopology &topology,
 std::expected<RoadTerrainPinJob, RoadTerrainPinError>
 RoadTerrainPinJob::Begin(SourcedTerrainFields fields,
                          const World::TransportTopology &topology,
-                         const Data::OsmSourceIdentity &selectionSource,
+                         const Data::SourceIdentity &selectionSource,
                          std::span<const World::TransportEdgeId> route,
                          RoadTerrainPinRequest request) {
   auto tiles = SelectTiles(topology,

@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadAlignment.h"
@@ -22,7 +23,7 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "cusp", .Revision = "r1"});
   CHECK(source.has_value(), "the source with a sharp turn parses");
   if (!source) { return Report(); }
-  const auto topology = TransportTopology::Build(*source);
+  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "a connected logical way may still have impossible geometry");
   if (!topology) { return Report(); }
 
@@ -36,8 +37,8 @@ int main() {
                     .Revision = "r1"}};
   const auto heights = Ground::HeightField::Of(0, {block});
   const std::array route{
-      TransportEdgeId{.WayId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
-      TransportEdgeId{.WayId = 10, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward}};
+      TransportEdgeId{.PathId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
+      TransportEdgeId{.PathId = 10, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward}};
   const auto constraints =
       RoadConstraintChain::Build(*topology, source->SourceIdentity(), route, *heights);
   CHECK(constraints.has_value(), "the source IDs and DEM samples form a connected chain");

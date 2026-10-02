@@ -58,7 +58,7 @@ public:
   RoadAlignment(const RoadAlignment &) = delete;
   RoadAlignment &operator=(const RoadAlignment &) = delete;
 
-  [[nodiscard]] const Data::OsmSourceIdentity &SourceIdentity() const noexcept {
+  [[nodiscard]] const Data::SourceIdentity &SourceIdentity() const noexcept {
     return SourceIdentity_;
   }
 
@@ -119,7 +119,7 @@ private:
   [[nodiscard]] std::optional<RoadAlignmentPose> SampleEdge(EdgeStation request) const noexcept;
   [[nodiscard]] std::optional<size_t> FindEdgeIndex(World::TransportEdgeId id) const noexcept;
 
-  Data::OsmSourceIdentity SourceIdentity_;
+  Data::SourceIdentity SourceIdentity_;
   uint64_t TerrainDigest_ = 0;
   std::vector<Data::TileSourceIdentity> TerrainSources_;
   LongitudeLatitude Anchor_;

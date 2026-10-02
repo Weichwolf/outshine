@@ -148,6 +148,13 @@ def world_state_boundary(headers):
             if header.startswith(('src/engine/', 'src/generators/', 'src/render/'))]
 
 
+def transport_product_boundary(headers):
+    allowed_private = ('src/world/navigation/', 'src/world/products/', 'src/base/', 'src/content/')
+    return [f'{header}: native transport product depends on source interpretation or orchestration'
+            for header in sorted(headers)
+            if header.startswith('src/') and not header.startswith(allowed_private)]
+
+
 def generator_product_boundary(headers):
     controllers = ('src/engine/',)
     return [f'{header}: generator depends on classification or engine orchestration'
@@ -231,6 +238,16 @@ def main():
     for product in (src / 'world' / 'products').glob('*.h'):
         dependencies = header_dependencies(product, directories, root)
         violations.extend(native_product_boundary(
+            {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
+    if transport_product_boundary({'src/world/navigation/TransportTopology.h', 'src/world/products/SourceIdentity.h'}):
+        raise RuntimeError('native transport positive control failed')
+    for forbidden in ('src/world/data/OsmElements.h', 'src/import/transport/OsmTransportImport.h',
+                      'src/engine/streaming/OsmTransportLoader.h'):
+        if not transport_product_boundary({forbidden}):
+            raise RuntimeError('native transport negative control failed')
+    for product in (src / 'world' / 'navigation').glob('*.h'):
+        dependencies = header_dependencies(product, directories, root)
+        violations.extend(transport_product_boundary(
             {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
     for source in (src / 'world').rglob('*'):
         if source.suffix not in {'.h', '.cpp'}:

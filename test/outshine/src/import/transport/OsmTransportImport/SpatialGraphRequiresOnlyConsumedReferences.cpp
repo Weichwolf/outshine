@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "TransportTopology.h"
 #include "OsmXmlReader.h"
 #include "Check.h"
@@ -18,22 +19,25 @@ int main() {
                                          {.DatasetId = "spatial", .Revision = "r1"});
   CHECK(source.has_value(), "spatial source retains open references");
   if (!source) { return Report(); }
-  const auto region = TransportTopology::BuildRegion(*source);
+  const auto region = outshine::Import::OsmTransportImport::BuildRegion(*source);
   CHECK(region && region->Edges().size() == 2 && region->FindNode(1) && region->FindNode(2),
         "complete transport way survives unrelated open route and building references");
-  CHECK(!TransportTopology::Build(*source), "strict whole-source graph contract remains strict");
+  CHECK(!outshine::Import::OsmTransportImport::Build(*source),
+        "strict whole-source graph contract remains strict");
   const auto missing =
       OsmXmlReader::Read("<osm version='0.6'><node id='1' lat='0' lon='0'/>" + way + "</osm>",
                          {.DatasetId = "spatial", .Revision = "r2"});
   CHECK(missing.has_value(), "incomplete transport source parses without discarding references");
   if (missing) {
-    const auto rejected = TransportTopology::BuildRegion(*missing);
-    CHECK(!rejected && rejected.error().Code == TransportBuildErrorCode::MissingSourceObject &&
+    const auto rejected = outshine::Import::OsmTransportImport::BuildRegion(*missing);
+    CHECK(!rejected &&
+              rejected.error().Code ==
+                  outshine::Import::TransportBuildErrorCode::MissingSourceObject &&
               rejected.error().SourceId == 10,
           "a missing consumed node still rejects the complete candidate graph");
   }
   if (region) {
-    CHECK(!region->ResolveCircuit(*source, 20),
+    CHECK(!outshine::Import::OsmTransportImport::ResolveCircuit(*region, *source, 20),
           "requesting the incomplete route remains a failure rather than a truncated route");
   }
   return Report();

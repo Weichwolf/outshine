@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "EarthworkPress.h"
 #include "OsmXmlReader.h"
@@ -28,10 +29,10 @@ int main() {
   auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the circuit source parses");
   if (!source) { return Report(); }
-  auto topology = TransportTopology::Build(*source);
+  auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "the circuit topology builds");
   if (!topology) { return Report(); }
-  auto route = topology->ResolveCircuit(*source, 284588);
+  auto route = outshine::Import::OsmTransportImport::ResolveCircuit(*topology, *source, 284588);
   CHECK(route.has_value(), "the directed source circuit resolves");
   if (!route) { return Report(); }
 
@@ -102,7 +103,8 @@ int main() {
     if (spanAt != surface->Spans.begin()) {
       Note("missing contact span start", (spanAt - 1)->StartStationM, "m");
       Note("missing contact span end", (spanAt - 1)->EndStationM, "m");
-      Note("missing contact source way", static_cast<double>((spanAt - 1)->SourceEdge.WayId), "id");
+      Note(
+          "missing contact source way", static_cast<double>((spanAt - 1)->SourceEdge.PathId), "id");
     }
     for (double distanceM : {-1.0, 0.0, 1.0}) {
       const auto pose = alignment->AtStation(firstMissingStationM + distanceM);

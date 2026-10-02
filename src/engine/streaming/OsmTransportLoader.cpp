@@ -1,4 +1,5 @@
 #include "OsmTransportLoader.h"
+#include "OsmTransportImport.h"
 
 #include <algorithm>
 #include <chrono>
@@ -19,7 +20,7 @@
 #include "OsmChunkSetLoader.h"
 #include "SourceProviderValidation.h"
 
-namespace outshine::World {
+namespace outshine {
 
 namespace {
 
@@ -103,6 +104,7 @@ OsmTransportLoader::SetRequest(std::vector<Data::SourceProvider> requested,
   if (Pending_) { (void)Pending_->Stop.request_stop(); }
   if (Requested_.empty() && !RequestedSource_) {
     Current_.reset();
+    CurrentSource_.reset();
     Phase_ = Phase::Inactive;
     return {};
   }
@@ -128,7 +130,8 @@ void OsmTransportLoader::Poll() {
           Error_ = std::move(loaded.error());
           Phase_ = Phase::Failed;
         } else {
-          Current_ = std::move(*loaded);
+          Current_ = std::move(loaded->Network);
+          CurrentSource_ = std::move(loaded->Source);
           Error_.clear();
           Phase_ = Phase::Ready;
         }
@@ -176,7 +179,7 @@ OsmTransportLoader::BuildSource(std::shared_ptr<const Data::OsmSourceSnapshot> s
                                 const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   const auto graphAt = std::chrono::steady_clock::now();
-  auto graph = TransportTopology::BuildRegion(source->Elements);
+  auto graph = Import::OsmTransportImport::BuildRegion(source->Elements);
   const double graphMs = MillisecondsSince(graphAt);
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   if (!graph) {
@@ -184,13 +187,13 @@ OsmTransportLoader::BuildSource(std::shared_ptr<const Data::OsmSourceSnapshot> s
                            std::to_string(graph.error().SourceId) + " with code " +
                            std::to_string(static_cast<int>(graph.error().Code)));
   }
-  ResolvedTransport transport{.Graph = std::move(*graph), .Routes = {}};
+  World::ResolvedTransport transport{.Graph = std::move(*graph), .Routes = {}};
   transport.Routes.reserve(routes.size());
   size_t routeEdges = 0;
   for (const OsmCircuitRequest &request : routes) {
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
-    auto route = transport.Graph.ResolveCircuit(
-        source->Elements, request.RelationId, {}, kMaxRouteEdges - routeEdges);
+    auto route = Import::OsmTransportImport::ResolveCircuit(
+        transport.Graph, source->Elements, request.RelationId, {}, kMaxRouteEdges - routeEdges);
     if (!route) {
       return std::unexpected("semantic OSM route '" + request.Id + "' failed at source object " +
                              std::to_string(route.error().SourceId) + " with code " +
@@ -200,8 +203,14 @@ OsmTransportLoader::BuildSource(std::shared_ptr<const Data::OsmSourceSnapshot> s
     transport.Routes.push_back({.Id = request.Id, .Circuit = std::move(*route)});
   }
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
-  return std::make_shared<TransportNetworkSnapshot>(
-      std::move(source), std::move(transport), graphMs);
+  auto network = std::make_shared<const World::TransportNetworkSnapshot>(
+      std::move(transport),
+      source->Coverage,
+      World::TransportLoadMetrics{.SourceBytes = source->SourceBytes,
+                                  .ReadMs = source->ReadMs,
+                                  .ParseMs = source->ParseMs,
+                                  .GraphMs = graphMs});
+  return Publication{.Source = std::move(source), .Network = std::move(network)};
 }
 
 }

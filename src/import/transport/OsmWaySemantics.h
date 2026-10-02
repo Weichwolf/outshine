@@ -1,26 +1,26 @@
-#ifndef OUTSHINE_WORLD_NAVIGATION_OSMWAYSEMANTICS_H
-#define OUTSHINE_WORLD_NAVIGATION_OSMWAYSEMANTICS_H
+#ifndef OUTSHINE_IMPORT_TRANSPORT_OSMWAYSEMANTICS_H
+#define OUTSHINE_IMPORT_TRANSPORT_OSMWAYSEMANTICS_H
 
 #include <cstdint>
 #include <expected>
 
-#include "TransportTopology.h"
+#include "OsmTransportImport.h"
 
-namespace outshine::World {
+namespace outshine::Import {
 
 enum class OsmWayTravel : uint8_t { Forward, Reverse, Both };
 
 struct OsmWaySemantics {
   bool TransportTagged = false;
   uint8_t Modes = 0;
-  TransportFacility Facility = TransportFacility::Unknown;
-  TransportSurface Surface = TransportSurface::Unknown;
+  World::TransportFacility Facility = World::TransportFacility::Unknown;
+  World::TransportSurface Surface = World::TransportSurface::Unknown;
   double WidthM = 0.0;
   uint8_t LaneCount = 0;
   int32_t Layer = 0;
   bool Bridge = false;
   bool Tunnel = false;
-  TransportAccess Access = TransportAccess::Public;
+  World::TransportAccess Access = World::TransportAccess::Public;
   OsmWayTravel Travel = OsmWayTravel::Both;
 };
 

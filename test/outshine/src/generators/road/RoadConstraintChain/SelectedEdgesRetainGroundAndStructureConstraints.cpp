@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadConstraintChain.h"
@@ -29,7 +30,7 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "analytic", .Revision = "r1"});
   CHECK(source.has_value(), "the analytic source parses");
   if (!source) { return Report(); }
-  const auto topology = TransportTopology::Build(*source);
+  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "the analytic source builds transport topology");
   if (!topology) { return Report(); }
 
@@ -43,8 +44,8 @@ int main() {
                     .Revision = "r1"}};
   const auto heights = Ground::HeightField::Of(0, {block});
   const std::array<TransportEdgeId, 2> main{
-      {{.WayId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
-       {.WayId = 10, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward}}};
+      {{.PathId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
+       {.PathId = 10, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward}}};
   const auto chain =
       RoadConstraintChain::Build(*topology, source->SourceIdentity(), main, *heights);
   CHECK(chain.has_value(), "one selected OSM way becomes an ordered native constraint chain");
@@ -68,7 +69,7 @@ int main() {
   CHECK(finiteGround, "ground samples are finite and keep their source height");
 
   const TransportEdgeId bridgeId{
-      .WayId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
+      .PathId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
   const std::array bridge{bridgeId};
   const auto bridgeChain =
       RoadConstraintChain::Build(*topology, source->SourceIdentity(), bridge, *heights);
@@ -93,13 +94,13 @@ int main() {
   CHECK(!wrongRevision && wrongRevision.error().Code == RoadConstraintErrorCode::SourceMismatch,
         "a selected edge revision cannot be paired with another topology revision");
   const std::array reverse{
-      TransportEdgeId{.WayId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Reverse}};
+      TransportEdgeId{.PathId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Reverse}};
   const auto wrongDirection =
       RoadConstraintChain::Build(*topology, source->SourceIdentity(), reverse, *heights);
   CHECK(!wrongDirection && wrongDirection.error().Code == RoadConstraintErrorCode::MissingEdge,
         "a one-way source edge has no invented reverse geometry");
   const std::array footway{
-      TransportEdgeId{.WayId = 30, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward}};
+      TransportEdgeId{.PathId = 30, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward}};
   const auto nonMotor =
       RoadConstraintChain::Build(*topology, source->SourceIdentity(), footway, *heights);
   CHECK(!nonMotor && nonMotor.error().Code == RoadConstraintErrorCode::UnusableEdge,

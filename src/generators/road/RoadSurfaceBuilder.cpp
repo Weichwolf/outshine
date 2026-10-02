@@ -46,7 +46,7 @@ uint64_t CorridorKeyOf(const RoadAlignment &alignment) {
   }
   digest = DigestFolded(digest, 0u);
   for (const RoadAlignmentEdge &edge : alignment.Edges()) {
-    foldWord(edge.SourceEdge.WayId);
+    foldWord(edge.SourceEdge.PathId);
     foldWord(edge.SourceEdge.SegmentOrdinal);
     foldWord(static_cast<uint64_t>(edge.SourceEdge.Direction));
   }

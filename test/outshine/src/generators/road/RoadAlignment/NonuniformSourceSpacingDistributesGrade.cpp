@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadAlignment.h"
@@ -36,7 +37,7 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "nonuniform", .Revision = "r1"});
   CHECK(source.has_value(), "the nonuniform graded road source parses");
   if (!source) { return Report(); }
-  const auto topology = TransportTopology::Build(*source);
+  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "the nonuniform graded road has motor topology");
   if (!topology) { return Report(); }
 
@@ -52,13 +53,13 @@ int main() {
                     .Revision = "r1"}};
   const auto heights = Ground::HeightField::Of(14, {block});
   const std::array forward{
-      TransportEdgeId{.WayId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
-      TransportEdgeId{.WayId = 10, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward},
-      TransportEdgeId{.WayId = 10, .SegmentOrdinal = 2, .Direction = EdgeDirection::Forward}};
+      TransportEdgeId{.PathId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
+      TransportEdgeId{.PathId = 10, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward},
+      TransportEdgeId{.PathId = 10, .SegmentOrdinal = 2, .Direction = EdgeDirection::Forward}};
   const std::array reverse{
-      TransportEdgeId{.WayId = 10, .SegmentOrdinal = 2, .Direction = EdgeDirection::Reverse},
-      TransportEdgeId{.WayId = 10, .SegmentOrdinal = 1, .Direction = EdgeDirection::Reverse},
-      TransportEdgeId{.WayId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Reverse}};
+      TransportEdgeId{.PathId = 10, .SegmentOrdinal = 2, .Direction = EdgeDirection::Reverse},
+      TransportEdgeId{.PathId = 10, .SegmentOrdinal = 1, .Direction = EdgeDirection::Reverse},
+      TransportEdgeId{.PathId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Reverse}};
 
   for (const auto &route : {forward, reverse}) {
     const auto constraints =
@@ -120,12 +121,12 @@ int main() {
       OsmXmlReader::Read(equalXml, {.DatasetId = "equal-spacing", .Revision = "r1"});
   CHECK(equalSource.has_value(), "the near-equal-spaced road source parses");
   if (!equalSource) { return Report(); }
-  const auto equalTopology = TransportTopology::Build(*equalSource);
+  const auto equalTopology = outshine::Import::OsmTransportImport::Build(*equalSource);
   CHECK(equalTopology.has_value(), "the near-equal-spaced road has motor topology");
   if (!equalTopology) { return Report(); }
   const std::array equalRoute{
-      TransportEdgeId{.WayId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
-      TransportEdgeId{.WayId = 20, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward}};
+      TransportEdgeId{.PathId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward},
+      TransportEdgeId{.PathId = 20, .SegmentOrdinal = 1, .Direction = EdgeDirection::Forward}};
   const auto equalConstraints = RoadConstraintChain::Build(
       *equalTopology, equalSource->SourceIdentity(), equalRoute, *heights);
   CHECK(equalConstraints.has_value(), "both near-equal source chords have DEM constraints");

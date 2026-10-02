@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadConstraintChain.h"
@@ -21,10 +22,11 @@ int main() {
   const auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the Hockenheim source parses");
   if (!source) { return Report(); }
-  const auto topology = TransportTopology::Build(*source);
+  const auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "Hockenheim builds the native topology");
   if (!topology) { return Report(); }
-  const auto route = topology->ResolveCircuit(*source, 284588);
+  const auto route =
+      outshine::Import::OsmTransportImport::ResolveCircuit(*topology, *source, 284588);
   CHECK(route.has_value(), "the main circuit resolves by relation ID");
   if (!route) { return Report(); }
 

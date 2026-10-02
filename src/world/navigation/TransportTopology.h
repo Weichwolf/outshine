@@ -4,13 +4,10 @@
 #include <compare>
 #include <cstddef>
 #include <cstdint>
-#include <expected>
 #include <span>
-#include <string>
-#include <string_view>
 #include <vector>
 
-#include "OsmElements.h"
+#include "SourceIdentity.h"
 
 namespace outshine::World {
 
@@ -45,7 +42,7 @@ enum class TransportSurface : uint8_t {
 };
 
 struct TransportEdgeId {
-  uint64_t WayId = 0;
+  uint64_t PathId = 0;
   uint32_t SegmentOrdinal = 0;
   EdgeDirection Direction = EdgeDirection::Forward;
 
@@ -82,57 +79,22 @@ struct OutgoingTransportEdge {
   uint32_t EdgeIndex = 0;
 };
 
-enum class TransportBuildErrorCode : uint8_t {
-  MissingSourceObject,
-  AmbiguousTag,
-  InvalidLayer,
-  InvalidOneway,
-  InvalidWidth,
-  InvalidLaneCount,
-  DegenerateSegment,
-  TooManyEdges
-};
-
-struct TransportBuildError {
-  TransportBuildErrorCode Code = TransportBuildErrorCode::MissingSourceObject;
-  uint64_t SourceId = 0;
-};
-
-enum class CircuitErrorCode : uint8_t {
-  SourceMismatch,
-  MissingRelation,
-  NotCircuit,
-  InvalidMember,
-  MissingWay,
-  MissingEdge,
-  UnusableEdge,
-  EmptyRoute,
-  AmbiguousDirection,
-  DisconnectedRoute,
-  TooManyEdges
-};
-
-struct CircuitError {
-  CircuitErrorCode Code = CircuitErrorCode::MissingRelation;
-  uint64_t SourceId = 0;
-};
-
 struct CircuitRoute {
-  Data::OsmSourceIdentity SourceIdentity;
-  uint64_t RelationId = 0;
+  Data::SourceIdentity SourceIdentity;
+  uint64_t SourceRouteId = 0;
   uint64_t StartNodeId = 0;
   std::vector<TransportEdgeId> EdgeIds;
 };
 
 class TransportTopology {
 public:
-  [[nodiscard]] static std::expected<TransportTopology, TransportBuildError>
-  Build(const Data::OsmElements &source);
+  TransportTopology() = default;
+  TransportTopology(Data::SourceIdentity identity,
+                    std::vector<TransportNode> nodes,
+                    std::vector<TransportEdge> edges,
+                    size_t unclassifiedPathCount = 0);
 
-  [[nodiscard]] static std::expected<TransportTopology, TransportBuildError>
-  BuildRegion(const Data::OsmElements &source);
-
-  [[nodiscard]] const Data::OsmSourceIdentity &SourceIdentity() const noexcept {
+  [[nodiscard]] const Data::SourceIdentity &SourceIdentity() const noexcept {
     return SourceIdentity_;
   }
 
@@ -140,7 +102,7 @@ public:
 
   [[nodiscard]] std::span<const TransportEdge> Edges() const noexcept { return Edges_; }
 
-  [[nodiscard]] size_t UnclassifiedWayCount() const noexcept { return UnclassifiedWayCount_; }
+  [[nodiscard]] size_t UnclassifiedPathCount() const noexcept { return UnclassifiedPathCount_; }
 
   [[nodiscard]] const TransportNode *FindNode(uint64_t id) const noexcept;
   [[nodiscard]] const TransportEdge *FindEdge(TransportEdgeId id) const noexcept;
@@ -148,18 +110,12 @@ public:
   [[nodiscard]] static bool CanContinue(const TransportEdge &from,
                                         const TransportEdge &to) noexcept;
 
-  [[nodiscard]] std::expected<CircuitRoute, CircuitError>
-  ResolveCircuit(const Data::OsmElements &source,
-                 uint64_t relationId,
-                 std::string_view memberRole = {},
-                 size_t maxEdges = 65536) const;
-
 private:
-  Data::OsmSourceIdentity SourceIdentity_;
+  Data::SourceIdentity SourceIdentity_;
   std::vector<TransportNode> Nodes_;
   std::vector<TransportEdge> Edges_;
   std::vector<OutgoingTransportEdge> Outgoing_;
-  size_t UnclassifiedWayCount_ = 0;
+  size_t UnclassifiedPathCount_ = 0;
 };
 
 }

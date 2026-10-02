@@ -57,7 +57,7 @@ SampleRoadPoint(const World::TransportTopology &topology,
 
 std::expected<RoadConstraintChain, RoadConstraintError>
 RoadConstraintChain::Build(const World::TransportTopology &topology,
-                           const Data::OsmSourceIdentity &selectionSource,
+                           const Data::SourceIdentity &selectionSource,
                            std::span<const World::TransportEdgeId> selectedEdges,
                            const ::outshine::Ground::HeightField &terrain) {
   if (topology.SourceIdentity() != selectionSource) {

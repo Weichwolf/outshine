@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "OsmTransportLoader.h"
+#include "TransportNetworkSnapshot.h"
 #include "TangentFrame.h"
 #include "TerrainRefinement.h"
 

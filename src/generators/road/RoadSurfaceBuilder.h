@@ -22,7 +22,7 @@ struct RoadSurfaceSpan {
 };
 
 struct RoadSurface {
-  Data::OsmSourceIdentity SourceIdentity;
+  Data::SourceIdentity SourceIdentity;
   uint64_t TerrainDigest = 0;
   LongitudeLatitude AlignmentAnchor;
   LongitudeLatitude RenderAnchor;

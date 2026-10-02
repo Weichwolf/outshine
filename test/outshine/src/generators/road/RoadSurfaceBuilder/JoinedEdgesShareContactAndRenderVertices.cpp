@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "EarthworkPress.h"
 #include "OsmXmlReader.h"
@@ -31,7 +32,7 @@ int main() {
   auto source = OsmXmlReader::Read(xml, {.DatasetId = "analytic", .Revision = "r1"});
   CHECK(source.has_value(), "the analytic road source parses");
   if (!source) { return Report(); }
-  auto topology = TransportTopology::Build(*source);
+  auto topology = outshine::Import::OsmTransportImport::Build(*source);
   CHECK(topology.has_value(), "the road topology builds");
   if (!topology) { return Report(); }
 
@@ -47,9 +48,9 @@ int main() {
                     .Revision = "r1"}};
   const auto terrain = Ground::HeightField::Of(14, {block});
   const TransportEdgeId first{
-      .WayId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
+      .PathId = 10, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
   const TransportEdgeId second{
-      .WayId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
+      .PathId = 20, .SegmentOrdinal = 0, .Direction = EdgeDirection::Forward};
   const std::array route{first, second};
   const auto constraints =
       RoadConstraintChain::Build(*topology, source->SourceIdentity(), route, *terrain);

@@ -32,11 +32,11 @@ struct RoadTerrainPinError {
 
 struct PinnedRoadTerrain {
   uint64_t CandidateGeneration = 0;
-  Data::OsmSourceIdentity SourceIdentity;
+  Data::SourceIdentity SourceIdentity;
   std::shared_ptr<const Ground::HeightField> Heights;
 
   [[nodiscard]] bool Matches(uint64_t generation,
-                             const Data::OsmSourceIdentity &source) const noexcept {
+                             const Data::SourceIdentity &source) const noexcept {
     return CandidateGeneration == generation && SourceIdentity == source;
   }
 };
@@ -56,14 +56,14 @@ class RoadTerrainPinJob {
 public:
   [[nodiscard]] static std::expected<std::vector<Data::TileId>, RoadTerrainPinError>
   SelectTiles(const World::TransportTopology &topology,
-              const Data::OsmSourceIdentity &selectionSource,
+              const Data::SourceIdentity &selectionSource,
               std::span<const World::TransportEdgeId> route,
               RoadTerrainTileSelectionRequest request);
 
   [[nodiscard]] static std::expected<RoadTerrainPinJob, RoadTerrainPinError>
   Begin(SourcedTerrainFields fields,
         const World::TransportTopology &topology,
-        const Data::OsmSourceIdentity &selectionSource,
+        const Data::SourceIdentity &selectionSource,
         std::span<const World::TransportEdgeId> route,
         RoadTerrainPinRequest request);
 
@@ -81,7 +81,7 @@ public:
 
 private:
   SourcedTerrainFields Fields_;
-  Data::OsmSourceIdentity SourceIdentity_;
+  Data::SourceIdentity SourceIdentity_;
   std::vector<Data::TileId> Tiles_;
   std::vector<Ground::HeightField::Block> Blocks_;
   std::optional<PinnedRoadTerrain> Result_;

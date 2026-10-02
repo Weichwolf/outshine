@@ -144,7 +144,7 @@ template <typename Element> bool SortUnique(std::vector<Element> &elements) {
 }
 
 std::expected<OsmElements, OsmXmlError> OsmXmlReader::Read(std::string_view xml,
-                                                           OsmSourceIdentity identity) {
+                                                           SourceIdentity identity) {
   if (identity.DatasetId.empty() || identity.Revision.empty()) {
     return std::unexpected(OsmXmlError::InvalidSourceIdentity);
   }

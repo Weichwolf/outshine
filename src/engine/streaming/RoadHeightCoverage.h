@@ -7,7 +7,7 @@
 #include <vector>
 
 #include <world/data/Address.h>
-#include "OsmTransportLoader.h"
+#include "TransportNetworkSnapshot.h"
 
 namespace outshine {
 

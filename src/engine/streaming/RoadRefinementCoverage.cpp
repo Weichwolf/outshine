@@ -42,14 +42,14 @@ RoadRefinementCoverage::Build(const World::TransportNetworkSnapshot &source,
       if (edge == nullptr) {
         return std::unexpected(std::format("road refinement route '{}' lost way {} segment {}",
                                            route.Id,
-                                           edgeId.WayId,
+                                           edgeId.PathId,
                                            edgeId.SegmentOrdinal));
       }
       const World::TransportNode *from = topology.FindNode(edge->FromNodeId);
       const World::TransportNode *to = topology.FindNode(edge->ToNodeId);
       if (from == nullptr || to == nullptr || !std::isfinite(edge->WidthM) || edge->WidthM <= 0.0) {
         return std::unexpected(
-            std::format("road refinement route '{}' has invalid way {}", route.Id, edgeId.WayId));
+            std::format("road refinement route '{}' has invalid way {}", route.Id, edgeId.PathId));
       }
       corridors.push_back({.Start = InFrame(*from, frame),
                            .End = InFrame(*to, frame),

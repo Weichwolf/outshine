@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "OsmTransportLoader.h"
+#include "TransportNetworkSnapshot.h"
 #include "RoadAlignment.h"
 #include "RoadSurfaceBuilder.h"
 #include "SourcedTerrainFields.h"
@@ -42,12 +42,12 @@ struct RoadAlignmentBuildError {
 
 struct RoadAlignmentBuildProduct {
   uint64_t CandidateGeneration = 0;
-  Data::OsmSourceIdentity SourceIdentity;
+  Data::SourceIdentity SourceIdentity;
   std::vector<NamedRoadAlignment> Routes;
   std::vector<EarthworkStamp> Earthworks;
 
   [[nodiscard]] bool Matches(uint64_t generation,
-                             const Data::OsmSourceIdentity &source) const noexcept {
+                             const Data::SourceIdentity &source) const noexcept {
     return CandidateGeneration == generation && SourceIdentity == source;
   }
 };

@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "SourceIdentity.h"
+
 namespace outshine::Data {
 
 enum class OsmElementKind : uint8_t { Node, Way, Relation };
@@ -18,13 +20,6 @@ struct OsmElementId {
   uint64_t Id = 0;
 
   [[nodiscard]] bool operator==(const OsmElementId &) const = default;
-};
-
-struct OsmSourceIdentity {
-  std::string DatasetId;
-  std::string Revision;
-
-  [[nodiscard]] bool operator==(const OsmSourceIdentity &) const = default;
 };
 
 struct OsmTag {
@@ -97,7 +92,9 @@ public:
   [[nodiscard]] static std::expected<OsmElements, OsmMergeError>
   Merge(std::span<const OsmElements> chunks, size_t maxInputElements);
 
-  [[nodiscard]] const OsmSourceIdentity &SourceIdentity() const noexcept { return SourceIdentity_; }
+  [[nodiscard]] const Data::SourceIdentity &SourceIdentity() const noexcept {
+    return SourceIdentity_;
+  }
 
   [[nodiscard]] std::span<const OsmNode> Nodes() const noexcept { return Nodes_; }
 
@@ -121,7 +118,7 @@ private:
 
   OsmElements() = default;
 
-  OsmSourceIdentity SourceIdentity_;
+  Data::SourceIdentity SourceIdentity_;
   std::vector<OsmNode> Nodes_;
   std::vector<OsmWay> Ways_;
   std::vector<OsmRelation> Relations_;

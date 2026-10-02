@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "OsmXmlReader.h"
 #include "TransportTopology.h"
 #include "Check.h"
@@ -44,12 +45,14 @@ int main() {
             mergedForward->Ways().size() == 4,
         "identical repeated IDs deduplicate and all cross-chunk references close");
   if (!mergedForward || !mergedReverse) { return Report(); }
-  const auto graphForward = TransportTopology::Build(*mergedForward);
-  const auto graphReverse = TransportTopology::Build(*mergedReverse);
+  const auto graphForward = outshine::Import::OsmTransportImport::Build(*mergedForward);
+  const auto graphReverse = outshine::Import::OsmTransportImport::Build(*mergedReverse);
   CHECK(graphForward && graphReverse, "both chunk orders build a complete graph");
   if (!graphForward || !graphReverse) { return Report(); }
-  const auto routeForward = graphForward->ResolveCircuit(*mergedForward, 9);
-  const auto routeReverse = graphReverse->ResolveCircuit(*mergedReverse, 9);
+  const auto routeForward =
+      outshine::Import::OsmTransportImport::ResolveCircuit(*graphForward, *mergedForward, 9);
+  const auto routeReverse =
+      outshine::Import::OsmTransportImport::ResolveCircuit(*graphReverse, *mergedReverse, 9);
   bool sameEdges = graphForward->Edges().size() == graphReverse->Edges().size();
   if (sameEdges) {
     for (size_t at = 0; at < graphForward->Edges().size(); ++at) {

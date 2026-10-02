@@ -874,7 +874,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   const bool elsewhere = from != previous.Region;
   const bool renamed = classes != previous.Classes;
   const uint64_t footprints = World.Stack.Footprints().Revision();
-  const World::OsmTransportLoader *const transportLoader = World.OsmTransportLoader.get();
+  const OsmTransportLoader *const transportLoader = World.OsmTransportLoader.get();
   const uint64_t transportGeneration =
       World.CurrentTransportReady() ? transportLoader->CompletedCount() : 0;
   const std::array<double, 3> projection{
@@ -1869,7 +1869,7 @@ Engine::State::AdvanceGroundRoadAlignments(const TangentFrame &standing) {
     Error = std::format("road alignment '{}' failed with code {} at edge {}",
                         failure.RouteId,
                         static_cast<int>(failure.Code),
-                        failure.Edge.WayId);
+                        failure.Edge.PathId);
     World.GroundBuild.reset();
     return GroundBuildProgress::Failed;
   }

@@ -1,3 +1,4 @@
+#include "OsmTransportImport.h"
 #include "Check.h"
 #include "OsmXmlReader.h"
 #include "RoadAlignmentBuildQueue.h"
@@ -24,19 +25,16 @@ int main() {
   auto elements = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(elements.has_value(), "the route source parses");
   if (!elements) { return Report(); }
-  auto topology = TransportTopology::Build(*elements);
+  auto topology = outshine::Import::OsmTransportImport::Build(*elements);
   CHECK(topology.has_value(), "the route topology builds");
   if (!topology) { return Report(); }
-  auto circuit = topology->ResolveCircuit(*elements, 284588);
+  auto circuit = outshine::Import::OsmTransportImport::ResolveCircuit(*topology, *elements, 284588);
   CHECK(circuit.has_value(), "the source circuit resolves");
   if (!circuit) { return Report(); }
   ResolvedTransport transport{.Graph = std::move(*topology),
                               .Routes = {{.Id = "grand-prix", .Circuit = std::move(*circuit)}}};
   auto source = std::make_shared<const TransportNetworkSnapshot>(
-      std::make_shared<const OsmSourceSnapshot>(
-          OsmSourceSnapshot{.Elements = std::move(*elements)}),
-      std::move(transport),
-      0.0);
+      std::move(transport), std::vector<SourceCoverage>{}, TransportLoadMetrics{});
   const auto coverage =
       RoadHeightCoverage::Select(*source, {.Zoom = 15, .MaximumEdges = 512, .MaximumTiles = 256});
   CHECK(coverage && coverage->SelectedRouteIndices == std::vector<size_t>{0} &&

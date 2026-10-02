@@ -13,7 +13,7 @@
 #include <string_view>
 #include <system_error>
 
-namespace outshine::World {
+namespace outshine::Import {
 
 namespace {
 
@@ -75,11 +75,12 @@ uint8_t HighwayModes(std::string_view kind) {
                                                     "busway"};
   constexpr std::array<std::string_view, 5> kWalk{
       "footway", "pedestrian", "steps", "platform", "corridor"};
-  if (Contains(kind, kMotor)) { return static_cast<uint8_t>(TransportMode::Motor); }
-  if (Contains(kind, kWalk)) { return static_cast<uint8_t>(TransportMode::Walk); }
-  if (kind == "cycleway") { return static_cast<uint8_t>(TransportMode::Cycle); }
+  if (Contains(kind, kMotor)) { return static_cast<uint8_t>(World::TransportMode::Motor); }
+  if (Contains(kind, kWalk)) { return static_cast<uint8_t>(World::TransportMode::Walk); }
+  if (kind == "cycleway") { return static_cast<uint8_t>(World::TransportMode::Cycle); }
   if (kind == "path" || kind == "bridleway") {
-    return static_cast<uint8_t>(TransportMode::Walk) | static_cast<uint8_t>(TransportMode::Cycle);
+    return static_cast<uint8_t>(World::TransportMode::Walk) |
+           static_cast<uint8_t>(World::TransportMode::Cycle);
   }
   return 0;
 }
@@ -87,12 +88,12 @@ uint8_t HighwayModes(std::string_view kind) {
 uint8_t RailwayModes(std::string_view kind) {
   constexpr std::array<std::string_view, 6> kRail{
       "rail", "light_rail", "subway", "tram", "narrow_gauge", "monorail"};
-  return Contains(kind, kRail) ? static_cast<uint8_t>(TransportMode::Rail) : 0;
+  return Contains(kind, kRail) ? static_cast<uint8_t>(World::TransportMode::Rail) : 0;
 }
 
 uint8_t WaterwayModes(std::string_view kind) {
   constexpr std::array<std::string_view, 2> kWater{"river", "canal"};
-  return Contains(kind, kWater) ? static_cast<uint8_t>(TransportMode::Water) : 0;
+  return Contains(kind, kWater) ? static_cast<uint8_t>(World::TransportMode::Water) : 0;
 }
 
 std::expected<OsmWayTravel, TransportBuildErrorCode> ReadTravel(const DirectionTags &tags) {
@@ -127,87 +128,90 @@ bool Enabled(std::optional<std::string_view> value) {
   return value && *value != "no" && *value != "0" && *value != "false";
 }
 
-TransportAccess ReadAccess(std::optional<std::string_view> value) {
-  if (value == "no") { return TransportAccess::Forbidden; }
+World::TransportAccess ReadAccess(std::optional<std::string_view> value) {
+  if (value == "no") { return World::TransportAccess::Forbidden; }
   if (value == "private" || value == "destination" || value == "agricultural" ||
       value == "forestry") {
-    return TransportAccess::Restricted;
+    return World::TransportAccess::Restricted;
   }
-  return TransportAccess::Public;
+  return World::TransportAccess::Public;
 }
 
-constexpr TransportFacility HighwayFacility(std::string_view kind) {
-  if (kind == "motorway" || kind == "motorway_link") { return TransportFacility::Motorway; }
-  if (kind == "trunk" || kind == "trunk_link") { return TransportFacility::Trunk; }
+constexpr World::TransportFacility HighwayFacility(std::string_view kind) {
+  if (kind == "motorway" || kind == "motorway_link") { return World::TransportFacility::Motorway; }
+  if (kind == "trunk" || kind == "trunk_link") { return World::TransportFacility::Trunk; }
   if (kind == "primary" || kind == "primary_link" || kind == "secondary" ||
       kind == "secondary_link" || kind == "tertiary" || kind == "tertiary_link") {
-    return TransportFacility::Arterial;
+    return World::TransportFacility::Arterial;
   }
   if (kind == "residential" || kind == "unclassified" || kind == "living_street" ||
       kind == "road") {
-    return TransportFacility::LocalStreet;
+    return World::TransportFacility::LocalStreet;
   }
-  if (kind == "service" || kind == "busway") { return TransportFacility::ServiceRoad; }
-  if (kind == "track") { return TransportFacility::Track; }
-  if (kind == "raceway") { return TransportFacility::Raceway; }
+  if (kind == "service" || kind == "busway") { return World::TransportFacility::ServiceRoad; }
+  if (kind == "track") { return World::TransportFacility::Track; }
+  if (kind == "raceway") { return World::TransportFacility::Raceway; }
   if (kind == "footway" || kind == "pedestrian" || kind == "steps" || kind == "platform" ||
       kind == "corridor" || kind == "path" || kind == "bridleway") {
-    return TransportFacility::Walkway;
+    return World::TransportFacility::Walkway;
   }
-  if (kind == "cycleway") { return TransportFacility::Cycleway; }
-  return TransportFacility::Unknown;
+  if (kind == "cycleway") { return World::TransportFacility::Cycleway; }
+  return World::TransportFacility::Unknown;
 }
 
-constexpr double DefaultWidthM(TransportFacility facility) {
+constexpr double DefaultWidthM(World::TransportFacility facility) {
   switch (facility) {
-    case TransportFacility::Motorway: return kMotorwayWidthM;
-    case TransportFacility::Trunk:
-    case TransportFacility::Arterial: return kTrunkArterialWidthM;
-    case TransportFacility::LocalStreet:
-    case TransportFacility::Mixed: return kLocalMixedWidthM;
-    case TransportFacility::ServiceRoad: return kServiceWidthM;
-    case TransportFacility::Track: return kTrackWidthM;
-    case TransportFacility::Raceway: return kRacewayWidthM;
-    case TransportFacility::Walkway: return kWalkwayWidthM;
-    case TransportFacility::Cycleway: return kCyclewayWidthM;
-    case TransportFacility::Railway: return kRailwayWidthM;
-    case TransportFacility::Waterway:
-    case TransportFacility::Ferry: return kWaterWidthM;
-    case TransportFacility::Unknown: return 0.0;
+    case World::TransportFacility::Motorway: return kMotorwayWidthM;
+    case World::TransportFacility::Trunk:
+    case World::TransportFacility::Arterial: return kTrunkArterialWidthM;
+    case World::TransportFacility::LocalStreet:
+    case World::TransportFacility::Mixed: return kLocalMixedWidthM;
+    case World::TransportFacility::ServiceRoad: return kServiceWidthM;
+    case World::TransportFacility::Track: return kTrackWidthM;
+    case World::TransportFacility::Raceway: return kRacewayWidthM;
+    case World::TransportFacility::Walkway: return kWalkwayWidthM;
+    case World::TransportFacility::Cycleway: return kCyclewayWidthM;
+    case World::TransportFacility::Railway: return kRailwayWidthM;
+    case World::TransportFacility::Waterway:
+    case World::TransportFacility::Ferry: return kWaterWidthM;
+    case World::TransportFacility::Unknown: return 0.0;
   }
   return 0.0;
 }
 
-TransportSurface SurfaceOf(std::optional<std::string_view> surface, TransportFacility facility) {
+World::TransportSurface SurfaceOf(std::optional<std::string_view> surface,
+                                  World::TransportFacility facility) {
   if (surface) {
-    if (*surface == "asphalt") { return TransportSurface::Asphalt; }
+    if (*surface == "asphalt") { return World::TransportSurface::Asphalt; }
     if (*surface == "concrete" || *surface == "concrete:lanes" || *surface == "concrete:plates") {
-      return TransportSurface::Concrete;
+      return World::TransportSurface::Concrete;
     }
     if (*surface == "paved" || *surface == "paving_stones" || *surface == "sett" ||
         *surface == "cobblestone") {
-      return TransportSurface::Paved;
+      return World::TransportSurface::Paved;
     }
     if (*surface == "gravel" || *surface == "fine_gravel" || *surface == "pebblestone" ||
         *surface == "compacted") {
-      return TransportSurface::Gravel;
+      return World::TransportSurface::Gravel;
     }
     if (*surface == "dirt" || *surface == "earth" || *surface == "ground" || *surface == "grass" ||
         *surface == "sand" || *surface == "unpaved") {
-      return TransportSurface::Earth;
+      return World::TransportSurface::Earth;
     }
-    return TransportSurface::Unknown;
+    return World::TransportSurface::Unknown;
   }
-  if (facility == TransportFacility::Railway) { return TransportSurface::Rail; }
-  if (facility == TransportFacility::Waterway || facility == TransportFacility::Ferry) {
-    return TransportSurface::Water;
+  if (facility == World::TransportFacility::Railway) { return World::TransportSurface::Rail; }
+  if (facility == World::TransportFacility::Waterway ||
+      facility == World::TransportFacility::Ferry) {
+    return World::TransportSurface::Water;
   }
-  if (facility == TransportFacility::Track) { return TransportSurface::Earth; }
-  if (facility == TransportFacility::Walkway || facility == TransportFacility::Cycleway) {
-    return TransportSurface::Paved;
+  if (facility == World::TransportFacility::Track) { return World::TransportSurface::Earth; }
+  if (facility == World::TransportFacility::Walkway ||
+      facility == World::TransportFacility::Cycleway) {
+    return World::TransportSurface::Paved;
   }
-  return facility == TransportFacility::Unknown ? TransportSurface::Unknown
-                                                : TransportSurface::Asphalt;
+  return facility == World::TransportFacility::Unknown ? World::TransportSurface::Unknown
+                                                       : World::TransportSurface::Asphalt;
 }
 
 std::expected<double, TransportBuildErrorCode> ReadWidthM(std::optional<std::string_view> width) {
@@ -271,21 +275,21 @@ std::expected<OsmWaySemantics, TransportBuildErrorCode> DescribeOsmWay(const Dat
   if (highway->has_value()) { modeBits |= HighwayModes(**highway); }
   if (railway->has_value()) { modeBits |= RailwayModes(**railway); }
   if (waterway->has_value()) { modeBits |= WaterwayModes(**waterway); }
-  if (*route == "ferry") { modeBits |= static_cast<unsigned>(TransportMode::Water); }
+  if (*route == "ferry") { modeBits |= static_cast<unsigned>(World::TransportMode::Water); }
   semantics.Modes = static_cast<uint8_t>(modeBits);
   const unsigned taggedKinds =
       static_cast<unsigned>(highway->has_value()) + static_cast<unsigned>(railway->has_value()) +
       static_cast<unsigned>(waterway->has_value()) + static_cast<unsigned>(*route == "ferry");
   if (taggedKinds > 1) {
-    semantics.Facility = TransportFacility::Mixed;
+    semantics.Facility = World::TransportFacility::Mixed;
   } else if (highway->has_value()) {
     semantics.Facility = HighwayFacility(**highway);
   } else if (railway->has_value() && RailwayModes(**railway) != 0) {
-    semantics.Facility = TransportFacility::Railway;
+    semantics.Facility = World::TransportFacility::Railway;
   } else if (waterway->has_value() && WaterwayModes(**waterway) != 0) {
-    semantics.Facility = TransportFacility::Waterway;
+    semantics.Facility = World::TransportFacility::Waterway;
   } else if (*route == "ferry") {
-    semantics.Facility = TransportFacility::Ferry;
+    semantics.Facility = World::TransportFacility::Ferry;
   }
   const auto parsedLayer = ReadLayer(*layer);
   const auto travel = ReadTravel({.OneWay = *oneway, .Highway = *highway, .Junction = *junction});
@@ -297,9 +301,10 @@ std::expected<OsmWaySemantics, TransportBuildErrorCode> DescribeOsmWay(const Dat
   if (!parsedLanes) { return std::unexpected(parsedLanes.error()); }
   semantics.LaneCount = *parsedLanes;
   semantics.WidthM = DefaultWidthM(semantics.Facility);
-  if (*parsedLanes != 0 && (semantics.Modes & static_cast<uint8_t>(TransportMode::Motor)) != 0) {
+  if (*parsedLanes != 0 &&
+      (semantics.Modes & static_cast<uint8_t>(World::TransportMode::Motor)) != 0) {
     const double laneWidthM = static_cast<double>(*parsedLanes) * kMotorLaneWidthM;
-    semantics.WidthM = semantics.Facility == TransportFacility::Raceway
+    semantics.WidthM = semantics.Facility == World::TransportFacility::Raceway
                            ? std::max(semantics.WidthM, laneWidthM)
                            : laneWidthM;
   }

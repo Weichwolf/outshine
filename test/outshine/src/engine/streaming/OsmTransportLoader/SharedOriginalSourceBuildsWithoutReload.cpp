@@ -19,12 +19,10 @@ std::shared_ptr<const outshine::Data::OsmSourceSnapshot> Source(std::string_view
       outshine::Data::OsmSourceSnapshot{.Elements = std::move(*parsed)});
 }
 
-bool WaitFor(outshine::World::OsmTransportLoader &loader, outshine::Tasks &tasks) {
+bool WaitFor(outshine::OsmTransportLoader &loader, outshine::Tasks &tasks) {
   for (int attempt = 0; attempt < 200; ++attempt) {
     loader.Poll();
-    if (loader.CurrentPhase() != outshine::World::OsmTransportLoader::Phase::Loading) {
-      return true;
-    }
+    if (loader.CurrentPhase() != outshine::OsmTransportLoader::Phase::Loading) { return true; }
     (void)tasks.AwaitCompletion(0.05);
   }
   return false;
@@ -47,12 +45,11 @@ int main() {
   CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmTransportLoader::Phase::Ready,
         "graph builds from source memory without a provider or file path");
   if (!loader.Current()) { return Report(); }
-  CHECK(loader.Current()->Source().get() == identity,
-        "publication pins the exact source owner instead of copying original elements");
+  CHECK(loader.Source().get() == identity,
+        "engine source owner retains original elements without copying them");
   const auto published = loader.Current();
   const auto completed = loader.CompletedCount();
-  CHECK(loader.RequestSource(published->Source()).has_value(),
-        "same source may be requested again");
+  CHECK(loader.RequestSource(loader.Source()).has_value(), "same source may be requested again");
   loader.Poll();
   CHECK(loader.PendingCount() == 0 && loader.CompletedCount() == completed,
         "unchanged source does not rebuild its graph");
@@ -60,11 +57,14 @@ int main() {
   CHECK(loader.RequestSource(incomplete).has_value(), "replacement is admitted independently");
   CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmTransportLoader::Phase::Failed &&
             loader.Current() == published,
-        "failed graph replacement retains the published graph and its source");
+        "failed graph replacement retains the native graph and engine source owner");
   CHECK(incomplete && incomplete->Elements.FindWay(10) != nullptr,
         "graph failure does not consume or invalidate shared original data");
+  const std::weak_ptr<const Data::OsmSourceSnapshot> oldSource = loader.Source();
   CHECK(loader.Request({}, ".").has_value() &&
             loader.CurrentPhase() == OsmTransportLoader::Phase::Inactive && !loader.Current(),
         "legacy empty request also clears snapshot-backed input");
+  CHECK(oldSource.expired() && published->Topology().FindNode(1) != nullptr,
+        "retained native publication does not pin the released original archive");
   return Report();
 }

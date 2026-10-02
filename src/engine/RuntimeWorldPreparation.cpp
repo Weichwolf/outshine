@@ -43,7 +43,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   for (const Data::SourceProvider &provider : Session.Declared.Providers) {
     (provider.Kind == "osm" ? osmProviders : tileProviders).push_back(provider);
   }
-  std::vector<World::OsmCircuitRequest> routes;
+  std::vector<OsmCircuitRequest> routes;
   routes.reserve(Session.Declared.Routes.size());
   for (const Scenario::RouteDeclaration &declared : Session.Declared.Routes) {
     routes.push_back({.Id = declared.Id, .RelationId = declared.OsmRelationId});
@@ -74,7 +74,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   if (World.OsmRoutes.empty()) {
     World.OsmTransportLoader.reset();
   } else if (!World.OsmTransportLoader) {
-    World.OsmTransportLoader = std::make_unique<World::OsmTransportLoader>(*World.Pool);
+    World.OsmTransportLoader = std::make_unique<OsmTransportLoader>(*World.Pool);
   }
   if (World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Ready ||
       World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Inactive) {

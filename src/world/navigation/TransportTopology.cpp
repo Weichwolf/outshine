@@ -1,10 +1,9 @@
 #include "TransportTopology.h"
-#include "OsmWaySemantics.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <expected>
 #include <limits>
 #include <ranges>
 #include <span>
@@ -13,94 +12,27 @@
 
 namespace outshine::World {
 
-namespace {
-
-std::expected<void, TransportBuildError> AppendWayEdges(std::vector<TransportEdge> &edges,
-                                                        const Data::OsmWay &way,
-                                                        const OsmWaySemantics &semantics) {
-  for (size_t segment = 1; segment < way.NodeIds.size(); ++segment) {
-    if (segment - 1 > std::numeric_limits<uint32_t>::max() ||
-        edges.size() > std::numeric_limits<uint32_t>::max() - 2u) {
-      return std::unexpected(
-          TransportBuildError{.Code = TransportBuildErrorCode::TooManyEdges, .SourceId = way.Id});
-    }
-    const uint64_t from = way.NodeIds[segment - 1];
-    const uint64_t to = way.NodeIds[segment];
-    if (from == to) {
-      return std::unexpected(TransportBuildError{.Code = TransportBuildErrorCode::DegenerateSegment,
-                                                 .SourceId = way.Id});
-    }
-    const auto append = [&](EdgeDirection direction, uint64_t start, uint64_t end) {
-      edges.push_back(TransportEdge{.Id = {.WayId = way.Id,
-                                           .SegmentOrdinal = static_cast<uint32_t>(segment - 1),
-                                           .Direction = direction},
-                                    .FromNodeId = start,
-                                    .ToNodeId = end,
-                                    .Modes = semantics.Modes,
-                                    .Facility = semantics.Facility,
-                                    .Surface = semantics.Surface,
-                                    .WidthM = semantics.WidthM,
-                                    .LaneCount = semantics.LaneCount,
-                                    .Layer = semantics.Layer,
-                                    .Bridge = semantics.Bridge,
-                                    .Tunnel = semantics.Tunnel,
-                                    .Access = semantics.Access});
-    };
-    if (semantics.Travel != OsmWayTravel::Reverse) { append(EdgeDirection::Forward, from, to); }
-    if (semantics.Travel != OsmWayTravel::Forward) { append(EdgeDirection::Reverse, to, from); }
+TransportTopology::TransportTopology(Data::SourceIdentity identity,
+                                     std::vector<TransportNode> nodes,
+                                     std::vector<TransportEdge> edges,
+                                     size_t unclassifiedPathCount)
+    : SourceIdentity_(std::move(identity)),
+      Nodes_(std::move(nodes)),
+      Edges_(std::move(edges)),
+      UnclassifiedPathCount_(unclassifiedPathCount) {
+  assert(Edges_.size() <= std::numeric_limits<uint32_t>::max());
+  std::ranges::sort(Nodes_, {}, &TransportNode::SourceNodeId);
+  std::ranges::sort(Edges_, {}, &TransportEdge::Id);
+  Outgoing_.reserve(Edges_.size());
+  for (size_t index = 0; index < Edges_.size(); ++index) {
+    Outgoing_.push_back(OutgoingTransportEdge{.NodeId = Edges_[index].FromNodeId,
+                                              .EdgeIndex = static_cast<uint32_t>(index)});
   }
-  return {};
-}
-
-}
-
-std::expected<TransportTopology, TransportBuildError>
-TransportTopology::Build(const Data::OsmElements &source) {
-  if (const auto missing = source.FirstMissingReference()) {
-    return std::unexpected(TransportBuildError{.Code = TransportBuildErrorCode::MissingSourceObject,
-                                               .SourceId = missing->OwnerId});
-  }
-  return BuildRegion(source);
-}
-
-std::expected<TransportTopology, TransportBuildError>
-TransportTopology::BuildRegion(const Data::OsmElements &source) {
-  TransportTopology built;
-  built.SourceIdentity_ = source.SourceIdentity();
-  built.Nodes_.reserve(source.Nodes().size());
-  for (const Data::OsmNode &node : source.Nodes()) {
-    built.Nodes_.push_back(TransportNode{.SourceNodeId = node.Id,
-                                         .LatitudeDeg = node.LatitudeDeg,
-                                         .LongitudeDeg = node.LongitudeDeg});
-  }
-  for (const Data::OsmWay &way : source.Ways()) {
-    const auto described = DescribeOsmWay(way);
-    if (!described) {
-      return std::unexpected(TransportBuildError{.Code = described.error(), .SourceId = way.Id});
-    }
-    if (!described->TransportTagged) { continue; }
-    if (std::ranges::any_of(way.NodeIds,
-                            [&source](uint64_t id) { return source.FindNode(id) == nullptr; })) {
-      return std::unexpected(TransportBuildError{
-          .Code = TransportBuildErrorCode::MissingSourceObject, .SourceId = way.Id});
-    }
-    if (described->Modes == 0) { ++built.UnclassifiedWayCount_; }
-    if (const auto appended = AppendWayEdges(built.Edges_, way, *described); !appended) {
-      return std::unexpected(appended.error());
-    }
-  }
-  std::ranges::sort(built.Edges_, {}, &TransportEdge::Id);
-  built.Outgoing_.reserve(built.Edges_.size());
-  for (size_t index = 0; index < built.Edges_.size(); ++index) {
-    built.Outgoing_.push_back(OutgoingTransportEdge{.NodeId = built.Edges_[index].FromNodeId,
-                                                    .EdgeIndex = static_cast<uint32_t>(index)});
-  }
-  std::ranges::sort(built.Outgoing_,
+  std::ranges::sort(Outgoing_,
                     [&](const OutgoingTransportEdge &left, const OutgoingTransportEdge &right) {
                       if (left.NodeId != right.NodeId) { return left.NodeId < right.NodeId; }
-                      return built.Edges_[left.EdgeIndex].Id < built.Edges_[right.EdgeIndex].Id;
+                      return Edges_[left.EdgeIndex].Id < Edges_[right.EdgeIndex].Id;
                     });
-  return built;
 }
 
 const TransportNode *TransportTopology::FindNode(uint64_t id) const noexcept {
