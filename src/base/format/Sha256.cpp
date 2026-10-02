@@ -95,7 +95,7 @@ void Compress(std::span<uint32_t, 8> state, std::span<const uint8_t, 64> block) 
 }
 #endif
 
-std::string Sha256Hex(const void *data, size_t bytes) {
+std::array<uint8_t, 32> Sha256Digest(const void *data, size_t bytes) {
 #ifdef __APPLE__
   CC_SHA256_CTX state;
   (void)CC_SHA256_Init(&state);
@@ -109,13 +109,7 @@ std::string Sha256Hex(const void *data, size_t bytes) {
   }
   std::array<unsigned char, CC_SHA256_DIGEST_LENGTH> digest{};
   (void)CC_SHA256_Final(digest.data(), &state);
-  static constexpr std::string_view kHex = "0123456789abcdef";
-  std::string out(digest.size() * 2, '0');
-  for (size_t at = 0; at < digest.size(); ++at) {
-    out[at * 2] = kHex[digest[at] >> 4u];
-    out[at * 2 + 1] = kHex[digest[at] & 15u];
-  }
-  return out;
+  return digest;
 #else
   std::array<uint32_t, 8> state = kInitialState;
   const auto *p = static_cast<const uint8_t *>(data);
@@ -138,18 +132,25 @@ std::string Sha256Hex(const void *data, size_t bytes) {
     Compress(state, std::span<const uint8_t, 64>(tail.data() + b * 64, 64));
   }
 
-  static constexpr std::string_view kHex = "0123456789abcdef";
-  std::string out(64, '0');
-  for (uint32_t i = 0; i < 8u; i++) {
-    for (uint32_t n = 0; n < 4u; n++) {
-      const auto byte = static_cast<uint8_t>(state[i] >> (24u - 8u * n));
-      const size_t at = static_cast<size_t>(i) * 8u + static_cast<size_t>(n) * 2u;
-      out[at] = kHex[byte >> 4u];
-      out[at + 1u] = kHex[byte & 15u];
+  std::array<uint8_t, 32> digest{};
+  for (size_t i = 0; i < state.size(); ++i) {
+    for (size_t n = 0; n < 4; ++n) {
+      digest[i * 4 + n] = static_cast<uint8_t>(state[i] >> (24u - 8u * n));
     }
   }
-  return out;
+  return digest;
 #endif
+}
+
+std::string Sha256Hex(const void *data, size_t bytes) {
+  const auto digest = Sha256Digest(data, bytes);
+  static constexpr std::string_view kHex = "0123456789abcdef";
+  std::string out(digest.size() * 2, '0');
+  for (size_t at = 0; at < digest.size(); ++at) {
+    out[at * 2] = kHex[digest[at] >> 4u];
+    out[at * 2 + 1] = kHex[digest[at] & 15u];
+  }
+  return out;
 }
 
 std::string Sha256Hex(std::string_view text) {
