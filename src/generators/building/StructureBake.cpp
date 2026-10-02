@@ -540,6 +540,20 @@ BuildingField::HeightSource HeightSourceOf(const RawTile::Structure &structure) 
   return BuildingField::HeightSource::Osm;
 }
 
+Spread RingBounds(std::span<const double> pts, Ring ring) {
+  Spread bounds{.LowLat = kNoLeastYet,
+                .HighLat = -kNoLeastYet,
+                .LowLon = kNoLeastYet,
+                .HighLon = -kNoLeastYet};
+  for (uint32_t k = 0; k < ring.Count; k++) {
+    bounds.LowLat = std::min(bounds.LowLat, LatOf(pts, ring.First + k));
+    bounds.HighLat = std::max(bounds.HighLat, LatOf(pts, ring.First + k));
+    bounds.LowLon = std::min(bounds.LowLon, LonOf(pts, ring.First + k));
+    bounds.HighLon = std::max(bounds.HighLon, LonOf(pts, ring.First + k));
+  }
+  return bounds;
+}
+
 std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 const outshine::Ground::HeightField &heights,
                                                 const StructureMesher &mesher,
@@ -570,19 +584,11 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   const double seat = seated.SeatM;
   IncludeFootprint(out, one.Cell);
 
-  double lowLat = kNoLeastYet;
-  double highLat = -kNoLeastYet;
-  double lowLon = kNoLeastYet;
-  double highLon = -kNoLeastYet;
-  for (uint32_t k = 0; k < ring.Count; k++) {
-    lowLat = std::min(lowLat, LatOf(pts, ring.First + k));
-    highLat = std::max(highLat, LatOf(pts, ring.First + k));
-    lowLon = std::min(lowLon, LonOf(pts, ring.First + k));
-    highLon = std::max(highLon, LonOf(pts, ring.First + k));
-  }
-  const double perLonM = kMPerDegLon * std::cos(0.5 * (lowLat + highLat) * kDeg2Rad);
+  const Spread bounds = RingBounds(pts, ring);
+  const double perLonM = kMPerDegLon * std::cos(0.5 * (bounds.LowLat + bounds.HighLat) * kDeg2Rad);
   out.SeatSpreadM.push_back(seat - base);
-  out.AcrossM.push_back(std::max((highLat - lowLat) * kMPerDegLat, (highLon - lowLon) * perLonM));
+  out.AcrossM.push_back(std::max((bounds.HighLat - bounds.LowLat) * kMPerDegLat,
+                                 (bounds.HighLon - bounds.LowLon) * perLonM));
 
   double standBackM = -1.0;
   const Frontage street = NearestStreet(pts, ring, ways, &standBackM, stopping);
@@ -617,8 +623,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
 
   LevelOfDetail level = raw.RequestedDetail.value_or(LevelOfDetail::Fine);
   if (!raw.RequestedDetail) {
-    const double nearLat = std::clamp(raw.Eye.LatitudeDeg, lowLat, highLat);
-    const double nearLon = std::clamp(raw.Eye.LongitudeDeg, lowLon, highLon);
+    const double nearLat = std::clamp(raw.Eye.LatitudeDeg, bounds.LowLat, bounds.HighLat);
+    const double nearLon = std::clamp(raw.Eye.LongitudeDeg, bounds.LowLon, bounds.HighLon);
     const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
     const double eastM =
         (nearLon - raw.Eye.LongitudeDeg) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
@@ -638,16 +644,15 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   out.FootprintDetails.push_back(level);
 
   if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0 && one.HoleCount == 0) {
-    const auto lumped =
-        Lump(lumps,
-             {.LowLat = lowLat, .HighLat = highLat, .LowLon = lowLon, .HighLon = highLon},
-             {.BaseM = base,
-              .SeatM = seat,
-              .HeightM = fp.HeightM,
-              .RoofAreaM2 = RingAreaM2(pts, ring),
-              .Pitched = one.Pitched != 0,
-              .Level = level},
-             raw.TileSpanM / kBlocksPerTile);
+    const auto lumped = Lump(lumps,
+                             bounds,
+                             {.BaseM = base,
+                              .SeatM = seat,
+                              .HeightM = fp.HeightM,
+                              .RoofAreaM2 = RingAreaM2(pts, ring),
+                              .Pitched = one.Pitched != 0,
+                              .Level = level},
+                             raw.TileSpanM / kBlocksPerTile);
     if (!lumped) { return std::unexpected(lumped.error()); }
     ++out.Lumped;
     return {};
