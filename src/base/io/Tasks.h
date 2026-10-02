@@ -8,6 +8,7 @@
 #include <mutex>
 #include <set>
 #include <thread>
+#include <variant>
 #include <vector>
 
 namespace outshine {
@@ -15,6 +16,8 @@ namespace outshine {
 class Tasks {
 public:
   using Job = std::function<void()>;
+  enum class StepResult : uint8_t { Complete, Yield };
+  using Step = std::function<StepResult()>;
   using Handle = uint64_t;
   static constexpr Handle kNoTask = 0;
 
@@ -26,6 +29,7 @@ public:
   [[nodiscard]] static int ComputeThreads();
 
   [[nodiscard]] Handle Post(Job job);
+  [[nodiscard]] Handle PostSteps(Step step);
   [[nodiscard]] bool PostDetached(Job job);
   [[nodiscard]] bool TakeCompletion(Handle which);
   [[nodiscard]] bool AwaitCompletion(double seconds);
@@ -34,14 +38,16 @@ public:
   [[nodiscard]] int Threads() const { return static_cast<int>(Threads_.size()); }
 
 private:
+  using WorkItem = std::variant<Job, Step>;
+
   struct Posted {
     Handle Which = kNoTask;
-    Job Run;
+    WorkItem Run;
     bool Tracked = true;
   };
 
   void Work();
-  [[nodiscard]] Handle Post(Job job, bool tracked);
+  [[nodiscard]] Handle Queue(WorkItem work, bool tracked);
 
   std::mutex Mutex_;
   std::condition_variable Wake_;

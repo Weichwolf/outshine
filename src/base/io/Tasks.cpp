@@ -32,20 +32,24 @@ Tasks::~Tasks() {
 }
 
 Tasks::Handle Tasks::Post(Job job) {
-  return Post(std::move(job), true);
+  return Queue(WorkItem(std::in_place_type<Job>, std::move(job)), true);
+}
+
+Tasks::Handle Tasks::PostSteps(Step step) {
+  return Queue(WorkItem(std::in_place_type<Step>, std::move(step)), true);
 }
 
 bool Tasks::PostDetached(Job job) {
-  return Post(std::move(job), false) != kNoTask;
+  return Queue(WorkItem(std::in_place_type<Job>, std::move(job)), false) != kNoTask;
 }
 
-Tasks::Handle Tasks::Post(Job job, bool tracked) {
+Tasks::Handle Tasks::Queue(WorkItem work, bool tracked) {
   Handle which = kNoTask;
   {
     const std::scoped_lock lock(Mutex_);
     if (Stopping_) { return kNoTask; }
     which = Next_++;
-    Queue_.push_back({.Which = which, .Run = std::move(job), .Tracked = tracked});
+    Queue_.push_back({.Which = which, .Run = std::move(work), .Tracked = tracked});
   }
   Wake_.notify_one();
   return which;
@@ -82,9 +86,19 @@ void Tasks::Work() {
       taken = std::move(Queue_.front());
       Queue_.pop_front();
     }
-    taken.Run();
+    StepResult result = StepResult::Complete;
+    if (auto *job = std::get_if<Job>(&taken.Run)) {
+      (*job)();
+    } else {
+      result = std::get<Step>(taken.Run)();
+    }
     {
       const std::scoped_lock lock(Mutex_);
+      if (result == StepResult::Yield) {
+        if (!Stopping_) { Queue_.push_back(std::move(taken)); }
+        Wake_.notify_one();
+        continue;
+      }
       if (taken.Tracked) { Done_.insert(taken.Which); }
     }
     Landed_.notify_all();
