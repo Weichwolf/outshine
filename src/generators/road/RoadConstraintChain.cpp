@@ -25,6 +25,23 @@ Error(RoadConstraintErrorCode code, World::TransportEdgeId edge = {}, uint64_t n
   return {.Code = code, .Edge = edge, .SourceNodeId = nodeId};
 }
 
+std::expected<void, RoadConstraintError>
+ValidateTerrainInput(const World::TransportTopology &topology,
+                     std::span<const World::TransportEdgeId> selectedEdges,
+                     const ::outshine::Ground::HeightField &terrain) {
+  if (terrain.Qualified()) { return {}; }
+  const World::TransportEdge *edge =
+      selectedEdges.empty() ? nullptr : topology.FindEdge(selectedEdges.front());
+  const World::TransportNode *node =
+      edge != nullptr ? topology.FindNode(edge->FromNodeId) : nullptr;
+  if (node != nullptr &&
+      !terrain.At({.LongitudeDeg = node->LongitudeDeg, .LatitudeDeg = node->LatitudeDeg}).AslM()) {
+    return std::unexpected(
+        Error(RoadConstraintErrorCode::MissingTerrain, edge->Id, node->SourceNodeId));
+  }
+  return std::unexpected(Error(RoadConstraintErrorCode::UnqualifiedTerrain));
+}
+
 std::expected<RoadConstraintPoint, RoadConstraintError>
 SampleRoadPoint(const World::TransportTopology &topology,
                 const ::outshine::Ground::HeightField &terrain,
@@ -63,18 +80,8 @@ RoadConstraintChain::Build(const World::TransportTopology &topology,
   if (topology.SourceIdentity() != selectionSource) {
     return std::unexpected(Error(RoadConstraintErrorCode::SourceMismatch));
   }
-  if (!terrain.Qualified()) {
-    const World::TransportEdge *edge =
-        selectedEdges.empty() ? nullptr : topology.FindEdge(selectedEdges.front());
-    const World::TransportNode *node =
-        edge != nullptr ? topology.FindNode(edge->FromNodeId) : nullptr;
-    if (node != nullptr &&
-        !terrain.At({.LongitudeDeg = node->LongitudeDeg, .LatitudeDeg = node->LatitudeDeg})
-             .AslM()) {
-      return std::unexpected(
-          Error(RoadConstraintErrorCode::MissingTerrain, edge->Id, node->SourceNodeId));
-    }
-    return std::unexpected(Error(RoadConstraintErrorCode::UnqualifiedTerrain));
+  if (const auto qualified = ValidateTerrainInput(topology, selectedEdges, terrain); !qualified) {
+    return std::unexpected(qualified.error());
   }
   if (selectedEdges.empty()) {
     return std::unexpected(Error(RoadConstraintErrorCode::EmptySelection));
