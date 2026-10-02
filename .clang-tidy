@@ -25,6 +25,7 @@ Checks: >
 WarningsAsErrors: ''
 
 CheckOptions:
+  readability-function-size.LineThreshold: 120
   # `misc-include-cleaner` IS RIGHT ABOUT THE STANDARD LIBRARY AND WRONG ABOUT EVERYTHING ELSE HERE,
   # measured: it found `<ratio>` and `<system_error>` genuinely missing, and in the same file it
   # claimed `Sha256.h` was unused while `Sha256Hex` is called on the next screen. It also asks for

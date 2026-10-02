@@ -160,6 +160,9 @@
 - Ich lese relevante Historie und `make help`, suche zuerst Pfade/Symbole und lese gezielte
   Ausschnitte bis 160 Zeilen. Ausgaben bleiben gewöhnlich unter 2000 Tokens; Trunkierung beantworte
   ich mit kleinerem Ausschnitt. Große Dateien trenne ich nach Besitzern/Phasen beim betroffenen Ausbau.
+- Ich begrenze Funktionen mit clang-tidys `readability-function-size.LineThreshold`
+  auf 120 Zeilen. Überschreitungen nach Zuständigkeit/Phase zerlegen, nicht durch
+  Zeilenverdichtung oder Suppression kaschieren; das Lint-Gate verlangt null Befunde.
 - Code-/Shader-/Build-/Teständerungen: `make format`, fokussierte Suite, Places und vollständiges
   `make lint` einschließlich clang-tidy/API. Nur Dokumentänderungen: `make lint-docs`.
   Dokument-Lint schließt keine offenen Engine-Gates oder Codebefunde.

@@ -28,7 +28,8 @@ ClassificationBuild nutzt den gemeinsamen Compute-Worker. Der pure Classificatio
 liegt unter generators/terrain; world hält nur den immutable Klassifikationssnapshot.
 Fine/Coarse behalten ihren Raumbezug und die jeweils konsumierte Quellrevision.
 GroundClassBuffer besitzt GPU-Packing und Digest unter render; ClassStructure bleibt ein natives CPU-Produkt.
-Der gemeinsame Worker erstellt beide; engine publiziert sie zusammen, render hält nur seinen Uploadpuffer.
+Engine publiziert beide zusammen; render hält nur seinen Uploadpuffer. OSM-Netz-/Routenauflösung
+liegt unter import/transport, Jobs unter engine/streaming; world hält native Netze ohne Quellarchiv.
 
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
@@ -36,7 +37,7 @@ Der gemeinsame Worker erstellt beide; engine publiziert sie zusammen, render hä
 | sources + import | öffentliche Provider → Originalbytes → native Inputs | Netzwerkcache bei sources; Formate enden im Adapter |
 | world | native Produkte → generischer Weltzustand | Geometrie, Identitäten, Topologie und Herkunft; keine Quell-/Generatorinputs |
 | engine/streaming | Position/Höhe/Projektion → Bedarf/residente Produkte | Plan, begrenzte Jobs, Invalidierung, geschlossene Publikation |
-| generators | native Inputs + Detailauftrag → native Produkte | Pure Seeds/Versionen; kein Renderer, Netzwerk oder versteckter Weltbesitz |
+| generators | 0:N native Inputs + Detailauftrag/Seed → native Produkte | Keine Providerpflicht, kein synchrones IO oder versteckter Weltbesitz |
 | physics + SimulationState | Commands + Kontakte → Simulationssnapshot | Fester Takt, Massen/Kräfte/Gelenke; eigene Lebensdauer |
 | render/audio | Welt-/Simulationssnapshot → Bild/Ton | Sichtbarkeit/Ausgabe; keine Quellabfragen oder Weltgenerierung |
 | Script/UI/LLM-Host | Eingabe/Events → validierte Commands | Kein direkter Objektbesitz; keine blockierende Modellantwort |
@@ -103,10 +104,9 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
 1. Alle Architekturverstöße priorisiert beheben: Weltprodukte ohne Quellformate/Generatorinputs;
    konkrete Provider/Decoder und OSM-Topologieadapter aus world; Physik korrekt zuordnen.
    Diese Grenzen durch Include-/Typprüfungen erzwingen, nicht allein durch Verhaltensfälle.
-   Nächste Einheit: OSM-Netz-/Routenauflösung nach import, Transportjobs nach engine;
-   world hält native Topologie/Routen ohne DOM, SourceReceipt bleibt quellunabhängig.
+   Nächste Einheit: Quellenerwerb aus world/data und konkrete Terrain-/OSM-Ingestion
+   aus world/ground lösen; Adapter/Generatoren liefern native Produkte ohne IO-Besitz.
    Generische Weltprodukte konsumieren weder Importformate noch Generatorinputs; Engine verbindet sie.
-   Native Felder/Netze bleiben lesbare Produkte; Weltobjekte besitzen keine Quelle/Jobqueue.
 2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
 3. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
 4. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
