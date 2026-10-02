@@ -181,7 +181,7 @@ void SourceAcquisition::StartRegionAcquisition() {
             Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
       }
       const auto deadline = [access, revision] { return access->CurrentDeadline(revision); };
-      auto read = Data::ReadOsmApiRegions(
+      auto read = ReadRegions(
           input, *access->Store, *access->Wire, deadline(), token, registry, root, deadline);
       if (read) {
         result->ReadMs = read->ElapsedMs;

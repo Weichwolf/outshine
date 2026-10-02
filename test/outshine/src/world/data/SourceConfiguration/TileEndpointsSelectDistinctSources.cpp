@@ -1,6 +1,7 @@
+#include "ShippedProviders.h"
 #include "Check.h"
 #include "ContentStore.h"
-#include "DeclaredSources.h"
+#include "SourceConfiguration.h"
 #include "OfflineTransport.h"
 #include "SourceSet.h"
 #include "SourceProviderValidation.h"
@@ -38,6 +39,8 @@ public:
 }
 
 int main() {
+  outshine::Data::ProviderRegistry registry;
+  outshine::Generators::RegisterShippedProviders(registry);
   using namespace outshine;
   using namespace outshine::Data;
   using namespace outshine::Test;
@@ -58,7 +61,7 @@ int main() {
   ContentStore store({.Using = ContentStore::Use::Off});
   SourceSet sources(store);
   std::string error;
-  CHECK(RegisterDeclared(sources, providers, {}, error), error.c_str());
+  CHECK(RegisterSources(sources, providers, {}, error, registry), error.c_str());
   CHECK(sources.Count() == 2, "both tile sources registered");
   if (sources.Count() != 2) { return Report(); }
   const Address tile = Address::At(TileId{.Zoom = 5, .X = 17, .Y = 11});
@@ -99,7 +102,7 @@ int main() {
   failing[0].Missing = MissingDataPolicy::Fail;
   SourceSet failSources(store);
   error.clear();
-  CHECK(RegisterDeclared(failSources, failing, {}, error), error.c_str());
+  CHECK(RegisterSources(failSources, failing, {}, error, registry), error.c_str());
   TileTransport failTransport;
   auto failQuery = failSources.Ask(request);
   CHECK(failSources.Collect(failQuery, failTransport).Where() == Delivery::State::Refused &&
@@ -113,7 +116,7 @@ int main() {
   ContentStore cache({.Directory = directory});
   SourceSet cached(cache);
   error.clear();
-  CHECK(RegisterDeclared(cached, failing, {}, error), error.c_str());
+  CHECK(RegisterSources(cached, failing, {}, error, registry), error.c_str());
   const std::array<uint8_t, 2> bytes{5, 9};
   CHECK(cache.Keep(ContentKey(cached.At(0).Declaration(), tile), bytes.data(), bytes.size()),
         "first provider's cached bytes are installed");
@@ -128,7 +131,7 @@ int main() {
   changedEndpointProviders[0].Endpoint = "https://changed.example/map/{z}/{x}/{y}.png";
   SourceSet changedEndpointSources(cache);
   error.clear();
-  CHECK(RegisterDeclared(changedEndpointSources, changedEndpointProviders, {}, error),
+  CHECK(RegisterSources(changedEndpointSources, changedEndpointProviders, {}, error, registry),
         error.c_str());
   auto changedEndpointQuery = changedEndpointSources.Ask(request);
   const Delivery changedEndpointReply =
@@ -141,7 +144,7 @@ int main() {
         "changed endpoint under the same dataset and pin cannot consume old cached bytes");
   SourceSet missing(cache);
   error.clear();
-  CHECK(RegisterDeclared(missing, providers, {}, error), error.c_str());
+  CHECK(RegisterSources(missing, providers, {}, error, registry), error.c_str());
   const Address uncached = Address::At(TileId{.Zoom = 5, .X = 18, .Y = 11});
   auto missQuery = missing.Ask(Fetch(DataKind::VectorMap, uncached));
   const Delivery missed = missing.Collect(missQuery, offline);

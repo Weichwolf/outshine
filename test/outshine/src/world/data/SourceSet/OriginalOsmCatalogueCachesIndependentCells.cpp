@@ -1,5 +1,6 @@
+#include "ShippedProviders.h"
 #include "Check.h"
-#include "DeclaredSources.h"
+#include "SourceConfiguration.h"
 #include "OfflineTransport.h"
 #include "OsmApiReader.h"
 #include "OsmXmlReader.h"
@@ -54,14 +55,14 @@ int main() {
   const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;
-  RegisterShippedProviders(registry);
+  outshine::Generators::RegisterShippedProviders(registry);
   std::array<std::string, 2> keys;
   ApiWire network;
   OfflineTransport offline;
   for (int pass = 0; pass < 2; ++pass) {
     ContentStore store({.Directory = directory});
     SourceSet sources(store);
-    auto made = MakeDeclaredSource(provider, ".", &registry);
+    auto made = ConfigureSource(provider, ".", registry);
     CHECK(made && (*made)->Declaration().How == Scheme::GeodeticGrid &&
               (*made)->Declaration().Wire == WireFormat::OsmXml &&
               (*made)->Declaration().MaximumPayloadBytes == kMaxOsmXmlBytes,
@@ -111,7 +112,8 @@ int main() {
   CHECK(keys[0] != keys[1] && network.Urls == expectedUrls,
         "adjacent original cells use separate bounded official queries and cache identities");
   ContentStore noCache({.Using = ContentStore::Use::Off});
-  const auto global = ReadOsmApiRegion(provider, noCache, network, network.NowMs() + 1000, {});
+  const auto global =
+      outshine::Generators::Osm::ReadRegion(provider, noCache, network, network.NowMs() + 1000, {});
   CHECK(!global && global.error().find("geographic cell demand") != std::string::npos &&
             network.Urls.size() == 2,
         "a catalogue cannot masquerade as a complete bounded regional source");

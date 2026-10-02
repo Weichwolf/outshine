@@ -10,7 +10,7 @@
 #include <string_view>
 
 #include "ContentStore.h"
-#include "DeclaredSources.h"
+#include "SourceConfiguration.h"
 #include "SourceSet.h"
 #include "TerrainLoader.h"
 #include <world/data/SourceDecl.h>

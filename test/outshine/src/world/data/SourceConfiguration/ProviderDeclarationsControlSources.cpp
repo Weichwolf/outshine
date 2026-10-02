@@ -1,10 +1,13 @@
-#include "DeclaredSources.h"
+#include "ShippedProviders.h"
+#include "SourceConfiguration.h"
 #include "Check.h"
 #include <array>
 #include <limits>
 #include <string>
 
 int main() {
+  outshine::Data::ProviderRegistry registry;
+  outshine::Generators::RegisterShippedProviders(registry);
   using namespace outshine;
   using namespace outshine::Data;
   using namespace outshine::Test;
@@ -23,7 +26,7 @@ int main() {
        .Endpoint = "https://fixture.invalid/{z}/{x}/{y}"},
   }};
   std::string error;
-  CHECK(RegisterDeclared(sources, declared, "sky", error), error.c_str());
+  CHECK(RegisterSources(sources, declared, {}, error, registry), error.c_str());
   CHECK(sources.Count() == declared.size(), "every declared source is registered");
   if (sources.Count() == declared.size()) {
     const SourceDecl &preferred = sources.At(0).Declaration();
@@ -54,12 +57,13 @@ int main() {
       {.Kind = "vector", .Missing = static_cast<MissingDataPolicy>(255)},
   }};
   error.clear();
-  CHECK(!RegisterDeclared(rejected, invalid, "sky", error) && !error.empty() &&
+  CHECK(!RegisterSources(rejected, invalid, {}, error, registry) && !error.empty() &&
             rejected.Count() == 0,
         "unknown absence policy is rejected before registration");
   const std::array<SourceProvider, 1> retry = {{{.Kind = "terrain"}}};
   error.clear();
-  CHECK(RegisterDeclared(rejected, retry, "sky", error) && error.empty() && rejected.Count() == 1,
+  CHECK(RegisterSources(rejected, retry, {}, error, registry) && error.empty() &&
+            rejected.Count() == 1,
         "valid retry publishes a complete source set");
   return Report();
 }

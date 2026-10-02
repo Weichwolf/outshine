@@ -1,5 +1,6 @@
+#include "ShippedProviders.h"
 #include "Check.h"
-#include "DeclaredSources.h"
+#include "SourceConfiguration.h"
 #include "OfflineTransport.h"
 #include "OsmApiReader.h"
 #include "Sha256.h"
@@ -61,7 +62,7 @@ public:
   }
 };
 
-void CheckSnapshots(const outshine::Data::OsmSourceRead &read,
+void CheckSnapshots(const outshine::Generators::Osm::SourceRead &read,
                     std::span<const outshine::Data::GeoCellId> cells,
                     bool stored) {
   using namespace outshine::Data;
@@ -106,17 +107,18 @@ int main() {
   const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                          GeoCellId{.Level = 9, .X = 270, .Y = 411}};
   ProviderRegistry registry;
-  RegisterShippedProviders(registry);
+  outshine::Generators::RegisterShippedProviders(registry);
   ContentStore store({.Directory = directory});
   ApiWire wire;
-  const auto cold = ReadOsmApiCells(provider, cells, store, wire, 100, {}, &registry);
+  const auto cold =
+      outshine::Generators::Osm::ReadCells(provider, cells, store, wire, 100, {}, &registry);
   CHECK(cold && cold->Chunks.size() == 2 && wire.Peak == 2 && wire.Active.empty() &&
             cold->ElapsedMs == 10,
         "one finite cell job uses two overlapping requests and wall-clock acquisition time");
   if (cold && cold->Chunks.size() == 2) { CheckSnapshots(*cold, cells, false); }
   OfflineTransport offline;
-  const auto warm =
-      ReadOsmApiCells(provider, cells, store, offline, offline.NowMs() + 1000, {}, &registry);
+  const auto warm = outshine::Generators::Osm::ReadCells(
+      provider, cells, store, offline, offline.NowMs() + 1000, {}, &registry);
   CHECK(warm && warm->Chunks.size() == 2, "received cell bytes reload offline");
   if (warm && warm->Chunks.size() == 2) { CheckSnapshots(*warm, cells, true); }
 
@@ -125,27 +127,31 @@ int main() {
   const std::array duplicate{cells[0], cells[0]};
   const std::array invalid{cells[0], GeoCellId{.Level = 8}};
   ApiWire untouched;
-  CHECK(!ReadOsmApiCells(provider, {}, uncached, untouched, 100, {}) &&
-            !ReadOsmApiCells(provider, excessive, uncached, untouched, 100, {}) &&
-            !ReadOsmApiCells(provider, duplicate, uncached, untouched, 100, {}) &&
-            !ReadOsmApiCells(provider, invalid, uncached, untouched, 100, {}) &&
-            untouched.Starts == 0,
-        "empty, oversized, duplicate and invalid jobs are refused before network work");
+  CHECK(
+      !outshine::Generators::Osm::ReadCells(provider, {}, uncached, untouched, 100, {}) &&
+          !outshine::Generators::Osm::ReadCells(
+              provider, excessive, uncached, untouched, 100, {}) &&
+          !outshine::Generators::Osm::ReadCells(
+              provider, duplicate, uncached, untouched, 100, {}) &&
+          !outshine::Generators::Osm::ReadCells(provider, invalid, uncached, untouched, 100, {}) &&
+          untouched.Starts == 0,
+      "empty, oversized, duplicate and invalid jobs are refused before network work");
   ApiWire stalled;
   stalled.Stall = true;
-  CHECK(!ReadOsmApiCells(provider, cells, uncached, stalled, 7, {}) && stalled.ClockMs == 7 &&
-            stalled.Canceled == 2 && stalled.Active.empty(),
+  CHECK(!outshine::Generators::Osm::ReadCells(provider, cells, uncached, stalled, 7, {}) &&
+            stalled.ClockMs == 7 && stalled.Canceled == 2 && stalled.Active.empty(),
         "a shared deadline cancels every unfinished cell without publishing a partial batch");
   ApiWire canceled;
   std::stop_source stop;
   canceled.Stop = &stop;
-  CHECK(!ReadOsmApiCells(provider, cells, uncached, canceled, 100, stop.get_token()) &&
+  CHECK(!outshine::Generators::Osm::ReadCells(
+            provider, cells, uncached, canceled, 100, stop.get_token()) &&
             canceled.Canceled == 2 && canceled.Active.empty(),
         "canceling a cell job releases both active transport tickets");
   ApiWire refused;
   refused.Refuse = true;
-  CHECK(!ReadOsmApiCells(provider, cells, uncached, refused, 100, {}) && refused.Canceled == 1 &&
-            refused.Active.empty(),
+  CHECK(!outshine::Generators::Osm::ReadCells(provider, cells, uncached, refused, 100, {}) &&
+            refused.Canceled == 1 && refused.Active.empty(),
         "one refused cell abandons its pending neighbor without publishing a partial batch");
   std::error_code error;
   std::filesystem::remove_all(directory, error);

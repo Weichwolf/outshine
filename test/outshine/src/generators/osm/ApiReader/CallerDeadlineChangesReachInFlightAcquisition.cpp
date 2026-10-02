@@ -51,14 +51,14 @@ int main() {
            SourceCoverage{.WestDeg = -0.1, .SouthDeg = -0.1, .EastDeg = 0.1, .NorthDeg = 0.1}}};
   ContentStore store({.Using = ContentStore::Use::Off});
   DelayedWire fixed;
-  CHECK(!ReadOsmApiRegions(providers, store, fixed, 10, {}) && fixed.ClockMs == 10 &&
-            fixed.Canceled == 1,
+  CHECK(!outshine::Generators::Osm::ReadRegions(providers, store, fixed, 10, {}) &&
+            fixed.ClockMs == 10 && fixed.Canceled == 1,
         "the fixed caller deadline stops and cancels acquisition before a late response");
   std::atomic<double> deadline{10};
   DelayedWire extended;
   extended.Deadline = &deadline;
   extended.ChangedDeadlineMs = 20;
-  const auto changed = ReadOsmApiRegions(
+  const auto changed = outshine::Generators::Osm::ReadRegions(
       providers, store, extended, 10, {}, nullptr, {}, [&deadline] { return deadline.load(); });
   CHECK(changed && changed->Chunks.size() == 1 && extended.ClockMs == 15 && extended.Canceled == 0,
         "an updated preparation deadline reaches IO that was already pending");
@@ -66,25 +66,26 @@ int main() {
   DelayedWire shortened;
   shortened.Deadline = &deadline;
   shortened.ChangedDeadlineMs = 6;
-  CHECK(!ReadOsmApiRegions(providers,
-                           store,
-                           shortened,
-                           20,
-                           {},
-                           nullptr,
-                           {},
-                           [&deadline] { return deadline.load(); }) &&
+  CHECK(!outshine::Generators::Osm::ReadRegions(providers,
+                                                store,
+                                                shortened,
+                                                20,
+                                                {},
+                                                nullptr,
+                                                {},
+                                                [&deadline] { return deadline.load(); }) &&
             shortened.ClockMs == 6 && shortened.Canceled == 1,
         "a stricter caller budget cancels pending acquisition at the new bound");
   DelayedWire invalid;
-  CHECK(!ReadOsmApiRegions(providers,
-                           store,
-                           invalid,
-                           20,
-                           {},
-                           nullptr,
-                           {},
-                           [] { return std::numeric_limits<double>::infinity(); }) &&
+  CHECK(!outshine::Generators::Osm::ReadRegions(
+            providers,
+            store,
+            invalid,
+            20,
+            {},
+            nullptr,
+            {},
+            [] { return std::numeric_limits<double>::infinity(); }) &&
             invalid.Starts == 0,
         "a nonfinite updated deadline cannot start unbounded acquisition");
   return Report();

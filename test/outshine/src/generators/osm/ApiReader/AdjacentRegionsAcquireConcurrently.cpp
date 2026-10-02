@@ -76,7 +76,7 @@ int main() {
   }
   ContentStore store({.Directory = directory});
   ApiWire wire;
-  const auto cold = ReadOsmApiRegions(providers, store, wire, 100, {});
+  const auto cold = outshine::Generators::Osm::ReadRegions(providers, store, wire, 100, {});
   CHECK(cold && cold->Chunks.size() == 4 && wire.Starts == 4 && wire.Peak == 2 &&
             wire.Active.empty() && cold->ElapsedMs == 15,
         "two bounded concurrent requests finish four delayed responses in half the serial time");
@@ -94,7 +94,8 @@ int main() {
           "independently pinned responses merge as one consistent original dataset");
   }
   OfflineTransport offline;
-  const auto warm = ReadOsmApiRegions(providers, store, offline, offline.NowMs() + 1000, {});
+  const auto warm =
+      outshine::Generators::Osm::ReadRegions(providers, store, offline, offline.NowMs() + 1000, {});
   CHECK(warm && warm->Chunks.size() == 4 &&
             std::ranges::all_of(warm->Chunks, [](const auto &chunk) { return chunk.FromStore; }),
         "all regions reload offline from original-response bytes");
@@ -102,18 +103,20 @@ int main() {
   ContentStore noCache({.Using = ContentStore::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
-  CHECK(!ReadOsmApiRegions(providers, noCache, stalled, 7, {}) && stalled.ClockMs == 7 &&
-            stalled.Starts == 2 && stalled.Canceled == 2 && stalled.Active.empty(),
+  CHECK(!outshine::Generators::Osm::ReadRegions(providers, noCache, stalled, 7, {}) &&
+            stalled.ClockMs == 7 && stalled.Starts == 2 && stalled.Canceled == 2 &&
+            stalled.Active.empty(),
         "one deadline bounds the batch and cancels every outstanding ticket");
   ApiWire refused;
   refused.Refuse = true;
-  CHECK(!ReadOsmApiRegions(providers, noCache, refused, 100, {}) && refused.Starts == 2 &&
-            refused.Canceled == 1 && refused.Active.empty(),
+  CHECK(!outshine::Generators::Osm::ReadRegions(providers, noCache, refused, 100, {}) &&
+            refused.Starts == 2 && refused.Canceled == 1 && refused.Active.empty(),
         "a terminal region failure cancels siblings and does not launch queued regions");
   ApiWire canceled;
   std::stop_source stop;
   (void)stop.request_stop();
-  CHECK(!ReadOsmApiRegions(providers, noCache, canceled, 100, stop.get_token()) &&
+  CHECK(!outshine::Generators::Osm::ReadRegions(
+            providers, noCache, canceled, 100, stop.get_token()) &&
             canceled.Starts == 0,
         "an already canceled batch performs no acquisition");
   std::error_code ignored;

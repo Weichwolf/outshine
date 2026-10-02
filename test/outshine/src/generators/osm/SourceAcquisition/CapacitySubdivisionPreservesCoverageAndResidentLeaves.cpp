@@ -1,5 +1,6 @@
+#include "ShippedProviders.h"
 #include "Check.h"
-#include "DeclaredSources.h"
+#include "SourceConfiguration.h"
 #include "ContentStore.h"
 #include "OsmSourceAcquisition.h"
 #include "SourceProviderValidation.h"
@@ -185,7 +186,9 @@ int main() {
     interrupted.BlockFromWest = demand.back().Bounds()->WestDeg;
     revision.Revision = "adaptive-interrupted";
     ContentStore acquired({.Directory = directory, .UtcSeconds = {}});
-    auto catalogue = MakeDeclaredSource(revision, ".", nullptr);
+    ProviderRegistry registry;
+    outshine::Generators::RegisterShippedProviders(registry);
+    auto catalogue = ConfigureSource(revision, ".", registry);
     CHECK(catalogue, "the original catalogue supplies the same cache identity");
     if (!catalogue) { return Report(); }
     outshine::Generators::Osm::SourceAcquisition preparing(

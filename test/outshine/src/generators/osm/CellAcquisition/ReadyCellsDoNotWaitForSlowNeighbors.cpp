@@ -48,8 +48,8 @@ int main() {
                                   .Dataset = "openstreetmap.original",
                                   .Endpoint = std::string(kOfficialOsmApi)};
     DelayedOsmTransport wire;
-    std::array<GeoCellId, OsmCellAcquisition::MaximumPendingCells> cells{};
-    OsmCellAcquisition reader(provider, store, wire);
+    std::array<GeoCellId, outshine::Generators::Osm::CellAcquisition::MaximumPendingCells> cells{};
+    outshine::Generators::Osm::CellAcquisition reader(provider, store, wire);
     for (size_t index = 0; index < cells.size(); ++index) {
       cells[index] = {.Level = 9, .X = static_cast<uint32_t>(256 + index), .Y = 256};
       CHECK(reader.Start(cells[index]), "each independent cell enters bounded acquisition");
@@ -72,7 +72,7 @@ int main() {
     CHECK(last && *last && (**last).Chunks.front().Cell == cells.front() &&
               reader.PendingCount() == 0,
           "the delayed cell completes without losing its original address");
-    OsmCellAcquisition warm(provider, store, wire);
+    outshine::Generators::Osm::CellAcquisition warm(provider, store, wire);
     for (const auto cell : cells) {
       CHECK(warm.Start(cell), "cached cells enter the same acquisition path");
     }
@@ -91,7 +91,7 @@ int main() {
           "geometry");
     DelayedOsmTransport stopped;
     {
-      OsmCellAcquisition canceled(provider, store, stopped);
+      outshine::Generators::Osm::CellAcquisition canceled(provider, store, stopped);
       CHECK(canceled.Start({.Level = 9, .X = 302, .Y = 256}),
             "cancelable original cell enters acquisition");
       auto waiting = canceled.TakeReady();

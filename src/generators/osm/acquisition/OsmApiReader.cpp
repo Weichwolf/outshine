@@ -1,7 +1,7 @@
 #include "OsmApiReader.h"
 #include "OsmApiRegion.h"
 
-#include "DeclaredSources.h"
+#include "SourceConfiguration.h"
 #include "SourceSet.h"
 
 #include <cmath>
@@ -18,46 +18,45 @@
 #include <utility>
 #include <vector>
 
-namespace outshine::Data {
+namespace outshine::Generators::Osm {
 namespace {
 constexpr double kIoAwaitMs = 5.0;
 constexpr size_t kConcurrentRegions = 2;
 
-std::expected<size_t, std::string>
-PollStarted(std::span<const std::unique_ptr<OsmApiRegion>> regions,
-            std::span<OsmSourceChunk> chunks,
-            std::span<const double> beganMs,
-            std::vector<GeoCellId> &refine) {
+std::expected<size_t, std::string> PollStarted(std::span<const std::unique_ptr<ApiRegion>> regions,
+                                               std::span<Data::OsmSourceChunk> chunks,
+                                               std::span<const double> beganMs,
+                                               std::vector<Data::GeoCellId> &refine) {
   size_t completed = 0;
   for (size_t at = 0; at < regions.size(); ++at) {
     auto ready = regions[at]->Collect(chunks[at], beganMs[at]);
     if (!ready) { return std::unexpected(std::move(ready.error())); }
     const auto cell = chunks[at].Cell;
-    if (*ready == OsmApiRegion::Collected::Refine && cell) { refine.push_back(*cell); }
-    completed += static_cast<size_t>(*ready != OsmApiRegion::Collected::Pending);
+    if (*ready == ApiRegion::Collected::Refine && cell) { refine.push_back(*cell); }
+    completed += static_cast<size_t>(*ready != ApiRegion::Collected::Pending);
   }
   return completed;
 }
 
-std::expected<OsmSourceRead, std::string>
-ReadRequests(std::span<const SourceProvider> providers,
-             std::span<const GeoCellId> cells,
-             ContentStore &store,
-             Transport &wire,
+std::expected<SourceRead, std::string>
+ReadRequests(std::span<const Data::SourceProvider> providers,
+             std::span<const Data::GeoCellId> cells,
+             Data::ContentStore &store,
+             Data::Transport &wire,
              double deadlineMs,
              const std::stop_token &stop,
-             const ProviderRegistry *registry,
+             const Data::ProviderRegistry *registry,
              std::string_view shippedRoot,
              const std::function<double()> &currentDeadline) {
   const double began = wire.NowMs();
-  std::vector<std::unique_ptr<OsmApiRegion>> regions;
-  std::vector<OsmSourceChunk> chunks;
+  std::vector<std::unique_ptr<ApiRegion>> regions;
+  std::vector<Data::OsmSourceChunk> chunks;
   regions.reserve(providers.size());
   chunks.reserve(providers.size());
   for (size_t at = 0; at < providers.size(); ++at) {
     const auto &provider = providers[at];
     const auto cell = cells.empty() ? std::nullopt : std::optional(cells[at]);
-    auto region = OsmApiRegion::Create(provider, store, wire, registry, shippedRoot, cell);
+    auto region = ApiRegion::Create(provider, store, wire, registry, shippedRoot, cell);
     if (!region) { return std::unexpected(std::move(region.error())); }
     chunks.push_back((*region)->Chunk(provider, cell));
     regions.push_back(std::move(*region));
@@ -65,7 +64,7 @@ ReadRequests(std::span<const SourceProvider> providers,
   std::vector<double> beganMs(providers.size());
   size_t next = 0;
   size_t completed = 0;
-  std::vector<GeoCellId> refine;
+  std::vector<Data::GeoCellId> refine;
   while (completed < regions.size()) {
     const double nowMs = wire.NowMs();
     const double untilMs = currentDeadline ? currentDeadline() : deadlineMs;
@@ -88,54 +87,52 @@ ReadRequests(std::span<const SourceProvider> providers,
     (void)wire.Await(std::min(kIoAwaitMs, std::max(0.0, untilMs - wire.NowMs())));
   }
   std::erase_if(chunks, [](const auto &chunk) { return chunk.Xml.empty(); });
-  return OsmSourceRead{
+  return SourceRead{
       .Chunks = std::move(chunks), .Refine = std::move(refine), .ElapsedMs = wire.NowMs() - began};
 }
 }
 
-std::expected<OsmSourceRead, std::string>
-ReadOsmApiCells(const SourceProvider &catalogue,
-                std::span<const GeoCellId> cells,
-                ContentStore &store,
-                Transport &wire,
-                double deadlineMs,
-                const std::stop_token &stop,
-                const ProviderRegistry *registry,
-                std::string_view shippedRoot,
-                const std::function<double()> &currentDeadline) {
+std::expected<SourceRead, std::string> ReadCells(const Data::SourceProvider &catalogue,
+                                                 std::span<const Data::GeoCellId> cells,
+                                                 Data::ContentStore &store,
+                                                 Data::Transport &wire,
+                                                 double deadlineMs,
+                                                 const std::stop_token &stop,
+                                                 const Data::ProviderRegistry *registry,
+                                                 std::string_view shippedRoot,
+                                                 const std::function<double()> &currentDeadline) {
   if (cells.empty() || cells.size() > kConcurrentRegions) {
     return std::unexpected("original OSM cell jobs require one or two geographic cells");
   }
   if (cells.size() == kConcurrentRegions && cells.front() == cells.back()) {
     return std::unexpected("original OSM cell jobs require distinct addresses");
   }
-  const std::vector<SourceProvider> providers(cells.size(), catalogue);
+  const std::vector<Data::SourceProvider> providers(cells.size(), catalogue);
   return ReadRequests(
       providers, cells, store, wire, deadlineMs, stop, registry, shippedRoot, currentDeadline);
 }
 
-std::expected<OsmSourceRead, std::string>
-ReadOsmApiRegions(std::span<const SourceProvider> providers,
-                  ContentStore &store,
-                  Transport &wire,
-                  double deadlineMs,
-                  const std::stop_token &stop,
-                  const ProviderRegistry *registry,
-                  std::string_view shippedRoot,
-                  const std::function<double()> &currentDeadline) {
+std::expected<SourceRead, std::string> ReadRegions(std::span<const Data::SourceProvider> providers,
+                                                   Data::ContentStore &store,
+                                                   Data::Transport &wire,
+                                                   double deadlineMs,
+                                                   const std::stop_token &stop,
+                                                   const Data::ProviderRegistry *registry,
+                                                   std::string_view shippedRoot,
+                                                   const std::function<double()> &currentDeadline) {
   return ReadRequests(
       providers, {}, store, wire, deadlineMs, stop, registry, shippedRoot, currentDeadline);
 }
 
-std::expected<OsmSourceChunk, std::string> ReadOsmApiRegion(const SourceProvider &provider,
-                                                            ContentStore &store,
-                                                            Transport &wire,
+std::expected<Data::OsmSourceChunk, std::string> ReadRegion(const Data::SourceProvider &provider,
+                                                            Data::ContentStore &store,
+                                                            Data::Transport &wire,
                                                             double deadlineMs,
                                                             const std::stop_token &stop,
-                                                            const ProviderRegistry *registry,
+                                                            const Data::ProviderRegistry *registry,
                                                             std::string_view shippedRoot) {
-  auto chunks = ReadOsmApiRegions(
-      std::span(&provider, 1), store, wire, deadlineMs, stop, registry, shippedRoot);
+  auto chunks =
+      ReadRegions(std::span(&provider, 1), store, wire, deadlineMs, stop, registry, shippedRoot);
   if (!chunks) { return std::unexpected(std::move(chunks.error())); }
   return std::move(chunks->Chunks.front());
 }

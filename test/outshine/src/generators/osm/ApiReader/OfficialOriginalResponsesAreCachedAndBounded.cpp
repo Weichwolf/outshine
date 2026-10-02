@@ -68,7 +68,7 @@ int main() {
       .Coverage =
           SourceCoverage{.WestDeg = 9.433, .SouthDeg = 54.785, .EastDeg = 9.445, .NorthDeg = 54.8},
       .PayloadSha256 = Sha256Hex(wire.Xml)};
-  const auto cold = ReadOsmApiRegion(provider, store, wire, 1100, {});
+  const auto cold = outshine::Generators::Osm::ReadRegion(provider, store, wire, 1100, {});
   CHECK(cold && cold->Xml == wire.Xml && !cold->FromStore &&
             wire.Urls ==
                 std::vector<std::string>{
@@ -84,52 +84,58 @@ int main() {
         "original object kinds, unknown tags and verified response provenance reach the snapshot");
   }
   OfflineTransport offline;
-  const auto warm = ReadOsmApiRegion(provider, store, offline, offline.NowMs() + 1000, {});
+  const auto warm =
+      outshine::Generators::Osm::ReadRegion(provider, store, offline, offline.NowMs() + 1000, {});
   CHECK(cold && warm && warm->FromStore && warm->Xml == wire.Xml && warm->Origin == cold->Origin,
         "warm offline acquisition uses unchanged original bytes and official provenance");
   auto changed = provider;
   changed.PayloadSha256 = std::string(64, 'a');
-  CHECK(!ReadOsmApiRegion(changed, store, offline, offline.NowMs() + 1000, {}),
+  CHECK(!outshine::Generators::Osm::ReadRegion(changed, store, offline, offline.NowMs() + 1000, {}),
         "a new expected response pin cannot reuse bytes under the old pin");
   for (const std::string endpoint : {"https://tiles.versatiles.org/api/0.6",
                                      "https://api.openstreetmap.org.evil.invalid/api/0.6",
                                      "http://api.openstreetmap.org/api/0.6"}) {
     changed = provider;
     changed.Endpoint = endpoint;
-    CHECK(!OsmApiSource::Create(changed, 0), "unofficial or insecure endpoints fail before IO");
+    CHECK(!outshine::Generators::Osm::ApiSource::Create(changed, 0),
+          "unofficial or insecure endpoints fail before IO");
   }
   changed = provider;
   changed.Coverage = SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1};
-  CHECK(!OsmApiSource::Create(changed, 0),
+  CHECK(!outshine::Generators::Osm::ApiSource::Create(changed, 0),
         "API requests above the declared service area limit fail");
   ContentStore noCache({.Using = ContentStore::Use::Off});
   ApiWire stalled;
   stalled.Stall = true;
-  CHECK(!ReadOsmApiRegion(provider, noCache, stalled, 110, {}) && stalled.Canceled == 1,
+  CHECK(!outshine::Generators::Osm::ReadRegion(provider, noCache, stalled, 110, {}) &&
+            stalled.Canceled == 1,
         "deadline cancels the outstanding transport ticket");
   std::stop_source stop;
   (void)stop.request_stop();
   ApiWire canceled;
-  CHECK(!ReadOsmApiRegion(provider, noCache, canceled, 1100, stop.get_token()) &&
-            canceled.Urls.empty(),
-        "an already canceled request performs no network or cache acquisition");
+  CHECK(
+      !outshine::Generators::Osm::ReadRegion(provider, noCache, canceled, 1100, stop.get_token()) &&
+          canceled.Urls.empty(),
+      "an already canceled request performs no network or cache acquisition");
   ApiWire oversized;
   oversized.Xml.assign(kMaxOsmXmlBytes + 1, ' ');
-  CHECK(ReadOsmApiRegion(provider, store, oversized, 1100, {}) && oversized.Urls.empty(),
+  CHECK(outshine::Generators::Osm::ReadRegion(provider, store, oversized, 1100, {}) &&
+            oversized.Urls.empty(),
         "a warm request does not replace its cached bytes with a different wire payload");
   changed = provider;
   changed.Revision = "oversized-response";
   const auto writes = store.Counters().Writes;
-  CHECK(!ReadOsmApiRegion(changed, store, oversized, 1100, {}) && store.Counters().Writes == writes,
+  CHECK(!outshine::Generators::Osm::ReadRegion(changed, store, oversized, 1100, {}) &&
+            store.Counters().Writes == writes,
         "oversized original responses are rejected before writing to the cache");
   ApiWire forbidden;
   forbidden.Status = 403;
   const auto absentWrites = store.Counters().Writes;
   changed.Revision = "forbidden-response";
-  CHECK(!ReadOsmApiRegion(changed, store, forbidden, 1100, {}) &&
+  CHECK(!outshine::Generators::Osm::ReadRegion(changed, store, forbidden, 1100, {}) &&
             store.Counters().Writes == absentWrites,
         "a forbidden response is not cached as original data or confirmed absence");
-  auto api = OsmApiSource::Create(provider, 0);
+  auto api = outshine::Generators::Osm::ApiSource::Create(provider, 0);
   CHECK(api.has_value(), "official bounded source created for refusal classification");
   if (api) {
     ApiWire capacity;

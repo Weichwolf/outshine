@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include "EngineHeld.h"
 #include "Heap.h"
 #include "OfflineTransport.h"
@@ -36,7 +37,7 @@ constexpr double kEastStepDeg = 0.0138;
 }
 
 bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders) {
-  Data::RegisterShippedProviders(World.Providers);
+  Generators::RegisterShippedProviders(World.Providers);
   std::vector<Data::SourceProvider> osmProviders;
   tileProviders.reserve(Session.Declared.Providers.size());
   osmProviders.reserve(Session.Declared.Providers.size());
@@ -195,7 +196,7 @@ bool Engine::State::PrepareRuntimeWorld() {
   }
 
   if (tileProviders.empty()) {
-    const auto shipped = Data::ShippedProviders();
+    const auto shipped = Generators::ShippedProviders();
     tileProviders.assign(shipped.begin(), shipped.end());
   }
   Collecting say;

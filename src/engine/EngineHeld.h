@@ -50,7 +50,7 @@
 #include "Triggers.h"
 #include "Views.h"
 #include "Sink.h"
-#include "DeclaredSources.h"
+#include "SourceConfiguration.h"
 #include "SurfacePreparation.h"
 #include "PublishedRegion.h"
 #include "OsmTransportPreparation.h"

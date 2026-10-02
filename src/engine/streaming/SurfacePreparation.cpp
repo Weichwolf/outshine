@@ -1,3 +1,4 @@
+#include "ShippedProviders.h"
 #include <algorithm>
 #include <expected>
 #include <array>
@@ -66,8 +67,10 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
   Sources_ = std::make_unique<outshine::Data::SourceSet>(*Store_);
   outshine::Data::SourceSet &sources = *Sources_;
   std::string refused;
-  const bool registered = outshine::Data::RegisterDeclared(
-      sources, providers, under.Shipped + "/sky", refused, registry);
+  Data::ProviderRegistry defaults;
+  if (registry == nullptr) { Generators::RegisterShippedProviders(defaults); }
+  const bool registered = outshine::Data::RegisterSources(
+      sources, providers, under.Shipped, refused, registry != nullptr ? *registry : defaults);
   if (!registered) {
     say.Refuse(refused);
     Close();

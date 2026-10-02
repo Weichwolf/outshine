@@ -10,11 +10,8 @@
 #include <atomic>
 #include <math/Units.h>
 
-namespace outshine::Data {
-class OsmCellAcquisition;
-}
-
 namespace outshine::Generators::Osm {
+class CellAcquisition;
 
 struct SourceAcquisition::Access {
   Data::Transport *Wire = nullptr;
@@ -72,12 +69,12 @@ struct SourceAcquisition::CellPipeline {
     std::mutex Mutex;
     std::condition_variable Changed;
     std::deque<Data::GeoCellId> Requests;
-    std::deque<Data::OsmSourceRead> Ready;
+    std::deque<SourceRead> Ready;
     std::string Error;
   };
 
   std::shared_ptr<Exchange> Shared = std::make_shared<Exchange>();
-  std::shared_ptr<Data::OsmCellAcquisition> Reader;
+  std::shared_ptr<CellAcquisition> Reader;
   std::vector<Data::GeoCellId> Assigned;
   Tasks::Handle Handle = Tasks::kNoTask;
   std::stop_source Stop;
@@ -88,9 +85,8 @@ struct SourceAcquisition::CellPipeline {
                                           std::string_view root,
                                           uint64_t revision,
                                           const std::stop_token &stop);
-  [[nodiscard]] std::expected<void, std::string>
-  StartQueued(Data::OsmCellAcquisition &reader) const;
-  void Deliver(Data::OsmSourceRead ready) const;
+  [[nodiscard]] std::expected<void, std::string> StartQueued(CellAcquisition &reader) const;
+  void Deliver(SourceRead ready) const;
   [[nodiscard]] static bool DeadlineExceeded(Access &access, uint64_t revision);
   [[nodiscard]] Tasks::StepResult Fail(std::string error);
 };

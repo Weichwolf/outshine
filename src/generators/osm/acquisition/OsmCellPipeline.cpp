@@ -57,8 +57,8 @@ bool SourceAcquisition::CellPipeline::DeadlineExceeded(Access &access, uint64_t 
 }
 
 std::expected<void, std::string>
-SourceAcquisition::CellPipeline::StartQueued(Data::OsmCellAcquisition &reader) const {
-  while (reader.PendingCount() < Data::OsmCellAcquisition::MaximumPendingCells) {
+SourceAcquisition::CellPipeline::StartQueued(CellAcquisition &reader) const {
+  while (reader.PendingCount() < CellAcquisition::MaximumPendingCells) {
     std::optional<Data::GeoCellId> cell;
     {
       const std::scoped_lock lock(Shared->Mutex);
@@ -75,7 +75,7 @@ SourceAcquisition::CellPipeline::StartQueued(Data::OsmCellAcquisition &reader) c
   return {};
 }
 
-void SourceAcquisition::CellPipeline::Deliver(Data::OsmSourceRead ready) const {
+void SourceAcquisition::CellPipeline::Deliver(SourceRead ready) const {
   const std::scoped_lock lock(Shared->Mutex);
   Shared->Ready.push_back(std::move(ready));
 }
@@ -99,7 +99,7 @@ Tasks::StepResult SourceAcquisition::CellPipeline::Acquire(const std::shared_ptr
         Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
   }
   if (!Reader) {
-    Reader = std::make_shared<Data::OsmCellAcquisition>(
+    Reader = std::make_shared<CellAcquisition>(
         provider, *access->Store, *access->Wire, registry, std::string(root));
   }
   {
@@ -157,7 +157,7 @@ void SourceAcquisition::PumpCellPipeline() {
 
 void SourceAcquisition::ConsumeAcquiredCell() {
   auto &pipeline = *CellPipeline_;
-  std::optional<Data::OsmSourceRead> ready;
+  std::optional<SourceRead> ready;
   {
     const std::scoped_lock lock(pipeline.Shared->Mutex);
     if (!pipeline.Shared->Ready.empty()) {
@@ -190,11 +190,11 @@ void SourceAcquisition::ReleaseAssignedCells(std::span<const CellSource> ready) 
 
 void SourceAcquisition::QueueMissingCells() {
   auto &pipeline = *CellPipeline_;
-  while (pipeline.Assigned.size() < Data::OsmCellAcquisition::MaximumPendingCells) {
+  while (pipeline.Assigned.size() < CellAcquisition::MaximumPendingCells) {
     auto cells = Cells_->NextAcquisitionBatch(pipeline.Assigned);
     if (cells.empty()) { break; }
-    const auto count = std::min(
-        cells.size(), Data::OsmCellAcquisition::MaximumPendingCells - pipeline.Assigned.size());
+    const auto count =
+        std::min(cells.size(), CellAcquisition::MaximumPendingCells - pipeline.Assigned.size());
     cells.resize(count);
     {
       const std::scoped_lock lock(pipeline.Shared->Mutex);
