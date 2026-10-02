@@ -193,9 +193,9 @@ std::optional<Delivery> SourceSet::StartNext(Query &query, Transport &transport)
   return StartCurrent(query, transport);
 }
 
-std::optional<Delivery> SourceSet::ProcessAbsence(Query &query) {
+std::optional<Delivery> SourceSet::ProcessAbsence(Query &query, std::optional<int> httpStatus) {
   if (query.Current_->Declaration().OnAbsent == AbsencePolicy::Fail) {
-    return Refuse(query, kRetryCapMs, FetchFailureReason::ConfirmedAbsent);
+    return Refuse(query, kRetryCapMs, FetchFailureReason::ConfirmedAbsent, httpStatus);
   }
   query.Current_ = nullptr;
   query.Phase_ = Query::Phase::Ready;
@@ -329,7 +329,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
                                                     : ContentStore::PinnedAbsenceLifetimeS;
         (void)Store_.KeepAbsent(query.CacheKey(), lifetime);
       }
-      return ProcessAbsence(query);
+      return ProcessAbsence(query, response.HttpStatus);
     }
     case Meaning::Retry:
       if (validDelay && query.Attempts_ < decl.RetryBudget) {
@@ -339,7 +339,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
         const double deadlineMs = nowMs + std::max(retryAfterMs, backoffMs);
         if (!std::isfinite(nowMs) || nowMs < 0.0 || !std::isfinite(deadlineMs) ||
             deadlineMs <= nowMs) {
-          return Refuse(query, kRetryCapMs);
+          return Refuse(query, kRetryCapMs, response.Reason, response.HttpStatus);
         }
         ++query.Attempts_;
         {
@@ -352,13 +352,18 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
       }
       break;
     case Meaning::Refused: break;
-    default: return Refuse(query, kRetryCapMs);
+    default: return Refuse(query, kRetryCapMs, response.Reason, response.HttpStatus);
   }
-  return Refuse(
-      query, validDelay ? std::max(retryAfterMs, kRetryCapMs) : kRetryCapMs, response.Reason);
+  return Refuse(query,
+                validDelay ? std::max(retryAfterMs, kRetryCapMs) : kRetryCapMs,
+                response.Reason,
+                response.HttpStatus);
 }
 
-Delivery SourceSet::Refuse(Query &query, double afterMs, FetchFailureReason reason) {
+Delivery SourceSet::Refuse(Query &query,
+                           double afterMs,
+                           FetchFailureReason reason,
+                           std::optional<int> httpStatus) {
   const SourceDecl &decl = query.Current_->Declaration();
   const std::string sourceId = decl.Id;
   const std::string sourceRevision = decl.Revision;
@@ -368,7 +373,9 @@ Delivery SourceSet::Refuse(Query &query, double afterMs, FetchFailureReason reas
                        .SourceId = sourceId,
                        .SourceRevision = sourceRevision,
                        .SourceKey = SourceKey(decl),
-                       .Reason = reason};
+                       .Reason = reason,
+                       .HttpStatus = httpStatus,
+                       .Retries = query.Attempts_};
   query.Finish();
   const std::scoped_lock lock(LedgerMutex_);
   ++Ledger_.Refused;

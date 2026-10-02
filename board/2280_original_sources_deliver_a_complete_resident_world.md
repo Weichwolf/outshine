@@ -74,8 +74,9 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   `engine/EnginePreload.cpp` übergibt das öffentliche Preload-Budget auch als Quellenfrist,
   einschließlich laufender IO. Terrain-Sampling erhält ursprüngliche Fehleradresse,
   Quelle und Fehlergrund bis zur Runtime; eine Ablehnung liefert kein partielles Mesh.
-  Quellenfehler erhalten HTTP-Status, Transportgrund und ausgeschöpfte Retryzahl bis zum Client;
-  eine pauschale Ablehnung darf diese Ursache nicht ersetzen.
+  `FetchFailure` hält tatsächliche Quelle, Endstatus und Scheduler-Retryzahl. Der OSM-
+  Reader reicht HTTP-Status und Transportgrund bis zum Client; andere Quelladapter
+  müssen diese Metadaten noch übernehmen. Eine pauschale Ablehnung verliert keine Ursache.
   Internet-Erwerb erhält seine eigene Frist und darf länger dauern. Erst mit vollständigem
   Quellcache gilt das Zehn-Sekunden-Gate; ein frischer Offline-Prozess prüft den warmen Aufbau.
   Als Nächstes 2188s Produkt-/Pinvertrag und 2336s Detailbedarf vor Terrainarbeit anschließen:

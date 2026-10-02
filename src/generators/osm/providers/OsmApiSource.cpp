@@ -117,16 +117,20 @@ ApiSource::Collect(const Data::Address &at, Data::Ticket ticket, Data::Transport
     const std::string_view message(reinterpret_cast<const char *>(response->Body.data()),
                                    response->Body.size());
     if (message.starts_with("You requested too many nodes (limit is ")) {
-      return Data::Fetched::Meant(Data::Meaning::Refused,
-                                  Data::FetchFailureReason::CapacityRefused);
+      return Data::Fetched::Meant(
+          Data::Meaning::Refused, Data::FetchFailureReason::CapacityRefused, response->Status);
     }
   }
   if (response->Status == kHttpNotFound) { return Data::Fetched::NotFound(); }
   if (response->Status == kHttpRequestTimeout || response->Status == kHttpTooManyRequests ||
       response->Status >= kHttpServerError) {
-    return Data::Fetched::MeantAfter(Data::Meaning::Retry, retryAfterS);
+    return Data::Fetched::MeantAfter(Data::Meaning::Retry,
+                                     retryAfterS,
+                                     Data::FetchFailureReason::ProviderRefused,
+                                     response->Status);
   }
-  return Data::Fetched::Meant(Data::Meaning::Refused);
+  return Data::Fetched::Meant(
+      Data::Meaning::Refused, Data::FetchFailureReason::ProviderRefused, response->Status);
 }
 
 }

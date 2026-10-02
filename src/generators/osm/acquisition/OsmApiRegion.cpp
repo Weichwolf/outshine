@@ -96,8 +96,13 @@ std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(Data::OsmSou
     Query_.reset();
     return Collected::Refine;
   }
+  std::string context;
+  if (const auto &failure = delivery.Failure()) {
+    if (failure->HttpStatus) { context = " HTTP " + std::to_string(*failure->HttpStatus); }
+    context += " after " + std::to_string(failure->Retries) + " retries";
+  }
   return std::unexpected("original OSM source '" + chunk.Origin +
-                         "' failed: " + std::string(Data::Name(reason)));
+                         "' failed: " + std::string(Data::Name(reason)) + context);
 }
 
 bool ApiRegion::Begin(const Data::ContentStore &store, std::vector<Data::GeoCellId> &refine) {

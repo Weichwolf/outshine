@@ -132,9 +132,11 @@ int main() {
   forbidden.Status = 403;
   const auto absentWrites = store.Counters().Writes;
   changed.Revision = "forbidden-response";
-  CHECK(!outshine::Generators::Osm::ReadRegion(changed, store, forbidden, 1100, {}) &&
-            store.Counters().Writes == absentWrites,
+  const auto refused = outshine::Generators::Osm::ReadRegion(changed, store, forbidden, 1100, {});
+  CHECK(!refused && store.Counters().Writes == absentWrites,
         "a forbidden response is not cached as original data or confirmed absence");
+  CHECK(!refused && refused.error().find("HTTP 403 after 0 retries") != std::string::npos,
+        "the client diagnostic retains the actual HTTP refusal without retrying it");
   auto api = outshine::Generators::Osm::ApiSource::Create(provider, 0);
   CHECK(api.has_value(), "official bounded source created for refusal classification");
   if (api) {
@@ -143,7 +145,8 @@ int main() {
     capacity.Xml = "You requested too many nodes (limit is 50000). Either request a smaller area, "
                    "or use planet.osm";
     auto rejected = (*api)->Collect(Address::Whole(0), static_cast<Ticket>(1), capacity).Take();
-    CHECK(rejected && rejected->Reason == FetchFailureReason::CapacityRefused,
+    CHECK(rejected && rejected->Reason == FetchFailureReason::CapacityRefused &&
+              rejected->HttpStatus == 400,
           "the official node-limit refusal is classified as capacity at the HTTP boundary");
     capacity.Xml = "The requested bounds are invalid";
     auto invalid = (*api)->Collect(Address::Whole(0), static_cast<Ticket>(1), capacity).Take();

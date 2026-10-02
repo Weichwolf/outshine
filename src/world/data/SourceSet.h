@@ -93,7 +93,8 @@ public:
 private:
   [[nodiscard]] std::optional<Delivery> ReadStored(Query &query);
   [[nodiscard]] Delivery Deliver(Query &query, Fetched::Settled response);
-  [[nodiscard]] std::optional<Delivery> ProcessAbsence(Query &query);
+  [[nodiscard]] std::optional<Delivery>
+  ProcessAbsence(Query &query, std::optional<int> httpStatus = std::nullopt);
   void RecordStart(const SourceDecl &decl, bool first, bool started);
   void RecordDelivery(const SourceDecl &decl);
 
@@ -103,7 +104,8 @@ private:
 
   [[nodiscard]] Delivery Refuse(Query &query,
                                 double afterMs,
-                                FetchFailureReason reason = FetchFailureReason::ProviderRefused);
+                                FetchFailureReason reason = FetchFailureReason::ProviderRefused,
+                                std::optional<int> httpStatus = std::nullopt);
 
   [[nodiscard]] std::optional<Delivery> ProcessResponse(Query &query,
                                                         Fetched::Settled response,

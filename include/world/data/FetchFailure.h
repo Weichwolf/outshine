@@ -55,6 +55,8 @@ struct FetchFailure {
   std::string SourceRevision;            ///< Actual selected revision.
   std::string SourceKey;                 ///< Endpoint-sensitive source key.
   FetchFailureReason Reason = FetchFailureReason::ProviderRefused; ///< Failure classification.
+  std::optional<int> HttpStatus; ///< Last observed HTTP status; empty without an HTTP response.
+  int Retries = 0;               ///< Retries issued after the initial attempt.
 
   /// Sum retained string capacities without allocation.
   /// @return Auxiliary string bytes, excluding the fixed value object and allocator overhead.

@@ -62,6 +62,8 @@ void CheckFailure(const std::optional<FetchFailure> &failure, const std::string 
   CHECK(failure->SourceId == "fallback" && failure->SourceRevision == "second-pin" &&
             failure->SourceKey == key && failure->Reason == FetchFailureReason::OfflineMiss,
         "failure belongs to the actual fallback provider and retains its cause");
+  CHECK(!failure->HttpStatus && failure->Retries == 0,
+        "an offline miss does not invent an HTTP response or a retry");
 }
 }
 

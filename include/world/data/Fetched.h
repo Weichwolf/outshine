@@ -51,7 +51,8 @@ public:
         Range_(std::move(other.Range_)),
         RetryAfterS_(std::exchange(other.RetryAfterS_, 0.0)),
         Reason_(other.Reason_),
-        Evidence_(other.Evidence_) {}
+        Evidence_(other.Evidence_),
+        HttpStatus_(other.HttpStatus_) {}
 
   /// Release the old payload and transfer ownership without allocation.
   /// @param other Reply left consumed; self-assignment has no effect.
@@ -65,6 +66,7 @@ public:
     RetryAfterS_ = std::exchange(other.RetryAfterS_, 0.0);
     Reason_ = other.Reason_;
     Evidence_ = other.Evidence_;
+    HttpStatus_ = other.HttpStatus_;
     return *this;
   }
 
@@ -75,11 +77,15 @@ public:
   /// Settle a classification without payload or absence evidence.
   /// @param what Result interpretation.
   /// @param reason Failure reason when relevant.
+  /// @param httpStatus Observed HTTP status; empty without an HTTP response.
   /// @return Settled reply; no allocation.
   [[nodiscard]] static Fetched
-  Meant(Meaning what, FetchFailureReason reason = FetchFailureReason::ProviderRefused) {
+  Meant(Meaning what,
+        FetchFailureReason reason = FetchFailureReason::ProviderRefused,
+        std::optional<int> httpStatus = std::nullopt) {
     Fetched made(State::Settled, what, {});
     made.Reason_ = reason;
+    made.HttpStatus_ = httpStatus;
     return made;
   }
 
@@ -87,21 +93,24 @@ public:
   /// @param what Result interpretation.
   /// @param retryAfterS Retry delay in seconds; shared scheduling interprets it.
   /// @param reason Failure reason when relevant.
+  /// @param httpStatus Observed HTTP status; empty without an HTTP response.
   /// @return Settled reply; no allocation.
   [[nodiscard]] static Fetched
   MeantAfter(Meaning what,
              double retryAfterS,
-             FetchFailureReason reason = FetchFailureReason::ProviderRefused) {
+             FetchFailureReason reason = FetchFailureReason::ProviderRefused,
+             std::optional<int> httpStatus = std::nullopt) {
     Fetched made(State::Settled, what, {});
     made.RetryAfterS_ = retryAfterS;
     made.Reason_ = reason;
+    made.HttpStatus_ = httpStatus;
     return made;
   }
 
   /// Record an authoritative HTTP 404 independently of other failures.
   /// @return Settled absence carrying HttpNotFound evidence; no allocation.
   [[nodiscard]] static Fetched NotFound() {
-    auto made = Meant(Meaning::Absent);
+    auto made = Meant(Meaning::Absent, FetchFailureReason::ConfirmedAbsent, 404);
     made.Evidence_ = AbsenceEvidence::HttpNotFound;
     return made;
   }
@@ -132,6 +141,7 @@ public:
     AbsenceEvidence Evidence = AbsenceEvidence::Unknown; ///< Authoritative absence evidence.
     std::vector<uint8_t> Bytes; ///< Owned source bytes; consumer enforces byte limits.
     std::optional<RangeResponse> Range = std::nullopt; ///< Original partial-response identity.
+    std::optional<int> HttpStatus; ///< Observed HTTP status, when a response was received.
   };
 
   /// Consume a settled reply exactly once by moving its bytes.
@@ -143,7 +153,8 @@ public:
                    .Reason = Reason_,
                    .Evidence = Evidence_,
                    .Bytes = std::move(Bytes_),
-                   .Range = std::move(Range_)};
+                   .Range = std::move(Range_),
+                   .HttpStatus = HttpStatus_};
   }
 
 private:
@@ -157,6 +168,7 @@ private:
   double RetryAfterS_ = 0.0;
   FetchFailureReason Reason_ = FetchFailureReason::ProviderRefused;
   AbsenceEvidence Evidence_ = AbsenceEvidence::Unknown;
+  std::optional<int> HttpStatus_;
 };
 
 }
