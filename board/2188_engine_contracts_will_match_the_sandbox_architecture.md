@@ -21,57 +21,58 @@ RawTile hält geschlossene OSM-Inputs mit schwachem Archivbezug; BuildingGeometr
 native Polygone/Quellbelege. Vollständige Archive verbleiben im Quellenladepfad. SimulationState integriert bisher
 Schwerkraft; Rigid/Wrench/Prismatic liefern Grundlagen, keinen vollständigen Weltkontakt.
 Script/ActionHostAdapter und Ui::Markup/Style/Layout bestehen und bleiben verwendbar.
-SurfacePreparation und Straßenaufträge gehören engine/streaming. StreetGraphPreparation
+SurfacePreparation und Straßenaufträge liegen noch unter engine/streaming. StreetGraphPreparation
 nutzt den gemeinsamen Compute-Worker mit Abbruch und geteiltem Auftragsbesitz.
-ClassificationPreparation besitzt Ingestion und Publikation in engine/streaming;
+ClassificationPreparation verbindet Ingestion und Publikation noch in engine/streaming;
 ClassificationBuild nutzt den gemeinsamen Compute-Worker. Der pure ClassificationRasterizer
 liegt unter generators/terrain; world hält nur den immutable Klassifikationssnapshot.
 Fine/Coarse behalten ihren Raumbezug und die jeweils konsumierte Quellrevision.
 GroundClassBuffer besitzt GPU-Packing und Digest unter render; ClassStructure bleibt ein natives CPU-Produkt.
-Engine publiziert beide zusammen; render hält nur seinen Uploadpuffer. OSM-Netz-/Routenauflösung
-liegt unter import/transport, Jobs unter engine/streaming; world hält native Netze ohne Quellarchiv.
+Engine publiziert beide zusammen; render hält nur seinen Uploadpuffer. Native Netze halten keine
+Quellarchive. OSM-Adapter/Jobs liegen noch in import/engine/world: unzulässige Kernkopplung.
 
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
 |---|---|---|
-| sources + import | öffentliche Provider → Originalbytes → native Inputs | Netzwerkcache bei sources; Formate enden im Adapter |
+| IO/Cache/Jobs | begrenzte Aufträge → Bytes/Arbeitsresultate | Allgemeine Dienste ohne Quellsemantik; keine eigene Weltplanung |
 | world | native Produkte → generischer Weltzustand | Geometrie, Identitäten, Topologie und Herkunft; keine Quell-/Generatorinputs |
-| engine/streaming | Position/Höhe/Projektion → Bedarf/residente Produkte | Plan, begrenzte Jobs, Invalidierung, geschlossene Publikation |
-| generators | 0:N native Inputs + Detailauftrag/Seed → native Produkte | Keine Providerpflicht, kein synchrones IO oder versteckter Weltbesitz |
+| engine | Szenario + Kamera/Zeit/Qualität → versionierter Weltbedarf | Registrieren, koordinieren, native Produkte geschlossen publizieren |
+| generators/<domain> | Bedarf + 0:N Provider/Inputs → native Produkte | Eigene Beschaffung/Adapter/Erzeugung; gemeinsame Dienste, kein Weltbesitz |
 | physics + SimulationState | Commands + Kontakte → Simulationssnapshot | Fester Takt, Massen/Kräfte/Gelenke; eigene Lebensdauer |
 | render/audio | Welt-/Simulationssnapshot → Bild/Ton | Sichtbarkeit/Ausgabe; keine Quellabfragen oder Weltgenerierung |
 | Script/UI/LLM-Host | Eingabe/Events → validierte Commands | Kein direkter Objektbesitz; keine blockierende Modellantwort |
 
 Engine koordiniert diese Besitzer. Renderer konsumiert immutable Weltprodukte und
 aktuelle Posen; Render-LOD verändert weder logische Netze noch Physik oder Spielzustand.
-Bibliotheksnutzer ersetzen Provider/Generator/Host über öffentliche Registrierung.
+Bibliotheksnutzer ersetzen Provider/Generator/Host über dieselbe öffentliche Registrierung.
 Physik liegt fachlich unter physics; actor/body und unspezifische Subject-Bezeichner
 beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
 
 ## Korrektur der Modulgrenzen
 | Heute vermischt | Zielbesitzer und gerichtete Grenze |
 |---|---|
-| world/data: IO, Cache, OSM, Copernicus, MVT | sources besitzt Provider/Netzwerkbytes; import besitzt Formate/Adapter |
-| world/ground: OSM/MVT-Ingestion und Produkte | import übersetzt; generators erzeugt; world hält native Produkte |
-| world/navigation: OSM-Auflösung und Netze | import besitzt OSM-Auflösung; world besitzt generische Topologie |
+| world/data: IO, Cache, OSM, Copernicus, MVT | Allgemeine Dienste getrennt; konkrete Quellen/Adapter gehören ihrer Generator-Erweiterung |
+| world/ground: OSM/MVT-Ingestion und Produkte | generators/osm übersetzt Original-OSM; world hält ausschließlich native Produkte |
+| import/transport + engine/streaming: OSM | generators/osm besitzt Beschaffung, Decode, Netze/Routen und Jobs; Kern kennt keine OSM-Typen |
 | Gebäude-Publikation (bereinigt) | BuildingGeometry trägt nur native Polygone und generische Provenienz/IDs |
 | actor/body: Rigid/Prismatic | physics besitzt Simulation; actor konsumiert sie |
 | import (bereinigt) | Native CPU-Assets ohne Rendererfreigabe; keine transitive Render-Abhängigkeit |
 | Klassifikations-Upload (bereinigt) | world hält native Grids; render besitzt gepackte Uploadprodukte und deren Lebensdauer |
 | private Builtin-Bakes neben Generator-API | Ein öffentlicher Input-/Productvertrag für Builtins und Erweiterungen |
-| Testprofile mit eigenen Include-Listen | Profile aus demselben Modulgraphen ableiten; Fixtures explizit besitzen |
-`world` konsumiert weder sources, import noch generators. Engine verbindet diese Module.
+| Client-Flags/Place-Sonderablauf | Szenario deklariert Generatoren/Inhalte und Kamerafahrt; Client führt aus und misst |
+`world` konsumiert weder Quellenformate noch Generatorinputs. Engine kennt nur öffentliche Erweiterungsverträge.
 Quellformate enden im Adapter; Generatorinputs gehören dem jeweiligen Generatorvertrag.
 Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeitsgrenze.
 
 ## Verbindliche gemeinsame Verträge
 - WorldDemand enthält vollständige räumliche Abdeckung, Kamera-/Höhenbezug, Projektion
-  und Qualitätsauftrag. Blickrichtung beeinflusst Sichtbarkeit, nicht Rundum-Residency.
+  und Qualitätsauftrag sowie UTC, Revision und Frist. Blickrichtung verändert keine Rundum-Residency.
   Quell-, Produkt- und Sichtbarkeitspläne getrennt halten; unterschiedliche Raster erlauben.
 - GenerationRequest enthält Raumreferenz, Abdeckung, stabile Identität/Seed, gepinnte
   native Inputs und erlaubten Bildschirmfehler. Product enthält native Geometrie oder
   kompakte Instanzen/Parameter, Bounds, Abhängigkeiten und bekannte/ungeklärte Fehlerschranke.
-  Geburt eines Produkts ist Vorbereitung, kein synchroner Rendereraufruf.
+  Generatoren übernehmen Demand und melden Fortschritt, Fehler oder vollständige Produkte;
+  Quellenerwerb ist asynchron, Compute nutzt gepinnte Inputs ohne blockierendes IO.
 - SourceReceipt identifiziert Originalquelle, Adresse, Revision/Digest und Gültigkeit.
   Produktpins halten konsumierte Inputs, nicht automatisch vollständige OSM-Zellarchive.
   Alle Originaltags bleiben im Quellcache; konsumierte Semantik/Herkunft bleibt am Produkt.
@@ -97,18 +98,16 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
   und Herkunft. Physikalische Wind-/Wasser-/Materialzustände konsumieren denselben Snapshot.
 - Szenario/glTF-Loader publizieren dieselben nativen Assets; Formattypen enden im Adapter.
   Spatial Audio und Save/Load teilen Entity-/Pose-/Versionsverträge aus 2136.
-  Groundless, Szenario-Roundtrip und deklarative Spielabläufe bleiben nutzbar.
+  Places deklarieren stationäre 360°-Fahrt in einer Sekunde; Capture speichert nur den letzten Frame.
+  Generatorauswahl und Vegetation gehören ins Szenario; CLI wählt Szenario/Ausgabe/Messung.
   Öffentliche API ist Greenfield; sämtliche Builtins und Aufrufer zusammen migrieren.
 
 ## Ausführbare Lieferung
-1. Alle Architekturverstöße priorisiert beheben: Weltprodukte ohne Quellformate/Generatorinputs;
-   konkrete Provider/Decoder und OSM-Topologieadapter aus world; Physik korrekt zuordnen.
-   Diese Grenzen durch Include-/Typprüfungen erzwingen, nicht allein durch Verhaltensfälle.
-   Nächste Einheit: Quellenerwerb aus world/data und konkrete Terrain-/OSM-Ingestion
-   aus world/ground lösen; Adapter/Generatoren liefern native Produkte ohne IO-Besitz.
-   Generische Weltprodukte konsumieren weder Importformate noch Generatorinputs; Engine verbindet sie.
-2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
-3. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
+1. Öffentlichen zustandsbehafteten Demand-/Produktvertrag anschließen; bisheriges synchrones
+   make(Request) ersetzt keine Weltpipeline. OSM-Typen/Provider/Decoder/Jobs unter generators/osm
+   zusammenführen und sämtliche Engine-Aufrufer migrieren. Include-/Typgrenzen erzwingen.
+2. Szenario besitzt Generatorauswahl und Kameraprogramm; CLI-Inhaltsüberschreibungen entfernen.
+3. 2280s Pipeline mit nativer Ingestion, Produkt-/Pinbesitz und gemeinsamen Jobdiensten verbinden.
 4. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
 5. Wettervertrag für 2172 sowie Command-/Snapshot-Grenze für 2136 vervollständigen.
 Andere Features konsumieren jeweils den fehlenden Teilvertrag, keine pauschale Gesamtabnahme.

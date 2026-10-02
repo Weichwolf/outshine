@@ -112,6 +112,14 @@
 - Ich trenne Provider, Generatoren, Weltzustand und Renderer/Audio; Engine koordiniert.
   Eingebaute und externe Erweiterungen verwenden dieselben öffentlichen Verträge und Registrierungen.
   Die API ist Greenfield; Verbesserungen migrieren sämtliche Aufrufer. Private Sonderpfade korrigiere ich.
+- Fachliche Generator-Erweiterungen besitzen ihre konkreten Provider, Quellformate und
+  Erzeugungspipelines; OSM gehört ausschließlich unter generators/osm. Engine übergibt
+  registrierten Generatoren Weltbedarf, Zeit und Qualitätsauftrag über allgemeine Verträge.
+  Gemeinsame IO-/Cache-/Jobdienste kennen keine Quellsemantik; Provider bleiben optional.
+  Asynchroner Quellenerwerb und reine Erzeugung sind getrennte Phasen derselben Erweiterung.
+- Ich benenne Quellenerwerb, Weltvorbereitung und Residency ausdrücklich statt pauschal streaming.
+  Szenarien deklarieren Weltinhalte und Kameraabläufe. Der Client führt sie aus und misst;
+  Inhaltsabschaltungen oder Place-Bewegungen verstecke ich nicht in CLI-Flags oder Sonderpfaden.
 - `world` bleibt eine generische 3D-Welt. Es kennt keine konkreten Provider, Quellformate
   oder Generator-Eingabetypen. Adapter und Generatoren besitzen diese Daten; Weltprodukte
   tragen ausschließlich native Inhalte und quellunabhängige Herkunft. Abhängigkeitsprüfungen

@@ -19,9 +19,10 @@ Katalog und die Engine fordert den vollständigen Positionsradius an. Native Str
 und vollständige Place-Abnahme sind offen. Keine reduzierte Kartenquelle als Ersatz.
 
 ## Nächste Lieferung und Besitzer
-`RuntimeWorldPreparation` fordert positionsgebundene Originalzellen an und übergibt
-vollständige Nachfrage an `OsmSourceLoader`; `Laying` koordiniert Terrain und Produkte.
-`world/data`, SourceSet und ContentStore besitzen Originalbytes/Receipt. Bestehende
+Nach 2188 übergibt Engine allgemeinen Weltbedarf an registrierte Generatoren. Die OSM-
+Erweiterung unter `generators/osm` plant Originalzellen und besitzt Provider, Adapter,
+`OsmSourceLoader` und native Erzeugung. Aktuell liegen diese noch in world/engine/import.
+Allgemeine SourceSet-/ContentStore-Dienste halten Netzwerkbytes/Receipt. Bestehende
 Tasks/Fetching nutzen begrenztes paralleles IO und genau einen gemeinsamen Compute-
 Worker; StreetGraphPreparation und ClassificationBuild nutzen ihn ohne eigene Compute-Threads.
 Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerge.
