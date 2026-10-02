@@ -19,7 +19,7 @@
 #include "math/Units.h"
 #include "FlatMap.h"
 #include "Geodesy.h"
-#include <generation/Generate.h>
+#include <scene/ProjectedErrorBudget.h>
 
 namespace outshine::Generators {
 
@@ -624,12 +624,12 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
     const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
     const double conservativeAwayM =
         std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
-    if (WithinProjectedError(std::max(kArchitectureM, statedM), raw.FocalPx, conservativeAwayM)) {
+    const ProjectedErrorBudget projection{.FocalPx = raw.FocalPx};
+    if (projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
       level = LevelOfDetail::Shell;
     }
-    if (level == LevelOfDetail::Shell && WithinProjectedError(0.5 * raw.TileSpanM / kBlocksPerTile,
-                                                              raw.FocalPx,
-                                                              conservativeAwayM)) {
+    if (level == LevelOfDetail::Shell &&
+        projection.Allows(0.5 * raw.TileSpanM / kBlocksPerTile, conservativeAwayM)) {
       level = LevelOfDetail::Massed;
     }
   }

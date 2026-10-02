@@ -7,7 +7,7 @@
 #include "Earth.h"
 #include "StructureBake.h"
 #include "TileGeodesy.h"
-#include "generation/Generate.h"
+#include "scene/ProjectedErrorBudget.h"
 #include "math/Units.h"
 #include "scene/LevelOfDetail.h"
 
@@ -40,12 +40,10 @@ namespace outshine {
   const double depthM = (bounds.MaxLatDeg - bounds.MinLatDeg) * kMPerDegLat;
   const double wholeCellErrorM =
       std::hypot(std::hypot(widthM, depthM), static_cast<double>(maxHeightM)) + 10.0;
-  if (!Generators::WithinProjectedError(wholeCellErrorM, focalPx, awayM)) {
-    return LevelOfDetail::Fine;
-  }
+  const ProjectedErrorBudget projection{.FocalPx = focalPx};
+  if (!projection.Allows(wholeCellErrorM, awayM)) { return LevelOfDetail::Fine; }
   const double massedErrorM = wholeCellErrorM + 2.0 * tileSpanM / Generators::kStructureCellSide;
-  return Generators::WithinProjectedError(massedErrorM, focalPx, awayM) ? LevelOfDetail::Massed
-                                                                        : LevelOfDetail::Shell;
+  return projection.Allows(massedErrorM, awayM) ? LevelOfDetail::Massed : LevelOfDetail::Shell;
 }
 
 }

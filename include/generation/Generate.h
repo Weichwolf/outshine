@@ -2,7 +2,6 @@
 #define OUTSHINE_GENERATION_GENERATE_H
 
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -14,6 +13,7 @@
 #include "Earth.h"
 #include "scene/Geometry.h"
 #include "scene/LevelOfDetail.h"
+#include "scene/ProjectedErrorBudget.h"
 
 namespace outshine::Generators {
 
@@ -45,26 +45,6 @@ protected:
   HeightSampler() = default;
 };
 
-/// Allowed pinhole-projected geometric error, in pixels. One pixel is a quality policy,
-/// not a guarantee of perceptual invisibility, silhouette stability or material fidelity.
-inline constexpr double kErrorPx = 1.0;
-
-/// Test whether a geometric error meets the projected-error policy.
-/// @param errorM Finite nonnegative geometric displacement bound, in metres.
-/// @param focalPx Finite positive focal length, in pixels.
-/// @param awayM Finite positive distance used by the projection estimate, in metres.
-/// @return True if all inputs are valid and errorM * focalPx <= kErrorPx * awayM.
-/// Invalid values return false, including invalid projection values with zero error.
-/// This function neither measures the displacement bound nor verifies occlusion.
-[[nodiscard]] constexpr bool
-WithinProjectedError(double errorM, double focalPx, double awayM) noexcept {
-  if (!std::isfinite(errorM) || errorM < 0.0 || !std::isfinite(focalPx) || !(focalPx > 0.0) ||
-      !std::isfinite(awayM) || !(awayM > 0.0)) {
-    return false;
-  }
-  return errorM * focalPx <= kErrorPx * awayM;
-}
-
 /// Borrowed, case-sensitive generator setting; values are not parsed or normalized.
 /// Both views remain valid only during make. Copy their characters to retain them.
 /// The receiving generator defines supported names, units, duplicates and value syntax.
@@ -86,6 +66,7 @@ struct Request {
   uint64_t Seed = 0; ///< Root seed for reproducible choices with unchanged input data.
   const HeightSampler *Ground = nullptr; ///< Borrowed terrain provider, or nullptr if unavailable.
   LevelOfDetail Coarseness = LevelOfDetail::Fine; ///< Requested representation class.
+  ProjectedErrorBudget Projection; ///< Shared projected-error policy; never certifies Coarseness.
 };
 
 /// Polymorphic CPU-content producer registered by borrowed address.

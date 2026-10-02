@@ -1,6 +1,6 @@
 #include "Corridors.h"
 
-#include <generation/Generate.h>
+#include <scene/ProjectedErrorBudget.h>
 
 #include <algorithm>
 #include <expected>
@@ -367,8 +367,8 @@ void Corridors::PaveLane(const Paving &on,
     return;
   }
   if (pass == Pass::Designing) {
-    if (WithinProjectedError(
-            2.0 * static_cast<double>(lane.HalfWidthM), on.FocalPx, AwayM(on, lane))) {
+    if (ProjectedErrorBudget{.FocalPx = on.FocalPx}.Allows(
+            2.0 * static_cast<double>(lane.HalfWidthM), AwayM(on, lane))) {
       ++into.UnseenWays;
       return;
     }
