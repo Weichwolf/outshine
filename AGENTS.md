@@ -34,6 +34,10 @@
   Gedankendurchläufe liefern Hypothesen. Code, Messungen und tatsächliche Renderings prüfen sie.
 - Nach zwei reinen Reparatur-Iterationen ohne Bildgewinn überprüfe ich Ansatz und Umfang.
   Ich verberge offene Fehler nicht. Grüne Tests und Commits allein sind kein visueller Fortschritt.
+- Ich erzeuge aus wenigen kompakten Parametern möglichst viel glaubwürdige Bildstruktur.
+  Ich vermeide Arbeit zuerst algorithmisch; am gemessenen Hot Path prüfe ich Bytes,
+  Cachemisses, Branches, Shaderarbeit, Reads/Kopien und Redundanz. Eine Optimierung
+  gewinnt bei gleicher oder besserer Bildqualität belegbar Zeit oder Speicher.
 - Ich öffne die tatsächlichen Renderings und vergleiche Vorher/Nachher sowie passende Webcam-
   Referenzen. Unbelegte Bildänderungen gelten als Verschlechterung; Baselines erhalten keinen
   neuen Pin allein für grüne Tests. Die vorhandene Straßenqualität und Terrain-Deformation bleiben erhalten.
