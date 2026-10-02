@@ -99,9 +99,9 @@ keine exakten Wolkenformen/Hafentiden. Unbekanntes bleibt plausible, determinist
 Ergänzung. Kein exakter Foto-, vollständiger Laufzeit- oder A18-Pro-Claim aus diesem Entwurf.
 
 ## Arbeitsfähige Reserve
-2188 ist aktiv: Architekturgrenzen haben Vorrang; 2280 wartet auf die korrigierten Besitzer. Danach den
-Projektions-/Fehlervertrag in native Detailplanung überführen; native Formen in
-2173/2281 und Baustoffe 2171 können ihre vorhandenen Inputs unabhängig verwenden.
+2188 und 2280 sind aktiv: öffentliche Besitzer korrigieren und eine vollständige Originalwelt liefern.
+Der API-Erwerb allein belegt keine skalierbare 240-km-Welt. Nächster Integrationsschritt ist
+2336s konservative Detailplanung vor Terrain; 2173/2281 und 2171 nutzen vorhandene native Inputs.
 2336s globale Grobquelle und 2145s Küstenabschluss brauchen belegte Quellenverträge.
 2136 besitzt Physik, Akustik und asynchrone NPC-Entscheidungen. Reihenfolge ist Priorität; `Depends` nennt nur den fehlenden konsumierten Vertrag, keine pauschale Gesamtabnahme.
 

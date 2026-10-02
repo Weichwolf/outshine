@@ -31,6 +31,9 @@ Die weltweite Grobquelle ist noch kein fertiger Vertrag: ein kleinzelliger OSM-A
 Katalog allein liefert keine schnelle Erdansicht. Erlaubte Originalübersichten,
 Quellenumfang und Lade-/Bytekosten nachweisen; keine heimliche vierte Quelle oder
 persistente Generatorablage. Deshalb bleibt die globale Architektur `planned`.
+Der vollständige Radius darf nicht durch mehr parallele Feinabfragen gegen API-Bandbreitenlimits
+erkauft werden. Grobbedarf, Original-Quelldatenumfang und native Produktkosten getrennt planen;
+ein offizieller Bulk-Quellenvertrag muss Objektabschluss, Revision und beschränkten Zugriff belegen.
 
 ## Umsetzung und Invarianten
 - Generatoranforderungen enthalten räumliche Abdeckung, Entfernung/Projektion und
