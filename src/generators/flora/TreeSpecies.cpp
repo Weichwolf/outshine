@@ -172,6 +172,58 @@ std::optional<std::string_view> InvalidSpeciesNumber(const Json::Ref &root) {
   return std::nullopt;
 }
 
+void ReadGrowthParameters(const Json::Ref &r, TreeSpecies::Growth &g) {
+  g.Seed = static_cast<uint32_t>(r["seed"].Num(static_cast<double>(g.Seed)));
+  g.TrunkSides = NumI(r, "trunk_sides", g.TrunkSides);
+  g.BaseRadius = NumF(r, "base_radius", g.BaseRadius);
+  g.StepLen = NumF(r, "step_len", g.StepLen);
+  g.TrunkSteps = NumI(r, "trunk_steps", g.TrunkSteps);
+  g.Taper = NumF(r, "taper", g.Taper);
+  g.MinRadius = NumF(r, "min_radius", g.MinRadius);
+  g.TwigRadius = NumF(r, "twig_radius", g.TwigRadius);
+  g.BranchChance = NumF(r, "branch_chance", g.BranchChance);
+  g.MaxOrder = NumI(r, "max_order", g.MaxOrder);
+  g.TerminalFork = NumB(r, "terminal_fork", g.TerminalFork);
+  g.BranchAngle = NumF(r, "branch_angle", g.BranchAngle);
+  g.BranchAngleVar = NumF(r, "branch_angle_var", g.BranchAngleVar);
+  g.OrderLen = NumF(r, "order_len", g.OrderLen);
+  g.OrderRadius = NumF(r, "order_radius", g.OrderRadius);
+  g.Wander = NumF(r, "wander", g.Wander);
+  g.LeaderBias = NumF(r, "leader_bias", g.LeaderBias);
+  g.BranchUpBias = NumF(r, "branch_up_bias", g.BranchUpBias);
+  g.WhorlCount = NumI(r, "whorl_count", g.WhorlCount);
+  g.WhorlSpacing = NumI(r, "whorl_spacing", g.WhorlSpacing);
+  g.FoliageFactor = NumF(r, "foliage_factor", g.FoliageFactor);
+  g.FoliageOnLeader = NumB(r, "foliage_on_leader", g.FoliageOnLeader);
+  g.ShadePrune = NumF(r, "shade_prune", g.ShadePrune);
+}
+
+void ReadLeafParameters(const Json::Ref &r, TreeSpecies::Leaf &l) {
+  l.Segments = NumI(r, "leaf_segments", l.Segments);
+  l.Length = NumF(r, "leaf_length", l.Length);
+  l.Width = NumF(r, "leaf_width", l.Width);
+  l.Widest = NumF(r, "leaf_widest", l.Widest);
+  l.BaseFill = NumF(r, "leaf_base_fill", l.BaseFill);
+  l.BaseSkew = NumF(r, "leaf_base_skew", l.BaseSkew);
+  l.Tip = NumF(r, "leaf_tip", l.Tip);
+  l.Lobes = NumI(r, "leaf_lobes", l.Lobes);
+  l.LobeDepth = NumF(r, "leaf_lobe_depth", l.LobeDepth);
+  l.Serration = NumF(r, "leaf_serration", l.Serration);
+  l.Fold = NumF(r, "leaf_fold", l.Fold);
+  l.Curve = NumF(r, "leaf_curve", l.Curve);
+  l.Leaflets = NumI(r, "leaf_leaflets", l.Leaflets);
+  l.PalmateLobes = NumI(r, "leaf_palmate_lobes", l.PalmateLobes);
+  l.PalmateSpread = NumF(r, "leaf_palmate_spread", l.PalmateSpread);
+  l.NeedleWidth = NumF(r, "leaf_needle_width", l.NeedleWidth);
+  l.NeedleLen = NumF(r, "leaf_needle_len", l.NeedleLen);
+  l.NeedleFwd = NumF(r, "leaf_needle_fwd", l.NeedleFwd);
+  l.Droop = NumB(r, "leaf_droop", l.Droop);
+  l.CardW = NumF(r, "leaf_card_w", l.CardW);
+  l.CardH = NumF(r, "leaf_card_h", l.CardH);
+  l.CardsPerPoint = NumI(r, "leaf_cards", l.CardsPerPoint);
+  l.CardBudget = NumI(r, "leaf_card_budget", l.CardBudget);
+}
+
 }
 
 bool TreeSpecies::Parse(const char *text, size_t len) {
@@ -234,30 +286,7 @@ bool TreeSpecies::Read(const char *text, size_t len) {
   f.RunM = NumF(r, "run_m", f.RunM);
   f.Foliate = NumB(r, "foliate", f.Foliate);
 
-  Growth &g = Growth_;
-  g.Seed = static_cast<uint32_t>(r["seed"].Num(static_cast<double>(g.Seed)));
-  g.TrunkSides = NumI(r, "trunk_sides", g.TrunkSides);
-  g.BaseRadius = NumF(r, "base_radius", g.BaseRadius);
-  g.StepLen = NumF(r, "step_len", g.StepLen);
-  g.TrunkSteps = NumI(r, "trunk_steps", g.TrunkSteps);
-  g.Taper = NumF(r, "taper", g.Taper);
-  g.MinRadius = NumF(r, "min_radius", g.MinRadius);
-  g.TwigRadius = NumF(r, "twig_radius", g.TwigRadius);
-  g.BranchChance = NumF(r, "branch_chance", g.BranchChance);
-  g.MaxOrder = NumI(r, "max_order", g.MaxOrder);
-  g.TerminalFork = NumB(r, "terminal_fork", g.TerminalFork);
-  g.BranchAngle = NumF(r, "branch_angle", g.BranchAngle);
-  g.BranchAngleVar = NumF(r, "branch_angle_var", g.BranchAngleVar);
-  g.OrderLen = NumF(r, "order_len", g.OrderLen);
-  g.OrderRadius = NumF(r, "order_radius", g.OrderRadius);
-  g.Wander = NumF(r, "wander", g.Wander);
-  g.LeaderBias = NumF(r, "leader_bias", g.LeaderBias);
-  g.BranchUpBias = NumF(r, "branch_up_bias", g.BranchUpBias);
-  g.WhorlCount = NumI(r, "whorl_count", g.WhorlCount);
-  g.WhorlSpacing = NumI(r, "whorl_spacing", g.WhorlSpacing);
-  g.FoliageFactor = NumF(r, "foliage_factor", g.FoliageFactor);
-  g.FoliageOnLeader = NumB(r, "foliage_on_leader", g.FoliageOnLeader);
-  g.ShadePrune = NumF(r, "shade_prune", g.ShadePrune);
+  ReadGrowthParameters(r, Growth_);
 
   const auto kind = r["leaf_kind"];
   const auto leafKind = KindOf(kind.Valid() ? kind.Str() : "broad");
@@ -267,29 +296,7 @@ bool TreeSpecies::Read(const char *text, size_t len) {
   }
   Leaf &l = Leaf_;
   l.Kind = *leafKind;
-  l.Segments = NumI(r, "leaf_segments", l.Segments);
-  l.Length = NumF(r, "leaf_length", l.Length);
-  l.Width = NumF(r, "leaf_width", l.Width);
-  l.Widest = NumF(r, "leaf_widest", l.Widest);
-  l.BaseFill = NumF(r, "leaf_base_fill", l.BaseFill);
-  l.BaseSkew = NumF(r, "leaf_base_skew", l.BaseSkew);
-  l.Tip = NumF(r, "leaf_tip", l.Tip);
-  l.Lobes = NumI(r, "leaf_lobes", l.Lobes);
-  l.LobeDepth = NumF(r, "leaf_lobe_depth", l.LobeDepth);
-  l.Serration = NumF(r, "leaf_serration", l.Serration);
-  l.Fold = NumF(r, "leaf_fold", l.Fold);
-  l.Curve = NumF(r, "leaf_curve", l.Curve);
-  l.Leaflets = NumI(r, "leaf_leaflets", l.Leaflets);
-  l.PalmateLobes = NumI(r, "leaf_palmate_lobes", l.PalmateLobes);
-  l.PalmateSpread = NumF(r, "leaf_palmate_spread", l.PalmateSpread);
-  l.NeedleWidth = NumF(r, "leaf_needle_width", l.NeedleWidth);
-  l.NeedleLen = NumF(r, "leaf_needle_len", l.NeedleLen);
-  l.NeedleFwd = NumF(r, "leaf_needle_fwd", l.NeedleFwd);
-  l.Droop = NumB(r, "leaf_droop", l.Droop);
-  l.CardW = NumF(r, "leaf_card_w", l.CardW);
-  l.CardH = NumF(r, "leaf_card_h", l.CardH);
-  l.CardsPerPoint = NumI(r, "leaf_cards", l.CardsPerPoint);
-  l.CardBudget = NumI(r, "leaf_card_budget", l.CardBudget);
+  ReadLeafParameters(r, l);
 
   if (const auto valid = TreeLeaf::Validate(l); !valid) {
     Error_ = valid.error();
