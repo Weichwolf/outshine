@@ -38,6 +38,10 @@ Bestehende Queue/Publikation verwenden; kein MVT-Zwischenformat oder Ortsmodell.
 - Raum-/Höhenbezug, Terrainkontakt und Quellbesitz bleiben vom Import bis zur Publikation
   konsistent. 2336 begrenzt Details vor Erzeugung und fasst entfernte Gebäude zusammen.
 
+- Stadtidentität braucht belegte Silhouetten: Kirchturm, Hallen, Balkone, Gauben,
+  Traufe und Dachaufbauten nach Klasse/Form erzeugen. Fehlende Landmarkenbeschreibung
+  erlaubt keine Foto-Sondergeometrie; allgemeine Grammatiken erhalten die Unsicherheit.
+
 ## Abnahme
 Rosenheim/Flensburg zeigen erkannte Sonderbauten und Dächer; Wien/Feldkirch erhalten
 Parts und gültige Höhenintervalle. Höfe, Eingänge und Fenster besitzen plausible Tiefe;

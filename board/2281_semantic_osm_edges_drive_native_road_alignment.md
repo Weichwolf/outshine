@@ -17,7 +17,7 @@ Original-Transporttopologie und native Routen existieren; allgemeine Weltprodukt
 komplexe Anschlüsse und Ebenen sind noch nicht vollständig angeschlossen.
 
 ## Nächste Lieferung und Besitzer
-`world/transport` hält das logische Netz unabhängig von Rendergeometrie. Original-
+`world/navigation` hält das logische Netz unabhängig von Rendergeometrie. Original-
 Zell-Snapshots liefern IDs/Tags und vollständige konsumierte Referenzen. Native
 Straßen-/Kontakte konsumieren anschließend semantische Produkte und Quellbelege;
 vollständige Roh-Snapshots nicht allein wegen einer Renderinstanz dauerhaft pinnen. Bestehende
@@ -37,6 +37,10 @@ Anschluss auf allgemeine Originalstraßen erweitern, ohne ausschließlich deklar
   Nur tatsächliche Kontakte verformen Terrain. Semantik/Funktion bleiben trotz Fern-LOD erhalten.
 - Bestehende Renderer-/Mesherpfade nutzen; begrenzte Jobs, konsistente Kontaktprodukte
   und Eigentümer statt zweitem Straßenimport oder graphischem Netz aus Dreiecken.
+
+- Straßenraum trägt vorhandene OSM-Klasse und Tags für Markierungen, Bord/Kai,
+  Geländer, Signale, Beleuchtung und technische Kleinbauten bis zu nativen Produkten.
+  Wiederholbare Elemente instanzieren; Nahgeometrie nicht für die Fernstadt erzeugen.
 
 ## Abnahme
 Ein echter Stadt-/Hafen-Place zeigt durchgehende Straßen und eine korrekt angeschlossene

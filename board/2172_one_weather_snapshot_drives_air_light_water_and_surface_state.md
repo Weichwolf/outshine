@@ -24,6 +24,8 @@ zweite parallele Wetterwelt.
 Open-Meteo nutzt öffentliche Provider-/IO-/Quellcache-Verträge; fehlende/alte Werte
 bleiben sichtbar. Zuerst Snapshot und eine begrenzte Wolkenschicht samt Weltlicht anbinden.
 Generatoren besitzen Dichtefelder; Render besitzt Integration/History und Kameraantwort.
+Bedeckte Stadtbilder brauchen diffuse Himmelsfüllung und weiche Schatten; klare
+Bergbilder brauchen räumlich getrennte Luftschichten statt eines globalen Nebelfilters.
 
 ## Umsetzung und Invarianten
 - Sonne, Mond und sichtbare Planeten aus astronomischen Modellen/UTC/Beobachterposition;
@@ -35,6 +37,8 @@ Generatoren besitzen Dichtefelder; Render besitzt Integration/History und Kamera
   Transmittanz/Radiance einmal komponieren; dieselbe Dichte liefert Wolkenschatten/Himmelsfüllung.
 - Regen/Nässe, Schnee/Schmelze folgen Wetterhistorie und Untergrund/Exposition. Ein
   Tagesdatum oder pauschale weiße Höhenmaske ersetzt keinen Zustand; bestehende Materialien nutzen.
+- Nebel/feuchte Luft folgen Höhen-/Wetterzustand; Atmosphäre verarbeitet Tiefe und
+  Verdeckung konsistent mit Weltlicht. Wolkenformen bleiben plausible Ergänzung.
 - Wetter ändert Wasser/Vegetation über denselben Snapshot. Quellenwechsel erneuert keine
   unveränderte Stadt; Himmel/Wolken konkurrieren nach Bildgewinn im gemeinsamen Budget.
 

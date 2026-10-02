@@ -16,8 +16,18 @@ Stadt lesbar. HDR-/Material-/Sky-Pfade existieren, kohärente Weltwirkung ist un
 
 ## Besitzer und nächste Lieferung
 SceneRenderer, SkyStage und vorhandene Pass-/Materialpfade besitzen Licht und Sichtbarkeit.
+TemporalResolve/Tonemap bestehen; Kamera-Fit und zeitliche Bildqualität sind noch unbewiesen.
 Kameraantwort besitzt Belichtung/Tonemapping. Zuerst indirekte Himmelsfüllung, stabile
 Sonnenschatten und Belichtung in einer Stadt-/Bergansicht liefern; vorhandene Pässe nutzen.
+
+## Kamera und bewegtes Bild
+- PlaceCamera und der Referenzkatalog besitzen Kamera/FOV, Höhendatum, Aufnahmezeit
+  und Kalibrierstatus. Zuerst horizontale Landmarken/Relief mit unveränderter Geometrie
+  abgleichen, dann Pitch/Höhe prüfen. Ein Kamera-Fit repariert keine fehlenden Gebäude.
+- Reprojektion verwendet konsistente Tiefe, Kameratransform und Bewegungsdaten.
+  Disocclusion, Ursprung-/Quellenwechsel und neue Produkte verwerfen ungültige History;
+  Dachkanten, Fenster, Wasser und später Laub bleiben ohne Geisterbilder/Flimmern.
+- Zielbild ist eine kohärente Außenwelt; kein zusätzlicher Spezialrenderer pro Place.
 
 ## Umsetzung und Invarianten
 - Geometrie, Licht, Schatten und Wasser teilen Frame-Ursprung und Datumsbezug aus 2188.

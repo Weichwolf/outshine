@@ -39,6 +39,8 @@ festlegen; dessen ungeklärter Teil hält die Architektur `planned`.
   keine Wassergeometrie; Materialgrenzen stimmen mit denselben Originalringen überein.
 - Relief verfeinert die endgültige deformierte Oberfläche; Nachbargrenzen stimmen überein.
   Harte Ring-/Punktlimits melden Nichtlieferbarkeit, statt Gewässer still zu entfernen.
+- Winterzustand erlaubt Eis/Schnee und veränderte Roughness/Transmission aus 2172.
+  Hafentide ohne erlaubte Eingangsdaten bleibt unbekannt; keinen exakten Pegelfit behaupten.
 - Wasser nutzt Wind/Wetter, Normaldetail, Tiefe, Fresnel, Reflexion und Transmission;
   Energieaufteilung und Atmosphäre konsistent. Keine starre blaue Fläche oder Doppelbelichtung.
 

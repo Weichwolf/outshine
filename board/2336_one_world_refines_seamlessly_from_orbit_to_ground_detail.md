@@ -41,6 +41,9 @@ persistente Generatorablage. Deshalb bleibt die globale Architektur `planned`.
   Eltern bleiben bis zur geschlossenen Kind-Publikation verfügbar; Übergänge ohne Löcher/Poppen.
 - Gebäudestufen: Fernverband, Massing, Hülle, Nahdetails. Fernobjekte gemeinsam darstellen;
   Fassaden-/Dachdetails nur nah erzeugen. Vegetation übernimmt dieselbe Auswahl/Residency.
+- Detailauswahl berücksichtigt Bildfläche, Fehler und gemessene CPU/GPU-/Bytekosten
+  gemeinsam für Gebäude, Terrain, Wasser, Himmel und später Vegetation. Keine volle
+  Nahgeometrie für eine entfernte Dachlandschaft; Zielqualität nicht nach Datenmenge kürzen.
 - Source-/Zell-/LOD-Produkte bleiben von Kamerahistorie unabhängig. Begrenzte Vorbereitung,
   Instancing, kompakte Parameter, Hysterese und stabile Auswahl statt Neuaufbau je Frame.
 - Strukturvarianten verwenden echte Oberflächenfehler einschließlich Öffnungen und beider
