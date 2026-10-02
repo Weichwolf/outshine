@@ -86,8 +86,8 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
   Jobs tragen Revision und Abbruch; stale Ergebnisse ersetzen keinen neuen Stand.
   Begrenzte IO-Zellschritte geben die gemeinsame Queue frei; ein Handle endet erst nach dem letzten Schritt.
   Kandidaten wechseln atomar. GPU-Ressourcen leben bis nach ihrer letzten Submission.
-- Residenter Weltstand wird bei unveränderten Eingaben nicht erneut aufgebaut. Bedarf
-  und Qualitätsänderung ersetzen betroffene Produkte; Eltern halten Abdeckung bis Kinder bereit sind.
+- Unveränderte Produkte einschließlich gültiger Leerprodukte werden nicht erneut aufgebaut.
+  Bedarf/Qualität ersetzt betroffene Produkte; Eltern halten Abdeckung bis Kinder bereit sind.
   Speicher-/Arbeitsgrenzen gehören zum jeweiligen Besitzer; fehlende Daten sind kein Leerprodukt.
 - SimulationCommand adressiert stabile Entities und validiert Einheiten/Zustand. JS,
   UI und LLM-NPCs teilen Kräfte, Impulse, Gelenkantriebe und Interaktionen. Physik berechnet
