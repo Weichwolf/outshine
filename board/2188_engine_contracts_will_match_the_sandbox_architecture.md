@@ -28,7 +28,8 @@ ClassificationPreparation besitzt Ingestion und Publikation in engine/streaming;
 ClassificationBuild nutzt den gemeinsamen Compute-Worker. Der pure ClassificationRasterizer
 liegt unter generators/terrain; world hält nur den immutable Klassifikationssnapshot.
 Fine/Coarse behalten ihren Raumbezug und die jeweils konsumierte Quellrevision.
-ClassStructure packt noch das GPU-Wortlayout; dieses Renderprodukt gehört nicht zum Weltbesitz.
+GroundClassBuffer besitzt GPU-Packing und Digest unter render; ClassStructure bleibt ein natives CPU-Produkt.
+Der gemeinsame Worker erstellt beide; engine publiziert sie zusammen, render hält nur seinen Uploadpuffer.
 
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
@@ -56,7 +57,7 @@ beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
 | Gebäude-Publikation (bereinigt) | BuildingGeometry trägt nur native Polygone und generische Provenienz/IDs |
 | actor/body: Rigid/Prismatic | physics besitzt Simulation; actor konsumiert sie |
 | import (bereinigt) | Native CPU-Assets ohne Rendererfreigabe; keine transitive Render-Abhängigkeit |
-| ClassStructure: native Grids plus GPU-Wortlayout | world hält native Grids; render besitzt gepackte Uploadprodukte und deren Lebensdauer |
+| Klassifikations-Upload (bereinigt) | world hält native Grids; render besitzt gepackte Uploadprodukte und deren Lebensdauer |
 | private Builtin-Bakes neben Generator-API | Ein öffentlicher Input-/Productvertrag für Builtins und Erweiterungen |
 | Testprofile mit eigenen Include-Listen | Profile aus demselben Modulgraphen ableiten; Fixtures explizit besitzen |
 `world` konsumiert weder sources, import noch generators. Engine verbindet diese Module.
@@ -105,7 +106,6 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
    nach import, Quellanforderung/Cache nach sources. Beide verwenden öffentliche Quellenverträge.
    Generische Weltprodukte konsumieren weder Importformate noch Generatorinputs; Engine verbindet sie.
    Native Felder/Netze bleiben lesbare Produkte; Weltobjekte besitzen keine Quelle/Jobqueue.
-   GPU-Packing aus ClassStructure nach render verlagern; CPU-Abfragen und Quellrevisionen erhalten.
 2. 2280s angeschlossene Erwerbspipeline um begrenzte native Ingestion und Produktbesitz ergänzen.
 3. GenerationRequest/Product und gemeinsame Raum-/Fehlerwerte öffentlich machen; Builtins migrieren.
 4. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
