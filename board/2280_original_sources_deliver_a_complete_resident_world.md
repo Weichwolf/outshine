@@ -81,6 +81,8 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   `FetchFailure` hält tatsächliche Quelle, Endstatus und Scheduler-Retryzahl. Der OSM-
   Reader reicht HTTP-Status und Transportgrund bis zum Client; andere Quelladapter
   müssen diese Metadaten noch übernehmen. Eine pauschale Ablehnung verliert keine Ursache.
+  HTTP 509 beendet den Erwerb ohne automatische Wiederholung; erhaltene Originalbytes bleiben
+  nutzbar. Ein erneuter Erwerb ist explizit, keine verdeckte Schleife gegen das Anbieterlimit.
   Internet-Erwerb erhält seine eigene Frist und darf länger dauern. Erst mit vollständigem
   Quellcache gilt das Zehn-Sekunden-Gate; ein frischer Offline-Prozess prüft den warmen Aufbau.
   CellCompiler überführt jede dekodierte Zelle auf dem gemeinsamen Compute-Worker in native

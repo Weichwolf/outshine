@@ -23,6 +23,7 @@ constexpr int kHttpNotFound = 404;
 constexpr int kHttpRequestTimeout = 408;
 constexpr int kHttpTooManyRequests = 429;
 constexpr int kHttpServerError = 500;
+constexpr int kHttpBandwidthLimitExceeded = 509;
 
 std::string MapEndpoint(std::string_view endpoint, const Data::SourceCoverage &bounds) {
   return std::format("{}/map?bbox={},{},{},{}",
@@ -122,6 +123,10 @@ ApiSource::Collect(const Data::Address &at, Data::Ticket ticket, Data::Transport
     }
   }
   if (response->Status == kHttpNotFound) { return Data::Fetched::NotFound(); }
+  if (response->Status == kHttpBandwidthLimitExceeded) {
+    return Data::Fetched::Meant(
+        Data::Meaning::Refused, Data::FetchFailureReason::ProviderRefused, response->Status);
+  }
   if (response->Status == kHttpRequestTimeout || response->Status == kHttpTooManyRequests ||
       response->Status >= kHttpServerError) {
     return Data::Fetched::MeantAfter(Data::Meaning::Retry,

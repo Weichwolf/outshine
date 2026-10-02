@@ -57,5 +57,13 @@ int main() {
               failed.error().find("https://api.openstreetmap.org/api/0.6") != std::string::npos,
           "the terminal diagnostic identifies the original source");
   }
+  RetryWire quota;
+  quota.Status = 509;
+  const auto limited = Generators::Osm::ReadRegion(provider, store, quota, 20000, {});
+  CHECK(!limited && quota.Starts == 1,
+        "an exhausted bandwidth quota does not trigger repeated downloads");
+  CHECK(!limited &&
+            limited.error().find("provider refusal HTTP 509 after 0 retries") != std::string::npos,
+        "bandwidth refusal keeps its actual status and retry count");
   return Report();
 }
