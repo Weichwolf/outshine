@@ -3,7 +3,7 @@
 
 #include "GeographicRing.h"
 #include "BuildingHeightInterval.h"
-#include "OriginalStructureSource.h"
+#include "StructureSourceInputs.h"
 #include <array>
 #include <expected>
 #include <atomic>
@@ -77,7 +77,7 @@ struct RawTile {
     double MinimumHeightM = 0.0;
     int Pitched = -1;
     std::optional<outshine::Ground::BuildingHeightOrigin> HeightOrigin = std::nullopt;
-    Data::OsmElementId OriginalId{};
+    Data::SourceObjectId SourceId{};
   };
 
   struct Way {
@@ -90,7 +90,7 @@ struct RawTile {
   std::vector<Structure> Structures;
   std::vector<GeographicRing> Holes;
   std::vector<Way> Ways;
-  OriginalStructureSource Original;
+  StructureSourceInputs SourceInputs;
   Vec3 AnchorEcef;
   LongitudeLatitude Eye;
   std::optional<LevelOfDetail> RequestedDetail;

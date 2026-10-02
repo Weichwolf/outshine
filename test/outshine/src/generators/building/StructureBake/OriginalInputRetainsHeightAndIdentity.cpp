@@ -30,7 +30,7 @@ int main() {
   const auto footprints = outshine::Generators::Osm::BuildingFootprints::Build(source, 4);
   CHECK(footprints.has_value(), "original raised part has a closed footprint");
   if (!footprints) { return Report(); }
-  const OriginalStructureSource original{
+  const outshine::Test::OriginalBuildingSource original{
       .Snapshot = source,
       .Origin = {.Bounds = {.WestDeg = -1, .SouthDeg = -1, .EastDeg = 1, .NorthDeg = 1}}};
   const outshine::Generators::Osm::StructurePolicy policy{
@@ -42,9 +42,9 @@ int main() {
   CHECK(part.MinimumHeightM == 5.5 && part.HeightM == 9.5 &&
             part.HeightOrigin == outshine::Ground::BuildingHeightOrigin::Generated,
         "missing top uses an explicit four metre body above original clearance");
-  CHECK(part.OriginalId.Kind == Data::OsmElementKind::Way && part.OriginalId.Id == 10 &&
-            raw->Original.Archive.lock() == source &&
-            raw->Original.Snapshot->Elements.FindWay(10) != nullptr,
+  CHECK(part.SourceId.Kind == static_cast<uint8_t>(Data::OsmElementKind::Way) &&
+            part.SourceId.Id == 10 && raw->SourceInputs.Archive.lock() == source &&
+            CapturedOsmSource(*raw).Elements.FindWay(10) != nullptr,
         "worker input retains typed identity, closed native inputs and its archive association");
   CHECK(part.PointCount == 4 && raw->LatLon.size() == 8 && part.HoleCount == 0,
         "source footprint reaches the generator without duplicated closing point");
@@ -110,7 +110,8 @@ int main() {
   const auto pointRaw =
       outshine::Test::OriginalBuildingInput(*pointFootprints, pointOriginal, pointPolicy);
   CHECK(pointRaw && pointRaw->Structures.size() == 1 && pointRaw->LatLon.size() == 10 &&
-            pointRaw->Structures.front().OriginalId.Kind == Data::OsmElementKind::Node &&
+            pointRaw->Structures.front().SourceId.Kind ==
+                static_cast<uint8_t>(Data::OsmElementKind::Node) &&
             pointRaw->Structures.front().HeightOrigin ==
                 outshine::Ground::BuildingHeightOrigin::Storeys,
         "generated point footprint retains node identity and level-derived height");

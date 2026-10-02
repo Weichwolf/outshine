@@ -23,7 +23,7 @@ int main() {
   auto input = outshine::Generators::StructureInput(std::move(footprints));
   CHECK(input && input->LatLon.data() == points && input->Holes.data() == rings,
         "native geometry ownership crosses the boundary without duplicating coordinate buffers");
-  CHECK(input && !input->Original.Snapshot && input->Structures.size() == 1 &&
+  CHECK(input && !input->SourceInputs.Objects && input->Structures.size() == 1 &&
             input->Structures.front().HeightM == 13 &&
             input->Structures.front().MinimumHeightM == 3 &&
             input->Structures.front().HeightOrigin ==

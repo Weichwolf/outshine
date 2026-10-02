@@ -3,6 +3,7 @@
 #include "HeightField.h"
 
 #include "OsmBuildingFootprints.h"
+#include "OsmSourceCapture.h"
 #include "TangentFrame.h"
 
 #include <algorithm>
@@ -137,8 +138,8 @@ PrepareOriginal(const std::shared_ptr<const Data::OsmSourceSnapshot> &source,
   }
   auto raw = Generators::StructureInput(std::move(described->Footprints));
   if (!raw) { return std::unexpected("native building footprints have an invalid cell"); }
-  raw->Original.Snapshot = std::move(described->Source);
-  raw->Original.Archive = std::move(described->Archive);
+  raw->SourceInputs.Objects = std::move(described->Source);
+  raw->SourceInputs.Archive = std::move(described->Archive);
   return std::move(*raw);
 }
 
@@ -205,12 +206,10 @@ VerifySources(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> so
 }
 
 void RecordConsumedWays(const Generators::RawTile &raw, std::set<uint64_t> &consumedWays) {
+  const auto &source =
+      static_cast<const Generators::Osm::SourceCapture &>(*raw.SourceInputs.Objects);
   for (const auto &structure : raw.Structures) {
-    if (structure.OriginalId.Kind != Data::OsmElementKind::Relation) { continue; }
-    const auto *relation = raw.Original.Snapshot->Elements.FindRelation(structure.OriginalId.Id);
-    for (const auto &member : relation->Members) {
-      if (member.Kind == Data::OsmElementKind::Way) { consumedWays.insert(member.Id); }
-    }
+    source.RecordMemberWays(structure.SourceId, consumedWays);
   }
 }
 
@@ -231,23 +230,25 @@ PrepareProducts(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> 
     RecordConsumedWays(*raw, consumedWays);
     inputs.push_back(std::move(*raw));
   }
-  std::set<std::pair<Data::OsmElementKind, uint64_t>> owned;
+  std::set<std::pair<uint8_t, uint64_t>> owned;
   std::vector<OriginalStructurePreparation::Product> products;
   products.reserve(inputs.size());
   for (auto &raw : inputs) {
     if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
     std::erase_if(raw.Structures, [&](const auto &structure) {
-      const auto id = structure.OriginalId;
-      return (id.Kind == Data::OsmElementKind::Way && consumedWays.contains(id.Id)) ||
+      const auto id = structure.SourceId;
+      return (id.Kind == static_cast<uint8_t>(Data::OsmElementKind::Way) &&
+              consumedWays.contains(id.Id)) ||
              !owned.emplace(id.Kind, id.Id).second;
     });
-    raw.Original.Origin.Selection = kDigestBasis;
+    raw.SourceInputs.Origin.Selection = kDigestBasis;
     for (const auto &structure : raw.Structures) {
-      raw.Original.Origin.Selection = DigestFolded(raw.Original.Origin.Selection,
-                                                   static_cast<uint8_t>(structure.OriginalId.Kind));
+      raw.SourceInputs.Origin.Selection = DigestFolded(
+          raw.SourceInputs.Origin.Selection, static_cast<uint8_t>(structure.SourceId.Kind));
       for (unsigned shift = 0; shift < 64u; shift += 8u) {
-        raw.Original.Origin.Selection = DigestFolded(
-            raw.Original.Origin.Selection, static_cast<uint8_t>(structure.OriginalId.Id >> shift));
+        raw.SourceInputs.Origin.Selection =
+            DigestFolded(raw.SourceInputs.Origin.Selection,
+                         static_cast<uint8_t>(structure.SourceId.Id >> shift));
       }
     }
     auto tiles = OriginalHeightCoverage(raw, heightZoom, stop);

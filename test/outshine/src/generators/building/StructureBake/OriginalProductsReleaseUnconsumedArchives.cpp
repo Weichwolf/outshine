@@ -56,9 +56,9 @@ int main() {
     CHECK(source->Elements.Nodes().size() == 516 && source->Elements.Relations().size() == 1,
           "product preparation preserves the complete original archive for other consumers");
   }
-  CHECK(archive.expired() && input->Original.Archive.expired(),
+  CHECK(archive.expired() && input->SourceInputs.Archive.expired(),
         "resident building input does not extend the complete cell archive lifetime");
-  const auto &native = *input->Original.Snapshot;
+  const auto &native = CapturedOsmSource(*input);
   CHECK(native.Elements.Nodes().size() == 4 && native.Elements.Ways().size() == 1 &&
             native.Elements.Relations().empty() && !native.Elements.FirstMissingReference(),
         "resident native input owns exactly the complete building dependency closure");

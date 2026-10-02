@@ -78,8 +78,8 @@ int PitchedOf(std::string_view said) {
 void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &raw) {
   if (baked.Coordinates) { return; }
   baked.Coordinates = std::make_shared<Ground::BuildingGeometry>();
-  baked.Coordinates->Origin = raw.Original.Origin;
-  if (raw.Original.Snapshot) { baked.Coordinates->Sources.reserve(baked.Prints.size()); }
+  baked.Coordinates->Origin = raw.SourceInputs.Origin;
+  if (raw.SourceInputs.Objects) { baked.Coordinates->Sources.reserve(baked.Prints.size()); }
   size_t source = 0;
   for (auto &footprint : baked.Prints) {
     while (source < raw.Structures.size() &&
@@ -89,8 +89,8 @@ void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &ra
     if (source == raw.Structures.size()) { std::terminate(); }
     footprint.FirstPoint = raw.Structures[source].LocalFirst;
     footprint.FirstHole = raw.Structures[source].FirstHole;
-    if (raw.Original.Snapshot) {
-      const auto id = raw.Structures[source].OriginalId;
+    if (raw.SourceInputs.Objects) {
+      const auto id = raw.Structures[source].SourceId;
       baked.Coordinates->Sources.push_back({.Id = id.Id, .Kind = static_cast<uint8_t>(id.Kind)});
     }
     ++source;
@@ -122,7 +122,7 @@ void RawOf(const Ground::OsmField &vectors,
   raw.Structures.clear();
   raw.Holes.clear();
   raw.Ways.clear();
-  raw.Original = {};
+  raw.SourceInputs = {};
   raw.AnchorEcef = prints.Anchor();
   raw.Eye = eye;
   raw.RequestedDetail = detail;
@@ -529,8 +529,8 @@ bool StructureBuildQueue::BakeRevision::Matches(
     HeightRequirement heights,
     std::optional<LevelOfDetail> detail,
     BuildPurpose purpose,
-    const Data::OsmSourceSnapshot *original) const noexcept {
-  return OwnsReservation(vectors, footprints, eye, heightSource, original) &&
+    const Data::SourceObjects *inputObjects) const noexcept {
+  return OwnsReservation(vectors, footprints, eye, heightSource, inputObjects) &&
          RequestedDetail == detail && Purpose == purpose &&
          (purpose == BuildPurpose::SourceGeometry || RequestedDetail || EyeWithin(Eye, eye)) &&
          (heights == HeightRequirement::AllowFallback || !FallbackHeights);
@@ -579,7 +579,7 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
   }
   if (Originals_.size() == sources.size() && OriginalHeightZoom_ == heightZoom &&
       std::ranges::equal(Originals_, sources, {}, [](const auto &product) {
-        return product.Input->Original.Archive.lock();
+        return product.Input->SourceInputs.Archive.lock();
       })) {
     return true;
   }
@@ -593,8 +593,8 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
   return false;
 }
 
-const Data::OsmSourceSnapshot *StructureBuildQueue::OriginalFor(uint32_t tile) const noexcept {
-  return tile < Originals_.size() ? Originals_[tile].Input->Original.Snapshot.get() : nullptr;
+const Data::SourceObjects *StructureBuildQueue::InputObjectsFor(uint32_t tile) const noexcept {
+  return tile < Originals_.size() ? Originals_[tile].Input->SourceInputs.Objects.get() : nullptr;
 }
 
 std::expected<std::span<const Data::TileId>, std::string>
@@ -627,9 +627,9 @@ bool StructureBuildQueue::SourcesComplete(const Ground::SurfacePreparation &stac
       const auto *input = footprints.InputOfTile(static_cast<uint32_t>(tile));
       if (input == nullptr || !input->Qualified || !input->Coordinates ||
           input->Coordinates->Origin.Provenance !=
-              Originals_[tile].Input->Original.Origin.Provenance ||
+              Originals_[tile].Input->SourceInputs.Origin.Provenance ||
           input->Coordinates->Origin.Selection !=
-              Originals_[tile].Input->Original.Origin.Selection) {
+              Originals_[tile].Input->SourceInputs.Origin.Selection) {
         return false;
       }
     }
@@ -689,7 +689,7 @@ void StructureBuildQueue::DiscardFront(Ground::BuildingField &prints) {
   IdleScratch_.reserve(IdleScratch_.size() + 1u);
   if (stale.ReservationOwner == prints.ReservationOwner()) {
     if (stale.Replacement) {
-      if (!stale.Task.Raw().Original.Snapshot) { prints.RetryRefinement(stale.Task.Tile()); }
+      if (!stale.Task.Raw().SourceInputs.Objects) { prints.RetryRefinement(stale.Task.Tile()); }
     } else {
       prints.Release(stale.Task.Tile());
     }
@@ -717,7 +717,7 @@ void StructureBuildQueue::DiscardStale(const Ground::OsmField *vectors,
                                            heights,
                                            detail,
                                            purpose,
-                                           OriginalFor(Queue_.front().Task.Tile())))) {
+                                           InputObjectsFor(Queue_.front().Task.Tile())))) {
     QueuedBuild &stale = Queue_.front();
     if (!stale.Finished) { stale.Finished = stale.Task.TakeCompletion(*Pool_); }
     if (!stale.Finished) { return; }
@@ -1109,8 +1109,8 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
   const auto &original = Originals_[tile].Input;
   const auto *accepted = prints.InputOfTile(tile);
   if (accepted != nullptr && accepted->Coordinates &&
-      accepted->Coordinates->Origin.Provenance == original->Original.Origin.Provenance &&
-      accepted->Coordinates->Origin.Selection == original->Original.Origin.Selection &&
+      accepted->Coordinates->Origin.Provenance == original->SourceInputs.Origin.Provenance &&
+      accepted->Coordinates->Origin.Selection == original->SourceInputs.Origin.Selection &&
       accepted->Terrain.ScopeCurrent(heightAt.TerrainScope) && accepted->Qualified &&
       (original->Structures.empty() ||
        (heightAt.CertificateCurrent && heightAt.CertificateCurrent(accepted->Terrain))) &&
@@ -1164,7 +1164,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                                                  .HeightDigest = heights->RasterDigest(),
                                                  .TileSpanM = prints.TileSpanM(),
                                                  .FallbackHeights = heights->Fallback(),
-                                                 .Origin = &raw->Original.Origin});
+                                                 .Origin = &raw->SourceInputs.Origin});
   const BakeRevision revision{.HeightSource = heightAt.Revision,
                               .FocalPx = prints.FocalPx(),
                               .TileSpanM = prints.TileSpanM(),
@@ -1172,7 +1172,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                               .RequestedDetail = detail,
                               .Purpose = purpose,
                               .FallbackHeights = heights->Fallback(),
-                              .Original = raw->Original.Snapshot.get()};
+                              .InputObjects = raw->SourceInputs.Objects.get()};
   if (accepted == nullptr) { prints.Take(tile); }
   auto output = Borrowed(IdleOut_);
   *output = {};
@@ -1303,7 +1303,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                                    .StreetDigest = *streetDigest,
                                                    .TileSpanM = prints.TileSpanM(),
                                                    .FallbackHeights = heights->Fallback(),
-                                                   .Origin = &raw->Original.Origin});
+                                                   .Origin = &raw->SourceInputs.Origin});
     SlowestRawExtractionMs_ = std::max(
         SlowestRawExtractionMs_,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - extractionAt)
@@ -1347,14 +1347,15 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparatio
                                                  const QueuedBuild &bake,
                                                  HeightRequirement heights,
                                                  Ground::TerrainCertificate &validated) {
-  if (bake.Task.Raw().Original.Snapshot) {
+  if (bake.Task.Raw().SourceInputs.Objects) {
     const auto &captured = bake.Task.Heights();
-    const bool current = bake.Task.Raw().Original.Snapshot.get() == OriginalFor(bake.Task.Tile()) &&
-                         bake.Task.Raw().Original.Origin.Selection ==
-                             Originals_[bake.Task.Tile()].Input->Original.Origin.Selection &&
-                         InstrumentedHeightsCurrent(captured, heightAt) &&
-                         (heights == HeightRequirement::AllowFallback ||
-                          bake.Task.Raw().Structures.empty() || captured.Qualified());
+    const bool current =
+        bake.Task.Raw().SourceInputs.Objects.get() == InputObjectsFor(bake.Task.Tile()) &&
+        bake.Task.Raw().SourceInputs.Origin.Selection ==
+            Originals_[bake.Task.Tile()].Input->SourceInputs.Origin.Selection &&
+        InstrumentedHeightsCurrent(captured, heightAt) &&
+        (heights == HeightRequirement::AllowFallback || bake.Task.Raw().Structures.empty() ||
+         captured.Qualified());
     if (current) { validated = captured.Certificate(); }
     return current;
   }
@@ -1426,7 +1427,7 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
                                heights,
                                detail,
                                purpose,
-                               OriginalFor(bake.Task.Tile()))) {
+                               InputObjectsFor(bake.Task.Tile()))) {
       break;
     }
     if (!bake.Task.Result().Status) {
@@ -1670,7 +1671,7 @@ void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
                                                .Fronted = baked.Fronted};
     if (bake.Replacement) {
       footprints.ReplaceAcceptance(std::move(landing.Footprints.value()), product);
-    } else if (bake.Task.Raw().Original.Snapshot) {
+    } else if (bake.Task.Raw().SourceInputs.Objects) {
       footprints.CommitAcceptance(std::move(landing.Footprints.value()), product);
     } else {
       footprints.CommitAcceptance(std::move(landing.Footprints.value()), *stack.Vectors(), product);

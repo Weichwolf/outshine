@@ -66,7 +66,7 @@ public:
     std::optional<LevelOfDetail> RequestedDetail;
     BuildPurpose Purpose = BuildPurpose::ViewDetail;
     bool FallbackHeights = false;
-    const Data::OsmSourceSnapshot *Original = nullptr;
+    const Data::SourceObjects *InputObjects = nullptr;
 
     [[nodiscard]] bool Matches(const Ground::OsmField *vectors,
                                const Ground::BuildingField &footprints,
@@ -75,7 +75,7 @@ public:
                                HeightRequirement heights = HeightRequirement::AllowFallback,
                                std::optional<LevelOfDetail> detail = std::nullopt,
                                BuildPurpose purpose = BuildPurpose::ViewDetail,
-                               const Data::OsmSourceSnapshot *original = nullptr) const noexcept;
+                               const Data::SourceObjects *inputObjects = nullptr) const noexcept;
 
     [[nodiscard]] bool Matches(const Ground::OsmField &vectors,
                                const Ground::BuildingField &footprints,
@@ -92,10 +92,10 @@ public:
                     const Ground::BuildingField &footprints,
                     LongitudeLatitude eye,
                     HeightSourceRevision heightSource,
-                    const Data::OsmSourceSnapshot *original = nullptr) const noexcept {
+                    const Data::SourceObjects *inputObjects = nullptr) const noexcept {
       (void)eye;
-      return (Original != nullptr ? Original == original
-                                  : vectors != nullptr && Vectors == vectors->Generation()) &&
+      return (InputObjects != nullptr ? InputObjects == inputObjects
+                                      : vectors != nullptr && Vectors == vectors->Generation()) &&
              HeightSource == heightSource &&
              (RequestedDetail || Purpose == BuildPurpose::SourceGeometry ||
               FocalPx == footprints.FocalPx()) &&
@@ -397,7 +397,7 @@ private:
   std::unique_ptr<OriginalStructurePreparation> OriginalPreparation_;
   std::vector<std::shared_ptr<const Data::OsmSourceSnapshot>> PreparingOriginals_;
   std::vector<OriginalStructurePreparation::Product> Originals_;
-  [[nodiscard]] const Data::OsmSourceSnapshot *OriginalFor(uint32_t tile) const noexcept;
+  [[nodiscard]] const Data::SourceObjects *InputObjectsFor(uint32_t tile) const noexcept;
   std::vector<Data::TileId> OriginalHeightTiles_;
   int OriginalHeightZoom_ = -1;
   int PreparingOriginalHeightZoom_ = -1;

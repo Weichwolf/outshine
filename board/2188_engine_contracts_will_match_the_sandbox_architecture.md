@@ -17,7 +17,7 @@ ProviderRegistry/SourceSet, native Geometry/Material, Double-Welt und kamera-rel
 GPU-Daten bestehen. Generate::Request trägt Ort/Seed/Ground/Coarseness, aber keinen
 Projektions-/Fehlervertrag. Native StructureBake-Pfade umgehen diesen Generatorvertrag.
 OriginalStructurePreparation fordert Terrain nach einem gemeinsamen heightZoom an;
-RawTile hält geschlossene OSM-Inputs mit schwachem Archivbezug; BuildingGeometry hält
+RawTile hält SourceObjects mit schwachem Archivbezug; OSM besitzt den geschlossenen SourceCapture. BuildingGeometry hält
 native Polygone/Quellbelege; StructureFootprints/BuildingHeightInterval tragen native Ringe/Höhen. OSM-Tagparser,
 Grundrisse und Strukturadapter gehören generators/osm/buildings. Archive bleiben im Quellenladepfad. SimulationState integriert bisher
 Schwerkraft; Rigid/Wrench/Prismatic liefern Grundlagen, keinen vollständigen Weltkontakt.

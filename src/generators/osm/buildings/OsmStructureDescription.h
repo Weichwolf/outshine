@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_BUILDINGS_OSMSTRUCTUREDESCRIPTION_H
 
 #include "OsmBuildingFootprints.h"
+#include "SourceObjects.h"
 #include "StructureFootprints.h"
 #include "OsmSourceSnapshot.h"
 #include <memory>
@@ -26,8 +27,8 @@ enum class StructureDescriptionError : uint8_t {
 
 struct StructureDescription {
   outshine::Ground::StructureFootprints Footprints;
-  std::shared_ptr<const Data::OsmSourceSnapshot> Source;
-  std::weak_ptr<const Data::OsmSourceSnapshot> Archive;
+  std::shared_ptr<const Data::SourceObjects> Source;
+  std::weak_ptr<const void> Archive;
 };
 
 [[nodiscard]] std::expected<StructureDescription, StructureDescriptionError>

@@ -1,5 +1,6 @@
 #include "OsmStructureDescription.h"
 #include "OsmSourceProvenance.h"
+#include "OsmSourceCapture.h"
 
 #include "TangentFrame.h"
 #include <algorithm>
@@ -106,8 +107,9 @@ DescribeStructures(const BuildingFootprints &buildings,
                               .ParseMs = source->ParseMs,
                               .Chunks = source->Chunks,
                               .Cell = source->Cell});
-  return StructureDescription{
-      .Footprints = std::move(raw), .Source = std::move(closure), .Archive = source};
+  return StructureDescription{.Footprints = std::move(raw),
+                              .Source = std::make_shared<const SourceCapture>(std::move(closure)),
+                              .Archive = source};
 }
 
 }

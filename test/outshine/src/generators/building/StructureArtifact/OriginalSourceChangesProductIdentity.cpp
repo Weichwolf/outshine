@@ -1,3 +1,4 @@
+#include "OriginalBuildingInput.h"
 #include "OsmSourceProvenance.h"
 #include "StructureArtifact.h"
 #include "OsmXmlReader.h"
@@ -27,41 +28,44 @@ int main() {
   CHECK(heights != nullptr, "DEM fixture is available");
   if (!heights) { return Report(); }
   RawTile raw;
-  raw.Original = {.Snapshot = source,
-                  .Origin = {.Provenance = outshine::Generators::Osm::DescribeOsmSource(*source),
-                             .Bounds = {.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
-  raw.Structures.push_back({.OriginalId = {.Kind = Data::OsmElementKind::Node, .Id = 1}});
+  raw.SourceInputs = {
+      .Objects = std::make_shared<const outshine::Generators::Osm::SourceCapture>(source),
+      .Origin = {.Provenance = outshine::Generators::Osm::DescribeOsmSource(*source),
+                 .Bounds = {.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
+  raw.Structures.push_back(
+      {.SourceId = {.Id = 1, .Kind = static_cast<uint8_t>(Data::OsmElementKind::Node)}});
   const auto key = StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test");
-  raw.Structures.front().OriginalId.Kind = Data::OsmElementKind::Way;
+  raw.Structures.front().SourceId.Kind = static_cast<uint8_t>(Data::OsmElementKind::Way);
   CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
         "equal numeric IDs of different OSM element kinds cannot alias a product");
-  raw.Structures.front().OriginalId.Kind = Data::OsmElementKind::Node;
-  raw.Structures.front().OriginalId.Id = 2;
+  raw.Structures.front().SourceId.Kind = static_cast<uint8_t>(Data::OsmElementKind::Node);
+  raw.Structures.front().SourceId.Id = 2;
   CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
         "different original elements cannot share product identity");
-  raw.Structures.front().OriginalId.Id = 1;
+  raw.Structures.front().SourceId.Id = 1;
   RawTile copy = raw;
   source.reset();
-  raw.Original = {};
+  raw.SourceInputs = {};
   CHECK(!held.expired() &&
-            copy.Original.Snapshot->Elements.FindNode(1)->Tags.front().Value == "retained",
+            CapturedOsmSource(copy).Elements.FindNode(1)->Tags.front().Value == "retained",
         "copied worker input retains original tags after producer release");
   CHECK(key && key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
         "original and unqualified inputs cannot share product identity");
-  copy.Original.Origin.Bounds.EastDeg = 2;
-  copy.Original.Origin.Provenance =
-      outshine::Generators::Osm::DescribeOsmSource(*copy.Original.Snapshot);
+  copy.SourceInputs.Origin.Bounds.EastDeg = 2;
+  copy.SourceInputs.Origin.Provenance =
+      outshine::Generators::Osm::DescribeOsmSource(CapturedOsmSource(copy));
   CHECK(key != StructureArtifactKey(copy, *heights, std::nullopt, "native-input-test"),
         "native source coverage participates in product identity");
   auto next = Data::OsmXmlReader::Read(R"(<osm version="0.6"/>)",
                                        {.DatasetId = "native-buildings", .Revision = "two"});
   CHECK(next.has_value(), "replacement fixture parses");
   if (!next) { return Report(); }
-  copy.Original.Origin.Bounds.EastDeg = 1;
-  copy.Original.Snapshot = std::make_shared<const Data::OsmSourceSnapshot>(
-      Data::OsmSourceSnapshot{.Elements = std::move(*next), .Coverage = {}});
-  copy.Original.Origin.Provenance =
-      outshine::Generators::Osm::DescribeOsmSource(*copy.Original.Snapshot);
+  copy.SourceInputs.Origin.Bounds.EastDeg = 1;
+  copy.SourceInputs.Objects = std::make_shared<const outshine::Generators::Osm::SourceCapture>(
+      std::make_shared<const Data::OsmSourceSnapshot>(
+          Data::OsmSourceSnapshot{.Elements = std::move(*next), .Coverage = {}}));
+  copy.SourceInputs.Origin.Provenance =
+      outshine::Generators::Osm::DescribeOsmSource(CapturedOsmSource(copy));
   CHECK(key != StructureArtifactKey(copy, *heights, std::nullopt, "native-input-test"),
         "original revision changes identity even when mesh parameters are equal");
   CHECK(held.expired(), "last worker release retires the original source owner");

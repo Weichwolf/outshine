@@ -24,7 +24,7 @@ Erweiterung unter `generators/osm` besitzt Provider, Adapter, Zellplanung und Er
 `SourceAcquisition`, `TransportPreparation`, Provider und API-/Zellerwerber liegen bereits
 dort. OSM-Gebäudeparser und Strukturadapter liegen in `generators/osm/buildings`; native
 StructureFootprints/Höhenintervalle enthalten keine Tags oder Quellformate; der Gebäudebake
-übernimmt native Ringe/Höhen über seinen eigenen StructureInput. XML-Decoder/Validierung bleiben in
+übernimmt native Ringe/Höhen über seinen eigenen StructureInput; konsumierte Objekt-IDs prüft SourceObjects ohne OSM-Typen im Bake. XML-Decoder/Validierung bleiben in
 world/data, Engine-Aufrufer sind noch spezialisiert.
 Allgemeine SourceSet-/ContentStore-Dienste halten Netzwerkbytes/Receipt. Bestehende
 Tasks/Fetching nutzen begrenztes paralleles IO und genau einen gemeinsamen Compute-

@@ -356,9 +356,9 @@ StructureArtifactKey(const RawTile &raw,
                      std::string_view producerVersion) {
   if (producerVersion.empty()) { return std::nullopt; }
   Writer writer;
-  if (raw.Original.Snapshot) {
+  if (raw.SourceInputs.Objects) {
     const uint64_t original = StructureSourceKey(
-        {.Vector = std::nullopt, .HeightSources = {}, .Origin = &raw.Original.Origin});
+        {.Vector = std::nullopt, .HeightSources = {}, .Origin = &raw.SourceInputs.Origin});
     if (!writer.Number(original)) { return std::nullopt; }
   }
   const auto structure = [](auto &archive, const RawTile::Structure &value) {
@@ -369,7 +369,7 @@ StructureArtifactKey(const RawTile &raw,
            archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
            archive.Number(value.Pitched) && archive.Number(value.HeightOrigin.has_value()) &&
            (!value.HeightOrigin || archive.Number(*value.HeightOrigin)) &&
-           archive.Number(value.OriginalId.Kind) && archive.Number(value.OriginalId.Id);
+           archive.Number(value.SourceId.Kind) && archive.Number(value.SourceId.Id);
   };
   const auto ring = [](auto &archive, const GeographicRing &value) {
     return archive.Number(value.First) && archive.Number(value.Count) &&

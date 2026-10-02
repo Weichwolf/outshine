@@ -504,20 +504,13 @@ void IncludeFootprint(BakedTile &out, const StructureCell &cell) {
   }
 }
 
-bool HasOriginalElement(const RawTile &raw, Data::OsmElementId id) {
-  if (!raw.Original.Snapshot) { return id.Id == 0; }
-  const auto &elements = raw.Original.Snapshot->Elements;
-  switch (id.Kind) {
-    case Data::OsmElementKind::Node: return elements.FindNode(id.Id) != nullptr;
-    case Data::OsmElementKind::Way: return elements.FindWay(id.Id) != nullptr;
-    case Data::OsmElementKind::Relation: return elements.FindRelation(id.Id) != nullptr;
-  }
-  return false;
+bool HasSourceObject(const RawTile &raw, Data::SourceObjectId id) {
+  return raw.SourceInputs.Objects ? raw.SourceInputs.Objects->Contains(id) : id.Id == 0;
 }
 
 bool ValidStructureInput(const RawTile::Structure &structure, const RawTile &raw) {
   const size_t holes = raw.Holes.size();
-  return HasOriginalElement(raw, structure.OriginalId) && structure.FirstHole <= holes &&
+  return HasSourceObject(raw, structure.SourceId) && structure.FirstHole <= holes &&
          structure.HoleCount <= holes - structure.FirstHole &&
          (!structure.HeightOrigin ||
           (std::isfinite(structure.HeightM) && structure.HeightM > 0.0)) &&
