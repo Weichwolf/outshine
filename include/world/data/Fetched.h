@@ -110,7 +110,7 @@ public:
   /// Record an authoritative HTTP 404 independently of other failures.
   /// @return Settled absence carrying HttpNotFound evidence; no allocation.
   [[nodiscard]] static Fetched NotFound() {
-    auto made = Meant(Meaning::Absent, FetchFailureReason::ConfirmedAbsent, 404);
+    auto made = Meant(Meaning::Absent, FetchFailureReason::ConfirmedAbsent, kHttpNotFound);
     made.Evidence_ = AbsenceEvidence::HttpNotFound;
     return made;
   }
@@ -141,7 +141,7 @@ public:
     AbsenceEvidence Evidence = AbsenceEvidence::Unknown; ///< Authoritative absence evidence.
     std::vector<uint8_t> Bytes; ///< Owned source bytes; consumer enforces byte limits.
     std::optional<RangeResponse> Range = std::nullopt; ///< Original partial-response identity.
-    std::optional<int> HttpStatus; ///< Observed HTTP status, when a response was received.
+    std::optional<int> HttpStatus = std::nullopt; ///< HTTP status, when a response was received.
   };
 
   /// Consume a settled reply exactly once by moving its bytes.
@@ -158,6 +158,8 @@ public:
   }
 
 private:
+  static constexpr int kHttpNotFound = 404;
+
   Fetched(State where, Meaning what, std::vector<uint8_t> bytes)
       : Where_(where), What_(what), Bytes_(std::move(bytes)) {}
 
