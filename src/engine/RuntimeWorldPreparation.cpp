@@ -4,6 +4,7 @@
 #include "OfflineTransport.h"
 #include "math/Units.h"
 #include "OsmXmlReader.h"
+#include "OsmSourceDemand.h"
 
 #include <cmath>
 #include <cstddef>
@@ -109,23 +110,23 @@ bool Engine::State::RequestOriginalCells() {
     return provider.Kind == "osm" && !provider.Coverage && provider.Location.empty();
   });
   if (found == Session.Declared.Providers.end()) { return true; }
-  constexpr int level = 9;
-  constexpr size_t maximumCells = size_t{1} << static_cast<unsigned>(2 * level);
-  constexpr size_t maximumBytes = 32 * Data::kMaxOsmXmlBytes;
   const auto focus = CurrentGeographicFocus();
   const std::array demand{focus.LatitudeDeg, focus.LongitudeDeg, TerrainSightM()};
   if (World.OriginalSourceDemand == demand) { return true; }
-  auto cells = Data::CellsAround(demand[0], demand[1], demand[2], level, maximumCells);
+  auto cells = Data::CellsAround(demand[0],
+                                 demand[1],
+                                 demand[2],
+                                 Generators::Osm::kCatalogueCellLevel,
+                                 Generators::Osm::kDefaultCellLimits.CellsMost);
   if (!cells) {
     Error = std::move(cells.error());
     return false;
   }
-  if (auto requested = World.OsmSource->RequestCells(
-          *found,
-          *cells,
-          {.CellsMost = maximumCells, .SnapshotBytesMost = maximumBytes},
-          Session.Under.Shipped,
-          &World.Providers);
+  if (auto requested = World.OsmSource->RequestCells(*found,
+                                                     *cells,
+                                                     Generators::Osm::kDefaultCellLimits,
+                                                     Session.Under.Shipped,
+                                                     &World.Providers);
       !requested) {
     Error = std::move(requested.error());
     return false;

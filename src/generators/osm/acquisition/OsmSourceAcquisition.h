@@ -73,6 +73,7 @@ public:
   [[nodiscard]] std::span<const CellSource> CurrentCells() const noexcept;
   [[nodiscard]] size_t CellSnapshotChargeBytes() const noexcept;
   [[nodiscard]] size_t PreparedCellCount() const noexcept;
+  [[nodiscard]] size_t RequiredCellCount() const noexcept;
   void Poll();
   [[nodiscard]] bool AwaitSlice(double seconds);
 

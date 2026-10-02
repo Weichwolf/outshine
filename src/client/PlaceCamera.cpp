@@ -6,6 +6,7 @@
 #include "FrameSchedule.h"
 #include "WorldSourcePolicy.h"
 #include "SourceCache.h"
+#include "PlaceSourcePreparation.h"
 
 #include "io/HeapProbe.h"
 
@@ -266,16 +267,39 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, Roots roots) {
 }
 
 std::string Prepare(const Place &place, double patienceS) {
+  const auto began = std::chrono::steady_clock::now();
+  auto roots = Client::WithSourceCache(
+      Roots{.Assets = "src/assets/drive", .Shipped = "src/assets", .Cache = {}});
+  if (!roots) { return std::move(roots.error()); }
+  auto declared = place.Declaration;
+  if (auto configured = Client::ConfigureWorldSources(declared); !configured) {
+    return std::move(configured.error());
+  }
+  if (auto sources = Client::PreparePlaceSources(
+          declared,
+          *roots,
+          patienceS,
+          [&](Generators::Osm::SourceCacheProgress how) {
+            std::println("PREPARE {} source cache elapsed {:.1f} s; {}/{} validated cells",
+                         place.Name,
+                         how.ElapsedS,
+                         how.ValidatedCells,
+                         how.RequiredCells);
+          });
+      !sources) {
+    return std::move(sources.error());
+  }
+  const double elapsed =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+  if (elapsed >= patienceS) { return "place preparation deadline exceeded before world assembly"; }
   Engine engine;
   Shot shot;
-  if (!OpenPlace(engine,
-                 place,
-                 shot,
-                 Roots{.Assets = "src/assets/drive", .Shipped = "src/assets", .Cache = {}})) {
-    return shot.Why;
-  }
+  if (!OpenPlace(engine, place, shot, std::move(*roots))) { return shot.Why; }
   double last = 0;
-  const Result ready = engine.preload(patienceS, [&](const Loading &how) {
+  const double remaining =
+      patienceS - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+  if (remaining <= 0) { return "place preparation deadline exceeded during world assembly"; }
+  const Result ready = engine.preload(remaining, [&](const Loading &how) {
     if (how.ElapsedS - last < 5) { return; }
     last = how.ElapsedS;
     std::println("PREPARE {} elapsed {:.1f} s", place.Name, how.ElapsedS);

@@ -8,11 +8,11 @@ namespace outshine {
 
 namespace {
 constexpr int kZoomMost = 24;
-constexpr double kDefaultSightM = 240000.0;
 }
 
 double Engine::State::TerrainSightM() const noexcept {
-  return Session.Declared.Ground.SightM > 0.0 ? Session.Declared.Ground.SightM : kDefaultSightM;
+  return Session.Declared.Ground.SightM > 0.0 ? Session.Declared.Ground.SightM
+                                              : Scenario::kSightUnsaidM;
 }
 
 Around Engine::State::TerrainCoverageAt(LongitudeLatitude focus) const {

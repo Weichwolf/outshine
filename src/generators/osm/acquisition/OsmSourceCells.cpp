@@ -166,6 +166,10 @@ size_t SourceAcquisition::CellSnapshotChargeBytes() const noexcept {
   return Cells_ ? Cells_->ChargedBytes() : 0;
 }
 
+size_t SourceAcquisition::RequiredCellCount() const noexcept {
+  return Cells_ && Scope_ == Scope::Cells ? Cells_->Wanted.size() : 0;
+}
+
 size_t SourceAcquisition::PreparedCellCount() const noexcept {
   if (!Cells_ || Scope_ != Scope::Cells) { return 0; }
   if (Phase_ == Phase::Ready) { return Cells_->Published.size(); }

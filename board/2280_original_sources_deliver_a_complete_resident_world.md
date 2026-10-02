@@ -87,7 +87,11 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   native Zellen ingestieren, ohne sämtliche Roh-Snapshots bis zur fertigen Fernwelt zu halten.
   SourceAcquisition trennt Cache-Vorbereitung von residenten Eingaben: dekodierte Zellen
   nach Validierung freigeben, vollständige qualifizierte Byte-Abdeckung zuletzt auf IO prüfen.
-  Cache-Bereitschaft liefert keine Weltprodukte; der Prepare-Client muss diesen Pfad noch anschließen.
+  PlaceSourcePreparation verdrahtet registrierte Provider, HTTP und geliehene GenOSM-Worker;
+  PrepareSourceCache gehört GenOSM. Der Client-Root darf dazu den Host-Transport bereitstellen.
+  Prepare führt Cachephase vor Engine/Weltaufbau aus; beide teilen eine Gesamtfrist.
+  Cache-Bereitschaft liefert keine Weltprodukte; erst vollständige Welt meldet Prepare ready.
+  SourceDemand hält gemeinsame Zelllimits; GeodeticCamera denselben geografischen Fokus.
   Originalcache vollständig vorbereiten und tatsächlichen Place-Aufbau messen; Erwerb allein
   beweist weder das Ladebudget noch Bildqualität. Keine weitere reine Wartezeit-Optimierung.
   Geschlossene dekodierte Teilregionen geben native Erzeugung frei, während weitere Quellen

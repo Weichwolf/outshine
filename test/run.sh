@@ -229,6 +229,7 @@ done
 TestProfile() {
   case "$1" in
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
+    outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
     outshine/include/*) printf '%s' 'profile/public' ;;
     outshine/src/world/data/MvtLayer | outshine/src/world/ground/OsmStorageUsage)
@@ -250,7 +251,7 @@ TestProfile() {
 
 LayerIncludes() {
   case "$(TestProfile "$1")" in
-    profile/client-roundtrip) LayerIncludes profile/internal ;;
+    profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
     profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
     profile/vector) printf '%s' "-Isrc/world/data -Isrc/base/spatial" ;;
     profile/osm-xml) printf '%s' "-Isrc/world/data -Isrc/world/products -Isrc/base/format" ;;
@@ -284,7 +285,7 @@ LayerToolchain() {
     render) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)"; return ;;
   esac
   case "$(TestProfile "$1")" in
-    profile/client-roundtrip) LayerToolchain profile/internal ;;
+    profile/client-roundtrip | profile/client-preparation) LayerToolchain profile/internal ;;
     profile/public) LayerToolchain profile/internal ;;
     profile/diagnostics) LayerToolchain profile/internal ;;
     profile/internal|profile/device) LayerToolchain profile/engine; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
@@ -317,7 +318,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$(TestProfile "$1")" in
-    profile/client-roundtrip) LayerLink profile/internal ;;
+    profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/public) LayerLink profile/internal ;;
     profile/base) printf '%s' "-lz" ;;
     profile/diagnostics) LayerLink profile/internal ;;
@@ -343,6 +344,7 @@ EngineRootGroups() {
 LayerGroups() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
+    profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/public) LayerGroups profile/internal ;;
     profile/vector) printf '%s' "src/world/data/MvtLayer.cpp" ;;
     profile/osm-xml) printf '%s' "src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
