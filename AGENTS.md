@@ -174,9 +174,14 @@
 - Ich begrenze Funktionen mit clang-tidys `readability-function-size.LineThreshold`
   auf 120 Zeilen. Überschreitungen nach Zuständigkeit/Phase zerlegen, nicht durch
   Zeilenverdichtung oder Suppression kaschieren; das Lint-Gate verlangt null Befunde.
-- Code-/Shader-/Build-/Teständerungen: `make format`, fokussierte Suite, Places und vollständiges
-  `make lint` einschließlich clang-tidy/API. Nur Dokumentänderungen: `make lint-docs`.
-  Dokument-Lint schließt keine offenen Engine-Gates oder Codebefunde.
+- Pro Codeänderung: `make format`, betroffene Tests und fokussiertes clang-tidy. Headeränderungen
+  schließen abhängige Übersetzungseinheiten ein; Shaderänderungen ihre Varianten und CPU/GPU-Verträge.
+  Bildwirksame Änderungen verlangen betroffene Places mit tatsächlicher Bildprüfung.
+- Vollständiges `make lint` einschließlich clang-tidy/API folgt am Ende eines integrierten
+  Arbeitsblocks sowie nach Änderungen an öffentlicher API, Modulgrenzen, Build- oder Prüfregeln;
+  nicht routinemäßig nach jedem kleinen Commit. Kleine vollständige Commits bleiben Pflicht.
+  Unveränderte Dateien prüfe ich erneut nur wegen betroffener Abhängigkeiten oder des Integrationsgates.
+  Nur Dokumentänderungen: `make lint-docs`. Dokument-Lint schließt keine offenen Engine-Gates oder Codebefunde.
 - Nur ein schwerer Build-/Lint-/Renderlauf gleichzeitig. Ich prüfe laufende Prozesse zuerst.
   Lange Gates laufen auf eingefrorenem Commit in detached Worktree mit eigenem Build;
   `LINT_JOBS=2 make lint`. Kein geteiltes `build/`, kein `make spotless` während anderer Gates.
