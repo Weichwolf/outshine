@@ -21,6 +21,17 @@
 - Ich hinterfrage unnötige Arbeit, Speicher und Komplexität, suche Gegenbelege und prüfe
   einfachere etablierte Verfahren. RAGE, Unreal, Filament und Cesium sind Referenzen;
   lokale Messungen entscheiden. KISS, DRY, klare Zuständigkeiten und Local Reasoning gelten.
+- Ich visualisiere regelmäßig intern die komplette Engine und spiele ihre Algorithmen, Signalflüsse
+  und Zustandswechsel durch: vor jedem Arbeitsblock, nach integrierten Änderungen und bei Regressionen.
+  Ich wiederhole den Durchlauf aus Sicht des erwarteten Bildes, der Zuständigkeiten und der Hardware.
+- Ich durchlaufe getrennt den residenten Frame, Kameradrehung/Bewegung sowie Kaltstart,
+  Quellenänderung und Fehler. Ich verfolge Quellen/IO → Adapter → Generatoren → Weltprodukte →
+  Render-/Audioausgabe und parallel Eingaben/JS/LLM → Commands → Physik → Weltzustand.
+- Ich denke wie CPU, GPU, RAM und SSD: welcher Thread arbeitet oder wartet, welche Daten werden
+  berührt, kopiert oder gehalten, wann werden Jobs und Ressourcen frei, was läuft parallel und was
+  liegt auf dem kritischen Pfad? Ich suche unnötige Wiederholung, Bandbreite, Allokation, Synchronisation
+  und unklare Zuständigkeiten; ich prüfe den einfacheren Ablauf und seine erwartete Bildwirkung.
+  Gedankendurchläufe liefern Hypothesen. Code, Messungen und tatsächliche Renderings prüfen sie.
 - Nach zwei reinen Reparatur-Iterationen ohne Bildgewinn überprüfe ich Ansatz und Umfang.
   Ich verberge offene Fehler nicht. Grüne Tests und Commits allein sind kein visueller Fortschritt.
 - Ich öffne die tatsächlichen Renderings und vergleiche Vorher/Nachher sowie passende Webcam-
