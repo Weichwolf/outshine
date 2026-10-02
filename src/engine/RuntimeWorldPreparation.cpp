@@ -52,9 +52,10 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     Error = "semantic OSM routes require a source";
     return false;
   }
-  if (osmProviders.empty() && !World.OsmSourceLoader && !World.OsmTransport) { return true; }
+  if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) { return true; }
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World.OsmSourceLoader) {
+  if (!World.Io) { World.Io = std::make_unique<Tasks>(1); }
+  if (!World.OsmSource) {
     if (!World.Wire) {
       if (Session.Under.Offline) {
         World.Wire = std::make_unique<Data::OfflineTransport>();
@@ -65,8 +66,8 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
                                                         .MaxBodyBytes = Data::kMaxOsmXmlBytes});
       }
     }
-    World.OsmSourceLoader =
-        std::make_unique<OsmSourceLoader>(*World.Pool, World.Wire.get(), Session.Under.Cache);
+    World.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(
+        *World.Pool, *World.Io, World.Wire.get(), Session.Under.Cache);
   }
   World.OsmRoutes = std::move(routes);
   World.OriginalSourceDemand.reset();
@@ -76,8 +77,8 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   } else if (!World.OsmTransport) {
     World.OsmTransport = std::make_unique<Generators::Osm::TransportPreparation>(*World.Pool);
   }
-  if (World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Ready ||
-      World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Inactive) {
+  if (World.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Ready ||
+      World.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Inactive) {
     return SubmitOsmTransportSource();
   }
   return true;
@@ -91,8 +92,7 @@ bool Engine::State::RequestOsmSources(std::span<const Data::SourceProvider> prov
     }
     return RequestOriginalCells();
   }
-  if (auto requested =
-          World.OsmSourceLoader->Request(providers, Session.Under.Shipped, &World.Providers);
+  if (auto requested = World.OsmSource->Request(providers, Session.Under.Shipped, &World.Providers);
       !requested) {
     Error = std::move(requested.error());
     return false;
@@ -101,7 +101,7 @@ bool Engine::State::RequestOsmSources(std::span<const Data::SourceProvider> prov
 }
 
 bool Engine::State::RequestOriginalCells() {
-  if (!World.OsmSourceLoader) { return true; }
+  if (!World.OsmSource) { return true; }
   const auto found = std::ranges::find_if(Session.Declared.Providers, [](const auto &provider) {
     return provider.Kind == "osm" && !provider.Coverage && provider.Location.empty();
   });
@@ -117,7 +117,7 @@ bool Engine::State::RequestOriginalCells() {
     Error = std::move(cells.error());
     return false;
   }
-  if (auto requested = World.OsmSourceLoader->RequestCells(
+  if (auto requested = World.OsmSource->RequestCells(
           *found,
           *cells,
           {.CellsMost = maximumCells, .SnapshotBytesMost = maximumBytes},
@@ -135,8 +135,7 @@ bool Engine::State::RequestOriginalCells() {
 
 bool Engine::State::SubmitOsmTransportSource() {
   if (!World.OsmTransport) { return true; }
-  auto requested =
-      World.OsmTransport->RequestSource(World.OsmSourceLoader->Current(), World.OsmRoutes);
+  auto requested = World.OsmTransport->RequestSource(World.OsmSource->Current(), World.OsmRoutes);
   if (!requested) {
     Error = std::move(requested.error());
     return false;
@@ -271,12 +270,12 @@ bool Engine::State::PrepareRuntimeWorld() {
 }
 
 void Engine::State::PollOsmSources() {
-  if (World.OsmSourceLoader) {
-    const auto previousRevision = World.OsmSourceLoader->PublishedRevision();
-    World.OsmSourceLoader->Poll();
-    if (World.OsmSourceLoader->PublishedRevision() != previousRevision &&
-        World.CurrentOriginalReady() && World.OsmSourceLoader->Current()) {
-      const auto &source = *World.OsmSourceLoader->Current();
+  if (World.OsmSource) {
+    const auto previousRevision = World.OsmSource->PublishedRevision();
+    World.OsmSource->Poll();
+    if (World.OsmSource->PublishedRevision() != previousRevision && World.CurrentOriginalReady() &&
+        World.OsmSource->Current()) {
+      const auto &source = *World.OsmSource->Current();
       Published.RecordMetric(
           "original OSM source bytes", static_cast<double>(source.SourceBytes), "bytes");
       Published.RecordMetric("original OSM read time", source.ReadMs, "ms");
@@ -295,7 +294,7 @@ void Engine::State::PollOsmSources() {
   Published.RecordMetric(
       "semantic OSM jobs pending",
       static_cast<double>((World.OsmTransport ? World.OsmTransport->PendingCount() : 0) +
-                          (World.OsmSourceLoader ? World.OsmSourceLoader->PendingCount() : 0)),
+                          (World.OsmSource ? World.OsmSource->PendingCount() : 0)),
       "jobs");
   if (!World.OsmTransport) { return; }
   Published.RecordMetric("semantic OSM jobs completed",

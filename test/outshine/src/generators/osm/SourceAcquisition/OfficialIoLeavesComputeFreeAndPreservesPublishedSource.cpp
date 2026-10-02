@@ -1,4 +1,4 @@
-#include "OsmSourceLoader.h"
+#include "OsmSourceAcquisition.h"
 #include "SourceProviderValidation.h"
 #include "OsmBuildingFootprints.h"
 #include "OsmTransportPreparation.h"
@@ -37,11 +37,13 @@ public:
   void Cancel(outshine::Data::Ticket) override { ++Canceled; }
 };
 
-bool WaitFor(outshine::OsmSourceLoader &loader) {
+bool WaitFor(outshine::Generators::Osm::SourceAcquisition &loader) {
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   do {
     loader.Poll();
-    if (loader.CurrentPhase() != outshine::OsmSourceLoader::Phase::Loading) { return true; }
+    if (loader.CurrentPhase() != outshine::Generators::Osm::SourceAcquisition::Phase::Loading) {
+      return true;
+    }
     (void)loader.AwaitSlice(0.01);
   } while (std::chrono::steady_clock::now() < until);
   return false;
@@ -57,7 +59,8 @@ int main() {
   {
     ApiWire wire;
     Tasks compute(1);
-    OsmSourceLoader loader(compute, &wire, directory);
+    Tasks io(1);
+    outshine::Generators::Osm::SourceAcquisition loader(compute, io, &wire, directory);
     const std::array providers{Data::SourceProvider{
         .Kind = "osm",
         .Revision = "r1",

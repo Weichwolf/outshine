@@ -245,10 +245,10 @@ public:
         TransportSnapshot_(world.CurrentTransportReady() ? world.OsmTransport->Current() : nullptr),
         Id_(id) {
     if (!world.CurrentOriginalReady()) { return; }
-    if (world.OsmSourceLoader->Current()) {
-      OriginalSources_.push_back(world.OsmSourceLoader->Current());
+    if (world.OsmSource->Current()) {
+      OriginalSources_.push_back(world.OsmSource->Current());
     } else {
-      for (const auto &cell : world.OsmSourceLoader->CurrentCells()) {
+      for (const auto &cell : world.OsmSource->CurrentCells()) {
         OriginalSources_.push_back(cell.Snapshot);
       }
     }
@@ -873,33 +873,31 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   const bool elsewhere = from != previous.Region;
   const bool renamed = classes != previous.Classes;
   const uint64_t footprints = World.Stack.Footprints().Revision();
-  const Generators::Osm::TransportPreparation *const transportLoader =
-      World.OsmTransport.get();
+  const Generators::Osm::TransportPreparation *const transportLoader = World.OsmTransport.get();
   const uint64_t transportGeneration =
       World.CurrentTransportReady() ? transportLoader->CompletedCount() : 0;
   const std::array<double, 3> projection{
       {static_cast<double>(view.Kind), view.YfovRad, view.YMagM}};
   const double visualRadiusM = Session.Declared.Ground.SightM > 0.0 ? Session.Declared.Ground.SightM
                                                                     : Scenario::kSightUnsaidM;
-  request.Revision = {.Region = from,
-                      .ResidentTiles = resident,
-                      .Classes = classes,
-                      .Footprints = footprints,
-                      .VectorGeneration = World.Stack.Vectors() != nullptr
-                                              ? World.Stack.Vectors()->Generation()
-                                              : 0,
-                      .TransportSourceGeneration = transportGeneration,
-                      .OriginalSourceGeneration =
-                          World.OsmSourceLoader ? World.OsmSourceLoader->PublishedRevision() : 0,
-                      .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
-                      .StreetTiles = World.Stack.Ways().IngestedTiles(),
-                      .WaterTiles = World.Stack.WaterBodies().IngestedTiles(),
-                      .Projection = projection,
-                      .Coverage = {.ContactRadiusM = 0.5 * World.Stack.Footprints().TileSpanM(),
-                                   .VisualRadiusM = visualRadiusM,
-                                   .MinimumSourceZoom = std::max(over.Zoom - 1, 0),
-                                   .TargetSourceZoom = over.Zoom},
-                      .Quality = quality};
+  request.Revision = {
+      .Region = from,
+      .ResidentTiles = resident,
+      .Classes = classes,
+      .Footprints = footprints,
+      .VectorGeneration =
+          World.Stack.Vectors() != nullptr ? World.Stack.Vectors()->Generation() : 0,
+      .TransportSourceGeneration = transportGeneration,
+      .OriginalSourceGeneration = World.OsmSource ? World.OsmSource->PublishedRevision() : 0,
+      .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
+      .StreetTiles = World.Stack.Ways().IngestedTiles(),
+      .WaterTiles = World.Stack.WaterBodies().IngestedTiles(),
+      .Projection = projection,
+      .Coverage = {.ContactRadiusM = 0.5 * World.Stack.Footprints().TileSpanM(),
+                   .VisualRadiusM = visualRadiusM,
+                   .MinimumSourceZoom = std::max(over.Zoom - 1, 0),
+                   .TargetSourceZoom = over.Zoom},
+      .Quality = quality};
   if (quality == GroundQuality::Refined) { World.RequestedRefinedGround = request.Revision; }
   PublishGroundMemoryMeasurements();
   Published.RecordMetric("tiles laid bare on the ellipsoid",
@@ -2204,8 +2202,8 @@ bool Engine::State::AdvancesGroundRetirement() {
 }
 
 bool Engine::State::GroundInputsReady(GroundQuality quality) const {
-  if (World.OsmSourceLoader &&
-      World.OsmSourceLoader->CurrentPhase() != OsmSourceLoader::Phase::Inactive &&
+  if (World.OsmSource &&
+      World.OsmSource->CurrentPhase() != Generators::Osm::SourceAcquisition::Phase::Inactive &&
       !World.CurrentOriginalReady()) {
     return false;
   }

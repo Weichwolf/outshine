@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "OsmSourceLoader.h"
+#include "OsmSourceAcquisition.h"
 #include "SourceProviderValidation.h"
 
 #include <array>
@@ -55,7 +55,8 @@ public:
   }
 };
 
-template <typename Ready> bool Await(outshine::OsmSourceLoader &loader, Ready ready) {
+template <typename Ready>
+bool Await(outshine::Generators::Osm::SourceAcquisition &loader, Ready ready) {
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   do {
     loader.Poll();
@@ -65,14 +66,14 @@ template <typename Ready> bool Await(outshine::OsmSourceLoader &loader, Ready re
   return false;
 }
 
-bool Settled(outshine::OsmSourceLoader &loader) {
+bool Settled(outshine::Generators::Osm::SourceAcquisition &loader) {
   return Await(loader, [&loader] {
-    return loader.CurrentPhase() != outshine::OsmSourceLoader::Phase::Loading &&
+    return loader.CurrentPhase() != outshine::Generators::Osm::SourceAcquisition::Phase::Loading &&
            loader.PendingCount() == 0;
   });
 }
 
-size_t ActiveCharge(const outshine::OsmSourceLoader &loader) {
+size_t ActiveCharge(const outshine::Generators::Osm::SourceAcquisition &loader) {
   size_t bytes = 0;
   for (const auto &entry : loader.CurrentCells()) { bytes += entry.ChargedBytes; }
   return bytes;
@@ -90,7 +91,8 @@ int main() {
   {
     ApiWire wire;
     Tasks compute(1);
-    OsmSourceLoader loader(compute, &wire, directory);
+    Tasks io(1);
+    outshine::Generators::Osm::SourceAcquisition loader(compute, io, &wire, directory);
     const SourceProvider provider{.Kind = "osm",
                                   .Revision = "resident-r1",
                                   .Missing = MissingDataPolicy::Fail,
@@ -99,9 +101,11 @@ int main() {
     const std::array cells{GeoCellId{.Level = 9, .X = 269, .Y = 411},
                            GeoCellId{.Level = 9, .X = 270, .Y = 411},
                            GeoCellId{.Level = 9, .X = 271, .Y = 411}};
-    const OsmSourceLoader::CellLimits limits{.CellsMost = 8, .SnapshotBytesMost = 1024 * 1024};
+    const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
+        .CellsMost = 8, .SnapshotBytesMost = 1024 * 1024};
     CHECK(loader.RequestCells(provider, std::span(cells).first(3), limits, ".") &&
-              Settled(loader) && loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              Settled(loader) &&
+              loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
               loader.CurrentCells().size() == 3 && !loader.Current() && wire.Starts == 3 &&
               !wire.MainIo,
           "a demand beyond one two-cell batch publishes separate snapshots off the main thread");
@@ -114,7 +118,7 @@ int main() {
           "original tags and independently charged resident sources remain available");
     const std::array reversed{cells[2], cells[1], cells[0]};
     CHECK(loader.RequestCells(provider, reversed, limits, ".") &&
-              loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
               loader.PendingCount() == 0 && wire.Starts == 3,
           "camera-equivalent demand order performs no IO or recomputation");
     CHECK(loader.RequestCells(provider, std::span(cells).subspan(1), limits, ".") &&
@@ -154,13 +158,16 @@ int main() {
                               std::span(cells).subspan(1, 1),
                               {.CellsMost = 8, .SnapshotBytesMost = ActiveCharge(loader) + 4096},
                               ".") &&
-              Settled(loader) && loader.CurrentPhase() == OsmSourceLoader::Phase::Failed &&
+              Settled(loader) &&
+              loader.CurrentPhase() ==
+                  outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
               loader.CurrentCells()[0].Snapshot == retained &&
               loader.CellSnapshotChargeBytes() == ActiveCharge(loader),
           "large retained tag buffers exceed the snapshot budget and preserve the valid old world");
     wire.Large = false;
     CHECK(loader.RequestCells(provider, std::span(cells).subspan(1), limits, ".") &&
-              Settled(loader) && loader.CurrentPhase() == OsmSourceLoader::Phase::Ready,
+              Settled(loader) &&
+              loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready,
           "returning to a retained source revision recovers without losing products");
 
     changed.Revision = "resident-r3";
@@ -180,7 +187,7 @@ int main() {
           "stalled IO leaves the shared compute worker and published world available");
     CHECK(loader.RequestCells(provider, std::span(cells).subspan(1), limits, ".") &&
               Settled(loader) && wire.Canceled == 2 && wire.Active == 0 &&
-              loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
               loader.CurrentCells()[0].Snapshot == retained,
           "superseded source work cancels every ticket and cannot overwrite retained cells");
     wire.Block = false;
@@ -201,7 +208,8 @@ int main() {
               loader.CellSnapshotChargeBytes() == stagedCharge,
           "changed demand retains completed unpublished cells instead of re-ingesting them");
     wire.BlockAfter = 0;
-    CHECK(Settled(loader) && loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+    CHECK(Settled(loader) &&
+              loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
               loader.CurrentCells().size() == 3 && wire.Starts == beforePartial + 4,
           "redirecting a partial load acquires only its newly missing source");
     CHECK(loader.Request({}, ".") && Settled(loader) && loader.CurrentCells().empty() &&

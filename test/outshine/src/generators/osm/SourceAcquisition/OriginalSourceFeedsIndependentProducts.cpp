@@ -1,4 +1,4 @@
-#include "OsmSourceLoader.h"
+#include "OsmSourceAcquisition.h"
 #include "OsmBuildingFootprints.h"
 #include "OsmTransportPreparation.h"
 #include "StructureBuildQueue.h"
@@ -48,10 +48,12 @@ int main() {
       .Location = path.string(),
       .Coverage = Data::SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
   Tasks tasks(1);
-  OsmSourceLoader loader(tasks);
+  Tasks io(1);
+  outshine::Generators::Osm::SourceAcquisition loader(tasks, io);
   CHECK(loader.PublishedRevision() == 0, "no source is published before the first request");
   CHECK(loader.Request(providers, ".").has_value(), "original source admitted");
-  CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmSourceLoader::Phase::Ready,
+  CHECK(WaitFor(loader, tasks) &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready,
         "source publishes independently of an unrelated unresolved route");
   std::error_code error;
   std::filesystem::remove(path, error);
@@ -87,7 +89,8 @@ int main() {
   auto replacement = providers;
   replacement[0].Revision = "r2";
   CHECK(loader.Request(replacement, ".").has_value(), "changed revision requests replacement");
-  CHECK(WaitFor(loader, tasks) && loader.CurrentPhase() == OsmSourceLoader::Phase::Failed &&
+  CHECK(WaitFor(loader, tasks) &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
             loader.Current() == source && transport.Source() == source &&
             loader.PublishedRevision() == sourceRevision,
         "failed source replacement retains both valid published products");
@@ -96,13 +99,15 @@ int main() {
     file << "<osm version='0.6'><node id='1' lat='0' lon='0'/></osm>";
   }
   CHECK(loader.Request(replacement, ".").has_value() && WaitFor(loader, tasks) &&
-            loader.CurrentPhase() == OsmSourceLoader::Phase::Ready && loader.Current() != source &&
-            loader.PublishedRevision() > sourceRevision && transport.Source() == source,
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
+            loader.Current() != source && loader.PublishedRevision() > sourceRevision &&
+            transport.Source() == source,
         "a successful source replacement advances independently of the previously pinned graph");
   const auto replacementRevision = loader.PublishedRevision();
   CHECK(loader.Request({}, ".").has_value() &&
-            loader.CurrentPhase() == OsmSourceLoader::Phase::Inactive && !loader.Current() &&
-            loader.PublishedRevision() > replacementRevision,
+            loader.CurrentPhase() ==
+                outshine::Generators::Osm::SourceAcquisition::Phase::Inactive &&
+            !loader.Current() && loader.PublishedRevision() > replacementRevision,
         "removing the source publishes a revision that invalidates its former buildings");
   std::filesystem::remove(path, error);
   return Report();

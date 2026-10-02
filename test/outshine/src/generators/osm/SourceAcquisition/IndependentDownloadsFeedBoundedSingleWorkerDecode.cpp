@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "OsmSourceLoader.h"
+#include "OsmSourceAcquisition.h"
 #include "SourceProviderValidation.h"
 #include <algorithm>
 #include <array>
@@ -50,7 +50,8 @@ public:
   }
 };
 
-template <typename Ready> bool Await(outshine::OsmSourceLoader &loader, Ready ready) {
+template <typename Ready>
+bool Await(outshine::Generators::Osm::SourceAcquisition &loader, Ready ready) {
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(4);
   do {
     loader.Poll();
@@ -71,6 +72,7 @@ int main() {
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   {
     Tasks compute(1);
+    Tasks io(1);
     std::atomic<bool> releaseCompute{false}, computeEntered{false}, guardExpired{false};
     const auto blocker = compute.Post([&] {
       computeEntered = true;
@@ -81,7 +83,7 @@ int main() {
       guardExpired = !releaseCompute;
     });
     DelayedCellTransport wire;
-    OsmSourceLoader loader(compute, &wire, directory);
+    outshine::Generators::Osm::SourceAcquisition loader(compute, io, &wire, directory);
     const SourceProvider provider{.Kind = "osm",
                                   .Revision = "pipeline",
                                   .Missing = MissingDataPolicy::Fail,
@@ -108,10 +110,11 @@ int main() {
     wire.ReleaseFirst = true;
     CHECK(Await(loader,
                 [&] {
-                  return loader.CurrentPhase() != OsmSourceLoader::Phase::Loading &&
+                  return loader.CurrentPhase() !=
+                             outshine::Generators::Osm::SourceAcquisition::Phase::Loading &&
                          loader.PendingCount() == 0;
                 }) &&
-              loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
               loader.CurrentCells().size() == 10 && wire.Starts == 10 && wire.Active == 0 &&
               wire.Peak <= 8,
           "all cells publish once with bounded concurrency and no incomplete replacement");

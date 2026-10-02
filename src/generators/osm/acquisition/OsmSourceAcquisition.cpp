@@ -1,5 +1,5 @@
-#include "OsmSourceLoader.h"
-#include "OsmSourceLoaderState.h"
+#include "OsmSourceAcquisition.h"
+#include "OsmSourceAcquisitionState.h"
 
 #include "OsmChunkSetLoader.h"
 #include "OsmApiReader.h"
@@ -25,18 +25,21 @@
 #include <variant>
 #include <vector>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 namespace {
 constexpr size_t kMaxChunks = 4;
 }
 
-OsmSourceLoader::OsmSourceLoader(Tasks &tasks, Data::Transport *wire, std::string cacheDirectory)
-    : Tasks_(&tasks), Access_(std::make_shared<Access>()) {
+SourceAcquisition::SourceAcquisition(Tasks &compute,
+                                     Tasks &io,
+                                     Data::Transport *wire,
+                                     std::string cacheDirectory)
+    : Tasks_(&compute), Io_(io), Access_(std::make_shared<Access>()) {
   Access_->Wire = wire;
   Access_->Directory = std::move(cacheDirectory);
 }
 
-OsmSourceLoader::~OsmSourceLoader() {
+SourceAcquisition::~SourceAcquisition() {
   CancelCellPipeline();
   if (Pending_) {
     (void)Pending_->Stop.request_stop();
@@ -45,7 +48,7 @@ OsmSourceLoader::~OsmSourceLoader() {
   if (CellPipeline_) { Io_.Wait(CellPipeline_->Handle); }
 }
 
-std::expected<void, std::string> OsmSourceLoader::SetAcquisitionBudget(double seconds) {
+std::expected<void, std::string> SourceAcquisition::SetAcquisitionBudget(double seconds) {
   const double milliseconds = seconds * kMsPerS;
   if (!std::isfinite(milliseconds) || milliseconds < 0) {
     return std::unexpected("invalid original OSM acquisition budget");
@@ -56,9 +59,9 @@ std::expected<void, std::string> OsmSourceLoader::SetAcquisitionBudget(double se
 }
 
 std::expected<void, std::string>
-OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers,
-                         std::string_view root,
-                         const Data::ProviderRegistry *registry) {
+SourceAcquisition::Request(std::span<const Data::SourceProvider> providers,
+                           std::string_view root,
+                           const Data::ProviderRegistry *registry) {
   if (auto valid = Data::ValidateSourceProviders(providers); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
@@ -102,7 +105,7 @@ OsmSourceLoader::Request(std::span<const Data::SourceProvider> providers,
   return {};
 }
 
-void OsmSourceLoader::Poll() {
+void SourceAcquisition::Poll() {
   if (Pending_ && Pending_->Owner->TakeCompletion(Pending_->Handle)) {
     Pending finished = std::move(*Pending_);
     Pending_.reset();
@@ -119,12 +122,12 @@ void OsmSourceLoader::Poll() {
   }
 }
 
-bool OsmSourceLoader::AwaitSlice(double seconds) {
+bool SourceAcquisition::AwaitSlice(double seconds) {
   if (CellPipeline_) { return Io_.AwaitCompletion(std::min(seconds, MaximumIoAwaitSeconds)); }
   return Pending_ && Pending_->Owner->AwaitCompletion(seconds);
 }
 
-void OsmSourceLoader::CompletePending(Pending finished) {
+void SourceAcquisition::CompletePending(Pending finished) {
   if (finished.Revision != Revision_ || Phase_ != Phase::Loading) { return; }
   if (auto *read = std::get_if<ReadResult>(&finished.Output->Value)) {
     if (*read) {
@@ -155,7 +158,7 @@ void OsmSourceLoader::CompletePending(Pending finished) {
   Phase_ = Phase::Failed;
 }
 
-void OsmSourceLoader::StartRegionAcquisition() {
+void SourceAcquisition::StartRegionAcquisition() {
   auto result = std::make_shared<Result>();
   std::stop_source stop;
   const auto token = stop.get_token();
@@ -198,9 +201,9 @@ void OsmSourceLoader::StartRegionAcquisition() {
                            .Stop = std::move(stop)});
 }
 
-void OsmSourceLoader::StartDecode(std::vector<Data::OsmSourceChunk> input,
-                                  std::stop_source stop,
-                                  std::optional<double> readMs) {
+void SourceAcquisition::StartDecode(std::vector<Data::OsmSourceChunk> input,
+                                    std::stop_source stop,
+                                    std::optional<double> readMs) {
   auto result = std::make_shared<Result>();
   const auto token = stop.get_token();
   const bool cells = Scope_ == Scope::Cells;

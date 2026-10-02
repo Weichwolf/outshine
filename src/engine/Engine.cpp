@@ -59,9 +59,9 @@ namespace {
   const bool requested = std::ranges::any_of(
       providers, [](const Data::SourceProvider &provider) { return provider.Kind == "osm"; });
   if (!requested) { return {}; }
-  if (world.OsmSourceLoader) {
-    if (world.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Failed) {
-      return world.OsmSourceLoader->Error();
+  if (world.OsmSource) {
+    if (world.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Failed) {
+      return world.OsmSource->Error();
     }
   }
   if (!world.CurrentOriginalReady()) {
@@ -612,8 +612,8 @@ Result Engine::State::PumpPreload() {
   Published.BeginFrame();
   if (!RequestOriginalCells()) { return std::unexpected(Error); }
   PollOsmSources();
-  if ((World.OsmSourceLoader &&
-       World.OsmSourceLoader->CurrentPhase() == OsmSourceLoader::Phase::Failed) ||
+  if ((World.OsmSource &&
+       World.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Failed) ||
       (World.OsmTransport && World.OsmTransport->CurrentPhase() ==
                                  Generators::Osm::TransportPreparation::Phase::Failed)) {
     return std::unexpected(std::string(OsmWorldBlocker(Session.Declared.Providers, World)));
@@ -737,12 +737,12 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
         signalled);
     if (signalled || remaining() <= 0.0) { return; }
   }
-  const bool sourceWorker = World.OsmSourceLoader && World.OsmSourceLoader->PendingCount() > 0;
+  const bool sourceWorker = World.OsmSource && World.OsmSource->PendingCount() > 0;
   const bool worldWorker = World.RoadAlignmentBuilds.Busy() || sourceWorker ||
                            (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
   if (worldWorker && World.Pool) {
     const auto began = std::chrono::steady_clock::now();
-    const bool signalled = sourceWorker ? World.OsmSourceLoader->AwaitSlice(remaining())
+    const bool signalled = sourceWorker ? World.OsmSource->AwaitSlice(remaining())
                                         : World.Pool->AwaitCompletion(remaining());
     record({.Milliseconds = waited.WorldWorkerMs,
             .Calls = waited.WorldWorkerCalls,

@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "OsmSourceLoader.h"
+#include "OsmSourceAcquisition.h"
 #include "SourceProviderValidation.h"
 
 #include <array>
@@ -43,7 +43,8 @@ public:
   }
 };
 
-template <typename Ready> bool Await(outshine::OsmSourceLoader &loader, Ready ready) {
+template <typename Ready>
+bool Await(outshine::Generators::Osm::SourceAcquisition &loader, Ready ready) {
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   do {
     loader.Poll();
@@ -68,19 +69,24 @@ int main() {
                           .Dataset = "openstreetmap.original",
                           .Endpoint = std::string(kOfficialOsmApi)};
   const std::array cells{GeoCellId{.Level = 9, .X = 256, .Y = 256}};
-  const OsmSourceLoader::CellLimits limits{.CellsMost = 1, .SnapshotBytesMost = 1024 * 1024};
+  const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
+      .CellsMost = 1, .SnapshotBytesMost = 1024 * 1024};
   Tasks compute(1);
+  Tasks io(1);
   DelayedWire wire;
   wire.ReadyAtMs = 21000;
-  OsmSourceLoader loader(compute, &wire, directory);
+  outshine::Generators::Osm::SourceAcquisition loader(compute, io, &wire, directory);
   CHECK(loader.RequestCells(provider, cells, limits, ".") &&
             Await(loader, [&wire] { return wire.ClockMs >= 3000; }),
         "source IO is pending before the caller updates its budget");
   CHECK(loader.SetAcquisitionBudget(20).has_value(), "longer preparation budget accepted");
   wire.Released = true;
   CHECK(Await(loader,
-              [&loader] { return loader.CurrentPhase() != OsmSourceLoader::Phase::Loading; }) &&
-            loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              [&loader] {
+                return loader.CurrentPhase() !=
+                       outshine::Generators::Osm::SourceAcquisition::Phase::Loading;
+              }) &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
             loader.CurrentCells().size() == 1 && wire.ClockMs == 21000 && wire.Canceled == 0,
         "the renewed caller budget starts when granted instead of at the earlier source epoch");
   for (const double invalid : {-1.0,
@@ -92,15 +98,17 @@ int main() {
   }
   DelayedWire bounded;
   bounded.Released = true;
-  OsmSourceLoader shortLoader(compute, &bounded, directory);
+  outshine::Generators::Osm::SourceAcquisition shortLoader(compute, io, &bounded, directory);
   provider.Revision = "shorter";
   CHECK(shortLoader.SetAcquisitionBudget(5) &&
             shortLoader.RequestCells(provider, cells, limits, ".") &&
             Await(shortLoader,
                   [&shortLoader] {
-                    return shortLoader.CurrentPhase() != OsmSourceLoader::Phase::Loading;
+                    return shortLoader.CurrentPhase() !=
+                           outshine::Generators::Osm::SourceAcquisition::Phase::Loading;
                   }) &&
-            shortLoader.CurrentPhase() == OsmSourceLoader::Phase::Failed &&
+            shortLoader.CurrentPhase() ==
+                outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
             bounded.ClockMs == 5000 && bounded.Canceled == 1,
         "a short preload keeps its own bound and cancels unfinished source IO");
   std::error_code error;

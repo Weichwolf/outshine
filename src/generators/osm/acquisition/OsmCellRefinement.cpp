@@ -1,4 +1,4 @@
-#include "OsmSourceLoaderState.h"
+#include "OsmSourceAcquisitionState.h"
 
 #include <algorithm>
 #include <cassert>
@@ -13,7 +13,7 @@
 #include <ranges>
 #include <tuple>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 namespace {
 bool Before(Data::GeoCellId left, Data::GeoCellId right) noexcept {
   return std::tie(left.Level, left.X, left.Y) < std::tie(right.Level, right.X, right.Y);
@@ -31,7 +31,7 @@ std::optional<size_t> RootPosition(std::span<const Data::GeoCellId> roots, Data:
 }
 }
 
-std::vector<Data::GeoCellId> OsmSourceLoader::Cells::SelectLeaves(
+std::vector<Data::GeoCellId> SourceAcquisition::Cells::SelectLeaves(
     std::span<const Data::GeoCellId> roots, bool published, bool pending) const {
   std::vector<std::vector<Data::GeoCellId>> plans(roots.size());
   if (pending) {
@@ -67,7 +67,7 @@ std::vector<Data::GeoCellId> OsmSourceLoader::Cells::SelectLeaves(
 }
 
 std::expected<void, std::string>
-OsmSourceLoader::Cells::Refine(std::span<const Data::GeoCellId> cells) {
+SourceAcquisition::Cells::Refine(std::span<const Data::GeoCellId> cells) {
   if (cells.empty()) { return {}; }
   if (cells.size() > (Limits.CellsMost - Wanted.size()) / 3) {
     return std::unexpected("original OSM subdivision exceeds the cell budget");

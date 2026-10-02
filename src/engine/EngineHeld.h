@@ -54,7 +54,7 @@
 #include "SurfacePreparation.h"
 #include "PublishedRegion.h"
 #include "OsmTransportPreparation.h"
-#include "OsmSourceLoader.h"
+#include "OsmSourceAcquisition.h"
 #include "GroundMesher.h"
 #include "StreetGraphBuilder.h"
 #include "spatial/Drape.h"
@@ -231,6 +231,7 @@ struct Surrounds {
   std::unique_ptr<Data::Transport> Wire;
   Data::ProviderRegistry Providers;
   std::unique_ptr<Tasks> Pool;
+  std::unique_ptr<Tasks> Io;
   Ground::SurfacePreparation Stack;
   std::shared_ptr<const Ground::PublishedRegion> Region;
   Generators::Registry Offering;
@@ -260,7 +261,7 @@ struct Surrounds {
   std::vector<NamedRoadAlignment> RoadAlignments;
   bool PiecesFramed = false;
   RoadAlignmentBuildQueue RoadAlignmentBuilds;
-  std::unique_ptr<outshine::OsmSourceLoader> OsmSourceLoader;
+  std::unique_ptr<Generators::Osm::SourceAcquisition> OsmSource;
   std::optional<std::array<double, 3>> OriginalSourceDemand;
   std::vector<Generators::Osm::CircuitRequest> OsmRoutes;
   std::unique_ptr<Generators::Osm::TransportPreparation> OsmTransport;
@@ -287,9 +288,9 @@ struct Surrounds {
   std::vector<uint32_t> GroundIndex;
 
   [[nodiscard]] bool CurrentOriginalReady() const noexcept {
-    return OsmSourceLoader &&
-           OsmSourceLoader->CurrentPhase() == outshine::OsmSourceLoader::Phase::Ready &&
-           (OsmSourceLoader->Current() || !OsmSourceLoader->CurrentCells().empty());
+    return OsmSource &&
+           OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Ready &&
+           (OsmSource->Current() || !OsmSource->CurrentCells().empty());
   }
 
   [[nodiscard]] bool CurrentTransportReady() const noexcept {
@@ -297,8 +298,7 @@ struct Surrounds {
         OsmTransport->CurrentPhase() != Generators::Osm::TransportPreparation::Phase::Ready) {
       return false;
     }
-    return !OsmSourceLoader ||
-           (CurrentOriginalReady() && OsmTransport->Source() == OsmSourceLoader->Current());
+    return !OsmSource || (CurrentOriginalReady() && OsmTransport->Source() == OsmSource->Current());
   }
 };
 

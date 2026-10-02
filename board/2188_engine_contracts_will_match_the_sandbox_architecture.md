@@ -29,7 +29,7 @@ liegt unter generators/terrain; world hält nur den immutable Klassifikationssna
 Fine/Coarse behalten ihren Raumbezug und die jeweils konsumierte Quellrevision.
 GroundClassBuffer besitzt GPU-Packing und Digest unter render; ClassStructure bleibt ein natives CPU-Produkt.
 Engine publiziert beide zusammen; render hält nur seinen Uploadpuffer. Native Netze halten keine
-Quellarchive. Netz-/Routenaufbau und Vorbereitung gehören generators/osm; Quellenerwerb und konkrete Engine-Kopplung bleiben offen.
+Quellarchive. OSM-Erwerb, Zellverfeinerung und Netz-/Routenaufbau liegen unter generators/osm und nutzen geliehene Engine-Queues; Decoder/Provider in world/data und konkrete Engine-Kopplung bleiben offen.
 
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
@@ -84,6 +84,7 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
   keine versteckte Voraussetzung jedes externen Generators.
 - ProductKey umfasst Source-/Producer-Version, Seed/Parameter und Abhängigkeiten.
   Jobs tragen Revision und Abbruch; stale Ergebnisse ersetzen keinen neuen Stand.
+  Begrenzte IO-Zellschritte geben die gemeinsame Queue frei; ein Handle endet erst nach dem letzten Schritt.
   Kandidaten wechseln atomar. GPU-Ressourcen leben bis nach ihrer letzten Submission.
 - Residenter Weltstand wird bei unveränderten Eingaben nicht erneut aufgebaut. Bedarf
   und Qualitätsänderung ersetzen betroffene Produkte; Eltern halten Abdeckung bis Kinder bereit sind.

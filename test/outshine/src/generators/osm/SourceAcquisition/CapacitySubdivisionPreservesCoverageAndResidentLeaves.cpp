@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "DeclaredSources.h"
 #include "ContentStore.h"
-#include "OsmSourceLoader.h"
+#include "OsmSourceAcquisition.h"
 #include "SourceProviderValidation.h"
 
 #include <array>
@@ -62,7 +62,8 @@ public:
   void Cancel(outshine::Data::Ticket ticket) override { Bounds.erase(ticket); }
 };
 
-template <typename Ready> bool Await(outshine::OsmSourceLoader &loader, Ready ready) {
+template <typename Ready>
+bool Await(outshine::Generators::Osm::SourceAcquisition &loader, Ready ready) {
   const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   do {
     loader.Poll();
@@ -72,9 +73,9 @@ template <typename Ready> bool Await(outshine::OsmSourceLoader &loader, Ready re
   return false;
 }
 
-bool Settled(outshine::OsmSourceLoader &loader) {
+bool Settled(outshine::Generators::Osm::SourceAcquisition &loader) {
   return Await(loader, [&loader] {
-    return loader.CurrentPhase() != outshine::OsmSourceLoader::Phase::Loading &&
+    return loader.CurrentPhase() != outshine::Generators::Osm::SourceAcquisition::Phase::Loading &&
            loader.PendingCount() == 0;
   });
 }
@@ -90,16 +91,18 @@ int main() {
                                 .Dataset = "openstreetmap.original",
                                 .Endpoint = std::string(kOfficialOsmApi)};
   const std::array roots{GeoCellId{.Level = 9, .X = 270, .Y = 411}};
-  const OsmSourceLoader::CellLimits limits{.CellsMost = 32, .SnapshotBytesMost = 1024 * 1024};
+  const outshine::Generators::Osm::SourceAcquisition::CellLimits limits{
+      .CellsMost = 32, .SnapshotBytesMost = 1024 * 1024};
   auto directory =
       (std::filesystem::temp_directory_path() / "outshine-adaptive-cells-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated adaptive source cache created");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   Tasks compute(1);
+  Tasks io(1);
   CapacityLimitedOsmTransport wire;
-  OsmSourceLoader loader(compute, &wire, directory);
+  outshine::Generators::Osm::SourceAcquisition loader(compute, io, &wire, directory);
   CHECK(loader.RequestCells(provider, roots, limits, ".") && Settled(loader) &&
-            loader.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
             loader.CurrentCells().size() == 4 && wire.Starts == 5,
         "one overloaded parent is replaced by all four children without retrying its request");
   if (loader.CurrentCells().size() != 4) { return Report(); }
@@ -135,7 +138,8 @@ int main() {
   revision.Revision = "adaptive-capacity";
   CHECK(loader.RequestCells(
             revision, roots, {.CellsMost = 3, .SnapshotBytesMost = 1024 * 1024}, ".") &&
-            Settled(loader) && loader.CurrentPhase() == OsmSourceLoader::Phase::Failed &&
+            Settled(loader) &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
             loader.Error().find("cell budget") != std::string_view::npos &&
             loader.CurrentCells().front().Snapshot == retained,
         "exhausting subdivision capacity preserves the previous world and reports failure");
@@ -144,27 +148,28 @@ int main() {
                             roots,
                             {.CellsMost = 32, .SnapshotBytesMost = 1024 * 1024, .LevelMost = 9},
                             ".") &&
-            Settled(loader) && loader.CurrentPhase() == OsmSourceLoader::Phase::Failed &&
+            Settled(loader) &&
+            loader.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Failed &&
             loader.Error().find("level budget") != std::string_view::npos,
         "the depth bound terminates overloaded demand explicitly");
   CapacityLimitedOsmTransport nested;
   nested.WidthMost = 0.2;
-  OsmSourceLoader deeper(compute, &nested, directory);
+  outshine::Generators::Osm::SourceAcquisition deeper(compute, io, &nested, directory);
   revision.Revision = "adaptive-nested";
   CHECK(deeper.RequestCells(revision, roots, limits, ".") && Settled(deeper) &&
-            deeper.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+            deeper.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
             deeper.CurrentCells().size() == 16 && nested.Starts == 21,
         "repeated subdivision publishes sixteen leaves after one parent and four child refusals");
   {
     CapacityLimitedOsmTransport offline;
     offline.BlockLeaves = true;
-    OsmSourceLoader fresh(compute, &offline, directory);
+    outshine::Generators::Osm::SourceAcquisition fresh(compute, io, &offline, directory);
     CHECK(fresh.RequestCells(provider, roots, limits, ".") && Settled(fresh) &&
-              fresh.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              fresh.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
               fresh.CurrentCells().size() == 4 && offline.Starts == 0,
           "a fresh loader reconstructs complete four-child source coverage without network starts");
     CHECK(fresh.RequestCells(revision, roots, limits, ".") && Settled(fresh) &&
-              fresh.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              fresh.CurrentPhase() == outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
               fresh.CurrentCells().size() == 16 && offline.Starts == 0,
           "a new source revision reconstructs nested cached leaves without retrying overloaded "
           "parents");
@@ -180,7 +185,7 @@ int main() {
     auto catalogue = MakeDeclaredSource(revision, ".", nullptr);
     CHECK(catalogue, "the original catalogue supplies the same cache identity");
     if (!catalogue) { return Report(); }
-    OsmSourceLoader preparing(compute, &interrupted, directory);
+    outshine::Generators::Osm::SourceAcquisition preparing(compute, io, &interrupted, directory);
     CHECK(preparing.RequestCells(revision, demand, limits, ".") &&
               Await(preparing,
                     [&] {
@@ -194,9 +199,11 @@ int main() {
           "an unfinished later region prevents global publication");
     CapacityLimitedOsmTransport cached;
     cached.BlockLeaves = true;
-    OsmSourceLoader resumed(compute, &cached, directory);
+    outshine::Generators::Osm::SourceAcquisition resumed(compute, io, &cached, directory);
     CHECK(resumed.RequestCells(revision, std::span(demand).first(2), limits, ".") &&
-              Settled(resumed) && resumed.CurrentPhase() == OsmSourceLoader::Phase::Ready &&
+              Settled(resumed) &&
+              resumed.CurrentPhase() ==
+                  outshine::Generators::Osm::SourceAcquisition::Phase::Ready &&
               resumed.CurrentCells().size() == 8 && cached.Starts == 0,
           "complete source regions remain reusable while an independent later root is blocked");
     interrupted.BlockFromWest = 1000;

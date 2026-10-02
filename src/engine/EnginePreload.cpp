@@ -1,5 +1,5 @@
 #include "EngineHeld.h"
-#include "OsmSourceLoader.h"
+#include "OsmSourceAcquisition.h"
 #include <Outshine.h>
 #include <math/Units.h>
 
@@ -49,9 +49,8 @@ Result Engine::preloadWithQuality(double patienceS,
   if (!std::isfinite(patienceS * kMsPerS) || patienceS < 0.0) {
     return std::unexpected(Says::kInvalidPreloadBudget);
   }
-  const auto configured = S_->World.OsmSourceLoader
-                              ? S_->World.OsmSourceLoader->SetAcquisitionBudget(patienceS)
-                              : Result{};
+  const auto configured =
+      S_->World.OsmSource ? S_->World.OsmSource->SetAcquisitionBudget(patienceS) : Result{};
   if (!configured) { return std::unexpected(configured.error()); }
   const auto began = std::chrono::steady_clock::now();
   S_->LastPreloadMs = 0.0;

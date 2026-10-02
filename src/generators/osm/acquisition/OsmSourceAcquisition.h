@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_STREAMING_OSMSOURCELOADER_H
-#define OUTSHINE_ENGINE_STREAMING_OSMSOURCELOADER_H
+#ifndef OUTSHINE_GENERATORS_OSM_ACQUISITION_OSMSOURCEACQUISITION_H
+#define OUTSHINE_GENERATORS_OSM_ACQUISITION_OSMSOURCEACQUISITION_H
 
 #include "OsmSourceSnapshot.h"
 #include "OsmChunkSetLoader.h"
@@ -20,9 +20,9 @@
 #include <vector>
 #include <variant>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 
-class OsmSourceLoader {
+class SourceAcquisition {
 public:
   static constexpr double DefaultAcquisitionBudgetS = 10.0;
   [[nodiscard]] std::expected<void, std::string> SetAcquisitionBudget(double seconds);
@@ -41,13 +41,14 @@ public:
     size_t ChargedBytes = 0;
   };
 
-  explicit OsmSourceLoader(Tasks &tasks,
-                           Data::Transport *wire = nullptr,
-                           std::string cacheDirectory = {});
+  SourceAcquisition(Tasks &compute,
+                    Tasks &io,
+                    Data::Transport *wire = nullptr,
+                    std::string cacheDirectory = {});
 
-  ~OsmSourceLoader();
-  OsmSourceLoader(const OsmSourceLoader &) = delete;
-  OsmSourceLoader &operator=(const OsmSourceLoader &) = delete;
+  ~SourceAcquisition();
+  SourceAcquisition(const SourceAcquisition &) = delete;
+  SourceAcquisition &operator=(const SourceAcquisition &) = delete;
 
   [[nodiscard]] std::expected<void, std::string>
   Request(std::span<const Data::SourceProvider> providers,
@@ -115,7 +116,7 @@ private:
   struct CellPipeline;
   enum class Scope : uint8_t { Region, Cells };
   Tasks *Tasks_;
-  Tasks Io_{1};
+  Tasks &Io_;
   std::shared_ptr<Access> Access_;
   std::unique_ptr<Cells> Cells_;
   std::vector<Data::SourceProvider> Requested_;

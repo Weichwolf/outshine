@@ -1,4 +1,4 @@
-#include "OsmSourceLoaderState.h"
+#include "OsmSourceAcquisitionState.h"
 
 #include "SourceProviderValidation.h"
 
@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 namespace {
 bool Before(Data::GeoCellId left, Data::GeoCellId right) noexcept {
   return std::tie(left.Level, left.X, left.Y) < std::tie(right.Level, right.X, right.Y);
@@ -29,7 +29,7 @@ bool ValidCell(Data::GeoCellId cell) noexcept {
 }
 }
 
-size_t OsmSourceLoader::Cells::ChargedBytes() const noexcept {
+size_t SourceAcquisition::Cells::ChargedBytes() const noexcept {
   size_t bytes = 0;
   for (const auto &entry : Tracked) {
     if (!entry.Snapshot.expired()) { bytes += entry.ChargedBytes; }
@@ -38,7 +38,7 @@ size_t OsmSourceLoader::Cells::ChargedBytes() const noexcept {
 }
 
 std::vector<Data::GeoCellId>
-OsmSourceLoader::Cells::NextAcquisitionBatch(std::span<const Data::GeoCellId> assigned) const {
+SourceAcquisition::Cells::NextAcquisitionBatch(std::span<const Data::GeoCellId> assigned) const {
   std::vector<Data::GeoCellId> batch;
   batch.reserve(3);
   const auto acquisitionOrder = [](Data::GeoCellId left, Data::GeoCellId right) {
@@ -56,12 +56,12 @@ OsmSourceLoader::Cells::NextAcquisitionBatch(std::span<const Data::GeoCellId> as
   return batch;
 }
 
-bool OsmSourceLoader::Cells::Ready() const noexcept {
+bool SourceAcquisition::Cells::Ready() const noexcept {
   return std::ranges::all_of(Preparing,
                              [](const auto &entry) { return entry.Snapshot != nullptr; });
 }
 
-std::vector<OsmSourceLoader::CellSource> OsmSourceLoader::Cells::Reuse(
+std::vector<SourceAcquisition::CellSource> SourceAcquisition::Cells::Reuse(
     std::span<const Data::GeoCellId> wanted, bool published, bool pending) const {
   std::vector<CellSource> preparing(wanted.size());
   for (size_t at = 0; at < wanted.size(); ++at) {
@@ -83,7 +83,7 @@ std::vector<OsmSourceLoader::CellSource> OsmSourceLoader::Cells::Reuse(
   return preparing;
 }
 
-std::expected<void, std::string> OsmSourceLoader::Cells::Stage(std::vector<CellSource> ready) {
+std::expected<void, std::string> SourceAcquisition::Cells::Stage(std::vector<CellSource> ready) {
   std::erase_if(Tracked, [](const auto &entry) { return entry.Snapshot.expired(); });
   size_t bytes = ChargedBytes();
   if (bytes > Limits.SnapshotBytesMost || ready.size() > Limits.CellsMost * 2 - Tracked.size()) {
@@ -117,21 +117,21 @@ std::expected<void, std::string> OsmSourceLoader::Cells::Stage(std::vector<CellS
   return {};
 }
 
-std::span<const OsmSourceLoader::CellSource> OsmSourceLoader::CurrentCells() const noexcept {
+std::span<const SourceAcquisition::CellSource> SourceAcquisition::CurrentCells() const noexcept {
   return Scope_ == Scope::Cells && Cells_ ? std::span(Cells_->Published)
                                           : std::span<const CellSource>{};
 }
 
-size_t OsmSourceLoader::CellSnapshotChargeBytes() const noexcept {
+size_t SourceAcquisition::CellSnapshotChargeBytes() const noexcept {
   return Cells_ ? Cells_->ChargedBytes() : 0;
 }
 
 std::expected<void, std::string>
-OsmSourceLoader::RequestCells(const Data::SourceProvider &provider,
-                              std::span<const Data::GeoCellId> cells,
-                              CellLimits limits,
-                              std::string_view root,
-                              const Data::ProviderRegistry *registry) {
+SourceAcquisition::RequestCells(const Data::SourceProvider &provider,
+                                std::span<const Data::GeoCellId> cells,
+                                CellLimits limits,
+                                std::string_view root,
+                                const Data::ProviderRegistry *registry) {
   if (auto valid = Data::ValidateSourceProviders(std::span(&provider, 1)); !valid) {
     return std::unexpected(std::move(valid.error()));
   }
@@ -201,7 +201,7 @@ OsmSourceLoader::RequestCells(const Data::SourceProvider &provider,
   return {};
 }
 
-void OsmSourceLoader::CompleteCells(std::vector<CellSource> ready) {
+void SourceAcquisition::CompleteCells(std::vector<CellSource> ready) {
   if (auto staged = Cells_->Stage(std::move(ready)); !staged) {
     Error_ = std::move(staged.error());
     Cells_->Preparing.clear();

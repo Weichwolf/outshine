@@ -1,4 +1,4 @@
-#include "OsmSourceLoaderState.h"
+#include "OsmSourceAcquisitionState.h"
 #include "OsmCellAcquisition.h"
 #include <algorithm>
 #include <chrono>
@@ -16,45 +16,47 @@
 #include <utility>
 #include <vector>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 namespace {
 constexpr size_t kWaitingChunks = 2;
 }
 
-void OsmSourceLoader::CancelCellPipeline() {
+void SourceAcquisition::CancelCellPipeline() {
   if (!CellPipeline_) { return; }
   (void)CellPipeline_->Stop.request_stop();
   CellPipeline_->Shared->Changed.notify_all();
 }
 
-void OsmSourceLoader::StartCellPipeline() {
+void SourceAcquisition::StartCellPipeline() {
   CellPipeline_ = std::make_unique<CellPipeline>();
   auto &pipeline = *CellPipeline_;
   pipeline.Revision = Revision_;
   const auto token = pipeline.Stop.get_token();
-  pipeline.Handle =
-      Io_.Post([work = &pipeline,
-                access = Access_,
-                provider = Requested_.front(),
-                registry = Access_->Registry,
-                root = Root_,
-                revision = Revision_,
-                token] { work->Acquire(access, provider, registry, root, revision, token); });
+  pipeline.Handle = Io_.PostSteps(
+      [work = &pipeline,
+       access = Access_,
+       provider = Requested_.front(),
+       registry = Access_->Registry,
+       root = Root_,
+       revision = Revision_,
+       token] { return work->Acquire(access, provider, registry, root, revision, token); });
 }
 
-void OsmSourceLoader::CellPipeline::Fail(std::string error) const {
+Tasks::StepResult SourceAcquisition::CellPipeline::Fail(std::string error) {
+  Reader.reset();
   const std::scoped_lock lock(Shared->Mutex);
   Shared->Error = std::move(error);
+  return Tasks::StepResult::Complete;
 }
 
-bool OsmSourceLoader::CellPipeline::DeadlineExceeded(Access &access, uint64_t revision) {
+bool SourceAcquisition::CellPipeline::DeadlineExceeded(Access &access, uint64_t revision) {
   const auto now = access.Wire->NowMs();
   const auto deadline = access.CurrentDeadline(revision);
   return !std::isfinite(now) || !std::isfinite(deadline) || now >= deadline;
 }
 
 std::expected<void, std::string>
-OsmSourceLoader::CellPipeline::StartQueued(Data::OsmCellAcquisition &reader) const {
+SourceAcquisition::CellPipeline::StartQueued(Data::OsmCellAcquisition &reader) const {
   while (reader.PendingCount() < Data::OsmCellAcquisition::MaximumPendingCells) {
     std::optional<Data::GeoCellId> cell;
     {
@@ -72,71 +74,66 @@ OsmSourceLoader::CellPipeline::StartQueued(Data::OsmCellAcquisition &reader) con
   return {};
 }
 
-bool OsmSourceLoader::CellPipeline::Deliver(Data::OsmSourceRead ready,
-                                            Access &access,
-                                            uint64_t revision,
-                                            const std::stop_token &stop) const {
-  std::unique_lock lock(Shared->Mutex);
-  while (Shared->Ready.size() >= kWaitingChunks && !stop.stop_requested()) {
-    Shared->Changed.wait_for(lock, std::chrono::duration<double>(MaximumIoAwaitSeconds));
-    if (DeadlineExceeded(access, revision)) {
-      Shared->Error = "original OSM source acquisition deadline exceeded";
-      return false;
-    }
-  }
-  if (stop.stop_requested()) { return false; }
+void SourceAcquisition::CellPipeline::Deliver(Data::OsmSourceRead ready) const {
+  const std::scoped_lock lock(Shared->Mutex);
   Shared->Ready.push_back(std::move(ready));
-  return true;
 }
 
-void OsmSourceLoader::CellPipeline::Acquire(const std::shared_ptr<Access> &access,
-                                            Data::SourceProvider provider,
-                                            const Data::ProviderRegistry *registry,
-                                            std::string root,
-                                            uint64_t revision,
-                                            const std::stop_token &stop) const {
-  if (access->Wire == nullptr) {
-    Fail("official original OSM needs a source transport");
-    return;
+Tasks::StepResult SourceAcquisition::CellPipeline::Acquire(const std::shared_ptr<Access> &access,
+                                                           const Data::SourceProvider &provider,
+                                                           const Data::ProviderRegistry *registry,
+                                                           std::string_view root,
+                                                           uint64_t revision,
+                                                           const std::stop_token &stop) {
+  if (stop.stop_requested()) {
+    Reader.reset();
+    return Tasks::StepResult::Complete;
+  }
+  if (access->Wire == nullptr) { return Fail("official original OSM needs a source transport"); }
+  if (DeadlineExceeded(*access, revision)) {
+    return Fail("original OSM source acquisition deadline exceeded");
   }
   if (!access->Store) {
     access->Store = std::make_unique<Data::ContentStore>(
         Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
   }
-  Data::OsmCellAcquisition reader(
-      std::move(provider), *access->Store, *access->Wire, registry, std::move(root));
-  while (!stop.stop_requested()) {
-    if (DeadlineExceeded(*access, revision)) {
-      Fail("original OSM source acquisition deadline exceeded");
-      return;
-    }
-    if (auto started = StartQueued(reader); !started) {
-      Fail(std::move(started.error()));
-      return;
-    }
-    auto ready = reader.TakeReady();
-    if (!ready) {
-      Fail(std::move(ready.error()));
-      return;
-    }
-    if (*ready) {
-      if (!Deliver(std::move(**ready), *access, revision, stop)) { return; }
-      continue;
-    }
-    if (reader.PendingCount() != 0) {
-      const auto remaining = access->CurrentDeadline(revision) - access->Wire->NowMs();
-      (void)access->Wire->Await(
-          std::min(MaximumIoAwaitSeconds * kMsPerS, std::max(0.0, remaining)));
-    } else {
-      std::unique_lock lock(Shared->Mutex);
+  if (!Reader) {
+    Reader = std::make_shared<Data::OsmCellAcquisition>(
+        provider, *access->Store, *access->Wire, registry, std::string(root));
+  }
+  {
+    std::unique_lock lock(Shared->Mutex);
+    if (Shared->Ready.size() >= kWaitingChunks) {
       Shared->Changed.wait_for(lock, std::chrono::duration<double>(MaximumIoAwaitSeconds), [&] {
-        return !Shared->Requests.empty() || stop.stop_requested();
+        return Shared->Ready.size() < kWaitingChunks || stop.stop_requested();
       });
+      return Tasks::StepResult::Yield;
     }
   }
+  if (auto started = StartQueued(*Reader); !started) { return Fail(std::move(started.error())); }
+  for (size_t index = 0; index < kWaitingChunks; ++index) {
+    {
+      const std::scoped_lock lock(Shared->Mutex);
+      if (Shared->Ready.size() >= kWaitingChunks) { return Tasks::StepResult::Yield; }
+    }
+    auto ready = Reader->TakeReady();
+    if (!ready) { return Fail(std::move(ready.error())); }
+    if (!*ready) { break; }
+    Deliver(std::move(**ready));
+  }
+  if (Reader->PendingCount() != 0) {
+    const auto remaining = access->CurrentDeadline(revision) - access->Wire->NowMs();
+    (void)access->Wire->Await(std::min(MaximumIoAwaitSeconds * kMsPerS, std::max(0.0, remaining)));
+  } else {
+    std::unique_lock lock(Shared->Mutex);
+    Shared->Changed.wait_for(lock, std::chrono::duration<double>(MaximumIoAwaitSeconds), [&] {
+      return !Shared->Requests.empty() || stop.stop_requested();
+    });
+  }
+  return Tasks::StepResult::Yield;
 }
 
-void OsmSourceLoader::PumpCellPipeline() {
+void SourceAcquisition::PumpCellPipeline() {
   const auto &pipeline = *CellPipeline_;
   if (pipeline.Revision != Revision_ || Phase_ != Phase::Loading) { CancelCellPipeline(); }
   if (Io_.TakeCompletion(pipeline.Handle)) {
@@ -157,7 +154,7 @@ void OsmSourceLoader::PumpCellPipeline() {
   if (Phase_ == Phase::Loading) { QueueMissingCells(); }
 }
 
-void OsmSourceLoader::ConsumeAcquiredCell() {
+void SourceAcquisition::ConsumeAcquiredCell() {
   auto &pipeline = *CellPipeline_;
   std::optional<Data::OsmSourceRead> ready;
   {
@@ -182,7 +179,7 @@ void OsmSourceLoader::ConsumeAcquiredCell() {
   }
 }
 
-void OsmSourceLoader::ReleaseAssignedCells(std::span<const CellSource> ready) {
+void SourceAcquisition::ReleaseAssignedCells(std::span<const CellSource> ready) {
   if (!CellPipeline_ || CellPipeline_->Revision != Revision_) { return; }
   for (const auto &entry : ready) {
     const auto cell = entry.Snapshot->Cell;
@@ -190,7 +187,7 @@ void OsmSourceLoader::ReleaseAssignedCells(std::span<const CellSource> ready) {
   }
 }
 
-void OsmSourceLoader::QueueMissingCells() {
+void SourceAcquisition::QueueMissingCells() {
   auto &pipeline = *CellPipeline_;
   while (pipeline.Assigned.size() < Data::OsmCellAcquisition::MaximumPendingCells) {
     auto cells = Cells_->NextAcquisitionBatch(pipeline.Assigned);

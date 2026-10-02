@@ -1,7 +1,7 @@
-#ifndef OUTSHINE_ENGINE_STREAMING_OSMSOURCELOADERSTATE_H
-#define OUTSHINE_ENGINE_STREAMING_OSMSOURCELOADERSTATE_H
+#ifndef OUTSHINE_GENERATORS_OSM_ACQUISITION_OSMSOURCEACQUISITIONSTATE_H
+#define OUTSHINE_GENERATORS_OSM_ACQUISITION_OSMSOURCEACQUISITIONSTATE_H
 
-#include "OsmSourceLoader.h"
+#include "OsmSourceAcquisition.h"
 #include "ContentStore.h"
 #include "OsmApiReader.h"
 #include <condition_variable>
@@ -10,12 +10,13 @@
 #include <atomic>
 #include <math/Units.h>
 
-namespace outshine {
-namespace Data {
+namespace outshine::Data {
 class OsmCellAcquisition;
 }
 
-struct OsmSourceLoader::Access {
+namespace outshine::Generators::Osm {
+
+struct SourceAcquisition::Access {
   Data::Transport *Wire = nullptr;
   std::string Directory;
   std::unique_ptr<Data::ContentStore> Store;
@@ -37,7 +38,7 @@ struct OsmSourceLoader::Access {
   }
 };
 
-struct OsmSourceLoader::Cells {
+struct SourceAcquisition::Cells {
   struct Retained {
     std::weak_ptr<const Data::OsmSourceSnapshot> Snapshot;
     size_t ChargedBytes = 0;
@@ -66,7 +67,7 @@ struct OsmSourceLoader::Cells {
   [[nodiscard]] std::expected<void, std::string> Stage(std::vector<CellSource> ready);
 };
 
-struct OsmSourceLoader::CellPipeline {
+struct SourceAcquisition::CellPipeline {
   struct Exchange {
     std::mutex Mutex;
     std::condition_variable Changed;
@@ -76,24 +77,22 @@ struct OsmSourceLoader::CellPipeline {
   };
 
   std::shared_ptr<Exchange> Shared = std::make_shared<Exchange>();
+  std::shared_ptr<Data::OsmCellAcquisition> Reader;
   std::vector<Data::GeoCellId> Assigned;
   Tasks::Handle Handle = Tasks::kNoTask;
   std::stop_source Stop;
   uint64_t Revision = 0;
-  void Acquire(const std::shared_ptr<Access> &access,
-               Data::SourceProvider provider,
-               const Data::ProviderRegistry *registry,
-               std::string root,
-               uint64_t revision,
-               const std::stop_token &stop) const;
+  [[nodiscard]] Tasks::StepResult Acquire(const std::shared_ptr<Access> &access,
+                                          const Data::SourceProvider &provider,
+                                          const Data::ProviderRegistry *registry,
+                                          std::string_view root,
+                                          uint64_t revision,
+                                          const std::stop_token &stop);
   [[nodiscard]] std::expected<void, std::string>
   StartQueued(Data::OsmCellAcquisition &reader) const;
-  [[nodiscard]] bool Deliver(Data::OsmSourceRead ready,
-                             Access &access,
-                             uint64_t revision,
-                             const std::stop_token &stop) const;
+  void Deliver(Data::OsmSourceRead ready) const;
   [[nodiscard]] static bool DeadlineExceeded(Access &access, uint64_t revision);
-  void Fail(std::string error) const;
+  [[nodiscard]] Tasks::StepResult Fail(std::string error);
 };
 }
 
