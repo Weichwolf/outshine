@@ -1360,7 +1360,7 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
       build.Sheets.BeginRefinement(patchwork,
                                    {.Side = Render::GroundLattice::kSide, .Halo = 1},
                                    detail,
-                                   Render::GroundLattice::kPages,
+                                   Render::GroundLattice::kMaximumPages,
                                    roadCorridors)));
   return GroundBuildProgress::Pending;
 }

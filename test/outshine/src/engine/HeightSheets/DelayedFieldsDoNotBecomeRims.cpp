@@ -161,7 +161,7 @@ int main() {
   CHECK(sheets.RefineByError(candidate,
                              {.Side = Render::GroundLattice::kSide, .Halo = 1},
                              {},
-                             Render::GroundLattice::kPages,
+                             Render::GroundLattice::kMaximumPages,
                              error),
         "resolved field refines the native candidate");
   Patchwork interrupted = candidate;
@@ -192,7 +192,7 @@ int main() {
   CHECK(residentSheets.RefineByError(resident,
                                      {.Side = Render::GroundLattice::kSide, .Halo = 1},
                                      {},
-                                     Render::GroundLattice::kPages,
+                                     Render::GroundLattice::kMaximumPages,
                                      error),
         "resident source refines");
   CHECK(residentSheets.Halos(resident, 4) == resident.Sheets.size(), "resident halos complete");

@@ -233,14 +233,14 @@ bool GroundLattice::BuildGrid(std::span<const float> fractions,
   return true;
 }
 
-bool GroundLattice::BuildPages(std::string &error) {
+bool GroundLattice::BuildPages(uint32_t layers, OwnedTexture &into, std::string &error) {
   SDL_GPUTextureCreateInfo wanted{};
   wanted.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
   wanted.format = SDL_GPU_TEXTUREFORMAT_R32_FLOAT;
   wanted.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
   wanted.width = static_cast<uint32_t>(kPageSide) * kPageColumns;
   wanted.height = static_cast<uint32_t>(kPageSide) * kPageColumns;
-  wanted.layer_count_or_depth = kPageLayers;
+  wanted.layer_count_or_depth = layers;
   wanted.num_levels = 1;
   wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
   if (!SDL_GPUTextureSupportsFormat(Device_,
@@ -250,7 +250,7 @@ bool GroundLattice::BuildPages(std::string &error) {
     error = "this device does not sample an R32 float array, and the height pages are one";
     return false;
   }
-  Pages_ = OwnedTexture(Device_, SDL_CreateGPUTexture(Device_, &wanted));
+  into = OwnedTexture(Device_, SDL_CreateGPUTexture(Device_, &wanted));
   SDL_GPUSamplerCreateInfo nearest{};
   nearest.min_filter = SDL_GPU_FILTER_NEAREST;
   nearest.mag_filter = SDL_GPU_FILTER_NEAREST;
@@ -258,11 +258,44 @@ bool GroundLattice::BuildPages(std::string &error) {
   nearest.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
   nearest.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
   nearest.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-  Nearest_ = OwnedSampler(Device_, SDL_CreateGPUSampler(Device_, &nearest));
-  if (!Pages_ || !Nearest_) {
+  if (!Nearest_) { Nearest_ = OwnedSampler(Device_, SDL_CreateGPUSampler(Device_, &nearest)); }
+  if (!into || !Nearest_) {
     error = std::format(Says::kBufferRefused, "pages", SDL_GetError());
     return false;
   }
+  return true;
+}
+
+bool GroundLattice::ReservePages(uint32_t count, std::string &error) {
+  if (count <= PageLayers_ * kPagesPerLayer) { return true; }
+  if (Device_ == nullptr || count > kMaximumPages) {
+    error = std::format(Says::kPagesFull, kMaximumPages);
+    return false;
+  }
+  const uint32_t needed = (count + kPagesPerLayer - 1u) / kPagesPerLayer;
+  const uint32_t layers = std::min(kMaximumPageLayers, std::max({needed, PageLayers_ * 2u, 1u}));
+  OwnedTexture candidate;
+  if (!BuildPages(layers, candidate, error)) { return false; }
+  if (Pages_) {
+    const std::optional<CopyCommands> copy = BeginCopy(Device_, error);
+    if (!copy) { return false; }
+    for (uint32_t layer = 0; layer < PageLayers_; ++layer) {
+      const SDL_GPUTextureLocation source{
+          .texture = Pages_.Get(), .mip_level = 0, .layer = layer, .x = 0, .y = 0, .z = 0};
+      const SDL_GPUTextureLocation destination{
+          .texture = candidate.Get(), .mip_level = 0, .layer = layer, .x = 0, .y = 0, .z = 0};
+      SDL_CopyGPUTextureToTexture(copy->Pass,
+                                  &source,
+                                  &destination,
+                                  static_cast<uint32_t>(kPageSide) * kPageColumns,
+                                  static_cast<uint32_t>(kPageSide) * kPageColumns,
+                                  1,
+                                  false);
+    }
+    if (!SubmitCopy(*copy, error)) { return false; }
+  }
+  Pages_ = std::move(candidate);
+  PageLayers_ = layers;
   return true;
 }
 
@@ -369,8 +402,11 @@ bool GroundLattice::AttachPipelines(GroundPipelineBinding &pipelines,
     error = std::string(Says::kNoDevice);
     return false;
   }
-  if (Device_ != device || !Pages_ || !Grid_) {
+  if (Device_ != device || !Grid_) {
     Device_ = device;
+    Pages_.Reset();
+    Nearest_.Reset();
+    PageLayers_ = 0;
     Instances_.Reset();
     Index_.Reset();
     InstanceRoom_ = 0;
@@ -379,9 +415,7 @@ bool GroundLattice::AttachPipelines(GroundPipelineBinding &pipelines,
     Spare_.clear();
     PagesMade_ = 0;
     PagesLive_ = 0;
-    if (!BuildGrid({}, Grid_, error) || !BuildGrid({}, UniformGrid_, error) || !BuildPages(error)) {
-      return false;
-    }
+    if (!BuildGrid({}, Grid_, error) || !BuildGrid({}, UniformGrid_, error)) { return false; }
   }
   Pipelines_ = &pipelines;
   return true;
@@ -435,7 +469,7 @@ bool GroundLattice::SetGrid(std::span<const float> fractions, std::string &error
 }
 
 PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error) {
-  if (!Pages_) {
+  if (Device_ == nullptr) {
     error = std::string(Says::kNoDevice);
     return kNoPage;
   }
@@ -449,10 +483,11 @@ PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error
     page = Spare_.back();
     Spare_.pop_back();
     borrowed = true;
-  } else if (PagesMade_ < kPages) {
+  } else if (PagesMade_ < kMaximumPages) {
+    if (!ReservePages(PagesMade_ + 1u, error)) { return kNoPage; }
     page = PagesMade_++;
   } else {
-    error = std::format(Says::kPagesFull, kPages);
+    error = std::format(Says::kPagesFull, kMaximumPages);
     return kNoPage;
   }
   const auto restore = [this, page, borrowed] {

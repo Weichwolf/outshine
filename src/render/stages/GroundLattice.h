@@ -57,8 +57,8 @@ public:
   static constexpr uint32_t kNodes = static_cast<uint32_t>(kSide) * static_cast<uint32_t>(kSide);
   static constexpr uint32_t kPageColumns = kGroundPageColumns;
   static constexpr uint32_t kPagesPerLayer = kPageColumns * kPageColumns;
-  static constexpr uint32_t kPageLayers = 512;
-  static constexpr uint32_t kPages = kPageLayers * kPagesPerLayer;
+  static constexpr uint32_t kMaximumPageLayers = 256;
+  static constexpr uint32_t kMaximumPages = kMaximumPageLayers * kPagesPerLayer;
   static constexpr uint32_t kGridFloats = 3;
   static constexpr uint32_t kVertices = kNodes + 4u * static_cast<uint32_t>(kSide);
   static constexpr uint32_t kQuads =
@@ -114,7 +114,7 @@ public:
   [[nodiscard]] uint32_t Triangles() const { return Drawn() * (kIndices / 3u); }
 
   [[nodiscard]] uint32_t HeldBytes() const {
-    return (Pages_ ? kPages : 0u) * kPageNodes * static_cast<uint32_t>(sizeof(float)) +
+    return PageLayers_ * kPagesPerLayer * kPageNodes * static_cast<uint32_t>(sizeof(float)) +
            InstanceRoom_ * kGroundInstanceFloats * static_cast<uint32_t>(sizeof(float)) +
            kVertices * kGridFloats * static_cast<uint32_t>(sizeof(float)) +
            kIndices * static_cast<uint32_t>(sizeof(uint32_t));
@@ -123,7 +123,8 @@ public:
 private:
   [[nodiscard]] bool
   BuildGrid(std::span<const float> fractions, OwnedBuffer &into, std::string &error);
-  [[nodiscard]] bool BuildPages(std::string &error);
+  [[nodiscard]] bool BuildPages(uint32_t layers, OwnedTexture &into, std::string &error);
+  [[nodiscard]] bool ReservePages(uint32_t count, std::string &error);
   [[nodiscard]] bool HandsVisible(SDL_GPUCommandBuffer *commands, std::string &error);
   void Draw(const PassRecording &into,
             SDL_GPUGraphicsPipeline *pipeline,
@@ -147,6 +148,7 @@ private:
   std::vector<GroundInstance> Seen_;
   std::vector<PageId> Spare_;
   uint32_t PagesMade_ = 0;
+  uint32_t PageLayers_ = 0;
   uint32_t PagesLive_ = 0;
   uint32_t InstanceRoom_ = 0;
   uint32_t RealCount_ = 0;

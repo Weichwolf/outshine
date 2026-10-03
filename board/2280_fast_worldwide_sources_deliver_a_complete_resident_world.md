@@ -20,6 +20,9 @@ Geometriekosten gehören zu 2336. Abnahme ist die vollständig sichtbare Welt,
 nicht ein interner Ready-Zustand oder die Anzahl erzeugter Dreiecke.
 Abgelehnte erforderliche Vektorkacheln sperren Ready und Screenshot. Eine fast leere Stadt
 ist keine erfolgreiche Abnahme; fehlende Quellen bleiben bis zur vollständigen Lieferung rot.
+Körbersee/Feldkirch warten trotz vorhandener Höhenquellen auf CPU-Vorbereitung.
+CPU-Profile zeigen Quellraster-Dekodierung im Nachbarstitching; Wiederverwendung, Kopien und Invalidierung
+vor weiterem Scheduler-Ausbau prüfen. Ein RAM-Decodestand ist kein persistenter Geometriecache.
 
 ## Besitzer und Grenzen
 SourceSet/ContentStore/TilePool besitzen gemeinsame Bytes/Jobs; Erweiterungen ihre Formate.
