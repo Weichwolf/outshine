@@ -295,20 +295,10 @@ std::string Prepare(const Place &place, double patienceS) {
   Engine engine;
   Shot shot;
   if (!OpenPlace(engine, place, shot, std::move(*roots))) { return shot.Why; }
-  double last = 0;
   const double remaining =
       patienceS - std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
   if (remaining <= 0) { return "place preparation deadline exceeded during world assembly"; }
-  const Result ready = engine.preload(remaining, [&](const Loading &how) {
-    if (how.ElapsedS - last < 5) { return; }
-    last = how.ElapsedS;
-    std::println("PREPARE {} elapsed {:.1f} s", place.Name, how.ElapsedS);
-    for (const auto &measure : engine.measures()) {
-      if (measure.Name.starts_with("flora: crown")) {
-        std::println("        {}: {:.0f}", measure.Name, measure.Value);
-      }
-    }
-  });
+  const Result ready = engine.preload(remaining, WorldQuality::Refined);
   return ready ? std::string{} : ready.error();
 }
 

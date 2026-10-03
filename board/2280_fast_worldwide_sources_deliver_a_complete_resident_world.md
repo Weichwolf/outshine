@@ -17,7 +17,8 @@ und native Gebäude-/Terrainprodukte bestehen. Verlustfreier Terrarium-WebP-Deco
 Höhenprovider liefert native Meter über die öffentliche Quelle und bestehende Terrain-Queue;
 Mapterhorn ist Terrain-Default, COG ausdrücklich wählbar. Client-Welten deklarieren den
 gepinnten OpenFreeMap-Stand; Schemaauswahl läuft über öffentliche Quellenkonfiguration
-und Szenario-Roundtrip. Aktuelle vollständige Bilder fehlen.
+und Szenario-Roundtrip. Erste Terrain-Publikation besteht; vollständige verfeinerte Welt
+blockiert noch in der Gebäude-Höhenvorbereitung. Aktuelle vollständige Bilder fehlen.
 
 ## Architekturentscheidung und Besitzer
 2188 besitzt öffentliche Erweiterungs-/Produktverträge. `generators/osm` besitzt MVT/XML,
@@ -65,8 +66,14 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
 - Netzwerkbytes mit Anbieter/Dataset/Adresse/Version/Digest cachen; bestehende Bestände
   erhalten. Begrenztes paralleles IO, Decode/Build auf gemeinsamem Worker. Native Inputs
   früh verdichten, Quellarchive freigeben; Grenzen für Quellen/Scratch/RAM/GPU getrennt.
+- Gebäude-Höhenbedarf vor Rasterkopien vollständig prüfen und fehlende Abdeckung nachfordern.
+  Unveränderliche Höhenfelder teilen, doppelte Raumabfragen vorab zusammenfassen; keine
+  quadratischen Suchen oder wiederholten Vollkopien beim Warten auf dieselbe Quelle.
 - Client/Prepare/Shots teilen persistenten SDL-Nutzerspeicher, Registry und Weltbedarf.
+  Prepare erfüllt dieselbe verfeinerte Weltqualität wie Shots; spielbare Teilabdeckung genügt nicht.
   Quellcache-Vorbereitung getrennt vom frischen Warmprozess; keine generierten Diskprodukte.
+  Grobe Generatorregionen über feineren Höhenrastern geografisch abtasten; Kachelindizes
+  gelten nur in ihrer eigenen Zoomstufe. Bestehende Zeilenabfrage im Elternraster erhalten.
   Tile-Ränder/Overlaps besitzen konsistente IDs/Ownership; Publikation bleibt atomar.
 
 ## Abnahme
