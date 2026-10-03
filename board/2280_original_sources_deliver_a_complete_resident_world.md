@@ -1,6 +1,6 @@
 Type: feature
 State: active
-Architecture: ready
+Architecture: planned
 Priority: P0
 Parent: 2169
 Depends:
@@ -22,6 +22,11 @@ und vollständige Place-Abnahme sind offen. Keine reduzierte Kartenquelle als Er
 Zuerst Wien mit vollständigen Originalquellen bis zum residenten Rundumbild liefern,
 danach die übrigen Places. Der Map-API-Erwerb scheitert am Anbieter-Bandbreitenlimit;
 mehr Retries, Parallelität oder längere Fristen ersetzen keinen tragfähigen Quellenweg.
+Die Erwerbsarchitektur bleibt deshalb `planned`; vorhandene Import-/Cacheverträge bleiben nutzbar.
+Map-API-Abfragen sind kein belegter Bulk-Vertrag für den vollständigen Radius. Vor einem
+weiteren Ausbau zuerst einen erlaubten Erwerbsweg mit vollständigem Objektabschluss liefern.
+Kein Gesamtneustart: nur den unzureichenden Erwerb ersetzen; native Produkte und die
+vorhandene Straßen-/Terrainqualität erhalten. Cachehinweise sind nachrangige Optimierungen.
 Ein Bulk-Adapter muss Originalobjekte/Tags, Referenzabschluss, Revision und begrenzten
 Erwerb erhalten. Regionale Drittanbieter-Extrakte benötigen eine ausdrückliche Erweiterung
 der Quellenregel; weder reduzierten Inhalt noch eine weitere Quelle stillschweigend einsetzen.
@@ -29,22 +34,19 @@ der Quellenregel; weder reduzierten Inhalt noch eine weitere Quelle stillschweig
 weder die Quellenvorbereitung noch die Abnahme vorhandener nativer Produkte. Die OSM-
 Erweiterung unter `generators/osm` besitzt Provider, Adapter, Zellplanung und Erzeugung.
 `SourceAcquisition`, `TransportPreparation`, Provider und API-/Zellerwerber liegen bereits
-dort. OSM-Gebäudeparser und Strukturadapter liegen in `generators/osm/buildings`; native
-StructureFootprints/Höhenintervalle enthalten keine Tags oder Quellformate; der Gebäudebake
-übernimmt native Ringe/Höhen über seinen eigenen StructureInput; konsumierte Objekt-IDs prüft SourceObjects ohne OSM-Typen im Bake. ElementSet, XML-Decoder/Validierung und Quell-Snapshots liegen in
-generators/osm/import; Engine-Aufrufer sind noch spezialisiert.
+dort. Gebäudeparser/-adapter liegen in `generators/osm/buildings`, XML und Snapshots in
+`generators/osm/import`. Native Produktverträge stehen in 2188; Engine-Aufrufer bleiben spezialisiert.
 Allgemeine SourceSet-/ContentStore-Dienste halten Netzwerkbytes/Receipt. Bestehende
 Tasks/Fetching nutzen begrenztes paralleles IO und genau einen gemeinsamen Compute-
 Worker; StreetGraphPreparation und ClassificationBuild nutzen ihn ohne eigene Compute-Threads.
 Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerge.
-Der serielle Read-/Decode-Zyklus wird durch eine begrenzte Pipeline ersetzt: ein IO-
-Besitzer betreibt bis zu acht unabhängige Quellenanfragen; fertige Zellen gehen einzeln
+`CellAcquisition`/`OsmCellPipeline`: ein IO-Besitzer betreibt bis zu acht Quellenanfragen;
+fertige Zellen gehen einzeln
 über höchstens zwei wartende XML-Produkte an den gemeinsamen Compute-Worker. Keine
 Thread-Sicherheitsannahme über externe Provider/Transports. Ein langsamer Request hält
 fertige Nachbarn nicht zurück. Revision/Abbruch gelten für IO, Übergabe und Decode;
 atomare Publikation und vorhandene Snapshot-Admittanz bleiben verbindlich.
-`CellAcquisition` und `OsmCellPipeline` setzen diesen Erwerb bereits um; IO und Decode nutzen explizit geliehene Queues. Der Client
-begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist noch offen.
+IO und Decode nutzen geliehene Queues; jeder OSM-Response ist auf 4 MiB begrenzt.
 
 ## Quellen- und Produktvertrag
 - OSM: offizieller API-Katalog über GeoCellId, `map?bbox=west,south,east,north` und
@@ -74,9 +76,8 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   EGM2008-Höhen sind keine Ellipsoidhöhen; DSM-Dächer/Bäume sind kein bewiesener nackter Boden.
 - Native 1°-DEM- und geodätische OSM-Quellzellen bleiben unabhängig von Renderkacheln.
   Öffentliche Registrierung gilt für eingebaute wie externe Provider; Fehler kein Leerprodukt.
-- Nur Original-Netzwerkbytes persistent cachen. Generator-Artefakt-Lookups/-Writes aus
-  Client-Pfaden entfernen; vorhandene Dateien erhalten. RAM-/GPU-Produkte bleiben resident.
-  Client, Shots und Prepare teilen dauerhaften SDL-Nutzerspeicher; kein Temp-Default.
+- Cache-/Residency-Regeln aus AGENTS gelten. Client, Shots und Prepare teilen dauerhaften
+  SDL-Nutzerspeicher; kein Temp-Default. Generator-Artefakt-Lookups/-Writes aus Client-Pfaden entfernen.
   ContentStore/SourceSet speichern adressqualifizierte Netzwerk-Receipts mit Payload-Digest.
   Neue Prozesse rekonstruieren vorhandene Blattpartitionen aus verifizierten Originalbytes.
   Teilbestände vermeiden Elternproben; fehlende/beschädigte Bytes bleiben fehlende Abdeckung.
@@ -88,6 +89,8 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   müssen diese Metadaten noch übernehmen. Eine pauschale Ablehnung verliert keine Ursache.
   HTTP 509 beendet den Erwerb ohne automatische Wiederholung; erhaltene Originalbytes bleiben
   nutzbar. Ein erneuter Erwerb ist explizit, keine verdeckte Schleife gegen das Anbieterlimit.
+  Bestätigtes HTTP 400 wegen Node-Kapazität fordert kleinere Zellen; HTTP 509 belegt
+  diese Ursache nicht. Ablehnungen und Erwerbsplan-Hinweise sind niemals Datenabdeckung.
   CellCompiler überführt jede dekodierte Zelle auf dem gemeinsamen Compute-Worker in native
   Inputs vor dem vollständigen Erwerb. StructureCell hält Gebäudegrundrisse, konsumierte
   Referenzhüllen samt Tags und binäre SHA-256-Identitäten aller Originalobjekte; vollständige
@@ -106,9 +109,6 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   Explizite Cachepfade bleiben erhalten. Per-Zell-Bytes qualifizieren den Katalog `current`;
   dieser Name behauptet keinen atomaren weltweiten OSM-Zeitstand.
   Quellen, Parse/Build-Scratch, gepinnte Altstände und GPU-Produkte getrennt begrenzen.
-- Unveränderte Zellen/Produkte übernehmen, veraltete Jobs abbrechen, geänderte Produkte
-  gezielt ersetzen. Kandidaten veröffentlichen geschlossen; Fehler erhalten gültigen Altstand.
-
 ## Weitere Integration und Abnahme
 Straßen/Wasser konsumieren dieselben Originalbestände (2281/2145); Klassifikation 2173.
 2336 besitzt Bedarf/LOD über Boden, Flug und Orbit. Vorhandene native Produkte bleiben nutzbar;
