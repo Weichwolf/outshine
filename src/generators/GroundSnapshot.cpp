@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <utility>
 #include <vector>
+#include <optional>
 
 #include "GroundPatch.h"
 #include "GroundSample.h"
@@ -178,17 +179,17 @@ std::shared_ptr<const GroundPatch>
 PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how) {
   const int blockZoom = heights.BlockZoom() > 0 ? heights.BlockZoom() : region.Zoom();
   const int coarser = region.Zoom() - blockZoom;
-  const outshine::Ground::GroundBlock block =
-      coarser > 0 ? heights.BlockAt({.Zoom = blockZoom,
-                                     .X = static_cast<long>(static_cast<uint32_t>(region.X()) >>
-                                                            static_cast<uint32_t>(coarser)),
-                                     .Y = static_cast<long>(static_cast<uint32_t>(region.Y()) >>
-                                                            static_cast<uint32_t>(coarser))})
-                  : heights.BlockAt({.Zoom = blockZoom, .X = region.X(), .Y = region.Y()});
-  switch (block.Where()) {
-    case outshine::Ground::GroundBlock::State::Pending: *how = Snapped::Waiting; return nullptr;
-    case outshine::Ground::GroundBlock::State::Missing: *how = Snapped::NoGround; return nullptr;
-    case outshine::Ground::GroundBlock::State::Resolved: break;
+  std::optional<outshine::Ground::GroundBlock> block;
+  if (coarser >= 0) {
+    block =
+        heights.BlockAt({.Zoom = blockZoom,
+                         .X = static_cast<uint32_t>(region.X()) >> static_cast<uint32_t>(coarser),
+                         .Y = static_cast<uint32_t>(region.Y()) >> static_cast<uint32_t>(coarser)});
+    switch (block->Where()) {
+      case outshine::Ground::GroundBlock::State::Pending: *how = Snapped::Waiting; return nullptr;
+      case outshine::Ground::GroundBlock::State::Missing: *how = Snapped::NoGround; return nullptr;
+      case outshine::Ground::GroundBlock::State::Resolved: break;
+    }
   }
   const int side =
       static_cast<int>(std::lround(region.SpanNm() / heights.PostM(region.AnchorLat()))) + 1;
@@ -201,12 +202,22 @@ PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how
         region.Geo({.EastM = 0.0, .NorthM = static_cast<double>(j) * stepN});
     const LongitudeLatitude next =
         region.Geo({.EastM = stepE, .NorthM = static_cast<double>(j) * stepN});
-    block.AslMRow(from,
-                  next.LongitudeDeg - from.LongitudeDeg,
-                  std::span<double>(row.data(), static_cast<size_t>(side)));
+    if (block) {
+      block->AslMRow(from,
+                     next.LongitudeDeg - from.LongitudeDeg,
+                     std::span<double>(row.data(), static_cast<size_t>(side)));
+    }
     for (int i = 0; i < side; i++) {
+      const auto sample = block
+                              ? GroundSample::At(row[static_cast<size_t>(i)])
+                              : heights.At(region.Geo({.EastM = static_cast<double>(i) * stepE,
+                                                       .NorthM = static_cast<double>(j) * stepN}));
+      if (sample.Where() == GroundSample::State::Hole) {
+        *how = Snapped::NoGround;
+        return nullptr;
+      }
       postings[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)].Height =
-          GroundSample::At(row[static_cast<size_t>(i)]);
+          sample;
     }
   }
   std::shared_ptr<const GroundPatch> patch = GroundPatch::Complete(
