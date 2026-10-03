@@ -41,7 +41,7 @@ int main() {
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated original source cache created");
   if (!std::filesystem::is_directory(directory)) { return Report(); }
   {
-    ContentStore store({.Directory = directory, .UtcSeconds = {}});
+    ContentStore store({.Directory = directory});
     const SourceProvider provider{.Kind = "osm",
                                   .Revision = "independent",
                                   .Missing = MissingDataPolicy::Fail,

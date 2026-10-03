@@ -51,6 +51,8 @@ Beitrag zu diesem Ablauf entfernen; Tests gegen diesen fachlichen Vertrag prüfe
 3. Quellen-Zertifikate, TerrainRevisionIndex und Metadatenreservierungen entfernen.
    Schlüssel aus Anbieter, Anfrageparametern und Formatversion; Treffer liefern gespeicherte
    Bytes ohne Aktualitätsprüfung. Identität der Inputs/Generatorparameter einmal bestimmen.
+   Bestätigte HTTP-404 behalten ihre NoData-Identität bis zur Leerung, auch nach weiteren
+   Szenen. Ein begrenzter RAM-Index darf keine Quellnachweise auf SSD löschen.
    Expliziter Welt-/Quellenwechsel verwirft alte Jobs; Terrainänderungen erneuern ihre Produkte.
    Die bestehende Eingaberevision bindet Jobs und Produkte an denselben Terrainstand; keine
    zweite Gültigkeitshierarchie. Identische Wiederlieferung allein entwertet keine Geometrie.

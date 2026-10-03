@@ -337,9 +337,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
     case Meaning::Absent: {
       if (response.Evidence == AbsenceEvidence::HttpNotFound &&
           decl.Keeps == Cacheability::Forever) {
-        const auto lifetime = decl.Revision.empty() ? ContentStore::UnpinnedAbsenceLifetimeS
-                                                    : ContentStore::PinnedAbsenceLifetimeS;
-        (void)Store_.KeepAbsent(query.CacheKey(), lifetime);
+        (void)Store_.KeepAbsent(query.CacheKey());
       }
       return ProcessAbsence(query, transport, response.HttpStatus);
     }

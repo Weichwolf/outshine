@@ -6,8 +6,6 @@
 #include <cstdint>
 #include <optional>
 #include <span>
-#include <functional>
-#include <map>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -37,18 +35,13 @@ public:
     std::vector<uint8_t> Bytes;
   };
 
-  static constexpr int64_t UnpinnedAbsenceLifetimeS = int64_t{24} * 60 * 60;
-  static constexpr int64_t PinnedAbsenceLifetimeS = 7 * UnpinnedAbsenceLifetimeS;
-  static constexpr size_t MaximumAbsenceEntries = 65536;
-  static constexpr size_t DefaultAbsenceEntries = 4096;
+  static constexpr size_t MaximumCoverageProbes = 65536;
 
   struct Config {
     std::string Directory;
     Use Using = Use::On;
 
     size_t CapBytes = 0;
-    size_t AbsenceEntries = DefaultAbsenceEntries;
-    std::function<int64_t()> UtcSeconds;
   };
 
   explicit ContentStore(const Config &config);
@@ -62,16 +55,16 @@ public:
                                                          size_t mostBytes = 0) const;
   [[nodiscard]] bool Keep(std::string_view key, const uint8_t *data, size_t bytes);
   [[nodiscard]] Entry Lookup(std::string_view key, size_t mostBytes = 0) const;
-  [[nodiscard]] bool KeepAbsent(std::string_view key, int64_t lifetimeS);
+  [[nodiscard]] bool KeepAbsent(std::string_view key);
   [[nodiscard]] bool
   KeepCell(const SourceDecl &decl, GeoCellId cell, std::span<const uint8_t> bytes);
   [[nodiscard]] Entry LookupCell(const SourceDecl &decl, GeoCellId cell);
   [[nodiscard]] bool HasCompleteChildCoverage(const SourceDecl &decl,
                                               GeoCellId cell,
-                                              size_t probesMost = MaximumAbsenceEntries) const;
+                                              size_t probesMost = MaximumCoverageProbes) const;
   [[nodiscard]] bool CanResumeFromChildren(const SourceDecl &decl,
                                            GeoCellId cell,
-                                           size_t probesMost = MaximumAbsenceEntries) const;
+                                           size_t probesMost = MaximumCoverageProbes) const;
 
   [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }
 
@@ -99,21 +92,15 @@ private:
                                                                      size_t limit);
   [[nodiscard]] std::optional<std::vector<uint8_t>> ReadBytes(std::string_view key,
                                                               size_t mostBytes) const;
-  [[nodiscard]] int64_t UtcSeconds() const;
   [[nodiscard]] bool HasAbsence(std::string_view key) const;
   [[nodiscard]] bool AbsenceDirectory(bool create) const;
   [[nodiscard]] bool RemoveAbsence(std::string_view key) const;
-  void LoadAbsences();
   void ForgetAbsence(std::string_view key);
-  [[nodiscard]] bool AdmitAbsence(const std::string &key, int64_t expiry);
 
   std::string Directory_;
   Use Using_;
   size_t CapBytes_;
-  size_t AbsenceEntries_;
-  std::function<int64_t()> UtcSeconds_;
   mutable std::mutex AbsenceMutex_;
-  mutable std::map<std::string, int64_t, std::less<>> Absences_;
 
   mutable std::atomic<long long> Hits_{0}, Misses_{0};
   std::atomic<long long> Writes_{0}, WriteFailures_{0};

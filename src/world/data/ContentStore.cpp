@@ -119,14 +119,10 @@ std::string SourceKey(const SourceDecl &decl) {
 ContentStore::ContentStore(const Config &config)
     : Directory_(config.Directory.empty() ? DefaultDirectory() : config.Directory),
       Using_(config.Using),
-      CapBytes_(config.CapBytes > 0 ? config.CapBytes : kDefaultCapBytes),
-      AbsenceEntries_(std::clamp(config.AbsenceEntries, size_t{1}, MaximumAbsenceEntries)),
-      UtcSeconds_(config.UtcSeconds) {
+      CapBytes_(config.CapBytes > 0 ? config.CapBytes : kDefaultCapBytes) {
   if (Using_ != Use::On) { return; }
   std::error_code ec;
   std::filesystem::create_directories(Directory_, ec);
-
-  LoadAbsences();
 }
 
 bool ContentStore::Trim() {

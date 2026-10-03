@@ -96,7 +96,7 @@ Tasks::StepResult SourceAcquisition::CellPipeline::Acquire(const std::shared_ptr
   }
   if (!access->Store) {
     access->Store = std::make_unique<Data::ContentStore>(
-        Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
+        Data::ContentStore::Config{.Directory = access->Directory});
   }
   if (!Reader) {
     Reader = std::make_shared<CellAcquisition>(

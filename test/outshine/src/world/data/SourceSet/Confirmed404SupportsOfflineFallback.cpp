@@ -85,8 +85,7 @@ int main() {
   using namespace outshine::Test;
   auto directory = (std::filesystem::temp_directory_path() / "outshine-404-XXXXXX").string();
   CHECK(mkdtemp(directory.data()) != nullptr, "isolated cache created");
-  int64_t now = 1000;
-  const ContentStore::Config config{.Directory = directory, .UtcSeconds = [&now] { return now; }};
+  const ContentStore::Config config{.Directory = directory};
   const Fetch request(DataKind::Elevation, Address::At({.Zoom = 17, .X = 69, .Y = 45}));
   {
     ContentStore store(config);
@@ -123,15 +122,20 @@ int main() {
           "fail policy applies identically to cached not-found evidence");
   }
   for (const bool changedRevision : {true, false}) {
-    if (!changedRevision) { now += ContentStore::UnpinnedAbsenceLifetimeS; }
     ContentStore store(config);
     SourceSet sources(store);
     Add(sources, changedRevision ? "different-pin" : "");
     OfflineTransport offline;
     auto query = sources.Ask(request);
-    const auto reply = sources.Collect(query, offline);
-    CHECK(reply.Failure() && reply.Failure()->Reason == FetchFailureReason::OfflineMiss,
-          "expired or differently pinned absence cannot masquerade as confirmed missing data");
+    auto reply = sources.Collect(query, offline);
+    if (changedRevision) {
+      CHECK(reply.Failure() && reply.Failure()->Reason == FetchFailureReason::OfflineMiss,
+            "a different source revision cannot reuse previous not-found evidence");
+    } else {
+      const auto bytes = reply.Take();
+      CHECK(bytes && bytes->SourceId == "fallback" && sources.Counters().ProviderStarts == 0,
+            "unchanged source identity reuses the same cached fallback without an expiry");
+    }
   }
   for (const int status : {403, 408, 500}) {
     ContentStore store(config);

@@ -195,7 +195,7 @@ void SourceAcquisition::StartRegionAcquisition() {
     if (remote) {
       if (!access->Store) {
         access->Store = std::make_unique<Data::ContentStore>(
-            Data::ContentStore::Config{.Directory = access->Directory, .UtcSeconds = {}});
+            Data::ContentStore::Config{.Directory = access->Directory});
       }
       const auto deadline = [access, revision] { return access->CurrentDeadline(revision); };
       auto read = ReadRegions(
