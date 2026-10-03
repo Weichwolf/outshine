@@ -5,6 +5,7 @@
 #include <world/SourceProvider.h>
 
 #include <format>
+#include <cmath>
 #include <cstdint>
 #include <expected>
 #include <memory>
@@ -124,6 +125,12 @@ ApiSource::Collect(const Data::Address &at, Data::Ticket ticket, Data::Transport
   }
   if (response->Status == kHttpNotFound) { return Data::Fetched::NotFound(); }
   if (response->Status == kHttpBandwidthLimitExceeded) {
+    if (std::isfinite(retryAfterS) && retryAfterS > 0.0) {
+      return Data::Fetched::MeantAfter(Data::Meaning::Retry,
+                                       retryAfterS,
+                                       Data::FetchFailureReason::ProviderRefused,
+                                       response->Status);
+    }
     return Data::Fetched::Meant(
         Data::Meaning::Refused, Data::FetchFailureReason::ProviderRefused, response->Status);
   }

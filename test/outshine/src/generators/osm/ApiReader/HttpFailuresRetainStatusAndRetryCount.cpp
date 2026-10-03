@@ -5,6 +5,8 @@
 
 #include <array>
 #include <string>
+#include <vector>
+#include <limits>
 
 namespace {
 class RetryWire final : public outshine::Data::Transport {
@@ -12,13 +14,21 @@ public:
   int Status = 503;
   int Starts = 0;
   double ClockMs = 100;
+  double RetryAfterS = 0;
+  bool SucceedAfterFirst = false;
+  std::vector<double> StartedAtMs;
+  const std::string Xml = "<osm version='0.6'/>";
 
   outshine::Data::FetchStart Begin(const std::string &) override {
+    StartedAtMs.push_back(ClockMs);
     return static_cast<outshine::Data::Ticket>(++Starts);
   }
 
   outshine::Data::Wire Collect(outshine::Data::Ticket) override {
-    return outshine::Data::Wire::Answered(Status, {});
+    if (SucceedAfterFirst && Starts > 1) {
+      return outshine::Data::Wire::Answered(200, std::vector<uint8_t>(Xml.begin(), Xml.end()));
+    }
+    return outshine::Data::Wire::Answered(Status, {}, RetryAfterS);
   }
 
   void Cancel(outshine::Data::Ticket) override {}
@@ -65,5 +75,41 @@ int main() {
   CHECK(!limited &&
             limited.error().find("provider refusal HTTP 509 after 0 retries") != std::string::npos,
         "bandwidth refusal keeps its actual status and retry count");
+  for (const double invalid : std::array{-1.0,
+                                         std::numeric_limits<double>::infinity(),
+                                         std::numeric_limits<double>::quiet_NaN()}) {
+    RetryWire refused;
+    refused.Status = 509;
+    refused.RetryAfterS = invalid;
+    const auto failed = Generators::Osm::ReadRegion(provider, store, refused, 20000, {});
+    CHECK(!failed && refused.Starts == 1, "invalid quota delay cannot authorize a retry");
+  }
+  RetryWire cooldown;
+  cooldown.Status = 509;
+  cooldown.RetryAfterS = 213;
+  cooldown.SucceedAfterFirst = true;
+  const auto resumed = Generators::Osm::ReadRegion(provider, store, cooldown, 220000, {});
+  CHECK(resumed && resumed->Xml == cooldown.Xml && cooldown.Starts == 2,
+        "a quota with an explicit cooldown can resume original-data acquisition");
+  CHECK(cooldown.StartedAtMs.size() == 2 &&
+            cooldown.StartedAtMs[1] - cooldown.StartedAtMs[0] >= 213000,
+        "server cooldown is not shortened to the scheduler's exponential backoff cap");
+  RetryWire deadline;
+  deadline.Status = 509;
+  deadline.RetryAfterS = 213;
+  const auto expired = Generators::Osm::ReadRegion(provider, store, deadline, 10000, {});
+  CHECK(!expired && deadline.Starts == 1 && expired.error().find("deadline") != std::string::npos,
+        "acquisition deadline cancels a cooldown without an early request");
+  RetryWire exhausted;
+  exhausted.Status = 509;
+  exhausted.RetryAfterS = 213;
+  const auto failed = Generators::Osm::ReadRegion(provider, store, exhausted, 1000000, {});
+  CHECK(!failed && exhausted.Starts == 5 &&
+            failed.error().find("HTTP 509 after 4 retries") != std::string::npos,
+        "explicit cooldowns retain the bounded retry budget and terminal diagnostic");
+  for (size_t at = 1; at < exhausted.StartedAtMs.size(); ++at) {
+    CHECK(exhausted.StartedAtMs[at] - exhausted.StartedAtMs[at - 1] >= 213000,
+          "every retry obeys its own server cooldown");
+  }
   return Report();
 }
