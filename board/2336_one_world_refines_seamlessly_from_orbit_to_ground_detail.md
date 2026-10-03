@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: planned
 Priority: P0
 Parent: 2169
@@ -13,7 +13,18 @@ Tags: lod, coverage, planetary, budgets
 Eine rundum verfügbare Welt bis 240 km am Boden, mit höhenabhängigem Horizont und später
 schnellem Übergang Orbit → Nahdetail. Ferninhalte sind kompakt, Nahdetails gezielt erzeugt.
 GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist mehrfach/zu spät,
-die konservative Zellhülle erzwingt oft Fine. Vollständige Fernquellen und Runtime-Hierarchie fehlen.
+die konservative Zellhülle erzwingt oft Fine. Dessen Zusatzgeometrie überlastet dichte Städte.
+Vollständige Fernquellen und Runtime-Hierarchie fehlen.
+
+## Aktuelle Lieferung: einfache Gebäude wiederherstellen
+Gebäude bestehen zunächst aus Grundrisswänden und Dach, einschließlich Innenhöfen,
+gemessener Höhen und erhöhter Gebäudeteile. Prozedurale Sockelverzierungen, Dachaufbauten,
+Gesimse und Fassadenunterteilungen entfallen. Straßen und Terrain-Deformation bleiben erhalten.
+Fine und Shell verwenden dieselbe einfache Hülle; Massed bündelt entfernte Gebäude.
+Die Entfernungsauswahl muss vor der Erzeugung greifen. Fernverbände behalten konservative
+Formgrenzen; eine großzügigere Fehlertoleranz darf keine fehlenden Gebäude verdecken.
+Zuerst Wien ohne GPU-Speicherabbruch sichtbar machen, dann Cluster und dichte Lastfälle prüfen.
+Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
 ## Besitzer und Abhängigkeiten
 Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.

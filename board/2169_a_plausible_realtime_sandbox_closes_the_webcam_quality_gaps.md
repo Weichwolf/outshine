@@ -42,7 +42,8 @@ AGENTS besitzt Arbeitsregeln/Abnahme; technische Verträge stehen bei ihrem Feat
 | P3 Sandbox | 2136 | Kräfte/Kontakte/Gelenke, NPC/JS/LLM, Ton, Persistenz |
 
 ## Reihenfolge und Zuständigkeit
-2280 ist das aktive Kind. 2336 ist die nächste integrierte Lieferung; 2188 migriert dabei
+2280 und 2336 sind aktiv: vollständiger Ladeablauf und einfache Gebäude mit Fernclustern.
+2188 migriert dabei
 nur die benötigten öffentlichen Grenzen. Keine komplette SDK-Neufassung vor dem ersten Bild.
 Zuerst Vorbereitungsstillstand und unnötige Arbeit beseitigen, dann verbleibende Kosten messen.
 Orbit-Verfeinerung folgt der Bodenhierarchie; sie blockiert keine nahe Stadtverbesserung.

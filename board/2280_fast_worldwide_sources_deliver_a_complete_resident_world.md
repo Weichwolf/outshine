@@ -12,9 +12,11 @@ Tags: loading, cache, residency
 ## Ergebnis und Ist
 Wien erreicht aus vollständigem Quellcache die fertige Rundumwelt und den Screenshot im
 AGENTS-Budget. MVT/Terrarium, paralleler Erwerb, Quellcache und native Produkte bestehen.
-Gebäude-Quellaufbereitung endet, Zellvorbereitung kann jedoch dauerhaft zurückgestellt werden.
-Zellaufträge übernehmen Parent-Höhenbedarf; Kopien, erneute Rasterhashes und Liefermetadaten
-vergrößern die Arbeit. Abnahme ist die vollständige gerenderte Welt, nicht ein interner Zustand.
+Zellvorbereitung endet mit lokalen Höheneingaben oder einem expliziten Fehler. Wien erreicht
+den Screenshot, doch Metal bricht Renderaufträge wegen Speicherüberlastung ab. Gebäude-
+Zusatzgeometrie entfernen und Ferncluster wiederherstellen (2336); danach verbleibende
+Lade-/Framekosten optimieren. Abnahme ist die vollständig sichtbare Welt,
+nicht ein interner Ready-Zustand oder die Anzahl erzeugter Dreiecke.
 
 ## Besitzer und Grenzen
 SourceSet/ContentStore/TilePool besitzen gemeinsame Bytes/Jobs; Erweiterungen ihre Formate.
