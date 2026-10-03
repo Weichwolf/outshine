@@ -26,12 +26,13 @@ int main() {
   std::vector<SourcedTerrainFields::Entry> fields{{tile, raster}};
   SourcedTerrainFields snapshot(fields, *metadata);
   const std::array requested{Ground::TileSpot{.Zoom = 4, .X = 0, .Y = 1}};
-  const size_t budget = snapshot.RetainedBytes();
+  const size_t budget = snapshot.PreparationBytes();
   const auto refused = SourcedTerrainFields::Capture(fields, requested, budget - 1, *metadata);
   CHECK(!refused && refused.error() == Error::OverBudget,
-        "retained metadata participates in the source snapshot budget");
+        "the capture budgets its allocated pointers independently of shared metadata");
   auto captured = SourcedTerrainFields::Capture(fields, requested, budget, *metadata);
-  CHECK(captured.has_value(), "exact retained source budget permits capture");
+  CHECK(captured && captured->RetainedBytes() > budget,
+        "exact pointer budget permits capture while shared metadata and rasters remain accounted");
   snapshot = SourcedTerrainFields{};
   metadata->reset();
   fields.clear();

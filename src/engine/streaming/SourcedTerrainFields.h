@@ -26,6 +26,7 @@ public:
           size_t bytesMost,
           Ground::TerrainRevisionIndex::Reservation metadata = nullptr);
   [[nodiscard]] size_t RetainedBytes() const noexcept;
+  [[nodiscard]] size_t PreparationBytes() const noexcept;
   [[nodiscard]] bool FitsPreparation(std::span<const Ground::TileSpot> requests,
                                      size_t bytesMost) const;
   [[nodiscard]] bool ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;

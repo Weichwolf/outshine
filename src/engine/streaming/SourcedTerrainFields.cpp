@@ -43,7 +43,7 @@ std::optional<Data::TileId> RequestedTile(Ground::TileSpot request) {
 }
 
 size_t SourcedTerrainFields::RetainedBytes() const noexcept {
-  size_t bytes = Fields_.capacity() * sizeof(Entry);
+  size_t bytes = PreparationBytes();
   if (Metadata_) { bytes += Metadata_->HeapBytes(); }
   for (auto at = Fields_.begin(); at != Fields_.end(); ++at) {
     if (at->second && std::none_of(Fields_.begin(), at, [&at](const Entry &entry) {
@@ -53,6 +53,10 @@ size_t SourcedTerrainFields::RetainedBytes() const noexcept {
     }
   }
   return bytes;
+}
+
+size_t SourcedTerrainFields::PreparationBytes() const noexcept {
+  return Fields_.capacity() * sizeof(Entry);
 }
 
 std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>
@@ -66,9 +70,7 @@ SourcedTerrainFields::Capture(std::span<const Entry> fields,
   SourcedTerrainFields captured;
   captured.Metadata_ = std::move(metadata);
   captured.Fields_.reserve(requests.size());
-  size_t bytes = captured.Fields_.capacity() * sizeof(Entry);
-  if (captured.Metadata_) { bytes += captured.Metadata_->HeapBytes(); }
-  if (bytes > bytesMost) { return std::unexpected(CaptureError::OverBudget); }
+  if (captured.PreparationBytes() > bytesMost) { return std::unexpected(CaptureError::OverBudget); }
   for (const Ground::TileSpot request : requests) {
     const auto tile = RequestedTile(request);
     if (!tile) { return std::unexpected(CaptureError::InvalidRequest); }
@@ -78,11 +80,6 @@ SourcedTerrainFields::Capture(std::span<const Entry> fields,
                             [&found](const Entry &entry) { return entry.first == found->first; })) {
       continue;
     }
-    const bool held = std::ranges::any_of(
-        captured.Fields_, [&found](const Entry &entry) { return entry.second == found->second; });
-    const size_t added = held ? 0 : found->second->HeapBytes();
-    if (added > bytesMost - bytes) { return std::unexpected(CaptureError::OverBudget); }
-    bytes += added;
     captured.Fields_.push_back(*found);
   }
   return captured;
@@ -90,7 +87,7 @@ SourcedTerrainFields::Capture(std::span<const Entry> fields,
 
 bool SourcedTerrainFields::FitsPreparation(std::span<const Ground::TileSpot> requests,
                                            size_t bytesMost) const {
-  size_t bytes = RetainedBytes();
+  size_t bytes = PreparationBytes();
   const auto charge = [&bytes, bytesMost](size_t count, size_t size) {
     if (bytes > bytesMost || (size != 0 && count > (bytesMost - bytes) / size)) { return false; }
     bytes += count * size;

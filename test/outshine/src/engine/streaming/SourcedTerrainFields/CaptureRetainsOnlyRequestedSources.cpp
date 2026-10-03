@@ -31,9 +31,10 @@ int main() {
   auto captured = SourcedTerrainFields::Capture(fields, requests, budget);
   CHECK(captured && captured->RetainedBytes() == budget,
         "two child requests share one ancestor reservation; exact source remains distinct");
-  const auto refused = SourcedTerrainFields::Capture(fields, requests, budget - 1);
+  const auto refused = SourcedTerrainFields::Capture(
+      fields, requests, requests.size() * sizeof(SourcedTerrainFields::Entry) - 1);
   CHECK(!refused && refused.error() == Error::OverBudget,
-        "one byte below the required source reservation refuses the capture");
+        "one byte below the required pointer storage refuses the capture");
   const std::array<Ground::TileSpot, 1> missing{{{.Zoom = 1, .X = 1, .Y = 0}}};
   const auto absent = SourcedTerrainFields::Capture(fields, missing, budget);
   CHECK(!absent && absent.error() == Error::MissingSource,

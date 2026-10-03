@@ -18,6 +18,8 @@ nach Entfernen der Gebäude-Zusatzgeometrie wieder die Stadt ohne Metal-Speicher
 Lade-/Framekosten und Speicher liegen noch außerhalb des Budgets; Ferncluster und verbliebene
 Geometriekosten gehören zu 2336. Abnahme ist die vollständig sichtbare Welt,
 nicht ein interner Ready-Zustand oder die Anzahl erzeugter Dreiecke.
+Feldkirch akzeptiert derzeit fehlende Offline-Vektorkacheln als fertigen Shot. Erforderliche
+Quellen müssen Ready und Screenshot sperren; eine fast leere Stadt ist keine erfolgreiche Abnahme.
 
 ## Besitzer und Grenzen
 SourceSet/ContentStore/TilePool besitzen gemeinsame Bytes/Jobs; Erweiterungen ihre Formate.
@@ -39,6 +41,8 @@ Beitrag zu diesem Ablauf entfernen; Tests gegen diesen fachlichen Vertrag prüfe
 2. Einmal dekodierte Raster unveränderlich teilen. Byte-/DecodedCache, HeightSheets und
    HeightField dürfen für denselben unveränderten Input keine erneuten Vollkopien/Hashes
    verlangen. Kachelzugriff indizieren; Quellarchive nach Übernahme kompakter Inputs freigeben.
+   Auftragsbudgets zählen zusätzlich allozierte Metadaten und Resampling, nicht erneut die
+   geteilten residenten Raster. Gehaltene Quellen bleiben separat sichtbar; Lebensdauer sichern.
 3. Quellen-Zertifikate, TerrainRevisionIndex und Metadatenreservierungen entfernen.
    Schlüssel aus Anbieter, Anfrageparametern und Formatversion; Treffer liefern gespeicherte
    Bytes ohne Aktualitätsprüfung. Identität der Inputs/Generatorparameter einmal bestimmen.

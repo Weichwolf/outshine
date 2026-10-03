@@ -39,9 +39,9 @@ int main() {
   const SourcedTerrainFields sources(entries);
   constexpr size_t budget = 1024u * 1024u;
   CHECK(sources.FitsPreparation(request.Tiles, budget), "source and assembly fit the reservation");
-  StructureSourcePreparation refused(pool, request, sources, sources.RetainedBytes());
+  StructureSourcePreparation refused(pool, request, sources, sources.PreparationBytes());
   CHECK(refused.Advance() == State::OverBudget && !refused.Running() && !refused.Result(),
-        "source bytes alone do not admit temporary metadata or result construction");
+        "source pointer bytes alone do not admit temporary metadata or result construction");
   StructureSourcePreparation preparation(pool, request, sources, budget);
   std::binary_semaphore release(0);
   const auto blocker = pool.Post([&release] { release.acquire(); });
