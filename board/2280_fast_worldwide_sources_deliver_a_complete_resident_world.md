@@ -60,6 +60,10 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
 - OpenMapTiles-`hide_3d`-Umrisse bleiben Quelldaten und erzeugen keine doppelten Parts.
   Renderhöhen sind Schätzungen. Widersprüchliche Ober-/Unterkanten erhalten Quellwerte;
   ein erzeugter Körper über belegter Unterkante bleibt ausdrücklich eine Annahme.
+  Native Unter-/Oberkanten sind vorzeichenbehaftete Meter relativ zum Geländebezug;
+  ein gültiger Körper kann den Boden durchdringen oder vollständig darunter liegen.
+  Nichtnull-Unterkanten behalten das exakte Intervall ohne künstlichen Sockel oder
+  Parzellenteilung. Endliche, geordnete und darstellbare Intervalle bleiben verbindlich.
   Schema und Herleitung: [OpenMapTiles](https://openmaptiles.org/docs/schema/#building).
 - Native Höhenmeter mit Rastermaß/Zoom/Datum/NoData liefern. Terrarium nach verlustfreiem
   RGB-Decode; Terrain-RGB/COG nutzen eigene Decoder. Globales DSM ist kein nackter Boden.
