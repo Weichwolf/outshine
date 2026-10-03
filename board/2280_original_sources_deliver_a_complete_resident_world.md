@@ -19,7 +19,14 @@ Katalog und die Engine fordert den vollständigen Positionsradius an. Native Str
 und vollständige Place-Abnahme sind offen. Keine reduzierte Kartenquelle als Ersatz.
 
 ## Nächste Lieferung und Besitzer
-Nach 2188 übergibt Engine allgemeinen Weltbedarf an registrierte Generatoren. Die OSM-
+Zuerst Wien mit vollständigen Originalquellen bis zum residenten Rundumbild liefern,
+danach die übrigen Places. Der Map-API-Erwerb scheitert am Anbieter-Bandbreitenlimit;
+mehr Retries, Parallelität oder längere Fristen ersetzen keinen tragfähigen Quellenweg.
+Ein Bulk-Adapter muss Originalobjekte/Tags, Referenzabschluss, Revision und begrenzten
+Erwerb erhalten. Regionale Drittanbieter-Extrakte benötigen eine ausdrückliche Erweiterung
+der Quellenregel; weder reduzierten Inhalt noch eine weitere Quelle stillschweigend einsetzen.
+2188 liefert den allgemeinen Generatorvertrag; sein übriger Sandbox-Ausbau blockiert
+weder die Quellenvorbereitung noch die Abnahme vorhandener nativer Produkte. Die OSM-
 Erweiterung unter `generators/osm` besitzt Provider, Adapter, Zellplanung und Erzeugung.
 `SourceAcquisition`, `TransportPreparation`, Provider und API-/Zellerwerber liegen bereits
 dort. OSM-Gebäudeparser und Strukturadapter liegen in `generators/osm/buildings`; native
@@ -72,9 +79,7 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   Client, Shots und Prepare teilen dauerhaften SDL-Nutzerspeicher; kein Temp-Default.
   ContentStore/SourceSet speichern adressqualifizierte Netzwerk-Receipts mit Payload-Digest.
   Neue Prozesse rekonstruieren vorhandene Blattpartitionen aus verifizierten Originalbytes.
-  Auch Teilbestände vermeiden erneute Elternproben; alle fehlenden Quadranten bleiben Pflicht.
-  Vorhandene Teilbytes beweisen keine vollständige Abdeckung.
-  Fehlende oder beschädigte Bytes sind keine Abdeckung. Keine Generatorprodukte persistieren.
+  Teilbestände vermeiden Elternproben; fehlende/beschädigte Bytes bleiben fehlende Abdeckung.
   `engine/EnginePreload.cpp` übergibt das öffentliche Preload-Budget auch als Quellenfrist,
   einschließlich laufender IO. Terrain-Sampling erhält ursprüngliche Fehleradresse,
   Quelle und Fehlergrund bis zur Runtime; eine Ablehnung liefert kein partielles Mesh.
@@ -83,8 +88,6 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   müssen diese Metadaten noch übernehmen. Eine pauschale Ablehnung verliert keine Ursache.
   HTTP 509 beendet den Erwerb ohne automatische Wiederholung; erhaltene Originalbytes bleiben
   nutzbar. Ein erneuter Erwerb ist explizit, keine verdeckte Schleife gegen das Anbieterlimit.
-  Internet-Erwerb erhält seine eigene Frist und darf länger dauern. Erst mit vollständigem
-  Quellcache gilt das Zehn-Sekunden-Gate; ein frischer Offline-Prozess prüft den warmen Aufbau.
   CellCompiler überführt jede dekodierte Zelle auf dem gemeinsamen Compute-Worker in native
   Inputs vor dem vollständigen Erwerb. StructureCell hält Gebäudegrundrisse, konsumierte
   Referenzhüllen samt Tags und binäre SHA-256-Identitäten aller Originalobjekte; vollständige
@@ -98,8 +101,6 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   Prepare führt Cachephase vor Engine/Weltaufbau aus; beide teilen eine Gesamtfrist.
   Cache-Bereitschaft liefert keine Weltprodukte; erst vollständige Welt meldet Prepare ready.
   SourceDemand hält gemeinsame Zelllimits; GeodeticCamera denselben geografischen Fokus.
-  Originalcache vollständig vorbereiten und tatsächlichen Place-Aufbau messen; Erwerb allein
-  beweist weder das Ladebudget noch Bildqualität. Keine weitere reine Wartezeit-Optimierung.
   Vollständigkeit folgt dem gesamten Weltbedarf, nicht dem Ende eines einzelnen IO-Auftrags.
   Die vorhandene Kronenvorbereitung übergibt Atlanten direkt im RAM; kein Runtime-Diskcache.
   Explizite Cachepfade bleiben erhalten. Per-Zell-Bytes qualifizieren den Katalog `current`;
@@ -114,7 +115,6 @@ Straßen/Wasser konsumieren dieselben Originalbestände (2281/2145); Klassifikat
 2188s allgemeiner Lebenszyklus ersetzt konkrete Engine-Aufrufe. Kinder brauchen ihren
 konsumierten Teilvertrag, keine pauschale Fertigstellung aller anderen Features.
 Ein frischer warmer Prozess liefert belegte Quellcachehits ohne Remote-Starts und ohne
-Generator-Diskcache. Ziel: vollständiger warmer Aufbau in ein bis zwei Sekunden; das
-verbindliche Place-Gate aus AGENTS bleibt maßgeblich. Keine fehlenden Ferngebäude,
-verkürzte Abdeckung oder verlorenen Tags als Optimierung. Alle acht Places bleiben offen,
-bis native Quelle, vollständige Runtime und tatsächliches Bild dieselbe Welt belegen.
+Generator-Diskcache. Ziel: ein bis zwei Sekunden warm; verbindliche Gates aus AGENTS gelten.
+Keine fehlenden Ferngebäude, verkürzte Abdeckung oder verlorenen Tags als Optimierung.
+Alle acht Places bleiben bis zum vollständigen Quellen-/Runtime-/Bildnachweis offen.

@@ -30,9 +30,9 @@ AGENTS.md; dieses Board beschreibt den Weg. RDR2/GTA5 sind Qualitätsmaßstäbe.
 ## Arbeitsweg nach Priorität
 | Phase | Lieferung | Kinder | Zusammenhang |
 |---|---|---|---|
-| P0 jetzt | Architekturgrenzen tatsächlich durchsetzen | 2188 | Generische Welt, eigene Provider/Adapter und öffentliche Generatorverträge; alle erkannten Verstöße beheben |
-| P0 danach | Vollständige Originalwelt | 2280 | Erwerb, begrenzte Ingestion und Residency über die korrigierten Verträge liefern |
-| P0 | Ferndarstellung ohne Löcher oder Datenmengenexplosion | 2336 | Native Detailhierarchie begrenzt Arbeit vor Geometrie |
+| P0 jetzt | Einen vollständigen Place wieder liefern, zuerst Wien | 2280 | Originalquellen vollständig erwerben, warm resident aufbauen und das tatsächliche Rundumbild beurteilen |
+| P0 im selben Pfad | Architekturgrenzen tatsächlich durchsetzen | 2188 | Öffentliche Erweiterungsverträge und generische Welt; notwendige Migrationen bis zur Runtime integrieren |
+| P0 | Ferndarstellung ohne Löcher oder Datenmengenexplosion | 2336 | Native Detailhierarchie begrenzt Arbeit vor Geometrie und Terrainbedarf |
 | P0 | Richtige Straßen, Bauwerke, Gelände und Gewässer | 2281, 2173, 2145 | Vorhandene Formen erhalten, reale Geometriefehler beseitigen |
 | P1 | Relief und Oberflächen mit lesbarem Maßstab | 2337 | Bestehende Terrainverfeinerung; Quellrelief von plausibler Ergänzung trennen |
 | P1 | Lesbare Materialien, kohärentes Licht, Ausgabeprofile, Wetter und Himmel | 2171, 2155, 2172 | Mit vorhandenen Oberflächen liefern; kein Warten auf Vegetation |
