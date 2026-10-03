@@ -105,12 +105,12 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
   Öffentliche API ist Greenfield; sämtliche Builtins und Aufrufer zusammen migrieren.
 
 ## Ausführbare Lieferung
-1. Öffentlichen zustandsbehafteten Demand-/Produktvertrag anschließen; bisheriges synchrones
-   make(Request) ersetzt keine Weltpipeline. OSM-Typen/Provider/Decoder/Jobs unter generators/osm
-   zusammenführen und sämtliche Engine-Aufrufer migrieren. Include-/Typgrenzen erzwingen.
-2. Szenario besitzt Generatorauswahl und Kameraprogramm; CLI-Inhaltsüberschreibungen entfernen.
-3. 2280s Pipeline mit nativer Ingestion, Produkt-/Pinbesitz und gemeinsamen Jobdiensten verbinden.
-4. 2336s Bedarf vor Geometrie- und Terrainanforderung platzieren; Snapshot-Pins/Produktbesitz entkoppeln.
+1. Zuerst öffentlichen Abstands-/Produktschrankenvertrag bis zur nativen Gebäudequeue integrieren.
+   Bedarf vor Geometrie/Terrain planen; unbekannte Schranken bleiben konservativ. Gröbere DEM-
+   Abfragen brauchen einen eigenen Höhenfehlernachweis, nicht nur eine gröbere Gebäudestufe.
+2. Zustandsbehafteten Generatorlebenszyklus und konkrete Engine-Aufrufer migrieren; Grenzen erzwingen.
+3. Szenario besitzt Generatorauswahl und Kameraprogramm; CLI-Inhaltsüberschreibungen entfernen.
+4. 2280s native Ingestion/Publikation anschließen; Produktpins von Quellarchiven entkoppeln.
 5. Wettervertrag für 2172 sowie Command-/Snapshot-Grenze für 2136 vervollständigen.
 
 ## Abnahme
