@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: planned
 Priority: P0
 Parent: 2169
@@ -20,6 +20,10 @@ OSM-Erweiterung besitzt Wasser-/Küstenringe und Randidentität; Wasser-/Terrain
 Körper, Bett und Ufer; world native WaterBody-Produkte, Renderer Licht/Animation.
 Zuerst Flensburgs Pegel-/Kontaktursache vom gelieferten Ring und Höhendatum bis zum Bild
 korrigieren. Vorhandene Quellen erlauben die Diagnose; kein Warten auf Abschluss von 2280.
+OpenMapTiles liefert `class=ocean`, der Adapter normalisiert zu `kind=ocean`.
+WaterField muss diese Meeresflächen auf den gemeinsamen mittleren ASL-Pegel 0 m legen,
+statt pro ausgeschnittenem Polygon ein Terrain-Perzentil zu wählen. Unbekannte Tide bleibt
+unmodelliert. Seen behalten die eigene Höhenermittlung; ein Hafenbecken ist nicht automatisch Meer.
 Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`.
 
 ## Verfahren
