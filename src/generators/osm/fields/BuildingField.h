@@ -71,7 +71,7 @@ public:
     bool Qualified = false;
     uint64_t SourceKey = 0;
     BakeInputs Bake;
-    TerrainCertificate Terrain;
+    uint64_t HeightRevision = 0;
     HeightField::Request Heights;
   };
 
@@ -92,7 +92,7 @@ public:
                       std::span<const Data::TileSourceIdentity> sources,
                       bool qualified,
                       BakeInputs bake,
-                      TerrainCertificate certificate,
+                      uint64_t heightRevision,
                       HeightField::Request heights)
         : Owner_(owner),
           Tile_(tile),
@@ -108,7 +108,7 @@ public:
                  .Qualified = qualified,
                  .SourceKey = 0,
                  .Bake = bake,
-                 .Terrain = std::move(certificate),
+                 .HeightRevision = heightRevision,
                  .Heights = std::move(heights)} {
       std::ranges::sort(Input_.Sources);
       Input_.Sources.erase(std::ranges::unique(Input_.Sources).begin(), Input_.Sources.end());
@@ -217,7 +217,7 @@ public:
                     bool qualified,
                     std::optional<Data::TileSourceIdentity> vector,
                     BakeInputs bake,
-                    TerrainCertificate certificate = {},
+                    uint64_t heightRevision = 0,
                     HeightField::Request heights = {});
   void PreparesAcceptances(AcceptanceCapacity capacity);
   void CommitAcceptance(PendingAcceptance pending, const Baked &baked) noexcept;
@@ -291,8 +291,7 @@ public:
       if (input.Vector) {
         bytes += input.Vector->SourceId.capacity() + input.Vector->Revision.capacity();
       }
-      bytes += CapacityBytes(input.Sources) + input.Terrain.HeapBytes() +
-               CapacityBytes(input.Heights.Tiles);
+      bytes += CapacityBytes(input.Sources) + CapacityBytes(input.Heights.Tiles);
       for (const auto &source : input.Sources) {
         bytes += source.SourceId.capacity() + source.Revision.capacity();
       }

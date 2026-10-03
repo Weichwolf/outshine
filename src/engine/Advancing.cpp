@@ -385,15 +385,6 @@ StructureBuildQueue::HeightSource Engine::State::StructureHeightSource() {
             return World.Sheets.ShareSourcedField(tile, into);
           },
       .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()},
-      .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
-      .CertificateCurrent =
-          [this](const Ground::TerrainCertificate &certificate) {
-            return World.Stack.Pool().CertificateCurrent(certificate);
-          },
-      .InspectCertificate =
-          [this](const Ground::TerrainCertificate &certificate) {
-            return World.Stack.Pool().InspectCertificate(certificate);
-          },
       .CaptureFields =
           [this](std::span<const Ground::TileSpot> requests, size_t bytesMost) {
             return World.Sheets.CaptureSourcedFields(requests, bytesMost);

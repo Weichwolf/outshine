@@ -1731,19 +1731,10 @@ std::string_view Engine::State::GroundBuildStatus() const noexcept {
 std::string Engine::State::GroundBuildDiagnostic() const {
   std::string diagnostic = "ground build=" + std::string(GroundBuildStatus());
   const auto failure = World.StructureBuilds.LastHeightFailure();
-  const std::array<std::string_view, 5> causes{
-      "none", "unavailable", "unqualified", "scope-changed", "certificate"};
+  const std::array<std::string_view, 3> causes{"none", "unavailable", "unqualified"};
   diagnostic += ", height failure=" + std::string(causes[static_cast<size_t>(failure.Cause)]) +
                 " at " + std::to_string(failure.Tile.Zoom) + "/" + std::to_string(failure.Tile.X) +
                 "/" + std::to_string(failure.Tile.Y);
-  if (failure.Cause == StructureBuildQueue::HeightFailure::Reason::Certificate) {
-    const std::array<std::string_view, 5> statuses{
-        "current", "unknown", "stale", "scope-changed", "pending"};
-    diagnostic +=
-        ", certificate=" + std::string(statuses[static_cast<size_t>(failure.CertificateStatus)]) +
-        ", dependencies=" + std::to_string(failure.Dependencies) +
-        ", complete=" + std::to_string(static_cast<int>(failure.Complete));
-  }
   if (World.Region) {
     const auto *pinned = World.Region->Vectors();
     const auto *live = World.Stack.Vectors();
@@ -1829,16 +1820,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
             return build.Sheets.ShareSourcedField(tile, into);
           },
       .ResidentField = {},
-      .Revision = {.Value = state.Id()},
-      .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),
-      .CertificateCurrent =
-          [this](const Ground::TerrainCertificate &certificate) {
-            return World.Stack.Pool().CertificateCurrent(certificate);
-          },
-      .InspectCertificate =
-          [this](const Ground::TerrainCertificate &certificate) {
-            return World.Stack.Pool().InspectCertificate(certificate);
-          }};
+      .Revision = {.Value = World.Stack.Pool().TerrainScopeRevision()}};
   const auto landingAt = std::chrono::steady_clock::now();
   auto ready =
       World.StructureBuilds.NextLandings(World.Stack,

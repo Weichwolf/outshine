@@ -96,7 +96,7 @@ BuildingField::PrepareAcceptance(uint32_t tile,
                                  bool qualified,
                                  std::optional<Data::TileSourceIdentity> vector,
                                  BakeInputs bake,
-                                 TerrainCertificate certificate,
+                                 uint64_t heightRevision,
                                  HeightField::Request heights) {
   return {this,
           tile,
@@ -105,7 +105,7 @@ BuildingField::PrepareAcceptance(uint32_t tile,
           sources,
           qualified,
           bake,
-          std::move(certificate),
+          heightRevision,
           std::move(heights)};
 }
 

@@ -125,13 +125,7 @@ int main() {
             return allowCopy && HeightField::SharesField(field, at, into);
           },
       .ResidentField = {},
-      .Revision = {.Value = 11},
-      .TerrainScope = 11,
-      .CertificateCurrent =
-          [&revisions](const TerrainCertificate &certificate) {
-            return certificate.IsComplete() && certificate.TerrainScopeRevision() == 11 &&
-                   (**revisions).AreCurrent(certificate.Dependencies());
-          }};
+      .Revision = {.Value = 11}};
   Tasks pool(1);
   Generators::BuildingMesh mesher;
   StructureBuildQueue queue;
@@ -241,18 +235,17 @@ int main() {
   prints.Release(0);
   allowCopy = true;
   CHECK(post() == 1, "tile can be posted again after owned reservation release");
-  CHECK((**revisions).IssueDeliveryStamp(demTile).has_value(), "later DEM delivery revokes input");
+  ++source.Revision.Value;
   ready = finish();
   CHECK(ready.empty() && queue.Queued() == 0 && queue.Discarded() != 0,
         "late whole-tile geometry with revoked DEM never becomes a landing");
   CHECK(post() == 0 && queue.Queued() == 0, "stale instrumented input cannot reserve new work");
   field->SetCertificate(TerrainCertificate::FromDelivery(demTile, std::nullopt, 11));
-  source.TerrainScope = 12;
+  source.Revision.Value = 12;
   CHECK(post() == 0, "changed terrain scope rejects a shaped snapshot with no delivery stamps");
-  CHECK(source.Revision.Value == 11, "producer generation remains unchanged across scope changes");
   field->SetCertificate(TerrainCertificate::FromDelivery(demTile, std::nullopt, 12));
   CHECK(post() == 1, "current shaped scope retries the unreserved tile");
-  source.TerrainScope = 13;
+  source.Revision.Value = 13;
   ready = finish();
   CHECK(ready.empty() && queue.Queued() == 0,
         "old shaped completion cannot land from a frozen producer after scope change");
@@ -260,7 +253,7 @@ int main() {
   mixed.Merge(TerrainCertificate::FromDelivery(demTile, std::nullopt, 13));
   CHECK(!mixed.ScopeCurrent(12) && !mixed.ScopeCurrent(13) && !mixed.ScopeCurrent(0),
         "conflicting known scopes cannot validate even without delivery stamps");
-  source.TerrainScope = 11;
+  source.Revision.Value = 11;
   field->SetCertificate(
       TerrainCertificate::FromDelivery(demTile, (**revisions).CurrentStamp(demTile), 11));
   CHECK(post() == 1, "re-certified delivery retries without a leaked reservation");
@@ -274,8 +267,8 @@ int main() {
   CHECK(queue.Queued() == 0 && prints.InputOfTile(0) != nullptr,
         "only validated completion commits accepted footprint metadata");
   const auto *accepted = prints.InputOfTile(0);
-  CHECK(accepted && source.CertificateCurrent(accepted->Terrain),
-        "same-key re-resolution transfers the newly validated certificate to acceptance");
+  CHECK(accepted && accepted->HeightRevision == source.Revision.Value,
+        "accepted products retain the exact input revision of their bake");
   CHECK(accepted && accepted->Heights.Zoom == zoom && !accepted->Heights.Fallback &&
             !accepted->Heights.Tiles.empty() && accepted->Heights.Tiles.front().Zoom == spot.Zoom &&
             accepted->Heights.Tiles.front().X == spot.X &&
@@ -295,20 +288,18 @@ int main() {
   prints.BeginRefinement();
   field = std::make_shared<TerrainField>(*field);
   std::fill_n(field->Data(), 9, 110.0f);
-  CHECK((**revisions).IssueDeliveryStamp(demTile).has_value(),
-        "terrain delivery changes before replacement admission");
+  source.Revision.Value = 14;
   CHECK(refine() == 0 && queue.Queued() == 0 && prints.RefinementRemaining() == 1,
         "refused replacement admission preserves the refinement cursor");
   field->SetCertificate(
-      TerrainCertificate::FromDelivery(demTile, (**revisions).CurrentStamp(demTile), 11));
+      TerrainCertificate::FromDelivery(demTile, (**revisions).CurrentStamp(demTile), 14));
   CHECK(refine() == 1 && prints.RefinementComplete(),
         "changed terrain posts one replacement and advances the refinement cursor");
-  CHECK((**revisions).IssueDeliveryStamp(demTile).has_value(),
-        "a second terrain change revokes the posted replacement");
+  source.Revision.Value = 15;
   field = std::make_shared<TerrainField>(*field);
   std::fill_n(field->Data(), 9, 120.0f);
   field->SetCertificate(
-      TerrainCertificate::FromDelivery(demTile, (**revisions).CurrentStamp(demTile), 11));
+      TerrainCertificate::FromDelivery(demTile, (**revisions).CurrentStamp(demTile), 15));
   ready = finish(true);
   CHECK(ready.empty() && queue.Queued() == 0 && prints.RefinementRemaining() == 1,
         "discarded owned replacement returns its tile to the refinement cursor");
@@ -320,7 +311,7 @@ int main() {
         "replacement retry completes without a second whole-tile reservation");
   const auto acceptedKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
   CHECK(acceptedKey.has_value(), "validated tile has a qualified source key");
-  source.TerrainScope = 12;
+  source.Revision.Value = 12;
   if (acceptedKey) {
     CHECK(!StructureBuildQueue::ValidateResidentCellSource(stack, prints, source, 0, *acceptedKey),
           "readiness rejects frozen inputs from the previous terrain scope");
@@ -332,9 +323,9 @@ int main() {
                             .Cell = cell->Index,
                             .Detail = LevelOfDetail::Massed,
                             .SourceKey = *acceptedKey}),
-          "cell posting rejects frozen inputs even when producer generation is unchanged");
+          "cell posting rejects frozen inputs from the previous revision");
   }
-  source.TerrainScope = 11;
+  source.Revision.Value = 15;
   prints.ResetDerived();
   CHECK(post() == 1, "a fresh reservation is captured by its original field");
   ::outshine::Generators::Osm::BuildingField successor = prints.SnapshotAccepted();
@@ -362,6 +353,8 @@ int main() {
   CHECK(ready.empty() && queue.Queued() == 0 && prints.IngestedTiles() == 0 &&
             prints.ReservationOwner() == reservationOwner,
         "producer revision changes release the old job's reservation in the same domain");
+  field->SetCertificate(
+      TerrainCertificate::FromDelivery(demTile, std::nullopt, source.Revision.Value));
   CHECK(post() == 1, "new producer revision can reserve the released tile again");
   ready = finish();
   CHECK(ready.size() == 1, "new producer revision completes without an orphaned reservation");

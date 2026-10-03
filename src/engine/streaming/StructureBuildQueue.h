@@ -115,13 +115,9 @@ public:
   };
 
   struct HeightFailure {
-    enum class Reason { None, Unavailable, Unqualified, ScopeChanged, Certificate };
+    enum class Reason { None, Unavailable, Unqualified };
     Reason Cause = Reason::None;
     Data::TileId Tile{};
-    Ground::TerrainCertificate::Validation CertificateStatus =
-        Ground::TerrainCertificate::Validation::Unknown;
-    size_t Dependencies = 0;
-    bool Complete = false;
   };
 
   struct HeightSource {
@@ -130,10 +126,6 @@ public:
     std::function<std::shared_ptr<const Ground::TerrainField>(Data::TileId)> ResidentField;
     std::function<bool(Data::TileId, Ground::HeightField::Block &)> PinResidentField = nullptr;
     HeightSourceRevision Revision;
-    uint64_t TerrainScope = 0;
-    std::function<bool(const Ground::TerrainCertificate &)> CertificateCurrent;
-    std::function<Ground::TerrainCertificate::Validation(const Ground::TerrainCertificate &)>
-        InspectCertificate;
     std::function<std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>(
         std::span<const Ground::TileSpot>, size_t)>
         CaptureFields = nullptr;
@@ -319,8 +311,7 @@ private:
 
   [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
                                               ::outshine::Generators::Osm::BuildingField &prints,
-                                              const ::outshine::Generators::Osm::OsmField *vectors,
-                                              Ground::TerrainCertificate certificate);
+                                              const ::outshine::Generators::Osm::OsmField *vectors);
 
   template <typename T>
   [[nodiscard]] static std::unique_ptr<T> Borrowed(std::vector<std::unique_ptr<T>> &idle) {
@@ -338,13 +329,10 @@ private:
                              BuildPurpose purpose,
                              const std::function<bool(uint32_t)> &cellReady);
   void PostSlice(QueuedBuild &build);
-  [[nodiscard]] bool
-  WholeTileSourceCurrent(const Ground::SurfacePreparation &stack,
-                         const ::outshine::Generators::Osm::BuildingField &prints,
-                         const HeightSource &heightAt,
-                         const QueuedBuild &bake,
-                         HeightRequirement heights,
-                         Ground::TerrainCertificate &validated);
+  [[nodiscard]] bool WholeTileSourceCurrent(const Ground::SurfacePreparation &stack,
+                                            const HeightSource &heightAt,
+                                            const QueuedBuild &bake,
+                                            HeightRequirement heights) const;
   void DiscardFront(::outshine::Generators::Osm::BuildingField &prints);
   void DiscardStale(const ::outshine::Generators::Osm::OsmField *vectors,
                     ::outshine::Generators::Osm::BuildingField &prints,
@@ -367,7 +355,6 @@ private:
     size_t Count = 0;
     size_t Next = 0;
     uint64_t Generation = 0;
-    uint64_t Scope = 0;
     HeightSourceRevision Revision;
     LongitudeLatitude Eye;
     std::unique_ptr<StructureSourcePreparation> Preparation;
@@ -397,7 +384,6 @@ private:
 
   struct DeferredPreparation {
     uint64_t Generation = 0;
-    uint64_t Scope = 0;
     HeightSourceRevision Revision;
     uint64_t SourceKey = 0;
     uint32_t Tile = 0;

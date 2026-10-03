@@ -132,13 +132,7 @@ int main() {
             return found != fields.end() && HeightField::SharesField(found->second, tile, into);
           },
       .ResidentField = {},
-      .Revision = {.Value = 11},
-      .TerrainScope = 11,
-      .CertificateCurrent =
-          [&revisions](const TerrainCertificate &certificate) {
-            return certificate.IsComplete() && certificate.TerrainScopeRevision() == 11 &&
-                   (**revisions).AreCurrent(certificate.Dependencies());
-          }};
+      .Revision = {.Value = 11}};
   CHECK(queue.Posts(stack,
                     prints,
                     eye,
