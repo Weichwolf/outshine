@@ -28,6 +28,11 @@ Unbekannte Tide bleibt unmodelliert. Seen behalten die eigene Höhenermittlung;
 ein Hafenbecken ist nicht automatisch Meer. Nächster Schritt: tatsächliche Verbindungen
 zwischen Hafenbecken und Meer sowie die daraus abgeleiteten Bett-/Uferstempel korrigieren.
 Keine pauschale Nullhöhe für Flüsse, Seen oder Schleusenbecken.
+WaterField erhält die vorhandene `ProviderFeatureId` samt Quell-/Layer-Namensraum.
+Zuerst Fragmente desselben stehenden Gewässers an gemeinsamen Tile-Grenzen verbinden;
+Pegel aus dem Körper bestimmen und gemeinsam an Wassergeometrie und Bett weitergeben.
+Clipping-Kanten sind keine Ufer. Gleiche ID allein verbindet keine getrennten Komponenten;
+Flussflächen behalten Gefälle. Danach nachgewiesene Meer-Verbindungen berücksichtigen.
 Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`.
 
 ## Verfahren
