@@ -64,6 +64,10 @@ bool UsableRing(const OsmField::Ring &ring, WaterKind kind) {
   return kind == WaterKind::Surface && ring.Count >= 3;
 }
 
+bool IsOcean(const OsmField &field, const OsmField::Feature &feature) {
+  return field.Str(feature, "kind") == "ocean";
+}
+
 std::span<const double> RingPoints(const OsmField &field, const OsmField::Ring &ring) {
   return field.Points().subspan(static_cast<size_t>(ring.First) * 2,
                                 static_cast<size_t>(ring.Count) * 2);
@@ -127,7 +131,7 @@ bool WaterField::AdvanceRing(const GroundQuery &ground,
     candidate.Rings.push_back({.Feature = candidate.Feature, .Ring = ringIndex, .Heights = {}});
     if (!surface || ring.Exterior) { candidate.Rings.back().Heights.reserve(ring.Count); }
   }
-  if (surface && !ring.Exterior) {
+  if (surface && (!ring.Exterior || IsOcean(field, field.Features()[candidate.Feature]))) {
     ++candidate.Ring;
     return true;
   }
@@ -237,7 +241,9 @@ void WaterField::AddSurface(std::span<const RingSamples> rings, const OsmField &
   std::vector<double> heights;
   heights.reserve(rings.front().Heights.size());
   for (const auto &height : rings.front().Heights) { heights.push_back(height.value_or(0.0)); }
-  const std::optional<float> sampled = SurfaceLevel(heights);
+  const std::optional<float> sampled = IsOcean(field, field.Features()[rings.front().Feature])
+                                           ? std::optional<float>{0.0f}
+                                           : SurfaceLevel(heights);
   if (!sampled) { return; }
   const double level = *sampled;
   if (std::ranges::any_of(heights,

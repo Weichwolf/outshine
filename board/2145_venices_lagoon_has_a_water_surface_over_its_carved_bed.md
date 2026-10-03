@@ -13,7 +13,9 @@ Tags: water, terrain, coastline, contacts
 Meer/Fluss/See mit richtiger Höhe, Ufern/Inseln, Wellen und Transparenz. WaterField,
 WaterSurfaceBuilder/WaterDepth und Terrain-Stempel bestehen; Flensburgs falsche Pegel/
 überflutete Gebäude bleiben ein Geometriefehler. Husums Hafen zeigt Pegelstufen,
-Malcesine unplausible Uferflächen. Wasser ist kein Terrain-Klassenersatz.
+Malcesine unplausible Uferflächen. Erkannte Meeresflächen teilen den mittleren ASL-Pegel
+ohne Terrain-Abfragen; getrennte Hafenflächen und ihre Bett-/Uferstempel bleiben falsch.
+Wasser ist kein Terrain-Klassenersatz.
 
 ## Besitzer und nächste Lieferung
 OSM-Erweiterung besitzt Wasser-/Küstenringe und Randidentität; Wasser-/Terrain-Generatoren
@@ -21,9 +23,11 @@ Körper, Bett und Ufer; world native WaterBody-Produkte, Renderer Licht/Animatio
 Zuerst Flensburgs Pegel-/Kontaktursache vom gelieferten Ring und Höhendatum bis zum Bild
 korrigieren. Vorhandene Quellen erlauben die Diagnose; kein Warten auf Abschluss von 2280.
 OpenMapTiles liefert `class=ocean`, der Adapter normalisiert zu `kind=ocean`.
-WaterField muss diese Meeresflächen auf den gemeinsamen mittleren ASL-Pegel 0 m legen,
-statt pro ausgeschnittenem Polygon ein Terrain-Perzentil zu wählen. Unbekannte Tide bleibt
-unmodelliert. Seen behalten die eigene Höhenermittlung; ein Hafenbecken ist nicht automatisch Meer.
+WaterField legt diese Meeresflächen auf den gemeinsamen mittleren ASL-Pegel 0 m.
+Unbekannte Tide bleibt unmodelliert. Seen behalten die eigene Höhenermittlung;
+ein Hafenbecken ist nicht automatisch Meer. Nächster Schritt: tatsächliche Verbindungen
+zwischen Hafenbecken und Meer sowie die daraus abgeleiteten Bett-/Uferstempel korrigieren.
+Keine pauschale Nullhöhe für Flüsse, Seen oder Schleusenbecken.
 Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`.
 
 ## Verfahren
