@@ -12,10 +12,10 @@ Tags: loading, cache, residency
 ## Ergebnis und Ist
 Wien erreicht aus vollständigem Quellcache die fertige Rundumwelt und den Screenshot im
 AGENTS-Budget. MVT/Terrarium, paralleler Erwerb, Quellcache und native Produkte bestehen.
-Zellvorbereitung endet mit lokalen Höheneingaben oder einem expliziten Fehler. Wien erreicht
-den Screenshot, doch Metal bricht Renderaufträge wegen Speicherüberlastung ab. Gebäude-
-Zusatzgeometrie entfernen und Ferncluster wiederherstellen (2336); danach verbleibende
-Lade-/Framekosten optimieren. Abnahme ist die vollständig sichtbare Welt,
+Zellvorbereitung endet mit lokalen Höheneingaben oder einem expliziten Fehler. Wien zeigt
+nach Entfernen der Gebäude-Zusatzgeometrie wieder die Stadt ohne Metal-Speicherabbruch.
+Lade-/Framekosten und Speicher liegen noch außerhalb des Budgets; Ferncluster und verbliebene
+Geometriekosten gehören zu 2336. Abnahme ist die vollständig sichtbare Welt,
 nicht ein interner Ready-Zustand oder die Anzahl erzeugter Dreiecke.
 
 ## Besitzer und Grenzen
