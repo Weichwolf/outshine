@@ -1,9 +1,11 @@
 #include "ShippedProviders.h"
 #include "OsmProvider.h"
 #include "CopernicusDem.h"
+#include "TerrariumSource.h"
 #include "VectorTileSource.h"
 #include "StarBands.h"
 #include <array>
+#include <cstddef>
 #include <exception>
 #include <expected>
 #include <filesystem>
@@ -15,9 +17,13 @@
 
 namespace outshine::Generators {
 namespace {
-class TerrainProvider final : public Data::Provider {
+constexpr int kMapterhornMaximumZoom = 17;
+constexpr size_t kTerrariumTypicalPayloadBytes = 60000;
+constexpr size_t kTerrariumMaximumPayloadBytes = size_t{4} * 1024u * 1024u;
+
+class CopernicusProvider final : public Data::Provider {
 public:
-  [[nodiscard]] std::string_view kind() const override { return "terrain"; }
+  [[nodiscard]] std::string_view kind() const override { return "copernicus"; }
 
   [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
   make(const Data::SourceProvider &provider,
@@ -27,6 +33,37 @@ public:
         static_cast<Data::Rank>(provider.Priority),
         provider.Missing,
         provider.Dataset.empty() ? std::string(Data::CopernicusDem::Dataset) : provider.Dataset);
+  }
+};
+
+class TerrariumProvider final : public Data::Provider {
+public:
+  [[nodiscard]] std::string_view kind() const override { return "terrain"; }
+
+  [[nodiscard]] std::expected<std::unique_ptr<Data::Source>, std::string>
+  make(const Data::SourceProvider &provider,
+       [[maybe_unused]] std::string_view root) const override {
+    return std::make_unique<Terrain::TerrariumSource>(Data::SourceDecl{
+        .Id = provider.Dataset.empty() ? "mapterhorn.terrarium" : provider.Dataset,
+        .Version = 1,
+        .Revision = provider.Revision,
+        .Endpoint = provider.Endpoint.empty() ? "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"
+                                              : provider.Endpoint,
+        .Kind = Data::DataKind::Elevation,
+        .How = Data::Scheme::TileZxy,
+        .Wire = Data::WireFormat::TerrariumWebp,
+        .Order = static_cast<Data::Rank>(provider.Priority),
+        .OnAbsent = provider.Missing,
+        .MinZoom = 0,
+        .MaxZoom = kMapterhornMaximumZoom,
+        .AncestorFill = true,
+        .Keeps = Data::Cacheability::Forever,
+        .Need = Data::Necessity::Required,
+        .Latency = Data::LatencyClass::Distant,
+        .TypicalPayloadBytes = kTerrariumTypicalPayloadBytes,
+        .RetryBudget = 4,
+        .MaximumPayloadBytes = kTerrariumMaximumPayloadBytes,
+        .PayloadSha256 = provider.PayloadSha256});
   }
 };
 
@@ -65,11 +102,13 @@ public:
 }
 
 void RegisterShippedProviders(Data::ProviderRegistry &registry) {
-  static const TerrainProvider terrain;
+  static const CopernicusProvider copernicus;
+  static const TerrariumProvider terrain;
   static const VectorProvider vector;
   static const StarsProvider stars;
   static const Generators::Osm::Provider osm;
-  const std::array<const Data::Provider *, 4> providers = {{&terrain, &vector, &stars, &osm}};
+  const std::array<const Data::Provider *, 5> providers = {
+      {&terrain, &copernicus, &vector, &stars, &osm}};
   for (const Data::Provider *provider : providers) {
     if (registry.named(provider->kind()) != nullptr) { continue; }
     const auto registered = registry.registerProvider(*provider);

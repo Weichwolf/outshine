@@ -5,11 +5,11 @@
 #include <expected>
 #include <span>
 #include <string>
-#include "TerrainGrid.h"
+#include <scene/HeightRaster.h>
 
 namespace outshine::Generators::Terrain {
 
-[[nodiscard]] std::expected<Ground::TerrainField, std::string>
+[[nodiscard]] std::expected<HeightRaster, std::string>
 DecodeTerrariumWebp(std::span<const uint8_t> bytes);
 
 }

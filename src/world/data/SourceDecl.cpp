@@ -9,6 +9,8 @@ const char *Name(WireFormat wire) noexcept {
     case WireFormat::StarBandBinary: return "star-band";
     case WireFormat::OsmXml: return "osm-xml";
     case WireFormat::CopernicusCog: return "copernicus-cog";
+    case WireFormat::TerrariumWebp: return "terrarium-webp";
+    case WireFormat::ProviderDefined: return "provider-defined";
   }
   return "";
 }

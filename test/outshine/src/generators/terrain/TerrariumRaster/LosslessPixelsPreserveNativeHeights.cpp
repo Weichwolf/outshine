@@ -17,10 +17,10 @@ int main() {
   auto field = outshine::Generators::Terrain::DecodeTerrariumWebp({owned.get(), count});
   CHECK(field.has_value(), "native terrain decoder accepts valid lossless fixture");
   if (field) {
-    CHECK(field->Rows() == 2 && field->Cols() == 2, "native dimensions preserved");
+    CHECK(field->Rows == 2 && field->Cols == 2, "native dimensions preserved");
     for (uint32_t row = 0; row < 2; ++row) {
       for (uint32_t col = 0; col < 2; ++col) {
-        CHECK_NEAR(field->AtM(row, col),
+        CHECK_NEAR(field->Meters[row * 2 + col],
                    heights[row * 2 + col],
                    0.0f,
                    "m",

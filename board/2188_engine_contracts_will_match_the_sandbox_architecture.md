@@ -14,6 +14,8 @@ Eingebaute und externe Erweiterungen laufen über dieselbe öffentliche API bis 
 ProviderRegistry/SourceSet, Generate::Request/Generator, native Geometry/Material,
 Double-Welt und kamera-relative GPU-Daten bestehen. ProjectedErrorBudget ist vorhanden;
 Abstands-/Produktschranken und zustandsbehaftete Generatorintegration fehlen.
+Source.DecodeElevation liefert native HeightRaster; Provider besitzt WebP-Dekodierung,
+Terrain übernimmt den Samplespeicher. Legacy-PNG/COG-Decode bleibt zu migrieren.
 Konkrete MVT/Copernicus-Typen liegen noch in world/data, WeatherProvider in world/weather;
 SourceAcquisition/OSM-Import liegen bereits unter generators/osm. Engine koppelt weiter
 konkrete Pipelines, native StructureBake-Pfade umgehen den allgemeinen Lebenszyklus.

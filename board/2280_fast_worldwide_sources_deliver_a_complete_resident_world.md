@@ -14,8 +14,9 @@ Wien und alle Places laden die volle benötigte Welt schnell und reproduzierbar.
 Präferierte Anbieter stehen in AGENTS; die Anbieteranalyse begründet Austauschbarkeit
 über Adapter statt blindem Mischen. XML/MVT/GLO-30, paralleles IO, verifizierter Quellcache
 und native Gebäude-/Terrainprodukte bestehen. Verlustfreier Terrarium-WebP-Decode im
-Höhenprovider liefert native Meter; Runtime-Anschluss fehlt. WorldSourcePolicy erzwingt
-noch Original-OSM und verwirft Vektoren; aktuelle vollständige Bilder fehlen.
+Höhenprovider liefert native Meter über die öffentliche Quelle und bestehende Terrain-Queue;
+Mapterhorn ist Terrain-Default, COG ausdrücklich wählbar. WorldSourcePolicy erzwingt noch
+Original-OSM und verwirft Vektoren; aktuelle vollständige Bilder fehlen.
 
 ## Architekturentscheidung und Besitzer
 2188 besitzt öffentliche Erweiterungs-/Produktverträge. `generators/osm` besitzt MVT/XML,

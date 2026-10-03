@@ -12,6 +12,7 @@
 #include "TileSourceIdentity.h"
 #include "TerrainCertificate.h"
 #include <world/data/FetchFailure.h>
+#include <scene/HeightRaster.h>
 #include <optional>
 #include "TileGeodesy.h"
 #include "TileMath.h"
@@ -31,6 +32,9 @@ public:
       : HeightsM_(static_cast<size_t>(rows) * static_cast<size_t>(cols), 0.0f),
         Rows_(rows),
         Cols_(cols) {}
+
+  explicit TerrainField(HeightRaster raster)
+      : HeightsM_(std::move(raster.Meters)), Rows_(raster.Rows), Cols_(raster.Cols) {}
 
   [[nodiscard]] uint32_t Rows() const { return Rows_; }
 

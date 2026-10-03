@@ -30,17 +30,17 @@ constexpr float kByteScale = 256.0f;
 }
 }
 
-std::expected<Ground::TerrainField, std::string>
-DecodeTerrariumWebp(std::span<const uint8_t> bytes) {
+std::expected<HeightRaster, std::string> DecodeTerrariumWebp(std::span<const uint8_t> bytes) {
   if (!CompleteContainer(bytes)) {
     return std::unexpected("Terrarium WebP requires one complete RIFF container");
   }
   WebPBitstreamFeatures features{};
   if (WebPGetFeatures(bytes.data(), bytes.size(), &features) != VP8_STATUS_OK ||
-      features.format != 2 || features.has_animation != 0 || features.width < 2 ||
-      features.height < 2 || std::cmp_greater(features.width, kMaxRasterSide) ||
+      features.format != 2 || features.has_animation != 0 || features.has_alpha != 0 ||
+      features.width < 2 || features.height < 2 ||
+      std::cmp_greater(features.width, kMaxRasterSide) ||
       std::cmp_greater(features.height, kMaxRasterSide)) {
-    return std::unexpected("Terrarium requires a bounded nonanimated lossless WebP raster");
+    return std::unexpected("Terrarium requires a bounded opaque nonanimated lossless WebP raster");
   }
   const auto rows = static_cast<uint32_t>(features.height);
   const auto cols = static_cast<uint32_t>(features.width);
@@ -51,7 +51,8 @@ DecodeTerrariumWebp(std::span<const uint8_t> bytes) {
       nullptr) {
     return std::unexpected("Terrarium WebP pixel decoding failed");
   }
-  Ground::TerrainField field(rows, cols);
+  HeightRaster field{
+      .Rows = rows, .Cols = cols, .Meters = std::vector<float>(static_cast<size_t>(rows) * cols)};
   for (uint32_t row = 0; row < rows; ++row) {
     for (uint32_t col = 0; col < cols; ++col) {
       const size_t at = static_cast<size_t>(row) * stride + static_cast<size_t>(col) * kRgbChannels;
@@ -61,7 +62,7 @@ DecodeTerrariumWebp(std::span<const uint8_t> bytes) {
       if (!GroundSample::HeightIsOnEarth(height)) {
         return std::unexpected("Terrarium WebP contains a height outside the Earth domain");
       }
-      field.SetM(row, col, height);
+      field.Meters[static_cast<size_t>(row) * cols + col] = height;
     }
   }
   return field;

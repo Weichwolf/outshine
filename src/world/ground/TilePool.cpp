@@ -111,7 +111,7 @@ public:
     TilePool::Landing landing;
     const TilePool::Reply asked = Pool_.Bytes(request, &landing);
     switch (asked) {
-      case TilePool::Reply::Ready: return FromTerrainDelivery(request, std::move(landing));
+      case TilePool::Reply::Ready: return Pool_.DecodeTerrain(request, std::move(landing));
       case TilePool::Reply::Absent:
       case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
       case TilePool::Reply::Refused: return TerrainBytes::Wire(std::move(landing.Failure));
@@ -126,6 +126,22 @@ private:
   CopernicusTerrain Native_;
 };
 
+}
+
+TerrainBytes TilePool::DecodeTerrain(const Data::Fetch &request, Landing landing) const {
+  for (size_t index = 0; index < Sources_.Count(); ++index) {
+    const auto &source = Sources_.At(index);
+    if (Data::SourceKey(source.Declaration()) == landing.SourceKey) {
+      return FromTerrainDelivery(request, std::move(landing), &source);
+    }
+  }
+  return TerrainBytes::Wire(Data::FetchFailure{.Kind = request.Kind(),
+                                               .Requested = request.Where(),
+                                               .Served = landing.At,
+                                               .SourceId = std::move(landing.SourceId),
+                                               .SourceRevision = std::move(landing.SourceRevision),
+                                               .SourceKey = std::move(landing.SourceKey),
+                                               .Reason = Data::FetchFailureReason::SourceChanged});
 }
 
 struct TilePool::ComputeContext {

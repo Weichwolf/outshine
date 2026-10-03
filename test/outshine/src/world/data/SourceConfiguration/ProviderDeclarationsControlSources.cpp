@@ -33,10 +33,9 @@ int main() {
     const SourceDecl &older = sources.At(1).Declaration();
     const SourceDecl &vector = sources.At(2).Declaration();
     CHECK(preferred.Revision == "dem-2026-09" && preferred.Order == Rank{-9} &&
-              preferred.OnAbsent == AbsencePolicy::Fail &&
-              preferred.How == Scheme::GeographicCell &&
-              preferred.Wire == WireFormat::CopernicusCog &&
-              preferred.Endpoint == "https://copernicus-dem-30m.s3.amazonaws.com/",
+              preferred.OnAbsent == AbsencePolicy::Fail && preferred.How == Scheme::TileZxy &&
+              preferred.Wire == WireFormat::TerrariumWebp &&
+              preferred.Endpoint == "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp",
           "lower terrain rank and absence policy reach the native source first");
     CHECK(older.Revision == "dem-older" && older.Order == Rank{8} &&
               older.OnAbsent == AbsencePolicy::Continue,

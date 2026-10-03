@@ -133,6 +133,8 @@ public:
 
   [[nodiscard]] Reply Bytes(const Data::Fetch &request, Landing *out);
 
+  [[nodiscard]] TerrainBytes DecodeTerrain(const Data::Fetch &request, Landing landing) const;
+
   [[nodiscard]] bool HasNativeTerrain() const noexcept { return NativeTerrain_; }
 
   [[nodiscard]] Reply BytesBlocking(const Data::Fetch &request, Landing *out);

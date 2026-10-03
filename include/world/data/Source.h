@@ -2,6 +2,9 @@
 #define OUTSHINE_WORLD_DATA_SOURCE_H
 
 #include <cstdint>
+#include <expected>
+#include <span>
+#include <scene/HeightRaster.h>
 
 #include "Fetched.h"
 #include "Fetch.h"
@@ -14,6 +17,12 @@ namespace outshine::Data {
 enum class Coverage : uint8_t {
   Inside, ///< Source can attempt this request; not a readiness guarantee.
   Outside ///< Request is outside this source's domain.
+};
+
+/// Native decoding failure; an unsupported category is distinct from corrupt source bytes.
+enum class DecodeFailure : uint8_t {
+  Unsupported,   ///< Source does not provide this native product.
+  CorruptPayload ///< Source bytes cannot produce a valid native product.
 };
 
 /// Owned configured source, queried on IO workers through engine scheduling.
@@ -65,6 +74,15 @@ public:
   /// @return Working, source bytes, confirmed absence, retry, or refusal.
   [[nodiscard]] virtual Fetched
   Collect(const Address &at, Ticket ticket, Transport &transport) const = 0;
+
+  /// Decode source bytes into owned native height samples on the compute worker.
+  /// @param bytes Borrowed cached/network bytes, valid only during this call.
+  /// @return Owned samples or failure; default has no elevation decoder.
+  /// No IO, persistent generated cache or retained byte references; may allocate bounded scratch.
+  [[nodiscard]] virtual std::expected<HeightRaster, DecodeFailure>
+  DecodeElevation([[maybe_unused]] std::span<const uint8_t> bytes) const {
+    return std::unexpected(DecodeFailure::Unsupported);
+  }
 
   /// Cancel one unfinished query; overrides also release provider-owned work.
   /// @param ticket Active ticket returned by Begin.

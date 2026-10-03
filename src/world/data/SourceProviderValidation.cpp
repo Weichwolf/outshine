@@ -140,7 +140,7 @@ constexpr size_t kSha256HexDigits = 64;
   return {};
 }
 
-[[nodiscard]] std::expected<void, std::string> ValidateTerrain(const SourceProvider &provider) {
+[[nodiscard]] std::expected<void, std::string> ValidateCopernicus(const SourceProvider &provider) {
   if (!provider.Location.empty() || provider.Coverage || !provider.PayloadSha256.empty()) {
     return std::unexpected(
         "Copernicus terrain does not accept a file, chunk coverage or whole-response digest");
@@ -174,8 +174,8 @@ ValidateUnparameterized(const SourceProvider &provider) {
     if (firstOsm == nullptr) { firstOsm = &provider; }
     return {};
   }
-  if (provider.Kind == "terrain") { return ValidateTerrain(provider); }
-  if (provider.Kind == "vector") { return ValidateTile(provider); }
+  if (provider.Kind == "copernicus") { return ValidateCopernicus(provider); }
+  if (provider.Kind == "vector" || provider.Kind == "terrain") { return ValidateTile(provider); }
   if (provider.Kind == "stars") { return ValidateUnparameterized(provider); }
   return {};
 }

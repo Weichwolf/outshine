@@ -70,17 +70,21 @@ constexpr std::array<uint8_t, 852> kPlane42 = {
 struct Calls {
   std::atomic<int> Configured{0};
   std::atomic<int> Acquired{0};
+  std::atomic<int> Decoded{0};
 };
+
+enum class Encoding { TerrariumFixture, OpaqueFixture };
 
 class PlaneSource final : public Source {
 public:
-  explicit PlaneSource(Calls &calls) : Calls_(calls) {
+  PlaneSource(Calls &calls, Encoding encoding) : Calls_(calls), Encoding_(encoding) {
     Decl_.Id = "public.fixture.dem";
     Decl_.Revision = "plane-42m";
     Decl_.MaxZoom = 15;
     Decl_.Latency = LatencyClass::Local;
     Decl_.Keeps = Cacheability::Never;
     Decl_.MaximumPayloadBytes = kPlane42.size();
+    if (Encoding_ == Encoding::OpaqueFixture) { Decl_.Wire = WireFormat::ProviderDefined; }
   }
 
   const SourceDecl &Declaration() const noexcept override { return Decl_; }
@@ -100,16 +104,32 @@ public:
 
   Fetched Collect(const Address &, Ticket, Transport &) const override {
     ++Calls_.Acquired;
+    if (Encoding_ == Encoding::OpaqueFixture) { return Fetched::Delivered({42, 17}); }
     return Fetched::Delivered(std::vector<uint8_t>(kPlane42.begin(), kPlane42.end()));
+  }
+
+  std::expected<HeightRaster, DecodeFailure>
+  DecodeElevation(std::span<const uint8_t> bytes) const override {
+    if (Encoding_ == Encoding::TerrariumFixture) {
+      return std::unexpected(DecodeFailure::Unsupported);
+    }
+    ++Calls_.Decoded;
+    if (bytes.size() != 2 || bytes[0] != 42 || bytes[1] != 17) {
+      return std::unexpected(DecodeFailure::CorruptPayload);
+    }
+    return HeightRaster{.Rows = 8, .Cols = 8, .Meters = std::vector<float>(64, 42.0f)};
   }
 
 private:
   Calls &Calls_;
+  Encoding Encoding_;
   SourceDecl Decl_;
 };
 
 class PlaneProvider final : public Provider {
 public:
+  explicit PlaneProvider(Encoding encoding) : Encoding_(encoding) {}
+
   mutable Calls Observed;
 
   std::string_view kind() const override { return "terrain"; }
@@ -117,8 +137,11 @@ public:
   std::expected<std::unique_ptr<Source>, std::string> make(const SourceProvider &,
                                                            std::string_view) const override {
     ++Observed.Configured;
-    return std::make_unique<PlaneSource>(Observed);
+    return std::make_unique<PlaneSource>(Observed, Encoding_);
   }
+
+private:
+  Encoding Encoding_;
 };
 }
 
@@ -126,8 +149,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
-  {
-    PlaneProvider provider;
+  for (const auto encoding : {Encoding::TerrariumFixture, Encoding::OpaqueFixture}) {
+    PlaneProvider provider(encoding);
     Engine engine;
     CHECK(engine.registerProvider(provider), "external provider registers through the public API");
     CHECK(!engine.registerProvider(provider), "duplicate registration preserves the first factory");
@@ -165,6 +188,8 @@ int main() {
             "public source bytes become the exact independent 42m terrain plane");
       CHECK(provider.Observed.Configured > 0 && provider.Observed.Acquired > 0,
             "runtime invokes both the registered factory and its configured source");
+      CHECK((provider.Observed.Decoded > 0) == (encoding == Encoding::OpaqueFixture),
+            "provider-owned native decoding handles opaque bytes without a private engine route");
       std::vector<float> pixels;
       CHECK(engine.advance() && engine.renderer().render({}) &&
                 engine.renderer().readPixels(Buffer::Linear, pixels),
