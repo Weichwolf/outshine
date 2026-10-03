@@ -933,7 +933,7 @@ void RaisePart(const BuildingShape &s, Site &site) {
     RaiseShell(s, site);
     return;
   }
-  if (site.Coarseness() == LevelOfDetail::Massed) {
+  if (site.Coarseness() >= LevelOfDetail::Massed) {
     Box(s, Hull(s.Ring), site);
     return;
   }

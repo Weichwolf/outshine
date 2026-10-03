@@ -78,6 +78,9 @@ Generator::Product Structures::make(const Request &asked) const {
   Geometry into;
   const auto width = WidthOf(asked.Parameters);
   if (!width) { return std::unexpected(std::string(width.error())); }
+  if (asked.Coarseness > LevelOfDetail::Skyline) {
+    return std::unexpected("structures requires a valid detail class");
+  }
   const double sideM = *width;
   const double lat = asked.LatitudeDeg;
   const double lon = asked.LongitudeDeg;
@@ -105,6 +108,7 @@ Generator::Product Structures::make(const Request &asked) const {
   plan.HeightM = kHeightLeastM + kHeightSwingM * Spun(asked.Seed, 1u);
   plan.HeightMeasured = false;
   plan.AnchorEcef = anchor;
+  plan.Coarseness = asked.Coarseness;
 
   const BuildingMesh mesher;
   const std::unique_ptr<MeshScratch> scratch = mesher.Scratch();

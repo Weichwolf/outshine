@@ -113,6 +113,8 @@ enum class Shipped : uint8_t {
   /// settings and invalid values are refused before output mutation. Output uses local
   /// metres at the request centre at zero ASL: X east, Y up, Z south. Terrain anchoring
   /// and per-feature placement remain implementation limitations of this producer.
+  /// Coarseness selects Fine, Shell or the mass envelope for Massed/Skyline;
+  /// invalid classes are refused. This isolated producer does not aggregate neighbours.
   Structures,
   kCount ///< Catalogue size sentinel; not a generator.
 };
