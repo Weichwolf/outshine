@@ -18,8 +18,8 @@ Höhenprovider liefert native Meter über die öffentliche Quelle und bestehende
 Mapterhorn ist Terrain-Default, COG ausdrücklich wählbar. Client-Welten deklarieren den
 gepinnten OpenFreeMap-Stand; Schemaauswahl läuft über öffentliche Quellenkonfiguration
 und Szenario-Roundtrip. Erste Terrain-Publikation besteht; vollständige verfeinerte Welt
-erreicht die Gebäudeerzeugung; ein MVT-Gebäudeteil mit negativer Unterkante
-verletzt noch den oberirdischen Rendervertrag. Die Gebäudequeue pinnt exakte
+erreicht die Gebäudeerzeugung; native Gebäudeteile erhalten auch negative Unter-/Oberkanten
+ohne künstliche Sockel oder Terrain-Abgrabungen. Die Gebäudequeue pinnt exakte
 Quellraster ohne zweite Samplespeicher. Residenter Höhenbedarf reserviert die
 Revisionsmetadaten samt Nachbar-Stencil; Snapshots teilen die Reservierung bis zur letzten
 Nutzung. Laufzeitabnahme und vollständige aktuelle Bilder fehlen.

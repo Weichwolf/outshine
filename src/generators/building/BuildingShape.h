@@ -55,7 +55,7 @@ struct BuildingShape {
 
   [[nodiscard]] bool Valid() const { return Ring.size() >= 3 && AreaM2 > 1.0; }
 
-  [[nodiscard]] bool OnGround() const { return FootM <= 0.0; }
+  [[nodiscard]] bool OnGround() const { return FootM == 0.0; }
 
   [[nodiscard]] double TopM() const { return SeatM + FootM + EavesM + RiseM; }
 

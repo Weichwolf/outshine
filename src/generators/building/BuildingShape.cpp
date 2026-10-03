@@ -826,9 +826,12 @@ MassOf(std::span<const double> ringLatLon,
                                            kFloorSpireM,
                                            kTallFloorM});
   constexpr double maxHeightM = leastFloorM * (std::numeric_limits<int>::max() - 1);
-  if (!std::isfinite(order.HeightM) || order.HeightM > maxHeightM ||
-      !std::isfinite(order.MinimumHeightM) || order.MinimumHeightM < 0.0 ||
-      (order.MinimumHeightM > 0.0 && order.HeightM <= order.MinimumHeightM)) {
+  const double bodyHeightM = order.HeightM - order.MinimumHeightM;
+  if (!std::isfinite(order.HeightM) || !std::isfinite(order.MinimumHeightM) ||
+      std::abs(order.HeightM) > std::numeric_limits<float>::max() ||
+      std::abs(order.MinimumHeightM) > std::numeric_limits<float>::max() ||
+      !std::isfinite(bodyHeightM) || bodyHeightM > maxHeightM ||
+      (order.MinimumHeightM != 0.0 && bodyHeightM <= 0.0)) {
     return std::unexpected(StructureMeshError::InvalidPlan);
   }
   scratch.Parts.Reset();
@@ -842,9 +845,9 @@ MassOf(std::span<const double> ringLatLon,
 
   PartOrder whole;
   whole.FootM = order.MinimumHeightM;
-  whole.ExactHeight = order.MinimumHeightM > 0.0;
-  whole.TopOverFootM = order.MinimumHeightM > 0.0 ? order.HeightM - order.MinimumHeightM
-                                                  : std::max(order.HeightM, kLeastTopM);
+  whole.ExactHeight = order.MinimumHeightM != 0.0;
+  whole.TopOverFootM =
+      order.MinimumHeightM != 0.0 ? bodyHeightM : std::max(order.HeightM, kLeastTopM);
   whole.Seed = SeedOfPlace({.LongitudeDeg = ringLatLon[1], .LatitudeDeg = ringLatLon[0]});
   whole.HeightMeasured = order.HeightMeasured;
   whole.PitchedShare = order.PitchedShare;
@@ -855,7 +858,7 @@ MassOf(std::span<const double> ringLatLon,
   if (!AssignHoles(one, innerRings, ringPointsLatLon, origin)) {
     return std::unexpected(StructureMeshError::InvalidPlan);
   }
-  if (order.MinimumHeightM > 0.0 || !one.Holes.empty()) {
+  if (order.MinimumHeightM != 0.0 || !one.Holes.empty()) {
     FaceTheStreet(&one, street);
     scratch.Parts.Next() = one;
     return scratch.Parts.Standing();

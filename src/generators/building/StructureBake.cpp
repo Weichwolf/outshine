@@ -511,16 +511,15 @@ bool ValidStructureInput(const RawTile::Structure &structure, const RawTile &raw
   return HasSourceObject(raw, structure.SourceId) && structure.FirstHole <= holes &&
          structure.HoleCount <= holes - structure.FirstHole &&
          (!structure.HeightOrigin ||
-          (std::isfinite(structure.HeightM) && structure.HeightM > 0.0)) &&
-         std::isfinite(structure.MinimumHeightM) && structure.MinimumHeightM >= 0.0 &&
+          (std::isfinite(structure.HeightM) && structure.HeightM > structure.MinimumHeightM)) &&
+         std::isfinite(structure.MinimumHeightM) &&
          (structure.MinimumHeightM == 0.0 ||
           (std::isfinite(structure.HeightM) && structure.HeightM > structure.MinimumHeightM));
 }
 
 bool HasSourceHeight(const RawTile::Structure &structure) {
-  if (structure.HeightOrigin) { return structure.HeightM > 0.0; }
-  return structure.HeightM > 0.0 && (structure.MinimumHeightM > 0.0 ||
-                                     std::fabs(structure.HeightM - kFillHeightM) > kSameHeightM);
+  if (structure.HeightOrigin || structure.MinimumHeightM != 0.0) { return true; }
+  return structure.HeightM > 0.0 && std::fabs(structure.HeightM - kFillHeightM) > kSameHeightM;
 }
 
 ::outshine::Ground::BuildingHeightSource
@@ -661,7 +660,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.SeatAslM = fp.SeatM;
   plan.FootAslM = fp.FootM;
   plan.CornerAslM = std::span<const double>(corners.data(), corners.size());
-  plan.HeightM = one.MinimumHeightM > 0.0 ? one.HeightM : fp.HeightM;
+  plan.HeightM = one.MinimumHeightM != 0.0 ? one.HeightM : fp.HeightM;
   plan.MinimumHeightM = one.MinimumHeightM;
   plan.HeightMeasured = fp.Source == ::outshine::Ground::BuildingHeightSource::Declared;
   plan.PitchedShare = static_cast<double>(one.Pitched);

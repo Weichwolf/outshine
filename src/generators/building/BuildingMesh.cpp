@@ -166,7 +166,7 @@ public:
   [[nodiscard]] double LowerZ(const BuildingShape &shape) const {
     if (shape.OnGround()) { return shape.SoleM; }
     const double lower = shape.SeatM + shape.FootM - kSinkM;
-    return MinimumHeightM_ > 0.0 ? std::max(MinimumHeightM_, lower) : lower;
+    return MinimumHeightM_ != 0.0 ? std::max(MinimumHeightM_, lower) : lower;
   }
 
   [[nodiscard]] BuildingScratch &Scratch() { return Scratch_; }
@@ -1099,8 +1099,8 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
   Site site(plan, scratch, into);
   const FoundationGround ground(plan);
   for (BuildingShape &part : parts) {
-    part.SeatM = plan.MinimumHeightM > 0.0 ? 0.0 : PlinthTopZ(part, ground);
-    part.SoleM = plan.MinimumHeightM > 0.0 ? plan.MinimumHeightM : PlinthFootZ(part, ground);
+    part.SeatM = plan.MinimumHeightM != 0.0 ? 0.0 : PlinthTopZ(part, ground);
+    part.SoleM = plan.MinimumHeightM != 0.0 ? plan.MinimumHeightM : PlinthFootZ(part, ground);
   }
   for (const BuildingShape &part : parts) {
     RaisePart(part, site);

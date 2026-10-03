@@ -58,8 +58,9 @@ std::expected<void, std::string_view> BuildingStampJob::Choose(Work work) {
   const auto &footprint = footprints[NextFootprint_];
   const size_t first = footprint.FirstPoint;
   const size_t count = footprint.PointCount;
-  if (footprint.MinimumHeightM > 0.0f || count < 3 || first > points.size() / 2u ||
-      count > points.size() / 2u - first) {
+  if (footprint.MinimumHeightM > 0.0f ||
+      (footprint.MinimumHeightM < 0.0f && footprint.HeightM <= 0.0f) || count < 3 ||
+      first > points.size() / 2u || count > points.size() / 2u - first) {
     ++NextFootprint_;
     return {};
   }

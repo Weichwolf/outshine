@@ -124,11 +124,14 @@ int main() {
   CHECK(!BakeStructures(raw, *heights, mesher, *scratch, missingOwner),
         "original identity without its owner cannot fall back to legacy input");
   raw.Structures[0].SourceId = {};
-  for (const double invalid : {-1.0, 12.0, 13.0, std::numeric_limits<double>::quiet_NaN()}) {
+  for (const double invalid : {-std::numeric_limits<double>::infinity(),
+                               12.0,
+                               13.0,
+                               std::numeric_limits<double>::quiet_NaN()}) {
     raw.Structures[0].MinimumHeightM = invalid;
     BakedTile product;
     CHECK(!BakeStructures(raw, *heights, mesher, *scratch, product),
-          "negative nonfinite and inverted intervals cannot generate geometry");
+          "nonfinite and inverted intervals cannot generate geometry");
   }
   return Report();
 }

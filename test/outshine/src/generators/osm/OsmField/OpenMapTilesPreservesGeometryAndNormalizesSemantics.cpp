@@ -104,6 +104,20 @@ int main() {
             inferred.Height->ConflictingLevels &&
             ambiguous.Num(ambiguous.Features()[0], "height", 0) == 5,
         "explicit inferred body retains clearance, conflicting source and footprint");
+  const Bytes basement =
+      Layer("building",
+            3,
+            std::array<std::string_view, 2>{"render_height", "render_min_height"},
+            std::array{Bytes{0x28, 4}, Bytes{0x30, 21}});
+  OsmField signedHeight(2, names, MvtSchema::OpenMapTiles);
+  CHECK(signedHeight.Accept(1, 1, basement), "signed source height remains readable");
+  const auto underground = ReadMvtBuilding(signedHeight, signedHeight.Features()[0]);
+  CHECK(underground.Height && underground.Height->TopM == 4 &&
+            underground.Height->MinimumM == -11 && !underground.Height->ConflictingLevels &&
+            underground.Height->MinimumOrigin ==
+                outshine::Ground::BuildingHeightOrigin::Generated &&
+            signedHeight.Num(signedHeight.Features()[0], "min_height", 0) == -11,
+        "independent signed protobuf fixture retains basement and canonical estimated endpoint");
   const Bytes outline =
       Layer("building", 3, std::array<std::string_view, 1>{"hide_3d"}, std::array{Bytes{0x38, 1}});
   OsmField outlines(2, names, MvtSchema::OpenMapTiles);

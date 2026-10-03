@@ -260,9 +260,8 @@ bool Valid(const BakedTile &tile) {
   }
   if (!std::ranges::all_of(tile.Prints, [](const ::outshine::Ground::BuildingFootprint &item) {
         return item.Source <= ::outshine::Ground::BuildingHeightSource::Generated &&
-               item.MinimumHeightM >= 0.0f &&
-               (item.MinimumHeightM == 0.0f || item.MinimumHeightM < item.HeightM) &&
-               item.PointCount >= 3 &&
+               std::isfinite(item.MinimumHeightM) && std::isfinite(item.HeightM) &&
+               item.MinimumHeightM < item.HeightM && item.PointCount >= 3 &&
                item.PointCount <= std::numeric_limits<uint32_t>::max() - item.FirstPoint;
       })) {
     return false;
