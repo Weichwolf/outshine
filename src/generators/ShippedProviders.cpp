@@ -79,12 +79,14 @@ public:
       return std::unexpected(
           "a vector-tile fixture requires an explicit dataset and endpoint; no default exists");
     }
-    return std::make_unique<::outshine::Generators::Osm::VectorTileSource>(
-        provider.Revision,
-        static_cast<Data::Rank>(provider.Priority),
-        provider.Missing,
-        provider.Dataset,
-        provider.Endpoint);
+    const auto schema = Osm::ParseMvtSchema(provider.Schema);
+    if (!schema) { return std::unexpected("unsupported vector schema: " + provider.Schema); }
+    return std::make_unique<Osm::VectorTileSource>(provider.Revision,
+                                                   static_cast<Data::Rank>(provider.Priority),
+                                                   provider.Missing,
+                                                   provider.Dataset,
+                                                   provider.Endpoint,
+                                                   *schema);
   }
 };
 

@@ -15,8 +15,9 @@ Präferierte Anbieter stehen in AGENTS; die Anbieteranalyse begründet Austausch
 über Adapter statt blindem Mischen. XML/MVT/GLO-30, paralleles IO, verifizierter Quellcache
 und native Gebäude-/Terrainprodukte bestehen. Verlustfreier Terrarium-WebP-Decode im
 Höhenprovider liefert native Meter über die öffentliche Quelle und bestehende Terrain-Queue;
-Mapterhorn ist Terrain-Default, COG ausdrücklich wählbar. WorldSourcePolicy erzwingt noch
-Original-OSM und verwirft Vektoren; aktuelle vollständige Bilder fehlen.
+Mapterhorn ist Terrain-Default, COG ausdrücklich wählbar. Client-Welten deklarieren den
+gepinnten OpenFreeMap-Stand; Schemaauswahl läuft über öffentliche Quellenkonfiguration
+und Szenario-Roundtrip. Aktuelle vollständige Bilder fehlen.
 
 ## Architekturentscheidung und Besitzer
 2188 besitzt öffentliche Erweiterungs-/Produktverträge. `generators/osm` besitzt MVT/XML,
@@ -39,8 +40,8 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
    veröffentlichte Downloads sind ein eigener Lieferweg. Kein SLA aus Stichproben behaupten.
    Mapterhorn-Attribution/Quellenauflösung erhalten. Open-Meteo-Free ist nichtkommerziell;
    kommerzielles Archiv benötigt Professional+, dessen Endpoint ungemessen ist.
-2. Anbieter-Konfiguration und Schemaadapter über bestehende Registrierung bis Wien liefern;
-   Client-Originalzwang ersetzen. Vorhandene Originalreader bleiben Bibliotheksfähigkeit,
+2. OpenMapTiles-Gebäude/Parts, Straßen und Gewässer bis zum vollständigen Wien-Bild integrieren.
+   Vorhandene Originalreader bleiben Bibliotheksfähigkeit,
    kein Client-Fallback auf Editing-API. Diese API ist für unseren Bulk-Bedarf ungeeignet.
 3. Vollständiges 240-km-/Höhenbedarfsmanifest aus 2336 vorbereiten; nur benötigte Hierarchiestufen
    erwerben. Datenumfang/Erwerb separat von Warmaufbau/Rendern prüfen; keine Radiuskürzung.
@@ -51,8 +52,14 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
 - MVT-MultiPolygone/Höfe/Parts korrekt dekodieren; Featurezahl ist keine Gebäudezahl.
   Straßenklassen/Ebenen, Höhen und Gewässer normalisieren, soweit geliefert. Fehlende
   Informationen explizit; aus Liniennähe weder Kreuzung noch Brücke erfinden.
+- OpenMapTiles-`hide_3d`-Umrisse bleiben Quelldaten und erzeugen keine doppelten Parts.
+  Renderhöhen sind Schätzungen. Widersprüchliche Ober-/Unterkanten erhalten Quellwerte;
+  ein erzeugter Körper über belegter Unterkante bleibt ausdrücklich eine Annahme.
+  Schema und Herleitung: [OpenMapTiles](https://openmaptiles.org/docs/schema/#building).
 - Native Höhenmeter mit Rastermaß/Zoom/Datum/NoData liefern. Terrarium nach verlustfreiem
   RGB-Decode; Terrain-RGB/COG nutzen eigene Decoder. Globales DSM ist kein nackter Boden.
+- Bestätigt fehlende Höhenkacheln dürfen zum selben gepinnten Anbieter-Elternraster wechseln.
+  Tatsächlich gelieferte Adresse/Revision bleiben erhalten; Auth-/Transportfehler sind kein NoData.
 - HTTP-Endstatus und Payload prüfen. Auth terminal; temporäre Fehler begrenzt mit Backoff/
   Retry-After und Ursprungssperre. Abbruch/Frist/Rückstau; Ausfall ≠ gültiges Leerprodukt.
 - Netzwerkbytes mit Anbieter/Dataset/Adresse/Version/Digest cachen; bestehende Bestände

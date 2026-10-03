@@ -201,6 +201,7 @@ private:
   std::unique_ptr<::outshine::Generators::Osm::OsmField> Vectors_;
   bool HasVectorSource_ = false;
   int VectorZoom_ = kFineZoom;
+  Generators::Osm::MvtSchema VectorSchema_ = Generators::Osm::MvtSchema::Shortbread;
   ::outshine::Generators::Osm::BuildingField Footprints_;
   ::outshine::Generators::Osm::WaterField WaterBodies_;
   ::outshine::Generators::Osm::StreetField Ways_;

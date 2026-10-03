@@ -43,7 +43,7 @@ SurfacePreparation::CreateVectorField() const {
        ::outshine::Generators::Osm::OsmLayerName(
            ::outshine::Generators::Osm::OsmLayer::StreetPolygons)}};
   return std::make_unique<::outshine::Generators::Osm::OsmField>(
-      VectorZoom_, std::span<const std::string>(layers));
+      VectorZoom_, std::span<const std::string>(layers), VectorSchema_);
 }
 
 bool SurfacePreparation::Open(const World::StoragePaths &under,
@@ -82,10 +82,16 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
     return false;
   }
   for (size_t at = 0; at < sources.Count(); ++at) {
-    if (sources.At(at).Declaration().Kind == Data::DataKind::VectorMap) {
-      HasVectorSource_ = true;
-      break;
+    const auto &decl = sources.At(at).Declaration();
+    if (decl.Kind != Data::DataKind::VectorMap) { continue; }
+    const auto schema = Generators::Osm::ParseMvtSchema(decl.Schema);
+    if (!schema || (HasVectorSource_ && *schema != VectorSchema_)) {
+      say.Refuse("vector sources require one supported semantic schema");
+      Close();
+      return false;
     }
+    HasVectorSource_ = true;
+    VectorSchema_ = *schema;
   }
   VectorZoom_ = HasVectorSource_ ? FinestZoomOf(Data::DataKind::VectorMap) : kFineZoom;
   say.Number("sources registered", static_cast<double>(sources.Count()), "sources");
@@ -126,6 +132,7 @@ void SurfacePreparation::Close() {
   Store_.reset();
   HasVectorSource_ = false;
   VectorZoom_ = kFineZoom;
+  VectorSchema_ = Generators::Osm::MvtSchema::Shortbread;
   Opened_ = false;
   Settled_.reset();
   LastAdvance_ = {};

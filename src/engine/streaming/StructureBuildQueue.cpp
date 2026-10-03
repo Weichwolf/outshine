@@ -26,6 +26,7 @@
 #include "Log.h"
 #include "Shape.h"
 #include "OsmLayer.h"
+#include "MvtBuilding.h"
 #include "Geodesy.h"
 #include "StructureSourceKey.h"
 
@@ -154,7 +155,11 @@ void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
   for (size_t at = next.From; at < next.To; ++at) {
     const ::outshine::Generators::Osm::OsmField::Feature &f = feats[at];
     if (f.Type != kPolygonFeature || std::cmp_not_equal(f.Layer, layer)) { continue; }
-    const double heightM = vectors.Num(f, "height", 0.0);
+    const auto building = Generators::Osm::ReadMvtBuilding(vectors, f);
+    if (building.Hidden) { continue; }
+    const double heightM = building.Height ? building.Height->TopM : vectors.Num(f, "height", 0.0);
+    const double minimumM =
+        building.Height ? building.Height->MinimumM : vectors.Num(f, "min_height", 0.0);
     const int pitched = PitchedOf(vectors.Str(f, "roof:shape"));
     for (uint32_t r = 0; r < f.RingCount; ++r) {
       const ::outshine::Generators::Osm::OsmField::Ring &ring = vectors.Rings()[f.FirstRing + r];
@@ -181,8 +186,11 @@ void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
                                 .SourceFirstHole = f.FirstRing + r + 1,
                                 .Cell = assignedCell.value_or(Generators::StructureCell{}),
                                 .HeightM = heightM,
-                                .MinimumHeightM = vectors.Num(f, "min_height", 0.0),
-                                .Pitched = pitched});
+                                .MinimumHeightM = minimumM,
+                                .Pitched = pitched,
+                                .HeightOrigin = building.Height
+                                                    ? std::optional(building.Height->TopOrigin)
+                                                    : std::nullopt});
     }
   }
 }

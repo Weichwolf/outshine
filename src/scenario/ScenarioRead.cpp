@@ -483,6 +483,7 @@ bool ReadSources(const Xml::Ref &root, Scenario::Document &into, std::string &er
     made.Dataset = one.Attr("dataset");
     made.Location = one.Attr("location");
     made.Endpoint = one.Attr("endpoint");
+    made.Schema = one.Attr("schema");
     made.PayloadSha256 = one.Attr("sha256");
     if (!ReadProviderRank(one, made.Priority)) {
       error = Says::kInvalidProviderRank;

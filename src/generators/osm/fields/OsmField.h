@@ -16,6 +16,7 @@
 #include "GroundQuery.h"
 #include "OsmLayer.h"
 #include "MvtLayer.h"
+#include "MvtSchema.h"
 #include "TilePool.h"
 #include "TileSourceIdentity.h"
 #include "GeographicRing.h"
@@ -60,8 +61,10 @@ public:
     Data::TileSourceIdentity Source;
   };
 
-  OsmField(int zoom, std::span<const std::string> layers);
+  OsmField(int zoom, std::span<const std::string> layers, MvtSchema schema = MvtSchema::Shortbread);
   ~OsmField();
+
+  [[nodiscard]] MvtSchema Schema() const noexcept { return Schema_; }
 
   [[nodiscard]] static std::expected<TileAt, std::string_view> Locate(LongitudeLatitude at,
                                                                       int zoom) noexcept;
@@ -223,6 +226,7 @@ private:
   [[nodiscard]] bool MatchesDeclaredFeature(const Feature &feature, const Declared &input) const;
   [[nodiscard]] bool MatchesDeclaration(std::span<const Declared> input, TileAt over) const;
 
+  MvtSchema Schema_;
   std::vector<std::string> Layers_;
   std::vector<ParsedTile> ParsedTiles_;
   std::unique_ptr<AssemblyState> Assembly_;

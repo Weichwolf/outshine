@@ -6,24 +6,19 @@
 #include <expected>
 #include <string>
 #include "SourceProviderValidation.h"
+#include "PreferredVectorSource.h"
+#include "ShippedProviders.h"
 
 namespace outshine::Client {
 
 [[nodiscard]] inline std::expected<void, std::string>
 ValidateWorldSources(const Scenario::Document &scenario) {
-  if (std::ranges::any_of(scenario.Providers, [](const Data::SourceProvider &provider) {
-        return provider.Kind == "vector";
-      })) {
-    return std::unexpected(
-        "world data requires original OSM; vector-map tile providers are not permitted");
-  }
   if (scenario.Ground.Declared && scenario.Ground.Shape.Kind.empty() &&
       scenario.Ground.Osm.empty() &&
       !std::ranges::any_of(scenario.Providers, [](const Data::SourceProvider &provider) {
-        return provider.Kind == "osm";
+        return provider.Kind == "osm" || provider.Kind == "vector";
       })) {
-    return std::unexpected(
-        "world data requires an official original OSM source; no map-tile fallback exists");
+    return std::unexpected("world data requires an explicit geographic vector source");
   }
   return {};
 }
@@ -35,14 +30,18 @@ ConfigureWorldSources(Scenario::Document &scenario) {
       !std::ranges::any_of(scenario.Providers, [](const Data::SourceProvider &provider) {
         return provider.Kind == "osm" || provider.Kind == "vector";
       })) {
-    scenario.Providers.push_back({.Kind = "osm",
-                                  .Revision = "current",
-                                  .Missing = Data::MissingDataPolicy::Fail,
-                                  .Dataset = "openstreetmap.original",
-                                  .Location = {},
-                                  .Endpoint = std::string(Data::kOfficialOsmApi),
-                                  .Coverage = {},
-                                  .PayloadSha256 = {}});
+    scenario.Providers.push_back(Generators::Osm::PreferredVectorSource());
+  }
+  if (scenario.Ground.Declared && scenario.Ground.Shape.Kind.empty()) {
+    for (const auto &defaults : Generators::ShippedProviders()) {
+      if (std::ranges::any_of(scenario.Providers, [&](const auto &provider) {
+            return provider.Kind == defaults.Kind ||
+                   (defaults.Kind == "terrain" && provider.Kind == "copernicus");
+          })) {
+        continue;
+      }
+      scenario.Providers.push_back(defaults);
+    }
   }
   return ValidateWorldSources(scenario);
 }

@@ -17,10 +17,12 @@ namespace {
                                   Rank order,
                                   AbsencePolicy absence,
                                   std::string dataset,
-                                  std::string endpoint) {
+                                  std::string endpoint,
+                                  MvtSchema schema) {
   SourceDecl d;
   d.Id = std::move(dataset);
-  d.Version = 1;
+  d.Version = schema == MvtSchema::Shortbread ? 1 : 2;
+  d.Schema = schema == MvtSchema::Shortbread ? "shortbread" : "openmaptiles";
   d.Revision = std::move(revision);
   d.Endpoint = std::move(endpoint);
   d.Kind = DataKind::VectorMap;
@@ -46,8 +48,10 @@ VectorTileSource::VectorTileSource(std::string revision,
                                    Rank order,
                                    AbsencePolicy absence,
                                    std::string dataset,
-                                   const std::string &endpoint)
-    : WebTileSource(Declared(std::move(revision), order, absence, std::move(dataset), endpoint),
-                    endpoint) {}
+                                   const std::string &endpoint,
+                                   MvtSchema schema)
+    : WebTileSource(
+          Declared(std::move(revision), order, absence, std::move(dataset), endpoint, schema),
+          endpoint) {}
 
 }

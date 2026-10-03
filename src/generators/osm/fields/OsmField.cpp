@@ -48,6 +48,7 @@ double ElapsedMs(Clock::time_point began) {
 [[nodiscard]] std::expected<VectorLayers, std::string_view>
 ReadVectorLayers(std::span<const uint8_t> bytes,
                  std::span<const std::string> names,
+                 MvtSchema schema,
                  OsmField::BuildMetrics *metrics = nullptr);
 
 [[nodiscard]] bool FitsNativeStorage(OsmStorageUsage &usage, const VectorLayers &layers);
@@ -59,7 +60,8 @@ uint64_t TileKey(int x, int y) {
 }
 
 struct OsmField::AssemblyState {
-  explicit AssemblyState(int zoom, std::span<const std::string> layers) : Rebuilt(zoom, layers) {}
+  explicit AssemblyState(int zoom, std::span<const std::string> layers, MvtSchema schema)
+      : Rebuilt(zoom, layers, schema) {}
 
   OsmField Rebuilt;
   OsmStorageUsage Usage;
@@ -67,13 +69,13 @@ struct OsmField::AssemblyState {
   size_t Next = 0;
 };
 
-OsmField::OsmField(int zoom, std::span<const std::string> layers)
-    : Layers_(layers.begin(), layers.end()), Zoom_(zoom) {}
+OsmField::OsmField(int zoom, std::span<const std::string> layers, MvtSchema schema)
+    : Schema_(schema), Layers_(layers.begin(), layers.end()), Zoom_(zoom) {}
 
 OsmField::~OsmField() = default;
 
 std::shared_ptr<const OsmField> OsmField::SnapshotQueries() const {
-  auto snapshot = std::make_shared<OsmField>(Zoom_, Layers_);
+  auto snapshot = std::make_shared<OsmField>(Zoom_, Layers_, Schema_);
   snapshot->Extent_ = Extent_;
   snapshot->CentreX_ = CentreX_;
   snapshot->CentreY_ = CentreY_;
@@ -328,7 +330,7 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
     return Fetched{.Held = true};
   }
   const auto parseAt = Clock::now();
-  auto layers = ReadVectorLayers(Scratch_.Bytes, Layers_, &BuildMetrics_);
+  auto layers = ReadVectorLayers(Scratch_.Bytes, Layers_, Schema_, &BuildMetrics_);
   BuildMetrics_.ParseMs += ElapsedMs(parseAt);
   if (!layers) {
     ++Bad_;
@@ -366,6 +368,7 @@ namespace {
 [[nodiscard]] std::expected<VectorLayers, std::string_view>
 ReadVectorLayers(std::span<const uint8_t> bytes,
                  std::span<const std::string> names,
+                 MvtSchema schema,
                  OsmField::BuildMetrics *metrics) {
   if (names.size() > static_cast<size_t>(std::numeric_limits<uint16_t>::max()) + 1) {
     return std::unexpected(Says::kTooManyVectorLayers);
@@ -373,9 +376,14 @@ ReadVectorLayers(std::span<const uint8_t> bytes,
   VectorLayers layers;
   layers.reserve(names.size());
   for (const auto &name : names) {
+    const std::string_view sourceName = MvtLayerName(schema, name);
+    if (sourceName.empty()) {
+      layers.emplace_back(std::nullopt);
+      continue;
+    }
     MvtLayer layer;
     const auto layerAt = Clock::now();
-    const auto result = layer.Parse(bytes, name);
+    const auto result = layer.Parse(bytes, sourceName);
     if (metrics != nullptr) {
       const double ms = ElapsedMs(layerAt);
       if (ms > metrics->LongestLayerMs) {
@@ -422,7 +430,7 @@ OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
   if (!ValidTileAddress({.X = tx, .Y = ty}, Zoom_)) {
     return std::unexpected(Says::kInvalidOsmTile);
   }
-  auto layers = ReadVectorLayers(vectorTile, Layers_);
+  auto layers = ReadVectorLayers(vectorTile, Layers_, Schema_);
   if (!layers) {
     ++Bad_;
     return std::unexpected(layers.error());
@@ -472,7 +480,7 @@ std::expected<void, std::string_view> OsmField::PublishParsed(const ParsedTile *
   std::ranges::sort(ordered, [](const ParsedTile *left, const ParsedTile *right) {
     return left->At.Y == right->At.Y ? left->At.X < right->At.X : left->At.Y < right->At.Y;
   });
-  OsmField rebuilt(Zoom_, Layers_);
+  OsmField rebuilt(Zoom_, Layers_, Schema_);
   OsmStorageUsage usage;
   for (const ParsedTile *tile : ordered) {
     if (!rebuilt.AppendParsedTile(*tile, usage)) {
@@ -485,7 +493,7 @@ std::expected<void, std::string_view> OsmField::PublishParsed(const ParsedTile *
 
 std::expected<bool, std::string_view> OsmField::AdvanceAssembly() {
   if (!Assembly_) {
-    auto assembly = std::make_unique<AssemblyState>(Zoom_, Layers_);
+    auto assembly = std::make_unique<AssemblyState>(Zoom_, Layers_, Schema_);
     assembly->Order.reserve(ParsedTiles_.size());
     for (size_t index = 0; index < ParsedTiles_.size(); ++index) {
       assembly->Order.push_back(index);
@@ -591,7 +599,7 @@ void OsmField::AppendLayer(const MvtLayer &layer, uint16_t layerIndex) {
     f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
 
     for (uint32_t t = 0; t < MvtLayer::TagCount(sf); t++) {
-      const MvtLayer::Tag tag = layer.TagAt(sf, t);
+      const MvtLayer::Tag tag = NormalizeMvtTag(Schema_, Layers_[layerIndex], layer.TagAt(sf, t));
       if (tag.Key.empty()) { continue; }
       Value v{};
       v.IsNum = tag.IsNumber;

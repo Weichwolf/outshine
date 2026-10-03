@@ -4,6 +4,7 @@
 #include <string>
 
 #include "WebTileSource.h"
+#include "MvtSchema.h"
 
 namespace outshine::Generators::Osm {
 
@@ -15,7 +16,8 @@ public:
                    Rank order,
                    AbsencePolicy absence,
                    std::string dataset,
-                   const std::string &endpoint);
+                   const std::string &endpoint,
+                   MvtSchema schema = MvtSchema::Shortbread);
 };
 
 }

@@ -20,7 +20,7 @@ using AbsencePolicy = MissingDataPolicy;
 /// Source-byte encoding consumed by the corresponding native adapter.
 enum class WireFormat : uint8_t {
   TerrariumPng,     ///< RGB Terrarium height encoding; retained for explicit fixtures.
-  MapboxVectorTile, ///< Legacy map-tile encoding; not original OSM.
+  MapboxVectorTile, ///< Mapbox vector tile protobuf encoding.
   StarBandBinary,   ///< Built-in star catalogue band encoding.
   OsmXml,           ///< Original OSM XML including nodes, ways, relations and tags.
   CopernicusCog,    ///< Original Copernicus GLO-30 Float32 GeoTIFF byte intervals.
@@ -102,6 +102,8 @@ struct SourceDecl {
   size_t MaximumPayloadBytes =
       0;                     ///< Enforced response/cache-read byte cap; zero uses shared defaults.
   std::string PayloadSha256; ///< Optional lowercase SHA-256 digest required of returned bytes.
+  std::string Schema =
+      {}; ///< Source-owned semantic schema; interpreted by its generator extension.
   TileAbsencePolicy TileAbsence =
       TileAbsencePolicy::SourcePolicy; ///< Explicit tile refinement policy.
 };

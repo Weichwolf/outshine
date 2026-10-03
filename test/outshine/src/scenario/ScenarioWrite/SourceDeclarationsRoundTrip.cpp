@@ -15,7 +15,10 @@ int main() {
                       {.Kind = "vector",
                        .Revision = "other'\n",
                        .Priority = std::numeric_limits<int>::max(),
-                       .Missing = Data::MissingDataPolicy::Fail},
+                       .Missing = Data::MissingDataPolicy::Fail,
+                       .Dataset = "tiles & revision",
+                       .Endpoint = "https://tiles.example/{z}/{x}/{y}?a=1&b=2",
+                       .Schema = "schema & <revision>\"\t"},
                       {.Kind = "stars"},
                       {.Kind = "osm",
                        .Revision = "regional-r1",
@@ -39,10 +42,7 @@ int main() {
     for (size_t i = 0; i < source.Providers.size(); ++i) {
       const auto &a = source.Providers[i];
       const auto &b = copy.Providers[i];
-      CHECK(a.Kind == b.Kind && a.Revision == b.Revision && a.Priority == b.Priority &&
-                a.Missing == b.Missing && a.Dataset == b.Dataset && a.Location == b.Location &&
-                a.Coverage == b.Coverage && a.PayloadSha256 == b.PayloadSha256,
-            "provider order and all fields preserved");
+      CHECK(a == b, "provider order and all fields preserved");
     }
   }
   CHECK(ReadScenario(text->data(), text->size(), copy, error) && error.empty(),
