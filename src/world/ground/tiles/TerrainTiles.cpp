@@ -151,9 +151,7 @@ bool DecodedCache::Take(Data::TileId of, TerrainField *out) {
 void DecodedCache::Store(Data::TileId of, const TerrainField &field) {
   if (!field.Meshable() || field.Bytes() > Budget_) { return; }
   const std::scoped_lock lock(Lock_);
-  for (const Entry &one : Held_) {
-    if (one.Of == of) { return; }
-  }
+  std::erase_if(Held_, [of](const Entry &entry) { return entry.Of == of; });
   size_t held = field.Bytes();
   for (const Entry &one : Held_) { held += one.Field.Bytes(); }
   while (held > Budget_ && !Held_.empty()) {

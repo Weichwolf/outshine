@@ -46,6 +46,8 @@ Beitrag zu diesem Ablauf entfernen; Tests gegen diesen fachlichen Vertrag prüfe
    verlangen. Kachelzugriff indizieren; Quellarchive nach Übernahme kompakter Inputs freigeben.
    Auftragsbudgets zählen zusätzlich allozierte Metadaten und Resampling, nicht erneut die
    geteilten residenten Raster. Gehaltene Quellen bleiben separat sichtbar; Lebensdauer sichern.
+   Erneuerte RAM-Decodestände ersetzen veraltete Einträge unter demselben Bytebudget;
+   unabhängige Verbraucher dürfen bereits erneuerte Eingaben wiederverwenden.
 3. Quellen-Zertifikate, TerrainRevisionIndex und Metadatenreservierungen entfernen.
    Schlüssel aus Anbieter, Anfrageparametern und Formatversion; Treffer liefern gespeicherte
    Bytes ohne Aktualitätsprüfung. Identität der Inputs/Generatorparameter einmal bestimmen.

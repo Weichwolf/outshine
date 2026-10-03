@@ -60,10 +60,10 @@ int main() {
   using namespace outshine::Test;
   CertifiedAncestor source;
   TerrainCertificate detached;
+  const auto decoded = std::make_shared<DecodedCache>(1024u * 1024u);
   {
-    TerrainTiles tiles(source,
-                       EnuFrame::At(Geo{}),
-                       {.DemCacheBytes = 1024u * 1024u, .StitchedFieldBytes = 1024u * 1024u});
+    TerrainTiles tiles(
+        source, EnuFrame::At(Geo{}), {.Shared = decoded, .StitchedFieldBytes = 1024u * 1024u});
     const Data::TileId centre{.Zoom = 3, .X = 2, .Y = 2};
     const auto first = tiles.StitchedField(centre.Zoom, centre.X, centre.Y);
     CHECK(first && first->Sources().size() == 1,
@@ -98,6 +98,15 @@ int main() {
           "rebuilt dependency set is current");
     CHECK(!source.AreCurrent(first->Certificate().Dependencies()),
           "old borrowed snapshot stays revoked");
+    {
+      TerrainTiles consumer(
+          source, EnuFrame::At(Geo{}), {.Shared = decoded, .StitchedFieldBytes = 1024u * 1024u});
+      const auto shared = consumer.StitchedField(centre.Zoom, centre.X, centre.Y);
+      CHECK(shared && source.AreCurrent(shared->Certificate().Dependencies()),
+            "a second consumer sees the updated raw dependency");
+      CHECK(source.Takes == before + 1,
+            "updated decoded inputs remain reusable across independent consumers");
+    }
     if (replaced) {
       detached = replaced->Certificate();
       auto partial = *replaced;
