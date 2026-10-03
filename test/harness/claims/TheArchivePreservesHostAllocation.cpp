@@ -46,10 +46,10 @@ int main() {
   const std::string command = std::string(OUTSHINE_COMPILE) + " -Wall -Wextra -Werror -I" +
                               Quote((root / "include").string()) + " $(pkg-config --cflags sdl3) " +
                               Quote((root / "host.cpp").string());
-  const std::string linkage =
-      " " + Quote((root / "liboutshine.a").string()) +
-      " $(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4) -lcurl -lz "
-      "-Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross)";
+  const std::string linkage = " " + Quote((root / "liboutshine.a").string()) +
+                              " $(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross "
+                              "liblz4 libtiff-4 libwebp) -lcurl -lz "
+                              "-Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross)";
   std::string said;
   const int built =
       Run(command + linkage + " -o " + Quote((root / "host").string()) + " 2>&1", said);
