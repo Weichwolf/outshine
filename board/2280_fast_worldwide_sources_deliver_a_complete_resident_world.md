@@ -10,8 +10,9 @@ Tags: loading, cache, residency
 # Cached source data becomes a complete resident place without wasted work
 
 ## Ergebnis und Ist
-Wien erreicht aus vollständigem Quellcache die fertige Rundumwelt und den Screenshot im
-AGENTS-Budget. MVT/Terrarium, paralleler Erwerb, Quellcache und native Produkte bestehen.
+Wien erreicht aus vollständigem Quellcache die fertige Rundumwelt so schnell wie möglich.
+Ladeziele je Szene aus Komplexität/Arbeit begründen; keine feste Sekunden-Grenze. Flüssige
+Frames folgen dem AGENTS-Budget. MVT/Terrarium, Erwerb, Quellcache und native Produkte bestehen.
 Zellvorbereitung endet mit lokalen Höheneingaben oder einem expliziten Fehler. Wien zeigt
 nach Entfernen der Gebäude-Zusatzgeometrie wieder die Stadt ohne Metal-Speicherabbruch.
 Lade-/Framekosten und Speicher liegen noch außerhalb des Budgets; Ferncluster und verbliebene

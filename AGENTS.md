@@ -51,11 +51,13 @@
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
   Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen; alte Bilder/Pins erhalten.
   Fehlende/unvollständige Bilder bleiben rot. Unbelegte Bildänderungen gelten als Verschlechterung.
-- Vollständiger Quellcache → frischer Offline-Prozess → höchstens zehn Sekunden bis zur fertigen
-  Welt. Internet-Erwerb darf länger dauern. Danach genau Ziel-fps Frames und 360° in einer Sekunde;
+- Vollständiger Quellcache → frischer Offline-Prozess → vollständige Welt so schnell wie möglich.
+  Ich begründe Ladeziele pro Szene anhand Komplexität und gemessener Arbeit; keine feste Zehn-
+  Sekunden-Grenze. Internet-Erwerb und Cacheaufbau getrennt messen. Danach genau Ziel-fps Frames und 360° in einer Sekunde;
   nur letzter Frame als PNG in Ausgangsrichtung. p50/p95/p99 ohne Zusatzframes messen.
 - Framebudget auch für p99: 1000/Ziel-fps ms. Alle Weltklassen teilen Zeit/Speicher nach Bildgewinn
-  und Kosten, ohne feste Quoten. Profil, Inhalte und Sichtweite im Vergleich nicht reduzieren.
+  und Kosten, ohne feste Quoten. Stadt und Wald dürfen andere Lastverteilungen haben, müssen
+  aber gleichermaßen flüssig und visuell kohärent sein. Profil, Inhalte und Sichtweite im Vergleich nicht reduzieren.
 - Korrektheit, Bild, CPU/GPU, Laden und Speicher getrennt prüfen. Budgets nennen Einheit, Herkunft,
   Lastfall, Profil und Besitzer; Peaks und OS-/Treiberreserve zählen. Geteilten Speicher nicht doppelt
   zählen, asynchrone Zeiten nicht addieren, Fence-Warten nicht als GPU-Zeit ausgeben. A18 Pros
