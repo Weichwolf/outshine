@@ -1,6 +1,7 @@
 #include "SourcedTerrainFields.h"
 
 #include <algorithm>
+#include <utility>
 #include <cstdint>
 #include <cstddef>
 #include <expected>
@@ -43,6 +44,7 @@ std::optional<Data::TileId> RequestedTile(Ground::TileSpot request) {
 
 size_t SourcedTerrainFields::RetainedBytes() const noexcept {
   size_t bytes = Fields_.capacity() * sizeof(Entry);
+  if (Metadata_) { bytes += Metadata_->HeapBytes(); }
   for (auto at = Fields_.begin(); at != Fields_.end(); ++at) {
     if (at->second && std::none_of(Fields_.begin(), at, [&at](const Entry &entry) {
           return entry.second == at->second;
@@ -56,13 +58,16 @@ size_t SourcedTerrainFields::RetainedBytes() const noexcept {
 std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>
 SourcedTerrainFields::Capture(std::span<const Entry> fields,
                               std::span<const Ground::TileSpot> requests,
-                              size_t bytesMost) {
+                              size_t bytesMost,
+                              Ground::TerrainRevisionIndex::Reservation metadata) {
   if (requests.size() > bytesMost / sizeof(Entry)) {
     return std::unexpected(CaptureError::OverBudget);
   }
   SourcedTerrainFields captured;
+  captured.Metadata_ = std::move(metadata);
   captured.Fields_.reserve(requests.size());
   size_t bytes = captured.Fields_.capacity() * sizeof(Entry);
+  if (captured.Metadata_) { bytes += captured.Metadata_->HeapBytes(); }
   if (bytes > bytesMost) { return std::unexpected(CaptureError::OverBudget); }
   for (const Ground::TileSpot request : requests) {
     const auto tile = RequestedTile(request);

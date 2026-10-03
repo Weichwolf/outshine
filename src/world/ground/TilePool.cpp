@@ -3,10 +3,12 @@
 #include "math/Units.h"
 #include "TilePool.h"
 #include "TerrainDelivery.h"
+#include "TileGeodesy.h"
 #include "CopernicusTerrain.h"
 #include "math/Vec3.h"
 
 #include <algorithm>
+#include <expected>
 #include <cassert>
 #include <cstdint>
 #include <optional>
@@ -26,6 +28,7 @@
 #include <thread>
 #include <vector>
 #include <utility>
+#include <tuple>
 
 #include "Capacity.h"
 #include "Delivery.h"
@@ -262,6 +265,37 @@ size_t TilePool::TerrainMetadataBytes() const noexcept {
 
 bool TilePool::ValidTerrainStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const {
   return InspectTerrainStamps(stamps) == TerrainRevisionIndex::Validation::Current;
+}
+
+std::expected<TerrainRevisionIndex::Reservation, TerrainRevisionIndex::Error>
+TilePool::PrepareTerrainMetadata(std::span<const Data::TileId> fields) {
+  if (!TerrainRevisions_) { return std::unexpected(TerrainRevisionIndex::Error::InvalidCapacity); }
+  if (fields.size() > TerrainRevisionIndex::MaximumEntries) {
+    return std::unexpected(TerrainRevisionIndex::Error::InvalidCapacity);
+  }
+  std::vector<Data::TileId> dependencies;
+  dependencies.reserve(fields.size() * 9u);
+  for (const auto field : fields) {
+    if (field.Zoom < 0 || field.Zoom > Data::TileId::MaximumZoom ||
+        field.X >= (uint32_t{1} << static_cast<uint32_t>(field.Zoom)) ||
+        field.Y >= (uint32_t{1} << static_cast<uint32_t>(field.Zoom))) {
+      return std::unexpected(TerrainRevisionIndex::Error::InvalidTile);
+    }
+    for (long dy = -1; dy <= 1; ++dy) {
+      for (long dx = -1; dx <= 1; ++dx) {
+        long x = static_cast<long>(field.X) + dx;
+        const long y = static_cast<long>(field.Y) + dy;
+        if (!WrapTile(field.Zoom, &x, &y)) { continue; }
+        dependencies.push_back(
+            {.Zoom = field.Zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
+      }
+    }
+  }
+  const auto key = [](Data::TileId tile) { return std::tuple(tile.Zoom, tile.X, tile.Y); };
+  std::ranges::sort(dependencies, {}, key);
+  dependencies.erase(std::ranges::unique(dependencies).begin(), dependencies.end());
+  const std::scoped_lock lock(CacheMutex_);
+  return TerrainRevisions_->ReserveFor(dependencies);
 }
 
 TerrainRevisionIndex::Validation

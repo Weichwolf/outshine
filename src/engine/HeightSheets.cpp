@@ -117,11 +117,11 @@ bool HeightSheets::ShareSourcedField(Data::TileId tile, Ground::HeightField::Blo
 std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>
 HeightSheets::CaptureSourcedFields(std::span<const Ground::TileSpot> requests,
                                    size_t bytesMost) const {
-  return SourcedTerrainFields::Capture(Fields_, requests, bytesMost);
+  return SourcedTerrainFields::Capture(Fields_, requests, bytesMost, Metadata_);
 }
 
 SourcedTerrainFields HeightSheets::SnapshotSourcedFields() const {
-  return SourcedTerrainFields(Fields_);
+  return SourcedTerrainFields(Fields_, Metadata_);
 }
 
 std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &candidate,
@@ -130,7 +130,12 @@ std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &ca
   if (!RequestsPrepared_) {
     auto tiles = SourceTilesFor(candidate, preparation, ground.BlockZoom());
     if (!tiles) { return std::unexpected(tiles.error()); }
+    auto metadata = ground.PrepareSourceMetadata(*tiles);
+    if (!metadata) {
+      return std::unexpected("terrain source metadata exceeds its resident dependency budget");
+    }
     ForgetsFields();
+    Metadata_ = std::move(*metadata);
     Requests_.reserve(tiles->size());
     Fields_.reserve(tiles->size());
     for (const Data::TileId tile : *tiles) { Requests_.push_back({.Tile = tile}); }
@@ -503,6 +508,7 @@ size_t HeightSheets::HeapBytes() const noexcept {
   size_t bytes = Residency_.HeapBytes() +
                  Fields_.capacity() * sizeof(decltype(Fields_)::value_type) +
                  Requests_.capacity() * sizeof(FieldRequest);
+  if (Metadata_) { bytes += Metadata_->HeapBytes(); }
   for (const auto &entry : Fields_) {
     if (entry.second) { bytes += entry.second->HeapBytes(); }
   }

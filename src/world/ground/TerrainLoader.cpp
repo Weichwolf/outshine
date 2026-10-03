@@ -418,6 +418,11 @@ TerrainGrid GroundStream::FieldOf(Data::TileId of) const {
   return Held_->Stitched->StitchedGrid(of.Zoom, of.X, of.Y);
 }
 
+std::expected<TerrainRevisionIndex::Reservation, TerrainRevisionIndex::Error>
+GroundStream::PrepareSourceMetadata(std::span<const Data::TileId> fields) const {
+  return Tiles_.PrepareTerrainMetadata(fields);
+}
+
 std::shared_ptr<const TerrainField> GroundStream::StitchedField(Data::TileId of) const {
   std::shared_ptr<const TerrainField> stitched;
   (void)PollStitchedField(of, stitched);

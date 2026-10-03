@@ -122,6 +122,7 @@ public:
 
   void ForgetsFields() {
     Fields_.clear();
+    Metadata_.reset();
     Requests_.clear();
     NextRequest_ = 0;
     ResolvedRequests_ = 0;
@@ -169,6 +170,7 @@ private:
     bool Resolved = false;
   };
 
+  Ground::TerrainRevisionIndex::Reservation Metadata_;
   std::vector<std::pair<Data::TileId, std::shared_ptr<const Ground::TerrainField>>> Fields_;
   std::vector<FieldRequest> Requests_;
   size_t NextRequest_ = 0;

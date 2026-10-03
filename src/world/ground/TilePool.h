@@ -143,6 +143,8 @@ public:
 
   size_t ByteCacheBytes() const;
   [[nodiscard]] size_t TerrainMetadataBytes() const noexcept;
+  [[nodiscard]] std::expected<TerrainRevisionIndex::Reservation, TerrainRevisionIndex::Error>
+  PrepareTerrainMetadata(std::span<const Data::TileId> fields);
   [[nodiscard]] TerrainRevisionIndex::Validation
   InspectTerrainStamps(std::span<const TerrainRevisionIndex::Stamp> stamps) const;
   [[nodiscard]] bool CertificateCurrent(const TerrainCertificate &certificate) const;

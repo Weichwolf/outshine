@@ -19,7 +19,9 @@ Mapterhorn ist Terrain-Default, COG ausdrücklich wählbar. Client-Welten deklar
 gepinnten OpenFreeMap-Stand; Schemaauswahl läuft über öffentliche Quellenkonfiguration
 und Szenario-Roundtrip. Erste Terrain-Publikation besteht; vollständige verfeinerte Welt
 blockiert noch in der Gebäude-Höhenvorbereitung. Die Gebäudequeue pinnt exakte
-Quellraster ohne zweite Samplespeicher; vollständige aktuelle Bilder fehlen.
+Quellraster ohne zweite Samplespeicher. Residenter Höhenbedarf reserviert die
+Revisionsmetadaten samt Nachbar-Stencil; Snapshots teilen die Reservierung bis zur letzten
+Nutzung. Laufzeitabnahme und vollständige aktuelle Bilder fehlen.
 
 ## Architekturentscheidung und Besitzer
 2188 besitzt öffentliche Erweiterungs-/Produktverträge. `generators/osm` besitzt MVT/XML,
@@ -73,6 +75,8 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
   Kachelbedarf kanonisch sortieren/vereinigen; Abdeckung, Herkunft und Gültigkeit vor
   Raster-Hashbildung prüfen; Erzeugungsaufträge benötigen gültige Terrain-Zertifikate.
   Reine Inhaltsvergleiche residenter Produkte behalten ihren separaten Nachweis.
+  Metadaten für die aktive Quellenunion vor Erwerb reservieren; unbenutzte Einträge
+  bleiben auslagerbar. Reservierungen und Revisionsindex haben getrennte Speichergrenzen.
   Fehlender Höhenbedarf und Zertifikatsstatus bleiben diagnostizierbar.
 - Client/Prepare/Shots teilen persistenten SDL-Nutzerspeicher, Registry und Weltbedarf.
   Prepare erfüllt dieselbe verfeinerte Weltqualität wie Shots; spielbare Teilabdeckung genügt nicht.

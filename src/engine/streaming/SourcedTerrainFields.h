@@ -20,8 +20,11 @@ public:
 
   enum class CaptureError { InvalidRequest, MissingSource, OverBudget };
 
-  [[nodiscard]] static std::expected<SourcedTerrainFields, CaptureError> Capture(
-      std::span<const Entry> fields, std::span<const Ground::TileSpot> requests, size_t bytesMost);
+  [[nodiscard]] static std::expected<SourcedTerrainFields, CaptureError>
+  Capture(std::span<const Entry> fields,
+          std::span<const Ground::TileSpot> requests,
+          size_t bytesMost,
+          Ground::TerrainRevisionIndex::Reservation metadata = nullptr);
   [[nodiscard]] size_t RetainedBytes() const noexcept;
   [[nodiscard]] bool FitsPreparation(std::span<const Ground::TileSpot> requests,
                                      size_t bytesMost) const;
@@ -32,7 +35,9 @@ public:
 
   SourcedTerrainFields() = default;
 
-  explicit SourcedTerrainFields(std::vector<Entry> fields) : Fields_(std::move(fields)) {}
+  explicit SourcedTerrainFields(std::vector<Entry> fields,
+                                Ground::TerrainRevisionIndex::Reservation metadata = nullptr)
+      : Fields_(std::move(fields)), Metadata_(std::move(metadata)) {}
 
   [[nodiscard]] bool CopySourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
   [[nodiscard]] static bool
@@ -43,6 +48,7 @@ public:
 
 private:
   std::vector<Entry> Fields_;
+  Ground::TerrainRevisionIndex::Reservation Metadata_;
 };
 
 }

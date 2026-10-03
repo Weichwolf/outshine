@@ -111,6 +111,8 @@ public:
   [[nodiscard]] GroundBlock BlockAt(TileSpot at) const override;
 
   [[nodiscard]] TerrainGrid FieldOf(Data::TileId of) const;
+  [[nodiscard]] std::expected<TerrainRevisionIndex::Reservation, TerrainRevisionIndex::Error>
+  PrepareSourceMetadata(std::span<const Data::TileId> fields) const;
 
   [[nodiscard]] std::shared_ptr<const TerrainField> StitchedField(Data::TileId of) const;
   [[nodiscard]] std::shared_ptr<const TerrainField> ResidentStitchedField(Data::TileId of) const;

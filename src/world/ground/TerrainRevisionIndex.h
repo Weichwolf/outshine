@@ -15,9 +15,22 @@
 namespace outshine::Ground {
 
 class TerrainRevisionIndex {
-  struct Domain {};
+public:
+  struct WorkingSet {
+    std::vector<Data::TileId> Tiles;
+    [[nodiscard]] size_t HeapBytes() const noexcept;
+  };
+
+  using Reservation = std::shared_ptr<const WorkingSet>;
+
+private:
+  struct Domain {
+    std::vector<std::weak_ptr<const WorkingSet>> Reservations;
+  };
 
 public:
+  static constexpr size_t MaximumEntries = 65536;
+
   enum class Error : uint8_t {
     InvalidCapacity,
     InvalidTile,
@@ -39,6 +52,8 @@ public:
 
   [[nodiscard]] static std::expected<std::unique_ptr<TerrainRevisionIndex>, Error>
   Create(size_t entriesMost = 4096);
+  [[nodiscard]] std::expected<Reservation, Error>
+  ReserveFor(std::span<const Data::TileId> requested);
   [[nodiscard]] std::expected<Stamp, Error>
   IssueDeliveryStamp(Data::TileId requested,
                      std::optional<DeliveryFingerprint> fingerprint = std::nullopt);
@@ -66,10 +81,14 @@ private:
   Register(Data::TileId requested,
            std::optional<uint64_t> retainedDelivery,
            std::optional<DeliveryFingerprint> fingerprint = std::nullopt);
-  std::shared_ptr<const Domain> Owner_ = std::make_shared<const Domain>();
+  [[nodiscard]] bool IsReserved(Data::TileId requested) const;
+  [[nodiscard]] bool EvictUnreserved();
+
+  std::shared_ptr<Domain> Owner_ = std::make_shared<Domain>();
   mutable std::mutex Mutex_;
   std::vector<Entry> Entries_;
   size_t EntriesMost_;
+  size_t UnreservedEntries_;
   uint64_t RegistrationClock_ = 0;
 };
 
