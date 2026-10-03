@@ -16,6 +16,7 @@
 #include <optional>
 #include <ratio>
 #include <span>
+#include <tuple>
 #include <vector>
 #include <variant>
 #include <string>
@@ -209,11 +210,6 @@ bool Gathers(Ground::TileSpot spot,
              bool fineField,
              const StructureBuildQueue::HeightSource &heightAt,
              std::vector<Ground::HeightField::Block> &into) {
-  if (std::ranges::any_of(into, [spot](const Ground::HeightField::Block &one) {
-        return one.At.X == spot.X && one.At.Y == spot.Y;
-      })) {
-    return true;
-  }
   Ground::HeightField::Block block;
   const Data::TileId tile{
       .Zoom = spot.Zoom, .X = static_cast<uint32_t>(spot.X), .Y = static_cast<uint32_t>(spot.Y)};
@@ -227,7 +223,7 @@ bool Gathers(Ground::TileSpot spot,
   return true;
 }
 
-std::optional<std::vector<Ground::HeightField::Block>>
+std::expected<std::vector<Ground::HeightField::Block>, Data::TileId>
 BlocksUnder(bool fineField,
             int zoom,
             const ::outshine::Generators::Osm::OsmField &vectors,
@@ -246,27 +242,29 @@ BlocksUnder(bool fineField,
     for (long y = low.Y; y <= high.Y; ++y) {
       for (long x = low.X; x <= high.X; ++x) {
         const Ground::TileSpot spot{.Zoom = zoom, .X = x, .Y = y};
-        if (std::ranges::none_of(spots, [spot](Ground::TileSpot one) {
-              return one.X == spot.X && one.Y == spot.Y;
-            })) {
-          spots.push_back(spot);
-        }
+        spots.push_back(spot);
       }
     }
   }
+  const auto key = [](Ground::TileSpot spot) { return std::tuple(spot.X, spot.Y); };
+  std::ranges::sort(spots, {}, key);
+  spots.erase(std::ranges::unique(spots, {}, key).begin(), spots.end());
   std::vector<Ground::HeightField::Block> blocks;
   blocks.reserve(spots.size());
-  bool complete = true;
   for (const Ground::TileSpot spot : spots) {
-    if (!Gathers(spot, fineField, heightAt, blocks)) { complete = false; }
+    if (!Gathers(spot, fineField, heightAt, blocks)) {
+      return std::unexpected(Data::TileId{.Zoom = spot.Zoom,
+                                          .X = static_cast<uint32_t>(spot.X),
+                                          .Y = static_cast<uint32_t>(spot.Y)});
+    }
   }
-  if (!complete) { return std::nullopt; }
   return blocks;
 }
 
 struct HeightResolutionStats {
   size_t &Deferred;
   double &DurationMs;
+  StructureBuildQueue::HeightFailure *Failure = nullptr;
 };
 
 bool QualifiedStructureHeights(const ::outshine::Generators::Osm::OsmField &vectors,
@@ -289,32 +287,41 @@ bool ResolveHeights(const ::outshine::Generators::Osm::OsmField &vectors,
                     std::shared_ptr<const Ground::HeightField> &heights,
                     HeightResolutionStats stats) {
   const auto began = std::chrono::steady_clock::now();
+  using Failure = StructureBuildQueue::HeightFailure;
+  if (stats.Failure != nullptr) { *stats.Failure = {}; }
+  const auto deferred = [&](Failure::Reason reason, Data::TileId tile = {}) {
+    if (stats.Failure != nullptr) { *stats.Failure = {.Cause = reason, .Tile = tile}; }
+    ++stats.Deferred;
+    stats.DurationMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    return false;
+  };
   bool fallback = false;
-  std::optional<std::vector<Ground::HeightField::Block>> blocks =
-      BlocksUnder(true, blockZoom, vectors, over, heightAt);
+  auto blocks = BlocksUnder(true, blockZoom, vectors, over, heightAt);
   if (!blocks && requirement == StructureBuildQueue::HeightRequirement::AllowFallback) {
     fallback = true;
     blocks = BlocksUnder(false, blockZoom, vectors, over, heightAt);
   }
-  if (!blocks) {
-    ++stats.Deferred;
-    stats.DurationMs +=
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    return false;
+  if (!blocks) { return deferred(Failure::Reason::Unavailable, blocks.error()); }
+  for (const auto &block : *blocks) {
+    const Data::TileId tile{.Zoom = block.At.Zoom,
+                            .X = static_cast<uint32_t>(block.At.X),
+                            .Y = static_cast<uint32_t>(block.At.Y)};
+    if (!block.Certificate.ScopeCurrent(heightAt.TerrainScope)) {
+      return deferred(Failure::Reason::ScopeChanged, tile);
+    }
+    if (requirement == StructureBuildQueue::HeightRequirement::FineOnly &&
+        (block.Sources.empty() || block.MissingBoundary)) {
+      return deferred(Failure::Reason::Unqualified, tile);
+    }
   }
   auto pinned = Ground::HeightField::Of(blockZoom, std::move(*blocks), fallback);
   if (!pinned->Certificate().ScopeCurrent(heightAt.TerrainScope)) {
-    ++stats.Deferred;
-    stats.DurationMs +=
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    return false;
+    return deferred(Failure::Reason::ScopeChanged);
   }
   if (requirement == StructureBuildQueue::HeightRequirement::FineOnly &&
       !QualifiedStructureHeights(vectors, over, *pinned)) {
-    ++stats.Deferred;
-    stats.DurationMs +=
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    return false;
+    return deferred(Failure::Reason::Unqualified);
   }
   heights = std::move(pinned);
   stats.DurationMs +=
@@ -1055,7 +1062,9 @@ bool StructureBuildQueue::PostsCell(Ground::SurfacePreparation &stack,
                                  heightAt,
                                  HeightRequirement::FineOnly,
                                  heights,
-                                 {.Deferred = Deferred_, .DurationMs = heightResolutionMs})) {
+                                 {.Deferred = Deferred_,
+                                  .DurationMs = heightResolutionMs,
+                                  .Failure = &LastHeightFailure_})) {
     return false;
   }
   if (!heights) { return false; }
@@ -1307,7 +1316,9 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                             heightAt,
                             requirement,
                             heights,
-                            {.Deferred = Deferred_, .DurationMs = heightResolutionMs});
+                            {.Deferred = Deferred_,
+                             .DurationMs = heightResolutionMs,
+                             .Failure = &LastHeightFailure_});
     };
     const auto selectionAt = std::chrono::steady_clock::now();
     std::optional<::outshine::Generators::Osm::TileWatermark::Next> next;

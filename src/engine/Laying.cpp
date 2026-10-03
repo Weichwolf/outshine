@@ -1752,6 +1752,16 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   diagnostic +=
       ", footprints ingested=" +
       std::to_string(static_cast<int>(vectors != nullptr && footprints.Ingested(*vectors)));
+  const auto *pinned = World.GroundBuild->Candidate().Sources().Vectors.get();
+  diagnostic +=
+      ", vector generations=" + std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +
+      std::to_string(vectors != nullptr ? vectors->Generation() : 0);
+  const auto failure = World.StructureBuilds.LastHeightFailure();
+  const std::array<std::string_view, 4> causes{
+      "none", "unavailable", "unqualified", "scope-changed"};
+  diagnostic += ", height failure=" + std::string(causes[static_cast<size_t>(failure.Cause)]) +
+                " at " + std::to_string(failure.Tile.Zoom) + "/" + std::to_string(failure.Tile.X) +
+                "/" + std::to_string(failure.Tile.Y);
   return diagnostic;
 }
 

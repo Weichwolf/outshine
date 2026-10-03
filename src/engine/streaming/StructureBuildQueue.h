@@ -114,6 +114,12 @@ public:
     }
   };
 
+  struct HeightFailure {
+    enum class Reason { None, Unavailable, Unqualified, ScopeChanged };
+    Reason Cause = Reason::None;
+    Data::TileId Tile{};
+  };
+
   struct HeightSource {
     std::function<std::optional<double>(LongitudeLatitude)> Sample;
     std::function<bool(Data::TileId, Ground::HeightField::Block &)> PinField;
@@ -227,6 +233,8 @@ public:
   [[nodiscard]] size_t Landed() const { return Landed_; }
 
   [[nodiscard]] size_t Deferred() const { return Deferred_; }
+
+  [[nodiscard]] HeightFailure LastHeightFailure() const noexcept { return LastHeightFailure_; }
 
   [[nodiscard]] size_t Discarded() const { return Discarded_; }
 
@@ -426,6 +434,7 @@ private:
   size_t Posted_ = 0;
   size_t Landed_ = 0;
   size_t Deferred_ = 0;
+  HeightFailure LastHeightFailure_;
   size_t Discarded_ = 0;
   double BakedMs_ = 0.0;
   double SlowestBakeMs_ = 0.0;

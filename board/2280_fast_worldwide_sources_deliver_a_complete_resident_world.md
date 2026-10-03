@@ -70,6 +70,8 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
 - Gebäude-Höhenbedarf vor Rasterkopien vollständig prüfen und fehlende Abdeckung nachfordern.
   Unveränderliche Höhenfelder teilen, doppelte Raumabfragen vorab zusammenfassen; keine
   quadratischen Suchen oder wiederholten Vollkopien beim Warten auf dieselbe Quelle.
+  Kachelbedarf kanonisch sortieren/vereinigen; Abdeckung, Herkunft und Gültigkeit vor
+  Raster-Hashbildung prüfen. Fehlender Höhenbedarf bleibt mit Adresse diagnostizierbar.
 - Client/Prepare/Shots teilen persistenten SDL-Nutzerspeicher, Registry und Weltbedarf.
   Prepare erfüllt dieselbe verfeinerte Weltqualität wie Shots; spielbare Teilabdeckung genügt nicht.
   Quellcache-Vorbereitung getrennt vom frischen Warmprozess; keine generierten Diskprodukte.
