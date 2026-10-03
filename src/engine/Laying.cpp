@@ -1751,8 +1751,9 @@ std::string Engine::State::GroundBuildDiagnostic() const {
         ", region current=" +
         std::to_string(
             static_cast<int>(World.Region->MatchesLiveSources(live, World.Stack.Footprints()))) +
-        ", region vector generations=" + std::to_string(pinned ? pinned->Generation() : 0) + "/" +
-        std::to_string(live ? live->Generation() : 0) +
+        ", region vector generations=" +
+        std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +
+        std::to_string(live != nullptr ? live->Generation() : 0) +
         ", region footprint revisions=" + std::to_string(World.Region->Footprints().Revision()) +
         "/" + std::to_string(World.Stack.Footprints().Revision());
   } else {
