@@ -53,6 +53,8 @@ public:
 
   explicit ContentStore(const Config &config);
 
+  [[nodiscard]] bool Trim();
+
   ContentStore(const ContentStore &) = delete;
   ContentStore &operator=(const ContentStore &) = delete;
 

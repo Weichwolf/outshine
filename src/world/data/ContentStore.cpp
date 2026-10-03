@@ -127,6 +127,11 @@ ContentStore::ContentStore(const Config &config)
   std::filesystem::create_directories(Directory_, ec);
 
   LoadAbsences();
+}
+
+bool ContentStore::Trim() {
+  if (Using_ != Use::On) { return true; }
+  std::error_code ec;
 
   struct StoredFile {
     std::filesystem::path Path;
@@ -146,12 +151,13 @@ ContentStore::ContentStore(const Config &config)
     if (ec) { break; }
     e.Bytes = it->file_size(ec);
     if (ec || e.Bytes > static_cast<uintmax_t>(std::numeric_limits<long long>::max()) - total) {
-      return;
+      return false;
     }
     total += e.Bytes;
     entries.push_back(std::move(e));
   }
-  if (total <= static_cast<uintmax_t>(CapBytes_)) { return; }
+  if (ec) { return false; }
+  if (total <= static_cast<uintmax_t>(CapBytes_)) { return true; }
   std::ranges::sort(entries,
                     [](const StoredFile &a, const StoredFile &b) { return a.When < b.When; });
   for (const StoredFile &e : entries) {
@@ -162,6 +168,7 @@ ContentStore::ContentStore(const Config &config)
     Swept_++;
     SweptBytes_ += static_cast<long long>(e.Bytes);
   }
+  return total <= static_cast<uintmax_t>(CapBytes_);
 }
 
 std::optional<std::vector<uint8_t>> ContentStore::Read(std::string_view key,

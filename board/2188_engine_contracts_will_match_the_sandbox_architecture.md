@@ -61,8 +61,7 @@ beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
 | Klassifikations-Upload (bereinigt) | world hält native Grids; render besitzt gepackte Uploadprodukte und deren Lebensdauer |
 | private Builtin-Bakes neben Generator-API | Ein öffentlicher Input-/Productvertrag für Builtins und Erweiterungen |
 | Client-Flags/Place-Sonderablauf | Szenario deklariert Generatoren/Inhalte und Kamerafahrt; Client führt aus und misst |
-`world` konsumiert weder Quellenformate noch Generatorinputs. Engine kennt nur öffentliche Erweiterungsverträge.
-Quellformate enden im Adapter; Generatorinputs gehören dem jeweiligen Generatorvertrag.
+
 Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeitsgrenze.
 
 ## Verbindliche gemeinsame Verträge
@@ -75,8 +74,9 @@ Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeits
   Generatoren übernehmen Demand und melden Fortschritt, Fehler oder vollständige Produkte;
   Quellenerwerb ist asynchron, Compute nutzt gepinnte Inputs ohne blockierendes IO.
 - SourceReceipt identifiziert Originalquelle, Adresse, Revision/Digest und Gültigkeit.
+  ContentStore-Öffnung erhält vorhandene Quellbytes auch oberhalb des Wartungsbudgets.
+  Trim ist explizite IO-Wartung eines unbenutzten Caches, kein Erwerbs-/Frame-/Preload-Schritt.
   Produktpins halten konsumierte Inputs, nicht automatisch vollständige OSM-Zellarchive.
-  Alle Originaltags bleiben im Quellcache; konsumierte Semantik/Herkunft bleibt am Produkt.
   Gebäudeinputs übernehmen ausschließlich ihre typisierten Wurzeln samt transitiven Referenzen,
   Tags und Quellbelegen. Ein schwacher Archivbezug dient der Wiederverwendungsprüfung, nicht
   dem Produktbesitz. Zell-Snapshots freigeben, soweit kein tatsächlicher Nutzer sie braucht.

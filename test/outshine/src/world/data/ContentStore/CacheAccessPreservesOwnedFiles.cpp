@@ -46,6 +46,7 @@ int main() {
   std::filesystem::create_symlink(root / "target", cache / key);
   {
     ContentStore store({.Directory = cache.string(), .CapBytes = 4});
+    CHECK(store.Trim(), "maintenance ignores foreign files and unsupported entry types");
     CHECK(std::filesystem::exists(cache / "unrelated"), "eviction preserves foreign files");
     CHECK(std::filesystem::exists(cache / (key + ".outshine-0.tmp")),
           "eviction preserves temporary files");
@@ -68,9 +69,24 @@ int main() {
   std::filesystem::last_write_time(cache / newerKey, now);
   {
     ContentStore store({.Directory = cache.string(), .CapBytes = 4});
+    CHECK(store.Read(key).has_value() && store.Read(newerKey).has_value(),
+          "opening preserves existing source bytes even above the maintenance budget");
+    CHECK(store.Counters().Swept == 0 && store.Counters().SweptBytes == 0,
+          "opening does not implicitly evict source data");
+    CHECK(store.Trim(), "explicit maintenance reaches the configured budget");
     CHECK(!store.Read(key) && store.Read(newerKey).has_value(), "oldest owned entry evicted first");
     CHECK(store.Counters().Swept == 1 && store.Counters().SweptBytes == 4,
           "eviction accounts only owned bytes");
+    CHECK(store.Trim() && store.Counters().Swept == 1,
+          "repeated maintenance preserves entries already within budget");
+  }
+  {
+    ContentStore unavailable({.Directory = (root / "target").string(), .CapBytes = 4});
+    CHECK(!unavailable.Trim(), "unavailable maintenance directory is an explicit failure");
+    ContentStore disabled(
+        {.Directory = (root / "target").string(), .Using = ContentStore::Use::Off});
+    CHECK(disabled.Trim(), "disabled stores perform no maintenance IO");
+    CHECK(std::filesystem::file_size(root / "target") == 2, "maintenance preserves foreign target");
   }
   std::error_code error;
   std::filesystem::remove_all(root, error);
