@@ -1730,6 +1730,34 @@ std::string_view Engine::State::GroundBuildStatus() const noexcept {
 
 std::string Engine::State::GroundBuildDiagnostic() const {
   std::string diagnostic = "ground build=" + std::string(GroundBuildStatus());
+  const auto failure = World.StructureBuilds.LastHeightFailure();
+  const std::array<std::string_view, 5> causes{
+      "none", "unavailable", "unqualified", "scope-changed", "certificate"};
+  diagnostic += ", height failure=" + std::string(causes[static_cast<size_t>(failure.Cause)]) +
+                " at " + std::to_string(failure.Tile.Zoom) + "/" + std::to_string(failure.Tile.X) +
+                "/" + std::to_string(failure.Tile.Y);
+  if (failure.Cause == StructureBuildQueue::HeightFailure::Reason::Certificate) {
+    const std::array<std::string_view, 5> statuses{
+        "current", "unknown", "stale", "scope-changed", "pending"};
+    diagnostic +=
+        ", certificate=" + std::string(statuses[static_cast<size_t>(failure.CertificateStatus)]) +
+        ", dependencies=" + std::to_string(failure.Dependencies) +
+        ", complete=" + std::to_string(static_cast<int>(failure.Complete));
+  }
+  if (World.Region) {
+    const auto *pinned = World.Region->Vectors();
+    const auto *live = World.Stack.Vectors();
+    diagnostic +=
+        ", region current=" +
+        std::to_string(
+            static_cast<int>(World.Region->MatchesLiveSources(live, World.Stack.Footprints()))) +
+        ", region vector generations=" + std::to_string(pinned ? pinned->Generation() : 0) + "/" +
+        std::to_string(live ? live->Generation() : 0) +
+        ", region footprint revisions=" + std::to_string(World.Region->Footprints().Revision()) +
+        "/" + std::to_string(World.Stack.Footprints().Revision());
+  } else {
+    diagnostic += ", region absent";
+  }
   if (!World.GroundBuild) { return diagnostic; }
   const auto &footprints = World.GroundBuild->Footprints();
   const auto *vectors = World.Stack.Vectors();
@@ -1756,20 +1784,6 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   diagnostic +=
       ", vector generations=" + std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +
       std::to_string(vectors != nullptr ? vectors->Generation() : 0);
-  const auto failure = World.StructureBuilds.LastHeightFailure();
-  const std::array<std::string_view, 5> causes{
-      "none", "unavailable", "unqualified", "scope-changed", "certificate"};
-  diagnostic += ", height failure=" + std::string(causes[static_cast<size_t>(failure.Cause)]) +
-                " at " + std::to_string(failure.Tile.Zoom) + "/" + std::to_string(failure.Tile.X) +
-                "/" + std::to_string(failure.Tile.Y);
-  if (failure.Cause == StructureBuildQueue::HeightFailure::Reason::Certificate) {
-    const std::array<std::string_view, 5> statuses{
-        "current", "unknown", "stale", "scope-changed", "pending"};
-    diagnostic +=
-        ", certificate=" + std::string(statuses[static_cast<size_t>(failure.CertificateStatus)]) +
-        ", dependencies=" + std::to_string(failure.Dependencies) +
-        ", complete=" + std::to_string(static_cast<int>(failure.Complete));
-  }
   return diagnostic;
 }
 
