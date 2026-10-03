@@ -232,7 +232,7 @@ TestProfile() {
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
     outshine/include/*) printf '%s' 'profile/public' ;;
-    outshine/src/world/data/MvtLayer | outshine/src/world/ground/OsmStorageUsage)
+    outshine/src/generators/osm/MvtLayer | outshine/src/generators/osm/OsmStorageUsage)
       printf '%s' 'profile/vector' ;;
     outshine/src/generators/osm/OsmXmlReader) printf '%s' 'profile/osm-xml' ;;
     outshine/src/generators/osm/TransportBuilder) printf '%s' 'profile/transport-topology' ;;
@@ -253,7 +253,7 @@ LayerIncludes() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
     profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
-    profile/vector) printf '%s' "-Isrc/world/data -Isrc/base/spatial" ;;
+    profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
     profile/osm-xml) GroupIncludes src/generators/osm/import ;;
     profile/transport-native) printf '%s' "-Iinclude -Isrc/world/navigation -Isrc/world/products" ;;
     profile/transport-topology) GroupIncludes src/generators/osm/transport ;;
@@ -346,7 +346,7 @@ LayerGroups() {
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/public) LayerGroups profile/internal ;;
-    profile/vector) printf '%s' "src/world/data/MvtLayer.cpp" ;;
+    profile/vector) printf '%s' "src/generators/osm/providers/MvtLayer.cpp" ;;
     profile/osm-xml) printf '%s' "src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/transport-native) printf '%s' "src/world/navigation/TransportTopology.cpp" ;;
     profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/generators/osm/transport src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;

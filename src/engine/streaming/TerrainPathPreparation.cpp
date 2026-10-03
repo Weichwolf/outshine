@@ -54,8 +54,8 @@ Result Add(Tiles &tiles, std::span<const Data::TileId> more) {
 }
 
 Result AddWindow(Tiles &tiles, LongitudeLatitude at, int zoom, int radius) {
-  const auto window =
-      Ground::OsmField::SourceWindow(at, zoom, radius, TerrainPathPlan::MaximumTiles);
+  const auto window = ::outshine::Generators::Osm::OsmField::SourceWindow(
+      at, zoom, radius, TerrainPathPlan::MaximumTiles);
   if (!window) { return std::unexpected(std::string(window.error())); }
   for (int64_t y = window->MinY; y <= window->MaxY; ++y) {
     for (int64_t x = window->MinX; x <= window->MaxX; ++x) {
@@ -190,8 +190,9 @@ std::string Refusal(Data::TileId tile,
                      failure->SourceKey);
 }
 
-std::expected<bool, std::string>
-PollVector(Data::TileId tile, const Ground::SurfacePreparation &stack, Ground::OsmField &vectors) {
+std::expected<bool, std::string> PollVector(Data::TileId tile,
+                                            const Ground::SurfacePreparation &stack,
+                                            ::outshine::Generators::Osm::OsmField &vectors) {
   Ground::TilePool::Landing landed;
   const auto status =
       stack.Pool().Bytes({Data::DataKind::VectorMap, Data::Address::At(tile)}, &landed);

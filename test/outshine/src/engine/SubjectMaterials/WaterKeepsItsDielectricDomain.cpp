@@ -34,16 +34,16 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   const std::array<std::string, 1> layers{"water_polygons"};
-  Ground::OsmField field(14, layers);
-  const std::array features{
-      Ground::OsmField::Declared{.Layer = "water_polygons",
-                                 .Key = "kind",
-                                 .Value = "lake",
-                                 .Area = true,
-                                 .LatLon = {0, 0, 0, 0.0001, 0.0001, 0.0001, 0.0001, 0}}};
+  ::outshine::Generators::Osm::OsmField field(14, layers);
+  const std::array features{::outshine::Generators::Osm::OsmField::Declared{
+      .Layer = "water_polygons",
+      .Key = "kind",
+      .Value = "lake",
+      .Area = true,
+      .LatLon = {0, 0, 0, 0.0001, 0.0001, 0.0001, 0.0001, 0}}};
   field.Declare(features, Ground::TileAt{.X = 8192, .Y = 8192});
   BelowSeaLevel heights;
-  Ground::WaterField water;
+  ::outshine::Generators::Osm::WaterField water;
   Ground::VegetationTemplates vegetation;
   for (int step = 0; step < 8 && !water.Ingested(field); ++step) {
     (void)water.Ingest(heights, field, vegetation);

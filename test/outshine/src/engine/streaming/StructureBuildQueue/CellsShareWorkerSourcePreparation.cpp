@@ -68,7 +68,7 @@ int main() {
                    1.0),
         "offline stack opens");
   if (!stack.Opened()) { return Report(); }
-  const std::array<OsmField::Declared, 1> buildings{{
+  const std::array<::outshine::Generators::Osm::OsmField::Declared, 1> buildings{{
       {.Layer = "buildings",
        .Key = "kind",
        .Value = "building",
@@ -79,7 +79,7 @@ int main() {
   stack.Declares(buildings);
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "declared building enters the vector snapshot");
-  const OsmField *vectors = stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   CHECK(vectors && vectors->Tiles().size() == 1 && !vectors->Rings().empty(),
         "one building tile is available");
   if (!vectors || vectors->Tiles().size() != 1 || vectors->Rings().empty()) { return Report(); }
@@ -87,7 +87,7 @@ int main() {
   const auto bounds = TileBounds({.Zoom = original.Z,
                                   .X = static_cast<uint32_t>(original.X),
                                   .Y = static_cast<uint32_t>(original.Y)});
-  std::array<OsmField::Declared, 8> spread;
+  std::array<::outshine::Generators::Osm::OsmField::Declared, 8> spread;
   for (size_t at = 0; at < spread.size(); ++at) {
     const double lon = bounds.MinLonDeg + (static_cast<double>(at) + 0.5) / 8.0 *
                                               (bounds.MaxLonDeg - bounds.MinLonDeg);
@@ -121,11 +121,11 @@ int main() {
   HeightField::Block block;
   CHECK(HeightField::SharesField(field, demTile, block), "shared analytic constant-height world");
   auto pinned = HeightField::Of(0, {block});
-  BuildingField &prints = stack.Footprints();
+  ::outshine::Generators::Osm::BuildingField &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000);
   prints.SeenWith({.FocalPx = 720});
-  BuildingField::Baked accepted{.OccupiedCells = 255};
+  ::outshine::Generators::Osm::BuildingField::Baked accepted{.OccupiedCells = 255};
   prints.PreparesAcceptances({.Tiles = 1});
   prints.Take(0);
   auto pending = prints.PrepareAcceptance(0,

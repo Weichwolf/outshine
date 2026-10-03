@@ -19,11 +19,11 @@
 #include "TerrainResidency.h"
 #include "SourcedTerrainFields.h"
 
-namespace outshine {
-
-namespace Ground {
+namespace outshine::Generators::Osm {
 class OsmField;
 }
+
+namespace outshine {
 
 namespace Render {
 class SceneRenderer;
@@ -34,7 +34,7 @@ public:
   struct FieldPreparation {
     int FinestZoom;
     size_t RequestsMost;
-    const Ground::OsmField *Vectors = nullptr;
+    const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
     std::span<const Data::TileId> AdditionalTiles;
   };
 

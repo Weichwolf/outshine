@@ -21,7 +21,7 @@ constexpr auto kInvalidStreetPointRange =
 }
 
 StreetGraphBuilder::Built
-StreetGraphBuilder::BuildOneShot(const Ground::StreetField &ways,
+StreetGraphBuilder::BuildOneShot(const ::outshine::Generators::Osm::StreetField &ways,
                                  std::span<const double> points,
                                  const Path::Network::HeightSource &heightOf) {
   Built made;
@@ -62,12 +62,16 @@ StreetGraphBuilder::BuildOneShot(const Ground::StreetField &ways,
   return made;
 }
 
-std::expected<void, std::string_view> StreetGraphBuilder::LayWays(const Ground::StreetField &ways,
-                                                                  std::span<const double> points,
-                                                                  Path::Network &graph) {
+std::expected<void, std::string_view>
+StreetGraphBuilder::LayWays(const ::outshine::Generators::Osm::StreetField &ways,
+                            std::span<const double> points,
+                            Path::Network &graph) {
   for (size_t at = 0; at < ways.Ways().size(); ++at) {
-    const Ground::StreetField::Way &lane = ways.Ways()[at];
-    if (lane.Form != Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { continue; }
+    const ::outshine::Generators::Osm::StreetField::Way &lane = ways.Ways()[at];
+    if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon ||
+        lane.PointCount < 2) {
+      continue;
+    }
     const size_t first = static_cast<size_t>(lane.FirstPoint) * 2;
     if (first > points.size() || lane.PointCount > (points.size() - first) / 2) {
       return std::unexpected(Says::kInvalidStreetPointRange);

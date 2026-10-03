@@ -51,7 +51,7 @@ int main() {
   ClassificationPreparation field;
   field.SetVegetation(&templates);
   field.Open(0, 0, compute);
-  std::array<OsmField::Declared, 1> area{
+  std::array<::outshine::Generators::Osm::OsmField::Declared, 1> area{
       {{.Layer = "land",
         .Key = "kind",
         .Value = "forest",
@@ -83,10 +83,11 @@ int main() {
         "empty source replacement publishes a new paired renderer product");
   CHECK(firstPublication.Classes->Evaluate(0, 0, nullptr, nullptr) == rule->Tpl,
         "held prior native publication stays usable after renderer replacement");
-  std::array<OsmField::Declared, 1> street{{{.Layer = "streets",
-                                             .Key = "kind",
-                                             .Value = "residential",
-                                             .LatLon = {0, -0.001, 0, 0.001}}}};
+  std::array<::outshine::Generators::Osm::OsmField::Declared, 1> street{
+      {{.Layer = "streets",
+        .Key = "kind",
+        .Value = "residential",
+        .LatLon = {0, -0.001, 0, 0.001}}}};
   field.Declares(street);
   CHECK(field.Update(pool, LongitudeLatitude{}).has_value(), "first road generation is submitted");
   const auto submitted = field.FineSubmits();

@@ -27,11 +27,13 @@ struct OsmLayerTraits {
   bool Wet = false;
 };
 
-Ground::OsmLayer SelectOsmLayer(OsmLayerTraits traits) {
+::outshine::Generators::Osm::OsmLayer SelectOsmLayer(OsmLayerTraits traits) {
   if (traits.Area) {
-    return traits.Wet ? Ground::OsmLayer::WaterPolygons : Ground::OsmLayer::Buildings;
+    return traits.Wet ? ::outshine::Generators::Osm::OsmLayer::WaterPolygons
+                      : ::outshine::Generators::Osm::OsmLayer::Buildings;
   }
-  return traits.Wet ? Ground::OsmLayer::WaterLines : Ground::OsmLayer::Streets;
+  return traits.Wet ? ::outshine::Generators::Osm::OsmLayer::WaterLines
+                    : ::outshine::Generators::Osm::OsmLayer::Streets;
 }
 
 constexpr double kEastStepDeg = 0.0138;
@@ -152,13 +154,14 @@ bool Engine::State::SubmitOsmTransportSource() {
 
 void Engine::State::DeclareGroundFeatures() {
   if (Session.Declared.Ground.Osm.empty()) { return; }
-  std::vector<Ground::OsmField::Declared> told;
+  std::vector<::outshine::Generators::Osm::OsmField::Declared> told;
   told.reserve(Session.Declared.Ground.Osm.size());
   for (const Scenario::Structure &one : Session.Declared.Ground.Osm) {
-    Ground::OsmField::Declared made;
+    ::outshine::Generators::Osm::OsmField::Declared made;
     const bool wet = one.Kind == "water";
-    const Ground::OsmLayer holds = SelectOsmLayer({.Area = one.Area, .Wet = wet});
-    made.Layer = OsmLayerName(holds);
+    const ::outshine::Generators::Osm::OsmLayer holds =
+        SelectOsmLayer({.Area = one.Area, .Wet = wet});
+    made.Layer = ::outshine::Generators::Osm::OsmLayerName(holds);
     made.Key = "kind";
     made.Value = one.Kind;
     made.WidthM = one.WidthM;
@@ -170,7 +173,7 @@ void Engine::State::DeclareGroundFeatures() {
     made.LatLon = one.LatLon;
     told.push_back(std::move(made));
   }
-  World.Stack.Declares(std::span<const Ground::OsmField::Declared>(told));
+  World.Stack.Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared>(told));
   Published.RecordMetric(
       "ground: structures a scenario declared", static_cast<double>(told.size()), "structures");
 }

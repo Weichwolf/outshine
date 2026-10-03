@@ -1,13 +1,14 @@
 #ifndef OUTSHINE_ENGINE_GROUNDDIAGNOSTICS_H
 #define OUTSHINE_ENGINE_GROUNDDIAGNOSTICS_H
 
-namespace outshine {
-class TangentFrame;
-
-namespace Ground {
+namespace outshine::Generators::Osm {
 class BuildingField;
 class OsmField;
 }
+
+namespace outshine {
+class TangentFrame;
+
 }
 
 namespace outshine::Core {
@@ -22,8 +23,8 @@ struct GroundRelief {
 };
 
 void ReportBuildingFootprints(DiagnosticLedger &report,
-                              const Ground::BuildingField &footprints,
-                              const Ground::OsmField *vectors,
+                              const ::outshine::Generators::Osm::BuildingField &footprints,
+                              const ::outshine::Generators::Osm::OsmField *vectors,
                               const TangentFrame &frame);
 
 void ReportGroundRelief(DiagnosticLedger &report, GroundRelief relief);

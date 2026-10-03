@@ -88,19 +88,23 @@ int main() {
             !PlanTerrainSourceTiles(fine, {.FinestZoom = 6, .MaximumTiles = 8193}),
         "source grids and allocation budgets have explicit finite limits");
 
-  Ground::OsmField vectors(2, Ground::OsmLayerNames({Ground::OsmLayer::Buildings}));
+  ::outshine::Generators::Osm::OsmField vectors(
+      2,
+      ::outshine::Generators::Osm::OsmLayerNames(
+          {::outshine::Generators::Osm::OsmLayer::Buildings}));
   const auto northWest = Ground::TileFracToGeo({.X = 8.25, .Y = 8.25}, 4);
   const auto southEast = Ground::TileFracToGeo({.X = 9.75, .Y = 9.75}, 4);
-  std::array<Ground::OsmField::Declared, 1> buildings{{{.Layer = "buildings",
-                                                        .Area = true,
-                                                        .LatLon = {northWest.LatitudeDeg,
-                                                                   northWest.LongitudeDeg,
-                                                                   northWest.LatitudeDeg,
-                                                                   southEast.LongitudeDeg,
-                                                                   southEast.LatitudeDeg,
-                                                                   southEast.LongitudeDeg,
-                                                                   southEast.LatitudeDeg,
-                                                                   northWest.LongitudeDeg}}}};
+  std::array<::outshine::Generators::Osm::OsmField::Declared, 1> buildings{
+      {{.Layer = "buildings",
+        .Area = true,
+        .LatLon = {northWest.LatitudeDeg,
+                   northWest.LongitudeDeg,
+                   northWest.LatitudeDeg,
+                   southEast.LongitudeDeg,
+                   southEast.LatitudeDeg,
+                   southEast.LongitudeDeg,
+                   southEast.LatitudeDeg,
+                   northWest.LongitudeDeg}}}};
   vectors.Declare(buildings, Ground::TileAt{.X = 2, .Y = 2});
   auto buildingExpected = NeighbourOracle({.Zoom = 2, .X = 2, .Y = 2});
   for (uint32_t y = 8; y <= 9; ++y) {

@@ -25,8 +25,6 @@ namespace outshine::Generators {
 
 namespace {
 
-using outshine::Ground::BuildingField;
-
 constexpr double kBlocksPerTile = 8.0;
 constexpr int64_t kCellBiasTiles = 0x20000000LL;
 constexpr uint32_t kKnuthWord = 2654435761u;
@@ -143,12 +141,12 @@ double AcrossM(std::span<const double> pts, Ring ring) {
   return std::min(e1 - e0, n1 - n0);
 }
 
-Frontage NearestStreet(std::span<const double> pts,
-                       Ring ring,
-                       std::span<const WayLine> ways,
-                       double *standBackM,
-                       const std::atomic_bool *stopping) {
-  Frontage out;
+BuildingFrontage NearestStreet(std::span<const double> pts,
+                               Ring ring,
+                               std::span<const WayLine> ways,
+                               double *standBackM,
+                               const std::atomic_bool *stopping) {
+  BuildingFrontage out;
   *standBackM = -1.0;
   const double refLat = LatOf(pts, ring.First);
   const double refLon = LonOf(pts, ring.First);
@@ -525,12 +523,13 @@ bool HasSourceHeight(const RawTile::Structure &structure) {
                                      std::fabs(structure.HeightM - kFillHeightM) > kSameHeightM);
 }
 
-BuildingField::HeightSource HeightSourceOf(const RawTile::Structure &structure) noexcept {
+::outshine::Ground::BuildingHeightSource
+HeightSourceOf(const RawTile::Structure &structure) noexcept {
   if (structure.HeightOrigin &&
       *structure.HeightOrigin != outshine::Ground::BuildingHeightOrigin::Declared) {
-    return BuildingField::HeightSource::Default;
+    return ::outshine::Ground::BuildingHeightSource::Generated;
   }
-  return BuildingField::HeightSource::Osm;
+  return ::outshine::Ground::BuildingHeightSource::Declared;
 }
 
 Spread RingBounds(std::span<const double> pts, Ring ring) {
@@ -584,11 +583,11 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                  (bounds.HighLon - bounds.LowLon) * perLonM));
 
   double standBackM = -1.0;
-  const Frontage street = NearestStreet(pts, ring, ways, &standBackM, stopping);
+  const BuildingFrontage street = NearestStreet(pts, ring, ways, &standBackM, stopping);
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
 
   if (!ValidStructureInput(one, raw)) { return std::unexpected(StructureMeshError::InvalidPlan); }
-  BuildingField::Footprint fp{};
+  ::outshine::Ground::BuildingFootprint fp{};
   fp.MinimumHeightM = static_cast<float>(one.MinimumHeightM);
   fp.FirstPoint = one.SourceFirst;
   fp.FirstHole = one.SourceFirstHole;
@@ -604,10 +603,12 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
         {.AreaM2 = RingAreaM2(pts, ring), .AcrossM = AcrossM(pts, ring), .StandBackM = standBackM},
         {.LongitudeDeg = LonOf(pts, ring.First), .LatitudeDeg = LatOf(pts, ring.First)});
     fp.HeightM = static_cast<float>(static_cast<double>(storeys) * kStoreyM + kRoofAllowanceM);
-    fp.Source = BuildingField::HeightSource::Default;
+    fp.Source = ::outshine::Ground::BuildingHeightSource::Generated;
   }
-  out.OsmHeights += static_cast<int>(fp.Source == BuildingField::HeightSource::Osm);
-  out.DefaultHeights += static_cast<int>(fp.Source == BuildingField::HeightSource::Default);
+  out.OsmHeights +=
+      static_cast<int>(fp.Source == ::outshine::Ground::BuildingHeightSource::Declared);
+  out.DefaultHeights +=
+      static_cast<int>(fp.Source == ::outshine::Ground::BuildingHeightSource::Generated);
   fp.BaseM = static_cast<float>(base);
   fp.FootM = static_cast<float>(base);
   fp.SeatM = static_cast<float>(seat);
@@ -662,7 +663,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.CornerAslM = std::span<const double>(corners.data(), corners.size());
   plan.HeightM = one.MinimumHeightM > 0.0 ? one.HeightM : fp.HeightM;
   plan.MinimumHeightM = one.MinimumHeightM;
-  plan.HeightMeasured = fp.Source == BuildingField::HeightSource::Osm;
+  plan.HeightMeasured = fp.Source == ::outshine::Ground::BuildingHeightSource::Declared;
   plan.PitchedShare = static_cast<double>(one.Pitched);
   plan.Street = fp.Street;
   plan.AnchorEcef = raw.AnchorEcef;

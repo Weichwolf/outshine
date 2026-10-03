@@ -1,0 +1,254 @@
+#ifndef OUTSHINE_GENERATORS_OSM_FIELDS_OSMFIELD_H
+#define OUTSHINE_GENERATORS_OSM_FIELDS_OSMFIELD_H
+
+#include <cstdint>
+#include <expected>
+#include <initializer_list>
+#include <limits>
+#include <memory>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
+#include "GroundQuery.h"
+#include "OsmLayer.h"
+#include "MvtLayer.h"
+#include "TilePool.h"
+#include "TileSourceIdentity.h"
+#include "GeographicRing.h"
+
+namespace outshine::Generators::Osm {
+
+using namespace outshine::Ground;
+
+struct OsmStorageUsage;
+
+struct OsmTileWindow {
+  int64_t MinX, MaxX, MinY, MaxY;
+};
+
+struct FeatureRun {
+  size_t From = 0;
+  size_t To = 0;
+};
+
+struct OnLayers {
+  int Poly = 0;
+  int Line = 0;
+};
+
+class OsmField {
+public:
+  using Ring = GeographicRing;
+
+  struct Feature {
+    uint32_t FirstRing = 0, RingCount = 0;
+    uint32_t FirstTag = 0, TagCount = 0;
+    uint32_t Tile = 0;
+    uint16_t Layer = 0;
+    uint8_t Type = 0;
+    std::optional<uint64_t> ProviderFeatureId;
+    double MinLat = 0, MinLon = 0, MaxLat = 0, MaxLon = 0;
+  };
+
+  struct Tile {
+    int Z = 0, X = 0, Y = 0;
+    uint32_t FirstFeature = 0, FeatureCount = 0;
+    Data::TileSourceIdentity Source;
+  };
+
+  OsmField(int zoom, std::span<const std::string> layers);
+  ~OsmField();
+
+  [[nodiscard]] static std::expected<TileAt, std::string_view> Locate(LongitudeLatitude at,
+                                                                      int zoom) noexcept;
+
+  struct ParseBudget {
+    size_t TilesMost = std::numeric_limits<size_t>::max();
+  };
+
+  [[nodiscard]] std::expected<int, std::string_view>
+  Build(TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget);
+
+  [[nodiscard]] std::expected<int, std::string_view> Build(
+      TilePool &tiles, LongitudeLatitude at, int ringTiles, size_t tileBudget, ParseBudget parsing);
+
+  [[nodiscard]] static std::expected<OsmTileWindow, std::string_view>
+  SourceWindow(LongitudeLatitude at, int zoom, int ringTiles, size_t tileBudget);
+
+  struct BuildMetrics {
+    double FetchMs = 0.0;
+    double ParseMs = 0.0;
+    double LongestLayerMs = 0.0;
+    size_t LongestLayerIndex = 0;
+    double CapacityMs = 0.0;
+    double PublicationMs = 0.0;
+  };
+
+  [[nodiscard]] BuildMetrics LastBuildMetrics() const noexcept { return BuildMetrics_; }
+
+  [[nodiscard]] int CentreX() const { return CentreX_; }
+
+  [[nodiscard]] int CentreY() const { return CentreY_; }
+
+  [[nodiscard]] std::expected<int, std::string_view>
+  Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
+
+  struct Declared {
+    std::string Layer;
+    std::string Key;
+    std::string Value;
+    double WidthM = 0.0;
+    double HeightM = 0.0;
+    bool Area = false;
+    bool Bridge = false;
+    bool Tunnel = false;
+    int Level = 0;
+    std::vector<double> LatLon;
+  };
+
+  void Declare(std::span<const Declared> these, TileAt over);
+
+  [[nodiscard]] std::expected<void, std::string_view> Declare(std::span<const Declared> these,
+                                                              LongitudeLatitude at);
+
+  [[nodiscard]] int Zoom() const { return Zoom_; }
+
+  [[nodiscard]] long MissingLayers() const { return Missing_; }
+
+  [[nodiscard]] long BadTiles() const { return Bad_; }
+
+  [[nodiscard]] int PendingTiles() const {
+    return Pending_ + static_cast<int>(Assembly_ != nullptr) + static_cast<int>(WindowPending_);
+  }
+
+  [[nodiscard]] int RefusedTiles() const { return Refused_; }
+
+  [[nodiscard]] bool Settled(int x, int y) const;
+
+  [[nodiscard]] bool SettledWithin(int rings) const;
+
+  [[nodiscard]] int TileIndex(int x, int y) const;
+
+  [[nodiscard]] std::span<const Feature> OfTile(int index) const;
+
+  [[nodiscard]] std::span<const Feature> Features() const { return Features_; }
+
+  [[nodiscard]] std::span<const Ring> Rings() const { return Rings_; }
+
+  [[nodiscard]] std::span<const double> Points() const { return Points_; }
+
+  [[nodiscard]] std::span<const Tile> Tiles() const { return Tiles_; }
+
+  [[nodiscard]] uint64_t Generation() const { return Generation_; }
+
+  [[nodiscard]] const void *OriginToken() const noexcept { return OriginToken_.get(); }
+
+  [[nodiscard]] std::shared_ptr<const void> ShareOriginToken() const noexcept {
+    return OriginToken_;
+  }
+
+  [[nodiscard]] std::shared_ptr<const OsmField> SnapshotQueries() const;
+
+  [[nodiscard]] size_t KeyCount() const { return Keys_.size(); }
+
+  [[nodiscard]] std::string_view KeyAt(size_t at) const { return Keys_[at]; }
+
+  void Settle();
+
+  [[nodiscard]] size_t HeapBytes() const;
+
+  [[nodiscard]] int Layer(const char *name) const;
+
+  [[nodiscard]] int Layer(OsmLayer layer) const { return Layer(OsmLayerName(layer)); }
+
+  [[nodiscard]] std::string_view LayerName(int i) const { return Layers_[static_cast<size_t>(i)]; }
+
+  [[nodiscard]] double Num(const Feature &f, const char *key, double def) const;
+
+  [[nodiscard]] std::expected<std::optional<int32_t>, std::string_view>
+  Integer(const Feature &feature, std::string_view key) const;
+
+  [[nodiscard]] std::string_view Str(const Feature &f, const char *key) const;
+
+  [[nodiscard]] int Extent() const { return Extent_; }
+
+private:
+  int Extent_ = 4096;
+
+  int CentreX_ = 0, CentreY_ = 0;
+
+  struct Value {
+    double Num = 0.0;
+    uint32_t Str = 0;
+    bool IsNum = false;
+  };
+
+  static uint32_t Intern(std::vector<std::string> &pool,
+                         std::unordered_map<std::string, uint32_t> &index,
+                         std::string_view s);
+
+  struct Fetched {
+    bool Held = false;
+    int Added = 0;
+    bool Refused = false;
+    bool Parsed = false;
+  };
+
+  struct ParsedTile {
+    TileAt At;
+    std::vector<std::optional<MvtLayer>> Layers;
+    Data::TileSourceIdentity Source;
+  };
+
+  struct AssemblyState;
+
+  enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
+
+  [[nodiscard]] std::expected<Fetched, std::string_view> AddTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<int, std::string_view>
+  AddWindowTiles(TilePool &tiles, OsmTileWindow window, ParseBudget parsing);
+  [[nodiscard]] std::expected<void, std::string_view> PublishParsed(const ParsedTile *replacement,
+                                                                    std::optional<TileAt> contact);
+  [[nodiscard]] std::expected<void, std::string_view> PublishReady(TileAt centre);
+  [[nodiscard]] std::expected<bool, std::string_view> AdvanceAssembly();
+  [[nodiscard]] bool AppendParsedTile(const ParsedTile &tile, OsmStorageUsage &usage);
+  void CommitParsed(OsmField &rebuilt);
+  void AppendLayer(const MvtLayer &layer, uint16_t layerIndex);
+  void Settle(int x, int y);
+  void AppendDeclaredFeature(const Declared &one);
+  [[nodiscard]] bool MatchesDeclaredFeature(const Feature &feature, const Declared &input) const;
+  [[nodiscard]] bool MatchesDeclaration(std::span<const Declared> input, TileAt over) const;
+
+  std::vector<std::string> Layers_;
+  std::vector<ParsedTile> ParsedTiles_;
+  std::unique_ptr<AssemblyState> Assembly_;
+  SnapshotStage Stage_ = SnapshotStage::Empty;
+  size_t PublishedSettledTiles_ = 0;
+  std::vector<Feature> Features_;
+  std::vector<Ring> Rings_;
+  std::vector<double> Points_;
+  std::vector<Tile> Tiles_;
+  uint64_t Generation_ = 0;
+  std::shared_ptr<const uint8_t> OriginToken_ = std::make_shared<const uint8_t>(0);
+  std::vector<uint32_t> Tags_;
+  std::vector<std::string> Keys_;
+  std::vector<std::string> Strings_;
+  std::vector<Value> Values_;
+  std::unordered_map<std::string, uint32_t> KeyIndex_, StringIndex_;
+  std::vector<uint64_t> Settled_;
+  TilePool::Landing Scratch_;
+  BuildMetrics BuildMetrics_;
+  int Zoom_;
+  int RequestedRing_ = -1;
+  int Pending_ = -1;
+  bool WindowPending_ = false;
+  int Refused_ = 0;
+  long Missing_ = 0, Bad_ = 0;
+};
+
+}
+#endif

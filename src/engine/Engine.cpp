@@ -275,7 +275,7 @@ std::span<const DiagnosticSample> Engine::measures() const {
 }
 
 bool Engine::State::StructureCellsReady(uint32_t tile, LongitudeLatitude eye) const {
-  const Ground::OsmField *vectors = World.Stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = World.Stack.Vectors();
   const auto &footprints = World.Stack.Footprints();
   const auto *accepted = footprints.InputOfTile(tile);
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
@@ -291,7 +291,7 @@ bool Engine::State::StructureCellsReady(uint32_t tile, LongitudeLatitude eye) co
   return plan.Active;
 }
 
-bool Engine::State::StructuresReady(const Ground::BuildingField &footprints,
+bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingField &footprints,
                                     const GroundRevision &revision) const {
   if (revision.Quality == GroundQuality::Refined) {
     const LongitudeLatitude eye = CurrentGeographicFocus();
@@ -302,7 +302,7 @@ bool Engine::State::StructuresReady(const Ground::BuildingField &footprints,
   if (World.StructureBuilds.HasOriginal()) {
     return World.StructureBuilds.SourcesComplete(World.Stack, footprints);
   }
-  const Ground::OsmField *const vectors = World.Stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *const vectors = World.Stack.Vectors();
   if (vectors == nullptr) { return true; }
   const double tileSpanM = footprints.TileSpanM();
   const int rings =
@@ -517,7 +517,7 @@ Loading Engine::loading() const {
                            ? S_->World.AskedWanted - S_->World.AskedPending
                            : 0;
   if (!S_->World.Stack.Opened()) { return said; }
-  if (const Ground::OsmField *vectors = S_->World.Stack.Vectors();
+  if (const ::outshine::Generators::Osm::OsmField *vectors = S_->World.Stack.Vectors();
       vectors != nullptr && S_->World.Stack.HasVectorSource()) {
     said.VectorArrived = vectors->Tiles().size();
     const int pending = vectors->PendingTiles();

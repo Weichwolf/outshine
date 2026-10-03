@@ -29,7 +29,7 @@ int main() {
   Generators::BuildingMesh mesher;
 
   std::array<uint64_t, 3> digests{};
-  std::optional<Ground::BuildingField::Footprint> semantic;
+  std::optional<::outshine::Ground::BuildingFootprint> semantic;
   for (const LevelOfDetail detail :
        {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
     raw.RequestedDetail = detail;

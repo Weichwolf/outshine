@@ -23,7 +23,7 @@ int main() {
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
           "published world opens");
     Surrounds world;
-    Ground::BuildingField footprints;
+    ::outshine::Generators::Osm::BuildingField footprints;
     world.BindSceneResources(renderer);
     std::array<Render::HeightPageHandle, 3> pages;
     const std::vector<float> nodes(Render::GroundLattice::kPageNodes, 2.0f);

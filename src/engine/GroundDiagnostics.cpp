@@ -19,8 +19,8 @@
 namespace outshine::Core {
 
 void ReportBuildingFootprints(DiagnosticLedger &report,
-                              const Ground::BuildingField &footprints,
-                              const Ground::OsmField *vectors,
+                              const ::outshine::Generators::Osm::BuildingField &footprints,
+                              const ::outshine::Generators::Osm::OsmField *vectors,
                               const TangentFrame &frame) {
   constexpr double kGroundCellM = 25.0;
   const Vec3 &anchor = footprints.Anchor();

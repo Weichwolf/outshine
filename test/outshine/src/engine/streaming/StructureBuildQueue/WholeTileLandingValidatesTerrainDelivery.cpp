@@ -71,7 +71,7 @@ int main() {
                    1.0),
         "offline stack opens");
   if (!stack.Opened()) { return Report(); }
-  const std::array<OsmField::Declared, 1> buildings{{
+  const std::array<::outshine::Generators::Osm::OsmField::Declared, 1> buildings{{
       {.Layer = "buildings",
        .Key = "kind",
        .Value = "building",
@@ -82,7 +82,7 @@ int main() {
   stack.Declares(buildings);
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "declared building enters the vector snapshot");
-  const OsmField *vectors = stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   CHECK(vectors && vectors->Tiles().size() == 1 && !vectors->Rings().empty(),
         "one building tile is available");
   if (!vectors || vectors->Tiles().size() != 1 || vectors->Rings().empty()) { return Report(); }
@@ -94,7 +94,7 @@ int main() {
       std::span(vectors->Points().data() + 2u * ring.First, 2u * ring.Count));
   CHECK(cell && cell->Index != 0, "declared footprint has a stable spatial cell");
   if (!cell) { return Report(); }
-  BuildingField &prints = stack.Footprints();
+  ::outshine::Generators::Osm::BuildingField &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000);
   prints.SeenWith({.FocalPx = 720});
@@ -337,7 +337,7 @@ int main() {
   source.TerrainScope = 11;
   prints.ResetDerived();
   CHECK(post() == 1, "a fresh reservation is captured by its original field");
-  BuildingField successor = prints.SnapshotAccepted();
+  ::outshine::Generators::Osm::BuildingField successor = prints.SnapshotAccepted();
   CHECK(successor.ReservationOwner() != prints.ReservationOwner() && successor.IngestedTiles() == 0,
         "successor snapshot drops pending reservations and gets its own owner");
   successor.Take(0);

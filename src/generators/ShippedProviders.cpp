@@ -78,11 +78,12 @@ public:
       return std::unexpected(
           "a vector-tile fixture requires an explicit dataset and endpoint; no default exists");
     }
-    return std::make_unique<Data::VectorTileSource>(provider.Revision,
-                                                    static_cast<Data::Rank>(provider.Priority),
-                                                    provider.Missing,
-                                                    provider.Dataset,
-                                                    provider.Endpoint);
+    return std::make_unique<::outshine::Generators::Osm::VectorTileSource>(
+        provider.Revision,
+        static_cast<Data::Rank>(provider.Priority),
+        provider.Missing,
+        provider.Dataset,
+        provider.Endpoint);
   }
 };
 

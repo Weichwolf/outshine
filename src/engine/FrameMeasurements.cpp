@@ -173,7 +173,8 @@ void Engine::State::PublishAdvanceMeasurements() {
         "worst vector restand: publication", restand.VectorBuild.PublicationMs, "ms");
     Published.RecordMetric("worst tile restand: streets", restand.StreetsMs, "ms");
     Published.RecordMetric("worst tile restand: water", restand.WaterMs, "ms");
-    const Ground::WaterField::IngestMetrics &water = World.Stack.WaterBodies().WorstIngest();
+    const ::outshine::Generators::Osm::WaterField::IngestMetrics &water =
+        World.Stack.WaterBodies().WorstIngest();
     Published.RecordMetric("worst water ingest: total", water.TotalMs, "ms");
     Published.RecordMetric("worst water ingest: tile admission", water.AdmissionMs, "ms");
     Published.RecordMetric("worst water ingest: height validation", water.ValidationMs, "ms");

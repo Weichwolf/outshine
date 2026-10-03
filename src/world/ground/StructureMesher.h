@@ -14,6 +14,7 @@
 #include <scene/LevelOfDetail.h>
 
 #include "StoredVertex.h"
+#include "BuildingFrontage.h"
 #include "GeographicRing.h"
 #include "TileMeshes.h"
 
@@ -57,16 +58,6 @@ struct WayLine {
   double MinLat = 0.0, MinLon = 0.0, MaxLat = 0.0, MaxLon = 0.0;
 };
 
-struct Frontage {
-  bool Known = false;
-
-  double KerbEm = 0.0, KerbNm = 0.0;
-  double AlongE = 0.0, AlongN = 0.0;
-  double ToStreetE = 0.0, ToStreetN = 0.0;
-
-  [[nodiscard]] bool operator==(const Frontage &) const noexcept = default;
-};
-
 inline constexpr double kPitchedShareUnknown = -1.0;
 
 struct StructurePlan {
@@ -83,7 +74,7 @@ struct StructurePlan {
   double HeightM = 0.0;
   double MinimumHeightM = 0.0;
   bool HeightMeasured = false;
-  Frontage Street;
+  BuildingFrontage Street;
 
   Vec3 AnchorEcef;
 

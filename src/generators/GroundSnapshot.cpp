@@ -33,7 +33,7 @@ std::shared_ptr<const GroundTable> TableOf(const outshine::Ground::VegetationTem
 namespace {
 
 bool Intersects(const Tile &region,
-                const outshine::Ground::BuildingField::Footprint &footprint,
+                const ::outshine::Ground::BuildingFootprint &footprint,
                 std::span<const double> coordinates) {
   double west = std::numeric_limits<double>::infinity();
   double south = west;
@@ -132,8 +132,9 @@ public:
       FeatureField::Feature feature{};
       feature.CoverRow = way.CoverRow;
       feature.Kind = FeatureKind::Way;
-      feature.Form = way.Form == outshine::Ground::StreetField::Shape::Ribbon ? FeatureForm::Ribbon
-                                                                              : FeatureForm::Area;
+      feature.Form = way.Form == ::outshine::Generators::Osm::StreetField::Shape::Ribbon
+                         ? FeatureForm::Ribbon
+                         : FeatureForm::Area;
       feature.HalfWidthM = way.HalfWidthM;
       Take(feature, {.First = way.FirstPoint, .Count = way.PointCount}, points);
     }

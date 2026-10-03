@@ -235,7 +235,7 @@ public:
 
   GroundBuildState(Render::SceneRenderer &renderer,
                    const Surrounds &world,
-                   const Ground::BuildingField &footprints,
+                   const ::outshine::Generators::Osm::BuildingField &footprints,
                    Around coverage,
                    GroundRevision revision,
                    uint64_t id)
@@ -386,7 +386,7 @@ public:
 
   [[nodiscard]] double LongestPressingSliceMs() const noexcept { return LongestPressingSliceMs_; }
 
-  [[nodiscard]] Ground::BuildingField &Footprints() noexcept {
+  [[nodiscard]] ::outshine::Generators::Osm::BuildingField &Footprints() noexcept {
     return Candidate_.Products().Footprints;
   }
 
@@ -979,14 +979,14 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
 }
 
 namespace {
-void AppendWaterBasinStamps(const Ground::WaterField &water,
+void AppendWaterBasinStamps(const ::outshine::Generators::Osm::WaterField &water,
                             std::span<const double> points,
                             const TangentFrame &standing,
                             std::vector<EarthworkStamp> &yielding) {
   std::vector<std::pair<uint32_t, EarthworkStamp>> ordered;
   ordered.reserve(water.Surfaces().size());
-  for (const Ground::WaterField::Surface &lake : water.Surfaces()) {
-    const Ground::WaterField::SurfaceRing &ring = water.RingsOf(lake).front();
+  for (const ::outshine::Generators::Osm::WaterField::Surface &lake : water.Surfaces()) {
+    const ::outshine::Generators::Osm::WaterField::SurfaceRing &ring = water.RingsOf(lake).front();
     if ((static_cast<size_t>(ring.FirstPoint) + ring.PointCount) * 2u > points.size()) { continue; }
     EarthworkStamp made;
     made.RingEastNorthM.reserve(static_cast<size_t>(ring.PointCount) * 2u);
@@ -1025,7 +1025,8 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
     made.Kind = EarthworkKind::Basin;
     made.SeamEastNorthM = made.RingEastNorthM;
     bool complete = true;
-    for (const Ground::WaterField::SurfaceRing &hole : water.RingsOf(lake).subspan(1)) {
+    for (const ::outshine::Generators::Osm::WaterField::SurfaceRing &hole :
+         water.RingsOf(lake).subspan(1)) {
       if ((static_cast<size_t>(hole.FirstPoint) + hole.PointCount) * 2u > points.size()) {
         complete = false;
         break;
@@ -1050,8 +1051,8 @@ void AppendWaterBasinStamps(const Ground::WaterField &water,
   for (auto &entry : ordered) { yielding.push_back(std::move(entry.second)); }
 }
 
-[[nodiscard]] bool SameVectorRevision(const Ground::OsmField *pinned,
-                                      const Ground::OsmField *live,
+[[nodiscard]] bool SameVectorRevision(const ::outshine::Generators::Osm::OsmField *pinned,
+                                      const ::outshine::Generators::Osm::OsmField *live,
                                       uint64_t generation) noexcept {
   if (pinned == nullptr || live == nullptr) { return pinned == live; }
   return pinned->OriginToken() == live->OriginToken() &&
@@ -1097,8 +1098,9 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           GroundBuildState &state) {
   const auto sliceAt = std::chrono::steady_clock::now();
   if (state.Pressing() == nullptr) {
-    const Ground::OsmField *const live = World.Stack.Vectors();
-    const Ground::OsmField *const shapes = state.Candidate().Sources().Vectors.get();
+    const ::outshine::Generators::Osm::OsmField *const live = World.Stack.Vectors();
+    const ::outshine::Generators::Osm::OsmField *const shapes =
+        state.Candidate().Sources().Vectors.get();
     if (!SameVectorRevision(shapes, live, state.Revision().VectorGeneration)) {
       World.GroundBuild.reset();
       return true;
@@ -1119,7 +1121,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                     std::make_move_iterator(roadEarthworks.end()));
     if (shapes != nullptr) {
       uint64_t tileOrder = kDigestBasis;
-      for (const Ground::OsmField::Tile &tile : shapes->Tiles()) {
+      for (const ::outshine::Generators::Osm::OsmField::Tile &tile : shapes->Tiles()) {
         tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.X)) * kDigestPrime;
         tileOrder = (tileOrder ^ static_cast<uint32_t>(tile.Y)) * kDigestPrime;
       }
@@ -1198,11 +1200,11 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
 }
 
 bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
-                                       const Ground::RegionSources &sources,
+                                       const ::outshine::Generators::Osm::RegionSources &sources,
                                        Geometry &ground) {
   const auto waterAt = std::chrono::steady_clock::now();
-  const Ground::WaterField &water = sources.WaterBodies;
-  const Ground::OsmField *const vectors = sources.Vectors.get();
+  const ::outshine::Generators::Osm::WaterField &water = sources.WaterBodies;
+  const ::outshine::Generators::Osm::OsmField *const vectors = sources.Vectors.get();
   const std::span<const double> points =
       vectors != nullptr ? vectors->Points() : std::span<const double>{};
   if (water.Surfaces().empty()) { return true; }
@@ -1312,8 +1314,9 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
 }
 
 namespace {
-const Ground::OsmField *HeightCoverageVectors(GroundQuality quality,
-                                              const Ground::OsmField *vectors) noexcept {
+const ::outshine::Generators::Osm::OsmField *
+HeightCoverageVectors(GroundQuality quality,
+                      const ::outshine::Generators::Osm::OsmField *vectors) noexcept {
   return quality == GroundQuality::Refined ? vectors : nullptr;
 }
 }
@@ -1566,7 +1569,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   if (state.CurrentStage() != Core::GroundBuildSchedule::Stage::NeedsNetwork) {
     return GroundBuildProgress::Ready;
   }
-  const Ground::RegionSources &sources = state.Candidate().Sources();
+  const ::outshine::Generators::Osm::RegionSources &sources = state.Candidate().Sources();
   GroundBuildProducts &build = state.Candidate().Products();
   const std::optional<GroundRevision> &publishedRevision = World.GroundPublished.Current();
   const GroundRevision &requestedRevision = state.Revision();
@@ -1760,7 +1763,7 @@ size_t Engine::State::StructureCandidatesMost() const noexcept {
              : kRefinedStructureCandidates;
 }
 
-Ground::BuildingField *Engine::State::CandidateFootprints() const noexcept {
+::outshine::Generators::Osm::BuildingField *Engine::State::CandidateFootprints() const noexcept {
   return World.GroundBuild ? &World.GroundBuild->Footprints() : nullptr;
 }
 
@@ -1917,7 +1920,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   };
   std::vector<EarthworkStamp> corridors;
   std::vector<DiagnosticSample> notes;
-  const Ground::RegionSources &sources = state.Candidate().Sources();
+  const ::outshine::Generators::Osm::RegionSources &sources = state.Candidate().Sources();
   const Generators::Corridors::Site site{.Vectors = sources.Vectors.get(),
                                          .Ways = sources.Ways,
                                          .Materials = World.Stack.Materials(),
@@ -1964,7 +1967,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   }
   if (fieldMisses > 0) {
     if (firstFieldMiss) {
-      const Ground::OsmField *const shapes = sources.Vectors.get();
+      const ::outshine::Generators::Osm::OsmField *const shapes = sources.Vectors.get();
       const int vectorZoom =
           shapes != nullptr && !shapes->Tiles().empty() ? shapes->Tiles().front().Z : -1;
       Error = std::format("{}: east {:.3f} m, north {:.3f} m, {} misses, sheet zoom {}, "

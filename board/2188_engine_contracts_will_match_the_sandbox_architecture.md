@@ -16,9 +16,10 @@ Double-Welt und kamera-relative GPU-Daten bestehen. ProjectedErrorBudget ist vor
 Abstands-/Produktschranken und zustandsbehaftete Generatorintegration fehlen.
 Source.DecodeElevation liefert native HeightRaster; Provider besitzt WebP-Dekodierung,
 Terrain übernimmt den Samplespeicher. Legacy-PNG/COG-Decode bleibt zu migrieren.
-Konkrete MVT/Copernicus-Typen liegen noch in world/data, WeatherProvider in world/weather;
-SourceAcquisition/OSM-Import liegen bereits unter generators/osm. Engine koppelt weiter
-konkrete Pipelines, native StructureBake-Pfade umgehen den allgemeinen Lebenszyklus.
+MVT-Decoder/Vektorquelle und OSM-Felder gehören zu generators/osm; native BuildingFootprint
+trennt den Gebäude-Baker vom OSM-Eingabespeicher. Copernicus-Typen liegen noch in world/data,
+WeatherProvider in world/weather. Engine und Terrain-/Straßen-/Wasseradapter koppeln weiter
+konkrete Felder; native StructureBake-Pfade umgehen den allgemeinen Lebenszyklus.
 
 ## Besitzer und Datenfluss
 | Besitzer | Vertrag / Grenze |

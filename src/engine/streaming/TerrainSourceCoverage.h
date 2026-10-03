@@ -9,16 +9,17 @@
 
 #include <world/data/Address.h>
 
-namespace outshine {
-namespace Ground {
+namespace outshine::Generators::Osm {
 class OsmField;
 }
+
+namespace outshine {
 
 struct TerrainSourceCoverage {
   static constexpr size_t MaximumFields = 8192;
   int FinestZoom = 0;
   int GroundZoom = -1;
-  const Ground::OsmField *Vectors = nullptr;
+  const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
   std::span<const Data::TileId> AdditionalTiles;
   size_t MaximumTiles = MaximumFields;
 };

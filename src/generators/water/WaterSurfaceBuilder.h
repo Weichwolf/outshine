@@ -27,7 +27,7 @@ struct WaterSurfaceMetrics {
 [[nodiscard]] std::expected<WaterSurfaceMetrics, std::string>
 AppendWaterSurfaceGeometry(Geometry &geometry,
                            MaterialInstance material,
-                           const outshine::Ground::WaterField &water,
+                           const ::outshine::Generators::Osm::WaterField &water,
                            std::span<const double> geographicPoints,
                            const TangentFrame &frame);
 

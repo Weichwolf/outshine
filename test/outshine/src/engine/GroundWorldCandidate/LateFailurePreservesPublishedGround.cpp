@@ -52,14 +52,15 @@ int main() {
           "initial world opens");
     if (scene) {
       Surrounds world;
-      Ground::BuildingField footprints;
+      ::outshine::Generators::Osm::BuildingField footprints;
       world.BindSceneResources(renderer);
       world.GroundPositionsM = {1, 2, 3};
       world.GroundIndex = {0};
       world.StreetGraphWayCount = 7;
       world.RimsMissing = 2;
-      const auto oldRegion = std::make_shared<const Ground::PublishedRegion>(
-          Ground::RegionSources{}, Ground::BuildingField{});
+      const auto oldRegion = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
+          ::outshine::Generators::Osm::RegionSources{},
+          ::outshine::Generators::Osm::BuildingField{});
       world.Region = oldRegion;
       const GroundRevision oldRevision{.Region = 17};
       const GroundRevision nextRevision{.Region = 18};

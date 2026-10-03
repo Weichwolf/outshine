@@ -74,7 +74,7 @@ constexpr auto kBudgetRefusal = "terrain source coverage exceeds its tile budget
   return std::unexpected(kBudgetRefusal);
 }
 
-[[nodiscard]] bool ValidBounds(const Ground::OsmField::Feature &feature) {
+[[nodiscard]] bool ValidBounds(const ::outshine::Generators::Osm::OsmField::Feature &feature) {
   return std::isfinite(feature.MinLon) && std::isfinite(feature.MaxLon) &&
          std::isfinite(feature.MinLat) && std::isfinite(feature.MaxLat) &&
          feature.MinLat >= -kPoleLatitudeDeg && feature.MaxLat <= kPoleLatitudeDeg &&
@@ -89,7 +89,7 @@ constexpr auto kBudgetRefusal = "terrain source coverage exceeds its tile budget
 }
 
 [[nodiscard]] PlanResult AddBuilding(TilePlan &plan,
-                                     const Ground::OsmField::Feature &feature,
+                                     const ::outshine::Generators::Osm::OsmField::Feature &feature,
                                      TerrainSourceCoverage coverage) {
   if (!ValidBounds(feature)) { return std::unexpected("building height bounds are invalid"); }
   const uint32_t side = uint32_t{1} << static_cast<uint32_t>(coverage.FinestZoom);
@@ -134,8 +134,9 @@ AddSources(TilePlan &plan, std::span<const Data::TileId> sources, TerrainSourceC
   return {};
 }
 
-[[nodiscard]] PlanResult
-AddVectors(TilePlan &plan, const Ground::OsmField &vectors, TerrainSourceCoverage coverage) {
+[[nodiscard]] PlanResult AddVectors(TilePlan &plan,
+                                    const ::outshine::Generators::Osm::OsmField &vectors,
+                                    TerrainSourceCoverage coverage) {
   for (const auto &tile : vectors.Tiles()) {
     Data::TileId source{
         .Zoom = tile.Z, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)};
@@ -145,7 +146,7 @@ AddVectors(TilePlan &plan, const Ground::OsmField &vectors, TerrainSourceCoverag
     source = {.Zoom = zoom, .X = source.X >> drop, .Y = source.Y >> drop};
     if (!plan.Neighbours(source)) { return BudgetExceeded(); }
   }
-  const int buildings = vectors.Layer(Ground::OsmLayer::Buildings);
+  const int buildings = vectors.Layer(::outshine::Generators::Osm::OsmLayer::Buildings);
   for (const auto &feature : vectors.Features()) {
     if (feature.Type != kPolygonFeature || std::cmp_not_equal(feature.Layer, buildings)) {
       continue;

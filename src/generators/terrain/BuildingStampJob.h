@@ -18,8 +18,8 @@ namespace outshine::Generators {
 class BuildingStampJob {
 public:
   struct Work {
-    const Ground::BuildingField *Products = nullptr;
-    std::span<const Ground::BuildingField::Footprint> Footprints;
+    const ::outshine::Generators::Osm::BuildingField *Products = nullptr;
+    std::span<const ::outshine::Ground::BuildingFootprint> Footprints;
     std::span<const double> Points;
     std::span<const GeographicRing> Rings;
     uint64_t VectorGeneration = 0;
@@ -50,7 +50,7 @@ private:
     return Geometry_ != nullptr ? std::span<const GeographicRing>(Geometry_->Rings) : work.Rings;
   }
 
-  const Ground::BuildingField *Products_ = nullptr;
+  const ::outshine::Generators::Osm::BuildingField *Products_ = nullptr;
   const Ground::BuildingGeometry *Geometry_ = nullptr;
   TangentFrame Frame_;
   uint64_t VectorGeneration_ = 0;

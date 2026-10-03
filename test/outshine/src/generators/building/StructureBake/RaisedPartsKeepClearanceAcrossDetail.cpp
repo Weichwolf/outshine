@@ -73,7 +73,8 @@ int main() {
     const auto baked = BakeStructures(raw, *heights, mesher, *scratch, product);
     const bool measured = origin == outshine::Ground::BuildingHeightOrigin::Declared;
     CHECK(baked && product.Prints.size() == 1 && product.Prints[0].HeightM == 5 &&
-              (product.Prints[0].Source == Ground::BuildingField::HeightSource::Osm) == measured &&
+              (product.Prints[0].Source == ::outshine::Ground::BuildingHeightSource::Declared) ==
+                  measured &&
               product.OsmHeights == (measured ? 1 : 0) &&
               product.DefaultHeights == (measured ? 0 : 1),
           "resolved five-metre heights bypass tile-default inference without losing provenance");

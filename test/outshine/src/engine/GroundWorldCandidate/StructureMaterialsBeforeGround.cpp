@@ -19,7 +19,7 @@ int main() {
         "empty initial world opens");
   if (scene) {
     Surrounds world;
-    Ground::BuildingField footprints;
+    ::outshine::Generators::Osm::BuildingField footprints;
     world.BindSceneResources(renderer);
     Geometry ground;
     const auto earth = ground.addSurface("earth", Material{});

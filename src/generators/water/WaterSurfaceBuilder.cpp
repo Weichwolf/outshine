@@ -56,7 +56,7 @@ double TriangleAreaM2(const WaterVertex &a, const WaterVertex &b, const WaterVer
 }
 
 std::optional<WaterPolygon>
-ReadWaterPolygon(std::span<const outshine::Ground::WaterField::SurfaceRing> sourceRings,
+ReadWaterPolygon(std::span<const ::outshine::Generators::Osm::WaterField::SurfaceRing> sourceRings,
                  std::span<const double> geographicPoints,
                  float levelM,
                  const TangentFrame &frame) {
@@ -135,7 +135,7 @@ Material WaterSurfaceMaterial() noexcept {
 std::expected<WaterSurfaceMetrics, std::string>
 AppendWaterSurfaceGeometry(Geometry &geometry,
                            MaterialInstance material,
-                           const outshine::Ground::WaterField &water,
+                           const ::outshine::Generators::Osm::WaterField &water,
                            std::span<const double> geographicPoints,
                            const TangentFrame &frame) {
   WaterSurfaceMetrics metrics;
@@ -143,7 +143,7 @@ AppendWaterSurfaceGeometry(Geometry &geometry,
   std::vector<float> normals;
   std::vector<float> texcoords;
   std::vector<uint32_t> indices;
-  std::vector<const Ground::WaterField::Surface *> orderedSurfaces;
+  std::vector<const ::outshine::Generators::Osm::WaterField::Surface *> orderedSurfaces;
   orderedSurfaces.reserve(water.Surfaces().size());
   for (const auto &surface : water.Surfaces()) { orderedSurfaces.push_back(&surface); }
   std::ranges::sort(orderedSurfaces, {}, [&water](const auto *surface) {

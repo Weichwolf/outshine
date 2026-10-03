@@ -19,10 +19,10 @@ namespace outshine::Generators {
 enum class Snapped { Taken, Waiting, NoGround };
 
 struct Fields {
-  const outshine::Ground::OsmField *Vectors = nullptr;
-  const outshine::Ground::BuildingField *Footprints = nullptr;
-  const outshine::Ground::WaterField *WaterBodies = nullptr;
-  const outshine::Ground::StreetField *Ways = nullptr;
+  const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
+  const ::outshine::Generators::Osm::BuildingField *Footprints = nullptr;
+  const ::outshine::Generators::Osm::WaterField *WaterBodies = nullptr;
+  const ::outshine::Generators::Osm::StreetField *Ways = nullptr;
   int BuiltRow = -1;
   int WetRow = -1;
 };

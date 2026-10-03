@@ -4,7 +4,7 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  Ground::BuildingField::AcceptedInput source;
+  ::outshine::Generators::Osm::BuildingField::AcceptedInput source;
   source.Qualified = true;
   source.OccupiedCells = 3;
   source.Bake.TileSpanM = 1000;

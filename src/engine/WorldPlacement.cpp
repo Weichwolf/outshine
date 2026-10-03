@@ -55,7 +55,7 @@ InstancePlacementInputs PlacementInputs(const Surrounds &world,
 }
 
 bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
-  const Ground::OsmField *const vectors = GenerationFields(World).Vectors;
+  const ::outshine::Generators::Osm::OsmField *const vectors = GenerationFields(World).Vectors;
   Published.RecordMetric(
       "generators: bodies already placed", static_cast<double>(World.Placed), "bodies");
   Published.RecordMetric(
@@ -74,7 +74,7 @@ bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
 bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
                                                LevelOfDetail coarseness) {
   const Generators::Fields stands = GenerationFields(World);
-  const Ground::OsmField *const vectors = stands.Vectors;
+  const ::outshine::Generators::Osm::OsmField *const vectors = stands.Vectors;
   if (vectors == nullptr) { return false; }
   const auto classes = World.Stack.Classes().Read();
   const auto inputs = PlacementInputs(World, region, coarseness, stands, classes);

@@ -30,7 +30,7 @@ struct StructureCellPlan {
 
 [[nodiscard]] inline StructureCellPlan
 PlanStructureCells(uint32_t tile,
-                   const Ground::BuildingField::AcceptedInput &source,
+                   const ::outshine::Generators::Osm::BuildingField::AcceptedInput &source,
                    uint64_t sourceKey,
                    LongitudeLatitude eye,
                    ProjectedErrorBudget projection,

@@ -52,8 +52,8 @@ int main() {
         "existing street rules are available");
   if (!templates.Ready()) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};
-  OsmField field(14, layers);
-  const std::array<OsmField::Declared, 2> roads{
+  ::outshine::Generators::Osm::OsmField field(14, layers);
+  const std::array<::outshine::Generators::Osm::OsmField::Declared, 2> roads{
       {{.Layer = "streets", .Key = "kind", .Value = "path", .LatLon = {47, 9, 47, 9.002}},
        {.Layer = "streets",
         .Key = "kind",
@@ -61,7 +61,7 @@ int main() {
         .LatLon = {46.999, 9.001, 47.001, 9.001}}}};
   CHECK(field.Declare(roads, {.LongitudeDeg = 9, .LatitudeDeg = 47}).has_value(),
         "two crossing street inputs are declared");
-  StreetField streets;
+  ::outshine::Generators::Osm::StreetField streets;
   CHECK(streets.Ingest(field, templates) == 2, "both native streets are ingested");
   const auto heightOf = [](LongitudeLatitude) { return std::optional<double>(100); };
   const auto oracle = StreetGraphBuilder::BuildOneShot(streets, field.Points(), heightOf);

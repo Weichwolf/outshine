@@ -9,10 +9,10 @@ int main() {
   CHECK(StructureBuildQueue::kCandidateWindow == 4,
         "structure admission keeps the measured four-candidate window across hardware sizes");
   const std::array<std::string, 1> layers{"building"};
-  Ground::OsmField vectors(14, layers);
-  const std::array<Ground::OsmField::Declared, 0> noFeatures;
+  ::outshine::Generators::Osm::OsmField vectors(14, layers);
+  const std::array<::outshine::Generators::Osm::OsmField::Declared, 0> noFeatures;
   vectors.Declare(noFeatures, {.X = 18, .Y = 27});
-  Ground::BuildingField footprints;
+  ::outshine::Generators::Osm::BuildingField footprints;
   CHECK(!footprints.Anchored(), "a default footprint field refuses bake admission");
   footprints.AnchorAt({{0, 0, 0}});
   CHECK(footprints.Anchored(), "an anchored field admits bake scheduling");

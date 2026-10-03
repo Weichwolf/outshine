@@ -14,7 +14,7 @@ int main() {
   baked.AcrossM.reserve(13);
   const size_t expected =
       baked.Built.HeapBytes() + baked.Walls.HeapBytes() + baked.Roofs.HeapBytes() +
-      baked.Prints.capacity() * sizeof(Ground::BuildingField::Footprint) +
+      baked.Prints.capacity() * sizeof(::outshine::Ground::BuildingFootprint) +
       baked.FootprintDetails.capacity() * sizeof(LevelOfDetail) +
       baked.SeatSpreadM.capacity() * sizeof(double) + baked.AcrossM.capacity() * sizeof(double);
   CHECK(baked.HeapBytes() == expected, "baked structure products count each owned capacity once");

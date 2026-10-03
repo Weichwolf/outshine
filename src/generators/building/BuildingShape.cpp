@@ -697,12 +697,12 @@ int RowCut(const FootprintPiece &whole,
   return made;
 }
 
-double DistanceToKerb(const Frontage &street, const EastNorth &p) {
+double DistanceToKerb(const BuildingFrontage &street, const EastNorth &p) {
   return (p.EastM - street.KerbEm) * street.ToStreetE +
          (p.NorthM - street.KerbNm) * street.ToStreetN;
 }
 
-void FaceTheStreet(BuildingShape *s, const Frontage &street) {
+void FaceTheStreet(BuildingShape *s, const BuildingFrontage &street) {
   if (!street.Known || !s->OnGround()) { return; }
   const size_t n = s->Ring.size();
   double best = kFrontLeastLook;
@@ -814,7 +814,7 @@ void StackDeep(Order order, BuildingScratch &scratch) {
 std::expected<std::span<BuildingShape>, StructureMeshError>
 MassOf(std::span<const double> ringLatLon,
        Order order,
-       const Frontage &street,
+       const BuildingFrontage &street,
        BuildingScratch &scratch,
        std::span<const GeographicRing> innerRings,
        std::span<const double> ringPointsLatLon) {

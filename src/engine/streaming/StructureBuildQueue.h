@@ -72,8 +72,8 @@ public:
     bool FallbackHeights = false;
     const Data::SourceObjects *InputObjects = nullptr;
 
-    [[nodiscard]] bool Matches(const Ground::OsmField *vectors,
-                               const Ground::BuildingField &footprints,
+    [[nodiscard]] bool Matches(const ::outshine::Generators::Osm::OsmField *vectors,
+                               const ::outshine::Generators::Osm::BuildingField &footprints,
                                LongitudeLatitude eye,
                                HeightSourceRevision heightSource,
                                HeightRequirement heights = HeightRequirement::AllowFallback,
@@ -81,8 +81,8 @@ public:
                                BuildPurpose purpose = BuildPurpose::ViewDetail,
                                const Data::SourceObjects *inputObjects = nullptr) const noexcept;
 
-    [[nodiscard]] bool Matches(const Ground::OsmField &vectors,
-                               const Ground::BuildingField &footprints,
+    [[nodiscard]] bool Matches(const ::outshine::Generators::Osm::OsmField &vectors,
+                               const ::outshine::Generators::Osm::BuildingField &footprints,
                                LongitudeLatitude eye,
                                HeightSourceRevision heightSource,
                                HeightRequirement heights = HeightRequirement::AllowFallback,
@@ -92,8 +92,8 @@ public:
     }
 
     [[nodiscard]] bool
-    OwnsReservation(const Ground::OsmField *vectors,
-                    const Ground::BuildingField &footprints,
+    OwnsReservation(const ::outshine::Generators::Osm::OsmField *vectors,
+                    const ::outshine::Generators::Osm::BuildingField &footprints,
                     LongitudeLatitude eye,
                     HeightSourceRevision heightSource,
                     const Data::SourceObjects *inputObjects = nullptr) const noexcept {
@@ -106,8 +106,8 @@ public:
              TileSpanM == footprints.TileSpanM();
     }
 
-    [[nodiscard]] bool OwnsReservation(const Ground::OsmField &vectors,
-                                       const Ground::BuildingField &footprints,
+    [[nodiscard]] bool OwnsReservation(const ::outshine::Generators::Osm::OsmField &vectors,
+                                       const ::outshine::Generators::Osm::BuildingField &footprints,
                                        LongitudeLatitude eye,
                                        HeightSourceRevision heightSource) const noexcept {
       return OwnsReservation(&vectors, footprints, eye, heightSource);
@@ -130,7 +130,7 @@ public:
   };
 
   [[nodiscard]] size_t Posts(Ground::SurfacePreparation &stack,
-                             Ground::BuildingField &footprints,
+                             ::outshine::Generators::Osm::BuildingField &footprints,
                              LongitudeLatitude eye,
                              const HeightSource &heightAt,
                              size_t candidatesMost,
@@ -147,25 +147,27 @@ public:
   };
 
   [[nodiscard]] static std::optional<uint64_t>
-  QualifiedSourceKey(const Ground::BuildingField &footprints, uint32_t tile);
-  [[nodiscard]] static CellSourceState InspectCellSource(const Ground::SurfacePreparation &stack,
-                                                         const Ground::BuildingField &footprints,
-                                                         const HeightSource &heightAt,
-                                                         uint32_t tile,
-                                                         uint64_t sourceKey);
-  [[nodiscard]] static bool ValidateResidentCellSource(const Ground::SurfacePreparation &stack,
-                                                       const Ground::BuildingField &footprints,
-                                                       const HeightSource &heightAt,
-                                                       uint32_t tile,
-                                                       uint64_t sourceKey);
+  QualifiedSourceKey(const ::outshine::Generators::Osm::BuildingField &footprints, uint32_t tile);
+  [[nodiscard]] static CellSourceState
+  InspectCellSource(const Ground::SurfacePreparation &stack,
+                    const ::outshine::Generators::Osm::BuildingField &footprints,
+                    const HeightSource &heightAt,
+                    uint32_t tile,
+                    uint64_t sourceKey);
+  [[nodiscard]] static bool
+  ValidateResidentCellSource(const Ground::SurfacePreparation &stack,
+                             const ::outshine::Generators::Osm::BuildingField &footprints,
+                             const HeightSource &heightAt,
+                             uint32_t tile,
+                             uint64_t sourceKey);
   [[nodiscard]] bool PostsCell(Ground::SurfacePreparation &stack,
-                               Ground::BuildingField &footprints,
+                               ::outshine::Generators::Osm::BuildingField &footprints,
                                LongitudeLatitude eye,
                                const HeightSource &heightAt,
                                CellRequest request);
 
   [[nodiscard]] size_t PostsCells(Ground::SurfacePreparation &stack,
-                                  Ground::BuildingField &footprints,
+                                  ::outshine::Generators::Osm::BuildingField &footprints,
                                   LongitudeLatitude eye,
                                   const HeightSource &heightAt,
                                   std::span<const CellRequest> requests);
@@ -175,12 +177,12 @@ public:
     const Generators::BakedTile *Baked = nullptr;
     Vec3 AnchorEcef;
     uint64_t SourceKey = 0;
-    std::optional<Ground::BuildingField::PendingAcceptance> Footprints;
+    std::optional<::outshine::Generators::Osm::BuildingField::PendingAcceptance> Footprints;
   };
 
   [[nodiscard]] std::expected<std::vector<Landing>, Generators::StructureBakeError>
   NextLandings(Ground::SurfacePreparation &stack,
-               Ground::BuildingField &footprints,
+               ::outshine::Generators::Osm::BuildingField &footprints,
                LongitudeLatitude eye,
                const HeightSource &heightAt,
                size_t most,
@@ -189,12 +191,12 @@ public:
                BuildPurpose purpose = BuildPurpose::ViewDetail);
   [[nodiscard]] std::expected<std::optional<Landing>, Generators::StructureBakeError>
   NextCellLanding(const Ground::SurfacePreparation &stack,
-                  const Ground::BuildingField &footprints,
+                  const ::outshine::Generators::Osm::BuildingField &footprints,
                   const HeightSource &heightAt);
   void CommitsCellLanding(const Landing &landing) noexcept;
   void ResumeCompletedTasks();
   void CommitsLandings(Ground::SurfacePreparation &stack,
-                       Ground::BuildingField &footprints,
+                       ::outshine::Generators::Osm::BuildingField &footprints,
                        std::span<Landing> landings) noexcept;
   void Clear();
 
@@ -210,13 +212,15 @@ public:
   [[nodiscard]] bool CellQueued(CellRequest request) const noexcept;
 
   [[nodiscard]] bool Complete(const Ground::SurfacePreparation &stack,
-                              const Ground::BuildingField &footprints,
+                              const ::outshine::Generators::Osm::BuildingField &footprints,
                               LongitudeLatitude eye,
                               const std::function<bool(uint32_t)> &cellReady = {}) const;
-  [[nodiscard]] bool SourcesComplete(const Ground::SurfacePreparation &stack,
-                                     const Ground::BuildingField &footprints) const;
-  [[nodiscard]] static bool QualifiedSources(const Ground::SurfacePreparation &stack,
-                                             const Ground::BuildingField &footprints);
+  [[nodiscard]] bool
+  SourcesComplete(const Ground::SurfacePreparation &stack,
+                  const ::outshine::Generators::Osm::BuildingField &footprints) const;
+  [[nodiscard]] static bool
+  QualifiedSources(const Ground::SurfacePreparation &stack,
+                   const ::outshine::Generators::Osm::BuildingField &footprints);
 
   [[nodiscard]] size_t Posted() const { return Posted_; }
 
@@ -271,7 +275,7 @@ public:
 
 private:
   [[nodiscard]] size_t PostsVectors(Ground::SurfacePreparation &stack,
-                                    Ground::BuildingField &prints,
+                                    ::outshine::Generators::Osm::BuildingField &prints,
                                     LongitudeLatitude eye,
                                     const HeightSource &heightAt,
                                     size_t candidatesMost,
@@ -281,7 +285,7 @@ private:
                                     const std::function<bool(uint32_t)> &cellReady);
   [[nodiscard]] size_t PostsOriginal(uint32_t tile,
                                      Ground::SurfacePreparation &stack,
-                                     Ground::BuildingField &footprints,
+                                     ::outshine::Generators::Osm::BuildingField &footprints,
                                      LongitudeLatitude eye,
                                      const HeightSource &heightAt,
                                      HeightRequirement requirement,
@@ -302,8 +306,8 @@ private:
   };
 
   [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
-                                              Ground::BuildingField &prints,
-                                              const Ground::OsmField *vectors,
+                                              ::outshine::Generators::Osm::BuildingField &prints,
+                                              const ::outshine::Generators::Osm::OsmField *vectors,
                                               Ground::TerrainCertificate certificate);
 
   template <typename T>
@@ -316,21 +320,22 @@ private:
 
   [[nodiscard]] std::unique_ptr<MeshScratch> LentScratch();
   void RecycleOutput(StructureBuildTask &task);
-  void PrepareViewRefinement(Ground::BuildingField &prints,
+  void PrepareViewRefinement(::outshine::Generators::Osm::BuildingField &prints,
                              LongitudeLatitude eye,
                              HeightRequirement requirement,
                              BuildPurpose purpose,
                              const std::function<bool(uint32_t)> &cellReady);
   void PostSlice(QueuedBuild &build);
-  [[nodiscard]] bool WholeTileSourceCurrent(const Ground::SurfacePreparation &stack,
-                                            const Ground::BuildingField &prints,
-                                            const HeightSource &heightAt,
-                                            const QueuedBuild &bake,
-                                            HeightRequirement heights,
-                                            Ground::TerrainCertificate &validated);
-  void DiscardFront(Ground::BuildingField &prints);
-  void DiscardStale(const Ground::OsmField *vectors,
-                    Ground::BuildingField &prints,
+  [[nodiscard]] bool
+  WholeTileSourceCurrent(const Ground::SurfacePreparation &stack,
+                         const ::outshine::Generators::Osm::BuildingField &prints,
+                         const HeightSource &heightAt,
+                         const QueuedBuild &bake,
+                         HeightRequirement heights,
+                         Ground::TerrainCertificate &validated);
+  void DiscardFront(::outshine::Generators::Osm::BuildingField &prints);
+  void DiscardStale(const ::outshine::Generators::Osm::OsmField *vectors,
+                    ::outshine::Generators::Osm::BuildingField &prints,
                     LongitudeLatitude eye,
                     HeightSourceRevision heightSource,
                     HeightRequirement heights,
@@ -345,7 +350,7 @@ private:
   };
 
   struct PreparedCells {
-    Ground::BuildingField::AcceptedInput Receipt;
+    ::outshine::Generators::Osm::BuildingField::AcceptedInput Receipt;
     std::array<CellRequest, 8> Requests{};
     size_t Count = 0;
     size_t Next = 0;
@@ -359,18 +364,19 @@ private:
 
   void AdvancePreparedCell(std::shared_ptr<PreparedCells> &batch,
                            const Ground::SurfacePreparation &stack,
-                           const Ground::BuildingField &footprints,
+                           const ::outshine::Generators::Osm::BuildingField &footprints,
                            const HeightSource &heightAt);
-  [[nodiscard]] bool ValidateCellLandingSource(const Ground::SurfacePreparation &stack,
-                                               const Ground::BuildingField &footprints,
-                                               const HeightSource &heightAt,
-                                               const QueuedBuild &bake);
+  [[nodiscard]] bool
+  ValidateCellLandingSource(const Ground::SurfacePreparation &stack,
+                            const ::outshine::Generators::Osm::BuildingField &footprints,
+                            const HeightSource &heightAt,
+                            const QueuedBuild &bake);
   void RetireCellBuilds(BuildPurpose purpose);
   void AdvancePreparedCells(const Ground::SurfacePreparation &stack,
-                            const Ground::BuildingField &footprints,
+                            const ::outshine::Generators::Osm::BuildingField &footprints,
                             const HeightSource &heightAt);
   [[nodiscard]] bool PostPreparedCell(const Ground::SurfacePreparation &stack,
-                                      const Ground::BuildingField &footprints,
+                                      const ::outshine::Generators::Osm::BuildingField &footprints,
                                       LongitudeLatitude eye,
                                       const HeightSource &heightAt,
                                       CellRequest request,

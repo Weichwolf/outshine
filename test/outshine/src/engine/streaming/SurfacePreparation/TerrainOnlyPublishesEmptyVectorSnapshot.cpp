@@ -66,7 +66,7 @@ int main() {
         "the empty vector snapshot uses the ground classification's spatial grid");
   const auto firstAdvanceAt = stack.AdvanceAt(first, {.IngestTilesMost = 1, .VectorRing = 0});
   CHECK(firstAdvanceAt.has_value(), "terrain-only restand publishes an empty vector snapshot");
-  const OsmField *vectors = stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   CHECK(vectors && vectors->Zoom() == kFineZoom && vectors->Features().empty() &&
             vectors->Tiles().size() == 1 && vectors->PendingTiles() == 0 &&
             vectors->SettledWithin(0),
@@ -99,8 +99,9 @@ int main() {
             stack.Vectors()->CentreX() != firstX,
         "cross-tile focus change publishes a new empty vector generation");
 
-  const std::array<OsmField::Declared, 1> declared{{
-      {.Layer = OsmLayerName(OsmLayer::Streets),
+  const std::array<::outshine::Generators::Osm::OsmField::Declared, 1> declared{{
+      {.Layer = ::outshine::Generators::Osm::OsmLayerName(
+           ::outshine::Generators::Osm::OsmLayer::Streets),
        .Key = "kind",
        .Value = "road",
        .WidthM = 4.0,

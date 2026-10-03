@@ -54,7 +54,7 @@ int main() {
     CHECK(scene && scene->DrivenParts() == 1, "the initial authored part is driven");
 
     Surrounds world;
-    Ground::BuildingField footprints;
+    ::outshine::Generators::Osm::BuildingField footprints;
     world.BindSceneResources(renderer);
     for (const auto [revision, eastM] :
          std::array<std::pair<uint64_t, float>, 2>{std::pair{1u, 2.0f}, std::pair{2u, 6.0f}}) {

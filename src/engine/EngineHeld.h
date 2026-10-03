@@ -234,7 +234,7 @@ struct Surrounds {
   std::unique_ptr<Tasks> Pool;
   std::unique_ptr<Tasks> Io;
   Ground::SurfacePreparation Stack;
-  std::shared_ptr<const Ground::PublishedRegion> Region;
+  std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
   Generators::Registry Offering;
   Generators::Shipping Shipping;
 
@@ -464,7 +464,7 @@ struct Engine::State {
   void Drew();
   void Inspected();
   [[nodiscard]] WorldReadiness Readiness(GroundQuality quality = GroundQuality::Playable) const;
-  [[nodiscard]] bool StructuresReady(const Ground::BuildingField &footprints,
+  [[nodiscard]] bool StructuresReady(const ::outshine::Generators::Osm::BuildingField &footprints,
                                      const GroundRevision &revision) const;
   [[nodiscard]] bool RefinedGroundIngested(const GroundRevision &revision) const;
   [[nodiscard]] bool RefinedGroundClassified(const GroundRevision &revision) const;
@@ -547,7 +547,7 @@ struct Engine::State {
   [[nodiscard]] std::string_view GroundBuildStatus() const noexcept;
   [[nodiscard]] std::string GroundBuildDiagnostic() const;
   [[nodiscard]] size_t StructureCandidatesMost() const noexcept;
-  [[nodiscard]] Ground::BuildingField *CandidateFootprints() const noexcept;
+  [[nodiscard]] ::outshine::Generators::Osm::BuildingField *CandidateFootprints() const noexcept;
   [[nodiscard]] bool StagesGroundBakes(size_t landsMost);
 
   [[nodiscard]] Laid Focuses(GroundRequest &request,
@@ -574,7 +574,7 @@ struct Engine::State {
                                                                     Patchwork &patchwork,
                                                                     GroundBuildState &state);
   [[nodiscard]] bool BuildWaterSurfaces(const TangentFrame &standing,
-                                        const Ground::RegionSources &sources,
+                                        const ::outshine::Generators::Osm::RegionSources &sources,
                                         Geometry &ground);
   [[nodiscard]] bool Grounds(bool alsoWhenTilesLanded, GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundWithinBudget(GroundQuality quality);

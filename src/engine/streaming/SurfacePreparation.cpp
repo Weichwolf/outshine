@@ -32,13 +32,18 @@ double ElapsedMs(std::chrono::steady_clock::time_point began) {
 
 }
 
-std::unique_ptr<OsmField> SurfacePreparation::CreateVectorField() const {
-  const std::array<std::string, 5> layers = {{OsmLayerName(OsmLayer::Buildings),
-                                              OsmLayerName(OsmLayer::WaterPolygons),
-                                              OsmLayerName(OsmLayer::WaterLines),
-                                              OsmLayerName(OsmLayer::Streets),
-                                              OsmLayerName(OsmLayer::StreetPolygons)}};
-  return std::make_unique<OsmField>(VectorZoom_, std::span<const std::string>(layers));
+std::unique_ptr<::outshine::Generators::Osm::OsmField>
+SurfacePreparation::CreateVectorField() const {
+  const std::array<std::string, 5> layers = {
+      {::outshine::Generators::Osm::OsmLayerName(::outshine::Generators::Osm::OsmLayer::Buildings),
+       ::outshine::Generators::Osm::OsmLayerName(
+           ::outshine::Generators::Osm::OsmLayer::WaterPolygons),
+       ::outshine::Generators::Osm::OsmLayerName(::outshine::Generators::Osm::OsmLayer::WaterLines),
+       ::outshine::Generators::Osm::OsmLayerName(::outshine::Generators::Osm::OsmLayer::Streets),
+       ::outshine::Generators::Osm::OsmLayerName(
+           ::outshine::Generators::Osm::OsmLayer::StreetPolygons)}};
+  return std::make_unique<::outshine::Generators::Osm::OsmField>(
+      VectorZoom_, std::span<const std::string>(layers));
 }
 
 bool SurfacePreparation::Open(const World::StoragePaths &under,
@@ -50,7 +55,7 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
                               LogSink *diagnostics,
                               double patienceS,
                               const Data::ProviderRegistry *registry) {
-  const auto position = OsmField::Locate(focus, kFineZoom);
+  const auto position = ::outshine::Generators::Osm::OsmField::Locate(focus, kFineZoom);
   if (!position) {
     say.Refuse(std::string(position.error()));
     return false;
@@ -143,11 +148,11 @@ int SurfacePreparation::FinestZoomOf(Data::DataKind kind) const {
 
 std::expected<TileAt, std::string_view>
 SurfacePreparation::ValidatePosition(LongitudeLatitude at) const {
-  const auto fine = OsmField::Locate(at, kFineZoom);
+  const auto fine = ::outshine::Generators::Osm::OsmField::Locate(at, kFineZoom);
   if (!fine) { return std::unexpected(fine.error()); }
-  const auto coarse = OsmField::Locate(at, kCoarseZoom);
+  const auto coarse = ::outshine::Generators::Osm::OsmField::Locate(at, kCoarseZoom);
   if (!coarse) { return std::unexpected(coarse.error()); }
-  return OsmField::Locate(at, VectorZoom_);
+  return ::outshine::Generators::Osm::OsmField::Locate(at, VectorZoom_);
 }
 
 std::expected<void, std::string_view>
@@ -180,12 +185,13 @@ SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget bud
     if (!built) { return std::unexpected(built.error()); }
     metrics.VectorBuild = Vectors_->LastBuildMetrics();
   } else {
-    Vectors_->Declare(std::span<const OsmField::Declared>(Declared_), *vectorTile);
+    Vectors_->Declare(std::span<const ::outshine::Generators::Osm::OsmField::Declared>(Declared_),
+                      *vectorTile);
   }
   if (Vectors_->Generation() != previousVectorGeneration) {
     Footprints_.ResetDerived();
-    Ways_ = StreetField{};
-    WaterBodies_ = WaterField{};
+    Ways_ = ::outshine::Generators::Osm::StreetField{};
+    WaterBodies_ = ::outshine::Generators::Osm::WaterField{};
   }
   metrics.VectorsMs = ElapsedMs(vectorAt);
   if (!Vectors_->SettledWithin(0)) { return complete(); }

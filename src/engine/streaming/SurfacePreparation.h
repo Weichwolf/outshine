@@ -46,7 +46,7 @@ struct SurfacePreparationMetrics {
   double TotalMs = 0.0;
   double ClassificationMs = 0.0;
   double VectorsMs = 0.0;
-  OsmField::BuildMetrics VectorBuild;
+  ::outshine::Generators::Osm::OsmField::BuildMetrics VectorBuild;
   double StreetsMs = 0.0;
   double WaterMs = 0.0;
   double SettlementMs = 0.0;
@@ -98,7 +98,7 @@ public:
             .Store = Store_ ? Store_->Counters() : Data::ContentStore::Ledger{}};
   }
 
-  void Declares(std::span<const OsmField::Declared> these) {
+  void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
     Cls_.Declares(these);
   }
@@ -113,27 +113,33 @@ public:
 
   void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }
 
-  [[nodiscard]] std::unique_ptr<OsmField> CreateVectorField() const;
+  [[nodiscard]] std::unique_ptr<::outshine::Generators::Osm::OsmField> CreateVectorField() const;
 
   [[nodiscard]] bool HasDeclaredVectors() const noexcept { return !Declared_.empty(); }
 
-  [[nodiscard]] const OsmField *Vectors() const { return Vectors_.get(); }
+  [[nodiscard]] const ::outshine::Generators::Osm::OsmField *Vectors() const {
+    return Vectors_.get();
+  }
 
   [[nodiscard]] bool HasVectorSource() const noexcept { return HasVectorSource_; }
 
   [[nodiscard]] int VectorZoom() const noexcept { return VectorZoom_; }
 
-  [[nodiscard]] const BuildingField &Footprints() const { return Footprints_; }
+  [[nodiscard]] const ::outshine::Generators::Osm::BuildingField &Footprints() const {
+    return Footprints_;
+  }
 
-  [[nodiscard]] BuildingField &Footprints() { return Footprints_; }
+  [[nodiscard]] ::outshine::Generators::Osm::BuildingField &Footprints() { return Footprints_; }
 
   void SeeFootprintsWith(ProjectedErrorBudget projection) { Footprints_.SeenWith(projection); }
 
   void FootprintTilesSpan(double tileSpanM) { Footprints_.TilesSpan(tileSpanM); }
 
-  [[nodiscard]] const WaterField &WaterBodies() const { return WaterBodies_; }
+  [[nodiscard]] const ::outshine::Generators::Osm::WaterField &WaterBodies() const {
+    return WaterBodies_;
+  }
 
-  [[nodiscard]] const StreetField &Ways() const { return Ways_; }
+  [[nodiscard]] const ::outshine::Generators::Osm::StreetField &Ways() const { return Ways_; }
 
   [[nodiscard]] const VegetationTemplates &Vegetation() const { return Templates_; }
 
@@ -171,7 +177,7 @@ private:
   std::unique_ptr<TilePool> Pool_;
   TilePool::LandingCursor LandingCursor_;
   std::unique_ptr<GroundStream> Ground_;
-  std::vector<OsmField::Declared> Declared_;
+  std::vector<::outshine::Generators::Osm::OsmField::Declared> Declared_;
   ClassificationPreparation Cls_;
   GroundMaterials Materials_;
   VegetationTemplates Templates_;
@@ -192,12 +198,12 @@ private:
 
   std::optional<SettlementInputs> Settled_;
   bool Overflowing_ = false;
-  std::unique_ptr<OsmField> Vectors_;
+  std::unique_ptr<::outshine::Generators::Osm::OsmField> Vectors_;
   bool HasVectorSource_ = false;
   int VectorZoom_ = kFineZoom;
-  BuildingField Footprints_;
-  WaterField WaterBodies_;
-  StreetField Ways_;
+  ::outshine::Generators::Osm::BuildingField Footprints_;
+  ::outshine::Generators::Osm::WaterField WaterBodies_;
+  ::outshine::Generators::Osm::StreetField Ways_;
   int SurfaceZoom_ = 0;
   std::optional<LongitudeLatitude> Stood_;
   bool Vegetated_ = false;

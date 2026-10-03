@@ -992,17 +992,17 @@ void RaisePart(const BuildingShape &s, Site &site) {
   if (site.Coarseness() == LevelOfDetail::Fine && WantsChimney(s)) { Chimney(s, roof, site); }
 }
 
-double StandBack(const Frontage &street, const EastNorth &p) {
+double StandBack(const BuildingFrontage &street, const EastNorth &p) {
   return (p.EastM - street.KerbEm) * street.ToStreetE +
          (p.NorthM - street.KerbNm) * street.ToStreetN;
 }
 
-EastNorth OntoKerb(const Frontage &street, const EastNorth &p, double back) {
+EastNorth OntoKerb(const BuildingFrontage &street, const EastNorth &p, double back) {
   return {.EastM = p.EastM - back * street.ToStreetE, .NorthM = p.NorthM - back * street.ToStreetN};
 }
 
 void Pavement(const BuildingShape &s,
-              const Frontage &street,
+              const BuildingFrontage &street,
               const FoundationGround &ground,
               double plinthZ,
               Site &site) {

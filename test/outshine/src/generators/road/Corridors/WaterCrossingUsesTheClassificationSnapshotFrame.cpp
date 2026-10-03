@@ -39,15 +39,16 @@ int main() {
   CHECK(water >= 0, "the classification table identifies water");
   if (water < 0) { return Report(); }
   const std::array<std::string, 1> layers{"streets"};
-  Ground::OsmField vectors(14, layers);
-  const std::array<Ground::OsmField::Declared, 1> declared{{{.Layer = "streets",
-                                                             .Key = "kind",
-                                                             .Value = "residential",
-                                                             .Bridge = true,
-                                                             .Level = 1,
-                                                             .LatLon = {48.999, 8, 49.001, 8}}}};
+  ::outshine::Generators::Osm::OsmField vectors(14, layers);
+  const std::array<::outshine::Generators::Osm::OsmField::Declared, 1> declared{
+      {{.Layer = "streets",
+        .Key = "kind",
+        .Value = "residential",
+        .Bridge = true,
+        .Level = 1,
+        .LatLon = {48.999, 8, 49.001, 8}}}};
   CHECK(vectors.Declare(declared, origin).has_value(), "a north-south bridge is declared");
-  Ground::StreetField ways;
+  ::outshine::Generators::Osm::StreetField ways;
   CHECK(ways.Ingest(vectors, vegetation) == 1, "the bridge reaches the native road input");
   const TriangleBvh empty = TriangleBvh::Over({}, {});
   const Drape drape{.Surface = empty,

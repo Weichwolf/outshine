@@ -32,7 +32,7 @@ int main() {
           "initial world opens");
     if (scene) {
       Surrounds world;
-      Ground::BuildingField footprints;
+      ::outshine::Generators::Osm::BuildingField footprints;
       world.BindSceneResources(renderer);
       GroundWorldCandidate ground(renderer, world, footprints);
       CHECK(ground.Prepare(*scene, nullptr).has_value(),

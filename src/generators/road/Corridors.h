@@ -39,8 +39,8 @@ public:
   explicit Corridors(const RoadMesher &sweeper) : Sweeper_(sweeper) {}
 
   struct Site {
-    const outshine::Ground::OsmField *Vectors = nullptr;
-    const outshine::Ground::StreetField &Ways;
+    const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
+    const ::outshine::Generators::Osm::StreetField &Ways;
     const outshine::Ground::GroundMaterials &Materials;
     const outshine::Ground::VegetationTemplates &Vegetation;
     const outshine::Ground::GroundStream *Ground = nullptr;
@@ -71,8 +71,8 @@ private:
     const outshine::Ground::VegetationTemplates &Vegetation;
     const outshine::Ground::GroundStream *Ground = nullptr;
     const Path::Network *Network = nullptr;
-    const outshine::Ground::StreetField &Ways;
-    const outshine::Ground::OsmField &Vectors;
+    const ::outshine::Generators::Osm::StreetField &Ways;
+    const ::outshine::Generators::Osm::OsmField &Vectors;
     std::span<const double> Points;
     const std::unordered_map<uint64_t, uint32_t> &SharedNodes;
     const Drape &Draped;
@@ -191,15 +191,15 @@ private:
 
   [[nodiscard]] static uint64_t SharedNodeAt(const Paving &on, double latDeg, double lonDeg);
   [[nodiscard]] static double AwayM(const Paving &on,
-                                    const outshine::Ground::StreetField::Way &lane);
+                                    const ::outshine::Generators::Osm::StreetField::Way &lane);
 
   [[nodiscard]] static bool
   StationsAlong(const Paving &on,
-                const outshine::Ground::StreetField::Way &lane,
+                const ::outshine::Generators::Osm::StreetField::Way &lane,
                 const std::function<bool(LongitudeLatitude, uint64_t)> &station);
 
   static void DesignLane(const Paving &on,
-                         const outshine::Ground::StreetField::Way &lane,
+                         const ::outshine::Generators::Osm::StreetField::Way &lane,
                          size_t laneAt,
                          Paved &into);
 
@@ -222,8 +222,9 @@ private:
     std::array<double, 4> At{};
   };
 
-  [[nodiscard]] static std::optional<Ends> EndsOf(const outshine::Ground::OsmField &vectors,
-                                                  const outshine::Ground::StreetField::Way &lane);
+  [[nodiscard]] static std::optional<Ends>
+  EndsOf(const ::outshine::Generators::Osm::OsmField &vectors,
+         const ::outshine::Generators::Osm::StreetField::Way &lane);
 
   struct Grounded {
     double EastM = 0.0;
@@ -249,13 +250,13 @@ private:
 
   [[nodiscard]] static double HighestDeckM(const Paved &over);
 
-  static void EaseRampPass(const outshine::Ground::StreetField &ways,
-                           const outshine::Ground::OsmField &vectors,
+  static void EaseRampPass(const ::outshine::Generators::Osm::StreetField &ways,
+                           const ::outshine::Generators::Osm::OsmField &vectors,
                            double mostDeckM,
                            Paved &into);
 
-  static void EasesRamps(const outshine::Ground::StreetField &ways,
-                         const outshine::Ground::OsmField &vectors,
+  static void EasesRamps(const ::outshine::Generators::Osm::StreetField &ways,
+                         const ::outshine::Generators::Osm::OsmField &vectors,
                          double mostDeckM,
                          Paved &into);
 
@@ -283,14 +284,15 @@ private:
   static void PressesUnder(const Junction &made, double rootsM, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
   static void ShapesJunctions(const Paving &on, Paved &into);
-  static void
-  DeckOrRamp(const outshine::Ground::StreetField::Way &lane, const Edge &edge, Paved &into);
+  static void DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &lane,
+                         const Edge &edge,
+                         Paved &into);
   static void YieldsOf(const Paving &on,
-                       const outshine::Ground::StreetField::Way &lane,
+                       const ::outshine::Generators::Osm::StreetField::Way &lane,
                        Paved &into,
                        std::vector<EarthworkStamp> &corridor);
   static void IslandOf(const Paving &on,
-                       const outshine::Ground::StreetField::Way &lane,
+                       const ::outshine::Generators::Osm::StreetField::Way &lane,
                        std::span<const RoadStation> along,
                        std::vector<EarthworkStamp> &corridor);
   void PaveEdge(const Paving &on,
@@ -331,7 +333,8 @@ private:
                                                Geometry &ground);
 
   [[nodiscard]] static std::unordered_map<uint64_t, uint32_t>
-  SharedNodesOf(const outshine::Ground::StreetField &ways, std::span<const double> points);
+  SharedNodesOf(const ::outshine::Generators::Osm::StreetField &ways,
+                std::span<const double> points);
 
   static void Notes(Paved &into, std::string what, double how, const char *unit) {
     into.Notes.push_back({.Name = std::move(what), .Value = how, .Unit = unit});

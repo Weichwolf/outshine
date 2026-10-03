@@ -22,8 +22,8 @@ StreetGraphBuildJob::StreetGraphBuildJob(Path::Network &&graph,
     : Graph_(std::move(graph)), HeightOf_(std::move(heightOf)) {}
 
 std::expected<StreetGraphBuildJob, std::string>
-StreetGraphBuildJob::Begin(const Ground::OsmField &vectors,
-                           const Ground::StreetField &ways,
+StreetGraphBuildJob::Begin(const ::outshine::Generators::Osm::OsmField &vectors,
+                           const ::outshine::Generators::Osm::StreetField &ways,
                            Path::Network::HeightSource heightOf) {
   const auto began = std::chrono::steady_clock::now();
   auto created = Path::Network::Create(Path::Snap{.CellM = StreetGraphBuilder::kNodeSnapM},

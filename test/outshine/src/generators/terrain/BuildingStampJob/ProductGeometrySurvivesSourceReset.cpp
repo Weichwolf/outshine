@@ -9,9 +9,9 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  using Field = Ground::BuildingField;
+  using Field = ::outshine::Generators::Osm::BuildingField;
   Field field;
-  Ground::OsmField vectors(14, {});
+  ::outshine::Generators::Osm::OsmField vectors(14, {});
   field.AnchorAt({{1, 2, 3}});
   std::array<std::weak_ptr<const Ground::BuildingGeometry>, 2> owners;
   for (uint32_t tile = 0; tile < 2; ++tile) {
@@ -20,7 +20,7 @@ int main() {
     geometry->Points = {
         0, longitude, 0, longitude + 0.001, 0.001, longitude + 0.001, 0.001, longitude};
     owners[tile] = geometry;
-    const Field::Footprint footprint{.PointCount = 4, .SeatM = 12};
+    const Ground::BuildingFootprint footprint{.PointCount = 4, .SeatM = 12};
     const Field::Baked product{.Coordinates = geometry, .Prints = std::span(&footprint, 1)};
     field.PreparesAcceptances({.Prints = 1, .Tiles = 1});
     field.Take(tile);

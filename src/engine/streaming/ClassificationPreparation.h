@@ -47,7 +47,7 @@ public:
              {.Zoom = Coarse_.Zoom, .Ring = Coarse_.TileRadius}}};
   }
 
-  void Declares(std::span<const OsmField::Declared> these) {
+  void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
   }
 
@@ -146,10 +146,10 @@ public:
   void Settle();
 
 private:
-  std::vector<OsmField::Declared> Declared_;
+  std::vector<::outshine::Generators::Osm::OsmField::Declared> Declared_;
 
   struct Tier {
-    std::unique_ptr<OsmField> Field;
+    std::unique_ptr<::outshine::Generators::Osm::OsmField> Field;
     int TileRadius;
     double CellM;
     int HalfCells;
@@ -188,7 +188,7 @@ private:
 
   void Ingest(Tier &t);
   void CollectFinished();
-  void AppendFeature(Tier &t, const OsmField::Feature &f);
+  void AppendFeature(Tier &t, const ::outshine::Generators::Osm::OsmField::Feature &f);
   [[nodiscard]] bool SubmitDue(double camE, double camN);
   ClassificationBuild::Job LendTo(Tier &t, ClassGrain grain, double camE, double camN);
   [[nodiscard]] ClassificationBuild::SourceRevision SourceRevision() const;

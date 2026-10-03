@@ -43,7 +43,7 @@ public:
     double PublishMs = 0.0;
   };
 
-  [[nodiscard]] static Built BuildOneShot(const Ground::StreetField &ways,
+  [[nodiscard]] static Built BuildOneShot(const ::outshine::Generators::Osm::StreetField &ways,
                                           std::span<const double> points,
                                           const Path::Network::HeightSource &heightOf);
 
@@ -51,14 +51,16 @@ private:
   friend class StreetGraphBuildJob;
   static constexpr double kNodeSnapM = 2.0;
   [[nodiscard]] static std::expected<void, std::string_view>
-  LayWays(const Ground::StreetField &ways, std::span<const double> points, Path::Network &graph);
+  LayWays(const ::outshine::Generators::Osm::StreetField &ways,
+          std::span<const double> points,
+          Path::Network &graph);
 };
 
 class StreetGraphBuildJob {
 public:
   [[nodiscard]] static std::expected<StreetGraphBuildJob, std::string>
-  Begin(const Ground::OsmField &vectors,
-        const Ground::StreetField &ways,
+  Begin(const ::outshine::Generators::Osm::OsmField &vectors,
+        const ::outshine::Generators::Osm::StreetField &ways,
         Path::Network::HeightSource heightOf);
   StreetGraphBuildJob(const StreetGraphBuildJob &) = delete;
   StreetGraphBuildJob &operator=(const StreetGraphBuildJob &) = delete;

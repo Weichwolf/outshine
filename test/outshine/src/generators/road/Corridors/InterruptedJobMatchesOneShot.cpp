@@ -87,13 +87,16 @@ bool SameSemanticMeasures(std::span<const DiagnosticSample> left,
 int main() {
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8.0, .LatitudeDeg = 49.0};
-  const std::array<std::string, 5> layers{Ground::OsmLayerName(Ground::OsmLayer::Buildings),
-                                          Ground::OsmLayerName(Ground::OsmLayer::WaterPolygons),
-                                          Ground::OsmLayerName(Ground::OsmLayer::WaterLines),
-                                          Ground::OsmLayerName(Ground::OsmLayer::Streets),
-                                          Ground::OsmLayerName(Ground::OsmLayer::StreetPolygons)};
-  Ground::OsmField vectors(14, layers);
-  const std::array<Ground::OsmField::Declared, 3> declared{
+  const std::array<std::string, 5> layers{
+      ::outshine::Generators::Osm::OsmLayerName(::outshine::Generators::Osm::OsmLayer::Buildings),
+      ::outshine::Generators::Osm::OsmLayerName(
+          ::outshine::Generators::Osm::OsmLayer::WaterPolygons),
+      ::outshine::Generators::Osm::OsmLayerName(::outshine::Generators::Osm::OsmLayer::WaterLines),
+      ::outshine::Generators::Osm::OsmLayerName(::outshine::Generators::Osm::OsmLayer::Streets),
+      ::outshine::Generators::Osm::OsmLayerName(
+          ::outshine::Generators::Osm::OsmLayer::StreetPolygons)};
+  ::outshine::Generators::Osm::OsmField vectors(14, layers);
+  const std::array<::outshine::Generators::Osm::OsmField::Declared, 3> declared{
       {{.Layer = "streets",
         .Key = "kind",
         .Value = "residential",
@@ -108,7 +111,7 @@ int main() {
         .Key = "kind",
         .Value = "residential",
         .LatLon = {49.0, 8.0, 49.0007, 8.0008}}}};
-  const auto tile = Ground::OsmField::Locate(origin, vectors.Zoom());
+  const auto tile = ::outshine::Generators::Osm::OsmField::Locate(origin, vectors.Zoom());
   CHECK(tile.has_value(), "fixture origin has a vector tile");
   if (!tile) { return Report(); }
   vectors.Declare(declared, *tile);
@@ -118,7 +121,7 @@ int main() {
   CHECK(materials.Load("src/assets/world/ground-materials.json") &&
             vegetation.Load("src/assets/world/vegetation.json", materials),
         "road fixture loads the production material rules");
-  Ground::StreetField ways;
+  ::outshine::Generators::Osm::StreetField ways;
   while (!ways.Ingested(vectors)) { (void)ways.Ingest(vectors, vegetation); }
   CHECK(ways.Ways().size() == declared.size(), "every declared road reaches the native map");
 
@@ -171,8 +174,9 @@ int main() {
             canceledMesh.parts() == 0 && canceledEarthworks.empty() && canceledMeasures.empty(),
         "canceled scratch retires without publishing and cannot resume");
   std::unique_ptr<Generators::Corridors::Job> stale = Generators::Corridors::Begin(site);
-  const Ground::RegionSources pinned =
-      Ground::RegionSources::Snapshot(&vectors, ways, Ground::WaterField{});
+  const ::outshine::Generators::Osm::RegionSources pinned =
+      ::outshine::Generators::Osm::RegionSources::Snapshot(
+          &vectors, ways, ::outshine::Generators::Osm::WaterField{});
   auto changed = declared;
   changed.front().LatLon.front() += 0.0001;
   vectors.Declare(changed, *tile);

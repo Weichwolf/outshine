@@ -23,7 +23,8 @@ void StopsOverdueRead(int) {
   _exit(25);
 }
 
-void ChecksPayloadIsolation(const outshine::Ground::BuildingField &field, uint64_t expected) {
+void ChecksPayloadIsolation(const ::outshine::Generators::Osm::BuildingField &field,
+                            uint64_t expected) {
   using namespace outshine;
   using namespace outshine::Test;
   const long pageSize = sysconf(_SC_PAGESIZE);
@@ -63,8 +64,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
-  OsmField vectors(14, {});
-  BuildingField field;
+  ::outshine::Generators::Osm::OsmField vectors(14, {});
+  ::outshine::Generators::Osm::BuildingField field;
   field.AnchorAt({{1, 2, 3}});
   const Data::TileSourceIdentity source{.Kind = Data::DataKind::Elevation,
                                         .Tile = {.Zoom = 14, .X = 4, .Y = 7},
@@ -75,7 +76,7 @@ int main() {
                                   .Tile = {.Zoom = 14, .X = 4, .Y = 7},
                                   .SourceId = "osm",
                                   .Revision = "vector-a"};
-  const BuildingField::Baked empty;
+  const ::outshine::Generators::Osm::BuildingField::Baked empty;
   field.PreparesAcceptances({.Tiles = 1});
   field.Take(7);
   auto pending = field.PrepareAcceptance(7,
@@ -100,7 +101,7 @@ int main() {
 #else
   Skip("source-payload page isolation requires POSIX");
 #endif
-  BuildingField snapshot = field.SnapshotAccepted();
+  ::outshine::Generators::Osm::BuildingField snapshot = field.SnapshotAccepted();
   field.ResetDerived();
   CHECK(!StructureBuildQueue::QualifiedSourceKey(field, 7) &&
             StructureBuildQueue::QualifiedSourceKey(snapshot, 7) == expected,

@@ -68,7 +68,7 @@ int main() {
                    1.0),
         "offline stack opens");
   if (!stack.Opened()) { return Report(); }
-  const std::array<OsmField::Declared, 1> buildings{{
+  const std::array<::outshine::Generators::Osm::OsmField::Declared, 1> buildings{{
       {.Layer = "buildings",
        .Key = "kind",
        .Value = "building",
@@ -79,7 +79,7 @@ int main() {
   stack.Declares(buildings);
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "declared building enters the vector snapshot");
-  const OsmField *vectors = stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   CHECK(vectors && vectors->Tiles().size() == 1 && !vectors->Rings().empty(),
         "one building tile is available");
   if (!vectors || vectors->Tiles().size() != 1 || vectors->Rings().empty()) { return Report(); }
@@ -91,7 +91,7 @@ int main() {
       std::span(vectors->Points().data() + 2u * ring.First, 2u * ring.Count));
   CHECK(cell && cell->Index != 0, "declared footprint has a stable spatial cell");
   if (!cell) { return Report(); }
-  BuildingField &prints = stack.Footprints();
+  ::outshine::Generators::Osm::BuildingField &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000);
   prints.SeenWith({.FocalPx = 720});
@@ -118,7 +118,8 @@ int main() {
   auto pinned = HeightField::Of(zoom, {block(demTile)});
   CHECK(pinned && pinned->Qualified() && pinned->Sources().size() == 1,
         "synthetic DEM is a qualified pinned source");
-  BuildingField::Baked accepted{.OccupiedCells = uint64_t{1} << (cell->Index - 1u)};
+  ::outshine::Generators::Osm::BuildingField::Baked accepted{.OccupiedCells =
+                                                                 uint64_t{1} << (cell->Index - 1u)};
   accepted.CellBounds[cell->Index - 1u] = cell->Footprint;
   accepted.CellMaxHeightM[cell->Index - 1u] = 12.0f;
   prints.PreparesAcceptances({.Tiles = 1});
@@ -292,7 +293,7 @@ int main() {
   staleRequest.Detail = LevelOfDetail::Shell;
   CHECK(queue.PostsCell(stack, prints, eye, heights, staleRequest),
         "restored source can request another detail");
-  BuildingField::Baked movedCell = accepted;
+  ::outshine::Generators::Osm::BuildingField::Baked movedCell = accepted;
   movedCell.OccupiedCells = uint64_t{1} << (cell->Index % Generators::kStructureCellsPerTile);
   auto relocated = prints.PrepareAcceptance(0,
                                             movedCell,

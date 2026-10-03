@@ -49,7 +49,7 @@ constexpr double kBytesPerMB = 1024.0 * 1024.0;
          distance.AlongM <= Generators::kStructureEyeReuseM;
 }
 
-[[nodiscard]] bool AcceptedViewCurrent(const Ground::BuildingField &prints,
+[[nodiscard]] bool AcceptedViewCurrent(const ::outshine::Generators::Osm::BuildingField &prints,
                                        LongitudeLatitude eye,
                                        const std::function<bool(uint32_t)> &cellReady) {
   const auto inputs = prints.AcceptedInputs();
@@ -60,14 +60,15 @@ constexpr double kBytesPerMB = 1024.0 * 1024.0;
   return true;
 }
 
-std::optional<Data::TileSourceIdentity> VectorSource(const Ground::OsmField &vectors,
-                                                     uint32_t tile) {
+std::optional<Data::TileSourceIdentity>
+VectorSource(const ::outshine::Generators::Osm::OsmField &vectors, uint32_t tile) {
   if (tile >= vectors.Tiles().size()) { return std::nullopt; }
   return vectors.Tiles()[tile].Source;
 }
 
-std::optional<uint64_t>
-StreetDigest(const Ground::StreetField &streets, const Ground::OsmField &vectors, uint32_t tile) {
+std::optional<uint64_t> StreetDigest(const ::outshine::Generators::Osm::StreetField &streets,
+                                     const ::outshine::Generators::Osm::OsmField &vectors,
+                                     uint32_t tile) {
   return streets.SourceDigest(vectors, tile);
 }
 
@@ -111,10 +112,10 @@ void AppendInnerRings(std::span<const GeographicRing> rings,
   }
 }
 
-void RawOf(const Ground::OsmField &vectors,
-           const Ground::BuildingField &prints,
-           const Ground::StreetField &streets,
-           const Ground::TileWatermark::Next &next,
+void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
+           const ::outshine::Generators::Osm::BuildingField &prints,
+           const ::outshine::Generators::Osm::StreetField &streets,
+           const ::outshine::Generators::Osm::TileWatermark::Next &next,
            LongitudeLatitude eye,
            std::optional<LevelOfDetail> detail,
            std::optional<uint32_t> cell,
@@ -132,13 +133,14 @@ void RawOf(const Ground::OsmField &vectors,
   raw.TileSpanM = prints.TileSpanM();
   raw.Extent = vectors.Extent();
   raw.ClusterTriangles = Render::kClusterTriangles;
-  const int layer = vectors.Layer(Ground::OsmLayer::Buildings);
-  const std::span<const Ground::OsmField::Feature> feats = vectors.Features();
+  const int layer = vectors.Layer(::outshine::Generators::Osm::OsmLayer::Buildings);
+  const std::span<const ::outshine::Generators::Osm::OsmField::Feature> feats = vectors.Features();
   const std::span<const double> points = vectors.Points();
-  const Ground::OsmField::Tile &tile = vectors.Tiles()[next.Tile];
+  const ::outshine::Generators::Osm::OsmField::Tile &tile = vectors.Tiles()[next.Tile];
   const Ground::GeoBounds tileBounds = Ground::TileBounds(
       {.Zoom = tile.Z, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)});
-  for (const Ground::StreetField::Way &way : streets.OfTile(static_cast<int>(next.Tile))) {
+  for (const ::outshine::Generators::Osm::StreetField::Way &way :
+       streets.OfTile(static_cast<int>(next.Tile))) {
     const auto first = static_cast<size_t>(way.FirstPoint);
     const auto count = static_cast<size_t>(way.PointCount);
     if (count < 2 || first + count > points.size() / 2) { continue; }
@@ -150,12 +152,12 @@ void RawOf(const Ground::OsmField &vectors,
         {.LocalFirst = local, .PointCount = way.PointCount, .HalfWidthM = way.HalfWidthM});
   }
   for (size_t at = next.From; at < next.To; ++at) {
-    const Ground::OsmField::Feature &f = feats[at];
+    const ::outshine::Generators::Osm::OsmField::Feature &f = feats[at];
     if (f.Type != kPolygonFeature || std::cmp_not_equal(f.Layer, layer)) { continue; }
     const double heightM = vectors.Num(f, "height", 0.0);
     const int pitched = PitchedOf(vectors.Str(f, "roof:shape"));
     for (uint32_t r = 0; r < f.RingCount; ++r) {
-      const Ground::OsmField::Ring &ring = vectors.Rings()[f.FirstRing + r];
+      const ::outshine::Generators::Osm::OsmField::Ring &ring = vectors.Rings()[f.FirstRing + r];
       if (!ring.Exterior || ring.Count < 3 || ring.Count > kMostRingPoints) { continue; }
       const size_t ringFirst = static_cast<size_t>(ring.First) * 2u;
       const size_t ringLength = static_cast<size_t>(ring.Count) * 2u;
@@ -210,14 +212,14 @@ bool Gathers(Ground::TileSpot spot,
 std::optional<std::vector<Ground::HeightField::Block>>
 BlocksUnder(bool fineField,
             int zoom,
-            const Ground::OsmField &vectors,
-            Ground::FeatureRun over,
+            const ::outshine::Generators::Osm::OsmField &vectors,
+            ::outshine::Generators::Osm::FeatureRun over,
             const StructureBuildQueue::HeightSource &heightAt) {
-  const std::span<const Ground::OsmField::Feature> feats = vectors.Features();
-  const int layer = vectors.Layer(Ground::OsmLayer::Buildings);
+  const std::span<const ::outshine::Generators::Osm::OsmField::Feature> feats = vectors.Features();
+  const int layer = vectors.Layer(::outshine::Generators::Osm::OsmLayer::Buildings);
   std::vector<Ground::TileSpot> spots;
   for (size_t at = over.From; at < over.To; ++at) {
-    const Ground::OsmField::Feature &f = feats[at];
+    const ::outshine::Generators::Osm::OsmField::Feature &f = feats[at];
     if (f.Type != kPolygonFeature || std::cmp_not_equal(f.Layer, layer)) { continue; }
     const Ground::TileSpot low =
         Ground::HeightField::SpotOf({.LongitudeDeg = f.MinLon, .LatitudeDeg = f.MaxLat}, zoom);
@@ -249,20 +251,20 @@ struct HeightResolutionStats {
   double &DurationMs;
 };
 
-bool QualifiedStructureHeights(const Ground::OsmField &vectors,
-                               Ground::FeatureRun over,
+bool QualifiedStructureHeights(const ::outshine::Generators::Osm::OsmField &vectors,
+                               ::outshine::Generators::Osm::FeatureRun over,
                                const Ground::HeightField &heights) {
   if (heights.Qualified()) { return true; }
   if (heights.Fallback() || !heights.Blocks().empty()) { return false; }
-  const int layer = vectors.Layer(Ground::OsmLayer::Buildings);
+  const int layer = vectors.Layer(::outshine::Generators::Osm::OsmLayer::Buildings);
   return std::ranges::none_of(
       vectors.Features().subspan(over.From, over.To - over.From), [layer](const auto &feature) {
         return feature.Type == kPolygonFeature && std::cmp_equal(feature.Layer, layer);
       });
 }
 
-bool ResolveHeights(const Ground::OsmField &vectors,
-                    Ground::FeatureRun over,
+bool ResolveHeights(const ::outshine::Generators::Osm::OsmField &vectors,
+                    ::outshine::Generators::Osm::FeatureRun over,
                     int blockZoom,
                     const StructureBuildQueue::HeightSource &heightAt,
                     StructureBuildQueue::HeightRequirement requirement,
@@ -303,9 +305,9 @@ bool ResolveHeights(const Ground::OsmField &vectors,
 }
 
 StructureBuildQueue::CellSourceState
-InspectAcceptedSourceMetadata(const Ground::OsmField &vectors,
-                              const Ground::StreetField &streets,
-                              const Ground::BuildingField &footprints,
+InspectAcceptedSourceMetadata(const ::outshine::Generators::Osm::OsmField &vectors,
+                              const ::outshine::Generators::Osm::StreetField &streets,
+                              const ::outshine::Generators::Osm::BuildingField &footprints,
                               uint32_t tile,
                               uint64_t sourceKey) {
   using State = StructureBuildQueue::CellSourceState;
@@ -322,9 +324,9 @@ InspectAcceptedSourceMetadata(const Ground::OsmField &vectors,
   return accepted->Bake.StreetDigest == *street ? State::Current : State::Stale;
 }
 
-bool CertifiedAcceptedSourceCurrent(const Ground::OsmField &vectors,
-                                    const Ground::StreetField &streets,
-                                    const Ground::BuildingField &footprints,
+bool CertifiedAcceptedSourceCurrent(const ::outshine::Generators::Osm::OsmField &vectors,
+                                    const ::outshine::Generators::Osm::StreetField &streets,
+                                    const ::outshine::Generators::Osm::BuildingField &footprints,
                                     const StructureBuildQueue::HeightSource &heightAt,
                                     uint32_t tile,
                                     uint64_t sourceKey) {
@@ -336,8 +338,8 @@ bool CertifiedAcceptedSourceCurrent(const Ground::OsmField &vectors,
 }
 
 bool ValidateCellSource(const Ground::SurfacePreparation &stack,
-                        const Ground::OsmField &vectors,
-                        const Ground::BuildingField &footprints,
+                        const ::outshine::Generators::Osm::OsmField &vectors,
+                        const ::outshine::Generators::Osm::BuildingField &footprints,
                         const StructureBuildQueue::HeightSource &heightAt,
                         uint32_t tile,
                         uint64_t sourceKey,
@@ -353,9 +355,9 @@ bool ValidateCellSource(const Ground::SurfacePreparation &stack,
     return false;
   }
   const auto &record = vectors.Tiles()[tile];
-  const Ground::FeatureRun over{.From = record.FirstFeature,
-                                .To =
-                                    static_cast<size_t>(record.FirstFeature) + record.FeatureCount};
+  const ::outshine::Generators::Osm::FeatureRun over{
+      .From = record.FirstFeature,
+      .To = static_cast<size_t>(record.FirstFeature) + record.FeatureCount};
   std::shared_ptr<const Ground::HeightField> heights;
   if (!ResolveHeights(vectors,
                       over,
@@ -405,14 +407,14 @@ bool PinnedHeightsResident(const Ground::HeightField &pinned,
 }
 
 struct RefinementSelection {
-  std::optional<Ground::TileWatermark::Next> Next;
+  std::optional<::outshine::Generators::Osm::TileWatermark::Next> Next;
   bool Deferred = false;
 };
 
 template <typename GroundStands>
-RefinementSelection SelectRefinement(Ground::BuildingField &prints,
-                                     const Ground::OsmField &vectors,
-                                     const Ground::StreetField &streets,
+RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField &prints,
+                                     const ::outshine::Generators::Osm::OsmField &vectors,
+                                     const ::outshine::Generators::Osm::StreetField &streets,
                                      std::shared_ptr<const Ground::HeightField> &heights,
                                      GroundStands &&groundStands,
                                      size_t &remaining) {
@@ -420,17 +422,19 @@ RefinementSelection SelectRefinement(Ground::BuildingField &prints,
   --remaining;
   const std::optional<uint32_t> tile = prints.RefinementTile();
   if (!tile) { return {.Next = std::nullopt, .Deferred = true}; }
-  const std::span<const Ground::OsmField::Feature> features = vectors.Features();
+  const std::span<const ::outshine::Generators::Osm::OsmField::Feature> features =
+      vectors.Features();
   const auto first = std::ranges::lower_bound(
-      features, *tile, std::ranges::less{}, &Ground::OsmField::Feature::Tile);
+      features, *tile, std::ranges::less{}, &::outshine::Generators::Osm::OsmField::Feature::Tile);
   const auto last = std::ranges::upper_bound(
-      features, *tile, std::ranges::less{}, &Ground::OsmField::Feature::Tile);
+      features, *tile, std::ranges::less{}, &::outshine::Generators::Osm::OsmField::Feature::Tile);
   const size_t from = static_cast<size_t>(first - features.begin());
   const size_t to = static_cast<size_t>(last - features.begin());
   if (!groundStands({.From = from, .To = to}) || !heights) {
     return {.Next = std::nullopt, .Deferred = true};
   }
-  const Ground::BuildingField::AcceptedInput *const accepted = prints.InputOfTile(*tile);
+  const ::outshine::Generators::Osm::BuildingField::AcceptedInput *const accepted =
+      prints.InputOfTile(*tile);
   const std::optional<Data::TileSourceIdentity> vectorSource = VectorSource(vectors, *tile);
   const bool sourceCurrent = accepted != nullptr && accepted->Qualified &&
                              accepted->Vector == vectorSource &&
@@ -442,8 +446,8 @@ RefinementSelection SelectRefinement(Ground::BuildingField &prints,
     prints.AdvanceRefinement();
     return {};
   }
-  return {.Next =
-              Ground::TileWatermark::Next{.From = from, .To = to, .Tile = *tile, .Found = true}};
+  return {.Next = ::outshine::Generators::Osm::TileWatermark::Next{
+              .From = from, .To = to, .Tile = *tile, .Found = true}};
 }
 
 }
@@ -452,8 +456,8 @@ StructureBuildQueue::~StructureBuildQueue() {
   Clear();
 }
 
-std::optional<uint64_t>
-StructureBuildQueue::QualifiedSourceKey(const Ground::BuildingField &footprints, uint32_t tile) {
+std::optional<uint64_t> StructureBuildQueue::QualifiedSourceKey(
+    const ::outshine::Generators::Osm::BuildingField &footprints, uint32_t tile) {
   const auto *accepted = footprints.InputOfTile(tile);
   if (accepted == nullptr || !accepted->Qualified) { return std::nullopt; }
   return accepted->SourceKey;
@@ -461,7 +465,7 @@ StructureBuildQueue::QualifiedSourceKey(const Ground::BuildingField &footprints,
 
 StructureBuildQueue::CellSourceState
 StructureBuildQueue::InspectCellSource(const Ground::SurfacePreparation &stack,
-                                       const Ground::BuildingField &footprints,
+                                       const ::outshine::Generators::Osm::BuildingField &footprints,
                                        const HeightSource &heightAt,
                                        uint32_t tile,
                                        uint64_t sourceKey) {
@@ -491,12 +495,13 @@ StructureBuildQueue::InspectCellSource(const Ground::SurfacePreparation &stack,
   std::unreachable();
 }
 
-bool StructureBuildQueue::ValidateResidentCellSource(const Ground::SurfacePreparation &stack,
-                                                     const Ground::BuildingField &footprints,
-                                                     const HeightSource &heightAt,
-                                                     uint32_t tile,
-                                                     uint64_t sourceKey) {
-  const Ground::OsmField *vectors = stack.Vectors();
+bool StructureBuildQueue::ValidateResidentCellSource(
+    const Ground::SurfacePreparation &stack,
+    const ::outshine::Generators::Osm::BuildingField &footprints,
+    const HeightSource &heightAt,
+    uint32_t tile,
+    uint64_t sourceKey) {
+  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr || tile >= vectors->Tiles().size() || sourceKey == 0 ||
       QualifiedSourceKey(footprints, tile) != sourceKey) {
     return false;
@@ -523,8 +528,8 @@ bool StructureBuildQueue::ValidateResidentCellSource(const Ground::SurfacePrepar
 }
 
 bool StructureBuildQueue::BakeRevision::Matches(
-    const Ground::OsmField *vectors,
-    const Ground::BuildingField &footprints,
+    const ::outshine::Generators::Osm::OsmField *vectors,
+    const ::outshine::Generators::Osm::BuildingField &footprints,
     LongitudeLatitude eye,
     HeightSourceRevision heightSource,
     HeightRequirement heights,
@@ -631,20 +636,21 @@ StructureBuildQueue::OriginalHeightTiles(int zoom) const {
 }
 
 bool StructureBuildQueue::Complete(const Ground::SurfacePreparation &stack,
-                                   const Ground::BuildingField &footprints,
+                                   const ::outshine::Generators::Osm::BuildingField &footprints,
                                    LongitudeLatitude eye,
                                    const std::function<bool(uint32_t)> &cellReady) const {
   if (HasOriginal()) {
     return SourcesComplete(stack, footprints) && AcceptedViewCurrent(footprints, eye, cellReady);
   }
-  const Ground::OsmField *const vectors = stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *const vectors = stack.Vectors();
   return vectors == nullptr ||
          (Queue_.empty() && footprints.RefinementComplete() &&
           AcceptedViewCurrent(footprints, eye, cellReady) && footprints.Ingested(*vectors));
 }
 
-bool StructureBuildQueue::SourcesComplete(const Ground::SurfacePreparation &stack,
-                                          const Ground::BuildingField &footprints) const {
+bool StructureBuildQueue::SourcesComplete(
+    const Ground::SurfacePreparation &stack,
+    const ::outshine::Generators::Osm::BuildingField &footprints) const {
   if (HasOriginal()) {
     if (!Queue_.empty() || footprints.AcceptedTiles().size() != Originals_.size()) { return false; }
     for (size_t tile = 0; tile < Originals_.size(); ++tile) {
@@ -662,9 +668,10 @@ bool StructureBuildQueue::SourcesComplete(const Ground::SurfacePreparation &stac
   return Queue_.empty() && QualifiedSources(stack, footprints);
 }
 
-bool StructureBuildQueue::QualifiedSources(const Ground::SurfacePreparation &stack,
-                                           const Ground::BuildingField &footprints) {
-  const Ground::OsmField *const vectors = stack.Vectors();
+bool StructureBuildQueue::QualifiedSources(
+    const Ground::SurfacePreparation &stack,
+    const ::outshine::Generators::Osm::BuildingField &footprints) {
+  const ::outshine::Generators::Osm::OsmField *const vectors = stack.Vectors();
   return vectors == nullptr ||
          (footprints.RefinementComplete() && footprints.Ingested(*vectors) &&
           std::ranges::all_of(footprints.AcceptedInputs(),
@@ -706,7 +713,7 @@ void StructureBuildQueue::PostSlice(QueuedBuild &build) {
   build.Finished = false;
 }
 
-void StructureBuildQueue::DiscardFront(Ground::BuildingField &prints) {
+void StructureBuildQueue::DiscardFront(::outshine::Generators::Osm::BuildingField &prints) {
   QueuedBuild &stale = Queue_.front();
   IdleRaw_.reserve(IdleRaw_.size() + 1u);
   IdleOut_.reserve(IdleOut_.size() + 1u);
@@ -725,8 +732,8 @@ void StructureBuildQueue::DiscardFront(Ground::BuildingField &prints) {
   ++Discarded_;
 }
 
-void StructureBuildQueue::DiscardStale(const Ground::OsmField *vectors,
-                                       Ground::BuildingField &prints,
+void StructureBuildQueue::DiscardStale(const ::outshine::Generators::Osm::OsmField *vectors,
+                                       ::outshine::Generators::Osm::BuildingField &prints,
                                        LongitudeLatitude eye,
                                        HeightSourceRevision heightSource,
                                        HeightRequirement heights,
@@ -830,7 +837,7 @@ size_t StructureBuildQueue::QueuedCells() const {
 }
 
 size_t StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
-                                       Ground::BuildingField &footprints,
+                                       ::outshine::Generators::Osm::BuildingField &footprints,
                                        LongitudeLatitude eye,
                                        const HeightSource &heightAt,
                                        std::span<const CellRequest> requests) {
@@ -907,18 +914,20 @@ size_t StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
   return requests.size();
 }
 
-void StructureBuildQueue::AdvancePreparedCells(const Ground::SurfacePreparation &stack,
-                                               const Ground::BuildingField &footprints,
-                                               const HeightSource &heightAt) {
+void StructureBuildQueue::AdvancePreparedCells(
+    const Ground::SurfacePreparation &stack,
+    const ::outshine::Generators::Osm::BuildingField &footprints,
+    const HeightSource &heightAt) {
   for (auto &batch : PreparedCells_) {
     if (batch) { AdvancePreparedCell(batch, stack, footprints, heightAt); }
   }
 }
 
-void StructureBuildQueue::AdvancePreparedCell(std::shared_ptr<PreparedCells> &batch,
-                                              const Ground::SurfacePreparation &stack,
-                                              const Ground::BuildingField &footprints,
-                                              const HeightSource &heightAt) {
+void StructureBuildQueue::AdvancePreparedCell(
+    std::shared_ptr<PreparedCells> &batch,
+    const Ground::SurfacePreparation &stack,
+    const ::outshine::Generators::Osm::BuildingField &footprints,
+    const HeightSource &heightAt) {
   const auto *vectors = stack.Vectors();
   const auto &request = batch->Requests.front();
   const auto *accepted = footprints.InputOfTile(request.Tile);
@@ -985,11 +994,11 @@ void StructureBuildQueue::AdvancePreparedCell(std::shared_ptr<PreparedCells> &ba
 }
 
 bool StructureBuildQueue::PostsCell(Ground::SurfacePreparation &stack,
-                                    Ground::BuildingField &footprints,
+                                    ::outshine::Generators::Osm::BuildingField &footprints,
                                     LongitudeLatitude eye,
                                     const HeightSource &heightAt,
                                     CellRequest request) {
-  const Ground::OsmField *vectors = stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   if (Pool_ == nullptr || Mesher_ == nullptr || vectors == nullptr || !footprints.Anchored() ||
       request.Tile >= vectors->Tiles().size() || request.Cell == 0 ||
       request.Cell > Generators::kStructureCellsPerTile || request.Detail > LevelOfDetail::Massed ||
@@ -1010,8 +1019,8 @@ bool StructureBuildQueue::PostsCell(Ground::SurfacePreparation &stack,
     return false;
   }
   const auto &tile = vectors->Tiles()[request.Tile];
-  const Ground::FeatureRun over{.From = tile.FirstFeature,
-                                .To = static_cast<size_t>(tile.FirstFeature) + tile.FeatureCount};
+  const ::outshine::Generators::Osm::FeatureRun over{
+      .From = tile.FirstFeature, .To = static_cast<size_t>(tile.FirstFeature) + tile.FeatureCount};
   std::shared_ptr<const Ground::HeightField> heights;
   if (PinnedCellHeight_ && PinnedCellHeight_->Tile != request.Tile) { PinnedCellHeight_.reset(); }
   if (PinnedCellHeight_ && PinnedCellHeight_->SourceKey == request.SourceKey &&
@@ -1054,21 +1063,22 @@ bool StructureBuildQueue::PostsCell(Ground::SurfacePreparation &stack,
   return PostPreparedCell(stack, footprints, eye, heightAt, request, std::move(heights), {});
 }
 
-bool StructureBuildQueue::PostPreparedCell(const Ground::SurfacePreparation &stack,
-                                           const Ground::BuildingField &footprints,
-                                           LongitudeLatitude eye,
-                                           const HeightSource &heightAt,
-                                           CellRequest request,
-                                           std::shared_ptr<const Ground::HeightField> heights,
-                                           std::shared_ptr<const void> owner) {
+bool StructureBuildQueue::PostPreparedCell(
+    const Ground::SurfacePreparation &stack,
+    const ::outshine::Generators::Osm::BuildingField &footprints,
+    LongitudeLatitude eye,
+    const HeightSource &heightAt,
+    CellRequest request,
+    std::shared_ptr<const Ground::HeightField> heights,
+    std::shared_ptr<const void> owner) {
   if (Queue_.size() + CellQueue_.size() >=
       std::min(static_cast<size_t>(Pool_->Threads()) * kBuildsPerThread, kCandidateWindow)) {
     return false;
   }
-  const Ground::OsmField *vectors = stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   const auto &tile = vectors->Tiles()[request.Tile];
-  const Ground::FeatureRun over{.From = tile.FirstFeature,
-                                .To = static_cast<size_t>(tile.FirstFeature) + tile.FeatureCount};
+  const ::outshine::Generators::Osm::FeatureRun over{
+      .From = tile.FirstFeature, .To = static_cast<size_t>(tile.FirstFeature) + tile.FeatureCount};
   const auto streetDigest = StreetDigest(stack.Ways(), *vectors, request.Tile);
   if (!streetDigest) { return false; }
   const size_t recycleCapacity = IdleRaw_.size() + Queue_.size() + CellQueue_.size() + 1u;
@@ -1076,7 +1086,7 @@ bool StructureBuildQueue::PostPreparedCell(const Ground::SurfacePreparation &sta
   IdleOut_.reserve(recycleCapacity);
   IdleScratch_.reserve(recycleCapacity);
   std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
-  const Ground::TileWatermark::Next next{
+  const ::outshine::Generators::Osm::TileWatermark::Next next{
       .From = over.From, .To = over.To, .Tile = request.Tile, .Found = true};
   const auto extractionAt = std::chrono::steady_clock::now();
   RawOf(*vectors, footprints, stack.Ways(), next, eye, request.Detail, request.Cell, *raw);
@@ -1108,7 +1118,7 @@ bool StructureBuildQueue::PostPreparedCell(const Ground::SurfacePreparation &sta
   return true;
 }
 
-void StructureBuildQueue::PrepareViewRefinement(Ground::BuildingField &prints,
+void StructureBuildQueue::PrepareViewRefinement(::outshine::Generators::Osm::BuildingField &prints,
                                                 LongitudeLatitude eye,
                                                 HeightRequirement requirement,
                                                 BuildPurpose purpose,
@@ -1122,7 +1132,7 @@ void StructureBuildQueue::PrepareViewRefinement(Ground::BuildingField &prints,
 
 size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                                           Ground::SurfacePreparation &stack,
-                                          Ground::BuildingField &prints,
+                                          ::outshine::Generators::Osm::BuildingField &prints,
                                           LongitudeLatitude eye,
                                           const HeightSource &heightAt,
                                           HeightRequirement requirement,
@@ -1217,7 +1227,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
 }
 
 size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
-                                  Ground::BuildingField &prints,
+                                  ::outshine::Generators::Osm::BuildingField &prints,
                                   LongitudeLatitude eye,
                                   const HeightSource &heightAt,
                                   size_t candidatesMost,
@@ -1246,7 +1256,7 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
 }
 
 size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
-                                         Ground::BuildingField &prints,
+                                         ::outshine::Generators::Osm::BuildingField &prints,
                                          LongitudeLatitude eye,
                                          const HeightSource &heightAt,
                                          size_t candidatesMost,
@@ -1258,7 +1268,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
     return 0;
   }
   RetireCellBuilds(purpose);
-  const Ground::OsmField &vectors = *stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField &vectors = *stack.Vectors();
   if (!stack.Ways().SourceDigest(vectors, 0)) {
     ++Deferred_;
     return 0;
@@ -1272,7 +1282,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
   while (Queue_.size() + CellQueue_.size() < inFlightMost) {
     std::shared_ptr<const Ground::HeightField> heights;
     double heightResolutionMs = 0.0;
-    const auto groundStands = [&](Ground::FeatureRun over) {
+    const auto groundStands = [&](::outshine::Generators::Osm::FeatureRun over) {
       return ResolveHeights(vectors,
                             over,
                             blockZoom,
@@ -1282,7 +1292,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                             {.Deferred = Deferred_, .DurationMs = heightResolutionMs});
     };
     const auto selectionAt = std::chrono::steady_clock::now();
-    std::optional<Ground::TileWatermark::Next> next;
+    std::optional<::outshine::Generators::Osm::TileWatermark::Next> next;
     bool replacement = false;
     if (requirement == HeightRequirement::FineOnly && !prints.RefinementComplete()) {
       const RefinementSelection selected =
@@ -1365,12 +1375,13 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
   return posted;
 }
 
-bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparation &stack,
-                                                 const Ground::BuildingField &prints,
-                                                 const HeightSource &heightAt,
-                                                 const QueuedBuild &bake,
-                                                 HeightRequirement heights,
-                                                 Ground::TerrainCertificate &validated) {
+bool StructureBuildQueue::WholeTileSourceCurrent(
+    const Ground::SurfacePreparation &stack,
+    const ::outshine::Generators::Osm::BuildingField &prints,
+    const HeightSource &heightAt,
+    const QueuedBuild &bake,
+    HeightRequirement heights,
+    Ground::TerrainCertificate &validated) {
   if (bake.Task.Raw().SourceInputs.Objects) {
     const auto &captured = bake.Task.Heights();
     const bool current =
@@ -1383,7 +1394,7 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparatio
     if (current) { validated = captured.Certificate(); }
     return current;
   }
-  const Ground::OsmField &vectors = *stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField &vectors = *stack.Vectors();
   const Ground::HeightField &captured = bake.Task.Heights();
   const bool certified = captured.Certificate().ScopeCurrent(heightAt.TerrainScope) &&
                          captured.Certificate().IsComplete() && heightAt.CertificateCurrent &&
@@ -1421,7 +1432,7 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparatio
 
 std::expected<std::vector<StructureBuildQueue::Landing>, Generators::StructureBakeError>
 StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
-                                  Ground::BuildingField &prints,
+                                  ::outshine::Generators::Osm::BuildingField &prints,
                                   LongitudeLatitude eye,
                                   const HeightSource &heightAt,
                                   size_t most,
@@ -1431,7 +1442,7 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
   std::vector<Landing> landings;
   if (Pool_ == nullptr || most == 0) { return landings; }
   RetireCellBuilds(purpose);
-  const Ground::OsmField *vectors = stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   if (vectors == nullptr && !HasOriginal()) { return landings; }
   DiscardStale(vectors, prints, eye, heightAt.Revision, heights, detail, purpose);
   ResumeCompletedTasks();
@@ -1490,8 +1501,8 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
 
 StructureBuildQueue::Landing
 StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
-                                    Ground::BuildingField &prints,
-                                    const Ground::OsmField *vectors,
+                                    ::outshine::Generators::Osm::BuildingField &prints,
+                                    const ::outshine::Generators::Osm::OsmField *vectors,
                                     Ground::TerrainCertificate certificate) {
   auto &completed = bake.Task.Result().Tile;
   if (!completed) { std::terminate(); }
@@ -1538,10 +1549,11 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
           bake.Task.Heights().CaptureRequest())};
 }
 
-bool StructureBuildQueue::ValidateCellLandingSource(const Ground::SurfacePreparation &stack,
-                                                    const Ground::BuildingField &footprints,
-                                                    const HeightSource &heightAt,
-                                                    const QueuedBuild &bake) {
+bool StructureBuildQueue::ValidateCellLandingSource(
+    const Ground::SurfacePreparation &stack,
+    const ::outshine::Generators::Osm::BuildingField &footprints,
+    const HeightSource &heightAt,
+    const QueuedBuild &bake) {
   const auto *vectors = stack.Vectors();
   if (StreetDigest(stack.Ways(), *vectors, bake.Task.Tile()) == bake.StreetDigest &&
       PinnedHeightsResident(bake.Task.Heights(), heightAt)) {
@@ -1569,7 +1581,7 @@ bool StructureBuildQueue::ValidateCellLandingSource(const Ground::SurfacePrepara
 
 std::expected<std::optional<StructureBuildQueue::Landing>, Generators::StructureBakeError>
 StructureBuildQueue::NextCellLanding(const Ground::SurfacePreparation &stack,
-                                     const Ground::BuildingField &footprints,
+                                     const ::outshine::Generators::Osm::BuildingField &footprints,
                                      const HeightSource &heightAt) {
   if (Pool_ == nullptr) { return std::nullopt; }
   ++PreparationTick_;
@@ -1583,7 +1595,7 @@ StructureBuildQueue::NextCellLanding(const Ground::SurfacePreparation &stack,
     CellQueue_.pop_front();
     ++Discarded_;
   };
-  const Ground::OsmField *vectors = stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
   const auto *accepted = footprints.InputOfTile(bake.Task.Tile());
   const auto *batch = bake.ReservationOwner
                           ? static_cast<const PreparedCells *>(bake.ReservationOwner.get())
@@ -1666,7 +1678,7 @@ bool StructureBuildQueue::CellQueued(CellRequest request) const noexcept {
 }
 
 void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
-                                          Ground::BuildingField &footprints,
+                                          ::outshine::Generators::Osm::BuildingField &footprints,
                                           std::span<Landing> landings) noexcept {
   for (Landing &landing : landings) {
     QueuedBuild &bake = Queue_.front();
@@ -1682,17 +1694,18 @@ void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
     assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
            IdleScratch_.size() < IdleScratch_.capacity());
     const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-    const Ground::BuildingField::Baked product{.Coordinates = baked.Coordinates,
-                                               .Prints = baked.Prints,
-                                               .SeatSpreadM = baked.SeatSpreadM,
-                                               .AcrossM = baked.AcrossM,
-                                               .OccupiedCells = baked.OccupiedCells,
-                                               .CellBounds = baked.CellBounds,
-                                               .CellMaxHeightM = baked.CellMaxHeightM,
-                                               .Triangles = triangles,
-                                               .OsmHeights = baked.OsmHeights,
-                                               .DefaultHeights = baked.DefaultHeights,
-                                               .Fronted = baked.Fronted};
+    const ::outshine::Generators::Osm::BuildingField::Baked product{
+        .Coordinates = baked.Coordinates,
+        .Prints = baked.Prints,
+        .SeatSpreadM = baked.SeatSpreadM,
+        .AcrossM = baked.AcrossM,
+        .OccupiedCells = baked.OccupiedCells,
+        .CellBounds = baked.CellBounds,
+        .CellMaxHeightM = baked.CellMaxHeightM,
+        .Triangles = triangles,
+        .OsmHeights = baked.OsmHeights,
+        .DefaultHeights = baked.DefaultHeights,
+        .Fronted = baked.Fronted};
     if (bake.Replacement) {
       footprints.ReplaceAcceptance(std::move(landing.Footprints.value()), product);
     } else if (bake.Task.Raw().SourceInputs.Objects) {

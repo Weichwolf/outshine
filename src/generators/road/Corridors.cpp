@@ -78,7 +78,7 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
   return a.Edge != b.Edge ? a.Edge < b.Edge : a.End < b.End;
 };
 
-[[nodiscard]] Vec3f LaneColour(const Ground::StreetField::Way &lane,
+[[nodiscard]] Vec3f LaneColour(const ::outshine::Generators::Osm::StreetField::Way &lane,
                                const Ground::VegetationTemplates &vegetation) {
   if (lane.CoverRow < 0 || static_cast<size_t>(lane.CoverRow) >= vegetation.TemplateCount()) {
     return {{0.5f, 0.5f, 0.5f}};
@@ -212,7 +212,8 @@ size_t Corridors::StepsAcross(const Paving &on, Spanning between) {
   return static_cast<size_t>(1.0 + std::sqrt(spanE * spanE + spanN * spanN) / kRoadStepM);
 }
 
-double Corridors::AwayM(const Paving &on, const outshine::Ground::StreetField::Way &lane) {
+double Corridors::AwayM(const Paving &on,
+                        const ::outshine::Generators::Osm::StreetField::Way &lane) {
   double lowLat = kBeyondAnyCoordinate;
   double highLat = -kBeyondAnyCoordinate;
   double lowLon = kBeyondAnyCoordinate;
@@ -241,7 +242,7 @@ uint64_t Corridors::SharedNodeAt(const Paving &on, double latDeg, double lonDeg)
 }
 
 bool Corridors::StationsAlong(const Paving &on,
-                              const outshine::Ground::StreetField::Way &lane,
+                              const ::outshine::Generators::Osm::StreetField::Way &lane,
                               const std::function<bool(LongitudeLatitude, uint64_t)> &station) {
   for (uint32_t step = 0; step + 1 < lane.PointCount; ++step) {
     const size_t here = (static_cast<size_t>(lane.FirstPoint) + step) * 2;
@@ -265,7 +266,7 @@ bool Corridors::StationsAlong(const Paving &on,
 }
 
 void Corridors::DesignLane(const Paving &on,
-                           const outshine::Ground::StreetField::Way &lane,
+                           const ::outshine::Generators::Osm::StreetField::Way &lane,
                            size_t laneAt,
                            Paved &into) {
   into.Along.clear();
@@ -360,8 +361,8 @@ void Corridors::PaveLane(const Paving &on,
                          Paved &into,
                          std::vector<EarthworkStamp> &corridor,
                          RoadMeshBuffers &pavement) const {
-  const outshine::Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
-  if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
+  const ::outshine::Generators::Osm::StreetField::Way &lane = on.Ways.Ways()[laneAt];
+  if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon || lane.PointCount < 2 ||
       !(lane.HalfWidthM > 0.0f)) {
     into.RefusedWays += pass == Pass::Designing ? 1u : 0u;
     return;
@@ -389,7 +390,7 @@ void Corridors::PaveEdge(const Paving &on,
                          RoadMeshBuffers &pavement) const {
   const Edge &edge = into.Edges[edgeAt];
   const size_t laneAt = edge.Lane;
-  const outshine::Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
+  const ::outshine::Generators::Osm::StreetField::Way &lane = on.Ways.Ways()[laneAt];
   const RoadStation *const first = into.Designed[laneAt].data() + edge.First;
   into.Along.assign(first, first + edge.Count);
   if (into.Along.size() < 2) { return; }
@@ -434,7 +435,7 @@ void Corridors::PaveEdge(const Paving &on,
 }
 
 void Corridors::YieldsOf(const Paving &on,
-                         const outshine::Ground::StreetField::Way &lane,
+                         const ::outshine::Generators::Osm::StreetField::Way &lane,
                          Paved &into,
                          std::vector<EarthworkStamp> &corridor) {
   const auto yieldsAt = std::chrono::steady_clock::now();
@@ -512,7 +513,7 @@ void Corridors::YieldsOf(const Paving &on,
 }
 
 void Corridors::IslandOf(const Paving &on,
-                         const outshine::Ground::StreetField::Way &lane,
+                         const ::outshine::Generators::Osm::StreetField::Way &lane,
                          std::span<const RoadStation> along,
                          std::vector<EarthworkStamp> &corridor) {
   if (!lane.Bridge && along.size() > 3) {
@@ -571,16 +572,16 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
                               const Paving &on,
                               const Path::Network &net,
                               Paved &into) {
-  const outshine::Ground::StreetField &ways = on.Ways;
+  const ::outshine::Generators::Osm::StreetField &ways = on.Ways;
 
   if (one.OverWay >= net.WayCount() || one.UnderWay >= net.WayCount()) { return; }
   const size_t a = net.TagOf(one.OverWay);
   const size_t b = net.TagOf(one.UnderWay);
-  const outshine::Ground::StreetField::Way &first = ways.Ways()[a];
-  const outshine::Ground::StreetField::Way &second = ways.Ways()[b];
+  const ::outshine::Generators::Osm::StreetField::Way &first = ways.Ways()[a];
+  const ::outshine::Generators::Osm::StreetField::Way &second = ways.Ways()[b];
   if (first.Bridge == second.Bridge) { return; }
   const size_t spans = first.Bridge ? a : b;
-  const outshine::Ground::StreetField::Way &below = first.Bridge ? second : first;
+  const ::outshine::Generators::Osm::StreetField::Way &below = first.Bridge ? second : first;
   const std::optional<Grounded> under =
       GroundUnder(on, {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg});
   if (!under) { return; }
@@ -628,8 +629,9 @@ void Corridors::Crosses(const Paving &on, Paved &into) {
   into.CrossDecksMs = part();
 }
 
-std::optional<Corridors::Ends> Corridors::EndsOf(const outshine::Ground::OsmField &vectors,
-                                                 const outshine::Ground::StreetField::Way &lane) {
+std::optional<Corridors::Ends>
+Corridors::EndsOf(const ::outshine::Generators::Osm::OsmField &vectors,
+                  const ::outshine::Generators::Osm::StreetField::Way &lane) {
   const std::span<const double> points = vectors.Points();
   const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
   const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
@@ -674,7 +676,7 @@ void Corridors::RaisesEnds(std::span<const uint64_t> key, double deckM, Paved &i
 }
 
 Corridors::BridgeTopology Corridors::BridgeTopologyOf(const Paving &on) {
-  const outshine::Ground::StreetField &ways = on.Ways;
+  const ::outshine::Generators::Osm::StreetField &ways = on.Ways;
   BridgeTopology topology{.EndsOfWay = std::vector<Ends>(ways.Ways().size()),
                           .HasEnds = std::vector<uint8_t>(ways.Ways().size()),
                           .WaysAt = {},
@@ -684,8 +686,10 @@ Corridors::BridgeTopology Corridors::BridgeTopologyOf(const Paving &on) {
 }
 
 void Corridors::AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopology &topology) {
-  const outshine::Ground::StreetField::Way &lane = on.Ways.Ways()[laneAt];
-  if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) { return; }
+  const ::outshine::Generators::Osm::StreetField::Way &lane = on.Ways.Ways()[laneAt];
+  if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon || lane.PointCount < 2) {
+    return;
+  }
   const std::optional<Ends> ends = EndsOf(on.Vectors, lane);
   if (!ends) { return; }
   topology.EndsOfWay[laneAt] = *ends;
@@ -762,19 +766,20 @@ double Corridors::HighestDeckM(const Paved &over) {
   return mostDeckM;
 }
 
-void Corridors::EasesRamps(const outshine::Ground::StreetField &ways,
-                           const outshine::Ground::OsmField &vectors,
+void Corridors::EasesRamps(const ::outshine::Generators::Osm::StreetField &ways,
+                           const ::outshine::Generators::Osm::OsmField &vectors,
                            double mostDeckM,
                            Paved &into) {
   for (int pass = 0; pass < kRampPasses; ++pass) { EaseRampPass(ways, vectors, mostDeckM, into); }
 }
 
-void Corridors::EaseRampPass(const outshine::Ground::StreetField &ways,
-                             const outshine::Ground::OsmField &vectors,
+void Corridors::EaseRampPass(const ::outshine::Generators::Osm::StreetField &ways,
+                             const ::outshine::Generators::Osm::OsmField &vectors,
                              double mostDeckM,
                              Paved &into) {
-  for (const outshine::Ground::StreetField::Way &lane : ways.Ways()) {
-    if (lane.Form != outshine::Ground::StreetField::Shape::Ribbon || lane.PointCount < 2) {
+  for (const ::outshine::Generators::Osm::StreetField::Way &lane : ways.Ways()) {
+    if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon ||
+        lane.PointCount < 2) {
       continue;
     }
     if (!(lane.MaxGradient > 0.0f)) { continue; }
@@ -803,10 +808,12 @@ void Corridors::EaseRampPass(const outshine::Ground::StreetField &ways,
 }
 
 void Corridors::GradesApproaches(const Paving &on, Paved &into) {
-  const outshine::Ground::StreetField &ways = on.Ways;
+  const ::outshine::Generators::Osm::StreetField &ways = on.Ways;
 
-  for (const outshine::Ground::StreetField::Way &lane : ways.Ways()) {
-    if (lane.Bridge || lane.Form != outshine::Ground::StreetField::Shape::Ribbon) { continue; }
+  for (const ::outshine::Generators::Osm::StreetField::Way &lane : ways.Ways()) {
+    if (lane.Bridge || lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon) {
+      continue;
+    }
     if (lane.PointCount < 2) { continue; }
     const std::optional<Ends> ends = EndsOf(on.Vectors, lane);
     if (!ends) { continue; }
@@ -1250,7 +1257,7 @@ void Corridors::ShapesJunctions(const Paving &on, Paved &into) {
   }
 }
 
-void Corridors::DeckOrRamp(const outshine::Ground::StreetField::Way &lane,
+void Corridors::DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &lane,
                            const Edge &edge,
                            Paved &into) {
   if (lane.Bridge) {
@@ -1391,11 +1398,11 @@ bool Corridors::HandsThePavingOver(const outshine::Ground::GroundMaterials &wear
 }
 
 std::unordered_map<uint64_t, uint32_t>
-Corridors::SharedNodesOf(const outshine::Ground::StreetField &ways,
+Corridors::SharedNodesOf(const ::outshine::Generators::Osm::StreetField &ways,
                          std::span<const double> points) {
   std::unordered_map<uint64_t, uint32_t> shared;
-  for (const outshine::Ground::StreetField::Way &one : ways.Ways()) {
-    if (one.Form != outshine::Ground::StreetField::Shape::Ribbon) { continue; }
+  for (const ::outshine::Generators::Osm::StreetField::Way &one : ways.Ways()) {
+    if (one.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon) { continue; }
     for (uint32_t step = 0; step < one.PointCount; ++step) {
       const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
       if (at + 1 >= points.size()) { break; }
@@ -1557,8 +1564,8 @@ bool Corridors::Lay(const Site &site,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - site.CensusAt)
             .count(),
         "ms");
-  const outshine::Ground::StreetField &ways = site.Ways;
-  const outshine::Ground::OsmField *const vectors = site.Vectors;
+  const ::outshine::Generators::Osm::StreetField &ways = site.Ways;
+  const ::outshine::Generators::Osm::OsmField *const vectors = site.Vectors;
   into.DeckM.assign(ways.Ways().size(), -kBeyondAnyCoordinate);
   into.Designed.resize(ways.Ways().size());
   const int waterRow = site.Materials.Find("water");
@@ -1752,8 +1759,8 @@ bool Corridors::Job::RetireMaps(size_t unitsMost) noexcept {
 
 struct Corridors::JobSlice {
   const Site &site;
-  const outshine::Ground::StreetField &ways;
-  const outshine::Ground::OsmField *vectors;
+  const ::outshine::Generators::Osm::StreetField &ways;
+  const ::outshine::Generators::Osm::OsmField *vectors;
   const Paving *paving;
   Geometry &ground;
   std::vector<EarthworkStamp> &corridor;

@@ -116,7 +116,7 @@ void ClassificationPreparation::Ingest(Tier &t) {
     t.PtsDone = havePts;
   }
 
-  const std::span<const OsmField::Ring> rings = t.Field->Rings();
+  const std::span<const ::outshine::Generators::Osm::OsmField::Ring> rings = t.Field->Rings();
   if (rings.size() > t.RingsDone) {
     t.Rings.resize(rings.size());
     for (size_t i = t.RingsDone; i < rings.size(); i++) {
@@ -126,7 +126,7 @@ void ClassificationPreparation::Ingest(Tier &t) {
     t.RingsDone = rings.size();
   }
 
-  const std::span<const OsmField::Feature> feats = t.Field->Features();
+  const std::span<const ::outshine::Generators::Osm::OsmField::Feature> feats = t.Field->Features();
   if (feats.size() <= t.FeatsDone) { return; }
 
   for (size_t i = t.FeatsDone; i < feats.size(); i++) { AppendFeature(t, feats[i]); }
@@ -155,7 +155,8 @@ void ClassificationPreparation::Ingest(Tier &t) {
   t.Stale = true;
 }
 
-void ClassificationPreparation::AppendFeature(Tier &t, const OsmField::Feature &f) {
+void ClassificationPreparation::AppendFeature(
+    Tier &t, const ::outshine::Generators::Osm::OsmField::Feature &f) {
   const std::string_view layer = t.Field->LayerName(static_cast<int>(f.Layer));
   const std::string_view kind = t.Field->Str(f, "kind");
   const VegetationTemplates::Rule *rule = Veg_->Find(layer, kind);
@@ -266,15 +267,17 @@ bool ClassificationPreparation::HasSourceRequests() const noexcept {
 
 std::expected<void, std::string_view> ClassificationPreparation::Update(TilePool &tiles,
                                                                         LongitudeLatitude at) {
-  const auto fine = OsmField::Locate(at, Fine_.Zoom);
+  const auto fine = ::outshine::Generators::Osm::OsmField::Locate(at, Fine_.Zoom);
   if (!fine) { return std::unexpected(fine.error()); }
-  const auto coarse = OsmField::Locate(at, Coarse_.Zoom);
+  const auto coarse = ::outshine::Generators::Osm::OsmField::Locate(at, Coarse_.Zoom);
   if (!coarse) { return std::unexpected(coarse.error()); }
   if (!Opened_ || (Veg_ == nullptr) || !Veg_->Ready()) { return {}; }
 
   if (!Fine_.Field) {
-    Fine_.Field = std::make_unique<OsmField>(Fine_.Zoom, Veg_->Layers());
-    Coarse_.Field = std::make_unique<OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
+    Fine_.Field =
+        std::make_unique<::outshine::Generators::Osm::OsmField>(Fine_.Zoom, Veg_->Layers());
+    Coarse_.Field =
+        std::make_unique<::outshine::Generators::Osm::OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
   }
   const double t0 = Clock();
   if (HasSourceRequests()) {
@@ -288,7 +291,7 @@ std::expected<void, std::string_view> ClassificationPreparation::Update(TilePool
                              (size_t{2} * kCoarseRings + 1) * (size_t{2} * kCoarseRings + 1));
     if (!coarseBuilt) { return std::unexpected(coarseBuilt.error()); }
   } else {
-    const std::span<const OsmField::Declared> these(Declared_);
+    const std::span<const ::outshine::Generators::Osm::OsmField::Declared> these(Declared_);
     Fine_.Field->Declare(these, *fine);
     Coarse_.Field->Declare(these, *coarse);
   }

@@ -19,7 +19,7 @@
 namespace outshine {
 struct GroundBuildProducts {
   HeightSheets Sheets;
-  Ground::BuildingField Footprints;
+  ::outshine::Generators::Osm::BuildingField Footprints;
   TilePieces Pieces;
   Geometry Ground;
   std::vector<float> PositionsM;
@@ -71,7 +71,7 @@ public:
   GroundWorldCandidate(
       Render::SceneRenderer &renderer,
       const Surrounds &world,
-      const Ground::BuildingField &footprints,
+      const ::outshine::Generators::Osm::BuildingField &footprints,
       Render::SceneResources::PieceSources pieces = Render::SceneResources::PieceSources::Copy)
       : Products_{.Sheets = world.Sheets,
                   .Footprints = footprints.SnapshotAccepted(),
@@ -90,7 +90,7 @@ public:
                   .RimsMissing = world.RimsMissing,
                   .Surfaces = world.StructureSurfaces},
         World_(renderer),
-        Sources_(Ground::RegionSources::Snapshot(
+        Sources_(::outshine::Generators::Osm::RegionSources::Snapshot(
             world.Stack.Vectors(), world.Stack.Ways(), world.Stack.WaterBodies())),
         PieceSources_(pieces) {
     Products_.Sheets.ForgetsFields();
@@ -105,7 +105,9 @@ public:
 
   [[nodiscard]] const GroundBuildProducts &Products() const noexcept { return Products_; }
 
-  [[nodiscard]] const Ground::RegionSources &Sources() const noexcept { return Sources_; }
+  [[nodiscard]] const ::outshine::Generators::Osm::RegionSources &Sources() const noexcept {
+    return Sources_;
+  }
 
   [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
     return Products_.OwnedHeapBytes() + Sources_.HeapBytes();
@@ -226,7 +228,7 @@ public:
 
   [[nodiscard]] std::expected<void, std::string>
   Publish(Surrounds &world,
-          Ground::BuildingField &footprints,
+          ::outshine::Generators::Osm::BuildingField &footprints,
           std::unique_ptr<Core::RuntimeScene> &published,
           const GroundRevision &revision) {
     if (!world.GroundPublished.CanPublish()) {
@@ -236,7 +238,7 @@ public:
     const auto reconciled = World_.Renderer().ReconcileStructurePieces(Products_.Pieces.Handles());
     if (!reconciled) { return std::unexpected(reconciled.error()); }
     PublicationMetrics_.OrphanStructurePieces = *reconciled;
-    auto region = std::make_shared<const Ground::PublishedRegion>(
+    auto region = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
         std::move(Sources_), Products_.Footprints.SnapshotAccepted());
     auto phaseAt = std::chrono::steady_clock::now();
     if (auto publishedWorld = World_.Publish(published); !publishedWorld) { return publishedWorld; }
@@ -282,7 +284,7 @@ public:
 private:
   GroundBuildProducts Products_;
   Core::WorldCandidate World_;
-  Ground::RegionSources Sources_;
+  ::outshine::Generators::Osm::RegionSources Sources_;
   Render::SceneResources::PieceSources PieceSources_ = Render::SceneResources::PieceSources::Copy;
   size_t NextPiece_ = 0;
   size_t NextHeightPage_ = 0;
@@ -290,7 +292,7 @@ private:
   bool Prepared_ = false;
   PublicationMetrics PublicationMetrics_;
   static_assert(std::is_nothrow_move_assignable_v<HeightSheets>);
-  static_assert(std::is_nothrow_move_assignable_v<Ground::BuildingField>);
+  static_assert(std::is_nothrow_move_assignable_v<::outshine::Generators::Osm::BuildingField>);
   static_assert(std::is_nothrow_move_assignable_v<TilePieces>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::PositionsM)>);
   static_assert(std::is_nothrow_move_assignable_v<decltype(GroundBuildProducts::Indices)>);

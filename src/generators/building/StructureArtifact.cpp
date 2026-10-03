@@ -1,4 +1,5 @@
 #include "StructureArtifact.h"
+#include "StructureSourceKey.h"
 #include "Sha256.h"
 #include <algorithm>
 #include <array>
@@ -257,8 +258,8 @@ bool Valid(const BakedTile &tile) {
                                *tile.SurfaceFailure > StructureSurfaceErrorFailure::Cancelled))) {
     return false;
   }
-  if (!std::ranges::all_of(tile.Prints, [](const Ground::BuildingField::Footprint &item) {
-        return item.Source <= Ground::BuildingField::HeightSource::Default &&
+  if (!std::ranges::all_of(tile.Prints, [](const ::outshine::Ground::BuildingFootprint &item) {
+        return item.Source <= ::outshine::Ground::BuildingHeightSource::Generated &&
                item.MinimumHeightM >= 0.0f &&
                (item.MinimumHeightM == 0.0f || item.MinimumHeightM < item.HeightM) &&
                item.PointCount >= 3 &&

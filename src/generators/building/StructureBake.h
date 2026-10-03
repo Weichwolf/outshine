@@ -17,7 +17,8 @@
 #include <vector>
 
 #include "math/Vec3.h"
-#include "BuildingField.h"
+#include "BuildingFootprint.h"
+#include "BuildingGeometry.h"
 #include "HeightField.h"
 #include "StructureMesher.h"
 #include "spatial/Capacity.h"
@@ -119,7 +120,7 @@ struct BakedTile {
   uint64_t OccupiedCells = 0;
   std::array<outshine::Ground::GeoBounds, kStructureCellsPerTile> CellBounds{};
   std::array<float, kStructureCellsPerTile> CellMaxHeightM{};
-  std::vector<outshine::Ground::BuildingField::Footprint> Prints;
+  std::vector<::outshine::Ground::BuildingFootprint> Prints;
   std::vector<LevelOfDetail> FootprintDetails;
   std::vector<double> SeatSpreadM;
   std::vector<double> AcrossM;

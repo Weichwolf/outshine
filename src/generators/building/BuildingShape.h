@@ -77,7 +77,7 @@ struct Order {
 [[nodiscard]] std::expected<std::span<BuildingShape>, StructureMeshError>
 MassOf(std::span<const double> ringLatLon,
        Order order,
-       const Frontage &street,
+       const BuildingFrontage &street,
        BuildingScratch &scratch,
        std::span<const GeographicRing> innerRings = {},
        std::span<const double> ringPointsLatLon = {});

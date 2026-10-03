@@ -303,7 +303,7 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
     ++World.StructureCellsLanded;
     return true;
   }
-  const Ground::OsmField *vectors = World.Stack.Vectors();
+  const ::outshine::Generators::Osm::OsmField *vectors = World.Stack.Vectors();
   const auto &footprints = World.Stack.Footprints();
   const auto tiles = footprints.AcceptedTiles();
   if (vectors == nullptr || tiles.empty()) { return true; }

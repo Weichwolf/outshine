@@ -13,7 +13,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr std::array<double, 8> points{0, 0, 0, 0.001, 0.001, 0.001, 0.001, 0};
-  std::array<Ground::BuildingField::Footprint, 4> prints{};
+  std::array<::outshine::Ground::BuildingFootprint, 4> prints{};
   prints[0].PointCount = 4;
   prints[0].SeatM = 12;
   prints[0].BaseM = 10;
