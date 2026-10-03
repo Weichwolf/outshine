@@ -37,6 +37,7 @@ constexpr auto kPendingIngestion = "world ingestion pending";
 constexpr auto kPendingStructureDetail = "structure view detail pending";
 constexpr auto kPendingClassification = "terrain classification pending";
 constexpr auto kPendingVectors = "vector tiles pending";
+constexpr auto kRefusedVectors = "required vector tiles refused";
 constexpr auto kPendingVegetation = "vegetation prototypes pending";
 constexpr auto kPendingOsmTransport = "semantic OSM transport source pending";
 constexpr auto kPendingOsmSource = "original OSM source pending";
@@ -332,6 +333,14 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const bool currentRevision =
       World.RequestedRefinedGround &&
       !World.GroundPublished.NeedsRebuild(*World.RequestedRefinedGround, false, false);
+  std::string_view vectorBlocker = vectors == nullptr ? Says::kPendingVectors : "";
+  if (refined && vectors != nullptr) {
+    if (vectors->RefusedTiles() > 0) {
+      vectorBlocker = Says::kRefusedVectors;
+    } else if (vectors->PendingTiles() > 0) {
+      vectorBlocker = Says::kPendingVectors;
+    }
+  }
   return {{RequiredBlocker(refined, World.AskedWanted > 0, Says::kNoTerrainRequests),
            RequiredBlocker(refined, World.AskedPending == 0, Says::kPendingTerrain),
            RequiredBlocker(refined, World.Bare == 0, Says::kMissingTerrain),
@@ -344,8 +353,7 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
            published && (!refined || RefinedGroundClassified(*ground))
                ? ""
                : Says::kPendingClassification,
-           vectors != nullptr && (!refined || vectors->PendingTiles() == 0) ? ""
-                                                                            : Says::kPendingVectors,
+           vectorBlocker,
            !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
                    (World.Vegetation && World.Vegetation->Ready())
                ? ""

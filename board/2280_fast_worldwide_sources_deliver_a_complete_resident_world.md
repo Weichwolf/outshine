@@ -18,8 +18,8 @@ nach Entfernen der Gebäude-Zusatzgeometrie wieder die Stadt ohne Metal-Speicher
 Lade-/Framekosten und Speicher liegen noch außerhalb des Budgets; Ferncluster und verbliebene
 Geometriekosten gehören zu 2336. Abnahme ist die vollständig sichtbare Welt,
 nicht ein interner Ready-Zustand oder die Anzahl erzeugter Dreiecke.
-Feldkirch akzeptiert derzeit fehlende Offline-Vektorkacheln als fertigen Shot. Erforderliche
-Quellen müssen Ready und Screenshot sperren; eine fast leere Stadt ist keine erfolgreiche Abnahme.
+Abgelehnte erforderliche Vektorkacheln sperren Ready und Screenshot. Eine fast leere Stadt
+ist keine erfolgreiche Abnahme; fehlende Quellen bleiben bis zur vollständigen Lieferung rot.
 
 ## Besitzer und Grenzen
 SourceSet/ContentStore/TilePool besitzen gemeinsame Bytes/Jobs; Erweiterungen ihre Formate.
