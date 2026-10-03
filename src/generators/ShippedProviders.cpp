@@ -63,7 +63,8 @@ public:
         .TypicalPayloadBytes = kTerrariumTypicalPayloadBytes,
         .RetryBudget = 4,
         .MaximumPayloadBytes = kTerrariumMaximumPayloadBytes,
-        .PayloadSha256 = provider.PayloadSha256});
+        .PayloadSha256 = provider.PayloadSha256,
+        .TileAbsence = Data::TileAbsencePolicy::Parent});
   }
 };
 

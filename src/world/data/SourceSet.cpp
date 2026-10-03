@@ -188,12 +188,25 @@ std::optional<Delivery> SourceSet::StartNext(Query &query, Transport &transport)
           ValidateDemand(query.Request_, query.Current_->Declaration().MaximumPayloadBytes)) {
     return Refuse(query, kRetryCapMs, *problem);
   }
-  if (auto stored = ReadStored(query)) { return stored; }
+  if (auto stored = ReadStored(query, transport)) { return stored; }
   if (query.Current_ == nullptr) { return std::nullopt; }
   return StartCurrent(query, transport);
 }
 
-std::optional<Delivery> SourceSet::ProcessAbsence(Query &query, std::optional<int> httpStatus) {
+std::optional<Delivery>
+SourceSet::ProcessAbsence(Query &query, Transport &transport, std::optional<int> httpStatus) {
+  const auto &decl = query.Current_->Declaration();
+  const auto tile = query.At_.Tile();
+  if (decl.TileAbsence == TileAbsencePolicy::Parent && tile && !query.Request_.Range() &&
+      tile->Zoom > decl.MinZoom) {
+    query.At_ = Address::At(TileId{.Zoom = tile->Zoom - 1, .X = tile->X / 2, .Y = tile->Y / 2});
+    query.Attempts_ = 0;
+    query.Phase_ = Query::Phase::Ready;
+    if (auto stored = ReadStored(query, transport)) { return stored; }
+    if (query.Current_ == nullptr) { return std::nullopt; }
+    if (query.Phase_ == Query::Phase::InFlight) { return Delivery::Waiting(); }
+    return StartCurrent(query, transport);
+  }
   if (query.Current_->Declaration().OnAbsent == AbsencePolicy::Fail) {
     return Refuse(query, kRetryCapMs, FetchFailureReason::ConfirmedAbsent, httpStatus);
   }
@@ -204,7 +217,7 @@ std::optional<Delivery> SourceSet::ProcessAbsence(Query &query, std::optional<in
   return std::nullopt;
 }
 
-std::optional<Delivery> SourceSet::ReadStored(Query &query) {
+std::optional<Delivery> SourceSet::ReadStored(Query &query, Transport &transport) {
   const SourceDecl &decl = query.Current_->Declaration();
   if (decl.Keeps != Cacheability::Forever) { return std::nullopt; }
   const auto &range = query.Request_.Range();
@@ -219,7 +232,7 @@ std::optional<Delivery> SourceSet::ReadStored(Query &query) {
       const std::scoped_lock lock(LedgerMutex_);
       ++Ledger_.Asked;
     }
-    return ProcessAbsence(query);
+    return ProcessAbsence(query, transport);
   }
   std::optional<RangeResponse> origin = std::nullopt;
   if (range) {
@@ -328,7 +341,7 @@ std::optional<Delivery> SourceSet::ProcessResponse(Query &query,
                                                     : ContentStore::PinnedAbsenceLifetimeS;
         (void)Store_.KeepAbsent(query.CacheKey(), lifetime);
       }
-      return ProcessAbsence(query, response.HttpStatus);
+      return ProcessAbsence(query, transport, response.HttpStatus);
     }
     case Meaning::Retry:
       if (validDelay && query.Attempts_ < decl.RetryBudget) {

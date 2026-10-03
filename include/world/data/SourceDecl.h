@@ -63,6 +63,12 @@ enum class Necessity : uint8_t {
 /// @return Process-lifetime name, or empty for an unsupported value.
 [[nodiscard]] const char *Name(Necessity need) noexcept;
 
+/// Refinement fallback after a confirmed missing tile from the selected source.
+enum class TileAbsencePolicy : uint8_t {
+  SourcePolicy, ///< Apply OnAbsent without changing the served tile.
+  Parent        ///< Try ancestors down to MinZoom before applying OnAbsent.
+};
+
 /// Owned immutable identity and scheduling settings for one configured source.
 /// Source owns this value; cache keys include its identity, revision and endpoint.
 /// No method here performs IO. Sizes are bytes, retry counts are dimensionless.
@@ -96,6 +102,8 @@ struct SourceDecl {
   size_t MaximumPayloadBytes =
       0;                     ///< Enforced response/cache-read byte cap; zero uses shared defaults.
   std::string PayloadSha256; ///< Optional lowercase SHA-256 digest required of returned bytes.
+  TileAbsencePolicy TileAbsence =
+      TileAbsencePolicy::SourcePolicy; ///< Explicit tile refinement policy.
 };
 
 }
