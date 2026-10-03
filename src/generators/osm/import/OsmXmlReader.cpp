@@ -17,56 +17,54 @@
 #include "Number.h"
 #include "Xml.h"
 
-namespace outshine::Data {
+namespace outshine::Generators::Osm {
 
 namespace {
 
-std::expected<uint64_t, OsmXmlError> ReadId(const Xml::Ref &element, const char *attribute) {
+std::expected<uint64_t, XmlError> ReadId(const Xml::Ref &element, const char *attribute) {
   const std::optional<std::string> text = element.Said(attribute);
-  if (!text || text->empty()) { return std::unexpected(OsmXmlError::InvalidId); }
+  if (!text || text->empty()) { return std::unexpected(XmlError::InvalidId); }
   uint64_t id = 0;
   const auto parsed = std::from_chars(text->data(), text->data() + text->size(), id);
   if (parsed.ec != std::errc{} || parsed.ptr != text->data() + text->size() || id == 0) {
-    return std::unexpected(OsmXmlError::InvalidId);
+    return std::unexpected(XmlError::InvalidId);
   }
   return id;
 }
 
-std::expected<double, OsmXmlError>
+std::expected<double, XmlError>
 ReadCoordinate(const Xml::Ref &element, const char *attribute, double limit) {
   const std::optional<std::string> text = element.Said(attribute);
-  if (!text) { return std::unexpected(OsmXmlError::InvalidCoordinate); }
+  if (!text) { return std::unexpected(XmlError::InvalidCoordinate); }
   const auto value = ParseFiniteNumber(*text);
-  if (!value || std::abs(*value) > limit) {
-    return std::unexpected(OsmXmlError::InvalidCoordinate);
-  }
+  if (!value || std::abs(*value) > limit) { return std::unexpected(XmlError::InvalidCoordinate); }
   return *value;
 }
 
-std::expected<void, OsmXmlError> AppendTag(const Xml::Ref &element, std::vector<OsmTag> &tags) {
+std::expected<void, XmlError> AppendTag(const Xml::Ref &element, std::vector<Tag> &tags) {
   const std::optional<std::string> key = element.Said("k");
   const std::optional<std::string> value = element.Said("v");
-  if (!key || key->empty() || !value) { return std::unexpected(OsmXmlError::InvalidTag); }
-  tags.push_back(OsmTag{.Key = *key, .Value = *value});
+  if (!key || key->empty() || !value) { return std::unexpected(XmlError::InvalidTag); }
+  tags.push_back(Tag{.Key = *key, .Value = *value});
   return {};
 }
 
-void SortTags(std::vector<OsmTag> &tags) {
-  std::ranges::sort(tags, [](const OsmTag &left, const OsmTag &right) {
+void SortTags(std::vector<Tag> &tags) {
+  std::ranges::sort(tags, [](const Tag &left, const Tag &right) {
     if (left.Key != right.Key) { return left.Key < right.Key; }
     return left.Value < right.Value;
   });
 }
 
-std::expected<OsmNode, OsmXmlError> ReadNode(const Xml::Ref &element) {
+std::expected<Node, XmlError> ReadNode(const Xml::Ref &element) {
   const auto id = ReadId(element, "id");
   if (!id) { return std::unexpected(id.error()); }
   const auto latitude = ReadCoordinate(element, "lat", 90.0);
   const auto longitude = ReadCoordinate(element, "lon", 180.0);
-  if (!latitude || !longitude) { return std::unexpected(OsmXmlError::InvalidCoordinate); }
-  OsmNode node{.Id = *id, .LatitudeDeg = *latitude, .LongitudeDeg = *longitude, .Tags = {}};
+  if (!latitude || !longitude) { return std::unexpected(XmlError::InvalidCoordinate); }
+  Node node{.Id = *id, .LatitudeDeg = *latitude, .LongitudeDeg = *longitude, .Tags = {}};
   for (const Xml::Ref child : element.Children()) {
-    if (child.Name() != "tag") { return std::unexpected(OsmXmlError::InvalidDocument); }
+    if (child.Name() != "tag") { return std::unexpected(XmlError::InvalidDocument); }
     const auto tag = AppendTag(child, node.Tags);
     if (!tag) { return std::unexpected(tag.error()); }
   }
@@ -74,10 +72,10 @@ std::expected<OsmNode, OsmXmlError> ReadNode(const Xml::Ref &element) {
   return node;
 }
 
-std::expected<OsmWay, OsmXmlError> ReadWay(const Xml::Ref &element) {
+std::expected<Way, XmlError> ReadWay(const Xml::Ref &element) {
   const auto id = ReadId(element, "id");
   if (!id) { return std::unexpected(id.error()); }
-  OsmWay way{.Id = *id, .NodeIds = {}, .Tags = {}};
+  Way way{.Id = *id, .NodeIds = {}, .Tags = {}};
   for (const Xml::Ref child : element.Children()) {
     const std::string name = child.Name();
     if (name == "nd") {
@@ -88,34 +86,34 @@ std::expected<OsmWay, OsmXmlError> ReadWay(const Xml::Ref &element) {
       const auto tag = AppendTag(child, way.Tags);
       if (!tag) { return std::unexpected(tag.error()); }
     } else {
-      return std::unexpected(OsmXmlError::InvalidDocument);
+      return std::unexpected(XmlError::InvalidDocument);
     }
   }
   SortTags(way.Tags);
   return way;
 }
 
-std::expected<OsmRelationMember, OsmXmlError> ReadMember(const Xml::Ref &element) {
+std::expected<RelationMember, XmlError> ReadMember(const Xml::Ref &element) {
   const auto id = ReadId(element, "ref");
   if (!id) { return std::unexpected(id.error()); }
   const std::string type = element.Attr("type");
-  OsmElementKind kind;
+  ElementKind kind;
   if (type == "node") {
-    kind = OsmElementKind::Node;
+    kind = ElementKind::Node;
   } else if (type == "way") {
-    kind = OsmElementKind::Way;
+    kind = ElementKind::Way;
   } else if (type == "relation") {
-    kind = OsmElementKind::Relation;
+    kind = ElementKind::Relation;
   } else {
-    return std::unexpected(OsmXmlError::InvalidMember);
+    return std::unexpected(XmlError::InvalidMember);
   }
-  return OsmRelationMember{.Kind = kind, .Id = *id, .Role = element.Attr("role")};
+  return RelationMember{.Kind = kind, .Id = *id, .Role = element.Attr("role")};
 }
 
-std::expected<OsmRelation, OsmXmlError> ReadRelation(const Xml::Ref &element) {
+std::expected<Relation, XmlError> ReadRelation(const Xml::Ref &element) {
   const auto id = ReadId(element, "id");
   if (!id) { return std::unexpected(id.error()); }
-  OsmRelation relation{.Id = *id, .Members = {}, .Tags = {}};
+  Relation relation{.Id = *id, .Members = {}, .Tags = {}};
   for (const Xml::Ref child : element.Children()) {
     const std::string name = child.Name();
     if (name == "member") {
@@ -126,7 +124,7 @@ std::expected<OsmRelation, OsmXmlError> ReadRelation(const Xml::Ref &element) {
       const auto tag = AppendTag(child, relation.Tags);
       if (!tag) { return std::unexpected(tag.error()); }
     } else {
-      return std::unexpected(OsmXmlError::InvalidDocument);
+      return std::unexpected(XmlError::InvalidDocument);
     }
   }
   SortTags(relation.Tags);
@@ -143,25 +141,25 @@ template <typename Element> bool SortUnique(std::vector<Element> &elements) {
 
 }
 
-std::expected<OsmElements, OsmXmlError> OsmXmlReader::Read(std::string_view xml,
-                                                           SourceIdentity identity) {
+std::expected<ElementSet, XmlError> XmlReader::Read(std::string_view xml,
+                                                    Data::SourceIdentity identity) {
   if (identity.DatasetId.empty() || identity.Revision.empty()) {
-    return std::unexpected(OsmXmlError::InvalidSourceIdentity);
+    return std::unexpected(XmlError::InvalidSourceIdentity);
   }
-  if (xml.size() > kMaxOsmXmlBytes) { return std::unexpected(OsmXmlError::BudgetExceeded); }
+  if (xml.size() > kMaximumXmlBytes) { return std::unexpected(XmlError::BudgetExceeded); }
   constexpr size_t kShortestXmlElementBytes = 4;
   constexpr size_t kShortestXmlAttributeBytes = 4;
   const Xml::ParseBudget budget{.NodeSlots = xml.size() / kShortestXmlElementBytes + 1,
                                 .Attributes = xml.size() / kShortestXmlAttributeBytes};
   Xml document;
   if (!document.Parse(xml.data(), xml.size(), budget)) {
-    return std::unexpected(OsmXmlError::InvalidDocument);
+    return std::unexpected(XmlError::InvalidDocument);
   }
   const Xml::Ref root = document.Root();
   if (root.Name() != "osm" || root.Attr("version") != "0.6") {
-    return std::unexpected(OsmXmlError::UnsupportedRoot);
+    return std::unexpected(XmlError::UnsupportedRoot);
   }
-  OsmElements elements;
+  ElementSet elements;
   elements.SourceIdentity_ = std::move(identity);
   for (const Xml::Ref child : root.Children()) {
     const std::string name = child.Name();
@@ -178,12 +176,12 @@ std::expected<OsmElements, OsmXmlError> OsmXmlReader::Read(std::string_view xml,
       if (!relation) { return std::unexpected(relation.error()); }
       elements.Relations_.push_back(std::move(*relation));
     } else if (name != "bounds" && name != "note" && name != "meta") {
-      return std::unexpected(OsmXmlError::InvalidDocument);
+      return std::unexpected(XmlError::InvalidDocument);
     }
   }
   if (!SortUnique(elements.Nodes_) || !SortUnique(elements.Ways_) ||
       !SortUnique(elements.Relations_)) {
-    return std::unexpected(OsmXmlError::DuplicateElement);
+    return std::unexpected(XmlError::DuplicateElement);
   }
   return elements;
 }

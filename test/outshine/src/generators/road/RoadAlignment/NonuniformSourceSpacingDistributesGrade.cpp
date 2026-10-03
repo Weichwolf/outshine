@@ -34,7 +34,8 @@ int main() {
       "<node id='4' lat='0.0101' lon='0.0107'/>"
       "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/><nd ref='4'/>"
       "<tag k='highway' v='primary'/><tag k='width' v='6'/></way></osm>";
-  const auto source = OsmXmlReader::Read(xml, {.DatasetId = "nonuniform", .Revision = "r1"});
+  const auto source = outshine::Generators::Osm::XmlReader::Read(
+      xml, {.DatasetId = "nonuniform", .Revision = "r1"});
   CHECK(source.has_value(), "the nonuniform graded road source parses");
   if (!source) { return Report(); }
   const auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);
@@ -117,8 +118,8 @@ int main() {
       "<node id='13' lat='0.01007' lon='0.01017'/>"
       "<way id='20'><nd ref='11'/><nd ref='12'/><nd ref='13'/>"
       "<tag k='highway' v='primary'/><tag k='width' v='6'/></way></osm>";
-  const auto equalSource =
-      OsmXmlReader::Read(equalXml, {.DatasetId = "equal-spacing", .Revision = "r1"});
+  const auto equalSource = outshine::Generators::Osm::XmlReader::Read(
+      equalXml, {.DatasetId = "equal-spacing", .Revision = "r1"});
   CHECK(equalSource.has_value(), "the near-equal-spaced road source parses");
   if (!equalSource) { return Report(); }
   const auto equalTopology = outshine::Generators::Osm::TransportBuilder::Build(*equalSource);

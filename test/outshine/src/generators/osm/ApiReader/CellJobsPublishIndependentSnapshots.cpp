@@ -72,23 +72,25 @@ void CheckSnapshots(const outshine::Generators::Osm::SourceRead &read,
     CHECK(chunk.Cell == cells[at] && chunk.Provider.Coverage == cells[at].Bounds() &&
               chunk.Xml == Xml(at + 1) && chunk.FromStore == stored,
           "completion order does not change cell identity, coverage or raw bytes");
-    auto parsed = OsmChunkSetLoader::ParseCell(chunk);
+    auto parsed = outshine::Generators::Osm::ChunkSetLoader::ParseCell(chunk);
     CHECK(parsed && parsed->Cell == cells[at] && parsed->SourceBytes == chunk.Xml.size() &&
               parsed->Chunks.front().PayloadSha256 == outshine::Sha256Hex(chunk.Xml) &&
               !parsed->Chunks.front().PinVerified && parsed->Chunks.front().FromStore == stored,
           "a cell owns its parsed data and measured source digest without claiming a pin");
     if (!parsed) { continue; }
-    const std::array roots{OsmElementId{.Kind = OsmElementKind::Way, .Id = 10}};
+    const std::array roots{outshine::Generators::Osm::ElementId{
+        .Kind = outshine::Generators::Osm::ElementKind::Way, .Id = 10}};
     CHECK(parsed->Elements.FindWay(10)->Tags.back().Value == std::to_string(at + 1) &&
               parsed->Elements.FirstMissingReference() &&
               !parsed->Elements.FirstMissingReference(roots),
           "overlapping versions remain independent and foreign incomplete relations stay intact");
   }
-  CHECK(!OsmChunkSetLoader::ParseRegion(read.Chunks),
+  CHECK(!outshine::Generators::Osm::ChunkSetLoader::ParseRegion(read.Chunks),
         "cell answers cannot silently become a global merged region");
   auto wrong = read.Chunks.front();
   wrong.Cell = cells.back();
-  CHECK(!OsmChunkSetLoader::ParseCell(wrong), "mismatched cell coverage cannot publish");
+  CHECK(!outshine::Generators::Osm::ChunkSetLoader::ParseCell(wrong),
+        "mismatched cell coverage cannot publish");
 }
 }
 

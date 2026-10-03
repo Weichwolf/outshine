@@ -18,7 +18,8 @@ int main() {
           Data::SourceCoverage{.WestDeg = 0.0, .SouthDeg = 0.0, .EastDeg = 1.0, .NorthDeg = 1.0}};
   std::stop_source stop;
   (void)stop.request_stop();
-  const auto loaded = Data::OsmChunkSetLoader::Load(std::span(&source, 1), ".", stop.get_token());
+  const auto loaded =
+      outshine::Generators::Osm::ChunkSetLoader::Load(std::span(&source, 1), ".", stop.get_token());
   CHECK(!loaded && std::string_view(loaded.error()).find("canceled") != std::string_view::npos,
         "a superseded OSM build stops before touching its first source file");
   return Report();

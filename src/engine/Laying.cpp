@@ -628,7 +628,7 @@ private:
   Around Coverage_;
   GroundRevision Revision_;
   GroundWorldCandidate Candidate_;
-  std::vector<std::shared_ptr<const Data::OsmSourceSnapshot>> OriginalSources_;
+  std::vector<std::shared_ptr<const Generators::Osm::SourceSnapshot>> OriginalSources_;
   std::vector<std::shared_ptr<const Generators::Osm::StructureCell>> OriginalCells_;
   std::shared_ptr<const World::TransportNetworkSnapshot> TransportSnapshot_;
   RoadHeightCoverage RoadHeightCoverage_;

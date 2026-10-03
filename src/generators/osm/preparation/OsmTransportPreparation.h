@@ -44,7 +44,7 @@ public:
           std::string_view shippedRoot,
           std::span<const CircuitRequest> routes = {});
   [[nodiscard]] std::expected<void, std::string>
-  RequestSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+  RequestSource(std::shared_ptr<const SourceSnapshot> source,
                 std::span<const CircuitRequest> routes = {});
   void Poll();
 
@@ -57,7 +57,7 @@ public:
     return Current_;
   }
 
-  [[nodiscard]] const std::shared_ptr<const Data::OsmSourceSnapshot> &Source() const noexcept {
+  [[nodiscard]] const std::shared_ptr<const SourceSnapshot> &Source() const noexcept {
     return CurrentSource_;
   }
 
@@ -69,7 +69,7 @@ public:
 
 private:
   struct Publication {
-    std::shared_ptr<const Data::OsmSourceSnapshot> Source;
+    std::shared_ptr<const SourceSnapshot> Source;
     std::shared_ptr<const World::TransportNetworkSnapshot> Network;
   };
 
@@ -91,14 +91,14 @@ private:
                                        std::span<const CircuitRequest> routes,
                                        const std::stop_token &stop);
 
-  [[nodiscard]] static LoadResult BuildSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+  [[nodiscard]] static LoadResult BuildSource(std::shared_ptr<const SourceSnapshot> source,
                                               std::span<const CircuitRequest> routes,
                                               const std::stop_token &stop);
 
   [[nodiscard]] std::expected<void, std::string>
   SetRequest(std::vector<Data::SourceProvider> requested,
              std::string root,
-             std::shared_ptr<const Data::OsmSourceSnapshot> source,
+             std::shared_ptr<const SourceSnapshot> source,
              std::span<const CircuitRequest> routes);
 
   void StartRequested();
@@ -107,10 +107,10 @@ private:
   std::vector<Data::SourceProvider> Requested_;
   std::vector<CircuitRequest> RequestedRoutes_;
   std::string Root_;
-  std::shared_ptr<const Data::OsmSourceSnapshot> RequestedSource_;
+  std::shared_ptr<const SourceSnapshot> RequestedSource_;
   std::optional<Pending> Pending_;
   std::shared_ptr<const World::TransportNetworkSnapshot> Current_;
-  std::shared_ptr<const Data::OsmSourceSnapshot> CurrentSource_;
+  std::shared_ptr<const SourceSnapshot> CurrentSource_;
   std::string Error_;
   uint64_t Revision_ = 0;
   uint64_t CompletedCount_ = 0;

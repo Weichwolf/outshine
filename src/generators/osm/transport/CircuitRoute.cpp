@@ -14,9 +14,9 @@ namespace outshine::Generators::Osm {
 
 namespace {
 
-bool IsCircuit(const Data::OsmRelation &relation) {
+bool IsCircuit(const Relation &relation) {
   size_t kinds = 0;
-  for (const Data::OsmTag &tag : relation.Tags) {
+  for (const Tag &tag : relation.Tags) {
     if (tag.Key != "type") { continue; }
     ++kinds;
     if (tag.Value != "circuit") { return false; }
@@ -25,7 +25,7 @@ bool IsCircuit(const Data::OsmRelation &relation) {
 }
 
 std::expected<const World::TransportEdge *, CircuitError>
-ResolveSegment(const World::TransportTopology &graph, const Data::OsmWay &way, size_t segment) {
+ResolveSegment(const World::TransportTopology &graph, const Way &way, size_t segment) {
   const World::TransportEdgeId forwardId{.PathId = way.Id,
                                          .SegmentOrdinal = static_cast<uint32_t>(segment),
                                          .Direction = World::EdgeDirection::Forward};
@@ -57,18 +57,18 @@ ResolveSegment(const World::TransportTopology &graph, const Data::OsmWay &way, s
 
 std::expected<std::vector<const World::TransportEdge *>, CircuitError>
 SelectEdges(const World::TransportTopology &graph,
-            const Data::OsmElements &source,
-            const Data::OsmRelation &relation,
+            const ElementSet &source,
+            const Relation &relation,
             std::string_view memberRole,
             size_t maxEdges) {
   std::vector<const World::TransportEdge *> selected;
-  for (const Data::OsmRelationMember &member : relation.Members) {
+  for (const RelationMember &member : relation.Members) {
     if (member.Role != memberRole) { continue; }
-    if (member.Kind != Data::OsmElementKind::Way) {
+    if (member.Kind != ElementKind::Way) {
       return std::unexpected(
           CircuitError{.Code = CircuitErrorCode::InvalidMember, .SourceId = member.Id});
     }
-    const Data::OsmWay *way = source.FindWay(member.Id);
+    const Way *way = source.FindWay(member.Id);
     if (way == nullptr) {
       return std::unexpected(
           CircuitError{.Code = CircuitErrorCode::MissingWay, .SourceId = member.Id});
@@ -98,7 +98,7 @@ SelectEdges(const World::TransportTopology &graph,
 
 std::expected<World::CircuitRoute, CircuitError>
 TransportBuilder::ResolveCircuit(const World::TransportTopology &graph,
-                                 const Data::OsmElements &source,
+                                 const ElementSet &source,
                                  uint64_t relationId,
                                  std::string_view memberRole,
                                  size_t maxEdges) {
@@ -106,7 +106,7 @@ TransportBuilder::ResolveCircuit(const World::TransportTopology &graph,
     return std::unexpected(
         CircuitError{.Code = CircuitErrorCode::SourceMismatch, .SourceId = relationId});
   }
-  const Data::OsmRelation *relation = source.FindRelation(relationId);
+  const Relation *relation = source.FindRelation(relationId);
   if (relation == nullptr) {
     return std::unexpected(
         CircuitError{.Code = CircuitErrorCode::MissingRelation, .SourceId = relationId});

@@ -65,7 +65,8 @@ int main() {
     auto made = ConfigureSource(provider, ".", registry);
     CHECK(made && (*made)->Declaration().How == Scheme::GeodeticGrid &&
               (*made)->Declaration().Wire == WireFormat::OsmXml &&
-              (*made)->Declaration().MaximumPayloadBytes == kMaxOsmXmlBytes,
+              (*made)->Declaration().MaximumPayloadBytes ==
+                  outshine::Generators::Osm::kMaximumXmlBytes,
           "the registered built-in provider serves bounded original cells through the public "
           "source contract");
     if (!made) { break; }
@@ -85,8 +86,8 @@ int main() {
             "reopening");
       if (answer) {
         const std::string xml(answer->Bytes.begin(), answer->Bytes.end());
-        const auto parsed =
-            OsmXmlReader::Read(xml, {.DatasetId = provider.Dataset, .Revision = provider.Revision});
+        const auto parsed = outshine::Generators::Osm::XmlReader::Read(
+            xml, {.DatasetId = provider.Dataset, .Revision = provider.Revision});
         CHECK(parsed && parsed->FindNode(1) && parsed->FindWay(10) &&
                   parsed->FindWay(10)->Tags.size() == 3 && parsed->FindRelation(20),
               "original object kinds and unknown properties remain available to native consumers");

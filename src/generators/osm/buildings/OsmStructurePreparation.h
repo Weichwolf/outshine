@@ -28,7 +28,7 @@ public:
     std::vector<Data::TileId> HeightTiles;
   };
 
-  using SourceInputs = std::vector<std::shared_ptr<const Data::OsmSourceSnapshot>>;
+  using SourceInputs = std::vector<std::shared_ptr<const SourceSnapshot>>;
   using CellInputs = std::vector<std::shared_ptr<const StructureCell>>;
   using Inputs = std::variant<SourceInputs, CellInputs>;
 

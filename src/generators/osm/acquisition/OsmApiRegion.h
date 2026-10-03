@@ -23,12 +23,11 @@ public:
          std::string_view shippedRoot,
          std::optional<Data::GeoCellId> cell);
   ~ApiRegion();
-  [[nodiscard]] Data::OsmSourceChunk Chunk(const Data::SourceProvider &provider,
-                                           std::optional<Data::GeoCellId> cell) const;
+  [[nodiscard]] SourceChunk Chunk(const Data::SourceProvider &provider,
+                                  std::optional<Data::GeoCellId> cell) const;
   [[nodiscard]] bool Begin(const Data::ContentStore &store, std::vector<Data::GeoCellId> &refine);
   [[nodiscard]] bool HasCachedCoverage(Data::ContentStore &store) const;
-  [[nodiscard]] std::expected<Collected, std::string> Collect(Data::OsmSourceChunk &chunk,
-                                                              double beganMs);
+  [[nodiscard]] std::expected<Collected, std::string> Collect(SourceChunk &chunk, double beganMs);
 
 private:
   ApiRegion(Data::ContentStore &store, Data::Transport &wire, Data::Address at);

@@ -63,11 +63,10 @@ ApiRegion::Create(const Data::SourceProvider &provider,
   return region;
 }
 
-Data::OsmSourceChunk ApiRegion::Chunk(const Data::SourceProvider &provider,
-                                      std::optional<Data::GeoCellId> cell) const {
+SourceChunk ApiRegion::Chunk(const Data::SourceProvider &provider,
+                             std::optional<Data::GeoCellId> cell) const {
   const auto &declaration = Sources_.At(0).Declaration();
-  Data::OsmSourceChunk chunk{
-      .Provider = provider, .Xml = {}, .Origin = declaration.Endpoint, .Cell = cell};
+  SourceChunk chunk{.Provider = provider, .Xml = {}, .Origin = declaration.Endpoint, .Cell = cell};
   if (cell) {
     chunk.Provider.Dataset = declaration.Id;
     chunk.Provider.Revision = declaration.Revision;
@@ -78,7 +77,7 @@ Data::OsmSourceChunk ApiRegion::Chunk(const Data::SourceProvider &provider,
   return chunk;
 }
 
-std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(Data::OsmSourceChunk &chunk,
+std::expected<ApiRegion::Collected, std::string> ApiRegion::Collect(SourceChunk &chunk,
                                                                     double beganMs) {
   if (!Query_) { return Collected::Pending; }
   auto delivery = Sources_.Collect(*Query_, Wire_);

@@ -39,8 +39,8 @@ int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
   const LongitudeLatitude eye{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
-  auto parsed =
-      Data::OsmXmlReader::Read(R"(<osm version="0.6">
+  auto parsed = outshine::Generators::Osm::XmlReader::Read(
+      R"(<osm version="0.6">
     <node id="1" lat="49.32739" lon="8.56589"/>
     <node id="2" lat="49.32739" lon="8.56593"/>
     <node id="3" lat="49.32743" lon="8.56593"/>
@@ -50,17 +50,18 @@ int main() {
     <way id="11"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
     <tag k="building:part" v="yes"/><tag k="height" v="18"/>
     <tag k="min_height" v="14"/></way></osm>)",
-                               {.DatasetId = "analytic-original-buildings", .Revision = "one"});
+      {.DatasetId = "analytic-original-buildings", .Revision = "one"});
   CHECK(parsed.has_value(), "two original building objects parse");
   if (!parsed) { return Report(); }
-  auto source = std::make_shared<Data::OsmSourceSnapshot>(Data::OsmSourceSnapshot{
-      .Elements = std::move(*parsed),
-      .Coverage = {{.WestDeg = 8.565899,
-                    .SouthDeg = 49.327399,
-                    .EastDeg = 8.565901,
-                    .NorthDeg = 49.327401}},
-      .Chunks = {{.PayloadSha256 = std::string(64, 'a'), .PinVerified = true}}});
-  auto relationElements = Data::OsmXmlReader::Read(
+  auto source = std::make_shared<outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*parsed),
+          .Coverage = {{.WestDeg = 8.565899,
+                        .SouthDeg = 49.327399,
+                        .EastDeg = 8.565901,
+                        .NorthDeg = 49.327401}},
+          .Chunks = {{.PayloadSha256 = std::string(64, 'a'), .PinVerified = true}}});
+  auto relationElements = outshine::Generators::Osm::XmlReader::Read(
       R"(<osm version="0.6">
     <node id="1" lat="49.32739" lon="8.56589"/>
     <node id="2" lat="49.32739" lon="8.56593"/>
@@ -75,9 +76,11 @@ int main() {
   CHECK(relationElements.has_value(),
         "neighbor includes the same elements and a consuming relation");
   if (!relationElements) { return Report(); }
-  auto neighbor = std::make_shared<Data::OsmSourceSnapshot>(Data::OsmSourceSnapshot{
-      .Elements = std::move(*relationElements), .Coverage = source->Coverage});
-  const std::array<std::shared_ptr<const Data::OsmSourceSnapshot>, 2> sources{source, neighbor};
+  auto neighbor = std::make_shared<outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*relationElements),
+                                                .Coverage = source->Coverage});
+  const std::array<std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot>, 2> sources{
+      source, neighbor};
   SilentSink sink;
   Data::OfflineTransport wire;
   const auto cache = std::filesystem::temp_directory_path() /
@@ -199,10 +202,10 @@ int main() {
             next->Coordinates->Origin.Provenance->Cell == neighbor->Cell && !first->Vector &&
             !next->Vector,
         "each accepted product identifies its source archive without owning the complete cell");
-  const Data::SourceObjectId part{.Id = 11,
-                                  .Kind = static_cast<uint8_t>(Data::OsmElementKind::Way)};
-  const Data::SourceObjectId relation{.Id = 20,
-                                      .Kind = static_cast<uint8_t>(Data::OsmElementKind::Relation)};
+  const Data::SourceObjectId part{
+      .Id = 11, .Kind = static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Way)};
+  const Data::SourceObjectId relation{
+      .Id = 20, .Kind = static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Relation)};
   CHECK(first && next && first->Coordinates->Sources.size() == 1 &&
             next->Coordinates->Sources.size() == 1 && first->Coordinates->Sources[0] == part &&
             next->Coordinates->Sources[0] == relation,
@@ -242,9 +245,9 @@ int main() {
               std::abs(stamps->front().RingEastNorthM[1] - corner.NorthM) < 0.02,
           "four paired metre coordinates preserve the original terrain contact");
   }
-  auto standalone = std::make_shared<Data::OsmSourceSnapshot>(*source);
-  const std::array<std::shared_ptr<const Data::OsmSourceSnapshot>, 2> withoutRelation{source,
-                                                                                      standalone};
+  auto standalone = std::make_shared<outshine::Generators::Osm::SourceSnapshot>(*source);
+  const std::array<std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot>, 2>
+      withoutRelation{source, standalone};
   bool changed = false;
   for (int attempt = 0; attempt < 100 && !changed; ++attempt) {
     const auto ready = queue.PrepareOriginal(
@@ -298,7 +301,7 @@ int main() {
             queue.Queued() == 0,
         "unchanged resident cell products generate no further work");
   const uint64_t publishedRevision = prints.Revision();
-  auto conflicting = std::make_shared<Data::OsmSourceSnapshot>(*neighbor);
+  auto conflicting = std::make_shared<outshine::Generators::Osm::SourceSnapshot>(*neighbor);
   auto conflictXml = R"(<osm version="0.6">
     <node id="1" lat="49.32739" lon="8.56589"/>
     <node id="2" lat="49.32739" lon="8.56593"/>
@@ -312,12 +315,13 @@ int main() {
   std::string different(conflictXml);
   const auto heightAt = different.find("v=\"12\"");
   different.replace(heightAt, 6, "v=\"13\"");
-  auto inconsistent = Data::OsmXmlReader::Read(
+  auto inconsistent = outshine::Generators::Osm::XmlReader::Read(
       different, {.DatasetId = "analytic-original-buildings", .Revision = "one"});
   CHECK(inconsistent.has_value(), "conflicting overlap is syntactically valid original data");
   if (!inconsistent) { return Report(); }
   conflicting->Elements = std::move(*inconsistent);
-  const std::array<std::shared_ptr<const Data::OsmSourceSnapshot>, 2> bad{source, conflicting};
+  const std::array<std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot>, 2> bad{
+      source, conflicting};
   bool rejected = false;
   for (int attempt = 0; attempt < 100 && !rejected; ++attempt) {
     const auto ready =

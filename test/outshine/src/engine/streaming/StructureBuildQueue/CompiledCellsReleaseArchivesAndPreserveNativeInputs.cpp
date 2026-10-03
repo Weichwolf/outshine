@@ -43,11 +43,11 @@ public:
       Generators::Osm::MakeStructureCellCompiler({.Heights = {.StoreyHeightM = 3, .BodyHeightM = 9},
                                                   .PointWidthM = 2,
                                                   .PointsMost = 1024});
-  mutable std::vector<std::weak_ptr<const Data::OsmSourceSnapshot>> Archives;
+  mutable std::vector<std::weak_ptr<const outshine::Generators::Osm::SourceSnapshot>> Archives;
   mutable size_t RawBytes = 0;
 
   std::expected<std::shared_ptr<const Generators::Osm::CellProduct>, std::string>
-  Compile(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+  Compile(std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> source,
           const std::stop_token &stop) const override {
     Archives.push_back(source);
     RawBytes = source->StorageChargeBytes();

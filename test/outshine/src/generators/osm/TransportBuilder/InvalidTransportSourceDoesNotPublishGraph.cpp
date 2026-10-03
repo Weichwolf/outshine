@@ -26,13 +26,17 @@ int main() {
   using namespace outshine::World;
   constexpr std::string_view refs = "<nd ref='1'/><nd ref='2'/>";
   const std::string validXml = Source(refs, "<tag k='oneway' v='yes'/>");
-  const auto unnamed = OsmXmlReader::Read(validXml, {.DatasetId = "", .Revision = "r1"});
-  CHECK(!unnamed && unnamed.error() == OsmXmlError::InvalidSourceIdentity,
+  const auto unnamed =
+      outshine::Generators::Osm::XmlReader::Read(validXml, {.DatasetId = "", .Revision = "r1"});
+  CHECK(!unnamed && unnamed.error() == outshine::Generators::Osm::XmlError::InvalidSourceIdentity,
         "an edge identity requires a nonempty source namespace");
-  const auto unversioned = OsmXmlReader::Read(validXml, {.DatasetId = "osm", .Revision = ""});
-  CHECK(!unversioned && unversioned.error() == OsmXmlError::InvalidSourceIdentity,
+  const auto unversioned =
+      outshine::Generators::Osm::XmlReader::Read(validXml, {.DatasetId = "osm", .Revision = ""});
+  CHECK(!unversioned &&
+            unversioned.error() == outshine::Generators::Osm::XmlError::InvalidSourceIdentity,
         "a graph snapshot requires an explicit source revision");
-  const auto valid = OsmXmlReader::Read(validXml, {.DatasetId = "osm", .Revision = "r1"});
+  const auto valid =
+      outshine::Generators::Osm::XmlReader::Read(validXml, {.DatasetId = "osm", .Revision = "r1"});
   CHECK(valid.has_value(), "the baseline road source parses");
   if (!valid) { return Report(); }
 
@@ -58,14 +62,16 @@ int main() {
                outshine::Generators::Osm::TransportBuildErrorCode::AmbiguousTag},
   };
   for (const Rejected &caseInput : rejected) {
-    const auto parsed = OsmXmlReader::Read(caseInput.Xml, {.DatasetId = "osm", .Revision = "r2"});
+    const auto parsed = outshine::Generators::Osm::XmlReader::Read(
+        caseInput.Xml, {.DatasetId = "osm", .Revision = "r2"});
     CHECK(parsed.has_value(), "invalid transport semantics remain valid source XML");
     if (!parsed) { continue; }
     const auto built = outshine::Generators::Osm::TransportBuilder::Build(*parsed);
     CHECK(!built && built.error().Code == caseInput.Code && built.error().SourceId != 0,
           "invalid source semantics reject the whole graph with source provenance");
   }
-  const auto corrected = OsmXmlReader::Read(validXml, {.DatasetId = "osm", .Revision = "r3"});
+  const auto corrected =
+      outshine::Generators::Osm::XmlReader::Read(validXml, {.DatasetId = "osm", .Revision = "r3"});
   CHECK(corrected.has_value(), "the corrected revision parses");
   if (!corrected) { return Report(); }
   const auto recovered = outshine::Generators::Osm::TransportBuilder::Build(*corrected);

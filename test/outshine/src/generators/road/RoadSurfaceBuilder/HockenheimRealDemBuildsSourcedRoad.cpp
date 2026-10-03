@@ -166,7 +166,8 @@ int main() {
   const std::string xml = ReadFile("src/assets/world/osm/HockenheimringGrandPrix.osm");
   CHECK(!xml.empty(), "pinned OSM circuit is present");
   if (xml.empty()) { return Report(); }
-  const auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
+  const auto source = outshine::Generators::Osm::XmlReader::Read(
+      xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "pinned OSM circuit parses");
   if (!source) { return Report(); }
   const auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);

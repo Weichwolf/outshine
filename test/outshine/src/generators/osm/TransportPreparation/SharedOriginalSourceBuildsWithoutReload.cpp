@@ -9,14 +9,14 @@
 
 namespace {
 
-std::shared_ptr<const outshine::Data::OsmSourceSnapshot> Source(std::string_view nodes) {
-  auto parsed = outshine::Data::OsmXmlReader::Read(
+std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> Source(std::string_view nodes) {
+  auto parsed = outshine::Generators::Osm::XmlReader::Read(
       "<osm version='0.6'>" + std::string(nodes) +
           "<way id='10'><nd ref='1'/><nd ref='2'/><tag k='highway' v='residential'/></way></osm>",
       {.DatasetId = "shared-original", .Revision = "r1"});
   if (!parsed) { return {}; }
-  return std::make_shared<const outshine::Data::OsmSourceSnapshot>(
-      outshine::Data::OsmSourceSnapshot{.Elements = std::move(*parsed)});
+  return std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*parsed)});
 }
 
 bool WaitFor(outshine::Generators::Osm::TransportPreparation &loader, outshine::Tasks &tasks) {
@@ -65,7 +65,7 @@ int main() {
         "failed graph replacement retains the native graph and engine source owner");
   CHECK(incomplete && incomplete->Elements.FindWay(10) != nullptr,
         "graph failure does not consume or invalidate shared original data");
-  const std::weak_ptr<const Data::OsmSourceSnapshot> oldSource = loader.Source();
+  const std::weak_ptr<const outshine::Generators::Osm::SourceSnapshot> oldSource = loader.Source();
   CHECK(loader.Request({}, ".").has_value() &&
             loader.CurrentPhase() ==
                 outshine::Generators::Osm::TransportPreparation::Phase::Inactive &&

@@ -78,8 +78,8 @@ int main() {
   using namespace outshine::Data;
   using namespace outshine::Test;
   using namespace outshine::World;
-  const auto source =
-      OsmXmlReader::Read(CircuitXml(Variation::Base), {.DatasetId = "osm", .Revision = "r1"});
+  const auto source = outshine::Generators::Osm::XmlReader::Read(
+      CircuitXml(Variation::Base), {.DatasetId = "osm", .Revision = "r1"});
   CHECK(source.has_value(), "the three-way circuit source parses");
   if (!source) { return Report(); }
   const auto graph = outshine::Generators::Osm::TransportBuilder::Build(*source);
@@ -93,8 +93,8 @@ int main() {
         "directed topology orders the main cycle, excluding pitlane by role");
   if (!route) { return Report(); }
 
-  const auto newerSource =
-      OsmXmlReader::Read(CircuitXml(Variation::Base), {.DatasetId = "osm", .Revision = "r2"});
+  const auto newerSource = outshine::Generators::Osm::XmlReader::Read(
+      CircuitXml(Variation::Base), {.DatasetId = "osm", .Revision = "r2"});
   CHECK(newerSource.has_value(), "a separate revision parses");
   if (newerSource) {
     const auto mixed =
@@ -104,8 +104,8 @@ int main() {
           "route resolution cannot combine a graph and relation from different revisions");
   }
 
-  const auto permutedSource =
-      OsmXmlReader::Read(CircuitXml(Variation::Permuted), {.DatasetId = "osm", .Revision = "r1"});
+  const auto permutedSource = outshine::Generators::Osm::XmlReader::Read(
+      CircuitXml(Variation::Permuted), {.DatasetId = "osm", .Revision = "r1"});
   CHECK(permutedSource.has_value(), "permuted source parses");
   if (!permutedSource) { return Report(); }
   const auto permutedGraph = outshine::Generators::Osm::TransportBuilder::Build(*permutedSource);
@@ -132,8 +132,8 @@ int main() {
                 outshine::Generators::Osm::CircuitErrorCode::AmbiguousDirection},
       std::pair{Variation::NotCircuit, outshine::Generators::Osm::CircuitErrorCode::NotCircuit}};
   for (const auto &[variation, expected] : failures) {
-    const auto changedSource =
-        OsmXmlReader::Read(CircuitXml(variation), {.DatasetId = "osm", .Revision = "r2"});
+    const auto changedSource = outshine::Generators::Osm::XmlReader::Read(
+        CircuitXml(variation), {.DatasetId = "osm", .Revision = "r2"});
     CHECK(changedSource.has_value(), "mutated source remains valid OSM XML");
     if (!changedSource) { continue; }
     const auto changedGraph = outshine::Generators::Osm::TransportBuilder::Build(*changedSource);
@@ -144,8 +144,8 @@ int main() {
     CHECK(!changedRoute && changedRoute.error().Code == expected,
           "ambiguous or semantically wrong source cannot publish a circuit route");
   }
-  const auto missingSource =
-      OsmXmlReader::Read(CircuitXml(Variation::MissingWay), {.DatasetId = "osm", .Revision = "r2"});
+  const auto missingSource = outshine::Generators::Osm::XmlReader::Read(
+      CircuitXml(Variation::MissingWay), {.DatasetId = "osm", .Revision = "r2"});
   CHECK(missingSource.has_value(), "an incomplete relation remains parseable");
   if (missingSource) {
     const auto refused = outshine::Generators::Osm::TransportBuilder::Build(*missingSource);

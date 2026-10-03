@@ -19,7 +19,8 @@ int main() {
   CHECK(input.good(), "the pinned circuit source exists");
   if (!input) { return Report(); }
   const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
-  auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
+  auto source = outshine::Generators::Osm::XmlReader::Read(
+      xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the source parses");
   if (!source) { return Report(); }
   auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);

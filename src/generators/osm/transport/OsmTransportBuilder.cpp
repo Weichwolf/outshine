@@ -15,7 +15,7 @@ namespace outshine::Generators::Osm {
 namespace {
 
 std::expected<void, TransportBuildError> AppendWayEdges(std::vector<World::TransportEdge> &edges,
-                                                        const Data::OsmWay &way,
+                                                        const Way &way,
                                                         const OsmWaySemantics &semantics) {
   for (size_t segment = 1; segment < way.NodeIds.size(); ++segment) {
     if (segment - 1 > std::numeric_limits<uint32_t>::max() ||
@@ -59,7 +59,7 @@ std::expected<void, TransportBuildError> AppendWayEdges(std::vector<World::Trans
 }
 
 std::expected<World::TransportTopology, TransportBuildError>
-TransportBuilder::Build(const Data::OsmElements &source) {
+TransportBuilder::Build(const ElementSet &source) {
   if (const auto missing = source.FirstMissingReference()) {
     return std::unexpected(TransportBuildError{.Code = TransportBuildErrorCode::MissingSourceObject,
                                                .SourceId = missing->OwnerId});
@@ -68,17 +68,17 @@ TransportBuilder::Build(const Data::OsmElements &source) {
 }
 
 std::expected<World::TransportTopology, TransportBuildError>
-TransportBuilder::BuildRegion(const Data::OsmElements &source) {
+TransportBuilder::BuildRegion(const ElementSet &source) {
   std::vector<World::TransportNode> nodes;
   std::vector<World::TransportEdge> edges;
   size_t unclassified = 0;
   nodes.reserve(source.Nodes().size());
-  for (const Data::OsmNode &node : source.Nodes()) {
+  for (const Node &node : source.Nodes()) {
     nodes.push_back(World::TransportNode{.SourceNodeId = node.Id,
                                          .LatitudeDeg = node.LatitudeDeg,
                                          .LongitudeDeg = node.LongitudeDeg});
   }
-  for (const Data::OsmWay &way : source.Ways()) {
+  for (const Way &way : source.Ways()) {
     const auto described = DescribeOsmWay(way);
     if (!described) {
       return std::unexpected(TransportBuildError{.Code = described.error(), .SourceId = way.Id});

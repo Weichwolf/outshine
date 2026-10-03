@@ -15,7 +15,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  std::weak_ptr<const Data::OsmSourceSnapshot> archive;
+  std::weak_ptr<const outshine::Generators::Osm::SourceSnapshot> archive;
   size_t archiveBytes = 0;
   std::optional<RawTile> input;
   {
@@ -31,15 +31,18 @@ int main() {
              std::string(256, 'x') + "'/></node>";
     }
     xml += "<relation id='900'><member type='way' ref='999' role='unrelated'/></relation></osm>";
-    auto elements = Data::OsmXmlReader::Read(xml, {.DatasetId = "original", .Revision = "r1"});
+    auto elements = outshine::Generators::Osm::XmlReader::Read(
+        xml, {.DatasetId = "original", .Revision = "r1"});
     CHECK(elements.has_value(), "original archive includes unrelated tags and an incomplete route");
     if (!elements) { return Report(); }
-    const auto source = std::make_shared<const Data::OsmSourceSnapshot>(Data::OsmSourceSnapshot{
-        .Elements = std::move(*elements),
-        .Coverage = {{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}},
-        .SourceBytes = xml.size(),
-        .Chunks = {{.Location = "official-original-cell", .PayloadSha256 = std::string(64, 'a')}},
-        .Cell = Data::GeoCellId{.Level = 9, .X = 256, .Y = 256}});
+    const auto source = std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+        outshine::Generators::Osm::SourceSnapshot{
+            .Elements = std::move(*elements),
+            .Coverage = {{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}},
+            .SourceBytes = xml.size(),
+            .Chunks = {{.Location = "official-original-cell",
+                        .PayloadSha256 = std::string(64, 'a')}},
+            .Cell = Data::GeoCellId{.Level = 9, .X = 256, .Y = 256}});
     archive = source;
     archiveBytes = source->StorageChargeBytes();
     const auto footprints = outshine::Generators::Osm::BuildingFootprints::Build(source, 4);

@@ -8,7 +8,7 @@
 namespace outshine::Generators::Osm {
 
 [[nodiscard]] inline std::shared_ptr<const Data::SourceProvenance>
-DescribeOsmSource(const Data::OsmSourceSnapshot &source) {
+DescribeOsmSource(const SourceSnapshot &source) {
   auto provenance = std::make_shared<Data::SourceProvenance>();
   const auto &identity = source.Elements.SourceIdentity();
   provenance->DatasetId = identity.DatasetId;

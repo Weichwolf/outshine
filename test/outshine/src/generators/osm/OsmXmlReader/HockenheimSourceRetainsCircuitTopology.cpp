@@ -13,7 +13,8 @@
 
 namespace {
 
-std::string_view TagValue(const std::vector<outshine::Data::OsmTag> &tags, std::string_view key) {
+std::string_view TagValue(const std::vector<outshine::Generators::Osm::Tag> &tags,
+                          std::string_view key) {
   for (const auto &tag : tags) {
     if (tag.Key == key) { return tag.Value; }
   }
@@ -29,14 +30,15 @@ int main() {
   CHECK(input.good(), "pinned OSM relation source is available");
   if (!input) { return Report(); }
   const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
-  auto parsed = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
+  auto parsed = outshine::Generators::Osm::XmlReader::Read(
+      xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(parsed.has_value(), "pinned OSM source parses");
   if (!parsed) { return Report(); }
-  const OsmElements &elements = *parsed;
+  const outshine::Generators::Osm::ElementSet &elements = *parsed;
   CHECK(elements.Nodes().size() == 319 && elements.Ways().size() == 17 &&
             elements.Relations().size() == 1 && !elements.FirstMissingReference(),
         "all source objects and references survive the import");
-  const OsmRelation *circuit = elements.FindRelation(284588);
+  const outshine::Generators::Osm::Relation *circuit = elements.FindRelation(284588);
   CHECK(circuit != nullptr && circuit->Members.size() == 17 &&
             TagValue(circuit->Tags, "type") == "circuit",
         "the Grand Prix relation and its members survive by source ID");
@@ -47,9 +49,9 @@ int main() {
   size_t mainWays = 0;
   size_t pitWays = 0;
   bool validMembers = true;
-  for (const OsmRelationMember &member : circuit->Members) {
-    const OsmWay *way = elements.FindWay(member.Id);
-    validMembers &= member.Kind == OsmElementKind::Way && way != nullptr;
+  for (const outshine::Generators::Osm::RelationMember &member : circuit->Members) {
+    const outshine::Generators::Osm::Way *way = elements.FindWay(member.Id);
+    validMembers &= member.Kind == outshine::Generators::Osm::ElementKind::Way && way != nullptr;
     if (way == nullptr) { continue; }
     if (member.Role == "pitlane") {
       ++pitWays;

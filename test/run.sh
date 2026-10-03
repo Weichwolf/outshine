@@ -234,7 +234,7 @@ TestProfile() {
     outshine/include/*) printf '%s' 'profile/public' ;;
     outshine/src/world/data/MvtLayer | outshine/src/world/ground/OsmStorageUsage)
       printf '%s' 'profile/vector' ;;
-    outshine/src/world/data/OsmXmlReader) printf '%s' 'profile/osm-xml' ;;
+    outshine/src/generators/osm/OsmXmlReader) printf '%s' 'profile/osm-xml' ;;
     outshine/src/generators/osm/TransportBuilder) printf '%s' 'profile/transport-topology' ;;
     outshine/src/world/navigation/TransportTopology) printf '%s' 'profile/transport-native' ;;
     outshine/src/diagnostics/ProcessHeap | outshine/src/engine/WorldInstanceSink)
@@ -254,7 +254,7 @@ LayerIncludes() {
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
     profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
     profile/vector) printf '%s' "-Isrc/world/data -Isrc/base/spatial" ;;
-    profile/osm-xml) printf '%s' "-Isrc/world/data -Isrc/world/products -Isrc/base/format" ;;
+    profile/osm-xml) GroupIncludes src/generators/osm/import ;;
     profile/transport-native) printf '%s' "-Iinclude -Isrc/world/navigation -Isrc/world/products" ;;
     profile/transport-topology) GroupIncludes src/generators/osm/transport ;;
     profile/diagnostics) LayerIncludes profile/internal ;;
@@ -347,9 +347,9 @@ LayerGroups() {
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/public) LayerGroups profile/internal ;;
     profile/vector) printf '%s' "src/world/data/MvtLayer.cpp" ;;
-    profile/osm-xml) printf '%s' "src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
+    profile/osm-xml) printf '%s' "src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/transport-native) printf '%s' "src/world/navigation/TransportTopology.cpp" ;;
-    profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/generators/osm/transport src/world/data/OsmElements.cpp src/world/data/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
+    profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/generators/osm/transport src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/diagnostics) LayerGroups profile/internal; printf ' %s' "src/diagnostics" ;;
     profile/internal|profile/device) LayerGroups profile/engine ;;
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;

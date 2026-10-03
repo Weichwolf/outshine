@@ -24,7 +24,7 @@ constexpr double kIoAwaitMs = 5.0;
 constexpr size_t kConcurrentRegions = 2;
 
 std::expected<size_t, std::string> PollStarted(std::span<const std::unique_ptr<ApiRegion>> regions,
-                                               std::span<Data::OsmSourceChunk> chunks,
+                                               std::span<SourceChunk> chunks,
                                                std::span<const double> beganMs,
                                                std::vector<Data::GeoCellId> &refine) {
   size_t completed = 0;
@@ -50,7 +50,7 @@ ReadRequests(std::span<const Data::SourceProvider> providers,
              const std::function<double()> &currentDeadline) {
   const double began = wire.NowMs();
   std::vector<std::unique_ptr<ApiRegion>> regions;
-  std::vector<Data::OsmSourceChunk> chunks;
+  std::vector<SourceChunk> chunks;
   regions.reserve(providers.size());
   chunks.reserve(providers.size());
   for (size_t at = 0; at < providers.size(); ++at) {
@@ -124,13 +124,13 @@ std::expected<SourceRead, std::string> ReadRegions(std::span<const Data::SourceP
       providers, {}, store, wire, deadlineMs, stop, registry, shippedRoot, currentDeadline);
 }
 
-std::expected<Data::OsmSourceChunk, std::string> ReadRegion(const Data::SourceProvider &provider,
-                                                            Data::ContentStore &store,
-                                                            Data::Transport &wire,
-                                                            double deadlineMs,
-                                                            const std::stop_token &stop,
-                                                            const Data::ProviderRegistry *registry,
-                                                            std::string_view shippedRoot) {
+std::expected<SourceChunk, std::string> ReadRegion(const Data::SourceProvider &provider,
+                                                   Data::ContentStore &store,
+                                                   Data::Transport &wire,
+                                                   double deadlineMs,
+                                                   const std::stop_token &stop,
+                                                   const Data::ProviderRegistry *registry,
+                                                   std::string_view shippedRoot) {
   auto chunks =
       ReadRegions(std::span(&provider, 1), store, wire, deadlineMs, stop, registry, shippedRoot);
   if (!chunks) { return std::unexpected(std::move(chunks.error())); }

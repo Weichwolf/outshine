@@ -10,13 +10,13 @@
 
 namespace {
 
-std::shared_ptr<const outshine::Data::OsmSourceSnapshot> Source(std::string_view body) {
-  auto read =
-      outshine::Data::OsmXmlReader::Read("<osm version='0.6'>" + std::string(body) + "</osm>",
-                                         {.DatasetId = "original-buildings", .Revision = "r1"});
+std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> Source(std::string_view body) {
+  auto read = outshine::Generators::Osm::XmlReader::Read(
+      "<osm version='0.6'>" + std::string(body) + "</osm>",
+      {.DatasetId = "original-buildings", .Revision = "r1"});
   if (!read) { return {}; }
-  return std::make_shared<const outshine::Data::OsmSourceSnapshot>(
-      outshine::Data::OsmSourceSnapshot{.Elements = std::move(*read), .Coverage = {}});
+  return std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*read), .Coverage = {}});
 }
 
 constexpr std::string_view kNodes = "<node id='1' lat='0' lon='0'/><node id='2' lat='0' lon='4'/>"
@@ -55,7 +55,8 @@ int main() {
   CHECK(built->Points()[0] == 0 && built->Points()[1] == 0 && built->Points()[6] == 4 &&
             built->Points()[7] == 0,
         "source node joins use identity and preserve double latitude/longitude order");
-  const OsmElementId expectedId{.Kind = OsmElementKind::Relation, .Id = 20};
+  const outshine::Generators::Osm::ElementId expectedId{
+      .Kind = outshine::Generators::Osm::ElementKind::Relation, .Id = 20};
   CHECK(built->Buildings()[0].Source == expectedId,
         "native building retains its typed original relation ID");
   const auto *original = source.get();
@@ -134,8 +135,9 @@ int main() {
         "point building and area building coexist without an invented footprint");
   if (mixed) {
     const auto &point = mixed->Buildings().front();
-    CHECK(point.Source.Kind == OsmElementKind::Node && point.Source.Id == 9 && point.PointIndex &&
-              point.RingCount == 0 && !mixed->Buildings().back().PointIndex,
+    CHECK(point.Source.Kind == outshine::Generators::Osm::ElementKind::Node &&
+              point.Source.Id == 9 && point.PointIndex && point.RingCount == 0 &&
+              !mixed->Buildings().back().PointIndex,
           "point identity and geometry kind remain distinct from area geometry");
     CHECK(point.PointIndex && mixed->Points()[2 * *point.PointIndex] == 54.79 &&
               mixed->Points()[2 * *point.PointIndex + 1] == 9.43 &&

@@ -9,12 +9,12 @@
 namespace outshine::Generators::Osm {
 
 std::expected<SourceAcquisition::CellSource, std::string>
-SourceAcquisition::DecodeCell(const Data::OsmSourceChunk &input,
+SourceAcquisition::DecodeCell(const SourceChunk &input,
                               const std::stop_token &stop,
                               const std::shared_ptr<const CellCompiler> &compiler) {
-  auto loaded = Data::OsmChunkSetLoader::ParseCell(input, stop);
+  auto loaded = ChunkSetLoader::ParseCell(input, stop);
   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-  CellSource cell{.Snapshot = std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded))};
+  CellSource cell{.Snapshot = std::make_shared<const SourceSnapshot>(std::move(*loaded))};
   if (!cell.Snapshot->Cell) { return std::unexpected("decoded original cell has no address"); }
   cell.Address = *cell.Snapshot->Cell;
   cell.ChargedBytes = cell.Snapshot->StorageChargeBytes();

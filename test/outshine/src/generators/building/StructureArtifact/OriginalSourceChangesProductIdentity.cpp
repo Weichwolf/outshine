@@ -12,14 +12,14 @@ int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  auto parsed = Data::OsmXmlReader::Read(
+  auto parsed = outshine::Generators::Osm::XmlReader::Read(
       R"(<osm version="0.6"><node id="1" lat="0" lon="0"><tag k="name" v="retained"/></node></osm>)",
       {.DatasetId = "native-buildings", .Revision = "one"});
   CHECK(parsed.has_value(), "original fixture parses");
   if (!parsed) { return Report(); }
-  auto source = std::make_shared<const Data::OsmSourceSnapshot>(
-      Data::OsmSourceSnapshot{.Elements = std::move(*parsed), .Coverage = {}});
-  const std::weak_ptr<const Data::OsmSourceSnapshot> held = source;
+  auto source = std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*parsed), .Coverage = {}});
+  const std::weak_ptr<const outshine::Generators::Osm::SourceSnapshot> held = source;
   Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
   block.Raster = {.Side = 2, .Postings = 2};
@@ -33,12 +33,15 @@ int main() {
       .Origin = {.Provenance = outshine::Generators::Osm::DescribeOsmSource(*source),
                  .Bounds = {.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
   raw.Structures.push_back(
-      {.SourceId = {.Id = 1, .Kind = static_cast<uint8_t>(Data::OsmElementKind::Node)}});
+      {.SourceId = {.Id = 1,
+                    .Kind = static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Node)}});
   const auto key = StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test");
-  raw.Structures.front().SourceId.Kind = static_cast<uint8_t>(Data::OsmElementKind::Way);
+  raw.Structures.front().SourceId.Kind =
+      static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Way);
   CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
         "equal numeric IDs of different OSM element kinds cannot alias a product");
-  raw.Structures.front().SourceId.Kind = static_cast<uint8_t>(Data::OsmElementKind::Node);
+  raw.Structures.front().SourceId.Kind =
+      static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Node);
   raw.Structures.front().SourceId.Id = 2;
   CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
         "different original elements cannot share product identity");
@@ -66,14 +69,14 @@ int main() {
       outshine::Generators::Osm::DescribeOsmSource(CapturedOsmSource(copy));
   CHECK(key != StructureArtifactKey(copy, *heights, std::nullopt, "native-input-test"),
         "native source coverage participates in product identity");
-  auto next = Data::OsmXmlReader::Read(R"(<osm version="0.6"/>)",
-                                       {.DatasetId = "native-buildings", .Revision = "two"});
+  auto next = outshine::Generators::Osm::XmlReader::Read(
+      R"(<osm version="0.6"/>)", {.DatasetId = "native-buildings", .Revision = "two"});
   CHECK(next.has_value(), "replacement fixture parses");
   if (!next) { return Report(); }
   copy.SourceInputs.Origin.Bounds.EastDeg = 1;
   copy.SourceInputs.Objects = std::make_shared<const outshine::Generators::Osm::SourceCapture>(
-      std::make_shared<const Data::OsmSourceSnapshot>(
-          Data::OsmSourceSnapshot{.Elements = std::move(*next), .Coverage = {}}));
+      std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+          outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*next), .Coverage = {}}));
   copy.SourceInputs.Origin.Provenance =
       outshine::Generators::Osm::DescribeOsmSource(CapturedOsmSource(copy));
   CHECK(key != StructureArtifactKey(copy, *heights, std::nullopt, "native-input-test"),

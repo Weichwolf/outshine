@@ -46,7 +46,7 @@ int main() {
   CHECK(providers[0].PayloadSha256 != providers[1].PayloadSha256 &&
             ValidateSourceProviders(providers).has_value(),
         "distinct response hashes validate under one dataset revision");
-  const auto source = OsmChunkSetLoader::Load(providers, directory);
+  const auto source = outshine::Generators::Osm::ChunkSetLoader::Load(providers, directory);
   CHECK(source.has_value(), "separately pinned responses close cross-region references");
   if (source) {
     CHECK(source->Elements.SourceIdentity().Revision == "official-map-snapshot" &&
@@ -55,7 +55,7 @@ int main() {
     const auto *way = source->Elements.FindWay(10);
     CHECK(way && way->Tags.size() == 3 &&
               std::ranges::any_of(way->Tags,
-                                  [](const OsmTag &tag) {
+                                  [](const outshine::Generators::Osm::Tag &tag) {
                                     return tag.Key == "custom:unknown" && tag.Value == "preserved";
                                   }),
           "unknown and rendering tags survive the pinned merge");
@@ -67,7 +67,7 @@ int main() {
   }
   auto wrong = providers;
   wrong[1].PayloadSha256 = wrong[0].PayloadSha256;
-  const auto refused = OsmChunkSetLoader::LoadRegion(wrong, directory);
+  const auto refused = outshine::Generators::Osm::ChunkSetLoader::LoadRegion(wrong, directory);
   CHECK(!refused && refused.error().find("sha256 pin") != std::string::npos,
         "one wrong response pin prevents publication of the merged region");
   auto legacy = providers[0];
@@ -75,14 +75,16 @@ int main() {
   legacy.PayloadSha256.clear();
   const std::array legacyProviders{legacy};
   CHECK(ValidateSourceProviders(legacyProviders).has_value(), "legacy byte pin remains valid");
-  const auto legacySource = OsmChunkSetLoader::LoadRegion(legacyProviders, directory);
+  const auto legacySource =
+      outshine::Generators::Osm::ChunkSetLoader::LoadRegion(legacyProviders, directory);
   CHECK(legacySource && legacySource->Chunks.size() == 1 && legacySource->Chunks[0].PinVerified &&
             legacySource->Chunks[0].PayloadSha256 == providers[0].PayloadSha256,
         "legacy byte pins still verify unchanged original responses");
   auto unpinned = providers[0];
   unpinned.PayloadSha256.clear();
   const std::array unpinnedProviders{unpinned};
-  const auto unpinnedSource = OsmChunkSetLoader::LoadRegion(unpinnedProviders, directory);
+  const auto unpinnedSource =
+      outshine::Generators::Osm::ChunkSetLoader::LoadRegion(unpinnedProviders, directory);
   CHECK(unpinnedSource && unpinnedSource->Chunks.size() == 1 &&
             !unpinnedSource->Chunks[0].PinVerified &&
             unpinnedSource->Chunks[0].PayloadSha256 == providers[0].PayloadSha256,

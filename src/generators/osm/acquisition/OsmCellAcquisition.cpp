@@ -13,7 +13,7 @@ namespace outshine::Generators::Osm {
 struct CellAcquisition::Impl {
   struct Pending {
     std::unique_ptr<ApiRegion> Region;
-    Data::OsmSourceChunk Chunk;
+    SourceChunk Chunk;
     double BeganMs = 0;
     ApiRegion::Collected Outcome = ApiRegion::Collected::Pending;
   };

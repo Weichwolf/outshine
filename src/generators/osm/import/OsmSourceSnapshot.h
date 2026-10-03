@@ -1,32 +1,32 @@
-#ifndef OUTSHINE_WORLD_DATA_OSMSOURCESNAPSHOT_H
-#define OUTSHINE_WORLD_DATA_OSMSOURCESNAPSHOT_H
+#ifndef OUTSHINE_GENERATORS_OSM_IMPORT_OSMSOURCESNAPSHOT_H
+#define OUTSHINE_GENERATORS_OSM_IMPORT_OSMSOURCESNAPSHOT_H
 
 #include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include "OsmElements.h"
+#include "OsmElementSet.h"
 #include <world/SourceProvider.h>
 #include <world/data/GeoCellId.h>
 
-namespace outshine::Data {
+namespace outshine::Generators::Osm {
 
-struct OsmChunkProvenance {
+struct ChunkProvenance {
   std::string Location;
   std::string PayloadSha256;
   bool PinVerified = false;
   bool FromStore = false;
 };
 
-struct OsmSourceSnapshot {
-  OsmElements Elements;
-  std::vector<SourceCoverage> Coverage;
+struct SourceSnapshot {
+  ElementSet Elements;
+  std::vector<Data::SourceCoverage> Coverage;
   size_t SourceBytes = 0;
   double ReadMs = 0.0;
   double ParseMs = 0.0;
-  std::vector<OsmChunkProvenance> Chunks;
-  std::optional<GeoCellId> Cell = std::nullopt;
+  std::vector<ChunkProvenance> Chunks;
+  std::optional<Data::GeoCellId> Cell = std::nullopt;
 
   [[nodiscard]] size_t StorageChargeBytes() const noexcept;
 };

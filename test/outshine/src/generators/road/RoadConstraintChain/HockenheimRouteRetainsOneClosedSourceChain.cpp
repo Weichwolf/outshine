@@ -19,7 +19,8 @@ int main() {
   CHECK(input.good(), "the pinned Hockenheim source is available");
   if (!input) { return Report(); }
   const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
-  const auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
+  const auto source = outshine::Generators::Osm::XmlReader::Read(
+      xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the Hockenheim source parses");
   if (!source) { return Report(); }
   const auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);

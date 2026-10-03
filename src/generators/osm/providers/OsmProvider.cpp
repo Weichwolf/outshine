@@ -28,7 +28,7 @@ public:
     Decl_.OnAbsent = Data::AbsencePolicy::Fail;
     Decl_.Keeps = Data::Cacheability::Never;
     Decl_.Latency = Data::LatencyClass::Local;
-    Decl_.MaximumPayloadBytes = Data::kMaxOsmXmlBytes;
+    Decl_.MaximumPayloadBytes = kMaximumXmlBytes;
     Decl_.PayloadSha256 = provider.PayloadSha256;
   }
 
@@ -56,7 +56,7 @@ public:
     if (at.Index() != 0) {
       return Data::Fetched::Meant(Data::Meaning::Refused, Data::FetchFailureReason::InvalidRequest);
     }
-    auto text = ReadTextFile(Decl_.Endpoint, Data::kMaxOsmXmlBytes);
+    auto text = ReadTextFile(Decl_.Endpoint, kMaximumXmlBytes);
     if (!text) { return Data::Fetched::Meant(Data::Meaning::Refused); }
     return Data::Fetched::Delivered(std::vector<uint8_t>(text->begin(), text->end()));
   }

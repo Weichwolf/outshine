@@ -15,8 +15,9 @@ int main() {
   const std::string unrelated = "<relation id='20'><member type='way' ref='99' role=''/>"
                                 "<tag k='type' v='route'/></relation>"
                                 "<way id='30'><nd ref='98'/><tag k='building' v='yes'/></way>";
-  const auto source = OsmXmlReader::Read("<osm version='0.6'>" + nodes + way + unrelated + "</osm>",
-                                         {.DatasetId = "spatial", .Revision = "r1"});
+  const auto source = outshine::Generators::Osm::XmlReader::Read(
+      "<osm version='0.6'>" + nodes + way + unrelated + "</osm>",
+      {.DatasetId = "spatial", .Revision = "r1"});
   CHECK(source.has_value(), "spatial source retains open references");
   if (!source) { return Report(); }
   const auto region = outshine::Generators::Osm::TransportBuilder::BuildRegion(*source);
@@ -24,9 +25,9 @@ int main() {
         "complete transport way survives unrelated open route and building references");
   CHECK(!outshine::Generators::Osm::TransportBuilder::Build(*source),
         "strict whole-source graph contract remains strict");
-  const auto missing =
-      OsmXmlReader::Read("<osm version='0.6'><node id='1' lat='0' lon='0'/>" + way + "</osm>",
-                         {.DatasetId = "spatial", .Revision = "r2"});
+  const auto missing = outshine::Generators::Osm::XmlReader::Read(
+      "<osm version='0.6'><node id='1' lat='0' lon='0'/>" + way + "</osm>",
+      {.DatasetId = "spatial", .Revision = "r2"});
   CHECK(missing.has_value(), "incomplete transport source parses without discarding references");
   if (missing) {
     const auto rejected = outshine::Generators::Osm::TransportBuilder::BuildRegion(*missing);

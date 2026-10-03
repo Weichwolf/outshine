@@ -20,8 +20,7 @@ class CellCompiler {
 public:
   virtual ~CellCompiler() = default;
   [[nodiscard]] virtual std::expected<std::shared_ptr<const CellProduct>, std::string>
-  Compile(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-          const std::stop_token &stop) const = 0;
+  Compile(std::shared_ptr<const SourceSnapshot> source, const std::stop_token &stop) const = 0;
 };
 
 }

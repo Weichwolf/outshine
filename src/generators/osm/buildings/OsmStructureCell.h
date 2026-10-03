@@ -28,7 +28,7 @@ public:
 };
 
 [[nodiscard]] std::expected<StructureDescription, std::string>
-PrepareStructureCell(const std::shared_ptr<const Data::OsmSourceSnapshot> &source,
+PrepareStructureCell(const std::shared_ptr<const SourceSnapshot> &source,
                      StructurePolicy policy,
                      const std::stop_token &stop);
 [[nodiscard]] std::shared_ptr<const CellCompiler> MakeStructureCellCompiler(StructurePolicy policy);

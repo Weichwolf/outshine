@@ -55,7 +55,8 @@ PreparePlaceSources(const Scenario::Document &declared,
   if (roots.Offline) {
     wire = std::make_unique<Data::OfflineTransport>();
   } else {
-    wire = std::make_unique<Fetching>(Fetching::Config{.MaxBodyBytes = Data::kMaxOsmXmlBytes});
+    wire = std::make_unique<Fetching>(
+        Fetching::Config{.MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
   }
   Data::ProviderRegistry registry;
   Generators::RegisterShippedProviders(registry);

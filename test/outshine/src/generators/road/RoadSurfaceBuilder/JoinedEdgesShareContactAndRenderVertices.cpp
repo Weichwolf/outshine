@@ -29,7 +29,8 @@ int main() {
       "<way id='20'><nd ref='2'/><nd ref='3'/>"
       "<tag k='highway' v='primary'/><tag k='oneway' v='yes'/>"
       "<tag k='surface' v='asphalt'/><tag k='width' v='8'/></way></osm>";
-  auto source = OsmXmlReader::Read(xml, {.DatasetId = "analytic", .Revision = "r1"});
+  auto source =
+      outshine::Generators::Osm::XmlReader::Read(xml, {.DatasetId = "analytic", .Revision = "r1"});
   CHECK(source.has_value(), "the analytic road source parses");
   if (!source) { return Report(); }
   auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);

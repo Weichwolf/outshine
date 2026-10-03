@@ -6,7 +6,7 @@
 #include <expected>
 #include <string_view>
 
-#include "OsmElements.h"
+#include "OsmElementSet.h"
 #include "TransportTopology.h"
 
 namespace outshine::Generators::Osm {
@@ -49,14 +49,14 @@ struct CircuitError {
 class TransportBuilder {
 public:
   [[nodiscard]] static std::expected<World::TransportTopology, TransportBuildError>
-  Build(const Data::OsmElements &source);
+  Build(const ElementSet &source);
 
   [[nodiscard]] static std::expected<World::TransportTopology, TransportBuildError>
-  BuildRegion(const Data::OsmElements &source);
+  BuildRegion(const ElementSet &source);
 
   [[nodiscard]] static std::expected<World::CircuitRoute, CircuitError>
   ResolveCircuit(const World::TransportTopology &graph,
-                 const Data::OsmElements &source,
+                 const ElementSet &source,
                  uint64_t relationId,
                  std::string_view memberRole = {},
                  size_t maxEdges = 65536);

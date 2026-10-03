@@ -18,7 +18,7 @@
 #include "ReadTextFile.h"
 #include "Sha256.h"
 
-namespace outshine::Data {
+namespace outshine::Generators::Osm {
 
 namespace {
 
@@ -26,7 +26,7 @@ constexpr size_t kMaxTotalBytes = size_t{16} * 1024u * 1024u;
 constexpr size_t kMaxInputElements = 1000000;
 constexpr std::string_view kSha256PinPrefix = "sha256:";
 
-[[nodiscard]] std::string_view PayloadDigest(const SourceProvider &provider) noexcept {
+[[nodiscard]] std::string_view PayloadDigest(const Data::SourceProvider &provider) noexcept {
   if (!provider.PayloadSha256.empty()) { return provider.PayloadSha256; }
   const std::string_view pin(provider.Revision);
   if (!pin.starts_with(kSha256PinPrefix)) { return {}; }
@@ -38,22 +38,21 @@ constexpr std::string_view kSha256PinPrefix = "sha256:";
       .count();
 }
 
-[[nodiscard]] std::string ElementError(const OsmMergeError &error) {
+[[nodiscard]] std::string ElementError(const MergeError &error) {
   return "semantic OSM merge failed at source element " + std::to_string(error.Id) + " with code " +
          std::to_string(static_cast<int>(error.Code));
 }
 
-std::expected<OsmElements, OsmMergeError> FinishChunks(std::vector<OsmElements> &chunks) {
-  if (chunks.size() != 1) { return OsmElements::Merge(chunks, kMaxInputElements); }
+std::expected<ElementSet, MergeError> FinishChunks(std::vector<ElementSet> &chunks) {
+  if (chunks.size() != 1) { return ElementSet::Merge(chunks, kMaxInputElements); }
   const auto &single = chunks.front();
   size_t remaining = kMaxInputElements;
-  for (const auto [count, kind] :
-       {std::pair{single.Nodes().size(), OsmElementKind::Node},
-        std::pair{single.Ways().size(), OsmElementKind::Way},
-        std::pair{single.Relations().size(), OsmElementKind::Relation}}) {
+  for (const auto [count, kind] : {std::pair{single.Nodes().size(), ElementKind::Node},
+                                   std::pair{single.Ways().size(), ElementKind::Way},
+                                   std::pair{single.Relations().size(), ElementKind::Relation}}) {
     if (count > remaining) {
       return std::unexpected(
-          OsmMergeError{.Code = OsmMergeErrorCode::BudgetExceeded, .Kind = kind, .Id = 0});
+          MergeError{.Code = MergeErrorCode::BudgetExceeded, .Kind = kind, .Id = 0});
     }
     remaining -= count;
   }
@@ -62,26 +61,26 @@ std::expected<OsmElements, OsmMergeError> FinishChunks(std::vector<OsmElements> 
 
 }
 
-std::expected<OsmSourceSnapshot, std::string>
-OsmChunkSetLoader::LoadRegion(std::span<const SourceProvider> providers,
-                              std::string_view shippedRoot,
-                              const std::stop_token &stop) {
+std::expected<SourceSnapshot, std::string>
+ChunkSetLoader::LoadRegion(std::span<const Data::SourceProvider> providers,
+                           std::string_view shippedRoot,
+                           const std::stop_token &stop) {
   auto read = ReadRegion(providers, shippedRoot, stop);
   if (!read) { return std::unexpected(std::move(read.error())); }
   return ParseRegion(*read, stop);
 }
 
-std::expected<std::vector<OsmSourceChunk>, std::string>
-OsmChunkSetLoader::ReadRegion(std::span<const SourceProvider> providers,
-                              std::string_view shippedRoot,
-                              const std::stop_token &stop,
-                              const RemoteRead &remoteRead) {
-  std::vector<OsmSourceChunk> chunks;
+std::expected<std::vector<SourceChunk>, std::string>
+ChunkSetLoader::ReadRegion(std::span<const Data::SourceProvider> providers,
+                           std::string_view shippedRoot,
+                           const std::stop_token &stop,
+                           const RemoteRead &remoteRead) {
+  std::vector<SourceChunk> chunks;
   chunks.reserve(providers.size());
   size_t bytes = 0;
   for (const auto &provider : providers) {
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
-    OsmSourceChunk chunk;
+    SourceChunk chunk;
     if (remoteRead || !provider.Endpoint.empty()) {
       if (!remoteRead) { return std::unexpected("official original OSM needs a source transport"); }
       auto fetched = remoteRead(provider, stop);
@@ -92,7 +91,7 @@ OsmChunkSetLoader::ReadRegion(std::span<const SourceProvider> providers,
       const auto path =
           location.is_absolute() ? location : std::filesystem::path(shippedRoot) / location;
       const auto began = std::chrono::steady_clock::now();
-      auto xml = ReadTextFile(path.string(), kMaxOsmXmlBytes);
+      auto xml = ReadTextFile(path.string(), kMaximumXmlBytes);
       if (!xml) { return std::unexpected(std::move(xml.error())); }
       chunk = {.Provider = provider,
                .Xml = std::move(*xml),
@@ -101,7 +100,7 @@ OsmChunkSetLoader::ReadRegion(std::span<const SourceProvider> providers,
                .FromStore = false};
     }
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
-    if (chunk.Xml.size() > kMaxOsmXmlBytes || chunk.Xml.size() > kMaxTotalBytes - bytes) {
+    if (chunk.Xml.size() > kMaximumXmlBytes || chunk.Xml.size() > kMaxTotalBytes - bytes) {
       return std::unexpected("semantic OSM source exceeds the byte budget");
     }
     bytes += chunk.Xml.size();
@@ -110,16 +109,16 @@ OsmChunkSetLoader::ReadRegion(std::span<const SourceProvider> providers,
   return chunks;
 }
 
-std::expected<OsmSourceSnapshot, std::string>
-OsmChunkSetLoader::ParseRegion(std::span<const OsmSourceChunk> input, const std::stop_token &stop) {
+std::expected<SourceSnapshot, std::string>
+ChunkSetLoader::ParseRegion(std::span<const SourceChunk> input, const std::stop_token &stop) {
   if (std::ranges::any_of(input, [](const auto &chunk) { return chunk.Cell.has_value(); })) {
     return std::unexpected("geographic OSM cells require independent parsing");
   }
   return ParseChunks(input, stop);
 }
 
-std::expected<OsmSourceSnapshot, std::string>
-OsmChunkSetLoader::ParseCell(const OsmSourceChunk &input, const std::stop_token &stop) {
+std::expected<SourceSnapshot, std::string> ChunkSetLoader::ParseCell(const SourceChunk &input,
+                                                                     const std::stop_token &stop) {
   const auto bounds = input.Cell ? input.Cell->Bounds() : std::nullopt;
   if (!bounds || bounds != input.Provider.Coverage) {
     return std::unexpected("original OSM cell address does not match its coverage");
@@ -127,24 +126,24 @@ OsmChunkSetLoader::ParseCell(const OsmSourceChunk &input, const std::stop_token 
   return ParseChunks(std::span(&input, 1), stop);
 }
 
-std::expected<OsmSourceSnapshot, std::string>
-OsmChunkSetLoader::ParseChunks(std::span<const OsmSourceChunk> input, const std::stop_token &stop) {
-  std::vector<OsmElements> chunks;
-  std::vector<SourceCoverage> coverage;
-  std::vector<OsmChunkProvenance> provenance;
+std::expected<SourceSnapshot, std::string>
+ChunkSetLoader::ParseChunks(std::span<const SourceChunk> input, const std::stop_token &stop) {
+  std::vector<ElementSet> chunks;
+  std::vector<Data::SourceCoverage> coverage;
+  std::vector<ChunkProvenance> provenance;
   chunks.reserve(input.size());
   coverage.reserve(input.size());
   provenance.reserve(input.size());
   size_t bytes = 0;
   double readMs = 0.0;
   double parseMs = 0.0;
-  for (const OsmSourceChunk &source : input) {
+  for (const SourceChunk &source : input) {
     const auto &provider = source.Provider;
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
     const auto parseAt = std::chrono::steady_clock::now();
     const std::string_view xml(source.Xml);
     readMs += source.ReadMs;
-    if (xml.size() > kMaxOsmXmlBytes || xml.size() > kMaxTotalBytes - bytes) {
+    if (xml.size() > kMaximumXmlBytes || xml.size() > kMaxTotalBytes - bytes) {
       return std::unexpected("semantic OSM source exceeds the total byte budget");
     }
     bytes += xml.size();
@@ -155,7 +154,7 @@ OsmChunkSetLoader::ParseChunks(std::span<const OsmSourceChunk> input, const std:
                              "' does not match its sha256 pin");
     }
     auto parsed =
-        OsmXmlReader::Read(xml, {.DatasetId = provider.Dataset, .Revision = provider.Revision});
+        XmlReader::Read(xml, {.DatasetId = provider.Dataset, .Revision = provider.Revision});
     parseMs += MillisecondsSince(parseAt);
     if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
     if (!parsed) {
@@ -181,19 +180,19 @@ OsmChunkSetLoader::ParseChunks(std::span<const OsmSourceChunk> input, const std:
   parseMs += MillisecondsSince(mergeAt);
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }
   if (!merged) { return std::unexpected(ElementError(merged.error())); }
-  return OsmSourceSnapshot{.Elements = std::move(*merged),
-                           .Coverage = std::move(coverage),
-                           .SourceBytes = bytes,
-                           .ReadMs = readMs,
-                           .ParseMs = parseMs,
-                           .Chunks = std::move(provenance),
-                           .Cell = input.size() == 1 ? input.front().Cell : std::nullopt};
+  return SourceSnapshot{.Elements = std::move(*merged),
+                        .Coverage = std::move(coverage),
+                        .SourceBytes = bytes,
+                        .ReadMs = readMs,
+                        .ParseMs = parseMs,
+                        .Chunks = std::move(provenance),
+                        .Cell = input.size() == 1 ? input.front().Cell : std::nullopt};
 }
 
-std::expected<OsmSourceSnapshot, std::string>
-OsmChunkSetLoader::Load(std::span<const SourceProvider> providers,
-                        std::string_view shippedRoot,
-                        const std::stop_token &stop) {
+std::expected<SourceSnapshot, std::string>
+ChunkSetLoader::Load(std::span<const Data::SourceProvider> providers,
+                     std::string_view shippedRoot,
+                     const std::stop_token &stop) {
   auto loaded = LoadRegion(providers, shippedRoot, stop);
   if (!loaded) { return loaded; }
   if (const auto missing = loaded->Elements.FirstMissingReference()) {

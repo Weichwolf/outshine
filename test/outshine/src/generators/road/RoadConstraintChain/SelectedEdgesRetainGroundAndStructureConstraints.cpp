@@ -27,7 +27,8 @@ int main() {
       "<tag k='bridge' v='yes'/></way>"
       "<way id='30'><nd ref='1'/><nd ref='2'/>"
       "<tag k='highway' v='footway'/></way></osm>";
-  const auto source = OsmXmlReader::Read(xml, {.DatasetId = "analytic", .Revision = "r1"});
+  const auto source =
+      outshine::Generators::Osm::XmlReader::Read(xml, {.DatasetId = "analytic", .Revision = "r1"});
   CHECK(source.has_value(), "the analytic source parses");
   if (!source) { return Report(); }
   const auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);

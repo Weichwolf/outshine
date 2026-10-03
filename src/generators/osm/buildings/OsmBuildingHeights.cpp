@@ -47,9 +47,8 @@ HeightValue Parse(std::string_view text, bool metric) noexcept {
   return std::optional<double>{value};
 }
 
-HeightValue
-ReadValue(std::span<const Data::OsmTag> tags, std::string_view key, bool metric) noexcept {
-  const Data::OsmTag *found = nullptr;
+HeightValue ReadValue(std::span<const Tag> tags, std::string_view key, bool metric) noexcept {
+  const Tag *found = nullptr;
   for (const auto &tag : tags) {
     if (tag.Key != key) { continue; }
     if (found != nullptr) { return std::unexpected(HeightError::DuplicateTag); }
@@ -60,7 +59,7 @@ ReadValue(std::span<const Data::OsmTag> tags, std::string_view key, bool metric)
 
 }
 
-BuildingHeights BuildingHeights::Read(std::span<const Data::OsmTag> tags) noexcept {
+BuildingHeights BuildingHeights::Read(std::span<const Tag> tags) noexcept {
   return {.TopM = ReadValue(tags, "height", true),
           .MinimumM = ReadValue(tags, "min_height", true),
           .Levels = ReadValue(tags, "building:levels", false),

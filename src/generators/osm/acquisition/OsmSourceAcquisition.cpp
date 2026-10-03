@@ -207,7 +207,7 @@ void SourceAcquisition::StartRegionAcquisition() {
         result->Value = ReadResult(std::unexpected(std::move(read.error())));
       }
     } else {
-      result->Value = Data::OsmChunkSetLoader::ReadRegion(input, root, token);
+      result->Value = ChunkSetLoader::ReadRegion(input, root, token);
     }
   });
   Pending_.emplace(Pending{.Handle = handle,
@@ -217,7 +217,7 @@ void SourceAcquisition::StartRegionAcquisition() {
                            .Stop = std::move(stop)});
 }
 
-void SourceAcquisition::StartDecode(std::vector<Data::OsmSourceChunk> input,
+void SourceAcquisition::StartDecode(std::vector<SourceChunk> input,
                                     std::stop_source stop,
                                     std::optional<double> readMs) {
   auto result = std::make_shared<Result>();
@@ -239,13 +239,12 @@ void SourceAcquisition::StartDecode(std::vector<Data::OsmSourceChunk> input,
           result->Value = CellLoadResult(std::move(ready));
           return;
         }
-        auto loaded = Data::OsmChunkSetLoader::ParseRegion(input, token);
+        auto loaded = ChunkSetLoader::ParseRegion(input, token);
         if (!loaded) {
           result->Value = LoadResult(std::unexpected(std::move(loaded.error())));
         } else {
           if (readMs) { loaded->ReadMs = *readMs; }
-          result->Value =
-              LoadResult(std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)));
+          result->Value = LoadResult(std::make_shared<const SourceSnapshot>(std::move(*loaded)));
         }
       });
   Pending_.emplace(Pending{.Handle = handle,

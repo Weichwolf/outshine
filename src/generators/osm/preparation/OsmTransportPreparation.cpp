@@ -61,7 +61,7 @@ TransportPreparation::Request(std::span<const Data::SourceProvider> providers,
 }
 
 std::expected<void, std::string>
-TransportPreparation::RequestSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+TransportPreparation::RequestSource(std::shared_ptr<const SourceSnapshot> source,
                                     std::span<const CircuitRequest> routes) {
   return SetRequest({}, {}, std::move(source), routes);
 }
@@ -69,7 +69,7 @@ TransportPreparation::RequestSource(std::shared_ptr<const Data::OsmSourceSnapsho
 std::expected<void, std::string>
 TransportPreparation::SetRequest(std::vector<Data::SourceProvider> requested,
                                  std::string root,
-                                 std::shared_ptr<const Data::OsmSourceSnapshot> source,
+                                 std::shared_ptr<const SourceSnapshot> source,
                                  std::span<const CircuitRequest> routes) {
   if (routes.size() > kMaxRoutes || (!routes.empty() && requested.empty() && !source)) {
 
@@ -167,14 +167,13 @@ TransportPreparation::Load(std::span<const Data::SourceProvider> providers,
                            std::string_view shippedRoot,
                            std::span<const CircuitRequest> routes,
                            const std::stop_token &stop) {
-  auto loaded = Data::OsmChunkSetLoader::Load(providers, shippedRoot, stop);
+  auto loaded = ChunkSetLoader::Load(providers, shippedRoot, stop);
   if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-  return BuildSource(
-      std::make_shared<const Data::OsmSourceSnapshot>(std::move(*loaded)), routes, stop);
+  return BuildSource(std::make_shared<const SourceSnapshot>(std::move(*loaded)), routes, stop);
 }
 
 TransportPreparation::LoadResult
-TransportPreparation::BuildSource(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+TransportPreparation::BuildSource(std::shared_ptr<const SourceSnapshot> source,
                                   std::span<const CircuitRequest> routes,
                                   const std::stop_token &stop) {
   if (stop.stop_requested()) { return std::unexpected("semantic OSM source build canceled"); }

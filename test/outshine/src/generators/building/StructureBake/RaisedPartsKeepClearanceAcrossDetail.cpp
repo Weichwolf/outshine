@@ -95,15 +95,17 @@ int main() {
   raw.Structures[0].MinimumHeightM = 6;
   CHECK(key && key != StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion()),
         "input identity includes the lower elevation");
-  auto original = Data::OsmXmlReader::Read(
+  auto original = outshine::Generators::Osm::XmlReader::Read(
       R"(<osm version="0.6"><node id="7" lat="47" lon="9"><tag k="building" v="yes"/></node></osm>)",
       {.DatasetId = "native", .Revision = "one"});
   CHECK(original.has_value(), "native source fixture parses");
   if (!original) { return Report(); }
   raw.SourceInputs.Objects = std::make_shared<const outshine::Generators::Osm::SourceCapture>(
-      std::make_shared<const Data::OsmSourceSnapshot>(
-          Data::OsmSourceSnapshot{.Elements = std::move(*original), .Coverage = {}}));
-  raw.Structures[0].SourceId = {.Id = 7, .Kind = static_cast<uint8_t>(Data::OsmElementKind::Node)};
+      std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+          outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*original),
+                                                    .Coverage = {}}));
+  raw.Structures[0].SourceId = {
+      .Id = 7, .Kind = static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Node)};
   BakedTile native;
   CHECK(BakeStructures(raw, *heights, mesher, *scratch, native).has_value(),
         "declared generated footprint accepts its existing original point identity");
@@ -111,7 +113,8 @@ int main() {
   BakedTile missingNative;
   CHECK(!BakeStructures(raw, *heights, mesher, *scratch, missingNative),
         "missing original element cannot silently generate a native product");
-  raw.Structures[0].SourceId = {.Id = 7, .Kind = static_cast<uint8_t>(Data::OsmElementKind::Way)};
+  raw.Structures[0].SourceId = {
+      .Id = 7, .Kind = static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Way)};
   BakedTile wrongKind;
   CHECK(!BakeStructures(raw, *heights, mesher, *scratch, wrongKind),
         "matching numeric node ID does not satisfy a way reference");

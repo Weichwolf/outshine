@@ -39,9 +39,9 @@ struct DirectionTags {
 };
 
 std::expected<std::optional<std::string_view>, TransportBuildErrorCode>
-UniqueTag(std::span<const Data::OsmTag> tags, std::string_view key) {
+UniqueTag(std::span<const Tag> tags, std::string_view key) {
   std::optional<std::string_view> value;
-  for (const Data::OsmTag &tag : tags) {
+  for (const Tag &tag : tags) {
     if (tag.Key != key) { continue; }
     if (value) { return std::unexpected(TransportBuildErrorCode::AmbiguousTag); }
     value = tag.Value;
@@ -249,7 +249,7 @@ ReadLaneCount(std::optional<std::string_view> lanes) {
 
 }
 
-std::expected<OsmWaySemantics, TransportBuildErrorCode> DescribeOsmWay(const Data::OsmWay &way) {
+std::expected<OsmWaySemantics, TransportBuildErrorCode> DescribeOsmWay(const Way &way) {
   const auto highway = UniqueTag(way.Tags, "highway");
   const auto railway = UniqueTag(way.Tags, "railway");
   const auto waterway = UniqueTag(way.Tags, "waterway");

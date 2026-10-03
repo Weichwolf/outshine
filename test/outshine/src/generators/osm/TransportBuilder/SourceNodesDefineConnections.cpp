@@ -44,7 +44,8 @@ int main() {
       "<way id='50'><nd ref='15'/><nd ref='16'/><tag k='highway' v='construction'/></way>"
       "<way id='60'><nd ref='17'/><nd ref='18'/><tag k='highway' v='service'/>"
       "<tag k='access' v='no'/></way></osm>";
-  const auto source = OsmXmlReader::Read(xml, {.DatasetId = "osm-analytical", .Revision = "r1"});
+  const auto source = outshine::Generators::Osm::XmlReader::Read(
+      xml, {.DatasetId = "osm-analytical", .Revision = "r1"});
   CHECK(source.has_value(), "analytical transport source parses");
   if (!source) { return Report(); }
   const auto built = outshine::Generators::Osm::TransportBuilder::Build(*source);

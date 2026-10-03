@@ -18,22 +18,22 @@ namespace outshine::Generators::Osm {
 
 namespace {
 
-std::string_view Tag(std::span<const Data::OsmTag> tags, std::string_view key) {
+std::string_view TagValue(std::span<const Tag> tags, std::string_view key) {
   for (const auto &tag : tags) {
     if (tag.Key == key) { return tag.Value; }
   }
   return {};
 }
 
-bool Ambiguous(std::span<const Data::OsmTag> tags) {
+bool Ambiguous(std::span<const Tag> tags) {
   for (const std::string_view key : {"building", "building:part", "man_made", "type"}) {
-    if (std::ranges::count(tags, key, &Data::OsmTag::Key) > 1) { return true; }
+    if (std::ranges::count(tags, key, &Tag::Key) > 1) { return true; }
   }
   return false;
 }
 
-bool IsBuilding(std::span<const Data::OsmTag> tags) {
-  return std::ranges::any_of(tags, [](const Data::OsmTag &tag) {
+bool IsBuilding(std::span<const Tag> tags) {
+  return std::ranges::any_of(tags, [](const Tag &tag) {
     if (tag.Key == "building" || tag.Key == "building:part") {
       return !tag.Value.empty() && tag.Value != "no";
     }
@@ -43,17 +43,16 @@ bool IsBuilding(std::span<const Data::OsmTag> tags) {
   });
 }
 
-std::expected<std::vector<Data::OsmElementId>, FootprintError>
-SelectBuildingRoots(const Data::OsmElements &source) {
-  std::vector<Data::OsmElementId> roots;
+std::expected<std::vector<ElementId>, FootprintError>
+SelectBuildingRoots(const ElementSet &source) {
+  std::vector<ElementId> roots;
   for (const auto &node : source.Nodes()) {
     if (!IsBuilding(node.Tags)) { continue; }
     if (Ambiguous(node.Tags)) {
-      return std::unexpected(
-          FootprintError{.Code = FootprintErrorCode::AmbiguousTag,
-                         .Source = {.Kind = Data::OsmElementKind::Node, .Id = node.Id}});
+      return std::unexpected(FootprintError{.Code = FootprintErrorCode::AmbiguousTag,
+                                            .Source = {.Kind = ElementKind::Node, .Id = node.Id}});
     }
-    roots.push_back({.Kind = Data::OsmElementKind::Node, .Id = node.Id});
+    roots.push_back({.Kind = ElementKind::Node, .Id = node.Id});
   }
   std::set<uint64_t> relationWays;
   for (const auto &relation : source.Relations()) {
@@ -61,22 +60,21 @@ SelectBuildingRoots(const Data::OsmElements &source) {
     if (Ambiguous(relation.Tags)) {
       return std::unexpected(
           FootprintError{.Code = FootprintErrorCode::AmbiguousTag,
-                         .Source = {.Kind = Data::OsmElementKind::Relation, .Id = relation.Id}});
+                         .Source = {.Kind = ElementKind::Relation, .Id = relation.Id}});
     }
-    roots.push_back({.Kind = Data::OsmElementKind::Relation, .Id = relation.Id});
+    roots.push_back({.Kind = ElementKind::Relation, .Id = relation.Id});
     for (const auto &member : relation.Members) {
-      if (member.Kind == Data::OsmElementKind::Way) { relationWays.insert(member.Id); }
+      if (member.Kind == ElementKind::Way) { relationWays.insert(member.Id); }
     }
   }
   for (const auto &way : source.Ways()) {
     if (!IsBuilding(way.Tags)) { continue; }
     if (Ambiguous(way.Tags)) {
-      return std::unexpected(
-          FootprintError{.Code = FootprintErrorCode::AmbiguousTag,
-                         .Source = {.Kind = Data::OsmElementKind::Way, .Id = way.Id}});
+      return std::unexpected(FootprintError{.Code = FootprintErrorCode::AmbiguousTag,
+                                            .Source = {.Kind = ElementKind::Way, .Id = way.Id}});
     }
     if (!relationWays.contains(way.Id)) {
-      roots.push_back({.Kind = Data::OsmElementKind::Way, .Id = way.Id});
+      roots.push_back({.Kind = ElementKind::Way, .Id = way.Id});
     }
   }
   return roots;
@@ -84,7 +82,7 @@ SelectBuildingRoots(const Data::OsmElements &source) {
 
 std::expected<std::vector<uint64_t>, FootprintErrorCode>
 CloseRing(std::vector<uint64_t> ring,
-          const std::vector<const Data::OsmWay *> &ways,
+          const std::vector<const Way *> &ways,
           const std::map<uint64_t, std::vector<size_t>> &junctions,
           std::vector<bool> &used,
           size_t remaining) {
@@ -108,18 +106,18 @@ CloseRing(std::vector<uint64_t> ring,
 
 }
 
-std::span<const Data::OsmTag> BuildingFootprints::Tags(const Building &building) const noexcept {
-  if (building.Source.Kind == Data::OsmElementKind::Node) {
+std::span<const Tag> BuildingFootprints::Tags(const Building &building) const noexcept {
+  if (building.Source.Kind == ElementKind::Node) {
     return Source_->Elements.FindNode(building.Source.Id)->Tags;
   }
-  if (building.Source.Kind == Data::OsmElementKind::Way) {
+  if (building.Source.Kind == ElementKind::Way) {
     return Source_->Elements.FindWay(building.Source.Id)->Tags;
   }
   return Source_->Elements.FindRelation(building.Source.Id)->Tags;
 }
 
 std::expected<void, FootprintError> BuildingFootprints::AppendRing(std::span<const uint64_t> nodes,
-                                                                   Data::OsmElementId source,
+                                                                   ElementId source,
                                                                    bool exterior,
                                                                    size_t maxPoints) {
   if (nodes.size() < 4 || nodes.front() != nodes.back()) {
@@ -139,7 +137,7 @@ std::expected<void, FootprintError> BuildingFootprints::AppendRing(std::span<con
         FootprintError{.Code = FootprintErrorCode::InvalidRing, .Source = source});
   }
   for (const uint64_t id : nodes) {
-    const Data::OsmNode &node = *Source_->Elements.FindNode(id);
+    const Node &node = *Source_->Elements.FindNode(id);
     Points_.push_back(node.LatitudeDeg);
     Points_.push_back(node.LongitudeDeg);
   }
@@ -149,10 +147,10 @@ std::expected<void, FootprintError> BuildingFootprints::AppendRing(std::span<con
   return {};
 }
 
-std::expected<void, FootprintError>
-BuildingFootprints::AppendRelation(const Data::OsmRelation &relation, size_t maxPoints) {
-  const Data::OsmElementId source{.Kind = Data::OsmElementKind::Relation, .Id = relation.Id};
-  if (Tag(relation.Tags, "type") != "multipolygon") {
+std::expected<void, FootprintError> BuildingFootprints::AppendRelation(const Relation &relation,
+                                                                       size_t maxPoints) {
+  const ElementId source{.Kind = ElementKind::Relation, .Id = relation.Id};
+  if (TagValue(relation.Tags, "type") != "multipolygon") {
     return std::unexpected(
         FootprintError{.Code = FootprintErrorCode::UnsupportedGeometry, .Source = source});
   }
@@ -165,10 +163,9 @@ BuildingFootprints::AppendRelation(const Data::OsmRelation &relation, size_t max
   }
   bool hasExterior = false;
   for (const bool exterior : {true, false}) {
-    std::vector<const Data::OsmWay *> ways;
+    std::vector<const Way *> ways;
     for (const auto &member : relation.Members) {
-      if (member.Kind != Data::OsmElementKind::Way ||
-          (member.Role != "outer" && member.Role != "inner")) {
+      if (member.Kind != ElementKind::Way || (member.Role != "outer" && member.Role != "inner")) {
         return std::unexpected(
             FootprintError{.Code = FootprintErrorCode::UnsupportedGeometry, .Source = source});
       }
@@ -176,7 +173,7 @@ BuildingFootprints::AppendRelation(const Data::OsmRelation &relation, size_t max
         ways.push_back(Source_->Elements.FindWay(member.Id));
       }
     }
-    std::ranges::sort(ways, {}, [](const Data::OsmWay *way) { return way->Id; });
+    std::ranges::sort(ways, {}, [](const Way *way) { return way->Id; });
     if (auto appended = AppendWays(ways, source, exterior, maxPoints); !appended) {
       return appended;
     }
@@ -189,11 +186,8 @@ BuildingFootprints::AppendRelation(const Data::OsmRelation &relation, size_t max
   return {};
 }
 
-std::expected<void, FootprintError>
-BuildingFootprints::AppendWays(const std::vector<const Data::OsmWay *> &ways,
-                               Data::OsmElementId source,
-                               bool exterior,
-                               size_t maxPoints) {
+std::expected<void, FootprintError> BuildingFootprints::AppendWays(
+    const std::vector<const Way *> &ways, ElementId source, bool exterior, size_t maxPoints) {
   std::map<uint64_t, std::vector<size_t>> junctions;
   std::vector<bool> used(ways.size());
   for (size_t at = 0; at < ways.size(); ++at) {
@@ -234,7 +228,7 @@ BuildingFootprints::AppendWays(const std::vector<const Data::OsmWay *> &ways,
 }
 
 std::expected<BuildingFootprints, FootprintError>
-BuildingFootprints::Build(std::shared_ptr<const Data::OsmSourceSnapshot> source, size_t maxPoints) {
+BuildingFootprints::Build(std::shared_ptr<const SourceSnapshot> source, size_t maxPoints) {
   if (!source) {
     return std::unexpected(FootprintError{.Code = FootprintErrorCode::MissingSource});
   }
@@ -249,8 +243,8 @@ BuildingFootprints::Build(std::shared_ptr<const Data::OsmSourceSnapshot> source,
   }
   BuildingFootprints result;
   result.Source_ = std::move(source);
-  for (const Data::OsmElementId root : *roots) {
-    if (root.Kind == Data::OsmElementKind::Node) {
+  for (const ElementId root : *roots) {
+    if (root.Kind == ElementKind::Node) {
       const size_t point = result.Points_.size() / 2;
       if (point >= maxPoints) {
         return std::unexpected(
@@ -264,7 +258,7 @@ BuildingFootprints::Build(std::shared_ptr<const Data::OsmSourceSnapshot> source,
     }
     const size_t first = result.Rings_.size();
     auto appended =
-        root.Kind == Data::OsmElementKind::Way
+        root.Kind == ElementKind::Way
             ? result.AppendRing(
                   result.Source_->Elements.FindWay(root.Id)->NodeIds, root, true, maxPoints)
             : result.AppendRelation(*result.Source_->Elements.FindRelation(root.Id), maxPoints);

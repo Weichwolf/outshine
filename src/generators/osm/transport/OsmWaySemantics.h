@@ -25,7 +25,7 @@ struct OsmWaySemantics {
 };
 
 [[nodiscard]] std::expected<OsmWaySemantics, TransportBuildErrorCode>
-DescribeOsmWay(const Data::OsmWay &way);
+DescribeOsmWay(const Way &way);
 
 }
 

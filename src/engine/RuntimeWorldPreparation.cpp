@@ -63,10 +63,10 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
       if (Session.Under.Offline) {
         World.Wire = std::make_unique<Data::OfflineTransport>();
       } else {
-        World.Wire =
-            std::make_unique<Fetching>(Fetching::Config{.ConcurrentTransfers = 8,
-                                                        .ConnectionsPerHost = 8,
-                                                        .MaxBodyBytes = Data::kMaxOsmXmlBytes});
+        World.Wire = std::make_unique<Fetching>(
+            Fetching::Config{.ConcurrentTransfers = 8,
+                             .ConnectionsPerHost = 8,
+                             .MaxBodyBytes = Generators::Osm::kMaximumXmlBytes});
       }
     }
     World.OsmSource = std::make_unique<Generators::Osm::SourceAcquisition>(

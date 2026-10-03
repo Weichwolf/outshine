@@ -108,7 +108,7 @@ std::expected<RawTile, std::string> NativeInput(StructureDescription described,
 
 template <typename Element, typename Access>
 std::expected<void, std::string>
-VerifySharedElements(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+VerifySharedElements(std::span<const std::shared_ptr<const SourceSnapshot>> sources,
                      Access access,
                      const std::stop_token &stop) {
   struct Cursor {
@@ -145,7 +145,7 @@ VerifySharedElements(std::span<const std::shared_ptr<const Data::OsmSourceSnapsh
 }
 
 std::expected<void, std::string>
-VerifySources(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+VerifySources(std::span<const std::shared_ptr<const SourceSnapshot>> sources,
               const std::stop_token &stop) {
   for (const auto &source : sources) {
     if (!source ||
@@ -154,17 +154,17 @@ VerifySources(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> so
     }
   }
   if (sources.size() < 2) { return {}; }
-  if (auto checked = VerifySharedElements<Data::OsmNode>(
+  if (auto checked = VerifySharedElements<Node>(
           sources, [](const auto &elements) { return elements.Nodes(); }, stop);
       !checked) {
     return checked;
   }
-  if (auto checked = VerifySharedElements<Data::OsmWay>(
+  if (auto checked = VerifySharedElements<Way>(
           sources, [](const auto &elements) { return elements.Ways(); }, stop);
       !checked) {
     return checked;
   }
-  return VerifySharedElements<Data::OsmRelation>(
+  return VerifySharedElements<Relation>(
       sources, [](const auto &elements) { return elements.Relations(); }, stop);
 }
 
@@ -176,7 +176,7 @@ void RecordConsumedWays(const RawTile &raw, std::set<uint64_t> &consumedWays) {
 }
 
 std::expected<std::vector<RawTile>, std::string>
-PrepareInputs(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
+PrepareInputs(std::span<const std::shared_ptr<const SourceSnapshot>> sources,
               StructurePolicy policy,
               const std::stop_token &stop) {
   if (auto checked = VerifySources(sources, stop); !checked) {
@@ -230,8 +230,7 @@ PrepareProducts(const StructurePreparation::Inputs &sources,
     if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
     std::erase_if(raw.Structures, [&](const auto &structure) {
       const auto id = structure.SourceId;
-      return (id.Kind == static_cast<uint8_t>(Data::OsmElementKind::Way) &&
-              consumedWays.contains(id.Id)) ||
+      return (id.Kind == static_cast<uint8_t>(ElementKind::Way) && consumedWays.contains(id.Id)) ||
              !owned.emplace(id.Kind, id.Id).second;
     });
     raw.SourceInputs.Origin.Selection = kDigestBasis;

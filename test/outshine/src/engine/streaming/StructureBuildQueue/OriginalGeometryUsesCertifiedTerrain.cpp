@@ -39,8 +39,8 @@ int main() {
   using namespace outshine::Ground;
   using namespace outshine::Test;
   const LongitudeLatitude eye{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
-  auto parsed =
-      Data::OsmXmlReader::Read(R"(<osm version="0.6">
+  auto parsed = outshine::Generators::Osm::XmlReader::Read(
+      R"(<osm version="0.6">
     <node id="1" lat="49.32739" lon="8.56589"/>
     <node id="2" lat="49.32739" lon="8.56593"/>
     <node id="3" lat="49.32743" lon="8.56593"/>
@@ -50,16 +50,17 @@ int main() {
     <way id="11"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
     <tag k="building:part" v="yes"/><tag k="height" v="18"/>
     <tag k="min_height" v="14"/></way></osm>)",
-                               {.DatasetId = "analytic-original-buildings", .Revision = "one"});
+      {.DatasetId = "analytic-original-buildings", .Revision = "one"});
   CHECK(parsed.has_value(), "two original building objects parse");
   if (!parsed) { return Report(); }
-  auto source = std::make_shared<Data::OsmSourceSnapshot>(Data::OsmSourceSnapshot{
-      .Elements = std::move(*parsed),
-      .Coverage = {{.WestDeg = 8.565899,
-                    .SouthDeg = 49.327399,
-                    .EastDeg = 8.565901,
-                    .NorthDeg = 49.327401}},
-      .Chunks = {{.PayloadSha256 = std::string(64, 'a'), .PinVerified = true}}});
+  auto source = std::make_shared<outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*parsed),
+          .Coverage = {{.WestDeg = 8.565899,
+                        .SouthDeg = 49.327399,
+                        .EastDeg = 8.565901,
+                        .NorthDeg = 49.327401}},
+          .Chunks = {{.PayloadSha256 = std::string(64, 'a'), .PinVerified = true}}});
   SilentSink sink;
   Data::OfflineTransport wire;
   const auto cache = std::filesystem::temp_directory_path() /
@@ -210,12 +211,13 @@ int main() {
               std::abs(stamps->front().RingEastNorthM[1] - corner.NorthM) < 0.02,
           "four paired metre coordinates preserve the original terrain contact");
   }
-  auto empty = Data::OsmXmlReader::Read(
+  auto empty = outshine::Generators::Osm::XmlReader::Read(
       R"(<osm version="0.6"/>)", {.DatasetId = "analytic-original-buildings", .Revision = "empty"});
   CHECK(empty.has_value(), "replacement source explicitly contains no buildings");
   if (!empty) { return Report(); }
-  auto emptySource = std::make_shared<Data::OsmSourceSnapshot>(
-      Data::OsmSourceSnapshot{.Elements = std::move(*empty), .Coverage = source->Coverage});
+  auto emptySource = std::make_shared<outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*empty),
+                                                .Coverage = source->Coverage});
   bool replacementPrepared = false;
   for (int attempt = 0; attempt < 100 && !replacementPrepared; ++attempt) {
     const auto ready =

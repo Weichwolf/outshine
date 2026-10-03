@@ -31,15 +31,17 @@ int main() {
       "<tag k='oneway' v='yes'/></way>"
       "<way id='13'><nd ref='2'/><nd ref='4'/><nd ref='3'/>"
       "<tag k='highway' v='raceway'/><tag k='oneway' v='yes'/></way></osm>";
-  const auto first = OsmXmlReader::Read(firstChunk, {.DatasetId = "osm", .Revision = "r1"});
-  const auto second = OsmXmlReader::Read(secondChunk, {.DatasetId = "osm", .Revision = "r1"});
+  const auto first = outshine::Generators::Osm::XmlReader::Read(
+      firstChunk, {.DatasetId = "osm", .Revision = "r1"});
+  const auto second = outshine::Generators::Osm::XmlReader::Read(
+      secondChunk, {.DatasetId = "osm", .Revision = "r1"});
   CHECK(first && second && first->FirstMissingReference() && second->FirstMissingReference(),
         "source chunks are individually incomplete but syntactically valid");
   if (!first || !second) { return Report(); }
   const std::array forward{*first, *second};
   const std::array reverse{*second, *first};
-  const auto mergedForward = OsmElements::Merge(forward, 11);
-  const auto mergedReverse = OsmElements::Merge(reverse, 11);
+  const auto mergedForward = outshine::Generators::Osm::ElementSet::Merge(forward, 11);
+  const auto mergedReverse = outshine::Generators::Osm::ElementSet::Merge(reverse, 11);
   CHECK(mergedForward && mergedReverse && !mergedForward->FirstMissingReference() &&
             !mergedReverse->FirstMissingReference() && mergedForward->Nodes().size() == 4 &&
             mergedForward->Ways().size() == 4,
@@ -67,27 +69,33 @@ int main() {
             routeForward->EdgeIds == routeReverse->EdgeIds && routeForward->EdgeIds.size() == 3,
         "reversing chunk arrival preserves sorted edge IDs and the topological circuit");
 
-  const auto smallBudget = OsmElements::Merge(forward, 10);
-  CHECK(!smallBudget && smallBudget.error().Code == OsmMergeErrorCode::BudgetExceeded,
+  const auto smallBudget = outshine::Generators::Osm::ElementSet::Merge(forward, 10);
+  CHECK(!smallBudget &&
+            smallBudget.error().Code == outshine::Generators::Osm::MergeErrorCode::BudgetExceeded,
         "input element work is bounded before merge allocation");
-  const auto newerRevision =
-      OsmXmlReader::Read(secondChunk, {.DatasetId = "osm", .Revision = "r2"});
+  const auto newerRevision = outshine::Generators::Osm::XmlReader::Read(
+      secondChunk, {.DatasetId = "osm", .Revision = "r2"});
   CHECK(newerRevision.has_value(), "the next source revision parses independently");
   if (newerRevision) {
     const std::array mixedRevisions{*first, *newerRevision};
-    const auto refused = OsmElements::Merge(mixedRevisions, 11);
-    CHECK(!refused && refused.error().Code == OsmMergeErrorCode::IdentityMismatch,
+    const auto refused = outshine::Generators::Osm::ElementSet::Merge(mixedRevisions, 11);
+    CHECK(!refused &&
+              refused.error().Code == outshine::Generators::Osm::MergeErrorCode::IdentityMismatch,
           "chunks from distinct source revisions cannot form one graph snapshot");
   }
   constexpr std::string_view changedNode =
       "<osm version='0.6'><node id='2' lat='1' lon='1'/></osm>";
-  const auto changed = OsmXmlReader::Read(changedNode, {.DatasetId = "osm", .Revision = "r1"});
+  const auto changed = outshine::Generators::Osm::XmlReader::Read(
+      changedNode, {.DatasetId = "osm", .Revision = "r1"});
   CHECK(changed.has_value(), "a conflicting source chunk parses");
   if (changed) {
     const std::array conflicting{*first, *changed};
-    const auto refused = OsmElements::Merge(conflicting, 5);
-    CHECK(!refused && refused.error().Code == OsmMergeErrorCode::ConflictingElement &&
-              refused.error().Kind == OsmElementKind::Node && refused.error().Id == 2,
+    const auto refused = outshine::Generators::Osm::ElementSet::Merge(conflicting, 5);
+    CHECK(!refused &&
+              refused.error().Code ==
+                  outshine::Generators::Osm::MergeErrorCode::ConflictingElement &&
+              refused.error().Kind == outshine::Generators::Osm::ElementKind::Node &&
+              refused.error().Id == 2,
           "conflicting repeated source IDs reject the candidate with exact provenance");
   }
   return Report();

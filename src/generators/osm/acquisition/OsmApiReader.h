@@ -17,7 +17,7 @@
 namespace outshine::Generators::Osm {
 
 struct SourceRead {
-  std::vector<Data::OsmSourceChunk> Chunks;
+  std::vector<SourceChunk> Chunks;
   std::vector<Data::GeoCellId> Refine;
   double ElapsedMs = 0.0;
 };
@@ -43,7 +43,7 @@ ReadRegions(std::span<const Data::SourceProvider> providers,
             std::string_view shippedRoot = {},
             const std::function<double()> &currentDeadline = {});
 
-[[nodiscard]] std::expected<Data::OsmSourceChunk, std::string>
+[[nodiscard]] std::expected<SourceChunk, std::string>
 ReadRegion(const Data::SourceProvider &provider,
            Data::ContentStore &store,
            Data::Transport &wire,

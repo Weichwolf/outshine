@@ -22,7 +22,8 @@ Ground::GeoBounds Inside(Data::TileId northWest, Data::TileId southEast) {
           .MaxLatDeg = low.MaxLatDeg - (low.MaxLatDeg - low.MinLatDeg) * 0.2};
 }
 
-std::shared_ptr<const Data::OsmSourceSnapshot> Source(std::span<const Ground::GeoBounds> bounds) {
+std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot>
+Source(std::span<const Ground::GeoBounds> bounds) {
   std::ostringstream xml;
   xml << std::setprecision(17) << "<osm version='0.6'>";
   for (size_t at = 0; at < bounds.size(); ++at) {
@@ -43,16 +44,19 @@ std::shared_ptr<const Data::OsmSourceSnapshot> Source(std::span<const Ground::Ge
     xml << "<tag k='building' v='yes'/></way>";
   }
   xml << "</osm>";
-  auto elements = Data::OsmXmlReader::Read(xml.str(), {.DatasetId = "geometry", .Revision = "one"});
+  auto elements = outshine::Generators::Osm::XmlReader::Read(
+      xml.str(), {.DatasetId = "geometry", .Revision = "one"});
   if (!elements) { return nullptr; }
-  return std::make_shared<const Data::OsmSourceSnapshot>(Data::OsmSourceSnapshot{
-      .Elements = std::move(*elements),
-      .Coverage = {{.WestDeg = -180, .SouthDeg = -80, .EastDeg = 180, .NorthDeg = 80}}});
+  return std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{
+          .Elements = std::move(*elements),
+          .Coverage = {{.WestDeg = -180, .SouthDeg = -80, .EastDeg = 180, .NorthDeg = 80}}});
 }
 
-std::expected<bool, std::string> Prepare(StructureBuildQueue &queue,
-                                         std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                                         int zoom) {
+std::expected<bool, std::string>
+Prepare(StructureBuildQueue &queue,
+        std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> source,
+        int zoom) {
   for (int attempt = 0; attempt < 200; ++attempt) {
     auto result = queue.PrepareOriginal(
         source,

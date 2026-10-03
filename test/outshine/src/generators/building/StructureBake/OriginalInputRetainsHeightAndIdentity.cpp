@@ -15,7 +15,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
-  auto parsed = Data::OsmXmlReader::Read(
+  auto parsed = outshine::Generators::Osm::XmlReader::Read(
       R"(<osm version="0.6">
       <node id="1" lat="0" lon="0"/><node id="2" lat="0" lon="0.001"/>
       <node id="3" lat="0.001" lon="0.001"/><node id="4" lat="0.001" lon="0"/>
@@ -25,8 +25,8 @@ int main() {
       {.DatasetId = "native-input", .Revision = "one"});
   CHECK(parsed.has_value(), "original raised part parses");
   if (!parsed) { return Report(); }
-  auto source = std::make_shared<const Data::OsmSourceSnapshot>(
-      Data::OsmSourceSnapshot{.Elements = std::move(*parsed), .Coverage = {}});
+  auto source = std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*parsed), .Coverage = {}});
   const auto footprints = outshine::Generators::Osm::BuildingFootprints::Build(source, 4);
   CHECK(footprints.has_value(), "original raised part has a closed footprint");
   if (!footprints) { return Report(); }
@@ -42,7 +42,7 @@ int main() {
   CHECK(part.MinimumHeightM == 5.5 && part.HeightM == 9.5 &&
             part.HeightOrigin == outshine::Ground::BuildingHeightOrigin::Generated,
         "missing top uses an explicit four metre body above original clearance");
-  CHECK(part.SourceId.Kind == static_cast<uint8_t>(Data::OsmElementKind::Way) &&
+  CHECK(part.SourceId.Kind == static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Way) &&
             part.SourceId.Id == 10 && raw->SourceInputs.Archive.lock() == source &&
             CapturedOsmSource(*raw).Elements.FindWay(10) != nullptr,
         "worker input retains typed identity, closed native inputs and its archive association");
@@ -85,15 +85,16 @@ int main() {
   CHECK(!unowned &&
             unowned.error() == outshine::Generators::Osm::StructureDescriptionError::SourceMismatch,
         "geometry cannot be published without its original source owner");
-  auto pointParsed = Data::OsmXmlReader::Read(
+  auto pointParsed = outshine::Generators::Osm::XmlReader::Read(
       R"(<osm version="0.6"><node id="20" lat="0" lon="0">
       <tag k="building" v="toilets"/><tag k="building:levels" v="1"/>
       </node></osm>)",
       {.DatasetId = "native-input", .Revision = "point"});
   CHECK(pointParsed.has_value(), "point building parses");
   if (!pointParsed) { return Report(); }
-  const auto pointSource = std::make_shared<const Data::OsmSourceSnapshot>(
-      Data::OsmSourceSnapshot{.Elements = std::move(*pointParsed), .Coverage = {}});
+  const auto pointSource = std::make_shared<const outshine::Generators::Osm::SourceSnapshot>(
+      outshine::Generators::Osm::SourceSnapshot{.Elements = std::move(*pointParsed),
+                                                .Coverage = {}});
   const auto pointFootprints = outshine::Generators::Osm::BuildingFootprints::Build(pointSource, 1);
   CHECK(pointFootprints.has_value(), "point building preserves its original position");
   if (!pointFootprints) { return Report(); }
@@ -111,7 +112,7 @@ int main() {
       outshine::Test::OriginalBuildingInput(*pointFootprints, pointOriginal, pointPolicy);
   CHECK(pointRaw && pointRaw->Structures.size() == 1 && pointRaw->LatLon.size() == 10 &&
             pointRaw->Structures.front().SourceId.Kind ==
-                static_cast<uint8_t>(Data::OsmElementKind::Node) &&
+                static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Node) &&
             pointRaw->Structures.front().HeightOrigin ==
                 outshine::Ground::BuildingHeightOrigin::Storeys,
         "generated point footprint retains node identity and level-derived height");

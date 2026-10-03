@@ -40,7 +40,7 @@ public:
   };
 
   struct CellSource {
-    std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot;
+    std::shared_ptr<const SourceSnapshot> Snapshot;
     std::shared_ptr<const CellProduct> Product = nullptr;
     size_t ChargedBytes = 0;
     Data::GeoCellId Address{};
@@ -90,14 +90,14 @@ public:
     return (Pending_ ? 1u : 0u) + (CellPipeline_ ? 1u : 0u);
   }
 
-  [[nodiscard]] const std::shared_ptr<const Data::OsmSourceSnapshot> &Current() const noexcept {
+  [[nodiscard]] const std::shared_ptr<const SourceSnapshot> &Current() const noexcept {
     return Current_;
   }
 
 private:
   static constexpr double MaximumIoAwaitSeconds = 0.005;
-  using LoadResult = std::expected<std::shared_ptr<const Data::OsmSourceSnapshot>, std::string>;
-  using ReadResult = std::expected<std::vector<Data::OsmSourceChunk>, std::string>;
+  using LoadResult = std::expected<std::shared_ptr<const SourceSnapshot>, std::string>;
+  using ReadResult = std::expected<std::vector<SourceChunk>, std::string>;
   using CellLoadResult = std::expected<std::vector<CellSource>, std::string>;
   using CacheProofResult = std::expected<std::monostate, std::string>;
 
@@ -115,7 +115,7 @@ private:
   };
 
   [[nodiscard]] static std::expected<CellSource, std::string>
-  DecodeCell(const Data::OsmSourceChunk &input,
+  DecodeCell(const SourceChunk &input,
              const std::stop_token &stop,
              const std::shared_ptr<const CellCompiler> &compiler);
   void StartRegionAcquisition();
@@ -125,9 +125,8 @@ private:
   void QueueMissingCells();
   void ReleaseAssignedCells(std::span<const CellSource> ready);
   void CancelCellPipeline();
-  void StartDecode(std::vector<Data::OsmSourceChunk> input,
-                   std::stop_source stop,
-                   std::optional<double> readMs);
+  void
+  StartDecode(std::vector<SourceChunk> input, std::stop_source stop, std::optional<double> readMs);
   void CompletePending(Pending finished);
   void CompleteCells(std::vector<CellSource> ready);
   void VerifyCache();
@@ -146,7 +145,7 @@ private:
   std::string Root_;
   std::optional<Pending> Pending_;
   std::unique_ptr<CellPipeline> CellPipeline_;
-  std::shared_ptr<const Data::OsmSourceSnapshot> Current_;
+  std::shared_ptr<const SourceSnapshot> Current_;
   std::string Error_;
   uint64_t Revision_ = 0;
   uint64_t PublishedRevision_ = 0;

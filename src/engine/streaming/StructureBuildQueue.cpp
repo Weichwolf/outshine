@@ -538,16 +538,16 @@ bool StructureBuildQueue::BakeRevision::Matches(
 }
 
 std::expected<bool, std::string>
-StructureBuildQueue::PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                                     outshine::Generators::Osm::StructurePolicy policy,
+StructureBuildQueue::PrepareOriginal(std::shared_ptr<const Generators::Osm::SourceSnapshot> source,
+                                     Generators::Osm::StructurePolicy policy,
                                      int heightZoom) {
   return PrepareOriginal(
       source ? std::span(&source, 1) : std::span(&source, 0), policy, heightZoom);
 }
 
 std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
-    std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-    outshine::Generators::Osm::StructurePolicy policy,
+    std::span<const std::shared_ptr<const Generators::Osm::SourceSnapshot>> sources,
+    Generators::Osm::StructurePolicy policy,
     int heightZoom) {
   return PrepareOriginalInputs(
       Generators::Osm::StructurePreparation::SourceInputs(sources.begin(), sources.end()),

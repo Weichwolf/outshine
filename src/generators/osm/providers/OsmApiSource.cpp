@@ -69,7 +69,7 @@ ApiSource::ApiSource(const Data::SourceProvider &provider, uint32_t region)
   Decl_.Order = static_cast<Data::Rank>(provider.Priority);
   Decl_.OnAbsent = Data::AbsencePolicy::Fail;
   Decl_.Latency = Data::LatencyClass::Regional;
-  Decl_.MaximumPayloadBytes = Data::kMaxOsmXmlBytes;
+  Decl_.MaximumPayloadBytes = kMaximumXmlBytes;
   Decl_.PayloadSha256 = provider.PayloadSha256;
   Decl_.RetryBudget = 4;
 }

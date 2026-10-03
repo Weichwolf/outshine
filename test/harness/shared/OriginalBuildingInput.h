@@ -10,11 +10,11 @@
 namespace outshine::Test {
 
 struct OriginalBuildingSource {
-  std::shared_ptr<const Data::OsmSourceSnapshot> Snapshot;
+  std::shared_ptr<const outshine::Generators::Osm::SourceSnapshot> Snapshot;
   Data::ProductOrigin Origin;
 };
 
-[[nodiscard]] inline const Data::OsmSourceSnapshot &
+[[nodiscard]] inline const outshine::Generators::Osm::SourceSnapshot &
 CapturedOsmSource(const Generators::RawTile &input) {
   return static_cast<const Generators::Osm::SourceCapture &>(*input.SourceInputs.Objects)
       .Snapshot();

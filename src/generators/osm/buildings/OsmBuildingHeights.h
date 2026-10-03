@@ -6,7 +6,7 @@
 #include <span>
 #include <cstdint>
 
-#include "OsmElements.h"
+#include "OsmElementSet.h"
 #include "BuildingHeightInterval.h"
 
 namespace outshine::Generators::Osm {
@@ -31,7 +31,7 @@ struct BuildingHeights {
   HeightValue Levels;
   HeightValue MinimumLevel;
 
-  [[nodiscard]] static BuildingHeights Read(std::span<const Data::OsmTag> tags) noexcept;
+  [[nodiscard]] static BuildingHeights Read(std::span<const Tag> tags) noexcept;
   [[nodiscard]] std::expected<outshine::Ground::BuildingHeightInterval, HeightError>
   Resolve(HeightPolicy policy) const noexcept;
 };

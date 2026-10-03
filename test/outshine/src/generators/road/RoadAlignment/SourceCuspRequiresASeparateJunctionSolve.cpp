@@ -20,7 +20,8 @@ int main() {
       "<node id='3' lat='0.000001' lon='0.00002'/>"
       "<way id='10'><nd ref='1'/><nd ref='2'/><nd ref='3'/>"
       "<tag k='highway' v='service'/><tag k='oneway' v='yes'/></way></osm>";
-  const auto source = OsmXmlReader::Read(xml, {.DatasetId = "cusp", .Revision = "r1"});
+  const auto source =
+      outshine::Generators::Osm::XmlReader::Read(xml, {.DatasetId = "cusp", .Revision = "r1"});
   CHECK(source.has_value(), "the source with a sharp turn parses");
   if (!source) { return Report(); }
   const auto topology = outshine::Generators::Osm::TransportBuilder::Build(*source);

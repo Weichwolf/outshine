@@ -46,7 +46,7 @@ std::expected<GeographicRing, StructureDescriptionError> PointRing(
 
 std::expected<StructureDescription, StructureDescriptionError>
 DescribeStructures(const BuildingFootprints &buildings,
-                   const std::shared_ptr<const Data::OsmSourceSnapshot> &source,
+                   const std::shared_ptr<const SourceSnapshot> &source,
                    Data::ProductOrigin origin,
                    StructurePolicy policy) {
   if (source.get() != &buildings.Source()) {
@@ -93,20 +93,20 @@ DescribeStructures(const BuildingFootprints &buildings,
          .Height = *height,
          .Source = {.Id = building.Source.Id, .Kind = static_cast<uint8_t>(building.Source.Kind)}});
   }
-  std::vector<Data::OsmElementId> roots;
+  std::vector<ElementId> roots;
   roots.reserve(buildings.Buildings().size());
   for (const auto &building : buildings.Buildings()) { roots.push_back(building.Source); }
   auto selected = source->Elements.SelectReferenced(roots);
   if (!selected) { return std::unexpected(StructureDescriptionError::MissingReference); }
   raw.Origin.Provenance = DescribeOsmSource(*source);
-  auto closure = std::make_shared<const Data::OsmSourceSnapshot>(
-      Data::OsmSourceSnapshot{.Elements = std::move(*selected),
-                              .Coverage = source->Coverage,
-                              .SourceBytes = source->SourceBytes,
-                              .ReadMs = source->ReadMs,
-                              .ParseMs = source->ParseMs,
-                              .Chunks = source->Chunks,
-                              .Cell = source->Cell});
+  auto closure =
+      std::make_shared<const SourceSnapshot>(SourceSnapshot{.Elements = std::move(*selected),
+                                                            .Coverage = source->Coverage,
+                                                            .SourceBytes = source->SourceBytes,
+                                                            .ReadMs = source->ReadMs,
+                                                            .ParseMs = source->ParseMs,
+                                                            .Chunks = source->Chunks,
+                                                            .Cell = source->Cell});
   return StructureDescription{.Footprints = std::move(raw),
                               .Source = std::make_shared<const SourceCapture>(std::move(closure)),
                               .Archive = source};

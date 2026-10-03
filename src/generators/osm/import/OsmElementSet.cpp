@@ -1,4 +1,4 @@
-#include "OsmElements.h"
+#include "OsmElementSet.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -12,12 +12,12 @@
 #include <utility>
 #include <vector>
 
-namespace outshine::Data {
+namespace outshine::Generators::Osm {
 
 namespace {
 
-size_t TagCharge(const std::vector<OsmTag> &tags) noexcept {
-  size_t bytes = tags.capacity() * sizeof(OsmTag);
+size_t TagCharge(const std::vector<Tag> &tags) noexcept {
+  size_t bytes = tags.capacity() * sizeof(Tag);
   for (const auto &tag : tags) { bytes += tag.Key.capacity() + tag.Value.capacity() + 2; }
   return bytes;
 }
@@ -32,14 +32,14 @@ const Element *FindById(const std::vector<Element> &elements, uint64_t id) noexc
 }
 
 template <typename Element>
-std::expected<void, OsmMergeError> SortUnique(std::vector<Element> &elements, OsmElementKind kind) {
+std::expected<void, MergeError> SortUnique(std::vector<Element> &elements, ElementKind kind) {
   std::ranges::sort(elements, {}, &Element::Id);
   size_t unique = 0;
   for (size_t read = 0; read < elements.size(); ++read) {
     if (unique > 0 && elements[read].Id == elements[unique - 1].Id) {
       if (elements[read] != elements[unique - 1]) {
-        return std::unexpected(OsmMergeError{
-            .Code = OsmMergeErrorCode::ConflictingElement, .Kind = kind, .Id = elements[read].Id});
+        return std::unexpected(MergeError{
+            .Code = MergeErrorCode::ConflictingElement, .Kind = kind, .Id = elements[read].Id});
       }
       continue;
     }
@@ -51,22 +51,22 @@ std::expected<void, OsmMergeError> SortUnique(std::vector<Element> &elements, Os
 }
 
 struct ReferenceClosure {
-  const OsmElements &Source;
+  const ElementSet &Source;
   std::vector<bool> Nodes;
   std::vector<bool> Ways;
   std::vector<bool> Relations;
-  std::vector<OsmElementId> Pending;
+  std::vector<ElementId> Pending;
 
-  std::optional<MissingOsmReference> Admit(OsmElementId owner, OsmElementId target) {
+  std::optional<MissingReference> Admit(ElementId owner, ElementId target) {
     switch (target.Kind) {
-      case OsmElementKind::Node:
-        if (const OsmNode *node = Source.FindNode(target.Id)) {
+      case ElementKind::Node:
+        if (const Node *node = Source.FindNode(target.Id)) {
           Nodes[static_cast<size_t>(node - Source.Nodes().data())] = true;
           return std::nullopt;
         }
         break;
-      case OsmElementKind::Way:
-        if (const OsmWay *way = Source.FindWay(target.Id)) {
+      case ElementKind::Way:
+        if (const Way *way = Source.FindWay(target.Id)) {
           const auto index = static_cast<size_t>(way - Source.Ways().data());
           if (!Ways[index]) {
             Ways[index] = true;
@@ -75,8 +75,8 @@ struct ReferenceClosure {
           return std::nullopt;
         }
         break;
-      case OsmElementKind::Relation:
-        if (const OsmRelation *relation = Source.FindRelation(target.Id)) {
+      case ElementKind::Relation:
+        if (const Relation *relation = Source.FindRelation(target.Id)) {
           const auto index = static_cast<size_t>(relation - Source.Relations().data());
           if (!Relations[index]) {
             Relations[index] = true;
@@ -86,27 +86,27 @@ struct ReferenceClosure {
         }
         break;
     }
-    return MissingOsmReference{.OwnerKind = owner.Kind,
-                               .OwnerId = owner.Id,
-                               .MissingKind = target.Kind,
-                               .MissingId = target.Id};
+    return MissingReference{.OwnerKind = owner.Kind,
+                            .OwnerId = owner.Id,
+                            .MissingKind = target.Kind,
+                            .MissingId = target.Id};
   }
 
-  std::optional<MissingOsmReference> Complete(std::span<const OsmElementId> roots) {
-    for (const OsmElementId root : roots) {
+  std::optional<MissingReference> Complete(std::span<const ElementId> roots) {
+    for (const ElementId root : roots) {
       if (const auto missing = Admit(root, root)) { return missing; }
     }
     size_t next = 0;
     while (next < Pending.size()) {
-      const OsmElementId owner = Pending[next++];
-      if (owner.Kind == OsmElementKind::Way) {
+      const ElementId owner = Pending[next++];
+      if (owner.Kind == ElementKind::Way) {
         for (const uint64_t node : Source.FindWay(owner.Id)->NodeIds) {
-          if (const auto missing = Admit(owner, {.Kind = OsmElementKind::Node, .Id = node})) {
+          if (const auto missing = Admit(owner, {.Kind = ElementKind::Node, .Id = node})) {
             return missing;
           }
         }
       } else {
-        for (const OsmRelationMember &member : Source.FindRelation(owner.Id)->Members) {
+        for (const RelationMember &member : Source.FindRelation(owner.Id)->Members) {
           if (const auto missing = Admit(owner, {.Kind = member.Kind, .Id = member.Id})) {
             return missing;
           }
@@ -130,110 +130,107 @@ std::vector<Element> CopySelected(std::span<const Element> elements,
 
 }
 
-size_t OsmElements::StorageChargeBytes() const noexcept {
-  size_t bytes = sizeof(OsmElements) + SourceIdentity_.DatasetId.capacity() +
-                 SourceIdentity_.Revision.capacity() + 2 + Nodes_.capacity() * sizeof(OsmNode) +
-                 Ways_.capacity() * sizeof(OsmWay) + Relations_.capacity() * sizeof(OsmRelation);
+size_t ElementSet::StorageChargeBytes() const noexcept {
+  size_t bytes = sizeof(ElementSet) + SourceIdentity_.DatasetId.capacity() +
+                 SourceIdentity_.Revision.capacity() + 2 + Nodes_.capacity() * sizeof(Node) +
+                 Ways_.capacity() * sizeof(Way) + Relations_.capacity() * sizeof(Relation);
   for (const auto &node : Nodes_) { bytes += TagCharge(node.Tags); }
   for (const auto &way : Ways_) {
     bytes += way.NodeIds.capacity() * sizeof(uint64_t) + TagCharge(way.Tags);
   }
   for (const auto &relation : Relations_) {
-    bytes += relation.Members.capacity() * sizeof(OsmRelationMember) + TagCharge(relation.Tags);
+    bytes += relation.Members.capacity() * sizeof(RelationMember) + TagCharge(relation.Tags);
     for (const auto &member : relation.Members) { bytes += member.Role.capacity() + 1; }
   }
   return bytes;
 }
 
-std::expected<OsmElements, OsmMergeError> OsmElements::Merge(std::span<const OsmElements> chunks,
-                                                             size_t maxInputElements) {
-  if (chunks.empty()) {
-    return std::unexpected(OsmMergeError{.Code = OsmMergeErrorCode::EmptyInput});
-  }
-  for (const OsmElements &chunk : chunks.subspan(1)) {
+std::expected<ElementSet, MergeError> ElementSet::Merge(std::span<const ElementSet> chunks,
+                                                        size_t maxInputElements) {
+  if (chunks.empty()) { return std::unexpected(MergeError{.Code = MergeErrorCode::EmptyInput}); }
+  for (const ElementSet &chunk : chunks.subspan(1)) {
     if (chunk.SourceIdentity_ != chunks.front().SourceIdentity_) {
-      return std::unexpected(OsmMergeError{.Code = OsmMergeErrorCode::IdentityMismatch});
+      return std::unexpected(MergeError{.Code = MergeErrorCode::IdentityMismatch});
     }
   }
   size_t inputElements = 0;
-  for (const OsmElements &chunk : chunks) {
-    for (const auto [count, kind] :
-         {std::pair{chunk.Nodes_.size(), OsmElementKind::Node},
-          std::pair{chunk.Ways_.size(), OsmElementKind::Way},
-          std::pair{chunk.Relations_.size(), OsmElementKind::Relation}}) {
+  for (const ElementSet &chunk : chunks) {
+    for (const auto [count, kind] : {std::pair{chunk.Nodes_.size(), ElementKind::Node},
+                                     std::pair{chunk.Ways_.size(), ElementKind::Way},
+                                     std::pair{chunk.Relations_.size(), ElementKind::Relation}}) {
       if (count > maxInputElements - inputElements) {
         return std::unexpected(
-            OsmMergeError{.Code = OsmMergeErrorCode::BudgetExceeded, .Kind = kind, .Id = 0});
+            MergeError{.Code = MergeErrorCode::BudgetExceeded, .Kind = kind, .Id = 0});
       }
       inputElements += count;
     }
   }
-  OsmElements merged;
+  ElementSet merged;
   merged.SourceIdentity_ = chunks.front().SourceIdentity_;
-  for (const OsmElements &chunk : chunks) {
+  for (const ElementSet &chunk : chunks) {
     merged.Nodes_.insert(merged.Nodes_.end(), chunk.Nodes_.begin(), chunk.Nodes_.end());
     merged.Ways_.insert(merged.Ways_.end(), chunk.Ways_.begin(), chunk.Ways_.end());
     merged.Relations_.insert(
         merged.Relations_.end(), chunk.Relations_.begin(), chunk.Relations_.end());
   }
-  if (auto checked = SortUnique(merged.Nodes_, OsmElementKind::Node); !checked) {
+  if (auto checked = SortUnique(merged.Nodes_, ElementKind::Node); !checked) {
     return std::unexpected(checked.error());
   }
-  if (auto checked = SortUnique(merged.Ways_, OsmElementKind::Way); !checked) {
+  if (auto checked = SortUnique(merged.Ways_, ElementKind::Way); !checked) {
     return std::unexpected(checked.error());
   }
-  if (auto checked = SortUnique(merged.Relations_, OsmElementKind::Relation); !checked) {
+  if (auto checked = SortUnique(merged.Relations_, ElementKind::Relation); !checked) {
     return std::unexpected(checked.error());
   }
   return merged;
 }
 
-const OsmNode *OsmElements::FindNode(uint64_t id) const noexcept {
+const Node *ElementSet::FindNode(uint64_t id) const noexcept {
   return FindById(Nodes_, id);
 }
 
-const OsmWay *OsmElements::FindWay(uint64_t id) const noexcept {
+const Way *ElementSet::FindWay(uint64_t id) const noexcept {
   return FindById(Ways_, id);
 }
 
-const OsmRelation *OsmElements::FindRelation(uint64_t id) const noexcept {
+const Relation *ElementSet::FindRelation(uint64_t id) const noexcept {
   return FindById(Relations_, id);
 }
 
-std::optional<MissingOsmReference> OsmElements::FirstMissingReference() const noexcept {
-  for (const OsmWay &way : Ways_) {
+std::optional<MissingReference> ElementSet::FirstMissingReference() const noexcept {
+  for (const Way &way : Ways_) {
     for (const uint64_t nodeId : way.NodeIds) {
       if (FindNode(nodeId) == nullptr) {
-        return MissingOsmReference{.OwnerKind = OsmElementKind::Way,
-                                   .OwnerId = way.Id,
-                                   .MissingKind = OsmElementKind::Node,
-                                   .MissingId = nodeId};
+        return MissingReference{.OwnerKind = ElementKind::Way,
+                                .OwnerId = way.Id,
+                                .MissingKind = ElementKind::Node,
+                                .MissingId = nodeId};
       }
     }
   }
-  for (const OsmRelation &relation : Relations_) {
-    for (const OsmRelationMember &member : relation.Members) {
+  for (const Relation &relation : Relations_) {
+    for (const RelationMember &member : relation.Members) {
       const bool found = [&] {
         switch (member.Kind) {
-          case OsmElementKind::Node: return FindNode(member.Id) != nullptr;
-          case OsmElementKind::Way: return FindWay(member.Id) != nullptr;
-          case OsmElementKind::Relation: return FindRelation(member.Id) != nullptr;
+          case ElementKind::Node: return FindNode(member.Id) != nullptr;
+          case ElementKind::Way: return FindWay(member.Id) != nullptr;
+          case ElementKind::Relation: return FindRelation(member.Id) != nullptr;
         }
         return false;
       }();
       if (!found) {
-        return MissingOsmReference{.OwnerKind = OsmElementKind::Relation,
-                                   .OwnerId = relation.Id,
-                                   .MissingKind = member.Kind,
-                                   .MissingId = member.Id};
+        return MissingReference{.OwnerKind = ElementKind::Relation,
+                                .OwnerId = relation.Id,
+                                .MissingKind = member.Kind,
+                                .MissingId = member.Id};
       }
     }
   }
   return std::nullopt;
 }
 
-std::optional<MissingOsmReference>
-OsmElements::FirstMissingReference(std::span<const OsmElementId> roots) const {
+std::optional<MissingReference>
+ElementSet::FirstMissingReference(std::span<const ElementId> roots) const {
   ReferenceClosure closure{.Source = *this,
                            .Nodes = std::vector<bool>(Nodes_.size()),
                            .Ways = std::vector<bool>(Ways_.size()),
@@ -242,15 +239,15 @@ OsmElements::FirstMissingReference(std::span<const OsmElementId> roots) const {
   return closure.Complete(roots);
 }
 
-std::expected<OsmElements, MissingOsmReference>
-OsmElements::SelectReferenced(std::span<const OsmElementId> roots) const {
+std::expected<ElementSet, MissingReference>
+ElementSet::SelectReferenced(std::span<const ElementId> roots) const {
   ReferenceClosure closure{.Source = *this,
                            .Nodes = std::vector<bool>(Nodes_.size()),
                            .Ways = std::vector<bool>(Ways_.size()),
                            .Relations = std::vector<bool>(Relations_.size()),
                            .Pending = {}};
   if (const auto missing = closure.Complete(roots)) { return std::unexpected(*missing); }
-  OsmElements result;
+  ElementSet result;
   result.SourceIdentity_ = SourceIdentity_;
   result.Nodes_ = CopySelected(Nodes(), closure.Nodes);
   result.Ways_ = CopySelected(Ways(), closure.Ways);

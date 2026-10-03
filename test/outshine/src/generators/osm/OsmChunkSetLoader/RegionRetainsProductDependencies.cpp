@@ -30,11 +30,13 @@ int main() {
       .Dataset = "original",
       .Location = path.string(),
       .Coverage = SourceCoverage{.WestDeg = 0, .SouthDeg = 0, .EastDeg = 1, .NorthDeg = 1}}};
-  const auto region = OsmChunkSetLoader::LoadRegion(providers, ".");
+  const auto region = outshine::Generators::Osm::ChunkSetLoader::LoadRegion(providers, ".");
   CHECK(region.has_value(), "spatial source retains an unrelated open relation");
   if (region) {
-    const std::array building{OsmElementId{.Kind = OsmElementKind::Way, .Id = 10}};
-    const std::array route{OsmElementId{.Kind = OsmElementKind::Relation, .Id = 20}};
+    const std::array building{outshine::Generators::Osm::ElementId{
+        .Kind = outshine::Generators::Osm::ElementKind::Way, .Id = 10}};
+    const std::array route{outshine::Generators::Osm::ElementId{
+        .Kind = outshine::Generators::Osm::ElementKind::Relation, .Id = 20}};
     CHECK(!region->Elements.FirstMissingReference(building),
           "complete building has independent product closure");
     const auto missing = region->Elements.FirstMissingReference(route);
@@ -44,7 +46,7 @@ int main() {
     CHECK(way && way->Tags.size() == 2 && way->Tags[1].Value == "5.5",
           "original minimum-height semantics survive source loading");
   }
-  const auto strict = OsmChunkSetLoader::Load(providers, ".");
+  const auto strict = outshine::Generators::Osm::ChunkSetLoader::Load(providers, ".");
   CHECK(!strict, "declared complete chunk sets still reject every missing reference");
   std::error_code error;
   std::filesystem::remove(path, error);

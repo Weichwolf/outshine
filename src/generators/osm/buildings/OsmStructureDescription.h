@@ -38,7 +38,7 @@ struct StructureDescription {
 
 [[nodiscard]] std::expected<StructureDescription, StructureDescriptionError>
 DescribeStructures(const BuildingFootprints &buildings,
-                   const std::shared_ptr<const Data::OsmSourceSnapshot> &source,
+                   const std::shared_ptr<const SourceSnapshot> &source,
                    Data::ProductOrigin origin,
                    StructurePolicy policy);
 

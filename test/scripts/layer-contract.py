@@ -216,7 +216,7 @@ def main():
     violations = errors(graph, commands, public_edges) + generator_violations
     if native_product_boundary({'src/world/products/BuildingGeometry.h', 'src/base/math/Capacity.h'}):
         raise RuntimeError('native product positive control failed')
-    if not native_product_boundary({'src/world/data/OsmElements.h'}):
+    if not native_product_boundary({'src/generators/osm/import/OsmElementSet.h'}):
         raise RuntimeError('native product negative control failed')
     if world_state_boundary({'src/world/products/BuildingGeometry.h', 'src/base/io/Tasks.h'}):
         raise RuntimeError('world state positive control failed')
@@ -224,6 +224,8 @@ def main():
         raise RuntimeError('world state negative control failed')
     if not world_state_boundary({'src/generators/terrain/ClassificationRasterizer.h'}):
         raise RuntimeError('world generator negative control failed')
+    if not world_state_boundary({'src/generators/osm/import/OsmXmlReader.h'}):
+        raise RuntimeError('world source interpretation negative control failed')
     if not world_state_boundary({'src/render/device/GroundClassBuffer.h'}):
         raise RuntimeError('world renderer negative control failed')
     if generator_product_boundary({'src/world/ground/ClassStructure.h'}):
@@ -241,7 +243,7 @@ def main():
             {str(header.relative_to(root)) for header in dependencies if header.is_relative_to(root)}))
     if transport_product_boundary({'src/world/navigation/TransportTopology.h', 'src/world/products/SourceIdentity.h'}):
         raise RuntimeError('native transport positive control failed')
-    for forbidden in ('src/world/data/OsmElements.h', 'src/generators/osm/transport/OsmTransportBuilder.h',
+    for forbidden in ('src/generators/osm/import/OsmElementSet.h', 'src/generators/osm/transport/OsmTransportBuilder.h',
                       'src/generators/osm/preparation/OsmTransportPreparation.h'):
         if not transport_product_boundary({forbidden}):
             raise RuntimeError('native transport negative control failed')

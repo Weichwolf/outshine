@@ -89,7 +89,7 @@ int main() {
       summedMs += chunk.ReadMs;
     }
     CHECK(cold->ElapsedMs < summedMs, "elapsed acquisition time does not sum overlapping IO");
-    const auto parsed = OsmChunkSetLoader::ParseRegion(cold->Chunks);
+    const auto parsed = outshine::Generators::Osm::ChunkSetLoader::ParseRegion(cold->Chunks);
     CHECK(parsed && parsed->Chunks.size() == 4 && parsed->Elements.FindNode(4),
           "independently pinned responses merge as one consistent original dataset");
   }

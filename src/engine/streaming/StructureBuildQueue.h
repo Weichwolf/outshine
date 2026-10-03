@@ -46,12 +46,12 @@ public:
   }
 
   [[nodiscard]] std::expected<bool, std::string>
-  PrepareOriginal(std::shared_ptr<const Data::OsmSourceSnapshot> source,
-                  outshine::Generators::Osm::StructurePolicy policy,
+  PrepareOriginal(std::shared_ptr<const Generators::Osm::SourceSnapshot> source,
+                  Generators::Osm::StructurePolicy policy,
                   int heightZoom);
   [[nodiscard]] std::expected<bool, std::string>
-  PrepareOriginal(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-                  outshine::Generators::Osm::StructurePolicy policy,
+  PrepareOriginal(std::span<const std::shared_ptr<const Generators::Osm::SourceSnapshot>> sources,
+                  Generators::Osm::StructurePolicy policy,
                   int heightZoom);
   [[nodiscard]] std::expected<bool, std::string>
   PrepareOriginal(std::span<const std::shared_ptr<const Generators::Osm::StructureCell>> cells,

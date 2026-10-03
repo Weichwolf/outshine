@@ -76,7 +76,7 @@ int main() {
         "one official API request retains complete original response bytes and bbox order");
   if (cold) {
     const std::array input{*cold};
-    const auto parsed = OsmChunkSetLoader::ParseRegion(input);
+    const auto parsed = outshine::Generators::Osm::ChunkSetLoader::ParseRegion(input);
     CHECK(
         parsed && parsed->Elements.FindNode(1) && parsed->Elements.FindWay(1) &&
             parsed->Elements.FindRelation(1) && parsed->Elements.FindWay(1)->Tags.size() == 3 &&
@@ -118,7 +118,7 @@ int main() {
           canceled.Urls.empty(),
       "an already canceled request performs no network or cache acquisition");
   ApiWire oversized;
-  oversized.Xml.assign(kMaxOsmXmlBytes + 1, ' ');
+  oversized.Xml.assign(outshine::Generators::Osm::kMaximumXmlBytes + 1, ' ');
   CHECK(outshine::Generators::Osm::ReadRegion(provider, store, oversized, 1100, {}) &&
             oversized.Urls.empty(),
         "a warm request does not replace its cached bytes with a different wire payload");

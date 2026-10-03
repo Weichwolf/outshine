@@ -43,7 +43,8 @@ int main() {
   CHECK(input.good(), "the pinned Hockenheim OSM source is available");
   if (!input) { return Report(); }
   const std::string xml(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
-  const auto source = OsmXmlReader::Read(xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
+  const auto source = outshine::Generators::Osm::XmlReader::Read(
+      xml, {.DatasetId = "openstreetmap", .Revision = "pin-r1"});
   CHECK(source.has_value(), "the pinned Hockenheim source parses");
   if (!source) { return Report(); }
   const auto graph = outshine::Generators::Osm::TransportBuilder::Build(*source);
@@ -61,11 +62,11 @@ int main() {
   CHECK(route && route->EdgeIds.size() == 267 && graph->UnclassifiedPathCount() == 0,
         "the main Grand Prix relation resolves to 267 directed raceway edges");
   if (!route) { return Report(); }
-  const OsmRelation *relation = source->FindRelation(284588);
+  const outshine::Generators::Osm::Relation *relation = source->FindRelation(284588);
   CHECK(relation != nullptr, "the route retains its original relation ID");
   if (relation == nullptr) { return Report(); }
   uint64_t pitWayId = 0;
-  for (const OsmRelationMember &member : relation->Members) {
+  for (const outshine::Generators::Osm::RelationMember &member : relation->Members) {
     if (member.Role == "pitlane") { pitWayId = member.Id; }
   }
   CHECK(pitWayId != 0, "the alternate pit way is identified by its relation role");
@@ -85,7 +86,7 @@ int main() {
         "the ID-based lap closes without a gap, jump or pitlane substitution");
   CHECK(racewayMaterial, "every main-loop edge has a native asphalt raceway corridor profile");
   uint64_t mainWayId = 0;
-  for (const OsmRelationMember &member : relation->Members) {
+  for (const outshine::Generators::Osm::RelationMember &member : relation->Members) {
     if (member.Role.empty()) {
       mainWayId = member.Id;
       break;
@@ -94,8 +95,8 @@ int main() {
   const std::string reversedWay = ReverseWayNodes(xml, mainWayId);
   CHECK(!reversedWay.empty(), "the pinned main way can be reversed independently");
   if (!reversedWay.empty()) {
-    const auto changedSource =
-        OsmXmlReader::Read(reversedWay, {.DatasetId = "openstreetmap", .Revision = "reversed-way"});
+    const auto changedSource = outshine::Generators::Osm::XmlReader::Read(
+        reversedWay, {.DatasetId = "openstreetmap", .Revision = "reversed-way"});
     CHECK(changedSource.has_value(), "the reversed way remains valid OSM source");
     if (changedSource) {
       const auto changedGraph = outshine::Generators::Osm::TransportBuilder::Build(*changedSource);
@@ -109,8 +110,8 @@ int main() {
   CHECK(pitRole != std::string::npos, "the pinned pit role is present");
   if (pitRole != std::string::npos) {
     pitAsMain.replace(pitRole, sizeof("role=\"pitlane\"") - 1, "role=\"\"");
-    const auto changedSource =
-        OsmXmlReader::Read(pitAsMain, {.DatasetId = "openstreetmap", .Revision = "pit-as-main"});
+    const auto changedSource = outshine::Generators::Osm::XmlReader::Read(
+        pitAsMain, {.DatasetId = "openstreetmap", .Revision = "pit-as-main"});
     CHECK(changedSource.has_value(), "the altered relation remains valid OSM source");
     if (changedSource) {
       const auto changedGraph = outshine::Generators::Osm::TransportBuilder::Build(*changedSource);
@@ -128,7 +129,7 @@ int main() {
     const size_t valueAt = refAt + sizeof("ref=\"") - 1;
     const size_t valueEnd = missingMember.find('"', valueAt);
     missingMember.replace(valueAt, valueEnd - valueAt, "999999999999999999");
-    const auto changedSource = OsmXmlReader::Read(
+    const auto changedSource = outshine::Generators::Osm::XmlReader::Read(
         missingMember, {.DatasetId = "openstreetmap", .Revision = "missing-member"});
     CHECK(changedSource.has_value(), "an incomplete relation remains syntactically valid");
     if (changedSource) {

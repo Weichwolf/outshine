@@ -19,7 +19,7 @@
 
 namespace outshine::Generators::Osm {
 std::expected<StructureDescription, std::string>
-PrepareStructureCell(const std::shared_ptr<const Data::OsmSourceSnapshot> &source,
+PrepareStructureCell(const std::shared_ptr<const SourceSnapshot> &source,
                      StructurePolicy policy,
                      const std::stop_token &stop) {
   if (!source || source->Coverage.empty()) {
@@ -73,7 +73,7 @@ void Append(std::string &bytes, std::string_view text) {
   bytes.append(text);
 }
 
-void AppendTags(std::string &bytes, std::span<const Data::OsmTag> tags) {
+void AppendTags(std::string &bytes, std::span<const Tag> tags) {
   Append(bytes, tags.size());
   for (const auto &tag : tags) {
     Append(bytes, tag.Key);
@@ -81,19 +81,19 @@ void AppendTags(std::string &bytes, std::span<const Data::OsmTag> tags) {
   }
 }
 
-void Append(std::string &bytes, const Data::OsmNode &node) {
+void Append(std::string &bytes, const Node &node) {
   Append(bytes, node.LatitudeDeg == 0 ? 0 : std::bit_cast<uint64_t>(node.LatitudeDeg));
   Append(bytes, node.LongitudeDeg == 0 ? 0 : std::bit_cast<uint64_t>(node.LongitudeDeg));
   AppendTags(bytes, node.Tags);
 }
 
-void Append(std::string &bytes, const Data::OsmWay &way) {
+void Append(std::string &bytes, const Way &way) {
   Append(bytes, way.NodeIds.size());
   for (const uint64_t node : way.NodeIds) { Append(bytes, node); }
   AppendTags(bytes, way.Tags);
 }
 
-void Append(std::string &bytes, const Data::OsmRelation &relation) {
+void Append(std::string &bytes, const Relation &relation) {
   Append(bytes, relation.Members.size());
   for (const auto &member : relation.Members) {
     Append(bytes, static_cast<uint64_t>(member.Kind));
@@ -125,7 +125,7 @@ public:
   explicit StructureCellCompiler(StructurePolicy policy) : Policy_(policy) {}
 
   [[nodiscard]] std::expected<std::shared_ptr<const CellProduct>, std::string>
-  Compile(std::shared_ptr<const Data::OsmSourceSnapshot> source,
+  Compile(std::shared_ptr<const SourceSnapshot> source,
           const std::stop_token &stop) const override {
     auto description = PrepareStructureCell(source, Policy_, stop);
     if (!description) { return std::unexpected(std::move(description.error())); }
