@@ -63,9 +63,11 @@ benötigte öffentliche Felder werden dort mit diesem Pfad integriert. 2280 füh
   Auswahl von Fernwald bis Nahlaub; Kollision und logische Netze bleiben eigenständig.
   Der Fehler gehört zur jeweiligen interpolierten Fläche; ein Kindfehler ist keine Untergrenze
   für den Elternfehler. Bedarf bleibt unabhängig von der Blickrichtung.
-  Koerbersee überschreitet derzeit die verfügbare Height-Patch-Anzahl. Lokale Fehler und
-  Rundum-Projektion müssen die Hierarchie steuern; höhere Kapazität oder schlechtere Bildtoleranz
-  allein beheben die Auswahl nicht.
+  Koerbersee scheitert am festen Höhenatlas, bei plausiblen Quellen/Projektionsparametern.
+  Renderer allokiert Atlas-Layer nach tatsächlichem Bedarf und wächst transaktional per GPU-Kopie;
+  vorhandene Page-IDs/Inhalte bleiben gültig. Dichtere 2D-Packung begrenzt Array-Layer.
+  Logische Kapazität ist kein Allokationsbudget: aktuelle/temporäre Bytes und Framekosten prüfen.
+  Lokale Fehler und Rundum-Projektion steuern weiter die Auswahl; Sichtweite/Fehlertoleranz bleiben.
 
 ## Abnahme
 Zuerst dichte Bodenstadt: vollständige Fernverbände und Nahdetails ohne überflüssige Feinmeshes,
