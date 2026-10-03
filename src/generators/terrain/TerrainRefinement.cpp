@@ -141,7 +141,6 @@ size_t BuildErrors(std::vector<ErrorPatch> &tree,
                       {.Zoom = tile.Zoom + 1, .X = tile.X * 2u + column, .Y = tile.Y * 2u + row},
                       {.X = region.X + column * half, .Y = region.Y + row * half, .Cells = half},
                       grid);
-      patch.ErrorM = std::max(patch.ErrorM, tree[patch.Children[child]].ErrorM);
     }
   }
   tree[index] = patch;
@@ -317,8 +316,23 @@ std::expected<bool, std::string> TerrainRefinementJob::Advance(size_t sourcesMos
           .count();
   if (!unique) { return std::unexpected(std::move(unique.error())); }
   if (unique->size() > MaximumPatches_) {
+    uint32_t sourceSide = 0;
+    for (const TerrainRefinementSource &source : Sources_) {
+      if (source.Heights != nullptr) {
+        sourceSide = std::max({sourceSide, source.Heights->Rows(), source.Heights->Cols()});
+      }
+    }
     return std::unexpected(
-        std::format(Says::kTooManyPatches, unique->size(), Detail_.ErrorPx, MaximumPatches_));
+        std::format(Says::kTooManyPatches, unique->size(), Detail_.ErrorPx, MaximumPatches_) +
+        std::format("; {} sources, up to {} postings, {} grid nodes, focal {:.1f} px, eye ({:.1f}, "
+                    "{:.1f}, {:.1f}) m",
+                    Sources_.size(),
+                    sourceSide,
+                    Layout_.Side,
+                    Detail_.FocalPx,
+                    Detail_.EyeM[0],
+                    Detail_.EyeM[1],
+                    Detail_.EyeM[2]));
   }
   Result_ = std::move(*unique);
   Complete_ = true;

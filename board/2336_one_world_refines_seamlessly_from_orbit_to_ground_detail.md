@@ -61,6 +61,8 @@ benötigte öffentliche Felder werden dort mit diesem Pfad integriert. 2280 füh
 - Terrainbedarf folgt konsumierter Form mit eigener Höhenfehlerschranke. Subpixelrelief darf
   zum Ellipsoid übergehen; sichtbare Küsten/Grate bleiben. Vegetation 2111 verwendet dieselbe
   Auswahl von Fernwald bis Nahlaub; Kollision und logische Netze bleiben eigenständig.
+  Der Fehler gehört zur jeweiligen interpolierten Fläche; ein Kindfehler ist keine Untergrenze
+  für den Elternfehler. Bedarf bleibt unabhängig von der Blickrichtung.
   Koerbersee überschreitet derzeit die verfügbare Height-Patch-Anzahl. Lokale Fehler und
   Rundum-Projektion müssen die Hierarchie steuern; höhere Kapazität oder schlechtere Bildtoleranz
   allein beheben die Auswahl nicht.
