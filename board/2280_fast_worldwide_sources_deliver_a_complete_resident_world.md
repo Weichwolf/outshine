@@ -14,7 +14,7 @@ Wien erreicht aus vollständigem Quellcache die fertige Rundumwelt und den Scree
 AGENTS-Budget. MVT/Terrarium, paralleler Erwerb, Quellcache und native Produkte bestehen.
 Gebäude-Quellaufbereitung endet, Zellvorbereitung kann jedoch dauerhaft zurückgestellt werden.
 Zellaufträge übernehmen Parent-Höhenbedarf; Kopien, erneute Rasterhashes und Liefermetadaten
-vergrößern die Arbeit. Der begonnene Zertifikatsabbau ist noch nicht vollständig integriert.
+vergrößern die Arbeit. Abnahme ist die vollständige gerenderte Welt, nicht ein interner Zustand.
 
 ## Besitzer und Grenzen
 SourceSet/ContentStore/TilePool besitzen gemeinsame Bytes/Jobs; Erweiterungen ihre Formate.
@@ -24,7 +24,12 @@ werden bis zur vollständigen Publikation integriert. 2336 besitzt räumliche De
 Nah-/Fernbedarf und das vollständige Quellmanifest für die Budgetabnahme, nicht den Orbit-Ausbau.
 Cache-/Stillstandsreparatur beginnt unabhängig davon. Keine neue parallele Ladepipeline.
 
-## Umsetzung in Lieferreihenfolge
+## Datenfluss und Umsetzung
+Kamera/AGL/Sichtweite → Rundumbedarf mit Entfernungsdetail → Quellcache oder paralleler Erwerb
+→ kompakte gemeinsame Eingaben → benötigte native Geometrie → resident halten und rendern.
+Drehung ändert nur die Sichtauswahl; Bewegung ergänzt Bedarf. Alte Verwaltung ohne notwendigen
+Beitrag zu diesem Ablauf entfernen; Tests gegen diesen fachlichen Vertrag prüfen.
+
 1. Jeder Zellauftrag erhält nur seine benötigten Raster samt Nachbarn. Übergröße zerlegt
    den Auftrag oder ergibt einen benannten Fehler; kein dauerhaftes Deferred ohne ausführbare
    Fortsetzung. Diagnose nennt fehlende Eingabe, laufenden Job oder konkrete Budgetverletzung.
@@ -35,6 +40,9 @@ Cache-/Stillstandsreparatur beginnt unabhängig davon. Keine neue parallele Lade
    Schlüssel aus Anbieter, Anfrageparametern und Formatversion; Treffer liefern gespeicherte
    Bytes ohne Aktualitätsprüfung. Identität der Inputs/Generatorparameter einmal bestimmen.
    Expliziter Welt-/Quellenwechsel verwirft alte Jobs; Terrainänderungen erneuern ihre Produkte.
+   Die bestehende Eingaberevision bindet Jobs und Produkte an denselben Terrainstand; keine
+   zweite Gültigkeitshierarchie. Identische Wiederlieferung allein entwertet keine Geometrie.
+   Unversionierte Eingaben brauchen Inhaltsvergleich; zwei unbekannte Revisionen sind kein Beweis.
    Vollständige Raster/Nachbarn, echte Fehler und geometrische LOD-Schranken bleiben verbindlich.
 4. Gebäudepläne/Kontakte vom Mesh trennen (2336). Keine volle Quellgeometrie nur als Vorstufe
    derselben Zellgeometrie erzeugen. Snapshot-/Publikationskopien auf veränderte Produkte
