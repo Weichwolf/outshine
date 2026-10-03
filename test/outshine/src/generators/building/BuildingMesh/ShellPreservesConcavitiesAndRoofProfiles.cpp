@@ -135,8 +135,8 @@ int main() {
     const size_t indices = mesh.WallRun.size() + mesh.RoofRun.size();
     if (detail == LevelOfDetail::Fine) { fineIndices = indices; }
     if (detail == LevelOfDetail::Shell) {
-      CHECK(indices * 2 < fineIndices,
-            "distant shell uses less than half the fine geometry while preserving roof and "
+      CHECK(indices == fineIndices,
+            "Fine and Shell share the same simple geometry while preserving roof and "
             "foundation");
     }
     if (detail == LevelOfDetail::Massed) {

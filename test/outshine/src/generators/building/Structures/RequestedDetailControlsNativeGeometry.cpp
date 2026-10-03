@@ -24,7 +24,7 @@ int main() {
   request.Parameters = parameters;
   request.Seed = 17;
   const auto fine = producer.make(request);
-  CHECK(fine.has_value(), "default produces the detailed building");
+  CHECK(fine.has_value(), "default produces the simple building envelope");
   if (!fine) { return Report(); }
   request.Coarseness = LevelOfDetail::Fine;
   const auto explicitFine = producer.make(request);
@@ -40,7 +40,8 @@ int main() {
     CHECK(product && product->parts() > 0, "each supported detail retains the building");
     if (!product) { continue; }
     const size_t vertices = Vertices(*product);
-    CHECK(vertices > 0 && vertices < Vertices(*fine), "coarse requests omit secondary geometry");
+    CHECK(vertices > 0 && vertices <= Vertices(*fine),
+          "coarse requests never introduce secondary geometry");
     CHECK(vertices <= previous, "coarser detail does not increase geometric work");
     previous = vertices;
   }

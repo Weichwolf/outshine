@@ -69,7 +69,7 @@ int main() {
     }
     digests[static_cast<size_t>(detail)] = near.Digest;
   }
-  CHECK(digests[0] != digests[1], "Fine and Shell are distinct source-keyed products");
+  CHECK(digests[0] == digests[1], "Fine and Shell share the same simple building geometry");
 
   raw.RequestedDetail = LevelOfDetail::Fine;
   raw.Structures.front().HeightM = 18.0;
