@@ -4,86 +4,52 @@ Architecture: planned
 Priority: P3
 Parent: 2169
 Depends: 2188
-Area: gameplay, simulation, physics, audio, script, engine
-Tags: sandbox, agents, interaction, llm, programmable-physics
+Area: simulation, physics, gameplay, audio, script, engine
+Tags: sandbox, agents, interaction, llm, persistence
 
-# One physical world supports players, LLM NPCs and scripts
+# One physical world supports players, NPCs, scripts and spatial audio
 
-## Ergebnis und belegter Iststand
-Spieler, LLM-NPCs, JavaScript und HTML/CSS-Oberflächen interagieren mit derselben
-weltweiten Sandbox. Konsistente Massen, Kräfte, Beschleunigungen und Gelenke erlauben
-unterschiedliche bewegliche Systeme; Fahrzeuge, Flugzeuge und Vegetation sind Beispiele,
-keine abgeschlossene Featureliste. Die visuelle Welt bleibt die erste Lieferung.
-Rigid/Wrench integrieren lineare und rotatorische Bewegung; Prismatic liefert Reaktionen.
-SimulationState::Integrate verwendet bisher nur Schwerkraft, keinen allgemeinen Weltkontakt.
-ActionHostAdapter, Ui::Markup/Style/Layout, Commands, Audio und importierte Animationen
-bestehen; save/restore speichert bisher numerische Traits, keinen vollständigen Weltstand. Ein vollständiger Kontakt-/Gelenkpfad und LLM-NPC-Entscheidungen fehlen.
+## Ergebnis und Ist
+Physikalisch konsistente interaktive Sandbox mit Spielern/LLM-NPCs/JS/HTML-CSS, Spatial
+Audio und Save/Load/Replay. Fahrzeuge/Flugzeuge/Pflanzen sind Kraftmodell-Beispiele,
+keine abschließende Featureliste. Rigid/Wrench/Prismatic, ActionHostAdapter, UI/Commands,
+Audio/Animation bestehen; SimulationState integriert bisher nur Schwerkraft, Saves nur
+numerische Traits. Allgemeine Kontakte/Gelenke, vollständige Persistenz und NPC-Steuerung fehlen.
 
-## Besitzer und Architektur
-`physics` besitzt Körper, Kräfte, Kontakt-/Gelenklösung; actor/body fachlich dorthin migrieren.
-SimulationState besitzt festen Takt, Entities und Commands. 2188 liefert die gemeinsame
-Raum-/Command-/Snapshot-Grenze. Render/Audio konsumieren immutable Posen/Zustände.
-Script/UI/Host liefern Commands und Events, keine Objektzeiger oder eigene Physik.
-Vor Solver-Ausbau vorhandenen Kern und etablierte lokal verfügbare Kerne abgleichen;
-Kontakt-/Gelenkkern sowie Kosten entscheiden. Daher bleibt die Solverarchitektur `planned`.
+## Besitzer und fehlender Vertrag
+2188 liefert native Welt-/Entity-/Produktgrenzen. `physics` besitzt Körper/Kräfte/Solver;
+actor/body dorthin migrieren. SimulationState besitzt festen Takt/Zustand/Commands;
+Script/UI/LLM-Host Ziele/Events, Render/Audio immutable Posen. Vor Solver-Ausbau vorhandenen
+Kern gegen etablierte lokal verfügbare Kerne prüfen; Kontakt/Gelenke/Kosten entscheiden,
+daher `planned`. Visueller Meilenstein zuerst; keine zweite Sandbox-/Fahrzeugengine.
 
-## Physik und bewegliche Systeme
-- SI-Einheiten, Masse/Trägheitsschwerpunkt und Orientierung explizit; Kraft/Angriffspunkt
-  erzeugen Beschleunigung/Drehmoment. Gemeinsamer Kontaktpfad für Terrain, Körper und Bauwerke.
-- Statische Kontaktgeometrie bleibt unabhängig von Render-LOD. Räumliche Broadphase,
-  Shape-Narrowphase und begrenzte Kontakt-/Gelenklösung erhalten stabile lokale Kontakte.
-  Gelenke tragen Grenzen, Motoren und Reaktionen; kein getrenntes Fahrzeug-Sonderphysiksystem.
-- Fester Takt mit begrenztem Aufholen; Impulse, Reibung, Restitution und schnelle Bewegung
-  konsistent lösen. Energie-/Impulserhaltung und dissipative Effekte unterscheiden.
-- Fahrzeugreifen, Aerodynamik, Auftrieb und Windlast sind Kraftmodelle auf denselben Körpern.
-  Vegetationsbiegung konsumiert Wind/Steifigkeit/Masse; Distanz begrenzt aktive Freiheitsgrade,
-  ohne sichtbare Form-/Bewegungssprünge. Keine vollständige Fernsimulation jedes Blattes.
-
-## LLM NPCs, JS und UI
-- LLMs erzeugen begrenzte Ziele, Dialog und Entscheidungen asynchron. Deterministische
-  lokale Steuerung führt sie über dieselben validierten Commands aus wie JS und UI.
-- Entity-/Tick-/Versionsbezug, begrenzte Queues und Antwortfristen; stale Antworten verwerfen.
-  Simulation wartet nicht. Modellkonfiguration gehört dem Host; keine Modellabhängigkeit im Physikkern.
-- Antworten als replaybare Events protokollieren. Spielzustand/Saves besitzen atomare,
-  versionierte Publikation. Replay fragt kein Modell erneut für aufgezeichnete Entscheidungen.
-- JS/HTML/CSS erhalten die dokumentierte Teilmenge. Kräfte, Impulse, Gelenkantriebe und
-  Interaktionen ändern die Welt über physikalische Regeln, nicht direkte Renderpose-Manipulation.
-- Navigation konsumiert logische OSM-Netze. Räumliche Aktivierung, begrenzte Entscheidungs-
-  und Animationsraten; entfernte Akteure bleiben kompakter Spielzustand.
-- Audio/Occlusion und Animation verwenden dieselben Weltkontakte/Posen. Hockenheim-Runden
-  sind spätere Integrationen, keine Voraussetzung der allgemeinen Sandbox.
-
-## Von Weltzustand zu jedem Ton und jeder Aktion
-- Simulation erzeugt begrenzte versionierte Ereignisse aus Kontaktimpuls, Material,
-  Schritt/Antrieb und Interaktion. Räumlich relevante Klangquellen verwenden stabile IDs;
-  hörbare Qualität entscheidet Stimmen-/Updateaufwand, stumme Quellen keine PCM-Arbeit.
-- Prozeduraler Umweltsound nutzt gefiltertes Noise/Resonanzen für Wind/Regen/Wasser;
-  Ereignis- und Antriebsparameter steuern Klang ohne Netzwerk im Audiopfad. Mixer übernimmt
-  Blockverarbeitung, Panning/Doppler, Verdeckung, Busse/Headroom und Limiting. Feste Seeds
-  und samplegenaue Zeit erhalten Zustände bei Stummschaltung; kein Reset nach Sichtwechsel.
-- Dialog/Sprachblöcke sind begrenzte asynchrone Host-Ausgaben; keine zusätzliche versteckte
-  Geodatenquelle. Räumliche Mischung und Latenz bleiben Eigentum des Audio-Pfads.
-- Beobachtung/Navigation → lokale Steuerung oder JS/UI/LLM → validiertes Command →
-  begrenzte Kontakt-/Gelenklösung → neuer Pose-/Spielzustand → Render/Audio/Events.
-  Jede Aktion trägt Entity/Tick/Version; relevante Kontakte und Spielkausalität bleiben
-  trotz Schlaf-/Fernzustand erhalten. Der komplette Pfad ist noch kein Runtime-Beweis.
-
-## Persistenz und Spatial Audio
-- Save/Load besitzt stabile Entity-/Asset-IDs, Quell-/Producer-Versionen, Weltänderungen,
-  Physikzustand sowie nötigen Script-/NPC-/Replay-Zustand. Transaktional laden/publizieren;
-  fehlerhafte/incompatible Saves verändern keinen gültigen Weltstand.
-- Szenario-Autorendaten, Netzquellcache und Spielstand getrennt besitzen. Ein Spielstand
-  ist kein Generatorcache; native Produkte aus referenzierten Inputs/Versionen rekonstruieren.
-- Spatial Audio verwendet AudioScene/AudioOcclusion und denselben Listener-/Entity-Snapshot:
-  Entfernung, Richtung, Doppler und geometrische Verdeckung mit begrenzter Stimmenzahl.
-  Audio wartet weder auf Netzwerk noch LLM oder Geometrieaufbau.
-- Simulation bleibt fester Takt unabhängig von 25/30/60-fps-Ausgabe. Schlafende Körper
-  aktivieren bei relevanten Kräften/Kontakten/Commands; entfernte NPCs reduzieren Aufwand,
-  ohne kausale Spielzustandsänderungen oder sichtbare Interaktionen zu verlieren.
+## Verfahren und Invarianten
+- SI-Masse/Trägheit/Schwerpunkt/Pose; Kraft/Angriffspunkt → Beschleunigung/Drehmoment.
+  Broadphase/Shape-Narrowphase und begrenzte Kontakt-/Gelenklösung für Terrain/Körper/Bauwerke;
+  Reibung/Restitution, Gelenklimits/Motoren/Reaktionen und schnelle Bewegung konsistent lösen.
+- Kollision unabhängig vom Render-LOD; fester Takt mit begrenztem Aufholen. Reifen,
+  Aerodynamik/Auftrieb/Wind sind Modelle auf denselben Körpern. Schlaf-/Fernzustand spart
+  Arbeit ohne verlorene kausale Zustandsänderungen; Pflanzen reduzieren Freiheitsgrade.
+- Beobachtung/Navigation → lokale Steuerung oder JS/UI/LLM → validierter Command → Physik
+  → Pose/Spielzustand/Events → Render/Audio. Entity/Tick/Version, Begrenzung/Abbruch verbindlich;
+  keine direkte Renderpose-Manipulation außerhalb expliziter Setup-/Editormodi.
+- LLM liefert Ziele/Dialog/Entscheidungen asynchron; lokale Steuerung bleibt ausführbar.
+  Fristen/Queues, stale Antworten verwerfen; Modellkonfiguration im Host, kein Warten im Tick.
+  JS/HTML/CSS behalten dokumentierte Teilmenge; NPC-Navigation nutzt native logische Netze.
+- Save/Load transaktional/versioniert: Entity-/Asset-IDs, Quellen-/Producer-Versionen,
+  Weltänderungen/Physik und notwendiger Script-/NPC-Zustand. Fehler verändern keinen gültigen
+  Stand; Replay spielt aufgezeichnete Host/LLM-Events ab statt erneut das Modell zu fragen.
+  Szenario, Netzwerkcache und Spielstand getrennt; Save ist kein Generatorcache.
+- Kontakte/Schritte/Antrieb/Material erzeugen begrenzte Klangereignisse. Gefiltertes Noise/
+  Resonanzen synthetisieren Wind/Regen/Wasser, Kräfte Motoren/Bewegung; stabile Seeds/
+  samplegenaue Zeit, keine PCM-Arbeit für stumme Quellen oder Reset beim Sichtwechsel.
+- AudioScene/AudioOcclusion teilt Listener-/Entity-/Kontaktzustand: Entfernung/Richtung,
+  Doppler/Verdeckung, begrenzte Stimmen/Busse/Headroom/Limiter. Dialogblöcke asynchron vom
+  Host; Audio wartet weder auf Netzwerk/LLM noch Geometrie. Animation nutzt dieselben Posen.
 
 ## Nächste Lieferung und Abnahme
-Nach dem visuellen Meilenstein: allgemeiner Körper-/Weltkontakt und ein Gelenkantrieb,
-dann ein durch JS und aufgezeichnete LLM-Events steuerbarer NPC im bestehenden Place.
-Kontakt und Bewegung folgen Massen/Kräften; Straßen/Brücken und Terrain stimmen überein.
-Spieler, Script, NPC, Audio und Save/Replay laufen in derselben Welt ohne zweite Demo-Engine.
-Das gemeinsame Render-/Speicherbudget bleibt verbindlich; keine Detailklasse erhält einen Freibrief.
+Nach visueller Basis: allgemeiner Körper-/Weltkontakt und Gelenkantrieb, dann lokal/JS
+und über aufgezeichnete LLM-Events steuerbarer NPC im Place; Audio und atomarer Save/Replay
+anschließen. Kontakte/Massen/Kräfte stimmen mit Straßen/Brücken/Terrain überein. Ausgabe
+25/30/60 fps ändert keine Simulation. Gemeinsames Bild-/Speicherbudget bleibt verbindlich;
+Hockenheim ist spätere Integration, keine Voraussetzung.

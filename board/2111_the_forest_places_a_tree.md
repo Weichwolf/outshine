@@ -4,41 +4,35 @@ Architecture: planned
 Priority: P2
 Parent: 2169
 Depends: 2336
-Area: world, generators, render, engine
+Area: generators, render, world
 Tags: vegetation, forest, grass, seasons
 
 # Vegetation ranges from distant forests to individual grass blades
 
-## Ergebnis und vorhandene Fähigkeit
-Standortgerechte Wälder, Stadtbäume, Sträucher und Unterwuchs erzeugen plausible Dichte,
-Silhouetten, Jahreszeiten, Wind und Schatten. TreeGrower/TreeMesher/TreeFoliage,
-TreePrototype, ForestDraw und native Instanz-/Materialpfade existieren. Der Weltpfad
-zeichnet überwiegend Kronenkarten; nahes Laub, Standorte und vollständige Residency fehlen.
-Vegetation wird nach Infrastruktur, Terrain, Materialien und Licht/Wetter ausgebaut.
+## Ergebnis und Ist
+Standortgerechter Wald/Stadtbaum/Strauch/Unterwuchs mit Dichte, Jahreszeit, Wind und Schatten.
+TreeGrower/Mesher/Foliage, TreePrototype und ForestDraw bestehen; Weltpfad überwiegend
+Kronenkarten, Nahlaub/Standorte/Residency fehlen. Ausbau nach Infrastruktur/Terrain/
+Material/Licht/Wetter; keine festen Zeit-/Speicherquoten gegenüber Städten.
 
-## Besitzer und nächste Lieferung
-Original-OSM-Landcover/Baumdaten und Terrain/Wetter liefern Standortparameter.
-Bestehende Generatoren/Prototypen wiederverwenden; VegetationStreaming koordiniert
-begrenzte native Produkte und ForestDraw die Instanzen. Zuerst einen geeigneten Place
-mit vorhandener Art und echter Nah-/Mittelgeometrie statt Kronenkarten verbessern.
-Renderinstanzen, prozedurale Form und spätere physikalische Windbiegung teilen
-Standort/Identität und 2172s Wind; 2136 besitzt die allgemeine physikalische Wirkung.
-2336 muss den gemeinsamen Eltern-/Kind- und Fehler-/Residency-Vertrag bereitstellen;
-fehlende Vertragsfähigkeit, nicht eine feste Klassenquote, ist der technische Blocker.
+## Besitzer und fehlender Vertrag
+2336 liefert gemeinsame Eltern-/Kind-, Fehler- und Residency-Auswahl. OSM-Adapter liefert
+verfügbare Landcover-/Baumhinweise; Vegetationsgenerator besitzt Standort/Art/Form,
+ForestDraw Instanzen. VegetationStreaming ist aktuelle Koordination und wird durch
+allgemeinen Lebenszyklus aus 2188 ersetzt. Zuerst geeigneten Place mit Nah-/Mittelgeometrie
+statt Kronenkarten verbessern. 2172 liefert gemeinsamen Wind/Zustand, 2136 spätere Kräfte.
 
-## Umsetzung und Invarianten
-- Standort, Spezies, Alter/Dichte und Phänologie aus erlaubten Quellen und stabilen
-  Welt-/Objekt-Seeds ableiten. Keine Orts-Sonderpflanzung oder neue Zufallswelt beim LOD-Wechsel.
-- Fernwald als zusammengefasster Verband, danach Kronen/Einzelbäume, Äste/Blätter und
-  bodennahe Halme. Produkte teilen deterministische Form und konservative Silhouetten-/Fehlergrenzen.
-- Geometrie/Material je Prototyp teilen; kompakte Instanzen statt jedes Blatt pro Baum
-  zu duplizieren. Raumverankerter Wind, Schatten und Jahreszustand bleiben kohärent.
-- Atlant/Impostor-Produkte nur begrenzt im RAM/GPU halten, kein persistenter Generatorcache.
-  Fehlende Detailstufe erhält gültigen Elternstand und meldet Qualitätslücke.
-- Terrainkontakt und nackter Boden/DSM-Bewuchs getrennt behandeln. Gras und Unterwuchs
-  besitzen Standort-/Überdeckungsgrenzen, stabile Filter und begrenzten Overdraw.
+## Verfahren und Invarianten
+- Standort/Spezies/Alter/Dichte/Phänologie aus erlaubten Inputs und stabilen Welt-Seeds;
+  unbelegte Spezies plausible Ergänzung, keine Ortsbepflanzung oder neue Welt je LOD.
+- Fernwaldverband → Kronen/Einzelbäume → Äste/Blätter → Nahhalme; derselbe deterministische
+  Formplan und konservative Silhouetten-/Fehlergrenzen. Gültigen Elternstand bis Kind halten.
+- Prototypen/Material teilen, kompakte Instanzen statt Blattmesh pro Baum. Wind/Schatten/
+  Jahreszustand raumverankert; spätere physikalische Biegung nutzt dieselben Identitäten.
+- Atlanten/Impostors begrenzt nur RAM/GPU, kein Runtime-Diskcache. Terrainkontakt,
+  Boden/DSM-Bewuchs unterscheiden; Wasser/Freiraum respektieren, Overdraw/Überdeckung begrenzen.
 
 ## Abnahme
-Nahe Krone/Grashalm, Wald am Horizont und Kameradrehung bleiben vollständig und ohne
-Form-/Spezieswechsel. Vegetationslast nutzt dasselbe Zeit-/Speicherbudget wie eine Stadt.
-Winter-/Sommerbilder passen zum Zustand; keine sichtbaren Nahkarten oder Vegetation im Wasser.
+Nahkrone/Grashalm, Wald am Horizont und Rundumdrehung vollständig ohne Form-/Artwechsel.
+Sommer/Winter passend, kein Nahkarteneindruck oder Wachstum im Wasser; dasselbe gemeinsame
+Zeit-/Speicherbudget wie eine Stadt. Standorte/Formverfahren noch integrieren, daher `planned`.

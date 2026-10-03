@@ -3,47 +3,38 @@ State: open
 Architecture: planned
 Priority: P1
 Parent: 2169
-Depends: 2188
-Area: import, generators, world, engine, render
+Depends: 2188, 2280
+Area: generators, world, render
 Tags: objects, scene-population, instances
 
 # Semantic objects and plausible occupancy complete the scene
 
-## Ergebnis und belegter Iststand
-Stadt/Hafen zeigen technische Aufbauten, Kräne/Masten, Geländer/Leitungen und plausible
-Autos/Boote/Segel. OSM-Semantik, native Geometry/Material/Instanzen und glTF-Import bestehen;
-ein angeschlossener allgemeiner Objekt-/Belegungsgenerator fehlt. Fotos zeigen bewegliche
-Objekte, deren momentane Position die erlaubten Eingaben nicht belegen können.
+## Ergebnis und Ist
+Technische Aufbauten/Kräne/Masten/Geländer/Leitungen und plausible Autos/Boote/Segel
+verdichten Stadt/Hafen. Native Geometry/Material/Instanzen und glTF-Import bestehen;
+allgemeiner Objekt-/Belegungsgenerator fehlt. Tatsächliche Foto-Belegung ist unbekannt.
 
-## Besitzer und nächster vollständiger Schritt
-Import übersetzt Original-Nodes/Ways/Relations/Tags in native Objektbeschreibungen.
-Generatoren besitzen kompakte Klassen-/Formgrammatiken; world hält Assets/Instanzen mit
-Bounds/Herkunft. Engine besitzt Planung/Publikation, render Ausgaberesourcen. 2188 liefert
-noch den öffentlichen gepinnten Input-/Produkt-/Detailvertrag. Objekte verwenden dieselbe
-Registrierung wie Gebäude und externe Generatoren. Neue Besitzer unter generators/objects
-vor Implementierung anhand tatsächlicher Produzenten festlegen; deshalb `planned`.
-Zuerst eine belegte technische Klasse in einem vollständigen Stadt-/Hafen-Place liefern.
-Straßenquerschnitte/Markierungen bleiben 2281; Gebäudeformen 2173; Vegetation 2111.
+## Besitzer und fehlende Verträge
+2280 liefert normalisierte verfügbare Objekt-/Flächensemantik, 2188 öffentliche Inputs/
+Produkte/Detail. OSM-Adapter besitzt Quellattribute, `generators/objects` Form-/Belegungs-
+grammatik, world Assets/Instanzen/Bounds/Herkunft; Render Ausgabe. Produzenten-/Klassen-
+vertrag vor Implementierung konkretisieren, daher `planned`. Zuerst eine belegte technische
+Klasse im Stadt-/Hafenbild liefern; Gebäude 2173, Straßenmarkierungen 2281, Pflanzen 2111.
 
 ## Verfahren und Invarianten
-- assetclass, Abmessungen, Richtung, Material und Kontakt/Erhöhung nach OSM übernehmen;
-  unbekannte Angaben folgen stabiler Klassenpolicy mit generischer Provenienz.
-- Zusammengesetzte primitive/profilebasierte Formen: Mast/Ausleger/Kran, Poller/Geländer,
-  Antennen/Schornsteine, generische Fahrzeug-/Bootshülle. Wiederholte Teile teilen Geometrie.
-  Dünne Leitungen als begrenzte Kurvensegmente; subpixelige Beiträge gefiltert integrieren,
-  statt unbegrenzt Tessellation/Overdraw zu erzeugen. Keine fotografischen Ortsmodelle.
-- Maßstab, Seeds und Identität bleiben über Distanzen stabil. Detailhierarchie aus 2336
-  konsumieren; entfernte Objekte werden kompakte Formen/Beiträge, keine Nahgeometrie.
-- Parkplätze/Spuren und Hafen-/Liegeflächen erlauben plausible stabile Belegung mit
-  benannter Unsicherheit. Keine Behauptung, das Foto-Fahrzeug sei tatsächlich dort.
-  Freiraum, Terrain-/Wasserkontakt, OSM-Zugang und logische Netze respektieren.
-- Bewegliche Objekte sind Entities mit Renderform/Kollision und später 2136s Kräften/
-  Steuerevents. Animation/NPC-Aktionen umgehen keine Physik. Statische Belegung erfordert
-  keinen vollständigen dynamischen Solver oder heimliches Simulieren jedes Fernobjekts.
-- Segel, Flaggen und Leitungen konsumieren denselben Wind wie Wetter/Vegetation;
-  begrenzte geometrische Bewegung, Schatten und konservative bewegte Bounds stimmen überein.
+- Gelieferte Klasse/Maße/Richtung/Material/Kontakt übernehmen; unbekannte Angaben folgen
+  stabiler Klassenpolicy mit generischer Provenienz. Keine erfundenen Quell-Tags/Ortsmodelle.
+- Primitive/Profile zusammensetzen für Mast/Ausleger/Kran, Poller/Geländer/Antennen und
+  generische Fahrzeug-/Bootshüllen; wiederholte Teile instanzieren. Dünne Leitungen als
+  begrenzte Kurven, subpixelige Beiträge gefiltert statt unbegrenzter Tessellation/Overdraw.
+- Seeds/Identität/Maße über Detailwechsel stabil; 2336s Fernformen/Beiträge statt Nahmesh.
+  Terrain-/Wasserkontakt, Freiraum, Zugang und native Netze bei Platzierung respektieren.
+- Park-/Liegeflächen erzeugen plausible Belegung mit benannter Unsicherheit, keine exakten
+  Foto-Fahrzeuge. Statische Belegung braucht keinen fertigen Solver oder Fernsimulation.
+- Bewegliche Formen werden Entities mit Kollision und später 2136s Kräften/Commands.
+  Segel/Flaggen/Leitungen teilen 2172s Wind, konservative bewegte Bounds und Schatten.
 
 ## Abnahme
-Ein Hafen-/Stadtbild gewinnt erkennbare Objekte mit richtigen Kontakten, Maßen und
-stabiler Ferndarstellung. Originalklasse und plausible Ergänzung bleiben unterscheidbar.
-Öffentliche Generierung, sichtbare Welt und Zeit-/Bytekosten belegen dieselben Produkte.
+Ein Hafen-/Stadtbild gewinnt erkennbare Objekte mit richtigen Kontakten/Maßen und
+stabiler Ferndarstellung. Quellbefund und Ergänzung unterscheidbar; öffentliche Pipeline
+und Kostenmessung belegen dieselben sichtbaren Produkte.

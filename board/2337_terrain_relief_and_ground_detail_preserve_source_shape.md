@@ -4,62 +4,39 @@ Architecture: ready
 Priority: P1
 Parent: 2169
 Depends:
-Area: generators, world, render, engine
+Area: generators, render, world
 Tags: terrain, relief, rock, ground-detail
 
 # Source-shaped terrain gains plausible relief and surface detail
 
-## Ergebnis und vorhandene Fähigkeit
-Körbersee/Malcesine zeigen lesbare Grate, Rinnen, Fels-/Schutt-/Wiesenwechsel und
-Nahboden ohne gleichförmiges Rauschen. TerrainRefinement, TerrainPress, TerrainMesh,
-GroundLattice und groundRock.glsl bestehen. Die aktuelle groundRock.glsl nutzt isotropes Value-Noise für Farbe/Bump; gerichtete
-Schichtung und Bruchlinien fehlen. Die durchgehende Bildwirkung aus finalem
-Relief, Oberflächenmaßstab und gefilterter Ergänzung ist nicht belegt.
+## Ergebnis und Ist
+Lesbare Grate/Rinnen/Fels-/Schutt-/Wiesenflächen und Nahboden statt gleichförmigem Noise.
+TerrainRefinement/Press/Mesh, GroundLattice/GroundMaterials und groundRock.glsl bestehen;
+Fels nutzt bisher isotropes Value-Noise, gerichtete Schichtung/Bruchlinien fehlen.
 
 ## Besitzer und nächste Lieferung
-Import besitzt GLO-30-Samples/Datum/NoData. TerrainPress/Refinement besitzen endgültige
-Geometrie und Fehler; world hält native Produkte. GroundMaterials und Renderer besitzen
-Baustoffparameter/Filter (2171). Engine koordiniert Bedarf und geschlossene Publikation.
-Zuerst ein vollständiges Körbersee-Bild mit quellengetreuer Silhouette, korrektem See
-und lesbaren Hangflächen liefern; vorhandene Felder/Pässe ausbauen, keinen zweiten Terrainpfad.
+Höhenprovider besitzt Samples/Datum/NoData; TerrainPress/Refinement finales Kontaktrelief
+und Fehler. Renderer besitzt Material/Filter, world native Produkte. Vorhandene Felder
+reichen für Verbesserung ohne neuen Quellenvertrag. Zuerst Koerbersee mit erhaltener
+Silhouette/See und lesbaren Hängen liefern; 2145 besitzt Kontakt-/Pegelkorrektur.
 
-## Gewählter prozeduraler Aufbau
-1. Aus finalem Höhenfeld Neigung, Exposition und Tal-/Hangrichtung ableiten; robuste
-   Frames haben eine feste Ersatzachse auf flachen Flächen. Raumbezug/Seeds bleiben
-   über Tile-/LOD-Grenzen stabil, ohne kamera-relative Noise-Koordinaten.
-2. Richtungsabhängige Schichtfelder mit begrenztem Domain-Warp kombinieren. Ridge-Noise
-   liefert plausible Rinnen; Voronoi-Zellgrenzen liefern sparsame Bruchlinien. Hang-/
-   Expositionsparameter steuern Verteilung, nicht neue Fullscreen-Felder pro Effekt.
-   Das ist eine plausible Geologiegrammatik, keine aus GLO-30 erkannte Gesteinsart.
-3. Derselbe metrische Höhen-/Materialentwurf speist Geometrie und Shader. Rinnen mit
-   sichtbarer Form erzeugt TerrainRefinement/Press im Compute-Worker; Feinrisse liefern
-   Normalen/Roughness in groundRock. Silhouettenfehler begrenzen geometrische Ergänzung.
-4. Pixel-Footprint wählt eine begrenzte Frequenzmenge; unterschwellige Risse integrieren
-   zu mittlerer Farbe und Normalvarianz/Roughness. fwidth/Signed-Distance-Antialiasing
-   glättet Bruchlinien. Fernrelief bekommt keine hochfrequente Pixelarbeit.
-5. GroundMaterials hält metrische Parameter; GroundClassBuffer/GroundStorage transportieren
-   render-eigene Daten. groundLit komponiert eine BRDF mit 2155s Licht und 2172s Zustand.
-   Parameter/Version und native Bounds gehen durch 2188s öffentliche Produktgrenze.
-
-## Umsetzung und Invarianten
-- Grobrelief, Hangneigung und Exposition bestimmen plausible Fels/Schutt/Boden-Verteilung;
-  OSM-Landcover und belegte Flächen gehen vor. Rinnen/Schichtung folgen Gelände statt
-  isotropem Farbnoise. Original-GLO-30 ist DSM, kein garantierter nackter Erdboden.
-- Quellenrelief, Kontakt-Deformation und unbelegte prozedurale Ergänzung unterscheiden.
-  Ergänzungen verändern keine belegten Gipfel/Küsten oder Straßen-/Gebäudeanschlüsse.
-  Offene Höhendatums-/NoData-Probleme gehören in 2145/2280, kein Shaderkaschieren.
-- Metrisches Detail: sichtbares mittleres Relief als begrenzte Geometrie/Displacement,
-  subpixeliges Detail als gefilterte Normal-/Roughness-Antwort. Nur tatsächlich
-  konservative Oberflächenfehler als Zertifikat melden; kein Normaldetail als Formbeweis.
-- Zusammengehörige Nachbarflächen teilen Samples/Raumbezug und sichere Übergänge.
-  Detail vor Erzeugung nach Projektion/Fehler auswählen (2336); vorhandene Verfeinerung
-  kann unabhängig von noch fehlenden globalen Grobstufen verbessert werden.
-- Schnee/Schmelze aus 2172 folgt Exposition und gespeichertem Wetterzustand, respektiert
-  Relief und Material; keine alleinige Höhenfarbgrenze. Vegetationsstandorte folgen 2111.
-- Keine Place-Texturen, Fotoformen oder persistenten Generatorprodukte. Kompakte Parameter
-  und stabile Welt-Seeds halten Variation über Detailwechsel und Kameradrehung kohärent.
+## Verfahren und Invarianten
+1. Neigung/Exposition/Talrichtung aus endgültigem Höhenfeld; stabile Raumframes mit fester
+   Ersatzachse bei flachem Boden. Welt-Seeds/Koordinaten über Tile-/LOD-Grenzen erhalten.
+2. Gerichtete Schichtfelder mit begrenztem Domain-Warp; Ridge-Noise für Rinnen, sparsame
+   Voronoi-Grenzen für Brüche. Plausible Geologie, keine aus DEM erkannte Gesteinsart.
+3. Gemeinsamer metrischer Entwurf: sichtbares mittleres Relief im Compute als Geometrie,
+   Feinrisse als Normalen/Roughness. Parameter über GroundMaterials/render-eigenen
+   GroundClassBuffer/GroundStorage; groundLit nutzt 2171/2155s gemeinsame BRDF/Licht.
+4. Pixel-Footprint begrenzt Frequenzen; subpixeliges Detail zu Farbe/Normalvarianz integrieren,
+   fwidth/SDF-Antialiasing für Linien. Fernrelief erzeugt keine unnötige Pixel-/Mesharbeit.
+5. Gelände/gelieferte Landcover-Klasse steuern Fels/Schutt/Boden. DSM-Bewuchs bleibt vom
+   Boden unterscheidbar; Ergänzung verändert keine belegten Gipfel/Küsten oder Kontakte.
+   Gröbere Samples benötigen Höhenfehlernachweis; Normaldetail beweist keine Formschranke.
+6. Nachbarn teilen Samples/Raumbezug; Bedarf vor Erzeugung (2336). Nässe/Schnee/Schmelze
+   aus 2172 folgen Exposition/Relief, Vegetationsstandorte 2111. Keine Fotoformen/Diskbakes.
 
 ## Abnahme
-Bergsilhouette, Nahhang und Ufer erhalten Quellenformen/Kontakte und gewinnen lesbare
-Flächenstruktur. Winter und Schmelze verändern Zustand statt Quelle. Bewegung zeigt
-keine Nähte oder Flimmern; reale Place-Bilder und getrennte Kosten belegen den Gewinn.
+Koerbersee/Malcesine gewinnen lesbare Hänge/Nahflächen bei erhaltener Silhouette und
+Kontakten. Bewegung ohne Nähte/Flimmern; Winter ändert Zustand statt Quellenform.
+Bildgewinn und getrennte CPU/GPU/Bytekosten am echten Place belegen.
