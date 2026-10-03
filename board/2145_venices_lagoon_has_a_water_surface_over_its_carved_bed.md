@@ -12,7 +12,8 @@ Tags: water, terrain, coastline, contacts
 ## Ergebnis und Ist
 Meer/Fluss/See mit richtiger Höhe, Ufern/Inseln, Wellen und Transparenz. WaterField,
 WaterSurfaceBuilder/WaterDepth und Terrain-Stempel bestehen; Flensburgs falsche Pegel/
-überflutete Gebäude bleiben ein Geometriefehler. Wasser ist kein Terrain-Klassenersatz.
+überflutete Gebäude bleiben ein Geometriefehler. Husums Hafen zeigt Pegelstufen,
+Malcesine unplausible Uferflächen. Wasser ist kein Terrain-Klassenersatz.
 
 ## Besitzer und nächste Lieferung
 OSM-Erweiterung besitzt Wasser-/Küstenringe und Randidentität; Wasser-/Terrain-Generatoren
