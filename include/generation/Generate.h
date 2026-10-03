@@ -111,8 +111,10 @@ enum class Shipped : uint8_t {
   /// (default 12), independent of Request::ExtentM. Accepts one finite positive decimal
   /// value, optionally with exponent, without surrounding whitespace. Unknown/duplicate
   /// settings and invalid values are refused before output mutation. Output uses local
-  /// metres at the request centre at zero ASL: X east, Y up, Z south. Terrain anchoring
-  /// and per-feature placement remain implementation limitations of this producer.
+  /// metres at the request centre at zero ASL: X east, Y up, Z south. A supplied Ground
+  /// is sampled at all four footprint corners; missing/nonfinite heights are refused.
+  /// Its elevations anchor the foundation; without Ground, terrain is flat at zero ASL.
+  /// Per-feature placement remains an implementation limitation of this producer.
   /// Coarseness selects Fine, Shell or the mass envelope for Massed/Skyline;
   /// invalid classes are refused. This isolated producer does not aggregate neighbours.
   Structures,

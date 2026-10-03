@@ -15,7 +15,7 @@ spätere physikalische, programmierbare Sandbox. Eingebaute und externe Erweiter
 verwenden dieselben öffentlichen Verträge. Vorhandene Systeme migrieren; keine zweite Engine.
 ProviderRegistry/SourceSet, native Geometry/Material, Double-Welt und kamera-relative
 GPU-Daten bestehen. Generate::Request und native Gebäude-/Straßenaufträge tragen ProjectedErrorBudget.
-Structures nutzt Coarseness; Revisionen/Schlüssel erfassen Qualität. Abstand/Produktschranken und Lebenszyklus fehlen.
+Structures nutzt Coarseness und Ground-Ecken für Fundamente; fehlende Höhen bleiben Fehler. Abstand/Produktschranken und Lebenszyklus fehlen.
 Native StructureBake-Pfade umgehen den Generatorlebenszyklus; Osm::StructurePreparation nutzt einen heightZoom.
 RawTile hält SourceObjects mit schwachem Archivbezug; OSM besitzt den geschlossenen SourceCapture. BuildingGeometry hält
 native Polygone/Quellbelege; StructureFootprints/BuildingHeightInterval tragen native Ringe/Höhen. OSM-Tagparser,

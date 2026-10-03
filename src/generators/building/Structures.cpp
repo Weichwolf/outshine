@@ -8,6 +8,7 @@
 #include "ground/TileMeshes.h"
 
 #include <array>
+#include <algorithm>
 #include <cmath>
 
 #include "math/Vec3.h"
@@ -64,6 +65,21 @@ constexpr float kWallRoughness = 0.85f;
 
 constexpr size_t kCorners = 4;
 
+[[nodiscard]] std::expected<std::array<double, kCorners>, std::string_view>
+GroundCorners(const HeightSampler *ground, std::span<const double> ring) {
+  std::array<double, kCorners> heights{};
+  if (ground == nullptr) { return heights; }
+  for (size_t corner = 0; corner < kCorners; ++corner) {
+    const auto height = ground->sampleHeightAslM(
+        {.LongitudeDeg = ring[corner * 2 + 1], .LatitudeDeg = ring[corner * 2]});
+    if (!height || !std::isfinite(*height)) {
+      return std::unexpected("structures requires finite ground heights at every footprint corner");
+    }
+    heights[corner] = *height;
+  }
+  return heights;
+}
+
 [[nodiscard]] double Spun(uint64_t seed, uint32_t at) {
   uint64_t held = seed * kSplitMixWord + static_cast<uint64_t>(at) * kSplitMixOffset + 1u;
   held ^= held >> kSplitMixShift;
@@ -95,7 +111,8 @@ Generator::Product Structures::make(const Request &asked) const {
                                                   lon + halfLonDeg,
                                                   lat + halfLatDeg,
                                                   lon - halfLonDeg}};
-  const std::array<double, kCorners> corners = {{0.0, 0.0, 0.0, 0.0}};
+  const auto corners = GroundCorners(asked.Ground, ring);
+  if (!corners) { return std::unexpected(std::string(corners.error())); }
   const LongitudeLatitudeHeight origin{.LongitudeDeg = lon, .LatitudeDeg = lat};
   Vec3 anchor;
   GeoToEcef(origin, anchor);
@@ -103,8 +120,10 @@ Generator::Product Structures::make(const Request &asked) const {
 
   StructurePlan plan;
   plan.RingLatLon = std::span<const double>(ring.data(), kCorners * 2);
-  plan.CornerAslM = std::span<const double>(corners.data(), kCorners);
-  plan.BaseAslM = 0.0;
+  plan.CornerAslM = *corners;
+  plan.BaseAslM = *std::ranges::min_element(*corners);
+  plan.FootAslM = plan.BaseAslM;
+  for (const double height : *corners) { plan.SeatAslM += height / kCorners; }
   plan.HeightM = kHeightLeastM + kHeightSwingM * Spun(asked.Seed, 1u);
   plan.HeightMeasured = false;
   plan.AnchorEcef = anchor;
