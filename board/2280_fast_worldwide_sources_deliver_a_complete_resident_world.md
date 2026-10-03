@@ -77,7 +77,9 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
 - HTTP-Endstatus und Payload prüfen. Auth terminal; temporäre Fehler begrenzt mit Backoff/
   Retry-After und Ursprungssperre. Abbruch/Frist/Rückstau; Ausfall ≠ gültiges Leerprodukt.
 - Netzwerkbytes mit Anbieter/Dataset/Adresse/Version/Digest cachen; bestehende Bestände
-  erhalten. Begrenztes paralleles IO, Decode/Build auf gemeinsamem Worker. Native Inputs
+  erhalten. Anbieter, Anfrageparameter und Formatversion bestimmen den Cache-Schlüssel;
+  vorhandene Einträge bedienen wiederholte Anfragen ohne Aktualitätsprüfung.
+  Begrenztes paralleles IO, Decode/Build auf gemeinsamem Worker. Native Inputs
   früh verdichten, Quellarchive freigeben; Grenzen für Quellen/Scratch/RAM/GPU getrennt.
 - Gebäude-Höhenbedarf vor Rasterkopien vollständig prüfen und fehlende Abdeckung nachfordern.
   Unveränderliche Höhenfelder teilen, doppelte Raumabfragen vorab zusammenfassen; keine
@@ -85,7 +87,8 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
   Kachelbedarf kanonisch sortieren/vereinigen; Abdeckung und Herkunft vor Erzeugung prüfen.
   Netzwerkbytes bleiben bis zur Cacheleerung unverändert; kein laufender Versionsabgleich.
   Quellen-Zertifikate, Revisionsindex und Metadatenreservierungen entfernen. Immutable
-  Inputs, Producer-/Parameteridentität und eine Auftragsgeneration genügen; vollständige
+  Inputs, Producer-/Parameteridentität und eine Auftragsgeneration genügen. Expliziter
+  Welt-/Quellenwechsel erneuert diese Generation; alte Jobergebnisse verwerfen. Vollständige
   Nachbarinputs vor Rasterpublikation sichern. Fehlender Bedarf bleibt diagnostizierbar.
 - Client/Prepare/Shots teilen persistenten SDL-Nutzerspeicher, Registry und Weltbedarf.
   Prepare erfüllt dieselbe verfeinerte Weltqualität wie Shots; spielbare Teilabdeckung genügt nicht.
