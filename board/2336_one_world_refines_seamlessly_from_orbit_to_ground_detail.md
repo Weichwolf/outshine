@@ -34,6 +34,9 @@ persistente Generatorablage. Deshalb bleibt die globale Architektur `planned`.
 Der vollständige Radius darf nicht durch mehr parallele Feinabfragen gegen API-Bandbreitenlimits
 erkauft werden. Grobbedarf, Original-Quelldatenumfang und native Produktkosten getrennt planen;
 ein offizieller Bulk-Quellenvertrag muss Objektabschluss, Revision und beschränkten Zugriff belegen.
+Bei nach Typ/ID sortierten Original-PBFs ist ein räumlicher Index oder eine begrenzte
+Extraktquelle nötig. HTTP-Bereiche sind Bytezugriff; Header oder einzelne Blobs allein
+belegen weder regionale Vollständigkeit noch die erforderlichen Referenzen.
 
 ## Umsetzung und Invarianten
 - Generatoranforderungen enthalten räumliche Abdeckung, Entfernung/Projektion und
