@@ -20,16 +20,17 @@ und vollständige Place-Abnahme sind offen. Keine reduzierte Kartenquelle als Er
 
 ## Nächste Lieferung und Besitzer
 Zuerst Wien mit vollständigen Originalquellen bis zum residenten Rundumbild liefern,
-danach die übrigen Places. Der Map-API-Erwerb scheitert am Anbieter-Bandbreitenlimit;
-mehr Retries, Parallelität oder längere Fristen ersetzen keinen tragfähigen Quellenweg.
-Die Erwerbsarchitektur bleibt deshalb `planned`; vorhandene Import-/Cacheverträge bleiben nutzbar.
-Map-API-Abfragen sind kein belegter Bulk-Vertrag für den vollständigen Radius. Vor einem
-weiteren Ausbau zuerst einen erlaubten Erwerbsweg mit vollständigem Objektabschluss liefern.
-Kein Gesamtneustart: nur den unzureichenden Erwerb ersetzen; native Produkte und die
-vorhandene Straßen-/Terrainqualität erhalten. Cachehinweise sind nachrangige Optimierungen.
-Ein Bulk-Adapter muss Originalobjekte/Tags, Referenzabschluss, Revision und begrenzten
-Erwerb erhalten. Regionale Drittanbieter-Extrakte benötigen eine ausdrückliche Erweiterung
-der Quellenregel; weder reduzierten Inhalt noch eine weitere Quelle stillschweigend einsetzen.
+danach die übrigen Places. Belegter Erwerbsblocker ist das Anbieter-Bandbreitenlimit
+(HTTP 509/Retry-After); das Node-Limit erfordert zusätzlich kleinere Abfrageflächen.
+Das beweist weder einen langsamen Renderer noch einen grundsätzlich ungeeigneten Erwerbspfad.
+Internet-Erwerb darf länger dauern; seine Frist ist kein Warmstartbudget. Gemeinsame
+Ursprungswartezeit, begrenzte Parallelität und erhaltene Teilbestände nutzen; vollständigen
+Erwerb und Objektabschluss nachweisen, bevor der Quellenweg als abgenommen gilt.
+Die Gesamtarchitektur bleibt bis zur vollständigen Integration `planned`. Kein Gesamtneustart;
+native Produkte und Straßen-/Terrainqualität erhalten. Cachehinweise sind nachrangig.
+Ein alternativer Bulk-Adapter braucht Originalobjekte/Tags, Referenzabschluss, Revision
+und begrenzten Erwerb. Ein Wechsel braucht einen belegten Vorteil; regionale Drittanbieter-
+Extrakte außerdem ausdrückliche Freigabe. Keine reduzierte Karte oder heimliche weitere Quelle.
 2188 liefert den allgemeinen Generatorvertrag; sein übriger Sandbox-Ausbau blockiert
 weder die Quellenvorbereitung noch die Abnahme vorhandener nativer Produkte. Die OSM-
 Erweiterung unter `generators/osm` besitzt Provider, Adapter, Zellplanung und Erzeugung.
@@ -41,8 +42,7 @@ Tasks/Fetching nutzen begrenztes paralleles IO und genau einen gemeinsamen Compu
 Worker; StreetGraphPreparation und ClassificationBuild nutzen ihn ohne eigene Compute-Threads.
 Render/Audio bleiben getrennt. Keine zweite Importqueue oder globaler Objektmerge.
 `CellAcquisition`/`OsmCellPipeline`: ein IO-Besitzer betreibt bis zu acht Quellenanfragen;
-fertige Zellen gehen einzeln
-über höchstens zwei wartende XML-Produkte an den gemeinsamen Compute-Worker. Keine
+fertige Zellen gehen einzeln über höchstens zwei wartende XML-Produkte an den gemeinsamen Compute-Worker. Keine
 Thread-Sicherheitsannahme über externe Provider/Transports. Ein langsamer Request hält
 fertige Nachbarn nicht zurück. Revision/Abbruch gelten für IO, Übergabe und Decode;
 atomare Publikation und vorhandene Snapshot-Admittanz bleiben verbindlich.
