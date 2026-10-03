@@ -1601,6 +1601,7 @@ void SceneRenderer::CommitSubmittedFrame(StageSubmission &stageSubmission) {
   ActiveState().PrevMvp = Through().ViewProjection(ActiveState().Camera);
   ActiveState().Submitted = true;
   LastSubmittedCamera_.Basis = ActiveState().Camera;
+  LastSubmittedCamera_.GeometryAnchorM = ActiveState().Content.Subjects.AnchorM();
   ++LastSubmittedCamera_.Serial;
 }
 

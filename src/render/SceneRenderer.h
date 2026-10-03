@@ -602,6 +602,7 @@ public:
   struct SubmittedCameraFrame {
     uint64_t Serial = 0;
     CameraBasis Basis;
+    Vec3 GeometryAnchorM;
   };
 
   [[nodiscard]] const SubmittedCameraFrame &LastSubmittedCamera() const noexcept {

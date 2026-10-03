@@ -72,7 +72,8 @@ void Engine::State::PublishSubmittedCameraMeasurements() {
                                                 "render last submitted camera: up up",
                                                 "render last submitted camera: up south"};
   for (size_t axis = 0; axis < 3; ++axis) {
-    Published.RecordMetric(eyeNames[axis], frame.Basis.EyeM[axis], "m");
+    Published.RecordMetric(
+        eyeNames[axis], frame.Basis.EyeM[axis] - frame.GeometryAnchorM[axis], "m");
     Published.RecordMetric(forwardNames[axis], frame.Basis.Forward[axis], "unit");
     Published.RecordMetric(upNames[axis], frame.Basis.Up[axis], "unit");
   }

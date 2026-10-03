@@ -107,6 +107,13 @@ void InspectLinearColour(Seen &picture, Core::DiagnosticLedger &published) {
   }
 }
 
+void InspectDepth(Seen &picture, Core::DiagnosticLedger &published) {
+  std::vector<float> depth;
+  if (picture.Device.ReadDepth(depth) != Render::ReadState::Ready) { return; }
+  const auto covered = std::ranges::count_if(depth, [](float value) { return value > 0.0f; });
+  published.RecordMetric("render: pixels covered by geometry", static_cast<double>(covered), "px");
+}
+
 void InspectPresentedColour(Seen &picture, Core::DiagnosticLedger &published) {
   std::vector<uint8_t> shown;
   if (picture.Device.ReadPixels(shown) == Render::ReadState::Ready) {
@@ -154,6 +161,7 @@ void Engine::State::Inspected() {
                          static_cast<double>(Picture.Device.ExposureApplied()),
                          "1/(cd/m2)");
   InspectLinearColour(Picture, Published);
+  InspectDepth(Picture, Published);
   InspectPresentedColour(Picture, Published);
 }
 }
