@@ -51,10 +51,14 @@
 
 ## Erlaubte Quellen und Weltqualität
 
-- Der Client verwendet ausschließlich offizielle OSM-Originaldaten samt Nodes, Ways, Relations
-  und Tags, Copernicus GLO-30, Open-Meteo sowie Zeit und Kamera als externe Welteingaben.
-  Keine VersaTiles, reduzierten Kartenkacheln als OSM-Ersatz oder alten DEM-/Wetter-Fallbacks.
-  Bibliotheksnutzer dürfen eigene Provider und Generatoren über die öffentliche API bereitstellen.
+- Der Client verwendet je einen ausgewählten weltweiten Anbieter für OSM-basierte Vektordaten,
+  Höhen und Wetter sowie Zeit/Kamera. Geschwindigkeit, Verfügbarkeit und brauchbare Bildinhalte
+  entscheiden; Original-OSM und sämtliche Tags sind keine Pflicht. Vektorkacheln sind erlaubt.
+  Anbieterwahl, Formate und benötigte Semantik stehen in 2280. Bibliotheksnutzer dürfen eigene
+  Provider und Generatoren über dieselbe öffentliche API bereitstellen.
+- Gemeinsame Formate teilen Decoder; Endpunkte/Auth bleiben Konfiguration, unterschiedliche
+  Schemas werden normalisiert. Zusätzliche Mirrors brauchen denselben belegten Datenstand;
+  gleiche Dateiendungen erlauben weder blindes Mischen noch gemeinsame Cache-Identitäten.
 - Allgemeine deterministische Generatoren ergänzen plausible Details; fehlende, widersprüchliche
   und belegte Angaben bleiben unterscheidbar. Ich erhalte Semantik und Provenienz bis zum Produkt.
 - Ein fester, versionierter, lizenzierter Sternenkatalog ist erlaubt. Astronomische Modelle
@@ -62,8 +66,8 @@
 - Webcam-Fotos dienen ausschließlich dem Vergleich. Keine Foto-Texturen, Satellitenbilder,
   Photogrammetrie oder Place-Sondergeometrie. Referenzen erhalten Aufnahmezeit, Kamera und Wetter;
   wechselnde Live-Bilder sind keine reproduzierbaren Baselines.
-- Ich recherchiere ohne Websuche in lokalen Klonen und nenne deren Stand. Ausdrücklich erlaubte
-  Webcam-Referenzsuche bildet die Ausnahme. Ich nutze Live-/Archivbilder während aktiver Arbeit,
+- Ich recherchiere normalerweise in lokalen Klonen und nenne deren Stand. Ausdrücklich
+  beauftragte Anbieter-/API-Recherche und Webcam-Referenzsuche erlauben Websuche. Ich nutze Live-/Archivbilder während aktiver Arbeit,
   warte dafür nicht auf besonderes Wetter und behaupte keinen unbelegten 24/7-Betrieb.
 - Ich cache persistent ausschließlich Netzwerk-Quelldaten. Generierte Geometrie, Materialien,
   LODs und Atlanten bekommen keinen persistenten Runtime-Cache; vorhandene Dateien bleiben erhalten.
