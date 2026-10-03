@@ -471,8 +471,9 @@ TerrainGrid::State TerrainTiles::SampleNodeHeights(Data::TileId of,
     if (failure != nullptr) { *failure = stitched.Failure(); }
     return stitched.Where();
   }
-  const uint32_t rows = PostingsPerEdge(field->Rows(), Config_.Stride);
-  const uint32_t cols = PostingsPerEdge(field->Cols(), Config_.Stride);
+  const uint32_t minimum = static_cast<uint32_t>(std::max(grid, 2)) + 1u;
+  const uint32_t rows = std::max(PostingsPerEdge(field->Rows(), Config_.Stride), minimum);
+  const uint32_t cols = std::max(PostingsPerEdge(field->Cols(), Config_.Stride), minimum);
   const int nodes = ChunkNodes({.Postings = rows, .Grid = grid});
   if (nodes < 2 || nodes != ChunkNodes({.Postings = cols, .Grid = grid})) {
     return TerrainGrid::State::Refused;
