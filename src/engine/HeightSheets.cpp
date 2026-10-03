@@ -110,8 +110,8 @@ const Ground::TerrainField *HeightSheets::FieldAt(Data::TileId tile) const {
   return nullptr;
 }
 
-bool HeightSheets::CopySourcedField(Data::TileId tile, Ground::HeightField::Block &into) const {
-  return SourcedTerrainFields::Copy(Fields_, tile, into);
+bool HeightSheets::ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const {
+  return SourcedTerrainFields::Share(Fields_, tile, into);
 }
 
 std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError>

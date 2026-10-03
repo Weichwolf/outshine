@@ -217,7 +217,7 @@ bool Gathers(Ground::TileSpot spot,
   Ground::HeightField::Block block;
   const Data::TileId tile{
       .Zoom = spot.Zoom, .X = static_cast<uint32_t>(spot.X), .Y = static_cast<uint32_t>(spot.Y)};
-  bool copied = fineField && heightAt.CopyField && heightAt.CopyField(tile, block);
+  bool copied = fineField && heightAt.PinField && heightAt.PinField(tile, block);
   if (!copied && !fineField) {
     constexpr int side = 17;
     copied = Ground::HeightField::SamplesField(tile, side, heightAt.Sample, block);
@@ -534,8 +534,8 @@ bool StructureBuildQueue::ValidateResidentCellSource(
   }
   HeightSource residentOnly = heightAt;
   residentOnly.Sample = {};
-  residentOnly.CopyField = [&heightAt](Data::TileId at, Ground::HeightField::Block &into) {
-    if (heightAt.CopyResidentField) { return heightAt.CopyResidentField(at, into); }
+  residentOnly.PinField = [&heightAt](Data::TileId at, Ground::HeightField::Block &into) {
+    if (heightAt.PinResidentField) { return heightAt.PinResidentField(at, into); }
     return heightAt.ResidentField &&
            Ground::HeightField::SharesField(heightAt.ResidentField(at), at, into);
   };

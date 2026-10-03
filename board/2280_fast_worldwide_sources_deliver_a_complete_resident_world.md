@@ -18,7 +18,8 @@ Höhenprovider liefert native Meter über die öffentliche Quelle und bestehende
 Mapterhorn ist Terrain-Default, COG ausdrücklich wählbar. Client-Welten deklarieren den
 gepinnten OpenFreeMap-Stand; Schemaauswahl läuft über öffentliche Quellenkonfiguration
 und Szenario-Roundtrip. Erste Terrain-Publikation besteht; vollständige verfeinerte Welt
-blockiert noch in der Gebäude-Höhenvorbereitung. Aktuelle vollständige Bilder fehlen.
+blockiert noch in der Gebäude-Höhenvorbereitung. Die Gebäudequeue pinnt exakte
+Quellraster ohne zweite Samplespeicher; vollständige aktuelle Bilder fehlen.
 
 ## Architekturentscheidung und Besitzer
 2188 besitzt öffentliche Erweiterungs-/Produktverträge. `generators/osm` besitzt MVT/XML,

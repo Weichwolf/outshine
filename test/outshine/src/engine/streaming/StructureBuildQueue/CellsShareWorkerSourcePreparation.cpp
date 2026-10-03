@@ -152,7 +152,7 @@ int main() {
   size_t frameCopies = 0;
   const std::array<SourcedTerrainFields::Entry, 1> fields{{{demTile, field}}};
   const StructureBuildQueue::HeightSource heights{
-      .CopyField =
+      .PinField =
           [&frameCopies](Data::TileId, HeightField::Block &) {
             ++frameCopies;
             return false;
@@ -227,7 +227,7 @@ int main() {
   candidate.ResetDerived();
   candidate.BeginRefinement();
   auto candidateHeights = heights;
-  candidateHeights.CopyField = [&block](Data::TileId, HeightField::Block &into) {
+  candidateHeights.PinField = [&block](Data::TileId, HeightField::Block &into) {
     into = block;
     return true;
   };

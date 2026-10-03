@@ -370,19 +370,19 @@ StructureBuildQueue::HeightSource Engine::State::StructureHeightSource() {
             return World.GroundPublished.Current() ? World.Sheets.AslMAt(finestZoom, at)
                                                    : World.Stack.Ground().Resident(at).AslM();
           },
-      .CopyField =
+      .PinField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
             if (World.GroundPublished.Current()) {
-              return World.Sheets.CopySourcedField(tile, into);
+              return World.Sheets.ShareSourcedField(tile, into);
             }
             return Ground::HeightField::SharesField(
                 World.Stack.Ground().StitchedField(tile), tile, into);
           },
       .ResidentField =
           [this](Data::TileId tile) { return World.Stack.Ground().ResidentStitchedField(tile); },
-      .CopyResidentField =
+      .PinResidentField =
           [this](Data::TileId tile, Ground::HeightField::Block &into) {
-            return World.Sheets.CopySourcedField(tile, into);
+            return World.Sheets.ShareSourcedField(tile, into);
           },
       .Revision = {.Value = World.Stack.Ground().TerrainScopeRevision()},
       .TerrainScope = World.Stack.Pool().TerrainScopeRevision(),

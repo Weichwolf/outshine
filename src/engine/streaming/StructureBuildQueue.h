@@ -116,9 +116,9 @@ public:
 
   struct HeightSource {
     std::function<std::optional<double>(LongitudeLatitude)> Sample;
-    std::function<bool(Data::TileId, Ground::HeightField::Block &)> CopyField;
+    std::function<bool(Data::TileId, Ground::HeightField::Block &)> PinField;
     std::function<std::shared_ptr<const Ground::TerrainField>(Data::TileId)> ResidentField;
-    std::function<bool(Data::TileId, Ground::HeightField::Block &)> CopyResidentField = nullptr;
+    std::function<bool(Data::TileId, Ground::HeightField::Block &)> PinResidentField = nullptr;
     HeightSourceRevision Revision;
     uint64_t TerrainScope = 0;
     std::function<bool(const Ground::TerrainCertificate &)> CertificateCurrent;

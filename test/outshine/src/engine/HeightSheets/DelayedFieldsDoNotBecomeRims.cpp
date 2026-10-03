@@ -127,32 +127,34 @@ int main() {
   Ground::HeightField::Block child;
   Ground::HeightField::Block route;
   Ground::HeightField::Block absent;
-  CHECK(sheets.CopySourcedField({.Zoom = 4, .X = 8, .Y = 8}, exact) && !exact.Sources.empty() &&
-            exact.Raster.Side == 4,
+  CHECK(sheets.ShareSourcedField({.Zoom = 4, .X = 8, .Y = 8}, exact) && !exact.Sources.empty() &&
+            exact.Raster.Side == 4 && exact.Terrain && exact.Nodes.empty(),
         "the exact source keeps its native raster and provenance");
-  CHECK(sheets.CopySourcedField({.Zoom = 5, .X = 16, .Y = 16}, child) &&
+  CHECK(sheets.ShareSourcedField({.Zoom = 5, .X = 16, .Y = 16}, child) &&
             child.Sources == exact.Sources &&
             std::ranges::all_of(child.Nodes, [](float height) { return height == 42.0f; }),
         "a child height tile resamples its sourced ancestor without inventing provenance");
-  CHECK(sheets.CopySourcedField(routeTiles.front(), route) && !route.Sources.empty() &&
+  CHECK(sheets.ShareSourcedField(routeTiles.front(), route) && !route.Sources.empty() &&
             std::ranges::all_of(route.Nodes, [](float height) { return height == 42.0f; }),
         "an off-camera route tile is prepared as a sourced field");
-  CHECK(!sheets.CopySourcedField({.Zoom = 5, .X = 2, .Y = 2}, absent),
+  CHECK(!sheets.ShareSourcedField({.Zoom = 5, .X = 2, .Y = 2}, absent),
         "a tile outside sourced coverage is not qualified as fine terrain");
   auto snapshot = sheets.SnapshotSourcedFields();
   HeightSheets cleared = sheets;
   cleared.ForgetsFields();
-  CHECK(sheets.HeapBytes() >= cleared.HeapBytes() + exact.Nodes.size() * sizeof(float),
+  CHECK(sheets.HeapBytes() >=
+            cleared.HeapBytes() +
+                static_cast<size_t>(exact.Raster.Side * exact.Raster.Side) * sizeof(float),
         "retained source rasters enter the height-sheet memory ledger");
   HeightSheets published = sheets;
   HeightSheets transferred = std::move(published);
   published.Clear();
   Ground::HeightField::Block publishedChild;
-  CHECK(transferred.CopySourcedField({.Zoom = 5, .X = 16, .Y = 16}, publishedChild) &&
+  CHECK(transferred.ShareSourcedField({.Zoom = 5, .X = 16, .Y = 16}, publishedChild) &&
             publishedChild.Sources == child.Sources && publishedChild.Nodes == child.Nodes,
         "published source ownership survives transfer and preserves ancestor resampling");
   Ground::HeightField::Block pinned;
-  CHECK(snapshot.CopySourcedField({.Zoom = 4, .X = 8, .Y = 8}, pinned) &&
+  CHECK(snapshot.ShareSourcedField({.Zoom = 4, .X = 8, .Y = 8}, pinned) &&
             pinned.Sources == exact.Sources && pinned.Nodes == exact.Nodes,
         "a worker snapshot keeps immutable sourced fields after the candidate releases them");
   std::string error;

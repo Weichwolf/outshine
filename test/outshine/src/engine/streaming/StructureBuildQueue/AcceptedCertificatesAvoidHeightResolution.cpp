@@ -170,7 +170,7 @@ int main() {
   queue.Opens(&pool, &mesher);
   size_t copiedFields = 0;
   const StructureBuildQueue::HeightSource heights{
-      .CopyField =
+      .PinField =
           [block, &copiedFields](Data::TileId at, HeightField::Block &into) {
             ++copiedFields;
             into = block(at);
@@ -189,7 +189,7 @@ int main() {
   size_t residentCopies = 0;
   size_t forbiddenResolverCalls = 0;
   canonicalSource.CertificateCurrent = [](const TerrainCertificate &) { return false; };
-  canonicalSource.CopyField = [&forbiddenResolverCalls](Data::TileId, HeightField::Block &) {
+  canonicalSource.PinField = [&forbiddenResolverCalls](Data::TileId, HeightField::Block &) {
     ++forbiddenResolverCalls;
     return false;
   };
@@ -201,8 +201,8 @@ int main() {
     ++forbiddenResolverCalls;
     return std::shared_ptr<const TerrainField>{};
   };
-  canonicalSource.CopyResidentField = [block, &residentCopies](Data::TileId at,
-                                                               HeightField::Block &into) {
+  canonicalSource.PinResidentField = [block, &residentCopies](Data::TileId at,
+                                                              HeightField::Block &into) {
     ++residentCopies;
     into = block(at);
     return true;
@@ -215,13 +215,13 @@ int main() {
   std::fill_n(changedField->Data(), 9, 101.0f);
   for (const auto &source : residentField->Sources()) { changedField->AddSource(source); }
   changedField->SetCertificate(residentField->Certificate());
-  canonicalSource.CopyResidentField = [changedField](Data::TileId at, HeightField::Block &into) {
+  canonicalSource.PinResidentField = [changedField](Data::TileId at, HeightField::Block &into) {
     return HeightField::SharesField(changedField, at, into);
   };
   CHECK(!StructureBuildQueue::ValidateResidentCellSource(
             stack, prints, canonicalSource, 0, *sourceKey),
         "changed resident raster cannot certify the accepted source key");
-  canonicalSource.CopyResidentField = [](Data::TileId, HeightField::Block &) { return false; };
+  canonicalSource.PinResidentField = [](Data::TileId, HeightField::Block &) { return false; };
   CHECK(!StructureBuildQueue::ValidateResidentCellSource(
             stack, prints, canonicalSource, 0, *sourceKey) &&
             forbiddenResolverCalls == 0,
@@ -264,7 +264,7 @@ int main() {
     ++forbiddenCalls;
     return std::optional<double>{};
   };
-  inspectedSource.CopyField = [&forbiddenCalls](Data::TileId, HeightField::Block &) {
+  inspectedSource.PinField = [&forbiddenCalls](Data::TileId, HeightField::Block &) {
     ++forbiddenCalls;
     return false;
   };

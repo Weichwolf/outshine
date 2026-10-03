@@ -121,9 +121,15 @@ bool SourcedTerrainFields::FitsPreparation(std::span<const Ground::TileSpot> req
 
 bool SourcedTerrainFields::ShareSourcedField(Data::TileId tile,
                                              Ground::HeightField::Block &into) const {
+  return Share(Fields_, tile, into);
+}
+
+bool SourcedTerrainFields::Share(std::span<const Entry> fields,
+                                 Data::TileId tile,
+                                 Ground::HeightField::Block &into) {
   if (tile.Zoom < 0 || tile.Zoom > Ground::HeightField::MaximumTileZoom) { return false; }
-  const auto found = SourceFor(Fields_, tile);
-  if (found == Fields_.end()) { return false; }
+  const auto found = SourceFor(fields, tile);
+  if (found == fields.end()) { return false; }
   return found->first == tile ? Ground::HeightField::SharesField(found->second, tile, into)
                               : Ground::HeightField::ResamplesSourcedAncestor(
                                     *found->second, found->first, tile, into);

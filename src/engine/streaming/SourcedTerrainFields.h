@@ -27,6 +27,9 @@ public:
                                      size_t bytesMost) const;
   [[nodiscard]] bool ShareSourcedField(Data::TileId tile, Ground::HeightField::Block &into) const;
 
+  [[nodiscard]] static bool
+  Share(std::span<const Entry> fields, Data::TileId tile, Ground::HeightField::Block &into);
+
   SourcedTerrainFields() = default;
 
   explicit SourcedTerrainFields(std::vector<Entry> fields) : Fields_(std::move(fields)) {}

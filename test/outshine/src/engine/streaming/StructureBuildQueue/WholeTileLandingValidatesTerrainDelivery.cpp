@@ -119,7 +119,7 @@ int main() {
   bool allowCopy = true;
   StructureBuildQueue::HeightSource source{
       .Sample = {},
-      .CopyField =
+      .PinField =
           [&field, &copies, &allowCopy](Data::TileId at, HeightField::Block &into) {
             ++copies;
             return allowCopy && HeightField::SharesField(field, at, into);
@@ -372,7 +372,7 @@ int main() {
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "line-only vector input enters the source snapshot");
   size_t terrainCalls = 0;
-  source.CopyField = [&terrainCalls](Data::TileId, HeightField::Block &) {
+  source.PinField = [&terrainCalls](Data::TileId, HeightField::Block &) {
     ++terrainCalls;
     return false;
   };

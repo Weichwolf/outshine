@@ -144,7 +144,7 @@ int main() {
   queue.Opens(&pool, &mesher);
   size_t copiedFields = 0;
   const StructureBuildQueue::HeightSource heights{
-      .CopyField =
+      .PinField =
           [block, &copiedFields](Data::TileId at, HeightField::Block &into) {
             ++copiedFields;
             into = block(at);

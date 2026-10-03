@@ -1791,9 +1791,9 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   const StructureBuildQueue::HeightSource heightAt{
       .Sample = [&build,
                  finestZoom](LongitudeLatitude at) { return build.Sheets.AslMAt(finestZoom, at); },
-      .CopyField =
+      .PinField =
           [&build](Data::TileId tile, Ground::HeightField::Block &into) {
-            return build.Sheets.CopySourcedField(tile, into);
+            return build.Sheets.ShareSourcedField(tile, into);
           },
       .ResidentField = {},
       .Revision = {.Value = state.Id()},

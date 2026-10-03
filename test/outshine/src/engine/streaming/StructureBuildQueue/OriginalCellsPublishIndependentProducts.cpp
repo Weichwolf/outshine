@@ -145,7 +145,7 @@ int main() {
   }
   StructureBuildQueue::HeightSource heights{
       .Sample = {},
-      .CopyField =
+      .PinField =
           [&fields](Data::TileId tile, HeightField::Block &into) {
             const auto found =
                 std::ranges::find(fields, tile, &decltype(fields)::value_type::first);
