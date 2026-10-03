@@ -27,6 +27,10 @@ Quellenumfang und konservative Abdeckung erst belegen; deshalb `planned`.
 ## Verfahren und nächste Lieferung
 1. Entfernung/Projektion/erlaubten Fehler vor Gebäudemesh und Terrainbedarf auswerten.
    Zellaufträge pinnen nur benötigte Raster; Parent-Belege bleiben getrennt erhalten.
+   Parent-Identität und aktuelles vollständiges Zertifikat sichern die Ausgangsquelle;
+   der Teilauftrag besitzt seinen eigenen Rasterdigest und nachgewiesene Abdeckung.
+   Vor Publikation Parent und konsumierte Teilquellen erneut prüfen; keinen Teildigest
+   mit dem gesamten Parent-Digest vergleichen oder LOD-Fehler dadurch kleiner deklarieren.
    Eine große Kachel darf einen kleinen Auftrag nicht an der Vorbereitungsgrenze sperren.
    Batches nach tatsächlichem Bedarf teilen, bestehende Grenzen nicht erhöhen.
    Native Fernverbände bündeln, vorhandene Rundumsicht halten; danach Flug-/Orbitbedarf.
