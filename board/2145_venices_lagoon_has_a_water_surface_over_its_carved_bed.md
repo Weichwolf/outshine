@@ -3,48 +3,42 @@ State: open
 Architecture: planned
 Priority: P0
 Parent: 2169
-Depends:
-Area: world, generators, render, engine
+Depends: 2280
+Area: generators, world, render, engine
 Tags: terrain, water, coastline, contacts
 
 # Terrain and water form correct relief, levels and shores
 
-## Ergebnis und vorhandene Fähigkeit
-Terrain zeigt plausibles Relief mit sauberen Straßen-/Gebäudekontakten. Meer, Flüsse
-und Seen sind eigene animierte Geometrie mit zusammenhängenden Pegeln, Ufern und Inseln.
-GLO-30-Samples, Terrain-Stempel, WaterField, WaterSurfaceBuilder und dielektrische
-Wasserflächen existieren. Native Küstenabschlüsse/übergreifende Pegel sind offen;
-Flensburgs künstliche Wasserfälle und überflutete Gebäude bleiben reale Fehler.
+## Ergebnis und Ist
+Meer/Fluss/See als eigene animierte Geometrie mit kohärenten Pegeln/Ufern/Inseln;
+Terrain mit richtigen Straßen-/Gebäudekontakten. Terrain-Stempel, WaterField,
+WaterSurfaceBuilder/WaterDepth und dielektrisches Material bestehen. WaterField ist
+noch Tile-/OsmField-gebunden; globale Körper/Pegelherkunft und Küstenabschluss fehlen.
+Flensburgs Wasserfälle/überflutete Gebäude bleiben Geometriefehler.
 
-## Besitzer und nächste Lieferung
-`world/ground` hält finales Terrain sowie semantische WaterBody-Produkte mit Original-ID,
-Außen-/Innenringen und Pegelherkunft. WaterField ist derzeit tile-/OsmField-gebunden und liefert Surface-Ringe ohne globale
-WaterBody-Identität/Pegelherkunft. Diesen Vertrag ablösen. Native WaterSurfaceBuilder/WaterDepth liefern
-Flächen/Tiefen; Laying koordiniert Carving, Material und Publikation.
-Zuerst Flensburgs Originalküste und Pegel-/Terrainursache bis ins richtige Bild lösen.
-Den Abschlussvertrag offener Küsten und benötigter Nachbarzellen vor Implementierung
-festlegen; dessen ungeklärter Teil hält die Architektur `planned`.
+## Besitzer und fehlender Vertrag
+2280 liefert normalisierte Wasser-/Küstenringe und native Höhensamples mit Datum/NoData;
+clipped Tiles garantieren keinen geschlossenen Gewässerkörper. OSM-Erweiterung rekonstruiert
+Abdeckung/Identität; Wasser-/Terrain-Generatoren erzeugen Körper/Bett/Ufer. `world/ground`
+hält native WaterBody/Terrain-Produkte, Renderer animiert/beleuchtet sie. Laying koordiniert.
+Zuerst Flensburgs Küste/Pegelursache bis zum korrekten Bild lösen. Nachbar-/Abschluss-
+vertrag offener Küsten vor Umsetzung festlegen; dieser offene Teil hält `planned`.
 
-## Umsetzung und Invarianten
-- EGM2008, Kamerahöhen und lokale Wasserstände konsistent umrechnen. DSM-Dach-/Baumanteile
-  behandeln, ohne Städte oder steile Hänge pauschal zu glätten. NoData erzeugt keine Falten.
-- Original-Wasserpolygone/-multipolygone und gerichtete Küsten aus gepinnten Zellbeständen
-  ableiten. Inseln und getrennte Komponenten erhalten. Offene Ketten brauchen explizite
-  Nachbar-/Abschlussinformation; keine geratenen Land-/Wasserabschlüsse als fertige Welt.
-- Ein Pegel pro zusammenhängendem Körper mit belegter/erklärter Herkunft. Meereshöhe im
-  passenden Datum, Flussgefälle entlang des Verlaufs. Keine zufälligen Tile-Randpegel.
-  Kein pauschales Grundwassermesh unter jedem Terrain-Tile.
-- Körper/Bett/Ufer gemeinsam konstruieren; Terrain darf die Wasserfläche am Ufer schneiden.
-  Straßen-/Gebäudestempel respektieren Wasser und erhöhte Bauwerke. Klassenmasken ersetzen
-  keine Wassergeometrie; Materialgrenzen stimmen mit denselben Originalringen überein.
-- Relief verfeinert die endgültige deformierte Oberfläche; Nachbargrenzen stimmen überein.
-  Harte Ring-/Punktlimits melden Nichtlieferbarkeit, statt Gewässer still zu entfernen.
-- Winterzustand erlaubt Eis/Schnee und veränderte Roughness/Transmission aus 2172.
-  Hafentide ohne erlaubte Eingangsdaten bleibt unbekannt; keinen exakten Pegelfit behaupten.
-- Wasser nutzt Wind/Wetter, Normaldetail, Tiefe, Fresnel, Reflexion und Transmission;
-  Energieaufteilung und Atmosphäre konsistent. Keine starre blaue Fläche oder Doppelbelichtung.
+## Verfahren und Invarianten
+- Raster-/Kamera-/Wasserhöhendatum konsistent umrechnen. DSM-Dächer/Bäume sind kein nackter
+  Boden; NoData kein Nullboden. Städte/Hänge nicht pauschal glätten, Herkunft erhalten.
+- Ringe/Höfe/Inseln und Komponenten über Tile-Ränder erhalten. Offene Ketten benötigen
+  Nachbar-/Abschlussinformation; keine geratenen Küsten als vollständige Abdeckung melden.
+- Erklärter Pegel je Körper: Meer im passenden Datum, Flussgefälle entlang Verlauf.
+  Keine zufälligen Tile-Pegel oder Grundwassermesh unter jedem Terrain-Tile; Tide unbekannt.
+- Körper/Bett/Ufer zusammen konstruieren, Terrain schneidet Wasser am Ufer. Stempel
+  respektieren Wasser/erhöhte Bauwerke; Klassenmasken ersetzen keine Wassergeometrie.
+- Endgültiges Kontaktrelief verfeinern, Nachbargrenzen abstimmen. Ring-/Punktlimits
+  melden Nichtlieferbarkeit statt stillen Gewässerverlust; native Bounds/Fehler erhalten.
+- Windwellen, Fresnel, Tiefenabsorption, Reflexion/Transmission und Schaum aus demselben
+  Wasserprodukt. Wetter/Eis/Nässe aus 2172, Licht/Reflexionsintegration aus 2155;
+  keine Doppelbelichtung oder unabhängige blaue Terrainklasse.
 
 ## Abnahme
-Flensburg, Husum, Malcesine und Koerbersee zeigen richtige Pegel, Ufer, Inseln und
-Terrainanschlüsse. Gebäude stehen auf tatsächlichem Boden, Wasser bleibt unter Brücken.
-Wellen/Reflexion verändern Wasser, ohne seine Abdeckung/Pegel bei Bewegung zu verschieben.
+Flensburg/Husum/Malcesine/Koerbersee: richtige Pegel, Ufer/Inseln/Kontakte, Wasser unter
+Brücken und Gebäude auf Boden. Bewegung/Wellen verändern weder Abdeckung noch Pegel.

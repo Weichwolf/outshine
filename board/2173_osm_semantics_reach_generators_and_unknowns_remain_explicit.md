@@ -3,62 +3,41 @@ State: open
 Architecture: ready
 Priority: P0
 Parent: 2169
-Depends:
-Area: world, generators, engine
+Depends: 2188, 2280
+Area: generators, world, engine
 Tags: buildings, osm, roofs, facades
 
-# Buildings preserve original form and gain spatial detail
+# Buildings preserve source form and gain spatial detail
 
-## Ergebnis und vorhandene Fähigkeit
-Städte zeigen korrekte Grundrisse, Höfe, Parts, Dächer und Sonderbauwerke sowie räumliche
-Eingänge, Laibungen, Rahmen und Sockel. Original-Footprints, Höhenintervalle, native
-Bakes und Terrain-Stempel existieren. Klasse/Dach-Tags erreichen den Meshplan noch
-nicht vollständig; Fassaden wirken repetitiv. Rosenheims Schornsteine sind keine Wohnhäuser.
+## Ergebnis und Ist
+Vollständige Städte mit korrekten Grundrissen/Höfen/Parts, plausiblen Dächern und echten
+Nahöffnungen/Rahmen/Sockeln. Native Footprints/BuildingHeightInterval, StructureBake,
+BuildingMesh und Terrain-Stempel bestehen; Klassen/Dachplan sind lückenhaft, facadePattern
+zeichnet flache Fenster. Sonderklasse schlägt Wohnhausannahme, wenn in der Quelle belegt.
 
-## Nächste Lieferung und Besitzer
-`generators/osm/buildings` normalisiert Original-Grundrisse und Tags/Einheiten;
-BuildingHeightInterval ist das native Höhenprodukt.
-StructureBake/BuildingMesh konsumieren gepinnte Original-IDs und Tags. Native
-Footprints/Höhen und Nahdetails müssen denselben öffentlichen Produktvertrag aus 2188
-nutzen; Abstand/Fehler vor Terrain- und Detailarbeit auswerten.
-Zuerst Sonderbauwerksklasse und Dachform im nativen Rosenheim-/Flensburg-Bild liefern;
-danach zusammenhängende Straßenfront, Eingang und räumliche Fenster an Nahgebäuden.
-Bestehende Queue/Publikation verwenden; kein MVT-Zwischenformat oder Ortsmodell.
+## Besitzer und fehlende Verträge
+2280 liefert normalisierte Gebäuderinge/Höhen/lieferbare Attribute; 2188 den öffentlichen
+Detail-/Produktvertrag. `generators/osm/buildings` besitzt Schema-/Semantikadapter und Plan,
+BuildingMesh/StructureBake native Form. Renderer erhält metrische Materialparameter,
+keine Quell-Tags. Erst vollständige Stadt/Höfe/Höhen und erkannte Sonderbauten/Dächer,
+danach räumliche Eingänge/Fenster; vorhandene Queue und Publikation nutzen.
 
-## Parametrische Gebäudestruktur
-- Originalringe/Parts und Höhen definieren zuerst Hülle, offene Höfe und Dachplan.
-  Fronten aus Straßenkontakt und Nutzung bestimmen Eingangsseite; Geschosshöhe,
-  Fensterachsen und Achsränder als ein stabiler Plan je Gebäude, nicht Shaderzufall.
-- BuildingMesh erzeugt nahe Laibungen, Rahmen, Traufen, Dachkanten und belegte Balkone/
-  Gauben aus diesem Plan. Wiederholbare Formen teilen Geometrie; Position/Variation sind
-  kompakte Instanzen. Mittlere Hüllen und Fernverbände konsumieren denselben Plan (2336).
-- FacadeUv kodiert heute Stil/Achsen/Geschosse; facadePattern zeichnet flache Fenster.
-  Diesen Pfad zu explizitem metrischem Fassaden-/Materialparametervertrag ausbauen.
-  Gebäudeform und Öffnungsposition sind Generatorarbeit, Baustoff/Glasantwort ist 2171.
-- Detail/Abstandsfehler vor Mesh/Instanzen prüfen; konservative Bounds und Produktversion
-  umfassen tatsächliche Dach-/Fassadengeometrie. Unbekannte Öffnungen/Dekoration bleiben
-  deterministische Ergänzung, nicht nachträglich als Originaltags ausgegeben.
-
-## Umsetzung und Invarianten
-- building/part, height/min_height, levels/min_level, roof shape/height/levels/direction,
-  Nutzung, Material und Farbe erhalten. Metrische Höhe hat Vorrang; fehlende Werte
-  folgen erklärter Policy, widersprüchliche Werte bleiben Fehler. Eltern/Parts nicht doppeln.
-- Höfe offen halten und erhöhte Parts nicht auf den Boden stempeln. Explizite Sonderklasse
-  schlägt generische Gebäudeannahme; Schornsteine, Kirchen und Türme unterscheiden sich.
-- Belegte Dachform/Material erhalten. Unbekannte Form bleibt unbekannt; plausible Ergänzung
-  nutzt Grundriss, Nutzung und regionale OSM-Evidenz mit stabilem Objekt-/Welt-Seed.
-  Keine unbegründete Serienausstattung oder kamerabhängige Umgestaltung.
-- Straßenkontakt bestimmt Front, Eingang und Sockel. Nahdetails erhalten echte Tiefe;
-  Fassaden-UVs und metrischer Maßstab stimmen mit Materialauswertung aus 2171 überein.
-- Raum-/Höhenbezug, Terrainkontakt und Quellbesitz bleiben vom Import bis zur Publikation
-  konsistent. 2336 begrenzt Details vor Erzeugung und fasst entfernte Gebäude zusammen.
-
-- Stadtidentität braucht belegte Silhouetten: Kirchturm, Hallen, Balkone, Gauben,
-  Traufe und Dachaufbauten nach Klasse/Form erzeugen. Fehlende Landmarkenbeschreibung
-  erlaubt keine Foto-Sondergeometrie; allgemeine Grammatiken erhalten die Unsicherheit.
+## Verfahren und Invarianten
+- MultiPolygon-Ringe/Höfe/Parts und Höhenintervall erhalten. MVT-Featurezahl ist keine
+  Gebäudezahl; Eltern/Parts nicht doppeln, erhöhte Parts nicht auf Boden stempeln.
+- Gelieferte height/min_height/levels, Dachform/-höhe, Nutzung/Material/Farbe normalisieren.
+  Metrische Höhe hat Vorrang; fehlende Werte folgen erklärter stabiler Klassenpolicy.
+  Nicht gelieferte Dach-/Sondertags bleiben unbekannt; keinen Originalbefund erfinden.
+- Ein stabiler Gebäudeplan legt Geschosse/Achsen/Öffnungen und Straßenfront/Eingang fest.
+  Klassen-/Dachgrammatiken erzeugen plausible regional passende Formen; keine Ortsmodelle.
+- Nahe Laibungen/Rahmen/Traufen/Balkone/Gauben besitzen Tiefe; wiederholte Teile teilen
+  Geometrie/Instanzen. Mittlere Hüllen/Fernverbände verwenden denselben Plan (2336).
+- FacadeUv zu metrischen Maßen/Seeds ausbauen; Fensterposition ist Generatorarbeit,
+  Baustoff/Glas/Alterung Shaderarbeit aus 2171. Keine flache Textur als Nahgeometrieersatz.
+- Abstand/Fehler vor Terrain/Mesh/Instanzen prüfen; Bounds umfassen tatsächliche Dach-/
+  Fassadenform. Raum-/Höhenbezug und Herkunft bis Kontakt/Publikation konsistent halten.
 
 ## Abnahme
-Rosenheim/Flensburg zeigen erkannte Sonderbauten und Dächer; Wien/Feldkirch erhalten
-Parts und gültige Höhenintervalle. Höfe, Eingänge und Fenster besitzen plausible Tiefe;
-keine fehlenden Gebäude oder Textur als Ersatz für ganze Nahfassaden. Unbelegte Ergänzung
-bleibt von Originalangaben unterscheidbar. Die öffentliche Generator-API ist kein Sonderpfad.
+Wien/Feldkirch zeigen vollständige Grundrisse/Höfe und gültige Höhen; Rosenheim/Flensburg
+belegte Sonderbauten und plausible Dächer. Nahöffnungen haben Tiefe, Fernstadt bleibt
+stabil und gebündelt. Fehlende Quellsemantik und prozedurale Ergänzung unterscheidbar.
