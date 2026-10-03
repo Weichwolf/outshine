@@ -1,127 +1,96 @@
 # Outshine
 
-## Auftrag und Verantwortung
-- Ich lese diese Datei, den aktiven Goal-Text, Parent-WI 2169 und betroffene Kinder zuerst.
-  Goal beschreibt das Ergebnis, AGENTS dauerhafte Regeln, das Board Features und Entscheidungen.
-  Implementierungsdetails gehören ausschließlich in die zuständigen WIs, nicht in AGENTS oder Goal.
-  Aktuelle Nutzeranweisungen gehen vor. Ich arbeite im Haupt-Checkout auf `master`.
-- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Ich entscheide den Weg
-  zur weltweiten Sandbox selbst. Zuerst liefere ich die Webcam-Annäherung aus 2169;
-  GTA5/RDR2 sind Maßstäbe für Kohärenz, Dichte und Laufzeit, kein unbelegtes Qualitätsversprechen.
-- Ich beginne mit einem Bilddefizit und liefere den kleinsten vollständigen Schritt bis
-  Runtime/Bild. Interne Arbeit braucht einen Feature-Blocker oder gemessenen Engpass.
-  Abstürze, Datenverlust und falsche Geometrie behebe ich sofort; Straßenfortschritte erhalten.
-- Ich hinterfrage Architektur und Verfahren ständig: KISS, DRY, klare Besitzer, Local Reasoning.
-  RAGE, Unreal, Filament und Cesium sind Referenzen; Gegenbelege und lokale Messungen entscheiden.
-  Schlechten Code und falsche Namen korrigiere oder ersetze ich samt sämtlichen Aufrufern.
-- Vor Arbeitsblöcken, nach Integration und bei Regressionen spiele ich intern die Signalflüsse
-  von Eingaben bis Bild, Ton, Aktion und nächstem Zustand einschließlich Save/Load/Replay durch.
-  Kaltstart, stationäre Welt, Drehung, Bewegung, Quellenwechsel und Fehler berücksichtigen;
-  Threads/Queues, Lebensdauer, Kopien, Cachemisses, RAM/SSD/GPU und unnötige Arbeit verfolgen.
-  Schatten, Akustik und Simulationswirkung zählen auch außerhalb des Bildes. Entwürfe sind
-  Hypothesen; echte Produkte und Messungen prüfen sie. Verfahren und Lücken gehören ins Board.
-- Nach zwei Reparatur-Iterationen ohne Bildgewinn überprüfe ich Ansatz und Umfang.
-  Ich öffne die tatsächlichen Renderings und vergleiche Vorher/Nachher sowie Webcam-Referenzen.
-  Unbelegte Bildänderungen gelten als Verschlechterung; grüne Tests/Commits ersetzen keinen Bildgewinn.
+## Auftrag
+- Ich lese AGENTS, den aktiven Goal-Text, Parent-WI 2169 und betroffene Kinder zuerst.
+  Goal enthält das Ergebnis, AGENTS dauerhafte Regeln, WIs Features und technische Entscheidungen.
+  Implementierungsdetails stehen ausschließlich im Board. Aktuelle Nutzeranweisungen gehen vor.
+- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Ich arbeite auf `master`
+  im Haupt-Checkout. Die weltweite Sandbox und der Webcam-Meilenstein stehen in 2169.
+- Ich liefere vom konkreten Bilddefizit bis zum integrierten Rendering. Interne Arbeit braucht
+  einen Feature-Blocker oder gemessenen Engpass. Abstürze, Datenverlust und falsche Geometrie
+  behebe ich sofort; vorhandene Straßenqualität und Terrain-Deformation bleiben erhalten.
+- Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
+  gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
+  Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
+- Vor Arbeitsblöcken, nach Integration und bei Regressionen durchdenke ich den vollständigen
+  Datenfluss bis Bild, Ton, Aktion und nächstem Weltzustand: Laden, Stillstand, Drehung, Bewegung,
+  Änderungen, Persistenz und Fehler. Ich prüfe Abhängigkeiten, Besitz, Threads, Kopien und Kosten;
+  unsichtbare Schatten-/Simulationswirkung zählt. Gegenbeispiele suchen, Hypothesen messen.
+- Ich baue keine Verwaltungs-, Cache- oder Beweissysteme ohne konkreten Bedarf. Nach zwei
+  Reparatur-Iterationen ohne Bildgewinn überprüfe ich den Ansatz. Ein umfassender Refactor darf
+  keine ausführbare sichtbare Verbesserung verdrängen. Commits und grüne Tests sind kein Bildgewinn.
 
-## Bevorzugte Quellen
-| Daten | Hauptanbieter | Providerformat |
-|---|---|---|
-| OSM-basierte Vektoren | [OpenFreeMap](https://openfreemap.org/) | MVT, OpenMapTiles-Schema |
-| Höhen | [Mapterhorn](https://mapterhorn.com/data-access/) | Terrarium, 512-Pixel-WebP; PMTiles bei Bedarf |
-| Live-/Archivwetter | [Open-Meteo](https://open-meteo.com/en/pricing) | JSON; Free zur Evaluation, kommerzielles Archiv Professional+ |
+## Quellen und Architekturgrenzen
+- Bevorzugt: OpenFreeMap für OSM-basierte Vektoren, Mapterhorn für Höhen, Open-Meteo für Wetter.
+  Ein Hauptanbieter je Datenart; Geschwindigkeit, Verfügbarkeit und nutzbarer Inhalt entscheiden.
+  Original-OSM und vollständige Tags sind keine Pflicht. Formate/Nutzungsfragen besitzt 2280.
+- Zeit/Kamera und ein fester lizenzierter/versionierter Sternenkatalog ergänzen die Welteingaben.
+  Belegte, fehlende und prozedural ergänzte Angaben bleiben unterscheidbar. Webcam-Fotos dienen
+  nur dem Vergleich; keine Fototexturen, Satellitenbilder, Photogrammetrie oder Place-Sondergeometrie.
+- Ich cache persistent nur Netzwerk-Quelldaten, unverändert bis zur ausdrücklichen Leerung.
+  Keine automatische Aktualisierung und kein Runtime-Diskcache generierter Produkte.
+  Vorhandene Cachebytes und Referenzen erhalten; Quellcache, Spielstand und Testreferenzen trennen.
+- Adapter/Provider beschaffen und normalisieren Eingaben; Generatoren erzeugen native Inhalte.
+  Provider sind optional. Erweiterungen besitzen ihre Quellsemantik; OSM gehört zu generators/osm.
+  Engine koordiniert; world bleibt eine generische 3D-Welt, Render/Audio konsumieren native Produkte.
+- Builtins und externe Erweiterungen nutzen dieselbe öffentliche API. API-Änderungen migrieren
+  alle Aufrufer. Szenarien deklarieren Inhalte/Kamera; keine versteckten Inhalts-CLI-Sonderwege.
+  Konkrete Verträge besitzt 2188; sie werden mit einem echten Feature integriert.
+- Rundum-Abdeckung bleibt renderbereit. Drehung ändert Sichtbarkeit, Bewegung ergänzt Bedarf.
+  Unveränderte Inhalte werden nicht neu erzeugt. Detailbedarf vor teurer Arbeit bestimmen;
+  Änderungen gezielt fortpflanzen. Logische Welt und Kollision bleiben unabhängig vom Render-LOD.
+- Besitz, Lebensdauer, Abbruch, Rückstau und Fehler bleiben explizit. Kein blockierendes IO oder
+  unbegrenztes Warten im Frame. GPU-Ressourcen erst nach letzter Nutzung freigeben.
 
-- Geschwindigkeit, Verfügbarkeit und Bildinhalte entscheiden; Original-OSM und alle Tags
-  sind keine Pflicht. Anbieterpräferenz ist keine Runtime-Abnahme. Offene Nutzungs-/Leistungsfragen
-  stehen in 2280. Zeit/Kamera sowie ein fester lizenzierter/versionierter Sternenkatalog ergänzen die Eingaben.
-- Ich verwende zunächst einen Anbieter je Datenart. Adapter erlauben Austausch; keine blinde
-  Mischung verschiedener Datenstände. Formatgleichheit beweist weder gleiche Semantik noch Revision.
-  Mirrors dürfen Cache-/Rangezugriff erst nach belegter Dataset-/Versionsgleichheit teilen.
-- Fehlende, widersprüchliche und belegte Angaben bleiben unterscheidbar. Deterministische
-  Generatoren ergänzen plausible Details; Herkunft und Unsicherheit bis zum Produkt erhalten.
-- Webcam-Fotos dienen nur dem Vergleich mit Aufnahmezeit/Kamera/Wetter. Keine Foto-Texturen,
-  Satellitenbilder, Photogrammetrie oder Place-Sondergeometrie. Ich recherchiere normalerweise
-  lokal; beauftragte Anbieter-/API-Recherche und Webcam-Suche erlauben Websuche.
-- Ich cache persistent nur Netzwerk-Quelldaten. Kein Runtime-Diskcache für generierte
-  Geometrie/Materialien/LODs/Atlanten. Vorhandene Bytes und Referenzen bleiben erhalten.
-- Gecachte Netzwerkdaten bleiben bis zur ausdrücklichen Cacheleerung unverändert;
-  keine automatische Aktualisierung. Den technischen Cache-Vertrag besitzt 2280.
+## Qualität und Abnahme
+- Ich priorisiere Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl. RDR2/GTA5 sind
+  Qualitätsmaßstäbe, keine unbelegten Versprechen. Auflösung/Zielrate bleiben unabhängige Profile:
+  480p, 1280×720, 1920×1080 und höher; 25/30/60 fps. Maße immer explizit Breite×Höhe.
+  720p60 bleibt Messprofil; 480p30 in hoher Qualität auf A18 Pro ist eine zu prüfende Hypothese.
+- Alle acht Places aus 2169 sind visuelle Regressionen, mindestens einer gehört ins Gate.
+  Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
+  Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen; alte Bilder/Pins erhalten.
+  Fehlende/unvollständige Bilder bleiben rot. Unbelegte Bildänderungen gelten als Verschlechterung.
+- Vollständiger Quellcache → frischer Offline-Prozess → höchstens zehn Sekunden bis zur fertigen
+  Welt. Internet-Erwerb darf länger dauern. Danach genau Ziel-fps Frames und 360° in einer Sekunde;
+  nur letzter Frame als PNG in Ausgangsrichtung. p50/p95/p99 ohne Zusatzframes messen.
+- Framebudget auch für p99: 1000/Ziel-fps ms. Alle Weltklassen teilen Zeit/Speicher nach Bildgewinn
+  und Kosten, ohne feste Quoten. Profil, Inhalte und Sichtweite im Vergleich nicht reduzieren.
+- Korrektheit, Bild, CPU/GPU, Laden und Speicher getrennt prüfen. Budgets nennen Einheit, Herkunft,
+  Lastfall, Profil und Besitzer; Peaks und OS-/Treiberreserve zählen. Geteilten Speicher nicht doppelt
+  zählen, asynchrone Zeiten nicht addieren, Fence-Warten nicht als GPU-Zeit ausgeben. A18 Pros
+  8 GB sind kein App-Budget; die aktuelle Maschine ersetzt keinen Gerätenachweis.
+- Überschreitungen sperren das Gate; schlechte Istwerte erhöhen keine Grenzen. Fehlende Messbarkeit
+  bleibt unbewiesen. CPU-Beweise ersetzen kein Runtime-Bild und allein keine kleinere LOD-Schranke.
+  Tests nur bei nachweislich falscher oder ausdrücklich geänderter Spezifikation anpassen.
+  Normale Tests erzeugen keine Orakel/ändern keine Pins; Cycles benötigt belegtes GPU-Backend.
 
-## Architektur
-- Adapter besitzt Anbieter-API/Auth/Adressen; gemeinsame IO-/Cache-/Jobdienste nur Bytes/Aufträge.
-  Provider dekodiert/normalisiert Quellformate und liefert Inputs; Generator erzeugt native Produkte.
-  Gemeinsame Formate teilen Decoder, unterschiedliche Schemas teilen keine ungeprüften Annahmen.
-  Endpunkte bleiben Konfiguration statt Klassen je URL. Konkrete Verträge/Besitzer stehen in 2188/2280.
-- Generator-Erweiterungen besitzen ihre Quellen/Adapter/Pipelines; OSM ausschließlich unter
-  `generators/osm`. Provider sind optional. Engine registriert/koordiniert Bedarf, Zeit und Qualität;
-  `world` bleibt generische 3D-Welt ohne konkrete Anbieter, Quellformate oder Generatorinputs.
-  Renderer/Audio konsumieren native Welt-/Simulationsprodukte, beschaffen keine Quellen.
-- Builtins und externe Erweiterungen verwenden dieselben öffentlichen Verträge/Registrierungen.
-  Die API ist Greenfield; Änderungen migrieren sämtliche Aufrufer, keine Alias-/Sonderpfade.
-  Szenarien deklarieren Inhalte und Kameraprogramm; Client führt aus und misst. Keine Inhalts-CLI-Tricks.
-- Quellenerwerb, Weltvorbereitung, Residency und Sichtbarkeit getrennt benennen/planen.
-  Rundum-Abdeckung bleibt resident; Drehung ändert Sichtbarkeit, Bewegung ergänzt neuen Bedarf.
-  Unveränderte Frames erzeugen/ingestieren/kompaktieren die Welt nicht erneut.
-- Begrenztes paralleles IO, ein gemeinsamer Compute-Worker, getrennte Render-/Audiothreads;
-  Queues mit Rückstau/Abbruch/Revision. Kein blockierendes IO, unbegrenztes Warten oder
-  routinemäßiges Allokieren im Frame. Stale Ergebnisse ersetzen keine neuen Produkte.
-- Ein natives Asset-/Geometriemodell, eindeutiger Besitz, gemeinsame Raum-/Höhenbezüge und
-  deterministische Seeds/Merge-Reihenfolgen. Bedarf/LOD/Aggregation vor teurer Detailarbeit.
-  Logische Netze und Kollision bleiben unabhängig vom Render-LOD; GPU-Freigabe nach letzter Nutzung.
-- Szenario/glTF verwenden dieselben Produkte. Fester Simulationstakt mit begrenztem Aufholen;
-  JS/UI/LLM senden begrenzte Commands. Save/Load/Replay erhält versionierten logischen Zustand,
-  Quellen-/Producer-Versionen und Änderungen, keinen Generatorcache. Spatial Audio teilt Posen/Kontakte.
-- C++23, SDL3/SDL_GPU, GLSL; Backendformate sind Buildprodukte. RAII, Composition, Zustandsautomaten;
-  Runtime ohne Exceptions, behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`.
-  Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets verbindlich mit `static_assert` sichern;
-  andere echte Typ-/Binärverträge erlaubt. Kein versteckter Globalzustand oder Eingriff in den Host.
-  `reaches` und dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten. `src/` ohne Kommentare,
-  `include/` nur hilfreiches API-Doxygen; Tests dürfen Kommentare haben.
-
-## Bild- und Budgetabnahme
-- Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl. Auflösung und Zielrate sind
-  getrennte Profile: 480p, 1280×720, 1920×1080 und höher; 25/30/60 fps. Maße explizit Breite×Höhe.
-  720p60 bleibt Messprofil; 480p30 in hoher Qualität auf A18 Pro bleibt eine unbewiesene Hypothese.
-- Alle acht Places aus 2169 sind Pflicht, mindestens einer im Gate. Öffentliche Client-API nutzen;
-  Hash-PNGs unter `build/shots/places/` selbst öffnen, alte Bilder/Pins erhalten. Worktree-Bilder
-  eindeutig auch im Haupt-Checkout ablegen. Fehlende/unvollständige Bilder bleiben rot.
-- Vollständig vorbereiteter Quellcache → frischer Prozess ohne Netzwerk → höchstens zehn Sekunden
-  bis vollständiger Welt. Internet-Erwerb darf davor länger dauern. Danach genau Ziel-fps Frames
-  und 360° in einer Sekunde; nur letzter Frame als PNG in Ausgangsrichtung, p50/p95/p99 messen.
-- Framebudget auch für p99: 1000/Ziel-fps ms. Infrastruktur, Terrain, Wasser, Himmel/Wolken und
-  Vegetation teilen Zeit/Speicher nach Bildgewinn und Kosten, ohne feste Klassenquoten.
-  Profil/Lastfall/Sichtweite/Inhalte bleiben beim Optimierungsvergleich gleich.
-- Korrektheit, Bild, CPU/GPU, RAM/SSD und Laden getrennt in Kalt-/Warmstart/Bewegung prüfen.
-  Budgets nennen Einheit/Herkunft/Lastfall/Profil/Besitzer; Peaks und OS-/Treiberreserve zählen.
-  A18 Pro hat 8 GB Gerätespeicher, kein 8-GB-App-Budget; geteilter Speicher nicht doppelt zählen.
-  Asynchrone Zeiten nicht addieren, Fence-Warten ist keine GPU-Zeit, SSD keine Renderbereitschaft.
-- Überschreitungen sperren das Gate; schlechte Istwerte begründen keine höheren Grenzen.
-  Fehlende Messbarkeit bleibt unbewiesen. CPU-Beweise ersetzen keine Runtime-Abnahme und
-  rechtfertigen allein keine kleinere LOD-Schranke. Tests nur bei belegtem Spezifikationsfehler ändern.
-  Unabhängige Orakel bevorzugen; normale Tests starten keinen Referenzrenderer/ändern keine Pins.
-  Cycles braucht belegtes GPU-Backend; die aktuelle Maschine ersetzt keinen A18-Pro-Nachweis.
-
-## Board und Arbeit
-- Genau ein Parent-WI `active`, darunter 0:N tatsächlich bearbeitete aktive Kinder mit demselben
-  Parent. `open` beliebig; nächste ausführbare Reserve klein. Features statt Prüfchronik:
-  Ergebnis/Ist, Besitzer/Datenfluss, Implementierung/Invarianten und kurze widerlegbare Abnahme.
-  Bevorzugt 80 Zeilen/6 KiB, maximal 120 Zeilen/12 KiB. Gemeinsame Regeln verlinken statt duplizieren.
-- `Depends` nennt nur fehlende technische Verträge, keine Reihenfolge; Priorität getrennt prüfen.
-  Bereiche/Abhängigkeiten/Vision in eigenen Durchgängen prüfen. IDs aus gesamter Git-Historie.
-  Geschlossene/veraltete WIs nach Anforderungsübernahme entfernen, nur wichtige Verträge behalten.
-- WI vor Implementierung in eigenem Commit aktivieren. Vorhandene Änderungen erhalten,
-  kleine vollständige Commits ohne KI-Attribution; kein Commit beendet das Gesamtziel.
-- Relevante Historie/`make help` lesen, mit `rg` zuerst Pfade/Symbole suchen; Ausschnitte ≤160 Zeilen,
-  gewöhnlich ≤2000 Ausgabetokens. Große Dateien beim betroffenen Ausbau nach Besitzern/Phasen teilen.
-  clang-tidy `readability-function-size.LineThreshold=120`, null Befunde; keine Verdichtung/Suppression.
-- Codeänderung: Format, betroffene Tests und fokussiertes clang-tidy samt abhängigen Units;
-  Shader samt Varianten/CPU-GPU-Verträgen, Bildänderungen samt betroffenen Places prüfen.
-  Volles Lint am Integrationsende und nach API-/Modul-/Build-/Prüfregeländerungen, nicht je Kleincommit.
-  Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
-- Ein schwerer Lauf zugleich, Prozesse vorher prüfen. Lange Gates auf eingefrorenem Commit in
-  detached Worktree mit eigenem Build: `LINT_JOBS=2 make lint`. Kein geteilter Build oder paralleles
-  `spotless`. Terminaler Status/Commitzuordnung Pflicht; Codeänderung verlangt neue betroffene Gates.
-- Werkzeuge stabil aktuell halten, nach Updates Referenz-/Orakelherkunft prüfen. Tests unter
-  `test/outshine/{include,src,integration/places}`; Logs nach `${TMPDIR:-/tmp}`, Referenzen nach
-  `build/shots/reference/`, Bildvergleich mit `test/scripts/pixels.py`. Telemetrie nur nach Diagnosebedarf.
-- Ich berichte knapp auf Deutsch: Ergebnis, Commit, tatsächlicher Beleg, offene Qualitätslücke.
+## Code und Arbeit
+- C++23, SDL3/SDL_GPU, GLSL; RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
+  behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
+  Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
+  Typ-/Binärverträge erlaubt. `reaches` und die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
+  `src/` ohne Kommentare, `include/` nur hilfreiches API-Doxygen; Tests dürfen Kommentare haben.
+- Genau ein Parent-WI `active`, darunter 0:N tatsächlich bearbeitete aktive Kinder. `open` beliebig;
+  nächste ausführbare Reserve klein. WIs enthalten Ergebnis/Ist, Besitzer, Umsetzung, fehlende
+  Verträge und kurze Abnahme, keine Prüfchronik. Bevorzugt 80 Zeilen/6 KiB, maximal 120 Zeilen/12 KiB.
+- `Depends` nennt einen fehlenden Vertrag, keine Reihenfolge oder pauschal ein ganzes Subsystem.
+  Prioritäten, Abhängigkeiten und Vision-Abdeckung getrennt prüfen. Gemeinsame Regeln verlinken.
+  Veraltete/abgeschlossene WIs nach Anforderungsübernahme entfernen; wichtige Verträge erhalten.
+  IDs aus gesamter Git-Historie. WI vor Implementierung aktivieren; Änderungen erhalten,
+  kleine vollständige Commits ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
+- Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
+  ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
+  keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.
+- Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und
+  betroffene Places prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
+  nicht je Kleincommit. Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
+- Ein schwerer Lauf zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
+  detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
+  Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
+- Logs ins System-Tempverzeichnis; Referenzen nach `build/shots/reference/`, Bildvergleich mit
+  `test/scripts/pixels.py`. Worktree-Bilder auch eindeutig ins Haupt-Checkout übernehmen.
+  Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.
+- Ich recherchiere normalerweise lokal; beauftragte Anbieter-/API-Recherche und Webcam-Suche
+  erlauben Websuche. Werkzeuge aktuell halten, nach Updates Orakelherkunft prüfen.
+  Ich berichte knapp auf Deutsch: Ergebnis, Commit, Belege und offene Qualitätslücke.
