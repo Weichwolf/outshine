@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_STREAMING_ORIGINALSTRUCTUREPREPARATION_H
-#define OUTSHINE_ENGINE_STREAMING_ORIGINALSTRUCTUREPREPARATION_H
+#ifndef OUTSHINE_GENERATORS_OSM_BUILDINGS_OSMSTRUCTUREPREPARATION_H
+#define OUTSHINE_GENERATORS_OSM_BUILDINGS_OSMSTRUCTUREPREPARATION_H
 
 #include "OsmStructureDescription.h"
 #include "OsmStructureCell.h"
@@ -17,28 +17,25 @@
 #include <vector>
 #include <variant>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 
-class OriginalStructurePreparation {
+class StructurePreparation {
 public:
   enum class Phase : uint8_t { Working, Ready, Failed };
 
   struct Product {
-    std::shared_ptr<const Generators::RawTile> Input;
+    std::shared_ptr<const RawTile> Input;
     std::vector<Data::TileId> HeightTiles;
   };
 
   using SourceInputs = std::vector<std::shared_ptr<const Data::OsmSourceSnapshot>>;
-  using CellInputs = std::vector<std::shared_ptr<const Generators::Osm::StructureCell>>;
+  using CellInputs = std::vector<std::shared_ptr<const StructureCell>>;
   using Inputs = std::variant<SourceInputs, CellInputs>;
 
-  OriginalStructurePreparation(Tasks &pool,
-                               Inputs inputs,
-                               outshine::Generators::Osm::StructurePolicy policy,
-                               int heightZoom);
-  ~OriginalStructurePreparation();
-  OriginalStructurePreparation(const OriginalStructurePreparation &) = delete;
-  OriginalStructurePreparation &operator=(const OriginalStructurePreparation &) = delete;
+  StructurePreparation(Tasks &pool, Inputs inputs, StructurePolicy policy, int heightZoom);
+  ~StructurePreparation();
+  StructurePreparation(const StructurePreparation &) = delete;
+  StructurePreparation &operator=(const StructurePreparation &) = delete;
 
   [[nodiscard]] Phase Poll();
 

@@ -1,4 +1,4 @@
-#include "OriginalStructurePreparation.h"
+#include "OsmStructurePreparation.h"
 #include "StructureInput.h"
 #include "HeightField.h"
 
@@ -22,7 +22,7 @@
 #include <vector>
 #include <variant>
 
-namespace outshine {
+namespace outshine::Generators::Osm {
 namespace {
 
 constexpr long kMaximumHeightBlocks = 64;
@@ -37,12 +37,12 @@ struct OriginalTerrainRange {
 std::expected<OriginalTerrainRange, std::string>
 FootprintTerrainRange(std::span<const double> points, int zoom, const std::stop_token &stop) {
   const long side = static_cast<long>(std::ldexp(1.0, zoom));
-  const auto first =
-      Ground::HeightField::SpotOf({.LongitudeDeg = points[1], .LatitudeDeg = points[0]}, zoom);
+  const auto first = outshine::Ground::HeightField::SpotOf(
+      {.LongitudeDeg = points[1], .LatitudeDeg = points[0]}, zoom);
   OriginalTerrainRange range{.West = first.X, .East = first.X, .North = first.Y, .South = first.Y};
   for (size_t point = 0; point < points.size(); point += 2) {
     if (stop.stop_requested()) { return std::unexpected("original terrain demand canceled"); }
-    const auto at = Ground::HeightField::SpotOf(
+    const auto at = outshine::Ground::HeightField::SpotOf(
         {.LongitudeDeg = points[point + 1], .LatitudeDeg = points[point]}, zoom);
     if (at.Y < 0 || at.Y >= side) {
       return std::unexpected("original building lies outside the terrain grid");
@@ -65,8 +65,8 @@ FootprintTerrainRange(std::span<const double> points, int zoom, const std::stop_
 }
 
 std::expected<std::vector<Data::TileId>, std::string>
-OriginalHeightCoverage(const Generators::RawTile &raw, int zoom, const std::stop_token &stop) {
-  if (zoom < 0 || zoom > Ground::HeightField::MaximumTileZoom) {
+RequiredHeightTiles(const RawTile &raw, int zoom, const std::stop_token &stop) {
+  if (zoom < 0 || zoom > outshine::Ground::HeightField::MaximumTileZoom) {
     return std::unexpected("original buildings require a valid terrain zoom");
   }
   if (raw.Structures.empty()) { return std::vector<Data::TileId>(); }
@@ -82,7 +82,7 @@ OriginalHeightCoverage(const Generators::RawTile &raw, int zoom, const std::stop
     for (long y = range->North; y <= range->South; ++y) {
       for (long x = range->West; x <= range->East; ++x) {
         long column = x;
-        (void)Ground::WrapTile(zoom, &column, &y);
+        (void)outshine::Ground::WrapTile(zoom, &column, &y);
         const Data::TileId tile{
             .Zoom = zoom, .X = static_cast<uint32_t>(column), .Y = static_cast<uint32_t>(y)};
         const auto at = std::ranges::lower_bound(tiles, key(tile), {}, key);
@@ -97,9 +97,9 @@ OriginalHeightCoverage(const Generators::RawTile &raw, int zoom, const std::stop
   return tiles;
 }
 
-std::expected<Generators::RawTile, std::string>
-NativeInput(Generators::Osm::StructureDescription described, std::weak_ptr<const void> archive) {
-  auto raw = Generators::StructureInput(std::move(described.Footprints));
+std::expected<RawTile, std::string> NativeInput(StructureDescription described,
+                                                std::weak_ptr<const void> archive) {
+  auto raw = StructureInput(std::move(described.Footprints));
   if (!raw) { return std::unexpected("native building footprints have an invalid cell"); }
   raw->SourceInputs.Objects = std::move(described.Source);
   raw->SourceInputs.Archive = std::move(archive);
@@ -168,25 +168,24 @@ VerifySources(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> so
       sources, [](const auto &elements) { return elements.Relations(); }, stop);
 }
 
-void RecordConsumedWays(const Generators::RawTile &raw, std::set<uint64_t> &consumedWays) {
-  const auto &source =
-      static_cast<const Generators::Osm::SourceCapture &>(*raw.SourceInputs.Objects);
+void RecordConsumedWays(const RawTile &raw, std::set<uint64_t> &consumedWays) {
+  const auto &source = static_cast<const SourceCapture &>(*raw.SourceInputs.Objects);
   for (const auto &structure : raw.Structures) {
     source.RecordMemberWays(structure.SourceId, consumedWays);
   }
 }
 
-std::expected<std::vector<Generators::RawTile>, std::string>
+std::expected<std::vector<RawTile>, std::string>
 PrepareInputs(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> sources,
-              Generators::Osm::StructurePolicy policy,
+              StructurePolicy policy,
               const std::stop_token &stop) {
   if (auto checked = VerifySources(sources, stop); !checked) {
     return std::unexpected(std::move(checked.error()));
   }
-  std::vector<Generators::RawTile> inputs;
+  std::vector<RawTile> inputs;
   inputs.reserve(sources.size());
   for (const auto &source : sources) {
-    auto description = Generators::Osm::PrepareStructureCell(source, policy, stop);
+    auto description = PrepareStructureCell(source, policy, stop);
     if (!description) { return std::unexpected(std::move(description.error())); }
     auto raw = NativeInput(std::move(*description), source);
     if (!raw) { return std::unexpected(std::move(raw.error())); }
@@ -195,14 +194,14 @@ PrepareInputs(std::span<const std::shared_ptr<const Data::OsmSourceSnapshot>> so
   return inputs;
 }
 
-std::expected<std::vector<Generators::RawTile>, std::string>
-PrepareInputs(std::span<const std::shared_ptr<const Generators::Osm::StructureCell>> cells,
-              [[maybe_unused]] Generators::Osm::StructurePolicy policy,
+std::expected<std::vector<RawTile>, std::string>
+PrepareInputs(std::span<const std::shared_ptr<const StructureCell>> cells,
+              [[maybe_unused]] StructurePolicy policy,
               const std::stop_token &stop) {
-  if (auto checked = Generators::Osm::VerifyStructureCells(cells, stop); !checked) {
+  if (auto checked = VerifyStructureCells(cells, stop); !checked) {
     return std::unexpected(std::move(checked.error()));
   }
-  std::vector<Generators::RawTile> inputs;
+  std::vector<RawTile> inputs;
   inputs.reserve(cells.size());
   for (const auto &cell : cells) {
     if (stop.stop_requested()) { return std::unexpected("native building preparation canceled"); }
@@ -213,9 +212,9 @@ PrepareInputs(std::span<const std::shared_ptr<const Generators::Osm::StructureCe
   return inputs;
 }
 
-std::expected<std::vector<OriginalStructurePreparation::Product>, std::string>
-PrepareProducts(const OriginalStructurePreparation::Inputs &sources,
-                Generators::Osm::StructurePolicy policy,
+std::expected<std::vector<StructurePreparation::Product>, std::string>
+PrepareProducts(const StructurePreparation::Inputs &sources,
+                StructurePolicy policy,
                 int heightZoom,
                 const std::stop_token &stop) {
   auto prepared = std::visit(
@@ -225,7 +224,7 @@ PrepareProducts(const OriginalStructurePreparation::Inputs &sources,
   std::set<uint64_t> consumedWays;
   for (const auto &raw : inputs) { RecordConsumedWays(raw, consumedWays); }
   std::set<std::pair<uint8_t, uint64_t>> owned;
-  std::vector<OriginalStructurePreparation::Product> products;
+  std::vector<StructurePreparation::Product> products;
   products.reserve(inputs.size());
   for (auto &raw : inputs) {
     if (stop.stop_requested()) { return std::unexpected("original building preparation canceled"); }
@@ -245,9 +244,9 @@ PrepareProducts(const OriginalStructurePreparation::Inputs &sources,
                          static_cast<uint8_t>(structure.SourceId.Id >> shift));
       }
     }
-    auto tiles = OriginalHeightCoverage(raw, heightZoom, stop);
+    auto tiles = RequiredHeightTiles(raw, heightZoom, stop);
     if (!tiles) { return std::unexpected(std::move(tiles.error())); }
-    products.push_back({.Input = std::make_shared<const Generators::RawTile>(std::move(raw)),
+    products.push_back({.Input = std::make_shared<const RawTile>(std::move(raw)),
                         .HeightTiles = std::move(*tiles)});
   }
   return products;
@@ -255,8 +254,10 @@ PrepareProducts(const OriginalStructurePreparation::Inputs &sources,
 
 }
 
-OriginalStructurePreparation::OriginalStructurePreparation(
-    Tasks &pool, Inputs inputs, outshine::Generators::Osm::StructurePolicy policy, int heightZoom)
+StructurePreparation::StructurePreparation(Tasks &pool,
+                                           Inputs inputs,
+                                           StructurePolicy policy,
+                                           int heightZoom)
     : Pool_(&pool), Output_(std::make_shared<Output>()) {
   Handle_ = pool.Post([sources = std::move(inputs),
                        policy,
@@ -277,12 +278,12 @@ OriginalStructurePreparation::OriginalStructurePreparation(
   });
 }
 
-OriginalStructurePreparation::~OriginalStructurePreparation() {
+StructurePreparation::~StructurePreparation() {
   (void)Stop_.request_stop();
   if (Handle_ != Tasks::kNoTask) { Pool_->Wait(Handle_); }
 }
 
-OriginalStructurePreparation::Phase OriginalStructurePreparation::Poll() {
+StructurePreparation::Phase StructurePreparation::Poll() {
   if (Handle_ == Tasks::kNoTask || !Pool_->TakeCompletion(Handle_)) { return Phase_; }
   Handle_ = Tasks::kNoTask;
   if (Output_->Value) {
@@ -297,7 +298,7 @@ OriginalStructurePreparation::Phase OriginalStructurePreparation::Poll() {
   return Phase_;
 }
 
-bool OriginalStructurePreparation::AwaitSlice(double seconds) const {
+bool StructurePreparation::AwaitSlice(double seconds) const {
   return Handle_ != Tasks::kNoTask && Pool_->AwaitCompletion(seconds);
 }
 

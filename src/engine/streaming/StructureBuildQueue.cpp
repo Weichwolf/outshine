@@ -550,7 +550,7 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
     outshine::Generators::Osm::StructurePolicy policy,
     int heightZoom) {
   return PrepareOriginalInputs(
-      OriginalStructurePreparation::SourceInputs(sources.begin(), sources.end()),
+      Generators::Osm::StructurePreparation::SourceInputs(sources.begin(), sources.end()),
       policy,
       heightZoom);
 }
@@ -558,11 +558,13 @@ std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
 std::expected<bool, std::string> StructureBuildQueue::PrepareOriginal(
     std::span<const std::shared_ptr<const Generators::Osm::StructureCell>> cells, int heightZoom) {
   return PrepareOriginalInputs(
-      OriginalStructurePreparation::CellInputs(cells.begin(), cells.end()), {}, heightZoom);
+      Generators::Osm::StructurePreparation::CellInputs(cells.begin(), cells.end()),
+      {},
+      heightZoom);
 }
 
 std::expected<bool, std::string>
-StructureBuildQueue::PrepareOriginalInputs(OriginalStructurePreparation::Inputs inputs,
+StructureBuildQueue::PrepareOriginalInputs(Generators::Osm::StructurePreparation::Inputs inputs,
                                            Generators::Osm::StructurePolicy policy,
                                            int heightZoom) {
   const auto sources = std::visit(
@@ -578,9 +580,9 @@ StructureBuildQueue::PrepareOriginalInputs(OriginalStructurePreparation::Inputs 
                       PreparingOriginalHeightZoom_ == heightZoom;
     if (!same) { OriginalPreparation_->Cancel(); }
     const auto phase = OriginalPreparation_->Poll();
-    if (phase == OriginalStructurePreparation::Phase::Working) { return false; }
+    if (phase == Generators::Osm::StructurePreparation::Phase::Working) { return false; }
     if (same) {
-      if (phase == OriginalStructurePreparation::Phase::Failed) {
+      if (phase == Generators::Osm::StructurePreparation::Phase::Failed) {
         return std::unexpected(std::string(OriginalPreparation_->Error()));
       }
       const auto products = OriginalPreparation_->Products();
@@ -610,8 +612,8 @@ StructureBuildQueue::PrepareOriginalInputs(OriginalStructurePreparation::Inputs 
   }
   PreparingOriginals_.assign(sources.begin(), sources.end());
   PreparingOriginalHeightZoom_ = heightZoom;
-  OriginalPreparation_ =
-      std::make_unique<OriginalStructurePreparation>(*Pool_, std::move(inputs), policy, heightZoom);
+  OriginalPreparation_ = std::make_unique<Generators::Osm::StructurePreparation>(
+      *Pool_, std::move(inputs), policy, heightZoom);
   return false;
 }
 

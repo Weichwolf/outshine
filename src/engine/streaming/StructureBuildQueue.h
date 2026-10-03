@@ -16,7 +16,7 @@
 #include "math/Vec3.h"
 
 #include "HeightField.h"
-#include "OriginalStructurePreparation.h"
+#include "OsmStructurePreparation.h"
 #include "SurfacePreparation.h"
 #include "StructureBake.h"
 #include "StructureBuildTask.h"
@@ -398,13 +398,13 @@ private:
   size_t DeferredPreparationAt_ = 0;
   uint64_t PreparationTick_ = 0;
   Tasks *Pool_ = nullptr;
-  std::unique_ptr<OriginalStructurePreparation> OriginalPreparation_;
+  std::unique_ptr<Generators::Osm::StructurePreparation> OriginalPreparation_;
   std::vector<std::shared_ptr<const void>> PreparingOriginals_;
   [[nodiscard]] std::expected<bool, std::string>
-  PrepareOriginalInputs(OriginalStructurePreparation::Inputs inputs,
+  PrepareOriginalInputs(Generators::Osm::StructurePreparation::Inputs inputs,
                         Generators::Osm::StructurePolicy policy,
                         int heightZoom);
-  std::vector<OriginalStructurePreparation::Product> Originals_;
+  std::vector<Generators::Osm::StructurePreparation::Product> Originals_;
   [[nodiscard]] const Data::SourceObjects *InputObjectsFor(uint32_t tile) const noexcept;
   std::vector<Data::TileId> OriginalHeightTiles_;
   int OriginalHeightZoom_ = -1;

@@ -91,7 +91,7 @@ begrenzt jeden OSM-Response auf 4 MiB. Vollständige warme Place-Abdeckung ist n
   CellCompiler überführt jede dekodierte Zelle auf dem gemeinsamen Compute-Worker in native
   Inputs vor dem vollständigen Erwerb. StructureCell hält Gebäudegrundrisse, konsumierte
   Referenzhüllen samt Tags und binäre SHA-256-Identitäten aller Originalobjekte; vollständige
-  Archive werden freigegeben. OriginalStructurePreparation prüft Überlappungen und globale
+  Archive werden freigegeben. Osm::StructurePreparation prüft Überlappungen und globale
   Relations-/Objektbesitzer, bevor StructureBuildQueue Terrainbedarf und Weltprodukte liefert.
   2188s öffentlicher Lebenszyklus und 2336s Detailbedarf vor Terrainarbeit bleiben offen.
   SourceAcquisition trennt Cache-Vorbereitung von residenten Eingaben: dekodierte Zellen

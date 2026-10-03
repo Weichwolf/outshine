@@ -16,7 +16,7 @@ verwenden dieselben öffentlichen Verträge. Vorhandene Systeme migrieren; keine
 ProviderRegistry/SourceSet, native Geometry/Material, Double-Welt und kamera-relative
 GPU-Daten bestehen. Generate::Request und native Gebäude-/Straßenaufträge tragen ProjectedErrorBudget.
 Revisionen/Produktschlüssel erfassen Qualität; Abstand/Produktschranken und Generatorlebenszyklus fehlen.
-Native StructureBake-Pfade umgehen den Generatorlebenszyklus; OriginalStructurePreparation nutzt einen heightZoom.
+Native StructureBake-Pfade umgehen den Generatorlebenszyklus; Osm::StructurePreparation nutzt einen heightZoom.
 RawTile hält SourceObjects mit schwachem Archivbezug; OSM besitzt den geschlossenen SourceCapture. BuildingGeometry hält
 native Polygone/Quellbelege; StructureFootprints/BuildingHeightInterval tragen native Ringe/Höhen. OSM-Tagparser,
 Grundrisse und Strukturadapter gehören generators/osm/buildings. Archive bleiben im Quellenladepfad. SimulationState integriert bisher
@@ -30,7 +30,7 @@ liegt unter generators/terrain; world hält nur den immutable Klassifikationssna
 Fine/Coarse behalten ihren Raumbezug und die jeweils konsumierte Quellrevision.
 GroundClassBuffer besitzt GPU-Packing und Digest unter render; ClassStructure bleibt ein natives CPU-Produkt.
 Engine publiziert beide zusammen; render hält nur seinen Uploadpuffer. Native Netze halten keine
-Quellarchive. OSM-Provider, Erwerb, Zellverfeinerung und Netz-/Routenaufbau liegen unter generators/osm und nutzen geliehene Engine-Queues. Generische Quellenkonfiguration erhält den Registry-Auftrag explizit; Builtin-Komposition liegt unter generators. Decoder/Validierung in world/data und konkrete Engine-Kopplung bleiben offen.
+Quellarchive. OSM-Provider, Erwerb, Zellverfeinerung, Strukturvorbereitung und Netz-/Routenaufbau liegen unter generators/osm und nutzen geliehene Engine-Queues. Generische Quellenkonfiguration erhält den Registry-Auftrag explizit; Builtin-Komposition liegt unter generators. Decoder/Validierung in world/data und konkrete Engine-Kopplung bleiben offen.
 
 ## Zuständigkeiten und gerichteter Datenfluss
 | Besitzer | Eingabe → Ausgabe | Grenze |
