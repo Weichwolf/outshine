@@ -22,7 +22,9 @@ erreicht die Gebäudeerzeugung; native Gebäudeteile erhalten auch negative Unte
 ohne künstliche Sockel oder Terrain-Abgrabungen. Die Gebäudequeue pinnt exakte
 Quellraster ohne zweite Samplespeicher. Residenter Höhenbedarf reserviert die
 Revisionsmetadaten samt Nachbar-Stencil; Snapshots teilen die Reservierung bis zur letzten
-Nutzung. Laufzeitabnahme und vollständige aktuelle Bilder fehlen.
+Nutzung. Wien publiziert Terrain und beendet die Gebäude-Quellaufbereitung, wartet aber
+noch auf Gebäude-Zellprodukte und Vegetationsprototypen. Laufzeit-/Speicherbudget und
+vollständige aktuelle Bilder fehlen.
 
 ## Architekturentscheidung und Besitzer
 2188 besitzt öffentliche Erweiterungs-/Produktverträge. `generators/osm` besitzt MVT/XML,
@@ -45,7 +47,9 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
    veröffentlichte Downloads sind ein eigener Lieferweg. Kein SLA aus Stichproben behaupten.
    Mapterhorn-Attribution/Quellenauflösung erhalten. Open-Meteo-Free ist nichtkommerziell;
    kommerzielles Archiv benötigt Professional+, dessen Endpoint ungemessen ist.
-2. OpenMapTiles-Gebäude/Parts, Straßen und Gewässer bis zum vollständigen Wien-Bild integrieren.
+2. Nach der Terrain-Publikation Zellprodukte bis zum vollständigen Wien-Bild liefern;
+   übergroße Quellvorbereitung darf nicht dauerhaft als wartender Auftrag verschwinden.
+   OpenMapTiles-Gebäude/Parts, Straßen und Gewässer integriert erhalten.
    Vorhandene Originalreader bleiben Bibliotheksfähigkeit,
    kein Client-Fallback auf Editing-API. Diese API ist für unseren Bulk-Bedarf ungeeignet.
 3. Vollständiges 240-km-/Höhenbedarfsmanifest aus 2336 vorbereiten; nur benötigte Hierarchiestufen

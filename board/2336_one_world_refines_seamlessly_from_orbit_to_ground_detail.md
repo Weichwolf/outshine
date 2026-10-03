@@ -26,6 +26,9 @@ Quellenumfang und konservative Abdeckung erst belegen; deshalb `planned`.
 
 ## Verfahren und nächste Lieferung
 1. Entfernung/Projektion/erlaubten Fehler vor Gebäudemesh und Terrainbedarf auswerten.
+   Zellaufträge pinnen nur benötigte Raster; Parent-Belege bleiben getrennt erhalten.
+   Eine große Kachel darf einen kleinen Auftrag nicht an der Vorbereitungsgrenze sperren.
+   Batches nach tatsächlichem Bedarf teilen, bestehende Grenzen nicht erhöhen.
    Native Fernverbände bündeln, vorhandene Rundumsicht halten; danach Flug-/Orbitbedarf.
 2. Gebäude: Fernverband → Massing → Hülle → Nahdetails. Vegetation teilt Auswahl/Residency
    mit Fernwald → Kronen/Bäume → Äste/Blätter → Nahboden. Seeds/Form bleiben stabil.
