@@ -29,8 +29,6 @@ struct Line {
 constexpr double kSamePointM = 0.01;
 constexpr double kWeldM = 0.02;
 constexpr double kOnLineM = kWeldM;
-constexpr double kOverhangM = 0.60;
-constexpr double kCorniceM = 0.16;
 constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
 constexpr double kCourtyardAreaToleranceM2 = 1.0e-6;
@@ -226,8 +224,11 @@ int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
   const double d = s.HalfUm - s.HalfVm;
   switch (s.Roof) {
     case RoofKind::Flat:
-    case RoofKind::Shed:
-    case RoofKind::Dome: return 0;
+    case RoofKind::Shed: return 0;
+    case RoofKind::Dome:
+      lines[0] = {.A = 1.0, .B = 0.0, .C = 0.0};
+      lines[1] = {.A = 0.0, .B = 1.0, .C = 0.0};
+      return 2;
     case RoofKind::Gable: lines[0] = {.A = 0.0, .B = 1.0, .C = 0.0}; return 1;
     case RoofKind::Hip:
       lines[0] = {.A = 0.0, .B = 1.0, .C = 0.0};
@@ -253,25 +254,6 @@ int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
     }
   }
   return 0;
-}
-
-void Refine(std::vector<EastNorth> &tris, std::vector<EastNorth> &out, int passes) {
-  for (int p = 0; p < passes; p++) {
-    out.clear();
-    for (size_t i = 0; i + 2 < tris.size(); i += 3) {
-      const EastNorth a = tris[i];
-      const EastNorth b = tris[i + 1];
-      const EastNorth c = tris[i + 2];
-      const EastNorth ab{.EastM = 0.5 * (a.EastM + b.EastM), .NorthM = 0.5 * (a.NorthM + b.NorthM)};
-      const EastNorth bc{.EastM = 0.5 * (b.EastM + c.EastM), .NorthM = 0.5 * (b.NorthM + c.NorthM)};
-      const EastNorth ca{.EastM = 0.5 * (c.EastM + a.EastM), .NorthM = 0.5 * (c.NorthM + a.NorthM)};
-      PushTri(out, a, ab, ca);
-      PushTri(out, ab, b, bc);
-      PushTri(out, ca, bc, c);
-      PushTri(out, ab, bc, ca);
-    }
-    tris.swap(out);
-  }
 }
 
 }
@@ -449,13 +431,6 @@ void RoofSurface::Cover(std::span<const EastNorth> plan,
     }
   }
   if (mine.empty()) { return; }
-  if (Shape_.Roof == RoofKind::Dome) { Refine(mine, scratch.Refined, 4); }
-  for (size_t at = 0; at + 2 < mine.size(); at += 3) {
-    for (size_t corner = 0; corner < 3; ++corner) {
-      const double reach = 4.0 * std::max({Shape_.OverhangM, kCorniceM, kOverhangM});
-      if (!Inside(Shape_.Ring, mine[at + corner], reach)) { break; }
-    }
-  }
   tris.insert(tris.end(), mine.begin(), mine.end());
 }
 
