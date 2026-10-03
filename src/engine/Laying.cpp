@@ -1772,6 +1772,8 @@ std::string Engine::State::GroundBuildDiagnostic() const {
   diagnostic +=
       ", footprints ingested=" +
       std::to_string(static_cast<int>(vectors != nullptr && footprints.Ingested(*vectors)));
+  diagnostic +=
+      ", terrain fields=" + World.GroundBuild->Candidate().Products().Sheets.FieldDiagnostic();
   const auto *pinned = World.GroundBuild->Candidate().Sources().Vectors.get();
   diagnostic +=
       ", vector generations=" + std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +

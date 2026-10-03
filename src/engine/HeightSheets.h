@@ -97,6 +97,8 @@ public:
                                                                const Ground::GroundStream &ground,
                                                                FieldPreparation preparation);
 
+  [[nodiscard]] std::string FieldDiagnostic() const;
+
   [[nodiscard]] bool RefineByError(Patchwork &candidate,
                                    Generators::TerrainPageLayout layout,
                                    Generators::TerrainRefinementDetail detail,

@@ -167,6 +167,17 @@ std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &ca
   return ResolvedRequests_ == Requests_.size();
 }
 
+std::string HeightSheets::FieldDiagnostic() const {
+  std::string result = std::to_string(ResolvedRequests_) + "/" + std::to_string(Requests_.size());
+  const auto pending = std::ranges::find(Requests_, false, &FieldRequest::Resolved);
+  if (pending != Requests_.end()) {
+    const auto tile = pending->Tile;
+    result += " next=" + std::to_string(tile.Zoom) + "/" + std::to_string(tile.X) + "/" +
+              std::to_string(tile.Y);
+  }
+  return result;
+}
+
 std::optional<float> HeightSheets::AslAt(int zoom, Ground::TileFrac at) const {
   long x = static_cast<long>(std::floor(at.X));
   const long y = static_cast<long>(std::floor(at.Y));
