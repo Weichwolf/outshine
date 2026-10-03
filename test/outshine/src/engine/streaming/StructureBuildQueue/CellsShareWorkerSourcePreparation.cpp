@@ -120,12 +120,22 @@ int main() {
                     .Revision = "original"});
   HeightField::Block block;
   CHECK(HeightField::SharesField(field, demTile, block), "shared analytic constant-height world");
-  auto pinned = HeightField::Of(0, {block});
+  HeightField::Block near, remote;
+  CHECK(HeightField::ResamplesSourcedAncestor(*field, demTile, {.Zoom = 1, .X = 1, .Y = 0}, near) &&
+            HeightField::ResamplesSourcedAncestor(
+                *field, demTile, {.Zoom = 1, .X = 0, .Y = 1}, remote),
+        "one source includes both requested and unrelated terrain regions");
+  auto pinned = HeightField::Of(1, {near, remote});
   ::outshine::Generators::Osm::BuildingField &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000);
   prints.SeenWith({.FocalPx = 720});
   ::outshine::Generators::Osm::BuildingField::Baked accepted{.OccupiedCells = 255};
+  for (size_t at = 0; at < spread.size(); ++at) {
+    const auto &ring = spread[at].LatLon;
+    accepted.CellBounds[at] = {
+        .MinLonDeg = ring[1], .MinLatDeg = ring[0], .MaxLonDeg = ring[3], .MaxLatDeg = ring[4]};
+  }
   prints.PreparesAcceptances({.Tiles = 1});
   prints.Take(0);
   auto pending = prints.PrepareAcceptance(0,
@@ -138,7 +148,7 @@ int main() {
                                            .Projection = {.FocalPx = 720},
                                            .TileSpanM = 1000,
                                            .Eye = eye},
-                                          {},
+                                          1,
                                           pinned->CaptureRequest());
   prints.CommitAcceptance(std::move(pending), *vectors, accepted);
   const auto key = StructureBuildQueue::QualifiedSourceKey(prints, 0);
@@ -149,6 +159,7 @@ int main() {
   StructureBuildQueue queue;
   queue.Opens(&pool, &mesher);
   size_t captures = 0;
+  bool onlyRequiredTerrain = true;
   size_t frameCopies = 0;
   const std::array<SourcedTerrainFields::Entry, 1> fields{{{demTile, field}}};
   const StructureBuildQueue::HeightSource heights{
@@ -160,9 +171,13 @@ int main() {
       .ResidentField = [&field, demTile](Data::TileId at) -> std::shared_ptr<const TerrainField> {
         return at == demTile ? field : nullptr;
       },
+      .Revision = {.Value = 1},
       .CaptureFields =
-          [&captures, &fields](std::span<const TileSpot> requests, size_t bytesMost) {
+          [&captures, &fields, &onlyRequiredTerrain](std::span<const TileSpot> requests,
+                                                     size_t bytesMost) {
             ++captures;
+            onlyRequiredTerrain &= requests.size() == 1 && requests.front().Zoom == 1 &&
+                                   requests.front().X == 1 && requests.front().Y == 0;
             return SourcedTerrainFields::Capture(fields, requests, bytesMost);
           }};
   std::array<StructureBuildQueue::CellRequest, 8> requests;
@@ -172,9 +187,17 @@ int main() {
                     .Detail = at % 2 == 0 ? LevelOfDetail::Fine : LevelOfDetail::Massed,
                     .SourceKey = *key};
   }
+  auto oversized = heights;
+  oversized.CaptureFields =
+      [](std::span<const TileSpot>,
+         size_t) -> std::expected<SourcedTerrainFields, SourcedTerrainFields::CaptureError> {
+    return std::unexpected(SourcedTerrainFields::CaptureError::OverBudget);
+  };
+  CHECK(!queue.PostsCells(stack, prints, eye, oversized, requests) && queue.QueuedCells() == 0,
+        "an impossible input budget returns an error without leaving a permanently deferred job");
   CHECK(queue.PostsCells(stack, prints, eye, heights, requests) == 8 && captures == 1 &&
-            queue.QueuedCells() == 8 && frameCopies == 0,
-        "eight mixed-detail demands reserve one immutable preparation without a frame resolver");
+            queue.QueuedCells() == 8 && frameCopies == 0 && onlyRequiredTerrain,
+        "eight cells reserve only their terrain region and exclude the remote parent input");
   CHECK(queue.PostsCells(stack, prints, eye, heights, requests) == 0 && captures == 1,
         "queued demand cannot reserve a duplicate preparation");
   const auto revision = prints.Revision();
@@ -206,7 +229,7 @@ int main() {
   CHECK(queue.PostsCells(stack, prints, eye, heights, requests) == 8 && captures == 2,
         "completed demand releases its preparation rather than becoming a persistent cache");
   auto changed = heights;
-  changed.Revision.Value = 1;
+  changed.Revision.Value = 2;
   for (size_t attempt = 0; attempt < 100 && queue.QueuedCells() != 0; ++attempt) {
     auto result = queue.NextCellLanding(stack, prints, changed);
     CHECK(result && !*result, "source revision replacement prevents old batch publication");

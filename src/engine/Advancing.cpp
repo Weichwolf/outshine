@@ -341,17 +341,19 @@ bool Engine::State::AdvanceStructureCells(const StructureBuildQueue::HeightSourc
       nextTile();
       return true;
     }
-    if (plan.MissingCount != 0) {
-      const size_t posted =
-          World.StructureBuilds.PostsCells(World.Stack,
-                                           World.Stack.Footprints(),
-                                           eye,
-                                           heightAt,
-                                           std::span(plan.MissingBatch).first(plan.MissingCount));
-      if (posted != 0) {
-        World.StructureCellsPosted += posted;
-        return true;
-      }
+    const auto posted =
+        World.StructureBuilds.PostsCells(World.Stack,
+                                         World.Stack.Footprints(),
+                                         eye,
+                                         heightAt,
+                                         std::span(plan.MissingBatch).first(plan.MissingCount));
+    if (!posted) {
+      Error = posted.error();
+      return false;
+    }
+    if (*posted != 0) {
+      World.StructureCellsPosted += *posted;
+      return true;
     }
     if (!plan.Complete &&
         World.StructureBuilds.Queued() + World.StructureBuilds.QueuedCells() > 0) {

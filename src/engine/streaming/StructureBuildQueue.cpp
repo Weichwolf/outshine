@@ -407,6 +407,30 @@ bool PinnedHeightsResident(const Ground::HeightField &pinned,
   });
 }
 
+Ground::HeightField::Request
+CellHeightRequest(const Generators::Osm::BuildingField::AcceptedInput &accepted,
+                  std::span<const StructureBuildQueue::CellRequest> cells) {
+  if (accepted.HeightRevision == 0) { return accepted.Heights; }
+  Ground::HeightField::Request request{.Zoom = accepted.Heights.Zoom, .Tiles = {}};
+  for (const auto tile : accepted.Heights.Tiles) {
+    const auto bounds = Ground::TileBounds({.Zoom = tile.Zoom,
+                                            .X = static_cast<uint32_t>(tile.X),
+                                            .Y = static_cast<uint32_t>(tile.Y)});
+    if (std::ranges::any_of(cells, [&](const auto cell) {
+          const auto &footprint = accepted.CellBounds[cell.Cell - 1u];
+          const double shift = kDegPerTurn * std::round((footprint.MinLonDeg + footprint.MaxLonDeg -
+                                                         bounds.MinLonDeg - bounds.MaxLonDeg) /
+                                                        (2.0 * kDegPerTurn));
+          return footprint.MinLonDeg <= bounds.MaxLonDeg + shift &&
+                 footprint.MaxLonDeg >= bounds.MinLonDeg + shift &&
+                 footprint.MinLatDeg <= bounds.MaxLatDeg && footprint.MaxLatDeg >= bounds.MinLatDeg;
+        })) {
+      request.Tiles.push_back(tile);
+    }
+  }
+  return request;
+}
+
 struct RefinementSelection {
   std::optional<::outshine::Generators::Osm::TileWatermark::Next> Next;
   bool Deferred = false;
@@ -793,27 +817,6 @@ void StructureBuildQueue::ResumeCompletedTasks() {
   resume(CellQueue_);
 }
 
-void StructureBuildQueue::DeferPreparation(uint32_t tile,
-                                           uint64_t sourceKey,
-                                           uint64_t generation,
-                                           const HeightSource &heightAt,
-                                           bool permanent) {
-  auto *found = std::ranges::find_if(DeferredPreparations_, [&](const auto &held) {
-    return held.Tile == tile && held.SourceKey == sourceKey && held.Generation == generation &&
-           held.Revision == heightAt.Revision;
-  });
-  if (found == DeferredPreparations_.end()) {
-    found = DeferredPreparations_.begin() + static_cast<ptrdiff_t>(DeferredPreparationAt_);
-    DeferredPreparationAt_ = (DeferredPreparationAt_ + 1u) % DeferredPreparations_.size();
-    *found = {.Generation = generation,
-              .Revision = heightAt.Revision,
-              .SourceKey = sourceKey,
-              .Tile = tile};
-  }
-  found->Until = permanent ? std::numeric_limits<uint64_t>::max() : PreparationTick_ + found->Delay;
-  found->Delay = std::min(found->Delay * 2u, uint64_t{16});
-}
-
 size_t StructureBuildQueue::QueuedCells() const {
   size_t count = CellQueue_.size();
   for (const auto &batch : PreparedCells_) {
@@ -822,11 +825,12 @@ size_t StructureBuildQueue::QueuedCells() const {
   return count;
 }
 
-size_t StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
-                                       ::outshine::Generators::Osm::BuildingField &footprints,
-                                       LongitudeLatitude eye,
-                                       const HeightSource &heightAt,
-                                       std::span<const CellRequest> requests) {
+std::expected<size_t, std::string>
+StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
+                                ::outshine::Generators::Osm::BuildingField &footprints,
+                                LongitudeLatitude eye,
+                                const HeightSource &heightAt,
+                                std::span<const CellRequest> requests) {
   if (requests.empty() || requests.size() > 8 || Pool_ == nullptr || Mesher_ == nullptr ||
       !heightAt.CaptureFields || !footprints.Anchored()) {
     return 0;
@@ -842,13 +846,6 @@ size_t StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
       StreetDigest(stack.Ways(), *vectors, first.Tile) != accepted->Bake.StreetDigest) {
     return 0;
   }
-  for (const auto &deferred : DeferredPreparations_) {
-    if (deferred.Tile == first.Tile && deferred.SourceKey == first.SourceKey &&
-        deferred.Generation == vectors->Generation() && deferred.Revision == heightAt.Revision &&
-        PreparationTick_ < deferred.Until) {
-      return 0;
-    }
-  }
   uint64_t cells = 0;
   for (const auto request : requests) {
     if (request.Tile != first.Tile || request.SourceKey != first.SourceKey || request.Cell == 0 ||
@@ -862,6 +859,10 @@ size_t StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
   }
   auto *const slot = std::ranges::find(PreparedCells_, nullptr);
   if (slot == PreparedCells_.end()) { return 0; }
+  const auto heightRequest = CellHeightRequest(*accepted, requests);
+  if (heightRequest.Tiles.empty()) {
+    return std::unexpected("structure cells have no resident terrain coverage");
+  }
   constexpr size_t bytesMost = size_t{8} * 1024u * 1024u;
   size_t receiptBytes = sizeof(PreparedCells) + sizeof(StructureSourcePreparation) +
                         accepted->Heights.Tiles.size() * sizeof(Ground::TileSpot) +
@@ -872,18 +873,21 @@ size_t StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
   for (const auto &source : accepted->Sources) { receiptBytes += sourceBytes(source); }
   if (accepted->Vector) { receiptBytes += sourceBytes(*accepted->Vector); }
   if (receiptBytes >= bytesMost) {
-    DeferPreparation(first.Tile, first.SourceKey, vectors->Generation(), heightAt, true);
-    return 0;
+    return std::unexpected("structure input metadata exceeds its 8 MiB preparation budget");
   }
-  auto captured = heightAt.CaptureFields(accepted->Heights.Tiles, bytesMost - receiptBytes);
+  auto captured = heightAt.CaptureFields(heightRequest.Tiles, bytesMost - receiptBytes);
   if (!captured) {
-    DeferPreparation(first.Tile,
-                     first.SourceKey,
-                     vectors->Generation(),
-                     heightAt,
-                     captured.error() != SourcedTerrainFields::CaptureError::MissingSource);
-    ++Deferred_;
-    return 0;
+    if (captured.error() == SourcedTerrainFields::CaptureError::OverBudget && requests.size() > 1) {
+      return PostsCells(stack, footprints, eye, heightAt, requests.first(requests.size() / 2));
+    }
+    switch (captured.error()) {
+      case SourcedTerrainFields::CaptureError::MissingSource:
+        return std::unexpected("structure cell terrain is missing from the resident world");
+      case SourcedTerrainFields::CaptureError::InvalidRequest:
+        return std::unexpected("structure cell terrain request is invalid");
+      case SourcedTerrainFields::CaptureError::OverBudget:
+        return std::unexpected("one structure cell exceeds its 8 MiB terrain preparation budget");
+    }
   }
   auto batch = std::make_shared<PreparedCells>();
   batch->Receipt = *accepted;
@@ -893,22 +897,26 @@ size_t StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
   batch->Revision = heightAt.Revision;
   batch->Eye = eye;
   batch->Preparation = std::make_unique<StructureSourcePreparation>(
-      *Pool_, accepted->Heights, std::move(*captured), bytesMost - receiptBytes);
+      *Pool_, heightRequest, std::move(*captured), bytesMost - receiptBytes);
   (void)batch->Preparation->Advance();
   *slot = std::move(batch);
   return requests.size();
 }
 
-void StructureBuildQueue::AdvancePreparedCells(
+std::expected<void, Generators::StructureBakeError> StructureBuildQueue::AdvancePreparedCells(
     const Ground::SurfacePreparation &stack,
     const ::outshine::Generators::Osm::BuildingField &footprints,
     const HeightSource &heightAt) {
   for (auto &batch : PreparedCells_) {
-    if (batch) { AdvancePreparedCell(batch, stack, footprints, heightAt); }
+    if (batch) {
+      const auto result = AdvancePreparedCell(batch, stack, footprints, heightAt);
+      if (!result) { return std::unexpected(result.error()); }
+    }
   }
+  return {};
 }
 
-void StructureBuildQueue::AdvancePreparedCell(
+std::expected<void, Generators::StructureBakeError> StructureBuildQueue::AdvancePreparedCell(
     std::shared_ptr<PreparedCells> &batch,
     const Ground::SurfacePreparation &stack,
     const ::outshine::Generators::Osm::BuildingField &footprints,
@@ -944,22 +952,23 @@ void StructureBuildQueue::AdvancePreparedCell(
     batch->Preparation->Cancel();
   }
   const auto state = batch->Preparation->Advance();
-  if (state == StructureSourcePreparation::State::Preparing) { return; }
+  if (state == StructureSourcePreparation::State::Preparing) { return {}; }
   if (batch->Revoked) {
     if (batch.use_count() == 1) { batch.reset(); }
-    return;
+    return {};
   }
   if (state != StructureSourcePreparation::State::Ready) {
-    DeferPreparation(request.Tile, request.SourceKey, batch->Generation, heightAt, true);
     batch.reset();
-    return;
+    return std::unexpected(state == StructureSourcePreparation::State::OverBudget
+                               ? Generators::StructureBakeErrorKind::HeightInputCapacityExceeded
+                               : Generators::StructureBakeErrorKind::InvalidHeightInput);
   }
   const auto heights = batch->Preparation->Result();
-  if (heights->RasterDigest() != receipt.Bake.HeightRasterDigest ||
-      !std::ranges::equal(heights->Sources(), receipt.Sources)) {
-    DeferPreparation(request.Tile, request.SourceKey, batch->Generation, heightAt, true);
+  if (!heights->Certificate().ScopeCurrent(heightAt.Revision.Value) ||
+      (receipt.HeightRevision == 0 && (heights->RasterDigest() != receipt.Bake.HeightRasterDigest ||
+                                       !std::ranges::equal(heights->Sources(), receipt.Sources)))) {
     batch.reset();
-    return;
+    return std::unexpected(Generators::StructureBakeErrorKind::InvalidHeightInput);
   }
   if (batch->Next < batch->Count &&
       PostPreparedCell(
@@ -967,6 +976,7 @@ void StructureBuildQueue::AdvancePreparedCell(
     ++batch->Next;
   }
   if (batch->Next == batch->Count && batch.use_count() == 1) { batch.reset(); }
+  return {};
 }
 
 bool StructureBuildQueue::PostsCell(Ground::SurfacePreparation &stack,
@@ -1502,10 +1512,7 @@ bool StructureBuildQueue::ValidateCellLandingSource(
     ++FastCellValidations_;
     return true;
   }
-  if (bake.ReservationOwner) {
-    DeferPreparation(bake.Task.Tile(), bake.SourceKey, bake.Revision.Vectors, heightAt, false);
-    return false;
-  }
+  if (bake.ReservationOwner) { return false; }
   double resolutionMs = 0.0;
   if (!ValidateCellSource(stack,
                           *vectors,
@@ -1526,8 +1533,8 @@ StructureBuildQueue::NextCellLanding(const Ground::SurfacePreparation &stack,
                                      const ::outshine::Generators::Osm::BuildingField &footprints,
                                      const HeightSource &heightAt) {
   if (Pool_ == nullptr) { return std::nullopt; }
-  ++PreparationTick_;
-  AdvancePreparedCells(stack, footprints, heightAt);
+  const auto advanced = AdvancePreparedCells(stack, footprints, heightAt);
+  if (!advanced) { return std::unexpected(advanced.error()); }
   if (CellQueue_.empty()) { return std::nullopt; }
   QueuedBuild &bake = CellQueue_.front();
   const auto discard = [this, &bake] {
@@ -1705,9 +1712,6 @@ void StructureBuildQueue::Clear() {
   IdleScratch_.clear();
   PinnedCellHeight_.reset();
   PreparedCells_ = {};
-  DeferredPreparations_ = {};
-  DeferredPreparationAt_ = 0;
-  PreparationTick_ = 0;
 }
 
 }

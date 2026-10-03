@@ -168,11 +168,12 @@ public:
                                const HeightSource &heightAt,
                                CellRequest request);
 
-  [[nodiscard]] size_t PostsCells(Ground::SurfacePreparation &stack,
-                                  ::outshine::Generators::Osm::BuildingField &footprints,
-                                  LongitudeLatitude eye,
-                                  const HeightSource &heightAt,
-                                  std::span<const CellRequest> requests);
+  [[nodiscard]] std::expected<size_t, std::string>
+  PostsCells(Ground::SurfacePreparation &stack,
+             ::outshine::Generators::Osm::BuildingField &footprints,
+             LongitudeLatitude eye,
+             const HeightSource &heightAt,
+             std::span<const CellRequest> requests);
 
   struct Landing {
     uint32_t Tile = 0;
@@ -361,19 +362,21 @@ private:
     bool Revoked = false;
   };
 
-  void AdvancePreparedCell(std::shared_ptr<PreparedCells> &batch,
-                           const Ground::SurfacePreparation &stack,
-                           const ::outshine::Generators::Osm::BuildingField &footprints,
-                           const HeightSource &heightAt);
+  [[nodiscard]] std::expected<void, Generators::StructureBakeError>
+  AdvancePreparedCell(std::shared_ptr<PreparedCells> &batch,
+                      const Ground::SurfacePreparation &stack,
+                      const ::outshine::Generators::Osm::BuildingField &footprints,
+                      const HeightSource &heightAt);
   [[nodiscard]] bool
   ValidateCellLandingSource(const Ground::SurfacePreparation &stack,
                             const ::outshine::Generators::Osm::BuildingField &footprints,
                             const HeightSource &heightAt,
                             const QueuedBuild &bake);
   void RetireCellBuilds(BuildPurpose purpose);
-  void AdvancePreparedCells(const Ground::SurfacePreparation &stack,
-                            const ::outshine::Generators::Osm::BuildingField &footprints,
-                            const HeightSource &heightAt);
+  [[nodiscard]] std::expected<void, Generators::StructureBakeError>
+  AdvancePreparedCells(const Ground::SurfacePreparation &stack,
+                       const ::outshine::Generators::Osm::BuildingField &footprints,
+                       const HeightSource &heightAt);
   [[nodiscard]] bool PostPreparedCell(const Ground::SurfacePreparation &stack,
                                       const ::outshine::Generators::Osm::BuildingField &footprints,
                                       LongitudeLatitude eye,
@@ -382,25 +385,7 @@ private:
                                       std::shared_ptr<const Ground::HeightField> heights,
                                       std::shared_ptr<const void> owner);
 
-  struct DeferredPreparation {
-    uint64_t Generation = 0;
-    HeightSourceRevision Revision;
-    uint64_t SourceKey = 0;
-    uint32_t Tile = 0;
-    uint64_t Until = 0;
-    uint64_t Delay = 1;
-  };
-
-  void DeferPreparation(uint32_t tile,
-                        uint64_t sourceKey,
-                        uint64_t generation,
-                        const HeightSource &heightAt,
-                        bool permanent);
-
   std::array<std::shared_ptr<PreparedCells>, kCandidateWindow> PreparedCells_{};
-  std::array<DeferredPreparation, 64> DeferredPreparations_{};
-  size_t DeferredPreparationAt_ = 0;
-  uint64_t PreparationTick_ = 0;
   Tasks *Pool_ = nullptr;
   std::unique_ptr<Generators::Osm::StructurePreparation> OriginalPreparation_;
   std::vector<std::shared_ptr<const void>> PreparingOriginals_;
