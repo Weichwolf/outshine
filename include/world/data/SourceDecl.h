@@ -102,8 +102,7 @@ struct SourceDecl {
   size_t MaximumPayloadBytes =
       0;                     ///< Enforced response/cache-read byte cap; zero uses shared defaults.
   std::string PayloadSha256; ///< Optional lowercase SHA-256 digest required of returned bytes.
-  std::string Schema =
-      {}; ///< Source-owned semantic schema; interpreted by its generator extension.
+  std::string Schema; ///< Source-owned semantic schema; interpreted by its generator extension.
   TileAbsencePolicy TileAbsence =
       TileAbsencePolicy::SourcePolicy; ///< Explicit tile refinement policy.
 };

@@ -42,8 +42,7 @@ struct SourceProvider {
   std::string
       PayloadSha256; ///< Optional 64-digit lowercase OSM response digest, separate from revision.
 
-  std::string Schema =
-      {}; ///< Provider-owned semantic schema; empty selects its documented default.
+  std::string Schema; ///< Provider-owned semantic schema; empty selects its documented default.
 
   /// Compare the complete owned source declaration.
   /// @return True when all source fields are equal.

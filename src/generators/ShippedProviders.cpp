@@ -64,6 +64,7 @@ public:
         .RetryBudget = 4,
         .MaximumPayloadBytes = kTerrariumMaximumPayloadBytes,
         .PayloadSha256 = provider.PayloadSha256,
+        .Schema = "",
         .TileAbsence = Data::TileAbsencePolicy::Parent});
   }
 };
@@ -133,7 +134,8 @@ std::span<const Data::SourceProvider> ShippedProviders() {
        .Location = "",
        .Endpoint = "",
        .Coverage = {},
-       .PayloadSha256 = ""},
+       .PayloadSha256 = "",
+       .Schema = ""},
       {.Kind = "stars",
        .Revision = "",
        .Priority = 2,
@@ -142,7 +144,8 @@ std::span<const Data::SourceProvider> ShippedProviders() {
        .Location = "",
        .Endpoint = "",
        .Coverage = {},
-       .PayloadSha256 = ""},
+       .PayloadSha256 = "",
+       .Schema = ""},
   }};
   return shipped;
 }

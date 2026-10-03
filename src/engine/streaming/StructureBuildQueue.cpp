@@ -113,6 +113,20 @@ void AppendInnerRings(std::span<const GeographicRing> rings,
   }
 }
 
+struct StructureHeights {
+  double TopM, MinimumM;
+  std::optional<Ground::BuildingHeightOrigin> Origin;
+};
+
+StructureHeights HeightsOf(const Generators::Osm::MvtBuilding &building,
+                           const Generators::Osm::OsmField &vectors,
+                           const Generators::Osm::OsmField::Feature &feature) {
+  return {.TopM = building.Height ? building.Height->TopM : vectors.Num(feature, "height", 0.0),
+          .MinimumM =
+              building.Height ? building.Height->MinimumM : vectors.Num(feature, "min_height", 0.0),
+          .Origin = building.Height ? std::optional(building.Height->TopOrigin) : std::nullopt};
+}
+
 void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
            const ::outshine::Generators::Osm::BuildingField &prints,
            const ::outshine::Generators::Osm::StreetField &streets,
@@ -157,9 +171,7 @@ void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
     if (f.Type != kPolygonFeature || std::cmp_not_equal(f.Layer, layer)) { continue; }
     const auto building = Generators::Osm::ReadMvtBuilding(vectors, f);
     if (building.Hidden) { continue; }
-    const double heightM = building.Height ? building.Height->TopM : vectors.Num(f, "height", 0.0);
-    const double minimumM =
-        building.Height ? building.Height->MinimumM : vectors.Num(f, "min_height", 0.0);
+    const auto heights = HeightsOf(building, vectors, f);
     const int pitched = PitchedOf(vectors.Str(f, "roof:shape"));
     for (uint32_t r = 0; r < f.RingCount; ++r) {
       const ::outshine::Generators::Osm::OsmField::Ring &ring = vectors.Rings()[f.FirstRing + r];
@@ -185,12 +197,10 @@ void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
                                 .HoleCount = static_cast<uint32_t>(raw.Holes.size()) - firstHole,
                                 .SourceFirstHole = f.FirstRing + r + 1,
                                 .Cell = assignedCell.value_or(Generators::StructureCell{}),
-                                .HeightM = heightM,
-                                .MinimumHeightM = minimumM,
+                                .HeightM = heights.TopM,
+                                .MinimumHeightM = heights.MinimumM,
                                 .Pitched = pitched,
-                                .HeightOrigin = building.Height
-                                                    ? std::optional(building.Height->TopOrigin)
-                                                    : std::nullopt});
+                                .HeightOrigin = heights.Origin});
     }
   }
 }
