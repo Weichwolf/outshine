@@ -4,117 +4,65 @@ Architecture: ready
 Priority: P0
 Parent: 2169
 Depends:
-Area: public-api, engine, world, generators, render, simulation
-Tags: extension, ownership, native-model, foundation
+Area: public-api, engine, world, generators, render
+Tags: extension, ownership, native-model
 
-# One engine contract connects sources, world products and simulation
+# Public contracts connect adapters, providers, generators and native world products
 
-## Ergebnis und belegter Iststand
-Outshine besitzt eine gemeinsame Architektur für die weltweite visuelle Welt und die
-spätere physikalische, programmierbare Sandbox. Eingebaute und externe Erweiterungen
-verwenden dieselben öffentlichen Verträge. Vorhandene Systeme migrieren; keine zweite Engine.
-ProviderRegistry/SourceSet, native Geometry/Material, Double-Welt und kamera-relative
-GPU-Daten bestehen. Generate::Request und native Gebäude-/Straßenaufträge tragen ProjectedErrorBudget.
-Structures nutzt Coarseness und Ground-Ecken für Fundamente; fehlende Höhen bleiben Fehler. Abstand/Produktschranken und Lebenszyklus fehlen.
-Native StructureBake-Pfade umgehen den Generatorlebenszyklus; Osm::StructurePreparation nutzt einen heightZoom.
-RawTile hält SourceObjects mit schwachem Archivbezug; OSM besitzt den geschlossenen SourceCapture. BuildingGeometry hält
-native Polygone/Quellbelege; StructureFootprints/BuildingHeightInterval tragen native Ringe/Höhen. OSM-Tagparser,
-Grundrisse und Strukturadapter gehören generators/osm/buildings. Archive bleiben im Quellenladepfad. SimulationState integriert bisher
-Schwerkraft; Rigid/Wrench/Prismatic liefern Grundlagen, keinen vollständigen Weltkontakt.
-Script/ActionHostAdapter und Ui::Markup/Style/Layout bestehen und bleiben verwendbar.
-SurfacePreparation und Straßenaufträge liegen noch unter engine/streaming. StreetGraphPreparation
-nutzt den gemeinsamen Compute-Worker mit Abbruch und geteiltem Auftragsbesitz.
-ClassificationPreparation verbindet Ingestion und Publikation noch in engine/streaming;
-ClassificationBuild nutzt den gemeinsamen Compute-Worker. Der pure ClassificationRasterizer
-liegt unter generators/terrain; world hält nur den immutable Klassifikationssnapshot.
-Fine/Coarse behalten ihren Raumbezug und die jeweils konsumierte Quellrevision.
-GroundClassBuffer besitzt GPU-Packing und Digest unter render; ClassStructure bleibt ein natives CPU-Produkt.
-Engine publiziert beide zusammen; render hält nur seinen Uploadpuffer. Native Netze halten keine
-Quellarchive. OSM-Provider, Erwerb, Zellverfeinerung, Strukturvorbereitung und Netz-/Routenaufbau liegen unter generators/osm und nutzen geliehene Engine-Queues. Generische Quellenkonfiguration erhält den Registry-Auftrag explizit; Builtin-Komposition liegt unter generators. ElementSet, XML-Import und Quell-Snapshots liegen unter generators/osm/import; konkrete Engine-Kopplung bleibt offen.
+## Ergebnis und Ist
+Eingebaute und externe Erweiterungen laufen über dieselbe öffentliche API bis ins Bild.
+ProviderRegistry/SourceSet, Generate::Request/Generator, native Geometry/Material,
+Double-Welt und kamera-relative GPU-Daten bestehen. ProjectedErrorBudget ist vorhanden;
+Abstands-/Produktschranken und zustandsbehaftete Generatorintegration fehlen.
+Konkrete MVT/Copernicus-Typen liegen noch in world/data, WeatherProvider in world/weather;
+SourceAcquisition/OSM-Import liegen bereits unter generators/osm. Engine koppelt weiter
+konkrete Pipelines, native StructureBake-Pfade umgehen den allgemeinen Lebenszyklus.
 
-## Zuständigkeiten und gerichteter Datenfluss
-| Besitzer | Eingabe → Ausgabe | Grenze |
-|---|---|---|
-| IO/Cache/Jobs | begrenzte Aufträge → Bytes/Arbeitsresultate | Quellunabhängig; Zellabdeckung folgt Adresse, Cachepolicy und Payload-Digest; keine Weltplanung |
-| world | native Produkte → generischer Weltzustand | Geometrie, Identitäten, Topologie und Herkunft; keine Quell-/Generatorinputs |
-| engine | Szenario + Kamera/Zeit/Qualität → versionierter Weltbedarf | Registrieren, koordinieren, native Produkte geschlossen publizieren |
-| generators/<domain> | Bedarf + 0:N Provider/Inputs → native Produkte | Eigene Beschaffung/Adapter/Erzeugung; gemeinsame Dienste, kein Weltbesitz |
-| physics + SimulationState | Commands + Kontakte → Simulationssnapshot | Fester Takt, Massen/Kräfte/Gelenke; eigene Lebensdauer |
-| render/audio | Welt-/Simulationssnapshot → Bild/Ton | Sichtbarkeit/Ausgabe; keine Quellabfragen oder Weltgenerierung |
-| Script/UI/LLM-Host | Eingabe/Events → validierte Commands | Kein direkter Objektbesitz; keine blockierende Modellantwort |
-
-Engine koordiniert diese Besitzer. Renderer konsumiert immutable Weltprodukte und
-aktuelle Posen; Render-LOD verändert weder logische Netze noch Physik oder Spielzustand.
-Bibliotheksnutzer ersetzen Provider/Generator/Host über dieselbe öffentliche Registrierung.
-Physik liegt fachlich unter physics; actor/body und unspezifische Subject-Bezeichner
-beim betroffenen Ausbau nach Bedeutung migrieren, keine Alias-Schichten.
-
-## Korrektur der Modulgrenzen
-| Heute vermischt | Zielbesitzer und gerichtete Grenze |
+## Besitzer und Datenfluss
+| Besitzer | Vertrag / Grenze |
 |---|---|
-| world/data: IO, Cache, OSM, Copernicus, MVT | Allgemeine Dienste getrennt; konkrete Quellen/Adapter gehören ihrer Generator-Erweiterung |
-| world/ground: OSM/MVT-Ingestion und Produkte | generators/osm übersetzt Original-OSM; world hält ausschließlich native Produkte |
-| world/data + engine: OSM-Quellen und Pipeline-Typen | generators/osm besitzt Beschaffung, Decode und Jobs; Engine konsumiert den allgemeinen Generatorvertrag |
-| Gebäude-Publikation (bereinigt) | BuildingGeometry trägt nur native Polygone und generische Provenienz/IDs |
-| actor/body: Rigid/Prismatic | physics besitzt Simulation; actor konsumiert sie |
-| import (bereinigt) | Native CPU-Assets ohne Rendererfreigabe; keine transitive Render-Abhängigkeit |
-| Klassifikations-Upload (bereinigt) | world hält native Grids; render besitzt gepackte Uploadprodukte und deren Lebensdauer |
-| private Builtin-Bakes neben Generator-API | Ein öffentlicher Input-/Productvertrag für Builtins und Erweiterungen |
-| Client-Flags/Place-Sonderablauf | Szenario deklariert Generatoren/Inhalte und Kamerafahrt; Client führt aus und misst |
+| API-Adapter in generators/<domain> | Anbieteradressen/Auth/TileJSON/Antworthülle; nutzt gemeinsame HTTP-Dienste |
+| Provider in generators/<domain> | Gemeinsamer Formatdecode, Schema-/Einheiten-/Datum-Normalisierung → gepinnte Inputs |
+| Generator in generators/<domain> | Bedarf + 0:N Provider/Inputs → native Geometrie/Instanzen/Parameter/Netze |
+| IO/Cache/Jobs | Begrenzte Bytes/Receipts/Aufträge; keine Quellsemantik oder Weltplanung |
+| engine | Registriert, plant versionierten Bedarf, publiziert vollständige Produktstände |
+| world | Generische native Assets/Entities/Topologie/Provenienz; keine Quellformate/Generatorinputs |
+| render/audio | Welt-/Simulationssnapshot → Bild/Ton; kein Quellenerwerb oder Weltaufbau |
+| physics/Script/UI/Host | Gemeinsamer Zustand/Commands aus 2136; kein Besitz an Renderprodukten |
 
-Jede Migration entfernt den alten Pfad und bekommt eine prüfbare Abhängigkeitsgrenze.
+API-Adapter → Provider → Generator → native Welt. Formatdecode steht vor Schemaadapter;
+URL/Auth ist Konfiguration statt Klasse je Endpoint. Provider dürfen lokale Zustands-/
+Zufallsinputs liefern; reine Generatoren brauchen keinen Provider. Bibliotheksnutzer
+registrieren eigene Implementierungen; keine privaten Builtin- oder Host-Sonderwege.
 
-## Verbindliche gemeinsame Verträge
-- WorldDemand enthält vollständige räumliche Abdeckung, Kamera-/Höhenbezug, Projektion
-  und Qualitätsauftrag sowie UTC, Revision und Frist. Blickrichtung verändert keine Rundum-Residency.
-  Quell-, Produkt- und Sichtbarkeitspläne getrennt halten; unterschiedliche Raster erlauben.
-- GenerationRequest enthält Raumreferenz, Abdeckung, stabile Identität/Seed, gepinnte
-  native Inputs und erlaubten Bildschirmfehler. Product enthält native Geometrie oder
-  kompakte Instanzen/Parameter, Bounds, Abhängigkeiten und bekannte/ungeklärte Fehlerschranke.
-  Generatoren übernehmen Demand und melden Fortschritt, Fehler oder vollständige Produkte;
-  Quellenerwerb ist asynchron, Compute nutzt gepinnte Inputs ohne blockierendes IO.
-- SourceReceipt identifiziert Originalquelle, Adresse, Revision/Digest und Gültigkeit.
-  ContentStore-Öffnung erhält vorhandene Quellbytes auch oberhalb des Wartungsbudgets.
-  Trim ist explizite IO-Wartung eines unbenutzten Caches, kein Erwerbs-/Frame-/Preload-Schritt.
-  Produktpins halten konsumierte Inputs, nicht automatisch vollständige OSM-Zellarchive.
-  Gebäudeinputs übernehmen ausschließlich ihre typisierten Wurzeln samt transitiven Referenzen,
-  Tags und Quellbelegen. Ein schwacher Archivbezug dient der Wiederverwendungsprüfung, nicht
-  dem Produktbesitz. Zell-Snapshots freigeben, soweit kein tatsächlicher Nutzer sie braucht.
-- Geometrie, Kontakte, Licht und Wasser teilen expliziten Frame-Ursprung/Höhendatum.
-  Double-Welt → kamera-relative Floats; rechtshändig Y-up/CCW. Erde ist ein Raumadapter,
-  keine versteckte Voraussetzung jedes externen Generators.
-- ProductKey umfasst Source-/Producer-Version, Seed/Parameter und Abhängigkeiten.
-  Jobs tragen Revision und Abbruch; stale Ergebnisse ersetzen keinen neuen Stand.
-  Begrenzte IO-Zellschritte geben die gemeinsame Queue frei; ein Handle endet erst nach dem letzten Schritt.
-  Kandidaten wechseln atomar. GPU-Ressourcen leben bis nach ihrer letzten Submission.
-- Unveränderte Produkte einschließlich gültiger Leerprodukte werden nicht erneut aufgebaut.
-  Bedarf/Qualität ersetzt betroffene Produkte; Eltern halten Abdeckung bis Kinder bereit sind.
-  Speicher-/Arbeitsgrenzen gehören zum jeweiligen Besitzer; fehlende Daten sind kein Leerprodukt.
-- SimulationCommand adressiert stabile Entities und validiert Einheiten/Zustand. JS,
-  UI und LLM-NPCs teilen Kräfte, Impulse, Gelenkantriebe und Interaktionen. Physik berechnet
-  Folgen. Editor-/Setup-Poseänderungen sind explizite Modi, kein verdeckter Laufzeitpfad.
-- LLM-Antworten sind asynchrone, begrenzte Events mit Tick/Entity-/Versionsbezug.
-  Deterministische lokale Steuerung funktioniert während ausstehender Antworten weiter;
-  Replay nutzt aufgezeichnete Events statt erneut Modellantworten anzufordern.
-- Wetter liefert einen öffentlichen Orts-/UTC-/Höhen-Snapshot mit Einheiten, Gültigkeit
-  und Herkunft. Physikalische Wind-/Wasser-/Materialzustände konsumieren denselben Snapshot.
-- Szenario/glTF-Loader publizieren dieselben nativen Assets; Formattypen enden im Adapter.
-  Spatial Audio und Save/Load teilen Entity-/Pose-/Versionsverträge aus 2136.
-  Places deklarieren stationäre 360°-Fahrt in einer Sekunde; Capture speichert nur den letzten Frame.
-  Generatorauswahl und Vegetation gehören ins Szenario; CLI wählt Szenario/Ausgabe/Messung.
-  Öffentliche API ist Greenfield; sämtliche Builtins und Aufrufer zusammen migrieren.
+## Gemeinsame Verträge und Migration
+- WorldDemand: Raum/Abdeckung, Kamera-/Höhenbezug, Projektion/Qualität, UTC, Revision/Frist.
+  Quellbedarf, Produktbedarf und Sichtbarkeit getrennt; Blickrichtung kürzt keine Residency.
+- GenerationRequest: stabile Identität/Seed, gepinnte Inputs, Entfernung und erlaubter
+  Bildschirmfehler. Product: native Inhalte, Bounds, Abhängigkeiten, bekannte/ungeklärte
+  konservative Fehlerschranke. Erwerb asynchron, Compute ohne blockierendes IO.
+- SourceReceipt: Anbieter/Dataset/Adresse/Revision/Digest/Gültigkeit. Formattypen enden im
+  Provider; ProductKey hält konsumierte Quellen-/Producer-Versionen und Parameter.
+  Produkte pinnen nötige Inputs, nicht vollständige XML/MVT-Archive. Gültig leer ≠ fehlend.
+- Gemeinsamer Raum-/Höhenbezug: Double-Welt → kamera-relative Floats, rechtshändig Y-up/CCW.
+  Erde ist ein Raumadapter, keine Pflicht jedes externen Generators. Kontakte/Render/Audio teilen Posen.
+- Lebenszyklus: begrenzte Vorbereitung → atomare native Publikation → gezielte Erneuerung/
+  Freigabe; Revision/Abbruch und Elternabdeckung erhalten. Keine Neuaufbereitung unveränderter Frames.
+- Konkrete Quellen/Decoder aus world/data zu ihrer Erweiterung verschieben; gemeinsame
+  Formatdecoder wiederverwenden. Surface-/ClassificationPreparation aus engine/streaming nach
+  Erzeugungsbesitz migrieren; Engine behält nur allgemeine Koordination. Abhängigkeiten absichern.
+- Native Gebäudeinputs/BuildingGeometry, Klassifikationsgrids und logische Netze erhalten;
+  GroundClassBuffer/Upload bleiben render-eigen. Szenario/glTF publizieren dieselben Assets;
+  Szenarien besitzen Inhalte/Kamera. WeatherSnapshot erhält Ort/UTC/Einheiten/Gültigkeit/Herkunft.
+- Cacheöffnung erhält vorhandene Bytes; Trim nur explizite IO-Wartung unbenutzter Caches.
+  Gepinnte Inputs, Publikation und GPU-Freigabe besitzen eindeutige Lebensdauer.
 
-## Ausführbare Lieferung
-1. Zuerst öffentlichen Abstands-/Produktschrankenvertrag bis zur nativen Gebäudequeue integrieren.
-   Bedarf vor Geometrie/Terrain planen; unbekannte Schranken bleiben konservativ. Gröbere DEM-
-   Abfragen brauchen einen eigenen Höhenfehlernachweis, nicht nur eine gröbere Gebäudestufe.
-2. Zustandsbehafteten Generatorlebenszyklus und konkrete Engine-Aufrufer migrieren; Grenzen erzwingen.
-3. Szenario besitzt Generatorauswahl und Kameraprogramm; CLI-Inhaltsüberschreibungen entfernen.
-4. 2280s native Ingestion/Publikation anschließen; Produktpins von Quellarchiven entkoppeln.
-5. Wettervertrag für 2172 sowie Command-/Snapshot-Grenze für 2136 vervollständigen.
-
-## Abnahme
-Ein externer Provider/Generator ersetzt Builtins bis zum Bild ohne private Includes.
-Vollständiger warmer Place bleibt im Budget; Entfernen unnötiger Pins verliert keine Semantik.
-JS und ein aufgezeichnetes LLM-Event wirken über denselben physikalischen Commandpfad.
-Deklarierte Verträge, tatsächliche Aufrufer und Runtime beschreiben dasselbe System.
+## Nächste Lieferung und Abnahme
+1. Öffentlichen Abstands-/Produktschrankenvertrag bis zur nativen Gebäudequeue integrieren;
+   Bedarf vor Terrain/Detailarbeit. Gröberes DEM braucht eine eigene Höhenfehlerschranke.
+2. Provider-/Adaptergrenzen und Generatorlebenszyklus im 2280-Ladepfad durchsetzen;
+   vorhandene Registrierungen nutzen, konkrete Engine-Aufrufe entfernen.
+3. Wetter-Snapshot für 2172 anschließen; spätere Commands/Simulation besitzt 2136.
+Ein externer Provider/Generator ersetzt einen Builtin bis zum echten Place-Bild ohne private
+Includes. Weltmodule kennen keine MVT-/OSM-/Copernicus-Typen; Runtime und API beschreiben
+denselben Lebenszyklus. Keine Schranken-/Budgetbehauptung allein aus Deklarationen.
