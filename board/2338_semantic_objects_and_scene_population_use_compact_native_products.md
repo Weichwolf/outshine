@@ -3,38 +3,34 @@ State: open
 Architecture: planned
 Priority: P1
 Parent: 2169
-Depends: 2188, 2280
+Depends:
 Area: generators, world, render
-Tags: objects, scene-population, instances
+Tags: objects, population, instances
 
-# Semantic objects and plausible occupancy complete the scene
+# Compact procedural objects make city and harbour scenes feel occupied
 
 ## Ergebnis und Ist
-Technische Aufbauten/Kräne/Masten/Geländer/Leitungen und plausible Autos/Boote/Segel
-verdichten Stadt/Hafen. Native Geometry/Material/Instanzen und glTF-Import bestehen;
-allgemeiner Objekt-/Belegungsgenerator fehlt. Tatsächliche Foto-Belegung ist unbekannt.
+Technische Aufbauten, Kräne/Masten/Geländer/Leitungen und plausible Autos/Boote/Segel.
+Native Geometry/Material/Instanzen und glTF bestehen; Objekt-/Belegungsgenerator fehlt.
+Exakte Foto-Belegung ist unbekannt und kein Rekonstruktionsversprechen.
 
-## Besitzer und fehlende Verträge
-2280 liefert normalisierte verfügbare Objekt-/Flächensemantik, 2188 öffentliche Inputs/
-Produkte/Detail. OSM-Adapter besitzt Quellattribute, `generators/objects` Form-/Belegungs-
-grammatik, world Assets/Instanzen/Bounds/Herkunft; Render Ausgabe. Produzenten-/Klassen-
-vertrag vor Implementierung konkretisieren, daher `planned`. Zuerst eine belegte technische
-Klasse im Stadt-/Hafenbild liefern; Gebäude 2173, Straßenmarkierungen 2281, Pflanzen 2111.
+## Besitzer und nächste Lieferung
+OSM-Adapter liefert vorhandene Klassen-/Flächenhinweise, generators/objects Form/Belegung,
+world native Assets/Instanzen, Renderer Ausgabe. Erste Klasse anhand tatsächlich gelieferter
+Semantik wählen, Eingabe-/Produktvertrag dort konkretisieren; daher `planned`.
+Vorhandene native Produkte reichen zum Einstieg; kein pauschaler API-/Quellen-Blocker.
+Zuerst eine erkennbare technische Objektklasse im Stadt-/Hafenbild integrieren.
 
-## Verfahren und Invarianten
-- Gelieferte Klasse/Maße/Richtung/Material/Kontakt übernehmen; unbekannte Angaben folgen
-  stabiler Klassenpolicy mit generischer Provenienz. Keine erfundenen Quell-Tags/Ortsmodelle.
-- Primitive/Profile zusammensetzen für Mast/Ausleger/Kran, Poller/Geländer/Antennen und
-  generische Fahrzeug-/Bootshüllen; wiederholte Teile instanzieren. Dünne Leitungen als
-  begrenzte Kurven, subpixelige Beiträge gefiltert statt unbegrenzter Tessellation/Overdraw.
-- Seeds/Identität/Maße über Detailwechsel stabil; 2336s Fernformen/Beiträge statt Nahmesh.
-  Terrain-/Wasserkontakt, Freiraum, Zugang und native Netze bei Platzierung respektieren.
-- Park-/Liegeflächen erzeugen plausible Belegung mit benannter Unsicherheit, keine exakten
-  Foto-Fahrzeuge. Statische Belegung braucht keinen fertigen Solver oder Fernsimulation.
-- Bewegliche Formen werden Entities mit Kollision und später 2136s Kräften/Commands.
-  Segel/Flaggen/Leitungen teilen 2172s Wind, konservative bewegte Bounds und Schatten.
+## Verfahren
+- Gelieferte Maße/Richtung/Material/Kontakt übernehmen; Unbekanntes stabil und plausibel
+  ergänzen. Primitive/Profile für Masten/Ausleger/Kräne, Poller/Geländer/Antennen und
+  generische Fahrzeug-/Bootshüllen. Wiederholungen instanzieren, dünne Leitungen begrenzen.
+- Terrain/Wasser/Freiraum und Zugänge bei Platzierung respektieren. Seeds/Identität über
+  LOD stabil; 2336s Fernbeiträge statt Nahmesh. Gebäude 2173, Straßenmarkierungen 2281,
+  Pflanzen 2111 besitzen ihre eigenen Klassen; keine duplizierten Generatoren.
+- Park-/Liegeflächen erzeugen plausible Belegung. Statische Objekte brauchen keinen fertigen
+  Solver; bewegliche Varianten später über 2136. Segel/Flaggen teilen 2172s Wind und Bounds.
 
 ## Abnahme
-Ein Hafen-/Stadtbild gewinnt erkennbare Objekte mit richtigen Kontakten/Maßen und
-stabiler Ferndarstellung. Quellbefund und Ergänzung unterscheidbar; öffentliche Pipeline
-und Kostenmessung belegen dieselben sichtbaren Produkte.
+Stadt-/Hafenbild gewinnt erkennbare Objekte mit richtigen Kontakten/Maßen, ohne unplausible
+Zufallsbelegung. Form bleibt über Entfernung stabil, zusätzliche Zeit/Bytes budgetiert.

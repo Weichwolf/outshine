@@ -3,53 +3,46 @@ State: open
 Architecture: planned
 Priority: P3
 Parent: 2169
-Depends: 2188
-Area: simulation, physics, gameplay, audio, script, engine
-Tags: sandbox, agents, interaction, llm, persistence
+Depends:
+Area: simulation, physics, gameplay, audio, script
+Tags: sandbox, interaction, persistence
 
-# One physical world supports players, NPCs, scripts and spatial audio
+# One physical world supports players, NPCs, scripts, audio and persistence
 
 ## Ergebnis und Ist
-Physikalisch konsistente interaktive Sandbox mit Spielern/LLM-NPCs/JS/HTML-CSS, Spatial
-Audio und Save/Load/Replay. Fahrzeuge/Flugzeuge/Pflanzen sind Kraftmodell-Beispiele,
-keine abschließende Featureliste. Rigid/Wrench/Prismatic, ActionHostAdapter, UI/Commands,
-Audio/Animation bestehen; SimulationState integriert bisher nur Schwerkraft, Saves nur
-numerische Traits. Allgemeine Kontakte/Gelenke, vollständige Persistenz und NPC-Steuerung fehlen.
+Physikalische Open-World-Sandbox mit LLM-NPCs, JS/HTML-CSS, Spatial Audio und Save/Load/Replay.
+Rigid/Wrench/Prismatic, ActionHostAdapter, UI/Commands, Audio/Animation bestehen. Aktuell
+nur einfache Schwerkraftintegration und numerische Traits-Saves; Kontakte/Gelenke, vollständige
+Persistenz und NPC-Steuerung fehlen. Fahrzeuge/Flugzeuge/Pflanzen sind Beispiele, keine Grenze.
 
-## Besitzer und fehlender Vertrag
-2188 liefert native Welt-/Entity-/Produktgrenzen. `physics` besitzt Körper/Kräfte/Solver;
-actor/body dorthin migrieren. SimulationState besitzt festen Takt/Zustand/Commands;
-Script/UI/LLM-Host Ziele/Events, Render/Audio immutable Posen. Vor Solver-Ausbau vorhandenen
-Kern gegen etablierte lokal verfügbare Kerne prüfen; Kontakt/Gelenke/Kosten entscheiden,
-daher `planned`. Visueller Meilenstein zuerst; keine zweite Sandbox-/Fahrzeugengine.
+## Besitzer und Reihenfolge
+Physics besitzt Körper/Kräfte/Solver, SimulationState festen Takt/Zustand/Commands;
+Host/Script/UI/LLM Ziele/Events, Render/Audio immutable Posen. Native Entities/Assets bestehen;
+benötigte API-Erweiterungen mit 2188 integrieren, kein pauschaler Architektur-Blocker.
+Nach visueller Basis zuerst allgemeine Weltkontakte/Gelenkantrieb, dann steuerbarer NPC
+und Ton/Persistenz. Vor Solver-Ausbau vorhandenen Kern gegen etablierte lokal verfügbare
+Kerne prüfen; dieser Entwurf bleibt `planned`. Keine separate Fahrzeug-/Sandboxengine.
 
-## Verfahren und Invarianten
+## Verfahren
 - SI-Masse/Trägheit/Schwerpunkt/Pose; Kraft/Angriffspunkt → Beschleunigung/Drehmoment.
-  Broadphase/Shape-Narrowphase und begrenzte Kontakt-/Gelenklösung für Terrain/Körper/Bauwerke;
-  Reibung/Restitution, Gelenklimits/Motoren/Reaktionen und schnelle Bewegung konsistent lösen.
-- Kollision unabhängig vom Render-LOD; fester Takt mit begrenztem Aufholen. Reifen,
-  Aerodynamik/Auftrieb/Wind sind Modelle auf denselben Körpern. Schlaf-/Fernzustand spart
-  Arbeit ohne verlorene kausale Zustandsänderungen; Pflanzen reduzieren Freiheitsgrade.
+  Broadphase/Shape-Narrowphase, begrenzte Kontakt-/Gelenklösung für Terrain/Körper/Bauwerke,
+  Reibung/Restitution, Limits/Motoren und schnelle Bewegung. Kollision unabhängig vom Render-LOD.
+- Fester Takt mit begrenztem Aufholen. Reifen/Aerodynamik/Auftrieb/Wind auf denselben Körpern;
+  Schlaf-/Fernzustand spart Arbeit ohne verlorene Weltwirkung. Vegetation reduziert Freiheitsgrade.
 - Beobachtung/Navigation → lokale Steuerung oder JS/UI/LLM → validierter Command → Physik
-  → Pose/Spielzustand/Events → Render/Audio. Entity/Tick/Version, Begrenzung/Abbruch verbindlich;
-  keine direkte Renderpose-Manipulation außerhalb expliziter Setup-/Editormodi.
-- LLM liefert Ziele/Dialog/Entscheidungen asynchron; lokale Steuerung bleibt ausführbar.
-  Fristen/Queues, stale Antworten verwerfen; Modellkonfiguration im Host, kein Warten im Tick.
-  JS/HTML/CSS behalten dokumentierte Teilmenge; NPC-Navigation nutzt native logische Netze.
-- Save/Load transaktional/versioniert: Entity-/Asset-IDs, Quellen-/Producer-Versionen,
-  Weltänderungen/Physik und notwendiger Script-/NPC-Zustand. Fehler verändern keinen gültigen
-  Stand; Replay spielt aufgezeichnete Host/LLM-Events ab statt erneut das Modell zu fragen.
-  Szenario, Netzwerkcache und Spielstand getrennt; Save ist kein Generatorcache.
-- Kontakte/Schritte/Antrieb/Material erzeugen begrenzte Klangereignisse. Gefiltertes Noise/
-  Resonanzen synthetisieren Wind/Regen/Wasser, Kräfte Motoren/Bewegung; stabile Seeds/
-  samplegenaue Zeit, keine PCM-Arbeit für stumme Quellen oder Reset beim Sichtwechsel.
-- AudioScene/AudioOcclusion teilt Listener-/Entity-/Kontaktzustand: Entfernung/Richtung,
-  Doppler/Verdeckung, begrenzte Stimmen/Busse/Headroom/Limiter. Dialogblöcke asynchron vom
-  Host; Audio wartet weder auf Netzwerk/LLM noch Geometrie. Animation nutzt dieselben Posen.
+  → Zustand/Pose/Events → Render/Audio. Entity/Tick/Version und begrenzte Queues, kein direkter
+  Renderpose-Ersatz außer explizitem Setup/Editieren. Dokumentierte JS/HTML/CSS-Teilmenge halten.
+- LLM liefert Ziele/Dialog asynchron; lokale Steuerung bleibt ausführbar. Fristen/Abbruch und
+  stale Antworten behandeln, Modellkonfiguration im Host; kein Warten auf Netzwerk im Tick.
+- Save/Load transaktional/versioniert: IDs, logischer Zustand, Weltänderungen/Physik und nötiger
+  Script-/NPC-Zustand. Quellen-/Producer-Versionen erhalten; kein Generatorcache im Spielstand.
+  Replay zeichnet Host-/LLM-Events auf, statt Antworten erneut zu erzeugen.
+- Kontakte/Schritte/Antrieb/Material erzeugen Klangereignisse; Noise/Resonanzen synthetisieren
+  Wind/Regen/Wasser/Motoren. Stabile Seeds/samplegenaue Zeit, keine Arbeit für stumme Quellen.
+  AudioScene/AudioOcclusion teilt Posen/Kontakte: Richtung/Entfernung, Doppler/Verdeckung,
+  begrenzte Stimmen/Busse/Headroom/Limiter. Dialog asynchron, Audio wartet auf keine Geometrie.
 
-## Nächste Lieferung und Abnahme
-Nach visueller Basis: allgemeiner Körper-/Weltkontakt und Gelenkantrieb, dann lokal/JS
-und über aufgezeichnete LLM-Events steuerbarer NPC im Place; Audio und atomarer Save/Replay
-anschließen. Kontakte/Massen/Kräfte stimmen mit Straßen/Brücken/Terrain überein. Ausgabe
-25/30/60 fps ändert keine Simulation. Gemeinsames Bild-/Speicherbudget bleibt verbindlich;
-Hockenheim ist spätere Integration, keine Voraussetzung.
+## Abnahme
+Allgemeiner Körper-/Weltkontakt und Gelenkantrieb stimmen auf echten Straßen/Brücken/Terrain.
+Ein NPC ist lokal, über JS und aufgezeichnete LLM-Events steuerbar; Ton und atomarer Save/Replay
+erhalten den Zustand. 25/30/60 fps ändern keine Simulation. Hockenheim ist spätere Integration.

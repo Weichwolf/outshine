@@ -3,41 +3,41 @@ State: open
 Architecture: ready
 Priority: P0
 Parent: 2169
-Depends: 2188, 2280
+Depends:
 Area: generators, world, engine
-Tags: buildings, osm, roofs, facades
+Tags: buildings, roofs, facades, semantics
 
-# Buildings preserve source form and gain spatial detail
+# Complete buildings preserve source form and gain spatial detail
 
 ## Ergebnis und Ist
-Vollständige Städte mit korrekten Grundrissen/Höfen/Parts, plausiblen Dächern und echten
-Nahöffnungen/Rahmen/Sockeln. Native Footprints/BuildingHeightInterval, StructureBake,
-BuildingMesh und Terrain-Stempel bestehen; Klassen/Dachplan sind lückenhaft, facadePattern
-zeichnet flache Fenster. Sonderklasse schlägt Wohnhausannahme, wenn in der Quelle belegt.
+Vollständige Grundrisse/Höfe/Parts, plausible Dächer/Sonderbauten und räumliche Nahfassaden.
+BuildingHeightInterval, native Footprints, StructureBake/BuildingMesh und Terrain-Stempel
+bestehen. Klassen-/Dachpläne sind lückenhaft; facadePattern zeichnet bisher flache Fenster.
 
-## Besitzer und fehlende Verträge
-2280 liefert normalisierte Gebäuderinge/Höhen/lieferbare Attribute; 2188 den öffentlichen
-Detail-/Produktvertrag. `generators/osm/buildings` besitzt Schema-/Semantikadapter und Plan,
-BuildingMesh/StructureBake native Form. Renderer erhält metrische Materialparameter,
-keine Quell-Tags. Erst vollständige Stadt/Höfe/Höhen und erkannte Sonderbauten/Dächer,
-danach räumliche Eingänge/Fenster; vorhandene Queue und Publikation nutzen.
+## Besitzer und nächste Lieferung
+OSM-Adapter normalisiert lieferbare Semantik; generators/building besitzt einen gemeinsamen
+Gebäudeplan für Kontakte, Form und alle LODs. Renderer erhält Materialparameter, keine Tags.
+Zuerst Vollständigkeit/Höhen/Höfe/Sonderklassen in Wien/Rosenheim prüfen und verbessern,
+danach Dächer und nahe Öffnungen. Bestehende Inputs nutzen, fehlende Tags nicht erfinden.
+2336 besitzt Auswahl/Aggregation; weder die gesamte API noch Orbit sind Voraussetzung.
 
-## Verfahren und Invarianten
-- MultiPolygon-Ringe/Höfe/Parts und Höhenintervall erhalten. MVT-Featurezahl ist keine
-  Gebäudezahl; Eltern/Parts nicht doppeln, erhöhte Parts nicht auf Boden stempeln.
-- Gelieferte height/min_height/levels, Dachform/-höhe, Nutzung/Material/Farbe normalisieren.
-  Metrische Höhe hat Vorrang; fehlende Werte folgen erklärter stabiler Klassenpolicy.
-  Nicht gelieferte Dach-/Sondertags bleiben unbekannt; keinen Originalbefund erfinden.
-- Ein stabiler Gebäudeplan legt Geschosse/Achsen/Öffnungen und Straßenfront/Eingang fest.
-  Klassen-/Dachgrammatiken erzeugen plausible regional passende Formen; keine Ortsmodelle.
-- Nahe Laibungen/Rahmen/Traufen/Balkone/Gauben besitzen Tiefe; wiederholte Teile teilen
-  Geometrie/Instanzen. Mittlere Hüllen/Fernverbände verwenden denselben Plan (2336).
-- FacadeUv zu metrischen Maßen/Seeds ausbauen; Fensterposition ist Generatorarbeit,
-  Baustoff/Glas/Alterung Shaderarbeit aus 2171. Keine flache Textur als Nahgeometrieersatz.
-- Abstand/Fehler vor Terrain/Mesh/Instanzen prüfen; Bounds umfassen tatsächliche Dach-/
-  Fassadenform. Raum-/Höhenbezug und Herkunft bis Kontakt/Publikation konsistent halten.
+## Verfahren
+- MultiPolygone/Höfe/Parts erhalten, Eltern/Parts nicht doppeln. Sonderklasse schlägt
+  Wohnhausannahme, wenn geliefert. Featurezahl ist keine Gebäudezahl.
+- Gelieferte Höhe/Unterkante/Geschosse, Dachform/-höhe, Nutzung/Material/Farbe normalisieren.
+  Endliche geordnete Höhenintervalle sind vorzeichenbehaftet relativ zum Geländebezug.
+  Nichtnull-Unterkanten behalten ihr Intervall ohne künstlichen Sockel/Parzellenteilung;
+  erhöhte/unterirdische Parts stempeln keinen falschen Boden. Unbekannte Werte folgen
+  stabiler Klassenpolicy; widersprüchliche Quellen bleiben von Ergänzungen unterscheidbar.
+- Ein kompakter Plan bestimmt Geschosse/Achsen/Öffnungen, Straßenfront/Eingang, Dach und
+  Kontaktflächen. Kontakte ohne Fassadenmesh erzeugen. Regionale Grammatik ist plausible
+  Ergänzung, keine behauptete Rekonstruktion oder Place-Sondergeometrie.
+- Nahe Laibungen/Rahmen/Traufen/Balkone/Gauben besitzen Tiefe; wiederholte Teile instanzieren.
+  Hüllen/Fernverbände verwenden denselben Plan. Bounds umfassen alle Formelemente.
+- FacadeUv liefert metrische Koordinaten; Öffnungsposition/Form ist Generatorarbeit,
+  Baustoff/Glas/Alterung Shaderarbeit aus 2171. Terrain- und Renderbezug gemeinsam halten.
 
 ## Abnahme
-Wien/Feldkirch zeigen vollständige Grundrisse/Höfe und gültige Höhen; Rosenheim/Flensburg
-belegte Sonderbauten und plausible Dächer. Nahöffnungen haben Tiefe, Fernstadt bleibt
-stabil und gebündelt. Fehlende Quellsemantik und prozedurale Ergänzung unterscheidbar.
+Wien/Feldkirch zeigen vollständige Formen/Höfe/Parts; Rosenheim/Flensburg korrekte gelieferte
+Sonderklassen und plausible Dächer. Nahöffnungen räumlich, Fernstadt stabil und gebündelt.
+Keine zusätzliche Feinmesh-Arbeit für unsichtbare Details; AGENTS-Bild-/Ladebudget halten.

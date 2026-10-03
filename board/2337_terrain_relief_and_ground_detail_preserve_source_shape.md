@@ -5,38 +5,33 @@ Priority: P1
 Parent: 2169
 Depends:
 Area: generators, render, world
-Tags: terrain, relief, rock, ground-detail
+Tags: terrain, rock, ground-detail
 
-# Source-shaped terrain gains plausible relief and surface detail
+# Source-shaped terrain gains directional rock and ground detail
 
 ## Ergebnis und Ist
-Lesbare Grate/Rinnen/Fels-/Schutt-/Wiesenflächen und Nahboden statt gleichförmigem Noise.
+Lesbare Grate/Rinnen, Fels/Schutt/Wiesen und Nahboden bei erhaltener Quellenform.
 TerrainRefinement/Press/Mesh, GroundLattice/GroundMaterials und groundRock.glsl bestehen;
-Fels nutzt bisher isotropes Value-Noise, gerichtete Schichtung/Bruchlinien fehlen.
+isotropes Value-Noise liefert noch keine glaubwürdige gerichtete Felsstruktur.
 
 ## Besitzer und nächste Lieferung
-Höhenprovider besitzt Samples/Datum/NoData; TerrainPress/Refinement finales Kontaktrelief
-und Fehler. Renderer besitzt Material/Filter, world native Produkte. Vorhandene Felder
-reichen für Verbesserung ohne neuen Quellenvertrag. Zuerst Koerbersee mit erhaltener
-Silhouette/See und lesbaren Hängen liefern; 2145 besitzt Kontakt-/Pegelkorrektur.
+Höhenprovider liefert Raster/Datum/NoData; Terrain-Generator finales Kontaktrelief,
+Renderer Material/Filter. Bestehende Höhenfelder genügen. Zuerst Koerbersee mit erhaltener
+Silhouette und See verbessern; 2145 besitzt Pegel/Kontakte, 2171 die gemeinsame Materialantwort.
 
-## Verfahren und Invarianten
-1. Neigung/Exposition/Talrichtung aus endgültigem Höhenfeld; stabile Raumframes mit fester
-   Ersatzachse bei flachem Boden. Welt-Seeds/Koordinaten über Tile-/LOD-Grenzen erhalten.
-2. Gerichtete Schichtfelder mit begrenztem Domain-Warp; Ridge-Noise für Rinnen, sparsame
-   Voronoi-Grenzen für Brüche. Plausible Geologie, keine aus DEM erkannte Gesteinsart.
-3. Gemeinsamer metrischer Entwurf: sichtbares mittleres Relief im Compute als Geometrie,
-   Feinrisse als Normalen/Roughness. Parameter über GroundMaterials/render-eigenen
-   GroundClassBuffer/GroundStorage; groundLit nutzt 2171/2155s gemeinsame BRDF/Licht.
-4. Pixel-Footprint begrenzt Frequenzen; subpixeliges Detail zu Farbe/Normalvarianz integrieren,
-   fwidth/SDF-Antialiasing für Linien. Fernrelief erzeugt keine unnötige Pixel-/Mesharbeit.
-5. Gelände/gelieferte Landcover-Klasse steuern Fels/Schutt/Boden. DSM-Bewuchs bleibt vom
-   Boden unterscheidbar; Ergänzung verändert keine belegten Gipfel/Küsten oder Kontakte.
-   Gröbere Samples benötigen Höhenfehlernachweis; Normaldetail beweist keine Formschranke.
-6. Nachbarn teilen Samples/Raumbezug; Bedarf vor Erzeugung (2336). Nässe/Schnee/Schmelze
-   aus 2172 folgen Exposition/Relief, Vegetationsstandorte 2111. Keine Fotoformen/Diskbakes.
+## Verfahren
+- Neigung/Exposition/Talrichtung aus endgültigem Höhenfeld; stabile Raumframes auch auf
+  flachem Boden. Weltkoordinaten/Seeds über Tile-/LOD-Grenzen erhalten.
+- Gerichtete Schichten mit begrenztem Domain-Warp, Ridge-Noise für Rinnen, sparsame
+  Voronoi-Brüche. Plausible Geologie ergänzen, keine aus DEM belegte Gesteinsart behaupten.
+- Sichtbares mittleres Relief als budgetierte Geometrie, Feinrisse als Normalen/Roughness.
+  Gemeinsame metrische Parameter über GroundMaterials/GroundClassBuffer/GroundStorage.
+- Pixel-Footprint begrenzt Frequenzen; subpixeliges Detail in Farbe/Normalvarianz überführen,
+  Linien gefiltert auswerten. Fernrelief benötigt keine Nahmesh-/Pixelarbeit.
+- Gelände/Landcover steuert Fels/Schutt/Boden. DSM-Bewuchs vom Boden unterscheiden; Gipfel,
+  Küsten und Kontakte erhalten. Nachbarn teilen Samples, gröbere Raster brauchen Höhenfehler.
+  Auswahl aus 2336, Nässe/Schnee aus 2172, Standorte aus 2111 anschließen; keine Diskbakes.
 
 ## Abnahme
-Koerbersee/Malcesine gewinnen lesbare Hänge/Nahflächen bei erhaltener Silhouette und
-Kontakten. Bewegung ohne Nähte/Flimmern; Winter ändert Zustand statt Quellenform.
-Bildgewinn und getrennte CPU/GPU/Bytekosten am echten Place belegen.
+Koerbersee/Malcesine zeigen gerichtete lesbare Hänge ohne verlorene Silhouette/Kontakte.
+Keine Nähte oder Flimmern bei Bewegung; CPU/GPU/Bytes und Bildgewinn separat belegen.

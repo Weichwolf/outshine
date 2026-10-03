@@ -1,105 +1,69 @@
 Type: feature
 State: active
-Architecture: planned
+Architecture: ready
 Priority: P0
 Parent: 2169
-Depends:
+Depends: 2336
 Area: generators, data, engine, client
-Tags: sources, loading, residency
+Tags: loading, cache, residency
 
-# Fast worldwide providers deliver a complete resident world
+# Cached source data becomes a complete resident place without wasted work
 
 ## Ergebnis und Ist
-Wien und alle Places laden die volle benötigte Welt schnell und reproduzierbar.
-Präferierte Anbieter stehen in AGENTS; die Anbieteranalyse begründet Austauschbarkeit
-über Adapter statt blindem Mischen. XML/MVT/GLO-30, paralleles IO, verifizierter Quellcache
-und native Gebäude-/Terrainprodukte bestehen. Verlustfreier Terrarium-WebP-Decode im
-Höhenprovider liefert native Meter über die öffentliche Quelle und bestehende Terrain-Queue;
-Mapterhorn ist Terrain-Default, COG ausdrücklich wählbar. Client-Welten deklarieren den
-gepinnten OpenFreeMap-Stand; Schemaauswahl läuft über öffentliche Quellenkonfiguration
-und Szenario-Roundtrip. Erste Terrain-Publikation besteht; vollständige verfeinerte Welt
-erreicht die Gebäudeerzeugung; native Gebäudeteile erhalten auch negative Unter-/Oberkanten
-ohne künstliche Sockel oder Terrain-Abgrabungen. Die Gebäudequeue pinnt exakte
-Quellraster ohne zweite Samplespeicher. Residenter Höhenbedarf reserviert die
-Revisionsmetadaten samt Nachbar-Stencil; Snapshots teilen die Reservierung bis zur letzten
-Nutzung; diese Metadatenverwaltung wird durch immutable Inputs und Auftragsgenerationen
-ersetzt. Wien publiziert Terrain und beendet die Gebäude-Quellaufbereitung, wartet aber
-noch auf Gebäude-Zellprodukte und Vegetationsprototypen. Laufzeit-/Speicherbudget und
-vollständige aktuelle Bilder fehlen.
+Wien erreicht aus vollständigem Quellcache die fertige Rundumwelt und den Screenshot im
+AGENTS-Budget. MVT/Terrarium, paralleler Erwerb, Quellcache und native Produkte bestehen.
+Gebäude-Quellaufbereitung endet, Zellvorbereitung kann jedoch dauerhaft zurückgestellt werden.
+Zellaufträge übernehmen Parent-Höhenbedarf; Kopien, erneute Rasterhashes und Liefermetadaten
+vergrößern die Arbeit. Der begonnene Zertifikatsabbau ist noch nicht vollständig integriert.
 
-## Architekturentscheidung und Besitzer
-2188 besitzt öffentliche Erweiterungs-/Produktverträge. `generators/osm` besitzt MVT/XML,
-Schemaadapter und OSM-Erzeugung; Höhen-/Wettererweiterungen ihre Provider. Gemeinsame
-HTTP-/Cache-/Jobs bleiben quellunabhängig. Keine zweite Importqueue oder Generatorroute.
+## Besitzer und Grenzen
+SourceSet/ContentStore/TilePool besitzen gemeinsame Bytes/Jobs; Erweiterungen ihre Formate.
+HeightSheets, SourcedTerrainFields, StructureSourcePreparation/BuildQueue und EnginePreload
+werden bis zur vollständigen Publikation integriert. 2336 besitzt räumliche Detailplanung,
+2188 den gemeinsamen öffentlichen Lebenszyklus. Depends 2336 verlangt den ausführbaren
+Nah-/Fernbedarf und das vollständige Quellmanifest für die Budgetabnahme, nicht den Orbit-Ausbau.
+Cache-/Stillstandsreparatur beginnt unabhängig davon. Keine neue parallele Ladepipeline.
 
-| Formatprovider | Austauschbare API-Anschlüsse | Notwendige Anpassung |
-|---|---|---|
-| MVT-Vektoren | OpenFreeMap; alternativ VersaTiles/MapTiler/Stadia/Mapbox/ArcGIS | Schema/Layer/IDs/Buffer normalisieren, Rechte und Auth separat |
-| Terrarium-Höhen | Mapterhorn; alternativ VersaTiles-Elevation/AWS Mapzen | WebP/PNG, 512/256 Pixel, Zoom/Datum/Quelle |
-| PMTiles-Container | Mapterhorn Primary und dokumentierte Mirrors | Gepinnter Archivindex, Range/Revision; nur gleiche Stände teilen Bytes |
-| Wetter-Snapshot | Open-Meteo free/paid; andere Wetter-APIs über Schemaadapter | Ort/UTC/Einheiten/Felder/Gültigkeit, keine erfundenen Wolkenschichten |
+## Umsetzung in Lieferreihenfolge
+1. Jeder Zellauftrag erhält nur seine benötigten Raster samt Nachbarn. Übergröße zerlegt
+   den Auftrag oder ergibt einen benannten Fehler; kein dauerhaftes Deferred ohne ausführbare
+   Fortsetzung. Diagnose nennt fehlende Eingabe, laufenden Job oder konkrete Budgetverletzung.
+2. Einmal dekodierte Raster unveränderlich teilen. Byte-/DecodedCache, HeightSheets und
+   HeightField dürfen für denselben unveränderten Input keine erneuten Vollkopien/Hashes
+   verlangen. Kachelzugriff indizieren; Quellarchive nach Übernahme kompakter Inputs freigeben.
+3. Quellen-Zertifikate, TerrainRevisionIndex und Metadatenreservierungen entfernen.
+   Schlüssel aus Anbieter, Anfrageparametern und Formatversion; Treffer liefern gespeicherte
+   Bytes ohne Aktualitätsprüfung. Identität der Inputs/Generatorparameter einmal bestimmen.
+   Expliziter Welt-/Quellenwechsel verwirft alte Jobs; Terrainänderungen erneuern ihre Produkte.
+   Vollständige Raster/Nachbarn, echte Fehler und geometrische LOD-Schranken bleiben verbindlich.
+4. Gebäudepläne/Kontakte vom Mesh trennen (2336). Keine volle Quellgeometrie nur als Vorstufe
+   derselben Zellgeometrie erzeugen. Snapshot-/Publikationskopien auf veränderte Produkte
+   begrenzen; gemeinsame Inputs bis zur letzten Nutzung halten. GPU-Lebensdauer erhalten.
+5. Fortschritt ereignisgesteuert wecken; kein Polling auf unmöglich gewordene Zustände.
+   Unabhängige Vorbereitungen dürfen vorlaufen: Baumprototypen brauchen keine fertigen Gebäude.
+   Finales Ready verlangt weiterhin alle deklarierten Inhalte. Ein gemeinsamer Compute-Worker,
+   begrenzter paralleler Erwerb; kein IO-Warten im Compute-/Renderpfad.
+6. Tote Runtime-Diskcache-Zweige für Gebäudemeshes/Atlanten entfernen, vorhandene Dateien
+   erhalten. Referenzwerkzeuge/Spielstände sind getrennte Zwecke. Gemeinsam belegten RAM,
+   Scratch, publizierte Produkte und GPU-Ressourcen nach Besitzer statt mehrfach zählen.
 
-Endpunkte/Auth/XYZ-Reihenfolge/Limits sind Konfiguration. Formatgleichheit ist keine
-Datasetgleichheit; aktueller Mapterhorn-Mirror ist nicht revisionsgleich. Ein Hauptanbieter
-je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Mischbild.
-
-## Nächste Lieferung und offene Quellenfragen
-1. OpenFreeMaps Tile-Nutzung und großflächigen Offline-/Cache-Erwerb gegen die AGB abgrenzen;
-   veröffentlichte Downloads sind ein eigener Lieferweg. Kein SLA aus Stichproben behaupten.
-   Mapterhorn-Attribution/Quellenauflösung erhalten. Open-Meteo-Free ist nichtkommerziell;
-   kommerzielles Archiv benötigt Professional+, dessen Endpoint ungemessen ist.
-2. Nach der Terrain-Publikation Zellprodukte bis zum vollständigen Wien-Bild liefern;
-   übergroße Quellvorbereitung darf nicht dauerhaft als wartender Auftrag verschwinden.
-   OpenMapTiles-Gebäude/Parts, Straßen und Gewässer integriert erhalten.
-   Vorhandene Originalreader bleiben Bibliotheksfähigkeit,
-   kein Client-Fallback auf Editing-API. Diese API ist für unseren Bulk-Bedarf ungeeignet.
-3. Vollständiges 240-km-/Höhenbedarfsmanifest aus 2336 vorbereiten; nur benötigte Hierarchiestufen
-   erwerben. Datenumfang/Erwerb separat von Warmaufbau/Rendern prüfen; keine Radiuskürzung.
-4. Central Park/Tokyo als dichte Erwerbsbenchmarks, anschließend alle acht Pflicht-Places.
-   Straßen-/Wasser-/Gebäudequalität beim Quellenwechsel erhalten; echte Bilder vergleichen.
-
-## Umsetzung und Invarianten
-- MVT-MultiPolygone/Höfe/Parts korrekt dekodieren; Featurezahl ist keine Gebäudezahl.
-  Straßenklassen/Ebenen, Höhen und Gewässer normalisieren, soweit geliefert. Fehlende
-  Informationen explizit; aus Liniennähe weder Kreuzung noch Brücke erfinden.
-- OpenMapTiles-`hide_3d`-Umrisse bleiben Quelldaten und erzeugen keine doppelten Parts.
-  Renderhöhen sind Schätzungen. Widersprüchliche Ober-/Unterkanten erhalten Quellwerte;
-  ein erzeugter Körper über belegter Unterkante bleibt ausdrücklich eine Annahme.
-  Native Unter-/Oberkanten sind vorzeichenbehaftete Meter relativ zum Geländebezug;
-  ein gültiger Körper kann den Boden durchdringen oder vollständig darunter liegen.
-  Nichtnull-Unterkanten behalten das exakte Intervall ohne künstlichen Sockel oder
-  Parzellenteilung. Endliche, geordnete und darstellbare Intervalle bleiben verbindlich.
-  Schema und Herleitung: [OpenMapTiles](https://openmaptiles.org/docs/schema/#building).
-- Native Höhenmeter mit Rastermaß/Zoom/Datum/NoData liefern. Terrarium nach verlustfreiem
-  RGB-Decode; Terrain-RGB/COG nutzen eigene Decoder. Globales DSM ist kein nackter Boden.
-- Bestätigt fehlende Höhenkacheln dürfen zum selben gepinnten Anbieter-Elternraster wechseln.
-  Tatsächlich gelieferte Adresse/Revision bleiben erhalten; Auth-/Transportfehler sind kein NoData.
-- HTTP-Endstatus und Payload prüfen. Auth terminal; temporäre Fehler begrenzt mit Backoff/
-  Retry-After und Ursprungssperre. Abbruch/Frist/Rückstau; Ausfall ≠ gültiges Leerprodukt.
-- Netzwerkbytes mit Anbieter/Dataset/Adresse/Version/Digest cachen; bestehende Bestände
-  erhalten. Anbieter, Anfrageparameter und Formatversion bestimmen den Cache-Schlüssel;
-  vorhandene Einträge bedienen wiederholte Anfragen ohne Aktualitätsprüfung.
-  Begrenztes paralleles IO, Decode/Build auf gemeinsamem Worker. Native Inputs
-  früh verdichten, Quellarchive freigeben; Grenzen für Quellen/Scratch/RAM/GPU getrennt.
-- Gebäude-Höhenbedarf vor Rasterkopien vollständig prüfen und fehlende Abdeckung nachfordern.
-  Unveränderliche Höhenfelder teilen, doppelte Raumabfragen vorab zusammenfassen; keine
-  quadratischen Suchen oder wiederholten Vollkopien beim Warten auf dieselbe Quelle.
-  Kachelbedarf kanonisch sortieren/vereinigen; Abdeckung und Herkunft vor Erzeugung prüfen.
-  Netzwerkbytes bleiben bis zur Cacheleerung unverändert; kein laufender Versionsabgleich.
-  Quellen-Zertifikate, Revisionsindex und Metadatenreservierungen entfernen. Immutable
-  Inputs, Producer-/Parameteridentität und eine Auftragsgeneration genügen. Expliziter
-  Welt-/Quellenwechsel erneuert diese Generation; alte Jobergebnisse verwerfen. Vollständige
-  Nachbarinputs vor Rasterpublikation sichern. Fehlender Bedarf bleibt diagnostizierbar.
-- Client/Prepare/Shots teilen persistenten SDL-Nutzerspeicher, Registry und Weltbedarf.
-  Prepare erfüllt dieselbe verfeinerte Weltqualität wie Shots; spielbare Teilabdeckung genügt nicht.
-  Quellcache-Vorbereitung getrennt vom frischen Warmprozess; keine generierten Diskprodukte.
-  Grobe Generatorregionen über feineren Höhenrastern geografisch abtasten; Kachelindizes
-  gelten nur in ihrer eigenen Zoomstufe. Bestehende Zeilenabfrage im Elternraster erhalten.
-  Tile-Ränder/Overlaps besitzen konsistente IDs/Ownership; Publikation bleibt atomar.
+## Quellenvertrag
+- OpenFreeMap: MVT/OpenMapTiles; Mapterhorn: Terrarium-WebP; Open-Meteo: JSON.
+  Ein Anbieter je Datenart, Endpunkte/Auth Konfiguration. Gleicher Formatdecoder erlaubt
+  Adapterwechsel, nicht ungeprüftes Mischen. Byte-Range-Teile benötigen konsistente Archividentität.
+- HTTP-Endstatus/Payload prüfen; Auth terminal, temporäre Fehler begrenzt mit Backoff/Retry-After,
+  Frist/Abbruch/Rückstau. Bestätigte Höhenlücke darf ein Elternraster desselben Anbieters liefern;
+  Transportfehler sind kein NoData. Gelieferte Auflösung/Adresse/Datum erhalten.
+- Bestehende XML/MVT/COG-Reader nur als tatsächlich genutzte Provider-/Importfähigkeit erhalten;
+  kein zweiter Weltgenerator oder automatischer Altanbieter-Fallback. Decoder gehören zur Erweiterung.
+- OpenFreeMap-Bulk/Offline-Nutzung und Mapterhorn-Attribution klären; Stichproben sind kein SLA.
+  Open-Meteo-Free ist für nichtkommerzielle Evaluation, kommerzielles Archiv benötigt passenden Tarif.
+  Anbieteranalyse bleibt Hintergrund, keine Pflicht zum Ausbau unbenutzter Adapter/Container.
+- 2336 bestimmt vollständige Nah-/Fernquellen. 49 geladene Nahkacheln beweisen keine 240-km-Welt.
+  Prepare und Shots verwenden denselben Bedarf, Quellcache und erforderlichen Produktstand.
 
 ## Abnahme
-Vollständiger warmer Place erfüllt AGENTS-Bild-/Zeitbudget ohne Netzwerk, Löcher oder
-Qualitätsverlust. Kaltstartbytes/Acquire/Decode/Build/RAM/GPU getrennt belegen. Anbieter-
-Stichproben beweisen weder 240-km-Gesamtvolumen noch Weltaufbau oder A18-Pro-Laufzeit.
-Straßen/Wasser/Gebäude folgen 2281/2145/2173, Distanzhierarchie 2336; übriger Sandbox-Ausbau
-blockiert keine Quellenvorbereitung. Offene Liefer-/Nutzungsverträge halten `planned`.
+Wien: vollständiges Offline-Bild, keine verlorenen Gebäude/Straßen/Gewässer und kein unbegründet
+wartender Auftrag. Warmaufbau, Dekodierungen/Kopien, CPU/GPU und Speicher getrennt belegen;
+Limits nicht erhöhen, Sichtweite/Inhalte nicht kürzen. Danach Central Park/Tokyo als Lastfälle
+und alle acht Pflicht-Places. Konkrete Zahlen/Logs bleiben außerhalb des WI.

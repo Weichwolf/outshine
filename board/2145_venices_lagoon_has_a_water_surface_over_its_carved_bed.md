@@ -3,42 +3,38 @@ State: open
 Architecture: planned
 Priority: P0
 Parent: 2169
-Depends: 2280
-Area: generators, world, render, engine
-Tags: terrain, water, coastline, contacts
+Depends:
+Area: generators, world, render
+Tags: water, terrain, coastline, contacts
 
-# Terrain and water form correct relief, levels and shores
+# Water has coherent levels, shorelines and its own geometry
 
 ## Ergebnis und Ist
-Meer/Fluss/See als eigene animierte Geometrie mit kohärenten Pegeln/Ufern/Inseln;
-Terrain mit richtigen Straßen-/Gebäudekontakten. Terrain-Stempel, WaterField,
-WaterSurfaceBuilder/WaterDepth und dielektrisches Material bestehen. WaterField ist
-noch Tile-/OsmField-gebunden; globale Körper/Pegelherkunft und Küstenabschluss fehlen.
-Flensburgs Wasserfälle/überflutete Gebäude bleiben Geometriefehler.
+Meer/Fluss/See mit richtiger Höhe, Ufern/Inseln, Wellen und Transparenz. WaterField,
+WaterSurfaceBuilder/WaterDepth und Terrain-Stempel bestehen; Flensburgs falsche Pegel/
+überflutete Gebäude bleiben ein Geometriefehler. Wasser ist kein Terrain-Klassenersatz.
 
-## Besitzer und fehlender Vertrag
-2280 liefert normalisierte Wasser-/Küstenringe und native Höhensamples mit Datum/NoData;
-clipped Tiles garantieren keinen geschlossenen Gewässerkörper. OSM-Erweiterung rekonstruiert
-Abdeckung/Identität; Wasser-/Terrain-Generatoren erzeugen Körper/Bett/Ufer. `world/ground`
-hält native WaterBody/Terrain-Produkte, Renderer animiert/beleuchtet sie. Laying koordiniert.
-Zuerst Flensburgs Küste/Pegelursache bis zum korrekten Bild lösen. Nachbar-/Abschluss-
-vertrag offener Küsten vor Umsetzung festlegen; dieser offene Teil hält `planned`.
+## Besitzer und nächste Lieferung
+OSM-Erweiterung besitzt Wasser-/Küstenringe und Randidentität; Wasser-/Terrain-Generatoren
+Körper, Bett und Ufer; world native WaterBody-Produkte, Renderer Licht/Animation.
+Zuerst Flensburgs Pegel-/Kontaktursache vom gelieferten Ring und Höhendatum bis zum Bild
+korrigieren. Vorhandene Quellen erlauben die Diagnose; kein Warten auf Abschluss von 2280.
+Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`.
 
-## Verfahren und Invarianten
-- Raster-/Kamera-/Wasserhöhendatum konsistent umrechnen. DSM-Dächer/Bäume sind kein nackter
-  Boden; NoData kein Nullboden. Städte/Hänge nicht pauschal glätten, Herkunft erhalten.
-- Ringe/Höfe/Inseln und Komponenten über Tile-Ränder erhalten. Offene Ketten benötigen
-  Nachbar-/Abschlussinformation; keine geratenen Küsten als vollständige Abdeckung melden.
-- Erklärter Pegel je Körper: Meer im passenden Datum, Flussgefälle entlang Verlauf.
-  Keine zufälligen Tile-Pegel oder Grundwassermesh unter jedem Terrain-Tile; Tide unbekannt.
-- Körper/Bett/Ufer zusammen konstruieren, Terrain schneidet Wasser am Ufer. Stempel
-  respektieren Wasser/erhöhte Bauwerke; Klassenmasken ersetzen keine Wassergeometrie.
-- Endgültiges Kontaktrelief verfeinern, Nachbargrenzen abstimmen. Ring-/Punktlimits
-  melden Nichtlieferbarkeit statt stillen Gewässerverlust; native Bounds/Fehler erhalten.
-- Windwellen, Fresnel, Tiefenabsorption, Reflexion/Transmission und Schaum aus demselben
-  Wasserprodukt. Wetter/Eis/Nässe aus 2172, Licht/Reflexionsintegration aus 2155;
-  keine Doppelbelichtung oder unabhängige blaue Terrainklasse.
+## Verfahren
+- Höhendatum von DEM, Kamera und Wasser abgleichen. NoData ist kein Nullboden, DSM-Dach/
+  Bewuchs kein nackter Boden. Keine pauschale Stadtglättung als Korrektur.
+- Ringe/Höfe/Inseln über Tile-Ränder zu Komponenten verbinden; Nachbar-/Abschlussbedarf
+  explizit. Clipped MVT-Ringe beweisen keinen vollständigen Gewässerkörper.
+- Ein Pegelmodell je Körper: Meer im passenden Datum, Seen mit begründeter Höhe, Flüsse
+  entlang Gefälle. Unbekannte Tide benennen. Keine zufälligen Tile-Pegel/Grundwassermeshes.
+- Wasserfläche, Bett und Ufer gemeinsam konstruieren; Terrain schneidet Wasser am Ufer.
+  Gebäude-/Straßenstempel respektieren Wasser und schwebende Bauwerke. Grenzen teilen
+  Kontaktrelief; Kapazitätsfehler melden, keine Ringe oder Wasserflächen still verlieren.
+- Windwellen, Fresnel, Tiefenabsorption, Reflexion/Transmission und Uferschaum auf demselben
+  Wasserprodukt. Licht aus 2155, Wetter/Eis aus 2172 später anschließen, keine zweite Lichtwelt.
 
 ## Abnahme
-Flensburg/Husum/Malcesine/Koerbersee: richtige Pegel, Ufer/Inseln/Kontakte, Wasser unter
-Brücken und Gebäude auf Boden. Bewegung/Wellen verändern weder Abdeckung noch Pegel.
+Zuerst Flensburg ohne Wasserfälle/überflutete Gebäude, dann Husum/Malcesine/Koerbersee.
+Korrekte Pegel, Ufer/Inseln und Wasser unter Brücken; Wellen ändern keine Grundpegel/Abdeckung.
+Vorher/Nachher öffnen und AGENTS-Budget halten; Küstenabschluss weltweit gesondert belegen.

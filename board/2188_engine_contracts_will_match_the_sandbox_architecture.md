@@ -1,71 +1,47 @@
 Type: feature
-State: active
+State: open
 Architecture: ready
 Priority: P0
 Parent: 2169
 Depends:
-Area: public-api, engine, world, generators, render
-Tags: extension, ownership, native-model
+Area: public-api, engine, generators, world
+Tags: extension, ownership, integration
 
-# Public contracts connect adapters, providers, generators and native world products
+# Builtin and external generators use the same working world pipeline
 
 ## Ergebnis und Ist
-Eingebaute und externe Erweiterungen laufen über dieselbe öffentliche API bis ins Bild.
-ProviderRegistry/SourceSet, Generate::Request/Generator, native Geometry/Material,
-Double-Welt und kamera-relative GPU-Daten bestehen. ProjectedErrorBudget ist vorhanden;
-Abstands-/Produktschranken und zustandsbehaftete Generatorintegration fehlen.
-Source.DecodeElevation liefert native HeightRaster; Provider besitzt WebP-Dekodierung,
-Terrain übernimmt den Samplespeicher. Legacy-PNG/COG-Decode bleibt zu migrieren.
-MVT-Decoder/Vektorquelle und OSM-Felder gehören zu generators/osm; native BuildingFootprint
-trennt den Gebäude-Baker vom OSM-Eingabespeicher. Copernicus-Typen liegen noch in world/data,
-WeatherProvider in world/weather. Engine und Terrain-/Straßen-/Wasseradapter koppeln weiter
-konkrete Felder; native StructureBake-Pfade umgehen den allgemeinen Lebenszyklus.
+Ein öffentlicher Erweiterungsvertrag führt Provider/Generatoren bis in die native Welt.
+ProviderRegistry, Generator::make, Geometry/Material und kamera-relative Darstellung bestehen.
+Der deklarative Generatorpfad und spezialisierte Weltqueues laufen noch getrennt; Engine kennt
+OSM-Felder/Akquisition, world enthält konkrete Höhen-/Wetterprovider. Das erschwert Änderungen.
 
-## Besitzer und Datenfluss
-| Besitzer | Vertrag / Grenze |
-|---|---|
-| API-Adapter in generators/<domain> | Anbieteradressen/Auth/TileJSON/Antworthülle; nutzt gemeinsame HTTP-Dienste |
-| Provider in generators/<domain> | Gemeinsamer Formatdecode, Schema-/Einheiten-/Datum-Normalisierung → gepinnte Inputs |
-| Generator in generators/<domain> | Bedarf + 0:N Provider/Inputs → native Geometrie/Instanzen/Parameter/Netze |
-| IO/Cache/Jobs | Begrenzte Bytes/Receipts/Aufträge; keine Quellsemantik oder Weltplanung |
-| engine | Registriert, plant versionierten Bedarf, publiziert vollständige Produktstände |
-| world | Generische native Assets/Entities/Topologie/Provenienz; keine Quellformate/Generatorinputs |
-| render/audio | Welt-/Simulationssnapshot → Bild/Ton; kein Quellenerwerb oder Weltaufbau |
-| physics/Script/UI/Host | Gemeinsamer Zustand/Commands aus 2136; kein Besitz an Renderprodukten |
+## Umfang und Besitzer
+Dieser WI migriert jeweils den für 2280/2336 oder ein Bildfeature benötigten Pfad. Keine
+vollständige SDK-Neufassung als Vorbedingung und kein zusätzlicher Universal-Scheduler.
+API-Adapter besitzt Adresse/Auth/Antworthülle, Provider Formatdecode/Normalisierung,
+Generator Fachplanung/Produkte; Engine Bedarf/Jobs/Publikation, world native Inhalte.
+Gemeinsame IO-/Cache-/Jobdienste enthalten keine Geografie- oder Quellsemantik.
 
-API-Adapter → Provider → Generator → native Welt. Formatdecode steht vor Schemaadapter;
-URL/Auth ist Konfiguration statt Klasse je Endpoint. Provider dürfen lokale Zustands-/
-Zufallsinputs liefern; reine Generatoren brauchen keinen Provider. Bibliotheksnutzer
-registrieren eigene Implementierungen; keine privaten Builtin- oder Host-Sonderwege.
+## Konkrete Integration
+1. Die laufende Gebäude-/Terrainlieferung über denselben öffentlichen Vertrag anbieten:
+   räumlicher Bedarf, Zeit, Seed, Qualitätsauftrag, vollständige Eingaben → native Produkte
+   samt Bounds, Kosten und konservativer/ungeklärter Fehlerschranke. Fehler und gültig leer
+   unterscheiden. Provider optional; lokale Zufalls-/Spielzustandsinputs sind zulässig.
+2. Fachliche Vorbereitung aus Engine/SurfacePreparation zur verantwortlichen Erweiterung
+   führen. OSM/XML/MVT zu generators/osm, Höhen-/Wetterdecoder zu ihren Erweiterungen.
+   Private Sonderaufrufe beim Anschluss entfernen, statt einen Wrapper darüberzulegen.
+3. Gemeinsame native Assets/Instanzen/Netze behalten; Szenario und glTF münden in dieselben
+   Produkte. Weltbezug ist allgemein; Geodäsie ein Adapter. Double-Welt → kamera-relative
+   Floats, rechtshändig Y-up/CCW; Render/Audio/Kontakte teilen denselben Ursprung.
+4. Ein begrenzter Compute-Worker, paralleles IO, Render-/Audiothreads mit klarer Ownership.
+   Vorbereitung → fertiges Produkt → atomare Veröffentlichung/Freigabe. Abbruch und
+   explizite Input-/Parameterwechsel schützen laufende Jobs; Cache-Vertrag ausschließlich 2280.
+   Große unveränderte Snapshots teilen, keine Weltkopie für ein lokales Produkt.
+5. Öffentlicher WeatherSnapshot für 2172 enthält Ort/Höhe/UTC, Einheiten, bekannte/fehlende
+   Felder und Herkunft. Spätere Commands/Physik/Persistenz gehören zu 2136, nicht in diesen Umbau.
 
-## Gemeinsame Verträge und Migration
-- WorldDemand: Raum/Abdeckung, Kamera-/Höhenbezug, Projektion/Qualität, UTC, Revision/Frist.
-  Quellbedarf, Produktbedarf und Sichtbarkeit getrennt; Blickrichtung kürzt keine Residency.
-- GenerationRequest: stabile Identität/Seed, gepinnte Inputs, Entfernung und erlaubter
-  Bildschirmfehler. Product: native Inhalte, Bounds, Abhängigkeiten, bekannte/ungeklärte
-  konservative Fehlerschranke. Erwerb asynchron, Compute ohne blockierendes IO.
-- SourceReceipt: Anbieter/Dataset/Adresse/Revision/Digest/Gültigkeit. Formattypen enden im
-  Provider; ProductKey hält konsumierte Quellen-/Producer-Versionen und Parameter.
-  Produkte pinnen nötige Inputs, nicht vollständige XML/MVT-Archive. Gültig leer ≠ fehlend.
-- Gemeinsamer Raum-/Höhenbezug: Double-Welt → kamera-relative Floats, rechtshändig Y-up/CCW.
-  Erde ist ein Raumadapter, keine Pflicht jedes externen Generators. Kontakte/Render/Audio teilen Posen.
-- Lebenszyklus: begrenzte Vorbereitung → atomare native Publikation → gezielte Erneuerung/
-  Freigabe; Revision/Abbruch und Elternabdeckung erhalten. Keine Neuaufbereitung unveränderter Frames.
-- Konkrete Quellen/Decoder aus world/data zu ihrer Erweiterung verschieben; gemeinsame
-  Formatdecoder wiederverwenden. Surface-/ClassificationPreparation aus engine/streaming nach
-  Erzeugungsbesitz migrieren; Engine behält nur allgemeine Koordination. Abhängigkeiten absichern.
-- Native Gebäudeinputs/BuildingGeometry, Klassifikationsgrids und logische Netze erhalten;
-  GroundClassBuffer/Upload bleiben render-eigen. Szenario/glTF publizieren dieselben Assets;
-  Szenarien besitzen Inhalte/Kamera. WeatherSnapshot erhält Ort/UTC/Einheiten/Gültigkeit/Herkunft.
-- Cacheöffnung erhält vorhandene Bytes; Trim nur explizite IO-Wartung unbenutzter Caches.
-  Gepinnte Inputs, Publikation und GPU-Freigabe besitzen eindeutige Lebensdauer.
-
-## Nächste Lieferung und Abnahme
-1. Öffentlichen Abstands-/Produktschrankenvertrag bis zur nativen Gebäudequeue integrieren;
-   Bedarf vor Terrain/Detailarbeit. Gröberes DEM braucht eine eigene Höhenfehlerschranke.
-2. Provider-/Adaptergrenzen und Generatorlebenszyklus im 2280-Ladepfad durchsetzen;
-   vorhandene Registrierungen nutzen, konkrete Engine-Aufrufe entfernen.
-3. Wetter-Snapshot für 2172 anschließen; spätere Commands/Simulation besitzt 2136.
-Ein externer Provider/Generator ersetzt einen Builtin bis zum echten Place-Bild ohne private
-Includes. Weltmodule kennen keine MVT-/OSM-/Copernicus-Typen; Runtime und API beschreiben
-denselben Lebenszyklus. Keine Schranken-/Budgetbehauptung allein aus Deklarationen.
+## Abnahme
+Ein externer Provider/Generator ersetzt den entsprechenden Builtin im echten Place ohne
+private Includes oder zweite Pipeline. Modulabhängigkeiten sichern world ohne Quelltypen.
+Bild/Funktion bleiben erhalten, zusätzlicher Zustand entfällt. Erst integrierte Nutzung
+belegt den Vertrag; neue Interfaces und bestandene Include-Prüfungen allein reichen nicht.

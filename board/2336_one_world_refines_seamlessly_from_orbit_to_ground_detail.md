@@ -3,52 +3,53 @@ State: open
 Architecture: planned
 Priority: P0
 Parent: 2169
-Depends: 2188
+Depends:
 Area: engine, generators, world, render
-Tags: planetary, lod, coverage, budgets
+Tags: lod, coverage, planetary, budgets
 
-# One world refines seamlessly from orbit to ground detail
+# Required detail is selected before source and geometry work
 
 ## Ergebnis und Ist
-240-km-Rundumwelt am Boden, erweiterter Horizont bei Höhe, schnelle Erdansicht im Orbit;
-nahtloser Zoom bis ins Nahdetail. Blickrichtung begrenzt Zeichenarbeit, nicht Abdeckung.
-Geodätische Zellen, Double-Welt, kamera-relative Daten und Gebäude-LOD-Fundamente bestehen;
-globale Grobprodukte, adaptive zertifizierte Varianten und Runtime-Auswahl fehlen.
+Eine rundum verfügbare Welt bis 240 km am Boden, mit höhenabhängigem Horizont und später
+schnellem Übergang Orbit → Nahdetail. Ferninhalte sind kompakt, Nahdetails gezielt erzeugt.
+GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist mehrfach/zu spät,
+die konservative Zellhülle erzwingt oft Fine. Vollständige Fernquellen und Runtime-Hierarchie fehlen.
 
-## Besitzer und fehlender Vertrag
-2188 liefert den öffentlichen Abstands-/Produktschrankenvertrag, nicht die gesamte Sandbox.
-Engine besitzt Weltbedarf/Residency/Publikation; Generatoren planen Quellen und Produkte,
-Renderer Sichtbarkeit. GeoCellId, GroundLattice, StructureCellPlanner und Selektoren
-in denselben Abdeckungsplan integrieren. Konkrete OSM-Pipelines bleiben generators/osm.
-2280 liefert hierarchische Vektor-/Höhenquellen; grobe MVT-Kacheln enthalten nicht automatisch
-alle Gebäude. Fehlende Ferninhalte dürfen nicht als LOD verschwinden. Globale Grobprodukte,
-Quellenumfang und konservative Abdeckung erst belegen; deshalb `planned`.
+## Besitzer und Abhängigkeiten
+Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
+StructureCellPlanner/Detail, StructureBake und GroundLattice bilden einen gemeinsamen Plan.
+Vorhandenes ProjectedErrorBudget erlaubt den ersten Schritt. Kein pauschales Warten auf 2188;
+benötigte öffentliche Felder werden dort mit diesem Pfad integriert. 2280 führt die Jobs aus.
 
-## Verfahren und nächste Lieferung
-1. Entfernung/Projektion/erlaubten Fehler vor Gebäudemesh und Terrainbedarf auswerten.
-   Zellaufträge pinnen nur benötigte Raster; Parent-Belege bleiben getrennt erhalten.
-   Parent und Teilauftrag konsumieren immutable Inputs derselben Auftragsgeneration.
-   Ihre Identitäten umfassen Producer/Parameter; vollständige Teilabdeckung vor Erzeugung
-   prüfen. Kein laufender Quellen-Versionsabgleich und kein Vergleich des Teildigests
-   mit dem gesamten Parent-Digest; LOD-Fehler werden dadurch nicht kleiner.
-   Eine große Kachel darf einen kleinen Auftrag nicht an der Vorbereitungsgrenze sperren.
-   Batches nach tatsächlichem Bedarf teilen, bestehende Grenzen nicht erhöhen.
-   Native Fernverbände bündeln, vorhandene Rundumsicht halten; danach Flug-/Orbitbedarf.
-2. Gebäude: Fernverband → Massing → Hülle → Nahdetails. Vegetation teilt Auswahl/Residency
-   mit Fernwald → Kronen/Bäume → Äste/Blätter → Nahboden. Seeds/Form bleiben stabil.
-3. Grobe Eltern vollständig bereitstellen, nur auflösbare Kinder nachfordern; Eltern bis
-   atomarer Kind-Publikation halten. Hysterese/Übergänge verhindern Löcher und Poppen.
-4. Productkosten/Bildfläche/Fehler gemeinsam für alle Klassen bewerten; Instancing und
-   kompakte Parameter vor Detailarbeit. Kein voller Feinradius oder Neuaufbau je Frame.
-5. Terrainbedarf folgt konsumierter Geometrie. Gröberes Höhensampling braucht eigene
-   Höhenfehlerschranke; Gebäude-LOD legitimiert keinen beliebigen heightZoom.
+## Erste Lieferung: Bodenstadt
+1. MVT/XML einmal in kompakte native Gebäudepläne überführen: Grundriss/Höfe/Parts, Höhen,
+   Dach-/Fassadenparameter, Bounds und Terrainkontakte. Kontaktpläne brauchen kein fertiges Mesh.
+2. Entfernung/Projektion und zulässigen Fehler vor Rasterbedarf/Mesh bestimmen. Eine Auswahl
+   ersetzt unterschiedliche WholeTile-/Cell-Policies. Zellaufträge teilen Inputs derselben
+   Auftragsgeneration; Teilbedarf darf keinen Parent-Digest reproduzieren müssen.
+3. Fernverband → Massing → Hülle → Nahdetails aus demselben Plan. Fernverbände bündeln,
+   Nahteile instanzieren. Standort/Seeds/Silhouette bleiben stabil. Jede Variante liefert
+   Bounds, Kosten und eine konservative Schranke für die tatsächlich ausgelassene Form.
+4. Für planbasierte Detailreduktionen analytische Schranken herleiten und unabhängig prüfen;
+   Höfe/Öffnungen, beide Oberflächenrichtungen und Terrainfehler berücksichtigen. Vorhandene
+   Triangle-/SurfaceError-Verfahren sind Entwicklungsorakel; keine Fine-Referenz pro Fernjob
+   als Routine. Unbewiesene Varianten erhalten keine kleinere Schranke. Verfahren noch zu validieren.
+5. Vollständigen groben Elternstand bis zur atomaren Kind-Publikation halten; Hysterese gegen
+   Poppen. Änderung invalidiert nur betroffene Produkte, Drehung erzeugt keine Inhalte neu.
+   Arbeit und residente Bytes gemeinsam budgetieren, keine festen Klassenquoten.
 
-## Invarianten und Abnahme
-SurfaceError umfasst tatsächliche Öffnungen und beide Distanzrichtungen. TriangleDistance,
-TriangleRegion und StructureSurfaceError sind CPU-Fundamente; adaptive Verfeinerung und
-Runtime-Zertifikate fehlen. Bis dahin konservative Zellhülle, keine kleinere LOD-Schranke.
-Quellen-/Raster-Eviction verliert keine Produktprovenienz; Änderungen invalidieren abhängige
-Stände. Subpixelrelief darf zum Ellipsoid übergehen, sichtbare Küsten/Silhouetten bleiben.
-Bodenstadt, Flug und Orbit separat auf volle Abdeckung, Warm-/Kaltstart, Zeit und Speicher
-prüfen; Drehung lädt vorhandene Produkte nicht neu. Kein verkürzter Radius, globales
-Feinmodell oder persistenter Generatorcache. Grashalm-Form besitzt 2111.
+## Fernwelt, Flug und Orbit
+- Quellabdeckung zuerst belegen: niedrige MVT-Zooms enthalten nicht automatisch Gebäude.
+  Lieferbare Ferninformation oder einmalige Aggregation vollständiger Quelldaten nachweisen;
+  fehlende Inhalte nicht als LOD deklarieren. Dieser Vertrag bleibt offen, daher `planned`.
+- Globale Grobprodukte vor regionalen Kindern; Bedarf aus Höhe/Horizont und Bildschirmfehler.
+  Kein weltweites Feinmodell, kein vollständiger Feinradius und kein persistenter Generatorcache.
+- Terrainbedarf folgt konsumierter Form mit eigener Höhenfehlerschranke. Subpixelrelief darf
+  zum Ellipsoid übergehen; sichtbare Küsten/Grate bleiben. Vegetation 2111 verwendet dieselbe
+  Auswahl von Fernwald bis Nahlaub; Kollision und logische Netze bleiben eigenständig.
+
+## Abnahme
+Zuerst dichte Bodenstadt: vollständige Fernverbände und Nahdetails ohne überflüssige Feinmeshes,
+Löcher, Formwechsel oder neue IO-Arbeit beim Drehen. Danach Flug und Orbit separat prüfen.
+Gleiche Inhalte/Profil/Sichtweite, geringere gemessene Arbeit/Bytes und AGENTS-Budget;
+reine CPU-Beweise oder ein gesetzter Sichtweitenparameter schließen den WI nicht.

@@ -5,34 +5,33 @@ Priority: P2
 Parent: 2169
 Depends: 2336
 Area: generators, render, world
-Tags: vegetation, forest, grass, seasons
+Tags: vegetation, forest, grass, wind
 
-# Vegetation ranges from distant forests to individual grass blades
+# Vegetation scales from distant forest to nearby leaves and grass
 
 ## Ergebnis und Ist
-Standortgerechter Wald/Stadtbaum/Strauch/Unterwuchs mit Dichte, Jahreszeit, Wind und Schatten.
+Standortgerechte Bäume/Sträucher/Unterwuchs mit Dichte, Jahreszeit, Wind und Schatten.
 TreeGrower/Mesher/Foliage, TreePrototype und ForestDraw bestehen; Weltpfad überwiegend
-Kronenkarten, Nahlaub/Standorte/Residency fehlen. Ausbau nach Infrastruktur/Terrain/
-Material/Licht/Wetter; keine festen Zeit-/Speicherquoten gegenüber Städten.
+Kronenkarten, Nahlaub/Standortauswahl unvollständig. Ausbau nach Infrastruktur/Bildbasis.
+Vorhandene deklarierte Vegetation bleibt Bestandteil vollständiger Places.
 
 ## Besitzer und fehlender Vertrag
-2336 liefert gemeinsame Eltern-/Kind-, Fehler- und Residency-Auswahl. OSM-Adapter liefert
-verfügbare Landcover-/Baumhinweise; Vegetationsgenerator besitzt Standort/Art/Form,
-ForestDraw Instanzen. VegetationStreaming ist aktuelle Koordination und wird durch
-allgemeinen Lebenszyklus aus 2188 ersetzt. Zuerst geeigneten Place mit Nah-/Mittelgeometrie
-statt Kronenkarten verbessern. 2172 liefert gemeinsamen Wind/Zustand, 2136 spätere Kräfte.
+Depends 2336: gemeinsame Eltern-/Kindabdeckung und budgetierte Detailauswahl mit Formfehler.
+OSM-Adapter liefert Landcover-/Baumhinweise; Vegetationsgenerator Standort/Art/Form,
+ForestDraw Instanzen. Zuerst Nah-/Mittelgeometrie eines geeigneten Place statt Kronenkarten.
+Form-/Standortverfahren noch zu integrieren, daher `planned`. 2172 liefert später Umweltzustand.
 
-## Verfahren und Invarianten
-- Standort/Spezies/Alter/Dichte/Phänologie aus erlaubten Inputs und stabilen Welt-Seeds;
-  unbelegte Spezies plausible Ergänzung, keine Ortsbepflanzung oder neue Welt je LOD.
-- Fernwaldverband → Kronen/Einzelbäume → Äste/Blätter → Nahhalme; derselbe deterministische
-  Formplan und konservative Silhouetten-/Fehlergrenzen. Gültigen Elternstand bis Kind halten.
-- Prototypen/Material teilen, kompakte Instanzen statt Blattmesh pro Baum. Wind/Schatten/
-  Jahreszustand raumverankert; spätere physikalische Biegung nutzt dieselben Identitäten.
-- Atlanten/Impostors begrenzt nur RAM/GPU, kein Runtime-Diskcache. Terrainkontakt,
-  Boden/DSM-Bewuchs unterscheiden; Wasser/Freiraum respektieren, Overdraw/Überdeckung begrenzen.
+## Verfahren
+- Standort/Art/Alter/Dichte aus erlaubten Inputs und stabilen Welt-Seeds; unbelegte Spezies
+  ist plausible Ergänzung. Wasser/Freiraum und DSM-Bewuchs respektieren, keine Ortsbepflanzung.
+- Fernwaldverband → Kronen/Einzelbäume → Äste/Blätter → Nahhalme aus einem Formplan.
+  Konservative Fehler/Bounds und Elternstand bis Kind-Publikation; keine neue Welt je LOD.
+- Gemeinsame Prototypen/Materialien, kompakte Instanzen statt Blattmesh pro Baum.
+  Prototypvorbereitung braucht keine fertigen Gebäude; Standorte benötigen finales Kontaktrelief.
+- Wind/Schatten/Jahreszustand raumverankert; später physikalische Biegung aus 2136.
+  Atlanten/Impostors begrenzt nur RAM/GPU. Overdraw begrenzen; Wald und Stadt nutzen dasselbe
+  dynamische Budget ohne Klassenquote. Kein eigener persistenter Generatorcache.
 
 ## Abnahme
-Nahkrone/Grashalm, Wald am Horizont und Rundumdrehung vollständig ohne Form-/Artwechsel.
-Sommer/Winter passend, kein Nahkarteneindruck oder Wachstum im Wasser; dasselbe gemeinsame
-Zeit-/Speicherbudget wie eine Stadt. Standorte/Formverfahren noch integrieren, daher `planned`.
+Wald am Horizont, Nahkrone und Grashalm ohne Art-/Formwechsel oder Nahkarteneindruck.
+Sommer/Winter plausibel, nichts wächst im Wasser; Rundumdrehung bleibt vollständig im Budget.

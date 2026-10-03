@@ -3,39 +3,36 @@ State: open
 Architecture: ready
 Priority: P0
 Parent: 2169
-Depends: 2280
+Depends:
 Area: generators, world, engine
-Tags: roads, bridges, tunnels, osm
+Tags: roads, bridges, tunnels, topology
 
-# Native transport networks form coherent roads and structures
+# Roads and structures form a continuous usable transport network
 
 ## Ergebnis und Ist
-Straßen, Gehwege, Bahn/Tram und Wege mit sauberen Kreuzungen, Brücken/Tunneln und Ebenen.
-Straßenprofile, Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation
-bestehen und bleiben erhalten. Original-Netze existieren; neue Provider-Mittelachsen/
-Ebenen sind noch nicht normalisiert, komplexe Anschlüsse und Weltintegration offen.
+Straßen/Wege/Gehwege, Bahn/Tram und Brücken/Tunnel mit richtigen Ebenen und Anschlüssen.
+Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen und
+bleiben erhalten. MVT-Mittelachsen/Ebenen müssen normalisiert, komplexe Anschlüsse ergänzt werden.
 
-## Besitzer und fehlender Vertrag
-2280 liefert normalisierte Transportlinien/Klassen/Ebenen samt Tile-Randidentität;
-MVT ist kein vollständiger Routinggraph. OSM-Adapter besitzt Quellsemantik, `world/navigation`
-das native logische Netz. RoadAlignmentBuildQueue/`generators/road` erzeugen Profile;
-Laying koordiniert Kontakt/Publikation. Renderer konsumiert native Geometrie, keine Tags.
-Zuerst einen durchgehenden Stadt-/Hafenanschluss samt Brücke bis zum Bild liefern.
+## Besitzer und nächste Lieferung
+OSM-Adapter besitzt Quellsemantik, world/navigation das logische Netz; generators/road
+Profile/Geometrie, Terrain die Kontaktdeformation. Vorhandene Linien/Produkte reichen für
+den nächsten Schritt. Erst einen realen Stadt-/Hafenanschluss samt Brücke bis zum Bild liefern;
+keine vollständige Quellenmigration oder Hockenheim-Runde als Vorbedingung.
 
-## Verfahren und Invarianten
-- Gelieferte Straßen-/Bahnklasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene erhalten.
-  Überlappungen/Randsegmente eindeutig besitzen. Keine Kreuzung allein aus Nähe; fehlende
-  Topologie/Ebenen durch deklarierte Normalisierung behandeln und Unsicherheit erhalten.
-- Zusammenhängende Ketten besitzen ein Alignment; Übergänge/Schultern/Gehwege/Knoten
-  daraus ableiten. Keine Segmentwellen, Nahtlücken oder zweite Straßenpipeline.
-- Brücken mit getrenntem Überbau/Pfeilern/Widerlagern und Höhenanschlüssen; Tunnel mit
-  Portal/Freiraum. Keine Bodenstempel für schwebende Fahrbahnen oder eingeebneten Ebenen.
-- Terrain-, Gebäude- und Wasserbezug teilen Datum/Kontakte. Nur reale Kontakte verformen
-  Boden; Netze/Funktion bleiben trotz Fern-LOD erhalten. Nicht volle Quellarchive pinnen.
-- Markierungen, Bord/Kai, Geländer, Signale und Beleuchtung nutzen Klassenparameter;
-  Wiederholungen instanzieren, Nahdetails nach 2336 begrenzen. Materialantwort besitzt 2171.
+## Verfahren
+- Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren. MVT ist
+  kein vollständiger Routinggraph: Randsegmente/IDs vereinigen, keine Kreuzung aus bloßer Nähe.
+  Fehlende Topologie ausdrücklich behandeln, belegte Ebenen erhalten.
+- Ein Alignment je zusammenhängender Kette; Schultern, Bord/Gehweg und Knoten davon ableiten.
+  Segmentwellen/Nähte an der Ursache beheben, keine zweite Straßenpipeline hinzufügen.
+- Brücken mit Überbau/Pfeilern/Widerlagern und Anschlussprofil; Tunnel mit Portal/Freiraum.
+  Nur tatsächliche Kontakte stempeln Boden. Gemeinsamer Bezug zu Gebäuden und Wasser aus 2145.
+- Markierungen, Geländer, Signale und Beleuchtung aus Klassenparametern; Wiederholungen
+  instanzieren. 2336 begrenzt Nahgeometrie, das logische Netz bleibt erhalten. 2171 beleuchtet
+  metrische Straßenbaustoffe; Quellarchive sind kein dauerhafter Bestandteil des Netzes.
 
 ## Abnahme
-Realer Place zeigt durchgehende Straße und korrekt angeschlossene Brücke ohne Wasser-/
-Geländewände; vorhandene Straßenbilder/Funktion erhalten oder verbessern. Fehlende
-Semantik bleibt explizit. Deklarierte Hockenheim-Routen sind kein Ersatz für Stadtnetze.
+Durchgehende reale Straße samt korrekt angeschlossener Brücke ohne Gelände-/Wasserwände,
+Lücken oder verlorene Ebenen. Bestehende Straßenqualität erhalten oder verbessern;
+Netzfunktion und Bild separat prüfen, gemessene Arbeit/Bytes innerhalb AGENTS-Budget.
