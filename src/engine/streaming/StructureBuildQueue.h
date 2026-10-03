@@ -115,9 +115,13 @@ public:
   };
 
   struct HeightFailure {
-    enum class Reason { None, Unavailable, Unqualified, ScopeChanged };
+    enum class Reason { None, Unavailable, Unqualified, ScopeChanged, Certificate };
     Reason Cause = Reason::None;
     Data::TileId Tile{};
+    Ground::TerrainCertificate::Validation CertificateStatus =
+        Ground::TerrainCertificate::Validation::Unknown;
+    size_t Dependencies = 0;
+    bool Complete = false;
   };
 
   struct HeightSource {

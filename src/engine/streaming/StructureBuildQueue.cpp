@@ -279,13 +279,24 @@ bool QualifiedStructureHeights(const ::outshine::Generators::Osm::OsmField &vect
       });
 }
 
+bool CertificateCurrent(const Ground::TerrainCertificate &certificate,
+                        const StructureBuildQueue::HeightSource &source) {
+  return certificate.ScopeCurrent(source.TerrainScope) &&
+         (certificate.Dependencies().empty() ||
+          (certificate.IsComplete() && source.CertificateCurrent &&
+           source.CertificateCurrent(certificate)));
+}
+
+enum class HeightResolutionMode { ContentIdentity, CurrentDelivery };
+
 bool ResolveHeights(const ::outshine::Generators::Osm::OsmField &vectors,
                     ::outshine::Generators::Osm::FeatureRun over,
                     int blockZoom,
                     const StructureBuildQueue::HeightSource &heightAt,
                     StructureBuildQueue::HeightRequirement requirement,
                     std::shared_ptr<const Ground::HeightField> &heights,
-                    HeightResolutionStats stats) {
+                    HeightResolutionStats stats,
+                    HeightResolutionMode mode = HeightResolutionMode::CurrentDelivery) {
   const auto began = std::chrono::steady_clock::now();
   using Failure = StructureBuildQueue::HeightFailure;
   if (stats.Failure != nullptr) { *stats.Failure = {}; }
@@ -314,6 +325,18 @@ bool ResolveHeights(const ::outshine::Generators::Osm::OsmField &vectors,
         (block.Sources.empty() || block.MissingBoundary)) {
       return deferred(Failure::Reason::Unqualified, tile);
     }
+  }
+  const auto certificate = Ground::HeightField::CertificateOf(*blocks, fallback);
+  if (mode == HeightResolutionMode::CurrentDelivery && !CertificateCurrent(certificate, heightAt)) {
+    deferred(Failure::Reason::Certificate);
+    if (stats.Failure != nullptr) {
+      stats.Failure->CertificateStatus = heightAt.InspectCertificate
+                                             ? heightAt.InspectCertificate(certificate)
+                                             : Ground::TerrainCertificate::Validation::Unknown;
+      stats.Failure->Dependencies = certificate.Dependencies().size();
+      stats.Failure->Complete = certificate.IsComplete();
+    }
+    return false;
   }
   auto pinned = Ground::HeightField::Of(blockZoom, std::move(*blocks), fallback);
   if (!pinned->Certificate().ScopeCurrent(heightAt.TerrainScope)) {
@@ -390,7 +413,8 @@ bool ValidateCellSource(const Ground::SurfacePreparation &stack,
                       heightAt,
                       StructureBuildQueue::HeightRequirement::FineOnly,
                       heights,
-                      {.Deferred = deferred, .DurationMs = resolutionMs}) ||
+                      {.Deferred = deferred, .DurationMs = resolutionMs},
+                      HeightResolutionMode::ContentIdentity) ||
       !heights || !heights->Certificate().ScopeCurrent(heightAt.TerrainScope)) {
     return false;
   }
@@ -404,11 +428,7 @@ bool ValidateCellSource(const Ground::SurfacePreparation &stack,
 
 bool InstrumentedHeightsCurrent(const Ground::HeightField &heights,
                                 const StructureBuildQueue::HeightSource &source) {
-  const auto &certificate = heights.Certificate();
-  return certificate.ScopeCurrent(source.TerrainScope) &&
-         (certificate.Dependencies().empty() ||
-          (certificate.IsComplete() && source.CertificateCurrent &&
-           source.CertificateCurrent(certificate)));
+  return CertificateCurrent(heights.Certificate(), source);
 }
 
 bool PinnedHeightsResident(const Ground::HeightField &pinned,
@@ -1768,6 +1788,7 @@ void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
 void StructureBuildQueue::Clear() {
   if (OriginalPreparation_) { OriginalPreparation_->Cancel(); }
   OriginalPreparation_.reset();
+  LastHeightFailure_ = {};
   PreparingOriginals_.clear();
   Originals_.clear();
   OriginalHeightTiles_.clear();

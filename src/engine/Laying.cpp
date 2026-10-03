@@ -1757,11 +1757,19 @@ std::string Engine::State::GroundBuildDiagnostic() const {
       ", vector generations=" + std::to_string(pinned != nullptr ? pinned->Generation() : 0) + "/" +
       std::to_string(vectors != nullptr ? vectors->Generation() : 0);
   const auto failure = World.StructureBuilds.LastHeightFailure();
-  const std::array<std::string_view, 4> causes{
-      "none", "unavailable", "unqualified", "scope-changed"};
+  const std::array<std::string_view, 5> causes{
+      "none", "unavailable", "unqualified", "scope-changed", "certificate"};
   diagnostic += ", height failure=" + std::string(causes[static_cast<size_t>(failure.Cause)]) +
                 " at " + std::to_string(failure.Tile.Zoom) + "/" + std::to_string(failure.Tile.X) +
                 "/" + std::to_string(failure.Tile.Y);
+  if (failure.Cause == StructureBuildQueue::HeightFailure::Reason::Certificate) {
+    const std::array<std::string_view, 5> statuses{
+        "current", "unknown", "stale", "scope-changed", "pending"};
+    diagnostic +=
+        ", certificate=" + std::string(statuses[static_cast<size_t>(failure.CertificateStatus)]) +
+        ", dependencies=" + std::to_string(failure.Dependencies) +
+        ", complete=" + std::to_string(static_cast<int>(failure.Complete));
+  }
   return diagnostic;
 }
 

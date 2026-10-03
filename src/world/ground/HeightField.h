@@ -39,6 +39,23 @@ public:
     TerrainCertificate Certificate;
   };
 
+  [[nodiscard]] static bool Qualifies(std::span<const Block> blocks, bool fallback) {
+    return !fallback && !blocks.empty() && std::ranges::all_of(blocks, [](const Block &block) {
+      return !block.Sources.empty() && !block.MissingBoundary;
+    });
+  }
+
+  [[nodiscard]] static TerrainCertificate CertificateOf(std::span<const Block> blocks,
+                                                        bool fallback) {
+    TerrainCertificate certificate;
+    if (!blocks.empty()) {
+      certificate = blocks.front().Certificate;
+      for (const auto &block : blocks.subspan(1)) { certificate.Merge(block.Certificate); }
+    }
+    if (!Qualifies(blocks, fallback)) { certificate.Invalidate(); }
+    return certificate;
+  }
+
   [[nodiscard]] static TileSpot SpotOf(LongitudeLatitude at, int zoom) noexcept {
     const TileFrac f = ToTileFracClamped(
         Geo{.LongitudeDeg = Wrap180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg}, zoom);
@@ -217,18 +234,11 @@ public:
 private:
   HeightField(int zoom, std::vector<Block> blocks, bool fallback)
       : Blocks_(std::move(blocks)), Zoom_(zoom), Fallback_(fallback) {
-    Qualified_ = !fallback && !Blocks_.empty();
+    Qualified_ = Qualifies(Blocks_, fallback);
     for (const Block &block : Blocks_) {
-      Qualified_ = Qualified_ && !block.Sources.empty() && !block.MissingBoundary;
       Sources_.insert(Sources_.end(), block.Sources.begin(), block.Sources.end());
     }
-    if (!Blocks_.empty()) {
-      Certificate_ = Blocks_.front().Certificate;
-      for (const auto &block : std::span(Blocks_).subspan(1)) {
-        Certificate_.Merge(block.Certificate);
-      }
-    }
-    if (!Qualified_) { Certificate_.Invalidate(); }
+    Certificate_ = CertificateOf(Blocks_, fallback);
     std::ranges::sort(Sources_);
     Sources_.erase(std::ranges::unique(Sources_).begin(), Sources_.end());
     const auto fold = [this](uint32_t word) {
