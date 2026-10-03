@@ -22,7 +22,8 @@ erreicht die Gebäudeerzeugung; native Gebäudeteile erhalten auch negative Unte
 ohne künstliche Sockel oder Terrain-Abgrabungen. Die Gebäudequeue pinnt exakte
 Quellraster ohne zweite Samplespeicher. Residenter Höhenbedarf reserviert die
 Revisionsmetadaten samt Nachbar-Stencil; Snapshots teilen die Reservierung bis zur letzten
-Nutzung. Wien publiziert Terrain und beendet die Gebäude-Quellaufbereitung, wartet aber
+Nutzung; diese Metadatenverwaltung wird durch immutable Inputs und Auftragsgenerationen
+ersetzt. Wien publiziert Terrain und beendet die Gebäude-Quellaufbereitung, wartet aber
 noch auf Gebäude-Zellprodukte und Vegetationsprototypen. Laufzeit-/Speicherbudget und
 vollständige aktuelle Bilder fehlen.
 
@@ -81,12 +82,11 @@ je Datenart; Wechsel atomar über abhängige Produkte. Kein beliebiges Tile-Misc
 - Gebäude-Höhenbedarf vor Rasterkopien vollständig prüfen und fehlende Abdeckung nachfordern.
   Unveränderliche Höhenfelder teilen, doppelte Raumabfragen vorab zusammenfassen; keine
   quadratischen Suchen oder wiederholten Vollkopien beim Warten auf dieselbe Quelle.
-  Kachelbedarf kanonisch sortieren/vereinigen; Abdeckung, Herkunft und Gültigkeit vor
-  Raster-Hashbildung prüfen; Erzeugungsaufträge benötigen gültige Terrain-Zertifikate.
-  Reine Inhaltsvergleiche residenter Produkte behalten ihren separaten Nachweis.
-  Metadaten für die aktive Quellenunion vor Erwerb reservieren; unbenutzte Einträge
-  bleiben auslagerbar. Reservierungen und Revisionsindex haben getrennte Speichergrenzen.
-  Fehlender Höhenbedarf und Zertifikatsstatus bleiben diagnostizierbar.
+  Kachelbedarf kanonisch sortieren/vereinigen; Abdeckung und Herkunft vor Erzeugung prüfen.
+  Netzwerkbytes bleiben bis zur Cacheleerung unverändert; kein laufender Versionsabgleich.
+  Quellen-Zertifikate, Revisionsindex und Metadatenreservierungen entfernen. Immutable
+  Inputs, Producer-/Parameteridentität und eine Auftragsgeneration genügen; vollständige
+  Nachbarinputs vor Rasterpublikation sichern. Fehlender Bedarf bleibt diagnostizierbar.
 - Client/Prepare/Shots teilen persistenten SDL-Nutzerspeicher, Registry und Weltbedarf.
   Prepare erfüllt dieselbe verfeinerte Weltqualität wie Shots; spielbare Teilabdeckung genügt nicht.
   Quellcache-Vorbereitung getrennt vom frischen Warmprozess; keine generierten Diskprodukte.

@@ -43,6 +43,10 @@
   lokal; beauftragte Anbieter-/API-Recherche und Webcam-Suche erlauben Websuche.
 - Ich cache persistent nur Netzwerk-Quelldaten. Kein Runtime-Diskcache für generierte
   Geometrie/Materialien/LODs/Atlanten. Vorhandene Bytes und Referenzen bleiben erhalten.
+- Netzwerk-Cachebytes bleiben bis zur ausdrücklichen Leerung unveränderlich. Anbieter,
+  Anfrageparameter und Formatversion bestimmen den Schlüssel; keine Hintergrund-Freshness
+  oder Quellen-Zertifikate. Generatoren konsumieren vollständige immutable Inputs.
+  Expliziter Welt-/Quellenwechsel erneuert die Auftragsgeneration; alte Ergebnisse verwerfen.
 
 ## Architektur
 - Adapter besitzt Anbieter-API/Auth/Adressen; gemeinsame IO-/Cache-/Jobdienste nur Bytes/Aufträge.
