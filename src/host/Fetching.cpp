@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -27,8 +28,49 @@ constexpr double kMicrosecondsPerMillisecond = 1000.0;
 constexpr long kPollMostMs = 1000;
 constexpr int kHttpSuccessFirst = 200;
 constexpr int kHttpRedirectFirst = 300;
+constexpr int kHttpTooManyRequests = 429;
+constexpr int kHttpBandwidthLimitExceeded = 509;
 
 using Data::StrongEntityTag;
+
+[[nodiscard]] std::string UrlOrigin(const std::string &url) {
+  const std::unique_ptr<CURLU, decltype(&curl_url_cleanup)> parsed(curl_url(), &curl_url_cleanup);
+  if (!parsed || curl_url_set(parsed.get(), CURLUPART_URL, url.c_str(), 0) != CURLUE_OK) {
+    return {};
+  }
+  const auto part = [&](CURLUPart component, unsigned flags) {
+    char *value = nullptr;
+    if (curl_url_get(parsed.get(), component, &value, flags) != CURLUE_OK) { return std::string{}; }
+    const std::unique_ptr<char, decltype(&curl_free)> owned(value, &curl_free);
+    return std::string(owned.get());
+  };
+  auto scheme = part(CURLUPART_SCHEME, 0);
+  auto host = part(CURLUPART_HOST, 0);
+  const auto port = part(CURLUPART_PORT, CURLU_DEFAULT_PORT);
+  unsigned portNumber = 0;
+  const auto parsedPort = std::from_chars(port.data(), port.data() + port.size(), portNumber);
+  if (parsedPort.ec != std::errc{} || parsedPort.ptr != port.data() + port.size() ||
+      portNumber > std::numeric_limits<uint16_t>::max()) {
+    return {};
+  }
+  for (auto *text : {&scheme, &host}) {
+    for (char &letter : *text) {
+      if (letter >= 'A' && letter <= 'Z') { letter += 'a' - 'A'; }
+    }
+  }
+  if ((scheme != "http" && scheme != "https") || host.empty() || port.empty()) { return {}; }
+  return scheme + "://" + host + ":" + std::to_string(portNumber);
+}
+
+[[nodiscard]] std::string RetryOrigin(CURL *handle, long status, curl_off_t retryAfter) {
+  if ((status != kHttpTooManyRequests && status != kHttpBandwidthLimitExceeded) ||
+      retryAfter <= 0) {
+    return {};
+  }
+  const char *effective = nullptr;
+  (void)curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &effective);
+  return effective != nullptr ? UrlOrigin(effective) : std::string{};
+}
 
 [[nodiscard]] bool HeaderName(std::string_view name, std::string_view wanted) {
   return std::ranges::equal(name, wanted, [](char left, char right) {
@@ -174,11 +216,16 @@ Data::FetchStart Fetching::Start(const std::string &url,
   if (url.empty() || url.contains('\0')) {
     return std::unexpected(Data::FetchFailureReason::InvalidRequest);
   }
+  const auto origin = UrlOrigin(url);
+  if (origin.empty()) { return std::unexpected(Data::FetchFailureReason::InvalidRequest); }
   uint64_t ticket = 0;
   {
     const std::scoped_lock lock(Mutex_);
     if (State_ != State::Ready) { return std::unexpected(Data::FetchFailureReason::Unavailable); }
+    const double nowMs = NowMs();
+    std::erase_if(Cooldowns_, [nowMs](const auto &entry) { return entry.second <= nowMs; });
     if (Transfers_.size() >= Config_.MaxRequests ||
+        (Cooldowns_.size() >= Config_.MaxRequests && !Cooldowns_.contains(origin)) ||
         NextTicket_ == std::numeric_limits<uint64_t>::max()) {
       return std::unexpected(Data::FetchFailureReason::CapacityRefused);
     }
@@ -187,6 +234,7 @@ Data::FetchStart Fetching::Start(const std::string &url,
     auto &transfer = Transfers_.at(ticket);
     transfer.Ticket = ticket;
     transfer.Url = url;
+    transfer.Origin = origin;
     transfer.Range = range;
     transfer.IfMatch = entityTag;
     transfer.MaxBodyBytes = range ? static_cast<size_t>(range->Length) : Config_.MaxBodyBytes;
@@ -326,13 +374,36 @@ bool Fetching::ConfigureTransfer(void *handle, Transfer &transfer) const {
          curl_easy_setopt(easy, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS) == CURLE_OK;
 }
 
+bool Fetching::CanStart(const Transfer &transfer, double nowMs) const {
+  const auto cooldown = Cooldowns_.find(transfer.Origin);
+  return cooldown == Cooldowns_.end() || nowMs >= cooldown->second;
+}
+
+void Fetching::DeferOrigin(const Transfer &transfer,
+                           const std::string &responseOrigin,
+                           double retryAfterS) {
+  if (responseOrigin.empty()) { return; }
+  const double deadlineMs = NowMs() + retryAfterS * 1000.0;
+  if (!std::isfinite(deadlineMs)) { return; }
+  for (const auto &origin : {transfer.Origin, responseOrigin}) {
+    auto &until = Cooldowns_[origin];
+    until = std::max(until, deadlineMs);
+  }
+}
+
 size_t Fetching::AddQueuedTransfers(void *multiHandle, size_t active) {
   auto *const multi = static_cast<CURLM *>(multiHandle);
   const auto capacity = static_cast<size_t>(Config_.ConcurrentTransfers);
   const std::scoped_lock lock(Mutex_);
   while (State_ == State::Ready && active < capacity && !Queue_.empty()) {
-    const uint64_t ticket = Queue_.front();
-    Queue_.pop_front();
+    const double nowMs = NowMs();
+    const auto queued = std::ranges::find_if(Queue_, [&](uint64_t ticket) {
+      const auto transfer = Transfers_.find(ticket);
+      return transfer == Transfers_.end() || CanStart(transfer->second, nowMs);
+    });
+    if (queued == Queue_.end()) { break; }
+    const uint64_t ticket = *queued;
+    Queue_.erase(queued);
     const auto found = Transfers_.find(ticket);
     if (found == Transfers_.end()) { continue; }
     Transfer &transfer = found->second;
@@ -361,9 +432,11 @@ void Fetching::CollectCompletions(void *multiHandle, size_t &active) {
     (void)curl_easy_getinfo(message->easy_handle, CURLINFO_PRIVATE, &transfer);
     long status = 0;
     curl_off_t retryAfter = 0;
+    std::string responseOrigin;
     if (message->data.result == CURLE_OK) {
       (void)curl_easy_getinfo(message->easy_handle, CURLINFO_RESPONSE_CODE, &status);
       (void)curl_easy_getinfo(message->easy_handle, CURLINFO_RETRY_AFTER, &retryAfter);
+      responseOrigin = RetryOrigin(message->easy_handle, status, retryAfter);
     }
     (void)curl_multi_remove_handle(multi, message->easy_handle);
     curl_easy_cleanup(message->easy_handle);
@@ -371,6 +444,7 @@ void Fetching::CollectCompletions(void *multiHandle, size_t &active) {
     const std::scoped_lock lock(Mutex_);
     if (transfer == nullptr) { continue; }
     transfer->Handle = nullptr;
+    DeferOrigin(*transfer, responseOrigin, static_cast<double>(retryAfter));
     if (transfer->Cancelled.load(std::memory_order_relaxed)) {
       Transfers_.erase(transfer->Ticket);
       ++Completions_;
@@ -442,7 +516,16 @@ void Fetching::Work() {
     CollectCompletions(multi, active);
     {
       const std::scoped_lock lock(Mutex_);
-      if (!Queue_.empty() && active < capacity) { continue; }
+      const double nowMs = NowMs();
+      if (active < capacity && std::ranges::any_of(
+                                   Queue_,
+                                   [&](uint64_t ticket) {
+                                     const auto transfer = Transfers_.find(ticket);
+                                     return transfer == Transfers_.end() ||
+                                            CanStart(transfer->second, nowMs);
+                                   })) {
+        continue;
+      }
     }
     int descriptors = 0;
     (void)curl_multi_poll(multi, nullptr, 0, kPollMostMs, &descriptors);

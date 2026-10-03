@@ -66,7 +66,6 @@ IO und Decode nutzen geliehene Queues; jeder OSM-Response ist auf 4 MiB begrenzt
   Erst die vollständige Blattmenge publizieren; unveränderte Pläne und Blätter wiederverwenden.
   Quellzellen nicht allein am Sichtkreis wegschneiden: nodebasierte API-Abfragen können
   über äußere Nodes auch Geometrie innerhalb des Radius liefern. Objektabschluss zuerst beweisen.
-  Globale Grobquellen und die vollständige Place-Abnahme bleiben offen.
 - GLO-30: `CopernicusRaster`/libtiff liefern native Meter aus Original-COG-Blöcken/Übersichten.
   HTTP-Bereiche, Dateilänge, starke Revisionspins und Receipt vor Cache/Lieferung prüfen.
   Vor der Dekodierung fehlende Abschnitte des vollständigen komprimierten Originalblocks
@@ -88,7 +87,8 @@ IO und Decode nutzen geliehene Queues; jeder OSM-Response ist auf 4 MiB begrenzt
   Reader reicht HTTP-Status und Transportgrund bis zum Client; andere Quelladapter
   müssen diese Metadaten noch übernehmen. Eine pauschale Ablehnung verliert keine Ursache.
   HTTP 509 mit gültigem positivem Retry-After wartet mindestens die angegebene Dauer;
-  Erwerbsfrist/Retrybudget begrenzen Fortsetzung. Ohne Warteangabe terminal; Originalbytes bleiben erhalten.
+  Fetching sperrt neue Starts desselben HTTP-Ursprungs bis zum spätesten Retry-After;
+  andere Ursprünge/Abbruch bleiben frei. Frist/Retrybudget begrenzen Fortsetzung; ohne Angabe terminal.
   Bestätigtes HTTP 400 wegen Node-Kapazität fordert kleinere Zellen; HTTP 509 belegt
   diese Ursache nicht. Ablehnungen und Erwerbsplan-Hinweise sind niemals Datenabdeckung.
   CellCompiler überführt jede dekodierte Zelle auf dem gemeinsamen Compute-Worker in native

@@ -58,6 +58,7 @@ private:
 
     uint64_t Ticket = 0;
     std::string Url;
+    std::string Origin;
     std::optional<Data::ByteRange> Range;
     std::string RangeText;
     std::string EntityTag;
@@ -76,6 +77,8 @@ private:
   };
 
   [[nodiscard]] size_t AddQueuedTransfers(void *multi, size_t active);
+  [[nodiscard]] bool CanStart(const Transfer &transfer, double nowMs) const;
+  void DeferOrigin(const Transfer &transfer, const std::string &responseOrigin, double retryAfterS);
   [[nodiscard]] Data::FetchStart
   Start(const std::string &url, std::optional<Data::ByteRange> range, std::string_view entityTag);
   void CollectCompletions(void *multi, size_t &active);
@@ -91,6 +94,7 @@ private:
   uint64_t Completions_ = 0;
   std::map<uint64_t, Transfer> Transfers_;
   std::deque<uint64_t> Queue_;
+  std::map<std::string, double, std::less<>> Cooldowns_;
   std::vector<uint64_t> CancelledTickets_;
   uint64_t NextTicket_ = 1;
   enum class State { Unavailable, Ready, Stopping, Failed };
