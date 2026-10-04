@@ -20,6 +20,9 @@ noch im nativen Gebäudeplan.
 ## Besitzer und nächste Lieferung
 OSM-Adapter normalisiert lieferbare Semantik; generators/building besitzt einen gemeinsamen
 Gebäudeplan für Kontakte, Form und alle LODs. Renderer erhält Materialparameter, keine Tags.
+StructurePlan/StructureMesher gehören zu generators/building; world besitzt keine
+Generator-Eingabeverträge. Erscheinung wird dort vorbereitet und als native Material-/
+Vertexparameter publiziert. Quellklassen bleiben aus world und Renderer heraus.
 Zuerst Vollständigkeit/Höhen/Höfe/Sonderklassen in Wien/Rosenheim prüfen und verbessern,
 danach Dächer und nahe Öffnungen. Bestehende Inputs nutzen, fehlende Tags nicht erfinden.
 2336 besitzt Auswahl/Aggregation; weder die gesamte API noch Orbit sind Voraussetzung.

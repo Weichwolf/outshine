@@ -12,7 +12,7 @@
 #include "TreeSpecies.h"
 #include "GroundMesher.h"
 #include "road/RoadMesher.h"
-#include "StructureMesher.h"
+#include "building/StructureMesher.h"
 #include "GeneratorSet.h"
 #include "VegetationTemplates.h"
 

@@ -22,7 +22,7 @@
 
 #include "Capacity.h"
 #include <Earth.h>
-#include "StructureMesher.h"
+#include "../../building/StructureMesher.h"
 #include "StructureCellGrid.h"
 #include "TileWatermark.h"
 
