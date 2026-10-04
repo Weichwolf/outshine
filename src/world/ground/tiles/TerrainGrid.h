@@ -5,7 +5,9 @@
 #include <cstdint>
 #include <algorithm>
 #include <mdspan>
+#include <memory>
 #include <span>
+#include <variant>
 #include <vector>
 #include <utility>
 
@@ -149,23 +151,38 @@ public:
 
   static TerrainGrid Holding(TerrainField &&field) { return {State::Decoded, std::move(field)}; }
 
+  static TerrainGrid Holding(std::shared_ptr<const TerrainField> field) {
+    return field ? TerrainGrid(State::Decoded, std::move(field)) : NotHere();
+  }
+
   [[nodiscard]] State Where() const { return Where_; }
 
   [[nodiscard]] const TerrainField *TryField() const {
-    return Where_ == State::Decoded ? &Field_ : nullptr;
+    if (Where_ != State::Decoded) { return nullptr; }
+    if (const auto *field = std::get_if<TerrainField>(&Field_)) { return field; }
+    return std::get<std::shared_ptr<const TerrainField>>(Field_).get();
   }
 
   [[nodiscard]] TerrainField *TryFieldMutable() {
-    return Where_ == State::Decoded ? &Field_ : nullptr;
+    if (Where_ != State::Decoded) { return nullptr; }
+    if (const auto *shared = std::get_if<std::shared_ptr<const TerrainField>>(&Field_)) {
+      Field_ = TerrainField(**shared);
+    }
+    return std::get_if<TerrainField>(&Field_);
   }
 
-  [[nodiscard]] size_t Bytes() const { return Field_.Bytes(); }
+  [[nodiscard]] size_t Bytes() const {
+    const TerrainField *field = TryField();
+    return field != nullptr ? field->Bytes() : 0;
+  }
 
 private:
-  TerrainGrid(State where, TerrainField &&field) : Where_(where), Field_(std::move(field)) {}
+  using Storage = std::variant<TerrainField, std::shared_ptr<const TerrainField>>;
+
+  TerrainGrid(State where, Storage field) : Where_(where), Field_(std::move(field)) {}
 
   State Where_;
-  TerrainField Field_;
+  Storage Field_;
   std::optional<Data::FetchFailure> Failure_;
 };
 

@@ -136,16 +136,15 @@ TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
       SharesDecoded_ ? Config_.Shared : std::make_shared<DecodedCache>(Config_.DemCacheBytes);
 }
 
-bool DecodedCache::Take(Data::TileId of, TerrainField *out) {
+std::shared_ptr<const TerrainField> DecodedCache::Take(Data::TileId of) {
   const std::scoped_lock lock(Lock_);
   for (Entry &one : Held_) {
     if (one.Of == of) {
       one.Seq = ++Seq_;
-      *out = one.Field;
-      return true;
+      return one.Field;
     }
   }
-  return false;
+  return nullptr;
 }
 
 void DecodedCache::Store(Data::TileId of, const TerrainField &field) {
@@ -153,23 +152,23 @@ void DecodedCache::Store(Data::TileId of, const TerrainField &field) {
   const std::scoped_lock lock(Lock_);
   std::erase_if(Held_, [of](const Entry &entry) { return entry.Of == of; });
   size_t held = field.Bytes();
-  for (const Entry &one : Held_) { held += one.Field.Bytes(); }
+  for (const Entry &one : Held_) { held += one.Field->Bytes(); }
   while (held > Budget_ && !Held_.empty()) {
     size_t oldest = 0;
     for (size_t at = 1; at < Held_.size(); ++at) {
       if (Held_[at].Seq < Held_[oldest].Seq) { oldest = at; }
     }
-    held -= Held_[oldest].Field.Bytes();
+    held -= Held_[oldest].Field->Bytes();
     Held_[oldest] = std::move(Held_.back());
     Held_.pop_back();
   }
-  Held_.push_back({.Seq = ++Seq_, .Of = of, .Field = field});
+  Held_.push_back({.Seq = ++Seq_, .Of = of, .Field = std::make_shared<const TerrainField>(field)});
 }
 
 size_t DecodedCache::Bytes() const {
   const std::scoped_lock lock(Lock_);
   size_t bytes = 0;
-  for (const Entry &one : Held_) { bytes += one.Field.Bytes(); }
+  for (const Entry &one : Held_) { bytes += one.Field->Bytes(); }
   return bytes;
 }
 
@@ -230,12 +229,12 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
     return TerrainGrid::Holding(std::move(field));
   }
   {
-    TerrainField cached;
-    if (Decoded_->Take(of, &cached) &&
-        (cached.Certificate().Dependencies().empty() ||
-         (cached.Certificate().IsComplete() &&
-          cached.Certificate().TerrainScopeRevision() == Source_.TerrainScopeRevision() &&
-          Source_.AreCurrent(cached.Certificate().Dependencies())))) {
+    auto cached = Decoded_->Take(of);
+    if (cached &&
+        (cached->Certificate().Dependencies().empty() ||
+         (cached->Certificate().IsComplete() &&
+          cached->Certificate().TerrainScopeRevision() == Source_.TerrainScopeRevision() &&
+          Source_.AreCurrent(cached->Certificate().Dependencies())))) {
       return TerrainGrid::Holding(std::move(cached));
     }
   }

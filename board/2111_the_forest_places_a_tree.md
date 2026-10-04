@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Architecture: planned
 Priority: P2
 Parent: 2169

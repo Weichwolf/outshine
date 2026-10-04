@@ -120,7 +120,7 @@ class DecodedCache {
 public:
   explicit DecodedCache(size_t budgetBytes) : Budget_(budgetBytes) {}
 
-  [[nodiscard]] bool Take(Data::TileId of, TerrainField *out);
+  [[nodiscard]] std::shared_ptr<const TerrainField> Take(Data::TileId of);
   void Store(Data::TileId of, const TerrainField &field);
   [[nodiscard]] size_t Bytes() const;
 
@@ -128,7 +128,7 @@ private:
   struct Entry {
     uint64_t Seq = 0;
     Data::TileId Of;
-    TerrainField Field;
+    std::shared_ptr<const TerrainField> Field;
   };
 
   mutable std::mutex Lock_;

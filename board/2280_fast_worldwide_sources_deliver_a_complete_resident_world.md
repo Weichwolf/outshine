@@ -26,6 +26,10 @@ vor weiterem Scheduler-Ausbau prüfen. Ein RAM-Decodestand ist kein persistenter
 Vollständig vorbereitete HeightSheets-Felder stehen nach Kacheladresse sortiert; Halo-Abfragen
 nutzen binäre Suche. Teilvorbereitung bleibt abfragbar, Verwerfen entfernt denselben Index.
 Restarbeit im Nachbarstitching und in der Feldvorbereitung vor weiterem Scheduler-Ausbau messen.
+Dekodierte RAM-Raster werden unveränderlich gemeinsam gelesen; nur das gestitchte Zielraster
+erhält eine private Kopie. Revision, Nachbarfehler und Bytebudget bleiben verbindlich.
+Verbleibende Dekodier-/Stitcharbeit muss den vollständigen Ladepfad beschleunigen;
+weniger kumulierte Allokationen allein belegen keine kürzere Ladezeit. Kein zusätzlicher Diskcache.
 
 ## Besitzer und Grenzen
 SourceSet/ContentStore/TilePool besitzen gemeinsame Bytes/Jobs; Erweiterungen ihre Formate.
