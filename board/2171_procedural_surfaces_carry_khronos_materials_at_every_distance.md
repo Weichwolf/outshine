@@ -37,10 +37,11 @@ U-Gruppenanteil; V bleibt die unbeschränkte Geschosskoordinate. Hohe Wände wec
 bei 64 Geschossen die Variante. Bestehende Vertexgröße und Geometrie bleiben erhalten.
 Wandfarbe beeinflusst ausschließlich den Wandanteil; Glas, Metallrahmen und Türen
 behalten ihre eigene Materialantwort statt die Wandfarbe mitzuerben.
-Nächster integrierter Schritt: gefilterte Dachkurse und Fassadenrecess/Profil als metrisches
-Höhenrelief vor derselben BRDF auswerten. Vorhandene Dachhöhe samt Oberflächengradient
-liefert den Abstand auf der Dachfläche; keine zusätzliche UV-/Vertexbelegung. Terrain und
-Gebäude teilen die Gradientenauflösung. Das ersetzt weder Öffnungs- noch Silhouettengeometrie.
+Gefilterte Dachkurse nutzen vorhandene Dachhöhe und Oberflächengradient für metrische
+Abstände; ihre Maske verändert Farbe, Roughness und Relief vor derselben BRDF. Analytische
+Filterableitungen vermeiden zweite Bildschirmableitungen; keine zusätzliche UV-/Vertexbelegung.
+Terrain und Gebäude teilen die Gradientenauflösung. Fassadenrecess/Profil und eine kalibrierte
+Materialpalette folgen; Relief ersetzt weder Öffnungs- noch Silhouettengeometrie.
 
 ## Verfahren
 - Metrische Ziegel-/Backsteinraster mit gefilterten Fugen, Putzkorn/Betonporen. Cell-Hash

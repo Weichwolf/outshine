@@ -12,6 +12,7 @@ const float kPi = acos(-1.0);
 #include "iridescenceLobe.glsl"
 #include "microfacetEnergy.glsl"
 #include "subjectLighting.glsl"
+#include "surfaceGradient.glsl"
 #include "facadePattern.glsl"
 #if LIT_MAPPED
 layout(location = 9) in vec4 tangent;
@@ -51,7 +52,11 @@ void main() {
 #endif
   vec3 albedo = surface.base.rgb * tap.rgb;
   float metalness = surface.metalness * orm.b;
-  if (surface.pattern > 0.5) { applyFacade(uv, colour.rgb, albedo, roughness, metalness); }
+  if (surface.pattern > 0.5) {
+    vec2 heightChange;
+    applyFacade(uv, colour.rgb, position, facing(normal, gl_FrontFacing), albedo, roughness, metalness, heightChange);
+    shadingNormal = bumpNormal(facing(normal, gl_FrontFacing), shadingNormal, dFdx(position), dFdy(position), heightChange.x, heightChange.y);
+  }
   else { albedo *= colour.rgb; }
   vec4 shaded = vec4(shadeRow(surface, localPosition, shadingNormal, position, albedo,
       metalness, roughness, f0, f90, emission, tangentDir, lightSpace, shadowMap), 1.0);

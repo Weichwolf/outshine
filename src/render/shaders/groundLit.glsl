@@ -15,6 +15,7 @@ const float kPi = acos(-1.0);
 #include "subjectLighting.glsl"
 #include "groundClass.glsl"
 #include "groundRock.glsl"
+#include "surfaceGradient.glsl"
 void main() {
   M surface = materialAt();
   vec3 shadingNormal = facing(normal, gl_FrontFacing);
@@ -37,7 +38,8 @@ void main() {
   if (rockWeight > 0.0) {
     detail = rockDetail(worldM, footprintM, rows);
   }
-  shadingNormal = rockBumpNormal(shadingNormal, position, detail.BumpM * rockWeight);
+  float heightM = detail.BumpM * rockWeight;
+  shadingNormal = bumpNormal(shadingNormal, shadingNormal, dFdx(position), dFdy(position), dFdx(heightM), dFdy(heightM));
   vec3 albedo = min(wears.rgb * mix(1.0, detail.AlbedoScale, rockWeight), vec3(1.0));
   float roughness = clamp(wears.a + detail.RoughnessOffset * rockWeight, 0.04, 1.0);
   vec3 shaded = shadeRow(surface, localPosition, shadingNormal, position, albedo,

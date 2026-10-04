@@ -10,6 +10,15 @@ float periodicBand(float coordinate, float low, float high, float width) {
        bandIntegral(coordinate - 0.5f * span, low, high)) / span, 0.0f, 1.0f);
 }
 
+float periodicBandSlope(float coordinate, float low, float high, float width) {
+  float span = max(width, 0.0001f);
+  float left = fract(coordinate - 0.5f * span);
+  float right = fract(coordinate + 0.5f * span);
+  float enters = right >= low && right < high ? 1.0f : 0.0f;
+  float leaves = left >= low && left < high ? 1.0f : 0.0f;
+  return (enters - leaves) / span;
+}
+
 float intervalBand(float coordinate, float low, float high, float width) {
   float span = max(width, 0.0001f);
   return clamp((min(coordinate + 0.5f * span, high) -

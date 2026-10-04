@@ -32,7 +32,8 @@ double Covered(double centre, double width, double low, double high) {
 
 int main() {
   using namespace outshine::Test;
-  constexpr std::array bands{std::array{0.015f, 0.040f},
+  constexpr std::array bands{std::array{0.0f, 0.055f},
+                             std::array{0.015f, 0.040f},
                              std::array{0.12f, 0.88f},
                              std::array{0.18f, 0.82f},
                              std::array{0.38f, 0.84f}};
@@ -44,6 +45,14 @@ int main() {
                    0.00015,
                    "periodic coverage",
                    "the shader integral equals independent interval intersections across seams");
+        const float point = centre + 0.0031f;
+        constexpr double epsilon = 0.000001;
+        const double slope = (Covered(point + epsilon, width, band[0], band[1]) -
+                              Covered(point - epsilon, width, band[0], band[1])) /
+                             (2.0 * epsilon);
+        CHECK_NEAR(periodicBandSlope(point, band[0], band[1], width), slope, 0.002,
+                   "filtered relief slope",
+                   "the analytic shader slope equals independently intersected coverage differences");
       }
     }
     for (const float centre : {-0.25f, 0.0f, 0.4f, 0.99f, 31.5f}) {

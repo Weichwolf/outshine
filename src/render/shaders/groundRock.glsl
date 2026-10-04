@@ -59,14 +59,3 @@ RockDetail rockDetail(vec3 worldM, float footprintM, uint rows) {
                 min(coarseM * 0.04, 0.4) * coarse + heightAmplitudeM * fine;
   return RockDetail(albedoScale, roughnessOffset, bumpM);
 }
-
-vec3 rockBumpNormal(vec3 n, vec3 positionM, float heightM) {
-  vec3 q0 = dFdx(positionM);
-  vec3 q1 = dFdy(positionM);
-  vec3 r0 = cross(q1, n);
-  vec3 r1 = cross(n, q0);
-  float det = dot(q0, r0);
-  if (abs(det) < 1.0e-8) { return n; }
-  vec3 gradient = sign(det) * (dFdx(heightM) * r0 + dFdy(heightM) * r1) / abs(det);
-  return normalize(n - gradient);
-}

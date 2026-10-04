@@ -1,7 +1,23 @@
 #include "periodicBand.glsl"
 
-void applyFacade(vec2 encoded, vec3 paint, inout vec3 albedo, inout float roughness,
-                 inout float metalness) {
+void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 n, inout vec3 albedo,
+                      inout float roughness, out vec2 heightChange) {
+  heightChange = vec2(0.0);
+  float slope = length(surfaceGradient(n, dFdx(positionM), dFdy(positionM),
+                                       dFdx(encoded.y), dFdy(encoded.y)));
+  if (slope < 0.05) { return; }
+  float course = encoded.y / (0.32 * slope);
+  vec2 courseChange = vec2(dFdx(encoded.y), dFdy(encoded.y)) / (0.32 * slope);
+  float width = abs(courseChange.x) + abs(courseChange.y);
+  float joint = periodicBand(course, 0.0, 0.055, width);
+  albedo *= mix(vec3(1.0), vec3(0.68, 0.70, 0.73), joint);
+  roughness = mix(roughness, 1.0, joint);
+  heightChange = -0.004 * periodicBandSlope(course, 0.0, 0.055, width) * courseChange;
+}
+
+void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 n, inout vec3 albedo,
+                 inout float roughness, inout float metalness, out vec2 heightChange) {
+  heightChange = vec2(0.0);
   if (encoded.x < 0.0) {
     float trim = mod(-encoded.x - 1.0, 16.0);
     float ident = floor((-encoded.x - 1.0) / 16.0);
@@ -25,6 +41,7 @@ void applyFacade(vec2 encoded, vec3 paint, inout vec3 albedo, inout float roughn
           tint = vec3(0.65, 0.90, 1.12);
         }
         albedo *= tint;
+        applyRoofCourses(encoded, positionM, n, albedo, roughness, heightChange);
       }
       return;
     }
