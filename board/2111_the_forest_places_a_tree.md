@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: planned
 Priority: P2
 Parent: 2169
@@ -14,6 +14,11 @@ Standortgerechte Bäume/Sträucher/Unterwuchs mit Dichte, Jahreszeit, Wind und S
 TreeGrower/Mesher/Foliage, TreePrototype und ForestDraw bestehen; Weltpfad überwiegend
 Kronenkarten, Nahlaub/Standortauswahl unvollständig. Ausbau nach Infrastruktur/Bildbasis.
 Vorhandene deklarierte Vegetation bleibt Bestandteil vollständiger Places.
+Die reparierte Klassenanbindung deckt Bäume auf Wegflächen auf: `Forest::Place` konsumiert
+die Bodenklasse, ignoriert aber vorhandene native Struktur-/Wasser-/Weggrenzen.
+Zuerst diesen Platzierungsfehler beheben; kein vorgezogener vollständiger Vegetationsausbau.
+Nach der Dichteauswahl prüfen die Generatoren native belegte Flächen, bevor Höhen/Geometrie
+entstehen. Freie Fläche bleibt bepflanzbar, konkrete OSM-Typen bleiben außerhalb von Forest.
 
 ## Besitzer und fehlender Vertrag
 Depends 2336: gemeinsame Eltern-/Kindabdeckung und budgetierte Detailauswahl mit Formfehler.
