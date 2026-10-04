@@ -19,6 +19,10 @@ OSM-Adapter besitzt Quellsemantik, world/navigation das logische Netz; generator
 Profile/Geometrie, Terrain die Kontaktdeformation. Vorhandene Linien/Produkte reichen für
 den nächsten Schritt. Erst einen realen Stadt-/Hafenanschluss samt Brücke bis zum Bild liefern;
 keine vollständige Quellenmigration oder Hockenheim-Runde als Vorbedingung.
+Zuerst `Corridors::YieldsOf` und `EarthworkPress::BidsLand` trennen: der vorhandene
+Freiraumschnitt unter Brückenspannen beansprucht derzeit Boden und sperrt dadurch Becken-
+Vertiefung. Ein nativer Freiraumauftrag setzt eine Höhenobergrenze, besitzt aber keinen
+Bodenkontakt; Widerlager/Anschlussrampen besitzen ihre tatsächlichen Kontakte.
 
 ## Verfahren
 - Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren. MVT ist

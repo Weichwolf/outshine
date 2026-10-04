@@ -23,6 +23,8 @@ ist keine erfolgreiche Abnahme; fehlende Quellen bleiben bis zur vollständigen 
 Körbersee/Feldkirch warten trotz vorhandener Höhenquellen auf CPU-Vorbereitung.
 CPU-Profile zeigen Quellraster-Dekodierung im Nachbarstitching; Wiederverwendung, Kopien und Invalidierung
 vor weiterem Scheduler-Ausbau prüfen. Ein RAM-Decodestand ist kein persistenter Geometriecache.
+`HeightSheets::FieldAt` durchsucht die Felder für jeden Halo-Stützpunkt linear. Nächster
+Ladeschritt: einmaliger Kachelindex; Aufbau/Verwerfen der Felder invalidiert denselben Index.
 
 ## Besitzer und Grenzen
 SourceSet/ContentStore/TilePool besitzen gemeinsame Bytes/Jobs; Erweiterungen ihre Formate.
