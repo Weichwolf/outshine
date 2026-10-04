@@ -28,15 +28,15 @@ Fassadenmaterials. Negative Flächencodes unterscheiden geneigte/ebene Dächer u
 Dächer müssen ihre vorhandenen Koordinaten bis zum Shader behalten. Materialwahl bleibt
 je Gebäude und LOD stabil, statt jeder Fläche unabhängig eine Farbe zu geben.
 Plausible Farb-/Baustoffvarianten sind keine belegten OSM-Materialangaben. Keine neuen
-Dreiecke, Disktexturen oder Fassadenmeshes pro Ferngebäude. Bestehende Fensterfilter erhalten.
+Dreiecke, Disktexturen oder Fassadenmeshes pro Ferngebäude. Kein pauschales Fensterraster, keine aufgemalten Türen oder Metallrahmen.
 Zuerst vorhandene Dachcodes bis zur Runtime erhalten: Flachdächer neutral/rau, geneigte
 Dächer mit stabilen gedeckten Ziegel-/Schiefervarianten. Das sind plausible Ergänzungen;
 gelieferte Farbe/Material benötigt weiterhin einen nativen Parameterpfad. Acht gedeckte
 Wandvarianten ergänzen die Dächer. Variante, Nutzung und Eingangsseite liegen im konstanten
 U-Gruppenanteil; V bleibt die unbeschränkte Geschosskoordinate. Hohe Wände wechseln nicht
 bei 64 Geschossen die Variante. Bestehende Vertexgröße und Geometrie bleiben erhalten.
-Wandfarbe beeinflusst ausschließlich den Wandanteil; Glas, Metallrahmen und Türen
-behalten ihre eigene Materialantwort statt die Wandfarbe mitzuerben.
+Wände behalten ihre stabile Gebäudevariante. Öffnungen folgen erst 2173: Nutzung,
+Geschosse, Fassadenachsen und vorhandene Angaben begrenzen ihre Platzierung.
 Gefilterte Dachkurse nutzen vorhandene Dachhöhe und Oberflächengradient für metrische
 Abstände; ihre Maske verändert Farbe, Roughness und Relief vor derselben BRDF. Analytische
 Filterableitungen vermeiden zweite Bildschirmableitungen; keine zusätzliche UV-/Vertexbelegung.

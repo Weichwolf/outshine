@@ -27,6 +27,17 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 über Himmelsfüllung, Sonnenschatten und Belichtung verbessern. Kein Quellen-/SDK-Blocker.
 2172 ergänzt später denselben Lichtzustand um Wolken und Wetter.
 
+## Nächster Bildschritt: weniger Treppen und Flimmern
+- Places deklarieren den vorhandenen TemporalResolve über reguläre Szenario-Stages;
+  keine Zusatzframes, Auflösungswechsel oder Inhaltskürzung. 720p60 bleibt Messprofil.
+- Bestehende Bewegung/History prüfen: NDC → Textur-UV umfasst halben Maßstab und Y-Wechsel.
+  Jitter ist bereits in beiden Projektionsmatrizen; keine zweite Jitterkorrektur.
+- Ungültige Bewegung/fehlende History verwendet das aktuelle Bild; bei Rotation History
+  reprojizieren und nachbarschaftlich begrenzen. Szenenwechsel verwirft alte History.
+- TAA-Referenz unten ist Grundlage; 4× MSAA/Alpha-to-Coverage erst nach Kostenvergleich.
+  SDL unterstützt keinen MSAA-Tiefenresolve; ein weiterer Tiefenpfad braucht belegten Bildgewinn.
+- Alle acht Vorher/Nachher-Bilder öffnen; p99/RAM messen, keine Baseline-Neupins.
+
 ## Aktueller Ausbau: gemeinsame Umgebungsreflexion
 - Gemeinsame Himmelsabfrage für Hintergrund und Reflexion, einschließlich Horizont und
   Texelzentren; Sonnenprojektion am Zenit bleibt endlich. Diese vorhandene Abfrage nutzen:
