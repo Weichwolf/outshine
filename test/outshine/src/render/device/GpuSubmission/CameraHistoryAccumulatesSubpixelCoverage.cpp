@@ -36,7 +36,7 @@ float Coverage(int x, int y) {
   return static_cast<float>(inside) / (kSamples * kSamples);
 }
 
-std::vector<float> RenderTriangle(bool temporal) {
+std::vector<float> RenderTriangle(bool temporal, double panPxPerFrame = 0) {
   Geometry geometry;
   Material material;
   material.Unlit = material.DoubleSided = true;
@@ -71,9 +71,11 @@ std::vector<float> RenderTriangle(bool temporal) {
   eye.YfovRad = std::numbers::pi / 2;
   eye.ZNearM = 0.1;
   eye.ZFarM = 100;
-  scene->Eye(eye);
-  for (int frame = 0; frame < (temporal ? 60 : 1); ++frame) {
-    CHECK(scene->Draw(error), "a stationary frame accumulates without camera movement");
+  const int frames = temporal ? 60 : 1;
+  for (int frame = 0; frame < frames; ++frame) {
+    eye.EyeM[0] = static_cast<double>(frame - frames + 1) * panPxPerFrame / 16.0;
+    scene->Eye(eye);
+    CHECK(scene->Draw(error), "a frame accumulates at the declared camera pose");
   }
   std::vector<float> pixels;
   CHECK(renderer.ReadSceneLinear(pixels) == ReadState::Ready,
@@ -87,31 +89,34 @@ int main() {
   CHECK(SDL_SetHint(SDL_HINT_ASSERT, "abort"), "assertions fail without a dialog");
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes");
   const auto baseline = RenderTriangle(false);
-  const auto temporal = RenderTriangle(true);
-  const size_t count = kExtent * kExtent * 4u;
-  CHECK(baseline.size() == count && temporal.size() == count, "both frames contain every pixel");
-  if (baseline.size() == count && temporal.size() == count) {
-    double baselineError = 0, temporalError = 0, temporalAlphaError = 0;
-    size_t fractionalAlpha = 0;
-    for (int y = 0; y < kExtent; ++y) {
-      for (int x = 0; x < kExtent; ++x) {
-        const size_t at = (static_cast<size_t>(y) * kExtent + static_cast<size_t>(x)) * 4u;
-        const double expected = Coverage(x, y);
-        baselineError += std::pow(baseline[at] - expected, 2);
-        temporalError += std::pow(temporal[at] - expected, 2);
-        temporalAlphaError += std::pow(temporal[at + 3] - expected, 2);
-        fractionalAlpha += temporal[at + 3] > 0.001f && temporal[at + 3] < 0.999f;
+  for (const double pan : {0.0, 0.25}) {
+    const auto temporal = RenderTriangle(true, pan);
+    const size_t count = kExtent * kExtent * 4u;
+    CHECK(baseline.size() == count && temporal.size() == count, "both frames contain every pixel");
+    if (baseline.size() == count && temporal.size() == count) {
+      double baselineError = 0, temporalError = 0, temporalAlphaError = 0;
+      size_t fractionalAlpha = 0;
+      for (int y = 0; y < kExtent; ++y) {
+        for (int x = 0; x < kExtent; ++x) {
+          const size_t at = (static_cast<size_t>(y) * kExtent + static_cast<size_t>(x)) * 4u;
+          const double expected = Coverage(x, y);
+          baselineError += std::pow(baseline[at] - expected, 2);
+          temporalError += std::pow(temporal[at] - expected, 2);
+          temporalAlphaError += std::pow(temporal[at + 3] - expected, 2);
+          fractionalAlpha += temporal[at + 3] > 0.001f && temporal[at + 3] < 0.999f;
+        }
       }
+      std::printf("coverage squared error: pan %.2f px/frame, single sample %.6f, temporal %.6f\n",
+                  pan,
+                  baselineError,
+                  temporalError);
+      CHECK(baselineError > 1, "the analytical silhouette exposes single-sample aliasing");
+      CHECK(fractionalAlpha > 0, "coverage alpha accumulates actual subpixel samples");
+      CHECK(temporalAlphaError < baselineError * 0.6,
+            "alpha retains the independently integrated silhouette");
+      CHECK(temporalError < baselineError * 0.6,
+            "TAA reduces coverage error by at least forty percent at the declared camera motion");
     }
-    std::printf("coverage squared error: single sample %.6f, temporal %.6f\n",
-                baselineError,
-                temporalError);
-    CHECK(baselineError > 1, "the analytical silhouette exposes single-sample aliasing");
-    CHECK(fractionalAlpha > 0, "coverage alpha accumulates actual subpixel samples");
-    CHECK(temporalAlphaError < baselineError * 0.6,
-          "alpha retains the independently integrated silhouette");
-    CHECK(temporalError < baselineError * 0.6,
-          "stationary TAA reduces coverage error by at least forty percent");
   }
   SDL_Quit();
   return Report();

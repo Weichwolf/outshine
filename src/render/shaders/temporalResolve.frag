@@ -3,6 +3,7 @@
 #define DISPLAY_BINDING 1
 #include "display.glsl"
 #include "temporalReprojection.glsl"
+#include "temporalHistory.glsl"
 #define SCENE_FLOAT(name, value) const float name = value;
 #include "render/stages/SceneConstants.inc"
 #undef SCENE_FLOAT
@@ -65,10 +66,25 @@ void main() {
   vec3 extent = max(highest - centre, centre - lowest);
 
   vec2 motionNdc = texelFetch(velocity, ivec2(px), 0).xy;
+  float depth = texelFetch(sceneDepth, ivec2(px), 0).r;
+  if (depth == 0.0 && all(equal(motionNdc, vec2(kVelocityStatic)))) {
+    float closestDepth = depth;
+    ivec2 closest = ivec2(px);
+    for (int dy = -1; dy <= 1; dy += 2) {
+      for (int dx = -1; dx <= 1; dx += 2) {
+        ivec2 at = clamp(ivec2(px) + ivec2(dx, dy), ivec2(0), limit);
+        float candidateDepth = texelFetch(sceneDepth, at, 0).r;
+        if (candidateDepth > closestDepth) {
+          closestDepth = candidateDepth;
+          closest = at;
+        }
+      }
+    }
+    if (closestDepth > depth) { motionNdc = texelFetch(velocity, closest, 0).xy; }
+  }
   vec2 uv = (vec2(px) + 0.5) * u.texel;
   vec2 jitterUv = u.jitterDelta * u.texel * vec2(1.0, -1.0);
   vec2 was = temporalHistoryUv(uv, motionNdc, jitterUv);
-  float depth = texelFetch(sceneDepth, ivec2(px), 0).r;
   if (depth == 0.0 && all(equal(motionNdc, vec2(kVelocityStatic)))) {
     vec4 previous = u.previousClipFromCurrentClip * vec4(uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0), 0.0, 1.0);
     was = previous.w > 0.0 ? previous.xy / previous.w * vec2(0.5, -0.5) + 0.5 + jitterUv : vec2(-1.0);
@@ -78,7 +94,7 @@ void main() {
   float coverage = here.a;
   bool inside = was.x >= 0.0 && was.x <= 1.0 && was.y >= 0.0 && was.y <= 1.0;
   if (inside && u.historyHeld > 0.5) {
-    vec4 historySample = texture(history, was);
+    vec4 historySample = temporalHistorySample(history, was, u.texel);
     vec3 past = rgbToYCoCg(historySample.rgb);
     coverage = mix(clamp(historySample.a, lowestCoverage, highestCoverage), here.a, kCurrentWeight);
     kept = mix(yCoCgToRgb(clipTowards(past, centre, extent)), here.rgb, kCurrentWeight);

@@ -33,15 +33,17 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 - Bestehende Bewegung/History prüfen: NDC → Textur-UV umfasst halben Maßstab und Y-Wechsel.
   History liegt am festen Pixelraster; Projektionsjitter aus NDC-Bewegung in UV-Einheiten
   entfernen, mit derselben Y-Konvention. Nur Jitter darf stationäre History nicht verschieben.
-- Hintergrund ohne Objektbewegung bei Tiefe null über vorige/aktuelle Kameraprojektion
-  reprojizieren; sonst verliert jede unbedeckte Kantenprobe ihre akkumulierte Coverage.
+- Konturbewegung in unbedeckte Nachbarpixel dilatieren: größte Reverse-Z-Tiefe aus vier
+  diagonalen Nachbarn. Hintergrund ohne Objektbewegung über vorige/aktuelle Kamera
+  reprojizieren; unbedeckte Kantenproben müssen ihre akkumulierte Coverage behalten.
   Fehlende/ungültige History verwendet das aktuelle Bild; Farbclip und begrenzte Alpha-
   Coverage halten Konturproben konsistent. Szenenwechsel verwirft alte History.
 - TAA-Referenz unten ist Grundlage; 4× MSAA/Alpha-to-Coverage erst nach Kostenvergleich.
   SDL unterstützt keinen MSAA-Tiefenresolve; ein weiterer Tiefenpfad braucht belegten Bildgewinn.
 - Alle acht Vorher/Nachher-Bilder öffnen; p99/RAM messen, keine Baseline-Neupins.
-- Bilineare History wird bei schneller Drehung weich; als nächsten Schritt rekonstruierenden
-  History-Filter gegen bewegte analytische Kanten und Places prüfen, statt pauschal nachzuschärfen.
+- Weiche bilineare History durch Catmull-Rom mit fünf bilinearen Kreuzabfragen ersetzen.
+  Gewichte renormieren, lokalen Wertebereich gegen Ringing halten (Filament `ef1a133d`).
+  Bewegte analytische Kanten und Places entscheiden; kein pauschales Nachschärfen.
 
 ## Aktueller Ausbau: gemeinsame Umgebungsreflexion
 - Gemeinsame Himmelsabfrage für Hintergrund und Reflexion, einschließlich Horizont und
