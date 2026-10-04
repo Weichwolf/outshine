@@ -27,8 +27,8 @@ Formfehler. Standortauswahl und Prototypintegration warten nicht auf dessen Gesa
 2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
 
 ## Reihenfolge
-Vegetation kommt zuletzt, nach den priorisierten Infrastruktur-, LOD-, Licht- und
-Materialverbesserungen. Der Qualitätsauftrag ändert diese Reihenfolge nicht.
+Vegetation folgt nach Gebäuden, Terrain und Infrastruktur, vor Wolken (2169).
+Der Qualitätsauftrag ändert diese Reihenfolge nicht.
 
 ## Implementierung in vollständigen Schritten
 1. Deklarierte gewichtete Artenmischungen bis zur Runtime durchreichen. Unbekannte Arten

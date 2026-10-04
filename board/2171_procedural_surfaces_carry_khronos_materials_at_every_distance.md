@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P1
 Parent: 2169
@@ -16,9 +16,19 @@ flach/repetitiv. Vorhandene Parameter anschließen, keine zweite Materialarchite
 
 ## Besitzer und nächste Lieferung
 Generator/FacadeUv besitzt Geometrie und metrische Koordinaten, GroundMaterials native
-Parameter, Surfacing/material.glsl/facadePattern die Auswertung. Zuerst Asphalt/Wand/Dach
-im bebauten Place unterscheiden. Vorhandene Inputs genügen; kein Warten auf weitere WIs.
+Parameter, Surfacing/material.glsl/facadePattern die Auswertung. Zuerst Wand/Dach im bebauten Place unterscheiden; Asphalt folgt mit Infrastruktur. Vorhandene Inputs genügen; kein Warten auf weitere WIs.
 2173 ergänzt Öffnungsgeometrie, 2337 Felsform und 2172 gemeinsamen Wetterzustand.
+
+[EGSR 2010: kompakte Fassadenauswertung](https://peterwonka.net/Publications/pdfs/2010.EGSR.Haegler.GrammarBasedEncoding.pdf),
+[lokales PDF](../doc/references/buildings/egsr/2010-grammar-based-encoding-of-facades.pdf).
+
+## Aktuelle Lieferung: zusammenhängende Gebäudematerialien
+Die vorhandene Gebäudeidentität steuert Wand-/Dachvarianten des explizit prozeduralen
+Fassadenmaterials. Negative Flächencodes unterscheiden geneigte/ebene Dächer und Sockel;
+Dächer müssen ihre vorhandenen Koordinaten bis zum Shader behalten. Materialwahl bleibt
+je Gebäude und LOD stabil, statt jeder Fläche unabhängig eine Farbe zu geben.
+Plausible Farb-/Baustoffvarianten sind keine belegten OSM-Materialangaben. Keine neuen
+Dreiecke, Disktexturen oder Fassadenmeshes pro Ferngebäude. Bestehende Fensterfilter erhalten.
 
 ## Verfahren
 - Metrische Ziegel-/Backsteinraster mit gefilterten Fugen, Putzkorn/Betonporen. Cell-Hash

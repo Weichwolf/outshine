@@ -30,20 +30,23 @@ AGENTS besitzt Arbeitsregeln/Abnahme; technische Verträge stehen bei ihrem Feat
 | Koerbersee | koerbersee | Grate/Schnee/Schmelze, See/Wolken |
 
 ## Priorität und Lieferung
-| Rang | WI | Nächster sichtbarer Nutzen |
+| Reihenfolge | WI | Nächster sichtbarer Nutzen |
 |---|---|---|
-| P0 zuerst | 2280 | Wien erreicht vollständig den Screenshot; kein endloses Warten |
-| P0 integriert | 2336 | Detailbedarf vor Erzeugung; Fernstadt ohne Daten-/Geometrieexplosion |
-| P0 gezielt | 2188 | Derselbe funktionierende Weltpfad für Builtins und externe Generatoren |
-| P0 Geometrie | 2145, 2281, 2173 | Richtige Pegel/Kontakte, durchgehende Straßen/Brücken, vollständige Gebäude |
-| P1 Bildgewinn | 2155, 2171 | Kohärentes Licht und lesbare Materialien auf vorhandener Geometrie |
-| P1 Bildgewinn | 2172, 2337, 2338 | Wolken/Wetter, Felsrelief, technische Objekte und Belegung |
-| P2 zuletzt | 2111 | Vollständige performante Wälder, standortgerechte Baumformen und Nahlaub |
-| P3 Sandbox | 2136 | Kräfte/Kontakte/Gelenke, NPC/JS/LLM, Ton, Persistenz |
+| 1 Gebäude | 2173, 2336, 2171 | Vollständige Formen/Höhen, Dächer, lesbare Fassaden; Großstadt-LOD |
+| 2 Terrain | 2337, 2171 | Plausibles Relief, Fels-/Bodenmaterial statt grüner Kunststoffflächen |
+| 3 Infrastruktur | 2281, 2145, 2338 | Straßen/Brücken/Sonderbauwerke und korrekte Ufer/Wassergeometrie |
+| 4 Vegetation | 2111 | Vollständige performante Wälder bis zu räumlichem Nahlaub |
+| 5 Wolken | 2172 | Wetterhimmel und kohärentes Bodenlicht im zuvor freigemachten Budget |
+| Danach Sandbox | 2136 | Kräfte/Kontakte/Gelenke, NPC/JS/LLM, Ton, Persistenz |
+
+2280 (Laden), 2188 (öffentliche Grenzen) und 2155 (Licht) werden mit diesen sichtbaren
+Lieferungen integriert. Gemessene Einsparungen schaffen das Wolkenbudget; keine Lockerung
+von Profil, Sichtweite, Inhaltsvollständigkeit oder Framebudget.
 
 ## Reihenfolge und Zuständigkeit
 2280 und 2336 sind aktiv: vollständiger Ladeablauf und einfache Gebäude mit Fernclustern.
-Vegetation 2111 folgt zuletzt; der SpeedTree-Qualitätsmaßstab zieht den Ausbau nicht vor.
+Gebäude kommen zuerst; danach Terrain, Infrastruktur, Vegetation und schließlich Wolken.
+Der SpeedTree-Qualitätsmaßstab zieht Vegetation nicht vor.
 2188 migriert dabei
 nur die benötigten öffentlichen Grenzen. Keine komplette SDK-Neufassung vor dem ersten Bild.
 Zuerst Vorbereitungsstillstand und unnötige Arbeit beseitigen, dann verbleibende Kosten messen.

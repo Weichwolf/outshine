@@ -68,6 +68,8 @@
   Normale Tests erzeugen keine Orakel/ändern keine Pins; Cycles benötigt belegtes GPU-Backend.
 
 ## Code und Arbeit
+- Fremdcode wird nicht im Repository gebündelt. Ich nutze eigene Implementierungen oder
+  Standardbibliotheken aus Homebrew/apt; erforderliche Pakete nenne ich ausdrücklich.
 - C++23, SDL3/SDL_GPU, GLSL; RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte

@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -20,6 +20,26 @@ Gebäudeplan für Kontakte, Form und alle LODs. Renderer erhält Materialparamet
 Zuerst Vollständigkeit/Höhen/Höfe/Sonderklassen in Wien/Rosenheim prüfen und verbessern,
 danach Dächer und nahe Öffnungen. Bestehende Inputs nutzen, fehlende Tags nicht erfinden.
 2336 besitzt Auswahl/Aggregation; weder die gesamte API noch Orbit sind Voraussetzung.
+
+## Architekturentscheidung: begrenzte Gebäuderegeln
+[Instant Architecture (SIGGRAPH 2003)](https://peterwonka.net/Publications/pdfs/2003.SG.Wonka.InstantArchitecture.high.pdf)
+und [CGA Shape (SIGGRAPH 2006)](https://peterwonka.net/Publications/pdfs/2006.SG.Mueller.ProceduralModelingOfBuildings.final.pdf):
+Lokale PDFs: [2003](../doc/references/buildings/siggraph/2003-instant-architecture.pdf),
+[2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf).
+Grundkörper → Seiten/Geschosse/Achsen → Öffnungen/Module. Ein stabiler Plan führt alle LODs;
+Quellangaben überschreiben plausible Ergänzungen. Kein allgemeiner Grammatikinterpreter nötig.
+[Grammar-based Encoding (EGSR 2010)](https://peterwonka.net/Publications/pdfs/2010.EGSR.Haegler.GrammarBasedEncoding.pdf)
+([lokales PDF](../doc/references/buildings/egsr/2010-grammar-based-encoding-of-facades.pdf))
+begründet kompakte Fassadenparameter mit Shaderauswertung. Sichtbare Tiefe/Silhouette bleibt
+Geometrie; subpixelige Muster werden gefiltert. Gemeinsame Nahmodule instanzieren, erst nach
+budgetierter Auswahl expandieren. Farbvariation allein schließt dieses Feature nicht.
+
+## Gemeinsame Polygontriangulierung
+Base besitzt PolygonTriangulation, Gebäude und Wasser konsumieren denselben nativen Vertrag.
+Innenhöfe/Inseln benötigen randtreue Triangulierung mit Löchern. GEOS ≥3.10 liefert diese
+über die C-API aus dem Systempaket (`brew install geos`, apt `libgeos-dev`). Keine GEOS-Typen
+im öffentlichen Vertrag, kein gebündelter Fremdcode. Bestehende einfache Dachtriangulierung
+bleibt bestehen; ungültige Polygone werden nicht durch Flächenverlust kaschiert.
 
 ## Verfahren
 - MultiPolygone/Höfe/Parts erhalten, Eltern/Parts nicht doppeln. Sonderklasse schlägt
