@@ -30,6 +30,8 @@ namespace outshine::Generators {
 
 namespace {
 
+#include "../../content/shade/FacadeOpeningValues.h"
+
 constexpr double kWeldPerM = 1000.0;
 constexpr double kLeastWallM = 1.9;
 constexpr double kSameHeightM = 1.0e-3;
@@ -223,7 +225,9 @@ public:
     const double len = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
     if (len < kParallelCross) { return; }
     for (double &c2 : nrm) { c2 /= len; }
-    const int side = nrm[2] > kSteepestRoof ? 1 : 0;
+    const bool trim = a.U < 0.0f && std::fmod(-a.U - 1.0f, static_cast<float>(kFacadeStride)) ==
+                                        static_cast<float>(Facade::Trim);
+    const int side = nrm[2] > kSteepestRoof && !trim ? 1 : 0;
     std::vector<uint32_t> &run = side == 1 ? Out_.RoofRun : Out_.WallRun;
     const std::array triangle{
         Corner(side, a, ia, nrm), Corner(side, b, ib, nrm), Corner(side, c, ic, nrm)};
@@ -356,6 +360,92 @@ void WallPanel(const BuildingShape &s,
             Wall(s, p, highZ, bay0, stand));
 }
 
+void Opening(const BuildingShape &s,
+             const EastNorth &p,
+             const EastNorth &q,
+             double lowZ,
+             double highZ,
+             Site &site) {
+  const double length = EdgeLength(p, q);
+  const EastNorth inset{.EastM = -(q.NorthM - p.NorthM) * kOpeningDepthM / length,
+                        .NorthM = (q.EastM - p.EastM) * kOpeningDepthM / length};
+  const EastNorth a{.EastM = p.EastM + inset.EastM, .NorthM = p.NorthM + inset.NorthM};
+  const EastNorth b{.EastM = q.EastM + inset.EastM, .NorthM = q.NorthM + inset.NorthM};
+  site.Quad(Face(s, a, lowZ, Facade::Glass),
+            Face(s, b, lowZ, Facade::Glass),
+            Face(s, b, highZ, Facade::Glass),
+            Face(s, a, highZ, Facade::Glass));
+  site.Quad(Face(s, p, lowZ, Facade::Trim),
+            Face(s, q, lowZ, Facade::Trim),
+            Face(s, b, lowZ, Facade::Trim),
+            Face(s, a, lowZ, Facade::Trim));
+  site.Quad(Face(s, a, highZ, Facade::Trim),
+            Face(s, b, highZ, Facade::Trim),
+            Face(s, q, highZ, Facade::Trim),
+            Face(s, p, highZ, Facade::Trim));
+  site.Quad(Face(s, p, highZ, Facade::Trim),
+            Face(s, p, lowZ, Facade::Trim),
+            Face(s, a, lowZ, Facade::Trim),
+            Face(s, a, highZ, Facade::Trim));
+  site.Quad(Face(s, b, highZ, Facade::Trim),
+            Face(s, b, lowZ, Facade::Trim),
+            Face(s, q, lowZ, Facade::Trim),
+            Face(s, q, highZ, Facade::Trim));
+}
+
+struct FacadeWall {
+  EastNorth From;
+  EastNorth To;
+  double BottomM = 0.0;
+  double TopM = 0.0;
+  int Bays = 0;
+  Fields Standing = Fields::Back;
+};
+
+bool RecessedWall(const BuildingShape &s, const FacadeWall &wall, Site &site) {
+  const bool housing =
+      s.Use == BuildingUse::House || s.Use == BuildingUse::Terrace || s.Use == BuildingUse::Block;
+  const auto &p = wall.From;
+  const auto &q = wall.To;
+  const double bays = wall.Bays;
+  const Fields stand = wall.Standing;
+  if (site.Coarseness() != LevelOfDetail::Fine || !housing || bays < 1.0) { return false; }
+  double below = wall.BottomM;
+  for (int storey = 0; storey < s.Storeys; ++storey) {
+    const double base = s.SeatM + s.FootM + storey * s.FloorM;
+    const double bottom = base + kOpeningLowV * s.FloorM;
+    const double top = base + kOpeningHighV * s.FloorM;
+    WallPanel(s, p, q, 0.0, bays, below, bottom, stand, site);
+    for (int bay = 0; bay < wall.Bays; ++bay) {
+      const double axis = bay;
+      const auto left = Along(p, q, (axis + kOpeningLowU) / bays);
+      const auto right = Along(p, q, (axis + kOpeningHighU) / bays);
+      WallPanel(s,
+                Along(p, q, static_cast<double>(bay) / bays),
+                left,
+                bay,
+                axis + kOpeningLowU,
+                bottom,
+                top,
+                stand,
+                site);
+      WallPanel(s,
+                right,
+                Along(p, q, (bay + 1.0) / bays),
+                axis + kOpeningHighU,
+                bay + 1.0,
+                bottom,
+                top,
+                stand,
+                site);
+      Opening(s, left, right, bottom, top, site);
+    }
+    below = top;
+  }
+  WallPanel(s, p, q, 0.0, bays, below, wall.TopM, stand, site);
+  return true;
+}
+
 struct Stretch {
   EastNorth From;
   EastNorth To;
@@ -430,6 +520,18 @@ void Walls(const BuildingShape &s,
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
     const double bays = (exterior && s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
+    const Fields stand =
+        exterior && std::cmp_equal(i, s.FrontEdge) ? Fields::Entrance : Fields::Back;
+    if (RecessedWall(s,
+                     {.From = p,
+                      .To = q,
+                      .BottomM = lowZ,
+                      .TopM = topZ,
+                      .Bays = static_cast<int>(bays),
+                      .Standing = stand},
+                     site)) {
+      continue;
+    }
     const bool overhung = wide.size() == n;
     BreaksBoth(roof,
                {.Face = {.From = p, .To = q},
@@ -440,15 +542,8 @@ void Walls(const BuildingShape &s,
     double was = 0.0;
     for (size_t step = 0; step <= breaks.size(); ++step) {
       const double now = step < breaks.size() ? breaks[step] : 1.0;
-      WallPanel(s,
-                Along(p, q, was),
-                Along(p, q, now),
-                bays * was,
-                bays * now,
-                lowZ,
-                topZ,
-                (exterior && std::cmp_equal(i, s.FrontEdge)) ? Fields::Entrance : Fields::Back,
-                site);
+      WallPanel(
+          s, Along(p, q, was), Along(p, q, now), bays * was, bays * now, lowZ, topZ, stand, site);
       was = now;
     }
   }
@@ -517,7 +612,6 @@ void Gables(const BuildingShape &s,
     const EastNorth &q = ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
-    const double bays = (boundary.empty() && s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
     const bool overhung = wide.size() == n;
     BreaksBoth(roof,
                {.Face = {.From = p, .To = q},
@@ -535,8 +629,8 @@ void Gables(const BuildingShape &s,
       was = now;
       if (ha < kLeastRiseM && hb < kLeastRiseM) { continue; }
       site.Quad(Wall(s, a, eaves, 0.0, Fields::Back),
-                Wall(s, b, eaves, bays, Fields::Back),
-                Wall(s, b, eaves + hb, bays, Fields::Back),
+                Wall(s, b, eaves, 0.0, Fields::Back),
+                Wall(s, b, eaves + hb, 0.0, Fields::Back),
                 Wall(s, a, eaves + ha, 0.0, Fields::Back));
     }
   }

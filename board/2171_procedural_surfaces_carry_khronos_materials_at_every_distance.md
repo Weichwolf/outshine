@@ -37,8 +37,10 @@ gelieferte Farbe/Material benötigt weiterhin einen nativen Parameterpfad. Acht 
 Wandvarianten ergänzen die Dächer. Variante, Nutzung und Eingangsseite liegen im konstanten
 U-Gruppenanteil; V bleibt die unbeschränkte Geschosskoordinate. Hohe Wände wechseln nicht
 bei 64 Geschossen die Variante. Bestehende Vertexgröße und Geometrie bleiben erhalten.
-Wände behalten ihre stabile Gebäudevariante. Öffnungen folgen erst 2173: Nutzung,
-Geschosse, Fassadenachsen und vorhandene Angaben begrenzen ihre Platzierung.
+Wände behalten ihre stabile Gebäudevariante. 2173 besitzt Öffnungen: Nutzung,
+Geschosse und Fassadenachsen begrenzen ihre Platzierung. `FacadeOpeningValues` hält die
+gemeinsamen Grenzen für Nahlaibungen und gefilterte Hüllen. Glas besitzt eine eigene
+dielektrische Materialantwort; Transmission/Innenräume sind damit noch nicht umgesetzt.
 Gefilterte Dachkurse nutzen vorhandene Dachhöhe und Oberflächengradient für metrische
 Abstände; ihre Maske verändert Farbe, Roughness und Relief vor derselben BRDF. Analytische
 Filterableitungen vermeiden zweite Bildschirmableitungen; keine zusätzliche UV-/Vertexbelegung.

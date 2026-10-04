@@ -14,7 +14,8 @@ enum class Facade : int {
   Parapet = 7,
   Plinth = 8,
   Kerb = 9,
-  Pavement = 10
+  Pavement = 10,
+  Glass = 11
 };
 
 enum class FacadeStyle : int {

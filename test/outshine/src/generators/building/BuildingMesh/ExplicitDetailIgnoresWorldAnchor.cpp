@@ -28,8 +28,8 @@ int main() {
     CHECK(mesher.Mesh(plan, *scratch, shell).has_value(), "explicit Shell building meshes");
     fineTriangles[at] = (fine.WallRun.size() + fine.RoofRun.size()) / 3u;
     shellTriangles[at] = (shell.WallRun.size() + shell.RoofRun.size()) / 3u;
-    CHECK(fineTriangles[at] == shellTriangles[at],
-          "Fine and Shell share the simple building envelope without secondary geometry");
+    CHECK(fineTriangles[at] > shellTriangles[at],
+          "Fine adds planned recesses while Shell keeps the simple building envelope");
   }
   CHECK(fineTriangles[0] == fineTriangles[1] && shellTriangles[0] == shellTriangles[1],
         "world anchor changes coordinates, not the requested building detail level");

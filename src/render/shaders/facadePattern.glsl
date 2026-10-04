@@ -1,5 +1,12 @@
 #include "periodicBand.glsl"
 #include "roofTiles.glsl"
+#include "facadeOpenings.glsl"
+
+void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) {
+  FacadeGlazing glass = facadeGlazing(coverage, albedo, roughness);
+  albedo = glass.albedo;
+  roughness = glass.roughness;
+}
 
 void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 localM, vec3 n, inout vec3 albedo,
                       inout float roughness, out vec2 heightChange) {
@@ -25,6 +32,10 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
   if (encoded.x < 0.0) {
     float trim = mod(-encoded.x - 1.0, 16.0);
     float ident = floor((-encoded.x - 1.0) / 16.0);
+    if (trim > 10.5 && trim < 11.5) {
+      applyFacadeGlass(1.0, albedo, roughness);
+      return;
+    }
     if (trim < 0.5) { albedo *= paint; return; }
     if (trim > 0.5 && trim < 2.5) {
       if (trim > 1.5) {
@@ -66,4 +77,12 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
   else if (variant < 6.5 && variant > 5.5) { wallTint = vec3(0.62, 0.43, 0.32); }
   else if (variant > 6.5) { wallTint = vec3(0.82, 0.69, 0.61); }
   albedo *= wallTint * paint;
+  float group = floor(encoded.x / 256.0);
+  float style = mod(group, 8.0);
+  if (style > 0.5 && style < 3.5 && encoded.y >= 1.0) {
+    vec2 footprint = abs(dFdx(encoded)) + abs(dFdy(encoded));
+    float coverage = facadeOpeningCoverage(mod(encoded.x, 256.0), encoded.y - 1.0,
+                                           footprint.x, footprint.y);
+    applyFacadeGlass(coverage, albedo, roughness);
+  }
 }
