@@ -72,6 +72,10 @@ Beitrag zu diesem Ablauf entfernen; Tests gegen diesen fachlichen Vertrag prüfe
    Unabhängige Vorbereitungen dürfen vorlaufen: Baumprototypen brauchen keine fertigen Gebäude.
    Finales Ready verlangt weiterhin alle deklarierten Inhalte. Ein gemeinsamer Compute-Worker,
    begrenzter paralleler Erwerb; kein IO-Warten im Compute-/Renderpfad.
+   Refined-Ready umfasst GPU-Uploads, Schatten sowie Atmosphären-/Himmelslichttabellen.
+   Ihre invarianten Passgruppen vor dem ersten Frame auf demselben Renderplan ausführen
+   und den Abschluss-Fence prüfen; kein Zusatzframe oder vorgezogene Kamera-/Historyarbeit.
+   Fehlgeschlagene Submission lässt Tabellen wiederholbar; Zeit-/Höhenwechsel invalidieren sie.
 6. Tote Runtime-Diskcache-Zweige für Gebäudemeshes/Atlanten entfernen, vorhandene Dateien
    erhalten. Referenzwerkzeuge/Spielstände sind getrennte Zwecke. Gemeinsam belegten RAM,
    Scratch, publizierte Produkte und GPU-Ressourcen nach Besitzer statt mehrfach zählen.
