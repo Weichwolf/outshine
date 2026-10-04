@@ -1563,12 +1563,21 @@ std::expected<OwnedFence, std::string> SceneRenderer::PrepareWorldResources() {
     return std::unexpected(std::move(error));
   }
   StageSubmission preparation;
+  const auto preparesWorldResource = [](Stage stage) {
+    return stage == Stage::MediumTransmittance || stage == Stage::MediumMultiScatter ||
+           stage == Stage::MediumRadiance || stage == Stage::Irradiance ||
+           stage == Stage::LightVisibility;
+  };
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     const auto &declared = ActiveState().Plan->Passes()[pass];
-    if (declared.Count == 1 &&
-        ActiveState().Plan->Order()[declared.First] == Stage::LightVisibility) {
-      EncodePass(commands, pass, preparation);
+    const auto stages =
+        std::span(ActiveState().Plan->Order()).subspan(declared.First, declared.Count);
+    if (!std::ranges::any_of(stages, preparesWorldResource)) { continue; }
+    if (!std::ranges::all_of(stages, preparesWorldResource)) {
+      SDL_CancelGPUCommandBuffer(commands);
+      return std::unexpected("world resource preparation shares a pass with frame-only work");
     }
+    EncodePass(commands, pass, preparation);
   }
   SDL_GPUFence *fence = Submission_.Submit(Submission_.Context, commands);
   if (fence == nullptr) { return std::unexpected(SDL_GetError()); }

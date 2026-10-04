@@ -273,6 +273,77 @@ void TransmissionFollowsReplacementPlan() {
   }
 }
 
+void WorldPreparationCompletesLighting() {
+  const auto compiled = Compiled::Compile(
+      {.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
+       .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve}});
+  CHECK(compiled.has_value(), "world preparation uses the real atmosphere and temporal plan");
+  if (!compiled) { return; }
+  Faults faults;
+  SceneRenderer actual(faults.Functions()), control;
+  Viewpoint eye;
+  eye.YfovRad = 1;
+  eye.ZNearM = 0.1;
+  eye.ZFarM = 1000;
+  const auto lens = Lens::From(eye, 32, 32);
+  CHECK(lens.has_value(), "preparation camera is valid");
+  if (!lens) { return; }
+  for (auto *renderer : {&actual, &control}) {
+    const auto started = renderer->Init({32, 32}, *compiled);
+    CHECK(started.has_value(), "preparation renderer initializes");
+    if (!started) { return; }
+    renderer->SetCamera(eye, *lens);
+    renderer->SetMedium(kEarthAir);
+    renderer->SetSky(
+        {.ToSun = {{0, 1, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
+  }
+  std::array<float, kIrradianceFloats> prepared{};
+  faults.Next = Faults::Point::Submit;
+  const auto rejected = actual.PrepareWorldResources();
+  CHECK(!rejected && rejected.error() == "injected frame submit failure",
+        "failed preparation returns the original submission error");
+  CHECK(actual.ReadSkyIrradiance(prepared) == ReadState::Failed,
+        "cancelled preparation cannot publish its lighting tables");
+  const auto ready = actual.PrepareWorldResources();
+  CHECK(ready.has_value(), "world preparation retries the unsubmitted lighting work");
+  if (!ready) { return; }
+  std::string error;
+  CHECK(actual.Settle(error) && actual.WorldResourcesComplete(*ready),
+        "world preparation fence covers the lighting resources");
+  CHECK(!actual.Drew() && actual.LastRenderFrameTiming().TotalMs == 0,
+        "preparation does not render a frame or start its timing history");
+  std::vector<uint8_t> pixels;
+  CHECK(actual.ReadPixels(pixels) == ReadState::Failed,
+        "lighting preparation creates no extra camera image");
+  CHECK(actual.ReadSkyIrradiance(prepared) == ReadState::Ready &&
+            std::ranges::all_of(prepared, [](float value) { return std::isfinite(value); }) &&
+            std::ranges::any_of(prepared, [](float value) { return value > 0; }),
+        "finite nonzero sky lighting is readable before the first frame");
+  CHECK(control.RenderFrame().has_value(), "the independent renderer executes its first frame");
+  const auto expected = Capture(control);
+  CHECK(prepared == expected.Irradiance,
+        "preloaded irradiance equals the independent frame-generated result");
+  CHECK(actual.RenderFrame().has_value(), "prepared renderer executes its first frame");
+  Match(expected, Capture(actual));
+  for (auto *renderer : {&actual, &control}) {
+    renderer->SetSky(
+        {.ToSun = {{1, 0, 0}}, .Up = {{0, 1, 0}}, .IlluminanceLux = 10000, .EyeHeightM = 2});
+  }
+  CHECK(actual.ReadSkyIrradiance(prepared) == ReadState::Failed,
+        "a changed sun invalidates the prepared lighting");
+  const auto changed = actual.PrepareWorldResources();
+  CHECK(changed.has_value(), "changed sunlight is prepared again");
+  if (!changed) { return; }
+  CHECK(actual.Settle(error) && actual.WorldResourcesComplete(*changed),
+        "changed lighting completes before the next frame");
+  CHECK(actual.ReadSkyIrradiance(prepared) == ReadState::Ready,
+        "changed irradiance is readable after preparation");
+  CHECK(control.RenderFrame().has_value(), "independent renderer updates its sunlight");
+  const auto changedExpected = Capture(control);
+  CHECK(prepared == changedExpected.Irradiance && prepared != expected.Irradiance,
+        "prepared sunlight changes and matches the independent renderer");
+}
+
 void Exercise() {
   const auto compiled = Compiled::Compile(
       {.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
@@ -468,6 +539,7 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes");
   if (SDL_WasInit(SDL_INIT_VIDEO) != 0) {
     InitializationUploads();
+    WorldPreparationCompletesLighting();
     Exercise();
     ReinitializationInvalidatesFrames(false);
     ReinitializationInvalidatesFrames(true);
