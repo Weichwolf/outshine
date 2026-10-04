@@ -1,43 +1,50 @@
 Type: feature
-State: open
-Architecture: planned
-Priority: P2
+State: active
+Architecture: ready
+Priority: P1
 Parent: 2169
 Depends: 2336
 Area: generators, render, world
 Tags: vegetation, forest, grass, wind
 
-# Vegetation scales from distant forest to nearby leaves and grass
+# Complete forests scale from horizon stands to nearby leaves
 
 ## Ergebnis und Ist
-Standortgerechte Bäume/Sträucher/Unterwuchs mit Dichte, Jahreszeit, Wind und Schatten.
-TreeGrower/Mesher/Foliage, TreePrototype und ForestDraw bestehen; Weltpfad überwiegend
-Kronenkarten, Nahlaub/Standortauswahl unvollständig. Ausbau nach Infrastruktur/Bildbasis.
-Vorhandene deklarierte Vegetation bleibt Bestandteil vollständiger Places.
-`Forest` prüft nach der Dichteauswahl native Struktur-/Wasser-/Wegflächen vor Höhen/Geometrie.
-Freie Flächen bleiben bepflanzbar; konkrete OSM-Typen bleiben außerhalb von Forest.
-Die wieder angebundenen Bodenklassen aktivieren deklarierte Bestände. Deren Artenmischungen
-werden noch ignoriert: sämtliche Baumarten konkurrieren unabhängig vom Standort.
-Unpassende große Bäume bleiben im Bild; Ausschlussflächen allein lösen das nicht.
-Zuerst Standort-/Artauswahl korrigieren, kein vorgezogener vollständiger Vegetationsausbau.
+SpeedTree ist der Qualitätsmaßstab: glaubwürdige Silhouetten, Verzweigung, Laub,
+Wind und Schatten; vollständige Wälder teilen das Frame-/Speicherbudget mit der Stadt.
+TreeGrower/Mesher/Foliage und vier Prototypstufen bestehen. Der Weltpfad nutzt überwiegend
+Kronenkarten, ignoriert deklarierte Artenmischungen und bindet Waldflächen unvollständig an.
+Native Struktur-/Wasser-/Wegflächen schließen Wurzeln bereits aus. Das bleibt erhalten.
 
-## Besitzer und fehlender Vertrag
-Depends 2336: gemeinsame Eltern-/Kindabdeckung und budgetierte Detailauswahl mit Formfehler.
-OSM-Adapter liefert Landcover-/Baumhinweise; Vegetationsgenerator Standort/Art/Form,
-ForestDraw Instanzen. Zuerst Nah-/Mittelgeometrie eines geeigneten Place statt Kronenkarten.
-Form-/Standortverfahren noch zu integrieren, daher `planned`. 2172 liefert später Umweltzustand.
+## Besitzer und Datenfluss
+OSM-Adapter besitzt Landcover-/Baumhinweise. VegetationTemplates besitzt deklarierte
+Standortmischungen; Shipping löst Artennamen einmal in kompakte Prototypindizes auf.
+Forest erzeugt einen stabilen Bestandsplan aus Bodenklasse, Höhe, Hang und Welt-Seed.
+ForestDraw publiziert Instanzen. Vegetationsvorbereitung/Renderer besitzen gemeinsame
+Prototypen, RAM-/GPU-Produkte, sichtbare Detailwahl, Wind und Schatten.
+Depends 2336 betrifft ausschließlich gemeinsame Eltern-/Kindabdeckung und budgetierte
+Formfehler. Standortauswahl und Prototypintegration warten nicht auf dessen Gesamtabschluss.
+2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
 
-## Verfahren
-- Standort/Art/Alter/Dichte aus erlaubten Inputs und stabilen Welt-Seeds; unbelegte Spezies
-  ist plausible Ergänzung. Wasser/Freiraum und DSM-Bewuchs respektieren, keine Ortsbepflanzung.
-- Fernwaldverband → Kronen/Einzelbäume → Äste/Blätter → Nahhalme aus einem Formplan.
-  Konservative Fehler/Bounds und Elternstand bis Kind-Publikation; keine neue Welt je LOD.
-- Gemeinsame Prototypen/Materialien, kompakte Instanzen statt Blattmesh pro Baum.
-  Prototypvorbereitung braucht keine fertigen Gebäude; Standorte benötigen finales Kontaktrelief.
-- Wind/Schatten/Jahreszustand raumverankert; später physikalische Biegung aus 2136.
-  Atlanten/Impostors begrenzt nur RAM/GPU. Overdraw begrenzen; Wald und Stadt nutzen dasselbe
-  dynamische Budget ohne Klassenquote. Kein eigener persistenter Generatorcache.
+## Implementierung in vollständigen Schritten
+1. Deklarierte gewichtete Artenmischungen bis zur Runtime durchreichen. Unbekannte Arten
+   und ungültige Gewichte am Konfigurationsrand ablehnen; kein uniformer Katalog-Fallback.
+   Danach echte Waldflächen des registrierten Quellformats bis zur Bestandsplanung anbinden.
+2. Ein Formplan je Art/Variante, gemeinsame Baumprototypen und kompakte Instanzen.
+   Nahstufe mit Stamm/Ästen/Laub; Mittelstufe mit vereinfachten Ästen/Laubgruppen;
+   Fernstufe mit Kronen; Horizontstufe mit räumlichen Waldverbänden statt Einzelbäumen.
+   Distanz und erlaubter Bildschirmfehler bestimmen Aufwand vor Erzeugung.
+3. Übergänge erhalten Form/Standorte und vollständige Rundumabdeckung. Räumlich gebündelte
+   Sichtbarkeit/Draws, begrenzter Alpha-Overdraw und Schattenaufwand; keine Arbeit pro Blatt
+   im CPU-Frame. Fernwald erzeugt keine Nahgeometrie und keine Einzelbaum-Draws.
+4. Wind verformt geteilte Geometrie aus raumverankerten Parametern; Jahreszeit beeinflusst
+   Laubmenge/Farbe. Unterwuchs/Gras nur bei sichtbarem Bildgewinn, im selben Qualitätsbudget.
 
-## Abnahme
-Wald am Horizont, Nahkrone und Grashalm ohne Art-/Formwechsel oder Nahkarteneindruck.
-Sommer/Winter plausibel, nichts wächst im Wasser; Rundumdrehung bleibt vollständig im Budget.
+## Invarianten und Abnahme
+Keine Place-Sonderbepflanzung. Wasser/Freiraum und DSM-Bewuchs respektieren; plausible
+Ergänzungen bleiben von belegten Arten unterscheidbar. Generierte Produkte nur RAM/GPU.
+Wald, Stadt und Vegetation gemeinsam vollständig resident, keine feste Klassenquote.
+Malcesine/Feldkirch zeigen geschlossene Fernbestände; ein naher Bestand zeigt räumliches
+Laub statt Kronenkarten. Vorher/Nachher tatsächlich öffnen. Dichte Wald-Rundumdrehung
+bei unverändertem Profil messen: p99, CPU/GPU, Peak-Speicher, Instanzen und Overdraw.
+SpeedTree-Niveau ist erst mit Bild- und Laufzeitbelegen erreicht, nicht mit CPU-Tests.

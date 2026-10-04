@@ -38,11 +38,12 @@ AGENTS besitzt Arbeitsregeln/Abnahme; technische Verträge stehen bei ihrem Feat
 | P0 Geometrie | 2145, 2281, 2173 | Richtige Pegel/Kontakte, durchgehende Straßen/Brücken, vollständige Gebäude |
 | P1 Bildgewinn | 2155, 2171 | Kohärentes Licht und lesbare Materialien auf vorhandener Geometrie |
 | P1 Bildgewinn | 2172, 2337, 2338 | Wolken/Wetter, Felsrelief, technische Objekte und Belegung |
-| P2 danach | 2111 | Standortgerechte Vegetation von Fernwald bis Nahlaub/Gras |
+| P1 aktiv | 2111 | Vollständige performante Wälder, standortgerechte Baumformen und Nahlaub |
 | P3 Sandbox | 2136 | Kräfte/Kontakte/Gelenke, NPC/JS/LLM, Ton, Persistenz |
 
 ## Reihenfolge und Zuständigkeit
-2280 und 2336 sind aktiv: vollständiger Ladeablauf und einfache Gebäude mit Fernclustern.
+2280, 2336 und 2111 sind aktiv: vollständiger Ladeablauf, einfache Gebäude mit Fernclustern
+und integrierte Waldvegetation. Der Vegetations-POC wird zum vollständigen Waldpfad ausgebaut.
 2188 migriert dabei
 nur die benötigten öffentlichen Grenzen. Keine komplette SDK-Neufassung vor dem ersten Bild.
 Zuerst Vorbereitungsstillstand und unnötige Arbeit beseitigen, dann verbleibende Kosten messen.
