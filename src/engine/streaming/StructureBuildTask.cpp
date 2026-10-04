@@ -91,6 +91,7 @@ struct StructureBuildTask::Comparison {
     }
     ReferenceRaw = raw;
     ReferenceRaw.RequestedDetail = LevelOfDetail::Fine;
+    ReferenceRaw.Projection.AllowedErrorPx = 0.0;
   }
 
   void Advance(const Ground::HeightField &heights,

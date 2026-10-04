@@ -84,6 +84,7 @@ struct StructurePlan {
   Vec3 AnchorEcef;
 
   LevelOfDetail Coarseness = LevelOfDetail::Fine;
+  bool RecessedOpenings = true;
 
   double PitchedShare = kPitchedShareUnknown;
   std::optional<Vec3f> WallColour;

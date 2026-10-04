@@ -60,10 +60,11 @@ int main() {
                 built.Lumped);
     if (detail == LevelOfDetail::Fine) {
       fineTriangles = triangles;
-      CHECK(triangles == 1024 * 12,
-            "each rectangular flat-roof building has eight wall, two floor and two roof triangles");
+      CHECK(triangles > 1024 * 12,
+            "fine housing adds recessed openings to every complete rectangular envelope");
     } else if (detail == LevelOfDetail::Shell) {
-      CHECK(triangles == fineTriangles, "the shell introduces no secondary geometry");
+      CHECK(triangles == 1024 * 12,
+            "the shell keeps eight wall, two floor and two roof triangles per building");
     } else {
       CHECK(built.Lumped == 1024 && triangles > 0 && triangles < fineTriangles / 4,
             "distant clusters retain all footprints with less than a quarter of the triangles");

@@ -156,10 +156,13 @@ public:
     Up_ = axes.Up;
     for (int c = 0; c < 3; c++) { Origin_[c] = origin[c] - plan.AnchorEcef[c]; }
     Coarseness_ = plan.Coarseness;
+    RecessedOpenings_ = plan.RecessedOpenings;
     MinimumHeightM_ = plan.MinimumHeightM;
   }
 
   [[nodiscard]] LevelOfDetail Coarseness() const { return Coarseness_; }
+
+  [[nodiscard]] bool RecessedOpenings() const { return RecessedOpenings_; }
 
   [[nodiscard]] double LowerZ(const BuildingShape &shape) const {
     if (shape.OnGround()) { return shape.SoleM; }
@@ -276,6 +279,7 @@ private:
   BuildingScratch &Scratch_;
   Vec3 Origin_, East_, North_, Up_;
   LevelOfDetail Coarseness_ = LevelOfDetail::Fine;
+  bool RecessedOpenings_ = true;
   double MinimumHeightM_ = 0.0;
 };
 
@@ -409,7 +413,10 @@ bool RecessedWall(const BuildingShape &s, const FacadeWall &wall, Site &site) {
   const auto &q = wall.To;
   const double bays = wall.Bays;
   const Fields stand = wall.Standing;
-  if (site.Coarseness() != LevelOfDetail::Fine || !housing || bays < 1.0) { return false; }
+  if (site.Coarseness() != LevelOfDetail::Fine || !site.RecessedOpenings() || !housing ||
+      bays < 1.0) {
+    return false;
+  }
   double below = wall.BottomM;
   for (int storey = 0; storey < s.Storeys; ++storey) {
     const double base = s.SeatM + s.FootM + storey * s.FloorM;

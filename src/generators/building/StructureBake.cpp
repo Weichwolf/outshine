@@ -26,6 +26,8 @@ namespace outshine::Generators {
 
 namespace {
 
+#include "../../content/shade/FacadeOpeningValues.h"
+
 constexpr double kBlocksPerTile = 8.0;
 constexpr int64_t kCellBiasTiles = 0x20000000LL;
 constexpr uint32_t kKnuthWord = 2654435761u;
@@ -562,6 +564,38 @@ Spread RingBounds(std::span<const double> pts, Ring ring) {
   return bounds;
 }
 
+struct BuildingDetail {
+  LevelOfDetail Envelope = LevelOfDetail::Fine;
+  bool RecessedOpenings = true;
+};
+
+BuildingDetail DetailOf(const RawTile &raw, const Spread &bounds, double statedM) {
+  BuildingDetail detail{.Envelope = raw.RequestedDetail.value_or(LevelOfDetail::Fine)};
+  if (!raw.RequestedDetail || raw.RequestedCell) {
+    const double nearLat = std::clamp(raw.Eye.LatitudeDeg, bounds.LowLat, bounds.HighLat);
+    const double midLon = 0.5 * (bounds.LowLon + bounds.HighLon);
+    const double localEyeLon = midLon + std::remainder(raw.Eye.LongitudeDeg - midLon, kDegPerTurn);
+    const double nearLon = std::clamp(localEyeLon, bounds.LowLon, bounds.HighLon);
+    const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
+    const double eastM =
+        (nearLon - localEyeLon) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
+    const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
+    const double conservativeAwayM =
+        std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
+    const auto &projection = raw.Projection;
+    detail.RecessedOpenings = !projection.Allows(kOpeningDepthM, conservativeAwayM);
+    if (!raw.RequestedDetail &&
+        projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
+      detail.Envelope = LevelOfDetail::Shell;
+    }
+    if (!raw.RequestedDetail && detail.Envelope == LevelOfDetail::Shell &&
+        projection.Allows(0.5 * raw.TileSpanM / kBlocksPerTile, conservativeAwayM)) {
+      detail.Envelope = LevelOfDetail::Massed;
+    }
+  }
+  return detail;
+}
+
 std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 const outshine::Ground::HeightField &heights,
                                                 const StructureMesher &mesher,
@@ -631,25 +665,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   const size_t cellAt = one.Cell.Index - 1u;
   out.CellMaxHeightM[cellAt] = std::max(out.CellMaxHeightM[cellAt], fp.HeightM);
 
-  LevelOfDetail level = raw.RequestedDetail.value_or(LevelOfDetail::Fine);
-  if (!raw.RequestedDetail) {
-    const double nearLat = std::clamp(raw.Eye.LatitudeDeg, bounds.LowLat, bounds.HighLat);
-    const double nearLon = std::clamp(raw.Eye.LongitudeDeg, bounds.LowLon, bounds.HighLon);
-    const double northM = (nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat;
-    const double eastM =
-        (nearLon - raw.Eye.LongitudeDeg) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad);
-    const double awayAtLeastM = std::max(std::sqrt(northM * northM + eastM * eastM), kNearestSeenM);
-    const double conservativeAwayM =
-        std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
-    const auto &projection = raw.Projection;
-    if (projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
-      level = LevelOfDetail::Shell;
-    }
-    if (level == LevelOfDetail::Shell &&
-        projection.Allows(0.5 * raw.TileSpanM / kBlocksPerTile, conservativeAwayM)) {
-      level = LevelOfDetail::Massed;
-    }
-  }
+  const auto detail = DetailOf(raw, bounds, statedM);
+  const auto level = detail.Envelope;
   out.Prints.push_back(fp);
   out.FootprintDetails.push_back(level);
 
@@ -686,6 +703,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.Street = fp.Street;
   plan.AnchorEcef = raw.AnchorEcef;
   plan.Coarseness = level;
+  plan.RecessedOpenings = detail.RecessedOpenings;
   const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
   if (!built) { return std::unexpected(built.error()); }
   return {};

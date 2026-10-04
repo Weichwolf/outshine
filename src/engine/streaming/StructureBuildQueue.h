@@ -101,8 +101,8 @@ public:
       return (InputObjects != nullptr ? InputObjects == inputObjects
                                       : vectors != nullptr && Vectors == vectors->Generation()) &&
              HeightSource == heightSource &&
-             (RequestedDetail || Purpose == BuildPurpose::SourceGeometry ||
-              Projection == footprints.Projection()) &&
+             ((RequestedDetail && *RequestedDetail != LevelOfDetail::Fine) ||
+              Purpose == BuildPurpose::SourceGeometry || Projection == footprints.Projection()) &&
              TileSpanM == footprints.TileSpanM();
     }
 

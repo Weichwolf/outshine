@@ -69,7 +69,8 @@ int main() {
     }
     digests[static_cast<size_t>(detail)] = near.Digest;
   }
-  CHECK(digests[0] == digests[1], "Fine and Shell share the same simple building geometry");
+  CHECK(digests[0] != digests[1],
+        "fixed Fine retains relief while Shell keeps its simple envelope");
 
   raw.RequestedDetail = LevelOfDetail::Fine;
   raw.Structures.front().HeightM = 18.0;

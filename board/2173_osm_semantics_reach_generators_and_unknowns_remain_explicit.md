@@ -48,7 +48,7 @@ Die konservative Detailauswahl bleibt gültig; keine kleinere Fehlerschranke beh
 Fine ist kein Auftrag zur ungeprüften Expansion aller Fassadendetails. Sichtabhängige
 Zellprodukte wählen Laibungen separat aus projizierter Tiefe und konservativer Entfernung;
 die Hülle behält denselben gefilterten Öffnungsplan. Feste explizite Tile-LODs bleiben fest.
-Zellprodukte binden Eye/Projection auch bei explizitem LOD an ihre Wiederverwendung;
+Fine-Zellprodukte binden Eye/Projection auch bei explizitem LOD an ihre Wiederverwendung;
 die CPU-Vergleichsreferenz fordert weiterhin volle geometrische Genauigkeit.
 
 ## Gemeinsame Polygontriangulierung

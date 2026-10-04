@@ -556,7 +556,8 @@ bool StructureBuildQueue::BakeRevision::Matches(
     const Data::SourceObjects *inputObjects) const noexcept {
   return OwnsReservation(vectors, footprints, eye, heightSource, inputObjects) &&
          RequestedDetail == detail && Purpose == purpose &&
-         (purpose == BuildPurpose::SourceGeometry || RequestedDetail || EyeWithin(Eye, eye)) &&
+         (purpose == BuildPurpose::SourceGeometry ||
+          (RequestedDetail && *RequestedDetail != LevelOfDetail::Fine) || EyeWithin(Eye, eye)) &&
          (heights == HeightRequirement::AllowFallback || !FallbackHeights);
 }
 
