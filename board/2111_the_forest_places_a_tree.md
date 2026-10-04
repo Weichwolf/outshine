@@ -45,6 +45,23 @@ Der Qualitätsauftrag ändert diese Reihenfolge nicht.
    Laubmenge/Farbe. Unterwuchs/Gras nur bei sichtbarem Bildgewinn, im selben Qualitätsbudget.
 
 ## Forschungsgrundlage
+### Bodenanschluss und stabile Darstellung
+- Stammfuß/Wurzelanlauf als Teil des Formplans an dieselbe native Bodenhöhe anbinden und
+  einbetten; keine schwebende Schnittfläche. Boden-/Rindenübergang nutzt 2171s Masken.
+  2155 liefert echten Kontaktschatten; AO ergänzt ihn, kein aufgemalter dunkler Halo.
+- Nahgeometrie, Kronenkarten und Waldverbände teilen Material-/Lichtparameter, Windphase
+  und Standorte. Fernprodukte speichern Form-/Materialdaten, keine fest eingebrannte Beleuchtung.
+  Blattreflexion/-transmission verhindern pauschal zu dunkles Laub; Licht bleibt gemeinsame Welt.
+- Alpha-Mips erhalten Belegung am vereinbarten Cutoff soweit diskrete Auflösung erlaubt.
+  Schatten verwenden dieselbe gefilterte Silhouette/Windpose. LOD-Wechsel erhalten mittlere
+  Deckung und Lichtantwort; komplementäre Übergänge vermeiden doppelte Dichte/Helligkeit.
+  Erwartungswerte reichen nicht: Bewegung, Rauschen und temporale Artefakte im Bild prüfen.
+
+[Leaf Translucency](../doc/references/vegetation/egsr/2007-real-time-leaf-translucency.pdf),
+[Stochastic Transparency](../doc/references/vegetation/tvcg/2011-stochastic-transparency.pdf)
+und [Alpha-Mips](https://www.ludicon.com/castano/blog/articles/computing-alpha-mipmaps/):
+prozedurale Blattparameter, stabile Coverage und Schatten gemeinsam prüfen. Stochastische
+Abdeckung ist ein Vergleichsverfahren mit Rauschen/MSAA-Kosten, keine automatische Wahl.
 [Plant Ecosystems, SIGGRAPH 1998](../doc/references/vegetation/siggraph/1998-plant-ecosystems.pdf)
 ([Primärquelle/Einordnung](../doc/references/README.md)): Bestandsplan, Pflanzenform und
 Darstellung trennen; Prototypen/Organe/Verbände teilen. Das Offline-Verfahren liefert keine

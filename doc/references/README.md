@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
 Stand: 2026-10-04. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-22 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+29 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -63,6 +63,42 @@ Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
 
 ## Materialien, Licht und Bildstabilität — WI 2171 / 2155
 
+- **Physically Based Shading at Disney**, Burley, SIGGRAPH-Kurs 2012.
+  [Quelle](https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf) ·
+  [PDF](materials/siggraph/2012-disney-physically-based-shading.pdf).
+  Kleine verständliche Parameterfamilie aus gemessenen Reflexionen; Metallic/Roughness
+  als gemeinsame Gestaltungssprache. Unser Khronos-BRDF bleibt verbindlich; Disney-Modell
+  und zusätzliche Lobes nicht ungeprüft übernehmen.
+- **Real Shading in Unreal Engine 4**, Karis, SIGGRAPH-Kurs 2013.
+  [Quelle](https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf) ·
+  [PDF](materials/siggraph/2013-unreal-engine-4-shading.pdf).
+  BaseColor/Metallic/Roughness und gemeinsame Materialbibliothek vereinheitlichen den Look.
+  Masken vor Licht auswerten; begrenzte Parameterblend spart BRDF-Arbeit, ist aber keine
+  exakte Mischung beliebiger Reflexionsmodelle. Lack/Metall und extreme Roughness prüfen.
+- **Crafting a Next-Gen Material Pipeline for The Order: 1886**, Neubelt / Pettineo,
+  SIGGRAPH-Kurs 2013.
+  [Quelle](https://blog.selfshadow.com/publications/s2013-shading-course/rad/s2013_pbs_rad_notes.pdf) ·
+  [PDF](materials/siggraph/2013-the-order-material-pipeline.pdf).
+  Gemeinsame Templates, Masken und Materialkomposition für Schmutz, Mörtel und Nässe.
+  Die Pipeline ist keine Metallic-Roughness-Spezifikation. Offline-Texturbakes/Fotoerwerb
+  nicht übernehmen; unsere Masken/Parameter bleiben prozedural und begrenzt.
+- **Surface Gradient-Based Bump Mapping Framework**, Mikkelsen, JCGT 9(3), 2020.
+  [Quelle](https://jcgt.org/published/0009/03/04/paper.pdf) ·
+  [PDF](materials/jcgt/2020-surface-gradient-bump-mapping.pdf).
+  Höhen/Normalen aus verschiedenen UVs, Triplanar- und Decal-Projektionen im gemeinsamen
+  Oberflächengradientenraum komponieren. Finale Normale einmal rekonstruieren, gemeinsame
+  Filterung/Roughness prüfen. Bump ersetzt weder Silhouettengeometrie noch Materialschichtung.
+- **Color Compatibility From Large Datasets**, O'Donovan / Agarwala / Hertzmann,
+  SIGGRAPH / ACM TOG 2011.
+  [Autoren](https://www.dgp.toronto.edu/~donovan/color/) ·
+  [Quelle](https://www.dgp.toronto.edu/~donovan/color/colorcomp.pdf) ·
+  [PDF](presentation/siggraph/2011-color-compatibility.pdf).
+  Gelernte Bewertungen von Fünffarben-Paletten sind Gestaltungshilfen, kein universelles
+  Schönheitsgesetz. Grau/Beige, Erde, Grün und Blau gemeinsam statt je Generator wählen;
+  Flächenanteile, Licht und Szene zusätzlich beurteilen. Keine Trainingsdaten/Modelle übernehmen.
+  [Oklab/OKLCH, Ottosson 2020](https://bottosson.github.io/posts/oklab/) ergänzt wahrnehmungsnahe
+  Helligkeits-/Chroma-/Farbtonabstände bei Vorbereitung; es ist ein Autorenartikel, kein Paper.
+  Beleuchtung und physikalische Materialmischung erfolgen weiterhin in linearem RGB.
 - **Moving Frostbite to Physically Based Rendering**, Lagarde / de Rousiers,
   SIGGRAPH-Kurs 2014, Kursnotizen Revision 3 (2015).
   [Quelle](https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf) ·
@@ -118,6 +154,23 @@ Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
 
 ## Vegetation, Atmosphäre und Wetter — WI 2111 / 2172
 
+- **Physically Based Real-Time Translucency for Leaves**, Habel / Kusternig / Wimmer,
+  EGSR 2007.
+  [Quelle](https://www.cg.tuwien.ac.at/research/publications/2007/Habel_2007_RTT/Habel_2007_RTT-Preprint.pdf) ·
+  [PDF](vegetation/egsr/2007-real-time-leaf-translucency.pdf).
+  Reflexion und Blatttransmission mit kompakter gerichteter Basis auswerten. Eigene
+  prozedurale Blattparameter statt fotografischer Mess-/Texturdaten; Instanzen, Schatten
+  und Wind teilen die Lichtwelt. Ein Blattmodell allein behebt keinen fehlenden Stammkontakt.
+- **Stochastic Transparency**, Enderton / Sintorn / Shirley / Luebke, TVCG 2011,
+  erweiterte Fassung der I3D-Arbeit 2010.
+  [Quelle](https://research.nvidia.com/sites/default/files/pubs/2011-08_Stochastic-Transparency/stochtransp-tvcg.pdf) ·
+  [PDF](vegetation/tvcg/2011-stochastic-transparency.pdf).
+  Stochastische Subpixel-Abdeckung liefert korrekte Alpha-Mischung im Mittel bei begrenztem
+  Speicher, erzeugt aber Rauschen. Gegen einfaches Alpha-Test/Dither samt Schatten messen;
+  MSAA und Akkumulation sind echte Kosten. Keine automatische Wahl für den Zielchip.
+  [Computing Alpha Mipmaps, Castaño](https://www.ludicon.com/castano/blog/articles/computing-alpha-mipmaps/)
+  beschreibt die näherungsweise Belegungserhaltung bei festem Cutoff durch Skalierung/Bisektion;
+  diskrete kleine Mips erlauben nicht immer exakte Deckung. Autorenartikel, kein SIGGRAPH-Paper.
 - **Realistic Modeling and Rendering of Plant Ecosystems**, Deussen et al., SIGGRAPH 1998.
   [Quelle](https://algorithmicbotany.org/papers/ecosys.sig98.pdf) ·
   [PDF](vegetation/siggraph/1998-plant-ecosystems.pdf).

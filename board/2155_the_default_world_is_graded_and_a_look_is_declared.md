@@ -24,6 +24,22 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 2172 ergänzt später denselben Lichtzustand um Wolken und Wetter.
 
 ## Verfahren
+### Gemeinsamer Look
+- Default ist minimalistischer Solarpunk: klare Volumen/Raster aus Bauhaus, gezielte
+  gestufte Formen/Reliefs und rhythmische Akzente aus Art déco. Wenige Materialfamilien,
+  konsistente Proportionen und gezieltes Detail statt gleichförmiger Zufallsdekoration.
+  Belegte Gebäudeform/-farbe bleibt maßgeblich; kein weltweiter Stilumbau realer Orte.
+- Grau/Beige für Beton/Putz, warme Erdtöne, abgestufte Grüntöne und ruhige Blautöne als
+  gemeinsame Palette aller Generatoren. Varianten folgen demselben Materialkatalog (2171).
+  Höhe/Umfang eines Details folgt seiner Bildwirkung; Silhouetten nicht pauschal vereinfachen.
+- Palette bei Vorbereitung in OKLCH über Helligkeit, Chroma und Farbton abstimmen;
+  Flächenanteil, Hell-Dunkel-Hierarchie und wenige Akzente zusammen beurteilen. Wahrnehmungs-
+  abstand ist kein Schönheitsbeweis. Kompatibilitätsmodelle liefern Vergleichshypothesen.
+  Für Licht/Materialmischung in lineares RGB überführen, keine Paletteoptimierung je Fragment.
+- Ein gemeinsamer HDR-/Belichtungs-/Ausgabepfad hält Materialien zusammen. Kein nachträgliches
+  Einfärben einzelner Objekte; Nässe, Nacht und Jahreszeit bleiben physikalisch plausibel.
+
+### Licht und Kamera
 - Kamera gegen Landmarken/Relief kalibrieren; falsche Gebäude nicht durch Pose kaschieren.
   Gerichtete Schatten nach Bildwirkung staffeln, Kontakt und Fernwelt erhalten. Lokale
   Lichter/Schatten bündeln; Himmel füllt Schatten ohne globale Überbelichtung.
@@ -38,6 +54,9 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
   Deadline-/Event-Warten statt Busy-Wait. OS erhält CPU-Zeit, GPU-Freigabe nach letzter Nutzung.
 
 ## Forschungsgrundlage
+[Color Compatibility](../doc/references/presentation/siggraph/2011-color-compatibility.pdf)
+und [Oklab/OKLCH](https://bottosson.github.io/posts/oklab/): gemeinsame Palette vorbereiten,
+in Stadt-/Bergbildern und bei wechselndem Licht prüfen. Kein universelles Harmoniegesetz.
 [Frostbite-PBR](../doc/references/lighting/siggraph/2014-frostbite-pbr-course-notes.pdf),
 [TAA-Übersicht](../doc/references/presentation/cgf/2020-temporal-antialiasing-survey.pdf)
 ([Primärquellen/Einordnung](../doc/references/README.md)): Lichtgrößen/IBL/Belichtung zusammen
@@ -57,3 +76,5 @@ Disocclusion prüfen. Spiegelung darf bei Kameradrehung nicht einfach verschwind
 Datierte klare/bedeckte Stadt-/Bergbilder gewinnen Tiefe und Materiallesbarkeit; Morgen,
 Abend und Nacht erhalten plausible Helligkeit. Bewegung ohne Geisterbilder/Belichtungssprünge.
 Host/GPU/Bytes getrennt messen, kein Geräteversprechen aus Desktop-Messungen.
+Beton, Boden, Vegetation und Himmel wirken als zusammenhängender Look; Detailverzicht
+erhält Charakter/Lesbarkeit. Palette und Kontakt unter Sonne, Wolken, Nässe und Nacht prüfen.

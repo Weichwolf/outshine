@@ -11,6 +11,7 @@ Tags: vision, webcam, sandbox
 
 ## Ergebnis und Ausgangspunkt
 Weltweite prozedurale Sandbox vom Orbit bis zum Grashalm, optisch an GTA5/RDR2 orientiert.
+Default: minimalistischer Solarpunk mit Bauhaus-/Art-déco-Prägung; gemeinsamer Look in 2155.
 Zuerst größtmögliche Webcam-Annäherung im Hardwarebudget; später physikalische Interaktion,
 LLM-NPCs, JS/HTML-CSS, Spatial Audio und Save/Load/Replay. Bestehende Renderer, native Assets,
 Importe, Straßenprofile und Terrain-Deformation sind die Basis. Kein pauschaler Neustart.

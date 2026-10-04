@@ -6,6 +6,8 @@
   Implementierungsdetails stehen ausschließlich im Board. Aktuelle Nutzeranweisungen gehen vor.
 - Ich bin Technical und Art Director; der Nutzer ist Regisseur. Ich arbeite auf `master`
   im Haupt-Checkout. Die weltweite Sandbox und der Webcam-Meilenstein stehen in 2169.
+- Solarpunk ist das Default-Setting; minimalistisches Bauhaus und Art déco prägen die
+  prozedurale Gestaltung. Den gemeinsamen Look besitzt 2155, Materialkomposition 2171.
 - Ich liefere vom konkreten Bilddefizit bis zum integrierten Rendering. Interne Arbeit braucht
   einen Feature-Blocker oder gemessenen Engpass. Abstürze, Datenverlust und falsche Geometrie
   behebe ich sofort; vorhandene Straßenqualität und Terrain-Deformation bleiben erhalten.
