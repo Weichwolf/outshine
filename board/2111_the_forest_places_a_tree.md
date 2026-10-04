@@ -1,7 +1,7 @@
 Type: feature
-State: active
+State: open
 Architecture: ready
-Priority: P1
+Priority: P2
 Parent: 2169
 Depends: 2336
 Area: generators, render, world
@@ -25,6 +25,10 @@ Prototypen, RAM-/GPU-Produkte, sichtbare Detailwahl, Wind und Schatten.
 Depends 2336 betrifft ausschließlich gemeinsame Eltern-/Kindabdeckung und budgetierte
 Formfehler. Standortauswahl und Prototypintegration warten nicht auf dessen Gesamtabschluss.
 2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
+
+## Reihenfolge
+Vegetation kommt zuletzt, nach den priorisierten Infrastruktur-, LOD-, Licht- und
+Materialverbesserungen. Der Qualitätsauftrag ändert diese Reihenfolge nicht.
 
 ## Implementierung in vollständigen Schritten
 1. Deklarierte gewichtete Artenmischungen bis zur Runtime durchreichen. Unbekannte Arten
