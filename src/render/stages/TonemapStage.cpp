@@ -84,13 +84,15 @@ void TonemapStage::Encode(const FrameContext &ctx, const PassRecording &into) {
                .Pad = {0.0f, 0.0f, 0.0f},
                .PreviousClipFromCurrentClip = {}};
 
-    static_assert(sizeof(TemporalUniform) == 96 && alignof(TemporalUniform) == 16);
+    static_assert(sizeof(TemporalUniform) == 6 * sizeof(Vec4f) && alignof(TemporalUniform) == 16);
     static_assert(offsetof(TemporalUniform, JitterDelta) == 0);
     static_assert(offsetof(TemporalUniform, Texel) == 8);
     static_assert(offsetof(TemporalUniform, HistoryHeld) == 16);
-    static_assert(offsetof(TemporalUniform, Pad) == 20);
+    static_assert(offsetof(TemporalUniform, Pad) == 16 + sizeof(float));
     static_assert(offsetof(TemporalUniform, PreviousClipFromCurrentClip) == 32);
-    Mat4 current, previous, inverse;
+    Mat4 current;
+    Mat4 previous;
+    Mat4 inverse;
     for (size_t i = 0; i < 16; ++i) {
       current[i] = ctx.Mvp[i];
       previous[i] = ctx.PrevMvp[i];
