@@ -52,8 +52,6 @@ void applyFacade(vec2 encoded, inout vec3 albedo, inout float roughness,
   else if (variant < 5.5 && variant > 4.5) { wallTint = vec3(1.00, 0.89, 0.84); }
   else if (variant < 6.5 && variant > 5.5) { wallTint = vec3(0.62, 0.43, 0.32); }
   else if (variant > 6.5) { wallTint = vec3(0.82, 0.69, 0.61); }
-  albedo *= wallTint;
-
   float joint = periodicBand(storey, 0.015, 0.040, storeyWidth);
   albedo *= mix(vec3(0.98), vec3(0.91, 0.92, 0.93), joint);
 
@@ -77,7 +75,7 @@ void applyFacade(vec2 encoded, inout vec3 albedo, inout float roughness,
   vec3 glass = albedo * vec3(0.22, 0.30, 0.39);
   vec3 metal = albedo * vec3(0.58, 0.62, 0.65);
   vec3 doorColour = albedo * vec3(0.31, 0.36, 0.39);
-  albedo = albedo * max(1.0 - window - frame - door, 0.0) +
+  albedo = albedo * wallTint * max(1.0 - window - frame - door, 0.0) +
            glass * window + metal * frame + doorColour * door;
   roughness = roughness * (1.0 - window - frame) + 0.26 * window + 0.48 * frame;
   metalness = metalness * (1.0 - frame) + 0.42 * frame;

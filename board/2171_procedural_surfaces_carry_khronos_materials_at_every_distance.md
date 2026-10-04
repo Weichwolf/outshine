@@ -35,6 +35,8 @@ gelieferte Farbe/Material benötigt weiterhin einen nativen Parameterpfad. Acht 
 Wandvarianten ergänzen die Dächer. Variante, Nutzung und Eingangsseite liegen im konstanten
 U-Gruppenanteil; V bleibt die unbeschränkte Geschosskoordinate. Hohe Wände wechseln nicht
 bei 64 Geschossen die Variante. Bestehende Vertexgröße und Geometrie bleiben erhalten.
+Wandfarbe beeinflusst ausschließlich den Wandanteil; Glas, Metallrahmen und Türen
+behalten ihre eigene Materialantwort statt die Wandfarbe mitzuerben.
 
 ## Verfahren
 - Metrische Ziegel-/Backsteinraster mit gefilterten Fugen, Putzkorn/Betonporen. Cell-Hash
