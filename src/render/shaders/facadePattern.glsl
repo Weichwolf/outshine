@@ -1,6 +1,7 @@
 #include "periodicBand.glsl"
+#include "roofTiles.glsl"
 
-void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 n, inout vec3 albedo,
+void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 localM, vec3 n, inout vec3 albedo,
                       inout float roughness, out vec2 heightChange) {
   heightChange = vec2(0.0);
   float slope = length(surfaceGradient(n, dFdx(positionM), dFdy(positionM),
@@ -9,13 +10,16 @@ void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 n, inout vec3 albedo,
   float course = encoded.y / (0.32 * slope);
   vec2 courseChange = vec2(dFdx(encoded.y), dFdy(encoded.y)) / (0.32 * slope);
   float width = abs(courseChange.x) + abs(courseChange.y);
-  float joint = periodicBand(course, 0.0, 0.055, width);
-  albedo *= mix(vec3(1.0), vec3(0.68, 0.70, 0.73), joint);
-  roughness = mix(roughness, 1.0, joint);
-  heightChange = -0.004 * periodicBandSlope(course, 0.0, 0.055, width) * courseChange;
+  vec3 axis = roofTileAxis(dFdx(localM), dFdy(localM), dFdx(encoded.y), dFdy(encoded.y));
+  float tile = dot(localM, axis) / 0.26;
+  vec2 tileChange = vec2(dot(dFdx(localM), axis), dot(dFdy(localM), axis)) / 0.26;
+  RoofTileJoint joint = roofTileJoint(course, tile, width, abs(tileChange.x) + abs(tileChange.y));
+  albedo *= mix(vec3(1.0), vec3(0.68, 0.70, 0.73), joint.coverage);
+  roughness = mix(roughness, 1.0, joint.coverage);
+  heightChange = -0.004 * (joint.courseSlope * courseChange + joint.tileSlope * tileChange);
 }
 
-void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 n, inout vec3 albedo,
+void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, inout vec3 albedo,
                  inout float roughness, out vec2 heightChange) {
   heightChange = vec2(0.0);
   if (encoded.x < 0.0) {
@@ -41,7 +45,7 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 n, inout vec3 al
           tint = vec3(0.65, 0.90, 1.12);
         }
         albedo *= tint;
-        applyRoofCourses(encoded, positionM, n, albedo, roughness, heightChange);
+        applyRoofCourses(encoded, positionM, localM, n, albedo, roughness, heightChange);
       }
       return;
     }
