@@ -70,6 +70,10 @@
 ## Code und Arbeit
 - Fremdcode wird nicht im Repository gebündelt. Ich nutze eigene Implementierungen oder
   Standardbibliotheken aus Homebrew/apt; erforderliche Pakete nenne ich ausdrücklich.
+  Wo immer möglich nutze ich bewährte Bibliotheken statt eigener Standardalgorithmen;
+  Vertrag, Portabilität und gemessene Kosten müssen passen. Für Techniken und Algorithmen
+  schlage ich immer zuerst in SIGGRAPH-Veröffentlichungen nach, ergänze
+  passende Primärquellen und verankere Verfahren und Quellen im zuständigen WI.
 - C++23, SDL3/SDL_GPU, GLSL; RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
@@ -96,5 +100,6 @@
   `test/scripts/pixels.py`. Worktree-Bilder auch eindeutig ins Haupt-Checkout übernehmen.
   Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.
 - Ich recherchiere normalerweise lokal; beauftragte Anbieter-/API-Recherche und Webcam-Suche
-  erlauben Websuche. Werkzeuge aktuell halten, nach Updates Orakelherkunft prüfen.
+  sowie beauftragte Technik-/Bibliotheksrecherche erlauben Websuche. Werkzeuge aktuell halten,
+  nach Updates Orakelherkunft prüfen.
   Ich berichte knapp auf Deutsch: Ergebnis, Commit, Belege und offene Qualitätslücke.

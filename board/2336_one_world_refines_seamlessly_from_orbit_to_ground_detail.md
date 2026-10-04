@@ -44,6 +44,9 @@ benötigte öffentliche Felder werden dort mit diesem Pfad integriert. 2280 füh
 3. Fernverband → Massing → Hülle → Nahdetails aus demselben Plan. Fernverbände bündeln,
    Nahteile instanzieren. Standort/Seeds/Silhouette bleiben stabil. Jede Variante liefert
    Bounds, Kosten und eine konservative Schranke für die tatsächlich ausgelassene Form.
+   meshoptimizer ordnet native Index-/Vertexbuffer für Cache und Fetch; keine zweite Meshkopie
+   im residenten Endprodukt. Simplifizierung nur mit erhaltenen Höfen, Part-Grenzen und
+   Attributnähten. Bibliotheksfehlerwerte ersetzen keine konservative Oberflächenschranke.
 4. Für planbasierte Detailreduktionen analytische Schranken herleiten und unabhängig prüfen;
    Höfe/Öffnungen, beide Oberflächenrichtungen und Terrainfehler berücksichtigen. Vorhandene
    Triangle-/SurfaceError-Verfahren sind Entwicklungsorakel; keine Fine-Referenz pro Fernjob
@@ -76,3 +79,6 @@ Zuerst dichte Bodenstadt: vollständige Fernverbände und Nahdetails ohne überf
 Löcher, Formwechsel oder neue IO-Arbeit beim Drehen. Danach Flug und Orbit separat prüfen.
 Gleiche Inhalte/Profil/Sichtweite, geringere gemessene Arbeit/Bytes und AGENTS-Budget;
 reine CPU-Beweise oder ein gesetzter Sichtweitenparameter schließen den WI nicht.
+
+Bibliotheksvertrag und Installation: [Abhängigkeiten](../doc/dependencies.md).
+Verfahren: [meshoptimizer](https://github.com/zeux/meshoptimizer); GPU-Kosten lokal messen.

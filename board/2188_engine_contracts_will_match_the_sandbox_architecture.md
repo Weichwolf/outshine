@@ -40,6 +40,14 @@ Gemeinsame IO-/Cache-/Jobdienste enthalten keine Geografie- oder Quellsemantik.
 5. Öffentlicher WeatherSnapshot für 2172 enthält Ort/Höhe/UTC, Einheiten, bekannte/fehlende
    Felder und Herkunft. Spätere Commands/Physik/Persistenz gehören zu 2136, nicht in diesen Umbau.
 
+## Bewährte Formatdecoder
+`base/format/Json` nutzt künftig simdjson, `base/format/Xml` pugixml; ihre konkreten Typen
+bleiben privat. Erst mit dem betroffenen Importpfad integrieren, keinen Parserumbau vor Gebäuden.
+Eingabelimits, UTF-8/Numbers, Fehlerpositionen, Lebensdauer der Views und Roundtrip-Verträge
+erhalten; keine Exception-basierten Aufrufe und kein Parsing im Frame. Ein gemeinsamer Decoder
+je Format ersetzt Eigenparser, keine Parallelpfade. Installation: [Abhängigkeiten](../doc/dependencies.md).
+[simdjson](https://github.com/simdjson/simdjson), [pugixml](https://pugixml.org/).
+
 ## Abnahme
 Ein externer Provider/Generator ersetzt den entsprechenden Builtin im echten Place ohne
 private Includes oder zweite Pipeline. Modulabhängigkeiten sichern world ohne Quelltypen.

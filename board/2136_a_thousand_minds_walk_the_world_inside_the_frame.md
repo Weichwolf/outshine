@@ -20,8 +20,9 @@ Physics besitzt Körper/Kräfte/Solver, SimulationState festen Takt/Zustand/Comm
 Host/Script/UI/LLM Ziele/Events, Render/Audio immutable Posen. Native Entities/Assets bestehen;
 benötigte API-Erweiterungen mit 2188 integrieren, kein pauschaler Architektur-Blocker.
 Nach visueller Basis zuerst allgemeine Weltkontakte/Gelenkantrieb, dann steuerbarer NPC
-und Ton/Persistenz. Vor Solver-Ausbau vorhandenen Kern gegen etablierte lokal verfügbare
-Kerne prüfen; dieser Entwurf bleibt `planned`. Keine separate Fahrzeug-/Sandboxengine.
+und Ton/Persistenz. Bullet liefert Broadphase, Kontakte und Körper-/Gelenksolver; Eigen dient
+linearen Berechnungen außerhalb der CPU/GPU-ABI. Integration bleibt `planned` und folgt dem
+visuellen Meilenstein. Keine separate Fahrzeug-/Sandboxengine und kein pauschaler Vec/Mat-Umbau.
 
 ## Verfahren
 - SI-Masse/Trägheit/Schwerpunkt/Pose; Kraft/Angriffspunkt → Beschleunigung/Drehmoment.
@@ -29,6 +30,9 @@ Kerne prüfen; dieser Entwurf bleibt `planned`. Keine separate Fahrzeug-/Sandbox
   Reibung/Restitution, Limits/Motoren und schnelle Bewegung. Kollision unabhängig vom Render-LOD.
 - Fester Takt mit begrenztem Aufholen. Reifen/Aerodynamik/Auftrieb/Wind auf denselben Körpern;
   Schlaf-/Fernzustand spart Arbeit ohne verlorene Weltwirkung. Vegetation reduziert Freiheitsgrade.
+  Physics kapselt Bullet; Engine besitzt Tick, IDs, Commands, Speichergrenzen und Posenexport.
+  Keine Library-Typen in Welt-/Saveformaten. Determinismus innerhalb eines festen Builds prüfen;
+  plattformübergreifend bitidentisches Replay ist durch die Bibliothek allein nicht belegt.
 - Beobachtung/Navigation → lokale Steuerung oder JS/UI/LLM → validierter Command → Physik
   → Zustand/Pose/Events → Render/Audio. Entity/Tick/Version und begrenzte Queues, kein direkter
   Renderpose-Ersatz außer explizitem Setup/Editieren. Dokumentierte JS/HTML/CSS-Teilmenge halten.
@@ -46,3 +50,6 @@ Kerne prüfen; dieser Entwurf bleibt `planned`. Keine separate Fahrzeug-/Sandbox
 Allgemeiner Körper-/Weltkontakt und Gelenkantrieb stimmen auf echten Straßen/Brücken/Terrain.
 Ein NPC ist lokal, über JS und aufgezeichnete LLM-Events steuerbar; Ton und atomarer Save/Replay
 erhalten den Zustand. 25/30/60 fps ändern keine Simulation. Hockenheim ist spätere Integration.
+
+Installation: [Abhängigkeiten](../doc/dependencies.md).
+[Bullet](https://github.com/bulletphysics/bullet3), [Eigen](https://libeigen.gitlab.io/).
