@@ -91,7 +91,7 @@ private:
     std::array<uint64_t, 2> NodeAt{};
     std::array<double, 2> CutM{};
     std::array<double, 2> GradeAtM{};
-    std::array<bool, 2> Joined{};
+    std::array<bool, 2> HasEndGrade{};
   };
 
   struct Leg {
@@ -145,6 +145,7 @@ private:
     std::unordered_map<uint64_t, double> GroundEndM;
     RoadMeshingStats Swept;
     size_t ChordAdded = 0;
+
     size_t DecksOverWater = 0;
     size_t AskedOverBridge = 0;
     size_t NamedOverBridge = 0;
@@ -175,6 +176,8 @@ private:
     double WaterMs = 0.0;
     double SweepMs = 0.0;
     double RestMs = 0.0;
+
+    [[nodiscard]] bool HasRaisedDecks() const { return DecksRaised != 0 || DecksOverWater != 0; }
   };
 
   [[nodiscard]] static Vec3f
@@ -264,13 +267,14 @@ private:
 
   static void SeedsBridgeEnds(const Paving &on, Paved &into);
 
-  static void Bridges(const Paving &on, Paved &into);
+  static void ResolveBridgeConnections(const Paving &on, Paved &into);
+  static void RecordBridgeConnectionMetrics(Paved &into);
 
   [[nodiscard]] static double StepAlongM(std::span<const RoadStation> along, size_t at);
 
   [[nodiscard]] static std::vector<double> ReachedAlong(std::span<const RoadStation> along);
 
-  static void MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into);
+  static void DetermineWaterClearance(const Paving &on, size_t laneAt, Paved &into);
 
   static void SplitsEdges(Paved &into);
   [[nodiscard]] static std::unordered_map<uint64_t, std::vector<Leg>> LegsOf(const Paving &on,
@@ -288,6 +292,7 @@ private:
   static void DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &lane,
                          const Edge &edge,
                          Paved &into);
+  static void ApplyApproachGrades(double gradient, const Edge &edge, Paved &into);
   static void AppendTerrainStamps(const Paving &on,
                                   const ::outshine::Generators::Osm::StreetField::Way &lane,
                                   Paved &into,
@@ -357,6 +362,7 @@ public:
       Crossings,
       CrossFile,
       CrossDecks,
+      Design,
       BridgeTopology,
       BridgeRelevant,
       BridgeSample,
@@ -364,7 +370,6 @@ public:
       BridgeCleanup,
       BridgeRamps,
       BridgeGrades,
-      Design,
       Edges,
       Legs,
       Junctions,
@@ -440,6 +445,8 @@ public:
 
 private:
   struct JobSlice;
+  [[nodiscard]] std::expected<bool, std::string_view> AdvanceStage(Job &job,
+                                                                   const JobSlice &slice) const;
   [[nodiscard]] static std::expected<bool, std::string_view>
   AdvanceCrossings(Job &job, const JobSlice &slice);
   [[nodiscard]] static std::expected<bool, std::string_view>

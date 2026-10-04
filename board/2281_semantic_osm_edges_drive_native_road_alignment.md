@@ -25,10 +25,19 @@ und `AppendJunctionTerrainStamp` erzeugen sie für Brückenspannen und erhöhte 
 `EarthworkPress::BidsTerrain` trennt sie von tatsächlichen Kontakten. Widerlager und
 Anschlussrampen behalten ihre Kontakte. Husums künstlicher Bodenriegel unter der Brücke
 ist im Runtime-Bild beseitigt; breite Uferböschungen bleiben bei 2145 offen.
-Nächster Schritt: Wasserfreiraum bereits beim Entwurf bestimmen, bevor Endhöhen, Rampen
-und Knoten entstehen. `MarksWaterCrossing` wird derzeit erst beim Pflastern aufgerufen;
-dadurch können Knoten auf Bodenhöhe bleiben, obwohl ihr Überbau danach angehoben wird.
-Überbau, Auflager und Geländer anschließend aus demselben durchgehenden Profil erzeugen.
+`DetermineWaterClearance` bestimmt den Wasserfreiraum beim Entwurf;
+`ResolveBridgeConnections` führt Wasser- und Straßenkreuzungen vor der Geometrie zusammen.
+Endhöhen gelten auch für einfache Zweiarm-Übergänge. Knoten und Rampen konsumieren dieselben
+Höhen; einmalige und schrittweise Erzeugung behalten identische Geometrie/Kontakte.
+Kurze überlappende Rampen erhalten beide Anschlusshöhen unabhängig von der Linienrichtung;
+auch nicht geteilte Quellen-Endpunkte übernehmen fortgepflanzte Höhen.
+Nächster Schritt: das Quellenformat der Terrain-Klassifikation korrekt weitergeben.
+Die Klassenfelder verwenden noch den Shortbread-Default statt des registrierten OpenMapTiles-
+Schemas und finden dadurch keine Flächen in den bereits erworbenen Kacheln.
+Wasserbrücken bleiben im realen Bild ohne Wasserfreiraum, obwohl Wassergeometrie vorhanden ist.
+Danach Überbau, Auflager und Geländer aus dem durchgehenden Profil erzeugen.
+Wasserfreiraum stammt bisher aus dem drapierten Gelände und Klassenregeln; tatsächlicher
+Wasserpegel aus 2145 und unbekannte Durchfahrtshöhen benötigen noch einen gemeinsamen Vertrag.
 
 ## Verfahren
 - Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren. MVT ist

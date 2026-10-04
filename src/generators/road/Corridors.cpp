@@ -253,16 +253,16 @@ bool Corridors::StationsAlong(const Paving &on,
       const double at = static_cast<double>(piece) / static_cast<double>(pieces);
       const double onLat = on.Points[here] + (on.Points[next] - on.Points[here]) * at;
       const double onLon = on.Points[here + 1] + (on.Points[next + 1] - on.Points[here + 1]) * at;
-      if (!station({.LongitudeDeg = onLon, .LatitudeDeg = onLat},
-                   piece == 0 ? SharedNodeAt(on, onLat, onLon) : 0u)) {
-        return false;
-      }
+      const LongitudeLatitude location{.LongitudeDeg = onLon, .LatitudeDeg = onLat};
+      uint64_t node = piece == 0 ? SharedNodeAt(on, onLat, onLon) : 0u;
+      if (step == 0 && piece == 0) { node = PlaceKey(location); }
+      if (!station(location, node)) { return false; }
     }
   }
   const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
   return last + 1 < on.Points.size() &&
          station({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]},
-                 SharedNodeAt(on, on.Points[last], on.Points[last + 1]));
+                 PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
 }
 
 void Corridors::DesignLane(const Paving &on,
@@ -302,6 +302,7 @@ void Corridors::DesignLane(const Paving &on,
       }
     }
   }
+  if (lane.Bridge && on.WaterRow >= 0 && on.Classes) { DetermineWaterClearance(on, laneAt, into); }
   into.Designed[laneAt] = into.Along;
 }
 
@@ -320,7 +321,8 @@ std::vector<double> Corridors::ReachedAlong(std::span<const RoadStation> along) 
   return reached;
 }
 
-void Corridors::MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into) {
+void Corridors::DetermineWaterClearance(const Paving &on, size_t laneAt, Paved &into) {
+  const auto began = std::chrono::steady_clock::now();
   double overWaterM = 0.0;
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double midE = 0.5 * (into.Along[at - 1].EastM + into.Along[at].EastM);
@@ -353,6 +355,8 @@ void Corridors::MarksWaterCrossing(const Paving &on, size_t laneAt, Paved &into)
       into.MostOverWaterM = std::max(into.MostOverWaterM, clear);
     }
   }
+  into.WaterMs +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
 }
 
 void Corridors::PaveLane(const Paving &on,
@@ -411,7 +415,6 @@ void Corridors::PaveEdge(const Paving &on,
     ++into.RefusedWays;
     return;
   }
-  if (lane.Bridge && on.WaterRow >= 0 && on.Classes) { MarksWaterCrossing(on, laneAt, into); }
   DeckOrRamp(lane, edge, into);
   into.LaidWays += lane.Bridge ? 1u : 0u;
   into.GroundWays += lane.Bridge ? 0u : 1u;
@@ -834,7 +837,21 @@ void Corridors::GradesApproaches(const Paving &on, Paved &into) {
   }
 }
 
-void Corridors::Bridges(const Paving &on, Paved &into) {
+void Corridors::RecordBridgeConnectionMetrics(Paved &into) {
+  Notes(into,
+        "streets: ways a ramp lifted off the ground",
+        static_cast<double>(into.RampsRaised),
+        "ways");
+  Notes(into, "streets: and the most one was lifted", into.SteepestRamp, "m");
+  Notes(into,
+        "streets: crossings the plan found",
+        static_cast<double>(into.CrossingsSeen),
+        "crossings");
+  Notes(into, "streets: decks a crossing raised", static_cast<double>(into.DecksRaised), "decks");
+  Notes(into, "streets: and the most one stands over what it crosses", into.MostRaisedM, "m");
+}
+
+void Corridors::ResolveBridgeConnections(const Paving &on, Paved &into) {
   auto began = std::chrono::steady_clock::now();
   const auto elapsed = [&began] {
     const auto previous = began;
@@ -865,6 +882,13 @@ void Corridors::SplitsEdges(Paved &into) {
                             .First = first,
                             .Count = at - first + 1u,
                             .NodeAt = {along[first].Node, along[at].Node}});
+      Edge &edge = into.Edges.back();
+      for (size_t side = 0; side < edge.NodeAt.size(); ++side) {
+        if (const auto cap = into.EndM.find(edge.NodeAt[side]); cap != into.EndM.end()) {
+          edge.GradeAtM[side] = cap->second;
+          edge.HasEndGrade[side] = true;
+        }
+      }
       first = at;
     }
     into.EdgesOf[lane].second = static_cast<uint32_t>(into.Edges.size()) - into.EdgesOf[lane].first;
@@ -1150,7 +1174,7 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
         std::min(leg.CutM, std::max(0.0, left[&leg - legs.data()].AlongM.back() - kLeastRoadM));
     into.Edges[leg.Edge].CutM[leg.End] = leg.CutM;
     into.Edges[leg.Edge].GradeAtM[leg.End] = made.GradeM;
-    into.Edges[leg.Edge].Joined[leg.End] = true;
+    into.Edges[leg.Edge].HasEndGrade[leg.End] = true;
     into.DeepestCutM = std::max(into.DeepestCutM, leg.CutM);
     ++into.LegsCut;
   }
@@ -1271,22 +1295,38 @@ void Corridors::DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &
   }
   const double gradient =
       lane.MaxGradient > 0.0f ? static_cast<double>(lane.MaxGradient) : kSteepestApproach;
+  ApplyApproachGrades(gradient, edge, into);
+}
+
+void Corridors::ApplyApproachGrades(double gradient, const Edge &edge, Paved &into) {
   const std::vector<double> reached = ReachedAlong(into.Along);
-  for (int end = 0; end < 2; ++end) {
-    if (!edge.Joined[end]) { continue; }
-    const double atM = end == 0 ? 0.0 : reached.back();
+  const double lengthM = reached.back();
+  if (!(lengthM > 0.0)) { return; }
+  std::array<double, 2> liftM{};
+  std::array<double, 2> reachM{};
+  for (size_t end = 0; end < 2; ++end) {
+    if (!edge.HasEndGrade[end]) { continue; }
     const RoadStation &rim = end == 0 ? into.Along.front() : into.Along.back();
-    const double liftM = edge.GradeAtM[end] - rim.GradeM;
-    if (std::fabs(liftM) < kLeastCapM) { continue; }
-    const double overM = std::fabs(liftM) / gradient;
-    for (size_t at = 0; at < into.Along.size(); ++at) {
-      const double s = std::fabs(reached[at] - atM);
-      if (s >= overM) { continue; }
-      into.Along[at].GradeM += liftM * (1.0 - s / overM);
-      ++into.RampStations;
-      into.LongestRampM = std::max(into.LongestRampM, s);
+    liftM[end] = edge.GradeAtM[end] - rim.GradeM;
+    if (std::fabs(liftM[end]) < kLeastCapM) {
+      liftM[end] = 0.0;
+      continue;
     }
-    into.MostLiftedM = std::max(into.MostLiftedM, std::fabs(liftM));
+    reachM[end] = std::fabs(liftM[end]) / gradient;
+  }
+  const bool overlap = reachM[0] + reachM[1] > lengthM;
+  for (size_t at = 0; at < into.Along.size(); ++at) {
+    const std::array<double, 2> distanceM{reached[at], lengthM - reached[at]};
+    double offsetM = overlap ? std::lerp(liftM[0], liftM[1], reached[at] / lengthM) : 0.0;
+    for (size_t end = 0; end < 2; ++end) {
+      if (distanceM[end] >= reachM[end]) { continue; }
+      if (!overlap) { offsetM += liftM[end] * (1.0 - distanceM[end] / reachM[end]); }
+      into.LongestRampM = std::max(into.LongestRampM, distanceM[end]);
+    }
+    if (std::fabs(offsetM) < kLeastCapM) { continue; }
+    into.Along[at].GradeM += offsetM;
+    ++into.RampStations;
+    into.MostLiftedM = std::max(into.MostLiftedM, std::fabs(offsetM));
   }
 }
 
@@ -1445,6 +1485,9 @@ void Corridors::PaveLanes(const Paving &on,
     into.WaterMs = 0.0;
     into.SweepMs = 0.0;
     if (pass == Pass::Designing) {
+      if (into.HasRaisedDecks()) { ResolveBridgeConnections(on, into); }
+      RecordBridgeConnectionMetrics(into);
+      Notes(into, "streets: of that, raising the decks", since(), "ms");
       SplitsEdges(into);
       ShapesJunctions(on, into);
       corridor.insert(corridor.end(),
@@ -1619,19 +1662,6 @@ bool Corridors::Lay(const Site &site,
         "streets: segments in the fullest square",
         static_cast<double>(into.FullestCell),
         "segments");
-  if (paving && into.DecksRaised > 0) { Bridges(*paving, into); }
-  Notes(into,
-        "streets: ways a ramp lifted off the ground",
-        static_cast<double>(into.RampsRaised),
-        "ways");
-  Notes(into, "streets: and the most one was lifted", into.SteepestRamp, "m");
-  Notes(into,
-        "streets: crossings the plan found",
-        static_cast<double>(into.CrossingsSeen),
-        "crossings");
-  Notes(into, "streets: decks a crossing raised", static_cast<double>(into.DecksRaised), "decks");
-  Notes(into, "streets: and the most one stands over what it crosses", into.MostRaisedM, "m");
-  Notes(into, "streets: of that, raising the decks", since(), "ms");
   if (paving) { PaveLanes(*paving, into, corridor, pavement, tookFrom); }
   RaiseJunctionsAndRecordRoadMeasurements(site, waterRow, into, pavement);
   const size_t pavedTriangles = pavement.Index.size() / 3;
@@ -1832,36 +1862,44 @@ Corridors::Advance(Job &job,
                        .nodesMost = nodesMost,
                        .waterRow = waterRow};
   const auto entered = job.Phase;
-  std::expected<bool, std::string_view> result = std::unexpected(Says::kStaleCorridorInput);
-  if (entered <= Job::Stage::CrossDecks) {
-    result = AdvanceCrossings(job, slice);
-  } else if (entered <= Job::Stage::BridgeRelevant) {
-    result = AdvanceBridgeTopology(job, slice);
-  } else if (entered <= Job::Stage::BridgeRaise) {
-    result = AdvanceBridgeDecks(job, slice);
-  } else if (entered == Job::Stage::BridgeCleanup) {
-    result = AdvanceBridgeCleanup(job, slice);
-  } else if (entered <= Job::Stage::BridgeGrades) {
-    result = AdvanceBridgeGrades(job, slice);
-  } else if (entered <= Job::Stage::Legs) {
-    result = AdvanceRoadDesign(job, slice);
-  } else if (entered <= Job::Stage::Pave) {
-    result = AdvanceRoadJunctions(job, slice);
-  } else if (entered <= Job::Stage::Bodies) {
-    result = AdvanceRoadBodies(job, slice);
-  } else if (entered == Job::Stage::FinishNotes) {
-    result = AdvanceFinish(job, slice);
-  } else if (entered == Job::Stage::Transfer) {
-    result = BeginTransfer(job, slice);
-  } else if (entered == Job::Stage::TransferValidate) {
-    result = AdvanceTransferValidation(job, slice);
-  } else {
-    result = AdvanceTransfer(job, slice);
-  }
+  const auto result = AdvanceStage(job, slice);
   const auto index = static_cast<size_t>(entered);
   ++job.StageAdvances[index];
   job.LongestSliceMs[index] = std::max(job.LongestSliceMs[index], slice.Elapsed());
   return result;
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceStage(Job &job,
+                                                              const JobSlice &slice) const {
+  using Stage = Job::Stage;
+  switch (job.Phase) {
+    case Stage::Prepare:
+    case Stage::Crossings:
+    case Stage::CrossFile:
+    case Stage::CrossDecks: return AdvanceCrossings(job, slice);
+    case Stage::BridgeTopology:
+    case Stage::BridgeRelevant: return AdvanceBridgeTopology(job, slice);
+    case Stage::BridgeSample:
+    case Stage::BridgeRaise: return AdvanceBridgeDecks(job, slice);
+    case Stage::BridgeCleanup: return AdvanceBridgeCleanup(job, slice);
+    case Stage::BridgeRamps:
+    case Stage::BridgeGrades: return AdvanceBridgeGrades(job, slice);
+    case Stage::Design:
+    case Stage::Edges:
+    case Stage::Legs: return AdvanceRoadDesign(job, slice);
+    case Stage::Junctions:
+    case Stage::Pave: return AdvanceRoadJunctions(job, slice);
+    case Stage::Bodies: return AdvanceRoadBodies(job, slice);
+    case Stage::FinishNotes: return AdvanceFinish(job, slice);
+    case Stage::Transfer: return BeginTransfer(job, slice);
+    case Stage::TransferPositions:
+    case Stage::TransferNormals:
+    case Stage::TransferColours:
+    case Stage::TransferTriangles: return AdvanceTransfer(job, slice);
+    case Stage::TransferValidate: return AdvanceTransferValidation(job, slice);
+    case Stage::Done: return true;
+  }
+  return std::unexpected(Says::kStaleCorridorInput);
 }
 
 std::expected<bool, std::string_view> Corridors::AdvanceCrossings(Job &job, const JobSlice &slice) {
@@ -1959,7 +1997,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceCrossings(Job &job, cons
             "streets: segments in the fullest square",
             static_cast<double>(into.FullestCell),
             "segments");
-      job.Phase = Job::Stage::BridgeTopology;
+      job.Phase = Job::Stage::Design;
       return false;
     }
     default: return std::unexpected(Says::kStaleCorridorInput);
@@ -1974,7 +2012,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceBridgeTopology(Job &job,
   const Paved &into = job.Work;
   switch (job.Phase) {
     case Job::Stage::BridgeTopology: {
-      if (paving == nullptr || into.DecksRaised == 0) {
+      if (paving == nullptr || !into.HasRaisedDecks()) {
         job.Phase = Job::Stage::BridgeGrades;
         return false;
       }
@@ -2087,7 +2125,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceBridgeGrades(Job &job,
   Paved &into = job.Work;
   switch (job.Phase) {
     case Job::Stage::BridgeRamps:
-      if (paving != nullptr && into.DecksRaised > 0) {
+      if (paving != nullptr && into.HasRaisedDecks()) {
         EaseRampPass(ways, *vectors, job.RampCapM, into);
         job.RampMs += elapsed();
         job.TotalMs += elapsed();
@@ -2099,25 +2137,14 @@ std::expected<bool, std::string_view> Corridors::AdvanceBridgeGrades(Job &job,
       job.Phase = Job::Stage::BridgeGrades;
       return false;
     case Job::Stage::BridgeGrades:
-      if (paving != nullptr && into.DecksRaised > 0) {
+      if (paving != nullptr && into.HasRaisedDecks()) {
         GradesApproaches(*paving, into);
         Notes(into, "streets: of raising decks, grading approaches", elapsed(), "ms");
       }
-      Notes(into,
-            "streets: ways a ramp lifted off the ground",
-            static_cast<double>(into.RampsRaised),
-            "ways");
-      Notes(into, "streets: and the most one was lifted", into.SteepestRamp, "m");
-      Notes(into,
-            "streets: crossings the plan found",
-            static_cast<double>(into.CrossingsSeen),
-            "crossings");
-      Notes(
-          into, "streets: decks a crossing raised", static_cast<double>(into.DecksRaised), "decks");
-      Notes(into, "streets: and the most one stands over what it crosses", into.MostRaisedM, "m");
+      RecordBridgeConnectionMetrics(into);
       Notes(into, "streets: of that, raising the decks", elapsed(), "ms");
       job.TotalMs += elapsed();
-      job.Phase = Job::Stage::Design;
+      job.Phase = Job::Stage::Edges;
       return false;
     default: return std::unexpected(Says::kStaleCorridorInput);
   }
@@ -2154,7 +2181,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
       into.FitMs = into.WaterMs = into.SweepMs = 0.0;
       job.NextLane = 0;
       job.StageMs = 0.0;
-      job.Phase = Job::Stage::Edges;
+      job.Phase = Job::Stage::BridgeTopology;
       return false;
     }
     case Job::Stage::Edges:
@@ -2470,6 +2497,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
                                                     "crossings",
                                                     "cross-file",
                                                     "cross-decks",
+                                                    "design",
                                                     "bridge-topology",
                                                     "bridge-relevant",
                                                     "bridge-sample",
@@ -2477,7 +2505,6 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
                                                     "bridge-cleanup",
                                                     "bridge-ramps",
                                                     "bridge-grades",
-                                                    "design",
                                                     "edges",
                                                     "legs",
                                                     "junctions",

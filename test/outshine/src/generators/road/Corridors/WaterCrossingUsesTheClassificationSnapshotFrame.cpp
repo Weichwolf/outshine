@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <string>
@@ -19,6 +20,44 @@ double Measure(const std::vector<outshine::DiagnosticSample> &notes, std::string
     if (note.Name == name) { return note.Value; }
   }
   return -1;
+}
+
+std::optional<float> HeightAt(const outshine::Geometry &geometry, float southM) {
+  std::optional<float> highest;
+  for (int part = 0; part < geometry.parts(); ++part) {
+    const auto mesh =
+        outshine::TriangleBvh::Over(geometry.positionsOf(part), geometry.trianglesOf(part));
+    if (const auto height = mesh.Under(0, southM)) {
+      highest = highest ? std::max(*highest, *height) : *height;
+    }
+  }
+  return highest;
+}
+
+bool SamePacedRoads(const outshine::Generators::Corridors &corridors,
+                    const outshine::Generators::Corridors::Site &site,
+                    const outshine::Geometry &expected,
+                    const std::vector<outshine::EarthworkStamp> &expectedStamps) {
+  outshine::Geometry geometry;
+  std::vector<outshine::EarthworkStamp> stamps;
+  std::vector<outshine::DiagnosticSample> notes;
+  auto job = outshine::Generators::Corridors::Begin(site);
+  bool complete = false;
+  for (size_t step = 0; step < 1024 && !complete; ++step) {
+    const auto advanced = corridors.Advance(*job, site, 1, 1, geometry, stamps, notes);
+    if (!advanced) { return false; }
+    complete = *advanced;
+  }
+  if (!complete || geometry.parts() != expected.parts() || stamps != expectedStamps) {
+    return false;
+  }
+  for (int part = 0; part < geometry.parts(); ++part) {
+    if (!std::ranges::equal(geometry.positionsOf(part), expected.positionsOf(part)) ||
+        !std::ranges::equal(geometry.trianglesOf(part), expected.trianglesOf(part))) {
+      return false;
+    }
+  }
+  return true;
 }
 }
 
@@ -98,9 +137,17 @@ int main() {
     std::vector<DiagnosticSample> notes;
     CHECK(corridors.Lay(site, geometry, earthworks, notes) && geometry.wellFormed(),
           "a native classification snapshot is sufficient to generate the bridge");
+    CHECK(SamePacedRoads(corridors, site, geometry, earthworks),
+          "sliced generation publishes identical deck geometry and terrain contacts");
     CHECK(Measure(notes, "streets: junctions shaped") == 1,
           "the fixture contains an elevated three-way junction");
     if (longitude == 8.1) {
+      const auto centre = HeightAt(geometry, 0);
+      const auto north = HeightAt(geometry, -20);
+      const auto south = HeightAt(geometry, 20);
+      CHECK(centre && north && south && *centre > 1 && std::fabs(*centre - *north) < 0.02f &&
+                std::fabs(*centre - *south) < 0.02f,
+            "the water-driven deck height remains continuous through the three-way junction");
       CHECK(!earthworks.empty() && std::ranges::all_of(earthworks,
                                                        [](const auto &stamp) {
                                                          return stamp.Kind ==
