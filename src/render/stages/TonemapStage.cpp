@@ -1,10 +1,12 @@
 #include "math/Vec2.h"
 #include "TonemapStage.h"
 #include "math/Vec3.h"
+#include "TransformMatrix.h"
 
 #include "ShaderFile.h"
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <string>
 
 namespace outshine::Render {
@@ -63,23 +65,44 @@ bool TonemapStage::Configure(const Gpu &gpu,
   return true;
 }
 
-void TonemapStage::Encode([[maybe_unused]] const FrameContext &ctx, const PassRecording &into) {
+void TonemapStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (!Pipe) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
   if (Temporal) {
     if (History == nullptr || Velocity == nullptr) { return; }
 
-    struct {
+    struct alignas(16) TemporalUniform {
       Vec2f JitterDelta;
       Vec2f Texel;
       float HistoryHeld;
       Vec3f Pad;
+      Mat4f PreviousClipFromCurrentClip;
     } uniforms{.JitterDelta = {JitterDelta[0], JitterDelta[1]},
                .Texel = {Width > 0 ? 1.0f / static_cast<float>(Width) : 0.0f,
                          Height > 0 ? 1.0f / static_cast<float>(Height) : 0.0f},
                .HistoryHeld = HistoryHeld ? 1.0f : 0.0f,
-               .Pad = {0.0f, 0.0f, 0.0f}};
+               .Pad = {0.0f, 0.0f, 0.0f},
+               .PreviousClipFromCurrentClip = {}};
 
+    static_assert(sizeof(TemporalUniform) == 96 && alignof(TemporalUniform) == 16);
+    static_assert(offsetof(TemporalUniform, JitterDelta) == 0);
+    static_assert(offsetof(TemporalUniform, Texel) == 8);
+    static_assert(offsetof(TemporalUniform, HistoryHeld) == 16);
+    static_assert(offsetof(TemporalUniform, Pad) == 20);
+    static_assert(offsetof(TemporalUniform, PreviousClipFromCurrentClip) == 32);
+    Mat4 current, previous, inverse;
+    for (size_t i = 0; i < 16; ++i) {
+      current[i] = ctx.Mvp[i];
+      previous[i] = ctx.PrevMvp[i];
+    }
+    if (InverseMatrix(current, inverse)) {
+      const Mat4 reprojected = previous * inverse;
+      for (size_t i = 0; i < 16; ++i) {
+        uniforms.PreviousClipFromCurrentClip[i] = static_cast<float>(reprojected[i]);
+      }
+    } else {
+      uniforms.HistoryHeld = 0.0f;
+    }
     SDL_PushGPUFragmentUniformData(into.Commands, 0, &uniforms, sizeof uniforms);
     const std::array<SDL_GPUTextureSamplerBinding, kTemporalImages> images = {
         {{.texture = Scene, .sampler = Exact},

@@ -370,6 +370,7 @@ void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
   into.Render.OrbitDegreesPerFrame = from.Num("orbitDegPerFrame", into.Render.OrbitDegreesPerFrame);
   into.Render.Transfer = from.Said("transfer").value_or(into.Render.Transfer.c_str());
   into.Render.Exposure = from.Num("exposure", into.Render.Exposure);
+  into.Render.Antialiasing = from.Said("antialiasing").value_or(into.Render.Antialiasing.c_str());
   into.Render.Precision = from.Said("precision").value_or(into.Render.Precision.c_str());
   for (const Xml::Ref output : from.Children("output")) {
     into.Render.Outputs.push_back(output.Attr("name"));

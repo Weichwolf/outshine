@@ -51,6 +51,7 @@ struct Declaration {
 
   std::string Transfer;
   std::string Precision;
+  std::string Antialiasing;
 
   const Geometry *InitialGeometry = nullptr;
   std::vector<Material> Surfacing{Material{}};

@@ -543,6 +543,16 @@ bool RuntimeScene::StandsPlan(std::string &error) {
                    error)) {
     return false;
   }
+  if (!Declared_.Antialiasing.empty() && Declared_.Antialiasing != "none" &&
+      Declared_.Antialiasing != "temporal") {
+    error = "render antialiasing must be none or temporal";
+    return false;
+  }
+  if (Declared_.Antialiasing == "temporal" &&
+      std::ranges::find(declaration.Content, Render::Stage::TemporalResolve) ==
+          declaration.Content.end()) {
+    declaration.Content.push_back(Render::Stage::TemporalResolve);
+  }
   if (!Declared_.Transfer.empty()) {
     const std::optional<Render::Transfer> meant =
         Render::Spells(Render::kTransfers, Declared_.Transfer);

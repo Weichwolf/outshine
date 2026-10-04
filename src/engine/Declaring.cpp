@@ -366,7 +366,7 @@ void PublishConfiguration(Kept &session,
 
 [[nodiscard]] bool SameRenderPlan(const Core::Declaration &a, const Core::Declaration &b) {
   return a.Stages == b.Stages && a.Outputs == b.Outputs && a.Transfer == b.Transfer &&
-         a.Precision == b.Precision && a.Exposure == b.Exposure;
+         a.Precision == b.Precision && a.Antialiasing == b.Antialiasing && a.Exposure == b.Exposure;
 }
 
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b) {
@@ -551,6 +551,7 @@ void PrepareRenderSettings(const Scenario::Document &scenario, Core::Declaration
     declared.Outputs = scenario.Render.Outputs;
     declared.Transfer = scenario.Render.Transfer;
     declared.Precision = scenario.Render.Precision;
+    declared.Antialiasing = scenario.Render.Antialiasing;
     declared.Exposure = scenario.Render.Exposure > 0.0 ? scenario.Render.Exposure : 0.0;
   }
   declared.PictureLeftFrac = picture.LeftFrac;

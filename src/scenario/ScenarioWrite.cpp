@@ -592,6 +592,7 @@ void WriteRender(std::string &said, const Render::Configuration &render) {
   Said(said, "transfer", render.Transfer);
   Number(said, "exposure", render.Exposure);
   Said(said, "precision", render.Precision);
+  Said(said, "antialiasing", render.Antialiasing);
   if (render.Outputs.empty() && render.Stages.empty()) {
     said += "/>\n";
     return;

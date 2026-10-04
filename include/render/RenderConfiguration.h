@@ -36,8 +36,10 @@ struct Configuration {
   std::vector<std::string> Stages; ///< Explicit native stages replacing automatic selection.
   std::string Transfer;            ///< Empty selects the default; otherwise `linear` or `filmic`.
   double Exposure = 0.0;           ///< Positive linear exposure; nonpositive selects metering.
-  std::string Precision;           ///< Empty selects the default; otherwise `half` or `float`.
-  bool Audits = false;             ///< Enable CPU mesh-quality diagnostics.
+  std::string Antialiasing; ///< Additional AA request: empty/`none`, or `temporal`; preserves
+                            ///< material passes.
+  std::string Precision;    ///< Empty selects the default; otherwise `half` or `float`.
+  bool Audits = false;      ///< Enable CPU mesh-quality diagnostics.
 };
 
 }
