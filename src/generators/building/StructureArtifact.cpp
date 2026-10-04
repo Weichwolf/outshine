@@ -367,7 +367,7 @@ StructureArtifactKey(const RawTile &raw,
   }
   const auto structure = [](auto &archive, const RawTile::Structure &value) {
     const auto colour = [](auto &out, const Vec3f &rgb) {
-      for (float channel : rgb) {
+      for (const float channel : rgb) {
         if (!out.Number(channel)) { return false; }
       }
       return true;

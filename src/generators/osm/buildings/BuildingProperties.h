@@ -7,6 +7,8 @@
 #include "math/Srgb.h"
 #include "math/Vec3.h"
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <optional>
 
 namespace outshine::Generators::Osm {
@@ -21,13 +23,14 @@ struct BuildingProperties {
 [[nodiscard]] inline BuildingProperties ReadBuildingProperties(const OsmField &field,
                                                                const OsmField::Feature &feature) {
   BuildingProperties result;
+  constexpr uint32_t byteMask = 255u;
   if (field.Has(feature, "building:colour")) {
     const auto rgba = ParseCssColour(field.Str(feature, "building:colour"));
-    result.WallColourRejected = !rgba || (*rgba & 0xffu) != 0xffu;
+    result.WallColourRejected = !rgba || (*rgba & byteMask) != byteMask;
     if (!result.WallColourRejected) {
       Vec3f colour{};
       for (size_t channel = 0; channel < 3; ++channel) {
-        const float encoded = static_cast<float>((*rgba >> (24 - channel * 8)) & 0xffu) / 255.0f;
+        const float encoded = static_cast<float>((*rgba >> (24 - channel * 8)) & byteMask) / 255.0f;
         colour[channel] = ColourSpace::LinearFromSrgb(encoded);
       }
       result.WallColour = colour;

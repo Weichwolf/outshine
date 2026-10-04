@@ -352,7 +352,7 @@ LayerGroups() {
     profile/transport-topology) printf '%s' "src/world/navigation/TransportTopology.cpp src/generators/osm/transport src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/diagnostics) LayerGroups profile/internal; printf ' %s' "src/diagnostics" ;;
     profile/internal|profile/device) LayerGroups profile/engine ;;
-    harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
+    harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/base/format/CssColour.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     profile/base) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io" ;;

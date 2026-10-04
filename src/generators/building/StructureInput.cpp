@@ -37,6 +37,7 @@ StructureInput(outshine::Ground::StructureFootprints footprints) {
                               .Cell = *cell,
                               .HeightM = footprint.Height.TopM,
                               .MinimumHeightM = footprint.Height.MinimumM,
+                              .WallColour = {},
                               .HeightOrigin = footprint.Height.TopOrigin,
                               .SourceId = footprint.Source});
   }
