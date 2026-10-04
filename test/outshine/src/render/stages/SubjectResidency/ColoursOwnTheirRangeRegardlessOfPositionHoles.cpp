@@ -10,7 +10,7 @@ int main() {
   const auto unrelated = held.TakeVertices(1u << 20);
   const auto painted = held.TakeVertices(3);
   const auto colour = held.TakeColours(3);
-  CHECK(painted.First >= unrelated.Count && colour.First == 0 && colour.Count == 1024,
+  CHECK(painted.First >= unrelated.Count && colour.First == 0 && colour.Count == 3,
         "millions of uncoloured positions reserve no optional colour holes");
   GpuPlacement placement;
   placement.ColourOffset = colour.First - painted.First;
