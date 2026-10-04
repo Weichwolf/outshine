@@ -613,8 +613,8 @@ public:
     return LastRenderFrameTiming_;
   }
 
-  [[nodiscard]] const RenderFrameTiming &WorstRenderFrameTiming() const noexcept {
-    return WorstRenderFrameTiming_;
+  [[nodiscard]] const RenderFrameTiming &SlowestRenderFrameTiming() const noexcept {
+    return SlowestRenderFrameTiming_;
   }
 
   [[nodiscard]] size_t SubjectUniformPushes() const {
@@ -695,7 +695,7 @@ private:
   std::array<Effort, kStageCount> Spent_ = {{}};
   SubmittedCameraFrame LastSubmittedCamera_;
   RenderFrameTiming LastRenderFrameTiming_;
-  RenderFrameTiming WorstRenderFrameTiming_;
+  RenderFrameTiming SlowestRenderFrameTiming_;
 
   void CreateSampler(FrameResources &frame, Resource resource);
   void CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, Resource resource);

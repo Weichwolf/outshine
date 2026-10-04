@@ -175,7 +175,7 @@ void Reject(SceneRenderer &renderer, Faults &faults, Faults::Point point, bool c
   faults.Next = point;
   const auto submits = faults.Submitted;
   const auto lastTiming = renderer.LastRenderFrameTiming();
-  const auto worstTiming = renderer.WorstRenderFrameTiming();
+  const auto worstTiming = renderer.SlowestRenderFrameTiming();
   const auto result = renderer.RenderFrame();
   const char *wanted = point == Faults::Point::Acquire ? "injected frame acquire failure"
                                                        : "injected frame submit failure";
@@ -184,8 +184,8 @@ void Reject(SceneRenderer &renderer, Faults &faults, Faults::Point point, bool c
         "failed acquire never submits; failed submit is attempted exactly once");
   CHECK(renderer.LastRenderFrameTiming().TotalMs == lastTiming.TotalMs &&
             renderer.LastRenderFrameTiming().PhaseMs == lastTiming.PhaseMs &&
-            renderer.WorstRenderFrameTiming().TotalMs == worstTiming.TotalMs &&
-            renderer.WorstRenderFrameTiming().PhaseMs == worstTiming.PhaseMs,
+            renderer.SlowestRenderFrameTiming().TotalMs == worstTiming.TotalMs &&
+            renderer.SlowestRenderFrameTiming().PhaseMs == worstTiming.PhaseMs,
         "rejected GPU commands do not publish successful-frame timings");
   std::array<float, kIrradianceFloats> irradiance{};
   CHECK(renderer.ReadSkyIrradiance(irradiance) == (cached ? ReadState::Ready : ReadState::Failed),
@@ -394,7 +394,13 @@ void Exercise() {
   const auto submits = faults.Submitted;
   const auto waits = faults.FenceWaits;
   const auto lastTiming = actual.LastRenderFrameTiming();
-  const auto worstTiming = actual.WorstRenderFrameTiming();
+  const auto worstTiming = actual.SlowestRenderFrameTiming();
+  double phaseSumMs = 0;
+  for (const double phaseMs : worstTiming.PhaseMs) { phaseSumMs += phaseMs; }
+  CHECK(std::abs(phaseSumMs - worstTiming.TotalMs) < 1e-6,
+        "slowest frame phases partition that frame rather than unrelated phase maxima");
+  CHECK(worstTiming.TotalMs >= lastTiming.TotalMs,
+        "the slowest successful frame includes the latest submitted frame");
   faults.Next = Faults::Point::FenceWait;
   const auto fenceRejected = actual.RenderFrame();
   CHECK(!fenceRejected && fenceRejected.error() == "injected frame fence wait failure" &&
@@ -404,8 +410,8 @@ void Exercise() {
         "failed fence waiting cancels the new command before submission");
   CHECK(actual.LastRenderFrameTiming().TotalMs == lastTiming.TotalMs &&
             actual.LastRenderFrameTiming().PhaseMs == lastTiming.PhaseMs &&
-            actual.WorstRenderFrameTiming().TotalMs == worstTiming.TotalMs &&
-            actual.WorstRenderFrameTiming().PhaseMs == worstTiming.PhaseMs,
+            actual.SlowestRenderFrameTiming().TotalMs == worstTiming.TotalMs &&
+            actual.SlowestRenderFrameTiming().PhaseMs == worstTiming.PhaseMs,
         "failed fence waiting does not publish successful-frame timings");
   CHECK(control.RenderFrame().has_value() && actual.RenderFrame().has_value(),
         "a failed in-flight fence wait preserves the temporal retry");

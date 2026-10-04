@@ -1722,11 +1722,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   record(RenderFramePhase::Finish);
   timing.TotalMs = std::chrono::duration<double, std::milli>(phaseBegan - began).count();
   LastRenderFrameTiming_ = timing;
-  WorstRenderFrameTiming_.TotalMs = std::max(WorstRenderFrameTiming_.TotalMs, timing.TotalMs);
-  for (size_t phase = 0; phase < timing.PhaseMs.size(); ++phase) {
-    WorstRenderFrameTiming_.PhaseMs[phase] =
-        std::max(WorstRenderFrameTiming_.PhaseMs[phase], timing.PhaseMs[phase]);
-  }
+  if (timing.TotalMs > SlowestRenderFrameTiming_.TotalMs) { SlowestRenderFrameTiming_ = timing; }
   return {};
 }
 

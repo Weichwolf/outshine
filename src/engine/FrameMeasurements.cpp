@@ -13,22 +13,22 @@ namespace outshine {
 namespace {
 
 constexpr std::array<const char *, static_cast<size_t>(Render::RenderFramePhase::Count)>
-    kWorstRenderPhaseNames = {"render host worst: prepare",
-                              "render host worst: acquire",
-                              "render host worst: upload",
-                              "render host worst: swapchain",
-                              "render host worst: cull",
-                              "render host worst: encode",
-                              "render host worst: fence wait",
-                              "render host worst: submit",
-                              "render host worst: finish"};
+    kSlowestRenderPhaseNames = {"render host slowest frame: prepare",
+                                "render host slowest frame: acquire",
+                                "render host slowest frame: upload",
+                                "render host slowest frame: swapchain",
+                                "render host slowest frame: cull",
+                                "render host slowest frame: encode",
+                                "render host slowest frame: fence wait",
+                                "render host slowest frame: submit",
+                                "render host slowest frame: finish"};
 
 void PublishRenderFrameTiming(Core::DiagnosticLedger &published,
                               const Render::SceneRenderer &device) {
-  const Render::RenderFrameTiming &worst = device.WorstRenderFrameTiming();
-  published.RecordMetric("render host worst: total", worst.TotalMs, "ms");
-  for (size_t phase = 0; phase < kWorstRenderPhaseNames.size(); ++phase) {
-    published.RecordMetric(kWorstRenderPhaseNames[phase], worst.PhaseMs[phase], "ms");
+  const Render::RenderFrameTiming &slowest = device.SlowestRenderFrameTiming();
+  published.RecordMetric("render host slowest frame: total", slowest.TotalMs, "ms");
+  for (size_t phase = 0; phase < kSlowestRenderPhaseNames.size(); ++phase) {
+    published.RecordMetric(kSlowestRenderPhaseNames[phase], slowest.PhaseMs[phase], "ms");
   }
 }
 
