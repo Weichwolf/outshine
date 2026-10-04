@@ -48,7 +48,7 @@ int main() {
                               Quote((root / "host.cpp").string());
   const std::string linkage = " " + Quote((root / "liboutshine.a").string()) +
                               " $(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross "
-                              "liblz4 libtiff-4 libwebp) -lcurl -lz "
+                              "liblz4 libtiff-4 libwebp geos) -lcurl -lz "
                               "-Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross)";
   std::string said;
   const int built =
