@@ -31,13 +31,13 @@ Endhöhen gelten auch für einfache Zweiarm-Übergänge. Knoten und Rampen konsu
 Höhen; einmalige und schrittweise Erzeugung behalten identische Geometrie/Kontakte.
 Kurze überlappende Rampen erhalten beide Anschlusshöhen unabhängig von der Linienrichtung;
 auch nicht geteilte Quellen-Endpunkte übernehmen fortgepflanzte Höhen.
-Nächster Schritt: das Quellenformat der Terrain-Klassifikation korrekt weitergeben.
-Die Klassenfelder verwenden noch den Shortbread-Default statt des registrierten OpenMapTiles-
-Schemas und finden dadurch keine Flächen in den bereits erworbenen Kacheln.
-Wasserbrücken bleiben im realen Bild ohne Wasserfreiraum, obwohl Wassergeometrie vorhanden ist.
-Danach Überbau, Auflager und Geländer aus dem durchgehenden Profil erzeugen.
+`SurfacePreparation` gibt das registrierte Vektorschema an beide Klassenfelder weiter;
+Terrain und Straßen konsumieren wieder vorhandene Wasser-/Verkehrsflächen. Keine zweite
+Quelle, zusätzlichen Downloads oder Änderung vorhandener Cachebytes erforderlich.
+Das deckt fehlerhafte Vegetationsstandorte/-größen auf (2111); Bildabnahme bleibt offen.
 Wasserfreiraum stammt bisher aus dem drapierten Gelände und Klassenregeln; tatsächlicher
 Wasserpegel aus 2145 und unbekannte Durchfahrtshöhen benötigen noch einen gemeinsamen Vertrag.
+Nächster Schritt: Wasserpegel und Brückenprofil verbinden; danach Überbau, Auflager und Geländer.
 
 ## Verfahren
 - Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren. MVT ist

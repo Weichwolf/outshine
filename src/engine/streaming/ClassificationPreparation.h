@@ -53,7 +53,12 @@ public:
 
   void SetVegetation(const VegetationTemplates *veg) { Veg_ = veg; }
 
-  void SetVectorSource(bool available) noexcept { HasVectorSource_ = available; }
+  void SetVectorSource(
+      bool available,
+      Generators::Osm::MvtSchema schema = Generators::Osm::MvtSchema::Shortbread) noexcept {
+    HasVectorSource_ = available;
+    VectorSchema_ = schema;
+  }
 
   void Open(double lat, double lon, Tasks &compute);
   void Close();
@@ -197,6 +202,7 @@ private:
 
   const VegetationTemplates *Veg_ = nullptr;
   bool HasVectorSource_ = true;
+  Generators::Osm::MvtSchema VectorSchema_ = Generators::Osm::MvtSchema::Shortbread;
 
   Tier Fine_{{.Zoom = kFineZoom,
               .TileRadius = kFineRings,

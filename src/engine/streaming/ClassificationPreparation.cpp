@@ -274,10 +274,10 @@ std::expected<void, std::string_view> ClassificationPreparation::Update(TilePool
   if (!Opened_ || (Veg_ == nullptr) || !Veg_->Ready()) { return {}; }
 
   if (!Fine_.Field) {
-    Fine_.Field =
-        std::make_unique<::outshine::Generators::Osm::OsmField>(Fine_.Zoom, Veg_->Layers());
-    Coarse_.Field =
-        std::make_unique<::outshine::Generators::Osm::OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
+    Fine_.Field = std::make_unique<::outshine::Generators::Osm::OsmField>(
+        Fine_.Zoom, Veg_->Layers(), VectorSchema_);
+    Coarse_.Field = std::make_unique<::outshine::Generators::Osm::OsmField>(
+        Coarse_.Zoom, Veg_->AreaLayers(), VectorSchema_);
   }
   const double t0 = Clock();
   if (HasSourceRequests()) {
