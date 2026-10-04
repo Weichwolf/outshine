@@ -83,6 +83,8 @@ public:
       staged += CapacityBytes(candidate.Rings);
       for (const RingSamples &ring : candidate.Rings) { staged += CapacityBytes(ring.Heights); }
     }
+    staged += CapacityBytes(SurfaceInputs_);
+    for (const SurfaceInput &input : SurfaceInputs_) { staged += CapacityBytes(input.Heights); }
     return CapacityBytes(Surfaces_) + CapacityBytes(SurfaceRings_) + CapacityBytes(Courses_) +
            CapacityBytes(Levels_) + Mark_.HeapBytes() + ByTile_.HeapBytes() + staged;
   }
@@ -105,6 +107,11 @@ public:
   [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
 
 private:
+  struct SurfaceInput {
+    size_t Feature = 0;
+    std::vector<double> Heights;
+  };
+
   struct RingSamples {
     size_t Feature = 0;
     size_t Ring = 0;
@@ -126,6 +133,8 @@ private:
                  const VegetationTemplates &vegetation,
                  std::span<double> heights);
   void AddSurface(std::span<const RingSamples> rings, const OsmField &field);
+  void ResolveSurfaceLevels(const OsmField &field);
+  void RecountSurfaceOutliers();
   [[nodiscard]] static bool AdvanceCandidate(const GroundQuery &ground,
                                              const OsmField &field,
                                              OnLayers on,
@@ -145,6 +154,7 @@ private:
                             const Candidate &candidate);
   std::vector<Surface> Surfaces_;
   std::vector<SurfaceRing> SurfaceRings_;
+  std::vector<SurfaceInput> SurfaceInputs_;
   std::vector<Course> Courses_;
   std::vector<float> Levels_;
   TileRanges ByTile_;

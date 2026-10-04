@@ -29,10 +29,13 @@ ein Hafenbecken ist nicht automatisch Meer. Nächster Schritt: tatsächliche Ver
 zwischen Hafenbecken und Meer sowie die daraus abgeleiteten Bett-/Uferstempel korrigieren.
 Keine pauschale Nullhöhe für Flüsse, Seen oder Schleusenbecken.
 WaterField erhält die vorhandene `ProviderFeatureId` samt Quell-/Layer-Namensraum.
-Zuerst Fragmente desselben stehenden Gewässers an gemeinsamen Tile-Grenzen verbinden;
-Pegel aus dem Körper bestimmen und gemeinsam an Wassergeometrie und Bett weitergeben.
+Fragmente desselben stehenden Gewässers teilen bei überlappenden Wasserabschnitten an
+Tile-Grenzen einen Pegel aus gemeinsamen Höhensamples; Wassergeometrie und Bett nutzen ihn.
 Clipping-Kanten sind keine Ufer. Gleiche ID allein verbindet keine getrennten Komponenten;
-Flussflächen behalten Gefälle. Danach nachgewiesene Meer-Verbindungen berücksichtigen.
+Flussflächen behalten Gefälle. Nächster Schritt: gemeinsame offene Kanten verschiedener
+Quellobjekte verbinden. Husums sichtbarer Hafen besteht aus angrenzenden `lake`-Objekten,
+nicht aus den westlich gelegenen `dock`-Flächen. Quellklasse allein beweist keine Meer-Verbindung.
+Danach nachgewiesene Meer-Verbindungen berücksichtigen; Barrieren/Schleusen bleiben getrennt.
 Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`.
 
 ## Verfahren

@@ -258,6 +258,18 @@ void WaterField::AddSurface(std::span<const RingSamples> rings, const OsmField &
   Surfaces_.push_back({.FirstRing = first,
                        .RingCount = static_cast<uint32_t>(rings.size()),
                        .LevelM = static_cast<float>(level)});
+  SurfaceInputs_.push_back({.Feature = rings.front().Feature, .Heights = std::move(heights)});
+}
+
+void WaterField::RecountSurfaceOutliers() {
+  Outliers_ = 0;
+  for (size_t at = 0; at < SurfaceInputs_.size(); ++at) {
+    const double level = Surfaces_[at].LevelM;
+    if (std::ranges::any_of(SurfaceInputs_[at].Heights,
+                            [level](double height) { return height > level + kShoreToleranceM; })) {
+      ++Outliers_;
+    }
+  }
 }
 
 std::optional<float> WaterField::SurfaceLevel(std::span<double> heights) {
@@ -339,11 +351,12 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
   const auto staged = std::ranges::find_if(
       Candidates_, [tile = next.Tile](const Candidate &one) { return one.Tile == tile; });
   MaterializeCandidate(field, layers, veg, *staged);
-  metrics.MaterializationMs = elapsedMs(materializationAt);
   ByTile_.Set(next.Tile, firstSurface, static_cast<uint32_t>(Surfaces_.size()));
   Mark_.Take(next.Tile);
   Mark_.Advance(features);
   Candidates_.erase(staged);
+  if (Mark_.Done(features)) { ResolveSurfaceLevels(field); }
+  metrics.MaterializationMs = elapsedMs(materializationAt);
   return finish();
 }
 
