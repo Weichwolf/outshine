@@ -3,7 +3,7 @@
 #include "TangentFrame.h"
 #include "math/RenderFrame.h"
 
-#include <mapbox/earcut.hpp>
+#include "PolygonTriangulation.h"
 
 #include <algorithm>
 #include <array>
@@ -93,8 +93,9 @@ ReadWaterPolygon(std::span<const ::outshine::Generators::Osm::WaterField::Surfac
 }
 
 std::optional<std::vector<uint32_t>> TriangulateWaterPolygon(const WaterPolygon &polygon) {
-  const std::vector<uint32_t> triangles = mapbox::earcut<uint32_t>(polygon.Rings);
-  if (triangles.empty() || triangles.size() % 3u != 0) { return std::nullopt; }
+  const auto triangulated = TriangulatePolygon(polygon.Rings);
+  if (!triangulated) { return std::nullopt; }
+  const auto &triangles = *triangulated;
   std::vector<uint32_t> oriented;
   oriented.reserve(triangles.size());
   double coveredAreaM2 = 0.0;

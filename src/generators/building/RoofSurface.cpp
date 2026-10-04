@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "math/Units.h"
 #include "RoofSurface.h"
-#include <mapbox/earcut.hpp>
+#include "PolygonTriangulation.h"
 
 #include <cstddef>
 #include <limits>
@@ -169,13 +169,14 @@ bool FillCourtyard(std::span<const EastNorth> plan,
   if (expectedArea <= 0.0 || vertices.size() > std::numeric_limits<uint32_t>::max()) {
     return false;
   }
-  const auto indices = mapbox::earcut<uint32_t>(polygon);
+  const auto indices = TriangulatePolygon(polygon);
+  if (!indices) { return false; }
   const size_t first = tris.size();
   double actualArea = 0.0;
-  for (size_t at = 0; at + 2 < indices.size(); at += 3) {
-    const auto &a = vertices[indices[at]];
-    const auto &b = vertices[indices[at + 1]];
-    const auto &c = vertices[indices[at + 2]];
+  for (size_t at = 0; at + 2 < indices->size(); at += 3) {
+    const auto &a = vertices[(*indices)[at]];
+    const auto &b = vertices[(*indices)[at + 1]];
+    const auto &c = vertices[(*indices)[at + 2]];
     const double area = 0.5 * ((b.EastM - a.EastM) * (c.NorthM - a.NorthM) -
                                (b.NorthM - a.NorthM) * (c.EastM - a.EastM));
     const size_t before = tris.size();

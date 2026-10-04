@@ -18,6 +18,8 @@ this tree outrank analogy to another engine.
 ## Build and test
 
 Native asset caching requires LZ4 (`liblz4` in `pkg-config`), alongside the existing SDL3 dependencies.
+Polygon triangulation with holes requires GEOS ≥3.10 (`geos` in `pkg-config`):
+`brew install geos` or `apt install libgeos-dev`. No bundled third-party source is required.
 Native Copernicus raster decoding requires libtiff 4.7 (`libtiff-4` in `pkg-config`).
 
 ```sh
