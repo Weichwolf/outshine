@@ -11,16 +11,16 @@
 #include <vector>
 
 namespace outshine::Generators::Osm {
-namespace {
-using Interval = WaterBoundaryInterval;
-constexpr double kLongitudePeriodDeg = 360.0;
-
-std::array<double, 2> ProjectedPoint(std::span<const double> points, size_t at) {
+std::array<double, 2> WaterBoundaryPosition(std::span<const double> points, size_t at) {
+  constexpr double kLongitudePeriodDeg = 360.0;
   const double longitude = points[at * 2 + 1];
   const auto projected =
       Ground::ToTileFracClamped({.LongitudeDeg = longitude, .LatitudeDeg = points[at * 2]}, 0);
   return {(longitude + kLongitudePeriodDeg / 2.0) / kLongitudePeriodDeg, projected.Y};
 }
+
+namespace {
+using Interval = WaterBoundaryInterval;
 
 std::vector<Interval> UnionIntervals(std::vector<Interval> intervals) {
   std::ranges::sort(intervals, {}, &Interval::From);
@@ -45,9 +45,9 @@ std::vector<Interval> RingIntervals(std::span<const double> points,
   std::vector<double> crossings;
   std::vector<Interval> intervals;
   auto previous =
-      ProjectedPoint(points, static_cast<size_t>(ring.FirstPoint) + ring.PointCount - 1);
+      WaterBoundaryPosition(points, static_cast<size_t>(ring.FirstPoint) + ring.PointCount - 1);
   for (size_t step = 0; step < ring.PointCount; ++step) {
-    const auto current = ProjectedPoint(points, static_cast<size_t>(ring.FirstPoint) + step);
+    const auto current = WaterBoundaryPosition(points, static_cast<size_t>(ring.FirstPoint) + step);
     if (std::abs(previous[across] - cut.Coordinate) <= kWaterBoundaryTolerance &&
         std::abs(current[across] - cut.Coordinate) <= kWaterBoundaryTolerance) {
       intervals.push_back({.From = std::min(previous[along], current[along]),

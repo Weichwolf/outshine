@@ -4,6 +4,7 @@
 #include "WaterField.h"
 
 #include <limits>
+#include <array>
 #include <span>
 #include <vector>
 
@@ -21,6 +22,9 @@ struct WaterBoundaryCut {
 };
 
 inline constexpr double kWaterBoundaryTolerance = 64.0 * std::numeric_limits<double>::epsilon();
+
+[[nodiscard]] std::array<double, 2> WaterBoundaryPosition(std::span<const double> points,
+                                                          size_t at);
 
 [[nodiscard]] std::vector<WaterBoundaryInterval> WaterBoundaryIntervals(
     const OsmField &field, std::span<const WaterField::SurfaceRing> rings, WaterBoundaryCut cut);

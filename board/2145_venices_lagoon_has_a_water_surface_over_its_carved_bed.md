@@ -31,11 +31,14 @@ Keine pauschale Nullhöhe für Flüsse, Seen oder Schleusenbecken.
 WaterField erhält die vorhandene `ProviderFeatureId` samt Quell-/Layer-Namensraum.
 Fragmente desselben stehenden Gewässers teilen bei überlappenden Wasserabschnitten an
 Tile-Grenzen einen Pegel aus gemeinsamen Höhensamples; Wassergeometrie und Bett nutzen ihn.
-Clipping-Kanten sind keine Ufer. Gleiche ID allein verbindet keine getrennten Komponenten;
-Flussflächen behalten Gefälle. Nächster Schritt: gemeinsame offene Kanten verschiedener
-Quellobjekte verbinden. Husums sichtbarer Hafen besteht aus angrenzenden `lake`-Objekten,
+Gleiche ID allein verbindet keine getrennten Komponenten; Flussflächen behalten Gefälle.
+Gegenüberliegende vollständige Außenkanten verbinden auch verschiedene Quellobjekte desselben
+Quell-/Layer-Namensraums. Eine verbundene Meeresfläche bestimmt den gemeinsamen mittleren Pegel.
+Husums sichtbarer Hafen besteht aus angrenzenden `lake`-Objekten mit Kantenpfad zum Meer,
 nicht aus den westlich gelegenen `dock`-Flächen. Quellklasse allein beweist keine Meer-Verbindung.
-Danach nachgewiesene Meer-Verbindungen berücksichtigen; Barrieren/Schleusen bleiben getrennt.
+Nächster Schritt: Ufer und Bett folgen den Körpergrenzen; interne Objekt-/Clipping-Kanten
+sind keine Ufer. Inseln und trockene Lücken erhalten. Explizite Sperren müssen Verbindungen
+unterbrechen; dafür fehlt noch der Barrierenvertrag. Fehlende Sperrendaten sind kein Sperrennachweis.
 Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`.
 
 ## Verfahren

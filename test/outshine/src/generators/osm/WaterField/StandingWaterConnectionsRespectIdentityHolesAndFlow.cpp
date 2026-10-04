@@ -21,7 +21,7 @@ int main() {
             "source identity alone does not flatten separate components or flowing water");
     }
   };
-  separate(VectorTile(42, "lake", leftShape), VectorTile(43, "lake", rightShape));
+  separate(VectorTile(42, "lake", leftShape), VectorTile(43, "lake", Rectangle(0, 31, 30, 50)));
   separate(VectorTile(std::nullopt, "lake", leftShape),
            VectorTile(std::nullopt, "lake", rightShape));
   separate(VectorTile(42, "lake", leftShape), VectorTile(42, "lake", Rectangle(0, 31, 30, 50)));
