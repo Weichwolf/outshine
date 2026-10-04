@@ -58,6 +58,16 @@ exportiert nicht sämtliche OSM-Tags; tatsächlich gelieferte Eigenschaften prü
 Fehlende Klasse bleibt unbekannt; Schlankheit allein beweist keinen Schornstein/Kirchturm.
 [Recherche](../doc/references/README.md): kompakte Regeln statt einer zweiten Gebäudepipeline.
 
+## Gebäudefarbe bis zum Bild
+Gemeinsamer CssColour-Parser in base; UI und OSM nutzen dieselbe Farbschreibweise.
+`building:colour` schlägt OpenMapTiles' Alias `colour`; ungültige/teiltransparente
+Wandfarben melden, nicht als belegte Farbe übernehmen. Linearer Wandfarbparameter im
+Gebäudeplan; vorhandener nativer Vertex-Faktorpfad, optional und ohne OSM-Typen im Renderer.
+Gelieferte Farbe ersetzt die Wandpalette und färbt keine Fenster/Rahmen/Türen oder Dächer.
+Fernverbände mischen linear mit Grundrissfläche als Gewicht; unbekannte Anteile verwenden
+die deklarierte Grundfarbe. Das Ergebnis ist eine abgeleitete Mischung, keine Quellangabe.
+Quelle/Plan, gemischte Mesh-Streams, Fernverband und tatsächliches Place-Bild gemeinsam prüfen.
+
 ## Verfahren
 - MultiPolygone/Höfe/Parts erhalten, Eltern/Parts nicht doppeln. Sonderklasse schlägt
   Wohnhausannahme, wenn geliefert. Featurezahl ist keine Gebäudezahl.
