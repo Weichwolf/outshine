@@ -14,11 +14,12 @@ Standortgerechte Bäume/Sträucher/Unterwuchs mit Dichte, Jahreszeit, Wind und S
 TreeGrower/Mesher/Foliage, TreePrototype und ForestDraw bestehen; Weltpfad überwiegend
 Kronenkarten, Nahlaub/Standortauswahl unvollständig. Ausbau nach Infrastruktur/Bildbasis.
 Vorhandene deklarierte Vegetation bleibt Bestandteil vollständiger Places.
-Die reparierte Klassenanbindung deckt Bäume auf Wegflächen auf: `Forest::Place` konsumiert
-die Bodenklasse, ignoriert aber vorhandene native Struktur-/Wasser-/Weggrenzen.
-Zuerst diesen Platzierungsfehler beheben; kein vorgezogener vollständiger Vegetationsausbau.
-Nach der Dichteauswahl prüfen die Generatoren native belegte Flächen, bevor Höhen/Geometrie
-entstehen. Freie Fläche bleibt bepflanzbar, konkrete OSM-Typen bleiben außerhalb von Forest.
+`Forest` prüft nach der Dichteauswahl native Struktur-/Wasser-/Wegflächen vor Höhen/Geometrie.
+Freie Flächen bleiben bepflanzbar; konkrete OSM-Typen bleiben außerhalb von Forest.
+Die wieder angebundenen Bodenklassen aktivieren deklarierte Bestände. Deren Artenmischungen
+werden noch ignoriert: sämtliche Baumarten konkurrieren unabhängig vom Standort.
+Unpassende große Bäume bleiben im Bild; Ausschlussflächen allein lösen das nicht.
+Zuerst Standort-/Artauswahl korrigieren, kein vorgezogener vollständiger Vegetationsausbau.
 
 ## Besitzer und fehlender Vertrag
 Depends 2336: gemeinsame Eltern-/Kindabdeckung und budgetierte Detailauswahl mit Formfehler.

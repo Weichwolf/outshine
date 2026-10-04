@@ -45,6 +45,7 @@ public:
     AboveTreeline,
     TooSteep,
     WoodyDraw,
+    OccupiedSurface,
     HighestStandAslM,
     kNotes
   };
@@ -75,7 +76,8 @@ private:
     DensityDraw,
     AboveTreeline,
     TooSteep,
-    WoodyDraw
+    WoodyDraw,
+    OccupiedSurface
   };
 
   static Lattice Of(const Tile &region, LevelOfDetail coarseness);

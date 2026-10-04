@@ -44,6 +44,13 @@ float SizeFactor(uint64_t bits, float sigma) {
   return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> kSecondDrawShift) - 1.0f) * kRootSix;
 }
 
+bool Occupied(const FeatureField &field, EastNorth at) noexcept {
+  for (size_t feature = 0; feature < field.Count(); ++feature) {
+    if (field.Contains(field.At(feature), at)) { return true; }
+  }
+  return false;
+}
+
 }
 
 Forest::Forest(std::span<const Stem> stems, std::span<const float> perM2ByRow, AlpineLimit limit)
@@ -61,6 +68,7 @@ std::span<const char *const> Forest::NoteNames() const noexcept {
                                                                    "aboveTreeline",
                                                                    "tooSteep",
                                                                    "woodyDraw",
+                                                                   "occupiedSurface",
                                                                    "highestStandAslM"};
   static_assert(sizeof(Forest::Stem) == kStemBytes, "sizeof(Forest::Stem)");
   static_assert(std::is_trivially_copyable_v<Forest::Stem>, "a stem is copied per cell");
@@ -126,6 +134,10 @@ Forest::Outcome Forest::Consider(const Ground &ground,
     return Outcome::DensityDraw;
   }
 
+  if (Occupied(ground.Features(), {.EastM = eastM, .NorthM = northM})) {
+    return Outcome::OccupiedSurface;
+  }
+
   const double aslM = ground.HeightAslM({.EastM = eastM, .NorthM = northM});
 
   const double latDeg = region.AnchorLat();
@@ -177,6 +189,7 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
         case Outcome::AboveTreeline: yield.Count(AboveTreeline); continue;
         case Outcome::TooSteep: yield.Count(TooSteep); continue;
         case Outcome::WoodyDraw: yield.Count(WoodyDraw); continue;
+        case Outcome::OccupiedSurface: yield.Count(OccupiedSurface); continue;
         case Outcome::Placed: break;
       }
       const Claim claim = yield.Place(body);
