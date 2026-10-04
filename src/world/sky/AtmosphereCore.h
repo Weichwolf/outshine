@@ -64,7 +64,31 @@ MEDIUM_INLINE float subUvsToUnit(float u, float resolution) {
 }
 
 MEDIUM_INLINE float unitToSubUvs(float u, float resolution) {
-  return (u + 0.5f / resolution) * (resolution / (resolution + 1.0f));
+  return (u * (resolution - 1.0f) + 0.5f) / resolution;
+}
+
+MEDIUM_INLINE MediumLook multiScatterParams(MEDIUM_ARG medium,
+                                            MediumUv sub,
+                                            MediumLutSize size,
+                                            float liftKm) {
+  MediumLook look;
+  look.RadiusKm =
+      medium.BottomRadiusKm + liftKm +
+      subUvsToUnit(sub.V, size.HeightPx) * (medium.TopRadiusKm - medium.BottomRadiusKm - liftKm);
+  look.CosZenith = subUvsToUnit(sub.U, size.WidthPx) * 2.0f - 1.0f;
+  return look;
+}
+
+MEDIUM_INLINE MediumUv multiScatterSample(MEDIUM_ARG medium,
+                                          MediumLook look,
+                                          MediumLutSize size,
+                                          float liftKm) {
+  MediumUv uv;
+  uv.U = unitToSubUvs(look.CosZenith * 0.5f + 0.5f, size.WidthPx);
+  uv.V = unitToSubUvs((look.RadiusKm - medium.BottomRadiusKm - liftKm) /
+                          (medium.TopRadiusKm - medium.BottomRadiusKm - liftKm),
+                      size.HeightPx);
+  return uv;
 }
 
 MEDIUM_INLINE SkyViewLook skyViewParams(MEDIUM_ARG medium,
@@ -76,7 +100,8 @@ MEDIUM_INLINE SkyViewLook skyViewParams(MEDIUM_ARG medium,
   const float toHorizon =
       sqrt(max(0.0f, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
   const float beta = acos(clamp(toHorizon / radiusKm, -1.0f, 1.0f));
-  const float zenithToHorizon = OUTSHINE_PI - beta;
+  const float pi = OUTSHINE_PI;
+  const float zenithToHorizon = pi - beta;
   float cosView = 0.0f;
   if (v < 0.5f) {
     float coord = 1.0f - 2.0f * v;
@@ -91,6 +116,32 @@ MEDIUM_INLINE SkyViewLook skyViewParams(MEDIUM_ARG medium,
   look.CosView = cosView;
   look.LightViewCos = -(u * u * 2.0f - 1.0f);
   return look;
+}
+
+MEDIUM_INLINE SkyViewSample skyViewSample(float bottomRadiusKm,
+                                          float radiusKm,
+                                          SkyViewLook look,
+                                          MediumLutSize size) {
+  const float toHorizon = sqrt(max(0.0f, radiusKm * radiusKm - bottomRadiusKm * bottomRadiusKm));
+  const float beta = acos(clamp(toHorizon / radiusKm, -1.0f, 1.0f));
+  const float pi = OUTSHINE_PI;
+  const float zenithToHorizon = pi - beta;
+  const float zenith = acos(clamp(look.CosView, -1.0f, 1.0f));
+  const bool hitsGround = zenith > zenithToHorizon;
+  float v = 0.0f;
+  if (!hitsGround) {
+    const float coord = zenith / zenithToHorizon;
+    v = (1.0f - sqrt(max(0.0f, 1.0f - coord))) * 0.5f;
+  } else {
+    const float coord = (zenith - zenithToHorizon) / beta;
+    v = sqrt(max(0.0f, coord)) * 0.5f + 0.5f;
+  }
+  const float u = sqrt(max(0.0f, -look.LightViewCos * 0.5f + 0.5f));
+  SkyViewSample sampled;
+  sampled.Uv.U = unitToSubUvs(u, size.WidthPx);
+  sampled.Uv.V = unitToSubUvs(v, size.HeightPx);
+  sampled.HitsGround = hitsGround;
+  return sampled;
 }
 
 #endif

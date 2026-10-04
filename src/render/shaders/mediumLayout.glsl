@@ -2,6 +2,7 @@ struct MediumUv { float U; float V; };
 struct MediumLutSize { float WidthPx; float HeightPx; };
 struct MediumLook { float RadiusKm; float CosZenith; };
 struct SkyViewLook { float CosView; float LightViewCos; };
+struct SkyViewSample { MediumUv Uv; bool HitsGround; };
 
 struct Medium {
   float BottomRadiusKm; float TopRadiusKm; float RayleighScaleHeightKm; float MieScaleHeightKm;

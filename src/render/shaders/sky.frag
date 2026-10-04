@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "medium.glsl"
+#include "skyViewLookup.glsl"
 #define SCENE_FLOAT(name, value) const float name = value;
 #include "render/stages/SceneConstants.inc"
 #undef SCENE_FLOAT
@@ -31,42 +32,15 @@ void main() {
   vec3 worldUp = pushed.worldUp.xyz;
   float cosView = dot(dir, worldUp);
 
-  vec3 side = cross(worldUp, dir);
-  float sideLength = length(side);
-  float lightViewCos = 1.0;
-  if (sideLength > 1.0e-5) {
-    side = side / sideLength;
-    vec3 forward = normalize(cross(side, worldUp));
-    vec2 lightOnPlane =
-        normalize(vec2(dot(pushed.sunDir.xyz, forward), dot(pushed.sunDir.xyz, side)));
-    lightViewCos = lightOnPlane.x;
-  }
-
   float radiusKm = pushed.eyeRadiusKm;
-  float toHorizon = sqrt(max(0.0, radiusKm * radiusKm - pushed.bottomRadiusKm * pushed.bottomRadiusKm));
-  float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = OUTSHINE_PI - beta;
-  bool hitsGround = acos(clamp(cosView, -1.0, 1.0)) > zenithToHorizon;
-
-  float widthPx = float(textureSize(skyView, 0).x);
-  float heightPx = float(textureSize(skyView, 0).y);
-  float v;
-  if (!hitsGround) {
-    float coord = acos(clamp(cosView, -1.0, 1.0)) / zenithToHorizon;
-    coord = 1.0 - sqrt(max(0.0, 1.0 - coord));
-    v = coord * 0.5;
-  } else {
-    float coord = (acos(clamp(cosView, -1.0, 1.0)) - zenithToHorizon) / beta;
-    v = sqrt(max(0.0, coord)) * 0.5 + 0.5;
-  }
-  float u = sqrt(max(0.0, -lightViewCos * 0.5 + 0.5));
-  u = (u + 0.5 / widthPx) * (widthPx / (widthPx + 1.0));
-  v = (v + 0.5 / heightPx) * (heightPx / (heightPx + 1.0));
-
-  vec3 luminance = textureLod(skyView, vec2(u, v), 0.0).rgb * pushed.illuminance;
+  ivec2 extent = textureSize(skyView, 0);
+  SkyViewSample sampled = skyViewSample(pushed.air.BottomRadiusKm, radiusKm,
+      SkyViewLook(cosView, skyLightViewCos(dir, worldUp, pushed.sunDir.xyz)),
+      MediumLutSize(float(extent.x), float(extent.y)));
+  vec3 luminance = textureLod(skyView, vec2(sampled.Uv.U, sampled.Uv.V), 0.0).rgb * pushed.illuminance;
 
   float cosToSun = dot(dir, normalize(pushed.sunDir.xyz));
-  if (!hitsGround && cosToSun > cos(pushed.sunHalfAngleRad)) {
+  if (!sampled.HitsGround && cosToSun > cos(pushed.sunHalfAngleRad)) {
     float reach = mediumTopReach(pushed.air, radiusKm, cosView);
     float span = sqrt(max(0.0, pushed.topRadiusKm * pushed.topRadiusKm -
                                pushed.bottomRadiusKm * pushed.bottomRadiusKm));

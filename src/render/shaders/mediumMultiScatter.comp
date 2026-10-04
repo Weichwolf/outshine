@@ -14,7 +14,9 @@ void main() {
   vec2 uv = (vec2(at) + 0.5) / vec2(extent);
   vec3 luminance;
   vec3 transfer;
-  mediumMultiScatterTexel(medium, uv.x, uv.y, transmittance, kMultiScatterSteps,
+  MediumLook look = multiScatterParams(medium, MediumUv(uv.x, uv.y),
+      MediumLutSize(float(extent.x), float(extent.y)), kMediumGroundLiftKm);
+  mediumMultiScatterTexel(medium, look, transmittance, kMultiScatterSteps,
                           kMultiScatterGrid, kMediumLuminanceSegment, kMediumGroundLiftKm,
                           luminance, transfer);
   vec3 everyOrder = luminance / (1.0 - transfer);

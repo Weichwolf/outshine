@@ -34,6 +34,11 @@ struct SkyViewLook {
   float LightViewCos;
 };
 
+struct SkyViewSample {
+  MediumUv Uv;
+  bool HitsGround;
+};
+
 struct MediumSample {
   Vec3f ScatteringPerKm;
   Vec3f ExtinctionPerKm;
@@ -103,6 +108,9 @@ static_assert(sizeof(Medium) == kMediumBytes,
 static_assert(alignof(Medium) == 16,
               "and the rows start on a 128-bit boundary -- the upload is a vector copy, and the "
               "declaration costs zero padding (80 = 5 x 16)");
+static_assert(offsetof(Medium, RayleighScatteringPerKm) == 16);
+static_assert(offsetof(Medium, OzoneAbsorptionPerKm) == 32);
+static_assert(offsetof(Medium, GroundAlbedo) == 64);
 
 namespace medium_core {
 using ::outshine::Medium;
@@ -110,6 +118,7 @@ using ::outshine::MediumLook;
 using ::outshine::MediumLutSize;
 using ::outshine::MediumUv;
 using ::outshine::SkyViewLook;
+using ::outshine::SkyViewSample;
 
 inline float max(float a, float b) {
   return a > b ? a : b;

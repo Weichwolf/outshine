@@ -18,6 +18,8 @@ Sonnentiefe mit einem einzelnen ungefilterten Shadow-Lookup. Das erklärt weder 
 Bildfehler noch gemessene Kosten; beide Pfade sind konkrete Ausbaupunkte.
 Die Umgebungsspekularantwort verwendet derzeit denselben gemittelten Himmels-/Bodenanteil
 wie Diffuse; Reflexionsrichtung und Roughness fehlen. Das lässt Glas/Metall flach erscheinen.
+Hintergrund und LUT-Erzeugung teilen jetzt Winkel-/Texelabfragen; Mehrfachstreuung erhält
+denselben Radius-/Sonnenvertrag einschließlich Bodenabstand und unabhängiger Tabellenmaße.
 
 ## Besitzer und nächste Lieferung
 Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing; PlaceCamera/Referenzkatalog
@@ -27,8 +29,8 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 
 ## Aktueller Ausbau: gemeinsame Umgebungsreflexion
 - Gemeinsame Himmelsabfrage für Hintergrund und Reflexion, einschließlich Horizont und
-  Texelzentren; Sonnenprojektion am Zenit bleibt endlich. Erst diesen vorhandenen Vertrag
-  anschließen, dann MediumRadiance → EnvironmentSpec → Gebäude/Terrain/Wasser integrieren.
+  Texelzentren; Sonnenprojektion am Zenit bleibt endlich. Diese vorhandene Abfrage nutzen:
+  MediumRadiance → EnvironmentSpec → Gebäude/Terrain/Wasser integrieren.
 - Renderer besitzt einen GPU-vorgefilterten GGX-Atlas: sieben Roughness-Stufen, 64² nutzbare
   Texel je Stufe, je ein Randtexel. RGBA16F: 66 × 66 × 7 × 8 = 243936 Byte (238,2 KiB).
   Deterministische begrenzte Samples; Octaeder-Ränder korrekt fortsetzen, zwei gefilterte

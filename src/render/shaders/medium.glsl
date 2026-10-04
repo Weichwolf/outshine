@@ -47,14 +47,13 @@ void mediumScatterExtinctPerKm(Medium medium, float heightKm,
                mie * medium.MieExtinctionPerKm + ozone * vec3(medium.OzoneAbsorptionPerKm);
 }
 
-void mediumMultiScatterTexel(Medium medium, float unitU, float unitV,
+void mediumMultiScatterTexel(Medium medium, MediumLook look,
                                            sampler2D transmittance,
                                            uint steps, uint grid, float segment, float liftKm,
                                            out vec3 luminance, out vec3 transfer) {
-  float cosSun = unitU * 2.0 - 1.0;
+  float cosSun = look.CosZenith;
   float sinSun = sqrt(max(0.0, 1.0 - cosSun * cosSun));
-  float radiusKm = medium.BottomRadiusKm + liftKm +
-                   unitV * (medium.TopRadiusKm - medium.BottomRadiusKm - liftKm);
+  float radiusKm = look.RadiusKm;
   vec3 summedL = vec3(0.0);
   vec3 summedF = vec3(0.0);
   for (uint which = 0u; which < grid * grid; which = which + 1u) {
@@ -133,12 +132,10 @@ vec3 mediumSkyRay(Medium medium, float radiusKm, SkyViewLook look,
       toSun = textureLod(transmittance, mediumTransmittanceUv(medium, MediumLook(hereKm, cosSunAt)), 0.0)
                   .rgb;
     }
-    vec2 psiUv = vec2(cosSunAt * 0.5 + 0.5,
-                          (hereKm - medium.BottomRadiusKm) /
-                              (medium.TopRadiusKm - medium.BottomRadiusKm));
-    float psiRes = float(textureSize(multiScatter, 0).x);
-    psiUv = vec2(unitToSubUvs(psiUv.x, psiRes), unitToSubUvs(psiUv.y, psiRes));
-    vec3 psi = textureLod(multiScatter, psiUv, 0.0).rgb;
+    ivec2 psiExtent = textureSize(multiScatter, 0);
+    MediumUv psiUv = multiScatterSample(medium, MediumLook(hereKm, cosSunAt),
+        MediumLutSize(float(psiExtent.x), float(psiExtent.y)), liftKm);
+    vec3 psi = textureLod(multiScatter, vec2(psiUv.U, psiUv.V), 0.0).rgb;
 
     vec3 scatterRay = rayleigh * vec3(medium.RayleighScatteringPerKm);
     vec3 scatterMie = vec3(mie * medium.MieScatteringPerKm);
