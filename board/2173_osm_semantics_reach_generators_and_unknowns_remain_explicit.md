@@ -45,6 +45,11 @@ und Blocköffnungen. Kontaktwände/Giebel und Hallen/Türme/Sonderbauten bleiben
 Fine ersetzt Wandrechtecke durch geschlossene Laibungen mit zurückgesetzten Glasscheiben;
 Shell wertet denselben Öffnungsplan gefiltert aus. Keine zusätzlichen Fernmesh-Dreiecke.
 Die konservative Detailauswahl bleibt gültig; keine kleinere Fehlerschranke behaupten.
+Fine ist kein Auftrag zur ungeprüften Expansion aller Fassadendetails. Sichtabhängige
+Zellprodukte wählen Laibungen separat aus projizierter Tiefe und konservativer Entfernung;
+die Hülle behält denselben gefilterten Öffnungsplan. Feste explizite Tile-LODs bleiben fest.
+Zellprodukte binden Eye/Projection auch bei explizitem LOD an ihre Wiederverwendung;
+die CPU-Vergleichsreferenz fordert weiterhin volle geometrische Genauigkeit.
 
 ## Gemeinsame Polygontriangulierung
 Base besitzt PolygonTriangulation, Gebäude und Wasser konsumieren denselben nativen Vertrag.
