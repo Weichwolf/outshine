@@ -247,6 +247,7 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
 
     VertexRunsCarried carried;
     carried.Uv = where.HasUv && (proxy.Slots()[slot].ReadsAnyImage() ||
+                                 proxy.Slots()[slot].Row.Pattern == SurfacePattern::Facade ||
                                  proxy.Slots()[slot].Domain == SurfaceDomain::Ground);
     carried.Normal = Lit(proxy, subject, part);
 

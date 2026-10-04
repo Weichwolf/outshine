@@ -27,6 +27,8 @@ Die vorhandene Gebäudeidentität steuert Wand-/Dachvarianten des explizit proze
 Fassadenmaterials. Negative Flächencodes unterscheiden geneigte/ebene Dächer und Sockel;
 Dächer müssen ihre vorhandenen Koordinaten bis zum Shader behalten. Materialwahl bleibt
 je Gebäude und LOD stabil, statt jeder Fläche unabhängig eine Farbe zu geben.
+Der native Draw-Plan behandelt das Fassadenmuster auch ohne Bildtextur als UV-Verbraucher;
+gewöhnliche texturlose Materialien reservieren weiterhin keinen UV-Stream.
 Plausible Farb-/Baustoffvarianten sind keine belegten OSM-Materialangaben. Keine neuen
 Dreiecke, Disktexturen oder Fassadenmeshes pro Ferngebäude. Kein pauschales Fensterraster, keine aufgemalten Türen oder Metallrahmen.
 Zuerst vorhandene Dachcodes bis zur Runtime erhalten: Flachdächer neutral/rau, geneigte
