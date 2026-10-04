@@ -31,19 +31,21 @@ enum class Fields : int { Back = 0, Front = 1, Entrance = 2 };
 
 constexpr float kBayCeil = 256.0f;
 constexpr int kStyleCount = 8;
+constexpr int kFieldsCount = 3;
+constexpr int kFacadeVariants = 8;
 
-constexpr float kStoreyCeil = 64.0f;
 constexpr int kFacadeStride = 16;
 constexpr int kIdentCount = 64;
 
-[[nodiscard]] constexpr float FacadeUvX(FacadeStyle style, Fields standing, float bay) {
+[[nodiscard]] constexpr float FacadeUvX(FacadeStyle style, Fields standing, int ident, float bay) {
   return kBayCeil * static_cast<float>(static_cast<int>(style) +
-                                       kStyleCount * static_cast<int>(standing)) +
+                                       kStyleCount * (static_cast<int>(standing) +
+                                                      kFieldsCount * (ident % kFacadeVariants))) +
          bay;
 }
 
-[[nodiscard]] constexpr float FacadeUvY(int ident, float storeysOverFoot) {
-  return kStoreyCeil * static_cast<float>(ident) + 1.0f + storeysOverFoot;
+[[nodiscard]] constexpr float FacadeUvY(float storeysOverFoot) {
+  return 1.0f + storeysOverFoot;
 }
 
 [[nodiscard]] constexpr float FaceUvX(Facade kind, int ident) {

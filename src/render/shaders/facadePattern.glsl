@@ -36,13 +36,23 @@ void applyFacade(vec2 encoded, inout vec3 albedo, inout float roughness,
 
   float group = floor(encoded.x / 256.0);
   float style = mod(group, 8.0);
-  float standing = floor(group / 8.0);
+  float standing = floor(mod(group, 24.0) / 8.0);
+  float variant = floor(group / 24.0);
   float bay = encoded.x - group * 256.0;
-  float ident = floor(encoded.y / 64.0);
-  float storey = encoded.y - ident * 64.0 - 1.0;
+  float storey = encoded.y - 1.0;
   float bayWidth = fwidth(bay);
   float storeyWidth = fwidth(storey);
   bool hall = style > 3.5 && style < 4.5;
+
+  vec3 wallTint = vec3(1.0);
+  if (variant > 0.5 && variant < 1.5) { wallTint = vec3(0.90, 0.94, 1.00); }
+  else if (variant < 2.5 && variant > 1.5) { wallTint = vec3(1.07, 1.05, 1.04); }
+  else if (variant < 3.5 && variant > 2.5) { wallTint = vec3(0.90, 0.84, 0.74); }
+  else if (variant < 4.5 && variant > 3.5) { wallTint = vec3(0.83, 0.88, 0.91); }
+  else if (variant < 5.5 && variant > 4.5) { wallTint = vec3(1.00, 0.89, 0.84); }
+  else if (variant < 6.5 && variant > 5.5) { wallTint = vec3(0.62, 0.43, 0.32); }
+  else if (variant > 6.5) { wallTint = vec3(0.82, 0.69, 0.61); }
+  albedo *= wallTint;
 
   float joint = periodicBand(storey, 0.015, 0.040, storeyWidth);
   albedo *= mix(vec3(0.98), vec3(0.91, 0.92, 0.93), joint);

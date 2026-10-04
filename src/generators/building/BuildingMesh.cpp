@@ -111,8 +111,8 @@ double EavesZ(const BuildingShape &s) {
 Vtx Wall(const BuildingShape &s, const EastNorth &p, double z, double bays, Fields stand) {
   return {.P = p,
           .Z = z,
-          .U = FacadeUvX(StyleOf(s.Use), stand, static_cast<float>(bays)),
-          .V = FacadeUvY(s.Ident, static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
+          .U = FacadeUvX(StyleOf(s.Use), stand, s.Ident, static_cast<float>(bays)),
+          .V = FacadeUvY(static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
 }
 
 Vtx Face(const BuildingShape &s, const EastNorth &p, double z, Facade kind) {

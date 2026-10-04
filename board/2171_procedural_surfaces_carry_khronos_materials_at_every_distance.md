@@ -31,8 +31,10 @@ Plausible Farb-/Baustoffvarianten sind keine belegten OSM-Materialangaben. Keine
 Dreiecke, Disktexturen oder Fassadenmeshes pro Ferngebäude. Bestehende Fensterfilter erhalten.
 Zuerst vorhandene Dachcodes bis zur Runtime erhalten: Flachdächer neutral/rau, geneigte
 Dächer mit stabilen gedeckten Ziegel-/Schiefervarianten. Das sind plausible Ergänzungen;
-gelieferte Farbe/Material benötigt weiterhin einen nativen Parameterpfad. Wandvariation
-folgt mit einer Identitätskodierung, die auch bei hohen Gebäuden konstant bleibt.
+gelieferte Farbe/Material benötigt weiterhin einen nativen Parameterpfad. Acht gedeckte
+Wandvarianten ergänzen die Dächer. Variante, Nutzung und Eingangsseite liegen im konstanten
+U-Gruppenanteil; V bleibt die unbeschränkte Geschosskoordinate. Hohe Wände wechseln nicht
+bei 64 Geschossen die Variante. Bestehende Vertexgröße und Geometrie bleiben erhalten.
 
 ## Verfahren
 - Metrische Ziegel-/Backsteinraster mit gefilterten Fugen, Putzkorn/Betonporen. Cell-Hash
