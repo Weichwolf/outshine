@@ -180,6 +180,11 @@ public:
   [[nodiscard]] int Extent() const { return Extent_; }
 
 private:
+  enum class TagKind : uint8_t { Any, Number, String };
+
+  [[nodiscard]] std::optional<MvtLayer::Tag>
+  FindTag(const Feature &feature, std::string_view key, TagKind kind = TagKind::Any) const;
+
   int Extent_ = 4096;
 
   int CentreX_ = 0, CentreY_ = 0;

@@ -43,6 +43,41 @@ Bytes Layer(std::string_view name,
   Append(tile, 0x1a, layer);
   return tile;
 }
+
+void CheckExplicitValuePrecedence() {
+  using namespace outshine::Generators::Osm;
+  using namespace outshine::Test;
+  const std::array<std::string, 1> layers{"buildings"};
+  for (const bool sourceFirst : {false, true}) {
+    const auto keys = sourceFirst ? std::array<std::string_view, 2>{"height", "render_height"}
+                                  : std::array<std::string_view, 2>{"render_height", "height"};
+    const auto values = sourceFirst ? std::array{Bytes{0x28, 19}, Bytes{0x28, 37}}
+                                    : std::array{Bytes{0x28, 37}, Bytes{0x28, 19}};
+    OsmField field(2, layers, MvtSchema::OpenMapTiles);
+    CHECK(field.Accept(1, 1, Layer("building", 3, keys, values)),
+          "independent source and derived heights are accepted in either tag order");
+    if (field.Features().empty()) { continue; }
+    const auto &feature = field.Features()[0];
+    const auto integer = field.Integer(feature, "height");
+    CHECK(field.Num(feature, "height", -1) == 19 && integer && *integer == 19 &&
+              field.Num(feature, "render_height", -1) == 37 && feature.TagCount == 4,
+          "explicit height wins without duplicating tags or losing derived source data");
+  }
+  OsmField invalid(2, layers, MvtSchema::OpenMapTiles);
+  CHECK(invalid.Accept(1,
+                       1,
+                       Layer("building",
+                             3,
+                             std::array<std::string_view, 2>{"render_height", "height"},
+                             std::array{Bytes{0x28, 37}, String("unknown")})),
+        "non-numeric explicit source value remains representable");
+  if (!invalid.Features().empty()) {
+    const auto &feature = invalid.Features()[0];
+    CHECK(invalid.Str(feature, "height") == "unknown" && invalid.Num(feature, "height", -1) == -1 &&
+              !invalid.Integer(feature, "height"),
+          "invalid explicit height remains visible instead of falling back to an alias");
+  }
+}
 }
 
 int main() {
@@ -73,16 +108,25 @@ int main() {
             field.Rings()[building.FirstRing].Exterior &&
             field.Rings()[building.FirstRing].Count == 4 && building.ProviderFeatureId == 7,
         "independent footprint, clearance, material and feature identity survive normalization");
+  CHECK(field.Num(building, "render_height", -1) == 37 &&
+            field.Num(building, "render_min_height", -1) == 4 && building.TagCount == 6,
+        "original building attributes remain readable without alias copies");
   const auto &road = field.Features()[1];
   CHECK(field.Str(road, "kind") == "residential" && field.Num(road, "bridge", 0) == 1 &&
             field.Num(road, "layer", 0) == 2 && road.Type == 2,
         "road class, bridge flag and independent physical layer are retained");
+  const auto bridge = field.Integer(road, "bridge");
+  CHECK(field.Str(road, "class") == "minor" && field.Str(road, "brunnel") == "bridge" &&
+            road.TagCount == 6 && bridge && *bridge == 1,
+        "raw road class and brunnel survive string-to-string and string-to-number aliases");
   CHECK(field.Str(field.Features()[2], "kind") == "river" && field.Features()[2].Type == 3,
         "river remains a separate polygon source");
   const auto snapshot = field.SnapshotQueries();
   CHECK(snapshot->Num(snapshot->Features()[0], "height", -1) == 37 &&
-            snapshot->Str(snapshot->Features()[1], "kind") == "residential",
-        "published snapshot retains normalized semantics");
+            snapshot->Num(snapshot->Features()[0], "render_height", -1) == 37 &&
+            snapshot->Str(snapshot->Features()[1], "kind") == "residential" &&
+            snapshot->Str(snapshot->Features()[1], "class") == "minor",
+        "published snapshot retains both original and canonical semantics");
   OsmField other(2, names);
   CHECK(other.Accept(1, 1, tile) && other.Features().empty(),
         "another schema is not silently guessed from names");
@@ -127,5 +171,6 @@ int main() {
   const auto absent = ReadMvtBuilding(outlines, outlines.Features()[0]);
   CHECK(absent.Height && !absent.Height->ConflictingLevels && absent.Height->TopM == 5,
         "absent coarse height is a generated estimate, not a contradictory source");
+  CheckExplicitValuePrecedence();
   return Report();
 }

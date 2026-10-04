@@ -599,7 +599,7 @@ void OsmField::AppendLayer(const MvtLayer &layer, uint16_t layerIndex) {
     f.RingCount = static_cast<uint32_t>(Rings_.size()) - f.FirstRing;
 
     for (uint32_t t = 0; t < MvtLayer::TagCount(sf); t++) {
-      const MvtLayer::Tag tag = NormalizeMvtTag(Schema_, Layers_[layerIndex], layer.TagAt(sf, t));
+      const MvtLayer::Tag tag = layer.TagAt(sf, t);
       if (tag.Key.empty()) { continue; }
       Value v{};
       v.IsNum = tag.IsNumber;
@@ -827,13 +827,33 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
   PublishedSettledTiles_ = Settled_.size();
 }
 
-double OsmField::Num(const Feature &f, const char *key, double def) const {
-  for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
-    const uint32_t k = Tags_[f.FirstTag + i];
-    const uint32_t v = Tags_[f.FirstTag + i + 1];
-    if (Keys_[k] == key && Values_[v].IsNum) { return Values_[v].Num; }
+std::optional<MvtLayer::Tag>
+OsmField::FindTag(const Feature &feature, std::string_view key, TagKind kind) const {
+  std::optional<MvtLayer::Tag> alias;
+  bool explicitKey = false;
+  const auto matches = [kind](const MvtLayer::Tag &tag) {
+    return kind == TagKind::Any || tag.IsNumber == (kind == TagKind::Number);
+  };
+  for (uint32_t at = 0; at + 1 < feature.TagCount; at += 2) {
+    const auto &value = Values_[Tags_[feature.FirstTag + at + 1]];
+    const MvtLayer::Tag tag{.Key = Keys_[Tags_[feature.FirstTag + at]],
+                            .String = value.IsNum ? std::string_view{} : Strings_[value.Str],
+                            .Number = value.Num,
+                            .IsNumber = value.IsNum};
+    if (tag.Key == key) {
+      explicitKey = true;
+      if (matches(tag)) { return tag; }
+    } else if (!alias) {
+      const auto normalized = NormalizeMvtTag(Schema_, Layers_[feature.Layer], tag);
+      if (normalized.Key == key) { alias = normalized; }
+    }
   }
-  return def;
+  return !explicitKey && alias && matches(*alias) ? alias : std::nullopt;
+}
+
+double OsmField::Num(const Feature &f, const char *key, double def) const {
+  const auto tag = FindTag(f, key, TagKind::Number);
+  return tag && tag->IsNumber ? tag->Number : def;
 }
 
 namespace Says {
@@ -843,18 +863,17 @@ constexpr auto InvalidInteger =
 
 std::expected<std::optional<int32_t>, std::string_view>
 OsmField::Integer(const Feature &feature, std::string_view key) const {
-  for (uint32_t at = 0; at + 1 < feature.TagCount; at += 2) {
-    if (Keys_[Tags_[feature.FirstTag + at]] != key) { continue; }
-    const Value &value = Values_[Tags_[feature.FirstTag + at + 1]];
-    if (value.IsNum) {
-      if (!std::isfinite(value.Num) || std::trunc(value.Num) != value.Num ||
-          value.Num < std::numeric_limits<int32_t>::min() ||
-          value.Num > std::numeric_limits<int32_t>::max()) {
+  const auto tag = FindTag(feature, key);
+  if (tag) {
+    if (tag->IsNumber) {
+      if (!std::isfinite(tag->Number) || std::trunc(tag->Number) != tag->Number ||
+          tag->Number < std::numeric_limits<int32_t>::min() ||
+          tag->Number > std::numeric_limits<int32_t>::max()) {
         return std::unexpected(Says::InvalidInteger);
       }
-      return static_cast<int32_t>(value.Num);
+      return static_cast<int32_t>(tag->Number);
     }
-    std::string_view text = Strings_[value.Str];
+    std::string_view text = tag->String;
     if (text.starts_with('+')) {
       text.remove_prefix(1);
       if (text.starts_with('-')) { return std::unexpected(Says::InvalidInteger); }
@@ -871,12 +890,8 @@ OsmField::Integer(const Feature &feature, std::string_view key) const {
 }
 
 std::string_view OsmField::Str(const Feature &f, const char *key) const {
-  for (uint32_t i = 0; i + 1 < f.TagCount; i += 2) {
-    const uint32_t k = Tags_[f.FirstTag + i];
-    const uint32_t v = Tags_[f.FirstTag + i + 1];
-    if (Keys_[k] == key && !Values_[v].IsNum) { return Strings_[Values_[v].Str]; }
-  }
-  return {};
+  const auto tag = FindTag(f, key, TagKind::String);
+  return tag && !tag->IsNumber ? tag->String : std::string_view{};
 }
 
 }
