@@ -40,6 +40,14 @@ Gemeinsame IO-/Cache-/Jobdienste enthalten keine Geografie- oder Quellsemantik.
 5. Öffentlicher WeatherSnapshot für 2172 enthält Ort/Höhe/UTC, Einheiten, bekannte/fehlende
    Felder und Herkunft. Spätere Commands/Physik/Persistenz gehören zu 2136, nicht in diesen Umbau.
 
+## Kompakte native Renderprodukte
+Renderer besitzt Vertexformat, Adressraum und Lebensdauer je Layoutgruppe
+(`SubjectDraw`, `SubjectResidency`, `SceneResources`). Optionale Streams reservieren nur
+die dazugehörigen Produkte, nicht Löcher für anders formatierte Geometrie. Layoutgruppen
+bündeln Draws; unveränderte Frames packen keine Welt neu. Konstante Erscheinungsparameter
+gehören in Material-/Batchdaten. Fehlerschranken begründen jede Attributquantisierung;
+die öffentliche Float-API erhält keinen stillen Wertebereichsverlust. 2173 liefert den Farbfall.
+
 ## Bewährte Formatdecoder
 `base/format/Json` nutzt künftig simdjson, `base/format/Xml` pugixml; ihre konkreten Typen
 bleiben privat. Erst mit dem betroffenen Importpfad integrieren, keinen Parserumbau vor Gebäuden.

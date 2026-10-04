@@ -14,8 +14,8 @@ Vollständige Grundrisse/Höfe/Parts, plausible Dächer/Sonderbauten und räumli
 BuildingHeightInterval, native Footprints, StructureBake/BuildingMesh und Terrain-Stempel
 bestehen. Klassen-/Dachpläne sind lückenhaft; facadePattern zeichnet bisher flache Fenster.
 Rohattribute bleiben unverändert verfügbar; kanonische Abfragen erhalten Originalwerte
-und bevorzugen ausdrücklich gelieferte Schlüssel. Sonderklassen und Farbparameter fehlen
-noch im nativen Gebäudeplan.
+und bevorzugen ausdrücklich gelieferte Schlüssel. Gelieferte Wandfarben erreichen den nativen
+Plan und Renderer; Sonderklassen bleiben lückenhaft. Der Farbpfad ist noch zu speicherteuer.
 
 ## Besitzer und nächste Lieferung
 OSM-Adapter normalisiert lieferbare Semantik; generators/building besitzt einen gemeinsamen
@@ -67,6 +67,9 @@ Gelieferte Farbe ersetzt die Wandpalette und färbt keine Fenster/Rahmen/Türen 
 Fernverbände mischen linear mit Grundrissfläche als Gewicht; unbekannte Anteile verwenden
 die deklarierte Grundfarbe. Das Ergebnis ist eine abgeleitete Mischung, keine Quellangabe.
 Quelle/Plan, gemischte Mesh-Streams, Fernverband und tatsächliches Place-Bild gemeinsam prüfen.
+Gebäudefarbe ist pro Baukörper konstant: nicht dauerhaft als vier Floats je Ecke vervielfachen.
+Die native Material-/Batchdarstellung kompakt halten; optionale GPU-Attribute dürfen keine
+Lücken bis zum höchsten gemeinsamen Positionsindex reservieren. Layout-Ownership: 2188.
 
 ## Verfahren
 - MultiPolygone/Höfe/Parts erhalten, Eltern/Parts nicht doppeln. Sonderklasse schlägt
