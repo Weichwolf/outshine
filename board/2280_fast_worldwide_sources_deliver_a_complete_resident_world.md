@@ -79,6 +79,10 @@ Beitrag zu diesem Ablauf entfernen; Tests gegen diesen fachlichen Vertrag prüfe
 6. Tote Runtime-Diskcache-Zweige für Gebäudemeshes/Atlanten entfernen, vorhandene Dateien
    erhalten. Referenzwerkzeuge/Spielstände sind getrennte Zwecke. Gemeinsam belegten RAM,
    Scratch, publizierte Produkte und GPU-Ressourcen nach Besitzer statt mehrfach zählen.
+   SubjectResidency reserviert exakt die benötigten Vertex-/Index-/Farbbereiche; freie
+   Nachbarbereiche verschmelzen und werden wiederverwendet. Keine 1024-/4096-Elemente-Rundung
+   je Mesh ohne GPU-Vertrag. Pufferkapazität, Nutzdaten und freie Bereiche unterscheiden;
+   Speichergewinn verlangt unveränderte Place-Pixel und vollständige Abdeckung.
 
 ## Quellenvertrag
 - OpenFreeMap: MVT/OpenMapTiles; Mapterhorn: Terrarium-WebP; Open-Meteo: JSON.
