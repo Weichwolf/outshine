@@ -55,11 +55,11 @@ Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`
   Wasserprodukt. Licht aus 2155, Wetter/Eis aus 2172 später anschließen, keine zweite Lichtwelt.
 
 ## Forschungsgrundlage
-[Wave Particles, SIGGRAPH 2007](../doc/references/downloads/water/siggraph/2007-wave-particles.pdf)
+[Wave Particles, SIGGRAPH 2007](../doc/references/water/siggraph/2007-wave-particles.pdf)
 ([Primärquelle/Einordnung](../doc/references/README.md)): nahe Körper-/Welleninteraktion
 prüfen, ferne Windwellen analytisch darstellen. Grundpegel, Ufer und Bett zuerst korrigieren;
 Wellenverfahren löst keine Quellen-/Datumfehler. Transparenz/Reflexion teilen 2155s Licht.
-[Screen-Space-DDA](../doc/references/downloads/lighting/jcgt/2014-efficient-screen-space-rays.pdf)
+[Screen-Space-DDA](../doc/references/lighting/jcgt/2014-efficient-screen-space-rays.pdf)
 ergänzt die gefilterte Grundreflexion um gültige Treffer. Step-Limit, Wassertiefe und
 Szenentiefe bleiben getrennt; verdeckte/außerbildliche Reflexionen besitzen 2155s Ergänzung.
 

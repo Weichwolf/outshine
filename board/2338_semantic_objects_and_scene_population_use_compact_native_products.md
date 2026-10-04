@@ -32,7 +32,7 @@ Zuerst eine erkennbare technische Objektklasse im Stadt-/Hafenbild integrieren.
   Solver; bewegliche Varianten später über 2136. Segel/Flaggen teilen 2172s Wind und Bounds.
 
 ## Forschungsgrundlage
-[GPU-Driven Rendering](../doc/references/downloads/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
+[GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
 ([Primärquelle/Einordnung](../doc/references/README.md)): wiederholte Bauteile als geteilte
 Assets/Instanzen, Sichtbarkeit über Cluster-Bounds. Dünne Fernobjekte als gefilterte Beiträge;
 keine Einzelteil-Draws oder vollständigen Nahmeshes vor der budgetierten Auswahl.

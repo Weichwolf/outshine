@@ -45,14 +45,14 @@ Der Qualitätsauftrag ändert diese Reihenfolge nicht.
    Laubmenge/Farbe. Unterwuchs/Gras nur bei sichtbarem Bildgewinn, im selben Qualitätsbudget.
 
 ## Forschungsgrundlage
-[Plant Ecosystems, SIGGRAPH 1998](../doc/references/downloads/vegetation/siggraph/1998-plant-ecosystems.pdf)
+[Plant Ecosystems, SIGGRAPH 1998](../doc/references/vegetation/siggraph/1998-plant-ecosystems.pdf)
 ([Primärquelle/Einordnung](../doc/references/README.md)): Bestandsplan, Pflanzenform und
 Darstellung trennen; Prototypen/Organe/Verbände teilen. Das Offline-Verfahren liefert keine
 Echtzeitgarantie. Wind, Alpha-Overdraw und Schatten mit 2336s Auswahl budgetieren.
-[Billboard Clouds](../doc/references/downloads/vegetation/siggraph/2003-billboard-clouds.pdf)
+[Billboard Clouds](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf)
 als räumliche Fernprototypen gegen vereinfachte Kronengeometrie vergleichen; Alpha-Belegung,
 Mips und Overdraw entscheiden zusammen mit GPU-/RAM-Bytes, nicht nur Dreieckzahlen.
-[Echtzeit-Fernwald](../doc/references/downloads/vegetation/eg/2012-real-time-forests.pdf):
+[Echtzeit-Fernwald](../doc/references/vegetation/eg/2012-real-time-forests.pdf):
 Bestandsdeckung, Kronenhöhe und mittlere Lichtantwort bei Aggregation erhalten.
 Z-Felder/Shader-Maps sind Vergleichsmodelle; deren Texturkosten nicht blind übernehmen.
 Nur eigene prozedurale Formen im RAM vorbereiten, keine persistenten Bake-Dateien.

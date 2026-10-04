@@ -12,10 +12,9 @@ Simulation und Gameplay folgen dem visuellen Meilenstein.
 
 ## PDFs und Nutzung
 
-Bereits versionierte Gebäude-PDFs bleiben erhalten. Neue persönliche Lesekopien liegen
-nach Bereich/Konferenz in `downloads/` und sind vom Git ausgeschlossen: öffentliche
-Verfügbarkeit erlaubt nicht automatisch Weiterverteilung. Die kanonischen Downloadlinks
-stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
+Alle PDFs liegen nach Bereich/Konferenz direkt unter `doc/references/` und sind versioniert.
+Die kanonischen Downloadlinks stehen bei jeder Quelle.
+Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
 
 ## Gebäude und kompakte Fassaden — WI 2173 / 2171
 
@@ -39,25 +38,25 @@ stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wir
 
 - **Simplification Envelopes**, Cohen et al., SIGGRAPH 1996.
   [Quelle](https://www.cs.umd.edu/gvil/papers/simp_env.pdf) ·
-  [PDF](downloads/geometry/siggraph/1996-simplification-envelopes.pdf).
+  [PDF](geometry/siggraph/1996-simplification-envelopes.pdf).
   Beidseitige Oberflächenabstände über begrenzende Hüllen sichern. Das Prinzip ergänzt
   unsere Formfehlerverträge; Hausdorff-Nähe folgt nicht aus wenigen Samples oder einem
   meshoptimizer-Fehlerwert. Offene/nichtmannigfaltige Baukörper und Kontakte eigens behandeln.
 - **GPU-Driven Rendering Pipelines**, Haar / Aaltonen, SIGGRAPH-Kurs 2015.
   [Quelle](https://advances.realtimerendering.com/s2015/aaltonenhaar_siggraph2015_combined_final_footer_220dpi.pdf) ·
-  [PDF](downloads/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf).
+  [PDF](geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf).
   Material-Batches, kompakte Instanzen und Cluster mit Bounds statt Einzelobjekt-Draws.
   Bedarf vor Mesh-Erzeugung bleibt CPU-/Generatorarbeit; GPU-Culling spart keine bereits
   erzeugten Bytes. Indirect-/Compute-Pfade nur bei passendem SDL_GPU-Backend und Messgewinn.
 - **Geometry Clipmaps: Terrain Rendering Using Nested Regular Grids**, Losasso / Hoppe,
   SIGGRAPH 2004. [Quelle](https://hhoppe.com/geomclipmap.pdf) ·
-  [PDF](downloads/terrain/siggraph/2004-geometry-clipmaps.pdf).
+  [PDF](terrain/siggraph/2004-geometry-clipmaps.pdf).
   Regelmäßige verschachtelte Gitter und inkrementelle Randaktualisierung vermeiden Vollneubau.
   Mit GroundLattice vergleichen, keine zweite Terrainpipeline. Clipmaps allein liefern weder
   weltweite Quellabdeckung noch Ellipsoidübergang oder konservative Höhenfehlerschranken.
 - **Procedural Noise using Sparse Gabor Convolution**, Lagae et al., SIGGRAPH 2009.
   [Quelle](https://graphics.cs.kuleuven.be/publications/LLDD09PNSGC/LLDD09PNSGC_paper.pdf) ·
-  [PDF](downloads/materials/siggraph/2009-sparse-gabor-noise.pdf).
+  [PDF](materials/siggraph/2009-sparse-gabor-noise.pdf).
   Richtung und Frequenzspektrum explizit steuern, anisotrop aus dem Pixel-Footprint filtern.
   Gerichtete Felsstruktur prototypisieren; Kernelkosten gegen einfachere gefilterte Noise
   messen. Noise liefert keine belegte Geologie und keinen Ersatz für DEM-Silhouette.
@@ -67,28 +66,28 @@ stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wir
 - **Moving Frostbite to Physically Based Rendering**, Lagarde / de Rousiers,
   SIGGRAPH-Kurs 2014, Kursnotizen Revision 3 (2015).
   [Quelle](https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf) ·
-  [PDF](downloads/lighting/siggraph/2014-frostbite-pbr-course-notes.pdf).
+  [PDF](lighting/siggraph/2014-frostbite-pbr-course-notes.pdf).
   BRDF, Roughness, Lichtgrößen, Reflexion, Farbraum und Kameraantwort gemeinsam kalibrieren.
   Vorhandenen Khronos-Vertrag erhalten; Parameter/IBL vor neuen Passketten verbessern.
   Referenzverfahren separat prüfen, ihre Kosten sind kein Runtime-Budget.
 - **A Survey of Temporal Antialiasing Techniques**, Yang / Liu / Salvi, CGF / Eurographics 2020.
   [Autoren](https://research.nvidia.com/labs/rtr/publication/yang2020survey/) ·
   [Verlags-PDF](https://diglib.eg.org/server/api/core/bitstreams/53732e70-b64d-46f4-bbae-865eb7673a35/content) ·
-  [PDF](downloads/presentation/cgf/2020-temporal-antialiasing-survey.pdf).
+  [PDF](presentation/cgf/2020-temporal-antialiasing-survey.pdf).
   Bewegungsvektoren, History-Gültigkeit und Rekonstruktion gemeinsam behandeln.
   Neue Produkte, Ursprungssprünge, Disocclusion, Wasser und Wind sind eigene Lastfälle;
   längere History darf Detailverlust und Geisterbilder nicht als Stabilität kaschieren.
 - **Moment Shadow Mapping**, Peters / Klein, ACM SIGGRAPH I3D 2015.
   [Autoren/Errata](https://momentsingraphics.de/I3D2015.html) ·
   [korrigierte Autorenfassung](https://momentsingraphics.de/Media/I3D2015/MomentShadowMapping.pdf) ·
-  [PDF](downloads/lighting/i3d/2015-moment-shadow-mapping.pdf).
+  [PDF](lighting/i3d/2015-moment-shadow-mapping.pdf).
   Vier filterbare Tiefenmomente gegen PCF vergleichen; zunächst bestehende Tiefenschatten
   stabilisieren und filtern. Vier 16-Bit-Kanäle brauchen bei 2048² bereits
   2048² × 8 / 2²⁰ = 32 MiB ohne Mips, Blur-Ziele und Tiefe. Ein einzelner Lookup bedeutet
   keinen kostenlosen Pass. Quantisierungs-/Moment-Bias und Light Bleeding eigens prüfen.
 - **Clustered Deferred and Forward Shading**, Olsson / Billeter / Assarsson, HPG 2012.
   [Quelle](https://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) ·
-  [PDF](downloads/lighting/hpg/2012-clustered-shading.pdf).
+  [PDF](lighting/hpg/2012-clustered-shading.pdf).
   Lokale Lichter anhand räumlicher Cluster zuordnen statt alle Lichter je Fragment zu prüfen.
   Sonne/Himmelslicht separat behandeln; transparente Flächen brauchen gültige Clusterlisten.
   Listenaufbau, Speicher und Überlauf gehören zum Vertrag. Für wenige Lichter bleibt der
@@ -96,7 +95,7 @@ stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wir
 - **Efficient GPU Screen-Space Ray Tracing**, McGuire / Mara, JCGT 2014.
   [Quelle](https://jcgt.org/published/0003/04/04/) ·
   [PDF-Quelle](https://jcgt.org/published/0003/04/04/paper.pdf) ·
-  [PDF](downloads/lighting/jcgt/2014-efficient-screen-space-rays.pdf).
+  [PDF](lighting/jcgt/2014-efficient-screen-space-rays.pdf).
   Perspektivkorrekte DDA vermeidet redundante Pixelabfragen beim Strahlmarsch.
   Begrenzte Schritte und konsistente Tiefe/Dickenannahmen; fehlende verdeckte oder außerhalb
   des Bildes liegende Flächen bleiben eine grundlegende Grenze. Gefiltertes IBL liefert
@@ -106,13 +105,13 @@ stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wir
 
 - **Interactive Procedural Street Modeling**, Chen et al., SIGGRAPH 2008.
   [Quelle](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf) ·
-  [PDF](downloads/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf).
+  [PDF](infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf).
   Graphbearbeitung von Geometrie trennen. OSM-Verbindungen und Ebenen bleiben maßgeblich;
   die Tensorfeld-Netzerzeugung ersetzt unser reales Straßennetz nicht. Brückentragwerke
   benötigen zusätzlich klare Anschluss-/Kontaktregeln und kompakte wiederholte Bauteile.
 - **Wave Particles**, Yuksel / House / Keyser, SIGGRAPH 2007.
   [Quelle](https://www.cemyuksel.com/research/waveparticles/waveparticles.pdf) ·
-  [PDF](downloads/water/siggraph/2007-wave-particles.pdf).
+  [PDF](water/siggraph/2007-wave-particles.pdf).
   Interaktive Wellen für nahe Körper-/Uferwirkung prüfen; ferne Wellen analytisch darstellen.
   Das Verfahren löst weder Quellpegel noch Küstenabschluss. Erst Wasser/Bett/Ufer korrigieren,
   danach Animation auf demselben Körper; kein globales Grundwassermesh.
@@ -121,14 +120,14 @@ stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wir
 
 - **Realistic Modeling and Rendering of Plant Ecosystems**, Deussen et al., SIGGRAPH 1998.
   [Quelle](https://algorithmicbotany.org/papers/ecosys.sig98.pdf) ·
-  [PDF](downloads/vegetation/siggraph/1998-plant-ecosystems.pdf).
+  [PDF](vegetation/siggraph/1998-plant-ecosystems.pdf).
   Bestandsplan, Pflanzenform und Darstellung trennen; Prototypen, Gruppen und Organe teilen.
   Fernwald braucht Verbände statt Einzelbaum-/Blattarbeit. Das Offline-Verfahren belegt
   keine Echtzeitkosten; Overdraw, Wind, Schatten und Artenmischung separat integrieren.
 - **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
   [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
   [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·
-  [PDF](downloads/vegetation/siggraph/2003-billboard-clouds.pdf).
+  [PDF](vegetation/siggraph/2003-billboard-clouds.pdf).
   Mehrere räumliche Ebenen statt einer flachen Kronenkarte als Fernprototyp vergleichen.
   Alpha-Belegung, Mips, Normalen und Silhouette erhalten; leere Texel und Overdraw können
   den Geometriegewinn aufheben. Nur aus eigenen prozeduralen Modellen im RAM erzeugen,
@@ -136,21 +135,21 @@ stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wir
 - **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
   [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
   [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·
-  [PDF](downloads/vegetation/eg/2012-real-time-forests.pdf).
+  [PDF](vegetation/eg/2012-real-time-forests.pdf).
   Sicht-/Lichtkorrelation und mittlere Bestandsreflexion über Detailwechsel erhalten.
   Z-Felder und Shader-Maps sind Vergleichsmodelle, keine automatische Wahl: ihre vorbereiteten
   Texturmengen passen nicht ungeprüft zum A18-Pro-Ziel. Horizontbestand aggregiert Deckung,
   Kronenhöhe und Lichtantwort; einzelne Bäume erst bei sichtbarer Formwirkung.
 - **A Scalable and Production Ready Sky and Atmosphere Rendering Technique**, Hillaire,
   EGSR 2020. [Quelle](https://sebh.github.io/publications/egsr2020.pdf) ·
-  [PDF](downloads/atmosphere/egsr/2020-production-ready-atmosphere.pdf).
+  [PDF](atmosphere/egsr/2020-production-ready-atmosphere.pdf).
   Kompakte LUTs verbinden Boden-, Flug- und Orbitansicht mit Luftperspektive.
   Bestehende SkyStage vergleichen/ergänzen; gemeinsame planetare Maße und Lichtgrößen.
   Wetterparametrisierung ist eine plausible Ergänzung, keine gemessene Aerosolverteilung.
 - **The Real-time Volumetric Cloudscapes of Horizon Zero Dawn**, Schneider / Vos,
   SIGGRAPH-Kurs 2015.
   [Quelle](https://advances.realtimerendering.com/s2015/The%20Real-time%20Volumetric%20Cloudscapes%20of%20Horizon%20-%20Zero%20Dawn%20-%20ARTR.pdf) ·
-  [PDF](downloads/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf).
+  [PDF](clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf).
   Prozedurale Dichte, adaptive Abtastung und temporale Rekonstruktion budgetieren;
   Wind, Licht und Wolkenschatten nutzen denselben Zustand. Publizierte PS4-Zeiten sind
   kein A18-Pro-Beleg. Keine Wolkenarbeit vor dem vereinbarten Welt-/Vegetationsausbau.
@@ -159,20 +158,20 @@ stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wir
 
 - **XPBD: Position-Based Simulation of Compliant Constrained Dynamics**, Macklin et al.,
   Motion in Games 2016. [Quelle](https://mmacklin.com/xpbd.pdf) ·
-  [PDF](downloads/physics/mig/2016-xpbd.pdf).
+  [PDF](physics/mig/2016-xpbd.pdf).
   Zeitschrittbezogene Compliance für Seile, Stoff und Pflanzen prüfen. Bullet bleibt
   Körper-/Kontaktbaseline; begrenzte Iterationen ersetzen keine Genauigkeitsprüfung.
 - **DeepMimic: Example-Guided Deep Reinforcement Learning of Physics-Based Character Skills**,
   Peng et al., SIGGRAPH 2018.
   [Quelle](https://xbpeng.github.io/projects/DeepMimic/DeepMimic_2018.pdf) ·
-  [PDF](downloads/animation/siggraph/2018-deepmimic.pdf).
+  [PDF](animation/siggraph/2018-deepmimic.pdf).
   Ziele → lokale Steuerung → Gelenkmotoren → Posen; LLM setzt keine Renderpose direkt.
   Das Verfahren benötigt Referenzbewegungen und Training, erzeugt keinen fertigen NPC.
   Zuerst begrenzte klassische Steuerung; Lernverfahren sind keine Meilenstein-Voraussetzung.
 - **Synthesizing Sounds from Rigid-Body Simulations**, O'Brien / Shen / Gatchalian,
   ACM SIGGRAPH Symposium on Computer Animation 2002.
   [Quelle](https://jamesobrien.com/papers/Obrien-SSR-2002-07/Obrien-SSR-2002-07.pdf) ·
-  [PDF](downloads/audio/sca/2002-rigid-body-sound-synthesis.pdf).
+  [PDF](audio/sca/2002-rigid-body-sound-synthesis.pdf).
   Kontakte/Kräfte treiben Materialresonanzen. Wenige analytische oder im RAM vorbereitete
   Modi statt Vollmesh-Eigenanalyse je Klangereignis; Spatial Audio bleibt eigener Ausgabepfad.
   Stimmen-/CPU-Budget und hörbarer Gewinn bestimmen die Modellkomplexität.

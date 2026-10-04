@@ -38,18 +38,18 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
   Deadline-/Event-Warten statt Busy-Wait. OS erhält CPU-Zeit, GPU-Freigabe nach letzter Nutzung.
 
 ## Forschungsgrundlage
-[Frostbite-PBR](../doc/references/downloads/lighting/siggraph/2014-frostbite-pbr-course-notes.pdf),
-[TAA-Übersicht](../doc/references/downloads/presentation/cgf/2020-temporal-antialiasing-survey.pdf)
+[Frostbite-PBR](../doc/references/lighting/siggraph/2014-frostbite-pbr-course-notes.pdf),
+[TAA-Übersicht](../doc/references/presentation/cgf/2020-temporal-antialiasing-survey.pdf)
 ([Primärquellen/Einordnung](../doc/references/README.md)): Lichtgrößen/IBL/Belichtung zusammen
 kalibrieren. Schatten nach projizierter Wirkung staffeln; Bias gegen Kontaktverlust prüfen.
 History anhand Tiefe, Bewegung und Produktgültigkeit validieren; flimmerfreie Unschärfe ist
 kein Bildgewinn. Bewegtes Wasser/Laub und Ursprungssprünge gesondert integrieren.
-[Moment Shadow Mapping](../doc/references/downloads/lighting/i3d/2015-moment-shadow-mapping.pdf):
+[Moment Shadow Mapping](../doc/references/lighting/i3d/2015-moment-shadow-mapping.pdf):
 zuerst stabile Tiefenprojektion/Bias und begrenztes PCF; Momente nur bei belegtem Gesamtgewinn
 einschließlich Blur/Mips/Bytes. Autoren-Errata anwenden. 2048² × 8 Byte = 32 MiB allein für Momente.
-[Clustered Shading](../doc/references/downloads/lighting/hpg/2012-clustered-shading.pdf):
+[Clustered Shading](../doc/references/lighting/hpg/2012-clustered-shading.pdf):
 bei vielen lokalen Nachtlichtern räumliche Listen, Sonne separat; Überlauf explizit behandeln.
-[Screen-Space-DDA](../doc/references/downloads/lighting/jcgt/2014-efficient-screen-space-rays.pdf):
+[Screen-Space-DDA](../doc/references/lighting/jcgt/2014-efficient-screen-space-rays.pdf):
 IBL bleibt Grundreflexion, gültige SSR-Treffer ergänzen sie; Step-Limit, Tiefe/Dicke und
 Disocclusion prüfen. Spiegelung darf bei Kameradrehung nicht einfach verschwinden.
 

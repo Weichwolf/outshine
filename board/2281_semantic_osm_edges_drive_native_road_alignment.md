@@ -52,7 +52,7 @@ Nächster Schritt: Wasserpegel und Brückenprofil verbinden; danach Überbau, Au
   metrische Straßenbaustoffe; Quellarchive sind kein dauerhafter Bestandteil des Netzes.
 
 ## Forschungsgrundlage
-[Interactive Procedural Street Modeling, SIGGRAPH 2008](../doc/references/downloads/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf)
+[Interactive Procedural Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf)
 ([Primärquelle/Einordnung](../doc/references/README.md)): Graph und Geometrie getrennt halten.
 OSM-Netz/Ebenen erhalten; keine Tensorfeld-Neuerzeugung realer Straßen. Gemeinsame Profile,
 Anschlussregeln und instanzierte Tragwerksteile ergänzen die vorhandene Qualität.

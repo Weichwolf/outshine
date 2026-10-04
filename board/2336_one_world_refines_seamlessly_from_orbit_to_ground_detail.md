@@ -75,13 +75,13 @@ benötigte öffentliche Felder werden dort mit diesem Pfad integriert. 2280 füh
   Lokale Fehler und Rundum-Projektion steuern weiter die Auswahl; Sichtweite/Fehlertoleranz bleiben.
 
 ## Forschungsgrundlage
-[GPU-Driven Rendering](../doc/references/downloads/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
-und [Geometry Clipmaps](../doc/references/downloads/terrain/siggraph/2004-geometry-clipmaps.pdf)
+[GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
+und [Geometry Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf)
 ([Primärquellen/Einordnung](../doc/references/README.md)): Material-Batches, Cluster-Bounds
 und inkrementelle Gitteraktualisierung prüfen. GPU-Culling ersetzt keine frühe Bedarfsauswahl;
 Clipmaps liefern keinen konservativen Fehler oder weltweite Abdeckung. SDL_GPU-Vertrag und
 lokale Kosten entscheiden. Cesium-Elternabdeckung mit Rundum-Residency verbinden.
-[Simplification Envelopes, SIGGRAPH 1996](../doc/references/downloads/geometry/siggraph/1996-simplification-envelopes.pdf):
+[Simplification Envelopes, SIGGRAPH 1996](../doc/references/geometry/siggraph/1996-simplification-envelopes.pdf):
 Beidseitige Abstände begrenzen; Stichproben und Simplifier-Metriken beweisen keine Hülle.
 
 ## Abnahme
