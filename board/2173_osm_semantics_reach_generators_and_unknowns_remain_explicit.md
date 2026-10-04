@@ -15,7 +15,8 @@ BuildingHeightInterval, native Footprints, StructureBake/BuildingMesh und Terrai
 bestehen. Klassen-/Dachpläne sind lückenhaft; facadePattern zeichnet bisher flache Fenster.
 Rohattribute bleiben unverändert verfügbar; kanonische Abfragen erhalten Originalwerte
 und bevorzugen ausdrücklich gelieferte Schlüssel. Gelieferte Wandfarben erreichen den nativen
-Plan und Renderer; Sonderklassen bleiben lückenhaft. Der Farbpfad ist noch zu speicherteuer.
+Plan und Renderer. Dichte GPU-Farbadressierung vermeidet Leerräume; Sonderklassen und
+Materialkalibrierung bleiben lückenhaft, die Laufzeitabnahme ist offen.
 
 ## Besitzer und nächste Lieferung
 OSM-Adapter normalisiert lieferbare Semantik; generators/building besitzt einen gemeinsamen
