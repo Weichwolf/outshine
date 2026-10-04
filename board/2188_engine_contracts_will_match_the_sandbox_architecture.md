@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -41,12 +41,15 @@ Gemeinsame IO-/Cache-/Jobdienste enthalten keine Geografie- oder Quellsemantik.
    Felder und Herkunft. Spätere Commands/Physik/Persistenz gehören zu 2136, nicht in diesen Umbau.
 
 ## Kompakte native Renderprodukte
-Renderer besitzt Vertexformat, Adressraum und Lebensdauer je Layoutgruppe
-(`SubjectDraw`, `SubjectResidency`, `SceneResources`). Optionale Streams reservieren nur
-die dazugehörigen Produkte, nicht Löcher für anders formatierte Geometrie. Layoutgruppen
-bündeln Draws; unveränderte Frames packen keine Welt neu. Konstante Erscheinungsparameter
-gehören in Material-/Batchdaten. Fehlerschranken begründen jede Attributquantisierung;
-die öffentliche Float-API erhält keinen stillen Wertebereichsverlust. 2173 liefert den Farbfall.
+Renderer besitzt Vertexformat, Adressraum und Lebensdauer (`SubjectDraw`, `SubjectResidency`,
+`SceneResources`). Optionale Streams reservieren nur eigene Produkte, keine Löcher anderer
+Geometrie. Für 2173 zuerst dichte Float4-Farbspeicherung mit eigenem Bereichsallocator:
+Vertexshader liest über Vertexindex plus expliziten Farb-Offset des Placement-Datensatzes.
+Current/Previous-Pose und Farb-Offset besitzen einen gemeinsamen CPU/GPU-Vertrag; Größe,
+Alignment und Offsets statisch sichern. Flat/Lit, Culling, Instanzen und Borrow-Pfade migrieren.
+Batching bleibt bestehen; unveränderte Frames packen keine Welt neu. Farbe/Gate-Bilder bleiben
+identisch bei weniger Gerätebytes. Konstante Erscheinung später in Material-/Batchdaten;
+Quantisierung braucht Fehlerschranken, die öffentliche Float-API keinen Wertebereichsverlust.
 
 ## Bewährte Formatdecoder
 `base/format/Json` nutzt künftig simdjson, `base/format/Xml` pugixml; ihre konkreten Typen
