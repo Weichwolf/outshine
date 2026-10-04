@@ -15,7 +15,8 @@ def sources(root):
          '--', 'src', 'include', 'test'], cwd=root)
     paths = {Path(os.fsdecode(name)) for name in listed.split(b'\0') if name}
     return sorted(path for path in paths
-                  if path.suffix in ('.cpp', '.h') and 'shaders' not in path.parts
+                  if path.suffix in ('.cpp', '.h')
+                  and path.parts[:3] != ('src', 'render', 'shaders')
                   and (root / path).is_file())
 
 

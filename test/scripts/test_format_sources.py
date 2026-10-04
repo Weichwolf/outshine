@@ -48,7 +48,8 @@ class Formatting(unittest.TestCase):
 
     def test_owned_population_excludes_vendor_ignored_deleted_and_shader_files(self):
         (self.root / '.gitignore').write_text('test/.venv/\nsrc/ignored.cpp\n')
-        wanted = ['src/main.cpp', 'include/public.h', 'test/check.cpp']
+        wanted = ['src/main.cpp', 'include/public.h', 'test/check.cpp',
+                  'test/outshine/src/render/shaders/lookup.cpp']
         for name in wanted + ['test/.venv/vendor.h', 'src/ignored.cpp',
                               'src/render/shaders/generated.h', 'elsewhere/foreign.cpp']:
             self.write(name)

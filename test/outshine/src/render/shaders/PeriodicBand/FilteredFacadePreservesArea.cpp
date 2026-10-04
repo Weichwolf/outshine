@@ -50,9 +50,12 @@ int main() {
         const double slope = (Covered(point + epsilon, width, band[0], band[1]) -
                               Covered(point - epsilon, width, band[0], band[1])) /
                              (2.0 * epsilon);
-        CHECK_NEAR(periodicBandSlope(point, band[0], band[1], width), slope, 0.002,
-                   "filtered relief slope",
-                   "the analytic shader slope equals independently intersected coverage differences");
+        CHECK_NEAR(
+            periodicBandSlope(point, band[0], band[1], width),
+            slope,
+            0.002,
+            "filtered relief slope",
+            "the analytic shader slope equals independently intersected coverage differences");
       }
     }
     for (const float centre : {-0.25f, 0.0f, 0.4f, 0.99f, 31.5f}) {
