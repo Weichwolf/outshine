@@ -35,8 +35,8 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
   entfernen, mit derselben Y-Konvention. Nur Jitter darf stationäre History nicht verschieben.
 - Hintergrund ohne Objektbewegung bei Tiefe null über vorige/aktuelle Kameraprojektion
   reprojizieren; sonst verliert jede unbedeckte Kantenprobe ihre akkumulierte Coverage.
-  Fehlende/ungültige History verwendet das aktuelle Bild; Farbclip begrenzt Reprojektion.
-  Szenenwechsel verwirft alte History.
+  Fehlende/ungültige History verwendet das aktuelle Bild; Farbclip und begrenzte Alpha-
+  Coverage halten Konturproben konsistent. Szenenwechsel verwirft alte History.
 - TAA-Referenz unten ist Grundlage; 4× MSAA/Alpha-to-Coverage erst nach Kostenvergleich.
   SDL unterstützt keinen MSAA-Tiefenresolve; ein weiterer Tiefenpfad braucht belegten Bildgewinn.
 - Alle acht Vorher/Nachher-Bilder öffnen; p99/RAM messen, keine Baseline-Neupins.
