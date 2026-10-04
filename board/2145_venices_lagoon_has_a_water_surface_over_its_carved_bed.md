@@ -59,6 +59,9 @@ Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`
 ([Primärquelle/Einordnung](../doc/references/README.md)): nahe Körper-/Welleninteraktion
 prüfen, ferne Windwellen analytisch darstellen. Grundpegel, Ufer und Bett zuerst korrigieren;
 Wellenverfahren löst keine Quellen-/Datumfehler. Transparenz/Reflexion teilen 2155s Licht.
+[Screen-Space-DDA](../doc/references/downloads/lighting/jcgt/2014-efficient-screen-space-rays.pdf)
+ergänzt die gefilterte Grundreflexion um gültige Treffer. Step-Limit, Wassertiefe und
+Szenentiefe bleiben getrennt; verdeckte/außerbildliche Reflexionen besitzen 2155s Ergänzung.
 
 ## Abnahme
 Zuerst Flensburg ohne Wasserfälle/überflutete Gebäude, dann Husum/Malcesine/Koerbersee.

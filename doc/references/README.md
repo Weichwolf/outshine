@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
 Stand: 2026-10-04. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-17 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+22 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -78,6 +78,29 @@ stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wir
   Bewegungsvektoren, History-Gültigkeit und Rekonstruktion gemeinsam behandeln.
   Neue Produkte, Ursprungssprünge, Disocclusion, Wasser und Wind sind eigene Lastfälle;
   längere History darf Detailverlust und Geisterbilder nicht als Stabilität kaschieren.
+- **Moment Shadow Mapping**, Peters / Klein, ACM SIGGRAPH I3D 2015.
+  [Autoren/Errata](https://momentsingraphics.de/I3D2015.html) ·
+  [korrigierte Autorenfassung](https://momentsingraphics.de/Media/I3D2015/MomentShadowMapping.pdf) ·
+  [PDF](downloads/lighting/i3d/2015-moment-shadow-mapping.pdf).
+  Vier filterbare Tiefenmomente gegen PCF vergleichen; zunächst bestehende Tiefenschatten
+  stabilisieren und filtern. Vier 16-Bit-Kanäle brauchen bei 2048² bereits
+  2048² × 8 / 2²⁰ = 32 MiB ohne Mips, Blur-Ziele und Tiefe. Ein einzelner Lookup bedeutet
+  keinen kostenlosen Pass. Quantisierungs-/Moment-Bias und Light Bleeding eigens prüfen.
+- **Clustered Deferred and Forward Shading**, Olsson / Billeter / Assarsson, HPG 2012.
+  [Quelle](https://www.cse.chalmers.se/~uffe/clustered_shading_preprint.pdf) ·
+  [PDF](downloads/lighting/hpg/2012-clustered-shading.pdf).
+  Lokale Lichter anhand räumlicher Cluster zuordnen statt alle Lichter je Fragment zu prüfen.
+  Sonne/Himmelslicht separat behandeln; transparente Flächen brauchen gültige Clusterlisten.
+  Listenaufbau, Speicher und Überlauf gehören zum Vertrag. Für wenige Lichter bleibt der
+  einfache Pfad; Cluster erst mit einem gemessenen Nacht-/Innenraumlastfall integrieren.
+- **Efficient GPU Screen-Space Ray Tracing**, McGuire / Mara, JCGT 2014.
+  [Quelle](https://jcgt.org/published/0003/04/04/) ·
+  [PDF-Quelle](https://jcgt.org/published/0003/04/04/paper.pdf) ·
+  [PDF](downloads/lighting/jcgt/2014-efficient-screen-space-rays.pdf).
+  Perspektivkorrekte DDA vermeidet redundante Pixelabfragen beim Strahlmarsch.
+  Begrenzte Schritte und konsistente Tiefe/Dickenannahmen; fehlende verdeckte oder außerhalb
+  des Bildes liegende Flächen bleiben eine grundlegende Grenze. Gefiltertes IBL liefert
+  die Grundreflexion, SSR ergänzt gültige Treffer. Gemeinsamer Pfad für Wasser und Fassaden.
 
 ## Straßen, Wasser und technische Objekte — WI 2281 / 2145 / 2338
 
@@ -102,6 +125,22 @@ stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wir
   Bestandsplan, Pflanzenform und Darstellung trennen; Prototypen, Gruppen und Organe teilen.
   Fernwald braucht Verbände statt Einzelbaum-/Blattarbeit. Das Offline-Verfahren belegt
   keine Echtzeitkosten; Overdraw, Wind, Schatten und Artenmischung separat integrieren.
+- **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
+  [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
+  [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·
+  [PDF](downloads/vegetation/siggraph/2003-billboard-clouds.pdf).
+  Mehrere räumliche Ebenen statt einer flachen Kronenkarte als Fernprototyp vergleichen.
+  Alpha-Belegung, Mips, Normalen und Silhouette erhalten; leere Texel und Overdraw können
+  den Geometriegewinn aufheben. Nur aus eigenen prozeduralen Modellen im RAM erzeugen,
+  kein Fotoatlas und kein persistenter Generatorcache.
+- **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
+  [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
+  [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·
+  [PDF](downloads/vegetation/eg/2012-real-time-forests.pdf).
+  Sicht-/Lichtkorrelation und mittlere Bestandsreflexion über Detailwechsel erhalten.
+  Z-Felder und Shader-Maps sind Vergleichsmodelle, keine automatische Wahl: ihre vorbereiteten
+  Texturmengen passen nicht ungeprüft zum A18-Pro-Ziel. Horizontbestand aggregiert Deckung,
+  Kronenhöhe und Lichtantwort; einzelne Bäume erst bei sichtbarer Formwirkung.
 - **A Scalable and Production Ready Sky and Atmosphere Rendering Technique**, Hillaire,
   EGSR 2020. [Quelle](https://sebh.github.io/publications/egsr2020.pdf) ·
   [PDF](downloads/atmosphere/egsr/2020-production-ready-atmosphere.pdf).

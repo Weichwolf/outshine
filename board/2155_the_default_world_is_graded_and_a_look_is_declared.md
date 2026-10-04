@@ -13,6 +13,9 @@ Tags: lighting, shadows, hdr, presentation
 Kohärentes Tages-/Nachtlicht, räumliche Schatten/Reflexion und stabile Belichtung.
 SceneRenderer/SkyStage, LightVisibility/Irradiance, HDR/TemporalResolve/Tonemap bestehen;
 Weltwirkung und Kameraantwort sind unzureichend oder nicht am Place belegt.
+subjectLighting prüft derzeit die gemeinsame Lichtliste je Fragment und vergleicht
+Sonnentiefe mit einem einzelnen ungefilterten Shadow-Lookup. Das erklärt weder alle
+Bildfehler noch gemessene Kosten; beide Pfade sind konkrete Ausbaupunkte.
 
 ## Besitzer und nächste Lieferung
 Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing; PlaceCamera/Referenzkatalog
@@ -41,6 +44,14 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 kalibrieren. Schatten nach projizierter Wirkung staffeln; Bias gegen Kontaktverlust prüfen.
 History anhand Tiefe, Bewegung und Produktgültigkeit validieren; flimmerfreie Unschärfe ist
 kein Bildgewinn. Bewegtes Wasser/Laub und Ursprungssprünge gesondert integrieren.
+[Moment Shadow Mapping](../doc/references/downloads/lighting/i3d/2015-moment-shadow-mapping.pdf):
+zuerst stabile Tiefenprojektion/Bias und begrenztes PCF; Momente nur bei belegtem Gesamtgewinn
+einschließlich Blur/Mips/Bytes. Autoren-Errata anwenden. 2048² × 8 Byte = 32 MiB allein für Momente.
+[Clustered Shading](../doc/references/downloads/lighting/hpg/2012-clustered-shading.pdf):
+bei vielen lokalen Nachtlichtern räumliche Listen, Sonne separat; Überlauf explizit behandeln.
+[Screen-Space-DDA](../doc/references/downloads/lighting/jcgt/2014-efficient-screen-space-rays.pdf):
+IBL bleibt Grundreflexion, gültige SSR-Treffer ergänzen sie; Step-Limit, Tiefe/Dicke und
+Disocclusion prüfen. Spiegelung darf bei Kameradrehung nicht einfach verschwinden.
 
 ## Abnahme
 Datierte klare/bedeckte Stadt-/Bergbilder gewinnen Tiefe und Materiallesbarkeit; Morgen,
