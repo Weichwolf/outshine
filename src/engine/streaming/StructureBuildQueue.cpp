@@ -27,7 +27,7 @@
 #include "Log.h"
 #include "Shape.h"
 #include "OsmLayer.h"
-#include "MvtBuilding.h"
+#include "BuildingProperties.h"
 #include "Geodesy.h"
 #include "StructureSourceKey.h"
 
@@ -119,7 +119,7 @@ struct StructureHeights {
   std::optional<Ground::BuildingHeightOrigin> Origin;
 };
 
-StructureHeights HeightsOf(const Generators::Osm::MvtBuilding &building,
+StructureHeights HeightsOf(const Generators::Osm::BuildingProperties &building,
                            const Generators::Osm::OsmField &vectors,
                            const Generators::Osm::OsmField::Feature &feature) {
   return {.TopM = building.Height ? building.Height->TopM : vectors.Num(feature, "height", 0.0),
@@ -170,8 +170,14 @@ void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
   for (size_t at = next.From; at < next.To; ++at) {
     const ::outshine::Generators::Osm::OsmField::Feature &f = feats[at];
     if (f.Type != kPolygonFeature || std::cmp_not_equal(f.Layer, layer)) { continue; }
-    const auto building = Generators::Osm::ReadMvtBuilding(vectors, f);
+    const auto building = Generators::Osm::ReadBuildingProperties(vectors, f);
     if (building.Hidden) { continue; }
+    if (building.WallColourRejected) {
+      Log::Error(LogTag::World,
+                 "building_colour_rejected",
+                 {{"featureIndex", static_cast<int>(at)},
+                  {"colour", std::string(vectors.Str(f, "building:colour"))}});
+    }
     const auto heights = HeightsOf(building, vectors, f);
     const int pitched = PitchedOf(vectors.Str(f, "roof:shape"));
     for (uint32_t r = 0; r < f.RingCount; ++r) {
@@ -201,6 +207,7 @@ void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
                                 .HeightM = heights.TopM,
                                 .MinimumHeightM = heights.MinimumM,
                                 .Pitched = pitched,
+                                .WallColour = building.WallColour,
                                 .HeightOrigin = heights.Origin});
     }
   }

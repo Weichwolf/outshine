@@ -32,6 +32,7 @@ NormalizeMvtTag(MvtSchema schema, std::string_view canonical, MvtLayer::Tag tag)
   if (canonical == "buildings") {
     if (tag.Key == "render_height") { tag.Key = "height"; }
     if (tag.Key == "render_min_height") { tag.Key = "min_height"; }
+    if (tag.Key == "colour") { tag.Key = "building:colour"; }
   }
   if (tag.Key == "class") {
     tag.Key = "kind";

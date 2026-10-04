@@ -177,6 +177,8 @@ public:
 
   [[nodiscard]] std::string_view Str(const Feature &f, const char *key) const;
 
+  [[nodiscard]] bool Has(const Feature &feature, std::string_view key) const;
+
   [[nodiscard]] int Extent() const { return Extent_; }
 
 private:

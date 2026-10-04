@@ -856,6 +856,10 @@ double OsmField::Num(const Feature &f, const char *key, double def) const {
   return tag && tag->IsNumber ? tag->Number : def;
 }
 
+bool OsmField::Has(const Feature &feature, std::string_view key) const {
+  return FindTag(feature, key).has_value();
+}
+
 namespace Says {
 constexpr auto InvalidInteger =
     "OSM integer must be a complete signed decimal or a finite integral int32 value";

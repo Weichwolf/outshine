@@ -1,5 +1,5 @@
 #include "OsmField.h"
-#include "MvtBuilding.h"
+#include "BuildingProperties.h"
 #include "Check.h"
 #include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
 #include <array>
@@ -42,6 +42,61 @@ Bytes Layer(std::string_view name,
   Bytes tile;
   Append(tile, 0x1a, layer);
   return tile;
+}
+
+void CheckBuildingColours() {
+  using namespace outshine::Generators::Osm;
+  using namespace outshine::Test;
+  const std::array<std::string, 1> layers{"buildings"};
+  for (const bool sourceFirst : {false, true}) {
+    const auto keys = sourceFirst ? std::array<std::string_view, 2>{"building:colour", "colour"}
+                                  : std::array<std::string_view, 2>{"colour", "building:colour"};
+    const auto values = sourceFirst ? std::array{String("#808080"), String("white")}
+                                    : std::array{String("white"), String("#808080")};
+    OsmField field(2, layers, MvtSchema::OpenMapTiles);
+    CHECK(field.Accept(1, 1, Layer("building", 3, keys, values)), "source colours are accepted");
+    if (field.Features().empty()) { continue; }
+    const auto &feature = field.Features()[0];
+    const auto building = ReadBuildingProperties(field, feature);
+    CHECK(building.WallColour && !building.WallColourRejected &&
+              field.Str(feature, "colour") == "white" &&
+              field.Str(feature, "building:colour") == "#808080",
+          "canonical source paint wins in either tag order without replacing raw tags");
+    if (building.WallColour) {
+      for (const float channel : *building.WallColour) {
+        CHECK_NEAR(channel, 0.2158605, 0.000001, "linear gray", "source sRGB is linearized");
+      }
+    }
+  }
+  for (const auto &source : {String("transparent"), String("unknown"), Bytes{0x28, 99}}) {
+    OsmField field(2, layers, MvtSchema::OpenMapTiles);
+    CHECK(field.Accept(1,
+                       1,
+                       Layer("building",
+                             3,
+                             std::array<std::string_view, 2>{"colour", "building:colour"},
+                             std::array{String("white"), source})),
+          "invalid supplied colours retain their source record");
+    if (field.Features().empty()) { continue; }
+    const auto building = ReadBuildingProperties(field, field.Features()[0]);
+    CHECK(!building.WallColour && building.WallColourRejected,
+          "invalid canonical paint cannot silently fall back to an opaque alias");
+  }
+  OsmField alias(2, layers, MvtSchema::OpenMapTiles);
+  CHECK(alias.Accept(1,
+                     1,
+                     Layer("building",
+                           3,
+                           std::array<std::string_view, 1>{"colour"},
+                           std::array{String("white")})),
+        "provider colour alias is accepted");
+  if (!alias.Features().empty()) {
+    const auto building = ReadBuildingProperties(alias, alias.Features()[0]);
+    CHECK(building.WallColour && !building.WallColourRejected &&
+              (*building.WallColour)[0] == 1.0f && (*building.WallColour)[1] == 1.0f &&
+              (*building.WallColour)[2] == 1.0f,
+          "available provider paint reaches the building plan");
+  }
 }
 
 void CheckExplicitValuePrecedence() {
@@ -131,7 +186,7 @@ int main() {
   CHECK(other.Accept(1, 1, tile) && other.Features().empty(),
         "another schema is not silently guessed from names");
   CHECK(!ParseMvtSchema("unknown"), "unsupported schemas are explicit errors");
-  const auto approximate = ReadMvtBuilding(field, building);
+  const auto approximate = ReadBuildingProperties(field, building);
   CHECK(approximate.Height && approximate.Height->TopM == 37 &&
             approximate.Height->TopOrigin == outshine::Ground::BuildingHeightOrigin::Generated &&
             !approximate.Height->ConflictingLevels,
@@ -143,7 +198,7 @@ int main() {
             std::array{Bytes{0x28, 5}, Bytes{0x28, 7}});
   OsmField ambiguous(2, names, MvtSchema::OpenMapTiles);
   CHECK(ambiguous.Accept(1, 1, contradictory), "contradictory source remains readable");
-  const auto inferred = ReadMvtBuilding(ambiguous, ambiguous.Features()[0]);
+  const auto inferred = ReadBuildingProperties(ambiguous, ambiguous.Features()[0]);
   CHECK(inferred.Height && inferred.Height->TopM == 12 && inferred.Height->MinimumM == 7 &&
             inferred.Height->ConflictingLevels &&
             ambiguous.Num(ambiguous.Features()[0], "height", 0) == 5,
@@ -155,7 +210,7 @@ int main() {
             std::array{Bytes{0x28, 4}, Bytes{0x30, 21}});
   OsmField signedHeight(2, names, MvtSchema::OpenMapTiles);
   CHECK(signedHeight.Accept(1, 1, basement), "signed source height remains readable");
-  const auto underground = ReadMvtBuilding(signedHeight, signedHeight.Features()[0]);
+  const auto underground = ReadBuildingProperties(signedHeight, signedHeight.Features()[0]);
   CHECK(underground.Height && underground.Height->TopM == 4 &&
             underground.Height->MinimumM == -11 && !underground.Height->ConflictingLevels &&
             underground.Height->MinimumOrigin ==
@@ -166,11 +221,12 @@ int main() {
       Layer("building", 3, std::array<std::string_view, 1>{"hide_3d"}, std::array{Bytes{0x38, 1}});
   OsmField outlines(2, names, MvtSchema::OpenMapTiles);
   CHECK(outlines.Accept(1, 1, outline) && outlines.Features().size() == 1 &&
-            ReadMvtBuilding(outlines, outlines.Features()[0]).Hidden,
+            ReadBuildingProperties(outlines, outlines.Features()[0]).Hidden,
         "outline remains available as source geometry but does not duplicate 3D parts");
-  const auto absent = ReadMvtBuilding(outlines, outlines.Features()[0]);
+  const auto absent = ReadBuildingProperties(outlines, outlines.Features()[0]);
   CHECK(absent.Height && !absent.Height->ConflictingLevels && absent.Height->TopM == 5,
         "absent coarse height is a generated estimate, not a contradictory source");
   CheckExplicitValuePrecedence();
+  CheckBuildingColours();
   return Report();
 }
