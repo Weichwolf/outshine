@@ -40,6 +40,10 @@ Geschosse, Fassadenachsen und vorhandene Angaben begrenzen ihre Platzierung.
 Gefilterte Dachkurse nutzen vorhandene Dachhöhe und Oberflächengradient für metrische
 Abstände; ihre Maske verändert Farbe, Roughness und Relief vor derselben BRDF. Analytische
 Filterableitungen vermeiden zweite Bildschirmableitungen; keine zusätzliche UV-/Vertexbelegung.
+Querfugen ergänzen die Kurse zu metrischen Ziegeln. Ein lokaler Flächengradient bestimmt
+die Traufrichtung ohne neue UVs; Objektkoordinaten erhalten die Phase bei Kamerabewegung.
+Die Vereinigungsmaske und ihre Ableitungen erhalten Fugenfläche und mittlere Materialwirkung
+bei Minifikation. Keine neuen Meshes/Attribute; [Mikkelsen 2020](../doc/references/materials/jcgt/2020-surface-gradient-bump-mapping.pdf).
 Terrain und Gebäude teilen die Gradientenauflösung. Fassadenrecess/Profil und eine kalibrierte
 Materialpalette folgen; Relief ersetzt weder Öffnungs- noch Silhouettengeometrie.
 
