@@ -10,7 +10,7 @@
 #include "HeightField.h"
 #include "ArtifactStore.h"
 #include "StructureBake.h"
-#include "../../generators/building/StructureMesher.h"
+#include "StructureMesher.h"
 #include "Tasks.h"
 
 namespace outshine {

@@ -15,7 +15,6 @@
 #include "VegetationStreaming.h"
 #include "WorldReadiness.h"
 #include "GroundPublication.h"
-#include "../generators/building/StructureMesher.h"
 #include "Rigid.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"

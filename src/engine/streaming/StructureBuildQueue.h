@@ -21,7 +21,7 @@
 #include "StructureBake.h"
 #include "StructureBuildTask.h"
 #include "StructureSourcePreparation.h"
-#include "../../generators/building/StructureMesher.h"
+#include "StructureMesher.h"
 #include "Tasks.h"
 
 namespace outshine {
