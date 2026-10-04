@@ -42,7 +42,8 @@ im öffentlichen Vertrag, kein gebündelter Fremdcode. Bestehende einfache Dacht
 bleibt bestehen; ungültige Polygone werden nicht durch Flächenverlust kaschiert.
 
 ## Quellsemantik und Sonderbauten
-Alle gelieferten Attribute erhalten; normalisierte Aliase ergänzen Originalschlüssel.
+Alle gelieferten Attribute unverändert speichern; Abfrage bietet normalisierte Aliase,
+ohne Tag-Duplikate. Ein ausdrücklich gelieferter Schlüssel schlägt seinen abgeleiteten Alias.
 Höhe/Unterkante, Klasse/Nutzung, Dach, Material/Farbe und Parts konsumieren, soweit geliefert.
 Bekannte Schornsteine, Türme und Wassertürme behalten Baukörper/Höhe, erhalten aber keine
 Wohnhausfassade. Native Klassifikation bis Gebäudeplan und Materialwahl führen.
