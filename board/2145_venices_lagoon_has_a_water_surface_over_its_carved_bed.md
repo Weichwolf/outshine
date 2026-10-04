@@ -54,6 +54,12 @@ Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`
 - Windwellen, Fresnel, Tiefenabsorption, Reflexion/Transmission und Uferschaum auf demselben
   Wasserprodukt. Licht aus 2155, Wetter/Eis aus 2172 später anschließen, keine zweite Lichtwelt.
 
+## Forschungsgrundlage
+[Wave Particles, SIGGRAPH 2007](../doc/references/downloads/water/siggraph/2007-wave-particles.pdf)
+([Primärquelle/Einordnung](../doc/references/README.md)): nahe Körper-/Welleninteraktion
+prüfen, ferne Windwellen analytisch darstellen. Grundpegel, Ufer und Bett zuerst korrigieren;
+Wellenverfahren löst keine Quellen-/Datumfehler. Transparenz/Reflexion teilen 2155s Licht.
+
 ## Abnahme
 Zuerst Flensburg ohne Wasserfälle/überflutete Gebäude, dann Husum/Malcesine/Koerbersee.
 Korrekte Pegel, Ufer/Inseln und Wasser unter Brücken; Wellen ändern keine Grundpegel/Abdeckung.

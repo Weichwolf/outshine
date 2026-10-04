@@ -37,6 +37,14 @@ Wolkenerprobung kann mit vorhandenen deklarierten Wetterwerten beginnen.
 - Fehlende/alte Wetterwerte benennen, keine versteckte Ersatzquelle. Himmel/Wolken teilen
   das Bildbudget mit der Welt, statt allein nach ihrer Fläche eine feste Quote zu beanspruchen.
 
+## Forschungsgrundlage
+[Hillaire, EGSR 2020](../doc/references/downloads/atmosphere/egsr/2020-production-ready-atmosphere.pdf),
+[Horizon-Wolken, SIGGRAPH-Kurs 2015](../doc/references/downloads/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf)
+([Primärquellen/Einordnung](../doc/references/README.md)): kompakte Atmosphären-LUTs von
+Boden bis Orbit; prozedurale Wolkendichte mit begrenzter Abtastung und validierter History.
+Dieselbe Dichte steuert Wolkenlicht/-schatten. Publizierte PS4-Kosten sind kein A18-Pro-Budget.
+IAU-SOFA-Konventionen für UTC/Beobachterposition prüfen; keine zusätzliche Live-Quelle.
+
 ## Abnahme
 Datierte Bilder für Bedeckung/Dunst/Nacht und Winter/Schmelze gewinnen Plausibilität;
 Wolken und Bodenlicht stimmen zusammen. Bewegung bleibt stabil im AGENTS-Budget.

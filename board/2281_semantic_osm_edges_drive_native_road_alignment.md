@@ -51,6 +51,12 @@ Nächster Schritt: Wasserpegel und Brückenprofil verbinden; danach Überbau, Au
   instanzieren. 2336 begrenzt Nahgeometrie, das logische Netz bleibt erhalten. 2171 beleuchtet
   metrische Straßenbaustoffe; Quellarchive sind kein dauerhafter Bestandteil des Netzes.
 
+## Forschungsgrundlage
+[Interactive Procedural Street Modeling, SIGGRAPH 2008](../doc/references/downloads/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf)
+([Primärquelle/Einordnung](../doc/references/README.md)): Graph und Geometrie getrennt halten.
+OSM-Netz/Ebenen erhalten; keine Tensorfeld-Neuerzeugung realer Straßen. Gemeinsame Profile,
+Anschlussregeln und instanzierte Tragwerksteile ergänzen die vorhandene Qualität.
+
 ## Abnahme
 Durchgehende reale Straße samt korrekt angeschlossener Brücke ohne Gelände-/Wasserwände,
 Lücken oder verlorene Ebenen. Bestehende Straßenqualität erhalten oder verbessern;

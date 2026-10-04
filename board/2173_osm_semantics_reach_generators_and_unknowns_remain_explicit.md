@@ -41,6 +41,16 @@ Innenhöfe/Inseln benötigen randtreue Triangulierung mit Löchern. GEOS ≥3.10
 im öffentlichen Vertrag, kein gebündelter Fremdcode. Bestehende einfache Dachtriangulierung
 bleibt bestehen; ungültige Polygone werden nicht durch Flächenverlust kaschiert.
 
+## Quellsemantik und Sonderbauten
+Alle gelieferten Attribute erhalten; normalisierte Aliase ergänzen Originalschlüssel.
+Höhe/Unterkante, Klasse/Nutzung, Dach, Material/Farbe und Parts konsumieren, soweit geliefert.
+Bekannte Schornsteine, Türme und Wassertürme behalten Baukörper/Höhe, erhalten aber keine
+Wohnhausfassade. Native Klassifikation bis Gebäudeplan und Materialwahl führen.
+[OpenMapTiles-Building-Schema](https://github.com/openmaptiles/openmaptiles/blob/master/layers/building/building.yaml)
+exportiert nicht sämtliche OSM-Tags; tatsächlich gelieferte Eigenschaften prüfen.
+Fehlende Klasse bleibt unbekannt; Schlankheit allein beweist keinen Schornstein/Kirchturm.
+[Recherche](../doc/references/README.md): kompakte Regeln statt einer zweiten Gebäudepipeline.
+
 ## Verfahren
 - MultiPolygone/Höfe/Parts erhalten, Eltern/Parts nicht doppeln. Sonderklasse schlägt
   Wohnhausannahme, wenn geliefert. Featurezahl ist keine Gebäudezahl.

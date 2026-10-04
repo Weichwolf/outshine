@@ -32,6 +32,13 @@ Silhouette und See verbessern; 2145 besitzt Pegel/Kontakte, 2171 die gemeinsame 
   Küsten und Kontakte erhalten. Nachbarn teilen Samples, gröbere Raster brauchen Höhenfehler.
   Auswahl aus 2336, Nässe/Schnee aus 2172, Standorte aus 2111 anschließen; keine Diskbakes.
 
+## Forschungsgrundlage
+[Gabor-Noise, SIGGRAPH 2009](../doc/references/downloads/materials/siggraph/2009-sparse-gabor-noise.pdf)
+([Primärquelle/Einordnung](../doc/references/README.md)) liefert gerichtete Spektren und
+anisotrope Filter als Grundlage für Felsrisse. Zuerst gefilterte Richtungsstruktur im
+vorhandenen groundRock integrieren; keine neue Noise-Pipeline oder unbelegte Geologie.
+Clipmap-Prinzipien aus 2336 begrenzen Aktualisierung, nicht die Quellenform.
+
 ## Abnahme
 Koerbersee/Malcesine zeigen gerichtete lesbare Hänge ohne verlorene Silhouette/Kontakte.
 Keine Nähte oder Flimmern bei Bewegung; CPU/GPU/Bytes und Bildgewinn separat belegen.

@@ -1,0 +1,157 @@
+# Forschungsgrundlage für Outshine
+
+Stand: 2026-10-04. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+17 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
+vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
+
+Die folgenden Empfehlungen sind Architekturentscheidungen für die Feature-WIs;
+eine Literaturquelle ersetzt weder Integration noch Bild- und Laufzeitbelege.
+Reihenfolge aus WI 2169: Gebäude → Terrain → Infrastruktur → Vegetation → Wolken;
+Simulation und Gameplay folgen dem visuellen Meilenstein.
+
+## PDFs und Nutzung
+
+Bereits versionierte Gebäude-PDFs bleiben erhalten. Neue persönliche Lesekopien liegen
+nach Bereich/Konferenz in `downloads/` und sind vom Git ausgeschlossen: öffentliche
+Verfügbarkeit erlaubt nicht automatisch Weiterverteilung. Die kanonischen Downloadlinks
+stehen bei jeder Quelle. Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
+
+## Gebäude und kompakte Fassaden — WI 2173 / 2171
+
+- **Instant Architecture**, Wonka et al., SIGGRAPH 2003.
+  [Quelle](https://peterwonka.net/Publications/pdfs/2003.SG.Wonka.InstantArchitecture.high.pdf) ·
+  [PDF](buildings/siggraph/2003-instant-architecture.pdf).
+  Begrenzte Split-Regeln strukturieren Fassaden. Regeln erst aus geliefertem Grundriss,
+  Höhe und Nutzung ableiten; sie rekonstruieren keine unbekannte reale Fassade.
+- **Procedural Modeling of Buildings**, Müller et al., SIGGRAPH 2006.
+  [Quelle](https://peterwonka.net/Publications/pdfs/2006.SG.Mueller.ProceduralModelingOfBuildings.final.pdf) ·
+  [PDF](buildings/siggraph/2006-procedural-modeling-of-buildings.pdf).
+  Ein gemeinsamer Gebäudeplan steuert Körper, Dach und Nahmodule. Kein allgemeiner
+  CGA-Interpreter; bekannte Sonderklassen dürfen keine Wohnhausregeln erhalten.
+- **Grammar-based Encoding of Facades**, Haegler et al., EGSR 2010.
+  [Quelle](https://peterwonka.net/Publications/pdfs/2010.EGSR.Haegler.GrammarBasedEncoding.pdf) ·
+  [PDF](buildings/egsr/2010-grammar-based-encoding-of-facades.pdf).
+  Wiederholungen kompakt parametrisieren und im Shader auswerten. Nahsilhouette,
+  Laibungen und betretbare Räume brauchen Geometrie; Fernmuster benötigen Filterung.
+
+## Geometrie, Sichtbarkeit und Terrain — WI 2336 / 2337 / 2338
+
+- **Simplification Envelopes**, Cohen et al., SIGGRAPH 1996.
+  [Quelle](https://www.cs.umd.edu/gvil/papers/simp_env.pdf) ·
+  [PDF](downloads/geometry/siggraph/1996-simplification-envelopes.pdf).
+  Beidseitige Oberflächenabstände über begrenzende Hüllen sichern. Das Prinzip ergänzt
+  unsere Formfehlerverträge; Hausdorff-Nähe folgt nicht aus wenigen Samples oder einem
+  meshoptimizer-Fehlerwert. Offene/nichtmannigfaltige Baukörper und Kontakte eigens behandeln.
+- **GPU-Driven Rendering Pipelines**, Haar / Aaltonen, SIGGRAPH-Kurs 2015.
+  [Quelle](https://advances.realtimerendering.com/s2015/aaltonenhaar_siggraph2015_combined_final_footer_220dpi.pdf) ·
+  [PDF](downloads/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf).
+  Material-Batches, kompakte Instanzen und Cluster mit Bounds statt Einzelobjekt-Draws.
+  Bedarf vor Mesh-Erzeugung bleibt CPU-/Generatorarbeit; GPU-Culling spart keine bereits
+  erzeugten Bytes. Indirect-/Compute-Pfade nur bei passendem SDL_GPU-Backend und Messgewinn.
+- **Geometry Clipmaps: Terrain Rendering Using Nested Regular Grids**, Losasso / Hoppe,
+  SIGGRAPH 2004. [Quelle](https://hhoppe.com/geomclipmap.pdf) ·
+  [PDF](downloads/terrain/siggraph/2004-geometry-clipmaps.pdf).
+  Regelmäßige verschachtelte Gitter und inkrementelle Randaktualisierung vermeiden Vollneubau.
+  Mit GroundLattice vergleichen, keine zweite Terrainpipeline. Clipmaps allein liefern weder
+  weltweite Quellabdeckung noch Ellipsoidübergang oder konservative Höhenfehlerschranken.
+- **Procedural Noise using Sparse Gabor Convolution**, Lagae et al., SIGGRAPH 2009.
+  [Quelle](https://graphics.cs.kuleuven.be/publications/LLDD09PNSGC/LLDD09PNSGC_paper.pdf) ·
+  [PDF](downloads/materials/siggraph/2009-sparse-gabor-noise.pdf).
+  Richtung und Frequenzspektrum explizit steuern, anisotrop aus dem Pixel-Footprint filtern.
+  Gerichtete Felsstruktur prototypisieren; Kernelkosten gegen einfachere gefilterte Noise
+  messen. Noise liefert keine belegte Geologie und keinen Ersatz für DEM-Silhouette.
+
+## Materialien, Licht und Bildstabilität — WI 2171 / 2155
+
+- **Moving Frostbite to Physically Based Rendering**, Lagarde / de Rousiers,
+  SIGGRAPH-Kurs 2014, Kursnotizen Revision 3 (2015).
+  [Quelle](https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf) ·
+  [PDF](downloads/lighting/siggraph/2014-frostbite-pbr-course-notes.pdf).
+  BRDF, Roughness, Lichtgrößen, Reflexion, Farbraum und Kameraantwort gemeinsam kalibrieren.
+  Vorhandenen Khronos-Vertrag erhalten; Parameter/IBL vor neuen Passketten verbessern.
+  Referenzverfahren separat prüfen, ihre Kosten sind kein Runtime-Budget.
+- **A Survey of Temporal Antialiasing Techniques**, Yang / Liu / Salvi, CGF / Eurographics 2020.
+  [Autoren](https://research.nvidia.com/labs/rtr/publication/yang2020survey/) ·
+  [Verlags-PDF](https://diglib.eg.org/server/api/core/bitstreams/53732e70-b64d-46f4-bbae-865eb7673a35/content) ·
+  [PDF](downloads/presentation/cgf/2020-temporal-antialiasing-survey.pdf).
+  Bewegungsvektoren, History-Gültigkeit und Rekonstruktion gemeinsam behandeln.
+  Neue Produkte, Ursprungssprünge, Disocclusion, Wasser und Wind sind eigene Lastfälle;
+  längere History darf Detailverlust und Geisterbilder nicht als Stabilität kaschieren.
+
+## Straßen, Wasser und technische Objekte — WI 2281 / 2145 / 2338
+
+- **Interactive Procedural Street Modeling**, Chen et al., SIGGRAPH 2008.
+  [Quelle](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf) ·
+  [PDF](downloads/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf).
+  Graphbearbeitung von Geometrie trennen. OSM-Verbindungen und Ebenen bleiben maßgeblich;
+  die Tensorfeld-Netzerzeugung ersetzt unser reales Straßennetz nicht. Brückentragwerke
+  benötigen zusätzlich klare Anschluss-/Kontaktregeln und kompakte wiederholte Bauteile.
+- **Wave Particles**, Yuksel / House / Keyser, SIGGRAPH 2007.
+  [Quelle](https://www.cemyuksel.com/research/waveparticles/waveparticles.pdf) ·
+  [PDF](downloads/water/siggraph/2007-wave-particles.pdf).
+  Interaktive Wellen für nahe Körper-/Uferwirkung prüfen; ferne Wellen analytisch darstellen.
+  Das Verfahren löst weder Quellpegel noch Küstenabschluss. Erst Wasser/Bett/Ufer korrigieren,
+  danach Animation auf demselben Körper; kein globales Grundwassermesh.
+
+## Vegetation, Atmosphäre und Wetter — WI 2111 / 2172
+
+- **Realistic Modeling and Rendering of Plant Ecosystems**, Deussen et al., SIGGRAPH 1998.
+  [Quelle](https://algorithmicbotany.org/papers/ecosys.sig98.pdf) ·
+  [PDF](downloads/vegetation/siggraph/1998-plant-ecosystems.pdf).
+  Bestandsplan, Pflanzenform und Darstellung trennen; Prototypen, Gruppen und Organe teilen.
+  Fernwald braucht Verbände statt Einzelbaum-/Blattarbeit. Das Offline-Verfahren belegt
+  keine Echtzeitkosten; Overdraw, Wind, Schatten und Artenmischung separat integrieren.
+- **A Scalable and Production Ready Sky and Atmosphere Rendering Technique**, Hillaire,
+  EGSR 2020. [Quelle](https://sebh.github.io/publications/egsr2020.pdf) ·
+  [PDF](downloads/atmosphere/egsr/2020-production-ready-atmosphere.pdf).
+  Kompakte LUTs verbinden Boden-, Flug- und Orbitansicht mit Luftperspektive.
+  Bestehende SkyStage vergleichen/ergänzen; gemeinsame planetare Maße und Lichtgrößen.
+  Wetterparametrisierung ist eine plausible Ergänzung, keine gemessene Aerosolverteilung.
+- **The Real-time Volumetric Cloudscapes of Horizon Zero Dawn**, Schneider / Vos,
+  SIGGRAPH-Kurs 2015.
+  [Quelle](https://advances.realtimerendering.com/s2015/The%20Real-time%20Volumetric%20Cloudscapes%20of%20Horizon%20-%20Zero%20Dawn%20-%20ARTR.pdf) ·
+  [PDF](downloads/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf).
+  Prozedurale Dichte, adaptive Abtastung und temporale Rekonstruktion budgetieren;
+  Wind, Licht und Wolkenschatten nutzen denselben Zustand. Publizierte PS4-Zeiten sind
+  kein A18-Pro-Beleg. Keine Wolkenarbeit vor dem vereinbarten Welt-/Vegetationsausbau.
+
+## Physik, Animation, NPCs und Klang — WI 2136
+
+- **XPBD: Position-Based Simulation of Compliant Constrained Dynamics**, Macklin et al.,
+  Motion in Games 2016. [Quelle](https://mmacklin.com/xpbd.pdf) ·
+  [PDF](downloads/physics/mig/2016-xpbd.pdf).
+  Zeitschrittbezogene Compliance für Seile, Stoff und Pflanzen prüfen. Bullet bleibt
+  Körper-/Kontaktbaseline; begrenzte Iterationen ersetzen keine Genauigkeitsprüfung.
+- **DeepMimic: Example-Guided Deep Reinforcement Learning of Physics-Based Character Skills**,
+  Peng et al., SIGGRAPH 2018.
+  [Quelle](https://xbpeng.github.io/projects/DeepMimic/DeepMimic_2018.pdf) ·
+  [PDF](downloads/animation/siggraph/2018-deepmimic.pdf).
+  Ziele → lokale Steuerung → Gelenkmotoren → Posen; LLM setzt keine Renderpose direkt.
+  Das Verfahren benötigt Referenzbewegungen und Training, erzeugt keinen fertigen NPC.
+  Zuerst begrenzte klassische Steuerung; Lernverfahren sind keine Meilenstein-Voraussetzung.
+- **Synthesizing Sounds from Rigid-Body Simulations**, O'Brien / Shen / Gatchalian,
+  ACM SIGGRAPH Symposium on Computer Animation 2002.
+  [Quelle](https://jamesobrien.com/papers/Obrien-SSR-2002-07/Obrien-SSR-2002-07.pdf) ·
+  [PDF](downloads/audio/sca/2002-rigid-body-sound-synthesis.pdf).
+  Kontakte/Kräfte treiben Materialresonanzen. Wenige analytische oder im RAM vorbereitete
+  Modi statt Vollmesh-Eigenanalyse je Klangereignis; Spatial Audio bleibt eigener Ausgabepfad.
+  Stimmen-/CPU-Budget und hörbarer Gewinn bestimmen die Modellkomplexität.
+
+## Bereiche mit geeigneteren Primärquellen
+
+| Bereich / WI | Grundlage | Entscheidung für Outshine |
+|---|---|---|
+| Quellen/HTTP/Cache — 2280 | [HTTP-Semantik, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | libcurl; paralleles begrenztes IO, Status-/Retry-/Abbruchverträge; persistenter Cache nur für Quellbytes |
+| Weltweite Auswahl — 2336 | [Cesium Native: Auswahl](https://cesium.com/learn/cesium-native/ref-doc/selection-algorithm-details.html) | Elternabdeckung bis Kindpublikation, projizierter Fehler; Blick-Culling getrennt von Rundum-Residency |
+| Import/Material/Animation — 2188 / 2171 / 2136 | [Khronos glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) | Szenario und glTF in dieselben nativen Produkte, keine parallele Assetwelt |
+| Backend/Submission — 2188 / 2155 | [SDL3 GPU](https://wiki.libsdl.org/SDL3/CategoryGPU) | Nur verfügbare Backendverträge; Ownership, Synchronisation, tatsächliche GPU-Bytes messen |
+| JS/UI/LLM — 2136 | [ECMAScript](https://tc39.es/ecma262/) und vorhandene HTML/CSS-Teilmenge | Begrenzte Commands/Events, lokale ausführbare Steuerung, keine Netzwerkabhängigkeit im Tick |
+| Navigation — 2136 | [Recast/Detour](https://recastnav.com/md_Docs_2__1__Introduction.html) | Begehbare Flächen und lokale Pfadkorridore; Straßengraph für Verkehr, eigene Flug-/Wassermodelle statt einer universellen 2D-Navigation |
+| Astronomie — 2172 | [IAU SOFA](https://www.iausofa.org/cookbooks) | Zeit-/Koordinatenkonventionen und Beobachterkorrekturen prüfen; Astronomie aus UTC/Ort, nicht als Live-Datenabhängigkeit |
+| Parser/Mathematik/Geometrie/Physik | [Systembibliotheken](../dependencies.md) | Bewährte Implementierungen kapseln; keine Library-Typen in Welt, ABI oder Saveformat |
+| Save/Replay, Telemetrie, Budgets — 2136 / 2188 / 2169 | Eigene Zustands-/Lebensdauerverträge im WI | Versionierte atomare Zustandsübergänge, aufgezeichnete externe Events; Literatur begründet keine Vollständigkeit |
+
+Offene Implementierungsfragen bleiben im zuständigen WI: Quellsemantik/Sonderbauten,
+globale Abdeckung, konservative Formfehler, Schattenqualität, Reflexionssichtbarkeit,
+bewegliche Kontakte und lokale NPC-Navigation. Eine Quellenliste schließt diese Features nicht.

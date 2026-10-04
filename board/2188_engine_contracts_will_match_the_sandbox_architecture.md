@@ -48,6 +48,11 @@ erhalten; keine Exception-basierten Aufrufe und kein Parsing im Frame. Ein gemei
 je Format ersetzt Eigenparser, keine Parallelpfade. Installation: [Abhängigkeiten](../doc/dependencies.md).
 [simdjson](https://github.com/simdjson/simdjson), [pugixml](https://pugixml.org/).
 
+## Forschungsgrundlage
+[Standards und Backendverträge](../doc/references/README.md): glTF/SDL_GPU statt einer
+SIGGRAPH-Begründung für API-Lebensdauer. Import und Szenario teilen native Assets;
+Quellformat endet am Adapter. GPU-Driven-Verfahren nur innerhalb verfügbarer SDL-Verträge.
+
 ## Abnahme
 Ein externer Provider/Generator ersetzt den entsprechenden Builtin im echten Place ohne
 private Includes oder zweite Pipeline. Modulabhängigkeiten sichern world ohne Quelltypen.

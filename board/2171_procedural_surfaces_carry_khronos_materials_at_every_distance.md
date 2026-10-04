@@ -44,6 +44,13 @@ Dreiecke, Disktexturen oder Fassadenmeshes pro Ferngebäude. Bestehende Fensterf
   Shaderarbeit nur für benötigte Varianten. Nässe/Schnee ändern dieselben Materialien;
   kein Neubau unveränderter Gebäude, keine erzeugten Disktexturen.
 
+## Forschungsgrundlage
+[Frostbite-PBR](../doc/references/downloads/lighting/siggraph/2014-frostbite-pbr-course-notes.pdf)
+und [Gabor-Noise](../doc/references/downloads/materials/siggraph/2009-sparse-gabor-noise.pdf)
+([Primärquellen/Einordnung](../doc/references/README.md)): Roughness/Licht/Farbraum gemeinsam
+kalibrieren; gerichtete Frequenzen aus dem Pixel-Footprint filtern. Teure Noise-Kernel
+gegen einfachere Filter messen. Gelieferte Baustoff-/Farbwerte schlagen plausible Paletten.
+
 ## Abnahme
 Nah- und Fernbaustoffe im echten Place lesbar, ohne Flimmern/Maßstabswechsel oder flache
 Nahgeometrie. Licht/Bewegung erhalten Identität; Bildgewinn und GPU-Kosten getrennt belegen.

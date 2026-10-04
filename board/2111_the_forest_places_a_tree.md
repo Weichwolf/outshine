@@ -44,6 +44,12 @@ Der Qualitätsauftrag ändert diese Reihenfolge nicht.
 4. Wind verformt geteilte Geometrie aus raumverankerten Parametern; Jahreszeit beeinflusst
    Laubmenge/Farbe. Unterwuchs/Gras nur bei sichtbarem Bildgewinn, im selben Qualitätsbudget.
 
+## Forschungsgrundlage
+[Plant Ecosystems, SIGGRAPH 1998](../doc/references/downloads/vegetation/siggraph/1998-plant-ecosystems.pdf)
+([Primärquelle/Einordnung](../doc/references/README.md)): Bestandsplan, Pflanzenform und
+Darstellung trennen; Prototypen/Organe/Verbände teilen. Das Offline-Verfahren liefert keine
+Echtzeitgarantie. Wind, Alpha-Overdraw und Schatten mit 2336s Auswahl budgetieren.
+
 ## Invarianten und Abnahme
 Keine Place-Sonderbepflanzung. Wasser/Freiraum und DSM-Bewuchs respektieren; plausible
 Ergänzungen bleiben von belegten Arten unterscheidbar. Generierte Produkte nur RAM/GPU.

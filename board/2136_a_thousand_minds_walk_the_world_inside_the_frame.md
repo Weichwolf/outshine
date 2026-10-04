@@ -46,6 +46,18 @@ visuellen Meilenstein. Keine separate Fahrzeug-/Sandboxengine und kein pauschale
   AudioScene/AudioOcclusion teilt Posen/Kontakte: Richtung/Entfernung, Doppler/Verdeckung,
   begrenzte Stimmen/Busse/Headroom/Limiter. Dialog asynchron, Audio wartet auf keine Geometrie.
 
+## Forschungsgrundlage
+[XPBD, MIG 2016](../doc/references/downloads/physics/mig/2016-xpbd.pdf),
+[DeepMimic, SIGGRAPH 2018](../doc/references/downloads/animation/siggraph/2018-deepmimic.pdf),
+[Rigid-Body Sound, SCA 2002](../doc/references/downloads/audio/sca/2002-rigid-body-sound-synthesis.pdf)
+([Primärquellen/Einordnung](../doc/references/README.md)): Bullet für Körper/Kontakte;
+Compliance für reduzierte deformierbare Modelle prüfen. Lokale Ziele/Navigation steuern
+Gelenkmotoren, nicht Renderposen. Zuerst klassische Steuerung; Training/Referenzbewegungen
+sind kein visueller Blocker. Kontaktkräfte treiben wenige Materialresonanzen; Spatial Audio
+verarbeitet Richtung/Verdeckung separat. Save/Replay erhält Zustand und externe Events.
+Recast/Detour als lokale Boden-Navigation prüfen; Straßengraph und Flug-/Wassermodelle
+bleiben eigene Bewegungsverträge. Keine Library-Integration ohne den ausführbaren NPC-Pfad.
+
 ## Abnahme
 Allgemeiner Körper-/Weltkontakt und Gelenkantrieb stimmen auf echten Straßen/Brücken/Terrain.
 Ein NPC ist lokal, über JS und aufgezeichnete LLM-Events steuerbar; Ton und atomarer Save/Replay

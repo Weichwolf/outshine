@@ -91,6 +91,11 @@ Beitrag zu diesem Ablauf entfernen; Tests gegen diesen fachlichen Vertrag prüfe
 - 2336 bestimmt vollständige Nah-/Fernquellen. 49 geladene Nahkacheln beweisen keine 240-km-Welt.
   Prepare und Shots verwenden denselben Bedarf, Quellcache und erforderlichen Produktstand.
 
+## Forschungsgrundlage
+[HTTP und Systembibliotheken](../doc/references/README.md): RFC 9110/libcurl statt eigener
+Netzwerkmechanik. Begrenzte parallele Requests, Status-/Retry-/Abbruchverträge; nur Quellbytes
+persistent. Frühe gemeinsame Bedarfsauswahl aus 2336 begrenzt Erwerb und Verarbeitung.
+
 ## Abnahme
 Wien: vollständiges Offline-Bild, keine verlorenen Gebäude/Straßen/Gewässer und kein unbegründet
 wartender Auftrag. Warmaufbau, Dekodierungen/Kopien, CPU/GPU und Speicher getrennt belegen;

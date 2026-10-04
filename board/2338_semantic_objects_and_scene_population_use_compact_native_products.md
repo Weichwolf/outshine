@@ -31,6 +31,12 @@ Zuerst eine erkennbare technische Objektklasse im Stadt-/Hafenbild integrieren.
 - Park-/Liegeflächen erzeugen plausible Belegung. Statische Objekte brauchen keinen fertigen
   Solver; bewegliche Varianten später über 2136. Segel/Flaggen teilen 2172s Wind und Bounds.
 
+## Forschungsgrundlage
+[GPU-Driven Rendering](../doc/references/downloads/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
+([Primärquelle/Einordnung](../doc/references/README.md)): wiederholte Bauteile als geteilte
+Assets/Instanzen, Sichtbarkeit über Cluster-Bounds. Dünne Fernobjekte als gefilterte Beiträge;
+keine Einzelteil-Draws oder vollständigen Nahmeshes vor der budgetierten Auswahl.
+
 ## Abnahme
 Stadt-/Hafenbild gewinnt erkennbare Objekte mit richtigen Kontakten/Maßen, ohne unplausible
 Zufallsbelegung. Form bleibt über Entfernung stabil, zusätzliche Zeit/Bytes budgetiert.

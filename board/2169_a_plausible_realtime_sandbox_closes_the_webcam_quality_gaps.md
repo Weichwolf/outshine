@@ -62,6 +62,10 @@ Teilvertrag, nicht den Abschluss eines gesamten WI. Keine versteckten Abhängigk
 Central Park/Tokyo bleiben dichte Ladebenchmarks; historische Places bleiben Diagnosen.
 Hockenheim-Runden/Physikausbau sind kein erster visueller Meilenstein.
 
+## Forschungsgrundlage
+[Engine-weite Recherche](../doc/references/README.md) ordnet SIGGRAPH und verwandte
+Primärquellen jedem Feature zu. Empfehlungen sind Integrationsaufträge, keine Abnahme.
+
 ## Abnahme
 Alle acht vollständigen Bilder mit datierten Referenzen vergleichen; Formen, Materialien,
 Licht/Wetter, Stabilität und Kosten getrennt bewerten. Client-API und AGENTS-Gate verwenden.

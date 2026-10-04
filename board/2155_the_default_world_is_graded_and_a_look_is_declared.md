@@ -34,6 +34,14 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 - SDL-Submission/Ressourcenwechsel auf zuständigem Thread, begrenzte Frames in Flight,
   Deadline-/Event-Warten statt Busy-Wait. OS erhält CPU-Zeit, GPU-Freigabe nach letzter Nutzung.
 
+## Forschungsgrundlage
+[Frostbite-PBR](../doc/references/downloads/lighting/siggraph/2014-frostbite-pbr-course-notes.pdf),
+[TAA-Übersicht](../doc/references/downloads/presentation/cgf/2020-temporal-antialiasing-survey.pdf)
+([Primärquellen/Einordnung](../doc/references/README.md)): Lichtgrößen/IBL/Belichtung zusammen
+kalibrieren. Schatten nach projizierter Wirkung staffeln; Bias gegen Kontaktverlust prüfen.
+History anhand Tiefe, Bewegung und Produktgültigkeit validieren; flimmerfreie Unschärfe ist
+kein Bildgewinn. Bewegtes Wasser/Laub und Ursprungssprünge gesondert integrieren.
+
 ## Abnahme
 Datierte klare/bedeckte Stadt-/Bergbilder gewinnen Tiefe und Materiallesbarkeit; Morgen,
 Abend und Nacht erhalten plausible Helligkeit. Bewegung ohne Geisterbilder/Belichtungssprünge.
