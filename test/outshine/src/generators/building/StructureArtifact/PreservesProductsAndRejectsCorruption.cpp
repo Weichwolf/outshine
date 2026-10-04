@@ -17,6 +17,7 @@ int main() {
   CHECK(cell.has_value(), "fixture has a valid cell");
   if (!cell) { return Report(); }
   raw.Structures.push_back({.PointCount = 4, .SourceFirst = 12, .Cell = *cell, .HeightM = 12.0});
+  raw.Structures.front().WallColour = Vec3f{{0.2f, 0.4f, 0.6f}};
   raw.RequestedDetail = LevelOfDetail::Shell;
   raw.RequestedCell = cell->Index;
   raw.TileSpanM = 1000.0;
@@ -54,7 +55,8 @@ int main() {
             decoded->Walls.Index == product.Walls.Index &&
             decoded->Roofs.Clusters == product.Roofs.Clusters &&
             decoded->Roofs.Index == product.Roofs.Index &&
-            decoded->Built.WallRun == product.Built.WallRun &&
+            decoded->Built.WallRun == product.Built.WallRun && !product.Built.WallColours.empty() &&
+            decoded->Built.WallColours == product.Built.WallColours &&
             decoded->Built.RoofRun == product.Built.RoofRun,
         "semantic, geometric and clustered products remain intact");
   CHECK(EncodeStructureArtifact(*decoded, key) == encoded,

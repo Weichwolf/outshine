@@ -6,6 +6,7 @@
 #include <string_view>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -25,12 +26,14 @@ inline constexpr double kSteepestRoof = 0.5;
 struct Raised {
   std::vector<StoredVertex> WallCorners, RoofCorners;
   std::vector<uint32_t> WallRun, RoofRun;
+  std::vector<float> WallColours;
 
   void Clear() noexcept {
     WallCorners.clear();
     RoofCorners.clear();
     WallRun.clear();
     RoofRun.clear();
+    WallColours.clear();
   }
 
   void Settle() {
@@ -38,17 +41,19 @@ struct Raised {
     RoofCorners.shrink_to_fit();
     WallRun.shrink_to_fit();
     RoofRun.shrink_to_fit();
+    WallColours.shrink_to_fit();
   }
 
   [[nodiscard]] std::size_t HeapBytes() const noexcept {
     return WallCorners.capacity() * sizeof(StoredVertex) +
            RoofCorners.capacity() * sizeof(StoredVertex) + WallRun.capacity() * sizeof(uint32_t) +
-           RoofRun.capacity() * sizeof(uint32_t);
+           RoofRun.capacity() * sizeof(uint32_t) + WallColours.capacity() * sizeof(float);
   }
 
   [[nodiscard]] std::size_t UsedBytes() const noexcept {
     return WallCorners.size() * sizeof(StoredVertex) + RoofCorners.size() * sizeof(StoredVertex) +
-           WallRun.size() * sizeof(uint32_t) + RoofRun.size() * sizeof(uint32_t);
+           WallRun.size() * sizeof(uint32_t) + RoofRun.size() * sizeof(uint32_t) +
+           WallColours.size() * sizeof(float);
   }
 };
 
@@ -81,6 +86,7 @@ struct StructurePlan {
   LevelOfDetail Coarseness = LevelOfDetail::Fine;
 
   double PitchedShare = kPitchedShareUnknown;
+  std::optional<Vec3f> WallColour;
 };
 
 class MeshScratch {

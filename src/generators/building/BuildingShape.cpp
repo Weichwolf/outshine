@@ -568,6 +568,7 @@ void Finish(FootprintPiece &piece, const PartOrder &order, BuildingShape &s) {
   s.Fill = s.AreaM2 / (4.0 * s.HalfUm * s.HalfVm);
   s.Seed = order.Seed;
   s.Ident = static_cast<int>(Mix(order.Seed ^ kIdentWord) % static_cast<uint32_t>(kIdentCount));
+  s.WallVariant = s.Ident % kFacadeVariants;
   s.FootM = order.FootM;
 
   const double top =

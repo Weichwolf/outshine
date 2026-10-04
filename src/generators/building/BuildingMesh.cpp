@@ -1,4 +1,5 @@
 #include "math/Units.h"
+#include "BuildingMaterials.h"
 #include "Digest.h"
 #include <generation/Generate.h>
 
@@ -71,7 +72,11 @@ bool ValidPlanParameters(const StructurePlan &plan) {
                           plan.Street.ToStreetE,
                           plan.Street.ToStreetN};
   const auto finite = [](double value) { return std::isfinite(value); };
-  return std::ranges::all_of(values, finite) && std::ranges::all_of(plan.RingLatLon, finite) &&
+  const bool colourValid = !plan.WallColour || std::ranges::all_of(*plan.WallColour, [](float c) {
+    return std::isfinite(c) && c >= 0.0f && c <= 1.0f;
+  });
+  return colourValid && std::ranges::all_of(values, finite) &&
+         std::ranges::all_of(plan.RingLatLon, finite) &&
          std::ranges::all_of(plan.CornerAslM, finite);
 }
 
@@ -80,6 +85,21 @@ template <typename T> void TrimAppend(std::vector<T> &output, size_t previousSiz
 }
 
 constexpr double kSinkM = 0.30;
+
+void AppendWallColours(const StructurePlan &plan, size_t first, Raised &into) {
+  if (!plan.WallColour && into.WallColours.empty()) { return; }
+  if (into.WallColours.empty()) { into.WallColours.resize(first * 4, 1.0f); }
+  for (size_t at = first; at < into.WallCorners.size(); ++at) {
+    const float u = into.WallCorners[at].uv()[0];
+    const bool wall = u >= 0.0f || std::fmod(-u - 1.0f, 16.0f) == 0.0f;
+    for (size_t channel = 0; channel < 3; ++channel) {
+      into.WallColours.push_back(plan.WallColour && wall
+                                     ? (*plan.WallColour)[channel] / kBuildingWallColour[channel]
+                                     : 1.0f);
+    }
+    into.WallColours.push_back(1.0f);
+  }
+}
 
 constexpr double kSlabM = 0.20;
 
@@ -111,7 +131,7 @@ double EavesZ(const BuildingShape &s) {
 Vtx Wall(const BuildingShape &s, const EastNorth &p, double z, double bays, Fields stand) {
   return {.P = p,
           .Z = z,
-          .U = FacadeUvX(StyleOf(s.Use), stand, s.Ident, static_cast<float>(bays)),
+          .U = FacadeUvX(StyleOf(s.Use), stand, s.WallVariant, static_cast<float>(bays)),
           .V = FacadeUvY(static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
 }
 
@@ -705,6 +725,7 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
   Site site(plan, scratch, into);
   const FoundationGround ground(plan);
   for (BuildingShape &part : parts) {
+    if (plan.WallColour) { part.WallVariant = 0; }
     part.SeatM = plan.MinimumHeightM != 0.0 ? 0.0 : PlinthTopZ(part, ground);
     part.SoleM = plan.MinimumHeightM != 0.0 ? plan.MinimumHeightM : PlinthFootZ(part, ground);
   }
@@ -715,6 +736,7 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
       return status;
     }
   }
+  AppendWallColours(plan, sizes[0], into);
   return {};
 }
 }

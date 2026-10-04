@@ -1,4 +1,5 @@
 #include "GeodeticCamera.h"
+#include "building/BuildingMaterials.h"
 #include "Digest.h"
 #include "math/Units.h"
 #include "math/Vec2.h"
@@ -108,9 +109,6 @@ private:
 constexpr double kPerMille = 1000.0;
 constexpr float kVerticalSlopeDeg = 90.0f;
 
-constexpr float kWallRed = 0.74f;
-constexpr float kWallGreen = 0.71f;
-constexpr float kWallBlue = 0.65f;
 constexpr float kWallRoughness = 0.88f;
 constexpr float kTileRed = 0.42f;
 constexpr float kTileGreen = 0.20f;
@@ -789,9 +787,9 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
   if (!build.Surfaces) {
     Geometry materials;
     Material walls;
-    walls.BaseColour[0] = kWallRed;
-    walls.BaseColour[1] = kWallGreen;
-    walls.BaseColour[2] = kWallBlue;
+    for (size_t channel = 0; channel < 3; ++channel) {
+      walls.BaseColour[channel] = Generators::kBuildingWallColour[channel];
+    }
     walls.Roughness = kWallRoughness;
     walls.Pattern = SurfacePattern::Facade;
     Material tiles;

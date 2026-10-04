@@ -1,10 +1,11 @@
 #include "periodicBand.glsl"
 
-void applyFacade(vec2 encoded, inout vec3 albedo, inout float roughness,
+void applyFacade(vec2 encoded, vec3 paint, inout vec3 albedo, inout float roughness,
                  inout float metalness) {
   if (encoded.x < 0.0) {
     float trim = mod(-encoded.x - 1.0, 16.0);
     float ident = floor((-encoded.x - 1.0) / 16.0);
+    if (trim < 0.5) { albedo *= paint; return; }
     if (trim > 0.5 && trim < 2.5) {
       if (trim > 1.5) {
         albedo *= vec3(0.50, 1.05, 1.45);
@@ -75,7 +76,7 @@ void applyFacade(vec2 encoded, inout vec3 albedo, inout float roughness,
   vec3 glass = albedo * vec3(0.22, 0.30, 0.39);
   vec3 metal = albedo * vec3(0.58, 0.62, 0.65);
   vec3 doorColour = albedo * vec3(0.31, 0.36, 0.39);
-  albedo = albedo * wallTint * max(1.0 - window - frame - door, 0.0) +
+  albedo = albedo * wallTint * paint * max(1.0 - window - frame - door, 0.0) +
            glass * window + metal * frame + doorColour * door;
   roughness = roughness * (1.0 - window - frame) + 0.26 * window + 0.48 * frame;
   metalness = metalness * (1.0 - frame) + 0.42 * frame;

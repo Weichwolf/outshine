@@ -1,6 +1,7 @@
 #include <utility>
 #include <expected>
 #include "StructureBake.h"
+#include "BuildingMaterials.h"
 #include <bit>
 #include "Digest.h"
 
@@ -301,6 +302,8 @@ struct Lumped {
   double BaseSum = 0.0, SeatSum = 0.0, HeightSum = 0.0;
   int Count = 0;
   double PitchedAreaM2 = 0.0, RoofAreaM2 = 0.0;
+  Vec3 WallColourSum{};
+  bool HasWallColour = false;
   LevelOfDetail Level = LevelOfDetail::Fine;
 };
 
@@ -312,6 +315,7 @@ struct Standing {
   double BaseM = 0.0, SeatM = 0.0, HeightM = 0.0;
   double RoofAreaM2 = 0.0;
   bool Pitched = false;
+  std::optional<Vec3f> WallColour;
   LevelOfDetail Level = LevelOfDetail::Fine;
 };
 
@@ -342,6 +346,11 @@ std::expected<void, StructureMeshError> Lump(Lumps &into, Spread over, Standing 
   block.SeatSum += at.SeatM;
   block.HeightSum += at.HeightM;
   block.RoofAreaM2 += at.RoofAreaM2;
+  const Vec3f colour = at.WallColour.value_or(kBuildingWallColour);
+  for (size_t channel = 0; channel < 3; ++channel) {
+    block.WallColourSum[channel] += static_cast<double>(colour[channel]) * at.RoofAreaM2;
+  }
+  block.HasWallColour = block.HasWallColour || at.WallColour.has_value();
   if (at.Pitched) { block.PitchedAreaM2 += at.RoofAreaM2; }
   block.Level = std::max(block.Level, at.Level);
   ++block.Count;
@@ -385,6 +394,13 @@ std::expected<void, StructureMeshError> RaiseLump(const Lumped &of,
   plan.AnchorEcef = raw.AnchorEcef;
   plan.Coarseness = of.Level;
   plan.PitchedShare = of.RoofAreaM2 > 0.0 ? of.PitchedAreaM2 / of.RoofAreaM2 : kPitchedShareUnknown;
+  if (of.HasWallColour && of.RoofAreaM2 > 0.0) {
+    Vec3f colour{};
+    for (size_t channel = 0; channel < 3; ++channel) {
+      colour[channel] = static_cast<float>(of.WallColourSum[channel] / of.RoofAreaM2);
+    }
+    plan.WallColour = colour;
+  }
   return mesher.Mesh(plan, scratch, into);
 }
 
@@ -399,6 +415,7 @@ std::expected<void, StructureMeshError> RaiseLump(const Lumped &of,
   for (const StoredVertex &one : built.RoofCorners) { foldVertex(one); }
   for (const uint32_t one : built.WallRun) { fold(one); }
   for (const uint32_t one : built.RoofRun) { fold(one); }
+  for (const float one : built.WallColours) { fold(std::bit_cast<uint32_t>(one)); }
   return mixed;
 }
 
@@ -644,6 +661,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                               .HeightM = fp.HeightM,
                               .RoofAreaM2 = RingAreaM2(pts, ring),
                               .Pitched = one.Pitched != 0,
+                              .WallColour = one.WallColour,
                               .Level = level},
                              raw.TileSpanM / kBlocksPerTile);
     if (!lumped) { return std::unexpected(lumped.error()); }
@@ -664,6 +682,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.MinimumHeightM = one.MinimumHeightM;
   plan.HeightMeasured = fp.Source == ::outshine::Ground::BuildingHeightSource::Declared;
   plan.PitchedShare = static_cast<double>(one.Pitched);
+  plan.WallColour = one.WallColour;
   plan.Street = fp.Street;
   plan.AnchorEcef = raw.AnchorEcef;
   plan.Coarseness = level;

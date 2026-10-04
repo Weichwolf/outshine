@@ -29,7 +29,8 @@ PlaceStructurePiece(Render::SceneRenderer &renderer,
                     const ClusteredMesh &cut,
                     Render::PieceSurface surface,
                     const Mat4 &row,
-                    bool textured) {
+                    bool textured,
+                    std::span<const float> colours = {}) {
   if (run.empty()) { return Render::PieceHandle{}; }
   if (textured && (std::ranges::any_of(corners,
                                        [](const StoredVertex &v) {
@@ -48,7 +49,7 @@ PlaceStructurePiece(Render::SceneRenderer &renderer,
        .Indices = cooked ? std::span<const uint32_t>(cut.Index) : run,
        .Clusters =
            cooked ? std::span<const DagCluster>(cut.Clusters) : std::span<const DagCluster>(),
-       .Colours = {},
+       .Colours = colours,
        .Row = row,
        .Instances = {},
        .Surface = surface,
@@ -159,8 +160,14 @@ bool TilePieces::Store(uint32_t tile,
                  .Row = row,
                  .Visible = visible};
   const Raised &built = baked.Built;
-  const auto walls = PlaceStructurePiece(
-      *Renderer_, built.WallCorners, built.WallRun, baked.Walls, WallsSurface_, row, true);
+  const auto walls = PlaceStructurePiece(*Renderer_,
+                                         built.WallCorners,
+                                         built.WallRun,
+                                         baked.Walls,
+                                         WallsSurface_,
+                                         row,
+                                         true,
+                                         built.WallColours);
   if (!walls) {
     ++Refused_;
     Why_ = walls.error();

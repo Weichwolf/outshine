@@ -36,6 +36,10 @@ int main() {
       {.SourceId = {.Id = 1,
                     .Kind = static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Node)}});
   const auto key = StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test");
+  raw.Structures.front().WallColour = Vec3f{{0.2f, 0.4f, 0.6f}};
+  CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),
+        "source paint participates in product identity");
+  raw.Structures.front().WallColour.reset();
   raw.Structures.front().SourceId.Kind =
       static_cast<uint8_t>(outshine::Generators::Osm::ElementKind::Way);
   CHECK(key != StructureArtifactKey(raw, *heights, std::nullopt, "native-input-test"),

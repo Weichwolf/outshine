@@ -51,6 +51,7 @@ struct BuildingShape {
   double OverhangM = 0.0;
   uint32_t Seed = 0;
   int Ident = 0;
+  int WallVariant = 0;
   int FrontEdge = -1;
 
   [[nodiscard]] bool Valid() const { return Ring.size() >= 3 && AreaM2 > 1.0; }

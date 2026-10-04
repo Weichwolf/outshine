@@ -49,9 +49,10 @@ void main() {
   roughness = roughenedBy(roughness, mapped.w);
   tangentDir = tangent.xyz;
 #endif
-  vec3 albedo = surface.base.rgb * tap.rgb * colour.rgb;
+  vec3 albedo = surface.base.rgb * tap.rgb;
   float metalness = surface.metalness * orm.b;
-  if (surface.pattern > 0.5) { applyFacade(uv, albedo, roughness, metalness); }
+  if (surface.pattern > 0.5) { applyFacade(uv, colour.rgb, albedo, roughness, metalness); }
+  else { albedo *= colour.rgb; }
   vec4 shaded = vec4(shadeRow(surface, localPosition, shadingNormal, position, albedo,
       metalness, roughness, f0, f90, emission, tangentDir, lightSpace, shadowMap), 1.0);
 #if LIT_KIND == 2

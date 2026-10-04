@@ -20,7 +20,7 @@
 namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
-constexpr uint32_t kVersion = 3;
+constexpr uint32_t kVersion = 4;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -207,11 +207,11 @@ template <typename Archive, typename Tile> bool Product(Archive &archive, Tile &
   if (!archive.List(tile.Built.WallCorners, vertex) ||
       !archive.List(tile.Built.RoofCorners, vertex) || !archive.List(tile.Built.WallRun, scalar) ||
       !archive.List(tile.Built.RoofRun, scalar) || !archive.List(tile.Walls.Clusters, cluster) ||
-      !archive.List(tile.Walls.Index, scalar) || !archive.List(tile.Roofs.Clusters, cluster) ||
-      !archive.List(tile.Roofs.Index, scalar) || !archive.Number(tile.Digest) ||
-      !archive.Number(tile.FallbackHeights) || !archive.Maybe(tile.RequestedDetail, scalar) ||
-      !archive.Maybe(tile.RequestedCell, scalar) || !archive.Maybe(tile.FootprintBounds, bounds) ||
-      !archive.Number(tile.OccupiedCells)) {
+      !archive.List(tile.Built.WallColours, scalar) || !archive.List(tile.Walls.Index, scalar) ||
+      !archive.List(tile.Roofs.Clusters, cluster) || !archive.List(tile.Roofs.Index, scalar) ||
+      !archive.Number(tile.Digest) || !archive.Number(tile.FallbackHeights) ||
+      !archive.Maybe(tile.RequestedDetail, scalar) || !archive.Maybe(tile.RequestedCell, scalar) ||
+      !archive.Maybe(tile.FootprintBounds, bounds) || !archive.Number(tile.OccupiedCells)) {
     return false;
   }
   for (auto &cell : tile.CellBounds) {
@@ -274,7 +274,11 @@ bool Valid(const BakedTile &tile) {
       return false;
     }
   }
-  return MeshValid(tile.Built.WallCorners, tile.Built.WallRun, tile.Walls) &&
+  const bool colourValid =
+      tile.Built.WallColours.empty() ||
+      (tile.Built.WallColours.size() == tile.Built.WallCorners.size() * 4 &&
+       std::ranges::all_of(tile.Built.WallColours, [](float c) { return std::isfinite(c); }));
+  return colourValid && MeshValid(tile.Built.WallCorners, tile.Built.WallRun, tile.Walls) &&
          MeshValid(tile.Built.RoofCorners, tile.Built.RoofRun, tile.Roofs);
 }
 
@@ -362,12 +366,19 @@ StructureArtifactKey(const RawTile &raw,
     if (!writer.Number(original)) { return std::nullopt; }
   }
   const auto structure = [](auto &archive, const RawTile::Structure &value) {
+    const auto colour = [](auto &out, const Vec3f &rgb) {
+      for (float channel : rgb) {
+        if (!out.Number(channel)) { return false; }
+      }
+      return true;
+    };
     return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
            archive.Number(value.SourceFirst) && archive.Number(value.FirstHole) &&
            archive.Number(value.HoleCount) && archive.Number(value.SourceFirstHole) &&
            archive.Number(value.Cell.Index) && bounds(archive, value.Cell.Footprint) &&
            archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
-           archive.Number(value.Pitched) && archive.Number(value.HeightOrigin.has_value()) &&
+           archive.Number(value.Pitched) && archive.Maybe(value.WallColour, colour) &&
+           archive.Number(value.HeightOrigin.has_value()) &&
            (!value.HeightOrigin || archive.Number(*value.HeightOrigin)) &&
            archive.Number(value.SourceId.Kind) && archive.Number(value.SourceId.Id);
   };

@@ -83,6 +83,7 @@ struct RawTile {
     double HeightM = 0.0;
     double MinimumHeightM = 0.0;
     int Pitched = -1;
+    std::optional<Vec3f> WallColour;
     std::optional<outshine::Ground::BuildingHeightOrigin> HeightOrigin = std::nullopt;
     Data::SourceObjectId SourceId{};
   };
