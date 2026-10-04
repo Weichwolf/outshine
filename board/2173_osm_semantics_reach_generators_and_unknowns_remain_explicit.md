@@ -60,7 +60,8 @@ Fehlende Klasse bleibt unbekannt; Schlankheit allein beweist keinen Schornstein/
 [Recherche](../doc/references/README.md): kompakte Regeln statt einer zweiten Gebäudepipeline.
 
 ## Gebäudefarbe bis zum Bild
-Gemeinsamer CssColour-Parser in base; UI und OSM nutzen dieselbe Farbschreibweise.
+Gemeinsamer CssColour-Parser in base; UI und OSM nutzen alle standardisierten CSS-Farbnamen
+und dieselbe Hex-Farbschreibweise. Gültige Quellnamen nicht auf eine Teilpalette reduzieren.
 `building:colour` schlägt OpenMapTiles' Alias `colour`; ungültige/teiltransparente
 Wandfarben melden, nicht als belegte Farbe übernehmen. Linearer Wandfarbparameter im
 Gebäudeplan; vorhandener nativer Vertex-Faktorpfad, optional und ohne OSM-Typen im Renderer.
