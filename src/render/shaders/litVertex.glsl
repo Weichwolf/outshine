@@ -8,7 +8,7 @@
 layout(location = 9) out vec4 tangent;
 layout(location = 4) in vec4 vertexTangent;
 #endif
-layout(std430, set = 0, binding = 0) readonly buffer Placements { mat4 rows[]; };
+#include "subjectPlacement.glsl"
 layout(location = 0) in vec3 p;
 layout(location = 3) in vec3 vertexNormal;
 #if LIT_UVS > 0
@@ -18,13 +18,14 @@ layout(location = 1) in vec2 vertexUv;
 layout(location = 6) in vec2 vertexUv1;
 #endif
 #if LIT_TINTED
-layout(location = 7) in vec4 vertexColour;
+layout(std430, set = 0, binding = 1) readonly buffer ColourFactors { vec4 colourFactors[]; };
 #endif
 #if SUBJECT_WRITES_VELOCITY
 layout(location = 5) in vec3 previous;
 #endif
 void main() {
-  mat4 m = rows[2u * gl_InstanceIndex];
+  GpuPlacement placement = placements[gl_InstanceIndex];
+  mat4 m = placement.current;
   vec4 stable = m * vec4(p, 1.0);
   vec4 world = stable + vec4(s.shift.xyz, 0.0);
   gl_Position = s.viewProj * world;
@@ -43,7 +44,7 @@ void main() {
   uv1 = vertexUv1;
 #endif
 #if LIT_TINTED
-  colour = vertexColour;
+  colour = colourFactors[placement.colourOffset + uint(gl_VertexIndex)];
 #endif
 #if LIT_MAPPED
   tangent = vec4(normalize(m[0].xyz * vertexTangent.x + m[1].xyz * vertexTangent.y +
@@ -51,7 +52,7 @@ void main() {
 #endif
 #if SUBJECT_WRITES_VELOCITY
   curClip = gl_Position;
-  mat4 previousPlacement = rows[2u * gl_InstanceIndex + 1u];
+  mat4 previousPlacement = placement.previous;
   previousPlacement[3] += vec4(s.prevShift.xyz, 0.0);
   prevClip = s.prevViewProj * (previousPlacement * vec4(previous, 1.0));
 #endif

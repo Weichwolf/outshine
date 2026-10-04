@@ -114,13 +114,12 @@ int main() {
           "job references read from the actual GPU buffer");
     CHECK(rows.FromBuffer(device.Get(),
                           resident.Buffer(SubjectResidency::Stream::Placements).Get(),
-                          6 * 32 * sizeof(float)) == ReadState::Ready,
+                          6 * sizeof(GpuPlacement)) == ReadState::Ready,
           "instance transforms read from the actual GPU buffer");
     if (spheres.Rows() == nullptr || jobs.Rows() == nullptr || rows.Rows() == nullptr) {
       return Report();
     }
     const auto *words = reinterpret_cast<const uint32_t *>(jobs.Rows());
-    const auto *matrices = reinterpret_cast<const float *>(rows.Rows());
     constexpr std::array<uint32_t, 9> wantedSpheres{0, 1, 0, 1, 0, 1, 2, 2, 2};
     constexpr std::array<uint32_t, 9> wantedBatches{0, 0, 1, 1, 2, 2, 3, 4, 5};
     for (size_t job = 0; job < wantedSpheres.size(); ++job) {
@@ -132,10 +131,12 @@ int main() {
     }
     for (size_t row = 0; row < draw.Drawn().size(); ++row) {
       const auto slot = draw.Drawn()[row].ModelSlot;
+      GpuPlacement placement;
+      std::memcpy(&placement, rows.Rows() + slot * sizeof(GpuPlacement), sizeof(placement));
       const Mat4 &wanted = row < 3 ? instances[row] : otherInstances[row - 3];
       for (size_t component = 0; component < 16; ++component) {
-        CHECK(matrices[slot * 32 + component] == static_cast<float>(wanted[component]) &&
-                  matrices[slot * 32 + 16 + component] == static_cast<float>(wanted[component]),
+        CHECK(placement.Current[component] == static_cast<float>(wanted[component]) &&
+                  placement.Previous[component] == static_cast<float>(wanted[component]),
               "current and previous instance transforms remain distinct and intact");
       }
     }

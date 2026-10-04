@@ -133,7 +133,7 @@ struct VertexRun {
   uint32_t Location = 0;
 };
 
-inline constexpr uint32_t kMostVertexRuns = 7;
+inline constexpr uint32_t kMostVertexRuns = 6;
 
 [[nodiscard]] constexpr uint32_t
 RunsOf(VertexLayout layout, bool writesVelocity, std::span<VertexRun> out) {
@@ -143,7 +143,6 @@ RunsOf(VertexLayout layout, bool writesVelocity, std::span<VertexRun> out) {
   if (CarriesUv1(layout)) { out[n++] = VertexRun{.Floats = 2, .Location = 6}; }
   out[n++] = VertexRun{.Floats = 3, .Location = CarriesNormal(layout) ? 3u : 2u};
   if (CarriesTangent(layout)) { out[n++] = VertexRun{.Floats = 4, .Location = 4}; }
-  if (CarriesColour(layout)) { out[n++] = VertexRun{.Floats = 4, .Location = 7}; }
   if (writesVelocity) { out[n++] = VertexRun{.Floats = 3, .Location = 5}; }
   return n;
 }

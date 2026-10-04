@@ -22,6 +22,7 @@
 #include "KernelShape.h"
 #include "GroundLattice.h"
 #include "SubjectResidency.h"
+#include "GpuPlacement.h"
 #include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
 
@@ -411,7 +412,7 @@ private:
   Mat4 ModelBefore_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   uint64_t ModelStamp_ = 0;
   uint64_t Frame_ = 1;
-  std::vector<float> Rows_;
+  std::vector<GpuPlacement> Rows_;
 
   std::vector<uint32_t> Args_;
   uint32_t Jobs_ = 0;
@@ -420,6 +421,7 @@ private:
   struct Piece {
     SubjectResidency::Range V;
     SubjectResidency::Range I;
+    SubjectResidency::Range C;
     uint32_t IndexCount = 0;
     PieceSurface Surface;
     VertexLayout Layout = VertexLayout::PositionNormal;
@@ -445,8 +447,15 @@ private:
   bool TablesStale_ = false;
 
   [[nodiscard]] bool RoomForStreams(std::string &error);
+
+  struct OptionalStreamEnds {
+    uint32_t VertexEnd;
+    uint32_t ColourEnd;
+  };
+
   [[nodiscard]] bool
-  RoomForOptionalStreams(uint32_t vertexEnd, VertexRunsCarried carried, std::string &error);
+  RoomForOptionalStreams(OptionalStreamEnds ends, VertexRunsCarried carried, std::string &error);
+  void BindPlacementStorage(const PassRecording &into);
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildSubjectBatches(std::string &error);
   void PrepareSubjectTables();

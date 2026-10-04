@@ -5,7 +5,8 @@
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 layout(std430, set = 0, binding = 0) readonly buffer Buffer_spheres { vec4 spheres[]; };
 layout(std430, set = 0, binding = 1) readonly buffer Buffer_jobs { uvec4 jobs[]; };
-layout(std430, set = 0, binding = 2) readonly buffer Buffer_rows { mat4 rows[]; };
+#define PLACEMENT_BINDING 2
+#include "subjectPlacement.glsl"
 layout(std430, set = 0, binding = 3) readonly buffer Buffer_args { uint args[]; };
 layout(std430, set = 0, binding = 4) readonly buffer Buffer_pyramid { float pyramid[]; };
 layout(std430, set = 1, binding = 0) buffer Buffer_kept { uint kept[]; };
@@ -19,7 +20,7 @@ void main() {
   uint id = gl_GlobalInvocationID.x;
   if (id >= view.jobs) { return; }
   const uvec4 job = jobs[id];
-  const mat4 model = rows[2u * args[5u * job.y + 4u]];
+  const mat4 model = placements[args[5u * job.y + 4u]].current;
   const vec4 sphere = spheres[job.x * kClusterFloat4s];
   const vec4 parent = spheres[job.x * kClusterFloat4s + 1u];
   const vec4 errs = spheres[job.x * kClusterFloat4s + 2u];

@@ -12,6 +12,7 @@
 
 #include "Check.h"
 #include "GpuOwned.h"
+#include "GpuPlacement.h"
 #include "KernelShape.h"
 #include "Lens.h"
 #include "PreparedRoot.h"
@@ -566,8 +567,9 @@ bool ConfigureImported(Fixture &fixture, TextureUploadCounts &counts) {
       emitted[vertexIndex * 3u + channel] = material.Row.BaseColour[channel];
     }
   }
-  constexpr std::array<float, 32> placements = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
-                                                1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  constexpr std::array placements = {
+      GpuPlacement{.Current = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+                   .Previous = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}};
   if (!UploadBuffer(fixture,
                     std::as_bytes(part.PositionsM),
                     SDL_GPU_BUFFERUSAGE_VERTEX,

@@ -104,7 +104,7 @@ int main() {
         if (second) {
           CHECK(verify(Stream::Uv1, uv, resident.SubjectVertices().First),
                 "main second UVs reach their independently addressed GPU range");
-          CHECK(verify(Stream::Colour, colours, resident.SubjectVertices().First),
+          CHECK(verify(Stream::Colour, colours, resident.SubjectColours().First),
                 "main colours reach their independently addressed GPU range");
         }
         const auto previousBytes = resident.HeldOf(Stream::Previous);
@@ -112,6 +112,7 @@ int main() {
                   verify(Stream::Previous, previous, resident.SubjectVertices().First),
               "subject previous pose remains independently addressed after a rigid piece");
         const auto pieceFirst = resident.VertexRoom();
+        const auto pieceColourFirst = resident.SubjectColours().Count;
         CHECK(draw.PlacePiece(PieceMesh{.Tangents = tangents,
                                         .Verts = vertices,
                                         .Indices = indices,
@@ -119,10 +120,25 @@ int main() {
                                         .Textured = true},
                               error) != kNoPiece,
               "independent tangent-bearing piece reserves and uploads its own range");
+        CHECK(draw.HandTables(error) && draw.HandPlacements(false, error),
+              "independent pieces publish their explicit colour addressing");
+        Readback placements;
+        const auto colourSlot = draw.Drawn().back().ModelSlot;
+        CHECK(placements.FromBuffer(device.Get(),
+                                    resident.Buffer(Stream::Placements).Get(),
+                                    (colourSlot + 1) * sizeof(GpuPlacement)) == ReadState::Ready,
+              "placement addressing reads from the actual GPU buffer");
+        if (placements.Rows() != nullptr) {
+          GpuPlacement placement;
+          std::memcpy(
+              &placement, placements.Rows() + colourSlot * sizeof(GpuPlacement), sizeof(placement));
+          CHECK(placement.ColourOffset + pieceFirst == pieceColourFirst,
+                "GPU placement maps piece indices into compact colour storage");
+        }
         CHECK(verify(Stream::Uv, uv, resident.SubjectVertices().First),
               "later piece growth preserves the earlier main UV bytes");
         if (second) {
-          CHECK(verify(Stream::Colour, colours, resident.SubjectVertices().First),
+          CHECK(verify(Stream::Colour, colours, resident.SubjectColours().First),
                 "later piece growth preserves the earlier main colour bytes");
         }
         const auto colourBytes = resident.HeldOf(Stream::Colour);
@@ -142,7 +158,7 @@ int main() {
         const auto cleared = draw.BeginMesh(empty);
         CHECK(cleared.has_value(), "main mesh clears without retiring independent pieces");
         CHECK(draw.PiecesStanding() == 5 && verify(Stream::Tangent, tangents, pieceFirst) &&
-                  verify(Stream::Colour, colours, pieceFirst),
+                  verify(Stream::Colour, colours, pieceColourFirst),
               "independent tangent and colour data survive removal of the main mesh");
       }
     }

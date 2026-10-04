@@ -3,7 +3,7 @@
 #include "subjectView.glsl"
 #define VARYING out
 #include "flatVaryings.glsl"
-layout(std430, set = 0, binding = 0) readonly buffer Placements { mat4 rows[]; };
+#include "subjectPlacement.glsl"
 layout(location = 0) in vec3 p;
 layout(location = 2) in vec3 emission;
 #if FLAT_UVS > 0
@@ -13,13 +13,14 @@ layout(location = 1) in vec2 vertexUv;
 layout(location = 6) in vec2 vertexUv1;
 #endif
 #if FLAT_TINTED
-layout(location = 7) in vec4 vertexColour;
+layout(std430, set = 0, binding = 1) readonly buffer ColourFactors { vec4 colourFactors[]; };
 #endif
 #if SUBJECT_WRITES_VELOCITY
 layout(location = 5) in vec3 previous;
 #endif
 void main() {
-  mat4 placement = rows[2u * gl_InstanceIndex];
+  GpuPlacement placed = placements[gl_InstanceIndex];
+  mat4 placement = placed.current;
   placement[3] += vec4(s.shift.xyz, 0.0);
   gl_Position = s.viewProj * (placement * vec4(p, 1.0));
   uv = vec2(0.0);
@@ -32,12 +33,12 @@ void main() {
   uv1 = vertexUv1;
 #endif
 #if FLAT_TINTED
-  colour = vertexColour;
+  colour = colourFactors[placed.colourOffset + uint(gl_VertexIndex)];
 #endif
   emitted = emission;
 #if SUBJECT_WRITES_VELOCITY
   curClip = gl_Position;
-  mat4 previousPlacement = rows[2u * gl_InstanceIndex + 1u];
+  mat4 previousPlacement = placed.previous;
   previousPlacement[3] += vec4(s.prevShift.xyz, 0.0);
   prevClip = s.prevViewProj * (previousPlacement * vec4(previous, 1.0));
 #endif
