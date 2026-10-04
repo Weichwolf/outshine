@@ -73,7 +73,7 @@ struct Patchwork {
   }
 };
 
-enum class EarthworkKind : uint8_t { Pad, Corridor, Basin };
+enum class EarthworkKind : uint8_t { Pad, Corridor, Basin, Clearance };
 
 struct ProfiledCorridorSpan {
   uint64_t CorridorKey = 0;

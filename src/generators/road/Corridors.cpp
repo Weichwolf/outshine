@@ -431,13 +431,13 @@ void Corridors::PaveEdge(const Paving &on,
                                  pavement);
   }
   into.SweepMs += since();
-  YieldsOf(on, lane, into, corridor);
+  AppendTerrainStamps(on, lane, into, corridor);
 }
 
-void Corridors::YieldsOf(const Paving &on,
-                         const ::outshine::Generators::Osm::StreetField::Way &lane,
-                         Paved &into,
-                         std::vector<EarthworkStamp> &corridor) {
+void Corridors::AppendTerrainStamps(const Paving &on,
+                                    const ::outshine::Generators::Osm::StreetField::Way &lane,
+                                    Paved &into,
+                                    std::vector<EarthworkStamp> &corridor) {
   const auto yieldsAt = std::chrono::steady_clock::now();
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double runE = into.Along[at].EastM - into.Along[at - 1u].EastM;
@@ -503,7 +503,7 @@ void Corridors::YieldsOf(const Paving &on,
           into.Along[at - 1u].NorthM - outN * static_cast<double>(lane.HalfWidthM)};
     }
     made.Fills = !lane.Bridge;
-    made.Kind = outshine::EarthworkKind::Corridor;
+    made.Kind = lane.Bridge ? EarthworkKind::Clearance : EarthworkKind::Corridor;
     corridor.push_back(std::move(made));
   }
   into.YieldsMs +=
@@ -1160,7 +1160,7 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
     const RoadGate &gate = made.Gates[static_cast<size_t>(&leg - legs.data())];
     into.Edges[leg.Edge].GradeAtM[leg.End] = gate.GradeM;
   }
-  PressesUnder(made, rootsM, into);
+  AppendJunctionTerrainStamp(made, rootsM, decked, into);
   made.Legs = std::move(legs);
   into.MostOffGroundM = std::max(into.MostOffGroundM, std::fabs(made.GradeM - rootsM));
   into.Junctions.push_back(std::move(made));
@@ -1190,7 +1190,10 @@ void Corridors::LiesOnItsPlane(const Paving &on, Junction &made, Paved &into) {
       into.SteepestJunction, std::sqrt(made.SlopeE * made.SlopeE + made.SlopeN * made.SlopeN));
 }
 
-void Corridors::PressesUnder(const Junction &made, double rootsM, Paved &into) {
+void Corridors::AppendJunctionTerrainStamp(const Junction &made,
+                                           double rootsM,
+                                           bool elevated,
+                                           Paved &into) {
   struct Corner {
     double AroundRad = 0.0;
     double EastM = 0.0;
@@ -1234,8 +1237,8 @@ void Corridors::PressesUnder(const Junction &made, double rootsM, Paved &into) {
   under.YieldM = std::max(std::fabs(made.GradeM - rootsM), kBrokenGroundM);
   under.ApronM = std::clamp(kBatterRun * under.YieldM, kLeastApronM, kMostApronM);
   under.SeamEastNorthM = under.RingEastNorthM;
-  under.Fills = true;
-  under.Kind = outshine::EarthworkKind::Corridor;
+  under.Fills = !elevated;
+  under.Kind = elevated ? EarthworkKind::Clearance : EarthworkKind::Corridor;
   into.UnderJunctions.push_back(std::move(under));
 }
 

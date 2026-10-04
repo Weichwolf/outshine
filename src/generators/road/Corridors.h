@@ -281,16 +281,17 @@ private:
                         std::unordered_map<uint64_t, std::vector<Leg>> &legsAt);
   static void GatesOf(std::span<const Leg> legs, const Paved &into, Junction &made);
   static void LiesOnItsPlane(const Paving &on, Junction &made, Paved &into);
-  static void PressesUnder(const Junction &made, double rootsM, Paved &into);
+  static void
+  AppendJunctionTerrainStamp(const Junction &made, double rootsM, bool elevated, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
   static void ShapesJunctions(const Paving &on, Paved &into);
   static void DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &lane,
                          const Edge &edge,
                          Paved &into);
-  static void YieldsOf(const Paving &on,
-                       const ::outshine::Generators::Osm::StreetField::Way &lane,
-                       Paved &into,
-                       std::vector<EarthworkStamp> &corridor);
+  static void AppendTerrainStamps(const Paving &on,
+                                  const ::outshine::Generators::Osm::StreetField::Way &lane,
+                                  Paved &into,
+                                  std::vector<EarthworkStamp> &corridor);
   static void IslandOf(const Paving &on,
                        const ::outshine::Generators::Osm::StreetField::Way &lane,
                        std::span<const RoadStation> along,

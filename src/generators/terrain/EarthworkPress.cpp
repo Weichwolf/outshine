@@ -234,10 +234,10 @@ void BidsBasin(const EarthworkStamp &held, Bid bid, Bids *bids) {
   }
 }
 
-void BidsLand(const EarthworkStamp &held, Bid bid, Bids *bids) {
+void BidsTerrain(const EarthworkStamp &held, Bid bid, Bids *bids) {
   const double out = std::max(bid.OutsideM, 0.0);
   if (out > held.ApronM) { return; }
-  bids->LandHeld = true;
+  bids->LandHeld = bids->LandHeld || held.Kind != EarthworkKind::Clearance;
   const double cutAt = bid.WantsM + out * kBatterRise;
   if (cutAt < bids->LowestM) {
     bids->LowestM = cutAt;
@@ -247,7 +247,7 @@ void BidsLand(const EarthworkStamp &held, Bid bid, Bids *bids) {
     bids->RoofM = cutAt;
     bids->RoofBy = bid.Which;
   }
-  if (!held.Fills) { return; }
+  if (!held.Fills || held.Kind == EarthworkKind::Clearance) { return; }
   const double fillAt = bid.WantsM - out * kBatterRise;
   if (fillAt > bids->HighestM) {
     bids->HighestM = fillAt;
@@ -357,7 +357,7 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
     if (covered.Into != nullptr && bid.OutsideM < 0.0) {
       covered.Into->push_back({.Point = covered.Point, .Stamp = which});
     }
-    BidsLand(held, bid, &bids);
+    BidsTerrain(held, bid, &bids);
   }
   if (const auto profiled = ProfileBidAt(these, over, structures, at, wasM)) {
     const Bid bid = profiled.value();
@@ -365,7 +365,7 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
     if (covered.Into != nullptr && bid.OutsideM < 0.0) {
       covered.Into->push_back({.Point = covered.Point, .Stamp = bid.Which});
     }
-    BidsLand(road, bid, &bids);
+    BidsTerrain(road, bid, &bids);
   }
   if (!bids.LandHeld && bids.BasinM < bids.LowestM) {
     bids.LowestM = bids.BasinM;

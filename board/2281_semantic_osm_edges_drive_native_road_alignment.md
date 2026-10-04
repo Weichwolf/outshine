@@ -19,10 +19,16 @@ OSM-Adapter besitzt Quellsemantik, world/navigation das logische Netz; generator
 Profile/Geometrie, Terrain die Kontaktdeformation. Vorhandene Linien/Produkte reichen für
 den nächsten Schritt. Erst einen realen Stadt-/Hafenanschluss samt Brücke bis zum Bild liefern;
 keine vollständige Quellenmigration oder Hockenheim-Runde als Vorbedingung.
-Zuerst `Corridors::YieldsOf` und `EarthworkPress::BidsLand` trennen: der vorhandene
-Freiraumschnitt unter Brückenspannen beansprucht derzeit Boden und sperrt dadurch Becken-
-Vertiefung. Ein nativer Freiraumauftrag setzt eine Höhenobergrenze, besitzt aber keinen
-Bodenkontakt; Widerlager/Anschlussrampen besitzen ihre tatsächlichen Kontakte.
+Native `EarthworkKind::Clearance`-Aufträge schneiden nur Terrain oberhalb ihrer Grenze;
+sie füllen nie Boden und sperren keine tiefere Becken-Vertiefung. `Corridors::AppendTerrainStamps`
+und `AppendJunctionTerrainStamp` erzeugen sie für Brückenspannen und erhöhte Knoten;
+`EarthworkPress::BidsTerrain` trennt sie von tatsächlichen Kontakten. Widerlager und
+Anschlussrampen behalten ihre Kontakte. Husums künstlicher Bodenriegel unter der Brücke
+ist im Runtime-Bild beseitigt; breite Uferböschungen bleiben bei 2145 offen.
+Nächster Schritt: Wasserfreiraum bereits beim Entwurf bestimmen, bevor Endhöhen, Rampen
+und Knoten entstehen. `MarksWaterCrossing` wird derzeit erst beim Pflastern aufgerufen;
+dadurch können Knoten auf Bodenhöhe bleiben, obwohl ihr Überbau danach angehoben wird.
+Überbau, Auflager und Geländer anschließend aus demselben durchgehenden Profil erzeugen.
 
 ## Verfahren
 - Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren. MVT ist
