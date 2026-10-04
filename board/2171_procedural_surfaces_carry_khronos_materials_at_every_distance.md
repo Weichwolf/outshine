@@ -29,6 +29,10 @@ Dächer müssen ihre vorhandenen Koordinaten bis zum Shader behalten. Materialwa
 je Gebäude und LOD stabil, statt jeder Fläche unabhängig eine Farbe zu geben.
 Plausible Farb-/Baustoffvarianten sind keine belegten OSM-Materialangaben. Keine neuen
 Dreiecke, Disktexturen oder Fassadenmeshes pro Ferngebäude. Bestehende Fensterfilter erhalten.
+Zuerst vorhandene Dachcodes bis zur Runtime erhalten: Flachdächer neutral/rau, geneigte
+Dächer mit stabilen gedeckten Ziegel-/Schiefervarianten. Das sind plausible Ergänzungen;
+gelieferte Farbe/Material benötigt weiterhin einen nativen Parameterpfad. Wandvariation
+folgt mit einer Identitätskodierung, die auch bei hohen Gebäuden konstant bleibt.
 
 ## Verfahren
 - Metrische Ziegel-/Backsteinraster mit gefilterten Fugen, Putzkorn/Betonporen. Cell-Hash

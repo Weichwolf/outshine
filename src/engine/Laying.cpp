@@ -799,6 +799,7 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
     tiles.BaseColour[1] = kTileGreen;
     tiles.BaseColour[2] = kTileBlue;
     tiles.Roughness = kTileRoughness;
+    tiles.Pattern = SurfacePattern::Facade;
     if (!materials.addSurface("walls", walls) || !materials.addSurface("roofs", tiles)) {
       Error = Says::MaterialCreationFailed;
       return false;

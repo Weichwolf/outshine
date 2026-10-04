@@ -39,7 +39,7 @@ PlaceStructurePiece(Render::SceneRenderer &renderer,
                    std::ranges::all_of(corners, [](const StoredVertex &v) {
                      return v.uv()[0] == 0.0f && v.uv()[1] == 0.0f;
                    }))) {
-    return std::unexpected("generated building wall has invalid facade coordinates");
+    return std::unexpected("generated building surface has invalid facade coordinates");
   }
   const bool cooked = cut.Index.size() == run.size() && !cut.Clusters.empty();
   return renderer.PlaceStructurePiece(
@@ -169,7 +169,7 @@ bool TilePieces::Store(uint32_t tile,
   }
   stood.Walls = *walls;
   const auto roofs = PlaceStructurePiece(
-      *Renderer_, built.RoofCorners, built.RoofRun, baked.Roofs, RoofsSurface_, row, false);
+      *Renderer_, built.RoofCorners, built.RoofRun, baked.Roofs, RoofsSurface_, row, true);
   if (!roofs) {
     Releases(stood);
     ++Refused_;

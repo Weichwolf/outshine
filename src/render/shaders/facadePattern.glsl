@@ -4,6 +4,29 @@ void applyFacade(vec2 encoded, inout vec3 albedo, inout float roughness,
                  inout float metalness) {
   if (encoded.x < 0.0) {
     float trim = mod(-encoded.x - 1.0, 16.0);
+    float ident = floor((-encoded.x - 1.0) / 16.0);
+    if (trim > 0.5 && trim < 2.5) {
+      if (trim > 1.5) {
+        albedo *= vec3(0.50, 1.05, 1.45);
+        roughness = max(roughness, 0.90);
+      } else {
+        float variant = mod(ident, 8.0);
+        vec3 tint = vec3(1.0);
+        if (variant < 2.0) {
+          tint = vec3(0.20, 0.43, 0.71);
+          roughness = max(roughness, 0.78);
+        } else if (variant < 4.0) {
+          tint = vec3(0.60, 0.65, 0.75);
+          roughness = max(roughness, 0.84);
+        } else if (variant > 5.5 && variant < 6.5) {
+          tint = vec3(0.85, 1.10, 1.10);
+        } else if (variant > 6.5) {
+          tint = vec3(0.65, 0.90, 1.12);
+        }
+        albedo *= tint;
+      }
+      return;
+    }
     if (trim > 7.5 && trim < 8.5) {
       albedo *= vec3(0.68, 0.70, 0.72);
       roughness = max(roughness, 0.91);

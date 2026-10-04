@@ -13,6 +13,9 @@ Tags: buildings, roofs, facades, semantics
 Vollständige Grundrisse/Höfe/Parts, plausible Dächer/Sonderbauten und räumliche Nahfassaden.
 BuildingHeightInterval, native Footprints, StructureBake/BuildingMesh und Terrain-Stempel
 bestehen. Klassen-/Dachpläne sind lückenhaft; facadePattern zeichnet bisher flache Fenster.
+Rohattribute bleiben unverändert verfügbar; kanonische Abfragen erhalten Originalwerte
+und bevorzugen ausdrücklich gelieferte Schlüssel. Sonderklassen und Farbparameter fehlen
+noch im nativen Gebäudeplan.
 
 ## Besitzer und nächste Lieferung
 OSM-Adapter normalisiert lieferbare Semantik; generators/building besitzt einen gemeinsamen
