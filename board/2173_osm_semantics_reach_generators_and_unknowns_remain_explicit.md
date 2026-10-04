@@ -12,7 +12,7 @@ Tags: buildings, roofs, facades, semantics
 ## Ergebnis und Ist
 Vollständige Grundrisse/Höfe/Parts, plausible Dächer/Sonderbauten und räumliche Nahfassaden.
 BuildingHeightInterval, native Footprints, StructureBake/BuildingMesh und Terrain-Stempel
-bestehen. Klassen-/Dachpläne sind lückenhaft; facadePattern zeichnet bisher flache Fenster.
+bestehen. Klassen-/Dachpläne sind lückenhaft; pauschale Fenster entfallen; Öffnungen benötigen gezielte Platzierungsregeln.
 Rohattribute bleiben unverändert verfügbar; kanonische Abfragen erhalten Originalwerte
 und bevorzugen ausdrücklich gelieferte Schlüssel. Gelieferte Wandfarben erreichen den nativen
 Plan und Renderer. Dichte GPU-Farbadressierung vermeidet Leerräume; Sonderklassen und
