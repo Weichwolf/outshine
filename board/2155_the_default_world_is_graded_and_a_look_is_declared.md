@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P1
 Parent: 2169
@@ -16,12 +16,32 @@ Weltwirkung und Kameraantwort sind unzureichend oder nicht am Place belegt.
 subjectLighting prüft derzeit die gemeinsame Lichtliste je Fragment und vergleicht
 Sonnentiefe mit einem einzelnen ungefilterten Shadow-Lookup. Das erklärt weder alle
 Bildfehler noch gemessene Kosten; beide Pfade sind konkrete Ausbaupunkte.
+Die Umgebungsspekularantwort verwendet derzeit denselben gemittelten Himmels-/Bodenanteil
+wie Diffuse; Reflexionsrichtung und Roughness fehlen. Das lässt Glas/Metall flach erscheinen.
 
 ## Besitzer und nächste Lieferung
 Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing; PlaceCamera/Referenzkatalog
 Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Bergansicht
 über Himmelsfüllung, Sonnenschatten und Belichtung verbessern. Kein Quellen-/SDK-Blocker.
 2172 ergänzt später denselben Lichtzustand um Wolken und Wetter.
+
+## Aktueller Ausbau: gemeinsame Umgebungsreflexion
+- Gemeinsame Himmelsabfrage für Hintergrund und Reflexion, einschließlich Horizont und
+  Texelzentren; Sonnenprojektion am Zenit bleibt endlich. Erst diesen vorhandenen Vertrag
+  anschließen, dann MediumRadiance → EnvironmentSpec → Gebäude/Terrain/Wasser integrieren.
+- Renderer besitzt einen GPU-vorgefilterten GGX-Atlas: sieben Roughness-Stufen, 64² nutzbare
+  Texel je Stufe, je ein Randtexel. RGBA16F: 66 × 66 × 7 × 8 = 243936 Byte (238,2 KiB).
+  Deterministische begrenzte Samples; Octaeder-Ränder korrekt fortsetzen, zwei gefilterte
+  Abfragen interpolieren Roughness. Das Layout vermeidet neue Cubemap-Subresource-Verwaltung.
+- BRDF-Split-Sum aus demselben GGX/Smith-Modell wie Direktlicht; vorhandene Tabellenerzeugung
+  erweitern. Sonne bleibt getrenntes Direktlicht, nicht doppelt in Reflexionen rechnen.
+  Welt-Up/Sonnenrichtung explizit im typisierten CPU/GPU-Lichtvertrag, keine Lichtindexannahme.
+- Atlas hängt an Medium, Sonnenstand, Augenhöhe und Quellprodukt. Submission/Invalidierung
+  und Abschluss-Fence in bestehende Weltvorbereitung integrieren; kein Aufwärmframe.
+  Erst Himmel und gemittelter Boden: fehlende lokale Weltreflexion bleibt eine benannte Lücke.
+  Wolken/Nachtkörper und später SSR/Probes ergänzen dieselbe Lichtwelt. Keine Objektsonderfarben.
+- Filament `ef1a133d`, `surface_light_indirect.fs`/`CubemapIBL.cpp` und UE4/Frostbite-Kursnotizen
+  liefern Vergleichsmodelle. GPU-Bild, Rauheitsverlauf, Energie und Kosten entscheiden.
 
 ## Verfahren
 ### Gemeinsamer Look
