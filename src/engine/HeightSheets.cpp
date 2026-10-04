@@ -11,6 +11,7 @@
 #include <optional>
 #include <ranges>
 #include <span>
+#include <tuple>
 #include <utility>
 #include <string>
 #include <vector>
@@ -31,6 +32,10 @@ static_assert(kPatchGrid + 1 == Render::GroundLattice::kSide,
               "the surface the roads are draped on");
 
 namespace {
+
+[[nodiscard]] auto TileKey(Data::TileId tile) {
+  return std::tuple(tile.Zoom, tile.X, tile.Y);
+}
 
 [[nodiscard]] double FractionOf(int k, uint32_t postings, int side) {
   return static_cast<double>(Ground::ChunkNodePosting(k, postings, side)) /
@@ -104,6 +109,11 @@ void CopiesEdgeIntoRim(std::vector<float> &page, const std::vector<bool> &missin
 }
 
 const Ground::TerrainField *HeightSheets::FieldAt(Data::TileId tile) const {
+  if (RequestsPrepared_ && ResolvedRequests_ == Requests_.size()) {
+    const auto found = std::ranges::lower_bound(
+        Fields_, TileKey(tile), {}, [](const auto &one) { return TileKey(one.first); });
+    return found != Fields_.end() && found->first == tile ? found->second.get() : nullptr;
+  }
   for (const auto &one : Fields_) {
     if (one.first == tile) { return one.second.get(); }
   }
@@ -141,6 +151,7 @@ std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &ca
     for (const Data::TileId tile : *tiles) { Requests_.push_back({.Tile = tile}); }
     RequestsPrepared_ = true;
   }
+  if (ResolvedRequests_ == Requests_.size()) { return true; }
   for (size_t checked = 0;
        checked < preparation.RequestsMost && ResolvedRequests_ < Requests_.size();
        ++checked) {
@@ -164,7 +175,9 @@ std::expected<bool, std::string> HeightSheets::PrepareFields(const Patchwork &ca
     request.Resolved = true;
     ++ResolvedRequests_;
   }
-  return ResolvedRequests_ == Requests_.size();
+  if (ResolvedRequests_ != Requests_.size()) { return false; }
+  std::ranges::sort(Fields_, {}, [](const auto &one) { return TileKey(one.first); });
+  return true;
 }
 
 std::string HeightSheets::FieldDiagnostic() const {
