@@ -1,6 +1,9 @@
 #include "SourceSet.h"
 
 #include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cassert>
@@ -22,6 +25,7 @@ namespace outshine::Data {
 constexpr double kMsPerS = 1000.0;
 
 namespace {
+constexpr double kNsPerMs = 1'000'000.0;
 constexpr double kRetryBaseMs = 250.0;
 constexpr double kRetryCapMs = 4000.0;
 constexpr int kRetryCapExponent = 4;
@@ -280,7 +284,7 @@ std::optional<Delivery> SourceSet::StartCurrent(Query &query, Transport &transpo
 }
 
 void SourceSet::RecordProviderCall(DataKind kind, std::chrono::steady_clock::time_point began) {
-  const size_t at = static_cast<size_t>(kind);
+  const auto at = static_cast<size_t>(kind);
   if (at >= ProviderNs_.size()) { return; }
   const auto ns =
       std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - began)
@@ -425,7 +429,7 @@ SourceSet::ProviderCosts() const {
   std::array<Ledger::ProviderCost, Ledger::KindCount> out{};
   for (size_t at = 0; at < out.size(); ++at) {
     out[at].Calls = ProviderCalls_[at].load(std::memory_order_relaxed);
-    out[at].Ms = static_cast<double>(ProviderNs_[at].load(std::memory_order_relaxed)) / 1e6;
+    out[at].Ms = static_cast<double>(ProviderNs_[at].load(std::memory_order_relaxed)) / kNsPerMs;
   }
   return out;
 }

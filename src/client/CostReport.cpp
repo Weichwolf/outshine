@@ -1,10 +1,14 @@
 #include "CostReport.h"
 
 #include <print>
+#include <span>
+#include <string_view>
 #include <string>
 
 namespace outshine::Client {
 namespace {
+
+constexpr double kBytesPerMiB = 1024.0 * 1024.0;
 
 double Value(std::span<const DiagnosticSample> samples, std::string_view name) {
   for (const auto &sample : samples) {
@@ -49,10 +53,10 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
       "hits/miss={:.0f}/{:.0f} decoded={:.0f}/{:.0f} evict={:.0f}",
       scene,
       get("cost.cache.read_ms"),
-      get("cost.cache.read_bytes") / 1048576.0,
+      get("cost.cache.read_bytes") / kBytesPerMiB,
       get("cost.cache.read_calls"),
       get("cost.cache.write_ms"),
-      get("cost.cache.write_bytes") / 1048576.0,
+      get("cost.cache.write_bytes") / kBytesPerMiB,
       get("cost.cache.hits"),
       get("cost.cache.misses"),
       get("cost.cache.decoded_hits"),

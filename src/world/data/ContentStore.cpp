@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <atomic>
 #include <cstdio>
@@ -22,6 +23,7 @@
 namespace outshine::Data {
 namespace {
 
+constexpr double kNsPerMs = 1'000'000.0;
 constexpr size_t kDefaultCapBytes = 2ull << 30u;
 
 constexpr const char *kDefaultLeaf = "outshine-content";
@@ -43,8 +45,10 @@ constexpr size_t kKeyCharacters = 64;
          });
 }
 
-[[nodiscard]] static std::optional<std::vector<uint8_t>> ReadCacheFile(const std::string &path,
-                                                                       size_t limit) {
+namespace {
+
+[[nodiscard]] std::optional<std::vector<uint8_t>> ReadCacheFile(const std::string &path,
+                                                                size_t limit) {
   std::error_code error;
   if (!std::filesystem::is_regular_file(std::filesystem::symlink_status(path, error)) || error) {
     return std::nullopt;
@@ -63,6 +67,8 @@ constexpr size_t kKeyCharacters = 64;
   }
   if (std::fclose(file.release()) != 0) { return std::nullopt; }
   return bytes;
+}
+
 }
 
 std::optional<std::vector<uint8_t>> ContentStore::ReadEntry(const std::string &path,
@@ -250,8 +256,8 @@ ContentStore::Ledger ContentStore::Counters() const {
   out.ReadCalls = ReadCalls_.load(std::memory_order_relaxed);
   out.ReadBytes = ReadBytes_.load(std::memory_order_relaxed);
   out.WriteBytes = WriteBytes_.load(std::memory_order_relaxed);
-  out.ReadMs = static_cast<double>(ReadNs_.load(std::memory_order_relaxed)) / 1e6;
-  out.WriteMs = static_cast<double>(WriteNs_.load(std::memory_order_relaxed)) / 1e6;
+  out.ReadMs = static_cast<double>(ReadNs_.load(std::memory_order_relaxed)) / kNsPerMs;
+  out.WriteMs = static_cast<double>(WriteNs_.load(std::memory_order_relaxed)) / kNsPerMs;
   out.Swept = Swept_;
   out.SweptBytes = SweptBytes_;
   return out;
