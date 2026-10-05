@@ -15,7 +15,7 @@ schnellem Übergang Orbit → Nahdetail. Ferninhalte sind kompakt, Nahdetails ge
 GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist mehrfach/zu spät,
 die konservative Zellhülle erzwingt oft Fine. Einfache Gebäudehüllen stellen Wien wieder dar;
 die Fernzusammenfassung greift noch zu spät. Frame-Spitzen und Speicher sind nicht budgetgerecht.
-Vollständige Fernquellen und Runtime-Hierarchie fehlen.
+Vollständige Fernquellen/Runtime-Hierarchie fehlen; Meshfehler brauchen Quelle, Footprint und Ursache.
 
 ## Aktuelle Lieferung: einfache Gebäude wiederherstellen
 Gebäude bestehen zunächst aus Grundrisswänden und Dach, einschließlich Innenhöfen,
@@ -26,7 +26,7 @@ Runde Dächer triangulieren Grundriss und Dachspitze ohne pauschale rekursive Un
 Aufwand bleibt linear zur Grundrissgröße. Formen und Innenhöfe bleiben erhalten.
 Die Entfernungsauswahl muss vor der Erzeugung greifen. Fernverbände behalten konservative
 Formgrenzen; eine großzügigere Fehlertoleranz darf keine fehlenden Gebäude verdecken.
-Zuerst Wien ohne GPU-Speicherabbruch sichtbar machen, dann Cluster und dichte Lastfälle prüfen.
+Wien, Tokyo und Central Park vollständig rendern; kein Überspringen fehlgeschlagener Gebäude.
 Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
 ## Auswahl der einfachen Hülle
