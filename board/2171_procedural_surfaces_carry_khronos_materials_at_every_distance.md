@@ -41,10 +41,10 @@ Wände behalten ihre stabile Gebäudevariante. 2173 besitzt Öffnungen: Nutzung,
 Geschosse und Fassadenachsen begrenzen ihre Platzierung. `FacadeOpeningValues` hält die
 gemeinsamen Grenzen für Nahlaibungen und gefilterte Hüllen. Glas besitzt eine eigene
 dielektrische Materialantwort; Transmission/Innenräume sind damit noch nicht umgesetzt.
-Nächste Glaslieferung: `subjectLighting` nutzt bisher dieselbe Normalen-Hemisphäre für diffuse
-und spiegelnde Umgebung. Gemeinsame Himmelsradiance aus 2155 nach Reflexionsrichtung und
-Rauheit vorfiltern; UE4s Split-Sum-Verfahren gewichtet sie mit der Environment-BRDF.
-Glas, Dächer und andere Materialien konsumieren denselben Himmel, ohne Fenster-Sonderbeleuchtung.
+`subjectLighting` nutzt gemeinsame Himmelsradiance aus 2155 nach Reflexionsrichtung und
+Rauheit; Split-Sum-GGX gewichtet die vorgefilterte Antwort und teilt die Umgebungsenergie.
+Glas, Dächer und andere Materialien konsumieren denselben Himmel. Lokale Weltreflexionen
+fehlen noch: dunkle Fenster bekommen keine Sonderbeleuchtung; 2155 ergänzt SSR/Probes.
 Gefilterte Dachkurse nutzen vorhandene Dachhöhe und Oberflächengradient für metrische
 Abstände; ihre Maske verändert Farbe, Roughness und Relief vor derselben BRDF. Analytische
 Filterableitungen vermeiden zweite Bildschirmableitungen; keine zusätzliche UV-/Vertexbelegung.

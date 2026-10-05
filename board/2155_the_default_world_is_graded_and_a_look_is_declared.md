@@ -16,8 +16,9 @@ Weltwirkung und Kameraantwort sind unzureichend oder nicht am Place belegt.
 subjectLighting prüft derzeit die gemeinsame Lichtliste je Fragment und vergleicht
 Sonnentiefe mit einem einzelnen ungefilterten Shadow-Lookup. Das erklärt weder alle
 Bildfehler noch gemessene Kosten; beide Pfade sind konkrete Ausbaupunkte.
-Die Umgebungsspekularantwort verwendet derzeit denselben gemittelten Himmels-/Bodenanteil
-wie Diffuse; Reflexionsrichtung und Roughness fehlen. Das lässt Glas/Metall flach erscheinen.
+Die Umgebungsspekularantwort nutzt einen gemeinsamen GGX-gefilterten Himmelsatlas und
+Split-Sum-GGX/Smith statt der Diffuse-Hemisphäre; Richtung und Rauheit bestimmen die Abfrage.
+Gemittelter Boden ersetzt noch keine lokalen Weltreflexionen; Glas bleibt dadurch oft zu dunkel.
 Hintergrund und LUT-Erzeugung teilen jetzt Winkel-/Texelabfragen; Mehrfachstreuung erhält
 denselben Radius-/Sonnenvertrag einschließlich Bodenabstand und unabhängiger Tabellenmaße.
 
@@ -38,17 +39,14 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
   reprojizieren; unbedeckte Kantenproben müssen ihre akkumulierte Coverage behalten.
   Fehlende/ungültige History verwendet das aktuelle Bild; Farbclip und begrenzte Alpha-
   Coverage halten Konturproben konsistent. Szenenwechsel verwirft alte History.
-- TAA-Referenz unten ist Grundlage; 4× MSAA/Alpha-to-Coverage erst nach Kostenvergleich.
-  SDL unterstützt keinen MSAA-Tiefenresolve; ein weiterer Tiefenpfad braucht belegten Bildgewinn.
-- Alle acht Vorher/Nachher-Bilder öffnen; p99/RAM messen, keine Baseline-Neupins.
+- TAA bleibt Grundlage; MSAA mit zusätzlichem Tiefenpfad braucht belegten Bildgewinn.
 - Weiche bilineare History durch Catmull-Rom mit fünf bilinearen Kreuzabfragen ersetzen.
   Gewichte renormieren, lokalen Wertebereich gegen Ringing halten (Filament `ef1a133d`).
-  Bewegte analytische Kanten und Places entscheiden; kein pauschales Nachschärfen.
 
-## Aktueller Ausbau: gemeinsame Umgebungsreflexion
+## Gemeinsame Umgebungsreflexion und nächste Bildlücke
 - Gemeinsame Himmelsabfrage für Hintergrund und Reflexion, einschließlich Horizont und
   Texelzentren; Sonnenprojektion am Zenit bleibt endlich. Diese vorhandene Abfrage nutzen:
-  MediumRadiance → EnvironmentSpec → Gebäude/Terrain/Wasser integrieren.
+  MediumRadiance → EnvironmentSpecular → Gebäude/Terrain/Wasser ist angeschlossen.
 - Renderer besitzt einen GPU-vorgefilterten GGX-Atlas: sieben Roughness-Stufen, 64² nutzbare
   Texel je Stufe, je ein Randtexel. RGBA16F: 66 × 66 × 7 × 8 = 243936 Byte (238,2 KiB).
   Deterministische begrenzte Samples; Octaeder-Ränder korrekt fortsetzen, zwei gefilterte
@@ -59,7 +57,9 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 - Atlas hängt an Medium, Sonnenstand, Augenhöhe und Quellprodukt. Submission/Invalidierung
   und Abschluss-Fence in bestehende Weltvorbereitung integrieren; kein Aufwärmframe.
   Erst Himmel und gemittelter Boden: fehlende lokale Weltreflexion bleibt eine benannte Lücke.
-  Wolken/Nachtkörper und später SSR/Probes ergänzen dieselbe Lichtwelt. Keine Objektsonderfarben.
+  Nächster Bildschritt: lokale Weltreflexionen in nahen Scheiben, Sichtbarkeit und Rauheit
+  konsistent mit dem Atlas. SSR/Probes ergänzen ihn; verdeckte oder fehlende Treffer fallen
+  auf denselben Himmel zurück. Wolken/Nachtkörper folgen derselben Lichtwelt. Keine Sonderfarben.
 - Filament `ef1a133d`, `surface_light_indirect.fs`/`CubemapIBL.cpp` und UE4/Frostbite-Kursnotizen
   liefern Vergleichsmodelle. GPU-Bild, Rauheitsverlauf, Energie und Kosten entscheiden.
 
