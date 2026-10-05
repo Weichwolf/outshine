@@ -38,7 +38,7 @@ Zellplanung nutzt diese Schranke vor der Erzeugung; Massed behält die volle Zel
 Shell bleibt bei Bewegung wiederverwendbar, sichtbare Nahlaibungen bleiben Fine.
 Render-Schranken ändern keine Terrain-Semantik. Runtime-Bild-/Kostenabnahme bleibt erforderlich.
 Zeitliche HiZ-Verdeckung gilt nur bei identischer Projektion, Weltbasis und unveränderten
-Geometrie-/Terrainständen. Bewegung erzeugt zunächst vollständige Frustum-/LOD-Sichtbarkeit;
+Geometrie-, Draw-Tabellen- und Terrainständen. Tabellen-Rebuilds erhöhen die Produktgeneration. Bewegung erzeugt zunächst vollständige Frustum-/LOD-Sichtbarkeit;
 stationäre Folgebilder dürfen mit belegter Tiefe verfeinern und danach die Auswahl wiederverwenden.
 Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bleiben wiederholbar.
 

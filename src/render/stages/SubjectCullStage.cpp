@@ -129,16 +129,17 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
 void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &into) {
   Swept_ = 0;
   const uint64_t generation = Subjects_ != nullptr ? Subjects_->Generation() : 0u;
-  CullThisFrame_ = Subjects_ != nullptr && (!HasResult_ || LastMvp_ != ctx.Mvp ||
-                                            LastPreViewTranslation_ != ctx.PreViewTranslation ||
-                                            LastSubjectGeneration_ != generation);
-  OccludeThisFrame_ = PyramidBuffer_ != nullptr && HasResult_ &&
-                      (LastMvp_ != ctx.Mvp || LastPreViewTranslation_ != ctx.PreViewTranslation) &&
-                      LastSubjectGeneration_ == generation;
+  const uint64_t ground = Subjects_ != nullptr ? Subjects_->Ground().Generation() : 0u;
+  const bool unchanged = Cache_.Submitted() && LastMvp_ == ctx.Mvp &&
+                         LastPreViewTranslation_ == ctx.PreViewTranslation &&
+                         LastSubjectGeneration_ == generation && LastGroundGeneration_ == ground;
+  OccludeThisFrame_ = PyramidBuffer_ != nullptr && unchanged;
+  CullThisFrame_ = Subjects_ != nullptr && (!unchanged || (OccludeThisFrame_ && !Refined_));
   if (!CullThisFrame_) {
     gJobsSwept.store(0u, std::memory_order_relaxed);
     return;
   }
+  Cache_.Invalidate();
   CullView view{};
   const uint32_t jobs = Standing(ctx, &view);
   if (jobs == 0 || !Cull_ || into.Dispatch == nullptr) { return; }
@@ -160,7 +161,8 @@ void SubjectCullStage::EncodeCull(const FrameContext &ctx, const PassRecording &
   LastMvp_ = ctx.Mvp;
   LastPreViewTranslation_ = ctx.PreViewTranslation;
   LastSubjectGeneration_ = generation;
-  HasResult_ = true;
+  LastGroundGeneration_ = ground;
+  Refined_ = OccludeThisFrame_;
   Swept_ = jobs;
   gJobsSwept.store(jobs, std::memory_order_relaxed);
 }
@@ -201,6 +203,7 @@ void SubjectCullStage::EncodeCompact(const FrameContext &ctx, const PassRecordin
   SDL_BindGPUComputePipeline(into.Dispatch, Compact_.Get());
   SDL_BindGPUComputeStorageBuffers(into.Dispatch, 0, read.data(), 4);
   SDL_DispatchGPUCompute(into.Dispatch, jobs, 1u, 1u);
+  into.Submission.Record(Stage::SubjectCompact, Cache_);
 }
 
 }

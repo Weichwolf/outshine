@@ -9,6 +9,7 @@
 #include "GpuOwned.h"
 #include "DepthPyramid.h"
 #include "ComputeShaders.h"
+#include "StageSubmission.h"
 
 namespace outshine::Render {
 
@@ -18,7 +19,7 @@ class SubjectCullStage {
 public:
   void PyramidFrom(SDL_GPUBuffer *pyramid, const PyramidShape &shape) {
     if (PyramidBuffer_ != pyramid || Pyramid_.Wide != shape.Wide || Pyramid_.High != shape.High) {
-      HasResult_ = false;
+      Cache_.Invalidate();
     }
     PyramidBuffer_ = pyramid;
     Pyramid_ = shape;
@@ -34,11 +35,11 @@ public:
   [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
 
   void Binds(SubjectDraw &subjects) noexcept {
-    if (Subjects_ != &subjects) { HasResult_ = false; }
+    if (Subjects_ != &subjects) { Cache_.Invalidate(); }
     Subjects_ = &subjects;
   }
 
-  void Invalidate() noexcept { HasResult_ = false; }
+  void Invalidate() noexcept { Cache_.Invalidate(); }
 
   void EncodeCull(const FrameContext &ctx, const PassRecording &into);
   void EncodeScan(const FrameContext &ctx, const PassRecording &into);
@@ -55,12 +56,14 @@ public:
 private:
   SDL_GPUBuffer *PyramidBuffer_ = nullptr;
   PyramidShape Pyramid_;
-  bool HasResult_ = false;
+  StageCache Cache_;
   bool CullThisFrame_ = false;
   bool OccludeThisFrame_ = false;
+  bool Refined_ = false;
   Mat4f LastMvp_{};
   Vec3 LastPreViewTranslation_{};
   uint64_t LastSubjectGeneration_ = 0;
+  uint64_t LastGroundGeneration_ = 0;
   [[nodiscard]] static bool EnsurePipeline(const Gpu &gpu,
                                            ComputeShaderId shader,
                                            OwnedComputePipeline &into,

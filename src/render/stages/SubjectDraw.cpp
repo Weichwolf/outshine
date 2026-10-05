@@ -1154,6 +1154,7 @@ bool SubjectDraw::HandTables(std::string &error) {
     return false;
   }
   TablesStale_ = false;
+  ++Reshaped_;
   return true;
 }
 

@@ -72,8 +72,13 @@ int main() {
   viewpoint->ZNearM = 3.107125103623776;
   viewpoint->ZFarM = 4.118946968135317;
   scene->Eye(*viewpoint);
+  CHECK(scene->Draw(error), "first frame supplies complete depth for static refinement");
+  std::vector<float> completeDepth;
+  CHECK(renderer.ReadDepth(completeDepth) == Render::ReadState::Ready,
+        "complete first-frame depth reads back");
   std::array<Render::KeptDraws, 2> kept;
   std::array<std::vector<float>, 2> pixels;
+  std::array<std::vector<float>, 2> depths;
   for (size_t frame = 0; frame < kept.size(); ++frame) {
     CHECK(scene->Draw(error), "static scene draws");
     renderer.WaitForGpu();
@@ -81,7 +86,10 @@ int main() {
           "clustered draw input reads back");
     CHECK(renderer.ReadSceneLinear(pixels[frame]) == Render::ReadState::Ready,
           "linear target reads back");
+    CHECK(renderer.ReadDepth(depths[frame]) == Render::ReadState::Ready, "depth reads back");
   }
+  CHECK(completeDepth == depths[0] && depths[0] == depths[1],
+        "refinement and reuse preserve every visible depth sample exactly");
   CHECK(kept[0].Visibility == kept[1].Visibility, "static cluster visibility repeats exactly");
   CHECK(kept[0].Arguments == kept[1].Arguments, "static indirect arguments repeat exactly");
   CHECK(kept[0].DrawIndex == kept[1].DrawIndex, "static compacted indices repeat exactly");
