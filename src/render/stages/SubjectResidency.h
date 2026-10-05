@@ -83,6 +83,7 @@ struct SubjectResidency {
     bool HasNormal = false;
     bool HasTangent = false;
     bool HasColour = false;
+    bool HasEmitted = false;
   };
 
   static constexpr size_t kStreams = static_cast<size_t>(Stream::Count);

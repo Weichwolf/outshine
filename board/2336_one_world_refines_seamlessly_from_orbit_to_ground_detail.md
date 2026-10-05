@@ -24,10 +24,10 @@ Gebäude bestehen zunächst aus Grundrisswänden und Dach, einschließlich Innen
 gemessener Höhen und erhöhter Gebäudeteile. Prozedurale Sockelverzierungen, Dachaufbauten,
 Gesimse und Fassadenunterteilungen entfallen. Straßen und Terrain-Deformation bleiben erhalten.
 Fine und Shell verwenden dieselbe einfache Hülle; Massed bündelt entfernte Gebäude.
-Runde Dächer linear triangulieren, ohne rekursive Unterteilung; Formen und Innenhöfe erhalten.
+Runde Dächer linear triangulieren; Formen, Höfe und gemeinsame Ringkontakte innerhalb 1 mm erhalten.
 Vor Erzeugung auswählen; konservative Formgrenzen nicht lockern, um fehlende Gebäude zu verdecken.
-Hof-/Außenkontakte nach geografischer Umrechnung innerhalb 1 mm als gemeinsamen Ringpunkt verbinden.
-Upload-Batches begrenzt halten; ausgeführte Dreiecke, residente Streams und Frame-Wartekosten messen.
+Upload-Batches begrenzt halten; ungenutzte Emissionsstreams nicht allokieren/hochladen. Tokyo hält
+5,36 GB GPU-Streams, davon 720 MB Emission; Draw-Bedarf vor Attributallokation bestimmen.
 Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
 ## Auswahl der einfachen Hülle

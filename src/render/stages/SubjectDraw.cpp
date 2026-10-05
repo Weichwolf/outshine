@@ -611,8 +611,9 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
           res.Grow(
               S::Previous, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error)) &&
          (subject == 0 ||
-          (res.Grow(
-               S::Emitted, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error) &&
+          ((!res.Shape().HasEmitted ||
+            res.Grow(
+                S::Emitted, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error)) &&
            RoomForOptionalStreams({.VertexEnd = res.SubjectVertices().First + res.Shape().Vertices,
                                    .ColourEnd = res.SubjectColours().First + res.Shape().Vertices},
                                   {.Uv = res.Shape().HasUv,
@@ -756,6 +757,10 @@ SubjectDraw::BeginMesh(const SubjectMesh &mesh) {
   Bound().Shape().HasNormal = mesh.Normals.Stands();
   Bound().Shape().HasTangent = mesh.Tangents.Stands();
   Bound().Shape().HasColour = mesh.Colours.Stands();
+  Bound().Shape().HasEmitted =
+      mesh.Draws != nullptr &&
+      std::ranges::any_of(mesh.Draws->Batches(),
+                          [](const DrawBatch &batch) { return !CarriesNormal(batch.Layout); });
   SubjectBatches_.clear();
   SubjectJobs_.clear();
   SubjectSpheres_.clear();
@@ -889,7 +894,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
                                                     .Components = kPositionFloats},
                                                    {.Which = Stream::Emitted,
                                                     .Source = pose.Emitted,
-                                                    .Carried = true,
+                                                    .Carried = Bound().Shape().HasEmitted,
                                                     .Components = kPositionFloats},
                                                    {.Which = Stream::Normal,
                                                     .Source = pose.Normals,
@@ -936,7 +941,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
     return false;
   }
   if (!Bound().Buffer(SubjectResidency::Stream::Vertex) ||
-      !Bound().Buffer(SubjectResidency::Stream::Emitted) ||
+      (Bound().Shape().HasEmitted && !Bound().Buffer(SubjectResidency::Stream::Emitted)) ||
       (Binding().WritesVelocity && !Bound().Buffer(SubjectResidency::Stream::Previous)) ||
       (Bound().Shape().HasColour && !Bound().Buffer(SubjectResidency::Stream::Colour))) {
     Bound().Shape().Indices = 0;
