@@ -89,11 +89,19 @@ class Catalog(unittest.TestCase):
         rows = self.run_client('places', directory=ROOT / 'src/assets/places').stdout.splitlines()
         actual = {fields[0]: fields[1:] for fields in (row.split('\t') for row in rows)}
         self.assertEqual(set(actual), {'DarmstadtWest', 'Wien', 'Rosenheim', 'Husum',
-                                       'Koerbersee', 'Malcesine', 'Feldkirch', 'Flensburg'})
+                                       'Koerbersee', 'Malcesine', 'Feldkirch', 'Flensburg',
+                                       'CentralPark', 'Tokyo'})
         self.assertEqual(actual['Malcesine'], ['45.744855', '10.800445', '140', '290', '-2',
                                               '38.04', '1280', '720', '2026-09-07T10:40:00Z'])
         self.assertEqual(actual['Husum'][-1], '2026-09-07T10:30:00Z')
         self.assertEqual(actual['Flensburg'][:3], ['54.781286', '9.433995', '66'])
+        for name, lat, lon, bearing, utc in (
+                ('CentralPark', '40.7968', '-73.952', '218.32', '16:56'),
+                ('Tokyo', '35.6595', '139.7005', '40', '02:41')):
+            self.assertEqual(actual[name], [lat, lon, '60', bearing, '-6', '55',
+                                            '1280', '720', f'2026-06-21T{utc}:00Z'])
+            self.assertIn('antialiasing="temporal"',
+                          (ROOT / f'src/assets/places/{name}.scenario').read_text())
 
     def test_terrain_relative_historical_cameras(self):
         expected = {

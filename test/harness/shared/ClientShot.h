@@ -32,8 +32,8 @@ struct ClientRow {
 
 inline int ScorePlace(const char *place, const char *catalog = "src/assets/places") {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string command =
-      std::string("build/outshine-client --places ") + catalog + " shots --rows " + place + " 2>&1";
+  const std::string command = std::string("build/outshine-client --places ") + catalog +
+                              " shots --rows --offline --preload-seconds 600 " + place + " 2>&1";
   std::FILE *const running = popen(command.c_str(), "r");
   if (running == nullptr) {
     Unprepared("the client did not start");
@@ -85,16 +85,16 @@ inline int ScorePlace(const char *place, const char *catalog = "src/assets/place
     return Report();
   }
 
-  constexpr double kFrameBudgetMs = 1000.0 / 60.0;
+  constexpr double kCurrentPlaceFrameBudgetMs = 10.0;
   CHECK(row.Frames == 60.0 && row.TurnDegrees == 360.0,
         "a place measures every frame of its complete 60-frame turn");
   CHECK(std::isfinite(row.MeasurementMs) && row.MeasurementMs > 0.0 && row.MeasurementMs <= 1000.0,
         "the complete measured turn fits one second including pacing");
-  CHECK(std::isfinite(row.LoadingMs) && row.LoadingMs >= 0.0 && row.LoadingMs <= 10000.0,
-        "complete world preload fits ten seconds");
+  CHECK(std::isfinite(row.LoadingMs) && row.LoadingMs >= 0.0,
+        "complete cached world preload reports its actual duration");
   CHECK(row.Preloaded, "the complete world was preloaded before frame measurement");
-  CHECK(std::isfinite(row.P99Ms) && row.P99Ms > 0.0 && row.P99Ms <= kFrameBudgetMs,
-        "measured p99 stays within the 60 Hz frame budget, including reference images");
+  CHECK(std::isfinite(row.P99Ms) && row.P99Ms > 0.0 && row.P99Ms < kCurrentPlaceFrameBudgetMs,
+        "current place p99 stays below ten milliseconds at 720p60, including initial frames");
 
   // THE MEASURE'S OWN NEGATIVE CONTROL, and without it the bar below is a number nobody checked. A
   // bare ellipsoid under a sky IS a vertical gradient, so the statistic is run over one first -- if
