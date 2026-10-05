@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -15,10 +17,10 @@ class DiagnosticLedger {
 public:
   void ConfigureMetrics(std::vector<DiagnosticSample> declared) {
     Samples_ = std::move(declared);
-    ConfiguredSampleCount_ = Samples_.size();
     SampleFrameSerials_.assign(Samples_.size(), 0);
     FrameSerial_ = 0;
     ConflictingNames_.clear();
+    Indices_.clear();
   }
 
   void BeginFrame() { ++FrameSerial_; }
@@ -32,20 +34,21 @@ public:
   }
 
   void RecordMetric(const char *what, double how, const char *unit) {
-    for (size_t at = ConfiguredSampleCount_; at < Samples_.size(); ++at) {
-      if (Samples_[at].Name == what) {
-        if (SampleFrameSerials_[at] == FrameSerial_) {
-          if (Samples_[at].Value != how &&
-              std::ranges::find(ConflictingNames_, what) == ConflictingNames_.end()) {
-            ConflictingNames_.emplace_back(what);
-          }
-          return;
+    const auto found = Indices_.find(std::string_view(what));
+    if (found != Indices_.end()) {
+      const size_t at = found->second;
+      if (SampleFrameSerials_[at] == FrameSerial_) {
+        if (Samples_[at].Value != how &&
+            std::ranges::find(ConflictingNames_, what) == ConflictingNames_.end()) {
+          ConflictingNames_.emplace_back(what);
         }
-        SampleFrameSerials_[at] = FrameSerial_;
-        Samples_[at].Value = how;
         return;
       }
+      SampleFrameSerials_[at] = FrameSerial_;
+      Samples_[at].Value = how;
+      return;
     }
+    Indices_.emplace(what, Samples_.size());
     Samples_.push_back(DiagnosticSample{.Name = what, .Value = how, .Unit = unit});
     SampleFrameSerials_.push_back(FrameSerial_);
   }
@@ -57,7 +60,16 @@ private:
   std::vector<uint64_t> SampleFrameSerials_;
   uint64_t FrameSerial_ = 0;
   std::vector<std::string> ConflictingNames_;
-  size_t ConfiguredSampleCount_ = 0;
+
+  struct NameHash {
+    using is_transparent = void;
+
+    size_t operator()(std::string_view name) const noexcept {
+      return std::hash<std::string_view>{}(name);
+    }
+  };
+
+  std::unordered_map<std::string, size_t, NameHash, std::equal_to<>> Indices_;
 };
 
 }
