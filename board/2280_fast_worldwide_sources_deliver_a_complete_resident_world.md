@@ -55,6 +55,9 @@ Beitrag zu diesem Ablauf entfernen; Tests gegen diesen fachlichen Vertrag prüfe
    geteilten residenten Raster. Gehaltene Quellen bleiben separat sichtbar; Lebensdauer sichern.
    Erneuerte RAM-Decodestände ersetzen veraltete Einträge unter demselben Bytebudget;
    unabhängige Verbraucher dürfen bereits erneuerte Eingaben wiederverwenden.
+   Höhenfeld-Jobs behalten Zoompriorität und Nähe, bearbeiten aber benachbarte Quadtree-
+   Geschwister räumlich gebündelt. Ihr Nachbarhalo muss im bestehenden RAM-Bytebudget
+   wiederverwendbar bleiben; weniger Decodes zählt nur mit gleicher Welt und kürzerem Laden.
 3. Quellen-Zertifikate, TerrainRevisionIndex und Metadatenreservierungen entfernen.
    Schlüssel aus Anbieter, Anfrageparametern und Formatversion; Treffer liefern gespeicherte
    Bytes ohne Aktualitätsprüfung. Identität der Inputs/Generatorparameter einmal bestimmen.
