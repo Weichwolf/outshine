@@ -199,17 +199,17 @@ void ConnectCourtyardVertex(BuildingShape &shape, EastNorth &point) {
   for (size_t at = 0; at < shape.Ring.size(); ++at) {
     const auto &a = shape.Ring[at];
     const auto &b = shape.Ring[(at + 1) % shape.Ring.size()];
-    const double eastM = b.EastM - a.EastM, northM = b.NorthM - a.NorthM;
+    const double eastM = b.EastM - a.EastM;
+    const double northM = b.NorthM - a.NorthM;
     const double runSquaredM = eastM * eastM + northM * northM;
     if (runSquaredM == 0.0) { continue; }
     const double along = std::clamp(
         ((point.EastM - a.EastM) * eastM + (point.NorthM - a.NorthM) * northM) / runSquaredM,
         0.0,
         1.0);
-    const EastNorth projected = along == 0.0 ? a
-                                : along == 1.0
-                                    ? b
-                                    : EastNorth{a.EastM + along * eastM, a.NorthM + along * northM};
+    EastNorth projected{.EastM = a.EastM + along * eastM, .NorthM = a.NorthM + along * northM};
+    if (along == 0.0) { projected = a; }
+    if (along == 1.0) { projected = b; }
     const double deltaEastM = point.EastM - projected.EastM;
     const double deltaNorthM = point.NorthM - projected.NorthM;
     const double squaredM = deltaEastM * deltaEastM + deltaNorthM * deltaNorthM;
