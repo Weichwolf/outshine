@@ -232,6 +232,7 @@ private:
   std::vector<RetiredTransfer> Retired_;
   uint32_t StagingBytes_ = 0;
   uint32_t StagingUsed_ = 0;
+  uint32_t PendingUploadBytes_ = 0;
   uint32_t StagedThisFrame_ = 0;
   std::vector<Staged> Staged_;
   size_t StagedCount_ = 0;

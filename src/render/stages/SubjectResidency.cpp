@@ -239,7 +239,11 @@ bool SubjectResidency::Cross(std::span<Crossing> what, bool deferred, std::strin
     return false;
   }
   const uint32_t total = *measured;
-  if ((!deferred || ReplacesBuffers(what)) && !SubmitPendingUploads(error)) { return false; }
+  constexpr uint32_t batchBytes = 16u * 1024u * 1024u;
+  const bool full = deferred && uint64_t{PendingUploadBytes_} + total > batchBytes;
+  if ((!deferred || full || ReplacesBuffers(what)) && !SubmitPendingUploads(error)) {
+    return false;
+  }
   BufferChanges previous;
   if (!PrepareBuffers(what, previous, error)) { return false; }
   const bool accepted =
@@ -349,7 +353,8 @@ bool SubjectResidency::StageUploads(std::span<Crossing> what, uint32_t total, st
     at = (at + one.Bytes + 15u) & ~15u;
   }
   StagingUsed_ = at;
-  StagedThisFrame_ += at;
+  PendingUploadBytes_ += total;
+  StagedThisFrame_ += total;
   return true;
 }
 
@@ -468,6 +473,7 @@ void SubjectResidency::RecordCrossings(SDL_GPUCopyPass *copy) {
 void SubjectResidency::CommitCrossings() {
   StagedCount_ = 0;
   StagingUsed_ = 0;
+  PendingUploadBytes_ = 0;
   Retired_.clear();
 }
 

@@ -14,8 +14,8 @@ Eine rundum verfügbare Welt bis 240 km am Boden, mit höhenabhängigem Horizont
 schnellem Übergang Orbit → Nahdetail. Ferninhalte sind kompakt, Nahdetails gezielt erzeugt.
 GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist mehrfach/zu spät,
 die konservative Zellhülle erzwingt oft Fine. Einfache Gebäudehüllen stellen Wien wieder dar;
-die Fernzusammenfassung greift noch zu spät. Tokyo erzeugt 29,65 Mio. Gebäudedreiecke,
-verliert aber sichtbare Teile im Clusterpfad; direkte Originalindizes stellen sie wieder dar.
+die Fernzusammenfassung greift noch zu spät. Tokyo erzeugt 29,65 Mio. Gebäudedreiecke;
+Metal verwirft zu große Upload-Aufträge wegen Speichermangel. Veraltete GPU-Geometrie bleibt zurück.
 
 ## Aktuelle Lieferung: einfache Gebäude wiederherstellen
 Gebäude bestehen zunächst aus Grundrisswänden und Dach, einschließlich Innenhöfen,
@@ -26,7 +26,7 @@ Runde Dächer linear triangulieren, ohne rekursive Unterteilung; Formen und Inne
 Die Entfernungsauswahl muss vor der Erzeugung greifen. Fernverbände behalten konservative
 Formgrenzen; eine großzügigere Fehlertoleranz darf keine fehlenden Gebäude verdecken.
 Hof-/Außenkontakte nach geografischer Umrechnung innerhalb 1 mm als gemeinsamen Ringpunkt verbinden.
-Zuerst Tokyos Clusterverlust reparieren; Multi-Draw ist ausgeschlossen. Central Park separat prüfen.
+Upload-Transferquellen in kleinen Batches einreichen; Tokyos vollständiges Bild belegen. Central Park separat prüfen.
 Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
 ## Auswahl der einfachen Hülle
