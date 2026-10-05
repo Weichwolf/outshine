@@ -14,6 +14,8 @@ Vollständige Grundrisse/Höfe/Parts, plausible Dächer/Sonderbauten und räumli
 BuildingHeightInterval, native Footprints, StructureBake/BuildingMesh und Terrain-Stempel
 bestehen. Wohnhausöffnungen nutzen Geschosse/Achsen mit gefilterten Fernhüllen und
 bedarfsabhängigen Nahlaibungen. Klassen-/Dachpläne und Sonderbauten bleiben lückenhaft.
+BuildingForm beschreibt eine prozedurale Formfamilie aus Grundriss/Höhenproportionen,
+keine belegte Nutzung; unbekannte schlanke Formen erhalten keine erfundenen Spitzdächer.
 Rohattribute bleiben unverändert verfügbar; kanonische Abfragen erhalten Originalwerte
 und bevorzugen ausdrücklich gelieferte Schlüssel. Gelieferte Wandfarben erreichen den nativen
 Plan und Renderer. Dichte GPU-Farbadressierung vermeidet Leerräume; Sonderklassen und
