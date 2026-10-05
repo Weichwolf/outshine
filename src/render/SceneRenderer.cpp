@@ -1593,7 +1593,6 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
 
   ActiveState().Content.Subjects.CastsNoShadow();
   for (bool &touched : Touched_) { touched = false; }
-  SettleShadow();
   {
     std::string why;
     if (!ActiveState().Content.Subjects.HandTables(why) ||
@@ -1602,6 +1601,7 @@ std::expected<void, std::string> SceneRenderer::PrepareFrame() {
       return std::unexpected(std::move(why));
     }
   }
+  SettleShadow();
   return {};
 }
 

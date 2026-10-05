@@ -202,6 +202,7 @@ void LightVisibilityStage::BuildRegions(const LightBasis &basis,
 
 void LightVisibilityStage::Prepare(const FrameContext &ctx) {
   Casting_ = false;
+  CastBatches_ = 0;
   if (!Declared_ || Subjects_ == nullptr) { return; }
   Build(ctx.PreViewTranslation);
   const uint64_t stands = Subjects_->Generation();

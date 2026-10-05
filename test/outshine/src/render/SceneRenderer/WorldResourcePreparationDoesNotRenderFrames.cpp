@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "SubjectTypes.h"
 
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -107,6 +108,10 @@ void Exercise() {
     CHECK(!prepared.Drew() && prepared.LastSubmittedCamera().Serial == 0,
           "failed preparation never publishes a camera frame");
   }
+  const std::array<SubjectMaterial, 1> rebuiltMaterials{};
+  CHECK(prepared.SetSubjectMaterials(rebuiltMaterials, error) &&
+            control.SetSubjectMaterials(rebuiltMaterials, error),
+        "both scenes receive the final native materials after retrying acquisition");
   auto uploads = prepared.PrepareWorldResources();
   CHECK(uploads.has_value(), "upload preparation succeeds after both failures");
   if (!uploads) { return; }
@@ -128,6 +133,8 @@ void Exercise() {
             std::ranges::any_of(preparedShadow, [](float depth) { return depth > 0; }),
         "the static shadow product is complete before any scene frame");
   CHECK(preparedScene->Draw(error) && controlScene->Draw(error), "both first frames render");
+  CHECK(prepared.ShadowCastCount() == 0 && control.ShadowCastCount() > 0,
+        "the prepared scene reuses complete shadows while the cold control actually casts");
   std::vector<float> actual;
   std::vector<float> expected;
   CHECK(prepared.ReadDepth(actual) == ReadState::Ready &&
