@@ -39,9 +39,10 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
   reprojizieren; unbedeckte Kantenproben müssen ihre akkumulierte Coverage behalten.
   Fehlende/ungültige History verwendet das aktuelle Bild; Farbclip und begrenzte Alpha-
   Coverage halten Konturproben konsistent. Szenenwechsel verwirft alte History.
-- TAA bleibt Grundlage; MSAA mit zusätzlichem Tiefenpfad braucht belegten Bildgewinn.
-- Weiche bilineare History durch Catmull-Rom mit fünf bilinearen Kreuzabfragen ersetzen.
-  Gewichte renormieren, lokalen Wertebereich gegen Ringing halten (Filament `ef1a133d`).
+- TAA bleibt Grundlage; MSAA braucht belegten Bildgewinn einschließlich Tiefenpfad.
+  Stillstand akkumuliert gültige History im begrenzten 90/10-Mittelwert; Drehung separat prüfen.
+- History nutzt Catmull-Rom mit fünf bilinearen Kreuzabfragen, renormierten Gewichten
+  und lokalem Wertebereich gegen Ringing (Filament `ef1a133d`). Bildschärfe bleibt zu prüfen.
 
 ## Gemeinsame Umgebungsreflexion und nächste Bildlücke
 - Gemeinsame Himmelsabfrage für Hintergrund und Reflexion, einschließlich Horizont und
@@ -63,8 +64,7 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 - Filament `ef1a133d`, `surface_light_indirect.fs`/`CubemapIBL.cpp` und UE4/Frostbite-Kursnotizen
   liefern Vergleichsmodelle. GPU-Bild, Rauheitsverlauf, Energie und Kosten entscheiden.
 
-## Verfahren
-### Gemeinsamer Look
+## Gemeinsamer Look
 - Default ist minimalistischer Solarpunk: klare Volumen/Raster aus Bauhaus, gezielte
   gestufte Formen/Reliefs und rhythmische Akzente aus Art déco. Wenige Materialfamilien,
   konsistente Proportionen und gezieltes Detail statt gleichförmiger Zufallsdekoration.
