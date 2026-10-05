@@ -26,15 +26,21 @@ constexpr double kSchlickTail = 21.0;
 inline constexpr int kEnergyQuadrature = 64;
 inline constexpr int kEnergySamples = 2048;
 
-[[nodiscard]] inline double GgxDirectionalAlbedo(Slant at) {
+struct GgxEnvironmentResponse {
+  double Albedo = 0.0;
+  double FresnelBias = 0.0;
+};
+
+[[nodiscard]] inline GgxEnvironmentResponse GgxEnvironmentBrdf(Slant at) {
   const double nv = at.Cosine;
   const double roughness = at.Roughness;
   const double alpha = roughness * roughness;
   const double a2 = alpha * alpha;
-  if (!(a2 > 0.0)) { return 1.0; }
+  if (!(a2 > 0.0)) { return {.Albedo = 1.0, .FresnelBias = std::pow(1.0 - nv, 5.0)}; }
   const double clampedNv = std::fmax(nv, 1.0e-4);
   const double sinV = std::sqrt(std::fmax(0.0, 1.0 - clampedNv * clampedNv));
   double total = 0.0;
+  double bias = 0.0;
   for (int i = 0; i < kEnergySamples; ++i) {
     const double u1 = (i + 0.5) / kEnergySamples;
     auto bits = static_cast<unsigned>(i);
@@ -56,9 +62,16 @@ inline constexpr int kEnergySamples = 2048;
 
     const double lz = 2.0 * vh * hz - clampedNv;
     if (!(lz > 0.0)) { continue; }
-    total += 4.0 * lz * BrdfVisibility(lz, clampedNv, a2) * vh / hz;
+    const double weight = 4.0 * lz * BrdfVisibility(lz, clampedNv, a2) * vh / hz;
+    total += weight;
+    bias += weight * std::pow(1.0 - vh, 5.0);
   }
-  return std::fmin(total / kEnergySamples, 1.0);
+  const double albedo = std::fmin(total / kEnergySamples, 1.0);
+  return {.Albedo = albedo, .FresnelBias = total > 0.0 ? albedo * bias / total : 0.0};
+}
+
+[[nodiscard]] inline double GgxDirectionalAlbedo(Slant at) {
+  return GgxEnvironmentBrdf(at).Albedo;
 }
 
 [[nodiscard]] inline double GgxEnergyAverage(double roughness) {

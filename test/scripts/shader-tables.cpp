@@ -29,6 +29,17 @@ int main() {
                        .Roughness = static_cast<double>(r) / (kEnergyRoughnessSteps - 1)}));
     }
   }
+  std::printf(");\nconst float kGgxFresnelBias[] = float[](\n");
+  for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
+    for (int v = 0; v < kEnergyViewSteps; ++v) {
+      std::printf(
+          "%s%.6f",
+          r == 0 && v == 0 ? "" : ",",
+          GgxEnvironmentBrdf({.Cosine = static_cast<double>(v) / (kEnergyViewSteps - 1),
+                              .Roughness = static_cast<double>(r) / (kEnergyRoughnessSteps - 1)})
+              .FresnelBias);
+    }
+  }
   std::printf(");\nconst float kGgxAlbedoAverage[] = float[](\n");
   for (int r = 0; r < kEnergyRoughnessSteps; ++r) {
     std::printf("%s%.6f",

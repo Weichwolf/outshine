@@ -1,14 +1,24 @@
 
-float ggxDirectionalAlbedo(float nv, float roughness) {
+vec2 ggxEnvironmentBrdf(float nv, float roughness) {
   float rf = clamp(roughness, 0.0, 1.0) * float(kEnergyRoughnessSteps - 1);
   float vf = clamp(nv, 0.0, 1.0) * float(kEnergyViewSteps - 1);
   int r0 = int(rf); int v0 = int(vf);
   int r1 = min(r0 + 1, kEnergyRoughnessSteps - 1);
   int v1 = min(v0 + 1, kEnergyViewSteps - 1);
   float rt = rf - float(r0); float vt = vf - float(v0);
-  float a = mix(kGgxAlbedo[r0 * kEnergyViewSteps + v0], kGgxAlbedo[r0 * kEnergyViewSteps + v1], vt);
-  float b = mix(kGgxAlbedo[r1 * kEnergyViewSteps + v0], kGgxAlbedo[r1 * kEnergyViewSteps + v1], vt);
+  int at00 = r0 * kEnergyViewSteps + v0;
+  int at01 = r0 * kEnergyViewSteps + v1;
+  int at10 = r1 * kEnergyViewSteps + v0;
+  int at11 = r1 * kEnergyViewSteps + v1;
+  vec2 a = mix(vec2(kGgxAlbedo[at00], kGgxFresnelBias[at00]),
+               vec2(kGgxAlbedo[at01], kGgxFresnelBias[at01]), vt);
+  vec2 b = mix(vec2(kGgxAlbedo[at10], kGgxFresnelBias[at10]),
+               vec2(kGgxAlbedo[at11], kGgxFresnelBias[at11]), vt);
   return mix(a, b, rt);
+}
+
+float ggxDirectionalAlbedo(float nv, float roughness) {
+  return ggxEnvironmentBrdf(nv, roughness).x;
 }
 
 float ggxEnergyAverage(float roughness) {
