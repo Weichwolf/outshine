@@ -136,6 +136,7 @@ Result Engine::render(Extent frame) {
   if (!S_->EnsureRuntimeScene()) { return std::unexpected(S_->Error); }
   const auto began = std::chrono::steady_clock::now();
   if (!DrawScene(S_->Picture, S_->Error)) { return std::unexpected(S_->Error); }
+  const auto publicationAt = std::chrono::steady_clock::now();
   S_->Published.BeginFrame();
   S_->PublishSubmittedCameraMeasurements();
   S_->Cost.Render.Took(
@@ -230,6 +231,12 @@ Result Engine::render(Extent frame) {
         "draws taking vertex layout " + std::to_string(at), static_cast<double>(many), "draws");
   }
   S_->Drew();
+  S_->PublishCostMeasurements();
+  S_->Cost.Diagnostics.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - publicationAt)
+          .count());
+  S_->Published.RecordMetric("cost.diagnostics.total_ms", S_->Cost.Diagnostics.TotalMs(), "ms");
+  S_->Published.RecordMetric("cost.diagnostics.max_ms", S_->Cost.Diagnostics.MostMs(), "ms");
   return {};
 }
 

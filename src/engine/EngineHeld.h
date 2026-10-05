@@ -326,10 +326,13 @@ struct Spent {
 
     [[nodiscard]] double MostMs() const { return MostMs_; }
 
+    [[nodiscard]] double TotalMs() const { return TotalMs_; }
+
     [[nodiscard]] uint64_t Taken() const { return Count_; }
 
     void Took(double ms) {
       LastMs_ = ms;
+      TotalMs_ += ms;
       LeastMs_ = Count_ == 0 || ms < LeastMs_ ? ms : LeastMs_;
       MostMs_ = std::max(ms, MostMs_);
       ++Count_;
@@ -359,6 +362,7 @@ struct Spent {
     }
 
   private:
+    double TotalMs_ = 0.0;
     double LastMs_ = 0.0;
     double LeastMs_ = 0.0;
     double MostMs_ = 0.0;
@@ -368,6 +372,8 @@ struct Spent {
     bool Filled_ = false;
   };
 
+  Counter Diagnostics;
+  Counter ProfileDiagnostics;
   Counter Advance;
   Counter Update;
   Counter FramePublication;
@@ -631,6 +637,7 @@ struct Engine::State {
                                const Around &over,
                                std::chrono::steady_clock::time_point rebuildBegan);
   void PublishFrameMeasurements();
+  void PublishCostMeasurements();
   void PublishSubmittedCameraMeasurements();
   void PublishResourcePayloadMeasurements();
   void PublishAudioSnapshot();

@@ -1,4 +1,5 @@
 #include "CommandLine.h"
+#include "CostReport.h"
 #include "ProcessBoundary.h"
 #include "ShotOptions.h"
 #include "SourceCache.h"
@@ -41,7 +42,7 @@ public:
              outshine::LogLevel level,
              Saying who,
              std::span<const outshine::LogField> fields) noexcept override {
-    if (level == outshine::LogLevel::Debug) { return; }
+    if (level < outshine::LogLevel::Warn) { return; }
     try {
       const std::scoped_lock lock(Mutex_);
       std::print("t={:.1f} {:<5} {:<8} {:<7} {}",
@@ -109,6 +110,7 @@ void Tell(const Shot &shot, std::string_view name) {
       shot.StreamedS,
       shot.PeakHeapMB,
       shot.Kept ? std::string_view{shot.Wrote} : "NO PICTURE");
+  outshine::Client::PrintCostReport(name, shot.Measures);
 }
 
 void Row(const Shot &shot, std::string_view name) {
@@ -365,6 +367,7 @@ void ReportShot(const Shot &shot,
   } else {
     Tell(shot, name);
   }
+  if (!options.Rows && shot.Why.empty()) { outshine::Client::PrintCostReport(name, shot.Measures); }
   if (options.Measures) {
     for (const outshine::DiagnosticSample &measure : shot.Measures) {
       std::println("        {:<56} {:14.3f} {}", measure.Name, measure.Value, measure.Unit);

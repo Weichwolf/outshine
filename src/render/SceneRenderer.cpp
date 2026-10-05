@@ -1095,9 +1095,11 @@ void SceneRenderer::EncodeStage(Stage stage, const PassRecording &into) {
 
   const outshine::Heap::Tagged encoding(Row(stage).Name);
   const auto began = std::chrono::steady_clock::now();
+  if constexpr (kGpuValidation) { SDL_PushGPUDebugGroup(into.Commands, Row(stage).Name); }
   (this->*seat->Encode)(ctx, into);
-  Effort &spent = Spent_[static_cast<size_t>(stage)];
-  spent.TookMs =
+  if constexpr (kGpuValidation) { SDL_PopGPUDebugGroup(into.Commands); }
+  Effort &spent = PendingSpent_[static_cast<size_t>(stage)];
+  spent.TookMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   spent.Draws = 0;
   spent.Triangles = 0;
@@ -1614,6 +1616,7 @@ std::expected<OwnedFence, std::string> SceneRenderer::PrepareWorldResources() {
   const auto preparesWorldResource = [](Stage stage) {
     return Row(stage).Phase == StagePhase::WorldPreparation;
   };
+  PendingSpent_ = {};
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     const auto &declared = ActiveState().Plan->Passes()[pass];
     const auto stages =
@@ -1767,9 +1770,26 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   CommitSubmittedFrame(stageSubmission);
   record(RenderFramePhase::Finish);
   timing.TotalMs = std::chrono::duration<double, std::milli>(phaseBegan - began).count();
+  CommitCostProfile(timing);
   LastRenderFrameTiming_ = timing;
   if (timing.TotalMs > SlowestRenderFrameTiming_.TotalMs) { SlowestRenderFrameTiming_ = timing; }
   return {};
+}
+
+void SceneRenderer::CommitCostProfile(const RenderFrameTiming &timing) {
+  ++Costs_.Frames;
+  Costs_.HostTotals.TotalMs += timing.TotalMs;
+  for (size_t at = 0; at < timing.PhaseMs.size(); ++at) {
+    Costs_.HostTotals.PhaseMs[at] += timing.PhaseMs[at];
+  }
+  Spent_ = PendingSpent_;
+  for (size_t at = 0; at < Spent_.size(); ++at) {
+    if (Spent_[at].TookMs == 0.0) { continue; }
+    auto &cost = Costs_.Stages[at];
+    ++cost.Frames;
+    cost.TotalMs += Spent_[at].TookMs;
+    cost.MostMs = std::max(cost.MostMs, Spent_[at].TookMs);
+  }
 }
 
 void SceneRenderer::WaitForGpu() {

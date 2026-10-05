@@ -603,6 +603,19 @@ public:
     return Spent_[static_cast<size_t>(stage)];
   }
 
+  struct CostProfile {
+    struct StageCost {
+      double TotalMs = 0.0, MostMs = 0.0;
+      uint64_t Frames = 0;
+    };
+
+    std::array<StageCost, kStageCount> Stages{};
+    RenderFrameTiming HostTotals;
+    uint64_t Frames = 0;
+  };
+
+  [[nodiscard]] const CostProfile &Costs() const noexcept { return Costs_; }
+
   struct SubmittedCameraFrame {
     uint64_t Serial = 0;
     CameraBasis Basis;
@@ -698,6 +711,9 @@ private:
   GpuSubmission Submission_;
   std::array<Effort, kStageCount> Spent_ = {{}};
   SubmittedCameraFrame LastSubmittedCamera_;
+  void CommitCostProfile(const RenderFrameTiming &timing);
+  CostProfile Costs_;
+  std::array<Effort, kStageCount> PendingSpent_{};
   RenderFrameTiming LastRenderFrameTiming_;
   RenderFrameTiming SlowestRenderFrameTiming_;
 

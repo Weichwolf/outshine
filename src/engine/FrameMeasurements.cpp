@@ -110,16 +110,19 @@ void Engine::State::PublishGroundPreparationMeasurements() {
       "water",
       "geometry",
       "publication"};
+  static const auto phaseNames = [] {
+    std::array<std::array<std::string, 2>, Spent::kGroundPhaseCount> out;
+    for (size_t phase = 0; phase < out.size(); ++phase) {
+      const auto base = std::string("ground phase ") + std::string(kGroundPhases[phase]);
+      out[phase] = {base + " time, most", base + " advances"};
+    }
+    return out;
+  }();
   for (size_t phase = 0; phase < Cost.GroundPhases.size(); ++phase) {
     if (Cost.GroundPhases[phase].Taken() == 0) { continue; }
-    Published.RecordMetric(std::string("ground phase ") + std::string(kGroundPhases[phase]) +
-                               " time, most",
-                           Cost.GroundPhases[phase].MostMs(),
-                           "ms");
-    Published.RecordMetric(std::string("ground phase ") + std::string(kGroundPhases[phase]) +
-                               " advances",
-                           static_cast<double>(Cost.GroundPhases[phase].Taken()),
-                           "frames");
+    Published.RecordMetric(phaseNames[phase][0], Cost.GroundPhases[phase].MostMs(), "ms");
+    Published.RecordMetric(
+        phaseNames[phase][1], double(Cost.GroundPhases[phase].Taken()), "frames");
   }
   Published.RecordMetric("vegetation update time, most", Cost.Crowns.MostMs(), "ms");
 }
@@ -296,6 +299,7 @@ void Engine::State::PublishGroundMemoryMeasurements() {
 }
 
 void Engine::State::PublishFrameMeasurements() {
+  const auto began = std::chrono::steady_clock::now();
   static const Heap::Tag kFrameMeasurementsTag("frame-measurements");
   const Heap::Tagged measuring(kFrameMeasurementsTag);
   if (Heap::ProcessInstrumentationEnabled()) {
@@ -312,39 +316,54 @@ void Engine::State::PublishFrameMeasurements() {
   }
   PublishAdvanceMeasurements();
   if (Picture.Standing) {
+    static const auto names = [] {
+      std::array<std::array<std::string, 10>, Render::kStageCount> out;
+      constexpr std::array<const char *, 10> suffixes{", took",
+                                                      ", drew",
+                                                      ", triangles",
+                                                      ", surfaces",
+                                                      ", placements",
+                                                      ", textured",
+                                                      ", colour images",
+                                                      ", device bytes",
+                                                      ", placements that differ",
+                                                      ", vertex layouts"};
+      for (size_t at = 0; at < out.size(); ++at) {
+        for (size_t key = 0; key < suffixes.size(); ++key) {
+          out[at][key] = std::string(Row(static_cast<Render::Stage>(at)).Name) + suffixes[key];
+        }
+      }
+      return out;
+    }();
     for (size_t at = 0; at < Render::kStageCount; ++at) {
-      const auto stage = static_cast<Render::Stage>(at);
-      const Render::SceneRenderer::Effort &spent = Picture.Device.Spent(stage);
+      const auto &spent = Picture.Device.Spent(static_cast<Render::Stage>(at));
       if (spent.TookMs <= 0.0 && spent.Draws == 0) { continue; }
-      Published.RecordMetric(std::string(Row(stage).Name) + ", took", spent.TookMs, "ms");
-      Published.RecordMetric(
-          std::string(Row(stage).Name) + ", drew", static_cast<double>(spent.Draws), "draws");
-      Published.RecordMetric(std::string(Row(stage).Name) + ", triangles",
-                             static_cast<double>(spent.Triangles),
-                             "triangles");
-      Published.RecordMetric(std::string(Row(stage).Name) + ", surfaces",
-                             static_cast<double>(spent.Surfaces),
-                             "slots");
-      Published.RecordMetric(std::string(Row(stage).Name) + ", placements",
-                             static_cast<double>(spent.Placements),
-                             "slots");
-      Published.RecordMetric(std::string(Row(stage).Name) + ", textured",
-                             static_cast<double>(spent.Textured),
-                             "slots");
-      Published.RecordMetric(std::string(Row(stage).Name) + ", colour images",
-                             static_cast<double>(spent.Palettes),
-                             "images");
-      Published.RecordMetric(std::string(Row(stage).Name) + ", device bytes",
-                             static_cast<double>(spent.DeviceBytes),
-                             "bytes");
-      Published.RecordMetric(std::string(Row(stage).Name) + ", placements that differ",
-                             static_cast<double>(spent.Distinct),
-                             "rows");
-      Published.RecordMetric(std::string(Row(stage).Name) + ", vertex layouts",
-                             static_cast<double>(spent.Layouts),
-                             "layouts");
+      const std::array<double, 10> values{spent.TookMs,
+                                          double(spent.Draws),
+                                          double(spent.Triangles),
+                                          double(spent.Surfaces),
+                                          double(spent.Placements),
+                                          double(spent.Textured),
+                                          double(spent.Palettes),
+                                          double(spent.DeviceBytes),
+                                          double(spent.Distinct),
+                                          double(spent.Layouts)};
+      constexpr std::array<const char *, 10> units{"ms",
+                                                   "draws",
+                                                   "triangles",
+                                                   "slots",
+                                                   "slots",
+                                                   "slots",
+                                                   "images",
+                                                   "bytes",
+                                                   "rows",
+                                                   "layouts"};
+      for (size_t key = 0; key < values.size(); ++key) {
+        Published.RecordMetric(names[at][key], values[key], units[key]);
+      }
     }
   }
+
   if (Cost.Render.Taken() > 0) {
     Published.RecordMetric("the picture's own time, last", Cost.Render.LastMs(), "ms");
     Published.RecordMetric("the picture's own time, least", Cost.Render.LeastMs(), "ms");
@@ -360,6 +379,11 @@ void Engine::State::PublishFrameMeasurements() {
       Published.RecordMetric("published twice in one round: " + one, 1.0, "rows");
     }
   }
+  PublishCostMeasurements();
+  Cost.Diagnostics.Took(
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+  Published.RecordMetric("cost.diagnostics.total_ms", Cost.Diagnostics.TotalMs(), "ms");
+  Published.RecordMetric("cost.diagnostics.max_ms", Cost.Diagnostics.MostMs(), "ms");
 }
 
 }

@@ -98,6 +98,16 @@ public:
             .Store = Store_ ? Store_->Counters() : Data::ContentStore::Ledger{}};
   }
 
+  [[nodiscard]] Data::ContentStore::Ledger StoreCosts() const {
+    return Store_ ? Store_->Counters() : Data::ContentStore::Ledger{};
+  }
+
+  [[nodiscard]] auto ProviderCosts() const {
+    return Sources_ ? Sources_->ProviderCosts()
+                    : std::array<Data::SourceSet::Ledger::ProviderCost,
+                                 Data::SourceSet::Ledger::KindCount>{};
+  }
+
   void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
     Cls_.Declares(these);

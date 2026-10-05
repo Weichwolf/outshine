@@ -176,6 +176,7 @@ void Reject(SceneRenderer &renderer, Faults &faults, Faults::Point point, bool c
   const auto submits = faults.Submitted;
   const auto lastTiming = renderer.LastRenderFrameTiming();
   const auto worstTiming = renderer.SlowestRenderFrameTiming();
+  const auto costs = renderer.Costs();
   const auto result = renderer.RenderFrame();
   const char *wanted = point == Faults::Point::Acquire ? "injected frame acquire failure"
                                                        : "injected frame submit failure";
@@ -187,6 +188,9 @@ void Reject(SceneRenderer &renderer, Faults &faults, Faults::Point point, bool c
             renderer.SlowestRenderFrameTiming().TotalMs == worstTiming.TotalMs &&
             renderer.SlowestRenderFrameTiming().PhaseMs == worstTiming.PhaseMs,
         "rejected GPU commands do not publish successful-frame timings");
+  CHECK(renderer.Costs().Frames == costs.Frames &&
+            renderer.Costs().HostTotals.TotalMs == costs.HostTotals.TotalMs,
+        "rejected commands do not enter successful-frame cost aggregates");
   std::array<float, kIrradianceFloats> irradiance{};
   CHECK(renderer.ReadSkyIrradiance(irradiance) == (cached ? ReadState::Ready : ReadState::Failed),
         "an aborted frame preserves existing LUT validity but cannot publish unsubmitted updates");
