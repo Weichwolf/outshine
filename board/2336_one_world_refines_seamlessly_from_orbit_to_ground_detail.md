@@ -14,8 +14,10 @@ Eine rundum verfügbare Welt bis 240 km am Boden, mit höhenabhängigem Horizont
 schnellem Übergang Orbit → Nahdetail. Ferninhalte sind kompakt, Nahdetails gezielt erzeugt.
 GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist mehrfach/zu spät,
 die konservative Zellhülle erzwingt oft Fine. Einfache Gebäudehüllen stellen Wien wieder dar;
-die Fernzusammenfassung greift noch zu spät. Tokyo erzeugt 29,65 Mio. Gebäudedreiecke;
-Metal verwirft zu große Upload-Aufträge wegen Speichermangel. Veraltete GPU-Geometrie bleibt zurück.
+die Fernzusammenfassung greift noch zu spät. Tokyo hält 29,65 Mio. erzeugte Gebäudedreiecke.
+Begrenzte Upload-Batches beheben den belegten Metal-Speicherabbruch; Hausflächen/Türme sind wieder da.
+Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 35/657 ms, Central Park 13/120 ms
+rot; Central Parks Bild bleibt unverändert. Erzeugte Dreiecke sind keine Messung ausgeführter GPU-Arbeit.
 
 ## Aktuelle Lieferung: einfache Gebäude wiederherstellen
 Gebäude bestehen zunächst aus Grundrisswänden und Dach, einschließlich Innenhöfen,
@@ -23,10 +25,9 @@ gemessener Höhen und erhöhter Gebäudeteile. Prozedurale Sockelverzierungen, D
 Gesimse und Fassadenunterteilungen entfallen. Straßen und Terrain-Deformation bleiben erhalten.
 Fine und Shell verwenden dieselbe einfache Hülle; Massed bündelt entfernte Gebäude.
 Runde Dächer linear triangulieren, ohne rekursive Unterteilung; Formen und Innenhöfe erhalten.
-Die Entfernungsauswahl muss vor der Erzeugung greifen. Fernverbände behalten konservative
-Formgrenzen; eine großzügigere Fehlertoleranz darf keine fehlenden Gebäude verdecken.
+Vor Erzeugung auswählen; konservative Formgrenzen nicht lockern, um fehlende Gebäude zu verdecken.
 Hof-/Außenkontakte nach geografischer Umrechnung innerhalb 1 mm als gemeinsamen Ringpunkt verbinden.
-Upload-Transferquellen in kleinen Batches einreichen; Tokyos vollständiges Bild belegen. Central Park separat prüfen.
+Upload-Batches begrenzt halten; ausgeführte Dreiecke, residente Streams und Frame-Wartekosten messen.
 Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
 ## Auswahl der einfachen Hülle
@@ -36,7 +37,7 @@ StructureBake führt das Maximum aller belegten Gebäude einer Zelle bis zum Acc
 unbekannte Mesher, ausgelassene Formen und Massing liefern keine engere Shell-Schranke.
 Zellplanung nutzt diese Schranke vor der Erzeugung; Massed behält die volle Zellhülle.
 Shell bleibt bei Bewegung wiederverwendbar, sichtbare Nahlaibungen bleiben Fine.
-Render-Schranken ändern keine Terrain-Semantik. Runtime-Bild-/Kostenabnahme bleibt erforderlich.
+Render-Schranken ändern keine Terrain-Semantik; Bild-/Kostenabnahme bleibt erforderlich.
 Zeitliche HiZ-Verdeckung gilt nur bei identischer Projektion, Weltbasis und unveränderten
 Geometrie-, Draw-Tabellen- und Terrainständen. Tabellen-Rebuilds erhöhen die Produktgeneration. Bewegung erzeugt zunächst vollständige Frustum-/LOD-Sichtbarkeit;
 stationäre Folgebilder dürfen mit belegter Tiefe verfeinern und danach die Auswahl wiederverwenden.
@@ -44,15 +45,16 @@ Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bl
 Für bewegte Ansichten eine aktuelle Tiefenvorlage aus gültigen nativen Occludern prüfen;
 vorige Sichtbarkeit darf Arbeit priorisieren, niemals neu freigelegte Inhalte ausschließen.
 Zusätzliche Pässe nur bei belegter Gesamtersparnis; ausgeführte Geometrie und Wartepfad getrennt messen.
-Benachbarte indirekte Batches mit gleichem Material, Vertexlayout und Bewegungsvertrag als
-Multi-Draw einreichen. Direkte Batches begrenzen den Lauf; Reihenfolge, Instanzen und Culling bleiben gleich.
-SDL-Aufrufe getrennt von logischen Batches zählen; unveränderte Bilder und gemessene Encodingkosten prüfen.
+Multi-Draw fasst benachbarte gleichartige indirekte Batches zusammen; direkte Batches begrenzen den Lauf.
+Reihenfolge/Instanzen/Culling erhalten; SDL-Aufrufe und Encodingkosten getrennt zählen.
 
 ## Bildabhängige Fernrepräsentation
 Ferne Gebäude gemeinsam auf tiefenhaltige Karten mit zwei Dreiecken je Karte projizieren;
 Rundum-/Layered-Capture prüfen. Bedarf vor Mesh-Aufbau; einfache Hüllen oder Quellpläne erfassen,
-Raster-/Ray-Capture vergleichen. ImpostorBaker ist vorhanden, die Fernstadt-Integration fehlt.
-Coverage, Tiefe, Normalen und Material speichern; Beleuchtung und Gesamthelligkeit aktuell auswerten.
+Raster-/Ray-Capture vergleichen. ImpostorBaker erfasst Tiefe, ImpostorCard verwirft sie; aufgelöste
+Vertex-/Materialfarben fehlen. Vor Stadtintegration Tiefenraum/Rückprojektion, Materialkomposition
+und gültigen Kamera-/Projektionsbereich herstellen; beides gegen native Hüllen prüfen.
+Coverage, Tiefe, Normalen und Material erhalten; Beleuchtung und Gesamthelligkeit aktuell auswerten.
 Update bei zu großer Pixelverschiebung, Inhaltsänderung oder Disocclusion; gültiger Hüllen-Fallback.
 Nur bild-/schattenwirksame Geometrie nach jeweiligem Bedarf; grobe Fernoccluder statt Nahdetails.
 Silhouette/Parallaxe/Bytekosten begrenzen Auflösung und Ansichten; rundum verfügbar, nur RAM/GPU.
@@ -62,8 +64,7 @@ Overdraw/Capturekosten gegen Clustergeometrie messen. Arbeitsintervalle/History 
 ## Besitzer und Abhängigkeiten
 Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
 StructureCellPlanner/Detail, StructureBake und GroundLattice bilden einen gemeinsamen Plan.
-Vorhandenes ProjectedErrorBudget erlaubt den ersten Schritt. Kein pauschales Warten auf 2188;
-benötigte öffentliche Felder werden dort mit diesem Pfad integriert. 2280 führt die Jobs aus.
+ProjectedErrorBudget erlaubt den ersten Schritt; fehlende öffentliche Felder integriert 2188, Jobs 2280.
 
 ## Erste Lieferung: Bodenstadt
 1. MVT/XML einmal in kompakte native Gebäudepläne überführen: Grundriss/Höfe/Parts, Höhen,
@@ -105,10 +106,9 @@ benötigte öffentliche Felder werden dort mit diesem Pfad integriert. 2280 füh
 ## Forschungsgrundlage
 [GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
 und [Geometry Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf)
-([Primärquellen/Einordnung](../doc/references/README.md)): Material-Batches, Cluster-Bounds
-und inkrementelle Gitteraktualisierung prüfen. GPU-Culling ersetzt keine frühe Bedarfsauswahl;
-Clipmaps liefern keinen konservativen Fehler oder weltweite Abdeckung. SDL_GPU-Vertrag und
-lokale Kosten entscheiden. Cesium-Elternabdeckung mit Rundum-Residency verbinden.
+([Primärquellen/Einordnung](../doc/references/README.md)): Batches, Cluster-Bounds und inkrementelle
+Gitter prüfen. GPU-Culling ersetzt keine frühe Auswahl; Clipmaps beweisen keine Form/Abdeckung.
+SDL_GPU-Vertrag und lokale Kosten entscheiden; Elternabdeckung mit Rundum-Residency verbinden.
 [Simplification Envelopes, SIGGRAPH 1996](../doc/references/geometry/siggraph/1996-simplification-envelopes.pdf):
 Beidseitige Abstände begrenzen; Stichproben und Simplifier-Metriken beweisen keine Hülle.
 
