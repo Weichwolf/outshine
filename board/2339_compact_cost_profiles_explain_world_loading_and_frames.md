@@ -1,7 +1,7 @@
 Type: feature
-State: active
+State: open
 Architecture: ready
-Priority: P0
+Priority: P1
 Parent: 2169
 Depends:
 Area: diagnostics, generators, world, render, client
