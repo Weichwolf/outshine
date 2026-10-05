@@ -113,15 +113,15 @@ struct Vtx {
   float U = 0.0f, V = 0.0f;
 };
 
-[[nodiscard]] FacadeStyle StyleOf(BuildingUse use) {
-  switch (use) {
-    case BuildingUse::Outbuilding: return FacadeStyle::Outbuilding;
-    case BuildingUse::Terrace: return FacadeStyle::Terrace;
-    case BuildingUse::Block: return FacadeStyle::Block;
-    case BuildingUse::Hall: return FacadeStyle::Hall;
-    case BuildingUse::Tower: return FacadeStyle::Tower;
-    case BuildingUse::Spire: return FacadeStyle::Spire;
-    case BuildingUse::House: break;
+[[nodiscard]] FacadeStyle StyleOf(BuildingForm form) {
+  switch (form) {
+    case BuildingForm::Outbuilding: return FacadeStyle::Outbuilding;
+    case BuildingForm::Terrace: return FacadeStyle::Terrace;
+    case BuildingForm::Block: return FacadeStyle::Block;
+    case BuildingForm::Hall: return FacadeStyle::Hall;
+    case BuildingForm::Tower: return FacadeStyle::Tower;
+    case BuildingForm::Spire: return FacadeStyle::Spire;
+    case BuildingForm::House: break;
   }
   return FacadeStyle::House;
 }
@@ -133,7 +133,7 @@ double EavesZ(const BuildingShape &s) {
 Vtx Wall(const BuildingShape &s, const EastNorth &p, double z, double bays, Fields stand) {
   return {.P = p,
           .Z = z,
-          .U = FacadeUvX(StyleOf(s.Use), stand, s.WallVariant, static_cast<float>(bays)),
+          .U = FacadeUvX(StyleOf(s.Form), stand, s.WallVariant, static_cast<float>(bays)),
           .V = FacadeUvY(static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
 }
 
@@ -407,8 +407,8 @@ struct FacadeWall {
 };
 
 bool RecessedWall(const BuildingShape &s, const FacadeWall &wall, Site &site) {
-  const bool housing =
-      s.Use == BuildingUse::House || s.Use == BuildingUse::Terrace || s.Use == BuildingUse::Block;
+  const bool housing = s.Form == BuildingForm::House || s.Form == BuildingForm::Terrace ||
+                       s.Form == BuildingForm::Block;
   const auto &p = wall.From;
   const auto &q = wall.To;
   const double bays = wall.Bays;

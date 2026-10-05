@@ -16,7 +16,7 @@ constexpr double kFloorUnsaidM = 2.9;
 
 enum class RoofKind : uint8_t { Flat, Gable, Hip, Shed, Mansard, Sawtooth, Dome };
 
-enum class BuildingUse : uint8_t { Outbuilding, House, Terrace, Block, Hall, Tower, Spire };
+enum class BuildingForm : uint8_t { Outbuilding, House, Terrace, Block, Hall, Tower, Spire };
 
 struct Boxed {
   double U = 0.0;
@@ -35,7 +35,7 @@ struct BuildingShape {
   double HalfUm = 0.0, HalfVm = 0.0;
   double Fill = 0.0;
 
-  BuildingUse Use = BuildingUse::House;
+  BuildingForm Form = BuildingForm::House;
   RoofKind Roof = RoofKind::Flat;
   int Storeys = 1;
   double FloorM = kFloorUnsaidM;

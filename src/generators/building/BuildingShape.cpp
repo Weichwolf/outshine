@@ -103,6 +103,7 @@ constexpr double kOutbuildingUnderM2 = 26.0;
 constexpr double kSpireOverM = 21.0;
 constexpr double kSpireUnderM2 = 260.0;
 constexpr double kTowerOverM = 19.0;
+constexpr double kTowerHeightToSpan = 2.0;
 constexpr double kHallOverM2 = 1300.0;
 constexpr double kBlockOverM2 = 380.0;
 constexpr double kTerraceOverAspect = 2.2;
@@ -356,16 +357,25 @@ struct Proportions {
   double AreaM2 = 0.0;
   double Aspect = 0.0;
   double HeightM = 0.0;
+  double SpanM = 0.0;
+  double PitchedShare = kPitchedShareUnknown;
 };
 
-[[nodiscard]] BuildingUse UseOf(Proportions of) {
-  if (of.AreaM2 < kOutbuildingUnderM2) { return BuildingUse::Outbuilding; }
-  if (of.HeightM > kSpireOverM && of.AreaM2 < kSpireUnderM2) { return BuildingUse::Spire; }
-  if (of.HeightM > kTowerOverM) { return BuildingUse::Tower; }
-  if (of.AreaM2 > kHallOverM2) { return BuildingUse::Hall; }
-  if (of.AreaM2 > kBlockOverM2) { return BuildingUse::Block; }
-  if (of.Aspect > kTerraceOverAspect && of.AreaM2 > kTerraceOverM2) { return BuildingUse::Terrace; }
-  return BuildingUse::House;
+[[nodiscard]] BuildingForm FormOf(Proportions of) {
+  if (of.HeightM > kTowerOverM && of.HeightM > kTowerHeightToSpan * of.SpanM) {
+    if (of.HeightM > kSpireOverM && of.AreaM2 < kSpireUnderM2 &&
+        of.PitchedShare >= kPitchedMajority) {
+      return BuildingForm::Spire;
+    }
+    return BuildingForm::Tower;
+  }
+  if (of.AreaM2 < kOutbuildingUnderM2) { return BuildingForm::Outbuilding; }
+  if (of.AreaM2 > kHallOverM2) { return BuildingForm::Hall; }
+  if (of.AreaM2 > kBlockOverM2) { return BuildingForm::Block; }
+  if (of.Aspect > kTerraceOverAspect && of.AreaM2 > kTerraceOverM2) {
+    return BuildingForm::Terrace;
+  }
+  return BuildingForm::House;
 }
 
 [[nodiscard]] bool ReadsAsRound(const BuildingShape &s) {
@@ -376,41 +386,42 @@ struct Proportions {
 [[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double pitchedShare) {
   const double aspect = s.HalfUm / s.HalfVm;
   if (pitchedShare == 0.0) { return RoofKind::Flat; }
+  if (s.Form == BuildingForm::Tower && pitchedShare < 0.0) { return RoofKind::Flat; }
   if (ReadsAsRound(s)) { return RoofKind::Dome; }
 
   const bool pitchable =
       pitchedShare >= 0.0 ? pitchedShare >= kPitchedMajority : s.Fill >= kPitchableFromFill;
 
-  switch (s.Use) {
-    case BuildingUse::Outbuilding: return pitchable ? RoofKind::Shed : RoofKind::Flat;
-    case BuildingUse::Spire: return pitchable ? RoofKind::Hip : RoofKind::Flat;
-    case BuildingUse::Tower: return RoofKind::Flat;
-    case BuildingUse::Hall:
+  switch (s.Form) {
+    case BuildingForm::Outbuilding: return pitchable ? RoofKind::Shed : RoofKind::Flat;
+    case BuildingForm::Spire: return pitchable ? RoofKind::Hip : RoofKind::Flat;
+    case BuildingForm::Tower: return RoofKind::Flat;
+    case BuildingForm::Hall:
       if (!pitchable) { return RoofKind::Flat; }
       return (aspect > kSawtoothOverAspect && s.AreaM2 > kSawtoothOverM2) ? RoofKind::Sawtooth
                                                                           : RoofKind::Flat;
-    case BuildingUse::Block:
+    case BuildingForm::Block:
       if (!pitchable) { return RoofKind::Flat; }
       if (s.Storeys >= kMansardFromStoreys) { return RoofKind::Mansard; }
       return aspect > kBlockGableOverAspect ? RoofKind::Gable : RoofKind::Hip;
-    case BuildingUse::Terrace: return pitchable ? RoofKind::Gable : RoofKind::Flat;
-    case BuildingUse::House: break;
+    case BuildingForm::Terrace: return pitchable ? RoofKind::Gable : RoofKind::Flat;
+    case BuildingForm::House: break;
   }
 
   if (!pitchable) { return RoofKind::Flat; }
   return aspect >= kHouseGableFromAspect ? RoofKind::Gable : RoofKind::Hip;
 }
 
-double PitchDegOf(BuildingUse use, uint32_t seed, bool heightMeasured) {
+double PitchDegOf(BuildingForm form, uint32_t seed, bool heightMeasured) {
   const double jitter = heightMeasured ? 0.0 : (UnitOf(seed, 3) - 0.5) * 9.0;
-  switch (use) {
-    case BuildingUse::Outbuilding: return kPitchOutbuildingDeg + jitter;
-    case BuildingUse::Hall: return kPitchHallDeg;
-    case BuildingUse::Spire: return kPitchSpireDeg;
-    case BuildingUse::Tower:
-    case BuildingUse::Block:
-    case BuildingUse::Terrace:
-    case BuildingUse::House: break;
+  switch (form) {
+    case BuildingForm::Outbuilding: return kPitchOutbuildingDeg + jitter;
+    case BuildingForm::Hall: return kPitchHallDeg;
+    case BuildingForm::Spire: return kPitchSpireDeg;
+    case BuildingForm::Tower:
+    case BuildingForm::Block:
+    case BuildingForm::Terrace:
+    case BuildingForm::House: break;
   }
   return kPitchHouseDeg + jitter;
 }
@@ -425,28 +436,28 @@ constexpr double kBaySpireM = 4.00;
 constexpr double kBayBlockM = 3.60;
 constexpr double kBayHouseM = 3.10;
 
-double FloorPreferenceM(BuildingUse use) {
-  switch (use) {
-    case BuildingUse::Outbuilding: return kFloorOutbuildingM;
-    case BuildingUse::Hall: return kFloorHallM;
-    case BuildingUse::Tower: return kFloorTowerM;
-    case BuildingUse::Spire: return kFloorSpireM;
-    case BuildingUse::Block: return kFloorBlockM;
-    case BuildingUse::Terrace:
-    case BuildingUse::House: break;
+double FloorPreferenceM(BuildingForm form) {
+  switch (form) {
+    case BuildingForm::Outbuilding: return kFloorOutbuildingM;
+    case BuildingForm::Hall: return kFloorHallM;
+    case BuildingForm::Tower: return kFloorTowerM;
+    case BuildingForm::Spire: return kFloorSpireM;
+    case BuildingForm::Block: return kFloorBlockM;
+    case BuildingForm::Terrace:
+    case BuildingForm::House: break;
   }
   return kFloorHouseM;
 }
 
-double BayPreferenceM(BuildingUse use) {
-  switch (use) {
-    case BuildingUse::Outbuilding: return kBayOutbuildingM;
-    case BuildingUse::Hall: return kBayHallM;
-    case BuildingUse::Tower: return kBayTowerM;
-    case BuildingUse::Spire: return kBaySpireM;
-    case BuildingUse::Block: return kBayBlockM;
-    case BuildingUse::Terrace:
-    case BuildingUse::House: break;
+double BayPreferenceM(BuildingForm form) {
+  switch (form) {
+    case BuildingForm::Outbuilding: return kBayOutbuildingM;
+    case BuildingForm::Hall: return kBayHallM;
+    case BuildingForm::Tower: return kBayTowerM;
+    case BuildingForm::Spire: return kBaySpireM;
+    case BuildingForm::Block: return kBayBlockM;
+    case BuildingForm::Terrace:
+    case BuildingForm::House: break;
   }
   return kBayHouseM;
 }
@@ -474,13 +485,13 @@ void SplitHeight(BuildingShape *s, Roofing under) {
     case RoofKind::Hip: rise = halfSpan * std::tan(under.PitchDeg * kDeg2Rad); break;
   }
 
-  const double roofShare = s->Use == BuildingUse::Spire ? 0.72 : 0.45;
+  const double roofShare = s->Form == BuildingForm::Spire ? 0.72 : 0.45;
   s->RiseM = s->Roof == RoofKind::Flat ? std::min(rise, kFlatRiseShare * under.TopM)
                                        : std::min({rise, roofShare * under.TopM, kRiseMostM});
   s->EavesM = std::max(under.TopM - s->RiseM, std::min(kEavesLeastM, under.TopM));
   s->RiseM = std::max(under.TopM - s->EavesM, 0.0);
 
-  const double want = FloorPreferenceM(s->Use);
+  const double want = FloorPreferenceM(s->Form);
   s->Storeys = std::max(1, static_cast<int>(std::lround(s->EavesM / want)));
   s->FloorM = s->EavesM / static_cast<double>(s->Storeys);
   if (s->FloorM > kTallFloorM) {
@@ -498,7 +509,7 @@ struct PartOrder {
   double PitchedShare = -1.0;
   uint32_t Seed = 0;
   bool HeightMeasured = false;
-  std::optional<BuildingUse> Use;
+  std::optional<BuildingForm> Form;
 };
 
 size_t TidyRing(std::vector<EastNorth> &ring, std::vector<uint8_t> &party) {
@@ -574,19 +585,24 @@ void Finish(FootprintPiece &piece, const PartOrder &order, BuildingShape &s) {
   const double top =
       order.ExactHeight ? order.TopOverFootM : std::max(order.TopOverFootM, kLeastTopM);
   const double aspect = s.HalfUm / s.HalfVm;
-  s.Use = order.Use ? *order.Use : UseOf({.AreaM2 = s.AreaM2, .Aspect = aspect, .HeightM = top});
+  s.Form = order.Form ? *order.Form
+                      : FormOf({.AreaM2 = s.AreaM2,
+                                .Aspect = aspect,
+                                .HeightM = top,
+                                .SpanM = 2.0 * s.HalfUm,
+                                .PitchedShare = order.PitchedShare});
   s.PeriodM = std::max(kPeriodLeastM,
                        kPeriodHalvesLeast * s.HalfUm /
                            std::max(kPeriodHalvesLeast, std::round(s.HalfUm / kPeriodPerHalfM)));
-  s.Storeys = std::max(1, static_cast<int>(std::lround(top / FloorPreferenceM(s.Use))));
+  s.Storeys = std::max(1, static_cast<int>(std::lround(top / FloorPreferenceM(s.Form))));
   s.Roof = RoofOf(s, order.PitchedShare);
-  SplitHeight(&s, {.TopM = top, .PitchDeg = PitchDegOf(s.Use, s.Seed, order.HeightMeasured)});
+  SplitHeight(&s, {.TopM = top, .PitchDeg = PitchDegOf(s.Form, s.Seed, order.HeightMeasured)});
 
-  const double bay = BayPreferenceM(s.Use);
+  const double bay = BayPreferenceM(s.Form);
   s.BayM = bay * (kBayJitterFloor + kBayJitterSwing * UnitOf(s.Seed, kBayJitterStream));
 
   const bool verged = s.Roof != RoofKind::Flat && s.Roof != RoofKind::Dome;
-  const double eaves = s.Use == BuildingUse::Hall ? kOverhangHallM : kOverhangEavesM;
+  const double eaves = s.Form == BuildingForm::Hall ? kOverhangHallM : kOverhangEavesM;
   s.OverhangM = verged ? eaves : 0.0;
 }
 
@@ -751,9 +767,9 @@ void PlotParts(const PartOrder &whole, int plots, BuildingScratch &scratch) {
     o.Seed = Mix(whole.Seed + kPlotWord * static_cast<uint32_t>(k + 1));
     o.TopOverFootM =
         whole.TopOverFootM * (kPlotTopFloor + kPlotTopSwing * UnitOf(o.Seed, kPlotTopStream));
-    o.Use = one.Use == BuildingUse::Terrace || one.Use == BuildingUse::House
-                ? std::optional<BuildingUse>(BuildingUse::Terrace)
-                : std::optional<BuildingUse>();
+    o.Form = one.Form == BuildingForm::Terrace || one.Form == BuildingForm::House
+                 ? std::optional<BuildingForm>(BuildingForm::Terrace)
+                 : std::optional<BuildingForm>();
     BuildingShape &part = scratch.Made;
     Finish(scratch.Row[static_cast<size_t>(k)], o, part);
     if (part.Valid()) { scratch.Parts.Next() = part; }
@@ -763,13 +779,13 @@ void PlotParts(const PartOrder &whole, int plots, BuildingScratch &scratch) {
 void WingParts(const PartOrder &whole, BuildingScratch &scratch) {
   PartOrder m = whole;
   m.Seed = Mix(whole.Seed + kMainWord);
-  m.Use = scratch.One.Use;
+  m.Form = scratch.One.Form;
   BuildingShape &mainPart = scratch.Made;
   Finish(scratch.Main, m, mainPart);
   if (mainPart.Valid()) { scratch.Parts.Next() = mainPart; }
   PartOrder w = whole;
   w.Seed = Mix(whole.Seed + kWingWord);
-  w.Use = scratch.One.Use;
+  w.Form = scratch.One.Form;
   w.TopOverFootM = std::max(whole.TopOverFootM *
                                 (kWingTopFloor + kWingTopSwing * UnitOf(w.Seed, kWingTopStream)),
                             kWingLeastM);
@@ -799,7 +815,7 @@ void StackDeep(Order order, BuildingScratch &scratch) {
     o.Seed = Mix(s.Seed + kOutbuildingWord);
     o.HeightMeasured = order.HeightMeasured;
     o.PitchedShare = order.PitchedShare;
-    o.Use = s.Use;
+    o.Form = s.Form;
     BuildingShape &top = scratch.Made;
     Finish(cap, o, top);
     BuildingShape &base = scratch.Stacked.Next();
@@ -867,7 +883,7 @@ MassOf(std::span<const double> ringLatLon,
 
   WholeOf(outline, scratch.Whole);
   const int plots =
-      one.Use == BuildingUse::Terrace ? RowCut(scratch.Whole, one, scratch, scratch.Row) : 0;
+      one.Form == BuildingForm::Terrace ? RowCut(scratch.Whole, one, scratch, scratch.Row) : 0;
   if (plots > 1) {
     PlotParts(whole, plots, scratch);
   } else if (plots == 0 && one.Fill < kWingUnderFill) {

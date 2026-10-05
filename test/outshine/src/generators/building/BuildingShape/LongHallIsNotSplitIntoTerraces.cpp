@@ -34,7 +34,7 @@ int main() {
   BuildingScratch scratch;
   const auto hall = Rectangle(352.0, 14.0);
   const auto whole = MassOf(hall, {.HeightM = 9.0, .PitchedShare = 0.0}, {}, scratch);
-  CHECK(whole && whole->size() == 1 && whole->front().Use == BuildingUse::Hall &&
+  CHECK(whole && whole->size() == 1 && whole->front().Form == BuildingForm::Hall &&
             whole->front().Roof == RoofKind::Flat &&
             std::fabs(whole->front().AreaM2 - 352.0 * 14.0) < 100.0,
         "a long hall remains one sourced building rather than invented row houses");
@@ -46,7 +46,7 @@ int main() {
   if (terrace) {
     for (const BuildingShape &part : *terrace) {
       allTerraces &=
-          part.Use == BuildingUse::Terrace && part.Roof == RoofKind::Flat && part.TopM() > 0.0;
+          part.Form == BuildingForm::Terrace && part.Roof == RoofKind::Flat && part.TopM() > 0.0;
       totalAreaM2 += part.AreaM2;
     }
   }
@@ -68,12 +68,12 @@ int main() {
         8.5659 + footprint[point][0] / (111320.0 * std::cos(49.3274 * std::numbers::pi / 180.0));
   }
   const auto wings = MassOf(winged, {.HeightM = 9.0, .PitchedShare = 0.0}, {}, scratch);
-  bool oneUse = wings && wings->size() > 1;
+  bool oneForm = wings && wings->size() > 1;
   if (wings) {
     for (const BuildingShape &part : *wings) {
-      oneUse &= part.Use == BuildingUse::Hall && part.Roof == RoofKind::Flat;
+      oneForm &= part.Form == BuildingForm::Hall && part.Roof == RoofKind::Flat;
     }
   }
-  CHECK(oneUse, "a wing cut may split geometry but cannot invent a different building use");
+  CHECK(oneForm, "a wing cut may split geometry but cannot invent a different building form");
   return Report();
 }
