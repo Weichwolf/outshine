@@ -13,9 +13,9 @@ Tags: lighting, shadows, hdr, presentation
 Kohärentes Tages-/Nachtlicht, räumliche Schatten/Reflexion und stabile Belichtung.
 SceneRenderer/SkyStage, LightVisibility/Irradiance, HDR/TemporalResolve/Tonemap bestehen;
 Weltwirkung und Kameraantwort sind unzureichend oder nicht am Place belegt.
-subjectLighting prüft derzeit die gemeinsame Lichtliste je Fragment und vergleicht
-Sonnentiefe mit einem einzelnen ungefilterten Shadow-Lookup. Das erklärt weder alle
-Bildfehler noch gemessene Kosten; beide Pfade sind konkrete Ausbaupunkte.
+subjectLighting prüft die gemeinsame Lichtliste je Fragment. Als nächster Bildschritt
+ersetzt bilineares 2×2-PCF den Vergleich einer interpolierten Sonnentiefe: Reverse-Z und
+Bias je Texel vergleichen, erst Sichtbarkeit filtern; Atlas/Bias/Speicherlayout erhalten.
 Die Umgebungsspekularantwort nutzt einen gemeinsamen GGX-gefilterten Himmelsatlas und
 Split-Sum-GGX/Smith statt der Diffuse-Hemisphäre; Richtung und Rauheit bestimmen die Abfrage.
 Gemittelter Boden ersetzt noch keine lokalen Weltreflexionen; Glas bleibt dadurch oft zu dunkel.
