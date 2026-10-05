@@ -16,7 +16,7 @@ GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist m
 die konservative Zellhülle erzwingt oft Fine. Einfache Gebäudehüllen stellen Wien wieder dar;
 die Fernzusammenfassung greift noch zu spät. Tokyo hält 29,65 Mio. erzeugte Gebäudedreiecke.
 Begrenzte Upload-Batches beheben den belegten Metal-Speicherabbruch; Hausflächen/Türme sind wieder da.
-Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 35/657 ms, Central Park 13/120 ms
+Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 36/790 ms, Central Park 13/152 ms
 rot; Central Parks Bild bleibt unverändert. Erzeugte Dreiecke sind keine Messung ausgeführter GPU-Arbeit.
 
 ## Aktuelle Lieferung: einfache Gebäude wiederherstellen
@@ -26,8 +26,8 @@ Gesimse und Fassadenunterteilungen entfallen. Straßen und Terrain-Deformation b
 Fine und Shell verwenden dieselbe einfache Hülle; Massed bündelt entfernte Gebäude.
 Runde Dächer linear triangulieren; Formen, Höfe und gemeinsame Ringkontakte innerhalb 1 mm erhalten.
 Vor Erzeugung auswählen; konservative Formgrenzen nicht lockern, um fehlende Gebäude zu verdecken.
-Upload-Batches begrenzt halten; ungenutzte Emissionsstreams nicht allokieren/hochladen. Tokyo hält
-5,36 GB GPU-Streams, davon 720 MB Emission; Draw-Bedarf vor Attributallokation bestimmen.
+Draw-Bedarf vor Attributallokation bestimmen: Tokyos GPU-Streamkapazität sinkt von 5,36 auf
+4,64 GB (720 MB Emission entfallen); beide Bilder bleiben pixelgleich. Framekosten bleiben rot.
 Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
 ## Auswahl der einfachen Hülle
