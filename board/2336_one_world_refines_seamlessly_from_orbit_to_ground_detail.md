@@ -44,6 +44,9 @@ Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bl
 Für bewegte Ansichten eine aktuelle Tiefenvorlage aus gültigen nativen Occludern prüfen;
 vorige Sichtbarkeit darf Arbeit priorisieren, niemals neu freigelegte Inhalte ausschließen.
 Zusätzliche Pässe nur bei belegter Gesamtersparnis; ausgeführte Geometrie und Wartepfad getrennt messen.
+Benachbarte indirekte Batches mit gleichem Material, Vertexlayout und Bewegungsvertrag als
+Multi-Draw einreichen. Direkte Batches begrenzen den Lauf; Reihenfolge, Instanzen und Culling bleiben gleich.
+SDL-Aufrufe getrennt von logischen Batches zählen; unveränderte Bilder und gemessene Encodingkosten prüfen.
 
 ## Besitzer und Abhängigkeiten
 Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
