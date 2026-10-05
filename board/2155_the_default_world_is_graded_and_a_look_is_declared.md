@@ -13,9 +13,9 @@ Tags: lighting, shadows, hdr, presentation
 Kohärentes Tages-/Nachtlicht, räumliche Schatten/Reflexion und stabile Belichtung.
 SceneRenderer/SkyStage, LightVisibility/Irradiance, HDR/TemporalResolve/Tonemap bestehen;
 Weltwirkung und Kameraantwort sind unzureichend oder nicht am Place belegt.
-subjectLighting prüft die gemeinsame Lichtliste je Fragment. Als nächster Bildschritt
-ersetzt bilineares 2×2-PCF den Vergleich einer interpolierten Sonnentiefe: Reverse-Z und
-Bias je Texel vergleichen, erst Sichtbarkeit filtern; Atlas/Bias/Speicherlayout erhalten.
+subjectLighting prüft die gemeinsame Lichtliste je Fragment. Bilineares 2×2-PCF ersetzt
+den Vergleich einer interpolierten Sonnentiefe: Empfänger-Tiefe je Texel aus ihrer Ebene
+extrapolieren; Reverse-Z/Bias prüfen, Sichtbarkeit filtern. Nahauflösung bleibt begrenzt.
 Die Umgebungsspekularantwort nutzt einen gemeinsamen GGX-gefilterten Himmelsatlas und
 Split-Sum-GGX/Smith statt der Diffuse-Hemisphäre; Richtung und Rauheit bestimmen die Abfrage.
 Gemittelter Boden ersetzt noch keine lokalen Weltreflexionen; Glas bleibt dadurch oft zu dunkel.
@@ -81,8 +81,8 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 
 ### Licht und Kamera
 - Kamera gegen Landmarken/Relief kalibrieren; falsche Gebäude nicht durch Pose kaschieren.
-  Gerichtete Schatten nach Bildwirkung staffeln, Kontakt und Fernwelt erhalten. Lokale
-  Lichter/Schatten bündeln; Himmel füllt Schatten ohne globale Überbelichtung.
+  Automatische Vollwelt-Bounds begrenzen Nahauflösung. Überlappende kamerazentrierte
+  Schattenregionen staffeln; Kontakt/Fernterrain erhalten, lokale Lichtlisten bündeln.
 - Roughness-gefilterte Weltreflexion mit Sichtbarkeit und vollständigen Mips; Wasser nutzt
   dieselbe Lichtwelt. Emissive Fenster/Straßenlichter fern als kompakte Beiträge, keine
   Detail-/Schattenarbeit je Fenster. Bloom ersetzt keine Geometrie.
