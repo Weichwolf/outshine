@@ -129,6 +129,8 @@ enum class Provenance { Machinery, Content };
 
 enum class PassKind { Compute, Raster };
 
+enum class StagePhase { WorldPreparation, Frame };
+
 enum class FallbackKind { None, Alias, Neutral };
 
 enum class TexelFormat {
@@ -163,6 +165,7 @@ struct StageRow {
   Stage Id;
   Provenance From;
   PassKind Kind;
+  StagePhase Phase = StagePhase::Frame;
   const char *Name;
 
   std::array<Resource, kMaxEdges> Reads{};
@@ -444,6 +447,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
     {.Id = Stage::MediumTransmittance,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
+     .Phase = StagePhase::WorldPreparation,
      .Name = "mediumTransmittance",
      .Reads = {kNoEdge},
      .Writes = {Resource::TransmittanceLut, kNoEdge},
@@ -452,6 +456,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
     {.Id = Stage::MediumMultiScatter,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
+     .Phase = StagePhase::WorldPreparation,
      .Name = "mediumMultiScatter",
      .Reads = {Resource::TransmittanceLut, kNoEdge},
      .Writes = {Resource::MultiScatterLut, kNoEdge},
@@ -460,6 +465,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
     {.Id = Stage::MediumRadiance,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
+     .Phase = StagePhase::WorldPreparation,
      .Name = "mediumRadiance",
      .Reads = {Resource::TransmittanceLut,
                Resource::MultiScatterLut,
@@ -472,6 +478,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
     {.Id = Stage::Irradiance,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
+     .Phase = StagePhase::WorldPreparation,
      .Name = "irradiance",
      .Reads = {Resource::MultiScatterLut,
                Resource::TransmittanceLut,
@@ -484,6 +491,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
     {.Id = Stage::EnvironmentSpecular,
      .From = Provenance::Machinery,
      .Kind = PassKind::Compute,
+     .Phase = StagePhase::WorldPreparation,
      .Name = "environmentSpecular",
      .Reads = {Resource::SkyViewLut,
                Resource::IrradianceBuffer,
@@ -533,6 +541,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
     {.Id = Stage::LightVisibility,
      .From = Provenance::Content,
      .Kind = PassKind::Raster,
+     .Phase = StagePhase::WorldPreparation,
      .Name = "lightVisibility",
      .Reads = {kNoEdge},
      .Writes = {kNoEdge},
@@ -580,6 +589,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                Resource::DrawIndex,
                Resource::DrawArguments,
                Resource::IrradianceBuffer,
+               Resource::EnvironmentSpecular,
                kNoEdge},
      .Writes = {kNoEdge},
      .Contributes = {Resource::SceneHdr,
@@ -594,7 +604,11 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
      .From = Provenance::Content,
      .Kind = PassKind::Raster,
      .Name = "subjectsTransmissive",
-     .Reads = {Resource::SceneHdr, Resource::LinearSampler, Resource::IrradianceBuffer, kNoEdge},
+     .Reads = {Resource::SceneHdr,
+               Resource::LinearSampler,
+               Resource::IrradianceBuffer,
+               Resource::EnvironmentSpecular,
+               kNoEdge},
      .Writes = {kNoEdge},
      .Contributes =
          {Resource::SceneTransmissive, Resource::SceneVelocity, Resource::SceneDepth, kNoEdge},

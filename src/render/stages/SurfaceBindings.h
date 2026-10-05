@@ -11,7 +11,7 @@ namespace outshine::Render {
 
 struct SurfaceBindings {
   DrawShape Shape{.VertexUniformBuffers = 1, .VertexStorageBuffers = 1};
-  std::array<uint32_t, 8> Images{};
+  std::array<uint32_t, kSubjectImages> Images{};
   uint32_t Count = 0;
 
   constexpr SurfaceBindings(VertexLayout layout,
@@ -23,6 +23,7 @@ struct SurfaceBindings {
     const bool transmits = kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
     if (domain == SurfaceDomain::Ground) {
       Images[Count++] = 7;
+      Images[Count++] = 8;
       Shape.FragmentStorageBuffers = 3;
     } else if (flat) {
       if (transmits) {
@@ -39,6 +40,7 @@ struct SurfaceBindings {
       }
       if (transmits) { Images[Count++] = 6; }
       Images[Count++] = 7;
+      Images[Count++] = 8;
     }
     Shape.FragmentSamplers = Count;
     Shape.FragmentUniformBuffers = 2;

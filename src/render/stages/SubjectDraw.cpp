@@ -1,3 +1,5 @@
+#include "SubjectLightingUniform.h"
+#include "math/Vec4.h"
 #include "SurfaceBindings.h"
 #include "VertexUpload.h"
 #include <format>
@@ -22,6 +24,7 @@
 #include "LightVisibilityStage.h"
 
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -1459,45 +1462,48 @@ static_assert(static_cast<int>(LightKind::Directional) == 0 &&
               "the shader reads the kind as the enum's own number, so reordering LightKind moves "
               "every light to another shape");
 
+namespace {
+Vec4f LightVector(const auto &source, float tail = 0) {
+  return {{static_cast<float>(source[0]),
+           static_cast<float>(source[1]),
+           static_cast<float>(source[2]),
+           tail}};
+}
+}
+
 std::array<float, SubjectDraw::kLightFloats>
 SubjectDraw::PackedLights(const FrameContext &ctx) const {
-  std::array<float, kLightFloats> packed{};
-  packed[0] = static_cast<float>(Placed.size());
-  packed[1] = 0.0f;
-  packed[2] = Shadowed_ ? 1.0f : 0.0f;
-  packed[3] = 1.0f / static_cast<float>(kShadowAtlasPx);
-  for (int channel = 0; channel < 3; ++channel) {
-    packed[4 + channel] = static_cast<float>(IndirectLight.RadianceLinear[channel]);
-    packed[8 + channel] = static_cast<float>(IndirectLight.GroundLinear[channel]);
-    packed[12 + channel] = static_cast<float>(IndirectLight.UpUnit[channel]);
-    packed[16 + channel] = static_cast<float>(IndirectLight.GroundAlbedo[channel]);
-  }
-  packed[7] = static_cast<float>(IndirectLight.SkyLux);
-  packed[kSunZenithSlot] = static_cast<float>(IndirectLight.CosSunZenith);
-  for (size_t axis = 0; axis < 4; ++axis) {
-    packed[kViewPositionSlot + axis] = ctx.ViewPosition[axis];
-  }
+  SubjectLightingUniform packed{};
+  packed.Count = {{static_cast<float>(Placed.size()),
+                   0,
+                   Shadowed_ ? 1.0f : 0.0f,
+                   1.0f / static_cast<float>(kShadowAtlasPx)}};
+  packed.Environment =
+      LightVector(IndirectLight.RadianceLinear,
+                  Reflections_.Atlas != nullptr ? static_cast<float>(IndirectLight.SkyLux) : 0.0f);
+  packed.Bounced = LightVector(IndirectLight.GroundLinear);
+  packed.Up = LightVector(IndirectLight.UpUnit);
+  packed.SkyGround =
+      LightVector(IndirectLight.GroundAlbedo, static_cast<float>(IndirectLight.CosSunZenith));
+  packed.ViewPosition = ctx.ViewPosition;
+  packed.SkyUp = LightVector(Reflections_.Up);
+  packed.SkyToSun = LightVector(Reflections_.ToSun);
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;
-    float *entry = packed.data() + kLightHeaderFloats + at * 4u * static_cast<size_t>(kLightVec4s);
-    for (int channel = 0; channel < 3; ++channel) {
-      entry[channel] = light.Colour[channel] * light.Intensity;
-    }
-    entry[3] = static_cast<float>(light.Kind);
+    auto &entry = packed.Items[at];
+    entry.Tint = LightVector(light.Colour, static_cast<float>(light.Kind));
+    for (int channel = 0; channel < 3; ++channel) { entry.Tint[channel] *= light.Intensity; }
     for (int axis = 0; axis < 3; ++axis) {
-      entry[4 + axis] =
+      entry.Place[axis] =
           static_cast<float>(Placed[at].PositionEcefM[axis] + ctx.PreViewTranslation[axis]);
     }
-
-    entry[7] = light.RangeM > 0.0f ? 1.0f / light.RangeM : 0.0f;
-    for (int axis = 0; axis < 3; ++axis) { entry[8 + axis] = light.Direction[axis]; }
+    entry.Place[3] = light.RangeM > 0.0f ? 1.0f / light.RangeM : 0.0f;
+    entry.Beam = LightVector(light.Direction);
     const float outer = std::cos(light.OuterConeRad);
     const float inner = std::cos(light.InnerConeRad);
-    entry[12] = outer;
-
-    entry[13] = inner > outer ? 1.0f / (inner - outer) : 0.0f;
+    entry.Cone = {{outer, inner > outer ? 1.0f / (inner - outer) : 0.0f, 0, 0}};
   }
-  return packed;
+  return std::bit_cast<std::array<float, kLightFloats>>(packed);
 }
 
 uint32_t SubjectDraw::DrawCount() const {
@@ -1526,7 +1532,10 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout 
                                                       : surface.Colour.Sample.Get()},
 
        {.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
-        .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}}};
+        .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()},
+       {.texture = Reflections_.Atlas != nullptr ? Reflections_.Atlas : surface.Colour.Image.Get(),
+        .sampler =
+            Reflections_.Sampler != nullptr ? Reflections_.Sampler : surface.Colour.Sample.Get()}}};
   const SurfaceBindings bindings(layout, surface.Kind, surface.Domain, 0);
   std::array<SDL_GPUTextureSamplerBinding, kSubjectImages> selected{};
   for (uint32_t at = 0; at < bindings.Count; ++at) { selected[at] = images[bindings.Images[at]]; }
@@ -1550,10 +1559,14 @@ void SubjectDraw::EncodeGround(const PassRecording &into) const {
   if (Binding().Behind != nullptr || Ground_.Drawn() == 0) { return; }
   for (const SurfaceSlot &surface : Slots) {
     if (surface.Domain != SurfaceDomain::Ground) { continue; }
-    const SDL_GPUTextureSamplerBinding shadow{
-        .texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
-        .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()};
-    SDL_BindGPUFragmentSamplers(into.Pass, 0, &shadow, 1);
+    const std::array<SDL_GPUTextureSamplerBinding, 2> images{
+        {{.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
+          .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()},
+         {.texture =
+              Reflections_.Atlas != nullptr ? Reflections_.Atlas : surface.Colour.Image.Get(),
+          .sampler = Reflections_.Sampler != nullptr ? Reflections_.Sampler
+                                                     : surface.Colour.Sample.Get()}}};
+    SDL_BindGPUFragmentSamplers(into.Pass, 0, images.data(), static_cast<uint32_t>(images.size()));
     std::array<SDL_GPUBuffer *const, 3> storage = {GroundClasses_, GroundPalette_, SkyIrradiance_};
     SDL_BindGPUFragmentStorageBuffers(
         into.Pass, 0, storage.data(), static_cast<uint32_t>(storage.size()));

@@ -1025,6 +1025,15 @@ void SceneRenderer::ApplyWorldDeclarations() {
     ActiveFrame().Sky.Declare(ActiveState().Medium, stands);
     ActiveFrame().Aerial.Declare(ActiveState().Medium, stands);
   }
+  const SubjectDraw::Reflections reflections{.Atlas = ActiveState().MediumDeclared &&
+                                                              ActiveState().SkyDeclared
+                                                          ? ActiveFrame().EnvironmentSpecular.Get()
+                                                          : nullptr,
+                                             .Sampler = ActiveFrame().LutSamp.Get(),
+                                             .Up = ActiveState().SkyUp,
+                                             .ToSun = ActiveState().SkyToSun};
+  ActiveState().Content.Subjects.ReflectionsFrom(reflections);
+  ActiveState().Content.Glass.ReflectionsFrom(reflections);
   if (ActiveState().ShadowDeclared) {
     ActiveFrame().Shadow.Declare({.ToSun = ActiveState().ShadowToSun, .Up = ActiveState().ShadowUp},
                                  ActiveState().ShadowRadiusM);
@@ -1603,9 +1612,7 @@ std::expected<OwnedFence, std::string> SceneRenderer::PrepareWorldResources() {
   }
   StageSubmission preparation;
   const auto preparesWorldResource = [](Stage stage) {
-    return stage == Stage::MediumTransmittance || stage == Stage::MediumMultiScatter ||
-           stage == Stage::MediumRadiance || stage == Stage::Irradiance ||
-           stage == Stage::EnvironmentSpecular || stage == Stage::LightVisibility;
+    return Row(stage).Phase == StagePhase::WorldPreparation;
   };
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     const auto &declared = ActiveState().Plan->Passes()[pass];
@@ -1944,6 +1951,32 @@ ReadState SceneRenderer::ReadPyramid(PyramidDepths &into) {
   }
   into.Mean = static_cast<float>(summed / static_cast<double>(texels));
   ActiveFrame().PyramidRead.Release();
+  return ReadState::Ready;
+}
+
+ReadState SceneRenderer::ReadEnvironmentSpecular(std::vector<float> &rgba) {
+  if (!ActiveState().Ready || !ActiveFrame().EnvironmentSpecular ||
+      !ActiveFrame().EnvironmentSpecularStage.Settled()) {
+    return ReadState::Failed;
+  }
+  Readback read;
+  if (read.FromTexture(Device_.Get(),
+                       ActiveFrame().EnvironmentSpecular.Get(),
+                       {.WidthPx = kEnvironmentWidth, .HeightPx = kEnvironmentHeight},
+                       8u) != ReadState::Ready) {
+    return ReadState::Failed;
+  }
+  rgba.resize(static_cast<size_t>(kEnvironmentWidth) * kEnvironmentHeight * 4u);
+  for (uint32_t row = 0; row < kEnvironmentHeight; ++row) {
+    for (uint32_t component = 0; component < kEnvironmentWidth * 4u; ++component) {
+      uint16_t bits = 0;
+      std::memcpy(&bits,
+                  read.Rows() + static_cast<size_t>(row) * read.RowBytes() +
+                      component * sizeof(uint16_t),
+                  sizeof(bits));
+      rgba[(static_cast<size_t>(row) * kEnvironmentWidth * 4u) + component] = HalfToFloat(bits);
+    }
+  }
   return ReadState::Ready;
 }
 

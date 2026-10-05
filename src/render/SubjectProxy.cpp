@@ -186,7 +186,8 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
 }
 
 [[nodiscard]] bool Gathers(const SubjectProxy &proxy) {
-  return !proxy.Lights().empty() || proxy.IndirectLight().RadianceLinear[0] > 0.0 ||
+  return !proxy.Lights().empty() || proxy.IndirectLight().SkyLux > 0.0 ||
+         proxy.IndirectLight().RadianceLinear[0] > 0.0 ||
          proxy.IndirectLight().RadianceLinear[1] > 0.0 ||
          proxy.IndirectLight().RadianceLinear[2] > 0.0;
 }

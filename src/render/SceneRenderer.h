@@ -381,6 +381,8 @@ public:
     return ActiveState().Content.Subjects.Resident().HeldBytes();
   }
 
+  [[nodiscard]] ReadState ReadEnvironmentSpecular(std::vector<float> &rgba);
+
   [[nodiscard]] ReadState ReadSkyIrradiance(std::span<float, kIrradianceFloats> out);
 
   struct FrameGraphAllocations {

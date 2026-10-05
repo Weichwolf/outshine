@@ -25,6 +25,7 @@
 #include "GpuPlacement.h"
 #include "SubjectMaterialPacking.h"
 #include "SubjectTypes.h"
+#include "SubjectLightingUniform.h"
 
 namespace outshine::Render {
 
@@ -277,6 +278,15 @@ public:
 
   void SkyFrom(SDL_GPUBuffer *irradiance) { SkyIrradiance_ = irradiance; }
 
+  struct Reflections {
+    SDL_GPUTexture *Atlas = nullptr;
+    SDL_GPUSampler *Sampler = nullptr;
+    Vec3f Up = {{0, 1, 0}};
+    Vec3f ToSun = {{0, 1, 0}};
+  };
+
+  void ReflectionsFrom(Reflections from) { Reflections_ = from; }
+
   struct GroundBuffers {
     SDL_GPUBuffer *Classes = nullptr;
     SDL_GPUBuffer *Palette = nullptr;
@@ -331,13 +341,7 @@ public:
 private:
   static constexpr int kUniFloats = 56;
 
-  static constexpr int kLightVec4s = 4;
-
-  static constexpr int kLightHeaderFloats = 24;
-  static constexpr int kViewPositionSlot = kLightHeaderFloats - 4;
-  static constexpr int kSunZenithSlot = kViewPositionSlot - 1;
-  static constexpr int kLightFloats =
-      kLightHeaderFloats + 4 * kLightVec4s * static_cast<int>(kMaxSubjectLights);
+  static constexpr size_t kLightFloats = sizeof(SubjectLightingUniform) / sizeof(float);
 
   struct SurfaceSlot {
     SubjectResidency::BoundImage Colour;
@@ -406,6 +410,7 @@ private:
 
   std::vector<SubjectLight> Placed;
   SubjectEnvironment IndirectLight;
+  Reflections Reflections_;
   Vec3 Anchor;
   Mat4 Model = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   std::vector<double> Placed_;

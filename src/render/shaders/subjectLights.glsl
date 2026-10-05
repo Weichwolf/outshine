@@ -20,8 +20,12 @@ layout(set = 2, binding = LIT_NEXT_BINDING) uniform sampler2D shadowMap;
 #endif
 
 #if LIT_KIND == 3
-#define SKY_IRRADIANCE_BINDING (LIT_NEXT_BINDING + 2)
+#define ENVIRONMENT_SPECULAR_BINDING (LIT_NEXT_BINDING + 2)
+#define SKY_IRRADIANCE_BINDING (LIT_NEXT_BINDING + 3)
 #else
-#define SKY_IRRADIANCE_BINDING (LIT_NEXT_BINDING + 1)
+#define ENVIRONMENT_SPECULAR_BINDING (LIT_NEXT_BINDING + 1)
+#define SKY_IRRADIANCE_BINDING (LIT_NEXT_BINDING + 2)
 #endif
 #include "skyIrradiance.glsl"
+
+#include "environmentSpecular.glsl"

@@ -67,7 +67,7 @@ public:
   static constexpr uint32_t kIndices = (kQuads + kSkirtQuads) * 6u;
   static constexpr DrawShape LitShape{.VertexSamplers = 1,
                                       .VertexUniformBuffers = 1,
-                                      .FragmentSamplers = 1,
+                                      .FragmentSamplers = 2,
                                       .FragmentUniformBuffers = kSubjectFragmentUniforms,
                                       .FragmentStorageBuffers = 3};
   static constexpr DrawShape DepthShape{.VertexSamplers = 1, .VertexUniformBuffers = 1};

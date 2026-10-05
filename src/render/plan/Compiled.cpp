@@ -345,7 +345,7 @@ bool Compiled::CanSharePass(const Pass &pass, const StageRow &row) const {
 bool Compiled::MergeStage(Pass &pass, Stage stage) {
   const StageRow &row = Row(stage);
   const StageRow &last = Row(Order_[pass.First + pass.Count - 1]);
-  if (last.Kind != row.Kind) { return false; }
+  if (last.Kind != row.Kind || last.Phase != row.Phase) { return false; }
   if (CanSharePass(pass, row)) {
     if (row.Kind == PassKind::Compute) {
       Merges_.push_back(std::string("R1 ") + last.Name + " + " + row.Name);
