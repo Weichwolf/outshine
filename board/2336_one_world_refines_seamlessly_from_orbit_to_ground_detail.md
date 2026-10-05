@@ -41,6 +41,9 @@ Zeitliche HiZ-Verdeckung gilt nur bei identischer Projektion, Weltbasis und unve
 Geometrie-, Draw-Tabellen- und Terrainständen. Tabellen-Rebuilds erhöhen die Produktgeneration. Bewegung erzeugt zunächst vollständige Frustum-/LOD-Sichtbarkeit;
 stationäre Folgebilder dürfen mit belegter Tiefe verfeinern und danach die Auswahl wiederverwenden.
 Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bleiben wiederholbar.
+Für bewegte Ansichten eine aktuelle Tiefenvorlage aus gültigen nativen Occludern prüfen;
+vorige Sichtbarkeit darf Arbeit priorisieren, niemals neu freigelegte Inhalte ausschließen.
+Zusätzliche Pässe nur bei belegter Gesamtersparnis; ausgeführte Geometrie und Wartepfad getrennt messen.
 
 ## Besitzer und Abhängigkeiten
 Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
