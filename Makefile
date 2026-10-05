@@ -35,7 +35,7 @@ LLVM_BIN := /opt/homebrew/opt/llvm/bin
 .PHONY: crown-provenance all strip shader-tools shaders db lint doc shots corpus-render corpus-prepare test suite clean spotless help
 
 GLSLANG ?= $(SELF_DIR)/build/deps/install/bin/glslangValidator
-GLSLANG_FLAGS := -V --target-env vulkan1.0 -Isrc
+GLSLANG_FLAGS := -V --target-env vulkan1.0 -Isrc -Isrc/content/shade
 GLSL_SHADERS := $(wildcard src/render/shaders/*.comp src/render/shaders/*.vert src/render/shaders/*.frag)
 SPIRV_SHADERS := $(patsubst src/render/shaders/%,build/shaders/%.spv,$(GLSL_SHADERS))
 

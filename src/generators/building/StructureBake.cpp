@@ -26,7 +26,7 @@ namespace outshine::Generators {
 
 namespace {
 
-#include "../../content/shade/FacadeOpeningValues.h"
+#include "FacadeOpeningValues.h"
 
 constexpr double kBlocksPerTile = 8.0;
 constexpr int64_t kCellBiasTiles = 0x20000000LL;

@@ -30,7 +30,7 @@ namespace outshine::Generators {
 
 namespace {
 
-#include "../../content/shade/FacadeOpeningValues.h"
+#include "FacadeOpeningValues.h"
 
 constexpr double kWeldPerM = 1000.0;
 constexpr double kLeastWallM = 1.9;

@@ -1,4 +1,4 @@
-#include "../../content/shade/FacadeOpeningValues.h"
+#include "FacadeOpeningValues.h"
 
 float facadeOpeningCoverage(float bay, float storey, float bayWidth, float storeyWidth) {
   float column = periodicBand(fract(bay), kOpeningLowU, kOpeningHighU, bayWidth);
