@@ -71,12 +71,15 @@ private:
   [[nodiscard]] Vec3 CasterCentre() const;
   uint32_t CastsBelow_ = kNoBatch;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
-  void BuildRegions(const Vec3 &right,
-                    const Vec3 &upward,
-                    const Vec3 &forward,
-                    const Vec3 &centre,
-                    double radiusM,
-                    const Vec3 &preView);
+
+  struct LightBasis {
+    Vec3 Right;
+    Vec3 Upward;
+    Vec3 Forward;
+  };
+
+  void
+  BuildRegions(const LightBasis &basis, const Vec3 &centre, double radiusM, const Vec3 &preView);
   void
   Cast(const Mat4 &lightFromWorld, const Vec3 &preView, size_t region, const PassRecording &into);
 

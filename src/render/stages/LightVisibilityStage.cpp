@@ -18,6 +18,14 @@
 namespace outshine::Render {
 
 constexpr size_t kUniformFloats = 20;
+constexpr double kParallelLightCrossSquared = 1.0e-12;
+constexpr std::array<double, 3> kCameraShadowRadiiM = {{256.0, 1024.0, 4096.0}};
+
+namespace {
+std::array<size_t, 2> ShadowTile(size_t region) {
+  return {{region % 2, region / 2}};
+}
+}
 
 bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Cache_.Invalidate();
@@ -84,7 +92,8 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
   Vec3 right = {{Up_[1] * forward[2] - Up_[2] * forward[1],
                  Up_[2] * forward[0] - Up_[0] * forward[2],
                  Up_[0] * forward[1] - Up_[1] * forward[0]}};
-  if (right[0] * right[0] + right[1] * right[1] + right[2] * right[2] < 1.0e-12) {
+  if (right[0] * right[0] + right[1] * right[1] + right[2] * right[2] <
+      kParallelLightCrossSquared) {
     const Vec3 pole = std::abs(forward[0]) < 0.9 ? Vec3{{1, 0, 0}} : Vec3{{0, 1, 0}};
     right = {{pole[1] * forward[2] - pole[2] * forward[1],
               pole[2] * forward[0] - pole[0] * forward[2],
@@ -101,33 +110,35 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
   double radiusM = RadiusM_;
   if (CameraCentred_) {
     const Vec3 delta = centre - CasterCentre();
+    const double quantumM = kCameraShadowRadiiM.front();
     radiusM +=
         std::ceil(std::sqrt(delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]) /
-                  256.0) *
-        256.0;
-    radiusM = std::ceil(radiusM / 256.0) * 256.0 * (1.0 + 2.0 / kShadowTilePx);
+                  quantumM) *
+        quantumM;
+    radiusM = std::ceil(radiusM / quantumM) * quantumM * (1.0 + 2.0 / kShadowTilePx);
   }
   StoodAtM_ = centre;
-  BuildRegions(right, upward, forward, centre, radiusM, preView);
+  BuildRegions({.Right = right, .Upward = upward, .Forward = forward}, centre, radiusM, preView);
 }
 
-void LightVisibilityStage::BuildRegions(const Vec3 &right,
-                                        const Vec3 &upward,
-                                        const Vec3 &forward,
+void LightVisibilityStage::BuildRegions(const LightBasis &basis,
                                         const Vec3 &centre,
                                         double radiusM,
                                         const Vec3 &preView) {
-  Vec3 centreLight{}, casterLight{};
+  Vec3 centreLight{};
+  Vec3 casterLight{};
   const Vec3 casterCentre = CasterCentre();
-  for (int axis = 0; axis < 3; ++axis) {
-    centreLight[0] += right[axis] * centre[axis];
-    centreLight[1] += upward[axis] * centre[axis];
-    casterLight[2] += forward[axis] * casterCentre[axis];
+  for (size_t axis = 0; axis < 3; ++axis) {
+    centreLight[0] += basis.Right[axis] * centre[axis];
+    centreLight[1] += basis.Upward[axis] * centre[axis];
+    casterLight[2] += basis.Forward[axis] * casterCentre[axis];
   }
   const double depthSpanM = 4.0 * RadiusM_;
   const double farAlong = casterLight[2] + 2.0 * RadiusM_;
-  const std::array<double, kSunShadowRegions> radii{
-      std::min(256.0, radiusM), std::min(1024.0, radiusM), std::min(4096.0, radiusM), radiusM};
+  const std::array<double, kSunShadowRegions> radii{std::min(kCameraShadowRadiiM[0], radiusM),
+                                                    std::min(kCameraShadowRadiiM[1], radiusM),
+                                                    std::min(kCameraShadowRadiiM[2], radiusM),
+                                                    radiusM};
   const size_t base = CameraCentred_ ? kSunShadowRegions - 1 : 0;
   std::array<Vec3, kSunShadowRegions> snapped{};
   for (size_t region = 0; region < RegionCount(); ++region) {
@@ -138,32 +149,33 @@ void LightVisibilityStage::BuildRegions(const Vec3 &right,
     }
     Mat4 &projection = Projections_[region];
     projection = {};
-    for (int axis = 0; axis < 3; ++axis) {
-      projection[axis * 4] = right[axis] / extentM;
-      projection[axis * 4 + 1] = upward[axis] / extentM;
-      projection[axis * 4 + 2] = -forward[axis] / depthSpanM;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      projection[axis * 4] = basis.Right[axis] / extentM;
+      projection[axis * 4 + 1] = basis.Upward[axis] / extentM;
+      projection[axis * 4 + 2] = -basis.Forward[axis] / depthSpanM;
     }
     projection[12] = -snapped[region][0] / extentM;
     projection[13] = -snapped[region][1] / extentM;
     projection[14] = farAlong / depthSpanM;
     projection[15] = 1.0;
     Static_[region] = projection;
-    for (int row = 0; row < 3; ++row) {
-      for (int axis = 0; axis < 3; ++axis) {
+    for (size_t row = 0; row < 3; ++row) {
+      for (size_t axis = 0; axis < 3; ++axis) {
         projection[12 + row] -= projection[axis * 4 + row] * preView[axis];
       }
     }
     const float bias = CameraCentred_
                            ? static_cast<float>(std::max(0.02, 0.25 * texelM) / depthSpanM)
                            : 1.0f / kShadowTilePx;
+    const auto tile = ShadowTile(region);
     RegionUniforms_[region].Atlas = {
-        {static_cast<float>(region % 2) * 0.5f, static_cast<float>(region / 2) * 0.5f, 0.5f, bias}};
+        {static_cast<float>(tile[0]) * 0.5f, static_cast<float>(tile[1]) * 0.5f, 0.5f, bias}};
   }
   LightFromWorld_ = Projections_[base];
   const double baseRadiusM = CameraCentred_ ? radii[base] : radiusM;
   for (size_t region = 0; region < RegionCount(); ++region) {
     const double extentM = CameraCentred_ ? radii[region] : radiusM;
-    const float scale = static_cast<float>(baseRadiusM / extentM);
+    const auto scale = static_cast<float>(baseRadiusM / extentM);
     RegionUniforms_[region].Transform = {
         {scale,
          scale,
@@ -264,9 +276,10 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   const SubjectResidency &Resident_ = Subjects_->Resident();
   const Vec3 &Anchor = Subjects_->AnchorM();
   const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
+  const auto tile = ShadowTile(region);
   SDL_GPUViewport square{};
-  square.x = static_cast<float>(region % 2) * kShadowTilePx;
-  square.y = static_cast<float>(region / 2) * kShadowTilePx;
+  square.x = static_cast<float>(tile[0]) * kShadowTilePx;
+  square.y = static_cast<float>(tile[1]) * kShadowTilePx;
   square.w = kShadowTilePx;
   square.h = kShadowTilePx;
   square.min_depth = 0.0f;
