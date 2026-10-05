@@ -28,21 +28,24 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 über Himmelsfüllung, Sonnenschatten und Belichtung verbessern. Kein Quellen-/SDK-Blocker.
 2172 ergänzt später denselben Lichtzustand um Wolken und Wetter.
 
-## Aktueller Bildschritt: weniger Treppen und Flimmern
-- Places fordern temporales AA regulär im Renderprofil; automatische Material-/Transparenz-
-  passwahl bleibt aktiv. Keine Zusatzframes, Auflösungswechsel oder Inhaltskürzung; 720p60.
-- Bestehende Bewegung/History prüfen: NDC → Textur-UV umfasst halben Maßstab und Y-Wechsel.
-  History liegt am festen Pixelraster; Projektionsjitter aus NDC-Bewegung in UV-Einheiten
-  entfernen, mit derselben Y-Konvention. Nur Jitter darf stationäre History nicht verschieben.
-- Konturbewegung in unbedeckte Nachbarpixel dilatieren: größte Reverse-Z-Tiefe aus vier
-  diagonalen Nachbarn. Hintergrund ohne Objektbewegung über vorige/aktuelle Kamera
-  reprojizieren; unbedeckte Kantenproben müssen ihre akkumulierte Coverage behalten.
-  Fehlende/ungültige History verwendet das aktuelle Bild; Farbclip und begrenzte Alpha-
-  Coverage halten Konturproben konsistent. Szenenwechsel verwirft alte History.
-- TAA bleibt Grundlage; MSAA braucht belegten Bildgewinn einschließlich Tiefenpfad.
-  Stillstand akkumuliert gültige History im begrenzten 90/10-Mittelwert; Drehung separat prüfen.
-- History nutzt Catmull-Rom mit fünf bilinearen Kreuzabfragen, renormierten Gewichten
-  und lokalem Wertebereich gegen Ringing (Filament `ef1a133d`). Bildschärfe bleibt zu prüfen.
+## Räumliche Sonnenschatten
+Der einzelne 2048²-Weltfit um Instanztranslationen liefert Großstädten keine Nahauflösung.
+RuntimeScene/LightVisibility ersetzen ihn durch vier überlappende, texelstabile Bereiche im
+Lichtraum um die Kamera; rundum, ohne Neuberechnung allein durch Blickdrehung. Generische
+Asset-Szenen behalten ihren Objektfit. Renderer besitzt Auswahl, Pässe, Filter/Bias und GPU-
+Verträge; Generatoren kein Schattenwissen. Außen-/Terrain-Occluder erhalten, statische Karten
+wiederverwenden, Bewegung gezielt aktualisieren. Nahe Gebäudekontakte zuerst sichtbar belegen.
+Atlasbytes, Vorbereitungs-/Framekosten messen; keine Sichtweitenkürzung oder Farb-AO als Ersatz.
+
+## Bildstabilität
+Places verwenden TAA im regulären Profil. Bewegung/History stimmen in NDC, UV, Y-Richtung
+und Projektionsjitter überein; gültige History bleibt am festen Pixelraster. Konturbewegung
+über größte Reverse-Z-Nachbartiefe dilatieren, Hintergrund kamerabasiert reprojizieren.
+Disocclusion/ungültige History nimmt das aktuelle Bild; Farbclip und Coverage erhalten Konturen.
+Szenenwechsel verwirft History. Stillstand akkumuliert 90/10; Drehung separat prüfen.
+Catmull-Rom mit fünf renormierten Kreuzabfragen und lokalem Wertebereich begrenzt Ringing
+(Filament `ef1a133d`). Bildschärfe und MSAA einschließlich Tiefenpfad bleiben zu prüfen.
+Profil/Framezahl/Inhalte bleiben fest; keine Zusatzframes oder verdeckte Qualitätswechsel.
 
 ## Gemeinsame Umgebungsreflexion und nächste Bildlücke
 - Gemeinsame Himmelsabfrage für Hintergrund und Reflexion, einschließlich Horizont und
@@ -81,8 +84,7 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 
 ### Licht und Kamera
 - Kamera gegen Landmarken/Relief kalibrieren; falsche Gebäude nicht durch Pose kaschieren.
-  Automatische Vollwelt-Bounds begrenzen Nahauflösung. Überlappende kamerazentrierte
-  Schattenregionen staffeln; Kontakt/Fernterrain erhalten, lokale Lichtlisten bündeln.
+  Sonnenschatten folgen dem räumlichen Vertrag oben; lokale Lichtlisten bündeln.
 - Roughness-gefilterte Weltreflexion mit Sichtbarkeit und vollständigen Mips; Wasser nutzt
   dieselbe Lichtwelt. Emissive Fenster/Straßenlichter fern als kompakte Beiträge, keine
   Detail-/Schattenarbeit je Fenster. Bloom ersetzt keine Geometrie.
@@ -90,8 +92,6 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
   Disocclusion, neue Produkte und Ursprungswechsel invalidieren betroffene History.
 - Arbeit pro tatsächlich benötigtem Pass/Extent; keine ungenutzten Renderressourcen.
   Render-/Ausgabemaß und Zielrate getrennt; Profile aus AGENTS, kein stiller Qualitätswechsel.
-- SDL-Submission/Ressourcenwechsel auf zuständigem Thread, begrenzte Frames in Flight,
-  Deadline-/Event-Warten statt Busy-Wait. OS erhält CPU-Zeit, GPU-Freigabe nach letzter Nutzung.
 
 ## Forschungsgrundlage
 [Color Compatibility](../doc/references/presentation/siggraph/2011-color-compatibility.pdf)
