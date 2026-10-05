@@ -64,6 +64,10 @@ Rasterisierung bleibt Basis; Ray-Box für Innenräume (2171), begrenzte SSR-DDA 
 Projektionsgitter für geeignete Wasserflächen (2145) sind gezielte Verfahren, kein universeller Ersatz.
 
 ## Forschungsgrundlage
+[Lokaler SoftGL-Vergleich](../doc/references/geometry/softgl-local-review.md): kompakte
+Sortierschlüssel und streng gültige Tiefenwiederverwendung auf native Cluster übertragen.
+Zusätzliche Hierarchieprüfungen und Vertexfilter nur bei geringerer tatsächlicher Framezeit;
+Diagnosezähler getrennt messen. Keine Warm-up-Frames in der Place-Abnahme.
 [GPU-Driven Rendering, SIGGRAPH 2015](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf):
 kompakte native Auswahl, Instancing und gebündelte Einreichung.
 [TAA Survey, CGF 2020](../doc/references/presentation/cgf/2020-temporal-antialiasing-survey.pdf):
