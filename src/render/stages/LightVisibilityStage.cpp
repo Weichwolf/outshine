@@ -4,6 +4,7 @@
 #include "LightVisibilityStage.h"
 #include "math/Vec3.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -24,25 +25,26 @@ bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std:
   return ConfigureDepthOnly(gpu, error);
 }
 
-void LightVisibilityStage::Declare(Overhead sky, double radiusM) {
+void LightVisibilityStage::Declare(Overhead sky, double radiusM, bool cameraCentred) {
   const Vec3 toSun = {{sky.ToSun[0], sky.ToSun[1], sky.ToSun[2]}};
   const Vec3 up = {{sky.Up[0], sky.Up[1], sky.Up[2]}};
-  if (ToSun_ != toSun || Up_ != up || RadiusM_ != radiusM) { Cache_.Invalidate(); }
+  if (ToSun_ != toSun || Up_ != up || RadiusM_ != radiusM || CameraCentred_ != cameraCentred) {
+    Cache_.Invalidate();
+  }
+  CameraCentred_ = cameraCentred;
   for (int axis = 0; axis < 3; ++axis) {
     ToSun_[axis] = static_cast<double>(sky.ToSun[axis]);
     Up_[axis] = static_cast<double>(sky.Up[axis]);
   }
   RadiusM_ = radiusM;
   double sunLength = 0.0;
-  double crossLength = 0.0;
-  const Vec3 cross = {{Up_[1] * ToSun_[2] - Up_[2] * ToSun_[1],
-                       Up_[2] * ToSun_[0] - Up_[0] * ToSun_[2],
-                       Up_[0] * ToSun_[1] - Up_[1] * ToSun_[0]}};
+  double upLength = 0.0;
   for (int axis = 0; axis < 3; ++axis) {
     sunLength += ToSun_[axis] * ToSun_[axis];
-    crossLength += cross[axis] * cross[axis];
+    upLength += Up_[axis] * Up_[axis];
   }
-  Declared_ = radiusM > 0.0 && sunLength > 0.0 && crossLength > 0.0;
+  Declared_ = std::isfinite(radiusM) && radiusM > 0.0 && std::isfinite(sunLength) &&
+              sunLength > 0.0 && std::isfinite(upLength) && upLength > 0.0;
 }
 
 Vec3 LightVisibilityStage::CasterCentre() const {
@@ -82,47 +84,91 @@ void LightVisibilityStage::Build(const Vec3 &preView) {
   Vec3 right = {{Up_[1] * forward[2] - Up_[2] * forward[1],
                  Up_[2] * forward[0] - Up_[0] * forward[2],
                  Up_[0] * forward[1] - Up_[1] * forward[0]}};
+  if (right[0] * right[0] + right[1] * right[1] + right[2] * right[2] < 1.0e-12) {
+    const Vec3 pole = std::abs(forward[0]) < 0.9 ? Vec3{{1, 0, 0}} : Vec3{{0, 1, 0}};
+    right = {{pole[1] * forward[2] - pole[2] * forward[1],
+              pole[2] * forward[0] - pole[0] * forward[2],
+              pole[0] * forward[1] - pole[1] * forward[0]}};
+  }
   const double rLength = std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
   for (double &axis : right) { axis /= rLength; }
   const Vec3 upward = {{forward[1] * right[2] - forward[2] * right[1],
                         forward[2] * right[0] - forward[0] * right[2],
                         forward[0] * right[1] - forward[1] * right[0]}};
 
-  const double texelM = 2.0 * RadiusM_ / static_cast<double>(kShadowAtlasPx);
-  const Vec3 centre = CasterCentre();
-  Vec3 centreLight;
+  const Vec3 centre =
+      CameraCentred_ ? Vec3{{-preView[0], -preView[1], -preView[2]}} : CasterCentre();
+  double radiusM = RadiusM_;
+  if (CameraCentred_) {
+    const Vec3 delta = centre - CasterCentre();
+    radiusM +=
+        std::ceil(std::sqrt(delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]) /
+                  256.0) *
+        256.0;
+    radiusM = std::ceil(radiusM / 256.0) * 256.0 * (1.0 + 2.0 / kShadowTilePx);
+  }
+  StoodAtM_ = centre;
+  BuildRegions(right, upward, forward, centre, radiusM, preView);
+}
+
+void LightVisibilityStage::BuildRegions(const Vec3 &right,
+                                        const Vec3 &upward,
+                                        const Vec3 &forward,
+                                        const Vec3 &centre,
+                                        double radiusM,
+                                        const Vec3 &preView) {
+  Vec3 centreLight{}, casterLight{};
+  const Vec3 casterCentre = CasterCentre();
   for (int axis = 0; axis < 3; ++axis) {
     centreLight[0] += right[axis] * centre[axis];
     centreLight[1] += upward[axis] * centre[axis];
-    centreLight[2] += forward[axis] * centre[axis];
+    casterLight[2] += forward[axis] * casterCentre[axis];
   }
-
-  centreLight[0] = std::floor(centreLight[0] / texelM) * texelM;
-  centreLight[1] = std::floor(centreLight[1] / texelM) * texelM;
-
-  const double depthM = 2.0 * RadiusM_;
-  StoodAtM_ = centre;
-  const double nearAlong = centreLight[2] - depthM;
-  const double farAlong = centreLight[2] + depthM;
-  for (double &i : LightFromWorld_) { i = 0.0; }
-  for (int axis = 0; axis < 3; ++axis) {
-    LightFromWorld_[axis * 4 + 0] = right[axis] / RadiusM_;
-    LightFromWorld_[axis * 4 + 1] = upward[axis] / RadiusM_;
-
-    LightFromWorld_[axis * 4 + 2] = -forward[axis] / (farAlong - nearAlong);
-  }
-  LightFromWorld_[12] = -centreLight[0] / RadiusM_;
-  LightFromWorld_[13] = -centreLight[1] / RadiusM_;
-  LightFromWorld_[14] = farAlong / (farAlong - nearAlong);
-  LightFromWorld_[15] = 1.0;
-
-  for (int at = 0; at < 16; ++at) { Static_[at] = LightFromWorld_[at]; }
-  for (int row = 0; row < 3; ++row) {
-    double carried = 0.0;
-    for (int axis = 0; axis < 3; ++axis) {
-      carried -= LightFromWorld_[axis * 4 + row] * preView[axis];
+  const double depthSpanM = 4.0 * RadiusM_;
+  const double farAlong = casterLight[2] + 2.0 * RadiusM_;
+  const std::array<double, kSunShadowRegions> radii{
+      std::min(256.0, radiusM), std::min(1024.0, radiusM), std::min(4096.0, radiusM), radiusM};
+  const size_t base = CameraCentred_ ? kSunShadowRegions - 1 : 0;
+  std::array<Vec3, kSunShadowRegions> snapped{};
+  for (size_t region = 0; region < RegionCount(); ++region) {
+    const double extentM = CameraCentred_ ? radii[region] : radiusM;
+    const double texelM = 2.0 * extentM / kShadowTilePx;
+    for (size_t axis = 0; axis < 2; ++axis) {
+      snapped[region][axis] = std::floor(centreLight[axis] / texelM) * texelM;
     }
-    LightFromWorld_[12 + row] += carried;
+    Mat4 &projection = Projections_[region];
+    projection = {};
+    for (int axis = 0; axis < 3; ++axis) {
+      projection[axis * 4] = right[axis] / extentM;
+      projection[axis * 4 + 1] = upward[axis] / extentM;
+      projection[axis * 4 + 2] = -forward[axis] / depthSpanM;
+    }
+    projection[12] = -snapped[region][0] / extentM;
+    projection[13] = -snapped[region][1] / extentM;
+    projection[14] = farAlong / depthSpanM;
+    projection[15] = 1.0;
+    Static_[region] = projection;
+    for (int row = 0; row < 3; ++row) {
+      for (int axis = 0; axis < 3; ++axis) {
+        projection[12 + row] -= projection[axis * 4 + row] * preView[axis];
+      }
+    }
+    const float bias = CameraCentred_
+                           ? static_cast<float>(std::max(0.02, 0.25 * texelM) / depthSpanM)
+                           : 1.0f / kShadowTilePx;
+    RegionUniforms_[region].Atlas = {
+        {static_cast<float>(region % 2) * 0.5f, static_cast<float>(region / 2) * 0.5f, 0.5f, bias}};
+  }
+  LightFromWorld_ = Projections_[base];
+  const double baseRadiusM = CameraCentred_ ? radii[base] : radiusM;
+  for (size_t region = 0; region < RegionCount(); ++region) {
+    const double extentM = CameraCentred_ ? radii[region] : radiusM;
+    const float scale = static_cast<float>(baseRadiusM / extentM);
+    RegionUniforms_[region].Transform = {
+        {scale,
+         scale,
+         static_cast<float>((snapped[base][0] - snapped[region][0]) / extentM),
+         static_cast<float>((snapped[base][1] - snapped[region][1]) / extentM)}};
   }
 }
 
@@ -131,18 +177,24 @@ void LightVisibilityStage::Prepare(const FrameContext &ctx) {
   if (!Declared_ || Subjects_ == nullptr) { return; }
   Build(ctx.PreViewTranslation);
   const uint64_t stands = Subjects_->Generation();
-  if (Cache_.Submitted() && stands == PreparedGeneration_ && Static_ == PreparedTransform_) {
+  const uint64_t ground = Subjects_->Ground().Generation();
+  if (Cache_.Submitted() && stands == PreparedGeneration_ && ground == PreparedGroundGeneration_ &&
+      Static_ == PreparedTransform_) {
     return;
   }
   Cache_.Invalidate();
   Casting_ = true;
   PreparedGeneration_ = stands;
-  for (int at = 0; at < 16; ++at) { PreparedTransform_[at] = Static_[at]; }
+  PreparedGroundGeneration_ = ground;
+  PreparedTransform_ = Static_;
 }
 
 void LightVisibilityStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (!Casting_ || !Cache_.NeedsRecording() || !DepthOnly_ || into.Pass == nullptr) { return; }
-  Cast(LightFromWorld_, ctx.PreViewTranslation, kShadowAtlasPx, into);
+  CastBatches_ = 0;
+  for (size_t region = 0; region < RegionCount(); ++region) {
+    Cast(Projections_[region], ctx.PreViewTranslation, region, into);
+  }
   into.Submission.Record(Stage::LightVisibility, Cache_);
 }
 
@@ -201,40 +253,25 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
     return false;
   }
   DepthOnly_ = OwnedPipeline(device, made);
-  return Subjects_->Ground().ConfigureDepth(device, error);
+  return true;
 }
 
 void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
                                 const Vec3 &preView,
-                                int atlasPx,
+                                size_t region,
                                 const PassRecording &into) {
-  CastBatches_ = 0;
-  if (Subjects_ == nullptr) { return; }
+  if (Subjects_ == nullptr || !DepthOnly_ || into.Pass == nullptr) { return; }
   const SubjectResidency &Resident_ = Subjects_->Resident();
   const Vec3 &Anchor = Subjects_->AnchorM();
   const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
-  if (!DepthOnly_ || Batches.empty() || !Resident_.Buffer(SubjectResidency::Stream::Vertex) ||
-      !Resident_.Buffer(SubjectResidency::Stream::Index) || into.Pass == nullptr) {
-    return;
-  }
   SDL_GPUViewport square{};
-  square.w = static_cast<float>(atlasPx);
-  square.h = static_cast<float>(atlasPx);
+  square.x = static_cast<float>(region % 2) * kShadowTilePx;
+  square.y = static_cast<float>(region / 2) * kShadowTilePx;
+  square.w = kShadowTilePx;
+  square.h = kShadowTilePx;
   square.min_depth = 0.0f;
   square.max_depth = 1.0f;
   SDL_SetGPUViewport(into.Pass, &square);
-  SDL_BindGPUGraphicsPipeline(into.Pass, DepthOnly_.Get());
-  const SDL_GPUBufferBinding vertices{
-      .buffer = Resident_.Buffer(SubjectResidency::Stream::Vertex).Get(), .offset = 0};
-  SDL_BindGPUVertexBuffers(into.Pass, 0, &vertices, 1);
-  const SDL_GPUBufferBinding indices{
-      .buffer = Resident_.Buffer(SubjectResidency::Stream::Index).Get(), .offset = 0};
-  SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-
-  std::array<SDL_GPUBuffer *const, 1> rows = {
-      Resident_.Buffer(SubjectResidency::Stream::Placements).Get()};
-  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
-
   std::array<float, kUniformFloats> uniform = {{}};
   for (int i = 0; i < 16; i++) { uniform[i] = static_cast<float>(lightFromWorld[i]); }
   for (int axis = 0; axis < 3; ++axis) {
@@ -242,6 +279,21 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   }
   SDL_PushGPUVertexUniformData(
       into.Commands, 0, uniform.data(), static_cast<uint32_t>(uniform.size() * sizeof(uniform[0])));
+  Subjects_->Ground().Cast(into);
+  if (Batches.empty() || !Resident_.Buffer(SubjectResidency::Stream::Vertex) ||
+      !Resident_.Buffer(SubjectResidency::Stream::Index)) {
+    return;
+  }
+  SDL_BindGPUGraphicsPipeline(into.Pass, DepthOnly_.Get());
+  const SDL_GPUBufferBinding vertices{
+      .buffer = Resident_.Buffer(SubjectResidency::Stream::Vertex).Get(), .offset = 0};
+  SDL_BindGPUVertexBuffers(into.Pass, 0, &vertices, 1);
+  const SDL_GPUBufferBinding indices{
+      .buffer = Resident_.Buffer(SubjectResidency::Stream::Index).Get(), .offset = 0};
+  SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+  std::array<SDL_GPUBuffer *const, 1> rows = {
+      Resident_.Buffer(SubjectResidency::Stream::Placements).Get()};
+  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
 
   const uint32_t subjectRows = Subjects_->SubjectRows();
   for (const DrawBatch &batch : Batches) {

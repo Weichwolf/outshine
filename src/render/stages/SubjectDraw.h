@@ -104,15 +104,21 @@ public:
 
   void SetSeparateTransmission(bool enabled) { Binding().GlassDrawnElsewhere = enabled; }
 
-  void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const Mat4 &lightFromWorld) {
+  void ShadowedBy(SDL_GPUTexture *atlas,
+                  SDL_GPUSampler *exact,
+                  const Mat4 &lightFromWorld,
+                  const std::array<ShadowRegionUniform, kSunShadowRegions> &regions,
+                  size_t count) {
     Atlas_ = atlas;
     AtlasSampler_ = exact;
     Shadowed_ = atlas != nullptr && exact != nullptr;
     if (!Shadowed_) { return; }
     LightFromWorld_ = lightFromWorld;
+    ShadowRegions_ = regions;
+    ShadowRegionCount_ = count;
   }
 
-  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, Mat4{}); }
+  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, Mat4{}, {}, 0); }
 
   [[nodiscard]] bool HandPlacements(bool deferred, std::string &error);
 
@@ -395,6 +401,8 @@ private:
 
   SDL_GPUTexture *Atlas_ = nullptr;
   SDL_GPUSampler *AtlasSampler_ = nullptr;
+  std::array<ShadowRegionUniform, kSunShadowRegions> ShadowRegions_{};
+  size_t ShadowRegionCount_ = 0;
   Mat4 LightFromWorld_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   bool Shadowed_ = false;
   size_t ShadowedFrames_ = 0;

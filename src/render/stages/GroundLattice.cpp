@@ -392,7 +392,8 @@ bool GroundLattice::Configure(GroundPipelineBinding &pipelines,
       .num_vertex_buffers = static_cast<uint32_t>(in.Buffers.size()),
       .vertex_attributes = in.Attributes.data(),
       .num_vertex_attributes = static_cast<uint32_t>(in.Attributes.size())};
-  return pipelines.ConfigureLit(Device_, outputs, targets, input, error);
+  return ConfigureDepth(pipelines, Device_, error) &&
+         pipelines.ConfigureLit(Device_, outputs, targets, input, error);
 }
 
 bool GroundLattice::AttachPipelines(GroundPipelineBinding &pipelines,
@@ -448,14 +449,6 @@ bool GroundLattice::Configure(SDL_GPUDevice *device,
   return true;
 }
 
-bool GroundLattice::ConfigureDepth(SDL_GPUDevice *device, std::string &error) {
-  GroundPipelineBinding candidate;
-  if (!ConfigureDepth(candidate, device, error)) { return false; }
-  OwnedPipelines_ = std::move(candidate);
-  Pipelines_ = &OwnedPipelines_;
-  return true;
-}
-
 bool GroundLattice::SetGrid(std::span<const float> fractions, std::string &error) {
   if (Device_ == nullptr) {
     error = std::string(Says::kNoDevice);
@@ -465,7 +458,9 @@ bool GroundLattice::SetGrid(std::span<const float> fractions, std::string &error
     error = std::format(Says::kPageWrongSize, kSide, fractions.size());
     return false;
   }
-  return BuildGrid(fractions, Grid_, error);
+  if (!BuildGrid(fractions, Grid_, error)) { return false; }
+  ++Generation_;
+  return true;
 }
 
 PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error) {
@@ -530,6 +525,7 @@ PageId GroundLattice::PlacePage(std::span<const float> nodes, std::string &error
     return kNoPage;
   }
   ++PagesLive_;
+  ++Generation_;
   return page;
 }
 
@@ -537,6 +533,7 @@ void GroundLattice::ReleasePage(PageId which) {
   if (which == kNoPage || which >= PagesMade_) { return; }
   Spare_.push_back(which);
   --PagesLive_;
+  ++Generation_;
 }
 
 bool GroundLattice::SetInstances(std::span<const GroundTile> real,
@@ -549,6 +546,7 @@ bool GroundLattice::SetInstances(std::span<const GroundTile> real,
   }
   const size_t total = real.size() + virtual_.size();
   if (total == 0) {
+    if (!Held_.empty()) { ++Generation_; }
     Held_.clear();
     Bounds_.clear();
     RealCount_ = 0;
@@ -621,6 +619,7 @@ bool GroundLattice::SetInstances(std::span<const GroundTile> real,
   VirtualCount_ = static_cast<uint32_t>(virtual_.size());
   VisibleReal_ = RealCount_;
   VisibleVirtual_ = VirtualCount_;
+  ++Generation_;
   return true;
 }
 

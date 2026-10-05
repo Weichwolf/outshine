@@ -530,7 +530,9 @@ void RuntimeScene::StandsKeyLight() {
                      .IlluminanceLux = static_cast<float>(
                          Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
                      .EyeHeightM = 0.0f});
-  if (ShadowRadiusStoodM_ > 0.0) { Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_); }
+  if (ShadowRadiusStoodM_ > 0.0) {
+    Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_, GroundSurface_ >= 0);
+  }
 }
 
 bool RuntimeScene::StandsPlan(std::string &error) {

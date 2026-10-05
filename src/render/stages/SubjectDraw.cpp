@@ -1477,7 +1477,8 @@ SubjectDraw::PackedLights(const FrameContext &ctx) const {
   packed.Count = {{static_cast<float>(Placed.size()),
                    0,
                    Shadowed_ ? 1.0f : 0.0f,
-                   1.0f / static_cast<float>(kShadowAtlasPx)}};
+                   static_cast<float>(ShadowRegionCount_)}};
+  packed.ShadowRegions = ShadowRegions_;
   packed.Environment =
       LightVector(IndirectLight.RadianceLinear,
                   Reflections_.Atlas != nullptr ? static_cast<float>(IndirectLight.SkyLux) : 0.0f);

@@ -83,7 +83,6 @@ public:
                                const SurfaceOutputs &outputs,
                                std::span<const SDL_GPUColorTargetDescription> targets,
                                std::string &error);
-  [[nodiscard]] bool ConfigureDepth(SDL_GPUDevice *device, std::string &error);
 
   [[nodiscard]] bool
   AttachPipelines(GroundPipelineBinding &pipelines, SDL_GPUDevice *device, std::string &error);
@@ -104,6 +103,8 @@ public:
                           std::string &error);
   void Encode(const PassRecording &into) const;
   void Cast(const PassRecording &into) const;
+
+  [[nodiscard]] uint64_t Generation() const { return Generation_; }
 
   [[nodiscard]] uint32_t Instances() const { return RealCount_ + VirtualCount_; }
 
@@ -132,6 +133,7 @@ private:
             uint32_t real,
             uint32_t virtual_) const;
 
+  uint64_t Generation_ = 0;
   SDL_GPUDevice *Device_ = nullptr;
   GroundPipelineBinding OwnedPipelines_;
   GroundPipelineBinding *Pipelines_ = &OwnedPipelines_;

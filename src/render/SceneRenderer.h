@@ -525,10 +525,12 @@ public:
     if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
-  void SetShadowFrame(const Vec3f &toSun, const Vec3f &up, double radiusM) {
+  void
+  SetShadowFrame(const Vec3f &toSun, const Vec3f &up, double radiusM, bool cameraCentred = false) {
     ActiveState().ShadowToSun = toSun;
     ActiveState().ShadowUp = up;
     ActiveState().ShadowRadiusM = radiusM;
+    ActiveState().ShadowCameraCentred = cameraCentred;
     ActiveState().ShadowDeclared = true;
     if (!Candidate_) { ApplyWorldDeclarations(); }
   }
@@ -961,6 +963,7 @@ private:
     Vec3f ShadowToSun = {{0.0f, 1.0f, 0.0f}};
     Vec3f ShadowUp = {{0.0f, 1.0f, 0.0f}};
     double ShadowRadiusM = 0.0;
+    bool ShadowCameraCentred = false;
 
     SceneStateCore() = default;
     SceneStateCore(const SceneStateCore &) = delete;

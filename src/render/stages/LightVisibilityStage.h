@@ -10,14 +10,13 @@
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "StageSubmission.h"
+#include "ShadowRegionUniform.h"
 
 namespace outshine::Render {
 
 constexpr uint32_t kNoBatch = 0xffffffffu;
 
 class SubjectDraw;
-
-inline constexpr int kShadowAtlasPx = 2048;
 
 class LightVisibilityStage {
 public:
@@ -32,7 +31,7 @@ public:
     Vec3f Up;
   };
 
-  void Declare(Overhead sky, double radiusM);
+  void Declare(Overhead sky, double radiusM, bool cameraCentred = false);
 
   void Prepare(const FrameContext &ctx);
 
@@ -47,6 +46,14 @@ public:
   void Build(const Vec3 &preView);
 
   [[nodiscard]] const Mat4 &LightFromWorld() const { return LightFromWorld_; }
+
+  [[nodiscard]] const std::array<ShadowRegionUniform, kSunShadowRegions> &Regions() const {
+    return RegionUniforms_;
+  }
+
+  [[nodiscard]] size_t RegionCount() const { return CameraCentred_ ? kSunShadowRegions : 1; }
+
+  [[nodiscard]] const Mat4 &RegionProjection(size_t region) const { return Projections_[region]; }
 
   [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
 
@@ -64,8 +71,14 @@ private:
   [[nodiscard]] Vec3 CasterCentre() const;
   uint32_t CastsBelow_ = kNoBatch;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
+  void BuildRegions(const Vec3 &right,
+                    const Vec3 &upward,
+                    const Vec3 &forward,
+                    const Vec3 &centre,
+                    double radiusM,
+                    const Vec3 &preView);
   void
-  Cast(const Mat4 &lightFromWorld, const Vec3 &preView, int atlasPx, const PassRecording &into);
+  Cast(const Mat4 &lightFromWorld, const Vec3 &preView, size_t region, const PassRecording &into);
 
   size_t CastBatches_ = 0;
   Vec3 StoodAtM_;
@@ -76,9 +89,13 @@ private:
   double RadiusM_ = 0.0;
   Mat4 LightFromWorld_ = {{}};
 
-  Mat4 Static_ = {{}};
-  Mat4 PreparedTransform_ = {{}};
+  std::array<Mat4, kSunShadowRegions> Projections_{};
+  std::array<Mat4, kSunShadowRegions> Static_{};
+  std::array<Mat4, kSunShadowRegions> PreparedTransform_{};
+  std::array<ShadowRegionUniform, kSunShadowRegions> RegionUniforms_{};
+  bool CameraCentred_ = false;
   uint64_t PreparedGeneration_ = 0;
+  uint64_t PreparedGroundGeneration_ = 0;
   StageCache Cache_;
   bool Casting_ = true;
   bool Declared_ = false;

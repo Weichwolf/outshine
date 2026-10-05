@@ -26,16 +26,16 @@ denselben Radius-/Sonnenvertrag einschließlich Bodenabstand und unabhängiger T
 Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing; PlaceCamera/Referenzkatalog
 Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Bergansicht
 über Himmelsfüllung, Sonnenschatten und Belichtung verbessern. Kein Quellen-/SDK-Blocker.
-2172 ergänzt später denselben Lichtzustand um Wolken und Wetter.
 
 ## Räumliche Sonnenschatten
-Der einzelne 2048²-Weltfit um Instanztranslationen liefert Großstädten keine Nahauflösung.
-RuntimeScene/LightVisibility ersetzen ihn durch vier überlappende, texelstabile Bereiche im
-Lichtraum um die Kamera; rundum, ohne Neuberechnung allein durch Blickdrehung. Generische
-Asset-Szenen behalten ihren Objektfit. Renderer besitzt Auswahl, Pässe, Filter/Bias und GPU-
-Verträge; Generatoren kein Schattenwissen. Außen-/Terrain-Occluder erhalten, statische Karten
-wiederverwenden, Bewegung gezielt aktualisieren. Nahe Gebäudekontakte zuerst sichtbar belegen.
-Atlasbytes, Vorbereitungs-/Framekosten messen; keine Sichtweitenkürzung oder Farb-AO als Ersatz.
+RuntimeScene/LightVisibility staffeln Welt-Sonnenschatten in vier überlappende, texelstabile
+Bereiche um die Kamera; 256/1024/4096 m Halbausdehnung plus vollständiger Weltfit. Blickdrehung
+ändert keine Karte; Asset-Szenen behalten ihren Objektfit. 4096² D32F: vier 2048²-Kacheln,
+64 MiB statt 16 MiB. Gemeinsame Welttiefe erhält Außen-/Terrain-Occluder; GroundLattice muss
+auch Schatten werfen. PCF bleibt innerhalb einer Kachel, Übergänge überblenden. Bias folgt
+Texelmetern statt pauschaler Welttiefe. Renderer besitzt Pässe/Filter/GPU-Verträge; Generatoren
+kein Schattenwissen. Statische Karten wiederverwenden, Bewegung gezielt aktualisieren.
+Nahe Gebäudekontakte am Place sowie Bytes/Lade-/Framekosten belegen; keine Farb-AO als Ersatz.
 
 ## Bildstabilität
 Places verwenden TAA im regulären Profil. Bewegung/History stimmen in NDC, UV, Y-Richtung

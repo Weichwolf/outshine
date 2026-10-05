@@ -1036,7 +1036,8 @@ void SceneRenderer::ApplyWorldDeclarations() {
   ActiveState().Content.Glass.ReflectionsFrom(reflections);
   if (ActiveState().ShadowDeclared) {
     ActiveFrame().Shadow.Declare({.ToSun = ActiveState().ShadowToSun, .Up = ActiveState().ShadowUp},
-                                 ActiveState().ShadowRadiusM);
+                                 ActiveState().ShadowRadiusM,
+                                 ActiveState().ShadowCameraCentred);
   }
 }
 
@@ -1407,9 +1408,13 @@ void SceneRenderer::EncodeSubjectCompact(const FrameContext &ctx, const PassReco
 
 void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
   ActiveFrame().Shadow.Encode(ctx, into);
+  Spent_[static_cast<size_t>(Stage::LightVisibility)].DeviceBytes =
+      static_cast<uint64_t>(kShadowAtlasPx) * kShadowAtlasPx * sizeof(float);
   ActiveState().Content.Subjects.ShadowedBy(ActiveFrame().ShadowAtlas.Get(),
                                             ActiveFrame().LutSamp.Get(),
-                                            ActiveFrame().Shadow.LightFromWorld());
+                                            ActiveFrame().Shadow.LightFromWorld(),
+                                            ActiveFrame().Shadow.Regions(),
+                                            ActiveFrame().Shadow.RegionCount());
 }
 
 bool SceneRenderer::Settle(std::string &error) {

@@ -1,19 +1,49 @@
 #include "shadowFilter.glsl"
 
-float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, vec2 receiverSlope) {
+float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, vec2 receiverSlope,
+                          vec4 atlas) {
   ivec2 extent = textureSize(map, 0);
-  vec2 texel = uv * vec2(extent) - 0.5;
+  vec2 texel = (atlas.xy + uv * atlas.z) * vec2(extent) - 0.5;
   ivec2 base = ivec2(floor(texel));
-  ivec2 limit = extent - 1;
-  ivec2 low = clamp(base, ivec2(0), limit);
-  ivec2 high = clamp(base + ivec2(1), ivec2(0), limit);
+  ivec2 first = ivec2(atlas.xy * vec2(extent));
+  ivec2 limit = first + ivec2(atlas.z * vec2(extent)) - 1;
+  ivec2 low = clamp(base, first, limit);
+  ivec2 high = clamp(base + ivec2(1), first, limit);
   vec4 depths = vec4(texelFetch(map, low, 0).r,
                      texelFetch(map, ivec2(high.x, low.y), 0).r,
                      texelFetch(map, ivec2(low.x, high.y), 0).r,
                      texelFetch(map, high, 0).r);
-  vec4 receivers = shadowReceiverDepths(receiverDepth, receiverSlope / vec2(extent),
+  vec4 receivers = shadowReceiverDepths(receiverDepth, receiverSlope / (atlas.z * vec2(extent)),
                                          vec2(low) - texel, vec2(high - low));
   return bilinearShadowVisibility(depths, fract(texel), receivers);
+}
+
+float regionShadowVisibility(sampler2D map, vec3 lightCoordinate, vec2 receiverSlope,
+                             int region) {
+  ShadowRegion area = lights.shadowRegions[region];
+  vec2 local = lightCoordinate.xy * area.transform.xy + area.transform.zw;
+  vec2 uv = local * vec2(0.5, -0.5) + 0.5;
+  return sunShadowVisibility(map, uv, lightCoordinate.z + area.atlas.w,
+                             receiverSlope / area.transform.xy, area.atlas);
+}
+
+float worldSunShadowVisibility(sampler2D map, vec3 coordinate, vec2 receiverSlope) {
+  if (coordinate.z < 0.0 || coordinate.z > 1.0) { return 1.0; }
+  int count = int(lights.count.w);
+  for (int region = 0; region < count; ++region) {
+    ShadowRegion area = lights.shadowRegions[region];
+    vec2 local = coordinate.xy * area.transform.xy + area.transform.zw;
+    float edge = max(abs(local.x), abs(local.y));
+    if (edge > 1.0) { continue; }
+    float visibility = regionShadowVisibility(map, coordinate, receiverSlope, region);
+    if (region + 1 < count && edge > 0.8) {
+      visibility = mix(visibility, regionShadowVisibility(map, coordinate, receiverSlope,
+                                                         region + 1),
+                       smoothstep(0.8, 1.0, edge));
+    }
+    return visibility;
+  }
+  return 1.0;
 }
 
 vec3 shadeRow(M surface,
@@ -82,13 +112,7 @@ vec3 shadeRow(M surface,
       attenuation *= angular * angular;
     }
     if (light.tint.w <= 0.5 && lights.count.z > 0.5) {
-      vec3 lit = shadowCoordinate;
-      vec2 atlasUv = lit.xy * vec2(0.5, -0.5) + 0.5;
-      if (atlasUv.x >= 0.0 && atlasUv.x <= 1.0 && atlasUv.y >= 0.0 && atlasUv.y <= 1.0 &&
-          lit.z >= 0.0 && lit.z <= 1.0) {
-        float bias = lights.count.w;
-        attenuation *= sunShadowVisibility(shadowMap, atlasUv, lit.z + bias, receiverSlope);
-      }
+      attenuation *= worldSunShadowVisibility(shadowMap, shadowCoordinate, receiverSlope);
     }
     float nl = dot(n, toward);
     if (nl <= 0.0 || attenuation <= 0.0) { continue; }
