@@ -22,10 +22,10 @@ Gebäude bestehen zunächst aus Grundrisswänden und Dach, einschließlich Innen
 gemessener Höhen und erhöhter Gebäudeteile. Prozedurale Sockelverzierungen, Dachaufbauten,
 Gesimse und Fassadenunterteilungen entfallen. Straßen und Terrain-Deformation bleiben erhalten.
 Fine und Shell verwenden dieselbe einfache Hülle; Massed bündelt entfernte Gebäude.
-Runde Dächer triangulieren Grundriss und Dachspitze ohne pauschale rekursive Unterteilung;
-Aufwand bleibt linear zur Grundrissgröße. Formen und Innenhöfe bleiben erhalten.
+Runde Dächer linear triangulieren, ohne rekursive Unterteilung; Formen und Innenhöfe erhalten.
 Die Entfernungsauswahl muss vor der Erzeugung greifen. Fernverbände behalten konservative
 Formgrenzen; eine großzügigere Fehlertoleranz darf keine fehlenden Gebäude verdecken.
+Hof-/Außenkontakte nach geografischer Umrechnung innerhalb 1 mm als gemeinsamen Ringpunkt verbinden.
 Wien, Tokyo und Central Park vollständig rendern; kein Überspringen fehlgeschlagener Gebäude.
 Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
