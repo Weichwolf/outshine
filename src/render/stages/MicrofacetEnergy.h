@@ -31,12 +31,18 @@ struct GgxEnvironmentResponse {
   double FresnelBias = 0.0;
 };
 
+[[nodiscard]] inline double GgxFresnelTail(double cosine) {
+  const double grazing = 1.0 - cosine;
+  const double squared = grazing * grazing;
+  return squared * squared * grazing;
+}
+
 [[nodiscard]] inline GgxEnvironmentResponse GgxEnvironmentBrdf(Slant at) {
   const double nv = at.Cosine;
   const double roughness = at.Roughness;
   const double alpha = roughness * roughness;
   const double a2 = alpha * alpha;
-  if (!(a2 > 0.0)) { return {.Albedo = 1.0, .FresnelBias = std::pow(1.0 - nv, 5.0)}; }
+  if (!(a2 > 0.0)) { return {.Albedo = 1.0, .FresnelBias = GgxFresnelTail(nv)}; }
   const double clampedNv = std::fmax(nv, 1.0e-4);
   const double sinV = std::sqrt(std::fmax(0.0, 1.0 - clampedNv * clampedNv));
   double total = 0.0;
@@ -64,7 +70,7 @@ struct GgxEnvironmentResponse {
     if (!(lz > 0.0)) { continue; }
     const double weight = 4.0 * lz * BrdfVisibility(lz, clampedNv, a2) * vh / hz;
     total += weight;
-    bias += weight * std::pow(1.0 - vh, 5.0);
+    bias += weight * GgxFresnelTail(vh);
   }
   const double albedo = std::fmin(total / kEnergySamples, 1.0);
   return {.Albedo = albedo, .FresnelBias = total > 0.0 ? albedo * bias / total : 0.0};
