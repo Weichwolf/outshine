@@ -30,6 +30,8 @@ Dekodierte RAM-Raster werden unveränderlich gemeinsam gelesen; nur das gestitch
 erhält eine private Kopie. Revision, Nachbarfehler und Bytebudget bleiben verbindlich.
 Verbleibende Dekodier-/Stitcharbeit muss den vollständigen Ladepfad beschleunigen;
 weniger kumulierte Allokationen allein belegen keine kürzere Ladezeit. Kein zusätzlicher Diskcache.
+Höhenfeld-Jobs bündeln jetzt Quadtree-Geschwister bei erhaltener Zoom-/Nähepriorität und
+RAM-Grenze. Wiederholte Dekodierungen und Vorbereitungsstillstand bleiben Ausbaupunkte.
 
 ## Besitzer und Grenzen
 SourceSet/ContentStore/TilePool besitzen gemeinsame Bytes/Jobs; Erweiterungen ihre Formate.
