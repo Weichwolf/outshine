@@ -13,12 +13,12 @@
 
 namespace outshine {
 
-[[nodiscard]] inline LevelOfDetail
-RequestedStructureCellDetail(const Ground::GeoBounds &bounds,
-                             float maxHeightM,
-                             double tileSpanM,
-                             LongitudeLatitude eye,
-                             ProjectedErrorBudget projection) noexcept {
+[[nodiscard]] inline LevelOfDetail RequestedStructureCellDetail(const Ground::GeoBounds &bounds,
+                                                                float maxHeightM,
+                                                                double tileSpanM,
+                                                                LongitudeLatitude eye,
+                                                                ProjectedErrorBudget projection,
+                                                                double shellErrorM = 0.0) noexcept {
   constexpr double kMaxLatitudeDeg = kDegPerHalfTurn / 2.0;
   if (!std::isfinite(bounds.MinLonDeg) || !std::isfinite(bounds.MaxLonDeg) ||
       !std::isfinite(bounds.MinLatDeg) || !std::isfinite(bounds.MaxLatDeg) ||
@@ -42,7 +42,9 @@ RequestedStructureCellDetail(const Ground::GeoBounds &bounds,
   const double depthM = (bounds.MaxLatDeg - bounds.MinLatDeg) * kMPerDegLat;
   const double wholeCellErrorM =
       std::hypot(std::hypot(widthM, depthM), static_cast<double>(maxHeightM)) + 10.0;
-  if (!projection.Allows(wholeCellErrorM, awayM)) { return LevelOfDetail::Fine; }
+  const double shellBoundM =
+      std::isfinite(shellErrorM) && shellErrorM > 0.0 ? shellErrorM : wholeCellErrorM;
+  if (!projection.Allows(shellBoundM, awayM)) { return LevelOfDetail::Fine; }
   const double massedErrorM = wholeCellErrorM + 2.0 * tileSpanM / Generators::kStructureCellSide;
   return projection.Allows(massedErrorM, awayM) ? LevelOfDetail::Massed : LevelOfDetail::Shell;
 }

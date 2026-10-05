@@ -596,6 +596,21 @@ BuildingDetail DetailOf(const RawTile &raw, const Spread &bounds, double statedM
   return detail;
 }
 
+void IncludeShellError(BakedTile &out,
+                       size_t cellAt,
+                       LevelOfDetail level,
+                       const StructureMesher &mesher,
+                       std::span<const StoredVertex> walls) {
+  const auto error =
+      level <= LevelOfDetail::Shell ? mesher.ShellSurfaceErrorM(walls) : std::nullopt;
+  double &cellError = out.CellShellErrorM[cellAt];
+  if (!error || !std::isfinite(*error) || !(*error > 0.0)) {
+    cellError = -1.0;
+  } else if (cellError >= 0.0) {
+    cellError = std::max(cellError, *error);
+  }
+}
+
 std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 const outshine::Ground::HeightField &heights,
                                                 const StructureMesher &mesher,
@@ -671,6 +686,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   out.FootprintDetails.push_back(level);
 
   if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0 && one.HoleCount == 0) {
+    out.CellShellErrorM[cellAt] = -1.0;
     const auto lumped = Lump(lumps,
                              bounds,
                              {.BaseM = base,
@@ -704,8 +720,11 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.AnchorEcef = raw.AnchorEcef;
   plan.Coarseness = level;
   plan.RecessedOpenings = detail.RecessedOpenings;
+  const size_t wallFirst = out.Built.WallCorners.size();
   const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
   if (!built) { return std::unexpected(built.error()); }
+  IncludeShellError(
+      out, cellAt, level, mesher, std::span(out.Built.WallCorners).subspan(wallFirst));
   return {};
 }
 
@@ -779,6 +798,7 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     out.OccupiedCells = 0;
     out.CellBounds = {};
     out.CellMaxHeightM.fill(0.0f);
+    out.CellShellErrorM.fill(0.0);
     state.Ways = LinesOf(raw);
     state.Lumps.Clear();
     state.Corners.clear();

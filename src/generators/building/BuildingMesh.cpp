@@ -17,6 +17,8 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <limits>
+#include <optional>
 #include <span>
 #include <utility>
 #include <vector>
@@ -797,6 +799,23 @@ void RaisePart(const BuildingShape &s, Site &site) {
 
 std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {
   return std::make_unique<BuildingScratch>();
+}
+
+std::optional<double>
+BuildingMesh::ShellSurfaceErrorM(std::span<const StoredVertex> walls) const noexcept {
+  if (walls.empty()) { return std::nullopt; }
+  double magnitudeM = 0.0;
+  for (const auto &wall : walls) {
+    for (float coordinate : wall.pos) {
+      if (!std::isfinite(coordinate)) { return std::nullopt; }
+      magnitudeM = std::max(magnitudeM, std::abs(static_cast<double>(coordinate)));
+    }
+  }
+  const double weldM = std::sqrt(3.0) / kWeldPerM;
+  const double roundingM = 4.0 * std::sqrt(3.0) * std::numeric_limits<float>::epsilon() *
+                           (magnitudeM + kOpeningDepthM + weldM + 1.0);
+  constexpr double kErrorUnitsPerM = 4.0;
+  return std::ceil((kOpeningDepthM + weldM + roundingM) * kErrorUnitsPerM) / kErrorUnitsPerM;
 }
 
 std::expected<void, StructureMeshError>

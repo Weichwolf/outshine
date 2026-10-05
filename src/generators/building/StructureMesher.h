@@ -128,6 +128,11 @@ public:
 
   [[nodiscard]] virtual std::string_view ArtifactVersion() const noexcept { return {}; }
 
+  [[nodiscard]] virtual std::optional<double>
+  ShellSurfaceErrorM(std::span<const StoredVertex>) const noexcept {
+    return std::nullopt;
+  }
+
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
 
   [[nodiscard]] virtual std::expected<void, StructureMeshError>

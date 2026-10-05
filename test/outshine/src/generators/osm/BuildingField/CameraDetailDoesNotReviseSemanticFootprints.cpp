@@ -23,6 +23,7 @@ int main() {
                                                           .OsmHeights = 1};
   baked.CellBounds[0] = {.MinLonDeg = 9, .MinLatDeg = 47, .MaxLonDeg = 9.01, .MaxLatDeg = 47.01};
   baked.CellMaxHeightM[0] = 12.0f;
+  baked.CellShellErrorM[0] = 0.25;
   const Data::TileSourceIdentity vector{.Kind = Data::DataKind::VectorMap,
                                         .Tile = {.Zoom = 14, .X = 7, .Y = 8},
                                         .SourceId = "osm",
@@ -60,10 +61,16 @@ int main() {
             field.InputOfTile(7)->OccupiedCells == 1,
         "camera detail and duplicate source delivery do not revise semantic ground");
   CHECK(field.InputOfTile(7) && field.InputOfTile(7)->CellBounds == baked.CellBounds &&
-            field.InputOfTile(7)->CellMaxHeightM == baked.CellMaxHeightM,
+            field.InputOfTile(7)->CellMaxHeightM == baked.CellMaxHeightM &&
+            field.InputOfTile(7)->CellShellErrorM == baked.CellShellErrorM,
         "accepted cell envelopes are stable source data across camera changes");
   CHECK(field.InputOfTile(7) && field.InputOfTile(7)->Sources.size() == 2,
         "accepted source identity stores a canonical set");
+  baked.CellShellErrorM[0] = 0.5;
+  auto rounding = field.PrepareAcceptance(7, baked, sources, true, vector, input(1080, 10));
+  field.ReplaceAcceptance(std::move(rounding), baked);
+  CHECK(field.Revision() == semanticRevision && field.InputOfTile(7)->CellShellErrorM[0] == 0.5,
+        "a changed render bound updates selection without rebuilding semantic terrain");
   height.Revision = "two";
   sources.front() = height;
   auto source = field.PrepareAcceptance(7, baked, sources, true, vector, input(1080, 10));

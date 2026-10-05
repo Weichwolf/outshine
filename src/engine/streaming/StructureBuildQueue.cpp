@@ -953,6 +953,7 @@ std::expected<void, Generators::StructureBakeError> StructureBuildQueue::Advance
       accepted->OccupiedCells == receipt.OccupiedCells &&
       accepted->CellBounds == receipt.CellBounds &&
       accepted->CellMaxHeightM == receipt.CellMaxHeightM &&
+      accepted->CellShellErrorM == receipt.CellShellErrorM &&
       accepted->HeightRevision == receipt.HeightRevision &&
       StreetDigest(stack.Ways(), *vectors, request.Tile) == receipt.Bake.StreetDigest;
   if (!current) {
@@ -1485,6 +1486,7 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
            .OccupiedCells = baked.OccupiedCells,
            .CellBounds = baked.CellBounds,
            .CellMaxHeightM = baked.CellMaxHeightM,
+           .CellShellErrorM = baked.CellShellErrorM,
            .Triangles = triangles,
            .OsmHeights = baked.OsmHeights,
            .DefaultHeights = baked.DefaultHeights,
@@ -1659,6 +1661,7 @@ void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
         .OccupiedCells = baked.OccupiedCells,
         .CellBounds = baked.CellBounds,
         .CellMaxHeightM = baked.CellMaxHeightM,
+        .CellShellErrorM = baked.CellShellErrorM,
         .Triangles = triangles,
         .OsmHeights = baked.OsmHeights,
         .DefaultHeights = baked.DefaultHeights,

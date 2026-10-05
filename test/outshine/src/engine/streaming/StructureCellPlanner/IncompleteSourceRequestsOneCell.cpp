@@ -32,6 +32,13 @@ int main() {
   CHECK(far.Count == 2 && far.Choices()[0].Detail == LevelOfDetail::Shell && far.Missing &&
             far.Missing->Detail == LevelOfDetail::Shell,
         "view distance changes requested detail without changing source identity");
+  source.CellShellErrorM[0] = 0.25;
+  const auto bounded = PlanStructureCells(
+      7, source, 42, {.LongitudeDeg = 9.02, .LatitudeDeg = 47.0}, {.FocalPx = 720}, pieces, queue);
+  CHECK(bounded.Count == 2 && bounded.Choices()[0].Detail == LevelOfDetail::Shell &&
+            bounded.Choices()[1].Detail == LevelOfDetail::Fine && bounded.Missing &&
+            bounded.Missing->Detail == LevelOfDetail::Shell,
+        "each cell uses its producer bound while unproven neighbours retain Fine");
   source.Qualified = false;
   const auto unqualified = PlanStructureCells(
       7, source, 42, {.LongitudeDeg = 9.0, .LatitudeDeg = 47.0}, {.FocalPx = 720}, pieces, queue);

@@ -45,7 +45,8 @@ PlanStructureCells(uint32_t tile,
                                                      source.CellMaxHeightM[cell - 1u],
                                                      source.Bake.TileSpanM,
                                                      eye,
-                                                     projection);
+                                                     projection,
+                                                     source.CellShellErrorM[cell - 1u]);
     plan.Selected[plan.Count++] = {.Cell = cell, .Detail = detail};
     if (pieces.HasCell(tile, cell, detail, sourceKey)) { continue; }
     plan.Complete = false;

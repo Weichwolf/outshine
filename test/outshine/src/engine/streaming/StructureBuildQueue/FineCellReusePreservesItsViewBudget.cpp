@@ -34,6 +34,15 @@ int main() {
                           Heights::AllowFallback,
                           LevelOfDetail::Fine),
         "a remote eye cannot reuse projected facade relief");
+  auto shell = revision;
+  shell.RequestedDetail = LevelOfDetail::Shell;
+  CHECK(shell.Matches(vectors,
+                      field,
+                      {.LongitudeDeg = 9.01, .LatitudeDeg = 47},
+                      {},
+                      Heights::AllowFallback,
+                      LevelOfDetail::Shell),
+        "selected Shell cells reuse unchanged geometry beyond the Fine movement guard");
   field.SeenWith({.FocalPx = 1080});
   CHECK(!revision.OwnsReservation(vectors, field, {.LongitudeDeg = 9, .LatitudeDeg = 47}, {}),
         "a changed pixel scale invalidates Fine relief ownership");

@@ -50,6 +50,7 @@ int main() {
             decoded->FootprintDetails == product.FootprintDetails &&
             decoded->CellBounds == product.CellBounds &&
             decoded->CellMaxHeightM == product.CellMaxHeightM &&
+            decoded->CellShellErrorM == product.CellShellErrorM &&
             decoded->OccupiedCells == product.OccupiedCells && decoded->Digest == product.Digest &&
             decoded->Walls.Clusters == product.Walls.Clusters &&
             decoded->Walls.Index == product.Walls.Index &&

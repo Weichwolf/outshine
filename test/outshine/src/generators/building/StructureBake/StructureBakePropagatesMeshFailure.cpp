@@ -69,6 +69,9 @@ int main() {
   const auto result = Generators::BakeStructures(raw, *heights, unsupported, *scratch, output);
   CHECK(result && unsupported.Calls == 2 && output.UnsupportedMeshes == 2,
         "unsupported forms are counted and processing continues to the next building");
+  CHECK(output.CellShellErrorM[0] == -1.0 &&
+            !unsupported.ShellSurfaceErrorM(output.Built.WallCorners),
+        "unproven or omitted producer geometry cannot advertise a tighter shell");
   raw.LatLon.insert(raw.LatLon.end(), {47, 8.9998, 47.0001, 8.9998});
   raw.Ways.push_back({.LocalFirst = 4, .PointCount = 2, .HalfWidthM = 4});
   RefusingMesher frontedMesher(StructureMeshError::UnsupportedFootprint);

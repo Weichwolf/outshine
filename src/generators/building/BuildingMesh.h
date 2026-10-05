@@ -2,6 +2,8 @@
 #define OUTSHINE_GENERATORS_BUILDING_BUILDINGMESH_H
 
 #include <memory>
+#include <optional>
+#include <span>
 
 #include "FacadeUv.h"
 #include "StructureMesher.h"
@@ -11,8 +13,11 @@ namespace outshine::Generators {
 class BuildingMesh : public StructureMesher {
 public:
   [[nodiscard]] std::string_view ArtifactVersion() const noexcept override {
-    return "outshine-building-mesh-6";
+    return "outshine-building-mesh-7";
   }
+
+  [[nodiscard]] std::optional<double>
+  ShellSurfaceErrorM(std::span<const StoredVertex> walls) const noexcept override;
 
   [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override;
 

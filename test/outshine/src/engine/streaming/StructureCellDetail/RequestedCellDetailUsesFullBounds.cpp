@@ -42,5 +42,24 @@ int main() {
                                      {.FocalPx = std::numeric_limits<double>::quiet_NaN()}) ==
             LevelOfDetail::Fine,
         "invalid projection data cannot silently lower structure detail");
+  const LongitudeLatitude intermediate{.LongitudeDeg = 9.02, .LatitudeDeg = 47.0};
+  CHECK(RequestedStructureCellDetail(cell, 12, 1000, intermediate, {.FocalPx = 720}, 0.17) ==
+            LevelOfDetail::Shell,
+        "a generator bound selects the unchanged envelope before mesh expansion");
+  CHECK(RequestedStructureCellDetail(cell,
+                                     12,
+                                     1000,
+                                     {.LongitudeDeg = 9.0005, .LatitudeDeg = 47.0005},
+                                     {.FocalPx = 720},
+                                     0.17) == LevelOfDetail::Fine,
+        "near recesses remain geometric when their projected depth is visible");
+  for (double unknown : {0.0,
+                         -1.0,
+                         std::numeric_limits<double>::infinity(),
+                         std::numeric_limits<double>::quiet_NaN()}) {
+    CHECK(RequestedStructureCellDetail(cell, 12, 1000, intermediate, {.FocalPx = 720}, unknown) ==
+              LevelOfDetail::Fine,
+          "missing or invalid generator bounds preserve the full-cell fallback");
+  }
   return Report();
 }

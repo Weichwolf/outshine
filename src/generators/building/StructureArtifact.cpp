@@ -20,7 +20,7 @@
 namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
-constexpr uint32_t kVersion = 4;
+constexpr uint32_t kVersion = 5;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -220,6 +220,9 @@ template <typename Archive, typename Tile> bool Product(Archive &archive, Tile &
   for (auto &height : tile.CellMaxHeightM) {
     if (!archive.Number(height)) { return false; }
   }
+  for (auto &error : tile.CellShellErrorM) {
+    if (!archive.Number(error)) { return false; }
+  }
   return archive.List(tile.Prints, footprint) && archive.List(tile.FootprintDetails, scalar) &&
          archive.List(tile.SeatSpreadM, scalar) && archive.List(tile.AcrossM, scalar) &&
          archive.Number(tile.OsmHeights) && archive.Number(tile.DefaultHeights) &&
@@ -246,12 +249,16 @@ bool MeshValid(const std::vector<StoredVertex> &vertices,
 
 bool Valid(const BakedTile &tile) {
   const auto detail = [](LevelOfDetail value) { return value <= LevelOfDetail::Skyline; };
+  const auto shellError = [](double value) {
+    return std::isfinite(value) && (value >= 0.0 || value == -1.0);
+  };
   if ((tile.RequestedDetail && !detail(*tile.RequestedDetail)) ||
       (tile.RequestedCell &&
        (*tile.RequestedCell == 0 || *tile.RequestedCell > kStructureCellsPerTile)) ||
       tile.Prints.size() != tile.FootprintDetails.size() ||
       tile.Prints.size() != tile.SeatSpreadM.size() || tile.Prints.size() != tile.AcrossM.size() ||
-      !std::ranges::all_of(tile.FootprintDetails, detail) || tile.OsmHeights < 0 ||
+      !std::ranges::all_of(tile.FootprintDetails, detail) ||
+      !std::ranges::all_of(tile.CellShellErrorM, shellError) || tile.OsmHeights < 0 ||
       tile.DefaultHeights < 0 || tile.Fronted < 0 || tile.Lumped < 0 || tile.Blocks < 0 ||
       tile.NoGround < 0 ||
       (tile.SurfaceFailure && (*tile.SurfaceFailure < StructureSurfaceErrorFailure::InvalidSource ||

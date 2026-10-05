@@ -29,6 +29,15 @@ Formgrenzen; eine großzügigere Fehlertoleranz darf keine fehlenden Gebäude ve
 Zuerst Wien ohne GPU-Speicherabbruch sichtbar machen, dann Cluster und dichte Lastfälle prüfen.
 Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
+## Auswahl der einfachen Hülle
+BuildingMesh liefert eine positive beidseitige Shell-Schranke aus Laibungstiefe, Millimeter-
+und Float-Rundung, konservativ auf Viertelmeter aufgerundet. Dächer/Höfe/Parts bleiben gleich.
+StructureBake führt das Maximum aller belegten Gebäude einer Zelle bis zum AcceptedInput;
+unbekannte Mesher, ausgelassene Formen und Massing liefern keine engere Shell-Schranke.
+Zellplanung nutzt diese Schranke vor der Erzeugung; Massed behält die volle Zellhülle.
+Shell bleibt bei Bewegung wiederverwendbar, sichtbare Nahlaibungen bleiben Fine.
+Render-Schranken ändern keine Terrain-Semantik. Runtime-Bild-/Kostenabnahme bleibt erforderlich.
+
 ## Besitzer und Abhängigkeiten
 Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
 StructureCellPlanner/Detail, StructureBake und GroundLattice bilden einen gemeinsamen Plan.

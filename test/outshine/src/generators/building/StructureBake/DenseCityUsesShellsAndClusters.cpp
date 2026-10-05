@@ -58,6 +58,12 @@ int main() {
                 static_cast<int>(detail),
                 triangles,
                 built.Lumped);
+    for (size_t cell = 0; cell < built.CellShellErrorM.size(); ++cell) {
+      if ((built.OccupiedCells & (uint64_t{1} << cell)) == 0) { continue; }
+      CHECK(detail == LevelOfDetail::Massed ? built.CellShellErrorM[cell] == -1.0
+                                            : built.CellShellErrorM[cell] > 0.16,
+            "only complete simple envelopes publish a shell error for every occupied cell");
+    }
     if (detail == LevelOfDetail::Fine) {
       fineTriangles = triangles;
       CHECK(triangles > 1024 * 12,

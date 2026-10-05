@@ -126,6 +126,7 @@ struct BakedTile {
   uint64_t OccupiedCells = 0;
   std::array<outshine::Ground::GeoBounds, kStructureCellsPerTile> CellBounds{};
   std::array<float, kStructureCellsPerTile> CellMaxHeightM{};
+  std::array<double, kStructureCellsPerTile> CellShellErrorM{};
   std::vector<::outshine::Ground::BuildingFootprint> Prints;
   std::vector<LevelOfDetail> FootprintDetails;
   std::vector<double> SeatSpreadM;

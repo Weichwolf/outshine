@@ -39,6 +39,7 @@ public:
     uint64_t OccupiedCells = 0;
     std::array<GeoBounds, kStructureCellsPerTile> CellBounds{};
     std::array<float, kStructureCellsPerTile> CellMaxHeightM{};
+    std::array<double, kStructureCellsPerTile> CellShellErrorM{};
     size_t Triangles = 0;
     int OsmHeights = 0;
     int DefaultHeights = 0;
@@ -67,6 +68,7 @@ public:
     uint64_t OccupiedCells = 0;
     std::array<GeoBounds, kStructureCellsPerTile> CellBounds{};
     std::array<float, kStructureCellsPerTile> CellMaxHeightM{};
+    std::array<double, kStructureCellsPerTile> CellShellErrorM{};
     bool Qualified = false;
     uint64_t SourceKey = 0;
     BakeInputs Bake;
@@ -104,6 +106,7 @@ public:
                  .OccupiedCells = baked.OccupiedCells,
                  .CellBounds = baked.CellBounds,
                  .CellMaxHeightM = baked.CellMaxHeightM,
+                 .CellShellErrorM = baked.CellShellErrorM,
                  .Qualified = qualified,
                  .SourceKey = 0,
                  .Bake = bake,
