@@ -71,7 +71,15 @@ class TimeoutCleanup(unittest.TestCase):
                 self.children.append(pid)
                 return pid
             time.sleep(0.01)
-        self.fail('fixture did not publish its PID')
+        detail = ''
+        owner = self.runners[-1]
+        if owner.poll() is not None:
+            stdout, stderr = owner.communicate()
+            detail = f'; owner status={owner.returncode}, stdout={stdout!r}, stderr={stderr!r}'
+        case_log = self.directory / 'case.log'
+        if case_log.exists():
+            detail += '; case=' + case_log.read_text(errors='replace')[-1000:]
+        self.fail('fixture did not publish its PID' + detail)
 
     def start(self, mode):
         runner = subprocess.Popen(['sh', str(self.helper), mode], env=self.environment,
