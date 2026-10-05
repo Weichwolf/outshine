@@ -52,6 +52,15 @@ bool Engine::State::RequestTerrainCoverage() {
   {
     const Ground::TilePool::Ledger kept = World.Stack.Pool().Counters();
     Published.RecordMetric(
+        "decoded raster reads", static_cast<double>(kept.Decoded.Reads), "reads");
+    Published.RecordMetric("decoded raster hits", static_cast<double>(kept.Decoded.Hits), "reads");
+    Published.RecordMetric(
+        "decoded raster rejected reads", static_cast<double>(kept.Decoded.Rejected), "reads");
+    Published.RecordMetric(
+        "decoded raster stores", static_cast<double>(kept.Decoded.Stores), "rasters");
+    Published.RecordMetric(
+        "decoded raster evictions", static_cast<double>(kept.Decoded.Evictions), "rasters");
+    Published.RecordMetric(
         "mesh jobs the pool finished", static_cast<double>(kept.MeshTiles), "tiles");
     Published.RecordMetric("mesh jobs it refused", static_cast<double>(kept.MeshRefused), "tiles");
     Published.RecordMetric(

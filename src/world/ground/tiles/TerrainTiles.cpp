@@ -138,8 +138,10 @@ TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
 
 std::shared_ptr<const TerrainField> DecodedCache::Take(Data::TileId of) {
   const std::scoped_lock lock(Lock_);
+  ++Counters_.Reads;
   for (Entry &one : Held_) {
     if (one.Of == of) {
+      ++Counters_.Hits;
       one.Seq = ++Seq_;
       return one.Field;
     }
@@ -150,6 +152,7 @@ std::shared_ptr<const TerrainField> DecodedCache::Take(Data::TileId of) {
 void DecodedCache::Store(Data::TileId of, const TerrainField &field) {
   if (!field.Meshable() || field.Bytes() > Budget_) { return; }
   const std::scoped_lock lock(Lock_);
+  ++Counters_.Stores;
   std::erase_if(Held_, [of](const Entry &entry) { return entry.Of == of; });
   size_t held = field.Bytes();
   for (const Entry &one : Held_) { held += one.Field->Bytes(); }
@@ -161,6 +164,7 @@ void DecodedCache::Store(Data::TileId of, const TerrainField &field) {
     held -= Held_[oldest].Field->Bytes();
     Held_[oldest] = std::move(Held_.back());
     Held_.pop_back();
+    ++Counters_.Evictions;
   }
   Held_.push_back({.Seq = ++Seq_, .Of = of, .Field = std::make_shared<const TerrainField>(field)});
 }
@@ -170,6 +174,16 @@ size_t DecodedCache::Bytes() const {
   size_t bytes = 0;
   for (const Entry &one : Held_) { bytes += one.Field->Bytes(); }
   return bytes;
+}
+
+DecodedCache::Counters DecodedCache::ReadCounters() const {
+  const std::scoped_lock lock(Lock_);
+  return Counters_;
+}
+
+void DecodedCache::RejectRead() {
+  const std::scoped_lock lock(Lock_);
+  ++Counters_.Rejected;
 }
 
 double TerrainTiles::ShapedAslM(LongitudeLatitude at) const noexcept {
@@ -237,6 +251,7 @@ TerrainGrid TerrainTiles::RawGrid(Data::TileId of) {
           Source_.AreCurrent(cached->Certificate().Dependencies())))) {
       return TerrainGrid::Holding(std::move(cached));
     }
+    if (cached) { Decoded_->RejectRead(); }
   }
 
   TerrainBytes answer = Source_.Take(of);

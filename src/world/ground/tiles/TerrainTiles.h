@@ -118,11 +118,17 @@ void FillNodeHeights(const TerrainField &field,
 
 class DecodedCache {
 public:
+  struct Counters {
+    size_t Reads = 0, Hits = 0, Rejected = 0, Stores = 0, Evictions = 0;
+  };
+
   explicit DecodedCache(size_t budgetBytes) : Budget_(budgetBytes) {}
 
   [[nodiscard]] std::shared_ptr<const TerrainField> Take(Data::TileId of);
   void Store(Data::TileId of, const TerrainField &field);
   [[nodiscard]] size_t Bytes() const;
+  [[nodiscard]] Counters ReadCounters() const;
+  void RejectRead();
 
 private:
   struct Entry {
@@ -135,6 +141,7 @@ private:
   std::vector<Entry> Held_;
   size_t Budget_ = 0;
   uint64_t Seq_ = 0;
+  Counters Counters_;
 };
 
 class TerrainTiles {

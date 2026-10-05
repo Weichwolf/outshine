@@ -66,6 +66,7 @@ public:
   }
 
   struct Ledger {
+    DecodedCache::Counters Decoded;
     long long MeshTiles = 0, MeshAbsent = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
     long long Evictions = 0;
 

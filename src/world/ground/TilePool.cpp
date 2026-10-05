@@ -243,6 +243,7 @@ TilePool::Ledger TilePool::Counters() const {
     const std::scoped_lock lock(LedgerMutex_);
     out = Ledger_;
   }
+  out.Decoded = Decoded_->ReadCounters();
   const std::scoped_lock queue(QueueMutex_);
   out.Posts = Posts_;
   out.Repeats = Repeats_;
