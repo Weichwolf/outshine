@@ -48,6 +48,10 @@ und Blocköffnungen. Kontaktwände/Giebel und Hallen/Türme/Sonderbauten bleiben
 Fine ersetzt Wandrechtecke durch geschlossene Laibungen mit zurückgesetzten Glasscheiben;
 Shell wertet denselben Öffnungsplan gefiltert aus. Keine zusätzlichen Fernmesh-Dreiecke.
 Die konservative Detailauswahl bleibt gültig; keine kleinere Fehlerschranke behaupten.
+Nächste Lieferung: schmale Rahmen und Mittelpfosten aus demselben Öffnungsplan.
+Nahglas erhält Achsen-/Geschosskoordinaten im freien Fassadenstil 7; keine neuen Attribute
+oder Dreiecke. Hülle und Nahglas verwenden dieselben analytisch gefilterten Rahmen-/
+Glasflächen, getrennt von Wandfarbe. Gesamtdeckung und Material bleiben über LOD kohärent.
 Fine ist kein Auftrag zur ungeprüften Expansion aller Fassadendetails. Sichtabhängige
 Zellprodukte wählen Laibungen separat aus projizierter Tiefe und konservativer Entfernung;
 die Hülle behält denselben gefilterten Öffnungsplan. Feste explizite Tile-LODs bleiben fest.
