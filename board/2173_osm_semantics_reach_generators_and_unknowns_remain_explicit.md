@@ -68,6 +68,11 @@ Wohnhausfassade. Native Klassifikation bis Gebäudeplan und Materialwahl führen
 [OpenMapTiles-Building-Schema](https://github.com/openmaptiles/openmaptiles/blob/master/layers/building/building.yaml)
 exportiert nicht sämtliche OSM-Tags; tatsächlich gelieferte Eigenschaften prüfen.
 Fehlende Klasse bleibt unbekannt; Schlankheit allein beweist keinen Schornstein/Kirchturm.
+Die prozedurale Formwahl berücksichtigt Höhe relativ zur größten Grundrissausdehnung:
+19 Meter allein machen keinen Turm; breite Blöcke/Hallen behalten ihren Formplan.
+Hohe schlanke Formen erhalten ohne gelieferte Dachneigung ein neutrales Flachdach.
+Ein Spitzdach ist keine aus Höhe abgeleitete Quellsemantik. Gelieferte Dachangaben gehen vor;
+Höhe, Grundriss und alle LOD-Bounds bleiben erhalten.
 [Recherche](../doc/references/README.md): kompakte Regeln statt einer zweiten Gebäudepipeline.
 
 ## Gebäudefarbe bis zum Bild
