@@ -29,8 +29,8 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 ## Räumliche Sonnenschatten
 RuntimeScene/LightVisibility staffeln Sonnenschatten rundum in vier texelstabile Bereiche:
 256/1024/4096 m Halbausdehnung plus Weltfit; Blickdrehung ändert keine Karte. Asset-Szenen
-behalten ihren Objektfit. 4096² D32F, vier 2048²-Kacheln: 64 MiB statt 16 MiB. GroundLattice
-wirft Schatten vom physischen Höhenfeld ohne Nahtsäume; PCF bleibt in der jeweiligen Kachel.
+behalten ihren Objektfit. 4096² D32F, vier 2048²-Kacheln: 64 MiB statt 16 MiB.
+Alle Batch-Instanzen und GroundLattice-Höhen werfen Schatten; keine Nahtsäume, PCF je Kachel.
 Ist: gemeinsame Welttiefe; an Bergansichten bleiben Selbstschatten und Bereichsgrenzen sichtbar.
 Nächster Schritt: Tiefenintervalle je Bereich aus nativen Instanz-/Terrainbounds schneiden,
 alle relevanten Außen-Occluder erhalten; Rundungsfehler, Bias und Übergänge am Bild prüfen.

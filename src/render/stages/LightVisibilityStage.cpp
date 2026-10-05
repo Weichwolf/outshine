@@ -311,9 +311,13 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   const uint32_t subjectRows = Subjects_->SubjectRows();
   for (const DrawBatch &batch : Batches) {
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < subjectRows) { continue; }
+    const uint32_t instances = batch.ModelSlot < subjectRows
+                                   ? std::min(batch.Instances, CastsBelow_ - batch.ModelSlot)
+                                   : batch.Instances;
+    if (instances == 0) { continue; }
     ++CastBatches_;
     SDL_DrawGPUIndexedPrimitives(
-        into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0, batch.ModelSlot);
+        into.Pass, batch.IndexCount, instances, batch.FirstIndex, 0, batch.ModelSlot);
   }
 }
 
