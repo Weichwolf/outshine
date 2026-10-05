@@ -13,6 +13,8 @@
 
 namespace outshine::Generators {
 
+inline constexpr double kBuildingWeldPerM = 1000.0;
+
 inline constexpr int kMaxParts = 9;
 
 struct FootprintPiece {

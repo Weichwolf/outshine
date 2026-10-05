@@ -192,6 +192,46 @@ double SignedArea(std::span<const EastNorth> ring) {
   return 0.5 * a;
 }
 
+void ConnectCourtyardVertex(BuildingShape &shape, EastNorth &point) {
+  std::optional<size_t> closest;
+  EastNorth contact{};
+  double leastSquaredM = 1.0 / (kBuildingWeldPerM * kBuildingWeldPerM);
+  for (size_t at = 0; at < shape.Ring.size(); ++at) {
+    const auto &a = shape.Ring[at];
+    const auto &b = shape.Ring[(at + 1) % shape.Ring.size()];
+    const double eastM = b.EastM - a.EastM, northM = b.NorthM - a.NorthM;
+    const double runSquaredM = eastM * eastM + northM * northM;
+    if (runSquaredM == 0.0) { continue; }
+    const double along = std::clamp(
+        ((point.EastM - a.EastM) * eastM + (point.NorthM - a.NorthM) * northM) / runSquaredM,
+        0.0,
+        1.0);
+    const EastNorth projected = along == 0.0 ? a
+                                : along == 1.0
+                                    ? b
+                                    : EastNorth{a.EastM + along * eastM, a.NorthM + along * northM};
+    const double deltaEastM = point.EastM - projected.EastM;
+    const double deltaNorthM = point.NorthM - projected.NorthM;
+    const double squaredM = deltaEastM * deltaEastM + deltaNorthM * deltaNorthM;
+    if (squaredM > leastSquaredM) { continue; }
+    leastSquaredM = squaredM;
+    closest = at;
+    contact = projected;
+  }
+  if (!closest) { return; }
+  point = contact;
+  const auto &a = shape.Ring[*closest];
+  const auto &b = shape.Ring[(*closest + 1) % shape.Ring.size()];
+  if ((contact.EastM == a.EastM && contact.NorthM == a.NorthM) ||
+      (contact.EastM == b.EastM && contact.NorthM == b.NorthM)) {
+    return;
+  }
+  const auto insertion = static_cast<ptrdiff_t>(*closest + 1);
+  const auto party = shape.PartyWallEdges[*closest];
+  shape.Ring.insert(shape.Ring.begin() + insertion, contact);
+  shape.PartyWallEdges.insert(shape.PartyWallEdges.begin() + insertion, party);
+}
+
 bool AssignHoles(BuildingShape &shape,
                  std::span<const GeographicRing> innerRings,
                  std::span<const double> ringPointsLatLon,
@@ -210,6 +250,7 @@ bool AssignHoles(BuildingShape &shape,
     RingInMetres(points, origin, hole);
     if (hole.size() < 3) { return false; }
     if (SignedArea(hole) > 0.0) { std::ranges::reverse(hole); }
+    for (auto &point : hole) { ConnectCourtyardVertex(shape, point); }
   }
   return true;
 }

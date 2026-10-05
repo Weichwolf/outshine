@@ -35,7 +35,6 @@ namespace {
 
 #include "FacadeOpeningValues.h"
 
-constexpr double kWeldPerM = 1000.0;
 constexpr double kLeastWallM = 1.9;
 constexpr double kSameHeightM = 1.0e-3;
 constexpr double kLeastEdgeM = 0.05;
@@ -177,9 +176,9 @@ public:
 
   [[nodiscard]] static Vtx Snapped(const Vtx &v) {
     Vtx out = v;
-    out.P.EastM = std::round(v.P.EastM * kWeldPerM) / kWeldPerM;
-    out.P.NorthM = std::round(v.P.NorthM * kWeldPerM) / kWeldPerM;
-    out.Z = std::round(v.Z * kWeldPerM) / kWeldPerM;
+    out.P.EastM = std::round(v.P.EastM * kBuildingWeldPerM) / kBuildingWeldPerM;
+    out.P.NorthM = std::round(v.P.NorthM * kBuildingWeldPerM) / kBuildingWeldPerM;
+    out.Z = std::round(v.Z * kBuildingWeldPerM) / kBuildingWeldPerM;
     return out;
   }
 
@@ -189,16 +188,16 @@ public:
     constexpr double exclusiveLimit = 0x1p63;
     const std::array coordinates{v.P.EastM, v.P.NorthM, v.Z};
     return std::ranges::all_of(coordinates, [](double coordinate) {
-      const double millimetres = coordinate * kWeldPerM;
+      const double millimetres = coordinate * kBuildingWeldPerM;
       return millimetres >= -exclusiveLimit && millimetres < exclusiveLimit;
     });
   }
 
   [[nodiscard]] uint32_t Index(const Vtx &v) {
     if (!Status_) { return 0; }
-    const auto ce = static_cast<int64_t>(std::llround(v.P.EastM * 1000.0));
-    const auto cn = static_cast<int64_t>(std::llround(v.P.NorthM * 1000.0));
-    const auto cz = static_cast<int64_t>(std::llround(v.Z * 1000.0));
+    const auto ce = static_cast<int64_t>(std::llround(v.P.EastM * kBuildingWeldPerM));
+    const auto cn = static_cast<int64_t>(std::llround(v.P.NorthM * kBuildingWeldPerM));
+    const auto cz = static_cast<int64_t>(std::llround(v.Z * kBuildingWeldPerM));
     const BuildingPositionKey key{.EastMm = ce, .NorthMm = cn, .HeightMm = cz};
     const auto made = Scratch_.Welded.Emplace(key, static_cast<uint32_t>(Scratch_.Welded.Size()));
     if (!made) {
@@ -812,7 +811,7 @@ BuildingMesh::ShellSurfaceErrorM(std::span<const StoredVertex> walls) const noex
       magnitudeM = std::max(magnitudeM, std::abs(static_cast<double>(coordinate)));
     }
   }
-  const double weldM = std::numbers::sqrt3 / kWeldPerM;
+  const double weldM = std::numbers::sqrt3 / kBuildingWeldPerM;
   const double roundingM = 4.0 * std::numbers::sqrt3 * std::numeric_limits<float>::epsilon() *
                            (magnitudeM + kOpeningDepthM + weldM + 1.0);
   constexpr double kErrorUnitsPerM = 4.0;
