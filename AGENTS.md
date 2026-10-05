@@ -51,7 +51,8 @@
   720p60 bleibt Messprofil; 480p30 in hoher Qualität auf A18 Pro ist eine zu prüfende Hypothese.
 - Alle acht Places aus 2169 sind visuelle Regressionen, mindestens einer gehört ins Gate.
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
-  Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen; alte Bilder/Pins erhalten.
+  Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
+  je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
   Fehlende/unvollständige Bilder bleiben rot. Unbelegte Bildänderungen gelten als Verschlechterung.
 - Vollständiger Quellcache → frischer Offline-Prozess → vollständige Welt so schnell wie möglich.
   Ich begründe Ladeziele pro Szene anhand Komplexität und gemessener Arbeit; keine feste Zehn-
@@ -101,6 +102,8 @@
 - Logs ins System-Tempverzeichnis; Referenzen nach `build/shots/reference/`, Bildvergleich mit
   `test/scripts/pixels.py`. Worktree-Bilder auch eindeutig ins Haupt-Checkout übernehmen.
   Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.
+  Normale Logs bleiben kompakt; Detailausgabe ist explizit. Diagnose verwendet feste Zähler, hält
+  Formatierung/Ausgabe aus dem Hot Path, misst eigene Kosten und kennzeichnet fehlende Messwerte.
 - Ich recherchiere normalerweise lokal; beauftragte Anbieter-/API-Recherche und Webcam-Suche
   sowie beauftragte Technik-/Bibliotheksrecherche erlauben Websuche. Werkzeuge aktuell halten,
   nach Updates Orakelherkunft prüfen.
