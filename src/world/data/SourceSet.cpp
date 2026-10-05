@@ -160,7 +160,9 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
       if (query.Current_ == nullptr) { continue; }
     }
 
+    const auto began = std::chrono::steady_clock::now();
     Fetched answer = query.Current_->Collect(query.At_, query.Ticket_, transport);
+    RecordProviderCall(query.Current_->Declaration().Kind, began);
     if (answer.Where() == Fetched::State::Working) { return Delivery::Waiting(); }
     query.Ticket_ = Ticket::None;
 
@@ -265,7 +267,9 @@ std::optional<Delivery> SourceSet::StartCurrent(Query &query, Transport &transpo
       range
           ? Fetch(query.Request_.Kind(), query.At_, *range, std::string(query.Request_.EntityTag()))
           : Fetch(query.Request_.Kind(), query.At_);
+  const auto began = std::chrono::steady_clock::now();
   const auto started = query.Current_->Begin(served, transport);
+  RecordProviderCall(query.Current_->Declaration().Kind, began);
   RecordStart(query.Current_->Declaration(),
               query.Phase_ == Query::Phase::Ready,
               started && *started != Ticket::None);
@@ -273,6 +277,16 @@ std::optional<Delivery> SourceSet::StartCurrent(Query &query, Transport &transpo
   query.Ticket_ = *started;
   query.Phase_ = Query::Phase::InFlight;
   return std::nullopt;
+}
+
+void SourceSet::RecordProviderCall(DataKind kind, std::chrono::steady_clock::time_point began) {
+  const size_t at = static_cast<size_t>(kind);
+  if (at >= ProviderNs_.size()) { return; }
+  const auto ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - began)
+          .count();
+  ProviderNs_[at].fetch_add(static_cast<uint64_t>(ns), std::memory_order_relaxed);
+  ProviderCalls_[at].fetch_add(1, std::memory_order_relaxed);
 }
 
 void SourceSet::RecordStart(const SourceDecl &decl, bool first, bool started) {
@@ -401,7 +415,19 @@ void SourceSet::Abandon(Query &query, Transport &transport) {
 
 SourceSet::Ledger SourceSet::Counters() const {
   const std::scoped_lock lock(LedgerMutex_);
-  return Ledger_;
+  auto out = Ledger_;
+  out.Providers = ProviderCosts();
+  return out;
+}
+
+std::array<SourceSet::Ledger::ProviderCost, SourceSet::Ledger::KindCount>
+SourceSet::ProviderCosts() const {
+  std::array<Ledger::ProviderCost, Ledger::KindCount> out{};
+  for (size_t at = 0; at < out.size(); ++at) {
+    out[at].Calls = ProviderCalls_[at].load(std::memory_order_relaxed);
+    out[at].Ms = static_cast<double>(ProviderNs_[at].load(std::memory_order_relaxed)) / 1e6;
+  }
+  return out;
 }
 
 }

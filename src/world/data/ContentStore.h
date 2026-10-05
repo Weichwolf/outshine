@@ -73,6 +73,8 @@ public:
   struct Ledger {
     long long Hits = 0, Misses = 0, Writes = 0, WriteFailures = 0, Swept = 0;
     long long SweptBytes = 0;
+    uint64_t ReadCalls = 0, ReadBytes = 0, WriteBytes = 0;
+    double ReadMs = 0.0, WriteMs = 0.0;
   };
 
   [[nodiscard]] Ledger Counters() const;
@@ -88,10 +90,11 @@ private:
   [[nodiscard]] std::optional<std::vector<uint8_t>> ReadVerifiedCellBytes(const SourceDecl &decl,
                                                                           GeoCellId cell) const;
   [[nodiscard]] static bool ValidKey(std::string_view key);
-  [[nodiscard]] static std::optional<std::vector<uint8_t>> ReadEntry(const std::string &path,
-                                                                     size_t limit);
+  [[nodiscard]] std::optional<std::vector<uint8_t>> ReadEntry(const std::string &path,
+                                                              size_t limit) const;
   [[nodiscard]] std::optional<std::vector<uint8_t>> ReadBytes(std::string_view key,
                                                               size_t mostBytes) const;
+  [[nodiscard]] bool WriteEntry(const std::string &path, std::span<const std::byte> bytes);
   [[nodiscard]] bool HasAbsence(std::string_view key) const;
   [[nodiscard]] bool AbsenceDirectory(bool create) const;
   [[nodiscard]] bool RemoveAbsence(std::string_view key) const;
@@ -103,6 +106,8 @@ private:
   mutable std::mutex AbsenceMutex_;
 
   mutable std::atomic<long long> Hits_{0}, Misses_{0};
+  mutable std::atomic<uint64_t> ReadCalls_{0}, ReadBytes_{0}, ReadNs_{0};
+  std::atomic<uint64_t> WriteBytes_{0}, WriteNs_{0};
   std::atomic<long long> Writes_{0}, WriteFailures_{0};
   long long Swept_ = 0, SweptBytes_ = 0;
 };

@@ -93,6 +93,8 @@ public:
 
   [[nodiscard]] BuildMetrics LastBuildMetrics() const noexcept { return BuildMetrics_; }
 
+  [[nodiscard]] BuildMetrics TotalBuildMetrics() const noexcept { return TotalBuildMetrics_; }
+
   [[nodiscard]] int CentreX() const { return CentreX_; }
 
   [[nodiscard]] int CentreY() const { return CentreY_; }
@@ -253,6 +255,7 @@ private:
   std::vector<uint64_t> Settled_;
   TilePool::Landing Scratch_;
   BuildMetrics BuildMetrics_;
+  BuildMetrics TotalBuildMetrics_;
   int Zoom_;
   int RequestedRing_ = -1;
   int Pending_ = -1;

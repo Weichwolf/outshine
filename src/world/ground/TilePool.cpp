@@ -976,25 +976,32 @@ void TilePool::Work(int slot) {
   retainBytes();
   tWorkingJob = 0;
   tWorkingAdmission = 0;
+  const double spanMs =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  const double cpuMs = spanMs - (tFetchBlockedMs - blockedBefore);
+  {
+    const std::scoped_lock ledger(LedgerMutex_);
+    if (job.Kind == Rank::Mesh) {
+      ++Ledger_.MeshAttempts;
+      Ledger_.MeshCpuMs += cpuMs;
+    } else if (job.Kind == Rank::Field) {
+      ++Ledger_.FieldAttempts;
+      Ledger_.FieldCpuMs += cpuMs;
+    }
+  }
   if (result.State == Reply::Pending && tAwaited != 0) {
     const uint64_t awaited = tAwaited;
     tAwaited = 0;
     if (AwaitDependency(job, awaited)) { return; }
   }
   tAwaited = 0;
-  const double spanMs =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-
-  const double cpuMs = spanMs - (tFetchBlockedMs - blockedBefore);
   {
     const std::scoped_lock ledger(LedgerMutex_);
     if (job.Kind == Rank::Mesh) {
       Ledger_.MeshTiles++;
-      Ledger_.MeshCpuMs += cpuMs;
       if (result.State == Reply::Absent) { Ledger_.MeshAbsent++; }
     } else if (job.Kind == Rank::Field) {
       Ledger_.FieldTiles++;
-      Ledger_.FieldCpuMs += cpuMs;
     }
   }
   StackProbe::Mark();

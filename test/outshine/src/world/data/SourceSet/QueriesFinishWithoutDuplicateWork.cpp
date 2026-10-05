@@ -68,9 +68,13 @@ int main() {
     const auto first = sources.Collect(query, transport);
     CHECK(first.Where() != Delivery::State::Pending, "script produces a terminal result");
     const auto before = sources.Counters();
+    CHECK(before.Providers[0].Calls == 2, "one begin and one terminal collect are measured");
     CHECK(sources.Collect(query, transport).Where() == Delivery::State::Consumed,
           "terminal query does not manufacture a second result");
     const auto after = sources.Counters();
+    CHECK(before.Providers[0].Calls == after.Providers[0].Calls &&
+              before.Providers[0].Ms == after.Providers[0].Ms,
+          "consumed queries perform no provider work");
     CHECK(probe->Calls == 1 && transport.Begins == 1, "completed source is never polled again");
     CHECK(before.Delivered == after.Delivered && before.Refused == after.Refused &&
               before.Vacant == after.Vacant,

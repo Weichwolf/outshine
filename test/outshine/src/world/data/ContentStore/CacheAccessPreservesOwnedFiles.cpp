@@ -25,6 +25,10 @@ int main() {
     CHECK(store.Keep(key, bytes.data(), bytes.size()), "exact cap published");
     CHECK(store.Read(key) == std::optional(std::vector<uint8_t>(bytes.begin(), bytes.end())),
           "exact cap read");
+    const auto cost = store.Counters();
+    CHECK(cost.ReadCalls == 1 && cost.ReadBytes == bytes.size() && cost.WriteBytes == bytes.size(),
+          "cache counts the bytes actually read and written");
+    CHECK(cost.ReadMs >= 0.0 && cost.WriteMs >= 0.0, "cache IO durations are nonnegative");
     CHECK(!store.Read(key, 3), "caller can tighten cap");
     for (const std::string &invalid : std::vector<std::string>{
              "../outside", "", "plain", std::string(64, 'A'), key + std::string(1, '\0')}) {

@@ -78,6 +78,7 @@ public:
 
     double FetchMs = 0.0, FetchBlockedMs = 0.0, MeshCpuMs = 0.0, FieldCpuMs = 0.0;
     long long FieldTiles = 0, FieldDropped = 0;
+    uint64_t FieldAttempts = 0, MeshAttempts = 0;
     long FetchOnCompute = 0;
     double FetchedMB = 0.0;
   };

@@ -1,7 +1,5 @@
 #include "ContentStore.h"
 
-#include "WriteFileAtomically.h"
-
 #include <atomic>
 #include <charconv>
 #include <chrono>
@@ -92,7 +90,7 @@ bool ContentStore::KeepAbsent(std::string_view key) {
   if (std::filesystem::exists(status) && (!std::filesystem::is_regular_file(status) || error)) {
     return false;
   }
-  if (!WriteFileAtomically(path, std::as_bytes(std::span(kSignature.data(), kSignature.size())))) {
+  if (!WriteEntry(path, std::as_bytes(std::span(kSignature.data(), kSignature.size())))) {
     return false;
   }
   Writes_.fetch_add(1, std::memory_order_relaxed);

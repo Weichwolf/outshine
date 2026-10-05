@@ -1,7 +1,6 @@
 #include "ContentStore.h"
 
 #include "Sha256.h"
-#include "WriteFileAtomically.h"
 
 #include <algorithm>
 #include <array>
@@ -72,7 +71,7 @@ bool ContentStore::WriteCellReceipt(const SourceDecl &decl,
   const std::string receipt = std::string(kCellReceipt) +
                               ContentKey(decl, Address::AtGeoCell(cell)) + '\n' +
                               Sha256Hex(bytes.data(), bytes.size()) + '\n';
-  if (!WriteFileAtomically(path + "/receipt", std::as_bytes(std::span(receipt)))) {
+  if (!WriteEntry(path + "/receipt", std::as_bytes(std::span(receipt)))) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
   }

@@ -2,6 +2,9 @@
 #define OUTSHINE_WORLD_DATA_SOURCESET_H
 
 #include <memory>
+#include <array>
+#include <atomic>
+#include <chrono>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -85,10 +88,19 @@ public:
     long long Refused = 0, Retried = 0, FromStore = 0;
     long long ProviderStarts = 0, RemoteStarts = 0;
     long long DeliveredBytes = 0;
+
+    struct ProviderCost {
+      uint64_t Calls = 0;
+      double Ms = 0.0;
+    };
+
+    static constexpr size_t KindCount = static_cast<size_t>(DataKind::OriginalOsm) + 1;
+    std::array<ProviderCost, KindCount> Providers{};
     std::vector<UsedSource> Sources;
   };
 
   [[nodiscard]] Ledger Counters() const;
+  [[nodiscard]] std::array<Ledger::ProviderCost, Ledger::KindCount> ProviderCosts() const;
 
 private:
   [[nodiscard]] std::optional<Delivery> ReadStored(Query &query, Transport &transport);
@@ -97,6 +109,7 @@ private:
   ProcessAbsence(Query &query, Transport &transport, std::optional<int> httpStatus = std::nullopt);
   void RecordStart(const SourceDecl &decl, bool first, bool started);
   void RecordDelivery(const SourceDecl &decl);
+  void RecordProviderCall(DataKind kind, std::chrono::steady_clock::time_point began);
 
   [[nodiscard]] Delivery ResumeRetry(Query &query, Transport &transport);
   [[nodiscard]] std::optional<Delivery> StartCurrent(Query &query, Transport &transport);
@@ -119,6 +132,8 @@ private:
 
   mutable std::mutex LedgerMutex_;
   Ledger Ledger_;
+  std::array<std::atomic<uint64_t>, Ledger::KindCount> ProviderNs_{};
+  std::array<std::atomic<uint64_t>, Ledger::KindCount> ProviderCalls_{};
 };
 
 }

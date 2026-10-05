@@ -142,6 +142,9 @@ int main() {
       const auto independent = compute.Post([] {});
       CHECK(AwaitDone(compute, independent) && pool.Counters().FetchGaveUp == 0,
             "stalled input parks terrain while independent compute continues");
+      const auto partial = pool.Counters();
+      CHECK(partial.FieldAttempts > 0 && partial.FieldCpuMs > 0.0 && partial.FieldTiles == 0,
+            "parked terrain accounts for executed work without claiming a finished field");
       CHECK(pool.Counters().FetchOnCompute == 0, "network acquisition never moves onto compute");
     }
     CHECK(wire.Cancelled == wire.Began, "shutdown cancels every pending source transfer");

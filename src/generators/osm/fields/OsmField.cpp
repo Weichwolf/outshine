@@ -216,7 +216,9 @@ std::expected<int, std::string_view> OsmField::Build(
 
   const auto publicationAt = Clock::now();
   const auto published = PublishReady(*centre);
-  BuildMetrics_.PublicationMs = ElapsedMs(publicationAt);
+  const double publicationMs = ElapsedMs(publicationAt);
+  BuildMetrics_.PublicationMs = publicationMs;
+  TotalBuildMetrics_.PublicationMs += publicationMs;
   if (!published) { return std::unexpected(published.error()); }
   return *added;
 }
@@ -320,7 +322,9 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
                                                            .Y = static_cast<uint32_t>(at.Y)}));
   const auto fetchAt = Clock::now();
   const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
-  BuildMetrics_.FetchMs += ElapsedMs(fetchAt);
+  const double fetchMs = ElapsedMs(fetchAt);
+  BuildMetrics_.FetchMs += fetchMs;
+  TotalBuildMetrics_.FetchMs += fetchMs;
 
   const bool refused = reply == TilePool::Reply::Refused;
   if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Deferred || refused) {
@@ -331,7 +335,9 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
   }
   const auto parseAt = Clock::now();
   auto layers = ReadVectorLayers(Scratch_.Bytes, Layers_, Schema_, &BuildMetrics_);
-  BuildMetrics_.ParseMs += ElapsedMs(parseAt);
+  const double parseMs = ElapsedMs(parseAt);
+  BuildMetrics_.ParseMs += parseMs;
+  TotalBuildMetrics_.ParseMs += parseMs;
   if (!layers) {
     ++Bad_;
     return std::unexpected(layers.error());
@@ -342,7 +348,9 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
     if (!FitsNativeStorage(usage, tile.Layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
   }
   if (!FitsNativeStorage(usage, *layers)) { return std::unexpected(Says::kOsmIndexCapacity); }
-  BuildMetrics_.CapacityMs += ElapsedMs(capacityAt);
+  const double capacityMs = ElapsedMs(capacityAt);
+  BuildMetrics_.CapacityMs += capacityMs;
+  TotalBuildMetrics_.CapacityMs += capacityMs;
   int added = 0;
   for (const auto &layer : *layers) {
     if (layer) { added += static_cast<int>(layer->Features().size()); }

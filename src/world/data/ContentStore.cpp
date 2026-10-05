@@ -1,6 +1,7 @@
 #include "ContentStore.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <atomic>
 #include <cstdio>
@@ -42,8 +43,8 @@ constexpr size_t kKeyCharacters = 64;
          });
 }
 
-[[nodiscard]] std::optional<std::vector<uint8_t>> ContentStore::ReadEntry(const std::string &path,
-                                                                          size_t limit) {
+[[nodiscard]] static std::optional<std::vector<uint8_t>> ReadCacheFile(const std::string &path,
+                                                                       size_t limit) {
   std::error_code error;
   if (!std::filesystem::is_regular_file(std::filesystem::symlink_status(path, error)) || error) {
     return std::nullopt;
@@ -61,6 +62,19 @@ constexpr size_t kKeyCharacters = 64;
     return std::nullopt;
   }
   if (std::fclose(file.release()) != 0) { return std::nullopt; }
+  return bytes;
+}
+
+std::optional<std::vector<uint8_t>> ContentStore::ReadEntry(const std::string &path,
+                                                            size_t limit) const {
+  const auto began = std::chrono::steady_clock::now();
+  auto bytes = ReadCacheFile(path, limit);
+  const auto ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - began)
+          .count();
+  ReadNs_.fetch_add(static_cast<uint64_t>(ns), std::memory_order_relaxed);
+  ReadCalls_.fetch_add(1, std::memory_order_relaxed);
+  if (bytes) { ReadBytes_.fetch_add(bytes->size(), std::memory_order_relaxed); }
   return bytes;
 }
 
@@ -205,8 +219,8 @@ bool ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes)
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
   }
-  const auto written = WriteFileAtomically(Directory_ + "/" + std::string(key),
-                                           std::as_bytes(std::span(data, bytes)));
+  const auto written =
+      WriteEntry(Directory_ + "/" + std::string(key), std::as_bytes(std::span(data, bytes)));
   if (!written) {
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return false;
@@ -216,12 +230,28 @@ bool ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes)
   return true;
 }
 
+bool ContentStore::WriteEntry(const std::string &path, std::span<const std::byte> bytes) {
+  const auto began = std::chrono::steady_clock::now();
+  const auto written = WriteFileAtomically(path, bytes);
+  const auto ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - began)
+          .count();
+  WriteNs_.fetch_add(static_cast<uint64_t>(ns), std::memory_order_relaxed);
+  if (written) { WriteBytes_.fetch_add(bytes.size(), std::memory_order_relaxed); }
+  return written.has_value();
+}
+
 ContentStore::Ledger ContentStore::Counters() const {
   Ledger out;
   out.Hits = Hits_.load(std::memory_order_relaxed);
   out.Misses = Misses_.load(std::memory_order_relaxed);
   out.Writes = Writes_.load(std::memory_order_relaxed);
   out.WriteFailures = WriteFailures_.load(std::memory_order_relaxed);
+  out.ReadCalls = ReadCalls_.load(std::memory_order_relaxed);
+  out.ReadBytes = ReadBytes_.load(std::memory_order_relaxed);
+  out.WriteBytes = WriteBytes_.load(std::memory_order_relaxed);
+  out.ReadMs = static_cast<double>(ReadNs_.load(std::memory_order_relaxed)) / 1e6;
+  out.WriteMs = static_cast<double>(WriteNs_.load(std::memory_order_relaxed)) / 1e6;
   out.Swept = Swept_;
   out.SweptBytes = SweptBytes_;
   return out;
