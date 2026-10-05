@@ -18,6 +18,14 @@ struct vec3 {
   vec3(float a, float b, float c) : x(a), y(b), z(c) {}
 };
 
+vec3 operator*(vec3 value, float scale) {
+  return {value.x * scale, value.y * scale, value.z * scale};
+}
+
+vec3 operator+(vec3 a, vec3 b) {
+  return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
 vec3 mix(vec3 a, vec3 b, float t) {
   return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t};
 }
@@ -55,6 +63,15 @@ int main() {
                      3e-5,
                      "coverage",
                      "filtered glass equals independently clipped opening rectangles");
+          const double panes =
+              (VisibleFraction(x, wx, 0.29, 0.494) + VisibleFraction(x, wx, 0.506, 0.71)) *
+              VisibleFraction(y, wy, 0.30, 0.76);
+          CHECK_NEAR(Shader::facadePaneCoverage(x, y, wx, wy),
+                     panes,
+                     3e-5,
+                     "coverage",
+                     "panes equal independently clipped rectangles around mullion");
+          CHECK(panes <= expected + 3e-5, "frame, panes and wall partition the facade");
         }
       }
     }
@@ -72,5 +89,25 @@ int main() {
   const auto glass = Shader::facadeGlazing(1.0f, albedo, roughness);
   CHECK_NEAR(glass.albedo.x, 0.025f, 1e-7f, "linear", "planned glass has its own material");
   CHECK_NEAR(glass.roughness, 0.12f, 1e-7f, "roughness", "planned glass keeps the native BRDF");
+  const auto frame = Shader::facadeWindow(1.0f, 0.0f, albedo, roughness);
+  CHECK_NEAR(frame.albedo.x, 0.48f, 1e-7f, "linear", "opaque frame has its own material");
+  CHECK_NEAR(frame.roughness, 0.55f, 1e-7f, "roughness", "frame differs from glass and plaster");
+  const auto closed = Shader::facadeWindow(0.0f, 0.0f, albedo, roughness);
+  CHECK(closed.albedo.x == albedo.x && closed.roughness == roughness,
+        "window composition preserves untouched wall");
+  constexpr float openingArea = 0.46f * 0.50f;
+  constexpr float paneArea = (0.42f - 0.012f) * 0.46f;
+  const auto coarse = Shader::facadeWindow(openingArea, paneArea, albedo, roughness);
+  const auto near = Shader::facadeWindow(1.0f, paneArea / openingArea, albedo, roughness);
+  CHECK_NEAR(coarse.albedo.x,
+             albedo.x * (1.0f - openingArea) + near.albedo.x * openingArea,
+             1e-7f,
+             "linear",
+             "minified shell equals area-weighted near wall and framed glass");
+  CHECK_NEAR(Shader::facadePaneCoverage(0.0f, 0.0f, 8.0f, 16.0f),
+             paneArea,
+             1e-6f,
+             "coverage",
+             "minification preserves pane area and mullion coverage");
   return Report();
 }

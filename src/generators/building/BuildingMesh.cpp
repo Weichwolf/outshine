@@ -93,7 +93,7 @@ void AppendWallColours(const StructurePlan &plan, size_t first, Raised &into) {
   if (into.WallColours.empty()) { into.WallColours.resize(first * 4, 1.0f); }
   for (size_t at = first; at < into.WallCorners.size(); ++at) {
     const float u = into.WallCorners[at].uv()[0];
-    const bool wall = u >= 0.0f || std::fmod(-u - 1.0f, 16.0f) == 0.0f;
+    const bool wall = (u >= 0.0f && !IsGlazingUv(u)) || std::fmod(-u - 1.0f, 16.0f) == 0.0f;
     for (size_t channel = 0; channel < 3; ++channel) {
       into.WallColours.push_back(plan.WallColour && wall
                                      ? (*plan.WallColour)[channel] / kBuildingWallColour[channel]
@@ -364,21 +364,35 @@ void WallPanel(const BuildingShape &s,
             Wall(s, p, highZ, bay0, stand));
 }
 
+struct OpeningCoordinates {
+  double Bay = 0.0;
+  Fields Standing = Fields::Back;
+};
+
 void Opening(const BuildingShape &s,
              const EastNorth &p,
              const EastNorth &q,
              double lowZ,
              double highZ,
+             OpeningCoordinates coordinates,
              Site &site) {
   const double length = EdgeLength(p, q);
   const EastNorth inset{.EastM = -(q.NorthM - p.NorthM) * kOpeningDepthM / length,
                         .NorthM = (q.EastM - p.EastM) * kOpeningDepthM / length};
   const EastNorth a{.EastM = p.EastM + inset.EastM, .NorthM = p.NorthM + inset.NorthM};
   const EastNorth b{.EastM = q.EastM + inset.EastM, .NorthM = q.NorthM + inset.NorthM};
-  site.Quad(Face(s, a, lowZ, Facade::Glass),
-            Face(s, b, lowZ, Facade::Glass),
-            Face(s, b, highZ, Facade::Glass),
-            Face(s, a, highZ, Facade::Glass));
+  const auto glass = [&s, coordinates](const EastNorth &point, double z, float offset) {
+    auto vertex = Wall(s, point, z, coordinates.Bay + offset, coordinates.Standing);
+    vertex.U = FacadeUvX(FacadeStyle::Glazing,
+                         coordinates.Standing,
+                         s.WallVariant,
+                         static_cast<float>(coordinates.Bay) + offset);
+    return vertex;
+  };
+  site.Quad(glass(a, lowZ, kOpeningLowU),
+            glass(b, lowZ, kOpeningHighU),
+            glass(b, highZ, kOpeningHighU),
+            glass(a, highZ, kOpeningLowU));
   site.Quad(Face(s, p, lowZ, Facade::Trim),
             Face(s, q, lowZ, Facade::Trim),
             Face(s, b, lowZ, Facade::Trim),
@@ -445,7 +459,7 @@ bool RecessedWall(const BuildingShape &s, const FacadeWall &wall, Site &site) {
                 top,
                 stand,
                 site);
-      Opening(s, left, right, bottom, top, site);
+      Opening(s, left, right, bottom, top, {.Bay = axis, .Standing = stand}, site);
     }
     below = top;
   }

@@ -4,6 +4,7 @@
 
 #include "src/generators/building/BuildingMesh.h"
 #include "src/generators/building/BuildingMaterials.h"
+#include "src/generators/building/FacadeUv.h"
 #include "Check.h"
 
 int main() {
@@ -45,6 +46,19 @@ int main() {
     CHECK(result.WallColours[at * 4 + 3] == 1.0f, "wall paint does not change opacity");
   }
   CHECK(painted > 0, "the fixture exercises painted facades");
+  plan.Coarseness = LevelOfDetail::Fine;
+  Raised near;
+  CHECK(mesher.Mesh(plan, *scratch, near).has_value(), "painted near housing meshes");
+  size_t glazing = 0;
+  for (size_t at = 0; at < near.WallCorners.size(); ++at) {
+    if (!IsGlazingUv(near.WallCorners[at].uv()[0])) { continue; }
+    ++glazing;
+    for (size_t channel = 0; channel < 4; ++channel) {
+      CHECK(near.WallColours[at * 4 + channel] == 1.0f,
+            "supplied wall paint leaves framed glazing unchanged");
+    }
+  }
+  CHECK(glazing > 0, "paint fixture exercises near glazing coordinates");
   const auto saved = result.WallColours;
   (*plan.WallColour)[0] = std::numeric_limits<float>::quiet_NaN();
   CHECK(!mesher.Mesh(plan, *scratch, result),

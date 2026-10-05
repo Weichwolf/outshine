@@ -25,7 +25,8 @@ enum class FacadeStyle : int {
   Block = 3,
   Hall = 4,
   Tower = 5,
-  Spire = 6
+  Spire = 6,
+  Glazing = 7
 };
 
 enum class Fields : int { Back = 0, Front = 1, Entrance = 2 };
@@ -37,6 +38,11 @@ constexpr int kFacadeVariants = 8;
 
 constexpr int kFacadeStride = 16;
 constexpr int kIdentCount = 64;
+
+[[nodiscard]] constexpr bool IsGlazingUv(float u) {
+  return u >= 0.0f &&
+         static_cast<int>(u / kBayCeil) % kStyleCount == static_cast<int>(FacadeStyle::Glazing);
+}
 
 [[nodiscard]] constexpr float FacadeUvX(FacadeStyle style, Fields standing, int ident, float bay) {
   return kBayCeil * static_cast<float>(static_cast<int>(style) +

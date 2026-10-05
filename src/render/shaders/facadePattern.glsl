@@ -8,6 +8,21 @@ void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) 
   roughness = glass.roughness;
 }
 
+void applyFacadeWindow(vec2 encoded, bool glazing, inout vec3 albedo, inout float roughness) {
+  vec2 footprint = abs(dFdx(encoded)) + abs(dFdy(encoded));
+  float bay = mod(encoded.x, 256.0);
+  float storey = encoded.y - 1.0;
+  float opening = facadeOpeningCoverage(bay, storey, footprint.x, footprint.y);
+  float pane = facadePaneCoverage(bay, storey, footprint.x, footprint.y);
+  if (glazing) {
+    pane = clamp(pane / max(opening, 0.0001), 0.0, 1.0);
+    opening = 1.0;
+  }
+  FacadeGlazing window = facadeWindow(opening, pane, albedo, roughness);
+  albedo = window.albedo;
+  roughness = window.roughness;
+}
+
 void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 localM, vec3 n, inout vec3 albedo,
                       inout float roughness, out vec2 heightChange) {
   heightChange = vec2(0.0);
@@ -67,6 +82,12 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
     return;
   }
 
+  float group = floor(encoded.x / 256.0);
+  float style = mod(group, 8.0);
+  if (style > 6.5) {
+    applyFacadeWindow(encoded, true, albedo, roughness);
+    return;
+  }
   float variant = floor(encoded.x / (256.0 * 24.0));
   vec3 wallTint = vec3(1.0);
   if (variant > 0.5 && variant < 1.5) { wallTint = vec3(0.90, 0.94, 1.00); }
@@ -77,12 +98,7 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
   else if (variant < 6.5 && variant > 5.5) { wallTint = vec3(0.62, 0.43, 0.32); }
   else if (variant > 6.5) { wallTint = vec3(0.82, 0.69, 0.61); }
   albedo *= wallTint * paint;
-  float group = floor(encoded.x / 256.0);
-  float style = mod(group, 8.0);
   if (style > 0.5 && style < 3.5 && encoded.y >= 1.0) {
-    vec2 footprint = abs(dFdx(encoded)) + abs(dFdy(encoded));
-    float coverage = facadeOpeningCoverage(mod(encoded.x, 256.0), encoded.y - 1.0,
-                                           footprint.x, footprint.y);
-    applyFacadeGlass(coverage, albedo, roughness);
+    applyFacadeWindow(encoded, false, albedo, roughness);
   }
 }

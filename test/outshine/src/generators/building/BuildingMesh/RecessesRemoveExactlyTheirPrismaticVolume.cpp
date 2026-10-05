@@ -31,7 +31,10 @@ double GlassArea(const Raised &mesh) {
   for (size_t at = 0; at < mesh.WallRun.size(); at += 3) {
     const auto &a = mesh.WallCorners[mesh.WallRun[at]];
     const float code = std::fmod(-a.uv()[0] - 1.0f, 16.0f);
-    if (a.uv()[0] >= 0.0f || code != static_cast<float>(Facade::Glass)) { continue; }
+    if (!IsGlazingUv(a.uv()[0]) &&
+        (a.uv()[0] >= 0.0f || code != static_cast<float>(Facade::Glass))) {
+      continue;
+    }
     const auto &b = mesh.WallCorners[mesh.WallRun[at + 1]];
     const auto &c = mesh.WallCorners[mesh.WallRun[at + 2]];
     area += 0.5 * Length(Cross(Position(b) - Position(a), Position(c) - Position(a)));
@@ -59,6 +62,16 @@ int main() {
   const double glass = GlassArea(fine);
   CHECK(glass > 1.0 && GlassArea(shell) == 0.0,
         "only the near mesh expands planned housing glass into geometry");
+  for (const auto &vertex : fine.WallCorners) {
+    const auto uv = vertex.uv();
+    if (!IsGlazingUv(uv[0])) { continue; }
+    const float bay = std::fmod(uv[0], 1.0f);
+    const float storey = std::fmod(uv[1], 1.0f);
+    CHECK(std::abs(bay - 0.27f) < 0.003f || std::abs(bay - 0.73f) < 0.003f,
+          "glass retains the same opening columns as the shell");
+    CHECK(std::abs(storey - 0.28f) < 0.003f || std::abs(storey - 0.78f) < 0.003f,
+          "glass retains the same opening rows as the shell");
+  }
   const double removed = std::abs(Volume(shell)) - std::abs(Volume(fine));
   CHECK_NEAR(removed,
              0.16 * glass,
