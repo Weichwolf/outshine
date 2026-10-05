@@ -34,6 +34,8 @@ Alle Batch-Instanzen und GroundLattice-Höhen werfen Schatten; keine Nahtsäume,
 Ist: gemeinsame Welttiefe; an Bergansichten bleiben Selbstschatten und Bereichsgrenzen sichtbar.
 Nächster Schritt: Tiefenintervalle je Bereich aus nativen Instanz-/Terrainbounds schneiden,
 alle relevanten Außen-Occluder erhalten; Rundungsfehler, Bias und Übergänge am Bild prüfen.
+Empfängertiefe in Lichtkoordinaten relativ zur Kamera in Metern; erst je Karte normalisieren.
+D32-Vergleich mit mindestens 3ε Rundungsreserve; Tiefenfit nach Filament `ef1a133d`, `ShadowMap.cpp`.
 Renderer besitzt Pässe/Filter/GPU-Verträge, Generatoren kein Schattenwissen. Statische Karten
 wiederverwenden; Kontakte und Kosten belegen, Frame-Spitzen beheben, keine Farb-AO als Ersatz.
 
@@ -45,7 +47,6 @@ Disocclusion/ungültige History nimmt das aktuelle Bild; Farbclip und Coverage e
 Szenenwechsel verwirft History. Stillstand akkumuliert 90/10; Drehung separat prüfen.
 Catmull-Rom mit fünf renormierten Kreuzabfragen und lokalem Wertebereich begrenzt Ringing
 (Filament `ef1a133d`). Bildschärfe und MSAA einschließlich Tiefenpfad bleiben zu prüfen.
-Profil/Framezahl/Inhalte bleiben fest; keine Zusatzframes oder verdeckte Qualitätswechsel.
 
 ## Gemeinsame Umgebungsreflexion und nächste Bildlücke
 - Gemeinsame Himmelsabfrage für Hintergrund und Reflexion, einschließlich Horizont und
@@ -115,6 +116,5 @@ Disocclusion prüfen. Spiegelung darf bei Kameradrehung nicht einfach verschwind
 ## Abnahme
 Datierte klare/bedeckte Stadt-/Bergbilder gewinnen Tiefe und Materiallesbarkeit; Morgen,
 Abend und Nacht erhalten plausible Helligkeit. Bewegung ohne Geisterbilder/Belichtungssprünge.
-Host/GPU/Bytes getrennt messen, kein Geräteversprechen aus Desktop-Messungen.
 Beton, Boden, Vegetation und Himmel wirken als zusammenhängender Look; Detailverzicht
 erhält Charakter/Lesbarkeit. Palette und Kontakt unter Sonne, Wolken, Nässe und Nacht prüfen.
