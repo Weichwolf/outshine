@@ -264,7 +264,7 @@ public:
 
   [[nodiscard]] bool PlacedBounds(Extents &into, std::string &error);
 
-  void SkyEye(double aboveGroundM);
+  void SetSkyElevation(double elevationM);
 
   [[nodiscard]] bool Advance(std::string &error);
   [[nodiscard]] bool Draw(std::string &error);

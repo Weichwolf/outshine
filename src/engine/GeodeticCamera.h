@@ -13,13 +13,18 @@
 #include <string_view>
 
 namespace outshine {
-[[nodiscard]] inline LongitudeLatitude GeographicFocusFor(const Vec3 &eye,
-                                                          LongitudeLatitude origin) {
+[[nodiscard]] inline LongitudeLatitudeHeight GeographicPositionFor(const Vec3 &eye,
+                                                                   LongitudeLatitude origin) {
   const auto anchored = TangentFrame::At(origin);
   const auto held = anchored.OriginEcef() + anchored.EastEcef() * eye[0] +
                     anchored.UpEcef() * eye[1] - anchored.NorthEcef() * eye[2];
-  const auto above = Ground::EcefToGeoWgs84({.X = held[0], .Y = held[1], .Z = held[2]});
-  return {.LongitudeDeg = above.LongitudeDeg, .LatitudeDeg = above.LatitudeDeg};
+  return Ground::EcefToGeoWgs84({.X = held[0], .Y = held[1], .Z = held[2]});
+}
+
+[[nodiscard]] inline LongitudeLatitude GeographicFocusFor(const Vec3 &eye,
+                                                          LongitudeLatitude origin) {
+  const auto position = GeographicPositionFor(eye, origin);
+  return {.LongitudeDeg = position.LongitudeDeg, .LatitudeDeg = position.LatitudeDeg};
 }
 
 namespace Says {

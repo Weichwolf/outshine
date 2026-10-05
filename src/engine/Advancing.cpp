@@ -622,6 +622,13 @@ bool Engine::State::Updates() {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - simulationAt)
           .count());
   if (!triggered || !cameraUpdated) { return false; }
+  if (Session.Declared.Ground.Declared && Picture.Standing->Watched()) {
+    const auto at =
+        GeographicPositionFor(Picture.Standing->Watching().EyeM,
+                              {.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
+                               .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
+    Picture.Standing->SetSkyElevation(at.HeightM);
+  }
   const GroundQuality quality =
       World.GroundPublished.Current() ? GroundQuality::Refined : GroundQuality::Playable;
   const auto groundAt = std::chrono::steady_clock::now();

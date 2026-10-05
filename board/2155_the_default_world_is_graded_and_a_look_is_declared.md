@@ -18,8 +18,8 @@ aus ihrer Ebene extrapolieren. Tiefenpräzision, Bias und Bereichsübergänge bl
 Die Umgebungsspekularantwort nutzt einen gemeinsamen GGX-gefilterten Himmelsatlas und
 Split-Sum-GGX/Smith statt der Diffuse-Hemisphäre; Richtung und Rauheit bestimmen die Abfrage.
 Gemittelter Boden ersetzt noch keine lokalen Weltreflexionen; Glas bleibt dadurch oft zu dunkel.
-Hintergrund und LUT-Erzeugung teilen jetzt Winkel-/Texelabfragen; Mehrfachstreuung erhält
-denselben Radius-/Sonnenvertrag einschließlich Bodenabstand und unabhängiger Tabellenmaße.
+Hintergrund/LUT teilen Winkel-/Texelabfragen. Luftperspektive nutzt geodätische Kamera-Elevation
+und den Erdkugelschnitt für die Transmittanzrichtung; Mehrfachstreuung teilt Radius/Sonnenvertrag.
 
 ## Besitzer und nächste Lieferung
 Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing; PlaceCamera/Referenzkatalog
@@ -31,7 +31,7 @@ RuntimeScene/LightVisibility staffeln Sonnenschatten rundum in vier texelstabile
 256/1024/4096 m Halbausdehnung plus Weltfit; Blickdrehung ändert keine Karte. Asset-Szenen
 behalten ihren Objektfit. 4096² D32F, vier 2048²-Kacheln: 64 MiB statt 16 MiB.
 Alle Batch-Instanzen und GroundLattice-Höhen werfen Schatten; keine Nahtsäume, PCF je Kachel.
-Ist: gemeinsame Welttiefe; an Bergansichten bleiben Selbstschatten und Bereichsgrenzen sichtbar.
+Ist: gemeinsame Welttiefe; Präzision und Fernbereichsabdeckung bleiben weiter zu verbessern.
 Nächster Schritt: Tiefenintervalle je Bereich aus nativen Instanz-/Terrainbounds schneiden,
 alle relevanten Außen-Occluder erhalten; Rundungsfehler, Bias und Übergänge am Bild prüfen.
 Empfängertiefe in Lichtkoordinaten relativ zur Kamera in Metern; erst je Karte normalisieren.

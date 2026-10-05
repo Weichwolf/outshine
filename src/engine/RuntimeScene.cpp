@@ -1041,12 +1041,12 @@ bool RuntimeScene::Redeclare(std::vector<UiSurface> surfaces, std::string &error
   return Ui_.Redeclare(std::move(surfaces), error);
 }
 
-void RuntimeScene::SkyEye(double aboveGroundM) {
+void RuntimeScene::SetSkyElevation(double elevationM) {
   if (Renderer_ == nullptr) { return; }
 
   constexpr double kSkyEyeStepM = 2.0;
   const double quantisedM =
-      std::floor(std::fmax(0.0, aboveGroundM) / kSkyEyeStepM + 0.5) * kSkyEyeStepM;
+      std::floor(std::fmax(0.0, elevationM) / kSkyEyeStepM + 0.5) * kSkyEyeStepM;
   const auto published = Renderer_->PublishedWorld();
   Renderer_->SetSkyEye(static_cast<float>(quantisedM));
 }

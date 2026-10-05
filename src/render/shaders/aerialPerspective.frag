@@ -70,7 +70,7 @@ vec4 shaded() {
   float endCosZenith = clamp((radiusKm * cosZenith + reachKm) / endRadiusKm, -1.0, 1.0);
 
   vec3 through;
-  if (cosZenith > 0.0) {
+  if (mediumGroundReach(pushed.air, radiusKm, cosZenith) < 0.0) {
     vec3 atEye =
         textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(radiusKm, cosZenith)), 0.0).rgb;
     vec3 atEnd =
