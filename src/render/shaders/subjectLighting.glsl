@@ -1,15 +1,19 @@
 #include "shadowFilter.glsl"
 
-float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth) {
+float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, vec2 receiverSlope) {
   ivec2 extent = textureSize(map, 0);
   vec2 texel = uv * vec2(extent) - 0.5;
   ivec2 base = ivec2(floor(texel));
   ivec2 limit = extent - 1;
-  vec4 depths = vec4(texelFetch(map, clamp(base, ivec2(0), limit), 0).r,
-                     texelFetch(map, clamp(base + ivec2(1, 0), ivec2(0), limit), 0).r,
-                     texelFetch(map, clamp(base + ivec2(0, 1), ivec2(0), limit), 0).r,
-                     texelFetch(map, clamp(base + ivec2(1, 1), ivec2(0), limit), 0).r);
-  return bilinearShadowVisibility(depths, fract(texel), receiverDepth);
+  ivec2 low = clamp(base, ivec2(0), limit);
+  ivec2 high = clamp(base + ivec2(1), ivec2(0), limit);
+  vec4 depths = vec4(texelFetch(map, low, 0).r,
+                     texelFetch(map, ivec2(high.x, low.y), 0).r,
+                     texelFetch(map, ivec2(low.x, high.y), 0).r,
+                     texelFetch(map, high, 0).r);
+  vec4 receivers = shadowReceiverDepths(receiverDepth, receiverSlope / vec2(extent),
+                                         vec2(low) - texel, vec2(high - low));
+  return bilinearShadowVisibility(depths, fract(texel), receivers);
 }
 
 vec3 shadeRow(M surface,
@@ -53,6 +57,9 @@ vec3 shadeRow(M surface,
     anisoB = normalize(cross(n, anisoT));
   }
   vec3 originM = localM + n * lights.count.y;
+  vec3 shadowCoordinate = lightSpace.xyz / max(1.0e-6, lightSpace.w);
+  vec3 shadowUvDepth = vec3(shadowCoordinate.xy * vec2(0.5, -0.5) + 0.5, shadowCoordinate.z);
+  vec2 receiverSlope = shadowReceiverSlope(dFdx(shadowUvDepth), dFdy(shadowUvDepth));
   vec3 sum = vec3(0.0);
   int count = int(lights.count.x);
   for (int at = 0; at < count; at = at + 1) {
@@ -75,12 +82,12 @@ vec3 shadeRow(M surface,
       attenuation *= angular * angular;
     }
     if (light.tint.w <= 0.5 && lights.count.z > 0.5) {
-      vec3 lit = lightSpace.xyz / max(1.0e-6, lightSpace.w);
+      vec3 lit = shadowCoordinate;
       vec2 atlasUv = lit.xy * vec2(0.5, -0.5) + 0.5;
       if (atlasUv.x >= 0.0 && atlasUv.x <= 1.0 && atlasUv.y >= 0.0 && atlasUv.y <= 1.0 &&
           lit.z >= 0.0 && lit.z <= 1.0) {
         float bias = lights.count.w;
-        attenuation *= sunShadowVisibility(shadowMap, atlasUv, lit.z + bias);
+        attenuation *= sunShadowVisibility(shadowMap, atlasUv, lit.z + bias, receiverSlope);
       }
     }
     float nl = dot(n, toward);
