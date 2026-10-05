@@ -367,7 +367,6 @@ void ReportShot(const Shot &shot,
   } else {
     Tell(shot, name);
   }
-  if (!options.Rows && shot.Why.empty()) { outshine::Client::PrintCostReport(name, shot.Measures); }
   if (options.Measures) {
     for (const outshine::DiagnosticSample &measure : shot.Measures) {
       std::println("        {:<56} {:14.3f} {}", measure.Name, measure.Value, measure.Unit);

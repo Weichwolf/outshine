@@ -1616,7 +1616,6 @@ std::expected<OwnedFence, std::string> SceneRenderer::PrepareWorldResources() {
   const auto preparesWorldResource = [](Stage stage) {
     return Row(stage).Phase == StagePhase::WorldPreparation;
   };
-  PendingSpent_ = {};
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     const auto &declared = ActiveState().Plan->Passes()[pass];
     const auto stages =
@@ -1743,6 +1742,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   }
   record(RenderFramePhase::Cull);
 
+  PendingSpent_ = {};
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     EncodePass(commands, pass, stageSubmission);
   }

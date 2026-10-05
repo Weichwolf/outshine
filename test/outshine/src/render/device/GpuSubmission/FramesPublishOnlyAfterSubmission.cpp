@@ -397,6 +397,15 @@ void Exercise() {
         "two submitted frames fill the fence ring before its reuse");
   const auto submits = faults.Submitted;
   const auto waits = faults.FenceWaits;
+  const auto &costs = actual.Costs();
+  CHECK(costs.Frames == 3, "three successful frames are counted once despite rejected attempts");
+  double stageTotalMs = 0.0;
+  for (const auto &stage : costs.Stages) {
+    stageTotalMs += stage.TotalMs;
+    CHECK(stage.Frames <= costs.Frames, "stage counts cannot exceed submitted frame count");
+  }
+  CHECK(stageTotalMs <= costs.HostTotals.PhaseMs[static_cast<size_t>(RenderFramePhase::Encode)],
+        "disjoint stage encodes fit inside the host encoding interval across all frames");
   const auto lastTiming = actual.LastRenderFrameTiming();
   const auto worstTiming = actual.SlowestRenderFrameTiming();
   double phaseSumMs = 0;
