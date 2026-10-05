@@ -104,6 +104,14 @@
   Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.
   Normale Logs bleiben kompakt; Detailausgabe ist explizit. Diagnose verwendet feste Zähler, hält
   Formatierung/Ausgabe aus dem Hot Path, misst eigene Kosten und kennzeichnet fehlende Messwerte.
+- Feste Ablage: Buildprodukte unter `build/`; Netzwerkquellen im Client-Pref-Verzeichnis
+  unter `sources/`; Papers in `doc/references/`; Vergleichsbilder/Pins getrennt vom Quellcache.
+  Temp-Worktrees heißen `${TMPDIR:-/tmp}/outshine-<Auftrag>-<Commit>`, Logs dort
+  `outshine-<Auftrag>-<Commit>.log`; Tests nutzen `outshine-tests.<Checkout>`.
+  `outshine-prepared`, `outshine-content` und `outshine-reference-images` enthalten benötigte
+  Eingaben/Orakel und werden nicht pauschal gelöscht. Nach Arbeitsblöcken `make cleanup-temp`
+  prüfen und mit `CLEANUP_ARGS='--apply --keep-worktree <aktiver Pfad>'` bereinigen.
+  Aktive, geänderte, gesperrte oder ungemergte Worktrees bleiben; alte Referenzen ins Haupt-Checkout übernehmen.
 - Ich recherchiere normalerweise lokal; beauftragte Anbieter-/API-Recherche und Webcam-Suche
   sowie beauftragte Technik-/Bibliotheksrecherche erlauben Websuche. Werkzeuge aktuell halten,
   nach Updates Orakelherkunft prüfen.

@@ -134,6 +134,10 @@ if ! python3 test/scripts/grammar_vs_reader.py; then
 fi
 
 # Literal inventory is diagnostic; executable roundtrips enforce data preservation.
+if ! make test-cleanup-temp > "$REPORT/temp-cleanup.log" 2>&1; then
+  cat "$REPORT/temp-cleanup.log" >&2
+  red=$((red + 1))
+fi
 if ! make test-writer-inventory > "$REPORT/writer-inventory-tests.log" 2>&1; then
   cat "$REPORT/writer-inventory-tests.log" >&2
   red=$((red + 1))

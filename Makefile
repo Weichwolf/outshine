@@ -155,6 +155,13 @@ clean:           ## remove build artefacts
 spotless: clean  ## and the compiler's own nest in the system temp directory
 	rm -rf $${TMPDIR:-/tmp}/outshine-tests.*
 
+.PHONY: cleanup-temp test-cleanup-temp
+cleanup-temp: ## preview obsolete owned temp artifacts (CLEANUP_ARGS=--apply to remove)
+	@cd $(SELF_DIR) && python3 test/scripts/cleanup_temp.py $(CLEANUP_ARGS)
+
+test-cleanup-temp: ## verify cleanup ownership, active work and reference preservation
+	@cd $(SELF_DIR) && python3 test/scripts/test_cleanup_temp.py
+
 help:            ## this list
 	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t20
 
