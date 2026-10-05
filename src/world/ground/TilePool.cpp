@@ -26,9 +26,9 @@
 #include <string_view>
 #include <ratio>
 #include <thread>
+#include <tuple>
 #include <vector>
 #include <utility>
-#include <tuple>
 
 #include "Capacity.h"
 #include "Delivery.h"
@@ -796,8 +796,8 @@ std::optional<TilePool::Job> TilePool::NextJob(int slot) {
   for (size_t i = 1; i < Queue_.size(); i++) {
     const Job &a = Queue_[i];
     const Job &b = Queue_[best];
-    if (a.Kind < b.Kind || (a.Kind == b.Kind && a.Z > b.Z) ||
-        (a.Kind == b.Kind && a.Z == b.Z && a.TileDist < b.TileDist)) {
+    if (std::tuple(a.Kind, -a.Z, a.TileDist, a.Y, a.X) <
+        std::tuple(b.Kind, -b.Z, b.TileDist, b.Y, b.X)) {
       best = i;
     }
   }
@@ -1130,7 +1130,11 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   posting.Admission = admission;
   posting.TerrainScope = scope;
   if (posting.Kind == Rank::Mesh || posting.Kind == Rank::Field) {
-    posting.TileDist = TileDistance({.Zoom = posting.Z, .X = posting.X, .Y = posting.Y});
+    Data::TileId locality{.Zoom = posting.Z, .X = posting.X, .Y = posting.Y};
+    if (posting.Kind == Rank::Field && locality.Zoom > 0) {
+      locality = {.Zoom = locality.Zoom - 1, .X = locality.X >> 1u, .Y = locality.Y >> 1u};
+    }
+    posting.TileDist = TileDistance(locality);
   }
   const bool carries = posting.Kind == Rank::Fetch;
   (carries ? Carrying_ : Queue_).push_back(posting);
