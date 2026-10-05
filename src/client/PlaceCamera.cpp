@@ -1,6 +1,7 @@
 #include "math/Units.h"
 #include "math/Quantile.h"
 #include "PlaceCamera.h"
+#include "PlaceShotRetention.h"
 #include "PlaceTurn.h"
 #include "FramePacer.h"
 #include "FrameSchedule.h"
@@ -420,6 +421,35 @@ bool MeasureFrames(Engine &engine,
 }
 }
 
+namespace {
+void SavePlaceShot(Engine &engine, std::string_view name, Shot &shot, std::string_view under) {
+  std::error_code failed;
+  const std::string into = std::string("build/shots/") + std::string(under);
+  std::filesystem::create_directories(into, failed);
+  const std::string writing = into + "/" + std::string(name) + ".writing";
+  if (engine.renderer().saveScreenshot(writing)) {
+    std::string bytes;
+    if (std::FILE *const held = std::fopen(writing.c_str(), "rb")) {
+      std::array<char, 65536> block{};
+      std::size_t read = 0;
+      while ((read = std::fread(block.data(), 1, block.size(), held)) > 0) {
+        bytes.append(block.data(), read);
+      }
+      std::fclose(held);
+    }
+    shot.Digest = Sha256Hex(bytes).substr(0, 8);
+    shot.Wrote = into + "/" + std::string(name) + "-" + shot.Digest + ".png";
+    std::filesystem::rename(writing, shot.Wrote, failed);
+    shot.Kept = !failed;
+    if (shot.Kept && under == "places") {
+      if (const auto kept = KeepLatestPlaceShot(shot.Wrote, name); !kept) {
+        std::println(stderr, "WARN shot retention: {}", kept.error());
+      }
+    }
+  }
+}
+}
+
 Shot Draw(Engine &engine,
           std::string_view name,
           bool tells,
@@ -460,25 +490,7 @@ Shot Draw(Engine &engine,
     }
     shot.PosedAtS = measured("and the instant it is posed at");
 
-    std::error_code failed;
-    const std::string into = std::string("build/shots/") + std::string(under);
-    std::filesystem::create_directories(into, failed);
-    const std::string writing = into + "/" + std::string(name) + ".writing";
-    if (engine.renderer().saveScreenshot(writing)) {
-      std::string bytes;
-      if (std::FILE *const held = std::fopen(writing.c_str(), "rb")) {
-        std::array<char, 65536> block{};
-        std::size_t read = 0;
-        while ((read = std::fread(block.data(), 1, block.size(), held)) > 0) {
-          bytes.append(block.data(), read);
-        }
-        std::fclose(held);
-      }
-      shot.Digest = Sha256Hex(bytes).substr(0, 8);
-      shot.Wrote = into + "/" + std::string(name) + "-" + shot.Digest + ".png";
-      std::filesystem::rename(writing, shot.Wrote, failed);
-      shot.Kept = !failed;
-    }
+    SavePlaceShot(engine, name, shot, under);
 
     {
       std::vector<std::uint8_t> pixels;
