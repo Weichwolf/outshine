@@ -14,8 +14,8 @@ Eine rundum verfügbare Welt bis 240 km am Boden, mit höhenabhängigem Horizont
 schnellem Übergang Orbit → Nahdetail. Ferninhalte sind kompakt, Nahdetails gezielt erzeugt.
 GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist mehrfach/zu spät,
 die konservative Zellhülle erzwingt oft Fine. Einfache Gebäudehüllen stellen Wien wieder dar;
-die Fernzusammenfassung greift noch zu spät. Tokyo steht mit 29,65 Mio. Gebäudedreiecken,
-aber p50 39 ms/p99 927 ms: frühe Cluster-Auswahl und kompakte Fernprodukte bleiben offen.
+die Fernzusammenfassung greift noch zu spät. Tokyo erzeugt 29,65 Mio. Gebäudedreiecke,
+verliert aber sichtbare Teile im Clusterpfad; direkte Originalindizes stellen sie wieder dar.
 
 ## Aktuelle Lieferung: einfache Gebäude wiederherstellen
 Gebäude bestehen zunächst aus Grundrisswänden und Dach, einschließlich Innenhöfen,
@@ -26,7 +26,7 @@ Runde Dächer linear triangulieren, ohne rekursive Unterteilung; Formen und Inne
 Die Entfernungsauswahl muss vor der Erzeugung greifen. Fernverbände behalten konservative
 Formgrenzen; eine großzügigere Fehlertoleranz darf keine fehlenden Gebäude verdecken.
 Hof-/Außenkontakte nach geografischer Umrechnung innerhalb 1 mm als gemeinsamen Ringpunkt verbinden.
-Wien, Tokyo und Central Park vollständig rendern; kein Überspringen fehlgeschlagener Gebäude.
+Zuerst Tokyos Clusterverlust reparieren; Multi-Draw ist ausgeschlossen. Central Park separat prüfen.
 Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
 ## Auswahl der einfachen Hülle
@@ -49,11 +49,13 @@ Multi-Draw einreichen. Direkte Batches begrenzen den Lauf; Reihenfolge, Instanze
 SDL-Aufrufe getrennt von logischen Batches zählen; unveränderte Bilder und gemessene Encodingkosten prüfen.
 
 ## Bildabhängige Fernrepräsentation
-Fernverbände als tiefenhaltige Multi-View-/Layered-Impostors prüfen; bestehender ImpostorBaker
-liefert bereits Tiefe, Normale und Materialidentität, ist aber noch keine Fernstadt-Pipeline.
-Keine beleuchtete Farbe festbacken: Sonne/lokales Licht müssen dieselben Materialdaten nutzen.
-Coverage, Parallaxe und Ansichtswechsel begrenzen die Wahl; bei unbewiesener Disocclusion Mesh-Fallback.
-Atlasauflösung/-Ansichten nach Pixelwirkung und Bytekosten, rundum verfügbar, nur im RAM/GPU.
+Ferne Gebäude gemeinsam auf tiefenhaltige Karten mit zwei Dreiecken je Karte projizieren;
+Rundum-/Layered-Capture prüfen. Bedarf vor Mesh-Aufbau; einfache Hüllen oder Quellpläne erfassen,
+Raster-/Ray-Capture vergleichen. ImpostorBaker ist vorhanden, die Fernstadt-Integration fehlt.
+Coverage, Tiefe, Normalen und Material speichern; Beleuchtung und Gesamthelligkeit aktuell auswerten.
+Update bei zu großer Pixelverschiebung, Inhaltsänderung oder Disocclusion; gültiger Hüllen-Fallback.
+Nur bild-/schattenwirksame Geometrie nach jeweiligem Bedarf; grobe Fernoccluder statt Nahdetails.
+Silhouette/Parallaxe/Bytekosten begrenzen Auflösung und Ansichten; rundum verfügbar, nur RAM/GPU.
 [Billboard Clouds, SIGGRAPH 2003](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf);
 Overdraw/Capturekosten gegen Clustergeometrie messen. Arbeitsintervalle/History besitzt 2340.
 
@@ -72,7 +74,7 @@ benötigte öffentliche Felder werden dort mit diesem Pfad integriert. 2280 füh
 3. Fernverband → Massing → Hülle → Nahdetails aus demselben Plan. Fernverbände bündeln,
    Nahteile instanzieren. Standort/Seeds/Silhouette bleiben stabil. Jede Variante liefert
    Bounds, Kosten und eine konservative Schranke für die tatsächlich ausgelassene Form.
-   meshoptimizer ordnet native Index-/Vertexbuffer für Cache und Fetch; keine zweite Meshkopie
+   [meshoptimizer](https://github.com/zeux/meshoptimizer) ordnet Index-/Vertexbuffer für Cache und Fetch; keine zweite Meshkopie
    im residenten Endprodukt. Simplifizierung nur mit erhaltenen Höfen, Part-Grenzen und
    Attributnähten. Bibliotheksfehlerwerte ersetzen keine konservative Oberflächenschranke.
 4. Für planbasierte Detailreduktionen analytische Schranken herleiten und unabhängig prüfen;
@@ -115,6 +117,4 @@ Zuerst dichte Bodenstadt: vollständige Fernverbände und Nahdetails ohne überf
 Löcher, Formwechsel oder neue IO-Arbeit beim Drehen. Danach Flug und Orbit separat prüfen.
 Gleiche Inhalte/Profil/Sichtweite, geringere gemessene Arbeit/Bytes und AGENTS-Budget;
 reine CPU-Beweise oder ein gesetzter Sichtweitenparameter schließen den WI nicht.
-
 Bibliotheksvertrag und Installation: [Abhängigkeiten](../doc/dependencies.md).
-Verfahren: [meshoptimizer](https://github.com/zeux/meshoptimizer); GPU-Kosten lokal messen.
