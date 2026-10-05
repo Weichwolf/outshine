@@ -8,6 +8,8 @@
 #include <cstddef>
 
 namespace outshine::Render {
+inline constexpr size_t kSubjectLightItemsOffset = 320;
+
 struct alignas(16) SubjectLightUniform {
   Vec4f Tint, Place, Beam, Cone;
 };
@@ -24,7 +26,7 @@ static_assert(offsetof(SubjectLightUniform, Tint) == 0);
 static_assert(offsetof(SubjectLightUniform, Place) == 16);
 static_assert(offsetof(SubjectLightUniform, Beam) == 32);
 static_assert(offsetof(SubjectLightUniform, Cone) == 3 * sizeof(Vec4f));
-static_assert(sizeof(SubjectLightingUniform) == 256 + 64 * kMaxSubjectLights);
+static_assert(sizeof(SubjectLightingUniform) == kSubjectLightItemsOffset + 64 * kMaxSubjectLights);
 static_assert(alignof(SubjectLightingUniform) == 16);
 static_assert(offsetof(SubjectLightingUniform, Count) == 0);
 static_assert(offsetof(SubjectLightingUniform, Environment) == 16);
@@ -35,6 +37,6 @@ static_assert(offsetof(SubjectLightingUniform, ViewPosition) == 5 * sizeof(Vec4f
 static_assert(offsetof(SubjectLightingUniform, SkyUp) == 6 * sizeof(Vec4f));
 static_assert(offsetof(SubjectLightingUniform, SkyToSun) == 7 * sizeof(Vec4f));
 static_assert(offsetof(SubjectLightingUniform, ShadowRegions) == 128);
-static_assert(offsetof(SubjectLightingUniform, Items) == 256);
+static_assert(offsetof(SubjectLightingUniform, Items) == kSubjectLightItemsOffset);
 }
 #endif

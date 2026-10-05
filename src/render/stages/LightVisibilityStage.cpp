@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -20,6 +21,7 @@ namespace outshine::Render {
 constexpr size_t kUniformFloats = 20;
 constexpr double kParallelLightCrossSquared = 1.0e-12;
 constexpr std::array<double, 3> kCameraShadowRadiiM = {{256.0, 1024.0, 4096.0}};
+constexpr float kDepthRoundingAllowance = 3.0f * std::numeric_limits<float>::epsilon();
 
 namespace {
 std::array<size_t, 2> ShadowTile(size_t region) {
@@ -131,6 +133,7 @@ void LightVisibilityStage::BuildRegions(const LightBasis &basis,
   for (size_t axis = 0; axis < 3; ++axis) {
     centreLight[0] += basis.Right[axis] * centre[axis];
     centreLight[1] += basis.Upward[axis] * centre[axis];
+    centreLight[2] += basis.Forward[axis] * centre[axis];
     casterLight[2] += basis.Forward[axis] * casterCentre[axis];
   }
   const double depthSpanM = 4.0 * RadiusM_;
@@ -164,14 +167,27 @@ void LightVisibilityStage::BuildRegions(const LightBasis &basis,
         projection[12 + row] -= projection[axis * 4 + row] * preView[axis];
       }
     }
-    const float bias = CameraCentred_
-                           ? static_cast<float>(std::max(0.02, 0.25 * texelM) / depthSpanM)
-                           : 1.0f / kShadowTilePx;
+    const float bias =
+        CameraCentred_ ? std::max(kDepthRoundingAllowance,
+                                  static_cast<float>(std::max(0.02, 0.25 * texelM) / depthSpanM))
+                       : 1.0f / kShadowTilePx;
     const auto tile = ShadowTile(region);
+    RegionUniforms_[region].Depth =
+        CameraCentred_ ? Vec4f{{static_cast<float>(1.0 / depthSpanM),
+                                static_cast<float>((farAlong - centreLight[2]) / depthSpanM),
+                                0,
+                                0}}
+                       : Vec4f{{1, 0, 0, 0}};
     RegionUniforms_[region].Atlas = {
         {static_cast<float>(tile[0]) * 0.5f, static_cast<float>(tile[1]) * 0.5f, 0.5f, bias}};
   }
   LightFromWorld_ = Projections_[base];
+  if (CameraCentred_) {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      LightFromWorld_[axis * 4 + 2] = -basis.Forward[axis];
+    }
+    LightFromWorld_[14] = 0;
+  }
   const double baseRadiusM = CameraCentred_ ? radii[base] : radiusM;
   for (size_t region = 0; region < RegionCount(); ++region) {
     const double extentM = CameraCentred_ ? radii[region] : radiusM;

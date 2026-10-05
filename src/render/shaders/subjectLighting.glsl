@@ -23,12 +23,13 @@ float regionShadowVisibility(sampler2D map, vec3 lightCoordinate, vec2 receiverS
   ShadowRegion area = lights.shadowRegions[region];
   vec2 local = lightCoordinate.xy * area.transform.xy + area.transform.zw;
   vec2 uv = local * vec2(0.5, -0.5) + 0.5;
-  return sunShadowVisibility(map, uv, lightCoordinate.z + area.atlas.w,
-                             receiverSlope / area.transform.xy, area.atlas);
+  float depth = lightCoordinate.z * area.depth.x + area.depth.y;
+  if (depth < 0.0 || depth > 1.0) { return 1.0; }
+  return sunShadowVisibility(map, uv, depth + area.atlas.w,
+                             receiverSlope * area.depth.x / area.transform.xy, area.atlas);
 }
 
 float worldSunShadowVisibility(sampler2D map, vec3 coordinate, vec2 receiverSlope) {
-  if (coordinate.z < 0.0 || coordinate.z > 1.0) { return 1.0; }
   int count = int(lights.count.w);
   for (int region = 0; region < count; ++region) {
     ShadowRegion area = lights.shadowRegions[region];

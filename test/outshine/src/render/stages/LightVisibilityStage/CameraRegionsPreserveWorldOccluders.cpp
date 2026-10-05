@@ -48,7 +48,12 @@ int main() {
                  2e-5,
                  "region Y",
                  "GPU region transform matches the independently projected point");
-      CHECK_NEAR(base[2], actual[2], 1e-12, "depth", "all regions retain full-world caster depth");
+      const auto depth = stage.Regions()[region].Depth;
+      CHECK_NEAR(base[2] * depth[0] + depth[1],
+                 actual[2],
+                 2e-7,
+                 "depth",
+                 "region mapping retains full-world caster depth from camera-relative metres");
     }
     CHECK(stage.Regions()[region].Atlas[3] > 0 && stage.Regions()[region].Atlas[3] < 0.001,
           "bias is finite and follows world texel size rather than a fixed depth fraction");
@@ -60,7 +65,7 @@ int main() {
              "near coverage remains 512 metres across a large world");
   for (const Vec3 caster :
        std::array<Vec3, 2>{{{{-10000, -10000, -10000}}, {{10000, 10000, 10000}}}}) {
-    const Vec3 projected = Project(stage.LightFromWorld(), caster - eye);
+    const Vec3 projected = Project(stage.RegionProjection(3), caster - eye);
     CHECK(std::abs(projected[0]) <= 1 && std::abs(projected[1]) <= 1 && projected[2] >= 0 &&
               projected[2] <= 1,
           "far coverage includes world casters behind and away from the camera");
