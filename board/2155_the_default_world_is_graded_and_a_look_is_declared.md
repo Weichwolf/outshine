@@ -18,8 +18,8 @@ aus ihrer Ebene extrapolieren. Tiefenpräzision, Bias und Bereichsübergänge bl
 Die Umgebungsspekularantwort nutzt einen gemeinsamen GGX-gefilterten Himmelsatlas und
 Split-Sum-GGX/Smith statt der Diffuse-Hemisphäre; Richtung und Rauheit bestimmen die Abfrage.
 Gemittelter Boden ersetzt noch keine lokalen Weltreflexionen; Glas bleibt dadurch oft zu dunkel.
-Hintergrund/LUT teilen Winkel-/Texelabfragen. Luftperspektive nutzt geodätische Kamera-Elevation
-und den Erdkugelschnitt für die Transmittanzrichtung; Mehrfachstreuung teilt Radius/Sonnenvertrag.
+Hintergrund/LUT teilen Winkel-/Texelabfragen; geodätische Kamera-Elevation vor GPU-Vorbereitung binden.
+Transmittanzrichtung folgt dem Erdkugelschnitt; Mehrfachstreuung teilt Radius/Sonnenvertrag.
 
 ## Besitzer und nächste Lieferung
 Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing; PlaceCamera/Referenzkatalog

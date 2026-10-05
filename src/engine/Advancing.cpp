@@ -77,7 +77,8 @@ namespace {
 ApplyCamera(Core::RuntimeScene &scene,
             const Render::SceneRenderer &renderer,
             const Camera &camera,
-            Render::Viewpoint view) noexcept {
+            Render::Viewpoint view,
+            const Scenario::WorldSettings &world) noexcept {
   view.Kind =
       camera.Orthographic ? Render::CameraKind::Orthographic : Render::CameraKind::Perspective;
   view.YfovRad = (camera.FovDeg == 0 ? Scenario::kFovUnsaidDeg : camera.FovDeg) * kDeg2Rad;
@@ -88,6 +89,12 @@ ApplyCamera(Core::RuntimeScene &scene,
   const auto lens = Render::Lens::From(view, renderer.PictureW(), renderer.PictureH());
   if (!lens) { return std::unexpected(lens.error()); }
   scene.Eye(view);
+  if (world.Declared) {
+    const auto at = GeographicPositionFor(
+        view.EyeM,
+        {.LongitudeDeg = world.Origin.LongitudeDeg, .LatitudeDeg = world.Origin.LatitudeDeg});
+    scene.SetSkyElevation(at.HeightM);
+  }
   return {};
 }
 }
@@ -146,7 +153,8 @@ bool Engine::State::UpdateActiveCamera() {
     standing.Up[axis] = model[4 + axis];
     standing.Forward[axis] = -model[8 + axis];
   }
-  if (!ApplyCamera(*Picture.Standing, Picture.Device, seen.Sees, standing)) {
+  if (!ApplyCamera(
+          *Picture.Standing, Picture.Device, seen.Sees, standing, Session.Declared.Ground)) {
     Error = Says::kInvalidViewProjection;
     return false;
   }
@@ -200,7 +208,7 @@ bool Engine::State::UpdateRouteCamera(const Scenario::View &view) {
   Published.RecordMetric("the route camera's eye, east", sample->EyeM[0], "m");
   Published.RecordMetric("the route camera's eye, up", sample->EyeM[1], "m");
   Published.RecordMetric("the route camera's eye, south", sample->EyeM[2], "m");
-  if (!ApplyCamera(*Picture.Standing, Picture.Device, view.Sees, *stood)) {
+  if (!ApplyCamera(*Picture.Standing, Picture.Device, view.Sees, *stood, Session.Declared.Ground)) {
     Error = Says::kInvalidViewProjection;
     return false;
   }
@@ -268,7 +276,7 @@ bool Engine::State::FollowCamera(const ViewBook &views) {
     Error = Says::kInvalidCarriedView;
     return false;
   }
-  if (!ApplyCamera(*Picture.Standing, Picture.Device, seen.Sees, *stood)) {
+  if (!ApplyCamera(*Picture.Standing, Picture.Device, seen.Sees, *stood, Session.Declared.Ground)) {
     Error = Says::kInvalidViewProjection;
     return false;
   }
@@ -622,13 +630,6 @@ bool Engine::State::Updates() {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - simulationAt)
           .count());
   if (!triggered || !cameraUpdated) { return false; }
-  if (Session.Declared.Ground.Declared && Picture.Standing->Watched()) {
-    const auto at =
-        GeographicPositionFor(Picture.Standing->Watching().EyeM,
-                              {.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
-                               .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
-    Picture.Standing->SetSkyElevation(at.HeightM);
-  }
   const GroundQuality quality =
       World.GroundPublished.Current() ? GroundQuality::Refined : GroundQuality::Playable;
   const auto groundAt = std::chrono::steady_clock::now();
