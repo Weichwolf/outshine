@@ -14,6 +14,8 @@
 - Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
+- Ich suche selbst Alternativen, sobald ein Ansatz erkennbar ungeeignet ist. Ich prüfe sie gegen
+  Bild, Kosten und Verträge und entscheide, ohne auf Lösungsvorschläge des Nutzers zu warten.
 - Vor Arbeitsblöcken, nach Integration und bei Regressionen durchdenke ich den vollständigen
   Datenfluss bis Bild, Ton, Aktion und nächstem Weltzustand: Laden, Stillstand, Drehung, Bewegung,
   Änderungen, Persistenz und Fehler. Ich prüfe Abhängigkeiten, Besitz, Threads, Kopien und Kosten;
