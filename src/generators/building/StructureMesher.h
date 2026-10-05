@@ -129,7 +129,7 @@ public:
   [[nodiscard]] virtual std::string_view ArtifactVersion() const noexcept { return {}; }
 
   [[nodiscard]] virtual std::optional<double>
-  ShellSurfaceErrorM(std::span<const StoredVertex>) const noexcept {
+  ShellSurfaceErrorM([[maybe_unused]] std::span<const StoredVertex> walls) const noexcept {
     return std::nullopt;
   }
 

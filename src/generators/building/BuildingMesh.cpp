@@ -19,6 +19,7 @@
 #include <memory>
 #include <limits>
 #include <optional>
+#include <numbers>
 #include <span>
 #include <utility>
 #include <vector>
@@ -806,13 +807,13 @@ BuildingMesh::ShellSurfaceErrorM(std::span<const StoredVertex> walls) const noex
   if (walls.empty()) { return std::nullopt; }
   double magnitudeM = 0.0;
   for (const auto &wall : walls) {
-    for (float coordinate : wall.pos) {
+    for (const float coordinate : wall.pos) {
       if (!std::isfinite(coordinate)) { return std::nullopt; }
       magnitudeM = std::max(magnitudeM, std::abs(static_cast<double>(coordinate)));
     }
   }
-  const double weldM = std::sqrt(3.0) / kWeldPerM;
-  const double roundingM = 4.0 * std::sqrt(3.0) * std::numeric_limits<float>::epsilon() *
+  const double weldM = std::numbers::sqrt3 / kWeldPerM;
+  const double roundingM = 4.0 * std::numbers::sqrt3 * std::numeric_limits<float>::epsilon() *
                            (magnitudeM + kOpeningDepthM + weldM + 1.0);
   constexpr double kErrorUnitsPerM = 4.0;
   return std::ceil((kOpeningDepthM + weldM + roundingM) * kErrorUnitsPerM) / kErrorUnitsPerM;
