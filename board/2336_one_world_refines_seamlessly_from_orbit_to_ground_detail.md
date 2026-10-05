@@ -37,6 +37,10 @@ unbekannte Mesher, ausgelassene Formen und Massing liefern keine engere Shell-Sc
 Zellplanung nutzt diese Schranke vor der Erzeugung; Massed behält die volle Zellhülle.
 Shell bleibt bei Bewegung wiederverwendbar, sichtbare Nahlaibungen bleiben Fine.
 Render-Schranken ändern keine Terrain-Semantik. Runtime-Bild-/Kostenabnahme bleibt erforderlich.
+Zeitliche HiZ-Verdeckung gilt nur bei identischer Projektion, Weltbasis und unveränderten
+Geometrie-/Terrainständen. Bewegung erzeugt zunächst vollständige Frustum-/LOD-Sichtbarkeit;
+stationäre Folgebilder dürfen mit belegter Tiefe verfeinern und danach die Auswahl wiederverwenden.
+Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bleiben wiederholbar.
 
 ## Besitzer und Abhängigkeiten
 Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
