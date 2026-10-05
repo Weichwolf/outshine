@@ -18,8 +18,10 @@ die Fernzusammenfassung greift noch zu spät. Tokyo hält 29,65 Mio. erzeugte Ge
 Begrenzte Upload-Batches beheben den belegten Metal-Speicherabbruch; Hausflächen/Türme sind wieder da.
 Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 36/790 ms, Central Park 13/152 ms
 rot; Central Parks Bild bleibt unverändert. Erzeugte Dreiecke sind keine Messung ausgeführter GPU-Arbeit.
+Isolierte Passabschlüsse lokalisieren die Hauptkosten im nativen Rasterpass: Tokyo/Central Park
+~33,5/12,4 ms; konstante Tokyo-Beleuchtung ~32,9 ms. Diagnose, keine GPU-Timestamps/Abnahme.
 
-## Aktuelle Lieferung: einfache Gebäude wiederherstellen
+## Aktuelle Lieferung: einfache Hüllen mit wirksamer Fernreduktion
 Gebäude bestehen zunächst aus Grundrisswänden und Dach, einschließlich Innenhöfen,
 gemessener Höhen und erhöhter Gebäudeteile. Prozedurale Sockelverzierungen, Dachaufbauten,
 Gesimse und Fassadenunterteilungen entfallen. Straßen und Terrain-Deformation bleiben erhalten.
@@ -101,14 +103,12 @@ ProjectedErrorBudget erlaubt den ersten Schritt; fehlende öffentliche Felder in
   Packung, aktuelle/temporäre Bytes und Framekosten gemeinsam begrenzen.
   Residente CPU-Terrainnetze für Kontakte/Audio getrennt vom Bildschirmdetail begründen;
   rasterbasierte Abfragen gegen unnötig ausmultiplizierte Dreiecke prüfen.
-  Lokale Fehler und Rundum-Projektion steuern weiter die Auswahl; Sichtweite/Fehlertoleranz bleiben.
 
 ## Forschungsgrundlage
 [GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
 und [Geometry Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf)
 ([Primärquellen/Einordnung](../doc/references/README.md)): Batches, Cluster-Bounds und inkrementelle
 Gitter prüfen. GPU-Culling ersetzt keine frühe Auswahl; Clipmaps beweisen keine Form/Abdeckung.
-SDL_GPU-Vertrag und lokale Kosten entscheiden; Elternabdeckung mit Rundum-Residency verbinden.
 [Simplification Envelopes, SIGGRAPH 1996](../doc/references/geometry/siggraph/1996-simplification-envelopes.pdf):
 Beidseitige Abstände begrenzen; Stichproben und Simplifier-Metriken beweisen keine Hülle.
 
