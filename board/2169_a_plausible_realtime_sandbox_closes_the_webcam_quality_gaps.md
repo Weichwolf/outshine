@@ -30,6 +30,10 @@ AGENTS besitzt Arbeitsregeln/Abnahme; technische Verträge stehen bei ihrem Feat
 | Malcesine | malcesine | See/Felsufer, Spiegelung/Dunst |
 | Koerbersee | koerbersee | Grate/Schnee/Schmelze, See/Wolken |
 
+Tokyo (historische Shibuya-Kamera) und Central Park sind zusätzliche harte Dichtebenchmarks.
+Alle zehn Places teilen Profil, Bildauftrag und Ziel unter 10 ms pro Frame beim aktuellen Umfang;
+Objektzahl darf GPU-Arbeit bei gleicher Bildwirkung nur gering beeinflussen. Keine Inhaltskürzung.
+
 ## Priorität und Lieferung
 | Reihenfolge | WI | Nächster sichtbarer Nutzen |
 |---|---|---|
@@ -46,7 +50,9 @@ von Profil, Sichtweite, Inhaltsvollständigkeit oder Framebudget.
 
 ## Reihenfolge und Zuständigkeit
 2280 und 2336 sind aktiv: vollständiger Ladeablauf und einfache Gebäude mit Fernclustern.
-Gebäude kommen zuerst; danach Terrain, Infrastruktur, Vegetation und schließlich Wolken.
+Zuerst Wien beim aktuellen Bildstand unter 10 ms pro Frame einschließlich p99 bringen;
+2336/2340 besitzen Repräsentation/Arbeitsauswahl. Keine neuen Bildfeatures vor diesem Nachweis.
+Dann Gebäude, Terrain, Infrastruktur, Vegetation und schließlich Wolken ausbauen.
 Der SpeedTree-Qualitätsmaßstab zieht Vegetation nicht vor.
 2188 migriert dabei
 nur die benötigten öffentlichen Grenzen. Keine komplette SDK-Neufassung vor dem ersten Bild.
@@ -60,7 +66,7 @@ Bildverlust wählen; keine Folge ausschließlich interner Reparaturen als Fortsc
 2188 öffentliche Erweiterungsgrenzen. Die übrigen WIs besitzen jeweils Form, Material,
 Licht, Umwelt oder Simulation. `Depends` bezeichnet nur den ausdrücklich genannten fehlenden
 Teilvertrag, nicht den Abschluss eines gesamten WI. Keine versteckten Abhängigkeiten.
-Central Park/Tokyo bleiben dichte Ladebenchmarks; historische Places bleiben Diagnosen.
+Weitere historische Places bleiben Diagnosen; Tokyo/Central Park gehören zum Render-Gate.
 Hockenheim-Runden/Physikausbau sind kein erster visueller Meilenstein.
 
 ## Forschungsgrundlage

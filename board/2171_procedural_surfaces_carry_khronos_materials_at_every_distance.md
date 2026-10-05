@@ -65,6 +65,9 @@ Materialpalette folgen; Relief ersetzt weder Öffnungs- noch Silhouettengeometri
 - Glas mit Fresnel, gefilterter Welt-/Himmelsreflexion und energiegeteilter Transmission.
   Begrenztes Interior-Mapping plausibel ergänzen; betretbare Räume bleiben echte Geometrie.
   Fernfenster werden stabile Material-/Nachtlichtbeiträge.
+  Ray-Box im metrischen Raum liefert plausible Raumtiefe ohne Mesh pro Fenster; Fassadenachsen,
+  Nutzung, Gebäudeseed und Uhrzeit bestimmen Räume/Emission. Nah-/Fernantwort gemeinsam filtern.
+  Sichtbare Fensteremission ist kein eigenes Point Light; tatsächliche Raum-/Außenlichter folgen 2155.
 - Parameter/Seeds einmal vorbereiten, Ressourcen vor Geometriepublikation bereitstellen.
   Shaderarbeit nur für benötigte Varianten. Nässe/Schnee ändern dieselben Materialien;
   kein Neubau unveränderter Gebäude, keine erzeugten Disktexturen.

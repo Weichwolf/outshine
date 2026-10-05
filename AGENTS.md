@@ -50,6 +50,7 @@
   480p, 1280×720, 1920×1080 und höher; 25/30/60 fps. Maße immer explizit Breite×Höhe.
   720p60 bleibt Messprofil; 480p30 in hoher Qualität auf A18 Pro ist eine zu prüfende Hypothese.
 - Alle acht Places aus 2169 sind visuelle Regressionen, mindestens einer gehört ins Gate.
+  Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
   Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
   je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
@@ -61,6 +62,7 @@
 - Framebudget auch für p99: 1000/Ziel-fps ms. Alle Weltklassen teilen Zeit/Speicher nach Bildgewinn
   und Kosten, ohne feste Quoten. Stadt und Wald dürfen andere Lastverteilungen haben, müssen
   aber gleichermaßen flüssig und visuell kohärent sein. Profil, Inhalte und Sichtweite im Vergleich nicht reduzieren.
+  Jeder sichtbare Pixel bekommt denselben Qualitätsanspruch unabhängig von seinem Inhalt.
 - Korrektheit, Bild, CPU/GPU, Laden und Speicher getrennt prüfen. Budgets nennen Einheit, Herkunft,
   Lastfall, Profil und Besitzer; Peaks und OS-/Treiberreserve zählen. Geteilten Speicher nicht doppelt
   zählen, asynchrone Zeiten nicht addieren, Fence-Warten nicht als GPU-Zeit ausgeben. A18 Pros

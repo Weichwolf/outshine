@@ -48,6 +48,15 @@ Benachbarte indirekte Batches mit gleichem Material, Vertexlayout und Bewegungsv
 Multi-Draw einreichen. Direkte Batches begrenzen den Lauf; Reihenfolge, Instanzen und Culling bleiben gleich.
 SDL-Aufrufe getrennt von logischen Batches zählen; unveränderte Bilder und gemessene Encodingkosten prüfen.
 
+## Bildabhängige Fernrepräsentation
+Fernverbände als tiefenhaltige Multi-View-/Layered-Impostors prüfen; bestehender ImpostorBaker
+liefert bereits Tiefe, Normale und Materialidentität, ist aber noch keine Fernstadt-Pipeline.
+Keine beleuchtete Farbe festbacken: Sonne/lokales Licht müssen dieselben Materialdaten nutzen.
+Coverage, Parallaxe und Ansichtswechsel begrenzen die Wahl; bei unbewiesener Disocclusion Mesh-Fallback.
+Atlasauflösung/-Ansichten nach Pixelwirkung und Bytekosten, rundum verfügbar, nur im RAM/GPU.
+[Billboard Clouds, SIGGRAPH 2003](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf);
+Overdraw/Capturekosten gegen Clustergeometrie messen. Arbeitsintervalle/History besitzt 2340.
+
 ## Besitzer und Abhängigkeiten
 Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
 StructureCellPlanner/Detail, StructureBake und GroundLattice bilden einen gemeinsamen Plan.
@@ -85,10 +94,8 @@ benötigte öffentliche Felder werden dort mit diesem Pfad integriert. 2280 füh
   Auswahl von Fernwald bis Nahlaub; Kollision und logische Netze bleiben eigenständig.
   Der Fehler gehört zur jeweiligen interpolierten Fläche; ein Kindfehler ist keine Untergrenze
   für den Elternfehler. Bedarf bleibt unabhängig von der Blickrichtung.
-  Koerbersee rendert mit bedarfsgesteuertem Höhenatlas wieder vollständig.
-  Renderer allokiert Atlas-Layer nach tatsächlichem Bedarf und wächst transaktional per GPU-Kopie;
-  vorhandene Page-IDs/Inhalte bleiben gültig. Dichtere 2D-Packung begrenzt Array-Layer.
-  Logische Kapazität ist kein Allokationsbudget: aktuelle/temporäre Bytes und Framekosten prüfen.
+  Höhenatlas nach Bedarf allokieren, transaktional wachsen; Page-IDs/Inhalte erhalten.
+  Packung, aktuelle/temporäre Bytes und Framekosten gemeinsam begrenzen.
   Residente CPU-Terrainnetze für Kontakte/Audio getrennt vom Bildschirmdetail begründen;
   rasterbasierte Abfragen gegen unnötig ausmultiplizierte Dreiecke prüfen.
   Lokale Fehler und Rundum-Projektion steuern weiter die Auswahl; Sichtweite/Fehlertoleranz bleiben.

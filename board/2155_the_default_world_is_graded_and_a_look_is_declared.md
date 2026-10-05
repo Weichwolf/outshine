@@ -22,8 +22,8 @@ Hintergrund/LUT teilen Winkel-/Texelabfragen; geodätische Kamera-Elevation vor 
 Transmittanzrichtung folgt dem Erdkugelschnitt; Mehrfachstreuung teilt Radius/Sonnenvertrag.
 
 ## Besitzer und nächste Lieferung
-Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing; PlaceCamera/Referenzkatalog
-Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Bergansicht
+Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing, PlaceCamera/Referenzkatalog Pose/FOV/UTC.
+Mit vorhandenen Inputs zuerst eine Stadt- und Bergansicht
 über Himmelsfüllung, Sonnenschatten und Belichtung verbessern. Kein Quellen-/SDK-Blocker.
 
 ## Räumliche Sonnenschatten
@@ -31,7 +31,6 @@ RuntimeScene/LightVisibility staffeln Sonnenschatten rundum in vier texelstabile
 256/1024/4096 m Halbausdehnung plus Weltfit; Blickdrehung ändert keine Karte. Asset-Szenen
 behalten ihren Objektfit. 4096² D32F, vier 2048²-Kacheln: 64 MiB statt 16 MiB.
 Alle Batch-Instanzen und GroundLattice-Höhen werfen Schatten; keine Nahtsäume, PCF je Kachel.
-Ist: gemeinsame Welttiefe; Präzision und Fernbereichsabdeckung bleiben weiter zu verbessern.
 Nächster Schritt: Tiefenintervalle je Bereich aus nativen Instanz-/Terrainbounds schneiden,
 alle relevanten Außen-Occluder erhalten; Rundungsfehler, Bias und Übergänge am Bild prüfen.
 Empfängertiefe in Lichtkoordinaten relativ zur Kamera in Metern; erst je Karte normalisieren.
@@ -49,13 +48,12 @@ Catmull-Rom mit fünf renormierten Kreuzabfragen und lokalem Wertebereich begren
 (Filament `ef1a133d`). Bildschärfe und MSAA einschließlich Tiefenpfad bleiben zu prüfen.
 
 ## Gemeinsame Umgebungsreflexion und nächste Bildlücke
-- Gemeinsame Himmelsabfrage für Hintergrund und Reflexion, einschließlich Horizont und
-  Texelzentren; Sonnenprojektion am Zenit bleibt endlich. Diese vorhandene Abfrage nutzen:
-  MediumRadiance → EnvironmentSpecular → Gebäude/Terrain/Wasser ist angeschlossen.
+- MediumRadiance → EnvironmentSpecular → Gebäude/Terrain/Wasser teilt Himmelsabfragen,
+  Horizont/Texelzentren und endliche Sonnenprojektion am Zenit.
 - Renderer besitzt einen GPU-vorgefilterten GGX-Atlas: sieben Roughness-Stufen, 64² nutzbare
   Texel je Stufe, je ein Randtexel. RGBA16F: 66 × 66 × 7 × 8 = 243936 Byte (238,2 KiB).
   Deterministische begrenzte Samples; Octaeder-Ränder korrekt fortsetzen, zwei gefilterte
-  Abfragen interpolieren Roughness. Das Layout vermeidet neue Cubemap-Subresource-Verwaltung.
+  Abfragen interpolieren Roughness.
 - BRDF-Split-Sum aus demselben GGX/Smith-Modell wie Direktlicht; vorhandene Tabellenerzeugung
   erweitern. Sonne bleibt getrenntes Direktlicht, nicht doppelt in Reflexionen rechnen.
   Welt-Up/Sonnenrichtung explizit im typisierten CPU/GPU-Lichtvertrag, keine Lichtindexannahme.
@@ -85,7 +83,11 @@ Catmull-Rom mit fünf renormierten Kreuzabfragen und lokalem Wertebereich begren
 
 ### Licht und Kamera
 - Kamera gegen Landmarken/Relief kalibrieren; falsche Gebäude nicht durch Pose kaschieren.
-  Sonnenschatten folgen dem räumlichen Vertrag oben; lokale Lichtlisten bündeln.
+  Sonnenschatten folgen dem Vertrag oben; tausende lokale Lichter brauchen Clustered Forward.
+  Native Lichtbereiche räumlich zuordnen; je Fragment nur seine Liste, Sonne/Himmel separat.
+  Transparenz nutzt räumliche Tiefencluster; Listen/Überlauf explizit, kein stilles Abschneiden.
+  Emission, direkte Lichtwirkung und Schatten getrennt budgetieren; keine Schattenkarte je Fenster.
+  Statische/dynamische Schatten getrennt halten, Auflösung/Updates nach Bildwirkung (2340).
 - Roughness-gefilterte Weltreflexion mit Sichtbarkeit und vollständigen Mips; Wasser nutzt
   dieselbe Lichtwelt. Emissive Fenster/Straßenlichter fern als kompakte Beiträge, keine
   Detail-/Schattenarbeit je Fenster. Bloom ersetzt keine Geometrie.
@@ -105,13 +107,11 @@ kalibrieren. Schatten nach projizierter Wirkung staffeln; Bias gegen Kontaktverl
 History anhand Tiefe, Bewegung und Produktgültigkeit validieren; flimmerfreie Unschärfe ist
 kein Bildgewinn. Bewegtes Wasser/Laub und Ursprungssprünge gesondert integrieren.
 [Moment Shadow Mapping](../doc/references/lighting/i3d/2015-moment-shadow-mapping.pdf):
-zuerst stabile Tiefenprojektion/Bias und begrenztes PCF; Momente nur bei belegtem Gesamtgewinn
-einschließlich Blur/Mips/Bytes. Autoren-Errata anwenden. 2048² × 8 Byte = 32 MiB allein für Momente.
+stabile Tiefenprojektion/Bias zuerst; Momente nur bei Gesamtgewinn samt Blur/Mips/Bytes und Autoren-Errata.
 [Clustered Shading](../doc/references/lighting/hpg/2012-clustered-shading.pdf):
-bei vielen lokalen Nachtlichtern räumliche Listen, Sonne separat; Überlauf explizit behandeln.
+kleiner Lichtpfad bleibt für wenige Lichter; Stadt-/Innenraum-Nachtlastfall prüft den Clusterpfad.
 [Screen-Space-DDA](../doc/references/lighting/jcgt/2014-efficient-screen-space-rays.pdf):
-IBL bleibt Grundreflexion, gültige SSR-Treffer ergänzen sie; Step-Limit, Tiefe/Dicke und
-Disocclusion prüfen. Spiegelung darf bei Kameradrehung nicht einfach verschwinden.
+IBL bleibt Grundreflexion; SSR mit Step-Limit, Tiefe/Dicke und Disocclusion ergänzt gültige Treffer.
 
 ## Abnahme
 Datierte klare/bedeckte Stadt-/Bergbilder gewinnen Tiefe und Materiallesbarkeit; Morgen,
