@@ -1,3 +1,4 @@
+#include "EnvironmentSpecularLayout.h"
 #include <SDL3_shadercross/SDL_shadercross.h>
 #include "math/Units.h"
 #include "math/Mat4.h"
@@ -150,6 +151,9 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
         {.Named = Stage::MediumRadiance,
          .Configure = &SceneRenderer::ConfigureMediumRadiance,
          .Encode = &SceneRenderer::EncodeMediumRadiance},
+        {.Named = Stage::EnvironmentSpecular,
+         .Configure = &SceneRenderer::ConfigureEnvironmentSpecular,
+         .Encode = &SceneRenderer::EncodeEnvironmentSpecular},
         {.Named = Stage::Irradiance,
          .Configure = &SceneRenderer::ConfigureIrradiance,
          .Encode = &SceneRenderer::EncodeIrradiance},
@@ -495,6 +499,10 @@ void SceneRenderer::CreateAtmosphereLut(FrameResources &frame,
         return {.WidthPx = kMultiScatterLutSize,
                 .HeightPx = kMultiScatterLutSize,
                 .Into = &frame.MultiScatterLut};
+      case Resource::EnvironmentSpecular:
+        return {.WidthPx = kEnvironmentWidth,
+                .HeightPx = kEnvironmentHeight,
+                .Into = &frame.EnvironmentSpecular};
       case Resource::SkyViewLut:
         return {
             .WidthPx = kSkyViewLutWidth, .HeightPx = kSkyViewLutHeight, .Into = &frame.SkyViewLut};
@@ -564,14 +572,16 @@ void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource
     case Resource::DrawArguments: return;
     case Resource::TransmittanceLut:
     case Resource::MultiScatterLut:
-    case Resource::SkyViewLut: {
+    case Resource::SkyViewLut:
+    case Resource::EnvironmentSpecular: {
       CreateAtmosphereLut(frame, plan, resource);
       return;
     }
     case Resource::IrradianceBuffer: {
       SDL_GPUBufferCreateInfo wanted{};
-      wanted.usage =
-          SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
+      wanted.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE |
+                     SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ |
+                     SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
       wanted.size = kIrradianceFloats * static_cast<uint32_t>(sizeof(float));
       frame.IrradianceBuffer =
           OwnedBuffer(frame.Handles.Device, SDL_CreateGPUBuffer(frame.Handles.Device, &wanted));
@@ -626,6 +636,7 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
                               &frame.TransmittanceLut,
                               &frame.MultiScatterLut,
                               &frame.SkyViewLut,
+                              &frame.EnvironmentSpecular,
                               &frame.ShadowAtlas,
                               &frame.TransmissiveTex,
                               &frame.CompositedTex,
@@ -664,6 +675,7 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::TransmittanceLut: return static_cast<bool>(frame.TransmittanceLut);
     case Resource::MultiScatterLut: return static_cast<bool>(frame.MultiScatterLut);
     case Resource::SkyViewLut: return static_cast<bool>(frame.SkyViewLut);
+    case Resource::EnvironmentSpecular: return static_cast<bool>(frame.EnvironmentSpecular);
     case Resource::LutSampler: return static_cast<bool>(frame.LutSamp);
     case Resource::IrradianceBuffer: return static_cast<bool>(frame.IrradianceBuffer);
     case Resource::DepthPyramid: return static_cast<bool>(frame.Pyramid);
@@ -719,6 +731,7 @@ SDL_GPUTexture *SceneRenderer::Target(const FrameResources &frame, Resource reso
     case Resource::TransmittanceLut: return frame.TransmittanceLut.Get();
     case Resource::MultiScatterLut: return frame.MultiScatterLut.Get();
     case Resource::SkyViewLut: return frame.SkyViewLut.Get();
+    case Resource::EnvironmentSpecular: return frame.EnvironmentSpecular.Get();
     case Resource::ShadowAtlas: return frame.ShadowAtlas.Get();
     case Resource::LinearSampler:
     case Resource::LutSampler:
@@ -998,6 +1011,11 @@ void SceneRenderer::ApplyWorldDeclarations() {
     ActiveFrame().Radiance.Declare(
         ActiveState().Medium, ActiveState().CosSunZenith, ActiveState().EyeHeightM);
     ActiveFrame().SkyIrradianceStage.Declare(ActiveState().Medium, ActiveState().CosSunZenith);
+    ActiveFrame().EnvironmentSpecularStage.Declare(
+        ActiveState().Medium,
+        ActiveState().CosSunZenith,
+        ActiveState().EyeHeightM,
+        ActiveState().Content.Subjects.Environment().GroundAlbedo);
   }
   if (ActiveState().SkyDeclared) {
     const SkyStanding stands = {.SunDir = ActiveState().SkyToSun,
@@ -1272,6 +1290,27 @@ bool SceneRenderer::UploadGroundClasses(std::span<const uint32_t> classes,
   ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                           .Palette = ActiveState().Content.Ground.Palette()});
   return true;
+}
+
+bool SceneRenderer::ConfigureEnvironmentSpecular(SceneRenderer &renderer,
+                                                 FrameResources &frame,
+                                                 const Compiled &plan,
+                                                 bool drawsGlass,
+                                                 std::string &error) {
+  (void)renderer;
+  (void)plan;
+  (void)drawsGlass;
+  return frame.EnvironmentSpecularStage.Configure(frame.Handles,
+                                                  {.Sky = frame.SkyViewLut.Get(),
+                                                   .Irradiance = frame.IrradianceBuffer.Get(),
+                                                   .Sampler = frame.LutSamp.Get(),
+                                                   .Target = frame.EnvironmentSpecular.Get()},
+                                                  error);
+}
+
+void SceneRenderer::EncodeEnvironmentSpecular(const FrameContext &ctx, const PassRecording &into) {
+  (void)ctx;
+  ActiveFrame().EnvironmentSpecularStage.Encode(into);
 }
 
 bool SceneRenderer::ConfigureIrradiance(SceneRenderer &renderer,
@@ -1566,7 +1605,7 @@ std::expected<OwnedFence, std::string> SceneRenderer::PrepareWorldResources() {
   const auto preparesWorldResource = [](Stage stage) {
     return stage == Stage::MediumTransmittance || stage == Stage::MediumMultiScatter ||
            stage == Stage::MediumRadiance || stage == Stage::Irradiance ||
-           stage == Stage::LightVisibility;
+           stage == Stage::EnvironmentSpecular || stage == Stage::LightVisibility;
   };
   for (size_t pass = 0; pass < ActiveState().Plan->Passes().size(); ++pass) {
     const auto &declared = ActiveState().Plan->Passes()[pass];

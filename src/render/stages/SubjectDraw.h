@@ -273,6 +273,8 @@ public:
 
   void SetEnvironment(const SubjectEnvironment &environment) { IndirectLight = environment; }
 
+  [[nodiscard]] const SubjectEnvironment &Environment() const { return IndirectLight; }
+
   void SkyFrom(SDL_GPUBuffer *irradiance) { SkyIrradiance_ = irradiance; }
 
   struct GroundBuffers {

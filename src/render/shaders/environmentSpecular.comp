@@ -1,0 +1,53 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "medium.glsl"
+#include "environmentSampling.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D skyView;
+layout(std430, set = 0, binding = 1) readonly buffer Irradiance { float irradiance[]; };
+layout(rgba16f, set = 1, binding = 0) uniform writeonly image2D into;
+layout(std140, set = 2, binding = 0) uniform Pushed {
+  Medium declared;
+  float cosSunZenith;
+  float eyeRadiusKm;
+  vec2 pad;
+  vec4 groundAlbedo;
+} pushed;
+
+vec3 sourceRadiance(vec3 direction) {
+  float alongSun = dot(direction.xy, direction.xy) > 1.0e-10
+                      ? direction.x / length(direction.xy) : 1.0;
+  ivec2 extent = textureSize(skyView, 0);
+  SkyViewSample sampled = skyViewSample(pushed.declared.BottomRadiusKm, pushed.eyeRadiusKm,
+      SkyViewLook(direction.z, alongSun), MediumLutSize(float(extent.x), float(extent.y)));
+  if (sampled.HitsGround) {
+    vec3 sky = vec3(irradiance[0], irradiance[1], irradiance[2]);
+    vec3 sun = vec3(irradiance[3], irradiance[4], irradiance[5]);
+    return pushed.groundAlbedo.rgb * (sky + sun * max(pushed.cosSunZenith, 0.0)) / acos(-1.0);
+  }
+  return textureLod(skyView, vec2(sampled.Uv.U, sampled.Uv.V), 0.0).rgb;
+}
+
+void main() {
+  ivec2 at = ivec2(gl_GlobalInvocationID.xy);
+  ivec2 extent = imageSize(into);
+  if (at.x >= extent.x || at.y >= extent.y) { return; }
+  int span = kEnvironmentSide + 2 * kEnvironmentBorder;
+  int level = at.y / span;
+  vec2 uv = (vec2(at.x, at.y % span) + 0.5 - float(kEnvironmentBorder)) / float(kEnvironmentSide);
+  vec3 n = octDirection(uv);
+  float roughness = float(level) / float(kEnvironmentLevels - 1);
+  vec3 total = vec3(0.0);
+  float weights = 0.0;
+  int count = level == 0 ? 1 : kEnvironmentSamples;
+  for (int sampleIndex = 0; sampleIndex < count; ++sampleIndex) {
+    vec2 xi = vec2((float(sampleIndex) + 0.5) / float(count),
+                   float(bitfieldReverse(uint(sampleIndex))) * 2.3283064365386963e-10);
+    vec3 halfVector = environmentHalfVector(xi, roughness, n);
+    vec3 direction = reflect(-n, halfVector);
+    float nl = max(dot(n, direction), 0.0);
+    if (nl > 0.0) { total += sourceRadiance(direction) * nl; weights += nl; }
+  }
+  imageStore(into, at, vec4(total / max(weights, 1.0e-6), 1.0));
+}

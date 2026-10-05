@@ -16,6 +16,7 @@ enum class ComputeShaderId : uint32_t {
   MediumTransmittance,
   MediumMultiScatter,
   MediumRadiance,
+  EnvironmentSpecular,
   SubjectCull,
   SubjectScan,
   SubjectCompact,
@@ -52,6 +53,14 @@ inline constexpr std::array kComputeShaders = {
         .Path = "build/shaders/mediumRadiance.comp.spv",
         .Shape =
             {.Samplers = 2, .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8}},
+    ComputeShaderDescriptor{.Id = ComputeShaderId::EnvironmentSpecular,
+                            .Path = "build/shaders/environmentSpecular.comp.spv",
+                            .Shape = {.Samplers = 1,
+                                      .ReadWriteTextures = 1,
+                                      .ReadOnlyBuffers = 1,
+                                      .UniformBuffers = 1,
+                                      .GroupX = 8,
+                                      .GroupY = 8}},
     ComputeShaderDescriptor{
         .Id = ComputeShaderId::SubjectCull,
         .Path = "build/shaders/subjectCullKernel.comp.spv",

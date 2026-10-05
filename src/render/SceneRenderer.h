@@ -43,6 +43,7 @@
 #include "stages/MediumMultiScatterStage.h"
 #include "stages/DepthPyramidStage.h"
 #include "stages/IrradianceStage.h"
+#include "stages/EnvironmentSpecularStage.h"
 #include "stages/MediumRadianceStage.h"
 #include "stages/LightVisibilityStage.h"
 #include "stages/SubjectCullStage.h"
@@ -562,6 +563,7 @@ public:
     if (ActiveState().Content.DrawsGlass) {
       ActiveState().Content.Glass.SetEnvironment(environment);
     }
+    if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
   [[nodiscard]] uint32_t SubjectBatchCount() const {
@@ -723,7 +725,7 @@ private:
     void (SceneRenderer::*Encode)(const FrameContext &ctx, const PassRecording &into);
   };
 
-  static constexpr size_t kExecutorCount = 18;
+  static constexpr size_t kExecutorCount = 19;
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   void Picture(bool picture, const PassRecording &into);
@@ -772,6 +774,11 @@ private:
                                                     const Compiled &plan,
                                                     bool drawsGlass,
                                                     std::string &error);
+  [[nodiscard]] static bool ConfigureEnvironmentSpecular(SceneRenderer &renderer,
+                                                         FrameResources &frame,
+                                                         const Compiled &plan,
+                                                         bool drawsGlass,
+                                                         std::string &error);
   [[nodiscard]] static bool ConfigureIrradiance(SceneRenderer &renderer,
                                                 FrameResources &frame,
                                                 const Compiled &plan,
@@ -811,6 +818,8 @@ private:
   void EncodeMediumTransmittance(const FrameContext &ctx, const PassRecording &into);
   void EncodeMediumMultiScatter(const FrameContext &ctx, const PassRecording &into);
   void EncodeMediumRadiance(const FrameContext &ctx, const PassRecording &into);
+
+  void EncodeEnvironmentSpecular(const FrameContext &ctx, const PassRecording &into);
 
   void EncodeIrradiance(const FrameContext &ctx, const PassRecording &into);
   void EncodeDepthPyramid(const FrameContext &ctx, const PassRecording &into);
@@ -866,7 +875,7 @@ private:
     OwnedTexture Offscreen;
     Gpu Handles;
     OwnedTexture HdrTex, VelTex, DepthTex, FrameTex;
-    OwnedTexture TransmittanceLut, MultiScatterLut, SkyViewLut;
+    OwnedTexture TransmittanceLut, MultiScatterLut, SkyViewLut, EnvironmentSpecular;
     OwnedTexture ShadowAtlas;
     OwnedTexture TransmissiveTex, CompositedTex, AerialTex;
     OwnedTexture ShadingNormalTex;
@@ -886,6 +895,7 @@ private:
     MediumMultiScatterStage MultiScatter;
     MediumRadianceStage Radiance;
     IrradianceStage SkyIrradianceStage;
+    EnvironmentSpecularStage EnvironmentSpecularStage;
     DepthPyramidStage PyramidStage;
     SkyStage Sky;
     LightVisibilityStage Shadow;

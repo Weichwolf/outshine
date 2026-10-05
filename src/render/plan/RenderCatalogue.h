@@ -22,6 +22,7 @@ enum class Resource {
   MultiScatterLut,
   SkyViewLut,
   IrradianceBuffer,
+  EnvironmentSpecular,
   Meter,
   ShadowAtlas,
   SceneHdr,
@@ -67,6 +68,7 @@ enum class Resource {
     case Resource::MultiScatterLut:
     case Resource::SkyViewLut:
     case Resource::IrradianceBuffer:
+    case Resource::EnvironmentSpecular:
     case Resource::Meter:
     case Resource::ShadowAtlas:
     case Resource::SceneVelocity:
@@ -97,6 +99,7 @@ enum class Stage {
   MediumMultiScatter,
   MediumRadiance,
   Irradiance,
+  EnvironmentSpecular,
   AutoExposure,
 
   SubjectCull,
@@ -254,6 +257,13 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .Format = TexelFormat::Table,
      .Name = "irradiance",
      .Stride = kIrradianceFloats * static_cast<uint32_t>(sizeof(float))},
+
+    {.Id = Resource::EnvironmentSpecular,
+     .Kind = ResourceKind::Derived,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Rgba16Float,
+     .Name = "environmentSpecular"},
 
     {.Id = Resource::Meter,
      .Kind = ResourceKind::Derived,
@@ -469,6 +479,18 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                Resource::AtmosphereUniform,
                kNoEdge},
      .Writes = {Resource::IrradianceBuffer, kNoEdge},
+     .Contributes = {kNoEdge},
+     .FusesInto = kNoFusion},
+    {.Id = Stage::EnvironmentSpecular,
+     .From = Provenance::Machinery,
+     .Kind = PassKind::Compute,
+     .Name = "environmentSpecular",
+     .Reads = {Resource::SkyViewLut,
+               Resource::IrradianceBuffer,
+               Resource::LutSampler,
+               Resource::AtmosphereUniform,
+               kNoEdge},
+     .Writes = {Resource::EnvironmentSpecular, kNoEdge},
      .Contributes = {kNoEdge},
      .FusesInto = kNoFusion},
     {.Id = Stage::AutoExposure,
