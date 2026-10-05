@@ -13,9 +13,8 @@ Tags: lighting, shadows, hdr, presentation
 Kohärentes Tages-/Nachtlicht, räumliche Schatten/Reflexion und stabile Belichtung.
 SceneRenderer/SkyStage, LightVisibility/Irradiance, HDR/TemporalResolve/Tonemap bestehen;
 Weltwirkung und Kameraantwort sind unzureichend oder nicht am Place belegt.
-subjectLighting prüft die gemeinsame Lichtliste je Fragment. Bilineares 2×2-PCF ersetzt
-den Vergleich einer interpolierten Sonnentiefe: Empfänger-Tiefe je Texel aus ihrer Ebene
-extrapolieren; Reverse-Z/Bias prüfen, Sichtbarkeit filtern. Nahauflösung bleibt begrenzt.
+subjectLighting filtert Reverse-Z-Vergleiche mit bilinearem 2×2-PCF; Empfänger-Tiefe je Texel
+aus ihrer Ebene extrapolieren. Tiefenpräzision, Bias und Bereichsübergänge bleiben offen.
 Die Umgebungsspekularantwort nutzt einen gemeinsamen GGX-gefilterten Himmelsatlas und
 Split-Sum-GGX/Smith statt der Diffuse-Hemisphäre; Richtung und Rauheit bestimmen die Abfrage.
 Gemittelter Boden ersetzt noch keine lokalen Weltreflexionen; Glas bleibt dadurch oft zu dunkel.
@@ -28,14 +27,15 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 über Himmelsfüllung, Sonnenschatten und Belichtung verbessern. Kein Quellen-/SDK-Blocker.
 
 ## Räumliche Sonnenschatten
-RuntimeScene/LightVisibility staffeln Welt-Sonnenschatten in vier überlappende, texelstabile
-Bereiche um die Kamera; 256/1024/4096 m Halbausdehnung plus vollständiger Weltfit. Blickdrehung
-ändert keine Karte; Asset-Szenen behalten ihren Objektfit. 4096² D32F: vier 2048²-Kacheln,
-64 MiB statt 16 MiB. Gemeinsame Welttiefe erhält Außen-/Terrain-Occluder; GroundLattice wirft
-Schatten vom Höhenfeld, ohne künstliche Nahtsäume. PCF bleibt in der Kachel, überblendet. Bias folgt
-Texelmetern statt pauschaler Welttiefe. Renderer besitzt Pässe/Filter/GPU-Verträge; Generatoren
-kein Schattenwissen. Statische Karten wiederverwenden, Bewegung gezielt aktualisieren.
-Nahe Gebäudekontakte am Place sowie Bytes/Lade-/Framekosten belegen; keine Farb-AO als Ersatz.
+RuntimeScene/LightVisibility staffeln Sonnenschatten rundum in vier texelstabile Bereiche:
+256/1024/4096 m Halbausdehnung plus Weltfit; Blickdrehung ändert keine Karte. Asset-Szenen
+behalten ihren Objektfit. 4096² D32F, vier 2048²-Kacheln: 64 MiB statt 16 MiB. GroundLattice
+wirft Schatten vom physischen Höhenfeld ohne Nahtsäume; PCF bleibt in der jeweiligen Kachel.
+Ist: gemeinsame Welttiefe; an Bergansichten bleiben Selbstschatten und Bereichsgrenzen sichtbar.
+Nächster Schritt: Tiefenintervalle je Bereich aus nativen Instanz-/Terrainbounds schneiden,
+alle relevanten Außen-Occluder erhalten; Rundungsfehler, Bias und Übergänge am Bild prüfen.
+Renderer besitzt Pässe/Filter/GPU-Verträge, Generatoren kein Schattenwissen. Statische Karten
+wiederverwenden; Kontakte und Kosten belegen, Frame-Spitzen beheben, keine Farb-AO als Ersatz.
 
 ## Bildstabilität
 Places verwenden TAA im regulären Profil. Bewegung/History stimmen in NDC, UV, Y-Richtung
