@@ -36,8 +36,8 @@ Nächster Schritt: Tiefenintervalle je Bereich aus nativen Instanz-/Terrainbound
 alle relevanten Außen-Occluder erhalten; Rundungsfehler, Bias und Übergänge am Bild prüfen.
 Empfängertiefe in Lichtkoordinaten relativ zur Kamera in Metern; erst je Karte normalisieren.
 D32-Vergleich mit mindestens 3ε Rundungsreserve; Tiefenfit nach Filament `ef1a133d`, `ShadowMap.cpp`.
-Renderer besitzt Pässe/Filter/GPU-Verträge, Generatoren kein Schattenwissen. Statische Karten
-wiederverwenden; Kontakte und Kosten belegen, Frame-Spitzen beheben, keine Farb-AO als Ersatz.
+Renderer besitzt Pässe/Filter/GPU-Verträge; Generatoren kein Schattenwissen. Tabellen vor
+Schattenbedarf finalisieren; statische Karten ab erstem Frame nutzen, keine Farb-AO als Ersatz.
 
 ## Bildstabilität
 Places verwenden TAA im regulären Profil. Bewegung/History stimmen in NDC, UV, Y-Richtung
