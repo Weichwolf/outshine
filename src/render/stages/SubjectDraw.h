@@ -342,6 +342,8 @@ public:
 
   [[nodiscard]] uint32_t DrawCount() const;
 
+  [[nodiscard]] uint32_t EncodedDrawCalls() const noexcept { return EncodedDrawCalls_; }
+
   [[nodiscard]] uint32_t PipelineCount() const { return Binding().Built; }
 
 private:
@@ -431,6 +433,7 @@ private:
 
   std::vector<uint32_t> Args_;
   uint32_t Jobs_ = 0;
+  uint32_t EncodedDrawCalls_ = 0;
   bool RowsStale_ = false;
 
   struct Piece {
@@ -471,6 +474,7 @@ private:
   [[nodiscard]] bool
   RoomForOptionalStreams(OptionalStreamEnds ends, VertexRunsCarried carried, std::string &error);
   void BindPlacementStorage(const PassRecording &into);
+  [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildSubjectBatches(std::string &error);
   void PrepareSubjectTables();

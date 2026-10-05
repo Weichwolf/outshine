@@ -1636,7 +1636,19 @@ void SubjectDraw::BindVertexStreams(const PassRecording &into,
   SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), count);
 }
 
+size_t SubjectDraw::IndirectRunEnd(size_t first) const noexcept {
+  const DrawBatch &batch = Batches[first];
+  size_t end = first + 1u;
+  while (end < Batches.size() && Batches[end].JobCount > 0 &&
+         Batches[end].MaterialSlot == batch.MaterialSlot &&
+         BatchLayout[end] == BatchLayout[first] && Batches[end].Motion == batch.Motion) {
+    ++end;
+  }
+  return end;
+}
+
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
+  EncodedDrawCalls_ = 0;
   const bool drawsBatches = !Batches.empty() && Bound().Buffer(SubjectResidency::Stream::Vertex) &&
                             Bound().Buffer(SubjectResidency::Stream::Index);
   if (!drawsBatches && (Binding().Behind != nullptr || Ground_.Drawn() == 0)) { return; }
@@ -1684,15 +1696,19 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       indexBinding = wantedIndex;
     }
     if (culled) {
+      const size_t end = IndirectRunEnd(at);
+      ++EncodedDrawCalls_;
       SDL_DrawGPUIndexedPrimitivesIndirect(
           into.Pass,
           Bound().Buffer(SubjectResidency::Stream::DrawArguments).Get(),
           static_cast<Uint32>(at * kIndirectStride),
-          1u);
+          static_cast<Uint32>(end - at));
+      at = end - 1u;
       continue;
     }
     SDL_DrawGPUIndexedPrimitives(
         into.Pass, batch.IndexCount, batch.Instances, batch.FirstIndex, 0, batch.ModelSlot);
+    ++EncodedDrawCalls_;
   }
   EncodeGround(into);
 }

@@ -649,6 +649,12 @@ public:
     return ActiveState().Content.Subjects.DrawCount();
   }
 
+  [[nodiscard]] uint32_t SubjectDrawCallCount() const noexcept {
+    const auto &content = ActiveState().Content;
+    return content.Subjects.EncodedDrawCalls() +
+           (content.DrawsGlass ? content.Glass.EncodedDrawCalls() : 0u);
+  }
+
   [[nodiscard]] uint32_t SubjectPipelineCount() const {
     return ActiveState().Content.Subjects.PipelineCount();
   }

@@ -219,8 +219,9 @@ Result Engine::render(Extent frame) {
     S_->Published.RecordMetric(
         "ring: clusters a frustum would keep", static_cast<double>(kept), "clusters");
   }
-  S_->Published.RecordMetric(
-      "subject draw calls", static_cast<double>(S_->Picture.Device.SubjectBatchCount()), "calls");
+  S_->Published.RecordMetric("subject draw calls",
+                             static_cast<double>(S_->Picture.Device.SubjectDrawCallCount()),
+                             "calls");
   S_->Published.RecordMetric(
       "plan passes", static_cast<double>(S_->Picture.Standing->PlanPasses()), "passes");
   for (uint32_t at = 0; at < static_cast<uint32_t>(Render::kVertexLayouts.size()); ++at) {
