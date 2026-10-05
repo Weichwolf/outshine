@@ -12,7 +12,8 @@ Tags: buildings, roofs, facades, semantics
 ## Ergebnis und Ist
 Vollständige Grundrisse/Höfe/Parts, plausible Dächer/Sonderbauten und räumliche Nahfassaden.
 BuildingHeightInterval, native Footprints, StructureBake/BuildingMesh und Terrain-Stempel
-bestehen. Klassen-/Dachpläne sind lückenhaft; pauschale Fenster entfallen; Öffnungen benötigen gezielte Platzierungsregeln.
+bestehen. Wohnhausöffnungen nutzen Geschosse/Achsen mit gefilterten Fernhüllen und
+bedarfsabhängigen Nahlaibungen. Klassen-/Dachpläne und Sonderbauten bleiben lückenhaft.
 Rohattribute bleiben unverändert verfügbar; kanonische Abfragen erhalten Originalwerte
 und bevorzugen ausdrücklich gelieferte Schlüssel. Gelieferte Wandfarben erreichen den nativen
 Plan und Renderer. Dichte GPU-Farbadressierung vermeidet Leerräume; Sonderklassen und
@@ -40,7 +41,7 @@ Quellangaben überschreiben plausible Ergänzungen. Kein allgemeiner Grammatikin
 begründet kompakte Fassadenparameter mit Shaderauswertung. Sichtbare Tiefe/Silhouette bleibt
 Geometrie; subpixelige Muster werden gefiltert. Gemeinsame Nahmodule instanzieren, erst nach
 budgetierter Auswahl expandieren. Farbvariation allein schließt dieses Feature nicht.
-Die nächste Lieferung nutzt vorhandene Achsen/Geschosse für Wohnhaus-, Reihenhaus-
+Die vorhandenen Öffnungen nutzen Achsen/Geschosse für Wohnhaus-, Reihenhaus-
 und Blocköffnungen. Kontaktwände/Giebel und Hallen/Türme/Sonderbauten bleiben geschlossen.
 Fine ersetzt Wandrechtecke durch geschlossene Laibungen mit zurückgesetzten Glasscheiben;
 Shell wertet denselben Öffnungsplan gefiltert aus. Keine zusätzlichen Fernmesh-Dreiecke.
