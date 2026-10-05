@@ -2098,7 +2098,7 @@ BinaryStamp() {
   stampFiles="$* $(ls test/harness/shared/*.h 2>/dev/null)"
   if [ -f "$stampBinary.d" ]; then
     for stampNeed in $(tr '\\' ' ' <"$stampBinary.d" | tr ':' ' ' | tr -s ' \n' ' '); do
-      case "$stampNeed" in *.o|*.cpp|*.h|*.hpp) ;; *) continue ;; esac
+      if [ "$stampNeed" = "$stampBinary" ]; then continue; fi
       stampFiles="$stampFiles $stampNeed"
     done
   fi
