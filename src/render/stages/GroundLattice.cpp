@@ -363,7 +363,7 @@ bool GroundPipelineBinding::ConfigureDepth(SDL_GPUDevice *device,
   wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
   wanted.vertex_input_state = input;
   wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
+  wanted.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_FRONT;
   wanted.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
   wanted.depth_stencil_state.enable_depth_test = true;
   wanted.depth_stencil_state.enable_depth_write = true;

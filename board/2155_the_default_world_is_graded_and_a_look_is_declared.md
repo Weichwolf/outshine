@@ -31,8 +31,8 @@ Pose/FOV/UTC und Kalibrierung. Mit vorhandenen Inputs zuerst eine Stadt- und Ber
 RuntimeScene/LightVisibility staffeln Welt-Sonnenschatten in vier überlappende, texelstabile
 Bereiche um die Kamera; 256/1024/4096 m Halbausdehnung plus vollständiger Weltfit. Blickdrehung
 ändert keine Karte; Asset-Szenen behalten ihren Objektfit. 4096² D32F: vier 2048²-Kacheln,
-64 MiB statt 16 MiB. Gemeinsame Welttiefe erhält Außen-/Terrain-Occluder; GroundLattice muss
-auch Schatten werfen. PCF bleibt innerhalb einer Kachel, Übergänge überblenden. Bias folgt
+64 MiB statt 16 MiB. Gemeinsame Welttiefe erhält Außen-/Terrain-Occluder; GroundLattice wirft
+Schatten vom Höhenfeld, ohne künstliche Nahtsäume. PCF bleibt in der Kachel, überblendet. Bias folgt
 Texelmetern statt pauschaler Welttiefe. Renderer besitzt Pässe/Filter/GPU-Verträge; Generatoren
 kein Schattenwissen. Statische Karten wiederverwenden, Bewegung gezielt aktualisieren.
 Nahe Gebäudekontakte am Place sowie Bytes/Lade-/Framekosten belegen; keine Farb-AO als Ersatz.
