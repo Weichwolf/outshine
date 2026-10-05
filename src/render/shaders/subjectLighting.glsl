@@ -1,3 +1,17 @@
+#include "shadowFilter.glsl"
+
+float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth) {
+  ivec2 extent = textureSize(map, 0);
+  vec2 texel = uv * vec2(extent) - 0.5;
+  ivec2 base = ivec2(floor(texel));
+  ivec2 limit = extent - 1;
+  vec4 depths = vec4(texelFetch(map, clamp(base, ivec2(0), limit), 0).r,
+                     texelFetch(map, clamp(base + ivec2(1, 0), ivec2(0), limit), 0).r,
+                     texelFetch(map, clamp(base + ivec2(0, 1), ivec2(0), limit), 0).r,
+                     texelFetch(map, clamp(base + ivec2(1, 1), ivec2(0), limit), 0).r);
+  return bilinearShadowVisibility(depths, fract(texel), receiverDepth);
+}
+
 vec3 shadeRow(M surface,
 
                               vec3 localM, vec3 n, vec3 p, vec3 albedo, float metalness,
@@ -65,9 +79,8 @@ vec3 shadeRow(M surface,
       vec2 atlasUv = lit.xy * vec2(0.5, -0.5) + 0.5;
       if (atlasUv.x >= 0.0 && atlasUv.x <= 1.0 && atlasUv.y >= 0.0 && atlasUv.y <= 1.0 &&
           lit.z >= 0.0 && lit.z <= 1.0) {
-        float nearest = textureLod(shadowMap, atlasUv, 0.0).r;
         float bias = lights.count.w;
-        attenuation = attenuation * (lit.z + bias < nearest ? 0.0 : 1.0);
+        attenuation *= sunShadowVisibility(shadowMap, atlasUv, lit.z + bias);
       }
     }
     float nl = dot(n, toward);
