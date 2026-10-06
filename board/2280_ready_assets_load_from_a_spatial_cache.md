@@ -22,24 +22,28 @@ Pakete erhalten Samples, Herkunft und fehlende Randdaten; Offline-Replay braucht
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
 speichern und laden dieselbe vollständige Basis. Herkunft/Signatur/Qualifikation bleiben erhalten.
-Nicht unterstützte Einzelmassen behalten Kontakte und ihren expliziten Zustand; gültige Nachbarn
-bleiben renderbar. Eingabebytes, Quelle/Parameter, Terrainformung und Version binden den Schlüssel.
+Nicht unterstützte Einzelmassen behalten Kontakte/Zustand; gültige Nachbarn bleiben renderbar.
 Ausgewählte LOD-Geometrie wird als Kindprodukt gespeichert; gleiche Position/Projektionsparameter
 laden sie ohne erneute Planung/Emission. Drehung erzeugt keinen neuen Schlüssel. Bewegung und
 Nahdetails brauchen weiterhin 2336; der private Anschluss ersetzt noch nicht den öffentlichen Vertrag.
-Wien warm mit Basis allein: 59,67 s; Gebäudearbeit 32,45 s. Mit fertigen LOD-Produkten,
-inklusive erhaltener Terrainkontakte: Wien 29,75 s, Central Park 22,77 s, Tokyo 42,44 s.
-Alle drei frischen Offline-Prozesse: 50 Basis-/LOD-Hits, keine Misses/Writes/Emissionsranges;
-Gebäudearbeit 0,375/0,294/0,717 s. Bilder sind pixelgleich mit der Terraincache-Referenz.
-Native Treffer behalten Grundriss-/Hofkoordinaten bei der Publikation; Wiederstart braucht
-keine Höhenquelle. Das frühere Überschreiben mit leeren Quellkoordinaten ist korrigiert.
-p99 Wien/CP/Tokyo: 23,62/16,45/19,84 ms; Wien/Tokyo überschreiten weiterhin 720p60.
-Unter 1 s bleibt unerreicht: 1,93/1,81/2,03 GiB Terrain-Zwischenfelder gelesen, Terrain/
-Straßen erneut aufgebaut; Earthworks 5,09/2,62/14,74 s. Phasen können sich überlappen.
-Prozesspeaks 4,28/3,87/4,92 GiB sind kein akzeptierter Speicherbedarf.
-Nächste Integration: fertige verformte Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern
-laden; keine erneute Kontakt-/Straßenformung bei Treffern. Laden bis vollständig sichtbare Welt
-messen, keine Gebäudeteilzeit als Weltladezeit ausgeben. Terrain-/Straßenqualität erhalten.
+Native Terrainprodukte speichern vollständig verformte Höhenfelder samt Kontaktwirkung.
+Ein geteilter Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und behält
+Job-Eingaben bis zum Workerabschluss. Misses speichern und laden denselben nativen Pfad.
+Schlüssel binden Höhen, vollständige Kontakte/Physikrahmen und Version; die Identitätsbildung
+hat begrenzten Scratch, unabhängig von der Zahl der Kontakte. Quelle und Rundumabdeckung bleiben erhalten.
+Frische Offline-Treffer: Wien 26,27 s, Central Park 21,48 s, Tokyo 41,05 s.
+Je zwei Terrainprodukte: 34,25/21,61/35,32 MiB; keine Terrain-Deformations-Misses/Writes.
+Je 50 Gebäude-/LOD-Hits ohne erneute Basis-/LOD-Emission. Alle drei Bilder bleiben pixelgleich.
+p99 Wien/CP/Tokyo: 28,61/2,60/19,60 ms; Wien/Tokyo überschreiten weiterhin 720p60.
+Unter 1 s bleibt unerreicht: 1,94/1,81/2,01 GiB Terrain-Zwischenfelder gelesen; Kontakte,
+Straßen und Terrain-/Wassermeshes werden noch aufgebaut. Die späte Terrain-Assetabfrage
+umgeht die eigentliche Verformung, aber noch nicht deren komplette Eingabevorbereitung.
+Prozesspeaks 4,22/3,86/5,07 GiB sind kein akzeptierter Speicherbedarf.
+Zusätzlich prüfen: wiederholte vollständige Kontakt-Scans für Heapdiagnose und ungeklärte
+Idle-Wartezeit von rund 11 s. Diagnose zählt Speicher bei Besitzänderungen, nicht pro Arbeitsquantum.
+Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
+keine erneute Kontakt-/Straßenformung bei Treffern. Bis vollständig sichtbare Welt messen,
+keine Gebäudeteilzeit als Weltladezeit ausgeben. Terrain-/Straßenqualität erhalten.
 Öffentliche Anbindung, Original-OSM-/weitere Generatorpfade, SSD-Budget und kompaktere Produkte
 fehlen. Worker-/Phasenzeiten überlappen; nicht als Ladezeit summieren.
 Wien hat 49 Nahkacheln, keine belegte vollständige 240-km-Assetwelt. 2336 besitzt Fernabdeckung.
@@ -60,8 +64,6 @@ Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen ble
 - Vegetation: Bestands-/Instanzdaten, gemeinsame Prototypen mit LODs, Material/Alpha-Mips,
   Windparameter und Fernverbände. 2111 bleibt nach Gebäuden/Terrain/Infrastruktur.
 - Kompakte, deviceunabhängige Renderprodukte; kein Fine-Mesh je Fernhaus/Prototypkopie je Instanz. Licht, Wetterantwort und dynamische Pose bleiben aktuell.
-  Rohlinge enthalten alle Quellergänzungen/Parameter/Abhängigkeiten für ihre spätere Verfeinerung.
-  Treffer bedeuten Lesen, Entpacken/Upload, Auswahl und budgetierte Nahdetails, keinen Rohling-Neubau.
 
 ## Räumlicher Index und Ladeabfragen
 1. Gemeinsamer Index unterstützt Frustum und Radius R um Weltposition x,y,z. Konservative Bounds
@@ -109,7 +111,6 @@ Outshine überträgt dieses Muster auf prozedurale Runtime-Misses, nicht UEs ges
 [HLOD](https://dev.epicgames.com/documentation/en-us/unreal-engine/world-partition---hierarchical-level-of-detail-in-unreal-engine):
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
-2188 bindet denselben Assetbedarf/Missvertrag öffentlich an; keine SDK-Neufassung davor.
 ## Abnahme
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
