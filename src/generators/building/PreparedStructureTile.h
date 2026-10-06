@@ -8,8 +8,8 @@ namespace outshine::Generators {
 
 struct PreparedStructure {
   RawTile::Structure Layout;
-  Ground::BuildingFootprint Standing;
-  Ground::GeoBounds Bounds;
+  ::outshine::Ground::BuildingFootprint Standing;
+  ::outshine::Ground::GeoBounds Bounds;
   size_t CornerFirst = 0;
   double BaseAslM = 0.0, SeatAslM = 0.0;
   double AreaM2 = 0.0;
@@ -33,7 +33,7 @@ struct PreparedStructureTile {
 
 [[nodiscard]] std::expected<PreparedStructureTile, StructureBakeError>
 PrepareStructureTile(const RawTile &raw,
-                     const Ground::HeightField &heights,
+                     const ::outshine::Ground::HeightField &heights,
                      const std::atomic_bool *stopping = nullptr);
 
 [[nodiscard]] std::expected<BakedTile, StructureBakeError>

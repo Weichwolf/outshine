@@ -1,4 +1,5 @@
 #include "StructureBuildTask.h"
+#include "PreparedStructureTile.h"
 
 #include <algorithm>
 #include <atomic>
@@ -31,11 +32,23 @@ void BakeVariant(const Generators::RawTile *raw,
                  MeshScratch *scratch,
                  Generators::StructureBakeProgress *progress,
                  StructureBuildTask::Output *output,
-                 const std::shared_ptr<std::atomic_bool> &stopping) {
+                 const std::shared_ptr<std::atomic_bool> &stopping,
+                 const Generators::PreparedStructureTile *base = nullptr) {
   for (size_t range = 0; range < StructureBuildTask::RangesPerTask && !output->Tile; ++range) {
     const auto rangeBegan = std::chrono::steady_clock::now();
-    const auto advanced = progress->AdvanceStructures(
-        *raw, *heights, mesher, *scratch, StructureBuildTask::StructuresPerRange, stopping.get());
+    const auto advanced = base != nullptr
+                              ? progress->AdvancePrepared(*base,
+                                                          *raw,
+                                                          mesher,
+                                                          *scratch,
+                                                          StructureBuildTask::StructuresPerRange,
+                                                          stopping.get())
+                              : progress->AdvanceStructures(*raw,
+                                                            *heights,
+                                                            mesher,
+                                                            *scratch,
+                                                            StructureBuildTask::StructuresPerRange,
+                                                            stopping.get());
     const double rangeMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rangeBegan)
             .count();
@@ -198,6 +211,24 @@ struct StructureBuildTask::Comparison {
       }
       if (std::chrono::steady_clock::now() - began >= std::chrono::milliseconds(2)) { return; }
     }
+  }
+
+  void Bake(const Generators::RawTile &raw,
+            const Ground::HeightField &heights,
+            const StructureMesher &mesher,
+            MeshScratch &scratch,
+            Generators::StructureBakeProgress &progress,
+            Output &output,
+            const std::shared_ptr<std::atomic_bool> &stopping) {
+    if (Variant) {
+      Advance(heights, mesher, scratch, output, *stopping);
+      return;
+    }
+    BakeVariant(&raw, &heights, mesher, &scratch, &progress, &output, stopping);
+    if (!output.Tile) { return; }
+    auto variant = std::move(*output.Tile);
+    output.Tile.reset();
+    Begin(std::move(variant), raw, output);
   }
 
   ProofRequest Request;
@@ -404,6 +435,26 @@ StructureBuildTask::StructureBuildTask(uint32_t tile,
   assert(Raw_ != nullptr && Heights_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
 }
 
+StructureBuildTask::StructureBuildTask(
+    uint32_t tile,
+    std::shared_ptr<const Generators::PreparedStructureTile> base,
+    std::unique_ptr<Generators::RawTile> view,
+    std::unique_ptr<Output> output,
+    std::unique_ptr<MeshScratch> scratch)
+    : Tile_(tile),
+      Raw_(std::move(view)),
+      Base_(std::move(base)),
+      Output_(std::move(output)),
+      Scratch_(std::move(scratch)),
+      Progress_(std::make_unique<Generators::StructureBakeProgress>()),
+      Stopping_(std::make_shared<std::atomic_bool>(false)) {
+  assert(Base_ != nullptr && Raw_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
+  Raw_->AnchorEcef = Base_->AnchorEcef;
+  Raw_->TileSpanM = Base_->TileSpanM;
+  Raw_->Extent = Base_->Extent;
+  Raw_->SourceInputs.Origin = Base_->Origin;
+}
+
 StructureBuildTask::~StructureBuildTask() {
   assert(State_ != State::Running);
 }
@@ -418,6 +469,7 @@ StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) no
   Tile_ = std::exchange(other.Tile_, 0);
   Raw_ = std::move(other.Raw_);
   Heights_ = std::move(other.Heights_);
+  Base_ = std::move(other.Base_);
   Output_ = std::move(other.Output_);
   Scratch_ = std::move(other.Scratch_);
   Progress_ = std::move(other.Progress_);
@@ -442,6 +494,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   assert(State_ != State::Running);
   const Generators::RawTile *const raw = Raw_.get();
   const Ground::HeightField *const heights = Heights_.get();
+  const auto base = Base_;
   MeshScratch *const scratch = Scratch_.get();
   Generators::StructureBakeProgress *const progress = Progress_.get();
   Output *const output = Output_.get();
@@ -455,6 +508,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   Tasks *const activePool = ActivePool_;
   Handle_ = ActivePool_->Post([raw,
                                heights,
+                               base,
                                &mesher,
                                scratch,
                                progress,
@@ -480,15 +534,12 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
       artifact->CancelIfStopping(*output, *stopping, activePool);
       return;
     }
-    if (comparison && comparison->Variant) {
-      comparison->Advance(*heights, mesher, *scratch, *output, *stopping);
+    if (base) {
+      BakeVariant(raw, heights, mesher, scratch, progress, output, stopping, base.get());
+    } else if (comparison) {
+      comparison->Bake(*raw, *heights, mesher, *scratch, *progress, *output, stopping);
     } else {
       BakeVariant(raw, heights, mesher, scratch, progress, output, stopping);
-      if (comparison && output->Tile) {
-        auto variant = std::move(*output->Tile);
-        output->Tile.reset();
-        comparison->Begin(std::move(variant), *raw, *output);
-      }
     }
     if (comparison && stopping->load(std::memory_order_relaxed)) {
       output->Tile.reset();

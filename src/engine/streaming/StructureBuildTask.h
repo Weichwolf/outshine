@@ -2,6 +2,7 @@
 #define OUTSHINE_ENGINE_STREAMING_STRUCTUREBUILDTASK_H
 
 #include <atomic>
+#include <cassert>
 #include <cstddef>
 #include <expected>
 #include <memory>
@@ -14,6 +15,9 @@
 #include "Tasks.h"
 
 namespace outshine {
+namespace Generators {
+struct PreparedStructureTile;
+}
 
 class StructureBuildTask {
 public:
@@ -52,6 +56,11 @@ public:
                      std::unique_ptr<MeshScratch> scratch,
                      std::optional<ProofRequest> proof = std::nullopt,
                      std::optional<CacheRequest> cache = std::nullopt);
+  StructureBuildTask(uint32_t tile,
+                     std::shared_ptr<const Generators::PreparedStructureTile> base,
+                     std::unique_ptr<Generators::RawTile> view,
+                     std::unique_ptr<Output> output,
+                     std::unique_ptr<MeshScratch> scratch);
   ~StructureBuildTask();
   StructureBuildTask(const StructureBuildTask &) = delete;
   StructureBuildTask &operator=(const StructureBuildTask &) = delete;
@@ -65,6 +74,7 @@ public:
   void Join(Tasks &pool);
 
   [[nodiscard]] bool Running() const noexcept;
+
   [[nodiscard]] bool AwaitCompletion(double seconds) const;
 
   static constexpr size_t StructuresPerRange = 64;
@@ -74,7 +84,10 @@ public:
 
   [[nodiscard]] const Generators::RawTile &Raw() const noexcept { return *Raw_; }
 
-  [[nodiscard]] const Ground::HeightField &Heights() const noexcept { return *Heights_; }
+  [[nodiscard]] const Ground::HeightField &Heights() const noexcept {
+    assert(Heights_ != nullptr);
+    return *Heights_;
+  }
 
   [[nodiscard]] Generators::RawTile &Raw() noexcept { return *Raw_; }
 
@@ -99,6 +112,7 @@ private:
   uint32_t Tile_ = 0;
   std::unique_ptr<Generators::RawTile> Raw_;
   std::shared_ptr<const Ground::HeightField> Heights_;
+  std::shared_ptr<const Generators::PreparedStructureTile> Base_;
   std::unique_ptr<Output> Output_;
   std::unique_ptr<MeshScratch> Scratch_;
   std::unique_ptr<Generators::StructureBakeProgress> Progress_;

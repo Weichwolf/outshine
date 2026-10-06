@@ -1,4 +1,6 @@
 #include "PreparedStructureTile.h"
+#include "StructureBuildTask.h"
+#include "Tasks.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
 #include "AssetGeneration.h"
@@ -110,6 +112,47 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
   return decoded;
 }
 
+void WorkerBake(const PreparedStructureTile &base,
+                const BuildingMesh &mesher,
+                const RawTile &view,
+                uint64_t reference) {
+  Tasks worker(1);
+  auto held = std::make_shared<const PreparedStructureTile>(base);
+  StructureBuildTask task(0,
+                          held,
+                          std::make_unique<RawTile>(view),
+                          std::make_unique<StructureBuildTask::Output>(),
+                          mesher.Scratch());
+  held.reset();
+  task.Start(worker, mesher);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+  size_t tasks = 0;
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (!task.TakeCompletion(worker)) {
+      (void)task.AwaitCompletion(0.05);
+      continue;
+    }
+    ++tasks;
+    CHECK(task.Result().LastRanges > 0 &&
+              task.Result().LastRanges <= StructureBuildTask::RangesPerTask,
+          "ready base selection and emission keep the worker task bounded");
+    if (!task.Result().Status || task.Result().Tile) { break; }
+    task.Resume(worker, mesher);
+  }
+  if (task.Running()) {
+    task.RequestStop();
+    task.Join(worker);
+  }
+  CHECK(task.Result().Status && task.Result().Tile && task.Result().Tile->Digest == reference,
+        "source-free worker delivers the same geometry from a held native cache basis");
+  CHECK(base.Structures.size() <=
+                StructureBuildTask::StructuresPerRange * StructureBuildTask::RangesPerTask ||
+            tasks > 1,
+        "a large ready tile yields the worker instead of emitting everything in one task");
+  CHECK(task.Progress().BakedStructures() == base.Structures.size(),
+        "native worker completion counts prepared structures without source progress");
+}
+
 void ReadyForms(const PreparedStructureTile &base, const BuildingMesh &mesher) {
   for (size_t index = 0; index < base.Structures.size(); ++index) {
     const auto &record = base.Structures[index];
@@ -168,6 +211,14 @@ int main() {
   raw = {};
   heights.reset();
   ReadyForms(*decoded, mesher);
+  WorkerBake(*decoded, mesher, views.front(), references.front().Digest);
+  auto batch = *decoded;
+  batch.Structures.resize(257, decoded->Structures.front());
+  batch.Surfaces.resize(257, decoded->Surfaces.front());
+  auto batchScratch = mesher.Scratch();
+  const auto batchReference = BakePreparedStructures(batch, views.front(), mesher, *batchScratch);
+  CHECK(batchReference.has_value(), "large native tile supplies the bounded worker fixture");
+  if (batchReference) { WorkerBake(batch, mesher, views.front(), batchReference->Digest); }
   for (size_t index = 0; index < views.size(); ++index) {
     auto scratch = mesher.Scratch();
     const auto built = BakePreparedStructures(*decoded, views[index], mesher, *scratch);

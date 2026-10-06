@@ -335,24 +335,6 @@ std::expected<void, StructureBakeError> ValidateStructureView(const RawTile &raw
   return {};
 }
 
-std::expected<void, StructureBakeError> FinishPlanEmission(const RawTile &raw,
-                                                           const StructureMesher &mesher,
-                                                           MeshScratch &scratch,
-                                                           StructurePlanSelection &selection,
-                                                           MassPlans &masses,
-                                                           BakedTile &out,
-                                                           const std::atomic_bool *stopping) {
-  if (raw.RequestedDetail) { return FinishStructures(masses, raw, mesher, scratch, out, stopping); }
-  const auto selected = selection.Select(raw, mesher, scratch, out, stopping);
-  if (!selected) { return std::unexpected(selected.error()); }
-  for (;;) {
-    const auto emitted = selection.Emit(raw, mesher, scratch, out, 64, stopping);
-    if (!emitted) { return std::unexpected(emitted.error()); }
-    if (*emitted) { break; }
-  }
-  return FinalizeBake(raw, out);
-}
-
 }
 
 struct StructureBakeProgress::State {
@@ -364,6 +346,7 @@ struct StructureBakeProgress::State {
   std::vector<double> Corners;
   BakedTile Tile;
   size_t Next = 0;
+  size_t Count = 0;
   bool Started = false;
   bool Finalized = false;
 
@@ -379,7 +362,8 @@ struct StructureBakeProgress::State {
     return {};
   }
 
-  void Start(const RawTile &raw, const outshine::Ground::HeightField &heights) {
+  void Start(const RawTile &raw, bool fallback, size_t count) {
+    Count = count;
     BakedTile &out = Tile;
     out.Walls = {};
     out.Roofs = {};
@@ -396,7 +380,7 @@ struct StructureBakeProgress::State {
     out.NoGround = 0;
     out.UnsupportedMeshes = 0;
     out.SkippedRings = 0;
-    out.FallbackHeights = heights.Fallback();
+    out.FallbackHeights = fallback;
     const StructureSelectionView selectedView{
         .Eye = raw.Eye, .EyeEcef = raw.EyeEcef, .Projection = raw.Projection};
     out.SelectedView =
@@ -438,7 +422,7 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
   State &state = *State_;
   assert(!state.Finalized);
   BakedTile &out = state.Tile;
-  if (!state.Started) { state.Start(raw, heights); }
+  if (!state.Started) { state.Start(raw, heights.Fallback(), raw.Structures.size()); }
   if (state.Current == State::Phase::Complete) { return true; }
   if (state.Current == State::Phase::Emission) {
     const auto emitted = state.Selection.Emit(raw, mesher, scratch, out, structuresMost, stopping);
@@ -480,7 +464,7 @@ StructureBakeProgress::Finalize(const RawTile &raw,
                                 const StructureMesher &mesher,
                                 MeshScratch &scratch,
                                 const std::atomic_bool *stopping) {
-  assert(State_->Started && State_->Next == raw.Structures.size());
+  assert(State_->Started && State_->Next == State_->Count);
   assert(!State_->Finalized);
   assert(State_->Current == State::Phase::Complete);
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
@@ -513,18 +497,78 @@ std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
   return {};
 }
 
+std::expected<bool, StructureBakeError>
+StructureBakeProgress::AdvancePrepared(const PreparedStructureTile &base,
+                                       const RawTile &view,
+                                       const StructureMesher &mesher,
+                                       MeshScratch &scratch,
+                                       size_t structuresMost,
+                                       const std::atomic_bool *stopping) {
+  if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
+  if (base.Surfaces.size() != base.Structures.size()) {
+    return std::unexpected(StructureMeshError::InvalidPlan);
+  }
+  const auto valid = State_->Validate(view);
+  if (!valid) { return std::unexpected(valid.error()); }
+  if (structuresMost == 0) { return false; }
+  State &state = *State_;
+  assert(!state.Finalized);
+  BakedTile &out = state.Tile;
+  if (!state.Started) {
+    state.Start(view, base.FallbackHeights, base.Structures.size());
+    out.SkippedRings = base.SkippedRings;
+    out.NoGround = base.NoGround;
+    out.Coordinates = std::make_shared<Ground::BuildingGeometry>();
+    out.Coordinates->Origin = base.Origin;
+    out.Coordinates->Points = base.PointsLatLon;
+    out.Coordinates->Rings = base.Holes;
+  }
+  if (state.Current == State::Phase::Complete) { return true; }
+  if (state.Current == State::Phase::Emission) {
+    const auto emitted = state.Selection.Emit(view, mesher, scratch, out, structuresMost, stopping);
+    if (!emitted) { return std::unexpected(emitted.error()); }
+    if (*emitted) { state.Current = State::Phase::Complete; }
+    return *emitted;
+  }
+  const size_t until = std::min(state.Next + structuresMost, base.Structures.size());
+  for (; state.Next < until; ++state.Next) {
+    const auto &one = base.Structures[state.Next];
+    if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
+    if (view.RequestedCell && one.Layout.Cell.Index != *view.RequestedCell) { continue; }
+    const auto emitted =
+        EmitStructure(one,
+                      base.PointsLatLon,
+                      base.Holes,
+                      std::span(base.CornerAslM).subspan(one.CornerFirst, one.Layout.PointCount),
+                      view,
+                      mesher,
+                      scratch,
+                      out,
+                      state.Masses,
+                      state.Selection,
+                      &base.Surfaces[state.Next]);
+    if (!emitted) { return std::unexpected(emitted.error()); }
+    out.Prints.back().FirstPoint = one.Layout.LocalFirst;
+    out.Prints.back().FirstHole = one.Layout.FirstHole;
+    if (base.Origin.Provenance) { out.Coordinates->Sources.push_back(one.Layout.SourceId); }
+  }
+  if (state.Next != base.Structures.size()) { return false; }
+  if (view.RequestedDetail) {
+    state.Current = State::Phase::Complete;
+    return true;
+  }
+  const auto selected = state.Selection.Select(view, mesher, scratch, out, stopping);
+  if (!selected) { return std::unexpected(selected.error()); }
+  state.Current = State::Phase::Emission;
+  return false;
+}
+
 std::expected<BakedTile, StructureBakeError>
 BakePreparedStructures(const PreparedStructureTile &base,
                        const RawTile &view,
                        const StructureMesher &mesher,
                        MeshScratch &scratch,
                        const std::atomic_bool *stopping) {
-  if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-  if (base.Surfaces.size() != base.Structures.size()) {
-    return std::unexpected(StructureMeshError::InvalidPlan);
-  }
-  const auto valid = ValidateStructureView(view);
-  if (!valid) { return std::unexpected(valid.error()); }
   RawTile raw;
   raw.Eye = view.Eye;
   raw.EyeEcef = view.EyeEcef;
@@ -535,47 +579,13 @@ BakePreparedStructures(const PreparedStructureTile &base,
   raw.AnchorEcef = base.AnchorEcef;
   raw.TileSpanM = base.TileSpanM;
   raw.Extent = base.Extent;
-  BakedTile out;
-  out.RequestedDetail = raw.RequestedDetail;
-  out.RequestedCell = raw.RequestedCell;
-  out.FallbackHeights = base.FallbackHeights;
-  out.SkippedRings = base.SkippedRings;
-  out.NoGround = base.NoGround;
-  const StructureSelectionView selected{
-      .Eye = raw.Eye, .EyeEcef = raw.EyeEcef, .Projection = raw.Projection};
-  if (!raw.RequestedDetail && selected.Contains(raw.Eye, raw.Projection, raw.EyeEcef)) {
-    out.SelectedView = selected;
+  StructureBakeProgress progress;
+  for (;;) {
+    const auto advanced = progress.AdvancePrepared(base, raw, mesher, scratch, 64, stopping);
+    if (!advanced) { return std::unexpected(advanced.error()); }
+    if (*advanced) { break; }
   }
-  StructurePlanSelection selection;
-  MassPlans masses;
-  out.Coordinates = std::make_shared<Ground::BuildingGeometry>();
-  out.Coordinates->Origin = base.Origin;
-  out.Coordinates->Points = base.PointsLatLon;
-  out.Coordinates->Rings = base.Holes;
-  for (size_t index = 0; index < base.Structures.size(); ++index) {
-    const auto &one = base.Structures[index];
-    if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-    if (raw.RequestedCell && one.Layout.Cell.Index != *raw.RequestedCell) { continue; }
-    const auto emitted =
-        EmitStructure(one,
-                      base.PointsLatLon,
-                      base.Holes,
-                      std::span(base.CornerAslM).subspan(one.CornerFirst, one.Layout.PointCount),
-                      raw,
-                      mesher,
-                      scratch,
-                      out,
-                      masses,
-                      selection,
-                      &base.Surfaces[index]);
-    if (!emitted) { return std::unexpected(emitted.error()); }
-    out.Prints.back().FirstPoint = one.Layout.LocalFirst;
-    out.Prints.back().FirstHole = one.Layout.FirstHole;
-    if (base.Origin.Provenance) { out.Coordinates->Sources.push_back(one.Layout.SourceId); }
-  }
-  const auto finished = FinishPlanEmission(raw, mesher, scratch, selection, masses, out, stopping);
-  if (!finished) { return std::unexpected(finished.error()); }
-  return out;
+  return progress.Finalize(raw, mesher, scratch, stopping);
 }
 
 }

@@ -161,6 +161,8 @@ struct BakedTile {
   }
 };
 
+struct PreparedStructureTile;
+
 class StructureBakeProgress {
 public:
   StructureBakeProgress();
@@ -175,6 +177,14 @@ public:
                     MeshScratch &scratch,
                     size_t structuresMost,
                     const std::atomic_bool *stopping = nullptr);
+
+  [[nodiscard]] std::expected<bool, StructureBakeError>
+  AdvancePrepared(const PreparedStructureTile &base,
+                  const RawTile &view,
+                  const StructureMesher &mesher,
+                  MeshScratch &scratch,
+                  size_t structuresMost,
+                  const std::atomic_bool *stopping = nullptr);
 
   [[nodiscard]] std::expected<BakedTile, StructureBakeError>
   Finalize(const RawTile &raw,
