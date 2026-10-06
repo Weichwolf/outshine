@@ -11,14 +11,15 @@ Tags: lod, coverage, planetary, budgets
 
 ## Ergebnis und Ist
 Rundum verfügbare Welt bis 240 km am Boden, später höhenabhängiger Horizont und Orbit → Nahdetail. Der Geometriebedarf nimmt mit Entfernung ab: Häuser → Blockverbände → kompakte Skyline-Flächen.
-Mehr Quellobjekte innerhalb gleicher Fern-Coverage erzeugen keine proportional größere Geometrie.
-Der automatische Pfad plant Quellen und wählt Eltern vor jeder Mesh-Ausgabe, ohne nativen Bildgewinn.
-Tokyo auf 5103c3e2c: 29,70 Mio. erzeugte Gebäudedreiecke, Median 36,59 ms, p99 253,85 ms;
-104,54 s Laden. Kein Geometrie-/Framegewinn. Bildänderung: 0,52 % der Pixel, mittlere RGB-Differenz
-0,015/255; kein abgenommener Qualitätsgewinn. Wien/CentralPark: 6,77/9,23 Mio. Dreiecke,
-p99 85,85/95,89 ms, Cacheladen 68,91/60,70 s; Bilder praktisch unverändert. Überwiegend Einzelhüllen.
-Gesamte Bounds unter einen Pixel zu verlangen erlaubt Massed zu spät; mittlere Ferne braucht
-Tiefen-/Materialflächen mit Bildgültigkeit. Mehr Feintuning dieser Massed-Schwelle entfällt.
+Native Pläne liefern direkte Dach-/Wandabfragen mit DEM-Kontakt, ohne vorherige Quelltriangulation.
+Der Client selektiert damit sichtbare native Flächen über sechs Richtungen; weiterhin Einzelhüllen,
+keine fertige Fernaggregation. Wien: 3,08 statt 6,77 Mio. Gebäudedreiecke; p99 65,99 statt 85,85 ms.
+Cacheladen steigt von 68,91 auf 105,14 s. Richtungsbegrenzung/kompakte Flächenmarkierung noch neu messen.
+Bildänderung 1,22 % der Pixel; Qualität nicht abgenommen. Tokyo/Central Park noch alte Produkte:
+29,70/9,23 Mio. Dreiecke, p99 253,85/95,89 ms; native Integration dort noch ungeprüft.
+Rund 300.000 Wien-Dreiecke sind der nächste Prüfwert (3 Mio. / 10), kein bewiesenes Optimum.
+Ganze sichtbare Dächer und zellweise Sichtauswahl begrenzen die Einsparung. Nächste Lieferung:
+Fernverbände nach projizierter Coverage zusammenfassen; bestehende Hüllen nicht weiter feintunen.
 
 ## Aktuelle Lieferung: Fernstadt vor weiteren Nahdetails
 | Klasse | Produkt | Bedarf vor Erzeugung |
@@ -30,7 +31,6 @@ Tiefen-/Materialflächen mit Bildgültigkeit. Mehr Feintuning dieser Massed-Schw
 
 Zuerst Massed/Skyline, dann Nahkosten; Pläne behalten Grundrisse/Höfe/Parts, Höhen, Material und Terrainkontakt. Straßenqualität und
 Terrain-Deformation bleiben erhalten. Kontakt/Kollision hängen nicht von der Bildrepräsentation ab.
-Keine vollständige Fine-Stadt als notwendiger erster Schritt einer Fernlieferung.
 Ferne Details dürfen aus belegter Dichte/Nutzung/Relief statistisch angenähert werden; Silhouette,
 Coverage, Farbe und Lichtwirkung entscheiden. Herkunft bleibt explizit. Näherkommen ersetzt die
 Schätzung durch feinere quellengestützte Produkte mit stabilem Übergang.
@@ -41,9 +41,8 @@ Tokyo-Teilmenge, 640×360: 588.862 Pläne, 867.152 zugelassene Hüllendreiecke, 
 [Direkte Planaggregation](../test/experiments/building_massing.py): 10.077 Dreiecke (~86× weniger),
 aber falsche Lücken/Silhouette. Ersatz: [direkte Quellabfrage](../test/experiments/building_surface.py)
 über BVH/Grundrissprismen ohne Quellvertices/-dreiecke; Python: 8.782 Flächendreiecke aus 588.862 Plänen.
-Native Quellabfrage auf A18 Pro: 204 ms BVH + 62 ms für eine Ansicht, 214 MB Prozesspeak; 100/230.400
-Pixel abweichend vom flachen Modell. Einzellayer verlieren bei Bewegung neue Flächen: Nahgeometrie
-und Nachführen/mehrere Tiefen zwingend. DEM-Kontakt/Dachprofile, Rundumprodukte und Client-Anbindung fehlen.
+Das flache Modell belegt keine native Dach-/Lichtqualität. Native Kontakte/Dächer und Client sind
+angebunden; aggregierte Rundum-Oberflächen mit Licht-/Parallaxegültigkeit und Disocclusion fehlen.
 Quellobjekte, Geometrie, Bildfehler, Bytes und Vorbereitung vergleichen; Stillstand, Drehung,
 Translation und Lichtwechsel getrennt prüfen. Flaches Terrain/Dachmodell und vorbereitende CPU-Zeiten
 belegen weder native Framekosten noch Rundumabdeckung. Echte Höhen/Dächer und alle Places integrieren.
@@ -90,7 +89,8 @@ PolygonPrism liefert Schnittpunkte mit Höfen/Freiraum ohne Triangulation; der n
 [CaptureSourcePrisms](../test/outshine/src/base/spatial/PolygonPrism/CaptureSourcePrisms.cpp). StructurePlanSelection trennt Planung, Auswahl und Emission. Native SourceEnvelopeBounds umschließen
 Fine/Shell vor Meshing; akzeptierte Eltern umfassen Quell- und Ersatzbounds. Unbekannte Mesher
 bleiben einzeln. Shell verwendet ihren Formfehler, nicht die für beide Produkte gleiche Quellquantisierung.
-Runtime verwendet fertige Projektionsprodukte statt Zelldetailzwang; Kameradrehung erzeugt nichts neu.
+Runtime verwendet selektierte Quellflächen; Drehung erzeugt nichts neu, Translationreuse ist null.
+Analytische Kuppel-/Sägezahndächer müssen zur Meshform passen; verdeckte Schattenwerfer erhalten.
 Kamera-ECEF/Höhe/Projektion begrenzen Geometrie-Wiederverwendung; 64 m gelten nicht für Fernbilder.
 ImpostorSurface liefert orthografische Tiefenpatches mit aktuellen Materialien; fehlende Ansichten sind offen.
 
