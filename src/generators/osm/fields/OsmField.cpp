@@ -11,6 +11,7 @@
 #include <memory>
 #include "math/Units.h"
 #include "OsmField.h"
+#include "Sha256.h"
 
 #include "Capacity.h"
 #include "Log.h"
@@ -362,7 +363,8 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
                                               .X = static_cast<uint32_t>(at.X),
                                               .Y = static_cast<uint32_t>(at.Y)},
                                      .SourceId = std::move(Scratch_.SourceId),
-                                     .Revision = std::move(Scratch_.SourceRevision)}});
+                                     .Revision = std::move(Scratch_.SourceRevision)},
+                          .InputDigest = Sha256Hex(Scratch_.Bytes.data(), Scratch_.Bytes.size())});
   return Fetched{.Held = true, .Added = added, .Parsed = true};
 }
 
@@ -443,15 +445,16 @@ OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
     ++Bad_;
     return std::unexpected(layers.error());
   }
-  ParsedTile parsed{
-      .At = {.X = tx, .Y = ty},
-      .Layers = std::move(*layers),
-      .Source = {
-          .From = Data::TileSourceIdentity::Origin::Direct,
-          .Kind = Data::DataKind::VectorMap,
-          .Tile = {.Zoom = Zoom_, .X = static_cast<uint32_t>(tx), .Y = static_cast<uint32_t>(ty)},
-          .SourceId = "direct",
-          .Revision = {}}};
+  ParsedTile parsed{.At = {.X = tx, .Y = ty},
+                    .Layers = std::move(*layers),
+                    .Source = {.From = Data::TileSourceIdentity::Origin::Direct,
+                               .Kind = Data::DataKind::VectorMap,
+                               .Tile = {.Zoom = Zoom_,
+                                        .X = static_cast<uint32_t>(tx),
+                                        .Y = static_cast<uint32_t>(ty)},
+                               .SourceId = "direct",
+                               .Revision = {}},
+                    .InputDigest = Sha256Hex(vectorTile.data(), vectorTile.size())};
   const auto published = PublishParsed(&parsed, std::nullopt);
   if (!published) { return std::unexpected(published.error()); }
   Assembly_.reset();
@@ -536,7 +539,8 @@ bool OsmField::AppendParsedTile(const ParsedTile &tile, OsmStorageUsage &usage) 
                         .Y = tile.At.Y,
                         .FirstFeature = static_cast<uint32_t>(first),
                         .FeatureCount = 0,
-                        .Source = tile.Source});
+                        .Source = tile.Source,
+                        .InputDigest = tile.InputDigest});
   for (size_t i = 0; i < tile.Layers.size(); ++i) {
     const auto &layer = tile.Layers[i];
     if (layer) {
@@ -644,14 +648,16 @@ size_t OsmField::HeapBytes() const {
   for (const std::string &s : Strings_) { strings += s.capacity(); }
   for (const std::string &s : Layers_) { strings += s.capacity(); }
   for (const Tile &tile : Tiles_) {
-    strings += tile.Source.SourceId.capacity() + tile.Source.Revision.capacity();
+    strings += tile.Source.SourceId.capacity() + tile.Source.Revision.capacity() +
+               tile.InputDigest.capacity();
   }
   strings += Scratch_.SourceId.capacity() + Scratch_.SourceRevision.capacity();
 
   size_t parsed = CapacityBytes(ParsedTiles_);
   for (const ParsedTile &tile : ParsedTiles_) {
     parsed += CapacityBytes(tile.Layers);
-    parsed += tile.Source.SourceId.capacity() + tile.Source.Revision.capacity();
+    parsed += tile.Source.SourceId.capacity() + tile.Source.Revision.capacity() +
+              tile.InputDigest.capacity();
     for (const auto &layer : tile.Layers) {
       if (layer) { parsed += layer->HeapBytes(); }
     }
@@ -826,7 +832,8 @@ void OsmField::Declare(std::span<const Declared> these, TileAt over) {
                                             .X = static_cast<uint32_t>(over.X),
                                             .Y = static_cast<uint32_t>(over.Y)},
                                    .SourceId = "declared",
-                                   .Revision = {}}});
+                                   .Revision = {}},
+                        .InputDigest = {}});
   Settle(over.X, over.Y);
   Pending_ = 0;
   RequestedRing_ = 0;

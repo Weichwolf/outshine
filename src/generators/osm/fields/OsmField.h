@@ -59,6 +59,7 @@ public:
     int Z = 0, X = 0, Y = 0;
     uint32_t FirstFeature = 0, FeatureCount = 0;
     Data::TileSourceIdentity Source;
+    std::string InputDigest;
   };
 
   OsmField(int zoom, std::span<const std::string> layers, MvtSchema schema = MvtSchema::Shortbread);
@@ -214,6 +215,7 @@ private:
     TileAt At;
     std::vector<std::optional<MvtLayer>> Layers;
     Data::TileSourceIdentity Source;
+    std::string InputDigest;
   };
 
   struct AssemblyState;
