@@ -182,7 +182,11 @@ PreparedTerrainAssets::Counters PreparedTerrainAssets::Costs() const noexcept {
           .Misses = Misses_.load(std::memory_order_relaxed),
           .Resident = ResidentHits_.load(std::memory_order_relaxed),
           .Writes = Writes_.load(std::memory_order_relaxed),
-          .ReadBytes = ReadBytes_.load(std::memory_order_relaxed)};
+          .ReadBytes = ReadBytes_.load(std::memory_order_relaxed),
+          .DeformationHits = DeformationHits_.load(std::memory_order_relaxed),
+          .DeformationMisses = DeformationMisses_.load(std::memory_order_relaxed),
+          .DeformationWrites = DeformationWrites_.load(std::memory_order_relaxed),
+          .DeformationReadBytes = DeformationReadBytes_.load(std::memory_order_relaxed)};
 }
 
 }

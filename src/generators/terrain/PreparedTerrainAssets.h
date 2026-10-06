@@ -3,6 +3,7 @@
 
 #include "AssetCache.h"
 #include "TerrainTiles.h"
+#include "PreparedTerrainDeformation.h"
 #include <atomic>
 #include <cstdint>
 #include <expected>
@@ -21,6 +22,8 @@ class PreparedTerrainAssets {
 public:
   struct Counters {
     uint64_t Hits = 0, Misses = 0, Resident = 0, Writes = 0, ReadBytes = 0;
+    uint64_t DeformationHits = 0, DeformationMisses = 0, DeformationWrites = 0,
+             DeformationReadBytes = 0;
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string>
@@ -30,6 +33,11 @@ public:
   Resolve(Data::TileId at,
           const ::outshine::Ground::TerrainTiles::Shaped &shape,
           const ::outshine::Ground::TerrainTiles::FieldFactory &factory);
+
+  [[nodiscard]] std::expected<std::optional<PreparedTerrainDeformation>, std::string>
+  LoadDeformation(const std::string &key);
+  [[nodiscard]] std::expected<void, std::string>
+  StoreDeformation(const std::string &key, const PreparedTerrainDeformation &product);
 
   [[nodiscard]] Counters Costs() const noexcept;
 
@@ -42,6 +50,8 @@ private:
   std::string Recipe_;
   std::mutex Lock_;
   std::unordered_map<std::string, std::weak_ptr<const ::outshine::Ground::TerrainField>> Resident_;
+  std::atomic_uint64_t DeformationHits_{0}, DeformationMisses_{0}, DeformationWrites_{0},
+      DeformationReadBytes_{0};
   std::atomic_uint64_t Hits_{0}, Misses_{0}, ResidentHits_{0}, Writes_{0}, ReadBytes_{0};
 };
 
