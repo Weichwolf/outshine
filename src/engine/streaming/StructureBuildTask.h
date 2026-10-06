@@ -4,6 +4,8 @@
 #include <atomic>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
+#include <span>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -88,6 +90,15 @@ public:
     assert(Heights_ != nullptr);
     return *Heights_;
   }
+
+  [[nodiscard]] const Generators::PreparedStructureTile *PreparedBase() const noexcept {
+    return Base_.get();
+  }
+
+  [[nodiscard]] std::span<const Data::TileSourceIdentity> HeightSources() const noexcept;
+  [[nodiscard]] uint64_t HeightRasterDigest() const noexcept;
+  [[nodiscard]] bool HeightQualified() const noexcept;
+  [[nodiscard]] Ground::HeightField::Request HeightRequest() const;
 
   [[nodiscard]] Generators::RawTile &Raw() noexcept { return *Raw_; }
 

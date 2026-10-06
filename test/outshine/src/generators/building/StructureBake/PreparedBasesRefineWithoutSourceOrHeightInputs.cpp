@@ -11,6 +11,7 @@
 #include "Geodesy.h"
 #include "math/Units.h"
 #include <array>
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -101,6 +102,18 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
   const auto decoded = DecodePreparedStructureTile(hit->Bytes(), 1024 * 1024);
   CHECK(decoded.has_value(), "held cache bytes reconstruct complete source-independent shapes");
   if (!decoded) { return std::nullopt; }
+  CHECK(decoded->HeightSources == base.HeightSources &&
+            decoded->HeightRasterDigest == base.HeightRasterDigest &&
+            decoded->HeightQualified == base.HeightQualified &&
+            decoded->HeightRequest.Zoom == base.HeightRequest.Zoom &&
+            std::ranges::equal(decoded->HeightRequest.Tiles,
+                               base.HeightRequest.Tiles,
+                               [](const auto &left, const auto &right) {
+                                 return left.Zoom == right.Zoom && left.X == right.X &&
+                                        left.Y == right.Y;
+                               }) &&
+            decoded->HeightRequest.Fallback == base.HeightRequest.Fallback,
+        "terrain lineage, sample signature, capture scope and qualification survive restart");
   CHECK(!DecodePreparedStructureTile(hit->Bytes(), 1),
         "native arrays cannot allocate beyond the supplied resident budget");
   auto truncated = *encoded;
@@ -124,6 +137,12 @@ void WorkerBake(const PreparedStructureTile &base,
                           std::make_unique<StructureBuildTask::Output>(),
                           mesher.Scratch());
   held.reset();
+  CHECK(task.PreparedBase() != nullptr &&
+            std::ranges::equal(task.HeightSources(), base.HeightSources) &&
+            task.HeightRasterDigest() == base.HeightRasterDigest &&
+            task.HeightQualified() == base.HeightQualified &&
+            task.HeightRequest().Tiles.size() == base.HeightRequest.Tiles.size(),
+        "worker retains stored terrain lineage without holding a height field");
   task.Start(worker, mesher);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   size_t tasks = 0;

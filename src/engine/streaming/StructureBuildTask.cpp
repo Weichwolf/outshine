@@ -455,6 +455,22 @@ StructureBuildTask::StructureBuildTask(
   Raw_->SourceInputs.Origin = Base_->Origin;
 }
 
+std::span<const Data::TileSourceIdentity> StructureBuildTask::HeightSources() const noexcept {
+  return Base_ ? std::span(Base_->HeightSources) : Heights().Sources();
+}
+
+uint64_t StructureBuildTask::HeightRasterDigest() const noexcept {
+  return Base_ ? Base_->HeightRasterDigest : Heights().RasterDigest();
+}
+
+bool StructureBuildTask::HeightQualified() const noexcept {
+  return Base_ ? Base_->HeightQualified : Heights().Qualified();
+}
+
+Ground::HeightField::Request StructureBuildTask::HeightRequest() const {
+  return Base_ ? Base_->HeightRequest : Heights().CaptureRequest();
+}
+
 StructureBuildTask::~StructureBuildTask() {
   assert(State_ != State::Running);
 }

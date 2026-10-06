@@ -23,6 +23,10 @@ struct PreparedStructureTile {
   std::vector<PreparedStructure> Structures;
   std::vector<BuildingSurface> Surfaces;
   Data::ProductOrigin Origin;
+  std::vector<Data::TileSourceIdentity> HeightSources;
+  ::outshine::Ground::HeightField::Request HeightRequest;
+  uint64_t HeightRasterDigest = 0;
+  bool HeightQualified = false;
   Vec3 AnchorEcef;
   double TileSpanM = 0.0;
   int Extent = 4096;

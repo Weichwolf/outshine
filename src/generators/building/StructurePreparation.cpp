@@ -438,6 +438,10 @@ std::expected<PreparedStructureTile, StructureBakeError> PrepareStructureTile(
   base.TileSpanM = raw.TileSpanM;
   base.Extent = raw.Extent;
   base.FallbackHeights = heights.Fallback();
+  base.HeightSources.assign(heights.Sources().begin(), heights.Sources().end());
+  base.HeightRequest = heights.CaptureRequest();
+  base.HeightRasterDigest = heights.RasterDigest();
+  base.HeightQualified = heights.Qualified();
   base.Structures.reserve(raw.Structures.size());
   base.Surfaces.reserve(raw.Structures.size());
   BuildingScratch scratch;

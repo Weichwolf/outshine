@@ -1,4 +1,5 @@
 #include "PreparedStructureCodec.h"
+#include "math/Units.h"
 #include "StructureBinary.h"
 #include <algorithm>
 #include <cstddef>
@@ -17,7 +18,7 @@ namespace {
 using StructureBinary::Reader;
 using StructureBinary::Writer;
 constexpr uint32_t kMagic = 0x31425350;
-constexpr uint32_t kVersion = 1;
+constexpr uint32_t kVersion = 2;
 constexpr auto scalar = [](auto &archive, auto &value) { return archive.Number(value); };
 constexpr auto point = [](auto &archive, auto &value) {
   return archive.Number(value.EastM) && archive.Number(value.NorthM);
@@ -99,6 +100,20 @@ bool Origin(Reader &archive, Data::ProductOrigin &value) {
   return true;
 }
 
+constexpr auto heightSource = [](auto &archive, auto &value) {
+  return archive.Number(value.From) && archive.Number(value.Kind) &&
+         archive.Number(value.Tile.Zoom) && archive.Number(value.Tile.X) &&
+         archive.Number(value.Tile.Y) &&
+         archive.Maybe(value.NativeCell,
+                       [](auto &held, auto &native) {
+                         return held.Number(native.SouthDeg) && held.Number(native.WestDeg);
+                       }) &&
+         text(archive, value.SourceId) && text(archive, value.Revision);
+};
+constexpr auto heightTile = [](auto &archive, auto &value) {
+  return archive.Number(value.Zoom) && archive.Number(value.X) && archive.Number(value.Y);
+};
+
 constexpr auto layout = [](auto &archive, auto &value) {
   return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
          archive.Number(value.SourceFirst) && archive.Number(value.FirstHole) &&
@@ -149,9 +164,13 @@ public:
     return vector(archive, value.AnchorEcef) && archive.Number(value.TileSpanM) &&
            archive.Number(value.Extent) && archive.Number(value.FallbackHeights) &&
            archive.Number(value.SkippedRings) && archive.Number(value.NoGround) &&
-           Origin(archive, value.Origin) && archive.List(value.PointsLatLon, scalar) &&
-           archive.List(value.Holes, ring) && archive.List(value.CornerAslM, scalar) &&
-           archive.List(value.Structures, prepared) &&
+           Origin(archive, value.Origin) && archive.List(value.HeightSources, heightSource) &&
+           archive.Number(value.HeightRasterDigest) && archive.Number(value.HeightQualified) &&
+           archive.Number(value.HeightRequest.Zoom) &&
+           archive.Number(value.HeightRequest.Fallback) &&
+           archive.List(value.HeightRequest.Tiles, heightTile) &&
+           archive.List(value.PointsLatLon, scalar) && archive.List(value.Holes, ring) &&
+           archive.List(value.CornerAslM, scalar) && archive.List(value.Structures, prepared) &&
            archive.List(value.Surfaces,
                         [](auto &held, auto &surface) { return SurfaceFields(held, surface); });
   }
@@ -187,6 +206,32 @@ public:
         (value.Origin.Provenance && value.Origin.Provenance->Cell &&
          !value.Origin.Provenance->Cell->Valid())) {
       return false;
+    }
+    const auto validTile = [](int zoom, auto x, auto y) {
+      return zoom >= 0 && zoom <= Data::TileId::MaximumZoom && std::cmp_greater_equal(x, 0) &&
+             std::cmp_greater_equal(y, 0) &&
+             std::cmp_less(x, uint64_t{1} << static_cast<unsigned>(zoom)) &&
+             std::cmp_less(y, uint64_t{1} << static_cast<unsigned>(zoom));
+    };
+    if (value.HeightRequest.Zoom < 0 || value.HeightRequest.Zoom > Data::TileId::MaximumZoom ||
+        (value.HeightQualified && (value.HeightSources.empty() || value.HeightRequest.Fallback))) {
+      return false;
+    }
+    for (const auto &tile : value.HeightRequest.Tiles) {
+      if (!validTile(tile.Zoom, tile.X, tile.Y)) { return false; }
+    }
+    for (const auto &source : value.HeightSources) {
+      if (source.From < Data::TileSourceIdentity::Origin::Provider ||
+          source.From > Data::TileSourceIdentity::Origin::Shaped ||
+          source.Kind != Data::DataKind::Elevation ||
+          !validTile(source.Tile.Zoom, source.Tile.X, source.Tile.Y) ||
+          (source.NativeCell &&
+           (source.NativeCell->SouthDeg < -static_cast<int>((kDegPerHalfTurn / 2)) ||
+            source.NativeCell->SouthDeg >= static_cast<int>((kDegPerHalfTurn / 2)) ||
+            source.NativeCell->WestDeg < -static_cast<int>(kDegPerHalfTurn) ||
+            source.NativeCell->WestDeg >= static_cast<int>(kDegPerHalfTurn)))) {
+        return false;
+      }
     }
     const auto points = value.PointsLatLon.size() / 2;
     for (const auto &hole : value.Holes) {
