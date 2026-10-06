@@ -24,6 +24,10 @@
 
 namespace outshine {
 
+namespace Generators {
+class BuildingSurface;
+}
+
 inline constexpr double kSteepestRoof = 0.5;
 
 struct Raised {
@@ -69,6 +73,7 @@ struct WayLine {
 inline constexpr double kPitchedShareUnknown = -1.0;
 
 struct StructurePlan {
+  const Generators::BuildingSurface *Prepared = nullptr;
   std::span<const double> RingLatLon;
   std::span<const GeographicRing> InnerRings;
   std::span<const double> RingPointsLatLon;

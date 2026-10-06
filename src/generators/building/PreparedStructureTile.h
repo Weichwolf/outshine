@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_BUILDING_PREPAREDSTRUCTURETILE_H
 
 #include "StructureBake.h"
+#include "BuildingSurface.h"
 
 namespace outshine::Generators {
 
@@ -20,6 +21,7 @@ struct PreparedStructureTile {
   std::vector<GeographicRing> Holes;
   std::vector<double> CornerAslM;
   std::vector<PreparedStructure> Structures;
+  std::vector<BuildingSurface> Surfaces;
   Data::ProductOrigin Origin;
   Vec3 AnchorEcef;
   double TileSpanM = 0.0;

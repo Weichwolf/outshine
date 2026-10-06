@@ -1,4 +1,6 @@
 #include "StructurePreparation.h"
+#include "PreparedStructurePlan.h"
+#include "BuildingScratch.h"
 #include "Geodesy.h"
 #include "math/Units.h"
 #include <algorithm>
@@ -427,6 +429,7 @@ EnrichStructure(const RawTile &raw,
 
 std::expected<PreparedStructureTile, StructureBakeError> PrepareStructureTile(
     const RawTile &raw, const Ground::HeightField &heights, const std::atomic_bool *stopping) {
+  if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
   PreparedStructureTile base;
   base.PointsLatLon = raw.LatLon;
   base.Holes = raw.Holes;
@@ -436,6 +439,8 @@ std::expected<PreparedStructureTile, StructureBakeError> PrepareStructureTile(
   base.Extent = raw.Extent;
   base.FallbackHeights = heights.Fallback();
   base.Structures.reserve(raw.Structures.size());
+  base.Surfaces.reserve(raw.Structures.size());
+  BuildingScratch scratch;
   const auto ways = StructureWays(raw);
   std::vector<double> corners;
   BakedTile diagnostics;
@@ -447,7 +452,12 @@ std::expected<PreparedStructureTile, StructureBakeError> PrepareStructureTile(
     if (!*prepared) { continue; }
     (**prepared).CornerFirst = base.CornerAslM.size();
     base.CornerAslM.insert(base.CornerAslM.end(), corners.begin(), corners.end());
+    const auto plan =
+        PreparedStructurePlan(**prepared, base.PointsLatLon, base.Holes, corners, base.AnchorEcef);
+    auto surface = BuildingSurface::Prepare(plan, scratch);
+    if (!surface) { return std::unexpected(surface.error()); }
     base.Structures.push_back(**prepared);
+    base.Surfaces.push_back(std::move(*surface));
   }
   base.SkippedRings = diagnostics.SkippedRings;
   base.NoGround = diagnostics.NoGround;

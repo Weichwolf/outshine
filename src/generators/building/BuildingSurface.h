@@ -37,6 +37,12 @@ public:
   [[nodiscard]] static std::expected<BuildingSurface, StructureMeshError>
   Prepare(const StructurePlan &plan, BuildingScratch &scratch);
 
+  [[nodiscard]] const Vec3 &Origin() const noexcept { return Origin_; }
+
+  [[nodiscard]] const EnuAxes &Axes() const noexcept { return Axes_; }
+
+  [[nodiscard]] std::span<const BuildingShape> Shapes() const noexcept { return Shapes_; }
+
   [[nodiscard]] const Box &Bounds() const noexcept { return Bounds_; }
 
   [[nodiscard]] size_t FaceCount() const noexcept { return FaceOffsets_.back(); }

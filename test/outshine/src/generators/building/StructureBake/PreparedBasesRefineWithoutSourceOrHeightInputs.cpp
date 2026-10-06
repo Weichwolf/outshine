@@ -1,4 +1,6 @@
 #include "PreparedStructureTile.h"
+#include "PreparedStructurePlan.h"
+#include "BuildingScratch.h"
 #include "BuildingMesh.h"
 #include "Check.h"
 #include "Geodesy.h"
@@ -51,13 +53,35 @@ std::shared_ptr<const Ground::HeightField> Heights() {
   block.Nodes = {125.125f, 131.25f, 142.5f, 149.75f};
   return Ground::HeightField::Of(0, {block});
 }
+
+void ReadyForms(const PreparedStructureTile &base, const BuildingMesh &mesher) {
+  for (size_t index = 0; index < base.Structures.size(); ++index) {
+    const auto &record = base.Structures[index];
+    const auto corners =
+        std::span(base.CornerAslM).subspan(record.CornerFirst, record.Layout.PointCount);
+    auto plan =
+        PreparedStructurePlan(record, base.PointsLatLon, base.Holes, corners, base.AnchorEcef);
+    plan.Prepared = &base.Surfaces[index];
+    for (auto detail : {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed}) {
+      plan.Coarseness = detail;
+      BuildingScratch scratch;
+      Raised mesh;
+      CHECK(mesher.SourceEnvelopeBounds(plan, scratch) &&
+                mesher.ShellSurfaceErrorM(plan, scratch) && mesher.Mesh(plan, scratch, mesh),
+            "prepared native forms supply bounds, error and every mesh envelope");
+      CHECK(scratch.Parts.Count() == 0, "ready house forms never repeat intrinsic shape planning");
+    }
+  }
+}
+
 }
 
 int main() {
   auto raw = Inputs();
   auto heights = Heights();
   const auto base = PrepareStructureTile(raw, *heights);
-  CHECK(base && base->Structures.size() == 3 && base->CornerAslM.size() == 12,
+  CHECK(base && base->Structures.size() == 3 && base->CornerAslM.size() == 12 &&
+            base->Surfaces.size() == 3,
         "one cold pass resolves every source footprint and terrain corner");
   if (!base) { return Report(); }
   CHECK(base->Structures[0].Standing.HeightM > 0 &&
@@ -83,6 +107,7 @@ int main() {
           "cold native path supplies the geometry reference at every envelope");
     references.push_back(std::move(reference));
   }
+  ReadyForms(*base, mesher);
   raw = {};
   heights.reset();
   for (size_t index = 0; index < views.size(); ++index) {

@@ -2,6 +2,7 @@
 #include <expected>
 #include "StructureBake.h"
 #include "PreparedStructureTile.h"
+#include "PreparedStructurePlan.h"
 #include "StructurePreparation.h"
 #include "BuildingMaterials.h"
 #include <bit>
@@ -230,10 +231,10 @@ std::expected<void, StructureBakeError> EmitStructure(const PreparedStructure &p
                                                       MeshScratch &scratch,
                                                       BakedTile &out,
                                                       MassPlans &masses,
-                                                      StructurePlanSelection &selection) {
+                                                      StructurePlanSelection &selection,
+                                                      const BuildingSurface *surface = nullptr) {
   const auto &one = prepared.Layout;
   if (raw.RequestedCell && one.Cell.Index != *raw.RequestedCell) { return {}; }
-  const Ring ring{.First = one.LocalFirst, .Count = one.PointCount};
   const auto &fp = prepared.Standing;
   const double base = prepared.BaseAslM;
   const double seat = prepared.SeatAslM;
@@ -259,22 +260,8 @@ std::expected<void, StructureBakeError> EmitStructure(const PreparedStructure &p
   out.Prints.push_back(fp);
   out.FootprintDetails.push_back(level);
 
-  StructurePlan plan;
-  plan.InnerRings = std::span(holes).subspan(one.FirstHole, one.HoleCount);
-  plan.RingPointsLatLon = pts;
-  plan.RingLatLon = std::span<const double>(pts.data() + static_cast<size_t>(ring.First) * 2,
-                                            static_cast<size_t>(ring.Count) * 2);
-  plan.BaseAslM = fp.BaseM;
-  plan.SeatAslM = fp.SeatM;
-  plan.FootAslM = fp.FootM;
-  plan.CornerAslM = std::span<const double>(corners.data(), corners.size());
-  plan.HeightM = one.MinimumHeightM != 0.0 ? one.HeightM : fp.HeightM;
-  plan.MinimumHeightM = one.MinimumHeightM;
-  plan.HeightMeasured = fp.Source == ::outshine::Ground::BuildingHeightSource::Declared;
-  plan.PitchedShare = static_cast<double>(one.Pitched);
-  plan.WallColour = one.WallColour;
-  plan.Street = fp.Street;
-  plan.AnchorEcef = raw.AnchorEcef;
+  auto plan = PreparedStructurePlan(prepared, pts, holes, corners, raw.AnchorEcef);
+  plan.Prepared = surface;
   plan.Coarseness = level;
   plan.RecessedOpenings = detail.RecessedOpenings;
 
@@ -532,6 +519,10 @@ BakePreparedStructures(const PreparedStructureTile &base,
                        const StructureMesher &mesher,
                        MeshScratch &scratch,
                        const std::atomic_bool *stopping) {
+  if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
+  if (base.Surfaces.size() != base.Structures.size()) {
+    return std::unexpected(StructureMeshError::InvalidPlan);
+  }
   const auto valid = ValidateStructureView(view);
   if (!valid) { return std::unexpected(valid.error()); }
   RawTile raw;
@@ -561,7 +552,8 @@ BakePreparedStructures(const PreparedStructureTile &base,
   out.Coordinates->Origin = base.Origin;
   out.Coordinates->Points = base.PointsLatLon;
   out.Coordinates->Rings = base.Holes;
-  for (const auto &one : base.Structures) {
+  for (size_t index = 0; index < base.Structures.size(); ++index) {
+    const auto &one = base.Structures[index];
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
     if (raw.RequestedCell && one.Layout.Cell.Index != *raw.RequestedCell) { continue; }
     const auto emitted =
@@ -574,7 +566,8 @@ BakePreparedStructures(const PreparedStructureTile &base,
                       scratch,
                       out,
                       masses,
-                      selection);
+                      selection,
+                      &base.Surfaces[index]);
     if (!emitted) { return std::unexpected(emitted.error()); }
     out.Prints.back().FirstPoint = one.Layout.LocalFirst;
     out.Prints.back().FirstHole = one.Layout.FirstHole;

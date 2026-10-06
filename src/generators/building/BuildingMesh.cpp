@@ -86,6 +86,14 @@ bool ValidPlanParameters(const StructurePlan &plan) {
          std::ranges::all_of(plan.CornerAslM, finite);
 }
 
+std::expected<std::span<const BuildingShape>, StructureMeshError>
+ShapesFor(const StructurePlan &plan, BuildingScratch &scratch) {
+  if (plan.Prepared != nullptr) { return plan.Prepared->Shapes(); }
+  const auto shapes = PrepareBuildingShapes(plan, scratch);
+  if (!shapes) { return std::unexpected(shapes.error()); }
+  return std::span<const BuildingShape>(*shapes);
+}
+
 template <typename T> void TrimAppend(std::vector<T> &output, size_t previousSize) noexcept {
   while (output.size() > previousSize) { output.pop_back(); }
 }
@@ -134,6 +142,16 @@ public:
   Site(const StructurePlan &plan, BuildingScratch &scratch, Raised &into)
       : Out_(into), Scratch_(scratch) {
     Scratch_.ClearWelds();
+    Coarseness_ = plan.Coarseness;
+    RecessedOpenings_ = plan.RecessedOpenings;
+    MinimumHeightM_ = plan.MinimumHeightM;
+    if (plan.Prepared != nullptr) {
+      Origin_ = plan.Prepared->Origin();
+      East_ = plan.Prepared->Axes().East;
+      North_ = plan.Prepared->Axes().North;
+      Up_ = plan.Prepared->Axes().Up;
+      return;
+    }
     const double lat = plan.RingLatLon[0];
     const double lon = plan.RingLatLon[1];
     Vec3 origin;
@@ -730,7 +748,7 @@ std::optional<Box> BuildingMesh::SourceEnvelopeBounds(const StructurePlan &plan,
   }
   auto *scratch = dynamic_cast<BuildingScratch *>(&lent);
   if (scratch == nullptr) { return std::nullopt; }
-  const auto parts = PrepareBuildingShapes(plan, *scratch);
+  const auto parts = ShapesFor(plan, *scratch);
   if (!parts || parts->empty()) { return std::nullopt; }
   Raised unused;
   const Site site(plan, *scratch, unused);
@@ -775,7 +793,7 @@ std::optional<double> BuildingMesh::ShellSurfaceErrorM(const StructurePlan &plan
   }
   auto *scratch = dynamic_cast<BuildingScratch *>(&lent);
   if (scratch == nullptr) { return std::nullopt; }
-  const auto parts = PrepareBuildingShapes(plan, *scratch);
+  const auto parts = ShapesFor(plan, *scratch);
   if (!parts || parts->empty()) { return std::nullopt; }
   Raised unused;
   const Site site(plan, *scratch, unused);
@@ -806,9 +824,9 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
     TrimAppend(into.WallRun, sizes[2]);
     TrimAppend(into.RoofRun, sizes[3]);
   };
-  const auto mass = PrepareBuildingShapes(plan, scratch);
+  const auto mass = ShapesFor(plan, scratch);
   if (!mass) { return std::unexpected(mass.error()); }
-  const std::span<BuildingShape> parts = *mass;
+  const std::span<const BuildingShape> parts = *mass;
   if (parts.empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
 
   for (const auto &part : parts) {
