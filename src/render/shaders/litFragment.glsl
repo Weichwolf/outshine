@@ -11,7 +11,9 @@ const float kPi = acos(-1.0);
 #include "sheenLobe.glsl"
 #include "iridescenceLobe.glsl"
 #include "microfacetEnergy.glsl"
+#if SUBJECT_BASE_LOCATION == 0
 #include "subjectLighting.glsl"
+#endif
 #include "surfaceGradient.glsl"
 #include "facadePattern.glsl"
 #if LIT_MAPPED
@@ -35,10 +37,12 @@ void main() {
 #if LIT_TEXTURED
   tap = texture(colourMap, coordinate(surface.colourUvU, surface.colourUvV, surface.colourUvSecond));
   orm = texture(metalRoughMap, coordinate(surface.metalRoughUvU, surface.metalRoughUvV, surface.metalRoughUvSecond));
+#if SUBJECT_BASE_LOCATION == 0
   emission *= texture(emissiveMap, coordinate(surface.emissiveUvU, surface.emissiveUvV, surface.emissiveUvSecond)).rgb;
   float strength = texture(specularStrengthMap, coordinate(surface.specularStrengthUvU, surface.specularStrengthUvV, surface.specularStrengthUvSecond)).a;
   f0 *= strength * texture(specularTintMap, coordinate(surface.specularTintUvU, surface.specularTintUvV, surface.specularTintUvSecond)).rgb;
   f90 *= strength;
+#endif
 #endif
   roughness *= orm.g;
 #if LIT_KIND == 1
@@ -58,6 +62,10 @@ void main() {
     shadingNormal = bumpNormal(facing(normal, gl_FrontFacing), shadingNormal, dFdx(position), dFdy(position), heightChange.x, heightChange.y);
   }
   else { albedo *= colour.rgb; }
+#if SUBJECT_BASE_LOCATION > 0
+  outputMaterial(albedo, roughness, metalness);
+  outputSurface(vec4(0.0), shadingNormal, surface.identity);
+#else
   vec4 shaded = vec4(shadeRow(surface, localPosition, shadingNormal, position, albedo,
       metalness, roughness, f0, f90, emission, tangentDir, lightSpace, shadowMap), 1.0);
 #if LIT_KIND == 2
@@ -75,4 +83,5 @@ void main() {
   shaded.rgb += texelFetch(behindMap, ivec2(gl_FragCoord.xy), 0).rgb * albedo * medium * transmitted;
 #endif
   outputSurface(shaded, shadingNormal, surface.identity);
+#endif
 }

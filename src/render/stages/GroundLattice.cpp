@@ -304,18 +304,19 @@ bool GroundPipelineBinding::ConfigureLit(SDL_GPUDevice *device,
                                          std::span<const SDL_GPUColorTargetDescription> targets,
                                          SDL_GPUVertexInputState input,
                                          std::string &error) {
-  const OwnedShader vertex(device,
-                           ShaderFrom(device,
-                                      outputs.VertexPath("groundLattice"),
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      GroundLattice::LitShape,
-                                      error));
-  const OwnedShader fragment(device,
-                             ShaderFrom(device,
-                                        outputs.FragmentPath("groundLit"),
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        GroundLattice::LitShape,
-                                        error));
+  DrawShape shape = GroundLattice::LitShape;
+  if (outputs.BaseIndex >= 0) {
+    shape.FragmentSamplers = 0;
+    shape.FragmentStorageBuffers = 2;
+  }
+  const OwnedShader vertex(
+      device,
+      ShaderFrom(
+          device, outputs.VertexPath("groundLattice"), SDL_GPU_SHADERSTAGE_VERTEX, shape, error));
+  const OwnedShader fragment(
+      device,
+      ShaderFrom(
+          device, outputs.FragmentPath("groundLit"), SDL_GPU_SHADERSTAGE_FRAGMENT, shape, error));
   if (!vertex || !fragment) { return false; }
   SDL_GPUGraphicsPipelineCreateInfo wanted{};
   wanted.vertex_shader = vertex.Get();

@@ -12,3 +12,7 @@ vec3 bumpNormal(vec3 n, vec3 shadingNormal, vec3 positionDx, vec3 positionDy,
   vec3 gradient = surfaceGradient(n, positionDx, positionDy, heightDx, heightDy);
   return normalize(shadingNormal - gradient * dot(n, shadingNormal));
 }
+
+vec3 facing(vec3 n, bool front) {
+  return (front ? normalize(n) : -normalize(n));
+}

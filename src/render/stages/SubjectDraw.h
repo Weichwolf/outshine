@@ -50,6 +50,7 @@ private:
   SDL_GPUSampler *BehindSampler = nullptr;
   bool GlassDrawnElsewhere = false;
   bool WritesVelocity = false;
+  bool CapturesMaterial = false;
 };
 
 struct SubjectMeshUploadMetrics {

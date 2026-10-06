@@ -38,6 +38,7 @@ void main() {
   shaded.rgb += texelFetch(imageMap, ivec2(gl_FragCoord.xy), 0).rgb *
                 surface.base.rgb * colour.rgb * medium * surface.transmission;
 #endif
+  outputMaterial(shaded.rgb, 1.0, 0.0);
   outputSurface(shaded, vec3(0.0), identity);
 #if SUBJECT_NORMAL_LOCATION > 0
   outNormal.w = 1.0;

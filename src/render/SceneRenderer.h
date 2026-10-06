@@ -398,6 +398,8 @@ public:
   [[nodiscard]] ReadState ReadShadingNormal(std::vector<float> &xyz);
 
   [[nodiscard]] ReadState ReadSurfaceIdentity(std::vector<float> &slot);
+  [[nodiscard]] ReadState ReadSurfaceBase(std::vector<float> &rgba);
+  [[nodiscard]] ReadState ReadSurfaceMetalRough(std::vector<float> &rg);
 
   [[nodiscard]] ReadState ReadSceneVelocity(std::vector<float> &xy);
 
@@ -906,6 +908,8 @@ private:
     OwnedTexture TransmissiveTex, CompositedTex, AerialTex;
     OwnedTexture ShadingNormalTex;
     OwnedTexture SurfaceIdentityTex;
+    OwnedTexture SurfaceBaseTex;
+    OwnedTexture SurfaceMetalRoughTex;
     OwnedSampler Samp, LutSamp;
     OwnedBuffer IrradianceBuffer;
     OwnedBuffer Pyramid;

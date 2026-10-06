@@ -184,7 +184,3 @@ vec3 shade(M surface,
                   surface.roughness, vec3(surface.f0), surface.specularWeight,
                   surface.emissive, vec3(0.0), lightSpace, shadowMap);
 }
-
-vec3 facing(vec3 n, bool front) {
-  return (front ? normalize(n) : -normalize(n));
-}

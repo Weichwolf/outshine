@@ -12,7 +12,9 @@ const float kPi = acos(-1.0);
 #include "sheenLobe.glsl"
 #include "iridescenceLobe.glsl"
 #include "microfacetEnergy.glsl"
+#if SUBJECT_BASE_LOCATION == 0
 #include "subjectLighting.glsl"
+#endif
 #include "groundClass.glsl"
 #include "groundRock.glsl"
 #include "surfaceGradient.glsl"
@@ -42,7 +44,12 @@ void main() {
   shadingNormal = bumpNormal(shadingNormal, shadingNormal, dFdx(position), dFdy(position), dFdx(heightM), dFdy(heightM));
   vec3 albedo = min(wears.rgb * mix(1.0, detail.AlbedoScale, rockWeight), vec3(1.0));
   float roughness = clamp(wears.a + detail.RoughnessOffset * rockWeight, 0.04, 1.0);
+#if SUBJECT_BASE_LOCATION > 0
+  outputMaterial(albedo, roughness, surface.metalness);
+  outputSurface(vec4(0.0), shadingNormal, surface.identity);
+#else
   vec3 shaded = shadeRow(surface, localPosition, shadingNormal, position, albedo,
       surface.metalness, roughness, vec3(surface.f0), surface.specularWeight, surface.emissive, vec3(0.0), lightSpace, shadowMap);
   outputSurface(vec4(shaded, 1.0), shadingNormal, surface.identity);
+#endif
 }

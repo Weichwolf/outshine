@@ -30,6 +30,8 @@ enum class Resource {
   SceneDepth,
   SceneShadingNormal,
   SceneSurfaceIdentity,
+  SceneSurfaceBase,
+  SceneSurfaceMetalRough,
   SceneTransmissive,
   SceneComposited,
   SceneAerial,
@@ -75,6 +77,8 @@ enum class Resource {
     case Resource::SceneDepth:
     case Resource::SceneShadingNormal:
     case Resource::SceneSurfaceIdentity:
+    case Resource::SceneSurfaceBase:
+    case Resource::SceneSurfaceMetalRough:
     case Resource::AoBuffer:
     case Resource::DepthPyramid:
 
@@ -313,6 +317,19 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .AliasOf = kNoEdge,
      .Format = TexelFormat::Rgba32Float,
      .Name = "sceneSurfaceIdentity"},
+
+    {.Id = Resource::SceneSurfaceBase,
+     .Kind = ResourceKind::Attachment,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Rgba16Float,
+     .Name = "sceneSurfaceBase"},
+    {.Id = Resource::SceneSurfaceMetalRough,
+     .Kind = ResourceKind::Attachment,
+     .Fallback = FallbackKind::None,
+     .AliasOf = kNoEdge,
+     .Format = TexelFormat::Rg16Float,
+     .Name = "sceneSurfaceMetalRough"},
 
     {.Id = Resource::SceneTransmissive,
      .Kind = ResourceKind::Attachment,
@@ -597,6 +614,8 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
                      Resource::SceneDepth,
                      Resource::SceneShadingNormal,
                      Resource::SceneSurfaceIdentity,
+                     Resource::SceneSurfaceBase,
+                     Resource::SceneSurfaceMetalRough,
                      kNoEdge},
      .FusesInto = kNoFusion},
 

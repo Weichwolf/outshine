@@ -1,4 +1,20 @@
+#ifndef SUBJECT_BASE_LOCATION
+#define SUBJECT_BASE_LOCATION 0
+#endif
+#ifndef SUBJECT_METALROUGH_LOCATION
+#define SUBJECT_METALROUGH_LOCATION 0
+#endif
 layout(location = 0) out vec4 outColour;
+#if SUBJECT_BASE_LOCATION > 0
+layout(location = SUBJECT_BASE_LOCATION) out vec4 outBase;
+layout(location = SUBJECT_METALROUGH_LOCATION) out vec2 outMetalRough;
+#endif
+void outputMaterial(vec3 albedo, float roughness, float metalness) {
+#if SUBJECT_BASE_LOCATION > 0
+  outBase = vec4(albedo, 1.0);
+  outMetalRough = vec2(metalness, roughness);
+#endif
+}
 #if SUBJECT_WRITES_VELOCITY
 layout(location = 1) out vec2 outVelocity;
 #endif

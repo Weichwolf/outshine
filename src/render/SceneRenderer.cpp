@@ -550,6 +550,10 @@ void SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource
     case Resource::SceneSurfaceIdentity:
       frame.SurfaceIdentityTex = target(resource, colour);
       return;
+    case Resource::SceneSurfaceBase: frame.SurfaceBaseTex = target(resource, colour); return;
+    case Resource::SceneSurfaceMetalRough:
+      frame.SurfaceMetalRoughTex = target(resource, colour);
+      return;
     case Resource::SceneDepth:
 
       frame.DepthTex = target(
@@ -643,6 +647,8 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
                               &frame.AerialTex,
                               &frame.ShadingNormalTex,
                               &frame.SurfaceIdentityTex,
+                              &frame.SurfaceBaseTex,
+                              &frame.SurfaceMetalRoughTex,
                               frame.LinearTex.data(),
                               &frame.LinearTex[1]};
     for (const OwnedTexture *texture : textures) {
@@ -670,6 +676,8 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::SceneVelocity: return static_cast<bool>(frame.VelTex);
     case Resource::SceneShadingNormal: return static_cast<bool>(frame.ShadingNormalTex);
     case Resource::SceneSurfaceIdentity: return static_cast<bool>(frame.SurfaceIdentityTex);
+    case Resource::SceneSurfaceBase: return static_cast<bool>(frame.SurfaceBaseTex);
+    case Resource::SceneSurfaceMetalRough: return static_cast<bool>(frame.SurfaceMetalRoughTex);
     case Resource::SceneDepth: return static_cast<bool>(frame.DepthTex);
     case Resource::FrameTex: return static_cast<bool>(frame.FrameTex);
     case Resource::TransmittanceLut: return static_cast<bool>(frame.TransmittanceLut);
@@ -715,6 +723,8 @@ SDL_GPUTexture *SceneRenderer::Target(const FrameResources &frame, Resource reso
     case Resource::SceneVelocity: return frame.VelTex.Get();
     case Resource::SceneShadingNormal: return frame.ShadingNormalTex.Get();
     case Resource::SceneSurfaceIdentity: return frame.SurfaceIdentityTex.Get();
+    case Resource::SceneSurfaceBase: return frame.SurfaceBaseTex.Get();
+    case Resource::SceneSurfaceMetalRough: return frame.SurfaceMetalRoughTex.Get();
     case Resource::SceneDepth: return frame.DepthTex.Get();
     case Resource::FrameTex: return frame.FrameTex.Get();
 
@@ -2021,25 +2031,53 @@ ReadState SceneRenderer::ReadSkyIrradiance(std::span<float, kIrradianceFloats> o
   return ReadState::Ready;
 }
 
-ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
-  SDL_GPUTexture *source = ActiveFrame().ShadingNormalTex.Get();
-  if (!ActiveState().Ready || (source == nullptr)) { return ReadState::Failed; }
+namespace {
+ReadState ReadHalfTarget(SDL_GPUDevice *device,
+                         SDL_GPUTexture *source,
+                         Extent extent,
+                         uint32_t channels,
+                         std::vector<float> &values) {
+  if (source == nullptr) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(),
-                       source,
-                       {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
-                       8u) != ReadState::Ready) {
+  if (read.FromTexture(device, source, extent, channels * sizeof(uint16_t)) != ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components =
-      static_cast<size_t>(ActiveFrame().Width) * static_cast<size_t>(ActiveFrame().Height) * 4u;
-  xyz.resize(components);
+  const size_t components = static_cast<size_t>(extent.WidthPx) * extent.HeightPx * channels;
+  values.resize(components);
   for (size_t component = 0; component < components; ++component) {
     uint16_t bits = 0;
     std::memcpy(&bits, read.Rows() + component * sizeof(uint16_t), sizeof bits);
-    xyz[component] = HalfToFloat(bits);
+    values[component] = HalfToFloat(bits);
   }
   return ReadState::Ready;
+}
+}
+
+ReadState SceneRenderer::ReadShadingNormal(std::vector<float> &xyz) {
+  if (!ActiveState().Ready) { return ReadState::Failed; }
+  return ReadHalfTarget(Device_.Get(),
+                        ActiveFrame().ShadingNormalTex.Get(),
+                        {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
+                        4,
+                        xyz);
+}
+
+ReadState SceneRenderer::ReadSurfaceBase(std::vector<float> &rgba) {
+  if (!ActiveState().Ready) { return ReadState::Failed; }
+  return ReadHalfTarget(Device_.Get(),
+                        ActiveFrame().SurfaceBaseTex.Get(),
+                        {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
+                        4,
+                        rgba);
+}
+
+ReadState SceneRenderer::ReadSurfaceMetalRough(std::vector<float> &rg) {
+  if (!ActiveState().Ready) { return ReadState::Failed; }
+  return ReadHalfTarget(Device_.Get(),
+                        ActiveFrame().SurfaceMetalRoughTex.Get(),
+                        {.WidthPx = ActiveFrame().Width, .HeightPx = ActiveFrame().Height},
+                        2,
+                        rg);
 }
 
 ReadState SceneRenderer::ReadSceneVelocity(std::vector<float> &xy) {

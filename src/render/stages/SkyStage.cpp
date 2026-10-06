@@ -48,8 +48,14 @@ bool SkyStage::Configure(const Gpu &gpu, Tables from, std::string &error) {
     switch (resource) {
       case Resource::SceneHdr: target.format = gpu.HdrFormat; break;
       case Resource::SceneVelocity: target = VelocityTarget(true); break;
+      case Resource::SceneSurfaceBase:
       case Resource::SceneShadingNormal:
         target.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+        target.blend_state.enable_color_write_mask = true;
+        target.blend_state.color_write_mask = 0;
+        break;
+      case Resource::SceneSurfaceMetalRough:
+        target.format = SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT;
         target.blend_state.enable_color_write_mask = true;
         target.blend_state.color_write_mask = 0;
         break;
