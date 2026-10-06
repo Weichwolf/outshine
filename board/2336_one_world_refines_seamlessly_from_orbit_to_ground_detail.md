@@ -57,10 +57,10 @@ Ferne Gebäude gemeinsam auf tiefenhaltige Karten mit zwei Dreiecken je Karte pr
 Rundum-/Layered-Capture prüfen. Bedarf vor Mesh-Aufbau; einfache Hüllen oder Quellpläne erfassen,
 Raster-/Ray-Capture vergleichen. Karte und Capture erhalten lineare Basisfarbe, Normalen und
 Metallic/Roughness nach nativer Komposition; unrepräsentierte Lobes werden ausdrücklich abgewiesen.
-ImpostorCard verwirft noch Tiefe. Vor Stadtintegration Tiefenraum/Rückprojektion und Kameragültigkeit
-gegen native Hüllen prüfen; Runtime-Captures auf vorhandenem Device bündeln, kein Asset-Baker je Zelle.
+SurfaceReprojectionStage überträgt perspektivische Tiefe und Materialkanäle bei gleichem Kameraort;
+Bewegung/Orthografie werden abgewiesen. Rundum-Capture und Beleuchtungsintegration fehlen noch.
 Capture an Kameraposition/Zelle binden, nicht Blickrichtung: Drehung verwendet dieselbe Karte.
-Aktueller Bake ist orthografisch; Stadt-Capture braucht Ursprung und inverse Projektion für Rückprojektion.
+Stadt-Captures auf vorhandenem Device bündeln; Legacy-ImpostorCard bleibt flach, kein Asset-Baker je Zelle.
 Coverage/Normalen erhalten; Beleuchtung und Gesamthelligkeit aktuell auswerten.
 Update bei zu großer Pixelverschiebung, Inhaltsänderung oder Disocclusion; gültiger Hüllen-Fallback.
 Nur bild-/schattenwirksame Geometrie nach jeweiligem Bedarf; grobe Fernoccluder statt Nahdetails.
