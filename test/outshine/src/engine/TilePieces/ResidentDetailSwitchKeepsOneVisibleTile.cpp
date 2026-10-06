@@ -274,6 +274,32 @@ int main() {
       pieces.Forgets(7);
       CHECK(renderer.PiecesStanding() == 0 && pieces.Handles().empty() && depth() == 0.0f,
             "forgetting the tile releases both resident variants");
+      auto projected = mesh(0.0f, 99, LevelOfDetail::Fine);
+      projected.RequestedDetail.reset();
+      projected.OccupiedCells = 3;
+      projected.SelectedView = Generators::StructureSelectionView{
+          .Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47}, .Projection = {.FocalPx = 720}};
+      CHECK(pieces.Hands(7, projected, frame.OriginEcef(), error, 33),
+            "a selected plan product publishes as one native tile");
+      CHECK(pieces.HasProjectedTile(7,
+                                    {.Key = 33, .Occupied = 3},
+                                    {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                    {.FocalPx = 720}),
+            "the matching view reuses complete roundabout geometry without forced cell variants");
+      CHECK(!pieces.HasProjectedTile(7,
+                                     {.Key = 33, .Occupied = 3},
+                                     {.LongitudeDeg = 9.01, .LatitudeDeg = 47},
+                                     {.FocalPx = 720}) &&
+                !pieces.HasProjectedTile(7,
+                                         {.Key = 33, .Occupied = 1},
+                                         {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                         {.FocalPx = 720}) &&
+                !pieces.HasProjectedTile(7,
+                                         {.Key = 33, .Occupied = 3},
+                                         {.LongitudeDeg = 9, .LatitudeDeg = 47},
+                                         {.FocalPx = 1440}),
+            "movement, incomplete source coverage and changed projection cannot reuse the product");
+      pieces.Forgets(7);
     }
   }
   SDL_Quit();

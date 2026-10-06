@@ -59,6 +59,7 @@ public:
     ProjectedErrorBudget Projection{};
     double TileSpanM = 0.0;
     LongitudeLatitude Eye;
+    std::optional<Vec3> EyeEcef;
   };
 
   struct AcceptedInput {
@@ -135,6 +136,10 @@ public:
   };
 
   void SeenWith(ProjectedErrorBudget projection) { Projection_ = projection; }
+
+  void ViewedFrom(std::optional<Vec3> eyeEcef) { EyeEcef_ = eyeEcef; }
+
+  [[nodiscard]] std::optional<Vec3> EyeEcef() const noexcept { return EyeEcef_; }
 
   void TilesSpan(double tileSpanM) { TileSpanM_ = tileSpanM; }
 
@@ -351,6 +356,7 @@ private:
   bool RefinementActive_ = false;
   TileWatermark Mark_;
   ProjectedErrorBudget Projection_{};
+  std::optional<Vec3> EyeEcef_;
   double TileSpanM_ = 0.0;
   Vec3 Anchor_;
   bool Anchored_ = false;

@@ -157,6 +157,7 @@ bool TilePieces::Store(uint32_t tile,
                  .OccupiedCells = baked.OccupiedCells,
                  .FallbackHeights = baked.FallbackHeights,
                  .Detail = baked.RequestedDetail,
+                 .SelectedView = baked.SelectedView,
                  .Row = row,
                  .Visible = visible};
   const Raised &built = baked.Built;
@@ -485,6 +486,24 @@ bool TilePieces::HasCell(uint32_t tile,
   return std::any_of(first, last, [detail, sourceKey, cell](const Standing &held) {
     return held.Detail == detail && held.SourceKey == sourceKey &&
            held.OccupiedCells == (uint64_t{1} << (cell - 1u));
+  });
+}
+
+bool TilePieces::HasProjectedTile(uint32_t tile,
+                                  CellSource source,
+                                  LongitudeLatitude eye,
+                                  ProjectedErrorBudget projection,
+                                  std::optional<Vec3> eyeEcef) const noexcept {
+  if (source.Key == 0) { return false; }
+  const auto first =
+      std::ranges::lower_bound(Standing_, std::pair{tile, uint32_t{0}}, {}, AddressOf);
+  const auto last = std::find_if(first, Standing_.end(), [tile](const Standing &held) {
+    return held.Tile != tile || held.Cell != 0;
+  });
+  return std::any_of(first, last, [&](const Standing &held) {
+    return held.Visible && !held.Detail && held.SourceKey == source.Key &&
+           held.OccupiedCells == source.Occupied && held.SelectedView &&
+           held.SelectedView->Contains(eye, projection, eyeEcef);
   });
 }
 

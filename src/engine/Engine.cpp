@@ -1,5 +1,4 @@
 #include "EngineHeld.h"
-#include "StructureCellPlanner.h"
 #include "geo/Mercator.h"
 #include "math/Units.h"
 #include <algorithm>
@@ -275,21 +274,18 @@ std::span<const DiagnosticSample> Engine::measures() const {
   return S_->Published.Samples();
 }
 
-bool Engine::State::StructureCellsReady(uint32_t tile, LongitudeLatitude eye) const {
+bool Engine::State::StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const {
   const ::outshine::Generators::Osm::OsmField *vectors = World.Stack.Vectors();
   const auto &footprints = World.Stack.Footprints();
   const auto *accepted = footprints.InputOfTile(tile);
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(footprints, tile);
   if (vectors == nullptr || accepted == nullptr || !sourceKey) { return false; }
   if (accepted->OccupiedCells == 0) { return true; }
-  const auto plan = PlanStructureCells(tile,
-                                       *accepted,
-                                       *sourceKey,
+  return World.Pieces.HasProjectedTile(tile,
+                                       {.Key = *sourceKey, .Occupied = accepted->OccupiedCells},
                                        eye,
                                        footprints.Projection(),
-                                       World.Pieces,
-                                       World.StructureBuilds);
-  return plan.Active;
+                                       footprints.EyeEcef());
 }
 
 bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingField &footprints,
@@ -297,7 +293,7 @@ bool Engine::State::StructuresReady(const ::outshine::Generators::Osm::BuildingF
   if (revision.Quality == GroundQuality::Refined) {
     const LongitudeLatitude eye = CurrentGeographicFocus();
     return World.StructureBuilds.Complete(World.Stack, footprints, eye, [this, eye](uint32_t tile) {
-      return StructureCellsReady(tile, eye);
+      return StructureProductsReady(tile, eye);
     });
   }
   if (World.StructureBuilds.HasOriginal()) {

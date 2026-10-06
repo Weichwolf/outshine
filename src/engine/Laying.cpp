@@ -1799,6 +1799,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
     return true;
   }
   GroundBuildState &state = *World.GroundBuild;
+  state.Footprints().ViewedFrom(CurrentGeographicEyeEcef());
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
   Published.RecordMetric("ground candidate: structure tiles to certify",

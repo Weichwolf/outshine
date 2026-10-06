@@ -77,6 +77,11 @@ public:
   SelectDetail(uint32_t tile, uint32_t cell, LevelOfDetail detail, std::string &error);
   [[nodiscard]] bool
   HasCell(uint32_t tile, uint32_t cell, LevelOfDetail detail, uint64_t sourceKey) const noexcept;
+  [[nodiscard]] bool HasProjectedTile(uint32_t tile,
+                                      CellSource source,
+                                      LongitudeLatitude eye,
+                                      ProjectedErrorBudget projection,
+                                      std::optional<Vec3> eyeEcef = std::nullopt) const noexcept;
   [[nodiscard]] bool CellsActive(uint32_t tile,
                                  std::span<const CellSelection> selected,
                                  uint64_t sourceKey) const noexcept;
@@ -143,6 +148,7 @@ private:
     uint64_t OccupiedCells = 0;
     bool FallbackHeights = false;
     std::optional<LevelOfDetail> Detail;
+    std::optional<Generators::StructureSelectionView> SelectedView;
     Mat4 Row;
     bool Visible = true;
     Render::PieceHandle Walls{};

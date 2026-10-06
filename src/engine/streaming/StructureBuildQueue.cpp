@@ -143,6 +143,7 @@ void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
   raw.SourceInputs = {};
   raw.AnchorEcef = prints.Anchor();
   raw.Eye = eye;
+  raw.EyeEcef = prints.EyeEcef();
   raw.RequestedDetail = detail;
   raw.RequestedCell = cell;
   raw.Projection = prints.Projection();
@@ -557,7 +558,10 @@ bool StructureBuildQueue::BakeRevision::Matches(
   return OwnsReservation(vectors, footprints, eye, heightSource, inputObjects) &&
          RequestedDetail == detail && Purpose == purpose &&
          (purpose == BuildPurpose::SourceGeometry ||
-          (RequestedDetail && *RequestedDetail != LevelOfDetail::Fine) || EyeWithin(Eye, eye)) &&
+          (RequestedDetail && *RequestedDetail != LevelOfDetail::Fine) ||
+          Generators::StructureSelectionView{
+              .Eye = Eye, .EyeEcef = EyeEcef, .Projection = Projection}
+              .Contains(eye, footprints.Projection(), footprints.EyeEcef())) &&
          (heights == HeightRequirement::AllowFallback || !FallbackHeights);
 }
 
@@ -1093,8 +1097,10 @@ bool StructureBuildQueue::PostPreparedCell(
   *output = {};
   CellQueue_.push_back({.Revision = {.Vectors = vectors->Generation(),
                                      .HeightSource = heightAt.Revision,
+                                     .Projection = footprints.Projection(),
                                      .TileSpanM = footprints.TileSpanM(),
                                      .Eye = eye,
+                                     .EyeEcef = footprints.EyeEcef(),
                                      .RequestedDetail = request.Detail,
                                      .Purpose = BuildPurpose::ViewDetail},
                         .Task = StructureBuildTask(request.Tile,
@@ -1142,7 +1148,11 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
       accepted->Coordinates->Origin.Selection == original->SourceInputs.Origin.Selection &&
       accepted->HeightRevision != 0 && accepted->HeightRevision == heightAt.Revision.Value &&
       accepted->Qualified &&
-      (purpose == BuildPurpose::SourceGeometry || EyeWithin(accepted->Bake.Eye, eye))) {
+      (purpose == BuildPurpose::SourceGeometry ||
+       Generators::StructureSelectionView{.Eye = accepted->Bake.Eye,
+                                          .EyeEcef = accepted->Bake.EyeEcef,
+                                          .Projection = accepted->Bake.Projection}
+           .Contains(eye, prints.Projection(), prints.EyeEcef()))) {
     return 0;
   }
   const int zoom = stack.FinestZoomOf(Data::DataKind::Elevation);
@@ -1183,6 +1193,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
   *raw = *original;
   raw->AnchorEcef = prints.Anchor();
   raw->Eye = eye;
+  raw->EyeEcef = prints.EyeEcef();
   raw->Projection = prints.Projection();
   raw->TileSpanM = prints.TileSpanM();
   raw->RequestedDetail = detail;
@@ -1196,6 +1207,7 @@ size_t StructureBuildQueue::PostsOriginal(uint32_t tile,
                               .Projection = prints.Projection(),
                               .TileSpanM = prints.TileSpanM(),
                               .Eye = eye,
+                              .EyeEcef = prints.EyeEcef(),
                               .RequestedDetail = detail,
                               .Purpose = purpose,
                               .FallbackHeights = heights->Fallback(),
@@ -1315,6 +1327,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                 .Projection = prints.Projection(),
                                 .TileSpanM = prints.TileSpanM(),
                                 .Eye = eye,
+                                .EyeEcef = prints.EyeEcef(),
                                 .RequestedDetail = detail,
                                 .Purpose = purpose,
                                 .FallbackHeights = heights->Fallback()};
@@ -1505,7 +1518,8 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
            .StreetDigest = bake.StreetDigest,
            .Projection = bake.Revision.Projection,
            .TileSpanM = bake.Revision.TileSpanM,
-           .Eye = bake.Revision.Eye},
+           .Eye = bake.Revision.Eye,
+           .EyeEcef = bake.Revision.EyeEcef},
           bake.Revision.HeightSource.Value,
           bake.Task.Heights().CaptureRequest())};
 }

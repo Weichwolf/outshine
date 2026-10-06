@@ -40,7 +40,7 @@ Jeder Befund bleibt beim Featurebesitzer; dort stehen Ursache, Ersatz und Bildab
 | Priorität | Defizit | Zielpfad und Besitzer |
 |---|---|---|
 | P0 | Tokyo erzeugt 29,65 Mio. Dreiecke; Fernbedarf greift zu spät | Plan → projizierter Bedarf → Hülle/Cluster/Impostor, 2336 |
-| P0 | Unbekannte Zellfehler erzwingen Fine; Quell- und Renderarbeit doppeln sich | Formfehler vor Meshing, gemeinsame Pläne und gezielte Publikation, 2336/2280 |
+| P0 | Quellplanung wird bei Bewegung erneut aufgebaut; persistente Hierarchie fehlt | Gepackte wiederverwendbare Pläne, gezielte Auswahl/Publikation, 2336/2280 |
 | P0 | Rasterarbeit bleibt teuer; HiZ greift bei Drehung nicht | Hierarchische Sichtauswahl, vordere Coverage, begrenzte aktuelle Arbeit, 2340 |
 | P0 | Tokyo hält ca. 3,88 GB GPU-Streams; Spitzen überschreiten das Gerät | Nur benötigte Darstellungen/Attribute resident, geteilte Eingaben, 2336/2188 |
 | P0 | Geometrie-/Material-Replay ist noch nicht im Stadtpfad integriert | Unbeleuchtete Fernfelder, gültige Tiefe/Parallaxe, aktuelle Beleuchtung, 2336/2171 |

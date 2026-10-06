@@ -600,6 +600,8 @@ struct Engine::State {
   [[nodiscard]] bool GenerateInstancesForRegion(const Generators::Tile &region,
                                                 LevelOfDetail coarseness);
   [[nodiscard]] LongitudeLatitude CurrentGeographicFocus() const;
+  [[nodiscard]] std::optional<LongitudeLatitudeHeight> CurrentGeographicPosition() const;
+  [[nodiscard]] std::optional<Vec3> CurrentGeographicEyeEcef() const;
   [[nodiscard]] LongitudeLatitude GeographicFocusFor(const Vec3 &eye) const;
   [[nodiscard]] Around TerrainCoverageAt(LongitudeLatitude focus) const;
   [[nodiscard]] double TerrainSightM() const noexcept;
@@ -614,9 +616,7 @@ struct Engine::State {
   void HandsPiecesOver();
   [[nodiscard]] bool UpdateVegetation(bool prepare);
   [[nodiscard]] bool AdvanceStructureBuilds(size_t landsMost);
-  [[nodiscard]] bool AdvanceStructureCells(const StructureBuildQueue::HeightSource &heightAt,
-                                           LongitudeLatitude eye);
-  [[nodiscard]] bool StructureCellsReady(uint32_t tile, LongitudeLatitude eye) const;
+  [[nodiscard]] bool StructureProductsReady(uint32_t tile, LongitudeLatitude eye) const;
   [[nodiscard]] bool UpdateTriggers();
   [[nodiscard]] bool Updates();
   [[nodiscard]] bool Draws();

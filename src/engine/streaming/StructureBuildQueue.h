@@ -67,6 +67,7 @@ public:
     ProjectedErrorBudget Projection{};
     double TileSpanM = 0.0;
     LongitudeLatitude Eye;
+    std::optional<Vec3> EyeEcef;
     std::optional<LevelOfDetail> RequestedDetail;
     BuildPurpose Purpose = BuildPurpose::ViewDetail;
     bool FallbackHeights = false;
