@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "math/Units.h"
-#include "FlatMap.h"
+#include "StructureMassing.h"
 #include "Geodesy.h"
 #include <scene/ProjectedErrorBudget.h>
 
@@ -29,7 +29,6 @@ namespace {
 #include "FacadeOpeningValues.h"
 
 constexpr double kBlocksPerTile = 8.0;
-constexpr int64_t kCellBiasTiles = 0x20000000LL;
 constexpr uint32_t kKnuthWord = 2654435761u;
 constexpr uint32_t kSecondKnuthWord = 2246822519u;
 
@@ -299,16 +298,6 @@ Seated RingBase(const outshine::Ground::HeightField &heights,
           .Stood = stood};
 }
 
-struct Lumped {
-  double LowLat = 0.0, HighLat = 0.0, LowLon = 0.0, HighLon = 0.0;
-  double BaseSum = 0.0, SeatSum = 0.0, HeightSum = 0.0;
-  int Count = 0;
-  double PitchedAreaM2 = 0.0, RoofAreaM2 = 0.0;
-  Vec3 WallColourSum{};
-  bool HasWallColour = false;
-  LevelOfDetail Level = LevelOfDetail::Fine;
-};
-
 struct Spread {
   double LowLat = 0.0, HighLat = 0.0, LowLon = 0.0, HighLon = 0.0;
 };
@@ -321,50 +310,39 @@ struct Standing {
   LevelOfDetail Level = LevelOfDetail::Fine;
 };
 
-using Lumps = FlatMap<Lumped>;
+using MassPlans = std::vector<StructureMassPlan>;
 
-std::expected<void, StructureMeshError> Lump(Lumps &into, Spread over, Standing at, double cellM) {
-  const auto cellLat =
-      static_cast<int64_t>(std::floor(0.5 * (over.LowLat + over.HighLat) * kMPerDegLat / cellM));
-  const auto cellLon =
-      static_cast<int64_t>(std::floor(0.5 * (over.LowLon + over.HighLon) * kMPerDegLon / cellM));
-  const uint64_t key = (static_cast<uint64_t>(cellLat + kCellBiasTiles) << 32U) |
-                       static_cast<uint64_t>(cellLon + kCellBiasTiles);
-  auto placed = into.Emplace(key, {});
-  if (!placed) { return std::unexpected(StructureMeshError::AllocationFailed); }
-  Lumped &block = *placed->first;
-  if (block.Count == 0) {
-    block.LowLat = over.LowLat;
-    block.HighLat = over.HighLat;
-    block.LowLon = over.LowLon;
-    block.HighLon = over.HighLon;
-  } else {
-    block.LowLat = std::min(block.LowLat, over.LowLat);
-    block.HighLat = std::max(block.HighLat, over.HighLat);
-    block.LowLon = std::min(block.LowLon, over.LowLon);
-    block.HighLon = std::max(block.HighLon, over.HighLon);
-  }
-  block.BaseSum += at.BaseM;
-  block.SeatSum += at.SeatM;
-  block.HeightSum += at.HeightM;
-  block.RoofAreaM2 += at.RoofAreaM2;
+std::expected<void, StructureMeshError>
+StageStructureMass(MassPlans &into, Spread over, Standing at, uint32_t cell) {
+  StructureMassPlan plan{.LowLat = over.LowLat,
+                         .HighLat = over.HighLat,
+                         .LowLon = over.LowLon,
+                         .HighLon = over.HighLon,
+                         .BaseSum = at.BaseM,
+                         .SeatSum = at.SeatM,
+                         .HeightSum = at.HeightM,
+                         .MinimumBaseM = at.BaseM,
+                         .MaximumTopM = at.BaseM + at.HeightM + kRoofAllowanceM,
+                         .Count = 1,
+                         .Cell = cell,
+                         .PitchedAreaM2 = at.Pitched ? at.RoofAreaM2 : 0.0,
+                         .RoofAreaM2 = at.RoofAreaM2,
+                         .HasWallColour = at.WallColour.has_value(),
+                         .Level = at.Level};
   const Vec3f colour = at.WallColour.value_or(kBuildingWallColour);
   for (size_t channel = 0; channel < 3; ++channel) {
-    block.WallColourSum[channel] += static_cast<double>(colour[channel]) * at.RoofAreaM2;
+    plan.WallColourSum[channel] = static_cast<double>(colour[channel]) * at.RoofAreaM2;
   }
-  block.HasWallColour = block.HasWallColour || at.WallColour.has_value();
-  if (at.Pitched) { block.PitchedAreaM2 += at.RoofAreaM2; }
-  block.Level = std::max(block.Level, at.Level);
-  ++block.Count;
+  into.push_back(plan);
   return {};
 }
 
-std::expected<void, StructureMeshError> RaiseLump(const Lumped &of,
-                                                  const RawTile &raw,
-                                                  const StructureMesher &mesher,
-                                                  MeshScratch &scratch,
-                                                  std::vector<double> &corners,
-                                                  Raised &into) {
+std::expected<void, StructureMeshError> RaiseStructureMass(const StructureMassPlan &of,
+                                                           const RawTile &raw,
+                                                           const StructureMesher &mesher,
+                                                           MeshScratch &scratch,
+                                                           std::vector<double> &corners,
+                                                           Raised &into) {
   if (of.Count == 0) { return {}; }
   const auto over = static_cast<double>(of.Count);
   const double midLat = 0.5 * (of.LowLat + of.HighLat);
@@ -452,24 +430,22 @@ std::expected<void, StructureMeshError> AccountMesh(std::expected<void, Structur
   return std::unexpected(result.error());
 }
 
-std::expected<void, StructureBakeError> FinishStructures(const Lumps &lumps,
+std::expected<void, StructureBakeError> FinishStructures(MassPlans &masses,
                                                          const RawTile &raw,
                                                          const StructureMesher &mesher,
                                                          MeshScratch &scratch,
                                                          std::vector<double> &corners,
                                                          BakedTile &out,
                                                          const std::atomic_bool *stopping) {
-  std::expected<void, StructureBakeError> finished;
-  lumps.Visit([&](uint64_t, const Lumped &block) {
-    if (!finished) { return; }
-    if (WasStopped(stopping)) {
-      finished = std::unexpected(StructureBakeErrorKind::Cancelled);
-      return;
-    }
-    finished = AccountMesh(RaiseLump(block, raw, mesher, scratch, corners, out.Built), out);
-  });
-  if (!finished) { return std::unexpected(finished.error()); }
-  out.Blocks = static_cast<int>(lumps.Size());
+  auto grouped = GroupStructureMasses(masses, raw, stopping);
+  if (!grouped) { return std::unexpected(grouped.error()); }
+  for (const StructureMassPlan &block : *grouped) {
+    if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
+    const auto built =
+        AccountMesh(RaiseStructureMass(block, raw, mesher, scratch, corners, out.Built), out);
+    if (!built) { return std::unexpected(built.error()); }
+  }
+  out.Blocks = static_cast<int>(grouped->size());
   return FinalizeBake(raw, out);
 }
 
@@ -613,7 +589,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 const RawTile::Structure &one,
                                                 std::span<const double> pts,
                                                 const std::vector<WayLine> &ways,
-                                                Lumps &lumps,
+                                                MassPlans &masses,
                                                 std::vector<double> &corners,
                                                 double statedM,
                                                 const std::atomic_bool *stopping) {
@@ -700,16 +676,16 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
 
   if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0 && one.HoleCount == 0) {
     IncludeShellError(out, cellAt, mesher.ShellSurfaceErrorM(plan, scratch));
-    const auto lumped = Lump(lumps,
-                             bounds,
-                             {.BaseM = base,
-                              .SeatM = seat,
-                              .HeightM = fp.HeightM,
-                              .RoofAreaM2 = RingAreaM2(pts, ring),
-                              .Pitched = one.Pitched != 0,
-                              .WallColour = one.WallColour,
-                              .Level = level},
-                             raw.TileSpanM / kBlocksPerTile);
+    const auto lumped = StageStructureMass(masses,
+                                           bounds,
+                                           {.BaseM = base,
+                                            .SeatM = seat,
+                                            .HeightM = fp.HeightM,
+                                            .RoofAreaM2 = RingAreaM2(pts, ring),
+                                            .Pitched = one.Pitched != 0,
+                                            .WallColour = one.WallColour,
+                                            .Level = level},
+                                           one.Cell.Index);
     if (!lumped) { return std::unexpected(lumped.error()); }
     ++out.Lumped;
     return {};
@@ -731,7 +707,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
 
 struct StructureBakeProgress::State {
   std::vector<WayLine> Ways;
-  Lumps Lumps;
+  MassPlans Masses;
   std::vector<double> Corners;
   BakedTile Tile;
   size_t Next = 0;
@@ -799,7 +775,7 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     out.CellMaxHeightM.fill(0.0f);
     out.CellShellErrorM.fill(0.0);
     state.Ways = LinesOf(raw);
-    state.Lumps.Clear();
+    state.Masses.clear();
     state.Corners.clear();
     state.Started = true;
   }
@@ -817,7 +793,7 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
                                raw.Structures[state.Next],
                                pts,
                                state.Ways,
-                               state.Lumps,
+                               state.Masses,
                                state.Corners,
                                statedM,
                                stopping);
@@ -835,7 +811,7 @@ StructureBakeProgress::Finalize(const RawTile &raw,
   assert(!State_->Finalized);
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
   const auto finished = FinishStructures(
-      State_->Lumps, raw, mesher, scratch, State_->Corners, State_->Tile, stopping);
+      State_->Masses, raw, mesher, scratch, State_->Corners, State_->Tile, stopping);
   if (!finished) { return std::unexpected(finished.error()); }
   State_->Finalized = true;
   return std::move(State_->Tile);
