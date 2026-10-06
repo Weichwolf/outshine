@@ -19,8 +19,8 @@ public:
   [[nodiscard]] std::optional<double>
   ShellSurfaceErrorM(std::span<const StoredVertex> walls) const noexcept override;
 
-  [[nodiscard]] std::optional<double>
-  ShellSurfaceErrorM(const StructurePlan &plan, MeshScratch &lent) const noexcept override;
+  [[nodiscard]] std::optional<double> ShellSurfaceErrorM(const StructurePlan &plan,
+                                                         MeshScratch &lent) const noexcept override;
 
   [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override;
 
