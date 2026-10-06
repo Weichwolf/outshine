@@ -188,6 +188,43 @@ def patches(faces):
     return result
 
 
+def hybrid_cost(plans, field, faces, rectangles, face_first):
+    owners = field[3]
+    patch_count = np.bincount([int(owners[top, left]) for left, top, _, _, _ in rectangles],
+                             minlength=len(plans))
+    present = owners >= 0
+    pairs = np.unique(np.column_stack((owners[present], faces[present])), axis=0)
+    native_floor = np.zeros(len(plans), np.int64)
+    for owner, face in pairs:
+        rings = plans[owner][0]
+        corners = sum(map(len, rings))
+        roof = face == face_first[owner]+corners+1
+        native_floor[owner] += corners+2*(len(rings)-1)-2 if roof else 2
+    use_patches = patch_count*2 < native_floor
+    return {'visibleFaceTriangleLowerBound': int(native_floor.sum()),
+            'hybridTriangleCostLowerBound': int(np.minimum(native_floor, patch_count*2).sum()),
+            'plansUsingPatches': int(np.count_nonzero(use_patches)),
+            'plansKeepingNativeFaces': int(np.count_nonzero((native_floor > 0) & ~use_patches))}
+
+
+def read_native(path):
+    data = path.read_bytes()
+    header = struct.Struct('<QQQII13d')
+    count, ring_count, point_count, width, height, *view = header.unpack_from(data)
+    at = header.size
+    points = np.frombuffer(data, '<f8', point_count*2, at).reshape(-1, 2)
+    at += points.nbytes
+    ranges = np.frombuffer(data, '<u8', ring_count*2, at).reshape(-1, 2)
+    at += ranges.nbytes
+    source = struct.Struct('<QQdd3f')
+    plans = []
+    for owner in range(count):
+        first, length, bottom, top, *colour = source.unpack_from(data, at+owner*source.size)
+        rings = [points[start:start+size] for start, size in ranges[first:first+length]]
+        plans.append((rings, top, bottom, np.array(colour), 0))
+    return plans, np.array(view[:3]), np.array(view[3:12]).reshape(3, 3), width, height, view[12]
+
+
 def reconstruct(rectangles, field, eye, basis, width, height, focal):
     depth, normals, colours, owners = field
     result = []
@@ -230,7 +267,9 @@ def export_native(path, plans, eye, basis, width, height, focal):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--manifest', type=Path, required=True)
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument('--manifest', type=Path)
+    inputs.add_argument('--native-scene', type=Path)
     parser.add_argument('--scenario', type=Path, default=Path('src/assets/places/Tokyo.scenario'))
     parser.add_argument('--output', type=Path, default=Path('build/experiments/building-surface'))
     parser.add_argument('--reference', type=Path)
@@ -245,7 +284,11 @@ def main():
     eye = np.array([0., 0., float(at['heightM'])])
     basis = camera(float(at['bearingDeg']), float(at['pitchDeg']))
     start = time.perf_counter()
-    plans, source_bytes, _ = read_plans(args.manifest, (float(at['lon']), float(at['lat'])))
+    if args.native_scene:
+        plans, eye, basis, width, height, focal = read_native(args.native_scene)
+        source_bytes = args.native_scene.stat().st_size
+    else:
+        plans, source_bytes, _ = read_plans(args.manifest, (float(at['lon']), float(at['lat'])))
     decode_ms = (time.perf_counter()-start)*1000
     if args.native_input:
         export_native(args.native_input, plans, eye, basis, width, height, focal)
@@ -270,7 +313,8 @@ def main():
               'tracePythonMs': trace_ms, 'patchPythonMs': patch_ms,
               'limits': ['flat ground/roofs', 'one view, not full 360-degree residency',
                          'one depth layer loses disoccluded surfaces',
-                         'no native device/frame-time claim'], **counts}
+                         'no native device/frame-time claim'], **counts,
+              **hybrid_cost(plans, field, faces, rectangles, index.faces)}
     mesh = reconstruct(rectangles, field, eye, basis, width, height, focal)
     movements = []
     for offset in args.movement:
