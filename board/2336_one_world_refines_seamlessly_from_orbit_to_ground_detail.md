@@ -49,10 +49,11 @@ Aktuelle native Occluder helfen Tokyo (p50 34,2 → 22,3 ms), kosten Central Par
 Vorlage nach projizierter Coverage/Gesamtkosten auswählen; noch keine Runtime-Integration.
 Kugelbasierte meshoptimizer-Rückseitenkegel werden verworfen: Schlussblick Tokyo nur 16/5,38 Mio.,
 Central Park 135/2,79 Mio. Dreiecke entfernt; PNGs identisch, keine belegte Zeitersparnis.
-Diagnose `e37b7fce7`, keine Runtime-Integration. Vorige Sichtbarkeit darf neu freigelegte Inhalte nicht ausschließen.
-Tiefenblöcke erfassen auch Randpixel; Abbildung verwendet Quellgröße und Blockspanne.
-Zusätzliche Pässe nur bei belegter Gesamtersparnis; ausgeführte Geometrie und Wartepfad getrennt messen.
-Multi-Draw bündelt gleiche benachbarte indirekte Batches; direkte Batches trennen. Reihenfolge/Instanzen/Culling erhalten.
+Diagnose `e37b7fce7`, keine Runtime-Integration. Vertex-Fetch-Umordnung (`ca95cc4b3`) bleibt ebenfalls
+ohne Runtime-Integration: Tokyo/Central Park p50 33,96→37,02 / 12,62→12,74 ms, PNGs identisch.
+Vorige Sichtbarkeit darf neu freigelegte Inhalte nicht ausschließen.
+Tiefenblöcke erfassen Randpixel mit Quellgröße/Blockspanne. Zusatzpässe brauchen Gesamtersparnis;
+Multi-Draw erhält Reihenfolge/Instanzen/Culling; ausgeführte Geometrie/Warten getrennt messen.
 
 ## Bildabhängige Fernrepräsentation
 Ferne Gebäude gemeinsam auf tiefenhaltige Karten mit zwei Dreiecken je Karte projizieren;
@@ -63,13 +64,13 @@ und gültigen Kamera-/Projektionsbereich herstellen; beides gegen native Hüllen
 Coverage, Tiefe, Normalen und Material erhalten; Beleuchtung und Gesamthelligkeit aktuell auswerten.
 Update bei zu großer Pixelverschiebung, Inhaltsänderung oder Disocclusion; gültiger Hüllen-Fallback.
 Nur bild-/schattenwirksame Geometrie nach jeweiligem Bedarf; grobe Fernoccluder statt Nahdetails.
-Silhouette/Parallaxe/Bytekosten begrenzen Auflösung und Ansichten; rundum verfügbar, nur RAM/GPU.
+Silhouette/Parallaxe/Bytekosten begrenzen Auflösung/Ansichten; rundum, nur RAM/GPU.
 [Billboard Clouds, SIGGRAPH 2003](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf);
-Overdraw/Capturekosten gegen Clustergeometrie messen. Arbeitsintervalle/History besitzt 2340.
+Overdraw/Capturekosten gegen Clustergeometrie messen; Arbeitsintervalle/History besitzt 2340.
 
 ## Besitzer und Abhängigkeiten
-Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
-ProjectedErrorBudget erlaubt den ersten Schritt; fehlende öffentliche Felder integriert 2188, Jobs 2280.
+Generatoren besitzen Planung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
+ProjectedErrorBudget besteht; fehlende öffentliche Felder integriert 2188, Jobs 2280.
 
 ## Erste Lieferung: Bodenstadt
 1. MVT/XML einmal in kompakte native Gebäudepläne überführen: Grundriss/Höfe/Parts, Höhen,
@@ -81,8 +82,8 @@ ProjectedErrorBudget erlaubt den ersten Schritt; fehlende öffentliche Felder in
    Nahteile instanzieren. Standort/Seeds/Silhouette bleiben stabil. Jede Variante liefert
    Bounds, Kosten und eine konservative Schranke für die tatsächlich ausgelassene Form.
    [meshoptimizer](https://github.com/zeux/meshoptimizer) ordnet Index-/Vertexbuffer für Cache und Fetch; keine zweite Meshkopie
-   im residenten Endprodukt. Simplifizierung nur mit erhaltenen Höfen, Part-Grenzen und
-   Attributnähten. Bibliotheksfehlerwerte ersetzen keine konservative Oberflächenschranke.
+   im residenten Endprodukt; Umordnung nur bei gemessenem Nutzen. Simplifizierung erhält Höfe,
+   Part-Grenzen/Attributnähte; Bibliotheksfehlerwerte ersetzen keine konservative Oberflächenschranke.
 4. Für planbasierte Detailreduktionen analytische Schranken herleiten und unabhängig prüfen;
    Höfe/Öffnungen, beide Oberflächenrichtungen und Terrainfehler berücksichtigen. Vorhandene
    Triangle-/SurfaceError-Verfahren sind Entwicklungsorakel; keine Fine-Referenz pro Fernjob
@@ -106,7 +107,6 @@ ProjectedErrorBudget erlaubt den ersten Schritt; fehlende öffentliche Felder in
   Packung, aktuelle/temporäre Bytes und Framekosten gemeinsam begrenzen.
   Residente CPU-Terrainnetze für Kontakte/Audio getrennt vom Bildschirmdetail begründen;
   rasterbasierte Abfragen gegen unnötig ausmultiplizierte Dreiecke prüfen.
-
 ## Forschungsgrundlage
 [GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf),
 [Geometry Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf): Batches, Cluster-Bounds, inkrementelle Gitter.
