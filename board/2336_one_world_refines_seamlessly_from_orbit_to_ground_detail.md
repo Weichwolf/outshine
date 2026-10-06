@@ -10,14 +10,15 @@ Tags: lod, coverage, planetary, budgets
 # Required detail is selected before source and geometry work
 
 ## Ergebnis und Ist
-Rundum verfügbare Welt bis 240 km am Boden, später höhenabhängiger Horizont und Orbit → Nahdetail.
-Der Geometriebedarf nimmt mit Entfernung ab: Häuser → Blockverbände → kompakte Skyline-Flächen.
+Rundum verfügbare Welt bis 240 km am Boden, später höhenabhängiger Horizont und Orbit → Nahdetail. Der Geometriebedarf nimmt mit Entfernung ab: Häuser → Blockverbände → kompakte Skyline-Flächen.
 Mehr Quellobjekte innerhalb gleicher Fern-Coverage erzeugen keine proportional größere Geometrie.
 Fine/Shell/Massed bestehen, Skyline fehlt; feste Massed-Hashgruppierung durch Plan-Hierarchie ersetzt.
 Der neue automatische Pfad plant Quellen und wählt Eltern vor jeder Mesh-Ausgabe; native Messung offen.
-Tokyo erzeugt weiterhin 29,65 Mio. Dreiecke; GPU-Streamkapazität ca. 3,88 GB. Eine Auswahlkorrektur
-allein hat diese Menge und das Bild nicht verändert. Der automatische Runtime-Pfad erzwingt keine
-Zelldetailstufe mehr; planbasierte Produkte werden atomar veröffentlicht. Speicher-/Frame-Gates bleiben rot.
+Tokyo auf 5103c3e2c: 29,70 Mio. erzeugte Gebäudedreiecke, Median 36,59 ms, p99 253,85 ms;
+104,54 s Laden. Kein Geometrie-/Framegewinn. Bildänderung: 0,52 % der Pixel, mittlere RGB-Differenz
+0,015/255; kein abgenommener Qualitätsgewinn. Der echte Pfad liefert überwiegend Einzelhüllen.
+Gesamte Bounds unter einen Pixel zu verlangen erlaubt Massed zu spät; mittlere Ferne braucht
+Tiefen-/Materialflächen mit Bildgültigkeit. Mehr Feintuning dieser Massed-Schwelle entfällt.
 
 ## Aktuelle Lieferung: Fernstadt vor weiteren Nahdetails
 | Klasse | Produkt | Bedarf vor Erzeugung |
@@ -63,8 +64,7 @@ Ausgaben: `build/experiments/`; keine Generatorprodukte im persistenten Quellcac
    Capture auf vorhandenem Device bündeln; kein eigener Renderer/Device je Gebäude/Zelle.
 4. Generische Oberflächenprodukte speichern Depth/Coverage, Normalen und Basisfarbe/Metallic/Roughness.
    Licht, Fahrzeuglichter und Wolkenschatten bleiben aktuell; bewegte Objekte/Laub eigene Produkte.
-   Nicht repräsentierte Materialeffekte behalten native Geometrie; keine stillen Ersatzlobes.
-   Brücken/Überhänge/Kronen verlangen mehrere Tiefen, keine universelle 2,5D-Höhenkarte.
+   Nicht repräsentierte Effekte behalten Geometrie; Brücken/Überhänge/Kronen verlangen mehrere Tiefen.
    Volumen und dynamische Produkte teilen den Qualitätsauftrag, nicht erzwungen denselben Speicher.
 5. Aktualisierung folgt Parallaxe, Disocclusion, Inhalt und gemessener Pixeländerung. Stabile
    Produkte im RAM/GPU wiederverwenden. Betroffene Regionen ergänzen, keine pauschale Weltinvalidierung.
@@ -90,7 +90,8 @@ Quellplanung, Hierarchieauswahl und begrenzte Emission. Native SourceEnvelopeBou
 Fine/Shell vor Meshing; akzeptierte Eltern umfassen Quell- und Ersatzbounds. Unbekannte Mesher
 bleiben einzeln. Shell verwendet ihren Formfehler, nicht die für beide Produkte gleiche Quellquantisierung.
 Runtime verwendet fertige Projektionsprodukte statt Zelldetailzwang; Kameradrehung erzeugt nichts neu.
-Kamera-ECEF/Höhe und Projektion begrenzen Wiederverwendung; Bewegung veranlasst neue Auswahl. Source-/Emissionsslices haben getrennte Abschlussphasen. Skyline-Anbindung fehlt.
+Kamera-ECEF/Höhe und Projektion begrenzen Wiederverwendung; Bewegung veranlasst neue Auswahl. Source-/Emissionsslices sind getrennt. `OUTSHINE_TRACE_STRUCTURE_SELECTION=1` meldet höchstens
+acht Plan-/Tier-/Projektionszeilen außerhalb des Frames. Stadtanbindung der Fernflächen fehlt.
 ImpostorSurface liefert orthografische Tiefenpatches mit aktuellen Materialien; fehlende Ansichten sind offen.
 
 ## Fernwelt, Flug und Orbit
@@ -99,7 +100,6 @@ Fernverbände steuern; fehlende Pflicht-Nahinhalte bleiben ein Fehler. Globale G
 vor regionalen Kindern, kein weltweites Feinmodell. Terrain folgt eigener Qualität; subpixeliges Relief geht zum Ellipsoid über. Vegetation 2111 folgt später.
 
 ## Forschungsgrundlage
-Hierarchischer Mesh-/Oberflächen-Hybrid ist die Arbeitsrichtung; Baum/Capture nach Messung wählen.
 [Hierarchical Image Caching, SIGGRAPH 1996](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/):
 räumliche Verbände, Projektionsgültigkeit und amortisierte Capturekosten; statische Bildfarbe ersetzen.
 [Layered Depth Images, SIGGRAPH 1998](https://dash.harvard.edu/entities/publication/73120378-7e84-6bd4-e053-0100007fdf3b):
