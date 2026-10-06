@@ -1,6 +1,6 @@
 # Forschungsgrundlage für Outshine
 
-Stand: 2026-10-04. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+Stand: 2026-10-06. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
 29 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
@@ -15,6 +15,14 @@ Simulation und Gameplay folgen dem visuellen Meilenstein.
 Alle PDFs liegen nach Bereich/Konferenz direkt unter `doc/references/` und sind versioniert.
 Die kanonischen Downloadlinks stehen bei jeder Quelle.
 Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
+
+## Asset-Laden und Residency — WI 2280
+
+[Vorbereitete Assets, räumliche Pakete und Residency](engine/unreal/prepared-assets.md)
+fasst Unreal DDC, World Partition/HLOD, Texture Streaming und Geometry Clipmaps zusammen.
+Die Notiz verlinkt die Primärquellen, grenzt deren Übertragung ab und trennt SSD-Gültigkeit
+von RAM-/GPU-Residency und budgetierten Laufzeitdetails. Epic-Referenzen sind Online-Dokumentation;
+das Clipmaps-Paper liegt bereits als PDF unter Terrain/SIGGRAPH.
 
 ## Gebäude und kompakte Fassaden — WI 2173 / 2171
 
