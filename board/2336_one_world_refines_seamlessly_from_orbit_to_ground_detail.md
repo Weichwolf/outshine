@@ -16,7 +16,7 @@ GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist m
 die konservative Zellhülle erzwingt oft Fine. Einfache Gebäudehüllen stellen Wien wieder dar;
 die Fernzusammenfassung greift noch zu spät. Tokyo hält 29,65 Mio. erzeugte Gebäudedreiecke.
 Begrenzte Upload-Batches beheben den belegten Metal-Speicherabbruch; Hausflächen/Türme sind wieder da.
-Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 36/790 ms, Central Park 13/152 ms
+Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 38,65/377,80 ms, Central Park 12,73/149,92 ms
 rot; Central Parks Bild bleibt unverändert. Erzeugte Dreiecke sind keine Messung ausgeführter GPU-Arbeit.
 Isolierte Passabschlüsse lokalisieren die Hauptkosten im nativen Rasterpass: Tokyo/Central Park
 ~33,5/12,4 ms; konstante Tokyo-Beleuchtung ~32,9 ms. Diagnose, keine GPU-Timestamps/Abnahme.
@@ -28,8 +28,9 @@ Gesimse und Fassadenunterteilungen entfallen. Straßen und Terrain-Deformation b
 Fine und Shell verwenden dieselbe einfache Hülle; Massed bündelt entfernte Gebäude.
 Runde Dächer linear triangulieren; Formen, Höfe und gemeinsame Ringkontakte innerhalb 1 mm erhalten.
 Vor Erzeugung auswählen; konservative Formgrenzen nicht lockern, um fehlende Gebäude zu verdecken.
-Draw-Bedarf vor Attributallokation bestimmen: Tokyos GPU-Streamkapazität sinkt von 5,36 auf
-4,64 GB (720 MB Emission entfallen); beide Bilder bleiben pixelgleich. Framekosten bleiben rot.
+Draw-Bedarf vor Attributallokation bestimmen; starre Posen nutzen den Positionsbuffer als Vorpose.
+Tokyos GPU-Streamkapazität sinkt 5,36 → 3,92 GB (Emission/Vorpose); beide Bilder bleiben pixelgleich.
+CPU-Heap bleibt ~4,78 GB; kein belegter Framegewinn durch diese Einsparung. Framekosten bleiben rot.
 
 ## Auswahl der einfachen Hülle
 BuildingMesh liefert eine positive beidseitige Shell-Schranke aus Laibungstiefe, Millimeter-
@@ -108,7 +109,6 @@ ProjectedErrorBudget erlaubt den ersten Schritt; fehlende öffentliche Felder in
 [GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
 und [Geometry Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf)
 ([Primärquellen/Einordnung](../doc/references/README.md)): Batches, Cluster-Bounds, inkrementelle Gitter.
-GPU-Culling ersetzt keine frühe Auswahl; Clipmaps beweisen keine Form/Abdeckung.
 [Simplification Envelopes, SIGGRAPH 1996](../doc/references/geometry/siggraph/1996-simplification-envelopes.pdf):
 Beidseitige Abstände begrenzen; Stichproben und Simplifier-Metriken beweisen keine Hülle.
 
