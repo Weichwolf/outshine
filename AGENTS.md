@@ -14,8 +14,17 @@
 - Ich vermeide Arbeit vor ihrer Optimierung. KISS, DRY, klare Zuständigkeiten und Local Reasoning
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
+- Echtzeit und glaubwürdige Bild-/Spielwirkung bestimmen die Genauigkeit. Ich nutze gemessene
+  räumliche/zeitliche Approximationen; CAD-Genauigkeit ist kein allgemeines Ziel. Speichersicherheit,
+  vollständige Inhalte und verlässliche Interaktionen bleiben verbindlich. Prüfungen folgen diesen
+  Anforderungen; geänderte Anforderungen korrigiere ich ausdrücklich samt betroffenen Tests.
+  Ferndetails dürfen plausibel geschätzt werden; Bildwirkung, Herkunft und Übergang zum Nahdetail zählen.
 - Ich suche selbst Alternativen, sobald ein Ansatz erkennbar ungeeignet ist. Ich prüfe sie gegen
   Bild, Kosten und Verträge und entscheide, ohne auf Lösungsvorschläge des Nutzers zu warten.
+- Kostenbestimmende Verfahren vergleiche ich zuerst in kleinen Python-Experimenten mit echten
+  Eingaben und gleichen Qualitätsanforderungen; den Gewinner integriere und messe ich nativ.
+  Beibehaltene Pfade brauchen Korrektheits-/Kostenbelege und Alternativenvergleich; globale
+  Optimalität behaupte ich nur mit einer tatsächlich hergeleiteten Grenze.
 - Vor Arbeitsblöcken, nach Integration und bei Regressionen durchdenke ich den vollständigen
   Datenfluss bis Bild, Ton, Aktion und nächstem Weltzustand: Laden, Stillstand, Drehung, Bewegung,
   Änderungen, Persistenz und Fehler. Ich prüfe Abhängigkeiten, Besitz, Threads, Kopien und Kosten;
