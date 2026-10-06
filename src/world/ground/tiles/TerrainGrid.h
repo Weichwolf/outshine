@@ -171,6 +171,14 @@ public:
     return std::get_if<TerrainField>(&Field_);
   }
 
+  [[nodiscard]] std::shared_ptr<const TerrainField> ShareField() {
+    if (Where_ != State::Decoded) { return nullptr; }
+    if (auto *field = std::get_if<TerrainField>(&Field_)) {
+      Field_ = std::make_shared<const TerrainField>(std::move(*field));
+    }
+    return std::get<std::shared_ptr<const TerrainField>>(Field_);
+  }
+
   [[nodiscard]] size_t Bytes() const {
     const TerrainField *field = TryField();
     return field != nullptr ? field->Bytes() : 0;

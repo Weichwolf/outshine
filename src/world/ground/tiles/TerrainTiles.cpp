@@ -409,6 +409,14 @@ void TerrainTiles::HoldsStitched(Data::TileId of,
 }
 
 TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
+  if (Config_.PreparedFields) {
+    return Config_.PreparedFields(
+        {.Zoom = z, .X = x, .Y = y}, Shape_, [&] { return BuildStitchedGrid(z, x, y); });
+  }
+  return BuildStitchedGrid(z, x, y);
+}
+
+TerrainGrid TerrainTiles::BuildStitchedGrid(int z, uint32_t x, uint32_t y) {
   TerrainGrid grid = RawGrid({.Zoom = z, .X = x, .Y = y});
   TerrainField *field = grid.TryFieldMutable();
   if (field == nullptr) { return grid; }

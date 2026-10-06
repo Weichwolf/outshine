@@ -2,6 +2,7 @@
 #define OUTSHINE_WORLD_GROUND_TILES_TERRAINTILES_H
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <map>
 #include <mutex>
@@ -146,12 +147,18 @@ private:
 
 class TerrainTiles {
 public:
+  struct Shaped;
+  using FieldFactory = std::function<TerrainGrid()>;
+  using FieldResolver =
+      std::function<TerrainGrid(Data::TileId, const Shaped &, const FieldFactory &)>;
+
   struct Config {
     uint32_t Stride = 1;
 
     size_t DemCacheBytes = 0;
     std::shared_ptr<DecodedCache> Shared;
     size_t StitchedFieldBytes = 0;
+    FieldResolver PreparedFields;
   };
 
   struct Shaped {
@@ -210,6 +217,7 @@ private:
   enum class Corner { NorthWest, NorthEast, SouthWest, SouthEast };
 
   TerrainGrid RawGrid(Data::TileId of);
+  TerrainGrid BuildStitchedGrid(int z, uint32_t x, uint32_t y);
 
   struct StitchedEntry {
     uint64_t Seq = 0;
