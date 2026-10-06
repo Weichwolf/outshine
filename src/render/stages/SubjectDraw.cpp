@@ -58,6 +58,12 @@ constexpr SDL_GPUFrontFace kFrontFace = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 
 constexpr Winding kSubjectWinding = Winding::Trusted;
 
+bool UsesPrevious(const SubjectPose &pose, std::span<const DrawBatch> batches) {
+  return pose.PrevVerts.Stands() && std::ranges::any_of(batches, [](const DrawBatch &batch) {
+           return batch.Motion == VertexMotion::Deforming;
+         });
+}
+
 SDL_GPUColorTargetBlendState OverBlend() {
   SDL_GPUColorTargetBlendState blend{};
   blend.enable_blend = true;
@@ -607,7 +613,7 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
   using S = SubjectResidency::Stream;
   return res.Grow(S::Vertex, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
          res.Grow(S::Normal, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
-         (!Binding().WritesVelocity || subject == 0 ||
+         (!res.Shape().HasPrevious || subject == 0 ||
           res.Grow(
               S::Previous, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error)) &&
          (subject == 0 ||
@@ -761,6 +767,8 @@ SubjectDraw::BeginMesh(const SubjectMesh &mesh) {
       mesh.Draws != nullptr &&
       std::ranges::any_of(mesh.Draws->Batches(),
                           [](const DrawBatch &batch) { return !CarriesNormal(batch.Layout); });
+  Bound().Shape().HasPrevious = Binding().WritesVelocity && mesh.Draws != nullptr &&
+                                UsesPrevious(mesh, mesh.Draws->Batches());
   SubjectBatches_.clear();
   SubjectJobs_.clear();
   SubjectSpheres_.clear();
@@ -886,7 +894,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   const Heap::Tagged uploading(kUploadingTag);
   const SubjectResidency::Range vertices{.First = Bound().SubjectVertices().First,
                                          .Count = Bound().Shape().Vertices};
-  const SubjectStream &previousPose = pose.PrevVerts.Stands() ? pose.PrevVerts : pose.Verts;
+  Bound().Shape().HasPrevious = Binding().WritesVelocity && UsesPrevious(pose, SubjectBatches_);
   using Stream = SubjectResidency::Stream;
   const std::array<VertexStreamUpload, 8> uploads{{{.Which = Stream::Vertex,
                                                     .Source = pose.Verts,
@@ -917,8 +925,8 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
                                                     .Carried = Bound().Shape().HasColour,
                                                     .Components = kQuadFloats},
                                                    {.Which = Stream::Previous,
-                                                    .Source = previousPose,
-                                                    .Carried = Binding().WritesVelocity,
+                                                    .Source = pose.PrevVerts,
+                                                    .Carried = Bound().Shape().HasPrevious,
                                                     .Components = kPositionFloats}}};
   std::array<SubjectResidency::Crossing, uploads.size()> streams;
   size_t count = 0;
@@ -942,7 +950,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   }
   if (!Bound().Buffer(SubjectResidency::Stream::Vertex) ||
       (Bound().Shape().HasEmitted && !Bound().Buffer(SubjectResidency::Stream::Emitted)) ||
-      (Binding().WritesVelocity && !Bound().Buffer(SubjectResidency::Stream::Previous)) ||
+      (Bound().Shape().HasPrevious && !Bound().Buffer(SubjectResidency::Stream::Previous)) ||
       (Bound().Shape().HasColour && !Bound().Buffer(SubjectResidency::Stream::Colour))) {
     Bound().Shape().Indices = 0;
     error = std::string("the subject's vertex streams did not reach the device: ") + SDL_GetError();
@@ -1634,8 +1642,9 @@ void SubjectDraw::BindVertexStreams(const PassRecording &into,
   }
 
   if (Binding().WritesVelocity) {
-    const auto stream = motion == VertexMotion::Rigid ? SubjectResidency::Stream::Vertex
-                                                      : SubjectResidency::Stream::Previous;
+    const auto stream = motion == VertexMotion::Rigid || !Bound().Shape().HasPrevious
+                            ? SubjectResidency::Stream::Vertex
+                            : SubjectResidency::Stream::Previous;
     runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Buffer(stream).Get(), .offset = 0};
   }
   SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), count);
