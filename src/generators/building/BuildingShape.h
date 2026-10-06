@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_BUILDING_BUILDINGSHAPE_H
 
 #include "GeographicRing.h"
+#include "FacadeUv.h"
 #include <span>
 #include <expected>
 #include "Earth.h"
@@ -17,6 +18,8 @@ constexpr double kFloorUnsaidM = 2.9;
 enum class RoofKind : uint8_t { Flat, Gable, Hip, Shed, Mansard, Sawtooth, Dome };
 
 enum class BuildingForm : uint8_t { Outbuilding, House, Terrace, Block, Hall, Tower, Spire };
+
+[[nodiscard]] FacadeStyle BuildingFacadeStyle(BuildingForm form);
 
 struct Boxed {
   double U = 0.0;

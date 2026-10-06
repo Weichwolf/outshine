@@ -1,6 +1,9 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_FACADEUV_H
 #define OUTSHINE_GENERATORS_BUILDING_FACADEUV_H
 
+#include <algorithm>
+#include <cmath>
+
 namespace outshine {
 
 enum class Facade : int {
@@ -38,6 +41,13 @@ constexpr int kFacadeVariants = 8;
 
 constexpr int kFacadeStride = 16;
 constexpr int kIdentCount = 64;
+
+[[nodiscard]] inline double FacadeBays(double lengthM, double bayM) {
+  constexpr double kLeastWallM = 1.9;
+  return lengthM < kLeastWallM
+             ? 0.0
+             : std::clamp(std::round(lengthM / bayM), 1.0, static_cast<double>(kBayCeil - 1.0f));
+}
 
 [[nodiscard]] constexpr bool IsGlazingUv(float u) {
   return u >= 0.0f &&

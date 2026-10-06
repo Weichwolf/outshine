@@ -22,6 +22,19 @@
 
 namespace outshine::Generators {
 
+[[nodiscard]] FacadeStyle BuildingFacadeStyle(BuildingForm form) {
+  switch (form) {
+    case BuildingForm::Outbuilding: return FacadeStyle::Outbuilding;
+    case BuildingForm::Terrace: return FacadeStyle::Terrace;
+    case BuildingForm::Block: return FacadeStyle::Block;
+    case BuildingForm::Hall: return FacadeStyle::Hall;
+    case BuildingForm::Tower: return FacadeStyle::Tower;
+    case BuildingForm::Spire: return FacadeStyle::Spire;
+    case BuildingForm::House: break;
+  }
+  return FacadeStyle::House;
+}
+
 constexpr double kOverhangEavesM = 0.42;
 
 namespace {

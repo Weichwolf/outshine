@@ -27,6 +27,7 @@
 
 #include "BuildingScratch.h"
 #include "BuildingShape.h"
+#include "BuildingPreparation.h"
 #include "Geodesy.h"
 #include "RoofSurface.h"
 
@@ -36,7 +37,6 @@ namespace {
 
 #include "FacadeOpeningValues.h"
 
-constexpr double kLeastWallM = 1.9;
 constexpr double kSameHeightM = 1.0e-3;
 constexpr double kLeastEdgeM = 0.05;
 constexpr double kLeastRiseM = 0.03;
@@ -89,8 +89,6 @@ template <typename T> void TrimAppend(std::vector<T> &output, size_t previousSiz
   while (output.size() > previousSize) { output.pop_back(); }
 }
 
-constexpr double kSinkM = 0.30;
-
 void AppendWallColours(const StructurePlan &plan, size_t first, Raised &into) {
   if (!plan.WallColour && into.WallColours.empty()) { return; }
   if (into.WallColours.empty()) { into.WallColours.resize(first * 4, 1.0f); }
@@ -108,36 +106,22 @@ void AppendWallColours(const StructurePlan &plan, size_t first, Raised &into) {
 
 constexpr double kSlabM = 0.20;
 
-constexpr double kPlinthM = 0.50;
-
 struct Vtx {
   EastNorth P;
   double Z = 0.0;
   float U = 0.0f, V = 0.0f;
 };
 
-[[nodiscard]] FacadeStyle StyleOf(BuildingForm form) {
-  switch (form) {
-    case BuildingForm::Outbuilding: return FacadeStyle::Outbuilding;
-    case BuildingForm::Terrace: return FacadeStyle::Terrace;
-    case BuildingForm::Block: return FacadeStyle::Block;
-    case BuildingForm::Hall: return FacadeStyle::Hall;
-    case BuildingForm::Tower: return FacadeStyle::Tower;
-    case BuildingForm::Spire: return FacadeStyle::Spire;
-    case BuildingForm::House: break;
-  }
-  return FacadeStyle::House;
-}
-
 double EavesZ(const BuildingShape &s) {
   return s.SeatM + s.FootM + s.EavesM;
 }
 
 Vtx Wall(const BuildingShape &s, const EastNorth &p, double z, double bays, Fields stand) {
-  return {.P = p,
-          .Z = z,
-          .U = FacadeUvX(StyleOf(s.Form), stand, s.WallVariant, static_cast<float>(bays)),
-          .V = FacadeUvY(static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
+  return {
+      .P = p,
+      .Z = z,
+      .U = FacadeUvX(BuildingFacadeStyle(s.Form), stand, s.WallVariant, static_cast<float>(bays)),
+      .V = FacadeUvY(static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
 }
 
 Vtx Face(const BuildingShape &s, const EastNorth &p, double z, Facade kind) {
@@ -172,9 +156,7 @@ public:
   [[nodiscard]] bool RecessedOpenings() const { return RecessedOpenings_; }
 
   [[nodiscard]] double LowerZ(const BuildingShape &shape) const {
-    if (shape.OnGround()) { return shape.SoleM; }
-    const double lower = shape.SeatM + shape.FootM - kSinkM;
-    return MinimumHeightM_ != 0.0 ? std::max(MinimumHeightM_, lower) : lower;
+    return BuildingBottomM(shape, MinimumHeightM_);
   }
 
   [[nodiscard]] BuildingScratch &Scratch() { return Scratch_; }
@@ -304,58 +286,6 @@ private:
   double MinimumHeightM_ = 0.0;
 };
 
-class FoundationGround {
-public:
-  explicit FoundationGround(const StructurePlan &plan)
-      : HighM_(plan.SeatAslM - plan.BaseAslM), LowM_(plan.FootAslM - plan.BaseAslM) {
-    const auto ringLatLon = plan.RingLatLon;
-    const auto cornerAslM = plan.CornerAslM;
-    const double baseAslM = plan.BaseAslM;
-    const size_t n = cornerAslM.size();
-    if (n == 0) { return; }
-    std::array<std::array<double, 4>, 3> m = {};
-    for (size_t k = 0; k < n; k++) {
-      const EastNorth away =
-          EnuOffsetM({.LongitudeDeg = ringLatLon[1], .LatitudeDeg = ringLatLon[0]},
-                     {.LongitudeDeg = ringLatLon[k * 2 + 1], .LatitudeDeg = ringLatLon[k * 2]});
-      const double z = cornerAslM[k] - baseAslM;
-      const Vec3 b = {{1.0, away.EastM, away.NorthM}};
-      for (int r = 0; r < 3; r++) {
-        for (int c = 0; c < 3; c++) { m[r][c] += b[r] * b[c]; }
-        m[r][3] += b[r] * z;
-      }
-    }
-    for (int c = 0; c < 3; c++) {
-      int piv = c;
-      for (int r = c + 1; r < 3; r++) {
-        if (std::fabs(m[r][c]) > std::fabs(m[piv][c])) { piv = r; }
-      }
-      if (std::fabs(m[piv][c]) < kLeastRunM) { return; }
-      for (int k = 0; k < 4; k++) { std::swap(m[c][k], m[piv][k]); }
-      for (int r = 0; r < 3; r++) {
-        if (r == c) { continue; }
-        const double f = m[r][c] / m[c][c];
-        for (int k = c; k < 4; k++) { m[r][k] -= f * m[c][k]; }
-      }
-    }
-    Const_ = m[0][3] / m[0][0];
-    SlopeE_ = m[1][3] / m[1][1];
-    SlopeN_ = m[2][3] / m[2][2];
-  }
-
-  [[nodiscard]] double At(const EastNorth &p) const {
-    return Const_ + SlopeE_ * p.EastM + SlopeN_ * p.NorthM;
-  }
-
-  [[nodiscard]] double High() const { return HighM_; }
-
-  [[nodiscard]] double Low() const { return LowM_; }
-
-private:
-  double Const_ = 0.0, SlopeE_ = 0.0, SlopeN_ = 0.0;
-  double HighM_ = 0.0, LowM_ = 0.0;
-};
-
 double EdgeLength(const EastNorth &p, const EastNorth &q) {
   return std::hypot(q.EastM - p.EastM, q.NorthM - p.NorthM);
 }
@@ -363,11 +293,6 @@ double EdgeLength(const EastNorth &p, const EastNorth &q) {
 EastNorth Along(const EastNorth &p, const EastNorth &q, double t) {
   return {.EastM = p.EastM + (q.EastM - p.EastM) * t,
           .NorthM = p.NorthM + (q.NorthM - p.NorthM) * t};
-}
-
-double BaysOn(double lengthM, double bayM) {
-  if (lengthM < kLeastWallM) { return 0.0; }
-  return std::clamp(std::round(lengthM / bayM), 1.0, static_cast<double>(kBayCeil - 1.0f));
 }
 
 void WallPanel(const BuildingShape &s,
@@ -561,7 +486,7 @@ void Walls(const BuildingShape &s,
     const EastNorth &q = ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
-    const double bays = (exterior && s.PartyWallEdges[i] != 0u) ? 0.0 : BaysOn(len, s.BayM);
+    const double bays = (exterior && s.PartyWallEdges[i] != 0u) ? 0.0 : FacadeBays(len, s.BayM);
     const Fields stand =
         exterior && std::cmp_equal(i, s.FrontEdge) ? Fields::Entrance : Fields::Back;
     if (RecessedWall(s,
@@ -589,44 +514,6 @@ void Walls(const BuildingShape &s,
       was = now;
     }
   }
-}
-
-constexpr double kGroundStepM = 2.0;
-
-void SampleGround(const BuildingShape &s,
-                  const FoundationGround &ground,
-                  double *lowest,
-                  double *highest) {
-  bool first = true;
-  const size_t n = s.Ring.size();
-  for (size_t i = 0; i < n; i++) {
-    const EastNorth &p = s.Ring[i];
-    const EastNorth &q = s.Ring[(i + 1) % n];
-    const double len = EdgeLength(p, q);
-    const int steps = 1 + static_cast<int>(len / kGroundStepM);
-    for (int step = 0; step < steps; ++step) {
-      const double at =
-          ground.At(Along(p, q, static_cast<double>(step) / static_cast<double>(steps)));
-      if (first) {
-        *lowest = *highest = at;
-        first = false;
-        continue;
-      }
-      *lowest = std::min(at, *lowest);
-      *highest = std::max(at, *highest);
-    }
-  }
-  if (first) { *lowest = *highest = 0.0; }
-}
-
-double PlinthFootZ(const BuildingShape &s, const FoundationGround &ground) {
-  double lowest = 0.0;
-  double highest = 0.0;
-  SampleGround(s, ground, &lowest, &highest);
-  lowest = std::min(lowest, ground.Low());
-  highest = std::max(highest, ground.High());
-  const double spread = highest - lowest;
-  return lowest - (spread > kSinkM ? 2.0 * spread : kSinkM);
 }
 
 void Floor(const BuildingShape &s, std::span<const EastNorth> ring, double atZ, Site &site) {
@@ -699,16 +586,6 @@ void Covering(const BuildingShape &s,
   }
 }
 
-double PlinthTopZ(const BuildingShape &s, const FoundationGround &ground) {
-  double lowest = 0.0;
-  double highest = 0.0;
-  SampleGround(s, ground, &lowest, &highest);
-  const double seatZ = ground.High();
-  const double seat = std::max(seatZ, highest) + kPlinthM;
-
-  return seat;
-}
-
 [[nodiscard]] std::array<EastNorth, 4> Hull(std::span<const EastNorth> ring) {
   const size_t n = ring.size();
   double bestArea = kBeyondAnyCoordinate;
@@ -762,7 +639,7 @@ void RaiseMassedEnvelope(const BuildingShape &s, std::span<const EastNorth> ring
   const Facade roof = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i < 4; i++) {
     const size_t j = (i + 1) % 4;
-    const double bays = BaysOn(EdgeLength(ring[i], ring[j]), s.BayM);
+    const double bays = FacadeBays(EdgeLength(ring[i], ring[j]), s.BayM);
     site.Quad(Wall(s, ring[i], lowZ, 0.0, Fields::Back),
               Wall(s, ring[j], lowZ, bays, Fields::Back),
               Wall(s, ring[j], topZ, bays, Fields::Back),
@@ -814,27 +691,6 @@ void RaisePart(const BuildingShape &s, Site &site) {
   }
 }
 
-std::expected<std::span<BuildingShape>, StructureMeshError> PartsOf(const StructurePlan &plan,
-                                                                    BuildingScratch &scratch) {
-  auto parts = MassOf(plan.RingLatLon,
-                      {.HeightM = plan.HeightM,
-                       .MinimumHeightM = plan.MinimumHeightM,
-                       .HeightMeasured = plan.HeightMeasured,
-                       .PitchedShare = plan.PitchedShare},
-                      plan.Street,
-                      scratch,
-                      plan.InnerRings,
-                      plan.RingPointsLatLon);
-  if (!parts) { return std::unexpected(parts.error()); }
-  const FoundationGround ground(plan);
-  for (BuildingShape &part : *parts) {
-    if (plan.WallColour) { part.WallVariant = 0; }
-    part.SeatM = plan.MinimumHeightM != 0.0 ? 0.0 : PlinthTopZ(part, ground);
-    part.SoleM = plan.MinimumHeightM != 0.0 ? plan.MinimumHeightM : PlinthFootZ(part, ground);
-  }
-  return parts;
-}
-
 double ShellErrorAtMagnitude(double magnitudeM) noexcept {
   const double weldM = std::numbers::sqrt3 / kBuildingWeldPerM;
   const double roundingM = 4.0 * std::numbers::sqrt3 * std::numeric_limits<float>::epsilon() *
@@ -856,7 +712,7 @@ std::optional<Box> BuildingMesh::SourceEnvelopeBounds(const StructurePlan &plan,
   }
   auto *scratch = dynamic_cast<BuildingScratch *>(&lent);
   if (scratch == nullptr) { return std::nullopt; }
-  const auto parts = PartsOf(plan, *scratch);
+  const auto parts = PrepareBuildingShapes(plan, *scratch);
   if (!parts || parts->empty()) { return std::nullopt; }
   Raised unused;
   const Site site(plan, *scratch, unused);
@@ -901,7 +757,7 @@ std::optional<double> BuildingMesh::ShellSurfaceErrorM(const StructurePlan &plan
   }
   auto *scratch = dynamic_cast<BuildingScratch *>(&lent);
   if (scratch == nullptr) { return std::nullopt; }
-  const auto parts = PartsOf(plan, *scratch);
+  const auto parts = PrepareBuildingShapes(plan, *scratch);
   if (!parts || parts->empty()) { return std::nullopt; }
   Raised unused;
   const Site site(plan, *scratch, unused);
@@ -932,7 +788,7 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
     TrimAppend(into.WallRun, sizes[2]);
     TrimAppend(into.RoofRun, sizes[3]);
   };
-  const auto mass = PartsOf(plan, scratch);
+  const auto mass = PrepareBuildingShapes(plan, scratch);
   if (!mass) { return std::unexpected(mass.error()); }
   const std::span<BuildingShape> parts = *mass;
   if (parts.empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
@@ -955,4 +811,5 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
   AppendWallColours(plan, sizes[0], into);
   return {};
 }
+
 }
