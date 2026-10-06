@@ -18,7 +18,8 @@ struct SurfaceBindings {
                             SurfaceKind kind,
                             SurfaceDomain domain,
                             long identityIndex) {
-    Shape.VertexStorageBuffers = CarriesColour(layout) ? 2u : 1u;
+    Shape.VertexStorageBuffers =
+        1u + (CarriesColour(layout) ? 1u : 0u) + (CarriesTangent(layout) ? 1u : 0u);
     const bool flat = !CarriesNormal(layout);
     const bool transmits = kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
     if (domain == SurfaceDomain::Ground) {

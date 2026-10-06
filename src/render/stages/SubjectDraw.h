@@ -440,6 +440,7 @@ private:
     SubjectResidency::Range V;
     SubjectResidency::Range I;
     SubjectResidency::Range C;
+    SubjectResidency::Range T;
     uint32_t IndexCount = 0;
     PieceSurface Surface;
     VertexLayout Layout = VertexLayout::PositionNormal;
@@ -469,11 +470,12 @@ private:
   struct OptionalStreamEnds {
     uint32_t VertexEnd;
     uint32_t ColourEnd;
+    uint32_t TangentEnd;
   };
 
   [[nodiscard]] bool
   RoomForOptionalStreams(OptionalStreamEnds ends, VertexRunsCarried carried, std::string &error);
-  void BindPlacementStorage(const PassRecording &into);
+  void BindPlacementStorage(const PassRecording &into, VertexLayout layout);
   [[nodiscard]] size_t IndirectRunEnd(size_t first) const noexcept;
   [[nodiscard]] bool Retable(std::string &error);
   [[nodiscard]] bool BuildSubjectBatches(std::string &error);

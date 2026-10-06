@@ -102,6 +102,10 @@ struct SubjectResidency {
 
   void GiveColours(Range back) { Give(FreeC_, back); }
 
+  [[nodiscard]] Range TakeTangents(uint32_t count) { return Take(FreeT_, count, TopT_); }
+
+  void GiveTangents(Range back) { Give(FreeT_, back); }
+
   [[nodiscard]] Range TakeIndices(uint32_t count) { return Take(FreeI_, count, TopI_); }
 
   void GiveIndices(Range back) { Give(FreeI_, back); }
@@ -116,10 +120,15 @@ struct SubjectResidency {
 
   [[nodiscard]] const Range &SubjectColours() const { return SubjectC_; }
 
-  void SubjectStands(Range vertices, Range indices, Range colours) {
+  [[nodiscard]] const Range &SubjectTangents() const noexcept { return SubjectT_; }
+
+  [[nodiscard]] uint32_t TangentRoom() const noexcept { return TopT_; }
+
+  void SubjectStands(Range vertices, Range indices, Range colours, Range tangents) {
     SubjectV_ = vertices;
     SubjectI_ = indices;
     SubjectC_ = colours;
+    SubjectT_ = tangents;
   }
 
   void StandsOn(SDL_GPUDevice *device) { Device_ = device; }
@@ -204,12 +213,15 @@ private:
   std::vector<Range> FreeV_;
   std::vector<Range> FreeI_;
   std::vector<Range> FreeC_;
+  std::vector<Range> FreeT_;
   uint32_t TopV_ = 0;
   uint32_t TopI_ = 0;
   uint32_t TopC_ = 0;
+  uint32_t TopT_ = 0;
   Range SubjectV_;
   Range SubjectI_;
   Range SubjectC_;
+  Range SubjectT_;
 
   struct Staged {
     SDL_GPUBuffer *Into = nullptr;

@@ -6,7 +6,6 @@
 #include "subjectVaryings.glsl"
 #if LIT_MAPPED
 layout(location = 9) out vec4 tangent;
-layout(location = 4) in vec4 vertexTangent;
 #endif
 #include "subjectPlacement.glsl"
 layout(location = 0) in vec3 p;
@@ -19,6 +18,13 @@ layout(location = 6) in vec2 vertexUv1;
 #endif
 #if LIT_TINTED
 layout(std430, set = 0, binding = 1) readonly buffer ColourFactors { vec4 colourFactors[]; };
+#endif
+#if LIT_MAPPED
+#if LIT_TINTED
+layout(std430, set = 0, binding = 2) readonly buffer TangentFactors { vec4 tangentFactors[]; };
+#else
+layout(std430, set = 0, binding = 1) readonly buffer TangentFactors { vec4 tangentFactors[]; };
+#endif
 #endif
 #if SUBJECT_WRITES_VELOCITY
 layout(location = 5) in vec3 previous;
@@ -47,6 +53,7 @@ void main() {
   colour = colourFactors[placement.colourOffset + uint(gl_VertexIndex)];
 #endif
 #if LIT_MAPPED
+  vec4 vertexTangent = tangentFactors[placement.tangentOffset + uint(gl_VertexIndex)];
   tangent = vec4(normalize(m[0].xyz * vertexTangent.x + m[1].xyz * vertexTangent.y +
                           m[2].xyz * vertexTangent.z), vertexTangent.w);
 #endif

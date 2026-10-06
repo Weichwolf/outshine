@@ -14,7 +14,8 @@ struct alignas(16) GpuPlacement {
   std::array<float, 16> Current{};
   std::array<float, 16> Previous{};
   uint32_t ColourOffset = 0;
-  std::array<uint32_t, 3> Reserved{};
+  uint32_t TangentOffset = 0;
+  std::array<uint32_t, 2> Reserved{};
 };
 
 static_assert(std::is_standard_layout_v<GpuPlacement>);
@@ -24,7 +25,8 @@ static_assert(alignof(GpuPlacement) == 16);
 static_assert(offsetof(GpuPlacement, Current) == 0);
 static_assert(offsetof(GpuPlacement, Previous) == 64);
 static_assert(offsetof(GpuPlacement, ColourOffset) == 128);
-static_assert(offsetof(GpuPlacement, Reserved) == 128 + sizeof(uint32_t));
+static_assert(offsetof(GpuPlacement, TangentOffset) == 128 + sizeof(uint32_t));
+static_assert(offsetof(GpuPlacement, Reserved) == 128 + 2 * sizeof(uint32_t));
 
 }
 #endif

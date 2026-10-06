@@ -620,13 +620,15 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
           ((!res.Shape().HasEmitted ||
             res.Grow(
                 S::Emitted, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error)) &&
-           RoomForOptionalStreams({.VertexEnd = res.SubjectVertices().First + res.Shape().Vertices,
-                                   .ColourEnd = res.SubjectColours().First + res.Shape().Vertices},
-                                  {.Uv = res.Shape().HasUv,
-                                   .Uv1 = res.Shape().HasUv1,
-                                   .Tangent = res.Shape().HasTangent,
-                                   .Colour = res.Shape().HasColour},
-                                  error))) &&
+           RoomForOptionalStreams(
+               {.VertexEnd = res.SubjectVertices().First + res.Shape().Vertices,
+                .ColourEnd = res.SubjectColours().First + res.Shape().Vertices,
+                .TangentEnd = res.SubjectTangents().First + res.Shape().Vertices},
+               {.Uv = res.Shape().HasUv,
+                .Uv1 = res.Shape().HasUv1,
+                .Tangent = res.Shape().HasTangent,
+                .Colour = res.Shape().HasColour},
+               error))) &&
          res.Grow(S::Index,
                   {.Usage = kIndexUse,
                    .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t))},
@@ -645,7 +647,11 @@ bool SubjectDraw::RoomForOptionalStreams(OptionalStreamEnds ends,
                                     error);
   };
   return grow(S::Uv, carried.Uv, kPairFloats) && grow(S::Uv1, carried.Uv1, kPairFloats) &&
-         grow(S::Tangent, carried.Tangent, kQuadFloats) &&
+         (!carried.Tangent || Bound().Grow(S::Tangent,
+                                           {.Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+                                            .Bytes = ends.TangentEnd * kQuadFloats *
+                                                     static_cast<uint32_t>(sizeof(float))},
+                                           error)) &&
          (!carried.Colour || Bound().Grow(S::Colour,
                                           {.Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
                                            .Bytes = ends.ColourEnd * kQuadFloats *
@@ -787,7 +793,8 @@ SubjectDraw::BeginMesh(const SubjectMesh &mesh) {
       Bound().GiveVertices(Bound().SubjectVertices());
       Bound().GiveIndices(Bound().SubjectIndices());
       Bound().GiveColours(Bound().SubjectColours());
-      Bound().SubjectStands({}, {}, {});
+      Bound().GiveTangents(Bound().SubjectTangents());
+      Bound().SubjectStands({}, {}, {}, {});
     }
     if (!HandTables(error)) { return std::unexpected(std::move(error)); }
     return MeshTicket{.Generation = Reshaped_};
@@ -812,11 +819,14 @@ SubjectDraw::BeginMesh(const SubjectMesh &mesh) {
     Bound().GiveVertices(Bound().SubjectVertices());
     Bound().GiveIndices(Bound().SubjectIndices());
     Bound().GiveColours(Bound().SubjectColours());
+    Bound().GiveTangents(Bound().SubjectTangents());
     const SubjectResidency::Range v = Bound().TakeVertices(mesh.VertexCount);
     const SubjectResidency::Range i = Bound().TakeIndices(mesh.IndexCount);
     const auto c =
         mesh.Colours.Stands() ? Bound().TakeColours(mesh.VertexCount) : SubjectResidency::Range{};
-    Bound().SubjectStands(v, i, c);
+    const auto t =
+        mesh.Tangents.Stands() ? Bound().TakeTangents(mesh.VertexCount) : SubjectResidency::Range{};
+    Bound().SubjectStands(v, i, c, t);
     if (!RoomForStreams(error)) {
       Bound().Shape().Indices = 0;
       return std::unexpected(std::move(error));
@@ -931,10 +941,9 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
   std::array<SubjectResidency::Crossing, uploads.size()> streams;
   size_t count = 0;
   for (const auto &upload : uploads) {
-    const auto range = upload.Which == Stream::Colour
-                           ? SubjectResidency::Range{.First = Bound().SubjectColours().First,
-                                                     .Count = vertices.Count}
-                           : vertices;
+    auto range = vertices;
+    if (upload.Which == Stream::Colour) { range.First = Bound().SubjectColours().First; }
+    if (upload.Which == Stream::Tangent) { range.First = Bound().SubjectTangents().First; }
     const auto crossing = VertexCrossing(upload, range);
     if (!crossing) {
       error = crossing.error();
@@ -1009,17 +1018,20 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   const SubjectResidency::Range v = res.TakeVertices(verts);
   const SubjectResidency::Range i = res.TakeIndices(indices);
   const auto c = piece.Colours.empty() ? SubjectResidency::Range{} : res.TakeColours(verts);
-  const auto giveBack = [&res, v, i, c] {
+  const auto t = piece.Tangents.empty() ? SubjectResidency::Range{} : res.TakeTangents(verts);
+  const auto giveBack = [&res, v, i, c, t] {
     res.GiveVertices(v);
     res.GiveIndices(i);
     res.GiveColours(c);
+    res.GiveTangents(t);
   };
-  if (!RoomForStreams(error) ||
-      !RoomForOptionalStreams({.VertexEnd = v.First + verts, .ColourEnd = c.First + verts},
-                              {.Uv = piece.Textured,
-                               .Tangent = !piece.Tangents.empty(),
-                               .Colour = !piece.Colours.empty()},
-                              error)) {
+  if (!RoomForStreams(error) || !RoomForOptionalStreams({.VertexEnd = v.First + verts,
+                                                         .ColourEnd = c.First + verts,
+                                                         .TangentEnd = t.First + verts},
+                                                        {.Uv = piece.Textured,
+                                                         .Tangent = !piece.Tangents.empty(),
+                                                         .Colour = !piece.Colours.empty()},
+                                                        error)) {
     giveBack();
     return kNoPiece;
   }
@@ -1056,10 +1068,10 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
        .Writes = WritePieceUv,
        .Carrying = &carrying},
       {.Which = SubjectResidency::Stream::Tangent,
-       .Usage = vertexUse,
+       .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
        .From = piece.Tangents.data(),
        .Bytes = static_cast<uint32_t>(piece.Tangents.size() * sizeof(float)),
-       .Offset = floatsAt(kQuadFloats)},
+       .Offset = t.First * kQuadFloats * static_cast<uint32_t>(sizeof(float))},
       {.Which = SubjectResidency::Stream::Colour,
        .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
        .From = piece.Colours.data(),
@@ -1087,6 +1099,7 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   held.V = v;
   held.I = i;
   held.C = c;
+  held.T = t;
   held.IndexCount = indices;
   held.Surface = piece.Surface;
   held.Emitted.reset();
@@ -1136,6 +1149,7 @@ void SubjectDraw::ReleasePiece(PieceId which) {
   Bound().GiveVertices(held.V);
   Bound().GiveIndices(held.I);
   Bound().GiveColours(held.C);
+  Bound().GiveTangents(held.T);
   PieceTriangles_ -= held.IndexCount / 3u;
   held.Live = false;
   held.Clusters.clear();
@@ -1618,7 +1632,6 @@ void SubjectDraw::BindVertexStreams(const PassRecording &into,
                                     VertexMotion motion) const {
   const bool textured = CarriesUv(layout);
   const bool lit = CarriesNormal(layout);
-  const bool mapped = CarriesTangent(layout);
   const bool secondUv = CarriesUv1(layout);
   std::array<SDL_GPUBufferBinding, VertexShape::kRuns> runs = {{}};
   uint32_t count = 0;
@@ -1636,10 +1649,6 @@ void SubjectDraw::BindVertexStreams(const PassRecording &into,
       SDL_GPUBufferBinding{.buffer = lit ? Bound().Buffer(SubjectResidency::Stream::Normal).Get()
                                          : Bound().Buffer(SubjectResidency::Stream::Emitted).Get(),
                            .offset = 0};
-  if (mapped) {
-    runs[count++] = SDL_GPUBufferBinding{
-        .buffer = Bound().Buffer(SubjectResidency::Stream::Tangent).Get(), .offset = 0};
-  }
 
   if (Binding().WritesVelocity) {
     const auto stream = motion == VertexMotion::Rigid || !Bound().Shape().HasPrevious
@@ -1671,8 +1680,6 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   enum class IndexBinding { Unbound, Direct, Indirect };
   IndexBinding indexBinding = IndexBinding::Unbound;
 
-  if (drawsBatches) { BindPlacementStorage(into); }
-
   std::pair bound{kPipelines, VertexMotion::Deforming};
   uint32_t boundSlot = kNoSlot;
   const bool cut = Bound().Buffer(SubjectResidency::Stream::DrawIndex) &&
@@ -1693,6 +1700,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     if (wantedBinding != bound) {
       SDL_BindGPUGraphicsPipeline(into.Pass, Binding().Pipelines[wantedPipeline].Get());
       BindVertexStreams(into, wanted, batch.Motion);
+      BindPlacementStorage(into, wanted);
       bound = wantedBinding;
       boundSlot = kNoSlot;
     }

@@ -5,6 +5,7 @@ struct GpuPlacement {
   mat4 current;
   mat4 previous;
   uint colourOffset;
+  uint tangentOffset;
 };
 layout(std430, set = 0, binding = PLACEMENT_BINDING) readonly buffer Placements {
   GpuPlacement placements[];

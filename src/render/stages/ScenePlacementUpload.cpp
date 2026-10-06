@@ -11,11 +11,16 @@
 
 namespace outshine::Render {
 
-void SubjectDraw::BindPlacementStorage(const PassRecording &into) {
-  const std::array<SDL_GPUBuffer *const, 2> rows = {
-      Bound().Buffer(SubjectResidency::Stream::Placements).Get(),
-      Bound().Buffer(SubjectResidency::Stream::Colour).Get()};
-  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), rows[1] != nullptr ? 2u : 1u);
+void SubjectDraw::BindPlacementStorage(const PassRecording &into, VertexLayout layout) {
+  std::array<SDL_GPUBuffer *, 3> rows{Bound().Buffer(SubjectResidency::Stream::Placements).Get()};
+  uint32_t count = 1;
+  if (CarriesColour(layout)) {
+    rows[count++] = Bound().Buffer(SubjectResidency::Stream::Colour).Get();
+  }
+  if (CarriesTangent(layout)) {
+    rows[count++] = Bound().Buffer(SubjectResidency::Stream::Tangent).Get();
+  }
+  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), count);
 }
 
 bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
@@ -35,6 +40,7 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
         Rows_[offset].Previous[at] = held;
       }
       Rows_[offset].ColourOffset = piece.C.First - piece.V.First;
+      Rows_[offset].TangentOffset = piece.T.First - piece.V.First;
       ++offset;
     }
   }
@@ -49,6 +55,7 @@ bool SubjectDraw::HandPlacements(bool deferred, std::string &error) {
       Rows_[row].Previous[at] = static_cast<float>(was[at]);
     }
     Rows_[row].ColourOffset = Bound().SubjectColours().First - Bound().SubjectVertices().First;
+    Rows_[row].TangentOffset = Bound().SubjectTangents().First - Bound().SubjectVertices().First;
   }
   std::array rows = {SubjectResidency::Crossing{
       .Which = SubjectResidency::Stream::Placements,
