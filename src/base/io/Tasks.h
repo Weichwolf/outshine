@@ -31,6 +31,7 @@ public:
   [[nodiscard]] Handle Post(Job job);
   [[nodiscard]] Handle PostSteps(Step step);
   [[nodiscard]] bool PostDetached(Job job);
+  [[nodiscard]] bool PostDetachedSteps(Step step);
   [[nodiscard]] bool TakeCompletion(Handle which);
   [[nodiscard]] bool AwaitCompletion(double seconds);
   void Wait(Handle which);

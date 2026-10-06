@@ -44,6 +44,10 @@ bool Tasks::PostDetached(Job job) {
   return Queue(WorkItem(std::in_place_type<Job>, std::move(job)), false) != kNoTask;
 }
 
+bool Tasks::PostDetachedSteps(Step step) {
+  return Queue(WorkItem(std::in_place_type<Step>, std::move(step)), false) != kNoTask;
+}
+
 Tasks::Handle Tasks::Queue(WorkItem work, bool tracked) {
   Handle which = kNoTask;
   {
