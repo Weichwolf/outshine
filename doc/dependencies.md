@@ -37,6 +37,9 @@ Debian/Ubuntu, abhängig von der Distributionsversion:
 sudo apt install libgeos-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev
 ```
 
-GEOS, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten. meshoptimizer liefert
+GEOS, SQLite, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten. meshoptimizer liefert
 einen CMake-Vertrag (`meshoptimizer::meshoptimizer`); keine erfundene pkg-config-Abhängigkeit.
 Optionale Pakete werden erst beim jeweiligen Feature an den Build angeschlossen.
+
+Der integrierte native Assetcache benötigt SQLite auch im Runtime-Link. Statische Nutzer von
+`liboutshine.a` binden zusätzlich zu den vorhandenen Bibliotheken `pkg-config --libs sqlite3` ein.
