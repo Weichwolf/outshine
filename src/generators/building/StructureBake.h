@@ -73,6 +73,16 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError, Struct
   return "unknown structure bake error";
 }
 
+struct StructureSelectionView {
+  LongitudeLatitude Eye;
+  std::optional<Vec3> EyeEcef;
+  ProjectedErrorBudget Projection;
+
+  [[nodiscard]] bool Contains(LongitudeLatitude eye,
+                              ProjectedErrorBudget projection,
+                              std::optional<Vec3> eyeEcef = std::nullopt) const noexcept;
+};
+
 struct RawTile {
   struct Structure {
     uint32_t LocalFirst = 0;
@@ -101,6 +111,7 @@ struct RawTile {
   StructureSourceInputs SourceInputs;
   Vec3 AnchorEcef;
   LongitudeLatitude Eye;
+  std::optional<Vec3> EyeEcef;
   std::optional<LevelOfDetail> RequestedDetail;
   std::optional<uint32_t> RequestedCell;
   ProjectedErrorBudget Projection{};
@@ -120,6 +131,7 @@ struct BakedTile {
   ClusteredMesh Walls, Roofs;
   uint64_t Digest = 0;
   bool FallbackHeights = false;
+  std::optional<StructureSelectionView> SelectedView;
   std::optional<LevelOfDetail> RequestedDetail;
   std::optional<uint32_t> RequestedCell;
   std::optional<outshine::Ground::GeoBounds> FootprintBounds;

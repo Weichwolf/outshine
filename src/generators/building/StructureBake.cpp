@@ -19,6 +19,7 @@
 
 #include "math/Units.h"
 #include "StructureMassing.h"
+#include "StructurePlanSelection.h"
 #include "Geodesy.h"
 #include <scene/ProjectedErrorBudget.h>
 
@@ -312,8 +313,7 @@ struct Standing {
 
 using MassPlans = std::vector<StructureMassPlan>;
 
-std::expected<void, StructureMeshError>
-StageStructureMass(MassPlans &into, Spread over, Standing at, uint32_t cell) {
+StructureMassPlan StructureMassOf(Spread over, Standing at, uint32_t cell) {
   StructureMassPlan plan{.LowLat = over.LowLat,
                          .HighLat = over.HighLat,
                          .LowLon = over.LowLon,
@@ -333,54 +333,18 @@ StageStructureMass(MassPlans &into, Spread over, Standing at, uint32_t cell) {
   for (size_t channel = 0; channel < 3; ++channel) {
     plan.WallColourSum[channel] = static_cast<double>(colour[channel]) * at.RoofAreaM2;
   }
-  into.push_back(plan);
-  return {};
+  return plan;
 }
 
 std::expected<void, StructureMeshError> RaiseStructureMass(const StructureMassPlan &of,
                                                            const RawTile &raw,
                                                            const StructureMesher &mesher,
                                                            MeshScratch &scratch,
-                                                           std::vector<double> &corners,
                                                            Raised &into) {
   if (of.Count == 0) { return {}; }
-  const auto over = static_cast<double>(of.Count);
-  const double midLat = 0.5 * (of.LowLat + of.HighLat);
-  const double midLon = 0.5 * (of.LowLon + of.HighLon);
-  const double spanLatM = (of.HighLat - of.LowLat) * kMPerDegLat;
-  const double spanLonM = (of.HighLon - of.LowLon) * kMPerDegLon * std::cos(midLat * kDeg2Rad);
-  const double boxM2 = spanLatM * spanLonM;
-  const double shrink = boxM2 > 0.0 && of.RoofAreaM2 > 0.0 && of.RoofAreaM2 < boxM2
-                            ? std::sqrt(of.RoofAreaM2 / boxM2)
-                            : 1.0;
-  const double halfLat = 0.5 * (of.HighLat - of.LowLat) * shrink;
-  const double halfLon = 0.5 * (of.HighLon - of.LowLon) * shrink;
-  const double lowLat = midLat - halfLat;
-  const double highLat = midLat + halfLat;
-  const double lowLon = midLon - halfLon;
-  const double highLon = midLon + halfLon;
-  const std::array<double, 8> ring = {
-      lowLat, lowLon, lowLat, highLon, highLat, highLon, highLat, lowLon};
-  corners.assign(4, of.BaseSum / over);
-  StructurePlan plan;
-  plan.RingLatLon = std::span<const double>(ring.data(), ring.size());
-  plan.BaseAslM = of.BaseSum / over;
-  plan.SeatAslM = of.SeatSum / over;
-  plan.FootAslM = of.BaseSum / over;
-  plan.CornerAslM = std::span<const double>(corners.data(), corners.size());
-  plan.HeightM = of.HeightSum / over;
-  plan.HeightMeasured = false;
-  plan.Street = {};
-  plan.AnchorEcef = raw.AnchorEcef;
-  plan.Coarseness = of.Level;
-  plan.PitchedShare = of.RoofAreaM2 > 0.0 ? of.PitchedAreaM2 / of.RoofAreaM2 : kPitchedShareUnknown;
-  if (of.HasWallColour && of.RoofAreaM2 > 0.0) {
-    Vec3f colour{};
-    for (size_t channel = 0; channel < 3; ++channel) {
-      colour[channel] = static_cast<float>(of.WallColourSum[channel] / of.RoofAreaM2);
-    }
-    plan.WallColour = colour;
-  }
+  std::array<double, 8> ring{};
+  std::array<double, 4> cornerHeights{};
+  const auto plan = DescribeStructureMass(of, raw, ring, cornerHeights);
   return mesher.Mesh(plan, scratch, into);
 }
 
@@ -434,15 +398,13 @@ std::expected<void, StructureBakeError> FinishStructures(MassPlans &masses,
                                                          const RawTile &raw,
                                                          const StructureMesher &mesher,
                                                          MeshScratch &scratch,
-                                                         std::vector<double> &corners,
                                                          BakedTile &out,
                                                          const std::atomic_bool *stopping) {
   auto grouped = GroupStructureMasses(masses, raw, stopping);
   if (!grouped) { return std::unexpected(grouped.error()); }
   for (const StructureMassPlan &block : *grouped) {
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-    const auto built =
-        AccountMesh(RaiseStructureMass(block, raw, mesher, scratch, corners, out.Built), out);
+    const auto built = AccountMesh(RaiseStructureMass(block, raw, mesher, scratch, out.Built), out);
     if (!built) { return std::unexpected(built.error()); }
   }
   out.Blocks = static_cast<int>(grouped->size());
@@ -590,6 +552,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                                 std::span<const double> pts,
                                                 const std::vector<WayLine> &ways,
                                                 MassPlans &masses,
+                                                StructurePlanSelection &selection,
                                                 std::vector<double> &corners,
                                                 double statedM,
                                                 const std::atomic_bool *stopping) {
@@ -674,19 +637,23 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.Coarseness = level;
   plan.RecessedOpenings = detail.RecessedOpenings;
 
+  const auto mass = StructureMassOf(bounds,
+                                    {.BaseM = base,
+                                     .SeatM = seat,
+                                     .HeightM = fp.HeightM,
+                                     .RoofAreaM2 = RingAreaM2(pts, ring),
+                                     .Pitched = one.Pitched != 0,
+                                     .WallColour = one.WallColour,
+                                     .Level = level},
+                                    one.Cell.Index);
+  if (!raw.RequestedDetail) {
+    IncludeShellError(
+        out, cellAt, selection.Add(plan, mass, out.Prints.size() - 1u, mesher, scratch));
+    return {};
+  }
   if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0 && one.HoleCount == 0) {
     IncludeShellError(out, cellAt, mesher.ShellSurfaceErrorM(plan, scratch));
-    const auto lumped = StageStructureMass(masses,
-                                           bounds,
-                                           {.BaseM = base,
-                                            .SeatM = seat,
-                                            .HeightM = fp.HeightM,
-                                            .RoofAreaM2 = RingAreaM2(pts, ring),
-                                            .Pitched = one.Pitched != 0,
-                                            .WallColour = one.WallColour,
-                                            .Level = level},
-                                           one.Cell.Index);
-    if (!lumped) { return std::unexpected(lumped.error()); }
+    masses.push_back(mass);
     ++out.Lumped;
     return {};
   }
@@ -706,6 +673,9 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
 }
 
 struct StructureBakeProgress::State {
+  enum class Phase { Planning, Emission, Complete };
+  Phase Current = Phase::Planning;
+  StructurePlanSelection Selection;
   std::vector<WayLine> Ways;
   MassPlans Masses;
   std::vector<double> Corners;
@@ -713,6 +683,63 @@ struct StructureBakeProgress::State {
   size_t Next = 0;
   bool Started = false;
   bool Finalized = false;
+
+  [[nodiscard]] std::expected<void, StructureBakeError> Validate(const RawTile &raw) const {
+    if (raw.RequestedDetail && *raw.RequestedDetail > LevelOfDetail::Massed) {
+      return std::unexpected(StructureBakeErrorKind::InvalidDetail);
+    }
+    if (raw.RequestedCell &&
+        (*raw.RequestedCell == 0 || *raw.RequestedCell > kStructureCellsPerTile)) {
+      return std::unexpected(StructureBakeErrorKind::InvalidCell);
+    }
+    if (raw.RequestedCell && !raw.RequestedDetail) {
+      return std::unexpected(StructureBakeErrorKind::InvalidDetail);
+    }
+    if (Started && Tile.RequestedDetail != raw.RequestedDetail) {
+      return std::unexpected(StructureBakeErrorKind::ChangedDetail);
+    }
+    if (Started && Tile.RequestedCell != raw.RequestedCell) {
+      return std::unexpected(StructureBakeErrorKind::ChangedCell);
+    }
+    return {};
+  }
+
+  void Start(const RawTile &raw, const outshine::Ground::HeightField &heights) {
+    BakedTile &out = Tile;
+    out.Walls = {};
+    out.Roofs = {};
+    out.Built.Clear();
+    out.Prints.clear();
+    out.FootprintDetails.clear();
+    out.SeatSpreadM.clear();
+    out.AcrossM.clear();
+    out.OsmHeights = 0;
+    out.DefaultHeights = 0;
+    out.Fronted = 0;
+    out.Lumped = 0;
+    out.Blocks = 0;
+    out.NoGround = 0;
+    out.UnsupportedMeshes = 0;
+    out.SkippedRings = 0;
+    out.FallbackHeights = heights.Fallback();
+    const StructureSelectionView selectedView{
+        .Eye = raw.Eye, .EyeEcef = raw.EyeEcef, .Projection = raw.Projection};
+    out.SelectedView =
+        !raw.RequestedDetail && selectedView.Contains(raw.Eye, raw.Projection, raw.EyeEcef)
+            ? std::optional(selectedView)
+            : std::nullopt;
+    out.RequestedDetail = raw.RequestedDetail;
+    out.RequestedCell = raw.RequestedCell;
+    out.FootprintBounds.reset();
+    out.OccupiedCells = 0;
+    out.CellBounds = {};
+    out.CellMaxHeightM.fill(0.0f);
+    out.CellShellErrorM.fill(0.0);
+    Ways = LinesOf(raw);
+    Masses.clear();
+    Corners.clear();
+    Started = true;
+  }
 };
 
 StructureBakeProgress::StructureBakeProgress() : State_(std::make_unique<State>()) {}
@@ -730,54 +757,19 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
                                          MeshScratch &scratch,
                                          size_t structuresMost,
                                          const std::atomic_bool *stopping) {
-  if (raw.RequestedDetail && *raw.RequestedDetail > LevelOfDetail::Massed) {
-    return std::unexpected(StructureBakeErrorKind::InvalidDetail);
-  }
-  if (raw.RequestedCell &&
-      (*raw.RequestedCell == 0 || *raw.RequestedCell > kStructureCellsPerTile)) {
-    return std::unexpected(StructureBakeErrorKind::InvalidCell);
-  }
-  if (raw.RequestedCell && !raw.RequestedDetail) {
-    return std::unexpected(StructureBakeErrorKind::InvalidDetail);
-  }
+  const auto valid = State_->Validate(raw);
+  if (!valid) { return std::unexpected(valid.error()); }
   if (structuresMost == 0) { return false; }
   State &state = *State_;
   assert(!state.Finalized);
   BakedTile &out = state.Tile;
-  if (state.Started && out.RequestedDetail != raw.RequestedDetail) {
-    return std::unexpected(StructureBakeErrorKind::ChangedDetail);
-  }
-  if (state.Started && out.RequestedCell != raw.RequestedCell) {
-    return std::unexpected(StructureBakeErrorKind::ChangedCell);
-  }
-  if (!state.Started) {
-    out.Walls = {};
-    out.Roofs = {};
-    out.Built.Clear();
-    out.Prints.clear();
-    out.FootprintDetails.clear();
-    out.SeatSpreadM.clear();
-    out.AcrossM.clear();
-    out.OsmHeights = 0;
-    out.DefaultHeights = 0;
-    out.Fronted = 0;
-    out.Lumped = 0;
-    out.Blocks = 0;
-    out.NoGround = 0;
-    out.UnsupportedMeshes = 0;
-    out.SkippedRings = 0;
-    out.FallbackHeights = heights.Fallback();
-    out.RequestedDetail = raw.RequestedDetail;
-    out.RequestedCell = raw.RequestedCell;
-    out.FootprintBounds.reset();
-    out.OccupiedCells = 0;
-    out.CellBounds = {};
-    out.CellMaxHeightM.fill(0.0f);
-    out.CellShellErrorM.fill(0.0);
-    state.Ways = LinesOf(raw);
-    state.Masses.clear();
-    state.Corners.clear();
-    state.Started = true;
+  if (!state.Started) { state.Start(raw, heights); }
+  if (state.Current == State::Phase::Complete) { return true; }
+  if (state.Current == State::Phase::Emission) {
+    const auto emitted = state.Selection.Emit(raw, mesher, scratch, out, structuresMost, stopping);
+    if (!emitted) { return std::unexpected(emitted.error()); }
+    if (*emitted) { state.Current = State::Phase::Complete; }
+    return *emitted;
   }
   const std::span<const double> pts = raw.LatLon;
   const double statedM =
@@ -794,12 +786,21 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
                                pts,
                                state.Ways,
                                state.Masses,
+                               state.Selection,
                                state.Corners,
                                statedM,
                                stopping);
     if (!baked) { return std::unexpected(baked.error()); }
   }
-  return state.Next == raw.Structures.size();
+  if (state.Next != raw.Structures.size()) { return false; }
+  if (raw.RequestedDetail) {
+    state.Current = State::Phase::Complete;
+    return true;
+  }
+  const auto selected = state.Selection.Select(raw, mesher, scratch, out, stopping);
+  if (!selected) { return std::unexpected(selected.error()); }
+  state.Current = State::Phase::Emission;
+  return false;
 }
 
 std::expected<BakedTile, StructureBakeError>
@@ -809,9 +810,12 @@ StructureBakeProgress::Finalize(const RawTile &raw,
                                 const std::atomic_bool *stopping) {
   assert(State_->Started && State_->Next == raw.Structures.size());
   assert(!State_->Finalized);
+  assert(State_->Current == State::Phase::Complete);
   if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-  const auto finished = FinishStructures(
-      State_->Masses, raw, mesher, scratch, State_->Corners, State_->Tile, stopping);
+  const std::expected<void, StructureBakeError> finished =
+      raw.RequestedDetail
+          ? FinishStructures(State_->Masses, raw, mesher, scratch, State_->Tile, stopping)
+          : FinalizeBake(raw, State_->Tile);
   if (!finished) { return std::unexpected(finished.error()); }
   State_->Finalized = true;
   return std::move(State_->Tile);
@@ -824,10 +828,13 @@ std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
                                                        BakedTile &out,
                                                        const std::atomic_bool *stopping) {
   StructureBakeProgress progress;
-  const auto completed =
-      progress.AdvanceStructures(raw, heights, mesher, scratch, raw.Structures.size(), stopping);
-  if (!completed) { return std::unexpected(completed.error()); }
-  assert(*completed);
+  const size_t batchSize = std::max(raw.Structures.size(), size_t{1});
+  for (;;) {
+    const auto completed =
+        progress.AdvanceStructures(raw, heights, mesher, scratch, batchSize, stopping);
+    if (!completed) { return std::unexpected(completed.error()); }
+    if (*completed) { break; }
+  }
   auto finalized = progress.Finalize(raw, mesher, scratch, stopping);
   if (!finalized) { return std::unexpected(finalized.error()); }
   out = std::move(*finalized);

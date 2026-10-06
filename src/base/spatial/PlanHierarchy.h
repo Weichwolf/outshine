@@ -30,19 +30,23 @@ public:
     return std::span(Order_).subspan(node.First, node.Count);
   }
 
-  template <class Accept, class Emit> void Select(Accept &&accept, Emit &&emit) const {
+  template <class Accept, class Emit> void SelectNodes(Accept &&accept, Emit &&emit) const {
     if (Nodes_.empty()) { return; }
     std::array<uint32_t, 32> pending{};
     size_t count = 1;
     while (count != 0) {
       const Node &node = Nodes_[pending[--count]];
-      if (node.Count == 1 || accept(node.Bounds)) {
+      if (node.Count == 1 || accept(node)) {
         emit(node);
       } else {
         pending[count++] = node.Right;
         pending[count++] = node.Left;
       }
     }
+  }
+
+  template <class Accept, class Emit> void Select(Accept &&accept, Emit &&emit) const {
+    SelectNodes([&](const Node &node) { return accept(node.Bounds); }, emit);
   }
 
 private:

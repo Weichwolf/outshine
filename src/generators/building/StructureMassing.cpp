@@ -6,6 +6,7 @@
 #include "math/Units.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <cstddef>
@@ -15,11 +16,8 @@
 #include <vector>
 
 namespace outshine::Generators {
-namespace {
-constexpr double kExplicitBlocksPerTile = 8.0;
-
-StructureMassPlan Combined(std::span<const StructureMassPlan> plans,
-                           std::span<const uint32_t> members) {
+StructureMassPlan CombineStructureMasses(std::span<const StructureMassPlan> plans,
+                                         std::span<const uint32_t> members) {
   StructureMassPlan result = plans[members.front()];
   for (size_t at = 1; at < members.size(); ++at) {
     const auto &plan = plans[members[at]];
@@ -44,6 +42,9 @@ StructureMassPlan Combined(std::span<const StructureMassPlan> plans,
   return result;
 }
 
+namespace {
+constexpr double kExplicitBlocksPerTile = 8.0;
+
 bool Accepted(const Box &bounds, const RawTile &raw) {
   const Vec3 span = bounds.Span();
   if (raw.RequestedDetail) {
@@ -55,6 +56,50 @@ bool Accepted(const Box &bounds, const RawTile &raw) {
                                1.0);
   return raw.Projection.Allows(std::hypot(std::hypot(span[0], span[2]), span[1]), away);
 }
+}
+
+StructurePlan DescribeStructureMass(const StructureMassPlan &mass,
+                                    const RawTile &raw,
+                                    std::array<double, 8> &ring,
+                                    std::array<double, 4> &corners) {
+  const auto over = static_cast<double>(mass.Count);
+  const double midLat = 0.5 * (mass.LowLat + mass.HighLat);
+  const double midLon = 0.5 * (mass.LowLon + mass.HighLon);
+  const double spanLatM = (mass.HighLat - mass.LowLat) * kMPerDegLat;
+  const double spanLonM = (mass.HighLon - mass.LowLon) * kMPerDegLon * std::cos(midLat * kDeg2Rad);
+  const double boxM2 = spanLatM * spanLonM;
+  const double shrink = boxM2 > 0.0 && mass.RoofAreaM2 > 0.0 && mass.RoofAreaM2 < boxM2
+                            ? std::sqrt(mass.RoofAreaM2 / boxM2)
+                            : 1.0;
+  const double halfLat = 0.5 * (mass.HighLat - mass.LowLat) * shrink;
+  const double halfLon = 0.5 * (mass.HighLon - mass.LowLon) * shrink;
+  const double lowLat = midLat - halfLat;
+  const double highLat = midLat + halfLat;
+  const double lowLon = midLon - halfLon;
+  const double highLon = midLon + halfLon;
+  ring = {lowLat, lowLon, lowLat, highLon, highLat, highLon, highLat, lowLon};
+  corners.fill(mass.BaseSum / over);
+  StructurePlan plan;
+  plan.RingLatLon = std::span<const double>(ring.data(), ring.size());
+  plan.BaseAslM = mass.BaseSum / over;
+  plan.SeatAslM = mass.SeatSum / over;
+  plan.FootAslM = mass.BaseSum / over;
+  plan.CornerAslM = std::span<const double>(corners.data(), corners.size());
+  plan.HeightM = mass.HeightSum / over;
+  plan.HeightMeasured = false;
+  plan.Street = {};
+  plan.AnchorEcef = raw.AnchorEcef;
+  plan.Coarseness = mass.Level;
+  plan.PitchedShare =
+      mass.RoofAreaM2 > 0.0 ? mass.PitchedAreaM2 / mass.RoofAreaM2 : kPitchedShareUnknown;
+  if (mass.HasWallColour && mass.RoofAreaM2 > 0.0) {
+    Vec3f colour{};
+    for (size_t channel = 0; channel < 3; ++channel) {
+      colour[channel] = static_cast<float>(mass.WallColourSum[channel] / mass.RoofAreaM2);
+    }
+    plan.WallColour = colour;
+  }
+  return plan;
 }
 
 std::expected<std::vector<StructureMassPlan>, StructureBakeError> GroupStructureMasses(
@@ -93,7 +138,8 @@ std::expected<std::vector<StructureMassPlan>, StructureBakeError> GroupStructure
     if (!hierarchy) { return std::unexpected(StructureBakeErrorKind::InvalidCell); }
     hierarchy->Select([&](const Box &node) { return Accepted(node, raw); },
                       [&](const PlanHierarchy::Node &node) {
-                        grouped.push_back(Combined(cellPlans, hierarchy->Members(node)));
+                        grouped.push_back(
+                            CombineStructureMasses(cellPlans, hierarchy->Members(node)));
                       });
     first = end;
   }

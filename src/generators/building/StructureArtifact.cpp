@@ -20,7 +20,7 @@
 namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
-constexpr uint32_t kVersion = 5;
+constexpr uint32_t kVersion = 6;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -203,6 +203,15 @@ constexpr auto surface = [](auto &archive, auto &value) {
          archive.Number(value.VariantToReferenceLowerM);
 };
 
+template <typename Archive, typename View> bool SelectionView(Archive &archive, View &view) {
+  const auto point = [](auto &held, auto &value) {
+    return held.Number(value[0]) && held.Number(value[1]) && held.Number(value[2]);
+  };
+  return archive.Number(view.Eye.LongitudeDeg) && archive.Number(view.Eye.LatitudeDeg) &&
+         archive.Maybe(view.EyeEcef, point) && archive.Number(view.Projection.FocalPx) &&
+         archive.Number(view.Projection.AllowedErrorPx);
+}
+
 template <typename Archive, typename Tile> bool Product(Archive &archive, Tile &tile) {
   if (!archive.List(tile.Built.WallCorners, vertex) ||
       !archive.List(tile.Built.RoofCorners, vertex) || !archive.List(tile.Built.WallRun, scalar) ||
@@ -210,6 +219,8 @@ template <typename Archive, typename Tile> bool Product(Archive &archive, Tile &
       !archive.List(tile.Built.WallColours, scalar) || !archive.List(tile.Walls.Index, scalar) ||
       !archive.List(tile.Roofs.Clusters, cluster) || !archive.List(tile.Roofs.Index, scalar) ||
       !archive.Number(tile.Digest) || !archive.Number(tile.FallbackHeights) ||
+      !archive.Maybe(tile.SelectedView,
+                     [](auto &held, auto &view) { return SelectionView(held, view); }) ||
       !archive.Maybe(tile.RequestedDetail, scalar) || !archive.Maybe(tile.RequestedCell, scalar) ||
       !archive.Maybe(tile.FootprintBounds, bounds) || !archive.Number(tile.OccupiedCells)) {
     return false;
@@ -252,7 +263,10 @@ bool Valid(const BakedTile &tile) {
   const auto shellError = [](double value) {
     return std::isfinite(value) && (value >= 0.0 || value == -1.0);
   };
-  if ((tile.RequestedDetail && !detail(*tile.RequestedDetail)) ||
+  if ((tile.SelectedView && !tile.SelectedView->Contains(tile.SelectedView->Eye,
+                                                         tile.SelectedView->Projection,
+                                                         tile.SelectedView->EyeEcef)) ||
+      (tile.RequestedDetail && !detail(*tile.RequestedDetail)) ||
       (tile.RequestedCell &&
        (*tile.RequestedCell == 0 || *tile.RequestedCell > kStructureCellsPerTile)) ||
       tile.Prints.size() != tile.FootprintDetails.size() ||
@@ -305,6 +319,15 @@ bool Identity(Writer &writer, const Data::TileSourceIdentity &value) {
   return writer.Number(value.From) && writer.Number(value.Kind) && writer.Number(value.Tile.Zoom) &&
          writer.Number(value.Tile.X) && writer.Number(value.Tile.Y) &&
          Text(writer, value.SourceId) && Text(writer, value.Revision);
+}
+
+bool ViewInputs(Writer &writer, const RawTile &raw) {
+  if (raw.RequestedDetail) { return true; }
+  return writer.Number(raw.Eye.LongitudeDeg) && writer.Number(raw.Eye.LatitudeDeg) &&
+         writer.Number(raw.Projection.FocalPx) && writer.Number(raw.Projection.AllowedErrorPx) &&
+         writer.Maybe(raw.EyeEcef, [](auto &held, const Vec3 &point) {
+           return held.Number(point[0]) && held.Number(point[1]) && held.Number(point[2]);
+         });
 }
 
 bool HeightInputs(Writer &writer, const Ground::HeightField &heights) {
@@ -409,12 +432,7 @@ StructureArtifactKey(const RawTile &raw,
   for (size_t at = 0; at < 3; ++at) {
     if (!writer.Number(raw.AnchorEcef[at])) { return std::nullopt; }
   }
-  if (!raw.RequestedDetail &&
-      (!writer.Number(raw.Eye.LongitudeDeg) || !writer.Number(raw.Eye.LatitudeDeg) ||
-       !writer.Number(raw.Projection.FocalPx) || !writer.Number(raw.Projection.AllowedErrorPx))) {
-    return std::nullopt;
-  }
-  if (!HeightInputs(writer, heights)) { return std::nullopt; }
+  if (!ViewInputs(writer, raw) || !HeightInputs(writer, heights)) { return std::nullopt; }
   return Sha256Hex(writer.Bytes.data(), writer.Bytes.size());
 }
 

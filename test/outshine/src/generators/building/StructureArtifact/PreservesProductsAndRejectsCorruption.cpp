@@ -2,6 +2,7 @@
 #include "BuildingMesh.h"
 #include "Sha256.h"
 #include "Check.h"
+#include "Geodesy.h"
 #include <algorithm>
 #include <limits>
 
@@ -82,5 +83,26 @@ int main() {
         "valid checksum cannot bypass bounded allocation");
   product.Built.WallRun.push_back(std::numeric_limits<uint32_t>::max());
   CHECK(!EncodeStructureArtifact(product, key), "invalid geometry cannot be published");
+  raw.Projection.FocalPx = 720;
+  raw.RequestedDetail.reset();
+  raw.RequestedCell.reset();
+  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
+  Vec3 eye;
+  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 1000}, eye);
+  raw.EyeEcef = eye;
+  const auto firstKey = StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion());
+  BakedTile selected;
+  CHECK(BakeStructures(raw, *heights, mesher, *scratch, selected),
+        "automatic planning supplies a view-qualified product");
+  const auto selectedBytes = EncodeStructureArtifact(selected, key);
+  const auto selectedCopy =
+      selectedBytes ? DecodeStructureArtifact(*selectedBytes, key, 29) : std::nullopt;
+  CHECK(selectedCopy && selectedCopy->SelectedView &&
+            selectedCopy->SelectedView->Contains(raw.Eye, raw.Projection, raw.EyeEcef),
+        "transport preserves the selection's camera height and projection");
+  eye[0] += 128;
+  raw.EyeEcef = eye;
+  CHECK(firstKey != StructureArtifactKey(raw, *heights, std::nullopt, mesher.ArtifactVersion()),
+        "a spatially different demand changes the artifact identity");
   return Report();
 }

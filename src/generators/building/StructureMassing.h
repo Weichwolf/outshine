@@ -4,6 +4,7 @@
 #include "StructureBake.h"
 
 #include <atomic>
+#include <array>
 #include <expected>
 #include <span>
 #include <vector>
@@ -21,6 +22,14 @@ struct StructureMassPlan {
   bool HasWallColour = false;
   LevelOfDetail Level = LevelOfDetail::Massed;
 };
+
+[[nodiscard]] StructurePlan DescribeStructureMass(const StructureMassPlan &mass,
+                                                  const RawTile &raw,
+                                                  std::array<double, 8> &ring,
+                                                  std::array<double, 4> &corners);
+
+[[nodiscard]] StructureMassPlan CombineStructureMasses(std::span<const StructureMassPlan> plans,
+                                                       std::span<const uint32_t> members);
 
 [[nodiscard]] std::expected<std::vector<StructureMassPlan>, StructureBakeError>
 GroupStructureMasses(std::span<StructureMassPlan> plans,

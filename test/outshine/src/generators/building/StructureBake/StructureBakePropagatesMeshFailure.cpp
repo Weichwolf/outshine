@@ -90,11 +90,11 @@ int main() {
   const auto distantResult =
       Generators::BakeStructures(distant, *heights, distantMesher, *distantScratch, distantOutput);
   CHECK(distantResult, "a distant tile finishes its bake");
-  CHECK(distantMesher.Calls == 1 && distantMesher.LastCoarseness == LevelOfDetail::Massed,
-        "a distant tile batches its buildings into one massed mesh");
+  CHECK(distantMesher.Calls == 2 && distantMesher.LastCoarseness == LevelOfDetail::Fine,
+        "a mesher without source bounds keeps individual plans instead of inventing a mass bound");
   CHECK(distantOutput.Prints.size() == 2, "a distant tile retains every footprint");
-  CHECK(distantOutput.FootprintDetails.front() == LevelOfDetail::Massed,
-        "a distant building uses massed geometry");
+  CHECK(distantOutput.FootprintDetails.front() == LevelOfDetail::Fine,
+        "unknown source bounds cannot authorize a coarse parent");
 
   Generators::RawTile threshold = raw;
   threshold.LatLon = {47, 9.0047, 47, 9.0048, 47.0001, 9.0048, 47.0001, 9.0047};
@@ -121,8 +121,14 @@ int main() {
   CHECK(progress.BakedStructures() == 1,
         "a completed range exposes its exact structure count after the worker boundary");
   const auto second = progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
-  CHECK(oneShotResult && first && second && !*first && *second,
-        "a bounded bake retains its aggregate until its final structure range");
+  CHECK(oneShotResult && first && second && !*first && !*second && slicedMesher.Calls == 0,
+        "bounded source planning finishes before geometry emission starts");
+  const auto firstEmission =
+      progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
+  const auto lastEmission =
+      progress.AdvanceStructures(raw, *heights, slicedMesher, *slicedScratch, 1);
+  CHECK(firstEmission && !*firstEmission && lastEmission && *lastEmission,
+        "bounded emission completes only after all selected products are built");
   auto sliced = progress.Finalize(raw, slicedMesher, *slicedScratch);
   CHECK(sliced && slicedMesher.Calls == oneShotMesher.Calls &&
             sliced->Prints.size() == oneShot.Prints.size() &&
@@ -150,8 +156,19 @@ int main() {
   }
   const auto manyStructuresComplete =
       manyProgress.AdvanceStructures(many, *heights, manySlicedMesher, *manySlicedScratch, 64);
-  CHECK(manyStructuresComplete && *manyStructuresComplete,
-        "the final structure range completes without exposing its private aggregate");
+  CHECK(manyStructuresComplete && !*manyStructuresComplete && manySlicedMesher.Calls == 0,
+        "the final source range selects representations without building geometry");
+  bool allEmitted = false;
+  for (size_t slice = 0; slice < 5; ++slice) {
+    const auto emitted =
+        manyProgress.AdvanceStructures(many, *heights, manySlicedMesher, *manySlicedScratch, 64);
+    CHECK(emitted, "each bounded emission range succeeds");
+    if (emitted && *emitted) {
+      allEmitted = true;
+      break;
+    }
+  }
+  CHECK(allEmitted, "the final emission range completes the selected products");
   auto manyFinalized = manyProgress.Finalize(many, manySlicedMesher, *manySlicedScratch);
   CHECK(manyOneShotResult && manyFinalized &&
             manyProgress.BakedStructures() == many.Structures.size(),
