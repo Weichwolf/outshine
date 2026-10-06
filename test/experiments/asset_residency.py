@@ -6,10 +6,12 @@ refined against the same double bounds. Warm loading only reads prepared arrays;
 terrain contacts, native roofs/materials, meshing and GPU upload are not modelled.
 """
 import argparse
+import io
 import json
 import math
 import sqlite3
 import time
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -167,11 +169,32 @@ def main():
     loaded = load()
     assert all(np.array_equal(value, loaded[key]) for key, value in arrays.items())
     connection, index_ms = database(args.output / 'spatial.sqlite', arrays['bounds'], arrays['packages'])
+    payload = path.read_bytes()
+    checksum = zlib.crc32(payload)
+    connection.execute('CREATE TABLE payloads(id INTEGER PRIMARY KEY, bytes BLOB, crc INTEGER)')
+    start = time.perf_counter()
+    connection.execute('INSERT INTO payloads VALUES(1,?,?)', (payload, checksum))
+    connection.commit()
+    blob_write_ms = elapsed(start)
+    def load_blob():
+        data, checksum = connection.execute('SELECT bytes,crc FROM payloads WHERE id=1').fetchone()
+        assert zlib.crc32(data) == checksum
+        with np.load(io.BytesIO(data), allow_pickle=False) as archive:
+            return {key: archive[key] for key in archive.files}
+    def load_file_checked():
+        data = path.read_bytes()
+        assert zlib.crc32(data) == checksum
+        with np.load(io.BytesIO(data), allow_pickle=False) as archive:
+            return {key: archive[key] for key in archive.files}
+    restored = load_blob()
+    assert all(np.array_equal(value, restored[key]) for key, value in arrays.items())
     result = dict(model='prepared local flat building plans; not native game assets',
                   polygons=len(plans), packages=len(arrays['packages']),
                   source_bytes=source_bytes, supplied_height_fallbacks=missing,
                   source_decode_ms=source_ms, prepare_ms=prepare_ms,
                   prepared_bytes=path.stat().st_size, warm_read_ms=warm_ms,
+                  sqlite_blob_write_ms=blob_write_ms, sqlite_blob_read_checked_ms=median_ms(load_blob, 5),
+                  file_read_checked_ms=median_ms(load_file_checked, 5),
                   index_build_ms=index_ms, sqlite_version=sqlite3.sqlite_version,
                   package_size_m=args.package_size, queries=benchmark(loaded, connection))
     connection.close()
