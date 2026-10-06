@@ -30,6 +30,10 @@ int main() {
     plan.AnchorEcef = distantAnchor ? Vec3{} : localAnchor;
     for (const double pitch : {0.0, 1.0}) {
       plan.PitchedShare = pitch;
+      plan.Coarseness = LevelOfDetail::Massed;
+      const auto plannedError = mesher.ShellSurfaceErrorM(plan, *scratch);
+      CHECK(plannedError && *plannedError > 0.16,
+            "an unmeshed plan bounds the future shell independently of its selected product");
       Raised fine;
       Raised shell;
       plan.Coarseness = LevelOfDetail::Fine;
@@ -37,6 +41,8 @@ int main() {
       plan.Coarseness = LevelOfDetail::Shell;
       CHECK(mesher.Mesh(plan, *scratch, shell), "complete shell geometry exists");
       const auto error = mesher.ShellSurfaceErrorM(fine.WallCorners);
+      CHECK(error && plannedError && *plannedError >= *error,
+            "the plan bound covers the measured coordinate magnitude before allocating vertices");
       CHECK(error && *error > 0.16 && (distantAnchor || *error == 0.25),
             "the bound includes recess depth and coordinate-dependent rounding");
       StructureSurfaceRefinementTask oracle;
@@ -63,6 +69,8 @@ int main() {
                   oracle.TriangleQueries());
       CHECK(complete && measured && error && measured->UpperDistanceM() <= *error,
             "all triangles in both directions fit the analytical shell bound");
+      CHECK(measured && plannedError && measured->UpperDistanceM() <= *plannedError,
+            "the independent surface oracle also fits the pre-mesh plan bound");
     }
   }
   return Report();

@@ -174,6 +174,20 @@ public:
 
   [[nodiscard]] BuildingScratch &Scratch() { return Scratch_; }
 
+  [[nodiscard]] double CoordinateMagnitudeM(const BuildingShape &shape) const noexcept {
+    double acrossM = 0.0;
+    const auto include = [&acrossM](std::span<const EastNorth> ring) {
+      for (const auto &point : ring) {
+        acrossM = std::max(acrossM, std::hypot(point.EastM, point.NorthM));
+      }
+    };
+    include(shape.Ring);
+    for (const auto &hole : shape.Holes) { include(hole); }
+    const double heightM = std::max(std::abs(LowerZ(shape)), std::abs(shape.TopM()));
+    return std::max({std::abs(Origin_[0]), std::abs(Origin_[1]), std::abs(Origin_[2])}) + acrossM +
+           heightM + kOpeningDepthM + kSlabM;
+  }
+
   [[nodiscard]] static Vtx Snapped(const Vtx &v) {
     Vtx out = v;
     out.P.EastM = std::round(v.P.EastM * kBuildingWeldPerM) / kBuildingWeldPerM;
@@ -795,6 +809,35 @@ void RaisePart(const BuildingShape &s, Site &site) {
   }
 }
 
+std::expected<std::span<BuildingShape>, StructureMeshError> PartsOf(const StructurePlan &plan,
+                                                                    BuildingScratch &scratch) {
+  auto parts = MassOf(plan.RingLatLon,
+                      {.HeightM = plan.HeightM,
+                       .MinimumHeightM = plan.MinimumHeightM,
+                       .HeightMeasured = plan.HeightMeasured,
+                       .PitchedShare = plan.PitchedShare},
+                      plan.Street,
+                      scratch,
+                      plan.InnerRings,
+                      plan.RingPointsLatLon);
+  if (!parts) { return std::unexpected(parts.error()); }
+  const FoundationGround ground(plan);
+  for (BuildingShape &part : *parts) {
+    if (plan.WallColour) { part.WallVariant = 0; }
+    part.SeatM = plan.MinimumHeightM != 0.0 ? 0.0 : PlinthTopZ(part, ground);
+    part.SoleM = plan.MinimumHeightM != 0.0 ? plan.MinimumHeightM : PlinthFootZ(part, ground);
+  }
+  return parts;
+}
+
+double ShellErrorAtMagnitude(double magnitudeM) noexcept {
+  const double weldM = std::numbers::sqrt3 / kBuildingWeldPerM;
+  const double roundingM = 4.0 * std::numbers::sqrt3 * std::numeric_limits<float>::epsilon() *
+                           (magnitudeM + kOpeningDepthM + weldM + 1.0);
+  constexpr double kErrorUnitsPerM = 4.0;
+  return std::ceil((kOpeningDepthM + weldM + roundingM) * kErrorUnitsPerM) / kErrorUnitsPerM;
+}
+
 }
 
 std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {
@@ -811,11 +854,27 @@ BuildingMesh::ShellSurfaceErrorM(std::span<const StoredVertex> walls) const noex
       magnitudeM = std::max(magnitudeM, std::abs(static_cast<double>(coordinate)));
     }
   }
-  const double weldM = std::numbers::sqrt3 / kBuildingWeldPerM;
-  const double roundingM = 4.0 * std::numbers::sqrt3 * std::numeric_limits<float>::epsilon() *
-                           (magnitudeM + kOpeningDepthM + weldM + 1.0);
-  constexpr double kErrorUnitsPerM = 4.0;
-  return std::ceil((kOpeningDepthM + weldM + roundingM) * kErrorUnitsPerM) / kErrorUnitsPerM;
+  return ShellErrorAtMagnitude(magnitudeM);
+}
+
+std::optional<double> BuildingMesh::ShellSurfaceErrorM(const StructurePlan &plan,
+                                                       MeshScratch &lent) const noexcept {
+  if (!ValidFootprintCoordinates(plan.RingLatLon) || !ValidPlanParameters(plan)) {
+    return std::nullopt;
+  }
+  auto *scratch = dynamic_cast<BuildingScratch *>(&lent);
+  if (scratch == nullptr) { return std::nullopt; }
+  const auto parts = PartsOf(plan, *scratch);
+  if (!parts || parts->empty()) { return std::nullopt; }
+  Raised unused;
+  const Site site(plan, *scratch, unused);
+  double magnitudeM = 0.0;
+  for (const auto &part : *parts) {
+    const double extentM = site.CoordinateMagnitudeM(part);
+    if (!std::isfinite(extentM)) { return std::nullopt; }
+    magnitudeM = std::max(magnitudeM, extentM);
+  }
+  return ShellErrorAtMagnitude(magnitudeM);
 }
 
 std::expected<void, StructureMeshError>
@@ -836,15 +895,7 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
     TrimAppend(into.WallRun, sizes[2]);
     TrimAppend(into.RoofRun, sizes[3]);
   };
-  const auto mass = MassOf(plan.RingLatLon,
-                           {.HeightM = plan.HeightM,
-                            .MinimumHeightM = plan.MinimumHeightM,
-                            .HeightMeasured = plan.HeightMeasured,
-                            .PitchedShare = plan.PitchedShare},
-                           plan.Street,
-                           scratch,
-                           plan.InnerRings,
-                           plan.RingPointsLatLon);
+  const auto mass = PartsOf(plan, scratch);
   if (!mass) { return std::unexpected(mass.error()); }
   const std::span<BuildingShape> parts = *mass;
   if (parts.empty()) { return std::unexpected(StructureMeshError::UnsupportedFootprint); }
@@ -857,12 +908,6 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
     }
   }
   Site site(plan, scratch, into);
-  const FoundationGround ground(plan);
-  for (BuildingShape &part : parts) {
-    if (plan.WallColour) { part.WallVariant = 0; }
-    part.SeatM = plan.MinimumHeightM != 0.0 ? 0.0 : PlinthTopZ(part, ground);
-    part.SoleM = plan.MinimumHeightM != 0.0 ? plan.MinimumHeightM : PlinthFootZ(part, ground);
-  }
   for (const BuildingShape &part : parts) {
     RaisePart(part, site);
     if (const auto status = site.Status(); !status) {

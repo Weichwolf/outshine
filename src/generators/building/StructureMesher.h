@@ -133,6 +133,12 @@ public:
     return std::nullopt;
   }
 
+  [[nodiscard]] virtual std::optional<double>
+  ShellSurfaceErrorM([[maybe_unused]] const StructurePlan &plan,
+                     [[maybe_unused]] MeshScratch &scratch) const noexcept {
+    return std::nullopt;
+  }
+
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
 
   [[nodiscard]] virtual std::expected<void, StructureMeshError>

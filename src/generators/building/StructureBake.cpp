@@ -596,13 +596,7 @@ BuildingDetail DetailOf(const RawTile &raw, const Spread &bounds, double statedM
   return detail;
 }
 
-void IncludeShellError(BakedTile &out,
-                       size_t cellAt,
-                       LevelOfDetail level,
-                       const StructureMesher &mesher,
-                       std::span<const StoredVertex> walls) {
-  const auto error =
-      level <= LevelOfDetail::Shell ? mesher.ShellSurfaceErrorM(walls) : std::nullopt;
+void IncludeShellError(BakedTile &out, size_t cellAt, std::optional<double> error) {
   double &cellError = out.CellShellErrorM[cellAt];
   if (!error || !std::isfinite(*error) || !(*error > 0.0)) {
     cellError = -1.0;
@@ -685,23 +679,6 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   out.Prints.push_back(fp);
   out.FootprintDetails.push_back(level);
 
-  if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0 && one.HoleCount == 0) {
-    out.CellShellErrorM[cellAt] = -1.0;
-    const auto lumped = Lump(lumps,
-                             bounds,
-                             {.BaseM = base,
-                              .SeatM = seat,
-                              .HeightM = fp.HeightM,
-                              .RoofAreaM2 = RingAreaM2(pts, ring),
-                              .Pitched = one.Pitched != 0,
-                              .WallColour = one.WallColour,
-                              .Level = level},
-                             raw.TileSpanM / kBlocksPerTile);
-    if (!lumped) { return std::unexpected(lumped.error()); }
-    ++out.Lumped;
-    return {};
-  }
-
   StructurePlan plan;
   plan.InnerRings = std::span(raw.Holes).subspan(one.FirstHole, one.HoleCount);
   plan.RingPointsLatLon = raw.LatLon;
@@ -720,11 +697,33 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   plan.AnchorEcef = raw.AnchorEcef;
   plan.Coarseness = level;
   plan.RecessedOpenings = detail.RecessedOpenings;
+
+  if (level >= LevelOfDetail::Massed && one.MinimumHeightM == 0.0 && one.HoleCount == 0) {
+    IncludeShellError(out, cellAt, mesher.ShellSurfaceErrorM(plan, scratch));
+    const auto lumped = Lump(lumps,
+                             bounds,
+                             {.BaseM = base,
+                              .SeatM = seat,
+                              .HeightM = fp.HeightM,
+                              .RoofAreaM2 = RingAreaM2(pts, ring),
+                              .Pitched = one.Pitched != 0,
+                              .WallColour = one.WallColour,
+                              .Level = level},
+                             raw.TileSpanM / kBlocksPerTile);
+    if (!lumped) { return std::unexpected(lumped.error()); }
+    ++out.Lumped;
+    return {};
+  }
+
   const size_t wallFirst = out.Built.WallCorners.size();
   const auto built = AccountMesh(mesher.Mesh(plan, scratch, out.Built), out);
   if (!built) { return std::unexpected(built.error()); }
   IncludeShellError(
-      out, cellAt, level, mesher, std::span(out.Built.WallCorners).subspan(wallFirst));
+      out,
+      cellAt,
+      level <= LevelOfDetail::Shell
+          ? mesher.ShellSurfaceErrorM(std::span(out.Built.WallCorners).subspan(wallFirst))
+          : mesher.ShellSurfaceErrorM(plan, scratch));
   return {};
 }
 

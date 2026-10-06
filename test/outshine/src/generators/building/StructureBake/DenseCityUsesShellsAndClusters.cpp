@@ -2,6 +2,7 @@
 #include "StructureBake.h"
 #include "Check.h"
 #include "Geodesy.h"
+#include "StructureCellDetail.h"
 #include "math/Units.h"
 #include <array>
 #include <cmath>
@@ -60,9 +61,15 @@ int main() {
                 built.Lumped);
     for (size_t cell = 0; cell < built.CellShellErrorM.size(); ++cell) {
       if ((built.OccupiedCells & (uint64_t{1} << cell)) == 0) { continue; }
-      CHECK(detail == LevelOfDetail::Massed ? built.CellShellErrorM[cell] == -1.0
-                                            : built.CellShellErrorM[cell] > 0.16,
-            "only complete simple envelopes publish a shell error for every occupied cell");
+      CHECK(built.CellShellErrorM[cell] > 0.16,
+            "source plans retain their future shell bound even when the initial product is massed");
+      CHECK(RequestedStructureCellDetail(built.CellBounds[cell],
+                                         built.CellMaxHeightM[cell],
+                                         raw.TileSpanM,
+                                         {.LongitudeDeg = 9.02, .LatitudeDeg = 47},
+                                         {.FocalPx = 720},
+                                         built.CellShellErrorM[cell]) == LevelOfDetail::Shell,
+            "distant cell planning does not expand Fine geometry after a massed source bake");
     }
     if (detail == LevelOfDetail::Fine) {
       fineTriangles = triangles;
