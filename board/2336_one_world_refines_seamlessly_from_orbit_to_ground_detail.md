@@ -13,8 +13,7 @@ Tags: lod, coverage, planetary, budgets
 Rundum verfügbare Welt bis 240 km am Boden, später höhenabhängiger Horizont und Orbit → Nahdetail.
 Der Geometriebedarf nimmt mit Entfernung ab: Häuser → Blockverbände → kompakte Skyline-Flächen.
 Mehr Quellobjekte innerhalb gleicher Fern-Coverage erzeugen keine proportional größere Geometrie.
-GeoCellId, GroundLattice, Gebäudepläne und vier Klassen bestehen. Der Stadtpfad verwendet nur
-Fine/Shell/Massed; Skyline fehlt. WholeTile-/Cell-Auswahl, doppelte Vorbereitung und konservative
+Der Stadtpfad verwendet Fine/Shell/Massed; Skyline fehlt. WholeTile-/Cell-Auswahl und konservative
 Zellvolumen erzwingen unnötige Einzelhüllen. Native Cluster sind überwiegend flache Blattgruppen.
 Tokyo erzeugt weiterhin 29,65 Mio. Dreiecke; GPU-Streamkapazität ca. 3,88 GB. Eine Auswahlkorrektur
 allein hat diese Menge und das Bild nicht verändert. Die Fernrepräsentation wird neu integriert,
@@ -89,14 +88,15 @@ Kein Routine-Fine-Bake als Fehlerorakel; CPU-Belege allein bestehen keinen Rende
 Unbeleuchtetes Material-Capture/Atlas-Transport bestehen (2171). SurfaceReprojectionStage überträgt
 perspektivische Tiefe/Material bei unverändertem Kameraort; Bewegung/Orthografie werden abgewiesen.
 Rundum-Capture, bewegungsgültige Zellfelder, aktuelles Shading und die native Stadtanbindung fehlen.
-Legacy-ImpostorCard ist flach; HiZ-History ersetzt keine aktuelle Arbeit in neu sichtbaren Bereichen (2340).
+BuildImpostorSurface verdichtet orthografische Tiefe vor dem Vertexaufbau; fernes Kronen-Instancing bleibt flach.
+Normalen/Material/Alpha und aktuelle Beleuchtung bleiben; Stadtanbindung/fehlende Ansichten sind offen.
+HiZ-History ersetzt keine aktuelle Arbeit in neu sichtbaren Bereichen (2340).
 
 ## Fernwelt, Flug und Orbit
 Niedrige MVT-Zooms enthalten nicht automatisch Gebäude. Belegte Grobinformation darf plausible
 Fernverbände steuern; fehlende Pflicht-Nahinhalte bleiben ein Fehler. Globale Grobprodukte
 vor regionalen Kindern, kein weltweites Feinmodell. Terrain folgt eigener Höhen-/Silhouettenqualität;
 subpixeliges Relief geht zum Ellipsoid über. Vegetation 2111 nutzt denselben Nah-/Fernbedarf später.
-Geometrie-, Speicher-, Aufbereitungs- und Framekosten gemeinsam begrenzen; keine festen Klassenquoten.
 
 ## Forschungsgrundlage
 Hierarchischer Mesh-/Oberflächen-Hybrid ist die Arbeitsrichtung; Baum/Capture nach Messung wählen.

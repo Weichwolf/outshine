@@ -1,5 +1,5 @@
 #include "ImpostorBaker.h"
-#include "ImpostorCard.h"
+#include "ImpostorSurface.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "Check.h"
@@ -120,7 +120,7 @@ void CheckCapture(Finish finish) {
       Render::ImpostorBaker::Bake(std::move(capture), {.Pixels = 17, .Views = 1}, error);
   CHECK(atlas.has_value(), error.c_str());
   if (!atlas) { return; }
-  const auto card = Render::BuildImpostorCard(*atlas, 0);
+  const auto card = Render::BuildImpostorSurface(*atlas, 0);
   CHECK(card && card->wellFormed(), "captured material channels reach a native card");
   if (!card) { return; }
   const Vec3f expected = facade ? Vec3f{{0.8f * 0.68f, 0.6f * 0.70f, 0.4f * 0.72f}}

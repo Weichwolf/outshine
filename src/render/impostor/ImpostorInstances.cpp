@@ -1,6 +1,6 @@
 #include "ImpostorInstances.h"
 
-#include "ImpostorCard.h"
+#include "ImpostorSurface.h"
 #include "SceneRenderer.h"
 #include "StoredVertex.h"
 
@@ -32,7 +32,7 @@ std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &rend
       new ImpostorInstances(renderer, atlas.CentreM(), maxInstances));
   result->Views_.reserve(atlas.Views().size());
   for (size_t view = 0; view < atlas.Views().size(); ++view) {
-    auto geometry = BuildImpostorCard(atlas, view);
+    auto geometry = BuildImpostorSurface(atlas, view, ImpostorSurfaceDetail::Flat);
     if (!geometry || geometry->parts() != 1) {
       error = Says::View;
       return nullptr;

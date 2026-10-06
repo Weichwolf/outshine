@@ -10,7 +10,7 @@
 #include <scenario/Scenario.h>
 #include "ImpostorPreparation.h"
 #include "ImpostorInstances.h"
-#include "ImpostorCard.h"
+#include "ImpostorSurface.h"
 #include "VegetationStreaming.h"
 #include "FrameCapture.h"
 #include "RuntimeScene.h"
@@ -290,7 +290,7 @@ int main() {
   CHECK(atlas->Surfaces()[0].Roughness == species.ShadingParams().BarkRoughness &&
             atlas->Surfaces()[1].Roughness == species.ShadingParams().LeafRoughness,
         "atlas materials retain declared roughness without baking illumination");
-  CHECK(!Render::BuildImpostorCard(*atlas, atlas->Views().size()),
+  CHECK(!Render::BuildImpostorSurface(*atlas, atlas->Views().size()),
         "an absent crown view is refused");
   const auto fine = tree->GeometryAt(0);
   CHECK(fine.has_value(), "fine geometry remains available for visual comparison");
@@ -340,7 +340,7 @@ int main() {
                  static_cast<std::streamsize>(png.size()));
     CHECK(output.good(), "crown reference PNG is written");
     std::printf("view %zu bark=%zu leaf=%zu sampled pixels\n", view, covered[1], covered[2]);
-    const auto card = Render::BuildImpostorCard(*atlas, view);
+    const auto card = Render::BuildImpostorSurface(*atlas, view);
     CHECK(card.has_value(), "captured crown exports native geometry");
     if (!card) { continue; }
     const auto material = card->surfaceAt(MaterialInstance(0));
@@ -455,7 +455,7 @@ int main() {
     CHECK(!frames[0].empty() && frames[0] != frames[1],
           "changing the light relights captured crown surfaces");
   }
-  const auto baseCard = Render::BuildImpostorCard(*atlas, 0);
+  const auto baseCard = Render::BuildImpostorSurface(*atlas, 0);
   CHECK(baseCard.has_value(), "crown piece fixture starts from the native card reference");
   if (!baseCard) { return Report(); }
   Render::SceneRenderer renderer;

@@ -1,4 +1,5 @@
-#include "ImpostorCard.h"
+#include "ImpostorSurface.h"
+#include "DepthSurfacePatches.h"
 
 #include "math/Srgb.h"
 
@@ -7,13 +8,16 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <limits>
 #include <optional>
 #include <vector>
+#include <utility>
 
 namespace outshine::Render {
 namespace {
 constexpr auto kOpaqueByte = std::numeric_limits<uint8_t>::max();
+constexpr double kDepthErrorTexelDivisor = 16.0;
 
 uint8_t Byte(float value) {
   return static_cast<uint8_t>(
@@ -47,9 +51,83 @@ std::vector<uint32_t> NearestCoveredTexels(const Content::ImpostorAtlas::View &s
   }
   return owner;
 }
+
+std::expected<std::vector<DepthSurfacePatch>, DepthSurfaceError>
+PatchesOf(const Content::ImpostorAtlas &atlas,
+          const Content::ImpostorAtlas::View &source,
+          ImpostorSurfaceDetail detail) {
+  const auto pixels = static_cast<uint32_t>(atlas.Pixels());
+  if (detail == ImpostorSurfaceDetail::Flat) {
+    return std::vector<DepthSurfacePatch>{{.Right = pixels, .Bottom = pixels, .OriginDepth = 0.5}};
+  }
+  const size_t count = source.Texels.size();
+  std::vector<float> depths(count);
+  std::vector<uint32_t> surfaces(count);
+  for (size_t at = 0; at < count; ++at) {
+    depths[at] = source.Texels[at].Depth;
+    surfaces[at] = source.Texels[at].Surface;
+  }
+  return BuildDepthSurfacePatches({.Width = pixels,
+                                   .Height = pixels,
+                                   .Depth = depths,
+                                   .Surface = surfaces,
+                                   .AllowedError = 1.0 / (kDepthErrorTexelDivisor * pixels)});
 }
 
-std::optional<Geometry> BuildImpostorCard(const Content::ImpostorAtlas &atlas, size_t view) {
+bool AddDepthSurface(Geometry &geometry,
+                     int part,
+                     const Content::ImpostorAtlas &atlas,
+                     const Content::ImpostorAtlas::View &source,
+                     Vec3 toward,
+                     Vec3 right,
+                     ImpostorSurfaceDetail detail) {
+  const Vec3 centre = atlas.CentreM();
+  const double halfExtent = atlas.HalfExtentM();
+  const auto pixels = static_cast<uint32_t>(atlas.Pixels());
+  const auto patches = PatchesOf(atlas, source, detail);
+  if (!patches || patches->size() > std::numeric_limits<uint32_t>::max() / 4u) { return false; }
+  std::vector<float> positions;
+  std::vector<float> normals;
+  std::vector<float> tangents;
+  std::vector<float> uv;
+  std::vector<uint32_t> triangles;
+  positions.reserve(patches->size() * 12);
+  normals.reserve(patches->size() * 12);
+  tangents.reserve(patches->size() * 16);
+  uv.reserve(patches->size() * 8);
+  triangles.reserve(patches->size() * 6);
+  for (const auto &patch : *patches) {
+    const auto first = static_cast<uint32_t>(positions.size() / 3);
+    const std::array<std::pair<uint32_t, uint32_t>, 4> corners{{{patch.Left, patch.Bottom},
+                                                                {patch.Right, patch.Bottom},
+                                                                {patch.Right, patch.Top},
+                                                                {patch.Left, patch.Top}}};
+    for (const auto [pixelX, pixelY] : corners) {
+      const double u = static_cast<double>(pixelX) / pixels;
+      const double v = static_cast<double>(pixelY) / pixels;
+      const Vec3 point = centre + right * ((2.0 * u - 1.0) * halfExtent) +
+                         Vec3{{0, (1.0 - 2.0 * v) * halfExtent, 0}} +
+                         toward * ((4.0 * patch.At(pixelX, pixelY) - 2.0) * halfExtent);
+      for (size_t axis = 0; axis < 3; ++axis) {
+        positions.push_back(static_cast<float>(point[axis]));
+        normals.push_back(static_cast<float>(toward[axis]));
+        tangents.push_back(static_cast<float>(right[axis]));
+      }
+      tangents.push_back(-1);
+      uv.push_back(static_cast<float>(u));
+      uv.push_back(static_cast<float>(v));
+    }
+    for (const uint32_t offset : {0u, 1u, 2u, 0u, 2u, 3u}) { triangles.push_back(first + offset); }
+  }
+  return geometry.setPositions(part, positions) && geometry.setNormals(part, normals) &&
+         geometry.setTangents(part, tangents) && geometry.setTexture(part, uv) &&
+         geometry.setTriangles(part, triangles);
+}
+}
+
+std::optional<Geometry> BuildImpostorSurface(const Content::ImpostorAtlas &atlas,
+                                             size_t view,
+                                             ImpostorSurfaceDetail detail) {
   if (view >= atlas.Views().size()) { return std::nullopt; }
   const Content::ImpostorAtlas::View &source = atlas.Views()[view];
   const size_t count = source.Texels.size();
@@ -103,27 +181,7 @@ std::optional<Geometry> BuildImpostorCard(const Content::ImpostorAtlas &atlas, s
   const auto createdPart = geometry.addPart("impostor", *surface);
   if (!createdPart) { return std::nullopt; }
   const int part = *createdPart;
-  const Vec3 centre = atlas.CentreM();
-  const double halfExtent = atlas.HalfExtentM();
-  const std::array<Vec3, 4> corners{centre - right * halfExtent - Vec3{{0, halfExtent, 0}},
-                                    centre + right * halfExtent - Vec3{{0, halfExtent, 0}},
-                                    centre + right * halfExtent + Vec3{{0, halfExtent, 0}},
-                                    centre - right * halfExtent + Vec3{{0, halfExtent, 0}}};
-  std::array<float, 12> positions;
-  std::array<float, 12> normals;
-  std::array<float, 16> tangents;
-  for (size_t at = 0; at < corners.size(); ++at) {
-    for (size_t axis = 0; axis < 3; ++axis) {
-      positions[at * 3 + axis] = static_cast<float>(corners[at][axis]);
-      normals[at * 3 + axis] = static_cast<float>(toward[axis]);
-      tangents[at * 4 + axis] = static_cast<float>(right[axis]);
-    }
-    tangents[at * 4 + 3] = -1;
-  }
-  if (part < 0 || !geometry.setPositions(part, positions) || !geometry.setNormals(part, normals) ||
-      !geometry.setTangents(part, tangents) ||
-      !geometry.setTexture(part, std::array<float, 8>{0, 1, 1, 1, 1, 0, 0, 0}) ||
-      !geometry.setTriangles(part, std::array<uint32_t, 6>{0, 1, 2, 0, 2, 3})) {
+  if (!AddDepthSurface(geometry, part, atlas, source, toward, right, detail)) {
     return std::nullopt;
   }
   return geometry;
