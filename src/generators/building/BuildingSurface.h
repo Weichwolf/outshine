@@ -7,11 +7,14 @@
 #include "math/Box.h"
 
 #include <cstddef>
+#include <array>
 #include <expected>
 #include <optional>
 #include <vector>
 
 namespace outshine::Generators {
+
+struct BuildingSurfacePatch;
 
 class BuildingSurface {
 public:
@@ -43,6 +46,7 @@ public:
   }
 
   [[nodiscard]] Face FaceAt(size_t index) const noexcept;
+  [[nodiscard]] bool SupportsProjection() const noexcept;
 
   [[nodiscard]] std::optional<Hit>
   Trace(const Ray &ray, double minimum, double maximum, std::vector<double> &cuts) const;
@@ -56,6 +60,9 @@ public:
   [[nodiscard]] std::expected<void, StructureMeshError>
   MeshVisible(std::span<const Face> faces, BuildingScratch &scratch, Raised &into) const;
 
+  [[nodiscard]] size_t EstimatedTriangles(std::span<const Face> faces) const noexcept;
+  void MeshPatches(std::span<const BuildingSurfacePatch> patches, Raised &into) const;
+
 private:
   Vec3 Origin_;
   EnuAxes Axes_;
@@ -64,6 +71,11 @@ private:
   std::optional<Vec3f> WallColour_;
   std::vector<BuildingShape> Shapes_;
   std::vector<size_t> FaceOffsets_;
+};
+
+struct BuildingSurfacePatch {
+  BuildingSurface::Hit Sample;
+  std::array<Vec3, 4> Corners;
 };
 
 }

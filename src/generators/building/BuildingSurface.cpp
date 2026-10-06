@@ -138,7 +138,7 @@ Edge EdgeOf(const BuildingShape &shape, size_t face) {
   return {.A = nullptr, .B = nullptr};
 }
 
-Vec2f TextureAt(const BuildingShape &shape, size_t face, const Vec3 &point) {
+Vec2f TextureAt(const BuildingShape &shape, size_t face, const Vec3 &point, bool gable) {
   if (face < 2) {
     Facade material = shape.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
     if (face == 0) { material = Facade::Plinth; }
@@ -153,7 +153,6 @@ Vec2f TextureAt(const BuildingShape &shape, size_t face, const Vec3 &point) {
       length > 0.0
           ? ((point[0] - edge.A->EastM) * e + (point[1] - edge.A->NorthM) * n) / (length * length)
           : 0.0;
-  const bool gable = point[2] > RoofDeck(shape);
   const double bays = gable || edge.Party ? 0.0 : FacadeBays(length, shape.BayM);
   return {{FacadeUvX(BuildingFacadeStyle(shape.Form),
                      edge.Entrance && !gable ? Fields::Entrance : Fields::Back,
@@ -202,6 +201,12 @@ BuildingSurface::Face BuildingSurface::FaceAt(size_t index) const noexcept {
   return {.Part = part, .Side = index - FaceOffsets_[part]};
 }
 
+bool BuildingSurface::SupportsProjection() const noexcept {
+  return std::ranges::all_of(Shapes_, [](const BuildingShape &shape) {
+    return shape.RiseM == 0.0 || (shape.Roof != RoofKind::Dome && shape.Roof != RoofKind::Sawtooth);
+  });
+}
+
 std::optional<BuildingSurface::Hit> BuildingSurface::Trace(const Ray &ray,
                                                            double minimum,
                                                            double maximum,
@@ -222,7 +227,8 @@ std::optional<BuildingSurface::Hit> BuildingSurface::Trace(const Ray &ray,
 }
 
 StoredVertex BuildingSurface::VertexAt(const Hit &hit, const Vec3 &position) const noexcept {
-  const Vec2f uv = TextureAt(Shapes_[hit.Part], hit.Face, Local(Axes_, position - Origin_));
+  const Vec2f uv =
+      TextureAt(Shapes_[hit.Part], hit.Face, Local(Axes_, position - Origin_), hit.Gable);
   return StoredVertex::Of({{static_cast<float>(position[0]),
                             static_cast<float>(position[1]),
                             static_cast<float>(position[2])}},
@@ -233,7 +239,7 @@ StoredVertex BuildingSurface::VertexAt(const Hit &hit, const Vec3 &position) con
 }
 
 Vec3f BuildingSurface::ColourFactor(const Hit &hit) const noexcept {
-  if (!WallColour_ || hit.Face < 2) { return {{1, 1, 1}}; }
+  if (!WallColour_ || IsRoof(hit)) { return {{1, 1, 1}}; }
   return {{(*WallColour_)[0] / kBuildingWallColour[0],
            (*WallColour_)[1] / kBuildingWallColour[1],
            (*WallColour_)[2] / kBuildingWallColour[2]}};
