@@ -27,7 +27,8 @@ SceneRenderer besitzt das Pixelbudget: vorderste Coverage/Tiefe bestimmen, Mater
 für wirksame Oberflächen auswerten. Stadt, Wald und offener Boden teilen denselben Pixelauftrag.
 Kompakten Visibility-/Surface-Resolve gegen Depth-Prepass plus Clustered Forward vergleichen;
 SDL_GPU-Shaderverträge, doppelte Geometriearbeit und zusätzlicher Speicherverkehr entscheiden.
-Kein breites G-Buffer auf Verdacht. Transparenz/Reflexion/Schatten haben begrenzte Zusatzarbeit;
+Kein breites G-Buffer auf Verdacht. Generator-/Renderer-/Hybrid-Verdeckung mit denselben
+Asset-Rohlingen vergleichen (2336/2280); Residency, Erzeugung und Draw getrennt bewerten. Transparenz/Reflexion/Schatten haben begrenzte Zusatzarbeit;
 Hardware-Early-Z ersetzt keinen hierarchischen Ausschluss verdeckter Unterbäume.
 
 1. RenderCatalogue/Compiled und SceneRenderer nutzen vorhandene Passabhängigkeiten/StageCache.

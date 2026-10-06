@@ -21,7 +21,9 @@ Dieser WI migriert jeweils den für 2280/2336 oder ein Bildfeature benötigten P
 vollständige SDK-Neufassung als Vorbedingung und kein zusätzlicher Universal-Scheduler.
 API-Adapter besitzt Adresse/Auth/Antworthülle, Provider Formatdecode/Normalisierung,
 Generator Fachplanung/Produkte; Engine Bedarf/Jobs/Publikation, world native Inhalte.
-Gemeinsame IO-/Cache-/Jobdienste enthalten keine Geografie- oder Quellsemantik.
+Gemeinsame IO-/Assetcache-/Jobdienste enthalten keine Quellsemantik. 2280 besitzt den Cache:
+Engine fordert native Assets an; Misses erzeugen sie über Generatoren. Derselbe öffentliche Vertrag lädt sie
+nach räumlicher/LOD-Auswahl. Indexabfragen: Frustum oder Radius R um Weltposition x,y,z.
 
 ## Konkrete Integration
 1. Die laufende Gebäude-/Terrainlieferung über denselben öffentlichen Vertrag anbieten:
@@ -29,7 +31,11 @@ Gemeinsame IO-/Cache-/Jobdienste enthalten keine Geografie- oder Quellsemantik.
    samt Bounds, Kosten und repräsentationsgerechter Geometrie-/Bildgültigkeit. Fehler und gültig leer
    unterscheiden. Provider optional; lokale Zufalls-/Spielzustandsinputs sind zulässig.
    Detailauftrag/Auswahl gelten für Terrain, Gebäude, Vegetation und importierte Assets;
-   Fachpläne bleiben privat. Mesh-, Oberflächen- und Volumenprodukte brauchen passende Formate.
+   Fachpläne bleiben privat. Asset-ID, konservative Bounds, LOD-/Abhängigkeiten und native
+   serialisierbare Produkte anbinden; keine zweite Builtin-Persistenz. Mesh-, Oberflächen- und
+   Volumenprodukte brauchen passende Formate. Cachehits umgehen Provider/Rohling-Neubau.
+   Budgetierte Runtime-Verfeinerung erhält fertige Rohlinge, keine unvollständigen Quelldaten.
+   Identische Misses teilen einen Job; Hits/Misses publizieren dieselben nativen Produkte.
 2. Fachliche Vorbereitung aus Engine/SurfacePreparation zur verantwortlichen Erweiterung
    führen. OSM/XML/MVT zu generators/osm, Höhen-/Wetterdecoder zu ihren Erweiterungen.
    Private Sonderaufrufe beim Anschluss entfernen, statt einen Wrapper darüberzulegen.

@@ -21,7 +21,7 @@ OSM-Adapter besitzt Landcover-/Baumhinweise. VegetationTemplates besitzt deklari
 Standortmischungen; Shipping löst Artennamen einmal in kompakte Prototypindizes auf.
 Forest erzeugt einen stabilen Bestandsplan aus Bodenklasse, Höhe, Hang und Welt-Seed.
 ForestDraw publiziert Instanzen. Vegetationsvorbereitung/Renderer besitzen gemeinsame
-Prototypen, RAM-/GPU-Produkte, sichtbare Detailwahl, Wind und Schatten.
+fertige Assetcache-Produkte (2280), RAM/GPU-Residency, sichtbare Detailwahl, Wind und Schatten.
 Depends 2336 betrifft gemeinsame Eltern-/Kindabdeckung und repräsentationsgerechte
 Qualität/Kosten. Standortauswahl und Prototypintegration warten nicht auf dessen Gesamtabschluss.
 2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
@@ -72,11 +72,14 @@ Mips und Overdraw entscheiden zusammen mit GPU-/RAM-Bytes, nicht nur Dreieckzahl
 [Echtzeit-Fernwald](../doc/references/vegetation/eg/2012-real-time-forests.pdf):
 Bestandsdeckung, Kronenhöhe und mittlere Lichtantwort bei Aggregation erhalten.
 Z-Felder/Shader-Maps sind Vergleichsmodelle; deren Texturkosten nicht blind übernehmen.
-Nur eigene prozedurale Formen im RAM vorbereiten, keine persistenten Bake-Dateien.
+Bestände, gemeinsame Prototypen, LODs und Wind-/Materialparameter einmal erzeugen und als
+räumlich indizierte Rohlinge persistieren (2280); Nahlaub/Detailäste zur Laufzeit daraus ergänzen.
+Cachehits wiederholen weder Bestandsplanung noch den Aufbau unveränderter Prototypen.
 
 ## Invarianten und Abnahme
 Keine Place-Sonderbepflanzung. Wasser/Freiraum und DSM-Bewuchs respektieren; plausible
-Ergänzungen bleiben von belegten Arten unterscheidbar. Generierte Produkte nur RAM/GPU.
+Ergänzungen bleiben von belegten Arten unterscheidbar. Fertige Produkte im Asset-Cache;
+aktueller Wind/Licht/Wetter wirken zur Laufzeit, keine gespeicherte Momentpose/-beleuchtung.
 Wald, Stadt und Vegetation gemeinsam vollständig resident, keine feste Klassenquote.
 Malcesine/Feldkirch zeigen geschlossene Fernbestände; ein naher Bestand zeigt räumliches
 Laub statt Kronenkarten. Vorher/Nachher tatsächlich öffnen. Dichte Wald-Rundumdrehung

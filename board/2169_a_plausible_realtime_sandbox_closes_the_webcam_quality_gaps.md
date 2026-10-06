@@ -39,10 +39,10 @@ Dies ist der fortlaufende Katalog, keine Behauptung eines abgeschlossenen Code-R
 Jeder Befund bleibt beim Featurebesitzer; dort stehen Ursache, Ersatz und Bildabnahme.
 | Priorität | Defizit | Zielpfad und Besitzer |
 |---|---|---|
-| P0 | Tokyo erzeugt 29,65 Mio. Dreiecke; Fernbedarf greift zu spät | Plan → projizierter Bedarf → Hülle/Cluster/Impostor, 2336 |
-| P0 | Quellplanung wird bei Bewegung erneut aufgebaut; persistente Hierarchie fehlt | Gepackte wiederverwendbare Pläne, gezielte Auswahl/Publikation, 2336/2280 |
+| P0 | Tokyo erzeugt noch 2,36 Mio. Dreiecke; Fernbedarf nicht global | Plan → projizierter Bedarf → Hülle/Cluster/Impostor, 2336 |
+| P0 | Cache enthält Quellen statt fertiger Game-Assets; Bewegung wiederholt Aufbau | Assetbedarf → Cachehit laden / Miss generieren, räumlicher Index/LOD, 2280/2336 |
 | P0 | Rasterarbeit bleibt teuer; HiZ greift bei Drehung nicht | Hierarchische Sichtauswahl, vordere Coverage, begrenzte aktuelle Arbeit, 2340 |
-| P0 | Tokyo hält ca. 3,88 GB GPU-Streams; Spitzen überschreiten das Gerät | Nur benötigte Darstellungen/Attribute resident, geteilte Eingaben, 2336/2188 |
+| P0 | CP/Tokyo Prozesspeaks 2,68/3,01 GB; GPU-Anteil noch unbewiesen | Nur benötigte Darstellungen/Attribute resident, geteilte Eingaben, 2336/2188 |
 | P0 | Geometrie-/Material-Replay ist noch nicht im Stadtpfad integriert | Unbeleuchtete Fernfelder, gültige Tiefe/Parallaxe, aktuelle Beleuchtung, 2336/2171 |
 | P0 | Wasserpegel/Ufer fluten Gebäude oder bilden falsche Stufen | Zusammenhängende Gewässergeometrie und Terrainkontakt, 2145 |
 | P1 | Sonderklassen/Parts/Dachformen fehlen oder werden falsch interpretiert | Gelieferte Semantik statt Wohnhausannahmen, 2173/2338 |
@@ -67,7 +67,7 @@ ist dadurch nicht statisch. Die Place-Drehung ist ein Integrationsfall, kein Ers
 | 5 Wolken | 2172 | Wetterhimmel und kohärentes Bodenlicht im zuvor freigemachten Budget |
 | Danach Sandbox | 2136 | Kräfte/Kontakte/Gelenke, NPC/JS/LLM, Ton, Persistenz |
 
-2280 (Laden), 2188 (öffentliche Grenzen) und 2155 (Licht) werden mit diesen sichtbaren
+2280 (indizierter Asset-Cache/Laden), 2188 (öffentliche Grenzen) und 2155 (Licht) werden mit diesen sichtbaren
 Lieferungen integriert. Gemessene Einsparungen schaffen das Wolkenbudget; keine Lockerung
 von Profil, Sichtweite, Inhaltsvollständigkeit oder Framebudget.
 
@@ -85,7 +85,8 @@ Geometriefehler sofort beheben. Licht/Material/Fels dürfen mit vorhandenen Inpu
 ohne auf den Abschluss anderer WIs zu warten. Nach jeder vollständigen Lieferung den nächsten
 Bildverlust wählen; keine Folge ausschließlich interner Reparaturen als Fortschritt ausgeben.
 
-2280 besitzt Erwerb/Cache und den vollständigen Ladeablauf, 2336 räumlichen Bedarf/LOD,
+2280 besitzt Erwerb und fertige, räumlich indizierte Assets aller Generatoren; Cachetreffer
+laden ohne Neubau. 2336 besitzt räumlichen Bedarf/LOD,
 2188 öffentliche Erweiterungsgrenzen. Die übrigen WIs besitzen jeweils Form, Material,
 Licht, Umwelt oder Simulation. `Depends` bezeichnet nur den ausdrücklich genannten fehlenden
 Teilvertrag, nicht den Abschluss eines gesamten WI. Keine versteckten Abhängigkeiten.

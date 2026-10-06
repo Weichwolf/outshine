@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Architecture: ready
 Priority: P1
 Parent: 2169
@@ -10,111 +10,63 @@ Tags: lighting, shadows, hdr, presentation
 # Light and camera response make existing world geometry convincing
 
 ## Ergebnis und Ist
-Kohärentes Tages-/Nachtlicht, räumliche Schatten/Reflexion und stabile Belichtung.
-SceneRenderer/SkyStage, LightVisibility/Irradiance, HDR/TemporalResolve/Tonemap bestehen;
-Weltwirkung und Kameraantwort sind unzureichend oder nicht am Place belegt.
-subjectLighting filtert Reverse-Z-Vergleiche mit bilinearem 2×2-PCF; Empfänger-Tiefe je Texel
-aus ihrer Ebene extrapolieren. Tiefenpräzision, Bias und Bereichsübergänge bleiben offen.
-Die Umgebungsspekularantwort nutzt einen gemeinsamen GGX-gefilterten Himmelsatlas und
-Split-Sum-GGX/Smith statt der Diffuse-Hemisphäre; Richtung und Rauheit bestimmen die Abfrage.
-Gemittelter Boden ersetzt noch keine lokalen Weltreflexionen; Glas bleibt dadurch oft zu dunkel.
-Hintergrund/LUT teilen Winkel-/Texelabfragen; geodätische Kamera-Elevation vor GPU-Vorbereitung binden.
-Transmittanzrichtung folgt dem Erdkugelschnitt; Mehrfachstreuung teilt Radius/Sonnenvertrag.
+Kohärentes Tages-/Nachtlicht, räumliche Schatten/Reflexionen und stabile Kameraantwort.
+Native Sky/Atmosphären-LUTs, LightVisibility, HDR/TAA/Tonemap bestehen; Places wirken flach.
+GGX-gefilterter Himmel/Split-Sum und Reverse-Z-PCF bestehen; lokale Weltreflexionen und
+kalibrierte Schatten-/Belichtungswirkung fehlen. Glas bleibt oft zu dunkel.
 
 ## Besitzer und nächste Lieferung
-Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing, PlaceCamera/Referenzkatalog Pose/FOV/UTC.
-Mit vorhandenen Inputs zuerst eine Stadt- und Bergansicht
-über Himmelsfüllung, Sonnenschatten und Belichtung verbessern. Kein Quellen-/SDK-Blocker.
+Renderer besitzt Licht/Pässe/History, Client Kamera/Pacing, Place-Katalog Pose/FOV/UTC.
+Zuerst vorhandene Stadt-/Bergformen mit Himmelsfüllung, Sonnenschatten und Belichtung verbessern.
+2155 besitzt den gemeinsamen Look, 2171 Materialkomposition, 2172 Wetter/Wolken/Astronomie.
+Asset-Rohlinge sind unbeleuchtet; aktuelle Beleuchtung bleibt Runtime und wird gezielt erneuert.
 
-## Räumliche Sonnenschatten
-RuntimeScene/LightVisibility staffeln Sonnenschatten rundum in vier texelstabile Bereiche:
-256/1024/4096 m Halbausdehnung plus Weltfit; Blickdrehung ändert keine Karte. Asset-Szenen
-behalten ihren Objektfit. 4096² D32F, vier 2048²-Kacheln: 64 MiB statt 16 MiB.
-Alle Batch-Instanzen und GroundLattice-Höhen werfen Schatten; keine Nahtsäume, PCF je Kachel.
-Nächster Schritt: Tiefenintervalle je Bereich aus nativen Instanz-/Terrainbounds schneiden,
-alle relevanten Außen-Occluder erhalten; Rundungsfehler, Bias und Übergänge am Bild prüfen.
-Empfängertiefe in Lichtkoordinaten relativ zur Kamera in Metern; erst je Karte normalisieren.
-D32-Vergleich mit mindestens 3ε Rundungsreserve; Tiefenfit nach Filament `ef1a133d`, `ShadowMap.cpp`.
-Renderer besitzt Pässe/Filter/GPU-Verträge; Generatoren kein Schattenwissen. Tabellen vor
-Schattenbedarf finalisieren; statische Karten ab erstem Frame nutzen, keine Farb-AO als Ersatz.
+## Schatten und viele Lichter
+- Vorhandene Rundum-Sonnenbereiche: 256/1024/4096 m Halbausdehnung plus Weltfit; texelstabil.
+  4096² D32F mit vier 2048²-Bereichen kostet 64 MiB. Blickdrehung baut diese nicht neu auf.
+  Tiefenintervalle aus Terrain/Instanzbounds schneiden; relevante Außen-Caster erhalten.
+  Reverse-Z-Präzision, Empfängerebene/2×2-PCF, Bias und Übergänge ohne Kontaktverlust prüfen.
+- Schatten nach Bildwirkung/Pass staffeln (2340); fremde Nah-/Fern-Verdeckung nicht übernehmen.
+  Entfernte Caster können unsichtbar und trotzdem wirksam sein. Aktuelle Posen/Wind berücksichtigen.
+- Tausende lokale Lichter: räumliche Tiefencluster/Clustered Forward statt Vollschleife je Pixel.
+  Kleine Lichtmengen behalten günstigen Pfad. Überlauf explizit; keine still verlorenen Lichter.
+  Emission, direkte Wirkung und Schatten getrennt budgetieren; keine Schattenkarte je Fenster.
 
-## Bildstabilität
-Places verwenden TAA im regulären Profil. Bewegung/History stimmen in NDC, UV, Y-Richtung
-und Projektionsjitter überein; gültige History bleibt am festen Pixelraster. Konturbewegung
-über größte Reverse-Z-Nachbartiefe dilatieren, Hintergrund kamerabasiert reprojizieren.
-Disocclusion/ungültige History nimmt das aktuelle Bild; Farbclip und Coverage erhalten Konturen.
-Szenenwechsel verwirft History. Stillstand akkumuliert 90/10; Drehung separat prüfen.
-Catmull-Rom mit fünf renormierten Kreuzabfragen und lokalem Wertebereich begrenzt Ringing
-(Filament `ef1a133d`). Bildschärfe und MSAA einschließlich Tiefenpfad bleiben zu prüfen.
-
-## Gemeinsame Umgebungsreflexion und nächste Bildlücke
-- MediumRadiance → EnvironmentSpecular → Gebäude/Terrain/Wasser teilt Himmelsabfragen,
-  Horizont/Texelzentren und endliche Sonnenprojektion am Zenit.
-- Renderer besitzt einen GPU-vorgefilterten GGX-Atlas: sieben Roughness-Stufen, 64² nutzbare
-  Texel je Stufe, je ein Randtexel. RGBA16F: 66 × 66 × 7 × 8 = 243936 Byte (238,2 KiB).
-  Deterministische begrenzte Samples; Octaeder-Ränder korrekt fortsetzen, zwei gefilterte
-  Abfragen interpolieren Roughness.
-- BRDF-Split-Sum aus demselben GGX/Smith-Modell wie Direktlicht; vorhandene Tabellenerzeugung
-  erweitern. Sonne bleibt getrenntes Direktlicht, nicht doppelt in Reflexionen rechnen.
-  Welt-Up/Sonnenrichtung explizit im typisierten CPU/GPU-Lichtvertrag, keine Lichtindexannahme.
-- Atlas hängt an Medium, Sonnenstand, Augenhöhe und Quellprodukt. Submission/Invalidierung
-  und Abschluss-Fence in bestehende Weltvorbereitung integrieren; kein Aufwärmframe.
-  Erst Himmel und gemittelter Boden: fehlende lokale Weltreflexion bleibt eine benannte Lücke.
-  Nächster Bildschritt: lokale Weltreflexionen in nahen Scheiben, Sichtbarkeit und Rauheit
-  konsistent mit dem Atlas. SSR/Probes ergänzen ihn; verdeckte oder fehlende Treffer fallen
-  auf denselben Himmel zurück. Wolken/Nachtkörper folgen derselben Lichtwelt. Keine Sonderfarben.
-- Filament `ef1a133d`, `surface_light_indirect.fs`/`CubemapIBL.cpp` und UE4/Frostbite-Kursnotizen
-  liefern Vergleichsmodelle. GPU-Bild, Rauheitsverlauf, Energie und Kosten entscheiden.
+## Reflexion und Kamera
+- Medium → gemeinsame EnvironmentSpecular-Antwort → Gebäude/Terrain/Wasser/Glas; Welt-Up,
+  Sonnenrichtung, Höhe/Horizont und Texelzentren explizit. Sonnendirektlicht nicht doppelt zählen.
+- GGX/Smith und Roughness teilen direkte/indirekte Energie. Bestehender Atlas: sieben 64²-Stufen
+  mit Rand, RGBA16F, 238,2 KiB. Octaeder-Ränder/Interpolation erhalten; Referenz Filament `ef1a133d`.
+  Gemittelter Boden ersetzt keine lokalen Spiegelungen. Begrenzte SSR/Probes ergänzen gültige
+  Treffer; fehlende/verdecke Treffer fallen auf denselben Himmel zurück, keine Sonderfensterfarben.
+- HDR/linearer Farbraum/Belichtung teilen einen Ausgabepfad. Tageszeit/Exposition ändern keine
+  Materialbasis. Kamera gegen Landmarken/Relief kalibrieren, Formfehler nicht durch Pose verstecken.
+- TAA: gemeinsame Tiefe/Bewegung, NDC/UV/Y/Jitter; dilatierte Konturbewegung, Hintergrundreprojektion,
+  gültige History am festen Raster. Disocclusion/Scene-/Ursprungswechsel aktualisieren betroffene Pixel.
+  Farbclip begrenzt Ghosting/Ringing; Stillstand akkumuliert. Schärfe, Drehung, Wasser/Laub prüfen.
+- Invariante Lichttabellen/Schatten vor erstem Messframe auf demselben Device vorbereiten und
+  Submission abschließen; kein Zusatzframe. Änderungen erneuern nur abhängige Produkte.
 
 ## Gemeinsamer Look
-- Default ist minimalistischer Solarpunk: klare Volumen/Raster aus Bauhaus, gezielte
-  gestufte Formen/Reliefs und rhythmische Akzente aus Art déco. Wenige Materialfamilien,
-  konsistente Proportionen und gezieltes Detail statt gleichförmiger Zufallsdekoration.
-  Belegte Gebäudeform/-farbe bleibt maßgeblich; kein weltweiter Stilumbau realer Orte.
-- Grau/Beige für Beton/Putz, warme Erdtöne, abgestufte Grüntöne und ruhige Blautöne als
-  gemeinsame Palette aller Generatoren. Varianten folgen demselben Materialkatalog (2171).
-  Höhe/Umfang eines Details folgt seiner Bildwirkung; Silhouetten nicht pauschal vereinfachen.
-- Palette bei Vorbereitung in OKLCH über Helligkeit, Chroma und Farbton abstimmen;
-  Flächenanteil, Hell-Dunkel-Hierarchie und wenige Akzente zusammen beurteilen. Wahrnehmungs-
-  abstand ist kein Schönheitsbeweis. Kompatibilitätsmodelle liefern Vergleichshypothesen.
-  Für Licht/Materialmischung in lineares RGB überführen, keine Paletteoptimierung je Fragment.
-- Ein gemeinsamer HDR-/Belichtungs-/Ausgabepfad hält Materialien zusammen. Kein nachträgliches
-  Einfärben einzelner Objekte; Nässe, Nacht und Jahreszeit bleiben physikalisch plausibel.
+Minimalistischer Solarpunk: klare Bauhausvolumen/-raster, gezielte Art-déco-Staffelung/Reliefs.
+Wenige Materialfamilien und konsistente Proportionen; belegte Gebäudeformen/-farben erhalten.
+Grau/Beige, warme Erdtöne, abgestufte Grüntöne und ruhige Blautöne teilen eine Palette (2171).
+OKLCH bei Vorbereitung für Helligkeit/Chroma/Farbton und Hell-Dunkel-Hierarchie nutzen;
+lineares RGB für Licht/Komposition. Abstand/Harmoniemodell ist kein Schönheitsbeweis.
+Keine Paletteoptimierung je Fragment oder nachträgliche Objekt-Sonderfärbung. Details folgen
+Bildwirkung. Vegetation/Boden/Schatten bilden gemeinsame Kontakte, keinen aufgesetzten Look.
 
-### Licht und Kamera
-- Kamera gegen Landmarken/Relief kalibrieren; falsche Gebäude nicht durch Pose kaschieren.
-  Sonnenschatten folgen dem Vertrag oben; tausende lokale Lichter brauchen Clustered Forward.
-  Native Lichtbereiche räumlich zuordnen; je Fragment nur seine Liste, Sonne/Himmel separat.
-  Transparenz nutzt räumliche Tiefencluster; Listen/Überlauf explizit, kein stilles Abschneiden.
-  Emission, direkte Lichtwirkung und Schatten getrennt budgetieren; keine Schattenkarte je Fenster.
-  Statische/dynamische Schatten getrennt halten, Auflösung/Updates nach Bildwirkung (2340).
-- Roughness-gefilterte Weltreflexion mit Sichtbarkeit und vollständigen Mips; Wasser nutzt
-  dieselbe Lichtwelt. Emissive Fenster/Straßenlichter fern als kompakte Beiträge, keine
-  Detail-/Schattenarbeit je Fenster. Bloom ersetzt keine Geometrie.
-- HDR/Farbraum/Belichtung zeitlich stabil; konsistente Tiefe/Bewegung und Frame-Ursprung.
-  Disocclusion, neue Produkte und Ursprungswechsel invalidieren betroffene History.
-- Arbeit pro tatsächlich benötigtem Pass/Extent; keine ungenutzten Renderressourcen.
-  Render-/Ausgabemaß und Zielrate getrennt; Profile aus AGENTS, kein stiller Qualitätswechsel.
-
-## Forschungsgrundlage
-[Color Compatibility](../doc/references/presentation/siggraph/2011-color-compatibility.pdf)
-und [Oklab/OKLCH](https://bottosson.github.io/posts/oklab/): gemeinsame Palette vorbereiten,
-in Stadt-/Bergbildern und bei wechselndem Licht prüfen. Kein universelles Harmoniegesetz.
+## Bewährte Verfahren
 [Frostbite-PBR](../doc/references/lighting/siggraph/2014-frostbite-pbr-course-notes.pdf),
-[TAA-Übersicht](../doc/references/presentation/cgf/2020-temporal-antialiasing-survey.pdf)
-([Primärquellen/Einordnung](../doc/references/README.md)): Lichtgrößen/IBL/Belichtung zusammen
-kalibrieren. Schatten nach projizierter Wirkung staffeln; Bias gegen Kontaktverlust prüfen.
-History anhand Tiefe, Bewegung und Produktgültigkeit validieren; flimmerfreie Unschärfe ist
-kein Bildgewinn. Bewegtes Wasser/Laub und Ursprungssprünge gesondert integrieren.
-[Moment Shadow Mapping](../doc/references/lighting/i3d/2015-moment-shadow-mapping.pdf):
-stabile Tiefenprojektion/Bias zuerst; Momente nur bei Gesamtgewinn samt Blur/Mips/Bytes und Autoren-Errata.
-[Clustered Shading](../doc/references/lighting/hpg/2012-clustered-shading.pdf):
-kleiner Lichtpfad bleibt für wenige Lichter; Stadt-/Innenraum-Nachtlastfall prüft den Clusterpfad.
+[Clustered Shading](../doc/references/lighting/hpg/2012-clustered-shading.pdf),
 [Screen-Space-DDA](../doc/references/lighting/jcgt/2014-efficient-screen-space-rays.pdf):
-IBL bleibt Grundreflexion; SSR mit Step-Limit, Tiefe/Dicke und Disocclusion ergänzt gültige Treffer.
+gemeinsame Lichtantwort, begrenzte Lichtlisten/SSR. [TAA](../doc/references/presentation/cgf/2020-temporal-antialiasing-survey.pdf)
+und [Moment Shadows](../doc/references/lighting/i3d/2015-moment-shadow-mapping.pdf):
+Tiefe/Bias zuerst; Momente nur bei Gesamtgewinn samt Blur/Bytes/Errata.
+[Color Compatibility](../doc/references/presentation/siggraph/2011-color-compatibility.pdf),
+[Oklab](https://bottosson.github.io/posts/oklab/), [Recherche](../doc/references/README.md).
 
 ## Abnahme
-Datierte klare/bedeckte Stadt-/Bergbilder gewinnen Tiefe und Materiallesbarkeit; Morgen,
-Abend und Nacht erhalten plausible Helligkeit. Bewegung ohne Geisterbilder/Belichtungssprünge.
-Beton, Boden, Vegetation und Himmel wirken als zusammenhängender Look; Detailverzicht
-erhält Charakter/Lesbarkeit. Palette und Kontakt unter Sonne, Wolken, Nässe und Nacht prüfen.
+Datierte klare/bedeckte Stadt-/Bergbilder gewinnen Tiefe/Materiallesbarkeit. Morgen/Abend/Nacht
+plausibel; Bewegung ohne Ghosting, Kontaktverlust oder Belichtungssprung. Beton, Boden,
+Vegetation und Himmel wirken zusammen. Bild/Kosten im gleichen Profil getrennt prüfen.

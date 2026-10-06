@@ -19,7 +19,9 @@ Echte GPU-Passzeiten bleiben offen; keine Gleichsetzung mit Fence-Warten.
 
 ## Besitzer und Umsetzung
 - `world/data/ContentStore`: Hits/Misses, gelesene/geschriebene Bytes und IO-Dauer;
-  `SourceSet` besitzt Providerstarts, Retries und Lieferungen je Quelle.
+  `SourceSet` besitzt Providerstarts, Retries und Lieferungen je Quelle. 2280s Asset-Index
+  misst Abfrage/IO/Entpacken/Upload; Erstaufbau und Treffer getrennt. Treffer dürfen keine
+  Quellaufbereitung/Rohling-Neubau verstecken; Runtime-Nahdetails separat messen. SSD/RAM/GPU-Nutzdaten/Peaks getrennt zählen.
 - `world/ground/TilePool`: jede ausgeführte Field-/Mesh-Arbeitsportion zählen,
   einschließlich abhängiger Wiederholungen; fertiggestellte Produkte getrennt zählen.
 - Generatoren und `engine/FrameMeasurements`: vorhandene Phasen zu Anzahl/Summe/Maximum

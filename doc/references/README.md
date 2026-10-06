@@ -183,8 +183,8 @@ Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
   [PDF](vegetation/siggraph/2003-billboard-clouds.pdf).
   Mehrere räumliche Ebenen statt einer flachen Kronenkarte als Fernprototyp vergleichen.
   Alpha-Belegung, Mips, Normalen und Silhouette erhalten; leere Texel und Overdraw können
-  den Geometriegewinn aufheben. Nur aus eigenen prozeduralen Modellen im RAM erzeugen,
-  kein Fotoatlas und kein persistenter Generatorcache.
+  den Geometriegewinn aufheben. Aus eigenen prozeduralen Modellen erzeugen, kein Fotoatlas. Gemeinsame Basisprodukte
+  als Asset-Rohlinge speichern (2280); Nahdetails und aktuelles Licht/Wind folgen zur Laufzeit.
 - **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
   [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
   [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·
@@ -233,7 +233,7 @@ Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
 
 | Bereich / WI | Grundlage | Entscheidung für Outshine |
 |---|---|---|
-| Quellen/HTTP/Cache — 2280 | [HTTP-Semantik, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | libcurl; paralleles begrenztes IO, Status-/Retry-/Abbruchverträge; persistenter Cache nur für Quellbytes |
+| Quellen/HTTP/Cache — 2280 | [HTTP-Semantik, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | libcurl; paralleles begrenztes IO, Status-/Retry-/Abbruchverträge; Quellbytes separat, Assetbedarf → Treffer laden / Miss generieren; räumlicher Assetcache mit LOD/Residency |
 | Weltweite Auswahl — 2336 | [Cesium Native: Auswahl](https://cesium.com/learn/cesium-native/ref-doc/selection-algorithm-details.html) | Elternabdeckung bis Kindpublikation, projizierter Fehler; Blick-Culling getrennt von Rundum-Residency |
 | Import/Material/Animation — 2188 / 2171 / 2136 | [Khronos glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) | Szenario und glTF in dieselben nativen Produkte, keine parallele Assetwelt |
 | Backend/Submission — 2188 / 2155 | [SDL3 GPU](https://wiki.libsdl.org/SDL3/CategoryGPU) | Nur verfügbare Backendverträge; Ownership, Synchronisation, tatsächliche GPU-Bytes messen |

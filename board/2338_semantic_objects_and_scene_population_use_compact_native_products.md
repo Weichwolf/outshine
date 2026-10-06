@@ -28,6 +28,8 @@ Zuerst eine erkennbare technische Objektklasse im Stadt-/Hafenbild integrieren.
 - Terrain/Wasser/Freiraum und Zugänge bei Platzierung respektieren. Seeds/Identität über
   LOD stabil; 2336s Fernbeiträge statt Nahmesh. Gebäude 2173, Straßenmarkierungen 2281,
   Pflanzen 2111 besitzen ihre eigenen Klassen; keine duplizierten Generatoren.
+- Geteilte Rohlinge/Belegungspläne über 2280s Assetcache laden; nur Misses erzeugen sie.
+  Nahdetails budgetiert aus fertigen Parametern ergänzen, keine neue Quellenpipeline.
 - Park-/Liegeflächen erzeugen plausible Belegung. Statische Objekte brauchen keinen fertigen
   Solver; bewegliche Varianten später über 2136. Segel/Flaggen teilen 2172s Wind und Bounds.
 

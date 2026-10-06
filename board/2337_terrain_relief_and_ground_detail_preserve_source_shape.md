@@ -30,7 +30,8 @@ Silhouette und See verbessern; 2145 besitzt Pegel/Kontakte, 2171 die gemeinsame 
   Linien gefiltert auswerten. Fernrelief benötigt keine Nahmesh-/Pixelarbeit.
 - Gelände/Landcover steuert Fels/Schutt/Boden. DSM-Bewuchs vom Boden unterscheiden; Gipfel,
   Küsten und Kontakte erhalten. Nachbarn teilen Samples, gröbere Raster brauchen Höhenfehler.
-  Auswahl aus 2336, Nässe/Schnee aus 2172, Standorte aus 2111 anschließen; keine Diskbakes.
+  Vorbereitete Terrain-/Material-/LOD-Produkte im Asset-Cache (2280), Auswahl aus 2336;
+  Nässe/Schnee aus 2172 und Standorte aus 2111 ändern keine unveränderten Basisassets.
 
 ## Forschungsgrundlage
 [Gabor-Noise, SIGGRAPH 2009](../doc/references/materials/siggraph/2009-sparse-gabor-noise.pdf)

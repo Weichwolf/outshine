@@ -40,9 +40,12 @@
 - Zeit/Kamera und ein fester lizenzierter/versionierter Sternenkatalog ergänzen die Welteingaben.
   Belegte, fehlende und prozedural ergänzte Angaben bleiben unterscheidbar. Webcam-Fotos dienen
   nur dem Vergleich; keine Fototexturen, Satellitenbilder, Photogrammetrie oder Place-Sondergeometrie.
-- Ich cache persistent nur Netzwerk-Quelldaten, unverändert bis zur ausdrücklichen Leerung.
-  Keine automatische Aktualisierung und kein Runtime-Diskcache generierter Produkte.
-  Vorhandene Cachebytes und Referenzen erhalten; Quellcache, Spielstand und Testreferenzen trennen.
+- Der Engine fordert fertige Game-Assets an: Cachetreffer laden, Misses erzeugen asynchron
+  über Generatoren und speichern vollständig ergänzte, versionierte Assets. Das gilt für alle
+  Weltklassen. Der Cache enthält vollständig angereicherte Asset-Rohlinge. Treffer wiederholen
+  weder Quellaufbereitung noch Rohling-Aufbau; Nahdetails dürfen und müssen daraus zur Laufzeit
+  ergänzt werden. Räumliche/LOD-Auswahl und aktuelles Shading folgen danach. Quelle, Asset, Spielstand und
+  Testreferenzen bleiben getrennt; keine automatische Quellaktualisierung. 2280 besitzt den Vertrag.
 - Adapter/Provider beschaffen und normalisieren Eingaben; Generatoren erzeugen native Inhalte.
   Provider sind optional. Erweiterungen besitzen ihre Quellsemantik; OSM gehört zu generators/osm.
   Engine koordiniert; world bleibt eine generische 3D-Welt, Render/Audio konsumieren native Produkte.
@@ -66,9 +69,9 @@
   Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
   je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
   Fehlende/unvollständige Bilder bleiben rot. Unbelegte Bildänderungen gelten als Verschlechterung.
-- Vollständiger Quellcache → frischer Offline-Prozess → vollständige Welt so schnell wie möglich.
+- Vollständiger Asset-Cache → frischer Offline-Prozess → vollständige Welt so schnell wie möglich.
   Ich begründe Ladeziele pro Szene anhand Komplexität und gemessener Arbeit; keine feste Zehn-
-  Sekunden-Grenze. Internet-Erwerb und Cacheaufbau getrennt messen. Danach genau Ziel-fps Frames und 360° in einer Sekunde;
+  Sekunden-Grenze. Internet-Erwerb, Asset-Aufbau und Cachetreffer getrennt messen. Danach genau Ziel-fps Frames und 360° in einer Sekunde;
   nur letzter Frame als PNG in Ausgangsrichtung. p50/p95/p99 ohne Zusatzframes messen.
 - Framebudget auch für p99: 1000/Ziel-fps ms. Alle Weltklassen teilen Zeit/Speicher nach Bildgewinn
   und Kosten, ohne feste Quoten. Stadt und Wald dürfen andere Lastverteilungen haben, müssen
@@ -118,7 +121,8 @@
   Normale Logs bleiben kompakt; Detailausgabe ist explizit. Diagnose verwendet feste Zähler, hält
   Formatierung/Ausgabe aus dem Hot Path, misst eigene Kosten und kennzeichnet fehlende Messwerte.
 - Feste Ablage: Buildprodukte unter `build/`; Netzwerkquellen im Client-Pref-Verzeichnis
-  unter `sources/`; Papers in `doc/references/`; Vergleichsbilder/Pins getrennt vom Quellcache.
+  unter `sources/`, fertige Assets/Index separat unter `assets/`; Papers in `doc/references/`;
+  Vergleichsbilder/Pins getrennt von beiden Caches.
   Temp-Worktrees heißen `${TMPDIR:-/tmp}/outshine-<Auftrag>-<Commit>`, Logs dort
   `outshine-<Auftrag>-<Commit>.log`; Tests nutzen `outshine-tests.<Checkout>`.
   `outshine-prepared`, `outshine-content` und `outshine-reference-images` enthalten benötigte
