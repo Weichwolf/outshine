@@ -4,6 +4,7 @@
 #include <array>
 #include "SurfacePreparation.h"
 #include "PreparedTerrainAssets.h"
+#include "PreparedBuildingAssets.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -111,6 +112,13 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
       Close();
       return false;
     }
+    auto buildings = Generators::PreparedBuildingAssets::Open(under.AssetCache, sources);
+    if (!buildings) {
+      say.Refuse(buildings.error());
+      Close();
+      return false;
+    }
+    PreparedBuildings_ = std::move(*buildings);
     PreparedTerrain_ = std::move(*prepared);
     poolConfig.PreparedFields = [assets =
                                      PreparedTerrain_](Data::TileId at,
@@ -145,6 +153,7 @@ void SurfacePreparation::Close() {
   Ground_.reset();
   Pool_.reset();
   PreparedTerrain_.reset();
+  PreparedBuildings_.reset();
   LandingCursor_ = {};
   Sources_.reset();
   Store_.reset();

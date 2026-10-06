@@ -20,17 +20,42 @@ auto MetricNames(const char *prefix, const std::array<const char *, Keys> &keys,
   return out;
 }
 
-void PublishPreparedTerrainCosts(Core::DiagnosticLedger &published,
-                                 const Generators::PreparedTerrainAssets::Counters &prepared) {
-  published.RecordMetric("cost.assets.terrain.hits", static_cast<double>(prepared.Hits), "reads");
+template <class Costs>
+void PublishPreparedAssetCosts(Core::DiagnosticLedger &published,
+                               const Costs &prepared,
+                               size_t kind) {
+  static const auto names =
+      MetricNames<2>("cost.assets.",
+                     std::array{".hits", ".resident", ".misses", ".writes", ".read_bytes"},
+                     [](size_t at) { return at == 0 ? "terrain" : "buildings"; });
+  published.RecordMetric(names[kind][0], static_cast<double>(prepared.Hits), "reads");
+  if constexpr (requires { prepared.Resident; }) {
+    published.RecordMetric(names[kind][1], static_cast<double>(prepared.Resident), "reads");
+  }
+  published.RecordMetric(names[kind][2], static_cast<double>(prepared.Misses), "reads");
+  published.RecordMetric(names[kind][3], static_cast<double>(prepared.Writes), "packages");
+  published.RecordMetric(names[kind][4], static_cast<double>(prepared.ReadBytes), "bytes");
+}
+
+void PublishPreparedGeometryCosts(Core::DiagnosticLedger &published,
+                                  const Generators::PreparedBuildingAssets::Counters &costs) {
   published.RecordMetric(
-      "cost.assets.terrain.resident", static_cast<double>(prepared.Resident), "reads");
+      "cost.assets.building_lod.hits", static_cast<double>(costs.GeometryHits), "reads");
   published.RecordMetric(
-      "cost.assets.terrain.misses", static_cast<double>(prepared.Misses), "reads");
+      "cost.assets.building_lod.misses", static_cast<double>(costs.GeometryMisses), "reads");
   published.RecordMetric(
-      "cost.assets.terrain.writes", static_cast<double>(prepared.Writes), "packages");
+      "cost.assets.building_lod.writes", static_cast<double>(costs.GeometryWrites), "packages");
   published.RecordMetric(
-      "cost.assets.terrain.read_bytes", static_cast<double>(prepared.ReadBytes), "bytes");
+      "cost.assets.building_lod.read_bytes", static_cast<double>(costs.GeometryReadBytes), "bytes");
+}
+
+void PublishAssetCosts(Core::DiagnosticLedger &published, const Ground::SurfacePreparation &stack) {
+  PublishPreparedAssetCosts(published, stack.PreparedTerrainCosts(), 0);
+  if (const auto &buildings = stack.BuildingAssets()) {
+    const auto costs = buildings->Costs();
+    PublishPreparedAssetCosts(published, costs, 1);
+    PublishPreparedGeometryCosts(published, costs);
+  }
 }
 
 }
@@ -38,7 +63,7 @@ void PublishPreparedTerrainCosts(Core::DiagnosticLedger &published,
 void Engine::State::PublishCostMeasurements() {
   const auto began = std::chrono::steady_clock::now();
   const auto store = World.Stack.StoreCosts();
-  PublishPreparedTerrainCosts(Published, World.Stack.PreparedTerrainCosts());
+  PublishAssetCosts(Published, World.Stack);
   Published.RecordMetric("cost.cache.hits", static_cast<double>(store.Hits), "reads");
   Published.RecordMetric("cost.cache.misses", static_cast<double>(store.Misses), "reads");
   Published.RecordMetric("cost.cache.read_ms", store.ReadMs, "ms");

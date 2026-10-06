@@ -82,6 +82,19 @@ void NativeCache(const std::filesystem::path &root) {
   const auto generated = (*opened)->Generate(key, Inputs(), *Heights(), stopping);
   CHECK(generated && *generated && (*generated)->Structures.size() == 3,
         "cache miss publishes and reloads complete intrinsic building assets");
+  BuildingMesh mesher;
+  auto scratch = mesher.Scratch();
+  RawTile view;
+  view.RequestedDetail = LevelOfDetail::Shell;
+  view.Eye = {.LongitudeDeg = 10, .LatitudeDeg = 47};
+  const auto geometry = generated && *generated
+                            ? BakePreparedStructures(**generated, view, mesher, *scratch)
+                            : std::expected<BakedTile, StructureBakeError>(
+                                  std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct));
+  CHECK(geometry.has_value(), "native basis supplies the reusable selected LOD geometry");
+  if (!geometry || !generated || !*generated) { return; }
+  CHECK((*opened)->StoreGeometry(key, **generated, view, *geometry).has_value(),
+        "native selected geometry is published beside the enriched base");
   opened->reset();
   auto restarted = PreparedBuildingAssets::Open(directory, sources);
   CHECK(restarted.has_value(), "building cache service survives a new connection");
@@ -90,12 +103,26 @@ void NativeCache(const std::filesystem::path &root) {
   CHECK(hit && *hit && (*hit)->Structures.size() == 3 && (*restarted)->Costs().Writes == 0 &&
             (*restarted)->Costs().Hits == 1,
         "native hit restores the base without enrichment or a write");
+  const auto ready = hit && *hit
+                         ? (*restarted)->LoadGeometry(key, **hit, view)
+                         : std::expected<std::optional<BakedTile>, StructureBakeError>(
+                               std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct));
+  CHECK(ready && *ready && (**ready).Digest == geometry->Digest &&
+            (**ready).Prints == geometry->Prints && (**ready).Coordinates &&
+            (**ready).Coordinates->Points == (**hit).PointsLatLon &&
+            (*restarted)->Costs().GeometryWrites == 0,
+        "restart loads render geometry and owned contacts without meshing or source inputs");
+  auto moved = view;
+  moved.Eye.LongitudeDeg += 0.01;
+  const auto absent = (*restarted)->LoadGeometry(key, **hit, moved);
+  CHECK(absent && !*absent, "changed position never reuses a view-dependent LOD snapshot");
   auto changed = shape;
   changed.Gradient = 0.1;
   CHECK((*restarted)->Key(tile, 17, changed, 1000) != key &&
             (*restarted)->Key(tile, 18, shape, 1000) != key &&
-            (*restarted)->Key(tile, 17, shape, 2000) != key,
-        "terrain shaping, street inputs and scale bind separate base keys");
+            (*restarted)->Key(tile, 17, shape, 2000) != key &&
+            (*restarted)->Key(tile, 17, shape, 1000, "new-vector-bytes") != key,
+        "terrain shaping, street inputs, payload and scale bind separate base keys");
 }
 
 std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &base) {
@@ -228,9 +255,44 @@ void ReadyForms(const PreparedStructureTile &base, const BuildingMesh &mesher) {
   }
 }
 
+void UnsupportedMass() {
+  auto raw = Inputs();
+  constexpr double tiny = 0.0000001;
+  for (size_t at = 0; at < 4; ++at) {
+    raw.LatLon[2 * at] = 47.001 + (at >= 2 ? tiny : 0.0);
+    raw.LatLon[2 * at + 1] = 9.001 + (at == 1 || at == 2 ? tiny : 0.0);
+  }
+  raw.RequestedDetail = LevelOfDetail::Fine;
+  const auto heights = Heights();
+  const auto base = PrepareStructureTile(raw, *heights);
+  CHECK(base && base->Structures.size() == 3 && base->Surfaces.front().Shapes().empty(),
+        "sub-resolution footprint retains enriched contacts and explicit unsupported mass");
+  if (!base) { return; }
+  CHECK(!base->Surfaces.front().SupportsProjection(),
+        "unsupported native mass never claims a surface projection");
+  const auto encoded = EncodePreparedStructureTile(*base);
+  CHECK(encoded.has_value(), "unsupported intrinsic result is a complete cacheable base state");
+  if (!encoded) { return; }
+  const auto restored = DecodePreparedStructureTile(*encoded, 1024 * 1024);
+  CHECK(restored && restored->Surfaces.front().Shapes().empty(),
+        "restart retains the unsupported mass without replanning it");
+  if (!restored) { return; }
+  BuildingMesh mesher;
+  auto scratch = mesher.Scratch();
+  BakedTile reference;
+  const auto original = BakeStructures(raw, *heights, mesher, *scratch, reference);
+  const auto ready = BakePreparedStructures(*restored, raw, mesher, *scratch);
+  CHECK(original && ready && ready->Digest == reference.Digest &&
+            ready->Prints == reference.Prints &&
+            ready->UnsupportedMeshes == reference.UnsupportedMeshes,
+        "native unknown shape preserves valid neighbours, footprints and the original mesh "
+        "diagnostic");
+}
+
 }
 
 int main() {
+  UnsupportedMass();
   auto raw = Inputs();
   auto heights = Heights();
   const auto base = PrepareStructureTile(raw, *heights);

@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -19,6 +20,7 @@
 namespace outshine {
 namespace Generators {
 struct PreparedStructureTile;
+class PreparedBuildingAssets;
 }
 
 class StructureBuildTask {
@@ -69,6 +71,7 @@ public:
   StructureBuildTask(StructureBuildTask &&other) noexcept;
   StructureBuildTask &operator=(StructureBuildTask &&other) noexcept;
 
+  void UseNativeAssets(std::shared_ptr<Generators::PreparedBuildingAssets> cache, std::string key);
   void Start(Tasks &pool, const StructureMesher &mesher);
   void Resume(Tasks &pool, const StructureMesher &mesher);
   void RequestStop() noexcept;
@@ -124,6 +127,8 @@ private:
   std::unique_ptr<Generators::RawTile> Raw_;
   std::shared_ptr<const Ground::HeightField> Heights_;
   std::shared_ptr<const Generators::PreparedStructureTile> Base_;
+  struct NativeProducts;
+  std::unique_ptr<NativeProducts> Native_;
   std::unique_ptr<Output> Output_;
   std::unique_ptr<MeshScratch> Scratch_;
   std::unique_ptr<Generators::StructureBakeProgress> Progress_;

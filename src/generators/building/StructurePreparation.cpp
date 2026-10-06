@@ -459,9 +459,11 @@ std::expected<PreparedStructureTile, StructureBakeError> PrepareStructureTile(
     const auto plan =
         PreparedStructurePlan(**prepared, base.PointsLatLon, base.Holes, corners, base.AnchorEcef);
     auto surface = BuildingSurface::Prepare(plan, scratch);
-    if (!surface) { return std::unexpected(surface.error()); }
+    if (!surface && surface.error() != StructureMeshError::UnsupportedFootprint) {
+      return std::unexpected(surface.error());
+    }
     base.Structures.push_back(**prepared);
-    base.Surfaces.push_back(std::move(*surface));
+    base.Surfaces.push_back(surface ? std::move(*surface) : BuildingSurface{});
   }
   base.SkippedRings = diagnostics.SkippedRings;
   base.NoGround = diagnostics.NoGround;

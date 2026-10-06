@@ -3,6 +3,9 @@
 #include "AssetSourceRecipe.h"
 #include "ByteArchive.h"
 #include "Sha256.h"
+#include "Geodesy.h"
+#include <math/Units.h>
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -11,6 +14,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <cmath>
 #include <filesystem>
 #include <span>
@@ -22,9 +26,12 @@ namespace {
 constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
 constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;
 
-Box Bounds(const PreparedStructureTile &base) {
+}
+
+Box PreparedBuildingAssets::Bounds(const PreparedStructureTile &base) {
   Box bounds;
   for (const auto &surface : base.Surfaces) {
+    if (surface.Bounds().Empty()) { continue; }
     Box world = surface.Bounds();
     for (size_t axis = 0; axis < 3; ++axis) {
       world.Min[axis] += base.AnchorEcef[axis];
@@ -33,9 +40,32 @@ Box Bounds(const PreparedStructureTile &base) {
     bounds.Cover(world.Min);
     bounds.Cover(world.Max);
   }
+  for (size_t index = 0; index < base.Structures.size(); ++index) {
+    if (!base.Surfaces[index].Bounds().Empty()) { continue; }
+    const auto &structure = base.Structures[index];
+    const auto &region = structure.Bounds;
+    const double bottom = std::min(structure.Standing.FootM, structure.Standing.BaseM);
+    const double top = structure.Standing.SeatM + structure.Standing.HeightM;
+    Vec3 centre;
+    GeoToEcef({.LongitudeDeg = (region.MinLonDeg + region.MaxLonDeg) * 0.5,
+               .LatitudeDeg = (region.MinLatDeg + region.MaxLatDeg) * 0.5,
+               .HeightM = (bottom + top) * 0.5},
+              centre);
+    constexpr double earthDerivativeBoundM = 6400000.0;
+    const double radius =
+        (earthDerivativeBoundM + std::max(std::abs(bottom), std::abs(top))) *
+            (region.MaxLonDeg - region.MinLonDeg + region.MaxLatDeg - region.MinLatDeg) * kDeg2Rad *
+            0.5 +
+        std::abs(top - bottom) * 0.5;
+    Box enclosure;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      enclosure.Min[axis] = centre[axis] - radius;
+      enclosure.Max[axis] = centre[axis] + radius;
+    }
+    bounds.Cover(enclosure);
+  }
   if (bounds.Empty()) { bounds.Cover(base.AnchorEcef); }
   return bounds;
-}
 }
 
 PreparedBuildingAssets::PreparedBuildingAssets(std::unique_ptr<AssetCache> cache,
@@ -51,13 +81,14 @@ PreparedBuildingAssets::Open(const std::string &directory, const Data::SourceSet
   if (!cache) { return std::unexpected("could not open the native building cache"); }
   constexpr std::array kinds{Data::DataKind::Elevation, Data::DataKind::VectorMap};
   return std::shared_ptr<PreparedBuildingAssets>(new PreparedBuildingAssets(
-      std::move(*cache), AssetSourceRecipe("prepared-building-base-2", sources, kinds)));
+      std::move(*cache), AssetSourceRecipe("prepared-building-base-3", sources, kinds)));
 }
 
 std::string PreparedBuildingAssets::Key(Data::TileId tile,
                                         uint64_t streetDigest,
                                         const ::outshine::Ground::ShapedGround &shape,
-                                        double spanM) const {
+                                        double spanM,
+                                        std::string_view inputDigest) const {
   ByteWriter bytes(4096);
   if (!bytes.Put({reinterpret_cast<const uint8_t *>(Recipe_.data()), Recipe_.size()}) ||
       !bytes.Number(tile.Zoom) || !bytes.Number(tile.X) || !bytes.Number(tile.Y) ||
@@ -74,6 +105,10 @@ std::string PreparedBuildingAssets::Key(Data::TileId tile,
     if (!std::isfinite(value) || !bytes.Number(value == 0.0 ? 0.0 : value)) { return {}; }
   }
   if (!bytes.Put({reinterpret_cast<const uint8_t *>(shape.Kind.data()), shape.Kind.size()})) {
+    return {};
+  }
+  if (!bytes.Number(inputDigest.size()) ||
+      !bytes.Put({reinterpret_cast<const uint8_t *>(inputDigest.data()), inputDigest.size()})) {
     return {};
   }
   return Sha256Hex(bytes.Bytes().data(), bytes.Bytes().size());
@@ -130,6 +165,10 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
   return {.Hits = Hits_.load(std::memory_order_relaxed),
           .Misses = Misses_.load(std::memory_order_relaxed),
           .Writes = Writes_.load(std::memory_order_relaxed),
-          .ReadBytes = ReadBytes_.load(std::memory_order_relaxed)};
+          .ReadBytes = ReadBytes_.load(std::memory_order_relaxed),
+          .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
+          .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
+          .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),
+          .GeometryReadBytes = GeometryReadBytes_.load(std::memory_order_relaxed)};
 }
 }

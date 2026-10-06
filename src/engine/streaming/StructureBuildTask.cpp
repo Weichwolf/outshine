@@ -1,5 +1,6 @@
 #include "StructureBuildTask.h"
 #include "PreparedStructureTile.h"
+#include "PreparedBuildingAssets.h"
 
 #include <algorithm>
 #include <atomic>
@@ -13,12 +14,12 @@
 #include <optional>
 #include <ratio>
 #include <utility>
+#include <string>
 
 #include "Heap.h"
 #include "StructureArtifact.h"
 #include "ArtifactBlocks.h"
 #include <limits>
-#include <string>
 #include <string_view>
 #include <span>
 #include <vector>
@@ -76,6 +77,12 @@ void BakeVariant(const Generators::RawTile *raw,
 
 struct StructureBuildTask::Comparison {
   enum class Phase { Reference, Surface, Complete };
+
+  static void CancelIfStopping(Output &output, const std::atomic_bool &stopping) {
+    if (!stopping.load(std::memory_order_relaxed)) { return; }
+    output.Tile.reset();
+    output.Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+  }
 
   explicit Comparison(ProofRequest request) : Request(request) {}
 
@@ -416,6 +423,64 @@ struct StructureBuildTask::Artifact {
   std::optional<Generators::BakedTile> Product;
 };
 
+struct StructureBuildTask::NativeProducts {
+  enum class Phase : uint8_t { Lookup, Generating, Complete };
+
+  NativeProducts(std::shared_ptr<Generators::PreparedBuildingAssets> cache, std::string key)
+      : Cache(std::move(cache)), Key(std::move(key)) {}
+
+  bool BeforeBake(const Generators::RawTile &raw,
+                  const Ground::HeightField *heights,
+                  std::shared_ptr<const Generators::PreparedStructureTile> &base,
+                  Output &output,
+                  const std::atomic_bool &stopping) {
+    if (Current != Phase::Lookup) { return false; }
+    if (!base) {
+      assert(heights != nullptr);
+      auto generated = Cache->Generate(Key, raw, *heights, stopping);
+      if (!generated || !*generated) {
+        output.Status = std::unexpected(
+            generated ? Generators::StructureBakeError{Generators::StructureBakeErrorKind::
+                                                           ArtifactInvalidProduct}
+                      : generated.error());
+        return true;
+      }
+      base = std::move(*generated);
+    }
+    auto cached = Cache->LoadGeometry(Key, *base, raw);
+    if (!cached) {
+      output.Status = std::unexpected(cached.error());
+      return true;
+    }
+    if (stopping.load(std::memory_order_relaxed)) {
+      output.Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
+      return true;
+    }
+    Current = Phase::Generating;
+    if (!*cached) { return false; }
+    output.Tile = std::move(**cached);
+    output.CacheHit = true;
+    Current = Phase::Complete;
+    return true;
+  }
+
+  void AfterBake(const Generators::RawTile &raw,
+                 const Generators::PreparedStructureTile &base,
+                 Output &output,
+                 const std::atomic_bool &stopping) {
+    if (!output.Tile || Current != Phase::Generating || stopping.load(std::memory_order_relaxed)) {
+      return;
+    }
+    const auto stored = Cache->StoreGeometry(Key, base, raw, *output.Tile);
+    if (!stored) { output.Status = std::unexpected(stored.error()); }
+    Current = Phase::Complete;
+  }
+
+  std::shared_ptr<Generators::PreparedBuildingAssets> Cache;
+  std::string Key;
+  Phase Current = Phase::Lookup;
+};
+
 StructureBuildTask::StructureBuildTask(uint32_t tile,
                                        std::unique_ptr<Generators::RawTile> raw,
                                        std::shared_ptr<const Ground::HeightField> heights,
@@ -486,6 +551,7 @@ StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) no
   Raw_ = std::move(other.Raw_);
   Heights_ = std::move(other.Heights_);
   Base_ = std::move(other.Base_);
+  Native_ = std::move(other.Native_);
   Output_ = std::move(other.Output_);
   Scratch_ = std::move(other.Scratch_);
   Progress_ = std::move(other.Progress_);
@@ -506,11 +572,18 @@ bool StructureBuildTask::Running() const noexcept {
   return State_ == State::Running;
 }
 
+void StructureBuildTask::UseNativeAssets(std::shared_ptr<Generators::PreparedBuildingAssets> cache,
+                                         std::string key) {
+  assert(State_ == State::Ready && (Base_ || Heights_));
+  Native_ = std::make_unique<NativeProducts>(std::move(cache), std::move(key));
+}
+
 void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   assert(State_ != State::Running);
   const Generators::RawTile *const raw = Raw_.get();
   const Ground::HeightField *const heights = Heights_.get();
-  const auto base = Base_;
+  auto *const base = &Base_;
+  NativeProducts *const native = Native_.get();
   MeshScratch *const scratch = Scratch_.get();
   Generators::StructureBakeProgress *const progress = Progress_.get();
   Output *const output = Output_.get();
@@ -525,6 +598,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   Handle_ = ActivePool_->Post([raw,
                                heights,
                                base,
+                               native,
                                &mesher,
                                scratch,
                                progress,
@@ -550,17 +624,22 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
       artifact->CancelIfStopping(*output, *stopping, activePool);
       return;
     }
-    if (base) {
-      BakeVariant(raw, heights, mesher, scratch, progress, output, stopping, base.get());
+    if (native && native->BeforeBake(*raw, heights, *base, *output, *stopping)) {
+      output->LastTaskMs =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+              .count();
+      output->BakeMs += output->LastTaskMs;
+      return;
+    }
+    if (*base) {
+      BakeVariant(raw, heights, mesher, scratch, progress, output, stopping, base->get());
     } else if (comparison) {
       comparison->Bake(*raw, *heights, mesher, *scratch, *progress, *output, stopping);
     } else {
       BakeVariant(raw, heights, mesher, scratch, progress, output, stopping);
     }
-    if (comparison && stopping->load(std::memory_order_relaxed)) {
-      output->Tile.reset();
-      output->Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
-    }
+    if (native != nullptr) { native->AfterBake(*raw, **base, *output, *stopping); }
+    if (comparison != nullptr) { Comparison::CancelIfStopping(*output, *stopping); }
     const double taskMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     if (artifact) { artifact->AfterBake(*output, *stopping); }

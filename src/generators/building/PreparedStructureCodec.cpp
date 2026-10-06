@@ -18,7 +18,7 @@ namespace {
 using StructureBinary::Reader;
 using StructureBinary::Writer;
 constexpr uint32_t kMagic = 0x31425350;
-constexpr uint32_t kVersion = 2;
+constexpr uint32_t kVersion = 3;
 constexpr auto scalar = [](auto &archive, auto &value) { return archive.Number(value); };
 constexpr auto point = [](auto &archive, auto &value) {
   return archive.Number(value.EastM) && archive.Number(value.NorthM);
@@ -153,6 +153,10 @@ class PreparedStructureCodec {
 public:
   template <typename Archive, typename Surface>
   static bool SurfaceFields(Archive &archive, Surface &value) {
+    using SupportFlag = std::conditional_t<std::is_same_v<Archive, Writer>, const bool, bool>;
+    SupportFlag supported = !value.Shapes_.empty();
+    if (!archive.Number(supported)) { return false; }
+    if (!supported) { return true; }
     return vector(archive, value.Origin_) && vector(archive, value.Axes_.East) &&
            vector(archive, value.Axes_.North) && vector(archive, value.Axes_.Up) &&
            vector(archive, value.Bounds_.Min) && vector(archive, value.Bounds_.Max) &&
@@ -176,8 +180,9 @@ public:
   }
 
   static bool ValidSurface(const BuildingSurface &value) {
-    if (value.Shapes_.empty() || value.Bounds_.Empty() ||
-        value.FaceOffsets_.size() != value.Shapes_.size() + 1 || value.FaceOffsets_[0] != 0) {
+    if (value.Shapes_.empty()) { return value.Bounds_.Empty() && value.FaceOffsets_.empty(); }
+    if (value.Bounds_.Empty() || value.FaceOffsets_.size() != value.Shapes_.size() + 1 ||
+        value.FaceOffsets_[0] != 0) {
       return false;
     }
     size_t faces = 0;

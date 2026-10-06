@@ -202,7 +202,7 @@ BuildingSurface::Face BuildingSurface::FaceAt(size_t index) const noexcept {
 }
 
 bool BuildingSurface::SupportsProjection() const noexcept {
-  return std::ranges::all_of(Shapes_, [](const BuildingShape &shape) {
+  return !Shapes_.empty() && std::ranges::all_of(Shapes_, [](const BuildingShape &shape) {
     return shape.RiseM == 0.0 || (shape.Roof != RoofKind::Dome && shape.Roof != RoofKind::Sawtooth);
   });
 }

@@ -12,6 +12,7 @@
 #include <span>
 #include <utility>
 #include <vector>
+#include <unordered_map>
 
 #include "math/Vec3.h"
 
@@ -205,7 +206,7 @@ public:
   void Clear();
 
   [[nodiscard]] size_t Queued() const {
-    return Queue_.size() +
+    return Queue_.size() + PendingNativeBases() +
            static_cast<size_t>(OriginalPreparation_ && OriginalPreparation_->Running());
   }
 
@@ -266,6 +267,7 @@ public:
 
   [[nodiscard]] bool AwaitSlice(double seconds) const {
     if (Pool_ == nullptr) { return false; }
+    if (PendingNativeBases() != 0) { return Pool_->AwaitCompletion(seconds); }
     if (OriginalPreparation_ && OriginalPreparation_->Running()) {
       return OriginalPreparation_->AwaitSlice(seconds);
     }
@@ -312,6 +314,39 @@ private:
     bool Replacement = false;
     std::shared_ptr<const void> ReservationOwner = nullptr;
   };
+
+  struct VectorSelection {
+    std::shared_ptr<const Ground::HeightField> Heights;
+    Generators::PreparedBuildingAssets::Base Base;
+    std::string Key;
+    uint64_t StreetDigest = 0;
+    double ReadMs = 0.0;
+  };
+
+  struct NativeLookup {
+    Tasks::Handle Task = Tasks::kNoTask;
+    std::expected<Generators::PreparedBuildingAssets::Base, Generators::StructureBakeError> Result;
+    double ReadMs = 0.0;
+  };
+
+  [[nodiscard]] size_t PendingNativeBases() const noexcept;
+  [[nodiscard]] bool SelectNativeBase(Ground::SurfacePreparation &stack,
+                                      const ::outshine::Generators::Osm::BuildingField &prints,
+                                      uint32_t tile,
+                                      VectorSelection &selected);
+  [[nodiscard]] bool SelectVectorInputs(Ground::SurfacePreparation &stack,
+                                        const ::outshine::Generators::Osm::BuildingField &prints,
+                                        ::outshine::Generators::Osm::FeatureRun over,
+                                        const HeightSource &heightAt,
+                                        HeightRequirement requirement,
+                                        VectorSelection &selected,
+                                        double &durationMs);
+  [[nodiscard]] QueuedBuild VectorBuild(Ground::SurfacePreparation &stack,
+                                        const ::outshine::Generators::Osm::BuildingField &prints,
+                                        ::outshine::Generators::Osm::TileWatermark::Next next,
+                                        BakeRevision revision,
+                                        VectorSelection selected,
+                                        bool replacement);
 
   [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
                                               ::outshine::Generators::Osm::BuildingField &prints,
@@ -403,6 +438,8 @@ private:
   int PreparingOriginalHeightZoom_ = -1;
   const StructureMesher *Mesher_ = nullptr;
   std::deque<QueuedBuild> Queue_;
+  std::unordered_map<std::string, std::unique_ptr<NativeLookup>> NativeLookups_;
+  std::optional<Generators::StructureBakeError> NativeFailure_;
   std::deque<QueuedBuild> CellQueue_;
   std::vector<std::unique_ptr<Generators::RawTile>> IdleRaw_;
   std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut_;
