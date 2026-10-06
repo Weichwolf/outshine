@@ -15,6 +15,7 @@
 #include "math/Vec3.h"
 
 #include <scene/LevelOfDetail.h>
+#include <scene/ProjectedErrorBudget.h>
 
 #include "StoredVertex.h"
 #include "BuildingFrontage.h"
@@ -110,6 +111,11 @@ enum class StructureMeshError {
   UnsupportedFootprint
 };
 
+struct ProjectedStructureMesh {
+  Raised Mesh;
+  double EyeRadiusM = 0.0;
+};
+
 [[nodiscard]] constexpr std::string_view Describe(StructureMeshError error) noexcept {
   switch (error) {
     case StructureMeshError::InvalidPlan: return "invalid structure plan";
@@ -142,6 +148,16 @@ public:
   }
 
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
+
+  [[nodiscard]] virtual bool HasSurfaceProjection() const noexcept { return false; }
+
+  [[nodiscard]] virtual std::expected<ProjectedStructureMesh, StructureMeshError>
+  Project([[maybe_unused]] std::span<const StructurePlan> plans,
+          [[maybe_unused]] const Vec3 &eye,
+          [[maybe_unused]] ProjectedErrorBudget projection,
+          [[maybe_unused]] MeshScratch &scratch) const {
+    return std::unexpected(StructureMeshError::UnsupportedFootprint);
+  }
 
   [[nodiscard]] virtual std::optional<Box>
   SourceEnvelopeBounds([[maybe_unused]] const StructurePlan &plan,
