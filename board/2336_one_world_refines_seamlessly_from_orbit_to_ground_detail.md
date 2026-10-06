@@ -16,7 +16,7 @@ GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist m
 die konservative Zellhülle erzwingt oft Fine. Einfache Gebäudehüllen stellen Wien wieder dar;
 die Fernzusammenfassung greift noch zu spät. Tokyo hält 29,65 Mio. erzeugte Gebäudedreiecke.
 Begrenzte Upload-Batches beheben den belegten Metal-Speicherabbruch; Hausflächen/Türme sind wieder da.
-Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 38,65/377,80 ms, Central Park 12,73/149,92 ms
+Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 37,18/567,19 ms, Central Park 11,70/63,14 ms
 rot; Central Parks Bild bleibt unverändert. Erzeugte Dreiecke sind keine Messung ausgeführter GPU-Arbeit.
 Isolierte Passabschlüsse lokalisieren die Hauptkosten im nativen Rasterpass: Tokyo/Central Park
 ~33,5/12,4 ms; konstante Tokyo-Beleuchtung ~32,9 ms. Diagnose, keine GPU-Timestamps/Abnahme.
@@ -29,9 +29,11 @@ Fine und Shell verwenden dieselbe einfache Hülle; Massed bündelt entfernte Geb
 Runde Dächer linear triangulieren; Formen, Höfe und gemeinsame Ringkontakte innerhalb 1 mm erhalten.
 Vor Erzeugung auswählen; konservative Formgrenzen nicht lockern, um fehlende Gebäude zu verdecken.
 Draw-Bedarf vor Attributallokation bestimmen; starre Posen nutzen den Positionsbuffer als Vorpose.
-Tokyos GPU-Streamkapazität sinkt 5,36 → 3,92 GB (Emission/Vorpose); beide Bilder bleiben pixelgleich.
-CPU-Heap bleibt ~4,78 GB; kein belegter Framegewinn. Diagnose: Tokyo OS-Spitzenfootprint 10,97–11,41 GB,
-maximaler RSS 2,56–3,79 GB. Systemweite Swapouts 6,83 GB im Kontrolllauf; Prozessanteil nicht bewiesen.
+Tangenten/Farben belegen eigene dichte Arenen; Instanz-Offsets adressieren ihre Verbraucher.
+Späte kleine Tangentenmeshes reservieren keine positionsabhängige Lücke; Tokyo 41,46 MB → 16 KiB.
+Tokyos GPU-Streamkapazität ohne Transfer sinkt 5,36 → 3,88 GB (Emission/Vorpose/Tangenten); Bilder pixelgleich.
+CPU-Heap ~4,79 GB; aktueller OS-Spitzenfootprint 11,33 GB, maximaler RSS 2,85 GB.
+Frühere systemweite Swapouts 6,83 GB; Prozessanteil und Framegewinn nicht bewiesen.
 
 ## Auswahl der einfachen Hülle
 BuildingMesh liefert eine positive beidseitige Shell-Schranke aus Laibungstiefe, Millimeter-
@@ -45,13 +47,9 @@ Zeitliche HiZ-Verdeckung gilt nur bei identischer Projektion, Weltbasis und unve
 Geometrie-, Draw-Tabellen- und Terrainständen. Tabellen-Rebuilds erhöhen die Produktgeneration. Bewegung erzeugt zunächst vollständige Frustum-/LOD-Sichtbarkeit;
 stationäre Folgebilder dürfen mit belegter Tiefe verfeinern und danach die Auswahl wiederverwenden.
 Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bleiben wiederholbar.
-Aktuelle native Occluder helfen Tokyo (p50 34,2 → 22,3 ms), kosten Central Park (12,7 → 13,1 ms).
-Vorlage nach projizierter Coverage/Gesamtkosten auswählen; noch keine Runtime-Integration.
-Kugelbasierte meshoptimizer-Rückseitenkegel werden verworfen: Schlussblick Tokyo nur 16/5,38 Mio.,
-Central Park 135/2,79 Mio. Dreiecke entfernt; PNGs identisch, keine belegte Zeitersparnis.
-Diagnose `e37b7fce7`, keine Runtime-Integration. Vertex-Fetch-Umordnung (`ca95cc4b3`) bleibt ebenfalls
-ohne Runtime-Integration: Tokyo/Central Park p50 33,96→37,02 / 12,62→12,74 ms, PNGs identisch.
-Vorige Sichtbarkeit darf neu freigelegte Inhalte nicht ausschließen.
+Native Occluder nach projizierter Coverage/Gesamtkosten auswählen; noch keine Runtime-Integration.
+Verworfene Diagnosen bleiben außerhalb der Runtime: `e37b7fce7`, `ca95cc4b3`, `9079ead97`.
+Rückseitenkegel/Fetch-Umordnung sparen insgesamt nicht; erzwungene Shell-Eltern verlieren die Stadt.
 Tiefenblöcke erfassen Randpixel mit Quellgröße/Blockspanne. Zusatzpässe brauchen Gesamtersparnis;
 Multi-Draw erhält Reihenfolge/Instanzen/Culling; ausgeführte Geometrie/Warten getrennt messen.
 
@@ -61,7 +59,9 @@ Rundum-/Layered-Capture prüfen. Bedarf vor Mesh-Aufbau; einfache Hüllen oder Q
 Raster-/Ray-Capture vergleichen. ImpostorBaker erfasst Tiefe, ImpostorCard verwirft sie; aufgelöste
 Vertex-/Materialfarben fehlen. Vor Stadtintegration Tiefenraum/Rückprojektion, Materialkomposition
 und gültigen Kamera-/Projektionsbereich herstellen; beides gegen native Hüllen prüfen.
-Coverage, Tiefe, Normalen und Material erhalten; Beleuchtung und Gesamthelligkeit aktuell auswerten.
+Capture an Kameraposition/Zelle binden, nicht Blickrichtung: Drehung verwendet dieselbe Karte.
+Perspektivische Tiefe zurückprojizieren; aufgelöste Materialkomposition unbeleuchtet erfassen.
+Coverage/Normalen erhalten; Beleuchtung und Gesamthelligkeit aktuell auswerten.
 Update bei zu großer Pixelverschiebung, Inhaltsänderung oder Disocclusion; gültiger Hüllen-Fallback.
 Nur bild-/schattenwirksame Geometrie nach jeweiligem Bedarf; grobe Fernoccluder statt Nahdetails.
 Silhouette/Parallaxe/Bytekosten begrenzen Auflösung/Ansichten; rundum, nur RAM/GPU.
