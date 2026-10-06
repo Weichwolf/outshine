@@ -27,10 +27,13 @@ noch ein privater Baustein: öffentlicher Vertrag/Place-Anschluss und Terrain/In
 Ein source-freier Worker verarbeitet diese Basis in begrenzten Arbeitsblöcken; die echte
 Queue muss früh laden und Terrainkontakte ohne erneuten Höhenfelderwerb übernehmen.
 Koordinatenkopien, Fernverbände und residente Kosten müssen im echten Ladepfad begrenzt werden.
-Wien lädt zuletzt 96,53 s, Central Park 83,54 s, Tokyo 109,95 s; das ist keine Abnahme.
-p99: 24,67 / 23,43 / 36,07 ms; trotz gleicher Bilder bleibt 720p60 rot.
-Wien liefert 5.829 Höhenkacheln bei 124 Terrainprodukten erneut aus Quellen; Warmhits müssen
-diesen Erwerb/Vorbereitung überspringen. Lieferungen sind kein Beleg für eindeutige Kacheln/Decodes.
+Wien lädt zuletzt 96,83 s, Central Park 83,54 s, Tokyo 109,95 s; das ist keine Abnahme.
+p99: 38,27 / 23,43 / 36,07 ms; trotz gleicher Bilder bleibt 720p60 rot.
+Wien: Höhenfeld-Worker 39,06 s/8.309 Versuche, Gebäude 30,51 s/50 Produkte,
+Straßenkorridore 1,88 s, Terrain-Verformung 5,09 s, Quellcache-Lesen 1,82 s/342,54 MiB.
+Überlappende/verschachtelte Arbeitszeiten nicht zur Ladezeit addieren. Zuerst Höhen-/Terrain-
+und Gebäuderohlinge früh anschließen, anschließend Infrastrukturprodukte; alle Klassen bleiben Pflicht.
+Warmhits überspringen diesen Erwerb/Aufbau. Lieferungen beweisen keine eindeutigen Decodes.
 Wien hat 49 Nahkacheln, keine belegte vollständige 240-km-Assetwelt. 2336 besitzt Fernabdeckung.
 Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
 Quellerwerb/Erstaufbau, Warmstart, erste Einreichung und p99 getrennt messen; AGENTS-Budgets gelten.
