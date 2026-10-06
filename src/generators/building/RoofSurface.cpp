@@ -261,6 +261,12 @@ int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
 
 RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
 
+bool RoofSurface::Contains(const EastNorth &enu) const noexcept {
+  return Inside(Shape_.Ring, enu, 0.0) && std::ranges::none_of(Shape_.Holes, [&](const auto &hole) {
+           return Inside(hole, enu, 0.0);
+         });
+}
+
 double RoofSurface::HeightAt(const EastNorth &enu) const noexcept {
   double u = 0.0;
   double v = 0.0;
