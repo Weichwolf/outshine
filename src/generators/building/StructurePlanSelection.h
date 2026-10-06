@@ -54,10 +54,8 @@ private:
                                                                       MeshScratch &scratch,
                                                                       BakedTile &out);
 
-  [[nodiscard]] bool SelectProjected(std::span<const size_t> indices,
-                                     const RawTile &raw,
-                                     const StructureMesher &mesher,
-                                     BakedTile &out);
+  [[nodiscard]] bool
+  SelectProjected(const RawTile &raw, const StructureMesher &mesher, BakedTile &out);
 
   [[nodiscard]] std::expected<void, StructureBakeError>
   SelectCell(std::span<const size_t> indices,

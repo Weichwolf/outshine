@@ -14,6 +14,7 @@
 #include <numeric>
 #include <span>
 #include <vector>
+#include <utility>
 
 namespace outshine::Generators {
 namespace {
@@ -138,30 +139,33 @@ void StructurePlanSelection::SelectSource(size_t index,
   Commands_.push_back({.Source = index, .Mass = std::nullopt, .ProjectedSources = {}});
 }
 
-bool StructurePlanSelection::SelectProjected(std::span<const size_t> indices,
-                                             const RawTile &raw,
+bool StructurePlanSelection::SelectProjected(const RawTile &raw,
                                              const StructureMesher &mesher,
                                              BakedTile &out) {
   constexpr size_t kLeastProjectedSources = 16;
-  if (!mesher.HasSurfaceProjection() || !raw.EyeEcef || indices.size() < kLeastProjectedSources ||
-      raw.Projection.AllowedErrorPx <= 0.0) {
+  if (!mesher.HasSurfaceProjection() || !raw.EyeEcef || raw.Projection.AllowedErrorPx <= 0.0) {
     return false;
   }
-  const bool allShell = std::ranges::all_of(indices, [&](size_t index) {
-    const auto &source = Sources_[index];
-    return source.Bounds && source.ShellErrorM && *source.ShellErrorM > 0.0 &&
-           raw.Projection.Allows(*source.ShellErrorM, DistanceTo(source.Mass, raw, *source.Bounds));
-  });
-  if (allShell) {
-    Commands_.push_back({.ProjectedSources = {indices.begin(), indices.end()}});
-    for (const size_t index : indices) {
-      out.FootprintDetails[Sources_[index].Footprint] = LevelOfDetail::Shell;
-    }
-    out.Lumped += static_cast<int>(indices.size());
-    ++out.Blocks;
-    return true;
+  std::vector<size_t> known;
+  size_t distant = 0;
+  for (size_t index = 0; index < Sources_.size(); ++index) {
+    auto &source = Sources_[index];
+    if (!source.Bounds || !source.ShellErrorM) { continue; }
+    const double distance = DistanceTo(source.Mass, raw, *source.Bounds);
+    const bool shell = raw.Projection.Allows(*source.ShellErrorM, distance);
+    source.Plan.Coarseness = shell ? LevelOfDetail::Shell : LevelOfDetail::Fine;
+    source.Plan.RecessedOpenings = !raw.Projection.Allows(kOpeningDepthM, distance);
+    distant += shell ? 1 : 0;
+    known.push_back(index);
   }
-  return false;
+  if (distant < kLeastProjectedSources) { return false; }
+  for (const size_t index : known) {
+    out.FootprintDetails[Sources_[index].Footprint] = Sources_[index].Plan.Coarseness;
+  }
+  Commands_.push_back({.ProjectedSources = std::move(known)});
+  out.Lumped += static_cast<int>(distant);
+  ++out.Blocks;
+  return true;
 }
 
 std::expected<void, StructureBakeError>
@@ -171,7 +175,6 @@ StructurePlanSelection::SelectCell(std::span<const size_t> indices,
                                    MeshScratch &scratch,
                                    BakedTile &out,
                                    const std::atomic_bool *stopping) {
-  if (SelectProjected(indices, raw, mesher, out)) { return {}; }
   std::vector<size_t> known;
   std::vector<Box> bounds;
   std::vector<StructureMassPlan> masses;
@@ -228,6 +231,13 @@ StructurePlanSelection::Select(const RawTile &raw,
                                MeshScratch &scratch,
                                BakedTile &out,
                                const std::atomic_bool *stopping) {
+  if (SelectProjected(raw, mesher, out)) {
+    for (size_t index = 0; index < Sources_.size(); ++index) {
+      const auto &source = Sources_[index];
+      if (!source.Bounds || !source.ShellErrorM) { SelectSource(index, raw, mesher, scratch, out); }
+    }
+    return {};
+  }
   std::vector<size_t> indices(Sources_.size());
   std::ranges::iota(indices, size_t{0});
   std::ranges::sort(indices, [&](size_t left, size_t right) {
@@ -298,8 +308,6 @@ StructurePlanSelection::EmitProjected(const Command &command,
     const auto &source = Sources_[index];
     auto plan = source.Plan;
     plan.CornerAslM = std::span(Corners_).subspan(source.CornerFirst, source.CornerCount);
-    plan.Coarseness = LevelOfDetail::Shell;
-    plan.RecessedOpenings = false;
     plans.push_back(plan);
   }
   if (!raw.EyeEcef) { return std::unexpected(StructureMeshError::InvalidPlan); }
