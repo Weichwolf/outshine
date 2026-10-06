@@ -24,6 +24,9 @@ public:
 
   [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override;
 
+  [[nodiscard]] std::optional<Box> SourceEnvelopeBounds(const StructurePlan &plan,
+                                                        MeshScratch &lent) const noexcept override;
+
   [[nodiscard]] std::expected<void, StructureMeshError>
   Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) const noexcept override;
 };

@@ -4,6 +4,7 @@
 #include <generation/Generate.h>
 
 #include "BuildingMesh.h"
+#include "math/Box.h"
 
 #include "ground/TileMeshes.h"
 #include "math/Vec3.h"
@@ -163,6 +164,10 @@ public:
   }
 
   [[nodiscard]] LevelOfDetail Coarseness() const { return Coarseness_; }
+
+  [[nodiscard]] Vec3 PositionOf(const Vec3 &local) const noexcept {
+    return Origin_ + East_ * local[0] + Up_ * local[1] + North_ * local[2];
+  }
 
   [[nodiscard]] bool RecessedOpenings() const { return RecessedOpenings_; }
 
@@ -751,7 +756,7 @@ double PlinthTopZ(const BuildingShape &s, const FoundationGround &ground) {
   return {at(minU, minV), at(maxU, minV), at(maxU, maxV), at(minU, maxV)};
 }
 
-void Box(const BuildingShape &s, std::span<const EastNorth> ring, Site &site) {
+void RaiseMassedEnvelope(const BuildingShape &s, std::span<const EastNorth> ring, Site &site) {
   const double lowZ = s.SoleM;
   const double topZ = s.TopM();
   const Facade roof = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
@@ -803,7 +808,7 @@ void RaisePart(const BuildingShape &s, Site &site) {
   if (!s.Holes.empty()) {
     RaiseCourtyard(s, site);
   } else if (site.Coarseness() >= LevelOfDetail::Massed) {
-    Box(s, Hull(s.Ring), site);
+    RaiseMassedEnvelope(s, Hull(s.Ring), site);
   } else {
     RaiseShell(s, site);
   }
@@ -842,6 +847,38 @@ double ShellErrorAtMagnitude(double magnitudeM) noexcept {
 
 std::unique_ptr<MeshScratch> BuildingMesh::Scratch() const {
   return std::make_unique<BuildingScratch>();
+}
+
+std::optional<Box> BuildingMesh::SourceEnvelopeBounds(const StructurePlan &plan,
+                                                      MeshScratch &lent) const noexcept {
+  if (!ValidFootprintCoordinates(plan.RingLatLon) || !ValidPlanParameters(plan)) {
+    return std::nullopt;
+  }
+  auto *scratch = dynamic_cast<BuildingScratch *>(&lent);
+  if (scratch == nullptr) { return std::nullopt; }
+  const auto parts = PartsOf(plan, *scratch);
+  if (!parts || parts->empty()) { return std::nullopt; }
+  Raised unused;
+  const Site site(plan, *scratch, unused);
+  Box bounds;
+  double magnitudeM = 0.0;
+  for (const auto &part : *parts) {
+    Box local;
+    for (const auto &point : part.Ring) {
+      local.Cover(Vec3{{point.EastM, site.LowerZ(part), point.NorthM}});
+      local.Cover(Vec3{{point.EastM, part.TopM(), point.NorthM}});
+    }
+    for (unsigned corner = 0; corner < 8; ++corner) {
+      bounds.Cover(site.PositionOf(local.Corner(corner)));
+    }
+    magnitudeM = std::max(magnitudeM, site.CoordinateMagnitudeM(part));
+  }
+  const double paddingM = ShellErrorAtMagnitude(magnitudeM);
+  for (size_t axis = 0; axis < 3; ++axis) {
+    bounds.Min[axis] -= paddingM;
+    bounds.Max[axis] += paddingM;
+  }
+  return bounds;
 }
 
 std::optional<double>

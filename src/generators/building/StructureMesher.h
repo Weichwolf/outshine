@@ -1,6 +1,8 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_STRUCTUREMESHER_H
 #define OUTSHINE_GENERATORS_BUILDING_STRUCTUREMESHER_H
 
+#include "math/Box.h"
+
 #include <cstddef>
 #include <expected>
 #include <string_view>
@@ -140,6 +142,12 @@ public:
   }
 
   [[nodiscard]] virtual std::unique_ptr<MeshScratch> Scratch() const = 0;
+
+  [[nodiscard]] virtual std::optional<Box>
+  SourceEnvelopeBounds([[maybe_unused]] const StructurePlan &plan,
+                       [[maybe_unused]] MeshScratch &scratch) const noexcept {
+    return std::nullopt;
+  }
 
   [[nodiscard]] virtual std::expected<void, StructureMeshError>
   Mesh(const StructurePlan &plan, MeshScratch &scratch, Raised &into) const noexcept = 0;

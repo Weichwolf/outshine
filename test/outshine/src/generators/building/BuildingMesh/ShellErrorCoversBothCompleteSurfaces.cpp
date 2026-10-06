@@ -34,12 +34,21 @@ int main() {
       const auto plannedError = mesher.ShellSurfaceErrorM(plan, *scratch);
       CHECK(plannedError && *plannedError > 0.16,
             "an unmeshed plan bounds the future shell independently of its selected product");
+      const auto bounds = mesher.SourceEnvelopeBounds(plan, *scratch);
+      CHECK(bounds, "the source envelope has native bounds before any mesh allocation");
       Raised fine;
       Raised shell;
       plan.Coarseness = LevelOfDetail::Fine;
       CHECK(mesher.Mesh(plan, *scratch, fine), "complete fine geometry exists");
       plan.Coarseness = LevelOfDetail::Shell;
       CHECK(mesher.Mesh(plan, *scratch, shell), "complete shell geometry exists");
+      for (const auto *vertices :
+           {&fine.WallCorners, &fine.RoofCorners, &shell.WallCorners, &shell.RoofCorners}) {
+        for (const auto &vertex : *vertices) {
+          CHECK(bounds && bounds->Holds(Vec3{{vertex.pos[0], vertex.pos[1], vertex.pos[2]}}),
+                "source bounds enclose every emitted Fine and Shell vertex at either anchor");
+        }
+      }
       const auto error = mesher.ShellSurfaceErrorM(fine.WallCorners);
       CHECK(error && plannedError && *plannedError >= *error,
             "the plan bound covers the measured coordinate magnitude before allocating vertices");
