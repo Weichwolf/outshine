@@ -10,9 +10,43 @@
 #include <expected>
 #include <limits>
 #include <numeric>
+#include <optional>
 #include <span>
 
 namespace outshine {
+
+bool PlanHierarchy::ValidRay(const Vec3 &origin,
+                             const Vec3 &direction,
+                             double minimum,
+                             double maximum) noexcept {
+  bool moving = false;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    if (!std::isfinite(origin[axis]) || !std::isfinite(direction[axis])) { return false; }
+    moving |= direction[axis] != 0.0;
+  }
+  return moving && std::isfinite(minimum) && minimum >= 0.0 && maximum >= minimum;
+}
+
+std::optional<double> PlanHierarchy::RayEntry(const Box &bounds,
+                                              const Vec3 &origin,
+                                              const Vec3 &direction,
+                                              double minimum,
+                                              double maximum) noexcept {
+  for (size_t axis = 0; axis < 3; ++axis) {
+    if (direction[axis] == 0.0) {
+      if (origin[axis] < bounds.Min[axis] || origin[axis] > bounds.Max[axis]) {
+        return std::nullopt;
+      }
+      continue;
+    }
+    const double first = (bounds.Min[axis] - origin[axis]) / direction[axis];
+    const double last = (bounds.Max[axis] - origin[axis]) / direction[axis];
+    minimum = std::max(minimum, std::min(first, last));
+    maximum = std::min(maximum, std::max(first, last));
+    if (minimum > maximum) { return std::nullopt; }
+  }
+  return minimum;
+}
 
 std::expected<PlanHierarchy, PlanHierarchyError> PlanHierarchy::Build(std::span<const Box> bounds) {
   if (bounds.size() > std::numeric_limits<uint32_t>::max() / 2u) {
