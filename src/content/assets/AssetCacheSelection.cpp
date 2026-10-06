@@ -1,4 +1,4 @@
-#include "AssetIndexState.h"
+#include "AssetCacheState.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -26,7 +26,9 @@ std::string Column(sqlite3_stmt *statement, int index) {
 }
 
 std::optional<AssetRecord> Read(sqlite3_stmt *statement) {
-  AssetRecord record{.Key = Column(statement, 0), .Kind = Column(statement, 1)};
+  AssetRecord record;
+  record.Key = Column(statement, 0);
+  record.Kind = Column(statement, 1);
   for (int axis = 0; axis < 3; ++axis) {
     record.Bounds.Min[static_cast<size_t>(axis)] = sqlite3_column_double(statement, 2 + axis);
     record.Bounds.Max[static_cast<size_t>(axis)] = sqlite3_column_double(statement, 5 + axis);
@@ -92,28 +94,28 @@ bool Intersects(const Box &bounds, const AssetQuery &query) {
 
 }
 
-std::expected<std::optional<AssetRecord>, AssetIndexError>
-AssetIndex::Find(std::string_view key) const {
-  if (!AssetSql::ValidKey(key)) { return std::unexpected(AssetIndexError::InvalidInput); }
+std::expected<std::optional<AssetRecord>, AssetCacheError>
+AssetCache::Find(std::string_view key) const {
+  if (!AssetSql::ValidKey(key)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;
   const std::string sql =
       std::string("SELECT ") + AssetSql::kColumns + " FROM assets a WHERE a.key=?";
   auto prepared = AssetSql::Prepare(State_->Database, sql.c_str(), statement);
   if (!prepared) { return std::unexpected(prepared.error()); }
   if (!AssetSql::Text(statement.Value, 1, key)) {
-    return std::unexpected(AssetIndexError::Storage);
+    return std::unexpected(AssetCacheError::Storage);
   }
   const int code = sqlite3_step(statement.Value);
   if (code == SQLITE_DONE) { return std::optional<AssetRecord>{}; }
   if (code != SQLITE_ROW) { return std::unexpected(AssetSql::Error(code)); }
   auto record = AssetSql::Read(statement.Value);
-  if (!record) { return std::unexpected(AssetIndexError::Storage); }
+  if (!record) { return std::unexpected(AssetCacheError::Storage); }
   return record;
 }
 
-std::expected<std::vector<AssetRecord>, AssetIndexError>
-AssetIndex::Select(const AssetQuery &query) const {
-  if (!Valid(query)) { return std::unexpected(AssetIndexError::InvalidInput); }
+std::expected<std::vector<AssetRecord>, AssetCacheError>
+AssetCache::Select(const AssetQuery &query) const {
+  if (!Valid(query)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;
   const std::string sql =
       std::string("SELECT ") + AssetSql::kColumns +
@@ -126,7 +128,7 @@ AssetIndex::Select(const AssetQuery &query) const {
     const auto index = static_cast<size_t>(axis);
     if (sqlite3_bind_double(statement.Value, 1 + 2 * axis, query.Bounds.Max[index]) != SQLITE_OK ||
         sqlite3_bind_double(statement.Value, 2 + 2 * axis, query.Bounds.Min[index]) != SQLITE_OK) {
-      return std::unexpected(AssetIndexError::Storage);
+      return std::unexpected(AssetCacheError::Storage);
     }
   }
   const sqlite3_int64 level = query.Level ? static_cast<sqlite3_int64>(*query.Level) : -1;
@@ -134,13 +136,13 @@ AssetIndex::Select(const AssetQuery &query) const {
       !AssetSql::Text(statement.Value, 8, query.Kind) ||
       sqlite3_bind_int64(statement.Value, 9, level) != SQLITE_OK ||
       sqlite3_bind_int64(statement.Value, 10, level) != SQLITE_OK) {
-    return std::unexpected(AssetIndexError::Storage);
+    return std::unexpected(AssetCacheError::Storage);
   }
   std::vector<AssetRecord> records;
   int code = SQLITE_ROW;
   while ((code = sqlite3_step(statement.Value)) == SQLITE_ROW) {
     auto record = AssetSql::Read(statement.Value);
-    if (!record) { return std::unexpected(AssetIndexError::Storage); }
+    if (!record) { return std::unexpected(AssetCacheError::Storage); }
     if (Intersects(record->Bounds, query)) { records.push_back(std::move(*record)); }
   }
   if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }

@@ -1,12 +1,12 @@
-#ifndef OUTSHINE_CONTENT_ASSETS_ASSETINDEXSTATE_H
-#define OUTSHINE_CONTENT_ASSETS_ASSETINDEXSTATE_H
+#ifndef OUTSHINE_CONTENT_ASSETS_ASSETCACHESTATE_H
+#define OUTSHINE_CONTENT_ASSETS_ASSETCACHESTATE_H
 
-#include "AssetIndex.h"
+#include "AssetCache.h"
 #include <sqlite3.h>
 
 namespace outshine {
 
-struct AssetIndex::State {
+struct AssetCache::State {
   sqlite3 *Database = nullptr;
   ~State();
 };
@@ -21,9 +21,9 @@ struct Statement {
   Statement &operator=(const Statement &) = delete;
 };
 
-[[nodiscard]] AssetIndexError Error(int code);
-[[nodiscard]] std::expected<void, AssetIndexError> Exec(sqlite3 *database, const char *sql);
-[[nodiscard]] std::expected<void, AssetIndexError>
+[[nodiscard]] AssetCacheError Error(int code);
+[[nodiscard]] std::expected<void, AssetCacheError> Exec(sqlite3 *database, const char *sql);
+[[nodiscard]] std::expected<void, AssetCacheError>
 Prepare(sqlite3 *database, const char *sql, Statement &statement);
 [[nodiscard]] bool Text(sqlite3_stmt *statement, int slot, std::string_view value);
 [[nodiscard]] bool Valid(const Box &bounds);

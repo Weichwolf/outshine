@@ -1,4 +1,4 @@
-#include "AssetIndexState.h"
+#include "AssetCacheState.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -12,18 +12,18 @@
 
 namespace outshine {
 
-AssetIndex::State::~State() {
+AssetCache::State::~State() {
   if (Database != nullptr) { sqlite3_close(Database); }
 }
 
-AssetIndex::AssetIndex(std::unique_ptr<State> state) : State_(std::move(state)) {}
+AssetCache::AssetCache(std::unique_ptr<State> state) : State_(std::move(state)) {}
 
-AssetIndex::~AssetIndex() = default;
+AssetCache::~AssetCache() = default;
 
-std::expected<std::unique_ptr<AssetIndex>, AssetIndexError>
-AssetIndex::Open(const std::string &path) {
+std::expected<std::unique_ptr<AssetCache>, AssetCacheError>
+AssetCache::Open(const std::string &path) {
   if (path.empty() || path.contains('\0')) {
-    return std::unexpected(AssetIndexError::InvalidInput);
+    return std::unexpected(AssetCacheError::InvalidInput);
   }
   auto state = std::make_unique<State>();
   const int opened =
@@ -38,7 +38,7 @@ AssetIndex::Open(const std::string &path) {
   const int step = sqlite3_step(version.Value);
   if (step != SQLITE_ROW) { return std::unexpected(AssetSql::Error(step)); }
   const int current = sqlite3_column_int(version.Value, 0);
-  if (current != 0 && current != 1) { return std::unexpected(AssetIndexError::UnsupportedVersion); }
+  if (current != 0 && current != 1) { return std::unexpected(AssetCacheError::UnsupportedVersion); }
   sqlite3_reset(version.Value);
   const auto setup = AssetSql::Exec(
       state->Database,
@@ -49,9 +49,11 @@ AssetIndex::Open(const std::string &path) {
       "maxx REAL NOT NULL,maxy REAL NOT NULL,maxz REAL NOT NULL,package TEXT NOT NULL,"
       "offset INTEGER NOT NULL,bytes INTEGER NOT NULL,level INTEGER NOT NULL,parent TEXT NOT NULL);"
       "CREATE VIRTUAL TABLE IF NOT EXISTS bounds USING rtree(id,minx,maxx,miny,maxy,minz,maxz);"
+      "CREATE TABLE IF NOT EXISTS packages(key TEXT PRIMARY KEY,bytes BLOB NOT NULL,crc INTEGER "
+      "NOT NULL);"
       "PRAGMA user_version=1;COMMIT;");
   if (!setup) { return std::unexpected(setup.error()); }
-  return std::unique_ptr<AssetIndex>(new AssetIndex(std::move(state)));
+  return std::unique_ptr<AssetCache>(new AssetCache(std::move(state)));
 }
 
 namespace AssetSql {
@@ -60,18 +62,18 @@ Statement::~Statement() {
   if (Value != nullptr) { sqlite3_finalize(Value); }
 }
 
-AssetIndexError Error(int code) {
-  return code == SQLITE_BUSY || code == SQLITE_LOCKED ? AssetIndexError::Busy
-                                                      : AssetIndexError::Storage;
+AssetCacheError Error(int code) {
+  return code == SQLITE_BUSY || code == SQLITE_LOCKED ? AssetCacheError::Busy
+                                                      : AssetCacheError::Storage;
 }
 
-std::expected<void, AssetIndexError> Exec(sqlite3 *database, const char *sql) {
+std::expected<void, AssetCacheError> Exec(sqlite3 *database, const char *sql) {
   const int code = sqlite3_exec(database, sql, nullptr, nullptr, nullptr);
   if (code != SQLITE_OK) { return std::unexpected(Error(code)); }
   return {};
 }
 
-std::expected<void, AssetIndexError>
+std::expected<void, AssetCacheError>
 Prepare(sqlite3 *database, const char *sql, Statement &statement) {
   const int code = sqlite3_prepare_v2(database, sql, -1, &statement.Value, nullptr);
   if (code != SQLITE_OK) { return std::unexpected(Error(code)); }
