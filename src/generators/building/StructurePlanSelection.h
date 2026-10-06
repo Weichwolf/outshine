@@ -44,8 +44,20 @@ private:
 
   struct Command {
     size_t Source = 0;
-    std::optional<StructureMassPlan> Mass;
+    std::optional<StructureMassPlan> Mass = std::nullopt;
+    std::vector<size_t> ProjectedSources;
   };
+
+  [[nodiscard]] std::expected<void, StructureBakeError> EmitProjected(const Command &command,
+                                                                      const RawTile &raw,
+                                                                      const StructureMesher &mesher,
+                                                                      MeshScratch &scratch,
+                                                                      BakedTile &out);
+
+  [[nodiscard]] bool SelectProjected(std::span<const size_t> indices,
+                                     const RawTile &raw,
+                                     const StructureMesher &mesher,
+                                     BakedTile &out);
 
   [[nodiscard]] std::expected<void, StructureBakeError>
   SelectCell(std::span<const size_t> indices,

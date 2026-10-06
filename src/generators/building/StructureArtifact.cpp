@@ -20,7 +20,7 @@
 namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
-constexpr uint32_t kVersion = 6;
+constexpr uint32_t kVersion = 7;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -209,7 +209,7 @@ template <typename Archive, typename View> bool SelectionView(Archive &archive, 
   };
   return archive.Number(view.Eye.LongitudeDeg) && archive.Number(view.Eye.LatitudeDeg) &&
          archive.Maybe(view.EyeEcef, point) && archive.Number(view.Projection.FocalPx) &&
-         archive.Number(view.Projection.AllowedErrorPx);
+         archive.Number(view.Projection.AllowedErrorPx) && archive.Number(view.EyeRadiusM);
 }
 
 template <typename Archive, typename Tile> bool Product(Archive &archive, Tile &tile) {

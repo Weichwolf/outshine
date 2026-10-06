@@ -76,22 +76,21 @@ bool StructureSelectionView::Contains(LongitudeLatitude eye,
                                       std::optional<Vec3> eyeEcef) const noexcept {
   if (Projection != projection || !std::isfinite(Projection.FocalPx) || Projection.FocalPx <= 0.0 ||
       !std::isfinite(Projection.AllowedErrorPx) || Projection.AllowedErrorPx < 0.0 ||
-      !std::isfinite(Eye.LongitudeDeg) || !std::isfinite(Eye.LatitudeDeg) ||
-      EyeEcef.has_value() != eyeEcef.has_value()) {
+      !std::isfinite(EyeRadiusM) || EyeRadiusM < 0.0 || !std::isfinite(Eye.LongitudeDeg) ||
+      !std::isfinite(Eye.LatitudeDeg) || EyeEcef.has_value() != eyeEcef.has_value()) {
     return false;
   }
   if (EyeEcef) {
     const Vec3 offset = *EyeEcef - *eyeEcef;
     const double distanceM = std::hypot(offset[0], offset[1], offset[2]);
-    return std::isfinite(distanceM) && distanceM <= kStructureEyeReuseM;
+    return std::isfinite(distanceM) && distanceM <= EyeRadiusM;
   }
   const Ellipsoid earth{.SemiMajorM = kWgs84A, .Flattening = 1.0 - std::sqrt(1.0 - kWgs84E2)};
   const auto distance =
       GeodesicOn({.LongitudeDeg = Eye.LongitudeDeg, .LatitudeDeg = Eye.LatitudeDeg},
                  {.LongitudeDeg = eye.LongitudeDeg, .LatitudeDeg = eye.LatitudeDeg},
                  earth);
-  return distance.Converged && std::isfinite(distance.AlongM) &&
-         distance.AlongM <= kStructureEyeReuseM;
+  return distance.Converged && std::isfinite(distance.AlongM) && distance.AlongM <= EyeRadiusM;
 }
 
 std::optional<double> StructurePlanSelection::Add(StructurePlan plan,
@@ -122,7 +121,7 @@ void StructurePlanSelection::SelectSource(size_t index,
   mass.Level = LevelOfDetail::Massed;
   if (source.Bounds && Massable(source.Plan) &&
       AcceptedMass(mass, *source.Bounds, raw, mesher, scratch)) {
-    Commands_.push_back({.Source = index, .Mass = mass});
+    Commands_.push_back({.Source = index, .Mass = mass, .ProjectedSources = {}});
     out.FootprintDetails[source.Footprint] = LevelOfDetail::Massed;
     ++out.Lumped;
     ++out.Blocks;
@@ -136,7 +135,33 @@ void StructurePlanSelection::SelectSource(size_t index,
           : LevelOfDetail::Fine;
   source.Plan.RecessedOpenings = !raw.Projection.Allows(kOpeningDepthM, distanceM);
   out.FootprintDetails[source.Footprint] = source.Plan.Coarseness;
-  Commands_.push_back({.Source = index, .Mass = std::nullopt});
+  Commands_.push_back({.Source = index, .Mass = std::nullopt, .ProjectedSources = {}});
+}
+
+bool StructurePlanSelection::SelectProjected(std::span<const size_t> indices,
+                                             const RawTile &raw,
+                                             const StructureMesher &mesher,
+                                             BakedTile &out) {
+  constexpr size_t kLeastProjectedSources = 16;
+  if (!mesher.HasSurfaceProjection() || !raw.EyeEcef || indices.size() < kLeastProjectedSources ||
+      raw.Projection.AllowedErrorPx <= 0.0) {
+    return false;
+  }
+  const bool allShell = std::ranges::all_of(indices, [&](size_t index) {
+    const auto &source = Sources_[index];
+    return source.Bounds && source.ShellErrorM && *source.ShellErrorM > 0.0 &&
+           raw.Projection.Allows(*source.ShellErrorM, DistanceTo(source.Mass, raw, *source.Bounds));
+  });
+  if (allShell) {
+    Commands_.push_back({.ProjectedSources = {indices.begin(), indices.end()}});
+    for (const size_t index : indices) {
+      out.FootprintDetails[Sources_[index].Footprint] = LevelOfDetail::Shell;
+    }
+    out.Lumped += static_cast<int>(indices.size());
+    ++out.Blocks;
+    return true;
+  }
+  return false;
 }
 
 std::expected<void, StructureBakeError>
@@ -146,6 +171,7 @@ StructurePlanSelection::SelectCell(std::span<const size_t> indices,
                                    MeshScratch &scratch,
                                    BakedTile &out,
                                    const std::atomic_bool *stopping) {
+  if (SelectProjected(indices, raw, mesher, out)) { return {}; }
   std::vector<size_t> known;
   std::vector<Box> bounds;
   std::vector<StructureMassPlan> masses;
@@ -185,7 +211,7 @@ StructurePlanSelection::SelectCell(std::span<const size_t> indices,
           SelectSource(known[hierarchy->Members(node).front()], raw, mesher, scratch, out);
           return;
         }
-        Commands_.push_back({.Source = 0, .Mass = accepted});
+        Commands_.push_back({.Source = 0, .Mass = accepted, .ProjectedSources = {}});
         for (const uint32_t member : hierarchy->Members(node)) {
           out.FootprintDetails[Sources_[known[member]].Footprint] = LevelOfDetail::Massed;
         }
@@ -234,6 +260,11 @@ StructurePlanSelection::Emit(const RawTile &raw,
   for (; Next_ < until; ++Next_) {
     if (Stopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
     const auto &command = Commands_[Next_];
+    if (!command.ProjectedSources.empty()) {
+      const auto projected = EmitProjected(command, raw, mesher, scratch, out);
+      if (!projected) { return std::unexpected(projected.error()); }
+      continue;
+    }
     std::array<double, 8> ring{};
     std::array<double, 4> corners{};
     StructurePlan plan;
@@ -253,6 +284,55 @@ StructurePlanSelection::Emit(const RawTile &raw,
     }
   }
   return Next_ == Commands_.size();
+}
+
+std::expected<void, StructureBakeError>
+StructurePlanSelection::EmitProjected(const Command &command,
+                                      const RawTile &raw,
+                                      const StructureMesher &mesher,
+                                      MeshScratch &scratch,
+                                      BakedTile &out) {
+  std::vector<StructurePlan> plans;
+  plans.reserve(command.ProjectedSources.size());
+  for (const size_t index : command.ProjectedSources) {
+    const auto &source = Sources_[index];
+    auto plan = source.Plan;
+    plan.CornerAslM = std::span(Corners_).subspan(source.CornerFirst, source.CornerCount);
+    plan.Coarseness = LevelOfDetail::Shell;
+    plan.RecessedOpenings = false;
+    plans.push_back(plan);
+  }
+  if (!raw.EyeEcef) { return std::unexpected(StructureMeshError::InvalidPlan); }
+  auto projected = mesher.Project(plans, *raw.EyeEcef - raw.AnchorEcef, raw.Projection, scratch);
+  if (!projected) { return std::unexpected(projected.error()); }
+  if (out.SelectedView) {
+    out.SelectedView->EyeRadiusM = std::min(out.SelectedView->EyeRadiusM, projected->EyeRadiusM);
+  }
+  const auto append = [](auto &vertices, auto &run, const auto &added, const auto &indices) {
+    const auto first = static_cast<uint32_t>(vertices.size());
+    vertices.insert(vertices.end(), added.begin(), added.end());
+    for (const uint32_t index : indices) { run.push_back(first + index); }
+  };
+  const size_t first = out.Built.WallCorners.size();
+  append(out.Built.WallCorners,
+         out.Built.WallRun,
+         projected->Mesh.WallCorners,
+         projected->Mesh.WallRun);
+  append(out.Built.RoofCorners,
+         out.Built.RoofRun,
+         projected->Mesh.RoofCorners,
+         projected->Mesh.RoofRun);
+  if (!out.Built.WallColours.empty() || !projected->Mesh.WallColours.empty()) {
+    if (out.Built.WallColours.empty()) { out.Built.WallColours.resize(first * 4, 1.0f); }
+    if (projected->Mesh.WallColours.empty()) {
+      out.Built.WallColours.resize(out.Built.WallCorners.size() * 4, 1.0f);
+    } else {
+      out.Built.WallColours.insert(out.Built.WallColours.end(),
+                                   projected->Mesh.WallColours.begin(),
+                                   projected->Mesh.WallColours.end());
+    }
+  }
+  return {};
 }
 
 }

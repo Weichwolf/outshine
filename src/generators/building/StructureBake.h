@@ -77,6 +77,7 @@ struct StructureSelectionView {
   LongitudeLatitude Eye;
   std::optional<Vec3> EyeEcef;
   ProjectedErrorBudget Projection;
+  double EyeRadiusM = kStructureEyeReuseM;
 
   [[nodiscard]] bool Contains(LongitudeLatitude eye,
                               ProjectedErrorBudget projection,
