@@ -16,8 +16,8 @@ GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist m
 die konservative Zellhülle erzwingt oft Fine. Einfache Gebäudehüllen stellen Wien wieder dar;
 die Fernzusammenfassung greift noch zu spät. Tokyo hält 29,65 Mio. erzeugte Gebäudedreiecke.
 Begrenzte Upload-Batches beheben den belegten Metal-Speicherabbruch; Hausflächen/Türme sind wieder da.
-Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 37,18/567,19 ms, Central Park 11,70/63,14 ms
-rot; Central Parks Bild bleibt unverändert. Erzeugte Dreiecke sind keine Messung ausgeführter GPU-Arbeit.
+Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 35,65/479,44 ms, Central Park 13,20/84,27 ms
+rot (`15e11a364`); kein sichtbarer Bildgewinn. Erzeugte Dreiecke sind keine Messung ausgeführter GPU-Arbeit.
 Isolierte Passabschlüsse lokalisieren die Hauptkosten im nativen Rasterpass: Tokyo/Central Park
 ~33,5/12,4 ms; konstante Tokyo-Beleuchtung ~32,9 ms. Diagnose, keine GPU-Timestamps/Abnahme.
 
@@ -47,7 +47,6 @@ Zeitliche HiZ-Verdeckung gilt nur bei identischer Projektion, Weltbasis und unve
 Geometrie-, Draw-Tabellen- und Terrainständen. Tabellen-Rebuilds erhöhen die Produktgeneration. Bewegung erzeugt zunächst vollständige Frustum-/LOD-Sichtbarkeit;
 stationäre Folgebilder dürfen mit belegter Tiefe verfeinern und danach die Auswahl wiederverwenden.
 Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bleiben wiederholbar.
-Native Occluder nach projizierter Coverage/Gesamtkosten auswählen; noch keine Runtime-Integration.
 Verworfene Diagnosen bleiben außerhalb der Runtime: `e37b7fce7`, `ca95cc4b3`, `9079ead97`.
 Rückseitenkegel/Fetch-Umordnung sparen insgesamt nicht; erzwungene Shell-Eltern verlieren die Stadt.
 Tiefenblöcke erfassen Randpixel mit Quellgröße/Blockspanne. Zusatzpässe brauchen Gesamtersparnis;
@@ -56,11 +55,12 @@ Multi-Draw erhält Reihenfolge/Instanzen/Culling; ausgeführte Geometrie/Warten 
 ## Bildabhängige Fernrepräsentation
 Ferne Gebäude gemeinsam auf tiefenhaltige Karten mit zwei Dreiecken je Karte projizieren;
 Rundum-/Layered-Capture prüfen. Bedarf vor Mesh-Aufbau; einfache Hüllen oder Quellpläne erfassen,
-Raster-/Ray-Capture vergleichen. ImpostorBaker erfasst Tiefe, ImpostorCard verwirft sie; aufgelöste
-Vertex-/Materialfarben fehlen. Vor Stadtintegration Tiefenraum/Rückprojektion, Materialkomposition
-und gültigen Kamera-/Projektionsbereich herstellen; beides gegen native Hüllen prüfen.
+Raster-/Ray-Capture vergleichen. Karte und Capture erhalten lineare Basisfarbe, Normalen und
+Metallic/Roughness nach nativer Komposition; unrepräsentierte Lobes werden ausdrücklich abgewiesen.
+ImpostorCard verwirft noch Tiefe. Vor Stadtintegration Tiefenraum/Rückprojektion und Kameragültigkeit
+gegen native Hüllen prüfen; Runtime-Captures auf vorhandenem Device bündeln, kein Asset-Baker je Zelle.
 Capture an Kameraposition/Zelle binden, nicht Blickrichtung: Drehung verwendet dieselbe Karte.
-Perspektivische Tiefe zurückprojizieren; aufgelöste Materialkomposition unbeleuchtet erfassen.
+Aktueller Bake ist orthografisch; Stadt-Capture braucht Ursprung und inverse Projektion für Rückprojektion.
 Coverage/Normalen erhalten; Beleuchtung und Gesamthelligkeit aktuell auswerten.
 Update bei zu großer Pixelverschiebung, Inhaltsänderung oder Disocclusion; gültiger Hüllen-Fallback.
 Nur bild-/schattenwirksame Geometrie nach jeweiligem Bedarf; grobe Fernoccluder statt Nahdetails.

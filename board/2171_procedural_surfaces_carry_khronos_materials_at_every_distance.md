@@ -13,6 +13,11 @@ Tags: materials, filtering, procedural
 Asphalt/Putz/Backstein/Beton/Fels/Glas/Dach mit passendem Maßstab, Relief und Rauheit.
 Native Metallic-Roughness-Materialien, UVs und GroundMaterials bestehen; Places bleiben
 flach/repetitiv. Vorhandene Parameter anschließen, keine zweite Materialarchitektur.
+Unbeleuchtete Karten-Captures erhalten Textur-/Vertex-/Fassadenkomposition und Metallic/Roughness;
+die Karte nutzt aktuelle Beleuchtung. Nicht erfasste Materialeffekte werden ausdrücklich abgewiesen;
+die Runtime muss dafür native Geometrie halten, statt sie verlustbehaftet in Karten umzuwandeln.
+Atlas-Transport erhält die Kanäle und liest v1 weiter; keine neue Runtime-Diskpersistenz.
+Stadtintegration und perspektivisch korrekte Tiefe fehlen weiterhin in 2336.
 
 ## Besitzer und nächste Lieferung
 Generator/FacadeUv besitzt Geometrie und metrische Koordinaten, GroundMaterials native
