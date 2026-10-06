@@ -34,6 +34,29 @@ Tokyo (historische Shibuya-Kamera) und Central Park sind zusätzliche harte Dich
 Alle zehn Places teilen Profil, Bildauftrag und Ziel unter 10 ms pro Frame beim aktuellen Umfang;
 Objektzahl darf GPU-Arbeit bei gleicher Bildwirkung nur gering beeinflussen. Keine Inhaltskürzung.
 
+## Katalog der Defizite und ihres Zielpfads
+Dies ist der fortlaufende Katalog, keine Behauptung eines abgeschlossenen Code-Reviews.
+Jeder Befund bleibt beim Featurebesitzer; dort stehen Ursache, Ersatz und Bildabnahme.
+| Priorität | Defizit | Zielpfad und Besitzer |
+|---|---|---|
+| P0 | Tokyo erzeugt 29,65 Mio. Dreiecke; Fernbedarf greift zu spät | Plan → projizierter Bedarf → Hülle/Cluster/Impostor, 2336 |
+| P0 | Unbekannte Zellfehler erzwingen Fine; Quell- und Renderarbeit doppeln sich | Formfehler vor Meshing, gemeinsame Pläne und gezielte Publikation, 2336/2280 |
+| P0 | Rasterarbeit bleibt teuer; HiZ greift bei Drehung nicht | Hierarchische Sichtauswahl, vordere Coverage, begrenzte aktuelle Arbeit, 2340 |
+| P0 | Tokyo hält ca. 3,88 GB GPU-Streams; Spitzen überschreiten das Gerät | Nur benötigte Darstellungen/Attribute resident, geteilte Eingaben, 2336/2188 |
+| P0 | Geometrie-/Material-Replay ist noch nicht im Stadtpfad integriert | Unbeleuchtete Fernfelder, gültige Tiefe/Parallaxe, aktuelle Beleuchtung, 2336/2171 |
+| P0 | Wasserpegel/Ufer fluten Gebäude oder bilden falsche Stufen | Zusammenhängende Gewässergeometrie und Terrainkontakt, 2145 |
+| P1 | Sonderklassen/Parts/Dachformen fehlen oder werden falsch interpretiert | Gelieferte Semantik statt Wohnhausannahmen, 2173/2338 |
+| P1 | Boden/Fels/Fassaden bleiben flach und repetitiv | Maßstäbliche Form, gemeinsame Materialkomposition, 2337/2171 |
+| P1 | Licht/Schatten/Reflexion bleiben schwach; viele lokale Lichter fehlen | Aktuelles regionales Licht mit kohärenter Kameraantwort, 2155 |
+| P1 | Brücken/Tunnel und komplexe Straßenanschlüsse fehlen | Native Ebenen/Kontakte bei erhaltener Straßenqualität, 2281 |
+| P1 | Engine/world kennen Quellsemantik; Erweiterungen umgehen öffentliche Grenzen | Fachplanung in Generatoren, generische native Welt, 2188 |
+| P1 | GPU-Passzeiten fehlen; Encoding/Warten ersetzen keine GPU-Messung | Kompakte direkte Kostenmessung, 2339 |
+| später | Wälder bleiben POC; Wetter/Wolken und bewegte Sandbox fehlen | Nach Gebäude/Terrain/Straßen: 2111, 2172, 2136 |
+
+Typische Last ist eine bewegte Spielwelt: Kamera, Figuren/Fahrzeuge, Wind, lokale Lichter und
+Wolkenschatten. Statische Form/Material dürfen wiederverwendet werden; ihre fertige Beleuchtung
+ist dadurch nicht statisch. Die Place-Drehung ist ein Integrationsfall, kein Ersatz für diese Last.
+
 ## Priorität und Lieferung
 | Reihenfolge | WI | Nächster sichtbarer Nutzen |
 |---|---|---|
