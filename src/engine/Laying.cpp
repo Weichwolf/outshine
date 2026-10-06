@@ -45,6 +45,7 @@
 #include "BuildingStampJob.h"
 #include "TerrainMesh.h"
 #include "TerrainPress.h"
+#include "TerrainDeformationTask.h"
 #include "EngineHeld.h"
 #include "GroundWorldCandidate.h"
 #include "GroundDiagnostics.h"
@@ -122,8 +123,6 @@ constexpr size_t kPlayableStructureCandidates = 1;
 constexpr size_t kRefinedStructureCandidates = 4;
 constexpr size_t kTerrainSheetsPerFrame = 48;
 constexpr size_t kTerrainResidencySheetsPerFrame = 64;
-constexpr size_t kEarthworkSheetsPerFrame = 32;
-constexpr size_t kEarthworkPointsPerFrame = 8192;
 constexpr size_t kEarthworkStampUnitsPerFrame = 2048;
 constexpr size_t kCorridorLanesPerFrame = 128;
 constexpr size_t kCorridorNodesPerFrame = 64;
@@ -362,7 +361,7 @@ public:
 
   [[nodiscard]] MeshBuild &InitialMeshing() noexcept { return InitialMeshing_; }
 
-  [[nodiscard]] Generators::TerrainPressJob *Pressing() noexcept { return Pressing_.get(); }
+  [[nodiscard]] Generators::TerrainDeformationTask *Pressing() noexcept { return Pressing_.get(); }
 
   [[nodiscard]] Generators::BuildingStampJob *Stamping() noexcept { return Stamping_.get(); }
 
@@ -372,7 +371,7 @@ public:
 
   void FinishesStamping() noexcept { Stamping_.reset(); }
 
-  void BeginsPressing(std::unique_ptr<Generators::TerrainPressJob> pressing) noexcept {
+  void BeginsPressing(std::unique_ptr<Generators::TerrainDeformationTask> pressing) noexcept {
     Pressing_ = std::move(pressing);
   }
 
@@ -635,7 +634,7 @@ private:
   size_t NextRoadSurfaceTransfer_ = 0;
   std::optional<Patchwork> Patchwork_;
   std::unique_ptr<Generators::BuildingStampJob> Stamping_;
-  std::unique_ptr<Generators::TerrainPressJob> Pressing_;
+  std::unique_ptr<Generators::TerrainDeformationTask> Pressing_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::unique_ptr<StreetGraphPreparation> StreetGraphWorker_;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
@@ -1092,6 +1091,15 @@ Engine::State::GroundBuildProgress Engine::State::BuildGroundBuildingStamps(
   return GroundBuildProgress::Ready;
 }
 
+bool Engine::State::GroundDeformationPending() const noexcept {
+  return World.GroundBuild && World.GroundBuild->Pressing() != nullptr;
+}
+
+bool Engine::State::AwaitGroundDeformation(double seconds) const {
+  assert(GroundDeformationPending());
+  return World.GroundBuild->Pressing()->AwaitSlice(seconds);
+}
+
 bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
                                           Patchwork &patchwork,
                                           GroundBuildState &state) {
@@ -1172,7 +1180,9 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     Published.RecordMetric("ground: corridor pieces that press it",
                            static_cast<double>(yielding.size() - builtPads - builtLakes),
                            "pieces");
-    state.BeginsPressing(std::make_unique<Generators::TerrainPressJob>(
+    state.BeginsPressing(std::make_unique<Generators::TerrainDeformationTask>(
+        *World.Pool,
+        World.Stack.TerrainAssets(),
         std::move(yielding),
         patchwork,
         standing,
@@ -1184,16 +1194,20 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     state.SamplesProductPeak();
     return true;
   }
-  const bool completed =
-      state.Pressing()->Advance(kEarthworkSheetsPerFrame, kEarthworkPointsPerFrame);
+  const bool completed = state.Pressing()->Advance();
   state.SamplesPressingSlice(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sliceAt)
           .count());
   state.SamplesProductPeak();
   if (!completed) { return true; }
-  const Generators::PressedTerrain pressed = state.Pressing()->Take();
+  auto pressed = state.Pressing()->Take(patchwork);
   state.FinishesPressing();
-  PublishEarthworkMeasurements(pressed, state.LongestPressingSliceMs());
+  if (!pressed) {
+    Error = std::move(pressed.error());
+    World.GroundBuild.reset();
+    return false;
+  }
+  PublishEarthworkMeasurements(*pressed, state.LongestPressingSliceMs());
   state.AdvanceStage();
   return true;
 }

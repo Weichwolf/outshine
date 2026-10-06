@@ -9,7 +9,9 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   std::array<uint8_t, 4093> block;
-  for (size_t index = 0; index < block.size(); ++index) { block[index] = static_cast<uint8_t>(index); }
+  for (size_t index = 0; index < block.size(); ++index) {
+    block[index] = static_cast<uint8_t>(index);
+  }
   BlockedDigest continuous, partitioned, changed;
   constexpr size_t repeats = 17000;
   for (size_t index = 0; index < repeats; ++index) {
@@ -21,8 +23,7 @@ int main() {
     if (index == repeats - 1) { altered.back() ^= 1u; }
     CHECK(changed.Put(altered), "late source changes remain part of the identity");
   }
-  CHECK(continuous.Count() > size_t{64} * 1024 * 1024 &&
-            continuous.Count() == partitioned.Count(),
+  CHECK(continuous.Count() > size_t{64} * 1024 * 1024 && continuous.Count() == partitioned.Count(),
         "realistic dense plans can exceed the asset package byte budget");
   const auto digest = continuous.Finish();
   CHECK(digest == partitioned.Finish() && digest != changed.Finish(),

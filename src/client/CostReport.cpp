@@ -48,7 +48,7 @@ void Group(std::string_view scene,
 void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> samples) {
   const auto get = [samples](std::string_view key) { return Value(samples, key); };
   if (get("cost.render.frames") == 0.0) { return; }
-  for (const auto *const kind : {"terrain", "buildings", "building_lod"}) {
+  for (const auto *const kind : {"terrain", "terrain_deformed", "buildings", "building_lod"}) {
     const std::string prefix = std::string("cost.assets.") + kind;
     std::println(
         "PERF {} native {}: hit/resident/miss/write={:.0f}/{:.0f}/{:.0f}/{:.0f} read={:.2f}MiB",

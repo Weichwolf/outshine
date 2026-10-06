@@ -19,10 +19,15 @@ int main() {
       return Tasks::StepResult::Complete;
     }
     return Tasks::StepResult::Yield;
-  }), "detached continuation is admitted by the common worker");
-  const auto marker = tasks.Post([&] { observed = state.load(); state = 2; });
+  }),
+        "detached continuation is admitted by the common worker");
+  const auto marker = tasks.Post([&] {
+    observed = state.load();
+    state = 2;
+  });
   tasks.Wait(marker);
-  CHECK(finished.try_acquire_for(std::chrono::seconds(2)) && observed == 1 && state == 3 && calls >= 2,
+  CHECK(finished.try_acquire_for(std::chrono::seconds(2)) && observed == 1 && state == 3 &&
+            calls >= 2,
         "detached continuation yields to independent work before its final step");
   CHECK(!tasks.AwaitCompletion(0.01),
         "detached completion leaves no tracked handle or stale wake predicate");

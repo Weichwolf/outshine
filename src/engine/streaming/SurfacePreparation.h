@@ -120,6 +120,11 @@ public:
     return PreparedBuildings_;
   }
 
+  [[nodiscard]] const std::shared_ptr<::outshine::Generators::PreparedTerrainAssets> &
+  TerrainAssets() const noexcept {
+    return PreparedTerrain_;
+  }
+
   void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
     Cls_.Declares(these);

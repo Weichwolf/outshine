@@ -50,7 +50,19 @@ void PublishPreparedGeometryCosts(Core::DiagnosticLedger &published,
 }
 
 void PublishAssetCosts(Core::DiagnosticLedger &published, const Ground::SurfacePreparation &stack) {
-  PublishPreparedAssetCosts(published, stack.PreparedTerrainCosts(), 0);
+  const auto terrain = stack.PreparedTerrainCosts();
+  PublishPreparedAssetCosts(published, terrain, 0);
+  published.RecordMetric(
+      "cost.assets.terrain_deformed.hits", static_cast<double>(terrain.DeformationHits), "reads");
+  published.RecordMetric("cost.assets.terrain_deformed.misses",
+                         static_cast<double>(terrain.DeformationMisses),
+                         "reads");
+  published.RecordMetric("cost.assets.terrain_deformed.writes",
+                         static_cast<double>(terrain.DeformationWrites),
+                         "packages");
+  published.RecordMetric("cost.assets.terrain_deformed.read_bytes",
+                         static_cast<double>(terrain.DeformationReadBytes),
+                         "bytes");
   if (const auto &buildings = stack.BuildingAssets()) {
     const auto costs = buildings->Costs();
     PublishPreparedAssetCosts(published, costs, 1);

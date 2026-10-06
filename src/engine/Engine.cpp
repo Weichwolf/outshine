@@ -692,6 +692,14 @@ Result Engine::State::PreloadTimeout(double bound, GroundQuality quality) {
   return std::unexpected(Error);
 }
 
+bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
+  if (World.OsmSource && World.OsmSource->PendingCount() > 0) {
+    return World.OsmSource->AwaitSlice(seconds);
+  }
+  if (GroundDeformationPending()) { return AwaitGroundDeformation(seconds); }
+  return World.Pool->AwaitCompletion(seconds);
+}
+
 void Engine::State::AwaitPreloadProgress(double seconds) {
   auto &waited = PreloadWaited;
 
@@ -747,12 +755,12 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
     if (signalled || remaining() <= 0.0) { return; }
   }
   const bool sourceWorker = World.OsmSource && World.OsmSource->PendingCount() > 0;
-  const bool worldWorker = World.RoadAlignmentBuilds.Busy() || sourceWorker ||
+  const bool worldWorker = GroundDeformationPending() || World.RoadAlignmentBuilds.Busy() ||
+                           sourceWorker ||
                            (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
   if (worldWorker && World.Pool) {
     const auto began = std::chrono::steady_clock::now();
-    const bool signalled = sourceWorker ? World.OsmSource->AwaitSlice(remaining())
-                                        : World.Pool->AwaitCompletion(remaining());
+    const bool signalled = AwaitWorldWorkerProgress(remaining());
     record({.Milliseconds = waited.WorldWorkerMs,
             .Calls = waited.WorldWorkerCalls,
             .Signals = waited.WorldWorkerSignals},
