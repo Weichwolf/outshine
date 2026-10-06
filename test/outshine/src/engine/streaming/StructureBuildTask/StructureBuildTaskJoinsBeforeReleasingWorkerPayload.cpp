@@ -203,11 +203,25 @@ int main() {
     ranged.RequestStop();
     ranged.Join(pool);
   }
-  resumed.Resume(pool, unsupported);
-  while (!resumed.TakeCompletion(pool)) { CHECK(pool.AwaitCompletion(1), "final task completes"); }
-  CHECK(resumed.Result().Status && resumed.Result().Tile && resumed.Result().LastRanges == 1 &&
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+  while (!resumed.Result().Tile && std::chrono::steady_clock::now() < deadline) {
+    resumed.Resume(pool, unsupported);
+    while (!resumed.TakeCompletion(pool) && std::chrono::steady_clock::now() < deadline) {
+      (void)pool.AwaitCompletion(0.05);
+    }
+    if (resumed.Running()) {
+      resumed.RequestStop();
+      resumed.Join(pool);
+      break;
+    }
+    CHECK(resumed.Result().Status && resumed.Result().LastRanges > 0 &&
+              resumed.Result().LastRanges <= StructureBuildTask::RangesPerTask,
+          "planning and emission each obey the bounded task range budget");
+    if (!resumed.Result().Status) { break; }
+  }
+  CHECK(resumed.Result().Status && resumed.Result().Tile &&
             resumed.Progress().BakedStructures() == 257 && resumed.Result().FinalizationMs >= 0.0,
-        "the final task reports its short range and separately timed finalization");
+        "bounded planning and emission finish with separately timed finalization");
   StructureBuildTask completed(std::move(resumed));
   CHECK(!completed.Running() && !resumed.Running() && resumed.Tile() == 0 &&
             completed.Result().Tile && &completed.Progress() == partial &&
