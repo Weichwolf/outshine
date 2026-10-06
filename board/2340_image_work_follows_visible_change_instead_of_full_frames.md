@@ -21,6 +21,8 @@ GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne
 2336 besitzt Weltrepräsentation/LOD, 2155 Licht, 2171 Materialien; dieser WI besitzt Arbeitsauswahl.
 
 ## Besitzer und Umsetzung
+Kandidaten zuerst mit echten Eingaben in kleinen Python-Experimenten vergleichen, anschließend
+den besten gemessenen Ansatz nativ integrieren. Bild-/Spielwirkung bestimmt die zulässige Approximation.
 SceneRenderer besitzt das Pixelbudget: vorderste Coverage/Tiefe bestimmen, Material/Licht erst
 für wirksame Oberflächen auswerten. Stadt, Wald und offener Boden teilen denselben Pixelauftrag.
 Kompakten Visibility-/Surface-Resolve gegen Depth-Prepass plus Clustered Forward vergleichen;

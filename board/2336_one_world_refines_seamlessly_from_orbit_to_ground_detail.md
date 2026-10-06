@@ -10,111 +10,111 @@ Tags: lod, coverage, planetary, budgets
 # Required detail is selected before source and geometry work
 
 ## Ergebnis und Ist
-Eine rundum verfügbare Welt bis 240 km am Boden, mit höhenabhängigem Horizont und später
-schnellem Übergang Orbit → Nahdetail. Ferninhalte sind kompakt, Nahdetails gezielt erzeugt.
-GeoCellId, GroundLattice, Gebäudepläne und LOD-Auswahl bestehen; Auswahl ist mehrfach/zu spät,
-die konservative Zellhülle erzwingt oft Fine. Einfache Gebäudehüllen stellen Wien wieder dar;
-die Fernzusammenfassung greift noch zu spät. Tokyo hält 29,65 Mio. erzeugte Gebäudedreiecke.
-Begrenzte Upload-Batches beheben den belegten Metal-Speicherabbruch; Hausflächen/Türme sind wieder da.
-Bei 1280×720/60, 240 km und voller Drehung bleiben Tokyo p50/p99 35,65/479,44 ms, Central Park 13,20/84,27 ms
-rot (`15e11a364`); kein sichtbarer Bildgewinn. Erzeugte Dreiecke sind keine Messung ausgeführter GPU-Arbeit.
-Isolierte Passabschlüsse lokalisieren die Hauptkosten im nativen Rasterpass: Tokyo/Central Park
-~33,5/12,4 ms; konstante Tokyo-Beleuchtung ~32,9 ms. Diagnose, keine GPU-Timestamps/Abnahme.
+Rundum verfügbare Welt bis 240 km am Boden, später höhenabhängiger Horizont und Orbit → Nahdetail.
+Der Geometriebedarf nimmt mit Entfernung ab: Häuser → Blockverbände → kompakte Skyline-Flächen.
+Mehr Quellobjekte innerhalb gleicher Fern-Coverage erzeugen keine proportional größere Geometrie.
+GeoCellId, GroundLattice, Gebäudepläne und vier Klassen bestehen. Der Stadtpfad verwendet nur
+Fine/Shell/Massed; Skyline fehlt. WholeTile-/Cell-Auswahl, doppelte Vorbereitung und konservative
+Zellvolumen erzwingen unnötige Einzelhüllen. Native Cluster sind überwiegend flache Blattgruppen.
+Tokyo erzeugt weiterhin 29,65 Mio. Dreiecke; GPU-Streamkapazität ca. 3,88 GB. Eine Auswahlkorrektur
+allein hat diese Menge und das Bild nicht verändert. Die Fernrepräsentation wird neu integriert,
+statt die vorhandene Erzeugungskette weiter umzuordnen. Speicher- und Frame-Gates bleiben rot.
 
-## Aktuelle Lieferung: einfache Hüllen mit wirksamer Fernreduktion
-Gebäude bestehen zunächst aus Grundrisswänden und Dach, einschließlich Innenhöfen,
-gemessener Höhen und erhöhter Gebäudeteile. Prozedurale Sockelverzierungen, Dachaufbauten,
-Gesimse und Fassadenunterteilungen entfallen. Straßen und Terrain-Deformation bleiben erhalten.
-Fine und Shell verwenden dieselbe einfache Hülle; Massed bündelt entfernte Gebäude.
-Runde Dächer linear triangulieren; Formen, Höfe und gemeinsame Ringkontakte innerhalb 1 mm erhalten.
-Vor Erzeugung auswählen; konservative Formgrenzen nicht lockern, um fehlende Gebäude zu verdecken.
-Draw-Bedarf vor Attributallokation bestimmen; starre Posen nutzen den Positionsbuffer als Vorpose.
-Optionale Attribute nutzen dichte Arenen; GPU-Streamkapazität ohne Transfer bleibt ca. 3,88 GB.
-CPU-Heap ~4,79 GB; aktueller OS-Spitzenfootprint 11,33 GB, maximaler RSS 2,85 GB.
+## Aktuelle Lieferung: Fernstadt vor weiteren Nahdetails
+| Klasse | Produkt | Bedarf vor Erzeugung |
+|---|---|---|
+| Fine | Räumliche Nahfassaden/Dächer | Sichtbare Form, Interaktion, aktuelle Schatten |
+| Shell | Grundrisswände/Dach ohne sekundäre Geometrie | Projizierter Formfehler rechtfertigt Hülle |
+| Massed | Gemeinsam erfasste Blockverbände | Silhouette/Coverage bleiben, Einzelhäuser entfallen |
+| Skyline | Wenige tiefenhaltige Impostor-/Silhouettenflächen | Fernbild und Parallaxe statt Einzelvolumen |
 
-## Auswahl der einfachen Hülle
-BuildingMesh liefert eine positive beidseitige Shell-Schranke aus Laibungstiefe, Millimeter-
-und Float-Rundung, konservativ auf Viertelmeter aufgerundet. Dächer/Höfe/Parts bleiben gleich.
-StructureBake führt das Maximum aller belegten Gebäude einer Zelle bis zum AcceptedInput.
-Die Shell-Schranke beschreibt Fine → Shell, unabhängig vom gerade gebauten Produkt. BuildingMesh
-ermittelt sie auch aus dem nativen Plan ohne Vertex-/Indexaufbau; Massing darf sie nicht löschen
-und dadurch spätere Fine-Erzeugung auslösen. Unbekannte Mesher/Formen bleiben ungeklärt.
-Zellplanung nutzt diese Schranke vor der Erzeugung; Massed behält die volle Zellhülle.
-Shell bleibt bei Bewegung wiederverwendbar, sichtbare Nahlaibungen bleiben Fine.
-Render-Schranken ändern keine Terrain-Semantik; Bild-/Kostenabnahme bleibt erforderlich.
-Zeitliche HiZ-Verdeckung gilt nur bei identischer Projektion, Weltbasis und unveränderten
-Geometrie-, Draw-Tabellen- und Terrainständen. Tabellen-Rebuilds erhöhen die Produktgeneration. Bewegung erzeugt zunächst vollständige Frustum-/LOD-Sichtbarkeit;
-stationäre Folgebilder dürfen mit belegter Tiefe verfeinern und danach die Auswahl wiederverwenden.
-Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bleiben wiederholbar.
-Verworfene Diagnosen bleiben außerhalb der Runtime: `e37b7fce7`, `ca95cc4b3`, `9079ead97`.
-Rückseitenkegel/Fetch-Umordnung sparen insgesamt nicht; erzwungene Shell-Eltern verlieren die Stadt.
-Tiefenblöcke erfassen Randpixel mit Quellgröße/Blockspanne. Zusatzpässe brauchen Gesamtersparnis;
-Multi-Draw erhält Reihenfolge/Instanzen/Culling; ausgeführte Geometrie/Warten getrennt messen.
+Zuerst Massed/Skyline im dichten Stadtpfad, dann verbleibende Nahkosten. Gebäudepläne behalten
+Grundrisse/Höfe/Parts, Höhen, Materialangaben und Terrainkontakte. Straßenqualität und
+Terrain-Deformation bleiben erhalten. Kontakt/Kollision hängen nicht von der Bildrepräsentation ab.
+Keine vollständige Fine-Stadt als notwendiger erster Schritt einer Fernlieferung.
+Ferne Details dürfen aus belegter Dichte/Nutzung/Relief statistisch angenähert werden; Silhouette,
+Coverage, Farbe und Lichtwirkung entscheiden. Herkunft bleibt explizit. Näherkommen ersetzt die
+Schätzung durch feinere quellengestützte Produkte mit stabilem Übergang.
 
-## Bildabhängige Fernrepräsentation
-Ferne Gebäude gemeinsam auf tiefenhaltige Karten mit zwei Dreiecken je Karte projizieren;
-Rundum-/Layered-Capture prüfen. Bedarf vor Mesh-Aufbau; einfache Hüllen oder Quellpläne erfassen,
-Raster-/Ray-Capture vergleichen. Karte und Capture erhalten lineare Basisfarbe, Normalen und
-Metallic/Roughness nach nativer Komposition; unrepräsentierte Lobes werden ausdrücklich abgewiesen.
-SurfaceReprojectionStage überträgt perspektivische Tiefe und Materialkanäle bei gleichem Kameraort;
-Bewegung/Orthografie werden abgewiesen. Rundum-Capture und Beleuchtungsintegration fehlen noch.
-Capture an Kameraposition/Zelle binden, nicht Blickrichtung: Drehung verwendet dieselbe Karte.
-Stadt-Captures auf vorhandenem Device bündeln; Legacy-ImpostorCard bleibt flach, kein Asset-Baker je Zelle.
-Coverage/Normalen erhalten; Beleuchtung und Gesamthelligkeit aktuell auswerten.
-Update bei zu großer Pixelverschiebung, Inhaltsänderung oder Disocclusion; gültiger Hüllen-Fallback.
-Bewegte Fahrzeuge/Laub bleiben eigene Produkte; aktuelle lokale Lichter/Wolkenschatten beleuchten Karten.
-Nur bild-/schattenwirksame Geometrie nach jeweiligem Bedarf; grobe Fernoccluder statt Nahdetails.
-Silhouette/Parallaxe/Bytekosten begrenzen Auflösung/Ansichten; rundum, nur RAM/GPU.
-[Billboard Clouds, SIGGRAPH 2003](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf);
-Overdraw/Capturekosten gegen Clustergeometrie messen; Arbeitsintervalle/History besitzt 2340.
+## Experiment entscheidet, native Integration liefert
+[Python-Experiment](../test/experiments/building_lod.py) liest echte gecachte MVTs und Szenariokamera.
+Tokyo-Teilmenge, 640×360: 588.862 Pläne, 867.152 zugelassene Hüllendreiecke, 1.164 sichtbare Gebäude.
+[Direkte Planaggregation](../test/experiments/building_massing.py) erzeugt 10.077 Dreiecke (~86× weniger),
+verändert aber Lücken/Silhouette; kein abgenommener Ersatz. Ein Tiefenfeld ist bei gleichem Auge exakt;
+zwei Punktlayer verlieren bei 4 m Translation 4.031 belegte Pixel. Resampling/Disocclusion bleiben offen.
+Quellobjekte, Geometrie, Bildfehler, Bytes und Vorbereitung vergleichen; Stillstand, Drehung,
+Translation und Lichtwechsel getrennt prüfen. Flaches Terrain/Dachmodell und Python-Zeiten
+belegen weder native Framekosten noch Rundumabdeckung. Echte Höhen/Dächer und alle Places integrieren.
+Ausgaben: `build/experiments/`; keine Generatorprodukte im persistenten Quellcache.
 
-## Besitzer und Abhängigkeiten
-Generatoren besitzen Planung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
-ProjectedErrorBudget besteht; fehlende öffentliche Felder integriert 2188, Jobs 2280.
+## Neue Erzeugungskette und Zuständigkeit
+1. Generatoren halten kompakte Fachpläne vor jedem Vertex-/Indexaufbau. OSM: gepackte Ringe,
+   Höhen/Kontakte, Herkunft/Erscheinung; Terrain und Vegetation behalten passende Fachformate.
+   Gemeinsame Auswahl nutzt Bounds, Eltern/Kinder, Qualitätsgültigkeit und Kosten ohne Quelltypen.
+   Gepackte Bereichsarrays/Morton-Ordnung prüfen; GeoCellId/Zellteilung weiterverwenden.
+   Quadtree mit Höhen-Bounds versus BVH prüfen; kein verbindlicher OSM-only-Index oder zweiter Weltbaum.
+2. Kameraort/Höhe, Projektionsmaßstab und Qualitätsauftrag wählen räumliche Produkte.
+   Rundumbedarf ist unabhängig von Blickrichtung; Drehung wählt nur bereits verfügbare Flächen.
+   Größere Entfernung erlaubt größere Weltfehler bei kontrolliertem Pixelfehler.
+   Bei Bewegung nur betroffene Knoten/Detailgrenzen neu bewerten; unveränderte Produkte behalten.
+   Eltern auswählen ohne Kindpläne zu triangulieren; Verfeinerung erzeugt nur benötigte Kinder.
+3. Fernprodukte direkt aus Plänen erfassen; hierarchische Ray-Bündel von nah nach fern
+   gegen gebündelten Raster-Capture/Clustergeometrie vergleichen. Verdeckte Äste überspringen;
+   ausreichend kleine Eltern direkt auswerten statt alle Einzelgrundrisse zu triangulieren.
+   Ray-Abstand in Pixeln bestimmt mit Projektion/Entfernung die Verbandsgröße; Silhouette,
+   dünne Türme und Tiefensprünge adaptiv feiner erfassen. Keine Fine-Referenz pro Fernauftrag.
+   Capture auf vorhandenem Device bündeln; kein eigener Renderer/Device je Gebäude/Zelle.
+4. Generische Oberflächenprodukte speichern Depth/Coverage, Normalen und Basisfarbe/Metallic/Roughness.
+   Licht, Fahrzeuglichter und Wolkenschatten bleiben aktuell; bewegte Objekte/Laub eigene Produkte.
+   Nicht repräsentierte Materialeffekte behalten native Geometrie; keine stillen Ersatzlobes.
+   Brücken/Überhänge/Kronen verlangen mehrere Tiefen, keine universelle 2,5D-Höhenkarte.
+   Volumen und dynamische Produkte teilen den Qualitätsauftrag, nicht erzwungen denselben Speicher.
+5. Aktualisierung folgt Parallaxe, Disocclusion, Inhalt und gemessener Pixeländerung. Stabile
+   Produkte im RAM/GPU wiederverwenden. Betroffene Regionen ergänzen, keine pauschale Weltinvalidierung.
+   Vollständige gültige Eltern bis zur atomaren Kind-Publikation behalten; Hysterese verhindert Poppen.
+6. Generator besitzt Pläne/Produkte und Qualitätsbelege; Engine Residency/Publikation,
+   Renderer Sichtauswahl/aktuelles Shading. Builtins und externe Generatoren teilen die öffentliche API.
+   2188 integriert nur dafür fehlende Verträge; 2280 besitzt Quellen und Auftragslebensdauer.
 
-## Erste Lieferung: Bodenstadt
-1. MVT/XML einmal in kompakte native Gebäudepläne überführen: Grundriss/Höfe/Parts, Höhen,
-   Dach-/Fassadenparameter, Bounds und Terrainkontakte. Kontaktpläne brauchen kein fertiges Mesh.
-2. Entfernung/Projektion und zulässigen Fehler vor Rasterbedarf/Mesh bestimmen. Eine Auswahl
-   ersetzt unterschiedliche WholeTile-/Cell-Policies. Zellaufträge teilen Inputs derselben
-   Auftragsgeneration; Teilbedarf darf keinen Parent-Digest reproduzieren müssen.
-3. Fernverband → Massing → Hülle → Nahdetails aus demselben Plan. Fernverbände bündeln,
-   Nahteile instanzieren. Standort/Seeds/Silhouette bleiben stabil. Jede Variante liefert
-   Bounds, Kosten und eine konservative Schranke für die tatsächlich ausgelassene Form.
-   [meshoptimizer](https://github.com/zeux/meshoptimizer) ordnet Index-/Vertexbuffer für Cache und Fetch; keine zweite Meshkopie
-   im residenten Endprodukt; Umordnung nur bei gemessenem Nutzen. Simplifizierung erhält Höfe,
-   Part-Grenzen/Attributnähte; Bibliotheksfehlerwerte ersetzen keine konservative Oberflächenschranke.
-4. Für planbasierte Detailreduktionen analytische Schranken herleiten und unabhängig prüfen;
-   Höfe/Öffnungen, beide Oberflächenrichtungen und Terrainfehler berücksichtigen. Vorhandene
-   Triangle-/SurfaceError-Verfahren sind Entwicklungsorakel; keine Fine-Referenz pro Fernjob
-   als Routine. Unbewiesene Varianten erhalten keine kleinere Schranke. Verfahren noch zu validieren.
-5. Vollständigen groben Elternstand bis zur atomaren Kind-Publikation halten; Hysterese gegen
-   Poppen. Änderung invalidiert nur betroffene Produkte, Drehung erzeugt keine Inhalte neu.
-   Arbeit und residente Bytes gemeinsam budgetieren, keine festen Klassenquoten.
+## Qualität passend zur Repräsentation
+Bild-/Spielwirkung und Echtzeit bestimmen die zulässige Approximation, keine allgemeine CAD-Toleranz.
+Geometrische Vereinfachung verlangt passende Formgrenzen. Bildfelder verlangen Bounds und einen
+geprüften Bild-/Parallaxegültigkeitsbereich; Abstand zur flachen Trägergeometrie ist nicht ihr Bildfehler.
+ProjectedErrorBudget liefert näherungsweise e_px = e_m × f_px / d; Off-axis, Tiefe und Verdeckung
+brauchen eigene Prüfung. Silhouette/Coverage, Helligkeit, Material und zeitlicher Versatz getrennt messen.
+BuildingMesh berechnet Fine → Shell aus dem Plan ohne Vertex-/Indexaufbau; unbekannte Mesher bleiben ungeklärt.
+Kein Routine-Fine-Bake als Fehlerorakel; CPU-Belege allein bestehen keinen Render-Gate.
+
+## Vorhandene Bausteine und fehlende Integration
+Unbeleuchtetes Material-Capture/Atlas-Transport bestehen (2171). SurfaceReprojectionStage überträgt
+perspektivische Tiefe/Material bei unverändertem Kameraort; Bewegung/Orthografie werden abgewiesen.
+Rundum-Capture, bewegungsgültige Zellfelder, aktuelles Shading und die native Stadtanbindung fehlen.
+Legacy-ImpostorCard ist flach; HiZ-History ersetzt keine aktuelle Arbeit in neu sichtbaren Bereichen (2340).
 
 ## Fernwelt, Flug und Orbit
-- Quellabdeckung zuerst belegen: niedrige MVT-Zooms enthalten nicht automatisch Gebäude.
-  Lieferbare Ferninformation oder einmalige Aggregation vollständiger Quelldaten nachweisen;
-  fehlende Inhalte nicht als LOD deklarieren. Dieser Vertrag bleibt offen, daher `planned`.
-- Globale Grobprodukte vor regionalen Kindern; Bedarf aus Höhe/Horizont und Bildschirmfehler.
-  Kein weltweites Feinmodell, kein vollständiger Feinradius und kein persistenter Generatorcache.
-- Terrainbedarf folgt konsumierter Form mit eigener Höhenfehlerschranke. Subpixelrelief darf
-  zum Ellipsoid übergehen; sichtbare Küsten/Grate bleiben. Vegetation 2111 verwendet dieselbe
-  Auswahl von Fernwald bis Nahlaub; Kollision und logische Netze bleiben eigenständig.
-  Der Fehler gehört zur jeweiligen interpolierten Fläche; ein Kindfehler ist keine Untergrenze
-  für den Elternfehler. Bedarf bleibt unabhängig von der Blickrichtung.
-  Höhenatlas nach Bedarf allokieren, transaktional wachsen; Page-IDs/Inhalte erhalten.
-  Packung, aktuelle/temporäre Bytes und Framekosten gemeinsam begrenzen.
-  Residente CPU-Terrainnetze für Kontakte/Audio getrennt vom Bildschirmdetail begründen;
-  rasterbasierte Abfragen gegen unnötig ausmultiplizierte Dreiecke prüfen.
+Niedrige MVT-Zooms enthalten nicht automatisch Gebäude. Belegte Grobinformation darf plausible
+Fernverbände steuern; fehlende Pflicht-Nahinhalte bleiben ein Fehler. Globale Grobprodukte
+vor regionalen Kindern, kein weltweites Feinmodell. Terrain folgt eigener Höhen-/Silhouettenqualität;
+subpixeliges Relief geht zum Ellipsoid über. Vegetation 2111 nutzt denselben Nah-/Fernbedarf später.
+Geometrie-, Speicher-, Aufbereitungs- und Framekosten gemeinsam begrenzen; keine festen Klassenquoten.
+
 ## Forschungsgrundlage
-[GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf),
-[Geometry Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf): Batches, Cluster-Bounds, inkrementelle Gitter.
-[Simplification Envelopes, SIGGRAPH 1996](../doc/references/geometry/siggraph/1996-simplification-envelopes.pdf):
-Beidseitige Abstände begrenzen; Stichproben und Simplifier-Metriken beweisen keine Hülle.
+Hierarchischer Mesh-/Oberflächen-Hybrid ist die Arbeitsrichtung; Baum/Capture nach Messung wählen.
+[Hierarchical Image Caching, SIGGRAPH 1996](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/):
+räumliche Verbände, Projektionsgültigkeit und amortisierte Capturekosten; statische Bildfarbe ersetzen.
+[Layered Depth Images, SIGGRAPH 1998](https://dash.harvard.edu/entities/publication/73120378-7e84-6bd4-e053-0100007fdf3b):
+mehrere Tiefen und gefilterte Splats für Parallaxe/Disocclusion; Punkt-Replay allein reicht nicht.
+[Far Voxels, SIGGRAPH 2005](https://www.crs4.it/vic/cgi-bin/bib-page.cgi?id=%27Gobbetti%3A2005%3AFV%27):
+projektionstreue Fernaggregate/Hierarchie; Fine-Soup-Vorbereitung und Transparenzgrenzen nicht übernehmen.
+[Karras, HPG 2012](https://research.nvidia.com/publication/2012-06_maximizing-parallelism-construction-bvhs-octrees-and-k-d-trees):
+Morton-sortierte Bereiche/BVH; GPU-Aufbau ist keine Pflicht für statische Pläne auf einem Worker.
+[Billboard Clouds](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
+[GPU-Driven](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf),
+[Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf), [Materialtransport](2171_procedural_surfaces_carry_khronos_materials_at_every_distance.md), [Arbeitsauswahl](2340_image_work_follows_visible_change_instead_of_full_frames.md).
 
 ## Abnahme
-Zuerst dichte Bodenstadt: vollständige Fernverbände und Nahdetails ohne überflüssige Feinmeshes,
-Löcher, Formwechsel oder neue IO-Arbeit beim Drehen. Danach Flug und Orbit separat prüfen.
-Gleiche Inhalte/Profil/Sichtweite, geringere gemessene Arbeit/Bytes und AGENTS-Budget;
-reine CPU-Beweise/ein Sichtweitenparameter schließen den WI nicht. [Bibliotheksvertrag](../doc/dependencies.md).
+Zuerst Tokyo/Wien/Central Park: vollständige Fernverbände bei deutlich weniger Erzeugung,
+residenten Bytes und ausgeführter Geometrie, gleicher/besserer Bildqualität und unverändertem Profil.
+Drehung, Bewegung, Licht und Inhaltsänderungen ohne Löcher/Geisterbilder/Poppen. Danach Flug/Orbit.
+Abstandsbänder zeigen abnehmenden Vertexbedarf; Quellobjektzahl ersetzt keine Bildkostenmessung.
+Native CPU/GPU, Laden und Peaks getrennt belegen; AGENTS-Gates gelten.
