@@ -19,7 +19,7 @@ Nahdetails entstehen zur Laufzeit daraus; die Basis wird bei Treffern weder erg�
 content/assets speichert native Paketbytes und Raumindex atomar; Hits umgehen den Miss-Callback.
 Der Client prüft native Höhenfelder vor DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
 Versionierte Pakete erhalten alle Samples, Quellherkunft und fehlende Randdaten; Offline-Replay
-benötigt keine Quelle. Place-Warmmessung, öffentliche Anbindung und Residency-/SSD-Budget fehlen.
+benötigt keine Quelle; reale Warmhits sparen DEM-Decode. Öffentliche Anbindung und SSD-Budget fehlen.
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Ein versionierter Codec speichert/lädt diese Basis über content/assets; der Wiederstarttest
 verfeinert ohne Quellen/Höhen dieselbe Geometrie und wiederholt keine Hausformplanung. Das ist
@@ -27,13 +27,13 @@ noch ein privater Baustein: öffentlicher Vertrag/Gebäudeanschluss und verformt
 Ein source-freier Worker verarbeitet diese Basis in begrenzten Arbeitsblöcken; die echte
 Queue muss früh laden und Terrainkontakte ohne erneuten Höhenfelderwerb übernehmen.
 Koordinatenkopien, Fernverbände und residente Kosten müssen im echten Ladepfad begrenzt werden.
-Wien lädt zuletzt 96,83 s, Central Park 83,54 s, Tokyo 109,95 s; das ist keine Abnahme.
-p99: 38,27 / 23,43 / 36,07 ms; trotz gleicher Bilder bleibt 720p60 rot.
-Wien: Höhenfeld-Worker 39,06 s/8.309 Versuche, Gebäude 30,51 s/50 Produkte,
-Straßenkorridore 1,88 s, Terrain-Verformung 5,09 s, Quellcache-Lesen 1,82 s/342,54 MiB.
-Überlappende/verschachtelte Arbeitszeiten nicht zur Ladezeit addieren. Zuerst Höhen-/Terrain-
-und Gebäuderohlinge früh anschließen, anschließend Infrastrukturprodukte; alle Klassen bleiben Pflicht.
-Warmhits überspringen diesen Erwerb/Aufbau. Lieferungen beweisen keine eindeutigen Decodes.
+Warm Wien/CentralPark/Tokyo: 59,22/36,44/69,45 s statt 96,83/83,54/109,95 s; noch weit von <1 s.
+Bilder pixelgleich, unveränderte Dreieckzahlen. p99 28,21/10,18/27,51 ms; Wien/Tokyo bleiben rot.
+Alle drei: 0 native Misses/Writes und 0 DEM-Decodes. Höhenfeld-Worker 3,14/2,52/3,41 s,
+liest aber 1,93/1,81/2,02 GiB Zwischenfelder; drei Szenen belegen rund 5 GiB im Assetcache.
+Gebäudearbeit 29,96/13,99/23,47 s; Terrain-Verformung 5,03/2,59/14,58 s. Fertige Gebäude-
+und verformte Terrain-/Infrastrukturprodukte vor erneuter Höhenanforderung laden; keine Feldmengen
+als effizientes Endformat ausgeben. Zeiten überlappen; Lieferungen beweisen keine eindeutigen Decodes.
 Wien hat 49 Nahkacheln, keine belegte vollständige 240-km-Assetwelt. 2336 besitzt Fernabdeckung.
 Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
 Quellerwerb/Erstaufbau, Warmstart, erste Einreichung und p99 getrennt messen; AGENTS-Budgets gelten.
