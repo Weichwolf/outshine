@@ -23,7 +23,10 @@ Formate, öffentliche Generatoranbindung, Jobbündelung und Residency-/SSD-Budge
 Gebäude trennen Höhen-/Terrainkontakt-/Straßenanreicherung von Kamera-/LOD-Emission. Diese
 gehaltenen Pläne sind noch kein gespeicherter Rohling: Form-/Dachplanung und Kopien müssen vor
 dem Cacheanschluss abgeschlossen bzw. begrenzt werden; Terrain/Infrastruktur bleiben offen.
-Wien lädt zuletzt 94,26 s, Central Park 69,67 s, Tokyo 109,66 s; das ist keine Abnahme.
+Wien lädt zuletzt 98,86 s, Central Park 83,54 s, Tokyo 109,95 s; das ist keine Abnahme.
+p99: 26,19 / 23,43 / 36,07 ms; trotz gleicher Bilder bleibt 720p60 rot.
+Wien liefert 5.829 Höhenkacheln bei 124 Terrainprodukten erneut aus Quellen; Warmhits müssen
+diesen Erwerb/Vorbereitung überspringen. Lieferungen sind kein Beleg für eindeutige Kacheln/Decodes.
 Wien hat 49 Nahkacheln, keine belegte vollständige 240-km-Assetwelt. 2336 besitzt Fernabdeckung.
 Ziel: warmes Wien möglichst <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
 Quellerwerb/Erstaufbau, Warmstart, erste Einreichung und p99 getrennt messen; AGENTS-Budgets gelten.
