@@ -17,26 +17,29 @@ Das gilt für Gebäude, Terrain, Straßen/Wasser, Vegetation und andere generier
 Ein Treffer enthält vollständig angereicherte Asset-Rohlinge, keine unvollständigen Quellen.
 Nahdetails entstehen zur Laufzeit daraus; die Basis wird bei Treffern weder ergänzt noch neu gebaut.
 content/assets speichert native Paketbytes und Raumindex atomar; Hits umgehen den Miss-Callback.
-Der Client prüft native Höhenfelder vor DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
-Versionierte Pakete erhalten alle Samples, Quellherkunft und fehlende Randdaten; Offline-Replay
-benötigt keine Quelle; reale Warmhits sparen DEM-Decode. Öffentliche Anbindung und SSD-Budget fehlen.
+Native Höhenfelder umgehen DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
+Pakete erhalten Samples, Herkunft und fehlende Randdaten; Offline-Replay braucht keine Quelle.
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
-Ein versionierter Codec speichert/lädt diese Basis über content/assets; der Wiederstarttest
-verfeinert ohne Quellen/Höhen dieselbe Geometrie und wiederholt keine Hausformplanung. Das ist
-noch ein privater Baustein: öffentlicher Vertrag/Gebäudeanschluss und verformtes Terrain/Infrastruktur fehlen;
-Ein source-freier Worker verarbeitet diese Basis in begrenzten Arbeitsblöcken; die echte
-Queue muss früh laden und Terrainkontakte ohne erneuten Höhenfelderwerb übernehmen.
-Koordinatenkopien, Fernverbände und residente Kosten müssen im echten Ladepfad begrenzt werden.
-Warm Wien/CentralPark/Tokyo: 59,22/36,44/69,45 s statt 96,83/83,54/109,95 s; noch weit von <1 s.
-Bilder pixelgleich, unveränderte Dreieckzahlen. p99 28,21/10,18/27,51 ms; Wien/Tokyo bleiben rot.
-Alle drei: 0 native Misses/Writes und 0 DEM-Decodes. Höhenfeld-Worker 3,14/2,52/3,41 s,
-liest aber 1,93/1,81/2,02 GiB Zwischenfelder; drei Szenen belegen rund 5 GiB im Assetcache.
-Gebäudearbeit 29,96/13,99/23,47 s; Terrain-Verformung 5,03/2,59/14,58 s. Fertige Gebäude-
-und verformte Terrain-/Infrastrukturprodukte vor erneuter Höhenanforderung laden; keine Feldmengen
-als effizientes Endformat ausgeben. Zeiten überlappen; Lieferungen beweisen keine eindeutigen Decodes.
+Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
+speichern und laden dieselbe vollständige Basis. Herkunft/Signatur/Qualifikation bleiben erhalten.
+Nicht unterstützte Einzelmassen behalten Kontakte und ihren expliziten Zustand; gültige Nachbarn
+bleiben renderbar. Eingabebytes, Quelle/Parameter, Terrainformung und Version binden den Schlüssel.
+Ausgewählte LOD-Geometrie wird als Kindprodukt gespeichert; gleiche Position/Projektionsparameter
+laden sie ohne erneute Planung/Emission. Drehung erzeugt keinen neuen Schlüssel. Bewegung und
+Nahdetails brauchen weiterhin 2336; der private Anschluss ersetzt noch nicht den öffentlichen Vertrag.
+Wien warm mit Basis allein: 59,67 s; Gebäudearbeit 32,45 s. Mit LOD-Produkten: 28,32 s statt
+59,22 s Terraincache-Baseline. Alle 50 Gebäude-/LOD-Lieferungen sind Hits, ohne Miss/Write;
+LOD-Hits führen keine Emissionsranges aus. 110,86 MiB Basis plus 164,00 MiB Geometrie gelesen.
+1.608.707 Dreiecke unverändert; p99 24,49 ms bleibt rot. Bild weicht um 0,40 % Pixel von der
+alten Referenz ab; kalter/warmer Ablauf nicht pixelgleich. Ursache/visuelle Abnahme noch offen.
+Unter 1 s bleibt unerreicht: Wien liest weiterhin rund 1,95 GiB Terrain-Zwischenfelder;
+Terrain-Verformung/Infrastruktur entstehen erneut. Fertige verformte Terrain-/Infrastrukturprodukte
+vor diesen Feldern laden, keine Feldmengen als effizientes Endformat ausgeben.
+CentralPark/Tokyo zuletzt nur Terraincache: 36,44/69,45 s; Gebäudelauf/Bildabnahme stehen aus.
+Öffentliche Anbindung, Original-OSM-/weitere Generatorpfade, SSD-Budget und kompaktere Produkte
+fehlen. Gemessene Worker-/Phasenzeiten überlappen und sind keine Summe der Ladezeit.
 Wien hat 49 Nahkacheln, keine belegte vollständige 240-km-Assetwelt. 2336 besitzt Fernabdeckung.
 Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
-Quellerwerb/Erstaufbau, Warmstart, erste Einreichung und p99 getrennt messen; AGENTS-Budgets gelten.
 
 ## Besitzer und Grenzen
 2280 besitzt Asset-Speicherung/Index/Laden; Generatoren besitzen Anreicherung und Asset-Inhalt.
@@ -66,7 +69,7 @@ Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen ble
 2. Metadaten enthalten stabile Asset-ID, Weltbounds/Anker, Produkt-/Generatorversion, LOD-/Eltern-
    Kindbezug, Qualitäts-/Kostenangaben, Abhängigkeiten und Speicherort/Bytebereich. Assetkeys
    binden Region, Produkt/LOD, Seed/Parameter und Generatorversion, keine reine Blickrichtung.
-   Gleiche native Abfrage für Builtins/externe Generatoren; keine Place-Listen oder OSM-Spalten im gemeinsamen Index.
+   Gemeinsame Abfragen ohne Place-Listen/OSM-Spalten; Builtins und Erweiterungen nutzen denselben Vertrag.
 3. Regelmäßige OSM-/DEM-Quellkacheln direkt über Kachel-IDs adressieren. SQLite-R*Tree hält
    native Paketbounds in ECEF; genaue Radius-/Frustumtests folgen konservativer Boxabfrage.
    Geladene Pakete verwenden gepackte Bereiche, keine SQL-Abfrage je Frame.
@@ -83,9 +86,7 @@ Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen ble
    Explizite Änderungen erneuern betroffene Assets, nicht die gesamte Welt oder unveränderte Quellen.
 5. Cachemisses bündeln: identische Anforderungen teilen genau einen Erzeugungsjob; räumliche
    Pakete statt Einzeljobs je Haus/Baum. Job nutzt paralleles begrenztes IO und einen Compute-Worker.
-   Nur fehlende angeforderte Produkte erzeugen, nicht vorsorglich alle Fein-LOD-Stufen der Welt.
-   Hits/erzeugte Assets nutzen denselben Ladepfad. Abbruch/Rückstau und Fehler bleiben explizit.
-   Vorhandene Rohcachetreffer ohne Assets benötigen einmaligen Aufbau; keine Quellen löschen.
+   Nur fehlende benötigte Produkte erzeugen; Hits/Misses teilen den Ladepfad, Abbruch/Rückstau/Fehler explizit.
    Fehlende Details behalten gültige Eltern bis vollständige Kinder bereitstehen; Fehler explizit.
 6. SSD → RAM → GPU haben getrennte Residencybudgets. Räumliche Vorhaltebereiche/Hysterese
    verhindern Flattern; IO/Entpacken blockieren keinen Frame. CPU-Scratch nach Aufbau freigeben.
@@ -94,7 +95,6 @@ Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen ble
    Residency-Hysterese je Detail-/Kostenklasse, keine Qualitätskürzung oder Ablaufzeit gültiger
    Rohlinge. SSD-Assetbudget eviktiert ungenutzte Produkte nach Kosten/Nutzung/Bytes; Quellen
    bleiben unverändert. Weniger Thrashing statt möglichst früher Freigabe optimieren.
-   GPU-Ressourcen erst nach letzter Nutzung freigeben; geteilte Bytes nicht mehrfach zählen.
 
 ## Quellen und Verfahren
 OpenFreeMap/MVT, Mapterhorn/Terrarium, Open-Meteo/JSON: je Datenart ein Hauptanbieter.
