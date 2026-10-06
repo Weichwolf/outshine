@@ -26,8 +26,10 @@ Gemeinsame IO-/Cache-/Jobdienste enthalten keine Geografie- oder Quellsemantik.
 ## Konkrete Integration
 1. Die laufende Gebäude-/Terrainlieferung über denselben öffentlichen Vertrag anbieten:
    räumlicher Bedarf, Zeit, Seed, Qualitätsauftrag, vollständige Eingaben → native Produkte
-   samt Bounds, Kosten und konservativer/ungeklärter Fehlerschranke. Fehler und gültig leer
+   samt Bounds, Kosten und repräsentationsgerechter Geometrie-/Bildgültigkeit. Fehler und gültig leer
    unterscheiden. Provider optional; lokale Zufalls-/Spielzustandsinputs sind zulässig.
+   Detailauftrag/Auswahl gelten für Terrain, Gebäude, Vegetation und importierte Assets;
+   Fachpläne bleiben privat. Mesh-, Oberflächen- und Volumenprodukte brauchen passende Formate.
 2. Fachliche Vorbereitung aus Engine/SurfacePreparation zur verantwortlichen Erweiterung
    führen. OSM/XML/MVT zu generators/osm, Höhen-/Wetterdecoder zu ihren Erweiterungen.
    Private Sonderaufrufe beim Anschluss entfernen, statt einen Wrapper darüberzulegen.

@@ -22,8 +22,8 @@ Standortmischungen; Shipping löst Artennamen einmal in kompakte Prototypindizes
 Forest erzeugt einen stabilen Bestandsplan aus Bodenklasse, Höhe, Hang und Welt-Seed.
 ForestDraw publiziert Instanzen. Vegetationsvorbereitung/Renderer besitzen gemeinsame
 Prototypen, RAM-/GPU-Produkte, sichtbare Detailwahl, Wind und Schatten.
-Depends 2336 betrifft ausschließlich gemeinsame Eltern-/Kindabdeckung und budgetierte
-Formfehler. Standortauswahl und Prototypintegration warten nicht auf dessen Gesamtabschluss.
+Depends 2336 betrifft gemeinsame Eltern-/Kindabdeckung und repräsentationsgerechte
+Qualität/Kosten. Standortauswahl und Prototypintegration warten nicht auf dessen Gesamtabschluss.
 2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
 
 ## Reihenfolge
