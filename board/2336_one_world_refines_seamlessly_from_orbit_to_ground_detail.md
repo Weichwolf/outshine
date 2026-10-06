@@ -30,7 +30,6 @@ Runde Dächer linear triangulieren; Formen, Höfe und gemeinsame Ringkontakte in
 Vor Erzeugung auswählen; konservative Formgrenzen nicht lockern, um fehlende Gebäude zu verdecken.
 Draw-Bedarf vor Attributallokation bestimmen: Tokyos GPU-Streamkapazität sinkt von 5,36 auf
 4,64 GB (720 MB Emission entfallen); beide Bilder bleiben pixelgleich. Framekosten bleiben rot.
-Neue Nahdetails warten auf funktionierende Großstadt-LOD und einen belegten Bildgewinn.
 
 ## Auswahl der einfachen Hülle
 BuildingMesh liefert eine positive beidseitige Shell-Schranke aus Laibungstiefe, Millimeter-
@@ -44,8 +43,10 @@ Zeitliche HiZ-Verdeckung gilt nur bei identischer Projektion, Weltbasis und unve
 Geometrie-, Draw-Tabellen- und Terrainständen. Tabellen-Rebuilds erhöhen die Produktgeneration. Bewegung erzeugt zunächst vollständige Frustum-/LOD-Sichtbarkeit;
 stationäre Folgebilder dürfen mit belegter Tiefe verfeinern und danach die Auswahl wiederverwenden.
 Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bleiben wiederholbar.
-Für bewegte Ansichten eine aktuelle Tiefenvorlage aus gültigen nativen Occludern prüfen;
-vorige Sichtbarkeit darf Arbeit priorisieren, niemals neu freigelegte Inhalte ausschließen.
+Aktuelle native Occluder helfen Tokyo (p50 34,2 → 22,3 ms), kosten Central Park (12,7 → 13,1 ms).
+Vorlage nach projizierter Coverage/Gesamtkosten auswählen; noch keine Runtime-Integration.
+Vorige Sichtbarkeit darf Arbeit priorisieren, niemals neu freigelegte Inhalte ausschließen.
+Tiefenblöcke erfassen auch Randpixel; Abbildung verwendet Quellgröße und Blockspanne.
 Zusätzliche Pässe nur bei belegter Gesamtersparnis; ausgeführte Geometrie und Wartepfad getrennt messen.
 Multi-Draw fasst benachbarte gleichartige indirekte Batches zusammen; direkte Batches begrenzen den Lauf.
 Reihenfolge/Instanzen/Culling erhalten; SDL-Aufrufe und Encodingkosten getrennt zählen.
@@ -65,7 +66,6 @@ Overdraw/Capturekosten gegen Clustergeometrie messen. Arbeitsintervalle/History 
 
 ## Besitzer und Abhängigkeiten
 Generatoren besitzen Bedarfsplanung/Formfehler, Engine Residency/Publikation, Renderer Sichtbarkeit.
-StructureCellPlanner/Detail, StructureBake und GroundLattice bilden einen gemeinsamen Plan.
 ProjectedErrorBudget erlaubt den ersten Schritt; fehlende öffentliche Felder integriert 2188, Jobs 2280.
 
 ## Erste Lieferung: Bodenstadt
@@ -107,8 +107,8 @@ ProjectedErrorBudget erlaubt den ersten Schritt; fehlende öffentliche Felder in
 ## Forschungsgrundlage
 [GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
 und [Geometry Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf)
-([Primärquellen/Einordnung](../doc/references/README.md)): Batches, Cluster-Bounds und inkrementelle
-Gitter prüfen. GPU-Culling ersetzt keine frühe Auswahl; Clipmaps beweisen keine Form/Abdeckung.
+([Primärquellen/Einordnung](../doc/references/README.md)): Batches, Cluster-Bounds, inkrementelle Gitter.
+GPU-Culling ersetzt keine frühe Auswahl; Clipmaps beweisen keine Form/Abdeckung.
 [Simplification Envelopes, SIGGRAPH 1996](../doc/references/geometry/siggraph/1996-simplification-envelopes.pdf):
 Beidseitige Abstände begrenzen; Stichproben und Simplifier-Metriken beweisen keine Hülle.
 
