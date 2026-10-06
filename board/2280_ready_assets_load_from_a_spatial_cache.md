@@ -20,9 +20,11 @@ Aktuell sind nur Quellbytes zuverlässig persistent; Vorbereitung/Geometrie kost
 content/assets speichert Paketbytes und Raumindex atomar; ein Miss-Callback erzeugt das Paket,
 Hits laden geprüfte Bytes ohne Callback. Der Place-Ladepfad nutzt das noch nicht: native Rohling-
 Formate, öffentliche Generatoranbindung, Jobbündelung und Residency-/SSD-Budget fehlen.
-Gebäude trennen Höhen-/Terrainkontakt-/Straßenanreicherung von Kamera-/LOD-Emission. Diese
-gehaltenen Pläne sind noch kein gespeicherter Rohling: Form-/Dachplanung und Kopien müssen vor
-dem Cacheanschluss abgeschlossen bzw. begrenzt werden; Terrain/Infrastruktur bleiben offen.
+Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
+Ein versionierter Codec speichert/lädt diese Basis über content/assets; der Wiederstarttest
+verfeinert ohne Quellen/Höhen dieselbe Geometrie und wiederholt keine Hausformplanung. Das ist
+noch ein privater Baustein: öffentlicher Vertrag/Place-Anschluss und Terrain/Infrastruktur fehlen;
+Koordinatenkopien, Fernverbände und residente Kosten müssen im echten Ladepfad begrenzt werden.
 Wien lädt zuletzt 98,86 s, Central Park 83,54 s, Tokyo 109,95 s; das ist keine Abnahme.
 p99: 26,19 / 23,43 / 36,07 ms; trotz gleicher Bilder bleibt 720p60 rot.
 Wien liefert 5.829 Höhenkacheln bei 124 Terrainprodukten erneut aus Quellen; Warmhits müssen

@@ -70,6 +70,7 @@ public:
   void MeshPatches(std::span<const BuildingSurfacePatch> patches, Raised &into) const;
 
 private:
+  friend class PreparedStructureCodec;
   Vec3 Origin_;
   EnuAxes Axes_;
   Box Bounds_;

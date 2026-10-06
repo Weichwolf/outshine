@@ -1,5 +1,8 @@
 #include "PreparedStructureTile.h"
+#include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
+#include "AssetGeneration.h"
+#include "Sha256.h"
 #include "BuildingScratch.h"
 #include "BuildingMesh.h"
 #include "Check.h"
@@ -9,6 +12,9 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <chrono>
+#include <string>
 #include <memory>
 #include <vector>
 
@@ -52,6 +58,56 @@ std::shared_ptr<const Ground::HeightField> Heights() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes = {125.125f, 131.25f, 142.5f, 149.75f};
   return Ground::HeightField::Of(0, {block});
+}
+
+std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &base) {
+  const auto encoded = EncodePreparedStructureTile(base);
+  CHECK(encoded.has_value(), "complete intrinsic forms, roofs and terrain contacts serialize");
+  if (!encoded) { return std::nullopt; }
+  const auto root = std::filesystem::temp_directory_path() /
+                    ("outshine-prepared-building-cache-" +
+                     std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::create_directories(root);
+  const auto path = (root / "assets.sqlite").string();
+  auto opened = AssetCache::Open(path);
+  CHECK(opened.has_value(), "building asset fixture opens the common spatial cache");
+  if (!opened) { return std::nullopt; }
+  constexpr std::string_view recipe = "prepared-buildings-format-1";
+  const auto key = Sha256Hex(recipe.data(), recipe.size());
+  size_t generated = 0;
+  const auto published = ResolveAsset(**opened, key, encoded->size(), [&](size_t) {
+    ++generated;
+    GeneratedAssetPackage package;
+    package.Bytes = *encoded;
+    package.Records.push_back({.Key = key,
+                               .Kind = "buildings",
+                               .Bounds = {.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}},
+                               .ByteCount = package.Bytes.size()});
+    return std::expected<GeneratedAssetPackage, std::string>(std::move(package));
+  });
+  CHECK(published && generated == 1, "one miss publishes an actual native prepared building tile");
+  opened->reset();
+  auto restarted = AssetCache::Open(path);
+  CHECK(restarted.has_value(), "fresh cache connection opens the prepared building package");
+  if (!restarted) { return std::nullopt; }
+  const auto hit = ResolveAsset(**restarted, key, encoded->size(), [&](size_t) {
+    ++generated;
+    return std::expected<GeneratedAssetPackage, std::string>(std::unexpected("source offline"));
+  });
+  CHECK(hit && generated == 1, "native package hits bypass the unavailable generator and provider");
+  if (!hit) { return std::nullopt; }
+  const auto decoded = DecodePreparedStructureTile(hit->Bytes(), 1024 * 1024);
+  CHECK(decoded.has_value(), "held cache bytes reconstruct complete source-independent shapes");
+  if (!decoded) { return std::nullopt; }
+  CHECK(!DecodePreparedStructureTile(hit->Bytes(), 1),
+        "native arrays cannot allocate beyond the supplied resident budget");
+  auto truncated = *encoded;
+  truncated.pop_back();
+  CHECK(!DecodePreparedStructureTile(truncated, 1024 * 1024),
+        "partial native building packages do not become ready products");
+  (*restarted).reset();
+  std::filesystem::remove_all(root);
+  return decoded;
 }
 
 void ReadyForms(const PreparedStructureTile &base, const BuildingMesh &mesher) {
@@ -107,16 +163,18 @@ int main() {
           "cold native path supplies the geometry reference at every envelope");
     references.push_back(std::move(reference));
   }
-  ReadyForms(*base, mesher);
+  const auto decoded = CachedBase(*base);
+  if (!decoded) { return Report(); }
   raw = {};
   heights.reset();
+  ReadyForms(*decoded, mesher);
   for (size_t index = 0; index < views.size(); ++index) {
     auto scratch = mesher.Scratch();
-    const auto built = BakePreparedStructures(*base, views[index], mesher, *scratch);
+    const auto built = BakePreparedStructures(*decoded, views[index], mesher, *scratch);
     CHECK(built && built->Digest == references[index].Digest &&
               built->Prints == references[index].Prints && built->NoGround == 0,
           "prepared bases reproduce cold geometry and contacts after source/height owners vanish");
-    CHECK(built && built->Coordinates && built->Coordinates->Points == base->PointsLatLon,
+    CHECK(built && built->Coordinates && built->Coordinates->Points == decoded->PointsLatLon,
           "runtime native footprints carry their own geometry rather than source-cache views");
   }
   std::atomic_bool stopping{true};
