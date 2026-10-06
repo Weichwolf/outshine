@@ -1,7 +1,9 @@
 #include "PreparedTerrainDeformation.h"
 #include "ByteArchive.h"
+#include "BlockedDigest.h"
 #include "Sha256.h"
 #include <cmath>
+#include <expected>
 #include <utility>
 
 #include <array>
@@ -14,11 +16,11 @@ namespace outshine::Generators {
 namespace {
 constexpr uint32_t kDeformationFormat = 0x31445450;
 
-bool Number(ByteWriter &out, double value) {
+template <class Archive> bool Number(Archive &out, double value) {
   return std::isfinite(value) && out.Number(value == 0.0 ? 0.0 : value);
 }
 
-bool Numbers(ByteWriter &out, std::span<const double> values) {
+template <class Archive> bool Numbers(Archive &out, std::span<const double> values) {
   if (!out.Number(static_cast<uint64_t>(values.size()))) { return false; }
   for (const double value : values) {
     if (!Number(out, value)) { return false; }
@@ -26,7 +28,7 @@ bool Numbers(ByteWriter &out, std::span<const double> values) {
   return true;
 }
 
-bool Profile(ByteWriter &out, const ProfiledCorridorSpan &span) {
+template <class Archive> bool Profile(Archive &out, const ProfiledCorridorSpan &span) {
   return out.Number(span.CorridorKey) && Numbers(out,
                                                  std::array{span.BeginM.EastM,
                                                             span.BeginM.NorthM,
@@ -47,7 +49,7 @@ bool Profile(ByteWriter &out, const ProfiledCorridorSpan &span) {
                                                             span.EndHalfWidthM});
 }
 
-bool Stamp(ByteWriter &out, const EarthworkStamp &stamp) {
+template <class Archive> bool Stamp(Archive &out, const EarthworkStamp &stamp) {
   if (!Numbers(out, stamp.RingEastNorthM) ||
       !out.Number(static_cast<uint64_t>(stamp.HoleRingsEastNorthM.size()))) {
     return false;
@@ -76,26 +78,42 @@ bool Stamp(ByteWriter &out, const EarthworkStamp &stamp) {
 }
 }
 
-std::string TerrainDeformationKey(const Patchwork &input,
-                                  std::span<const EarthworkStamp> stamps,
-                                  const TangentFrame &frame,
-                                  TerrainPageLayout layout,
-                                  double mostEarthworkM) {
-  if (!layout.Valid() || !std::isfinite(mostEarthworkM) || mostEarthworkM < 0) { return {}; }
+std::expected<std::string, std::string>
+TerrainDeformationKey(const Patchwork &input,
+                      std::span<const EarthworkStamp> stamps,
+                      const TangentFrame &frame,
+                      TerrainPageLayout layout,
+                      double mostEarthworkM) {
+  if (!layout.Valid() || !std::isfinite(mostEarthworkM) || mostEarthworkM < 0) {
+    return std::unexpected("invalid terrain deformation layout or height limit");
+  }
   const auto encoded = EncodeTerrainDeformation(std::string(64, '0'), input.Sheets, {});
-  if (!encoded) { return {}; }
-  ByteWriter out(kTerrainDeformationBytesMost);
-  if (!out.Number(kDeformationFormat) || !out.Put(Sha256Digest(encoded->data(), encoded->size())) ||
-      !out.Number(layout.Side) || !out.Number(layout.Halo) || !Number(out, mostEarthworkM) ||
+  if (!encoded) {
+    size_t nodes = 0;
+    for (const Sheet &page : input.Sheets) { nodes += page.Nodes.size(); }
+    return std::unexpected("terrain deformation pages exceed schema or byte budget: pages=" +
+                           std::to_string(input.Sheets.size()) + " nodes=" + std::to_string(nodes));
+  }
+  ByteWriter out(4096);
+  if (!out.Number(kDeformationFormat) || !out.Number(uint32_t{2}) ||
+      !out.Put(Sha256Digest(encoded->data(), encoded->size())) || !out.Number(layout.Side) ||
+      !out.Number(layout.Halo) || !Number(out, mostEarthworkM) ||
       !Numbers(out, std::span(frame.OriginEcef().data(), size_t{3})) ||
       !Numbers(out, std::span(frame.EastEcef().data(), size_t{3})) ||
       !Numbers(out, std::span(frame.NorthEcef().data(), size_t{3})) ||
       !Numbers(out, std::span(frame.UpEcef().data(), size_t{3})) ||
       !out.Number(static_cast<uint64_t>(stamps.size()))) {
-    return {};
+    return std::unexpected("invalid terrain deformation physical frame");
   }
-  for (const EarthworkStamp &stamp : stamps) {
-    if (!Stamp(out, stamp)) { return {}; }
+  BlockedDigest contacts;
+  for (size_t index = 0; index < stamps.size(); ++index) {
+    if (!Stamp(contacts, stamps[index])) {
+      return std::unexpected("invalid terrain deformation contact: index=" + std::to_string(index) +
+                             " encoded_bytes=" + std::to_string(contacts.Count()));
+    }
+  }
+  if (!out.Number(contacts.Count()) || !out.Put(contacts.Finish())) {
+    return std::unexpected("terrain deformation descriptor exceeds its byte budget");
   }
   return Sha256Hex(out.Bytes().data(), out.Bytes().size());
 }

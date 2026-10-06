@@ -3,6 +3,7 @@
 
 #include "TerrainPress.h"
 #include <cstdint>
+#include <expected>
 #include <optional>
 #include <span>
 #include <string>
@@ -16,11 +17,12 @@ struct PreparedTerrainDeformation {
   PressedTerrain Effects;
 };
 
-[[nodiscard]] std::string TerrainDeformationKey(const Patchwork &input,
-                                                std::span<const EarthworkStamp> stamps,
-                                                const TangentFrame &frame,
-                                                TerrainPageLayout layout,
-                                                double mostEarthworkM);
+[[nodiscard]] std::expected<std::string, std::string>
+TerrainDeformationKey(const Patchwork &input,
+                      std::span<const EarthworkStamp> stamps,
+                      const TangentFrame &frame,
+                      TerrainPageLayout layout,
+                      double mostEarthworkM);
 [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeTerrainDeformation(
     const std::string &key, std::span<const Sheet> pages, const PressedTerrain &measures);
 [[nodiscard]] std::optional<std::vector<uint8_t>>
