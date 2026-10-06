@@ -27,17 +27,21 @@ bleiben renderbar. Eingabebytes, Quelle/Parameter, Terrainformung und Version bi
 Ausgewählte LOD-Geometrie wird als Kindprodukt gespeichert; gleiche Position/Projektionsparameter
 laden sie ohne erneute Planung/Emission. Drehung erzeugt keinen neuen Schlüssel. Bewegung und
 Nahdetails brauchen weiterhin 2336; der private Anschluss ersetzt noch nicht den öffentlichen Vertrag.
-Wien warm mit Basis allein: 59,67 s; Gebäudearbeit 32,45 s. Mit LOD-Produkten: 28,32 s statt
-59,22 s Terraincache-Baseline. Alle 50 Gebäude-/LOD-Lieferungen sind Hits, ohne Miss/Write;
-LOD-Hits führen keine Emissionsranges aus. 110,86 MiB Basis plus 164,00 MiB Geometrie gelesen.
-1.608.707 Dreiecke unverändert; p99 24,49 ms bleibt rot. Bild weicht um 0,40 % Pixel von der
-alten Referenz ab; kalter/warmer Ablauf nicht pixelgleich. Ursache/visuelle Abnahme noch offen.
-Unter 1 s bleibt unerreicht: Wien liest weiterhin rund 1,95 GiB Terrain-Zwischenfelder;
-Terrain-Verformung/Infrastruktur entstehen erneut. Fertige verformte Terrain-/Infrastrukturprodukte
-vor diesen Feldern laden, keine Feldmengen als effizientes Endformat ausgeben.
-CentralPark/Tokyo zuletzt nur Terraincache: 36,44/69,45 s; Gebäudelauf/Bildabnahme stehen aus.
+Wien warm mit Basis allein: 59,67 s; Gebäudearbeit 32,45 s. Mit fertigen LOD-Produkten,
+inklusive erhaltener Terrainkontakte: Wien 29,75 s, Central Park 22,77 s, Tokyo 42,44 s.
+Alle drei frischen Offline-Prozesse: 50 Basis-/LOD-Hits, keine Misses/Writes/Emissionsranges;
+Gebäudearbeit 0,375/0,294/0,717 s. Bilder sind pixelgleich mit der Terraincache-Referenz.
+Native Treffer behalten Grundriss-/Hofkoordinaten bei der Publikation; Wiederstart braucht
+keine Höhenquelle. Das frühere Überschreiben mit leeren Quellkoordinaten ist korrigiert.
+p99 Wien/CP/Tokyo: 23,62/16,45/19,84 ms; Wien/Tokyo überschreiten weiterhin 720p60.
+Unter 1 s bleibt unerreicht: 1,93/1,81/2,03 GiB Terrain-Zwischenfelder gelesen, Terrain/
+Straßen erneut aufgebaut; Earthworks 5,09/2,62/14,74 s. Phasen können sich überlappen.
+Prozesspeaks 4,28/3,87/4,92 GiB sind kein akzeptierter Speicherbedarf.
+Nächste Integration: fertige verformte Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern
+laden; keine erneute Kontakt-/Straßenformung bei Treffern. Laden bis vollständig sichtbare Welt
+messen, keine Gebäudeteilzeit als Weltladezeit ausgeben. Terrain-/Straßenqualität erhalten.
 Öffentliche Anbindung, Original-OSM-/weitere Generatorpfade, SSD-Budget und kompaktere Produkte
-fehlen. Gemessene Worker-/Phasenzeiten überlappen und sind keine Summe der Ladezeit.
+fehlen. Worker-/Phasenzeiten überlappen; nicht als Ladezeit summieren.
 Wien hat 49 Nahkacheln, keine belegte vollständige 240-km-Assetwelt. 2336 besitzt Fernabdeckung.
 Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
 
@@ -45,7 +49,6 @@ Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, minde
 2280 besitzt Asset-Speicherung/Index/Laden; Generatoren besitzen Anreicherung und Asset-Inhalt.
 2336 besitzt Hierarchie/LOD und 2188 den öffentlichen generischen Vertrag. Gemeinsame Dienste
 kennen Bounds, Versionen und native Produkte, keine OSM-/Vegetationssemantik.
-Der neue Ablauf ersetzt ungeeignete Vorbereitung/Verwaltung. Alte Tests/Module sind keine Vorgabe.
 Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen bleiben erhalten.
 
 ## Fertige Assets
@@ -56,8 +59,7 @@ Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen ble
   Anschlüssen. Kein erneuter DEM-/MVT-Decode oder Straßen-/Terrainaufbau bei Assettreffern.
 - Vegetation: Bestands-/Instanzdaten, gemeinsame Prototypen mit LODs, Material/Alpha-Mips,
   Windparameter und Fernverbände. 2111 bleibt nach Gebäuden/Terrain/Infrastruktur.
-- Gemeinsame/kompakte, deviceunabhängige Renderprodukte speichern; kein Fine-Mesh je Fernhaus,
-  keine Kopie desselben Prototyps je Instanz. Licht, Wetterantwort und dynamische Pose bleiben aktuell.
+- Kompakte, deviceunabhängige Renderprodukte; kein Fine-Mesh je Fernhaus/Prototypkopie je Instanz. Licht, Wetterantwort und dynamische Pose bleiben aktuell.
   Rohlinge enthalten alle Quellergänzungen/Parameter/Abhängigkeiten für ihre spätere Verfeinerung.
   Treffer bedeuten Lesen, Entpacken/Upload, Auswahl und budgetierte Nahdetails, keinen Rohling-Neubau.
 
@@ -77,8 +79,7 @@ Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen ble
    Planarrays 25,17 MB, warmer OS-Dateicache-Read ca. 2,9 ms statt ca. 5,3 s Quellen-Decode.
    Kein nativer Rohling-/GPU-Nachweis. Paketindex gegen Objektindex und lineare Arrays gemessen;
    weite residente Abfragen bevorzugen Arrays, lokale persistente Abfragen den Paket-R*Tree.
-   SQLite 3.54.0 und zstd 1.5.7 lokal vorhanden; keine eigene Datenbank/Index-Engine.
-   Breite Bounds-Abfrage plus genaue Frustum-/Radiusprüfung; Rundung muss konservativ bleiben.
+   SQLite 3.54.0, zstd 1.5.7 lokal; Bounds-Abfrage plus konservative Frustum-/Radiusprüfung.
    Räumlich gebündelte Assetpakete/Bereichslesungen, keine Datei/IO-Anfrage je Haus/Baum.
 4. Quelldaten bleiben separat unverändert. Asset-Schlüssel binden Quellstand/Parameter und
    Generator-/Formatversion. Gelieferte und ergänzte Eigenschaften behalten ihre Herkunft.
@@ -95,7 +96,6 @@ Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen ble
    Residency-Hysterese je Detail-/Kostenklasse, keine Qualitätskürzung oder Ablaufzeit gültiger
    Rohlinge. SSD-Assetbudget eviktiert ungenutzte Produkte nach Kosten/Nutzung/Bytes; Quellen
    bleiben unverändert. Weniger Thrashing statt möglichst früher Freigabe optimieren.
-
 ## Quellen und Verfahren
 OpenFreeMap/MVT, Mapterhorn/Terrarium, Open-Meteo/JSON: je Datenart ein Hauptanbieter.
 Endstatus/Payload, Abbruch, begrenztes Retry/Backoff/Retry-After und Rückstau über libcurl.
@@ -110,7 +110,6 @@ Outshine überträgt dieses Muster auf prozedurale Runtime-Misses, nicht UEs ges
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 2188 bindet denselben Assetbedarf/Missvertrag öffentlich an; keine SDK-Neufassung davor.
-
 ## Abnahme
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
