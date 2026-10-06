@@ -21,9 +21,16 @@ public:
     uint32_t Surface = 0;
   };
 
+  struct SurfaceSample {
+    Vec3f BaseColour;
+    float Roughness = 1.0f;
+    float Metalness = 0.0f;
+  };
+
   struct View {
     Vec3 TowardEye;
     std::vector<Texel> Texels;
+    std::vector<SurfaceSample> Materials;
   };
 
   [[nodiscard]] static std::optional<ImpostorAtlas> Create(int pixels,

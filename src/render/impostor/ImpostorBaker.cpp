@@ -1,12 +1,10 @@
 #include "ImpostorBaker.h"
 
-#include "AzimuthElevation.h"
 #include "Compiled.h"
 #include "Lens.h"
 #include "SceneRenderer.h"
 #include "Shape.h"
 #include "StoredVertex.h"
-#include "math/Units.h"
 
 #include <algorithm>
 #include <array>
@@ -23,9 +21,6 @@
 
 namespace outshine::Render {
 namespace {
-constexpr double kCaptureIlluminanceLux = 20000;
-constexpr double kCaptureLightBearingDeg = 135;
-constexpr double kCaptureLightElevationDeg = 40;
 constexpr size_t kMostAtlasTexels = 1u << 24u;
 constexpr float kCapturedNormalSquaredTolerance = 0.003f;
 
@@ -42,6 +37,8 @@ struct AtlasReadback {
   std::span<const float> Depth;
   std::span<const float> Normal;
   std::span<const float> Identity;
+  std::span<const float> Base;
+  std::span<const float> MetalRough;
   size_t PixelCount;
   size_t MaterialCount;
 };
@@ -53,15 +50,18 @@ struct NativePiece {
   std::vector<float> Colours;
 };
 
-std::optional<std::vector<Content::ImpostorAtlas::Texel>>
-ConvertReadback(const AtlasReadback &readback, std::string &error) {
+std::optional<Content::ImpostorAtlas::View> ConvertReadback(const AtlasReadback &readback,
+                                                            std::string &error) {
   const size_t count = readback.PixelCount;
   if (readback.Depth.size() != count || readback.Normal.size() != count * 4 ||
-      readback.Identity.size() != count * 4) {
+      readback.Identity.size() != count * 4 || readback.Base.size() != count * 4 ||
+      readback.MetalRough.size() != count * 2) {
     error = Says::Readback;
     return std::nullopt;
   }
-  std::vector<Content::ImpostorAtlas::Texel> texels(count);
+  Content::ImpostorAtlas::View view;
+  view.Texels.resize(count);
+  view.Materials.resize(count);
   for (size_t pixel = 0; pixel < count; ++pixel) {
     const float surface = readback.Identity[pixel * 4];
     if (!std::isfinite(surface) || surface < 0 ||
@@ -70,13 +70,18 @@ ConvertReadback(const AtlasReadback &readback, std::string &error) {
       error = Says::Surface;
       return std::nullopt;
     }
-    texels[pixel] = {.Normal = {{readback.Normal[pixel * 4],
-                                 readback.Normal[pixel * 4 + 1],
-                                 readback.Normal[pixel * 4 + 2]}},
-                     .Depth = readback.Depth[pixel],
-                     .Surface = static_cast<uint32_t>(surface)};
+    view.Texels[pixel] = {.Normal = {{readback.Normal[pixel * 4],
+                                      readback.Normal[pixel * 4 + 1],
+                                      readback.Normal[pixel * 4 + 2]}},
+                          .Depth = readback.Depth[pixel],
+                          .Surface = static_cast<uint32_t>(surface)};
+    view.Materials[pixel] = {.BaseColour = {{readback.Base[pixel * 4],
+                                             readback.Base[pixel * 4 + 1],
+                                             readback.Base[pixel * 4 + 2]}},
+                             .Roughness = readback.MetalRough[pixel * 2 + 1],
+                             .Metalness = readback.MetalRough[pixel * 2]};
   }
-  return texels;
+  return view;
 }
 
 std::optional<NativePiece> BuildPiece(const ShapePart &part,
@@ -113,6 +118,33 @@ std::optional<NativePiece> BuildPiece(const ShapePart &part,
   return piece;
 }
 
+std::optional<Material> CapturedMaterial(const Material &source) {
+  Material supported;
+  supported.Pattern = source.Pattern;
+  supported.BaseColour = source.BaseColour;
+  supported.Metalness = source.Metalness;
+  supported.Roughness = source.Roughness;
+  supported.Alpha = source.Alpha;
+  supported.CoverageCut = source.CoverageCut;
+  supported.DoubleSided = source.DoubleSided;
+  supported.NormalScale = source.NormalScale;
+  supported.NeedsTangents = source.NeedsTangents;
+  supported.BaseColourMap = source.BaseColourMap;
+  supported.NormalMap = source.NormalMap;
+  supported.MetalRoughMap = source.MetalRoughMap;
+  const std::array maps{source.BaseColourMap, source.NormalMap, source.MetalRoughMap};
+  if (!(source == supported) || source.Alpha == AlphaMode::Blended ||
+      !std::ranges::all_of(
+          maps, [](const SurfaceMap &map) { return !map.bound() || map.Set == UvSet::Uv0; })) {
+    return std::nullopt;
+  }
+  supported.Pattern = SurfacePattern::None;
+  supported.NormalScale = 1;
+  supported.NeedsTangents = false;
+  supported.BaseColourMap = supported.NormalMap = supported.MetalRoughMap = {};
+  return supported;
+}
+
 bool InstallSource(SceneRenderer &renderer,
                    ImpostorCaptureSource source,
                    std::vector<Material> &surfaces,
@@ -129,7 +161,12 @@ bool InstallSource(SceneRenderer &renderer,
     return false;
   }
   for (int at = 0; at < source.Mesh.surfaces(); ++at) {
-    surfaces.push_back(source.Mesh.surfaceAt(MaterialInstance(at)));
+    auto material = CapturedMaterial(source.Mesh.surfaceAt(MaterialInstance(at)));
+    if (!material) {
+      error = "impostor capture cannot preserve this material; retain native geometry";
+      return false;
+    }
+    surfaces.push_back(*material);
   }
   auto firstSurface = renderer.RegisterPieceMaterials(std::move(source.Mesh));
   if (!firstSurface) {
@@ -173,6 +210,8 @@ CaptureViews(SceneRenderer &renderer,
   std::vector<float> depth;
   std::vector<float> normal;
   std::vector<float> identity;
+  std::vector<float> base;
+  std::vector<float> metalRough;
   const size_t count = static_cast<size_t>(shape.Pixels) * static_cast<size_t>(shape.Pixels);
   for (unsigned at = 0; at < shape.Views; ++at) {
     const double angle = 2 * std::numbers::pi * at / shape.Views;
@@ -200,18 +239,23 @@ CaptureViews(SceneRenderer &renderer,
     renderer.WaitForGpu();
     if (renderer.ReadDepth(depth) != ReadState::Ready ||
         renderer.ReadShadingNormal(normal) != ReadState::Ready ||
-        renderer.ReadSurfaceIdentity(identity) != ReadState::Ready) {
+        renderer.ReadSurfaceIdentity(identity) != ReadState::Ready ||
+        renderer.ReadSurfaceBase(base) != ReadState::Ready ||
+        renderer.ReadSurfaceMetalRough(metalRough) != ReadState::Ready) {
       error = Says::Readback;
       return std::nullopt;
     }
-    auto texels = ConvertReadback({.Depth = depth,
-                                   .Normal = normal,
-                                   .Identity = identity,
-                                   .PixelCount = count,
-                                   .MaterialCount = materialCount},
-                                  error);
-    if (!texels) { return std::nullopt; }
-    views.push_back({.TowardEye = direction, .Texels = std::move(*texels)});
+    auto view = ConvertReadback({.Depth = depth,
+                                 .Normal = normal,
+                                 .Identity = identity,
+                                 .Base = base,
+                                 .MetalRough = metalRough,
+                                 .PixelCount = count,
+                                 .MaterialCount = materialCount},
+                                error);
+    if (!view) { return std::nullopt; }
+    view->TowardEye = direction;
+    views.push_back(std::move(*view));
   }
   for (size_t view = 0; view < views.size(); ++view) {
     for (size_t pixel = 0; pixel < views[view].Texels.size(); ++pixel) {
@@ -257,7 +301,9 @@ std::optional<Content::ImpostorAtlas> ImpostorBaker::Bake(ImpostorCapture captur
   specification.Outputs = {Resource::SceneHdr,
                            Resource::SceneDepth,
                            Resource::SceneShadingNormal,
-                           Resource::SceneSurfaceIdentity};
+                           Resource::SceneSurfaceIdentity,
+                           Resource::SceneSurfaceBase,
+                           Resource::SceneSurfaceMetalRough};
   specification.Content = {Stage::Subjects};
   auto plan = Compiled::Compile(specification);
   if (!plan) {
@@ -274,17 +320,6 @@ std::optional<Content::ImpostorAtlas> ImpostorBaker::Bake(ImpostorCapture captur
   for (auto &source : capture.Sources) {
     if (!InstallSource(renderer, std::move(source), surfaces, error)) { return std::nullopt; }
   }
-  const Vec3 toSun = EastUpSouthDirection(kCaptureLightBearingDeg * kDeg2Rad,
-                                          kCaptureLightElevationDeg * kDeg2Rad);
-  SubjectLight key;
-  key.Light.Kind = LightKind::Directional;
-  key.Light.Intensity = static_cast<float>(kCaptureIlluminanceLux);
-  for (int axis = 0; axis < 3; ++axis) {
-    key.Light.Direction[axis] = static_cast<float>(-toSun[axis]);
-  }
-  if (!renderer.SetSubjectLights(std::span(&key, 1), error)) { return std::nullopt; }
-  renderer.SetSubjectEnvironment({});
-
   auto views = CaptureViews(renderer, centre, halfExtent, shape, surfaces.size(), error);
   if (!views) { return std::nullopt; }
   return Content::ImpostorAtlas::Create(

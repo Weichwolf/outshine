@@ -62,10 +62,18 @@ std::optional<Geometry> BuildImpostorCard(const Content::ImpostorAtlas &atlas, s
   for (size_t at = 0; at < count; ++at) {
     const Content::ImpostorAtlas::Texel &pixel = source.Texels[owner[at]];
     const Material &material = atlas.Surfaces()[pixel.Surface - 1];
+    const auto sample =
+        source.Materials.empty()
+            ? Content::ImpostorAtlas::SurfaceSample{.BaseColour = {{material.BaseColour[0],
+                                                                    material.BaseColour[1],
+                                                                    material.BaseColour[2]}},
+                                                    .Roughness = material.Roughness,
+                                                    .Metalness = material.Metalness}
+            : source.Materials[owner[at]];
     Vec3 n{{pixel.Normal[0], pixel.Normal[1], pixel.Normal[2]}};
     if (!Normalise(n)) { return std::nullopt; }
     for (size_t c = 0; c < 3; ++c) {
-      images[0][at * 4 + c] = Byte(ColourSpace::SrgbFromLinear(material.BaseColour[c]));
+      images[0][at * 4 + c] = Byte(ColourSpace::SrgbFromLinear(sample.BaseColour[c]));
     }
     images[0][at * 4 + 3] = source.Texels[at].Surface > 0 ? kOpaqueByte : 0;
     images[1][at * 4] = Byte(static_cast<float>(0.5 * (Dot(n, right) + 1.0)));
@@ -73,8 +81,8 @@ std::optional<Geometry> BuildImpostorCard(const Content::ImpostorAtlas &atlas, s
     images[1][at * 4 + 2] = Byte(static_cast<float>(0.5 * (Dot(n, toward) + 1.0)));
     images[1][at * 4 + 3] = kOpaqueByte;
     images[2][at * 4] = kOpaqueByte;
-    images[2][at * 4 + 1] = Byte(material.Roughness);
-    images[2][at * 4 + 2] = Byte(material.Metalness);
+    images[2][at * 4 + 1] = Byte(sample.Roughness);
+    images[2][at * 4 + 2] = Byte(sample.Metalness);
     images[2][at * 4 + 3] = kOpaqueByte;
   }
   Geometry geometry;
@@ -90,9 +98,9 @@ std::optional<Geometry> BuildImpostorCard(const Content::ImpostorAtlas &atlas, s
     maps[at]->Image = *image;
     maps[at]->Sampler.WrapU = maps[at]->Sampler.WrapV = Wrap::ClampToEdge;
   }
-  const auto surface = geometry.addSurface("crown", material);
+  const auto surface = geometry.addSurface("impostor", material);
   if (!surface) { return std::nullopt; }
-  const auto createdPart = geometry.addPart("crown", *surface);
+  const auto createdPart = geometry.addPart("impostor", *surface);
   if (!createdPart) { return std::nullopt; }
   const int part = *createdPart;
   const Vec3 centre = atlas.CentreM();

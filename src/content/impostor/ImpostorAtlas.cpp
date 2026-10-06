@@ -21,12 +21,13 @@ namespace outshine::Content {
 namespace {
 
 constexpr uint64_t kAtlasMagic = 0x004e574f5243534full;
-constexpr uint32_t kAtlasVersion = 1;
+constexpr uint32_t kAtlasVersion = 2;
 constexpr size_t kAtlasHeaderBytes =
     2 * sizeof(uint64_t) + 4 * sizeof(uint32_t) + 4 * sizeof(double);
 constexpr size_t kAtlasMaterialBytes = 10 * sizeof(float) + 3 * sizeof(uint32_t);
 constexpr size_t kAtlasViewBytes = 3 * sizeof(double);
 constexpr size_t kAtlasTexelBytes = 4 * sizeof(float) + sizeof(uint32_t);
+constexpr size_t kAtlasSampleBytes = 5 * sizeof(float);
 constexpr size_t kAtlasChecksumBytes = sizeof(uint64_t);
 constexpr size_t kMostAtlasTexels = 1u << 24u;
 constexpr double kUnitDirectionSquaredTolerance = 1e-12;
@@ -72,7 +73,25 @@ struct AtlasReader {
   }
 };
 
-bool CacheableMaterial(const Material &source) {
+ImpostorAtlas::View ReadView(AtlasReader &in, size_t count, bool composed) {
+  ImpostorAtlas::View view;
+  for (double &x : view.TowardEye) { x = in.Take<double>(); }
+  view.Texels.resize(count);
+  for (auto &pixel : view.Texels) {
+    for (float &x : pixel.Normal) { x = in.Take<float>(); }
+    pixel.Depth = in.Take<float>();
+    pixel.Surface = in.Take<uint32_t>();
+  }
+  if (composed) { view.Materials.resize(count); }
+  for (auto &sample : view.Materials) {
+    for (float &x : sample.BaseColour) { x = in.Take<float>(); }
+    sample.Roughness = in.Take<float>();
+    sample.Metalness = in.Take<float>();
+  }
+  return view;
+}
+
+bool ValidMaterial(const Material &source) {
   Material core;
   core.BaseColour = source.BaseColour;
   core.Metalness = source.Metalness;
@@ -90,11 +109,19 @@ bool CacheableMaterial(const Material &source) {
          std::ranges::all_of(factors, unitFactor);
 }
 
-bool CacheableView(const ImpostorAtlas::View &view, const ImpostorAtlas &atlas) {
+bool ValidSample(const ImpostorAtlas::SurfaceSample &sample) {
+  const auto unit = [](float x) { return std::isfinite(x) && x >= 0 && x <= 1; };
+  return std::ranges::all_of(sample.BaseColour, unit) && unit(sample.Roughness) &&
+         unit(sample.Metalness);
+}
+
+bool ValidView(const ImpostorAtlas::View &view, const ImpostorAtlas &atlas) {
   const auto texels = static_cast<size_t>(atlas.Pixels()) * static_cast<size_t>(atlas.Pixels());
   const double norm = Dot(view.TowardEye, view.TowardEye);
   if (!std::isfinite(norm) || std::abs(norm - 1) > kUnitDirectionSquaredTolerance ||
-      view.TowardEye[1] != 0 || view.Texels.size() != texels) {
+      view.TowardEye[1] != 0 || view.Texels.size() != texels ||
+      (!view.Materials.empty() &&
+       (view.Materials.size() != texels || !std::ranges::all_of(view.Materials, ValidSample)))) {
     return false;
   }
   return std::ranges::all_of(view.Texels, [&](const ImpostorAtlas::Texel &pixel) {
@@ -107,7 +134,7 @@ bool CacheableView(const ImpostorAtlas::View &view, const ImpostorAtlas &atlas) 
   });
 }
 
-bool Cacheable(const ImpostorAtlas &atlas) {
+bool Valid(const ImpostorAtlas &atlas) {
   if (atlas.Pixels() < 3 || atlas.Pixels() > 4096 || atlas.Views().empty() ||
       atlas.Views().size() > 64 || atlas.Surfaces().empty() || atlas.Surfaces().size() > 64 ||
       static_cast<size_t>(atlas.Pixels()) * static_cast<size_t>(atlas.Pixels()) *
@@ -119,9 +146,10 @@ bool Cacheable(const ImpostorAtlas &atlas) {
   for (const auto x : atlas.CentreM()) {
     if (!std::isfinite(x)) { return false; }
   }
-  return std::ranges::all_of(atlas.Surfaces(), CacheableMaterial) &&
+  return std::ranges::all_of(atlas.Surfaces(), ValidMaterial) &&
          std::ranges::all_of(atlas.Views(), [&](const ImpostorAtlas::View &view) {
-           return CacheableView(view, atlas);
+           return ValidView(view, atlas) &&
+                  view.Materials.empty() == atlas.Views().front().Materials.empty();
          });
 }
 
@@ -139,7 +167,7 @@ std::optional<ImpostorAtlas> ImpostorAtlas::Create(int pixels,
   atlas.HalfExtentM_ = halfExtentM;
   atlas.Surfaces_ = std::move(surfaces);
   atlas.Views_ = std::move(views);
-  if (!Cacheable(atlas)) {
+  if (!Valid(atlas)) {
     error = "impostor atlas contains unsupported or invalid samples";
     return std::nullopt;
   }
@@ -148,18 +176,20 @@ std::optional<ImpostorAtlas> ImpostorAtlas::Create(int pixels,
 
 std::optional<std::vector<uint8_t>> ImpostorAtlas::Encode(std::string_view provenance,
                                                           std::string &error) const {
-  if (provenance.empty() || !Cacheable(*this)) {
+  if (provenance.empty() || !Valid(*this)) {
     error = "impostor artifact requires provenance, valid samples and supported materials";
     return std::nullopt;
   }
+  const uint32_t version = Views_.front().Materials.empty() ? 1 : kAtlasVersion;
+  const size_t texelBytes = kAtlasTexelBytes + (version > 1 ? kAtlasSampleBytes : 0);
   AtlasWriter out;
   out.Bytes.reserve(kAtlasHeaderBytes + Surfaces_.size() * kAtlasMaterialBytes +
                     Views_.size() *
-                        (kAtlasViewBytes + static_cast<size_t>(Pixels_) *
-                                               static_cast<size_t>(Pixels_) * kAtlasTexelBytes) +
+                        (kAtlasViewBytes +
+                         static_cast<size_t>(Pixels_) * static_cast<size_t>(Pixels_) * texelBytes) +
                     kAtlasChecksumBytes);
   out.Put(kAtlasMagic);
-  out.Put(kAtlasVersion);
+  out.Put(version);
   out.Put(Provenance(provenance));
   out.Put(static_cast<uint32_t>(Pixels_));
   out.Put(static_cast<uint32_t>(Views_.size()));
@@ -183,6 +213,11 @@ std::optional<std::vector<uint8_t>> ImpostorAtlas::Encode(std::string_view prove
       out.Put(pixel.Depth);
       out.Put(pixel.Surface);
     }
+    for (const auto &sample : view.Materials) {
+      for (const float x : sample.BaseColour) { out.Put(x); }
+      out.Put(sample.Roughness);
+      out.Put(sample.Metalness);
+    }
   }
   out.Put(Hash(out.Bytes));
   return std::move(out.Bytes);
@@ -203,18 +238,20 @@ std::optional<ImpostorAtlas> ImpostorAtlas::Decode(std::span<const uint8_t> byte
     return refuse();
   }
   AtlasReader in{.Bytes = bytes};
-  if (in.Take<uint64_t>() != kAtlasMagic || in.Take<uint32_t>() != kAtlasVersion ||
-      in.Take<uint64_t>() != Provenance(provenance)) {
+  if (in.Take<uint64_t>() != kAtlasMagic) { return refuse(); }
+  const auto version = in.Take<uint32_t>();
+  if (version < 1 || version > kAtlasVersion || in.Take<uint64_t>() != Provenance(provenance)) {
     return refuse();
   }
   const auto pixels = in.Take<uint32_t>();
   const auto views = in.Take<uint32_t>();
   const auto surfaces = in.Take<uint32_t>();
   const auto count = static_cast<uint64_t>(pixels) * pixels;
+  const size_t texelBytes = kAtlasTexelBytes + (version > 1 ? kAtlasSampleBytes : 0);
   if (pixels < 3 || pixels > 4096 || views == 0 || views > 64 || surfaces == 0 || surfaces > 64 ||
       count * views > kMostAtlasTexels ||
       kAtlasHeaderBytes + static_cast<uint64_t>(surfaces) * kAtlasMaterialBytes +
-              static_cast<uint64_t>(views) * (kAtlasViewBytes + count * kAtlasTexelBytes) +
+              static_cast<uint64_t>(views) * (kAtlasViewBytes + count * texelBytes) +
               kAtlasChecksumBytes !=
           bytes.size()) {
     return refuse();
@@ -239,16 +276,8 @@ std::optional<ImpostorAtlas> ImpostorAtlas::Decode(std::span<const uint8_t> byte
     surface.Unlit = unlit != 0;
   }
   atlas.Views_.resize(views);
-  for (auto &view : atlas.Views_) {
-    for (double &x : view.TowardEye) { x = in.Take<double>(); }
-    view.Texels.resize(static_cast<size_t>(count));
-    for (auto &pixel : view.Texels) {
-      for (float &x : pixel.Normal) { x = in.Take<float>(); }
-      pixel.Depth = in.Take<float>();
-      pixel.Surface = in.Take<uint32_t>();
-    }
-  }
-  if (!Cacheable(atlas)) { return refuse(); }
+  for (auto &view : atlas.Views_) { view = ReadView(in, static_cast<size_t>(count), version > 1); }
+  if (!Valid(atlas)) { return refuse(); }
   return atlas;
 }
 
