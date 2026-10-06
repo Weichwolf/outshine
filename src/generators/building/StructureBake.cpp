@@ -1,6 +1,8 @@
 #include <utility>
 #include <expected>
 #include "StructureBake.h"
+#include "PreparedStructureTile.h"
+#include "StructurePreparation.h"
 #include "BuildingMaterials.h"
 #include <bit>
 #include "Digest.h"
@@ -30,274 +32,17 @@ namespace {
 #include "FacadeOpeningValues.h"
 
 constexpr double kBlocksPerTile = 8.0;
-constexpr uint32_t kKnuthWord = 2654435761u;
-constexpr uint32_t kSecondKnuthWord = 2246822519u;
+constexpr double kNearestSeenM = 1.45;
+constexpr double kArchitectureM = 0.33;
+constexpr double kRoofAllowanceM = 3.2;
 
 [[nodiscard]] bool WasStopped(const std::atomic_bool *stopping) {
   return stopping != nullptr && stopping->load(std::memory_order_relaxed);
 }
 
-constexpr uint32_t kPlaceMixWord = 3266489917u;
-constexpr double kMicroDegree = 1.0e6;
-constexpr double kNoNearestYet = 1.0e29;
-constexpr double kSameHeightM = 0.01;
-constexpr double kNoLeastYet = 1.0e9;
-constexpr double kOnStreetAcrossM = 14.0;
-constexpr double kOffStreetAcrossM = 26.0;
-constexpr double kFillHeightM = 5.0;
-constexpr double kStoreyM = 2.9;
-constexpr double kNearestSeenM = 0.5 * kStoreyM;
-constexpr double kArchitectureM = 0.33;
-constexpr double kRoofAllowanceM = 3.2;
-constexpr double kOnTheStreetM = 16.0;
-constexpr double kCarriagewayM = 4.0;
-constexpr int kInteriorGrid = 4;
-constexpr double kInteriorSpanM = 20.0;
-constexpr double kPadReachM = 60.0;
-constexpr double kMostRingPoints = 512;
-
 struct Ring {
-  uint32_t First = 0;
-  uint32_t Count = 0;
+  uint32_t First = 0, Count = 0;
 };
-
-[[nodiscard]] double LatOf(std::span<const double> pts, size_t at) {
-  return pts[at * 2];
-}
-
-[[nodiscard]] double LonOf(std::span<const double> pts, size_t at) {
-  return pts[at * 2 + 1];
-}
-
-uint32_t PlaceHash(LongitudeLatitude at) {
-  uint32_t h =
-      static_cast<uint32_t>(static_cast<int32_t>(std::llround(at.LatitudeDeg * kMicroDegree))) *
-      kKnuthWord;
-  h ^= static_cast<uint32_t>(static_cast<int32_t>(std::llround(at.LongitudeDeg * kMicroDegree))) *
-       kSecondKnuthWord;
-  h ^= h >> 13u;
-  h *= kPlaceMixWord;
-  return h ^ (h >> 16u);
-}
-
-struct Plot {
-  double AreaM2 = 0.0;
-  double AcrossM = 0.0;
-  double StandBackM = 0.0;
-};
-
-int DefaultStoreys(Plot of, LongitudeLatitude at) {
-  const uint32_t h = PlaceHash(at);
-  const bool onStreet = of.StandBackM >= 0.0 && of.StandBackM <= kOnTheStreetM;
-  const bool aPlot = of.AreaM2 >= 70.0;
-  int least = 1;
-  int most = 2;
-  if (onStreet && aPlot && of.AcrossM <= kOnStreetAcrossM) {
-    least = 3;
-    most = 5;
-  } else if (onStreet && aPlot) {
-    least = 2;
-    most = 4;
-  } else if (!aPlot || of.AcrossM > kOffStreetAcrossM) {
-    least = 1;
-    most = 2;
-  } else {
-    least = 1;
-    most = 3;
-  }
-  return least + static_cast<int>(h % static_cast<uint32_t>(most - least + 1));
-}
-
-double RingAreaM2(std::span<const double> pts, Ring ring) {
-  const LongitudeLatitudeHeight from{.LongitudeDeg = LonOf(pts, ring.First),
-                                     .LatitudeDeg = LatOf(pts, ring.First)};
-  double a = 0.0;
-  for (uint32_t k = 0; k < ring.Count; k++) {
-    const uint32_t j = (k + 1) % ring.Count;
-    const EastNorth at = EnuOffsetM(
-        from,
-        {.LongitudeDeg = LonOf(pts, ring.First + k), .LatitudeDeg = LatOf(pts, ring.First + k)});
-    const EastNorth next = EnuOffsetM(
-        from,
-        {.LongitudeDeg = LonOf(pts, ring.First + j), .LatitudeDeg = LatOf(pts, ring.First + j)});
-    a += at.EastM * next.NorthM - next.EastM * at.NorthM;
-  }
-  return std::fabs(0.5 * a);
-}
-
-double AcrossM(std::span<const double> pts, Ring ring) {
-  const LongitudeLatitudeHeight from{.LongitudeDeg = LonOf(pts, ring.First),
-                                     .LatitudeDeg = LatOf(pts, ring.First)};
-  double e0 = kBeyondAnyCoordinate;
-  double e1 = -kBeyondAnyCoordinate;
-  double n0 = kBeyondAnyCoordinate;
-  double n1 = -kBeyondAnyCoordinate;
-  for (uint32_t k = 0; k < ring.Count; k++) {
-    const EastNorth at = EnuOffsetM(
-        from,
-        {.LongitudeDeg = LonOf(pts, ring.First + k), .LatitudeDeg = LatOf(pts, ring.First + k)});
-    e0 = std::min(e0, at.EastM);
-    e1 = std::max(e1, at.EastM);
-    n0 = std::min(n0, at.NorthM);
-    n1 = std::max(n1, at.NorthM);
-  }
-  return std::min(e1 - e0, n1 - n0);
-}
-
-BuildingFrontage NearestStreet(std::span<const double> pts,
-                               Ring ring,
-                               std::span<const WayLine> ways,
-                               double *standBackM,
-                               const std::atomic_bool *stopping) {
-  BuildingFrontage out;
-  *standBackM = -1.0;
-  const double refLat = LatOf(pts, ring.First);
-  const double refLon = LonOf(pts, ring.First);
-  double cE = 0.0;
-  double cN = 0.0;
-  for (uint32_t k = 0; k < ring.Count; k++) {
-    const EastNorth at = EnuOffsetM(
-        {.LongitudeDeg = refLon, .LatitudeDeg = refLat},
-        {.LongitudeDeg = LonOf(pts, ring.First + k), .LatitudeDeg = LatOf(pts, ring.First + k)});
-    cE += at.EastM;
-    cN += at.NorthM;
-  }
-  cE /= static_cast<double>(ring.Count);
-  cN /= static_cast<double>(ring.Count);
-  const double padDeg = (kOnTheStreetM + kPadReachM) / kMPerDegLat;
-  double best = kBeyondAnyCoordinate;
-  double bE = 0.0;
-  double bN = 0.0;
-  double bDirE = 0.0;
-  double bDirN = 0.0;
-  double bHalf = 0.0;
-  for (const WayLine &w : ways) {
-    if (WasStopped(stopping)) { return out; }
-    if (w.HalfWidthM * 2.0 < kCarriagewayM) { continue; }
-    if (refLat < w.MinLat - padDeg || refLat > w.MaxLat + padDeg) { continue; }
-    if (refLon < w.MinLon - padDeg || refLon > w.MaxLon + padDeg) { continue; }
-    for (size_t k = 0; k + 3 < w.LatLon.size(); k += 2) {
-      if (WasStopped(stopping)) { return out; }
-      const LongitudeLatitudeHeight from{.LongitudeDeg = refLon, .LatitudeDeg = refLat};
-      const EastNorth a =
-          EnuOffsetM(from, {.LongitudeDeg = w.LatLon[k + 1], .LatitudeDeg = w.LatLon[k]});
-      const EastNorth b =
-          EnuOffsetM(from, {.LongitudeDeg = w.LatLon[k + 3], .LatitudeDeg = w.LatLon[k + 2]});
-      const double aE = a.EastM;
-      const double aN = a.NorthM;
-      const double dE = b.EastM - aE;
-      const double dN = b.NorthM - aN;
-      const double len2 = dE * dE + dN * dN;
-      if (len2 < kLeastRunM) { continue; }
-      double t = ((cE - aE) * dE + (cN - aN) * dN) / len2;
-      t = std::clamp(t, 0.0, 1.0);
-      const double pE = aE + dE * t;
-      const double pN = aN + dN * t;
-      const double d = std::hypot(cE - pE, cN - pN);
-      if (d >= best) { continue; }
-      best = d;
-      bE = pE;
-      bN = pN;
-      const double len = std::sqrt(len2);
-      bDirE = dE / len;
-      bDirN = dN / len;
-      bHalf = w.HalfWidthM;
-    }
-  }
-  if (best > kNoNearestYet || best <= bHalf) { return out; }
-  const double toE = (bE - cE) / best;
-  const double toN = (bN - cN) / best;
-  out.Known = true;
-  out.KerbEm = bE - toE * bHalf;
-  out.KerbNm = bN - toN * bHalf;
-  out.AlongE = bDirE;
-  out.AlongN = bDirN;
-  out.ToStreetE = toE;
-  out.ToStreetN = toN;
-  *standBackM = best - bHalf;
-  return out;
-}
-
-bool InsideRing(std::span<const double> pts, Ring ring, double lat, double lon) {
-  bool in = false;
-  for (uint32_t k = 0, j = ring.Count - 1; k < ring.Count; j = k++) {
-    const double kLat = LatOf(pts, ring.First + k);
-    const double kLon = LonOf(pts, ring.First + k);
-    const double jLat = LatOf(pts, ring.First + j);
-    const double jLon = LonOf(pts, ring.First + j);
-    if ((kLat > lat) == (jLat > lat)) { continue; }
-    if (lon < (jLon - kLon) * (lat - kLat) / (jLat - kLat) + kLon) { in = !in; }
-  }
-  return in;
-}
-
-struct Seated {
-  double BaseM = 0.0;
-  double SeatM = 0.0;
-  bool Stood = false;
-};
-
-Seated RingBase(const outshine::Ground::HeightField &heights,
-                std::span<const double> pts,
-                Ring ring,
-                std::vector<double> &corners) {
-  corners.clear();
-  const auto sampled = [&heights](double lat, double lon) {
-    return heights.At({.LongitudeDeg = lon, .LatitudeDeg = lat}).AslM();
-  };
-  bool stood = true;
-  const auto at = [&sampled, &stood](double lat, double lon) {
-    const std::optional<double> held = sampled(lat, lon);
-    stood = stood && held.has_value();
-    return held.value_or(0.0);
-  };
-  double lowest = kNoLeastYet;
-  double highest = -kNoLeastYet;
-  double summed = 0.0;
-  size_t took = 0;
-  double southest = kNoLeastYet;
-  double northest = -kNoLeastYet;
-  double westest = kNoLeastYet;
-  double eastest = -kNoLeastYet;
-  for (uint32_t k = 0; k < ring.Count; k++) {
-    const double lat = LatOf(pts, ring.First + k);
-    const double lon = LonOf(pts, ring.First + k);
-    const double aslM = at(lat, lon);
-    corners.push_back(aslM);
-    lowest = std::min(lowest, aslM);
-    highest = std::max(highest, aslM);
-    summed += aslM;
-    ++took;
-    southest = std::min(southest, lat);
-    northest = std::max(northest, lat);
-    westest = std::min(westest, lon);
-    eastest = std::max(eastest, lon);
-  }
-  const double tall = (northest - southest) * kMPerDegLat;
-  const double wide =
-      (eastest - westest) * kMPerDegLon * std::cos(0.5 * (northest + southest) * kDeg2Rad);
-  if (std::max(tall, wide) >= kInteriorSpanM) {
-    for (int row = 1; row < kInteriorGrid; ++row) {
-      for (int column = 1; column < kInteriorGrid; ++column) {
-        const double lat = southest + (northest - southest) * static_cast<double>(row) /
-                                          static_cast<double>(kInteriorGrid);
-        const double lon = westest + (eastest - westest) * static_cast<double>(column) /
-                                         static_cast<double>(kInteriorGrid);
-        if (!InsideRing(pts, ring, lat, lon)) { continue; }
-        const std::optional<double> inside = sampled(lat, lon);
-        if (!inside) { continue; }
-        const double aslM = *inside;
-        lowest = std::min(lowest, aslM);
-        highest = std::max(highest, aslM);
-        summed += aslM;
-        ++took;
-      }
-    }
-  }
-  return {.BaseM = lowest,
-          .SeatM = took > 0 ? summed / static_cast<double>(took) : highest,
-          .Stood = stood};
-}
 
 struct Spread {
   double LowLat = 0.0, HighLat = 0.0, LowLon = 0.0, HighLon = 0.0;
@@ -411,30 +156,6 @@ std::expected<void, StructureBakeError> FinishStructures(MassPlans &masses,
   return FinalizeBake(raw, out);
 }
 
-std::vector<WayLine> LinesOf(const RawTile &raw) {
-  const std::span<const double> pts = raw.LatLon;
-  std::vector<WayLine> ways;
-  ways.reserve(raw.Ways.size());
-  for (const RawTile::Way &w : raw.Ways) {
-    WayLine line;
-    line.LatLon = std::span<const double>(pts.data() + static_cast<size_t>(w.LocalFirst) * 2,
-                                          static_cast<size_t>(w.PointCount) * 2);
-    line.HalfWidthM = w.HalfWidthM;
-    line.MinLat = kBeyondAnyCoordinate;
-    line.MinLon = kBeyondAnyCoordinate;
-    line.MaxLat = -kBeyondAnyCoordinate;
-    line.MaxLon = -kBeyondAnyCoordinate;
-    for (uint32_t k = 0; k < w.PointCount; ++k) {
-      line.MinLat = std::min(line.MinLat, LatOf(pts, w.LocalFirst + k));
-      line.MaxLat = std::max(line.MaxLat, LatOf(pts, w.LocalFirst + k));
-      line.MinLon = std::min(line.MinLon, LonOf(pts, w.LocalFirst + k));
-      line.MaxLon = std::max(line.MaxLon, LonOf(pts, w.LocalFirst + k));
-    }
-    ways.push_back(line);
-  }
-  return ways;
-}
-
 void IncludeBounds(outshine::Ground::GeoBounds &bounds,
                    const outshine::Ground::GeoBounds &additional) {
   bounds.MinLatDeg = std::min(bounds.MinLatDeg, additional.MinLatDeg);
@@ -457,49 +178,6 @@ void IncludeFootprint(BakedTile &out, const StructureCell &cell) {
   } else {
     out.FootprintBounds = cell.Footprint;
   }
-}
-
-bool HasSourceObject(const RawTile &raw, Data::SourceObjectId id) {
-  return raw.SourceInputs.Objects ? raw.SourceInputs.Objects->Contains(id) : id.Id == 0;
-}
-
-bool ValidStructureInput(const RawTile::Structure &structure, const RawTile &raw) {
-  const size_t holes = raw.Holes.size();
-  return HasSourceObject(raw, structure.SourceId) && structure.FirstHole <= holes &&
-         structure.HoleCount <= holes - structure.FirstHole &&
-         (!structure.HeightOrigin ||
-          (std::isfinite(structure.HeightM) && structure.HeightM > structure.MinimumHeightM)) &&
-         std::isfinite(structure.MinimumHeightM) &&
-         (structure.MinimumHeightM == 0.0 ||
-          (std::isfinite(structure.HeightM) && structure.HeightM > structure.MinimumHeightM));
-}
-
-bool HasSourceHeight(const RawTile::Structure &structure) {
-  if (structure.HeightOrigin || structure.MinimumHeightM != 0.0) { return true; }
-  return structure.HeightM > 0.0 && std::fabs(structure.HeightM - kFillHeightM) > kSameHeightM;
-}
-
-::outshine::Ground::BuildingHeightSource
-HeightSourceOf(const RawTile::Structure &structure) noexcept {
-  if (structure.HeightOrigin &&
-      *structure.HeightOrigin != outshine::Ground::BuildingHeightOrigin::Declared) {
-    return ::outshine::Ground::BuildingHeightSource::Generated;
-  }
-  return ::outshine::Ground::BuildingHeightSource::Declared;
-}
-
-Spread RingBounds(std::span<const double> pts, Ring ring) {
-  Spread bounds{.LowLat = kNoLeastYet,
-                .HighLat = -kNoLeastYet,
-                .LowLon = kNoLeastYet,
-                .HighLon = -kNoLeastYet};
-  for (uint32_t k = 0; k < ring.Count; k++) {
-    bounds.LowLat = std::min(bounds.LowLat, LatOf(pts, ring.First + k));
-    bounds.HighLat = std::max(bounds.HighLat, LatOf(pts, ring.First + k));
-    bounds.LowLon = std::min(bounds.LowLon, LonOf(pts, ring.First + k));
-    bounds.HighLon = std::max(bounds.HighLon, LonOf(pts, ring.First + k));
-  }
-  return bounds;
 }
 
 struct BuildingDetail {
@@ -543,73 +221,36 @@ void IncludeShellError(BakedTile &out, size_t cellAt, std::optional<double> erro
   }
 }
 
-std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
-                                                const outshine::Ground::HeightField &heights,
-                                                const StructureMesher &mesher,
-                                                MeshScratch &scratch,
-                                                BakedTile &out,
-                                                const RawTile::Structure &one,
-                                                std::span<const double> pts,
-                                                const std::vector<WayLine> &ways,
-                                                MassPlans &masses,
-                                                StructurePlanSelection &selection,
-                                                std::vector<double> &corners,
-                                                double statedM,
-                                                const std::atomic_bool *stopping) {
-  if (one.Cell.Index == 0 || one.Cell.Index > kStructureCellsPerTile) {
-    return std::unexpected(StructureBakeErrorKind::InvalidCell);
-  }
+std::expected<void, StructureBakeError> EmitStructure(const PreparedStructure &prepared,
+                                                      std::span<const double> pts,
+                                                      std::span<const GeographicRing> holes,
+                                                      std::span<const double> corners,
+                                                      const RawTile &raw,
+                                                      const StructureMesher &mesher,
+                                                      MeshScratch &scratch,
+                                                      BakedTile &out,
+                                                      MassPlans &masses,
+                                                      StructurePlanSelection &selection) {
+  const auto &one = prepared.Layout;
   if (raw.RequestedCell && one.Cell.Index != *raw.RequestedCell) { return {}; }
   const Ring ring{.First = one.LocalFirst, .Count = one.PointCount};
-  if (ring.Count < 3 || ring.Count > kMostRingPoints) {
-    ++out.SkippedRings;
-    return {};
-  }
-  const Seated seated = RingBase(heights, pts, ring, corners);
-  if (!seated.Stood) {
-    ++out.NoGround;
-    return {};
-  }
-  const double base = seated.BaseM;
-  const double seat = seated.SeatM;
+  const auto &fp = prepared.Standing;
+  const double base = prepared.BaseAslM;
+  const double seat = prepared.SeatAslM;
+  const Spread bounds{.LowLat = prepared.Bounds.MinLatDeg,
+                      .HighLat = prepared.Bounds.MaxLatDeg,
+                      .LowLon = prepared.Bounds.MinLonDeg,
+                      .HighLon = prepared.Bounds.MaxLonDeg};
   IncludeFootprint(out, one.Cell);
-
-  const Spread bounds = RingBounds(pts, ring);
-  const double perLonM = kMPerDegLon * std::cos(0.5 * (bounds.LowLat + bounds.HighLat) * kDeg2Rad);
   out.SeatSpreadM.push_back(seat - base);
-  out.AcrossM.push_back(std::max((bounds.HighLat - bounds.LowLat) * kMPerDegLat,
-                                 (bounds.HighLon - bounds.LowLon) * perLonM));
-
-  double standBackM = -1.0;
-  const BuildingFrontage street = NearestStreet(pts, ring, ways, &standBackM, stopping);
-  if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
-
-  if (!ValidStructureInput(one, raw)) { return std::unexpected(StructureMeshError::InvalidPlan); }
-  ::outshine::Ground::BuildingFootprint fp{};
-  fp.MinimumHeightM = static_cast<float>(one.MinimumHeightM);
-  fp.FirstPoint = one.SourceFirst;
-  fp.FirstHole = one.SourceFirstHole;
-  fp.HoleCount = one.HoleCount;
-  fp.PointCount = ring.Count;
-  fp.Street = street;
-  if (street.Known) { out.Fronted++; }
-  if (HasSourceHeight(one)) {
-    fp.HeightM = static_cast<float>(one.HeightM);
-    fp.Source = HeightSourceOf(one);
-  } else {
-    const int storeys = DefaultStoreys(
-        {.AreaM2 = RingAreaM2(pts, ring), .AcrossM = AcrossM(pts, ring), .StandBackM = standBackM},
-        {.LongitudeDeg = LonOf(pts, ring.First), .LatitudeDeg = LatOf(pts, ring.First)});
-    fp.HeightM = static_cast<float>(static_cast<double>(storeys) * kStoreyM + kRoofAllowanceM);
-    fp.Source = ::outshine::Ground::BuildingHeightSource::Generated;
-  }
+  out.AcrossM.push_back(prepared.AcrossM);
+  out.Fronted += static_cast<int>(fp.Street.Known);
+  const double statedM =
+      raw.TileSpanM > 0.0 && raw.Extent > 0 ? raw.TileSpanM / static_cast<double>(raw.Extent) : 0.0;
   out.OsmHeights +=
       static_cast<int>(fp.Source == ::outshine::Ground::BuildingHeightSource::Declared);
   out.DefaultHeights +=
       static_cast<int>(fp.Source == ::outshine::Ground::BuildingHeightSource::Generated);
-  fp.BaseM = static_cast<float>(base);
-  fp.FootM = static_cast<float>(base);
-  fp.SeatM = static_cast<float>(seat);
   const size_t cellAt = one.Cell.Index - 1u;
   out.CellMaxHeightM[cellAt] = std::max(out.CellMaxHeightM[cellAt], fp.HeightM);
 
@@ -619,8 +260,8 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   out.FootprintDetails.push_back(level);
 
   StructurePlan plan;
-  plan.InnerRings = std::span(raw.Holes).subspan(one.FirstHole, one.HoleCount);
-  plan.RingPointsLatLon = raw.LatLon;
+  plan.InnerRings = std::span(holes).subspan(one.FirstHole, one.HoleCount);
+  plan.RingPointsLatLon = pts;
   plan.RingLatLon = std::span<const double>(pts.data() + static_cast<size_t>(ring.First) * 2,
                                             static_cast<size_t>(ring.Count) * 2);
   plan.BaseAslM = fp.BaseM;
@@ -641,7 +282,7 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
                                     {.BaseM = base,
                                      .SeatM = seat,
                                      .HeightM = fp.HeightM,
-                                     .RoofAreaM2 = RingAreaM2(pts, ring),
+                                     .RoofAreaM2 = prepared.AreaM2,
                                      .Pitched = one.Pitched != 0,
                                      .WallColour = one.WallColour,
                                      .Level = level},
@@ -670,6 +311,61 @@ std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
   return {};
 }
 
+std::expected<void, StructureBakeError> BakeOne(const RawTile &raw,
+                                                const Ground::HeightField &heights,
+                                                const StructureMesher &mesher,
+                                                MeshScratch &scratch,
+                                                BakedTile &out,
+                                                const RawTile::Structure &one,
+                                                std::span<const double> pts,
+                                                const std::vector<WayLine> &ways,
+                                                MassPlans &masses,
+                                                StructurePlanSelection &selection,
+                                                std::vector<double> &corners,
+                                                const std::atomic_bool *stopping) {
+  if (one.Cell.Index == 0 || one.Cell.Index > kStructureCellsPerTile) {
+    return std::unexpected(StructureBakeErrorKind::InvalidCell);
+  }
+  if (raw.RequestedCell && one.Cell.Index != *raw.RequestedCell) { return {}; }
+  auto prepared = EnrichStructure(raw, heights, one, pts, ways, corners, out, stopping);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  if (!*prepared) { return {}; }
+  return EmitStructure(
+      **prepared, pts, raw.Holes, corners, raw, mesher, scratch, out, masses, selection);
+}
+
+std::expected<void, StructureBakeError> ValidateStructureView(const RawTile &raw) {
+  if (raw.RequestedDetail && *raw.RequestedDetail > LevelOfDetail::Massed) {
+    return std::unexpected(StructureBakeErrorKind::InvalidDetail);
+  }
+  if (raw.RequestedCell &&
+      (*raw.RequestedCell == 0 || *raw.RequestedCell > kStructureCellsPerTile)) {
+    return std::unexpected(StructureBakeErrorKind::InvalidCell);
+  }
+  if (raw.RequestedCell && !raw.RequestedDetail) {
+    return std::unexpected(StructureBakeErrorKind::InvalidDetail);
+  }
+  return {};
+}
+
+std::expected<void, StructureBakeError> FinishPlanEmission(const RawTile &raw,
+                                                           const StructureMesher &mesher,
+                                                           MeshScratch &scratch,
+                                                           StructurePlanSelection &selection,
+                                                           MassPlans &masses,
+                                                           BakedTile &out,
+                                                           const std::atomic_bool *stopping) {
+  if (raw.RequestedDetail) { return FinishStructures(masses, raw, mesher, scratch, out, stopping); }
+  const auto selected = selection.Select(raw, mesher, scratch, out, stopping);
+  if (!selected) { return std::unexpected(selected.error()); }
+  for (;;) {
+    const auto emitted = selection.Emit(raw, mesher, scratch, out, 64, stopping);
+    if (!emitted) { return std::unexpected(emitted.error()); }
+    if (*emitted) { break; }
+  }
+  return FinalizeBake(raw, out);
+}
+
 }
 
 struct StructureBakeProgress::State {
@@ -685,16 +381,8 @@ struct StructureBakeProgress::State {
   bool Finalized = false;
 
   [[nodiscard]] std::expected<void, StructureBakeError> Validate(const RawTile &raw) const {
-    if (raw.RequestedDetail && *raw.RequestedDetail > LevelOfDetail::Massed) {
-      return std::unexpected(StructureBakeErrorKind::InvalidDetail);
-    }
-    if (raw.RequestedCell &&
-        (*raw.RequestedCell == 0 || *raw.RequestedCell > kStructureCellsPerTile)) {
-      return std::unexpected(StructureBakeErrorKind::InvalidCell);
-    }
-    if (raw.RequestedCell && !raw.RequestedDetail) {
-      return std::unexpected(StructureBakeErrorKind::InvalidDetail);
-    }
+    const auto valid = ValidateStructureView(raw);
+    if (!valid) { return valid; }
     if (Started && Tile.RequestedDetail != raw.RequestedDetail) {
       return std::unexpected(StructureBakeErrorKind::ChangedDetail);
     }
@@ -735,7 +423,7 @@ struct StructureBakeProgress::State {
     out.CellBounds = {};
     out.CellMaxHeightM.fill(0.0f);
     out.CellShellErrorM.fill(0.0);
-    Ways = LinesOf(raw);
+    Ways = StructureWays(raw);
     Masses.clear();
     Corners.clear();
     Started = true;
@@ -772,8 +460,6 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     return *emitted;
   }
   const std::span<const double> pts = raw.LatLon;
-  const double statedM =
-      raw.TileSpanM > 0.0 && raw.Extent > 0 ? raw.TileSpanM / static_cast<double>(raw.Extent) : 0.0;
   const size_t until = std::min(state.Next + structuresMost, raw.Structures.size());
   for (; state.Next < until; ++state.Next) {
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
@@ -788,7 +474,6 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
                                state.Masses,
                                state.Selection,
                                state.Corners,
-                               statedM,
                                stopping);
     if (!baked) { return std::unexpected(baked.error()); }
   }
@@ -839,6 +524,65 @@ std::expected<void, StructureBakeError> BakeStructures(const RawTile &raw,
   if (!finalized) { return std::unexpected(finalized.error()); }
   out = std::move(*finalized);
   return {};
+}
+
+std::expected<BakedTile, StructureBakeError>
+BakePreparedStructures(const PreparedStructureTile &base,
+                       const RawTile &view,
+                       const StructureMesher &mesher,
+                       MeshScratch &scratch,
+                       const std::atomic_bool *stopping) {
+  const auto valid = ValidateStructureView(view);
+  if (!valid) { return std::unexpected(valid.error()); }
+  RawTile raw;
+  raw.Eye = view.Eye;
+  raw.EyeEcef = view.EyeEcef;
+  raw.RequestedDetail = view.RequestedDetail;
+  raw.RequestedCell = view.RequestedCell;
+  raw.Projection = view.Projection;
+  raw.ClusterTriangles = view.ClusterTriangles;
+  raw.AnchorEcef = base.AnchorEcef;
+  raw.TileSpanM = base.TileSpanM;
+  raw.Extent = base.Extent;
+  BakedTile out;
+  out.RequestedDetail = raw.RequestedDetail;
+  out.RequestedCell = raw.RequestedCell;
+  out.FallbackHeights = base.FallbackHeights;
+  out.SkippedRings = base.SkippedRings;
+  out.NoGround = base.NoGround;
+  const StructureSelectionView selected{
+      .Eye = raw.Eye, .EyeEcef = raw.EyeEcef, .Projection = raw.Projection};
+  if (!raw.RequestedDetail && selected.Contains(raw.Eye, raw.Projection, raw.EyeEcef)) {
+    out.SelectedView = selected;
+  }
+  StructurePlanSelection selection;
+  MassPlans masses;
+  out.Coordinates = std::make_shared<Ground::BuildingGeometry>();
+  out.Coordinates->Origin = base.Origin;
+  out.Coordinates->Points = base.PointsLatLon;
+  out.Coordinates->Rings = base.Holes;
+  for (const auto &one : base.Structures) {
+    if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
+    if (raw.RequestedCell && one.Layout.Cell.Index != *raw.RequestedCell) { continue; }
+    const auto emitted =
+        EmitStructure(one,
+                      base.PointsLatLon,
+                      base.Holes,
+                      std::span(base.CornerAslM).subspan(one.CornerFirst, one.Layout.PointCount),
+                      raw,
+                      mesher,
+                      scratch,
+                      out,
+                      masses,
+                      selection);
+    if (!emitted) { return std::unexpected(emitted.error()); }
+    out.Prints.back().FirstPoint = one.Layout.LocalFirst;
+    out.Prints.back().FirstHole = one.Layout.FirstHole;
+    if (base.Origin.Provenance) { out.Coordinates->Sources.push_back(one.Layout.SourceId); }
+  }
+  const auto finished = FinishPlanEmission(raw, mesher, scratch, selection, masses, out, stopping);
+  if (!finished) { return std::unexpected(finished.error()); }
+  return out;
 }
 
 }

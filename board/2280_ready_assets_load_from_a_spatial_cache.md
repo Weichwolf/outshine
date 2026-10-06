@@ -20,6 +20,9 @@ Aktuell sind nur Quellbytes zuverlässig persistent; Vorbereitung/Geometrie kost
 content/assets speichert Paketbytes und Raumindex atomar; ein Miss-Callback erzeugt das Paket,
 Hits laden geprüfte Bytes ohne Callback. Der Place-Ladepfad nutzt das noch nicht: native Rohling-
 Formate, öffentliche Generatoranbindung, Jobbündelung und Residency-/SSD-Budget fehlen.
+Gebäude trennen Höhen-/Terrainkontakt-/Straßenanreicherung von Kamera-/LOD-Emission. Diese
+gehaltenen Pläne sind noch kein gespeicherter Rohling: Form-/Dachplanung und Kopien müssen vor
+dem Cacheanschluss abgeschlossen bzw. begrenzt werden; Terrain/Infrastruktur bleiben offen.
 Wien lädt zuletzt 94,26 s, Central Park 69,67 s, Tokyo 109,66 s; das ist keine Abnahme.
 Wien hat 49 Nahkacheln, keine belegte vollständige 240-km-Assetwelt. 2336 besitzt Fernabdeckung.
 Ziel: warmes Wien möglichst <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
