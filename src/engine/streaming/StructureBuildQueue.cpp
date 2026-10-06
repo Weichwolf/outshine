@@ -1732,8 +1732,10 @@ void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
     const Generators::BakedTile &baked = *completed;
     assert(landing.Tile == bake.Task.Tile() && landing.Baked == &baked && landing.Footprints);
     if (!landing.Footprints || !baked.Coordinates) { std::terminate(); }
-    baked.Coordinates->Points = std::move(bake.Task.Raw().LatLon);
-    baked.Coordinates->Rings = std::move(bake.Task.Raw().Holes);
+    if (bake.Task.PreparedBase() == nullptr) {
+      baked.Coordinates->Points = std::move(bake.Task.Raw().LatLon);
+      baked.Coordinates->Rings = std::move(bake.Task.Raw().Holes);
+    }
     BakedMs_ += bake.Task.Result().BakeMs;
     SlowestBakeMs_ = std::max(SlowestBakeMs_, bake.Task.Result().BakeMs);
     assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
