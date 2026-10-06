@@ -17,6 +17,8 @@ Das gilt für Gebäude, Terrain, Straßen/Wasser, Vegetation und andere generier
 Ein Treffer enthält vollständig angereicherte Asset-Rohlinge, keine unvollständigen Quellen.
 Nahdetails entstehen zur Laufzeit daraus; die Basis wird bei Treffern weder ergänzt noch neu gebaut.
 Aktuell sind nur Quellbytes zuverlässig persistent; Vorbereitung/Geometrie kosten weiter viel Zeit.
+Ein generischer SQLite-Paketindex unter content/assets besteht mit Persistenz-/Raumabfragen;
+der Place-Ladepfad nutzt ihn noch nicht. Rohling-Format, Miss-Erzeugung und Runtime-Anschluss fehlen.
 Wien lädt zuletzt 94,26 s, Central Park 69,67 s, Tokyo 109,66 s; das ist keine Abnahme.
 Wien hat 49 Nahkacheln, keine belegte vollständige 240-km-Assetwelt. 2336 besitzt Fernabdeckung.
 Ziel: warmes Wien möglichst <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
@@ -51,7 +53,11 @@ Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen ble
    Kindbezug, Qualitäts-/Kostenangaben, Abhängigkeiten und Speicherort/Bytebereich. Assetkeys
    binden Region, Produkt/LOD, Seed/Parameter und Generatorversion, keine reine Blickrichtung.
    Gleiche native Abfrage für Builtins/externe Generatoren; keine Place-Listen oder OSM-Spalten im gemeinsamen Index.
-3. SQLite mit R*Tree als bewährten Index gegen gepackte räumlich sortierte Bereiche messen.
+3. SQLite-R*Tree hält persistente Paketmetadaten; geladene Pakete verwenden gepackte Bereiche.
+   [Python-Modell](../test/experiments/asset_residency.py): 100.545 Wiener Polygone → 1.837 Pakete;
+   Planarrays 25,17 MB, warmer OS-Dateicache-Read ca. 2,9 ms statt ca. 5,3 s Quellen-Decode.
+   Kein nativer Rohling-/GPU-Nachweis. Paketindex gegen Objektindex und lineare Arrays gemessen;
+   weite residente Abfragen bevorzugen Arrays, lokale persistente Abfragen den Paket-R*Tree.
    SQLite 3.54.0 und zstd 1.5.7 lokal vorhanden; keine eigene Datenbank/Index-Engine.
    Breite Bounds-Abfrage plus genaue Frustum-/Radiusprüfung; Rundung muss konservativ bleiben.
    Räumlich gebündelte Assetpakete/Bereichslesungen, keine Datei/IO-Anfrage je Haus/Baum.

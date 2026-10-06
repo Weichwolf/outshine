@@ -11,11 +11,12 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 | pugixml | 1.16 | [2188](../board/2188_engine_contracts_will_match_the_sandbox_architecture.md) | Geplant: gemeinsamer XML-Decoder |
 | Eigen | 5.0.1 | [2136](../board/2136_a_thousand_minds_walk_the_world_inside_the_frame.md) | Geplant: lineare Berechnungen, keine Änderung der GPU-ABI |
 | Bullet | 3.25 | [2136](../board/2136_a_thousand_minds_walk_the_world_inside_the_frame.md) | Geplant: Kontakte, Starrkörper und Gelenke |
+| SQLite | 3.54.0 | [2280](../board/2280_ready_assets_load_from_a_spatial_cache.md) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
 
 ## Installation
 
 ```sh
-brew install geos simdjson pugixml eigen bullet
+brew install geos simdjson pugixml eigen bullet sqlite
 ```
 
 meshoptimizer fehlt in Homebrew-Core. Das eigene [Paketrezept](../Formula/meshoptimizer.rb)
@@ -33,7 +34,7 @@ Bei einem Bibliotheksupdate Release/Hash und ABI prüfen, Paket bauen und Engine
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install libgeos-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev
+sudo apt install libgeos-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev
 ```
 
 GEOS, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten. meshoptimizer liefert
