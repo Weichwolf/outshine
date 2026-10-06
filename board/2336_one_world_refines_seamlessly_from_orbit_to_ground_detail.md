@@ -12,8 +12,7 @@ Tags: lod, coverage, planetary, budgets
 ## Ergebnis und Ist
 Rundum verfügbare Welt bis 240 km am Boden, später höhenabhängiger Horizont und Orbit → Nahdetail. Der Geometriebedarf nimmt mit Entfernung ab: Häuser → Blockverbände → kompakte Skyline-Flächen.
 Mehr Quellobjekte innerhalb gleicher Fern-Coverage erzeugen keine proportional größere Geometrie.
-Fine/Shell/Massed bestehen, Skyline fehlt; feste Massed-Hashgruppierung durch Plan-Hierarchie ersetzt.
-Der neue automatische Pfad plant Quellen und wählt Eltern vor jeder Mesh-Ausgabe; native Messung offen.
+Der automatische Pfad plant Quellen und wählt Eltern vor jeder Mesh-Ausgabe, ohne nativen Bildgewinn.
 Tokyo auf 5103c3e2c: 29,70 Mio. erzeugte Gebäudedreiecke, Median 36,59 ms, p99 253,85 ms;
 104,54 s Laden. Kein Geometrie-/Framegewinn. Bildänderung: 0,52 % der Pixel, mittlere RGB-Differenz
 0,015/255; kein abgenommener Qualitätsgewinn. Der echte Pfad liefert überwiegend Einzelhüllen.
@@ -38,13 +37,15 @@ Schätzung durch feinere quellengestützte Produkte mit stabilem Übergang.
 ## Experiment entscheidet, native Integration liefert
 [Python-Experiment](../test/experiments/building_lod.py) liest echte gecachte MVTs und Szenariokamera.
 Tokyo-Teilmenge, 640×360: 588.862 Pläne, 867.152 zugelassene Hüllendreiecke, 1.164 sichtbare Gebäude.
-[Direkte Planaggregation](../test/experiments/building_massing.py) erzeugt 10.077 Dreiecke (~86× weniger),
-verändert aber Lücken/Silhouette; kein abgenommener Ersatz. Ein Tiefenfeld ist bei gleichem Auge exakt;
-zwei Punktlayer verlieren bei 4 m Translation 4.031 belegte Pixel. Resampling/Disocclusion bleiben offen.
+[Direkte Planaggregation](../test/experiments/building_massing.py): 10.077 Dreiecke (~86× weniger),
+aber falsche Lücken/Silhouette. Ersatz: [direkte Quellabfrage](../test/experiments/building_surface.py)
+über BVH/Grundrissprismen ohne Quellvertices/-dreiecke; Python: 8.782 Flächendreiecke aus 588.862 Plänen.
+Native Quellabfrage auf A18 Pro: 204 ms BVH + 62 ms für eine Ansicht, 214 MB Prozesspeak; 100/230.400
+Pixel abweichend vom flachen Modell. Einzellayer verlieren bei Bewegung neue Flächen: Nahgeometrie
+und Nachführen/mehrere Tiefen zwingend. DEM-Kontakt/Dachprofile, Rundumprodukte und Client-Anbindung fehlen.
 Quellobjekte, Geometrie, Bildfehler, Bytes und Vorbereitung vergleichen; Stillstand, Drehung,
-Translation und Lichtwechsel getrennt prüfen. Flaches Terrain/Dachmodell und Python-Zeiten
+Translation und Lichtwechsel getrennt prüfen. Flaches Terrain/Dachmodell und vorbereitende CPU-Zeiten
 belegen weder native Framekosten noch Rundumabdeckung. Echte Höhen/Dächer und alle Places integrieren.
-Ausgaben: `build/experiments/`; keine Generatorprodukte im persistenten Quellcache.
 
 ## Neue Erzeugungskette und Zuständigkeit
 1. Generatoren halten kompakte Fachpläne vor jedem Vertex-/Indexaufbau. OSM: gepackte Ringe,
@@ -77,21 +78,20 @@ Ausgaben: `build/experiments/`; keine Generatorprodukte im persistenten Quellcac
 Bild-/Spielwirkung und Echtzeit bestimmen die zulässige Approximation, keine allgemeine CAD-Toleranz.
 Geometrische Vereinfachung verlangt passende Formgrenzen. Bildfelder verlangen Bounds und einen
 geprüften Bild-/Parallaxegültigkeitsbereich; Abstand zur flachen Trägergeometrie ist nicht ihr Bildfehler.
-ProjectedErrorBudget liefert näherungsweise e_px = e_m × f_px / d; Off-axis, Tiefe und Verdeckung
-brauchen eigene Prüfung. Silhouette/Coverage, Helligkeit, Material und zeitlicher Versatz getrennt messen.
-BuildingMesh berechnet Fine → Shell aus dem Plan ohne Vertex-/Indexaufbau; unbekannte Mesher bleiben ungeklärt.
+ProjectedErrorBudget: e_px ≈ e_m × f_px / d; Off-axis/Tiefe/Verdeckung separat prüfen.
+Silhouette/Coverage, Helligkeit, Material und zeitlichen Versatz getrennt messen.
 
 ## Vorhandene Bausteine und fehlende Integration
-Unbeleuchtetes Material-Capture/Atlas-Transport bestehen (2171). SurfaceReprojectionStage überträgt
+Unbeleuchtetes Material-Capture besteht (2171). SurfaceReprojectionStage überträgt
 perspektivische Tiefe/Material bei unverändertem Kameraort; Bewegung/Orthografie werden abgewiesen.
-Rundum-Capture, bewegungsgültige Zellfelder und native Stadtanbindung fehlen.
-PlanHierarchy hält Bounds/Indexbereiche ohne Quelltypen. StructurePlanSelection trennt vollständige
-Quellplanung, Hierarchieauswahl und begrenzte Emission. Native SourceEnvelopeBounds umschließen
+PlanHierarchy hält Bounds/Indexbereiche und fragt Strahlen von nah nach fern ohne Quelltypen ab.
+PolygonPrism liefert Schnittpunkte mit Höfen/Freiraum ohne Triangulation; der native Versuch steht in
+[CaptureSourcePrisms](../test/outshine/src/base/spatial/PolygonPrism/CaptureSourcePrisms.cpp). StructurePlanSelection trennt Planung, Auswahl und Emission. Native SourceEnvelopeBounds umschließen
 Fine/Shell vor Meshing; akzeptierte Eltern umfassen Quell- und Ersatzbounds. Unbekannte Mesher
 bleiben einzeln. Shell verwendet ihren Formfehler, nicht die für beide Produkte gleiche Quellquantisierung.
 Runtime verwendet fertige Projektionsprodukte statt Zelldetailzwang; Kameradrehung erzeugt nichts neu.
-Kamera-ECEF/Höhe und Projektion begrenzen Wiederverwendung; Bewegung veranlasst neue Auswahl. Source-/Emissionsslices sind getrennt. `OUTSHINE_TRACE_STRUCTURE_SELECTION=1` meldet höchstens
-acht Plan-/Tier-/Projektionszeilen außerhalb des Frames. Stadtanbindung der Fernflächen fehlt.
+Kamera-ECEF/Höhe/Projektion begrenzen Geometrie-Wiederverwendung; diese 64-m-Gültigkeit gilt nicht
+für Fernbilder. `OUTSHINE_TRACE_STRUCTURE_SELECTION=1` meldet bis acht Planzeilen. Stadtanbindung fehlt.
 ImpostorSurface liefert orthografische Tiefenpatches mit aktuellen Materialien; fehlende Ansichten sind offen.
 
 ## Fernwelt, Flug und Orbit
