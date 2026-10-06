@@ -208,7 +208,8 @@ bool Engine::State::PrepareRuntimeWorld() {
   }
   Collecting say;
   const World::StoragePaths worldStorage{.Shipped = Session.Under.Shipped,
-                                         .Cache = Session.Under.Cache};
+                                         .Cache = Session.Under.Cache,
+                                         .AssetCache = Session.Under.AssetCache};
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Stack.Opened() && !World.Stack.Open(worldStorage,
                                                  tileProviders,

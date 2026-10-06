@@ -20,11 +20,25 @@ auto MetricNames(const char *prefix, const std::array<const char *, Keys> &keys,
   return out;
 }
 
+void PublishPreparedTerrainCosts(Core::DiagnosticLedger &published,
+                                 const Generators::PreparedTerrainAssets::Counters &prepared) {
+  published.RecordMetric("cost.assets.terrain.hits", static_cast<double>(prepared.Hits), "reads");
+  published.RecordMetric(
+      "cost.assets.terrain.resident", static_cast<double>(prepared.Resident), "reads");
+  published.RecordMetric(
+      "cost.assets.terrain.misses", static_cast<double>(prepared.Misses), "reads");
+  published.RecordMetric(
+      "cost.assets.terrain.writes", static_cast<double>(prepared.Writes), "packages");
+  published.RecordMetric(
+      "cost.assets.terrain.read_bytes", static_cast<double>(prepared.ReadBytes), "bytes");
+}
+
 }
 
 void Engine::State::PublishCostMeasurements() {
   const auto began = std::chrono::steady_clock::now();
   const auto store = World.Stack.StoreCosts();
+  PublishPreparedTerrainCosts(Published, World.Stack.PreparedTerrainCosts());
   Published.RecordMetric("cost.cache.hits", static_cast<double>(store.Hits), "reads");
   Published.RecordMetric("cost.cache.misses", static_cast<double>(store.Misses), "reads");
   Published.RecordMetric("cost.cache.read_ms", store.ReadMs, "ms");

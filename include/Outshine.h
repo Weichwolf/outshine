@@ -126,6 +126,8 @@ struct Roots {
   std::string Cache;   ///< Tile/provider cache directory; backend policies govern persistence.
   bool Offline =
       false; ///< Prohibit network requests; providers may still serve local files and cache hits.
+  std::string
+      AssetCache; ///< Persistent native asset directory; empty disables prepared-asset storage.
 };
 
 class Engine;

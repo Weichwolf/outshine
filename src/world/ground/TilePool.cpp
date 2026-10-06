@@ -151,8 +151,12 @@ struct TilePool::ComputeContext {
   PoolTerrain Source;
   TerrainTiles Tiles;
 
-  ComputeContext(TilePool &pool, EnuFrame frame, const std::shared_ptr<DecodedCache> &decoded)
-      : Source(pool), Tiles(Source, frame, TerrainTiles::Config{.Shared = decoded}) {}
+  ComputeContext(TilePool &pool,
+                 EnuFrame frame,
+                 const std::shared_ptr<DecodedCache> &decoded,
+                 const TerrainTiles::FieldResolver &prepared)
+      : Source(pool),
+        Tiles(Source, frame, TerrainTiles::Config{.Shared = decoded, .PreparedFields = prepared}) {}
 };
 
 TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport)
@@ -163,6 +167,7 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       ByteBudget_(config.ByteBudget),
       Decoded_(std::make_shared<Ground::DecodedCache>(
           std::max(config.DecodedBytes, kMinimumStitchCacheBytes))),
+      PreparedFields_(config.PreparedFields),
       PollAttempts_(config.PollAttempts),
       CarrierCount_(config.Carriers),
       OutstandingMost_(config.OutstandingMost),
@@ -954,7 +959,9 @@ void TilePool::Work(int slot) {
     std::abort();
   }
   auto &context = Contexts_[static_cast<size_t>(slot)];
-  if (!context) { context = std::make_unique<ComputeContext>(*this, frame, Decoded_); }
+  if (!context) {
+    context = std::make_unique<ComputeContext>(*this, frame, Decoded_, PreparedFields_);
+  }
   TerrainTiles &tiles = context->Tiles;
   const auto retainBytes = [&] {
     ContextBytes_[static_cast<size_t>(slot)].store(sizeof(ComputeContext) - sizeof(TerrainTiles) +
@@ -1210,11 +1217,11 @@ TilePool::Reply TilePool::Mesh(Data::TileId of, int grid, TileBuild *out) {
 
 void TilePool::RunField(TerrainTiles &tiles, const Job &job, Result *out) {
   TerrainGrid grid = tiles.StitchedGrid(job.Z, job.X, job.Y);
-  TerrainField *field = grid.TryFieldMutable();
+  auto field = grid.ShareField();
   out->Landed.Failure = grid.Failure();
   const Miss miss = MissOf(grid.Where());
   if (miss == Miss::None && field != nullptr) {
-    out->Field = std::make_shared<const TerrainField>(std::move(*field));
+    out->Field = std::move(field);
     out->State = Reply::Ready;
     return;
   }

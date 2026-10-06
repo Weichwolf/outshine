@@ -16,14 +16,14 @@ Miss → Generator → Provider/Quellcache/API nach Bedarf → vollständige Anr
 Das gilt für Gebäude, Terrain, Straßen/Wasser, Vegetation und andere generierte Inhalte.
 Ein Treffer enthält vollständig angereicherte Asset-Rohlinge, keine unvollständigen Quellen.
 Nahdetails entstehen zur Laufzeit daraus; die Basis wird bei Treffern weder ergänzt noch neu gebaut.
-Aktuell sind nur Quellbytes zuverlässig persistent; Vorbereitung/Geometrie kosten weiter viel Zeit.
-content/assets speichert Paketbytes und Raumindex atomar; ein Miss-Callback erzeugt das Paket,
-Hits laden geprüfte Bytes ohne Callback. Der Place-Ladepfad nutzt das noch nicht: native Rohling-
-Formate, öffentliche Generatoranbindung, Jobbündelung und Residency-/SSD-Budget fehlen.
+content/assets speichert native Paketbytes und Raumindex atomar; Hits umgehen den Miss-Callback.
+Der Client prüft native Höhenfelder vor DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
+Versionierte Pakete erhalten alle Samples, Quellherkunft und fehlende Randdaten; Offline-Replay
+benötigt keine Quelle. Place-Warmmessung, öffentliche Anbindung und Residency-/SSD-Budget fehlen.
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Ein versionierter Codec speichert/lädt diese Basis über content/assets; der Wiederstarttest
 verfeinert ohne Quellen/Höhen dieselbe Geometrie und wiederholt keine Hausformplanung. Das ist
-noch ein privater Baustein: öffentlicher Vertrag/Place-Anschluss und Terrain/Infrastruktur fehlen;
+noch ein privater Baustein: öffentlicher Vertrag/Gebäudeanschluss und verformtes Terrain/Infrastruktur fehlen;
 Ein source-freier Worker verarbeitet diese Basis in begrenzten Arbeitsblöcken; die echte
 Queue muss früh laden und Terrainkontakte ohne erneuten Höhenfelderwerb übernehmen.
 Koordinatenkopien, Fernverbände und residente Kosten müssen im echten Ladepfad begrenzt werden.

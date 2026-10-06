@@ -3,11 +3,13 @@
 #include <expected>
 #include <array>
 #include "SurfacePreparation.h"
+#include "PreparedTerrainAssets.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <chrono>
 #include <memory>
+#include <utility>
 #include <ratio>
 #include <span>
 #include <string_view>
@@ -102,6 +104,21 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
   auto poolConfig = *config;
   poolConfig.Compute = &compute;
   poolConfig.Diagnostics = diagnostics;
+  if (!under.AssetCache.empty()) {
+    auto prepared = Generators::PreparedTerrainAssets::Open(under.AssetCache, sources);
+    if (!prepared) {
+      say.Refuse(prepared.error());
+      Close();
+      return false;
+    }
+    PreparedTerrain_ = std::move(*prepared);
+    poolConfig.PreparedFields = [assets =
+                                     PreparedTerrain_](Data::TileId at,
+                                                       const TerrainTiles::Shaped &shape,
+                                                       const TerrainTiles::FieldFactory &factory) {
+      return assets->Resolve(at, shape, factory);
+    };
+  }
   Pool_ = std::make_unique<outshine::Ground::TilePool>(poolConfig, sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
   SurfaceZoom_ = surface.Z;
@@ -127,6 +144,7 @@ void SurfacePreparation::Close() {
   Vectors_.reset();
   Ground_.reset();
   Pool_.reset();
+  PreparedTerrain_.reset();
   LandingCursor_ = {};
   Sources_.reset();
   Store_.reset();

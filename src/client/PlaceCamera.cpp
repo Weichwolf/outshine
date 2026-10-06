@@ -270,7 +270,7 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, Roots roots) {
 std::string Prepare(const Place &place, double patienceS) {
   const auto began = std::chrono::steady_clock::now();
   auto roots = Client::WithSourceCache(
-      Roots{.Assets = "src/assets/drive", .Shipped = "src/assets", .Cache = {}});
+      Roots{.Assets = "src/assets/drive", .Shipped = "src/assets", .Cache = {}, .AssetCache = {}});
   if (!roots) { return std::move(roots.error()); }
   auto declared = place.Declaration;
   if (auto configured = Client::ConfigureWorldSources(declared); !configured) {

@@ -12,6 +12,7 @@
 #include "ContentStore.h"
 #include "SourceConfiguration.h"
 #include "SourceSet.h"
+#include "PreparedTerrainAssets.h"
 #include "TerrainLoader.h"
 #include <world/data/SourceDecl.h>
 #include "BuildingField.h"
@@ -108,6 +109,11 @@ public:
                                  Data::SourceSet::Ledger::KindCount>{};
   }
 
+  [[nodiscard]] auto PreparedTerrainCosts() const noexcept {
+    return PreparedTerrain_ ? PreparedTerrain_->Costs()
+                            : ::outshine::Generators::PreparedTerrainAssets::Counters{};
+  }
+
   void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
     Cls_.Declares(these);
@@ -184,6 +190,7 @@ private:
 
   std::unique_ptr<Data::ContentStore> Store_;
   std::unique_ptr<Data::SourceSet> Sources_;
+  std::shared_ptr<::outshine::Generators::PreparedTerrainAssets> PreparedTerrain_;
   std::unique_ptr<TilePool> Pool_;
   TilePool::LandingCursor LandingCursor_;
   std::unique_ptr<GroundStream> Ground_;

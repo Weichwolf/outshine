@@ -17,7 +17,9 @@ namespace outshine::Client {
       return std::unexpected("could not locate the source cache: " + std::string(SDL_GetError()));
     }
     roots.Cache = std::string(path.get()) + "sources";
+    if (roots.AssetCache.empty()) { roots.AssetCache = std::string(path.get()) + "assets"; }
   }
+  if (roots.AssetCache.empty()) { roots.AssetCache = roots.Cache + ".assets"; }
   return roots;
 }
 

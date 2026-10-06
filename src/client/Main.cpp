@@ -328,7 +328,8 @@ void PrintStats(std::string_view name,
   return {.Assets = "src/assets/drive",
           .Shipped = "src/assets",
           .Cache = std::string(cacheDirectory),
-          .Offline = offline};
+          .Offline = offline,
+          .AssetCache = {}};
 }
 
 [[nodiscard]] bool InitializeClientEngine(

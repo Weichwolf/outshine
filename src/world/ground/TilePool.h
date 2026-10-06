@@ -102,6 +102,7 @@ public:
     size_t OutstandingMost = 2048;
 
     LogSink *Diagnostics = nullptr;
+    TerrainTiles::FieldResolver PreparedFields;
   };
 
   TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport);
@@ -314,6 +315,7 @@ private:
   const size_t ByteBudget_;
   std::unique_ptr<TerrainRevisionIndex> TerrainRevisions_;
   std::shared_ptr<Ground::DecodedCache> Decoded_;
+  TerrainTiles::FieldResolver PreparedFields_;
   const int PollAttempts_;
   const int CarrierCount_;
   const size_t OutstandingMost_;

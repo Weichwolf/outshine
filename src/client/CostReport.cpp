@@ -49,6 +49,14 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
   const auto get = [samples](std::string_view key) { return Value(samples, key); };
   if (get("cost.render.frames") == 0.0) { return; }
   std::println(
+      "PERF {} native terrain: hit/resident/miss/write={:.0f}/{:.0f}/{:.0f}/{:.0f} read={:.2f}MiB",
+      scene,
+      get("cost.assets.terrain.hits"),
+      get("cost.assets.terrain.resident"),
+      get("cost.assets.terrain.misses"),
+      get("cost.assets.terrain.writes"),
+      get("cost.assets.terrain.read_bytes") / kBytesPerMiB);
+  std::println(
       "PERF {} cache lifetime: read={:.1f}ms/{:.2f}MiB/{:.0f}calls write={:.1f}ms/{:.2f}MiB "
       "hits/miss={:.0f}/{:.0f} decoded={:.0f}/{:.0f} evict={:.0f}",
       scene,

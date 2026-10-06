@@ -7,8 +7,9 @@ namespace outshine::World {
 
 /// Owned filesystem roots required by streamed world data.
 struct StoragePaths {
-  std::string Shipped; ///< Base directory for built-in world tables and provider data.
-  std::string Cache;   ///< Persistent provider cache directory; empty disables disk storage.
+  std::string Shipped;    ///< Base directory for built-in world tables and provider data.
+  std::string Cache;      ///< Persistent provider cache directory; empty disables disk storage.
+  std::string AssetCache; ///< Native asset cache, separate from immutable provider bytes.
 };
 
 }
