@@ -9,10 +9,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
-#include <SDL3/SDL_stdinc.h>
-#include <print>
-#include <limits>
 #include <optional>
 #include <expected>
 #include <numeric>
@@ -223,40 +219,7 @@ StructurePlanSelection::Select(const RawTile &raw,
     if (!selected) { return std::unexpected(selected.error()); }
     first = end;
   }
-  static std::atomic_uint traces{0};
-  if (SDL_getenv("OUTSHINE_TRACE_STRUCTURE_SELECTION") != nullptr &&
-      traces.fetch_add(1, std::memory_order_relaxed) < 8u) {
-    std::array<size_t, 3> levels{};
-    size_t known = 0;
-    double nearM = std::numeric_limits<double>::infinity();
-    double farM = 0.0;
-    double largestErrorM = 0.0;
-    for (const auto &source : Sources_) {
-      ++levels[static_cast<size_t>(out.FootprintDetails[source.Footprint])];
-      known += static_cast<size_t>(source.Bounds.has_value());
-      const double distanceM = DistanceTo(source.Mass, raw, source.Bounds.value_or(Box{}));
-      nearM = std::min(nearM, distanceM);
-      farM = std::max(farM, distanceM);
-      largestErrorM = std::max(largestErrorM, source.ShellErrorM.value_or(0.0));
-    }
-    std::println(stderr,
-                 "selection sources={} known={} levels={}/{}/{} products={} focal={:.3f} "
-                 "allowance={:.3f} eye={:.6f},{:.6f} ecef={} distance={:.3f}..{:.3f} shell={:.3f}",
-                 Sources_.size(),
-                 known,
-                 levels[0],
-                 levels[1],
-                 levels[2],
-                 Commands_.size(),
-                 raw.Projection.FocalPx,
-                 raw.Projection.AllowedErrorPx,
-                 raw.Eye.LongitudeDeg,
-                 raw.Eye.LatitudeDeg,
-                 raw.EyeEcef.has_value(),
-                 nearM,
-                 farM,
-                 largestErrorM);
-  }
+
   return {};
 }
 

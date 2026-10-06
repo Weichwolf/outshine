@@ -91,7 +91,7 @@ Fine/Shell vor Meshing; akzeptierte Eltern umfassen Quell- und Ersatzbounds. Unb
 bleiben einzeln. Shell verwendet ihren Formfehler, nicht die für beide Produkte gleiche Quellquantisierung.
 Runtime verwendet fertige Projektionsprodukte statt Zelldetailzwang; Kameradrehung erzeugt nichts neu.
 Kamera-ECEF/Höhe/Projektion begrenzen Geometrie-Wiederverwendung; diese 64-m-Gültigkeit gilt nicht
-für Fernbilder. `OUTSHINE_TRACE_STRUCTURE_SELECTION=1` meldet bis acht Planzeilen. Stadtanbindung fehlt.
+für Fernbilder. Die Stadtanbindung der Fernflächen fehlt.
 ImpostorSurface liefert orthografische Tiefenpatches mit aktuellen Materialien; fehlende Ansichten sind offen.
 
 ## Fernwelt, Flug und Orbit
