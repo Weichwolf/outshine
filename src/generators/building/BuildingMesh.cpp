@@ -28,6 +28,7 @@
 #include "BuildingScratch.h"
 #include "BuildingShape.h"
 #include "BuildingPreparation.h"
+#include "BuildingSurface.h"
 #include "Geodesy.h"
 #include "RoofSurface.h"
 
@@ -145,6 +146,23 @@ public:
     Coarseness_ = plan.Coarseness;
     RecessedOpenings_ = plan.RecessedOpenings;
     MinimumHeightM_ = plan.MinimumHeightM;
+  }
+
+  Site(const Vec3 &origin,
+       const EnuAxes &axes,
+       double minimumHeightM,
+       BuildingScratch &scratch,
+       Raised &into)
+      : Out_(into),
+        Scratch_(scratch),
+        Origin_(origin),
+        East_(axes.East),
+        North_(axes.North),
+        Up_(axes.Up),
+        Coarseness_(LevelOfDetail::Shell),
+        RecessedOpenings_(false),
+        MinimumHeightM_(minimumHeightM) {
+    Scratch_.ClearWelds();
   }
 
   [[nodiscard]] LevelOfDetail Coarseness() const { return Coarseness_; }
@@ -812,4 +830,89 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
   return {};
 }
 
+namespace {
+void GableFace(const BuildingShape &shape,
+               const RoofSurface &roof,
+               const EastNorth &p,
+               const EastNorth &q,
+               double deck,
+               Site &site) {
+  auto &scratch = site.Scratch();
+  roof.BreaksAlong(p, q, scratch.Breaks);
+  double was = 0.0;
+  for (size_t at = 0; at <= scratch.Breaks.size(); ++at) {
+    const double now = at < scratch.Breaks.size() ? scratch.Breaks[at] : 1.0;
+    const EastNorth a = Along(p, q, was);
+    const EastNorth b = Along(p, q, now);
+    const double ha = std::max(roof.HeightAt(a), 0.0);
+    const double hb = std::max(roof.HeightAt(b), 0.0);
+    was = now;
+    if (ha < kLeastRiseM && hb < kLeastRiseM) { continue; }
+    site.Quad(Wall(shape, a, deck, 0.0, Fields::Back),
+              Wall(shape, b, deck, 0.0, Fields::Back),
+              Wall(shape, b, deck + hb, 0.0, Fields::Back),
+              Wall(shape, a, deck + ha, 0.0, Fields::Back));
+  }
+}
+
+bool WallFace(const BuildingShape &shape,
+              const RoofSurface &roof,
+              size_t edge,
+              Site &site,
+              double bottom,
+              double deck) {
+  std::span<const EastNorth> ring = shape.Ring;
+  bool exterior = true;
+  if (edge >= ring.size()) {
+    edge -= ring.size();
+    exterior = false;
+    for (const auto &hole : shape.Holes) {
+      if (edge < hole.size()) {
+        ring = hole;
+        break;
+      }
+      edge -= hole.size();
+    }
+  }
+  if (edge >= ring.size()) { return false; }
+  const auto &p = ring[edge];
+  const auto &q = ring[(edge + 1) % ring.size()];
+  const double bays =
+      exterior && shape.PartyWallEdges[edge] != 0 ? 0.0 : FacadeBays(EdgeLength(p, q), shape.BayM);
+  const Fields stand =
+      exterior && std::cmp_equal(edge, shape.FrontEdge) ? Fields::Entrance : Fields::Back;
+  WallPanel(shape, p, q, 0.0, bays, bottom, deck, stand, site);
+  if (shape.Roof != RoofKind::Flat) { GableFace(shape, roof, p, q, deck, site); }
+  return true;
+}
+
+}
+
+std::expected<void, StructureMeshError> BuildingSurface::MeshVisible(std::span<const Face> faces,
+                                                                     BuildingScratch &scratch,
+                                                                     Raised &into) const {
+  const size_t first = into.WallCorners.size();
+  Site site(Origin_, Axes_, MinimumHeightM_, scratch, into);
+  for (const auto &face : faces) {
+    const auto &shape = Shapes_[face.Part];
+    const RoofSurface roof(shape);
+    const double bottom = site.LowerZ(shape);
+    const double deck = EavesZ(shape) + (shape.Roof == RoofKind::Flat ? shape.RiseM : 0.0);
+    if (face.Side == 0) {
+      Floor(shape, shape.Ring, bottom, site);
+      continue;
+    }
+    if (face.Side == 1) {
+      Covering(shape, roof, shape.Ring, deck - kSlabM, site);
+      continue;
+    }
+    if (!WallFace(shape, roof, face.Side - 2, site, bottom, deck)) {
+      return std::unexpected(StructureMeshError::InvalidPlan);
+    }
+  }
+  StructurePlan paint;
+  paint.WallColour = WallColour_;
+  AppendWallColours(paint, first, into);
+  return site.Status();
+}
 }
