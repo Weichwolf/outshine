@@ -373,6 +373,7 @@ void ReportShot(const Shot &shot,
     }
   }
   if (options.Stats) {
+    if (options.Rows) { outshine::Client::PrintCostReport(name, shot.Measures); }
     const double elapsedMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     PrintStats(name,

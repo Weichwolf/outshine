@@ -236,6 +236,8 @@ public:
 
   [[nodiscard]] size_t Discarded() const { return Discarded_; }
 
+  [[nodiscard]] double BakeWorkMs() const noexcept { return BakedMs_; }
+
   [[nodiscard]] double MeanBakeMs() const {
     return Landed_ > 0 ? BakedMs_ / static_cast<double>(Landed_) : 0.0;
   }

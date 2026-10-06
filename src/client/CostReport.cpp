@@ -89,6 +89,13 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
                get("cost.osm.parse_ms"),
                get("cost.osm.capacity_ms"),
                get("cost.osm.publish_ms"));
+  std::println(
+      "PERF {} structures lifetime: work={:.1f}ms products={:.0f} ranges={:.0f} max_range={:.2f}ms",
+      scene,
+      get("cost.structures.work_ms"),
+      get("cost.structures.products"),
+      get("cost.structures.ranges"),
+      get("cost.structures.max_range_ms"));
   Group(scene, samples, "cost.ground.", 0.0);
   const double frames = get("cost.render.frames");
   std::print("PERF {} host {}frames ms(mean/worst-frame):", scene, frames);

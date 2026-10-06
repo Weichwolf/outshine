@@ -63,6 +63,13 @@ void Engine::State::PublishCostMeasurements() {
     Published.RecordMetric("cost.osm.capacity_ms", cost.CapacityMs, "ms");
     Published.RecordMetric("cost.osm.publish_ms", cost.PublicationMs, "ms");
   }
+  const auto &structures = World.StructureBuilds;
+  Published.RecordMetric("cost.structures.work_ms", structures.BakeWorkMs(), "ms");
+  Published.RecordMetric(
+      "cost.structures.products", static_cast<double>(structures.Landed()), "products");
+  Published.RecordMetric(
+      "cost.structures.ranges", static_cast<double>(structures.CompletedRanges()), "ranges");
+  Published.RecordMetric("cost.structures.max_range_ms", structures.SlowestRangeMs(), "ms");
   static const auto groundNames = MetricNames<Spent::kGroundPhaseCount>(
       "cost.ground.", std::array{".total_ms", ".max_ms", ".calls"}, [](size_t at) {
         constexpr std::array names{"candidate",
