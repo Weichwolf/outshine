@@ -15,7 +15,8 @@ Mehr Quellobjekte innerhalb gleicher Fern-Coverage erzeugen keine proportional g
 Der automatische Pfad plant Quellen und wählt Eltern vor jeder Mesh-Ausgabe, ohne nativen Bildgewinn.
 Tokyo auf 5103c3e2c: 29,70 Mio. erzeugte Gebäudedreiecke, Median 36,59 ms, p99 253,85 ms;
 104,54 s Laden. Kein Geometrie-/Framegewinn. Bildänderung: 0,52 % der Pixel, mittlere RGB-Differenz
-0,015/255; kein abgenommener Qualitätsgewinn. Der echte Pfad liefert überwiegend Einzelhüllen.
+0,015/255; kein abgenommener Qualitätsgewinn. Wien/CentralPark: 6,77/9,23 Mio. Dreiecke,
+p99 85,85/95,89 ms, Cacheladen 68,91/60,70 s; Bilder praktisch unverändert. Überwiegend Einzelhüllen.
 Gesamte Bounds unter einen Pixel zu verlangen erlaubt Massed zu spät; mittlere Ferne braucht
 Tiefen-/Materialflächen mit Bildgültigkeit. Mehr Feintuning dieser Massed-Schwelle entfällt.
 
@@ -90,8 +91,7 @@ PolygonPrism liefert Schnittpunkte mit Höfen/Freiraum ohne Triangulation; der n
 Fine/Shell vor Meshing; akzeptierte Eltern umfassen Quell- und Ersatzbounds. Unbekannte Mesher
 bleiben einzeln. Shell verwendet ihren Formfehler, nicht die für beide Produkte gleiche Quellquantisierung.
 Runtime verwendet fertige Projektionsprodukte statt Zelldetailzwang; Kameradrehung erzeugt nichts neu.
-Kamera-ECEF/Höhe/Projektion begrenzen Geometrie-Wiederverwendung; diese 64-m-Gültigkeit gilt nicht
-für Fernbilder. Die Stadtanbindung der Fernflächen fehlt.
+Kamera-ECEF/Höhe/Projektion begrenzen Geometrie-Wiederverwendung; 64 m gelten nicht für Fernbilder.
 ImpostorSurface liefert orthografische Tiefenpatches mit aktuellen Materialien; fehlende Ansichten sind offen.
 
 ## Fernwelt, Flug und Orbit
