@@ -1,5 +1,7 @@
 #include "PreparedTerrainAssets.h"
 #include "PreparedTerrainCodec.h"
+#include "AssetSourceRecipe.h"
+#include <array>
 #include "ByteArchive.h"
 #include "SourceSet.h"
 #include "Sha256.h"
@@ -24,29 +26,6 @@
 
 namespace outshine::Generators {
 namespace {
-
-std::string Recipe(const Data::SourceSet &sources) {
-  std::string recipe = "prepared-terrain-field-1";
-  for (size_t at = 0; at < sources.Count(); ++at) {
-    const auto &decl = sources.At(at).Declaration();
-    if (decl.Kind != Data::DataKind::Elevation) { continue; }
-    recipe += Data::ContentKey(decl, Data::Address::Whole(0));
-    for (const auto value : {static_cast<int>(decl.Wire),
-                             static_cast<int>(decl.How),
-                             static_cast<int>(decl.Order),
-                             static_cast<int>(decl.OnAbsent),
-                             static_cast<int>(decl.TileAbsence),
-                             decl.MinZoom,
-                             decl.MaxZoom,
-                             static_cast<int>(decl.AncestorFill)}) {
-      recipe += ':';
-      recipe += std::to_string(value);
-    }
-    recipe += ':';
-    recipe += decl.Schema;
-  }
-  return Sha256Hex(recipe);
-}
 
 std::string Key(const std::string &recipe,
                 Data::TileId at,
@@ -125,8 +104,10 @@ PreparedTerrainAssets::Open(const std::string &directory, const Data::SourceSet 
   }
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the native asset cache"); }
-  return std::shared_ptr<PreparedTerrainAssets>(
-      new PreparedTerrainAssets(std::move(*cache), Recipe(sources)));
+  return std::shared_ptr<PreparedTerrainAssets>(new PreparedTerrainAssets(
+      std::move(*cache),
+      AssetSourceRecipe(
+          "prepared-terrain-field-1", sources, std::array{Data::DataKind::Elevation})));
 }
 
 ::outshine::Ground::TerrainGrid

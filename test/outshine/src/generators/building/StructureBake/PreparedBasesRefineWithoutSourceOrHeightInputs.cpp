@@ -1,4 +1,7 @@
 #include "PreparedStructureTile.h"
+#include "PreparedBuildingAssets.h"
+#include "ContentStore.h"
+#include "SourceSet.h"
 #include "StructureBuildTask.h"
 #include "Tasks.h"
 #include "PreparedStructureCodec.h"
@@ -63,6 +66,38 @@ std::shared_ptr<const Ground::HeightField> Heights() {
   return Ground::HeightField::Of(0, {block});
 }
 
+void NativeCache(const std::filesystem::path &root) {
+  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::SourceSet sources(store);
+  const auto directory = root.string();
+  auto opened = PreparedBuildingAssets::Open(directory, sources);
+  CHECK(opened.has_value(), "native building service opens the shared spatial cache");
+  if (!opened) { return; }
+  const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
+  const Ground::ShapedGround shape;
+  const auto key = (*opened)->Key(tile, 17, shape, 1000);
+  const auto miss = (*opened)->Load(key);
+  CHECK(miss && !*miss, "native base miss is distinct from storage failure");
+  const std::atomic_bool stopping{false};
+  const auto generated = (*opened)->Generate(key, Inputs(), *Heights(), stopping);
+  CHECK(generated && *generated && (*generated)->Structures.size() == 3,
+        "cache miss publishes and reloads complete intrinsic building assets");
+  opened->reset();
+  auto restarted = PreparedBuildingAssets::Open(directory, sources);
+  CHECK(restarted.has_value(), "building cache service survives a new connection");
+  if (!restarted) { return; }
+  const auto hit = (*restarted)->Load(key);
+  CHECK(hit && *hit && (*hit)->Structures.size() == 3 && (*restarted)->Costs().Writes == 0 &&
+            (*restarted)->Costs().Hits == 1,
+        "native hit restores the base without enrichment or a write");
+  auto changed = shape;
+  changed.Gradient = 0.1;
+  CHECK((*restarted)->Key(tile, 17, changed, 1000) != key &&
+            (*restarted)->Key(tile, 18, shape, 1000) != key &&
+            (*restarted)->Key(tile, 17, shape, 2000) != key,
+        "terrain shaping, street inputs and scale bind separate base keys");
+}
+
 std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &base) {
   const auto encoded = EncodePreparedStructureTile(base);
   CHECK(encoded.has_value(), "complete intrinsic forms, roofs and terrain contacts serialize");
@@ -121,6 +156,7 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
   CHECK(!DecodePreparedStructureTile(truncated, 1024 * 1024),
         "partial native building packages do not become ready products");
   (*restarted).reset();
+  NativeCache(root);
   std::filesystem::remove_all(root);
   return decoded;
 }
