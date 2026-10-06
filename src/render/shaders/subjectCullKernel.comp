@@ -46,7 +46,7 @@ void main() {
       return;
     }
   }
-  if (view.occludes != 0u) {
+  if (view.occludes != 0u && view.sourceWide != 0u && view.sourceHigh != 0u) {
     const vec4 said = view.clip * vec4(centre, 1.0);
     const vec3 xrow = vec3(view.clip[0][0], view.clip[1][0], view.clip[2][0]);
     const vec3 yrow = vec3(view.clip[0][1], view.clip[1][1], view.clip[2][1]);
@@ -77,8 +77,8 @@ void main() {
                                 max(zmost / wleast, zmost / wmost));
       const vec2 lo = clamp(vec2(least.x * 0.5 + 0.5, 0.5 - most.y * 0.5), 0.0, 1.0);
       const vec2 hi = clamp(vec2(most.x * 0.5 + 0.5, 0.5 - least.y * 0.5), 0.0, 1.0);
-      float across = max((hi.x - lo.x) * float(view.pyramidWide[0]),
-                         (hi.y - lo.y) * float(view.pyramidHigh[0]));
+      const vec2 source = vec2(view.sourceWide, view.sourceHigh);
+      float across = 0.5 * max((hi.x - lo.x) * source.x, (hi.y - lo.y) * source.y);
       uint level = 0u;
       while (level + 1u < 4u && across > 2.0) {
         across *= 0.5;
@@ -87,10 +87,11 @@ void main() {
       const uint wide = view.pyramidWide[level];
       const uint high = view.pyramidHigh[level];
       const uint first = view.pyramidAt[level];
-      const uvec2 from = uvec2(min(uint(lo.x * float(wide)), wide - 1u),
-                               min(uint(lo.y * float(high)), high - 1u));
-      const uvec2 to = uvec2(min(uint(hi.x * float(wide)), wide - 1u),
-                             min(uint(hi.y * float(high)), high - 1u));
+      const vec2 blocks = source / float(2u << level);
+      const uvec2 from = uvec2(min(uint(lo.x * blocks.x), wide - 1u),
+                               min(uint(lo.y * blocks.y), high - 1u));
+      const uvec2 to = uvec2(min(uint(hi.x * blocks.x), wide - 1u),
+                             min(uint(hi.y * blocks.y), high - 1u));
 
       if (to.x - from.x >= 4u || to.y - from.y >= 4u) {
         kept[id] = job.w;

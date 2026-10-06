@@ -6,6 +6,7 @@
 #include <span>
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <string>
 
 #include <atomic>
@@ -22,7 +23,10 @@ constexpr size_t kPlaneFloats = 24;
 
 namespace {
 
-struct CullView {
+constexpr size_t kCullPyramidOffset = 192;
+constexpr size_t kCullSourceOffset = 244;
+
+struct alignas(16) CullView {
   std::array<float, kPlaneFloats> Planes{};
   Vec4f Shift;
   uint32_t Jobs;
@@ -34,10 +38,16 @@ struct CullView {
   std::array<uint32_t, 4> PyramidHigh{};
   std::array<uint32_t, 4> PyramidAt{};
   uint32_t Occludes;
-  std::array<uint32_t, 3> Pad2{};
+  uint32_t SourceWide;
+  uint32_t SourceHigh;
+  uint32_t Pad2 = 0;
 };
 
-static_assert(sizeof(CullView) % 16u == 0u, "the cull uniform keeps its float4x4 aligned");
+static_assert(sizeof(CullView) == 256 && alignof(CullView) == 16);
+static_assert(offsetof(CullView, Clip) == 128);
+static_assert(offsetof(CullView, PyramidWide) == kCullPyramidOffset);
+static_assert(offsetof(CullView, SourceWide) == kCullSourceOffset);
+static_assert(offsetof(CullView, SourceHigh) == kCullSourceOffset + sizeof(uint32_t));
 
 std::atomic<float> gErrorPerMetre{0.0f};
 std::atomic<uint32_t> gJobsSwept{0};
@@ -114,6 +124,8 @@ uint32_t SubjectCullStage::Standing(const FrameContext &ctx, void *view) {
     into.PyramidAt[level] = Pyramid_.At[level];
   }
   into.Occludes = OccludeThisFrame_ ? 1u : 0u;
+  into.SourceWide = Pyramid_.SourceWide;
+  into.SourceHigh = Pyramid_.SourceHigh;
   const float *const up = into.Planes.data() + static_cast<size_t>(2U * 4U);
   const float *const down = into.Planes.data() + static_cast<size_t>(3U * 4U);
   const float between = up[0] * down[0] + up[1] * down[1] + up[2] * down[2];

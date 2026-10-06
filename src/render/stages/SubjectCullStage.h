@@ -18,7 +18,8 @@ class SubjectDraw;
 class SubjectCullStage {
 public:
   void PyramidFrom(SDL_GPUBuffer *pyramid, const PyramidShape &shape) {
-    if (PyramidBuffer_ != pyramid || Pyramid_.Wide != shape.Wide || Pyramid_.High != shape.High) {
+    if (PyramidBuffer_ != pyramid || Pyramid_.Wide != shape.Wide || Pyramid_.High != shape.High ||
+        Pyramid_.SourceWide != shape.SourceWide || Pyramid_.SourceHigh != shape.SourceHigh) {
       Cache_.Invalidate();
     }
     PyramidBuffer_ = pyramid;
