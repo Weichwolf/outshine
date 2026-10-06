@@ -30,7 +30,8 @@ Runde Dächer linear triangulieren; Formen, Höfe und gemeinsame Ringkontakte in
 Vor Erzeugung auswählen; konservative Formgrenzen nicht lockern, um fehlende Gebäude zu verdecken.
 Draw-Bedarf vor Attributallokation bestimmen; starre Posen nutzen den Positionsbuffer als Vorpose.
 Tokyos GPU-Streamkapazität sinkt 5,36 → 3,92 GB (Emission/Vorpose); beide Bilder bleiben pixelgleich.
-CPU-Heap bleibt ~4,78 GB; kein belegter Framegewinn durch diese Einsparung. Framekosten bleiben rot.
+CPU-Heap bleibt ~4,78 GB; kein belegter Framegewinn. Diagnose: Tokyo OS-Spitzenfootprint 10,97–11,41 GB,
+maximaler RSS 2,56–3,79 GB. Systemweite Swapouts 6,83 GB im Kontrolllauf; Prozessanteil nicht bewiesen.
 
 ## Auswahl der einfachen Hülle
 BuildingMesh liefert eine positive beidseitige Shell-Schranke aus Laibungstiefe, Millimeter-
@@ -46,11 +47,12 @@ stationäre Folgebilder dürfen mit belegter Tiefe verfeinern und danach die Aus
 Nur erfolgreich eingereichte GPU-Arbeit bestätigt den Auswahlzustand; Fehler bleiben wiederholbar.
 Aktuelle native Occluder helfen Tokyo (p50 34,2 → 22,3 ms), kosten Central Park (12,7 → 13,1 ms).
 Vorlage nach projizierter Coverage/Gesamtkosten auswählen; noch keine Runtime-Integration.
-Vorige Sichtbarkeit darf Arbeit priorisieren, niemals neu freigelegte Inhalte ausschließen.
+Kugelbasierte meshoptimizer-Rückseitenkegel werden verworfen: Schlussblick Tokyo nur 16/5,38 Mio.,
+Central Park 135/2,79 Mio. Dreiecke entfernt; PNGs identisch, keine belegte Zeitersparnis.
+Diagnose `e37b7fce7`, keine Runtime-Integration. Vorige Sichtbarkeit darf neu freigelegte Inhalte nicht ausschließen.
 Tiefenblöcke erfassen auch Randpixel; Abbildung verwendet Quellgröße und Blockspanne.
 Zusätzliche Pässe nur bei belegter Gesamtersparnis; ausgeführte Geometrie und Wartepfad getrennt messen.
-Multi-Draw fasst benachbarte gleichartige indirekte Batches zusammen; direkte Batches begrenzen den Lauf.
-Reihenfolge/Instanzen/Culling erhalten; SDL-Aufrufe und Encodingkosten getrennt zählen.
+Multi-Draw bündelt gleiche benachbarte indirekte Batches; direkte Batches trennen. Reihenfolge/Instanzen/Culling erhalten.
 
 ## Bildabhängige Fernrepräsentation
 Ferne Gebäude gemeinsam auf tiefenhaltige Karten mit zwei Dreiecken je Karte projizieren;
@@ -106,9 +108,8 @@ ProjectedErrorBudget erlaubt den ersten Schritt; fehlende öffentliche Felder in
   rasterbasierte Abfragen gegen unnötig ausmultiplizierte Dreiecke prüfen.
 
 ## Forschungsgrundlage
-[GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf)
-und [Geometry Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf)
-([Primärquellen/Einordnung](../doc/references/README.md)): Batches, Cluster-Bounds, inkrementelle Gitter.
+[GPU-Driven Rendering](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf),
+[Geometry Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf): Batches, Cluster-Bounds, inkrementelle Gitter.
 [Simplification Envelopes, SIGGRAPH 1996](../doc/references/geometry/siggraph/1996-simplification-envelopes.pdf):
 Beidseitige Abstände begrenzen; Stichproben und Simplifier-Metriken beweisen keine Hülle.
 
@@ -116,5 +117,4 @@ Beidseitige Abstände begrenzen; Stichproben und Simplifier-Metriken beweisen ke
 Zuerst dichte Bodenstadt: vollständige Fernverbände und Nahdetails ohne überflüssige Feinmeshes,
 Löcher, Formwechsel oder neue IO-Arbeit beim Drehen. Danach Flug und Orbit separat prüfen.
 Gleiche Inhalte/Profil/Sichtweite, geringere gemessene Arbeit/Bytes und AGENTS-Budget;
-reine CPU-Beweise oder ein gesetzter Sichtweitenparameter schließen den WI nicht.
-Bibliotheksvertrag und Installation: [Abhängigkeiten](../doc/dependencies.md).
+reine CPU-Beweise/ein Sichtweitenparameter schließen den WI nicht. [Bibliotheksvertrag](../doc/dependencies.md).
