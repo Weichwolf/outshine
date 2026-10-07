@@ -16,9 +16,10 @@ enum class Pattern { Ready, Mixed, Pending };
 
 struct Source : TileMeshes {
   Pattern Mode = Pattern::Ready;
-  std::vector<Data::TileId> Calls;
+  mutable std::vector<Data::TileId> Calls;
   size_t Queries = 0;
   size_t Waits = 0;
+  mutable size_t Inspections = 0;
 
   int Code(Data::TileId tile) const {
     if (Mode == Pattern::Ready) { return 0; }
@@ -48,6 +49,12 @@ struct Source : TileMeshes {
   Reply MeshAwaited(Data::TileId, int, TileBuild *) override {
     ++Waits;
     return Reply::Refused;
+  }
+
+  Reply Inspect(Data::TileId tile, int) const override {
+    ++Inspections;
+    Calls.push_back(tile);
+    return Status(tile);
   }
 
   Reply Wants(Data::TileId tile, int) override {
@@ -95,8 +102,9 @@ Expected CellOracle(const Around &over, const Source &source) {
                                 .X = static_cast<uint32_t>((x % world + world) % world),
                                 .Y = static_cast<uint32_t>(y)};
         result.Calls.push_back(tile);
-        const bool ready =
-            over.Asking ? source.Status(tile) == TileMeshes::Reply::Ready : source.Code(tile) == 0;
+        const bool ready = over.Access != TerrainTileAccess::Mesh
+                               ? source.Status(tile) == TileMeshes::Reply::Ready
+                               : source.Code(tile) == 0;
         if (ready) { completed.insert(footprint.begin(), footprint.end()); }
       }
     }
@@ -111,13 +119,15 @@ int main() {
   for (const auto position :
        {std::pair{0.0, 0.0}, {179.9, 0.0}, {-179.9, 0.0}, {0.0, 90.0}, {0.0, -90.0}}) {
     for (const auto pattern : {Pattern::Ready, Pattern::Mixed, Pattern::Pending}) {
-      for (const bool asking : {false, true}) {
+      for (const auto access :
+           {TerrainTileAccess::Mesh, TerrainTileAccess::Request, TerrainTileAccess::Inspect}) {
+        const bool asking = access != TerrainTileAccess::Mesh;
         const Around over{.LatitudeDeg = position.second,
                           .LongitudeDeg = position.first,
                           .Zoom = 6,
                           .Levels = 4,
                           .Grid = 2,
-                          .Asking = asking};
+                          .Access = access};
         Source source;
         source.Mode = pattern;
         const auto expected = CellOracle(over, source);
@@ -144,6 +154,9 @@ int main() {
           }
         }
         CHECK(source.Waits == 0, "cascade never waits for a tile");
+        CHECK(access != TerrainTileAccess::Inspect ||
+                  (source.Queries == 0 && source.Inspections == expected.Calls.size()),
+              "inspection observes the complete cascade without requesting any product");
         if (!actual) { continue; }
         CHECK(actual->Skipped == expected.Skipped && actual->Overlapped == expected.Overlapped,
               "full and partial coverage match independent raster");
@@ -175,8 +188,12 @@ int main() {
   }
   Source source;
   source.Mode = Pattern::Pending;
-  const auto playable = LayPatchwork(
-      source, {.Zoom = 6, .Levels = 4, .Grid = 2, .Asking = true, .PlayableOnly = true});
+  const auto playable = LayPatchwork(source,
+                                     {.Zoom = 6,
+                                      .Levels = 4,
+                                      .Grid = 2,
+                                      .Access = TerrainTileAccess::Request,
+                                      .PlayableOnly = true});
   CHECK(playable && playable->Tiles == 17 && playable->Pending == 17 &&
             playable->ContactPending == 1 && playable->PendingAtZoom[3] == 16,
         "first publication requests one exact contact tile and a complete coarse baseline");

@@ -31,12 +31,12 @@ Around Engine::State::TerrainCoverageAt(LongitudeLatitude focus) const {
   return over;
 }
 
-bool Engine::State::RequestTerrainCoverage() {
+bool Engine::State::InspectTerrainCoverage() {
   const Scenario::Document &declared = Session.Declared;
   if (!declared.Ground.Declared) { return true; }
   if (!Picture.Standing || !World.Stack.Opened()) { return true; }
   Around over = TerrainCoverageAt(CurrentGeographicFocus());
-  over.Asking = true;
+  over.Access = TerrainTileAccess::Inspect;
   over.PlayableOnly = !World.GroundPublished.Current();
   World.Stack.Pool().Focus({.LongitudeDeg = over.LongitudeDeg, .LatitudeDeg = over.LatitudeDeg});
   auto asked = World.Shipping.Covering().Lay(World.Stack.Pool(), over);
@@ -44,11 +44,8 @@ bool Engine::State::RequestTerrainCoverage() {
     Error = asked.error();
     return false;
   }
-  World.Pending = asked->Pending;
-  World.Wanted = asked->Tiles;
   World.AskedPending = asked->Pending;
   World.AskedWanted = asked->Tiles;
-  if (over.PlayableOnly) { World.AskedPlayablePending = asked->Pending; }
   {
     const Ground::TilePool::Ledger kept = World.Stack.Pool().Counters();
     Published.RecordMetric(

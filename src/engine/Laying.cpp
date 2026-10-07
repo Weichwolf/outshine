@@ -925,7 +925,7 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   World.Stack.Pool().Focus({.LongitudeDeg = atLon, .LatitudeDeg = atLat});
   ++World.Asked;
   Around asking = over;
-  asking.Asking = true;
+  asking.Access = TerrainTileAccess::Inspect;
   asking.PlayableOnly = quality == GroundQuality::Playable;
   auto sees = World.Shipping.Covering().Lay(World.Stack.Pool(), asking);
   if (!sees) {
@@ -934,7 +934,6 @@ Engine::State::Laid Engine::State::Focuses(GroundRequest &request,
   }
   World.AskedPending = sees->Pending;
   World.AskedWanted = sees->Tiles;
-  if (asking.PlayableOnly) { World.AskedPlayablePending = sees->Pending; }
   const size_t resident = sees->Tiles > sees->Pending ? sees->Tiles - sees->Pending : 0;
   const std::shared_ptr<const ClassStructure> naming = World.Stack.Classes().Read();
   const uint64_t classes = naming ? naming->Version() : 0;

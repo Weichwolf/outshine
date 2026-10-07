@@ -30,6 +30,11 @@ public:
   [[nodiscard]] virtual Reply MeshAwaited(Data::TileId of, int grid, TileBuild *out) = 0;
 
   [[nodiscard]] virtual Reply Wants(Data::TileId of, int grid) = 0;
+
+  [[nodiscard]] virtual Reply Inspect([[maybe_unused]] Data::TileId of,
+                                      [[maybe_unused]] int grid) const {
+    return Reply::Pending;
+  }
 };
 
 }

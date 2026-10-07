@@ -60,6 +60,15 @@ int main() {
           "independent provider registers");
     TilePool pool(
         {.Threads = 1, .ByteBudget = 1024u * 1024u, .PollAttempts = 10}, sources, transport);
+    const Data::TileId unknown{.Zoom = 2, .X = 3, .Y = 3};
+    for (int query = 0; query < 64; ++query) {
+      CHECK(pool.Inspect(unknown, 4) == TilePool::Reply::Pending,
+            "unknown metadata is pending rather than fabricated ready or no-data");
+    }
+    const auto untouched = pool.Counters();
+    CHECK(untouched.Posts == 0 && untouched.Fetches == 0 && untouched.MeshTiles == 0 &&
+              untouched.Outstanding == 0,
+          "inspection starts no IO, compute, reservation or mesh generation");
     GroundStream ground(pool, {.Z = 2, .Grid = 4});
     const Data::TileId at{.Zoom = 2, .X = 1, .Y = 1};
     std::shared_ptr<const TerrainField> previous;
@@ -133,7 +142,16 @@ int main() {
     };
     pool.Shapes({});
     CHECK(awaitMesh(), "provider mesh becomes resident");
+    const auto resident = pool.Counters();
+    CHECK(pool.Inspect(at, 4) == TilePool::Reply::Ready,
+          "inspection observes the current completed mesh without taking its product");
+    CHECK(pool.Counters().Posts == resident.Posts,
+          "completed mesh inspection does not reserve more work");
     pool.Shapes({.Kind = "sineRidge", .AmplitudeM = 9.0, .WavelengthM = 1.0e12});
+    const auto revoked = pool.Counters();
+    CHECK(pool.Inspect(at, 4) == TilePool::Reply::Pending,
+          "inspection rejects the previous terrain scope without generating its replacement");
+    CHECK(pool.Counters().Posts == revoked.Posts, "stale mesh inspection remains observational");
     CHECK(pool.Wants(at, 4) != TilePool::Reply::Ready,
           "a cached provider mesh cannot claim readiness for the new scope");
     CHECK(awaitMesh(), "new scope replaces a held mesh result");

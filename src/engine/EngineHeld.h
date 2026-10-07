@@ -246,7 +246,6 @@ struct Surrounds {
   size_t Wanted = 0;
   size_t AskedPending = 0;
   size_t AskedWanted = 0;
-  size_t AskedPlayablePending = 0;
   GroundPublication GroundPublished;
   std::optional<GroundRevision> RequestedRefinedGround;
   std::unique_ptr<GroundBuildState> GroundBuild;
@@ -473,7 +472,6 @@ struct Engine::State {
                                      const GroundRevision &revision) const;
   [[nodiscard]] bool RefinedGroundIngested(const GroundRevision &revision) const;
   [[nodiscard]] bool RefinedGroundClassified(const GroundRevision &revision) const;
-  [[nodiscard]] bool CanFinishPreload() const;
   [[nodiscard]] bool CanBeginGroundCandidate() const;
   [[nodiscard]] bool CanAdvanceGroundCandidate() const;
   [[nodiscard]] Result PumpPreload();
@@ -592,7 +590,7 @@ struct Engine::State {
   [[nodiscard]] bool AdvancesGroundWithinBudget(GroundQuality quality);
   [[nodiscard]] bool AdvancesGroundRetirement();
   [[nodiscard]] bool GroundInputsReady(GroundQuality quality) const;
-  [[nodiscard]] bool RequestTerrainCoverage();
+  [[nodiscard]] bool InspectTerrainCoverage();
   [[nodiscard]] bool FollowCamera(const ViewBook &views);
   [[nodiscard]] bool
   UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);

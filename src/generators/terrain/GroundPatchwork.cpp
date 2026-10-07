@@ -111,12 +111,19 @@ bool RecordReply(TileMeshes::Reply reply, int zoom, Patchwork &out) {
 
 bool RequestTile(TileMeshes &tiles, const Around &over, Data::TileId asked, Patchwork &out) {
   TileBuild built;
-  const auto reply =
-      over.Asking ? tiles.Wants(asked, over.Grid) : tiles.Mesh(asked, over.Grid, &built);
+  const auto reply = [&] {
+    switch (over.Access) {
+      case TerrainTileAccess::Mesh: return tiles.Mesh(asked, over.Grid, &built);
+      case TerrainTileAccess::Request: return tiles.Wants(asked, over.Grid);
+      case TerrainTileAccess::Inspect: return tiles.Inspect(asked, over.Grid);
+    }
+    return TileMeshes::Reply::Refused;
+  }();
+  const bool metadataOnly = over.Access != TerrainTileAccess::Mesh;
   const bool available = RecordReply(reply, asked.Zoom, out);
-  const bool ready = available && (over.Asking || (built.Side >= 2 && !built.Nodes.empty()));
+  const bool ready = available && (metadataOnly || (built.Side >= 2 && !built.Nodes.empty()));
   ++out.Tiles;
-  if (!over.Asking) {
+  if (!metadataOnly) {
     if (!ready) { ++out.Bare; }
     if (ready) {
       out.Sheets.push_back({.Tile = asked,
@@ -139,7 +146,10 @@ void LayLevel(TileMeshes &tiles,
   std::array<TileRegion, kTilesPerLevel> standing{};
   size_t count = 0;
   ForEachBlockTile(over, level, [&](int tileZoom, long x, long y, TileRegion region, bool contact) {
-    if (over.Asking && over.PlayableOnly && level != lastLevel && !contact) { return; }
+    if (over.Access != TerrainTileAccess::Mesh && over.PlayableOnly && level != lastLevel &&
+        !contact) {
+      return;
+    }
     const uint64_t covered = coverage.CoveredCells(region);
     if (covered == region.Cells()) {
       ++out.Skipped;
@@ -164,7 +174,9 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   if (!ValidCoverage(over)) { return std::unexpected(Says::Input); }
   const int levels = std::min(over.Levels, over.Zoom);
   Patchwork out;
-  if (!over.Asking) { out.Sheets.reserve(kTilesPerLevel * static_cast<size_t>(levels)); }
+  if (over.Access == TerrainTileAccess::Mesh) {
+    out.Sheets.reserve(kTilesPerLevel * static_cast<size_t>(levels));
+  }
   Coverage coverage;
   for (int level = 0; level < levels; ++level) {
     LayLevel(tiles, over, level, levels - 1, coverage, out);

@@ -114,6 +114,7 @@ public:
 
   [[nodiscard]] Reply Mesh(Data::TileId of, int grid, TileBuild *out) override;
   [[nodiscard]] Reply Wants(Data::TileId of, int grid) override;
+  [[nodiscard]] Reply Inspect(Data::TileId of, int grid) const override;
 
   [[nodiscard]] Reply MeshAwaited(Data::TileId of, int grid, TileBuild *out) override;
 
@@ -286,6 +287,7 @@ private:
   ShapedGround Shape_;
   std::atomic<uint64_t> TerrainScopeRevision_{1};
   [[nodiscard]] Reply Poll(const Job &job, Result *out);
+  [[nodiscard]] std::optional<Reply> MeshStatusLocked(uint64_t key) const;
   void Lands(uint64_t key, bool holds);
   [[nodiscard]] bool Known(uint64_t key);
   double TileDistance(Data::TileId of) const;

@@ -17,34 +17,34 @@ Vorhanden: öffentlicher AssetCache/ResolveAsset, SQLite-R*Tree, native Geometri
 Höhenfelder, Gebäuderohlinge/LOD-Produkte und Impostoren. Pakete komprimiert Zstandard Level 1;
 alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Gerätehandles persistieren.
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
-Die Regionintegration überspringt spätere Boden-/Straßen-/Wassererzeugung,
-liest aber zuvor weiter Zwischenfelder. Regionschlüssel benötigen nur Quell-Digests,
+Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh-Jobs.
+Coverage beobachtet nur; native publizierte Produkte bestimmen Ready. Zwischenfelder bleiben.
+Regionschlüssel benötigen Quell-Digests,
 Formparameter, Detailauftrag und Regeln; kein kopiertes/serialisiertes abgeleitetes Straßennetz.
 Exakte Kamera-Schlüssel und ganze Regionen ersetzen keine räumliche Eltern-/Kindhierarchie.
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
-Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer 66067cb7ed9f:
+Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer e1ecefe3b42c:
 | Place | Laden s | p99 ms | Prozess-Footprint GiB | Terrain / Prototypen entpackt MiB |
 |---|---:|---:|---:|---:|
-| Wien | 7,73 | 3,47 | 2,80 | 874 / 620 |
-| CentralPark | 6,18 | 1,10 | 2,14 | 709 / 400 |
-| Tokyo | 11,38 | 3,38 | 5,23 | 971 / 620 |
-Regionprodukte: 85,88 / 73,43 / 114,45 MiB; separater Decode 156 / 132 / 293 ms.
-Tokyo überschreitet das Ladeziel; erste Aufbau-Läufe Wien/Tokyo überschreiten p99 16,67 ms.
+| Wien | 8,17 | 3,46 | 2,80 | 730 / 620 |
+| CentralPark | 6,39 | 2,49 | 2,14 | 566 / 400 |
+| Tokyo | 10,39 | 3,70 | 4,94 | 834 / 620 |
+Regionprodukte: 85,88 / 73,43 / 114,45 MiB; separater Worker 138 / 132 / 237 ms; null Terrain-Mesh-Jobs bei Hits.
+Tokyo überschreitet das Ladeziel; Prototyp-Neuerzeugung in Wien/Regionsaufbau Koer überschreiten p99 16,67 ms.
 Entpackte Bytes sind kumulierter Durchsatz, keine SSD-/Residencygröße. Footprint ist Prozesspeak,
-kein isolierter GPU-Wert. Logs: System-Temp `outshine-ground-region-2c428fa9c-<Place>-warm.log`;
+kein isolierter GPU-Wert. Logs: System-Temp `outshine-terrain-inspection-b22bae539-<Place>-final.log`;
 gleicher Producer belegt den Quellstand. Kein neuer Geräte-/Internetnachweis.
 1. P0: den Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Hierarchische
    räumliche Rohlinge statt kompletter kameragebundener Snapshots; verdeckte Kinder ungeöffnet.
-   Cacheprüfung vor `Focuses`/`Lay` und `SurfacePreparation::Ingested`; erst Miss startet Facharbeit.
+   Cacheprüfung vor beschaffendem `Lay` und `SurfacePreparation::Ingested`; erst Miss startet Facharbeit.
    Eltern aus Cache, nur fehlende Eltern grob aus DEM; anschließend mögliche sichtbare Kinder
    nachfordern. OSM ebenfalls nah → fern nach Coverage/Bewegungsbedarf; nicht alle Ringkacheln vorab.
-2. P0: finale native Höhen-/Kontaktprodukte laden, statt trotz Regionhit 709–971 MiB Felder zu
+2. P0: finale native Höhen-/Kontaktprodukte laden, statt trotz Regionhit 566–834 MiB Felder zu
    entpacken. Mehrere Kandidaten teilen unveränderte Daten; einmal laden/publizieren, dann Scratch frei.
    Proben/Bodenabfrage aus Höhenprodukten; keine expandierte CPU-Dreieckssuppe.
-3. P1: Modellprototypen nur für benötigte räumliche Gruppen laden. Ein Atlas kostet
-   256² × 8 × 40 Byte = 20 MiB; 31 ergeben 620 MiB und 1,47 s Lesen/Decode in Tokyo.
+3. P1: Modellprototypen nur für benötigte räumliche Gruppen laden. Ein Atlas kostet 256² × 8 × 40 Byte = 20 MiB; 31 ergeben 620 MiB und 1,47 s Lesen/Decode in Tokyo.
    Quantisierte Tiefe/Normalen/Material/Coverage vergleichen; 12 Byte/Texel wären 186 MiB,
    eine zu prüfende Formatvariante mit Bild-/Fehlernachweis, keine bereits bewiesene Einsparung.
    Generator-/Codec-/Capture-Abhängigkeiten versionieren; CrownBuildIdentity bindet heute

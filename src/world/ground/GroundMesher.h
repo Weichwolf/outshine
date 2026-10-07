@@ -30,13 +30,15 @@ constexpr double kMostApronM = kMostEarthworkM * kBatterRun;
 constexpr double kStampWorthM = 0.25;
 constexpr double kBrokenGroundM = 1.0;
 
+enum class TerrainTileAccess : uint8_t { Mesh, Request, Inspect };
+
 struct Around {
   double LatitudeDeg = 0.0;
   double LongitudeDeg = 0.0;
   int Zoom = 0;
   int Levels = 1;
   int Grid = kPatchGrid;
-  bool Asking = false;
+  TerrainTileAccess Access = TerrainTileAccess::Mesh;
   bool PlayableOnly = false;
 };
 

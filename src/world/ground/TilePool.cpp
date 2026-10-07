@@ -1158,6 +1158,22 @@ TilePool::Reply TilePool::Poll(const Job &job, Result *out) {
   return Reply::Pending;
 }
 
+std::optional<TilePool::Reply> TilePool::MeshStatusLocked(uint64_t key) const {
+  const Reservation *held = Posted_.Find(key);
+  if (held == nullptr || held->TerrainScope != TerrainScopeRevision()) { return std::nullopt; }
+  if (const Result *done = Done_.Find(key); done != nullptr &&
+                                            done->TerrainScope == held->TerrainScope &&
+                                            done->Admission == held->Admission) {
+    return done->State;
+  }
+  return Reply::Pending;
+}
+
+TilePool::Reply TilePool::Inspect(Data::TileId of, [[maybe_unused]] int grid) const {
+  const std::scoped_lock lock(QueueMutex_);
+  return MeshStatusLocked(MeshKey(of.Zoom, of.X, of.Y)).value_or(Reply::Pending);
+}
+
 TilePool::Reply TilePool::Wants(Data::TileId of, int grid) {
   const int z = of.Zoom;
   const uint32_t x = of.X;
@@ -1165,15 +1181,7 @@ TilePool::Reply TilePool::Wants(Data::TileId of, int grid) {
   const uint64_t key = MeshKey(z, x, y);
   {
     const std::scoped_lock lock(QueueMutex_);
-    if (const Result *done = Done_.Find(key);
-        done != nullptr && done->TerrainScope == TerrainScopeRevision() &&
-        Posted_.Find(key) != nullptr && Posted_.Find(key)->Admission == done->Admission) {
-      return done->State;
-    }
-    if (const Reservation *held = Posted_.Find(key);
-        held != nullptr && held->TerrainScope == TerrainScopeRevision()) {
-      return Reply::Pending;
-    }
+    if (const auto state = MeshStatusLocked(key)) { return *state; }
   }
   Job job;
   job.Kind = Rank::Mesh;

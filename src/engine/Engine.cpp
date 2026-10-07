@@ -27,8 +27,8 @@ namespace outshine {
 namespace Says {
 constexpr auto kRootsAfterDeclaration =
     "roots cannot change after declaration because prepared assets and world sources retain them";
-constexpr auto kNoTerrainRequests = "terrain requests absent";
-constexpr auto kPendingTerrain = "terrain downloads pending";
+constexpr auto kMissingTerrainCoverage = "native terrain coverage absent";
+constexpr auto kPendingTerrain = "native terrain products pending";
 constexpr auto kMissingTerrain = "terrain coverage missing";
 constexpr auto kMissingNeighbours = "terrain neighbours missing";
 constexpr auto kPendingSnapshot = "generator snapshot pending";
@@ -338,24 +338,24 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
       vectorBlocker = Says::kPendingVectors;
     }
   }
-  return {{RequiredBlocker(refined, World.AskedWanted > 0, Says::kNoTerrainRequests),
-           RequiredBlocker(refined, World.AskedPending == 0, Says::kPendingTerrain),
-           RequiredBlocker(refined, World.Bare == 0, Says::kMissingTerrain),
-           RequiredBlocker(refined, World.RimsMissing == 0, Says::kMissingNeighbours),
-           World.Grown ? "" : Says::kPendingSnapshot,
-           !refined || currentRevision ? "" : Says::kPendingGroundRevision,
-           published && (!refined || RefinedGroundIngested(*ground)) ? "" : Says::kPendingIngestion,
-           StructureDetailBlocker(
-               published, refined, published && StructuresReady(World.Stack.Footprints(), *ground)),
-           published && (!refined || RefinedGroundClassified(*ground))
-               ? ""
-               : Says::kPendingClassification,
-           vectorBlocker,
-           !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
-                   (World.Vegetation && World.Vegetation->Ready())
-               ? ""
-               : Says::kPendingVegetation,
-           osmBlocker}};
+  return {
+      {RequiredBlocker(refined, published && World.GroundTiles > 0, Says::kMissingTerrainCoverage),
+       RequiredBlocker(refined, published && World.Pending == 0, Says::kPendingTerrain),
+       RequiredBlocker(refined, World.Bare == 0, Says::kMissingTerrain),
+       RequiredBlocker(refined, World.RimsMissing == 0, Says::kMissingNeighbours),
+       World.Grown ? "" : Says::kPendingSnapshot,
+       !refined || currentRevision ? "" : Says::kPendingGroundRevision,
+       published && (!refined || RefinedGroundIngested(*ground)) ? "" : Says::kPendingIngestion,
+       StructureDetailBlocker(
+           published, refined, published && StructuresReady(World.Stack.Footprints(), *ground)),
+       published && (!refined || RefinedGroundClassified(*ground)) ? ""
+                                                                   : Says::kPendingClassification,
+       vectorBlocker,
+       !Picture.Standing || !Session.Declared.Ground.VegetationEnabled ||
+               (World.Vegetation && World.Vegetation->Ready())
+           ? ""
+           : Says::kPendingVegetation,
+       osmBlocker}};
 }
 
 bool Engine::settled(WorldQuality required) const {
@@ -497,9 +497,10 @@ Holds<double> Engine::sampleHeight(const LongitudeLatitudeHeight &at) const {
 
 double Engine::loadProgress() const {
   if (!S_->Session.Declared.Ground.Declared) { return 1.0; }
-  const size_t wanted = S_->World.AskedWanted;
+  const bool native = S_->World.GroundPublished.Current().has_value();
+  const size_t wanted = native ? S_->World.Wanted : S_->World.AskedWanted;
   if (wanted == 0) { return 1.0; }
-  const size_t missing = S_->World.AskedPending;
+  const size_t missing = native ? S_->World.Pending : S_->World.AskedPending;
   if (missing >= wanted) { return 0.0; }
   return static_cast<double>(wanted - missing) / static_cast<double>(wanted);
 }
@@ -517,10 +518,10 @@ Loading Engine::loading() const {
   said.PreloadAwaits = S_->PreloadAwaits;
   said.Waited = S_->PreloadWaited;
   if (!S_->Session.Declared.Ground.Declared) { return said; }
-  said.GroundWanted = S_->World.AskedWanted;
-  said.GroundArrived = S_->World.AskedWanted >= S_->World.AskedPending
-                           ? S_->World.AskedWanted - S_->World.AskedPending
-                           : 0;
+  const bool native = S_->World.GroundPublished.Current().has_value();
+  said.GroundWanted = native ? S_->World.Wanted : S_->World.AskedWanted;
+  const size_t missing = native ? S_->World.Pending : S_->World.AskedPending;
+  said.GroundArrived = said.GroundWanted >= missing ? said.GroundWanted - missing : 0;
   if (!S_->World.Stack.Opened()) { return said; }
   if (const ::outshine::Generators::Osm::OsmField *vectors = S_->World.Stack.Vectors();
       vectors != nullptr && S_->World.Stack.HasVectorSource()) {
@@ -554,12 +555,8 @@ Loading Engine::loading() const {
   return said;
 }
 
-bool Engine::State::CanFinishPreload() const {
-  return World.AskedWanted > 0 && World.AskedPending == 0 && World.Grown && World.Stack.Ingested();
-}
-
 bool Engine::State::CanBeginGroundCandidate() const {
-  return World.AskedWanted > 0 && World.AskedPlayablePending == 0 && World.Stack.IngestedWithin(0);
+  return World.AskedWanted > 0 && World.Stack.IngestedWithin(0);
 }
 
 bool Engine::State::CanAdvanceGroundCandidate() const {
@@ -629,7 +626,7 @@ Result Engine::State::PumpPreload() {
     return std::unexpected(std::string(OsmWorldBlocker(Session.Declared.Providers, World)));
   }
   if (!Session.Declared.Ground.Declared) { return {}; }
-  if (!RequestTerrainCoverage()) { return std::unexpected(Error); }
+  if (!InspectTerrainCoverage()) { return std::unexpected(Error); }
   const LongitudeLatitude stands = CurrentGeographicFocus();
   const double atLat = stands.LatitudeDeg;
   const double atLon = stands.LongitudeDeg;
