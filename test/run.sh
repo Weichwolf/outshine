@@ -1582,6 +1582,20 @@ if [ "$AUDITLINK" = 1 ]; then
   auditSuites=$(GroupRepresentatives $auditSuites)
   for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
+    for group in $groups; do
+      case "$group" in
+        *.cpp)
+          if [ ! -e "$group" ]; then
+            printf 'AUDIT %s declares %s and no such source exists -- a ghost in the listing\n' "$suiteDir" "$group"
+            bad=1
+          fi
+          ;;
+      esac
+    done
+  done
+  [ "$bad" = 0 ] || exit 1
+  for suiteDir in $auditSuites; do
+    groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     [ -n "$groups" ] || continue
     OBJECTS=""
     stragglers=ok
