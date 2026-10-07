@@ -1,5 +1,5 @@
 #include "content/GeometryAsset.h"
-#include "GeometryAssetArchive.h"
+#include "BinaryValueArchive.h"
 #include "GeometryAssetValues.h"
 #include <algorithm>
 #include <cmath>
@@ -41,7 +41,7 @@ bool Complete(const Geometry &geometry) {
                                    geometry.images() == 0 && geometry.lamps() == 0);
 }
 
-bool WriteTables(Content::GeometryAssetWriter &out, const Geometry &geometry) {
+bool WriteTables(BinaryValueWriter &out, const Geometry &geometry) {
   for (int index = 0; index < geometry.images(); ++index) {
     const ImageView image = geometry.imageAt(index);
     if (!out(image.WidthPx, image.HeightPx) || !out.Array(image.Rgba)) { return false; }
@@ -63,7 +63,7 @@ bool WriteTables(Content::GeometryAssetWriter &out, const Geometry &geometry) {
   return true;
 }
 
-bool WriteParts(Content::GeometryAssetWriter &out, const Geometry &geometry) {
+bool WriteParts(BinaryValueWriter &out, const Geometry &geometry) {
   for (int part = 0; part < geometry.parts(); ++part) {
     if (!out.Text(geometry.nameOf(part)) ||
         !out(geometry.materialOf(part).index(), geometry.placementOf(part).Column) ||
@@ -77,7 +77,7 @@ bool WriteParts(Content::GeometryAssetWriter &out, const Geometry &geometry) {
   return true;
 }
 
-bool ReadTables(Content::GeometryAssetReader &in, Geometry &geometry, const TableCounts &tables) {
+bool ReadTables(BinaryValueReader &in, Geometry &geometry, const TableCounts &tables) {
   for (int index = 0; index < tables.Images; ++index) {
     int width = 0;
     int height = 0;
@@ -105,7 +105,7 @@ bool ReadTables(Content::GeometryAssetReader &in, Geometry &geometry, const Tabl
   return true;
 }
 
-bool ReadParts(Content::GeometryAssetReader &in, Geometry &geometry, int parts) {
+bool ReadParts(BinaryValueReader &in, Geometry &geometry, int parts) {
   std::string name;
   std::vector<float> attribute;
   std::vector<uint32_t> indices;
@@ -132,7 +132,7 @@ bool ReadParts(Content::GeometryAssetReader &in, Geometry &geometry, int parts) 
 std::optional<std::vector<uint8_t>> EncodeGeometryAsset(const Geometry &geometry,
                                                         size_t bytesMost) {
   if (!Complete(geometry)) { return std::nullopt; }
-  Content::GeometryAssetWriter out(bytesMost);
+  BinaryValueWriter out(bytesMost);
   out.Out.Reserve(geometry.storageBytes());
   if (!out(kGeometryAssetFormat,
            geometry.images(),
@@ -147,7 +147,7 @@ std::optional<std::vector<uint8_t>> EncodeGeometryAsset(const Geometry &geometry
 
 std::optional<Geometry> DecodeGeometryAsset(std::span<const uint8_t> bytes, size_t bytesMost) {
   if (bytes.size() > bytesMost) { return std::nullopt; }
-  Content::GeometryAssetReader in(bytes);
+  BinaryValueReader in(bytes);
   uint64_t format = 0;
   TableCounts tables;
   if (!in(format, tables.Images, tables.Surfaces, tables.Lamps, tables.Parts) ||

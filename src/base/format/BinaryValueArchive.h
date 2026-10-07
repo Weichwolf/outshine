@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CONTENT_ASSETS_GEOMETRYASSETARCHIVE_H
-#define OUTSHINE_CONTENT_ASSETS_GEOMETRYASSETARCHIVE_H
+#ifndef OUTSHINE_BASE_FORMAT_BINARYVALUEARCHIVE_H
+#define OUTSHINE_BASE_FORMAT_BINARYVALUEARCHIVE_H
 
 #include "ByteArchive.h"
 #include <algorithm>
@@ -15,10 +15,10 @@
 #include <string_view>
 #include <type_traits>
 
-namespace outshine::Content {
-class GeometryAssetWriter {
+namespace outshine {
+class BinaryValueWriter {
 public:
-  explicit GeometryAssetWriter(size_t most) : Out(most) {}
+  explicit BinaryValueWriter(size_t most) : Out(most) {}
 
   template <class... T> bool operator()(const T &...value) { return (Value(value) && ...); }
 
@@ -60,9 +60,9 @@ public:
   ByteWriter Out;
 };
 
-class GeometryAssetReader {
+class BinaryValueReader {
 public:
-  explicit GeometryAssetReader(std::span<const uint8_t> bytes) : In(bytes) {}
+  explicit BinaryValueReader(std::span<const uint8_t> bytes) : In(bytes) {}
 
   template <class... T> bool operator()(T &...value) { return (Value(value) && ...); }
 
