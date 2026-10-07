@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_BUILDING_PREPAREDBUILDINGASSETS_H
 #define OUTSHINE_GENERATORS_BUILDING_PREPAREDBUILDINGASSETS_H
 
-#include "AssetCache.h"
+#include "content/AssetCache.h"
 #include "PreparedStructureTile.h"
 #include "TilePool.h"
 #include <atomic>

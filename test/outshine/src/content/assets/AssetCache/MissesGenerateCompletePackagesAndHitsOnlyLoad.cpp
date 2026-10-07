@@ -1,4 +1,4 @@
-#include "AssetGeneration.h"
+#include "generation/AssetGeneration.h"
 #include "Check.h"
 #include "Sha256.h"
 #include <algorithm>

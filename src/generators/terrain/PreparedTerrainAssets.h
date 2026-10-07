@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_TERRAIN_PREPAREDTERRAINASSETS_H
 #define OUTSHINE_GENERATORS_TERRAIN_PREPAREDTERRAINASSETS_H
 
-#include "AssetCache.h"
+#include "content/AssetCache.h"
 #include "TerrainTiles.h"
 #include "PreparedTerrainDeformation.h"
 #include <atomic>

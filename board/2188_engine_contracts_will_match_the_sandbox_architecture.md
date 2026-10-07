@@ -21,9 +21,11 @@ Dieser WI migriert jeweils den für 2280/2336 oder ein Bildfeature benötigten P
 vollständige SDK-Neufassung als Vorbedingung und kein zusätzlicher Universal-Scheduler.
 API-Adapter besitzt Adresse/Auth/Antworthülle, Provider Formatdecode/Normalisierung,
 Generator Fachplanung/Produkte; Engine Bedarf/Jobs/Publikation, world native Inhalte.
-Gemeinsame IO-/Assetcache-/Jobdienste enthalten keine Quellsemantik. 2280 besitzt den Cache:
-Engine fordert native Assets an; Misses erzeugen sie über Generatoren. Derselbe öffentliche Vertrag lädt sie
-nach räumlicher/LOD-Auswahl. Indexabfragen: Frustum oder Radius R um Weltposition x,y,z.
+Gemeinsame IO-/Assetcache-/Jobdienste enthalten keine Quellsemantik. Öffentliche AssetCache/
+ResolveAsset nutzen dieselben Bounds, Pakete und Abfragen für Builtins und externe Factories.
+Byteformate bleiben beim Produktbesitzer; der Dienst dekodiert keine OSM-/Terrainsemantik.
+2280 besitzt den Cache: Engine fordert native Assets an; Misses erzeugen sie über Generatoren.
+Derselbe öffentliche Vertrag lädt sie nach räumlicher/LOD-Auswahl: Frustum oder Radius R um x,y,z.
 
 ## Konkrete Integration
 1. Die laufende Gebäude-/Terrainlieferung über denselben öffentlichen Vertrag anbieten:
@@ -54,8 +56,8 @@ Renderer besitzt Vertexformat, Adressraum und Lebensdauer (`SubjectDraw`, `Subje
 `SceneResources`). Optionale Streams reservieren nur eigene Produkte, keine Löcher anderer
 Geometrie. Für 2173 zuerst dichte Float4-Farbspeicherung mit eigenem Bereichsallocator:
 Vertexshader liest über Vertexindex plus expliziten Farb-Offset des Placement-Datensatzes.
-Current/Previous-Pose und Farb-Offset besitzen einen gemeinsamen CPU/GPU-Vertrag; Größe,
-Alignment und Offsets statisch sichern. Flat/Lit, Culling, Instanzen und Borrow-Pfade migrieren.
+Current/Previous-Pose und Farb-Offset teilen Größe/Alignment/Offsets als CPU/GPU-Vertrag.
+Flat/Lit, Culling, Instanzen und Borrow-Pfade migrieren.
 Batching bleibt bestehen; unveränderte Frames packen keine Welt neu. Farbe/Gate-Bilder bleiben
 identisch bei weniger Gerätebytes. Konstante Erscheinung später in Material-/Batchdaten;
 Quantisierung braucht Fehlerschranken, die öffentliche Float-API keinen Wertebereichsverlust.
