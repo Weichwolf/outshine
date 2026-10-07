@@ -77,8 +77,8 @@ void Engine::State::PublishEarthworkMeasurements(const Generators::PressedTerrai
   Published.RecordMetric("ground candidate: longest earthwork slice", longestSliceMs, "ms");
 }
 
-void Engine::State::PublishStreetGraphMeasurements(const Ground::StreetGraphBuilder::Built &mapped,
-                                                   double longestSliceMs) {
+void Engine::State::PublishStreetGraphMeasurements(
+    const Generators::Osm::StreetGraphBuilder::Built &mapped, double longestSliceMs) {
   Published.RecordMetric("network: ways it holds", static_cast<double>(mapped.Ways), "ways");
   Published.RecordMetric("network: laying ways", mapped.LayMs, "ms");
   Published.RecordMetric("network: weaving topology", mapped.WeaveMs, "ms");

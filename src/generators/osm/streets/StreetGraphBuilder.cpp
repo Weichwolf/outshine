@@ -14,7 +14,7 @@
 #include "OsmField.h"
 #include "StreetField.h"
 
-namespace outshine::Ground {
+namespace outshine::Generators::Osm {
 namespace Says {
 constexpr auto kInvalidStreetPointRange =
     "vector street point range exceeds the supplied coordinate stream";

@@ -48,6 +48,11 @@ void Group(std::string_view scene,
 void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> samples) {
   const auto get = [samples](std::string_view key) { return Value(samples, key); };
   if (get("cost.render.frames") == 0.0) { return; }
+  std::println("PERF {} native network: hit={:.0f} decoded={:.2f}MiB worker={:.1f}ms",
+               scene,
+               get("network: native cache hit"),
+               get("network: native asset bytes") / kBytesPerMiB,
+               get("network: worker elapsed"));
   for (const auto *const kind :
        {"terrain", "terrain_deformed", "buildings", "building_lod", "prototypes"}) {
     const std::string prefix = std::string("cost.assets.") + kind;

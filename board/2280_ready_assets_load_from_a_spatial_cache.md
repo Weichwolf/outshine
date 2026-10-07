@@ -14,17 +14,18 @@ Engine-Assetbedarf → räumlicher Cacheindex → Hit: fertiges Asset laden → 
 Miss → Generator → Provider/Quellcache/API nach Bedarf → vollständige Anreicherung/Asset-Erzeugung
 → Asset/Index atomar speichern → denselben Lade-/Publikationspfad bedienen.
 Das gilt für Gebäude, Terrain, Straßen/Wasser, Vegetation und andere generierte Inhalte.
-Ein Treffer enthält vollständig angereicherte Asset-Rohlinge, keine unvollständigen Quellen.
-content/assets speichert native Paketbytes und Raumindex atomar; Hits umgehen den Miss-Callback.
+Hits enthalten vollständig angereicherte Rohlinge; content/assets speichert Paketbytes/Raumindex
+atomar und umgeht den Miss-Callback.
 Schema 2 speichert Pakete bei Gewinn verlustfrei mit Zstandard Level 1; alte Rohpakete bleiben lesbar.
-Identität/Slices und Ladeschranke beziehen sich auf native Bytes. CRC/Frame-/Längenprüfung vor Nutzung;
-Kompression vor Schreibtransaktion. Öffnen schreibt vorhandene Paketbytes nicht neu.
+Identität/Slices/Ladeschranke betreffen native Bytes; CRC/Frame/Länge vor Nutzung prüfen,
+vor Schreibtransaktion komprimieren; vorhandene Paketbytes beim Öffnen erhalten.
 GeometryAsset erhält Geometrie/Placements, alle Materialfaktoren/-Maps, Bilder und Lichter;
 versionierte Little-Endian-Daten, keine Gerätehandles. Öffentlicher Generator lädt sie ohne Provider.
-Netzcodec erhält native Topologie, Richtungen, Höhenprofile, Kreuzungen und räumliche Suche.
-Er ist für vollständige Regionsprodukte bereit; frühe Runtime-Treffer sind noch nicht integriert.
-Native Höhenfelder umgehen DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
-Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
+Straßennetze laden am Compute-Worker vor Layout/Verknüpfung/Höhenprofilierung; Misses speichern
+und laden denselben nativen Pfad. Topologie, Richtungen, Profile und Kreuzungen bleiben erhalten.
+Fehlende Höhen werden nicht als Ready gespeichert; Fachplanung/Schlüssel: generators/osm/streets.
+Native Höhenfelder umgehen DEM-Decode/Nahtaufbereitung und teilen aktive Felder; Gebäuderohlinge
+enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
 speichern und laden dieselbe vollständige Basis. Herkunft/Signatur/Qualifikation bleiben erhalten.
 Ausgewählte LOD-Geometrie wird als Kindprodukt gespeichert; gleiche Position/Projektionsparameter
@@ -34,29 +35,29 @@ Native Terrainprodukte speichern verformte Höhen/Kontakte in Paketen ≤64 MiB;
 veröffentlichen ihren Verbund erst nach allen Paketen. Laden prüft das Residencybudget des Aufrufers.
 Ein Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und behält
 Job-Eingaben bis zum Workerabschluss. Misses speichern und laden denselben nativen Pfad.
-Frische Offline-Treffer, Commit fc8c6be78, Producer 215ee40510, 720p60; zehn Bilder pixelgleich:
+Frische Offline-Treffer, Producer 2e37dc780a, 1280×720/60 fps; alle zehn Bilder pixelgleich:
 | Place | Laden s | p99 ms | Prozesspeak GiB |
 |---|---:|---:|---:|
-| Wien | 15.06 | 3.70 | 4.15 |
-| CentralPark | 13.28 | 2.75 | 3.69 |
-| Tokyo | 18.15 | 3.65 | 6.26 |
-Keine Basis-/LOD-/Deformations-Misses/Writes; Prototypen geladen, keine Generierung.
-Die drei Städte lesen weiterhin 1,98/1,81/2,03 GiB Terrain-Zwischenfelder. Kontakte,
-Straßen und Terrain-/Wassermeshes entstehen erneut; späte Treffer umgehen nur die Verformung.
-Prototypen: 31/22/31 Hits, 620/440/620 MiB entpackt. 31 komprimierte Pakete: 620 → 34,8 MiB SSD,
-17,8× kleiner; alte Pakete erhalten. Laden nicht schneller; Ursache nicht per A/B isoliert.
-Peaks sind keine Budgets; Koerbersee p99 18,54 ms >720p60. Warm <10 s bleibt offen.
-Hauptcache zuvor 17,93 GiB: 15,64 GiB (87 %) Zwischenfelder; Residency nicht begründet.
-Native Impostorprodukte nutzen AssetCache; prototypes.sqlite hält getrennte Modellbounds.
-Treffer umgehen Baum-/Atlaserzeugung; gleiche Prototypen teilen einen Miss. Ein Engine-Worker
-lädt/decodiert/erzeugt; Warten beobachtet konkrete Jobs statt fremder Fertigmeldungen.
-Leserahmen aus dem Format: 256² × 8 × 40 Byte + maximale Metadaten; keine Atlasverkleinerung.
+| Wien | 13,82–14,77 | 11,25–20,01 | 4,18 |
+| CentralPark | 12,20–12,71 | 9,57–10,81 | 3,65 |
+| Tokyo | 17,03 | 3,76 | 5,92 |
+Straßennetz-Treffer umgehen Layout/Profilierung: 31–50 MiB in 76–135 ms statt 1,1–1,87 s Aufbau.
+Die drei Städte lesen weiter 1,98/1,81/2,03 GiB Terrain-Zwischenfelder; Kontakte,
+Straßenkorridore und Terrain-/Wassermeshes entstehen erneut. Frühe Regiontreffer fehlen.
+Prototypen: 31/22/31 Hits, 620/440/620 MiB entpackt; 31 Pakete: 620 → 34,8 MiB SSD; alte Pakete erhalten.
+Wien/CP/Rosenheim überschreiten 10 ms p99; Wien/Rosenheim auch 16,67 ms.
+Schlechteste Wien-/Rosenheim-Frames: 17–19 ms Fence-Warten; GPU-Zeit unbewiesen. Warm <10 s offen.
+Impostorprodukte: AssetCache/prototypes.sqlite mit Modellbounds; Hits umgehen Baum-/Atlaserzeugung.
+Ein Workerjob je Prototyp; Warten beobachtet nur dessen Fertigmeldung. Leserahmen aus dem Format:
+256² × 8 × 40 Byte + maximale Metadaten; keine Atlasverkleinerung.
 Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
 Kontakt-/Straßenformung bei frühen Treffern umgehen. Terrain-/Straßenqualität erhalten.
-Ziel: vorbereitete Places warm <10 s; <1 s als Challenge. Hohe Bildqualität bei 480p30 vor Pixelzahl.
+Ziel: vorbereitete Places warm <10 s; <1 s als Challenge; hohe Bildqualität bei 480p30 vor Pixelzahl.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
-Gemeinsame Dienste kennen Bounds/Versionen/native Produkte, keine Quellsemantik; Geometriecodec in content/assets.
+AssetCache besitzt Speicherung/Kompression/Integrität und die AssetRecord-Hülle; Nutzdaten sind opaque.
+Versionierte Codecs gehören Produkttypen, Fachrohlinge ihrer Erweiterung.
+Generatoren teilen Geometrie-/Netzcodecs; GPU-Handles bleiben flüchtig. Kein Universalformat für Weltzustand.
 ## Fertige Assets
 - Gebäude: Typ, vollständige Höhen/Dachparameter, Grundrisse/Parts/Höfe, Terrainkontakt,
   Material-/Fassadenpläne/Seeds, einfache Hüllen und geeignete LOD-/Verbandsprodukte.
@@ -66,7 +67,6 @@ Gemeinsame Dienste kennen Bounds/Versionen/native Produkte, keine Quellsemantik;
 - Vegetation: Bestands-/Instanzdaten, gemeinsame Prototypen mit LODs, Material/Alpha-Mips,
   Windparameter und Fernverbände. 2111 bleibt nach Gebäuden/Terrain/Infrastruktur.
 - Kompakte, deviceunabhängige Renderprodukte; kein Fine-Mesh je Fernhaus/Prototypkopie je Instanz. Licht, Wetterantwort und dynamische Pose bleiben aktuell.
-
 ## Index und Laden
 1. Gemeinsamer Index unterstützt Frustum und Radius R um Weltposition x,y,z. Konservative Bounds
    liefern Kandidaten; Ebenen-/Abstandstests und LOD wählen tatsächlich benötigte Produkte.
@@ -116,5 +116,5 @@ Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Frustum-/Radius-/LOD-Abfragen stimmen gegen vollständige räumliche Referenz; Grenze, leere Region,
 Drehung, Bewegung und Wiederstart ohne verlorene Assets/ungeplante Arbeit. Defekte/Teilpakete testen.
-Wien/Central Park/Tokyo: Bilder öffnen/vergleichen, Laden/CPU/GPU/p99/SSD/RAM-Peaks getrennt belegen.
-Danach alle Pflicht-Places; Sichtweite/Inhalt/Profil unverändert. Kein Ready allein aus Dateiexistenz.
+Alle Pflicht-Places, besonders Wien/CP/T: Bilder vergleichen, Laden/CPU/GPU/p99/SSD/RAM-Peaks getrennt
+bei gleicher Sichtweite/Inhalt/Profil prüfen. Dateiexistenz allein belegt kein Ready.

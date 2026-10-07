@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ENGINE_STREAMING_STREETGRAPHBUILDER_H
-#define OUTSHINE_ENGINE_STREAMING_STREETGRAPHBUILDER_H
+#ifndef OUTSHINE_GENERATORS_OSM_STREETS_STREETGRAPHBUILDER_H
+#define OUTSHINE_GENERATORS_OSM_STREETS_STREETGRAPHBUILDER_H
 
 #include <cstddef>
 #include <cstdint>
@@ -12,7 +12,7 @@
 #include "StreetField.h"
 #include "Wayfinding.h"
 
-namespace outshine::Ground {
+namespace outshine::Generators::Osm {
 
 class StreetGraphBuilder {
 public:

@@ -118,6 +118,13 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
       Close();
       return false;
     }
+    auto network = Generators::Osm::PreparedStreetGraph::Open(under.AssetCache, sources);
+    if (!network) {
+      say.Refuse(network.error());
+      Close();
+      return false;
+    }
+    PreparedNetwork_ = std::move(*network);
     PreparedBuildings_ = std::move(*buildings);
     PreparedTerrain_ = std::move(*prepared);
     poolConfig.PreparedFields = [assets =
@@ -154,6 +161,7 @@ void SurfacePreparation::Close() {
   Pool_.reset();
   PreparedTerrain_.reset();
   PreparedBuildings_.reset();
+  PreparedNetwork_.reset();
   LandingCursor_ = {};
   Sources_.reset();
   Store_.reset();

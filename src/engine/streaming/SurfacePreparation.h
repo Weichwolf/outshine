@@ -14,6 +14,7 @@
 #include "SourceSet.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
+#include "PreparedStreetGraph.h"
 #include "TerrainLoader.h"
 #include <world/data/SourceDecl.h>
 #include "BuildingField.h"
@@ -126,6 +127,11 @@ public:
     return PreparedTerrain_;
   }
 
+  [[nodiscard]] const std::shared_ptr<Generators::Osm::PreparedStreetGraph> &
+  NetworkAssets() const noexcept {
+    return PreparedNetwork_;
+  }
+
   void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
     Cls_.Declares(these);
@@ -204,6 +210,7 @@ private:
   std::unique_ptr<Data::SourceSet> Sources_;
   std::shared_ptr<::outshine::Generators::PreparedTerrainAssets> PreparedTerrain_;
   std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> PreparedBuildings_;
+  std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;
   std::unique_ptr<TilePool> Pool_;
   TilePool::LandingCursor LandingCursor_;
   std::unique_ptr<GroundStream> Ground_;

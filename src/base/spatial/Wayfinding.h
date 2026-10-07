@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "Earth.h"
+#include "math/Box.h"
 
 namespace outshine::Path {
 
@@ -109,6 +110,8 @@ public:
   [[nodiscard]] size_t TagOf(size_t way) const { return way < Ways_.size() ? Ways_[way].Tag : 0; }
 
   [[nodiscard]] size_t PointCount() const { return Points_.size() / 2; }
+
+  [[nodiscard]] Box BoundsEcef() const;
 
   [[nodiscard]] size_t NodeCount() const { return Nodes_.size(); }
 

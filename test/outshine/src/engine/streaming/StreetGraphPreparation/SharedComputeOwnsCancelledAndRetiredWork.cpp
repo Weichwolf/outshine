@@ -44,6 +44,7 @@ bool Await(outshine::StreetGraphPreparation &work) {
 int main() {
   using namespace outshine;
   using namespace outshine::Ground;
+  using namespace outshine::Generators::Osm;
   using namespace outshine::Test;
   GroundMaterials materials;
   VegetationTemplates templates;

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <stop_token>
@@ -10,17 +11,28 @@
 
 #include "StreetGraphBuilder.h"
 #include "Tasks.h"
+#include "PreparedStreetGraph.h"
 
 namespace outshine {
 
 class StreetGraphPreparation {
 public:
   struct Completed {
-    Ground::StreetGraphBuilder::Built Graph;
+    Generators::Osm::StreetGraphBuilder::Built Graph;
     double LongestSliceMs = 0.0;
+    double WorkerMs = 0.0;
+    bool CacheHit = false;
+    size_t ReadBytes = 0;
   };
 
-  StreetGraphPreparation(Tasks &pool, Ground::StreetGraphBuildJob job);
+  using JobFactory =
+      std::function<std::expected<Generators::Osm::StreetGraphBuildJob, std::string>()>;
+  using Resolver =
+      std::function<std::expected<Generators::Osm::PreparedStreetGraph::Loaded, std::string>(
+          const Generators::Osm::PreparedStreetGraph::Factory &)>;
+
+  StreetGraphPreparation(Tasks &pool, Generators::Osm::StreetGraphBuildJob job);
+  StreetGraphPreparation(Tasks &pool, JobFactory factory, Resolver resolver = {});
   ~StreetGraphPreparation();
   StreetGraphPreparation(const StreetGraphPreparation &) = delete;
   StreetGraphPreparation &operator=(const StreetGraphPreparation &) = delete;
@@ -33,6 +45,9 @@ public:
 
 private:
   struct Work;
+  void Start(Tasks &pool);
+  static std::expected<Generators::Osm::StreetGraphBuilder::Built, std::string>
+  Generate(Work &work, const std::stop_token &stop);
   static void Run(Work &work, const std::stop_token &stop);
   std::shared_ptr<Work> Work_;
   std::stop_source Stop_;

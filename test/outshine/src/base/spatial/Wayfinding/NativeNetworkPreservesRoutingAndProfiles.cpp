@@ -1,5 +1,6 @@
 #include "Wayfinding.h"
 #include "Check.h"
+#include "Geodesy.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -50,6 +51,13 @@ int main() {
   auto decoded = Path::Network::DecodeAsset(*encoded, encoded->size());
   CHECK(decoded.has_value(), "native product decodes within its exact payload allowance");
   if (!decoded) { return Report(); }
+  CHECK(decoded->BoundsEcef() == network.BoundsEcef(), "native spatial bounds survive loading");
+  for (const double latitude : {0.0, 0.005, 0.01, 0.02, 0.03}) {
+    Vec3 ecef;
+    GeoToEcef({.LongitudeDeg = 0, .LatitudeDeg = latitude, .HeightM = 100 + latitude * 1000}, ecef);
+    CHECK(decoded->BoundsEcef().Holds(ecef),
+          "spatial bounds contain both native points and intervening terrain profiles");
+  }
   CHECK(decoded->WayCount() == network.WayCount() && decoded->NodeCount() == network.NodeCount() &&
             decoded->EdgeCount() == network.EdgeCount() &&
             decoded->JunctionCount() == network.JunctionCount() &&

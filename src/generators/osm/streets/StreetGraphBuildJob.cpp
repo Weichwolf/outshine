@@ -16,7 +16,7 @@
 #include "Earth.h"
 #include "OsmField.h"
 
-namespace outshine::Ground {
+namespace outshine::Generators::Osm {
 StreetGraphBuildJob::StreetGraphBuildJob(Path::Network &&graph,
                                          Path::Network::HeightSource heightOf)
     : Graph_(std::move(graph)), HeightOf_(std::move(heightOf)) {}

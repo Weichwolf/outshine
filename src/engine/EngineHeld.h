@@ -630,7 +630,7 @@ struct Engine::State {
   void PublishEarthworkMeasurements(const Generators::PressedTerrain &pressed,
                                     double longestSliceMs);
   [[nodiscard]] StructureBuildQueue::HeightSource StructureHeightSource();
-  void PublishStreetGraphMeasurements(const Ground::StreetGraphBuilder::Built &mapped,
+  void PublishStreetGraphMeasurements(const Generators::Osm::StreetGraphBuilder::Built &mapped,
                                       double longestSliceMs);
   [[nodiscard]] GroundBuildProgress AdvanceGroundSheetMesh(const TangentFrame &standing,
                                                            const Patchwork &patchwork);

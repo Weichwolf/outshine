@@ -1629,19 +1629,29 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
     const int sourceZoom = state.Coverage().Zoom;
     auto fields =
         std::make_shared<const SourcedTerrainFields>(build.Sheets.SnapshotSourcedFields());
-    auto started = outshine::Ground::StreetGraphBuildJob::Begin(
-        *sources.Vectors,
-        sources.Ways,
-        [fields = std::move(fields), sourceZoom](LongitudeLatitude at) {
-          return fields->AslMAt(sourceZoom, at);
-        });
-    if (!started) {
-      Error = std::move(started.error());
-      World.GroundBuild.reset();
-      return GroundBuildProgress::Failed;
+    const auto ways = std::make_shared<const Generators::Osm::StreetField>(sources.Ways);
+    StreetGraphPreparation::JobFactory begin =
+        [vectors = sources.Vectors, ways, fields = std::move(fields), sourceZoom] {
+          return outshine::Generators::Osm::StreetGraphBuildJob::Begin(
+              *vectors, *ways, [fields, sourceZoom](LongitudeLatitude at) {
+                return fields->AslMAt(sourceZoom, at);
+              });
+        };
+    StreetGraphPreparation::Resolver resolve;
+    if (auto assets = World.Stack.NetworkAssets()) {
+      resolve = [assets = std::move(assets),
+                 vectors = sources.Vectors,
+                 ways,
+                 shape = World.Stack.Pool().Shaped(),
+                 sourceZoom](const Generators::Osm::PreparedStreetGraph::Factory &factory)
+          -> std::expected<Generators::Osm::PreparedStreetGraph::Loaded, std::string> {
+        auto key = assets->Key(*vectors, *ways, shape, sourceZoom);
+        if (!key) { return std::unexpected(std::move(key.error())); }
+        return assets->Resolve(*key, factory);
+      };
     }
-    state.BeginStreetGraph(
-        std::make_unique<StreetGraphPreparation>(*World.Pool, std::move(*started)));
+    state.BeginStreetGraph(std::make_unique<StreetGraphPreparation>(
+        *World.Pool, std::move(begin), std::move(resolve)));
     return GroundBuildProgress::Pending;
   }
   auto completed = state.StreetGraphWorker()->Collect();
@@ -1652,10 +1662,15 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
     return GroundBuildProgress::Failed;
   }
   const double longestSliceMs = completed->value().LongestSliceMs;
-  const outshine::Ground::StreetGraphBuilder::Built &mapped = completed->value().Graph;
+  const outshine::Generators::Osm::StreetGraphBuilder::Built &mapped = completed->value().Graph;
   build.StreetGraph = mapped.Graph;
   build.StreetGraphWayCount = sources.Ways.Ways().size();
   PublishStreetGraphMeasurements(mapped, longestSliceMs);
+  Published.RecordMetric("network: worker elapsed", completed->value().WorkerMs, "ms");
+  Published.RecordMetric(
+      "network: native cache hit", completed->value().CacheHit ? 1.0 : 0.0, "hit");
+  Published.RecordMetric(
+      "network: native asset bytes", static_cast<double>(completed->value().ReadBytes), "bytes");
   state.FinishStreetGraph();
   state.AdvanceStage();
   return GroundBuildProgress::Pending;
