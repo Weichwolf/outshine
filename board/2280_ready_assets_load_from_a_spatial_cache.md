@@ -16,6 +16,9 @@ Miss → Generator → Provider/Quellcache/API nach Bedarf → vollständige Anr
 Das gilt für Gebäude, Terrain, Straßen/Wasser, Vegetation und andere generierte Inhalte.
 Ein Treffer enthält vollständig angereicherte Asset-Rohlinge, keine unvollständigen Quellen.
 content/assets speichert native Paketbytes und Raumindex atomar; Hits umgehen den Miss-Callback.
+Schema 2 speichert Pakete bei Gewinn verlustfrei mit Zstandard Level 1; alte Rohpakete bleiben lesbar.
+Identität/Slices und Ladeschranke beziehen sich auf native Bytes. CRC/Frame-/Längenprüfung vor Nutzung;
+Kompression vor Schreibtransaktion. Öffnen schreibt vorhandene Paketbytes nicht neu.
 Native Höhenfelder umgehen DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
@@ -33,17 +36,14 @@ Frische Offline-Treffer, Producer 0333cacc3e, 720p60; alle zehn Bilder pixelglei
 | Wien | 13.92 | 10.14 | 4.13 |
 | CentralPark | 12.23 | 2.60 | 3.69 |
 | Tokyo | 17.00 | 3.97 | 6.16 |
-Weitere sieben Places: 6,89–13,30 s; alle terminal erfolgreich.
 Keine Basis-/LOD-/Deformations-Misses/Writes; Prototypen geladen, keine Generierung.
-Wien/CP/Tokyo zuvor 25,26/20,68/27,02 s; jetzt 13,92/12,23/17,00 s. Warm <1 s bleibt offen.
 Die drei Städte lesen weiterhin 1,98/1,81/2,03 GiB Terrain-Zwischenfelder. Kontakte,
 Straßen und Terrain-/Wassermeshes entstehen erneut; späte Treffer umgehen nur die Verformung.
 Prototypen: 31/22/31 Hits, 620/440/620 MiB gelesen; auch das ist zu groß.
 Tokyo kalt: 30,25 s, 31 einmalige Misses/Erzeugungen/Writes; warm kein Erzeugungsjob.
 Peaks sind keine Budgets; Wien/Feldkirch >10 ms, Koerbersee p99 21,37 ms >720p60.
 SSD-Payload zuvor 17,93 GiB: 15,64 GiB (87 %) Zwischenfelder; Residency nicht begründet.
-Der bisherige Leerlauf wartet auf ungecachte Vegetationsprototypen. Native Impostorprodukte
-nutzen jetzt AssetCache; separate prototypes.sqlite mit Modellbounds statt gemischter Weltbounds.
+Native Impostorprodukte nutzen AssetCache; prototypes.sqlite hält getrennte Modellbounds.
 Treffer umgehen Baum-/Atlaserzeugung; gleiche Prototypen teilen einen Miss. Ein Engine-Worker
 lädt/decodiert/erzeugt; Warten beobachtet konkrete Jobs statt fremder Fertigmeldungen.
 Leserahmen aus dem Format: 256² × 8 × 40 Byte + maximale Metadaten; keine Atlasverkleinerung.

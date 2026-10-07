@@ -12,11 +12,12 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 | Eigen | 5.0.1 | [2136](../board/2136_a_thousand_minds_walk_the_world_inside_the_frame.md) | Geplant: lineare Berechnungen, keine Änderung der GPU-ABI |
 | Bullet | 3.25 | [2136](../board/2136_a_thousand_minds_walk_the_world_inside_the_frame.md) | Geplant: Kontakte, Starrkörper und Gelenke |
 | SQLite | 3.54.0 | [2280](../board/2280_ready_assets_load_from_a_spatial_cache.md) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
+| Zstandard | 1.5.7 | [2280](../board/2280_ready_assets_load_from_a_spatial_cache.md) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
 
 ## Installation
 
 ```sh
-brew install geos simdjson pugixml eigen bullet sqlite
+brew install geos simdjson pugixml eigen bullet sqlite zstd
 ```
 
 meshoptimizer fehlt in Homebrew-Core. Das eigene [Paketrezept](../Formula/meshoptimizer.rb)
@@ -34,12 +35,12 @@ Bei einem Bibliotheksupdate Release/Hash und ABI prüfen, Paket bauen und Engine
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install libgeos-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev
+sudo apt install libgeos-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev libzstd-dev
 ```
 
-GEOS, SQLite, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten. meshoptimizer liefert
+GEOS, SQLite, Zstandard, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten. meshoptimizer liefert
 einen CMake-Vertrag (`meshoptimizer::meshoptimizer`); keine erfundene pkg-config-Abhängigkeit.
 Optionale Pakete werden erst beim jeweiligen Feature an den Build angeschlossen.
 
-Der integrierte native Assetcache benötigt SQLite auch im Runtime-Link. Statische Nutzer von
-`liboutshine.a` binden zusätzlich zu den vorhandenen Bibliotheken `pkg-config --libs sqlite3` ein.
+Der integrierte native Assetcache benötigt SQLite und Zstandard auch im Runtime-Link. Statische
+Nutzer von `liboutshine.a` binden zusätzlich `pkg-config --libs sqlite3 libzstd` ein.

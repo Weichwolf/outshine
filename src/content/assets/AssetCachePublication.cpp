@@ -1,4 +1,5 @@
 #include "AssetCacheState.h"
+#include "AssetPackageCodec.h"
 #include "Sha256.h"
 #include <cstddef>
 #include <cstdint>
@@ -50,22 +51,29 @@ bool Bind(sqlite3_stmt *statement, const AssetRecord &record) {
          sqlite3_bind_int64(statement, 12, record.Level) == SQLITE_OK && bound;
 }
 
-std::expected<void, AssetCacheError>
-StorePackage(sqlite3 *database, std::string_view key, std::span<const uint8_t> payload) {
+std::expected<void, AssetCacheError> StorePackage(sqlite3 *database,
+                                                  std::string_view key,
+                                                  std::span<const uint8_t> stored,
+                                                  int codec,
+                                                  size_t nativeBytes) {
   AssetSql::Statement statement;
   const auto prepared =
       AssetSql::Prepare(database,
-                        "INSERT INTO packages(key,bytes,crc) VALUES(?,?,?) ON CONFLICT(key) "
-                        "DO UPDATE SET bytes=excluded.bytes,crc=excluded.crc",
+                        "INSERT INTO packages(key,bytes,crc,codec,native_bytes) VALUES(?,?,?,?,?) "
+                        "ON CONFLICT(key) DO UPDATE SET bytes=excluded.bytes,crc=excluded.crc,"
+                        "codec=excluded.codec,native_bytes=excluded.native_bytes",
                         statement);
   if (!prepared) { return prepared; }
-  const auto checksum = crc32_z(0, payload.data(), payload.size());
+  const auto checksum = crc32_z(0, stored.data(), stored.size());
   const int blob =
-      payload.empty()
+      stored.empty()
           ? sqlite3_bind_zeroblob(statement.Value, 2, 0)
-          : sqlite3_bind_blob64(statement.Value, 2, payload.data(), payload.size(), SQLITE_STATIC);
+          : sqlite3_bind_blob64(statement.Value, 2, stored.data(), stored.size(), SQLITE_STATIC);
   if (!AssetSql::Text(statement.Value, 1, key) || blob != SQLITE_OK ||
-      sqlite3_bind_int64(statement.Value, 3, static_cast<sqlite3_int64>(checksum)) != SQLITE_OK) {
+      sqlite3_bind_int64(statement.Value, 3, static_cast<sqlite3_int64>(checksum)) != SQLITE_OK ||
+      sqlite3_bind_int(statement.Value, 4, codec) != SQLITE_OK ||
+      sqlite3_bind_int64(statement.Value, 5, static_cast<sqlite3_int64>(nativeBytes)) !=
+          SQLITE_OK) {
     return std::unexpected(AssetCacheError::Storage);
   }
   const int code = sqlite3_step(statement.Value);
@@ -92,10 +100,14 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
     record.Package = key;
     if (!AssetSql::Valid(record)) { return std::unexpected(AssetCacheError::InvalidInput); }
   }
+  const auto compressed = AssetSql::Compress(payload);
+  if (!compressed) { return std::unexpected(compressed.error()); }
+  const int codec = compressed->empty() ? 0 : 1;
+  const auto bytes = codec == 0 ? payload : std::span<const uint8_t>(*compressed);
   auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
   if (!began) { return began; }
   Transaction transaction(State_->Database);
-  const auto stored = StorePackage(State_->Database, key, payload);
+  const auto stored = StorePackage(State_->Database, key, bytes, codec, payload.size());
   if (!stored) { return stored; }
   AssetSql::Statement asset;
   AssetSql::Statement bounds;

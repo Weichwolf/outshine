@@ -52,7 +52,7 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
        {"terrain", "terrain_deformed", "buildings", "building_lod", "prototypes"}) {
     const std::string prefix = std::string("cost.assets.") + kind;
     std::println(
-        "PERF {} native {}: hit/resident/miss/write={:.0f}/{:.0f}/{:.0f}/{:.0f} read={:.2f}MiB",
+        "PERF {} native {}: hit/resident/miss/write={:.0f}/{:.0f}/{:.0f}/{:.0f} decoded={:.2f}MiB",
         scene,
         kind,
         get(prefix + ".hits"),
