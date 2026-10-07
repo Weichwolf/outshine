@@ -20,6 +20,13 @@ Anfangsframes/p99 bei unverändertem 1280×720@60/360°/Inhalt. Vorher keine neu
 GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne GPU-Stufe.
 2336 besitzt Weltrepräsentation/LOD, 2155 Licht, 2171 Materialien; dieser WI besitzt Arbeitsauswahl.
 
+## Priorisierung nach Kostenreview
+Aktuelle Offline-Fenster (2280): CP/Tokyo 2,59/3,62 ms p99 bei 1280×720/60/360°;
+Wien nach Prototyp-Neubau 29,23 ms, davon schlechtester Frame 27,87 ms Fence-Warten.
+Kein Beleg für generell langsames Pixel-Shading. Zuerst 2336/2280s unnötigen Ladebedarf
+und 2339s Bereitschaft-/Peakursachen beheben; keine Renderer-Neufassung ohne direkten Passbefund.
+Pixelbudget-Verfahren bleiben für reichere Materialien/Lichter/Wolken erforderlich.
+
 ## Besitzer und Umsetzung
 Kandidaten zuerst mit echten Eingaben in kleinen Python-Experimenten vergleichen, anschließend
 den besten gemessenen Ansatz nativ integrieren. Bild-/Spielwirkung bestimmt die zulässige Approximation.

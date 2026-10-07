@@ -37,23 +37,23 @@ Alle zehn Places teilen Profil, Bildauftrag und Ziel unter 10 ms pro Frame beim 
 Objektzahl darf GPU-Arbeit bei gleicher Bildwirkung nur gering beeinflussen. Keine Inhaltskürzung.
 
 ## Katalog der Defizite und ihres Zielpfads
-Dies ist der fortlaufende Katalog, keine Behauptung eines abgeschlossenen Code-Reviews.
-Jeder Befund bleibt beim Featurebesitzer; dort stehen Ursache, Ersatz und Bildabnahme.
+Kostenreview 2026-10-07: aktuelle Offline-Places und Code, kein A18-Pro-/Internetnachweis.
+Messdetails/Einheiten bei 2280; Verfahrensentscheidung bei 2336. Weitere Befunde beim Besitzer.
 | Priorität | Defizit | Zielpfad und Besitzer |
 |---|---|---|
-| P0 | Tokyo erzeugt noch 2,36 Mio. Dreiecke; Fernbedarf nicht global | Plan → projizierter Bedarf → Hülle/Cluster/Impostor, 2336 |
-| P0 | Native Teilprodukte im Cache; Weltaufbau verarbeitet weiter Quellen/Zwischenfelder | Assetbedarf → Cachehit laden / Miss generieren, räumlicher Index/LOD, 2280/2336 |
-| P0 | Rasterarbeit bleibt teuer; HiZ greift bei Drehung nicht | Hierarchische Sichtauswahl, vordere Coverage, begrenzte aktuelle Arbeit, 2340 |
-| P0 | CP/Tokyo Prozesspeaks 3,69/6,16 GiB; GPU-Anteil noch unbewiesen | Nur benötigte Darstellungen/Attribute resident, geteilte Eingaben, 2336/2188 |
-| P0 | Geometrie-/Material-Replay ist noch nicht im Stadtpfad integriert | Unbeleuchtete Fernfelder, gültige Tiefe/Parallaxe, aktuelle Beleuchtung, 2336/2171 |
-| P0 | Wasserpegel/Ufer fluten Gebäude oder bilden falsche Stufen | Zusammenhängende Gewässergeometrie und Terrainkontakt, 2145 |
-| P1 | Sonderklassen/Parts/Dachformen fehlen oder werden falsch interpretiert | Gelieferte Semantik statt Wohnhausannahmen, 2173/2338 |
-| P1 | Boden/Fels/Fassaden bleiben flach und repetitiv | Maßstäbliche Form, gemeinsame Materialkomposition, 2337/2171 |
-| P1 | Licht/Schatten/Reflexion bleiben schwach; viele lokale Lichter fehlen | Aktuelles regionales Licht mit kohärenter Kameraantwort, 2155 |
-| P1 | Brücken/Tunnel und komplexe Straßenanschlüsse fehlen | Native Ebenen/Kontakte bei erhaltener Straßenqualität, 2281 |
-| P1 | Engine/world kennen Quellsemantik; Erweiterungen umgehen öffentliche Grenzen | Fachplanung in Generatoren, generische native Welt, 2188 |
-| P1 | GPU-Passzeiten fehlen; Encoding/Warten ersetzen keine GPU-Messung | Kompakte direkte Kostenmessung, 2339 |
-| später | Wälder bleiben POC; Wetter/Wolken und bewegte Sandbox fehlen | Nach Gebäude/Terrain/Straßen: 2111, 2172, 2136 |
+| P0 | Koerbersee speichert nicht; Flensburg warm abweichend | Vollständige native Produkte, gleiche Bild-/Kontaktwirkung, 2280 |
+| P0 | Feine DEM-/OSM-Anfragen vor möglicher Sichtbarkeit | Grobe DEM-Eltern → Rundum-Horizont → benötigte Kinder, 2336 |
+| P0 | Koerbersee expandiert 33,29 Mio. CPU-Terraindreiecke | Native Höhenblätter, direkte Proben/aktive Abfragen, 2336 |
+| P0 | Regiontreffer lesen weiter 709–961 MiB Terrain-Zwischenfelder | Räumliche Rohlinge vor Quellarbeit laden, geteilte Daten, 2280 |
+| P0 | CP/Tokyo Footprint 2,40/5,60 GiB, Besitzer nicht getrennt | Arbeitsmenge/Überlappung/Kopien begrenzen, 2280/2339 |
+| P1 | 31 Prototypen entpacken 620 MiB; fachfremde Änderungen invalidieren sie | Bedarf, gepackte Atlasformate, gezielte Producer-Version, 2280/2336 |
+| P1 | Native Geometriephase CP/Tokyo 2,17/2,87 s; Teilkosten unbekannt | CPU/Allokation/Upload/Fence getrennt messen und Spitzen ersetzen, 2339/2188 |
+| P1 | Tokyo erzeugt 2,36 Mio. Gebäudedreiecke; ferne Auswahl nur kachelweise | Hierarchische Coverage, Hülle/Cluster/Impostor vor Emission, 2336 |
+| P1 | Erstframes/Fence-Spitzen, GPU-Passzeiten fehlen | Readiness/Upload-Lebensdauer, direkte Backendmessung, 2340/2339 |
+| P1 | Wasser/Ufer, Sonderklassen/Parts, komplexe Bauwerke fehlerhaft | Native Pegel/Kontakte, Semantik und Ebenen, 2145/2173/2281/2338 |
+| P1 | Fels/Fassaden/Licht bleiben flach und repetitiv | Gemeinsame Form/Material-/Lichtkomposition, 2337/2171/2155 |
+| P1 | Öffentliche Erweiterungen umgehen dieselbe Bedarf-/Produktkette | Generische Welt, Generatorplanung, native Verträge, 2188 |
+| später | Wälder POC; Umwelt und bewegte Sandbox fehlen | Nach Gebäude/Terrain/Infrastruktur: 2111, 2172, 2136 |
 
 Typische Last ist eine bewegte Spielwelt: Kamera, Figuren/Fahrzeuge, Wind, lokale Lichter und
 Wolkenschatten. Statische Form/Material dürfen wiederverwendet werden; ihre fertige Beleuchtung
@@ -75,8 +75,10 @@ von Profil, Sichtweite, Inhaltsvollständigkeit oder Framebudget.
 
 ## Reihenfolge und Zuständigkeit
 2280 und 2336 sind aktiv: vollständiger Ladeablauf und einfache Gebäude mit Fernclustern.
-Zuerst Wien beim aktuellen Bildstand unter 10 ms pro Frame einschließlich p99 bringen;
-2336/2340 besitzen Repräsentation/Arbeitsauswahl. Keine neuen Bildfeatures vor diesem Nachweis.
+Zuerst die P0-Lade-/Bedarfsfehler aus dem Kostenreview beheben; dann Fernstadt und
+Erstframe-Spitzen. Stabile CP/Tokyo-Messfenster liegen bereits bei 2,59/3,62 ms p99;
+GPU-Passzeiten und A18-Pro-Budget bleiben offen. Ein günstiges Fenster schließt kein Gate.
+2336/2340 besitzen Repräsentation/Arbeitsauswahl; sichtbare Qualität folgt dem integrierten Gewinn.
 Dann Gebäude, Terrain, Infrastruktur, Vegetation und schließlich Wolken ausbauen.
 Der SpeedTree-Qualitätsmaßstab zieht Vegetation nicht vor.
 2188 migriert dabei

@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
-Stand: 2026-10-06. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-29 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+Stand: 2026-10-07. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+30 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -44,6 +44,14 @@ das Clipmaps-Paper liegt bereits als PDF unter Terrain/SIGGRAPH.
 
 ## Geometrie, Sichtbarkeit und Terrain — WI 2336 / 2337 / 2338
 
+[Hierarchischer Bedarf vor Download und Geometrie](engine/visibility-driven-demand.md)
+prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outshine ab.
+- **GigaVoxels: Ray-Guided Streaming for Efficient and Detailed Voxel Rendering**,
+  Crassin et al., I3D 2009.
+  [Quelle](https://www-sop.inria.fr/reves/Basilic/2009/CNLE09/CNLE09.pdf) ·
+  [PDF](geometry/i3d/2009-gigavoxels-ray-guided-streaming.pdf).
+  Sicht-/LOD-Traversierung meldet nur benötigte fehlende Hierarchieknoten. Anfragebündelung
+  und gröbere Ersatzdaten übernehmen; keine HTTP-Anfrage je Pixel und keine Pflicht zur Voxelwelt.
 - **Simplification Envelopes**, Cohen et al., SIGGRAPH 1996.
   [Quelle](https://www.cs.umd.edu/gvil/papers/simp_env.pdf) ·
   [PDF](geometry/siggraph/1996-simplification-envelopes.pdf).

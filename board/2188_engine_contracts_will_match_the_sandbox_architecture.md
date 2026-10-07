@@ -40,6 +40,9 @@ Derselbe öffentliche Vertrag lädt sie nach räumlicher/LOD-Auswahl: Frustum od
    Volumenprodukte brauchen passende Formate. Cachehits umgehen Provider/Rohling-Neubau.
    Budgetierte Runtime-Verfeinerung erhält fertige Rohlinge, keine unvollständigen Quelldaten.
    Identische Misses teilen einen Job; Hits/Misses publizieren dieselben nativen Produkte.
+   Gemeinsamer Bedarf aus 2336 wählt native Eltern/Kinder vor Provideranforderungen, einschließlich
+   Höhen-/Audio-/Kontaktnebenpfaden. Erweiterungen liefern Bounds/Unsicherheit/Produktbezug;
+   world kennt keine DEM-/OSM-Tags. Räumlicher Assetindex bleibt generatorunabhängig.
 2. Fachliche Vorbereitung aus Engine/SurfacePreparation zur verantwortlichen Erweiterung
    führen. OSM/XML/MVT zu generators/osm, Höhen-/Wetterdecoder zu ihren Erweiterungen.
    Private Sonderaufrufe beim Anschluss entfernen, statt einen Wrapper darüberzulegen.

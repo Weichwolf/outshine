@@ -10,103 +10,105 @@ Tags: lod, coverage, planetary, budgets
 # Required detail is selected before source and geometry work
 
 ## Ergebnis und Ist
-Rundum verfügbare Welt bis 240 km am Boden, später höhenabhängiger Horizont und Orbit → Nahdetail. Der Geometriebedarf nimmt mit Entfernung ab: Häuser → Blockverbände → kompakte Skyline-Flächen.
-Native Quellabfragen liefern Dach-/Wandtreffer mit DEM-Kontakt vor jedem Vertex-/Indexaufbau.
-Sichtauswahl umfasst jetzt alle Detailstufen/Zellen einer Kachel. Nahe Inhalte bleiben unverändert
-vollständig; ferne Flächen werden nur bei geringeren geschätzten Kosten zu Tiefenpatches.
-Rundumprodukte behalten Materialkoordinaten/Normalen und aktuelle Beleuchtung; Translationreuse null.
-| 720p60, offline, 360° | Dreiecke vorher → jetzt | p99 ms vorher → jetzt | Laden s |
-|---|---|---|---|
-| Wien | 3,08 Mio. → 1,61 Mio. | 70,54 → 21,34 | 94,26 |
-| Central Park | 3,47 Mio. → 1,24 Mio. | 48,88 → 39,54 | 69,67 |
-| Tokyo | 13,36 Mio. → 2,36 Mio. | 134,70 → 18,65 | 109,66 |
-Bilder geöffnet: 1,28/0,41/0,80 % geänderte Pixel; Schatten-/Coverageänderungen nicht abgenommen.
-Gemessener Prozesspeak CP/Tokyo: 2,68/3,01 GB; hoher Speicher-/Ladebedarf bleibt unbegründet.
-Alle drei Frame-Gates bleiben rot. Dreieckszahl allein beweist die Ursache der Frame-Spitzen nicht.
-Wien-Prüfwert rund 300.000 (= 3 Mio. / 10), kein belegtes Optimum. Kachelweise Sichtauswahl
-ist noch keine gemeinsame Welthierarchie; Verdecker über Kachelgrenzen und stabile Bewegung fehlen.
+Weltbedarf folgt möglicher Bild-/Spielwirkung, nicht einer vollständigen feinen Radiusfüllung.
+Bis 240 km am Boden und später Orbit → Nahdetail; Rundum-Abdeckung bedeutet verfügbare
+Eltern, nicht alle feinen Daten/Assets. Verdeckte Bereiche dürfen dauerhaft grob bleiben.
+Heute fragt GroundPatchwork fein → grob; Playable fragt feinste Kontaktkachel und grobe Basis
+zugleich. TerrainPathPreparation plant alle Stufen; TerrainSourceCoverage fordert feinste
+Höhen unter Gebäuden unabhängig von Verdeckung. Assettreffer kommen noch nach Quellarbeit.
+Koerbersee-Diagnose: 16.255 Höhenblätter × 33² = 17.701.695 CPU-Vertices;
+16.255 × 32² × 2 = 33.290.240 CPU-Dreiecke. Arrays: (53.105.085 + 99.870.720) × 4
+= 583,56 MiB. Das sind CPU-Zwischenprodukte, keine gezeichneten Dreiecke. Der vorherige
+erfolgreiche Shot meldet 37.776 erzeugte Gebäudedreiecke laut ROW. ROW zählt keine
+GPU-Terraindreiecke; ein Verhältnis zu sichtbaren GPU-Dreiecken ist daraus nicht ableitbar.
+AppendTerrainMeshSheet expandiert jedes Blatt vor/nach Deformation. Klassifikation nutzt
+nur jede 16. Position; GroundPositionsM/GroundIndex dienen danach der Audio-Verdeckung.
+Dieser globale CPU-Aufbau muss durch gezielte Proben und aktive Audioabfragen ersetzt werden.
 
-## Aktuelle Lieferung: Fernstadt vor weiteren Nahdetails
-| Klasse | Produkt | Bedarf vor Erzeugung |
+## P0: grobe Sichtbarkeit vor feineren API-Anfragen
+1. Zuerst gröbste Eltern für den Weltbedarf aus dem Assetcache; bei Miss nur grobes DEM
+   beschaffen. Kein Start aller feinen Requests, auch nicht durch BlockAt, Gebäudehöhen,
+   Wasserklassifikation oder vorbereitete Kamerapfade. Unbekannt/NoData bleibt unterscheidbar.
+2. Auf einem Worker grobe Geländehierarchie und Rundum-Horizont von nah nach fern auswerten.
+   Höhenwinkel/Bounds berücksichtigen Kamera-ECEF, Erdkrümmung und Höhe. Unterbäume hinter
+   Bergmassiven nicht verfeinern. Quadtree-Horizont gegen niedrig aufgelöste Tiefen-/Cubemap-
+   Auswahl mit echten Koerbersee-DEM-Daten in Python vergleichen; keine feinen Daten vorladen.
+3. Nur möglicherweise sichtbare Knoten nach projiziertem Formfehler/Pixelbedarf verfeinern;
+   Eltern bleiben bis Kinder vollständig sind. Verdeckung erneut nach jeder groben Lieferung
+   bewerten, dann Assetindex/Provider anfragen. Geländeschatten, Reflexion, hohe Bauwerke und
+   aktive Interaktion haben eigene Bedarfe; Sichtbarkeit ist mehr als aktueller Farbbild-Frustum.
+4. Gemittelte DEM-Mips liefern keine garantierten Höhenintervalle. Herkunft/Zustand belegt keine
+   Höhenfehlerschranke. Unbekannte Bounds sperren keinen ganzen Ast: grobe Eltern erhalten,
+   unsichere Randknoten priorisiert nachladen; bekannte Intervalle für sicheren Ausschluss nutzen.
+   Approximationen mit Silhouetten-/Disocclusionvergleich bewerten, keine unsichtbaren Löcher.
+5. Blickdrehung nutzt Rundumbedarf. Bewegung/Flughöhe öffnen neu sichtbare Äste frühzeitig,
+   mit Hysterese/Prädiktion und begrenztem parallelem IO; kein World-Reset bei Grenzübertritt.
+   Im Alpental hinter dem Berg erst Detail laden, wenn ein Bedarf entsteht; Radius allein reicht nicht.
+6. Native Kontakt-/Audioabfragen nutzen Höhenblätter und einen räumlichen Index; lokale
+   benötigte Dreiecke erst am Abfrageort. Lichtproben direkt/inkrementell aus Höhenprodukten.
+   Render-, Physik- und Audiogenauigkeit unabhängig bestimmen; kein feines Weltmesh auf Vorrat.
+
+## Gebäude: Nachfrage von nah nach fern
+Auch OSM wird vor Requests ausgewählt: zuerst benötigte nahe Zellen/grobe Verbände, deren
+native Depth/Coverage auswerten, dann möglicherweise sichtbare Kinder. Keine vollständige
+feine Stadtkachel-Ringfüllung vor Verdeckung. Bewegung/Pose prädizieren den nächsten Bedarf;
+Drehung allein startet keine feine Weltfüllung. Gebäude-Bounds beachten Höhe und Dach/Silhouette.
+Dichte Städte: vordere Flächen verdecken viele Einzelhäuser; hintere Rohlinge bleiben auf SSD.
+Altstadt: weniger Häuser, aber komplexere nahe Formen/Sichtlücken. Beide teilen Bild-/Zeitbudget;
+ähnliche Arbeit bei ähnlicher Bildkomplexität ist eine Hypothese, keine garantierte Gleichheit.
+MVT liefert ganze Kacheln: versteckte Objekte in benötigten Kacheln sind unvermeidbare Quellbytes,
+aber kein Auftrag für ihren Fine-Aufbau. Grobe MVT-Stufen ohne Gebäude sind keine leeren Städte.
+Verdecker brauchen tatsächlich belegte Coverage; eine Cluster-AABB ist keine massive Hauswand.
+
+## Raumhierarchie und Cachevertrag
+2280 besitzt Index/Bytes; dieser WI besitzt Bedarf/Eltern-Kind-Auswahl. Generatoren besitzen
+Fachpläne; Engine koordiniert native Bounds/Qualität/Kosten ohne OSM-Semantik (2188).
+Stabile räumliche Zellen/Produktstufen/Versionen statt Kameraposition als Rohling-ID.
+Kamera/Projektion wählen Produkte und Runtime-Details; unveränderte Rohlinge wiederverwenden.
+Gepackte Bereiche/Morton-Ordnung, Quadtree/BVH gegen lokale Arrays messen, GeoCellId erhalten.
+Nur fehlende erforderliche Produkte erzeugen. SSD/RAM/GPU-Arbeitsmengen getrennt begrenzen.
+
+## Fernstadt vor weiteren Nahdetails
+| Stufe | Produkt | Bedarfsentscheidung |
 |---|---|---|
-| Fine | Räumliche Nahfassaden/Dächer | Sichtbare Form, Interaktion, aktuelle Schatten |
-| Shell | Grundrisswände/Dach ohne sekundäre Geometrie | Projizierter Formfehler rechtfertigt Hülle |
-| Massed | Gemeinsam erfasste Blockverbände | Silhouette/Coverage bleiben, Einzelhäuser entfallen |
-| Skyline | Wenige tiefenhaltige Impostor-/Silhouettenflächen | Fernbild und Parallaxe statt Einzelvolumen |
+| Fine | Räumliche Fassaden/Dächer | Nahe Form, Interaktion, aktuelle Schatten |
+| Shell | Grundrisswände/Dach | Projizierter Formfehler rechtfertigt Hülle |
+| Massed | Blockverbände | Silhouette/Coverage ohne Einzelhausgeometrie |
+| Skyline | Tiefenhaltige Impostorflächen | Fernbild/Parallaxe statt Einzelvolumen |
+Zuerst Massed/Skyline. Ferne Kosten nehmen ab; Kontakte/Straßen/Parts/Höfe nahe erhalten.
+Native Quellabfragen wählen Dach-/Wandtreffer vor Vertexarbeit, aber noch kachelweise.
+Wien/CP/Tokyo erzeugen 1,61/1,24/2,36 Mio. Gebäudedreiecke (ROW, keine GPU-Zählung). Ihre aktuell einfachen Bilder rechtfertigen
+keinen pauschalen Ausbau; verdeckte Hausäste/ferne Einzelobjekte vor Planung und Emission sparen.
+[Python-Flächenmodell](../test/experiments/building_surface.py): Tokyo 588.862 Pläne → 8.782
+Flächendreiecke im flachen Modell; kein nativer/GPU-/Bildnachweis. Generator-/Renderer-/Hybrid-
+Verdeckung mit identischen Inputs, 360° und Bewegung vergleichen; frühere Bilder nicht löschen.
+Nahdetails nur aus fertigen Plänen; Ferndetails plausibel schätzen, Herkunft/Übergang erhalten.
+Unbeleuchtete Tiefe/Coverage, Normalen und Materialien wiederverwenden; Licht/Pose bleiben aktuell.
+Brücken/Überhänge/Kronen brauchen mehrschichtige oder passende native Produkte.
 
-Zuerst Massed/Skyline, dann Nahkosten; Pläne behalten Grundrisse/Höfe/Parts, Höhen, Material und Terrainkontakt. Straßenqualität und
-Terrain-Deformation bleiben erhalten. Kontakt/Kollision hängen nicht von der Bildrepräsentation ab.
-Ferne Details dürfen aus belegter Dichte/Nutzung/Relief statistisch angenähert werden; Silhouette,
-Coverage, Farbe und Lichtwirkung entscheiden. Herkunft bleibt explizit. Näherkommen ersetzt die
-Schätzung durch feinere quellengestützte Produkte mit stabilem Übergang.
-
-## Neue Lieferentscheidung
-Wien: 100.446 verschiedene nicht versteckte Polygone aus 49 Nahkacheln/12,4 MB; Python 5,3 s.
-Der Bestand reicht bis etwa 8,64 km; Parts/Kachelfragmente zählen separat. 240 km bleiben offen.
-Engine fragt fertige Assets an; nur Cachemisses starten Anreicherung/Asset-Erzeugung (2280).
-Warmstart lädt Asset-Rohlinge; Nahdetails entstehen budgetiert aus ihren fertigen Plänen. Boxhüllen: bis zu zwei sichtbare Wände und ein Dach
-(sechs Dreiecke); Massed/Skyline ersetzen ferne Einzelhüllen. Grundrisse/Höfe/Teile nahe erhalten.
-[Python](../test/experiments/building_surface.py): Tokyo 588.862 Pläne → 8.782 Flächendreiecke
-im flachen Modell, keine native Abnahme. Generator-/Renderer-/Hybrid-Verdeckung nativ vergleichen:
-identische Inputs/Bilder, Erstaufbau/Warmstart, Bytes, 360°/Translation und aktuelle Schatten.
-Warmstart Wien <1 s und wenige ms Draw als Prüfziele; der neue Ablauf ersetzt ungeeignete Verfahren.
-
-## Neue Erzeugungskette und Zuständigkeit
-1. Cachemisses erzeugen vollständige angeforderte Assets samt Fachplänen/LOD-Produkten. OSM: gepackte Ringe,
-   Höhen/Kontakte, Herkunft/Erscheinung; Terrain und Vegetation behalten passende Fachformate.
-   Gemeinsamer Assetindex (2280) nutzt Bounds, Eltern/Kinder, Qualität/Kosten ohne Quelltypen.
-   Gepackte Bereiche/Morton-Ordnung prüfen; Quadtree versus BVH messen, GeoCellId beibehalten.
-2. Kameraort/Höhe, Projektionsmaßstab und Qualitätsauftrag wählen räumliche Produkte.
-   Rundumbedarf ist unabhängig von Blickrichtung; Drehung wählt nur bereits verfügbare Flächen.
-   Größere Entfernung erlaubt größere Weltfehler bei kontrolliertem Pixelfehler.
-   Bei Bewegung nur betroffene Knoten/Detailgrenzen neu bewerten; unveränderte Produkte behalten.
-   Eltern aus dem Cache wählen; nur fehlende Rohlinge erzeugen. Nahe Details daraus verfeinern,
-   ohne Quelldecode/Anreicherung oder Neubau unveränderter Rohlinge.
-3. Fernprodukte direkt aus Plänen erfassen; hierarchische Ray-Bündel von nah nach fern
-   gegen gebündelten Raster-Capture/Clustergeometrie vergleichen. Verdeckte Äste überspringen;
-   ausreichend kleine Eltern direkt auswerten statt alle Einzelgrundrisse zu triangulieren.
-   Ray-Abstand in Pixeln bestimmt mit Projektion/Entfernung die Verbandsgröße; Silhouette,
-   dünne Türme und Tiefensprünge adaptiv feiner erfassen. Keine Fine-Referenz pro Fernauftrag.
-   Capture auf vorhandenem Device bündeln; kein eigener Renderer/Device je Gebäude/Zelle.
-4. Generische Oberflächenprodukte speichern Depth/Coverage, Normalen und Basisfarbe/Metallic/Roughness.
-   Licht, Fahrzeuglichter und Wolkenschatten bleiben aktuell; bewegte Objekte/Laub eigene Produkte.
-   Nicht repräsentierte Effekte behalten Geometrie; Brücken/Überhänge/Kronen verlangen mehrere Tiefen.
-   Volumen und dynamische Produkte teilen den Qualitätsauftrag, nicht erzwungen denselben Speicher.
-5. Aktualisierung folgt Parallaxe, Disocclusion, Inhalt und gemessener Pixeländerung. Stabile
-   Assetprodukte von SSD/RAM/GPU wiederverwenden. Betroffene Regionen ergänzen, keine pauschale Weltinvalidierung.
-   Vollständige gültige Eltern bis zur atomaren Kind-Publikation behalten; Hysterese verhindert Poppen.
-6. Generator besitzt Pläne/Produkte und Qualitätsbelege; Engine Residency/Publikation,
-   Renderer Sichtauswahl/aktuelles Shading. Builtins und externe Generatoren teilen die öffentliche API.
-   2188 integriert nur dafür fehlende Verträge; 2280 besitzt Quellen und Auftragslebensdauer.
-
-## Qualität passend zur Repräsentation
-Bild-/Spielwirkung und Echtzeit bestimmen die zulässige Approximation, keine allgemeine CAD-Toleranz.
-Geometrische Vereinfachung verlangt passende Formgrenzen. Bildfelder verlangen Bounds und einen
-geprüften Bild-/Parallaxegültigkeitsbereich; Abstand zur flachen Trägergeometrie ist nicht ihr Bildfehler.
-ProjectedErrorBudget: e_px ≈ e_m × f_px / d; Off-axis/Tiefe/Verdeckung separat prüfen.
-Silhouette/Coverage, Helligkeit, Material und zeitlichen Versatz getrennt messen.
-
-## Fernwelt, Flug und Orbit
-Niedrige MVT-Zooms enthalten nicht automatisch Gebäude. Belegte Grobinformation darf plausible
-Fernverbände steuern; fehlende Pflicht-Nahinhalte bleiben ein Fehler. Globale Grobprodukte
-vor regionalen Kindern, kein weltweites Feinmodell. Terrain folgt eigener Qualität; subpixeliges Relief geht zum Ellipsoid über. Vegetation 2111 folgt später.
+## Reihenfolge und fehlende Verträge
+P0: Koerbersee-Speicherfehler und Flensburg-Warmabweichung (2280), dann DEM-Bootstrap/
+Sichtbedarf vor Requests einschließlich Nebenpfaden, räumliche Cacheprodukte und aktive Kontakte.
+2339 zählt angeforderte/unterdrückte Kinder, Bytes/Stufe und Besitzer der Peaks im selben Ausbau.
+Danach Fernstadt und Lade-/Uploadspitzen; neue Gebäudequalität folgt dem integrierten Gewinn.
+Fehlend: gemeinsame native Hierarchieknoten mit Bounds/Höhenunsicherheit, Produkt-/Kostenbezug
+und getrenntem Bild-/Interaktionsbedarf; dieselbe Auswahl für Builtins und externe Erweiterungen.
+Keine neue SDK-Gesamtarchitektur vor der laufenden Koerbersee-Integration.
 
 ## Forschungsgrundlage
-[Hierarchical Image Caching, SIGGRAPH 1996](https://pages.cs.huji.ac.il/danix-lab/cglab/research/wa/):
-räumliche Verbände, Projektionsgültigkeit und amortisierte Capturekosten; statische Bildfarbe ersetzen.
-[Layered Depth Images, SIGGRAPH 1998](https://dash.harvard.edu/entities/publication/73120378-7e84-6bd4-e053-0100007fdf3b):
-mehrere Tiefen und gefilterte Splats für Parallaxe/Disocclusion; Punkt-Replay allein reicht nicht.
-[Far Voxels, SIGGRAPH 2005](https://www.crs4.it/vic/cgi-bin/bib-page.cgi?id=%27Gobbetti%3A2005%3AFV%27):
-projektionstreue Fernaggregate/Hierarchie; Fine-Soup-Vorbereitung und Transparenzgrenzen nicht übernehmen.
-[Karras, HPG 2012](https://research.nvidia.com/publication/2012-06_maximizing-parallelism-construction-bvhs-octrees-and-k-d-trees):
-Morton-sortierte Bereiche/BVH; GPU-Aufbau ist keine Pflicht für statische Pläne auf einem Worker.
-[Billboard Clouds](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf),
+[MapLibre/Cesium/GigaVoxels](../doc/references/engine/visibility-driven-demand.md):
+geprüfte Auswahl-/Fallbackpfade; GigaVoxels-PDF lokal. Kein Tokyo-Durchsatzbeweis dieser Projekte.
+[Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf),
 [GPU-Driven](../doc/references/geometry/siggraph/2015-gpu-driven-rendering-pipelines.pdf),
-[Clipmaps](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf), [Materialtransport](2171_consistent_materials_unify_the_world.md), [Arbeitsauswahl](2340_image_work_follows_visible_change_instead_of_full_frames.md).
+[Billboard Clouds](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf).
+[Engine-Recherche](../doc/references/README.md): Hierarchical Image Caching, Layered Depth Images,
+Far Voxels, Morton/BVH; räumliche Wiederverwendung statt ungeprüfter fertiger Beleuchtung.
+Clipmaps allein liefern keine Quell-Sichtbarkeitsauswahl; CPU-Auswahl spart bereits vor GPU-Culling.
 
 ## Abnahme
-Zuerst Tokyo/Wien/Central Park: vollständige Fernverbände bei deutlich weniger Erzeugung,
-residenten Bytes und ausgeführter Geometrie, gleicher/besserer Bildqualität und unverändertem Profil.
-Drehung, Bewegung, Licht und Inhaltsänderungen ohne Löcher/Geisterbilder/Poppen. Danach Flug/Orbit.
-Abstandsbänder zeigen abnehmenden Vertexbedarf; Quellobjektzahl ersetzt keine Bildkostenmessung.
-Native CPU/GPU, Laden und Peaks getrennt belegen; AGENTS-Gates gelten.
+Koerbersee: erster DEM-Requestbatch nur grobe Eltern; verdeckte Kinder weder API/Decode/Erzeugung
+noch GPU-Residency. Aufstieg/Bewegung erschließen sie ohne Löcher; gleiche Rundum-Silhouette.
+Tokyo/Wien/CP: nahe OSM-Batches vor fernen; verdeckte Kinder nicht anfordern/aufbauen.
+Gleicher Inhalt/Profil bei weniger Daten/Geometrie/Peak; Schatten/Reflexionen erhalten.
+Anfragen/Bytes pro Stufe und tatsächlich wirksame Geometrie belegen; Quellobjektzahl ist kein Budget.
+Kalte API-Beschaffung, native Treffer und Runtime getrennt; datierte Bilder öffnen/vergleichen.

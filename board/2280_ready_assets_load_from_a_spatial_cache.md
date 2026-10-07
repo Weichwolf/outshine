@@ -10,49 +10,47 @@ Tags: assets, loading, cache, spatial-index, residency
 # Prepared base assets load from a spatial cache
 
 ## Ergebnis und Ist
-Engine-Assetbedarf → räumlicher Cacheindex → Hit: fertiges Asset laden → RAM/GPU.
-Miss → Generator → Provider/Quellcache/API nach Bedarf → vollständige Anreicherung/Asset-Erzeugung
-→ Asset/Index atomar speichern → denselben Lade-/Publikationspfad bedienen.
-Das gilt für Gebäude, Terrain, Straßen/Wasser, Vegetation und andere generierte Inhalte.
-Hits enthalten vollständig angereicherte Rohlinge; content/assets speichert Paketbytes/Raumindex
-atomar und umgeht den Miss-Callback.
-Schema 2 speichert Pakete bei Gewinn verlustfrei mit Zstandard Level 1; alte Rohpakete bleiben lesbar.
-Identität/Slices/Ladeschranke betreffen native Bytes; CRC/Frame/Länge vor Nutzung prüfen,
-vor Schreibtransaktion komprimieren; vorhandene Paketbytes beim Öffnen erhalten.
-GeometryAsset erhält Geometrie/Placements, alle Materialfaktoren/-Maps, Bilder und Lichter;
-versionierte Little-Endian-Daten, keine Gerätehandles. Öffentlicher Generator lädt sie ohne Provider.
-Straßennetze laden am Compute-Worker vor Layout/Verknüpfung/Höhenprofilierung; Misses speichern
-und laden denselben nativen Pfad. Topologie, Richtungen, Profile und Kreuzungen bleiben erhalten.
-Fehlende Höhen werden nicht als Ready gespeichert; Fachplanung/Schlüssel: generators/osm/streets.
-Native Höhenfelder umgehen DEM-Decode/Nahtaufbereitung und teilen aktive Felder; Gebäuderohlinge
-enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
-Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
-speichern und laden dieselbe vollständige Basis. Herkunft/Signatur/Qualifikation bleiben erhalten.
-Ausgewählte LOD-Geometrie wird als Kindprodukt gespeichert; gleiche Position/Projektionsparameter
-laden sie ohne erneute Planung/Emission. Drehung erzeugt keinen neuen Schlüssel. Bewegung und
-Nahdetails brauchen weiterhin 2336; vollständige externe Integration bleibt offen.
-Native Terrainprodukte speichern verformte Höhen/Kontakte in Paketen ≤64 MiB; große Regionen
-veröffentlichen ihren Verbund erst nach allen Paketen. Laden prüft das Residencybudget des Aufrufers.
-Ein Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und behält
-Job-Eingaben bis zum Workerabschluss. Misses speichern und laden denselben nativen Pfad.
-Frische Offline-Treffer, Producer 2e37dc780a, 1280×720/60 fps; alle zehn Bilder pixelgleich:
-| Place | Laden s | p99 ms | Prozesspeak GiB |
-|---|---:|---:|---:|
-| Wien | 13,82–14,77 | 11,25–20,01 | 4,18 |
-| CentralPark | 12,20–12,71 | 9,57–10,81 | 3,65 |
-| Tokyo | 17,03 | 3,76 | 5,92 |
-Straßennetz-Treffer umgehen Layout/Profilierung: 31–50 MiB in 76–135 ms statt 1,1–1,87 s Aufbau.
-Die drei Städte lesen weiter 1,98/1,81/2,03 GiB Terrain-Zwischenfelder; Kontakte,
-Straßenkorridore und Terrain-/Wassermeshes entstehen erneut. Frühe Regiontreffer fehlen.
-Prototypen: 31/22/31 Hits, 620/440/620 MiB entpackt; 31 Pakete: 620 → 34,8 MiB SSD; alte Pakete erhalten.
-Wien/CP/Rosenheim überschreiten 10 ms p99; Wien/Rosenheim auch 16,67 ms.
-Schlechteste Wien-/Rosenheim-Frames: 17–19 ms Fence-Warten; GPU-Zeit unbewiesen. Warm <10 s offen.
-Impostorprodukte: AssetCache/prototypes.sqlite mit Modellbounds; Hits umgehen Baum-/Atlaserzeugung.
-Ein Workerjob je Prototyp; Warten beobachtet nur dessen Fertigmeldung. Leserahmen aus dem Format:
-256² × 8 × 40 Byte + maximale Metadaten; keine Atlasverkleinerung.
-Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
-Kontakt-/Straßenformung bei frühen Treffern umgehen. Terrain-/Straßenqualität erhalten.
-Ziel: vorbereitete Places warm <10 s; <1 s als Challenge; hohe Bildqualität bei 480p30 vor Pixelzahl.
+Hierarchischer Weltbedarf (2336) → räumlicher Assetindex → Hit: fertigen Rohling laden.
+Nur fehlende benötigte Produkte starten Generator/Provider/Quellcache/API; anschließend atomar
+speichern und denselben Lade-/Publikationspfad bedienen. Das gilt für alle Weltklassen.
+Vorhanden: öffentlicher AssetCache/ResolveAsset, SQLite-R*Tree, native Geometrie-/Netzcodecs,
+Höhenfelder, Gebäuderohlinge/LOD-Produkte und Impostoren. Pakete komprimiert Zstandard Level 1;
+alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Gerätehandles persistieren.
+Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
+Die uncommittete Regionintegration überspringt spätere Boden-/Straßen-/Wassererzeugung,
+liest aber zuvor weiter Zwischenfelder. Exakte Kamera-Schlüssel und ganze Regionen ersetzen
+keine räumliche Eltern-/Kindhierarchie. Koerbersee scheitert an der Paketgröße;
+Flensburg weicht warm bei 2.341/921.600 Pixeln ab. Diese Integration ist nicht abgenommen.
+
+## Kostenbefund und nächste Lieferung
+Offline 1280×720/60, 60 Frames/360°, Producer 90b24543ab auf HEAD 0db704084 plus Änderungen:
+| Place | Laden s | p99 ms | Prozess-Footprint GiB | Terrain / Prototypen entpackt MiB |
+|---|---:|---:|---:|---:|
+| Wien | 21,41 | 29,23 | 3,41 | 874 / 620 |
+| CentralPark | 6,84 | 2,59 | 2,40 | 709 / 440 |
+| Tokyo | 10,87 | 3,62 | 5,60 | 961 / 620 |
+Wien regeneriert wegen neuer Producer-ID 31 Prototypen: 14,95 s Workerarbeit; kein voller Warmstart.
+Früherer kompletter Trefferlauf: 9,02 s / 3,75 ms p99, Producer 9d0ea31d; gleiche Wien-Pixel.
+Entpackte Bytes sind kumulierter Durchsatz, keine SSD-/Residencygröße. Footprint ist Prozesspeak,
+kein isolierter GPU-Wert. Logs: System-Temp `outshine-native-regions-<Place>-warm-final.log`;
+Zuordnung/Einheiten in `outshine-cost-review-0db704084.json`. Kein neuer Geräte-/Internetnachweis.
+1. P0: den Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Hierarchische
+   räumliche Rohlinge statt kompletter kameragebundener Snapshots; verdeckte Kinder ungeöffnet.
+   Eltern aus Cache, nur fehlende Eltern grob aus DEM; anschließend mögliche sichtbare Kinder
+   nachfordern. OSM ebenfalls nah → fern nach Coverage/Bewegungsbedarf; nicht alle Ringkacheln vorab.
+2. P0: finale native Höhen-/Kontaktprodukte laden, statt trotz Regionhit 709–961 MiB Felder zu
+   entpacken. Mehrere Kandidaten teilen unveränderte Daten; einmal laden/publizieren, dann Scratch frei.
+   Proben/Bodenabfrage aus Höhenprodukten; keine flächendeckend expandierte CPU-Dreieckssuppe.
+3. P1: Modellprototypen nur für benötigte räumliche Gruppen laden. Ein Atlas kostet
+   256² × 8 × 40 Byte = 20 MiB; 31 ergeben 620 MiB und 1,47 s Lesen/Decode in Tokyo.
+   Quantisierte Tiefe/Normalen/Material/Coverage vergleichen; 12 Byte/Texel wären 186 MiB,
+   eine zu prüfende Formatvariante mit Bild-/Fehlernachweis, keine bereits bewiesene Einsparung.
+   Generator-/Codec-/Capture-Abhängigkeiten versionieren; CrownBuildIdentity bindet heute
+   sämtlichen src/include-Code und invalidiert Prototypen auch bei fachfremden Änderungen.
+4. P1: begrenzte räumliche Pakete, pro Block entpacken/validieren und direkte Produktübernahme
+   gegen heutige Paketbuffer → Decoderarrays → native Produkte messen. Kompression allein
+   reduziert weder entpackte Arbeit noch GPU-/RAM-Residency. Keine bloße Erhöhung der Paketgrenze.
+Ladeziel: warm <10 s, <1 s als Challenge; Koerbersee/Flensburg zuerst reparieren, Straßen erhalten.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
 AssetCache besitzt Speicherung/Kompression/Integrität und die AssetRecord-Hülle; Nutzdaten sind opaque.
@@ -102,7 +100,7 @@ Generatoren teilen Geometrie-/Netzcodecs; GPU-Handles bleiben flüchtig. Kein Un
 OpenFreeMap/MVT, Mapterhorn/Terrarium, Open-Meteo/JSON: je Datenart ein Hauptanbieter.
 Endstatus/Payload, Abbruch, begrenztes Retry/Backoff/Retry-After und Rückstau über libcurl.
 Bestätigtes NoData bleibt von Transportfehlern unterscheidbar. Offline/Attribution bleibt zu klären.
-[Systembibliotheken](../doc/dependencies.md), [Recherche](../doc/references/README.md).
+[Systembibliotheken](../doc/dependencies.md), [Auswahl/Fallback vor IO](../doc/references/engine/visibility-driven-demand.md).
 [Lokale Verfahrensnotiz](../doc/references/engine/unreal/prepared-assets.md) trennt Belege und Outshine-Entscheidungen.
 [Unreal DDC](https://dev.epicgames.com/documentation/en-us/unreal-engine/using-derived-data-cache-in-unreal-engine):
 Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiele brauchen ihn nicht.
