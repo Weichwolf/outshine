@@ -19,6 +19,8 @@ content/assets speichert native Paketbytes und Raumindex atomar; Hits umgehen de
 Schema 2 speichert Pakete bei Gewinn verlustfrei mit Zstandard Level 1; alte Rohpakete bleiben lesbar.
 Identität/Slices und Ladeschranke beziehen sich auf native Bytes. CRC/Frame-/Längenprüfung vor Nutzung;
 Kompression vor Schreibtransaktion. Öffnen schreibt vorhandene Paketbytes nicht neu.
+GeometryAsset erhält Geometrie/Placements, alle Materialfaktoren/-Maps, Bilder und Lichter;
+versionierte Little-Endian-Daten, keine Gerätehandles. Öffentlicher Generator lädt sie ohne Provider.
 Native Höhenfelder umgehen DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
@@ -49,13 +51,12 @@ Treffer umgehen Baum-/Atlaserzeugung; gleiche Prototypen teilen einen Miss. Ein 
 lädt/decodiert/erzeugt; Warten beobachtet konkrete Jobs statt fremder Fertigmeldungen.
 Leserahmen aus dem Format: 256² × 8 × 40 Byte + maximale Metadaten; keine Atlasverkleinerung.
 Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
-keine erneute Kontakt-/Straßenformung bei Treffern. Bis zur vollständigen Welt messen; Terrain-/Straßenqualität erhalten.
+Kontakt-/Straßenformung bei frühen Treffern umgehen. Terrain-/Straßenqualität erhalten.
 Ziel: vorbereitete Places warm <10 s; <1 s als Challenge. Hohe Bildqualität bei 480p30 vor Pixelzahl.
 
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
-Gemeinsame Dienste kennen Bounds/Versionen/native Produkte, keine Quellsemantik.
-
+Gemeinsame Dienste kennen Bounds/Versionen/native Produkte, keine Quellsemantik; Geometriecodec in content/assets.
 ## Fertige Assets
 - Gebäude: Typ, vollständige Höhen/Dachparameter, Grundrisse/Parts/Höfe, Terrainkontakt,
   Material-/Fassadenpläne/Seeds, einfache Hüllen und geeignete LOD-/Verbandsprodukte.
@@ -66,7 +67,7 @@ Gemeinsame Dienste kennen Bounds/Versionen/native Produkte, keine Quellsemantik.
   Windparameter und Fernverbände. 2111 bleibt nach Gebäuden/Terrain/Infrastruktur.
 - Kompakte, deviceunabhängige Renderprodukte; kein Fine-Mesh je Fernhaus/Prototypkopie je Instanz. Licht, Wetterantwort und dynamische Pose bleiben aktuell.
 
-## Räumlicher Index und Ladeabfragen
+## Index und Laden
 1. Gemeinsamer Index unterstützt Frustum und Radius R um Weltposition x,y,z. Konservative Bounds
    liefern Kandidaten; Ebenen-/Abstandstests und LOD wählen tatsächlich benötigte Produkte.
    Abfragen dürfen nicht alle Objekte öffnen/dekodieren. Reine Frustum-Selektion ist kein IO-Befehl
@@ -81,7 +82,6 @@ Gemeinsame Dienste kennen Bounds/Versionen/native Produkte, keine Quellsemantik.
    [Python-Modell](../test/experiments/asset_residency.py): 100.545 Polygone → 1.837 Pakete,
    25,17 MB, warmer Dateicache ca. 2,9 ms statt 5,3 s Decode; kein nativer/GPU-Nachweis.
    Weite residente Abfragen bevorzugen Arrays, lokale persistente Abfragen den Paket-R*Tree.
-   SQLite 3.54.0, zstd 1.5.7 lokal; Bounds-Abfrage plus konservative Frustum-/Radiusprüfung.
    Räumlich gebündelte Assetpakete/Bereichslesungen, keine Datei/IO-Anfrage je Haus/Baum.
 4. Quelldaten bleiben separat unverändert. Asset-Schlüssel binden Quellstand/Parameter und
    Generator-/Formatversion. Gelieferte und ergänzte Eigenschaften behalten ihre Herkunft.

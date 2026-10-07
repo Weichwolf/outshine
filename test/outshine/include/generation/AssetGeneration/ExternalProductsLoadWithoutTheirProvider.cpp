@@ -1,11 +1,11 @@
 #include "Check.h"
 #include "content/AssetGeneration.h"
+#include "content/GeometryAsset.h"
 #include "generation/Generate.h"
 #include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <expected>
 #include <filesystem>
 #include <optional>
@@ -47,33 +47,34 @@ public:
       const auto y = static_cast<float>(*height);
       const std::array<float, 9> positions{0, y, 0, 0, y, 1, 1, y, 0};
       const std::array<uint32_t, 3> triangles{0, 1, 2};
+      Geometry geometry;
+      const auto part = geometry.addPart("triangle", {});
+      if (!part || !geometry.setPositions(*part, positions) ||
+          !geometry.setTriangles(*part, triangles)) {
+        return std::expected<GeneratedAssetPackage, std::string>(
+            std::unexpected("invalid generated geometry"));
+      }
+      auto encoded = EncodeGeometryAsset(geometry, kBytes);
+      if (!encoded) {
+        return std::expected<GeneratedAssetPackage, std::string>(
+            std::unexpected("native geometry exceeds its package budget"));
+      }
       GeneratedAssetPackage package;
-      package.Bytes.resize(kBytes);
-      std::memcpy(package.Bytes.data(), positions.data(), sizeof(positions));
-      std::memcpy(package.Bytes.data() + sizeof(positions), triangles.data(), sizeof(triangles));
+      package.Bytes = std::move(*encoded);
       package.Records.push_back({.Key = key,
                                  .Kind = "external-triangle",
                                  .Bounds = {.Min = {{0, *height, 0}}, .Max = {{1, *height, 1}}},
-                                 .ByteCount = kBytes});
+                                 .ByteCount = package.Bytes.size()});
       return std::expected<GeneratedAssetPackage, std::string>(std::move(package));
     });
     if (!asset) { return std::unexpected(asset.error()); }
-    if (asset->Bytes().size() != kBytes) { return std::unexpected("invalid triangle payload"); }
-    std::array<float, 9> positions;
-    std::array<uint32_t, 3> triangles;
-    std::memcpy(positions.data(), asset->Bytes().data(), sizeof(positions));
-    std::memcpy(triangles.data(), asset->Bytes().data() + sizeof(positions), sizeof(triangles));
-    Geometry geometry;
-    const auto part = geometry.addPart("triangle", {});
-    if (!part || !geometry.setPositions(*part, positions) ||
-        !geometry.setTriangles(*part, triangles) || !geometry.wellFormed()) {
-      return std::unexpected("invalid triangle geometry");
-    }
-    return geometry;
+    auto geometry = DecodeGeometryAsset(asset->Bytes(), kBytes);
+    if (!geometry) { return std::unexpected("invalid cached native geometry"); }
+    return std::move(*geometry);
   }
 
 private:
-  static constexpr size_t kBytes = 9 * sizeof(float) + 3 * sizeof(uint32_t);
+  static constexpr size_t kBytes = 4096;
   AssetCache &Cache_;
 };
 }
