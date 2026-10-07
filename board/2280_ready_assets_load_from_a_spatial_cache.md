@@ -28,8 +28,7 @@ Native Terrainprodukte speichern verformte Höhen/Kontakte in Paketen ≤64 MiB;
 veröffentlichen ihren Verbund erst nach allen Paketen. Laden prüft das Residencybudget des Aufrufers.
 Ein Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und behält
 Job-Eingaben bis zum Workerabschluss. Misses speichern und laden denselben nativen Pfad.
-Schlüssel binden Höhen, vollständige Kontakte/Physikrahmen und Version; die Identitätsbildung
-hat begrenzten Scratch, unabhängig von der Zahl der Kontakte. Quelle und Rundumabdeckung bleiben erhalten.
+Schlüssel binden Höhen, vollständige Kontakte/Physikrahmen und Version; Scratch bleibt begrenzt.
 Frische Offline-Treffer: Wien 25,44 s, Central Park 21,25 s, Tokyo 40,53 s.
 Je zwei Terrainprodukte: 34,25/21,61/35,32 MiB; keine Terrain-Deformations-Misses/Writes.
 Koerbersee warm: 11,58 s, 152,82 MiB aus zwei Terrainverbünden, keine Misses/Writes.
@@ -40,8 +39,9 @@ Straßen und Terrain-/Wassermeshes werden noch aufgebaut. Die späte Terrain-Ass
 umgeht die eigentliche Verformung, aber noch nicht deren komplette Eingabevorbereitung.
 Prozesspeaks 4,22/3,87/5,36 GiB sind kein akzeptierter Speicherbedarf.
 SSD-Payload 17,93 GiB: 15,64 GiB (87 %) Terrain-Zwischenfelder; keine begründete Residency.
-Zusätzlich prüfen: wiederholte vollständige Kontakt-Scans für Heapdiagnose und ungeklärte
-Idle-Wartezeit von rund 11 s. Diagnose zählt Speicher bei Besitzänderungen, nicht pro Arbeitsquantum.
+Diagnose zählt fertige Kontakte bei Besitzänderungen; Tokyo-Earthworks 12,54 → 0,46 s.
+Lokale Vorbereitung meldet tatsächlich fortgeschrittene Einheiten; Preload wartet nur ohne
+solchen Fortschritt. Worker-Wartezeit und pauschale Idle-Pausen getrennt messen.
 Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
 keine erneute Kontakt-/Straßenformung bei Treffern. Bis vollständig sichtbare Welt messen,
 keine Gebäudeteilzeit als Weltladezeit ausgeben. Terrain-/Straßenqualität erhalten.

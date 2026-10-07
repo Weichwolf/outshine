@@ -257,10 +257,13 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
     const size_t before =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
     const auto streetsAt = std::chrono::steady_clock::now();
+    const auto looked = Ways_.LookedCount();
     (void)Ways_.Ingest(*Vectors_, Templates_);
+    metrics.IngestionUnits += static_cast<size_t>(Ways_.LookedCount() - looked);
     metrics.StreetsMs += ElapsedMs(streetsAt);
     const auto waterAt = std::chrono::steady_clock::now();
     (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
+    metrics.IngestionUnits += WaterBodies_.LastIngest().AdvancedUnits;
     metrics.WaterMs += ElapsedMs(waterAt);
     const size_t after =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();

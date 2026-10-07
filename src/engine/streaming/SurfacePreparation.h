@@ -52,6 +52,7 @@ struct SurfacePreparationMetrics {
   double StreetsMs = 0.0;
   double WaterMs = 0.0;
   double SettlementMs = 0.0;
+  size_t IngestionUnits = 0;
 };
 
 class SurfacePreparation {

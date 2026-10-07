@@ -98,6 +98,7 @@ bool WaterField::AdvanceCandidate(const GroundQuery &ground,
     const WaterKind kind = KindOf(field, feature, on);
     if (kind == WaterKind::Ignored || candidate.Ring >= feature.RingCount) {
       ++candidate.Feature;
+      ++metrics.AdvancedUnits;
       candidate.Ring = 0;
       candidate.Point = 0;
       continue;
@@ -123,6 +124,7 @@ bool WaterField::AdvanceRing(const GroundQuery &ground,
           {.Feature = candidate.Feature, .Ring = ringIndex, .Heights = {}, .Usable = false});
     }
     ++candidate.Ring;
+    ++metrics.AdvancedUnits;
     return true;
   }
   if (candidate.Point == 0 &&
@@ -133,6 +135,7 @@ bool WaterField::AdvanceRing(const GroundQuery &ground,
   }
   if (surface && (!ring.Exterior || IsOcean(field, field.Features()[candidate.Feature]))) {
     ++candidate.Ring;
+    ++metrics.AdvancedUnits;
     return true;
   }
   const auto queryAt = std::chrono::steady_clock::now();
@@ -143,6 +146,7 @@ bool WaterField::AdvanceRing(const GroundQuery &ground,
                    .count());
   ++metrics.ValidationPoints;
   if (sampled.Where() == GroundSample::State::Pending) { return false; }
+  ++metrics.AdvancedUnits;
   candidate.Rings.back().Heights.push_back(sampled.AslM());
   ++candidate.Point;
   if (candidate.Point >= ring.Count) {
@@ -286,6 +290,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
     *this = WaterField{};
     SourceGeneration_ = field.Generation();
   }
+  LastIngest_ = {};
   const auto features = field.Features();
   if (Mark_.Done(features)) { return static_cast<uint32_t>(Surfaces_.size()); }
   const auto began = std::chrono::steady_clock::now();
@@ -296,6 +301,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
   };
   const auto finish = [&] {
     metrics.TotalMs = elapsedMs(began);
+    LastIngest_ = metrics;
     if (metrics.TotalMs > WorstIngest_.TotalMs) { WorstIngest_ = metrics; }
     return static_cast<uint32_t>(Surfaces_.size());
   };

@@ -86,10 +86,14 @@ int main() {
             water.Courses().empty() && water.Levels().empty(),
         "pending terrain publishes no partial water tile");
   CHECK(!water.Ingested(field) && water.Deferrals() == 1, "pending tile remains retryable");
+  CHECK(water.LastIngest().AdvancedUnits == 0,
+        "pending terrain reports no local progress that would suppress waiting");
   ground.Pending = false;
   CHECK(water.Ingest(ground, field, materials) == 1 && water.Ingested(field) &&
             water.IngestedTiles() == 1,
         "resolved tile publishes once");
+  CHECK(water.LastIngest().AdvancedUnits > 0,
+        "resolved water admission reports progress independently of complete tile counts");
   CHECK(water.Courses().size() == 2 && water.Surfaces().size() == 1,
         "line and polygon products remain separate");
   CHECK(water.Levels() == std::vector<float>({10, 10, 5, 3, 3, 5, 10, 10}),
@@ -109,6 +113,7 @@ int main() {
   CHECK(water.Ingest(ground, field, materials) == 1 && ground.Queries == queries &&
             water.IngestedTiles() == 1,
         "completed tile is not queried or appended twice");
+  CHECK(water.LastIngest().AdvancedUnits == 0, "settled water reports no stale progress");
   Heights delayed;
   delayed.Pending = false;
   delayed.DelayThird = true;
@@ -158,6 +163,8 @@ int main() {
   (void)longWater.Ingest(longGround, longField, materials);
   CHECK(!longWater.Ingested(longField) && longGround.Queries <= 128 && longWater.Courses().empty(),
         "large ring stops at admission step cap without partial publication");
+  CHECK(longWater.LastIngest().AdvancedUnits > 0 && longWater.IngestedTiles() == 0,
+        "unfinished bounded admission reports local work before publishing any tile");
   for (int advance = 0; advance < 10 && !longWater.Ingested(longField); ++advance) {
     (void)longWater.Ingest(longGround, longField, materials);
   }

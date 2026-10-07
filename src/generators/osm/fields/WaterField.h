@@ -29,6 +29,7 @@ public:
     double LongestQueryMs = 0.0;
     double MaterializationMs = 0.0;
     size_t ValidationPoints = 0;
+    size_t AdvancedUnits = 0;
   };
 
   struct Surface {
@@ -49,6 +50,8 @@ public:
   uint32_t Ingest(const GroundQuery &ground, const OsmField &field, const VegetationTemplates &veg);
 
   [[nodiscard]] const IngestMetrics &WorstIngest() const noexcept { return WorstIngest_; }
+
+  [[nodiscard]] const IngestMetrics &LastIngest() const noexcept { return LastIngest_; }
 
   [[nodiscard]] static std::optional<float> SurfaceLevel(std::span<double> heights);
 
@@ -162,6 +165,7 @@ private:
   std::vector<Candidate> Candidates_;
   long NoGround_ = 0, Outliers_ = 0, InvalidBodies_ = 0;
   IngestMetrics WorstIngest_;
+  IngestMetrics LastIngest_;
   std::optional<uint64_t> SourceGeneration_;
   uint64_t Admission_ = 0;
 };

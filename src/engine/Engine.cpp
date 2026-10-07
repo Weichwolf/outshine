@@ -701,6 +701,7 @@ bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
 }
 
 void Engine::State::AwaitPreloadProgress(double seconds) {
+  if (World.Stack.LastAdvance().IngestionUnits > 0) { return; }
   auto &waited = PreloadWaited;
 
   struct WaitAccumulator {
