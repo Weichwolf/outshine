@@ -25,28 +25,28 @@ Exakte Kamera-Schlüssel und ganze Regionen ersetzen keine räumliche Eltern-/Ki
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
-Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer fe49222f98c7:
+Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer 8c49e00b2ee4:
 | Place | Laden s | p99 ms | Bildphase / Peak GiB | Terrain / Prototypen entpackt MiB |
 |---|---:|---:|---:|---:|
-| Wien | 7,15 | 3,97 | 2,21 / 2,60 | 25 / 620 |
-| CentralPark | 5,46 | 2,67 | 2,00 / 2,00 | 25 / 400 |
-| Tokyo | 9,31 | 3,98 | 3,49 / 5,08 | 32 / 620 |
-Alle zehn Places pixelgleich zum Vorher. Wasser-Replay senkt Terraindecode von 566–834 auf 25–32 MiB,
-belegt allein keinen kleineren Prozesspeak. Geteilte Materialpakete senken Peaks im direkten Vergleich
-von 2,79 / 2,11 / 5,27 GiB; höhere Framegeschwindigkeit unbewiesen, Tokyos dauerhafte 3,49 GiB offen.
+| Wien | 6,02 | 3,51 | 2,50 / 2,50 | 25 / 620 |
+| CentralPark | 5,16 | 2,23 | 2,24 / 2,24 | 25 / 400 |
+| Tokyo | 8,38 | 3,49 | 3,49 / 4,16 | 32 / 620 |
+Alle zehn Places pixelgleich. Tokyo: Gebäudedecode 560,70 → 358,87 MiB, keine Formenreads bei LOD-Hits.
+Vorher 725642fbe: W/CP/T Bildphase 2,21/2,00/3,49 GiB, Peaks 2,61/2,00/5,08 GiB.
+Tokyo-Peak kleiner; W/CP-Bildphase höher. Live-Heap fast gleich, gleiche GPU-Puffer; Ursache noch offen.
 OS-Footprint: 50-ms-Stichproben um Render/PNG, kein exaktes GPU-/Frameintervall; Sampler 2–4 ms CPU/Lauf.
-Tokyo: 49 Schema-3-Pakete halten 553,40 MiB; Formen 325,69, sonstige Daten 227,71 MiB.
-[Paketmodell](../test/experiments/prepared_building_residency.py): verlustfreie Zellblöcke; 1-km-AABB-Abfrage
-liest 4,92 MiB Formen, kein LOD-/Bildnachweis. Cachehistorie umfasst mehr als exakt aktuelle Runtime-Keys.
-Bounds: 3.066 × 6 × 8 = 147.168 Byte; Pläne/Koordinaten gehören in Kinder, nicht in diesen kleinen Index.
+Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je belegter Zelle.
+Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen gecachte Pläne/Kontakte, keine Höhenprovider.
+Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
+Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsmenge noch offen.
+[Paketmodell](../test/experiments/prepared_building_residency.py): Tokyo historisch 553,40 MiB, Formen 325,69; 1-km-Zellen 4,92 MiB, kein Bildnachweis.
 1. P0: Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Räumliche Eltern/Kind-Rohlinge
    statt Kamerasnapshots: kleine Bounds-/Produktindizes, gecachte Fernprodukte, unabhängige komprimierte
    Form-/Kontaktblöcke. Erst Bedarf → Paket öffnen; Rohling-Formen behalten, keine Rekonstruktion bei Hits.
 2. P0: verbliebene Quellenproben aus nativen Höhen-/Kontaktprodukten bedienen; 25–32 MiB Felder
    bei Treffern vermeiden. Kandidaten teilen unveränderte Daten; einmal laden, dann Scratch frei.
-3. P0: Rendersekunden-Residency, Decode-/Kopie-/Uploadspitzen getrennt messen und begrenzen.
-   Räumliche Pakete blockweise validieren/übernehmen statt Paketbuffer → Decoderarrays → Produkte.
-   Weltkandidaten teilen unveränderliche Materialpakete; 4-MiB-Fixture: 368 statt 4.196.784 Byte Snapshot-Allokation.
+3. P0: W/CP-Footprint-Regressionsursache beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
+   Pakete blockweise übernehmen; Weltkandidaten teilen unveränderliche Materialpakete; 4-MiB-Fixture: 368 statt 4.196.784 Byte Snapshot-Allokation.
    [Bildbesitz-Modell](../test/experiments/material_image_residency.py): Teilen statt Klonen; native Peaks separat messen.
 4. P1: Modellprototypen bedarfsgerecht laden. 256² × 8 × 40 Byte = 20 MiB; 31 Atlanten = 620 MiB.
    Quantisierte Tiefe/Normalen/Material/Coverage vergleichen; 12 Byte/Texel wären 186 MiB,

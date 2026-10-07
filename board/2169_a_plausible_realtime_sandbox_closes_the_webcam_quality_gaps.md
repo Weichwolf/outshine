@@ -44,7 +44,7 @@ Messdetails/Einheiten bei 2280; Verfahrensentscheidung bei 2336. Weitere Befunde
 | P0 | Regionhits in W/CP/T bildgleich, Quellenarbeit bleibt | Native Rohlinge vor Zwischenfeldern laden, alle Places, 2280 |
 | P0 | Feine DEM-/OSM-Anfragen vor möglicher Sichtbarkeit | Grobe DEM-Eltern → Rundum-Horizont → benötigte Kinder, 2336 |
 | P0 | Regionhits sparen Mesh-Jobs; Terrain-Zwischenfelder jetzt 25–32 MiB | Verbliebene Quellenproben aus nativen Kontakten bedienen, 2280 |
-| P0 | CP/Tokyo Bildphase 2,00/3,49 GiB; Tokyo-Peak 5,08 GiB | Arbeitsmenge/Überlappung/Kopien begrenzen, 2280/2339 |
+| P0 | W/CP-Bildphase jetzt 2,50/2,24 GiB; Tokyo-Peak 4,16 GiB | Arbeitsmenge/Überlappung/Kopien begrenzen, 2280/2339 |
 | P1 | 31 Prototypen entpacken 620 MiB; fachfremde Änderungen invalidieren sie | Bedarf, gepackte Atlasformate, gezielte Producer-Version, 2280/2336 |
 | P1 | Native Geometriephase CP/Tokyo 2,17/2,87 s; Teilkosten unbekannt | CPU/Allokation/Upload/Fence getrennt messen und Spitzen ersetzen, 2339/2188 |
 | P1 | Tokyo erzeugt 2,36 Mio. Gebäudedreiecke; ferne Auswahl nur kachelweise | Hierarchische Coverage, Hülle/Cluster/Impostor vor Emission, 2336 |
