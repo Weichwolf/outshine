@@ -62,7 +62,8 @@
 - Ich priorisiere Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl. RDR2/GTA5 sind
   Qualitätsmaßstäbe, keine unbelegten Versprechen. Auflösung/Zielrate bleiben unabhängige Profile:
   480p, 1280×720, 1920×1080 und höher; 25/30/60 fps. Maße immer explizit Breite×Höhe.
-  720p60 bleibt Messprofil; 480p30 in hoher Qualität auf A18 Pro ist eine zu prüfende Hypothese.
+  Hohe Bildqualität bei 480p30 auf A18 Pro ist mein Ziel; 720p60 bleibt Vergleichsmessprofil.
+  Das Ziel ersetzt keinen gemessenen Gerätenachweis.
 - Alle acht Places aus 2169 sind visuelle Regressionen, mindestens einer gehört ins Gate.
   Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
@@ -70,8 +71,9 @@
   je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
   Fehlende/unvollständige Bilder bleiben rot. Unbelegte Bildänderungen gelten als Verschlechterung.
 - Vollständiger Asset-Cache → frischer Offline-Prozess → vollständige Welt so schnell wie möglich.
-  Ich begründe Ladeziele pro Szene anhand Komplexität und gemessener Arbeit; keine feste Zehn-
-  Sekunden-Grenze. Internet-Erwerb, Asset-Aufbau und Cachetreffer getrennt messen. Danach genau Ziel-fps Frames und 360° in einer Sekunde;
+  Vorbereitete Places sollen warm unter zehn Sekunden laden; eine Sekunde ist ein Optimierungs-
+  anreiz, kein Gate. Ich begründe Ladeziele anhand Datenmenge und Arbeit. Internet-Erwerb,
+  Asset-Aufbau und Cachetreffer getrennt messen. Danach genau Ziel-fps Frames und 360° in einer Sekunde;
   nur letzter Frame als PNG in Ausgangsrichtung. p50/p95/p99 ohne Zusatzframes messen.
 - Framebudget auch für p99: 1000/Ziel-fps ms. Alle Weltklassen teilen Zeit/Speicher nach Bildgewinn
   und Kosten, ohne feste Quoten. Stadt und Wald dürfen andere Lastverteilungen haben, müssen

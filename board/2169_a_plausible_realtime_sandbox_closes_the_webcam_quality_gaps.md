@@ -16,6 +16,8 @@ Zuerst größtmögliche Webcam-Annäherung im Hardwarebudget; später physikalis
 LLM-NPCs, JS/HTML-CSS, Spatial Audio und Save/Load/Replay. Bestehende Renderer, native Assets,
 Importe, Straßenprofile und Terrain-Deformation sind die Basis. Kein pauschaler Neustart.
 Der aktuelle Place-Ladepfad liefert noch keine vollständige, budgetgerechte Welt.
+Ziel auf A18 Pro: hohe Bildqualität bei 480p30, vorbereitete Places warm unter zehn Sekunden.
+720p60 bleibt Vergleichsmessprofil; eine Sekunde Laden ist eine Optimierungs-Challenge, kein Gate.
 AGENTS besitzt Arbeitsregeln/Abnahme; technische Verträge stehen bei ihrem Featurebesitzer.
 
 ## Pflicht-Places

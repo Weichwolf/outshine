@@ -42,7 +42,7 @@ Straßen und Terrain-/Wassermeshes entstehen erneut; späte Treffer umgehen nur 
 Prototypen: 31/22/31 Hits, 620/440/620 MiB entpackt. 31 komprimierte Pakete: 620 → 34,8 MiB SSD,
 17,8× kleiner; alte Pakete erhalten. Laden nicht schneller; Ursache nicht per A/B isoliert.
 Wien kalt: 28,30 s, 31 einmalige Misses/Erzeugungen/Writes; warm kein Erzeugungsjob.
-Peaks sind keine Budgets; Koerbersee p99 18,54 ms >720p60. Warm <1 s bleibt offen.
+Peaks sind keine Budgets; Koerbersee p99 18,54 ms >720p60. Warm <10 s bleibt offen.
 Hauptcache zuvor 17,93 GiB: 15,64 GiB (87 %) Zwischenfelder; Residency nicht begründet.
 Native Impostorprodukte nutzen AssetCache; prototypes.sqlite hält getrennte Modellbounds.
 Treffer umgehen Baum-/Atlaserzeugung; gleiche Prototypen teilen einen Miss. Ein Engine-Worker
@@ -50,7 +50,7 @@ lädt/decodiert/erzeugt; Warten beobachtet konkrete Jobs statt fremder Fertigmel
 Leserahmen aus dem Format: 256² × 8 × 40 Byte + maximale Metadaten; keine Atlasverkleinerung.
 Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
 keine erneute Kontakt-/Straßenformung bei Treffern. Bis zur vollständigen Welt messen; Terrain-/Straßenqualität erhalten.
-Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
+Ziel: vorbereitete Places warm <10 s; <1 s als Challenge. Hohe Bildqualität bei 480p30 vor Pixelzahl.
 
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
