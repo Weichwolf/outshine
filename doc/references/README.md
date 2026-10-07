@@ -244,6 +244,9 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Kontakte/Kräfte treiben Materialresonanzen. Wenige analytische oder im RAM vorbereitete
   Modi statt Vollmesh-Eigenanalyse je Klangereignis; Spatial Audio bleibt eigener Ausgabepfad.
   Stimmen-/CPU-Budget und hörbarer Gewinn bestimmen die Modellkomplexität.
+- [Begrenztes Spatial Audio: geprüfter Steam-Audio-/Resonance-Audio-Code](audio/bounded-spatial-audio.md).
+  Native Abfragen wiederverwenden; grobe gemeinsame Umgebung, begrenzte Stimmen/Hallbusse.
+  Cubemap/GPU sind zu messende Experimente, keine von der Quellenzahl unabhängige Simulation.
 
 ## Bereiche mit geeigneteren Primärquellen
 

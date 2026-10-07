@@ -48,9 +48,9 @@ Dieser verbleibende globale CPU-Aufbau muss durch native Höhenprodukte/aktive A
 5. Blickdrehung nutzt Rundumbedarf. Bewegung/Flughöhe öffnen neu sichtbare Äste frühzeitig,
    mit Hysterese/Prädiktion und begrenztem parallelem IO; kein World-Reset bei Grenzübertritt.
    Im Alpental hinter dem Berg erst Detail laden, wenn ein Bedarf entsteht; Radius allein reicht nicht.
-6. Native Kontakt-/Audioabfragen nutzen Höhenblätter und einen räumlichen Index; lokale
-   benötigte Dreiecke erst am Abfrageort. Lichtproben direkt/inkrementell aus Höhenprodukten.
-   Render-, Physik- und Audiogenauigkeit unabhängig bestimmen; kein feines Weltmesh auf Vorrat.
+6. Native Kontakt-/Audioabfragen nutzen finale Höhenblätter/räumlichen Index, lokale Dreiecke
+   nur entlang benötigter Segmente; kein feines Weltmesh auf Vorrat. Audioarbeit/Stimmen begrenzen,
+   [GitHub-Verfahren und Cubemap-Abgrenzung](../doc/references/audio/bounded-spatial-audio.md); Hallausbau bleibt 2136.
 
 ## Gebäude: Nachfrage von nah nach fern
 Auch OSM wird vor Requests ausgewählt: zuerst benötigte nahe Zellen/grobe Verbände, deren

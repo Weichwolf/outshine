@@ -45,6 +45,12 @@ visuellen Meilenstein. Keine separate Fahrzeug-/Sandboxengine und kein pauschale
   Wind/Regen/Wasser/Motoren. Stabile Seeds/samplegenaue Zeit, keine Arbeit für stumme Quellen.
   AudioScene/AudioOcclusion teilt Posen/Kontakte: Richtung/Entfernung, Doppler/Verdeckung,
   begrenzte Stimmen/Busse/Headroom/Limiter. Dialog asynchron, Audio wartet auf keine Geometrie.
+- Grobe Umgebung am Hörer teilen; begrenzte wichtige Stimmen, Richtungs-/Hallbusse und
+  virtualisierte Ferngeräusche statt Quelle-Quelle-Paaren. Native Kontaktabfragen aus 2336 nutzen.
+  Cubemap-Transfer als Experiment mit Frequenzdämpfung, Laufzeit und Ankunftsrichtung; Distanz
+  und Mehrwege erhalten. Ein Richtungswert allein beschreibt weder Wandnähe noch mehrere Echos.
+  Feste Strahl-/Traversierungs-/Stimmenbudgets; GPU nur asynchron nach Kostenvergleich.
+  [Geprüfter GitHub-Code und Grenzen](../doc/references/audio/bounded-spatial-audio.md).
 
 ## Forschungsgrundlage
 [XPBD, MIG 2016](../doc/references/physics/mig/2016-xpbd.pdf),
