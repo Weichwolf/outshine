@@ -48,10 +48,10 @@ Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsme
 3. P0: W/CP-Footprint-Regressionsursache beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Pakete blockweise übernehmen; Weltkandidaten teilen unveränderliche Materialpakete; 4-MiB-Fixture: 368 statt 4.196.784 Byte Snapshot-Allokation.
    [Bildbesitz-Modell](../test/experiments/material_image_residency.py): Teilen statt Klonen; native Peaks separat messen.
-4. P1: Modellprototypen bedarfsgerecht laden. 256² × 8 × 40 Byte = 20 MiB; 31 Atlanten = 620 MiB.
-   Quantisierte Tiefe/Normalen/Material/Coverage vergleichen; 12 Byte/Texel wären 186 MiB,
-   Hypothese mit Bild-/Fehlernachweis; entpackte Bytes sind keine dauerhafte Residency. Fachfremde Änderungen nicht
-   invalidieren. Generator-/Codec-/Capture-Abhängigkeiten statt sämtlichen src/include-Code versionieren.
+4. P1: [Reales Paketmodell](../test/experiments/impostor_ready_payload.py): Capture 20 MiB, vorhandene Flat-Karten 6 MiB Payload.
+   Native Karten/RGBA8-Maps speichern; Hits umgehen Coverage-Füllung, Farbkonversion und Kartenaufbau. GeometryAsset nutzen.
+   Atlas-Rohlinge für weitere Details erhalten; 31 × 6 = 186 MiB plus Metadaten. Kein Residency-/Zeit-/Bildnachweis.
+   Fachfremde Änderungen nicht invalidieren: Generator-/Codec-/Capture-Abhängigkeiten statt sämtlichen src/include-Code versionieren.
 Ladeziel: warm <10 s, <1 s als Challenge; Gebäudebedarf vor Decode, Straßen erhalten.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
@@ -111,7 +111,7 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Integration 725642fbe: Tidy/Claims/Shader grün; fehlender gepinnter Khronos-Frame cfb0bc5a hält das Gesamtgate rot.
+Integration 19a5f9e86: Format/Tidy/Shader grün; Audit-Selbsttest Timeout, 263/264 gepinnte Referenzbilder fehlen.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
