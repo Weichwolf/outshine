@@ -15,10 +15,9 @@ Miss → Generator → Provider/Quellcache/API nach Bedarf → vollständige Anr
 → Asset/Index atomar speichern → denselben Lade-/Publikationspfad bedienen.
 Das gilt für Gebäude, Terrain, Straßen/Wasser, Vegetation und andere generierte Inhalte.
 Ein Treffer enthält vollständig angereicherte Asset-Rohlinge, keine unvollständigen Quellen.
-Nahdetails entstehen zur Laufzeit daraus; die Basis wird bei Treffern weder ergänzt noch neu gebaut.
 content/assets speichert native Paketbytes und Raumindex atomar; Hits umgehen den Miss-Callback.
 Native Höhenfelder umgehen DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
-Pakete erhalten Samples, Herkunft und fehlende Randdaten; Offline-Replay braucht keine Quelle.
+Pakete erhalten Samples/Herkunft/Randlücken; Offline-Replay braucht keine Quelle.
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
 speichern und laden dieselbe vollständige Basis. Herkunft/Signatur/Qualifikation bleiben erhalten.
@@ -31,22 +30,23 @@ Ein Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und beh�
 Job-Eingaben bis zum Workerabschluss. Misses speichern und laden denselben nativen Pfad.
 Schlüssel binden Höhen, vollständige Kontakte/Physikrahmen und Version; die Identitätsbildung
 hat begrenzten Scratch, unabhängig von der Zahl der Kontakte. Quelle und Rundumabdeckung bleiben erhalten.
-Frische Offline-Treffer: Wien 26,27 s, Central Park 21,48 s, Tokyo 41,05 s.
+Frische Offline-Treffer: Wien 25,44 s, Central Park 21,25 s, Tokyo 40,53 s.
 Je zwei Terrainprodukte: 34,25/21,61/35,32 MiB; keine Terrain-Deformations-Misses/Writes.
-Koerbersee warm: 12,02 s, 152,82 MiB aus zwei Terrainverbünden, keine Misses/Writes.
-Je 50 Gebäude-/LOD-Hits ohne erneute Basis-/LOD-Emission. Alle drei Bilder bleiben pixelgleich.
-p99 Wien/CP/Tokyo: 28,61/2,60/19,60 ms; Wien/Tokyo überschreiten weiterhin 720p60.
-Unter 1 s bleibt unerreicht: 1,94/1,81/2,01 GiB Terrain-Zwischenfelder gelesen; Kontakte,
+Koerbersee warm: 11,58 s, 152,82 MiB aus zwei Terrainverbünden, keine Misses/Writes.
+Alle zehn Places: je 50 Gebäude-/LOD-Hits; keine Basis-/LOD-Emission, Bilder pixelgleich zum Vorgänger.
+p99 Wien/CP/Tokyo: 22,60/2,53/19,54 ms; Wien, Tokyo und Koerbersee (17,67 ms) über 720p60.
+Unter 1 s bleibt unerreicht: 1,95/1,80/2,02 GiB Terrain-Zwischenfelder gelesen; Kontakte,
 Straßen und Terrain-/Wassermeshes werden noch aufgebaut. Die späte Terrain-Assetabfrage
 umgeht die eigentliche Verformung, aber noch nicht deren komplette Eingabevorbereitung.
-Prozesspeaks 4,22/3,86/5,07 GiB sind kein akzeptierter Speicherbedarf.
+Prozesspeaks 4,22/3,87/5,36 GiB sind kein akzeptierter Speicherbedarf.
+SSD-Payload 17,93 GiB: 15,64 GiB (87 %) Terrain-Zwischenfelder; keine begründete Residency.
 Zusätzlich prüfen: wiederholte vollständige Kontakt-Scans für Heapdiagnose und ungeklärte
 Idle-Wartezeit von rund 11 s. Diagnose zählt Speicher bei Besitzänderungen, nicht pro Arbeitsquantum.
 Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
 keine erneute Kontakt-/Straßenformung bei Treffern. Bis vollständig sichtbare Welt messen,
 keine Gebäudeteilzeit als Weltladezeit ausgeben. Terrain-/Straßenqualität erhalten.
 Öffentliche Anbindung, Original-OSM-/weitere Generatorpfade, SSD-Budget und kompaktere Produkte
-fehlen. Worker-/Phasenzeiten überlappen; nicht als Ladezeit summieren.
+fehlen. Worker-/Phasenzeiten überlappen.
 Wien: 49 Nahkacheln; vollständige 240-km-Assetabdeckung bleibt in 2336 unbewiesen.
 Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
 
