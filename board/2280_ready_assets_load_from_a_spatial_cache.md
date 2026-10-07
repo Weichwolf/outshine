@@ -83,10 +83,9 @@ Generatoren teilen Geometrie-/Netzcodecs; GPU-Handles bleiben flüchtig. Kein Un
    25,17 MB, warmer Dateicache ca. 2,9 ms statt 5,3 s Decode; kein nativer/GPU-Nachweis.
    Weite residente Abfragen bevorzugen Arrays, lokale persistente Abfragen den Paket-R*Tree.
    Räumlich gebündelte Assetpakete/Bereichslesungen, keine Datei/IO-Anfrage je Haus/Baum.
-4. Quelldaten bleiben separat unverändert. Asset-Schlüssel binden Quellstand/Parameter und
-   Generator-/Formatversion. Gelieferte und ergänzte Eigenschaften behalten ihre Herkunft.
-   Vollständiges Asset samt Index atomar veröffentlichen; abgebrochene/kaputte Produkte sind Misses.
-   Explizite Änderungen erneuern betroffene Assets, nicht die gesamte Welt oder unveränderte Quellen.
+4. Quelldaten bleiben separat unverändert; Assetkeys binden zusätzlich Quellstand/Formatversion.
+   Herkunft gelieferter/ergänzter Angaben erhalten; vollständige Assets samt Index atomar veröffentlichen.
+   Defekt/Abbruch ist ein Miss; explizite Änderungen erneuern nur betroffene Assets.
 5. Cachemisses bündeln: identische Anforderungen teilen genau einen Erzeugungsjob; räumliche
    Pakete statt Einzeljobs je Haus/Baum. Job nutzt paralleles begrenztes IO und einen Compute-Worker.
    Nur fehlende benötigte Produkte erzeugen; Hits/Misses teilen den Ladepfad, Abbruch/Rückstau/Fehler explizit.
@@ -111,7 +110,8 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Integration de0575a02: Format/Tidy (354 Units)/32 Claims/Shader grün; voller Lauf Exit 2, 263/264 Pins fehlen.
+Integration 2eb2c0770: Format/Tidy (354 Units)/32 Claims/48 öffentliche Header/Shader grün;
+voller Lauf Exit 2: 263/264 Referenz-PNGs fehlen. Render-p99 bleibt separat offen (2340).
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

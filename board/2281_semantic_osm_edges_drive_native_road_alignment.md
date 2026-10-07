@@ -50,12 +50,16 @@ Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Geländer ergä
   Fehlende Topologie ausdrücklich behandeln, belegte Ebenen erhalten.
 - Ein Alignment je zusammenhängender Kette; Schultern, Bord/Gehweg und Knoten davon ableiten.
   Gemeinsame Endpunkte/Höhen/Tangenten über Knoten und Tiles; klassenabhängige Längs- und
-  Querneigung begrenzen. Segmentwellen/Nähte an der Ursache beheben, keine zweite Pipeline.
+  Querneigung begrenzen. Die Rampenkorrektur begrenzt bisher nur ihren eigenen Offset;
+  das vollständige Höhenprofil muss die Klassengrenze einhalten. Segmentwellen/Nähte
+  an der Ursache beheben, keine zweite Pipeline.
 - Straßenbett und Terrain aus demselben Kontaktprofil. Übergänge erreichen das ursprüngliche
   Gelände mit stetiger Höhe und Neigung; Breite aus Höhendifferenz und Böschungsneigung.
   Quintischer Übergang; `hypot(Mindestbreite, 1,875 × Höhendifferenz / Böschungsneigung)`
   begrenzt die zusätzliche Steigung auf ebenem Quellboden. Höhendifferenz aus dem geplanten
   Kontakt (`YieldM`), nicht aus immer weiter entfernten Geländepunkten; Quellneigung separat bewerten.
+  Bedarf an beiden Fahrbahnrändern für Schnitt und Auftrag erfassen; Profile dürfen eine
+  unbekannte Höhendifferenz nicht stillschweigend als Null behandeln.
   Räumliche Kandidaten umfassen den maximal zulässigen Übergang; äußere Angebote bleiben
   innerhalb dieses Höhenbereichs. Unzulässige Kontakte vor dem Ausblenden ablehnen;
   Ausblenden darf die Höhenprüfung nicht verbergen. Überlappende Profilböschungen mischen mit Quellboden,
