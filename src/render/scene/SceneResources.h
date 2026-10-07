@@ -54,8 +54,7 @@ public:
   SetPieceInstances(SubjectDraw &subjects, std::span<const PieceRows> pieces, std::string &error);
   void ReleasePiece(SubjectDraw &subjects, PieceHandle which);
 
-  [[nodiscard]] bool
-  CopySourcesFrom(const SceneResources &source, PieceSources pieces, std::string &error);
+  void CopySourcesFrom(const SceneResources &source, PieceSources pieces);
   [[nodiscard]] bool RestorePieces(SubjectDraw &subjects, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
   AdvancePieceRestore(SubjectDraw &subjects, size_t &nextPiece, size_t piecesMost);
@@ -152,7 +151,7 @@ private:
 
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;
-  std::vector<PieceMaterials> PieceMaterials_;
+  std::vector<std::shared_ptr<const PieceMaterials>> PieceMaterials_;
   std::vector<uint32_t> RegisteredPieceSlots_;
   std::vector<HeightPage> HeightPages_;
   uint32_t FirstFreeHeightPage_ = kNoResourceSlot;

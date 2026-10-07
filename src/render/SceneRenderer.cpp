@@ -271,10 +271,7 @@ bool SceneRenderer::BeginsWorldCandidate(std::string &error, SceneResources::Pie
     return false;
   }
   Candidate_.emplace();
-  if (!Candidate_->Content.Resources.CopySourcesFrom(State_.Content.Resources, pieces, error)) {
-    Candidate_.reset();
-    return false;
-  }
+  Candidate_->Content.Resources.CopySourcesFrom(State_.Content.Resources, pieces);
   error.clear();
   return true;
 }

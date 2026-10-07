@@ -178,9 +178,7 @@ void SceneResources::ReleasePiece(SubjectDraw &subjects, PieceHandle which) {
   piece.State = state;
 }
 
-bool SceneResources::CopySourcesFrom(const SceneResources &source,
-                                     PieceSources pieces,
-                                     std::string &error) {
+void SceneResources::CopySourcesFrom(const SceneResources &source, PieceSources pieces) {
   if (pieces == PieceSources::Copy) {
     Pieces_ = source.Pieces_;
     FirstFreePiece_ = source.FirstFreePiece_;
@@ -196,18 +194,8 @@ bool SceneResources::CopySourcesFrom(const SceneResources &source,
   GroundReal_ = source.GroundReal_;
   GroundVirtual_ = source.GroundVirtual_;
   GroundClassification_ = source.GroundClassification_;
-  PieceMaterials_.clear();
-  PieceMaterials_.reserve(source.PieceMaterials_.size());
-  for (const PieceMaterials &materials : source.PieceMaterials_) {
-    auto copied = ResolvePieceMaterials(materials.Source.clone());
-    if (!copied) {
-      error = std::move(copied).error();
-      return false;
-    }
-    PieceMaterials_.push_back(std::move(*copied));
-  }
+  PieceMaterials_ = source.PieceMaterials_;
   RegisteredPieceSlots_.clear();
-  return true;
 }
 
 std::expected<SceneResources::PieceMaterials, std::string>
@@ -270,7 +258,7 @@ SceneResources::RegisterPieceMaterials(SubjectDraw &subjects, SubjectDraw *glass
   if (!AppendPieceMaterials(subjects, glass, *materials, error)) {
     return std::unexpected(std::move(error));
   }
-  PieceMaterials_.push_back(std::move(*materials));
+  PieceMaterials_.push_back(std::make_shared<const PieceMaterials>(std::move(*materials)));
   return first;
 }
 
@@ -280,8 +268,8 @@ bool SceneResources::RestorePieceMaterials(SubjectDraw &subjects,
   const size_t subjectBefore = subjects.MaterialSlots();
   const size_t glassBefore = glass == nullptr ? 0 : glass->MaterialSlots();
   RegisteredPieceSlots_.clear();
-  for (const PieceMaterials &materials : PieceMaterials_) {
-    if (AppendPieceMaterials(subjects, glass, materials, error)) { continue; }
+  for (const auto &materials : PieceMaterials_) {
+    if (AppendPieceMaterials(subjects, glass, *materials, error)) { continue; }
     subjects.TruncateMaterials(subjectBefore);
     subjects.SetRegisteredPieceSurfaces({});
     if (glass != nullptr) {
