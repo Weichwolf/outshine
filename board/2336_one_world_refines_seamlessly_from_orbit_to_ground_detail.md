@@ -82,9 +82,9 @@ Nur fehlende erforderliche Produkte erzeugen. SSD/RAM/GPU-Arbeitsmengen getrennt
 | Massed | Blockverbände | Silhouette/Coverage ohne Einzelhausgeometrie |
 | Skyline | Tiefenhaltige Impostorflächen | Fernbild/Parallaxe statt Einzelvolumen |
 Zuerst Massed/Skyline. Ferne Kosten nehmen ab; Kontakte/Straßen/Parts/Höfe nahe erhalten.
-Native Quellabfragen wählen Dach-/Wandtreffer vor Vertexarbeit, aber noch kachelweise.
-Wien/CP/Tokyo erzeugen 1,61/1,24/2,36 Mio. Gebäudedreiecke (ROW, keine GPU-Zählung). Ihre aktuell einfachen Bilder rechtfertigen
-keinen pauschalen Ausbau; verdeckte Hausäste/ferne Einzelobjekte vor Planung und Emission sparen.
+Native Basen halten Fine-Referenzflächen in `PreparedStructureTile::Surfaces` vor der LOD-Auswahl;
+Tokyo dekodiert dafür ganze Kacheln (560,70 MiB Basen). Kompakte angereicherte Pläne/Hüllen als Eltern, Fine-Flächen nur in benötigten Kindern.
+Wien/CP/Tokyo: 1,61/1,24/2,36 Mio. Gebäudedreiecke (ROW, keine GPU-Zählung); verdeckte/ferne Einzelobjekte vor Planung und Emission sparen.
 [Python-Flächenmodell](../test/experiments/building_surface.py): Tokyo 588.862 Pläne → 8.782
 Flächendreiecke im flachen Modell; kein nativer/GPU-/Bildnachweis. Generator-/Renderer-/Hybrid-
 Verdeckung mit identischen Inputs, 360° und Bewegung vergleichen; frühere Bilder nicht löschen.

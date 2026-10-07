@@ -111,7 +111,7 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Integration a2d54c54c: Tidy/Claims/Shader grün; fehlender gepinnter Khronos-Frame cfb0bc5a hält das Gesamtgate rot.
+Integration 725642fbe: Tidy/Claims/Shader grün; fehlender gepinnter Khronos-Frame cfb0bc5a hält das Gesamtgate rot.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
