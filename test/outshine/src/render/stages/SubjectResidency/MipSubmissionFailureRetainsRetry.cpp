@@ -51,6 +51,17 @@ int main() {
         residency.Upload(texture, SubjectResidency::Transfer::Srgb, TexelKind::Value);
     CHECK(retry && retry->Image && retry->Sample,
           "an immediate mip upload retry returns a complete sampled image");
+    reject = true;
+    const auto defaultFailed =
+        residency.Upload({}, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+    CHECK(!defaultFailed && rejected == 2 && !reject,
+          "a failed default upload is not published for reuse");
+    const auto defaultRetry =
+        residency.Upload({}, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+    const auto defaultShared =
+        residency.Upload({}, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+    CHECK(defaultRetry && defaultShared && defaultRetry->Image.Get() == defaultShared->Image.Get(),
+          "a repaired default is shared only after a complete retry");
   }
   SDL_Quit();
   return Report();

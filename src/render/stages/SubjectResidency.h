@@ -69,8 +69,8 @@ struct SubjectResidency {
   };
 
   struct BoundImage {
-    OwnedTexture Image;
-    OwnedSampler Sample;
+    SharedTexture Image;
+    SharedSampler Sample;
   };
 
   enum class Transfer { Srgb, Linear };
@@ -131,7 +131,10 @@ struct SubjectResidency {
     SubjectT_ = tangents;
   }
 
-  void StandsOn(SDL_GPUDevice *device) { Device_ = device; }
+  void StandsOn(SDL_GPUDevice *device) {
+    if (Device_ != device) { DefaultImages_.clear(); }
+    Device_ = device;
+  }
 
   [[nodiscard]] SDL_GPUDevice *Device() const { return Device_; }
 
@@ -189,6 +192,25 @@ struct SubjectResidency {
                                                                 TexelKind kind) const;
 
 private:
+  [[nodiscard]] std::expected<BoundImage, std::string>
+  UploadImage(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
+
+  struct DefaultImageKey {
+    Transfer Decode;
+    TexelKind Kind;
+    SubjectWrap WrapU, WrapV;
+    SubjectFilter Magnify, Minify;
+    SubjectMip Mip;
+
+    bool operator==(const DefaultImageKey &) const = default;
+  };
+
+  struct DefaultImage {
+    DefaultImageKey Key;
+    BoundImage Image;
+  };
+
+  mutable std::vector<DefaultImage> DefaultImages_;
   mutable size_t UploadAttempts_ = 0;
   mutable size_t TotalUploadAttempts_ = 0;
   size_t RecordedCrossings_ = 0;

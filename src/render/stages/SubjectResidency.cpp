@@ -479,6 +479,26 @@ void SubjectResidency::CommitCrossings() {
 
 std::expected<SubjectResidency::BoundImage, std::string>
 SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
+  if (texture.Rgba != nullptr) { return UploadImage(texture, decode, kind); }
+  if (texture.Width > 1 || texture.Height > 1) {
+    return std::unexpected("a sized texture has no texel data");
+  }
+  const DefaultImageKey key{.Decode = decode,
+                            .Kind = kind,
+                            .WrapU = texture.WrapU,
+                            .WrapV = texture.WrapV,
+                            .Magnify = texture.Magnify,
+                            .Minify = texture.Minify,
+                            .Mip = texture.Mip};
+  const auto held = std::ranges::find(DefaultImages_, key, &DefaultImage::Key);
+  if (held != DefaultImages_.end()) { return held->Image; }
+  auto bound = UploadImage(texture, decode, kind);
+  if (bound) { DefaultImages_.push_back({.Key = key, .Image = *bound}); }
+  return bound;
+}
+
+std::expected<SubjectResidency::BoundImage, std::string> SubjectResidency::UploadImage(
+    const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
   static const std::array<uint8_t, 4> white = {{255, 255, 255, 255}};
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
   const uint32_t height = texture.Height > 0 ? texture.Height : 1;
@@ -502,7 +522,6 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
     }
   }
 
-  BoundImage bound;
   SDL_GPUTextureCreateInfo wantedTexture{};
   wantedTexture.type = SDL_GPU_TEXTURETYPE_2D;
   wantedTexture.format = decode == Transfer::Srgb ? SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB
@@ -520,13 +539,13 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
   if (!chainBytes) { return std::unexpected(std::string(Says::kTextureMipChainTooLarge)); }
   wantedTexture.num_levels = levels;
   wantedTexture.sample_count = SDL_GPU_SAMPLECOUNT_1;
-  bound.Image = OwnedTexture(Device_, SDL_CreateGPUTexture(Device_, &wantedTexture));
-  if (!bound.Image) {
+  OwnedTexture image(Device_, SDL_CreateGPUTexture(Device_, &wantedTexture));
+  if (!image) {
     return std::unexpected(std::format(Says::kTextureImageFoundNoRoom, SDL_GetError()));
   }
 
   if (auto uploaded = UploadMipChain(
-          bound.Image, linear, {.WidthPx = width, .HeightPx = height}, levels, decode, kind);
+          image, linear, {.WidthPx = width, .HeightPx = height}, levels, decode, kind);
       !uploaded) {
     return std::unexpected(std::move(uploaded.error()));
   }
@@ -544,10 +563,10 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
 
   wantedSampler.min_lod = 0.0f;
   wantedSampler.max_lod = static_cast<float>(levels - 1u);
-  bound.Sample = OwnedSampler(Device_, SDL_CreateGPUSampler(Device_, &wantedSampler));
-  if (!bound.Sample) {
-    return std::unexpected(std::format(Says::kTextureSamplerFailed, SDL_GetError()));
-  }
+  OwnedSampler sample(Device_, SDL_CreateGPUSampler(Device_, &wantedSampler));
+  if (!sample) { return std::unexpected(std::format(Says::kTextureSamplerFailed, SDL_GetError())); }
+  BoundImage bound{.Image = SharedTexture(std::move(image)),
+                   .Sample = SharedSampler(std::move(sample))};
   return bound;
 }
 

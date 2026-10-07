@@ -40,10 +40,10 @@ constexpr float kFractionalLodUvScaleY =
 
 struct Fixture {
   OwnedDevice Device;
-  OwnedTexture Source;
+  SharedTexture Source;
   OwnedTexture Target;
   OwnedTexture Depth;
-  OwnedSampler Sampler;
+  SharedSampler Sampler;
   OwnedPipeline Pipeline;
   OwnedBuffer Vertices;
   OwnedBuffer Uvs;
@@ -186,8 +186,8 @@ bool UploadChain(Fixture &fixture, MipMode mode, bool separateSubmits, bool srgb
   texture.layer_count_or_depth = 1;
   texture.num_levels = levels;
   texture.sample_count = SDL_GPU_SAMPLECOUNT_1;
-  fixture.Source =
-      OwnedTexture(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &texture));
+  fixture.Source = SharedTexture(
+      OwnedTexture(fixture.Device.Get(), SDL_CreateGPUTexture(fixture.Device.Get(), &texture)));
   if (!fixture.Source) { return false; }
   if (separateSubmits) {
     uint32_t width = kSourceWidth;
@@ -281,8 +281,8 @@ bool Configure(Fixture &fixture,
   sampler.mipmap_mode = mode == MipMode::Nearest ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
                                                  : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
   sampler.max_lod = static_cast<float>(Levels(mode) - 1u);
-  fixture.Sampler =
-      OwnedSampler(fixture.Device.Get(), SDL_CreateGPUSampler(fixture.Device.Get(), &sampler));
+  fixture.Sampler = SharedSampler(
+      OwnedSampler(fixture.Device.Get(), SDL_CreateGPUSampler(fixture.Device.Get(), &sampler)));
   if (!fixture.Sampler) { return false; }
   std::string error;
   const char *vertexPath = derivatives ? "build/shaders/filteredMipDerivativeSample.vert.spv"
@@ -570,30 +570,18 @@ bool ConfigureImported(Fixture &fixture, TextureUploadCounts &counts) {
   constexpr std::array placements = {
       GpuPlacement{.Current = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
                    .Previous = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}};
-  if (!UploadBuffer(fixture,
-                    std::as_bytes(part.PositionsM),
-                    SDL_GPU_BUFFERUSAGE_VERTEX,
-                    fixture.Vertices,
-                    SubjectResidency::kVertexPage * 3u * sizeof(float)) ||
-      !UploadBuffer(fixture,
-                    std::as_bytes(part.Uv),
-                    SDL_GPU_BUFFERUSAGE_VERTEX,
-                    fixture.Uvs,
-                    SubjectResidency::kVertexPage * 2u * sizeof(float)) ||
+  if (!UploadBuffer(
+          fixture, std::as_bytes(part.PositionsM), SDL_GPU_BUFFERUSAGE_VERTEX, fixture.Vertices) ||
+      !UploadBuffer(fixture, std::as_bytes(part.Uv), SDL_GPU_BUFFERUSAGE_VERTEX, fixture.Uvs) ||
       !UploadBuffer(fixture,
                     std::as_bytes(std::span(emitted)),
                     SDL_GPU_BUFFERUSAGE_VERTEX,
-                    fixture.Emitted,
-                    SubjectResidency::kVertexPage * 3u * sizeof(float)) ||
+                    fixture.Emitted) ||
       !UploadBuffer(fixture,
                     std::as_bytes(std::span(placements)),
                     SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
                     fixture.Placements) ||
-      !UploadBuffer(fixture,
-                    std::as_bytes(indices),
-                    SDL_GPU_BUFFERUSAGE_INDEX,
-                    fixture.Indices,
-                    SubjectResidency::kIndexPage * sizeof(uint32_t)) ||
+      !UploadBuffer(fixture, std::as_bytes(indices), SDL_GPU_BUFFERUSAGE_INDEX, fixture.Indices) ||
       !UploadBuffer(fixture,
                     std::as_bytes(std::span(&indirect, 1)),
                     SDL_GPU_BUFFERUSAGE_INDIRECT,
@@ -706,8 +694,9 @@ int main() {
                                        false,
                                        nullptr));
   TextureUploadCounts importedUpload;
-  CHECK(imported.Device && ConfigureImported(imported, importedUpload),
-        "the exact imported chess draw configures through raw SDL");
+  const bool configured = imported.Device && ConfigureImported(imported, importedUpload);
+  if (!configured) { std::fprintf(stderr, "imported fixture: %s\n", SDL_GetError()); }
+  CHECK(configured, "the exact imported chess draw configures through raw SDL");
   if (imported.Device && imported.Pipeline) {
     CHECK(importedUpload.Submissions == 1,
           "a complete imported mip chain submits through one copy command");

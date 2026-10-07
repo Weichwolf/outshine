@@ -3,6 +3,8 @@
 
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_gpu.h>
+#include <memory>
+#include <utility>
 
 namespace outshine::Render {
 
@@ -89,6 +91,24 @@ using OwnedSampler = Owned<SDL_GPUSampler, SDL_ReleaseGPUSampler>;
 using OwnedShader = Owned<SDL_GPUShader, SDL_ReleaseGPUShader>;
 using OwnedPipeline = Owned<SDL_GPUGraphicsPipeline, SDL_ReleaseGPUGraphicsPipeline>;
 using OwnedComputePipeline = Owned<SDL_GPUComputePipeline, SDL_ReleaseGPUComputePipeline>;
+
+template <typename Resource> class SharedOwned {
+public:
+  SharedOwned() = default;
+
+  explicit SharedOwned(Resource resource)
+      : Resource_(std::make_shared<Resource>(std::move(resource))) {}
+
+  [[nodiscard]] auto Get() const noexcept { return Resource_ ? Resource_->Get() : nullptr; }
+
+  explicit operator bool() const noexcept { return Get() != nullptr; }
+
+private:
+  std::shared_ptr<Resource> Resource_;
+};
+
+using SharedTexture = SharedOwned<OwnedTexture>;
+using SharedSampler = SharedOwned<OwnedSampler>;
 
 }
 #endif

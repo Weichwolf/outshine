@@ -46,7 +46,7 @@ Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsme
 2. P0: verbliebene Quellenproben aus nativen Höhen-/Kontaktprodukten bedienen; 25–32 MiB Felder
    bei Treffern vermeiden. Kandidaten teilen unveränderte Daten; einmal laden, dann Scratch frei.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
-   Pakete blockweise übernehmen; Weltkandidaten teilen unveränderliche Materialpakete; 4-MiB-Fixture: 368 statt 4.196.784 Byte Snapshot-Allokation.
+   Renderer: identische ungebundene Maps pro Device/Transfer-/Samplerzustand teilen; heute 4.538 Staging-Allokationen in Tokyo. Pakete blockweise übernehmen; Materialpakete teilen.
    [Bildbesitz-Modell](../test/experiments/material_image_residency.py): Teilen statt Klonen; native Peaks separat messen.
 4. P1: [Reales Paketmodell](../test/experiments/impostor_ready_payload.py): Capture 20 MiB, vorhandene Flat-Karten 6 MiB Payload.
    Native Karten/RGBA8-Maps über GeometryAsset implementiert; Hits umgehen Coverage-Füllung, Farbkonversion und Kartenaufbau.
@@ -111,7 +111,7 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Integration 6c55222cb: Format/Tidy/32 Claims/Shader grün; voller Lauf Exit 2, 263/264 gepinnte Referenzbilder fehlen.
+Integration de0575a02: Format/Tidy (354 Units)/32 Claims/Shader grün; voller Lauf Exit 2, 263/264 Pins fehlen.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
