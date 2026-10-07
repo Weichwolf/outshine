@@ -24,22 +24,35 @@ std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &rend
                                                              const Content::ImpostorAtlas &atlas,
                                                              uint32_t maxInstances,
                                                              std::string &error) {
-  if (maxInstances == 0 || atlas.Views().empty()) {
+  auto cards = PrepareImpostorCards(atlas, error);
+  return cards ? Create(renderer, *cards, maxInstances, error) : nullptr;
+}
+
+std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &renderer,
+                                                             const Content::ImpostorCards &cards,
+                                                             uint32_t maxInstances,
+                                                             std::string &error) {
+  if (maxInstances == 0 || cards.Views.empty()) {
     error = Says::Capacity;
     return nullptr;
   }
   auto result = std::unique_ptr<ImpostorInstances>(
-      new ImpostorInstances(renderer, atlas.CentreM(), maxInstances));
-  result->Views_.reserve(atlas.Views().size());
-  for (size_t view = 0; view < atlas.Views().size(); ++view) {
-    auto geometry = BuildImpostorSurface(atlas, view, ImpostorSurfaceDetail::Flat);
-    if (!geometry || geometry->parts() != 1) {
+      new ImpostorInstances(renderer, cards.Centre, maxInstances));
+  result->Views_.reserve(cards.Views.size());
+  for (const auto &view : cards.Views) {
+    if (view.Surface.parts() != 1) {
       error = Says::View;
       return nullptr;
     }
-    const auto positions = geometry->positionsOf(0);
-    const auto normals = geometry->normalsOf(0);
-    const auto uv = geometry->textureOf(0);
+    auto geometry = view.Surface.clone();
+    const auto positions = geometry.positionsOf(0);
+    const auto normals = geometry.normalsOf(0);
+    const auto uv = geometry.textureOf(0);
+    if (positions.empty() || normals.size() != positions.size() ||
+        uv.size() != positions.size() / 3 * 2) {
+      error = Says::View;
+      return nullptr;
+    }
     std::vector<StoredVertex> vertices(positions.size() / 3);
     for (size_t at = 0; at < vertices.size(); ++at) {
       vertices[at] =
@@ -49,18 +62,18 @@ std::unique_ptr<ImpostorInstances> ImpostorInstances::Create(SceneRenderer &rend
     }
     PieceMesh piece;
     piece.Verts = vertices;
-    piece.Indices = geometry->trianglesOf(0);
-    piece.Tangents = geometry->tangentsOf(0);
+    piece.Indices = geometry.trianglesOf(0);
+    piece.Tangents = geometry.tangentsOf(0);
     piece.Textured = true;
     piece.MaxInstances = maxInstances;
-    auto material = renderer.RegisterPieceMaterials(std::move(*geometry));
+    auto material = renderer.RegisterPieceMaterials(std::move(geometry));
     if (!material) {
       error = std::move(material).error();
       return nullptr;
     }
     piece.Surface = PieceSurface::Registered(*material);
     View held;
-    held.Direction = atlas.Views()[view].TowardEye;
+    held.Direction = view.Direction;
     held.NextRows.reserve(maxInstances);
     auto placed = renderer.PlacePiece(piece);
     if (!placed) {

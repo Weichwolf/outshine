@@ -3,6 +3,7 @@
 
 #include "content/AssetCache.h"
 #include "ImpostorAtlas.h"
+#include "ImpostorCards.h"
 #include "Tasks.h"
 #include <atomic>
 #include <deque>
@@ -22,16 +23,19 @@ public:
   struct Loaded {
     std::string Provenance;
     std::optional<Content::ImpostorAtlas> Atlas;
+    std::optional<Content::ImpostorCards> Cards;
     std::string Error;
   };
   enum class Request { Queued, Existing, Full };
 
   struct Counters {
     uint64_t Hits = 0, Misses = 0, Writes = 0, ReadBytes = 0;
-    double ReadMs = 0.0, WriteMs = 0.0;
+    uint64_t Preparations = 0;
+    double ReadMs = 0.0, WriteMs = 0.0, PreparationMs = 0.0;
   };
 
-  PreparedImpostorAssets(Tasks &tasks, const Config &config);
+  using Prepare = std::optional<ImpostorCards> (*)(const ImpostorAtlas &, std::string &);
+  PreparedImpostorAssets(Tasks &tasks, const Config &config, Prepare prepare = nullptr);
   ~PreparedImpostorAssets();
   [[nodiscard]] bool
   Publish(const Content::ImpostorAtlas &atlas, std::string_view provenance, std::string &error);
@@ -54,10 +58,19 @@ private:
   std::unique_ptr<AssetCache> Cache_;
   std::mutex Lock_;
   size_t MostPending_, MostBytes_;
+  Prepare Prepare_;
   std::deque<Pending> Pending_;
   std::atomic_uint64_t Hits_{0}, Misses_{0}, Writes_{0}, ReadBytes_{0};
+  std::atomic_uint64_t Preparations_{0};
   std::atomic<double> ReadMs_{0}, WriteMs_{0};
+  std::atomic<double> PreparationMs_{0};
   [[nodiscard]] bool Opens(std::string &error);
+  [[nodiscard]] std::optional<CachedAsset> LoadBytes(std::string_view key, std::string &error);
+  [[nodiscard]] Loaded Load(std::string provenance);
+  [[nodiscard]] std::optional<ImpostorCards> BuildCards(const ImpostorAtlas &atlas,
+                                                        std::string &error);
+  [[nodiscard]] bool
+  PublishCards(const ImpostorCards &cards, std::string_view provenance, std::string &error);
 };
 }
 #endif

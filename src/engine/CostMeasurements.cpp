@@ -65,6 +65,10 @@ void PublishPrototypeCosts(Core::DiagnosticLedger &published,
   PublishPreparedAssetCosts(published, costs.Assets, 2);
   published.RecordMetric(
       "cost.assets.prototypes.generated", static_cast<double>(costs.Generated), "prototypes");
+  published.RecordMetric("cost.assets.prototypes.preparations",
+                         static_cast<double>(costs.Assets.Preparations),
+                         "products");
+  published.RecordMetric("cost.assets.prototypes.preparation_ms", costs.Assets.PreparationMs, "ms");
   published.RecordMetric("cost.assets.prototypes.generation_ms", costs.GenerationMs, "ms");
   published.RecordMetric("cost.assets.prototypes.read_ms", costs.Assets.ReadMs, "ms");
   published.RecordMetric("cost.assets.prototypes.write_ms", costs.Assets.WriteMs, "ms");

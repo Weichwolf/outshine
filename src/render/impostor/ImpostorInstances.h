@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_IMPOSTOR_IMPOSTORINSTANCES_H
 
 #include "ImpostorAtlas.h"
+#include "ImpostorCards.h"
 #include "ResourceHandle.h"
 #include "math/Mat4.h"
 #include "math/Vec3.h"
@@ -21,6 +22,11 @@ public:
   [[nodiscard]] static std::unique_ptr<ImpostorInstances>
   Create(SceneRenderer &renderer,
          const Content::ImpostorAtlas &atlas,
+         uint32_t maxInstances,
+         std::string &error);
+  [[nodiscard]] static std::unique_ptr<ImpostorInstances>
+  Create(SceneRenderer &renderer,
+         const Content::ImpostorCards &cards,
          uint32_t maxInstances,
          std::string &error);
   ~ImpostorInstances();

@@ -113,8 +113,8 @@ int main() {
     CHECK(crowns->Ready() && crowns->Resident() == 2,
           "one cache result reaches both waiting groups");
     if (cycle == 4) {
-      CHECK(crowns->Costs().Generated == 1 && crowns->Costs().Assets.Writes == 1,
-            "shared cold requests generate and store their native prototype exactly once");
+      CHECK(crowns->Costs().Generated == 1 && crowns->Costs().Assets.Writes == 2,
+            "shared cold requests generate once and store capture plus ready cards once each");
     }
     if (cycle == 5) {
       CHECK(crowns->Costs().Generated == 0 && crowns->Costs().Assets.Hits == 1 &&

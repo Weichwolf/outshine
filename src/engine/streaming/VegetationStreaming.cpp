@@ -1,5 +1,6 @@
 #include "VegetationStreaming.h"
 #include "ImpostorPreparation.h"
+#include "ImpostorSurface.h"
 #include "TreePrototype.h"
 #include <cstddef>
 #include <cstdint>
@@ -28,7 +29,7 @@ VegetationStreaming::VegetationStreaming(Render::SceneRenderer &renderer,
                                          const Config &config)
     : Renderer_(&renderer),
       Preparation_(&compute),
-      Cache_(compute, config.Cache),
+      Cache_(compute, config.Cache, Render::PrepareImpostorCards),
       Shape_(config.Shape) {}
 
 VegetationStreaming::~VegetationStreaming() {
@@ -114,6 +115,7 @@ bool VegetationStreaming::AcceptCacheResult(std::string &error) {
   auto loaded = prepared ? std::optional<Content::PreparedImpostorAssets::Loaded>(
                                {.Provenance = Groups_[PreparingGroup_].Provenance,
                                 .Atlas = std::move(PreparedAtlas_),
+                                .Cards = {},
                                 .Error = {}})
                          : Cache_.Take();
   if (prepared) { PreparedAtlas_.reset(); }
@@ -124,12 +126,20 @@ bool VegetationStreaming::AcceptCacheResult(std::string &error) {
         group.Provenance != loaded->Provenance) {
       continue;
     }
-    if (!loaded->Atlas) {
+    if (!loaded->Cards && loaded->Atlas) {
+      loaded->Cards = Render::PrepareImpostorCards(*loaded->Atlas, error);
+      loaded->Atlas.reset();
+      if (!loaded->Cards) {
+        Failure_ = error;
+        return false;
+      }
+    }
+    if (!loaded->Cards) {
       group.State = Phase::Missing;
       continue;
     }
     group.Pieces = Render::ImpostorInstances::Create(
-        *Renderer_, *loaded->Atlas, static_cast<uint32_t>(group.Models.size()), error);
+        *Renderer_, *loaded->Cards, static_cast<uint32_t>(group.Models.size()), error);
     if (!group.Pieces) {
       Failure_ = error;
       return false;

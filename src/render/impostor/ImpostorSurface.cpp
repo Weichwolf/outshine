@@ -11,6 +11,7 @@
 #include <expected>
 #include <limits>
 #include <optional>
+#include <string>
 #include <vector>
 #include <utility>
 
@@ -185,6 +186,24 @@ std::optional<Geometry> BuildImpostorSurface(const Content::ImpostorAtlas &atlas
     return std::nullopt;
   }
   return geometry;
+}
+
+std::optional<Content::ImpostorCards> PrepareImpostorCards(const Content::ImpostorAtlas &atlas,
+                                                           std::string &error) {
+  Content::ImpostorCards cards;
+  cards.Centre = atlas.CentreM();
+  cards.HalfExtentM = atlas.HalfExtentM();
+  cards.Views.reserve(atlas.Views().size());
+  for (size_t view = 0; view < atlas.Views().size(); ++view) {
+    auto geometry = BuildImpostorSurface(atlas, view, ImpostorSurfaceDetail::Flat);
+    if (!geometry) {
+      error = "impostor view has no native card geometry";
+      return std::nullopt;
+    }
+    cards.Views.push_back(
+        {.Direction = atlas.Views()[view].TowardEye, .Surface = std::move(*geometry)});
+  }
+  return cards;
 }
 
 }

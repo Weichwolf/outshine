@@ -9,16 +9,18 @@
 #include <optional>
 #include <ratio>
 #include <span>
+#include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
 
 namespace outshine::Content {
-PreparedImpostorAssets::PreparedImpostorAssets(Tasks &tasks, const Config &config)
+PreparedImpostorAssets::PreparedImpostorAssets(Tasks &tasks, const Config &config, Prepare prepare)
     : Tasks_(&tasks),
       Directory_(config.Directory),
       MostPending_(config.Pending),
-      MostBytes_(config.ReadBytes) {}
+      MostBytes_(config.ReadBytes),
+      Prepare_(prepare) {}
 
 PreparedImpostorAssets::~PreparedImpostorAssets() {
   for (const auto &pending : Pending_) { Tasks_->Wait(pending.Job); }
@@ -67,10 +69,48 @@ bool PreparedImpostorAssets::Publish(const ImpostorAtlas &atlas,
                            .Package = {},
                            .ByteCount = bytes->size(),
                            .Parent = {}};
+  {
+    const std::scoped_lock lock(Lock_);
+    if (!Opens(error)) { return false; }
+    if (!Cache_->Publish(std::span(&record, 1), *bytes)) {
+      error = "crown artifact publication failed";
+      return false;
+    }
+    ++Writes_;
+  }
+  WriteMs_ +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+  if (Prepare_ != nullptr) {
+    auto cards = BuildCards(atlas, error);
+    if (!cards || !PublishCards(*cards, provenance, error)) { return false; }
+  }
+  return true;
+}
+
+bool PreparedImpostorAssets::PublishCards(const ImpostorCards &cards,
+                                          std::string_view provenance,
+                                          std::string &error) {
+  const auto began = std::chrono::steady_clock::now();
+  auto bytes = cards.Encode(provenance, MostBytes_);
+  if (!bytes) {
+    error = "native impostor cards are invalid or exceed their byte budget";
+    return false;
+  }
+  Box bounds{.Min = cards.Centre, .Max = cards.Centre};
+  for (size_t axis = 0; axis < 3; ++axis) {
+    bounds.Min[axis] -= cards.HalfExtentM;
+    bounds.Max[axis] += cards.HalfExtentM;
+  }
+  const AssetRecord record{.Key = Sha256Hex("impostor-cards-1/" + std::string(provenance)),
+                           .Kind = "impostor-cards",
+                           .Bounds = bounds,
+                           .Package = {},
+                           .ByteCount = bytes->size(),
+                           .Level = 1,
+                           .Parent = Sha256Hex(provenance)};
   const std::scoped_lock lock(Lock_);
-  if (!Opens(error)) { return false; }
-  if (!Cache_->Publish(std::span(&record, 1), *bytes)) {
-    error = "crown artifact publication failed";
+  if (!Opens(error) || !Cache_->Publish(std::span(&record, 1), *bytes)) {
+    if (error.empty()) { error = "native impostor card publication failed"; }
     return false;
   }
   ++Writes_;
@@ -90,28 +130,7 @@ PreparedImpostorAssets::Request PreparedImpostorAssets::Read(std::string provena
   result->Provenance = std::move(provenance);
   const auto job = Tasks_->Post([this, result] {
     const auto began = std::chrono::steady_clock::now();
-    std::optional<CachedAsset> asset;
-    {
-      const std::scoped_lock lock(Lock_);
-      if (Opens(result->Error) && MostBytes_ > 0) {
-        auto loaded = Cache_->Load(Sha256Hex(result->Provenance), MostBytes_);
-        if (loaded) {
-          asset = std::move(*loaded);
-        } else {
-          result->Error = "native impostor package could not be loaded within its budget";
-        }
-      }
-    }
-    if (asset) {
-      ReadBytes_ += asset->Bytes().size();
-      result->Atlas = ImpostorAtlas::Decode(asset->Bytes(), result->Provenance, result->Error);
-    }
-    if (result->Atlas) {
-      ++Hits_;
-    } else {
-      ++Misses_;
-      if (result->Error.empty()) { result->Error = "native impostor is absent or unreadable"; }
-    }
+    *result = Load(std::move(result->Provenance));
     ReadMs_ +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   });
@@ -135,7 +154,9 @@ PreparedImpostorAssets::Counters PreparedImpostorAssets::Costs() const noexcept 
           .Misses = Misses_,
           .Writes = Writes_,
           .ReadBytes = ReadBytes_,
+          .Preparations = Preparations_,
           .ReadMs = ReadMs_,
-          .WriteMs = WriteMs_};
+          .WriteMs = WriteMs_,
+          .PreparationMs = PreparationMs_};
 }
 }
