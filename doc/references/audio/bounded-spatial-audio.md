@@ -34,6 +34,9 @@ Native Terrain-Abfrage integriert; Cubemap, Stimmenauswahl und GPU-Pfad bleiben 
    festen Strahl-/Schrittbudgets R und Stimmenlimit K begrenzen; keine unbeschränkte BVH-
    Traversierung unter einem bloßen Strahllimit. Räumliche Kandidaten, Ereignisse und
    inkrementelle Auswahl vermeiden einen Vollscan pro Frame; bei Überlast vergröbert ausgeben.
+   Keine Vollsortierung der Quellen: feste Prioritäts-Buckets, lineare Auswahl. Bei festen
+   Stimmen-, Strahl-, Traversierungs- und Buslimits ist die Arbeit höchstens O(N) für N
+   bewertete Quellen; die teure Ausbreitung und Mischung bleibt von N unabhängig.
 6. CPU-Prototyp gegen asynchronen GPU-Compute messen, einschließlich Upload/Readback und
    Konkurrenz zum Bildbudget. Mixer konsumiert den letzten fertigen geglätteten Snapshot,
    wartet auf keine GPU-Fence. Zeit, Speicher, Aktualisierungsalter und hörbare Fehler messen.

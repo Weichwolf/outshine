@@ -50,6 +50,9 @@ visuellen Meilenstein. Keine separate Fahrzeug-/Sandboxengine und kein pauschale
   Cubemap-Transfer als Experiment mit Frequenzdämpfung, Laufzeit und Ankunftsrichtung; Distanz
   und Mehrwege erhalten. Ein Richtungswert allein beschreibt weder Wandnähe noch mehrere Echos.
   Feste Strahl-/Traversierungs-/Stimmenbudgets; GPU nur asynchron nach Kostenvergleich.
+  Quellenbewertung höchstens O(N), feste Auswahl-Buckets statt Vollsortierung O(N log N).
+  Ausbreitung/Mixer bleiben durch feste Stimmen-, Strahl- und Buslimits begrenzt;
+  keine Quelle-Quelle-Paare und keine Umgebungsabfrage pro virtualisierter Quelle.
   [Geprüfter GitHub-Code und Grenzen](../doc/references/audio/bounded-spatial-audio.md).
 
 ## Forschungsgrundlage
