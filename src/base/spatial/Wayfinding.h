@@ -86,6 +86,10 @@ class Network {
 public:
   [[nodiscard]] static std::expected<Network, std::string_view> Create(Snap snap, Sphere on);
 
+  [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeAsset(size_t bytesMost) const;
+  [[nodiscard]] static std::optional<Network> DecodeAsset(std::span<const uint8_t> bytes,
+                                                          size_t bytesMost);
+
   [[nodiscard]] std::expected<void, std::string_view> Lay(std::span<const double> latLonPairs,
                                                           const WayClass &of);
   [[nodiscard]] size_t Cross();
@@ -209,6 +213,7 @@ private:
   friend class NetworkWeaveJob;
   friend class NetworkCrossingJob;
   friend class NetworkElevationJob;
+  friend class NetworkAssetCodec;
 
   Network(Snap snap, Sphere on) : SnapM_(snap.CellM), RadiusM_(on.RadiusM) {}
 

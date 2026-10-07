@@ -21,6 +21,8 @@ Identität/Slices und Ladeschranke beziehen sich auf native Bytes. CRC/Frame-/L�
 Kompression vor Schreibtransaktion. Öffnen schreibt vorhandene Paketbytes nicht neu.
 GeometryAsset erhält Geometrie/Placements, alle Materialfaktoren/-Maps, Bilder und Lichter;
 versionierte Little-Endian-Daten, keine Gerätehandles. Öffentlicher Generator lädt sie ohne Provider.
+Netzcodec erhält native Topologie, Richtungen, Höhenprofile, Kreuzungen und räumliche Suche.
+Er ist für vollständige Regionsprodukte bereit; frühe Runtime-Treffer sind noch nicht integriert.
 Native Höhenfelder umgehen DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
@@ -43,7 +45,6 @@ Die drei Städte lesen weiterhin 1,98/1,81/2,03 GiB Terrain-Zwischenfelder. Kont
 Straßen und Terrain-/Wassermeshes entstehen erneut; späte Treffer umgehen nur die Verformung.
 Prototypen: 31/22/31 Hits, 620/440/620 MiB entpackt. 31 komprimierte Pakete: 620 → 34,8 MiB SSD,
 17,8× kleiner; alte Pakete erhalten. Laden nicht schneller; Ursache nicht per A/B isoliert.
-Wien kalt: 28,30 s, 31 einmalige Misses/Erzeugungen/Writes; warm kein Erzeugungsjob.
 Peaks sind keine Budgets; Koerbersee p99 18,54 ms >720p60. Warm <10 s bleibt offen.
 Hauptcache zuvor 17,93 GiB: 15,64 GiB (87 %) Zwischenfelder; Residency nicht begründet.
 Native Impostorprodukte nutzen AssetCache; prototypes.sqlite hält getrennte Modellbounds.
@@ -53,7 +54,6 @@ Leserahmen aus dem Format: 256² × 8 × 40 Byte + maximale Metadaten; keine Atl
 Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
 Kontakt-/Straßenformung bei frühen Treffern umgehen. Terrain-/Straßenqualität erhalten.
 Ziel: vorbereitete Places warm <10 s; <1 s als Challenge. Hohe Bildqualität bei 480p30 vor Pixelzahl.
-
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
 Gemeinsame Dienste kennen Bounds/Versionen/native Produkte, keine Quellsemantik; Geometriecodec in content/assets.
