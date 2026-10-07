@@ -53,7 +53,11 @@ int main() {
   if (!initialized) { return Report(); }
   {
     outshine::Engine engine;
-    CHECK(engine.setRoots({"src/assets/drive", "src/assets", "/tmp/outshine-paced", false}) &&
+    CHECK(engine.setRoots({.Assets = "src/assets/drive",
+                           .Shipped = "src/assets",
+                           .Cache = "/tmp/outshine-paced",
+                           .Offline = false,
+                           .AssetCache = {}}) &&
               engine.setRenderTarget({160, 90}),
           "offscreen world starts");
     const auto declared = engine.declare(Scenario());

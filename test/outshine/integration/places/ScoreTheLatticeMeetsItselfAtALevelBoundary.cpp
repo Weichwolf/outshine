@@ -54,8 +54,11 @@ int main(void) {
   }
 
   outshine::Engine engine;
-  (void)engine.setRoots(
-      outshine::Roots{"src/assets/drive", "src/assets", "/tmp/outshine-drive-cache", false});
+  (void)engine.setRoots(outshine::Roots{.Assets = "src/assets/drive",
+                                        .Shipped = "src/assets",
+                                        .Cache = "/tmp/outshine-drive-cache",
+                                        .Offline = false,
+                                        .AssetCache = {}});
   if (!engine.setRenderTarget(outshine::Extent{kWidePx, kHighPx})) {
     Unprepared("the device stood no canvas");
     return Report();

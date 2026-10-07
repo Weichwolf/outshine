@@ -54,10 +54,13 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes for graph worker cancellation");
   {
     Engine engine;
-    const bool ready =
-        engine.setRoots(
-            {"src/assets/drive", "src/assets", "/tmp/outshine-network-cancel", false}) &&
-        engine.setRenderTarget({160, 90}) && engine.declare(Scene()) && engine.assemble();
+    const bool ready = engine.setRoots({.Assets = "src/assets/drive",
+                                        .Shipped = "src/assets",
+                                        .Cache = "/tmp/outshine-network-cancel",
+                                        .Offline = false,
+                                        .AssetCache = {}}) &&
+                       engine.setRenderTarget({160, 90}) && engine.declare(Scene()) &&
+                       engine.assemble();
     CHECK(ready, "two-view source world starts through the public API");
     if (ready) {
       const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);

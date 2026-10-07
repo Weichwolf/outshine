@@ -65,7 +65,11 @@ int Run() {
   using namespace outshine;
   using namespace outshine::Test;
   Engine engine;
-  if (!engine.setRoots({"src/assets/drive", "src/assets", "/tmp/outshine-stale-press", false}) ||
+  if (!engine.setRoots({.Assets = "src/assets/drive",
+                        .Shipped = "src/assets",
+                        .Cache = "/tmp/outshine-stale-press",
+                        .Offline = false,
+                        .AssetCache = {}}) ||
       !engine.setRenderTarget({160, 90})) {
     Unprepared("offscreen ground target did not start");
     return Report();

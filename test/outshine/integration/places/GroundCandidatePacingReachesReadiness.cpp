@@ -73,7 +73,11 @@ std::optional<double> Measure(const outshine::Engine &engine, std::string_view n
 std::optional<ProductSignature> Builds(bool preload) {
   using namespace outshine::Test;
   outshine::Engine engine;
-  if (!engine.setRoots({"src/assets/drive", "src/assets", "/tmp/outshine-paced", false}) ||
+  if (!engine.setRoots({.Assets = "src/assets/drive",
+                        .Shipped = "src/assets",
+                        .Cache = "/tmp/outshine-paced",
+                        .Offline = false,
+                        .AssetCache = {}}) ||
       !engine.setRenderTarget({160, 90})) {
     Unprepared("the offscreen target did not start");
     return std::nullopt;
