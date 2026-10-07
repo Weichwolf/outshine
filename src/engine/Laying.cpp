@@ -220,13 +220,10 @@ public:
   enum class GeometrySubmission : uint8_t { Classes, ClassRanges, Begin, Cook };
   enum class CorridorCompletion : uint8_t { Build, Retire };
 
-  struct MeshBuild {
-    Generators::TerrainMesh Mesh;
-    size_t NextSheet = 0;
+  struct ResidencyBuild {
     bool SheetsStitched = false;
     bool ResidencyStarted = false;
     bool ResidencyReady = false;
-    double LongestSliceMs = 0.0;
     double LongestResidencySliceMs = 0.0;
   };
 
@@ -365,7 +362,7 @@ public:
     return std::exchange(RoadEarthworks_, {});
   }
 
-  [[nodiscard]] MeshBuild &Meshing() noexcept { return Meshing_; }
+  [[nodiscard]] ResidencyBuild &Residency() noexcept { return Residency_; }
 
   [[nodiscard]] GroundSurvey &Surveying() noexcept { return Surveying_; }
 
@@ -434,10 +431,8 @@ public:
     return Patchwork_ ? Patchwork_->HeapBytes() : 0u;
   }
 
-  [[nodiscard]] size_t RetainedMeshBytes() const noexcept {
-    return Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-           Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
-           Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f);
+  [[nodiscard]] size_t RetainedSurveyBytes() const noexcept {
+    return Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f);
   }
 
   [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept {
@@ -625,8 +620,6 @@ private:
                               RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
                               RoadHeightCoverage_.SelectedRouteIndices.capacity() * sizeof(size_t) +
                               Corridors_.capacity() * sizeof(EarthworkStamp) +
-                              Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-                              Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
                               Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f) +
                               (Stamping_ ? Stamping_->HeapBytes() : 0u) +
                               (Pressing_ ? Pressing_->HeapBytes() : 0u);
@@ -659,7 +652,7 @@ private:
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<EarthworkStamp> Corridors_;
   std::vector<EarthworkStamp> RoadEarthworks_;
-  MeshBuild Meshing_;
+  ResidencyBuild Residency_;
   GroundSurvey Surveying_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   size_t ProductPeakBytes_ = 0;
@@ -2075,31 +2068,29 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   return true;
 }
 
-bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
-                                           Patchwork &patchwork,
-                                           GroundBuildState &state) {
+bool Engine::State::BuildGroundResidency(Patchwork &patchwork, GroundBuildState &state) {
   const auto began = std::chrono::steady_clock::now();
   GroundBuildProducts &build = state.Candidate().Products();
-  GroundBuildState::MeshBuild &meshing = state.Meshing();
-  if (!meshing.SheetsStitched) {
+  GroundBuildState::ResidencyBuild &residency = state.Residency();
+  if (!residency.SheetsStitched) {
     if (!build.Sheets.Stitch(patchwork, Error)) { return false; }
-    meshing.SheetsStitched = true;
+    residency.SheetsStitched = true;
     Published.RecordMetric(
         "ground candidate: sheet stitching",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
     return true;
   }
-  if (!meshing.ResidencyStarted) {
+  if (!residency.ResidencyStarted) {
     if (!build.Sheets.BeginResidency(patchwork, Error)) { return false; }
-    meshing.ResidencyStarted = true;
+    residency.ResidencyStarted = true;
     Published.RecordMetric(
         "ground candidate: residency preparation",
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
         "ms");
     return true;
   }
-  if (!meshing.ResidencyReady) {
+  if (!residency.ResidencyReady) {
     const auto advanced = build.Sheets.AdvanceResidency(patchwork, kTerrainResidencySheetsPerFrame);
     if (!advanced) {
       Error = advanced.error();
@@ -2107,34 +2098,18 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
     }
     const double sliceMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    meshing.LongestResidencySliceMs = std::max(meshing.LongestResidencySliceMs, sliceMs);
+    residency.LongestResidencySliceMs = std::max(residency.LongestResidencySliceMs, sliceMs);
     state.SamplesProductPeak();
     if (!*advanced) { return true; }
-    meshing.ResidencyReady = true;
+    residency.ResidencyReady = true;
     Published.RecordMetric(
-        "ground candidate: longest residency slice", meshing.LongestResidencySliceMs, "ms");
+        "ground candidate: longest residency slice", residency.LongestResidencySliceMs, "ms");
     Published.RecordMetric(
         "ground candidate: longest residency batch", build.Sheets.LongestResidencyBatchMs(), "ms");
     Published.RecordMetric(
         "ground candidate: residency finalize", build.Sheets.ResidencyFinalizeMs(), "ms");
     return true;
   }
-  const size_t end = std::min(meshing.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
-  for (; meshing.NextSheet < end; ++meshing.NextSheet) {
-    Generators::AppendTerrainMeshSheet(meshing.Mesh,
-                                       patchwork.Sheets[meshing.NextSheet],
-                                       standing,
-                                       {.Side = Render::GroundLattice::kSide, .Halo = 1});
-  }
-  const double sliceMs =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-  meshing.LongestSliceMs = std::max(meshing.LongestSliceMs, sliceMs);
-  state.SamplesProductPeak();
-  if (meshing.NextSheet < patchwork.Sheets.size()) { return true; }
-  Published.RecordMetric(
-      "ground candidate: longest native mesh slice", meshing.LongestSliceMs, "ms");
-  build.PositionsM = std::move(meshing.Mesh.PositionsM);
-  build.Indices = std::move(meshing.Mesh.Indices);
   Published.RecordMetric(
       "ground: height pages standing", static_cast<double>(build.Sheets.Standing()), "pages");
   Published.RecordMetric(
@@ -2165,7 +2140,7 @@ bool Engine::State::BuildGroundTerrainMesh(const TangentFrame &standing,
                          "tiles");
   state.AdvanceStage();
   Published.RecordMetric(
-      "ground candidate: terrain mesh",
+      "ground candidate: terrain residency",
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count(),
       "ms");
   return true;
@@ -2334,9 +2309,9 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundConstructionStage
     case Core::GroundBuildSchedule::Stage::NeedsEarthworks:
       return PressGroundEarthworks(standing, patchwork, state) ? GroundBuildProgress::Pending
                                                                : GroundBuildProgress::Failed;
-    case Core::GroundBuildSchedule::Stage::NeedsTerrainMesh:
-      return BuildGroundTerrainMesh(standing, patchwork, state) ? GroundBuildProgress::Pending
-                                                                : GroundBuildProgress::Failed;
+    case Core::GroundBuildSchedule::Stage::NeedsTerrainResidency:
+      return BuildGroundResidency(patchwork, state) ? GroundBuildProgress::Pending
+                                                    : GroundBuildProgress::Failed;
     case Core::GroundBuildSchedule::Stage::NeedsWater: {
       const auto began = std::chrono::steady_clock::now();
       GroundBuildProducts &build = state.Candidate().Products();
@@ -2439,8 +2414,8 @@ void Engine::State::PublishGroundCandidateMeasurements(const GroundWorldCandidat
   Published.RecordMetric("ground candidate: patchwork retained for retirement",
                          static_cast<double>(state.RetainedPatchworkBytes()),
                          "bytes");
-  Published.RecordMetric("ground candidate: mesh products retained for retirement",
-                         static_cast<double>(state.RetainedMeshBytes()),
+  Published.RecordMetric("ground candidate: terrain survey retained for retirement",
+                         static_cast<double>(state.RetainedSurveyBytes()),
                          "bytes");
 }
 

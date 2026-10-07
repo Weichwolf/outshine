@@ -143,7 +143,7 @@ void Engine::State::PublishCostMeasurements() {
                                    "fields",
                                    "refinement",
                                    "halos",
-                                   "sheetmesh",
+                                   "survey",
                                    "classes",
                                    "surface",
                                    "models",
@@ -152,7 +152,7 @@ void Engine::State::PublishCostMeasurements() {
                                    "corridors",
                                    "structures",
                                    "earthworks",
-                                   "terrainmesh",
+                                   "residency",
                                    "water",
                                    "geometry",
                                    "publication"};

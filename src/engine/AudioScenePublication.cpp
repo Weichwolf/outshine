@@ -38,7 +38,7 @@ void Engine::State::PublishAudioSnapshot() {
         where.AtM[axis] = stood->PositionM[axis];
         where.VelocityMs[axis] = stood->VelocityMs[axis];
       }
-      where.Blocked = IsAudioOccluded(where.AtM) ? 1.0 : 0.0;
+      where.Blocked = declared.Spatial.Positional && IsAudioOccluded(where.AtM) ? 1.0 : 0.0;
     }
     sources.push_back(where);
   }
@@ -57,7 +57,7 @@ void Engine::State::PublishAudioSnapshot() {
 }
 
 bool Engine::State::IsAudioOccluded(const Vec3 &sourceM) const {
-  if (World.AudioOcclusion.Empty() || !Picture.Standing) { return false; }
+  if (!Picture.Standing) { return false; }
   const Render::Viewpoint &eye = Picture.Standing->Aimed();
   Vec3f fromM;
   Vec3f along;
@@ -72,8 +72,10 @@ bool Engine::State::IsAudioOccluded(const Vec3 &sourceM) const {
     fromM[axis] = static_cast<float>(eye.EyeM[axis]);
     along[axis] = static_cast<float>((sourceM[axis] - eye.EyeM[axis]) / awayM);
   }
-  return World.AudioOcclusion.Occludes(
-      {.OriginM = fromM, .Toward = along}, kNearestOccluderM, static_cast<float>(awayM));
+  const Ray ray{.OriginM = fromM, .Toward = along};
+  const auto distanceM = static_cast<float>(awayM);
+  return World.AudioOcclusion.Occludes(ray, kNearestOccluderM, distanceM) ||
+         World.Sheets.Occludes(ray, kNearestOccluderM, distanceM);
 }
 
 }

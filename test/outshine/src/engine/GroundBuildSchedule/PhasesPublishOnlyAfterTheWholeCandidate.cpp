@@ -29,7 +29,7 @@ int main() {
       GroundBuildSchedule::Stage::NeedsCorridors,
       GroundBuildSchedule::Stage::NeedsBakes,
       GroundBuildSchedule::Stage::NeedsEarthworks,
-      GroundBuildSchedule::Stage::NeedsTerrainMesh,
+      GroundBuildSchedule::Stage::NeedsTerrainResidency,
       GroundBuildSchedule::Stage::NeedsWater,
       GroundBuildSchedule::Stage::NeedsGeometry,
       GroundBuildSchedule::Stage::NeedsPublication};

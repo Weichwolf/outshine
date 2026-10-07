@@ -149,7 +149,7 @@ void Engine::State::PublishGroundPreparationMeasurements() {
       "sheet fields",
       "sheet refinement",
       "sheet halos",
-      "sheet mesh",
+      "terrain survey",
       "classes",
       "surface",
       "models",
@@ -158,7 +158,7 @@ void Engine::State::PublishGroundPreparationMeasurements() {
       "corridors",
       "structure bake",
       "earthworks",
-      "terrain mesh",
+      "terrain residency",
       "water",
       "geometry",
       "publication"};

@@ -98,11 +98,14 @@ TerrainResidency::TerrainResidency(const TerrainResidency &other)
   }
 }
 
-std::expected<Render::HeightPageHandle, std::string>
-TerrainResidency::PageFor(Data::TileId tile, std::span<const float> nodes) {
+std::expected<Render::HeightPageHandle, std::string> TerrainResidency::PageFor(const Sheet &sheet) {
+  const Data::TileId tile = sheet.Tile;
+  const std::span<const float> nodes = sheet.Nodes;
   if (const size_t *found = PageIndex_.Find(tile)) {
     Held &one = Held_[*found];
     if (one.Page && Renderer_->HasHeightPage(one.Page) && std::ranges::equal(one.Nodes, nodes)) {
+      one.Postings = sheet.Postings;
+      one.Virtual = sheet.Virtual;
       return one.Page;
     }
     std::vector<float> replacement(nodes.begin(), nodes.end());
@@ -111,6 +114,8 @@ TerrainResidency::PageFor(Data::TileId tile, std::span<const float> nodes) {
     if (Renderer_->HasHeightPage(one.Page)) { Renderer_->ReleaseHeightPage(one.Page); }
     one.Page = *page;
     one.Nodes = std::move(replacement);
+    one.Postings = sheet.Postings;
+    one.Virtual = sheet.Virtual;
     return one.Page;
   }
   std::vector<float> owned(nodes.begin(), nodes.end());
@@ -123,7 +128,11 @@ TerrainResidency::PageFor(Data::TileId tile, std::span<const float> nodes) {
                                ? Says::HeightPageIndexAllocationFailed
                                : Says::HeightPageIndexCapacityExceeded);
   }
-  Held_.push_back({.Tile = tile, .Page = *page, .Nodes = std::move(owned)});
+  Held_.push_back({.Tile = tile,
+                   .Page = *page,
+                   .Nodes = std::move(owned),
+                   .Postings = sheet.Postings,
+                   .Virtual = sheet.Virtual});
   return *page;
 }
 
@@ -258,7 +267,7 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
       ++Flat_;
       continue;
     }
-    const auto page = PageFor(sheet.Tile, sheet.Nodes);
+    const auto page = PageFor(sheet);
     if (!page) { return std::unexpected(page.error()); }
     (sheet.Virtual ? Virtual_ : Instances_)
         .push_back(TileOf(sheet.Tile, *page, sheet.Nodes, frame));

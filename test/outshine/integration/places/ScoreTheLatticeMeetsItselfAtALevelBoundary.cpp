@@ -96,7 +96,7 @@ int main(void) {
   const std::span<const outshine::DiagnosticSample> told = engine.measures();
   for (const char *stage : {"ground candidate: corridors",
                             "ground candidate: earthworks",
-                            "ground candidate: terrain mesh",
+                            "ground candidate: terrain residency",
                             "ground candidate: water",
                             "ground candidate: longest scene geometry slice",
                             "ground candidate: publication"}) {

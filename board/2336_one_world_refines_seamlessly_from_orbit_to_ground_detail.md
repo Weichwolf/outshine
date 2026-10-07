@@ -25,9 +25,11 @@ Die initiale TerrainSurvey erzeugt nur die bisher genutzten Lichtproben, keine T
 Positionen/Extrema stimmen im nativen Vergleich exakt mit dem alten Vollmesh überein.
 Koerbersees Blattzahl erfordert damit 1.106.356 Proben × 12 Byte = 12,66 MiB Nutzdaten statt
 583,56 MiB Positionen/Indizes. Koer/Wien/CP/Tokyo sind im isolierten Stand pixelgleich;
-Survey-Schritte bei Koer maximal 0,224 ms. Finales Audiomesh und feine Quellen bleiben zu teuer.
-AppendTerrainMeshSheet expandiert weiterhin finale Blätter für Audio-Verdeckung.
-Dieser verbleibende globale CPU-Aufbau muss durch native Höhenprodukte/aktive Abfragen ersetzt werden.
+Survey-Schritte bei Koer maximal 0,224 ms. Der finale globale CPU-Meshaufbau ist jetzt entfernt:
+Audio liest publizierte, deformierte Höhen direkt, maximal 64 Proben ohne Geometrieallokation.
+Das ist grobe Verdeckung, kein exakter Kontakt-/Mehrwegebeweis; feine Quellen bleiben zu teuer.
+Koer/Wien/CP/Tokyo bleiben pixelgleich. Koers warmer Peak-Footprint fällt von 3,40 auf 1,83 GiB
+(Bytes/1024³), Laden von 8,61 auf 7,88 s; Stadt-Laden bleibt bei 12–16 s. Quellenarbeit ist weiter offen.
 
 ## P0: grobe Sichtbarkeit vor feineren API-Anfragen
 1. Zuerst gröbste Eltern für den Weltbedarf aus dem Assetcache; bei Miss nur grobes DEM

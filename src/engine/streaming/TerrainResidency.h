@@ -5,10 +5,12 @@
 #include "FlatMap.h"
 #include "GroundMesher.h"
 #include "TangentFrame.h"
+#include "TriangleBvh.h"
 #include "scene/TerrainTile.h"
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -49,6 +51,9 @@ public:
 
   [[nodiscard]] uint64_t Digest() const noexcept;
   [[nodiscard]] size_t HeapBytes() const noexcept;
+  [[nodiscard]] std::optional<double> HeightMAt(LongitudeLatitude at) const noexcept;
+  [[nodiscard]] bool
+  Occludes(const Ray &ray, float nearM, float distanceM, const TangentFrame &frame) const noexcept;
 
 private:
   struct TileHash {
@@ -59,10 +64,11 @@ private:
     Data::TileId Tile;
     Render::HeightPageHandle Page{};
     std::vector<float> Nodes;
+    uint32_t Postings = 0;
+    bool Virtual = false;
   };
 
-  [[nodiscard]] std::expected<Render::HeightPageHandle, std::string>
-  PageFor(Data::TileId tile, std::span<const float> nodes);
+  [[nodiscard]] std::expected<Render::HeightPageHandle, std::string> PageFor(const Sheet &sheet);
   [[nodiscard]] static Render::TerrainTile TileOf(Data::TileId tile,
                                                   Render::HeightPageHandle page,
                                                   std::span<const float> nodes,

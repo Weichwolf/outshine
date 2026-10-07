@@ -145,6 +145,10 @@ public:
 
   [[nodiscard]] size_t HeapBytes() const noexcept;
 
+  [[nodiscard]] bool Occludes(const Ray &ray, float nearM, float distanceM) const noexcept {
+    return Framed_ && Residency_.Occludes(ray, nearM, distanceM, Frame_);
+  }
+
   struct SeamKind {
     double EvenM = 0.0;
     double OddBeforeM = 0.0;

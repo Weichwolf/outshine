@@ -575,9 +575,7 @@ struct Engine::State {
   [[nodiscard]] bool BuildGroundCorridors(const TangentFrame &standing,
                                           const Around &coverage,
                                           GroundBuildState &state);
-  [[nodiscard]] bool BuildGroundTerrainMesh(const TangentFrame &standing,
-                                            Patchwork &patchwork,
-                                            GroundBuildState &state);
+  [[nodiscard]] bool BuildGroundResidency(Patchwork &patchwork, GroundBuildState &state);
   [[nodiscard]] bool PublishGroundGeometry(GroundBuildState &state);
   [[nodiscard]] GroundBuildProgress AdvanceGroundConstructionStages(const TangentFrame &standing,
                                                                     Patchwork &patchwork,

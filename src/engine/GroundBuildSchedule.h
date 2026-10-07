@@ -17,7 +17,7 @@ public:
     NeedsCorridors,
     NeedsBakes,
     NeedsEarthworks,
-    NeedsTerrainMesh,
+    NeedsTerrainResidency,
     NeedsWater,
     NeedsGeometry,
     NeedsPublication
@@ -57,8 +57,8 @@ public:
       case Stage::NeedsRoadAlignments: CurrentStage_ = Stage::NeedsCorridors; return true;
       case Stage::NeedsCorridors: CurrentStage_ = Stage::NeedsBakes; return true;
       case Stage::NeedsBakes: CurrentStage_ = Stage::NeedsEarthworks; return true;
-      case Stage::NeedsEarthworks: CurrentStage_ = Stage::NeedsTerrainMesh; return true;
-      case Stage::NeedsTerrainMesh: CurrentStage_ = Stage::NeedsWater; return true;
+      case Stage::NeedsEarthworks: CurrentStage_ = Stage::NeedsTerrainResidency; return true;
+      case Stage::NeedsTerrainResidency: CurrentStage_ = Stage::NeedsWater; return true;
       case Stage::NeedsWater: CurrentStage_ = Stage::NeedsGeometry; return true;
       case Stage::NeedsGeometry: CurrentStage_ = Stage::NeedsPublication; return true;
       case Stage::NeedsPublication: return false;
@@ -83,7 +83,7 @@ public:
       case Stage::NeedsCorridors: return "corridors";
       case Stage::NeedsBakes: return "structure-bakes";
       case Stage::NeedsEarthworks: return "earthworks";
-      case Stage::NeedsTerrainMesh: return "terrain-mesh";
+      case Stage::NeedsTerrainResidency: return "terrain-residency";
       case Stage::NeedsWater: return "water";
       case Stage::NeedsGeometry: return "geometry";
       case Stage::NeedsPublication: return "publication";

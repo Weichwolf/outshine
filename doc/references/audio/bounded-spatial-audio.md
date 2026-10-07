@@ -1,7 +1,7 @@
 # Räumliches Audio mit begrenzter Arbeit
 
 Codeprüfung: 2026-10-07. Besitzer: 2336 (native Abfragen), 2136 (Audio).
-Entwurfsentscheidung; Cubemap, Stimmenauswahl und GPU-Pfad sind noch nicht implementiert.
+Native Terrain-Abfrage integriert; Cubemap, Stimmenauswahl und GPU-Pfad bleiben Entwurf.
 
 ## Geprüfte GitHub-Verfahren
 
@@ -38,6 +38,10 @@ Entwurfsentscheidung; Cubemap, Stimmenauswahl und GPU-Pfad sind noch nicht imple
    Konkurrenz zum Bildbudget. Mixer konsumiert den letzten fertigen geglätteten Snapshot,
    wartet auf keine GPU-Fence. Zeit, Speicher, Aktualisierungsalter und hörbare Fehler messen.
 
-Aktueller Blocker: `Laying.cpp::BuildGroundTerrainMesh` expandiert globale CPU-Geometrie
-für `AudioOcclusion`; ihre Ablösung gehört zur laufenden Ladeoptimierung in 2336.
+`Laying.cpp::BuildGroundResidency` publiziert Höhen ohne globalen CPU-Dreiecksaufbau.
+`TerrainResidency::HeightMAt` fragt den vorhandenen Seitenindex ab und interpoliert die nativen
+Zellen einschließlich ungleichmäßiger Posting-Abstände. Audio nutzt maximal 64 Wegproben;
+schmale Hindernisse auf langen Wegen können fehlen. Keine konservative Fehlerschranke,
+kein Physikkontakt-Ersatz. Zusätzliche importierte Dreiecke nutzen weiter `TriangleBvh`;
+dessen Abfrage und die gesamte Stimmenauswahl sind noch nicht fest budgetiert.
 Weitergehende Raumakustik bleibt nach dem visuellen Meilenstein in 2136.
