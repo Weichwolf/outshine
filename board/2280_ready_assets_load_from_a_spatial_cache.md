@@ -25,20 +25,20 @@ Exakte Kamera-Schlüssel und ganze Regionen ersetzen keine räumliche Eltern-/Ki
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
-Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer c8037e056785:
+Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer fe49222f98c7:
 | Place | Laden s | p99 ms | Bildphase / Peak GiB | Terrain / Prototypen entpackt MiB |
 |---|---:|---:|---:|---:|
-| Wien | 6,74 | 4,09 | 2,21 / 2,79 | 25 / 620 |
-| CentralPark | 5,32 | 2,56 | 2,11 / 2,11 | 25 / 400 |
-| Tokyo | 8,99 | 3,66 | 3,52 / 5,26 | 32 / 620 |
+| Wien | 7,15 | 3,97 | 2,21 / 2,60 | 25 / 620 |
+| CentralPark | 5,46 | 2,67 | 2,00 / 2,00 | 25 / 400 |
+| Tokyo | 9,31 | 3,98 | 3,49 / 5,08 | 32 / 620 |
 Regionprodukte: 85,94 / 73,46 / 114,50 MiB; Worker 154 / 126 / 232 ms; null Terrain-Mesh-Jobs.
 Alle zehn Places pixelgleich zum Vorher. Wasser-Replay senkt Terraindecode von 566–834 auf 25–32 MiB,
-belegt aber keinen kleineren Prozesspeak. Tokyo-Peak gegenüber zuvor 4,94 GiB erhöht;
-Ursache offen. C++-Heap nach Rendering: 0,74 / 0,64 / 1,25 GiB; umfasst Treiber/GPU nicht vollständig.
+belegt allein keinen kleineren Prozesspeak. Geteilte Materialpakete senken Peaks im direkten Vergleich
+von 2,79 / 2,11 / 5,27 GiB; höhere Framegeschwindigkeit unbewiesen, Tokyos dauerhafte 3,49 GiB offen.
 Tokyos Ladeziel bleibt variabel; Aufbau Wien/Tokyo/Koer überschreitet p99 16,67 ms. Durchsatz ist keine Residency.
 OS-Footprint mit `proc_pid_rusage` alle 50 ms: 18–19 Stichproben um die letzte Render-/PNG-Sekunde,
 kein exaktes Frame-Intervall/GPU-Einzelwert. Sampler 2–4 ms CPU je Gesamtlauf; Logs/JSON im System-Temp:
-`outshine-memory-<Place>-a2d54c54c.*`; übrige Places `outshine-water-native-ba3d4c53f-<Place>-warm.log`.
+`outshine-material-memory-<Place>-{before,after}-7c7dec6b2.*`; alle Places pixelgleich.
 1. P0: Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Räumliche Eltern/Kind-Rohlinge
    statt Kamerasnapshots; verdeckte Kinder ungeöffnet. Erst Miss startet Facharbeit. Fehlende Eltern
    grob aus DEM, dann wahrscheinliche sichtbare Kinder nah → fern; OSM ohne vollständigen Ringvorlauf.
@@ -46,10 +46,11 @@ kein exaktes Frame-Intervall/GPU-Einzelwert. Sampler 2–4 ms CPU je Gesamtlauf;
    bei Treffern vermeiden. Kandidaten teilen unveränderte Daten; einmal laden, dann Scratch frei.
 3. P0: Rendersekunden-Residency, Decode-/Kopie-/Uploadspitzen getrennt messen und begrenzen.
    Räumliche Pakete blockweise validieren/übernehmen statt Paketbuffer → Decoderarrays → Produkte.
-   Kompression reduziert keine entpackte Arbeit/Residency; keine bloße Erhöhung der Paketgrenze.
+   Weltkandidaten teilen unveränderliche Materialpakete; 4-MiB-Fixture: 368 statt 4.196.784 Byte Snapshot-Allokation.
+   [Bildbesitz-Modell](../test/experiments/material_image_residency.py): Teilen statt Klonen; native Peaks separat messen.
 4. P1: Modellprototypen bedarfsgerecht laden. 256² × 8 × 40 Byte = 20 MiB; 31 Atlanten = 620 MiB.
    Quantisierte Tiefe/Normalen/Material/Coverage vergleichen; 12 Byte/Texel wären 186 MiB,
-   Hypothese mit Bild-/Fehlernachweis. Gemeinsame Rohlinge behalten; fachfremde Änderungen nicht
+   Hypothese mit Bild-/Fehlernachweis; entpackte Bytes sind keine dauerhafte Residency. Fachfremde Änderungen nicht
    invalidieren. Generator-/Codec-/Capture-Abhängigkeiten statt sämtlichen src/include-Code versionieren.
 Ladeziel: warm <10 s, <1 s als Challenge; Koerbersee/Flensburg zuerst reparieren, Straßen erhalten.
 ## Besitzer und Grenzen
