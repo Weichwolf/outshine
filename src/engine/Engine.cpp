@@ -781,21 +781,25 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
     return;
   }
   if (World.GroundBuild || World.GroundRetirement) { return; }
-  const double idleS = std::min(remaining(), 0.001);
+  BackoffPreload(remaining());
+}
+
+void Engine::State::BackoffPreload(double seconds) {
+  const double idleS = std::min(seconds, 0.001);
   if (idleS <= 0.0) { return; }
-  if (Diagnostics != nullptr && std::has_single_bit(waited.IdleCalls + 1)) {
+  if (Diagnostics != nullptr && std::has_single_bit(PreloadWaited.IdleCalls + 1)) {
     Log::Debug(LogTag::World,
                "preload_idle",
-               {{"calls", static_cast<long long>(waited.IdleCalls + 1)},
+               {{"calls", static_cast<long long>(PreloadWaited.IdleCalls + 1)},
                 {"blockers", Readiness(GroundQuality::Refined).Describe()},
                 {"ingestion", World.Stack.IngestionStatus()},
                 {"ground", GroundBuildDiagnostic()}});
   }
   const auto began = std::chrono::steady_clock::now();
   std::this_thread::sleep_for(std::chrono::duration<double>(idleS));
-  waited.IdleMs +=
+  PreloadWaited.IdleMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-  ++waited.IdleCalls;
+  ++PreloadWaited.IdleCalls;
 }
 
 Result Engine::setView(std::string_view view) {

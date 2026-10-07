@@ -6,7 +6,7 @@
 #include "Tasks.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
-#include "generation/AssetGeneration.h"
+#include "content/AssetGeneration.h"
 #include "Sha256.h"
 #include "BuildingScratch.h"
 #include "BuildingMesh.h"

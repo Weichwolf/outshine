@@ -1,5 +1,5 @@
 #include "Check.h"
-#include "generation/AssetGeneration.h"
+#include "content/AssetGeneration.h"
 #include "generation/Generate.h"
 #include <array>
 #include <chrono>

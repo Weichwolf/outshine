@@ -43,7 +43,7 @@ public:
              Saying who,
              std::span<const outshine::LogField> fields) noexcept override {
     if (level < outshine::LogLevel::Warn &&
-        !(TracePreload_ && who.Event != nullptr && std::string_view(who.Event) == "preload_idle")) {
+        (!TracePreload_ || who.Event == nullptr || std::string_view(who.Event) != "preload_idle")) {
       return;
     }
     try {
@@ -59,8 +59,10 @@ public:
     } catch (...) { ReportFailure(); }
   }
 
+  void TracePreload(bool enabled) noexcept { TracePreload_ = enabled; }
+
 private:
-  const bool TracePreload_ = std::getenv("OUTSHINE_TRACE_PRELOAD") != nullptr;
+  bool TracePreload_ = false;
   std::mutex Mutex_;
 
   static void ReportFailure() noexcept { std::fputs("outshine-client: log sink failed\n", stderr); }
@@ -345,6 +347,7 @@ void PrintStats(std::string_view name,
     std::println("outshine-client: SDL did not start");
     return false;
   }
+  gTelling.TracePreload(false);
   engine.logsTo(&gTelling);
   if (const auto rooted = outshine::Client::WithSourceCache(std::move(roots))
                               .and_then([&](outshine::Roots resolved) {
@@ -400,6 +403,7 @@ int TakeShots(std::span<const Place> places, int argc, const char *const *argv) 
   }
   const auto &options = *parsed;
   outshine::Shots::Audits = options.Audit;
+  gTelling.TracePreload(options.Stats);
   const auto names = arguments.subspan(options.FirstPlace);
   if (options.All || names.empty()) {
     for (const Place &one : places) { taking.push_back(&one); }

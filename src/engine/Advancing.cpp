@@ -443,7 +443,12 @@ bool Engine::State::UpdateVegetation(bool prepare) {
   if (!World.Vegetation) {
     VegetationStreaming::Config config;
     config.Cache.Directory = Session.Under.AssetCache;
-    config.Cache.ReadBytes = *Content::ImpostorAtlas::EncodedBytesMost(config.Shape);
+    const auto bytesMost = Content::ImpostorAtlas::EncodedBytesMost(config.Shape);
+    if (!bytesMost) {
+      Error = "vegetation atlas shape has no valid package bound";
+      return false;
+    }
+    config.Cache.ReadBytes = *bytesMost;
     const auto frame =
         TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                           .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});

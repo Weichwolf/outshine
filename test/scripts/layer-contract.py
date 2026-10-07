@@ -11,6 +11,7 @@ PUBLIC_TIERS = {
     'Logging.h': 'base',
     'Outshine.h': 'engine',
     'audio': 'audio',
+    'content': 'content',
     'diagnostics': 'diagnostics',
     'export': 'import',
     'generation': 'generators',

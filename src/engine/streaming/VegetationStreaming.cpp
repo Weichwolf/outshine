@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <chrono>
 #include <numeric>
+#include <ratio>
 
 namespace outshine {
 namespace Says {

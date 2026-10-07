@@ -487,6 +487,7 @@ struct Engine::State {
       std::chrono::steady_clock::time_point began, double bound, GroundQuality quality);
   [[nodiscard]] Result PreloadTimeout(double bound, GroundQuality quality);
   void AwaitPreloadProgress(double seconds);
+  void BackoffPreload(double seconds);
   [[nodiscard]] bool AwaitWorldWorkerProgress(double seconds) const;
   [[nodiscard]] bool GroundDeformationPending() const noexcept;
   [[nodiscard]] bool AwaitGroundDeformation(double seconds) const;
