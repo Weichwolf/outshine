@@ -54,6 +54,8 @@ public:
 
   [[nodiscard]] bool Contains(const Feature &f, EastNorth at) const noexcept;
 
+  [[nodiscard]] bool Intersects(const Feature &f, EastNorth at, double radiusM) const noexcept;
+
   [[nodiscard]] size_t HeapBytes() const;
 
 private:

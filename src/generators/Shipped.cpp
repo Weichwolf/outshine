@@ -83,7 +83,9 @@ bool Shipping::BuildCatalogue(const outshine::Ground::VegetationTemplates &decla
     for (const TreeSpecies &one : species) {
       prototypes.push_back({.Cluster = ClusterId{static_cast<uint32_t>(stems.size())},
                             .HeightM = static_cast<double>(one.HeightM())});
-      stems.push_back({.HeightM = static_cast<double>(one.HeightM())});
+      stems.push_back({.HeightM = static_cast<double>(one.HeightM()),
+                       .CrownRadiusM = one.SpreadM() * 0.5f,
+                       .CrownBaseM = one.HeightM() * one.Form().BoleFrac});
     }
     if (stems.empty() || perM2.empty()) {
       error = "the declaration names no species or no density, so nothing shipped can stand";

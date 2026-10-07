@@ -28,7 +28,7 @@ constexpr float kMantissa16Steps = 65536.0f;
 constexpr unsigned kSecondDrawShift = 16u;
 constexpr unsigned kWoodyShift = 24u;
 constexpr unsigned kYawShift = 48u;
-constexpr size_t kStemBytes = 24;
+constexpr size_t kStemBytes = 32;
 
 constexpr uint64_t kStreamsPerCell = 4;
 
@@ -47,6 +47,26 @@ float SizeFactor(uint64_t bits, float sigma) {
 bool Occupied(const FeatureField &field, EastNorth at) noexcept {
   for (size_t feature = 0; feature < field.Count(); ++feature) {
     if (field.Contains(field.At(feature), at)) { return true; }
+  }
+  return false;
+}
+
+struct CrownVolume {
+  double RadiusM;
+  double BaseAslM;
+  double TopAslM;
+};
+
+bool CrownOccupied(const FeatureField &field, EastNorth at, CrownVolume crown) noexcept {
+  if (crown.RadiusM <= 0.0) { return false; }
+  for (size_t feature = 0; feature < field.Count(); ++feature) {
+    const auto &held = field.At(feature);
+    if (held.Kind != FeatureKind::Structure) { continue; }
+    if (held.Top.AslM().value_or(static_cast<float>(crown.TopAslM)) < crown.BaseAslM ||
+        held.Base.AslM().value_or(static_cast<float>(crown.BaseAslM)) > crown.TopAslM) {
+      continue;
+    }
+    if (field.Intersects(held, at, crown.RadiusM)) { return true; }
   }
   return false;
 }
@@ -163,6 +183,13 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   const auto variant = static_cast<uint32_t>(region.Seed(index * kStreamsPerCell + 3) % Held_);
   const Stem &stem = Stems_[variant];
   const float size = SizeFactor(region.Seed(index * kStreamsPerCell + 2), stem.HeightSigma);
+  if (CrownOccupied(ground.Features(),
+                    {.EastM = eastM, .NorthM = northM},
+                    {.RadiusM = static_cast<double>(stem.CrownRadiusM) * size,
+                     .BaseAslM = aslM + static_cast<double>(stem.CrownBaseM) * size,
+                     .TopAslM = aslM + stem.HeightM * size})) {
+    return Outcome::OccupiedSurface;
+  }
   out->Em = eastM;
   out->Nm = northM;
   out->BaseAslM = aslM;

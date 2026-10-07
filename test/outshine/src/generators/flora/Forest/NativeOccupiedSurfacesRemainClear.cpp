@@ -6,7 +6,59 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <span>
 #include <vector>
+
+namespace {
+void CheckCanopies(outshine::Generators::Ground::Snapshot &snapshot,
+                   const outshine::Generators::Tile &region,
+                   std::span<const float> density) {
+  using namespace outshine;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  const float east = static_cast<float>(region.SpanEm());
+  const float north = static_cast<float>(region.SpanNm());
+  const float width = east / 2;
+  const float crownRadiusM = 4;
+  const Forest crownForest(
+      {.HeightM = 12, .CrownRadiusM = crownRadiusM, .CrownBaseM = 3}, density, AlpineLimit{});
+  std::vector<FeatureField::Vertex> vertices{{0, 0}, {width, 0}, {width, north}, {0, north}};
+  const std::array<FeatureField::Ring, 1> rings{{{.First = 0, .Count = 4}}};
+  size_t highBuildingCount = 0;
+  for (const float roofM : {8.f, 2.f}) {
+    const std::array<FeatureField::Feature, 1> features{{{.FirstRing = 0,
+                                                          .RingCount = 1,
+                                                          .CoverRow = 0,
+                                                          .Kind = FeatureKind::Structure,
+                                                          .Form = FeatureForm::Area,
+                                                          .Base = FeatureLevel::At(0),
+                                                          .Top = FeatureLevel::At(roofM)}}};
+    snapshot.Features = FeatureField::Of(features, rings, vertices);
+    const auto ground = Generators::Ground::Of(region, snapshot);
+    CHECK(ground.has_value(), "structure heights accompany their occupied footprint");
+    if (!ground) { continue; }
+    RegionPool pool({.Reached = region, .Anywhere = region}, {});
+    auto lease = pool.TryAcquire(*ground);
+    CHECK(lease.has_value(), "crown clearance fixture obtains a production placement sink");
+    if (!lease) { continue; }
+    std::vector<Yield::Note> notes(crownForest.NoteNames().size());
+    Yield yield(lease->Sink(), crownForest.NoteNames(), notes);
+    crownForest.Occupy(*ground, yield);
+    const auto bodies = lease->Sink().Placed();
+    CHECK(!bodies.empty(), "clear ground retains trees after crown intersection checks");
+    const double marginM = roofM > 3 ? crownRadiusM : 0;
+    CHECK(std::ranges::all_of(
+              bodies, [width, marginM](const Solid &body) { return body.Em > width + marginM; }),
+          "crowns avoid tall buildings while roots still avoid low buildings");
+    if (roofM > 3) {
+      highBuildingCount = bodies.size();
+    } else {
+      CHECK(bodies.size() > highBuildingCount,
+            "a crown above a low roof may overhang it without removing a valid tree");
+    }
+  }
+}
+}
 
 int main() {
   using namespace outshine;
@@ -74,5 +126,6 @@ int main() {
       CHECK(clear, "a partial footprint excludes only its occupied portion of the tile");
     }
   }
+  CheckCanopies(snapshot, region, density);
   return Report();
 }

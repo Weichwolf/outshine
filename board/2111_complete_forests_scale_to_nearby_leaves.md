@@ -15,6 +15,10 @@ Wind und Schatten; vollständige Wälder teilen das Frame-/Speicherbudget mit de
 TreeGrower/Mesher/Foliage und vier Prototypstufen bestehen. Der Weltpfad nutzt überwiegend
 Kronenkarten, ignoriert deklarierte Artenmischungen und bindet Waldflächen unvollständig an.
 Native Struktur-/Wasser-/Wegflächen schließen Wurzeln bereits aus. Das bleibt erhalten.
+Kronenradius/-unterkante aus Artendaten erreichen jetzt die Platzierung. Horizontale
+Überschneidung und Gebäudehöhen werden gemeinsam geprüft; Feldkirchs Krone im Dach
+ist beseitigt. Niedrige Bauten dürfen unter freier Krone bleiben; Wasser/Weg-Ausschluss
+und freie Standorte bleiben erhalten. Der Wald-Ausbau bleibt später.
 
 ## Besitzer und Datenfluss
 OSM-Adapter besitzt Landcover-/Baumhinweise. VegetationTemplates besitzt deklarierte

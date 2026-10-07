@@ -19,6 +19,8 @@ public:
   struct Stem {
     double HeightM = kStemHeightUnsaidM;
 
+    float CrownRadiusM = 0.0f;
+    float CrownBaseM = 0.0f;
     float HeightSigma = 0.0f;
     float TrunkRadiusM = kTrunkRadiusUnsaidM;
     float MassKg = kStemMassUnsaidKg;

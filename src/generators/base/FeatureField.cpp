@@ -109,24 +109,37 @@ double SegmentGapM2(EastNorth at, EastNorth from, EastNorth to) {
 
 }
 
+bool FeatureField::Intersects(const Feature &f, EastNorth at, double radiusM) const noexcept {
+  if (radiusM < 0.0 || !std::isfinite(radiusM)) { return false; }
+  if (at.EastM + radiusM < f.MinEm || at.EastM - radiusM > f.MaxEm ||
+      at.NorthM + radiusM < f.MinNm || at.NorthM - radiusM > f.MaxNm) {
+    return false;
+  }
+  if (f.Form == FeatureForm::Area && Contains(f, at)) { return true; }
+  const double reachM = radiusM + (f.Form == FeatureForm::Ribbon ? f.HalfWidthM : 0.0);
+  const double reachM2 = reachM * reachM;
+  for (const Ring &ring : Rings(f)) {
+    const auto vertices = Vertices(ring);
+    if (vertices.size() < 2) { continue; }
+    const size_t first = f.Form == FeatureForm::Area ? 0 : 1;
+    for (size_t atVertex = first; atVertex < vertices.size(); ++atVertex) {
+      const auto &from = vertices[atVertex];
+      const auto &to = vertices[atVertex == 0 ? vertices.size() - 1 : atVertex - 1];
+      if (SegmentGapM2(at,
+                       {.EastM = from.Em, .NorthM = from.Nm},
+                       {.EastM = to.Em, .NorthM = to.Nm}) <= reachM2) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool FeatureField::Contains(const Feature &f, EastNorth at) const noexcept {
   const double eastM = at.EastM;
   const double northM = at.NorthM;
   if (!Boxed(f, at)) { return false; }
-  if (f.Form == FeatureForm::Ribbon) {
-    const double reach2 = static_cast<double>(f.HalfWidthM) * static_cast<double>(f.HalfWidthM);
-    for (const Ring &r : Rings(f)) {
-      const std::span<const Vertex> v = Vertices(r);
-      for (size_t i = 0; i + 1 < v.size(); i++) {
-        if (SegmentGapM2({.EastM = eastM, .NorthM = northM},
-                         {.EastM = v[i].Em, .NorthM = v[i].Nm},
-                         {.EastM = v[i + 1].Em, .NorthM = v[i + 1].Nm}) <= reach2) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
+  if (f.Form == FeatureForm::Ribbon) { return Intersects(f, at, 0.0); }
   int crossings = 0;
   for (const Ring &r : Rings(f)) {
     const std::span<const Vertex> v = Vertices(r);
