@@ -60,10 +60,13 @@ int main() {
       }
     }
   }
+  heights.Requested.clear();
   heights.State = GroundSample::State::Pending;
   status = Snapped::Taken;
   CHECK(!PatchOver(region, heights, &status) && status == Snapped::Waiting,
         "pending source yields waiting without a partial patch");
+  CHECK(heights.Requested.size() == 1,
+        "an unresolved posting stops acquisition before traversing the rest of the raster");
   heights.State = GroundSample::State::Hole;
   status = Snapped::Taken;
   CHECK(!PatchOver(region, heights, &status) && status == Snapped::NoGround,

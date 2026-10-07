@@ -220,8 +220,8 @@ PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how
                               ? GroundSample::At(row[static_cast<size_t>(i)])
                               : heights.At(region.Geo({.EastM = static_cast<double>(i) * stepE,
                                                        .NorthM = static_cast<double>(j) * stepN}));
-      if (sample.Where() == GroundSample::State::Hole) {
-        *how = Snapped::NoGround;
+      if (sample.Where() != GroundSample::State::Resolved) {
+        *how = sample.Where() == GroundSample::State::Hole ? Snapped::NoGround : Snapped::Waiting;
         return nullptr;
       }
       postings[static_cast<size_t>(j) * static_cast<size_t>(side) + static_cast<size_t>(i)].Height =
