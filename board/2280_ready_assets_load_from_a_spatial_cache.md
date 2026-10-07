@@ -19,8 +19,9 @@ alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Geräteh
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
 Die uncommittete Regionintegration überspringt spätere Boden-/Straßen-/Wassererzeugung,
 liest aber zuvor weiter Zwischenfelder. Exakte Kamera-Schlüssel und ganze Regionen ersetzen
-keine räumliche Eltern-/Kindhierarchie. Koerbersee scheitert an der Paketgröße;
-Flensburg weicht warm bei 2.341/921.600 Pixeln ab. Diese Integration ist nicht abgenommen.
+keine räumliche Eltern-/Kindhierarchie. Koerbersee speichert nach Entfernen redundanter
+Terrain-Dreiecke 83,57 MiB und lädt warm in 3,59 s, p99 2,51 ms; gleiche Pixel wie vorher.
+Flensburg weicht warm weiter bei 2.341/921.600 Pixeln ab. Die Integration ist nicht abgenommen.
 
 ## Kostenbefund und nächste Lieferung
 Offline 1280×720/60, 60 Frames/360°, Producer 90b24543ab auf HEAD 0db704084 plus Änderungen:
