@@ -29,19 +29,19 @@ veröffentlichen ihren Verbund erst nach allen Paketen. Laden prüft das Residen
 Ein Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und behält
 Job-Eingaben bis zum Workerabschluss. Misses speichern und laden denselben nativen Pfad.
 Schlüssel binden Höhen, vollständige Kontakte/Physikrahmen und Version; Scratch bleibt begrenzt.
-Frische Offline-Treffer: Wien 25,44 s, Central Park 21,25 s, Tokyo 40,53 s.
+Frische Offline-Treffer (765d3d189, 720p60): Wien 25,26 s, Central Park 20,68 s, Tokyo 27,02 s.
 Je zwei Terrainprodukte: 34,25/21,61/35,32 MiB; keine Terrain-Deformations-Misses/Writes.
-Koerbersee warm: 11,58 s, 152,82 MiB aus zwei Terrainverbünden, keine Misses/Writes.
+Koerbersee warm: 11,56 s, 152,82 MiB aus zwei Terrainverbünden, keine Misses/Writes.
 Alle zehn Places: je 50 Gebäude-/LOD-Hits; keine Basis-/LOD-Emission, Bilder pixelgleich zum Vorgänger.
-p99 Wien/CP/Tokyo: 22,60/2,53/19,54 ms; Wien, Tokyo und Koerbersee (17,67 ms) über 720p60.
-Unter 1 s bleibt unerreicht: 1,95/1,80/2,02 GiB Terrain-Zwischenfelder gelesen; Kontakte,
+p99 Wien/CP/Tokyo: 27,09/11,50/33,08 ms; Wien, Tokyo und Koerbersee (19,13 ms) über 720p60.
+Unter 1 s bleibt unerreicht: 1,98/1,81/2,03 GiB Terrain-Zwischenfelder gelesen; Kontakte,
 Straßen und Terrain-/Wassermeshes werden noch aufgebaut. Die späte Terrain-Assetabfrage
 umgeht die eigentliche Verformung, aber noch nicht deren komplette Eingabevorbereitung.
-Prozesspeaks 4,22/3,87/5,36 GiB sind kein akzeptierter Speicherbedarf.
+Prozesspeaks 4,21/3,88/5,37 GiB sind kein akzeptierter Speicherbedarf.
 SSD-Payload 17,93 GiB: 15,64 GiB (87 %) Terrain-Zwischenfelder; keine begründete Residency.
 Diagnose zählt fertige Kontakte bei Besitzänderungen; Tokyo-Earthworks 12,54 → 0,46 s.
-Lokale Vorbereitung meldet tatsächlich fortgeschrittene Einheiten; Preload wartet nur ohne
-solchen Fortschritt. Worker-Wartezeit und pauschale Idle-Pausen getrennt messen.
+Preload pausiert nicht nach tatsächlich fortgeschrittener Wasser-/Straßenaufnahme; große
+Ladeeinsparung dadurch unbewiesen. Idle bleibt bei Wien/CP/Tokyo 11,30/8,08/11,06 s: Ursache offen.
 Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
 keine erneute Kontakt-/Straßenformung bei Treffern. Bis vollständig sichtbare Welt messen,
 keine Gebäudeteilzeit als Weltladezeit ausgeben. Terrain-/Straßenqualität erhalten.
