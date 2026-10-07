@@ -2,6 +2,7 @@
 #include "ByteArchive.h"
 #include "BlockedDigest.h"
 #include "Sha256.h"
+#include "TerrainDeformationParts.h"
 #include <cmath>
 #include <expected>
 #include <utility>
@@ -15,6 +16,25 @@
 namespace outshine::Generators {
 namespace {
 constexpr uint32_t kDeformationFormat = 0x31445450;
+
+std::expected<std::pair<uint32_t, std::array<uint8_t, 32>>, std::string>
+PageIdentity(std::span<const Sheet> pages) {
+  const auto counts = TerrainDeformationPageCounts(pages);
+  if (!counts) { return std::unexpected("terrain deformation page exceeds its package budget"); }
+  BlockedDigest digest;
+  size_t first = 0;
+  for (const uint32_t count : *counts) {
+    const auto bytes =
+        EncodeTerrainDeformation(std::string(64, '0'), pages.subspan(first, count), {});
+    if (!bytes) { return std::unexpected("invalid terrain deformation page data"); }
+    if (counts->size() == 1) {
+      return std::pair{uint32_t{2}, Sha256Digest(bytes->data(), bytes->size())};
+    }
+    if (!digest.Put(*bytes)) { return std::unexpected("terrain deformation identity failed"); }
+    first += count;
+  }
+  return std::pair{uint32_t{3}, digest.Finish()};
+}
 
 template <class Archive> bool Number(Archive &out, double value) {
   return std::isfinite(value) && out.Number(value == 0.0 ? 0.0 : value);
@@ -87,17 +107,12 @@ TerrainDeformationKey(const Patchwork &input,
   if (!layout.Valid() || !std::isfinite(mostEarthworkM) || mostEarthworkM < 0) {
     return std::unexpected("invalid terrain deformation layout or height limit");
   }
-  const auto encoded = EncodeTerrainDeformation(std::string(64, '0'), input.Sheets, {});
-  if (!encoded) {
-    size_t nodes = 0;
-    for (const Sheet &page : input.Sheets) { nodes += page.Nodes.size(); }
-    return std::unexpected("terrain deformation pages exceed schema or byte budget: pages=" +
-                           std::to_string(input.Sheets.size()) + " nodes=" + std::to_string(nodes));
-  }
+  const auto identity = PageIdentity(input.Sheets);
+  if (!identity) { return std::unexpected(identity.error()); }
   ByteWriter out(4096);
-  if (!out.Number(kDeformationFormat) || !out.Number(uint32_t{2}) ||
-      !out.Put(Sha256Digest(encoded->data(), encoded->size())) || !out.Number(layout.Side) ||
-      !out.Number(layout.Halo) || !Number(out, mostEarthworkM) ||
+  if (!out.Number(kDeformationFormat) || !out.Number(identity->first) ||
+      !out.Put(identity->second) || !out.Number(layout.Side) || !out.Number(layout.Halo) ||
+      !Number(out, mostEarthworkM) ||
       !Numbers(out, std::span(frame.OriginEcef().data(), size_t{3})) ||
       !Numbers(out, std::span(frame.EastEcef().data(), size_t{3})) ||
       !Numbers(out, std::span(frame.NorthEcef().data(), size_t{3})) ||

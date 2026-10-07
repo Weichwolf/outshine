@@ -1,5 +1,6 @@
 #include "TerrainDeformationTask.h"
 #include "PreparedTerrainAssets.h"
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <chrono>
@@ -30,6 +31,7 @@ struct TerrainDeformationTask::State {
         Layout(layout),
         MostEarthworkM(mostEarthworkM) {
     Input.Sheets = std::move(pages);
+    LoadBytesMost = std::max(kTerrainDeformationBytesMost, Input.HeapBytes());
     RecordHeap();
   }
 
@@ -50,7 +52,7 @@ struct TerrainDeformationTask::State {
       auto key = TerrainDeformationKey(Input, Stamps, Frame, Layout, MostEarthworkM);
       if (!key) { return Fail(std::move(key.error())); }
       Key = std::move(*key);
-      auto loaded = Cache->LoadDeformation(Key);
+      auto loaded = Cache->LoadDeformation(Key, LoadBytesMost);
       if (!loaded) { return Fail(std::move(loaded.error())); }
       if (*loaded) {
         Product = std::move(**loaded);
@@ -77,7 +79,7 @@ struct TerrainDeformationTask::State {
   Tasks::StepResult Store() {
     auto stored = Cache->StoreDeformation(Key, Product);
     if (!stored) { return Fail(std::move(stored.error())); }
-    auto loaded = Cache->LoadDeformation(Key);
+    auto loaded = Cache->LoadDeformation(Key, LoadBytesMost);
     if (!loaded || !*loaded) {
       return Fail(loaded ? "published terrain deformation asset is missing"
                          : std::move(loaded.error()));
@@ -131,6 +133,7 @@ struct TerrainDeformationTask::State {
   TangentFrame Frame;
   TerrainPageLayout Layout;
   double MostEarthworkM;
+  size_t LoadBytesMost = 0;
   std::string Key;
   std::unique_ptr<TerrainPressJob> Press;
   std::expected<void, std::string> Outcome;

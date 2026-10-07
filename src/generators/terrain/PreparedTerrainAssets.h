@@ -35,7 +35,7 @@ public:
           const ::outshine::Ground::TerrainTiles::FieldFactory &factory);
 
   [[nodiscard]] std::expected<std::optional<PreparedTerrainDeformation>, std::string>
-  LoadDeformation(const std::string &key);
+  LoadDeformation(const std::string &key, size_t heapBytesMost = kTerrainDeformationBytesMost);
   [[nodiscard]] std::expected<void, std::string>
   StoreDeformation(const std::string &key, const PreparedTerrainDeformation &product);
 
