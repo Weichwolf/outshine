@@ -3,6 +3,7 @@
 #include "math/Units.h"
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <memory>
 #include <expected>
 #include <cstddef>
@@ -769,9 +770,27 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
            signalled);
     return;
   }
+  if (World.Vegetation && !World.Vegetation->Ready()) {
+    const auto began = std::chrono::steady_clock::now();
+    const bool signalled = World.Vegetation->AwaitProgress(remaining());
+    record({.Milliseconds = waited.WorldWorkerMs,
+            .Calls = waited.WorldWorkerCalls,
+            .Signals = waited.WorldWorkerSignals},
+           began,
+           signalled);
+    return;
+  }
   if (World.GroundBuild || World.GroundRetirement) { return; }
   const double idleS = std::min(remaining(), 0.001);
   if (idleS <= 0.0) { return; }
+  if (Diagnostics != nullptr && std::has_single_bit(waited.IdleCalls + 1)) {
+    Log::Debug(LogTag::World,
+               "preload_idle",
+               {{"calls", static_cast<long long>(waited.IdleCalls + 1)},
+                {"blockers", Readiness(GroundQuality::Refined).Describe()},
+                {"ingestion", World.Stack.IngestionStatus()},
+                {"ground", GroundBuildDiagnostic()}});
+  }
   const auto began = std::chrono::steady_clock::now();
   std::this_thread::sleep_for(std::chrono::duration<double>(idleS));
   waited.IdleMs +=

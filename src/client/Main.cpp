@@ -42,7 +42,10 @@ public:
              outshine::LogLevel level,
              Saying who,
              std::span<const outshine::LogField> fields) noexcept override {
-    if (level < outshine::LogLevel::Warn) { return; }
+    if (level < outshine::LogLevel::Warn &&
+        !(TracePreload_ && who.Event != nullptr && std::string_view(who.Event) == "preload_idle")) {
+      return;
+    }
     try {
       const std::scoped_lock lock(Mutex_);
       std::print("t={:.1f} {:<5} {:<8} {:<7} {}",
@@ -57,6 +60,7 @@ public:
   }
 
 private:
+  const bool TracePreload_ = std::getenv("OUTSHINE_TRACE_PRELOAD") != nullptr;
   std::mutex Mutex_;
 
   static void ReportFailure() noexcept { std::fputs("outshine-client: log sink failed\n", stderr); }

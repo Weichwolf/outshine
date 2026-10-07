@@ -11,6 +11,7 @@
 #include <vector>
 #include "SceneRenderer.h"
 #include <algorithm>
+#include <chrono>
 #include <numeric>
 
 namespace outshine {
@@ -21,18 +22,21 @@ constexpr auto Preparation = "vegetation preparation must finish before realtime
 constexpr auto Tree = "vegetation source cannot produce its tree prototype";
 }
 
-VegetationStreaming::VegetationStreaming(Render::SceneRenderer &renderer, const Config &config)
+VegetationStreaming::VegetationStreaming(Render::SceneRenderer &renderer,
+                                         Tasks &compute,
+                                         const Config &config)
     : Renderer_(&renderer),
-      Cache_(Io_, config.Cache),
-      CacheUse_(config.Cache.Store.Using),
+      Preparation_(&compute),
+      Cache_(compute, config.Cache),
       Shape_(config.Shape) {}
 
 VegetationStreaming::~VegetationStreaming() {
-  if (Preparing_ != Tasks::kNoTask) { Preparation_.Wait(Preparing_); }
+  if (Preparing_ != Tasks::kNoTask) { Preparation_->Wait(Preparing_); }
 }
 
 std::unique_ptr<VegetationStreaming>
 VegetationStreaming::Create(Render::SceneRenderer &renderer,
+                            Tasks &compute,
                             const Generators::Shipping &catalogue,
                             std::span<const WorldInstance> instances,
                             const TangentFrame &frame,
@@ -42,7 +46,8 @@ VegetationStreaming::Create(Render::SceneRenderer &renderer,
     error = Says::Instances;
     return nullptr;
   }
-  auto result = std::unique_ptr<VegetationStreaming>(new VegetationStreaming(renderer, config));
+  auto result =
+      std::unique_ptr<VegetationStreaming>(new VegetationStreaming(renderer, compute, config));
   std::vector<size_t> order(instances.size());
   std::ranges::iota(order, size_t{0});
   std::ranges::sort(
@@ -87,7 +92,7 @@ size_t VegetationStreaming::Resident() const {
 
 bool VegetationStreaming::PollPreparation(bool prepare, std::string &error) {
   if (Preparing_ != Tasks::kNoTask) {
-    if (Preparation_.TakeCompletion(Preparing_)) {
+    if (Preparation_->TakeCompletion(Preparing_)) {
       Preparing_ = Tasks::kNoTask;
       if (!PreparedError_.empty()) {
         Failure_ = PreparedError_;
@@ -105,7 +110,7 @@ bool VegetationStreaming::PollPreparation(bool prepare, std::string &error) {
 
 bool VegetationStreaming::AcceptCacheResult(std::string &error) {
   const bool prepared = Preparing_ == Tasks::kNoTask && PreparedAtlas_.has_value();
-  auto loaded = prepared ? std::optional<Data::ImpostorCache::Loaded>(
+  auto loaded = prepared ? std::optional<Content::PreparedImpostorAssets::Loaded>(
                                {.Provenance = Groups_[PreparingGroup_].Provenance,
                                 .Atlas = std::move(PreparedAtlas_),
                                 .Error = {}})
@@ -135,12 +140,20 @@ bool VegetationStreaming::AcceptCacheResult(std::string &error) {
 
 void VegetationStreaming::PrepareNext() {
   if (Preparing_ == Tasks::kNoTask && !PreparedAtlas_) {
-    const auto missing = std::ranges::find(Groups_, Phase::Missing, &Group::State);
+    const auto missing = std::ranges::find_if(Groups_, [&](const Group &candidate) {
+      return candidate.State == Phase::Missing &&
+             std::ranges::none_of(Groups_, [&](const Group &group) {
+               return group.Provenance == candidate.Provenance &&
+                      (group.State == Phase::Wanted || group.State == Phase::Reading ||
+                       group.State == Phase::Preparing || group.State == Phase::Prepared);
+             });
+    });
     if (missing != Groups_.end()) {
       PreparingGroup_ = static_cast<size_t>(missing - Groups_.begin());
       missing->State = Phase::Preparing;
       PreparedError_.clear();
-      Preparing_ = Preparation_.Post([this] {
+      Preparing_ = Preparation_->Post([this] {
+        const auto began = std::chrono::steady_clock::now();
         const auto &group = Groups_[PreparingGroup_];
         const auto tree = Generators::TreePrototype::Grow(*group.Species);
         if (!tree) {
@@ -148,7 +161,11 @@ void VegetationStreaming::PrepareNext() {
           return;
         }
         PreparedAtlas_ = BakeImpostorAtlas(*tree, Shape_, PreparedError_);
-        if (PreparedAtlas_ && CacheUse_ == Data::ContentStore::Use::On) {
+        ++Generated_;
+        GenerationMs_ +=
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+                .count();
+        if (PreparedAtlas_ && Cache_.Enabled()) {
           (void)Cache_.Publish(*PreparedAtlas_, group.Provenance, PreparedError_);
           PreparedAtlas_.reset();
         }
@@ -169,11 +186,11 @@ bool VegetationStreaming::Step(const Vec3 &eye,
   if (publication == ResourcePublication::Allowed && !AcceptCacheResult(error)) { return false; }
   for (auto &group : Groups_) {
     if (group.State != Phase::Wanted) { continue; }
-    if (CacheUse_ == Data::ContentStore::Use::Off) {
+    if (!Cache_.Enabled()) {
       group.State = Phase::Missing;
       continue;
     }
-    if (Cache_.Read(group.Provenance) == Data::ImpostorCache::Request::Full) { break; }
+    if (Cache_.Read(group.Provenance) == Content::PreparedImpostorAssets::Request::Full) { break; }
     group.State = Phase::Reading;
   }
   if (prepare) { PrepareNext(); }
@@ -184,5 +201,14 @@ bool VegetationStreaming::Step(const Vec3 &eye,
     }
   }
   return true;
+}
+
+bool VegetationStreaming::AwaitProgress(double seconds) {
+  return Preparing_ != Tasks::kNoTask ? Preparation_->AwaitCompletion(Preparing_, seconds)
+                                      : Cache_.AwaitProgress(seconds);
+}
+
+VegetationStreaming::Counters VegetationStreaming::Costs() const noexcept {
+  return {.Assets = Cache_.Costs(), .Generated = Generated_, .GenerationMs = GenerationMs_};
 }
 }

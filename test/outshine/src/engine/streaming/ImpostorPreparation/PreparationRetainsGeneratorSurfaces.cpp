@@ -17,7 +17,8 @@
 #include "math/Units.h"
 #include "Tasks.h"
 #include "Digest.h"
-#include "ImpostorCache.h"
+#include "PreparedImpostorAssets.h"
+#include "ContentStore.h"
 #include "Sha256.h"
 #include <latch>
 #include <thread>
@@ -217,51 +218,63 @@ int main() {
               encoded->size());
   const std::string cacheDirectory = "build/crown-atlas/cache";
   std::filesystem::remove_all(cacheDirectory);
-  const Data::ContentStore::Config cacheStore{.Directory = cacheDirectory};
+  const Data::ContentStore::Config cacheStore{.Directory = cacheDirectory + "/sources"};
   Data::ContentStore rawStore(cacheStore);
-  Data::ImpostorCache cache(worker, {.Store = cacheStore});
+  Content::PreparedImpostorAssets cache(worker, {.Directory = cacheDirectory});
   const std::string key = Sha256Hex(provenance);
-  const auto occupied = cacheDirectory + "/." + key + ".0";
+  const auto occupied = cacheStore.Directory + "/." + key + ".0";
   {
     std::ofstream held(occupied);
     held << "occupied";
   }
-  CHECK(cache.Publish(*atlas, provenance, error),
-        "the crown publishes despite an occupied temporary name");
+  CHECK(rawStore.Keep(key, encoded->data(), encoded->size()),
+        "source bytes publish despite an occupied temporary name");
   std::ifstream held(occupied);
   const std::string retained{std::istreambuf_iterator<char>(held), {}};
   CHECK(retained == "occupied",
         "exclusive publication never truncates another writer's temporary file");
+  CHECK(cache.Publish(*atlas, provenance, error),
+        "native prototype publishes through the common package and spatial-index service");
   CHECK(rawStore.Keep(key, encoded->data(), encoded->size()),
         "a second store can publish the same key independently");
   CHECK(!rawStore.Read(key, encoded->size() - 1),
         "the byte budget rejects a large file before returning its payload");
   CHECK(rawStore.Read(key, encoded->size()) == encoded,
         "the complete payload is readable at its exact byte budget");
-  std::filesystem::create_directory(cacheDirectory + "/blocked");
+  std::filesystem::create_directory(cacheStore.Directory + "/blocked");
   CHECK(!rawStore.Keep("blocked", encoded->data(), encoded->size()) &&
-            std::filesystem::is_directory(cacheDirectory + "/blocked"),
+            std::filesystem::is_directory(cacheStore.Directory + "/blocked"),
         "failed publication preserves the existing destination");
   CHECK(rawStore.Keep(Sha256Hex(provenance + "changed"), encoded->data(), encoded->size()),
         "the stale-cache control contains real bytes under a different provenance key");
+  auto native = AssetCache::Open(cacheDirectory + "/prototypes.sqlite");
+  CHECK(native.has_value(), "native prototype index can be opened independently");
+  if (!native) { return Report(); }
+  const AssetRecord stale{.Key = Sha256Hex(provenance + "changed"),
+                          .Kind = "impostor-prototype",
+                          .Bounds = {.Min = {{-100, -100, -100}}, .Max = {{100, 100, 100}}},
+                          .ByteCount = encoded->size()};
+  CHECK((*native)->Publish(std::span(&stale, 1), *encoded).has_value(),
+        "native stale control has valid indexed bytes but the wrong generator provenance");
+  native->reset();
   std::latch entered(1), release(1);
   const auto blocker = worker.Post([&] {
     entered.count_down();
     release.wait();
   });
   entered.wait();
-  CHECK(cache.Read(provenance) == Data::ImpostorCache::Request::Queued,
+  CHECK(cache.Read(provenance) == Content::PreparedImpostorAssets::Request::Queued,
         "a cache read posts while its worker is blocked");
-  CHECK(cache.Read(provenance) == Data::ImpostorCache::Request::Existing,
+  CHECK(cache.Read(provenance) == Content::PreparedImpostorAssets::Request::Existing,
         "duplicate pending keys share one request");
-  CHECK(cache.Read(provenance + "changed") == Data::ImpostorCache::Request::Queued,
+  CHECK(cache.Read(provenance + "changed") == Content::PreparedImpostorAssets::Request::Queued,
         "the second pending slot is available");
-  CHECK(cache.Read(provenance + "third") == Data::ImpostorCache::Request::Full,
+  CHECK(cache.Read(provenance + "third") == Content::PreparedImpostorAssets::Request::Full,
         "the pending budget rejects excess requests");
   CHECK(!cache.Take(), "polling returns without waiting for blocked IO");
   release.count_down();
   worker.Wait(blocker);
-  std::vector<Data::ImpostorCache::Loaded> loaded;
+  std::vector<Content::PreparedImpostorAssets::Loaded> loaded;
   const auto loadStarted = std::chrono::steady_clock::now();
   while (loaded.size() < 2 &&
          std::chrono::steady_clock::now() - loadStarted < std::chrono::seconds(5)) {
@@ -272,6 +285,9 @@ int main() {
     }
   }
   CHECK(loaded.size() == 2, "bounded asynchronous reads complete");
+  CHECK(cache.Costs().Hits == 1 && cache.Costs().Misses == 1 &&
+            cache.Costs().ReadBytes == 2 * encoded->size(),
+        "native IO reads both complete packages and rejects the stale decoded product");
   if (loaded.size() == 2) {
     CHECK(loaded[0].Atlas && loaded[0].Atlas->Encode(provenance, error) == encoded,
           "the worker returns the exact published crown artifact");
@@ -280,8 +296,8 @@ int main() {
     if (loaded[0].Atlas) { restored = std::move(loaded[0].Atlas); }
   }
   {
-    Data::ImpostorCache draining(worker, {.Store = cacheStore});
-    CHECK(draining.Read(provenance) == Data::ImpostorCache::Request::Queued,
+    Content::PreparedImpostorAssets draining(worker, {.Directory = cacheDirectory});
+    CHECK(draining.Read(provenance) == Content::PreparedImpostorAssets::Request::Queued,
           "a pending read can be safely drained during cache destruction");
   }
   atlas = std::move(restored);
@@ -580,11 +596,11 @@ int main() {
         "the loaded atlas resolves to its actual catalogue cluster");
   std::array<WorldInstance, 2> placements{
       {{.Body = 17, .Cluster = birch}, {.Body = 18, .Cluster = ~0u}}};
-  VegetationStreaming::Config worldConfig{.Cache = {.Store = cacheStore},
+  VegetationStreaming::Config worldConfig{.Cache = {.Directory = cacheDirectory},
                                           .Shape = {.Pixels = 128, .Views = 4}};
   const auto worldFrame = TangentFrame::At({});
-  auto world =
-      VegetationStreaming::Create(renderer, catalogue, placements, worldFrame, worldConfig, error);
+  auto world = VegetationStreaming::Create(
+      renderer, worker, catalogue, placements, worldFrame, worldConfig, error);
   CHECK(world && world->Wanted() == 1 && !world->Ready(),
         "only tree clusters request resident crown prototypes");
   auto camera = Render::Viewpoint::LookAt(
@@ -636,7 +652,7 @@ int main() {
   const auto missingStart = std::chrono::steady_clock::now();
   {
     auto absent = VegetationStreaming::Create(
-        renderer, catalogue, placements, worldFrame, worldConfig, error);
+        renderer, worker, catalogue, placements, worldFrame, worldConfig, error);
     CHECK(absent != nullptr, "an absent capture shape can request its artifact");
     if (absent) {
       for (int attempt = 0; attempt < 20; ++attempt) {

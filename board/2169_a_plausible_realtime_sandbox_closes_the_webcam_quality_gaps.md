@@ -42,7 +42,7 @@ Jeder Befund bleibt beim Featurebesitzer; dort stehen Ursache, Ersatz und Bildab
 | P0 | Tokyo erzeugt noch 2,36 Mio. Dreiecke; Fernbedarf nicht global | Plan → projizierter Bedarf → Hülle/Cluster/Impostor, 2336 |
 | P0 | Native Teilprodukte im Cache; Weltaufbau verarbeitet weiter Quellen/Zwischenfelder | Assetbedarf → Cachehit laden / Miss generieren, räumlicher Index/LOD, 2280/2336 |
 | P0 | Rasterarbeit bleibt teuer; HiZ greift bei Drehung nicht | Hierarchische Sichtauswahl, vordere Coverage, begrenzte aktuelle Arbeit, 2340 |
-| P0 | CP/Tokyo Prozesspeaks 3,88/5,37 GiB; GPU-Anteil noch unbewiesen | Nur benötigte Darstellungen/Attribute resident, geteilte Eingaben, 2336/2188 |
+| P0 | CP/Tokyo Prozesspeaks 3,69/6,16 GiB; GPU-Anteil noch unbewiesen | Nur benötigte Darstellungen/Attribute resident, geteilte Eingaben, 2336/2188 |
 | P0 | Geometrie-/Material-Replay ist noch nicht im Stadtpfad integriert | Unbeleuchtete Fernfelder, gültige Tiefe/Parallaxe, aktuelle Beleuchtung, 2336/2171 |
 | P0 | Wasserpegel/Ufer fluten Gebäude oder bilden falsche Stufen | Zusammenhängende Gewässergeometrie und Terrainkontakt, 2145 |
 | P1 | Sonderklassen/Parts/Dachformen fehlen oder werden falsch interpretiert | Gelieferte Semantik statt Wohnhausannahmen, 2173/2338 |

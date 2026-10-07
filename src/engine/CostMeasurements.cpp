@@ -24,10 +24,10 @@ template <class Costs>
 void PublishPreparedAssetCosts(Core::DiagnosticLedger &published,
                                const Costs &prepared,
                                size_t kind) {
-  static const auto names =
-      MetricNames<2>("cost.assets.",
-                     std::array{".hits", ".resident", ".misses", ".writes", ".read_bytes"},
-                     [](size_t at) { return at == 0 ? "terrain" : "buildings"; });
+  static const auto names = MetricNames<3>(
+      "cost.assets.",
+      std::array{".hits", ".resident", ".misses", ".writes", ".read_bytes"},
+      [](size_t at) { return std::array{"terrain", "buildings", "prototypes"}[at]; });
   published.RecordMetric(names[kind][0], static_cast<double>(prepared.Hits), "reads");
   if constexpr (requires { prepared.Resident; }) {
     published.RecordMetric(names[kind][1], static_cast<double>(prepared.Resident), "reads");
@@ -49,7 +49,22 @@ void PublishPreparedGeometryCosts(Core::DiagnosticLedger &published,
       "cost.assets.building_lod.read_bytes", static_cast<double>(costs.GeometryReadBytes), "bytes");
 }
 
-void PublishAssetCosts(Core::DiagnosticLedger &published, const Ground::SurfacePreparation &stack) {
+void PublishPrototypeCosts(Core::DiagnosticLedger &published,
+                           const VegetationStreaming *vegetation) {
+  if (vegetation == nullptr) { return; }
+  const auto costs = vegetation->Costs();
+  PublishPreparedAssetCosts(published, costs.Assets, 2);
+  published.RecordMetric(
+      "cost.assets.prototypes.generated", static_cast<double>(costs.Generated), "prototypes");
+  published.RecordMetric("cost.assets.prototypes.generation_ms", costs.GenerationMs, "ms");
+  published.RecordMetric("cost.assets.prototypes.read_ms", costs.Assets.ReadMs, "ms");
+  published.RecordMetric("cost.assets.prototypes.write_ms", costs.Assets.WriteMs, "ms");
+}
+
+void PublishAssetCosts(Core::DiagnosticLedger &published,
+                       const Ground::SurfacePreparation &stack,
+                       const VegetationStreaming *vegetation) {
+  PublishPrototypeCosts(published, vegetation);
   const auto terrain = stack.PreparedTerrainCosts();
   PublishPreparedAssetCosts(published, terrain, 0);
   published.RecordMetric(
@@ -75,7 +90,7 @@ void PublishAssetCosts(Core::DiagnosticLedger &published, const Ground::SurfaceP
 void Engine::State::PublishCostMeasurements() {
   const auto began = std::chrono::steady_clock::now();
   const auto store = World.Stack.StoreCosts();
-  PublishAssetCosts(Published, World.Stack);
+  PublishAssetCosts(Published, World.Stack, World.Vegetation.get());
   Published.RecordMetric("cost.cache.hits", static_cast<double>(store.Hits), "reads");
   Published.RecordMetric("cost.cache.misses", static_cast<double>(store.Misses), "reads");
   Published.RecordMetric("cost.cache.read_ms", store.ReadMs, "ms");

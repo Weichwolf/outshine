@@ -30,6 +30,7 @@ constexpr size_t kAtlasTexelBytes = 4 * sizeof(float) + sizeof(uint32_t);
 constexpr size_t kAtlasSampleBytes = 5 * sizeof(float);
 constexpr size_t kAtlasChecksumBytes = sizeof(uint64_t);
 constexpr size_t kMostAtlasTexels = 1u << 24u;
+constexpr size_t kMostAtlasSurfaces = 64;
 constexpr double kUnitDirectionSquaredTolerance = 1e-12;
 constexpr float kCapturedNormalSquaredTolerance = 0.003f;
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
@@ -136,7 +137,8 @@ bool ValidView(const ImpostorAtlas::View &view, const ImpostorAtlas &atlas) {
 
 bool Valid(const ImpostorAtlas &atlas) {
   if (atlas.Pixels() < 3 || atlas.Pixels() > 4096 || atlas.Views().empty() ||
-      atlas.Views().size() > 64 || atlas.Surfaces().empty() || atlas.Surfaces().size() > 64 ||
+      atlas.Views().size() > 64 || atlas.Surfaces().empty() ||
+      atlas.Surfaces().size() > kMostAtlasSurfaces ||
       static_cast<size_t>(atlas.Pixels()) * static_cast<size_t>(atlas.Pixels()) *
               atlas.Views().size() >
           kMostAtlasTexels ||
@@ -172,6 +174,17 @@ std::optional<ImpostorAtlas> ImpostorAtlas::Create(int pixels,
     return std::nullopt;
   }
   return atlas;
+}
+
+std::optional<size_t> ImpostorAtlas::EncodedBytesMost(ImpostorAtlasShape shape) noexcept {
+  if (shape.Pixels < 3 || shape.Pixels > 4096 || shape.Views == 0 || shape.Views > 64) {
+    return std::nullopt;
+  }
+  const size_t texels = static_cast<size_t>(shape.Pixels) * shape.Pixels * shape.Views;
+  if (texels > kMostAtlasTexels) { return std::nullopt; }
+  return kAtlasHeaderBytes + kMostAtlasSurfaces * kAtlasMaterialBytes +
+         shape.Views * kAtlasViewBytes + texels * (kAtlasTexelBytes + kAtlasSampleBytes) +
+         kAtlasChecksumBytes;
 }
 
 std::optional<std::vector<uint8_t>> ImpostorAtlas::Encode(std::string_view provenance,
@@ -248,8 +261,8 @@ std::optional<ImpostorAtlas> ImpostorAtlas::Decode(std::span<const uint8_t> byte
   const auto surfaces = in.Take<uint32_t>();
   const auto count = static_cast<uint64_t>(pixels) * pixels;
   const size_t texelBytes = kAtlasTexelBytes + (version > 1 ? kAtlasSampleBytes : 0);
-  if (pixels < 3 || pixels > 4096 || views == 0 || views > 64 || surfaces == 0 || surfaces > 64 ||
-      count * views > kMostAtlasTexels ||
+  if (pixels < 3 || pixels > 4096 || views == 0 || views > 64 || surfaces == 0 ||
+      surfaces > kMostAtlasSurfaces || count * views > kMostAtlasTexels ||
       kAtlasHeaderBytes + static_cast<uint64_t>(surfaces) * kAtlasMaterialBytes +
               static_cast<uint64_t>(views) * (kAtlasViewBytes + count * texelBytes) +
               kAtlasChecksumBytes !=

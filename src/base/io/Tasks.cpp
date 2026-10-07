@@ -75,6 +75,14 @@ bool Tasks::AwaitCompletion(double seconds) {
       lock, std::chrono::duration<double>(seconds), [this] { return !Done_.empty(); });
 }
 
+bool Tasks::AwaitCompletion(Handle which, double seconds) {
+  if (which == kNoTask || !(seconds > 0.0)) { return false; }
+  std::unique_lock<std::mutex> lock(Mutex_);
+  return Landed_.wait_for(lock, std::chrono::duration<double>(seconds), [this, which] {
+    return Done_.contains(which);
+  });
+}
+
 void Tasks::Wait(Handle which) {
   std::unique_lock<std::mutex> lock(Mutex_);
   Landed_.wait(lock, [this, which] { return Done_.contains(which); });

@@ -17,43 +17,44 @@ Das gilt für Gebäude, Terrain, Straßen/Wasser, Vegetation und andere generier
 Ein Treffer enthält vollständig angereicherte Asset-Rohlinge, keine unvollständigen Quellen.
 content/assets speichert native Paketbytes und Raumindex atomar; Hits umgehen den Miss-Callback.
 Native Höhenfelder umgehen DEM-Decode/Nahtaufbereitung; aktive Felder teilen Speicher.
-Pakete erhalten Samples/Herkunft/Randlücken; Offline-Replay braucht keine Quelle.
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
 speichern und laden dieselbe vollständige Basis. Herkunft/Signatur/Qualifikation bleiben erhalten.
 Ausgewählte LOD-Geometrie wird als Kindprodukt gespeichert; gleiche Position/Projektionsparameter
 laden sie ohne erneute Planung/Emission. Drehung erzeugt keinen neuen Schlüssel. Bewegung und
-Nahdetails brauchen weiterhin 2336; der private Anschluss ersetzt noch nicht den öffentlichen Vertrag.
+Nahdetails brauchen weiterhin 2336; vollständige externe Integration bleibt offen.
 Native Terrainprodukte speichern verformte Höhen/Kontakte in Paketen ≤64 MiB; große Regionen
 veröffentlichen ihren Verbund erst nach allen Paketen. Laden prüft das Residencybudget des Aufrufers.
 Ein Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und behält
 Job-Eingaben bis zum Workerabschluss. Misses speichern und laden denselben nativen Pfad.
-Schlüssel binden Höhen, vollständige Kontakte/Physikrahmen und Version; Scratch bleibt begrenzt.
-Frische Offline-Treffer (765d3d189, 720p60): Wien 25,26 s, Central Park 20,68 s, Tokyo 27,02 s.
-Je zwei Terrainprodukte: 34,25/21,61/35,32 MiB; keine Terrain-Deformations-Misses/Writes.
-Koerbersee warm: 11,56 s, 152,82 MiB aus zwei Terrainverbünden, keine Misses/Writes.
-Alle zehn Places: je 50 Gebäude-/LOD-Hits; keine Basis-/LOD-Emission, Bilder pixelgleich zum Vorgänger.
-p99 Wien/CP/Tokyo: 27,09/11,50/33,08 ms; Wien, Tokyo und Koerbersee (19,13 ms) über 720p60.
-Unter 1 s bleibt unerreicht: 1,98/1,81/2,03 GiB Terrain-Zwischenfelder gelesen; Kontakte,
-Straßen und Terrain-/Wassermeshes werden noch aufgebaut. Die späte Terrain-Assetabfrage
-umgeht die eigentliche Verformung, aber noch nicht deren komplette Eingabevorbereitung.
-Prozesspeaks 4,21/3,88/5,37 GiB sind kein akzeptierter Speicherbedarf.
-SSD-Payload 17,93 GiB: 15,64 GiB (87 %) Terrain-Zwischenfelder; keine begründete Residency.
-Diagnose zählt fertige Kontakte bei Besitzänderungen; Tokyo-Earthworks 12,54 → 0,46 s.
-Preload pausiert nicht nach tatsächlich fortgeschrittener Wasser-/Straßenaufnahme; große
-Ladeeinsparung dadurch unbewiesen. Idle bleibt bei Wien/CP/Tokyo 11,30/8,08/11,06 s: Ursache offen.
+Frische Offline-Treffer, Producer 0333cacc3e, 720p60; alle zehn Bilder pixelgleich:
+| Place | Laden s | p99 ms | Prozesspeak GiB |
+|---|---:|---:|---:|
+| Wien | 13.92 | 10.14 | 4.13 |
+| CentralPark | 12.23 | 2.60 | 3.69 |
+| Tokyo | 17.00 | 3.97 | 6.16 |
+Weitere sieben Places: 6,89–13,30 s; alle terminal erfolgreich.
+Keine Basis-/LOD-/Deformations-Misses/Writes; Prototypen geladen, keine Generierung.
+Wien/CP/Tokyo zuvor 25,26/20,68/27,02 s; jetzt 13,92/12,23/17,00 s. Warm <1 s bleibt offen.
+Die drei Städte lesen weiterhin 1,98/1,81/2,03 GiB Terrain-Zwischenfelder. Kontakte,
+Straßen und Terrain-/Wassermeshes entstehen erneut; späte Treffer umgehen nur die Verformung.
+Prototypen: 31/22/31 Hits, 620/440/620 MiB gelesen; auch das ist zu groß.
+Tokyo kalt: 30,25 s, 31 einmalige Misses/Erzeugungen/Writes; warm kein Erzeugungsjob.
+Peaks sind keine Budgets; Wien/Feldkirch >10 ms, Koerbersee p99 21,37 ms >720p60.
+SSD-Payload zuvor 17,93 GiB: 15,64 GiB (87 %) Zwischenfelder; Residency nicht begründet.
+Der bisherige Leerlauf wartet auf ungecachte Vegetationsprototypen. Native Impostorprodukte
+nutzen jetzt AssetCache; separate prototypes.sqlite mit Modellbounds statt gemischter Weltbounds.
+Treffer umgehen Baum-/Atlaserzeugung; gleiche Prototypen teilen einen Miss. Ein Engine-Worker
+lädt/decodiert/erzeugt; Warten beobachtet konkrete Jobs statt fremder Fertigmeldungen.
+Leserahmen aus dem Format: 256² × 8 × 40 Byte + maximale Metadaten; keine Atlasverkleinerung.
 Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
-keine erneute Kontakt-/Straßenformung bei Treffern. Bis vollständig sichtbare Welt messen,
-keine Gebäudeteilzeit als Weltladezeit ausgeben. Terrain-/Straßenqualität erhalten.
-Öffentliche Anbindung, Original-OSM-/weitere Generatorpfade, SSD-Budget und kompaktere Produkte
-fehlen. Worker-/Phasenzeiten überlappen.
-Wien: 49 Nahkacheln; vollständige 240-km-Assetabdeckung bleibt in 2336 unbewiesen.
+keine erneute Kontakt-/Straßenformung bei Treffern. Bis zur vollständigen Welt messen; Terrain-/Straßenqualität erhalten.
+Cache/ResolveAsset öffentlich; weitere Generatoren/Produkte, SSD-Budget und Kompaktheit fehlen.
 Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
 
 ## Besitzer und Grenzen
-2280 besitzt Asset-Speicherung/Index/Laden; Generatoren besitzen Anreicherung und Asset-Inhalt.
-2336 besitzt Hierarchie/LOD und 2188 den öffentlichen generischen Vertrag. Gemeinsame Dienste
-kennen Bounds, Versionen und native Produkte, keine OSM-/Vegetationssemantik.
+2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
+Gemeinsame Dienste kennen Bounds/Versionen/native Produkte, keine Quellsemantik.
 
 ## Fertige Assets
 - Gebäude: Typ, vollständige Höhen/Dachparameter, Grundrisse/Parts/Höfe, Terrainkontakt,
@@ -77,10 +78,9 @@ kennen Bounds, Versionen und native Produkte, keine OSM-/Vegetationssemantik.
 3. Regelmäßige OSM-/DEM-Quellkacheln direkt über Kachel-IDs adressieren. SQLite-R*Tree hält
    native Paketbounds in ECEF; genaue Radius-/Frustumtests folgen konservativer Boxabfrage.
    Geladene Pakete verwenden gepackte Bereiche, keine SQL-Abfrage je Frame.
-   [Python-Modell](../test/experiments/asset_residency.py): 100.545 Wiener Polygone → 1.837 Pakete;
-   Planarrays 25,17 MB, warmer OS-Dateicache-Read ca. 2,9 ms statt ca. 5,3 s Quellen-Decode.
-   Kein nativer Rohling-/GPU-Nachweis. Paketindex gegen Objektindex und lineare Arrays gemessen;
-   weite residente Abfragen bevorzugen Arrays, lokale persistente Abfragen den Paket-R*Tree.
+   [Python-Modell](../test/experiments/asset_residency.py): 100.545 Polygone → 1.837 Pakete,
+   25,17 MB, warmer Dateicache ca. 2,9 ms statt 5,3 s Decode; kein nativer/GPU-Nachweis.
+   Weite residente Abfragen bevorzugen Arrays, lokale persistente Abfragen den Paket-R*Tree.
    SQLite 3.54.0, zstd 1.5.7 lokal; Bounds-Abfrage plus konservative Frustum-/Radiusprüfung.
    Räumlich gebündelte Assetpakete/Bereichslesungen, keine Datei/IO-Anfrage je Haus/Baum.
 4. Quelldaten bleiben separat unverändert. Asset-Schlüssel binden Quellstand/Parameter und
@@ -90,7 +90,7 @@ kennen Bounds, Versionen und native Produkte, keine OSM-/Vegetationssemantik.
 5. Cachemisses bündeln: identische Anforderungen teilen genau einen Erzeugungsjob; räumliche
    Pakete statt Einzeljobs je Haus/Baum. Job nutzt paralleles begrenztes IO und einen Compute-Worker.
    Nur fehlende benötigte Produkte erzeugen; Hits/Misses teilen den Ladepfad, Abbruch/Rückstau/Fehler explizit.
-   Fehlende Details behalten gültige Eltern bis vollständige Kinder bereitstehen; Fehler explizit.
+   Fehlende Details behalten gültige Eltern bis vollständige Kinder bereitstehen.
 6. SSD → RAM → GPU haben getrennte Residencybudgets. Räumliche Vorhaltebereiche/Hysterese
    verhindern Flattern; IO/Entpacken blockieren keinen Frame. CPU-Scratch nach Aufbau freigeben.
    Feine Runtime-Details zuerst freigeben, wenn ungenutzt; grobe Rundumprodukte länger halten.

@@ -56,15 +56,25 @@ int main() {
   CHECK(tree.has_value(), "fixture prototype grows");
   if (!tree) { return Report(); }
   VegetationStreaming::Config config;
+  const auto defaultBytes = Content::ImpostorAtlas::EncodedBytesMost(config.Shape);
+  CHECK(defaultBytes && *defaultBytes == 256u * 256u * 8u * 40u + 3592u,
+        "default native atlas budget includes every texel, view, material and format field");
+  CHECK(!Content::ImpostorAtlas::EncodedBytesMost({.Pixels = 4096, .Views = 64}) &&
+            !Content::ImpostorAtlas::EncodedBytesMost({.Pixels = 0}),
+        "invalid shapes cannot produce overflowing native allocation budgets");
   config.Shape = {.Pixels = 32, .Views = 1};
   config.Prototypes = 2;
   config.Instances = 2;
-  config.Cache.Store.Directory = (directory / "cache").string();
+  config.Cache.Directory = (directory / "cache").string();
   const auto atlas = BakeImpostorAtlas(*tree, config.Shape, error);
   CHECK(atlas.has_value(), "fixture atlas captures");
   if (!atlas) { return Report(); }
+  const auto bytes = atlas->Encode("bound-check", error);
+  const auto bound = Content::ImpostorAtlas::EncodedBytesMost(config.Shape);
+  CHECK(bytes && bound && bytes->size() <= *bound,
+        "format-derived budget contains a real encoded native atlas");
   Tasks tasks(1);
-  Data::ImpostorCache cache(tasks, config.Cache);
+  Content::PreparedImpostorAssets cache(tasks, config.Cache);
   CHECK(cache.Publish(*atlas, ImpostorAtlasProvenance(species->Definition(), config.Shape), error),
         "one shared cache artifact published");
   auto geometry = Render::BuildImpostorSurface(*atlas, 0);
@@ -80,28 +90,37 @@ int main() {
   if (!live) { return Report(); }
   const std::array<WorldInstance, 2> instances{{{.Cluster = 0}, {.Cluster = 1}}};
   const auto initialPieces = renderer.PiecesStanding();
-  for (int cycle = 0; cycle < 4; ++cycle) {
-    if (cycle == 3) {
-      config.Cache.Store.Using = Data::ContentStore::Use::Off;
-      config.Cache.Store.Directory = (directory / "unwritten").string();
-    }
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    if (cycle == 3) { config.Cache.Directory.clear(); }
+    if (cycle == 4) { config.Cache.Directory = (directory / "generated").string(); }
     auto crowns = VegetationStreaming::Create(
-        renderer, catalogue, instances, TangentFrame::At({}), config, error);
+        renderer, tasks, catalogue, instances, TangentFrame::At({}), config, error);
     CHECK(crowns && crowns->Wanted() == 2, "both cluster groups are retained");
     if (!crowns) { return Report(); }
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     bool stepped = true;
     while (!crowns->Ready() && std::chrono::steady_clock::now() < deadline) {
-      if (!crowns->Step(
-              {{0, 0, 10}}, cycle == 3, VegetationStreaming::ResourcePublication::Allowed, error)) {
+      if (!crowns->Step({{0, 0, 10}},
+                        cycle == 3 || cycle == 4,
+                        VegetationStreaming::ResourcePublication::Allowed,
+                        error)) {
         stepped = false;
         break;
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    CHECK(stepped, "cached loading requires no preparation");
+    CHECK(stepped, "cache loading and requested miss preparation complete");
     CHECK(crowns->Ready() && crowns->Resident() == 2,
           "one cache result reaches both waiting groups");
+    if (cycle == 4) {
+      CHECK(crowns->Costs().Generated == 1 && crowns->Costs().Assets.Writes == 1,
+            "shared cold requests generate and store their native prototype exactly once");
+    }
+    if (cycle == 5) {
+      CHECK(crowns->Costs().Generated == 0 && crowns->Costs().Assets.Hits == 1 &&
+                crowns->Costs().Assets.Misses == 0 && crowns->Costs().Assets.Writes == 0,
+            "a fresh owner loads both groups without generation, misses or writes");
+    }
     CHECK(renderer.PiecesStanding() == initialPieces + 2,
           "both crown groups publish render pieces");
     if (cycle == 0) {

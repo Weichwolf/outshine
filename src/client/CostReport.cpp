@@ -48,7 +48,8 @@ void Group(std::string_view scene,
 void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> samples) {
   const auto get = [samples](std::string_view key) { return Value(samples, key); };
   if (get("cost.render.frames") == 0.0) { return; }
-  for (const auto *const kind : {"terrain", "terrain_deformed", "buildings", "building_lod"}) {
+  for (const auto *const kind :
+       {"terrain", "terrain_deformed", "buildings", "building_lod", "prototypes"}) {
     const std::string prefix = std::string("cost.assets.") + kind;
     std::println(
         "PERF {} native {}: hit/resident/miss/write={:.0f}/{:.0f}/{:.0f}/{:.0f} read={:.2f}MiB",
@@ -60,6 +61,12 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
         get(prefix + ".writes"),
         get(prefix + ".read_bytes") / kBytesPerMiB);
   }
+  std::println("PERF {} prototypes: generated={:.0f} worker={:.1f}ms read={:.1f}ms write={:.1f}ms",
+               scene,
+               get("cost.assets.prototypes.generated"),
+               get("cost.assets.prototypes.generation_ms"),
+               get("cost.assets.prototypes.read_ms"),
+               get("cost.assets.prototypes.write_ms"));
   std::println(
       "PERF {} cache lifetime: read={:.1f}ms/{:.2f}MiB/{:.0f}calls write={:.1f}ms/{:.2f}MiB "
       "hits/miss={:.0f}/{:.0f} decoded={:.0f}/{:.0f} evict={:.0f}",

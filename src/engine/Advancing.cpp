@@ -442,12 +442,13 @@ bool Engine::State::UpdateVegetation(bool prepare) {
   if (World.GroundBuild) { return true; }
   if (!World.Vegetation) {
     VegetationStreaming::Config config;
-    config.Cache.Store.Using = Data::ContentStore::Use::Off;
+    config.Cache.Directory = Session.Under.AssetCache;
+    config.Cache.ReadBytes = *Content::ImpostorAtlas::EncodedBytesMost(config.Shape);
     const auto frame =
         TangentFrame::At({.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
                           .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg});
     World.Vegetation = VegetationStreaming::Create(
-        Picture.Device, World.Shipping, World.Instances, frame, config, Error);
+        Picture.Device, *World.Pool, World.Shipping, World.Instances, frame, config, Error);
     if (!World.Vegetation) { return false; }
   }
   const auto &eye =

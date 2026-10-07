@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_ENGINE_STREAMING_VEGETATIONSTREAMING_H
 #define OUTSHINE_ENGINE_STREAMING_VEGETATIONSTREAMING_H
 
-#include "ImpostorCache.h"
+#include "PreparedImpostorAssets.h"
 #include <optional>
 #include "ImpostorAtlasShape.h"
 #include "ImpostorInstances.h"
@@ -14,13 +14,20 @@ public:
   enum class ResourcePublication : uint8_t { Deferred, Allowed };
 
   struct Config {
-    Data::ImpostorCache::Config Cache;
+    Content::PreparedImpostorAssets::Config Cache;
     Content::ImpostorAtlasShape Shape;
     size_t Prototypes = 64;
     size_t Instances = 65536;
   };
 
+  struct Counters {
+    Content::PreparedImpostorAssets::Counters Assets;
+    uint64_t Generated = 0;
+    double GenerationMs = 0.0;
+  };
+
   static std::unique_ptr<VegetationStreaming> Create(Render::SceneRenderer &renderer,
+                                                     Tasks &compute,
                                                      const Generators::Shipping &catalogue,
                                                      std::span<const WorldInstance> instances,
                                                      const TangentFrame &frame,
@@ -32,6 +39,8 @@ public:
   Step(const Vec3 &eye, bool prepare, ResourcePublication publication, std::string &error);
   [[nodiscard]] bool Ready() const;
   [[nodiscard]] size_t Resident() const;
+  [[nodiscard]] bool AwaitProgress(double seconds);
+  [[nodiscard]] Counters Costs() const noexcept;
 
   [[nodiscard]] size_t Wanted() const { return Groups_.size(); }
 
@@ -46,21 +55,21 @@ private:
     Phase State = Phase::Wanted;
   };
 
-  VegetationStreaming(Render::SceneRenderer &renderer, const Config &config);
+  VegetationStreaming(Render::SceneRenderer &renderer, Tasks &compute, const Config &config);
   bool PollPreparation(bool prepare, std::string &error);
   bool AcceptCacheResult(std::string &error);
   void PrepareNext();
   Render::SceneRenderer *Renderer_;
   std::vector<Group> Groups_;
-  Tasks Io_{2};
-  Tasks Preparation_{1};
-  Data::ImpostorCache Cache_;
-  Data::ContentStore::Use CacheUse_;
+  Tasks *Preparation_;
+  Content::PreparedImpostorAssets Cache_;
   Content::ImpostorAtlasShape Shape_;
   std::optional<Content::ImpostorAtlas> PreparedAtlas_;
   Tasks::Handle Preparing_ = Tasks::kNoTask;
   size_t PreparingGroup_ = 0;
   std::string PreparedError_, Failure_;
+  std::atomic_uint64_t Generated_{0};
+  std::atomic<double> GenerationMs_{0};
 };
 }
 #endif

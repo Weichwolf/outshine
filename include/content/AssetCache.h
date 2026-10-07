@@ -17,11 +17,12 @@ namespace outshine {
 
 /// Persistent native product metadata. Keys bind the generator's version, inputs and parameters.
 /// All nonempty keys use 64 lowercase hexadecimal SHA-256 characters. Bounds are finite,
-/// ordered and float-representable; one cache uses a common metric world frame, normally ECEF.
+/// ordered and float-representable. Each cache uses a common metric coordinate frame:
+/// world assets normally use ECEF; a separate prototype cache may use model space.
 struct AssetRecord {
   std::string Key;     ///< Stable product identity.
   std::string Kind;    ///< Nonempty product kind owned by its generator or decoder.
-  Box Bounds;          ///< Conservative closed bounds in the common world frame, in metres.
+  Box Bounds;          ///< Conservative closed bounds in the cache's coordinate frame, in metres.
   std::string Package; ///< Payload identity; empty on Publish derives it, otherwise it must match.
   uint64_t OffsetBytes = 0; ///< Beginning of this product's slice within the package.
   uint64_t ByteCount = 0;   ///< Length of this product's slice, including its format metadata.
@@ -32,7 +33,7 @@ struct AssetRecord {
   [[nodiscard]] bool operator==(const AssetRecord &) const = default;
 };
 
-/// Closed sphere query in the cache's world frame.
+/// Closed sphere query in the cache's coordinate frame.
 struct AssetRadius {
   Vec3 Centre;       ///< Sphere centre, in metres.
   double Metres = 0; ///< Finite nonnegative radius, in metres.
@@ -41,10 +42,10 @@ struct AssetRadius {
 /// Intersect the envelope with optional kind, level, sphere and frustum filters.
 /// Views are borrowed only during Select; planes keep dot(normal, point) + offset >= 0.
 struct AssetQuery {
-  Box Bounds;                        ///< Finite, ordered query envelope in the cache's world frame.
-  std::string_view Kind;             ///< Empty matches all kinds.
-  std::optional<uint32_t> Level;     ///< Empty matches all levels.
-  std::optional<AssetRadius> Radius; ///< Empty omits the sphere test.
+  Box Bounds;            ///< Finite, ordered query envelope in the cache's coordinate frame.
+  std::string_view Kind; ///< Empty matches all kinds.
+  std::optional<uint32_t> Level;                 ///< Empty matches all levels.
+  std::optional<AssetRadius> Radius;             ///< Empty omits the sphere test.
   std::span<const std::array<double, 4>> Planes; ///< Finite inward-facing plane coefficients.
 };
 
@@ -108,7 +109,7 @@ public:
   [[nodiscard]] std::expected<std::optional<CachedAsset>, AssetCacheError>
   Load(std::string_view key, size_t packageBytesMost) const;
   /// Return spatially filtered metadata without decoding products or reading their payloads.
-  /// @param query Borrowed finite filters in the cache's common metric world frame.
+  /// @param query Borrowed finite filters in the cache's common metric coordinate frame.
   /// @return Owned matching metadata or an error; result order is unspecified.
   [[nodiscard]] std::expected<std::vector<AssetRecord>, AssetCacheError>
   Select(const AssetQuery &query) const;

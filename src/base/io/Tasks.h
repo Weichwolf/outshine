@@ -34,6 +34,7 @@ public:
   [[nodiscard]] bool PostDetachedSteps(Step step);
   [[nodiscard]] bool TakeCompletion(Handle which);
   [[nodiscard]] bool AwaitCompletion(double seconds);
+  [[nodiscard]] bool AwaitCompletion(Handle which, double seconds);
   void Wait(Handle which);
 
   [[nodiscard]] int Threads() const { return static_cast<int>(Threads_.size()); }

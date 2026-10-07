@@ -3,6 +3,7 @@
 
 #include "math/Vec3.h"
 #include "scene/Material.h"
+#include "ImpostorAtlasShape.h"
 
 #include <cstdint>
 #include <optional>
@@ -54,6 +55,8 @@ public:
   [[nodiscard]] double HalfExtentM() const noexcept { return HalfExtentM_; }
 
   [[nodiscard]] int Pixels() const noexcept { return Pixels_; }
+
+  [[nodiscard]] static std::optional<size_t> EncodedBytesMost(ImpostorAtlasShape shape) noexcept;
 
 private:
   std::vector<View> Views_;
