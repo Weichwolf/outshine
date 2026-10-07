@@ -166,6 +166,14 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
       });
   if (!vectorsReady && !native) { return nullptr; }
   const int tile = vectorsReady ? stands.Vectors->TileIndex(region.X(), region.Y()) : -1;
+  if (tile >= 0 && stands.Footprints->InputOfTile(static_cast<uint32_t>(tile)) == nullptr) {
+    const int buildings = stands.Vectors->Layer(Osm::OsmLayer::Buildings);
+    if (std::ranges::any_of(stands.Vectors->OfTile(tile), [buildings](const auto &feature) {
+          return feature.Layer == buildings;
+        })) {
+      return nullptr;
+    }
+  }
   const std::span<const double> points =
       vectorsReady ? stands.Vectors->Points() : std::span<const double>{};
   FeatureAssembly assembly(region);

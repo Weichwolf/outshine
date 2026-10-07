@@ -41,7 +41,7 @@ Kostenreview 2026-10-07: aktuelle Offline-Places und Code, kein A18-Pro-/Interne
 Messdetails/Einheiten bei 2280; Verfahrensentscheidung bei 2336. Weitere Befunde beim Besitzer.
 | Priorität | Defizit | Zielpfad und Besitzer |
 |---|---|---|
-| P0 | Regioncache integriert; Flensburg warm abweichend | Vollständige native Produkte, gleiche Bild-/Kontaktwirkung, 2280 |
+| P0 | Regioncache noch ohne vollständige Städte-Abnahme | Gleiche native Bild-/Kontaktwirkung für alle Places, 2280 |
 | P0 | Feine DEM-/OSM-Anfragen vor möglicher Sichtbarkeit | Grobe DEM-Eltern → Rundum-Horizont → benötigte Kinder, 2336 |
 | P0 | Regiontreffer lesen weiter 709–961 MiB Terrain-Zwischenfelder | Räumliche Rohlinge vor Quellarbeit laden, geteilte Daten, 2280 |
 | P0 | CP/Tokyo Footprint 2,40/5,60 GiB, Besitzer nicht getrennt | Arbeitsmenge/Überlappung/Kopien begrenzen, 2280/2339 |
