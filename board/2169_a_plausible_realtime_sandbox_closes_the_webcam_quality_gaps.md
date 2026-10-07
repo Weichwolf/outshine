@@ -44,8 +44,8 @@ Messdetails/Einheiten bei 2280; Verfahrensentscheidung bei 2336. Weitere Befunde
 | P0 | Regionhits in W/CP/T bildgleich, Quellenarbeit bleibt | Native Rohlinge vor Zwischenfeldern laden, alle Places, 2280 |
 | P0 | Feine DEM-/OSM-Anfragen vor möglicher Sichtbarkeit | Grobe DEM-Eltern → Rundum-Horizont → benötigte Kinder, 2336 |
 | P0 | Regionhits sparen Mesh-Jobs; Terrain-Zwischenfelder jetzt 25–32 MiB | Verbliebene Quellenproben aus nativen Kontakten bedienen, 2280 |
-| P0 | W/CP-Bildphase jetzt 2,50/2,24 GiB; Tokyo-Peak 4,16 GiB | Arbeitsmenge/Überlappung/Kopien begrenzen, 2280/2339 |
-| P1 | 31 Prototypen entpacken 620 MiB; fachfremde Änderungen invalidieren sie | Bedarf, gepackte Atlasformate, gezielte Producer-Version, 2280/2336 |
+| P0 | W/CP-Bildphase 2,46–2,47/2,21 GiB; Tokyo 3,95 GiB, Peak 4,19 GiB | Arbeitsmenge/Überlappung/Kopien begrenzen, 2280/2339 |
+| P1 | Native Prototypkarten entpacken 186 statt 620 MiB; fachfremde Änderungen invalidieren sie | Bedarf, gezielte Producer-Version, bestätigten Tokyo-Footprint-Anstieg zuordnen, 2280/2336 |
 | P1 | Native Geometriephase CP/Tokyo 2,17/2,87 s; Teilkosten unbekannt | CPU/Allokation/Upload/Fence getrennt messen und Spitzen ersetzen, 2339/2188 |
 | P1 | Tokyo erzeugt 2,36 Mio. Gebäudedreiecke; ferne Auswahl nur kachelweise | Hierarchische Coverage, Hülle/Cluster/Impostor vor Emission, 2336 |
 | P1 | Erstframes/Fence-Spitzen, GPU-Passzeiten fehlen | Readiness/Upload-Lebensdauer, direkte Backendmessung, 2340/2339 |
@@ -108,4 +108,4 @@ Licht/Wetter, Stabilität und Kosten getrennt bewerten. Client-API und AGENTS-Ga
 `src/assets/places`/`client/PlaceCamera` besitzen Szenario/Pose; Webcam-Referenzen bleiben in
 `build/shots/reference/webcams`. Kamerakalibrierung ersetzt keine fehlende Geometrie.
 Rundum-Abdeckung und Datenherkunft belegen; ein Sichtweitenparameter allein beweist sie nicht.
-Integration 725642fbe: Tidy/Claims/Shader vollständig grün; gepinnte Khronos-Frame-Referenz fehlt.
+Integration 6c55222cb: Format/Tidy/32 Claims/Shader grün; 263/264 gepinnte Khronos-Bildreferenzen fehlen.
