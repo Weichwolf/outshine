@@ -9,28 +9,66 @@
 #include "math/RenderFrame.h"
 
 namespace outshine::Generators {
+namespace {
+bool ValidSheet(const Sheet &sheet, TerrainPageLayout layout, int minimumZoom) {
+  return layout.Valid() && sheet.Side == layout.Side && (sheet.Virtual || sheet.Postings >= 2) &&
+         sheet.Tile.Zoom >= minimumZoom && sheet.Nodes.size() == layout.NodeCount();
+}
+
+EastNorthUp NodePosition(
+    const Sheet &sheet, const TangentFrame &frame, TerrainPageLayout layout, int column, int row) {
+  const Ground::Geo geo = Ground::TileFracToGeo(
+      {.X = static_cast<double>(sheet.Tile.X) + layout.FractionAt(sheet, column),
+       .Y = static_cast<double>(sheet.Tile.Y) + layout.FractionAt(sheet, row)},
+      sheet.Tile.Zoom);
+  return frame.ToLocalPosition({.LongitudeDeg = geo.LongitudeDeg,
+                                .LatitudeDeg = geo.LatitudeDeg,
+                                .HeightM = sheet.Nodes[layout.NodeAt(column, row)]});
+}
+}
+
+void SurveyTerrainSheet(TerrainSurvey &result,
+                        const Sheet &sheet,
+                        const TangentFrame &frame,
+                        TerrainPageLayout layout,
+                        size_t probeStride) {
+  if (probeStride == 0 || !ValidSheet(sheet, layout, 0)) { return; }
+  for (int row = 0; row < layout.Side; ++row) {
+    for (int column = 0; column < layout.Side; ++column) {
+      const double heightM = sheet.Nodes[layout.NodeAt(column, row)];
+      const bool first = result.Vertices == 0;
+      const bool tallest = first || heightM > result.TallestM;
+      const bool probe = result.Vertices % probeStride == 0;
+      if (tallest || probe) {
+        const EastNorthUp placed = NodePosition(sheet, frame, layout, column, row);
+        if (probe) {
+          result.ProbePositionsM.push_back(
+              {{static_cast<float>(placed.EastM),
+                static_cast<float>(placed.UpM),
+                static_cast<float>(RenderFrame::ZOfNorth(placed.NorthM))}});
+        }
+        if (tallest) {
+          result.TallestM = heightM;
+          result.TallestDistanceM = std::hypot(placed.EastM, placed.NorthM);
+        }
+      }
+      result.LowestM = first ? heightM : std::min(result.LowestM, heightM);
+      ++result.Vertices;
+    }
+  }
+}
 
 void AppendTerrainMeshSheet(TerrainMesh &result,
                             const Sheet &sheet,
                             const TangentFrame &frame,
                             TerrainPageLayout layout,
                             int minimumZoom) {
-  if (!layout.Valid() || sheet.Side != layout.Side || (!sheet.Virtual && sheet.Postings < 2) ||
-      sheet.Tile.Zoom < minimumZoom || sheet.Nodes.size() != layout.NodeCount()) {
-    return;
-  }
+  if (!ValidSheet(sheet, layout, minimumZoom)) { return; }
   const auto first = static_cast<uint32_t>(result.PositionsM.size() / 3u);
   for (int row = 0; row < layout.Side; ++row) {
-    const double rowFraction = layout.FractionAt(sheet, row);
     for (int column = 0; column < layout.Side; ++column) {
-      const double columnFraction = layout.FractionAt(sheet, column);
-      const Ground::Geo geo =
-          Ground::TileFracToGeo({.X = static_cast<double>(sheet.Tile.X) + columnFraction,
-                                 .Y = static_cast<double>(sheet.Tile.Y) + rowFraction},
-                                sheet.Tile.Zoom);
       const auto heightM = static_cast<double>(sheet.Nodes[layout.NodeAt(column, row)]);
-      const EastNorthUp placed = frame.ToLocalPosition(
-          {.LongitudeDeg = geo.LongitudeDeg, .LatitudeDeg = geo.LatitudeDeg, .HeightM = heightM});
+      const EastNorthUp placed = NodePosition(sheet, frame, layout, column, row);
       result.PositionsM.push_back(static_cast<float>(placed.EastM));
       result.PositionsM.push_back(static_cast<float>(placed.UpM));
       result.PositionsM.push_back(static_cast<float>(RenderFrame::ZOfNorth(placed.NorthM)));

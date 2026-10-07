@@ -230,6 +230,12 @@ public:
     double LongestResidencySliceMs = 0.0;
   };
 
+  struct GroundSurvey {
+    Generators::TerrainSurvey Terrain;
+    size_t NextSheet = 0;
+    double LongestSliceMs = 0.0;
+  };
+
   GroundBuildState(Render::SceneRenderer &renderer,
                    const Surrounds &world,
                    const ::outshine::Generators::Osm::BuildingField &footprints,
@@ -361,7 +367,7 @@ public:
 
   [[nodiscard]] MeshBuild &Meshing() noexcept { return Meshing_; }
 
-  [[nodiscard]] MeshBuild &InitialMeshing() noexcept { return InitialMeshing_; }
+  [[nodiscard]] GroundSurvey &Surveying() noexcept { return Surveying_; }
 
   [[nodiscard]] Generators::TerrainDeformationTask *Pressing() noexcept { return Pressing_.get(); }
 
@@ -431,8 +437,7 @@ public:
   [[nodiscard]] size_t RetainedMeshBytes() const noexcept {
     return Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
            Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
-           InitialMeshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-           InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t);
+           Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f);
   }
 
   [[nodiscard]] bool AdvancesRetirement(size_t sheetsMost) noexcept {
@@ -622,8 +627,7 @@ private:
                               Corridors_.capacity() * sizeof(EarthworkStamp) +
                               Meshing_.Mesh.PositionsM.capacity() * sizeof(float) +
                               Meshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
-                              InitialMeshing_.Mesh.PositionsM.capacity() * sizeof(float) +
-                              InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
+                              Surveying_.Terrain.ProbePositionsM.capacity() * sizeof(Vec3f) +
                               (Stamping_ ? Stamping_->HeapBytes() : 0u) +
                               (Pressing_ ? Pressing_->HeapBytes() : 0u);
     const size_t candidateBytes =
@@ -656,7 +660,7 @@ private:
   std::vector<EarthworkStamp> Corridors_;
   std::vector<EarthworkStamp> RoadEarthworks_;
   MeshBuild Meshing_;
-  MeshBuild InitialMeshing_;
+  GroundSurvey Surveying_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   size_t ProductPeakBytes_ = 0;
   size_t StampingCandidateHeapBytes_ = 0;
@@ -709,7 +713,7 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
   return palette;
 }
 
-Engine::State::Classed Engine::State::Classify(std::span<const float> groundPositionsM,
+Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePositionsM,
                                                GroundWorldCandidate &candidate) {
   Classed out;
   const auto publication = World.Stack.Classes().ReadPublication();
@@ -725,11 +729,9 @@ Engine::State::Classed Engine::State::Classify(std::span<const float> groundPosi
     const size_t rows = std::bit_cast<uint32_t>(out.Palette[0]);
     Vec3 wornSum = {{0.0, 0.0, 0.0}};
     double worn = 0.0;
-    for (size_t at = 0; at + 2 < groundPositionsM.size(); at += 3u * kBounceProbeStride) {
-      const int which = out.Structure->Evaluate(static_cast<double>(groundPositionsM[at]),
-                                                -static_cast<double>(groundPositionsM[at + 2]),
-                                                nullptr,
-                                                nullptr);
+    for (const Vec3f &probe : probePositionsM) {
+      const int which = out.Structure->Evaluate(
+          static_cast<double>(probe[0]), -static_cast<double>(probe[2]), nullptr, nullptr);
       const size_t row =
           which >= 0 && std::cmp_less(which, rows) ? static_cast<size_t>(which) : rows;
       for (int channel = 0; channel < 3; ++channel) {
@@ -1396,25 +1398,33 @@ Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwor
 }
 
 Engine::State::GroundBuildProgress
-Engine::State::AdvanceGroundSheetMesh(const TangentFrame &standing, const Patchwork &patchwork) {
+Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patchwork &patchwork) {
   GroundBuildState &state = *World.GroundBuild;
-  GroundBuildProducts &build = state.Candidate().Products();
-  GroundBuildState::MeshBuild &meshing = state.InitialMeshing();
+  GroundBuildState::GroundSurvey &survey = state.Surveying();
   const auto began = std::chrono::steady_clock::now();
-  const size_t end = std::min(meshing.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
-  for (; meshing.NextSheet < end; ++meshing.NextSheet) {
-    Generators::AppendTerrainMeshSheet(meshing.Mesh,
-                                       patchwork.Sheets[meshing.NextSheet],
-                                       standing,
-                                       {.Side = Render::GroundLattice::kSide, .Halo = 1});
+  if (survey.NextSheet == 0) {
+    const auto nodes = patchwork.Sheets.size() * static_cast<size_t>(Render::GroundLattice::kSide *
+                                                                     Render::GroundLattice::kSide);
+    survey.Terrain.ProbePositionsM.reserve((nodes + kBounceProbeStride - 1) / kBounceProbeStride);
+  }
+  const size_t end = std::min(survey.NextSheet + kTerrainSheetsPerFrame, patchwork.Sheets.size());
+  for (; survey.NextSheet < end; ++survey.NextSheet) {
+    Generators::SurveyTerrainSheet(survey.Terrain,
+                                   patchwork.Sheets[survey.NextSheet],
+                                   standing,
+                                   {.Side = Render::GroundLattice::kSide, .Halo = 1},
+                                   kBounceProbeStride);
   }
   const double sliceMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-  meshing.LongestSliceMs = std::max(meshing.LongestSliceMs, sliceMs);
+  survey.LongestSliceMs = std::max(survey.LongestSliceMs, sliceMs);
   state.SamplesProductPeak();
-  if (meshing.NextSheet < patchwork.Sheets.size()) { return GroundBuildProgress::Pending; }
+  if (survey.NextSheet < patchwork.Sheets.size()) { return GroundBuildProgress::Pending; }
   Published.RecordMetric(
-      "ground candidate: longest initial mesh slice", meshing.LongestSliceMs, "ms");
+      "ground candidate: longest terrain survey slice", survey.LongestSliceMs, "ms");
+  Published.RecordMetric("ground candidate: terrain lighting probes",
+                         static_cast<double>(survey.Terrain.ProbePositionsM.size()),
+                         "probes");
   if (Session.Declared.Render.Audits) {
     const uint64_t sourceSheets = DigestPatchwork(patchwork);
     Published.RecordMetric("ground candidate: source sheets digest, low half",
@@ -1424,12 +1434,10 @@ Engine::State::AdvanceGroundSheetMesh(const TangentFrame &standing, const Patchw
                            static_cast<double>(sourceSheets >> 32U),
                            "digest");
   }
-  build.PositionsM = std::move(meshing.Mesh.PositionsM);
-  build.Indices = std::move(meshing.Mesh.Indices);
   Core::ReportGroundRelief(Published,
-                           {.TallestM = meshing.Mesh.TallestM,
-                            .LowestM = meshing.Mesh.LowestM,
-                            .TallestDistanceM = meshing.Mesh.TallestDistanceM});
+                           {.TallestM = survey.Terrain.TallestM,
+                            .LowestM = survey.Terrain.LowestM,
+                            .TallestDistanceM = survey.Terrain.TallestDistanceM});
   state.AdvanceSheetPhase();
   return GroundBuildProgress::Ready;
 }
@@ -1529,7 +1537,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
       return GroundBuildProgress::Pending;
     }
     case Core::GroundBuildSchedule::SheetPhase::NeedsMesh:
-      return AdvanceGroundSheetMesh(standing, patchwork);
+      return AdvanceGroundSheetSurvey(standing, patchwork);
     case Core::GroundBuildSchedule::SheetPhase::Ready: return GroundBuildProgress::Ready;
   }
   return GroundBuildProgress::Failed;
@@ -1543,7 +1551,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundClasses() {
   GroundBuildProducts &build = state.Candidate().Products();
   static const Heap::Tag kClassingTag("ground-classify");
   const Heap::Tagged classing(kClassingTag);
-  Classed classed = Classify(build.PositionsM, state.Candidate());
+  Classed classed = Classify(state.Surveying().Terrain.ProbePositionsM, state.Candidate());
+  std::vector<Vec3f>{}.swap(state.Surveying().Terrain.ProbePositionsM);
   build.ClassPalette = std::move(classed.Palette);
   build.ClassStructure = std::move(classed.Structure);
   build.ClassUpload = std::move(classed.Upload);

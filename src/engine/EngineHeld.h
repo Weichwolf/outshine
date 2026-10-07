@@ -519,7 +519,7 @@ struct Engine::State {
   [[nodiscard]] static std::vector<float> PaletteOver(const Ground::VegetationTemplates &wearing,
                                                       const Medium &fallback);
 
-  [[nodiscard]] Classed Classify(std::span<const float> groundPositionsM,
+  [[nodiscard]] Classed Classify(std::span<const Vec3f> probePositionsM,
                                  GroundWorldCandidate &candidate);
 
   struct Phasing {
@@ -632,8 +632,8 @@ struct Engine::State {
   [[nodiscard]] StructureBuildQueue::HeightSource StructureHeightSource();
   void PublishStreetGraphMeasurements(const Generators::Osm::StreetGraphBuilder::Built &mapped,
                                       double longestSliceMs);
-  [[nodiscard]] GroundBuildProgress AdvanceGroundSheetMesh(const TangentFrame &standing,
-                                                           const Patchwork &patchwork);
+  [[nodiscard]] GroundBuildProgress AdvanceGroundSheetSurvey(const TangentFrame &standing,
+                                                             const Patchwork &patchwork);
   void PublishGroundCandidateMeasurements(const GroundWorldCandidate &candidate,
                                           const GroundBuildState &state);
   void PublishGroundRenderMeasurements(std::chrono::steady_clock::time_point phaseAt);

@@ -21,9 +21,13 @@ Koerbersee-Diagnose: 16.255 Höhenblätter × 33² = 17.701.695 CPU-Vertices;
 = 583,56 MiB. Das sind CPU-Zwischenprodukte, keine gezeichneten Dreiecke. Der vorherige
 erfolgreiche Shot meldet 37.776 erzeugte Gebäudedreiecke laut ROW. ROW zählt keine
 GPU-Terraindreiecke; ein Verhältnis zu sichtbaren GPU-Dreiecken ist daraus nicht ableitbar.
-AppendTerrainMeshSheet expandiert jedes Blatt vor/nach Deformation. Klassifikation nutzt
-nur jede 16. Position; GroundPositionsM/GroundIndex dienen danach der Audio-Verdeckung.
-Dieser globale CPU-Aufbau muss durch gezielte Proben und aktive Audioabfragen ersetzt werden.
+Die initiale TerrainSurvey erzeugt nur die bisher genutzten Lichtproben, keine Topologie;
+Positionen/Extrema stimmen im nativen Vergleich exakt mit dem alten Vollmesh überein.
+Koerbersees Blattzahl erfordert damit 1.106.356 Proben × 12 Byte = 12,66 MiB Nutzdaten statt
+583,56 MiB Positionen/Indizes. Koer/Wien/CP/Tokyo sind im isolierten Stand pixelgleich;
+Survey-Schritte bei Koer maximal 0,224 ms. Finales Audiomesh und feine Quellen bleiben zu teuer.
+AppendTerrainMeshSheet expandiert weiterhin finale Blätter für Audio-Verdeckung.
+Dieser verbleibende globale CPU-Aufbau muss durch native Höhenprodukte/aktive Abfragen ersetzt werden.
 
 ## P0: grobe Sichtbarkeit vor feineren API-Anfragen
 1. Zuerst gröbste Eltern für den Weltbedarf aus dem Assetcache; bei Miss nur grobes DEM
