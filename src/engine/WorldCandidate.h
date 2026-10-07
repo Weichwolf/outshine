@@ -27,6 +27,8 @@ public:
 
   void Grounding(const Vec3 &albedo) { Scene().Grounding(albedo); }
 
+  [[nodiscard]] const Vec3 &GroundAlbedo() { return Scene().GroundAlbedo(); }
+
   [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() {
     return Scene().AmbientStanding();
   }

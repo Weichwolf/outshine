@@ -5,6 +5,7 @@
 #include "SurfacePreparation.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
+#include "ReadTextFile.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -47,6 +48,26 @@ SurfacePreparation::CreateVectorField() const {
            ::outshine::Generators::Osm::OsmLayer::StreetPolygons)}};
   return std::make_unique<::outshine::Generators::Osm::OsmField>(
       VectorZoom_, std::span<const std::string>(layers), VectorSchema_);
+}
+
+std::expected<void, std::string>
+SurfacePreparation::BindRegionCache(const World::StoragePaths &under,
+                                    const Data::SourceSet &sources) {
+  if (under.AssetCache.empty()) { return {}; }
+  const auto &assets = under.Shipped;
+  constexpr size_t bytesMost = size_t{1024} * 1024u;
+  auto materials = ReadTextFile(assets + "/world/ground-materials.json", bytesMost);
+  auto vegetation = ReadTextFile(assets + "/world/vegetation.json", bytesMost);
+  if (!materials || !vegetation) {
+    return std::unexpected("could not bind the prepared ground region rules");
+  }
+  materials->push_back('\0');
+  materials->append(*vegetation);
+  auto regions =
+      Generators::Osm::PreparedGroundRegions::Open(under.AssetCache, sources, *materials);
+  if (!regions) { return std::unexpected(std::move(regions.error())); }
+  PreparedRegions_ = std::move(*regions);
+  return {};
 }
 
 bool SurfacePreparation::Open(const World::StoragePaths &under,
@@ -145,6 +166,12 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
                Templates_.Load((assets + "/world/vegetation.json").c_str(), Materials_);
   if (Vegetated_) {
     Cls_.SetVegetation(&Templates_);
+    auto bound = BindRegionCache(under, sources);
+    if (!bound) {
+      say.Refuse(bound.error());
+      Close();
+      return false;
+    }
   } else {
     say.Say(Line("REFUSED the shipped ground tables under %s did not load, so this world stands "
                  "with no vegetation and no vector features",
@@ -162,6 +189,7 @@ void SurfacePreparation::Close() {
   PreparedTerrain_.reset();
   PreparedBuildings_.reset();
   PreparedNetwork_.reset();
+  PreparedRegions_.reset();
   LandingCursor_ = {};
   Sources_.reset();
   Store_.reset();

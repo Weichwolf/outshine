@@ -543,6 +543,11 @@ struct Engine::State {
 
   [[nodiscard]] GroundBuildProgress AdvanceGroundCandidatePreparation(const GroundRequest &request);
   [[nodiscard]] GroundBuildProgress AdvanceGroundPatchwork(const Around &coverage);
+  [[nodiscard]] GroundBuildProgress AdvanceGroundRegion();
+  [[nodiscard]] GroundBuildProgress BeginGroundRegionLookup(GroundBuildState &state);
+  [[nodiscard]] GroundBuildProgress AdvanceReadyGroundSheets(Patchwork &patchwork,
+                                                             GroundBuildState &state);
+  [[nodiscard]] GroundBuildProgress StoreGroundRegion(GroundBuildState &state) const;
   [[nodiscard]] GroundBuildProgress
   AdvanceGroundSheets(const TangentFrame &standing, Patchwork &patchwork, const Around &coverage);
   [[nodiscard]] GroundBuildProgress BeginGroundSheetRefinement(const TangentFrame &standing,

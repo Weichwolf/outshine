@@ -31,6 +31,7 @@ struct GroundBuildProducts {
   MaterialInstance GroundSurface;
   std::shared_ptr<const Path::Network> StreetGraph;
   size_t StreetGraphWayCount = 0;
+  bool StreetGraphComplete = true;
   std::vector<NamedRoadAlignment> RoadAlignments;
   size_t RimsMissing = 0;
   std::optional<TilePieces::Surfaces> Surfaces;
@@ -114,6 +115,8 @@ public:
   }
 
   void Grounding(const Vec3 &albedo) { World_.Grounding(albedo); }
+
+  [[nodiscard]] const Vec3 &GroundAlbedo() { return World_.GroundAlbedo(); }
 
   [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() {
     return World_.AmbientStanding();

@@ -14,6 +14,7 @@
 #include "SourceSet.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
+#include "PreparedGroundRegions.h"
 #include "PreparedStreetGraph.h"
 #include "TerrainLoader.h"
 #include <world/data/SourceDecl.h>
@@ -132,6 +133,11 @@ public:
     return PreparedNetwork_;
   }
 
+  [[nodiscard]] const std::shared_ptr<Generators::Osm::PreparedGroundRegions> &
+  RegionAssets() const noexcept {
+    return PreparedRegions_;
+  }
+
   void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
     Cls_.Declares(these);
@@ -202,6 +208,8 @@ public:
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:
+  [[nodiscard]] std::expected<void, std::string> BindRegionCache(const World::StoragePaths &under,
+                                                                 const Data::SourceSet &sources);
   void RecordAdvance(SurfacePreparationMetrics metrics) noexcept;
   [[nodiscard]] std::expected<TileAt, std::string_view>
   ValidatePosition(LongitudeLatitude at) const;
@@ -211,6 +219,7 @@ private:
   std::shared_ptr<::outshine::Generators::PreparedTerrainAssets> PreparedTerrain_;
   std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> PreparedBuildings_;
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;
+  std::shared_ptr<Generators::Osm::PreparedGroundRegions> PreparedRegions_;
   std::unique_ptr<TilePool> Pool_;
   TilePool::LandingCursor LandingCursor_;
   std::unique_ptr<GroundStream> Ground_;

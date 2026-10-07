@@ -17,30 +17,30 @@ Vorhanden: öffentlicher AssetCache/ResolveAsset, SQLite-R*Tree, native Geometri
 Höhenfelder, Gebäuderohlinge/LOD-Produkte und Impostoren. Pakete komprimiert Zstandard Level 1;
 alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Gerätehandles persistieren.
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
-Die uncommittete Regionintegration überspringt spätere Boden-/Straßen-/Wassererzeugung,
+Die Regionintegration überspringt spätere Boden-/Straßen-/Wassererzeugung,
 liest aber zuvor weiter Zwischenfelder. Exakte Kamera-Schlüssel und ganze Regionen ersetzen
 keine räumliche Eltern-/Kindhierarchie. Koerbersee speichert nach Entfernen redundanter
 Terrain-Dreiecke 83,57 MiB und lädt warm in 3,59 s, p99 2,51 ms; gleiche Pixel wie vorher.
 Flensburg liefert nach kohärenter Flächenbelegung bei Miss und Hit dieselben Pixel.
-Ausstehende Gebäudegrundrisse sind keine freie Fläche; alle Städte müssen die Integration noch belegen.
+Ausstehende Gebäudegrundrisse sind keine freie Fläche; Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
-Offline 1280×720/60, 60 Frames/360°, Producer 90b24543ab auf HEAD 0db704084 plus Änderungen:
+Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer 66067cb7ed9f:
 | Place | Laden s | p99 ms | Prozess-Footprint GiB | Terrain / Prototypen entpackt MiB |
 |---|---:|---:|---:|---:|
-| Wien | 21,41 | 29,23 | 3,41 | 874 / 620 |
-| CentralPark | 6,84 | 2,59 | 2,40 | 709 / 440 |
-| Tokyo | 10,87 | 3,62 | 5,60 | 961 / 620 |
-Wien regeneriert wegen neuer Producer-ID 31 Prototypen: 14,95 s Workerarbeit; kein voller Warmstart.
-Früherer kompletter Trefferlauf: 9,02 s / 3,75 ms p99, Producer 9d0ea31d; gleiche Wien-Pixel.
+| Wien | 7,73 | 3,47 | 2,80 | 874 / 620 |
+| CentralPark | 6,18 | 1,10 | 2,14 | 709 / 400 |
+| Tokyo | 11,38 | 3,38 | 5,23 | 971 / 620 |
+Regionprodukte: 85,88 / 73,43 / 114,45 MiB; separater Decode 156 / 132 / 293 ms.
+Tokyo überschreitet das Ladeziel; erste Aufbau-Läufe Wien/Tokyo überschreiten p99 16,67 ms.
 Entpackte Bytes sind kumulierter Durchsatz, keine SSD-/Residencygröße. Footprint ist Prozesspeak,
-kein isolierter GPU-Wert. Logs: System-Temp `outshine-native-regions-<Place>-warm-final.log`;
-Zuordnung/Einheiten in `outshine-cost-review-0db704084.json`. Kein neuer Geräte-/Internetnachweis.
+kein isolierter GPU-Wert. Logs: System-Temp `outshine-ground-region-2c428fa9c-<Place>-warm.log`;
+gleicher Producer belegt den Quellstand. Kein neuer Geräte-/Internetnachweis.
 1. P0: den Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Hierarchische
    räumliche Rohlinge statt kompletter kameragebundener Snapshots; verdeckte Kinder ungeöffnet.
    Eltern aus Cache, nur fehlende Eltern grob aus DEM; anschließend mögliche sichtbare Kinder
    nachfordern. OSM ebenfalls nah → fern nach Coverage/Bewegungsbedarf; nicht alle Ringkacheln vorab.
-2. P0: finale native Höhen-/Kontaktprodukte laden, statt trotz Regionhit 709–961 MiB Felder zu
+2. P0: finale native Höhen-/Kontaktprodukte laden, statt trotz Regionhit 709–971 MiB Felder zu
    entpacken. Mehrere Kandidaten teilen unveränderte Daten; einmal laden/publizieren, dann Scratch frei.
    Proben/Bodenabfrage aus Höhenprodukten; keine flächendeckend expandierte CPU-Dreieckssuppe.
 3. P1: Modellprototypen nur für benötigte räumliche Gruppen laden. Ein Atlas kostet

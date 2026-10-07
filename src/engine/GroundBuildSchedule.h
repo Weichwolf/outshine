@@ -25,6 +25,19 @@ public:
 
   [[nodiscard]] bool Prepared() const noexcept { return Prepared_; }
 
+  [[nodiscard]] bool HasReadyRegion() const noexcept { return ReadyRegion_; }
+
+  [[nodiscard]] bool LoadReadyRegion() noexcept {
+    if (!Prepared_ || CurrentSheetPhase_ != SheetPhase::NeedsFields ||
+        CurrentStage_ != Stage::NeedsClasses) {
+      return false;
+    }
+    ReadyRegion_ = true;
+    CurrentSheetPhase_ = SheetPhase::NeedsMesh;
+    CurrentStage_ = Stage::NeedsModels;
+    return true;
+  }
+
   [[nodiscard]] bool MarkPrepared() noexcept {
     if (Prepared_) { return false; }
     Prepared_ = true;
@@ -52,11 +65,15 @@ public:
     switch (CurrentStage_) {
       case Stage::NeedsClasses: CurrentStage_ = Stage::NeedsGroundSurface; return true;
       case Stage::NeedsGroundSurface: CurrentStage_ = Stage::NeedsModels; return true;
-      case Stage::NeedsModels: CurrentStage_ = Stage::NeedsNetwork; return true;
+      case Stage::NeedsModels:
+        CurrentStage_ = ReadyRegion_ ? Stage::NeedsBakes : Stage::NeedsNetwork;
+        return true;
       case Stage::NeedsNetwork: CurrentStage_ = Stage::NeedsRoadAlignments; return true;
       case Stage::NeedsRoadAlignments: CurrentStage_ = Stage::NeedsCorridors; return true;
       case Stage::NeedsCorridors: CurrentStage_ = Stage::NeedsBakes; return true;
-      case Stage::NeedsBakes: CurrentStage_ = Stage::NeedsEarthworks; return true;
+      case Stage::NeedsBakes:
+        CurrentStage_ = ReadyRegion_ ? Stage::NeedsGeometry : Stage::NeedsEarthworks;
+        return true;
       case Stage::NeedsEarthworks: CurrentStage_ = Stage::NeedsTerrainResidency; return true;
       case Stage::NeedsTerrainResidency: CurrentStage_ = Stage::NeedsWater; return true;
       case Stage::NeedsWater: CurrentStage_ = Stage::NeedsGeometry; return true;
@@ -95,6 +112,7 @@ private:
   SheetPhase CurrentSheetPhase_ = SheetPhase::NeedsFields;
   Stage CurrentStage_ = Stage::NeedsClasses;
   bool Prepared_ = false;
+  bool ReadyRegion_ = false;
 };
 }
 

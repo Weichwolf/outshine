@@ -24,6 +24,7 @@
 #include <functional>
 #include <optional>
 #include <span>
+#include <stop_token>
 #include <string_view>
 #include <numbers>
 #include <string>
@@ -54,6 +55,8 @@
 #include "GroundMesher.h"
 #include "StreetGraphBuilder.h"
 #include "StreetGraphPreparation.h"
+#include "GroundRegionPreparation.h"
+#include "BinaryValueArchive.h"
 #include "RoadHeightCoverage.h"
 #include "RoadRefinementCoverage.h"
 
@@ -219,6 +222,7 @@ class GroundBuildState {
 public:
   enum class GeometrySubmission : uint8_t { Classes, ClassRanges, Begin, Cook };
   enum class CorridorCompletion : uint8_t { Build, Retire };
+  enum class RegionPhase : uint8_t { Lookup, Loading, Miss, Hit, Storing, Stored, Bypass };
 
   struct ResidencyBuild {
     bool SheetsStitched = false;
@@ -398,6 +402,48 @@ public:
   [[nodiscard]] Patchwork *Laid() noexcept { return Patchwork_ ? &*Patchwork_ : nullptr; }
 
   void Lays(Patchwork patchwork) noexcept { Patchwork_.emplace(std::move(patchwork)); }
+
+  [[nodiscard]] RegionPhase RegionStatus() const noexcept { return RegionPhase_; }
+
+  [[nodiscard]] GroundRegionPreparation *RegionWorker() const noexcept {
+    return RegionWorker_.get();
+  }
+
+  [[nodiscard]] const std::string &RegionKey() const noexcept { return RegionKey_; }
+
+  [[nodiscard]] bool HasReadyRegion() const noexcept { return Schedule_.HasReadyRegion(); }
+
+  void BeginRegion(Tasks &pool, GroundRegionPreparation::Factory factory, RegionPhase phase) {
+    RegionWorker_ = std::make_unique<GroundRegionPreparation>(pool, std::move(factory));
+    RegionPhase_ = phase;
+  }
+
+  void FinishRegion(std::string key, RegionPhase phase) {
+    RegionWorker_.reset();
+    RegionKey_ = std::move(key);
+    RegionPhase_ = phase;
+  }
+
+  [[nodiscard]] bool InstallRegion(GroundRegionAsset region, bool hit) {
+    if (hit && !Schedule_.LoadReadyRegion()) { return false; }
+    auto &build = Candidate_.Products();
+    Lays(std::move(region.Terrain));
+    build.Ground = std::move(region.Surfaces);
+    build.ClassStructure = std::move(region.Classes);
+    build.ClassPalette = std::move(region.ClassPalette);
+    build.ClassUpload =
+        build.ClassStructure
+            ? std::make_shared<const Render::GroundClassBuffer>(*build.ClassStructure)
+            : nullptr;
+    build.StreetGraph = std::move(region.Network);
+    build.StreetGraphWayCount = static_cast<size_t>(region.NetworkWays);
+    build.RimsMissing = static_cast<size_t>(region.MissingRims);
+    build.GroundSurface = MaterialInstance(region.GroundSurface);
+    build.GroundMaterial = build.Ground.surfaceAt(build.GroundSurface);
+    build.Sheets.Framed(TangentFrame::At(region.Anchor));
+    Candidate_.Grounding(region.GroundAlbedo);
+    return true;
+  }
 
   [[nodiscard]] Core::GroundBuildSchedule::SheetPhase CurrentSheetPhase() const noexcept {
     return Schedule_.CurrentSheetPhase();
@@ -648,6 +694,9 @@ private:
   std::unique_ptr<Generators::TerrainDeformationTask> Pressing_;
   std::unique_ptr<Generators::Corridors::Job> CorridorJob_;
   std::unique_ptr<StreetGraphPreparation> StreetGraphWorker_;
+  std::unique_ptr<GroundRegionPreparation> RegionWorker_;
+  std::string RegionKey_;
+  RegionPhase RegionPhase_ = RegionPhase::Lookup;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<EarthworkStamp> Corridors_;
@@ -1435,11 +1484,37 @@ Engine::State::AdvanceGroundSheetSurvey(const TangentFrame &standing, const Patc
   return GroundBuildProgress::Ready;
 }
 
+Engine::State::GroundBuildProgress
+Engine::State::AdvanceReadyGroundSheets(Patchwork &patchwork, GroundBuildState &state) {
+  auto &residency = state.Residency();
+  if (!residency.ResidencyStarted) {
+    if (!state.Candidate().Products().Sheets.BeginResidency(patchwork, Error)) {
+      return GroundBuildProgress::Failed;
+    }
+    residency.ResidencyStarted = true;
+    return GroundBuildProgress::Pending;
+  }
+  auto advanced =
+      state.Candidate().Products().Sheets.AdvanceResidency(patchwork, kTerrainSheetsPerFrame);
+  if (!advanced) {
+    Error = std::move(advanced.error());
+    return GroundBuildProgress::Failed;
+  }
+  if (!*advanced) { return GroundBuildProgress::Pending; }
+  residency.ResidencyReady = true;
+  state.AdvanceSheetPhase();
+  return GroundBuildProgress::Pending;
+}
+
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const TangentFrame &standing,
                                                                       Patchwork &patchwork,
                                                                       const Around &coverage) {
   GroundBuildState &state = *World.GroundBuild;
   GroundBuildProducts &build = state.Candidate().Products();
+  if (state.HasReadyRegion() &&
+      state.CurrentSheetPhase() == Core::GroundBuildSchedule::SheetPhase::NeedsMesh) {
+    return AdvanceReadyGroundSheets(patchwork, state);
+  }
   switch (state.CurrentSheetPhase()) {
     case Core::GroundBuildSchedule::SheetPhase::NeedsFields: {
       const auto original = state.PrepareOriginalHeights(World.StructureBuilds, coverage.Zoom);
@@ -1666,6 +1741,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundStreetGraph() {
   const double longestSliceMs = completed->value().LongestSliceMs;
   const outshine::Generators::Osm::StreetGraphBuilder::Built &mapped = completed->value().Graph;
   build.StreetGraph = mapped.Graph;
+  build.StreetGraphComplete = mapped.Elevated.Refused == 0;
   build.StreetGraphWayCount = sources.Ways.Ways().size();
   PublishStreetGraphMeasurements(mapped, longestSliceMs);
   Published.RecordMetric("network: worker elapsed", completed->value().WorkerMs, "ms");
@@ -1925,6 +2001,95 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   return true;
 }
 
+Engine::State::GroundBuildProgress Engine::State::BeginGroundRegionLookup(GroundBuildState &state) {
+  using Phase = GroundBuildState::RegionPhase;
+  const auto assets = World.Stack.RegionAssets();
+  const auto network = World.Stack.NetworkAssets();
+  const auto vectors = state.Candidate().Sources().Vectors;
+  if (!assets || !network || !vectors || state.TransportSnapshot() != nullptr ||
+      std::ranges::any_of(vectors->Tiles(),
+                          [](const auto &tile) { return tile.InputDigest.empty(); })) {
+    state.FinishRegion({}, Phase::Bypass);
+    return GroundBuildProgress::Ready;
+  }
+  const auto ways =
+      std::make_shared<const Generators::Osm::StreetField>(state.Candidate().Sources().Ways);
+  const auto shape = World.Stack.Pool().Shaped();
+  const Around coverage = state.Coverage();
+  const auto anchor = Session.Declared.Ground.Origin;
+  const auto eye =
+      Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
+  BinaryValueWriter parameters(4096);
+  if (!parameters(coverage.LatitudeDeg,
+                  coverage.LongitudeDeg,
+                  coverage.Zoom,
+                  coverage.Levels,
+                  coverage.Grid,
+                  coverage.PlayableOnly,
+                  state.Revision().Quality,
+                  anchor.LatitudeDeg,
+                  anchor.LongitudeDeg,
+                  eye.EyeM.Axis,
+                  eye.Kind,
+                  eye.YfovRad,
+                  eye.YMagM,
+                  Picture.Frame.HeightPx,
+                  Generators::TerrainRefinementDetail{}.ErrorPx,
+                  Render::GroundLattice::kMaximumPages)) {
+    Error = "ground region parameters exceed their encoding limit";
+    return GroundBuildProgress::Failed;
+  }
+  const auto native =
+      std::make_shared<const std::vector<uint8_t>>(std::move(parameters.Out).TakeBytes());
+  state.BeginRegion(
+      *World.Pool,
+      [assets, network, vectors, ways, shape, coverage, native](const std::stop_token &stop)
+          -> std::expected<GroundRegionPreparation::Completed, std::string> {
+        auto source = network->Key(*vectors, *ways, shape, coverage.Zoom);
+        if (!source) { return std::unexpected(std::move(source.error())); }
+        source->append(reinterpret_cast<const char *>(native->data()), native->size());
+        auto key = assets->Key(*source);
+        if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
+        if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
+        auto loaded = assets->Load(key);
+        if (!loaded) { return std::unexpected(std::move(loaded.error())); }
+        return GroundRegionPreparation::Completed{.Key = std::move(key),
+                                                  .Loaded = std::move(*loaded)};
+      },
+      Phase::Loading);
+  return GroundBuildProgress::Pending;
+}
+
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
+  GroundBuildState &state = *World.GroundBuild;
+  using Phase = GroundBuildState::RegionPhase;
+  if (state.RegionStatus() == Phase::Lookup) { return BeginGroundRegionLookup(state); }
+  if (state.RegionStatus() != Phase::Loading && state.RegionStatus() != Phase::Storing) {
+    return GroundBuildProgress::Ready;
+  }
+  auto completed = state.RegionWorker()->Collect();
+  if (!completed) { return GroundBuildProgress::Pending; }
+  if (!*completed) {
+    Error = std::move(completed->error());
+    return GroundBuildProgress::Failed;
+  }
+  auto result = std::move(completed->value());
+  const bool hit = state.RegionStatus() == Phase::Loading && result.Loaded.has_value();
+  Published.RecordMetric("ground region: native cache hit", hit ? 1.0 : 0.0, "hit");
+  Published.RecordMetric("ground region: worker elapsed", result.WorkerMs, "ms");
+  Published.RecordMetric("ground region: native asset bytes",
+                         result.Loaded ? static_cast<double>(result.Loaded->ReadBytes) : 0.0,
+                         "bytes");
+  if (result.Loaded && !state.InstallRegion(std::move(result.Loaded->Region), hit)) {
+    Error = "ground region cannot replace the current candidate stage";
+    return GroundBuildProgress::Failed;
+  }
+  auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
+  if (hit) { phase = Phase::Hit; }
+  state.FinishRegion(std::move(result.Key), phase);
+  return GroundBuildProgress::Ready;
+}
+
 Engine::State::GroundBuildProgress Engine::State::AdvanceGroundPatchwork(const Around &coverage) {
   GroundBuildState &state = *World.GroundBuild;
   if (state.Laid() != nullptr) { return GroundBuildProgress::Ready; }
@@ -2146,7 +2311,47 @@ bool Engine::State::BuildGroundResidency(Patchwork &patchwork, GroundBuildState 
   return true;
 }
 
+Engine::State::GroundBuildProgress Engine::State::StoreGroundRegion(GroundBuildState &state) const {
+  using Phase = GroundBuildState::RegionPhase;
+  if (state.RegionStatus() != Phase::Miss) { return GroundBuildProgress::Ready; }
+  auto &build = state.Candidate().Products();
+  const Patchwork &terrain = *state.Laid();
+  if (terrain.Pending != 0 || terrain.ContactPending != 0 || terrain.Refused != 0 ||
+      !build.StreetGraphComplete || !build.RoadAlignments.empty()) {
+    state.FinishRegion({}, Phase::Bypass);
+    return GroundBuildProgress::Ready;
+  }
+  const auto assets = World.Stack.RegionAssets();
+  const auto origin = Session.Declared.Ground.Origin;
+  const auto region = std::make_shared<GroundRegionAsset>(GroundRegionAsset{
+      .Anchor = {.LongitudeDeg = origin.LongitudeDeg, .LatitudeDeg = origin.LatitudeDeg},
+      .Terrain = std::move(*state.Laid()),
+      .Surfaces = std::move(build.Ground),
+      .Classes = build.ClassStructure,
+      .ClassPalette = build.ClassPalette,
+      .Network = build.StreetGraph,
+      .NetworkWays = build.StreetGraphWayCount,
+      .GroundSurface = build.GroundSurface.index(),
+      .GroundAlbedo = state.Candidate().GroundAlbedo(),
+      .MissingRims = build.RimsMissing});
+  const auto key = state.RegionKey();
+  state.BeginRegion(
+      *World.Pool,
+      [assets, region, key](const std::stop_token &stop)
+          -> std::expected<GroundRegionPreparation::Completed, std::string> {
+        if (stop.stop_requested()) { return std::unexpected("ground region publication canceled"); }
+        const auto bounds = GroundRegionBoundsEcef(*region);
+        auto loaded = assets->Store(key, bounds, *region);
+        if (!loaded) { return std::unexpected(std::move(loaded.error())); }
+        return GroundRegionPreparation::Completed{.Key = key, .Loaded = std::move(*loaded)};
+      },
+      Phase::Storing);
+  return GroundBuildProgress::Pending;
+}
+
 bool Engine::State::PublishGroundGeometry(GroundBuildState &state) {
+  const GroundBuildProgress stored = StoreGroundRegion(state);
+  if (stored != GroundBuildProgress::Ready) { return stored != GroundBuildProgress::Failed; }
   const auto sliceBegan = std::chrono::steady_clock::now();
   GroundWorldCandidate &candidate = state.Candidate();
   GroundBuildProducts &build = candidate.Products();
@@ -2443,6 +2648,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - buildAt)
           .count());
   if (progress != GroundBuildProgress::Ready) { return progress != GroundBuildProgress::Failed; }
+  const GroundBuildProgress region = AdvanceGroundRegion();
+  if (region != GroundBuildProgress::Ready) { return region != GroundBuildProgress::Failed; }
   GroundBuildState &state = *World.GroundBuild;
   const size_t phase = state.Progress();
   assert(phase < Cost.GroundPhases.size());

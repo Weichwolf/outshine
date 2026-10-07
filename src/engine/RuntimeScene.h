@@ -281,6 +281,8 @@ public:
     for (int channel = 0; channel < 3; ++channel) { GroundAlbedo_[channel] = albedo[channel]; }
   }
 
+  [[nodiscard]] const Vec3 &GroundAlbedo() const noexcept { return GroundAlbedo_; }
+
   [[nodiscard]] const Render::SubjectEnvironment &AmbientStanding() const {
     return Stood_.IndirectLight();
   }
