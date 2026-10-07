@@ -350,11 +350,13 @@ public:
   void AdvanceRoadSurfaceTransfer() noexcept { ++NextRoadSurfaceTransfer_; }
 
   void HoldRoadEarthworks(std::vector<EarthworkStamp> stamps) {
+    RoadEarthworkHeapBytes_ = StampHeapBytes(stamps);
     RoadEarthworks_ = std::move(stamps);
   }
 
   [[nodiscard]] std::vector<EarthworkStamp> TakeRoadEarthworks() noexcept {
-    return std::move(RoadEarthworks_);
+    RoadEarthworkHeapBytes_ = 0;
+    return std::exchange(RoadEarthworks_, {});
   }
 
   [[nodiscard]] MeshBuild &Meshing() noexcept { return Meshing_; }
@@ -366,6 +368,7 @@ public:
   [[nodiscard]] Generators::BuildingStampJob *Stamping() noexcept { return Stamping_.get(); }
 
   void BeginsStamping(std::unique_ptr<Generators::BuildingStampJob> stamping) noexcept {
+    StampingCandidateHeapBytes_ = Candidate_.OwnedHeapBytes();
     Stamping_ = std::move(stamping);
   }
 
@@ -453,7 +456,10 @@ public:
 
   void SamplesProductPeak() noexcept { RecordsProductPeak(); }
 
-  void HoldsCorridors(std::vector<EarthworkStamp> corridors) { Corridors_ = std::move(corridors); }
+  void HoldsCorridors(std::vector<EarthworkStamp> corridors) {
+    CorridorHeapBytes_ = StampHeapBytes(corridors);
+    Corridors_ = std::move(corridors);
+  }
 
   [[nodiscard]] Generators::Corridors::Job *CorridorJob() noexcept { return CorridorJob_.get(); }
 
@@ -573,7 +579,10 @@ public:
     GeometrySubmission_ = GeometrySubmission::Cook;
   }
 
-  [[nodiscard]] std::vector<EarthworkStamp> TakesCorridors() { return std::move(Corridors_); }
+  [[nodiscard]] std::vector<EarthworkStamp> TakesCorridors() {
+    CorridorHeapBytes_ = 0;
+    return std::exchange(Corridors_, {});
+  }
 
   [[nodiscard]] std::chrono::steady_clock::time_point Began() const noexcept { return Began_; }
 
@@ -600,6 +609,12 @@ public:
   }
 
 private:
+  [[nodiscard]] static size_t StampHeapBytes(std::span<const EarthworkStamp> stamps) noexcept {
+    size_t bytes = 0;
+    for (const auto &stamp : stamps) { bytes += stamp.HeapBytes(); }
+    return bytes;
+  }
+
   [[nodiscard]] size_t CurrentProductBytes() const noexcept {
     const size_t phaseBytes = (Patchwork_ ? Patchwork_->HeapBytes() : 0u) +
                               RoadHeightCoverage_.Tiles.capacity() * sizeof(Data::TileId) +
@@ -611,11 +626,10 @@ private:
                               InitialMeshing_.Mesh.Indices.capacity() * sizeof(uint32_t) +
                               (Stamping_ ? Stamping_->HeapBytes() : 0u) +
                               (Pressing_ ? Pressing_->HeapBytes() : 0u);
-    size_t corridorBytes = 0;
-    for (const EarthworkStamp &corridor : Corridors_) { corridorBytes += corridor.HeapBytes(); }
-    size_t roadEarthworkBytes = RoadEarthworks_.capacity() * sizeof(EarthworkStamp);
-    for (const EarthworkStamp &stamp : RoadEarthworks_) { roadEarthworkBytes += stamp.HeapBytes(); }
-    return Candidate_.OwnedHeapBytes() + phaseBytes + corridorBytes + roadEarthworkBytes;
+    const size_t candidateBytes =
+        Stamping_ ? StampingCandidateHeapBytes_ : Candidate_.OwnedHeapBytes();
+    return candidateBytes + phaseBytes + CorridorHeapBytes_ + RoadEarthworkHeapBytes_ +
+           RoadEarthworks_.capacity() * sizeof(EarthworkStamp);
   }
 
   void RecordsProductPeak() noexcept {
@@ -645,6 +659,9 @@ private:
   MeshBuild InitialMeshing_;
   std::chrono::steady_clock::time_point Began_ = std::chrono::steady_clock::now();
   size_t ProductPeakBytes_ = 0;
+  size_t StampingCandidateHeapBytes_ = 0;
+  size_t CorridorHeapBytes_ = 0;
+  size_t RoadEarthworkHeapBytes_ = 0;
   double LongestPressingSliceMs_ = 0.0;
   double LongestCorridorSliceMs_ = 0.0;
   double LongestCorridorRetirementMs_ = 0.0;

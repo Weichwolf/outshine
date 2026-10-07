@@ -57,10 +57,15 @@ int main() {
     }
     CHECK(done, "building stamps finish under every work budget");
     if (!done) { continue; }
+    const size_t retainedBytes = job.HeapBytes();
     auto stamps = std::move(job).Take();
     CHECK(stamps.has_value() && stamps->size() == 2,
           "invalid and raised polygons create no stamp; both grounded pads publish");
     if (!stamps || stamps->size() != 2) { continue; }
+    size_t actualBytes = stamps->capacity() * sizeof(EarthworkStamp);
+    for (const auto &stamp : *stamps) { actualBytes += stamp.HeapBytes(); }
+    CHECK(retainedBytes == actualBytes, "incremental heap accounting matches the owned stamps");
+    CHECK(job.HeapBytes() == 0, "transferred stamps retain no diagnostic ownership");
     const EastNorthUp first =
         frame.ToLocalPosition({.LongitudeDeg = points[1], .LatitudeDeg = points[0], .HeightM = 12});
     CHECK((*stamps)[0].RingEastNorthM[0] == first.EastM &&

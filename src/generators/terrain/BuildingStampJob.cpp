@@ -134,6 +134,7 @@ std::expected<void, std::string_view> BuildingStampJob::AdvanceStep(Work work) {
 }
 
 void BuildingStampJob::FinishStamp() {
+  FinishedHeapBytes_ += Current_.HeapBytes();
   Stamps_.push_back(std::move(Current_));
   Current_ = EarthworkStamp{};
   ++NextFootprint_;
@@ -167,14 +168,12 @@ std::expected<void, std::string_view> BuildingStampJob::AppendHolePoint(Work wor
 
 std::expected<std::vector<EarthworkStamp>, std::string_view> BuildingStampJob::Take() && {
   if (Phase_ != Phase::Done) { return std::unexpected("building stamps are incomplete"); }
-  return std::move(Stamps_);
+  FinishedHeapBytes_ = 0;
+  return std::exchange(Stamps_, {});
 }
 
 size_t BuildingStampJob::HeapBytes() const noexcept {
-  size_t held = Stamps_.capacity() * sizeof(EarthworkStamp);
-  for (const EarthworkStamp &stamp : Stamps_) { held += stamp.HeapBytes(); }
-  held += Current_.HeapBytes();
-  return held;
+  return Stamps_.capacity() * sizeof(EarthworkStamp) + FinishedHeapBytes_ + Current_.HeapBytes();
 }
 
 }

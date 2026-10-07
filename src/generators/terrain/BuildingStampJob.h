@@ -56,6 +56,7 @@ private:
   uint64_t VectorGeneration_ = 0;
   std::vector<EarthworkStamp> Stamps_;
   EarthworkStamp Current_;
+  size_t FinishedHeapBytes_ = 0;
   size_t FootprintCount_ = 0;
   size_t PointCount_ = 0;
   size_t RingCount_ = 0;
