@@ -196,12 +196,14 @@ BuildingSurface::Prepare(const StructurePlan &plan, BuildingScratch &scratch) {
 }
 
 BuildingSurface::Face BuildingSurface::FaceAt(size_t index) const noexcept {
-  const auto found = std::ranges::upper_bound(FaceOffsets_, index);
-  const auto part = static_cast<size_t>(found - FaceOffsets_.begin() - 1);
-  return {.Part = part, .Side = index - FaceOffsets_[part]};
+  const auto &offsets = Resident().FaceOffsets_;
+  const auto found = std::ranges::upper_bound(offsets, index);
+  const auto part = static_cast<size_t>(found - offsets.begin() - 1);
+  return {.Part = part, .Side = index - offsets[part]};
 }
 
 bool BuildingSurface::SupportsProjection() const noexcept {
+  if (Selection_) { return Selection_->Projectable; }
   return !Shapes_.empty() && std::ranges::all_of(Shapes_, [](const BuildingShape &shape) {
     return shape.RiseM == 0.0 || (shape.Roof != RoofKind::Dome && shape.Roof != RoofKind::Sawtooth);
   });
@@ -213,10 +215,11 @@ std::optional<BuildingSurface::Hit> BuildingSurface::Trace(const Ray &ray,
                                                            std::vector<double> &cuts) const {
   const Vec3 localOrigin = Local(Axes_, ray.Origin - Origin_);
   const Vec3 localDirection = Local(Axes_, ray.Direction);
+  const auto &shapes = Resident().Shapes_;
   std::optional<Hit> nearest;
-  for (size_t part = 0; part < Shapes_.size(); ++part) {
+  for (size_t part = 0; part < shapes.size(); ++part) {
     auto hit = TracePart(
-        Shapes_[part], MinimumHeightM_, localOrigin, localDirection, minimum, maximum, part, cuts);
+        shapes[part], MinimumHeightM_, localOrigin, localDirection, minimum, maximum, part, cuts);
     if (hit) {
       maximum = hit->Along;
       hit->Normal = Global(Axes_, hit->Normal);
@@ -227,8 +230,8 @@ std::optional<BuildingSurface::Hit> BuildingSurface::Trace(const Ray &ray,
 }
 
 StoredVertex BuildingSurface::VertexAt(const Hit &hit, const Vec3 &position) const noexcept {
-  const Vec2f uv =
-      TextureAt(Shapes_[hit.Part], hit.Face, Local(Axes_, position - Origin_), hit.Gable);
+  const Vec2f uv = TextureAt(
+      Resident().Shapes_[hit.Part], hit.Face, Local(Axes_, position - Origin_), hit.Gable);
   return StoredVertex::Of({{static_cast<float>(position[0]),
                             static_cast<float>(position[1]),
                             static_cast<float>(position[2])}},

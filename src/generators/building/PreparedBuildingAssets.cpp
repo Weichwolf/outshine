@@ -20,52 +20,13 @@
 #include <span>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 namespace outshine::Generators {
 namespace {
 constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
 constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;
 
-}
-
-Box PreparedBuildingAssets::Bounds(const PreparedStructureTile &base) {
-  Box bounds;
-  for (const auto &surface : base.Surfaces) {
-    if (surface.Bounds().Empty()) { continue; }
-    Box world = surface.Bounds();
-    for (size_t axis = 0; axis < 3; ++axis) {
-      world.Min[axis] += base.AnchorEcef[axis];
-      world.Max[axis] += base.AnchorEcef[axis];
-    }
-    bounds.Cover(world.Min);
-    bounds.Cover(world.Max);
-  }
-  for (size_t index = 0; index < base.Structures.size(); ++index) {
-    if (!base.Surfaces[index].Bounds().Empty()) { continue; }
-    const auto &structure = base.Structures[index];
-    const auto &region = structure.Bounds;
-    const double bottom = std::min(structure.Standing.FootM, structure.Standing.BaseM);
-    const double top = structure.Standing.SeatM + structure.Standing.HeightM;
-    Vec3 centre;
-    GeoToEcef({.LongitudeDeg = (region.MinLonDeg + region.MaxLonDeg) * 0.5,
-               .LatitudeDeg = (region.MinLatDeg + region.MaxLatDeg) * 0.5,
-               .HeightM = (bottom + top) * 0.5},
-              centre);
-    constexpr double earthDerivativeBoundM = 6400000.0;
-    const double radius =
-        (earthDerivativeBoundM + std::max(std::abs(bottom), std::abs(top))) *
-            (region.MaxLonDeg - region.MinLonDeg + region.MaxLatDeg - region.MinLatDeg) * kDeg2Rad *
-            0.5 +
-        std::abs(top - bottom) * 0.5;
-    Box enclosure;
-    for (size_t axis = 0; axis < 3; ++axis) {
-      enclosure.Min[axis] = centre[axis] - radius;
-      enclosure.Max[axis] = centre[axis] + radius;
-    }
-    bounds.Cover(enclosure);
-  }
-  if (bounds.Empty()) { bounds.Cover(base.AnchorEcef); }
-  return bounds;
 }
 
 PreparedBuildingAssets::PreparedBuildingAssets(std::unique_ptr<AssetCache> cache,
@@ -80,8 +41,10 @@ PreparedBuildingAssets::Open(const std::string &directory, const Data::SourceSet
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the native building cache"); }
   constexpr std::array kinds{Data::DataKind::Elevation, Data::DataKind::VectorMap};
-  return std::shared_ptr<PreparedBuildingAssets>(new PreparedBuildingAssets(
+  auto assets = std::shared_ptr<PreparedBuildingAssets>(new PreparedBuildingAssets(
       std::move(*cache), AssetSourceRecipe("prepared-building-base-3", sources, kinds)));
+  assets->Self_ = assets;
+  return assets;
 }
 
 std::string PreparedBuildingAssets::Key(Data::TileId tile,
@@ -116,16 +79,29 @@ std::string PreparedBuildingAssets::Key(Data::TileId tile,
 
 std::expected<PreparedBuildingAssets::Base, StructureBakeError>
 PreparedBuildingAssets::Load(const std::string &key) {
-  const std::scoped_lock lock(Lock_);
-  auto loaded = Cache_->Load(key, kPackageBytesMost);
+  auto loaded = [&] {
+    const std::scoped_lock lock(Lock_);
+    return Cache_->Load(key, kPackageBytesMost);
+  }();
   if (!loaded) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
   if (*loaded) {
     const auto bytes = (**loaded).Bytes();
-    auto base = DecodePreparedStructureTile(bytes, kResidentBytesMost);
+    auto base = DecodePreparedStructureIndex(bytes, kResidentBytesMost);
+    if (!base) {
+      const auto original = DecodePreparedStructureTile(bytes, kResidentBytesMost);
+      if (original) {
+        const auto stored = StoreBase(key, *original);
+        if (!stored) { return std::unexpected(stored.error()); }
+        base = DecodePreparedStructureIndex(*stored, kResidentBytesMost);
+        if (!base) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
+      }
+    }
     if (base) {
       ++Hits_;
       ReadBytes_ += bytes.size();
-      return std::make_shared<const PreparedStructureTile>(std::move(*base));
+      auto shared = std::make_shared<PreparedStructureTile>(std::move(*base));
+      BindSurfaces(key, shared);
+      return shared;
     }
   }
   ++Misses_;
@@ -142,13 +118,25 @@ PreparedBuildingAssets::Generate(const std::string &key,
   if (stopping.load(std::memory_order_relaxed)) {
     return std::unexpected(StructureBakeErrorKind::Cancelled);
   }
-  auto encoded = EncodePreparedStructureTile(*base);
+  const auto stored = StoreBase(key, *base);
+  if (!stored) { return std::unexpected(stored.error()); }
+  return Load(key);
+}
+
+std::expected<std::vector<uint8_t>, StructureBakeError>
+PreparedBuildingAssets::StoreBase(const std::string &key, const PreparedStructureTile &base) {
+  const auto surfaces = StoreSurfaces(key, base);
+  if (!surfaces) { return std::unexpected(surfaces.error()); }
+  auto encoded = EncodePreparedStructureIndex(base);
   if (!encoded || encoded->size() > kPackageBytesMost) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
+  if (!DecodePreparedStructureIndex(*encoded, kResidentBytesMost)) {
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
   }
   const AssetRecord record{.Key = key,
                            .Kind = "buildings",
-                           .Bounds = Bounds(*base),
+                           .Bounds = Bounds(base),
                            .Package = {},
                            .ByteCount = encoded->size(),
                            .Parent = {}};
@@ -158,7 +146,7 @@ PreparedBuildingAssets::Generate(const std::string &key,
     if (!stored) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
     ++Writes_;
   }
-  return Load(key);
+  return std::move(*encoded);
 }
 
 PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept {
@@ -169,6 +157,10 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
           .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
           .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
           .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),
-          .GeometryReadBytes = GeometryReadBytes_.load(std::memory_order_relaxed)};
+          .GeometryReadBytes = GeometryReadBytes_.load(std::memory_order_relaxed),
+          .SurfaceHits = SurfaceCosts_.Hits.load(std::memory_order_relaxed),
+          .SurfaceMisses = SurfaceCosts_.Misses.load(std::memory_order_relaxed),
+          .SurfaceWrites = SurfaceCosts_.Writes.load(std::memory_order_relaxed),
+          .SurfaceReadBytes = SurfaceCosts_.ReadBytes.load(std::memory_order_relaxed)};
 }
 }

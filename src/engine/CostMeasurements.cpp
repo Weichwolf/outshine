@@ -47,6 +47,15 @@ void PublishPreparedGeometryCosts(Core::DiagnosticLedger &published,
       "cost.assets.building_lod.writes", static_cast<double>(costs.GeometryWrites), "packages");
   published.RecordMetric(
       "cost.assets.building_lod.read_bytes", static_cast<double>(costs.GeometryReadBytes), "bytes");
+  published.RecordMetric(
+      "cost.assets.building_forms.hits", static_cast<double>(costs.SurfaceHits), "reads");
+  published.RecordMetric(
+      "cost.assets.building_forms.misses", static_cast<double>(costs.SurfaceMisses), "reads");
+  published.RecordMetric(
+      "cost.assets.building_forms.writes", static_cast<double>(costs.SurfaceWrites), "packages");
+  published.RecordMetric("cost.assets.building_forms.read_bytes",
+                         static_cast<double>(costs.SurfaceReadBytes),
+                         "bytes");
 }
 
 void PublishPrototypeCosts(Core::DiagnosticLedger &published,

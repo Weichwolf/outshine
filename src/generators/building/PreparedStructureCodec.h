@@ -12,5 +12,16 @@ EncodePreparedStructureTile(const PreparedStructureTile &tile);
 [[nodiscard]] std::optional<PreparedStructureTile>
 DecodePreparedStructureTile(std::span<const uint8_t> bytes, size_t residentBytesMost);
 
+[[nodiscard]] std::expected<std::vector<uint8_t>, StructureArtifactError>
+EncodePreparedStructureIndex(const PreparedStructureTile &tile);
+[[nodiscard]] std::optional<PreparedStructureTile>
+DecodePreparedStructureIndex(std::span<const uint8_t> bytes, size_t residentBytesMost);
+[[nodiscard]] std::expected<std::vector<uint8_t>, StructureArtifactError>
+EncodeBuildingSurfaceBlock(std::span<const BuildingSurface *const> surfaces);
+[[nodiscard]] std::optional<std::vector<BuildingSurface>>
+DecodeBuildingSurfaceBlock(std::span<const uint8_t> bytes, size_t residentBytesMost);
+[[nodiscard]] bool CompatiblePreparedSurface(const BuildingSurface &header,
+                                             const BuildingSurface &model) noexcept;
+
 }
 #endif

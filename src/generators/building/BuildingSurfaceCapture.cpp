@@ -116,14 +116,37 @@ std::vector<Region> OccupiedRegions(std::span<const BuildingSurface *const> sour
   return regions;
 }
 
-void VisibleFaces(const PlanHierarchy &hierarchy,
-                  std::span<const BuildingSurface *const> sources,
-                  const CubeFace &face,
-                  const Region &region,
-                  const Vec3 &eye,
-                  std::vector<std::vector<uint8_t>> &visible,
-                  std::vector<std::vector<BuildingSurfacePatch>> &captured,
-                  std::vector<uint8_t> &invalid) {
+std::optional<double> TraceSource(const BuildingSurface &surface,
+                                  uint32_t source,
+                                  const Vec3 &eye,
+                                  const Vec3 &direction,
+                                  double maximum,
+                                  std::vector<double> &cuts,
+                                  uint32_t &nearest,
+                                  BuildingSurface::Hit &nearestHit,
+                                  std::expected<void, StructureMeshError> &status) {
+  if (!surface.SupportsProjection()) { return std::nullopt; }
+  const auto ready = surface.RequireShapes();
+  if (!ready) {
+    status = std::unexpected(ready.error());
+    return std::nullopt;
+  }
+  const auto hit = surface.Trace({.Origin = eye, .Direction = direction}, 0.0, maximum, cuts);
+  if (!hit || Dot(hit->Normal, direction) >= 0.0) { return std::nullopt; }
+  nearestHit = *hit;
+  nearest = source;
+  return hit->Along;
+}
+
+std::expected<void, StructureMeshError>
+VisibleFaces(const PlanHierarchy &hierarchy,
+             std::span<const BuildingSurface *const> sources,
+             const CubeFace &face,
+             const Region &region,
+             const Vec3 &eye,
+             std::vector<std::vector<uint8_t>> &visible,
+             std::vector<std::vector<BuildingSurfacePatch>> &captured,
+             std::vector<uint8_t> &invalid) {
   const auto width = static_cast<uint32_t>(region.Right - region.Left);
   const auto height = static_cast<uint32_t>(region.Bottom - region.Top);
   std::vector<PlaneSurfaceSample> samples(static_cast<size_t>(width) * height);
@@ -133,21 +156,24 @@ void VisibleFaces(const PlanHierarchy &hierarchy,
     for (int x = region.Left; x < region.Right; ++x) {
       uint32_t nearest = kEmptyPixel;
       BuildingSurface::Hit nearestHit;
+      std::expected<void, StructureMeshError> status;
       const Vec3 direction = face.Ray(x + 0.5, y + 0.5);
-      (void)hierarchy.TraceClosest(
-          eye,
-          direction,
-          0.0,
-          std::numeric_limits<double>::infinity(),
-          [&](uint32_t source, double maximum) -> std::optional<double> {
-            if (!sources[source]->SupportsProjection()) { return std::nullopt; }
-            const auto hit =
-                sources[source]->Trace({.Origin = eye, .Direction = direction}, 0.0, maximum, cuts);
-            if (!hit || Dot(hit->Normal, direction) >= 0.0) { return std::nullopt; }
-            nearestHit = *hit;
-            nearest = source;
-            return hit->Along;
-          });
+      (void)hierarchy.TraceClosest(eye,
+                                   direction,
+                                   0.0,
+                                   std::numeric_limits<double>::infinity(),
+                                   [&](uint32_t source, double maximum) -> std::optional<double> {
+                                     return TraceSource(*sources[source],
+                                                        source,
+                                                        eye,
+                                                        direction,
+                                                        maximum,
+                                                        cuts,
+                                                        nearest,
+                                                        nearestHit,
+                                                        status);
+                                   });
+      if (!status) { return std::unexpected(status.error()); }
       if (nearest == kEmptyPixel) { continue; }
       const size_t surface = sources[nearest]->FaceIndex(nearestHit);
       visible[nearest][surface] = 1;
@@ -163,7 +189,7 @@ void VisibleFaces(const PlanHierarchy &hierarchy,
   const auto patches = BuildPlaneSurfacePatches(samples, width, height);
   if (!patches) {
     std::ranges::fill(invalid, uint8_t{1});
-    return;
+    return {};
   }
   for (const auto &patch : *patches) {
     const auto &sample = samples[patch.Sample];
@@ -186,6 +212,32 @@ void VisibleFaces(const PlanHierarchy &hierarchy,
                                           .Gable = (id & 1U) != 0},
                                .Corners = *corners});
   }
+  return {};
+}
+
+std::expected<void, StructureMeshError>
+CaptureFaces(const PlanHierarchy &hierarchy,
+             std::span<const BuildingSurface *const> sources,
+             std::span<const StructurePlan> plans,
+             const Vec3 &eye,
+             int dimension,
+             std::vector<std::vector<uint8_t>> &visible,
+             std::vector<std::vector<BuildingSurfacePatch>> &captured,
+             std::vector<uint8_t> &invalid) {
+  for (size_t axis = 0; axis < 3; ++axis) {
+    for (const double sign : {-1.0, 1.0}) {
+      CubeFace face{.Forward = {}, .Right = {}, .Up = {}, .Size = dimension};
+      face.Forward[axis] = sign;
+      face.Right[(axis + 1) % 3] = 1;
+      face.Up[(axis + 2) % 3] = 1;
+      for (const Region &region : OccupiedRegions(sources, plans, face, eye)) {
+        const auto selected =
+            VisibleFaces(hierarchy, sources, face, region, eye, visible, captured, invalid);
+        if (!selected) { return std::unexpected(selected.error()); }
+      }
+    }
+  }
+  return {};
 }
 
 std::expected<void, StructureMeshError>
@@ -269,17 +321,9 @@ CaptureBuildingSurfaces(std::span<const StructurePlan> plans,
   std::vector<std::vector<uint8_t>> visible;
   visible.reserve(sources.size());
   for (const auto &source : sources) { visible.emplace_back(source->FaceCount()); }
-  for (size_t axis = 0; axis < 3; ++axis) {
-    for (const double sign : {-1.0, 1.0}) {
-      CubeFace face{.Forward = {}, .Right = {}, .Up = {}, .Size = dimension};
-      face.Forward[axis] = sign;
-      face.Right[(axis + 1) % 3] = 1;
-      face.Up[(axis + 2) % 3] = 1;
-      for (const Region &region : OccupiedRegions(sources, plans, face, eye)) {
-        VisibleFaces(*hierarchy, sources, face, region, eye, visible, captured, invalid);
-      }
-    }
-  }
+  const auto selected =
+      CaptureFaces(*hierarchy, sources, plans, eye, dimension, visible, captured, invalid);
+  if (!selected) { return std::unexpected(selected.error()); }
   const auto emitted =
       EmitSurfaces(sources, plans, visible, captured, invalid, scratch, output.Mesh);
   if (!emitted) { return std::unexpected(emitted.error()); }

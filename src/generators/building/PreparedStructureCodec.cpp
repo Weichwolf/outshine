@@ -1,6 +1,9 @@
 #include "PreparedStructureCodec.h"
 #include "math/Units.h"
 #include "StructureBinary.h"
+#include "PreparedStructurePlan.h"
+#include "BuildingMesh.h"
+#include "BuildingScratch.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -19,6 +22,8 @@ using StructureBinary::Reader;
 using StructureBinary::Writer;
 constexpr uint32_t kMagic = 0x31425350;
 constexpr uint32_t kVersion = 3;
+constexpr uint32_t kIndexVersion = 4;
+constexpr uint32_t kBlockMagic = 0x31435342;
 constexpr auto scalar = [](auto &archive, auto &value) { return archive.Number(value); };
 constexpr auto point = [](auto &archive, auto &value) {
   return archive.Number(value.EastM) && archive.Number(value.NorthM);
@@ -113,6 +118,20 @@ constexpr auto heightSource = [](auto &archive, auto &value) {
 constexpr auto heightTile = [](auto &archive, auto &value) {
   return archive.Number(value.Zoom) && archive.Number(value.X) && archive.Number(value.Y);
 };
+constexpr auto indexedHeightTile = [](auto &archive, auto &value) {
+  using Archive = std::remove_reference_t<decltype(archive)>;
+  if constexpr (std::is_same_v<Archive, Writer>) {
+    return archive.Number(value.Zoom) && archive.Number(static_cast<uint32_t>(value.X)) &&
+           archive.Number(static_cast<uint32_t>(value.Y));
+  } else {
+    uint32_t x = 0;
+    uint32_t y = 0;
+    if (!archive.Number(value.Zoom) || !archive.Number(x) || !archive.Number(y)) { return false; }
+    value.X = static_cast<long>(x);
+    value.Y = static_cast<long>(y);
+  }
+  return true;
+};
 
 constexpr auto layout = [](auto &archive, auto &value) {
   return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
@@ -153,6 +172,9 @@ class PreparedStructureCodec {
 public:
   template <typename Archive, typename Surface>
   static bool SurfaceFields(Archive &archive, Surface &value) {
+    if constexpr (std::is_same_v<Archive, Writer>) {
+      if (value.Block_) { return SurfaceFields(archive, value.Resident()); }
+    }
     using SupportFlag = std::conditional_t<std::is_same_v<Archive, Writer>, const bool, bool>;
     SupportFlag supported = !value.Shapes_.empty();
     if (!archive.Number(supported)) { return false; }
@@ -164,7 +186,8 @@ public:
            archive.List(value.Shapes_, shape) && archive.List(value.FaceOffsets_, scalar);
   }
 
-  template <typename Archive, typename Tile> static bool TileFields(Archive &archive, Tile &value) {
+  template <typename Archive, typename Tile, typename Visit>
+  static bool MetadataFields(Archive &archive, Tile &value, Visit visitHeightTile) {
     return vector(archive, value.AnchorEcef) && archive.Number(value.TileSpanM) &&
            archive.Number(value.Extent) && archive.Number(value.FallbackHeights) &&
            archive.Number(value.SkippedRings) && archive.Number(value.NoGround) &&
@@ -172,14 +195,81 @@ public:
            archive.Number(value.HeightRasterDigest) && archive.Number(value.HeightQualified) &&
            archive.Number(value.HeightRequest.Zoom) &&
            archive.Number(value.HeightRequest.Fallback) &&
-           archive.List(value.HeightRequest.Tiles, heightTile) &&
+           archive.List(value.HeightRequest.Tiles, visitHeightTile) &&
            archive.List(value.PointsLatLon, scalar) && archive.List(value.Holes, ring) &&
-           archive.List(value.CornerAslM, scalar) && archive.List(value.Structures, prepared) &&
+           archive.List(value.CornerAslM, scalar) && archive.List(value.Structures, prepared);
+  }
+
+  template <typename Archive, typename Tile> static bool TileFields(Archive &archive, Tile &value) {
+    return MetadataFields(archive, value, heightTile) &&
            archive.List(value.Surfaces,
                         [](auto &held, auto &surface) { return SurfaceFields(held, surface); });
   }
 
+  template <typename Archive, typename Surface>
+  static bool
+  SummaryFields(Archive &archive, Surface &value, BuildingSurface::Selection &selection) {
+    using SupportFlag = std::conditional_t<std::is_same_v<Archive, Writer>, const bool, bool>;
+    SupportFlag supported = selection.Faces != 0;
+    if (!archive.Number(supported)) { return false; }
+    if (!supported) { return true; }
+    const auto box = [](auto &held, auto &extent) {
+      return vector(held, extent.Min) && vector(held, extent.Max);
+    };
+    return vector(archive, value.Origin_) && vector(archive, value.Axes_.East) &&
+           vector(archive, value.Axes_.North) && vector(archive, value.Axes_.Up) &&
+           box(archive, value.Bounds_) && archive.Number(value.MinimumHeightM_) &&
+           archive.Maybe(value.WallColour_, vector) && archive.Maybe(selection.Envelope, box) &&
+           archive.Maybe(selection.ShellErrorM, scalar) && archive.Number(selection.Faces) &&
+           archive.Number(selection.Projectable);
+  }
+
+  static bool IndexFields(Writer &archive, const PreparedStructureTile &value) {
+    if (!MetadataFields(archive, value, indexedHeightTile) ||
+        !archive.Number(uint64_t{value.Surfaces.size()})) {
+      return false;
+    }
+    const BuildingMesh mesher;
+    BuildingScratch scratch;
+    for (size_t index = 0; index < value.Surfaces.size(); ++index) {
+      const auto &surface = value.Surfaces[index];
+      auto plan = PreparedStructurePlan(value.Structures[index],
+                                        value.PointsLatLon,
+                                        value.Holes,
+                                        std::span(value.CornerAslM)
+                                            .subspan(value.Structures[index].CornerFirst,
+                                                     value.Structures[index].Layout.PointCount),
+                                        value.AnchorEcef);
+      plan.Prepared = &surface;
+      if (surface.FaceCount() > UINT32_MAX) { return false; }
+      BuildingSurface::Selection selection{.Envelope = mesher.SourceEnvelopeBounds(plan, scratch),
+                                           .ShellErrorM = mesher.ShellSurfaceErrorM(plan, scratch),
+                                           .Faces = static_cast<uint32_t>(surface.FaceCount()),
+                                           .Projectable = surface.SupportsProjection()};
+      if (!SummaryFields(archive, surface, selection)) { return false; }
+    }
+    return true;
+  }
+
+  static bool IndexFields(Reader &archive, PreparedStructureTile &value) {
+    return MetadataFields(archive, value, indexedHeightTile) &&
+           archive.List(value.Surfaces, [](auto &held, auto &surface) {
+             BuildingSurface::Selection selection;
+             if (!SummaryFields(held, surface, selection)) { return false; }
+             if (selection.Faces > held.AllocationLeft) { return false; }
+             held.AllocationLeft -= selection.Faces;
+             if (selection.Faces != 0) { surface.Selection_ = selection; }
+             return true;
+           });
+  }
+
   static bool ValidSurface(const BuildingSurface &value) {
+    if (value.Selection_) {
+      const auto &selection = *value.Selection_;
+      return !value.Bounds_.Empty() && selection.Faces >= 5 &&
+             (!selection.Envelope || !selection.Envelope->Empty()) &&
+             (!selection.ShellErrorM || *selection.ShellErrorM >= 0);
+    }
     if (value.Shapes_.empty()) { return value.Bounds_.Empty() && value.FaceOffsets_.empty(); }
     if (value.Bounds_.Empty() || value.FaceOffsets_.size() != value.Shapes_.size() + 1 ||
         value.FaceOffsets_[0] != 0) {
@@ -204,14 +294,7 @@ public:
     return true;
   }
 
-  static bool Valid(const PreparedStructureTile &value) {
-    if (value.NoGround != 0 || value.SkippedRings != 0 || value.FallbackHeights ||
-        value.Extent <= 0 || value.TileSpanM < 0 || value.PointsLatLon.size() % 2 != 0 ||
-        value.Surfaces.size() != value.Structures.size() ||
-        (value.Origin.Provenance && value.Origin.Provenance->Cell &&
-         !value.Origin.Provenance->Cell->Valid())) {
-      return false;
-    }
+  static bool ValidHeightSources(const PreparedStructureTile &value) {
     const auto validTile = [](int zoom, auto x, auto y) {
       return zoom >= 0 && zoom <= Data::TileId::MaximumZoom && std::cmp_greater_equal(x, 0) &&
              std::cmp_greater_equal(y, 0) &&
@@ -222,22 +305,33 @@ public:
         (value.HeightQualified && (value.HeightSources.empty() || value.HeightRequest.Fallback))) {
       return false;
     }
-    for (const auto &tile : value.HeightRequest.Tiles) {
-      if (!validTile(tile.Zoom, tile.X, tile.Y)) { return false; }
+    if (!std::ranges::all_of(value.HeightRequest.Tiles, [&](const auto &tile) {
+          return validTile(tile.Zoom, tile.X, tile.Y);
+        })) {
+      return false;
     }
-    for (const auto &source : value.HeightSources) {
-      if (source.From < Data::TileSourceIdentity::Origin::Provider ||
-          source.From > Data::TileSourceIdentity::Origin::Shaped ||
-          source.Kind != Data::DataKind::Elevation ||
-          !validTile(source.Tile.Zoom, source.Tile.X, source.Tile.Y) ||
-          (source.NativeCell &&
-           (source.NativeCell->SouthDeg < -static_cast<int>((kDegPerHalfTurn / 2)) ||
-            source.NativeCell->SouthDeg >= static_cast<int>((kDegPerHalfTurn / 2)) ||
-            source.NativeCell->WestDeg < -static_cast<int>(kDegPerHalfTurn) ||
-            source.NativeCell->WestDeg >= static_cast<int>(kDegPerHalfTurn)))) {
-        return false;
-      }
+    return std::ranges::all_of(value.HeightSources, [&](const auto &source) {
+      return source.From >= Data::TileSourceIdentity::Origin::Provider &&
+             source.From <= Data::TileSourceIdentity::Origin::Shaped &&
+             source.Kind == Data::DataKind::Elevation &&
+             validTile(source.Tile.Zoom, source.Tile.X, source.Tile.Y) &&
+             (!source.NativeCell ||
+              (source.NativeCell->SouthDeg >= -static_cast<int>(kDegPerHalfTurn / 2) &&
+               source.NativeCell->SouthDeg < static_cast<int>(kDegPerHalfTurn / 2) &&
+               source.NativeCell->WestDeg >= -static_cast<int>(kDegPerHalfTurn) &&
+               source.NativeCell->WestDeg < static_cast<int>(kDegPerHalfTurn)));
+    });
+  }
+
+  static bool Valid(const PreparedStructureTile &value) {
+    if (value.NoGround != 0 || value.SkippedRings != 0 || value.FallbackHeights ||
+        value.Extent <= 0 || value.TileSpanM < 0 || value.PointsLatLon.size() % 2 != 0 ||
+        value.Surfaces.size() != value.Structures.size() ||
+        (value.Origin.Provenance && value.Origin.Provenance->Cell &&
+         !value.Origin.Provenance->Cell->Valid())) {
+      return false;
     }
+    if (!ValidHeightSources(value)) { return false; }
     const auto points = value.PointsLatLon.size() / 2;
     for (const auto &hole : value.Holes) {
       if (hole.First > points || hole.Count > points - hole.First || hole.Count < 3) {
@@ -265,6 +359,11 @@ public:
 
 std::expected<std::vector<uint8_t>, StructureArtifactError>
 EncodePreparedStructureTile(const PreparedStructureTile &tile) {
+  for (const auto &surface : tile.Surfaces) {
+    if (!surface.RequireShapes()) {
+      return std::unexpected(StructureArtifactError::InvalidProduct);
+    }
+  }
   if (!PreparedStructureCodec::Valid(tile)) {
     return std::unexpected(StructureArtifactError::InvalidProduct);
   }
@@ -290,5 +389,95 @@ std::optional<PreparedStructureTile> DecodePreparedStructureTile(std::span<const
     return std::nullopt;
   }
   return tile;
+}
+
+std::expected<std::vector<uint8_t>, StructureArtifactError>
+EncodePreparedStructureIndex(const PreparedStructureTile &tile) {
+  if (!PreparedStructureCodec::Valid(tile)) {
+    return std::unexpected(StructureArtifactError::InvalidProduct);
+  }
+  Writer output;
+  if (!output.Number(kMagic) || !output.Number(kIndexVersion) ||
+      !PreparedStructureCodec::IndexFields(output, tile)) {
+    return std::unexpected(output.Failure);
+  }
+  return std::move(output.Bytes);
+}
+
+std::optional<PreparedStructureTile> DecodePreparedStructureIndex(std::span<const uint8_t> bytes,
+                                                                  size_t residentBytesMost) {
+  if (bytes.size() > kStructureArtifactBytesMost) { return std::nullopt; }
+  Reader input(bytes);
+  input.AllocationLeft = residentBytesMost;
+  uint32_t magic = 0;
+  uint32_t version = 0;
+  PreparedStructureTile tile;
+  if (!input.Number(magic) || magic != kMagic || !input.Number(version) ||
+      version != kIndexVersion || !PreparedStructureCodec::IndexFields(input, tile) ||
+      input.Remaining != 0 || !PreparedStructureCodec::Valid(tile)) {
+    return std::nullopt;
+  }
+  return tile;
+}
+
+std::expected<std::vector<uint8_t>, StructureArtifactError>
+EncodeBuildingSurfaceBlock(std::span<const BuildingSurface *const> surfaces) {
+  Writer output;
+  if (!output.Number(kBlockMagic) || !output.Number(uint64_t{surfaces.size()})) {
+    return std::unexpected(output.Failure);
+  }
+  for (const auto *surface : surfaces) {
+    if (surface == nullptr || !surface->RequireShapes() ||
+        !PreparedStructureCodec::ValidSurface(*surface) ||
+        !PreparedStructureCodec::SurfaceFields(output, *surface)) {
+      return std::unexpected(StructureArtifactError::InvalidProduct);
+    }
+  }
+  return std::move(output.Bytes);
+}
+
+std::optional<std::vector<BuildingSurface>>
+DecodeBuildingSurfaceBlock(std::span<const uint8_t> bytes, size_t residentBytesMost) {
+  if (bytes.size() > kStructureArtifactBytesMost) { return std::nullopt; }
+  Reader input(bytes);
+  input.AllocationLeft = residentBytesMost;
+  uint32_t magic = 0;
+  std::vector<BuildingSurface> surfaces;
+  if (!input.Number(magic) || magic != kBlockMagic ||
+      !input.List(surfaces,
+                  [](auto &held, auto &surface) {
+                    return PreparedStructureCodec::SurfaceFields(held, surface) &&
+                           PreparedStructureCodec::ValidSurface(surface);
+                  }) ||
+      input.Remaining != 0) {
+    return std::nullopt;
+  }
+  return surfaces;
+}
+
+bool CompatiblePreparedSurface(const BuildingSurface &header,
+                               const BuildingSurface &model) noexcept {
+  if (header.MinimumHeightM_ != model.MinimumHeightM_ ||
+      header.WallColour_.has_value() != model.WallColour_.has_value()) {
+    return false;
+  }
+  if (header.FaceCount() != model.FaceCount() ||
+      header.SupportsProjection() != model.SupportsProjection()) {
+    return false;
+  }
+  for (size_t axis = 0; axis < 3; ++axis) {
+    if (header.WallColour_ && (*header.WallColour_)[axis] != (*model.WallColour_)[axis]) {
+      return false;
+    }
+    if (header.Origin()[axis] != model.Origin()[axis] ||
+        header.Axes().East[axis] != model.Axes().East[axis] ||
+        header.Axes().North[axis] != model.Axes().North[axis] ||
+        header.Axes().Up[axis] != model.Axes().Up[axis] ||
+        header.Bounds().Min[axis] != model.Bounds().Min[axis] ||
+        header.Bounds().Max[axis] != model.Bounds().Max[axis]) {
+      return false;
+    }
+  }
+  return true;
 }
 }

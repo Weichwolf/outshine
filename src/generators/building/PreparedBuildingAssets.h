@@ -23,6 +23,7 @@ public:
   struct Counters {
     uint64_t Hits = 0, Misses = 0, Writes = 0, ReadBytes = 0;
     uint64_t GeometryHits = 0, GeometryMisses = 0, GeometryWrites = 0, GeometryReadBytes = 0;
+    uint64_t SurfaceHits = 0, SurfaceMisses = 0, SurfaceWrites = 0, SurfaceReadBytes = 0;
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedBuildingAssets>, std::string>
@@ -48,11 +49,34 @@ public:
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
+  struct SurfaceCosts {
+    std::atomic_uint64_t Hits{0}, Misses{0}, Writes{0}, ReadBytes{0};
+  };
+
   PreparedBuildingAssets(std::unique_ptr<AssetCache> cache, std::string recipe);
+  [[nodiscard]] std::expected<std::vector<uint8_t>, StructureBakeError>
+  StoreBase(const std::string &key, const PreparedStructureTile &base);
   [[nodiscard]] static Box Bounds(const PreparedStructureTile &base);
+  [[nodiscard]] static Box StructureBounds(const PreparedStructureTile &base, size_t index);
+  [[nodiscard]] static std::string SurfaceKey(const std::string &baseKey, uint32_t cell);
+  [[nodiscard]] std::expected<void, StructureBakeError>
+  StoreSurfaces(const std::string &key, const PreparedStructureTile &base);
+  void BindSurfaces(const std::string &key, const std::shared_ptr<PreparedStructureTile> &base);
+  [[nodiscard]] std::expected<std::vector<BuildingSurface>, StructureMeshError>
+  LoadSurfaces(const std::string &key,
+               uint32_t cell,
+               const PreparedStructureTile &base,
+               std::span<const uint32_t> indices);
+  [[nodiscard]] std::expected<void, StructureBakeError>
+  StoreSurfaceCell(const std::string &key,
+                   uint32_t cell,
+                   const Box &bounds,
+                   std::span<const BuildingSurface *const> surfaces);
   std::unique_ptr<AssetCache> Cache_;
   std::string Recipe_;
   std::mutex Lock_;
+  std::weak_ptr<PreparedBuildingAssets> Self_;
+  SurfaceCosts SurfaceCosts_;
   std::atomic_uint64_t Hits_{0}, Misses_{0}, Writes_{0}, ReadBytes_{0};
   std::atomic_uint64_t GeometryHits_{0}, GeometryMisses_{0}, GeometryWrites_{0},
       GeometryReadBytes_{0};

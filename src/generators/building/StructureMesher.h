@@ -113,7 +113,8 @@ enum class StructureMeshError {
   IncompatibleScratch,
   AllocationFailed,
   BuildFailed,
-  UnsupportedFootprint
+  UnsupportedFootprint,
+  PreparedSurfaceUnavailable
 };
 
 struct ProjectedStructureMesh {
@@ -129,6 +130,8 @@ struct ProjectedStructureMesh {
     case StructureMeshError::BuildFailed: return "structure mesh construction failed";
     case StructureMeshError::UnsupportedFootprint:
       return "footprint cannot form a supported building mass";
+    case StructureMeshError::PreparedSurfaceUnavailable:
+      return "prepared building surface could not be loaded";
   }
   return "unknown structure mesh error";
 }

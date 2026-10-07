@@ -88,7 +88,11 @@ bool ValidPlanParameters(const StructurePlan &plan) {
 
 std::expected<std::span<const BuildingShape>, StructureMeshError>
 ShapesFor(const StructurePlan &plan, BuildingScratch &scratch) {
-  if (plan.Prepared != nullptr) { return plan.Prepared->Shapes(); }
+  if (plan.Prepared != nullptr) {
+    const auto ready = plan.Prepared->RequireShapes();
+    if (!ready) { return std::unexpected(ready.error()); }
+    return plan.Prepared->Shapes();
+  }
   const auto shapes = PrepareBuildingShapes(plan, scratch);
   if (!shapes) { return std::unexpected(shapes.error()); }
   return std::span<const BuildingShape>(*shapes);
@@ -748,6 +752,10 @@ std::optional<Box> BuildingMesh::SourceEnvelopeBounds(const StructurePlan &plan,
   }
   auto *scratch = dynamic_cast<BuildingScratch *>(&lent);
   if (scratch == nullptr) { return std::nullopt; }
+  if (const auto *selection =
+          plan.Prepared != nullptr ? plan.Prepared->PreparedSelection(plan) : nullptr) {
+    return selection->Envelope;
+  }
   const auto parts = ShapesFor(plan, *scratch);
   if (!parts || parts->empty()) { return std::nullopt; }
   Raised unused;
@@ -793,6 +801,10 @@ std::optional<double> BuildingMesh::ShellSurfaceErrorM(const StructurePlan &plan
   }
   auto *scratch = dynamic_cast<BuildingScratch *>(&lent);
   if (scratch == nullptr) { return std::nullopt; }
+  if (const auto *selection =
+          plan.Prepared != nullptr ? plan.Prepared->PreparedSelection(plan) : nullptr) {
+    return selection->ShellErrorM;
+  }
   const auto parts = ShapesFor(plan, *scratch);
   if (!parts || parts->empty()) { return std::nullopt; }
   Raised unused;
@@ -909,10 +921,13 @@ bool WallFace(const BuildingShape &shape,
 std::expected<void, StructureMeshError> BuildingSurface::MeshVisible(std::span<const Face> faces,
                                                                      BuildingScratch &scratch,
                                                                      Raised &into) const {
+  if (faces.empty()) { return {}; }
+  const auto ready = RequireShapes();
+  if (!ready) { return std::unexpected(ready.error()); }
   const size_t first = into.WallCorners.size();
   Site site(Origin_, Axes_, MinimumHeightM_, scratch, into);
   for (const auto &face : faces) {
-    const auto &shape = Shapes_[face.Part];
+    const auto &shape = Resident().Shapes_[face.Part];
     const RoofSurface roof(shape);
     const double bottom = site.LowerZ(shape);
     const double deck = EavesZ(shape) + (shape.Roof == RoofKind::Flat ? shape.RiseM : 0.0);

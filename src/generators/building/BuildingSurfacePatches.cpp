@@ -14,7 +14,7 @@ size_t BuildingSurface::EstimatedTriangles(std::span<const Face> faces) const no
       count += 2;
       continue;
     }
-    const auto &shape = Shapes_[face.Part];
+    const auto &shape = Resident().Shapes_[face.Part];
     size_t corners = shape.Ring.size();
     for (const auto &hole : shape.Holes) { corners += hole.size() + 2; }
     count += corners > 2 ? corners - 2 : 0;

@@ -10,14 +10,23 @@
 #include <array>
 #include <expected>
 #include <optional>
+#include <memory>
 #include <vector>
 
 namespace outshine::Generators {
 
 struct BuildingSurfacePatch;
+class BuildingSurfaceBlock;
 
 class BuildingSurface {
 public:
+  struct Selection {
+    std::optional<Box> Envelope;
+    std::optional<double> ShellErrorM;
+    uint32_t Faces = 0;
+    bool Projectable = false;
+  };
+
   struct Ray {
     Vec3 Origin, Direction;
   };
@@ -41,14 +50,25 @@ public:
 
   [[nodiscard]] const EnuAxes &Axes() const noexcept { return Axes_; }
 
-  [[nodiscard]] std::span<const BuildingShape> Shapes() const noexcept { return Shapes_; }
+  [[nodiscard]] std::span<const BuildingShape> Shapes() const noexcept;
+  [[nodiscard]] std::expected<void, StructureMeshError> RequireShapes() const;
+
+  [[nodiscard]] const std::optional<Selection> &PreparedSelection() const noexcept {
+    return Selection_;
+  }
+
+  [[nodiscard]] const Selection *PreparedSelection(const StructurePlan &plan) const noexcept {
+    return Selection_ && plan.MinimumHeightM == MinimumHeightM_ ? &*Selection_ : nullptr;
+  }
+
+  void BindShapes(std::shared_ptr<BuildingSurfaceBlock> block, uint32_t index);
 
   [[nodiscard]] const Box &Bounds() const noexcept { return Bounds_; }
 
-  [[nodiscard]] size_t FaceCount() const noexcept { return FaceOffsets_.back(); }
+  [[nodiscard]] size_t FaceCount() const noexcept;
 
   [[nodiscard]] size_t FaceIndex(const Hit &hit) const noexcept {
-    return FaceOffsets_[hit.Part] + hit.Face;
+    return Resident().FaceOffsets_[hit.Part] + hit.Face;
   }
 
   [[nodiscard]] Face FaceAt(size_t index) const noexcept;
@@ -71,6 +91,9 @@ public:
 
 private:
   friend class PreparedStructureCodec;
+  friend bool CompatiblePreparedSurface(const BuildingSurface &header,
+                                        const BuildingSurface &model) noexcept;
+  [[nodiscard]] const BuildingSurface &Resident() const noexcept;
   Vec3 Origin_;
   EnuAxes Axes_;
   Box Bounds_;
@@ -78,6 +101,9 @@ private:
   std::optional<Vec3f> WallColour_;
   std::vector<BuildingShape> Shapes_;
   std::vector<size_t> FaceOffsets_;
+  std::optional<Selection> Selection_;
+  std::shared_ptr<BuildingSurfaceBlock> Block_;
+  uint32_t BlockIndex_ = 0;
 };
 
 struct BuildingSurfacePatch {
