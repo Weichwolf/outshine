@@ -30,26 +30,26 @@ Native Terrainprodukte speichern verformte Höhen/Kontakte in Paketen ≤64 MiB;
 veröffentlichen ihren Verbund erst nach allen Paketen. Laden prüft das Residencybudget des Aufrufers.
 Ein Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und behält
 Job-Eingaben bis zum Workerabschluss. Misses speichern und laden denselben nativen Pfad.
-Frische Offline-Treffer, Producer 0333cacc3e, 720p60; alle zehn Bilder pixelgleich:
+Frische Offline-Treffer, Commit fc8c6be78, Producer 215ee40510, 720p60; zehn Bilder pixelgleich:
 | Place | Laden s | p99 ms | Prozesspeak GiB |
 |---|---:|---:|---:|
-| Wien | 13.92 | 10.14 | 4.13 |
-| CentralPark | 12.23 | 2.60 | 3.69 |
-| Tokyo | 17.00 | 3.97 | 6.16 |
+| Wien | 15.06 | 3.70 | 4.15 |
+| CentralPark | 13.28 | 2.75 | 3.69 |
+| Tokyo | 18.15 | 3.65 | 6.26 |
 Keine Basis-/LOD-/Deformations-Misses/Writes; Prototypen geladen, keine Generierung.
 Die drei Städte lesen weiterhin 1,98/1,81/2,03 GiB Terrain-Zwischenfelder. Kontakte,
 Straßen und Terrain-/Wassermeshes entstehen erneut; späte Treffer umgehen nur die Verformung.
-Prototypen: 31/22/31 Hits, 620/440/620 MiB gelesen; auch das ist zu groß.
-Tokyo kalt: 30,25 s, 31 einmalige Misses/Erzeugungen/Writes; warm kein Erzeugungsjob.
-Peaks sind keine Budgets; Wien/Feldkirch >10 ms, Koerbersee p99 21,37 ms >720p60.
-SSD-Payload zuvor 17,93 GiB: 15,64 GiB (87 %) Zwischenfelder; Residency nicht begründet.
+Prototypen: 31/22/31 Hits, 620/440/620 MiB entpackt. 31 komprimierte Pakete: 620 → 34,8 MiB SSD,
+17,8× kleiner; alte Pakete erhalten. Laden nicht schneller; Ursache nicht per A/B isoliert.
+Wien kalt: 28,30 s, 31 einmalige Misses/Erzeugungen/Writes; warm kein Erzeugungsjob.
+Peaks sind keine Budgets; Koerbersee p99 18,54 ms >720p60. Warm <1 s bleibt offen.
+Hauptcache zuvor 17,93 GiB: 15,64 GiB (87 %) Zwischenfelder; Residency nicht begründet.
 Native Impostorprodukte nutzen AssetCache; prototypes.sqlite hält getrennte Modellbounds.
 Treffer umgehen Baum-/Atlaserzeugung; gleiche Prototypen teilen einen Miss. Ein Engine-Worker
 lädt/decodiert/erzeugt; Warten beobachtet konkrete Jobs statt fremder Fertigmeldungen.
 Leserahmen aus dem Format: 256² × 8 × 40 Byte + maximale Metadaten; keine Atlasverkleinerung.
 Nächste Integration: fertige Terrain-/Straßen-/Wasserprodukte vor Zwischenfeldern laden;
 keine erneute Kontakt-/Straßenformung bei Treffern. Bis zur vollständigen Welt messen; Terrain-/Straßenqualität erhalten.
-Cache/ResolveAsset öffentlich; weitere Generatoren/Produkte, SSD-Budget und Kompaktheit fehlen.
 Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
 
 ## Besitzer und Grenzen
