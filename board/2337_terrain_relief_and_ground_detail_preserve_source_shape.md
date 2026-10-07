@@ -16,8 +16,8 @@ isotropes Value-Noise liefert noch keine glaubwürdige gerichtete Felsstruktur.
 
 ## Besitzer und nächste Lieferung
 Höhenprovider liefert Raster/Datum/NoData; Terrain-Generator finales Kontaktrelief,
-Renderer Material/Filter. Bestehende Höhenfelder genügen. Zuerst Koerbersee mit erhaltener
-Silhouette und See verbessern; 2145 besitzt Pegel/Kontakte, 2171 die gemeinsame Materialantwort.
+Renderer Material/Filter. Bestehende Höhenfelder genügen. Straßenkontakte und weiche
+Verformung besitzt 2281; danach Koerbersee mit erhaltener Silhouette und See verbessern; 2145 besitzt Pegel/Kontakte, 2171 die gemeinsame Materialantwort.
 
 ## Verfahren
 - Neigung/Exposition/Talrichtung aus endgültigem Höhenfeld; stabile Raumframes auch auf

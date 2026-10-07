@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -12,7 +12,9 @@ Tags: roads, bridges, tunnels, topology
 ## Ergebnis und Ist
 Straßen/Wege/Gehwege, Bahn/Tram und Brücken/Tunnel mit richtigen Ebenen und Anschlüssen.
 Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen und
-bleiben erhalten. MVT-Mittelachsen/Ebenen müssen normalisiert, komplexe Anschlüsse ergänzt werden.
+bleiben erhalten. Places verwenden überwiegend polygonale Kontakte aus Corridors;
+Hermite-Kontaktprofile des RoadSurfaceBuilder sind dort noch nicht integriert. Klassenabhängige
+Längsneigung, gemeinsame Höhen und komplexe Anschlüsse müssen im Place-Pfad gesichert werden.
 
 ## Besitzer und nächste Lieferung
 OSM-Adapter besitzt Quellsemantik, world/navigation das logische Netz; generators/road
@@ -37,14 +39,32 @@ Quelle, zusätzlichen Downloads oder Änderung vorhandener Cachebytes erforderli
 Das deckt fehlerhafte Vegetationsstandorte/-größen auf (2111); Bildabnahme bleibt offen.
 Wasserfreiraum stammt bisher aus dem drapierten Gelände und Klassenregeln; tatsächlicher
 Wasserpegel aus 2145 und unbekannte Durchfahrtshöhen benötigen noch einen gemeinsamen Vertrag.
-Nächster Schritt: Wasserpegel und Brückenprofil verbinden; danach Überbau, Auflager und Geländer.
+Straßen-Ausläufe blenden jetzt ohne den bisherigen Sprung zum Quellgelände aus.
+Feldkirchs gebrochene Nahstraßen und Brückenanschlüsse bleiben offen. Nächste Lieferung:
+diese Kontakte korrigieren; danach
+Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Geländer ergänzen.
 
 ## Verfahren
 - Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren. MVT ist
   kein vollständiger Routinggraph: Randsegmente/IDs vereinigen, keine Kreuzung aus bloßer Nähe.
   Fehlende Topologie ausdrücklich behandeln, belegte Ebenen erhalten.
 - Ein Alignment je zusammenhängender Kette; Schultern, Bord/Gehweg und Knoten davon ableiten.
-  Segmentwellen/Nähte an der Ursache beheben, keine zweite Straßenpipeline hinzufügen.
+  Gemeinsame Endpunkte/Höhen/Tangenten über Knoten und Tiles; klassenabhängige Längs- und
+  Querneigung begrenzen. Segmentwellen/Nähte an der Ursache beheben, keine zweite Pipeline.
+- Straßenbett und Terrain aus demselben Kontaktprofil. Übergänge erreichen das ursprüngliche
+  Gelände mit stetiger Höhe und Neigung; Breite aus Höhendifferenz und Böschungsneigung.
+  Quintischer Übergang; `hypot(Mindestbreite, 1,875 × Höhendifferenz / Böschungsneigung)`
+  begrenzt die zusätzliche Steigung auf ebenem Quellboden. Höhendifferenz aus dem geplanten
+  Kontakt (`YieldM`), nicht aus immer weiter entfernten Geländepunkten; Quellneigung separat bewerten.
+  Räumliche Kandidaten umfassen den maximal zulässigen Übergang; äußere Angebote bleiben
+  innerhalb dieses Höhenbereichs. Unzulässige Kontakte vor dem Ausblenden ablehnen;
+  Ausblenden darf die Höhenprüfung nicht verbergen. Überlappende Profilböschungen mischen mit Quellboden,
+  statt beim nächsten Korridor zu springen. Fundamentwirkung bleibt örtlich begrenzt; hohe
+  Geländeunterschiede brauchen passende Gründung/Stützung, keine großräumige Planierung.
+  Auslaufbereiche füllen keine Wasserbecken. Native Terrain-/Region-Rezepte
+  versionieren, Quellcache erhalten. Keine harte Höhenbegrenzung am Auslaufrand.
+  `test/experiments/earthwork_transition.py` vergleicht Übergänge; der unabhängige Kreisbogentest
+  bewertet Höhe/Krümmung gegen integrierte Kreisgeometrie, Segmentierungsgrenze bleibt erhalten.
 - Brücken mit Überbau/Pfeilern/Widerlagern und Anschlussprofil; Tunnel mit Portal/Freiraum.
   Nur tatsächliche Kontakte stempeln Boden. Gemeinsamer Bezug zu Gebäuden und Wasser aus 2145.
 - Markierungen, Geländer, Signale und Beleuchtung aus Klassenparametern; Wiederholungen

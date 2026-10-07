@@ -5,6 +5,7 @@
 #include <cmath>
 #include <optional>
 #include <tuple>
+#include <utility>
 
 namespace outshine::ProfiledCorridor {
 namespace {
@@ -119,34 +120,37 @@ void Accumulate(const ProfiledCorridorSpan &profile,
                 double nearestSquared,
                 Average &average) {
   if (profile.StationLengthM <= 0.0 || apronM <= 0.0) { return; }
-  constexpr std::array samples{0.2113248654051871, 0.7886751345948129};
+  constexpr std::array samples{std::pair{0.0694318442029737, 0.1739274225687269},
+                               std::pair{0.3300094782075719, 0.3260725774312731},
+                               std::pair{0.6699905217924281, 0.3260725774312731},
+                               std::pair{0.9305681557970263, 0.1739274225687269}};
   const double sigma = apronM * (2.0 / 3.0);
   const double denominator = 2.0 * sigma * sigma;
-  for (const double t : samples) {
+  for (const auto &[station, quadratureWeight] : samples) {
     const double east = Hermite({.Begin = profile.BeginM.EastM,
                                  .End = profile.EndM.EastM,
                                  .BeginDerivative = profile.BeginDerivativeM.EastM,
                                  .EndDerivative = profile.EndDerivativeM.EastM},
-                                t)
+                                station)
                             .Value;
     const double north = Hermite({.Begin = profile.BeginM.NorthM,
                                   .End = profile.EndM.NorthM,
                                   .BeginDerivative = profile.BeginDerivativeM.NorthM,
                                   .EndDerivative = profile.EndDerivativeM.NorthM},
-                                 t)
+                                 station)
                              .Value;
     const double bed = Hermite({.Begin = profile.BeginBedM,
                                 .End = profile.EndBedM,
                                 .BeginDerivative = profile.BeginDerivativeM.UpM,
                                 .EndDerivative = profile.EndDerivativeM.UpM},
-                               t)
+                               station)
                            .Value;
     const double distanceSquared =
         (east - at.EastM) * (east - at.EastM) + (north - at.NorthM) * (north - at.NorthM);
     const double supportM = std::max(profile.BeginHalfWidthM, profile.EndHalfWidthM) + apronM;
     const double fade = std::clamp((supportM - std::sqrt(distanceSquared)) / apronM, 0.0, 1.0);
     const double taper = Smoothstep(fade);
-    const double weight = profile.StationLengthM * 0.5 * taper *
+    const double weight = profile.StationLengthM * quadratureWeight * taper *
                           std::exp(-std::max(0.0, distanceSquared - nearestSquared) / denominator);
     average.Weight += weight;
     average.HeightM += weight * bed;

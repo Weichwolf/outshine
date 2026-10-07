@@ -15,7 +15,7 @@
 
 namespace outshine::Generators {
 namespace {
-constexpr uint32_t kDeformationFormat = 0x31445450;
+constexpr uint32_t kDeformationFormat = 0x35445450;
 
 std::expected<std::pair<uint32_t, std::array<uint8_t, 32>>, std::string>
 PageIdentity(std::span<const Sheet> pages) {

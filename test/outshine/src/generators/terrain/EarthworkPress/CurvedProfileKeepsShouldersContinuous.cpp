@@ -27,6 +27,7 @@ outshine::EarthworkStamp Span(double fromM, double toM) {
   stamp.LowN = -6.0;
   stamp.HighN = 18.0;
   stamp.ApronM = 6.0;
+  stamp.YieldM = kBedBeginM + kGrade * kArcLengthM - 99.0;
   stamp.Fills = true;
   stamp.Kind = outshine::EarthworkKind::Corridor;
   stamp.Profile = outshine::ProfiledCorridorSpan{
@@ -64,6 +65,32 @@ std::vector<double> Press(std::span<const outshine::EarthworkStamp> stamps,
   return heights;
 }
 
+double ReferenceHeight(double radialM, double angle) {
+  if (radialM == kRadiusM) { return kBedBeginM + kGrade * kRadiusM * angle; }
+  constexpr int samples = 4096;
+  constexpr double apronM = 6.0;
+  constexpr double halfWidthM = 4.5;
+  constexpr double denominator = 32.0;
+  const double nearestSquared = (radialM - kRadiusM) * (radialM - kRadiusM);
+  double weightedAngle = 0.0;
+  double weights = 0.0;
+  const auto smooth = [](double t) { return t * t * t * (10.0 + t * (-15.0 + 6.0 * t)); };
+  for (int sample = 0; sample < samples; ++sample) {
+    const double stationAngle =
+        (static_cast<double>(sample) + 0.5) * std::numbers::pi / (2.0 * samples);
+    const double squared = radialM * radialM + kRadiusM * kRadiusM -
+                           2.0 * radialM * kRadiusM * std::cos(stationAngle - angle);
+    const double t = std::clamp((halfWidthM + apronM - std::sqrt(squared)) / apronM, 0.0, 1.0);
+    const double weight = smooth(t) * std::exp(-(squared - nearestSquared) / denominator);
+    weightedAngle += stationAngle * weight;
+    weights += weight;
+  }
+  const double bedM = kBedBeginM + kGrade * kRadiusM * weightedAngle / weights;
+  const double widthM =
+      std::hypot(apronM, 1.875 * (kBedBeginM + kGrade * kArcLengthM - 99.0) * 1.5);
+  return std::lerp(bedM, 99.0, smooth((std::abs(radialM - kRadiusM) - halfWidthM) / widthM));
+}
+
 }
 
 int main() {
@@ -82,7 +109,14 @@ int main() {
     double partitionErrorM = 0.0;
     double greatestImpulseM = 0.0;
     double contactErrorM = 0.0;
+    double referenceErrorM = 0.0;
+    double impulseErrorM = 0.0;
+    std::vector<double> reference;
     for (size_t at = 0; at < points.size(); ++at) {
+      reference.push_back(ReferenceHeight(radialM, (static_cast<double>(at) + 5.0) * 0.01));
+    }
+    for (size_t at = 0; at < points.size(); ++at) {
+      referenceErrorM = std::max(referenceErrorM, std::abs(fineHeights[at] - reference[at]));
       partitionErrorM = std::max(partitionErrorM, std::abs(coarseHeights[at] - fineHeights[at]));
       if (radialM == kRadiusM) {
         const double stationM = (static_cast<double>(at) + 5.0) * 0.01 * kRadiusM;
@@ -90,6 +124,10 @@ int main() {
             std::max(contactErrorM, std::abs(fineHeights[at] - (kBedBeginM + kGrade * stationM)));
       }
       if (at > 0 && at + 1 < points.size()) {
+        const double actualImpulse =
+            fineHeights[at + 1] - 2.0 * fineHeights[at] + fineHeights[at - 1];
+        const double referenceImpulse = reference[at + 1] - 2.0 * reference[at] + reference[at - 1];
+        impulseErrorM = std::max(impulseErrorM, std::abs(actualImpulse - referenceImpulse));
         greatestImpulseM =
             std::max(greatestImpulseM,
                      std::abs(fineHeights[at + 1] - 2.0 * fineHeights[at] + fineHeights[at - 1]));
@@ -97,7 +135,9 @@ int main() {
     }
     Note("curved shoulder partition difference", partitionErrorM, "m");
     Note("curved shoulder greatest impulse", greatestImpulseM, "m/0.12m arc");
-    CHECK(partitionErrorM < 0.0001 && greatestImpulseM < 0.0001,
+    Note("curved shoulder analytic reference error", referenceErrorM, "m");
+    Note("curved shoulder analytic impulse error", impulseErrorM, "m/0.12m arc");
+    CHECK(partitionErrorM < 0.0001 && referenceErrorM < 0.0001 && impulseErrorM < 0.00001,
           "both sides of a tight graded bend keep one smooth terrain profile");
     if (radialM == kRadiusM) {
       Note("curved centreline contact error", contactErrorM, "m");
