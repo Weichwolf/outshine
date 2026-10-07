@@ -10,6 +10,8 @@
 #include <chrono>
 #include <optional>
 #include <vector>
+#include <expected>
+#include <string>
 
 #include "Capacity.h"
 #include "TileRanges.h"
@@ -72,6 +74,12 @@ public:
   [[nodiscard]] const std::vector<float> &Levels() const { return Levels_; }
 
   [[nodiscard]] WaterField SnapshotQueries() const;
+
+  [[nodiscard]] std::expected<std::vector<uint8_t>, std::string>
+  EncodeNative(const OsmField &source, size_t bytesMost) const;
+
+  [[nodiscard]] static std::expected<WaterField, std::string>
+  DecodeNative(std::span<const uint8_t> bytes, const OsmField &source);
 
   void Settle() {
     Surfaces_.shrink_to_fit();

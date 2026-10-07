@@ -3,6 +3,7 @@
 #include "ContentStore.h"
 #include "SourceSet.h"
 #include "TilePool.h"
+#include "TerrainLoader.h"
 #include "Check.h"
 #include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
 #include <array>
@@ -10,6 +11,23 @@
 #include <filesystem>
 #include <string>
 #include <system_error>
+
+namespace {
+class NoHeights final : public outshine::GroundQuery {
+public:
+  outshine::GroundSample At(outshine::LongitudeLatitude) const override {
+    return outshine::GroundSample::Waiting();
+  }
+
+  outshine::GroundSample Resident(outshine::LongitudeLatitude at) const override { return At(at); }
+
+  outshine::Ground::GroundBlock BlockAt(outshine::Ground::TileSpot) const override {
+    return outshine::Ground::GroundBlock::Waiting();
+  }
+
+  double PostM(double) const override { return 1; }
+};
+}
 
 int main() {
   using namespace outshine;
@@ -56,15 +74,19 @@ int main() {
                             .Side = 2,
                             .Postings = 2}};
   region.Terrain.Tiles = 1;
-  const auto saved = cache->Store(key, GroundRegionBoundsEcef(region), region);
+  Generators::Osm::WaterField water;
+  NoHeights ground;
+  Ground::VegetationTemplates rules;
+  (void)water.Ingest(ground, vectors, rules);
+  const auto saved = cache->Store(key, GroundRegionBoundsEcef(region), region, vectors, water);
   CHECK(saved, "complete native region is stored under source and demand bindings");
-  const auto hit = cache->Load(key);
+  const auto hit = cache->Load(key, vectors);
   CHECK(hit && *hit && (**hit).Region.Terrain.Sheets == region.Terrain.Sheets,
         "a region hit loads native contact pages without a prepared street graph");
   auto changedShape = shape;
   changedShape.Seed = 9;
   const auto changed = cache->Key(vectors, changedShape, parameters);
-  const auto miss = cache->Load(changed);
+  const auto miss = cache->Load(changed, vectors);
   CHECK(changed != key && miss && !*miss, "changed generation parameters cannot reuse the region");
   const std::array<uint8_t, 3> otherDemand{1, 2, 4};
   CHECK(cache->Key(vectors, shape, otherDemand) != key, "different detail demand remains distinct");

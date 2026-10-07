@@ -224,6 +224,8 @@ bool Engine::State::PrepareRuntimeWorld() {
     return false;
   }
 
+  World.Stack.DeferWaterToRegionLookup();
+
   if (!Session.Declared.Ground.Shape.Kind.empty()) {
     Ground::ShapedGround how;
     how.Kind = Session.Declared.Ground.Shape.Kind;

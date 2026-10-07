@@ -556,11 +556,11 @@ Loading Engine::loading() const {
 }
 
 bool Engine::State::CanBeginGroundCandidate() const {
-  return World.AskedWanted > 0 && World.Stack.IngestedWithin(0);
+  return World.AskedWanted > 0 && World.Stack.InputsReadyWithin(0);
 }
 
 bool Engine::State::CanAdvanceGroundCandidate() const {
-  return World.GroundBuild != nullptr && World.Stack.IngestedWithin(0);
+  return World.GroundBuild != nullptr && World.Stack.InputsReadyWithin(0);
 }
 
 Result Engine::State::FinishesPreload(GroundQuality quality) {

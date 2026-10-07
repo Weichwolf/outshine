@@ -203,6 +203,27 @@ public:
   void Settle();
   [[nodiscard]] bool Drained() const;
   [[nodiscard]] bool Ingested() const;
+  [[nodiscard]] bool InputsReadyWithin(int rings) const;
+  [[nodiscard]] bool InputsReady() const;
+
+  void DeferWaterToRegionLookup() noexcept {
+    if (WaterMode_ == WaterMode::RegionLookup) { return; }
+    WaterMode_ = WaterMode::RegionLookup;
+    if (PreparedRegions_ && WaterStage_ == WaterStage::Requested) {
+      WaterStage_ = WaterStage::Deferred;
+    }
+  }
+
+  void RequestWater() noexcept {
+    if (WaterStage_ == WaterStage::Deferred) { WaterStage_ = WaterStage::Requested; }
+  }
+
+  void RestoreWater(Generators::Osm::WaterField water) {
+    WaterBodies_ = std::move(water);
+    WaterStage_ = WaterStage::Ready;
+    Settled_.reset();
+  }
+
   [[nodiscard]] bool IngestedWithin(int rings) const;
   [[nodiscard]] std::string IngestionStatus() const;
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
@@ -220,6 +241,10 @@ private:
   std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> PreparedBuildings_;
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;
   std::shared_ptr<Generators::Osm::PreparedGroundRegions> PreparedRegions_;
+  enum class WaterStage : uint8_t { Deferred, Requested, Ready };
+  enum class WaterMode : uint8_t { Immediate, RegionLookup };
+  WaterStage WaterStage_ = WaterStage::Requested;
+  WaterMode WaterMode_ = WaterMode::Immediate;
   std::unique_ptr<TilePool> Pool_;
   TilePool::LandingCursor LandingCursor_;
   std::unique_ptr<GroundStream> Ground_;

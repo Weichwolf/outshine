@@ -213,7 +213,7 @@ uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
 }
 
 bool GroundSourcesReady(const Ground::SurfacePreparation &stack, GroundQuality quality) {
-  return quality == GroundQuality::Refined ? stack.Ingested() : stack.IngestedWithin(0);
+  return quality == GroundQuality::Refined ? stack.InputsReady() : stack.InputsReadyWithin(0);
 }
 
 }
@@ -223,6 +223,7 @@ public:
   enum class GeometrySubmission : uint8_t { Classes, ClassRanges, Begin, Cook };
   enum class CorridorCompletion : uint8_t { Build, Retire };
   enum class RegionPhase : uint8_t { Lookup, Loading, Miss, Hit, Storing, Stored, Bypass };
+  enum class WaterPhase : uint8_t { Awaiting, Bound };
 
   struct ResidencyBuild {
     bool SheetsStitched = false;
@@ -284,11 +285,13 @@ public:
   }
 
   [[nodiscard]] bool Matches(const GroundRevision &revision) const noexcept {
-    return Revision_.MatchesCandidate(revision);
+    return RevisionDifference(revision) == 0;
   }
 
   [[nodiscard]] uint32_t RevisionDifference(const GroundRevision &revision) const noexcept {
-    return Revision_.CandidateDifferenceMask(revision);
+    auto inputs = revision;
+    if (WaterPhase_ == WaterPhase::Awaiting) { inputs.WaterTiles = Revision_.WaterTiles; }
+    return Revision_.CandidateDifferenceMask(inputs);
   }
 
   [[nodiscard]] const Around &Coverage() const noexcept { return Coverage_; }
@@ -398,6 +401,14 @@ public:
   }
 
   void PublishesFootprints() noexcept { Revision_.Footprints = Footprints().Revision(); }
+
+  void PublishesWaterInputs(const ::outshine::Generators::Osm::WaterField &water) {
+    Revision_.WaterTiles = water.IngestedTiles();
+    Candidate_.RestoreWater(water.SnapshotQueries());
+    WaterPhase_ = WaterPhase::Bound;
+  }
+
+  [[nodiscard]] bool HasWaterInputs() const noexcept { return WaterPhase_ == WaterPhase::Bound; }
 
   [[nodiscard]] Patchwork *Laid() noexcept { return Patchwork_ ? &*Patchwork_ : nullptr; }
 
@@ -697,6 +708,7 @@ private:
   std::unique_ptr<GroundRegionPreparation> RegionWorker_;
   std::string RegionKey_;
   RegionPhase RegionPhase_ = RegionPhase::Lookup;
+  WaterPhase WaterPhase_ = WaterPhase::Awaiting;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
   std::unique_ptr<HeightSheets::HaloBuildJob> HaloJob_;
   std::vector<EarthworkStamp> Corridors_;
@@ -2044,7 +2056,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginGroundRegionLookup(Ground
         auto key = assets->Key(*vectors, shape, *native);
         if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
         if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
-        auto loaded = assets->Load(key);
+        auto loaded = assets->Load(key, *vectors);
         if (!loaded) { return std::unexpected(std::move(loaded.error())); }
         return GroundRegionPreparation::Completed{.Key = std::move(key),
                                                   .Loaded = std::move(*loaded)};
@@ -2077,9 +2089,25 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
     Error = "ground region cannot replace the current candidate stage";
     return GroundBuildProgress::Failed;
   }
+  if (hit && result.Loaded) {
+    World.Stack.RestoreWater(std::move(result.Loaded->Water));
+    state.PublishesWaterInputs(World.Stack.WaterBodies());
+  }
   auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
   if (hit) { phase = Phase::Hit; }
   state.FinishRegion(std::move(result.Key), phase);
+  return GroundBuildProgress::Ready;
+}
+
+Engine::State::GroundBuildProgress Engine::State::AdvanceGroundWaterInputs() {
+  GroundBuildState &state = *World.GroundBuild;
+  if (state.HasReadyRegion()) { return GroundBuildProgress::Ready; }
+  World.Stack.RequestWater();
+  const bool ready = state.Revision().Quality == GroundQuality::Refined
+                         ? World.Stack.Ingested()
+                         : World.Stack.IngestedWithin(0);
+  if (!ready) { return GroundBuildProgress::Pending; }
+  if (!state.HasWaterInputs()) { state.PublishesWaterInputs(World.Stack.WaterBodies()); }
   return GroundBuildProgress::Ready;
 }
 
@@ -2328,13 +2356,16 @@ Engine::State::GroundBuildProgress Engine::State::StoreGroundRegion(GroundBuildS
       .GroundAlbedo = state.Candidate().GroundAlbedo(),
       .MissingRims = build.RimsMissing});
   const auto key = state.RegionKey();
+  const auto vectors = state.Candidate().Sources().Vectors;
+  const auto water = std::make_shared<const Generators::Osm::WaterField>(
+      state.Candidate().Sources().WaterBodies.SnapshotQueries());
   state.BeginRegion(
       *World.Pool,
-      [assets, region, key](const std::stop_token &stop)
+      [assets, region, key, vectors, water](const std::stop_token &stop)
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
         if (stop.stop_requested()) { return std::unexpected("ground region publication canceled"); }
         const auto bounds = GroundRegionBoundsEcef(*region);
-        auto loaded = assets->Store(key, bounds, *region);
+        auto loaded = assets->Store(key, bounds, *region, *vectors, *water);
         if (!loaded) { return std::unexpected(std::move(loaded.error())); }
         return GroundRegionPreparation::Completed{.Key = key, .Loaded = std::move(*loaded)};
       },
@@ -2644,6 +2675,8 @@ bool Engine::State::Grounds(bool alsoWhenTilesLanded, GroundQuality quality) {
   const GroundBuildProgress region = AdvanceGroundRegion();
   if (region != GroundBuildProgress::Ready) { return region != GroundBuildProgress::Failed; }
   GroundBuildState &state = *World.GroundBuild;
+  const GroundBuildProgress water = AdvanceGroundWaterInputs();
+  if (water != GroundBuildProgress::Ready) { return water != GroundBuildProgress::Failed; }
   const size_t phase = state.Progress();
   assert(phase < Cost.GroundPhases.size());
   const ScopedCounter phaseTime(Cost.GroundPhases[phase]);

@@ -190,6 +190,8 @@ void SurfacePreparation::Close() {
   PreparedBuildings_.reset();
   PreparedNetwork_.reset();
   PreparedRegions_.reset();
+  WaterStage_ = WaterStage::Requested;
+  WaterMode_ = WaterMode::Immediate;
   LandingCursor_ = {};
   Sources_.reset();
   Store_.reset();
@@ -262,6 +264,8 @@ SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget bud
     Footprints_.ResetDerived();
     Ways_ = ::outshine::Generators::Osm::StreetField{};
     WaterBodies_ = ::outshine::Generators::Osm::WaterField{};
+    WaterStage_ = PreparedRegions_ && WaterMode_ == WaterMode::RegionLookup ? WaterStage::Deferred
+                                                                            : WaterStage::Requested;
   }
   metrics.VectorsMs = ElapsedMs(vectorAt);
   if (!Vectors_->SettledWithin(0)) { return complete(); }
@@ -298,8 +302,11 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
     metrics.IngestionUnits += static_cast<size_t>(Ways_.LookedCount() - looked);
     metrics.StreetsMs += ElapsedMs(streetsAt);
     const auto waterAt = std::chrono::steady_clock::now();
-    (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
-    metrics.IngestionUnits += WaterBodies_.LastIngest().AdvancedUnits;
+    if (WaterStage_ == WaterStage::Requested) {
+      (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
+      metrics.IngestionUnits += WaterBodies_.LastIngest().AdvancedUnits;
+      if (WaterBodies_.Ingested(*Vectors_)) { WaterStage_ = WaterStage::Ready; }
+    }
     metrics.WaterMs += ElapsedMs(waterAt);
     const size_t after =
         Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
@@ -352,6 +359,17 @@ bool SurfacePreparation::IngestedWithin(int rings) const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
          Ways_.IngestedWithin(*Vectors_, rings) && WaterBodies_.IngestedWithin(*Vectors_, rings);
+}
+
+bool SurfacePreparation::InputsReadyWithin(int rings) const {
+  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
+         Ways_.IngestedWithin(*Vectors_, rings);
+}
+
+bool SurfacePreparation::InputsReady() const {
+  if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
+  return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Ways_.Ingested(*Vectors_);
 }
 
 std::string SurfacePreparation::IngestionStatus() const {

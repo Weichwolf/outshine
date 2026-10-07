@@ -18,40 +18,38 @@ Höhenfelder, Gebäuderohlinge/LOD-Produkte und Impostoren. Pakete komprimiert Z
 alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Gerätehandles persistieren.
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
 Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh-Jobs.
-Coverage beobachtet nur; native publizierte Produkte bestimmen Ready. Zwischenfelder bleiben.
-Regionschlüssel benötigen Quell-Digests,
-Formparameter, Detailauftrag und Regeln; kein kopiertes/serialisiertes abgeleitetes Straßennetz.
+Pegel, Konturen und Flussprofile kommen bei Hits aus demselben Regionspaket; keine Wasser-Höhenabfragen.
+Coverage beobachtet nur; native Produkte bestimmen Ready. Erste Quellenbereitschaft verlangt keinen äußeren Ring.
+Regionschlüssel binden Quell-Digests, Formparameter, Detailauftrag und Regeln; kein serialisiertes Straßennetz.
 Exakte Kamera-Schlüssel und ganze Regionen ersetzen keine räumliche Eltern-/Kindhierarchie.
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
-Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer e1ecefe3b42c:
-| Place | Laden s | p99 ms | Prozess-Footprint GiB | Terrain / Prototypen entpackt MiB |
+Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer c8037e056785:
+| Place | Laden s | p99 ms | Prozesspeak GiB | Terrain / Prototypen entpackt MiB |
 |---|---:|---:|---:|---:|
-| Wien | 8,17 | 3,46 | 2,80 | 730 / 620 |
-| CentralPark | 6,39 | 2,49 | 2,14 | 566 / 400 |
-| Tokyo | 10,39 | 3,70 | 4,94 | 834 / 620 |
-Regionprodukte: 85,88 / 73,43 / 114,45 MiB; separater Worker 138 / 132 / 237 ms; null Terrain-Mesh-Jobs bei Hits.
-Tokyo überschreitet das Ladeziel; Prototyp-Neuerzeugung in Wien/Regionsaufbau Koer überschreiten p99 16,67 ms.
-Entpackte Bytes sind kumulierter Durchsatz, keine SSD-/Residencygröße. Footprint ist Prozesspeak,
-kein isolierter GPU-Wert. Logs: System-Temp `outshine-terrain-inspection-b22bae539-<Place>-final.log`;
-gleicher Producer belegt den Quellstand. Kein neuer Geräte-/Internetnachweis.
-1. P0: den Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Hierarchische
-   räumliche Rohlinge statt kompletter kameragebundener Snapshots; verdeckte Kinder ungeöffnet.
-   Cacheprüfung vor beschaffendem `Lay` und `SurfacePreparation::Ingested`; erst Miss startet Facharbeit.
-   Eltern aus Cache, nur fehlende Eltern grob aus DEM; anschließend mögliche sichtbare Kinder
-   nachfordern. OSM ebenfalls nah → fern nach Coverage/Bewegungsbedarf; nicht alle Ringkacheln vorab.
-2. P0: finale native Höhen-/Kontaktprodukte laden, statt trotz Regionhit 566–834 MiB Felder zu
-   entpacken. Mehrere Kandidaten teilen unveränderte Daten; einmal laden/publizieren, dann Scratch frei.
-   Proben/Bodenabfrage aus Höhenprodukten; keine expandierte CPU-Dreieckssuppe.
-3. P1: Modellprototypen nur für benötigte räumliche Gruppen laden. Ein Atlas kostet 256² × 8 × 40 Byte = 20 MiB; 31 ergeben 620 MiB und 1,47 s Lesen/Decode in Tokyo.
+| Wien | 6,55 | 3,46 | 2,78 | 25 / 620 |
+| CentralPark | 5,24 | 2,51 | 2,11 | 25 / 400 |
+| Tokyo | 8,91 | 3,44 | 5,28 | 32 / 620 |
+Regionprodukte: 85,94 / 73,46 / 114,50 MiB; Worker 136 / 124 / 222 ms; null Terrain-Mesh-Jobs.
+Alle zehn Places pixelgleich zum Vorher. Wasser-Replay senkt Terraindecode von 566–834 auf 25–32 MiB,
+belegt aber keinen kleineren Prozesspeak. Tokyo stieg gegenüber der letzten Messung von 4,94 auf 5,28 GiB;
+Ursache und Speicher während der Rendersekunde offen. C++-Heap danach: 0,74 / 0,64 / 1,25 GiB.
+Tokyos Ladeziel bleibt variabel; Aufbau Wien/Tokyo/Koer überschreitet p99 16,67 ms. Durchsatz ist keine Residency.
+Prozesspeak enthält Laden/Treiber, kein GPU-Wert. Isolierte Logs im System-Temp:
+`outshine-water-native-ba3d4c53f-<Place>-isolated.log`; übrige Places `-warm.log`. Kein Gerätenachweis.
+1. P0: Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Räumliche Eltern/Kind-Rohlinge
+   statt Kamerasnapshots; verdeckte Kinder ungeöffnet. Erst Miss startet Facharbeit. Fehlende Eltern
+   grob aus DEM, dann wahrscheinliche sichtbare Kinder nah → fern; OSM ohne vollständigen Ringvorlauf.
+2. P0: verbliebene Quellenproben aus nativen Höhen-/Kontaktprodukten bedienen; 25–32 MiB Felder
+   bei Treffern vermeiden. Kandidaten teilen unveränderte Daten; einmal laden, dann Scratch frei.
+3. P0: Rendersekunden-Residency, Decode-/Kopie-/Uploadspitzen getrennt messen und begrenzen.
+   Räumliche Pakete blockweise validieren/übernehmen statt Paketbuffer → Decoderarrays → Produkte.
+   Kompression reduziert keine entpackte Arbeit/Residency; keine bloße Erhöhung der Paketgrenze.
+4. P1: Modellprototypen bedarfsgerecht laden. 256² × 8 × 40 Byte = 20 MiB; 31 Atlanten = 620 MiB.
    Quantisierte Tiefe/Normalen/Material/Coverage vergleichen; 12 Byte/Texel wären 186 MiB,
-   eine zu prüfende Formatvariante mit Bild-/Fehlernachweis, keine bereits bewiesene Einsparung.
-   Generator-/Codec-/Capture-Abhängigkeiten versionieren; CrownBuildIdentity bindet heute
-   sämtlichen src/include-Code und invalidiert Prototypen auch bei fachfremden Änderungen.
-4. P1: begrenzte räumliche Pakete, pro Block entpacken/validieren und direkte Produktübernahme
-   gegen heutige Paketbuffer → Decoderarrays → native Produkte messen. Kompression allein
-   reduziert weder entpackte Arbeit noch GPU-/RAM-Residency. Keine bloße Erhöhung der Paketgrenze.
+   Hypothese mit Bild-/Fehlernachweis. Gemeinsame Rohlinge behalten; fachfremde Änderungen nicht
+   invalidieren. Generator-/Codec-/Capture-Abhängigkeiten statt sämtlichen src/include-Code versionieren.
 Ladeziel: warm <10 s, <1 s als Challenge; Koerbersee/Flensburg zuerst reparieren, Straßen erhalten.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
@@ -106,7 +104,6 @@ Bestätigtes NoData bleibt von Transportfehlern unterscheidbar. Offline/Attribut
 [Lokale Verfahrensnotiz](../doc/references/engine/unreal/prepared-assets.md) trennt Belege und Outshine-Entscheidungen.
 [Unreal DDC](https://dev.epicgames.com/documentation/en-us/unreal-engine/using-derived-data-cache-in-unreal-engine):
 Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiele brauchen ihn nicht.
-Outshine überträgt dieses Muster auf prozedurale Runtime-Misses, nicht UEs gesamte Buildarchitektur.
 [World Partition](https://dev.epicgames.com/documentation/en-us/unreal-engine/world-partition-in-unreal-engine) /
 [HLOD](https://dev.epicgames.com/documentation/en-us/unreal-engine/world-partition---hierarchical-level-of-detail-in-unreal-engine):
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
@@ -114,7 +111,7 @@ Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL
 ## Abnahme
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
-Frustum-/Radius-/LOD-Abfragen stimmen gegen vollständige räumliche Referenz; Grenze, leere Region,
-Drehung, Bewegung und Wiederstart ohne verlorene Assets/ungeplante Arbeit. Defekte/Teilpakete testen.
+Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
+ohne verlorene Assets/ungeplante Arbeit prüfen. Defekte/Teilpakete testen.
 Alle Pflicht-Places, besonders Wien/CP/T: Bilder vergleichen, Laden/CPU/GPU/p99/SSD/RAM-Peaks getrennt
 bei gleicher Sichtweite/Inhalt/Profil prüfen. Dateiexistenz allein belegt kein Ready.

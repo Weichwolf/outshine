@@ -103,5 +103,12 @@ int main() {
   const auto *water = stack.Vegetation().Find("water_polygons", "ocean");
   CHECK(water && stack.Classes().ClassAt(focus, nullptr, nullptr) == water->Tpl,
         "the original OpenMapTiles ocean polygon classifies the camera position as water");
+  while (!stack.InputsReady() && std::chrono::steady_clock::now() < deadline) {
+    CHECK(stack.AdvanceAt(focus, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+          "initial source inputs settle independently of outer-ring acquisition");
+  }
+  CHECK(stack.InputsReady() && stack.Vectors() &&
+            !stack.Vectors()->SettledWithin(Generators::Osm::kEveryRing),
+        "initial source readiness permits the first region lookup before requesting outer rings");
   return Report();
 }

@@ -110,6 +110,10 @@ public:
     return Sources_;
   }
 
+  void RestoreWater(::outshine::Generators::Osm::WaterField water) {
+    Sources_.WaterBodies = std::move(water);
+  }
+
   [[nodiscard]] size_t OwnedHeapBytes() const noexcept {
     return Products_.OwnedHeapBytes() + Sources_.HeapBytes();
   }

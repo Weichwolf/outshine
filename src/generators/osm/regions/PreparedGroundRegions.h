@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_REGIONS_PREPAREDGROUNDREGIONS_H
 
 #include "GroundRegionAsset.h"
+#include "WaterField.h"
 #include "content/AssetCache.h"
 #include <cstdint>
 #include <expected>
@@ -29,6 +30,7 @@ public:
 
   struct Loaded {
     GroundRegionAsset Region;
+    WaterField Water;
     size_t ReadBytes = 0;
   };
 
@@ -37,9 +39,13 @@ public:
   [[nodiscard]] std::string Key(const OsmField &vectors,
                                 const ::outshine::Ground::ShapedGround &shape,
                                 std::span<const uint8_t> parameters) const;
-  [[nodiscard]] std::expected<std::optional<Loaded>, std::string> Load(const std::string &key);
-  [[nodiscard]] std::expected<Loaded, std::string>
-  Store(const std::string &key, const Box &bounds, const GroundRegionAsset &region);
+  [[nodiscard]] std::expected<std::optional<Loaded>, std::string> Load(const std::string &key,
+                                                                       const OsmField &source);
+  [[nodiscard]] std::expected<Loaded, std::string> Store(const std::string &key,
+                                                         const Box &bounds,
+                                                         const GroundRegionAsset &region,
+                                                         const OsmField &source,
+                                                         const WaterField &water);
 
 private:
   PreparedGroundRegions(std::unique_ptr<AssetCache> cache, std::string recipe);
