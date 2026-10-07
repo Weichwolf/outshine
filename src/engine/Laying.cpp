@@ -2004,16 +2004,13 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
 Engine::State::GroundBuildProgress Engine::State::BeginGroundRegionLookup(GroundBuildState &state) {
   using Phase = GroundBuildState::RegionPhase;
   const auto assets = World.Stack.RegionAssets();
-  const auto network = World.Stack.NetworkAssets();
   const auto vectors = state.Candidate().Sources().Vectors;
-  if (!assets || !network || !vectors || state.TransportSnapshot() != nullptr ||
+  if (!assets || !vectors || state.TransportSnapshot() != nullptr ||
       std::ranges::any_of(vectors->Tiles(),
                           [](const auto &tile) { return tile.InputDigest.empty(); })) {
     state.FinishRegion({}, Phase::Bypass);
     return GroundBuildProgress::Ready;
   }
-  const auto ways =
-      std::make_shared<const Generators::Osm::StreetField>(state.Candidate().Sources().Ways);
   const auto shape = World.Stack.Pool().Shaped();
   const Around coverage = state.Coverage();
   const auto anchor = Session.Declared.Ground.Origin;
@@ -2043,12 +2040,9 @@ Engine::State::GroundBuildProgress Engine::State::BeginGroundRegionLookup(Ground
       std::make_shared<const std::vector<uint8_t>>(std::move(parameters.Out).TakeBytes());
   state.BeginRegion(
       *World.Pool,
-      [assets, network, vectors, ways, shape, coverage, native](const std::stop_token &stop)
+      [assets, vectors, shape, native](const std::stop_token &stop)
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
-        auto source = network->Key(*vectors, *ways, shape, coverage.Zoom);
-        if (!source) { return std::unexpected(std::move(source.error())); }
-        source->append(reinterpret_cast<const char *>(native->data()), native->size());
-        auto key = assets->Key(*source);
+        auto key = assets->Key(*vectors, shape, *native);
         if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
         if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
         auto loaded = assets->Load(key);

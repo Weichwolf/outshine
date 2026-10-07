@@ -18,11 +18,10 @@ Höhenfelder, Gebäuderohlinge/LOD-Produkte und Impostoren. Pakete komprimiert Z
 alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Gerätehandles persistieren.
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
 Die Regionintegration überspringt spätere Boden-/Straßen-/Wassererzeugung,
-liest aber zuvor weiter Zwischenfelder. Exakte Kamera-Schlüssel und ganze Regionen ersetzen
-keine räumliche Eltern-/Kindhierarchie. Koerbersee speichert nach Entfernen redundanter
-Terrain-Dreiecke 83,57 MiB und lädt warm in 3,59 s, p99 2,51 ms; gleiche Pixel wie vorher.
-Flensburg liefert nach kohärenter Flächenbelegung bei Miss und Hit dieselben Pixel.
-Ausstehende Gebäudegrundrisse sind keine freie Fläche; Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
+liest aber zuvor weiter Zwischenfelder. Regionschlüssel benötigen nur Quell-Digests,
+Formparameter, Detailauftrag und Regeln; kein kopiertes/serialisiertes abgeleitetes Straßennetz.
+Exakte Kamera-Schlüssel und ganze Regionen ersetzen keine räumliche Eltern-/Kindhierarchie.
+Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
 Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer 66067cb7ed9f:
@@ -38,11 +37,12 @@ kein isolierter GPU-Wert. Logs: System-Temp `outshine-ground-region-2c428fa9c-<P
 gleicher Producer belegt den Quellstand. Kein neuer Geräte-/Internetnachweis.
 1. P0: den Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Hierarchische
    räumliche Rohlinge statt kompletter kameragebundener Snapshots; verdeckte Kinder ungeöffnet.
+   Cacheprüfung vor `Focuses`/`Lay` und `SurfacePreparation::Ingested`; erst Miss startet Facharbeit.
    Eltern aus Cache, nur fehlende Eltern grob aus DEM; anschließend mögliche sichtbare Kinder
    nachfordern. OSM ebenfalls nah → fern nach Coverage/Bewegungsbedarf; nicht alle Ringkacheln vorab.
 2. P0: finale native Höhen-/Kontaktprodukte laden, statt trotz Regionhit 709–971 MiB Felder zu
    entpacken. Mehrere Kandidaten teilen unveränderte Daten; einmal laden/publizieren, dann Scratch frei.
-   Proben/Bodenabfrage aus Höhenprodukten; keine flächendeckend expandierte CPU-Dreieckssuppe.
+   Proben/Bodenabfrage aus Höhenprodukten; keine expandierte CPU-Dreieckssuppe.
 3. P1: Modellprototypen nur für benötigte räumliche Gruppen laden. Ein Atlas kostet
    256² × 8 × 40 Byte = 20 MiB; 31 ergeben 620 MiB und 1,47 s Lesen/Decode in Tokyo.
    Quantisierte Tiefe/Normalen/Material/Coverage vergleichen; 12 Byte/Texel wären 186 MiB,

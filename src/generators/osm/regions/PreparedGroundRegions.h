@@ -3,10 +3,12 @@
 
 #include "GroundRegionAsset.h"
 #include "content/AssetCache.h"
+#include <cstdint>
 #include <expected>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -14,7 +16,13 @@ namespace outshine::Data {
 class SourceSet;
 }
 
+namespace outshine::Ground {
+struct ShapedGround;
+}
+
 namespace outshine::Generators::Osm {
+class OsmField;
+
 class PreparedGroundRegions {
 public:
   static constexpr size_t PackageBytesMost = size_t{512} * 1024u * 1024u;
@@ -26,7 +34,9 @@ public:
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedGroundRegions>, std::string>
   Open(const std::string &directory, const Data::SourceSet &sources, std::string_view rules);
-  [[nodiscard]] std::string Key(std::string_view binding) const;
+  [[nodiscard]] std::string Key(const OsmField &vectors,
+                                const ::outshine::Ground::ShapedGround &shape,
+                                std::span<const uint8_t> parameters) const;
   [[nodiscard]] std::expected<std::optional<Loaded>, std::string> Load(const std::string &key);
   [[nodiscard]] std::expected<Loaded, std::string>
   Store(const std::string &key, const Box &bounds, const GroundRegionAsset &region);
