@@ -22,17 +22,18 @@ Pakete erhalten Samples, Herkunft und fehlende Randdaten; Offline-Replay braucht
 Gebäuderohlinge enthalten Höhen/Kontakte, native Formen/Dächer, Materialparameter und Seeds.
 Der MVT-Client lädt sie asynchron vor Höhenanforderung/Grundrissextraktion; Misses erzeugen,
 speichern und laden dieselbe vollständige Basis. Herkunft/Signatur/Qualifikation bleiben erhalten.
-Nicht unterstützte Einzelmassen behalten Kontakte/Zustand; gültige Nachbarn bleiben renderbar.
 Ausgewählte LOD-Geometrie wird als Kindprodukt gespeichert; gleiche Position/Projektionsparameter
 laden sie ohne erneute Planung/Emission. Drehung erzeugt keinen neuen Schlüssel. Bewegung und
 Nahdetails brauchen weiterhin 2336; der private Anschluss ersetzt noch nicht den öffentlichen Vertrag.
-Native Terrainprodukte speichern vollständig verformte Höhenfelder samt Kontaktwirkung.
-Ein geteilter Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und behält
+Native Terrainprodukte speichern verformte Höhen/Kontakte in Paketen ≤64 MiB; große Regionen
+veröffentlichen ihren Verbund erst nach allen Paketen. Laden prüft das Residencybudget des Aufrufers.
+Ein Compute-Worker lädt/erzeugt sie; Abbruch blockiert den Frame nicht und behält
 Job-Eingaben bis zum Workerabschluss. Misses speichern und laden denselben nativen Pfad.
 Schlüssel binden Höhen, vollständige Kontakte/Physikrahmen und Version; die Identitätsbildung
 hat begrenzten Scratch, unabhängig von der Zahl der Kontakte. Quelle und Rundumabdeckung bleiben erhalten.
 Frische Offline-Treffer: Wien 26,27 s, Central Park 21,48 s, Tokyo 41,05 s.
 Je zwei Terrainprodukte: 34,25/21,61/35,32 MiB; keine Terrain-Deformations-Misses/Writes.
+Koerbersee warm: 12,02 s, 152,82 MiB aus zwei Terrainverbünden, keine Misses/Writes.
 Je 50 Gebäude-/LOD-Hits ohne erneute Basis-/LOD-Emission. Alle drei Bilder bleiben pixelgleich.
 p99 Wien/CP/Tokyo: 28,61/2,60/19,60 ms; Wien/Tokyo überschreiten weiterhin 720p60.
 Unter 1 s bleibt unerreicht: 1,94/1,81/2,01 GiB Terrain-Zwischenfelder gelesen; Kontakte,
@@ -46,14 +47,13 @@ keine erneute Kontakt-/Straßenformung bei Treffern. Bis vollständig sichtbare 
 keine Gebäudeteilzeit als Weltladezeit ausgeben. Terrain-/Straßenqualität erhalten.
 Öffentliche Anbindung, Original-OSM-/weitere Generatorpfade, SSD-Budget und kompaktere Produkte
 fehlen. Worker-/Phasenzeiten überlappen; nicht als Ladezeit summieren.
-Wien hat 49 Nahkacheln, keine belegte vollständige 240-km-Assetwelt. 2336 besitzt Fernabdeckung.
+Wien: 49 Nahkacheln; vollständige 240-km-Assetabdeckung bleibt in 2336 unbewiesen.
 Ziel: vorbereitete Places warm <1 s und wenige ms Draw bei vollständigem, mindestens gleichem Bild.
 
 ## Besitzer und Grenzen
 2280 besitzt Asset-Speicherung/Index/Laden; Generatoren besitzen Anreicherung und Asset-Inhalt.
 2336 besitzt Hierarchie/LOD und 2188 den öffentlichen generischen Vertrag. Gemeinsame Dienste
 kennen Bounds, Versionen und native Produkte, keine OSM-/Vegetationssemantik.
-Vorhandene Straßenqualität, Terrain-Deformation, Quellbytes und Referenzen bleiben erhalten.
 
 ## Fertige Assets
 - Gebäude: Typ, vollständige Höhen/Dachparameter, Grundrisse/Parts/Höfe, Terrainkontakt,
