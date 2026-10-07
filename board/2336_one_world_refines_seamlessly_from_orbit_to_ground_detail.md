@@ -82,19 +82,19 @@ Nur fehlende erforderliche Produkte erzeugen. SSD/RAM/GPU-Arbeitsmengen getrennt
 | Massed | Blockverbände | Silhouette/Coverage ohne Einzelhausgeometrie |
 | Skyline | Tiefenhaltige Impostorflächen | Fernbild/Parallaxe statt Einzelvolumen |
 Zuerst Massed/Skyline. Ferne Kosten nehmen ab; Kontakte/Straßen/Parts/Höfe nahe erhalten.
-Native Basen halten Fine-Referenzflächen in `PreparedStructureTile::Surfaces` vor der LOD-Auswahl;
-Tokyo dekodiert dafür ganze Kacheln (560,70 MiB Basen). Kompakte angereicherte Pläne/Hüllen als Eltern, Fine-Flächen nur in benötigten Kindern.
+`PreparedStructureTile::Surfaces` enthält angereicherte Formen, keine Fine-Dreiecksmeshes.
+Ganze Formen/Koordinaten vor Bedarf dekodieren ist der Fehler; fertige Formen nicht erneut erzeugen.
 Wien/CP/Tokyo: 1,61/1,24/2,36 Mio. Gebäudedreiecke (ROW, keine GPU-Zählung); verdeckte/ferne Einzelobjekte vor Planung und Emission sparen.
 [Python-Flächenmodell](../test/experiments/building_surface.py): Tokyo 588.862 Pläne → 8.782
 Flächendreiecke im flachen Modell; kein nativer/GPU-/Bildnachweis. Generator-/Renderer-/Hybrid-
 Verdeckung mit identischen Inputs, 360° und Bewegung vergleichen; frühere Bilder nicht löschen.
-Nahdetails nur aus fertigen Plänen; Ferndetails plausibel schätzen, Herkunft/Übergang erhalten.
+2336 wählt kompakte Zellbounds/Fernprodukte; 2280 lädt unabhängige Form-/Kontaktblöcke erst danach.
 Unbeleuchtete Tiefe/Coverage, Normalen und Materialien wiederverwenden; Licht/Pose bleiben aktuell.
 Brücken/Überhänge/Kronen brauchen mehrschichtige oder passende native Produkte.
 
 ## Reihenfolge und fehlende Verträge
-P0: Koerbersee-Speicherfehler und Flensburg-Warmabweichung (2280), dann DEM-Bootstrap/
-Sichtbedarf vor Requests einschließlich Nebenpfaden, räumliche Cacheprodukte und aktive Kontakte.
+P0: Gebäudebedarf vor Decode (2280), dann grober DEM-Bootstrap/Sichtbedarf vor Requests
+einschließlich Nebenpfaden, räumliche Cacheprodukte und aktive Kontakte; Straßen-/Wasserqualität erhalten.
 2339 zählt angeforderte/unterdrückte Kinder, Bytes/Stufe und Besitzer der Peaks im selben Ausbau.
 Danach Fernstadt und Lade-/Uploadspitzen; neue Gebäudequalität folgt dem integrierten Gewinn.
 Fehlend: gemeinsame native Hierarchieknoten mit Bounds/Höhenunsicherheit, Produkt-/Kostenbezug

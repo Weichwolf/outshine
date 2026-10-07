@@ -31,17 +31,17 @@ Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer fe49222f98c7:
 | Wien | 7,15 | 3,97 | 2,21 / 2,60 | 25 / 620 |
 | CentralPark | 5,46 | 2,67 | 2,00 / 2,00 | 25 / 400 |
 | Tokyo | 9,31 | 3,98 | 3,49 / 5,08 | 32 / 620 |
-Regionprodukte: 85,94 / 73,46 / 114,50 MiB; Worker 154 / 126 / 232 ms; null Terrain-Mesh-Jobs.
 Alle zehn Places pixelgleich zum Vorher. Wasser-Replay senkt Terraindecode von 566–834 auf 25–32 MiB,
 belegt allein keinen kleineren Prozesspeak. Geteilte Materialpakete senken Peaks im direkten Vergleich
 von 2,79 / 2,11 / 5,27 GiB; höhere Framegeschwindigkeit unbewiesen, Tokyos dauerhafte 3,49 GiB offen.
-Tokyos Ladeziel bleibt variabel; Aufbau Wien/Tokyo/Koer überschreitet p99 16,67 ms. Durchsatz ist keine Residency.
-OS-Footprint mit `proc_pid_rusage` alle 50 ms: 18–19 Stichproben um die letzte Render-/PNG-Sekunde,
-kein exaktes Frame-Intervall/GPU-Einzelwert. Sampler 2–4 ms CPU je Gesamtlauf; Logs/JSON im System-Temp:
-`outshine-material-memory-<Place>-{before,after}-7c7dec6b2.*`; alle Places pixelgleich.
+OS-Footprint: 50-ms-Stichproben um Render/PNG, kein exaktes GPU-/Frameintervall; Sampler 2–4 ms CPU/Lauf.
+Tokyo: 49 Schema-3-Pakete halten 553,40 MiB; Formen 325,69, sonstige Daten 227,71 MiB.
+[Paketmodell](../test/experiments/prepared_building_residency.py): verlustfreie Zellblöcke; 1-km-AABB-Abfrage
+liest 4,92 MiB Formen, kein LOD-/Bildnachweis. Cachehistorie umfasst mehr als exakt aktuelle Runtime-Keys.
+Bounds: 3.066 × 6 × 8 = 147.168 Byte; Pläne/Koordinaten gehören in Kinder, nicht in diesen kleinen Index.
 1. P0: Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Räumliche Eltern/Kind-Rohlinge
-   statt Kamerasnapshots; verdeckte Kinder ungeöffnet. Erst Miss startet Facharbeit. Fehlende Eltern
-   grob aus DEM, dann wahrscheinliche sichtbare Kinder nah → fern; OSM ohne vollständigen Ringvorlauf.
+   statt Kamerasnapshots: kleine Bounds-/Produktindizes, gecachte Fernprodukte, unabhängige komprimierte
+   Form-/Kontaktblöcke. Erst Bedarf → Paket öffnen; Rohling-Formen behalten, keine Rekonstruktion bei Hits.
 2. P0: verbliebene Quellenproben aus nativen Höhen-/Kontaktprodukten bedienen; 25–32 MiB Felder
    bei Treffern vermeiden. Kandidaten teilen unveränderte Daten; einmal laden, dann Scratch frei.
 3. P0: Rendersekunden-Residency, Decode-/Kopie-/Uploadspitzen getrennt messen und begrenzen.
@@ -52,7 +52,7 @@ kein exaktes Frame-Intervall/GPU-Einzelwert. Sampler 2–4 ms CPU je Gesamtlauf;
    Quantisierte Tiefe/Normalen/Material/Coverage vergleichen; 12 Byte/Texel wären 186 MiB,
    Hypothese mit Bild-/Fehlernachweis; entpackte Bytes sind keine dauerhafte Residency. Fachfremde Änderungen nicht
    invalidieren. Generator-/Codec-/Capture-Abhängigkeiten statt sämtlichen src/include-Code versionieren.
-Ladeziel: warm <10 s, <1 s als Challenge; Koerbersee/Flensburg zuerst reparieren, Straßen erhalten.
+Ladeziel: warm <10 s, <1 s als Challenge; Gebäudebedarf vor Decode, Straßen erhalten.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
 AssetCache besitzt Speicherung/Kompression/Integrität und die AssetRecord-Hülle; Nutzdaten sind opaque.
