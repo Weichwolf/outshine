@@ -26,18 +26,19 @@ Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern
 
 ## Kostenbefund und nächste Lieferung
 Offline 1280×720/60, 60 Frames/360°, volle Treffer, Producer c8037e056785:
-| Place | Laden s | p99 ms | Prozesspeak GiB | Terrain / Prototypen entpackt MiB |
+| Place | Laden s | p99 ms | Bildphase / Peak GiB | Terrain / Prototypen entpackt MiB |
 |---|---:|---:|---:|---:|
-| Wien | 6,55 | 3,46 | 2,78 | 25 / 620 |
-| CentralPark | 5,24 | 2,51 | 2,11 | 25 / 400 |
-| Tokyo | 8,91 | 3,44 | 5,28 | 32 / 620 |
-Regionprodukte: 85,94 / 73,46 / 114,50 MiB; Worker 136 / 124 / 222 ms; null Terrain-Mesh-Jobs.
+| Wien | 6,74 | 4,09 | 2,21 / 2,79 | 25 / 620 |
+| CentralPark | 5,32 | 2,56 | 2,11 / 2,11 | 25 / 400 |
+| Tokyo | 8,99 | 3,66 | 3,52 / 5,26 | 32 / 620 |
+Regionprodukte: 85,94 / 73,46 / 114,50 MiB; Worker 154 / 126 / 232 ms; null Terrain-Mesh-Jobs.
 Alle zehn Places pixelgleich zum Vorher. Wasser-Replay senkt Terraindecode von 566–834 auf 25–32 MiB,
-belegt aber keinen kleineren Prozesspeak. Tokyo stieg gegenüber der letzten Messung von 4,94 auf 5,28 GiB;
-Ursache und Speicher während der Rendersekunde offen. C++-Heap danach: 0,74 / 0,64 / 1,25 GiB.
+belegt aber keinen kleineren Prozesspeak. Tokyo-Peak gegenüber zuvor 4,94 GiB erhöht;
+Ursache offen. C++-Heap nach Rendering: 0,74 / 0,64 / 1,25 GiB; umfasst Treiber/GPU nicht vollständig.
 Tokyos Ladeziel bleibt variabel; Aufbau Wien/Tokyo/Koer überschreitet p99 16,67 ms. Durchsatz ist keine Residency.
-Prozesspeak enthält Laden/Treiber, kein GPU-Wert. Isolierte Logs im System-Temp:
-`outshine-water-native-ba3d4c53f-<Place>-isolated.log`; übrige Places `-warm.log`. Kein Gerätenachweis.
+OS-Footprint mit `proc_pid_rusage` alle 50 ms: 18–19 Stichproben um die letzte Render-/PNG-Sekunde,
+kein exaktes Frame-Intervall/GPU-Einzelwert. Sampler 2–4 ms CPU je Gesamtlauf; Logs/JSON im System-Temp:
+`outshine-memory-<Place>-a2d54c54c.*`; übrige Places `outshine-water-native-ba3d4c53f-<Place>-warm.log`.
 1. P0: Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Räumliche Eltern/Kind-Rohlinge
    statt Kamerasnapshots; verdeckte Kinder ungeöffnet. Erst Miss startet Facharbeit. Fehlende Eltern
    grob aus DEM, dann wahrscheinliche sichtbare Kinder nah → fern; OSM ohne vollständigen Ringvorlauf.
@@ -109,6 +110,7 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
+Integration a2d54c54c: Tidy/Claims/Shader grün; fehlender gepinnter Khronos-Frame cfb0bc5a hält das Gesamtgate rot.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
