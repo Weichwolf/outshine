@@ -65,6 +65,11 @@ int main() {
   if (!replay) { return Report(); }
   ground.Allowed = false;
   ground.Queries = 0;
+  const LongitudeLatitude lake{.LongitudeDeg = 0.5, .LatitudeDeg = 0.5};
+  CHECK(replay->LevelAt(source, lake) == water.Surfaces().front().LevelM &&
+            replay->SnapshotQueries().LevelAt(source, lake) == replay->LevelAt(source, lake) &&
+            !replay->LevelAt(source, {.LongitudeDeg = 10, .LatitudeDeg = 10}),
+        "cache and immutable snapshots answer physical water levels without terrain IO");
   (void)replay->Ingest(ground, source, rules);
   CHECK(ground.Queries == 0 && replay->Levels() == water.Levels() &&
             replay->Surfaces().front().LevelM == water.Surfaces().front().LevelM &&

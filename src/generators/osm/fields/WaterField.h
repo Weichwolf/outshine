@@ -16,6 +16,7 @@
 #include "Capacity.h"
 #include "TileRanges.h"
 #include "GroundQuery.h"
+#include "Earth.h"
 #include "TileWatermark.h"
 
 namespace outshine::Generators::Osm {
@@ -58,6 +59,9 @@ public:
   [[nodiscard]] static std::optional<float> SurfaceLevel(std::span<double> heights);
 
   [[nodiscard]] const std::vector<Surface> &Surfaces() const { return Surfaces_; }
+
+  [[nodiscard]] std::optional<float> LevelAt(const OsmField &field,
+                                             LongitudeLatitude at) const noexcept;
 
   [[nodiscard]] std::span<const SurfaceRing> RingsOf(const Surface &surface) const noexcept {
     return std::span(SurfaceRings_).subspan(surface.FirstRing, surface.RingCount);

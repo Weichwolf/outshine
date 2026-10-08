@@ -2,11 +2,13 @@
 #define OUTSHINE_GENERATORS_WATER_WATERSURFACEBUILDER_H
 
 #include "WaterField.h"
+#include "Earth.h"
 #include "scene/Geometry.h"
 #include "scene/Material.h"
 
 #include <cstddef>
 #include <expected>
+#include <optional>
 #include <span>
 #include <string>
 
@@ -23,6 +25,12 @@ struct WaterSurfaceMetrics {
 };
 
 [[nodiscard]] Material WaterSurfaceMaterial() noexcept;
+
+[[nodiscard]] std::optional<double>
+WaterSurfaceUpAt(const ::outshine::Generators::Osm::WaterField &water,
+                 const ::outshine::Generators::Osm::OsmField *source,
+                 const TangentFrame &frame,
+                 LongitudeLatitude at) noexcept;
 
 [[nodiscard]] std::expected<WaterSurfaceMetrics, std::string>
 AppendWaterSurfaceGeometry(Geometry &geometry,

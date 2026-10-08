@@ -1,6 +1,7 @@
 #include "WaterSurfaceBuilder.h"
 
 #include "TangentFrame.h"
+#include "Earth.h"
 #include "math/RenderFrame.h"
 
 #include "PolygonTriangulation.h"
@@ -121,6 +122,19 @@ std::optional<std::vector<uint32_t>> TriangulateWaterPolygon(const WaterPolygon 
   return oriented;
 }
 
+}
+
+std::optional<double> WaterSurfaceUpAt(const ::outshine::Generators::Osm::WaterField &water,
+                                       const ::outshine::Generators::Osm::OsmField *source,
+                                       const TangentFrame &frame,
+                                       LongitudeLatitude at) noexcept {
+  if (source == nullptr) { return std::nullopt; }
+  const auto level = water.LevelAt(*source, at);
+  if (!level) { return std::nullopt; }
+  return frame
+      .ToLocalPosition(
+          {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg, .HeightM = *level})
+      .UpM;
 }
 
 Material WaterSurfaceMaterial() noexcept {

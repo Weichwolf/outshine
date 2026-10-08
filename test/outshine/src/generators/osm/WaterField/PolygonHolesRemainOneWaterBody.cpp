@@ -153,6 +153,11 @@ int main() {
       CHECK(features->At(0).CoverRow == 19 && features->At(0).Top.AslM() == 10.0f,
             "water classification retains its requested material and analytical ten-metre level");
       const auto points = field.Points();
+      CHECK(water.LevelAt(field, Midpoint(points, rings[0].FirstPoint, rings[1].FirstPoint)) ==
+                    10.0f &&
+                !water.LevelAt(field,
+                               Midpoint(points, rings[1].FirstPoint, rings[1].FirstPoint + 2u)),
+            "surface queries return the actual water level and leave holes dry");
       const auto wet = region.Enu(Midpoint(points, rings[0].FirstPoint, rings[1].FirstPoint));
       const auto inner =
           region.Enu(Midpoint(points, rings[1].FirstPoint, rings[1].FirstPoint + 2u));
