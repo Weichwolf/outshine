@@ -1,8 +1,9 @@
-#ifndef OUTSHINE_GENERATORS_OSM_FIELDS_TILEWATERMARK_H
-#define OUTSHINE_GENERATORS_OSM_FIELDS_TILEWATERMARK_H
+#ifndef OUTSHINE_GENERATORS_OSM_FIELDS_TILEADMISSION_H
+#define OUTSHINE_GENERATORS_OSM_FIELDS_TILEADMISSION_H
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <iterator>
 #include <span>
 #include <cstdint>
@@ -16,12 +17,12 @@ namespace outshine::Generators::Osm {
 using namespace outshine::Ground;
 
 constexpr int kEveryRing = 1 << 20;
-constexpr uint64_t kNoWatermark = 0xffffffffffffffffull;
+constexpr uint64_t kNoAdmissionKey = 0xffffffffffffffffull;
 constexpr unsigned kAwayShift = 48u;
 constexpr unsigned kZoomShift = 40u;
 constexpr unsigned kSidewaysShift = 20u;
 
-class TileWatermark {
+class TileAdmission {
 public:
   struct Next {
     size_t From = 0, To = 0;
@@ -37,34 +38,30 @@ public:
   };
 
   template <typename Consumable>
-  Next Ask(std::span<const OsmField::Feature> feats,
-           std::span<const OsmField::Tile> tiles,
-           Reach over,
-           Consumable consumable) {
+  Next Ask(std::span<const OsmField::Tile> tiles, Reach over, Consumable consumable) {
     const int centreX = over.CentreX;
     const int centreY = over.CentreY;
     Candidates_.clear();
-    size_t at = Mark_;
-    while (at < feats.size()) {
-      const uint32_t tile = feats[at].Tile;
-      size_t end = at;
-      while (end < feats.size() && feats[end].Tile == tile) { end++; }
-      if (!Taken(tile)) {
-        if (Beyond(tiles, tile, over)) {
-          Skipped_.insert(std::ranges::lower_bound(Skipped_, tile), tile);
-          Unavailable_.insert(std::ranges::lower_bound(Unavailable_, tile), tile);
-          ++Beyond_;
-        } else {
-          Candidates_.push_back(Next{.From = at, .To = end, .Tile = tile, .Found = true});
-        }
+    for (size_t index = 0; index < tiles.size(); ++index) {
+      const auto tile = static_cast<uint32_t>(index);
+      const auto &source = tiles[index];
+      if (source.FeatureCount == 0 || Taken(tile)) { continue; }
+      if (Beyond(tiles, tile, over)) {
+        Skipped_.insert(std::ranges::lower_bound(Skipped_, tile), tile);
+        Unavailable_.insert(std::ranges::lower_bound(Unavailable_, tile), tile);
+        ++Beyond_;
+      } else {
+        Candidates_.push_back({.From = source.FirstFeature,
+                               .To = static_cast<size_t>(source.FirstFeature) + source.FeatureCount,
+                               .Tile = tile,
+                               .Found = true});
       }
-      at = end;
     }
     const auto key = [tiles, centreX, centreY](const Next &one) {
-      if (one.Tile >= tiles.size()) { return kNoWatermark; }
+      if (one.Tile >= tiles.size()) { return kNoAdmissionKey; }
       const OsmField::Tile &which = tiles[one.Tile];
-      const long across = static_cast<long>(which.X) - static_cast<long>(centreX);
-      const long down = static_cast<long>(which.Y) - static_cast<long>(centreY);
+      const int64_t across = static_cast<int64_t>(which.X) - centreX;
+      const int64_t down = static_cast<int64_t>(which.Y) - centreY;
       const unsigned long long away =
           static_cast<unsigned long long>(across * across + down * down) & 0xffffull;
       const unsigned long long zoom = static_cast<unsigned long long>(which.Z) & 0xffull;
@@ -97,7 +94,6 @@ public:
     assert(at != Unavailable_.end() && *at == tile && Takes_ > 0);
     Unavailable_.erase(at);
     --Takes_;
-    Mark_ = 0;
   }
 
   size_t ReleaseUnaccepted(std::span<const uint32_t> accepted) {
@@ -108,39 +104,27 @@ public:
     Unavailable_.reserve(accepted.size() + Skipped_.size());
     std::ranges::set_union(accepted, Skipped_, std::back_inserter(Unavailable_));
     Takes_ = accepted.size();
-    Mark_ = 0;
     return released;
   }
 
-  void Advance(std::span<const OsmField::Feature> feats) {
-    while (Mark_ < feats.size() && Taken(feats[Mark_].Tile)) {
-      const uint32_t tile = feats[Mark_].Tile;
-      while (Mark_ < feats.size() && feats[Mark_].Tile == tile) { Mark_++; }
+  [[nodiscard]] bool Done(std::span<const OsmField::Tile> tiles) const {
+    for (size_t tile = 0; tile < tiles.size(); ++tile) {
+      if (tiles[tile].FeatureCount != 0 && !Taken(static_cast<uint32_t>(tile))) { return false; }
     }
+    return true;
   }
 
-  [[nodiscard]] bool Done(std::span<const OsmField::Feature> feats) const {
-    return Mark_ >= feats.size();
-  }
-
-  [[nodiscard]] bool AcceptedWithin(std::span<const OsmField::Feature> feats,
-                                    std::span<const OsmField::Tile> tiles,
-                                    int centreX,
-                                    int centreY,
-                                    int rings) const {
+  [[nodiscard]] bool
+  AcceptedWithin(std::span<const OsmField::Tile> tiles, int centreX, int centreY, int rings) const {
     if (rings < 0) { return false; }
-    size_t at = 0;
-    while (at < feats.size()) {
-      const size_t first = at;
-      const uint32_t tile = feats[at].Tile;
-      while (at < feats.size() && feats[at].Tile == tile) { ++at; }
-      if (tile >= tiles.size()) { return false; }
-      const OsmField::Tile &source = tiles[tile];
-      if (std::abs(source.X - centreX) > rings || std::abs(source.Y - centreY) > rings) {
+    for (size_t tile = 0; tile < tiles.size(); ++tile) {
+      const auto &source = tiles[tile];
+      if (source.FeatureCount == 0 || std::abs(source.X - centreX) > rings ||
+          std::abs(source.Y - centreY) > rings) {
         continue;
       }
-      const bool skipped = std::ranges::binary_search(Skipped_, tile);
-      if (skipped || (first >= Mark_ && !Taken(tile))) { return false; }
+      const auto index = static_cast<uint32_t>(tile);
+      if (std::ranges::binary_search(Skipped_, index) || !Taken(index)) { return false; }
     }
     return true;
   }
@@ -152,7 +136,7 @@ public:
   [[nodiscard]] size_t BeyondCount() const { return Beyond_; }
 
   [[nodiscard]] size_t HeapBytes() const {
-    return CapacityBytes(Unavailable_) + CapacityBytes(Skipped_);
+    return CapacityBytes(Unavailable_) + CapacityBytes(Skipped_) + CapacityBytes(Candidates_);
   }
 
 private:
@@ -172,7 +156,6 @@ private:
   std::vector<uint32_t> Unavailable_;
   std::vector<uint32_t> Skipped_;
   size_t Beyond_ = 0;
-  size_t Mark_ = 0;
   std::vector<Next> Candidates_;
   size_t Takes_ = 0;
   int Deferrals_ = 0;

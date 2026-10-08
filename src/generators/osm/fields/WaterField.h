@@ -18,7 +18,7 @@
 #include "TileRanges.h"
 #include "GroundQuery.h"
 #include "Earth.h"
-#include "TileWatermark.h"
+#include "TileAdmission.h"
 
 namespace outshine::Generators::Osm {
 
@@ -84,7 +84,7 @@ public:
     staged += CapacityBytes(SurfaceInputs_);
     for (const SurfaceInput &input : SurfaceInputs_) { staged += CapacityBytes(input.Heights); }
     return CapacityBytes(Surfaces_) + CapacityBytes(SurfaceRings_) + CapacityBytes(Courses_) +
-           CapacityBytes(Levels_) + Mark_.HeapBytes() + ByTile_.HeapBytes() + staged;
+           CapacityBytes(Levels_) + Admission_.HeapBytes() + ByTile_.HeapBytes() + staged;
   }
 
   [[nodiscard]] long NoGroundCount() const { return NoGround_; }
@@ -93,16 +93,17 @@ public:
 
   [[nodiscard]] long InvalidBodyCount() const { return InvalidBodies_; }
 
-  [[nodiscard]] int Deferrals() const { return Mark_.Deferrals(); }
+  [[nodiscard]] int Deferrals() const { return Admission_.Deferrals(); }
 
-  [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
-
-  [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const {
-    return Mark_.AcceptedWithin(
-        field.Features(), field.Tiles(), field.CentreX(), field.CentreY(), rings);
+  [[nodiscard]] bool Ingested(const OsmField &field) const {
+    return Admission_.Done(field.Tiles());
   }
 
-  [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
+  [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const {
+    return Admission_.AcceptedWithin(field.Tiles(), field.CentreX(), field.CentreY(), rings);
+  }
+
+  [[nodiscard]] size_t IngestedTiles() const { return Admission_.Takes(); }
 
 private:
   struct SurfaceInput {
@@ -156,14 +157,14 @@ private:
   std::vector<Course> Courses_;
   std::vector<float> Levels_;
   TileRanges ByTile_;
-  TileWatermark Mark_;
+  TileAdmission Admission_;
   std::vector<Candidate> Candidates_;
   long NoGround_ = 0, Outliers_ = 0, InvalidBodies_ = 0;
   IngestMetrics WorstIngest_;
   IngestMetrics LastIngest_;
   std::optional<uint64_t> SourceGeneration_;
   std::shared_ptr<const void> SourceOrigin_;
-  uint64_t Admission_ = 0;
+  uint64_t AdmissionAttempts_ = 0;
 
   struct AssetInputs {
     const void *Origin = nullptr;

@@ -387,7 +387,7 @@ bool Engine::State::AdvanceStructureBuilds(size_t landsMost) {
     Cost.BakeTransfer.Took(transferMs);
     Cost.BakeLiveTransfer.Took(transferMs);
     const auto commitAt = std::chrono::steady_clock::now();
-    World.StructureBuilds.CommitsLandings(World.Stack, World.Stack.Footprints(), *ready);
+    World.StructureBuilds.CommitsLandings(World.Stack.Footprints(), *ready);
     Cost.BakeCommit.Took(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commitAt)
             .count());

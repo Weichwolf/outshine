@@ -150,7 +150,7 @@ int main() {
                                            .Eye = eye},
                                           1,
                                           pinned->CaptureRequest());
-  prints.CommitAcceptance(std::move(pending), *vectors, accepted);
+  prints.CommitAcceptance(std::move(pending), accepted);
   const auto key = StructureBuildQueue::QualifiedSourceKey(prints, 0);
   CHECK(key.has_value(), "all eight cells have an accepted native source");
   if (!key) { return Report(); }
@@ -268,7 +268,7 @@ int main() {
                                     StructureBuildQueue::BuildPurpose::SourceGeometry);
     CHECK(ready.has_value(), "source replacement does not publish cancelled cell errors");
     if (ready && !ready->empty()) {
-      queue.CommitsLandings(stack, candidate, *ready);
+      queue.CommitsLandings(candidate, *ready);
       sourceLanded = true;
     }
     (void)queue.Posts(stack,

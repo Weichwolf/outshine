@@ -46,7 +46,7 @@ int main() {
   field.PreparesAcceptances({.Prints = 1, .Spread = 1, .Across = 1, .Tiles = 1});
   field.Take(7);
   auto first = field.PrepareAcceptance(7, baked, sources, true, vector, input(720, 9));
-  field.CommitAcceptance(std::move(first), vectors, baked);
+  field.CommitAcceptance(std::move(first), baked);
   CHECK(field.AcceptedTiles().size() == 1 && field.AcceptedTiles().front() == 7 &&
             field.InputOfTile(field.AcceptedTiles().front()) != nullptr,
         "accepted tile IDs address the same source inputs used by detail planning");

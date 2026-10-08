@@ -177,7 +177,7 @@ int main() {
       CHECK(ready.has_value(), "native cell bake succeeds");
       if (!ready) { return Report(); }
       if (!ready->empty()) {
-        queue.CommitsLandings(stack, prints, *ready);
+        queue.CommitsLandings(prints, *ready);
         landed = true;
       } else {
         (void)queue.AwaitSlice(0.02);
@@ -275,7 +275,7 @@ int main() {
     if (ready->empty()) {
       (void)queue.AwaitSlice(0.02);
     } else {
-      queue.CommitsLandings(stack, prints, *ready);
+      queue.CommitsLandings(prints, *ready);
     }
   }
   first = prints.InputOfTile(0);

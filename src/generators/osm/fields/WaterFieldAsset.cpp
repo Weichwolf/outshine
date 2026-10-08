@@ -66,7 +66,7 @@ WaterAsset WaterField::Asset(const OsmField &source) const {
                         .Levels = Levels_,
                         .Points = {},
                         .Tiles = {},
-                        .ProcessedTiles = static_cast<uint32_t>(Mark_.Takes()),
+                        .ProcessedTiles = static_cast<uint32_t>(Admission_.Takes()),
                         .NoGround = NoGround_,
                         .Outliers = Outliers_,
                         .InvalidBodies = InvalidBodies_,

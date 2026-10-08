@@ -263,7 +263,7 @@ int main() {
       TerrainCertificate::FromDelivery(demTile, (**revisions).CurrentStamp(demTile), 11));
   ready = finish();
   CHECK(ready.size() == 1, "newly certified input completes normally");
-  if (!ready.empty()) { queue.CommitsLandings(stack, prints, ready); }
+  if (!ready.empty()) { queue.CommitsLandings(prints, ready); }
   CHECK(queue.Queued() == 0 && prints.InputOfTile(0) != nullptr,
         "only validated completion commits accepted footprint metadata");
   const auto *accepted = prints.InputOfTile(0);
@@ -306,7 +306,7 @@ int main() {
   CHECK(refine() == 1, "the replacement retries against the new terrain delivery");
   ready = finish(true);
   CHECK(ready.size() == 1, "the retried source replacement becomes a validated landing");
-  if (!ready.empty()) { queue.CommitsLandings(stack, prints, ready); }
+  if (!ready.empty()) { queue.CommitsLandings(prints, ready); }
   CHECK(prints.RefinementComplete() && prints.IngestedTiles() == takenBefore,
         "replacement retry completes without a second whole-tile reservation");
   const auto acceptedKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
@@ -358,7 +358,7 @@ int main() {
   CHECK(post() == 1, "new producer revision can reserve the released tile again");
   ready = finish();
   CHECK(ready.size() == 1, "new producer revision completes without an orphaned reservation");
-  if (!ready.empty()) { queue.CommitsLandings(stack, prints, ready); }
+  if (!ready.empty()) { queue.CommitsLandings(prints, ready); }
   auto lineOnly = buildings;
   lineOnly.front().Area = false;
   stack.Declares(lineOnly);
@@ -378,7 +378,7 @@ int main() {
   ready = finish(true);
   CHECK(ready.size() == 1 && ready.front().Baked->OccupiedCells == 0 && terrainCalls == 0,
         "empty building geometry lands without invoking terrain resolvers");
-  if (!ready.empty()) { queue.CommitsLandings(stack, prints, ready); }
+  if (!ready.empty()) { queue.CommitsLandings(prints, ready); }
   CHECK(StructureBuildQueue::QualifiedSources(stack, prints),
         "proven building absence completes the qualified source snapshot");
   stack.Declares(buildings);

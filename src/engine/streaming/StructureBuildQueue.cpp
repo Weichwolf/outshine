@@ -131,7 +131,7 @@ StructureHeights HeightsOf(const Generators::Osm::BuildingProperties &building,
 void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
            const ::outshine::Generators::Osm::BuildingField &prints,
            const ::outshine::Generators::Osm::StreetField &streets,
-           const ::outshine::Generators::Osm::TileWatermark::Next &next,
+           const ::outshine::Generators::Osm::TileAdmission::Next &next,
            LongitudeLatitude eye,
            std::optional<LevelOfDetail> detail,
            std::optional<uint32_t> cell,
@@ -440,7 +440,7 @@ CellHeightRequest(const Generators::Osm::BuildingField::AcceptedInput &accepted,
 }
 
 struct RefinementSelection {
-  std::optional<::outshine::Generators::Osm::TileWatermark::Next> Next;
+  std::optional<::outshine::Generators::Osm::TileAdmission::Next> Next;
   bool Deferred = false;
 };
 
@@ -482,7 +482,7 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
     prints.AdvanceRefinement();
     return {};
   }
-  return {.Next = ::outshine::Generators::Osm::TileWatermark::Next{
+  return {.Next = ::outshine::Generators::Osm::TileAdmission::Next{
               .From = from, .To = to, .Tile = *tile, .Found = true}};
 }
 
@@ -1088,7 +1088,7 @@ bool StructureBuildQueue::PostPreparedCell(
   IdleOut_.reserve(recycleCapacity);
   IdleScratch_.reserve(recycleCapacity);
   std::unique_ptr<Generators::RawTile> raw = Borrowed(IdleRaw_);
-  const ::outshine::Generators::Osm::TileWatermark::Next next{
+  const ::outshine::Generators::Osm::TileAdmission::Next next{
       .From = over.From, .To = over.To, .Tile = request.Tile, .Found = true};
   const auto extractionAt = std::chrono::steady_clock::now();
   RawOf(*vectors, footprints, stack.Ways(), next, eye, request.Detail, request.Cell, *raw);
@@ -1266,7 +1266,7 @@ size_t StructureBuildQueue::Posts(Ground::SurfacePreparation &stack,
 StructureBuildQueue::QueuedBuild
 StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
                                  const ::outshine::Generators::Osm::BuildingField &prints,
-                                 ::outshine::Generators::Osm::TileWatermark::Next next,
+                                 ::outshine::Generators::Osm::TileAdmission::Next next,
                                  BakeRevision revision,
                                  VectorSelection selected,
                                  bool replacement) {
@@ -1389,7 +1389,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
           stack, prints, over, heightAt, requirement, selected, heightResolutionMs);
     };
     const auto selectionAt = std::chrono::steady_clock::now();
-    std::optional<::outshine::Generators::Osm::TileWatermark::Next> next;
+    std::optional<::outshine::Generators::Osm::TileAdmission::Next> next;
     bool replacement = false;
     if (requirement == HeightRequirement::FineOnly && !prints.RefinementComplete()) {
       const RefinementSelection refinement = SelectRefinement(
@@ -1747,8 +1747,7 @@ bool StructureBuildQueue::CellQueued(CellRequest request) const noexcept {
   });
 }
 
-void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
-                                          ::outshine::Generators::Osm::BuildingField &footprints,
+void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                                           std::span<Landing> landings) noexcept {
   for (Landing &landing : landings) {
     QueuedBuild &bake = Queue_.front();
@@ -1781,10 +1780,8 @@ void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
         .Fronted = baked.Fronted};
     if (bake.Replacement) {
       footprints.ReplaceAcceptance(std::move(landing.Footprints.value()), product);
-    } else if (bake.Task.Raw().SourceInputs.Objects) {
-      footprints.CommitAcceptance(std::move(landing.Footprints.value()), product);
     } else {
-      footprints.CommitAcceptance(std::move(landing.Footprints.value()), *stack.Vectors(), product);
+      footprints.CommitAcceptance(std::move(landing.Footprints.value()), product);
     }
     Log::Info(LogTag::World,
               "buildings",

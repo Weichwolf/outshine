@@ -35,7 +35,7 @@ int main() {
   const ::outshine::Generators::Osm::BuildingField::Baked empty;
   field.PreparesAcceptances({.Tiles = 1});
   auto pending = field.PrepareAcceptance(tile, empty);
-  field.CommitAcceptance(std::move(pending), vectors, empty);
+  field.CommitAcceptance(std::move(pending), empty);
   CHECK(field.IngestedWithin(vectors, 0),
         "required coverage becomes ready only after its tile product is accepted");
   CHECK(field.SnapshotAccepted().Ingested(vectors),

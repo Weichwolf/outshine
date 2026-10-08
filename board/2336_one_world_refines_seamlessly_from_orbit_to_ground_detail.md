@@ -71,7 +71,7 @@ Verdecker brauchen tatsächlich belegte Coverage; eine Cluster-AABB ist keine ma
 Fachpläne; Engine koordiniert native Bounds/Qualität/Kosten ohne OSM-Semantik (2188).
 Stabile räumliche Zellen/Produktstufen/Versionen statt Kameraposition als Rohling-ID.
 Kamera/Projektion wählen Produkte und Runtime-Details; unveränderte Rohlinge wiederverwenden.
-Gepackte Bereiche/Morton-Ordnung, Quadtree/BVH gegen lokale Arrays messen, GeoCellId erhalten.
+Kachelzulassung nutzt nur Metadaten, ohne Featurescan: 33 Fälle/41 Tidy-Units sauber, zehn Offline-Bildpaare exakt gleich; warm 1,84–3,75 s und 1,96–3,01 ms p99. [Modell](../test/experiments/native_tile_admission.py) nutzt reale native Stückzahlen; kein Quellenbypass-/RAM-/Bildgewinnbeweis. Quelle erst beim Miss öffnen bleibt der nächste Schritt; gepackte Bereiche/Morton-Ordnung und GeoCellId erhalten.
 Nur fehlende erforderliche Produkte erzeugen. SSD/RAM/GPU-Arbeitsmengen getrennt begrenzen.
 
 ## Fernstadt vor weiteren Nahdetails

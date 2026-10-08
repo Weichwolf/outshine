@@ -23,7 +23,7 @@
 #include "Capacity.h"
 #include <Earth.h>
 #include "StructureCellGrid.h"
-#include "TileWatermark.h"
+#include "TileAdmission.h"
 
 namespace outshine::Generators::Osm {
 
@@ -192,7 +192,7 @@ public:
 
   [[nodiscard]] uint64_t Revision() const noexcept { return Revision_; }
 
-  [[nodiscard]] std::optional<TileWatermark::Next>
+  [[nodiscard]] std::optional<TileAdmission::Next>
   Next(const OsmField &field,
        const std::function<bool(FeatureRun)> &groundStands,
        size_t candidatesMost);
@@ -202,12 +202,12 @@ public:
   }
 
   void Take(uint32_t tile) {
-    Mark_.Take(tile);
+    Admission_.Take(tile);
     ++Taken_;
   }
 
   void Release(uint32_t tile) {
-    Mark_.Release(tile);
+    Admission_.Release(tile);
     --Taken_;
   }
 
@@ -228,8 +228,6 @@ public:
                     HeightField::Request heights = {});
   void PreparesAcceptances(AcceptanceCapacity capacity);
   void CommitAcceptance(PendingAcceptance pending, const Baked &baked) noexcept;
-  void
-  CommitAcceptance(PendingAcceptance pending, const OsmField &field, const Baked &baked) noexcept;
   void ReplaceAcceptance(PendingAcceptance pending, const Baked &baked) noexcept;
 
   [[nodiscard]] size_t TrianglesHanded() const { return TrianglesHanded_; }
@@ -272,7 +270,7 @@ public:
 
   [[nodiscard]] const std::vector<double> &FootprintAcrossM() const { return Across_; }
 
-  [[nodiscard]] int Deferrals() const { return Mark_.Deferrals(); }
+  [[nodiscard]] int Deferrals() const { return Admission_.Deferrals(); }
 
   void Settle() {
     Prints_.shrink_to_fit();
@@ -291,8 +289,8 @@ public:
 
   [[nodiscard]] size_t HeapBytes() const {
     size_t bytes = CapacityBytes(Prints_) + CapacityBytes(AcceptedTiles_) +
-                   CapacityBytes(AcceptedInputs_) + CapacityBytes(Products_) + Mark_.HeapBytes() +
-                   MeasurementBytes();
+                   CapacityBytes(AcceptedInputs_) + CapacityBytes(Products_) +
+                   Admission_.HeapBytes() + MeasurementBytes();
     for (const AcceptedInput &input : AcceptedInputs_) {
       if (input.Coordinates) { bytes += input.Coordinates->HeapBytes(); }
       if (input.Vector) {
@@ -307,10 +305,10 @@ public:
   }
 
   [[nodiscard]] bool Ingested(const OsmField &field) const {
-    return Mark_.Done(field.Features()) && Taken_ == Accepted_;
+    return Admission_.Done(field.Tiles()) && Taken_ == Accepted_;
   }
 
-  [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
+  [[nodiscard]] size_t IngestedTiles() const { return Admission_.Takes(); }
 
 private:
   struct ReservationDomain {
@@ -354,7 +352,7 @@ private:
   size_t Taken_ = 0, Accepted_ = 0;
   size_t RefinementAt_ = 0, RefinementEnd_ = 0;
   bool RefinementActive_ = false;
-  TileWatermark Mark_;
+  TileAdmission Admission_;
   ProjectedErrorBudget Projection_{};
   std::optional<Vec3> EyeEcef_;
   double TileSpanM_ = 0.0;

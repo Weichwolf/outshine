@@ -31,7 +31,7 @@ int main() {
         {.Prints = prints.size(), .Spread = spread.size(), .Across = across.size(), .Tiles = 1});
     field.Take(tile);
     auto pending = field.PrepareAcceptance(tile, baked);
-    field.CommitAcceptance(std::move(pending), empty, baked);
+    field.CommitAcceptance(std::move(pending), baked);
   };
   const std::array<::outshine::Ground::BuildingFootprint, 1> east{{{.HeightM = 90.0f}}};
   const std::array<::outshine::Ground::BuildingFootprint, 1> west{{{.HeightM = 20.0f}}};

@@ -10,7 +10,7 @@
 #include "Capacity.h"
 #include "OsmField.h"
 #include "TileRanges.h"
-#include "TileWatermark.h"
+#include "TileAdmission.h"
 #include "VegetationTemplates.h"
 
 namespace outshine::Generators::Osm {
@@ -72,18 +72,19 @@ public:
   }
 
   [[nodiscard]] size_t HeapBytes() const {
-    return CapacityBytes(Ways_) + CapacityBytes(SourceDigests_) + Mark_.HeapBytes() +
+    return CapacityBytes(Ways_) + CapacityBytes(SourceDigests_) + Admission_.HeapBytes() +
            ByTile_.HeapBytes();
   }
 
-  [[nodiscard]] bool Ingested(const OsmField &field) const { return Mark_.Done(field.Features()); }
-
-  [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const {
-    return Mark_.AcceptedWithin(
-        field.Features(), field.Tiles(), field.CentreX(), field.CentreY(), rings);
+  [[nodiscard]] bool Ingested(const OsmField &field) const {
+    return Admission_.Done(field.Tiles());
   }
 
-  [[nodiscard]] size_t IngestedTiles() const { return Mark_.Takes(); }
+  [[nodiscard]] bool IngestedWithin(const OsmField &field, int rings) const {
+    return Admission_.AcceptedWithin(field.Tiles(), field.CentreX(), field.CentreY(), rings);
+  }
+
+  [[nodiscard]] size_t IngestedTiles() const { return Admission_.Takes(); }
 
 private:
   void AppendFeature(const OsmField &field,
@@ -96,7 +97,7 @@ private:
   std::shared_ptr<const void> SourceOrigin_;
   uint64_t SourceGeneration_ = 0;
   TileRanges ByTile_;
-  TileWatermark Mark_;
+  TileAdmission Admission_;
   long Bridges_ = 0, Layered_ = 0, LayerSaid_ = 0;
   long Unwidthed_ = 0, Tunnels_ = 0, Unruled_ = 0, Looked_ = 0;
 };

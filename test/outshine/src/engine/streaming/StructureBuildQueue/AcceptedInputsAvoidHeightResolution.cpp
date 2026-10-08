@@ -160,7 +160,7 @@ int main() {
                                            .TileSpanM = 1000,
                                            .Eye = eye},
                                           terrainScope);
-  prints.CommitAcceptance(std::move(pending), *vectors, accepted);
+  prints.CommitAcceptance(std::move(pending), accepted);
   const auto sourceKey = StructureBuildQueue::QualifiedSourceKey(prints, 0);
   CHECK(sourceKey && *sourceKey != 0, "accepted tile exposes its qualified source key");
   if (!sourceKey) { return Report(); }

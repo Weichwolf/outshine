@@ -200,8 +200,7 @@ public:
                   const HeightSource &heightAt);
   void CommitsCellLanding(const Landing &landing) noexcept;
   void ResumeCompletedTasks();
-  void CommitsLandings(Ground::SurfacePreparation &stack,
-                       ::outshine::Generators::Osm::BuildingField &footprints,
+  void CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                        std::span<Landing> landings) noexcept;
   void Clear();
 
@@ -344,7 +343,7 @@ private:
                                         double &durationMs);
   [[nodiscard]] QueuedBuild VectorBuild(Ground::SurfacePreparation &stack,
                                         const ::outshine::Generators::Osm::BuildingField &prints,
-                                        ::outshine::Generators::Osm::TileWatermark::Next next,
+                                        ::outshine::Generators::Osm::TileAdmission::Next next,
                                         BakeRevision revision,
                                         VectorSelection selected,
                                         bool replacement);

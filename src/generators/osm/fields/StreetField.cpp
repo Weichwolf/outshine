@@ -45,16 +45,14 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
     SourceGeneration_ = field.Generation();
   }
   const std::span<const OsmField::Feature> feats = field.Features();
-  if (Mark_.Done(feats)) { return static_cast<uint32_t>(Ways_.size()); }
+  if (Admission_.Done(field.Tiles())) { return static_cast<uint32_t>(Ways_.size()); }
 
-  const TileWatermark::Next next =
-      Mark_.Ask(feats,
-                field.Tiles(),
-                {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
-                [](size_t, size_t) { return true; });
+  const TileAdmission::Next next =
+      Admission_.Ask(field.Tiles(),
+                     {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
+                     [](size_t, size_t) { return true; });
   if (!next.Found) { return static_cast<uint32_t>(Ways_.size()); }
-  Mark_.Take(next.Tile);
-  Mark_.Advance(feats);
+  Admission_.Take(next.Tile);
 
   const int lines = field.Layer(OsmLayer::Streets);
   const int areas = field.Layer(OsmLayer::StreetPolygons);

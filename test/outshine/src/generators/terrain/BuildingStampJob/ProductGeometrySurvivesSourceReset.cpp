@@ -25,7 +25,7 @@ int main() {
     field.PreparesAcceptances({.Prints = 1, .Tiles = 1});
     field.Take(tile);
     auto pending = field.PrepareAcceptance(tile, product);
-    field.CommitAcceptance(std::move(pending), vectors, product);
+    field.CommitAcceptance(std::move(pending), product);
   }
   Field snapshot = field.SnapshotAccepted();
   field.ResetDerived();

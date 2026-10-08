@@ -37,7 +37,7 @@ int main() {
   const Osm::BuildingField::Baked baked{.Prints = prints};
   footprints.PreparesAcceptances({.Prints = 1, .Tiles = 1});
   footprints.Take(tile);
-  footprints.CommitAcceptance(footprints.PrepareAcceptance(tile, baked), vectors, baked);
+  footprints.CommitAcceptance(footprints.PrepareAcceptance(tile, baked), baked);
   const auto ready = FeaturesOver(region, inputs);
   CHECK(ready && ready->Count() == 1 && ready->At(0).Kind == FeatureKind::Structure,
         "placement receives the building footprint after native publication");
@@ -45,7 +45,7 @@ int main() {
   const Osm::BuildingField::Baked empty;
   footprints.PreparesAcceptances({.Tiles = 1});
   footprints.Take(tile);
-  footprints.CommitAcceptance(footprints.PrepareAcceptance(tile, empty), vectors, empty);
+  footprints.CommitAcceptance(footprints.PrepareAcceptance(tile, empty), empty);
   const auto filtered = FeaturesOver(region, inputs);
   CHECK(filtered && filtered->Count() == 0,
         "an explicitly prepared empty building result is ready");

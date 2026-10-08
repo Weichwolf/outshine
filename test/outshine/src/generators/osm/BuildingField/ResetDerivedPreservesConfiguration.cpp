@@ -57,7 +57,7 @@ int main() {
     auto pending = field.PrepareAcceptance(0, baked);
     CHECK(field.Footprints().empty() && field.Revision() == before,
           "prepared acceptance does not publish footprints");
-    field.CommitAcceptance(std::move(pending), empty, baked);
+    field.CommitAcceptance(std::move(pending), baked);
     CHECK(field.Footprints().size() == 1, "rebaking does not append stale footprints");
     CHECK(field.MeasurementBytes() >= 2u * sizeof(double), "accepted measurements own storage");
     CHECK(field.TrianglesHanded() == 12, "new bake owns its own triangle count");

@@ -43,7 +43,7 @@ int main() {
   request.Tiles.clear();
   source.Revision = "revision-b";
   vector.Revision = "vector-b";
-  field.CommitAcceptance(std::move(pending), vectors, empty);
+  field.CommitAcceptance(std::move(pending), empty);
   const auto *accepted = field.InputOfTile(7);
   CHECK(accepted && accepted->Qualified && accepted->Sources.size() == 1 &&
             accepted->Sources.front().Revision == "revision-a" && accepted->Vector &&

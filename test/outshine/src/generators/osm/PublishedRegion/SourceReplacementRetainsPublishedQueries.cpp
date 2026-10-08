@@ -1,4 +1,5 @@
 #include "PublishedRegion.h"
+#include "WaterField.h"
 #include "Check.h"
 
 #include <array>
@@ -46,9 +47,9 @@ int main() {
                                                     .StreetDigest = 19,
                                                     .Projection = {.FocalPx = 90},
                                                     .TileSpanM = 100});
-    footprints.CommitAcceptance(std::move(acceptance), ingest, emptyBake);
+    footprints.CommitAcceptance(std::move(acceptance), emptyBake);
     old = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
-        ::outshine::Generators::Osm::RegionSources::Snapshot(&ingest, ways, water),
+        ::outshine::Generators::Osm::RegionSources::Snapshot(&ingest, ways, water.Asset(ingest)),
         footprints.SnapshotAccepted());
     CHECK(old->MatchesLiveSources(&ingest, footprints),
           "a published region accepts live detail from its unchanged semantic sources");
@@ -79,7 +80,7 @@ int main() {
           "changed vector generation cannot publish live detail into the older region");
     footprints.ResetDerived();
     next = std::make_shared<const ::outshine::Generators::Osm::PublishedRegion>(
-        ::outshine::Generators::Osm::RegionSources::Snapshot(&ingest, ways, water),
+        ::outshine::Generators::Osm::RegionSources::Snapshot(&ingest, ways, water.Asset(ingest)),
         footprints.SnapshotAccepted());
     CHECK(next->Vectors() && next->Vectors()->Features().empty() &&
               next->Vectors()->Tiles().size() == 1 &&

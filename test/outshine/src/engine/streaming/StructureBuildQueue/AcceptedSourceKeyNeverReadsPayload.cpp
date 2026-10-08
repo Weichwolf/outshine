@@ -91,7 +91,7 @@ int main() {
                                           .Eye = {}});
   sources.front().SourceId.front() = 'x';
   vector.Revision = "producer-changed";
-  field.CommitAcceptance(std::move(pending), vectors, empty);
+  field.CommitAcceptance(std::move(pending), empty);
   constexpr uint64_t expected = 0x1ae933c37f74e20a;
   CHECK(field.InputOfTile(7)->SourceKey == expected && field.InputOfTile(7)->Sources.size() == 1 &&
             StructureBuildQueue::QualifiedSourceKey(field, 7) == expected,

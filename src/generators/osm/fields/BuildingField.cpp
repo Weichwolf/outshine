@@ -22,7 +22,7 @@ static_assert(std::is_nothrow_move_assignable_v<BuildingField::AcceptedInput>);
 
 BuildingField BuildingField::SnapshotAccepted() const {
   BuildingField copy = *this;
-  const size_t released = copy.Mark_.ReleaseUnaccepted(copy.AcceptedTiles_);
+  const size_t released = copy.Admission_.ReleaseUnaccepted(copy.AcceptedTiles_);
   copy.Taken_ -= released;
   assert(copy.Taken_ == copy.Accepted_);
   return copy;
@@ -39,7 +39,7 @@ void BuildingField::ResetDerived() {
   Taken_ = Accepted_ = 0;
   RefinementAt_ = RefinementEnd_ = 0;
   RefinementActive_ = false;
-  Mark_ = {};
+  Admission_ = {};
   OsmHeights_ = DefaultHeights_ = Fronted_ = 0;
   SeatSpread_.clear();
   Across_.clear();
@@ -51,16 +51,13 @@ void BuildingField::AnchorAt(const Vec3 &ecef) {
   Anchored_ = true;
 }
 
-std::optional<TileWatermark::Next>
+std::optional<TileAdmission::Next>
 BuildingField::Next(const OsmField &field,
                     const std::function<bool(FeatureRun)> &groundStands,
                     size_t candidatesMost) {
   assert(Anchored_);
-  const std::span<const OsmField::Feature> feats = field.Features();
-  Mark_.Advance(feats);
-  if (Mark_.Done(feats)) { return std::nullopt; }
-  const TileWatermark::Next next = Mark_.Ask(
-      feats,
+  if (Admission_.Done(field.Tiles())) { return std::nullopt; }
+  const TileAdmission::Next next = Admission_.Ask(
       field.Tiles(),
       {.CentreX = field.CentreX(),
        .CentreY = field.CentreY(),
@@ -107,13 +104,6 @@ BuildingField::PrepareAcceptance(uint32_t tile,
           bake,
           heightRevision,
           std::move(heights)};
-}
-
-void BuildingField::CommitAcceptance(PendingAcceptance pending,
-                                     const OsmField &field,
-                                     const Baked &baked) noexcept {
-  CommitAcceptance(std::move(pending), baked);
-  Mark_.Advance(field.Features());
 }
 
 void BuildingField::CommitAcceptance(PendingAcceptance pending, const Baked &baked) noexcept {
@@ -230,18 +220,13 @@ void BuildingField::ReplaceAcceptance(PendingAcceptance pending, const Baked &ba
 
 bool BuildingField::IngestedWithin(const OsmField &field, int rings) const noexcept {
   if (rings < 0) { return false; }
-  const std::span<const OsmField::Feature> features = field.Features();
-  size_t at = 0;
-  while (at < features.size()) {
-    const uint32_t tile = features[at].Tile;
-    while (at < features.size() && features[at].Tile == tile) { ++at; }
-    if (tile >= field.Tiles().size()) { return false; }
-    const OsmField::Tile &source = field.Tiles()[tile];
-    if (std::abs(source.X - field.CentreX()) > rings ||
+  for (size_t tile = 0; tile < field.Tiles().size(); ++tile) {
+    const auto &source = field.Tiles()[tile];
+    if (source.FeatureCount == 0 || std::abs(source.X - field.CentreX()) > rings ||
         std::abs(source.Y - field.CentreY()) > rings) {
       continue;
     }
-    if (!std::ranges::binary_search(AcceptedTiles_, tile)) { return false; }
+    if (!std::ranges::binary_search(AcceptedTiles_, static_cast<uint32_t>(tile))) { return false; }
   }
   return true;
 }

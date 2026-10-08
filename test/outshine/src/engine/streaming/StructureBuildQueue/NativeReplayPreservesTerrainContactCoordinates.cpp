@@ -141,7 +141,7 @@ void Replay(const std::filesystem::path &directory, bool warm) {
       CHECK(ready->front().Baked->Coordinates &&
                 ready->front().Baked->Coordinates->Points.size() == 8,
             "native geometry owns its complete ground-contact ring before publication");
-      queue.CommitsLandings(stack, prints, *ready);
+      queue.CommitsLandings(prints, *ready);
       landed = true;
     } else {
       (void)queue.AwaitSlice(0.001);

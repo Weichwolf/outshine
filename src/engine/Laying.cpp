@@ -2002,7 +2002,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   Cost.BakeTransfer.Took(transferMs);
   Cost.BakeCandidateTransfer.Took(transferMs);
   const auto commitAt = std::chrono::steady_clock::now();
-  World.StructureBuilds.CommitsLandings(World.Stack, state.Footprints(), *ready);
+  World.StructureBuilds.CommitsLandings(state.Footprints(), *ready);
   Cost.BakeCommit.Took(
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commitAt)
           .count());
