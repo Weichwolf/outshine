@@ -35,7 +35,7 @@ public:
 
   Product make(const Generators::Request &asked) const override {
     const std::string key(64, asked.Seed == 0 ? 'a' : 'b');
-    const auto asset = ResolveAsset(Cache_, key, kBytes, [&](size_t) {
+    const auto asset = ResolveAssetRequest(Cache_, key, kBytes, [&](size_t) {
       if (!asked.Ground) {
         return std::expected<GeneratedAssetPackage, std::string>(
             std::unexpected("ground unavailable"));
@@ -45,6 +45,8 @@ public:
         return std::expected<GeneratedAssetPackage, std::string>(std::unexpected("ground unknown"));
       }
       const auto y = static_cast<float>(*height);
+      std::string contentKey = key;
+      contentKey.front() = *height == 42 ? 'c' : 'd';
       const std::array<float, 9> positions{0, y, 0, 0, y, 1, 1, y, 0};
       const std::array<uint32_t, 3> triangles{0, 1, 2};
       Geometry geometry;
@@ -61,10 +63,11 @@ public:
       }
       GeneratedAssetPackage package;
       package.Bytes = std::move(*encoded);
-      package.Records.push_back({.Key = key,
+      package.Records.push_back({.Key = std::move(contentKey),
                                  .Kind = "external-triangle",
                                  .Bounds = {.Min = {{0, *height, 0}}, .Max = {{1, *height, 1}}},
-                                 .ByteCount = package.Bytes.size()});
+                                 .ByteCount = package.Bytes.size(),
+                                 .RequestKey = key});
       return std::expected<GeneratedAssetPackage, std::string>(std::move(package));
     });
     if (!asset) { return std::unexpected(asset.error()); }
@@ -106,9 +109,10 @@ int main() {
           "fresh offline generator loads geometry without any provider or generation");
     const auto found = (*cache)->Select(
         {.Bounds = {.Min = {{-1, 40, -1}}, .Max = {{2, 43, 2}}}, .Kind = generator.kind()});
-    CHECK(found && found->size() == 1 && found->front().Key == std::string(64, 'a'),
+    CHECK(found && found->size() == 1 && found->front().Key != found->front().RequestKey &&
+              found->front().RequestKey == std::string(64, 'a'),
           "external native products participate in the common spatial index");
-    CHECK(!generator.make({.Seed = 1}) && !(*cache)->Find(std::string(64, 'b'))->has_value(),
+    CHECK(!generator.make({.Seed = 1}) && !(*cache)->FindRequest(std::string(64, 'b'))->has_value(),
           "changed identity misses and unavailable inputs cannot publish partial products");
   }
   std::filesystem::remove_all(root);

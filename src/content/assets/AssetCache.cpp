@@ -43,7 +43,7 @@ AssetCache::Open(const std::string &path) {
   const int step = sqlite3_step(version.Value);
   if (step != SQLITE_ROW) { return std::unexpected(AssetSql::Error(step)); }
   const int current = sqlite3_column_int(version.Value, 0);
-  if (current < 0 || current > 2) { return std::unexpected(AssetCacheError::UnsupportedVersion); }
+  if (current < 0 || current > 3) { return std::unexpected(AssetCacheError::UnsupportedVersion); }
   sqlite3_reset(version.Value);
   const auto setup = AssetSql::Exec(
       state->Database,
@@ -62,7 +62,15 @@ AssetCache::Open(const std::string &path) {
                        "ALTER TABLE packages ADD COLUMN native_bytes INTEGER NOT NULL DEFAULT 0;");
     if (!migrated) { return std::unexpected(migrated.error()); }
   }
-  const auto committed = AssetSql::Exec(state->Database, "PRAGMA user_version=2;COMMIT;");
+  if (current < 3) {
+    const auto migrated = AssetSql::Exec(
+        state->Database, "ALTER TABLE assets ADD COLUMN request_key TEXT NOT NULL DEFAULT '';");
+    if (!migrated) { return std::unexpected(migrated.error()); }
+  }
+  const auto committed =
+      AssetSql::Exec(state->Database,
+                     "CREATE UNIQUE INDEX IF NOT EXISTS asset_requests ON assets(request_key) "
+                     "WHERE request_key<>'';PRAGMA user_version=3;COMMIT;");
   if (!committed) { return std::unexpected(committed.error()); }
   return std::unique_ptr<AssetCache>(new AssetCache(std::move(state)));
 }
@@ -122,7 +130,8 @@ bool Valid(const AssetRecord &record) {
   constexpr auto most = static_cast<uint64_t>(std::numeric_limits<sqlite3_int64>::max());
   return ValidKey(record.Key) && !record.Kind.empty() && Valid(record.Bounds) &&
          ValidKey(record.Package) && (record.Parent.empty() || ValidKey(record.Parent)) &&
-         record.OffsetBytes <= most && record.ByteCount <= most - record.OffsetBytes;
+         (!record.RequestKey || ValidKey(*record.RequestKey)) && record.OffsetBytes <= most &&
+         record.ByteCount <= most - record.OffsetBytes;
 }
 
 }

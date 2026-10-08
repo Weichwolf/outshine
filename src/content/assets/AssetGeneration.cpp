@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <expected>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -20,13 +21,28 @@ const char *Describe(AssetCacheError error) {
   return "unknown asset cache failure";
 }
 
+enum class Address { Product, Request };
+
+std::expected<std::optional<CachedAsset>, AssetCacheError>
+Load(const AssetCache &cache, std::string_view identity, size_t packageBytesMost, Address address) {
+  if (address == Address::Product) { return cache.Load(identity, packageBytesMost); }
+  auto found = cache.FindRequest(identity);
+  if (!found) { return std::unexpected(found.error()); }
+  if (!*found) { return std::optional<CachedAsset>{}; }
+  return cache.Load((**found).Key, packageBytesMost);
 }
 
-std::expected<CachedAsset, std::string> ResolveAsset(AssetCache &cache,
-                                                     std::string_view key,
-                                                     size_t packageBytesMost,
-                                                     const AssetFactory &factory) {
-  auto loaded = cache.Load(key, packageBytesMost);
+std::string_view Identity(const AssetRecord &record, Address address) {
+  if (address == Address::Product) { return record.Key; }
+  return record.RequestKey ? std::string_view(*record.RequestKey) : std::string_view{};
+}
+
+std::expected<CachedAsset, std::string> Resolve(AssetCache &cache,
+                                                std::string_view key,
+                                                size_t packageBytesMost,
+                                                const AssetFactory &factory,
+                                                Address address) {
+  auto loaded = Load(cache, key, packageBytesMost, address);
   if (!loaded) { return std::unexpected(Describe(loaded.error())); }
   if (*loaded) { return std::move(**loaded); }
   if (!factory) { return std::unexpected("asset miss has no registered generator"); }
@@ -35,16 +51,32 @@ std::expected<CachedAsset, std::string> ResolveAsset(AssetCache &cache,
   if (generated->Bytes.size() > packageBytesMost) {
     return std::unexpected(Describe(AssetCacheError::CapacityExceeded));
   }
-  if (std::ranges::none_of(generated->Records,
-                           [key](const AssetRecord &record) { return record.Key == key; })) {
+  if (std::ranges::count_if(generated->Records, [key, address](const AssetRecord &record) {
+        return Identity(record, address) == key;
+      }) != 1) {
     return std::unexpected("generator omitted the requested asset");
   }
   const auto published = cache.Publish(generated->Records, generated->Bytes);
   if (!published) { return std::unexpected(Describe(published.error())); }
-  loaded = cache.Load(key, packageBytesMost);
+  loaded = Load(cache, key, packageBytesMost, address);
   if (!loaded) { return std::unexpected(Describe(loaded.error())); }
   if (!*loaded) { return std::unexpected("published asset package is unavailable"); }
   return std::move(**loaded);
+}
+}
+
+std::expected<CachedAsset, std::string> ResolveAsset(AssetCache &cache,
+                                                     std::string_view key,
+                                                     size_t packageBytesMost,
+                                                     const AssetFactory &factory) {
+  return Resolve(cache, key, packageBytesMost, factory, Address::Product);
+}
+
+std::expected<CachedAsset, std::string> ResolveAssetRequest(AssetCache &cache,
+                                                            std::string_view requestKey,
+                                                            size_t packageBytesMost,
+                                                            const AssetFactory &factory) {
+  return Resolve(cache, requestKey, packageBytesMost, factory, Address::Request);
 }
 
 }

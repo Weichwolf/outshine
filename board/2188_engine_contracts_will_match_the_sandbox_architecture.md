@@ -25,6 +25,8 @@ API-Adapter besitzt Adresse/Auth/Antworthülle, Provider Formatdecode/Normalisie
 Generator Fachplanung/Produkte; Engine Bedarf/Jobs/Publikation, world native Inhalte.
 Gemeinsame IO-/Assetcache-/Jobdienste enthalten keine Quellsemantik. Öffentliche AssetCache/
 ResolveAsset nutzen dieselben Bounds, Pakete und Abfragen für Builtins und externe Factories.
+ResolveAssetRequest bindet einen vor Quellenarbeit bekannten Auftrag an ein fertiges Produkt;
+externer Generator mit unbekannter Inhalts-ID integriert. Builtin-Akquisition noch zu migrieren.
 Byteformate bleiben beim Produktbesitzer; der Dienst dekodiert keine OSM-/Terrainsemantik.
 2280 besitzt den Cache: Engine fordert native Assets an; Misses erzeugen sie über Generatoren.
 Derselbe öffentliche Vertrag lädt sie nach räumlicher/LOD-Auswahl: Frustum oder Radius R um x,y,z.

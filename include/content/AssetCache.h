@@ -28,6 +28,8 @@ struct AssetRecord {
   uint64_t ByteCount = 0;   ///< Length of this product's slice, including its format metadata.
   uint32_t Level = 0;       ///< Generator-defined hierarchy or detail level.
   std::string Parent;       ///< Parent product identity, or empty for a root.
+  std::optional<std::string> RequestKey =
+      std::nullopt; ///< Optional stable demand identity, known before provider work.
 
   /// @return Exact metadata equality; does not load or compare package bytes.
   [[nodiscard]] bool operator==(const AssetRecord &) const = default;
@@ -102,6 +104,15 @@ public:
   /// @return Indexed metadata, a miss or an error.
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   Find(std::string_view key) const;
+
+  /// Find the current complete product for a demand without reading package bytes.
+  /// The generator binds request identity to configuration, region/LOD and parameters.
+  /// Publish atomically replaces that binding; previous products remain addressable by key.
+  /// One request names one current product; one product carries at most one request identity.
+  /// @param requestKey Nonempty SHA-256 demand identity, independent of unavailable input digests.
+  /// @return Metadata, a miss, or an input/storage error; performs indexed metadata IO only.
+  [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
+  FindRequest(std::string_view requestKey) const;
   /// Load and validate the whole package within packageBytesMost; corrupt or absent data is a miss.
   /// @param key Product identity; 64 lowercase hexadecimal characters.
   /// @param packageBytesMost Maximum whole-package allocation in bytes, not just this slice.

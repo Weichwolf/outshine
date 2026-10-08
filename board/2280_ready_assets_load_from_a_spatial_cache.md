@@ -18,7 +18,7 @@ Höhenfelder, Gebäuderohlinge/LOD-Produkte und Impostoren. Pakete komprimiert Z
 alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Gerätehandles persistieren.
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
 Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh-Jobs.
-WaterAsset besitzt kompakte Koordinaten/Pegel/Konturen/Flussprofile/Tileindex; unveränderliche Abfragen, Mesh und Decoder ohne OsmField. WaterField besitzt allein Erzeugung/Fortschritt; Wasser-Mesher erreicht OSM nicht mehr.
+WaterAsset hält Koordinaten/Pegel/Konturen/Flussprofile/Tileindex. Abfragen, Mesh und Decoder sind quellunabhängig; WaterField besitzt Erzeugung/Fortschritt.
 Coverage beobachtet nur; native Produkte bestimmen Ready und veröffentlichte Screenshot-Kennzahlen.
 Regionschlüssel binden Quell-Digests, Formparameter, Detailauftrag und Regeln; kein serialisiertes Straßennetz.
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
@@ -31,19 +31,18 @@ Frische Offline-Prozesse, 1280×720/60, 60 Frames/360°; gleiche zehn PNGs vor/n
 | CentralPark | 102,71 | 21,92 | 2,50 | 2,01 |
 | Tokyo | 358,87 | 64,54 | 3,76 | 3,39 |
 Alle Treffer lesen null Planpakete; dekodierte Basisbytes ersetzen sie, Geometrieprodukte bleiben gleich.
-Zehn Places im Trefferprozess: Peak-RSS 1,44 GiB, OS-Footprint 4,28 GiB; nicht addieren. Kein RAM-/GPU-Zeit-Gewinnbeweis, GPU-Passzeiten fehlen.
+Trefferprozess: Peak-RSS 1,44 GiB, OS-Footprint 4,28 GiB; nicht addieren. RAM-/GPU-Gewinn unbewiesen.
 Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je belegter Zelle.
 Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen gecachte Pläne/Kontakte, keine Höhenprovider.
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
 Separate native Gebäude-Basis hält Koordinaten, Quell-IDs/Zellen, Origin und Höhenbindung. LOD-Treffer laden keine Pläne/Auswahl; Geometriemisses öffnen den Elternrohling. Fehlende Pläne invalidieren die Basis und erneuern den Quellauftrag. Hierarchie/Arbeitsmenge bleiben offen.
-[Zellenmodell](../test/experiments/prepared_building_residency.py) begründet bedarfsweise Formladung; Laufzeit und Bilder entscheiden.
+[Zellenmodell](../test/experiments/prepared_building_residency.py) begründet Formladung bei Bedarf.
 1. P0: Bedarf aus 2336 vor Quellen/Cachedecode; räumliche Eltern/Kinder statt Kamerasnapshots.
-   [Liefermodell](../test/experiments/building_asset_delivery.py): drei große Schema-4-Wurzeln 12,0–12,9 MB; LOD-Basis modelliert 1,94–2,30 MB. Treffer braucht
-   Koordinaten/Origin/Höhenbindung/Quell-IDs und Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
+   [Liefermodell](../test/experiments/building_asset_delivery.py): Basis hält Koordinaten/Origin/Höhenbindung/Quell-IDs/Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
    Basiscodec/Queue bildgleich integriert; getrennte Kosten für Basis/Pläne. OS-RAM-Ursachen bleiben offen; Koordinaten-Packen dort nur 5–6 % Gewinn am Koordinatenanteil.
 2. P0: verbliebene Terrainproben aus nativen Höhen-/Kontaktprodukten bedienen, 25–32 MiB Zwischenfelder bei Hits vermeiden. WaterAsset integriert; monotone Bereichsumsetzung erhält Konturreihenfolge/Löcher. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB statt 0,19–60 MB Gesamtkoordinaten. Weitere Generatoren trennen fertige Rohlinge von Cursor/Quelllayout; gemeinsamer Vertrag aus 2188.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
-   Renderer teilt ungebundene Maps je Device/Transfer/Sampler und Materialpakete ([Modell](../test/experiments/material_image_residency.py)). Native Bilder halten Basis und optionale Mips für Linearwerte, sRGB oder Normalmomente; keine GPU-Handles. Producer bereitet vor Publikation vor, Treffer uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
+   Renderer teilt Maps/Material ([Modell](../test/experiments/material_image_residency.py)). Native Bilder halten Basis und optionale Linear-/sRGB-/Normalmips; Producer bereitet vor Publikation vor, Hits uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
 4. P1: [Paketmodell](../test/experiments/impostor_ready_payload.py): Capture 20 MiB, Flat-Karten 6 MiB; [Mip-Modell](../test/experiments/prepared_image_mips.py): +2 MiB untere Stufen, keine Basisduplikation.
    Native GeometryAsset-Karten umgehen Coverage-/Farbvorbereitung; Atlas-Rohlinge bleiben. Miss/Defekt repariert nur Karten; mit Mips ca. −60 % entpackte Bytes gegenüber Captures, kein allgemeiner RAM-/Framegewinn.
    Atlas-Rezept bindet Artdefinition, Größe/Blicke und getrennte Generator-/Capture-Versionen; Änderungen an Wachstum oder Capture-Semantik erhöhen die jeweilige Version. Codecs prüfen eigene Formate. Fachfremde Engine-/Buildänderungen invalidieren nicht.
@@ -69,11 +68,10 @@ Generatoren teilen Geometrie-/Netzcodecs; GPU-Handles bleiben flüchtig. Kein Un
    Abfragen dürfen nicht alle Objekte öffnen/dekodieren. Reine Frustum-Selektion ist kein IO-Befehl
    je Frame: grobe Rundumprodukte und nahe Arbeitsmenge bleiben für schnelle Drehungen resident.
 2. Metadaten enthalten stabile Asset-ID, Weltbounds/Anker, Produkt-/Generatorversion, LOD-/Eltern-
-   Kindbezug, Qualitäts-/Kostenangaben, Abhängigkeiten und Speicherort/Bytebereich. Assetkeys
-   binden Region, Produkt/LOD, Seed/Parameter und Generatorversion, keine reine Blickrichtung.
-   Gemeinsame Abfragen ohne Place-Listen/OSM-Spalten; Builtins und Erweiterungen nutzen denselben Vertrag.
+   Kindbezug, Qualitäts-/Kostenangaben, Abhängigkeiten und Speicherort/Bytebereich. Eine optionale Anfrage-ID bindet Generator-/Quellkonfiguration, Region/LOD und Parameter vor Quellenarbeit; ein eindeutiger SQLite-Index adressiert ihr fertiges Produkt. Inhalts-ID/Herkunft binden weiter die tatsächlichen Eingaben. Publikation aktualisiert die Bindung atomar; kein automatisches Refresh und keine Kamerasnapshot-ID.
+   Schema 3 ergänzt optionale Anfragebindungen ohne Payload-Neubau; Schema 1/2 erhalten. [Indexmodell](../test/experiments/native_request_index.py): Metadatenspalte statt separater Bindungstabelle; Builtins/Erweiterungen teilen ResolveAssetRequest.
 3. Regelmäßige OSM-/DEM-Quellkacheln direkt über Kachel-IDs adressieren. SQLite-R*Tree hält
-   native Paketbounds in ECEF; genaue Radius-/Frustumtests folgen konservativer Boxabfrage.
+   Paketbounds in ECEF; Radius-/Frustumtests folgen konservativer Boxabfrage.
    Geladene Pakete verwenden gepackte Bereiche, keine SQL-Abfrage je Frame.
    [Python-Modell](../test/experiments/asset_residency.py): 100.545 Polygone → 1.837 Pakete,
    25,17 MB, warmer Dateicache ca. 2,9 ms statt 5,3 s Decode; kein nativer/GPU-Nachweis.
@@ -110,8 +108,8 @@ Wasser und Gebäude-Basis: zehn bildgleiche Migration-/Hit-Paare ohne Impostor-N
 Basis-Treffer warm 1,84–3,76 s, p99 1,60–4,57 ms. Alle Bilder geöffnet; kein neuer Bildgewinn.
 Frühere kalte Startspitzen CP 13,05/Koerbersee 25,10 ms bleiben bei 2340; günstige Fenster schließen sie nicht.
 Wasserabfragen und Gebäude-LOD-Treffer umgehen ihre Quellprodukte; Regionsschlüssel/übrige Quellenarbeit noch nicht.
-Volles Lint b966ca9fa: Exit 2 ausschließlich wegen fehlendem gepinntem Khronos-PNG;
-361 Tidy-Units, 32 Claims, 48 öffentliche Header und Shaderverträge sauber. Neue Basis: Format, 38 Fälle und 41 fokussierte Tidy-Units grün; Integrations-Lint ausstehend.
+Basis-Lint edd1a2c75: nur fehlendes Khronos-Pin-PNG rot; Tidy/Claims/Header/Shader sauber.
+Anfrage-API/Schema 3: sieben Fälle, 46 Tidy-Units, zehn bildgleiche Migration-/Hit-Paare grün. Warm 1,81–3,76 s, p99 2,05–2,88 ms, Footprint 4,29 GiB. Builtin-Quellbypass und volles API-Lint offen.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

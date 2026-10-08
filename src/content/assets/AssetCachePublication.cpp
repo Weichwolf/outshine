@@ -8,6 +8,7 @@
 #include <string_view>
 #include <string>
 #include <vector>
+#include <unordered_set>
 #include <zlib.h>
 
 namespace outshine {
@@ -37,7 +38,11 @@ private:
 bool Bind(sqlite3_stmt *statement, const AssetRecord &record) {
   bool bound =
       AssetSql::Text(statement, 1, record.Key) && AssetSql::Text(statement, 2, record.Kind) &&
-      AssetSql::Text(statement, 9, record.Package) && AssetSql::Text(statement, 13, record.Parent);
+      AssetSql::Text(statement, 9, record.Package) &&
+      AssetSql::Text(statement, 13, record.Parent) &&
+      AssetSql::Text(statement,
+                     14,
+                     record.RequestKey ? std::string_view(*record.RequestKey) : std::string_view{});
   for (int axis = 0; axis < 3; ++axis) {
     const auto index = static_cast<size_t>(axis);
     bound = sqlite3_bind_double(statement, 3 + axis, record.Bounds.Min[index]) == SQLITE_OK &&
@@ -81,6 +86,38 @@ std::expected<void, AssetCacheError> StorePackage(sqlite3 *database,
   return {};
 }
 
+std::expected<void, AssetCacheError> RebindRequest(sqlite3_stmt *statement,
+                                                   const AssetRecord &record) {
+  if (!record.RequestKey) { return {}; }
+  sqlite3_reset(statement);
+  if (!AssetSql::Text(statement, 1, *record.RequestKey) ||
+      !AssetSql::Text(statement, 2, record.Key)) {
+    return std::unexpected(AssetCacheError::Storage);
+  }
+  const int code = sqlite3_step(statement);
+  if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
+  return {};
+}
+
+std::expected<std::vector<AssetRecord>, AssetCacheError> PrepareRecords(
+    std::span<const AssetRecord> records, size_t payloadBytes, const std::string &package) {
+  std::vector<AssetRecord> publishing(records.begin(), records.end());
+  std::unordered_set<std::string_view> identities;
+  std::unordered_set<std::string_view> requests;
+  for (auto &record : publishing) {
+    if ((!record.Package.empty() && record.Package != package) ||
+        record.OffsetBytes > payloadBytes || record.ByteCount > payloadBytes - record.OffsetBytes) {
+      return std::unexpected(AssetCacheError::InvalidInput);
+    }
+    record.Package = package;
+    if (!AssetSql::Valid(record) || !identities.insert(record.Key).second ||
+        (record.RequestKey && !requests.insert(*record.RequestKey).second)) {
+      return std::unexpected(AssetCacheError::InvalidInput);
+    }
+  }
+  return publishing;
+}
+
 }
 
 std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRecord> records,
@@ -91,15 +128,8 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
     return std::unexpected(AssetCacheError::CapacityExceeded);
   }
   const std::string key = Sha256Hex(payload.data(), payload.size());
-  std::vector<AssetRecord> publishing(records.begin(), records.end());
-  for (auto &record : publishing) {
-    if ((!record.Package.empty() && record.Package != key) || record.OffsetBytes > payload.size() ||
-        record.ByteCount > payload.size() - record.OffsetBytes) {
-      return std::unexpected(AssetCacheError::InvalidInput);
-    }
-    record.Package = key;
-    if (!AssetSql::Valid(record)) { return std::unexpected(AssetCacheError::InvalidInput); }
-  }
+  auto publishing = PrepareRecords(records, payload.size(), key);
+  if (!publishing) { return std::unexpected(publishing.error()); }
   const auto compressed = AssetSql::Compress(payload);
   if (!compressed) { return std::unexpected(compressed.error()); }
   const int codec = compressed->empty() ? 0 : 1;
@@ -111,15 +141,17 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
   if (!stored) { return stored; }
   AssetSql::Statement asset;
   AssetSql::Statement bounds;
+  AssetSql::Statement request;
   auto prepared = AssetSql::Prepare(
       State_->Database,
       "INSERT INTO "
-      "assets(key,kind,minx,miny,minz,maxx,maxy,maxz,package,offset,bytes,level,parent) "
-      "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET kind=excluded.kind,"
+      "assets(key,kind,minx,miny,minz,maxx,maxy,maxz,package,offset,bytes,level,parent,request_key)"
+      " "
+      "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET kind=excluded.kind,"
       "minx=excluded.minx,miny=excluded.miny,minz=excluded.minz,maxx=excluded.maxx,maxy=excluded."
       "maxy,"
       "maxz=excluded.maxz,package=excluded.package,offset=excluded.offset,bytes=excluded.bytes,"
-      "level=excluded.level,parent=excluded.parent",
+      "level=excluded.level,parent=excluded.parent,request_key=excluded.request_key",
       asset);
   if (!prepared) { return prepared; }
   prepared =
@@ -128,7 +160,12 @@ std::expected<void, AssetCacheError> AssetCache::Publish(std::span<const AssetRe
                         "FROM assets WHERE key=?",
                         bounds);
   if (!prepared) { return prepared; }
-  for (const auto &record : publishing) {
+  prepared = AssetSql::Prepare(
+      State_->Database, "UPDATE assets SET request_key='' WHERE request_key=? AND key<>?", request);
+  if (!prepared) { return prepared; }
+  for (const auto &record : *publishing) {
+    const auto rebound = RebindRequest(request.Value, record);
+    if (!rebound) { return rebound; }
     sqlite3_reset(asset.Value);
     sqlite3_reset(bounds.Value);
     if (!Bind(asset.Value, record) || !AssetSql::Text(bounds.Value, 1, record.Key)) {

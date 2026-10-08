@@ -88,7 +88,8 @@ void KeepsLegacyBytes(const std::string &path) {
   cache->reset();
   CHECK(Execute(path,
                 "ALTER TABLE packages DROP COLUMN codec; ALTER TABLE packages DROP COLUMN "
-                "native_bytes; PRAGMA user_version=1;"),
+                "native_bytes; DROP INDEX asset_requests; ALTER TABLE assets DROP COLUMN "
+                "request_key; PRAGMA user_version=1;"),
         "fixture has the original schema and untouched legacy package bytes");
   cache = AssetCache::Open(path);
   CHECK(cache.has_value(), "schema migration opens legacy packages without regeneration");

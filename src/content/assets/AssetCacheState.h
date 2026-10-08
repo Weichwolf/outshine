@@ -32,7 +32,7 @@ Prepare(sqlite3 *database, const char *sql, Statement &statement);
 [[nodiscard]] std::optional<AssetRecord> Read(sqlite3_stmt *statement);
 
 inline constexpr auto kColumns = "a.key,a.kind,a.minx,a.miny,a.minz,a.maxx,a.maxy,a.maxz,a.package,"
-                                 "a.offset,a.bytes,a.level,a.parent";
+                                 "a.offset,a.bytes,a.level,a.parent,a.request_key";
 
 }
 }

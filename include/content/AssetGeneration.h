@@ -39,5 +39,21 @@ using AssetFactory = std::function<std::expected<GeneratedAssetPackage, std::str
                                                                    size_t packageBytesMost,
                                                                    const AssetFactory &factory);
 
+/// Resolve a demand known before source acquisition through the same native package service.
+/// A hit finds RequestKey metadata and loads its product without invoking factory. A miss
+/// requires exactly one generated record whose RequestKey equals the demand; Publish binds
+/// that complete product atomically. Input/content identities and payload formats remain owned
+/// by the generator. Previous products remain available by their content-bound keys.
+/// @param cache Shared native store; serialize access throughout this call.
+/// @param requestKey Stable SHA-256 demand binding generator version, configuration and parameters.
+/// @param packageBytesMost Whole-package encoded byte budget passed unchanged to factory.
+/// @param factory Optional cold-path producer; empty is valid only on a hit.
+/// @return Immutable product lease or a diagnostic; may perform disk IO and allocate.
+[[nodiscard]] std::expected<CachedAsset, std::string>
+ResolveAssetRequest(AssetCache &cache,
+                    std::string_view requestKey,
+                    size_t packageBytesMost,
+                    const AssetFactory &factory);
+
 }
 #endif

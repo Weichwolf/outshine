@@ -45,6 +45,8 @@ std::optional<AssetRecord> Read(sqlite3_stmt *statement) {
   record.ByteCount = static_cast<uint64_t>(bytes);
   record.Level = static_cast<uint32_t>(level);
   record.Parent = Column(statement, 12);
+  auto request = Column(statement, 13);
+  if (!request.empty()) { record.RequestKey = std::move(request); }
   return Valid(record) ? std::optional(std::move(record)) : std::nullopt;
 }
 
@@ -94,13 +96,18 @@ bool Intersects(const Box &bounds, const AssetQuery &query) {
 
 }
 
+namespace {
+enum class Lookup { Product, Request };
+
 std::expected<std::optional<AssetRecord>, AssetCacheError>
-AssetCache::Find(std::string_view key) const {
+FindRecord(sqlite3 *database, Lookup lookup, std::string_view key) {
   if (!AssetSql::ValidKey(key)) { return std::unexpected(AssetCacheError::InvalidInput); }
   AssetSql::Statement statement;
+  const auto *predicate =
+      lookup == Lookup::Product ? "a.key=?" : "a.request_key=? AND a.request_key<>''";
   const std::string sql =
-      std::string("SELECT ") + AssetSql::kColumns + " FROM assets a WHERE a.key=?";
-  auto prepared = AssetSql::Prepare(State_->Database, sql.c_str(), statement);
+      std::string("SELECT ") + AssetSql::kColumns + " FROM assets a WHERE " + predicate;
+  auto prepared = AssetSql::Prepare(database, sql.c_str(), statement);
   if (!prepared) { return std::unexpected(prepared.error()); }
   if (!AssetSql::Text(statement.Value, 1, key)) {
     return std::unexpected(AssetCacheError::Storage);
@@ -111,6 +118,17 @@ AssetCache::Find(std::string_view key) const {
   auto record = AssetSql::Read(statement.Value);
   if (!record) { return std::unexpected(AssetCacheError::Storage); }
   return record;
+}
+}
+
+std::expected<std::optional<AssetRecord>, AssetCacheError>
+AssetCache::Find(std::string_view key) const {
+  return FindRecord(State_->Database, Lookup::Product, key);
+}
+
+std::expected<std::optional<AssetRecord>, AssetCacheError>
+AssetCache::FindRequest(std::string_view requestKey) const {
+  return FindRecord(State_->Database, Lookup::Request, requestKey);
 }
 
 std::expected<std::vector<AssetRecord>, AssetCacheError>
