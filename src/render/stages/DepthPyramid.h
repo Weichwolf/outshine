@@ -4,9 +4,11 @@
 #include <array>
 #include <cstdint>
 
-#include "TexelChain.h"
+#include "shade/TexelChain.h"
 
 namespace outshine::Render {
+
+using Core::Texels;
 
 inline constexpr uint32_t kPyramidLevels = 4u;
 

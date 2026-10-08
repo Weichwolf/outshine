@@ -10,6 +10,7 @@
 
 #include "scene/PunctualLight.h"
 #include "scene/UvTransform.h"
+#include "scene/Texture.h"
 
 #include "DrawList.h"
 #include "math/Vec3.h"
@@ -46,6 +47,7 @@ struct SubjectTexture {
   const uint8_t *Rgba = nullptr;
   uint32_t Width = 0;
   uint32_t Height = 0;
+  ImageMipViews LowerMips{};
   SubjectWrap WrapU = SubjectWrap::Repeat;
   SubjectWrap WrapV = SubjectWrap::Repeat;
   SubjectFilter Magnify = SubjectFilter::Linear;

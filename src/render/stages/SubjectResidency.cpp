@@ -1,4 +1,4 @@
-#include "math/Srgb.h"
+#include "shade/ImageMips.h"
 #include <span>
 #include <optional>
 #include <expected>
@@ -7,7 +7,6 @@
 #include "SubjectResidency.h"
 #include <algorithm>
 
-#include <cmath>
 #include <cstdint>
 #include <format>
 #include <string>
@@ -18,10 +17,7 @@
 
 namespace outshine::Render {
 
-constexpr float kByteSteps = 255.0f;
-
 constexpr size_t kRgbaChannels = 4u;
-constexpr size_t kAlphaChannel = 3u;
 
 namespace Says {
 inline constexpr std::string_view kInvalidCrossing =
@@ -107,31 +103,6 @@ SDL_GPUSamplerAddressMode AddressOf(SubjectWrap wrap) {
 SDL_GPUFilter FilterOf(SubjectFilter filter) {
   return filter == SubjectFilter::Nearest ? SDL_GPU_FILTER_NEAREST : SDL_GPU_FILTER_LINEAR;
 }
-
-uint8_t Byte(float value) {
-  return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * kByteSteps));
-}
-
-void Encode(std::span<const float> linear,
-            SubjectResidency::Transfer transfer,
-            std::vector<uint8_t> &encoded) {
-  encoded.resize(linear.size());
-  for (size_t texel = 0; texel < linear.size() / kRgbaChannels; ++texel) {
-    for (size_t channel = 0; channel < kAlphaChannel; ++channel) {
-      const float value = linear[texel * kRgbaChannels + channel];
-      encoded[texel * kRgbaChannels + channel] =
-          Byte(transfer == SubjectResidency::Transfer::Srgb ? ColourSpace::SrgbFromLinear(value)
-                                                            : value);
-    }
-    encoded[texel * kRgbaChannels + kAlphaChannel] =
-        Byte(linear[texel * kRgbaChannels + kAlphaChannel]);
-  }
-}
-
-struct TextureMip {
-  uint32_t Offset = 0;
-  Texels Extent;
-};
 
 std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels) {
   uint32_t width = extent.WidthPx;
@@ -503,25 +474,11 @@ std::expected<SubjectResidency::BoundImage, std::string> SubjectResidency::Uploa
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
   const uint32_t height = texture.Height > 0 ? texture.Height : 1;
   const uint8_t *texels = (texture.Rgba != nullptr) ? texture.Rgba : white.data();
-  std::vector<float> linear(static_cast<size_t>(width) * height * 4u, 0.0f);
-  for (size_t texel = 0; texel < linear.size() / 4u; ++texel) {
-    for (size_t channel = 0; channel < 3; ++channel) {
-      const uint8_t code = texels[texel * 4u + channel];
-      linear[texel * 4u + channel] =
-          decode == Transfer::Srgb
-              ? ColourSpace::LinearFromSrgb(static_cast<float>(code) / kByteSteps)
-              : static_cast<float>(code) / kByteSteps;
-    }
-    linear[texel * kRgbaChannels + kAlphaChannel] =
-        static_cast<float>(texels[texel * kRgbaChannels + kAlphaChannel]) / kByteSteps;
+  if (width > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
+      height > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
+      (kind == TexelKind::Direction && decode != Transfer::Linear)) {
+    return std::unexpected("texture dimensions or transfer interpretation are invalid");
   }
-
-  if (kind == TexelKind::Direction) {
-    for (size_t texel = 0; texel < linear.size() / 4u; ++texel) {
-      linear[texel * kRgbaChannels + kAlphaChannel] = 1.0f;
-    }
-  }
-
   SDL_GPUTextureCreateInfo wantedTexture{};
   wantedTexture.type = SDL_GPU_TEXTURETYPE_2D;
   wantedTexture.format = decode == Transfer::Srgb ? SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB
@@ -544,9 +501,13 @@ std::expected<SubjectResidency::BoundImage, std::string> SubjectResidency::Uploa
     return std::unexpected(std::format(Says::kTextureImageFoundNoRoom, SDL_GetError()));
   }
 
-  if (auto uploaded = UploadMipChain(
-          image, linear, {.WidthPx = width, .HeightPx = height}, levels, decode, kind);
-      !uploaded) {
+  const ImageView pixels{.WidthPx = static_cast<int>(width),
+                         .HeightPx = static_cast<int>(height),
+                         .Rgba = {texels, static_cast<size_t>(width) * height * 4u},
+                         .LowerMips = texture.LowerMips};
+  auto interpretation = decode == Transfer::Srgb ? ImageMipKind::Colour : ImageMipKind::Linear;
+  if (kind == TexelKind::Direction) { interpretation = ImageMipKind::Normal; }
+  if (auto uploaded = UploadMipChain(image, pixels, levels, interpretation); !uploaded) {
     return std::unexpected(std::move(uploaded.error()));
   }
 
@@ -571,39 +532,29 @@ std::expected<SubjectResidency::BoundImage, std::string> SubjectResidency::Uploa
 }
 
 std::expected<void, std::string> SubjectResidency::UploadMipChain(OwnedTexture &image,
-                                                                  std::span<const float> linear,
-                                                                  Texels extent,
+                                                                  ImageView pixels,
                                                                   uint32_t levels,
-                                                                  Transfer decode,
-                                                                  TexelKind kind) const {
+                                                                  ImageMipKind kind) const {
+  const Texels extent{.WidthPx = static_cast<uint32_t>(pixels.WidthPx),
+                      .HeightPx = static_cast<uint32_t>(pixels.HeightPx)};
   const auto chainBytes = MipChainBytes(extent, levels);
-  if (!chainBytes) { return std::unexpected(std::string(Says::kTextureMipChainTooLarge)); }
-  std::vector<float> level(linear.begin(), linear.end());
-  std::vector<uint8_t> encoded;
-  std::vector<uint8_t> packed;
-  packed.reserve(*chainBytes);
-  std::vector<TextureMip> mips;
-  mips.reserve(levels);
-  uint32_t levelWidth = extent.WidthPx;
-  uint32_t levelHeight = extent.HeightPx;
-  for (uint32_t which = 0; which < levels; ++which) {
-    if (which > 0) {
-      std::vector<float> smaller;
-      const Texels made =
-          HalveInPlace(level, {.WidthPx = levelWidth, .HeightPx = levelHeight}, smaller, kind);
-      level.swap(smaller);
-      levelWidth = made.WidthPx;
-      levelHeight = made.HeightPx;
-    }
-    Encode(level, decode, encoded);
-    if (encoded.size() > *chainBytes - packed.size()) {
-      return std::unexpected(std::string(Says::kTextureMipChainTooLarge));
-    }
-    mips.push_back({.Offset = static_cast<uint32_t>(packed.size()),
-                    .Extent = {.WidthPx = levelWidth, .HeightPx = levelHeight}});
-    packed.insert(packed.end(), encoded.begin(), encoded.end());
+  if (!pixels.valid()) {
+    return std::unexpected("texture image or prepared mip levels are invalid");
   }
-
+  if (!chainBytes || levels == 0) {
+    return std::unexpected(std::string(Says::kTextureMipChainTooLarge));
+  }
+  auto lower = pixels.LowerMips[static_cast<size_t>(kind)];
+  std::optional<std::vector<uint8_t>> generated;
+  if (levels > 1 && !lower) {
+    generated = Core::PrepareImageMips(pixels, kind);
+    if (!generated) { return std::unexpected("texture mip preparation failed"); }
+    lower = std::span<const uint8_t>(*generated);
+  }
+  const size_t baseBytes = static_cast<size_t>(extent.WidthPx) * extent.HeightPx * 4u;
+  if (levels > 1 && (!lower || lower->size() != *chainBytes - baseBytes)) {
+    return std::unexpected("texture mip levels do not match transfer storage");
+  }
   SDL_GPUTransferBufferCreateInfo wantedTransfer{};
   wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
   wantedTransfer.size = *chainBytes;
@@ -615,32 +566,42 @@ std::expected<void, std::string> SubjectResidency::UploadMipChain(OwnedTexture &
   if (!staging) {
     return std::unexpected(std::format(Says::kTextureStagingFoundNoRoom, SDL_GetError()));
   }
-  void *const mapped = SDL_MapGPUTransferBuffer(Device_, staging.Get(), false);
+  auto *const mapped =
+      static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device_, staging.Get(), false));
   if (mapped == nullptr) {
     return std::unexpected(std::format(Says::kTextureStagingDidNotMap, SDL_GetError()));
   }
-  std::memcpy(mapped, packed.data(), packed.size());
+  std::memcpy(mapped, pixels.Rgba.data(), baseBytes);
+  if (kind == ImageMipKind::Normal) {
+    for (size_t at = 3; at < baseBytes; at += 4) {
+      mapped[at] = std::numeric_limits<uint8_t>::max();
+    }
+  }
+  if (levels > 1 && lower) { std::memcpy(mapped + baseBytes, lower->data(), lower->size()); }
   SDL_UnmapGPUTransferBuffer(Device_, staging.Get());
   std::string error;
   const auto copy = BeginCopy(Device_, error);
   if (!copy) { return std::unexpected(error); }
+  uint32_t offset = 0;
+  Texels size = extent;
   for (uint32_t mip = 0; mip < levels; ++mip) {
-    const TextureMip &levelInfo = mips[mip];
     SDL_GPUTextureTransferInfo source{};
     source.transfer_buffer = staging.Get();
-    source.offset = levelInfo.Offset;
-    source.pixels_per_row = levelInfo.Extent.WidthPx;
-    source.rows_per_layer = levelInfo.Extent.HeightPx;
+    source.offset = offset;
+    source.pixels_per_row = size.WidthPx;
+    source.rows_per_layer = size.HeightPx;
     SDL_GPUTextureRegion into{};
     into.texture = image.Get();
     into.mip_level = mip;
-    into.w = levelInfo.Extent.WidthPx;
-    into.h = levelInfo.Extent.HeightPx;
+    into.w = size.WidthPx;
+    into.h = size.HeightPx;
     into.d = 1;
     SDL_UploadToGPUTexture(copy->Pass, &source, &into, false);
+    offset += size.WidthPx * size.HeightPx * 4u;
+    size.WidthPx = std::max(1u, size.WidthPx / 2u);
+    size.HeightPx = std::max(1u, size.HeightPx / 2u);
   }
   if (!SubmitCopy(*copy, error)) { return std::unexpected(error); }
-
   return {};
 }
 

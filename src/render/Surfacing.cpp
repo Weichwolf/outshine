@@ -58,6 +58,7 @@ bool ResolveNativeTextures(std::span<const ImageView> images,
     texture.Rgba = image.Rgba.data();
     texture.Width = static_cast<uint32_t>(image.WidthPx);
     texture.Height = static_cast<uint32_t>(image.HeightPx);
+    texture.LowerMips = image.LowerMips;
     texture.Set = map.Set;
     texture.Uv = UvTransformOf(map.Uv);
     texture.WrapU = WrapOf(map.Sampler.WrapU);

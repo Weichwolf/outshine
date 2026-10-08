@@ -20,7 +20,10 @@ int main() {
   Geometry geometry;
   const std::array<uint8_t, 16> pixels{
       255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255};
-  const int image = *geometry.addImage(2, 2, pixels);
+  ImageMipData mips;
+  mips[1].emplace(4, 127);
+  const int image = *geometry.addImage(
+      {.WidthPx = 2, .HeightPx = 2, .Rgba = pixels, .LowerMips = ViewImageMips(mips)});
   CHECK(image >= 0, "native RGBA image is accepted");
   Material material;
   material.BaseColour = {{1, 1, 1, 1}};
@@ -62,8 +65,9 @@ int main() {
                               &slots[0].SpecularStrength,
                               &slots[0].SpecularTint}) {
     CHECK(texture->Rgba == geometry.imageAt(image).Rgba.data() && texture->Width == 2 &&
-              texture->Height == 2,
-          "each socket borrows the declared image bytes");
+              texture->Height == 2 && texture->LowerMips[1] &&
+              texture->LowerMips[1]->data() == geometry.imageAt(image).LowerMips[1]->data(),
+          "each socket borrows the declared base and prepared mip bytes");
     CHECK(texture->Magnify == Render::SubjectFilter::Nearest &&
               texture->Mip == Render::SubjectMip::None &&
               texture->WrapU == Render::SubjectWrap::ClampToEdge,

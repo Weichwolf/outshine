@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
-#define OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
+#ifndef OUTSHINE_CONTENT_SHADE_TEXELCHAIN_H
+#define OUTSHINE_CONTENT_SHADE_TEXELCHAIN_H
 
 #include <algorithm>
 #include <array>
@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-namespace outshine::Render {
+namespace outshine::Core {
 
 struct Texels {
   uint32_t WidthPx = 0;

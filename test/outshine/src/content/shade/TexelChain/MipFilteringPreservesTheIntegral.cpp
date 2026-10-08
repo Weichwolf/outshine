@@ -2,11 +2,11 @@
 #include <array>
 #include <cmath>
 #include <vector>
-#include "stages/TexelChain.h"
+#include "shade/TexelChain.h"
 #include "Check.h"
 
 int main() {
-  using namespace outshine::Render;
+  using namespace outshine::Core;
   using namespace outshine::Test;
   const std::array<float, 16> checker{0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
   std::vector<float> reduced;

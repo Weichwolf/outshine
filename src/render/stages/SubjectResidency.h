@@ -12,9 +12,12 @@
 
 #include "GpuOwned.h"
 #include "SubjectTypes.h"
-#include "TexelChain.h"
+#include "shade/TexelChain.h"
 
 namespace outshine::Render {
+
+using Core::TexelKind;
+using Core::Texels;
 
 struct SubjectResidency {
   [[nodiscard]] size_t TakeUploadAttempts();
@@ -184,14 +187,10 @@ struct SubjectResidency {
   [[nodiscard]] std::expected<BoundImage, std::string>
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
-  [[nodiscard]] std::expected<void, std::string> UploadMipChain(OwnedTexture &image,
-                                                                std::span<const float> linear,
-                                                                Texels extent,
-                                                                uint32_t levels,
-                                                                Transfer decode,
-                                                                TexelKind kind) const;
-
 private:
+  [[nodiscard]] std::expected<void, std::string>
+  UploadMipChain(OwnedTexture &image, ImageView pixels, uint32_t levels, ImageMipKind kind) const;
+
   [[nodiscard]] std::expected<BoundImage, std::string>
   UploadImage(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
