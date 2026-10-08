@@ -114,6 +114,8 @@ private:
     double GradeM = 0.0;
     double SlopeE = 0.0;
     double SlopeN = 0.0;
+    double RootsM = 0.0;
+    bool Elevated = false;
     Vec3f WearsLinear = {{0.5f, 0.5f, 0.5f}};
     std::vector<Leg> Legs;
     std::vector<RoadGate> Gates;
@@ -304,6 +306,9 @@ private:
   AppendJunctionTerrainStamp(const Junction &made, double rootsM, bool elevated, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
   static void ShapesJunctions(const Paving &on, Paved &into);
+  static void RecordJunctionMetrics(Paved &into);
+  static void LimitEndCuts(Edge &edge, const Paved &into);
+  static void FinalizeJunction(Junction &made, Paved &into);
   static void GroupTerrainContacts(const Paving &on, Paved &into);
   static void DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &lane,
                          const Edge &edge,
@@ -386,6 +391,8 @@ public:
       Edges,
       Legs,
       Junctions,
+      EndCuts,
+      JunctionContacts,
       Pave,
       Bodies,
       FinishNotes,

@@ -68,9 +68,9 @@ Eine waagerechte Brückenplatte am höchsten DEM-Punkt hebt Feldkirchs tiefere A
 unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erforderlichem
 Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbaus.
 Feldkirchs große Rampen sinken sichtbar; einzelne gebrochene Straßenränder bleiben.
-Nächste Lieferung: gemeinsamer Stationsplan für Knoten/Spannen; beide Endkürzungen
-zusammen begrenzen. Ein kurzer Rest darf nie zum ungekürzten Weg zurückfallen.
-Dann klassenkonformes C1-Höhenprofil; Fahrbahn, Schultern und Terrainkontakt daraus ableiten.
+Knoten und Spannen nutzen dieselben tatsächlichen Wegstationen; beide Endkürzungen
+werden gemeinsam begrenzt. Kurze Wege fallen nicht mehr zum ungekürzten Verlauf zurück.
+Nächste Lieferung: klassenkonformes C1-Höhenprofil; Fahrbahn, Schultern und Terrainkontakt daraus ableiten.
 Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen brauchen dieselbe adaptive Abtastung.
 Danach Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Geländer ergänzen.
 

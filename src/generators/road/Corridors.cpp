@@ -148,7 +148,7 @@ void Corridors::TrimLaneEnds(const Edge &edge, Paved &into) {
   const double wholeM = reached.back();
   const double fromM = edge.CutM[0];
   const double toM = wholeM - edge.CutM[1];
-  if (toM - fromM < kLeastRoadM || (fromM <= kLeastCapM && toM >= wholeM - kLeastCapM)) { return; }
+  if (fromM <= kLeastCapM && toM >= wholeM - kLeastCapM) { return; }
 
   const auto standAt = [&](double alongM) {
     size_t at = 1;
@@ -1001,10 +1001,7 @@ void Corridors::GatesOf(std::span<const Leg> legs, const Paved &into, Junction &
     const Edge &edge = into.Edges[leg.Edge];
     const std::span<const RoadStation> stations(into.Designed[edge.Lane].data() + edge.First,
                                                 edge.Count);
-    const Bound line = BoundaryOf(stations,
-                                  leg.End == 1,
-                                  {.SideM = 0.0, .ReachM = leg.CutM},
-                                  {.EastM = made.EastM, .NorthM = made.NorthM, .Stands = true});
+    const Bound line = BoundaryOf(stations, leg.End == 1, {.SideM = 0.0, .ReachM = leg.CutM});
     const size_t rim = line.EastM.size() - 1u;
     const size_t before = rim == 0 ? 0 : rim - 1u;
     double outE = line.EastM[rim] - line.EastM[before];
@@ -1106,21 +1103,11 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
   }
   for (Leg &leg : legs) {
     leg.CutM += kJunctionRadiusM;
-    leg.CutM =
-        std::min(leg.CutM, std::max(0.0, left[&leg - legs.data()].AlongM.back() - kLeastRoadM));
     into.Edges[leg.Edge].CutM[leg.End] = leg.CutM;
-    into.Edges[leg.Edge].GradeAtM[leg.End] = made.GradeM;
-    into.Edges[leg.Edge].HasEndGrade[leg.End] = true;
-    into.DeepestCutM = std::max(into.DeepestCutM, leg.CutM);
-    ++into.LegsCut;
   }
-  GatesOf(legs, into, made);
   if (!(decked && seeded != into.EndM.end())) { LiesOnItsPlane(on, legs, made, into); }
-  for (const Leg &leg : legs) {
-    const RoadGate &gate = made.Gates[static_cast<size_t>(&leg - legs.data())];
-    into.Edges[leg.Edge].GradeAtM[leg.End] = gate.GradeM;
-  }
-  AppendJunctionTerrainStamp(made, rootsM, decked, into);
+  made.RootsM = rootsM;
+  made.Elevated = decked;
   made.Legs = std::move(legs);
   into.MostOffGroundM = std::max(into.MostOffGroundM, std::fabs(made.GradeM - rootsM));
   into.Junctions.push_back(std::move(made));
@@ -1227,6 +1214,67 @@ void Corridors::ShapesJunctions(const Paving &on, Paved &into) {
     }
     ShapeOf(on, node, legs, into);
   }
+  for (Edge &edge : into.Edges) { LimitEndCuts(edge, into); }
+  for (Junction &made : into.Junctions) { FinalizeJunction(made, into); }
+}
+
+void Corridors::RecordJunctionMetrics(Paved &into) {
+  Notes(
+      into, "streets: edges the ways split into", static_cast<double>(into.Edges.size()), "edges");
+  Notes(into, "streets: junctions shaped", static_cast<double>(into.Junctions.size()), "junctions");
+  Notes(into,
+        "streets: nodes where a way continues",
+        static_cast<double>(into.Continuations),
+        "nodes");
+  Notes(into,
+        "streets: ways under a pixel wide, left to the ground",
+        static_cast<double>(into.UnseenWays),
+        "ways");
+  Notes(into,
+        "streets: legs cut back to a junction's rim",
+        static_cast<double>(into.LegsCut),
+        "legs");
+  Notes(into, "streets: and the deepest cut", into.DeepestCutM, "m");
+  Notes(into, "streets: and the steepest junction plane", into.SteepestJunction, "m/m");
+  Notes(into,
+        "streets: junctions held to the steepest paved grade",
+        static_cast<double>(into.JunctionsLevelled),
+        "junctions");
+}
+
+void Corridors::LimitEndCuts(Edge &edge, const Paved &into) {
+  const std::span<const RoadStation> stations(into.Designed[edge.Lane].data() + edge.First,
+                                              edge.Count);
+  double lengthM = 0.0;
+  for (size_t at = 1; at < stations.size(); ++at) {
+    lengthM += std::hypot(stations[at].EastM - stations[at - 1].EastM,
+                          stations[at].NorthM - stations[at - 1].NorthM);
+  }
+  const double wantedM = edge.CutM[0] + edge.CutM[1];
+  const double availableM = std::max(0.0, lengthM - std::min(kLeastRoadM, 0.5 * lengthM));
+  if (wantedM <= availableM) { return; }
+  const double scale = wantedM > 0.0 ? availableM / wantedM : 0.0;
+  edge.CutM[0] *= scale;
+  edge.CutM[1] *= scale;
+}
+
+void Corridors::FinalizeJunction(Junction &made, Paved &into) {
+  for (Leg &leg : made.Legs) {
+    leg.CutM = into.Edges[leg.Edge].CutM[leg.End];
+    into.DeepestCutM = std::max(into.DeepestCutM, leg.CutM);
+    ++into.LegsCut;
+  }
+  GatesOf(made.Legs, into, made);
+  for (size_t at = 0; at < made.Legs.size(); ++at) {
+    const Leg &leg = made.Legs[at];
+    RoadGate &gate = made.Gates[at];
+    gate.GradeM = made.GradeM + made.SlopeE * (gate.EastM - made.EastM) +
+                  made.SlopeN * (gate.NorthM - made.NorthM);
+    Edge &edge = into.Edges[leg.Edge];
+    edge.GradeAtM[leg.End] = gate.GradeM;
+    edge.HasEndGrade[leg.End] = true;
+  }
+  AppendJunctionTerrainStamp(made, made.RootsM, made.Elevated, into);
 }
 
 void Corridors::DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &lane,
@@ -1447,32 +1495,7 @@ void Corridors::PaveLanes(const Paving &on,
                       std::make_move_iterator(into.UnderJunctions.begin()),
                       std::make_move_iterator(into.UnderJunctions.end()));
       into.UnderJunctions.clear();
-      Notes(into,
-            "streets: edges the ways split into",
-            static_cast<double>(into.Edges.size()),
-            "edges");
-      Notes(into,
-            "streets: junctions shaped",
-            static_cast<double>(into.Junctions.size()),
-            "junctions");
-      Notes(into,
-            "streets: nodes where a way continues",
-            static_cast<double>(into.Continuations),
-            "nodes");
-      Notes(into,
-            "streets: ways under a pixel wide, left to the ground",
-            static_cast<double>(into.UnseenWays),
-            "ways");
-      Notes(into,
-            "streets: legs cut back to a junction's rim",
-            static_cast<double>(into.LegsCut),
-            "legs");
-      Notes(into, "streets: and the deepest cut", into.DeepestCutM, "m");
-      Notes(into, "streets: and the steepest junction plane", into.SteepestJunction, "m/m");
-      Notes(into,
-            "streets: junctions held to the steepest paved grade",
-            static_cast<double>(into.JunctionsLevelled),
-            "junctions");
+      RecordJunctionMetrics(into);
       Notes(into, "streets: of that, shaping the junctions", since(), "ms");
     }
   }
@@ -1846,6 +1869,8 @@ std::expected<bool, std::string_view> Corridors::AdvanceStage(Job &job,
     case Stage::Edges:
     case Stage::Legs: return AdvanceRoadDesign(job, slice);
     case Stage::Junctions:
+    case Stage::EndCuts:
+    case Stage::JunctionContacts:
     case Stage::Pave: return AdvanceRoadJunctions(job, slice);
     case Stage::Bodies: return AdvanceRoadBodies(job, slice);
     case Stage::FinishNotes: return AdvanceFinish(job, slice);
@@ -2200,36 +2225,36 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
       job.StageMs += elapsed();
       job.TotalMs += elapsed();
       if (job.NextNode < job.Nodes.size()) { return false; }
+      job.NextEdge = 0;
+      job.Phase = Job::Stage::EndCuts;
+      return false;
+    }
+    case Job::Stage::EndCuts: {
+      const size_t end =
+          std::min(job.NextEdge + 2u * std::max(size_t{1}, lanesMost), into.Edges.size());
+      for (; job.NextEdge < end; ++job.NextEdge) { LimitEndCuts(into.Edges[job.NextEdge], into); }
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextEdge < into.Edges.size()) { return false; }
+      job.NextBody = 0;
+      job.Phase = Job::Stage::JunctionContacts;
+      return false;
+    }
+    case Job::Stage::JunctionContacts: {
+      const size_t end =
+          std::min(job.NextBody + std::max(size_t{1}, nodesMost), into.Junctions.size());
+      for (; job.NextBody < end; ++job.NextBody) {
+        FinalizeJunction(into.Junctions[job.NextBody], into);
+      }
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextBody < into.Junctions.size()) { return false; }
+      job.NextBody = 0;
       job.Corridor.insert(job.Corridor.end(),
                           std::make_move_iterator(into.UnderJunctions.begin()),
                           std::make_move_iterator(into.UnderJunctions.end()));
       into.UnderJunctions.clear();
-      Notes(into,
-            "streets: edges the ways split into",
-            static_cast<double>(into.Edges.size()),
-            "edges");
-      Notes(into,
-            "streets: junctions shaped",
-            static_cast<double>(into.Junctions.size()),
-            "junctions");
-      Notes(into,
-            "streets: nodes where a way continues",
-            static_cast<double>(into.Continuations),
-            "nodes");
-      Notes(into,
-            "streets: ways under a pixel wide, left to the ground",
-            static_cast<double>(into.UnseenWays),
-            "ways");
-      Notes(into,
-            "streets: legs cut back to a junction's rim",
-            static_cast<double>(into.LegsCut),
-            "legs");
-      Notes(into, "streets: and the deepest cut", into.DeepestCutM, "m");
-      Notes(into, "streets: and the steepest junction plane", into.SteepestJunction, "m/m");
-      Notes(into,
-            "streets: junctions held to the steepest paved grade",
-            static_cast<double>(into.JunctionsLevelled),
-            "junctions");
+      RecordJunctionMetrics(into);
       Notes(into, "streets: of that, shaping the junctions", job.StageMs, "ms");
       job.NextLane = 0;
       job.StageMs = 0.0;
