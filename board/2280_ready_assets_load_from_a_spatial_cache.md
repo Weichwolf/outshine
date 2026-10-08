@@ -19,9 +19,8 @@ alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Geräteh
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
 Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh-Jobs.
 WaterAsset besitzt kompakte Koordinaten/Pegel/Konturen/Flussprofile/Tileindex; unveränderliche Abfragen, Mesh und Decoder ohne OsmField. WaterField besitzt allein Erzeugung/Fortschritt; Wasser-Mesher erreicht OSM nicht mehr.
-Coverage beobachtet nur; native Produkte bestimmen Ready. Screenshot-Kennzahlen beschreiben veröffentlichte Produkte, keinen unbefriedigten Quellbedarf. Erste Quellenbereitschaft verlangt keinen äußeren Ring.
+Coverage beobachtet nur; native Produkte bestimmen Ready und veröffentlichte Screenshot-Kennzahlen.
 Regionschlüssel binden Quell-Digests, Formparameter, Detailauftrag und Regeln; kein serialisiertes Straßennetz.
-Exakte Kamera-Schlüssel und ganze Regionen ersetzen keine räumliche Eltern-/Kindhierarchie.
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
@@ -37,9 +36,10 @@ Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen gecachte P
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
 Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsmenge noch offen.
 [Paketmodell](../test/experiments/prepared_building_residency.py): Tokyo historisch 553,40 MiB, Formen 325,69; 1-km-Zellen 4,92 MiB, kein Bildnachweis.
-1. P0: Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Räumliche Eltern/Kind-Rohlinge
-   statt Kamerasnapshots: kleine Bounds-/Produktindizes, gecachte Fernprodukte, unabhängige komprimierte
-   Form-/Kontaktblöcke. Erst Bedarf → Paket öffnen; Rohling-Formen behalten, keine Rekonstruktion bei Hits.
+1. P0: Bedarf aus 2336 vor Quellen/Cachedecode; räumliche Eltern/Kinder statt Kamerasnapshots.
+   [Liefermodell](../test/experiments/building_asset_delivery.py): drei große Schema-4-Wurzeln 12,0–12,9 MB; LOD-Basis modelliert 1,94–2,30 MB. Treffer braucht
+   Koordinaten/Origin/Höhenbindung/Quell-IDs und Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
+   Kein Runtime-/RAM-Beleg; Koordinaten-Packen dort nur 5–6 % Gewinn am Koordinatenanteil.
 2. P0: verbliebene Terrainproben aus nativen Höhen-/Kontaktprodukten bedienen, 25–32 MiB Zwischenfelder bei Hits vermeiden. WaterAsset integriert; monotone Bereichsumsetzung erhält Konturreihenfolge/Löcher. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB statt 0,19–60 MB Gesamtkoordinaten. Weitere Generatoren trennen fertige Rohlinge von Cursor/Quelllayout; gemeinsamer Vertrag aus 2188.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Renderer teilt ungebundene Maps je Device/Transfer/Sampler und Materialpakete ([Modell](../test/experiments/material_image_residency.py)). Native Bilder speichern die Basis einmal und optionale untere Mips für Linearwerte, sRGB-Farbe oder Normalmomente; keine GPU-Handles. Producer bereitet vor Publikation vor, Treffer uploaden direkt. Eigene Codec-/Produktversion; bildlose Assets und Captures bleiben gültig. Rosenheim-Sampling: Mainthread 4,63 → 2,96 s; beobachtete Mip-/Upload-Leaves 831 → 4 ms, kein GPU-Zeitnachweis.
@@ -110,8 +110,8 @@ Wasser: zehn bildgleiche Miss-/Hit-Paare und ein weiterer frischer Hit ohne Impo
 warm 1,83–5,50 s, p99 0,61–8,13 ms. Erstaufbau neuer Regionen 18,69–68,67 s;
 kalte Startspitzen CP 13,05/Koerbersee 25,10 ms bleiben bei 2340. Kein OS-RAM-/GPU-Zeit-Gewinnbeweis.
 Wasserdecoder und Abfragen sind quellunabhängig; Regionsschlüssel und übrige Quellenarbeit noch nicht.
-Letztes volles Lint (888692524): Exit 2 ausschließlich wegen fehlendem gepinntem Khronos-PNG;
-der aktuelle Modulumbau benötigt einen eigenen vollständigen Lauf.
+Volles Lint 6d462324c: Exit 2, fehlendes gepinntes Khronos-PNG und falscher Wasser-Headerguard;
+Headerguard korrigiert, neuer vollständiger Lauf ausstehend.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
