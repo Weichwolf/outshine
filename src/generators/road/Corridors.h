@@ -63,7 +63,9 @@ private:
   struct Meets {
     double EastM = 0.0;
     double NorthM = 0.0;
+    double GradeM = 0.0;
     uint64_t Named = 0;
+    std::array<size_t, 2> Lanes{};
   };
 
   struct Paving {
@@ -212,8 +214,16 @@ private:
   static void TrimLaneEnds(const Edge &edge, Paved &into);
   static void FitLane(const Edge &edge, Paved &into);
 
-  static void
-  FileCrossing(const Path::Network::Crossing &one, const TangentFrame &standing, Paved &into);
+  static void SplitAtCrossings(size_t laneAt, Paved &into);
+  static void BindCrossingStations(size_t laneAt, Paved &into);
+  static std::optional<RoadStation>
+  CrossingStation(size_t laneAt, const Meets &met, std::span<const RoadStation, 2> span);
+  static uint64_t RoadNodeAt(const ::outshine::Generators::Osm::StreetField::Way &lane,
+                             LongitudeLatitude at);
+  static void FileCrossing(const Path::Network::Crossing &one,
+                           const Paving &on,
+                           const Path::Network &network,
+                           Paved &into);
   static void RaiseDeckOver(const Path::Network::Crossing &one,
                             const Paving &on,
                             const Path::Network &net,

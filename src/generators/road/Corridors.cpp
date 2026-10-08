@@ -56,8 +56,6 @@ constexpr float kUnlitTint = 0.65f;
 constexpr double kUnraisedDeckM = -1.0e29;
 constexpr double kRoseLeast = 0.05;
 constexpr double kRoadStepM = 16.0;
-constexpr double kCrossCellM = 32.0;
-constexpr double kMeetsWithinM = 10.0;
 constexpr int kRampPasses = 12;
 constexpr int kChordPasses = 4;
 constexpr double kChordWithinM = 0.20;
@@ -255,7 +253,11 @@ bool Corridors::StationsAlong(const Paving &on,
       const double onLon = on.Points[here + 1] + (on.Points[next + 1] - on.Points[here + 1]) * at;
       const LongitudeLatitude location{.LongitudeDeg = onLon, .LatitudeDeg = onLat};
       uint64_t node = piece == 0 ? SharedNodeAt(on, onLat, onLon) : 0u;
-      if (step == 0 && piece == 0) { node = PlaceKey(location); }
+      if (step == 0 && piece == 0) {
+        node = PlaceKey(location);
+      } else if (node != 0) {
+        node = RoadNodeAt(lane, location);
+      }
       if (!station(location, node)) { return false; }
     }
   }
@@ -285,23 +287,7 @@ void Corridors::DesignLane(const Paving &on,
   }
   RefineChords(on, into);
 
-  for (RoadStation &one : into.Along) {
-    if (one.Node != 0u || into.AtCrossing.empty()) { continue; }
-    const auto east = static_cast<int64_t>(std::floor(one.EastM / kCrossCellM));
-    const auto north = static_cast<int64_t>(std::floor(one.NorthM / kCrossCellM));
-    const auto atE = static_cast<uint64_t>(east + 0x20000000LL);
-    const auto atS = static_cast<uint64_t>(north + 0x20000000LL);
-    const auto near = into.AtCrossing.find((atE << 32U) | atS);
-    if (near == into.AtCrossing.end()) { continue; }
-    for (const auto &met : near->second) {
-      const double offE = one.EastM - met.EastM;
-      const double offN = one.NorthM - met.NorthM;
-      if (offE * offE + offN * offN <= kMeetsWithinM * kMeetsWithinM) {
-        one.Node = met.Named;
-        break;
-      }
-    }
-  }
+  SplitAtCrossings(laneAt, into);
   if (lane.Bridge && on.WaterRow >= 0 && on.Classes) { DetermineWaterClearance(on, laneAt, into); }
   into.Designed[laneAt] = into.Along;
 }
@@ -556,25 +542,6 @@ void Corridors::IslandOf(const Paving &on,
   }
 }
 
-void Corridors::FileCrossing(const Path::Network::Crossing &one,
-                             const TangentFrame &standing,
-                             Paved &into) {
-  const EastNorthUp crossedAt = standing.ToLocalPosition(
-      {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg, .HeightM = 0.0});
-  const uint64_t named =
-      PlaceKey({.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg}) | 1ULL;
-  const auto east = static_cast<int64_t>(std::floor(crossedAt.EastM / kCrossCellM));
-  const auto north = static_cast<int64_t>(std::floor(crossedAt.NorthM / kCrossCellM));
-  for (int64_t stepE = -1; stepE <= 1; ++stepE) {
-    for (int64_t stepS = -1; stepS <= 1; ++stepS) {
-      const auto atE = static_cast<uint64_t>(east + stepE + 0x20000000LL);
-      const auto atS = static_cast<uint64_t>(north + stepS + 0x20000000LL);
-      into.AtCrossing[(atE << 32U) | atS].push_back(
-          Meets{.EastM = crossedAt.EastM, .NorthM = crossedAt.NorthM, .Named = named});
-    }
-  }
-}
-
 void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
                               const Paving &on,
                               const Path::Network &net,
@@ -601,8 +568,6 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
 }
 
 void Corridors::Crosses(const Paving &on, Paved &into) {
-  const TangentFrame &standing = on.Standing;
-
   auto partAt = std::chrono::steady_clock::now();
   const auto part = [&partAt] {
     const auto was = partAt;
@@ -630,7 +595,7 @@ void Corridors::Crosses(const Paving &on, Paved &into) {
   into.PairsTested = swept->PairsTested;
   into.PairsPruned = swept->PairsPruned;
   into.FullestCell = swept->FullestCell;
-  for (const Path::Network::Crossing &one : crossed) { FileCrossing(one, standing, into); }
+  for (const Path::Network::Crossing &one : crossed) { FileCrossing(one, on, net, into); }
   into.CrossFilingMs = part();
   for (const Path::Network::Crossing &one : crossed) { RaiseDeckOver(one, on, net, into); }
   into.CrossDecksMs = part();
@@ -1951,8 +1916,12 @@ std::expected<bool, std::string_view> Corridors::AdvanceCrossings(Job &job, cons
     case Job::Stage::CrossFile: {
       const size_t end =
           std::min(job.NextCrossing + 2u * std::max(size_t{1}, lanesMost), job.Crossed.size());
-      for (; job.NextCrossing < end; ++job.NextCrossing) {
-        FileCrossing(job.Crossed[job.NextCrossing], site.Standing, into);
+      if (paving != nullptr && site.Network != nullptr) {
+        for (; job.NextCrossing < end; ++job.NextCrossing) {
+          FileCrossing(job.Crossed[job.NextCrossing], *paving, *site.Network, into);
+        }
+      } else {
+        job.NextCrossing = end;
       }
       job.StageMs += elapsed();
       job.TotalMs += elapsed();

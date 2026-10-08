@@ -51,7 +51,11 @@ Kandidatendigest; an gemeinsamen Ringkanten numerische Distanz bis 1 µm als Kon
 Breite gemeinsame Mischung und linear profilierte Place-Kontakte verschlechtern Feldkirchs
 Ufergeometrie. Vor ihrer Integration Kontakt-/Höhenkonflikte und Terrain-Abtastung klären;
 bestandene CPU-Stetigkeit genügt nicht. Überlappende Kerne/Breiten bleiben zu prüfen.
+`CorridorCrossings` verbindet nur beteiligte Wege derselben Ebene und Brückenklasse.
+Gemeinsame Innenknoten erhalten Ebenenbezug; tatsächliche Schnittpunkte teilen Position/Höhe.
+Zehn-Meter-Nähe erzeugt keine Anschlüsse. Vorhandene Brückenenden bleiben angebunden.
 Feldkirchs gebrochene Nahstraßen und Brückenanschlüsse bleiben offen. Nächste Lieferung:
+Geschlossene Linien dürfen ihr eingeschlossenes Gelände nicht planieren. Danach
 vollständiges klassenkonformes Höhenprofil mit gemeinsamen Anschlussstationen; Fahrbahn,
 Schultern und Terrainkontakt daraus ableiten. Ground-Ways erzeugen bisher überwiegend nur
 Terrainkontakte, eigene Spannenmeshes vor allem Brücken. Nahfahrbahnen brauchen dieselbe
@@ -67,6 +71,8 @@ Danach Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Gelände
   Querneigung begrenzen. Die Rampenkorrektur begrenzt bisher nur ihren eigenen Offset;
   das vollständige Höhenprofil muss die Klassengrenze einhalten. Segmentwellen/Nähte
   an der Ursache beheben, keine zweite Pipeline.
+- Geschlossene Straßenlinien bleiben Bänder; keine Durchschnittshöhen-Plattform im Inneren.
+  Natürliche Hügel/Senken und Wasser innerhalb der Schleife bleiben erhalten.
 - Straßenbett und Terrain aus demselben Kontaktprofil. Übergänge erreichen das ursprüngliche
   Gelände mit stetiger Höhe und Neigung; Breite aus Höhendifferenz und Böschungsneigung.
   Quintischer Übergang; `hypot(Mindestbreite, 1,875 × Höhendifferenz / Böschungsneigung)`
