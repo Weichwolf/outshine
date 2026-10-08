@@ -59,11 +59,11 @@ Fahrbahnkontakte haben Vorrang vor eigenen Ausläufen, fremde Kontakte/Freiräum
 Eine waagerechte Brückenplatte am höchsten DEM-Punkt hebt Feldkirchs tiefere Anschlüsse
 unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erforderlichem
 Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbaus.
-Feldkirchs große Rampen sinken sichtbar; einzelne gebrochene Straßenränder bleiben.
 Knoten und Spannen teilen lokale Wegstationen; beide Endkürzungen gemeinsam begrenzen.
-Nächste Lieferung: Knotenhöhen/C1-Profil gemeinsam fitten; Fundamente ohne steile Terrassen.
-Vor dem Stitching klaffen deformierte Feldkirch-Kanten bis 7,1 m; das ist keine Runtime-Spaltmessung.
-Der bisherige 1,65-m-Spalt gleicher Mesh-LODs aus verschiedenen DEM-Quellen ist geschlossen.
+Nächste Lieferung: Knotenhöhen/C1-Profil gemeinsam fitten; Fundamentwirkung aus dem tatsächlichen
+Gelände-/Kontakthöhenbereich planen und bei hohen Unterschieden passende Gründung vorsehen.
+Quellen-/LOD-Nähte sind geschlossen; gemeinsame Höhen liegen in Feldkirchs Nahbereich auf Float-Präzision.
+Ein Fundament schneidet dagegen bis 17,4 m bei 6 m Auslauf; `YieldM` erfasst nur Sitzhöhe minus Basis.
 Gleiche Kanten nutzen deterministisch die feinere Quelle; gemeinsame Ecken folgen der tatsächlich
 angrenzenden gröbsten Mesh-Kante. Abdeckende Vorfahren dürfen innere Kanten nicht verändern.
 Terrain-Auswahl berücksichtigt bislang Roh-DEM und deklarierte Fahrstrecken, keine Place-Kontakte.

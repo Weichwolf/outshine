@@ -108,6 +108,8 @@ Licht/Wetter, Stabilität und Kosten getrennt bewerten. Client-API und AGENTS-Ga
 `src/assets/places`/`client/PlaceCamera` besitzen Szenario/Pose; Webcam-Referenzen bleiben in
 `build/shots/reference/webcams`. Kamerakalibrierung ersetzt keine fehlende Geometrie.
 Rundum-Abdeckung und Datenherkunft belegen; ein Sichtweitenparameter allein beweist sie nicht.
-Stand e375ece61: zehn native Places geprüft; verbundene Straßen-Ausläufe halten ihre Fahrbahnen.
-Code-/Header-/Shaderprüfungen sauber; voller Lint bleibt wegen fehlender gepinnter Khronos-Bilder rot.
-Feldkirchs Höhenprofile und Terrain-LOD-Nähte bleiben offen (2281), Erstframe-Spitzen bei 2340.
+Stand 72f427f6f: zehn native Places geprüft; Terrain-Kanten/Ecken teilen eine Oberfläche.
+Feldkirchs Terrassen, Höhenprofile und deformierungsabhängige Verfeinerung bleiben bei 2281 offen.
+Code-/Header-/Shaderprüfungen sauber; voller Lint rot wegen fehlender gepinnter Khronos-Bilder
+und eines intermittierenden Timeout-Fixture-Starts. Warmes Render-Gate: 9/10 Aufrufe;
+Tokyos zweiter Frame erreicht einmal 32 ms p99. Erstframe-/Fence-Spitzen besitzt 2340.
