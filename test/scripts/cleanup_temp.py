@@ -3,6 +3,7 @@ import argparse
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import tempfile
 import time
@@ -52,7 +53,11 @@ def busy(path, active):
 
 
 def owned(path):
-    return not path.is_symlink() and path.stat().st_uid == os.getuid()
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    return not stat.S_ISLNK(metadata.st_mode) and metadata.st_uid == os.getuid()
 
 
 def disposable_worktree(repo, path, fields, roots, keep, active):
@@ -75,7 +80,11 @@ def disposable_worktree(repo, path, fields, roots, keep, active):
 
 
 def old(path, hours):
-    return time.time() - path.stat().st_mtime >= hours * 3600
+    try:
+        modified = path.stat().st_mtime
+    except FileNotFoundError:
+        return False
+    return time.time() - modified >= hours * 3600
 
 
 def candidates(repo, roots, keep, active, hours):

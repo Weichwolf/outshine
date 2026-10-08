@@ -115,6 +115,29 @@ class CleanupTests(unittest.TestCase):
                                self.roots, self.keep)
         self.assertTrue(cache.exists())
 
+    def test_disappearing_inventory_entry_does_not_abort_cleanup(self):
+        vanished = self.root / "outshine-vanished.log"
+        vanished.touch()
+        original = Path.lstat
+
+        def inspect(path, *args, **kwargs):
+            if path == vanished:
+                raise FileNotFoundError(str(path))
+            return original(path, *args, **kwargs)
+
+        with patch.object(Path, "lstat", new=inspect):
+            selected = {path for _, path, _ in cleanup.candidates(
+                self.repo, self.roots, self.keep, self.active, 0)}
+        self.assertEqual(selected, {self.worktree})
+
+    def test_missing_entries_and_symlinks_are_not_disposable(self):
+        missing = self.root / "outshine-missing.log"
+        self.assertFalse(cleanup.owned(missing))
+        self.assertFalse(cleanup.old(missing, 0))
+        link = self.root / "outshine-linked.log"
+        link.symlink_to(self.repo / "source.cpp")
+        self.assertFalse(cleanup.owned(link))
+
 
 if __name__ == "__main__":
     unittest.main()
