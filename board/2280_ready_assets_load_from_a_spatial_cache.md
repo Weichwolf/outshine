@@ -43,8 +43,8 @@ Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsme
 1. P0: Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Räumliche Eltern/Kind-Rohlinge
    statt Kamerasnapshots: kleine Bounds-/Produktindizes, gecachte Fernprodukte, unabhängige komprimierte
    Form-/Kontaktblöcke. Erst Bedarf → Paket öffnen; Rohling-Formen behalten, keine Rekonstruktion bei Hits.
-2. P0: verbliebene Quellenproben aus nativen Höhen-/Kontaktprodukten bedienen; 25–32 MiB Felder
-   bei Treffern vermeiden. Kandidaten teilen unveränderte Daten; einmal laden, dann Scratch frei.
+2. P0: native Kontakte statt Quellenproben; unabhängiges Wasserprodukt mit Pegeln, Konturen/Löchern,
+   Flussprofilen und Tileindex. WaterField bleibt Producer; WaterAsset besitzt Daten/Abfragen. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB Wasserkoordinaten statt 0,19–60 MB Gesamtkoordinaten; monotone Bereichsumsetzung erhält Reihenfolge. Generatorfortschritt bleibt außerhalb des Produkts; Decode/Abfragen/Mesh ohne OsmField. Gleiche Miss-/Hit-PNGs prüfen; kein nativer Kostenbeweis.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Renderer teilt ungebundene Maps je Device/Transfer/Sampler und Materialpakete ([Modell](../test/experiments/material_image_residency.py)). Native Bilder speichern die Basis einmal und optionale untere Mips für Linearwerte, sRGB-Farbe oder Normalmomente; keine GPU-Handles. Producer bereitet vor Publikation vor, Treffer uploaden direkt. Eigene Codec-/Produktversion; bildlose Assets und Captures bleiben gültig. Rosenheim-Sampling: Mainthread 4,63 → 2,96 s; beobachtete Mip-/Upload-Leaves 831 → 4 ms, kein GPU-Zeitnachweis.
 4. P1: [Paketmodell](../test/experiments/impostor_ready_payload.py): Capture 20 MiB, Flat-Karten 6 MiB; [Mip-Modell](../test/experiments/prepared_image_mips.py): +2 MiB untere Stufen, keine Basisduplikation.
@@ -110,8 +110,7 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Terrain-Integration 13a88b4dd: zehn Offline-Places mit bildgleichen Miss-/Hit-Läufen; warm Regionshits und keine Deformation-/Impostor-Misses/Writes. Fachfremde Terrainänderung erzeugt keine Impostoren; betroffene Tests/Tidy grün.
-Mip-Integration: zehn gleiche Miss-/Hit-PNGs; warm 1,80–4,34 s Laden und 2,05–3,23 ms p99. Aufbau CP/Tokyo 30,78/16,45 ms; Startspitzen bleiben bei 2340. Integration a558267e7: Format/359 Tidy-Units/32 Claims/48 Header/481 Shader grün; volles Lint Exit 2: fehlendes gepinntes Khronos-PNG und Fixture-Start-Rennen (2339).
+Terrain/Mip-Integration: zehn bildgleiche Miss-/Hit-Paare, warme Regionshits ohne Deformation-/Impostor-Misses/Writes; Laden 1,80–4,34 s. Startspitzen bleiben bei 2340. Stand a558267e7: Format/359 Tidy/32 Claims/48 Header/481 Shader grün; volles Lint Exit 2 (fehlendes Khronos-PNG, Cleanup-Fixture-Rennen).
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
