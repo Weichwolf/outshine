@@ -480,7 +480,7 @@ Shot Draw(Engine &engine,
       return 0.0;
     };
     shot.Triangles = measured("building triangles the world meshed");
-    shot.BareTiles = measured("tiles laid bare on the ellipsoid");
+    shot.BareTiles = measured("tiles the last rebuild laid bare");
 
     if (Audits) {
       if (const auto inspected = engine.inspect(); !inspected) {

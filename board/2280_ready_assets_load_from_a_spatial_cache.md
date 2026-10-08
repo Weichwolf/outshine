@@ -19,7 +19,7 @@ alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Geräteh
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
 Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh-Jobs.
 Pegel, Konturen und Flussprofile kommen bei Hits aus demselben Regionspaket; keine Wasser-Höhenabfragen.
-Coverage beobachtet nur; native Produkte bestimmen Ready. Erste Quellenbereitschaft verlangt keinen äußeren Ring.
+Coverage beobachtet nur; native Produkte bestimmen Ready. Screenshot-Kennzahlen beschreiben veröffentlichte Produkte, keinen unbefriedigten Quellbedarf. Erste Quellenbereitschaft verlangt keinen äußeren Ring.
 Regionschlüssel binden Quell-Digests, Formparameter, Detailauftrag und Regeln; kein serialisiertes Straßennetz.
 Exakte Kamera-Schlüssel und ganze Regionen ersetzen keine räumliche Eltern-/Kindhierarchie.
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
@@ -110,7 +110,7 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Integration 2eb2c0770: Format/Tidy (354 Units)/32 Claims/48 öffentliche Header/Shader grün;
+Integration bdff8b507: Format/Tidy (354 Units)/32 Claims/48 öffentliche Header/Shader grün;
 voller Lauf Exit 2: 263/264 Referenz-PNGs fehlen. Render-p99 bleibt separat offen (2340).
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
