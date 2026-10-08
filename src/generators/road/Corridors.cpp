@@ -1014,8 +1014,9 @@ void Corridors::GatesOf(std::span<const Leg> legs, const Paved &into, Junction &
       outE /= run;
       outN /= run;
     }
+    const double spanM = line.AlongM[rim] - line.AlongM[before];
     const double along =
-        line.AlongM[rim] > kLeastRunM ? std::min(1.0, leg.CutM / line.AlongM[rim]) : 0.0;
+        spanM > kLeastRunM ? std::clamp((leg.CutM - line.AlongM[before]) / spanM, 0.0, 1.0) : 0.0;
     made.Gates.push_back(
         RoadGate{.EastM = line.EastM[before] + (line.EastM[rim] - line.EastM[before]) * along,
                  .NorthM = line.NorthM[before] + (line.NorthM[rim] - line.NorthM[before]) * along,

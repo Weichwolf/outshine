@@ -31,6 +31,7 @@ ist im Runtime-Bild beseitigt; breite Uferböschungen bleiben bei 2145 offen.
 `ResolveBridgeConnections` führt Wasser- und Straßenkreuzungen vor der Geometrie zusammen.
 Endhöhen gelten auch für einfache Zweiarm-Übergänge. Knoten und Rampen konsumieren dieselben
 Höhen; einmalige und schrittweise Erzeugung behalten identische Geometrie/Kontakte.
+Gate und Straßenschnitt teilen die lokale Segmentstation; globale Weganteile erzeugten Anschlussversatz.
 Kurze überlappende Rampen erhalten beide Anschlusshöhen unabhängig von der Linienrichtung;
 auch nicht geteilte Quellen-Endpunkte übernehmen fortgepflanzte Höhen.
 `SurfacePreparation` gibt das registrierte Vektorschema an beide Klassenfelder weiter;
