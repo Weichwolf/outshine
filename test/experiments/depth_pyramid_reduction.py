@@ -54,7 +54,7 @@ def logical_reads(width, height):
 def main():
     randomizer = random.Random(282)
     cases = 0
-    for width, height in ((1, 1), (2, 3), (31, 17), (65, 33)):
+    for width, height in ((1, 1), (1, 17), (17, 1), (16, 16), (17, 15), (2, 3), (31, 17), (65, 33)):
         for mode in range(3):
             image = [[randomizer.random() if mode == 0 else float(mode - 1)
                       for _ in range(width)] for _ in range(height)]
@@ -66,6 +66,7 @@ def main():
     raw, hierarchy = logical_reads(1280, 720)
     print(json.dumps(dict(equal_cases=cases, profile=[1280, 720], direct_fetches=raw,
                           chained_reads=hierarchy, tiled_texture_fetches=1280 * 720,
+                          tiled_shared_floats=64 + 16 + 4 + 1, dispatches=dict(direct=4, tiled=1),
                           measurement="logical reads, not DRAM bytes or GPU time")))
 
 

@@ -8,10 +8,15 @@
 #include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
 #include <array>
+#include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -26,6 +31,7 @@ constexpr float kCoarseSphere = 0.02f;
 constexpr Texels kOddExtent{.WidthPx = 37, .HeightPx = 25};
 constexpr Texels k720p{.WidthPx = 1280, .HeightPx = 720};
 constexpr Texels k1080p{.WidthPx = 1920, .HeightPx = 1080};
+constexpr std::array<Texels, 5> kEdges{{{1, 1}, {1, 17}, {17, 1}, {16, 16}, {17, 15}}};
 
 struct Probe {
   uint32_t X;
@@ -131,15 +137,81 @@ uint32_t Selected(
   return selected;
 }
 
-void CheckExtent(SDL_GPUDevice *device, Texels extent, bool border) {
-  const auto width = extent.WidthPx;
-  const auto height = extent.HeightPx;
+std::vector<float> DepthPixels(uint32_t width, uint32_t height, bool border) {
   std::vector<float> pixels(static_cast<size_t>(width) * height, kOccluderDepth);
+  uint32_t noise = 282;
+  for (float &pixel : pixels) {
+    noise = noise * 1664525u + 1013904223u;
+    pixel = kOccluderDepth - 0.125f + static_cast<float>(noise >> 16u) / 262144.0f;
+  }
   if (border) {
     for (uint32_t x = 0; x < width; ++x) { pixels[(height - 1u) * width + x] = 0; }
   } else {
     pixels[(height / 2u) * width + width - 2u] = 0;
   }
+  return pixels;
+}
+
+void CheckEveryDepth(std::span<const float> source,
+                     Texels extent,
+                     PyramidShape shape,
+                     const float *reduced) {
+  bool equal = true;
+  for (uint32_t level = 0; level < kPyramidLevels; ++level) {
+    const uint32_t block = 2u << level;
+    for (uint32_t y = 0; y < shape.High[level]; ++y) {
+      for (uint32_t x = 0; x < shape.Wide[level]; ++x) {
+        float farthest = 1;
+        for (uint32_t down = 0; down < block; ++down) {
+          const auto row = std::min(y * block + down, extent.HeightPx - 1u);
+          for (uint32_t across = 0; across < block; ++across) {
+            const auto col = std::min(x * block + across, extent.WidthPx - 1u);
+            farthest = std::min(farthest, source[row * extent.WidthPx + col]);
+          }
+        }
+        equal = equal && reduced[shape.At[level] + y * shape.Wide[level] + x] == farthest;
+      }
+    }
+  }
+  CHECK(equal, "every GPU pyramid texel equals the direct clamped reverse-Z block minimum");
+}
+
+void MeasureReduction(SDL_GPUDevice *device,
+                      DepthPyramidStage &stage,
+                      SDL_GPUBuffer *pyramid,
+                      Texels extent) {
+  if (std::getenv("OUTSHINE_DEPTH_PYRAMID_BENCHMARK") == nullptr) { return; }
+  constexpr uint32_t repeats = 128;
+  const auto start = std::chrono::steady_clock::now();
+  auto *commands = SDL_AcquireGPUCommandBuffer(device);
+  const SDL_GPUStorageBufferReadWriteBinding output{.buffer = pyramid, .cycle = false};
+  StageSubmission submission;
+  for (uint32_t at = 0; at < repeats; ++at) {
+    auto *pass = SDL_BeginGPUComputePass(commands, nullptr, 0, &output, 1);
+    stage.Encode(
+        {.Commands = commands, .Pass = nullptr, .Dispatch = pass, .Submission = submission});
+    SDL_EndGPUComputePass(pass);
+  }
+  const auto encoded = std::chrono::steady_clock::now();
+  if (!Land(device, commands)) { return; }
+  const auto finished = std::chrono::steady_clock::now();
+  const double host = std::chrono::duration<double, std::milli>(encoded - start).count() / repeats;
+  const double landed =
+      std::chrono::duration<double, std::milli>(finished - start).count() / repeats;
+  std::printf("BENCH depth=%ux%u repeats=%u host_ms=%.6f landed_ms=%.6f driver=%s "
+              "gpu_timestamp=unavailable\n",
+              extent.WidthPx,
+              extent.HeightPx,
+              repeats,
+              host,
+              landed,
+              SDL_GetGPUDeviceDriver(device));
+}
+
+void CheckExtent(SDL_GPUDevice *device, Texels extent, bool border) {
+  const auto width = extent.WidthPx;
+  const auto height = extent.HeightPx;
+  const auto pixels = DepthPixels(width, height, border);
   SDL_GPUTextureCreateInfo image{};
   image.type = SDL_GPU_TEXTURETYPE_2D;
   image.format = SDL_GPU_TEXTUREFORMAT_R32_FLOAT;
@@ -207,6 +279,8 @@ void CheckExtent(SDL_GPUDevice *device, Texels extent, bool border) {
         "reduced depth is read from the GPU");
   if (read.Rows() == nullptr) { return; }
   const auto *values = reinterpret_cast<const float *>(read.Rows());
+  CheckEveryDepth(pixels, extent, shape, values);
+  if (width >= k720p.WidthPx) { MeasureReduction(device, stage, pyramid.Get(), extent); }
   for (uint32_t level = 0; level < kPyramidLevels; ++level) {
     const uint32_t block = 2u << level;
     CHECK(shape.Wide[level] == (width + block - 1u) / block &&
@@ -217,6 +291,7 @@ void CheckExtent(SDL_GPUDevice *device, Texels extent, bool border) {
       CHECK(values[lastRow] == 0, "uncovered last source row reaches the last reduced block");
     }
   }
+  if (width < 4 || height < 4) { return; }
   const uint32_t x = border ? width / 2u : width - 2u;
   const uint32_t y = border ? height - 1u : height / 2u;
   CHECK(Selected(device, pyramid.Get(), shape, extent, {.X = x, .Y = y, .Radius = kSmallSphere}) ==
@@ -240,9 +315,12 @@ int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO) && SDL_ShaderCross_Init(), "GPU test services initialize");
   {
     const OwnedDevice device(
-        SDL_CreateGPUDevice(SDL_ShaderCross_GetSPIRVShaderFormats(), true, nullptr));
+        SDL_CreateGPUDevice(SDL_ShaderCross_GetSPIRVShaderFormats(),
+                            std::getenv("OUTSHINE_DEPTH_PYRAMID_BENCHMARK") == nullptr,
+                            nullptr));
     CHECK(device, "a real GPU is required for depth coverage");
     if (device) {
+      for (const auto extent : kEdges) { CheckExtent(device.Get(), extent, true); }
       CheckExtent(device.Get(), kOddExtent, true);
       CheckExtent(device.Get(), kOddExtent, false);
       CheckExtent(device.Get(), k720p, true);

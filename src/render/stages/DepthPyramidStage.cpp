@@ -1,5 +1,7 @@
 #include "DepthPyramidStage.h"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -12,10 +14,17 @@ namespace outshine::Render {
 
 namespace {
 
-struct Reducing {
-  uint32_t SrcWide = 0, SrcHigh = 0, DstWide = 0, DstHigh = 0;
-  uint32_t DstAt = 0, Block = 0, Pad0 = 0, Pad1 = 0;
+struct alignas(16) Reducing {
+  std::array<uint32_t, 4> Source{}, Wide{}, High{}, At{};
 };
+
+static_assert(sizeof(Reducing) == 64 && alignof(Reducing) == 16);
+static_assert(offsetof(Reducing, Source) == 0 && offsetof(Reducing, Wide) == 16 &&
+              offsetof(Reducing, High) == 32 &&
+              offsetof(Reducing, At) == 3 * sizeof(Reducing::Source));
+static_assert(kPyramidLevels == 4 && DepthPyramidStage::KernelShape.GroupX == 8 &&
+              DepthPyramidStage::KernelShape.GroupY == 8 &&
+              DepthPyramidStage::KernelShape.GroupZ == 1);
 
 }
 
@@ -52,20 +61,13 @@ void DepthPyramidStage::Encode(const PassRecording &into) {
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   const SDL_GPUTextureSamplerBinding bound{.texture = Depth_, .sampler = Held_};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, &bound, 1);
-  for (uint32_t level = 0; level < kPyramidLevels; ++level) {
-    Reducing over;
-    over.SrcWide = Wide_;
-    over.SrcHigh = High_;
-    over.DstWide = Shape_.Wide[level];
-    over.DstHigh = Shape_.High[level];
-    over.DstAt = Shape_.At[level];
-    over.Block = 2u << level;
-    SDL_PushGPUComputeUniformData(into.Commands, 0, &over, static_cast<uint32_t>(sizeof over));
-    SDL_DispatchGPUCompute(into.Dispatch,
-                           (over.DstWide + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                           (over.DstHigh + KernelShape.GroupY - 1u) / KernelShape.GroupY,
-                           1u);
-  }
+  const Reducing over{
+      .Source = {Wide_, High_, 0, 0}, .Wide = Shape_.Wide, .High = Shape_.High, .At = Shape_.At};
+  SDL_PushGPUComputeUniformData(into.Commands, 0, &over, static_cast<uint32_t>(sizeof over));
+  SDL_DispatchGPUCompute(into.Dispatch,
+                         (Shape_.Wide[0] + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+                         (Shape_.High[0] + KernelShape.GroupY - 1u) / KernelShape.GroupY,
+                         1u);
 }
 
 }

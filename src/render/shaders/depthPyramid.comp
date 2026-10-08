@@ -4,27 +4,45 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(set = 0, binding = 0) uniform sampler2D sceneDepth;
 layout(std430, set = 1, binding = 0) buffer Pyramid { float pyramid[]; };
 layout(std140, set = 2, binding = 0) uniform Reducing {
-  uint SrcWide;
-  uint SrcHigh;
-  uint DstWide;
-  uint DstHigh;
-  uint DstAt;
-  uint Block;
-  uint Pad0;
-  uint Pad1;
+  uvec4 Source;
+  uvec4 Wide;
+  uvec4 High;
+  uvec4 At;
 } over;
 
+shared float reduced[85];
+const uint offsets[4] = uint[4](0u, 64u, 80u, 84u);
+
+void storeLevel(uint level, uint side, float depth) {
+  uvec2 id = gl_WorkGroupID.xy * side + gl_LocalInvocationID.xy;
+  if (id.x < over.Wide[level] && id.y < over.High[level]) {
+    pyramid[over.At[level] + id.y * over.Wide[level] + id.x] = depth;
+  }
+}
+
 void main() {
-  uvec2 id = gl_GlobalInvocationID.xy;
-  if (id.x >= over.DstWide || id.y >= over.DstHigh) { return; }
-  uvec2 from = id * over.Block;
-  uvec2 last = uvec2(over.SrcWide - 1u, over.SrcHigh - 1u);
+  uvec2 local = gl_LocalInvocationID.xy;
+  uvec2 from = gl_WorkGroupID.xy * 16u + local * 2u;
+  uvec2 last = over.Source.xy - 1u;
   float farthest = 1.0;
-  for (uint down = 0u; down < over.Block; ++down) {
-    for (uint across = 0u; across < over.Block; ++across) {
+  for (uint down = 0u; down < 2u; ++down) {
+    for (uint across = 0u; across < 2u; ++across) {
       uvec2 at = min(from + uvec2(across, down), last);
       farthest = min(farthest, texelFetch(sceneDepth, ivec2(at), 0).r);
     }
   }
-  pyramid[over.DstAt + id.y * over.DstWide + id.x] = farthest;
+  reduced[local.y * 8u + local.x] = farthest;
+  storeLevel(0u, 8u, farthest);
+  for (uint level = 1u; level < 4u; ++level) {
+    barrier();
+    uint side = 8u >> level;
+    if (local.x < side && local.y < side) {
+      uint previousSide = side * 2u;
+      uint first = offsets[level - 1u] + local.y * 2u * previousSide + local.x * 2u;
+      farthest = min(min(reduced[first], reduced[first + 1u]),
+                     min(reduced[first + previousSide], reduced[first + previousSide + 1u]));
+      reduced[offsets[level] + local.y * side + local.x] = farthest;
+      storeLevel(level, side, farthest);
+    }
+  }
 }

@@ -21,16 +21,13 @@ GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne
 2336 besitzt Weltrepräsentation/LOD, 2155 Licht, 2171 Materialien; dieser WI besitzt Arbeitsauswahl.
 
 ## Priorisierung nach Kostenreview
-Region-Rezept 33 (13a88b4dd): zehn vollständige Offline-Places; das warme Frame-Gate bleibt rot,
-1280×720@60; alle 60 Drehframes zählen. Rosenheim schwankt zwischen 0,72 und 42,65 ms p99,
-Tokyo zwischen 10,25 und 14,51 ms, meist im zweiten Frame. Laden 2,97–8,99 s.
-Mip-Karten: zehn gleiche Aufbau-/Hit-PNGs; letzter warmer Lauf 2,05–3,23 ms p99, Laden 1,80–4,34 s. Aufbau CP/Tokyo 30,78/16,45 ms. Ein grüner Lauf schließt die Startregression nicht.
-Frischer Rohling-Aufbau zeigt zusätzliche Spitzen bis 41,26 ms; Feldkirchs Süd-Diagnose
-15,72 ms im zweiten Frame. Ein grüner Einzelprozess beweist keine stabile Startzeit.
-Kein Beleg für eine einzelne GPU-Ursache; Aufbau und Treffer getrennt bewerten.
-Frühe Bereitschaft/Fences und Arbeit nach Preload messen; keine Ausreißer durch Warmup
-oder höhere Grenzen entfernen. Kein Beleg für generell langsames Pixel-Shading;
-GPU-Stufen bleiben ungemessen. 2336/2280 besitzen Ladebedarf, 2339 Bereitschaft/Peaks.
+Native Mip-Hits laden in 1,80–4,34 s. Tiefenreduktion: drei frische Offline-Prozesse,
+je zehn bildidentische vollständige Places, 60 Drehframes; Laden 1,75–4,44 s.
+Startregression bleibt offen: CP 10,99 ms p99 im vierten Frame, Tokyo 18,10 ms im zweiten.
+Davon 10,20/17,31 ms Fence-Warten und 0,35/0,40 ms CPU-Encoding. Preload erfasst Uploads,
+Atmosphären-LUTs und statische Schatten bereits per Fence; erste Framearbeit und
+Ressourcen-/Pipeline-Kosten bleiben ungeklärt. Kein zusätzlicher Warmup, keine höhere Grenze.
+GPU-Passzeiten fehlen weiterhin; 2336/2280 besitzen Ladebedarf, 2339 Bereitschaft/Peaks.
 Pixelbudget-Verfahren bleiben für reichere Materialien/Lichter/Wolken erforderlich.
 
 ## GLimpSW-Abgleich
@@ -38,10 +35,16 @@ Pixelbudget-Verfahren bleiben für reichere Materialien/Lichter/Wolken erforderl
 gepackte SoA-Positionen, begrenzte Batches und Attribute erst nach Sichtbarkeit auswerten.
 AVX512-Kosten sind kein ARM-/GPU-Beleg. Visibility-Resolve lohnt dort nicht in jeder Szene;
 Outshine vergleicht ihn mit seinem vorhandenen Forward-/Depth-Pfad, statt pauschal zu migrieren.
-Konkreter Befund: `depthPyramid.comp` liest für vier Ebenen viermal die Originaltiefe.
+Ersetzt: `depthPyramid.comp` las für vier Ebenen viermal die Originaltiefe.
 [Reduktionsmodell](../test/experiments/depth_pyramid_reduction.py): bei 1280×720 derzeit
 3.686.400 Abfragen; verkettete Minima 1.224.000 Reads; 16×16-Gruppen 921.600 Texturabfragen
-plus Shared-Memory-Reduktion. Rand-Clamp, Reverse-Z und vier Ebenen unverändert halten.
+plus Shared-Memory-Reduktion. Eine 8×8-Gruppe reduziert einen 16×16-Quellblock, schreibt
+alle vier Ebenen in einer Dispatch und synchronisiert nur gruppenintern, 85 Shared-Floats.
+Native Readbacks stimmen texelweise mit direkten Blockminima überein, einschließlich 1-Pixel-,
+ungeraden, Gruppenrand-, 720p- und 1080p-Flächen; Rand-Clamp, Reverse-Z und Coverage bleiben gleich.
+A18 Pro/Metal ohne GPU-Validierung: fünf alternierende 128er-Batches, Median 720p 1,588 →
+0,043 ms, 1080p 4,166 → 0,120 ms je abgeschlossener Reduktion. Host/Queue/Fence enthalten;
+keine GPU-Zeitstempel und kein entsprechender Faktor für den Gesamtframe.
 Das sind logische Zugriffe, keine gemessenen DRAM-Bytes/GPU-Zeiten; native Stufenmessung entscheidet.
 GLimpSWs Seiten-/Probe-Updates ergänzen StageCache: regionale Schatten-/Lichtänderung statt
 Vollinvalidierung; Sonnenrichtung, bewegte Schattenwerfer und Disocclusion bleiben wirksam.
