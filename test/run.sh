@@ -268,7 +268,7 @@ LayerIncludes() {
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
     profile/base) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared" ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
-    profile/engine) printf '%s ' "-Itest/harness/shared -Ibuild/generated"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags liblz4 libtiff-4 sqlite3 libzstd)" ;;
+    profile/engine) printf '%s ' "-Itest/harness/shared"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags liblz4 libtiff-4 sqlite3 libzstd)" ;;
     harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/animation -Isrc/content/mesh -Isrc/content/scene -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Itest/harness/shared" ;;
     harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/import -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
     harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
@@ -477,7 +477,6 @@ GroupIncludes() {
   includeSet="-Iinclude"
   case "$includeTier" in
     base) includeSet="$includeSet $(pkg-config --cflags geos)" ;;
-    engine/streaming) includeSet="$includeSet -Ibuild/generated" ;;
   esac
   for includeFrom in $includeTier $includeReaches; do
     for includeDir in $(find "src/$includeFrom" -type d | sort); do
