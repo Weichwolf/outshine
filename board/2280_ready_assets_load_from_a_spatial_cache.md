@@ -25,16 +25,16 @@ Exakte Kamera-Schlüssel und ganze Regionen ersetzen keine räumliche Eltern-/Ki
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
-Offline 1280×720/60, 60 Frames/360°, volle Treffer, Commit 009f6a2b7 / Producer e46c4abd61a5:
+Historischer OS-Footprint: Offline 1280×720/60, 60 Frames/360°, Treffer 009f6a2b7 / Producer e46c4abd61a5:
 | Place | Laden s | p99 ms | Bildphase / Peak GiB | Terrain / Prototypen entpackt MiB |
 |---|---:|---:|---:|---:|
 | Wien | 5,85–6,13 | 3,28–11,40 | 2,46–2,47 / 2,46–2,53 | 25 / 186,34 |
 | CentralPark | 4,79 | 2,49 | 2,21 / 2,22 | 25 / 120,22 |
 | Tokyo | 7,87–8,13 | 14,29–24,25 | 3,95 / 4,18–4,19 | 32 / 186,34 |
-Alle zehn Places geöffnet/pixelgleich. Frische Prototyphits: keine Erzeugung/Vorbereitung/Schreibarbeit.
-Vorher 8c49: W/CP/T Bildphase 2,50/2,24/3,49 GiB, Peaks 2,50/2,24/4,16 GiB; p99 3,51/2,23/3,49 ms.
-Tokyo-Bildphase +0,46 GiB bestätigt; gleiche GPU-Puffer, Live-Heap fast gleich. Ursache offen; kein Framegewinn.
 OS-Footprint: 50-ms-Stichproben um Render/PNG, kein exaktes GPU-/Frameintervall; Sampler 1,9–3,5 ms CPU/Lauf.
+27b7f413b: fünf warme Place-Gates in beiden Builds grün; Laden 2,93–8,52 s, p99 1,92–7,97 ms (2340).
+Erster Aufbau: gemeldeter C++-Live-Heap CP 1,76, Feldkirch 3,42, Tokyo 2,33, Wien 1,85 GiB.
+Live-Heap und Produktmaximum sind verschiedene Zeitpunkte, kein OS-Footprint/GPU-Budgetbeweis.
 Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je belegter Zelle.
 Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen gecachte Pläne/Kontakte, keine Höhenprovider.
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
@@ -110,8 +110,8 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Integration 2eae16df6: Format/Tidy (355 Units)/32 Claims/48 öffentliche Header/Shader grün;
-voller Lauf Exit 2: gepinnte Referenz-PNGs fehlen. Tokyos 10-ms-Render-p99 bleibt rot (2340).
+Integration 27b7f413b: Format/Tidy (357 Units)/32 Claims/48 öffentliche Header/481 Shader grün;
+voller Lauf Exit 2: gepinnte Referenz-PNGs fehlen. Warme Place-Gates grün; Aufbauspitzen offen (2340).
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

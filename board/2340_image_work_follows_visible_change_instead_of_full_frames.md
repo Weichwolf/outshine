@@ -21,11 +21,15 @@ GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne
 2336 besitzt Weltrepräsentation/LOD, 2155 Licht, 2171 Materialien; dieser WI besitzt Arbeitsauswahl.
 
 ## Priorisierung nach Kostenreview
-Stand 2eae16df6: öffentliche Offline-Gates Feldkirch/Wien/CP in beiden Builds grün;
-Tokyo 12,15/14,16 ms p99 bleibt über 10 ms. p50 liegt dort bei 1,57/1,95 ms;
-schlechtester Frame jeweils Nr. 2. Frühe Bereitschaft/Fences direkt messen, keine
-Ausreißer durch Warmup oder höhere Grenzen entfernen. Kein Beleg für generell langsames
-Pixel-Shading; GPU-Stufen bleiben ungemessen. 2336/2280 besitzen Ladebedarf, 2339 Bereitschaft/Peaks.
+Stand 27b7f413b: zehn öffentliche Offline-Gates für Feldkirch/Wien/CP/Tokyo/Körbersee
+in Normal-/Validierungsbuild grün. Warme p99: Feldkirch 2,44/2,77 ms, Wien 3,00/3,36 ms,
+CP 2,40/2,39 ms, Tokyo 7,97/3,00 ms, Körbersee 1,92/2,93 ms; Ladezeiten 2,93–8,52 s.
+Erster Asset-Aufbau bleibt auffällig: Tokyo 13,91, Wien 11,37, Rosenheim 10,93 und
+Körbersee 26,25 ms p99; dort 22 Frames über 16,67 ms und Drehung 1,14 s. Keine fehlenden
+gemeldeten Terrain-Tiles. Frühere Tokyo-Spitzen sind damit nicht kausal behoben.
+Frühe Bereitschaft/Fences und Arbeit nach Preload messen; keine Ausreißer durch Warmup
+oder höhere Grenzen entfernen. Kein Beleg für generell langsames Pixel-Shading;
+GPU-Stufen bleiben ungemessen. 2336/2280 besitzen Ladebedarf, 2339 Bereitschaft/Peaks.
 Pixelbudget-Verfahren bleiben für reichere Materialien/Lichter/Wolken erforderlich.
 
 ## Besitzer und Umsetzung
