@@ -165,16 +165,16 @@ def generator_product_boundary(headers):
 def main():
     good = {'base': [], 'render': ['base'], 'world': ['base']}
     controls = [
-        physical_build_includes('#include "../../build/CrownBuild.h"') ==
-        ['../../build/CrownBuild.h'],
-        not physical_build_includes('#include "CrownBuild.h"'),
+        physical_build_includes('#include "../../build/GeneratedConfig.h"') ==
+        ['../../build/GeneratedConfig.h'],
+        not physical_build_includes('#include "GeneratedConfig.h"'),
         not physical_build_includes('#include "../../world/sky/AtmosphereCore.h"'),
         parent_includes('#include "../../world/sky/AtmosphereCore.h"') ==
         ['../../world/sky/AtmosphereCore.h'],
         not parent_includes('#include "world/sky/AtmosphereCore.h"'),
         absolute_includes('#include "/tmp/generated/Config.h"') ==
         ['/tmp/generated/Config.h'],
-        not absolute_includes('#include "OutshineGenerated/CrownBuildIdentity.h"'),
+        not absolute_includes('#include "OutshineGenerated/Config.h"'),
         not errors(good, [('render/Draw.cpp', ['render', 'base/math'])]),
         bool(errors(good, [('render/Draw.cpp', ['world'])])),
         bool(errors({'a': ['b'], 'b': ['c'], 'c': ['a']}, [])),

@@ -50,7 +50,7 @@ Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsme
 4. P1: [Reales Paketmodell](../test/experiments/impostor_ready_payload.py): Capture 20 MiB, vorhandene Flat-Karten 6 MiB Payload.
    Native GeometryAsset-Karten umgehen Coverage-/Farbvorbereitung bei Hits; Atlas-Rohlinge bleiben.
    Miss/Defekt repariert nur Karten; entpackte Bytes ca. −70 %, kein allgemeiner RAM-/Framegewinn.
-   Fachfremde Änderungen nicht invalidieren: Generator-/Codec-/Capture-Abhängigkeiten statt sämtlichen src/include-Code versionieren.
+   Atlas-Rezept bindet Artdefinition, Größe/Blicke und getrennte Generator-/Capture-Versionen; Änderungen an Wachstum oder Capture-Semantik erhöhen die jeweilige Version. Codecs prüfen eigene Formate. Fachfremde Engine-/Buildänderungen invalidieren nicht.
 5. P1: SSD dauerhaft begrenzen: Asset-DBs jetzt 1,82 statt 36,06 GiB; zehn Offline-Place-PNGs SHA-256-identisch. Verwendete Assets, Paketmitglieder und Eltern erhalten.
    Automatische budgetierte Verdrängung fehlt; Nutzdaten bleiben opaque, aktive Assets/Quellen erhalten. Warm <10 s; Gebäudebedarf vor Decode.
 ## Besitzer und Grenzen

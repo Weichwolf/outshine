@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "ImpostorAtlas.h"
 #include "ImpostorCards.h"
+#include "ImpostorPreparation.h"
 #include "ImpostorSurface.h"
 #include "PreparedImpostorAssets.h"
 #include "Sha256.h"
@@ -69,7 +70,8 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("outshine-ready-cards-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  const std::string provenance = "ready-cards-fixture-1";
+  const Content::ImpostorAtlasShape shape{.Pixels = 16, .Views = 1};
+  const std::string provenance = ImpostorAtlasProvenance("ready-cards-fixture-1", shape);
   std::string error;
   auto atlas = Atlas(error);
   CHECK(atlas, "capture fixture is valid");
@@ -113,6 +115,16 @@ int main() {
                 EncodeGeometryAsset(loaded->Cards->Views[0].Surface, 1024 * 1024) ==
                     EncodeGeometryAsset(reference->Views[0].Surface, 1024 * 1024),
             "ready products preserve every geometry, material and texture byte");
+    }
+    const std::array otherRecipes{
+        ImpostorAtlasProvenance("different-species", shape),
+        ImpostorAtlasProvenance("ready-cards-fixture-1", {.Pixels = 32, .Views = 1}),
+        ImpostorAtlasProvenance("ready-cards-fixture-1", {.Pixels = 16, .Views = 2})};
+    for (const auto &recipe : otherRecipes) {
+      auto missing = Read(cache, recipe);
+      CHECK(missing && !missing->Cards && !missing->Atlas && attempts == 1 &&
+                cache.Costs().Preparations == 0 && cache.Costs().Writes == 0,
+            "species, resolution and view changes cannot reuse another native product");
     }
   }
   {

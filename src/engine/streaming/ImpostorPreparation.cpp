@@ -1,7 +1,6 @@
 #include "ImpostorPreparation.h"
 
 #include "ImpostorBaker.h"
-#include "OutshineGenerated/CrownBuildIdentity.h"
 
 #include <optional>
 #include <string>
@@ -12,7 +11,7 @@
 namespace outshine {
 
 std::string ImpostorAtlasProvenance(std::string_view species, Content::ImpostorAtlasShape shape) {
-  return std::string(Build::CrownIdentity) + "/" + std::to_string(shape.Pixels) + "/" +
+  return "tree-prototype-1/impostor-capture-1/" + std::to_string(shape.Pixels) + "/" +
          std::to_string(shape.Views) + "/" + std::string(species);
 }
 
