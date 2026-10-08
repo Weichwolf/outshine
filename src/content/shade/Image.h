@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "scene/Texture.h"
 
 namespace outshine::Core {
 
@@ -10,6 +11,12 @@ struct Raster {
   int Width = 0;
   int Height = 0;
   std::vector<uint8_t> Rgba;
+  ImageMipData LowerMips{};
+
+  [[nodiscard]] ImageView View() const {
+    return {
+        .WidthPx = Width, .HeightPx = Height, .Rgba = Rgba, .LowerMips = ViewImageMips(LowerMips)};
+  }
 
   [[nodiscard]] bool Holds() const {
     return Width > 0 && Height > 0 &&

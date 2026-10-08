@@ -812,15 +812,13 @@ void Subject::Bound() {
 std::vector<ImageView> Subject::Images() const {
   std::vector<ImageView> images;
   images.reserve(Images_.size());
-  for (const Core::Raster &image : Images_) {
-    images.push_back({.WidthPx = image.Width, .HeightPx = image.Height, .Rgba = image.Rgba});
-  }
+  for (const Core::Raster &image : Images_) { images.push_back(image.View()); }
   return images;
 }
 
 std::expected<void, std::string> Subject::CopyNativeAssets(outshine::Geometry &out) const {
   for (const Core::Raster &image : Images_) {
-    const auto added = out.addImage(image.Width, image.Height, image.Rgba);
+    const auto added = out.addImage(image.View());
     if (!added) { return std::unexpected(std::string(Describe(added.error()))); }
   }
   for (size_t at = 0; at < Surfaces_.size(); ++at) {
@@ -1139,7 +1137,8 @@ bool Subject::AssembleUnchecked(const outshine::Geometry &what) {
     const ImageView image = what.imageAt(at);
     Images_.push_back({.Width = image.WidthPx,
                        .Height = image.HeightPx,
-                       .Rgba = {image.Rgba.begin(), image.Rgba.end()}});
+                       .Rgba = {image.Rgba.begin(), image.Rgba.end()},
+                       .LowerMips = CopyImageMips(image.LowerMips)});
   }
   for (int surface = 0; surface < what.surfaces(); ++surface) {
     Surfaces_.push_back(what.surfaceAt(MaterialInstance(surface)));

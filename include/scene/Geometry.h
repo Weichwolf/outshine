@@ -64,6 +64,7 @@ enum class GeometryAppendError {
 enum class GeometryImageError {
   InvalidDimensions, ///< Width or height cannot describe a positive RGBA8 image.
   ByteCountMismatch, ///< Supplied bytes do not exactly cover the declared image.
+  InvalidMipChain,   ///< Prepared lower levels do not match the declared dimensions.
   CapacityExceeded   ///< Another owner-local image index cannot be represented.
 };
 
@@ -119,6 +120,7 @@ enum class GeometryImageError {
   switch (error) {
     case GeometryImageError::InvalidDimensions: return "image dimensions are invalid";
     case GeometryImageError::ByteCountMismatch: return "image byte count does not match dimensions";
+    case GeometryImageError::InvalidMipChain: return "prepared image mip chain is incomplete";
     case GeometryImageError::CapacityExceeded: return "image capacity exceeded";
   }
   return "unknown image error";
@@ -315,6 +317,12 @@ public:
   /// @return New owner-local image index, or a typed input/capacity error without mutation.
   [[nodiscard]] std::expected<int, GeometryImageError>
   addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba);
+
+  /// Copy an exact RGBA8 base and any complete prepared lower mip chains into this owner.
+  /// @param image Borrowed image; its storage must remain stable throughout this call.
+  /// @return Owner-local index or validation/capacity error; failure leaves images unchanged.
+  /// Preparation only: may allocate; synchronise all mutation externally.
+  [[nodiscard]] std::expected<int, GeometryImageError> addImage(ImageView image);
   /// @return Number of owned images.
   [[nodiscard]] int images() const;
   /// @param image Owner-local image index.

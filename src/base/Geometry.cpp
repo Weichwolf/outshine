@@ -60,6 +60,7 @@ struct Geometry::Held {
     int WidthPx = 0;
     int HeightPx = 0;
     std::vector<uint8_t> Rgba;
+    ImageMipData LowerMips;
   };
 
   std::vector<Piece> Parts;
@@ -340,6 +341,13 @@ Geometry::addLamp(std::string_view named, const PunctualLight &light, const Mat4
 
 std::expected<int, GeometryImageError>
 Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba) {
+  return addImage({.WidthPx = widthPx, .HeightPx = heightPx, .Rgba = rgba});
+}
+
+std::expected<int, GeometryImageError> Geometry::addImage(ImageView image) {
+  const int widthPx = image.WidthPx;
+  const int heightPx = image.HeightPx;
+  const auto rgba = image.Rgba;
   if (widthPx <= 0 || heightPx <= 0) {
     return std::unexpected(GeometryImageError::InvalidDimensions);
   }
@@ -354,10 +362,12 @@ Geometry::addImage(int widthPx, int heightPx, std::span<const uint8_t> rgba) {
   }
   const size_t bytes = width * height * bytesPerPixel;
   if (rgba.size() != bytes) { return std::unexpected(GeometryImageError::ByteCountMismatch); }
+  if (!image.valid()) { return std::unexpected(GeometryImageError::InvalidMipChain); }
   Held::Picture made;
   made.WidthPx = widthPx;
   made.HeightPx = heightPx;
   made.Rgba.assign(rgba.begin(), rgba.end());
+  made.LowerMips = CopyImageMips(image.LowerMips);
   Held_->Images.push_back(std::move(made));
   return static_cast<int>(Held_->Images.size()) - 1;
 }
@@ -384,7 +394,8 @@ ImageView Geometry::imageAt(int image) const {
   const Held::Picture &held = Held_->Images[static_cast<size_t>(image)];
   return ImageView{.WidthPx = held.WidthPx,
                    .HeightPx = held.HeightPx,
-                   .Rgba = std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size())};
+                   .Rgba = std::span<const uint8_t>(held.Rgba.data(), held.Rgba.size()),
+                   .LowerMips = ViewImageMips(held.LowerMips)};
 }
 
 int Geometry::surfaces() const {
@@ -454,6 +465,9 @@ size_t Geometry::storageBytes() const noexcept {
   for (const Held::Named &surface : Held_->Surfaces) { bytes += surface.Named.capacity(); }
   for (const Held::Picture &image : Held_->Images) {
     bytes += image.Rgba.capacity() * sizeof(uint8_t);
+    for (const auto &levels : image.LowerMips) {
+      if (levels) { bytes += levels->capacity(); }
+    }
   }
   for (const Held::Placed &lamp : Held_->Lamps) { bytes += lamp.Named.capacity(); }
   return bytes;

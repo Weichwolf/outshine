@@ -17,7 +17,7 @@ void MaterialAssetSet::Adopt(std::vector<Core::Raster> &&images,
 
 std::expected<void, std::string> MaterialAssetSet::CopyTo(Geometry &geometry) const {
   for (const Core::Raster &image : Images_) {
-    const auto added = geometry.addImage(image.Width, image.Height, image.Rgba);
+    const auto added = geometry.addImage(image.View());
     if (!added) { return std::unexpected(std::string(Describe(added.error()))); }
   }
   for (const MaterialAsset &material : Materials_) {

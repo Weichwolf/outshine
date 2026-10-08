@@ -3,11 +3,65 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
+#include <limits>
+#include <optional>
 #include <span>
+#include <vector>
 
 #include "UvTransform.h"
 
 namespace outshine {
+
+/// Filtering interpretation of prepared RGBA8 mip levels.
+enum class ImageMipKind : uint8_t {
+  Linear, ///< Area-filtered linear channels, including alpha.
+  Colour, ///< Linear-light filtering with sRGB-encoded RGB and linear alpha.
+  Normal  ///< Unit directions with resultant length in alpha.
+};
+
+/// Owned levels below the base image, tightly packed from level one to one texel.
+/// A missing entry needs preparation; an engaged empty entry completes a one-texel image.
+using ImageMipData = std::array<std::optional<std::vector<uint8_t>>, 3>;
+/// Borrowed counterpart of ImageMipData; backing allocations must outlive every use.
+using ImageMipViews = std::array<std::optional<std::span<const uint8_t>>, 3>;
+
+/// @return Borrowed views of each prepared interpretation; no allocation or pixel access.
+[[nodiscard]] inline ImageMipViews ViewImageMips(const ImageMipData &data) noexcept {
+  ImageMipViews views;
+  for (size_t i = 0; i < views.size(); ++i) {
+    const auto &levels = data[i];
+    if (levels) { views[i] = std::span<const uint8_t>(*levels); }
+  }
+  return views;
+}
+
+/// @return Independent copies of all supplied prepared levels; may allocate.
+[[nodiscard]] inline ImageMipData CopyImageMips(const ImageMipViews &views) {
+  ImageMipData data;
+  for (size_t i = 0; i < data.size(); ++i) {
+    const auto &levels = views[i];
+    if (levels) { data[i].emplace(levels->begin(), levels->end()); }
+  }
+  return data;
+}
+
+/// @return Exact bytes below the RGBA8 base, or no value for invalid dimensions/overflow.
+/// Each dimension halves with floor rounding and a minimum of one; no allocation.
+[[nodiscard]] constexpr std::optional<size_t> LowerImageMipBytes(int width, int height) noexcept {
+  if (width <= 0 || height <= 0) { return std::nullopt; }
+  size_t bytes = 0;
+  while (width > 1 || height > 1) {
+    width = width > 1 ? width / 2 : 1;
+    height = height > 1 ? height / 2 : 1;
+    if (static_cast<size_t>(width) >
+        (std::numeric_limits<size_t>::max() - bytes) / 4u / static_cast<size_t>(height)) {
+      return std::nullopt;
+    }
+    bytes += static_cast<size_t>(width) * static_cast<size_t>(height) * 4u;
+  }
+  return bytes;
+}
 
 /// Spatial filtering within one texture mip level.
 enum class Filter : uint8_t {
@@ -69,13 +123,23 @@ struct ImageView {
   int WidthPx = 0;  ///< Width in pixels; nonpositive values describe an invalid image.
   int HeightPx = 0; ///< Height in pixels; nonpositive values describe an invalid image.
   std::span<const uint8_t> Rgba; ///< Borrowed bytes; any trailing bytes are outside this image.
+  ImageMipViews LowerMips{};     ///< Optional prepared levels indexed by ImageMipKind.
 
   /// @return Whether dimensions are positive and the view contains every declared RGBA texel.
   /// Checks sizes without overflow, allocation or pixel access; cannot prove pointer lifetime.
   /// Extra trailing bytes are permitted. Geometry::addImage requires an exact byte count.
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return WidthPx > 0 && HeightPx > 0 &&
-           Rgba.size() / 4u / static_cast<size_t>(HeightPx) >= static_cast<size_t>(WidthPx);
+    if (WidthPx <= 0 || HeightPx <= 0 ||
+        Rgba.size() / 4u / static_cast<size_t>(HeightPx) < static_cast<size_t>(WidthPx)) {
+      return false;
+    }
+    std::optional<size_t> bytes;
+    for (const auto &levels : LowerMips) {
+      if (!levels) { continue; }
+      if (!bytes) { bytes = LowerImageMipBytes(WidthPx, HeightPx); }
+      if (!bytes || levels->size() != *bytes) { return false; }
+    }
+    return true;
   }
 };
 
