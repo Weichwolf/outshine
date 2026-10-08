@@ -3,6 +3,7 @@
 #include "Check.h"
 
 #include <string>
+#include <array>
 #include <vector>
 
 int main() {
@@ -26,6 +27,14 @@ int main() {
         "one view produces a complete native card and three material maps");
   CHECK(!Render::BuildImpostorSurface(*atlas, 1), "an unavailable view is rejected");
   if (!card || card->images() != 3) { return Report(); }
+
+  const std::array kinds{ImageMipKind::Colour, ImageMipKind::Normal, ImageMipKind::Linear};
+  for (size_t at = 0; at < kinds.size(); ++at) {
+    const auto image = card->imageAt(static_cast<int>(at));
+    const auto lower = image.LowerMips[static_cast<size_t>(kinds[at])];
+    CHECK(image.valid() && lower && lower->size() == 4,
+          "each odd-sized card map carries its complete interpretation-specific lower chain");
+  }
 
   const auto colour = card->imageAt(0).Rgba;
   const auto normal = card->imageAt(1).Rgba;

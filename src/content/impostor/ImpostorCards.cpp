@@ -1,4 +1,5 @@
 #include "ImpostorCards.h"
+#include "Sha256.h"
 #include "BinaryValueArchive.h"
 #include "content/GeometryAsset.h"
 #include <algorithm>
@@ -39,6 +40,10 @@ bool Valid(const ImpostorCards &cards) {
                   view.Surface.tangentsOf(0).size() == positions / 3 * 4;
          });
 }
+}
+
+std::string ImpostorCards::AssetKey(std::string_view provenance) {
+  return Sha256Hex("impostor-cards-2/" + std::string(provenance));
 }
 
 std::optional<std::vector<uint8_t>> ImpostorCards::Encode(std::string_view provenance,

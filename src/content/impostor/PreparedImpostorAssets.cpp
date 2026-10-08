@@ -101,7 +101,7 @@ bool PreparedImpostorAssets::PublishCards(const ImpostorCards &cards,
     bounds.Min[axis] -= cards.HalfExtentM;
     bounds.Max[axis] += cards.HalfExtentM;
   }
-  const AssetRecord record{.Key = Sha256Hex("impostor-cards-1/" + std::string(provenance)),
+  const AssetRecord record{.Key = ImpostorCards::AssetKey(provenance),
                            .Kind = "impostor-cards",
                            .Bounds = bounds,
                            .Package = {},

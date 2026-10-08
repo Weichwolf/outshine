@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -20,6 +21,8 @@ struct ImpostorCards {
   Vec3 Centre;
   double HalfExtentM = 0.0;
   std::vector<View> Views;
+
+  [[nodiscard]] static std::string AssetKey(std::string_view provenance);
 
   [[nodiscard]] std::optional<std::vector<uint8_t>> Encode(std::string_view provenance,
                                                            size_t bytesMost) const;

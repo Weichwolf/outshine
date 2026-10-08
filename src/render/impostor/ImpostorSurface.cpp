@@ -1,5 +1,6 @@
 #include "ImpostorSurface.h"
 #include "DepthSurfacePatches.h"
+#include "shade/ImageMips.h"
 
 #include "math/Srgb.h"
 
@@ -19,6 +20,29 @@ namespace outshine::Render {
 namespace {
 constexpr auto kOpaqueByte = std::numeric_limits<uint8_t>::max();
 constexpr double kDepthErrorTexelDivisor = 16.0;
+
+bool AddPreparedCardImages(Geometry &geometry,
+                           Material &material,
+                           int pixels,
+                           const std::array<std::vector<uint8_t>, 3> &images) {
+  const std::array bindings{std::pair{&material.BaseColourMap, ImageMipKind::Colour},
+                            std::pair{&material.NormalMap, ImageMipKind::Normal},
+                            std::pair{&material.MetalRoughMap, ImageMipKind::Linear}};
+  for (size_t at = 0; at < bindings.size(); ++at) {
+    const auto [map, kind] = bindings[at];
+    ImageView source{.WidthPx = pixels, .HeightPx = pixels, .Rgba = images[at]};
+    ImageMipData lower;
+    auto &prepared = lower[static_cast<size_t>(kind)];
+    prepared = Core::PrepareImageMips(source, kind);
+    if (!prepared) { return false; }
+    source.LowerMips = ViewImageMips(lower);
+    const auto image = geometry.addImage(source);
+    if (!image) { return false; }
+    map->Image = *image;
+    map->Sampler.WrapU = map->Sampler.WrapV = Wrap::ClampToEdge;
+  }
+  return true;
+}
 
 uint8_t Byte(float value) {
   return static_cast<uint8_t>(
@@ -169,14 +193,7 @@ std::optional<Geometry> BuildImpostorSurface(const Content::ImpostorAtlas &atlas
   material.BaseColour = {{1, 1, 1, 1}};
   material.Metalness = material.Roughness = 1;
   material.Alpha = AlphaMode::Masked;
-  std::array<SurfaceMap *, 3> maps{
-      &material.BaseColourMap, &material.NormalMap, &material.MetalRoughMap};
-  for (size_t at = 0; at < maps.size(); ++at) {
-    const auto image = geometry.addImage(atlas.Pixels(), atlas.Pixels(), images[at]);
-    if (!image) { return std::nullopt; }
-    maps[at]->Image = *image;
-    maps[at]->Sampler.WrapU = maps[at]->Sampler.WrapV = Wrap::ClampToEdge;
-  }
+  if (!AddPreparedCardImages(geometry, material, atlas.Pixels(), images)) { return std::nullopt; }
   const auto surface = geometry.addSurface("impostor", material);
   if (!surface) { return std::nullopt; }
   const auto createdPart = geometry.addPart("impostor", *surface);

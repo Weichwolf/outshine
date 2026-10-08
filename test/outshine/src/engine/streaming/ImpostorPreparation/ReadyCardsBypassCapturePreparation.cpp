@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -64,6 +65,19 @@ std::optional<Content::ImpostorAtlas> Atlas(std::string &error) {
   }
   return Content::ImpostorAtlas::Create(16, {{0, 1, 0}}, 1, {material}, {std::move(view)}, error);
 }
+
+size_t PreparedMipBytes(const Content::ImpostorCards &cards) {
+  size_t bytes = 0;
+  for (const auto &view : cards.Views) {
+    for (int at = 0; at < view.Surface.images(); ++at) {
+      ++bytes;
+      for (const auto &levels : view.Surface.imageAt(at).LowerMips) {
+        if (levels) { bytes += sizeof(uint32_t) + levels->size(); }
+      }
+    }
+  }
+  return bytes;
+}
 }
 
 int main() {
@@ -72,6 +86,8 @@ int main() {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const Content::ImpostorAtlasShape shape{.Pixels = 16, .Views = 1};
   const std::string provenance = ImpostorAtlasProvenance("ready-cards-fixture-1", shape);
+  CHECK(Content::ImpostorCards::AssetKey(provenance) == Sha256Hex("impostor-cards-2/" + provenance),
+        "prepared mip products have their own recipe without invalidating the source capture");
   std::string error;
   auto atlas = Atlas(error);
   CHECK(atlas, "capture fixture is valid");
@@ -81,9 +97,15 @@ int main() {
   if (!reference) { return Report(); }
   const auto cardsBytes = reference->Encode(provenance, 1024 * 1024);
   const auto captureBytes = atlas->Encode(provenance, error);
-  CHECK(cardsBytes && captureBytes && cardsBytes->size() < captureBytes->size(),
-        "the existing RGBA8 card representation stores fewer bytes than the float capture");
+  const size_t mipBytes = PreparedMipBytes(*reference);
+  CHECK(cardsBytes && captureBytes && cardsBytes->size() >= mipBytes &&
+            cardsBytes->size() - mipBytes < captureBytes->size(),
+        "the base card retains its storage saving; only required mips and their schema add bytes");
   if (!cardsBytes || !captureBytes) { return Report(); }
+  std::printf("PRODUCT capture=%zu cards=%zu required_mips_and_schema=%zu\n",
+              captureBytes->size(),
+              cardsBytes->size(),
+              mipBytes);
   CHECK(!Content::ImpostorCards::Decode(*cardsBytes, provenance + "changed", 1024 * 1024) &&
             !Content::ImpostorCards::Decode(*cardsBytes, provenance, cardsBytes->size() - 1) &&
             !Content::ImpostorCards::Decode(
@@ -132,7 +154,7 @@ int main() {
     CHECK(database, "fixture cache reopens for corruption control");
     if (database) {
       const std::array<uint8_t, 4> corrupt{};
-      const AssetRecord record{.Key = Sha256Hex("impostor-cards-1/" + provenance),
+      const AssetRecord record{.Key = Content::ImpostorCards::AssetKey(provenance),
                                .Kind = "impostor-cards",
                                .Bounds = {.Min = {{-1, 0, -1}}, .Max = {{1, 2, 1}}},
                                .Package = {},

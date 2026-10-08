@@ -24,7 +24,7 @@ GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne
 Region-Rezept 33 (13a88b4dd): zehn vollständige Offline-Places; das warme Frame-Gate bleibt rot,
 1280×720@60; alle 60 Drehframes zählen. Rosenheim schwankt zwischen 0,72 und 42,65 ms p99,
 Tokyo zwischen 10,25 und 14,51 ms, meist im zweiten Frame. Laden 2,97–8,99 s.
-Miss-/Hit-Läufe liefern gleiche PNG-Hashes; Impostoren bleiben Treffer ohne Aufbau.
+Mip-Karten: zehn gleiche Aufbau-/Hit-PNGs; letzter warmer Lauf 2,05–3,23 ms p99, Laden 1,80–4,34 s. Aufbau CP/Tokyo 30,78/16,45 ms. Ein grüner Lauf schließt die Startregression nicht.
 Frischer Rohling-Aufbau zeigt zusätzliche Spitzen bis 41,26 ms; Feldkirchs Süd-Diagnose
 15,72 ms im zweiten Frame. Ein grüner Einzelprozess beweist keine stabile Startzeit.
 Kein Beleg für eine einzelne GPU-Ursache; Aufbau und Treffer getrennt bewerten.

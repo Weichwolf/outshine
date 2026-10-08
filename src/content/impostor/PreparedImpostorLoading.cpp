@@ -36,8 +36,7 @@ std::optional<CachedAsset> PreparedImpostorAssets::LoadBytes(std::string_view ke
 PreparedImpostorAssets::Loaded PreparedImpostorAssets::Load(std::string provenance) {
   Loaded result{.Provenance = std::move(provenance), .Atlas = {}, .Cards = {}, .Error = {}};
   if (Prepare_ != nullptr) {
-    if (const auto ready =
-            LoadBytes(Sha256Hex("impostor-cards-1/" + result.Provenance), result.Error)) {
+    if (const auto ready = LoadBytes(ImpostorCards::AssetKey(result.Provenance), result.Error)) {
       result.Cards = ImpostorCards::Decode(ready->Bytes(), result.Provenance, MostBytes_);
       if (result.Cards) {
         ++Hits_;
