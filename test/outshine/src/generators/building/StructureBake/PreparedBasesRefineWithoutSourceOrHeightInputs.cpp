@@ -128,11 +128,12 @@ void NativeCache(const std::filesystem::path &root) {
   if (!opened) { return; }
   const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
   const Ground::ShapedGround shape;
+  const auto request = (*opened)->RequestKey(tile, shape, 1000);
   const auto key = (*opened)->Key(tile, 17, shape, 1000);
   const auto miss = (*opened)->Load(key);
   CHECK(miss && !*miss, "native base miss is distinct from storage failure");
   const std::atomic_bool stopping{false};
-  const auto generated = (*opened)->Generate(key, Inputs(), *Heights(), stopping);
+  const auto generated = (*opened)->Generate(key, Inputs(), *Heights(), stopping, request);
   CHECK(generated && *generated && (*generated)->Structures.size() == 3,
         "cache miss publishes and reloads complete intrinsic building assets");
   BuildingMesh mesher;
@@ -152,6 +153,11 @@ void NativeCache(const std::filesystem::path &root) {
   auto restarted = PreparedBuildingAssets::Open(directory, sources);
   CHECK(restarted.has_value(), "building cache service survives a new connection");
   if (!restarted) { return; }
+  const auto demanded = (*restarted)->LoadBasisRequest(request);
+  CHECK(demanded && *demanded && (**demanded).BaseKey == key && (**demanded).Product &&
+            (**demanded).Product->Sources.size() == 3 && (*restarted)->Costs().ReadBytes == 0 &&
+            (*restarted)->Costs().BasisWrites == 0,
+        "a fresh native demand resolves content identity and basis without source inputs or plans");
   const auto hit = (*restarted)->Load(key);
   CHECK(hit && *hit && (*hit)->Structures.size() == 3 && (*restarted)->Costs().Writes == 0 &&
             (*restarted)->Costs().Hits == 1,
@@ -176,7 +182,62 @@ void NativeCache(const std::filesystem::path &root) {
             (*restarted)->Key(tile, 17, shape, 2000) != key &&
             (*restarted)->Key(tile, 17, shape, 1000, "new-vector-bytes") != key,
         "terrain shaping, street inputs, payload and scale bind separate base keys");
+  const auto changedRequest = (*restarted)->RequestKey(tile, changed, 1000);
+  CHECK(changedRequest != request && (*restarted)->RequestKey(tile, shape, 2000) != request &&
+            !(*restarted)->LoadBasisRequest(changedRequest)->has_value() &&
+            (*restarted)->RequestKey({.Zoom = -1, .X = 0, .Y = 0}, shape, 1000).empty(),
+        "native demand separates configuration and rejects invalid cells before any inputs");
   NativeLODWithoutPlans(root, key, *restarted, view, *geometry);
+}
+
+void RequestMigration(const std::filesystem::path &root) {
+  Data::ContentStore store({.Directory = (root / "sources").string()});
+  Data::SourceSet sources(store);
+  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  CHECK(cache.has_value(), "request migration opens");
+  if (!cache) { return; }
+  const Data::TileId tile{.Zoom = 0, .X = 0, .Y = 0};
+  const Ground::ShapedGround shape;
+  const auto request = (*cache)->RequestKey(tile, shape, 1000);
+  const auto key = (*cache)->Key(tile, 17, shape, 1000);
+  const std::atomic_bool stopping{false};
+  CHECK((*cache)->Generate(key, Inputs(), *Heights(), stopping).has_value(),
+        "legacy producer stores an unbound complete base");
+  const auto unbound = (*cache)->LoadBasisRequest(request);
+  CHECK(unbound && !*unbound, "unbound products do not claim a request hit");
+  const auto before = (*cache)->Costs();
+  const auto migrated = (*cache)->LoadBasis(key, request);
+  const auto bound = (*cache)->LoadBasisRequest(request);
+  CHECK(migrated && *migrated && bound && *bound && (**bound).BaseKey == key &&
+            (*cache)->Costs().ReadBytes == before.ReadBytes,
+        "migration binds the existing native basis without opening full plans");
+  const auto replacement = (*cache)->Key(tile, 18, shape, 1000);
+  CHECK((*cache)->Generate(replacement, Inputs(), *Heights(), stopping, request).has_value(),
+        "explicit changed input publishes a complete replacement binding");
+  const auto current = (*cache)->LoadBasisRequest(request);
+  CHECK(current && *current && (**current).BaseKey == replacement && (*cache)->LoadBasis(key),
+        "request selects replacement while the previous content remains addressable");
+  auto records = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(records.has_value(), "native request metadata fixture opens");
+  if (!records) { return; }
+  const auto metadata = (*records)->FindRequest(request);
+  CHECK(metadata && *metadata, "replacement demand has complete product metadata");
+  if (!metadata || !*metadata) { return; }
+  auto corrupt = **metadata;
+  const auto payload = (*records)->Load(corrupt.Key, size_t{64} * 1024 * 1024);
+  CHECK(payload && *payload, "fixture retains native bytes");
+  if (!payload || !*payload) { return; }
+  corrupt.Kind = "wrong-native-kind";
+  CHECK((*records)->Publish(std::span(&corrupt, 1), (**payload).Bytes()).has_value() &&
+            !(*cache)->LoadBasisRequest(request)->has_value(),
+        "wrong product type is a miss rather than a false native hit");
+  const auto repaired = (*cache)->LoadBasis(replacement, request);
+  const auto ready = (*cache)->LoadBasisRequest(request);
+  CHECK(repaired && *repaired && ready && *ready && (**ready).BaseKey == replacement,
+        "cached complete plans repair the request product without source acquisition");
+  CHECK((*cache)->InvalidateBasis(replacement).has_value() &&
+            !(*cache)->LoadBasisRequest(request)->has_value(),
+        "invalidated basis cannot leave a false native request hit");
 }
 
 std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &base) {
@@ -238,6 +299,7 @@ std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &bas
         "partial native building packages do not become ready products");
   (*restarted).reset();
   NativeCache(root);
+  RequestMigration(root / "request-migration");
   std::filesystem::remove_all(root);
   return decoded;
 }

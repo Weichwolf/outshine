@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <memory>
 #include <ratio>
 #include <utility>
@@ -24,17 +25,15 @@ bool StructureBuildQueue::SelectNativeBasis(
   const auto &vectors = *stack.Vectors();
   const auto &region = vectors.Tiles()[tile];
   if (region.InputDigest.empty()) { return true; }
+  const Data::TileId address{
+      .Zoom = region.Z, .X = static_cast<uint32_t>(region.X), .Y = static_cast<uint32_t>(region.Y)};
+  selected.RequestKey = cache->RequestKey(address, stack.Pool().Shaped(), prints.TileSpanM());
   const auto digest = stack.Ways().SourceDigest(vectors, tile);
   if (!digest) { return false; }
   selected.StreetDigest = *digest;
-  selected.Key = cache->Key({.Zoom = region.Z,
-                             .X = static_cast<uint32_t>(region.X),
-                             .Y = static_cast<uint32_t>(region.Y)},
-                            *digest,
-                            stack.Pool().Shaped(),
-                            prints.TileSpanM(),
-                            region.InputDigest);
-  if (selected.Key.empty()) {
+  selected.Key =
+      cache->Key(address, *digest, stack.Pool().Shaped(), prints.TileSpanM(), region.InputDigest);
+  if (selected.Key.empty() || selected.RequestKey.empty()) {
     NativeFailure_ = Generators::StructureBakeErrorKind::ArtifactInvalidProduct;
     return false;
   }
@@ -50,9 +49,16 @@ bool StructureBuildQueue::SelectNativeBasis(
     }
     auto lookup = std::make_unique<NativeLookup>();
     auto *const output = lookup.get();
-    output->Task = Pool_->Post([output, cache, key = selected.Key] {
+    output->Task = Pool_->Post([output, cache, key = selected.Key, request = selected.RequestKey] {
       const auto began = std::chrono::steady_clock::now();
-      output->Result = cache->LoadBasis(key);
+      auto requested = cache->LoadBasisRequest(request);
+      if (!requested) {
+        output->Result = std::unexpected(requested.error());
+      } else if (*requested && (**requested).BaseKey == key) {
+        output->Result = std::move((**requested).Product);
+      } else {
+        output->Result = cache->LoadBasis(key, request);
+      }
       output->ReadMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
               .count();

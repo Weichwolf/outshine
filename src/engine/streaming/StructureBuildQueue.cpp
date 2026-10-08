@@ -1309,7 +1309,7 @@ StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
                                                   LentScratch());
   if (!selected.Key.empty() && !revision.FallbackHeights &&
       (task.HeightQualified() || task.Raw().Structures.empty())) {
-    task.UseNativeAssets(stack.BuildingAssets(), selected.Key);
+    task.UseNativeAssets(stack.BuildingAssets(), selected.Key, selected.RequestKey);
   }
   const uint64_t sourceKey =
       StructureSourceKey({.Vector = VectorSource(*stack.Vectors(), next.Tile),

@@ -23,7 +23,21 @@
 #include <vector>
 
 namespace outshine::Generators {
-namespace {}
+namespace {
+bool EncodeShape(ByteWriter &bytes, const ::outshine::Ground::ShapedGround &shape, double spanM) {
+  if (!bytes.Number(shape.Seed)) { return false; }
+  for (const double value : {spanM,
+                             shape.AmplitudeM,
+                             shape.WavelengthM,
+                             shape.Gradient,
+                             shape.BearingDeg,
+                             shape.FocusLatDeg,
+                             shape.FocusLonDeg}) {
+    if (!std::isfinite(value) || !bytes.Number(value == 0.0 ? 0.0 : value)) { return false; }
+  }
+  return bytes.Put({reinterpret_cast<const uint8_t *>(shape.Kind.data()), shape.Kind.size()});
+}
+}
 
 PreparedBuildingAssets::PreparedBuildingAssets(std::unique_ptr<AssetCache> cache,
                                                std::string recipe)
@@ -51,23 +65,30 @@ std::string PreparedBuildingAssets::Key(Data::TileId tile,
   ByteWriter bytes(4096);
   if (!bytes.Put({reinterpret_cast<const uint8_t *>(Recipe_.data()), Recipe_.size()}) ||
       !bytes.Number(tile.Zoom) || !bytes.Number(tile.X) || !bytes.Number(tile.Y) ||
-      !bytes.Number(streetDigest) || !bytes.Number(shape.Seed)) {
-    return {};
-  }
-  for (const double value : {spanM,
-                             shape.AmplitudeM,
-                             shape.WavelengthM,
-                             shape.Gradient,
-                             shape.BearingDeg,
-                             shape.FocusLatDeg,
-                             shape.FocusLonDeg}) {
-    if (!std::isfinite(value) || !bytes.Number(value == 0.0 ? 0.0 : value)) { return {}; }
-  }
-  if (!bytes.Put({reinterpret_cast<const uint8_t *>(shape.Kind.data()), shape.Kind.size()})) {
+      !bytes.Number(streetDigest) || !EncodeShape(bytes, shape, spanM)) {
     return {};
   }
   if (!bytes.Number(inputDigest.size()) ||
       !bytes.Put({reinterpret_cast<const uint8_t *>(inputDigest.data()), inputDigest.size()})) {
+    return {};
+  }
+  return Sha256Hex(bytes.Bytes().data(), bytes.Bytes().size());
+}
+
+std::string PreparedBuildingAssets::RequestKey(Data::TileId tile,
+                                               const ::outshine::Ground::ShapedGround &shape,
+                                               double spanM) const {
+  if (tile.Zoom < 0 || tile.Zoom > Data::TileId::MaximumZoom ||
+      tile.X >= (uint32_t{1} << static_cast<unsigned>(tile.Zoom)) ||
+      tile.Y >= (uint32_t{1} << static_cast<unsigned>(tile.Zoom)) || spanM <= 0) {
+    return {};
+  }
+  constexpr std::string_view family = "prepared-building-demand-1";
+  ByteWriter bytes(4096);
+  if (!bytes.Put({reinterpret_cast<const uint8_t *>(family.data()), family.size()}) ||
+      !bytes.Put({reinterpret_cast<const uint8_t *>(Recipe_.data()), Recipe_.size()}) ||
+      !bytes.Number(tile.Zoom) || !bytes.Number(tile.X) || !bytes.Number(tile.Y) ||
+      !EncodeShape(bytes, shape, spanM)) {
     return {};
   }
   return Sha256Hex(bytes.Bytes().data(), bytes.Bytes().size());
@@ -108,19 +129,20 @@ std::expected<PreparedBuildingAssets::Base, StructureBakeError>
 PreparedBuildingAssets::Generate(const std::string &key,
                                  const RawTile &raw,
                                  const ::outshine::Ground::HeightField &heights,
-                                 const std::atomic_bool &stopping) {
+                                 const std::atomic_bool &stopping,
+                                 const std::string &requestKey) {
   auto base = PrepareStructureTile(raw, heights, &stopping);
   if (!base) { return std::unexpected(base.error()); }
   if (stopping.load(std::memory_order_relaxed)) {
     return std::unexpected(StructureBakeErrorKind::Cancelled);
   }
-  const auto stored = StoreBase(key, *base);
+  const auto stored = StoreBase(key, *base, requestKey);
   if (!stored) { return std::unexpected(stored.error()); }
   return Load(key);
 }
 
-std::expected<std::vector<uint8_t>, StructureBakeError>
-PreparedBuildingAssets::StoreBase(const std::string &key, const PreparedStructureTile &base) {
+std::expected<std::vector<uint8_t>, StructureBakeError> PreparedBuildingAssets::StoreBase(
+    const std::string &key, const PreparedStructureTile &base, const std::string &requestKey) {
   const auto surfaces = StoreSurfaces(key, base);
   if (!surfaces) { return std::unexpected(surfaces.error()); }
   auto encoded = EncodePreparedStructureIndex(base);
@@ -142,7 +164,8 @@ PreparedBuildingAssets::StoreBase(const std::string &key, const PreparedStructur
     if (!stored) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
     ++Writes_;
   }
-  const auto storedBasis = StoreBasis(key, Bounds(base), PreparedBuildingBasis::Of(base));
+  const auto storedBasis =
+      StoreBasis(key, Bounds(base), PreparedBuildingBasis::Of(base), requestKey);
   if (!storedBasis) { return std::unexpected(storedBasis.error()); }
   return std::move(*encoded);
 }

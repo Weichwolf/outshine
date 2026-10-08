@@ -10,6 +10,7 @@
 #include <expected>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -22,6 +23,11 @@ class PreparedBuildingAssets {
 public:
   using Base = std::shared_ptr<const PreparedStructureTile>;
   using Basis = std::shared_ptr<const PreparedBuildingBasis>;
+
+  struct RequestedBasis {
+    std::string BaseKey;
+    Basis Product;
+  };
 
   struct Counters {
     uint64_t Hits = 0, Misses = 0, Writes = 0, ReadBytes = 0;
@@ -37,14 +43,20 @@ public:
                                 const ::outshine::Ground::ShapedGround &shape,
                                 double spanM,
                                 std::string_view inputDigest = {}) const;
-  [[nodiscard]] std::expected<Basis, StructureBakeError> LoadBasis(const std::string &key);
+  [[nodiscard]] std::string
+  RequestKey(Data::TileId tile, const ::outshine::Ground::ShapedGround &shape, double spanM) const;
+  [[nodiscard]] std::expected<std::optional<RequestedBasis>, StructureBakeError>
+  LoadBasisRequest(const std::string &requestKey);
+  [[nodiscard]] std::expected<Basis, StructureBakeError>
+  LoadBasis(const std::string &key, const std::string &requestKey = {});
   [[nodiscard]] std::expected<void, StructureBakeError> InvalidateBasis(const std::string &key);
   [[nodiscard]] std::expected<Base, StructureBakeError> Load(const std::string &key);
   [[nodiscard]] std::expected<Base, StructureBakeError>
   Generate(const std::string &key,
            const RawTile &raw,
            const ::outshine::Ground::HeightField &heights,
-           const std::atomic_bool &stopping);
+           const std::atomic_bool &stopping,
+           const std::string &requestKey = {});
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometry(const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view);
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
@@ -61,7 +73,10 @@ private:
   static constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;
   [[nodiscard]] static std::string BasisKey(const std::string &key);
   [[nodiscard]] std::expected<void, StructureBakeError>
-  StoreBasis(const std::string &key, const Box &bounds, const PreparedBuildingBasis &basis);
+  StoreBasis(const std::string &key,
+             const Box &bounds,
+             const PreparedBuildingBasis &basis,
+             const std::string &requestKey = {});
   [[nodiscard]] std::expected<std::optional<BakedTile>, StructureBakeError>
   LoadGeometryArtifact(const std::string &baseKey, const RawTile &view);
 
@@ -71,7 +86,9 @@ private:
 
   PreparedBuildingAssets(std::unique_ptr<AssetCache> cache, std::string recipe);
   [[nodiscard]] std::expected<std::vector<uint8_t>, StructureBakeError>
-  StoreBase(const std::string &key, const PreparedStructureTile &base);
+  StoreBase(const std::string &key,
+            const PreparedStructureTile &base,
+            const std::string &requestKey = {});
   [[nodiscard]] static Box Bounds(const PreparedStructureTile &base);
   [[nodiscard]] static Box StructureBounds(const PreparedStructureTile &base, size_t index);
   [[nodiscard]] static std::string SurfaceKey(const std::string &baseKey, uint32_t cell);

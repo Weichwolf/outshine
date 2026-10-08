@@ -426,8 +426,10 @@ struct StructureBuildTask::Artifact {
 struct StructureBuildTask::NativeProducts {
   enum class Phase : uint8_t { Lookup, Generating, Complete };
 
-  NativeProducts(std::shared_ptr<Generators::PreparedBuildingAssets> cache, std::string key)
-      : Cache(std::move(cache)), Key(std::move(key)) {}
+  NativeProducts(std::shared_ptr<Generators::PreparedBuildingAssets> cache,
+                 std::string key,
+                 std::string requestKey)
+      : Cache(std::move(cache)), Key(std::move(key)), RequestKey(std::move(requestKey)) {}
 
   bool EnsureBase(const Generators::RawTile &raw,
                   const Ground::HeightField *heights,
@@ -437,8 +439,8 @@ struct StructureBuildTask::NativeProducts {
                   const std::atomic_bool &stopping) const {
     if (base) { return true; }
     assert(basis != nullptr || heights != nullptr);
-    auto loaded =
-        basis != nullptr ? Cache->Load(Key) : Cache->Generate(Key, raw, *heights, stopping);
+    auto loaded = basis != nullptr ? Cache->Load(Key)
+                                   : Cache->Generate(Key, raw, *heights, stopping, RequestKey);
     if (!loaded) {
       output.Status = std::unexpected(loaded.error());
       return false;
@@ -500,6 +502,7 @@ struct StructureBuildTask::NativeProducts {
 
   std::shared_ptr<Generators::PreparedBuildingAssets> Cache;
   std::string Key;
+  std::string RequestKey;
   Phase Current = Phase::Lookup;
 };
 
@@ -625,9 +628,11 @@ bool StructureBuildTask::Running() const noexcept {
 }
 
 void StructureBuildTask::UseNativeAssets(std::shared_ptr<Generators::PreparedBuildingAssets> cache,
-                                         std::string key) {
+                                         std::string key,
+                                         std::string requestKey) {
   assert(State_ == State::Ready && (Base_ || Basis_ || Heights_));
-  Native_ = std::make_unique<NativeProducts>(std::move(cache), std::move(key));
+  Native_ =
+      std::make_unique<NativeProducts>(std::move(cache), std::move(key), std::move(requestKey));
 }
 
 void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {

@@ -319,6 +319,7 @@ private:
     std::shared_ptr<const Ground::HeightField> Heights;
     Generators::PreparedBuildingAssets::Basis Basis;
     std::string Key;
+    std::string RequestKey;
     uint64_t StreetDigest = 0;
     double ReadMs = 0.0;
   };

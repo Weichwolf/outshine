@@ -77,7 +77,9 @@ public:
   StructureBuildTask(StructureBuildTask &&other) noexcept;
   StructureBuildTask &operator=(StructureBuildTask &&other) noexcept;
 
-  void UseNativeAssets(std::shared_ptr<Generators::PreparedBuildingAssets> cache, std::string key);
+  void UseNativeAssets(std::shared_ptr<Generators::PreparedBuildingAssets> cache,
+                       std::string key,
+                       std::string requestKey = {});
   void Start(Tasks &pool, const StructureMesher &mesher);
   void Resume(Tasks &pool, const StructureMesher &mesher);
   void RequestStop() noexcept;
