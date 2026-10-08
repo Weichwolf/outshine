@@ -147,12 +147,13 @@ constexpr double kSmoothstepPeakDerivative = 1.875;
 constexpr double kContactToleranceM = 1.e-6;
 
 bool HasSoftApron(const EarthworkStamp &stamp) {
-  return stamp.Kind == EarthworkKind::Pad || stamp.Kind == EarthworkKind::Corridor;
+  return stamp.Kind != EarthworkKind::Basin;
 }
 
 double ApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) {
   return stamp.Kind == EarthworkKind::Corridor ||
-                 (stamp.Kind == EarthworkKind::Pad && stamp.ApronM > 0.0)
+                 ((stamp.Kind == EarthworkKind::Pad || stamp.Kind == EarthworkKind::Clearance) &&
+                  stamp.ApronM > 0.0)
              ? std::hypot(stamp.ApronM,
                           kSmoothstepPeakDerivative *
                               std::min(std::abs(stamp.YieldM), mostEarthworkM) * kBatterRun)
@@ -323,7 +324,9 @@ void BidSurface(const EarthworkStamp &held,
   const double weight = (1.0 - fade) / fade;
   double correctionM =
       std::clamp(bid.WantsM - wasM, -limits.MostCorrectionM, limits.MostCorrectionM);
-  if (!held.Fills) { correctionM = std::min(correctionM, 0.0); }
+  if (!held.Fills || held.Kind == EarthworkKind::Clearance) {
+    correctionM = std::min(correctionM, 0.0);
+  }
   aprons->Weight += weight;
   aprons->CorrectionM += weight * correctionM;
   if (weight > aprons->StrongestWeight) {
@@ -379,7 +382,10 @@ struct PressWorkspace {
     bool changed = false;
     for (size_t which = 0; which < stamps.size(); ++which) {
       const auto &stamp = stamps[which];
-      if (stamp.Kind != EarthworkKind::Pad || stamp.ApronM <= 0.0) { continue; }
+      if ((stamp.Kind != EarthworkKind::Pad && stamp.Kind != EarthworkKind::Clearance) ||
+          stamp.ApronM <= 0.0) {
+        continue;
+      }
       const double widthM = std::hypot(stamp.ApronM,
                                        kSmoothstepPeakDerivative *
                                            std::min(ReliefM[which], mostEarthworkM) * kBatterRun);
@@ -539,9 +545,11 @@ void RejectAt(std::span<const EarthworkStamp> these,
       outsideM = offered->OutsideM;
       bedM = offered->BedM;
     }
-    if (stamp.Kind == EarthworkKind::Pad && outsideM <= 0.0) {
-      const double reliefM =
-          stamp.Fills ? std::abs(bedM - upM[one]) : std::max(upM[one] - bedM, 0.0);
+    if ((stamp.Kind == EarthworkKind::Pad || stamp.Kind == EarthworkKind::Clearance) &&
+        outsideM <= 0.0) {
+      const double reliefM = stamp.Fills && stamp.Kind != EarthworkKind::Clearance
+                                 ? std::abs(bedM - upM[one])
+                                 : std::max(upM[one] - bedM, 0.0);
       workspace.ReliefM[which] = std::max(workspace.ReliefM[which], reliefM);
     }
     if (outsideM > stamp.ApronM) { continue; }

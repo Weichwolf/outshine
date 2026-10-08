@@ -21,7 +21,7 @@ OSM-Adapter besitzt Quellsemantik, world/navigation das logische Netz; generator
 Profile/Geometrie, Terrain die Kontaktdeformation. Vorhandene Linien/Produkte reichen für
 den nächsten Schritt. Erst einen realen Stadt-/Hafenanschluss samt Brücke bis zum Bild liefern;
 keine vollständige Quellenmigration oder Hockenheim-Runde als Vorbedingung.
-Native `EarthworkKind::Clearance`-Aufträge schneiden nur Terrain oberhalb ihrer Grenze;
+Native `EarthworkKind::Clearance`-Aufträge schneiden im Kern nur Terrain oberhalb ihrer Grenze;
 sie füllen nie Boden und sperren keine tiefere Becken-Vertiefung. `Corridors::AppendTerrainStamps`
 und `AppendJunctionTerrainStamp` erzeugen sie für Brückenspannen und erhöhte Knoten;
 `EarthworkPress::BidsTerrain` trennt sie von tatsächlichen Kontakten. Widerlager und
@@ -60,15 +60,15 @@ Eine waagerechte Brückenplatte am höchsten DEM-Punkt hebt Feldkirchs tiefere A
 unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erforderlichem
 Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbaus.
 Knoten und Spannen teilen lokale Wegstationen; beide Endkürzungen gemeinsam begrenzen.
-Nächste Lieferung: deformiertes Nahterrain passend verfeinern und Knotenhöhen/C1-Profile fitten;
-bei hohen Unterschieden passende Gründung vorsehen. Fundamentausläufe werden aus Quellhöhen
+Clearance-Ausläufe blenden quintisch zum Quellgelände aus; ihre Breite folgt dem Kernrelief.
+Echte Freiräume schneiden nur, äußere Böschungen respektieren physische Kontakte. Nächste Lieferung: Beckenränder, Knotenhöhen/C1-Profile und Gründung. Fundamentausläufe werden aus Quellhöhen
 im physischen Kern geplant, bevor Boden verändert wird; breitere Ausläufe ersetzen keine Verfeinerung.
 Deklarierter Bedarf bleibt Mindestwert; Nullauslauf erhält ausdrückliche harte Kontakte.
 Gleiche Kanten nutzen deterministisch die feinere Quelle; gemeinsame Ecken folgen der tatsächlich
 angrenzenden gröbsten Mesh-Kante. Abdeckende Vorfahren dürfen innere Kanten nicht verändern.
 Terrain-Auswahl berücksichtigt bislang Roh-DEM und deklarierte Fahrstrecken, keine Place-Kontakte.
 Verfeinerung gegen deformierte Oberfläche bestimmen; benachbarte LOD-Kanten konform verbinden.
-Skirts ersetzen keine gemeinsame Oberfläche. Höhe und Abtastung getrennt korrigieren;
+Native Nahseiten erreichen bereits 0,4–6,5 m Abtastung; der frühere Clearance-Abbruch erzeugte 23 m Sprung auf 0,81 m. Beckenränder bleiben hart; Höhe und Abtastung getrennt korrigieren;
 unnötig hohe Kontakte nicht mit zusätzlichen Vertices kaschieren.
 Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen brauchen dieselbe adaptive Abtastung.
 
@@ -112,7 +112,7 @@ Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen b
 OSM-Netz/Ebenen erhalten; keine Tensorfeld-Neuerzeugung realer Straßen. Gemeinsame Profile,
 Anschlussregeln und instanzierte Tragwerksteile ergänzen die vorhandene Qualität.
 [Geometry Clipmaps, SIGGRAPH 2004](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf):
-Gemeinsame Randgeometrie und räumliche Übergänge; Nahtschluss allein garantiert keine weiche Böschung.
+Gemeinsame Randgeometrie und räumliche Übergänge; Nahtschluss allein garantiert keine weiche Böschung. [Native Clearance-Auslaufprobe](../test/experiments/clearance_aprons.py) vergleicht harten Abbruch und quintischen Quellübergang.
 
 ## Abnahme
 Durchgehende reale Straße samt korrekt angeschlossener Brücke ohne Gelände-/Wasserwände,
