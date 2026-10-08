@@ -8,7 +8,7 @@
 #include "BuildingField.h"
 #include "OsmField.h"
 #include "StreetField.h"
-#include "WaterField.h"
+#include "WaterAsset.h"
 
 namespace outshine::Generators::Osm {
 
@@ -17,13 +17,13 @@ using namespace outshine::Ground;
 struct RegionSources {
   std::shared_ptr<const OsmField> Vectors;
   StreetField Ways;
-  WaterField WaterBodies;
+  WaterAsset WaterBodies;
 
   [[nodiscard]] static RegionSources
-  Snapshot(const OsmField *vectors, const StreetField &ways, const WaterField &water) {
+  Snapshot(const OsmField *vectors, const StreetField &ways, const WaterAsset &water) {
     return {.Vectors = vectors != nullptr ? vectors->SnapshotQueries() : nullptr,
             .Ways = ways,
-            .WaterBodies = water.SnapshotQueries()};
+            .WaterBodies = water};
   }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
@@ -40,7 +40,7 @@ public:
 
   [[nodiscard]] const StreetField &Ways() const noexcept { return Sources_.Ways; }
 
-  [[nodiscard]] const WaterField &WaterBodies() const noexcept { return Sources_.WaterBodies; }
+  [[nodiscard]] const WaterAsset &WaterBodies() const noexcept { return Sources_.WaterBodies; }
 
   [[nodiscard]] const BuildingField &Footprints() const noexcept { return Footprints_; }
 

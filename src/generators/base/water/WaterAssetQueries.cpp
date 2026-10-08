@@ -1,18 +1,20 @@
-#include "WaterField.h"
+#include "WaterAsset.h"
+#include "TileGeodesy.h"
 #include "Earth.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <span>
 
-namespace outshine::Generators::Osm {
+namespace outshine::Generators {
 namespace {
 
 bool InsideRing(std::span<const double> points,
-                const WaterField::SurfaceRing &ring,
+                const WaterAsset::SurfaceRing &ring,
                 LongitudeLatitude at) noexcept {
   if (ring.PointCount < 3) { return false; }
   constexpr double kLongitudePeriodDeg = 360.0;
@@ -45,7 +47,7 @@ bool InsideRing(std::span<const double> points,
 }
 
 bool Contains(std::span<const double> points,
-              std::span<const WaterField::SurfaceRing> rings,
+              std::span<const WaterAsset::SurfaceRing> rings,
               LongitudeLatitude at) noexcept {
   return !rings.empty() && InsideRing(points, rings.front(), at) &&
          std::ranges::none_of(rings.subspan(1),
@@ -54,25 +56,32 @@ bool Contains(std::span<const double> points,
 
 }
 
-std::optional<float> WaterField::LevelAt(const OsmField &field,
-                                         LongitudeLatitude at) const noexcept {
-  const auto tile = OsmField::Locate(at, field.Zoom());
-  if (!tile) { return std::nullopt; }
-  const auto tiles = field.Tiles();
-  const int across = static_cast<int>(1u << static_cast<unsigned>(field.Zoom()));
+std::optional<float> WaterAsset::LevelAt(LongitudeLatitude at) const noexcept {
+  const auto &tiles = Contents().Tiles;
   std::optional<float> level;
+  int previousZoom = -1;
+  std::optional<::outshine::Data::TileId> located;
   for (size_t index = 0; index < tiles.size(); ++index) {
-    const int deltaX = std::abs(tiles[index].X - tile->X);
-    if (std::min(deltaX, across - deltaX) > 1 || std::abs(tiles[index].Y - tile->Y) > 1) {
+    const auto &entry = tiles[index];
+    if (entry.Zoom != previousZoom) {
+      located = Ground::TileIndex::Of(
+                    {.LongitudeDeg = at.LongitudeDeg, .LatitudeDeg = at.LatitudeDeg}, entry.Zoom)
+                    .Tile();
+      previousZoom = entry.Zoom;
+    }
+    if (!located) { continue; }
+    const auto across = static_cast<int64_t>(uint64_t{1} << static_cast<unsigned>(entry.Zoom));
+    const int64_t deltaX = std::abs(static_cast<int64_t>(entry.X) - located->X);
+    if (std::min(deltaX, across - deltaX) > 1 ||
+        std::abs(static_cast<int64_t>(entry.Y) - located->Y) > 1) {
       continue;
     }
     for (const Surface &surface : OfTile(static_cast<int>(index))) {
-      if ((!level || surface.LevelM > *level) && Contains(field.Points(), RingsOf(surface), at)) {
+      if ((!level || surface.LevelM > *level) && Contains(Points(), RingsOf(surface), at)) {
         level = surface.LevelM;
       }
     }
   }
   return level;
 }
-
 }

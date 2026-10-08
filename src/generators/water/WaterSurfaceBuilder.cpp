@@ -56,11 +56,10 @@ double TriangleAreaM2(const WaterVertex &a, const WaterVertex &b, const WaterVer
                 (b.NorthM - a.NorthM) * (c.EastM - a.EastM));
 }
 
-std::optional<WaterPolygon>
-ReadWaterPolygon(std::span<const ::outshine::Generators::Osm::WaterField::SurfaceRing> sourceRings,
-                 std::span<const double> geographicPoints,
-                 float levelM,
-                 const TangentFrame &frame) {
+std::optional<WaterPolygon> ReadWaterPolygon(std::span<const WaterAsset::SurfaceRing> sourceRings,
+                                             std::span<const double> geographicPoints,
+                                             float levelM,
+                                             const TangentFrame &frame) {
   if (sourceRings.empty()) { return std::nullopt; }
   WaterPolygon polygon;
   polygon.Rings.reserve(sourceRings.size());
@@ -124,12 +123,10 @@ std::optional<std::vector<uint32_t>> TriangulateWaterPolygon(const WaterPolygon 
 
 }
 
-std::optional<double> WaterSurfaceUpAt(const ::outshine::Generators::Osm::WaterField &water,
-                                       const ::outshine::Generators::Osm::OsmField *source,
+std::optional<double> WaterSurfaceUpAt(const WaterAsset &water,
                                        const TangentFrame &frame,
                                        LongitudeLatitude at) noexcept {
-  if (source == nullptr) { return std::nullopt; }
-  const auto level = water.LevelAt(*source, at);
+  const auto level = water.LevelAt(at);
   if (!level) { return std::nullopt; }
   return frame
       .ToLocalPosition(
@@ -150,15 +147,14 @@ Material WaterSurfaceMaterial() noexcept {
 std::expected<WaterSurfaceMetrics, std::string>
 AppendWaterSurfaceGeometry(Geometry &geometry,
                            MaterialInstance material,
-                           const ::outshine::Generators::Osm::WaterField &water,
-                           std::span<const double> geographicPoints,
+                           const WaterAsset &water,
                            const TangentFrame &frame) {
   WaterSurfaceMetrics metrics;
   std::vector<float> positions;
   std::vector<float> normals;
   std::vector<float> texcoords;
   std::vector<uint32_t> indices;
-  std::vector<const ::outshine::Generators::Osm::WaterField::Surface *> orderedSurfaces;
+  std::vector<const WaterAsset::Surface *> orderedSurfaces;
   orderedSurfaces.reserve(water.Surfaces().size());
   for (const auto &surface : water.Surfaces()) { orderedSurfaces.push_back(&surface); }
   std::ranges::sort(orderedSurfaces, {}, [&water](const auto *surface) {
@@ -166,7 +162,7 @@ AppendWaterSurfaceGeometry(Geometry &geometry,
   });
   for (const auto *surface : orderedSurfaces) {
     const auto polygon =
-        ReadWaterPolygon(water.RingsOf(*surface), geographicPoints, surface->LevelM, frame);
+        ReadWaterPolygon(water.RingsOf(*surface), water.Points(), surface->LevelM, frame);
     if (!polygon ||
         polygon->Vertices.size() > std::numeric_limits<uint32_t>::max() - positions.size() / 3u) {
       ++metrics.RefusedTopology;

@@ -28,8 +28,8 @@ int main() {
             "connected standing-water fragments use one level from their combined terrain samples");
         CHECK(water.OutlierCount() == 2, "shore diagnostics use the final component level");
       }
-      const auto snapshot = water.SnapshotQueries();
-      CHECK(snapshot.Surfaces().size() == 2 && snapshot.Ingested(field),
+      const auto snapshot = water.Asset(field);
+      CHECK(snapshot.Surfaces().size() == 2 && snapshot.Complete(),
             "query snapshots retain resolved levels and readiness");
     }
   }

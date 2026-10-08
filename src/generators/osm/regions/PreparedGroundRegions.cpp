@@ -25,8 +25,7 @@ namespace outshine::Generators::Osm {
 namespace {
 constexpr uint64_t kPackageVersion = 0x35524e474fULL;
 
-std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const uint8_t> bytes,
-                                                                 const OsmField &source) {
+std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const uint8_t> bytes) {
   BinaryValueReader in(bytes);
   uint64_t version = 0;
   uint64_t groundSize = 0;
@@ -42,7 +41,7 @@ std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const
   }
   const auto waterBytes = in.In.Take(static_cast<size_t>(waterSize));
   if (!waterBytes) { return std::unexpected("invalid native region water range"); }
-  auto water = WaterField::DecodeNative(*waterBytes, source);
+  auto water = WaterAsset::DecodeNative(*waterBytes);
   if (!water || in.In.Remaining() != 0) {
     return std::unexpected("invalid native region water inputs");
   }
@@ -50,12 +49,10 @@ std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const
       .Region = std::move(*region), .Water = std::move(*water), .ReadBytes = bytes.size()};
 }
 
-std::expected<std::vector<uint8_t>, std::string> Encode(const GroundRegionAsset &region,
-                                                        const OsmField &source,
-                                                        const WaterField &water,
-                                                        size_t bytesMost) {
+std::expected<std::vector<uint8_t>, std::string>
+Encode(const GroundRegionAsset &region, const WaterAsset &water, size_t bytesMost) {
   auto ground = EncodeGroundRegionAsset(region, bytesMost);
-  auto inputs = water.EncodeNative(source, bytesMost);
+  auto inputs = water.EncodeNative(bytesMost);
   if (!ground || !inputs) { return std::unexpected("native region products cannot be encoded"); }
   BinaryValueWriter out(bytesMost);
   if (!out(kPackageVersion, static_cast<uint64_t>(ground->size())) || !out.Out.Put(*ground) ||
@@ -74,7 +71,7 @@ std::expected<std::shared_ptr<PreparedGroundRegions>, std::string> PreparedGroun
   auto cache = AssetCache::Open((std::filesystem::path(directory) / "assets.sqlite").string());
   if (!cache) { return std::unexpected("could not open the prepared ground region cache"); }
   auto recipe = Generators::AssetSourceRecipe(
-      "prepared-ground-region-33",
+      "prepared-ground-region-34",
       sources,
       std::array{Data::DataKind::Elevation, Data::DataKind::VectorMap});
   recipe.append(rules);
@@ -119,12 +116,12 @@ std::string PreparedGroundRegions::Key(const OsmField &vectors,
 }
 
 std::expected<std::optional<PreparedGroundRegions::Loaded>, std::string>
-PreparedGroundRegions::Load(const std::string &key, const OsmField &source) {
+PreparedGroundRegions::Load(const std::string &key) {
   const std::scoped_lock lock(Lock_);
   auto cached = Cache_->Load(key, PackageBytesMost);
   if (!cached) { return std::unexpected("could not read the prepared ground region"); }
   if (!*cached) { return std::optional<Loaded>{}; }
-  auto region = Decode((**cached).Bytes(), source);
+  auto region = Decode((**cached).Bytes());
   if ((**cached).Record().Kind == "ground-region" && region) { return std::move(*region); }
   if (!Cache_->Remove(key)) {
     return std::unexpected("could not remove an invalid prepared ground region");
@@ -136,15 +133,14 @@ std::expected<PreparedGroundRegions::Loaded, std::string>
 PreparedGroundRegions::Store(const std::string &key,
                              const Box &bounds,
                              const GroundRegionAsset &region,
-                             const OsmField &source,
-                             const WaterField &water) {
+                             const WaterAsset &water) {
   const std::scoped_lock lock(Lock_);
   auto cached =
       ResolveAsset(*Cache_,
                    key,
                    PackageBytesMost,
                    [&](size_t bytesMost) -> std::expected<GeneratedAssetPackage, std::string> {
-                     auto encoded = Encode(region, source, water, bytesMost);
+                     auto encoded = Encode(region, water, bytesMost);
                      if (!encoded) {
                        return std::unexpected("ground region is invalid or exceeds its budget");
                      }
@@ -157,7 +153,7 @@ PreparedGroundRegions::Store(const std::string &key,
                                                   .Bytes = std::move(*encoded)};
                    });
   if (!cached) { return std::unexpected(std::move(cached.error())); }
-  auto decoded = Decode(cached->Bytes(), source);
+  auto decoded = Decode(cached->Bytes());
   if (!decoded) { return std::unexpected("published ground region failed native validation"); }
   return std::move(*decoded);
 }

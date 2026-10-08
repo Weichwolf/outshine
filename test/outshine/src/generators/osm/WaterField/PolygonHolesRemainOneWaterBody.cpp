@@ -138,13 +138,14 @@ int main() {
     CHECK(rings[0].FirstPoint == field.Rings()[0].First &&
               rings[1].FirstPoint == field.Rings()[1].First && water.Surfaces()[0].LevelM == 10.0f,
           "body preserves OSM ring order and outer level");
+    const auto asset = water.Asset(field);
     ::outshine::Generators::Osm::BuildingField footprints;
     ::outshine::Generators::Osm::StreetField streets;
     Generators::Tile region(6, 32, 32);
     const auto features = Generators::FeaturesOver(region,
                                                    {.Vectors = &field,
                                                     .Footprints = &footprints,
-                                                    .WaterBodies = &water,
+                                                    .WaterBodies = &asset,
                                                     .Ways = &streets,
                                                     .WetRow = 19});
     CHECK(features && features->Count() == 1 && features->Rings(features->At(0)).size() == 2,
@@ -171,8 +172,7 @@ int main() {
       const auto points = field.Points();
       const TangentFrame frame =
           TangentFrame::At({.LongitudeDeg = points[1], .LatitudeDeg = points[0]});
-      const auto built =
-          Generators::AppendWaterSurfaceGeometry(geometry, *material, water, points, frame);
+      const auto built = Generators::AppendWaterSurfaceGeometry(geometry, *material, asset, frame);
       CHECK(built && built->Laid == 1 && built->RefusedTopology == 0 && built->Triangles == 8 &&
                 geometry.parts() == 1,
             "native triangulation cuts the outer polygon around the hole");
@@ -231,7 +231,7 @@ int main() {
   if (concaveMaterial && concaveWater.Surfaces().size() == 1) {
     const TangentFrame frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
     const auto built = Generators::AppendWaterSurfaceGeometry(
-        concaveGeometry, *concaveMaterial, concaveWater, concave.Points(), frame);
+        concaveGeometry, *concaveMaterial, concaveWater.Asset(concave), frame);
     CHECK(built && built->Triangles == 4 && built->RefusedTopology == 0,
           "concave polygon triangulates without a fan across its recess");
     if (built && concaveGeometry.parts() == 1) {
@@ -248,7 +248,7 @@ int main() {
   }
   const ::outshine::Generators::Osm::RegionSources pinned =
       ::outshine::Generators::Osm::RegionSources::Snapshot(
-          &field, ::outshine::Generators::Osm::StreetField{}, water);
+          &field, ::outshine::Generators::Osm::StreetField{}, water.Asset(field));
   field.Declare(std::span<const ::outshine::Generators::Osm::OsmField::Declared>{},
                 TileAt{.X = 31, .Y = 32});
   water = ::outshine::Generators::Osm::WaterField{};
@@ -262,8 +262,8 @@ int main() {
     if (surface && points.size() >= 2) {
       const TangentFrame frame =
           TangentFrame::At({.LongitudeDeg = points[1], .LatitudeDeg = points[0]});
-      const auto built = Generators::AppendWaterSurfaceGeometry(
-          retained, *surface, pinned.WaterBodies, points, frame);
+      const auto built =
+          Generators::AppendWaterSurfaceGeometry(retained, *surface, pinned.WaterBodies, frame);
       CHECK(built && built->Triangles == 8 && built->RefusedTopology == 0,
             "replacement keeps the candidate lake with its original island topology");
     }

@@ -87,8 +87,9 @@ public:
 
   [[nodiscard]] std::size_t HeapBytes() const {
     return Cls_.HeapBytes() + Footprints_.HeapBytes() + WaterBodies_.HeapBytes() +
-           Ways_.HeapBytes() + (Vectors_ ? Vectors_->HeapBytes() : 0u) +
-           (Pool_ ? Pool_->ResidentBytes() : 0u) + (Ground_ ? Ground_->HeapBytes() : 0u);
+           WaterProducer_.HeapBytes() + Ways_.HeapBytes() +
+           (Vectors_ ? Vectors_->HeapBytes() : 0u) + (Pool_ ? Pool_->ResidentBytes() : 0u) +
+           (Ground_ ? Ground_->HeapBytes() : 0u);
   }
 
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
@@ -175,8 +176,16 @@ public:
 
   void FootprintTilesSpan(double tileSpanM) { Footprints_.TilesSpan(tileSpanM); }
 
-  [[nodiscard]] const ::outshine::Generators::Osm::WaterField &WaterBodies() const {
+  [[nodiscard]] const Generators::WaterAsset &WaterBodies() const {
+    if (WaterStage_ != WaterStage::Ready && Vectors_) {
+      WaterBodies_ = WaterProducer_.Asset(*Vectors_);
+    }
     return WaterBodies_;
+  }
+
+  [[nodiscard]] const Generators::Osm::WaterField::IngestMetrics &
+  WorstWaterIngest() const noexcept {
+    return WaterProducer_.WorstIngest();
   }
 
   [[nodiscard]] const ::outshine::Generators::Osm::StreetField &Ways() const { return Ways_; }
@@ -218,8 +227,10 @@ public:
     if (WaterStage_ == WaterStage::Deferred) { WaterStage_ = WaterStage::Requested; }
   }
 
-  void RestoreWater(Generators::Osm::WaterField water) {
+  void RestoreWater(Generators::WaterAsset water) {
     WaterBodies_ = std::move(water);
+    WaterProducer_ = Generators::Osm::WaterField{};
+    WaterInputs_ = CurrentWaterInputs();
     WaterStage_ = WaterStage::Ready;
     Settled_.reset();
   }
@@ -274,7 +285,28 @@ private:
   int VectorZoom_ = kFineZoom;
   Generators::Osm::MvtSchema VectorSchema_ = Generators::Osm::MvtSchema::Shortbread;
   ::outshine::Generators::Osm::BuildingField Footprints_;
-  ::outshine::Generators::Osm::WaterField WaterBodies_;
+  ::outshine::Generators::Osm::WaterField WaterProducer_;
+  mutable Generators::WaterAsset WaterBodies_;
+
+  struct WaterInputs {
+    uint64_t Generation = 0;
+    size_t Features = 0, Tiles = 0;
+    [[nodiscard]] bool operator==(const WaterInputs &) const = default;
+  };
+
+  [[nodiscard]] WaterInputs CurrentWaterInputs() const noexcept {
+    return Vectors_ ? WaterInputs{.Generation = Vectors_->Generation(),
+                                  .Features = Vectors_->Features().size(),
+                                  .Tiles = Vectors_->Tiles().size()}
+                    : WaterInputs{};
+  }
+
+  [[nodiscard]] bool WaterReady() const noexcept {
+    return WaterStage_ == WaterStage::Ready && WaterInputs_ == CurrentWaterInputs();
+  }
+
+  WaterInputs WaterInputs_;
+
   ::outshine::Generators::Osm::StreetField Ways_;
   int SurfaceZoom_ = 0;
   std::optional<LongitudeLatitude> Stood_;

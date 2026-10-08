@@ -190,6 +190,8 @@ void SurfacePreparation::Close() {
   PreparedBuildings_.reset();
   PreparedNetwork_.reset();
   PreparedRegions_.reset();
+  WaterProducer_ = Generators::Osm::WaterField{};
+  WaterBodies_ = Generators::WaterAsset{};
   WaterStage_ = WaterStage::Requested;
   WaterMode_ = WaterMode::Immediate;
   LandingCursor_ = {};
@@ -263,7 +265,12 @@ SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget bud
   if (Vectors_->Generation() != previousVectorGeneration) {
     Footprints_.ResetDerived();
     Ways_ = ::outshine::Generators::Osm::StreetField{};
-    WaterBodies_ = ::outshine::Generators::Osm::WaterField{};
+    WaterProducer_ = ::outshine::Generators::Osm::WaterField{};
+    WaterBodies_ = Generators::WaterAsset{};
+    WaterStage_ = PreparedRegions_ && WaterMode_ == WaterMode::RegionLookup ? WaterStage::Deferred
+                                                                            : WaterStage::Requested;
+  }
+  if (WaterStage_ == WaterStage::Ready && !WaterReady()) {
     WaterStage_ = PreparedRegions_ && WaterMode_ == WaterMode::RegionLookup ? WaterStage::Deferred
                                                                             : WaterStage::Requested;
   }
@@ -295,7 +302,7 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
       }
     }
     const size_t before =
-        Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
+        Ways_.IngestedTiles() + WaterProducer_.IngestedTiles() + Footprints_.IngestedTiles();
     const auto streetsAt = std::chrono::steady_clock::now();
     const auto looked = Ways_.LookedCount();
     (void)Ways_.Ingest(*Vectors_, Templates_);
@@ -303,13 +310,17 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
     metrics.StreetsMs += ElapsedMs(streetsAt);
     const auto waterAt = std::chrono::steady_clock::now();
     if (WaterStage_ == WaterStage::Requested) {
-      (void)WaterBodies_.Ingest(*Ground_, *Vectors_, Templates_);
-      metrics.IngestionUnits += WaterBodies_.LastIngest().AdvancedUnits;
-      if (WaterBodies_.Ingested(*Vectors_)) { WaterStage_ = WaterStage::Ready; }
+      (void)WaterProducer_.Ingest(*Ground_, *Vectors_, Templates_);
+      metrics.IngestionUnits += WaterProducer_.LastIngest().AdvancedUnits;
+      if (WaterProducer_.Ingested(*Vectors_)) {
+        WaterBodies_ = WaterProducer_.Asset(*Vectors_);
+        WaterInputs_ = CurrentWaterInputs();
+        WaterStage_ = WaterStage::Ready;
+      }
     }
     metrics.WaterMs += ElapsedMs(waterAt);
     const size_t after =
-        Ways_.IngestedTiles() + WaterBodies_.IngestedTiles() + Footprints_.IngestedTiles();
+        Ways_.IngestedTiles() + WaterProducer_.IngestedTiles() + Footprints_.IngestedTiles();
     if (after != before) { Settled_.reset(); }
     if (after == before || Drained()) { break; }
   }
@@ -341,13 +352,13 @@ void SurfacePreparation::Settle() {
   Cls_.Settle();
   Footprints_.Settle();
   Ways_.Settle();
-  WaterBodies_.Settle();
+  WaterProducer_.Settle();
   if (Vectors_) { Vectors_->Settle(); }
 }
 
 bool SurfacePreparation::Drained() const {
   if (!Vegetated_ || !Vectors_) { return true; }
-  return Ways_.Ingested(*Vectors_) && WaterBodies_.Ingested(*Vectors_);
+  return Ways_.Ingested(*Vectors_) && WaterReady();
 }
 
 bool SurfacePreparation::Ingested() const {
@@ -358,7 +369,8 @@ bool SurfacePreparation::Ingested() const {
 bool SurfacePreparation::IngestedWithin(int rings) const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
-         Ways_.IngestedWithin(*Vectors_, rings) && WaterBodies_.IngestedWithin(*Vectors_, rings);
+         Ways_.IngestedWithin(*Vectors_, rings) &&
+         (WaterReady() || WaterProducer_.IngestedWithin(*Vectors_, rings));
 }
 
 bool SurfacePreparation::InputsReadyWithin(int rings) const {
@@ -375,10 +387,11 @@ bool SurfacePreparation::InputsReady() const {
 std::string SurfacePreparation::IngestionStatus() const {
   if (!Vectors_) { return "vectors=absent"; }
   return "streets=" + std::to_string(Ways_.IngestedTiles()) + "/" +
-         std::to_string(static_cast<int>(Ways_.Ingested(*Vectors_))) +
-         ", water=" + std::to_string(WaterBodies_.IngestedTiles()) + "/" +
-         std::to_string(static_cast<int>(WaterBodies_.Ingested(*Vectors_))) +
-         ", waterDeferrals=" + std::to_string(WaterBodies_.Deferrals()) +
+         std::to_string(static_cast<int>(Ways_.Ingested(*Vectors_))) + ", water=" +
+         std::to_string(WaterReady() ? WaterBodies_.IngestedTiles()
+                                     : WaterProducer_.IngestedTiles()) +
+         "/" + std::to_string(static_cast<int>(WaterReady())) +
+         ", waterDeferrals=" + std::to_string(WaterProducer_.Deferrals()) +
          ", classes=" + std::to_string(static_cast<int>(Cls_.Complete()));
 }
 

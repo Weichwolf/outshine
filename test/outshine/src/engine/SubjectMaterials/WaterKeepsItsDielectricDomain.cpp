@@ -66,7 +66,7 @@ int main() {
         "submerged terrain retains its geometry");
   const auto frame = TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0});
   const auto built =
-      Generators::AppendWaterSurfaceGeometry(geometry, *wet, water, field.Points(), frame);
+      Generators::AppendWaterSurfaceGeometry(geometry, *wet, water.Asset(field), frame);
   CHECK(built && built->Laid == 1 && built->Triangles == 2 && geometry.parts() == 2,
         "generator appends a separate surface above its bed");
   if (!built || geometry.parts() != 2) { return Report(); }

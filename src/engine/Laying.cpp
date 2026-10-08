@@ -404,9 +404,9 @@ public:
 
   void PublishesFootprints() noexcept { Revision_.Footprints = Footprints().Revision(); }
 
-  void PublishesWaterInputs(const ::outshine::Generators::Osm::WaterField &water) {
+  void PublishesWaterInputs(const Generators::WaterAsset &water) {
     Revision_.WaterTiles = water.IngestedTiles();
-    Candidate_.RestoreWater(water.SnapshotQueries());
+    Candidate_.RestoreWater(water);
     WaterPhase_ = WaterPhase::Bound;
   }
 
@@ -1064,14 +1064,14 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
 }
 
 namespace {
-void AppendWaterBasinStamps(const ::outshine::Generators::Osm::WaterField &water,
-                            std::span<const double> points,
+void AppendWaterBasinStamps(const Generators::WaterAsset &water,
                             const TangentFrame &standing,
                             std::vector<EarthworkStamp> &yielding) {
+  const auto points = water.Points();
   std::vector<std::pair<uint32_t, EarthworkStamp>> ordered;
   ordered.reserve(water.Surfaces().size());
-  for (const ::outshine::Generators::Osm::WaterField::Surface &lake : water.Surfaces()) {
-    const ::outshine::Generators::Osm::WaterField::SurfaceRing &ring = water.RingsOf(lake).front();
+  for (const Generators::WaterAsset::Surface &lake : water.Surfaces()) {
+    const Generators::WaterAsset::SurfaceRing &ring = water.RingsOf(lake).front();
     if ((static_cast<size_t>(ring.FirstPoint) + ring.PointCount) * 2u > points.size()) { continue; }
     EarthworkStamp made;
     made.RingEastNorthM.reserve(static_cast<size_t>(ring.PointCount) * 2u);
@@ -1110,8 +1110,7 @@ void AppendWaterBasinStamps(const ::outshine::Generators::Osm::WaterField &water
     made.Kind = EarthworkKind::Basin;
     made.SeamEastNorthM = made.RingEastNorthM;
     bool complete = true;
-    for (const ::outshine::Generators::Osm::WaterField::SurfaceRing &hole :
-         water.RingsOf(lake).subspan(1)) {
+    for (const Generators::WaterAsset::SurfaceRing &hole : water.RingsOf(lake).subspan(1)) {
       if ((static_cast<size_t>(hole.FirstPoint) + hole.PointCount) * 2u > points.size()) {
         complete = false;
         break;
@@ -1228,8 +1227,7 @@ bool Engine::State::PressGroundEarthworks(const TangentFrame &standing,
     }
     const size_t builtPads = yielding.size();
     if (shapes != nullptr) {
-      AppendWaterBasinStamps(
-          state.Candidate().Sources().WaterBodies, shapes->Points(), standing, yielding);
+      AppendWaterBasinStamps(state.Candidate().Sources().WaterBodies, standing, yielding);
     }
     const size_t builtLakes = yielding.size() - builtPads;
     if (Session.Declared.Render.Audits) {
@@ -1303,18 +1301,14 @@ bool Engine::State::BuildWaterSurfaces(const TangentFrame &standing,
                                        const ::outshine::Generators::Osm::RegionSources &sources,
                                        Geometry &ground) {
   const auto waterAt = std::chrono::steady_clock::now();
-  const ::outshine::Generators::Osm::WaterField &water = sources.WaterBodies;
-  const ::outshine::Generators::Osm::OsmField *const vectors = sources.Vectors.get();
-  const std::span<const double> points =
-      vectors != nullptr ? vectors->Points() : std::span<const double>{};
+  const Generators::WaterAsset &water = sources.WaterBodies;
   if (water.Surfaces().empty()) { return true; }
   const auto surface = ground.addSurface("water", Generators::WaterSurfaceMaterial());
   if (!surface) {
     Error = Says::MaterialCreationFailed;
     return false;
   }
-  const auto built =
-      Generators::AppendWaterSurfaceGeometry(ground, *surface, water, points, standing);
+  const auto built = Generators::AppendWaterSurfaceGeometry(ground, *surface, water, standing);
   if (!built) {
     Error = built.error();
     return false;
@@ -2071,7 +2065,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginGroundRegionLookup(Ground
         auto key = assets->Key(*vectors, shape, *native);
         if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
         if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
-        auto loaded = assets->Load(key, *vectors);
+        auto loaded = assets->Load(key);
         if (!loaded) { return std::unexpected(std::move(loaded.error())); }
         return GroundRegionPreparation::Completed{.Key = std::move(key),
                                                   .Loaded = std::move(*loaded)};
@@ -2189,8 +2183,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
       .Draped = drapedOver,
       .Classes = build.ClassStructure,
       .WaterUpM = [&sources, &standing](LongitudeLatitude at) -> std::optional<double> {
-        return Generators::WaterSurfaceUpAt(
-            sources.WaterBodies, sources.Vectors.get(), standing, at);
+        return Generators::WaterSurfaceUpAt(sources.WaterBodies, standing, at);
       },
       .CensusAt = state.Began(),
       .EyeLatDeg = coverage.LatitudeDeg,
@@ -2349,7 +2342,8 @@ Engine::State::GroundBuildProgress Engine::State::StoreGroundRegion(GroundBuildS
   auto &build = state.Candidate().Products();
   const Patchwork &terrain = *state.Laid();
   if (terrain.Pending != 0 || terrain.ContactPending != 0 || terrain.Refused != 0 ||
-      !build.StreetGraphComplete || !build.RoadAlignments.empty()) {
+      !build.StreetGraphComplete || !build.RoadAlignments.empty() ||
+      !state.Candidate().Sources().WaterBodies.Complete()) {
     state.FinishRegion({}, Phase::Bypass);
     return GroundBuildProgress::Ready;
   }
@@ -2367,16 +2361,15 @@ Engine::State::GroundBuildProgress Engine::State::StoreGroundRegion(GroundBuildS
       .GroundAlbedo = state.Candidate().GroundAlbedo(),
       .MissingRims = build.RimsMissing});
   const auto key = state.RegionKey();
-  const auto vectors = state.Candidate().Sources().Vectors;
-  const auto water = std::make_shared<const Generators::Osm::WaterField>(
-      state.Candidate().Sources().WaterBodies.SnapshotQueries());
+  const auto water =
+      std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
   state.BeginRegion(
       *World.Pool,
-      [assets, region, key, vectors, water](const std::stop_token &stop)
+      [assets, region, key, water](const std::stop_token &stop)
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
         if (stop.stop_requested()) { return std::unexpected("ground region publication canceled"); }
         const auto bounds = GroundRegionBoundsEcef(*region);
-        auto loaded = assets->Store(key, bounds, *region, *vectors, *water);
+        auto loaded = assets->Store(key, bounds, *region, *water);
         if (!loaded) { return std::unexpected(std::move(loaded.error())); }
         return GroundRegionPreparation::Completed{.Key = key, .Loaded = std::move(*loaded)};
       },

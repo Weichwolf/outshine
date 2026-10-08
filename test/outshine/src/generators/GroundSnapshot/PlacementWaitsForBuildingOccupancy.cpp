@@ -24,7 +24,7 @@ int main() {
                                                                      c.LongitudeDeg}}}};
   vectors.Declare(declared, {.X = region.X(), .Y = region.Y()});
   Osm::BuildingField footprints;
-  Osm::WaterField water;
+  WaterAsset water;
   Osm::StreetField streets;
   const Fields inputs{
       .Vectors = &vectors, .Footprints = &footprints, .WaterBodies = &water, .Ways = &streets};

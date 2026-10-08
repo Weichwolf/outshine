@@ -9,7 +9,7 @@
 #include "BuildingField.h"
 #include "OsmField.h"
 #include "StreetField.h"
-#include "WaterField.h"
+#include "WaterAsset.h"
 #include "Tile.h"
 #include "GroundQuery.h"
 #include "TerrainLoader.h"
@@ -21,7 +21,7 @@ enum class Snapped { Taken, Waiting, NoGround };
 struct Fields {
   const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
   const ::outshine::Generators::Osm::BuildingField *Footprints = nullptr;
-  const ::outshine::Generators::Osm::WaterField *WaterBodies = nullptr;
+  const WaterAsset *WaterBodies = nullptr;
   const ::outshine::Generators::Osm::StreetField *Ways = nullptr;
   int BuiltRow = -1;
   int WetRow = -1;

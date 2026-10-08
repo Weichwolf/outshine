@@ -170,7 +170,7 @@ int main() {
                 source->Elements.SourceIdentity().DatasetId &&
             accepted->Coordinates->Sources.size() == 2 && !accepted->Vector,
         "published geometry owns original identity and retains both typed IDs");
-  const ::outshine::Generators::Osm::WaterField water;
+  const ::outshine::Generators::WaterAsset water;
   const ::outshine::Generators::Osm::StreetField streets;
   const Generators::Fields featureSources{
       .Footprints = &prints, .WaterBodies = &water, .Ways = &streets, .BuiltRow = 3};

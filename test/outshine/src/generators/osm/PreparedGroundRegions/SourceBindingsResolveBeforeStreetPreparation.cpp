@@ -1,5 +1,6 @@
 #include "PreparedGroundRegions.h"
 #include "OsmField.h"
+#include "WaterField.h"
 #include "ContentStore.h"
 #include "SourceSet.h"
 #include "TilePool.h"
@@ -78,15 +79,16 @@ int main() {
   NoHeights ground;
   Ground::VegetationTemplates rules;
   (void)water.Ingest(ground, vectors, rules);
-  const auto saved = cache->Store(key, GroundRegionBoundsEcef(region), region, vectors, water);
+  const auto saved =
+      cache->Store(key, GroundRegionBoundsEcef(region), region, water.Asset(vectors));
   CHECK(saved, "complete native region is stored under source and demand bindings");
-  const auto hit = cache->Load(key, vectors);
+  const auto hit = cache->Load(key);
   CHECK(hit && *hit && (**hit).Region.Terrain.Sheets == region.Terrain.Sheets,
         "a region hit loads native contact pages without a prepared street graph");
   auto changedShape = shape;
   changedShape.Seed = 9;
   const auto changed = cache->Key(vectors, changedShape, parameters);
-  const auto miss = cache->Load(changed, vectors);
+  const auto miss = cache->Load(changed);
   CHECK(changed != key && miss && !*miss, "changed generation parameters cannot reuse the region");
   const std::array<uint8_t, 3> otherDemand{1, 2, 4};
   CHECK(cache->Key(vectors, shape, otherDemand) != key, "different detail demand remains distinct");

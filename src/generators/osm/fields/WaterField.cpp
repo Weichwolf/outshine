@@ -16,21 +16,6 @@ namespace outshine::Generators::Osm {
 
 using namespace outshine::Ground;
 
-WaterField WaterField::SnapshotQueries() const {
-  WaterField snapshot;
-  snapshot.Surfaces_ = Surfaces_;
-  snapshot.SurfaceRings_ = SurfaceRings_;
-  snapshot.Courses_ = Courses_;
-  snapshot.Levels_ = Levels_;
-  snapshot.ByTile_ = ByTile_;
-  snapshot.Mark_ = Mark_;
-  snapshot.NoGround_ = NoGround_;
-  snapshot.Outliers_ = Outliers_;
-  snapshot.InvalidBodies_ = InvalidBodies_;
-  snapshot.SourceGeneration_ = SourceGeneration_;
-  return snapshot;
-}
-
 namespace {
 
 constexpr double kLevelPercentile = 0.05;
@@ -286,9 +271,10 @@ std::optional<float> WaterField::SurfaceLevel(std::span<double> heights) {
 uint32_t WaterField::Ingest(const GroundQuery &ground,
                             const OsmField &field,
                             const VegetationTemplates &veg) {
-  if (SourceGeneration_ != field.Generation()) {
+  if (SourceGeneration_ != field.Generation() || SourceOrigin_.get() != field.OriginToken()) {
     *this = WaterField{};
     SourceGeneration_ = field.Generation();
+    SourceOrigin_ = field.ShareOriginToken();
   }
   LastIngest_ = {};
   const auto features = field.Features();
@@ -352,6 +338,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground,
   metrics.AdmissionMs = elapsedMs(admissionAt);
   std::erase_if(Candidates_, [this](const Candidate &one) { return one.LastSeen != Admission_; });
   if (!next.Found) { return finish(); }
+  Asset_.reset();
   const auto firstSurface = static_cast<uint32_t>(Surfaces_.size());
   const auto materializationAt = std::chrono::steady_clock::now();
   const auto staged = std::ranges::find_if(

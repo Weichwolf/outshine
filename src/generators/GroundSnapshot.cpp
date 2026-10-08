@@ -111,7 +111,9 @@ public:
     }
   }
 
-  void Water(const Fields &stands, int tile, std::span<const double> points) {
+  void Water(const Fields &stands) {
+    const int tile = stands.WaterBodies->TileIndex(Region_.Zoom(), Region_.X(), Region_.Y());
+    const auto points = stands.WaterBodies->Points();
     for (const auto &surface : stands.WaterBodies->OfTile(tile)) {
       FeatureField::Feature feature{};
       feature.CoverRow = stands.WetRow;
@@ -164,7 +166,10 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
       std::ranges::any_of(stands.Footprints->AcceptedInputs(), [](const auto &input) {
         return input.Coordinates && input.Coordinates->Origin.Provenance;
       });
-  if (!vectorsReady && !native) { return nullptr; }
+  const bool waterReady = stands.WaterBodies->Complete() &&
+                          !stands.WaterBodies->Surfaces().empty() &&
+                          stands.WaterBodies->TileIndex(region.Zoom(), region.X(), region.Y()) >= 0;
+  if (!vectorsReady && !native && !waterReady) { return nullptr; }
   const int tile = vectorsReady ? stands.Vectors->TileIndex(region.X(), region.Y()) : -1;
   if (tile >= 0 && stands.Footprints->InputOfTile(static_cast<uint32_t>(tile)) == nullptr) {
     const int buildings = stands.Vectors->Layer(Osm::OsmLayer::Buildings);
@@ -178,7 +183,7 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
       vectorsReady ? stands.Vectors->Points() : std::span<const double>{};
   FeatureAssembly assembly(region);
   assembly.Buildings(stands, tile, points);
-  assembly.Water(stands, tile, points);
+  assembly.Water(stands);
   assembly.Ways(stands, tile, points);
   return assembly.Finish();
 }

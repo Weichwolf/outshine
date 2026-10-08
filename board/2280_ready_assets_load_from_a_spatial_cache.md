@@ -18,7 +18,7 @@ Höhenfelder, Gebäuderohlinge/LOD-Produkte und Impostoren. Pakete komprimiert Z
 alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Gerätehandles persistieren.
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
 Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh-Jobs.
-Pegel, Konturen und Flussprofile kommen bei Hits aus demselben Regionspaket; keine Wasser-Höhenabfragen.
+WaterAsset besitzt kompakte Koordinaten/Pegel/Konturen/Flussprofile/Tileindex; unveränderliche Abfragen, Mesh und Decoder ohne OsmField. WaterField besitzt allein Erzeugung/Fortschritt; Wasser-Mesher erreicht OSM nicht mehr.
 Coverage beobachtet nur; native Produkte bestimmen Ready. Screenshot-Kennzahlen beschreiben veröffentlichte Produkte, keinen unbefriedigten Quellbedarf. Erste Quellenbereitschaft verlangt keinen äußeren Ring.
 Regionschlüssel binden Quell-Digests, Formparameter, Detailauftrag und Regeln; kein serialisiertes Straßennetz.
 Exakte Kamera-Schlüssel und ganze Regionen ersetzen keine räumliche Eltern-/Kindhierarchie.
@@ -32,9 +32,6 @@ Historischer OS-Footprint: Offline 1280×720/60, 60 Frames/360°, Treffer 009f6a
 | CentralPark | 4,79 | 2,49 | 2,21 / 2,22 | 25 / 120,22 |
 | Tokyo | 7,87–8,13 | 14,29–24,25 | 3,95 / 4,18–4,19 | 32 / 186,34 |
 OS-Footprint: 50-ms-Stichproben um Render/PNG, kein exaktes GPU-/Frameintervall; Sampler 1,9–3,5 ms CPU/Lauf.
-27b7f413b: fünf warme Place-Gates in beiden Builds grün; Laden 2,93–8,52 s, p99 1,92–7,97 ms (2340).
-Erster Aufbau: gemeldeter C++-Live-Heap CP 1,76, Feldkirch 3,42, Tokyo 2,33, Wien 1,85 GiB.
-Live-Heap und Produktmaximum sind verschiedene Zeitpunkte, kein OS-Footprint/GPU-Budgetbeweis.
 Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je belegter Zelle.
 Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen gecachte Pläne/Kontakte, keine Höhenprovider.
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
@@ -43,8 +40,7 @@ Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsme
 1. P0: Bedarf aus 2336 vor Quellbeschaffung und Cachedecode anschließen. Räumliche Eltern/Kind-Rohlinge
    statt Kamerasnapshots: kleine Bounds-/Produktindizes, gecachte Fernprodukte, unabhängige komprimierte
    Form-/Kontaktblöcke. Erst Bedarf → Paket öffnen; Rohling-Formen behalten, keine Rekonstruktion bei Hits.
-2. P0: native Kontakte statt Quellenproben; unabhängiges Wasserprodukt mit Pegeln, Konturen/Löchern,
-   Flussprofilen und Tileindex. WaterField bleibt Producer; WaterAsset besitzt Daten/Abfragen. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB Wasserkoordinaten statt 0,19–60 MB Gesamtkoordinaten; monotone Bereichsumsetzung erhält Reihenfolge. Generatorfortschritt bleibt außerhalb des Produkts; Decode/Abfragen/Mesh ohne OsmField. Gleiche Miss-/Hit-PNGs prüfen; kein nativer Kostenbeweis.
+2. P0: verbliebene Terrainproben aus nativen Höhen-/Kontaktprodukten bedienen, 25–32 MiB Zwischenfelder bei Hits vermeiden. WaterAsset integriert; monotone Bereichsumsetzung erhält Konturreihenfolge/Löcher. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB statt 0,19–60 MB Gesamtkoordinaten. Weitere Generatoren trennen fertige Rohlinge von Cursor/Quelllayout; gemeinsamer Vertrag aus 2188.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Renderer teilt ungebundene Maps je Device/Transfer/Sampler und Materialpakete ([Modell](../test/experiments/material_image_residency.py)). Native Bilder speichern die Basis einmal und optionale untere Mips für Linearwerte, sRGB-Farbe oder Normalmomente; keine GPU-Handles. Producer bereitet vor Publikation vor, Treffer uploaden direkt. Eigene Codec-/Produktversion; bildlose Assets und Captures bleiben gültig. Rosenheim-Sampling: Mainthread 4,63 → 2,96 s; beobachtete Mip-/Upload-Leaves 831 → 4 ms, kein GPU-Zeitnachweis.
 4. P1: [Paketmodell](../test/experiments/impostor_ready_payload.py): Capture 20 MiB, Flat-Karten 6 MiB; [Mip-Modell](../test/experiments/prepared_image_mips.py): +2 MiB untere Stufen, keine Basisduplikation.
@@ -110,7 +106,12 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Terrain/Mip-Integration: zehn bildgleiche Miss-/Hit-Paare, warme Regionshits ohne Deformation-/Impostor-Misses/Writes; Laden 1,80–4,34 s. Startspitzen bleiben bei 2340. Stand 888692524: Format/359 Tidy/32 Claims/48 Header/481 Shader/9 Compute-Verträge und Cleanup grün; volles Lint Exit 2 ausschließlich wegen fehlendem gepinntem Khronos-PNG. Quellenunabhängiges Wasser ist noch nicht integriert.
+Wasser: zehn bildgleiche Miss-/Hit-Paare und ein weiterer frischer Hit ohne Impostor-Neubau;
+warm 1,83–5,50 s, p99 0,61–8,13 ms. Erstaufbau neuer Regionen 18,69–68,67 s;
+kalte Startspitzen CP 13,05/Koerbersee 25,10 ms bleiben bei 2340. Kein OS-RAM-/GPU-Zeit-Gewinnbeweis.
+Wasserdecoder und Abfragen sind quellunabhängig; Regionsschlüssel und übrige Quellenarbeit noch nicht.
+Letztes volles Lint (888692524): Exit 2 ausschließlich wegen fehlendem gepinntem Khronos-PNG;
+der aktuelle Modulumbau benötigt einen eigenen vollständigen Lauf.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

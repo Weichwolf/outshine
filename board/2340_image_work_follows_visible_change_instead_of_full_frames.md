@@ -24,6 +24,8 @@ GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne
 Native Mip-Hits laden in 1,80–4,34 s. Tiefenreduktion: drei frische Offline-Prozesse,
 je zehn bildidentische vollständige Places, 60 Drehframes; Laden 1,75–4,44 s.
 Startregression bleibt offen: CP 10,99 ms p99 im vierten Frame, Tokyo 18,10 ms im zweiten.
+Der erste Aufbau nativer Wasserpakete reproduziert CP 13,05 und Koerbersee 25,10 ms p99;
+der anschließende frische Hit ist grün. Readiness muss beide Pfade abdecken.
 Davon 10,20/17,31 ms Fence-Warten und 0,35/0,40 ms CPU-Encoding. Preload erfasst Uploads,
 Atmosphären-LUTs und statische Schatten bereits per Fence; erste Framearbeit und
 Ressourcen-/Pipeline-Kosten bleiben ungeklärt. Kein zusätzlicher Warmup, keine höhere Grenze.

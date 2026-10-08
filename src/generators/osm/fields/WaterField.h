@@ -3,6 +3,7 @@
 
 #include <span>
 #include "OsmField.h"
+#include "WaterAsset.h"
 #include "VegetationTemplates.h"
 
 #include <cstdint>
@@ -35,20 +36,9 @@ public:
     size_t AdvancedUnits = 0;
   };
 
-  struct Surface {
-    uint32_t FirstRing = 0, RingCount = 0;
-    float LevelM = 0.0f;
-  };
-
-  struct SurfaceRing {
-    uint32_t FirstPoint = 0, PointCount = 0;
-  };
-
-  struct Course {
-    uint32_t FirstPoint = 0, PointCount = 0;
-    uint32_t FirstLevel = 0;
-    float HalfWidthM = 0.0f;
-  };
+  using Surface = WaterAsset::Surface;
+  using SurfaceRing = WaterAsset::SurfaceRing;
+  using Course = WaterAsset::Course;
 
   uint32_t Ingest(const GroundQuery &ground, const OsmField &field, const VegetationTemplates &veg);
 
@@ -60,8 +50,7 @@ public:
 
   [[nodiscard]] const std::vector<Surface> &Surfaces() const { return Surfaces_; }
 
-  [[nodiscard]] std::optional<float> LevelAt(const OsmField &field,
-                                             LongitudeLatitude at) const noexcept;
+  [[nodiscard]] std::optional<float> LevelAt(const OsmField &field, LongitudeLatitude at) const;
 
   [[nodiscard]] std::span<const SurfaceRing> RingsOf(const Surface &surface) const noexcept {
     return std::span(SurfaceRings_).subspan(surface.FirstRing, surface.RingCount);
@@ -77,13 +66,7 @@ public:
 
   [[nodiscard]] const std::vector<float> &Levels() const { return Levels_; }
 
-  [[nodiscard]] WaterField SnapshotQueries() const;
-
-  [[nodiscard]] std::expected<std::vector<uint8_t>, std::string>
-  EncodeNative(const OsmField &source, size_t bytesMost) const;
-
-  [[nodiscard]] static std::expected<WaterField, std::string>
-  DecodeNative(std::span<const uint8_t> bytes, const OsmField &source);
+  [[nodiscard]] WaterAsset Asset(const OsmField &source) const;
 
   void Settle() {
     Surfaces_.shrink_to_fit();
@@ -179,7 +162,18 @@ private:
   IngestMetrics WorstIngest_;
   IngestMetrics LastIngest_;
   std::optional<uint64_t> SourceGeneration_;
+  std::shared_ptr<const void> SourceOrigin_;
   uint64_t Admission_ = 0;
+
+  struct AssetInputs {
+    const void *Origin = nullptr;
+    uint64_t Generation = 0;
+    size_t Features = 0, Tiles = 0, Points = 0;
+    [[nodiscard]] bool operator==(const AssetInputs &) const = default;
+  };
+
+  mutable std::optional<WaterAsset> Asset_;
+  mutable AssetInputs AssetInputs_;
 };
 
 }

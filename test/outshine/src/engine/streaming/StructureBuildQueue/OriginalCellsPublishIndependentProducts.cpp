@@ -204,7 +204,7 @@ int main() {
             next->Coordinates->Sources.size() == 1 && first->Coordinates->Sources[0] == part &&
             next->Coordinates->Sources[0] == relation,
         "typed ownership keeps the raised part and consumes the body way through its relation");
-  const ::outshine::Generators::Osm::WaterField water;
+  const ::outshine::Generators::WaterAsset water;
   const ::outshine::Generators::Osm::StreetField streets;
   const Generators::Fields featureSources{
       .Footprints = &prints, .WaterBodies = &water, .Ways = &streets, .BuiltRow = 3};
