@@ -240,6 +240,7 @@ struct Bid {
   uint32_t Which = 0;
   double OutsideM = 0.0;
   double WantsM = 0.0;
+  bool Blended = false;
 };
 
 uint64_t CorridorOf(const EarthworkStamp &stamp) {
@@ -274,8 +275,8 @@ void BidsBasin(const EarthworkStamp &held, Bid bid, Bids *bids) {
 
 void BidsTerrain(
     const EarthworkStamp &held, Bid bid, double wasM, double mostEarthworkM, Bids *bids) {
-  double out = held.Profile ? 0.0 : std::max(bid.OutsideM, 0.0);
-  if (!held.Profile && HasSoftApron(held)) {
+  double out = held.Profile || bid.Blended ? 0.0 : std::max(bid.OutsideM, 0.0);
+  if (!held.Profile && !bid.Blended && HasSoftApron(held)) {
     if (out > 0.0) {
       bid.WantsM = wasM + std::clamp(bid.WantsM - wasM, -mostEarthworkM, mostEarthworkM);
       const double apronM = ApronWidthM(held, mostEarthworkM);
@@ -309,6 +310,67 @@ struct NearestProfile {
   uint32_t Which;
   const ProfiledCorridorSpan *Profile;
 };
+
+struct PolygonalCorridorBid {
+  uint64_t CorridorKey = 0;
+  std::optional<Bid> Contact = std::nullopt;
+  Bid Apron{};
+  double Weight = 1.0;
+  double CorrectionM = 0.0;
+  double StrongestWeight = 0.0;
+};
+
+struct PressWorkspace {
+  std::vector<NearestProfile> Profiles;
+  std::vector<PolygonalCorridorBid> Polygons;
+
+  [[nodiscard]] size_t HeapBytes() const noexcept {
+    return Profiles.capacity() * sizeof(NearestProfile) +
+           Polygons.capacity() * sizeof(PolygonalCorridorBid);
+  }
+};
+
+void AccumulatePolygonalCorridor(const EarthworkStamp &stamp,
+                                 Bid bid,
+                                 double wasM,
+                                 double mostEarthworkM,
+                                 std::vector<PolygonalCorridorBid> &groups) {
+  const double apronM = ApronWidthM(stamp, mostEarthworkM);
+  if (bid.OutsideM >= apronM && bid.OutsideM > 0) { return; }
+  auto group = std::ranges::find_if(groups, [&stamp](const auto &candidate) {
+    return candidate.CorridorKey == stamp.CorridorKey;
+  });
+  if (group == groups.end()) {
+    groups.push_back({.CorridorKey = stamp.CorridorKey});
+    group = groups.end() - 1;
+  }
+  bid.Blended = true;
+  if (bid.OutsideM <= 0) {
+    if (!group->Contact || bid.WantsM < group->Contact->WantsM) { group->Contact = bid; }
+    return;
+  }
+  const double fade = ProfiledCorridor::Smoothstep(bid.OutsideM / apronM);
+  const double weight = (1.0 - fade) / fade;
+  group->Weight += weight;
+  group->CorrectionM += weight * std::clamp(bid.WantsM - wasM, -mostEarthworkM, mostEarthworkM);
+  if (weight > group->StrongestWeight) {
+    group->StrongestWeight = weight;
+    group->Apron = bid;
+  }
+}
+
+void BidPolygonalCorridors(std::span<const EarthworkStamp> these,
+                           std::span<const PolygonalCorridorBid> groups,
+                           double wasM,
+                           double mostEarthworkM,
+                           Bids *bids) {
+  for (const auto &group : groups) {
+    if (!group.Contact && group.StrongestWeight == 0) { continue; }
+    Bid bid = group.Contact.value_or(group.Apron);
+    if (!group.Contact) { bid.WantsM = wasM + group.CorrectionM / group.Weight; }
+    BidsTerrain(these[bid.Which], bid, wasM, mostEarthworkM, bids);
+  }
+}
 
 const ProfiledCorridorSpan *ProfileOf(const EarthworkStamp &stamp) {
   return stamp.Profile.transform([](const ProfiledCorridorSpan &profile) { return &profile; })
@@ -418,6 +480,20 @@ std::optional<Bid> ProfileBidAt(std::span<const EarthworkStamp> these,
              .WantsM = wasM + correctionM / weights};
 }
 
+void BidProfileContact(std::span<const EarthworkStamp> these,
+                       const std::optional<Bid> &profiled,
+                       double wasM,
+                       double mostEarthworkM,
+                       CoveredNodes covered,
+                       Bids *bids) {
+  if (!profiled) { return; }
+  const Bid bid = *profiled;
+  if (covered.Into != nullptr && bid.OutsideM < 0.0) {
+    covered.Into->push_back({.Point = covered.Point, .Stamp = bid.Which});
+  }
+  BidsTerrain(these[bid.Which], bid, wasM, mostEarthworkM, bids);
+}
+
 Bids WithoutOwnAprons(std::span<const EarthworkStamp> these,
                       std::span<const uint32_t> over,
                       std::span<const uint8_t> structures,
@@ -466,7 +542,8 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
                    double wasM,
                    double mostEarthworkM,
                    CoveredNodes covered,
-                   std::vector<NearestProfile> &profiles) {
+                   PressWorkspace &workspace) {
+  workspace.Polygons.clear();
   Bids bids{.LowestM = wasM, .HighestM = wasM, .BasinM = wasM};
   for (const uint32_t which : over) {
     if (!structures.empty() && structures[which] != 0u) { continue; }
@@ -486,17 +563,16 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
     if (covered.Into != nullptr && bid.OutsideM < 0.0) {
       covered.Into->push_back({.Point = covered.Point, .Stamp = which});
     }
+    if (held.Kind == EarthworkKind::Corridor && held.CorridorKey != 0 && held.Fills) {
+      AccumulatePolygonalCorridor(held, bid, wasM, mostEarthworkM, workspace.Polygons);
+      continue;
+    }
     BidsTerrain(held, bid, wasM, mostEarthworkM, &bids);
   }
-  const auto profiled = ProfileBidAt(these, over, structures, at, wasM, mostEarthworkM, profiles);
-  if (profiled) {
-    const Bid bid = profiled.value();
-    const EarthworkStamp &road = these[bid.Which];
-    if (covered.Into != nullptr && bid.OutsideM < 0.0) {
-      covered.Into->push_back({.Point = covered.Point, .Stamp = bid.Which});
-    }
-    BidsTerrain(road, bid, wasM, mostEarthworkM, &bids);
-  }
+  BidPolygonalCorridors(these, workspace.Polygons, wasM, mostEarthworkM, &bids);
+  const auto profiled =
+      ProfileBidAt(these, over, structures, at, wasM, mostEarthworkM, workspace.Profiles);
+  BidProfileContact(these, profiled, wasM, mostEarthworkM, covered, &bids);
   if (!bids.LandHeld && bids.BasinM < bids.LowestM) {
     bids.LowestM = bids.BasinM;
     bids.LowestBy = bids.BasinBy;
@@ -547,7 +623,7 @@ void ApplyAt(std::span<const EarthworkStamp> these,
              double mostEarthworkM,
              EarthworkPressResult &told,
              size_t one,
-             std::vector<NearestProfile> &profiles) {
+             PressWorkspace &workspace) {
   const Pressing under = PressesAt(these,
                                    buckets.At(at[one]),
                                    structures,
@@ -555,7 +631,7 @@ void ApplyAt(std::span<const EarthworkStamp> these,
                                    upM[one],
                                    mostEarthworkM,
                                    {.Point = static_cast<uint32_t>(one), .Into = &told.Inside},
-                                   profiles);
+                                   workspace);
   if (!under.Moves) {
     told.DecidedBy[one] = under.CappedBy;
     return;
@@ -582,7 +658,7 @@ EarthworkPressResult ApplyEarthworkStamps(std::span<const EarthworkStamp> these,
   const CellGrid buckets = BucketOver(these, mostEarthworkM);
   const auto bucketed = std::chrono::steady_clock::now();
   std::vector<uint8_t> structures(these.size(), 0u);
-  std::vector<NearestProfile> profiles;
+  PressWorkspace workspace;
   for (size_t one = 0; one < at.size(); ++one) {
     RejectAt(these, buckets, at, upM, structures, mostEarthworkM, one);
   }
@@ -590,7 +666,7 @@ EarthworkPressResult ApplyEarthworkStamps(std::span<const EarthworkStamp> these,
   for (const uint8_t one : structures) { told.Structures += one; }
   told.DecidedBy.assign(at.size(), kNoStamp);
   for (size_t one = 0; one < at.size(); ++one) {
-    ApplyAt(these, buckets, at, upM, structures, mostEarthworkM, told, one, profiles);
+    ApplyAt(these, buckets, at, upM, structures, mostEarthworkM, told, one, workspace);
   }
   told.Refused = std::move(structures);
   const auto applied = std::chrono::steady_clock::now();
@@ -610,7 +686,7 @@ struct EarthworkPressJob::State {
   std::chrono::steady_clock::time_point Began = std::chrono::steady_clock::now();
   CellGrid Buckets;
   std::vector<uint8_t> Structures;
-  std::vector<NearestProfile> Profiles;
+  PressWorkspace Workspace;
   EarthworkPressResult Result;
   size_t Next = 0;
   Phase Current = Phase::Reject;
@@ -635,8 +711,7 @@ struct EarthworkPressJob::State {
   }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return Buckets.HeapBytes() + Structures.capacity() * sizeof(uint8_t) +
-           Profiles.capacity() * sizeof(NearestProfile) +
+    return Buckets.HeapBytes() + Structures.capacity() * sizeof(uint8_t) + Workspace.HeapBytes() +
            Result.Refused.capacity() * sizeof(uint8_t) +
            Result.DecidedBy.capacity() * sizeof(uint32_t) +
            Result.Inside.capacity() * sizeof(EarthworkPointClaim);
@@ -700,7 +775,7 @@ bool EarthworkPressJob::Advance(size_t pointsMost) {
             state.MostEarthworkM,
             state.Result,
             state.Next,
-            state.Profiles);
+            state.Workspace);
   }
   const double elapsed =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();

@@ -23,11 +23,44 @@ outshine::EarthworkStamp Road(double lowE, double highE, uint64_t key) {
   return stamp;
 }
 
+void CheckOpposingAprons() {
+  using namespace outshine;
+  using namespace outshine::Test;
+  constexpr double stepM = 0.001;
+  const std::array<EastNorth, 3> points{{{.EastM = 0, .NorthM = 2 - stepM},
+                                         {.EastM = 0, .NorthM = 2},
+                                         {.EastM = 0, .NorthM = 2 + stepM}}};
+  for (const bool reverse : {false, true}) {
+    for (const double sourceM : {-10., 0., 10.}) {
+      for (const double bedM : {-6., 6.}) {
+        std::array stamps{Road(-20, 20, 1), Road(20, 40, 1)};
+        stamps[0].PlateauM = bedM;
+        stamps[1].PlateauM = -bedM;
+        for (auto &stamp : stamps) { stamp.YieldM = std::abs(stamp.PlateauM - sourceM); }
+        if (reverse) { std::ranges::reverse(stamps); }
+        std::array<double, 3> heights{sourceM, sourceM, sourceM};
+        const auto result = ApplyEarthworkStamps(stamps, points, heights, kMostEarthworkM);
+        CHECK(result.Structures == 0, "opposing connected contacts fit the earthwork bound");
+        CHECK(std::abs(heights[0] - bedM) < 0.00001 && std::abs(heights[1] - bedM) < 0.00001,
+              "cut aprons cannot replace their connected road's physical contact");
+        CHECK(std::abs(heights[2] - heights[1]) / stepM < 0.001,
+              "opposing cut and fill aprons meet the physical contact with continuous slope");
+        std::array<double, 3> staged{sourceM, sourceM, sourceM};
+        EarthworkPressJob job(stamps, points, staged, kMostEarthworkM);
+        while (!job.Advance(1)) {}
+        (void)job.Take();
+        CHECK(staged == heights, "bounded and one-shot earthwork resolve the same contacts");
+      }
+    }
+  }
+}
+
 }
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  CheckOpposingAprons();
   const std::array<EastNorth, 1> point{{{.EastM = 0, .NorthM = 0}}};
   for (const bool reverse : {false, true}) {
     for (const uint64_t neighbor : {1u, 2u}) {

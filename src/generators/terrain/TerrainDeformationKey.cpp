@@ -16,6 +16,7 @@
 namespace outshine::Generators {
 namespace {
 constexpr uint32_t kDeformationFormat = 0x49445450;
+constexpr uint32_t kDeformationRecipe = 1;
 
 std::expected<std::pair<uint32_t, std::array<uint8_t, 32>>, std::string>
 PageIdentity(std::span<const Sheet> pages) {
@@ -110,9 +111,9 @@ TerrainDeformationKey(const Patchwork &input,
   const auto identity = PageIdentity(input.Sheets);
   if (!identity) { return std::unexpected(identity.error()); }
   ByteWriter out(4096);
-  if (!out.Number(kDeformationFormat) || !out.Number(identity->first) ||
-      !out.Put(identity->second) || !out.Number(layout.Side) || !out.Number(layout.Halo) ||
-      !Number(out, mostEarthworkM) ||
+  if (!out.Number(kDeformationFormat) || !out.Number(kDeformationRecipe) ||
+      !out.Number(identity->first) || !out.Put(identity->second) || !out.Number(layout.Side) ||
+      !out.Number(layout.Halo) || !Number(out, mostEarthworkM) ||
       !Numbers(out, std::span(frame.OriginEcef().data(), size_t{3})) ||
       !Numbers(out, std::span(frame.EastEcef().data(), size_t{3})) ||
       !Numbers(out, std::span(frame.NorthEcef().data(), size_t{3})) ||

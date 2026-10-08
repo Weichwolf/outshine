@@ -61,18 +61,19 @@ Feldkirchs gebrochene Nahstraßen und Brückenanschlüsse bleiben offen.
 Geschlossene Linien erzeugen ausschließlich ihr Straßenband und örtliche Böschungen;
 eingeschlossene Hügel/Senken bleiben erhalten. Bodenkreuzungen übernehmen fortgepflanzte
 Rampen-Endhöhen. Tatsächlich verbundene Ground-Ways derselben Ebene und ihre Knoten teilen
-eine Terrain-Kontaktkennung; eigene Ausläufe kappen keine angeschlossenen Fahrbahnen.
-`CorridorContacts` bildet gepackte Nachbarschaften und lineare BFS-Komponenten; keine
-Verbindung aus Nähe, keine Aufhebung fremder Kontakte oder echter Brückenfreiräume.
+eine Terrain-Kontaktkennung; polygonale Ausläufe werden mit Quellboden gewichtet gemischt.
+Fahrbahnkontakte haben Vorrang vor eigenen Ausläufen, fremde Kontakte/Freiräume bleiben;
+`earthwork_contact_overlap.py` vergleicht den Schnittvorrang.
+`CorridorContacts` bildet gepackte Nachbarschaften und lineare BFS aus belegten Verbindungen.
 Eine waagerechte Brückenplatte am höchsten DEM-Punkt hebt Feldkirchs tiefere Anschlüsse
 unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erforderlichem
 Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbaus.
 Feldkirchs große Rampen sinken sichtbar; einzelne gebrochene Straßenränder bleiben.
 Knoten und Spannen nutzen dieselben tatsächlichen Wegstationen; beide Endkürzungen
 werden gemeinsam begrenzt. Kurze Wege fallen nicht mehr zum ungekürzten Verlauf zurück.
-Nächste Lieferung: Knotenhöhen gemeinsam fitten, klassenkonformes C1-Profil für Fahrbahn, Schultern und Terrainkontakt.
+Nächste Lieferung: Knotenhöhen/C1-Profil gemeinsam fitten; Fundamente und native
+Böschungen ohne Stufen abtasten. Hohe Aufträge nicht durch zusätzliche Vertices kaschieren.
 Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen brauchen dieselbe adaptive Abtastung.
-Danach Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Geländer ergänzen.
 
 ## Verfahren
 - Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren. MVT ist
@@ -93,8 +94,7 @@ Danach Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Gelände
   Kontakt (`YieldM`), nicht aus immer weiter entfernten Geländepunkten; Quellneigung separat bewerten.
   Bedarf an beiden Fahrbahnrändern für Schnitt und Auftrag erfassen; Profile dürfen eine
   unbekannte Höhendifferenz nicht stillschweigend als Null behandeln.
-  Räumliche Kandidaten umfassen den maximal zulässigen Übergang; äußere Angebote bleiben
-  innerhalb dieses Höhenbereichs. Unzulässige Kontakte vor dem Ausblenden ablehnen;
+  Räumliche Kandidaten umfassen den maximal zulässigen Übergang und Höhenbereich. Unzulässige Kontakte vor dem Ausblenden ablehnen;
   Ausblenden darf die Höhenprüfung nicht verbergen. Überlappende Profilböschungen mischen mit Quellboden,
   statt beim nächsten Korridor zu springen. Fundamentwirkung bleibt örtlich begrenzt; hohe
   Geländeunterschiede brauchen passende Gründung/Stützung, keine großräumige Planierung.
