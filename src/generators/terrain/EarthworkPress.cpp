@@ -144,6 +144,7 @@ private:
 };
 
 constexpr double kSmoothstepPeakDerivative = 1.875;
+constexpr double kContactToleranceM = 1.e-6;
 
 bool HasSoftApron(const EarthworkStamp &stamp) {
   return stamp.Kind == EarthworkKind::Pad || stamp.Kind == EarthworkKind::Corridor;
@@ -200,6 +201,7 @@ double SignedDistanceToRingM(std::span<const double> ring, EastNorth at) {
 
 double OutsideRingM(const EarthworkStamp &held, EastNorth at) {
   const double outer = SignedDistanceToRingM(held.RingEastNorthM, at);
+  if (std::abs(outer) <= kContactToleranceM) { return 0; }
   if (outer >= 0.0) { return outer; }
   double insideM = -outer;
   for (const auto &hole : held.HoleRingsEastNorthM) {
@@ -239,6 +241,27 @@ struct Bid {
   double OutsideM = 0.0;
   double WantsM = 0.0;
 };
+
+uint64_t CorridorOf(const EarthworkStamp &stamp) {
+  return stamp.Profile ? stamp.Profile->CorridorKey : stamp.CorridorKey;
+}
+
+double RoadBedAt(const EarthworkStamp &stamp, EastNorth at) {
+  const double bedM = stamp.WantsAt(at);
+  if (stamp.Kind != EarthworkKind::Corridor || stamp.CorridorKey == 0 ||
+      stamp.RingEastNorthM.size() < 6) {
+    return bedM;
+  }
+  double lowM = kBeyondAnyCoordinate;
+  double highM = -kBeyondAnyCoordinate;
+  for (size_t corner = 0; corner + 1 < stamp.RingEastNorthM.size(); corner += 2) {
+    const double contactM = stamp.WantsAt(
+        {.EastM = stamp.RingEastNorthM[corner], .NorthM = stamp.RingEastNorthM[corner + 1]});
+    lowM = std::min(lowM, contactM);
+    highM = std::max(highM, contactM);
+  }
+  return std::clamp(bedM, lowM, highM);
+}
 
 void BidsBasin(const EarthworkStamp &held, Bid bid, Bids *bids) {
   if (bid.OutsideM > 0.0) { return; }
@@ -395,6 +418,47 @@ std::optional<Bid> ProfileBidAt(std::span<const EarthworkStamp> these,
              .WantsM = wasM + correctionM / weights};
 }
 
+Bids WithoutOwnAprons(std::span<const EarthworkStamp> these,
+                      std::span<const uint32_t> over,
+                      std::span<const uint8_t> structures,
+                      uint64_t corridor,
+                      EastNorth at,
+                      double wasM,
+                      double mostEarthworkM,
+                      const std::optional<Bid> &profiled) {
+  Bids bounds{.LowestM = wasM, .HighestM = wasM, .BasinM = wasM};
+  for (const uint32_t which : over) {
+    if (!structures.empty() && structures[which] != 0u) { continue; }
+    const EarthworkStamp &stamp = these[which];
+    if (stamp.Profile || stamp.Kind == EarthworkKind::Basin) { continue; }
+    const double outsideM = OutsideRingM(stamp, at);
+    if (stamp.Kind == EarthworkKind::Corridor && stamp.CorridorKey == corridor && outsideM > 0) {
+      continue;
+    }
+    BidsTerrain(stamp,
+                {.Which = which, .OutsideM = outsideM, .WantsM = RoadBedAt(stamp, at)},
+                wasM,
+                mostEarthworkM,
+                &bounds);
+  }
+  if (profiled) { BidsTerrain(these[profiled->Which], *profiled, wasM, mostEarthworkM, &bounds); }
+  return bounds;
+}
+
+Pressing ChooseHeight(const Bids &bids, double wasM) {
+  if (bids.LowestM < wasM) {
+    return {.WantedM = bids.LowestM, .Moves = true, .Which = bids.LowestBy};
+  }
+  if (bids.HighestM > wasM) {
+    const double wanted = std::min(bids.HighestM, bids.RoofM);
+    return {.WantedM = wanted,
+            .Moves = wanted > wasM,
+            .Which = bids.HighestBy,
+            .CappedBy = bids.RoofM < bids.HighestM ? bids.RoofBy : kNoStamp};
+  }
+  return {};
+}
+
 Pressing PressesAt(std::span<const EarthworkStamp> these,
                    std::span<const uint32_t> over,
                    std::span<const uint8_t> structures,
@@ -413,7 +477,8 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
       continue;
     }
     if (held.Profile) { continue; }
-    const Bid bid{.Which = which, .OutsideM = OutsideRingM(held, at), .WantsM = held.WantsAt(at)};
+    const Bid bid{
+        .Which = which, .OutsideM = OutsideRingM(held, at), .WantsM = RoadBedAt(held, at)};
     if (held.Kind == EarthworkKind::Basin) {
       BidsBasin(held, bid, &bids);
       continue;
@@ -423,8 +488,8 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
     }
     BidsTerrain(held, bid, wasM, mostEarthworkM, &bids);
   }
-  if (const auto profiled =
-          ProfileBidAt(these, over, structures, at, wasM, mostEarthworkM, profiles)) {
+  const auto profiled = ProfileBidAt(these, over, structures, at, wasM, mostEarthworkM, profiles);
+  if (profiled) {
     const Bid bid = profiled.value();
     const EarthworkStamp &road = these[bid.Which];
     if (covered.Into != nullptr && bid.OutsideM < 0.0) {
@@ -436,17 +501,15 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
     bids.LowestM = bids.BasinM;
     bids.LowestBy = bids.BasinBy;
   }
-  if (bids.LowestM < wasM) {
-    return {.WantedM = bids.LowestM, .Moves = true, .Which = bids.LowestBy};
+  const uint64_t corridor = bids.HighestM > wasM ? CorridorOf(these[bids.HighestBy]) : 0;
+  if (corridor != 0 && bids.RoofM < bids.HighestM && bids.HighestM > wasM &&
+      CorridorOf(these[bids.RoofBy]) == corridor) {
+    const auto bounds =
+        WithoutOwnAprons(these, over, structures, corridor, at, wasM, mostEarthworkM, profiled);
+    bids.RoofM = bounds.RoofM;
+    bids.RoofBy = bounds.RoofBy;
   }
-  if (bids.HighestM > wasM) {
-    const double wanted = std::min(bids.HighestM, bids.RoofM);
-    return {.WantedM = wanted,
-            .Moves = wanted > wasM,
-            .Which = bids.HighestBy,
-            .CappedBy = bids.RoofM < bids.HighestM ? bids.RoofBy : kNoStamp};
-  }
-  return {};
+  return ChooseHeight(bids, wasM);
 }
 
 void RejectAt(std::span<const EarthworkStamp> these,
@@ -459,7 +522,7 @@ void RejectAt(std::span<const EarthworkStamp> these,
   for (const uint32_t which : buckets.At(at[one])) {
     const EarthworkStamp &stamp = these[which];
     double outsideM = OutsideRingM(stamp, at[one]);
-    double bedM = stamp.WantsAt(at[one]);
+    double bedM = RoadBedAt(stamp, at[one]);
     if (stamp.Profile) {
       const auto offered = ProfiledCorridor::OfferAt(*stamp.Profile, stamp.ApronM, at[one]);
       if (!offered) { continue; }

@@ -117,6 +117,10 @@ int main() {
   stamps.front().HoleRingsEastNorthM.front().front() += 1;
   CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != key,
         "contact holes participate in the full asset identity");
+  stamps = Stamps();
+  stamps.front().CorridorKey = 7;
+  CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != key,
+        "corridor ownership participates in deformation identity");
   CHECK(TerrainDeformationKey(Inputs(), Stamps(), frame, kLayout, 29) != key &&
             TerrainDeformationKey(
                 Inputs(), Stamps(), TangentFrame::At({.LongitudeDeg = 1}), kLayout, 30) != key,

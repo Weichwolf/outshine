@@ -162,6 +162,8 @@ uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
     fold(static_cast<uint32_t>(bits >> 32U));
   };
   for (const EarthworkStamp &one : earthworks) {
+    fold(static_cast<uint32_t>(one.CorridorKey));
+    fold(static_cast<uint32_t>(one.CorridorKey >> 32U));
     fold(static_cast<uint32_t>(one.RingEastNorthM.size()));
     for (const double value : one.RingEastNorthM) { foldDouble(value); }
     fold(static_cast<uint32_t>(one.HoleRingsEastNorthM.size()));

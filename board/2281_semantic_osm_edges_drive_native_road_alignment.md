@@ -40,9 +40,23 @@ Das deckt fehlerhafte Vegetationsstandorte/-größen auf (2111); Bildabnahme ble
 Wasserfreiraum stammt bisher aus dem drapierten Gelände und Klassenregeln; tatsächlicher
 Wasserpegel aus 2145 und unbekannte Durchfahrtshöhen benötigen noch einen gemeinsamen Vertrag.
 Straßen-Ausläufe blenden jetzt ohne den bisherigen Sprung zum Quellgelände aus.
+Polygonale Straßenkontakte erfassen Schnitt und Auftrag an beiden Schultern;
+die größte Achsen-/Randabweichung bestimmt den geplanten Kontakt und seine Auslaufbreite.
+Polygonale Spannen tragen eine gemeinsame, im Kontaktauftrag gültige Wegkennung.
+Eigene Ausläufe begrenzen ihren Auftrag nicht als Freiraumdecke, auch außerhalb des Kerns;
+Kontakte anderer Wege, Einzelfundamente und echte Brückenfreiräume bleiben wirksam.
+Polygonale Ausläufe verwenden den Höhenbereich des tatsächlichen Kontakts; Längsneigung
+nicht unbegrenzt über Endpunkte extrapolieren. Kennung in Terrain-Key und
+Kandidatendigest; an gemeinsamen Ringkanten numerische Distanz bis 1 µm als Kontakt behandeln.
+Breite gemeinsame Mischung und linear profilierte Place-Kontakte verschlechtern Feldkirchs
+Ufergeometrie. Vor ihrer Integration Kontakt-/Höhenkonflikte und Terrain-Abtastung klären;
+bestandene CPU-Stetigkeit genügt nicht. Überlappende Kerne/Breiten bleiben zu prüfen.
 Feldkirchs gebrochene Nahstraßen und Brückenanschlüsse bleiben offen. Nächste Lieferung:
-diese Kontakte korrigieren; danach
-Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Geländer ergänzen.
+vollständiges klassenkonformes Höhenprofil mit gemeinsamen Anschlussstationen; Fahrbahn,
+Schultern und Terrainkontakt daraus ableiten. Ground-Ways erzeugen bisher überwiegend nur
+Terrainkontakte, eigene Spannenmeshes vor allem Brücken. Nahfahrbahnen brauchen dieselbe
+adaptive Profilabtastung wie ihr Untergrund, bevor zusätzliche Aufbauten sinnvoll sind.
+Danach Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Geländer ergänzen.
 
 ## Verfahren
 - Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren. MVT ist

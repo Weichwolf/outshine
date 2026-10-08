@@ -452,22 +452,25 @@ void Corridors::AppendTerrainStamps(const Paving &on,
     const double groundBefore =
         on.Draped.At({.EastM = into.Along[at - 1u].EastM, .NorthM = into.Along[at - 1u].NorthM},
                      into.Along[at - 1u].GradeM);
-    const double yieldM = std::max(std::fabs(into.Along[at].GradeM - groundAt),
-                                   std::fabs(into.Along[at - 1u].GradeM - groundBefore));
+    const double axisYieldM = std::max(std::fabs(into.Along[at].GradeM - groundAt),
+                                       std::fabs(into.Along[at - 1u].GradeM - groundBefore));
     const double outE = runN / runM;
     const double outN = -runE / runM;
     const double half = static_cast<double>(lane.HalfWidthM) + kVergeM;
-    double reliefM = std::fabs(groundAt - groundBefore);
+    double shoulderYieldM = 0;
     for (const double hand : {1.0, -1.0}) {
       for (int end = 0; end < 2; ++end) {
         const RoadStation &one = end == 0 ? into.Along[at - 1u] : into.Along[at];
         const double sideE = one.EastM + outE * half * hand;
         const double sideN = one.NorthM + outN * half * hand;
-        reliefM = std::max(
-            reliefM, on.Draped.At({.EastM = sideE, .NorthM = sideN}, one.GradeM) - one.GradeM);
+        shoulderYieldM = std::max(
+            shoulderYieldM,
+            std::fabs(on.Draped.At({.EastM = sideE, .NorthM = sideN}, one.GradeM) - one.GradeM));
       }
     }
-    if (yieldM < kStampWorthM && reliefM < kBrokenGroundM) { continue; }
+    const double reliefM = std::max(std::fabs(groundAt - groundBefore), shoulderYieldM);
+    if (axisYieldM < kStampWorthM && reliefM < kBrokenGroundM) { continue; }
+    const double yieldM = std::max(axisYieldM, shoulderYieldM);
     EarthworkStamp made;
     made.RingEastNorthM = {into.Along[at - 1u].EastM + outE * half,
                            into.Along[at - 1u].NorthM + outN * half,
@@ -493,6 +496,7 @@ void Corridors::AppendTerrainStamps(const Paving &on,
     made.SlopeN = rise * runN / runM;
     made.ApronM = std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM);
     made.YieldM = yieldM;
+    made.CorridorKey = static_cast<uint64_t>(lane.FirstPoint) + 1;
     const bool rests = !lane.Bridge || at == 1u || at + 1u == into.Along.size();
     if (rests) {
       made.SeamEastNorthM = {
