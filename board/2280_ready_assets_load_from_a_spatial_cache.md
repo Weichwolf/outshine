@@ -111,7 +111,7 @@ räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.co
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
 Atlas-Treffer 8aa218318: zehn Offline-PNGs zweimal SHA-256-identisch; warm keine Erzeugung/Misses/Writes. Capture-/Hit-Tests und betroffene Tidy-Units grün.
-Tokyo bleibt warm mit 19,84 ms p99 über dem 10-ms-Ziel; Startspitzen bei 2340. Volles Lint für die geänderte Buildkette noch offen; gepinnte PNGs fehlen.
+Tokyo bleibt warm mit 19,84 ms p99 über dem 10-ms-Ziel; Startspitzen bei 2340. Integration 9615b0952: Format/358 Tidy-Units/32 Claims/48 Header/481 Shader grün; volles Lint Exit 2 wegen fehlendem gepinntem Khronos-PNG.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
