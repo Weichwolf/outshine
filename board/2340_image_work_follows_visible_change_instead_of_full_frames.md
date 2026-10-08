@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: planned
 Priority: P0
 Parent: 2169
@@ -21,13 +21,12 @@ GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne
 2336 besitzt Weltrepräsentation/LOD, 2155 Licht, 2171 Materialien; dieser WI besitzt Arbeitsauswahl.
 
 ## Priorisierung nach Kostenreview
-Region-Rezept 32 (0494ac75d): öffentliche Offline-Gates warm 9/10 grün, 1280×720@60,
-alle 60 Drehframes zählen. Tokyo hat im zweiten Frame 10,31 ms p99; der zweite Prozess
-erreicht 3,27 ms; der bildidentische Cache-Replay zeigt erneut 22,76 ms im zweiten Frame.
-Beide Testvarianten verwenden denselben öffentlichen Client; das ist kein
-Vergleich zweier Renderer-Builds. Ein grüner Einzelprozess beweist keine stabile Startzeit.
-Warme p99 für CP/Feldkirch/Körbersee/Wien jeweils höchstens 2,40/2,29/2,19/3,28 ms.
-Der erste Rezeptaufbau hat weiterhin Startspitzen: Körbersee 65,47, Tokyo 15,89 ms p99.
+Region-Rezept 33 (13a88b4dd): zehn vollständige Offline-Places; das warme Frame-Gate bleibt rot,
+1280×720@60; alle 60 Drehframes zählen. Rosenheim schwankt zwischen 0,72 und 42,65 ms p99,
+Tokyo zwischen 10,25 und 14,51 ms, meist im zweiten Frame. Laden 2,97–8,99 s.
+Miss-/Hit-Läufe liefern gleiche PNG-Hashes; Impostoren bleiben Treffer ohne Aufbau.
+Frischer Rohling-Aufbau zeigt zusätzliche Spitzen bis 41,26 ms; Feldkirchs Süd-Diagnose
+15,72 ms im zweiten Frame. Ein grüner Einzelprozess beweist keine stabile Startzeit.
 Kein Beleg für eine einzelne GPU-Ursache; Aufbau und Treffer getrennt bewerten.
 Frühe Bereitschaft/Fences und Arbeit nach Preload messen; keine Ausreißer durch Warmup
 oder höhere Grenzen entfernen. Kein Beleg für generell langsames Pixel-Shading;

@@ -46,12 +46,12 @@ Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsme
 2. P0: verbliebene Quellenproben aus nativen Höhen-/Kontaktprodukten bedienen; 25–32 MiB Felder
    bei Treffern vermeiden. Kandidaten teilen unveränderte Daten; einmal laden, dann Scratch frei.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
-   Renderer: identische ungebundene Maps pro Device/Transfer-/Samplerzustand teilen; heute 4.538 Staging-Allokationen in Tokyo. Pakete blockweise übernehmen; Materialpakete teilen ([Modell](../test/experiments/material_image_residency.py)).
+   Renderer: identische ungebundene Maps pro Device/Transfer-/Samplerzustand teilen; heute 4.538 Staging-Allokationen in Tokyo. Pakete blockweise übernehmen; Materialpakete teilen ([Modell](../test/experiments/material_image_residency.py)). Rosenheim-Sampling (2339): CPU-Mips/Upload brauchen ca. 18 % der Mainthread-CPU. Fertige transfer-/normalgerechte Mip-Payloads im Rohling gegen GPU-Erzeugung vergleichen; Treffer laden/uploaden ohne erneute Filterung.
 4. P1: [Reales Paketmodell](../test/experiments/impostor_ready_payload.py): Capture 20 MiB, vorhandene Flat-Karten 6 MiB Payload.
    Native GeometryAsset-Karten umgehen Coverage-/Farbvorbereitung bei Hits; Atlas-Rohlinge bleiben.
    Miss/Defekt repariert nur Karten; entpackte Bytes ca. −70 %, kein allgemeiner RAM-/Framegewinn.
    Atlas-Rezept bindet Artdefinition, Größe/Blicke und getrennte Generator-/Capture-Versionen; Änderungen an Wachstum oder Capture-Semantik erhöhen die jeweilige Version. Codecs prüfen eigene Formate. Fachfremde Engine-/Buildänderungen invalidieren nicht.
-5. P1: SSD dauerhaft begrenzen: Asset-DBs jetzt 1,82 statt 36,06 GiB; zehn Offline-Place-PNGs SHA-256-identisch. Verwendete Assets, Paketmitglieder und Eltern erhalten.
+5. P1: SSD dauerhaft begrenzen: Asset-DBs nach Aufbau/Retention 1,82 statt 6,02 GiB; zehn Offline-Place-PNGs SHA-256-identisch. Verwendete Assets, Paketmitglieder und Eltern erhalten.
    Automatische budgetierte Verdrängung fehlt; Nutzdaten bleiben opaque, aktive Assets/Quellen erhalten. Warm <10 s; Gebäudebedarf vor Decode.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
@@ -110,8 +110,8 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Atlas-Treffer 8aa218318: zehn Offline-PNGs zweimal SHA-256-identisch; warm keine Erzeugung/Misses/Writes. Capture-/Hit-Tests und betroffene Tidy-Units grün.
-Tokyo bleibt warm mit 19,84 ms p99 über dem 10-ms-Ziel; Startspitzen bei 2340. Integration 9615b0952: Format/358 Tidy-Units/32 Claims/48 Header/481 Shader grün; volles Lint Exit 2 wegen fehlendem gepinntem Khronos-PNG.
+Terrain-Integration 13a88b4dd: zehn Offline-Places mit bildgleichen Miss-/Hit-Läufen; warm Regionshits und keine Deformation-/Impostor-Misses/Writes. Fachfremde Terrainänderung erzeugt keine Impostoren; betroffene Tests/Tidy grün.
+Rosenheim schwankt warm 0,72–42,65 ms, Tokyo bleibt bei 10,25–14,51 ms p99 über dem 10-ms-Ziel; Startspitzen bei 2340. Integration 9615b0952: Format/358 Tidy-Units/32 Claims/48 Header/481 Shader grün; volles Lint Exit 2 wegen fehlendem gepinntem Khronos-PNG.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

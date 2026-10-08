@@ -15,7 +15,9 @@ WaterSurfaceBuilder/WaterDepth und Terrain-Stempel bestehen; Flensburgs falsche 
 überflutete Gebäude bleiben ein Geometriefehler. Husums Hafen zeigt Pegelstufen,
 Malcesine unplausible Uferflächen. Erkannte Meeresflächen teilen den mittleren ASL-Pegel
 ohne Terrain-Abfragen; getrennte Hafenflächen und ihre Bett-/Uferstempel bleiben falsch.
-Wasser ist kein Terrain-Klassenersatz.
+Wasser ist kein Terrain-Klassenersatz. `WaterField::AddSurface` gibt auch Flusspolygonen
+einen einzelnen Pegel; `AddCourse` hält nur Liniengefälle. Feldkirchs native Beckenränder
+erzeugen 17 m Sprung auf 0,81 m. Polygonfläche, Bett und Ufer brauchen dasselbe Flussprofil.
 
 ## Besitzer und nächste Lieferung
 OSM-Erweiterung besitzt Wasser-/Küstenringe und Randidentität; Wasser-/Terrain-Generatoren
@@ -36,7 +38,8 @@ Gegenüberliegende vollständige Außenkanten verbinden auch verschiedene Quello
 Quell-/Layer-Namensraums. Eine verbundene Meeresfläche bestimmt den gemeinsamen mittleren Pegel.
 Husums sichtbarer Hafen besteht aus angrenzenden `lake`-Objekten mit Kantenpfad zum Meer,
 nicht aus den westlich gelegenen `dock`-Flächen. Quellklasse allein beweist keine Meer-Verbindung.
-Nächster Schritt: Ufer und Bett folgen den Körpergrenzen; interne Objekt-/Clipping-Kanten
+Nächster Schritt: Flusspolygon-Pegel an native Linienprofile koppeln, bevor Bettstempel entstehen.
+Ufer und Bett folgen den Körpergrenzen; interne Objekt-/Clipping-Kanten
 sind keine Ufer. Inseln und trockene Lücken erhalten. Explizite Sperren müssen Verbindungen
 unterbrechen; dafür fehlt noch der Barrierenvertrag. Fehlende Sperrendaten sind kein Sperrennachweis.
 Der weltweite Abschluss offener Küsten ist noch zu entscheiden, daher `planned`.

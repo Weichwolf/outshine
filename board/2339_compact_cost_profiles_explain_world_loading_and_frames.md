@@ -16,6 +16,9 @@ alle Terrain-Arbeitsportionen, OSM-Aufbereitung und Generatorphasen. Erfolgreich
 tragen Hostphasen und CPU-Encoding je Stufe als Summe/Maximum; feste Namen und indizierte
 Metriken vermeiden wiederholte Namensbildung und lineare Suche. Detailausgabe bleibt explizit.
 Echte GPU-Passzeiten bleiben offen; keine Gleichsetzung mit Fence-Warten.
+Rosenheim 13a88b4dd: 500-Hz-Sampling ordnet 0,83 von 4,63 s Mainthread-CPU (18 %)
+exklusiv Textur-Upload/Mip-Erzeugung zu; gemessenes Laden 3,72 s. Native Treffer berechnen
+Mips erneut. 2280 prüft fertige Mip-Payloads, 2340 wechselnde Startspitzen; kein GPU-Zeitbeleg.
 
 ## Kostenreview und konkrete Messlücken
 [2280](2280_ready_assets_load_from_a_spatial_cache.md) hält die aktuelle Place-Kostentabelle;
@@ -30,8 +33,8 @@ Kein neuer Profiling-Großumbau: folgende Zähler mit diesen P0-Integrationen er
   GPU-Uploads und alte/neue Kandidaten getrennt; Besitz/gleichzeitige Lebensdauer erklären.
 - CP/Tokyo Geometriephase 2,17/2,87 s, längster Schritt 1,21/1,79 s: Allocation/Decode/
   Validierung/Upload/Fence einzeln messen. Gesamtphase beweist keine einzelne Ursache.
-- Wien Producerwechsel: 31 Atlas-Neubauten/14,95 s Workerarbeit; kein warmer Lauf.
-  Scope/Versionsabhängigkeiten protokollieren, echte Cachehits separat vergleichen.
+- Producer-/Codecversionen und echte Cachehits getrennt ausweisen; fachfremde Änderungen
+  invalidieren keine Prototypen (2280).
 - Frame: stabiles Fenster und Ressourcenbereitschaft/erste Einreichungen getrennt ausweisen;
   Wien hat 27,87 ms Fence-Warten im schlechtesten Frame, aber keine direkte GPU-Passzeit.
 - Fehlende Metrik als unbekannt kennzeichnen; heutiger CostReport-Helper liefert sonst Null.

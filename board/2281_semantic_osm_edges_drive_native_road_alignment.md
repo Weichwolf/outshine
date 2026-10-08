@@ -68,7 +68,7 @@ Gleiche Kanten nutzen deterministisch die feinere Quelle; gemeinsame Ecken folge
 angrenzenden gröbsten Mesh-Kante. Abdeckende Vorfahren dürfen innere Kanten nicht verändern.
 Terrain-Auswahl berücksichtigt bislang Roh-DEM und deklarierte Fahrstrecken, keine Place-Kontakte.
 Verfeinerung gegen deformierte Oberfläche bestimmen; benachbarte LOD-Kanten konform verbinden.
-Native Nahseiten erreichen bereits 0,4–6,5 m Abtastung; der frühere Clearance-Abbruch erzeugte 23 m Sprung auf 0,81 m. Beckenränder bleiben hart; Höhe und Abtastung getrennt korrigieren;
+Native Nahseiten erreichen 0,4–6,5 m Abtastung; der Clearance-Kantenvergleich 13a88b4dd zeigt 23,17 → 0,62–0,64 m Sprung auf denselben 0,81 m. Beckenränder bleiben hart; Höhe und Abtastung getrennt korrigieren;
 unnötig hohe Kontakte nicht mit zusätzlichen Vertices kaschieren.
 Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen brauchen dieselbe adaptive Abtastung.
 
