@@ -21,14 +21,14 @@ GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne
 2336 besitzt Weltrepräsentation/LOD, 2155 Licht, 2171 Materialien; dieser WI besitzt Arbeitsauswahl.
 
 ## Priorisierung nach Kostenreview
-Region-Rezept 28 (a50864453): öffentliche Offline-Gates für Feldkirch/Wien/CP/Körbersee/Tokyo
-in beiden Buildvarianten grün; Tokyo 9,20 ms p99, NDEBUG 3,13 ms. Alle 60 Drehframes zählen.
-Der vorherige Stand 39c62b487 scheiterte mit Tokyo 15,76 ms p99; der Kontrolllauf mit
-unverändertem 27b7f413b erreichte 36,27 ms, davon 32,61 ms Fence-Warten im langsamsten
-Render-Host-Frame. Das belegt keine einzelne GPU-Ursache; ein grüner Lauf beweist keine Stabilität.
-Erster Asset-Aufbau: CP 5,28, Feldkirch 10,60, Tokyo 23,15, Wien 22,12, Körbersee 18,79 ms p99;
-Körbersee zwei Frames über 16,67 ms. Keine fehlenden gemeldeten Terrain-Tiles. Warme Treffer
-und erster Aufbau behalten getrennte Messwerte; Startspitzen bleiben offen.
+Region-Rezept 32 (0494ac75d): öffentliche Offline-Gates warm 9/10 grün, 1280×720@60,
+alle 60 Drehframes zählen. Tokyo hat im zweiten Frame 10,31 ms p99; der zweite Prozess
+erreicht 3,27 ms; der bildidentische Cache-Replay zeigt erneut 22,76 ms im zweiten Frame.
+Beide Testvarianten verwenden denselben öffentlichen Client; das ist kein
+Vergleich zweier Renderer-Builds. Ein grüner Einzelprozess beweist keine stabile Startzeit.
+Warme p99 für CP/Feldkirch/Körbersee/Wien jeweils höchstens 2,40/2,29/2,19/3,28 ms.
+Der erste Rezeptaufbau hat weiterhin Startspitzen: Körbersee 65,47, Tokyo 15,89 ms p99.
+Kein Beleg für eine einzelne GPU-Ursache; Aufbau und Treffer getrennt bewerten.
 Frühe Bereitschaft/Fences und Arbeit nach Preload messen; keine Ausreißer durch Warmup
 oder höhere Grenzen entfernen. Kein Beleg für generell langsames Pixel-Shading;
 GPU-Stufen bleiben ungemessen. 2336/2280 besitzen Ladebedarf, 2339 Bereitschaft/Peaks.

@@ -51,8 +51,8 @@ Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsme
    Native GeometryAsset-Karten umgehen Coverage-/Farbvorbereitung bei Hits; Atlas-Rohlinge bleiben.
    Miss/Defekt repariert nur Karten; entpackte Bytes ca. −70 %, kein allgemeiner RAM-/Framegewinn.
    Fachfremde Änderungen nicht invalidieren: Generator-/Codec-/Capture-Abhängigkeiten statt sämtlichen src/include-Code versionieren.
-5. P1: SSD-Verbrauch begrenzen: Asset-DBs belegen 32,11 + 2,25 = 34,36 GiB (Dateigrößen, 2026-10-08).
-   Überholte Rezepte/unerreichbare Pakete gezielt räumen; aktive Assets/Quellen erhalten. Ladeziel: warm <10 s, <1 s als Challenge; Gebäudebedarf vor Decode, Straßen erhalten.
+5. P1: SSD dauerhaft begrenzen: Asset-DBs jetzt 1,82 statt 36,06 GiB; zehn Offline-Place-PNGs SHA-256-identisch. Verwendete Assets, Paketmitglieder und Eltern erhalten.
+   Automatische budgetierte Verdrängung fehlt; Nutzdaten bleiben opaque, aktive Assets/Quellen erhalten. Warm <10 s; Gebäudebedarf vor Decode.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
 AssetCache besitzt Speicherung/Kompression/Integrität und die AssetRecord-Hülle; Nutzdaten sind opaque.
