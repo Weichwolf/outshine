@@ -58,8 +58,12 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
                get("ground region: native cache hit"),
                get("ground region: native asset bytes") / kBytesPerMiB,
                get("ground region: worker elapsed"));
-  for (const auto *const kind :
-       {"terrain", "terrain_deformed", "buildings", "building_lod", "prototypes"}) {
+  for (const auto *const kind : {"terrain",
+                                 "terrain_deformed",
+                                 "buildings",
+                                 "building_basis",
+                                 "building_lod",
+                                 "prototypes"}) {
     const std::string prefix = std::string("cost.assets.") + kind;
     std::println(
         "PERF {} native {}: hit/resident/miss/write={:.0f}/{:.0f}/{:.0f}/{:.0f} decoded={:.2f}MiB",

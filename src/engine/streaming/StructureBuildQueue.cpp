@@ -449,7 +449,7 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
                                      const ::outshine::Generators::Osm::OsmField &vectors,
                                      const ::outshine::Generators::Osm::StreetField &streets,
                                      std::shared_ptr<const Ground::HeightField> &heights,
-                                     const Generators::PreparedBuildingAssets::Base &base,
+                                     const Generators::PreparedBuildingAssets::Basis &basis,
                                      GroundStands &&groundStands,
                                      size_t &remaining) {
   if (remaining == 0) { return {.Next = std::nullopt, .Deferred = true}; }
@@ -464,7 +464,7 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
       features, *tile, std::ranges::less{}, &::outshine::Generators::Osm::OsmField::Feature::Tile);
   const size_t from = static_cast<size_t>(first - features.begin());
   const size_t to = static_cast<size_t>(last - features.begin());
-  if (!groundStands({.From = from, .To = to}) || (!heights && !base)) {
+  if (!groundStands({.From = from, .To = to}) || (!heights && !basis)) {
     return {.Next = std::nullopt, .Deferred = true};
   }
   const ::outshine::Generators::Osm::BuildingField::AcceptedInput *const accepted =
@@ -473,9 +473,9 @@ RefinementSelection SelectRefinement(::outshine::Generators::Osm::BuildingField 
   const bool sourceCurrent =
       accepted != nullptr && accepted->Qualified && accepted->Vector == vectorSource &&
       std::ranges::equal(accepted->Sources,
-                         base ? std::span(base->HeightSources) : heights->Sources()) &&
+                         basis ? std::span(basis->HeightSources) : heights->Sources()) &&
       accepted->Bake.HeightRasterDigest ==
-          (base ? base->HeightRasterDigest : heights->RasterDigest()) &&
+          (basis ? basis->HeightRasterDigest : heights->RasterDigest()) &&
       accepted->Bake.StreetDigest == StreetDigest(streets, vectors, *tile) &&
       accepted->Bake.TileSpanM == prints.TileSpanM();
   if (sourceCurrent) {
@@ -1272,7 +1272,7 @@ StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
                                  bool replacement) {
   auto raw = Borrowed(IdleRaw_);
   const auto extractionAt = std::chrono::steady_clock::now();
-  if (selected.Base) {
+  if (selected.Basis) {
     *raw = {};
     raw->Eye = revision.Eye;
     raw->EyeEcef = revision.EyeEcef;
@@ -1295,18 +1295,18 @@ StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
           .count());
   auto output = Borrowed(IdleOut_);
   *output = {};
-  output->CacheHit = selected.Base != nullptr;
+  output->CacheHit = selected.Basis != nullptr;
   output->CacheReadMs = selected.ReadMs;
-  auto task = selected.Base ? StructureBuildTask(next.Tile,
-                                                 std::move(selected.Base),
-                                                 std::move(raw),
-                                                 std::move(output),
-                                                 LentScratch())
-                            : StructureBuildTask(next.Tile,
-                                                 std::move(raw),
-                                                 std::move(selected.Heights),
-                                                 std::move(output),
-                                                 LentScratch());
+  auto task = selected.Basis ? StructureBuildTask(next.Tile,
+                                                  std::move(selected.Basis),
+                                                  std::move(raw),
+                                                  std::move(output),
+                                                  LentScratch())
+                             : StructureBuildTask(next.Tile,
+                                                  std::move(raw),
+                                                  std::move(selected.Heights),
+                                                  std::move(output),
+                                                  LentScratch());
   if (!selected.Key.empty() && !revision.FallbackHeights &&
       (task.HeightQualified() || task.Raw().Structures.empty())) {
     task.UseNativeAssets(stack.BuildingAssets(), selected.Key);
@@ -1339,15 +1339,15 @@ bool StructureBuildQueue::SelectVectorInputs(
   selected = {};
   const auto &vectors = *stack.Vectors();
   if (over.From < vectors.Features().size() && heightAt.Revision.Value != 0 &&
-      !SelectNativeBase(stack, prints, vectors.Features()[over.From].Tile, selected)) {
+      !SelectNativeBasis(stack, prints, vectors.Features()[over.From].Tile, selected)) {
     ++Deferred_;
     return false;
   }
-  if (selected.Base && (requirement != HeightRequirement::FineOnly ||
-                        selected.Base->Structures.empty() || selected.Base->HeightQualified)) {
+  if (selected.Basis && (requirement != HeightRequirement::FineOnly ||
+                         selected.Basis->Sources.empty() || selected.Basis->HeightQualified)) {
     return true;
   }
-  selected.Base.reset();
+  selected.Basis.reset();
   return ResolveHeights(
       vectors,
       over,
@@ -1393,7 +1393,7 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
     bool replacement = false;
     if (requirement == HeightRequirement::FineOnly && !prints.RefinementComplete()) {
       const RefinementSelection refinement = SelectRefinement(
-          prints, vectors, stack.Ways(), selected.Heights, selected.Base, groundStands, remaining);
+          prints, vectors, stack.Ways(), selected.Heights, selected.Basis, groundStands, remaining);
       if (refinement.Deferred) { break; }
       if (!refinement.Next) { continue; }
       next = refinement.Next;
@@ -1420,8 +1420,8 @@ size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
                                 .EyeEcef = prints.EyeEcef(),
                                 .RequestedDetail = detail,
                                 .Purpose = purpose,
-                                .FallbackHeights = selected.Base ? selected.Base->FallbackHeights
-                                                                 : selected.Heights->Fallback()};
+                                .FallbackHeights = selected.Basis ? selected.Basis->FallbackHeights
+                                                                  : selected.Heights->Fallback()};
     if (!replacement) { prints.Take(next->Tile); }
     selected.StreetDigest = *streetDigest;
     Queue_.push_back(VectorBuild(stack, prints, *next, revision, std::move(selected), replacement));
@@ -1442,9 +1442,9 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparatio
                                                  const HeightSource &heightAt,
                                                  const QueuedBuild &bake,
                                                  HeightRequirement heights) const {
-  if (const auto *base = bake.Task.PreparedBase()) {
-    return (heights != HeightRequirement::FineOnly || base->Structures.empty() ||
-            base->HeightQualified) &&
+  if (bake.Task.FromPreparedInputs()) {
+    return (heights != HeightRequirement::FineOnly || bake.Task.PreparedStructureCount() == 0 ||
+            bake.Task.HeightQualified()) &&
            bake.Revision.HeightSource == heightAt.Revision &&
            bake.StreetDigest == StreetDigest(stack.Ways(), *stack.Vectors(), bake.Task.Tile());
   }
@@ -1472,6 +1472,19 @@ bool StructureBuildQueue::WholeTileSourceCurrent(const Ground::SurfacePreparatio
                Originals_[bake.Task.Tile()].Input->SourceInputs.Origin.Selection;
   }
   return bake.StreetDigest == StreetDigest(stack.Ways(), *stack.Vectors(), bake.Task.Tile());
+}
+
+bool StructureBuildQueue::RetryMissingNativeInputs(
+    const StructureBuildTask::Output &output,
+    size_t preceding,
+    ::outshine::Generators::Osm::BuildingField &prints) {
+  if (output.Status || preceding != 0) { return false; }
+  const auto *kind = std::get_if<Generators::StructureBakeErrorKind>(&output.Status.error());
+  if (kind == nullptr || *kind != Generators::StructureBakeErrorKind::NativeInputsMissing) {
+    return false;
+  }
+  DiscardFront(prints);
+  return true;
 }
 
 std::expected<std::vector<StructureBuildQueue::Landing>, Generators::StructureBakeError>
@@ -1508,6 +1521,7 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
                                InputObjectsFor(bake.Task.Tile()))) {
       break;
     }
+    if (RetryMissingNativeInputs(bake.Task.Result(), count, prints)) { continue; }
     if (!bake.Task.Result().Status) {
       if (count == 0) { return std::unexpected(bake.Task.Result().Status.error()); }
       break;
@@ -1526,6 +1540,17 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
     acrossCount += baked.AcrossM.size();
     ++count;
   }
+  return PrepareLandings(prints, vectors, count, printCount, spreadCount, acrossCount);
+}
+
+std::vector<StructureBuildQueue::Landing>
+StructureBuildQueue::PrepareLandings(::outshine::Generators::Osm::BuildingField &prints,
+                                     const ::outshine::Generators::Osm::OsmField *vectors,
+                                     size_t count,
+                                     size_t printCount,
+                                     size_t spreadCount,
+                                     size_t acrossCount) {
+  std::vector<Landing> landings;
   if (count == 0) { return landings; }
   IdleRaw_.reserve(IdleRaw_.size() + count);
   IdleOut_.reserve(IdleOut_.size() + count);
@@ -1552,8 +1577,8 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
       baked.Coordinates->Origin.Provenance ? std::nullopt
                                            : VectorSource(*vectors, bake.Task.Tile());
   const bool qualified = [&] {
-    if (const auto *base = bake.Task.PreparedBase()) {
-      return base->Structures.empty() || bake.Task.HeightQualified();
+    if (bake.Task.FromPreparedInputs()) {
+      return bake.Task.PreparedStructureCount() == 0 || bake.Task.HeightQualified();
     }
     if (baked.Coordinates->Origin.Provenance) {
       return bake.Task.Raw().Structures.empty() || bake.Task.HeightQualified();
@@ -1732,7 +1757,7 @@ void StructureBuildQueue::CommitsLandings(Ground::SurfacePreparation &stack,
     const Generators::BakedTile &baked = *completed;
     assert(landing.Tile == bake.Task.Tile() && landing.Baked == &baked && landing.Footprints);
     if (!landing.Footprints || !baked.Coordinates) { std::terminate(); }
-    if (bake.Task.PreparedBase() == nullptr) {
+    if (!bake.Task.FromPreparedInputs()) {
       baked.Coordinates->Points = std::move(bake.Task.Raw().LatLon);
       baked.Coordinates->Rings = std::move(bake.Task.Raw().Holes);
     }

@@ -166,6 +166,9 @@ void Replay(const std::filesystem::path &directory, bool warm) {
         "publication preserves native coordinates instead of moving an empty source buffer");
   CHECK(!warm || (pins == 0 && stack.BuildingAssets()->Costs().GeometryHits == 1),
         "fresh warm replay loads ready geometry without touching the height provider");
+  const auto costs = stack.BuildingAssets()->Costs();
+  CHECK(!warm || (costs.BasisHits == 1 && costs.Hits == 0 && costs.ReadBytes == 0),
+        "fresh warm queue uses the owned basis without decoding the full building plans");
   queue.Clear();
 }
 }

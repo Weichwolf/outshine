@@ -40,6 +40,14 @@ void PublishPreparedAssetCosts(Core::DiagnosticLedger &published,
 void PublishPreparedGeometryCosts(Core::DiagnosticLedger &published,
                                   const Generators::PreparedBuildingAssets::Counters &costs) {
   published.RecordMetric(
+      "cost.assets.building_basis.hits", static_cast<double>(costs.BasisHits), "reads");
+  published.RecordMetric(
+      "cost.assets.building_basis.misses", static_cast<double>(costs.BasisMisses), "reads");
+  published.RecordMetric(
+      "cost.assets.building_basis.writes", static_cast<double>(costs.BasisWrites), "packages");
+  published.RecordMetric(
+      "cost.assets.building_basis.read_bytes", static_cast<double>(costs.BasisReadBytes), "bytes");
+  published.RecordMetric(
       "cost.assets.building_lod.hits", static_cast<double>(costs.GeometryHits), "reads");
   published.RecordMetric(
       "cost.assets.building_lod.misses", static_cast<double>(costs.GeometryMisses), "reads");

@@ -23,6 +23,7 @@ using StructureBinary::Writer;
 constexpr uint32_t kMagic = 0x31425350;
 constexpr uint32_t kVersion = 3;
 constexpr uint32_t kIndexVersion = 4;
+constexpr uint32_t kBasisVersion = 5;
 constexpr uint32_t kBlockMagic = 0x31435342;
 constexpr auto scalar = [](auto &archive, auto &value) { return archive.Number(value); };
 constexpr auto point = [](auto &archive, auto &value) {
@@ -187,7 +188,7 @@ public:
   }
 
   template <typename Archive, typename Tile, typename Visit>
-  static bool MetadataFields(Archive &archive, Tile &value, Visit visitHeightTile) {
+  static bool HeaderFields(Archive &archive, Tile &value, Visit visitHeightTile) {
     return vector(archive, value.AnchorEcef) && archive.Number(value.TileSpanM) &&
            archive.Number(value.Extent) && archive.Number(value.FallbackHeights) &&
            archive.Number(value.SkippedRings) && archive.Number(value.NoGround) &&
@@ -195,7 +196,12 @@ public:
            archive.Number(value.HeightRasterDigest) && archive.Number(value.HeightQualified) &&
            archive.Number(value.HeightRequest.Zoom) &&
            archive.Number(value.HeightRequest.Fallback) &&
-           archive.List(value.HeightRequest.Tiles, visitHeightTile) &&
+           archive.List(value.HeightRequest.Tiles, visitHeightTile);
+  }
+
+  template <typename Archive, typename Tile, typename Visit>
+  static bool MetadataFields(Archive &archive, Tile &value, Visit visitHeightTile) {
+    return HeaderFields(archive, value, visitHeightTile) &&
            archive.List(value.PointsLatLon, scalar) && archive.List(value.Holes, ring) &&
            archive.List(value.CornerAslM, scalar) && archive.List(value.Structures, prepared);
   }
@@ -294,7 +300,7 @@ public:
     return true;
   }
 
-  static bool ValidHeightSources(const PreparedStructureTile &value) {
+  static bool ValidHeightSources(const auto &value) {
     const auto validTile = [](int zoom, auto x, auto y) {
       return zoom >= 0 && zoom <= Data::TileId::MaximumZoom && std::cmp_greater_equal(x, 0) &&
              std::cmp_greater_equal(y, 0) &&
@@ -321,6 +327,34 @@ public:
                source.NativeCell->WestDeg >= -static_cast<int>(kDegPerHalfTurn) &&
                source.NativeCell->WestDeg < static_cast<int>(kDegPerHalfTurn)));
     });
+  }
+
+  static bool BasisFields(auto &archive, auto &value) {
+    return HeaderFields(archive, value, indexedHeightTile) &&
+           archive.List(value.PointsLatLon, scalar) && archive.List(value.Holes, ring) &&
+           archive.List(value.Sources, [](auto &held, auto &source) {
+             return held.Number(source.Cell) && held.Number(source.Id.Id) &&
+                    held.Number(source.Id.Kind);
+           });
+  }
+
+  static bool ValidBasis(const PreparedBuildingBasis &value) {
+    if (value.NoGround != 0 || value.SkippedRings != 0 || value.FallbackHeights ||
+        value.Extent <= 0 || value.TileSpanM < 0 || value.PointsLatLon.size() % 2 != 0 ||
+        (value.Origin.Provenance && value.Origin.Provenance->Cell &&
+         !value.Origin.Provenance->Cell->Valid()) ||
+        !ValidHeightSources(value)) {
+      return false;
+    }
+    const size_t points = value.PointsLatLon.size() / 2;
+    return std::ranges::all_of(value.Holes,
+                               [points](const auto &hole) {
+                                 return hole.First <= points && hole.Count >= 3 &&
+                                        hole.Count <= points - hole.First;
+                               }) &&
+           std::ranges::all_of(value.Sources, [](const auto &source) {
+             return source.Cell != 0 && source.Cell <= kStructureCellsPerTile;
+           });
   }
 
   static bool Valid(const PreparedStructureTile &value) {
@@ -356,6 +390,35 @@ public:
     return true;
   }
 };
+
+std::expected<std::vector<uint8_t>, StructureArtifactError>
+EncodePreparedBuildingBasis(const PreparedBuildingBasis &basis) {
+  if (!PreparedStructureCodec::ValidBasis(basis)) {
+    return std::unexpected(StructureArtifactError::InvalidProduct);
+  }
+  Writer output;
+  if (!output.Number(kMagic) || !output.Number(kBasisVersion) ||
+      !PreparedStructureCodec::BasisFields(output, basis)) {
+    return std::unexpected(output.Failure);
+  }
+  return std::move(output.Bytes);
+}
+
+std::optional<PreparedBuildingBasis> DecodePreparedBuildingBasis(std::span<const uint8_t> bytes,
+                                                                 size_t residentBytesMost) {
+  if (bytes.size() > kStructureArtifactBytesMost) { return std::nullopt; }
+  Reader input(bytes);
+  input.AllocationLeft = residentBytesMost;
+  uint32_t magic = 0;
+  uint32_t version = 0;
+  PreparedBuildingBasis basis;
+  if (!input.Number(magic) || magic != kMagic || !input.Number(version) ||
+      version != kBasisVersion || !PreparedStructureCodec::BasisFields(input, basis) ||
+      input.Remaining != 0 || !PreparedStructureCodec::ValidBasis(basis)) {
+    return std::nullopt;
+  }
+  return basis;
+}
 
 std::expected<std::vector<uint8_t>, StructureArtifactError>
 EncodePreparedStructureTile(const PreparedStructureTile &tile) {

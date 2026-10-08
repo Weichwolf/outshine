@@ -23,11 +23,7 @@
 #include <vector>
 
 namespace outshine::Generators {
-namespace {
-constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
-constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;
-
-}
+namespace {}
 
 PreparedBuildingAssets::PreparedBuildingAssets(std::unique_ptr<AssetCache> cache,
                                                std::string recipe)
@@ -146,6 +142,8 @@ PreparedBuildingAssets::StoreBase(const std::string &key, const PreparedStructur
     if (!stored) { return std::unexpected(StructureBakeErrorKind::ArtifactFailure); }
     ++Writes_;
   }
+  const auto storedBasis = StoreBasis(key, Bounds(base), PreparedBuildingBasis::Of(base));
+  if (!storedBasis) { return std::unexpected(storedBasis.error()); }
   return std::move(*encoded);
 }
 
@@ -154,6 +152,10 @@ PreparedBuildingAssets::Counters PreparedBuildingAssets::Costs() const noexcept 
           .Misses = Misses_.load(std::memory_order_relaxed),
           .Writes = Writes_.load(std::memory_order_relaxed),
           .ReadBytes = ReadBytes_.load(std::memory_order_relaxed),
+          .BasisHits = BasisHits_.load(std::memory_order_relaxed),
+          .BasisMisses = BasisMisses_.load(std::memory_order_relaxed),
+          .BasisWrites = BasisWrites_.load(std::memory_order_relaxed),
+          .BasisReadBytes = BasisReadBytes_.load(std::memory_order_relaxed),
           .GeometryHits = GeometryHits_.load(std::memory_order_relaxed),
           .GeometryMisses = GeometryMisses_.load(std::memory_order_relaxed),
           .GeometryWrites = GeometryWrites_.load(std::memory_order_relaxed),

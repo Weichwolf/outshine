@@ -429,25 +429,44 @@ struct StructureBuildTask::NativeProducts {
   NativeProducts(std::shared_ptr<Generators::PreparedBuildingAssets> cache, std::string key)
       : Cache(std::move(cache)), Key(std::move(key)) {}
 
+  bool EnsureBase(const Generators::RawTile &raw,
+                  const Ground::HeightField *heights,
+                  std::shared_ptr<const Generators::PreparedStructureTile> &base,
+                  const Generators::PreparedBuildingBasis *basis,
+                  Output &output,
+                  const std::atomic_bool &stopping) const {
+    if (base) { return true; }
+    assert(basis != nullptr || heights != nullptr);
+    auto loaded =
+        basis != nullptr ? Cache->Load(Key) : Cache->Generate(Key, raw, *heights, stopping);
+    if (!loaded) {
+      output.Status = std::unexpected(loaded.error());
+      return false;
+    }
+    if (!*loaded) {
+      const auto invalidated = Cache->InvalidateBasis(Key);
+      output.Status = std::unexpected(
+          invalidated ? Generators::StructureBakeError{Generators::StructureBakeErrorKind::
+                                                           NativeInputsMissing}
+                      : invalidated.error());
+      return false;
+    }
+    base = std::move(*loaded);
+    return true;
+  }
+
   bool BeforeBake(const Generators::RawTile &raw,
                   const Ground::HeightField *heights,
                   std::shared_ptr<const Generators::PreparedStructureTile> &base,
+                  const Generators::PreparedBuildingBasis *basis,
                   Output &output,
                   const std::atomic_bool &stopping) {
     if (Current != Phase::Lookup) { return false; }
-    if (!base) {
-      assert(heights != nullptr);
-      auto generated = Cache->Generate(Key, raw, *heights, stopping);
-      if (!generated || !*generated) {
-        output.Status = std::unexpected(
-            generated ? Generators::StructureBakeError{Generators::StructureBakeErrorKind::
-                                                           ArtifactInvalidProduct}
-                      : generated.error());
-        return true;
-      }
-      base = std::move(*generated);
+    if (basis == nullptr && !EnsureBase(raw, heights, base, basis, output, stopping)) {
+      return true;
     }
-    auto cached = Cache->LoadGeometry(Key, *base, raw);
+    auto cached = basis != nullptr ? Cache->LoadGeometry(Key, *basis, raw)
+                                   : Cache->LoadGeometry(Key, *base, raw);
     if (!cached) {
       output.Status = std::unexpected(cached.error());
       return true;
@@ -456,12 +475,15 @@ struct StructureBuildTask::NativeProducts {
       output.Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
       return true;
     }
+    if (*cached) {
+      output.Tile = std::move(**cached);
+      output.CacheHit = true;
+      Current = Phase::Complete;
+      return true;
+    }
+    if (!EnsureBase(raw, heights, base, basis, output, stopping)) { return true; }
     Current = Phase::Generating;
-    if (!*cached) { return false; }
-    output.Tile = std::move(**cached);
-    output.CacheHit = true;
-    Current = Phase::Complete;
-    return true;
+    return false;
   }
 
   void AfterBake(const Generators::RawTile &raw,
@@ -520,19 +542,48 @@ StructureBuildTask::StructureBuildTask(
   Raw_->SourceInputs.Origin = Base_->Origin;
 }
 
+StructureBuildTask::StructureBuildTask(
+    uint32_t tile,
+    std::shared_ptr<const Generators::PreparedBuildingBasis> basis,
+    std::unique_ptr<Generators::RawTile> view,
+    std::unique_ptr<Output> output,
+    std::unique_ptr<MeshScratch> scratch)
+    : Tile_(tile),
+      Raw_(std::move(view)),
+      Basis_(std::move(basis)),
+      Output_(std::move(output)),
+      Scratch_(std::move(scratch)),
+      Progress_(std::make_unique<Generators::StructureBakeProgress>()),
+      Stopping_(std::make_shared<std::atomic_bool>(false)) {
+  assert(Basis_ != nullptr && Raw_ != nullptr && Output_ != nullptr && Scratch_ != nullptr);
+  Raw_->AnchorEcef = Basis_->AnchorEcef;
+  Raw_->TileSpanM = Basis_->TileSpanM;
+  Raw_->Extent = Basis_->Extent;
+  Raw_->SourceInputs.Origin = Basis_->Origin;
+}
+
+size_t StructureBuildTask::PreparedStructureCount() const noexcept {
+  if (Basis_) { return Basis_->Sources.size(); }
+  return Base_ ? Base_->Structures.size() : Raw_->Structures.size();
+}
+
 std::span<const Data::TileSourceIdentity> StructureBuildTask::HeightSources() const noexcept {
+  if (Basis_) { return Basis_->HeightSources; }
   return Base_ ? std::span(Base_->HeightSources) : Heights().Sources();
 }
 
 uint64_t StructureBuildTask::HeightRasterDigest() const noexcept {
+  if (Basis_) { return Basis_->HeightRasterDigest; }
   return Base_ ? Base_->HeightRasterDigest : Heights().RasterDigest();
 }
 
 bool StructureBuildTask::HeightQualified() const noexcept {
+  if (Basis_) { return Basis_->HeightQualified; }
   return Base_ ? Base_->HeightQualified : Heights().Qualified();
 }
 
 Ground::HeightField::Request StructureBuildTask::HeightRequest() const {
+  if (Basis_) { return Basis_->HeightRequest; }
   return Base_ ? Base_->HeightRequest : Heights().CaptureRequest();
 }
 
@@ -551,6 +602,7 @@ StructureBuildTask &StructureBuildTask::operator=(StructureBuildTask &&other) no
   Raw_ = std::move(other.Raw_);
   Heights_ = std::move(other.Heights_);
   Base_ = std::move(other.Base_);
+  Basis_ = std::move(other.Basis_);
   Native_ = std::move(other.Native_);
   Output_ = std::move(other.Output_);
   Scratch_ = std::move(other.Scratch_);
@@ -574,7 +626,7 @@ bool StructureBuildTask::Running() const noexcept {
 
 void StructureBuildTask::UseNativeAssets(std::shared_ptr<Generators::PreparedBuildingAssets> cache,
                                          std::string key) {
-  assert(State_ == State::Ready && (Base_ || Heights_));
+  assert(State_ == State::Ready && (Base_ || Basis_ || Heights_));
   Native_ = std::make_unique<NativeProducts>(std::move(cache), std::move(key));
 }
 
@@ -583,6 +635,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   const Generators::RawTile *const raw = Raw_.get();
   const Ground::HeightField *const heights = Heights_.get();
   auto *const base = &Base_;
+  const auto *const basis = Basis_.get();
   NativeProducts *const native = Native_.get();
   MeshScratch *const scratch = Scratch_.get();
   Generators::StructureBakeProgress *const progress = Progress_.get();
@@ -598,6 +651,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   Handle_ = ActivePool_->Post([raw,
                                heights,
                                base,
+                               basis,
                                native,
                                &mesher,
                                scratch,
@@ -624,7 +678,7 @@ void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
       artifact->CancelIfStopping(*output, *stopping, activePool);
       return;
     }
-    if (native && native->BeforeBake(*raw, heights, *base, *output, *stopping)) {
+    if (native && native->BeforeBake(*raw, heights, *base, basis, *output, *stopping)) {
       output->LastTaskMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
               .count();

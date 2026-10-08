@@ -20,6 +20,7 @@
 namespace outshine {
 namespace Generators {
 struct PreparedStructureTile;
+struct PreparedBuildingBasis;
 class PreparedBuildingAssets;
 }
 
@@ -65,6 +66,11 @@ public:
                      std::unique_ptr<Generators::RawTile> view,
                      std::unique_ptr<Output> output,
                      std::unique_ptr<MeshScratch> scratch);
+  StructureBuildTask(uint32_t tile,
+                     std::shared_ptr<const Generators::PreparedBuildingBasis> basis,
+                     std::unique_ptr<Generators::RawTile> view,
+                     std::unique_ptr<Output> output,
+                     std::unique_ptr<MeshScratch> scratch);
   ~StructureBuildTask();
   StructureBuildTask(const StructureBuildTask &) = delete;
   StructureBuildTask &operator=(const StructureBuildTask &) = delete;
@@ -98,6 +104,9 @@ public:
     return Base_.get();
   }
 
+  [[nodiscard]] bool FromPreparedInputs() const noexcept { return Base_ || Basis_; }
+
+  [[nodiscard]] size_t PreparedStructureCount() const noexcept;
   [[nodiscard]] std::span<const Data::TileSourceIdentity> HeightSources() const noexcept;
   [[nodiscard]] uint64_t HeightRasterDigest() const noexcept;
   [[nodiscard]] bool HeightQualified() const noexcept;
@@ -127,6 +136,7 @@ private:
   std::unique_ptr<Generators::RawTile> Raw_;
   std::shared_ptr<const Ground::HeightField> Heights_;
   std::shared_ptr<const Generators::PreparedStructureTile> Base_;
+  std::shared_ptr<const Generators::PreparedBuildingBasis> Basis_;
   struct NativeProducts;
   std::unique_ptr<NativeProducts> Native_;
   std::unique_ptr<Output> Output_;

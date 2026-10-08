@@ -9,15 +9,16 @@
 #include <utility>
 
 namespace outshine {
-size_t StructureBuildQueue::PendingNativeBases() const noexcept {
+size_t StructureBuildQueue::PendingBasisLookups() const noexcept {
   return static_cast<size_t>(std::ranges::count_if(
       NativeLookups_, [](const auto &entry) { return entry.second->Task != Tasks::kNoTask; }));
 }
 
-bool StructureBuildQueue::SelectNativeBase(Ground::SurfacePreparation &stack,
-                                           const ::outshine::Generators::Osm::BuildingField &prints,
-                                           uint32_t tile,
-                                           VectorSelection &selected) {
+bool StructureBuildQueue::SelectNativeBasis(
+    Ground::SurfacePreparation &stack,
+    const ::outshine::Generators::Osm::BuildingField &prints,
+    uint32_t tile,
+    VectorSelection &selected) {
   const auto &cache = stack.BuildingAssets();
   if (!cache) { return true; }
   const auto &vectors = *stack.Vectors();
@@ -39,7 +40,7 @@ bool StructureBuildQueue::SelectNativeBase(Ground::SurfacePreparation &stack,
   }
   const auto found = NativeLookups_.find(selected.Key);
   if (found == NativeLookups_.end()) {
-    if (PendingNativeBases() >= kCandidateWindow) { return false; }
+    if (PendingBasisLookups() >= kCandidateWindow) { return false; }
     constexpr size_t kLookupsMost = 256;
     if (NativeLookups_.size() >= kLookupsMost) {
       const auto idle = std::ranges::find_if(
@@ -51,7 +52,7 @@ bool StructureBuildQueue::SelectNativeBase(Ground::SurfacePreparation &stack,
     auto *const output = lookup.get();
     output->Task = Pool_->Post([output, cache, key = selected.Key] {
       const auto began = std::chrono::steady_clock::now();
-      output->Result = cache->Load(key);
+      output->Result = cache->LoadBasis(key);
       output->ReadMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
               .count();
@@ -68,7 +69,7 @@ bool StructureBuildQueue::SelectNativeBase(Ground::SurfacePreparation &stack,
     NativeFailure_ = lookup.Result.error();
     return false;
   }
-  selected.Base = *lookup.Result;
+  selected.Basis = *lookup.Result;
   selected.ReadMs = lookup.ReadMs;
   return true;
 }

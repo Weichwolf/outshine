@@ -2,9 +2,15 @@
 #define OUTSHINE_GENERATORS_BUILDING_PREPAREDSTRUCTURECODEC_H
 
 #include "PreparedStructureTile.h"
+#include "PreparedBuildingBasis.h"
 #include "StructureArtifact.h"
 
 namespace outshine::Generators {
+
+[[nodiscard]] std::expected<std::vector<uint8_t>, StructureArtifactError>
+EncodePreparedBuildingBasis(const PreparedBuildingBasis &basis);
+[[nodiscard]] std::optional<PreparedBuildingBasis>
+DecodePreparedBuildingBasis(std::span<const uint8_t> bytes, size_t residentBytesMost);
 
 [[nodiscard]] std::expected<std::vector<uint8_t>, StructureArtifactError>
 EncodePreparedStructureTile(const PreparedStructureTile &tile);

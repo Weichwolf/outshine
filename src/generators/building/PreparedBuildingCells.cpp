@@ -17,10 +17,7 @@
 #include <utility>
 
 namespace outshine::Generators {
-namespace {
-constexpr size_t kPackageBytesMost = size_t{64} * 1024 * 1024;
-constexpr size_t kResidentBytesMost = size_t{128} * 1024 * 1024;
-}
+namespace {}
 
 std::string PreparedBuildingAssets::SurfaceKey(const std::string &baseKey, uint32_t cell) {
   const auto identity = "prepared-building-cell-1/" + baseKey + "/" + std::to_string(cell);

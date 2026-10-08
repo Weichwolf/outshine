@@ -206,7 +206,7 @@ public:
   void Clear();
 
   [[nodiscard]] size_t Queued() const {
-    return Queue_.size() + PendingNativeBases() +
+    return Queue_.size() + PendingBasisLookups() +
            static_cast<size_t>(OriginalPreparation_ && OriginalPreparation_->Running());
   }
 
@@ -267,7 +267,7 @@ public:
 
   [[nodiscard]] bool AwaitSlice(double seconds) const {
     if (Pool_ == nullptr) { return false; }
-    if (PendingNativeBases() != 0) { return Pool_->AwaitCompletion(seconds); }
+    if (PendingBasisLookups() != 0) { return Pool_->AwaitCompletion(seconds); }
     if (OriginalPreparation_ && OriginalPreparation_->Running()) {
       return OriginalPreparation_->AwaitSlice(seconds);
     }
@@ -317,7 +317,7 @@ private:
 
   struct VectorSelection {
     std::shared_ptr<const Ground::HeightField> Heights;
-    Generators::PreparedBuildingAssets::Base Base;
+    Generators::PreparedBuildingAssets::Basis Basis;
     std::string Key;
     uint64_t StreetDigest = 0;
     double ReadMs = 0.0;
@@ -325,15 +325,15 @@ private:
 
   struct NativeLookup {
     Tasks::Handle Task = Tasks::kNoTask;
-    std::expected<Generators::PreparedBuildingAssets::Base, Generators::StructureBakeError> Result;
+    std::expected<Generators::PreparedBuildingAssets::Basis, Generators::StructureBakeError> Result;
     double ReadMs = 0.0;
   };
 
-  [[nodiscard]] size_t PendingNativeBases() const noexcept;
-  [[nodiscard]] bool SelectNativeBase(Ground::SurfacePreparation &stack,
-                                      const ::outshine::Generators::Osm::BuildingField &prints,
-                                      uint32_t tile,
-                                      VectorSelection &selected);
+  [[nodiscard]] size_t PendingBasisLookups() const noexcept;
+  [[nodiscard]] bool SelectNativeBasis(Ground::SurfacePreparation &stack,
+                                       const ::outshine::Generators::Osm::BuildingField &prints,
+                                       uint32_t tile,
+                                       VectorSelection &selected);
   [[nodiscard]] bool SelectVectorInputs(Ground::SurfacePreparation &stack,
                                         const ::outshine::Generators::Osm::BuildingField &prints,
                                         ::outshine::Generators::Osm::FeatureRun over,
@@ -348,6 +348,13 @@ private:
                                         VectorSelection selected,
                                         bool replacement);
 
+  [[nodiscard]] std::vector<Landing>
+  PrepareLandings(::outshine::Generators::Osm::BuildingField &prints,
+                  const ::outshine::Generators::Osm::OsmField *vectors,
+                  size_t count,
+                  size_t printCount,
+                  size_t spreadCount,
+                  size_t acrossCount);
   [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
                                               ::outshine::Generators::Osm::BuildingField &prints,
                                               const ::outshine::Generators::Osm::OsmField *vectors);
@@ -372,6 +379,9 @@ private:
                                             const HeightSource &heightAt,
                                             const QueuedBuild &bake,
                                             HeightRequirement heights) const;
+  [[nodiscard]] bool RetryMissingNativeInputs(const StructureBuildTask::Output &output,
+                                              size_t preceding,
+                                              ::outshine::Generators::Osm::BuildingField &prints);
   void DiscardFront(::outshine::Generators::Osm::BuildingField &prints);
   void DiscardStale(const ::outshine::Generators::Osm::OsmField *vectors,
                     ::outshine::Generators::Osm::BuildingField &prints,

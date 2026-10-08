@@ -24,28 +24,28 @@ Regionschlüssel binden Quell-Digests, Formparameter, Detailauftrag und Regeln; 
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
-Historischer OS-Footprint: Offline 1280×720/60, 60 Frames/360°, Treffer 009f6a2b7 / Producer e46c4abd61a5:
-| Place | Laden s | p99 ms | Bildphase / Peak GiB | Terrain / Prototypen entpackt MiB |
+Frische Offline-Prozesse, 1280×720/60, 60 Frames/360°; gleiche zehn PNGs vor/nach dem Basisumbau:
+| Place | Planpakete bisher MiB | Native Basis jetzt MiB | Treffer laden s | p99 ms |
 |---|---:|---:|---:|---:|
-| Wien | 5,85–6,13 | 3,28–11,40 | 2,46–2,47 / 2,46–2,53 | 25 / 186,34 |
-| CentralPark | 4,79 | 2,49 | 2,21 / 2,22 | 25 / 120,22 |
-| Tokyo | 7,87–8,13 | 14,29–24,25 | 3,95 / 4,18–4,19 | 32 / 186,34 |
-OS-Footprint: 50-ms-Stichproben um Render/PNG, kein exaktes GPU-/Frameintervall; Sampler 1,9–3,5 ms CPU/Lauf.
+| Wien | 68,84 | 17,76 | 2,78 | 3,04 |
+| CentralPark | 102,71 | 21,92 | 2,50 | 2,01 |
+| Tokyo | 358,87 | 64,54 | 3,76 | 3,39 |
+Alle Treffer lesen null Planpakete; dekodierte Basisbytes ersetzen sie, Geometrieprodukte bleiben gleich.
+Zehn Places im Trefferprozess: Peak-RSS 1,44 GiB, OS-Footprint 4,28 GiB; nicht addieren. Kein RAM-/GPU-Zeit-Gewinnbeweis, GPU-Passzeiten fehlen.
 Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je belegter Zelle.
 Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen gecachte Pläne/Kontakte, keine Höhenprovider.
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
-Pläne/Koordinaten bleiben im Elternpaket; kleiner Hierarchieindex und Arbeitsmenge noch offen.
-[Paketmodell](../test/experiments/prepared_building_residency.py): Tokyo historisch 553,40 MiB, Formen 325,69; 1-km-Zellen 4,92 MiB, kein Bildnachweis.
+Separate native Gebäude-Basis hält Koordinaten, Quell-IDs/Zellen, Origin und Höhenbindung. LOD-Treffer laden keine Pläne/Auswahl; Geometriemisses öffnen den Elternrohling. Fehlende Pläne invalidieren die Basis und erneuern den Quellauftrag. Hierarchie/Arbeitsmenge bleiben offen.
+[Zellenmodell](../test/experiments/prepared_building_residency.py) begründet bedarfsweise Formladung; Laufzeit und Bilder entscheiden.
 1. P0: Bedarf aus 2336 vor Quellen/Cachedecode; räumliche Eltern/Kinder statt Kamerasnapshots.
    [Liefermodell](../test/experiments/building_asset_delivery.py): drei große Schema-4-Wurzeln 12,0–12,9 MB; LOD-Basis modelliert 1,94–2,30 MB. Treffer braucht
    Koordinaten/Origin/Höhenbindung/Quell-IDs und Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
-   Kein Runtime-/RAM-Beleg; Koordinaten-Packen dort nur 5–6 % Gewinn am Koordinatenanteil.
+   Basiscodec/Queue bildgleich integriert; getrennte Kosten für Basis/Pläne. OS-RAM-Ursachen bleiben offen; Koordinaten-Packen dort nur 5–6 % Gewinn am Koordinatenanteil.
 2. P0: verbliebene Terrainproben aus nativen Höhen-/Kontaktprodukten bedienen, 25–32 MiB Zwischenfelder bei Hits vermeiden. WaterAsset integriert; monotone Bereichsumsetzung erhält Konturreihenfolge/Löcher. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB statt 0,19–60 MB Gesamtkoordinaten. Weitere Generatoren trennen fertige Rohlinge von Cursor/Quelllayout; gemeinsamer Vertrag aus 2188.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
-   Renderer teilt ungebundene Maps je Device/Transfer/Sampler und Materialpakete ([Modell](../test/experiments/material_image_residency.py)). Native Bilder speichern die Basis einmal und optionale untere Mips für Linearwerte, sRGB-Farbe oder Normalmomente; keine GPU-Handles. Producer bereitet vor Publikation vor, Treffer uploaden direkt. Eigene Codec-/Produktversion; bildlose Assets und Captures bleiben gültig. Rosenheim-Sampling: Mainthread 4,63 → 2,96 s; beobachtete Mip-/Upload-Leaves 831 → 4 ms, kein GPU-Zeitnachweis.
+   Renderer teilt ungebundene Maps je Device/Transfer/Sampler und Materialpakete ([Modell](../test/experiments/material_image_residency.py)). Native Bilder halten Basis und optionale Mips für Linearwerte, sRGB oder Normalmomente; keine GPU-Handles. Producer bereitet vor Publikation vor, Treffer uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
 4. P1: [Paketmodell](../test/experiments/impostor_ready_payload.py): Capture 20 MiB, Flat-Karten 6 MiB; [Mip-Modell](../test/experiments/prepared_image_mips.py): +2 MiB untere Stufen, keine Basisduplikation.
-   Native GeometryAsset-Karten umgehen Coverage-/Farbvorbereitung bei Hits; Atlas-Rohlinge bleiben.
-   Miss/Defekt repariert nur Karten; mit Mips ca. −60 % entpackte Bytes gegenüber Captures. Das 16²-Fixture trägt 4.297 B Basis + 1.020 B Mips + 15 B Schema statt 5.268 B Capture; kein allgemeiner RAM-/Framegewinn.
+   Native GeometryAsset-Karten umgehen Coverage-/Farbvorbereitung; Atlas-Rohlinge bleiben. Miss/Defekt repariert nur Karten; mit Mips ca. −60 % entpackte Bytes gegenüber Captures, kein allgemeiner RAM-/Framegewinn.
    Atlas-Rezept bindet Artdefinition, Größe/Blicke und getrennte Generator-/Capture-Versionen; Änderungen an Wachstum oder Capture-Semantik erhöhen die jeweilige Version. Codecs prüfen eigene Formate. Fachfremde Engine-/Buildänderungen invalidieren nicht.
 5. P1: SSD dauerhaft begrenzen: Asset-DBs nach Aufbau/Retention 1,82 statt 6,02 GiB; zehn Offline-Place-PNGs SHA-256-identisch. Verwendete Assets, Paketmitglieder und Eltern erhalten.
    Automatische budgetierte Verdrängung fehlt; Nutzdaten bleiben opaque, aktive Assets/Quellen erhalten. Warm <10 s; Gebäudebedarf vor Decode.
@@ -106,12 +106,12 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Wasser: zehn bildgleiche Miss-/Hit-Paare und ein weiterer frischer Hit ohne Impostor-Neubau;
-warm 1,83–5,50 s, p99 0,61–8,13 ms. Erstaufbau neuer Regionen 18,69–68,67 s;
-kalte Startspitzen CP 13,05/Koerbersee 25,10 ms bleiben bei 2340. Kein OS-RAM-/GPU-Zeit-Gewinnbeweis.
-Wasserdecoder und Abfragen sind quellunabhängig; Regionsschlüssel und übrige Quellenarbeit noch nicht.
-Volles Lint 6d462324c: Exit 2, fehlendes gepinntes Khronos-PNG und falscher Wasser-Headerguard;
-Headerguard korrigiert, neuer vollständiger Lauf ausstehend.
+Wasser und Gebäude-Basis: zehn bildgleiche Migration-/Hit-Paare ohne Impostor-Neubau;
+Basis-Treffer warm 1,84–3,76 s, p99 1,60–4,57 ms. Alle Bilder geöffnet; kein neuer Bildgewinn.
+Frühere kalte Startspitzen CP 13,05/Koerbersee 25,10 ms bleiben bei 2340; günstige Fenster schließen sie nicht.
+Wasserabfragen und Gebäude-LOD-Treffer umgehen ihre Quellprodukte; Regionsschlüssel/übrige Quellenarbeit noch nicht.
+Volles Lint b966ca9fa: Exit 2 ausschließlich wegen fehlendem gepinntem Khronos-PNG;
+361 Tidy-Units, 32 Claims, 48 öffentliche Header und Shaderverträge sauber. Neue Basis: Format, 38 Fälle und 41 fokussierte Tidy-Units grün; Integrations-Lint ausstehend.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

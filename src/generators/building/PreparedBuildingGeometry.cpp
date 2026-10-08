@@ -56,10 +56,25 @@ void RestoreCoordinates(BakedTile &tile, const PreparedStructureTile &base) {
     }
   }
 }
+
+void RestoreCoordinates(BakedTile &tile, const PreparedBuildingBasis &basis) {
+  tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
+  tile.Coordinates->Origin = basis.Origin;
+  tile.Coordinates->Points = basis.PointsLatLon;
+  tile.Coordinates->Rings = basis.Holes;
+  if (basis.Origin.Provenance) {
+    for (const auto &source : basis.Sources) {
+      if (!tile.RequestedCell || source.Cell == *tile.RequestedCell) {
+        tile.Coordinates->Sources.push_back(source.Id);
+      }
+    }
+  }
 }
 
-std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAssets::LoadGeometry(
-    const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view) {
+}
+
+std::expected<std::optional<BakedTile>, StructureBakeError>
+PreparedBuildingAssets::LoadGeometryArtifact(const std::string &baseKey, const RawTile &view) {
   const auto key = GeometryKey(baseKey, view);
   if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
   const std::scoped_lock lock(Lock_);
@@ -68,7 +83,6 @@ std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAsse
   if (*loaded) {
     auto tile = DecodeStructureArtifact((**loaded).Bytes(), key, 0);
     if (tile) {
-      RestoreCoordinates(*tile, base);
       ++GeometryHits_;
       GeometryReadBytes_ += (**loaded).Bytes().size();
       return std::move(tile);
@@ -76,6 +90,20 @@ std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAsse
   }
   ++GeometryMisses_;
   return std::optional<BakedTile>{};
+}
+
+std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAssets::LoadGeometry(
+    const std::string &baseKey, const PreparedStructureTile &base, const RawTile &view) {
+  auto loaded = LoadGeometryArtifact(baseKey, view);
+  if (loaded && *loaded) { RestoreCoordinates(**loaded, base); }
+  return loaded;
+}
+
+std::expected<std::optional<BakedTile>, StructureBakeError> PreparedBuildingAssets::LoadGeometry(
+    const std::string &baseKey, const PreparedBuildingBasis &basis, const RawTile &view) {
+  auto loaded = LoadGeometryArtifact(baseKey, view);
+  if (loaded && *loaded) { RestoreCoordinates(**loaded, basis); }
+  return loaded;
 }
 
 std::expected<void, StructureBakeError>

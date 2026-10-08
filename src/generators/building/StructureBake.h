@@ -41,6 +41,7 @@ enum class StructureBakeErrorKind {
   ChangedCell,
   InvalidHeightInput,
   HeightInputCapacityExceeded,
+  NativeInputsMissing,
   ArtifactFailure,
   ArtifactCapacityExceeded,
   ArtifactInvalidProduct
@@ -64,6 +65,8 @@ using StructureBakeError = std::variant<StructureMeshError, ClusterError, Struct
     case StructureBakeErrorKind::InvalidHeightInput: return "structure terrain input is invalid";
     case StructureBakeErrorKind::HeightInputCapacityExceeded:
       return "structure terrain preparation exceeds its byte budget";
+    case StructureBakeErrorKind::NativeInputsMissing:
+      return "native building plans need source inputs";
     case StructureBakeErrorKind::ArtifactFailure: return "structure artifact cache failed";
     case StructureBakeErrorKind::ArtifactCapacityExceeded:
       return "structure artifact exceeds byte budget";

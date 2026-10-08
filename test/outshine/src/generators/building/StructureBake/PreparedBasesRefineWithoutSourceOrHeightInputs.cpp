@@ -23,6 +23,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <variant>
 
 namespace {
 using namespace outshine;
@@ -64,6 +65,58 @@ std::shared_ptr<const Ground::HeightField> Heights() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes = {125.125f, 131.25f, 142.5f, 149.75f};
   return Ground::HeightField::Of(0, {block});
+}
+
+void NativeLODWithoutPlans(const std::filesystem::path &root,
+                           const std::string &key,
+                           const std::shared_ptr<PreparedBuildingAssets> &cache,
+                           const RawTile &view,
+                           const BakedTile &reference) {
+  const auto basis = cache->LoadBasis(key);
+  CHECK(basis && *basis && (*basis)->Sources.size() == 3,
+        "native basis is complete without plan or surface arrays");
+  if (!basis || !*basis) { return; }
+  auto database = AssetCache::Open((root / "assets.sqlite").string());
+  CHECK(database && (*database)->Remove(key), "fixture removes the complete plan product");
+  if (!database) { return; }
+  const auto before = cache->Costs();
+  BuildingMesh mesher;
+  Tasks pool(1);
+  StructureBuildTask task(0,
+                          *basis,
+                          std::make_unique<RawTile>(view),
+                          std::make_unique<StructureBuildTask::Output>(),
+                          mesher.Scratch());
+  task.UseNativeAssets(cache, key);
+  task.Start(pool, mesher);
+  task.Join(pool);
+  CHECK(task.Result().Status && task.Result().Tile && task.Result().CacheHit &&
+            task.Result().Tile->Digest == reference.Digest &&
+            task.Result().Tile->Prints == reference.Prints &&
+            task.Result().Tile->Coordinates->Points == (*basis)->PointsLatLon &&
+            task.PreparedBase() == nullptr && cache->Costs().ReadBytes == before.ReadBytes,
+        "a cached LOD and its owned contacts load with no full plan product or source inputs");
+  RawTile moved = view;
+  moved.Eye.LongitudeDeg += 0.01;
+  StructureBuildTask miss(0,
+                          *basis,
+                          std::make_unique<RawTile>(moved),
+                          std::make_unique<StructureBuildTask::Output>(),
+                          mesher.Scratch());
+  miss.UseNativeAssets(cache, key);
+  miss.Start(pool, mesher);
+  miss.Join(pool);
+  const auto *kind = miss.Result().Status
+                         ? nullptr
+                         : std::get_if<StructureBakeErrorKind>(&miss.Result().Status.error());
+  CHECK(kind && *kind == StructureBakeErrorKind::NativeInputsMissing && !miss.Result().Tile,
+        "a missing required plan requests source preparation instead of publishing empty geometry");
+  const auto again = cache->LoadBasis(key);
+  CHECK(again && !*again, "invalidated basis returns to the generator miss path");
+  const std::atomic_bool stopping{false};
+  const auto generated = cache->Generate(key, Inputs(), *Heights(), stopping);
+  CHECK(generated && *generated && cache->LoadBasis(key),
+        "the same miss can regenerate complete inputs and restore native delivery");
 }
 
 void NativeCache(const std::filesystem::path &root) {
@@ -123,6 +176,7 @@ void NativeCache(const std::filesystem::path &root) {
             (*restarted)->Key(tile, 17, shape, 2000) != key &&
             (*restarted)->Key(tile, 17, shape, 1000, "new-vector-bytes") != key,
         "terrain shaping, street inputs, payload and scale bind separate base keys");
+  NativeLODWithoutPlans(root, key, *restarted, view, *geometry);
 }
 
 std::optional<PreparedStructureTile> CachedBase(const PreparedStructureTile &base) {
