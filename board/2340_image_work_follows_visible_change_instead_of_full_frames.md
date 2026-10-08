@@ -34,6 +34,19 @@ oder höhere Grenzen entfernen. Kein Beleg für generell langsames Pixel-Shading
 GPU-Stufen bleiben ungemessen. 2336/2280 besitzen Ladebedarf, 2339 Bereitschaft/Peaks.
 Pixelbudget-Verfahren bleiben für reichere Materialien/Lichter/Wolken erforderlich.
 
+## GLimpSW-Abgleich
+[GLimpSW 2f91560](https://github.com/dubiousconst282/GLimpSW/tree/2f91560): frühe Blockauswahl,
+gepackte SoA-Positionen, begrenzte Batches und Attribute erst nach Sichtbarkeit auswerten.
+AVX512-Kosten sind kein ARM-/GPU-Beleg. Visibility-Resolve lohnt dort nicht in jeder Szene;
+Outshine vergleicht ihn mit seinem vorhandenen Forward-/Depth-Pfad, statt pauschal zu migrieren.
+Konkreter Befund: `depthPyramid.comp` liest für vier Ebenen viermal die Originaltiefe.
+[Reduktionsmodell](../test/experiments/depth_pyramid_reduction.py): bei 1280×720 derzeit
+3.686.400 Abfragen; verkettete Minima 1.224.000 Reads; 16×16-Gruppen 921.600 Texturabfragen
+plus Shared-Memory-Reduktion. Rand-Clamp, Reverse-Z und vier Ebenen unverändert halten.
+Das sind logische Zugriffe, keine gemessenen DRAM-Bytes/GPU-Zeiten; native Stufenmessung entscheidet.
+GLimpSWs Seiten-/Probe-Updates ergänzen StageCache: regionale Schatten-/Lichtänderung statt
+Vollinvalidierung; Sonnenrichtung, bewegte Schattenwerfer und Disocclusion bleiben wirksam.
+
 ## Besitzer und Umsetzung
 Kandidaten zuerst mit echten Eingaben in kleinen Python-Experimenten vergleichen, anschließend
 den besten gemessenen Ansatz nativ integrieren. Bild-/Spielwirkung bestimmt die zulässige Approximation.
