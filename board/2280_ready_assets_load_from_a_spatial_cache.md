@@ -110,7 +110,7 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Terrain/Mip-Integration: zehn bildgleiche Miss-/Hit-Paare, warme Regionshits ohne Deformation-/Impostor-Misses/Writes; Laden 1,80–4,34 s. Startspitzen bleiben bei 2340. Stand a558267e7: Format/359 Tidy/32 Claims/48 Header/481 Shader grün; volles Lint Exit 2 (fehlendes Khronos-PNG, Cleanup-Fixture-Rennen).
+Terrain/Mip-Integration: zehn bildgleiche Miss-/Hit-Paare, warme Regionshits ohne Deformation-/Impostor-Misses/Writes; Laden 1,80–4,34 s. Startspitzen bleiben bei 2340. Stand 888692524: Format/359 Tidy/32 Claims/48 Header/481 Shader/9 Compute-Verträge und Cleanup grün; volles Lint Exit 2 ausschließlich wegen fehlendem gepinntem Khronos-PNG. Quellenunabhängiges Wasser ist noch nicht integriert.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
