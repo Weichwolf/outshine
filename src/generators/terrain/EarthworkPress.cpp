@@ -151,18 +151,19 @@ bool HasSoftApron(const EarthworkStamp &stamp) {
 }
 
 double ApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) {
-  return stamp.Kind == EarthworkKind::Corridor
+  return stamp.Kind == EarthworkKind::Corridor ||
+                 (stamp.Kind == EarthworkKind::Pad && stamp.ApronM > 0.0)
              ? std::hypot(stamp.ApronM,
                           kSmoothstepPeakDerivative *
                               std::min(std::abs(stamp.YieldM), mostEarthworkM) * kBatterRun)
              : stamp.ApronM;
 }
 
-CellGrid BucketOver(std::span<const EarthworkStamp> these, double mostEarthworkM) {
+CellGrid BucketOver(std::span<const EarthworkStamp> these, std::span<const double> widthsM) {
   CellGrid out({.CellM = kBucketM});
   for (size_t at = 0; at < these.size(); ++at) {
     const EarthworkStamp &one = these[at];
-    const double apronM = ApronWidthM(one, mostEarthworkM);
+    const double apronM = widthsM[at];
     out.Spread({.EastM = one.LowE - apronM, .NorthM = one.LowN - apronM},
                {.EastM = one.HighE + apronM, .NorthM = one.HighN + apronM},
                static_cast<uint32_t>(at));
@@ -298,10 +299,15 @@ struct ApronBlend {
   uint32_t Which = 0;
 };
 
+struct ApronLimits {
+  double WidthM;
+  double MostCorrectionM;
+};
+
 void BidSurface(const EarthworkStamp &held,
                 Bid bid,
                 double wasM,
-                double mostEarthworkM,
+                ApronLimits limits,
                 CoveredNodes covered,
                 Bids *bids,
                 ApronBlend *aprons) {
@@ -312,11 +318,11 @@ void BidSurface(const EarthworkStamp &held,
     BidsTerrain(held, bid, bids);
     return;
   }
-  const double apronM = ApronWidthM(held, mostEarthworkM);
-  if (bid.OutsideM >= apronM) { return; }
-  const double fade = ProfiledCorridor::Smoothstep(bid.OutsideM / apronM);
+  if (bid.OutsideM >= limits.WidthM) { return; }
+  const double fade = ProfiledCorridor::Smoothstep(bid.OutsideM / limits.WidthM);
   const double weight = (1.0 - fade) / fade;
-  double correctionM = std::clamp(bid.WantsM - wasM, -mostEarthworkM, mostEarthworkM);
+  double correctionM =
+      std::clamp(bid.WantsM - wasM, -limits.MostCorrectionM, limits.MostCorrectionM);
   if (!held.Fills) { correctionM = std::min(correctionM, 0.0); }
   aprons->Weight += weight;
   aprons->CorrectionM += weight * correctionM;
@@ -357,9 +363,35 @@ struct NearestProfile {
 
 struct PressWorkspace {
   std::vector<NearestProfile> Profiles;
+  std::vector<double> WidthsM;
+  std::vector<double> ReliefM;
+
+  PressWorkspace(std::span<const EarthworkStamp> stamps, double mostEarthworkM) {
+    WidthsM.reserve(stamps.size());
+    ReliefM.reserve(stamps.size());
+    for (const auto &stamp : stamps) {
+      WidthsM.push_back(ApronWidthM(stamp, mostEarthworkM));
+      ReliefM.push_back(std::min(std::abs(stamp.YieldM), mostEarthworkM));
+    }
+  }
+
+  bool PlanAprons(std::span<const EarthworkStamp> stamps, double mostEarthworkM) {
+    bool changed = false;
+    for (size_t which = 0; which < stamps.size(); ++which) {
+      const auto &stamp = stamps[which];
+      if (stamp.Kind != EarthworkKind::Pad || stamp.ApronM <= 0.0) { continue; }
+      const double widthM = std::hypot(stamp.ApronM,
+                                       kSmoothstepPeakDerivative *
+                                           std::min(ReliefM[which], mostEarthworkM) * kBatterRun);
+      changed = changed || widthM != WidthsM[which];
+      WidthsM[which] = widthM;
+    }
+    return changed;
+  }
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return Profiles.capacity() * sizeof(NearestProfile);
+    return Profiles.capacity() * sizeof(NearestProfile) +
+           (WidthsM.capacity() + ReliefM.capacity()) * sizeof(double);
   }
 };
 
@@ -372,7 +404,7 @@ void ProfilesAt(std::span<const EarthworkStamp> these,
                 std::span<const uint32_t> over,
                 std::span<const uint8_t> structures,
                 EastNorth at,
-                double mostEarthworkM,
+                std::span<const double> widthsM,
                 std::vector<NearestProfile> &profiles) {
   profiles.clear();
   for (const uint32_t which : over) {
@@ -380,7 +412,7 @@ void ProfilesAt(std::span<const EarthworkStamp> these,
     const EarthworkStamp &held = these[which];
     const ProfiledCorridorSpan *profile = ProfileOf(held);
     if (profile == nullptr) { continue; }
-    const double apronM = ApronWidthM(held, mostEarthworkM);
+    const double apronM = widthsM[which];
     if (at.EastM < held.LowE - apronM || at.EastM > held.HighE + apronM ||
         at.NorthM < held.LowN - apronM || at.NorthM > held.HighN + apronM) {
       continue;
@@ -454,7 +486,7 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
   for (const uint32_t which : over) {
     if (!structures.empty() && structures[which] != 0u) { continue; }
     const EarthworkStamp &held = these[which];
-    const double apronM = ApronWidthM(held, mostEarthworkM);
+    const double apronM = workspace.WidthsM[which];
     if (at.EastM < held.LowE - apronM || at.EastM > held.HighE + apronM ||
         at.NorthM < held.LowN - apronM || at.NorthM > held.HighN + apronM || held.Profile) {
       continue;
@@ -464,17 +496,23 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
     if (held.Kind == EarthworkKind::Basin) {
       BidsBasin(held, bid, &bids);
     } else {
-      BidSurface(held, bid, wasM, mostEarthworkM, covered, &bids, &aprons);
+      BidSurface(held,
+                 bid,
+                 wasM,
+                 {.WidthM = apronM, .MostCorrectionM = mostEarthworkM},
+                 covered,
+                 &bids,
+                 &aprons);
     }
   }
-  ProfilesAt(these, over, structures, at, mostEarthworkM, workspace.Profiles);
+  ProfilesAt(these, over, structures, at, workspace.WidthsM, workspace.Profiles);
   for (const auto &profile : workspace.Profiles) {
     BidSurface(these[profile.Which],
                {.Which = profile.Which,
                 .OutsideM = profile.Offer.OutsideM,
                 .WantsM = ProfileBedAt(these, over, structures, at, profile)},
                wasM,
-               mostEarthworkM,
+               {.WidthM = workspace.WidthsM[profile.Which], .MostCorrectionM = mostEarthworkM},
                covered,
                &bids,
                &aprons);
@@ -489,7 +527,8 @@ void RejectAt(std::span<const EarthworkStamp> these,
               std::span<const double> upM,
               std::span<uint8_t> structures,
               double mostEarthworkM,
-              size_t one) {
+              size_t one,
+              PressWorkspace &workspace) {
   for (const uint32_t which : buckets.At(at[one])) {
     const EarthworkStamp &stamp = these[which];
     double outsideM = OutsideRingM(stamp, at[one]);
@@ -499,6 +538,11 @@ void RejectAt(std::span<const EarthworkStamp> these,
       if (!offered) { continue; }
       outsideM = offered->OutsideM;
       bedM = offered->BedM;
+    }
+    if (stamp.Kind == EarthworkKind::Pad && outsideM <= 0.0) {
+      const double reliefM =
+          stamp.Fills ? std::abs(bedM - upM[one]) : std::max(upM[one] - bedM, 0.0);
+      workspace.ReliefM[which] = std::max(workspace.ReliefM[which], reliefM);
     }
     if (outsideM > stamp.ApronM) { continue; }
     const double batterM = std::max(0.0, outsideM) * kBatterRise;
@@ -547,28 +591,9 @@ EarthworkPressResult ApplyEarthworkStamps(std::span<const EarthworkStamp> these,
                                           std::span<const EastNorth> at,
                                           std::span<double> upM,
                                           double mostEarthworkM) {
-  EarthworkPressResult told;
-  if (these.empty() || at.size() != upM.size()) { return told; }
-  const auto began = std::chrono::steady_clock::now();
-  const CellGrid buckets = BucketOver(these, mostEarthworkM);
-  const auto bucketed = std::chrono::steady_clock::now();
-  std::vector<uint8_t> structures(these.size(), 0u);
-  PressWorkspace workspace;
-  for (size_t one = 0; one < at.size(); ++one) {
-    RejectAt(these, buckets, at, upM, structures, mostEarthworkM, one);
-  }
-  const auto rejected = std::chrono::steady_clock::now();
-  for (const uint8_t one : structures) { told.Structures += one; }
-  told.DecidedBy.assign(at.size(), kNoStamp);
-  for (size_t one = 0; one < at.size(); ++one) {
-    ApplyAt(these, buckets, at, upM, structures, mostEarthworkM, told, one, workspace);
-  }
-  told.Refused = std::move(structures);
-  const auto applied = std::chrono::steady_clock::now();
-  told.BucketMs = std::chrono::duration<double, std::milli>(bucketed - began).count();
-  told.RejectMs = std::chrono::duration<double, std::milli>(rejected - bucketed).count();
-  told.ApplyMs = std::chrono::duration<double, std::milli>(applied - rejected).count();
-  return told;
+  EarthworkPressJob job(these, at, upM, mostEarthworkM);
+  while (!job.Advance(std::max(at.size(), size_t{1}))) {}
+  return job.Take();
 }
 
 struct EarthworkPressJob::State {
@@ -579,9 +604,9 @@ struct EarthworkPressJob::State {
   std::span<double> UpM;
   double MostEarthworkM;
   std::chrono::steady_clock::time_point Began = std::chrono::steady_clock::now();
+  PressWorkspace Workspace;
   CellGrid Buckets;
   std::vector<uint8_t> Structures;
-  PressWorkspace Workspace;
   EarthworkPressResult Result;
   size_t Next = 0;
   Phase Current = Phase::Reject;
@@ -594,7 +619,8 @@ struct EarthworkPressJob::State {
         At(at),
         UpM(upM),
         MostEarthworkM(mostEarthworkM),
-        Buckets(BucketOver(these, mostEarthworkM)),
+        Workspace(these, mostEarthworkM),
+        Buckets(BucketOver(these, Workspace.WidthsM)),
         Structures(these.size(), 0u) {
     if (these.empty() || at.size() != upM.size()) {
       Current = Phase::Done;
@@ -637,13 +663,21 @@ bool EarthworkPressJob::Advance(size_t pointsMost) {
                state.UpM,
                state.Structures,
                state.MostEarthworkM,
-               state.Next);
+               state.Next,
+               state.Workspace);
     }
     const double elapsed =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     state.Result.RejectMs += elapsed;
     state.Result.LongestRejectMs = std::max(state.Result.LongestRejectMs, elapsed);
     if (state.Next < state.At.size()) { return false; }
+    const auto planning = std::chrono::steady_clock::now();
+    if (state.Workspace.PlanAprons(state.These, state.MostEarthworkM)) {
+      state.Buckets = BucketOver(state.These, state.Workspace.WidthsM);
+    }
+    state.Result.BucketMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - planning)
+            .count();
     for (const uint8_t rejected : state.Structures) { state.Result.Structures += rejected; }
     state.Next = 0;
     state.Current = State::Phase::InitializeDecisions;

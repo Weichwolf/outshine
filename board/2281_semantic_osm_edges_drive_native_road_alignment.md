@@ -60,10 +60,10 @@ Eine waagerechte Brückenplatte am höchsten DEM-Punkt hebt Feldkirchs tiefere A
 unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erforderlichem
 Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbaus.
 Knoten und Spannen teilen lokale Wegstationen; beide Endkürzungen gemeinsam begrenzen.
-Nächste Lieferung: Knotenhöhen/C1-Profil gemeinsam fitten; Fundamentwirkung aus dem tatsächlichen
-Gelände-/Kontakthöhenbereich planen und bei hohen Unterschieden passende Gründung vorsehen.
-Quellen-/LOD-Nähte sind geschlossen; gemeinsame Höhen liegen auf Float-Präzision.
-Ein Fundament schneidet bis 17,4 m bei 6 m Auslauf; tatsächlichen Höhenbereich berücksichtigen.
+Nächste Lieferung: deformiertes Nahterrain passend verfeinern und Knotenhöhen/C1-Profile fitten;
+bei hohen Unterschieden passende Gründung vorsehen. Fundamentausläufe werden aus Quellhöhen
+im physischen Kern geplant, bevor Boden verändert wird; breitere Ausläufe ersetzen keine Verfeinerung.
+Deklarierter Bedarf bleibt Mindestwert; Nullauslauf erhält ausdrückliche harte Kontakte.
 Gleiche Kanten nutzen deterministisch die feinere Quelle; gemeinsame Ecken folgen der tatsächlich
 angrenzenden gröbsten Mesh-Kante. Abdeckende Vorfahren dürfen innere Kanten nicht verändern.
 Terrain-Auswahl berücksichtigt bislang Roh-DEM und deklarierte Fahrstrecken, keine Place-Kontakte.
