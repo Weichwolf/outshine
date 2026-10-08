@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -20,6 +20,14 @@ Echte GPU-Passzeiten bleiben offen; keine Gleichsetzung mit Fence-Warten.
 Rosenheim, gleiches 500-Hz-Sampling: fertige Mip-Karten senken beobachtete Mainthread-CPU
 von 4,63 auf 2,96 s und Mip-/Upload-Leaves von 831 auf 4 ms; Laden 3,72 → 2,10 s, gleiche PNGs.
 Ein Vorher/Nachher-Paar, kein GPU-Zeit- oder RAM-Gewinnbeweis; 2340 besitzt wechselnde Startspitzen.
+Rosenheim-Sampling enthält zusätzlich 77 ms in `MvtLayer::HeapBytes`: unveränderte Stringkapazitäten
+werden für Berichte wiederholt durchlaufen. [Modell](../test/experiments/osm_heap_accounting.py):
+16 gecachte MVTs/14.593 Strings, 200 Abfragen: 2.918.600 → 14.593 Stringbesuche.
+ParsedTile besitzt die einmal erfasste Layer-Kapazität; Ersetzen/Verdrängen bewegt die Ladung
+mit dem unveränderten Layer. Native Tests erhalten dieselbe Kapazitätsrechnung; OS-RSS bleibt separat.
+Frisches Vorher/Nachher-Sampling: MVT-/OSM-Speicherbericht-Leaves 124,54 → 24,50 ms;
+keine MVT-Heap-Samples danach. Mainthread 3,079 → 3,045 s, Laden 2,190 → 2,159 s,
+ein Paar ohne belastbaren Gesamtgewinn; Bild/Provider-/Produktarbeit unverändert.
 
 ## Kostenreview und konkrete Messlücken
 [2280](2280_ready_assets_load_from_a_spatial_cache.md) hält die aktuelle Place-Kostentabelle;
@@ -39,8 +47,8 @@ Kein neuer Profiling-Großumbau: folgende Zähler mit diesen P0-Integrationen er
 - Frame: stabiles Fenster und Ressourcenbereitschaft/erste Einreichungen getrennt ausweisen;
   Wien hat 27,87 ms Fence-Warten im schlechtesten Frame, aber keine direkte GPU-Passzeit.
 - Fehlende Metrik als unbekannt kennzeichnen; heutiger CostReport-Helper liefert sonst Null.
-Diagnostik kostet gemessen etwa 12–13 ms je gesamtem Lauf, einzelne Veröffentlichung bis 0,30 ms;
-kein aktueller Hauptengpass. Eltern-/Kindzeiten und asynchrone Arbeit nicht addieren.
+Bisher gemessene Ledger-/Ausgabekosten: 12–13 ms/Lauf, Veröffentlichung bis 0,30 ms.
+Diese Messung umfasst wiederholte Speicher-Scans nicht vollständig; deren Kosten separat erfassen. Eltern-/Kindzeiten und asynchrone Arbeit nicht addieren.
 Offline-Läufe erlauben keine Aussage über API-Limits/Bandbreite. Kalte Netzwerk-Batches und
 Cachetreffer mit derselben Hierarchie getrennt messen, bevor ein Anbieter als Engpass gilt.
 

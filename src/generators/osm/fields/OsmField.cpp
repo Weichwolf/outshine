@@ -40,6 +40,14 @@ namespace {
 
 using VectorLayers = std::vector<std::optional<MvtLayer>>;
 
+size_t LayerHeapBytes(const VectorLayers &layers) {
+  size_t bytes = 0;
+  for (const auto &layer : layers) {
+    if (layer) { bytes += layer->HeapBytes(); }
+  }
+  return bytes;
+}
+
 using Clock = std::chrono::steady_clock;
 
 double ElapsedMs(Clock::time_point began) {
@@ -357,6 +365,7 @@ std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &t
     if (layer) { added += static_cast<int>(layer->Features().size()); }
   }
   ParsedTiles_.push_back({.At = at,
+                          .LayerBytes = LayerHeapBytes(*layers),
                           .Layers = std::move(*layers),
                           .Source = {.Kind = Data::DataKind::VectorMap,
                                      .Tile = {.Zoom = Zoom_,
@@ -446,6 +455,7 @@ OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
     return std::unexpected(layers.error());
   }
   ParsedTile parsed{.At = {.X = tx, .Y = ty},
+                    .LayerBytes = LayerHeapBytes(*layers),
                     .Layers = std::move(*layers),
                     .Source = {.From = Data::TileSourceIdentity::Origin::Direct,
                                .Kind = Data::DataKind::VectorMap,
@@ -658,9 +668,7 @@ size_t OsmField::HeapBytes() const {
     parsed += CapacityBytes(tile.Layers);
     parsed += tile.Source.SourceId.capacity() + tile.Source.Revision.capacity() +
               tile.InputDigest.capacity();
-    for (const auto &layer : tile.Layers) {
-      if (layer) { parsed += layer->HeapBytes(); }
-    }
+    parsed += tile.LayerBytes;
   }
 
   const size_t nodes = (KeyIndex_.size() + StringIndex_.size()) *

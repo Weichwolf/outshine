@@ -213,6 +213,7 @@ private:
 
   struct ParsedTile {
     TileAt At;
+    size_t LayerBytes = 0;
     std::vector<std::optional<MvtLayer>> Layers;
     Data::TileSourceIdentity Source;
     std::string InputDigest;
