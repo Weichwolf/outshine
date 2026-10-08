@@ -110,8 +110,8 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Integration bdff8b507: Format/Tidy (354 Units)/32 Claims/48 öffentliche Header/Shader grün;
-voller Lauf Exit 2: 263/264 Referenz-PNGs fehlen. Render-p99 bleibt separat offen (2340).
+Integration 2eae16df6: Format/Tidy (355 Units)/32 Claims/48 öffentliche Header/Shader grün;
+voller Lauf Exit 2: gepinnte Referenz-PNGs fehlen. Tokyos 10-ms-Render-p99 bleibt rot (2340).
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

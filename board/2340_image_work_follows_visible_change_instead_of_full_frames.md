@@ -21,10 +21,11 @@ GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne
 2336 besitzt Weltrepräsentation/LOD, 2155 Licht, 2171 Materialien; dieser WI besitzt Arbeitsauswahl.
 
 ## Priorisierung nach Kostenreview
-Aktuelle Offline-Fenster (2280): CP/Tokyo 2,59/3,62 ms p99 bei 1280×720/60/360°;
-Wien nach Prototyp-Neubau 29,23 ms, davon schlechtester Frame 27,87 ms Fence-Warten.
-Kein Beleg für generell langsames Pixel-Shading. Zuerst 2336/2280s unnötigen Ladebedarf
-und 2339s Bereitschaft-/Peakursachen beheben; keine Renderer-Neufassung ohne direkten Passbefund.
+Stand 2eae16df6: öffentliche Offline-Gates Feldkirch/Wien/CP in beiden Builds grün;
+Tokyo 12,15/14,16 ms p99 bleibt über 10 ms. p50 liegt dort bei 1,57/1,95 ms;
+schlechtester Frame jeweils Nr. 2. Frühe Bereitschaft/Fences direkt messen, keine
+Ausreißer durch Warmup oder höhere Grenzen entfernen. Kein Beleg für generell langsames
+Pixel-Shading; GPU-Stufen bleiben ungemessen. 2336/2280 besitzen Ladebedarf, 2339 Bereitschaft/Peaks.
 Pixelbudget-Verfahren bleiben für reichere Materialien/Lichter/Wolken erforderlich.
 
 ## Besitzer und Umsetzung
