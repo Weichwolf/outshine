@@ -69,13 +69,8 @@ int main() {
       std::array<double, 1> heights{0};
       const auto result = ApplyEarthworkStamps(stamps, point, heights, kMostEarthworkM);
       CHECK(result.Structures == 0, "all proposed contacts fit the earthwork bound");
-      if (neighbor == 1) {
-        CHECK(std::abs(heights[0] - 10) < 0.00001,
-              "a neighboring span of the same road cannot lower its core contact");
-      } else {
-        CHECK(heights[0] > 0 && heights[0] < 9,
-              "other corridors retain their terrain constraints in either input order");
-      }
+      CHECK(std::abs(heights[0] - 10) < 0.00001,
+            "outside aprons cannot lower a physical road contact regardless of ownership");
     }
     EarthworkStamp ceiling = Road(-20, 20, 0);
     ceiling.Kind = EarthworkKind::Clearance;

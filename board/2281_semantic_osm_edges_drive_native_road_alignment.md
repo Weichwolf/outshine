@@ -40,8 +40,8 @@ Straßen-Ausläufe blenden jetzt ohne den bisherigen Sprung zum Quellgelände au
 Polygonale Straßenkontakte erfassen Schnitt und Auftrag an beiden Schultern;
 die größte Achsen-/Randabweichung bestimmt den geplanten Kontakt und seine Auslaufbreite.
 Polygonale Spannen tragen eine gemeinsame, im Kontaktauftrag gültige Wegkennung.
-Eigene Ausläufe begrenzen ihren Auftrag nicht als Freiraumdecke, auch außerhalb des Kerns;
-Kontakte anderer Wege, Einzelfundamente und echte Brückenfreiräume bleiben wirksam.
+Physische Straßen-/Fundamentkerne haben Vorrang vor sämtlichen Außenböschungen;
+fremde Kerne und echte Brückenfreiräume bleiben wirksam, Ausläufe sind keine Freiraumdecken.
 Polygonale Ausläufe verwenden den Höhenbereich des tatsächlichen Kontakts; Längsneigung
 nicht unbegrenzt über Endpunkte extrapolieren. Kennung in Terrain-Key und
 Kandidatendigest; an gemeinsamen Ringkanten numerische Distanz bis 1 µm als Kontakt behandeln.
@@ -53,8 +53,8 @@ Geschlossene Linien erzeugen ausschließlich ihr Straßenband und örtliche Bös
 eingeschlossene Hügel/Senken bleiben erhalten. Bodenkreuzungen übernehmen fortgepflanzte
 Rampen-Endhöhen. Tatsächlich verbundene Ground-Ways derselben Ebene und ihre Knoten teilen
 eine Terrain-Kontaktkennung; polygonale Ausläufe werden mit Quellboden gewichtet gemischt.
-Fahrbahnkontakte haben Vorrang vor eigenen Ausläufen, fremde Kontakte/Freiräume bleiben;
-`earthwork_contact_overlap.py` vergleicht den Schnittvorrang.
+Alle Außenböschungen mischen gemeinsam mit Quellboden: quintisches `f`, Gewicht `(1-f)/f`.
+Cut-only trägt keine positive Korrektur bei; Becken bleiben gegen Außenauftrag geschützt.
 `CorridorContacts` bildet gepackte Nachbarschaften und lineare BFS aus belegten Verbindungen.
 Eine waagerechte Brückenplatte am höchsten DEM-Punkt hebt Feldkirchs tiefere Anschlüsse
 unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erforderlichem
@@ -62,8 +62,8 @@ Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbau
 Knoten und Spannen teilen lokale Wegstationen; beide Endkürzungen gemeinsam begrenzen.
 Nächste Lieferung: Knotenhöhen/C1-Profil gemeinsam fitten; Fundamentwirkung aus dem tatsächlichen
 Gelände-/Kontakthöhenbereich planen und bei hohen Unterschieden passende Gründung vorsehen.
-Quellen-/LOD-Nähte sind geschlossen; gemeinsame Höhen liegen in Feldkirchs Nahbereich auf Float-Präzision.
-Ein Fundament schneidet dagegen bis 17,4 m bei 6 m Auslauf; `YieldM` erfasst nur Sitzhöhe minus Basis.
+Quellen-/LOD-Nähte sind geschlossen; gemeinsame Höhen liegen auf Float-Präzision.
+Ein Fundament schneidet bis 17,4 m bei 6 m Auslauf; tatsächlichen Höhenbereich berücksichtigen.
 Gleiche Kanten nutzen deterministisch die feinere Quelle; gemeinsame Ecken folgen der tatsächlich
 angrenzenden gröbsten Mesh-Kante. Abdeckende Vorfahren dürfen innere Kanten nicht verändern.
 Terrain-Auswahl berücksichtigt bislang Roh-DEM und deklarierte Fahrstrecken, keine Place-Kontakte.
@@ -93,8 +93,8 @@ Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen b
   Bedarf an beiden Fahrbahnrändern für Schnitt und Auftrag erfassen; Profile dürfen eine
   unbekannte Höhendifferenz nicht stillschweigend als Null behandeln.
   Räumliche Kandidaten umfassen den maximal zulässigen Übergang und Höhenbereich. Unzulässige Kontakte vor dem Ausblenden ablehnen;
-  Ausblenden darf die Höhenprüfung nicht verbergen. Überlappende Profilböschungen mischen mit Quellboden,
-  statt beim nächsten Korridor zu springen. Fundamentwirkung bleibt örtlich begrenzt; hohe
+  Ausblenden darf die Höhenprüfung nicht verbergen. Profil-/Polygonböschungen und Fundamente
+  teilen ein Bodenfeld; keine harte Fremdböschung am echten Kontakt. Fundamentwirkung bleibt örtlich begrenzt; hohe
   Geländeunterschiede brauchen passende Gründung/Stützung, keine großräumige Planierung.
   Auslaufbereiche füllen keine Wasserbecken. Native Terrain-/Region-Rezepte
   versionieren, Quellcache erhalten. Keine harte Höhenbegrenzung am Auslaufrand.

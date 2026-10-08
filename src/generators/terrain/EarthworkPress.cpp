@@ -225,6 +225,7 @@ struct Bids {
   double RoofM = kBeyondAnyCoordinate;
   double BasinM = 0.0;
   bool LandHeld = false;
+  bool BasinHeld = false;
   uint32_t LowestBy = 0;
   uint32_t HighestBy = 0;
   uint32_t BasinBy = 0;
@@ -240,12 +241,7 @@ struct Bid {
   uint32_t Which = 0;
   double OutsideM = 0.0;
   double WantsM = 0.0;
-  bool Blended = false;
 };
-
-uint64_t CorridorOf(const EarthworkStamp &stamp) {
-  return stamp.Profile ? stamp.Profile->CorridorKey : stamp.CorridorKey;
-}
 
 double RoadBedAt(const EarthworkStamp &stamp, EastNorth at) {
   const double bedM = stamp.WantsAt(at);
@@ -266,6 +262,7 @@ double RoadBedAt(const EarthworkStamp &stamp, EastNorth at) {
 
 void BidsBasin(const EarthworkStamp &held, Bid bid, Bids *bids) {
   if (bid.OutsideM > 0.0) { return; }
+  bids->BasinHeld = true;
   const double bankAt = bid.WantsM + std::max(0.0, held.ApronM + bid.OutsideM) * kBatterRise;
   if (bankAt < bids->BasinM) {
     bids->BasinM = bankAt;
@@ -273,20 +270,9 @@ void BidsBasin(const EarthworkStamp &held, Bid bid, Bids *bids) {
   }
 }
 
-void BidsTerrain(
-    const EarthworkStamp &held, Bid bid, double wasM, double mostEarthworkM, Bids *bids) {
-  double out = held.Profile || bid.Blended ? 0.0 : std::max(bid.OutsideM, 0.0);
-  if (!held.Profile && !bid.Blended && HasSoftApron(held)) {
-    if (out > 0.0) {
-      bid.WantsM = wasM + std::clamp(bid.WantsM - wasM, -mostEarthworkM, mostEarthworkM);
-      const double apronM = ApronWidthM(held, mostEarthworkM);
-      if (out >= apronM) { return; }
-      bid.WantsM = std::lerp(bid.WantsM, wasM, ProfiledCorridor::Smoothstep(out / apronM));
-      out = 0.0;
-    }
-  } else if (out > held.ApronM) {
-    return;
-  }
+void BidsTerrain(const EarthworkStamp &held, Bid bid, Bids *bids) {
+  const double out = std::max(bid.OutsideM, 0.0);
+  if (out > held.ApronM) { return; }
   bids->LandHeld = bids->LandHeld || (held.Kind != EarthworkKind::Clearance && bid.OutsideM <= 0.0);
   const double cutAt = bid.WantsM + out * kBatterRise;
   if (cutAt < bids->LowestM) {
@@ -305,72 +291,77 @@ void BidsTerrain(
   }
 }
 
+struct ApronBlend {
+  double Weight = 1.0;
+  double CorrectionM = 0.0;
+  double StrongestWeight = 0.0;
+  uint32_t Which = 0;
+};
+
+void BidSurface(const EarthworkStamp &held,
+                Bid bid,
+                double wasM,
+                double mostEarthworkM,
+                CoveredNodes covered,
+                Bids *bids,
+                ApronBlend *aprons) {
+  if (covered.Into != nullptr && bid.OutsideM < 0.0) {
+    covered.Into->push_back({.Point = covered.Point, .Stamp = bid.Which});
+  }
+  if (!HasSoftApron(held) || bid.OutsideM <= 0.0) {
+    BidsTerrain(held, bid, bids);
+    return;
+  }
+  const double apronM = ApronWidthM(held, mostEarthworkM);
+  if (bid.OutsideM >= apronM) { return; }
+  const double fade = ProfiledCorridor::Smoothstep(bid.OutsideM / apronM);
+  const double weight = (1.0 - fade) / fade;
+  double correctionM = std::clamp(bid.WantsM - wasM, -mostEarthworkM, mostEarthworkM);
+  if (!held.Fills) { correctionM = std::min(correctionM, 0.0); }
+  aprons->Weight += weight;
+  aprons->CorrectionM += weight * correctionM;
+  if (weight > aprons->StrongestWeight) {
+    aprons->StrongestWeight = weight;
+    aprons->Which = bid.Which;
+  }
+}
+
+void ResolveAprons(const ApronBlend &aprons, double wasM, Bids *bids) {
+  if (bids->LandHeld) { return; }
+  if (aprons.StrongestWeight > 0.0) {
+    const double wantedM = wasM + aprons.CorrectionM / aprons.Weight;
+    if (wantedM < bids->LowestM) {
+      bids->LowestM = wantedM;
+      bids->LowestBy = aprons.Which;
+    }
+    if (wantedM > bids->HighestM) {
+      bids->HighestM = wantedM;
+      bids->HighestBy = aprons.Which;
+    }
+  }
+  if (bids->BasinM < bids->LowestM) {
+    bids->LowestM = bids->BasinM;
+    bids->LowestBy = bids->BasinBy;
+  }
+  if (bids->BasinHeld && bids->BasinM < bids->RoofM) {
+    bids->RoofM = bids->BasinM;
+    bids->RoofBy = bids->BasinBy;
+  }
+}
+
 struct NearestProfile {
   ProfiledCorridor::Offer Offer;
   uint32_t Which;
   const ProfiledCorridorSpan *Profile;
 };
 
-struct PolygonalCorridorBid {
-  uint64_t CorridorKey = 0;
-  std::optional<Bid> Contact = std::nullopt;
-  Bid Apron{};
-  double Weight = 1.0;
-  double CorrectionM = 0.0;
-  double StrongestWeight = 0.0;
-};
-
 struct PressWorkspace {
   std::vector<NearestProfile> Profiles;
-  std::vector<PolygonalCorridorBid> Polygons;
 
   [[nodiscard]] size_t HeapBytes() const noexcept {
-    return Profiles.capacity() * sizeof(NearestProfile) +
-           Polygons.capacity() * sizeof(PolygonalCorridorBid);
+    return Profiles.capacity() * sizeof(NearestProfile);
   }
 };
-
-void AccumulatePolygonalCorridor(const EarthworkStamp &stamp,
-                                 Bid bid,
-                                 double wasM,
-                                 double mostEarthworkM,
-                                 std::vector<PolygonalCorridorBid> &groups) {
-  const double apronM = ApronWidthM(stamp, mostEarthworkM);
-  if (bid.OutsideM >= apronM && bid.OutsideM > 0) { return; }
-  auto group = std::ranges::find_if(groups, [&stamp](const auto &candidate) {
-    return candidate.CorridorKey == stamp.CorridorKey;
-  });
-  if (group == groups.end()) {
-    groups.push_back({.CorridorKey = stamp.CorridorKey});
-    group = groups.end() - 1;
-  }
-  bid.Blended = true;
-  if (bid.OutsideM <= 0) {
-    if (!group->Contact || bid.WantsM < group->Contact->WantsM) { group->Contact = bid; }
-    return;
-  }
-  const double fade = ProfiledCorridor::Smoothstep(bid.OutsideM / apronM);
-  const double weight = (1.0 - fade) / fade;
-  group->Weight += weight;
-  group->CorrectionM += weight * std::clamp(bid.WantsM - wasM, -mostEarthworkM, mostEarthworkM);
-  if (weight > group->StrongestWeight) {
-    group->StrongestWeight = weight;
-    group->Apron = bid;
-  }
-}
-
-void BidPolygonalCorridors(std::span<const EarthworkStamp> these,
-                           std::span<const PolygonalCorridorBid> groups,
-                           double wasM,
-                           double mostEarthworkM,
-                           Bids *bids) {
-  for (const auto &group : groups) {
-    if (!group.Contact && group.StrongestWeight == 0) { continue; }
-    Bid bid = group.Contact.value_or(group.Apron);
-    if (!group.Contact) { bid.WantsM = wasM + group.CorrectionM / group.Weight; }
-    BidsTerrain(these[bid.Which], bid, wasM, mostEarthworkM, bids);
-  }
-}
 
 const ProfiledCorridorSpan *ProfileOf(const EarthworkStamp &stamp) {
   return stamp.Profile.transform([](const ProfiledCorridorSpan &profile) { return &profile; })
@@ -436,91 +427,6 @@ double ProfileBedAt(std::span<const EarthworkStamp> these,
                    ProfiledCorridor::Smoothstep(fraction));
 }
 
-std::optional<Bid> ProfileBidAt(std::span<const EarthworkStamp> these,
-                                std::span<const uint32_t> over,
-                                std::span<const uint8_t> structures,
-                                EastNorth at,
-                                double wasM,
-                                double mostEarthworkM,
-                                std::vector<NearestProfile> &profiles) {
-  ProfilesAt(these, over, structures, at, mostEarthworkM, profiles);
-  if (profiles.empty()) { return std::nullopt; }
-  const auto selected = std::ranges::min_element(profiles, [](const auto &a, const auto &b) {
-    return a.Offer.OutsideM < b.Offer.OutsideM ||
-           (a.Offer.OutsideM == b.Offer.OutsideM &&
-            ProfiledCorridor::Earlier(*a.Profile, *b.Profile));
-  });
-  if (selected->Offer.OutsideM <= 0.0) {
-    return Bid{.Which = selected->Which,
-               .OutsideM = selected->Offer.OutsideM,
-               .WantsM = ProfileBedAt(these, over, structures, at, *selected)};
-  }
-  double weights = 1.0;
-  double correctionM = 0.0;
-  double greatestWeight = 0.0;
-  uint32_t strongest = selected->Which;
-  for (const auto &profile : profiles) {
-    const double bedM = wasM + std::clamp(ProfileBedAt(these, over, structures, at, profile) - wasM,
-                                          -mostEarthworkM,
-                                          mostEarthworkM);
-    const double apronM = ApronWidthM(these[profile.Which], mostEarthworkM);
-    if (profile.Offer.OutsideM >= apronM) { continue; }
-    const double fade = ProfiledCorridor::Smoothstep(profile.Offer.OutsideM / apronM);
-    const double weight = (1.0 - fade) / fade;
-    weights += weight;
-    correctionM += weight * (bedM - wasM);
-    if (weight > greatestWeight) {
-      greatestWeight = weight;
-      strongest = profile.Which;
-    }
-  }
-  if (greatestWeight == 0.0) { return std::nullopt; }
-  return Bid{.Which = strongest,
-             .OutsideM = selected->Offer.OutsideM,
-             .WantsM = wasM + correctionM / weights};
-}
-
-void BidProfileContact(std::span<const EarthworkStamp> these,
-                       const std::optional<Bid> &profiled,
-                       double wasM,
-                       double mostEarthworkM,
-                       CoveredNodes covered,
-                       Bids *bids) {
-  if (!profiled) { return; }
-  const Bid bid = *profiled;
-  if (covered.Into != nullptr && bid.OutsideM < 0.0) {
-    covered.Into->push_back({.Point = covered.Point, .Stamp = bid.Which});
-  }
-  BidsTerrain(these[bid.Which], bid, wasM, mostEarthworkM, bids);
-}
-
-Bids WithoutOwnAprons(std::span<const EarthworkStamp> these,
-                      std::span<const uint32_t> over,
-                      std::span<const uint8_t> structures,
-                      uint64_t corridor,
-                      EastNorth at,
-                      double wasM,
-                      double mostEarthworkM,
-                      const std::optional<Bid> &profiled) {
-  Bids bounds{.LowestM = wasM, .HighestM = wasM, .BasinM = wasM};
-  for (const uint32_t which : over) {
-    if (!structures.empty() && structures[which] != 0u) { continue; }
-    const EarthworkStamp &stamp = these[which];
-    if (stamp.Profile || stamp.Kind == EarthworkKind::Basin) { continue; }
-    const double outsideM = OutsideRingM(stamp, at);
-    if (stamp.Kind == EarthworkKind::Corridor && stamp.CorridorKey == corridor && outsideM > 0) {
-      continue;
-    }
-    BidsTerrain(stamp,
-                {.Which = which, .OutsideM = outsideM, .WantsM = RoadBedAt(stamp, at)},
-                wasM,
-                mostEarthworkM,
-                &bounds);
-  }
-  if (profiled) { BidsTerrain(these[profiled->Which], *profiled, wasM, mostEarthworkM, &bounds); }
-  return bounds;
-}
-
 Pressing ChooseHeight(const Bids &bids, double wasM) {
   if (bids.LowestM < wasM) {
     return {.WantedM = bids.LowestM, .Moves = true, .Which = bids.LowestBy};
@@ -543,48 +449,37 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
                    double mostEarthworkM,
                    CoveredNodes covered,
                    PressWorkspace &workspace) {
-  workspace.Polygons.clear();
   Bids bids{.LowestM = wasM, .HighestM = wasM, .BasinM = wasM};
+  ApronBlend aprons;
   for (const uint32_t which : over) {
     if (!structures.empty() && structures[which] != 0u) { continue; }
     const EarthworkStamp &held = these[which];
     const double apronM = ApronWidthM(held, mostEarthworkM);
     if (at.EastM < held.LowE - apronM || at.EastM > held.HighE + apronM ||
-        at.NorthM < held.LowN - apronM || at.NorthM > held.HighN + apronM) {
+        at.NorthM < held.LowN - apronM || at.NorthM > held.HighN + apronM || held.Profile) {
       continue;
     }
-    if (held.Profile) { continue; }
     const Bid bid{
         .Which = which, .OutsideM = OutsideRingM(held, at), .WantsM = RoadBedAt(held, at)};
     if (held.Kind == EarthworkKind::Basin) {
       BidsBasin(held, bid, &bids);
-      continue;
+    } else {
+      BidSurface(held, bid, wasM, mostEarthworkM, covered, &bids, &aprons);
     }
-    if (covered.Into != nullptr && bid.OutsideM < 0.0) {
-      covered.Into->push_back({.Point = covered.Point, .Stamp = which});
-    }
-    if (held.Kind == EarthworkKind::Corridor && held.CorridorKey != 0 && held.Fills) {
-      AccumulatePolygonalCorridor(held, bid, wasM, mostEarthworkM, workspace.Polygons);
-      continue;
-    }
-    BidsTerrain(held, bid, wasM, mostEarthworkM, &bids);
   }
-  BidPolygonalCorridors(these, workspace.Polygons, wasM, mostEarthworkM, &bids);
-  const auto profiled =
-      ProfileBidAt(these, over, structures, at, wasM, mostEarthworkM, workspace.Profiles);
-  BidProfileContact(these, profiled, wasM, mostEarthworkM, covered, &bids);
-  if (!bids.LandHeld && bids.BasinM < bids.LowestM) {
-    bids.LowestM = bids.BasinM;
-    bids.LowestBy = bids.BasinBy;
+  ProfilesAt(these, over, structures, at, mostEarthworkM, workspace.Profiles);
+  for (const auto &profile : workspace.Profiles) {
+    BidSurface(these[profile.Which],
+               {.Which = profile.Which,
+                .OutsideM = profile.Offer.OutsideM,
+                .WantsM = ProfileBedAt(these, over, structures, at, profile)},
+               wasM,
+               mostEarthworkM,
+               covered,
+               &bids,
+               &aprons);
   }
-  const uint64_t corridor = bids.HighestM > wasM ? CorridorOf(these[bids.HighestBy]) : 0;
-  if (corridor != 0 && bids.RoofM < bids.HighestM && bids.HighestM > wasM &&
-      CorridorOf(these[bids.RoofBy]) == corridor) {
-    const auto bounds =
-        WithoutOwnAprons(these, over, structures, corridor, at, wasM, mostEarthworkM, profiled);
-    bids.RoofM = bounds.RoofM;
-    bids.RoofBy = bounds.RoofBy;
-  }
+  ResolveAprons(aprons, wasM, &bids);
   return ChooseHeight(bids, wasM);
 }
 
