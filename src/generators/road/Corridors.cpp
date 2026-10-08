@@ -366,7 +366,6 @@ void Corridors::PaveLane(const Paving &on,
     return;
   }
   if (into.Designed[laneAt].size() < 2) { return; }
-  IslandOf(on, lane, into.Designed[laneAt], corridor);
   const std::pair<uint32_t, uint32_t> &edges = into.EdgesOf[laneAt];
   for (uint32_t edgeAt = edges.first; edgeAt < edges.first + edges.second; ++edgeAt) {
     PaveEdge(on, edgeAt, into, corridor, pavement);
@@ -503,43 +502,6 @@ void Corridors::AppendTerrainStamps(const Paving &on,
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - yieldsAt)
           .count();
   into.EdgeStations += into.Along.size();
-}
-
-void Corridors::IslandOf(const Paving &on,
-                         const ::outshine::Generators::Osm::StreetField::Way &lane,
-                         std::span<const RoadStation> along,
-                         std::vector<EarthworkStamp> &corridor) {
-  if (!lane.Bridge && along.size() > 3) {
-    const size_t shutFrom = static_cast<size_t>(lane.FirstPoint) * 2u;
-    const size_t shutTo = shutFrom + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
-    const bool shut = shutTo + 1 < on.Points.size() &&
-                      std::fabs(on.Points[shutFrom] - on.Points[shutTo]) < 1.0e-7 &&
-                      std::fabs(on.Points[shutFrom + 1] - on.Points[shutTo + 1]) < 1.0e-7;
-    if (shut) {
-      EarthworkStamp island;
-      island.RingEastNorthM.reserve(along.size() * 2u);
-      island.LowE = island.HighE = along.front().EastM;
-      island.LowN = island.HighN = along.front().NorthM;
-      double summed = 0.0;
-      for (const RoadStation &one : along) {
-        island.RingEastNorthM.push_back(one.EastM);
-        island.RingEastNorthM.push_back(one.NorthM);
-        island.LowE = std::min(island.LowE, one.EastM);
-        island.HighE = std::max(island.HighE, one.EastM);
-        island.LowN = std::min(island.LowN, one.NorthM);
-        island.HighN = std::max(island.HighN, one.NorthM);
-        summed += one.GradeM;
-      }
-      island.AtE = along.front().EastM;
-      island.AtN = along.front().NorthM;
-      island.PlateauM = summed / static_cast<double>(along.size());
-      island.ApronM = kLeastApronM;
-      island.YieldM = kBrokenGroundM;
-      island.Fills = true;
-      island.Kind = outshine::EarthworkKind::Corridor;
-      corridor.push_back(std::move(island));
-    }
-  }
 }
 
 void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,

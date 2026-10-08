@@ -54,8 +54,11 @@ bestandene CPU-Stetigkeit genügt nicht. Überlappende Kerne/Breiten bleiben zu 
 `CorridorCrossings` verbindet nur beteiligte Wege derselben Ebene und Brückenklasse.
 Gemeinsame Innenknoten erhalten Ebenenbezug; tatsächliche Schnittpunkte teilen Position/Höhe.
 Zehn-Meter-Nähe erzeugt keine Anschlüsse. Vorhandene Brückenenden bleiben angebunden.
-Feldkirchs gebrochene Nahstraßen und Brückenanschlüsse bleiben offen. Nächste Lieferung:
-Geschlossene Linien dürfen ihr eingeschlossenes Gelände nicht planieren. Danach
+Feldkirchs gebrochene Nahstraßen und Brückenanschlüsse bleiben offen.
+Geschlossene Linien erzeugen ausschließlich ihr Straßenband und örtliche Böschungen;
+eingeschlossene Hügel/Senken bleiben erhalten. Nächste Lieferung:
+Wasserfreiraum auf den tatsächlichen Oberflächenpegel beziehen, nicht auf die höchste
+Bodenstation. Fortgepflanzte Rampenhöhen auch an Bodenkreuzungen erhalten. Danach
 vollständiges klassenkonformes Höhenprofil mit gemeinsamen Anschlussstationen; Fahrbahn,
 Schultern und Terrainkontakt daraus ableiten. Ground-Ways erzeugen bisher überwiegend nur
 Terrainkontakte, eigene Spannenmeshes vor allem Brücken. Nahfahrbahnen brauchen dieselbe

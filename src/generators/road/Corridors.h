@@ -307,10 +307,7 @@ private:
                                   const ::outshine::Generators::Osm::StreetField::Way &lane,
                                   Paved &into,
                                   std::vector<EarthworkStamp> &corridor);
-  static void IslandOf(const Paving &on,
-                       const ::outshine::Generators::Osm::StreetField::Way &lane,
-                       std::span<const RoadStation> along,
-                       std::vector<EarthworkStamp> &corridor);
+
   void PaveEdge(const Paving &on,
                 size_t edgeAt,
                 Paved &into,
