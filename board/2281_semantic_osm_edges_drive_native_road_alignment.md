@@ -89,7 +89,7 @@ Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen b
   Keine SimCity-Terrassen: Übergänge ohne künstliche Stufen und mit stetiger Neigung.
   Quintischer Übergang; `hypot(Mindestbreite, 1,875 × Höhendifferenz / Böschungsneigung)`
   begrenzt die zusätzliche Steigung auf ebenem Quellboden. Höhendifferenz aus dem geplanten
-  Kontakt (`YieldM`), nicht aus immer weiter entfernten Geländepunkten; Quellneigung separat bewerten.
+  Kontakt und tatsächlichem Quellgelände im Kern, nicht vom Auslaufrand; Quellneigung separat bewerten.
   Bedarf an beiden Fahrbahnrändern für Schnitt und Auftrag erfassen; Profile dürfen eine
   unbekannte Höhendifferenz nicht stillschweigend als Null behandeln.
   Räumliche Kandidaten umfassen den maximal zulässigen Übergang und Höhenbereich. Unzulässige Kontakte vor dem Ausblenden ablehnen;
