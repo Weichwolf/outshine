@@ -111,7 +111,7 @@ räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.co
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
 Terrain-Integration 13a88b4dd: zehn Offline-Places mit bildgleichen Miss-/Hit-Läufen; warm Regionshits und keine Deformation-/Impostor-Misses/Writes. Fachfremde Terrainänderung erzeugt keine Impostoren; betroffene Tests/Tidy grün.
-Mip-Integration: zehn gleiche Miss-/Hit-PNGs; warm 1,80–4,34 s Laden und 2,05–3,23 ms p99. Aufbau CP/Tokyo 30,78/16,45 ms; Startspitzen bleiben bei 2340. Integration f1a8865c6: Format/358 Tidy-Units/32 Claims/48 Header/481 Shader grün; volles Lint Exit 2 wegen fehlendem gepinntem Khronos-PNG.
+Mip-Integration: zehn gleiche Miss-/Hit-PNGs; warm 1,80–4,34 s Laden und 2,05–3,23 ms p99. Aufbau CP/Tokyo 30,78/16,45 ms; Startspitzen bleiben bei 2340. Integration f544a20ab: Format/359 Tidy-Units/32 Claims/48 Header/481 Shader grün; volles Lint Exit 2 wegen fehlendem gepinntem Khronos-PNG.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

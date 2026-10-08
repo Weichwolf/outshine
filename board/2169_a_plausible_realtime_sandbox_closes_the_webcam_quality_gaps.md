@@ -108,8 +108,8 @@ Licht/Wetter, Stabilität und Kosten getrennt bewerten. Client-API und AGENTS-Ga
 `src/assets/places`/`client/PlaceCamera` besitzen Szenario/Pose; Webcam-Referenzen bleiben in
 `build/shots/reference/webcams`. Kamerakalibrierung ersetzt keine fehlende Geometrie.
 Rundum-Abdeckung und Datenherkunft belegen; ein Sichtweitenparameter allein beweist sie nicht.
-Stand 13a88b4dd: zehn native Places samt Miss-/Hit-Bildern geprüft; gemeinsame Terrain-Nähte,
+Stand f544a20ab: zehn native Places samt Miss-/Hit-Bildern geprüft; gemeinsame Terrain-Nähte,
 weiche Außenböschungen und Clearance-Ausläufe. Fundament-/Beckenränder, Höhenprofile und
 adaptive Abtastung bleiben bei 2281/2145 offen. Betroffene Tests/Tidy sauber; letzter voller Lint
-rot wegen fehlendem gepinntem Khronos-Bild. Warmes Frame-Gate offen: Rosenheim 0,72–42,65 ms,
-Tokyo 10,25–14,51 ms p99; Start-/Fence-Spitzen besitzt 2340.
+rot wegen fehlendem gepinntem Khronos-Bild. Mip-Hits zuletzt 1,80–4,34 s Laden und 2,05–3,23 ms p99;
+Aufbau CP/Tokyo 30,78/16,45 ms. Stabile Startzeiten bleiben offen bei 2340.

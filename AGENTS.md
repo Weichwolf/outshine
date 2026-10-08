@@ -89,6 +89,7 @@
   Normale Tests erzeugen keine Orakel/ändern keine Pins; Cycles benötigt belegtes GPU-Backend.
 
 ## Code und Arbeit
+- Ich nutze Command Line Tools und CLI-Profiler; die Xcode-App ist keine Voraussetzung.
 - Fremdcode wird nicht im Repository gebündelt. Ich nutze eigene Implementierungen oder
   Standardbibliotheken aus Homebrew/apt; erforderliche Pakete nenne ich ausdrücklich.
   Wo immer möglich nutze ich bewährte Bibliotheken statt eigener Standardalgorithmen;

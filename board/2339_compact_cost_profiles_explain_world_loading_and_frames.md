@@ -15,6 +15,7 @@ Vorhanden: acht Profilzeilen je Place, Cache-IO/Bytes/Treffer, Provider-Aufrufe 
 alle Terrain-Arbeitsportionen, OSM-Aufbereitung und Generatorphasen. Erfolgreiche Frames
 tragen Hostphasen und CPU-Encoding je Stufe als Summe/Maximum; feste Namen und indizierte
 Metriken vermeiden wiederholte Namensbildung und lineare Suche. Detailausgabe bleibt explizit.
+Hardware am 2026-10-08 verifiziert: Apple A18 Pro (Mac17,5), 8 GB, Metal.
 Echte GPU-Passzeiten bleiben offen; keine Gleichsetzung mit Fence-Warten.
 Rosenheim, gleiches 500-Hz-Sampling: fertige Mip-Karten senken beobachtete Mainthread-CPU
 von 4,63 auf 2,96 s und Mip-/Upload-Leaves von 831 auf 4 ms; Laden 3,72 → 2,10 s, gleiche PNGs.
