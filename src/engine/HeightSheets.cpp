@@ -1,7 +1,6 @@
 #include "HeightSheets.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -17,7 +16,6 @@
 #include <vector>
 
 #include "ChunkSurface.h"
-#include "FlatMap.h"
 #include "Geodesy.h"
 #include "TerrainGrid.h"
 #include "GroundLattice.h"
@@ -291,183 +289,6 @@ bool HeightSheets::HaloBuildJob::Advance(size_t nodesMost) {
     if (NodeAt_ == Render::GroundLattice::kPageNodes) { CompletesSheet(); }
   }
   return !Working_ && SheetAt_ == Candidate_->Sheets.size();
-}
-
-namespace {
-
-struct SeamEdge {
-  long StepX = 0;
-  long StepY = 0;
-  int FixedFine = 0;
-  int FixedCoarse = 0;
-  bool AlongJ = false;
-};
-
-constexpr std::array<SeamEdge, 4> kSeamEdges = {{
-    {.StepX = -1,
-     .StepY = 0,
-     .FixedFine = 0,
-     .FixedCoarse = Render::GroundLattice::kSide - 1,
-     .AlongJ = true},
-    {.StepX = 1,
-     .StepY = 0,
-     .FixedFine = Render::GroundLattice::kSide - 1,
-     .FixedCoarse = 0,
-     .AlongJ = true},
-    {.StepX = 0,
-     .StepY = -1,
-     .FixedFine = 0,
-     .FixedCoarse = Render::GroundLattice::kSide - 1,
-     .AlongJ = false},
-    {.StepX = 0,
-     .StepY = 1,
-     .FixedFine = Render::GroundLattice::kSide - 1,
-     .FixedCoarse = 0,
-     .AlongJ = false},
-}};
-
-constexpr uint64_t kTileHashMix = 0x9E3779B185EBCA87ULL;
-
-struct SheetHash {
-  [[nodiscard]] constexpr uint64_t operator()(const Data::TileId &tile) const noexcept {
-    uint64_t hash = static_cast<uint32_t>(tile.Zoom);
-    hash = (hash ^ tile.X) * kTileHashMix;
-    return (hash ^ tile.Y) * kTileHashMix;
-  }
-};
-
-using SheetIndex = FlatMap<size_t, Data::TileId, SheetHash>;
-
-struct ZoomRange {
-  int Coarsest = std::numeric_limits<int>::max();
-  int Finest = std::numeric_limits<int>::min();
-};
-
-void StitchAlong(Sheet &fine,
-                 const Sheet &coarse,
-                 const SeamEdge &edge,
-                 HeightSheets::SeamKind *kind) {
-  constexpr int side = Render::GroundLattice::kSide;
-  const int drop = fine.Tile.Zoom - coarse.Tile.Zoom;
-  const uint32_t scale = 1u << static_cast<uint32_t>(drop);
-  const uint32_t along = edge.AlongJ ? fine.Tile.Y : fine.Tile.X;
-  const double offset = static_cast<double>(along % scale) * static_cast<double>(side - 1);
-  const auto coarseAt = [&](int k) {
-    return static_cast<double>(
-        coarse.Nodes[edge.AlongJ ? PageNode(edge.FixedCoarse, k) : PageNode(k, edge.FixedCoarse)]);
-  };
-  for (int k = 0; k < side; ++k) {
-    const double c = (offset + static_cast<double>(k)) / static_cast<double>(scale);
-    const int c0 = std::min(static_cast<int>(c), side - 2);
-    const double chord = std::lerp(coarseAt(c0), coarseAt(c0 + 1), c - c0);
-    float &height =
-        fine.Nodes[edge.AlongJ ? PageNode(edge.FixedFine, k) : PageNode(k, edge.FixedFine)];
-    if (kind != nullptr && k % static_cast<int>(scale) != 0) {
-      const double differenceM = std::fabs(height - chord);
-      if (differenceM > kind->OddBeforeM) {
-        kind->OddBeforeM = differenceM;
-        const double fraction = static_cast<double>(k) / static_cast<double>(side - 1);
-        const double fixed = static_cast<double>(edge.FixedFine) / static_cast<double>(side - 1);
-        const Ground::Geo at = Ground::TileFracToGeo(
-            {.X = static_cast<double>(fine.Tile.X) + (edge.AlongJ ? fixed : fraction),
-             .Y = static_cast<double>(fine.Tile.Y) + (edge.AlongJ ? fraction : fixed)},
-            fine.Tile.Zoom);
-        kind->WorstLongitudeDeg = at.LongitudeDeg;
-        kind->WorstLatitudeDeg = at.LatitudeDeg;
-        kind->WorstFineZoom = fine.Tile.Zoom;
-        kind->WorstCoarseZoom = coarse.Tile.Zoom;
-      }
-    }
-    height = static_cast<float>(chord);
-    if (kind != nullptr) {
-      double &after = k % static_cast<int>(scale) == 0 ? kind->EvenM : kind->OddAfterM;
-      after = std::max(after, std::fabs(height - chord));
-    }
-  }
-}
-
-}
-
-namespace {
-
-[[nodiscard]] const Sheet *CoarseNeighbor(const Sheet &fine,
-                                          const SeamEdge &edge,
-                                          const Patchwork &laid,
-                                          const SheetIndex &index,
-                                          int coarsest) {
-  long nx = static_cast<long>(fine.Tile.X) + edge.StepX;
-  const long ny = static_cast<long>(fine.Tile.Y) + edge.StepY;
-  if (!Ground::WrapTile(fine.Tile.Zoom, &nx, &ny)) { return nullptr; }
-  if (index.Find({.Zoom = fine.Tile.Zoom,
-                  .X = static_cast<uint32_t>(nx),
-                  .Y = static_cast<uint32_t>(ny)}) != nullptr) {
-    return nullptr;
-  }
-  const uint32_t boundary = edge.AlongJ ? fine.Tile.X + (edge.StepX > 0 ? 1u : 0u)
-                                        : fine.Tile.Y + (edge.StepY > 0 ? 1u : 0u);
-  for (int zoom = fine.Tile.Zoom - 1; zoom >= coarsest; --zoom) {
-    const auto drop = static_cast<uint32_t>(fine.Tile.Zoom - zoom);
-    if (boundary % (1u << drop) != 0) { break; }
-    const Data::TileId wanted{.Zoom = zoom,
-                              .X = static_cast<uint32_t>(nx) >> drop,
-                              .Y = static_cast<uint32_t>(ny) >> drop};
-    if (const size_t *found = index.Find(wanted)) { return &laid.Sheets[*found]; }
-  }
-  return nullptr;
-}
-
-[[nodiscard]] bool
-IndexSheets(const Patchwork &laid, SheetIndex &index, ZoomRange &zooms, std::string &error) {
-  for (size_t i = 0; i < laid.Sheets.size(); ++i) {
-    if (laid.Sheets[i].Nodes.size() != Render::GroundLattice::kPageNodes) { continue; }
-    const auto added = index.Emplace(laid.Sheets[i].Tile, i);
-    if (!added) {
-      error = added.error() == FlatMapError::AllocationFailed
-                  ? "ground stitch index allocation failed"
-                  : "ground stitch index capacity exceeded";
-      return false;
-    }
-    if (!added->second) {
-      error = "ground patchwork repeats tile";
-      return false;
-    }
-    zooms.Coarsest = std::min(zooms.Coarsest, laid.Sheets[i].Tile.Zoom);
-    zooms.Finest = std::max(zooms.Finest, laid.Sheets[i].Tile.Zoom);
-  }
-  return true;
-}
-
-void StitchAtZoom(Patchwork &laid,
-                  const SheetIndex &index,
-                  ZoomRange zooms,
-                  int zoom,
-                  HeightSheets::Seam &seams) {
-  for (size_t sheetIndex = 0; sheetIndex < laid.Sheets.size(); ++sheetIndex) {
-    Sheet &fine = laid.Sheets[sheetIndex];
-    if (fine.Tile.Zoom != zoom || fine.Nodes.size() != Render::GroundLattice::kPageNodes) {
-      continue;
-    }
-    for (const SeamEdge &edge : kSeamEdges) {
-      const Sheet *coarse = CoarseNeighbor(fine, edge, laid, index, zooms.Coarsest);
-      if (coarse == nullptr) { continue; }
-      HeightSheets::SeamKind *kind = fine.Virtual && coarse->Virtual ? &seams.Virtual : &seams.Real;
-      ++kind->Edges;
-      StitchAlong(fine, *coarse, edge, kind);
-    }
-  }
-}
-
-}
-
-bool HeightSheets::StitchEdges(Patchwork &laid, std::string &error) {
-  Seams_ = {};
-  SheetIndex index;
-  ZoomRange zooms;
-  if (!IndexSheets(laid, index, zooms, error)) { return false; }
-  for (int zoom = zooms.Coarsest; zoom <= zooms.Finest; ++zoom) {
-    StitchAtZoom(laid, index, zooms, zoom, Seams_);
-  }
-  return true;
 }
 
 size_t HeightSheets::Halos(Patchwork &laid, int finestZoom) {

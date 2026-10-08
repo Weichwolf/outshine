@@ -31,7 +31,6 @@ ist im Runtime-Bild beseitigt; breite Uferböschungen bleiben bei 2145 offen.
 `ResolveBridgeConnections` führt Wasser- und Straßenkreuzungen vor der Geometrie zusammen.
 Endhöhen gelten auch für einfache Zweiarm-Übergänge. Knoten und Rampen konsumieren dieselben
 Höhen; einmalige und schrittweise Erzeugung behalten identische Geometrie/Kontakte.
-Gate und Straßenschnitt teilen die lokale Segmentstation; globale Weganteile erzeugten Anschlussversatz.
 Kurze überlappende Rampen erhalten beide Anschlusshöhen unabhängig von der Linienrichtung;
 auch nicht geteilte Quellen-Endpunkte übernehmen fortgepflanzte Höhen.
 Das registrierte Vektorschema versorgt Wasser-/Verkehrsfelder. Road-Site erhält native Pegel
@@ -46,12 +45,10 @@ Kontakte anderer Wege, Einzelfundamente und echte Brückenfreiräume bleiben wir
 Polygonale Ausläufe verwenden den Höhenbereich des tatsächlichen Kontakts; Längsneigung
 nicht unbegrenzt über Endpunkte extrapolieren. Kennung in Terrain-Key und
 Kandidatendigest; an gemeinsamen Ringkanten numerische Distanz bis 1 µm als Kontakt behandeln.
-Die frühere Mischung unabhängiger Wege verschlechterte Feldkirchs Ufer; sie bleibt ausgeschlossen.
 Überlappende physische Kerne/Höhen müssen gemeinsam geplant werden, nicht nachträglich kaschiert.
 `CorridorCrossings` verbindet nur beteiligte Wege derselben Ebene und Brückenklasse.
 Gemeinsame Innenknoten erhalten Ebenenbezug; tatsächliche Schnittpunkte teilen Position/Höhe.
 Zehn-Meter-Nähe erzeugt keine Anschlüsse. Vorhandene Brückenenden bleiben angebunden.
-Feldkirchs gebrochene Nahstraßen und Brückenanschlüsse bleiben offen.
 Geschlossene Linien erzeugen ausschließlich ihr Straßenband und örtliche Böschungen;
 eingeschlossene Hügel/Senken bleiben erhalten. Bodenkreuzungen übernehmen fortgepflanzte
 Rampen-Endhöhen. Tatsächlich verbundene Ground-Ways derselben Ebene und ihre Knoten teilen
@@ -63,10 +60,12 @@ Eine waagerechte Brückenplatte am höchsten DEM-Punkt hebt Feldkirchs tiefere A
 unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erforderlichem
 Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbaus.
 Feldkirchs große Rampen sinken sichtbar; einzelne gebrochene Straßenränder bleiben.
-Knoten und Spannen nutzen dieselben tatsächlichen Wegstationen; beide Endkürzungen
-werden gemeinsam begrenzt. Kurze Wege fallen nicht mehr zum ungekürzten Verlauf zurück.
+Knoten und Spannen teilen lokale Wegstationen; beide Endkürzungen gemeinsam begrenzen.
 Nächste Lieferung: Knotenhöhen/C1-Profil gemeinsam fitten; Fundamente ohne steile Terrassen.
-Native Feldkirch-LOD-Kanten klaffen nach Deformation bis 7,1 m; auch Quellnähte sind teils ungleich.
+Vor dem Stitching klaffen deformierte Feldkirch-Kanten bis 7,1 m; das ist keine Runtime-Spaltmessung.
+Der bisherige 1,65-m-Spalt gleicher Mesh-LODs aus verschiedenen DEM-Quellen ist geschlossen.
+Gleiche Kanten nutzen deterministisch die feinere Quelle; gemeinsame Ecken folgen der tatsächlich
+angrenzenden gröbsten Mesh-Kante. Abdeckende Vorfahren dürfen innere Kanten nicht verändern.
 Terrain-Auswahl berücksichtigt bislang Roh-DEM und deklarierte Fahrstrecken, keine Place-Kontakte.
 Verfeinerung gegen deformierte Oberfläche bestimmen; benachbarte LOD-Kanten konform verbinden.
 Skirts ersetzen keine gemeinsame Oberfläche. Höhe und Abtastung getrennt korrigieren;
@@ -87,6 +86,7 @@ Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen b
   Natürliche Hügel/Senken und Wasser innerhalb der Schleife bleiben erhalten.
 - Straßenbett und Terrain aus demselben Kontaktprofil. Übergänge erreichen das ursprüngliche
   Gelände mit stetiger Höhe und Neigung; Breite aus Höhendifferenz und Böschungsneigung.
+  Keine SimCity-Terrassen: Übergänge ohne künstliche Stufen und mit stetiger Neigung.
   Quintischer Übergang; `hypot(Mindestbreite, 1,875 × Höhendifferenz / Böschungsneigung)`
   begrenzt die zusätzliche Steigung auf ebenem Quellboden. Höhendifferenz aus dem geplanten
   Kontakt (`YieldM`), nicht aus immer weiter entfernten Geländepunkten; Quellneigung separat bewerten.
@@ -111,6 +111,8 @@ Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen b
 ([Primärquelle/Einordnung](../doc/references/README.md)): Graph und Geometrie getrennt halten.
 OSM-Netz/Ebenen erhalten; keine Tensorfeld-Neuerzeugung realer Straßen. Gemeinsame Profile,
 Anschlussregeln und instanzierte Tragwerksteile ergänzen die vorhandene Qualität.
+[Geometry Clipmaps, SIGGRAPH 2004](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf):
+Gemeinsame Randgeometrie und räumliche Übergänge; Nahtschluss allein garantiert keine weiche Böschung.
 
 ## Abnahme
 Durchgehende reale Straße samt korrekt angeschlossener Brücke ohne Gelände-/Wasserwände,
