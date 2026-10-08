@@ -68,8 +68,7 @@ unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erf
 Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbaus.
 Feldkirchs große Rampen sinken sichtbar; einzelne gebrochene Straßenränder bleiben.
 Nächste Lieferung: vollständiges klassenkonformes Höhenprofil mit gemeinsamen
-Anschlussstationen; Fahrbahn,
-Schultern und Terrainkontakt daraus ableiten. Ground-Ways erzeugen bisher überwiegend nur
+Anschlussstationen; Fahrbahn, Schultern und Terrainkontakt daraus ableiten. Ground-Ways erzeugen bisher überwiegend nur
 Terrainkontakte, eigene Spannenmeshes vor allem Brücken. Nahfahrbahnen brauchen dieselbe
 adaptive Profilabtastung wie ihr Untergrund, bevor zusätzliche Aufbauten sinnvoll sind.
 Danach Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Geländer ergänzen.
@@ -80,7 +79,8 @@ Danach Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Gelände
   Fehlende Topologie ausdrücklich behandeln, belegte Ebenen erhalten.
 - Ein Alignment je zusammenhängender Kette; Schultern, Bord/Gehweg und Knoten davon ableiten.
   Gemeinsame Endpunkte/Höhen/Tangenten über Knoten und Tiles; klassenabhängige Längs- und
-  Querneigung begrenzen. Die Rampenkorrektur begrenzt bisher nur ihren eigenen Offset;
+  Querneigung begrenzen. Kreuzungsebenen halten die Grenzen aller angeschlossenen Klassen.
+  Die Rampenkorrektur begrenzt bisher nur ihren eigenen Offset;
   das vollständige Höhenprofil muss die Klassengrenze einhalten. Segmentwellen/Nähte
   an der Ursache beheben, keine zweite Pipeline.
 - Geschlossene Straßenlinien bleiben Bänder; keine Durchschnittshöhen-Plattform im Inneren.

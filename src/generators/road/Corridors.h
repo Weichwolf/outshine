@@ -298,7 +298,8 @@ private:
                         uint32_t edgeAt,
                         std::unordered_map<uint64_t, std::vector<Leg>> &legsAt);
   static void GatesOf(std::span<const Leg> legs, const Paved &into, Junction &made);
-  static void LiesOnItsPlane(const Paving &on, Junction &made, Paved &into);
+  static void
+  LiesOnItsPlane(const Paving &on, std::span<const Leg> legs, Junction &made, Paved &into);
   static void
   AppendJunctionTerrainStamp(const Junction &made, double rootsM, bool elevated, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);

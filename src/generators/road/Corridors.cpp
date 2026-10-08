@@ -1114,7 +1114,7 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
     ++into.LegsCut;
   }
   GatesOf(legs, into, made);
-  if (!(decked && seeded != into.EndM.end())) { LiesOnItsPlane(on, made, into); }
+  if (!(decked && seeded != into.EndM.end())) { LiesOnItsPlane(on, legs, made, into); }
   for (const Leg &leg : legs) {
     const RoadGate &gate = made.Gates[static_cast<size_t>(&leg - legs.data())];
     into.Edges[leg.Edge].GradeAtM[leg.End] = gate.GradeM;
@@ -1125,7 +1125,15 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
   into.Junctions.push_back(std::move(made));
 }
 
-void Corridors::LiesOnItsPlane(const Paving &on, Junction &made, Paved &into) {
+void Corridors::LiesOnItsPlane(const Paving &on,
+                               std::span<const Leg> legs,
+                               Junction &made,
+                               Paved &into) {
+  double mostGradient = kSteepestJunction;
+  for (const Leg &leg : legs) {
+    const double gradient = on.Ways.Ways()[into.Edges[leg.Edge].Lane].MaxGradient;
+    if (gradient > 0.0) { mostGradient = std::min(mostGradient, gradient); }
+  }
   const auto drape = [&](double eastM, double southM) {
     return on.Draped.At({.EastM = eastM, .NorthM = southM}, made.GradeM);
   };
@@ -1136,9 +1144,9 @@ void Corridors::LiesOnItsPlane(const Paving &on, Junction &made, Paved &into) {
   made.SlopeE = (east - west) / (2.0 * kJunctionRadiusM);
   made.SlopeN = (north - south) / (2.0 * kJunctionRadiusM);
   const double steep = std::sqrt(made.SlopeE * made.SlopeE + made.SlopeN * made.SlopeN);
-  if (steep > kSteepestJunction) {
-    made.SlopeE *= kSteepestJunction / steep;
-    made.SlopeN *= kSteepestJunction / steep;
+  if (steep > mostGradient) {
+    made.SlopeE *= mostGradient / steep;
+    made.SlopeN *= mostGradient / steep;
     ++into.JunctionsLevelled;
   }
   for (RoadGate &gate : made.Gates) {
