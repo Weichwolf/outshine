@@ -34,14 +34,9 @@ Höhen; einmalige und schrittweise Erzeugung behalten identische Geometrie/Konta
 Gate und Straßenschnitt teilen die lokale Segmentstation; globale Weganteile erzeugten Anschlussversatz.
 Kurze überlappende Rampen erhalten beide Anschlusshöhen unabhängig von der Linienrichtung;
 auch nicht geteilte Quellen-Endpunkte übernehmen fortgepflanzte Höhen.
-`SurfacePreparation` gibt das registrierte Vektorschema an beide Klassenfelder weiter;
-Terrain und Straßen konsumieren wieder vorhandene Wasser-/Verkehrsflächen. Keine zweite
-Quelle, zusätzlichen Downloads oder Änderung vorhandener Cachebytes erforderlich.
-Das deckt fehlerhafte Vegetationsstandorte/-größen auf (2111); Bildabnahme bleibt offen.
-Road-Site erhält einen optionalen Wasserpegel im lokalen Up-Bezug; die Engine übersetzt
-normalisierte native Wasserflächen aus 2145. Inseln/fehlende Pegel heben keine Brücke an.
-Wasserfreiraum gilt über diesem Pegel, nicht zusätzlich über den höchsten Bodenstationen.
-Unbekannte reale Durchfahrtshöhen bleiben prozedurale Klassenannahmen; Bildabnahme offen.
+Das registrierte Vektorschema versorgt Wasser-/Verkehrsfelder. Road-Site erhält native Pegel
+im lokalen Up-Bezug; Inseln/fehlende Pegel heben keine Brücke an. Wasserfreiraum gilt über
+dem Pegel, nicht zusätzlich über dem höchsten Boden. Fehlende Durchfahrtshöhen sind Klassenannahmen.
 Straßen-Ausläufe blenden jetzt ohne den bisherigen Sprung zum Quellgelände aus.
 Polygonale Straßenkontakte erfassen Schnitt und Auftrag an beiden Schultern;
 die größte Achsen-/Randabweichung bestimmt den geplanten Kontakt und seine Auslaufbreite.
@@ -51,9 +46,8 @@ Kontakte anderer Wege, Einzelfundamente und echte Brückenfreiräume bleiben wir
 Polygonale Ausläufe verwenden den Höhenbereich des tatsächlichen Kontakts; Längsneigung
 nicht unbegrenzt über Endpunkte extrapolieren. Kennung in Terrain-Key und
 Kandidatendigest; an gemeinsamen Ringkanten numerische Distanz bis 1 µm als Kontakt behandeln.
-Breite gemeinsame Mischung und linear profilierte Place-Kontakte verschlechtern Feldkirchs
-Ufergeometrie. Vor ihrer Integration Kontakt-/Höhenkonflikte und Terrain-Abtastung klären;
-bestandene CPU-Stetigkeit genügt nicht. Überlappende Kerne/Breiten bleiben zu prüfen.
+Die frühere Mischung unabhängiger Wege verschlechterte Feldkirchs Ufer; sie bleibt ausgeschlossen.
+Überlappende physische Kerne/Höhen müssen gemeinsam geplant werden, nicht nachträglich kaschiert.
 `CorridorCrossings` verbindet nur beteiligte Wege derselben Ebene und Brückenklasse.
 Gemeinsame Innenknoten erhalten Ebenenbezug; tatsächliche Schnittpunkte teilen Position/Höhe.
 Zehn-Meter-Nähe erzeugt keine Anschlüsse. Vorhandene Brückenenden bleiben angebunden.
@@ -71,8 +65,12 @@ Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbau
 Feldkirchs große Rampen sinken sichtbar; einzelne gebrochene Straßenränder bleiben.
 Knoten und Spannen nutzen dieselben tatsächlichen Wegstationen; beide Endkürzungen
 werden gemeinsam begrenzt. Kurze Wege fallen nicht mehr zum ungekürzten Verlauf zurück.
-Nächste Lieferung: Knotenhöhen/C1-Profil gemeinsam fitten; Fundamente und native
-Böschungen ohne Stufen abtasten. Hohe Aufträge nicht durch zusätzliche Vertices kaschieren.
+Nächste Lieferung: Knotenhöhen/C1-Profil gemeinsam fitten; Fundamente ohne steile Terrassen.
+Native Feldkirch-LOD-Kanten klaffen nach Deformation bis 7,1 m; auch Quellnähte sind teils ungleich.
+Terrain-Auswahl berücksichtigt bislang Roh-DEM und deklarierte Fahrstrecken, keine Place-Kontakte.
+Verfeinerung gegen deformierte Oberfläche bestimmen; benachbarte LOD-Kanten konform verbinden.
+Skirts ersetzen keine gemeinsame Oberfläche. Höhe und Abtastung getrennt korrigieren;
+unnötig hohe Kontakte nicht mit zusätzlichen Vertices kaschieren.
 Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen brauchen dieselbe adaptive Abtastung.
 
 ## Verfahren

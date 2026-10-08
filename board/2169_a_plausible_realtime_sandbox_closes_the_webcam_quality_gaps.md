@@ -108,4 +108,6 @@ Licht/Wetter, Stabilität und Kosten getrennt bewerten. Client-API und AGENTS-Ga
 `src/assets/places`/`client/PlaceCamera` besitzen Szenario/Pose; Webcam-Referenzen bleiben in
 `build/shots/reference/webcams`. Kamerakalibrierung ersetzt keine fehlende Geometrie.
 Rundum-Abdeckung und Datenherkunft belegen; ein Sichtweitenparameter allein beweist sie nicht.
-Integration 6c55222cb: Format/Tidy/32 Claims/Shader grün; 263/264 gepinnte Khronos-Bildreferenzen fehlen.
+Stand e375ece61: zehn native Places geprüft; verbundene Straßen-Ausläufe halten ihre Fahrbahnen.
+Code-/Header-/Shaderprüfungen sauber; voller Lint bleibt wegen fehlender gepinnter Khronos-Bilder rot.
+Feldkirchs Höhenprofile und Terrain-LOD-Nähte bleiben offen (2281), Erstframe-Spitzen bei 2340.
