@@ -70,7 +70,7 @@ Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbau
 Feldkirchs große Rampen sinken sichtbar; einzelne gebrochene Straßenränder bleiben.
 Knoten und Spannen nutzen dieselben tatsächlichen Wegstationen; beide Endkürzungen
 werden gemeinsam begrenzt. Kurze Wege fallen nicht mehr zum ungekürzten Verlauf zurück.
-Nächste Lieferung: klassenkonformes C1-Höhenprofil; Fahrbahn, Schultern und Terrainkontakt daraus ableiten.
+Nächste Lieferung: Knotenhöhen gemeinsam fitten, klassenkonformes C1-Profil für Fahrbahn, Schultern und Terrainkontakt.
 Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen brauchen dieselbe adaptive Abtastung.
 Danach Wasserpegel und Brückenprofil verbinden, Überbau, Auflager und Geländer ergänzen.
 
