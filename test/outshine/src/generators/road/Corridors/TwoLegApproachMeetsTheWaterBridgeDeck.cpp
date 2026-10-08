@@ -97,16 +97,18 @@ int main() {
                       .Field = [betweenBridges](EastNorth at) -> std::optional<double> {
                         return betweenBridges && at.NorthM > 30 ? 2 : 0;
                       }};
-    const Generators::Corridors::Site site{.Vectors = &vectors,
-                                           .Ways = ways,
-                                           .Materials = materials,
-                                           .Vegetation = vegetation,
-                                           .Standing = standing,
-                                           .Draped = drape,
-                                           .Classes = classes,
-                                           .EyeLatDeg = origin.LatitudeDeg,
-                                           .EyeLonDeg = origin.LongitudeDeg,
-                                           .Projection = {.FocalPx = 800}};
+    const Generators::Corridors::Site site{
+        .Vectors = &vectors,
+        .Ways = ways,
+        .Materials = materials,
+        .Vegetation = vegetation,
+        .Standing = standing,
+        .Draped = drape,
+        .Classes = classes,
+        .WaterUpM = [](LongitudeLatitude) { return std::optional<double>{0}; },
+        .EyeLatDeg = origin.LatitudeDeg,
+        .EyeLonDeg = origin.LongitudeDeg,
+        .Projection = {.FocalPx = 800}};
     const Generators::ProfiledRoadMesher mesher;
     const Generators::Corridors corridors(mesher);
     Geometry geometry;

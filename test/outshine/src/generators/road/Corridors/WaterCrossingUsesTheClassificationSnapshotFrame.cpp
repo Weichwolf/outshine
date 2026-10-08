@@ -122,16 +122,18 @@ int main() {
         grid,
         std::make_shared<const ClassStructure::Grid>(),
         ClassStructure::FromRun{});
-    const Generators::Corridors::Site site{.Vectors = &vectors,
-                                           .Ways = ways,
-                                           .Materials = materials,
-                                           .Vegetation = vegetation,
-                                           .Standing = standing,
-                                           .Draped = drape,
-                                           .Classes = classes,
-                                           .EyeLatDeg = origin.LatitudeDeg,
-                                           .EyeLonDeg = origin.LongitudeDeg,
-                                           .Projection = {.FocalPx = 800}};
+    const Generators::Corridors::Site site{
+        .Vectors = &vectors,
+        .Ways = ways,
+        .Materials = materials,
+        .Vegetation = vegetation,
+        .Standing = standing,
+        .Draped = drape,
+        .Classes = classes,
+        .WaterUpM = [](LongitudeLatitude) { return std::optional<double>{0}; },
+        .EyeLatDeg = origin.LatitudeDeg,
+        .EyeLonDeg = origin.LongitudeDeg,
+        .Projection = {.FocalPx = 800}};
     Geometry geometry;
     std::vector<EarthworkStamp> earthworks;
     std::vector<DiagnosticSample> notes;

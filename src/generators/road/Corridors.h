@@ -48,6 +48,7 @@ public:
     const TangentFrame &Standing;
     const Drape &Draped;
     const std::shared_ptr<const ClassStructure> &Classes;
+    std::function<std::optional<double>(LongitudeLatitude)> WaterUpM;
     std::chrono::steady_clock::time_point CensusAt;
     double EyeLatDeg = 0.0;
     double EyeLonDeg = 0.0;
@@ -80,6 +81,7 @@ private:
     const Drape &Draped;
     const TangentFrame &Standing;
     const std::shared_ptr<const ClassStructure> &Classes;
+    const std::function<std::optional<double>(LongitudeLatitude)> &WaterUpM;
     int WaterRow = -1;
     double EyeLatDeg = 0.0;
     double EyeLonDeg = 0.0;
@@ -106,6 +108,7 @@ private:
 
   struct Junction {
     uint64_t Node = 0;
+    uint64_t CorridorKey = 0;
     double EastM = 0.0;
     double NorthM = 0.0;
     double GradeM = 0.0;
@@ -120,6 +123,7 @@ private:
     std::vector<DiagnosticSample> Notes;
     std::vector<std::vector<RoadStation>> Designed;
     std::vector<Edge> Edges;
+    std::vector<uint64_t> ContactKeys;
     std::vector<std::pair<uint32_t, uint32_t>> EdgesOf;
     std::vector<Junction> Junctions;
     std::vector<EarthworkStamp> UnderJunctions;
@@ -299,12 +303,13 @@ private:
   AppendJunctionTerrainStamp(const Junction &made, double rootsM, bool elevated, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
   static void ShapesJunctions(const Paving &on, Paved &into);
+  static void GroupTerrainContacts(const Paving &on, Paved &into);
   static void DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &lane,
                          const Edge &edge,
                          Paved &into);
   static void ApplyApproachGrades(double gradient, const Edge &edge, Paved &into);
   static void AppendTerrainStamps(const Paving &on,
-                                  const ::outshine::Generators::Osm::StreetField::Way &lane,
+                                  size_t laneAt,
                                   Paved &into,
                                   std::vector<EarthworkStamp> &corridor);
 

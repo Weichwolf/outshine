@@ -537,6 +537,19 @@ public:
 
   void FinishesCorridors() noexcept { CorridorJob_.reset(); }
 
+  [[nodiscard]] bool AdvancesCorridorRetirement(std::chrono::steady_clock::time_point began) {
+    const auto retireAt = std::chrono::steady_clock::now();
+    const bool retired = CorridorJob_->RetireStep(kCorridorRetireUnitsPerFrame);
+    if (retired) { FinishesCorridors(); }
+    SamplesCorridorRetirement(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retireAt)
+            .count());
+    SamplesCorridorSlice(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
+            .count());
+    return retired;
+  }
+
   [[nodiscard]] StreetGraphPreparation *StreetGraphWorker() noexcept {
     return StreetGraphWorker_.get();
   }
@@ -2140,16 +2153,7 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
                                          GroundBuildState &state) {
   const auto began = std::chrono::steady_clock::now();
   if (state.RetiringCorridors()) {
-    const auto retireAt = std::chrono::steady_clock::now();
-    const bool retired = state.CorridorJob()->RetireStep(kCorridorRetireUnitsPerFrame);
-    if (retired) { state.FinishesCorridors(); }
-    state.SamplesCorridorRetirement(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - retireAt)
-            .count());
-    state.SamplesCorridorSlice(
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began)
-            .count());
-    if (!retired) { return true; }
+    if (!state.AdvancesCorridorRetirement(began)) { return true; }
     state.AdvanceStage();
     Published.RecordMetric(
         "ground candidate: corridor job retirement", state.LongestCorridorRetirementMs(), "ms");
@@ -2174,19 +2178,24 @@ bool Engine::State::BuildGroundCorridors(const TangentFrame &standing,
   std::vector<EarthworkStamp> corridors;
   std::vector<DiagnosticSample> notes;
   const ::outshine::Generators::Osm::RegionSources &sources = state.Candidate().Sources();
-  const Generators::Corridors::Site site{.Vectors = sources.Vectors.get(),
-                                         .Ways = sources.Ways,
-                                         .Materials = World.Stack.Materials(),
-                                         .Vegetation = World.Stack.Vegetation(),
-                                         .Ground = &World.Stack.Ground(),
-                                         .Network = build.StreetGraph.get(),
-                                         .Standing = standing,
-                                         .Draped = drapedOver,
-                                         .Classes = build.ClassStructure,
-                                         .CensusAt = state.Began(),
-                                         .EyeLatDeg = coverage.LatitudeDeg,
-                                         .EyeLonDeg = coverage.LongitudeDeg,
-                                         .Projection = build.Footprints.Projection()};
+  const Generators::Corridors::Site site{
+      .Vectors = sources.Vectors.get(),
+      .Ways = sources.Ways,
+      .Materials = World.Stack.Materials(),
+      .Vegetation = World.Stack.Vegetation(),
+      .Ground = &World.Stack.Ground(),
+      .Network = build.StreetGraph.get(),
+      .Standing = standing,
+      .Draped = drapedOver,
+      .Classes = build.ClassStructure,
+      .WaterUpM = [&sources, &standing](LongitudeLatitude at) -> std::optional<double> {
+        return Generators::WaterSurfaceUpAt(
+            sources.WaterBodies, sources.Vectors.get(), standing, at);
+      },
+      .CensusAt = state.Began(),
+      .EyeLatDeg = coverage.LatitudeDeg,
+      .EyeLonDeg = coverage.LongitudeDeg,
+      .Projection = build.Footprints.Projection()};
   if (state.CorridorJob() == nullptr) {
     const auto jobAt = std::chrono::steady_clock::now();
     state.BeginsCorridors(Generators::Corridors::Begin(site));

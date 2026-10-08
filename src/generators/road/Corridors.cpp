@@ -310,6 +310,7 @@ std::vector<double> Corridors::ReachedAlong(std::span<const RoadStation> along) 
 void Corridors::DetermineWaterClearance(const Paving &on, size_t laneAt, Paved &into) {
   const auto began = std::chrono::steady_clock::now();
   double overWaterM = 0.0;
+  double waterUpM = -kBeyondAnyCoordinate;
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double midE = 0.5 * (into.Along[at - 1].EastM + into.Along[at].EastM);
     const double midN = 0.5 * (into.Along[at - 1].NorthM + into.Along[at].NorthM);
@@ -324,7 +325,10 @@ void Corridors::DetermineWaterClearance(const Paving &on, size_t laneAt, Paved &
     ++into.NamedOverBridge;
     if (on.Vegetation.Rows()[static_cast<size_t>(which)].GroundClass != on.WaterRow) { continue; }
     ++into.WetOverBridge;
+    const auto level = on.WaterUpM ? on.WaterUpM(midAt) : std::nullopt;
+    if (!level || !std::isfinite(*level)) { continue; }
     overWaterM += StepAlongM(into.Along, at);
+    waterUpM = std::max(waterUpM, *level);
   }
   if (overWaterM > 0.0) {
     double clear = 0.0;
@@ -334,9 +338,7 @@ void Corridors::DetermineWaterClearance(const Paving &on, size_t laneAt, Paved &
       if (overWaterM <= static_cast<double>(band.RunM)) { break; }
     }
     if (clear > 0.0) {
-      double stood = -kBeyondAnyCoordinate;
-      for (const RoadStation &one : into.Along) { stood = std::max(stood, one.GradeM); }
-      into.DeckM[laneAt] = std::max(into.DeckM[laneAt], stood + clear);
+      into.DeckM[laneAt] = std::max(into.DeckM[laneAt], waterUpM + clear);
       ++into.DecksOverWater;
       into.MostOverWaterM = std::max(into.MostOverWaterM, clear);
     }
@@ -419,13 +421,14 @@ void Corridors::PaveEdge(const Paving &on,
                                  pavement);
   }
   into.SweepMs += since();
-  AppendTerrainStamps(on, lane, into, corridor);
+  AppendTerrainStamps(on, laneAt, into, corridor);
 }
 
 void Corridors::AppendTerrainStamps(const Paving &on,
-                                    const ::outshine::Generators::Osm::StreetField::Way &lane,
+                                    size_t laneAt,
                                     Paved &into,
                                     std::vector<EarthworkStamp> &corridor) {
+  const auto &lane = on.Ways.Ways()[laneAt];
   const auto yieldsAt = std::chrono::steady_clock::now();
   for (size_t at = 1; at < into.Along.size(); ++at) {
     const double runE = into.Along[at].EastM - into.Along[at - 1u].EastM;
@@ -481,7 +484,7 @@ void Corridors::AppendTerrainStamps(const Paving &on,
     made.SlopeN = rise * runN / runM;
     made.ApronM = std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM);
     made.YieldM = yieldM;
-    made.CorridorKey = static_cast<uint64_t>(lane.FirstPoint) + 1;
+    made.CorridorKey = into.ContactKeys[laneAt];
     const bool rests = !lane.Bridge || at == 1u || at + 1u == into.Along.size();
     if (rests) {
       made.SeamEastNorthM = {
@@ -1088,7 +1091,8 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
   const double rootsM = made.GradeM;
   made.GradeM = on.Draped.At({.EastM = made.EastM, .NorthM = made.NorthM}, made.GradeM);
   const auto seeded = into.EndM.find(node);
-  if (decked && seeded != into.EndM.end()) { made.GradeM = seeded->second; }
+  if (seeded != into.EndM.end()) { made.GradeM = seeded->second; }
+  made.CorridorKey = into.ContactKeys[into.Edges[legs.front().Edge].Lane];
   for (size_t i = 0; i < n; ++i) {
     const size_t next = (i + 1u) % n;
     double apartDeg = (legs[next].AngleRad - legs[i].AngleRad) * kRad2Deg;
@@ -1187,6 +1191,7 @@ void Corridors::AppendJunctionTerrainStamp(const Junction &made,
   under.AtE = made.EastM;
   under.AtN = made.NorthM;
   under.PlateauM = made.GradeM - kPavementLipM;
+  under.CorridorKey = made.CorridorKey;
   under.SlopeE = made.SlopeE;
   under.SlopeN = made.SlopeN;
   under.YieldM = std::max(std::fabs(made.GradeM - rootsM), kBrokenGroundM);
@@ -1219,9 +1224,16 @@ void Corridors::DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &
                            const Edge &edge,
                            Paved &into) {
   if (lane.Bridge) {
-    double deck = into.DeckM[edge.Lane];
-    for (const RoadStation &one : into.Along) { deck = std::max(deck, one.GradeM); }
-    for (RoadStation &one : into.Along) { one.GradeM = deck; }
+    const std::vector<double> reached = ReachedAlong(into.Along);
+    if (!(reached.back() > 0.0)) { return; }
+    const double floorM = into.DeckM[edge.Lane];
+    const double firstM =
+        std::max(floorM, edge.HasEndGrade[0] ? edge.GradeAtM[0] : into.Along.front().GradeM);
+    const double lastM =
+        std::max(floorM, edge.HasEndGrade[1] ? edge.GradeAtM[1] : into.Along.back().GradeM);
+    for (size_t at = 0; at < into.Along.size(); ++at) {
+      into.Along[at].GradeM = std::lerp(firstM, lastM, reached[at] / reached.back());
+    }
     return;
   }
   const double gradient =
@@ -1420,6 +1432,7 @@ void Corridors::PaveLanes(const Paving &on,
       RecordBridgeConnectionMetrics(into);
       Notes(into, "streets: of that, raising the decks", since(), "ms");
       SplitsEdges(into);
+      GroupTerrainContacts(on, into);
       ShapesJunctions(on, into);
       corridor.insert(corridor.end(),
                       std::make_move_iterator(into.UnderJunctions.begin()),
@@ -1561,6 +1574,7 @@ bool Corridors::Lay(const Site &site,
                           .Draped = drapedOver,
                           .Standing = standing,
                           .Classes = classStructure,
+                          .WaterUpM = site.WaterUpM,
                           .WaterRow = waterRow,
                           .EyeLatDeg = site.EyeLatDeg,
                           .EyeLonDeg = site.EyeLonDeg,
@@ -1665,7 +1679,10 @@ bool Corridors::Job::RetireVectors(size_t unitsMost) noexcept {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(2);
   switch (Retirement) {
     case RetireStage::Designed:
-      if (RetireVector(Work.Designed, unitsMost, deadline)) { Retirement = RetireStage::Junctions; }
+      if (RetireVector(Work.Designed, unitsMost, deadline) &&
+          RetireVector(Work.ContactKeys, unitsMost, deadline)) {
+        Retirement = RetireStage::Junctions;
+      }
       break;
     case RetireStage::Junctions:
       if (RetireVector(Work.Junctions, unitsMost, deadline)) {
@@ -1776,6 +1793,7 @@ Corridors::Advance(Job &job,
                           .Draped = site.Draped,
                           .Standing = site.Standing,
                           .Classes = site.Classes,
+                          .WaterUpM = site.WaterUpM,
                           .WaterRow = waterRow,
                           .EyeLatDeg = site.EyeLatDeg,
                           .EyeLonDeg = site.EyeLonDeg,
@@ -2121,6 +2139,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
     }
     case Job::Stage::Edges:
       SplitsEdges(into);
+      if (paving != nullptr) { GroupTerrainContacts(*paving, into); }
       job.StageMs += elapsed();
       job.TotalMs += elapsed();
       job.Phase = Job::Stage::Legs;

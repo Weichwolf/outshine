@@ -37,8 +37,10 @@ auch nicht geteilte Quellen-Endpunkte übernehmen fortgepflanzte Höhen.
 Terrain und Straßen konsumieren wieder vorhandene Wasser-/Verkehrsflächen. Keine zweite
 Quelle, zusätzlichen Downloads oder Änderung vorhandener Cachebytes erforderlich.
 Das deckt fehlerhafte Vegetationsstandorte/-größen auf (2111); Bildabnahme bleibt offen.
-Wasserfreiraum stammt bisher aus dem drapierten Gelände und Klassenregeln; tatsächlicher
-Wasserpegel aus 2145 und unbekannte Durchfahrtshöhen benötigen noch einen gemeinsamen Vertrag.
+Road-Site erhält einen optionalen Wasserpegel im lokalen Up-Bezug; die Engine übersetzt
+normalisierte native Wasserflächen aus 2145. Inseln/fehlende Pegel heben keine Brücke an.
+Wasserfreiraum gilt über diesem Pegel, nicht zusätzlich über den höchsten Bodenstationen.
+Unbekannte reale Durchfahrtshöhen bleiben prozedurale Klassenannahmen; Bildabnahme offen.
 Straßen-Ausläufe blenden jetzt ohne den bisherigen Sprung zum Quellgelände aus.
 Polygonale Straßenkontakte erfassen Schnitt und Auftrag an beiden Schultern;
 die größte Achsen-/Randabweichung bestimmt den geplanten Kontakt und seine Auslaufbreite.
@@ -56,10 +58,17 @@ Gemeinsame Innenknoten erhalten Ebenenbezug; tatsächliche Schnittpunkte teilen 
 Zehn-Meter-Nähe erzeugt keine Anschlüsse. Vorhandene Brückenenden bleiben angebunden.
 Feldkirchs gebrochene Nahstraßen und Brückenanschlüsse bleiben offen.
 Geschlossene Linien erzeugen ausschließlich ihr Straßenband und örtliche Böschungen;
-eingeschlossene Hügel/Senken bleiben erhalten. Nächste Lieferung:
-Wasserfreiraum auf den tatsächlichen Oberflächenpegel beziehen, nicht auf die höchste
-Bodenstation. Fortgepflanzte Rampenhöhen auch an Bodenkreuzungen erhalten. Danach
-vollständiges klassenkonformes Höhenprofil mit gemeinsamen Anschlussstationen; Fahrbahn,
+eingeschlossene Hügel/Senken bleiben erhalten. Bodenkreuzungen übernehmen fortgepflanzte
+Rampen-Endhöhen. Tatsächlich verbundene Ground-Ways derselben Ebene und ihre Knoten teilen
+eine Terrain-Kontaktkennung; eigene Ausläufe kappen keine angeschlossenen Fahrbahnen.
+`CorridorContacts` bildet gepackte Nachbarschaften und lineare BFS-Komponenten; keine
+Verbindung aus Nähe, keine Aufhebung fremder Kontakte oder echter Brückenfreiräume.
+Eine waagerechte Brückenplatte am höchsten DEM-Punkt hebt Feldkirchs tiefere Anschlüsse
+unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erforderlichem
+Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbaus.
+Feldkirchs große Rampen sinken sichtbar; einzelne gebrochene Straßenränder bleiben.
+Nächste Lieferung: vollständiges klassenkonformes Höhenprofil mit gemeinsamen
+Anschlussstationen; Fahrbahn,
 Schultern und Terrainkontakt daraus ableiten. Ground-Ways erzeugen bisher überwiegend nur
 Terrainkontakte, eigene Spannenmeshes vor allem Brücken. Nahfahrbahnen brauchen dieselbe
 adaptive Profilabtastung wie ihr Untergrund, bevor zusätzliche Aufbauten sinnvoll sind.
