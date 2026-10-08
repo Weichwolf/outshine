@@ -30,6 +30,7 @@ class TimeoutCleanup(unittest.TestCase):
         self.child.write_text('import os,signal,sys,time\n'
                               'from pathlib import Path\n'
                               'signal.signal(signal.SIGTERM,signal.SIG_IGN)\n'
+                              'time.sleep(float(os.environ.get("TEST_START_DELAY","0")))\n'
                               'Path(sys.argv[1]).write_text(str(os.getpid()))\n'
                               'while True: time.sleep(1)\n')
         self.foreign_pid = self.directory / 'foreign.pid'
@@ -50,7 +51,7 @@ class TimeoutCleanup(unittest.TestCase):
             self.assertIsNotNone(match, name)
             selected.append(match.group())
         helper = self.directory / 'runner.sh'
-        helper.write_text('set -u\nset -m\nRUNNING_GROUPS=""\nTIMEOUT_S=1\n' +
+        helper.write_text('set -u\nset -m\nRUNNING_GROUPS=""\nTIMEOUT_S="$TEST_TIMEOUT_S"\n' +
                           '\n'.join(selected) +
                           '\ntrap \'KillRunning; exit 143\' TERM\n'
                           'RunWithTimeout "$TEST_FIXTURE" "$TEST_LOG" "$TEST_MARKER" "$1"\n'
@@ -81,8 +82,9 @@ class TimeoutCleanup(unittest.TestCase):
             detail += '; case=' + case_log.read_text(errors='replace')[-1000:]
         self.fail('fixture did not publish its PID' + detail)
 
-    def start(self, mode):
-        runner = subprocess.Popen(['sh', str(self.helper), mode], env=self.environment,
+    def start(self, mode, timeout=1, delay=0):
+        environment = dict(self.environment, TEST_TIMEOUT_S=str(timeout), TEST_START_DELAY=str(delay))
+        runner = subprocess.Popen(['sh', str(self.helper), mode], env=environment,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                   start_new_session=True, text=True)
         self.runners.append(runner)
@@ -102,16 +104,29 @@ class TimeoutCleanup(unittest.TestCase):
         self.assertTrue(self.marker.exists(), stdout + stderr)
 
     def test_normal_owner_exit_cleans_descendants(self):
-        runner, child = self.start('normal')
+        self.assert_normal_exit()
+
+    def assert_normal_exit(self, delay=0):
+        runner, child = self.start('normal', timeout=30, delay=delay)
         stdout, stderr = self.assert_clean(runner, child)
         self.assertEqual(runner.returncode, 0, stdout + stderr)
         self.assertFalse(self.marker.exists())
 
-    def test_interrupt_cleans_descendants(self):
-        runner, child = self.start('timeout')
+    def test_normal_owner_exit_cleans_descendants_after_slow_start(self):
+        self.assert_normal_exit(delay=1.25)
+
+    def assert_interrupted(self, delay=0):
+        runner, child = self.start('timeout', timeout=30, delay=delay)
         runner.terminate()
         self.assert_clean(runner, child)
         self.assertEqual(runner.returncode, 143)
+        self.assertFalse(self.marker.exists(), 'the interrupt case must not be killed by its watchdog')
+
+    def test_interrupt_cleans_descendants(self):
+        self.assert_interrupted()
+
+    def test_interrupt_cleans_descendants_after_slow_start(self):
+        self.assert_interrupted(delay=1.25)
 
     def tearDown(self):
         for runner in self.runners:
