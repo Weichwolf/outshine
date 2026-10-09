@@ -40,9 +40,9 @@ Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-
    Gebäude-Anfragen finden Basis/Inhalts-ID vor Straßen-Digests. Native OSM-Kacheln werden vor
    Provider/MVT auf dem Compute-Worker geladen; Geometrie/Klassifizierung teilen den Pfad.
    Regionsbedarf bindet Regeln, Form, Layout/Kacheladressen und Parameter ohne Quelldigests.
-   Teilstände dürfen vollständigen Bedarf nicht treffen. Vorhandene Inhalts-IDs/Pakete werden
-   atomar per Metadaten übernommen; alle 41 Pakete unverändert.
-   Preload lädt native Klassen vor Feldern und hält Abdeckung über Übergaben. Regionshits sparen globale Straßenfelder; Nahplatzierung nutzt eine Kachel. Basismiss/Bewegung fordert Quellen. Gebäude-/Terrainfelder offen.
+   Teilstände treffen keinen vollständigen Bedarf; vorhandene Pakete werden atomar gebunden.
+   Native Klassen vor Feldern laden und Abdeckung über Übergaben halten; Hits sparen globale Straßenfelder.
+   P0: Gebäude-Höhenbedarf vor Felddecode nach räumlichem Detailbedarf wählen; Fernbauten fordern bisher pauschal feinste DEM-Kacheln. Kachelpläne aus 2281/2336 liefern Bedarf, keine globale Feinabdeckung.
 2. P0: fertige 257²-Höhensamples (528.416 B) asynchron laden; nur Miss sampelt/speichert. [Modell](../test/experiments/prepared_ground_patch.py): Rastergröße/Präzision. Zehn gleiche Offline-Bildpaare: 25–32 MiB Zusatzlesungen entfallen; CP/Tokyo je 2 MiB Kamerahöhe. Deformierte Kontakte bleiben separat. WaterAsset integriert, Konturen/Löcher erhalten. [Packmodell](../test/experiments/water_asset_coordinates.py): 9–286 kB statt 0,19–60 MB. Weitere Produkte nach 2188 trennen.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Renderer teilt Maps/Material ([Modell](../test/experiments/material_image_residency.py)). Native Bilder halten Basis und optionale Linear-/sRGB-/Normalmips; Producer bereitet vor Publikation vor, Hits uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.

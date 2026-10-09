@@ -14,15 +14,11 @@ Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funk
 Aktueller Schwerpunkt: sichtbare Netzfehler in Wien, anschließend schwierige selbst gewählte
 POIs: Feldkirch, Basel Badischer Bahnhof (Straßen/Tunnel/Ebenen), Zürich HB, Häfen und dichte Städte.
 Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen.
-Mesher und Terrainkontakt teilen den vollständigen Anschlussumriss; Zweigverbindungen
-dürfen keine Straßenränder durch ein Dreieck verlieren. Seitenflächen nutzen Kantennormalen.
-Knoten im Kontaktkern reichen nicht: interpolierte Terrain-Zellen durchdringen Fahrbahnränder.
-Starre Fahrbahnflächen benötigen konservativen Zellkontakt; zusätzliche Verfeinerung allein
-behebt konkurrierende Randhöhen nicht. Wasserflächen gehören nicht in diesen Straßenvergleich.
-Native Anschlüsse nutzen gemeinsame Zellstützweite und Höhenfeld aller Terrain-Seiten.
+Mesher und Terrainkontakt teilen den vollständigen Anschlussumriss und gemeinsame Zellstützweite.
+Starre Fahrbahnränder benötigen konservativen Zellkontakt, nicht nur abgesenkte Knoten.
 Zusätzlicher Kontakt schneidet nur; Kern/weiche Ausläufe bleiben. Sync/Async teilen den Aufbau.
 Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
-Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen.
+Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen. Seiten nutzen Kantennormalen.
 Places nutzen polygonale Kontakte; der gemeinsame Profilpfad verlangt benannte Routen.
 Ebenerdige [Straßenbänder](../test/experiments/road_surface_cost.py) erzeugen nur die eigene obere Geometrie.
 Brücken behalten ihre Unter-/Seitenflächen. RoadAlignmentBuilder verweigert Brücken/Tunnel bis zum Struktursolver;
@@ -38,13 +34,12 @@ Treppenstufen, Bahnsteige, Pier-/Brückenwege und Seilbahnen fehlen noch.
 ## Besitzer und nächste Lieferung
 OSM-Adapter normalisiert vorhandene Semantik; world/navigation hält das native logische Netz.
 generators/road besitzt Profile/Geometrie, Terrain konsumiert deren Kontaktdeformation.
-Ein gemeinsamer nativer Entwurf liefert Mesh, Kollision, Bodenauftrag und befahrbare Kontakte.
 Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann Bauhaus/Art déco.
 1. Infrastruktur allein rendern: Straße/Schiene/Brücken ohne gezeichnetes Terrain und Gebäude.
    Höheninputs/Kontakte und Licht bleiben aktiv; ohne Schattenplan keine Schatten. Fehlstellen lokalisieren.
    Erst einen vollständigen realen Anschluss samt Brücke sichtbar und funktional schließen.
-2. Gemeinsame Knotenhöhen und C1-Profile durch alle angeschlossenen Straßen/Schienen/Wege
-   führen; danach passende Nahabtastung integrieren. Nicht nur Rampenoffsets begrenzen.
+2. Kachelweise 2D-Vektorpläne mit expliziten Ebenen und gemeinsamen Randknoten aufbauen.
+   Daraus gemeinsame Knotenhöhen, C1-Profile und passende Nahabtastung ableiten.
 3. Schienen mit eigenen Breiten, zulässigen Profilen und Oberflächen darstellen; keine
    Straßenrezept-Kopie. Geh-/Radwege, Bahnübergänge und getrennte Ebenen bleiben verbunden.
 4. Tragwerk, Decks, Portale und erforderliche Freiräume gehören zum funktionalen Grundmodell.
@@ -61,6 +56,11 @@ Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann
   tatsächliche Schnittpunkte teilen Position/Höhe nur bei kompatibler Ebene/Brückenklasse.
   Nähe allein erzeugt keine Verbindung. Quellendpunkte und Brückenenden bleiben angeschlossen.
   Fehlende Topologie/Angaben als Annahmen kennzeichnen, nicht als belegte OSM-Verbindung.
+- Grid partitioniert die 2D-Vektorplanung und indexiert Bedarf; Straßenachsen werden nicht gerastert.
+  Kacheln teilen kanonische Randknoten und begrenzte Nachbarbereiche. Ebenen bleiben getrennt;
+  explizite Übergänge verbinden sie. Höhen/Freiraum entlang betroffener Ketten gemeinsam lösen.
+  Wenige Rezepte: Band, Kreuzung/Abzweig, Einfädelung, Rampe, Brückendeck/Tragwerk,
+  Tunnel/Portal und Schienenknoten. Derselbe native Plan liefert Mesh, Kollision und Terrainkontakt.
 - Ein Alignment je Kette. Fahrbahn, Schultern, Bord/Gehweg, Knoten und Kollision daraus ableiten.
   Gemeinsame Endpositionen/Höhen/Tangenten über Tiles; vollständige Längs-/Querneigung
   klassenabhängig begrenzen. Kreuzungsebenen erfüllen alle angeschlossenen Klassengrenzen.

@@ -112,9 +112,9 @@ Licht/Wetter, Stabilität und Kosten getrennt bewerten. Client-API und AGENTS-Ga
 `src/assets/places`/`client/PlaceCamera` besitzen Szenario/Pose; Webcam-Referenzen bleiben in
 `build/shots/reference/webcams`. Kamerakalibrierung ersetzt keine fehlende Geometrie.
 Rundum-Abdeckung und Datenherkunft belegen; ein Sichtweitenparameter allein beweist sie nicht.
-Stand f544a20ab: zehn native Places samt Miss-/Hit-Bildern geprüft; gemeinsame Terrain-Nähte,
-weiche Außenböschungen und Clearance-Ausläufe. Fundament-/Beckenränder, Höhenprofile und
-adaptive Abtastung bleiben bei 2281/2145 offen. Betroffene Tests/Tidy sauber; letzter voller Lint
-rot wegen fehlendem gepinntem Khronos-Bild. Native OSM-Treffer: zehn bildgleiche Offline-Paare,
-null Quellenbytes/Provideraufrufe, warm 1,86–3,81 s. Rosenheim 26,71 ms p99 in Frame 4,
-davon Host-Fence 25,43 ms; Frame-/GPU-/Speicherbudget bleiben offen bei 2340/2339.
+Native Places laden warm in frischen Offline-Prozessen; Erdstraßen haben eigene obere Flächen,
+Brücken behalten geschlossene Körper. Weggelassene Unterflächen sparen Geometrie und Speicher.
+Fundament-/Beckenränder, gemeinsame Höhenprofile, Gleisfelder und Ebenen bleiben bei 2281/2145 offen.
+2281 plant erst kachelweise das Vektornetz, daraus konstruktive 3D-Rezepte; Gestaltung folgt.
+Basel Badischer Bahnhof und Zürich HB ergänzen die Diagnosen. Erstaufbau fordert übermäßig
+feine Terrainfelder (2280/2336); GPU-Passzeiten und A18-Pro-Budgets bleiben bei 2340/2339 offen.
