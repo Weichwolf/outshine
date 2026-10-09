@@ -41,7 +41,7 @@ generators/road besitzt Profile/Geometrie, Terrain konsumiert deren Kontaktdefor
 Ein gemeinsamer nativer Entwurf liefert Mesh, Kollision, Bodenauftrag und befahrbare Kontakte.
 Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann Bauhaus/Art déco.
 1. Infrastruktur allein rendern: Straße/Schiene/Brücken ohne gezeichnetes Terrain und Gebäude.
-   Höheninputs/Kontakte bleiben aktiv. Meshlücken, falsche Ebenen/Profile und Fehlstellen lokalisieren.
+   Höheninputs/Kontakte und Licht bleiben aktiv; ohne Schattenplan keine Schatten. Fehlstellen lokalisieren.
    Erst einen vollständigen realen Anschluss samt Brücke sichtbar und funktional schließen.
 2. Gemeinsame Knotenhöhen und C1-Profile durch alle angeschlossenen Straßen/Schienen/Wege
    führen; danach passende Nahabtastung integrieren. Nicht nur Rampenoffsets begrenzen.

@@ -112,11 +112,11 @@ public:
                   size_t count) {
     Atlas_ = atlas;
     AtlasSampler_ = exact;
-    Shadowed_ = atlas != nullptr && exact != nullptr;
+    Shadowed_ = atlas != nullptr && exact != nullptr && count > 0;
+    ShadowRegionCount_ = Shadowed_ ? count : 0;
     if (!Shadowed_) { return; }
     LightFromWorld_ = lightFromWorld;
     ShadowRegions_ = regions;
-    ShadowRegionCount_ = count;
   }
 
   void CastsNoShadow() { ShadowedBy(nullptr, nullptr, Mat4{}, {}, 0); }

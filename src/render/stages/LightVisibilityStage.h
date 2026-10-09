@@ -51,7 +51,10 @@ public:
     return RegionUniforms_;
   }
 
-  [[nodiscard]] size_t RegionCount() const { return CameraCentred_ ? kSunShadowRegions : 1; }
+  [[nodiscard]] size_t RegionCount() const {
+    if (!Declared_) { return 0; }
+    return CameraCentred_ ? kSunShadowRegions : 1;
+  }
 
   [[nodiscard]] const Mat4 &RegionProjection(size_t region) const { return Projections_[region]; }
 
