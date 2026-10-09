@@ -39,6 +39,9 @@ public:
 
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
 
+  uint32_t
+  Ingest(const OsmField &field, const VegetationTemplates &veg, TileAdmission::Reach reach);
+
   [[nodiscard]] std::optional<uint64_t> SourceDigest(const OsmField &field,
                                                      uint32_t tile) const noexcept;
 

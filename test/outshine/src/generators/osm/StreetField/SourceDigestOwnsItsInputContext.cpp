@@ -79,6 +79,19 @@ int main() {
   CHECK(streets.Ingest(field, templates) == 1 && streets.Ways().front().HalfWidthM == 0.75f,
         "path rule yields the independently specified half width");
   constexpr uint64_t expected = 0x29f3509d7c0d5050;
+  ::outshine::Generators::Osm::StreetField local;
+  CHECK(local.Ingest(field,
+                     templates,
+                     {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = 0}) == 1 &&
+            local.IngestedTiles() == 1 && local.SourceDigest(field, 0) == expected,
+        "a local placement mask preserves the independent street geometry and digest");
+  ::outshine::Generators::Osm::StreetField outside;
+  CHECK(outside.Ingest(field,
+                       templates,
+                       {.CentreX = field.CentreX() + 1, .CentreY = field.CentreY(), .Rings = 0}) ==
+                0 &&
+            outside.IngestedTiles() == 0,
+        "a local placement mask does not prepare street geometry in another tile");
   CHECK(
       streets.SourceDigest(field, 0) == expected && streets.SourceDigest(field, 20) == kDigestBasis,
       "cached digest matches independent count/width/f64 byte oracle; untouched tiles stay empty");

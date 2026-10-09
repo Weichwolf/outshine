@@ -39,6 +39,13 @@ uint64_t DigestOfWays(const OsmField &field, std::span<const StreetField::Way> w
 }
 
 uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
+  return Ingest(
+      field, veg, {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing});
+}
+
+uint32_t StreetField::Ingest(const OsmField &field,
+                             const VegetationTemplates &veg,
+                             TileAdmission::Reach reach) {
   if (SourceOrigin_.get() != field.OriginToken() || SourceGeneration_ != field.Generation()) {
     *this = StreetField{};
     SourceOrigin_ = field.ShareOriginToken();
@@ -48,9 +55,7 @@ uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &v
   if (Admission_.Done(field.Tiles())) { return static_cast<uint32_t>(Ways_.size()); }
 
   const TileAdmission::Next next =
-      Admission_.Ask(field.Tiles(),
-                     {.CentreX = field.CentreX(), .CentreY = field.CentreY(), .Rings = kEveryRing},
-                     [](size_t, size_t) { return true; });
+      Admission_.Ask(field.Tiles(), reach, [](size_t, size_t) { return true; });
   if (!next.Found) { return static_cast<uint32_t>(Ways_.size()); }
   Admission_.Take(next.Tile);
 

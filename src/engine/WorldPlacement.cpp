@@ -52,6 +52,22 @@ InstancePlacementInputs PlacementInputs(const Surrounds &world,
           .WaterBodies = &world.Stack.WaterBodies(),
           .Ways = &world.Stack.Ways()};
 }
+
+void PrepareLocalStreetMask(Generators::Fields &stands,
+                            const Generators::Tile &region,
+                            const Surrounds &world,
+                            Generators::Osm::StreetField &mask,
+                            Core::DiagnosticLedger &metrics) {
+  if (stands.Ways == nullptr || stands.Ways->Ingested(*stands.Vectors)) { return; }
+  (void)mask.Ingest(*stands.Vectors,
+                    world.Stack.Vegetation(),
+                    {.CentreX = region.X(), .CentreY = region.Y(), .Rings = 0});
+  stands.Ways = &mask;
+  metrics.RecordMetric(
+      "placement: local street tiles", static_cast<double>(mask.IngestedTiles()), "tiles");
+  metrics.RecordMetric(
+      "placement: local street mask bytes", static_cast<double>(mask.HeapBytes()), "bytes");
+}
 }
 
 bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
@@ -73,9 +89,11 @@ bool Engine::State::GenerateInitialInstances(double atLat, double atLon) {
 
 bool Engine::State::GenerateInstancesForRegion(const Generators::Tile &region,
                                                LevelOfDetail coarseness) {
-  const Generators::Fields stands = GenerationFields(World);
+  Generators::Fields stands = GenerationFields(World);
   const ::outshine::Generators::Osm::OsmField *const vectors = stands.Vectors;
   if (vectors == nullptr) { return false; }
+  Generators::Osm::StreetField localWays;
+  PrepareLocalStreetMask(stands, region, World, localWays, Published);
   const auto classes = World.Stack.Classes().Read();
   const auto inputs = PlacementInputs(World, region, coarseness, stands, classes);
   if (World.EmptyPlacementInputs == inputs) { return false; }
