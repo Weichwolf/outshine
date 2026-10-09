@@ -75,7 +75,7 @@ Result Engine::preloadWithQuality(double patienceS,
       required == WorldQuality::Refined ? GroundQuality::Refined : GroundQuality::Playable;
   for (;;) {
     const auto pumpAt = std::chrono::steady_clock::now();
-    const auto pumped = S_->PumpPreload();
+    const auto pumped = S_->PumpPreload(quality);
     S_->PreloadPumpMs += elapsedMs(pumpAt);
     ++S_->PreloadPumps;
     if (!pumped) { return timed(pumped); }

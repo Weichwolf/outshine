@@ -214,6 +214,40 @@ uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
   return digest;
 }
 
+std::expected<GroundRegionPreparation::Completed, std::string>
+ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
+                 const Generators::Osm::OsmField &vectors,
+                 const Ground::ShapedGround &shape,
+                 std::span<const uint8_t> parameters,
+                 std::string request,
+                 bool checked,
+                 const std::stop_token &stop) {
+  if (request.empty()) { return std::unexpected("ground request key exceeds its encoding limit"); }
+  if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
+  using Loaded = Generators::Osm::PreparedGroundRegions::Loaded;
+  auto demanded = checked ? std::expected<std::optional<Loaded>, std::string>{std::nullopt}
+                          : assets.LoadRequest(request);
+  if (!demanded) { return std::unexpected(std::move(demanded.error())); }
+  if (*demanded) {
+    auto key = (**demanded).Key;
+    return GroundRegionPreparation::Completed{.Key = std::move(key),
+                                              .Loaded = std::move(*demanded),
+                                              .RequestKey = std::move(request),
+                                              .RequestHit = true};
+  }
+  auto key = assets.Key(vectors, shape, parameters);
+  if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
+  if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
+  auto loaded = assets.Load(key);
+  if (!loaded) { return std::unexpected(std::move(loaded.error())); }
+  if (*loaded) {
+    auto bound = assets.BindRequest(key, request);
+    if (!bound) { return std::unexpected(std::move(bound.error())); }
+  }
+  return GroundRegionPreparation::Completed{
+      .Key = std::move(key), .Loaded = std::move(*loaded), .RequestKey = std::move(request)};
+}
+
 bool GroundSourcesReady(const Ground::SurfacePreparation &stack, GroundQuality quality) {
   return quality == GroundQuality::Refined ? stack.InputsReady() : stack.InputsReadyWithin(0);
 }
@@ -430,6 +464,11 @@ public:
 
   void BeginRegion(Tasks &pool, GroundRegionPreparation::Factory factory, RegionPhase phase) {
     RegionWorker_ = std::make_unique<GroundRegionPreparation>(pool, std::move(factory));
+    RegionPhase_ = phase;
+  }
+
+  void BeginRegion(std::unique_ptr<GroundRegionPreparation> worker, RegionPhase phase) {
+    RegionWorker_ = std::move(worker);
     RegionPhase_ = phase;
   }
 
@@ -756,6 +795,23 @@ private:
 Surrounds::Surrounds() = default;
 
 Surrounds::~Surrounds() = default;
+
+int Engine::State::VectorPreparationRing() const noexcept {
+  if (World.GroundPublished.Current()) { return Ground::kVectorRing; }
+  const GroundRegionPreparation *worker = World.GroundLookup.get();
+  if (worker == nullptr && World.GroundBuild) {
+    if (World.GroundBuild->HasReadyRegion() &&
+        World.GroundBuild->RegionRequest() == World.GroundLookupRequest) {
+      return Ground::kVectorRing;
+    }
+    worker = World.GroundBuild->RegionWorker();
+  }
+  const auto *completed = worker != nullptr ? worker->Peek() : nullptr;
+  return completed != nullptr && *completed && completed->value().Loaded &&
+                 completed->value().RequestKey == World.GroundLookupRequest
+             ? Ground::kVectorRing
+             : 0;
+}
 
 std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates &wearing,
                                               const Medium &fallback) {
@@ -2035,68 +2091,33 @@ Engine::State::GroundBuildProgress Engine::State::BeginGroundRegionLookup(Ground
   }
   const auto shape = World.Stack.Pool().Shaped();
   const Around coverage = state.Coverage();
-  const auto anchor = Session.Declared.Ground.Origin;
-  const auto eye =
-      Picture.Standing->Watched() ? Picture.Standing->Watching() : Picture.Standing->Aimed();
-  BinaryValueWriter parameters(4096);
-  if (!parameters(coverage.LatitudeDeg,
-                  coverage.LongitudeDeg,
-                  coverage.Zoom,
-                  coverage.Levels,
-                  coverage.Grid,
-                  coverage.PlayableOnly,
-                  state.Revision().Quality,
-                  anchor.LatitudeDeg,
-                  anchor.LongitudeDeg,
-                  eye.EyeM.Axis,
-                  eye.Kind,
-                  eye.YfovRad,
-                  eye.YMagM,
-                  Picture.Frame.HeightPx,
-                  Generators::TerrainRefinementDetail{}.ErrorPx,
-                  Render::GroundLattice::kMaximumPages)) {
-    Error = "ground region parameters exceed their encoding limit";
+  auto parameters = GroundRegionParameters(coverage, state.Revision().Quality);
+  if (!parameters) {
+    Error = parameters.error();
     return GroundBuildProgress::Failed;
   }
-  const auto native =
-      std::make_shared<const std::vector<uint8_t>>(std::move(parameters.Out).TakeBytes());
+  const auto native = std::make_shared<const std::vector<uint8_t>>(std::move(*parameters));
+  std::vector<Ground::TileSpot> inputs;
+  inputs.reserve(vectors->Tiles().size());
+  for (const auto &tile : vectors->Tiles()) {
+    inputs.push_back(
+        {.Zoom = tile.Z, .X = static_cast<uint32_t>(tile.X), .Y = static_cast<uint32_t>(tile.Y)});
+  }
+  auto request = assets->RequestKey(vectors->Zoom(), vectors->Schema(), shape, *native, inputs);
+  const bool checked = World.GroundLookup && World.GroundLookupRequest == request &&
+                       World.GroundLookup->Peek() != nullptr;
+  if (checked && World.GroundLookup->Peek()->has_value() &&
+      World.GroundLookup->Peek()->value().Loaded) {
+    state.BeginRegion(std::move(World.GroundLookup), Phase::Loading);
+    return GroundBuildProgress::Pending;
+  }
   state.BeginRegion(
       *World.Pool,
-      [assets, vectors, shape, native](const std::stop_token &stop)
+      [assets, vectors, shape, native, request = std::move(request), checked](
+          const std::stop_token &stop) mutable
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
-        std::vector<Ground::TileSpot> inputs;
-        inputs.reserve(vectors->Tiles().size());
-        for (const auto &tile : vectors->Tiles()) {
-          inputs.push_back({.Zoom = tile.Z,
-                            .X = static_cast<uint32_t>(tile.X),
-                            .Y = static_cast<uint32_t>(tile.Y)});
-        }
-        auto request =
-            assets->RequestKey(vectors->Zoom(), vectors->Schema(), shape, *native, inputs);
-        if (request.empty()) {
-          return std::unexpected("ground request key exceeds its encoding limit");
-        }
-        if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
-        auto demanded = assets->LoadRequest(request);
-        if (!demanded) { return std::unexpected(std::move(demanded.error())); }
-        if (*demanded) {
-          auto key = (**demanded).Key;
-          return GroundRegionPreparation::Completed{.Key = std::move(key),
-                                                    .Loaded = std::move(*demanded),
-                                                    .RequestKey = std::move(request),
-                                                    .RequestHit = true};
-        }
-        auto key = assets->Key(*vectors, shape, *native);
-        if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
-        if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
-        auto loaded = assets->Load(key);
-        if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-        if (*loaded) {
-          auto bound = assets->BindRequest(key, request);
-          if (!bound) { return std::unexpected(std::move(bound.error())); }
-        }
-        return GroundRegionPreparation::Completed{
-            .Key = std::move(key), .Loaded = std::move(*loaded), .RequestKey = std::move(request)};
+        return ReadGroundRegion(
+            *assets, *vectors, shape, *native, std::move(request), checked, stop);
       },
       Phase::Loading);
   return GroundBuildProgress::Pending;

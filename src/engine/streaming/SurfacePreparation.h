@@ -156,6 +156,12 @@ public:
 
   [[nodiscard]] const ClassificationPreparation &Classes() const { return Cls_; }
 
+  [[nodiscard]] bool RestoreClasses(std::shared_ptr<const ClassStructure> classes) {
+    return Cls_.Restore(std::move(classes));
+  }
+
+  [[nodiscard]] Generators::Osm::MvtSchema VectorSchema() const noexcept { return VectorSchema_; }
+
   [[nodiscard]] const GroundMaterials &Materials() const { return Materials_; }
 
   void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }

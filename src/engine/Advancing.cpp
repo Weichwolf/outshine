@@ -509,7 +509,7 @@ bool Engine::State::Updates() {
         Cost.PieceHandoff.Took(
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handoffAt)
                 .count());
-        const int vectorRing = World.GroundPublished.Current() ? Ground::kVectorRing : 0;
+        const int vectorRing = VectorPreparationRing();
         const auto restandAt = std::chrono::steady_clock::now();
         const auto streamed = World.Stack.AdvanceAt(
             stands, {.IngestTilesMost = Ground::kFrameIngestTiles, .VectorRing = vectorRing});

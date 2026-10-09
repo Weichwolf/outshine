@@ -110,7 +110,7 @@ Reprojektion/Validierung und Grenzen bei Occlusion, Beleuchtung und subpixeliger
 Lokales Filament `ef1a133d` dient als Integrationsvergleich, nicht als Kostenbeweis.
 
 ## Abnahme
-Unbewegte Kamera, Drehung, Bewegung, Lichtwechsel und neue Geometrie separat messen.
+Unbewegte Kamera, Drehung, Bewegung, Lichtwechsel und neue Geometrie separat messen. P1: früher Regionshit ändert CP/Wien reproduzierbar an 9/3 Pixeln maximal 1/255; Ursache in Framezustand/Batching klären, Pins unverändert.
 Keine verschwindenden Inhalte, Geisterbilder, Helligkeits-/Coverage-Sprünge oder verzögerten Aktionen.
 Native Geometriearbeit, Shadingarbeit, Host-Encoding, Fence-Warten und GPU-Zeit getrennt ausweisen;
 fehlende GPU-Zeit bleibt unbekannt. Weniger Gesamtarbeit/Bytes bei gleicher oder besserer

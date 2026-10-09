@@ -617,7 +617,7 @@ std::expected<Engine::State::PreloadFlush, std::string> Engine::State::FlushPrel
   return PreloadFlush::Pending;
 }
 
-Result Engine::State::PumpPreload() {
+Result Engine::State::PumpPreload(GroundQuality quality) {
   if (World.Stack.Overflowing()) { return PreloadOverflow(); }
   Published.BeginFrame();
   if (!RequestOriginalCells()) { return std::unexpected(Error); }
@@ -629,12 +629,15 @@ Result Engine::State::PumpPreload() {
     return std::unexpected(std::string(OsmWorldBlocker(Session.Declared.Providers, World)));
   }
   if (!Session.Declared.Ground.Declared) { return {}; }
+  const auto region = PrimeGroundRegion(quality);
+  if (!region) { return std::unexpected(region.error()); }
+  if (!*region) { return {}; }
   if (!InspectTerrainCoverage()) { return std::unexpected(Error); }
   const LongitudeLatitude stands = CurrentGeographicFocus();
   const double atLat = stands.LatitudeDeg;
   const double atLon = stands.LongitudeDeg;
   HandsPiecesOver();
-  const int vectorRing = World.GroundPublished.Current() ? Ground::kVectorRing : 0;
+  const int vectorRing = VectorPreparationRing();
   const auto streamed = World.Stack.AdvanceAt(
       stands, {.IngestTilesMost = Ground::kVectorTiles, .VectorRing = vectorRing});
   if (!streamed) {

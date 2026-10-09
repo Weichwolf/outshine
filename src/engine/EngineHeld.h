@@ -15,6 +15,7 @@
 #include "VegetationStreaming.h"
 #include "WorldReadiness.h"
 #include "GroundPublication.h"
+#include "GroundRegionPreparation.h"
 #include "Rigid.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
@@ -250,6 +251,8 @@ struct Surrounds {
   std::optional<GroundRevision> RequestedRefinedGround;
   std::unique_ptr<GroundBuildState> GroundBuild;
   std::unique_ptr<GroundBuildState> GroundRetirement;
+  std::string GroundLookupRequest;
+  std::unique_ptr<GroundRegionPreparation> GroundLookup;
   size_t GroundCandidates = 0;
 
   TilePieces Pieces;
@@ -474,7 +477,13 @@ struct Engine::State {
   [[nodiscard]] bool RefinedGroundClassified(const GroundRevision &revision) const;
   [[nodiscard]] bool CanBeginGroundCandidate() const;
   [[nodiscard]] bool CanAdvanceGroundCandidate() const;
-  [[nodiscard]] Result PumpPreload();
+  [[nodiscard]] Result PumpPreload(GroundQuality quality);
+  [[nodiscard]] Holds<bool> PrimeGroundRegion(GroundQuality quality);
+  [[nodiscard]] bool CanPrimeGroundRegion(GroundQuality quality) const;
+  [[nodiscard]] Holds<bool> PositionGroundRegionCamera(const Scenario::View &view);
+  [[nodiscard]] int VectorPreparationRing() const noexcept;
+  [[nodiscard]] Holds<std::vector<uint8_t>> GroundRegionParameters(const Around &coverage,
+                                                                   GroundQuality quality) const;
   [[nodiscard]] Result PreloadOverflow();
   enum class PreloadFlush : uint8_t { Pending, Ready };
 
