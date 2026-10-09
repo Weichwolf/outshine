@@ -1,4 +1,5 @@
 #include <array>
+#include <new>
 #include "src/engine/WorldInstanceSink.h"
 #include "src/base/io/Heap.h"
 #include "Check.h"
@@ -6,6 +7,14 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  {
+    constexpr auto probeTag = "instance-sink-oracle";
+    const Heap::Tagged tagged(probeTag);
+    const size_t before = Heap::TakenUnder(probeTag);
+    void *probe = ::operator new(64);
+    CHECK(Heap::TakenUnder(probeTag) == before + 64, "allocation oracle observes real storage");
+    ::operator delete(probe);
+  }
   const auto region = Generators::Tile::Of(12, {.LongitudeDeg = 9, .LatitudeDeg = 47});
   std::array<WorldInstance, 2> storage{};
   storage[1].Body = 91;

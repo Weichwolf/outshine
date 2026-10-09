@@ -129,8 +129,8 @@ int main() {
       scene->Eye(eye);
       for (int frame = 0; frame < 3; ++frame) {
         CHECK(scene->Advance(error) && scene->Draw(error), "fixture rendered");
-        CHECK((Render::SubjectCullStage::JobsSweptTaken() > 0) == (frame == 0),
-              "new worlds refresh visibility; unchanged frames reuse it");
+        CHECK((Render::SubjectCullStage::JobsSweptTaken() > 0) == (frame < 2),
+              "new worlds cull, refine with previous depth, then reuse unchanged visibility");
       }
       std::vector<float> pixels;
       CHECK(renderer.ReadSceneLinear(pixels) == Render::ReadState::Ready, "linear pixels read");
