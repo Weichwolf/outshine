@@ -1,6 +1,7 @@
 #include "RoadHeightPlan.h"
 
 #include <algorithm>
+#include <optional>
 #include <cmath>
 #include <chrono>
 #include <cstddef>
@@ -19,6 +20,8 @@ namespace outshine::Generators {
 namespace {
 
 constexpr double kContactToleranceM = 1e-8;
+constexpr double kHeightToleranceM = 1e-10;
+constexpr size_t kEarlyCycleSteps = 128;
 
 struct Neighbor {
   uint32_t Node = 0;
@@ -29,6 +32,12 @@ struct Neighbor {
 struct Neighbors {
   std::vector<size_t> First;
   std::vector<Neighbor> Connected;
+};
+
+struct HeightTrace {
+  std::vector<size_t> Depth;
+  std::vector<uint32_t> Parent;
+  std::vector<size_t> Arc;
 };
 
 bool ValidNode(const RoadHeightNode &node) noexcept {
@@ -60,28 +69,89 @@ Neighbors Connect(size_t nodes, std::span<const RoadHeightLink> links) {
   return out;
 }
 
+std::unexpected<RoadHeightFailure> Failure(std::string_view reason) {
+  return std::unexpected(RoadHeightFailure{.Reason = reason, .CycleNodes = {}});
+}
+
+std::optional<RoadHeightFailure> AttachmentConflict(uint32_t start,
+                                                    std::span<const uint32_t> parent,
+                                                    std::span<const size_t> parentArc,
+                                                    const Neighbors &neighbors,
+                                                    bool reverse,
+                                                    size_t stepsMost) {
+  constexpr uint32_t absent = std::numeric_limits<uint32_t>::max();
+  uint32_t slow = start;
+  uint32_t fast = start;
+  for (size_t step = 0; step < stepsMost; ++step) {
+    slow = parent[slow];
+    fast = parent[fast];
+    if (slow == absent || fast == absent) { return {}; }
+    fast = parent[fast];
+    if (fast == absent) { return {}; }
+    if (slow != fast) { continue; }
+    RoadHeightFailure failure{.Reason =
+                                  "road attachment offsets conflict with the permitted gradients",
+                              .CycleNodes = {}};
+    double budgetM = 0;
+    double costM = 0;
+    uint32_t at = slow;
+    do {
+      failure.CycleNodes.push_back(at);
+      const auto &arc = neighbors.Connected[parentArc[at]];
+      budgetM += std::midpoint(arc.RiseM, arc.ReverseRiseM);
+      costM += reverse ? arc.ReverseRiseM : arc.RiseM;
+      at = parent[at];
+    } while (at != slow && failure.CycleNodes.size() <= parent.size());
+    if (costM >= -kHeightToleranceM || at != slow) { return {}; }
+    failure.MaximumOffsetScale = std::clamp(budgetM / (budgetM - costM), 0.0, 1.0);
+    return failure;
+  }
+  return {};
+}
+
+std::optional<RoadHeightFailure> TraceConflict(const Neighbor &next,
+                                               const HeightTrace &trace,
+                                               const Neighbors &neighbors,
+                                               bool reverse) {
+  const bool fullWalk = trace.Depth[next.Node] >= trace.Parent.size();
+  if (!fullWalk && (reverse ? next.ReverseRiseM : next.RiseM) >= 0) { return {}; }
+  auto conflict = AttachmentConflict(next.Node,
+                                     trace.Parent,
+                                     trace.Arc,
+                                     neighbors,
+                                     reverse,
+                                     fullWalk ? trace.Parent.size() : kEarlyCycleSteps);
+  if (conflict) { return conflict; }
+  if (fullWalk) {
+    return RoadHeightFailure{.Reason = "road attachment cycle exceeded its work bound",
+                             .CycleNodes = {}};
+  }
+  return {};
+}
+
 template <typename Seed>
-std::expected<std::vector<double>, std::string_view> Envelope(std::span<const RoadHeightNode> nodes,
-                                                              const Neighbors &neighbors,
-                                                              Seed seed,
-                                                              bool reverse) {
+std::expected<std::vector<double>, RoadHeightFailure> Envelope(
+    std::span<const RoadHeightNode> nodes, const Neighbors &neighbors, Seed seed, bool reverse) {
   using Visit = std::pair<double, uint32_t>;
   std::vector<double> heights;
   heights.reserve(nodes.size());
   std::vector<Visit> initial;
   initial.reserve(nodes.size());
   for (uint32_t at = 0; at < nodes.size(); ++at) {
-    heights.push_back(seed(nodes[at]));
+    heights.push_back(seed(at));
     if (std::isfinite(heights.back())) { initial.emplace_back(heights.back(), at); }
   }
   std::priority_queue<Visit, std::vector<Visit>, std::greater<>> frontier(std::greater<>{},
                                                                           std::move(initial));
-  std::vector<size_t> pathEdges(nodes.size());
+  HeightTrace trace{.Depth = std::vector<size_t>(nodes.size()),
+                    .Parent =
+                        std::vector<uint32_t>(nodes.size(), std::numeric_limits<uint32_t>::max()),
+                    .Arc = std::vector<size_t>(nodes.size())};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
   size_t visits = 0;
   while (!frontier.empty()) {
     if ((++visits % 4096) == 0 && std::chrono::steady_clock::now() >= deadline) {
-      return std::unexpected("road height planning exceeded its work deadline");
+      return Failure("road height planning exceeded its work deadline");
     }
     const auto [height, node] = frontier.top();
     frontier.pop();
@@ -89,11 +159,12 @@ std::expected<std::vector<double>, std::string_view> Envelope(std::span<const Ro
     for (size_t at = neighbors.First[node]; at < neighbors.First[node + 1]; ++at) {
       const Neighbor &next = neighbors.Connected[at];
       const double candidate = height + (reverse ? next.ReverseRiseM : next.RiseM);
-      if (candidate >= heights[next.Node]) { continue; }
-      pathEdges[next.Node] = pathEdges[node] + 1;
-      if (pathEdges[next.Node] >= nodes.size()) {
-        return std::unexpected("road attachment offsets conflict with the permitted gradients");
-      }
+      if (candidate >= heights[next.Node] - kHeightToleranceM) { continue; }
+      trace.Depth[next.Node] = trace.Depth[node] + 1;
+      trace.Parent[next.Node] = node;
+      trace.Arc[next.Node] = at;
+      const auto conflict = TraceConflict(next, trace, neighbors, reverse);
+      if (conflict) { return std::unexpected(*conflict); }
       heights[next.Node] = candidate;
       frontier.emplace(candidate, next.Node);
     }
@@ -101,10 +172,43 @@ std::expected<std::vector<double>, std::string_view> Envelope(std::span<const Ro
   return heights;
 }
 
+std::expected<RoadHeightPlan, RoadHeightFailure> CutHeights(std::span<const RoadHeightNode> nodes,
+                                                            const Neighbors &neighbors,
+                                                            std::span<const double> floor,
+                                                            std::span<const double> ceiling) {
+  for (size_t at = 0; at < nodes.size(); ++at) {
+    if (-floor[at] > ceiling[at] + kContactToleranceM) {
+      return Failure("road contacts conflict with the permitted gradients");
+    }
+  }
+  auto heights = Envelope(
+      nodes,
+      neighbors,
+      [&](uint32_t at) {
+        return std::min(ceiling[at], std::max(-floor[at], nodes[at].LowSampleM));
+      },
+      false);
+  if (!heights) { return std::unexpected(heights.error()); }
+  RoadHeightPlan plan;
+  plan.HeightM = std::move(*heights);
+  for (size_t at = 0; at < nodes.size(); ++at) {
+    const double heightM = plan.HeightM[at];
+    plan.MaximumAdjustmentM = std::max({plan.MaximumAdjustmentM,
+                                        std::abs(heightM - nodes[at].LowSampleM),
+                                        std::abs(heightM - nodes[at].HighSampleM)});
+  }
+  if (!std::isfinite(plan.MaximumAdjustmentM)) {
+    return Failure("road height adjustment exceeds its numeric range");
+  }
+  return plan;
 }
 
-std::expected<RoadHeightPlan, std::string_view>
-PlanRoadHeights(std::span<const RoadHeightNode> nodes, std::span<const RoadHeightLink> links) {
+}
+
+std::expected<RoadHeightPlan, RoadHeightFailure>
+PlanRoadHeights(std::span<const RoadHeightNode> nodes,
+                std::span<const RoadHeightLink> links,
+                RoadHeightFit fit) {
   if (nodes.size() > std::numeric_limits<uint32_t>::max() ||
       !std::ranges::all_of(nodes, ValidNode) ||
       !std::ranges::all_of(links,
@@ -117,25 +221,26 @@ PlanRoadHeights(std::span<const RoadHeightNode> nodes, std::span<const RoadHeigh
         return std::isfinite(difference) && std::isfinite(link.MaximumRiseM + difference) &&
                std::isfinite(link.MaximumRiseM - difference);
       })) {
-    return std::unexpected("invalid road height constraints");
+    return Failure("invalid road height constraints");
   }
   const auto neighbors = Connect(nodes.size(), links);
-  const auto upper =
-      Envelope(nodes, neighbors, [](const auto &node) { return node.LowSampleM; }, false);
-  if (!upper) { return std::unexpected(upper.error()); }
-  const auto lower =
-      Envelope(nodes, neighbors, [](const auto &node) { return -node.HighSampleM; }, true);
-  if (!lower) { return std::unexpected(lower.error()); }
   const auto floor =
-      Envelope(nodes, neighbors, [](const auto &node) { return -node.MinimumM; }, true);
+      Envelope(nodes, neighbors, [&](uint32_t at) { return -nodes[at].MinimumM; }, true);
   if (!floor) { return std::unexpected(floor.error()); }
   const auto ceiling =
-      Envelope(nodes, neighbors, [](const auto &node) { return node.MaximumM; }, false);
+      Envelope(nodes, neighbors, [&](uint32_t at) { return nodes[at].MaximumM; }, false);
   if (!ceiling) { return std::unexpected(ceiling.error()); }
+  if (fit == RoadHeightFit::PreferCuts) { return CutHeights(nodes, neighbors, *floor, *ceiling); }
+  const auto upper =
+      Envelope(nodes, neighbors, [&](uint32_t at) { return nodes[at].LowSampleM; }, false);
+  if (!upper) { return std::unexpected(upper.error()); }
+  const auto lower =
+      Envelope(nodes, neighbors, [&](uint32_t at) { return -nodes[at].HighSampleM; }, true);
+  if (!lower) { return std::unexpected(lower.error()); }
   RoadHeightPlan plan;
   for (size_t at = 0; at < nodes.size(); ++at) {
     if (-(*floor)[at] > (*ceiling)[at] + kContactToleranceM) {
-      return std::unexpected("road contacts conflict with the permitted gradients");
+      return Failure("road contacts conflict with the permitted gradients");
     }
     plan.MaximumAdjustmentM = std::max({plan.MaximumAdjustmentM,
                                         -(*lower)[at] * 0.5 - (*upper)[at] * 0.5,
@@ -143,14 +248,14 @@ PlanRoadHeights(std::span<const RoadHeightNode> nodes, std::span<const RoadHeigh
                                         -(*lower)[at] - (*ceiling)[at]});
   }
   if (!std::isfinite(plan.MaximumAdjustmentM)) {
-    return std::unexpected("road height adjustment exceeds its numeric range");
+    return Failure("road height adjustment exceeds its numeric range");
   }
   plan.HeightM.reserve(nodes.size());
   for (size_t at = 0; at < nodes.size(); ++at) {
     const double low = std::max(-(*floor)[at], -(*lower)[at] - plan.MaximumAdjustmentM);
     const double high = std::min((*ceiling)[at], (*upper)[at] + plan.MaximumAdjustmentM);
     const double reference = std::midpoint(-(*lower)[at], (*upper)[at]);
-    plan.HeightM.push_back(std::clamp(reference, low, high));
+    plan.HeightM.push_back(std::min(high, std::max(low, reference)));
   }
   return plan;
 }

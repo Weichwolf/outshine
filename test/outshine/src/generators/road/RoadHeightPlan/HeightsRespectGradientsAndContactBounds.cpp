@@ -63,6 +63,28 @@ int main() {
                                          RoadHeightLink{0, 1, 0, 0, 0}};
   CHECK(!PlanRoadHeights(offsetNodes, impossibleOffsets),
         "contradictory attachment offsets cannot cycle indefinitely");
+  std::array crossingPorts{RoadHeightLink{0, 1, 1, 3, 0}, RoadHeightLink{0, 1, 1, 0, 0}};
+  const auto conflict = PlanRoadHeights(offsetNodes, crossingPorts);
+  CHECK(!conflict, "incompatible junction ports are returned as a constructive conflict");
+  if (!conflict) {
+    CHECK(conflict.error().CycleNodes.size() == 2,
+          "the conflict names only the two participating height nodes");
+    CHECK_NEAR(conflict.error().MaximumOffsetScale,
+               2.0 / 3.0,
+               1e-9,
+               "scale",
+               "two metres of rise budget limit three metres of opposing port offsets");
+    crossingPorts[0].FirstOffsetM *= conflict.error().MaximumOffsetScale;
+    const auto resolved = PlanRoadHeights(offsetNodes, crossingPorts);
+    CHECK(resolved.has_value(), "the exact reported attachment bound closes the conflict");
+    if (resolved) {
+      CHECK_NEAR(resolved->MaximumAdjustmentM,
+                 .5,
+                 1e-9,
+                 "m",
+                 "resolved ports still attain the optimal height displacement");
+    }
+  }
   nodes[0].LowSampleM = std::numeric_limits<double>::quiet_NaN();
   CHECK(!PlanRoadHeights(nodes, links), "nonfinite source heights are refused");
   CHECK(PlanRoadHeights({}, {})->HeightM.empty(), "an empty network has an empty plan");

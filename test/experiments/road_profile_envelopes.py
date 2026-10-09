@@ -37,19 +37,26 @@ def envelope(targets, adjacency):
     return heights
 
 
-def fit(samples, adjacency, bounds=None, reverse=None):
+def fit(samples, adjacency, bounds=None, reverse=None, prefer_cuts=False):
     bounds = bounds or [(-math.inf, math.inf)] * len(samples)
     if reverse is None:
         reverse = [[] for _ in samples]
         for node, links in enumerate(adjacency):
             for neighbour, cost in links:
                 reverse[neighbour].append((node, cost))
-    upper = envelope([min(values) for values in samples], adjacency)
-    lower = [-x for x in envelope([-max(values) for values in samples], reverse)]
     minimum = [-x for x in envelope([-low for low, high in bounds], reverse)]
     maximum = envelope([high for low, high in bounds], adjacency)
     if any(low > high + 1e-9 for low, high in zip(minimum, maximum)):
         raise ValueError('hard contact heights conflict with permitted road gradients')
+    if prefer_cuts:
+        caps = [min(high, max(low, min(values)))
+                for values, low, high in zip(samples, minimum, maximum)]
+        heights = envelope(caps, adjacency)
+        correction = max(abs(height - sample)
+                         for height, values in zip(heights, samples) for sample in values)
+        return heights, correction
+    upper = envelope([min(values) for values in samples], adjacency)
+    lower = [-x for x in envelope([-max(values) for values in samples], reverse)]
     correction = max(0, max((low - high) / 2 for low, high in zip(lower, upper)),
                      max(low - high for low, high in zip(minimum, upper)),
                      max(low - high for low, high in zip(lower, maximum)))
@@ -70,8 +77,8 @@ def build_native(directory):
 #include <vector>
 int main() {
   using namespace outshine::Generators;
-  unsigned count = 0, links = 0;
-  while (std::scanf("%u%u", &count, &links) == 2) {
+  unsigned count = 0, links = 0, cuts = 0;
+  while (std::scanf("%u%u%u", &count, &links, &cuts) == 3) {
     std::vector<RoadHeightNode> nodes(count);
     std::vector<RoadHeightLink> edges(links);
     for (auto &node : nodes) {
@@ -83,11 +90,12 @@ int main() {
                      &edge.FirstOffsetM, &edge.SecondOffsetM) != 5) { return 2; }
     }
     const auto began = std::chrono::steady_clock::now();
-    const auto plan = PlanRoadHeights(nodes, edges);
+    const auto plan = PlanRoadHeights(nodes, edges, cuts ? RoadHeightFit::PreferCuts
+                                                      : RoadHeightFit::MinimaxAdjustment);
     const double ms = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - began).count();
     if (!plan) {
-      std::printf("ERR\t%.*s\n", int(plan.error().size()), plan.error().data());
+      std::printf("ERR\t%.*s\n", int(plan.error().Reason.size()), plan.error().Reason.data());
       continue;
     }
     std::printf("OK\t%.17g\t%.17g\n", plan->MaximumAdjustmentM, ms);
@@ -104,10 +112,10 @@ int main() {
     return binary, digest
 
 
-def run_native(binary, cases):
+def run_native(binary, cases, prefer_cuts=False):
     rows = []
     for samples, edges, bounds in cases:
-        rows.append(f'{len(samples)} {len(edges)}')
+        rows.append(f'{len(samples)} {len(edges)} {int(prefer_cuts)}')
         rows.extend(' '.join(map(str, (min(values), max(values), *bound)))
                     for values, bound in zip(samples, bounds))
         rows.extend(' '.join(map(str, edge)) for edge in edges)
@@ -180,9 +188,12 @@ def verify_native_offsets(binary):
         answers.append(answer)
     feasible = 0
     difference = 0
+    cut_difference = 0
+    cut_answers = run_native(binary, cases, prefer_cuts=True)
     for trial, (case, native, answer) in enumerate(zip(cases, run_native(binary, cases), answers)):
         if not answer.success:
             assert native['status'] == 'ERR', (trial, native)
+            assert cut_answers[trial]['status'] == 'ERR', (trial, cut_answers[trial])
             continue
         assert native['status'] == 'OK', (trial, native)
         samples, edges, bounds = case
@@ -196,9 +207,34 @@ def verify_native_offsets(binary):
         actual = max(abs(height - sample) for height, values in zip(heights, samples)
                      for sample in values)
         assert abs(actual - native['correction']) < 1e-7, trial
+        adjacency, reverse = [[[] for _ in samples] for _ in range(2)]
+        cut_constraints = []
+        for a, b, rise, left, right in edges:
+            adjacency[a].append((b, rise + left - right))
+            adjacency[b].append((a, rise - left + right))
+            reverse[a].append((b, rise - left + right))
+            reverse[b].append((a, rise + left - right))
+            for sign in (-1, 1):
+                coefficients = np.zeros(len(samples))
+                coefficients[a], coefficients[b] = sign, -sign
+                cut_constraints.append((coefficients, rise - sign * (left - right)))
+        floors = [-x for x in envelope([-low for low, high in bounds], reverse)]
+        caps = [min(high, max(low, min(values)))
+                for values, low, (_, high) in zip(samples, floors, bounds)]
+        cut_program = linprog(-np.ones(len(samples)),
+                              A_ub=[row for row, limit in cut_constraints],
+                              b_ub=[limit for row, limit in cut_constraints],
+                              bounds=[(None if math.isinf(low) else low, cap)
+                                      for (low, high), cap in zip(bounds, caps)], method='highs')
+        cut_native = cut_answers[trial]
+        assert cut_program.success and cut_native['status'] == 'OK', trial
+        cut_difference = max(cut_difference, max(abs(a - b)
+                             for a, b in zip(cut_program.x, cut_native['heights'])))
+        assert cut_difference < 1e-7, trial
         feasible += 1
     return dict(cases=len(cases), feasible=feasible, infeasible=len(cases) - feasible,
-                maximum_objective_difference_m=difference)
+                maximum_objective_difference_m=difference,
+                maximum_cut_height_difference_m=cut_difference)
 
 
 def solve(rows, pinned=None, native=None):
@@ -246,12 +282,32 @@ def solve(rows, pinned=None, native=None):
                   original_violating_segments=sum(
                       max(abs(x - y) for x in samples[a] for y in samples[b]) > rise + 1e-9
                       for a, b, rise in edges))
+    cut_heights, cut_change = fit(samples, adjacency, bounds, prefer_cuts=True)
+    report['earthwork'] = {}
+    for name, candidate in [('minimax', heights), ('prefer_cuts', cut_heights)]:
+        changes = [height - sample for height, values in zip(candidate, samples)
+                   for sample in values]
+        report['earthwork'][name] = dict(raised_samples=sum(x > .01 for x in changes),
+                                        changed_samples=sum(abs(x) > .01 for x in changes),
+                                        mean_absolute_change_m=sum(map(abs, changes)) / len(changes),
+                                        maximum_change_m=max(map(abs, changes)))
+    cut_violation = max((abs(cut_heights[a] - cut_heights[b]) - rise
+                         for a, b, rise in edges), default=0)
+    assert cut_violation < 1e-9
+    report['earthwork']['prefer_cuts']['maximum_grade_violation_m'] = max(0, cut_violation)
     if native:
         result = run_native(native, [(samples, [(*edge, 0, 0) for edge in edges], bounds)])[0]
         assert result['status'] == 'OK', result
         difference = max(abs(a - b) for a, b in zip(heights, result['heights']))
         assert difference < 1e-7 and abs(unavoidable - result['correction']) < 1e-7
         report['native'] = dict(solve_ms=result['ms'], maximum_height_difference_m=difference)
+        cut = run_native(native, [(samples, [(*edge, 0, 0) for edge in edges], bounds)],
+                         prefer_cuts=True)[0]
+        assert cut['status'] == 'OK', cut
+        difference = max(abs(a - b) for a, b in zip(cut_heights, cut['heights']))
+        assert difference < 1e-7 and abs(cut_change - cut['correction']) < 1e-7
+        report['earthwork']['prefer_cuts']['native'] = dict(solve_ms=cut['ms'],
+                                                         maximum_height_difference_m=difference)
     return report, heights, chains
 
 

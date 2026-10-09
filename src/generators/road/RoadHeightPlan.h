@@ -30,8 +30,18 @@ struct RoadHeightPlan {
   double MaximumAdjustmentM = 0.0;
 };
 
-[[nodiscard]] std::expected<RoadHeightPlan, std::string_view>
-PlanRoadHeights(std::span<const RoadHeightNode> nodes, std::span<const RoadHeightLink> links);
+struct RoadHeightFailure {
+  std::string_view Reason;
+  std::vector<uint32_t> CycleNodes;
+  double MaximumOffsetScale = 1.0;
+};
+
+enum class RoadHeightFit : uint8_t { MinimaxAdjustment, PreferCuts };
+
+[[nodiscard]] std::expected<RoadHeightPlan, RoadHeightFailure>
+PlanRoadHeights(std::span<const RoadHeightNode> nodes,
+                std::span<const RoadHeightLink> links,
+                RoadHeightFit fit = RoadHeightFit::MinimaxAdjustment);
 
 }
 
