@@ -7,10 +7,13 @@
 #include "format/CssColour.h"
 #include "math/Srgb.h"
 #include "math/Vec3.h"
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string_view>
 
 namespace outshine::Generators::Osm {
 
@@ -22,13 +25,22 @@ struct BuildingProperties {
   bool WallColourRejected = false;
 };
 
+[[nodiscard]] inline std::optional<uint32_t> ParseBuildingColour(std::string_view text) noexcept {
+  if (text.size() == 6) {
+    std::array<char, 7> encoded{'#'};
+    std::ranges::copy(text, encoded.begin() + 1);
+    if (const auto rgba = ParseCssColour({encoded.data(), encoded.size()})) { return rgba; }
+  }
+  return ParseCssColour(text);
+}
+
 [[nodiscard]] inline BuildingProperties ReadBuildingProperties(const OsmField &field,
                                                                const OsmField::Feature &feature) {
   BuildingProperties result;
   result.Facade = ReadBuildingFacade(field, feature);
   constexpr uint32_t byteMask = 255u;
   if (field.Has(feature, "building:colour")) {
-    const auto rgba = ParseCssColour(field.Str(feature, "building:colour"));
+    const auto rgba = ParseBuildingColour(field.Str(feature, "building:colour"));
     result.WallColourRejected = !rgba || (*rgba & byteMask) != byteMask;
     if (!result.WallColourRejected) {
       Vec3f colour{};

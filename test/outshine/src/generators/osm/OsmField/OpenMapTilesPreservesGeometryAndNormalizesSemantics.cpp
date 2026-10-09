@@ -68,7 +68,8 @@ void CheckBuildingColours() {
       }
     }
   }
-  for (const auto &source : {String("transparent"), String("unknown"), Bytes{0x28, 99}}) {
+  for (const auto &source :
+       {String("transparent"), String("unknown"), String("xxxxxx"), Bytes{0x28, 99}}) {
     OsmField field(2, layers, MvtSchema::OpenMapTiles);
     CHECK(field.Accept(1,
                        1,
@@ -96,6 +97,34 @@ void CheckBuildingColours() {
               (*building.WallColour)[0] == 1.0f && (*building.WallColour)[1] == 1.0f &&
               (*building.WallColour)[2] == 1.0f,
           "available provider paint reaches the building plan");
+  }
+}
+
+void CheckUnprefixedBuildingColours() {
+  using namespace outshine::Generators::Osm;
+  using namespace outshine::Test;
+  const std::array<std::string, 1> layers{"buildings"};
+  constexpr std::array expected{0.4286904966, 0.3419144249, 0.2232279573};
+  for (const std::string_view key : {"colour", "building:colour"}) {
+    for (const std::string_view supplied : {"af9e82", "AF9E82", "#af9e82"}) {
+      OsmField field(2, layers, MvtSchema::OpenMapTiles);
+      CHECK(field.Accept(1, 1, Layer("building", 3, std::array{key}, std::array{String(supplied)})),
+            "observed provider RGB encodings enter the normal vector tile path");
+      if (field.Features().empty()) { continue; }
+      const auto &feature = field.Features().front();
+      const auto building = ReadBuildingProperties(field, feature);
+      CHECK(building.WallColour && !building.WallColourRejected &&
+                field.Str(feature, key.data()) == supplied,
+            "six-digit provider RGB is used without rewriting supplied tags");
+      if (!building.WallColour) { continue; }
+      for (size_t channel = 0; channel < expected.size(); ++channel) {
+        CHECK_NEAR((*building.WallColour)[channel],
+                   expected[channel],
+                   1e-6,
+                   "linear RGB",
+                   "equivalent provider encodings preserve channel order and source paint");
+      }
+    }
   }
 }
 
@@ -228,5 +257,6 @@ int main() {
         "absent coarse height is a generated estimate, not a contradictory source");
   CheckExplicitValuePrecedence();
   CheckBuildingColours();
+  CheckUnprefixedBuildingColours();
   return Report();
 }

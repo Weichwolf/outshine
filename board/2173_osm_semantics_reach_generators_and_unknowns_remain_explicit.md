@@ -83,6 +83,7 @@ Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen
 - Bounds umfassen Form/Details; Bewegung/Projektion und zusätzlicher Fehler begrenzen Wiederverwendung.
   Bildfelder haben eigene Gültigkeit; CPU-Vergleiche allein verkleinern keine LOD-Schranke.
 - Gemeinsamer CssColour-Parser: alle CSS-Namen/Hexfarben, `building:colour` vor Alias `colour`.
+  OSM-Gebäudefarben zusätzlich als sechs Hexziffern ohne `#` lesen; Originalwert erhalten.
   Ungültige/teiltransparente Wandfarben melden. Lineare Wandfarbe ersetzt Palette, keine Glas-/
   Rahmen-/Tür-/Dachfarbe. Fernverbände mischen flächengewichtet in linearem RGB; Herkunft bleibt klar.
 - Konstante Baukörperfarbe kompakt in Material-/Batchdaten, nicht vier Floats je Ecke. Optionale
