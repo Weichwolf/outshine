@@ -110,6 +110,9 @@ void Replay(const std::filesystem::path &directory, bool warm) {
         "warm replay starts without preparing street inputs");
   CHECK(warm || !stack.Ways().Ways().empty(),
         "the cold asset binds an actual street corridor instead of an empty digest");
+  CHECK(!warm || (stack.PreparedVectorCosts().Hits > 0 && stack.PreparedVectorCosts().Writes == 0 &&
+                  stack.Vectors()->TotalBuildMetrics().ParseMs == 0),
+        "fresh warm replay loads normalized native tiles before source decode");
   auto &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000.0);

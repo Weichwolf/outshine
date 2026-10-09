@@ -3,6 +3,7 @@
 #include "TerrainSourceCoverage.h"
 #include "TileGeodesy.h"
 #include <algorithm>
+#include <map>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -193,28 +194,16 @@ std::string Refusal(Data::TileId tile,
 std::expected<bool, std::string> PollVector(Data::TileId tile,
                                             const Ground::SurfacePreparation &stack,
                                             ::outshine::Generators::Osm::OsmField &vectors) {
-  Ground::TilePool::Landing landed;
-  const auto status =
-      stack.Pool().Bytes({Data::DataKind::VectorMap, Data::Address::At(tile)}, &landed);
-  if (status == Ground::TilePool::Reply::Absent || status == Ground::TilePool::Reply::Undeclared) {
-    return true;
+  const auto loaded = vectors.PollTile(
+      stack.Pool(), {.X = static_cast<int>(tile.X), .Y = static_cast<int>(tile.Y)});
+  if (!loaded) {
+    return std::unexpected(std::format("view data preparation failed at vector/{}/{}/{}: {}",
+                                       tile.Zoom,
+                                       tile.X,
+                                       tile.Y,
+                                       loaded.error()));
   }
-  if (status == Ground::TilePool::Reply::Refused) {
-    return std::unexpected(Refusal(tile, "vector", landed.Failure));
-  }
-  if (status != Ground::TilePool::Reply::Ready) { return false; }
-  if (tile.Zoom == vectors.Zoom()) {
-    const auto parsed =
-        vectors.Accept(static_cast<int>(tile.X), static_cast<int>(tile.Y), landed.Bytes);
-    if (!parsed) {
-      return std::unexpected(std::format("view data decode failed at vector/{}/{}/{}: {}",
-                                         tile.Zoom,
-                                         tile.X,
-                                         tile.Y,
-                                         parsed.error()));
-    }
-  }
-  return true;
+  return *loaded;
 }
 
 std::expected<bool, std::string> PollField(Data::TileId tile,
@@ -264,13 +253,25 @@ PrepareTerrainPath(TerrainPathPlan plan,
                    const Ground::SurfacePreparation &stack,
                    std::chrono::steady_clock::time_point deadline) {
   auto vectors = stack.CreateVectorField();
-  if (const auto read =
-          SettleTiles(plan.Vectors,
-                      stack.Pool(),
-                      deadline,
-                      "vector",
-                      64,
-                      [&](Data::TileId tile) { return PollVector(tile, stack, *vectors); });
+  std::map<int, std::unique_ptr<Generators::Osm::OsmField>> classification;
+  if (const auto read = SettleTiles(plan.Vectors,
+                                    stack.Pool(),
+                                    deadline,
+                                    "vector",
+                                    64,
+                                    [&](Data::TileId tile) -> std::expected<bool, std::string> {
+                                      if (tile.Zoom == vectors->Zoom()) {
+                                        return PollVector(tile, stack, *vectors);
+                                      }
+                                      auto &field = classification[tile.Zoom];
+                                      if (!field) {
+                                        field = stack.Classes().CreateField(tile.Zoom);
+                                      }
+                                      if (!field) {
+                                        return std::unexpected("unknown vector demand layout");
+                                      }
+                                      return PollVector(tile, stack, *field);
+                                    });
       !read) {
     return read;
   }

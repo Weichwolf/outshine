@@ -24,10 +24,10 @@ template <class Costs>
 void PublishPreparedAssetCosts(Core::DiagnosticLedger &published,
                                const Costs &prepared,
                                size_t kind) {
-  static const auto names = MetricNames<3>(
+  static const auto names = MetricNames<4>(
       "cost.assets.",
       std::array{".hits", ".resident", ".misses", ".writes", ".read_bytes"},
-      [](size_t at) { return std::array{"terrain", "buildings", "prototypes"}[at]; });
+      [](size_t at) { return std::array{"terrain", "buildings", "prototypes", "osm_tiles"}[at]; });
   published.RecordMetric(names[kind][0], static_cast<double>(prepared.Hits), "reads");
   if constexpr (requires { prepared.Resident; }) {
     published.RecordMetric(names[kind][1], static_cast<double>(prepared.Resident), "reads");
@@ -86,6 +86,10 @@ void PublishAssetCosts(Core::DiagnosticLedger &published,
                        const Ground::SurfacePreparation &stack,
                        const VegetationStreaming *vegetation) {
   PublishPrototypeCosts(published, vegetation);
+  const auto osm = stack.PreparedVectorCosts();
+  PublishPreparedAssetCosts(published, osm, 3);
+  published.RecordMetric("cost.assets.osm_tiles.read_ms", osm.ReadMs, "ms");
+  published.RecordMetric("cost.assets.osm_tiles.generation_ms", osm.GenerationMs, "ms");
   const auto terrain = stack.PreparedTerrainCosts();
   PublishPreparedAssetCosts(published, terrain, 0);
   published.RecordMetric(

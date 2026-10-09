@@ -60,6 +60,10 @@ public:
     VectorSchema_ = schema;
   }
 
+  [[nodiscard]] std::unique_ptr<Generators::Osm::OsmField> CreateField(int zoom) const;
+
+  void SetPreparedTiles(std::shared_ptr<Generators::Osm::PreparedOsmTiles> prepared);
+
   void Open(double lat, double lon, Tasks &compute);
   void Close();
 
@@ -215,6 +219,7 @@ private:
                 .HalfCells = kCoarseSide,
                 .SlackM = kCoarseReachM}};
 
+  std::shared_ptr<Generators::Osm::PreparedOsmTiles> Prepared_;
   std::unique_ptr<ClassificationBuild> Builder_;
   uint64_t FrameRevision_ = 0;
   std::optional<ClassGrain> Submitted_;

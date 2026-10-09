@@ -40,6 +40,17 @@ double Clock() {
 
 }
 
+std::unique_ptr<Generators::Osm::OsmField> ClassificationPreparation::CreateField(int zoom) const {
+  if (Veg_ == nullptr || (zoom != Fine_.Zoom && zoom != Coarse_.Zoom)) { return {}; }
+  return std::make_unique<Generators::Osm::OsmField>(
+      zoom, zoom == Fine_.Zoom ? Veg_->Layers() : Veg_->AreaLayers(), VectorSchema_, Prepared_);
+}
+
+void ClassificationPreparation::SetPreparedTiles(
+    std::shared_ptr<Generators::Osm::PreparedOsmTiles> prepared) {
+  Prepared_ = std::move(prepared);
+}
+
 void ClassificationPreparation::Open(double lat, double lon, Tasks &compute) {
   Close();
   Builder_ = std::make_unique<ClassificationBuild>(compute);
@@ -51,6 +62,7 @@ void ClassificationPreparation::Open(double lat, double lon, Tasks &compute) {
 void ClassificationPreparation::Close() {
   Builder_.reset();
   Submitted_.reset();
+  Prepared_.reset();
   for (Tier *tier : {&Fine_, &Coarse_}) {
     tier->Field.reset();
     tier->Pts.clear();
@@ -274,10 +286,8 @@ std::expected<void, std::string_view> ClassificationPreparation::Update(TilePool
   if (!Opened_ || (Veg_ == nullptr) || !Veg_->Ready()) { return {}; }
 
   if (!Fine_.Field) {
-    Fine_.Field = std::make_unique<::outshine::Generators::Osm::OsmField>(
-        Fine_.Zoom, Veg_->Layers(), VectorSchema_);
-    Coarse_.Field = std::make_unique<::outshine::Generators::Osm::OsmField>(
-        Coarse_.Zoom, Veg_->AreaLayers(), VectorSchema_);
+    Fine_.Field = CreateField(Fine_.Zoom);
+    Coarse_.Field = CreateField(Coarse_.Zoom);
   }
   const double t0 = Clock();
   if (HasSourceRequests()) {

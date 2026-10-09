@@ -15,6 +15,7 @@
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedGroundRegions.h"
+#include "PreparedOsmTiles.h"
 #include "PreparedStreetGraph.h"
 #include "TerrainLoader.h"
 #include <world/data/SourceDecl.h>
@@ -117,6 +118,11 @@ public:
   [[nodiscard]] auto PreparedTerrainCosts() const noexcept {
     return PreparedTerrain_ ? PreparedTerrain_->Costs()
                             : ::outshine::Generators::PreparedTerrainAssets::Counters{};
+  }
+
+  [[nodiscard]] auto PreparedVectorCosts() const noexcept {
+    return PreparedVectors_ ? PreparedVectors_->Costs()
+                            : Generators::Osm::PreparedOsmTiles::Counters{};
   }
 
   [[nodiscard]] const std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> &
@@ -240,6 +246,8 @@ public:
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:
+  [[nodiscard]] std::expected<void, std::string>
+  BindAssetCaches(const std::string &directory, const Data::SourceSet &sources, Tasks &compute);
   [[nodiscard]] std::expected<void, std::string> BindRegionCache(const World::StoragePaths &under,
                                                                  const Data::SourceSet &sources);
   void RecordAdvance(SurfacePreparationMetrics metrics) noexcept;
@@ -252,6 +260,7 @@ private:
   std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> PreparedBuildings_;
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;
   std::shared_ptr<Generators::Osm::PreparedGroundRegions> PreparedRegions_;
+  std::shared_ptr<Generators::Osm::PreparedOsmTiles> PreparedVectors_;
   enum class WaterStage : uint8_t { Deferred, Requested, Ready };
   enum class WaterMode : uint8_t { Immediate, RegionLookup };
   WaterStage WaterStage_ = WaterStage::Requested;

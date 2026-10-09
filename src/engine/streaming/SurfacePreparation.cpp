@@ -47,7 +47,7 @@ SurfacePreparation::CreateVectorField() const {
        ::outshine::Generators::Osm::OsmLayerName(
            ::outshine::Generators::Osm::OsmLayer::StreetPolygons)}};
   return std::make_unique<::outshine::Generators::Osm::OsmField>(
-      VectorZoom_, std::span<const std::string>(layers), VectorSchema_);
+      VectorZoom_, std::span<const std::string>(layers), VectorSchema_, PreparedVectors_);
 }
 
 std::expected<void, std::string>
@@ -67,6 +67,24 @@ SurfacePreparation::BindRegionCache(const World::StoragePaths &under,
       Generators::Osm::PreparedGroundRegions::Open(under.AssetCache, sources, *materials);
   if (!regions) { return std::unexpected(std::move(regions.error())); }
   PreparedRegions_ = std::move(*regions);
+  return {};
+}
+
+std::expected<void, std::string> SurfacePreparation::BindAssetCaches(const std::string &directory,
+                                                                     const Data::SourceSet &sources,
+                                                                     Tasks &compute) {
+  auto terrain = Generators::PreparedTerrainAssets::Open(directory, sources);
+  if (!terrain) { return std::unexpected(std::move(terrain.error())); }
+  auto buildings = Generators::PreparedBuildingAssets::Open(directory, sources);
+  if (!buildings) { return std::unexpected(std::move(buildings.error())); }
+  auto network = Generators::Osm::PreparedStreetGraph::Open(directory, sources);
+  if (!network) { return std::unexpected(std::move(network.error())); }
+  auto vectors = Generators::Osm::PreparedOsmTiles::Open(directory, sources, compute);
+  if (!vectors) { return std::unexpected(std::move(vectors.error())); }
+  PreparedTerrain_ = std::move(*terrain);
+  PreparedBuildings_ = std::move(*buildings);
+  PreparedNetwork_ = std::move(*network);
+  PreparedVectors_ = std::move(*vectors);
   return {};
 }
 
@@ -127,27 +145,11 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
   poolConfig.Compute = &compute;
   poolConfig.Diagnostics = diagnostics;
   if (!under.AssetCache.empty()) {
-    auto prepared = Generators::PreparedTerrainAssets::Open(under.AssetCache, sources);
-    if (!prepared) {
-      say.Refuse(prepared.error());
+    if (auto bound = BindAssetCaches(under.AssetCache, sources, compute); !bound) {
+      say.Refuse(bound.error());
       Close();
       return false;
     }
-    auto buildings = Generators::PreparedBuildingAssets::Open(under.AssetCache, sources);
-    if (!buildings) {
-      say.Refuse(buildings.error());
-      Close();
-      return false;
-    }
-    auto network = Generators::Osm::PreparedStreetGraph::Open(under.AssetCache, sources);
-    if (!network) {
-      say.Refuse(network.error());
-      Close();
-      return false;
-    }
-    PreparedNetwork_ = std::move(*network);
-    PreparedBuildings_ = std::move(*buildings);
-    PreparedTerrain_ = std::move(*prepared);
     poolConfig.PreparedFields = [assets =
                                      PreparedTerrain_](Data::TileId at,
                                                        const TerrainTiles::Shaped &shape,
@@ -160,6 +162,7 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
   SurfaceZoom_ = surface.Z;
   Cls_.SetVectorSource(HasVectorSource_, VectorSchema_);
   Cls_.Open(focus.LatitudeDeg, focus.LongitudeDeg, compute);
+  Cls_.SetPreparedTiles(PreparedVectors_);
 
   const std::string &assets = under.Shipped;
   Vegetated_ = Materials_.Load((assets + "/world/ground-materials.json").c_str()) &&
@@ -184,6 +187,7 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
 void SurfacePreparation::Close() {
   Cls_.Close();
   Vectors_.reset();
+  PreparedVectors_.reset();
   Ground_.reset();
   Pool_.reset();
   PreparedTerrain_.reset();

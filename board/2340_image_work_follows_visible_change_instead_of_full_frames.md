@@ -24,7 +24,7 @@ GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne
 Native Mip-Hits laden in 1,80–4,34 s. Tiefenreduktion: drei frische Offline-Prozesse,
 je zehn bildidentische vollständige Places, 60 Drehframes; Laden 1,75–4,44 s.
 Startregression bleibt offen: CP 10,99 ms p99 im vierten Frame, Tokyo 18,10 ms im zweiten.
-Auch fertige Gebäude-Anfragehits zeigen Malcesine 10,51 ms p99 in Frame 4; unter 10 ms bleibt offen.
+Native OSM-Hits: Rosenheim 26,71 ms p99 in Frame 4, davon Host-Fence 25,43 ms. Unter 10 ms bleibt rot; Fence ist keine GPU-Passzeit.
 Der erste Aufbau nativer Wasserpakete reproduziert CP 13,05 und Koerbersee 25,10 ms p99;
 der anschließende frische Hit ist grün. Readiness muss beide Pfade abdecken.
 Davon 10,20/17,31 ms Fence-Warten und 0,35/0,40 ms CPU-Encoding. Preload erfasst Uploads,

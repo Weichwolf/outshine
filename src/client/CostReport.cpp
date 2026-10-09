@@ -63,7 +63,8 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
                                  "buildings",
                                  "building_basis",
                                  "building_lod",
-                                 "prototypes"}) {
+                                 "prototypes",
+                                 "osm_tiles"}) {
     const std::string prefix = std::string("cost.assets.") + kind;
     std::println(
         "PERF {} native {}: hit/resident/miss/write={:.0f}/{:.0f}/{:.0f}/{:.0f} decoded={:.2f}MiB",
@@ -75,6 +76,10 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
         get(prefix + ".writes"),
         get(prefix + ".read_bytes") / kBytesPerMiB);
   }
+  std::println("PERF {} osm tiles worker elapsed: read={:.1f}ms generate={:.1f}ms",
+               scene,
+               get("cost.assets.osm_tiles.read_ms"),
+               get("cost.assets.osm_tiles.generation_ms"));
   std::println("PERF {} prototypes: generated={:.0f} worker={:.1f}ms read={:.1f}ms write={:.1f}ms",
                scene,
                get("cost.assets.prototypes.generated"),

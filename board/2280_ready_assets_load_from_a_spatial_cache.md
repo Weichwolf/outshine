@@ -24,14 +24,13 @@ Regionschlüssel binden Quell-Digests, Formparameter, Detailauftrag und Regeln; 
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
-Frische Offline-Prozesse, 1280×720/60, 60 Frames/360°; gleiche zehn PNGs vor/nach dem Basisumbau:
+Frische Offline-Prozesse, 1280×720/60, 60 Frames/360°; aktuelle Treffer nach nativem Kacheleinstieg:
 | Place | Planpakete bisher MiB | Native Basis jetzt MiB | Treffer laden s | p99 ms |
 |---|---:|---:|---:|---:|
-| Wien | 68,84 | 17,76 | 2,78 | 3,04 |
-| CentralPark | 102,71 | 21,92 | 2,50 | 2,01 |
-| Tokyo | 358,87 | 64,54 | 3,76 | 3,39 |
-Treffer lesen null Planpakete; Basisbytes ersetzen sie, Geometrieprodukte bleiben gleich.
-Trefferprozess: Peak-RSS 1,44 GiB, OS-Footprint 4,28 GiB; nicht addieren. RAM-/GPU-Gewinn offen.
+| Wien | 68,84 | 17,76 | 2,86 | 2,90 |
+| CentralPark | 102,71 | 21,92 | 2,52 | 2,33 |
+| Tokyo | 358,87 | 64,54 | 3,81 | 3,13 |
+Trefferprozess: Peak-RSS 1,37 GiB, OS-Footprint 4,08 GiB; nicht addieren. Kein belegter Lade-/GPU-Gewinn.
 Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je belegter Zelle.
 Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen Pläne/Kontakte.
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
@@ -39,7 +38,7 @@ Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-
 [Zellenmodell](../test/experiments/prepared_building_residency.py) begründet Formladung bei Bedarf.
 1. P0: Bedarf aus 2336 vor Quellen/Cachedecode; räumliche Eltern/Kinder statt Kamerasnapshots.
    [Liefermodell](../test/experiments/building_asset_delivery.py): Basis hält Koordinaten/Origin/Höhenbindung/Quell-IDs/Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
-   Gebäude-Anfrage: Basis/Inhalts-ID über stabile Parameter; Bindung bei Aufbau/Migration. Treffer brauchen keinen aktuellen Straßen-Digest; Legacy-/Quellschlüssel nur bei Miss. Native Inhalts-ID trägt Runtime-Gültigkeit. Nativer Kachelcodec erhält Koordinaten/Tags/Herkunft und prüft Speicher/Indizes. Cache-Einstieg vor MVT noch offen. Drei echte Payloads: Decode 0,96→0,11 ms bei 553 Objekten; Heap 1,04→0,44 MB, Rohpaket größer. Kein Place-/GPU-Gewinnbeweis.
+   Gebäude-Anfragen finden Basis/Inhalts-ID vor Straßen-Digests. Native OSM-Kacheln speichern normalisierte Koordinaten, Tags und Herkunft; stabile Kachel-/Schema-/Layeranfragen prüfen den Assetcache vor Provider/MVT. Lookup und Erzeugung laufen auf dem Compute-Worker, Geometrie und Klassifizierung teilen den Pfad. Zehn frische Offline-Treffer liefern je 67 Kachelhits, null Misses/Erzeugung und gleiche Pixel ohne MVT-Parse. Aufgegebener Bedarf gibt begrenzte Jobkapazität frei; Read/Generate-Workerzeiten getrennt. Direkter Regionseinstieg ohne Zwischenfelder bleibt offen.
 2. P0: verbliebene Terrainproben aus nativen Höhen-/Kontaktprodukten bedienen, 25–32 MiB Zwischenfelder bei Hits vermeiden. WaterAsset integriert; monotone Bereichsumsetzung erhält Konturreihenfolge/Löcher. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB statt 0,19–60 MB Gesamtkoordinaten. Weitere Generatoren trennen fertige Rohlinge von Cursor/Quelllayout; gemeinsamer Vertrag aus 2188.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Renderer teilt Maps/Material ([Modell](../test/experiments/material_image_residency.py)). Native Bilder halten Basis und optionale Linear-/sRGB-/Normalmips; Producer bereitet vor Publikation vor, Hits uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
@@ -104,11 +103,9 @@ Lookup → Miss erzeugt/speichert; UE nutzt DDC beim Asset-Build, gekochte Spiel
 räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-overview-for-unreal-engine):
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
-Zehn bildgleiche Offline-Paare geöffnet; kein neuer Bildgewinn.
-Startspitzen bleiben bei 2340; günstige Fenster schließen sie nicht.
-Wasserabfragen und Gebäude-LOD-Treffer umgehen ihre Quellprodukte; Regionsschlüssel/übrige Quellenarbeit noch nicht.
+Wasser, Gebäude-LOD und native OSM-Kacheln umgehen Providerdecode; Regionseinstieg/übrige Zwischenfelder offen.
 Voller Lint a100efc5a: nur fehlendes Khronos-Pin-PNG rot; 363 Tidy-Units/32 Claims und Szenario-Roundtrips sauber.
-Anfrage vor Straßenaufbereitung: 23 Fälle/29 Tidy-Units sauber; zehn bildgleiche Offline-Paare, 490 unveränderte Bindungen. Warm 1,85–3,75 s, p99 bis 10,51 ms (Malcesine, Frame 4); Footprint bis 4,29 GiB. Startspitzen (2340), RAM und Einstieg vor MVT-Decode bleiben offen.
+Kachel-/Ownership-Replay, Kamerapfad und Gebäudekontakte sauber; 52 betroffene Tidy-Units ohne Befunde. Zehn bildgleiche Offline-Paare geöffnet; warm 1,86–3,81 s. Rosenheim p99 26,71 ms, Frame 4, davon Host-Fence 25,43 ms: Gate rot bei 2340. Kein neuer Bildgewinn; direkter Rohlingeinstieg und RAM bleiben offen.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart
