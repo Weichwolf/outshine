@@ -39,7 +39,7 @@ Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann
    Höheninputs/Kontakte und Licht bleiben aktiv; ohne Schattenplan keine Schatten. Fehlstellen lokalisieren.
    Erst einen vollständigen realen Anschluss samt Brücke sichtbar und funktional schließen.
 2. Kachelweise 2D-Vektorpläne mit expliziten Ebenen und gemeinsamen Randknoten aufbauen.
-   Endpunkte aktuell ebenenlos; kanonische Ports und explizite Übergänge ersetzen Koordinatenkopplung. Der Höhenplan begrenzt zugeschnittene Sekanten; C1 fehlt.
+   Endpunkte aktuell ebenenlos. Feldkirch hat 67 gemischte Endpositionen; ein bloßer Ebenenhash trennt auch echte Rampen. Explizite Übergänge ersetzen Koordinatenkopplung. Sekanten begrenzt; C1 fehlt.
 3. Schienen mit eigenen Breiten, zulässigen Profilen und Oberflächen darstellen; keine
    Straßenrezept-Kopie. Geh-/Radwege, Bahnübergänge und getrennte Ebenen bleiben verbunden.
 4. Tragwerk, Decks, Portale und erforderliche Freiräume gehören zum funktionalen Grundmodell.
@@ -57,10 +57,10 @@ Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann
   Nähe allein erzeugt keine Verbindung. Quellendpunkte und Brückenenden bleiben angeschlossen.
   Fehlende Topologie/Angaben als Annahmen kennzeichnen, nicht als belegte OSM-Verbindung.
 - Grid partitioniert die 2D-Vektorplanung und indexiert Bedarf; Straßenachsen werden nicht gerastert.
-  Kacheln teilen kanonische Randknoten und begrenzte Nachbarbereiche. Ebenen bleiben getrennt;
+  Kachelports teilen Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer. Begrenzte Nachbarbereiche; Ebenen bleiben getrennt;
   explizite Übergänge verbinden sie. Höhen/Freiraum entlang betroffener Ketten gemeinsam lösen.
   Wenige Rezepte: Band, Kreuzung/Abzweig, Einfädelung, Rampe, Brückendeck/Tragwerk,
-  Tunnel/Portal und Schienenknoten. Derselbe native Plan liefert Mesh, Kollision und Terrainkontakt.
+  Tunnel/Portal und Schienenknoten, parametrisch statt starrem Teilekatalog. Derselbe native Plan liefert Mesh, Kollision und Terrainkontakt.
 - Ein Alignment je Kette. Fahrbahn, Schultern, Bord/Gehweg, Knoten und Kollision daraus ableiten.
   Gemeinsame Endpositionen/Höhen/Tangenten über Tiles; vollständige Längs-/Querneigung
   klassenabhängig begrenzen. Kreuzungsebenen erfüllen alle angeschlossenen Klassengrenzen.
@@ -103,9 +103,9 @@ Graph und Geometrie trennen; reale Linien erhalten, keine Tensorfeld-Neuerzeugun
 [Straßenmodelle, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf):
 Profile → eigene Straße/Brücke/Tunnel plus Geländeauftrag; neue Trassenwahl nicht übernehmen.
 [SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes.
-[Gemeinsame Profile](../test/experiments/road_profile_envelopes.py): Minimax/Schnittvorrang mit Höhenrändern/Portoffsets; native Kosten und LP-Vergleich. C1 und vollständige Ebenentopologie offen.
-[Übergangsvergleich](../test/experiments/earthwork_transition.py),
-[Clearance-Ausläufe](../test/experiments/clearance_aprons.py): gleiche Inputs/Qualität vor Integration vergleichen.
+[2D-Kacheln](../test/experiments/infrastructure_tiles.py): Feldkirch 19.230 Abschnitte → 20.094 Teile/133 Kacheln bei 256 m; 256-m-Bedarf prüft 2.711 statt 19.230 Kandidaten, alle 1.294 Treffer erhalten. ENU-Modell; native/geografische Ports offen.
+[Profile](../test/experiments/road_profile_envelopes.py): Minimax/Schnittvorrang mit Höhenrändern/Portoffsets; native Kosten und LP-Vergleich. C1 und Ebenentopologie offen.
+[Übergangsvergleich](../test/experiments/earthwork_transition.py), [Clearance-Ausläufe](../test/experiments/clearance_aprons.py): gleiche Inputs/Qualität vor Integration vergleichen.
 [Kreuzungsflächen](../test/experiments/road_junction_coverage.py): gelieferte Linienrichtungen,
 gemeinsamer vollständiger Umriss statt Dreiecksreduktion; Kontakt und Fahrbahn separat prüfen.
 [Rasterkontakte](../test/experiments/road_terrain_contact.py): native Terrain-/Straßendreiecke;
