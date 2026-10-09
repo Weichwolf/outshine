@@ -14,8 +14,8 @@ Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funk
 Aktueller Schwerpunkt: sichtbare Netzfehler in Wien, anschließend schwierige selbst gewählte
 POIs: Feldkirch, Basel Badischer Bahnhof (Straßen/Tunnel/Ebenen), Zürich HB, Häfen und dichte Städte.
 Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen.
-Mesher und Terrainkontakt teilen den vollständigen Anschlussumriss und gemeinsame Zellstützweite.
-Starre Fahrbahnränder benötigen konservativen Zellkontakt, nicht nur abgesenkte Knoten.
+Alle Bodenwege veröffentlichen ihren physischen Kernkontakt, auch ohne Erdarbeiten.
+Mesher und Terrainkontakt teilen Anschlussumriss und konservative Zellstützweite.
 Zusätzlicher Kontakt schneidet nur; Kern/weiche Ausläufe bleiben. Sync/Async teilen den Aufbau.
 Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
 Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen. Seiten nutzen Kantennormalen.

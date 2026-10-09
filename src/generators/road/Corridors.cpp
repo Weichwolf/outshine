@@ -458,7 +458,8 @@ void Corridors::AppendTerrainStamps(const Paving &on,
       }
     }
     const double reliefM = std::max(std::fabs(groundAt - groundBefore), shoulderYieldM);
-    if (axisYieldM < kStampWorthM && reliefM < kBrokenGroundM) { continue; }
+    const bool earthwork = axisYieldM >= kStampWorthM || reliefM >= kBrokenGroundM;
+    if (!earthwork && lane.Bridge) { continue; }
     const double yieldM = std::max(axisYieldM, shoulderYieldM);
     EarthworkStamp made;
     made.RingEastNorthM = {into.Along[at - 1u].EastM + outE * half,
@@ -483,7 +484,7 @@ void Corridors::AppendTerrainStamps(const Paving &on,
     const double rise = (into.Along[at].GradeM - into.Along[at - 1u].GradeM) / runM;
     made.SlopeE = rise * runE / runM;
     made.SlopeN = rise * runN / runM;
-    made.ApronM = std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM);
+    made.ApronM = earthwork ? std::clamp(kBatterRun * yieldM, kLeastApronM, kMostApronM) : 0.0;
     made.YieldM = yieldM;
     made.CorridorKey = into.ContactKeys[laneAt];
     const bool rests = !lane.Bridge || at == 1u || at + 1u == into.Along.size();

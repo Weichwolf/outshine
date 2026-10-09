@@ -151,9 +151,9 @@ bool HasSoftApron(const EarthworkStamp &stamp) {
 }
 
 double ApronWidthM(const EarthworkStamp &stamp, double mostEarthworkM) {
-  return stamp.Kind == EarthworkKind::Corridor ||
-                 ((stamp.Kind == EarthworkKind::Pad || stamp.Kind == EarthworkKind::Clearance) &&
-                  stamp.ApronM > 0.0)
+  return stamp.ApronM > 0.0 &&
+                 (stamp.Kind == EarthworkKind::Corridor || stamp.Kind == EarthworkKind::Pad ||
+                  stamp.Kind == EarthworkKind::Clearance)
              ? std::hypot(stamp.ApronM,
                           kSmoothstepPeakDerivative *
                               std::min(std::abs(stamp.YieldM), mostEarthworkM) * kBatterRun)
