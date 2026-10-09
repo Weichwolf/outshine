@@ -26,6 +26,17 @@ enum class MvtSchema : uint8_t { Shortbread, OpenMapTiles };
   return canonical;
 }
 
+[[nodiscard]] inline std::string_view NormalizeMvtStreetKind(std::string_view kind,
+                                                             std::string_view subclass) noexcept {
+  if (kind == "minor") { return "residential"; }
+  if (kind == "transit" && !subclass.empty()) { return subclass; }
+  if (kind == "path" && (subclass == "footway" || subclass == "cycleway" || subclass == "steps" ||
+                         subclass == "pedestrian" || subclass == "bridleway")) {
+    return subclass;
+  }
+  return kind;
+}
+
 [[nodiscard]] inline MvtLayer::Tag NormalizeMvtTag(MvtSchema schema,
                                                    std::string_view canonical,
                                                    MvtLayer::Tag tag,
@@ -39,8 +50,7 @@ enum class MvtSchema : uint8_t { Shortbread, OpenMapTiles };
   if (tag.Key == "class") {
     tag.Key = "kind";
     if (canonical == "streets" && !tag.IsNumber) {
-      if (tag.String == "minor") { tag.String = "residential"; }
-      if (tag.String == "transit" && !subclass.empty()) { tag.String = subclass; }
+      tag.String = NormalizeMvtStreetKind(tag.String, subclass);
     }
   }
   if (canonical == "streets" && tag.Key == "brunnel" && !tag.IsNumber &&

@@ -25,10 +25,11 @@ Stabile Regionsanfragen binden Regeln/Form/Bedarf vor Quellen; Inhalts-IDs behal
 Frische Offline-Prozesse, 1280×720/60, 60 Frames/360°; Höhensnapshot-Treffer:
 | Place | Höhenfelder vorher MiB | Höhenfelder jetzt MiB | Laden s | p99 ms |
 |---|---:|---:|---:|---:|
-| Wien | 25,01 | 0 | 1,96 | 2,94 |
-| CentralPark | 25,01 | 2,00 | 1,65 | 2,20 |
-| Tokyo | 32,01 | 2,00 | 2,51 | 2,70 |
-Zusätzlich je 0,504 MiB Snapshot. Peak-RSS 1,41 GiB; OS-Footprint zuletzt 4,08 GiB, nicht addieren. GPU-/Gerätenachweis offen.
+| Wien | 25,01 | 0 | 1,60 | 1,77 |
+| CentralPark | 25,01 | 2,00 | 1,40 | 1,92 |
+| Tokyo | 32,01 | 2,00 | 2,06 | 1,90 |
+Zusätzlich je 0,504 MiB Snapshot. Zehn Regionshits: Peak-RSS bis 1,51 GiB;
+Neuaufbau bis 2,42 GiB und 18,67 s. Aktueller OS-Footprint nicht gemessen; GPU-/Gerätenachweis offen.
 Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je belegter Zelle.
 Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen Pläne/Kontakte.
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
@@ -110,7 +111,6 @@ räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.co
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
 Wasser, Gebäude-LOD und native OSM-Kacheln umgehen Providerdecode; Regionseinstieg/übrige Zwischenfelder offen.
-Frische Offline-Treffer: globale Straßenfelder 0 B, Nahmaske eine Kachel; fertiger Höhensnapshot statt Nachbarschaftslesungen. Laden 1,21–2,51 s, p99 1,90–2,94 ms.
 Miss-/Hit-Abweichungen in CP/Wien besitzt 2340. Peak-RSS und OS-Footprint getrennt messen; Speicherbedarf bleibt zu senken.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.

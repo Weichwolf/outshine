@@ -197,6 +197,80 @@ void CheckRailClassRules() {
   CHECK_NEAR(way.HalfWidthM, 1.9, 1e-6, "half width", "railway recipe controls corridor width");
 }
 
+void CheckPathClassRules() {
+  using namespace outshine::Generators::Osm;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
+  GroundMaterials materials;
+  VegetationTemplates templates;
+  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
+            templates.Load("src/assets/world/vegetation.json", materials),
+        "production path recipes load");
+  const std::array<std::string, 1> layers{"streets"};
+  constexpr std::array subtypes{"footway", "cycleway", "steps", "pedestrian", "bridleway"};
+  constexpr std::array halfWidths{0.9, 1.0, 0.75, 3.0, 0.75};
+  for (size_t type = 0; type < subtypes.size(); ++type) {
+    for (const bool reversed : {false, true}) {
+      OsmField field(2, layers, MvtSchema::OpenMapTiles);
+      const std::array<std::string_view, 2> keys =
+          reversed ? std::array<std::string_view, 2>{"subclass", "class"}
+                   : std::array<std::string_view, 2>{"class", "subclass"};
+      const auto values = reversed ? std::array{String(subtypes[type]), String("path")}
+                                   : std::array{String("path"), String(subtypes[type])};
+      CHECK(field.Accept(1, 1, Layer("transportation", 2, keys, values)),
+            "provider path geometry is accepted in either tag order");
+      if (field.Features().empty()) { continue; }
+      const auto &feature = field.Features().front();
+      CHECK(field.Str(feature, "class") == "path" &&
+                field.Str(feature, "subclass") == subtypes[type] &&
+                field.Str(feature, "kind") == subtypes[type],
+            "supplied path subtype selects the native class without altering raw tags");
+      StreetField streets;
+      CHECK(streets.Ingest(field, templates) == 1 && streets.UnruledCount() == 0,
+            "each supplied path subtype reaches its dedicated production recipe");
+      if (!streets.Ways().empty()) {
+        CHECK_NEAR(streets.Ways().front().HalfWidthM,
+                   halfWidths[type],
+                   1e-6,
+                   "half width",
+                   "path subtype determines physical width");
+        CHECK(streets.Ways().front().Sealed == (type != subtypes.size() - 1),
+              "foot and cycle paths are paved while bridleways retain their unsealed surface");
+      }
+      const auto snapshot = field.SnapshotQueries();
+      CHECK(snapshot->Str(snapshot->Features().front(), "kind") == subtypes[type],
+            "published snapshot preserves path subtype selection");
+    }
+  }
+  for (const auto &subclass : {String(""), String("platform"), Bytes{0x28, 9}}) {
+    OsmField field(2, layers, MvtSchema::OpenMapTiles);
+    CHECK(field.Accept(1,
+                       1,
+                       Layer("transportation",
+                             2,
+                             std::array<std::string_view, 2>{"class", "subclass"},
+                             std::array{String("path"), subclass})),
+          "unknown or invalid path subtype retains its source geometry");
+    if (!field.Features().empty()) {
+      CHECK(field.Str(field.Features().front(), "kind") == "path",
+            "unsupported subtype retains the generic path recipe");
+    }
+  }
+  OsmField explicitKind(2, layers, MvtSchema::OpenMapTiles);
+  CHECK(
+      explicitKind.Accept(1,
+                          1,
+                          Layer("transportation",
+                                2,
+                                std::array<std::string_view, 3>{"class", "subclass", "kind"},
+                                std::array{String("path"), String("cycleway"), String("footway")})),
+      "explicit canonical path class is accepted");
+  if (!explicitKind.Features().empty()) {
+    CHECK(explicitKind.Str(explicitKind.Features().front(), "kind") == "footway",
+          "explicit canonical class wins over the path alias");
+  }
+}
+
 void CheckTransitClassRules() {
   using namespace outshine::Generators::Osm;
   using namespace outshine::Ground;
@@ -359,6 +433,7 @@ int main() {
   CheckBuildingColours();
   CheckUnprefixedBuildingColours();
   CheckRailClassRules();
+  CheckPathClassRules();
   CheckTransitClassRules();
   return Report();
 }

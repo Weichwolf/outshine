@@ -879,7 +879,8 @@ OsmField::FindTag(const Feature &feature, std::string_view key, TagKind kind) co
     } else if (!alias) {
       const auto subclass = Schema_ == MvtSchema::OpenMapTiles &&
                                     Layers_[feature.Layer] == "streets" && key == "kind" &&
-                                    tag.Key == "class" && !tag.IsNumber && tag.String == "transit"
+                                    tag.Key == "class" && !tag.IsNumber &&
+                                    (tag.String == "transit" || tag.String == "path")
                                 ? FindTag(feature, "subclass", TagKind::String)
                                 : std::nullopt;
       const auto normalized = NormalizeMvtTag(

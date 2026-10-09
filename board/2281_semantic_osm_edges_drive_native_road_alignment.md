@@ -30,6 +30,9 @@ Der erste Weltaufbau deckt auch die Vektorkacheln mit DEM-Eltern/Halos ab; Stra�
 und Bedarf verwenden denselben Bestand. Feine Gebäudehöhen kommen erst bei Refined hinzu.
 Kalte Asset-Misses bleiben teuer; vollständige native Treffer umgehen diesen Aufbau.
 Transit nutzt die gelieferte Unterklasse für Tram, Stadt-/U-Bahn; Originaltags bleiben erhalten.
+`class=path` nutzt gelieferte Fuß-/Radwege, Treppen, Fußgänger- und Reitwege für Breite,
+Oberfläche und Neigungsregeln. Unbekannte Unterklassen behalten das allgemeine Wegerezept.
+Treppenstufen und Bahnsteiggeometrie sind damit noch nicht implementiert.
 Ohne gültige Unterklasse wird nicht geraten. Tunnel bleiben von der sichtbaren Oberfläche
 getrennt. Pier-/Brückenwege und Seilbahnen fehlen noch.
 
