@@ -51,7 +51,9 @@ Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-
    Atlas-Rezept bindet Artdefinition, Größe/Blicke und getrennte Generator-/Capture-Versionen; Änderungen an Wachstum oder Capture-Semantik erhöhen die jeweilige Version. Codecs prüfen eigene Formate. Fachfremde Engine-/Buildänderungen invalidieren nicht.
 5. P1: SSD automatisch budgetiert verdrängen; aktive Assets, Paketmitglieder, Eltern und Quellen erhalten. Nutzdaten bleiben opaque. Warm <10 s; Gebäudebedarf vor Decode.
 Lookup-Abschlüsse unabhängig von erneuten Anfragen abholen; veraltete Parameter dürfen
-kein IO-Fenster blockieren. Teilweise gelieferte Höhen bis zur vollständigen Eingabe halten.
+kein IO-Fenster blockieren. Teilweise gelieferte Höhen bis zur vollständigen Eingabe halten;
+nur Blöcke der aktuellen Terrainrevision behalten. Abgewiesene Blöcke dürfen spätere gültige
+Lieferungen derselben Revision nicht blockieren.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
 AssetCache besitzt Speicherung/Kompression/Integrität und die AssetRecord-Hülle; Nutzdaten sind opaque.

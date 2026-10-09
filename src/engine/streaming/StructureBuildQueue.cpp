@@ -1266,7 +1266,10 @@ bool StructureBuildQueue::ResolveVectorHeights(const Generators::Osm::OsmField &
       into = found->second;
       return true;
     }
-    if (!source.PinField || !source.PinField(at, into)) { return false; }
+    if (!source.PinField || !source.PinField(at, into) ||
+        !into.Certificate.ScopeCurrent(source.Revision.Value)) {
+      return false;
+    }
     constexpr size_t bytesMost = size_t{512} * 1024 * 1024;
     const size_t bytes =
         sizeof(Ground::HeightField::Block) +
