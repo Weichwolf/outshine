@@ -41,7 +41,8 @@ Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen
   Die Beispiele sind nicht abschließend. Fehlende Klassen heuristisch aus Form/Lage/Umfeld
   ergänzen; Rendervergleiche verbessern allgemeine Rezepte, keine Place-Sonderfälle.
 - Rosenheim: native Lieferdaten der beiden hohen kleinen Grundrisse enthalten ausschließlich
-  `render_height`/`render_min_height` (65/80 m), keine Nutzung oder Materialangabe. Alle gelieferten
+  `render_height`/`render_min_height` (65/80 m), keine Nutzung oder Materialangabe. Der 80-m-Körper
+  hat einen rundlichen achteckigen Grundriss; der 65-m-Körper einen viereckigen. Alle gelieferten
   Tags bleiben im nativen OSM-Produkt. Unklassifizierte schmale Schächte bleiben konservativ
   geschlossen; explizite Wohnnutzung geht vor. Das ist ein Ersatz, keine belegte Schornsteinklasse.
 - Dächer einfach und robust halten. Flensburg rechts zeigt fehlerhafte Dachspitzen bereits im
@@ -65,6 +66,9 @@ Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen
   Sonderbau-/Öffnungsregeln; unbekannte breite Körper bekommen plausible Wohn-/Büroöffnungen.
   Bekannte Industrie-/Versorgungstürme bleiben geschlossen. Regel-/Produktversion gezielt ändern;
   alle LODs und native Treffer verwenden denselben Plan, keine pauschale Shader-Fensterfreigabe.
+- Rundliche geschlossene Schächte erhalten elliptische Mantelnormalen ohne zusätzliche Geometrie.
+  Grundriss, Höhe und geometrische Treffer bleiben erhalten; Fernflächen interpolieren dieselben
+  Ecknormalen wie das Nahmesh. Viereckige Schächte und belegte Wohnfassaden bleiben eben.
 - Gemeinsame randtreue Polygontriangulierung für Gebäude/Wasser mit Löchern: GEOS ≥3.10 über
   System-C-API; Library-Typen privat. Ungültige Polygone nicht durch Flächenverlust kaschieren.
 

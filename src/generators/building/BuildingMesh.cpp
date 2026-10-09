@@ -4,6 +4,7 @@
 #include <generation/Generate.h>
 
 #include "BuildingMesh.h"
+#include "BuildingWallNormals.h"
 #include "math/Box.h"
 
 #include "ground/TileMeshes.h"
@@ -202,6 +203,10 @@ public:
 
   [[nodiscard]] BuildingScratch &Scratch() { return Scratch_; }
 
+  void UseShape(const BuildingShape &shape) noexcept {
+    CurvedShape_ = HasCurvedShaftWalls(shape) ? &shape : nullptr;
+  }
+
   [[nodiscard]] double CoordinateMagnitudeM(const BuildingShape &shape) const noexcept {
     double acrossM = 0.0;
     const auto include = [&acrossM](std::span<const EastNorth> ring) {
@@ -297,11 +302,13 @@ private:
     std::vector<StoredVertex> &soup = side == 1 ? Out_.RoofCorners : Out_.WallCorners;
     Vec3f placeM{};
     Vec3f turned{};
+    const Vec3 normal =
+        CurvedShape_ != nullptr ? BuildingWallShadingNormal(*CurvedShape_, v.P, nrm) : nrm;
     for (int c = 0; c < 3; c++) {
       placeM[static_cast<size_t>(c)] = static_cast<float>(Origin_[c] + v.P.EastM * East_[c] +
                                                           v.P.NorthM * North_[c] + v.Z * Up_[c]);
       turned[static_cast<size_t>(c)] =
-          static_cast<float>(nrm[0] * East_[c] + nrm[1] * North_[c] + nrm[2] * Up_[c]);
+          static_cast<float>(normal[0] * East_[c] + normal[1] * North_[c] + normal[2] * Up_[c]);
     }
     const StoredVertex vertex = StoredVertex::Of(placeM, Vec2f{{v.U, v.V}}, turned);
     const BuildingCornerKey key{.Position = at,
@@ -325,6 +332,7 @@ private:
   LevelOfDetail Coarseness_ = LevelOfDetail::Fine;
   bool RecessedOpenings_ = true;
   double MinimumHeightM_ = 0.0;
+  const BuildingShape *CurvedShape_ = nullptr;
 };
 
 double EdgeLength(const EastNorth &p, const EastNorth &q) {
@@ -724,6 +732,7 @@ void RaiseCourtyard(const BuildingShape &s, Site &site) {
 }
 
 void RaisePart(const BuildingShape &s, Site &site) {
+  site.UseShape(s);
   if (!s.Holes.empty()) {
     RaiseCourtyard(s, site);
   } else if (site.Coarseness() >= LevelOfDetail::Massed) {
@@ -930,6 +939,7 @@ std::expected<void, StructureMeshError> BuildingSurface::MeshVisible(std::span<c
   Site site(Origin_, Axes_, MinimumHeightM_, scratch, into);
   for (const auto &face : faces) {
     const auto &shape = Resident().Shapes_[face.Part];
+    site.UseShape(shape);
     const RoofSurface roof(shape);
     const double bottom = site.LowerZ(shape);
     const double deck = EavesZ(shape) + (shape.Roof == RoofKind::Flat ? shape.RiseM : 0.0);

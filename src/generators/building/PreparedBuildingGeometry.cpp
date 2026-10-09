@@ -27,7 +27,7 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
   const auto number = [&bytes](double value) {
     return std::isfinite(value) && bytes.Number(value == 0.0 ? 0.0 : value);
   };
-  if (!text("building-lod-2") || !text(base) ||
+  if (!text("building-lod-3") || !text(base) ||
       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||
       !bytes.Number(view.RequestedCell.value_or(0)) || !bytes.Number(view.ClusterTriangles) ||
       !number(view.Projection.FocalPx) || !number(view.Projection.AllowedErrorPx) ||

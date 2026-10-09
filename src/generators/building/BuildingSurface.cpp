@@ -1,4 +1,5 @@
 #include "BuildingSurface.h"
+#include "BuildingWallNormals.h"
 #include "BuildingMaterials.h"
 #include "BuildingPreparation.h"
 #include "FacadeUv.h"
@@ -230,15 +231,25 @@ std::optional<BuildingSurface::Hit> BuildingSurface::Trace(const Ray &ray,
 }
 
 StoredVertex BuildingSurface::VertexAt(const Hit &hit, const Vec3 &position) const noexcept {
-  const Vec2f uv = TextureAt(
-      Resident().Shapes_[hit.Part], hit.Face, Local(Axes_, position - Origin_), hit.Gable);
+  const auto &shape = Resident().Shapes_[hit.Part];
+  const Vec3 local = Local(Axes_, position - Origin_);
+  const Vec2f uv = TextureAt(shape, hit.Face, local, hit.Gable);
+  Vec3 normal = hit.Normal;
+  if (!hit.Gable && hit.Face >= 2 && hit.Face - 2 < shape.Ring.size() &&
+      HasCurvedShaftWalls(shape)) {
+    normal = Global(Axes_,
+                    BuildingWallInterpolatedNormal(shape,
+                                                   hit.Face - 2,
+                                                   {.EastM = local[0], .NorthM = local[1]},
+                                                   Local(Axes_, hit.Normal)));
+  }
   return StoredVertex::Of({{static_cast<float>(position[0]),
                             static_cast<float>(position[1]),
                             static_cast<float>(position[2])}},
                           uv,
-                          {{static_cast<float>(hit.Normal[0]),
-                            static_cast<float>(hit.Normal[1]),
-                            static_cast<float>(hit.Normal[2])}});
+                          {{static_cast<float>(normal[0]),
+                            static_cast<float>(normal[1]),
+                            static_cast<float>(normal[2])}});
 }
 
 Vec3f BuildingSurface::ColourFactor(const Hit &hit) const noexcept {
