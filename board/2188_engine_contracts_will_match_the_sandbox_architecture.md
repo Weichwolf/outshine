@@ -13,7 +13,8 @@ Tags: extension, ownership, integration
 Ein öffentlicher Erweiterungsvertrag führt Provider/Generatoren bis in die native Welt.
 ProviderRegistry, Generator::make, Geometry/Material und kamera-relative Darstellung bestehen.
 Dichte GPU-Farbbereiche und ein gemeinsamer Placement-Vertrag für Darstellung/Culling bestehen.
-Straßenfachplanung und native Netzassets liegen in generators/osm/streets; Engine führt Worker/Publikation.
+Straßenfachplanung/native Netzassets und die Gebäude-Quellaufbereitung liegen in generators/osm;
+Engine führt Worker/Publikation. POI-Verknüpfung und Gebäuderezepte bleiben in dieser Erweiterung.
 Cachetreffer umgehen Layout/Verknüpfung/Profilierung; dieselben AssetCache/ResolveAsset-Dienste laden.
 Der deklarative Generatorpfad und spezialisierte Weltqueues laufen noch getrennt; Engine kennt
 OSM-Felder/Akquisition, world enthält konkrete Höhen-/Wetterprovider. Das erschwert Änderungen.
