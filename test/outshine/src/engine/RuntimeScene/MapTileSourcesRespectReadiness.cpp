@@ -24,9 +24,12 @@ int main() {
     CHECK(engine.setRoots({.Shipped = ".", .Offline = true}) && engine.setRenderTarget({80, 45}) &&
               engine.declare(scene),
           "natural world enters the public engine without source acquisition");
-    const auto absent = engine.assemble();
-    CHECK(!absent && absent.error().find("official original OSM") != std::string::npos,
-          "missing original source cannot publish an empty city or select a map-tile fallback");
+    CHECK(engine.assemble(), "assembly queues world acquisition without requiring original OSM");
+    CHECK(!engine.settled(WorldQuality::Refined) &&
+              !engine.unsettledReasons(WorldQuality::Refined).empty(),
+          "queued assembly cannot claim a complete world without required sources");
+    CHECK(!engine.preload(0.02, WorldQuality::Refined) && !engine.settled(WorldQuality::Refined),
+          "offline missing inputs remain a failure rather than an empty ready city");
   }
   {
     Scenario::Document scene;
@@ -37,10 +40,9 @@ int main() {
     Engine engine;
     CHECK(engine.setRoots({.Shipped = ".", .Offline = true}) && engine.setRenderTarget({80, 45}) &&
               engine.declare(scene),
-          "explicit legacy tile declaration reaches the runtime boundary");
-    const auto rejected = engine.assemble();
-    CHECK(!rejected && rejected.error().find("not permitted") != std::string::npos,
-          "an explicit tile endpoint cannot bypass original OSM world-source policy");
+          "explicit vector-tile declaration reaches the runtime boundary");
+    CHECK(engine.assemble() && engine.settled(WorldQuality::Refined),
+          "an unused explicit vector provider is permitted without blocking an empty scene");
   }
   SDL_Quit();
   return Report();
