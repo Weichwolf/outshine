@@ -30,18 +30,11 @@ Nahfahrbahnen sind dort noch nicht integriert. Brückenanschlüsse sind verbesse
 hat weiterhin falsche Profile/Übergänge. Vorhandene Straßenqualität bleibt erhalten.
 Lokale Straßenverfeinerung berücksichtigt bisher nur benannte Rundkurse; Places benötigen
 den allgemeinen nativen Straßenbestand, nach Kameraabstand und Kontaktfehler ausgewählt.
-OpenMapTiles `class=rail` muss als kanonisches `kind=rail` das Schienenrezept erreichen;
-die falsche Umbenennung zu `railway` verwarf gelieferte Linien. Native Tile-/Region-Rezepte
-werden versioniert, damit Treffer die korrigierte Semantik enthalten; Quellen bleiben erhalten.
-Der erste Weltaufbau deckt auch die Vektorkacheln mit DEM-Eltern/Halos ab; Straßenplanung
-und Bedarf verwenden denselben Bestand. Feine Gebäudehöhen kommen erst bei Refined hinzu.
-Kalte Asset-Misses bleiben teuer; vollständige native Treffer umgehen diesen Aufbau.
-Transit nutzt die gelieferte Unterklasse für Tram, Stadt-/U-Bahn; Originaltags bleiben erhalten.
-`class=path` nutzt gelieferte Fuß-/Radwege, Treppen, Fußgänger- und Reitwege für Breite,
-Oberfläche und Neigungsregeln. Unbekannte Unterklassen behalten das allgemeine Wegerezept.
-Treppenstufen und Bahnsteiggeometrie sind damit noch nicht implementiert.
-Ohne gültige Unterklasse wird nicht geraten. Tunnel bleiben von der sichtbaren Oberfläche
-getrennt. Pier-/Brückenwege und Seilbahnen fehlen noch.
+Gelieferte Rail-/Transit- und Wegunterklassen bestimmen Breite, Oberfläche und Neigungsregeln;
+`class=rail` erreicht als `kind=rail` das Schienenrezept. Originaltags bleiben erhalten.
+Unbekannte Wegunterklassen behalten das allgemeine Rezept; ungültige Unterklassen werden nicht geraten.
+Native Rezepte werden versioniert; Quellen bleiben erhalten. Tunnel sind von der Oberfläche getrennt.
+Treppenstufen, Bahnsteige, Pier-/Brückenwege und Seilbahnen fehlen noch.
 
 ## Besitzer und nächste Lieferung
 OSM-Adapter normalisiert vorhandene Semantik; world/navigation hält das native logische Netz.
@@ -59,6 +52,10 @@ Keine zweite Straßenpipeline oder vollständige Quellenmigration als Vorbedingu
    ergänzen. Markierungen, Geländer, Signale und Beleuchtung anschließend instanzieren.
 
 ## Verbindlicher Entwurf
+- Grobstes DEM → Infrastrukturentwurf → benötigtes feines DEM → Kontaktdeformation → Vegetation.
+  Grobe Höhen stützen zusammenhängende Profile, Kreuzungen und Decks. Feines Relief ergänzt
+  deren Umgebung und wird unter den festgelegten Kontakten geformt; es zeichnet nicht die Straße neu.
+  Bedarf/Erwerb besitzt 2336, native Produkte 2280. Vegetation nutzt die finale Oberfläche und Belegung.
 - Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren und erhalten.
   MVT ist kein vollständiger Routinggraph. Randfragmente deterministisch vereinigen;
   tatsächliche Schnittpunkte teilen Position/Höhe nur bei kompatibler Ebene/Brückenklasse.
@@ -86,6 +83,10 @@ Keine zweite Straßenpipeline oder vollständige Quellenmigration als Vorbedingu
   Kandidaten decken maximale Übergangsbreite/Höhen ab; Ausblenden versteckt keine Höhenfehler.
   Nullauslauf bleibt ausdrücklicher harter Kontakt. Clearance schneidet nur, füllt nie Boden;
   quintische Freiraumausläufe respektieren physische Kontakte und Quellrelief.
+  Steile Einschnitte/Stützböschungen sind zulässig. Kontaktprodukte unterscheiden natürlichen
+  Fels-/Bodenschnitt und bauliche Sicherung für Fels, Beton/Mauerwerk und Materialübergänge (2171).
+  Kernkorrekturen entscheiden die Zulässigkeit eines Kontakts. Weiche Ausläufe begrenzen ihre
+  Korrektur örtlich; hohes Quellrelief außerhalb des Kerns darf den Kontakt nicht pauschal verwerfen.
 - Verfeinerung gegen deformierte Oberfläche und Kontakte bestimmen. Deterministische gemeinsame
   Kanten/Ecken und konforme LOD-Ränder statt Risse; innere Kanten nicht durch abdeckende Eltern
   verändern. Kontakt-/Höhenfehler vor zusätzlichen Vertices beheben. 2336 besitzt Arbeitsauswahl,
@@ -93,7 +94,7 @@ Keine zweite Straßenpipeline oder vollständige Quellenmigration als Vorbedingu
 - Terrain-Zellen, die eine starre Fahrbahnfläche schneiden, unter deren gemeinsamer Kontaktebene
   halten; nur Knoten innerhalb des Umrisses abzusenken genügt nicht. Rasterunterstützung begrenzen,
   Profile/Quellrelief und weiche Ausläufe erhalten. Zellkontakt budgetiert vor Asset-Speicherung
-  erzeugen; Cachetreffer wiederholen ihn nicht. Geneigte Brückenbänder benötigen noch ihren
+  erzeugen; Cachetreffer wiederholen ihn nicht. Geneigte Straßen-/Weg-/Brückenbänder benötigen ihren
   eigenen Zellkontakt; CPU-Beleg ersetzt keine Prüfung des GPU-Lattice.
 
 ## Forschungsgrundlage

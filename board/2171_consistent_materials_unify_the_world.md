@@ -39,6 +39,8 @@ Erst Wände/Dächer im bebauten Place verbessern, dann mit Terrain/Asphalt abgle
   Fernemission kompakt filtern; ein sichtbares Fenster ist nicht automatisch ein Point Light.
 - Prozedurale Varianten bleiben Ergänzungen; gelieferte Farben/Materialien haben Vorrang.
   Negative Dach-/Sockelcodes und unbeschränkte Geschosskoordinaten bleiben bis zum Shader erhalten.
+- Infrastrukturkontakte (2281) liefern die Herkunft steiler Schnitt-/Stützflächen: natürlicher
+  Boden/Fels oder bauliche Sicherung mit Beton/Mauerwerk. Steilheit allein bestimmt keinen Baustoff.
 - Fern-Capture speichert unbeleuchtete Tiefe/Normalen/Material/Coverage. Aktuelles Licht, Wind,
   Nässe und Schatten bleiben Runtime. Nicht erfasste Effekte brauchen geeignete native Produkte.
   LOD/Impostor wechseln ohne mittlere Farb-, Glanz-, Coverage- oder Kontaktänderung.

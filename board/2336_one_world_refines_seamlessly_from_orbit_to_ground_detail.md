@@ -22,9 +22,7 @@ Koerbersee-Diagnose: 16.255 Höhenblätter × 33² = 17.701.695 CPU-Vertices;
 erfolgreiche Shot meldet 37.776 erzeugte Gebäudedreiecke laut ROW. ROW zählt keine
 GPU-Terraindreiecke; ein Verhältnis zu sichtbaren GPU-Dreiecken ist daraus nicht ableitbar.
 TerrainSurvey erzeugt Lichtproben ohne Topologie; Positionen/Extrema erhalten.
-Koerbersees Blattzahl erfordert damit 1.106.356 Proben × 12 Byte = 12,66 MiB Nutzdaten statt
-583,56 MiB Positionen/Indizes. Koer/Wien/CP/Tokyo sind im isolierten Stand pixelgleich;
-Survey-Schritte bei Koer maximal 0,224 ms. Der finale globale CPU-Meshaufbau ist jetzt entfernt:
+Der finale globale CPU-Meshaufbau ist entfernt. TerrainSurvey erhält Lichtproben/Extrema;
 Audio liest publizierte, deformierte Höhen direkt, maximal 64 Proben ohne Geometrieallokation.
 Grobe Audioverdeckung; feine Quellen bleiben teuer. Koers Peak-Footprint fällt von 3,40 auf 1,83 GiB
 (Bytes/1024³), Laden von 8,61 auf 7,88 s; Stadt-Laden bleibt bei 12–16 s. Quellenarbeit ist weiter offen.
@@ -33,6 +31,8 @@ Grobe Audioverdeckung; feine Quellen bleiben teuer. Koers Peak-Footprint fällt 
 1. Zuerst gröbste Eltern für den Weltbedarf aus dem Assetcache; bei Miss nur grobes DEM
    beschaffen. Kein Start aller feinen Requests, auch nicht durch BlockAt, Gebäudehöhen,
    Wasserklassifikation oder vorbereitete Kamerapfade. Unbekannt/NoData bleibt unterscheidbar.
+   Region-Aufbau folgt 2281: grobes DEM → Infrastrukturentwurf → feines DEM/Kontakte → Vegetation.
+   Feine Höhen ergänzen das Relief unter festgelegten Infrastrukturprofilen, ohne diese neu zu zeichnen.
 2. Auf einem Worker grobe Geländehierarchie und Rundum-Horizont von nah nach fern auswerten.
    Höhenwinkel/Bounds berücksichtigen Kamera-ECEF, Erdkrümmung und Höhe. Unterbäume hinter
    Bergmassiven nicht verfeinern. Quadtree-Horizont gegen niedrig aufgelöste Tiefen-/Cubemap-

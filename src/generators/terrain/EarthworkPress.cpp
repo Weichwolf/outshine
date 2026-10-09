@@ -567,6 +567,7 @@ void RejectAt(std::span<const EarthworkStamp> these,
                                  : std::max(upM[one] - bedM, 0.0);
       workspace.ReliefM[which] = std::max(workspace.ReliefM[which], reliefM);
     }
+    if (outsideM > 0.0 && HasSoftApron(stamp)) { continue; }
     if (outsideM > stamp.ApronM) { continue; }
     const double batterM = std::max(0.0, outsideM) * kBatterRise;
     if (bedM + batterM - upM[one] < -mostEarthworkM ||
