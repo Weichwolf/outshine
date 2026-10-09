@@ -1,8 +1,11 @@
-# Acht Webcam-Places
+# Webcam-Places und Infrastruktur-/Dichtebenchmarks
 
 Der Standardkatalog enthält Rosenheim, Flensburg, DarmstadtWest, Wien, Husum, Feldkirch,
 Malcesine und Koerbersee. `references.json` verknüpft Kamera, Archivaufnahme und Herkunft.
 Bilder bleiben unter build/shots/reference/webcams/. Sie sind ausschließlich Vergleichsmittel.
+Tokyo und Central Park prüfen dichte Städte. BaselBadischerBahnhof ergänzt Gleisfeld,
+Straßen/Tunnel auf mehreren Ebenen. ZuerichHauptbahnhof ergänzt Bahn, Straßen und Fluss.
+Beide Diagnosekameras sind frei gewählt, keine Webcam-Posen.
 
 Jede .scenario-Datei ist ein normales Outshine-Szenario. Der Dateistamm ist der Name.
 `outshine-client --places <Verzeichnis> places|shots|prepare|roundtrip` lädt den Katalog;
