@@ -12,6 +12,7 @@ import json
 import math
 from pathlib import Path
 import random
+import shlex
 import subprocess
 import tempfile
 import time
@@ -68,7 +69,23 @@ def fit(samples, adjacency, bounds=None, reverse=None, prefer_cuts=False):
 
 
 def build_native(directory):
-    source = Path(__file__).resolve().parents[2] / 'src/generators/road/RoadHeightPlan.cpp'
+    root = Path(__file__).resolve().parents[2]
+    source = root / 'src/generators/road/RoadHeightPlan.cpp'
+    database = root / 'compile_commands.json'
+    if not database.exists():
+        raise SystemExit('Run make db before the native experiment.')
+    entry = next((item for item in json.loads(database.read_text())
+                  if Path(item['file']).resolve() == source), None)
+    if entry is None:
+        raise SystemExit('Refresh make db: the native road height unit is missing.')
+    arguments = entry.get('arguments') or shlex.split(entry['command'])
+    flags = []
+    remaining = iter(arguments[1:])
+    for argument in remaining:
+        if argument in ('-o', '-MF', '-MT', '-MQ'):
+            next(remaining)
+        elif argument not in (str(source), '-c', '-MMD', '-MD', '-MP'):
+            flags.append(argument)
     runner = directory / 'main.cpp'
     runner.write_text(r'''
 #include "RoadHeightPlan.h"
@@ -105,11 +122,11 @@ int main() {
 }
 ''')
     binary = directory / 'road-heights'
-    subprocess.run(['c++', '-std=c++23', '-O2', '-fno-exceptions', '-Wall', '-Wextra',
-                    '-Werror', '-I' + str(source.parent), str(runner), str(source),
-                    '-o', str(binary)], check=True, capture_output=True, text=True, timeout=60)
+    subprocess.run([arguments[0], *flags, str(runner), str(source), '-o', str(binary)],
+                   cwd=entry['directory'], check=True, capture_output=True, text=True, timeout=60)
     digest = hashlib.sha256(source.read_bytes() + source.with_suffix('.h').read_bytes()).hexdigest()
-    return binary, digest
+    toolchain = hashlib.sha256(json.dumps(arguments).encode()).hexdigest()
+    return binary, digest, toolchain
 
 
 def run_native(binary, cases, prefer_cuts=False):
@@ -377,12 +394,13 @@ def main():
     with args.profiles.open() as source:
         rows = list(csv.reader(source))
     with tempfile.TemporaryDirectory(prefix='outshine-road-heights-') as temporary:
-        native, digest = build_native(Path(temporary)) if args.native else (None, None)
+        native, digest, toolchain = build_native(Path(temporary)) if args.native else (None, None, None)
         began = time.perf_counter()
         report, heights, chains = solve(rows, native=native)
         report['solve_ms'] = (time.perf_counter() - began) * 1000
         if native:
             report['native']['source_sha256'] = digest
+            report['native']['toolchain_sha256'] = toolchain
             report['native_offset_linear_programs'] = verify_native_offsets(native)
     report['scope'] = 'grounded graph secants; hard contact bounds; no junction-plane/C1 proof'
     if args.verify:
