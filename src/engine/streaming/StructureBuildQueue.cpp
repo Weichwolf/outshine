@@ -1344,6 +1344,63 @@ StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
           .ReservationOwner = prints.ReservationOwner()};
 }
 
+bool StructureBuildQueue::ResolveVectorHeights(const Generators::Osm::OsmField &vectors,
+                                               Generators::Osm::FeatureRun over,
+                                               int zoom,
+                                               const HeightSource &source,
+                                               HeightRequirement requirement,
+                                               VectorSelection &selected,
+                                               double &durationMs) {
+  const uint32_t tile = vectors.Features()[over.From].Tile;
+  if (PendingVectorHeights_ && (PendingVectorHeights_->Generation != vectors.Generation() ||
+                                PendingVectorHeights_->Revision != source.Revision)) {
+    PendingVectorHeights_.reset();
+  }
+  if (!PendingVectorHeights_) {
+    PendingVectorHeights_.emplace(PendingVectorHeights{.Tile = tile,
+                                                       .Generation = vectors.Generation(),
+                                                       .Revision = source.Revision,
+                                                       .Bytes = 0,
+                                                       .Fields = {}});
+  }
+  if (PendingVectorHeights_->Tile != tile) {
+    ++Deferred_;
+    return false;
+  }
+  HeightSource retained = source;
+  retained.PinField = [this, &source](Data::TileId at, Ground::HeightField::Block &into) {
+    auto &pending = *PendingVectorHeights_;
+    const auto found =
+        std::ranges::find(pending.Fields, at, [](const auto &entry) { return entry.first; });
+    if (found != pending.Fields.end()) {
+      into = found->second;
+      return true;
+    }
+    if (!source.PinField || !source.PinField(at, into)) { return false; }
+    constexpr size_t bytesMost = size_t{512} * 1024 * 1024;
+    const size_t bytes =
+        sizeof(Ground::HeightField::Block) +
+        (into.Terrain ? into.Terrain->HeapBytes() : into.Nodes.capacity() * sizeof(float));
+    if (bytes > bytesMost - pending.Bytes) {
+      NativeFailure_ = Generators::StructureBakeErrorKind::ArtifactCapacityExceeded;
+      return false;
+    }
+    pending.Fields.emplace_back(at, into);
+    pending.Bytes += bytes;
+    return true;
+  };
+  const bool ready = ResolveHeights(
+      vectors,
+      over,
+      zoom,
+      retained,
+      requirement,
+      selected.Heights,
+      {.Deferred = Deferred_, .DurationMs = durationMs, .Failure = &LastHeightFailure_});
+  if (ready) { PendingVectorHeights_.reset(); }
+  return ready;
+}
+
 bool StructureBuildQueue::SelectVectorInputs(
     Ground::SurfacePreparation &stack,
     const ::outshine::Generators::Osm::BuildingField &prints,
@@ -1371,14 +1428,23 @@ bool StructureBuildQueue::SelectVectorInputs(
     ++Deferred_;
     return false;
   }
-  return ResolveHeights(
-      vectors,
-      over,
-      stack.FinestZoomOf(Data::DataKind::Elevation),
-      heightAt,
-      requirement,
-      selected.Heights,
-      {.Deferred = Deferred_, .DurationMs = durationMs, .Failure = &LastHeightFailure_});
+  if (over.From == over.To) {
+    return ResolveHeights(
+        vectors,
+        over,
+        stack.FinestZoomOf(Data::DataKind::Elevation),
+        heightAt,
+        requirement,
+        selected.Heights,
+        {.Deferred = Deferred_, .DurationMs = durationMs, .Failure = &LastHeightFailure_});
+  }
+  return ResolveVectorHeights(vectors,
+                              over,
+                              stack.FinestZoomOf(Data::DataKind::Elevation),
+                              heightAt,
+                              requirement,
+                              selected,
+                              durationMs);
 }
 
 size_t StructureBuildQueue::PostsVectors(Ground::SurfacePreparation &stack,
@@ -1845,6 +1911,7 @@ void StructureBuildQueue::Clear() {
     }
   }
   NativeLookups_.clear();
+  PendingVectorHeights_.reset();
   NativeFailure_.reset();
   if (OriginalPreparation_) { OriginalPreparation_->Cancel(); }
   OriginalPreparation_.reset();

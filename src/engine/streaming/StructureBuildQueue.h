@@ -404,6 +404,22 @@ private:
     std::shared_ptr<const Ground::HeightField> Heights;
   };
 
+  struct PendingVectorHeights {
+    uint32_t Tile = 0;
+    uint64_t Generation = 0;
+    HeightSourceRevision Revision;
+    size_t Bytes = 0;
+    std::vector<std::pair<Data::TileId, Ground::HeightField::Block>> Fields;
+  };
+
+  [[nodiscard]] bool ResolveVectorHeights(const Generators::Osm::OsmField &vectors,
+                                          Generators::Osm::FeatureRun over,
+                                          int zoom,
+                                          const HeightSource &source,
+                                          HeightRequirement requirement,
+                                          VectorSelection &selected,
+                                          double &durationMs);
+
   struct PreparedCells {
     ::outshine::Generators::Osm::BuildingField::AcceptedInput Receipt;
     std::array<CellRequest, 8> Requests{};
@@ -461,6 +477,7 @@ private:
   std::vector<std::unique_ptr<StructureBuildTask::Output>> IdleOut_;
   std::vector<std::unique_ptr<MeshScratch>> IdleScratch_;
   std::optional<PinnedCellHeight> PinnedCellHeight_;
+  std::optional<PendingVectorHeights> PendingVectorHeights_;
   size_t FastCellValidations_ = 0;
   size_t Posted_ = 0;
   size_t Landed_ = 0;

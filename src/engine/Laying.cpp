@@ -2022,8 +2022,15 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
       .Sample = [&build,
                  finestZoom](LongitudeLatitude at) { return build.Sheets.AslMAt(finestZoom, at); },
       .PinField =
-          [&build](Data::TileId tile, Ground::HeightField::Block &into) {
-            return build.Sheets.ShareSourcedField(tile, into);
+          [this, &build](Data::TileId tile, Ground::HeightField::Block &into) {
+            if (build.Sheets.ShareSourcedField(tile, into)) { return true; }
+            std::shared_ptr<const Ground::TerrainField> field;
+            if (World.Stack.Ground().PollStitchedField(tile, field) !=
+                    Ground::TilePool::Reply::Ready ||
+                !field) {
+              return false;
+            }
+            return Ground::HeightField::SharesField(std::move(field), tile, into);
           },
       .ResidentField = {},
       .Revision = {.Value = World.Stack.Pool().TerrainScopeRevision()}};

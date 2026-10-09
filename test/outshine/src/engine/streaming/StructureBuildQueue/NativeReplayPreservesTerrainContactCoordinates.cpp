@@ -28,7 +28,7 @@ outshine::Test::Mvt::Bytes BuildingTile() {
   Append(layer, 0x22, Bytes{0x0a, 8, 'b', 'u', 'i', 'l', 'd', 'i', 'n', 'g'});
   Bytes feature{0x08, 1, 0x18, 3};
   Append(feature, 0x12, Bytes{0, 0});
-  Append(feature, 0x22, Bytes{9, 64, 64, 26, 8, 0, 0, 8, 7, 0, 15});
+  Append(feature, 0x22, Bytes{9, 62, 62, 26, 8, 0, 0, 8, 7, 0, 15});
   Append(layer, 0x12, feature);
   Bytes tile;
   Append(tile, 0x1a, layer);
@@ -123,13 +123,22 @@ void Replay(const std::filesystem::path &directory, bool warm) {
   if (!revisions) { return; }
   std::map<std::tuple<int, uint32_t, uint32_t>, std::shared_ptr<TerrainField>> fields;
   size_t pins = 0;
+  size_t repeatedPins = 0;
+  bool deliveredThisPump = false;
   StructureBuildQueue::HeightSource source{
       .Sample = {},
       .PinField =
           [&](Data::TileId tile, HeightField::Block &into) {
             ++pins;
             if (warm) { return false; }
-            auto &field = fields[{tile.Zoom, tile.X, tile.Y}];
+            const auto key = std::tuple{tile.Zoom, tile.X, tile.Y};
+            if (fields.contains(key)) {
+              ++repeatedPins;
+              return false;
+            }
+            if (deliveredThisPump) { return false; }
+            deliveredThisPump = true;
+            auto &field = fields[key];
             if (!field) {
               const auto stamp = (**revisions).IssueDeliveryStamp(tile);
               if (!stamp) { return false; }
@@ -150,6 +159,7 @@ void Replay(const std::filesystem::path &directory, bool warm) {
   queue.Opens(&compute, &mesher);
   bool landed = false;
   while (!landed && std::chrono::steady_clock::now() < deadline) {
+    deliveredThisPump = false;
     (void)queue.Posts(
         stack, prints, eye, source, 1, StructureBuildQueue::HeightRequirement::FineOnly);
     auto ready = queue.NextLandings(
@@ -168,6 +178,10 @@ void Replay(const std::filesystem::path &directory, bool warm) {
     }
   }
   CHECK(landed && prints.Footprints().size() == 1, "the complete footprint lands");
+  CHECK(warm || fields.size() > 1,
+        "cold input crosses multiple height fields delivered on separate pumps");
+  CHECK(repeatedPins == 0,
+        "partial source delivery pins each field until the complete building input exists");
   if (!landed) {
     std::printf("REPLAY warm=%d features=%zu rings=%zu pins=%zu fields=%zu posted=%zu queued=%zu "
                 "deferred=%zu\n",
