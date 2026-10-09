@@ -29,7 +29,7 @@ Mehr OSM-Tags beim Import bedeutet deshalb keine vollständigen Tags im geliefer
 
 POI: 137 Klassen und 476 Unterklassen beobachtet, überwiegend Einrichtungen/Nutzungen.
 Kein beobachteter Eintrag bezeichnet Schornstein, Kühlturm, Windgenerator oder Solarpark;
-ihre Quellschlüssel fehlen auch im veröffentlichten TileJSON. Das ist eine Lieferlücke.
+ihre Quellschlüssel fehlen auch im veröffentlichten TileJSON. Diese speziellen Klassen fehlen in der Stichprobe.
 Generische Industrieflächen beweisen keine bestimmte Anlage. Nicht beobachtet heißt
 bei anderen Klassen nicht weltweit ausgeschlossen. Upstream-Schemata sind Referenzen;
 das tatsächliche Anbieter-TileJSON und Payload entscheiden.
@@ -52,7 +52,9 @@ Ortsnamen und mehrsprachige Namen bleiben Metadaten; nicht jedes Attribut erzeug
 Nutzung ist keine Bauform: Ein Restaurant-POI kann nur ein Geschoss eines Gebäudes belegen.
 POI-Zuordnung braucht räumliche und fachliche Eindeutigkeit; kein pauschales Nearest-Neighbor.
 Fehlende Sonderklassendaten lassen sich durch einen besseren Shader nicht wiederherstellen.
-Vor Quellenwechsel oder Datenanreicherung den fehlenden Liefervertrag gezielt prüfen (2341).
+Der vorhandene Lieferumfang ist unmittelbar nutzbar. Fehlende Klassen dürfen aus Form, Höhe,
+Lage und Umfeld heuristisch ergänzt werden; Rendervergleiche verbessern allgemeine Regeln.
+Herkunft/Unsicherheit bleiben klar. Keine vorgeschaltete Sonderklassenbeschaffung (2341).
 
 ## Optische Abnahme
 

@@ -19,13 +19,15 @@ OSM-Adapter liefert vorhandene Klassen-/Flächenhinweise, generators/objects For
 world native Assets/Instanzen, Renderer Ausgabe. Erste Klasse anhand tatsächlich gelieferter
 Semantik wählen, Eingabe-/Produktvertrag dort konkretisieren; daher `planned`.
 Vorhandene native Produkte reichen zum Einstieg; kein pauschaler API-/Quellen-Blocker.
-Zuerst eine erkennbare technische Objektklasse im Stadt-/Hafenbild integrieren.
+Zuerst tatsächlich gelieferte Barrieren/Zugänge, Hafen-/Sport-/Flughafenobjekte integrieren;
+fehlende Typen bei hinreichenden Form-/Umfeldhinweisen heuristisch ergänzen.
 
 ## Verfahren
-- [Inventur](../doc/references/data/osm/inventory.md)/2341 bestimmen gelieferte Klassen und
-  fehlende Sonderklassendaten. Rezepte für Windräder/Solarparks/Kräne/Masten, Flughafenteile,
+- [Inventur](../doc/references/data/osm/inventory.md)/2341 liefern nutzbare Klassen.
+  Sonderbauten sind eine offene Menge; Windräder/Solarparks/Kräne/Masten, Flughafenteile,
   Straßenmöbel/Barrieren, ÖPNV/Parken und Sport/Spiel teilen primitive/instanzierte Rohlinge.
-  Industrieflächen belegen keine bestimmte technische Anlage. Zusätzliche Places prüfen
+  Form/Lage/Nachbarschaft begrenzen plausible Ergänzungen; Industrie allein bestimmt
+  keine konkrete Anlage. Rendervergleiche verbessern allgemeine Heuristiken. Zusätzliche Places prüfen
   jede physische Rezeptfamilie, nicht nur das Vorhandensein ihrer Tags.
 - Gelieferte Maße/Richtung/Material/Kontakt übernehmen; Unbekanntes stabil und plausibel
   ergänzen. Primitive/Profile für Masten/Ausleger/Kräne, Poller/Geländer/Antennen und

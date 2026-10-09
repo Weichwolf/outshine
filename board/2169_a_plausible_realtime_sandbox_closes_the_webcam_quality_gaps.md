@@ -50,7 +50,7 @@ Messdetails/Einheiten bei 2280; Verfahrensentscheidung bei 2336. Weitere Befunde
 | P1 | Tokyo erzeugt 2,36 Mio. Gebäudedreiecke; ferne Auswahl nur kachelweise | Hierarchische Coverage, Hülle/Cluster/Impostor vor Emission, 2336 |
 | P1 | Erstframes/Fence-Spitzen, GPU-Passzeiten fehlen | Readiness/Upload-Lebensdauer, direkte Backendmessung, 2340/2339 |
 | P1 | Wasser/Ufer, Sonderklassen/Parts, komplexe Bauwerke fehlerhaft | Native Pegel/Kontakte, Semantik und Ebenen, 2145/2173/2281/2338 |
-| P0 | Anbieter liefert keine Gebäude-/Energie-Sonderklassen; weitere Layer kaum genutzt | Lieferkatalog/Zuordnung und gezielte Datenentscheidung vor Sonderrezepten, 2341 |
+| P1 | Breiter OSM-Lieferumfang erreicht die Welt nur teilweise | Vorhandene Klassen in Formen, Materialien und Belegung integrieren; fehlende Angaben plausibel ergänzen, 2341 |
 | P1 | Fels/Fassaden/Licht bleiben flach und repetitiv | Gemeinsame Form/Material-/Lichtkomposition, 2337/2171/2155 |
 | P1 | Öffentliche Erweiterungen umgehen dieselbe Bedarf-/Produktkette | Generische Welt, Generatorplanung, native Verträge, 2188 |
 | später | Wälder POC; Umwelt und bewegte Sandbox fehlen | Nach Gebäude/Terrain/Infrastruktur: 2111, 2172, 2136 |

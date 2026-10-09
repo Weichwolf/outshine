@@ -27,8 +27,8 @@ Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen
 
 ## Form und Quellsemantik
 - [Inventur und vollständiger Lieferkatalog](../doc/references/data/osm/inventory.md): 2341
-  besitzt zusätzliche Layer/Zuordnung und die fehlenden Sonderklassendaten. Bestehende
-  Gebäude/Dächer können unabhängig davon verbessert werden; kein pauschaler Quellenblocker.
+  besitzt zusätzliche Layer/Zuordnung. Gelieferte Grundrisse/Höhen/Farben sofort nutzen;
+  fehlende Typen aus Form, Lage und Umfeld stabil ergänzen, ohne Quellenblocker.
 - Klassen besitzen getrennte Rezepte: Haus/Reihe (Geschosse, Achsen, einfaches Dach),
   Wohnblock/Büro/Hotel (Höfe/Parts, regelmäßige Öffnungen), Halle/Lager (Tore, wenige Öffnungen),
   Schornstein (geschlossener, meist runder/verjüngter Schaft), Silo/Tank (Behälter), Wasserturm
@@ -38,7 +38,8 @@ Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen
 - Weitere Sonderrezepte: Kühlturm (offene gekrümmte Schale), Windrad (Mast/Gondel/Rotor),
   Solarpark (gebündelte geneigte Modulreihen), Strommast/Leitung und technische Anlagen.
   Alle gelieferten Attribute persistieren; relevante Eigenschaften vor Ergänzungen auswerten.
-  Fehlende Lieferantenklassen ausdrücklich benennen, nicht aus Wohnhausproportionen behaupten.
+  Die Beispiele sind nicht abschließend. Fehlende Klassen heuristisch aus Form/Lage/Umfeld
+  ergänzen; Rendervergleiche verbessern allgemeine Rezepte, keine Place-Sonderfälle.
 - Rosenheim: native Lieferdaten der beiden hohen kleinen Grundrisse enthalten ausschließlich
   `render_height`/`render_min_height` (65/80 m), keine Nutzung oder Materialangabe. Alle gelieferten
   Tags bleiben im nativen OSM-Produkt. Unklassifizierte schmale Schächte bleiben konservativ
@@ -50,7 +51,8 @@ Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen
   Höhe/Unterkante/Geschosse, Klasse/Nutzung, Dach, Material/Farbe und Parts nutzen, soweit vorhanden.
   [OpenMapTiles](https://github.com/openmaptiles/openmaptiles/blob/master/layers/building/building.yaml)
   liefert nicht alle OSM-Tags. Unbekanntes und deterministische Ergänzungen bleiben unterscheidbar.
-- Bekannte Schornsteine/Türme/Wassertürme erhalten passende Baukörper ohne Wohnhausfassade.
+- Gelieferte oder plausibel abgeleitete Sonderbauten erhalten passende Baukörper ohne
+  Wohnhausfassade; die Herkunft der Klasse bleibt unterscheidbar.
   Schlankheit allein beweist keine Klasse; 19 m Höhe allein macht keinen Turm. Unbekannte schlanke
   Bauten bekommen keine erfundenen Spitzdächer. Gelieferte Dachangaben gehen vor.
 - Multipolygone/Höfe/Parts erhalten, Eltern/Parts nicht doppeln. Unterkanten sind vorzeichenbehaftet
