@@ -19,6 +19,10 @@ dürfen keine Straßenränder durch ein Dreieck verlieren. Seitenflächen nutzen
 Knoten im Kontaktkern reichen nicht: interpolierte Terrain-Zellen durchdringen Fahrbahnränder.
 Starre Fahrbahnflächen benötigen konservativen Zellkontakt; zusätzliche Verfeinerung allein
 behebt konkurrierende Randhöhen nicht. Wasserflächen gehören nicht in diesen Straßenvergleich.
+Native Anschlussflächen erhalten eine gemeinsame Stützweite aus den Zell-Durchmessern aller
+betroffenen Terrain-Seiten. Der zusätzliche Kontakt schneidet nur; ursprünglicher Kern und
+weiche Ausläufe bleiben erhalten. Grobe/feine Seiten werten dasselbe räumliche Höhenfeld aus.
+Synchroner und asynchroner Aufbau teilen die Implementierung; native Treffer laden das Ergebnis.
 Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
 Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen.
 Places nutzen überwiegend polygonale Kontakte; Hermite-Kontaktprofile und adaptive
@@ -89,7 +93,8 @@ Keine zweite Straßenpipeline oder vollständige Quellenmigration als Vorbedingu
 - Terrain-Zellen, die eine starre Fahrbahnfläche schneiden, unter deren gemeinsamer Kontaktebene
   halten; nur Knoten innerhalb des Umrisses abzusenken genügt nicht. Rasterunterstützung begrenzen,
   Profile/Quellrelief und weiche Ausläufe erhalten. Zellkontakt budgetiert vor Asset-Speicherung
-  erzeugen; Cachetreffer wiederholen ihn nicht. CPU-Beleg ersetzt keine Prüfung des GPU-Lattice.
+  erzeugen; Cachetreffer wiederholen ihn nicht. Geneigte Brückenbänder benötigen noch ihren
+  eigenen Zellkontakt; CPU-Beleg ersetzt keine Prüfung des GPU-Lattice.
 
 ## Forschungsgrundlage
 [Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf):

@@ -1167,6 +1167,7 @@ void Corridors::AppendJunctionTerrainStamp(const Junction &made,
   under.AtE = made.EastM;
   under.AtN = made.NorthM;
   under.PlateauM = made.GradeM - kPavementLipM;
+  under.PlanarSupportM = 0.0;
   under.CorridorKey = made.CorridorKey;
   under.SlopeE = made.SlopeE;
   under.SlopeN = made.SlopeN;

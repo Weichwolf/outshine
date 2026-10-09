@@ -1,12 +1,15 @@
 #include "TerrainPress.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <ratio>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -19,7 +22,7 @@ namespace outshine::Generators {
 struct TerrainPressJob::State {
   enum class Phase : uint8_t { Gather, Decide, Write, Reproject, Measure, Done };
 
-  const std::vector<EarthworkStamp> Stamps;
+  std::vector<EarthworkStamp> Stamps;
   size_t StampBytes = 0;
   Patchwork *Candidate;
   TangentFrame Frame;
@@ -29,6 +32,7 @@ struct TerrainPressJob::State {
   std::vector<double> HeightsM;
   std::vector<double> PreviousM;
   std::vector<size_t> SourceSheets;
+  std::vector<size_t> PlanarContacts;
   std::unique_ptr<EarthworkPressJob> PressJob;
   EarthworkPressResult PressResult;
   PressedTerrain Result;
@@ -54,7 +58,10 @@ struct TerrainPressJob::State {
         Layout(layout),
         MostEarthworkM(mostEarthworkM) {
     StampBytes = Stamps.capacity() * sizeof(EarthworkStamp);
-    for (const EarthworkStamp &stamp : Stamps) { StampBytes += stamp.HeapBytes(); }
+    for (size_t stamp = 0; stamp < Stamps.size(); ++stamp) {
+      StampBytes += Stamps[stamp].HeapBytes();
+      if (Stamps[stamp].PlanarSupportM) { PlanarContacts.push_back(stamp); }
+    }
     if (Stamps.empty() || !Layout.Valid()) { Current = Phase::Done; }
     if (Current == Phase::Done) { return; }
     const auto validSheets = static_cast<size_t>(std::count_if(
@@ -93,6 +100,47 @@ struct TerrainPressJob::State {
         HeightsM.push_back(placed.UpM);
         PreviousM.push_back(placed.UpM);
       }
+    }
+    SupportsPlanarContacts();
+  }
+
+  void SupportsPlanarContacts() {
+    if (PlanarContacts.empty()) { return; }
+    const std::span<const EastNorth> points =
+        std::span<const EastNorth>(Positions).last(Layout.NodeCount());
+    double lowE = points.front().EastM;
+    double highE = lowE;
+    double lowN = points.front().NorthM;
+    double highN = lowN;
+    for (const EastNorth at : points) {
+      lowE = std::min(lowE, at.EastM);
+      highE = std::max(highE, at.EastM);
+      lowN = std::min(lowN, at.NorthM);
+      highN = std::max(highN, at.NorthM);
+    }
+    double diameterSquaredM = 0;
+    const size_t side = Layout.PageSide();
+    for (size_t row = 0; row + 1 < side; ++row) {
+      for (size_t column = 0; column + 1 < side; ++column) {
+        const size_t nw = row * side + column;
+        const std::array corners{nw, nw + 1, nw + side, nw + side + 1};
+        for (size_t a = 0; a < corners.size(); ++a) {
+          for (size_t b = a + 1; b < corners.size(); ++b) {
+            const double e = points[corners[a]].EastM - points[corners[b]].EastM;
+            const double n = points[corners[a]].NorthM - points[corners[b]].NorthM;
+            diameterSquaredM = std::max(diameterSquaredM, e * e + n * n);
+          }
+        }
+      }
+    }
+    for (const size_t index : PlanarContacts) {
+      EarthworkStamp &contact = Stamps[index];
+      if (lowE > contact.HighE || highE < contact.LowE || lowN > contact.HighN ||
+          highN < contact.LowN) {
+        continue;
+      }
+      contact.PlanarSupportM =
+          std::max(contact.PlanarSupportM.value_or(0.0), std::sqrt(diameterSquaredM));
     }
   }
 
@@ -140,7 +188,7 @@ struct TerrainPressJob::State {
   [[nodiscard]] size_t HeapBytes() const noexcept {
     size_t bytes = StampBytes + Positions.capacity() * sizeof(EastNorth) +
                    (HeightsM.capacity() + PreviousM.capacity()) * sizeof(double) +
-                   SourceSheets.capacity() * sizeof(size_t) +
+                   (SourceSheets.capacity() + PlanarContacts.capacity()) * sizeof(size_t) +
                    PressResult.Refused.capacity() * sizeof(uint8_t) +
                    PressResult.DecidedBy.capacity() * sizeof(uint32_t) +
                    PressResult.Inside.capacity() * sizeof(EarthworkPointClaim);

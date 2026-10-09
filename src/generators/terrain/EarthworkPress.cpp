@@ -164,7 +164,7 @@ CellGrid BucketOver(std::span<const EarthworkStamp> these, std::span<const doubl
   CellGrid out({.CellM = kBucketM});
   for (size_t at = 0; at < these.size(); ++at) {
     const EarthworkStamp &one = these[at];
-    const double apronM = widthsM[at];
+    const double apronM = widthsM[at] + one.PlanarSupportM.value_or(0.0);
     out.Spread({.EastM = one.LowE - apronM, .NorthM = one.LowN - apronM},
                {.EastM = one.HighE + apronM, .NorthM = one.HighN + apronM},
                static_cast<uint32_t>(at));
@@ -272,10 +272,11 @@ void BidsBasin(const EarthworkStamp &held, Bid bid, Bids *bids) {
   }
 }
 
-void BidsTerrain(const EarthworkStamp &held, Bid bid, Bids *bids) {
+void BidsTerrain(const EarthworkStamp &held, Bid bid, Bids *bids, bool cutOnly = false) {
   const double out = std::max(bid.OutsideM, 0.0);
   if (out > held.ApronM) { return; }
-  bids->LandHeld = bids->LandHeld || (held.Kind != EarthworkKind::Clearance && bid.OutsideM <= 0.0);
+  bids->LandHeld =
+      bids->LandHeld || (!cutOnly && held.Kind != EarthworkKind::Clearance && bid.OutsideM <= 0.0);
   const double cutAt = bid.WantsM + out * kBatterRise;
   if (cutAt < bids->LowestM) {
     bids->LowestM = cutAt;
@@ -285,7 +286,7 @@ void BidsTerrain(const EarthworkStamp &held, Bid bid, Bids *bids) {
     bids->RoofM = cutAt;
     bids->RoofBy = bid.Which;
   }
-  if (!held.Fills || held.Kind == EarthworkKind::Clearance) { return; }
+  if (cutOnly || !held.Fills || held.Kind == EarthworkKind::Clearance) { return; }
   const double fillAt = bid.WantsM - out * kBatterRise;
   if (fillAt > bids->HighestM) {
     bids->HighestM = fillAt;
@@ -311,12 +312,13 @@ void BidSurface(const EarthworkStamp &held,
                 ApronLimits limits,
                 CoveredNodes covered,
                 Bids *bids,
-                ApronBlend *aprons) {
-  if (covered.Into != nullptr && bid.OutsideM < 0.0) {
+                ApronBlend *aprons,
+                bool cutOnly = false) {
+  if (!cutOnly && covered.Into != nullptr && bid.OutsideM < 0.0) {
     covered.Into->push_back({.Point = covered.Point, .Stamp = bid.Which});
   }
   if (!HasSoftApron(held) || bid.OutsideM <= 0.0) {
-    BidsTerrain(held, bid, bids);
+    BidsTerrain(held, bid, bids, cutOnly);
     return;
   }
   if (bid.OutsideM >= limits.WidthM) { return; }
@@ -324,7 +326,7 @@ void BidSurface(const EarthworkStamp &held,
   const double weight = (1.0 - fade) / fade;
   double correctionM =
       std::clamp(bid.WantsM - wasM, -limits.MostCorrectionM, limits.MostCorrectionM);
-  if (!held.Fills || held.Kind == EarthworkKind::Clearance) {
+  if (cutOnly || !held.Fills || held.Kind == EarthworkKind::Clearance) {
     correctionM = std::min(correctionM, 0.0);
   }
   aprons->Weight += weight;
@@ -493,8 +495,9 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
     if (!structures.empty() && structures[which] != 0u) { continue; }
     const EarthworkStamp &held = these[which];
     const double apronM = workspace.WidthsM[which];
-    if (at.EastM < held.LowE - apronM || at.EastM > held.HighE + apronM ||
-        at.NorthM < held.LowN - apronM || at.NorthM > held.HighN + apronM || held.Profile) {
+    const double reachM = apronM + held.PlanarSupportM.value_or(0.0);
+    if (at.EastM < held.LowE - reachM || at.EastM > held.HighE + reachM ||
+        at.NorthM < held.LowN - reachM || at.NorthM > held.HighN + reachM || held.Profile) {
       continue;
     }
     const Bid bid{
@@ -509,6 +512,18 @@ Pressing PressesAt(std::span<const EarthworkStamp> these,
                  covered,
                  &bids,
                  &aprons);
+      if (held.PlanarSupportM && *held.PlanarSupportM > 0.0) {
+        BidSurface(held,
+                   {.Which = which,
+                    .OutsideM = bid.OutsideM - *held.PlanarSupportM,
+                    .WantsM = held.WantsAt(at)},
+                   wasM,
+                   {.WidthM = apronM, .MostCorrectionM = mostEarthworkM},
+                   covered,
+                   &bids,
+                   &aprons,
+                   true);
+      }
     }
   }
   ProfilesAt(these, over, structures, at, workspace.WidthsM, workspace.Profiles);

@@ -16,7 +16,7 @@
 namespace outshine::Generators {
 namespace {
 constexpr uint32_t kDeformationFormat = 0x49445450;
-constexpr uint32_t kDeformationRecipe = 4;
+constexpr uint32_t kDeformationRecipe = 5;
 
 std::expected<std::pair<uint32_t, std::array<uint8_t, 32>>, std::string>
 PageIdentity(std::span<const Sheet> pages) {
@@ -94,6 +94,9 @@ template <class Archive> bool Stamp(Archive &out, const EarthworkStamp &stamp) {
          Numbers(out, stamp.SeamEastNorthM) &&
          out.Number(static_cast<uint8_t>(stamp.Profile.has_value())) &&
          (!stamp.Profile || Profile(out, *stamp.Profile)) && out.Number(stamp.CorridorKey) &&
+         out.Number(static_cast<uint8_t>(stamp.PlanarSupportM.has_value())) &&
+         (!stamp.PlanarSupportM ||
+          (*stamp.PlanarSupportM >= 0.0 && Number(out, *stamp.PlanarSupportM))) &&
          out.Number(static_cast<uint8_t>(stamp.Fills)) &&
          out.Number(static_cast<uint8_t>(stamp.Kind));
 }

@@ -103,6 +103,7 @@ struct EarthworkStamp {
   double SlopeE = 0.0, SlopeN = 0.0;
   std::vector<double> SeamEastNorthM;
   std::optional<ProfiledCorridorSpan> Profile;
+  std::optional<double> PlanarSupportM;
   uint64_t CorridorKey = 0;
   double ApronM = 0.0;
   double YieldM = 0.0;

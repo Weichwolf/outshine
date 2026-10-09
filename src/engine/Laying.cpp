@@ -180,6 +180,8 @@ uint64_t DigestEarthworks(std::span<const EarthworkStamp> earthworks) {
     foldDouble(one.PlateauM);
     foldDouble(one.SlopeE);
     foldDouble(one.SlopeN);
+    fold(static_cast<uint32_t>(one.PlanarSupportM.has_value()));
+    if (one.PlanarSupportM) { foldDouble(one.PlanarSupportM.value_or(0.0)); }
     fold(static_cast<uint32_t>(one.SeamEastNorthM.size()));
     for (const double value : one.SeamEastNorthM) { foldDouble(value); }
     fold(static_cast<uint32_t>(one.Profile.has_value()));

@@ -121,6 +121,19 @@ int main() {
   stamps.front().CorridorKey = 7;
   CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != key,
         "corridor ownership participates in deformation identity");
+  stamps = Stamps();
+  stamps.front().PlanarSupportM = 0;
+  const auto planar = TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30);
+  CHECK(planar && *planar != key, "planar cell support cannot reuse point-only terrain assets");
+  stamps.front().PlanarSupportM = 1;
+  CHECK(TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30) != planar,
+        "explicit support distance participates in native asset identity");
+  stamps.front().PlanarSupportM = -1;
+  CHECK(!TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30),
+        "negative support distances are rejected at the asset boundary");
+  stamps.front().PlanarSupportM = std::numeric_limits<double>::infinity();
+  CHECK(!TerrainDeformationKey(Inputs(), stamps, frame, kLayout, 30),
+        "nonfinite support distances are rejected at the asset boundary");
   CHECK(TerrainDeformationKey(Inputs(), Stamps(), frame, kLayout, 29) != key &&
             TerrainDeformationKey(
                 Inputs(), Stamps(), TangentFrame::At({.LongitudeDeg = 1}), kLayout, 30) != key,

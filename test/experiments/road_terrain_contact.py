@@ -64,16 +64,26 @@ def compare(terrain, roads):
     samples = samples_on(roads)
     result = dict(terrain_triangles=len(terrain), road_triangles=len(roads),
                   baseline=measure(initial, terrain_xz, indices, samples), candidates={})
-    for mode in ('node_inside', 'triangle_overlap'):
+    for mode in ('node_inside', 'triangle_overlap', 'cell_radius'):
         began = time.perf_counter()
         heights = initial.copy()
         pairs = 0
         for road, plane in zip(roads[:, :, [0, 2]], planes):
-            if mode == 'node_inside':
+            if mode != 'triangle_overlap':
                 edges = np.roll(road, -1, axis=0) - road
                 cross = (edges[:, 0, None] * (positions[:, 1] - road[:, 1, None]) -
                          edges[:, 1, None] * (positions[:, 0] - road[:, 0, None]))
-                chosen = np.flatnonzero((cross >= -1e-7).all(0) | (cross <= 1e-7).all(0))
+                inside = (cross >= -1e-7).all(0) | (cross <= 1e-7).all(0)
+                if mode == 'cell_radius':
+                    intersecting = ((terrain_xz.max(1) >= road.min(0)).all(1) &
+                                    (terrain_xz.min(1) <= road.max(0)).all(1))
+                    cells = terrain_xz[intersecting]
+                    radius = np.linalg.norm(np.roll(cells, -1, axis=1) - cells, axis=2).max()
+                    for begin, edge in zip(road, edges):
+                        along = np.clip(np.sum((positions - begin) * edge, axis=1) / np.sum(edge * edge), 0, 1)
+                        delta = positions - begin - along[:, None] * edge
+                        inside |= np.sum(delta * delta, axis=1) <= radius * radius
+                chosen = np.flatnonzero(inside)
             else:
                 intersecting = overlaps(road, terrain_xz)
                 pairs += int(intersecting.sum())
@@ -86,7 +96,8 @@ def compare(terrain, roads):
             changed_nodes=int((heights < initial - 1e-6).sum()),
             max_cut_m=float((initial - heights).max()), python_apply_ms=elapsed,
             overlap_pairs=pairs)
-    assert result['candidates']['triangle_overlap']['max_above_m'] <= -.05 + 1e-6
+    for mode in ('triangle_overlap', 'cell_radius'):
+        assert result['candidates'][mode]['max_above_m'] <= -.05 + 1e-6
     return result
 
 
