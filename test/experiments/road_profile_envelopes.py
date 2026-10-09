@@ -2,7 +2,7 @@
 """Compare DEM-following road heights with joint grade-constrained graph envelopes.
 
 Input: lane, station, east, north, height, node, max_gradient, bridge, layer.
-Ground roads only. This experiment does not solve bridges, junction planes or C1 derivatives.
+Ground roads only. Optional hard bounds pin established contacts; no junction-plane/C1 proof.
 """
 import argparse
 import csv
@@ -30,7 +30,23 @@ def envelope(targets, adjacency):
     return heights
 
 
-def solve(rows):
+def fit(samples, adjacency, bounds=None):
+    bounds = bounds or [(-math.inf, math.inf)] * len(samples)
+    upper = envelope([min(values) for values in samples], adjacency)
+    lower = [-x for x in envelope([-max(values) for values in samples], adjacency)]
+    minimum = [-x for x in envelope([-low for low, high in bounds], adjacency)]
+    maximum = envelope([high for low, high in bounds], adjacency)
+    if any(low > high + 1e-9 for low, high in zip(minimum, maximum)):
+        raise ValueError('hard contact heights conflict with permitted road gradients')
+    correction = max(0, max((low - high) / 2 for low, high in zip(lower, upper)),
+                     max(low - high for low, high in zip(minimum, upper)),
+                     max(low - high for low, high in zip(lower, maximum)))
+    heights = [(max(floor, low - correction) + min(ceiling, high + correction)) / 2
+               for low, high, floor, ceiling in zip(lower, upper, minimum, maximum)]
+    return heights, correction
+
+
+def solve(rows, pinned=None):
     nodes, samples, chains = {}, [], {}
     for row in rows:
         lane, station, east, north, height, node, grade, bridge, layer = row
@@ -58,18 +74,20 @@ def solve(rows):
             adjacency[left[1]].append((right[1], rise))
             adjacency[right[1]].append((left[1], rise))
             edges.append((left[1], right[1], rise))
-    lower = envelope([min(values) for values in samples], adjacency)
-    upper = [-x for x in envelope([-max(values) for values in samples], adjacency)]
-    heights = [(low + high) / 2 for low, high in zip(lower, upper)]
-    unavoidable = max(high - low for low, high in zip(lower, upper)) / 2
+    pinned = pinned or {}
+    bounds = [pinned.get(key, (-math.inf, math.inf)) for key in nodes]
+    heights, unavoidable = fit(samples, adjacency, bounds)
     correction = max(abs(height - sample)
                      for height, values in zip(heights, samples) for sample in values)
     violation = max((abs(heights[a] - heights[b]) - rise for a, b, rise in edges), default=0)
     assert violation < 1e-9
     assert abs(correction - unavoidable) < 1e-9
+    assert all(low - 1e-9 <= height <= high + 1e-9
+               for height, (low, high) in zip(heights, bounds))
     return dict(nodes=len(nodes), segments=len(edges), grounded_lanes=len(chains),
                 maximum_height_change_m=correction, unavoidable_change_m=unavoidable,
                 maximum_grade_violation_m=max(0, violation),
+                pinned_nodes=sum(low == high for low, high in bounds),
                 original_violating_segments=sum(
                     max(abs(x - y) for x in samples[a] for y in samples[b]) > rise + 1e-9
                     for a, b, rise in edges)), heights, chains
@@ -80,12 +98,13 @@ def verify_linear_programs():
     from scipy.optimize import linprog
 
     randomizer = random.Random(2281)
-    for trial in range(40):
+    feasible = 0
+    for trial in range(120):
         count = randomizer.randrange(3, 24)
         targets = [randomizer.uniform(-80, 160) for _ in range(count)]
         points = [(randomizer.uniform(-30, 30), randomizer.uniform(-30, 30))
                   for _ in range(count)]
-        rows, constraints = [], []
+        rows, constraints, pinned = [], [], {}
         lane = 0
         for first in range(count):
             for second in range(first + 1, count):
@@ -106,15 +125,28 @@ def verify_linear_programs():
                 coefficients = np.zeros(count + 1)
                 coefficients[node], coefficients[-1] = sign, -1
                 constraints.append((coefficients, sign * target))
+        for node in range(count):
+            if trial < 40 or randomizer.random() > .2:
+                continue
+            baseline = .03 * sum(points[node])
+            if trial >= 80:
+                baseline += randomizer.uniform(-100, 100)
+            width = 0 if randomizer.random() < .5 else randomizer.uniform(0, 2)
+            pinned[('node', node + 1)] = (baseline - width, baseline + width)
         objective = np.zeros(count + 1)
         objective[-1] = 1
         answer = linprog(objective, A_ub=[x for x, y in constraints],
                          b_ub=[y for x, y in constraints],
-                         bounds=[(None, None)] * count + [(0, None)], method='highs')
-        assert answer.success
-        report, _, _ = solve(rows)
-        assert abs(report['maximum_height_change_m'] - answer.fun) < 1e-7, trial
-    return 40
+                         bounds=[pinned.get(('node', node + 1), (None, None))
+                                 for node in range(count)] + [(0, None)], method='highs')
+        try:
+            report, _, _ = solve(rows, pinned)
+            assert answer.success, trial
+            assert abs(report['maximum_height_change_m'] - answer.fun) < 1e-7, trial
+            feasible += 1
+        except ValueError:
+            assert answer.status == 2, trial
+    return dict(cases=120, feasible=feasible, infeasible=120 - feasible)
 
 
 def main():
@@ -128,7 +160,7 @@ def main():
     began = time.perf_counter()
     report, heights, chains = solve(rows)
     report['solve_ms'] = (time.perf_counter() - began) * 1000
-    report['scope'] = 'grounded graph secants; no bridge pins, junction planes or C1 proof'
+    report['scope'] = 'grounded graph secants; hard contact bounds; no junction-plane/C1 proof'
     if args.verify:
         report['independent_linear_program_cases'] = verify_linear_programs()
     args.output.parent.mkdir(parents=True, exist_ok=True)

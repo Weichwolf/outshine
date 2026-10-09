@@ -103,7 +103,7 @@ Graph und Geometrie trennen; reale Linien erhalten, keine Tensorfeld-Neuerzeugun
 [Straßenmodelle, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf):
 Profile → eigene Straße/Brücke/Tunnel plus Geländeauftrag; neue Trassenwahl nicht übernehmen.
 [SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes.
-[Gemeinsame Profile](../test/experiments/road_profile_envelopes.py): begrenzte Sekanten; C1/Brückenpins noch offen.
+[Gemeinsame Profile](../test/experiments/road_profile_envelopes.py): begrenzte Sekanten mit harten Höhenrändern; native Integration/C1 offen.
 [Übergangsvergleich](../test/experiments/earthwork_transition.py),
 [Clearance-Ausläufe](../test/experiments/clearance_aprons.py): gleiche Inputs/Qualität vor Integration vergleichen.
 [Kreuzungsflächen](../test/experiments/road_junction_coverage.py): gelieferte Linienrichtungen,
