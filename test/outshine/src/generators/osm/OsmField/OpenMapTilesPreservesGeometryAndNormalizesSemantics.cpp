@@ -196,6 +196,72 @@ void CheckRailClassRules() {
         "rail bridge retains its independent level, geometry and surface material");
   CHECK_NEAR(way.HalfWidthM, 1.9, 1e-6, "half width", "railway recipe controls corridor width");
 }
+
+void CheckTransitClassRules() {
+  using namespace outshine::Generators::Osm;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
+  GroundMaterials materials;
+  VegetationTemplates templates;
+  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
+            templates.Load("src/assets/world/vegetation.json", materials),
+        "production transit recipes load");
+  if (!templates.Ready()) { return; }
+  const std::array<std::string, 1> layers{"streets"};
+  for (const std::string_view subclass : {"tram", "subway", "light_rail"}) {
+    for (const bool reverse : {false, true}) {
+      const auto keys =
+          reverse ? std::array<std::string_view, 4>{"subclass", "class", "brunnel", "layer"}
+                  : std::array<std::string_view, 4>{"class", "subclass", "brunnel", "layer"};
+      const auto values =
+          reverse
+              ? std::array{String(subclass), String("transit"), String("bridge"), Bytes{0x28, 2}}
+              : std::array{String("transit"), String(subclass), String("bridge"), Bytes{0x28, 2}};
+      OsmField field(2, layers, MvtSchema::OpenMapTiles);
+      CHECK(field.Accept(1, 1, Layer("transportation", 2, keys, values)),
+            "transit source is accepted");
+      if (field.Features().empty()) { continue; }
+      const auto &feature = field.Features().front();
+      CHECK(field.Str(feature, "class") == "transit" &&
+                field.Str(feature, "subclass") == subclass &&
+                field.Str(feature, "kind") == subclass,
+            "canonical transit class follows the supplied subtype in either source tag order");
+      StreetField streets;
+      CHECK(streets.Ingest(field, templates) == 1 && streets.UnruledCount() == 0 &&
+                streets.Ways().front().Bridge && streets.Ways().front().Layer == 2,
+            "aboveground transit reaches its native recipe and preserves its bridge level");
+      const auto snapshot = field.SnapshotQueries();
+      CHECK(snapshot->Str(snapshot->Features().front(), "kind") == subclass,
+            "published source snapshot keeps the same transit semantics");
+    }
+  }
+  for (const auto &subclass : {String(""), Bytes{0x28, 9}}) {
+    OsmField field(2, layers, MvtSchema::OpenMapTiles);
+    CHECK(field.Accept(1,
+                       1,
+                       Layer("transportation",
+                             2,
+                             std::array<std::string_view, 2>{"class", "subclass"},
+                             std::array{String("transit"), subclass})),
+          "incomplete transit source remains readable");
+    if (!field.Features().empty()) {
+      CHECK(field.Str(field.Features().front(), "kind") == "transit",
+            "missing subtype is not guessed");
+    }
+  }
+  OsmField explicitKind(2, layers, MvtSchema::OpenMapTiles);
+  CHECK(explicitKind.Accept(1,
+                            1,
+                            Layer("transportation",
+                                  2,
+                                  std::array<std::string_view, 3>{"class", "subclass", "kind"},
+                                  std::array{String("transit"), String("tram"), String("rail")})),
+        "explicit canonical class is accepted");
+  if (!explicitKind.Features().empty()) {
+    CHECK(explicitKind.Str(explicitKind.Features().front(), "kind") == "rail",
+          "supplied canonical class wins over transit aliases");
+  }
+}
 }
 
 int main() {
@@ -293,5 +359,6 @@ int main() {
   CheckBuildingColours();
   CheckUnprefixedBuildingColours();
   CheckRailClassRules();
+  CheckTransitClassRules();
   return Report();
 }

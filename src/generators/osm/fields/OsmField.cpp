@@ -877,7 +877,13 @@ OsmField::FindTag(const Feature &feature, std::string_view key, TagKind kind) co
       explicitKey = true;
       if (matches(tag)) { return tag; }
     } else if (!alias) {
-      const auto normalized = NormalizeMvtTag(Schema_, Layers_[feature.Layer], tag);
+      const auto subclass = Schema_ == MvtSchema::OpenMapTiles &&
+                                    Layers_[feature.Layer] == "streets" && key == "kind" &&
+                                    tag.Key == "class" && !tag.IsNumber && tag.String == "transit"
+                                ? FindTag(feature, "subclass", TagKind::String)
+                                : std::nullopt;
+      const auto normalized = NormalizeMvtTag(
+          Schema_, Layers_[feature.Layer], tag, subclass ? subclass->String : std::string_view{});
       if (normalized.Key == key) { alias = normalized; }
     }
   }

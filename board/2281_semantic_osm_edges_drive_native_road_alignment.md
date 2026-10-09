@@ -23,7 +23,9 @@ werden versioniert, damit Treffer die korrigierte Semantik enthalten; Quellen bl
 Der erste Weltaufbau deckt auch die Vektorkacheln mit DEM-Eltern/Halos ab; Straßenplanung
 und Bedarf verwenden denselben Bestand. Feine Gebäudehöhen kommen erst bei Refined hinzu.
 Kalte Asset-Misses bleiben teuer; vollständige native Treffer umgehen diesen Aufbau.
-Gelieferte Transit-Unterklassen fehlen noch, ebenso Pier-/Brückenwege und Seilbahnen.
+Transit nutzt die gelieferte Unterklasse für Tram, Stadt-/U-Bahn; Originaltags bleiben erhalten.
+Ohne gültige Unterklasse wird nicht geraten. Tunnel bleiben von der sichtbaren Oberfläche
+getrennt. Pier-/Brückenwege und Seilbahnen fehlen noch.
 
 ## Besitzer und nächste Lieferung
 OSM-Adapter normalisiert vorhandene Semantik; world/navigation hält das native logische Netz.

@@ -26,8 +26,10 @@ enum class MvtSchema : uint8_t { Shortbread, OpenMapTiles };
   return canonical;
 }
 
-[[nodiscard]] inline MvtLayer::Tag
-NormalizeMvtTag(MvtSchema schema, std::string_view canonical, MvtLayer::Tag tag) noexcept {
+[[nodiscard]] inline MvtLayer::Tag NormalizeMvtTag(MvtSchema schema,
+                                                   std::string_view canonical,
+                                                   MvtLayer::Tag tag,
+                                                   std::string_view subclass = {}) noexcept {
   if (schema == MvtSchema::Shortbread) { return tag; }
   if (canonical == "buildings") {
     if (tag.Key == "render_height") { tag.Key = "height"; }
@@ -38,6 +40,7 @@ NormalizeMvtTag(MvtSchema schema, std::string_view canonical, MvtLayer::Tag tag)
     tag.Key = "kind";
     if (canonical == "streets" && !tag.IsNumber) {
       if (tag.String == "minor") { tag.String = "residential"; }
+      if (tag.String == "transit" && !subclass.empty()) { tag.String = subclass; }
     }
   }
   if (canonical == "streets" && tag.Key == "brunnel" && !tag.IsNumber &&
