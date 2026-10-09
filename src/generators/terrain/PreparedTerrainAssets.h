@@ -18,12 +18,15 @@ class SourceSet;
 
 namespace outshine::Generators {
 
+class GroundPatch;
+
 class PreparedTerrainAssets {
 public:
   struct Counters {
     uint64_t Hits = 0, Misses = 0, Resident = 0, Writes = 0, ReadBytes = 0;
     uint64_t DeformationHits = 0, DeformationMisses = 0, DeformationWrites = 0,
              DeformationReadBytes = 0;
+    uint64_t PatchHits = 0, PatchMisses = 0, PatchWrites = 0, PatchReadBytes = 0;
   };
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedTerrainAssets>, std::string>
@@ -39,6 +42,15 @@ public:
   [[nodiscard]] std::expected<void, std::string>
   StoreDeformation(const std::string &key, const PreparedTerrainDeformation &product);
 
+  [[nodiscard]] std::string PatchKey(Data::TileId at,
+                                     const ::outshine::Ground::TerrainTiles::Shaped &shape,
+                                     int side,
+                                     int blockZoom) const;
+  [[nodiscard]] std::expected<std::shared_ptr<const GroundPatch>, std::string>
+  LoadPatch(const std::string &key, Data::TileId at, int side);
+  [[nodiscard]] std::expected<void, std::string>
+  StorePatch(const std::string &key, Data::TileId at, const GroundPatch &patch);
+
   [[nodiscard]] Counters Costs() const noexcept;
 
 private:
@@ -53,6 +65,7 @@ private:
   std::atomic_uint64_t DeformationHits_{0}, DeformationMisses_{0}, DeformationWrites_{0},
       DeformationReadBytes_{0};
   std::atomic_uint64_t Hits_{0}, Misses_{0}, ResidentHits_{0}, Writes_{0}, ReadBytes_{0};
+  std::atomic_uint64_t PatchHits_{0}, PatchMisses_{0}, PatchWrites_{0}, PatchReadBytes_{0};
 };
 
 }

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <memory>
 #include <cstddef>
+#include <cstdint>
 
 #include "math/Units.h"
 
@@ -28,12 +29,15 @@ GroundPatch::Complete(const Tile &region, int side, std::span<const Posting> pos
   }
   const auto steps = static_cast<double>(side - 1);
   return std::shared_ptr<const GroundPatch>(new GroundPatch(
+      {.Zoom = region.Zoom(),
+       .X = static_cast<uint32_t>(region.X()),
+       .Y = static_cast<uint32_t>(region.Y())},
       {.Side = side, .EastM = region.SpanEm() / steps, .NorthM = region.SpanNm() / steps},
       postings));
 }
 
-GroundPatch::GroundPatch(Spaced grid, std::span<const Posting> postings)
-    : Side_(grid.Side), SpacingEm_(grid.EastM), SpacingNm_(grid.NorthM) {
+GroundPatch::GroundPatch(Data::TileId region, Spaced grid, std::span<const Posting> postings)
+    : Region_(region), Side_(grid.Side), SpacingEm_(grid.EastM), SpacingNm_(grid.NorthM) {
   AslM_.reserve(postings.size());
   for (const Posting &p : postings) {
     double aslM = 0.0;

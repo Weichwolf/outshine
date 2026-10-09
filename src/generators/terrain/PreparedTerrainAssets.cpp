@@ -1,5 +1,6 @@
 #include "PreparedTerrainAssets.h"
 #include "PreparedTerrainCodec.h"
+#include "PreparedGroundPatchCodec.h"
 #include "AssetSourceRecipe.h"
 #include <array>
 #include "ByteArchive.h"
@@ -50,7 +51,7 @@ std::string Key(const std::string &recipe,
   return Sha256Hex(encoded.Bytes().data(), encoded.Bytes().size());
 }
 
-Box Bounds(Data::TileId at, const ::outshine::Ground::TerrainField &field) {
+Box Bounds(Data::TileId at, double lowestM, double highestM) {
   const double span = std::ldexp(1.0, at.Zoom);
   const double west = kDegPerTurn * at.X / span - kDegPerHalfTurn;
   const double east = kDegPerTurn * (at.X + 1.0) / span - kDegPerHalfTurn;
@@ -60,24 +61,27 @@ Box Bounds(Data::TileId at, const ::outshine::Ground::TerrainField &field) {
   };
   const double north = latitude(at.Y);
   const double south = latitude(at.Y + 1.0);
-  const auto heights = std::span(field.Data(), static_cast<size_t>(field.Rows()) * field.Cols());
-  const auto range = std::ranges::minmax_element(heights);
   Vec3 centre;
   GeoToEcef({.LongitudeDeg = (west + east) * 0.5,
              .LatitudeDeg = (south + north) * 0.5,
-             .HeightM = (static_cast<double>(*range.min) + *range.max) * 0.5},
+             .HeightM = (lowestM + highestM) * 0.5},
             centre);
   constexpr double earthDerivativeBoundM = 6400000.0;
-  const double radius =
-      (earthDerivativeBoundM + std::max(std::abs(*range.min), std::abs(*range.max))) *
-          (east - west + north - south) * std::numbers::pi / kDegPerTurn +
-      (static_cast<double>(*range.max) - *range.min) * 0.5;
+  const double radius = (earthDerivativeBoundM + std::max(std::abs(lowestM), std::abs(highestM))) *
+                            (east - west + north - south) * std::numbers::pi / kDegPerTurn +
+                        (highestM - lowestM) * 0.5;
   Box box;
   for (size_t axis = 0; axis < 3; ++axis) {
     box.Min[axis] = centre[axis] - radius;
     box.Max[axis] = centre[axis] + radius;
   }
   return box;
+}
+
+Box Bounds(Data::TileId at, const ::outshine::Ground::TerrainField &field) {
+  const auto heights = std::span(field.Data(), static_cast<size_t>(field.Rows()) * field.Cols());
+  const auto range = std::ranges::minmax_element(heights);
+  return Bounds(at, *range.min, *range.max);
 }
 
 ::outshine::Ground::TerrainGrid Refused(Data::TileId at, Data::FetchFailureReason reason) {
@@ -186,7 +190,70 @@ PreparedTerrainAssets::Counters PreparedTerrainAssets::Costs() const noexcept {
           .DeformationHits = DeformationHits_.load(std::memory_order_relaxed),
           .DeformationMisses = DeformationMisses_.load(std::memory_order_relaxed),
           .DeformationWrites = DeformationWrites_.load(std::memory_order_relaxed),
-          .DeformationReadBytes = DeformationReadBytes_.load(std::memory_order_relaxed)};
+          .DeformationReadBytes = DeformationReadBytes_.load(std::memory_order_relaxed),
+          .PatchHits = PatchHits_.load(std::memory_order_relaxed),
+          .PatchMisses = PatchMisses_.load(std::memory_order_relaxed),
+          .PatchWrites = PatchWrites_.load(std::memory_order_relaxed),
+          .PatchReadBytes = PatchReadBytes_.load(std::memory_order_relaxed)};
+}
+
+std::string PreparedTerrainAssets::PatchKey(Data::TileId at,
+                                            const ::outshine::Ground::TerrainTiles::Shaped &shape,
+                                            int side,
+                                            int blockZoom) const {
+  if (at.Zoom < 0 || at.Zoom > Data::TileId::MaximumZoom ||
+      at.X >= (uint32_t{1} << static_cast<unsigned>(at.Zoom)) ||
+      at.Y >= (uint32_t{1} << static_cast<unsigned>(at.Zoom)) || side < 2 ||
+      side > kPreparedGroundPatchSideMost || blockZoom < 0 ||
+      blockZoom > Data::TileId::MaximumZoom) {
+    return {};
+  }
+  const auto field = Key(Recipe_, at, shape);
+  if (field.empty()) { return {}; }
+  const auto parameters = "terrain-sampling-patch-1:" + field + ":" + std::to_string(side) + ":" +
+                          std::to_string(blockZoom);
+  return Sha256Hex(parameters.data(), parameters.size());
+}
+
+std::expected<std::shared_ptr<const GroundPatch>, std::string>
+PreparedTerrainAssets::LoadPatch(const std::string &key, Data::TileId at, int side) {
+  const std::scoped_lock lock(Lock_);
+  auto loaded = Cache_->Load(key, kPreparedGroundPatchBytesMost);
+  if (!loaded) { return std::unexpected("terrain sampling patch read failed"); }
+  if (*loaded) {
+    auto patch = (**loaded).Record().Kind == "terrain-sampling-patch"
+                     ? DecodePreparedGroundPatch(at, side, (**loaded).Bytes())
+                     : nullptr;
+    if (patch) {
+      ++PatchHits_;
+      PatchReadBytes_.fetch_add((**loaded).Bytes().size(), std::memory_order_relaxed);
+      return patch;
+    }
+    if (!Cache_->Remove(key)) { return std::unexpected("terrain sampling patch removal failed"); }
+  }
+  ++PatchMisses_;
+  return std::shared_ptr<const GroundPatch>{};
+}
+
+std::expected<void, std::string> PreparedTerrainAssets::StorePatch(const std::string &key,
+                                                                   Data::TileId at,
+                                                                   const GroundPatch &patch) {
+  const auto encoded = EncodePreparedGroundPatch(at, patch);
+  if (!encoded) { return std::unexpected("terrain sampling patch encoding failed"); }
+  const auto range = std::ranges::minmax_element(patch.HeightsAslM());
+  const AssetRecord record{.Key = key,
+                           .Kind = "terrain-sampling-patch",
+                           .Bounds = Bounds(at, *range.min, *range.max),
+                           .Package = {},
+                           .ByteCount = encoded->size(),
+                           .Level = static_cast<uint32_t>(at.Zoom),
+                           .Parent = {}};
+  const std::scoped_lock lock(Lock_);
+  if (!Cache_->Publish({&record, 1}, *encoded)) {
+    return std::unexpected("terrain sampling patch publication failed");
+  }
+  ++PatchWrites_;
+  return {};
 }
 
 }

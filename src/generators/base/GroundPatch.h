@@ -9,6 +9,7 @@
 #include "GroundSample.h"
 #include "Earth.h"
 #include "Tile.h"
+#include "world/data/Address.h"
 
 namespace outshine::Generators {
 
@@ -28,9 +29,13 @@ public:
 
   [[nodiscard]] int Side() const { return Side_; }
 
+  [[nodiscard]] Data::TileId Region() const noexcept { return Region_; }
+
   [[nodiscard]] double SpacingEm() const { return SpacingEm_; }
 
   [[nodiscard]] double SpacingNm() const { return SpacingNm_; }
+
+  [[nodiscard]] std::span<const double> HeightsAslM() const noexcept { return AslM_; }
 
   [[nodiscard]] double HeightAslM(EastNorth at) const noexcept;
 
@@ -46,8 +51,9 @@ private:
     double NorthM = 0.0;
   };
 
-  GroundPatch(Spaced grid, std::span<const Posting> postings);
+  GroundPatch(Data::TileId region, Spaced grid, std::span<const Posting> postings);
 
+  Data::TileId Region_;
   int Side_;
   double SpacingEm_, SpacingNm_;
   std::vector<double> AslM_;
