@@ -24,14 +24,15 @@ Zusätzlicher Kontakt schneidet nur; Kern/weiche Ausläufe bleiben. Sync/Async t
 Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
 Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen.
 Places nutzen polygonale Kontakte; der gemeinsame Profilpfad verlangt benannte Routen.
-RoadAlignmentBuilder verweigert Brücken/Tunnel bis zum Struktursolver; ein gemeinsamer
-regionaler Entwurf fehlt. Falsche Profile/Übergänge bleiben; vorhandene Straßenqualität erhalten.
+Ebenerdige Straßenbänder waren nur Terrain-Stempel; der Mesher liefert jetzt eigene Oberflächen
+für alle ausgewählten Bänder. RoadAlignmentBuilder verweigert Brücken/Tunnel bis zum Struktursolver;
+regionaler Entwurf/Profile/Übergänge bleiben offen. Vorhandene Straßenqualität erhalten.
 Lokale Straßenverfeinerung berücksichtigt bisher nur benannte Rundkurse; Places benötigen
 den allgemeinen nativen Straßenbestand, nach Kameraabstand und Kontaktfehler ausgewählt.
 Gelieferte Rail-/Transit- und Wegunterklassen bestimmen Breite, Oberfläche und Neigungsregeln;
 `class=rail` erreicht als `kind=rail` das Schienenrezept. Originaltags bleiben erhalten.
 Unbekannte Wegunterklassen behalten das allgemeine Rezept; ungültige Unterklassen werden nicht geraten.
-Native Rezepte werden versioniert; Quellen bleiben erhalten. Tunnel sind von der Oberfläche getrennt.
+Native Rezepte werden versioniert; Quellen erhalten. Tunnel werden bisher vor der Straßenerzeugung verworfen.
 Treppenstufen, Bahnsteige, Pier-/Brückenwege und Seilbahnen fehlen noch.
 
 ## Besitzer und nächste Lieferung
@@ -102,8 +103,7 @@ Graph und Geometrie trennen; reale Linien erhalten, keine Tensorfeld-Neuerzeugun
 [Straßenmodelle, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf):
 Profile → eigene Straße/Brücke/Tunnel plus Geländeauftrag; neue Trassenwahl nicht übernehmen.
 [SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes.
-[Geometry Clipmaps, SIGGRAPH 2004](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf):
-Gemeinsame Ränder; Nahtschluss allein garantiert keine weiche Böschung.
+[Gemeinsame Profile](../test/experiments/road_profile_envelopes.py): begrenzte Sekanten; C1/Brückenpins noch offen.
 [Übergangsvergleich](../test/experiments/earthwork_transition.py),
 [Clearance-Ausläufe](../test/experiments/clearance_aprons.py): gleiche Inputs/Qualität vor Integration vergleichen.
 [Kreuzungsflächen](../test/experiments/road_junction_coverage.py): gelieferte Linienrichtungen,
