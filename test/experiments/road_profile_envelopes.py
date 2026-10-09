@@ -6,18 +6,22 @@ Ground roads only. Optional hard bounds pin established contacts; no junction-pl
 """
 import argparse
 import csv
+import hashlib
 import heapq
 import json
 import math
 from pathlib import Path
 import random
+import subprocess
+import tempfile
 import time
 
 
 def envelope(targets, adjacency):
     heights = list(targets)
-    queue = [(height, node) for node, height in enumerate(heights)]
+    queue = [(height, node) for node, height in enumerate(heights) if math.isfinite(height)]
     heapq.heapify(queue)
+    depth = [0] * len(heights)
     while queue:
         height, node = heapq.heappop(queue)
         if height != heights[node]:
@@ -25,28 +29,179 @@ def envelope(targets, adjacency):
         for neighbour, rise in adjacency[node]:
             candidate = height + rise
             if candidate < heights[neighbour]:
+                depth[neighbour] = depth[node] + 1
+                if depth[neighbour] >= len(heights):
+                    raise ValueError('attachment offsets conflict with permitted gradients')
                 heights[neighbour] = candidate
                 heapq.heappush(queue, (candidate, neighbour))
     return heights
 
 
-def fit(samples, adjacency, bounds=None):
+def fit(samples, adjacency, bounds=None, reverse=None):
     bounds = bounds or [(-math.inf, math.inf)] * len(samples)
+    if reverse is None:
+        reverse = [[] for _ in samples]
+        for node, links in enumerate(adjacency):
+            for neighbour, cost in links:
+                reverse[neighbour].append((node, cost))
     upper = envelope([min(values) for values in samples], adjacency)
-    lower = [-x for x in envelope([-max(values) for values in samples], adjacency)]
-    minimum = [-x for x in envelope([-low for low, high in bounds], adjacency)]
+    lower = [-x for x in envelope([-max(values) for values in samples], reverse)]
+    minimum = [-x for x in envelope([-low for low, high in bounds], reverse)]
     maximum = envelope([high for low, high in bounds], adjacency)
     if any(low > high + 1e-9 for low, high in zip(minimum, maximum)):
         raise ValueError('hard contact heights conflict with permitted road gradients')
     correction = max(0, max((low - high) / 2 for low, high in zip(lower, upper)),
                      max(low - high for low, high in zip(minimum, upper)),
                      max(low - high for low, high in zip(lower, maximum)))
-    heights = [(max(floor, low - correction) + min(ceiling, high + correction)) / 2
+    heights = [max(max(floor, low - correction),
+                   min(min(ceiling, high + correction), (low + high) / 2))
                for low, high, floor, ceiling in zip(lower, upper, minimum, maximum)]
     return heights, correction
 
 
-def solve(rows, pinned=None):
+
+def build_native(directory):
+    source = Path(__file__).resolve().parents[2] / 'src/generators/road/RoadHeightPlan.cpp'
+    runner = directory / 'main.cpp'
+    runner.write_text(r'''
+#include "RoadHeightPlan.h"
+#include <chrono>
+#include <cstdio>
+#include <vector>
+int main() {
+  using namespace outshine::Generators;
+  unsigned count = 0, links = 0;
+  while (std::scanf("%u%u", &count, &links) == 2) {
+    std::vector<RoadHeightNode> nodes(count);
+    std::vector<RoadHeightLink> edges(links);
+    for (auto &node : nodes) {
+      if (std::scanf("%lf%lf%lf%lf", &node.LowSampleM, &node.HighSampleM,
+                     &node.MinimumM, &node.MaximumM) != 4) { return 2; }
+    }
+    for (auto &edge : edges) {
+      if (std::scanf("%u%u%lf%lf%lf", &edge.First, &edge.Second, &edge.MaximumRiseM,
+                     &edge.FirstOffsetM, &edge.SecondOffsetM) != 5) { return 2; }
+    }
+    const auto began = std::chrono::steady_clock::now();
+    const auto plan = PlanRoadHeights(nodes, edges);
+    const double ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - began).count();
+    if (!plan) {
+      std::printf("ERR\t%.*s\n", int(plan.error().size()), plan.error().data());
+      continue;
+    }
+    std::printf("OK\t%.17g\t%.17g\n", plan->MaximumAdjustmentM, ms);
+    for (const double height : plan->HeightM) { std::printf("%.17g ", height); }
+    std::putchar('\n');
+  }
+}
+''')
+    binary = directory / 'road-heights'
+    subprocess.run(['c++', '-std=c++23', '-O2', '-fno-exceptions', '-Wall', '-Wextra',
+                    '-Werror', '-I' + str(source.parent), str(runner), str(source),
+                    '-o', str(binary)], check=True, capture_output=True, text=True, timeout=60)
+    digest = hashlib.sha256(source.read_bytes() + source.with_suffix('.h').read_bytes()).hexdigest()
+    return binary, digest
+
+
+def run_native(binary, cases):
+    rows = []
+    for samples, edges, bounds in cases:
+        rows.append(f'{len(samples)} {len(edges)}')
+        rows.extend(' '.join(map(str, (min(values), max(values), *bound)))
+                    for values, bound in zip(samples, bounds))
+        rows.extend(' '.join(map(str, edge)) for edge in edges)
+    process = subprocess.run([str(binary)], input='\n'.join(rows) + '\n', capture_output=True,
+                             text=True, check=True, timeout=60)
+    lines = iter(process.stdout.splitlines())
+    results = []
+    for samples, _, _ in cases:
+        header = next(lines).split('\t')
+        if header[0] == 'ERR':
+            results.append(dict(status='ERR', error=header[1]))
+            continue
+        assert header[0] == 'OK' and len(header) == 3, header
+        heights = list(map(float, next(lines).split()))
+        assert len(heights) == len(samples)
+        results.append(dict(status='OK', correction=float(header[1]),
+                            ms=float(header[2]), heights=heights))
+    assert next(lines, None) is None
+    return results
+
+
+def verify_native_offsets(binary):
+    import numpy as np
+    from scipy.optimize import linprog
+
+    randomizer = random.Random(228144)
+    cases, answers = [], []
+    for trial in range(180):
+        count = randomizer.randrange(3, 24)
+        baseline = [randomizer.uniform(-10, 10) for _ in range(count)]
+        samples = [[randomizer.uniform(-80, 160) for _ in range(randomizer.randrange(1, 4))]
+                   for _ in range(count)]
+        edges, constraints = [], []
+        for first in range(count):
+            for second in range(first + 1, count):
+                if second != first + 1 and randomizer.random() > .12:
+                    continue
+                left, right = [randomizer.uniform(-8, 8) for _ in range(2)]
+                rise = abs(baseline[first] + left - baseline[second] - right)
+                rise += randomizer.uniform(0, 8)
+                edges.append((first, second, rise, left, right))
+                for sign in (-1, 1):
+                    coefficients = np.zeros(count + 1)
+                    coefficients[first], coefficients[second] = sign, -sign
+                    constraints.append((coefficients, rise - sign * (left - right)))
+        for node, values in enumerate(samples):
+            for sample in values:
+                for sign in (-1, 1):
+                    coefficients = np.zeros(count + 1)
+                    coefficients[node], coefficients[-1] = sign, -1
+                    constraints.append((coefficients, sign * sample))
+        bounds = [(-math.inf, math.inf)] * count
+        for node in range(count):
+            if trial < 60 or randomizer.random() > .4:
+                continue
+            centre = baseline[node]
+            if trial >= 120:
+                centre += randomizer.uniform(-100, 100)
+            width = randomizer.uniform(0, 3) if randomizer.random() < .5 else 0
+            bounds[node] = (centre - width, centre + width)
+        objective = np.zeros(count + 1)
+        objective[-1] = 1
+        answer = linprog(objective, A_ub=[row for row, limit in constraints],
+                         b_ub=[limit for row, limit in constraints],
+                         bounds=[(None if math.isinf(low) else low,
+                                  None if math.isinf(high) else high) for low, high in bounds]
+                         + [(0, None)], method='highs')
+        assert answer.success or answer.status == 2, answer.message
+        cases.append((samples, edges, bounds))
+        answers.append(answer)
+    feasible = 0
+    difference = 0
+    for trial, (case, native, answer) in enumerate(zip(cases, run_native(binary, cases), answers)):
+        if not answer.success:
+            assert native['status'] == 'ERR', (trial, native)
+            continue
+        assert native['status'] == 'OK', (trial, native)
+        samples, edges, bounds = case
+        heights = native['heights']
+        difference = max(difference, abs(native['correction'] - answer.fun))
+        assert abs(native['correction'] - answer.fun) < 1e-7, trial
+        assert all(abs(heights[a] + left - heights[b] - right) <= rise + 1e-7
+                   for a, b, rise, left, right in edges), trial
+        assert all(low - 1e-7 <= height <= high + 1e-7
+                   for height, (low, high) in zip(heights, bounds)), trial
+        actual = max(abs(height - sample) for height, values in zip(heights, samples)
+                     for sample in values)
+        assert abs(actual - native['correction']) < 1e-7, trial
+        feasible += 1
+    return dict(cases=len(cases), feasible=feasible, infeasible=len(cases) - feasible,
+                maximum_objective_difference_m=difference)
+
+
+def solve(rows, pinned=None, native=None):
     nodes, samples, chains = {}, [], {}
     for row in rows:
         lane, station, east, north, height, node, grade, bridge, layer = row
@@ -84,13 +239,20 @@ def solve(rows, pinned=None):
     assert abs(correction - unavoidable) < 1e-9
     assert all(low - 1e-9 <= height <= high + 1e-9
                for height, (low, high) in zip(heights, bounds))
-    return dict(nodes=len(nodes), segments=len(edges), grounded_lanes=len(chains),
-                maximum_height_change_m=correction, unavoidable_change_m=unavoidable,
-                maximum_grade_violation_m=max(0, violation),
-                pinned_nodes=sum(low == high for low, high in bounds),
-                original_violating_segments=sum(
-                    max(abs(x - y) for x in samples[a] for y in samples[b]) > rise + 1e-9
-                    for a, b, rise in edges)), heights, chains
+    report = dict(nodes=len(nodes), segments=len(edges), grounded_lanes=len(chains),
+                  maximum_height_change_m=correction, unavoidable_change_m=unavoidable,
+                  maximum_grade_violation_m=max(0, violation),
+                  pinned_nodes=sum(low == high for low, high in bounds),
+                  original_violating_segments=sum(
+                      max(abs(x - y) for x in samples[a] for y in samples[b]) > rise + 1e-9
+                      for a, b, rise in edges))
+    if native:
+        result = run_native(native, [(samples, [(*edge, 0, 0) for edge in edges], bounds)])[0]
+        assert result['status'] == 'OK', result
+        difference = max(abs(a - b) for a, b in zip(heights, result['heights']))
+        assert difference < 1e-7 and abs(unavoidable - result['correction']) < 1e-7
+        report['native'] = dict(solve_ms=result['ms'], maximum_height_difference_m=difference)
+    return report, heights, chains
 
 
 def verify_linear_programs():
@@ -154,12 +316,18 @@ def main():
     parser.add_argument('profiles', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--verify', action='store_true', help='compare with SciPy/HiGHS solutions')
+    parser.add_argument('--native', action='store_true', help='verify and time the production C++ solver')
     args = parser.parse_args()
     with args.profiles.open() as source:
         rows = list(csv.reader(source))
-    began = time.perf_counter()
-    report, heights, chains = solve(rows)
-    report['solve_ms'] = (time.perf_counter() - began) * 1000
+    with tempfile.TemporaryDirectory(prefix='outshine-road-heights-') as temporary:
+        native, digest = build_native(Path(temporary)) if args.native else (None, None)
+        began = time.perf_counter()
+        report, heights, chains = solve(rows, native=native)
+        report['solve_ms'] = (time.perf_counter() - began) * 1000
+        if native:
+            report['native']['source_sha256'] = digest
+            report['native_offset_linear_programs'] = verify_native_offsets(native)
     report['scope'] = 'grounded graph secants; hard contact bounds; no junction-plane/C1 proof'
     if args.verify:
         report['independent_linear_program_cases'] = verify_linear_programs()
