@@ -435,15 +435,27 @@ struct Proportions {
 }
 
 [[nodiscard]] bool ReadsAsRound(const BuildingShape &s) {
-  return s.Ring.size() >= kRoundLeastCorners && s.Fill > kRoundOverFill &&
-         s.Fill < kRoundUnderFill && s.HalfUm < kRoundUnderAspect * s.HalfVm;
+  if (s.Ring.size() < kRoundLeastCorners || s.Fill <= kRoundOverFill || s.Fill >= kRoundUnderFill ||
+      s.HalfUm >= kRoundUnderAspect * s.HalfVm) {
+    return false;
+  }
+  const double turnTolerance = 1e-10 * s.HalfUm * s.HalfVm;
+  for (size_t at = 0; at < s.Ring.size(); ++at) {
+    const auto &a = s.Ring[at];
+    const auto &b = s.Ring[(at + 1) % s.Ring.size()];
+    const auto &c = s.Ring[(at + 2) % s.Ring.size()];
+    const double turn =
+        (b.EastM - a.EastM) * (c.NorthM - b.NorthM) - (b.NorthM - a.NorthM) * (c.EastM - b.EastM);
+    if (turn < -turnTolerance) { return false; }
+  }
+  return true;
 }
 
 [[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double pitchedShare) {
   const double aspect = s.HalfUm / s.HalfVm;
   if (pitchedShare == 0.0) { return RoofKind::Flat; }
   if (s.Form == BuildingForm::Tower && pitchedShare < 0.0) { return RoofKind::Flat; }
-  if (ReadsAsRound(s)) { return RoofKind::Dome; }
+  if (s.RoundFootprint) { return RoofKind::Dome; }
 
   const bool pitchable =
       pitchedShare >= 0.0 ? pitchedShare >= kPitchedMajority : s.Fill >= kPitchableFromFill;
@@ -633,6 +645,7 @@ void Finish(FootprintPiece &piece, const PartOrder &order, BuildingShape &s) {
     return;
   }
   s.Fill = s.AreaM2 / (4.0 * s.HalfUm * s.HalfVm);
+  s.RoundFootprint = ReadsAsRound(s);
   s.Seed = order.Seed;
   s.Ident = static_cast<int>(Mix(order.Seed ^ kIdentWord) % static_cast<uint32_t>(kIdentCount));
   s.WallVariant = s.Ident % kFacadeVariants;

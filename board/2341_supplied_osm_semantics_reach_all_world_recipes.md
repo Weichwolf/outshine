@@ -41,7 +41,9 @@ Gemeinsame Primitive und Parametrierung statt eines Generators je Tagwert.
    Sonderbauten/technische Anlagen sind eine offene Menge, keine abgeschlossene Beispielsammlung.
    Herkunft und Unsicherheit speichern; schwache Hinweise ergeben einen einfachen Ersatz.
 4. Render-/Webcam-Vergleiche verbessern allgemeine Heuristiken. Keine Referenzbilder als
-   Laufzeiteingaben, keine Place-Sondergeometrie. Nutzung ist keine Bauform: ein POI kann
+   Laufzeiteingaben, keine Place-Sondergeometrie. Silhouette, Öffnungen und Material an mehreren
+   Standorten/Ansichten vergleichen; Gegenproben schützen andere Klassen vor Fehlzuordnung.
+   Nutzung ist keine Bauform: ein POI kann
    nur ein Geschoss belegen. Räumliche Zuordnung und tatsächlichen Nutzungsumfang erhalten.
 5. Zusätzliche Layer erst für integrierte Produkte dekodieren. Native Assethits laden denselben
    fertig ergänzten Plan wie Misses; Semantik gezielt versionieren. 2280 besitzt Speicherung.

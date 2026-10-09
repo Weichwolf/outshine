@@ -39,6 +39,7 @@ struct BuildingShape {
   EastNorth AxisU;
   double HalfUm = 0.0, HalfVm = 0.0;
   double Fill = 0.0;
+  bool RoundFootprint = false;
 
   BuildingForm Form = BuildingForm::House;
   FacadeStyle OpeningStyle = FacadeStyle::House;

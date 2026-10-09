@@ -6,16 +6,11 @@
 namespace outshine::Generators {
 bool HasCurvedShaftWalls(const BuildingShape &shape) noexcept {
   constexpr size_t leastCorners = 8;
-  constexpr double leastFill = 0.70;
-  constexpr double greatestFill = 0.84;
-  constexpr double greatestAspect = 1.30;
   const bool closed = shape.OpeningStyle == FacadeStyle::Tower ||
                       shape.OpeningStyle == FacadeStyle::Outbuilding ||
                       shape.OpeningStyle == FacadeStyle::Hall;
   return shape.Form == BuildingForm::Tower && closed && shape.Holes.empty() &&
-         shape.Ring.size() >= leastCorners && shape.Fill > leastFill && shape.Fill < greatestFill &&
-         shape.HalfVm > 0.0 && shape.HalfUm >= shape.HalfVm &&
-         shape.HalfUm < greatestAspect * shape.HalfVm;
+         shape.RoundFootprint && shape.Ring.size() >= leastCorners;
 }
 
 Vec3 BuildingWallShadingNormal(const BuildingShape &shape,

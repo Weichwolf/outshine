@@ -52,7 +52,7 @@ PreparedBuildingAssets::Open(const std::string &directory, const Data::SourceSet
   if (!cache) { return std::unexpected("could not open the native building cache"); }
   constexpr std::array kinds{Data::DataKind::Elevation, Data::DataKind::VectorMap};
   auto assets = std::shared_ptr<PreparedBuildingAssets>(new PreparedBuildingAssets(
-      std::move(*cache), AssetSourceRecipe("prepared-building-base-5", sources, kinds)));
+      std::move(*cache), AssetSourceRecipe("prepared-building-base-6", sources, kinds)));
   assets->Self_ = assets;
   return assets;
 }

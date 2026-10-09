@@ -45,8 +45,10 @@ Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen
   hat einen rundlichen achteckigen Grundriss; der 65-m-Körper einen viereckigen. Alle gelieferten
   Tags bleiben im nativen OSM-Produkt. Unklassifizierte schmale Schächte bleiben konservativ
   geschlossen; explizite Wohnnutzung geht vor. Das ist ein Ersatz, keine belegte Schornsteinklasse.
-- Dächer einfach und robust halten. Flensburg rechts zeigt fehlerhafte Dachspitzen bereits im
-  bisherigen Bild; Aufteilung/Anschlüsse gezielt korrigieren, bewährte Dachformen erhalten.
+- Dächer einfach und robust halten. Flensburg rechts erhielt fälschlich eine Kuppel, weil
+  Füllgrad/Seitenverhältnis konkave Grundrisse als rund einordneten. Die gespeicherte
+  Rundheitsprüfung schließt konkave Grundrisse aus; Dach und Mantel teilen dieselbe Wahl.
+  Bewährte Dachformen erhalten.
   Komplexe Formen nur mit belegten Parametern und vollständigen, überschneidungsfreien Flächen.
 - Gelieferte Attribute erhalten; ausdrücklich gelieferte Schlüssel schlagen normalisierte Aliase.
   Höhe/Unterkante/Geschosse, Klasse/Nutzung, Dach, Material/Farbe und Parts nutzen, soweit vorhanden.
