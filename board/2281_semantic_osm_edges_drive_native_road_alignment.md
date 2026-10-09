@@ -16,6 +16,9 @@ POIs in Feldkirch, Flensburg, Husum, Tokyo und Central Park. Neueste Bilder blei
 Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen.
 Mesher und Terrainkontakt teilen den vollständigen Anschlussumriss; Zweigverbindungen
 dürfen keine Straßenränder durch ein Dreieck verlieren. Seitenflächen nutzen Kantennormalen.
+Knoten im Kontaktkern reichen nicht: interpolierte Terrain-Zellen durchdringen Fahrbahnränder.
+Starre Fahrbahnflächen benötigen konservativen Zellkontakt; zusätzliche Verfeinerung allein
+behebt konkurrierende Randhöhen nicht. Wasserflächen gehören nicht in diesen Straßenvergleich.
 Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
 Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen.
 Places nutzen überwiegend polygonale Kontakte; Hermite-Kontaktprofile und adaptive
@@ -83,6 +86,10 @@ Keine zweite Straßenpipeline oder vollständige Quellenmigration als Vorbedingu
   Kanten/Ecken und konforme LOD-Ränder statt Risse; innere Kanten nicht durch abdeckende Eltern
   verändern. Kontakt-/Höhenfehler vor zusätzlichen Vertices beheben. 2336 besitzt Arbeitsauswahl,
   2280 versionierte native Rezepte/Cache, 2145 Pegel/Ufer, 2171 metrische Baustoffe.
+- Terrain-Zellen, die eine starre Fahrbahnfläche schneiden, unter deren gemeinsamer Kontaktebene
+  halten; nur Knoten innerhalb des Umrisses abzusenken genügt nicht. Rasterunterstützung begrenzen,
+  Profile/Quellrelief und weiche Ausläufe erhalten. Zellkontakt budgetiert vor Asset-Speicherung
+  erzeugen; Cachetreffer wiederholen ihn nicht. CPU-Beleg ersetzt keine Prüfung des GPU-Lattice.
 
 ## Forschungsgrundlage
 [Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf):
@@ -93,6 +100,8 @@ Gemeinsame Ränder; Nahtschluss allein garantiert keine weiche Böschung.
 [Clearance-Ausläufe](../test/experiments/clearance_aprons.py): gleiche Inputs/Qualität vor Integration vergleichen.
 [Kreuzungsflächen](../test/experiments/road_junction_coverage.py): gelieferte Linienrichtungen,
 gemeinsamer vollständiger Umriss statt Dreiecksreduktion; Kontakt und Fahrbahn separat prüfen.
+[Rasterkontakte](../test/experiments/road_terrain_contact.py): native Terrain-/Straßendreiecke;
+Knotentest gegen konservative Zellüberdeckung bei gleicher Fahrbahn und Terrain-Auflösung.
 
 ## Abnahme
 Durchgehende reale Abschnitte/Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände
