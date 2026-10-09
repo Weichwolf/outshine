@@ -43,7 +43,7 @@ Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-
    Regionsbedarf bindet Regeln, Form, Layout/Kacheladressen und Parameter ohne Quelldigests.
    Teilstände dürfen vollständigen Bedarf nicht treffen. Vorhandene Inhalts-IDs/Pakete werden
    atomar per Metadaten übernommen; alle 41 Pakete unverändert.
-   Preload fragt vollständigen Bedarf vor Feldern ab und lädt native Klassen. Kamera-Höhen zuerst gezielt; Abdeckung über Übergabe halten. Gebäude-/Straßenfelder und Terrainproben noch umgehen; Bewegung verfeinert erneut.
+   Preload lädt native Klassen vor Feldern und hält Abdeckung über Übergaben. Regionshits sparen globale Straßenfelder; Nahplatzierung nutzt eine Kachel. Basismiss/Bewegung fordert Quellen. Gebäude-/Terrainfelder offen.
 2. P0: verbliebene Terrainproben aus nativen Höhen-/Kontaktprodukten bedienen, 25–32 MiB Zwischenfelder bei Hits vermeiden. WaterAsset integriert; monotone Bereichsumsetzung erhält Konturreihenfolge/Löcher. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB statt 0,19–60 MB Gesamtkoordinaten. Weitere Generatoren trennen fertige Rohlinge von Cursor/Quelllayout; gemeinsamer Vertrag aus 2188.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Renderer teilt Maps/Material ([Modell](../test/experiments/material_image_residency.py)). Native Bilder halten Basis und optionale Linear-/sRGB-/Normalmips; Producer bereitet vor Publikation vor, Hits uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
@@ -109,9 +109,9 @@ räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.co
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
 Wasser, Gebäude-LOD und native OSM-Kacheln umgehen Providerdecode; Regionseinstieg/übrige Zwischenfelder offen.
-Voller Lint 8a5de0f97: nur fehlendes Khronos-Pin-PNG rot; 367 Tidy-Units/32 Claims/Roundtrips sauber.
-Fünf fokussierte Fälle/27 Tidy-Units sauber. Zehn frische Offline-Places: 49 statt 67 Kachelhits, Laden 1,51–2,91 s, p99 1,66–2,96 ms.
-Acht PNGs exakt; CP/Wien: 9/3 Pixel maximal 1/255 abweichend, visuell neutral; Ursache offen bei 2340. Feldassembly/RAM/Bildgewinn offen.
+Voller Lint b30f8be5f: nur fehlendes Khronos-Pin-PNG rot; 368 Tidy-Units/32 Claims/Roundtrips sauber.
+19 fokussierte Fälle/38 Tidy-Units sauber. Zehn frische Offline-Places: globale Straßenfelder 0 B, Nahmaske je eine Kachel; Laden 1,44–2,83 s, p99 1,87–3,03 ms.
+Zehn PNGs exakt zum b30f-Stand; Basismiss-Wien: drei Pixel maximal 1/255 abweichend (2340). Peak-RSS 1,54 GiB; Gesamt-RAM-/Bildgewinn offen.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

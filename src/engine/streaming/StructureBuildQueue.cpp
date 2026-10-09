@@ -854,6 +854,10 @@ StructureBuildQueue::PostsCells(Ground::SurfacePreparation &stack,
       !heightAt.CaptureFields || !footprints.Anchored()) {
     return 0;
   }
+  if (stack.UsesCachedRegionNetwork()) {
+    stack.RequestStreets();
+    return 0;
+  }
   const auto *vectors = stack.Vectors();
   const auto first = requests.front();
   const auto *accepted = footprints.InputOfTile(first.Tile);
@@ -1023,7 +1027,8 @@ bool StructureBuildQueue::PostsCell(Ground::SurfacePreparation &stack,
       accepted->Vector != VectorSource(*vectors, request.Tile) || CellQueued(request)) {
     return false;
   }
-  if (!stack.Ways().SourceDigest(*vectors, request.Tile)) {
+  if (!stack.Ways().Ingested(*vectors) || !stack.Ways().SourceDigest(*vectors, request.Tile)) {
+    stack.RequestStreets();
     ++Deferred_;
     return false;
   }
@@ -1360,7 +1365,9 @@ bool StructureBuildQueue::SelectVectorInputs(
   }
   selected.Basis.reset();
   if (over.From < vectors.Features().size() &&
-      !stack.Ways().SourceDigest(vectors, vectors.Features()[over.From].Tile)) {
+      (!stack.Ways().Ingested(vectors) ||
+       !stack.Ways().SourceDigest(vectors, vectors.Features()[over.From].Tile))) {
+    stack.RequestStreets();
     ++Deferred_;
     return false;
   }

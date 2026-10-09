@@ -644,7 +644,7 @@ void Engine::State::Drew() {
   Published.RecordMetric(
       "how far the placement chain reached", static_cast<double>(World.Reached), "steps");
   Published.RecordMetric(
-      "streets the world holds", static_cast<double>(World.Stack.Ways().Ways().size()), "ways");
+      "source street field: ways", static_cast<double>(World.Stack.Ways().Ways().size()), "ways");
   Published.RecordMetric("water surfaces it holds",
                          static_cast<double>(World.Stack.WaterBodies().Surfaces().size()),
                          "surfaces");

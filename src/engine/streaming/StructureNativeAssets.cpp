@@ -76,7 +76,10 @@ bool StructureBuildQueue::SelectNativeBasis(
     return true;
   }
   const auto digest = stack.Ways().SourceDigest(vectors, tile);
-  if (!digest) { return false; }
+  if (!stack.Ways().Ingested(vectors) || !digest) {
+    stack.RequestStreets();
+    return false;
+  }
   const auto key =
       cache->Key(address, *digest, stack.Pool().Shaped(), prints.TileSpanM(), region.InputDigest);
   if (key.empty()) {

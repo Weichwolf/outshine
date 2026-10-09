@@ -146,6 +146,7 @@ public:
   }
 
   void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
+    RequestStreets();
     Declared_.assign(these.begin(), these.end());
     Cls_.Declares(these);
   }
@@ -201,6 +202,11 @@ public:
   }
 
   [[nodiscard]] const ::outshine::Generators::Osm::StreetField &Ways() const { return Ways_; }
+
+  void UseCachedRegionNetwork(LongitudeLatitude focus);
+  void ForgetCachedRegionNetwork() noexcept;
+  void RequestStreets() noexcept;
+  [[nodiscard]] bool UsesCachedRegionNetwork() const noexcept;
 
   [[nodiscard]] const VegetationTemplates &Vegetation() const { return Templates_; }
 
@@ -267,6 +273,9 @@ private:
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;
   std::shared_ptr<Generators::Osm::PreparedGroundRegions> PreparedRegions_;
   std::shared_ptr<Generators::Osm::PreparedOsmTiles> PreparedVectors_;
+  enum class StreetMode : uint8_t { Source, CachedRegion, RequiredSource };
+  StreetMode StreetMode_ = StreetMode::Source;
+  LongitudeLatitude CachedNetworkFocus_;
   enum class WaterStage : uint8_t { Deferred, Requested, Ready };
   enum class WaterMode : uint8_t { Immediate, RegionLookup };
   WaterStage WaterStage_ = WaterStage::Requested;

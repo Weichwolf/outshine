@@ -336,7 +336,7 @@ void Engine::State::PublishGroundMemoryMeasurements() {
   Published.RecordMetric(
       "world: the water", static_cast<double>(World.Stack.WaterBodies().HeapBytes()), "bytes");
   Published.RecordMetric(
-      "world: the streets", static_cast<double>(World.Stack.Ways().HeapBytes()), "bytes");
+      "world: street source field", static_cast<double>(World.Stack.Ways().HeapBytes()), "bytes");
   Published.RecordMetric("world: the ceiling its fields stand under",
                          static_cast<double>(Ground::SurfacePreparation::kHoldsBytes),
                          "bytes");

@@ -194,6 +194,7 @@ void SurfacePreparation::Close() {
   PreparedBuildings_.reset();
   PreparedNetwork_.reset();
   PreparedRegions_.reset();
+  StreetMode_ = StreetMode::Source;
   WaterProducer_ = Generators::Osm::WaterField{};
   WaterBodies_ = Generators::WaterAsset{};
   WaterStage_ = WaterStage::Requested;
@@ -245,6 +246,7 @@ SurfacePreparation::AdvanceAt(LongitudeLatitude at, SurfacePreparationBudget bud
   const auto vectorTile = ValidatePosition(at);
   if (!vectorTile) { return std::unexpected(vectorTile.error()); }
   if (!Pool_) { return complete(); }
+  if (UsesCachedRegionNetwork() && at != CachedNetworkFocus_) { RequestStreets(); }
   const auto classificationAt = std::chrono::steady_clock::now();
   const auto classified = Cls_.Update(*Pool_, at);
   metrics.ClassificationMs = ElapsedMs(classificationAt);
@@ -307,11 +309,13 @@ void SurfacePreparation::IngestLayers(const SettlementInputs &inputs,
     }
     const size_t before =
         Ways_.IngestedTiles() + WaterProducer_.IngestedTiles() + Footprints_.IngestedTiles();
-    const auto streetsAt = std::chrono::steady_clock::now();
-    const auto looked = Ways_.LookedCount();
-    (void)Ways_.Ingest(*Vectors_, Templates_);
-    metrics.IngestionUnits += static_cast<size_t>(Ways_.LookedCount() - looked);
-    metrics.StreetsMs += ElapsedMs(streetsAt);
+    if (!UsesCachedRegionNetwork()) {
+      const auto streetsAt = std::chrono::steady_clock::now();
+      const auto looked = Ways_.LookedCount();
+      (void)Ways_.Ingest(*Vectors_, Templates_);
+      metrics.IngestionUnits += static_cast<size_t>(Ways_.LookedCount() - looked);
+      metrics.StreetsMs += ElapsedMs(streetsAt);
+    }
     const auto waterAt = std::chrono::steady_clock::now();
     if (WaterStage_ == WaterStage::Requested) {
       (void)WaterProducer_.Ingest(*Ground_, *Vectors_, Templates_);
@@ -362,7 +366,7 @@ void SurfacePreparation::Settle() {
 
 bool SurfacePreparation::Drained() const {
   if (!Vegetated_ || !Vectors_) { return true; }
-  return Ways_.Ingested(*Vectors_) && WaterReady();
+  return (UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_)) && WaterReady();
 }
 
 bool SurfacePreparation::Ingested() const {
@@ -373,19 +377,43 @@ bool SurfacePreparation::Ingested() const {
 bool SurfacePreparation::IngestedWithin(int rings) const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
-         Ways_.IngestedWithin(*Vectors_, rings) &&
+         (UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings)) &&
          (WaterReady() || WaterProducer_.IngestedWithin(*Vectors_, rings));
 }
 
 bool SurfacePreparation::InputsReadyWithin(int rings) const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
   return Vectors_->SettledWithin(rings) && Cls_.Complete() &&
-         Ways_.IngestedWithin(*Vectors_, rings);
+         (UsesCachedRegionNetwork() || Ways_.IngestedWithin(*Vectors_, rings));
 }
 
 bool SurfacePreparation::InputsReady() const {
   if (!Vegetated_ || !Vectors_) { return !Vegetated_; }
-  return Vectors_->PendingTiles() <= 0 && Cls_.Complete() && Ways_.Ingested(*Vectors_);
+  return Vectors_->PendingTiles() <= 0 && Cls_.Complete() &&
+         (UsesCachedRegionNetwork() || Ways_.Ingested(*Vectors_));
+}
+
+void SurfacePreparation::UseCachedRegionNetwork(LongitudeLatitude focus) {
+  if (!Opened_ || StreetMode_ == StreetMode::RequiredSource) { return; }
+  if (StreetMode_ == StreetMode::CachedRegion && CachedNetworkFocus_ == focus) { return; }
+  StreetMode_ = StreetMode::CachedRegion;
+  CachedNetworkFocus_ = focus;
+  Settled_.reset();
+}
+
+void SurfacePreparation::ForgetCachedRegionNetwork() noexcept {
+  if (!UsesCachedRegionNetwork()) { return; }
+  StreetMode_ = StreetMode::Source;
+  Settled_.reset();
+}
+
+void SurfacePreparation::RequestStreets() noexcept {
+  StreetMode_ = StreetMode::RequiredSource;
+  Settled_.reset();
+}
+
+bool SurfacePreparation::UsesCachedRegionNetwork() const noexcept {
+  return StreetMode_ == StreetMode::CachedRegion;
 }
 
 std::string SurfacePreparation::IngestionStatus() const {

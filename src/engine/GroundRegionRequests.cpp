@@ -85,6 +85,7 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
                                      *parameters);
   if (!request) { return std::unexpected(request.error()); }
   if (*request != World.GroundLookupRequest) {
+    World.Stack.ForgetCachedRegionNetwork();
     World.GroundLookupRequest = std::move(*request);
     World.GroundLookup = std::make_unique<GroundRegionPreparation>(
         *World.Pool,
@@ -103,6 +104,7 @@ Holds<bool> Engine::State::PrimeGroundRegion(GroundQuality quality) {
   if (result == nullptr) { return false; }
   if (!*result) { return std::unexpected(result->error()); }
   if (result->value().Loaded) {
+    World.Stack.UseCachedRegionNetwork(focus);
     const auto &classes = result->value().Loaded->Region.Classes;
     if (classes && World.Stack.Classes().Read() != classes && World.Stack.RestoreClasses(classes)) {
       Published.RecordMetric("ground region: classes restored before fields", 1.0, "hit");
