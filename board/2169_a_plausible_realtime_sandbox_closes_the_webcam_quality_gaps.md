@@ -43,7 +43,7 @@ Messdetails/Einheiten bei 2280; Verfahrensentscheidung bei 2336. Weitere Befunde
 |---|---|---|
 | P0 | Zehn native Treffer ohne Quellenbytes/Providerdecode; Zwischenfelder bleiben | Fertige Region-/Kontaktprodukte vor Feldassembly laden, 2280 |
 | P0 | Feine DEM-/OSM-Anfragen vor möglicher Sichtbarkeit | Grobe DEM-Eltern → Rundum-Horizont → benötigte Kinder, 2336 |
-| P0 | Regionhits sparen Mesh-Jobs; Terrain-Zwischenfelder jetzt 25–32 MiB | Verbliebene Quellenproben aus nativen Kontakten bedienen, 2280 |
+| P0 | Native Höhensnapshots sparen 25–32 MiB Nahplatzierung; CP/Tokyo je 2 MiB Kamerahöhe bleiben | Aktive Kontakte/übrige Produkte vor Quellenarbeit laden, 2280 |
 | P0 | Frischer Trefferprozess: Peak-Footprint 4,08 GiB, RSS 1,37 GiB | Produktkopien, Upload-Scratch und Treiberreserve getrennt erklären, 2280/2339 |
 | P1 | Native Mip-Karten entpacken 248 statt 620 MiB; RAM-/GPU-Kosten bleiben unvollständig erklärt | Bedarf vor Decode, gezielte Produktversion, Tokyo-Footprint zuordnen, 2280/2336 |
 | P1 | Native Geometriephase CP/Tokyo 2,17/2,87 s; Teilkosten unbekannt | CPU/Allokation/Upload/Fence getrennt messen und Spitzen ersetzen, 2339/2188 |

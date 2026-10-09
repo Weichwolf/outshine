@@ -33,12 +33,15 @@ struct Fields {
 [[nodiscard]] std::shared_ptr<const GroundPatch>
 PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how);
 
+[[nodiscard]] int PatchSide(const Tile &region, const outshine::GroundQuery &heights);
+
 [[nodiscard]] Snapped SnapshotOver(const Tile &region,
                                    const outshine::GroundQuery &heights,
                                    std::shared_ptr<const ClassStructure> classes,
                                    const Fields &stands,
                                    std::shared_ptr<const GroundTable> table,
-                                   Ground::Snapshot *out);
+                                   Ground::Snapshot *out,
+                                   std::shared_ptr<const GroundPatch> patch = {});
 
 [[nodiscard]] std::shared_ptr<const GroundTable>
 TableOf(const outshine::Ground::VegetationTemplates &templates);

@@ -59,6 +59,7 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
                get("ground region: native asset bytes") / kBytesPerMiB,
                get("ground region: worker elapsed"));
   for (const auto *const kind : {"terrain",
+                                 "terrain_patch",
                                  "terrain_deformed",
                                  "buildings",
                                  "building_basis",

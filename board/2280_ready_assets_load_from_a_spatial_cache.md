@@ -13,9 +13,8 @@ Tags: assets, loading, cache, spatial-index, residency
 Hierarchischer Weltbedarf (2336) → räumlicher Assetindex → Hit: fertigen Rohling laden.
 Nur fehlende benötigte Produkte starten Generator/Provider/Quellcache/API; anschließend atomar
 speichern und denselben Lade-/Publikationspfad bedienen. Für alle Weltklassen.
-Vorhanden: öffentlicher AssetCache/ResolveAsset, SQLite-R*Tree, native Geometrie-/Netzcodecs,
-Höhenfelder, Gebäuderohlinge/LOD-Produkte und Impostoren. Pakete komprimiert Zstandard Level 1;
-alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen.
+Vorhanden: AssetCache/ResolveAsset, SQLite-R*Tree, native Codecs, Höhenfelder, Gebäude/LOD,
+Impostoren. Pakete: Zstandard Level 1; alte Rohpakete/Quellen erhalten, Länge/CRC/Frame prüfen.
 Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein Ready.
 Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh-Jobs.
 WaterAsset hält Koordinaten/Pegel/Konturen/Flussprofile/Tileindex. Abfragen, Mesh und Decoder sind quellunabhängig; WaterField besitzt Erzeugung/Fortschritt.
@@ -24,13 +23,13 @@ Stabile Regionsanfragen binden Regeln/Form/Bedarf vor Quellen; Inhalts-IDs behal
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
-Frische Offline-Prozesse, 1280×720/60, 60 Frames/360°; aktuelle Treffer nach nativem Kacheleinstieg:
-| Place | Planpakete bisher MiB | Native Basis jetzt MiB | Treffer laden s | p99 ms |
+Frische Offline-Prozesse, 1280×720/60, 60 Frames/360°; Höhensnapshot-Treffer:
+| Place | Höhenfelder vorher MiB | Höhenfelder jetzt MiB | Laden s | p99 ms |
 |---|---:|---:|---:|---:|
-| Wien | 68,84 | 17,76 | 2,86 | 2,90 |
-| CentralPark | 102,71 | 21,92 | 2,52 | 2,33 |
-| Tokyo | 358,87 | 64,54 | 3,81 | 3,13 |
-Trefferprozess: Peak-RSS 1,37 GiB, OS-Footprint 4,08 GiB; nicht addieren. Kein belegter Lade-/GPU-Gewinn.
+| Wien | 25,01 | 0 | 1,96 | 2,94 |
+| CentralPark | 25,01 | 2,00 | 1,65 | 2,20 |
+| Tokyo | 32,01 | 2,00 | 2,51 | 2,70 |
+Zusätzlich je 0,504 MiB Snapshot. Peak-RSS 1,41 GiB; OS-Footprint zuletzt 4,08 GiB, nicht addieren. GPU-/Gerätenachweis offen.
 Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je belegter Zelle.
 Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen Pläne/Kontakte.
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
@@ -44,14 +43,13 @@ Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-
    Teilstände dürfen vollständigen Bedarf nicht treffen. Vorhandene Inhalts-IDs/Pakete werden
    atomar per Metadaten übernommen; alle 41 Pakete unverändert.
    Preload lädt native Klassen vor Feldern und hält Abdeckung über Übergaben. Regionshits sparen globale Straßenfelder; Nahplatzierung nutzt eine Kachel. Basismiss/Bewegung fordert Quellen. Gebäude-/Terrainfelder offen.
-2. P0: verbliebene Terrainproben aus nativen Höhen-/Kontaktprodukten bedienen, 25–32 MiB Zwischenfelder bei Hits vermeiden. WaterAsset integriert; monotone Bereichsumsetzung erhält Konturreihenfolge/Löcher. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB statt 0,19–60 MB Gesamtkoordinaten. Weitere Generatoren trennen fertige Rohlinge von Cursor/Quelllayout; gemeinsamer Vertrag aus 2188.
+2. P0: fertige 257²-Höhensamples (528.416 B) asynchron laden; nur Miss sampelt/speichert. [Modell](../test/experiments/prepared_ground_patch.py): Rastergröße/Präzision. Zehn gleiche Offline-Bildpaare: 25–32 MiB Zusatzlesungen entfallen; CP/Tokyo je 2 MiB Kamerahöhe. Deformierte Kontakte bleiben separat. WaterAsset integriert, Konturen/Löcher erhalten. [Packmodell](../test/experiments/water_asset_coordinates.py): 9–286 kB statt 0,19–60 MB. Weitere Produkte nach 2188 trennen.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Renderer teilt Maps/Material ([Modell](../test/experiments/material_image_residency.py)). Native Bilder halten Basis und optionale Linear-/sRGB-/Normalmips; Producer bereitet vor Publikation vor, Hits uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
 4. P1: [Paketmodell](../test/experiments/impostor_ready_payload.py): Capture 20 MiB, Flat-Karten 6 MiB; [Mip-Modell](../test/experiments/prepared_image_mips.py): +2 MiB untere Stufen, keine Basisduplikation.
    Native GeometryAsset-Karten umgehen Coverage-/Farbvorbereitung; Atlas-Rohlinge bleiben. Miss/Defekt repariert nur Karten; ca. −60 % entpackte Bytes, kein RAM-/Framegewinnbeweis.
    Atlas-Rezept bindet Artdefinition, Größe/Blicke und getrennte Generator-/Capture-Versionen; Änderungen an Wachstum oder Capture-Semantik erhöhen die jeweilige Version. Codecs prüfen eigene Formate. Fachfremde Engine-/Buildänderungen invalidieren nicht.
-5. P1: SSD dauerhaft begrenzen: Asset-DBs nach Aufbau/Retention 1,82 statt 6,02 GiB; zehn Offline-Place-PNGs SHA-256-identisch. Verwendete Assets, Paketmitglieder und Eltern erhalten.
-   Automatische budgetierte Verdrängung fehlt; Nutzdaten bleiben opaque, aktive Assets/Quellen erhalten. Warm <10 s; Gebäudebedarf vor Decode.
+5. P1: SSD automatisch budgetiert verdrängen; aktive Assets, Paketmitglieder, Eltern und Quellen erhalten. Nutzdaten bleiben opaque. Warm <10 s; Gebäudebedarf vor Decode.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
 AssetCache besitzt Speicherung/Kompression/Integrität und die AssetRecord-Hülle; Nutzdaten sind opaque.
@@ -109,9 +107,9 @@ räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.co
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
 Wasser, Gebäude-LOD und native OSM-Kacheln umgehen Providerdecode; Regionseinstieg/übrige Zwischenfelder offen.
-Voller Lint b30f8be5f: nur fehlendes Khronos-Pin-PNG rot; 368 Tidy-Units/32 Claims/Roundtrips sauber.
-19 fokussierte Fälle/38 Tidy-Units sauber. Zehn frische Offline-Places: globale Straßenfelder 0 B, Nahmaske je eine Kachel; Laden 1,44–2,83 s, p99 1,87–3,03 ms.
-Zehn PNGs exakt zum b30f-Stand; Basismiss-Wien: drei Pixel maximal 1/255 abweichend (2340). Peak-RSS 1,54 GiB; Gesamt-RAM-/Bildgewinn offen.
+Voller Lint bcecd222c: nur fehlendes Khronos-Pin-PNG rot; 368 Tidy-Units/32 Claims/Roundtrips sauber.
+Frische Offline-Treffer: globale Straßenfelder 0 B, Nahmaske eine Kachel; fertiger Höhensnapshot statt Nachbarschaftslesungen. Laden 1,21–2,51 s, p99 1,90–2,94 ms.
+Zehn Miss-/Hit-Paare und vorherige PNGs exakt gleich; Basismiss-Wien: drei Pixel maximal 1/255 abweichend (2340). Aktueller Peak-RSS 1,41 GiB; Gesamt-RAM-/Bildgewinn offen.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

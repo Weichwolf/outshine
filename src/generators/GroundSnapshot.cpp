@@ -188,8 +188,20 @@ std::shared_ptr<const FeatureField> FeaturesOver(const Tile &region, const Field
   return assembly.Finish();
 }
 
+int PatchSide(const Tile &region, const outshine::GroundQuery &heights) {
+  const double posts = region.SpanNm() / heights.PostM(region.AnchorLat());
+  constexpr double largestSide = 4096.0;
+  if (!std::isfinite(posts) || posts < 0.5 || posts >= largestSide) { return 0; }
+  return static_cast<int>(std::lround(posts)) + 1;
+}
+
 std::shared_ptr<const GroundPatch>
 PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how) {
+  const int side = PatchSide(region, heights);
+  if (side < 2) {
+    *how = Snapped::NoGround;
+    return nullptr;
+  }
   const int blockZoom = heights.BlockZoom() > 0 ? heights.BlockZoom() : region.Zoom();
   const int coarser = region.Zoom() - blockZoom;
   std::optional<outshine::Ground::GroundBlock> block;
@@ -204,8 +216,6 @@ PatchOver(const Tile &region, const outshine::GroundQuery &heights, Snapped *how
       case outshine::Ground::GroundBlock::State::Resolved: break;
     }
   }
-  const int side =
-      static_cast<int>(std::lround(region.SpanNm() / heights.PostM(region.AnchorLat()))) + 1;
   std::vector<GroundPatch::Posting> postings(static_cast<size_t>(side) * static_cast<size_t>(side));
   std::vector<double> row(static_cast<size_t>(side));
   const double stepE = region.SpanEm() / static_cast<double>(side - 1);
@@ -244,9 +254,10 @@ Snapped SnapshotOver(const Tile &region,
                      std::shared_ptr<const ClassStructure> classes,
                      const Fields &stands,
                      std::shared_ptr<const GroundTable> table,
-                     Ground::Snapshot *out) {
+                     Ground::Snapshot *out,
+                     std::shared_ptr<const GroundPatch> patch) {
   Snapped how = Snapped::Taken;
-  out->Patch = PatchOver(region, heights, &how);
+  out->Patch = patch ? std::move(patch) : PatchOver(region, heights, &how);
   if (!out->Patch) { return how; }
   out->Classes = std::move(classes);
   out->Features = FeaturesOver(region, stands);

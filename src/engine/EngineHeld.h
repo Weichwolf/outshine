@@ -16,6 +16,7 @@
 #include "WorldReadiness.h"
 #include "GroundPublication.h"
 #include "GroundRegionPreparation.h"
+#include "GroundPatchPreparation.h"
 #include "Rigid.h"
 #include "GroundSnapshot.h"
 #include "RegionPool.h"
@@ -253,6 +254,7 @@ struct Surrounds {
   std::unique_ptr<GroundBuildState> GroundRetirement;
   std::string GroundLookupRequest;
   std::unique_ptr<GroundRegionPreparation> GroundLookup;
+  std::unique_ptr<GroundPatchPreparation> PlacementGround;
   size_t GroundCandidates = 0;
 
   TilePieces Pieces;

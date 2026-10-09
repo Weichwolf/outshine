@@ -671,6 +671,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
   S_->World.PiecesFramed = false;
   S_->World.GroundPublished.Reset();
   S_->World.Region.reset();
+  S_->World.PlacementGround.reset();
   S_->World.Vegetation.reset();
   S_->World.Instances.clear();
   S_->World.Placed = S_->World.Instanced = 0;

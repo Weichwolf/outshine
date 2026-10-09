@@ -93,6 +93,14 @@ void PublishAssetCosts(Core::DiagnosticLedger &published,
   const auto terrain = stack.PreparedTerrainCosts();
   PublishPreparedAssetCosts(published, terrain, 0);
   published.RecordMetric(
+      "cost.assets.terrain_patch.hits", static_cast<double>(terrain.PatchHits), "reads");
+  published.RecordMetric(
+      "cost.assets.terrain_patch.misses", static_cast<double>(terrain.PatchMisses), "reads");
+  published.RecordMetric(
+      "cost.assets.terrain_patch.writes", static_cast<double>(terrain.PatchWrites), "packages");
+  published.RecordMetric(
+      "cost.assets.terrain_patch.read_bytes", static_cast<double>(terrain.PatchReadBytes), "bytes");
+  published.RecordMetric(
       "cost.assets.terrain_deformed.hits", static_cast<double>(terrain.DeformationHits), "reads");
   published.RecordMetric("cost.assets.terrain_deformed.misses",
                          static_cast<double>(terrain.DeformationMisses),
