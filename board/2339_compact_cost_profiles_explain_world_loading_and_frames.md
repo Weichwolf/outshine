@@ -46,6 +46,10 @@ Kein neuer Profiling-Großumbau: folgende Zähler mit diesen P0-Integrationen er
   SubjectResidency hält Bulk-Transferbuffer bis zur Zerstörung. Größen/Lebensdauer zuerst messen,
   dann immutable Produkte teilen und fertigen Upload-Scratch nach bestätigter GPU-Nutzung lösen.
   Fence 25,43 ms in Rosenheims Frame 4 wartet bei zwei Slots auf Frame 2; keine GPU-Passzeit.
+  Tokyo-CLI-Probe: 560,31 MiB Geräte-Geometriepuffer, 185,55 MiB CPU-Piece-Kopien,
+  71,34 MiB Transferkapazität; 1.300,66 MiB lebender C++-Heap enthält Produktarrays.
+  Drei vmmap-Proben bestanden, letzte während Aufbau: 2,3 GiB Footprint. Überlappende
+  Zähler nicht addieren; Profilinglauf kein Frame-Gate. PNG bleibt 278a2b52.
 - CP/Tokyo Geometriephase 2,17/2,87 s, längster Schritt 1,21/1,79 s: Allocation/Decode/
   Validierung/Upload/Fence einzeln messen. Gesamtphase beweist keine einzelne Ursache.
 - Producer-/Codecversionen und echte Cachehits getrennt ausweisen; fachfremde Änderungen

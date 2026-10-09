@@ -104,7 +104,7 @@ räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.co
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
 Wasser, Gebäude-LOD und native OSM-Kacheln umgehen Providerdecode; Regionseinstieg/übrige Zwischenfelder offen.
-Voller Lint a100efc5a: nur fehlendes Khronos-Pin-PNG rot; 363 Tidy-Units/32 Claims und Szenario-Roundtrips sauber.
+Voller Lint bf171f806: nur fehlendes Khronos-Pin-PNG rot; 367 Tidy-Units/32 Claims/19 Szenario-Roundtrips sauber.
 Kachel-/Ownership-Replay, Kamerapfad und Gebäudekontakte sauber; 52 betroffene Tidy-Units ohne Befunde. Zehn bildgleiche Offline-Paare geöffnet; warm 1,86–3,81 s. Rosenheim p99 26,71 ms, Frame 4, davon Host-Fence 25,43 ms: Gate rot bei 2340. Kein neuer Bildgewinn; direkter Rohlingeinstieg und RAM bleiben offen.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
