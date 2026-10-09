@@ -10,24 +10,22 @@ Tags: roads, bridges, tunnels, topology
 # Roads, rails and paths form a continuous usable transport network
 
 ## Ergebnis und Ist
-Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel stimmen in Form und Netzfunktion.
+Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funktionales Netz.
 Aktueller Schwerpunkt: sichtbare Netzfehler in Wien, anschließend schwierige selbst gewählte
-POIs in Feldkirch, Flensburg, Husum, Tokyo und Central Park. Neueste Bilder bleiben in shots/places.
+POIs: Feldkirch, Basel Badischer Bahnhof (Straßen/Tunnel/Ebenen), Zürich HB, Häfen und dichte Städte.
 Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen.
 Mesher und Terrainkontakt teilen den vollständigen Anschlussumriss; Zweigverbindungen
 dürfen keine Straßenränder durch ein Dreieck verlieren. Seitenflächen nutzen Kantennormalen.
 Knoten im Kontaktkern reichen nicht: interpolierte Terrain-Zellen durchdringen Fahrbahnränder.
 Starre Fahrbahnflächen benötigen konservativen Zellkontakt; zusätzliche Verfeinerung allein
 behebt konkurrierende Randhöhen nicht. Wasserflächen gehören nicht in diesen Straßenvergleich.
-Native Anschlussflächen erhalten eine gemeinsame Stützweite aus den Zell-Durchmessern aller
-betroffenen Terrain-Seiten. Der zusätzliche Kontakt schneidet nur; ursprünglicher Kern und
-weiche Ausläufe bleiben erhalten. Grobe/feine Seiten werten dasselbe räumliche Höhenfeld aus.
-Synchroner und asynchroner Aufbau teilen die Implementierung; native Treffer laden das Ergebnis.
+Native Anschlüsse nutzen gemeinsame Zellstützweite und Höhenfeld aller Terrain-Seiten.
+Zusätzlicher Kontakt schneidet nur; Kern/weiche Ausläufe bleiben. Sync/Async teilen den Aufbau.
 Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
 Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen.
-Places nutzen überwiegend polygonale Kontakte; Hermite-Kontaktprofile und adaptive
-Nahfahrbahnen sind dort noch nicht integriert. Brückenanschlüsse sind verbessert, das Netz
-hat weiterhin falsche Profile/Übergänge. Vorhandene Straßenqualität bleibt erhalten.
+Places nutzen polygonale Kontakte; der gemeinsame Profilpfad verlangt benannte Routen.
+RoadAlignmentBuilder verweigert Brücken/Tunnel bis zum Struktursolver; ein gemeinsamer
+regionaler Entwurf fehlt. Falsche Profile/Übergänge bleiben; vorhandene Straßenqualität erhalten.
 Lokale Straßenverfeinerung berücksichtigt bisher nur benannte Rundkurse; Places benötigen
 den allgemeinen nativen Straßenbestand, nach Kameraabstand und Kontaktfehler ausgewählt.
 Gelieferte Rail-/Transit- und Wegunterklassen bestimmen Breite, Oberfläche und Neigungsregeln;
@@ -39,23 +37,24 @@ Treppenstufen, Bahnsteige, Pier-/Brückenwege und Seilbahnen fehlen noch.
 ## Besitzer und nächste Lieferung
 OSM-Adapter normalisiert vorhandene Semantik; world/navigation hält das native logische Netz.
 generators/road besitzt Profile/Geometrie, Terrain konsumiert deren Kontaktdeformation.
-Ein gemeinsamer Entwurf liefert sichtbare Oberfläche, Bodenauftrag und befahrbare Kontakte.
-Keine zweite Straßenpipeline oder vollständige Quellenmigration als Vorbedingung.
-1. An echten POIs Quelllinien, Ebenen und gerenderte Kontakte übereinander auswerten.
-   Fehlende Abschnitte, falsche Kreuzungen, Höhen/Neigungen und Lücken getrennt lokalisieren.
+Ein gemeinsamer nativer Entwurf liefert Mesh, Kollision, Bodenauftrag und befahrbare Kontakte.
+Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann Bauhaus/Art déco.
+1. Infrastruktur allein rendern: Straße/Schiene/Brücken ohne gezeichnetes Terrain und Gebäude.
+   Höheninputs/Kontakte bleiben aktiv. Meshlücken, falsche Ebenen/Profile und Fehlstellen lokalisieren.
    Erst einen vollständigen realen Anschluss samt Brücke sichtbar und funktional schließen.
 2. Gemeinsame Knotenhöhen und C1-Profile durch alle angeschlossenen Straßen/Schienen/Wege
    führen; danach passende Nahabtastung integrieren. Nicht nur Rampenoffsets begrenzen.
 3. Schienen mit eigenen Breiten, zulässigen Profilen und Oberflächen darstellen; keine
    Straßenrezept-Kopie. Geh-/Radwege, Bahnübergänge und getrennte Ebenen bleiben verbunden.
-4. Fehlende Überbau-/Portal-/Widerlagerdetails aus belegten Klassen und plausiblen Parametern
-   ergänzen. Markierungen, Geländer, Signale und Beleuchtung anschließend instanzieren.
+4. Tragwerk, Decks, Portale und erforderliche Freiräume gehören zum funktionalen Grundmodell.
+   Gestaltung/Material und optionale Details folgen auf demselben Entwurf; kein zweiter Netzaufbau.
 
 ## Verbindlicher Entwurf
-- Grobstes DEM → Infrastrukturentwurf → benötigtes feines DEM → Kontaktdeformation → Vegetation.
-  Grobe Höhen stützen zusammenhängende Profile, Kreuzungen und Decks. Feines Relief ergänzt
-  deren Umgebung und wird unter den festgelegten Kontakten geformt; es zeichnet nicht die Straße neu.
-  Bedarf/Erwerb besitzt 2336, native Produkte 2280. Vegetation nutzt die finale Oberfläche und Belegung.
+- OSM/DEM liefern Lage, Verteilung und Höhenbezug; Rezepte ergänzen plausible Maße und Formen.
+  Pro Region gemeinsame Profile/Anschlüsse und Gebäudekontakte planen, dann finales Terrain
+  darunter formen und Vegetation belegen. Grobe DEM-Proben allein garantieren keine Fahrbarkeit.
+  Benötigte Höhen gezielt verfeinern; keine globale serielle Baufolge. Feines Relief verschiebt
+  festgelegte Anschlüsse nicht. Bedarf besitzt 2336, native Produkte 2280, Gebäude 2173.
 - Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren und erhalten.
   MVT ist kein vollständiger Routinggraph. Randfragmente deterministisch vereinigen;
   tatsächliche Schnittpunkte teilen Position/Höhe nur bei kompatibler Ebene/Brückenklasse.
@@ -100,6 +99,9 @@ Keine zweite Straßenpipeline oder vollständige Quellenmigration als Vorbedingu
 ## Forschungsgrundlage
 [Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf):
 Graph und Geometrie trennen; reale Linien erhalten, keine Tensorfeld-Neuerzeugung.
+[Straßenmodelle, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf):
+Profile → eigene Straße/Brücke/Tunnel plus Geländeauftrag; neue Trassenwahl nicht übernehmen.
+[SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes.
 [Geometry Clipmaps, SIGGRAPH 2004](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf):
 Gemeinsame Ränder; Nahtschluss allein garantiert keine weiche Böschung.
 [Übergangsvergleich](../test/experiments/earthwork_transition.py),
@@ -112,7 +114,7 @@ Knotentest gegen konservative Zellüberdeckung bei gleicher Fahrbahn und Terrain
 ## Abnahme
 Durchgehende reale Abschnitte/Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände
 oder unbefahrbare Profilwechsel. Quellenabdeckung, Netzfunktion, Bild und Kosten getrennt prüfen.
-99 % ist der gewünschte Vollständigkeitsmaßstab, keine unbelegte Weltquote: sichtbare belegte
-Abschnitte/Anschlüsse mit definiertem Vergleichsbestand zählen; kritische Kontaktfehler bleiben rot.
+Auch ohne Terrain/Gebäude lückenlose Oberfläche entlang der geplanten Verbindungen.
+Plausible Interpretation statt Vermessungstreue; kritische Anschluss-/Kontaktfehler bleiben rot.
 Nahkamera/Bewegung und Rundumdrehung prüfen; Tokio/Central Park und bestehende Straßenqualität
 bleiben erhalten. Bildgewinn in den neuesten Place-PNGs, Arbeit/Bytes im unveränderten Profilbudget.

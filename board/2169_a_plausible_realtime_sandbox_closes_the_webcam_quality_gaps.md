@@ -10,8 +10,9 @@ Tags: vision, webcam, sandbox
 # Outshine becomes a believable worldwide open-world sandbox
 
 ## Ergebnis und Ausgangspunkt
-Weltweite prozedurale Sandbox vom Orbit bis zum Grashalm, optisch an GTA5/RDR2 orientiert.
-Default: minimalistischer Solarpunk mit Bauhaus-/Art-déco-Prägung; gemeinsamer Look in 2155.
+Plausible, funktionale Erdinterpretation vom Orbit bis zum Grashalm, optisch an GTA5/RDR2 orientiert.
+OSM/DEM/Wetter liefern Verteilung, Großformen und Parameter; prozedurale Rezepte ergänzen sie.
+Default: minimalistischer Solarpunk mit Bauhaus-/Art-déco-Prägung; Look in 2155.
 Zuerst größtmögliche Webcam-Annäherung im Hardwarebudget; später physikalische Interaktion,
 LLM-NPCs, JS/HTML-CSS, Spatial Audio und Save/Load/Replay. Bestehende Renderer, native Assets,
 Importe, Straßenprofile und Terrain-Deformation sind die Basis. Kein pauschaler Neustart.
@@ -95,7 +96,6 @@ laden ohne Neubau. 2336 besitzt räumlichen Bedarf/LOD,
 Licht, Umwelt oder Simulation. `Depends` bezeichnet nur den ausdrücklich genannten fehlenden
 Teilvertrag, nicht den Abschluss eines gesamten WI. Keine versteckten Abhängigkeiten.
 Weitere historische Places bleiben Diagnosen; Tokyo/Central Park gehören zum Render-Gate.
-Hockenheim-Runden/Physikausbau sind kein erster visueller Meilenstein.
 Der globale CPU-Terrainmesh ist entfernt; vier Places bleiben pixelgleich. Feine Quellen,
 Stadt-Ladezeit und Speicher überschreiten weiterhin die angestrebte Arbeitsmenge (2336/2280).
 

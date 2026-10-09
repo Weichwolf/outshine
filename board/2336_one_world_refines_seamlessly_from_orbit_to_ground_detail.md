@@ -31,8 +31,8 @@ Grobe Audioverdeckung; feine Quellen bleiben teuer. Koers Peak-Footprint fällt 
 1. Zuerst gröbste Eltern für den Weltbedarf aus dem Assetcache; bei Miss nur grobes DEM
    beschaffen. Kein Start aller feinen Requests, auch nicht durch BlockAt, Gebäudehöhen,
    Wasserklassifikation oder vorbereitete Kamerapfade. Unbekannt/NoData bleibt unterscheidbar.
-   Region-Aufbau folgt 2281: grobes DEM → Infrastrukturentwurf → feines DEM/Kontakte → Vegetation.
-   Feine Höhen ergänzen das Relief unter festgelegten Infrastrukturprofilen, ohne diese neu zu zeichnen.
+   Regionale Kontaktplanung folgt 2281; grobe DEM stützen den Entwurf, benötigte Höhen ergänzen ihn.
+   Feines Relief wird unter festgelegten Kontakten geformt; keine globale serielle Baufolge.
 2. Auf einem Worker grobe Geländehierarchie und Rundum-Horizont von nah nach fern auswerten.
    Höhenwinkel/Bounds berücksichtigen Kamera-ECEF, Erdkrümmung und Höhe. Unterbäume hinter
    Bergmassiven nicht verfeinern. Quadtree-Horizont gegen niedrig aufgelöste Tiefen-/Cubemap-

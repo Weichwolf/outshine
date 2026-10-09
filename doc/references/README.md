@@ -165,6 +165,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Graphbearbeitung von Geometrie trennen. OSM-Verbindungen und Ebenen bleiben maßgeblich;
   die Tensorfeld-Netzerzeugung ersetzt unser reales Straßennetz nicht. Brückentragwerke
   benötigen zusätzlich klare Anschluss-/Kontaktregeln und kompakte wiederholte Bauteile.
+- **Procedural Generation of Roads**, Galin / Peytavie / Maréchal / Guérin, Eurographics 2010.
+  [Quelle](https://perso.liris.cnrs.fr/egalin/Articles/2010-roads.pdf) ·
+  [PDF](infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
+  Eigenständige Straßen-/Brücken-/Tunnelmodelle aus geglätteter Trajektorie und Querschnitt;
+  Geländeschnitt und Aufschüttung folgen demselben Profil. Für OSM übernehmen wir die
+  Modell-/Kontakttrennung, nicht die Neuerzeugung des vorhandenen Netzes.
+  [Codevorbilder und Grenzen](infrastructure/README.md): OSM2World, SUMO und CARLA.
 - **Wave Particles**, Yuksel / House / Keyser, SIGGRAPH 2007.
   [Quelle](https://www.cemyuksel.com/research/waveparticles/waveparticles.pdf) ·
   [PDF](water/siggraph/2007-wave-particles.pdf).
