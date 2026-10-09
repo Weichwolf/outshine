@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "math/Vec3.h"
+#include "Ribbon.h"
 
 namespace outshine {
 
@@ -75,6 +76,7 @@ struct RoadSweep {
   RoadProfile Profile = RoadProfile::Rounded;
   Vec3f WearsLinear;
   double Crossfall = 0.0;
+  RibbonForm Form = RibbonForm::ClosedShell;
 };
 
 class RoadMesher {

@@ -12,6 +12,7 @@
 namespace outshine {
 
 inline constexpr size_t kRibbonAcross = 4;
+enum class RibbonForm : uint8_t { Surface, ClosedShell };
 
 struct Section {
   double HalfWidthM = 0.0;
@@ -35,8 +36,12 @@ struct Ribbon {
   std::string Error;
 };
 
-[[nodiscard]] Ribbon
-Sweep(const ReferenceLine &along, const Section &section, double fromM, double toM, double stepM);
+[[nodiscard]] Ribbon Sweep(const ReferenceLine &along,
+                           const Section &section,
+                           double fromM,
+                           double toM,
+                           double stepM,
+                           RibbonForm form = RibbonForm::ClosedShell);
 
 }
 

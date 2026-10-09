@@ -24,8 +24,8 @@ Zusätzlicher Kontakt schneidet nur; Kern/weiche Ausläufe bleiben. Sync/Async t
 Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
 Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen.
 Places nutzen polygonale Kontakte; der gemeinsame Profilpfad verlangt benannte Routen.
-Ebenerdige Straßenbänder waren nur Terrain-Stempel; der Mesher liefert jetzt eigene Oberflächen
-für alle ausgewählten Bänder. RoadAlignmentBuilder verweigert Brücken/Tunnel bis zum Struktursolver;
+Ebenerdige [Straßenbänder](../test/experiments/road_surface_cost.py) erzeugen nur die eigene obere Geometrie.
+Brücken behalten ihre Unter-/Seitenflächen. RoadAlignmentBuilder verweigert Brücken/Tunnel bis zum Struktursolver;
 regionaler Entwurf/Profile/Übergänge bleiben offen. Vorhandene Straßenqualität erhalten.
 Lokale Straßenverfeinerung berücksichtigt bisher nur benannte Rundkurse; Places benötigen
 den allgemeinen nativen Straßenbestand, nach Kameraabstand und Kontaktfehler ausgewählt.

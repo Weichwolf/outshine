@@ -254,6 +254,7 @@ bool LayPiece(std::span<const double> eastNorthM,
               RoadProfile profile,
               const Vec3f &wearsLinear,
               double crossfall,
+              RibbonForm form,
               RoadMeshBuffers &into,
               RoadMeshingRejections &rejections) {
   ReferenceLine line;
@@ -274,7 +275,7 @@ bool LayPiece(std::span<const double> eastNorthM,
   }
 
   const Ribbon woven =
-      Sweep(line, SectionFor(halfWidthM, profile), 0.0, line.LengthM(), StepFor(tightestM));
+      Sweep(line, SectionFor(halfWidthM, profile), 0.0, line.LengthM(), StepFor(tightestM), form);
   if (!woven.Woven) {
     ++rejections.Sweep;
     return false;
@@ -333,6 +334,7 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
                    profile,
                    wearsLinear,
                    crossfall,
+                   how.Form,
                    into,
                    rejections)) {
         ++tally.Pieces;

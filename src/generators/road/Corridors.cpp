@@ -413,12 +413,14 @@ void Corridors::PaveEdge(const Paving &on,
   if (sealed) { profile = lane.Lanes >= 2 ? RoadProfile::Kerbed : RoadProfile::Simple; }
   const Vec3f wears = LaneColour(lane, on.Vegetation);
   into.WaterMs += since();
-  into.Swept += Sweeper_.Sweep(std::span<const RoadStation>(into.Along.data(), into.Along.size()),
-                               {.HalfWidthM = static_cast<double>(lane.HalfWidthM),
-                                .Profile = profile,
-                                .WearsLinear = wears,
-                                .Crossfall = lane.Bridge ? std::atan(kCrossfall) : 0.0},
-                               pavement);
+  into.Swept +=
+      Sweeper_.Sweep(std::span<const RoadStation>(into.Along.data(), into.Along.size()),
+                     {.HalfWidthM = static_cast<double>(lane.HalfWidthM),
+                      .Profile = profile,
+                      .WearsLinear = wears,
+                      .Crossfall = lane.Bridge ? std::atan(kCrossfall) : 0.0,
+                      .Form = lane.Bridge ? RibbonForm::ClosedShell : RibbonForm::Surface},
+                     pavement);
   into.SweepMs += since();
   AppendTerrainStamps(on, laneAt, into, corridor);
 }

@@ -30,7 +30,7 @@ void Put(std::vector<float> &into, double a, double b, double c) {
 void WallsAt(const Placed &on,
              const Vec2 &left,
              const std::array<Astride, kRibbonAcross> &stood,
-             const std::array<double, kRibbonAcross> &acrossAt,
+             std::span<const double, kRibbonAcross> acrossAt,
              double thicknessM,
              Ribbon &out) {
   for (const size_t which : {size_t{0}, kRibbonAcross - 1u}) {
@@ -77,8 +77,12 @@ StationCount(const Section &section, double fromM, double toM, double stepM) {
   return stations;
 }
 
-void ConnectStations(size_t stations, std::span<const uint32_t> bands, Ribbon &out) {
-  const auto perStation = static_cast<uint32_t>(kVerticesPerStation);
+void ConnectStations(size_t stations,
+                     std::span<const uint32_t> bands,
+                     RibbonForm form,
+                     Ribbon &out) {
+  const auto perStation =
+      static_cast<uint32_t>(form == RibbonForm::Surface ? kRibbonAcross : kVerticesPerStation);
   for (size_t station = 0; station + 1 < stations; ++station) {
     const uint32_t here = static_cast<uint32_t>(station) * perStation;
     const uint32_t next = here + perStation;
@@ -90,15 +94,18 @@ void ConnectStations(size_t stations, std::span<const uint32_t> bands, Ribbon &o
                         here + which + 1,
                         next + which,
                         next + which + 1});
-      const auto under = static_cast<uint32_t>(kRibbonAcross);
-      out.Index.insert(out.Index.end(),
-                       {here + under + which,
-                        here + under + which + 1,
-                        next + under + which,
-                        here + under + which + 1,
-                        next + under + which + 1,
-                        next + under + which});
+      if (form == RibbonForm::ClosedShell) {
+        const auto under = static_cast<uint32_t>(kRibbonAcross);
+        out.Index.insert(out.Index.end(),
+                         {here + under + which,
+                          here + under + which + 1,
+                          next + under + which,
+                          here + under + which + 1,
+                          next + under + which + 1,
+                          next + under + which});
+      }
     }
+    if (form == RibbonForm::Surface) { continue; }
     const auto wall = static_cast<uint32_t>(kRibbonAcross * 2);
     const uint32_t leftTop = here + wall;
     const uint32_t leftBottom = here + wall + 1u;
@@ -196,8 +203,12 @@ void BoundaryNormals(size_t stations, Ribbon &out) {
 
 }
 
-Ribbon
-Sweep(const ReferenceLine &along, const Section &section, double fromM, double toM, double stepM) {
+Ribbon Sweep(const ReferenceLine &along,
+             const Section &section,
+             double fromM,
+             double toM,
+             double stepM,
+             RibbonForm form) {
   Ribbon out;
   out.FromM = fromM;
   out.ToM = toM;
@@ -223,11 +234,15 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
                                                        section.HalfWidthM,
                                                        section.HalfWidthM + section.ShoulderM}};
 
-  const size_t vertices = stations * kVerticesPerStation + 4 * kRibbonAcross;
+  const size_t vertices = form == RibbonForm::Surface
+                              ? stations * kRibbonAcross
+                              : stations * kVerticesPerStation + 4 * kRibbonAcross;
   out.PositionM.reserve(vertices * 3);
   out.NormalM.reserve(vertices * 3);
   out.AcrossM.reserve(vertices);
-  out.Index.reserve((stations - 1) * kRibbonAcross * 12 + (kRibbonAcross - 1) * 12);
+  out.Index.reserve(form == RibbonForm::Surface
+                        ? (stations - 1) * (kRibbonAcross - 1) * 6
+                        : (stations - 1) * kRibbonAcross * 12 + (kRibbonAcross - 1) * 12);
 
   {
     Placed first;
@@ -266,6 +281,7 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
           RenderFrame::ZOfNorth(stood[which].NormalM[2]));
       out.AcrossM.push_back(static_cast<float>(acrossAt[which]));
     }
+    if (form == RibbonForm::Surface) { continue; }
     for (size_t which = 0; which < kRibbonAcross; ++which) {
       const Astride &surface = stood[which];
       const double eastM = on.EastM + left[0] * acrossAt[which];
@@ -283,9 +299,11 @@ Sweep(const ReferenceLine &along, const Section &section, double fromM, double t
   constexpr std::array<uint32_t, 3> allBands = {0, 1, 2};
   const std::span<const uint32_t> bands = allBands;
   const auto activeBands = section.ShoulderM == 0.0 ? bands.subspan(1, 1) : bands;
-  ConnectStations(stations, activeBands, out);
-  CloseEnds(along, stations, activeBands, out);
-  BoundaryNormals(stations, out);
+  ConnectStations(stations, activeBands, form, out);
+  if (form == RibbonForm::ClosedShell) {
+    CloseEnds(along, stations, activeBands, out);
+    BoundaryNormals(stations, out);
+  }
 
   out.Stations = stations;
   out.Vertices = out.PositionM.size() / 3;

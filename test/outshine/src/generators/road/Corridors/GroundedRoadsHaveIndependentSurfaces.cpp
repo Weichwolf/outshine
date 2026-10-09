@@ -54,6 +54,11 @@ int main() {
       CHECK(geometry.parts() == 1 && geometry.wellFormed(),
             "a road is independent native geometry");
       if (geometry.parts() != 1) { continue; }
+      const auto normals = geometry.normalsOf(0);
+      for (size_t at = 1; at < normals.size(); at += 3) {
+        CHECK(normals[at] > 0,
+              "ground roads contain exposed surface geometry without buried faces");
+      }
       const auto surface = TriangleBvh::Over(geometry.positionsOf(0), geometry.trianglesOf(0));
       for (int north = -50; north <= 50; ++north) {
         const auto height = surface.Under(0, static_cast<float>(-north));
