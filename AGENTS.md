@@ -88,6 +88,9 @@
   bleibt unbewiesen. CPU-Beweise ersetzen kein Runtime-Bild und allein keine kleinere LOD-Schranke.
   Tests nur bei nachweislich falscher oder ausdrücklich geänderter Spezifikation anpassen.
   Normale Tests erzeugen keine Orakel/ändern keine Pins; Cycles benötigt belegtes GPU-Backend.
+- Das Pflichtgate prüft die Weltpipeline: native Assets/Cache, DEM/OSM, Umwelt und Offline-Places.
+  glTF-/Animationskompatibilität und Khronos-Bildreferenzen bleiben separat ausführbar.
+  Gemeinsame Shaderbindungen, CPU/GPU-Layouts und Ressourcenlebensdauer bleiben Pflicht.
 
 ## Code und Arbeit
 - Ich nutze Command Line Tools und CLI-Profiler; die Xcode-App ist keine Voraussetzung.

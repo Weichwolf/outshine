@@ -13,7 +13,7 @@
 #   make lint       clang-format, clang-tidy and this tree's own repository rules
 #   make doc        the door's documentation -> build/doc
 #   make shots      every place through the camera -> build/shots  (PLACE=Wien for one)
-#   make test       the fast gate
+#   make test       the world gate; compatibility corpora run explicitly
 #   make suite      one named suite                                (SUITE=outshine/integration/places)
 #   make clean      remove build artefacts
 #   make spotless   and the compiler's own nest in the system temp directory
@@ -140,8 +140,15 @@ corpus-reference: ## explicitly pin generated reference images (CASES=...; REFER
 corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
 	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
 
-test: test-timeout-cleanup test-client-arguments test-client-data test-client-render test-corpus-invariants test-motion-trace all ## the fast gate
+test: test-timeout-cleanup test-client-arguments test-client-data test-reference-store test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
 	@$(RUN)
+
+.PHONY: test-khronos test-all
+test-khronos: test-reference-cache test-client-render test-corpus-invariants all ## glTF, animation and pinned Khronos image compatibility
+	@$(RUN) khronos outshine/src/import outshine/src/content/animation outshine/include/import outshine/include/Outshine
+
+test-all: test-timeout-cleanup test-client-arguments test-client-data test-reference-cache test-client-render test-corpus-invariants test-motion-trace all ## all declared suites, including compatibility corpora
+	@$(RUN) --all
 
 suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/RuntimeScene/CameraBindingPrecedesDrawing)
 	@$(if $(SUITE),,$(error name it: make suite SUITE=outshine/integration/places))
@@ -192,9 +199,11 @@ test-shader-artifacts: shaders ## verify the shader package, reflection and nega
 test-documentation: ## verify public documentation coverage and Doxygen failure detection
 	@cd $(SELF_DIR) && python3 test/scripts/test_documentation_analysis.py
 
-.PHONY: test-reference-cache corpus-reference
-test-reference-cache: ## validate immutable reference pins and missing/corrupt cache failures
+.PHONY: test-reference-store test-reference-cache corpus-reference
+test-reference-store: ## verify immutable reference storage and missing/corrupt cache failures
 	@cd $(SELF_DIR) && python3 test/scripts/test_reference_store.py
+
+test-reference-cache: test-reference-store ## resolve all pinned vendor references; explicit compatibility prerequisite
 	@cd $(SELF_DIR) && python3 test/scripts/test_oracle_seed_shift.py
 	@cd $(SELF_DIR) && python3 test/scripts/reference_store.py
 

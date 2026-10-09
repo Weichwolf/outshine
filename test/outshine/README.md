@@ -10,6 +10,11 @@ Examples: `include/scene/Geometry/`, `src/base/curve/Ribbon/`,
 `src/import/Subject/`. Name each case after the behavior it proves.
 Test helpers belong with their component or in `test/harness/shared/`.
 
+The default `make test` selects the world contracts in `test/world-gate.txt` and renders
+Wien, Tokyo and Central Park offline. `make test-khronos` retains explicit glTF/animation
+and pinned-image compatibility; `make test-all` runs every declared suite.
+`make lint` retains shared shader/GPU contracts independently of compatibility images.
+
 Run a subtree or a single case:
 
 ```

@@ -198,6 +198,7 @@ fi
 
 SUITE=
 SUITES=
+ALL_CASES=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --timeout)
@@ -216,6 +217,7 @@ while [ $# -gt 0 ]; do
     --corpus) CORPUS=1; shift ;;
     --would-prune) WOULDPRUNE=1; shift ;;
     --cases) CASELIST=1; shift ;;
+    --all) ALL_CASES=1; shift ;;
     --audit-link) AUDITLINK=1; shift ;;
     --audit-layers) AUDIT_LAYERS=1; shift ;;
     --audit-numbers) AUDIT_NUMBERS=1; shift ;;
@@ -1752,41 +1754,20 @@ if [ "$NAMED" -eq 1 ] && [ -f "test/$SUITE/manifest.json" ]; then
   SUITES=" $SUITE"
 fi
 
-# THE FAST GATE IS THE DEFAULT (board:1601): run.sh without suites runs the regression gate --
-# the unit mirror, the claims, and the door proof -- and EXCLUDES the named-only suites, loudly.
-# The long suites (device corpora, oracle renders, the drive) run only when named: sporadic by
-# rule, never per edit. kFastGateBoundMs is MEASURED on this machine over the RUN population
-# alone -- the build phases stand BESIDE the bound (board:1735). Re-derived 2026-08-23 over
-# the population the gate ACTUALLY runs in (board:1749): 205 arms including the sanitised
-# hostile-parser layers (board:1743), warm, WITH the hourly nudge's own worktree gate
-# building beside it -- the concurrent-nest case this tree mandates every hour, not an idle
-# machine. Measured: 100.1 / 104.1 / 153.9 s of run, worst 153.9 -> the bound is that worst
-# measurement times 1.5 for the machine's own weather = 230000 ms. A cold rebuild does not
-# reach it either, because builds stand beside it.
-# board:1876: test/unit IS the regression gate and runs after every change, so it must be fast
-# and it must be the whole of what runs by default. harness/claims and test/render are targeted
-# AUDITS -- they answer a question somebody asked, and they run when named.
-# board:1876: test/unit is gone -- it asserted the shape of a moving architecture. What runs by
-# default is what is INVARIANT: the established corpora, whose truth does not depend on our
-# design. tools run by name.
-NAMED_ONLY=""
 FAST_GATE=no
 kFastGateBoundMs=230000
+TESTS_ALL=$TESTS
+if [ "$ALL_CASES" = 1 ] && [ -n "$SUITES" ]; then
+  Die "--all cannot be combined with named suites"
+fi
 if [ -z "$SUITES" ]; then
-  FAST_GATE=yes
-  kept=""
-  for candidate in $TESTS; do
-    rel=${candidate#test/}
-    fast=yes
-    for slow in $NAMED_ONLY; do
-      case "$rel" in "$slow"/* | "$slow") fast=no ;; esac
-    done
-    [ "$fast" = yes ] && kept="$kept $candidate"
-  done
-  TESTS_ALL=$TESTS
-  TESTS=$kept
-  FAST_GATE=yes
-  printf 'run.sh: the fast gate -- named-only suites excluded: %s\n' "$NAMED_ONLY"
+  if [ "$ALL_CASES" = 0 ]; then
+    FAST_GATE=yes
+    SUITES=$(cat test/world-gate.txt)
+    printf 'run.sh: world gate; compatibility corpora require make test-khronos or make test-all\n'
+  else
+    printf 'run.sh: all declared suites, including compatibility corpora\n'
+  fi
   gateLibraryFrom=$(Now)
   BuildLibrary
   printf 'run.sh: the gate compiled the library entire in %s ms\n' "$(( $(Now) - gateLibraryFrom ))"
@@ -2380,7 +2361,7 @@ elapsedMs=$(( $(Now) - started ))
 printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  %s PARTIAL  in %s ms\n' \
   "$total" "$passed" "$failed" "$timedout" "$signalled" "$unbuilt" "$skipped" "$unprepared" \
   "$partialCases" "$elapsedMs"
-if [ "$FAST_GATE" = yes ]; then
+if [ "$ALL_CASES" = 1 ]; then
   EverySourceStillCompiles || compileBlind=1
   EveryProgramStillLinks || compileBlind=1
   WhatNoCorpusJudges

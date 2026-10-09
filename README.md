@@ -24,16 +24,19 @@ Native Copernicus raster decoding requires libtiff 4.7 (`libtiff-4` in `pkg-conf
 
 ```sh
 make            # liboutshine.a + libgenerators.a, and regenerate STATE.md
-sh test/gate.sh # the fast gate, under a minute, and it prints what it does NOT cover
-sh test/run.sh  # the full verdict; name a suite to run one
+make test          # world contracts and offline Wien/Tokyo/Central Park render budgets
+make lint          # static analysis, architecture and shared shader/GPU contracts
+make test-khronos  # explicit glTF/animation and pinned vendor-image compatibility
+make test-all      # every declared suite, including vendor corpora
 ```
 
 ## What proves what
 
-Only the **vendor corpora** prove anything — Khronos, WPT, test262 and GeographicLib, where a
-standards body or a computation carried further than ours states the answer. Everything under
-`test/outshine/` is a regression net of unknown grade: it holds the tree to what the tree already
-did, which is agreement with ourselves.
+The mandatory gate checks native world contracts and fresh offline Place renders.
+Place checks enforce completeness, the camera turn and measured frame budgets; visual quality
+requires opening the PNGs and comparing reference photographs. Static lint retains shared
+shader and GPU contracts. Compatibility corpora judge their own standards and run explicitly;
+a missing Khronos image remains a compatibility failure, separate from the world milestone.
 
 | corpus | cases | what it judges |
 |---|---|---|

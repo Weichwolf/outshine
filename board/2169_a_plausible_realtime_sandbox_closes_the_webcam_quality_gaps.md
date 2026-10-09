@@ -104,6 +104,9 @@ Stadt-Ladezeit und Speicher überschreiten weiterhin die angestrebte Arbeitsmeng
 Primärquellen jedem Feature zu. Empfehlungen sind Integrationsaufträge, keine Abnahme.
 
 ## Abnahme
+Pflicht: Weltpipeline mit nativen Assets/Cache, DEM/OSM, Umwelt und Offline-Places samt Budgets.
+glTF/Animation/Khronos-Bildreferenzen bleiben optionale Kompatibilitätsprüfung; gemeinsame
+Shaderbindungen, CPU/GPU-Layouts und Ressourcenlebensdauer bleiben verbindlich.
 Alle acht vollständigen Bilder mit datierten Referenzen vergleichen; Formen, Materialien,
 Licht/Wetter, Stabilität und Kosten getrennt bewerten. Client-API und AGENTS-Gate verwenden.
 `src/assets/places`/`client/PlaceCamera` besitzen Szenario/Pose; Webcam-Referenzen bleiben in
