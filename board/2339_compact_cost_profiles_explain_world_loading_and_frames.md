@@ -43,8 +43,8 @@ Kein neuer Profiling-Großumbau: folgende Zähler mit diesen P0-Integrationen er
   Native Hit bf171f806: 4,08 GiB Footprint, 1,37 GiB RSS; keine Addition. Tokyo liest
   312,71 MiB Gebäude-LOD und 248,35 MiB Prototypen, ohne Quellenbytes. `--measures`
   mit getrennten `vmmap -summary`-Proben abgleichen. SceneResources kopiert PieceMesh-Arrays;
-  SubjectResidency hält Bulk-Transferbuffer bis zur Zerstörung. Größen/Lebensdauer zuerst messen,
-  dann immutable Produkte teilen und fertigen Upload-Scratch nach bestätigter GPU-Nutzung lösen.
+  Bestätigtes Preload-Fence löst jetzt Upload-Scratch; native Readbacks erhalten residente Daten
+  und spätere Uploads. Alle zehn Place-Treffer melden danach null Transferkapazität.
   Fence 25,43 ms in Rosenheims Frame 4 wartet bei zwei Slots auf Frame 2; keine GPU-Passzeit.
   Tokyo-CLI-Probe: 560,31 MiB Geräte-Geometriepuffer, 185,55 MiB CPU-Piece-Kopien,
   71,34 MiB Transferkapazität; 1.300,66 MiB lebender C++-Heap enthält Produktarrays.

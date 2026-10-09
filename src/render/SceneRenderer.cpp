@@ -1647,8 +1647,13 @@ std::expected<OwnedFence, std::string> SceneRenderer::PrepareWorldResources() {
   return OwnedFence(Device_.Get(), fence);
 }
 
-bool SceneRenderer::WorldResourcesComplete(const OwnedFence &fence) const {
-  return fence && Submission_.QueryFence(Submission_.Context, Device_.Get(), fence.Get());
+bool SceneRenderer::WorldResourcesComplete(const OwnedFence &fence) {
+  if (!fence || !Submission_.QueryFence(Submission_.Context, Device_.Get(), fence.Get())) {
+    return false;
+  }
+  ActiveState().Content.Subjects.Owned().ReleaseUploadScratch();
+  ActiveState().Content.Glass.Owned().ReleaseUploadScratch();
+  return true;
 }
 
 std::expected<void, std::string> SceneRenderer::RenderFrame() {

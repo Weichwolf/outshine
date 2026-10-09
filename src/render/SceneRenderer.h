@@ -152,7 +152,7 @@ public:
 
   [[nodiscard]] std::expected<OwnedFence, std::string> PrepareWorldResources();
 
-  [[nodiscard]] bool WorldResourcesComplete(const OwnedFence &fence) const;
+  [[nodiscard]] bool WorldResourcesComplete(const OwnedFence &fence);
 
   [[nodiscard]] std::expected<void, std::string> RenderFrame();
 

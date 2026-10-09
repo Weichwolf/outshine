@@ -181,6 +181,7 @@ struct SubjectResidency {
   [[nodiscard]] bool Grow(Stream which, Need need, std::string &error);
   [[nodiscard]] bool FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error);
   void CommitCrossings();
+  void ReleaseUploadScratch();
 
   [[nodiscard]] bool SubmitPendingUploads(std::string &error);
 

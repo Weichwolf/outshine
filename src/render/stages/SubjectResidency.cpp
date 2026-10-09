@@ -448,6 +448,15 @@ void SubjectResidency::CommitCrossings() {
   Retired_.clear();
 }
 
+void SubjectResidency::ReleaseUploadScratch() {
+  if (StagedCount_ != 0) { return; }
+  Bulk_ = {};
+  BulkBytes_ = 0;
+  Staging_ = {};
+  StagingBytes_ = 0;
+  Retired_.clear();
+}
+
 std::expected<SubjectResidency::BoundImage, std::string>
 SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
   if (texture.Rgba != nullptr) { return UploadImage(texture, decode, kind); }

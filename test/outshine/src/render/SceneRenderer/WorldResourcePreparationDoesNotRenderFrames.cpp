@@ -116,8 +116,12 @@ void Exercise() {
   CHECK(uploads.has_value(), "upload preparation succeeds after both failures");
   if (!uploads) { return; }
   faults.Hold = true;
+  const auto transferBytes = prepared.PieceAllocations().TransferBytes;
+  CHECK(transferBytes > 0, "world preparation retains its upload storage until completion");
   CHECK(!prepared.WorldResourcesComplete(*uploads) && faults.Waits == 0,
         "pending upload completion is polled without a blocking GPU wait");
+  CHECK(prepared.PieceAllocations().TransferBytes == transferBytes,
+        "an incomplete fence retains upload storage");
   faults.Hold = false;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
   while (!prepared.WorldResourcesComplete(*uploads) &&
@@ -126,6 +130,8 @@ void Exercise() {
   }
   CHECK(prepared.WorldResourcesComplete(*uploads),
         "real GPU uploads complete within the test bound");
+  CHECK(prepared.PieceAllocations().TransferBytes == 0,
+        "completed world uploads release scratch while retaining resident geometry");
   CHECK(!prepared.Drew() && prepared.LastSubmittedCamera().Serial == 0 && faults.Waits == 0,
         "successful preparation does not draw, advance the frame ring or publish a camera");
   std::vector<float> preparedShadow;

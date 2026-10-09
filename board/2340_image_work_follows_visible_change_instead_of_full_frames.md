@@ -15,14 +15,12 @@ StageCache hält Atmosphäre, Reflexionsatlas und statische Sonnenschatten berei
 Native Sichtbarkeit hat Submission-/Generation-Verträge; TAA rekonstruiert fertige Farben,
 spart derzeit aber keine Raster-/Shadingarbeit. Kamera-/Projektionsänderung verwirft die Auswahl.
 Alle zehn Places einschließlich Wien/Tokyo/Central Park müssen unter 10 ms pro Frame bleiben,
-beim aktuellen Bildstand einschließlich
-Anfangsframes/p99 bei unverändertem 1280×720@60/360°/Inhalt. Vorher keine neuen Bildfeatures.
+beim aktuellen Bildstand einschließlich Anfangsframes/p99 bei unverändertem 1280×720@60/360°/Inhalt. Vorher keine neuen Bildfeatures.
 GPU-Passzeit ist noch nicht direkt messbar; Fence-Warten erklärt keine einzelne GPU-Stufe.
 2336 besitzt Weltrepräsentation/LOD, 2155 Licht, 2171 Materialien; dieser WI besitzt Arbeitsauswahl.
 
 ## Priorisierung nach Kostenreview
-Native Mip-Hits laden in 1,80–4,34 s. Tiefenreduktion: drei frische Offline-Prozesse,
-je zehn bildidentische vollständige Places, 60 Drehframes; Laden 1,75–4,44 s.
+Tiefenreduktion: drei Offline-Läufe, zehn bildgleiche Places, 60 Drehframes; Laden 1,75–4,44 s.
 Startregression bleibt offen: CP 10,99 ms p99 im vierten Frame, Tokyo 18,10 ms im zweiten.
 Native OSM-Hits: Rosenheim 26,71 ms p99 in Frame 4, davon Host-Fence 25,43 ms. Unter 10 ms bleibt rot; Fence ist keine GPU-Passzeit.
 Der erste Aufbau nativer Wasserpakete reproduziert CP 13,05 und Koerbersee 25,10 ms p99;
@@ -31,6 +29,8 @@ Davon 10,20/17,31 ms Fence-Warten und 0,35/0,40 ms CPU-Encoding. Preload erfasst
 Atmosphären-LUTs und statische Schatten bereits per Fence; erste Framearbeit und
 Ressourcen-/Pipeline-Kosten bleiben ungeklärt. Kein zusätzlicher Warmup, keine höhere Grenze.
 GPU-Passzeiten fehlen weiterhin; 2336/2280 besitzen Ladebedarf, 2339 Bereitschaft/Peaks.
+Nach bestätigtem Preload-Fence wird Upload-Scratch freigegeben: zehn Places bildgleich,
+Kapazität nach Preload null (Tokyo zuvor 71,34 MiB); p99 2,16–3,27 ms in einem Trefferlauf.
 Pixelbudget-Verfahren bleiben für reichere Materialien/Lichter/Wolken erforderlich.
 
 ## GLimpSW-Abgleich

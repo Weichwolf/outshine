@@ -585,7 +585,10 @@ Result Engine::State::CompletePreloadResources(std::chrono::steady_clock::time_p
     if (elapsed >= bound) {
       return std::unexpected("world GPU resources did not complete within the preload budget");
     }
-    if (Picture.Device.WorldResourcesComplete(*uploads)) { return {}; }
+    if (Picture.Device.WorldResourcesComplete(*uploads)) {
+      PublishGroundMemoryMeasurements();
+      return {};
+    }
     std::this_thread::sleep_for(
         std::chrono::duration<double>(std::min(kResourcePollSeconds, bound - elapsed)));
   }
