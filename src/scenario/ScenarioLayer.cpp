@@ -1,3 +1,4 @@
+#include "ScenarioJson.h"
 #include "ScenarioLayer.h"
 
 #include "ScenarioRead.h"
@@ -193,6 +194,17 @@ bool ApplyLayer(Scenario::Document &into,
                 std::string_view named,
                 std::vector<std::string> &trace,
                 std::string &error) {
+  std::string converted;
+  if (IsJsonScenario({text, size})) {
+    const auto xml = ScenarioXmlFromJson({text, size});
+    if (!xml) {
+      error = xml.error();
+      return false;
+    }
+    converted = *xml;
+    text = converted.data();
+    size = converted.size();
+  }
   Xml document;
   if (!document.Parse(text, size)) {
     error = document.Error();

@@ -14,6 +14,22 @@
 
 namespace outshine {
 
+inline void AppendXmlAttribute(std::string_view text, std::string &into) {
+  for (const char character : text) {
+    switch (character) {
+      case '\t': into += "&#9;"; break;
+      case '\n': into += "&#10;"; break;
+      case '\r': into += "&#13;"; break;
+      case '&': into += "&amp;"; break;
+      case '<': into += "&lt;"; break;
+      case '>': into += "&gt;"; break;
+      case '"': into += "&quot;"; break;
+      case '\'': into += "&apos;"; break;
+      default: into += character; break;
+    }
+  }
+}
+
 [[nodiscard]] constexpr bool XmlCharacter(uint32_t code) noexcept {
   constexpr uint32_t firstPrintable = 0x20;
   constexpr uint32_t lastBeforeSurrogates = 0xD7FF;

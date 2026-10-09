@@ -1,3 +1,4 @@
+#include "XmlAttribute.h"
 #include <span>
 #include "ScenarioWrite.h"
 #include "BodyValidation.h"
@@ -37,19 +38,7 @@ void Said(std::string &into, const char *named, std::string_view how, bool write
   into += ' ';
   into += named;
   into += "=\"";
-  for (const char character : how) {
-    switch (character) {
-      case '\t': into += "&#9;"; break;
-      case '\n': into += "&#10;"; break;
-      case '\r': into += "&#13;"; break;
-      case '&': into += "&amp;"; break;
-      case '<': into += "&lt;"; break;
-      case '>': into += "&gt;"; break;
-      case '\"': into += "&quot;"; break;
-      case '\'': into += "&apos;"; break;
-      default: into += character; break;
-    }
-  }
+  AppendXmlAttribute(how, into);
   into += '\"';
 }
 

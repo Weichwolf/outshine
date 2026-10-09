@@ -1,3 +1,4 @@
+#include "ScenarioJson.h"
 #include <format>
 #include <span>
 #include <type_traits>
@@ -452,6 +453,14 @@ ReadSectionsOnto(const Xml::Ref &root, Scenario::Document &into, std::string &er
 }
 
 bool ReadScenario(const char *text, size_t length, Scenario::Document &into, std::string &error) {
+  if (IsJsonScenario({text, length})) {
+    const auto xml = ScenarioXmlFromJson({text, length});
+    if (!xml) {
+      error = xml.error();
+      return false;
+    }
+    return ReadScenario(xml->data(), xml->size(), into, error);
+  }
   Xml document;
   if (!document.Parse(text, length)) {
     error = document.Error();
