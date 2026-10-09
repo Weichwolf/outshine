@@ -40,6 +40,12 @@ Kein neuer Profiling-Großumbau: folgende Zähler mit diesen P0-Integrationen er
   erzeugte Gebäudedreiecke; keine GPU-Summe/Verdeckungsquote daraus ableiten. Sichtbare Pixel zählen.
 - Peaks: Quelldaten, native Pakete, Decoder-Scratch, Produktarrays, Klassen, Prototypen,
   GPU-Uploads und alte/neue Kandidaten getrennt; Besitz/gleichzeitige Lebensdauer erklären.
+  Native Hit bf171f806: 4,08 GiB Footprint, 1,37 GiB RSS; keine Addition. Tokyo liest
+  312,71 MiB Gebäude-LOD und 248,35 MiB Prototypen, ohne Quellenbytes. `--measures`
+  mit getrennten `vmmap -summary`-Proben abgleichen. SceneResources kopiert PieceMesh-Arrays;
+  SubjectResidency hält Bulk-Transferbuffer bis zur Zerstörung. Größen/Lebensdauer zuerst messen,
+  dann immutable Produkte teilen und fertigen Upload-Scratch nach bestätigter GPU-Nutzung lösen.
+  Fence 25,43 ms in Rosenheims Frame 4 wartet bei zwei Slots auf Frame 2; keine GPU-Passzeit.
 - CP/Tokyo Geometriephase 2,17/2,87 s, längster Schritt 1,21/1,79 s: Allocation/Decode/
   Validierung/Upload/Fence einzeln messen. Gesamtphase beweist keine einzelne Ursache.
 - Producer-/Codecversionen und echte Cachehits getrennt ausweisen; fachfremde Änderungen

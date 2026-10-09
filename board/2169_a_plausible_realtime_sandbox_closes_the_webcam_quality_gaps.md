@@ -41,10 +41,10 @@ Kostenreview 2026-10-07: aktuelle Offline-Places und Code, kein A18-Pro-/Interne
 Messdetails/Einheiten bei 2280; Verfahrensentscheidung bei 2336. Weitere Befunde beim Besitzer.
 | Priorität | Defizit | Zielpfad und Besitzer |
 |---|---|---|
-| P0 | Regionhits in W/CP/T bildgleich, Quellenarbeit bleibt | Native Rohlinge vor Zwischenfeldern laden, alle Places, 2280 |
+| P0 | Zehn native Treffer ohne Quellenbytes/Providerdecode; Zwischenfelder bleiben | Fertige Region-/Kontaktprodukte vor Feldassembly laden, 2280 |
 | P0 | Feine DEM-/OSM-Anfragen vor möglicher Sichtbarkeit | Grobe DEM-Eltern → Rundum-Horizont → benötigte Kinder, 2336 |
 | P0 | Regionhits sparen Mesh-Jobs; Terrain-Zwischenfelder jetzt 25–32 MiB | Verbliebene Quellenproben aus nativen Kontakten bedienen, 2280 |
-| P0 | W/CP-Bildphase 2,46–2,47/2,21 GiB; Tokyo 3,95 GiB, Peak 4,19 GiB | Arbeitsmenge/Überlappung/Kopien begrenzen, 2280/2339 |
+| P0 | Frischer Trefferprozess: Peak-Footprint 4,08 GiB, RSS 1,37 GiB | Produktkopien, Upload-Scratch und Treiberreserve getrennt erklären, 2280/2339 |
 | P1 | Native Mip-Karten entpacken 248 statt 620 MiB; RAM-/GPU-Kosten bleiben unvollständig erklärt | Bedarf vor Decode, gezielte Produktversion, Tokyo-Footprint zuordnen, 2280/2336 |
 | P1 | Native Geometriephase CP/Tokyo 2,17/2,87 s; Teilkosten unbekannt | CPU/Allokation/Upload/Fence getrennt messen und Spitzen ersetzen, 2339/2188 |
 | P1 | Tokyo erzeugt 2,36 Mio. Gebäudedreiecke; ferne Auswahl nur kachelweise | Hierarchische Coverage, Hülle/Cluster/Impostor vor Emission, 2336 |
@@ -111,5 +111,6 @@ Rundum-Abdeckung und Datenherkunft belegen; ein Sichtweitenparameter allein bewe
 Stand f544a20ab: zehn native Places samt Miss-/Hit-Bildern geprüft; gemeinsame Terrain-Nähte,
 weiche Außenböschungen und Clearance-Ausläufe. Fundament-/Beckenränder, Höhenprofile und
 adaptive Abtastung bleiben bei 2281/2145 offen. Betroffene Tests/Tidy sauber; letzter voller Lint
-rot wegen fehlendem gepinntem Khronos-Bild. Mip-Hits zuletzt 1,80–4,34 s Laden und 2,05–3,23 ms p99;
-Aufbau CP/Tokyo 30,78/16,45 ms. Stabile Startzeiten bleiben offen bei 2340.
+rot wegen fehlendem gepinntem Khronos-Bild. Native OSM-Treffer: zehn bildgleiche Offline-Paare,
+null Quellenbytes/Provideraufrufe, warm 1,86–3,81 s. Rosenheim 26,71 ms p99 in Frame 4,
+davon Host-Fence 25,43 ms; Frame-/GPU-/Speicherbudget bleiben offen bei 2340/2339.
