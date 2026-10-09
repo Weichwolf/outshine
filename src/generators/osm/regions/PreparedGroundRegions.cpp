@@ -25,6 +25,16 @@ namespace outshine::Generators::Osm {
 namespace {
 constexpr uint64_t kPackageVersion = 0x35524e474fULL;
 
+bool ShapeValues(BinaryValueWriter &out, const ::outshine::Ground::ShapedGround &shape) {
+  return out.Text(shape.Kind) && out(shape.AmplitudeM,
+                                     shape.WavelengthM,
+                                     shape.Gradient,
+                                     shape.BearingDeg,
+                                     shape.FocusLatDeg,
+                                     shape.FocusLonDeg,
+                                     shape.Seed);
+}
+
 std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const uint8_t> bytes) {
   BinaryValueReader in(bytes);
   uint64_t version = 0;
@@ -45,8 +55,10 @@ std::expected<PreparedGroundRegions::Loaded, std::string> Decode(std::span<const
   if (!water || in.In.Remaining() != 0) {
     return std::unexpected("invalid native region water inputs");
   }
-  return PreparedGroundRegions::Loaded{
-      .Region = std::move(*region), .Water = std::move(*water), .ReadBytes = bytes.size()};
+  return PreparedGroundRegions::Loaded{.Region = std::move(*region),
+                                       .Water = std::move(*water),
+                                       .ReadBytes = bytes.size(),
+                                       .Key = {}};
 }
 
 std::expected<std::vector<uint8_t>, std::string>
@@ -83,17 +95,8 @@ std::string PreparedGroundRegions::Key(const OsmField &vectors,
                                        const ::outshine::Ground::ShapedGround &shape,
                                        std::span<const uint8_t> parameters) const {
   BinaryValueWriter out(size_t{4} * 1024u * 1024u);
-  if (!out.Text(Recipe_) || !out.Text(shape.Kind) ||
-      !out(shape.AmplitudeM,
-           shape.WavelengthM,
-           shape.Gradient,
-           shape.BearingDeg,
-           shape.FocusLatDeg,
-           shape.FocusLonDeg,
-           shape.Seed,
-           vectors.Zoom(),
-           vectors.Schema(),
-           static_cast<uint64_t>(vectors.Tiles().size())) ||
+  if (!out.Text(Recipe_) || !ShapeValues(out, shape) ||
+      !out(vectors.Zoom(), vectors.Schema(), static_cast<uint64_t>(vectors.Tiles().size())) ||
       !std::ranges::all_of(
           vectors.Tiles(),
           [&](const auto &tile) {
@@ -118,11 +121,53 @@ std::string PreparedGroundRegions::Key(const OsmField &vectors,
 std::expected<std::optional<PreparedGroundRegions::Loaded>, std::string>
 PreparedGroundRegions::Load(const std::string &key) {
   const std::scoped_lock lock(Lock_);
+  return Read(key);
+}
+
+std::string
+PreparedGroundRegions::RequestKey(int zoom,
+                                  MvtSchema schema,
+                                  const ::outshine::Ground::ShapedGround &shape,
+                                  std::span<const uint8_t> parameters,
+                                  std::span<const ::outshine::Ground::TileSpot> tiles) const {
+  BinaryValueWriter out(size_t{4} * 1024u * 1024u);
+  if (!out.Text("native-ground-region-demand-2") || !out.Text(Recipe_) ||
+      !ShapeValues(out, shape) || !out(zoom, schema, static_cast<uint64_t>(tiles.size())) ||
+      !std::ranges::all_of(tiles,
+                           [&](const auto &tile) { return out(tile.Zoom, tile.X, tile.Y); }) ||
+      !out.Array(parameters)) {
+    return {};
+  }
+  return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
+}
+
+std::expected<std::optional<PreparedGroundRegions::Loaded>, std::string>
+PreparedGroundRegions::LoadRequest(const std::string &requestKey) {
+  const std::scoped_lock lock(Lock_);
+  auto found = Cache_->FindRequest(requestKey);
+  if (!found) { return std::unexpected("could not find the prepared ground request"); }
+  if (!*found) { return std::optional<Loaded>{}; }
+  return Read((**found).Key);
+}
+
+std::expected<void, std::string> PreparedGroundRegions::BindRequest(const std::string &key,
+                                                                    const std::string &requestKey) {
+  const std::scoped_lock lock(Lock_);
+  auto bound = Cache_->BindRequest(key, requestKey);
+  if (!bound || !*bound) { return std::unexpected("could not bind the prepared ground request"); }
+  return {};
+}
+
+std::expected<std::optional<PreparedGroundRegions::Loaded>, std::string>
+PreparedGroundRegions::Read(const std::string &key) {
   auto cached = Cache_->Load(key, PackageBytesMost);
   if (!cached) { return std::unexpected("could not read the prepared ground region"); }
   if (!*cached) { return std::optional<Loaded>{}; }
   auto region = Decode((**cached).Bytes());
-  if ((**cached).Record().Kind == "ground-region" && region) { return std::move(*region); }
+  if ((**cached).Record().Kind == "ground-region" && region) {
+    region->Key = key;
+    return std::move(*region);
+  }
   if (!Cache_->Remove(key)) {
     return std::unexpected("could not remove an invalid prepared ground region");
   }
@@ -133,28 +178,35 @@ std::expected<PreparedGroundRegions::Loaded, std::string>
 PreparedGroundRegions::Store(const std::string &key,
                              const Box &bounds,
                              const GroundRegionAsset &region,
-                             const WaterAsset &water) {
+                             const WaterAsset &water,
+                             const std::string &requestKey) {
   const std::scoped_lock lock(Lock_);
-  auto cached =
-      ResolveAsset(*Cache_,
-                   key,
-                   PackageBytesMost,
-                   [&](size_t bytesMost) -> std::expected<GeneratedAssetPackage, std::string> {
-                     auto encoded = Encode(region, water, bytesMost);
-                     if (!encoded) {
-                       return std::unexpected("ground region is invalid or exceeds its budget");
-                     }
-                     return GeneratedAssetPackage{.Records = {{.Key = key,
-                                                               .Kind = "ground-region",
-                                                               .Bounds = bounds,
-                                                               .Package = {},
-                                                               .ByteCount = encoded->size(),
-                                                               .Parent = {}}},
-                                                  .Bytes = std::move(*encoded)};
-                   });
+  auto cached = ResolveAsset(
+      *Cache_,
+      key,
+      PackageBytesMost,
+      [&](size_t bytesMost) -> std::expected<GeneratedAssetPackage, std::string> {
+        auto encoded = Encode(region, water, bytesMost);
+        if (!encoded) { return std::unexpected("ground region is invalid or exceeds its budget"); }
+        return GeneratedAssetPackage{
+            .Records = {{.Key = key,
+                         .Kind = "ground-region",
+                         .Bounds = bounds,
+                         .Package = {},
+                         .ByteCount = encoded->size(),
+                         .Parent = {},
+                         .RequestKey =
+                             requestKey.empty() ? std::nullopt : std::optional(requestKey)}},
+            .Bytes = std::move(*encoded)};
+      });
   if (!cached) { return std::unexpected(std::move(cached.error())); }
   auto decoded = Decode(cached->Bytes());
   if (!decoded) { return std::unexpected("published ground region failed native validation"); }
+  if (!requestKey.empty()) {
+    auto bound = Cache_->BindRequest(key, requestKey);
+    if (!bound || !*bound) { return std::unexpected("could not bind the stored ground region"); }
+  }
+  decoded->Key = key;
   return std::move(*decoded);
 }
 }

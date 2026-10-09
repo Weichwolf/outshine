@@ -17,6 +17,8 @@ public:
     std::string Key;
     std::optional<Generators::Osm::PreparedGroundRegions::Loaded> Loaded;
     double WorkerMs = 0;
+    std::string RequestKey;
+    bool RequestHit = false;
   };
 
   using Factory = std::function<std::expected<Completed, std::string>(std::stop_token)>;

@@ -20,7 +20,7 @@ Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein R
 Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh-Jobs.
 WaterAsset hält Koordinaten/Pegel/Konturen/Flussprofile/Tileindex. Abfragen, Mesh und Decoder sind quellunabhängig; WaterField besitzt Erzeugung/Fortschritt.
 Coverage beobachtet nur; native Produkte bestimmen Ready und veröffentlichte Screenshot-Kennzahlen.
-Regionschlüssel binden Quell-Digests, Formparameter, Detailauftrag und Regeln; kein serialisiertes Straßennetz.
+Stabile Regionsanfragen binden Regeln/Form/Bedarf vor Quellen; Inhalts-IDs behalten Digests. Bestehende Pakete per atomarer Metadatenbindung übernehmen.
 Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
@@ -38,7 +38,12 @@ Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-
 [Zellenmodell](../test/experiments/prepared_building_residency.py) begründet Formladung bei Bedarf.
 1. P0: Bedarf aus 2336 vor Quellen/Cachedecode; räumliche Eltern/Kinder statt Kamerasnapshots.
    [Liefermodell](../test/experiments/building_asset_delivery.py): Basis hält Koordinaten/Origin/Höhenbindung/Quell-IDs/Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
-   Gebäude-Anfragen finden Basis/Inhalts-ID vor Straßen-Digests. Native OSM-Kacheln speichern normalisierte Koordinaten, Tags und Herkunft; stabile Kachel-/Schema-/Layeranfragen prüfen den Assetcache vor Provider/MVT. Lookup und Erzeugung laufen auf dem Compute-Worker, Geometrie und Klassifizierung teilen den Pfad. Zehn frische Offline-Treffer liefern je 67 Kachelhits, null Misses/Erzeugung und gleiche Pixel ohne MVT-Parse. Aufgegebener Bedarf gibt begrenzte Jobkapazität frei; Read/Generate-Workerzeiten getrennt. Direkter Regionseinstieg ohne Zwischenfelder bleibt offen.
+   Gebäude-Anfragen finden Basis/Inhalts-ID vor Straßen-Digests. Native OSM-Kacheln werden vor
+   Provider/MVT auf dem Compute-Worker geladen; Geometrie/Klassifizierung teilen den Pfad.
+   Regionsbedarf bindet Regeln, Form, Layout/Kacheladressen und Parameter ohne Quelldigests.
+   Teilstände dürfen vollständigen Bedarf nicht treffen. Vorhandene Inhalts-IDs/Pakete werden
+   atomar per Metadaten übernommen; zehn direkte Treffer bleiben bildgleich, alle 41 Pakete unverändert.
+   Die Engine fragt noch nach Feldvorbereitung ab: diese Phase vorziehen, benötigte Adressen vorher planen.
 2. P0: verbliebene Terrainproben aus nativen Höhen-/Kontaktprodukten bedienen, 25–32 MiB Zwischenfelder bei Hits vermeiden. WaterAsset integriert; monotone Bereichsumsetzung erhält Konturreihenfolge/Löcher. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB statt 0,19–60 MB Gesamtkoordinaten. Weitere Generatoren trennen fertige Rohlinge von Cursor/Quelllayout; gemeinsamer Vertrag aus 2188.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Renderer teilt Maps/Material ([Modell](../test/experiments/material_image_residency.py)). Native Bilder halten Basis und optionale Linear-/sRGB-/Normalmips; Producer bereitet vor Publikation vor, Hits uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
@@ -104,8 +109,9 @@ räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.co
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
 Wasser, Gebäude-LOD und native OSM-Kacheln umgehen Providerdecode; Regionseinstieg/übrige Zwischenfelder offen.
-Voller Lint bf171f806: nur fehlendes Khronos-Pin-PNG rot; 367 Tidy-Units/32 Claims/19 Szenario-Roundtrips sauber.
-Kachel-/Ownership-Replay, Kamerapfad und Gebäudekontakte sauber; 52 betroffene Tidy-Units ohne Befunde. Zehn bildgleiche Offline-Paare geöffnet; warm 1,86–3,81 s. Rosenheim p99 26,71 ms, Frame 4, davon Host-Fence 25,43 ms: Gate rot bei 2340. Kein neuer Bildgewinn; direkter Rohlingeinstieg und RAM bleiben offen.
+Voller Lint edcf0e645: nur fehlendes Khronos-Pin-PNG rot; 367 Tidy-Units/32 Claims/19 Roundtrips sauber.
+Cache-/Regionsprüfungen/49 Tidy-Units sauber; zehn Bedarfstreffer bildgleich, p99 1,88–3,14 ms. Früheres Rosenheim-Fence bleibt bei 2340.
+Kein neuer Bildgewinn; früher Regionseinstieg, Feldassembly und RAM bleiben offen.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

@@ -424,6 +424,8 @@ public:
 
   [[nodiscard]] const std::string &RegionKey() const noexcept { return RegionKey_; }
 
+  [[nodiscard]] const std::string &RegionRequest() const noexcept { return RegionRequest_; }
+
   [[nodiscard]] bool HasReadyRegion() const noexcept { return Schedule_.HasReadyRegion(); }
 
   void BeginRegion(Tasks &pool, GroundRegionPreparation::Factory factory, RegionPhase phase) {
@@ -431,9 +433,10 @@ public:
     RegionPhase_ = phase;
   }
 
-  void FinishRegion(std::string key, RegionPhase phase) {
+  void FinishRegion(std::string key, RegionPhase phase, std::string request = {}) {
     RegionWorker_.reset();
     RegionKey_ = std::move(key);
+    RegionRequest_ = std::move(request);
     RegionPhase_ = phase;
   }
 
@@ -722,6 +725,7 @@ private:
   std::unique_ptr<StreetGraphPreparation> StreetGraphWorker_;
   std::unique_ptr<GroundRegionPreparation> RegionWorker_;
   std::string RegionKey_;
+  std::string RegionRequest_;
   RegionPhase RegionPhase_ = RegionPhase::Lookup;
   WaterPhase WaterPhase_ = WaterPhase::Awaiting;
   std::unique_ptr<Generators::TerrainRefinementJob> RefinementJob_;
@@ -2025,9 +2029,7 @@ Engine::State::GroundBuildProgress Engine::State::BeginGroundRegionLookup(Ground
   using Phase = GroundBuildState::RegionPhase;
   const auto assets = World.Stack.RegionAssets();
   const auto vectors = state.Candidate().Sources().Vectors;
-  if (!assets || !vectors || state.TransportSnapshot() != nullptr ||
-      std::ranges::any_of(vectors->Tiles(),
-                          [](const auto &tile) { return tile.InputDigest.empty(); })) {
+  if (!assets || !vectors || state.TransportSnapshot() != nullptr) {
     state.FinishRegion({}, Phase::Bypass);
     return GroundBuildProgress::Ready;
   }
@@ -2062,13 +2064,39 @@ Engine::State::GroundBuildProgress Engine::State::BeginGroundRegionLookup(Ground
       *World.Pool,
       [assets, vectors, shape, native](const std::stop_token &stop)
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
+        std::vector<Ground::TileSpot> inputs;
+        inputs.reserve(vectors->Tiles().size());
+        for (const auto &tile : vectors->Tiles()) {
+          inputs.push_back({.Zoom = tile.Z,
+                            .X = static_cast<uint32_t>(tile.X),
+                            .Y = static_cast<uint32_t>(tile.Y)});
+        }
+        auto request =
+            assets->RequestKey(vectors->Zoom(), vectors->Schema(), shape, *native, inputs);
+        if (request.empty()) {
+          return std::unexpected("ground request key exceeds its encoding limit");
+        }
+        if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
+        auto demanded = assets->LoadRequest(request);
+        if (!demanded) { return std::unexpected(std::move(demanded.error())); }
+        if (*demanded) {
+          auto key = (**demanded).Key;
+          return GroundRegionPreparation::Completed{.Key = std::move(key),
+                                                    .Loaded = std::move(*demanded),
+                                                    .RequestKey = std::move(request),
+                                                    .RequestHit = true};
+        }
         auto key = assets->Key(*vectors, shape, *native);
         if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
         if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }
         auto loaded = assets->Load(key);
         if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-        return GroundRegionPreparation::Completed{.Key = std::move(key),
-                                                  .Loaded = std::move(*loaded)};
+        if (*loaded) {
+          auto bound = assets->BindRequest(key, request);
+          if (!bound) { return std::unexpected(std::move(bound.error())); }
+        }
+        return GroundRegionPreparation::Completed{
+            .Key = std::move(key), .Loaded = std::move(*loaded), .RequestKey = std::move(request)};
       },
       Phase::Loading);
   return GroundBuildProgress::Pending;
@@ -2089,6 +2117,10 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   }
   auto result = std::move(completed->value());
   const bool hit = state.RegionStatus() == Phase::Loading && result.Loaded.has_value();
+  if (state.RegionStatus() == Phase::Loading) {
+    Published.RecordMetric(
+        "ground region: request cache hit", result.RequestHit ? 1.0 : 0.0, "hit");
+  }
   Published.RecordMetric("ground region: native cache hit", hit ? 1.0 : 0.0, "hit");
   Published.RecordMetric("ground region: worker elapsed", result.WorkerMs, "ms");
   Published.RecordMetric("ground region: native asset bytes",
@@ -2104,7 +2136,7 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundRegion() {
   }
   auto phase = state.RegionStatus() == Phase::Storing ? Phase::Stored : Phase::Miss;
   if (hit) { phase = Phase::Hit; }
-  state.FinishRegion(std::move(result.Key), phase);
+  state.FinishRegion(std::move(result.Key), phase, std::move(result.RequestKey));
   return GroundBuildProgress::Ready;
 }
 
@@ -2361,17 +2393,19 @@ Engine::State::GroundBuildProgress Engine::State::StoreGroundRegion(GroundBuildS
       .GroundAlbedo = state.Candidate().GroundAlbedo(),
       .MissingRims = build.RimsMissing});
   const auto key = state.RegionKey();
+  const auto request = state.RegionRequest();
   const auto water =
       std::make_shared<const Generators::WaterAsset>(state.Candidate().Sources().WaterBodies);
   state.BeginRegion(
       *World.Pool,
-      [assets, region, key, water](const std::stop_token &stop)
+      [assets, region, key, request, water](const std::stop_token &stop)
           -> std::expected<GroundRegionPreparation::Completed, std::string> {
         if (stop.stop_requested()) { return std::unexpected("ground region publication canceled"); }
         const auto bounds = GroundRegionBoundsEcef(*region);
-        auto loaded = assets->Store(key, bounds, *region, *water);
+        auto loaded = assets->Store(key, bounds, *region, *water, request);
         if (!loaded) { return std::unexpected(std::move(loaded.error())); }
-        return GroundRegionPreparation::Completed{.Key = key, .Loaded = std::move(*loaded)};
+        return GroundRegionPreparation::Completed{
+            .Key = key, .Loaded = std::move(*loaded), .RequestKey = request};
       },
       Phase::Storing);
   return GroundBuildProgress::Pending;

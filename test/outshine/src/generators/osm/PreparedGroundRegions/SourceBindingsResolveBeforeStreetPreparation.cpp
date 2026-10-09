@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <string>
 #include <system_error>
+#include <vector>
 
 namespace {
 class NoHeights final : public outshine::GroundQuery {
@@ -28,6 +29,34 @@ public:
 
   double PostM(double) const override { return 1; }
 };
+
+void FreshRequestHit(const std::string &directory,
+                     const outshine::Data::SourceSet &sources,
+                     const std::string &key) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  using Generators::Osm::MvtSchema;
+  using Generators::Osm::PreparedGroundRegions;
+  const auto opened = PreparedGroundRegions::Open(directory, sources, "fixture-rules");
+  CHECK(opened, "fresh service opens without vector, elevation or street preparation");
+  if (!opened) { return; }
+  const Ground::ShapedGround shape;
+  const std::array<uint8_t, 3> parameters{1, 2, 3};
+  const std::array<Ground::TileSpot, 1> inputs{{{.Zoom = 2, .X = 1, .Y = 1}}};
+  const auto request = (*opened)->RequestKey(2, MvtSchema::Shortbread, shape, parameters, inputs);
+  auto hit = (*opened)->LoadRequest(request);
+  CHECK(hit && *hit && (**hit).Key == key && (**hit).Region.Terrain.Sheets.size() == 1 &&
+            (**hit).Region.Terrain.Sheets[0].Nodes == std::vector<float>({100, 101, 102, 103}),
+        "bound demand restores native contacts before any unavailable inputs exist");
+  const auto changed = (*opened)->RequestKey(3, MvtSchema::Shortbread, shape, parameters, inputs);
+  const auto miss = (*opened)->LoadRequest(changed);
+  CHECK(changed != request && miss && !*miss, "different region layout remains a miss");
+  CHECK((*opened)->RequestKey(2, MvtSchema::OpenMapTiles, shape, parameters, inputs) != request,
+        "source schema participates in the source-independent demand");
+  const std::array<Ground::TileSpot, 2> expanded{{inputs[0], {.Zoom = 2, .X = 2, .Y = 1}}};
+  CHECK((*opened)->RequestKey(2, MvtSchema::Shortbread, shape, parameters, expanded) != request,
+        "a partial input layout cannot satisfy the completed region demand");
+}
 }
 
 int main() {
@@ -85,6 +114,12 @@ int main() {
   const auto hit = cache->Load(key);
   CHECK(hit && *hit && (**hit).Region.Terrain.Sheets == region.Terrain.Sheets,
         "a region hit loads native contact pages without a prepared street graph");
+  const std::array<Ground::TileSpot, 1> inputs{{{.Zoom = 2, .X = 1, .Y = 1}}};
+  const auto request =
+      cache->RequestKey(vectors.Zoom(), vectors.Schema(), shape, parameters, inputs);
+  CHECK(cache->BindRequest(key, request),
+        "legacy region gains a demand without package generation");
+  FreshRequestHit(root.string(), sources, key);
   auto changedShape = shape;
   changedShape.Seed = 9;
   const auto changed = cache->Key(vectors, changedShape, parameters);
