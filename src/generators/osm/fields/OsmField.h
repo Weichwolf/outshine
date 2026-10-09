@@ -159,6 +159,10 @@ public:
 
   [[nodiscard]] std::shared_ptr<const OsmField> SnapshotQueries() const;
 
+  [[nodiscard]] std::optional<std::vector<uint8_t>> EncodeNativeTile(size_t bytesMost) const;
+  [[nodiscard]] static std::unique_ptr<OsmField> DecodeNativeTile(std::span<const uint8_t> bytes,
+                                                                  size_t bytesMost);
+
   [[nodiscard]] size_t KeyCount() const { return Keys_.size(); }
 
   [[nodiscard]] std::string_view KeyAt(size_t at) const { return Keys_[at]; }
@@ -185,6 +189,7 @@ public:
   [[nodiscard]] int Extent() const { return Extent_; }
 
 private:
+  struct NativeCodec;
   enum class TagKind : uint8_t { Any, Number, String };
 
   [[nodiscard]] std::optional<MvtLayer::Tag>
