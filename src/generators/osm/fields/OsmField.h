@@ -26,6 +26,7 @@ namespace outshine::Generators::Osm {
 using namespace outshine::Ground;
 
 struct OsmStorageUsage;
+class PreparedOsmTiles;
 
 struct OsmTileWindow {
   int64_t MinX, MaxX, MinY, MaxY;
@@ -62,7 +63,10 @@ public:
     std::string InputDigest;
   };
 
-  OsmField(int zoom, std::span<const std::string> layers, MvtSchema schema = MvtSchema::Shortbread);
+  OsmField(int zoom,
+           std::span<const std::string> layers,
+           MvtSchema schema = MvtSchema::Shortbread,
+           std::shared_ptr<PreparedOsmTiles> prepared = {});
   ~OsmField();
 
   [[nodiscard]] MvtSchema Schema() const noexcept { return Schema_; }
@@ -99,6 +103,8 @@ public:
   [[nodiscard]] int CentreX() const { return CentreX_; }
 
   [[nodiscard]] int CentreY() const { return CentreY_; }
+
+  [[nodiscard]] std::expected<bool, std::string_view> PollTile(TilePool &tiles, TileAt at);
 
   [[nodiscard]] std::expected<int, std::string_view>
   Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
@@ -189,6 +195,7 @@ public:
   [[nodiscard]] int Extent() const { return Extent_; }
 
 private:
+  friend class PreparedOsmTiles;
   struct NativeCodec;
   enum class TagKind : uint8_t { Any, Number, String };
 
@@ -222,6 +229,7 @@ private:
     std::vector<std::optional<MvtLayer>> Layers;
     Data::TileSourceIdentity Source;
     std::string InputDigest;
+    std::shared_ptr<const OsmField> Native = nullptr;
   };
 
   struct AssemblyState;
@@ -229,6 +237,8 @@ private:
   enum class SnapshotStage : uint8_t { Empty, Contact, Complete };
 
   [[nodiscard]] std::expected<Fetched, std::string_view> AddTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] std::expected<Fetched, std::string_view> AddNativeTile(TilePool &tiles, TileAt at);
+  [[nodiscard]] bool AppendNativeTile(const OsmField &tile, OsmStorageUsage &usage);
   [[nodiscard]] std::expected<int, std::string_view>
   AddWindowTiles(TilePool &tiles, OsmTileWindow window, ParseBudget parsing);
   [[nodiscard]] std::expected<void, std::string_view> PublishParsed(const ParsedTile *replacement,
@@ -244,6 +254,8 @@ private:
   [[nodiscard]] bool MatchesDeclaration(std::span<const Declared> input, TileAt over) const;
 
   MvtSchema Schema_;
+  std::shared_ptr<PreparedOsmTiles> Prepared_;
+  std::shared_ptr<const uint8_t> Demand_ = std::make_shared<const uint8_t>(0);
   std::vector<std::string> Layers_;
   std::vector<ParsedTile> ParsedTiles_;
   std::unique_ptr<AssemblyState> Assembly_;

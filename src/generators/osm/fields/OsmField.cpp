@@ -78,8 +78,14 @@ struct OsmField::AssemblyState {
   size_t Next = 0;
 };
 
-OsmField::OsmField(int zoom, std::span<const std::string> layers, MvtSchema schema)
-    : Schema_(schema), Layers_(layers.begin(), layers.end()), Zoom_(zoom) {}
+OsmField::OsmField(int zoom,
+                   std::span<const std::string> layers,
+                   MvtSchema schema,
+                   std::shared_ptr<PreparedOsmTiles> prepared)
+    : Schema_(schema),
+      Prepared_(std::move(prepared)),
+      Layers_(layers.begin(), layers.end()),
+      Zoom_(zoom) {}
 
 OsmField::~OsmField() = default;
 
@@ -201,6 +207,7 @@ std::expected<int, std::string_view> OsmField::Build(
   const auto window = SourceWindow(at, Zoom_, ringTiles, tileBudget);
   if (!window) { return std::unexpected(window.error()); }
   if (CentreX_ != centre->X || CentreY_ != centre->Y) {
+    if (Prepared_) { Demand_ = std::make_shared<const uint8_t>(0); }
     Stage_ = SnapshotStage::Empty;
     Assembly_.reset();
   }
@@ -325,6 +332,7 @@ std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
 }
 
 std::expected<OsmField::Fetched, std::string_view> OsmField::AddTile(TilePool &tiles, TileAt at) {
+  if (Prepared_) { return AddNativeTile(tiles, at); }
   const Data::Fetch request(Data::DataKind::VectorMap,
                             Data::Address::At(Data::TileId{.Zoom = Zoom_,
                                                            .X = static_cast<uint32_t>(at.X),
@@ -542,6 +550,7 @@ std::expected<bool, std::string_view> OsmField::AdvanceAssembly() {
 }
 
 bool OsmField::AppendParsedTile(const ParsedTile &tile, OsmStorageUsage &usage) {
+  if (tile.Native) { return AppendNativeTile(*tile.Native, usage); }
   if (!FitsNativeStorage(usage, tile.Layers)) { return false; }
   const size_t first = Features_.size();
   Tiles_.push_back(Tile{.Z = Zoom_,
@@ -669,6 +678,7 @@ size_t OsmField::HeapBytes() const {
     parsed += tile.Source.SourceId.capacity() + tile.Source.Revision.capacity() +
               tile.InputDigest.capacity();
     parsed += tile.LayerBytes;
+    if (tile.Native) { parsed += tile.Native->HeapBytes(); }
   }
 
   const size_t nodes = (KeyIndex_.size() + StringIndex_.size()) *
