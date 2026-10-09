@@ -1,3 +1,4 @@
+#include "ScenarioJson.h"
 #include "CommandLine.h"
 #include "CostReport.h"
 #include "ProcessBoundary.h"
@@ -175,13 +176,15 @@ void Usage(std::string_view verb = {}) {
   } else if (verb == "run" || verb == "measures") {
     std::println(
         "Usage: outshine-client {} [options] <scenario> [name]\n"
+        "  scenario                        XML/JSON file path or complete inline JSON object\n"
+        "  --scenario-overrides <json>     override scenario fields with one JSON object\n"
         "  --view <id>                     capture this declared camera\n"
         "  --at-seconds <s>                nonnegative scenario time; requires --view\n"
         "  --motion                        render every paced tick; requires view and time\n"
         "  --samples                       save route-decile PNGs; requires --motion\n"
         "  --quality playable|refined      minimum final capture quality (default playable)\n"
         "  --into <folder>                 relative to build/shots/ (default khronos)\n"
-        "  --cache-dir <directory>         default SDL user-data directory/sources\n"
+        "  --cache-dir <directory>         default user-data directory/sources\n"
         "  --offline                       use only cached and shipped sources\n"
         "  --rows                          machine-readable capture rows\n"
         "  --stats                         timing, readiness and source STAT rows\n"
@@ -196,8 +199,9 @@ void Usage(std::string_view verb = {}) {
         verb);
   } else if (verb == "shots") {
     std::println("Usage: outshine-client shots [options] [--all | <place> ...]\n"
+                 "  --scenario-overrides <json>     override selected place scenarios\n"
                  "  --preload-seconds <seconds>     positive preparation timeout, default 10\n"
-                 "  --cache-dir <directory>         default SDL user-data directory/sources\n"
+                 "  --cache-dir <directory>         default user-data directory/sources\n"
                  "  --offline                       use only cached and shipped sources\n"
                  "  --audit                         run image audit\n"
                  "  --measures                      print engine diagnostic samples\n"
@@ -393,15 +397,10 @@ void ReportShot(const Shot &shot,
   }
 }
 
-int TakeShots(std::span<const Place> places, int argc, const char *const *argv) {
+int TakeShots(std::span<const Place> places,
+              std::span<const char *const> arguments,
+              const outshine::Client::ShotOptions &options) {
   std::vector<const Place *> taking;
-  const std::span<const char *const> arguments(argv, static_cast<size_t>(argc));
-  const auto parsed = outshine::Client::ReadShotOptions(arguments);
-  if (!parsed) {
-    std::println(stderr, "outshine-client: {}", parsed.error());
-    return 2;
-  }
-  const auto &options = *parsed;
   outshine::Shots::Audits = options.Audit;
   gTelling.TracePreload(options.Stats);
   const auto names = arguments.subspan(options.FirstPlace);
@@ -442,6 +441,7 @@ struct ScenarioRunOptions {
   std::string_view CacheDirectory = outshine::Client::kDefaultCacheDirectory;
   std::string Into = "khronos";
   std::string_view SelectedView;
+  std::string_view ScenarioOverrides;
   double AtS = 0.0;
   bool RenderMotion = false;
   bool SampleImages = false;
@@ -542,6 +542,14 @@ ReadRunPath(std::string_view flag, const char *value, ScenarioRunOptions &option
 
 [[nodiscard]] std::expected<bool, int>
 ReadRunValue(std::string_view flag, const char *value, ScenarioRunOptions &options, bool &hasTime) {
+  if (flag == "--scenario-overrides") {
+    const auto read = outshine::Client::ReadScenarioOverrides(value, options.ScenarioOverrides);
+    if (!read) {
+      std::println(stderr, "outshine-client: {}", read.error());
+      return std::unexpected(2);
+    }
+    return true;
+  }
   if (flag == "--cache-dir") {
     if (value == nullptr || !outshine::Client::ValidCacheDirectory(value)) {
       std::println(stderr, "outshine-client: --cache-dir requires a nonempty directory");
@@ -736,17 +744,21 @@ int CaptureView(outshine::Engine &engine,
   if (!InitializeClientEngine(engine, {}, ClientRoots(options.CacheDirectory, options.Offline))) {
     return 2;
   }
-  if (const auto read = engine.readScenario(options.Argv[0]); !read) {
-    std::println("outshine-client: {} -- {}", options.Argv[0], read.error());
+  const std::string_view sourceName =
+      outshine::IsJsonScenario(options.Argv[0]) ? "inline scenario" : options.Argv[0];
+  outshine::Engine reader;
+  if (const auto rooted = reader.setRoots(ClientRoots(options.CacheDirectory, options.Offline));
+      !rooted) {
+    std::println("outshine-client: {} -- {}", sourceName, rooted.error());
     return 1;
   }
-  auto declaration = engine.declaration();
+  if (const auto read = reader.readScenario(options.Argv[0], options.ScenarioOverrides); !read) {
+    std::println("outshine-client: {} -- {}", sourceName, read.error());
+    return 1;
+  }
+  auto declaration = reader.declaration();
   if (const auto sources = outshine::Client::ConfigureWorldSources(declaration); !sources) {
-    std::println("outshine-client: {} -- {}", options.Argv[0], sources.error());
-    return 1;
-  }
-  if (const auto declared = engine.declare(declaration); !declared) {
-    std::println("outshine-client: {} -- {}", options.Argv[0], declared.error());
+    std::println("outshine-client: {} -- {}", sourceName, sources.error());
     return 1;
   }
   if (options.ProbePixel) {
@@ -755,7 +767,7 @@ int CaptureView(outshine::Engine &engine,
       return 1;
     }
   }
-  outshine::Extent frame = engine.declaration().Render.Frame;
+  outshine::Extent frame = declaration.Render.Frame;
   if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
     frame = {.WidthPx = outshine::Shots::kWidePx, .HeightPx = outshine::Shots::kHighPx};
   }
@@ -768,8 +780,12 @@ int CaptureView(outshine::Engine &engine,
     std::println("outshine-client: {}", targeted.error());
     return 1;
   }
+  if (const auto declared = engine.declare(declaration); !declared) {
+    std::println("outshine-client: {} -- {}", sourceName, declared.error());
+    return 1;
+  }
   if (const auto assembled = engine.assemble(); !assembled) {
-    std::println("outshine-client: {} did not assemble -- {}", options.Argv[0], assembled.error());
+    std::println("outshine-client: {} did not assemble -- {}", sourceName, assembled.error());
     return 1;
   }
   return 0;
@@ -900,10 +916,10 @@ constexpr auto kHeightCoordinates =
 }
 
 std::expected<std::vector<Place>, std::string>
-LoadCommandPlaces(const outshine::Client::CommandLine &command) {
+LoadCommandPlaces(const outshine::Client::CommandLine &command, std::string_view overrides) {
   if (command.Verb == "shots" || command.Verb == "prepare" || command.Verb == "places" ||
       command.Verb == "roundtrip") {
-    return outshine::Shots::LoadPlaces(command.Directory);
+    return outshine::Shots::LoadPlaces(command.Directory, overrides);
   }
   return std::vector<Place>{};
 }
@@ -941,13 +957,22 @@ int RunClientCommand(std::span<const char *const> arguments) {
     Usage(*help);
     return 0;
   }
-  auto loaded = LoadCommandPlaces(*command);
+  outshine::Client::ShotOptions shotOptions;
+  if (verb == "shots") {
+    const auto parsed = outshine::Client::ReadShotOptions(command->Arguments);
+    if (!parsed) {
+      std::println(stderr, "outshine-client: {}", parsed.error());
+      return 2;
+    }
+    shotOptions = *parsed;
+  }
+  auto loaded = LoadCommandPlaces(*command, shotOptions.ScenarioOverrides);
   if (!loaded) {
     std::println(stderr, "outshine-client: {}", loaded.error());
     return 1;
   }
   const auto &places = *loaded;
-  if (verb == "shots") { return TakeShots(places, rest, from); }
+  if (verb == "shots") { return TakeShots(places, command->Arguments, shotOptions); }
   if (verb == "prepare" && rest == 2) {
     const auto *place = outshine::Shots::PlaceNamed(places, from[0]);
     char *end = nullptr;

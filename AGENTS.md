@@ -50,7 +50,8 @@
   Provider sind optional. Erweiterungen besitzen ihre Quellsemantik; OSM gehört zu generators/osm.
   Engine koordiniert; world bleibt eine generische 3D-Welt, Render/Audio konsumieren native Produkte.
 - Builtins und externe Erweiterungen nutzen dieselbe öffentliche API. API-Änderungen migrieren
-  alle Aufrufer. Szenarien deklarieren Inhalte/Kamera; keine versteckten Inhalts-CLI-Sonderwege.
+  alle Aufrufer. Szenarien deklarieren Inhalte/Kamera; keine einzelnen CLI-Inhaltsschalter.
+  Der Client nimmt ein Szenario oder generische Szenario-Overrides entgegen.
   Konkrete Verträge besitzt 2188; sie werden mit einem echten Feature integriert.
 - Rundum-Abdeckung bleibt renderbereit. Drehung ändert Sichtbarkeit, Bewegung ergänzt Bedarf.
   Unveränderte Inhalte werden nicht neu erzeugt. Detailbedarf vor teurer Arbeit bestimmen;

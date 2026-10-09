@@ -111,9 +111,10 @@ PlaceViewIndex(std::span<const Scenario::View> views) {
   return selected;
 }
 
-[[nodiscard]] std::expected<Place, std::string> ReadPlace(const std::filesystem::path &path) {
+[[nodiscard]] std::expected<Place, std::string> ReadPlace(const std::filesystem::path &path,
+                                                          std::string_view overrides) {
   Engine reader;
-  if (const auto read = reader.readScenario(path.string()); !read) {
+  if (const auto read = reader.readScenario(path.string(), overrides); !read) {
     return std::unexpected(path.string() + ": " + read.error());
   }
   const auto &declared = reader.declaration();
@@ -160,13 +161,14 @@ PlaceViewIndex(std::span<const Scenario::View> views) {
 
 }
 
-std::expected<std::vector<Place>, std::string> LoadPlaces(const std::filesystem::path &directory) {
+std::expected<std::vector<Place>, std::string> LoadPlaces(const std::filesystem::path &directory,
+                                                          std::string_view overrides) {
   const auto paths = PlaceFiles(directory);
   if (!paths) { return std::unexpected(paths.error()); }
   std::vector<Place> places;
   places.reserve(paths->size());
   for (const auto &path : *paths) {
-    auto place = ReadPlace(path);
+    auto place = ReadPlace(path, overrides);
     if (!place) { return std::unexpected(place.error()); }
     places.push_back(std::move(*place));
   }

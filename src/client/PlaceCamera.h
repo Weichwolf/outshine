@@ -71,7 +71,7 @@ struct Shot {
                         std::span<const Scenario::View> turn = {});
 
 [[nodiscard]] std::expected<std::vector<Place>, std::string>
-LoadPlaces(const std::filesystem::path &directory);
+LoadPlaces(const std::filesystem::path &directory, std::string_view overrides = {});
 [[nodiscard]] const Place *PlaceNamed(std::span<const Place> places, std::string_view name);
 [[nodiscard]] double VariationAlongRows(std::span<const std::uint8_t> rgba, int wide, int high);
 

@@ -126,6 +126,24 @@ class Coordinates(unittest.TestCase):
             self.assertIn('--probe-pixel requires nonnegative integer x,y', result.stderr)
             self.assertNotIn('SDL', result.stdout + result.stderr)
 
+    def test_scenario_overrides_use_one_generic_option(self):
+        env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
+        for verb in ('run', 'shots'):
+            for arguments in (('--scenario-overrides',),
+                              ('--scenario-overrides', '[]'),
+                              ('--scenario-overrides', ''),
+                              ('--scenario-overrides', '{}', '--scenario-overrides', '{}')):
+                result = subprocess.run([str(CLIENT), verb, *arguments], cwd=ROOT, env=env,
+                                        capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('--scenario-overrides requires one JSON object', result.stderr)
+                self.assertNotIn('SDL', result.stdout + result.stderr)
+        accepted = subprocess.run([str(CLIENT), 'run', '--scenario-overrides',
+                                   '{"world":{"vegetation":false}}', '{}'], cwd=ROOT, env=env,
+                                  capture_output=True, text=True, timeout=10)
+        self.assertEqual(accepted.returncode, 2)
+        self.assertIn('SDL did not start', accepted.stdout)
+
     def test_capture_quality_is_explicit_before_pixel_diagnostics(self):
         env = dict(os.environ, SDL_VIDEODRIVER='outshine-intentionally-unavailable')
         base = [str(CLIENT), 'run', '--view', 'lap', '--at-seconds', '1']

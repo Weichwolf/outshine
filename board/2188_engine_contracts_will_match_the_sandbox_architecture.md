@@ -13,6 +13,8 @@ Tags: extension, ownership, integration
 Ein öffentlicher Erweiterungsvertrag führt Provider/Generatoren bis in die native Welt.
 ProviderRegistry, Generator::make, Geometry/Material und kamera-relative Darstellung bestehen.
 Dichte GPU-Farbbereiche und ein gemeinsamer Placement-Vertrag für Darstellung/Culling bestehen.
+XML-/JSON-Dateien, vollständiges Inline-JSON und partielle JSON-Overrides teilen den
+öffentlichen Szenariolader und Validator; Overrides gelten auch für Places.
 Straßenfachplanung/native Netzassets und die Gebäude-Quellaufbereitung liegen in generators/osm;
 Engine führt Worker/Publikation. POI-Verknüpfung und Gebäuderezepte bleiben in dieser Erweiterung.
 Cachetreffer umgehen Layout/Verknüpfung/Profilierung; dieselben AssetCache/ResolveAsset-Dienste laden.
@@ -46,17 +48,23 @@ Derselbe öffentliche Vertrag lädt sie nach räumlicher/LOD-Auswahl: Frustum od
    Gemeinsamer Bedarf aus 2336 wählt native Eltern/Kinder vor Provideranforderungen, einschließlich
    Höhen-/Audio-/Kontaktnebenpfaden. Erweiterungen liefern Bounds/Unsicherheit/Produktbezug;
    world kennt keine DEM-/OSM-Tags. Räumlicher Assetindex bleibt generatorunabhängig.
-2. Fachliche Vorbereitung aus Engine/SurfacePreparation zur verantwortlichen Erweiterung
+2. Szenario-Datei oder vollständiges Inline-JSON plus optionale JSON-Overrides über denselben
+   Lader/Validator führen. JSON bildet die vorhandenen Sektionen ab; Objekte ergänzen,
+   Arrays ersetzen, null entfernt. Overrides bestimmen Layerwahl und anschließend das
+   vollständige Ergebnis. Client-Inhaltsschalter entfallen; Kamera-/Messbefehle bleiben.
+   Dateipfade relativ zur Quelldatei, Inline-Layer relativ zum Shipped-Verzeichnis auflösen.
+   Neue Inhaltsparameter gehören zum jeweiligen Fach-WI und werden hier generisch übernommen.
+3. Fachliche Vorbereitung aus Engine/SurfacePreparation zur verantwortlichen Erweiterung
    führen. OSM/XML/MVT zu generators/osm, Höhen-/Wetterdecoder zu ihren Erweiterungen.
    Private Sonderaufrufe beim Anschluss entfernen, statt einen Wrapper darüberzulegen.
-3. Gemeinsame native Assets/Instanzen/Netze behalten; Szenario und glTF münden in dieselben
+4. Gemeinsame native Assets/Instanzen/Netze behalten; Szenario und glTF münden in dieselben
    Produkte. Weltbezug ist allgemein; Geodäsie ein Adapter. Double-Welt → kamera-relative
    Floats, rechtshändig Y-up/CCW; Render/Audio/Kontakte teilen denselben Ursprung.
-4. Ein begrenzter Compute-Worker, paralleles IO, Render-/Audiothreads mit klarer Ownership.
+5. Ein begrenzter Compute-Worker, paralleles IO, Render-/Audiothreads mit klarer Ownership.
    Vorbereitung → fertiges Produkt → atomare Veröffentlichung/Freigabe. Abbruch und
    explizite Input-/Parameterwechsel schützen laufende Jobs; Cache-Vertrag ausschließlich 2280.
    Große unveränderte Snapshots teilen, keine Weltkopie für ein lokales Produkt.
-5. Öffentlicher WeatherSnapshot für 2172 enthält Ort/Höhe/UTC, Einheiten, bekannte/fehlende
+6. Öffentlicher WeatherSnapshot für 2172 enthält Ort/Höhe/UTC, Einheiten, bekannte/fehlende
    Felder und Herkunft. Spätere Commands/Physik/Persistenz gehören zu 2136, nicht in diesen Umbau.
 
 ## Kompakte native Renderprodukte

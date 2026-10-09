@@ -45,6 +45,17 @@ int main() {
   }
   const char *all[] = {"--all"};
   CHECK(ReadShotOptions(all) && ReadShotOptions(all)->All, "explicit all selection supported");
+  const char *overrides[] = {"--scenario-overrides", "{\"world\":{\"vegetation\":false}}", "Wien"};
+  const auto overridden = ReadShotOptions(overrides);
+  CHECK(overridden && overridden->FirstPlace == 2 && overridden->ScenarioOverrides == overrides[1],
+        "scenario overrides remain borrowed and preserve place selection");
+  for (const char *bad : {"", "[]", "--offline"}) {
+    const char *arguments[] = {"--scenario-overrides", bad};
+    CHECK(!ReadShotOptions(arguments), "override option requires a JSON object");
+  }
+  const char *duplicate[] = {"--scenario-overrides", "{}", "--scenario-overrides", "{}"};
+  CHECK(!ReadShotOptions(duplicate),
+        "duplicate override arguments do not silently replace each other");
   const char *ambiguous[] = {"--all", "Wien"};
   CHECK(!ReadShotOptions(ambiguous), "all does not silently discard trailing arguments");
   for (const char *bad : {"", "--offline"}) {

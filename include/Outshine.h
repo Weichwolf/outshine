@@ -488,18 +488,21 @@ public:
   /// @return Success or an owned preparation/buffer error; never performs implicit setup.
   [[nodiscard]] Result mix(std::span<float> stereo);
 
-  /// Read a scenario file and selected layer files, then pass the owned result to declare().
-  /// Relative layer paths resolve against the scenario file's directory. The path is borrowed
+  /// Read XML/JSON from a file or an inline JSON object, resolve layers, then declare it.
+  /// Relative layers resolve against the file directory, or Roots::Shipped for inline JSON.
+  /// JSON overrides merge objects, replace arrays and remove null members. They select layers
+  /// before resolution and take final precedence afterward. Source and overrides are borrowed
   /// only during this call and must contain no embedded NUL. Synchronous file IO and allocation;
-  /// the scenario and selected layer files together are limited to 16 MiB of input bytes.
+  /// source, overrides and selected layer files together are limited to 16 MiB of input bytes.
   /// Successfully resolved layer references are consumed; the owned declaration is a flattened
   /// snapshot. Exporting and reloading it does not read or apply the source layers again.
   /// Call on the Engine/video thread outside frames.
   /// Parsing failure preserves the active declaration but may update layer diagnostics;
   /// declaration failure has declare()'s partial-state guarantee.
-  /// @param path Filesystem path to the scenario document.
+  /// @param source File path, or inline JSON beginning with an object/array delimiter.
+  /// @param overrides Optional JSON object overriding scenario values.
   /// @return Success or an owned IO, parsing or declaration error.
-  [[nodiscard]] Result readScenario(std::string_view path);
+  [[nodiscard]] Result readScenario(std::string_view source, std::string_view overrides = {});
 
   /// Serialize the owned declaration, not the current simulated state; synchronous allocation,
   /// no file IO. Call on the Engine/video thread outside frames. Temporary table preparation
@@ -676,7 +679,8 @@ private:
 
   friend class SwapChain;
   struct State;
-  [[nodiscard]] bool readScenarioInto(std::string_view path, Scenario::Document &out);
+  [[nodiscard]] bool
+  readScenarioInto(std::string_view source, Scenario::Document &out, std::string_view overrides);
   void ships();
   std::unique_ptr<State> S_;
 };
