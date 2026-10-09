@@ -49,15 +49,20 @@ public:
 
   void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
     Declared_.assign(these.begin(), these.end());
+    Restored_.reset();
   }
 
-  void SetVegetation(const VegetationTemplates *veg) { Veg_ = veg; }
+  void SetVegetation(const VegetationTemplates *veg) {
+    if (Veg_ != veg) { Restored_.reset(); }
+    Veg_ = veg;
+  }
 
   void SetVectorSource(
       bool available,
       Generators::Osm::MvtSchema schema = Generators::Osm::MvtSchema::Shortbread) noexcept {
     HasVectorSource_ = available;
     VectorSchema_ = schema;
+    Restored_.reset();
   }
 
   [[nodiscard]] std::unique_ptr<Generators::Osm::OsmField> CreateField(int zoom) const;
@@ -66,6 +71,8 @@ public:
 
   void Open(double lat, double lon, Tasks &compute);
   void Close();
+
+  [[nodiscard]] bool Restore(std::shared_ptr<const ClassStructure> classes);
 
   [[nodiscard]] std::expected<void, std::string_view> Update(TilePool &tiles, LongitudeLatitude at);
 
@@ -121,6 +128,7 @@ public:
   }
 
   int PendingTiles() const {
+    if (Restored_) { return 0; }
     return Fine_.Field ? Fine_.Field->PendingTiles() + Coarse_.Field->PendingTiles() : -1;
   }
 
@@ -226,6 +234,7 @@ private:
 
   mutable std::mutex Mu_;
   Publication Published_;
+  std::shared_ptr<const ClassStructure> Restored_;
 
   TangentFrame Frame_;
   Vec2 Cam_ = {{0, 0}};

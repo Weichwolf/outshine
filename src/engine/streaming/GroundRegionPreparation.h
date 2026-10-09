@@ -28,6 +28,7 @@ public:
   GroundRegionPreparation(const GroundRegionPreparation &) = delete;
   GroundRegionPreparation &operator=(const GroundRegionPreparation &) = delete;
   [[nodiscard]] std::optional<std::expected<Completed, std::string>> Collect();
+  [[nodiscard]] const std::expected<Completed, std::string> *Peek() const noexcept;
 
 private:
   struct Work;

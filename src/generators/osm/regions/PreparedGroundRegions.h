@@ -39,6 +39,13 @@ public:
 
   [[nodiscard]] static std::expected<std::shared_ptr<PreparedGroundRegions>, std::string>
   Open(const std::string &directory, const Data::SourceSet &sources, std::string_view rules);
+  [[nodiscard]] std::expected<std::string, std::string>
+  PlanRequest(LongitudeLatitude focus,
+              int zoom,
+              MvtSchema schema,
+              int ring,
+              const ::outshine::Ground::ShapedGround &shape,
+              std::span<const uint8_t> parameters) const;
   [[nodiscard]] std::string RequestKey(int zoom,
                                        MvtSchema schema,
                                        const ::outshine::Ground::ShapedGround &shape,

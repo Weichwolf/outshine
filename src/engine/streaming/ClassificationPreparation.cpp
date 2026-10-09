@@ -76,7 +76,24 @@ void ClassificationPreparation::Close() {
   }
   const std::scoped_lock lock(Mu_);
   Published_ = {};
+  Restored_.reset();
   Opened_ = false;
+}
+
+bool ClassificationPreparation::Restore(std::shared_ptr<const ClassStructure> classes) {
+  if (!Opened_ || !classes || Submitted_ || Fine_.Field || Coarse_.Field ||
+      classes->Frame().OriginEcef().Axis != Frame_.OriginEcef().Axis) {
+    return false;
+  }
+  const auto fits = [](const ClassStructure::Grid &grid, const Tier &tier) {
+    return grid.W == 2 * tier.HalfCells && grid.H == grid.W && grid.CellM == tier.CellM;
+  };
+  if (!fits(classes->Fine(), Fine_) || !fits(classes->Coarse(), Coarse_)) { return false; }
+  const std::scoped_lock lock(Mu_);
+  Restored_ = std::move(classes);
+  Published_ = {.Classes = Restored_,
+                .Upload = std::make_shared<const Render::GroundClassBuffer>(*Restored_)};
+  return true;
 }
 
 void ClassificationPreparation::Tier::Settle() {
@@ -274,7 +291,8 @@ bool ClassificationPreparation::SubmitDue(double camE, double camN) {
 }
 
 bool ClassificationPreparation::HasSourceRequests() const noexcept {
-  return Opened_ && Veg_ != nullptr && Veg_->Ready() && HasVectorSource_ && Declared_.empty();
+  return Opened_ && !Restored_ && Veg_ != nullptr && Veg_->Ready() && HasVectorSource_ &&
+         Declared_.empty();
 }
 
 std::expected<void, std::string_view> ClassificationPreparation::Update(TilePool &tiles,
@@ -284,6 +302,20 @@ std::expected<void, std::string_view> ClassificationPreparation::Update(TilePool
   const auto coarse = ::outshine::Generators::Osm::OsmField::Locate(at, Coarse_.Zoom);
   if (!coarse) { return std::unexpected(coarse.error()); }
   if (!Opened_ || (Veg_ == nullptr) || !Veg_->Ready()) { return {}; }
+
+  if (Restored_) {
+    const EastNorth cam = Project(at);
+    Cam_[0] = cam.EastM;
+    Cam_[1] = cam.NorthM;
+    const auto covers = [cam](const ClassStructure::Grid &grid, const Tier &tier) {
+      return std::fabs(cam.EastM - (grid.OrgE + tier.HalfCells * grid.CellM)) <= tier.SlackM &&
+             std::fabs(cam.NorthM - (grid.OrgN + tier.HalfCells * grid.CellM)) <= tier.SlackM;
+    };
+    if (covers(Restored_->Fine(), Fine_) && covers(Restored_->Coarse(), Coarse_)) { return {}; }
+    const std::scoped_lock lock(Mu_);
+    Restored_.reset();
+    Published_ = {};
+  }
 
   if (!Fine_.Field) {
     Fine_.Field = CreateField(Fine_.Zoom);
@@ -352,6 +384,7 @@ void ClassificationPreparation::CollectFinished() {
 }
 
 bool ClassificationPreparation::Complete() const {
+  if (Opened_ && Restored_) { return true; }
   return Opened_ && Fine_.Field && Coarse_.Field && Fine_.Field->PendingTiles() == 0 &&
          Coarse_.Field->PendingTiles() == 0 && Fine_.Have && Coarse_.Have && !Fine_.Stale &&
          !Coarse_.Stale && !Submitted_;

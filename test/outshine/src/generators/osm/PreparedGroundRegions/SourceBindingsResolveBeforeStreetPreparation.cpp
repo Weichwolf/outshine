@@ -44,6 +44,13 @@ void FreshRequestHit(const std::string &directory,
   const std::array<uint8_t, 3> parameters{1, 2, 3};
   const std::array<Ground::TileSpot, 1> inputs{{{.Zoom = 2, .X = 1, .Y = 1}}};
   const auto request = (*opened)->RequestKey(2, MvtSchema::Shortbread, shape, parameters, inputs);
+  const auto planned = (*opened)->PlanRequest(
+      {.LongitudeDeg = -45, .LatitudeDeg = 40}, 2, MvtSchema::Shortbread, 0, shape, parameters);
+  CHECK(planned && *planned == request,
+        "a planned address finds the same product without reading vector fields");
+  CHECK(!(*opened)->PlanRequest({}, -1, MvtSchema::Shortbread, 0, shape, parameters) &&
+            !(*opened)->PlanRequest({}, 2, MvtSchema::Shortbread, -1, shape, parameters),
+        "invalid planned demands fail before source access");
   auto hit = (*opened)->LoadRequest(request);
   CHECK(hit && *hit && (**hit).Key == key && (**hit).Region.Terrain.Sheets.size() == 1 &&
             (**hit).Region.Terrain.Sheets[0].Nodes == std::vector<float>({100, 101, 102, 103}),

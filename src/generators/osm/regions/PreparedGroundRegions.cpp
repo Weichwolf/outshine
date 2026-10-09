@@ -141,6 +141,27 @@ PreparedGroundRegions::RequestKey(int zoom,
   return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }
 
+std::expected<std::string, std::string>
+PreparedGroundRegions::PlanRequest(LongitudeLatitude focus,
+                                   int zoom,
+                                   MvtSchema schema,
+                                   int ring,
+                                   const ::outshine::Ground::ShapedGround &shape,
+                                   std::span<const uint8_t> parameters) const {
+  constexpr size_t tilesMost = 8192;
+  const auto window = OsmField::SourceWindow(focus, zoom, ring, tilesMost);
+  if (!window) { return std::unexpected(std::string(window.error())); }
+  std::vector<::outshine::Ground::TileSpot> tiles;
+  for (int64_t y = window->MinY; y <= window->MaxY; ++y) {
+    for (int64_t x = window->MinX; x <= window->MaxX; ++x) {
+      tiles.push_back({.Zoom = zoom, .X = static_cast<uint32_t>(x), .Y = static_cast<uint32_t>(y)});
+    }
+  }
+  auto key = RequestKey(zoom, schema, shape, parameters, tiles);
+  if (key.empty()) { return std::unexpected("ground request key exceeds its encoding limit"); }
+  return key;
+}
+
 std::expected<std::optional<PreparedGroundRegions::Loaded>, std::string>
 PreparedGroundRegions::LoadRequest(const std::string &requestKey) {
   const std::scoped_lock lock(Lock_);

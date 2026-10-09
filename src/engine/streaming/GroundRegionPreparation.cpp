@@ -49,4 +49,10 @@ GroundRegionPreparation::Collect() {
   Work_->Result.reset();
   return result;
 }
+
+const std::expected<GroundRegionPreparation::Completed, std::string> *
+GroundRegionPreparation::Peek() const noexcept {
+  if (!Work_->Complete.load(std::memory_order_acquire) || !Work_->Result) { return nullptr; }
+  return &*Work_->Result;
+}
 }
