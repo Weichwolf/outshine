@@ -113,6 +113,14 @@ public:
   /// @return Metadata, a miss, or an input/storage error; performs indexed metadata IO only.
   [[nodiscard]] std::expected<std::optional<AssetRecord>, AssetCacheError>
   FindRequest(std::string_view requestKey) const;
+  /// Bind an indexed product to a demand without reading or rewriting its package.
+  /// Atomically replace the demand's previous product and this product's previous demand.
+  /// Package integrity remains checked by Load; serialize access as for Publish.
+  /// @param key Existing SHA-256 product identity.
+  /// @param requestKey SHA-256 demand identity, independent of unavailable source digests.
+  /// @return True when bound, false for an absent product, or an input/storage error.
+  [[nodiscard]] std::expected<bool, AssetCacheError> BindRequest(std::string_view key,
+                                                                 std::string_view requestKey);
   /// Load and validate the whole package within packageBytesMost; corrupt or absent data is a miss.
   /// @param key Product identity; 64 lowercase hexadecimal characters.
   /// @param packageBytesMost Maximum whole-package allocation in bytes, not just this slice.

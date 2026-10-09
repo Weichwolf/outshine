@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <utility>
 #include <zlib.h>
 
 namespace outshine {
@@ -196,6 +197,38 @@ std::expected<void, AssetCacheError> AssetCache::Remove(std::string_view key) {
     if (code != SQLITE_DONE) { return std::unexpected(AssetSql::Error(code)); }
   }
   return transaction.Commit();
+}
+
+std::expected<bool, AssetCacheError> AssetCache::BindRequest(std::string_view key,
+                                                             std::string_view requestKey) {
+  if (!AssetSql::ValidKey(key) || !AssetSql::ValidKey(requestKey)) {
+    return std::unexpected(AssetCacheError::InvalidInput);
+  }
+  auto began = AssetSql::Exec(State_->Database, "BEGIN IMMEDIATE");
+  if (!began) { return std::unexpected(began.error()); }
+  Transaction transaction(State_->Database);
+  auto found = Find(key);
+  if (!found) { return std::unexpected(found.error()); }
+  if (!*found) { return false; }
+  auto record = std::move(**found);
+  record.RequestKey = std::string(requestKey);
+  AssetSql::Statement previous;
+  auto prepared =
+      AssetSql::Prepare(State_->Database,
+                        "UPDATE assets SET request_key='' WHERE request_key=? AND key<>?",
+                        previous);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  auto rebound = RebindRequest(previous.Value, record);
+  if (!rebound) { return std::unexpected(rebound.error()); }
+  AssetSql::Statement target;
+  prepared =
+      AssetSql::Prepare(State_->Database, "UPDATE assets SET request_key=? WHERE key=?", target);
+  if (!prepared) { return std::unexpected(prepared.error()); }
+  rebound = RebindRequest(target.Value, record);
+  if (!rebound) { return std::unexpected(rebound.error()); }
+  auto committed = transaction.Commit();
+  if (!committed) { return std::unexpected(committed.error()); }
+  return true;
 }
 
 }
