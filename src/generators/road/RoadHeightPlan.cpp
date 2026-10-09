@@ -4,6 +4,12 @@
 #include <cmath>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <limits>
+#include <span>
+#include <string_view>
+#include <vector>
 #include <functional>
 #include <numeric>
 #include <queue>
@@ -11,6 +17,8 @@
 
 namespace outshine::Generators {
 namespace {
+
+constexpr double kContactToleranceM = 1e-8;
 
 struct Neighbor {
   uint32_t Node = 0;
@@ -42,10 +50,12 @@ Neighbors Connect(size_t nodes, std::span<const RoadHeightLink> links) {
   auto next = out.First;
   for (const auto &link : links) {
     const double difference = link.FirstOffsetM - link.SecondOffsetM;
-    out.Connected[next[link.First]++] = {
-        link.Second, link.MaximumRiseM + difference, link.MaximumRiseM - difference};
-    out.Connected[next[link.Second]++] = {
-        link.First, link.MaximumRiseM - difference, link.MaximumRiseM + difference};
+    out.Connected[next[link.First]++] = {.Node = link.Second,
+                                         .RiseM = link.MaximumRiseM + difference,
+                                         .ReverseRiseM = link.MaximumRiseM - difference};
+    out.Connected[next[link.Second]++] = {.Node = link.First,
+                                          .RiseM = link.MaximumRiseM - difference,
+                                          .ReverseRiseM = link.MaximumRiseM + difference};
   }
   return out;
 }
@@ -124,7 +134,7 @@ PlanRoadHeights(std::span<const RoadHeightNode> nodes, std::span<const RoadHeigh
   if (!ceiling) { return std::unexpected(ceiling.error()); }
   RoadHeightPlan plan;
   for (size_t at = 0; at < nodes.size(); ++at) {
-    if (-(*floor)[at] > (*ceiling)[at] + 1e-8) {
+    if (-(*floor)[at] > (*ceiling)[at] + kContactToleranceM) {
       return std::unexpected("road contacts conflict with the permitted gradients");
     }
     plan.MaximumAdjustmentM = std::max({plan.MaximumAdjustmentM,
