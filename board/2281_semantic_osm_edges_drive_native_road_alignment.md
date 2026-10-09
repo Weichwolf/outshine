@@ -14,9 +14,15 @@ Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel stimmen in Form und Netzf
 Aktueller Schwerpunkt: sichtbare Netzfehler in Wien, anschließend schwierige selbst gewählte
 POIs in Feldkirch, Flensburg, Husum, Tokyo und Central Park. Neueste Bilder bleiben in shots/places.
 Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen.
+Mesher und Terrainkontakt teilen den vollständigen Anschlussumriss; Zweigverbindungen
+dürfen keine Straßenränder durch ein Dreieck verlieren. Seitenflächen nutzen Kantennormalen.
+Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
+Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen.
 Places nutzen überwiegend polygonale Kontakte; Hermite-Kontaktprofile und adaptive
 Nahfahrbahnen sind dort noch nicht integriert. Brückenanschlüsse sind verbessert, das Netz
 hat weiterhin falsche Profile/Übergänge. Vorhandene Straßenqualität bleibt erhalten.
+Lokale Straßenverfeinerung berücksichtigt bisher nur benannte Rundkurse; Places benötigen
+den allgemeinen nativen Straßenbestand, nach Kameraabstand und Kontaktfehler ausgewählt.
 OpenMapTiles `class=rail` muss als kanonisches `kind=rail` das Schienenrezept erreichen;
 die falsche Umbenennung zu `railway` verwarf gelieferte Linien. Native Tile-/Region-Rezepte
 werden versioniert, damit Treffer die korrigierte Semantik enthalten; Quellen bleiben erhalten.
@@ -82,6 +88,8 @@ Graph und Geometrie trennen; reale Linien erhalten, keine Tensorfeld-Neuerzeugun
 Gemeinsame Ränder; Nahtschluss allein garantiert keine weiche Böschung.
 [Übergangsvergleich](../test/experiments/earthwork_transition.py),
 [Clearance-Ausläufe](../test/experiments/clearance_aprons.py): gleiche Inputs/Qualität vor Integration vergleichen.
+[Kreuzungsflächen](../test/experiments/road_junction_coverage.py): gelieferte Linienrichtungen,
+gemeinsamer vollständiger Umriss statt Dreiecksreduktion; Kontakt und Fahrbahn separat prüfen.
 
 ## Abnahme
 Durchgehende reale Abschnitte/Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände

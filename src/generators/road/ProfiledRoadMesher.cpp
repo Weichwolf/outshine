@@ -1,6 +1,7 @@
 #include "math/Units.h"
 #include "math/RenderFrame.h"
 #include "ProfiledRoadMesher.h"
+#include "JunctionFootprint.h"
 #include "math/Vec3.h"
 
 #include "Fit.h"
@@ -34,63 +35,14 @@ double Snapped(double metres) {
   return std::round(metres / kSnapM) * kSnapM;
 }
 
-void Vertex(RoadMeshBuffers &into,
-            const std::array<double, 3> &at,
-            const Vec3 &normal,
-            const Vec3f &wearsLinear) {
-  for (const double one : at) { into.PositionM.push_back(static_cast<float>(Snapped(one))); }
+void StoreVertex(RoadMeshBuffers &into,
+                 const std::array<double, 3> &at,
+                 const Vec3 &normal,
+                 const Vec3f &wearsLinear) {
+  for (const double one : at) { into.PositionM.push_back(static_cast<float>(one)); }
   for (int axis = 0; axis < 3; ++axis) { into.NormalM.push_back(static_cast<float>(normal[axis])); }
   into.ColourRgba.insert(into.ColourRgba.end(),
                          {wearsLinear[0], wearsLinear[1], wearsLinear[2], 1.0f});
-}
-
-struct Corner {
-  double EastM = 0.0;
-  double ZM = 0.0;
-  double GradeM = 0.0;
-  double AroundRad = 0.0;
-  size_t Gate = 0;
-};
-
-void StarShaped(std::vector<Corner> &around) {
-  for (bool trimmed = true; trimmed && around.size() > 3;) {
-    trimmed = false;
-    for (size_t at = 0; at < around.size(); ++at) {
-      const Corner &prev = around[(at + around.size() - 1u) % around.size()];
-      const Corner &here = around[at];
-      const Corner &next = around[(at + 1u) % around.size()];
-      const double turn = (here.EastM - prev.EastM) * (next.ZM - here.ZM) -
-                          (here.ZM - prev.ZM) * (next.EastM - here.EastM);
-      if (turn <= 0.0) {
-        around.erase(around.begin() + static_cast<long>(at));
-        trimmed = true;
-        break;
-      }
-    }
-  }
-}
-
-std::vector<Corner>
-WedgeOf(const std::vector<Corner> &around, double centreE, double centreZ, double centreGrade) {
-  const auto apart = [&around](size_t a, size_t b) {
-    const double dE = around[a].EastM - around[b].EastM;
-    const double dZ = around[a].ZM - around[b].ZM;
-    return dE * dE + dZ * dZ;
-  };
-  size_t bestA = 0;
-  size_t bestB = 1;
-  for (size_t a = 0; a < around.size(); ++a) {
-    for (size_t b = a + 1; b < around.size(); ++b) {
-      if (around[a].Gate / 2u != around[b].Gate / 2u && apart(a, b) > apart(bestA, bestB)) {
-        bestA = a;
-        bestB = b;
-      }
-    }
-  }
-  return {
-      Corner{.EastM = centreE, .ZM = centreZ, .GradeM = centreGrade, .AroundRad = 0.0, .Gate = 0},
-      around[bestA],
-      around[bestB]};
 }
 
 }
@@ -99,81 +51,58 @@ void ProfiledRoadMesher::Junction(std::span<const RoadGate> gates,
                                   RoadPlane plane,
                                   const Vec3f &wearsLinear,
                                   RoadMeshBuffers &into) const {
-  if (gates.size() < 2) { return; }
-  double centreE = 0.0;
-  double centreZ = 0.0;
-  double centreGrade = 0.0;
-  for (const auto &gate : gates) {
-    centreE += gate.EastM;
-    centreZ += RenderFrame::ZOfNorth(gate.NorthM);
-    centreGrade += gate.GradeM;
-  }
-  centreE /= static_cast<double>(gates.size());
-  centreZ /= static_cast<double>(gates.size());
+  const auto footprint = BuildJunctionFootprint(gates);
+  if (footprint.Rim.size() < 3) { return; }
+  double centreGrade = 0;
+  for (const auto &gate : gates) { centreGrade += gate.GradeM; }
   centreGrade /= static_cast<double>(gates.size());
-
-  std::vector<Corner> around;
-  around.reserve(gates.size() * 2u);
-  for (size_t at = 0; at < gates.size(); ++at) {
-    const RoadGate &gate = gates[at];
-    const double sideE = gate.OutN * gate.HalfWidthM;
-    const double sideZ = gate.OutE * gate.HalfWidthM;
-    for (const double hand : {1.0, -1.0}) {
-      const double eastM = gate.EastM + sideE * hand;
-      const double zM = RenderFrame::ZOfNorth(gate.NorthM) + sideZ * hand;
-      const double northM = RenderFrame::NorthOfZ(zM);
-      around.push_back(Corner{.EastM = eastM,
-                              .ZM = zM,
-                              .GradeM = gate.GradeM + plane.SlopeE * (eastM - gate.EastM) +
-                                        plane.SlopeN * (northM - gate.NorthM),
-                              .AroundRad = std::atan2(zM - centreZ, eastM - centreE),
-                              .Gate = at * 2u + (hand > 0.0 ? 0u : 1u)});
-    }
-  }
-  std::ranges::sort(around, [](const Corner &a, const Corner &b) {
-    return a.AroundRad != b.AroundRad ? a.AroundRad < b.AroundRad : a.Gate < b.Gate;
-  });
-  StarShaped(around);
-  if (gates.size() == 2) { around = WedgeOf(around, centreE, centreZ, centreGrade); }
-  const auto rim = static_cast<uint32_t>(around.size());
+  const auto vertexAt = [&](EastNorth at, double depth = 0.0) {
+    const double east = static_cast<float>(Snapped(at.EastM));
+    const double z = static_cast<float>(Snapped(RenderFrame::ZOfNorth(at.NorthM)));
+    const double grade = centreGrade + plane.SlopeE * (east - footprint.Centre.EastM) +
+                         plane.SlopeN * (RenderFrame::NorthOfZ(z) - footprint.Centre.NorthM);
+    return std::array{east, grade - depth, z};
+  };
   Vec3 up = {{-plane.SlopeE, 1.0, RenderFrame::ZOfNorth(-plane.SlopeN)}};
-  {
-    const double run = std::sqrt(up[0] * up[0] + up[1] * up[1] + up[2] * up[2]);
-    for (int axis = 0; axis < 3; ++axis) { up[axis] /= run; }
-  }
+  const double normalLength = std::sqrt(up[0] * up[0] + up[1] * up[1] + up[2] * up[2]);
+  for (int axis = 0; axis < 3; ++axis) { up[axis] /= normalLength; }
   const Vec3 down = {{-up[0], -up[1], -up[2]}};
+  const auto rim = static_cast<uint32_t>(footprint.Rim.size());
   const auto top = static_cast<uint32_t>(into.PositionM.size() / 3);
-  Vertex(into, {centreE, centreGrade, centreZ}, up, wearsLinear);
-  for (const Corner &one : around) {
-    Vertex(into, {one.EastM, one.GradeM, one.ZM}, up, wearsLinear);
-  }
+  const size_t centre = static_cast<size_t>(top) * 3;
+  StoreVertex(into, vertexAt(footprint.Centre), up, wearsLinear);
+  for (const auto &at : footprint.Rim) { StoreVertex(into, vertexAt(at), up, wearsLinear); }
   const auto bottom = static_cast<uint32_t>(into.PositionM.size() / 3);
-  Vertex(into, {centreE, centreGrade - kSealedDepthM, centreZ}, down, wearsLinear);
-  for (const Corner &one : around) {
-    Vertex(into, {one.EastM, one.GradeM - kSealedDepthM, one.ZM}, down, wearsLinear);
+  StoreVertex(into, vertexAt(footprint.Centre, kSealedDepthM), down, wearsLinear);
+  for (const auto &at : footprint.Rim) {
+    StoreVertex(into, vertexAt(at, kSealedDepthM), down, wearsLinear);
   }
   for (uint32_t at = 0; at < rim; ++at) {
     const uint32_t next = (at + 1u) % rim;
-    {
-      const double apartE = around[next].EastM - around[at].EastM;
-      const double apartZ = around[next].ZM - around[at].ZM;
-      if (apartE * apartE + apartZ * apartZ < kSnapM * kSnapM) { continue; }
+    const auto here = vertexAt(footprint.Rim[at]);
+    const auto after = vertexAt(footprint.Rim[next]);
+    const double apartE = after[0] - here[0];
+    const double apartZ = after[2] - here[2];
+    const double run = std::hypot(apartE, apartZ);
+    if (run < kSnapM) { continue; }
+    const size_t corner = (static_cast<size_t>(top) + 1u + at) * 3u;
+    const size_t following = (static_cast<size_t>(top) + 1u + next) * 3u;
+    const double aE = static_cast<double>(into.PositionM[corner]) - into.PositionM[centre];
+    const double aZ =
+        static_cast<double>(into.PositionM[corner + 2u]) - into.PositionM[centre + 2u];
+    const double bE = static_cast<double>(into.PositionM[following]) - into.PositionM[centre];
+    const double bZ =
+        static_cast<double>(into.PositionM[following + 2u]) - into.PositionM[centre + 2u];
+    if (aE * bZ - aZ * bE > kSnapM * kSnapM) {
+      into.Index.insert(into.Index.end(), {top, top + 1u + next, top + 1u + at});
+      into.Index.insert(into.Index.end(), {bottom, bottom + 1u + at, bottom + 1u + next});
     }
-    into.Index.insert(into.Index.end(), {top, top + 1u + next, top + 1u + at});
-    into.Index.insert(into.Index.end(), {bottom, bottom + 1u + at, bottom + 1u + next});
-    const Corner &here = around[at];
-    const Corner &after = around[next];
-    Vec3 outward = {
-        {0.5 * (here.EastM + after.EastM) - centreE, 0.0, 0.5 * (here.ZM + after.ZM) - centreZ}};
-    const double run = std::sqrt(outward[0] * outward[0] + outward[2] * outward[2]);
-    if (!(run > kParallelCross)) { continue; }
-    outward[0] /= run;
-    outward[2] /= run;
+    const Vec3 outward = {{apartZ / run, 0.0, -apartE / run}};
     const auto side = static_cast<uint32_t>(into.PositionM.size() / 3);
-    Vertex(into, {here.EastM, here.GradeM, here.ZM}, outward, wearsLinear);
-    Vertex(into, {here.EastM, here.GradeM - kSealedDepthM, here.ZM}, outward, wearsLinear);
-    Vertex(into, {after.EastM, after.GradeM, after.ZM}, outward, wearsLinear);
-    Vertex(into, {after.EastM, after.GradeM - kSealedDepthM, after.ZM}, outward, wearsLinear);
+    StoreVertex(into, here, outward, wearsLinear);
+    StoreVertex(into, vertexAt(footprint.Rim[at], kSealedDepthM), outward, wearsLinear);
+    StoreVertex(into, after, outward, wearsLinear);
+    StoreVertex(into, vertexAt(footprint.Rim[next], kSealedDepthM), outward, wearsLinear);
     into.Index.insert(into.Index.end(), {side, side + 3u, side + 1u, side, side + 2u, side + 3u});
   }
 }

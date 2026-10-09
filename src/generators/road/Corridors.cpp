@@ -1,4 +1,5 @@
 #include "Corridors.h"
+#include "JunctionFootprint.h"
 
 #include <scene/ProjectedErrorBudget.h>
 
@@ -1149,34 +1150,13 @@ void Corridors::AppendJunctionTerrainStamp(const Junction &made,
                                            double rootsM,
                                            bool elevated,
                                            Paved &into) {
-  struct Corner {
-    double AroundRad = 0.0;
-    double EastM = 0.0;
-    double NorthM = 0.0;
-    size_t Gate = 0;
-  };
-
-  std::vector<Corner> around;
-  for (size_t at = 0; at < made.Gates.size(); ++at) {
-    const RoadGate &gate = made.Gates[at];
-    for (const double hand : {1.0, -1.0}) {
-      const double e = gate.EastM + gate.OutN * gate.HalfWidthM * hand;
-      const double n = gate.NorthM - gate.OutE * gate.HalfWidthM * hand;
-      around.push_back({.AroundRad = std::atan2(made.NorthM - n, e - made.EastM),
-                        .EastM = e,
-                        .NorthM = n,
-                        .Gate = at * 2u + (hand > 0.0 ? 0u : 1u)});
-    }
-  }
-  if (around.size() < 3) { return; }
-  std::ranges::sort(around, [](const Corner &a, const Corner &b) {
-    return a.AroundRad != b.AroundRad ? a.AroundRad < b.AroundRad : a.Gate < b.Gate;
-  });
+  const auto footprint = BuildJunctionFootprint(made.Gates);
+  if (footprint.Rim.size() < 3) { return; }
   EarthworkStamp under;
-  under.RingEastNorthM.reserve(around.size() * 2u);
-  under.LowE = under.HighE = around.front().EastM;
-  under.LowN = under.HighN = around.front().NorthM;
-  for (const Corner &one : around) {
+  under.RingEastNorthM.reserve(footprint.Rim.size() * 2u);
+  under.LowE = under.HighE = footprint.Rim.front().EastM;
+  under.LowN = under.HighN = footprint.Rim.front().NorthM;
+  for (const auto &one : footprint.Rim) {
     under.RingEastNorthM.push_back(one.EastM);
     under.RingEastNorthM.push_back(one.NorthM);
     under.LowE = std::min(under.LowE, one.EastM);
