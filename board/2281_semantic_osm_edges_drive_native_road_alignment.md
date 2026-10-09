@@ -7,114 +7,80 @@ Depends:
 Area: generators, world, engine
 Tags: roads, bridges, tunnels, topology
 
-# Roads and structures form a continuous usable transport network
+# Roads, rails and paths form a continuous usable transport network
 
 ## Ergebnis und Ist
-Straßen/Wege/Gehwege, Bahn/Tram und Brücken/Tunnel mit richtigen Ebenen und Anschlüssen.
-Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen und
-bleiben erhalten. Places verwenden überwiegend polygonale Kontakte aus Corridors;
-Hermite-Kontaktprofile des RoadSurfaceBuilder sind dort noch nicht integriert. Klassenabhängige
-Längsneigung, gemeinsame Höhen und komplexe Anschlüsse müssen im Place-Pfad gesichert werden.
+Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel stimmen in Form und Netzfunktion.
+Aktueller Schwerpunkt: sichtbare Netzfehler in Wien, anschließend schwierige selbst gewählte
+POIs in Feldkirch, Flensburg, Husum, Tokyo und Central Park. Neueste Bilder bleiben in shots/places.
+Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen.
+Places nutzen überwiegend polygonale Kontakte; Hermite-Kontaktprofile und adaptive
+Nahfahrbahnen sind dort noch nicht integriert. Brückenanschlüsse sind verbessert, das Netz
+hat weiterhin falsche Profile/Übergänge. Vorhandene Straßenqualität bleibt erhalten.
+Der Playable-Erwerb in Feldkirch plant Straßen außerhalb bereitgestellter DEM-Felder und
+bricht ab; vollständige Refined-Place-Treffer umgehen diesen Pfad. Bedarf und Fachplanung
+müssen dieselbe notwendige Höhenabdeckung besitzen, auch bei kalten Assets/neuer Kamera.
 
 ## Besitzer und nächste Lieferung
-OSM-Adapter besitzt Quellsemantik, world/navigation das logische Netz; generators/road
-Profile/Geometrie, Terrain die Kontaktdeformation. Vorhandene Linien/Produkte reichen für
-den nächsten Schritt. Erst einen realen Stadt-/Hafenanschluss samt Brücke bis zum Bild liefern;
-keine vollständige Quellenmigration oder Hockenheim-Runde als Vorbedingung.
-Native `EarthworkKind::Clearance`-Aufträge schneiden im Kern nur Terrain oberhalb ihrer Grenze;
-sie füllen nie Boden und sperren keine tiefere Becken-Vertiefung. `Corridors::AppendTerrainStamps`
-und `AppendJunctionTerrainStamp` erzeugen sie für Brückenspannen und erhöhte Knoten;
-`EarthworkPress::BidsTerrain` trennt sie von tatsächlichen Kontakten. Widerlager und
-Anschlussrampen behalten ihre Kontakte. Husums künstlicher Bodenriegel unter der Brücke
-ist im Runtime-Bild beseitigt; breite Uferböschungen bleiben bei 2145 offen.
-`DetermineWaterClearance` bestimmt den Wasserfreiraum beim Entwurf;
-`ResolveBridgeConnections` führt Wasser- und Straßenkreuzungen vor der Geometrie zusammen.
-Endhöhen gelten auch für einfache Zweiarm-Übergänge. Knoten und Rampen konsumieren dieselben
-Höhen; einmalige und schrittweise Erzeugung behalten identische Geometrie/Kontakte.
-Kurze überlappende Rampen erhalten beide Anschlusshöhen unabhängig von der Linienrichtung;
-auch nicht geteilte Quellen-Endpunkte übernehmen fortgepflanzte Höhen.
-Das registrierte Vektorschema versorgt Wasser-/Verkehrsfelder. Road-Site erhält native Pegel
-im lokalen Up-Bezug; Inseln/fehlende Pegel heben keine Brücke an. Wasserfreiraum gilt über
-dem Pegel, nicht zusätzlich über dem höchsten Boden. Fehlende Durchfahrtshöhen sind Klassenannahmen.
-Straßen-Ausläufe blenden jetzt ohne den bisherigen Sprung zum Quellgelände aus.
-Polygonale Straßenkontakte erfassen Schnitt und Auftrag an beiden Schultern;
-die größte Achsen-/Randabweichung bestimmt den geplanten Kontakt und seine Auslaufbreite.
-Polygonale Spannen tragen eine gemeinsame, im Kontaktauftrag gültige Wegkennung.
-Physische Straßen-/Fundamentkerne haben Vorrang vor sämtlichen Außenböschungen;
-fremde Kerne und echte Brückenfreiräume bleiben wirksam, Ausläufe sind keine Freiraumdecken.
-Polygonale Ausläufe verwenden den Höhenbereich des tatsächlichen Kontakts; Längsneigung
-nicht unbegrenzt über Endpunkte extrapolieren. Kennung in Terrain-Key und
-Kandidatendigest; an gemeinsamen Ringkanten numerische Distanz bis 1 µm als Kontakt behandeln.
-Überlappende physische Kerne/Höhen müssen gemeinsam geplant werden, nicht nachträglich kaschiert.
-`CorridorCrossings` verbindet nur beteiligte Wege derselben Ebene und Brückenklasse.
-Gemeinsame Innenknoten erhalten Ebenenbezug; tatsächliche Schnittpunkte teilen Position/Höhe.
-Zehn-Meter-Nähe erzeugt keine Anschlüsse. Vorhandene Brückenenden bleiben angebunden.
-Geschlossene Linien erzeugen ausschließlich ihr Straßenband und örtliche Böschungen;
-eingeschlossene Hügel/Senken bleiben erhalten. Bodenkreuzungen übernehmen fortgepflanzte
-Rampen-Endhöhen. Tatsächlich verbundene Ground-Ways derselben Ebene und ihre Knoten teilen
-eine Terrain-Kontaktkennung; polygonale Ausläufe werden mit Quellboden gewichtet gemischt.
-Alle Außenböschungen mischen gemeinsam mit Quellboden: quintisches `f`, Gewicht `(1-f)/f`.
-Cut-only trägt keine positive Korrektur bei; Becken bleiben gegen Außenauftrag geschützt.
-`CorridorContacts` bildet gepackte Nachbarschaften und lineare BFS aus belegten Verbindungen.
-Eine waagerechte Brückenplatte am höchsten DEM-Punkt hebt Feldkirchs tiefere Anschlüsse
-unnötig an. Brückendecks verbinden die Uferhöhen mit geneigtem Profil und erforderlichem
-Freiraum; innere DEM-Hindernisse bestimmen nicht die Höhe des gesamten Überbaus.
-Knoten und Spannen teilen lokale Wegstationen; beide Endkürzungen gemeinsam begrenzen.
-Clearance-Ausläufe blenden quintisch zum Quellgelände aus; ihre Breite folgt dem Kernrelief.
-Echte Freiräume schneiden nur, äußere Böschungen respektieren physische Kontakte. Nächste Lieferung: Beckenränder, Knotenhöhen/C1-Profile und Gründung. Fundamentausläufe werden aus Quellhöhen
-im physischen Kern geplant, bevor Boden verändert wird; breitere Ausläufe ersetzen keine Verfeinerung.
-Deklarierter Bedarf bleibt Mindestwert; Nullauslauf erhält ausdrückliche harte Kontakte.
-Gleiche Kanten nutzen deterministisch die feinere Quelle; gemeinsame Ecken folgen der tatsächlich
-angrenzenden gröbsten Mesh-Kante. Abdeckende Vorfahren dürfen innere Kanten nicht verändern.
-Terrain-Auswahl berücksichtigt bislang Roh-DEM und deklarierte Fahrstrecken, keine Place-Kontakte.
-Verfeinerung gegen deformierte Oberfläche bestimmen; benachbarte LOD-Kanten konform verbinden.
-Native Nahseiten erreichen 0,4–6,5 m Abtastung; der Clearance-Kantenvergleich 13a88b4dd zeigt 23,17 → 0,62–0,64 m Sprung auf denselben 0,81 m. Beckenränder bleiben hart; Höhe und Abtastung getrennt korrigieren;
-unnötig hohe Kontakte nicht mit zusätzlichen Vertices kaschieren.
-Ground-Ways haben überwiegend Kontakte, Brücken eigene Meshes; Nahfahrbahnen brauchen dieselbe adaptive Abtastung.
+OSM-Adapter normalisiert vorhandene Semantik; world/navigation hält das native logische Netz.
+generators/road besitzt Profile/Geometrie, Terrain konsumiert deren Kontaktdeformation.
+Ein gemeinsamer Entwurf liefert sichtbare Oberfläche, Bodenauftrag und befahrbare Kontakte.
+Keine zweite Straßenpipeline oder vollständige Quellenmigration als Vorbedingung.
+1. An echten POIs Quelllinien, Ebenen und gerenderte Kontakte übereinander auswerten.
+   Fehlende Abschnitte, falsche Kreuzungen, Höhen/Neigungen und Lücken getrennt lokalisieren.
+   Erst einen vollständigen realen Anschluss samt Brücke sichtbar und funktional schließen.
+2. Gemeinsame Knotenhöhen und C1-Profile durch alle angeschlossenen Straßen/Schienen/Wege
+   führen; danach passende Nahabtastung integrieren. Nicht nur Rampenoffsets begrenzen.
+3. Schienen mit eigenen Breiten, zulässigen Profilen und Oberflächen darstellen; keine
+   Straßenrezept-Kopie. Geh-/Radwege, Bahnübergänge und getrennte Ebenen bleiben verbunden.
+4. Fehlende Überbau-/Portal-/Widerlagerdetails aus belegten Klassen und plausiblen Parametern
+   ergänzen. Markierungen, Geländer, Signale und Beleuchtung anschließend instanzieren.
 
-## Verfahren
-- Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren. MVT ist
-  kein vollständiger Routinggraph: Randsegmente/IDs vereinigen, keine Kreuzung aus bloßer Nähe.
-  Fehlende Topologie ausdrücklich behandeln, belegte Ebenen erhalten.
-- Ein Alignment je zusammenhängender Kette; Schultern, Bord/Gehweg und Knoten davon ableiten.
-  Gemeinsame Endpunkte/Höhen/Tangenten über Knoten und Tiles; klassenabhängige Längs- und
-  Querneigung begrenzen. Kreuzungsebenen halten die Grenzen aller angeschlossenen Klassen.
-  Die Rampenkorrektur begrenzt bisher nur ihren eigenen Offset;
-  das vollständige Höhenprofil muss die Klassengrenze einhalten. Segmentwellen/Nähte
-  an der Ursache beheben, keine zweite Pipeline.
-- Geschlossene Straßenlinien bleiben Bänder; keine Durchschnittshöhen-Plattform im Inneren.
-  Natürliche Hügel/Senken und Wasser innerhalb der Schleife bleiben erhalten.
-- Straßenbett und Terrain aus demselben Kontaktprofil. Übergänge erreichen das ursprüngliche
-  Gelände mit stetiger Höhe und Neigung; Breite aus Höhendifferenz und Böschungsneigung.
-  Keine SimCity-Terrassen: Übergänge ohne künstliche Stufen und mit stetiger Neigung.
-  Quintischer Übergang; `hypot(Mindestbreite, 1,875 × Höhendifferenz / Böschungsneigung)`
-  begrenzt die zusätzliche Steigung auf ebenem Quellboden. Höhendifferenz aus dem geplanten
-  Kontakt und tatsächlichem Quellgelände im Kern, nicht vom Auslaufrand; Quellneigung separat bewerten.
-  Bedarf an beiden Fahrbahnrändern für Schnitt und Auftrag erfassen; Profile dürfen eine
-  unbekannte Höhendifferenz nicht stillschweigend als Null behandeln.
-  Räumliche Kandidaten umfassen den maximal zulässigen Übergang und Höhenbereich. Unzulässige Kontakte vor dem Ausblenden ablehnen;
-  Ausblenden darf die Höhenprüfung nicht verbergen. Profil-/Polygonböschungen und Fundamente
-  teilen ein Bodenfeld; keine harte Fremdböschung am echten Kontakt. Fundamentwirkung bleibt örtlich begrenzt; hohe
-  Geländeunterschiede brauchen passende Gründung/Stützung, keine großräumige Planierung.
-  Auslaufbereiche füllen keine Wasserbecken. Native Terrain-/Region-Rezepte
-  versionieren, Quellcache erhalten. Keine harte Höhenbegrenzung am Auslaufrand.
-  `test/experiments/earthwork_transition.py` vergleicht Übergänge; der unabhängige Kreisbogentest
-  bewertet Höhe/Krümmung gegen integrierte Kreisgeometrie, Segmentierungsgrenze bleibt erhalten.
-- Brücken mit Überbau/Pfeilern/Widerlagern und Anschlussprofil; Tunnel mit Portal/Freiraum.
-  Nur tatsächliche Kontakte stempeln Boden. Gemeinsamer Bezug zu Gebäuden und Wasser aus 2145.
-- Markierungen, Geländer, Signale und Beleuchtung aus Klassenparametern; Wiederholungen
-  instanzieren. 2336 begrenzt Nahgeometrie, das logische Netz bleibt erhalten. 2171 beleuchtet
-  metrische Straßenbaustoffe; Quellarchive sind kein dauerhafter Bestandteil des Netzes.
+## Verbindlicher Entwurf
+- Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren und erhalten.
+  MVT ist kein vollständiger Routinggraph. Randfragmente deterministisch vereinigen;
+  tatsächliche Schnittpunkte teilen Position/Höhe nur bei kompatibler Ebene/Brückenklasse.
+  Nähe allein erzeugt keine Verbindung. Quellendpunkte und Brückenenden bleiben angeschlossen.
+  Fehlende Topologie/Angaben als Annahmen kennzeichnen, nicht als belegte OSM-Verbindung.
+- Ein Alignment je Kette. Fahrbahn, Schultern, Bord/Gehweg, Knoten und Kollision daraus ableiten.
+  Gemeinsame Endpositionen/Höhen/Tangenten über Tiles; vollständige Längs-/Querneigung
+  klassenabhängig begrenzen. Kreuzungsebenen erfüllen alle angeschlossenen Klassengrenzen.
+  Beide Endkürzungen gemeinsam begrenzen; kurze Rampen behalten beide Anschlusshöhen
+  unabhängig von Linienrichtung oder getrennten Quellendpunkten.
+- Brückendecks verbinden Uferhöhen mit geneigtem Profil und notwendigem Freiraum.
+  Einzelne hohe DEM-Proben heben nicht den gesamten Überbau an. Wasserfreiraum gilt über
+  dem nativen Pegel im gemeinsamen lokalen Up-Bezug; Inseln/fehlende Pegel heben nichts an.
+  Wasser-/Straßenkreuzungen vor Geometrie zusammenführen; Pfeiler, Widerlager und Rampen
+  mit passenden Gründungen. Tunnel brauchen Portale/Freiraum, keine Geländeübermalung.
+- Straßenbett und Terrain teilen denselben Kontakt. Physische Kerne/Höhen gemeinsam planen;
+  fremde Kerne und echte Freiräume respektieren. Geschlossene Linien bilden nur ein Band;
+  eingeschlossene Hügel/Senken bleiben erhalten. Kontaktkennungen folgen verbundenen Wegen
+  derselben Ebene und gehören zu Terrain-Key/Kandidatendigest.
+- Böschungen erreichen Quellgelände mit stetiger Höhe/Neigung: quintisches f, gemeinsames
+  Gewicht (1-f)/f. Breite hypot(Mindestbreite, 1,875 × Höhendifferenz / Böschungsneigung);
+  Quellneigung separat bewerten. Höhenunterschied/Schnitt/Auftrag an beiden Rändern aus
+  unverändertem Quellboden im Kern bestimmen, nicht aus Auslaufrändern. Nicht unbegrenzt
+  über Endpunkte extrapolieren. Becken gegen Außenauftrag schützen, Fundamente örtlich halten.
+  Kandidaten decken maximale Übergangsbreite/Höhen ab; Ausblenden versteckt keine Höhenfehler.
+  Nullauslauf bleibt ausdrücklicher harter Kontakt. Clearance schneidet nur, füllt nie Boden;
+  quintische Freiraumausläufe respektieren physische Kontakte und Quellrelief.
+- Verfeinerung gegen deformierte Oberfläche und Kontakte bestimmen. Deterministische gemeinsame
+  Kanten/Ecken und konforme LOD-Ränder statt Risse; innere Kanten nicht durch abdeckende Eltern
+  verändern. Kontakt-/Höhenfehler vor zusätzlichen Vertices beheben. 2336 besitzt Arbeitsauswahl,
+  2280 versionierte native Rezepte/Cache, 2145 Pegel/Ufer, 2171 metrische Baustoffe.
 
 ## Forschungsgrundlage
-[Interactive Procedural Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf)
-([Primärquelle/Einordnung](../doc/references/README.md)): Graph und Geometrie getrennt halten.
-OSM-Netz/Ebenen erhalten; keine Tensorfeld-Neuerzeugung realer Straßen. Gemeinsame Profile,
-Anschlussregeln und instanzierte Tragwerksteile ergänzen die vorhandene Qualität.
+[Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf):
+Graph und Geometrie trennen; reale Linien erhalten, keine Tensorfeld-Neuerzeugung.
 [Geometry Clipmaps, SIGGRAPH 2004](../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf):
-Gemeinsame Randgeometrie und räumliche Übergänge; Nahtschluss allein garantiert keine weiche Böschung. [Native Clearance-Auslaufprobe](../test/experiments/clearance_aprons.py) vergleicht harten Abbruch und quintischen Quellübergang.
+Gemeinsame Ränder; Nahtschluss allein garantiert keine weiche Böschung.
+[Übergangsvergleich](../test/experiments/earthwork_transition.py),
+[Clearance-Ausläufe](../test/experiments/clearance_aprons.py): gleiche Inputs/Qualität vor Integration vergleichen.
 
 ## Abnahme
-Durchgehende reale Straße samt korrekt angeschlossener Brücke ohne Gelände-/Wasserwände,
-Lücken oder verlorene Ebenen. Bestehende Straßenqualität erhalten oder verbessern;
-Netzfunktion und Bild separat prüfen, gemessene Arbeit/Bytes innerhalb AGENTS-Budget.
+Durchgehende reale Abschnitte/Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände
+oder unbefahrbare Profilwechsel. Quellenabdeckung, Netzfunktion, Bild und Kosten getrennt prüfen.
+99 % ist der gewünschte Vollständigkeitsmaßstab, keine unbelegte Weltquote: sichtbare belegte
+Abschnitte/Anschlüsse mit definiertem Vergleichsbestand zählen; kritische Kontaktfehler bleiben rot.
+Nahkamera/Bewegung und Rundumdrehung prüfen; Tokio/Central Park und bestehende Straßenqualität
+bleiben erhalten. Bildgewinn in den neuesten Place-PNGs, Arbeit/Bytes im unveränderten Profilbudget.

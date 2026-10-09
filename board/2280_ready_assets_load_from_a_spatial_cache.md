@@ -20,7 +20,6 @@ Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh
 WaterAsset hält Koordinaten/Pegel/Konturen/Flussprofile/Tileindex. Abfragen, Mesh und Decoder sind quellunabhängig; WaterField besitzt Erzeugung/Fortschritt.
 Coverage beobachtet nur; native Produkte bestimmen Ready und veröffentlichte Screenshot-Kennzahlen.
 Stabile Regionsanfragen binden Regeln/Form/Bedarf vor Quellen; Inhalts-IDs behalten Digests. Bestehende Pakete per atomarer Metadatenbindung übernehmen.
-Ausstehende Grundrisse sind keine freie Fläche; Flensburg/Wien/CP/Tokyo liefern gleiche Miss-/Hit-Pixel.
 
 ## Kostenbefund und nächste Lieferung
 Frische Offline-Prozesse, 1280×720/60, 60 Frames/360°; Höhensnapshot-Treffer:

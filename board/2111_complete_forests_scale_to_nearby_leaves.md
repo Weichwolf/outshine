@@ -18,7 +18,7 @@ Native Struktur-/Wasser-/Wegflächen schließen Wurzeln bereits aus. Das bleibt 
 Kronenradius/-unterkante aus Artendaten erreichen jetzt die Platzierung. Horizontale
 Überschneidung und Gebäudehöhen werden gemeinsam geprüft; Feldkirchs Krone im Dach
 ist beseitigt. Niedrige Bauten dürfen unter freier Krone bleiben; Wasser/Weg-Ausschluss
-und freie Standorte bleiben erhalten. Der Wald-Ausbau bleibt später.
+und freie Standorte bleiben erhalten. Der vollständige Wald-Ausbau bleibt später; kleine bildwirksame Schritte sind jetzt erlaubt.
 
 ## Besitzer und Datenfluss
 OSM-Adapter besitzt Landcover-/Baumhinweise. VegetationTemplates besitzt deklarierte
@@ -31,8 +31,10 @@ Qualität/Kosten. Standortauswahl und Prototypintegration warten nicht auf desse
 2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
 
 ## Reihenfolge
-Vegetation folgt nach Gebäuden, Terrain und Infrastruktur, vor Wolken (2169).
-Der Qualitätsauftrag ändert diese Reihenfolge nicht.
+Gebäude/Terrain/Infrastruktur bleiben Schwerpunkt (2169). Vegetation wird inzwischen graduell
+verbessert, mit gemessener Kostenkorrektur und jederzeit deaktivierbarem Szenarioprofil.
+Menge/Detail gehören ins Szenario (2188), keine Inhalts-CLI-Schalter. Dichte folgt plausibler
+Belegung; freies Budget verbessert Form, Nahdetail und Schatten statt bloß Baumzahlen.
 
 ## Implementierung in vollständigen Schritten
 1. Deklarierte gewichtete Artenmischungen bis zur Runtime durchreichen. Unbekannte Arten

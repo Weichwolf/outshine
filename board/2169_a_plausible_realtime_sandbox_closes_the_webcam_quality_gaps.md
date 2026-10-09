@@ -62,9 +62,9 @@ ist dadurch nicht statisch. Die Place-Drehung ist ein Integrationsfall, kein Ers
 ## Priorität und Lieferung
 | Reihenfolge | WI | Nächster sichtbarer Nutzen |
 |---|---|---|
-| 1 Gebäude | 2173, 2336, 2171 | Vollständige Formen/Höhen, Dächer, lesbare Fassaden; Großstadt-LOD |
-| 2 Terrain | 2337, 2171 | Plausibles Relief, Fels-/Bodenmaterial statt grüner Kunststoffflächen |
-| 3 Infrastruktur | 2281, 2145, 2338 | Straßen/Brücken/Sonderbauwerke und korrekte Ufer/Wassergeometrie |
+| 1 Infrastruktur | 2281, 2145, 2338 | Zusammenhängende Straßen, Schienen und Wege; Brückenebenen, Profile und sichere Kontakte |
+| 2 Gebäude | 2173, 2336, 2171 | Vollständige Formen/Höhen, Dächer, lesbare Fassaden; Großstadt-LOD |
+| 3 Terrain | 2337, 2171 | Plausibles Relief, Fels-/Bodenmaterial statt grüner Kunststoffflächen |
 | 4 Vegetation | 2111 | Vollständige performante Wälder bis zu räumlichem Nahlaub |
 | 5 Wolken | 2172 | Wetterhimmel und kohärentes Bodenlicht im zuvor freigemachten Budget |
 | Danach Sandbox | 2136 | Kräfte/Kontakte/Gelenke, NPC/JS/LLM, Ton, Persistenz |
@@ -79,8 +79,8 @@ Zuerst die P0-Lade-/Bedarfsfehler aus dem Kostenreview beheben; dann Fernstadt u
 Erstframe-Spitzen. Stabile CP/Tokyo-Messfenster liegen bereits bei 2,59/3,62 ms p99;
 GPU-Passzeiten und A18-Pro-Budget bleiben offen. Ein günstiges Fenster schließt kein Gate.
 2336/2340 besitzen Repräsentation/Arbeitsauswahl; sichtbare Qualität folgt dem integrierten Gewinn.
-Dann Gebäude, Terrain, Infrastruktur, Vegetation und schließlich Wolken ausbauen.
-Der SpeedTree-Qualitätsmaßstab zieht Vegetation nicht vor.
+Aktuell hat 2281 Vorrang: Straßen, Schienen und Wege optisch und funktional schließen,
+mit selbst gewählten POIs. Danach Gebäude/Terrain; Vegetation graduell im freien Budget, Wolken zuletzt.
 2188 migriert dabei
 nur die benötigten öffentlichen Grenzen. Keine komplette SDK-Neufassung vor dem ersten Bild.
 Zuerst Vorbereitungsstillstand und unnötige Arbeit beseitigen, dann verbleibende Kosten messen.
