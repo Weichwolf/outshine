@@ -15,6 +15,51 @@
 #include <string>
 #include <vector>
 
+namespace {
+
+class RecordingMesher final : public outshine::RoadMesher {
+public:
+  explicit RecordingMesher(double gradient) : Gradient_(gradient) {}
+
+  outshine::RoadMeshingStats Sweep(std::span<const outshine::RoadStation> along,
+                                   outshine::RoadSweep how,
+                                   outshine::RoadMeshBuffers &into) const override {
+    double runM = 0;
+    for (size_t at = 1; at < along.size(); ++at) {
+      const double segmentM = std::hypot(along[at].EastM - along[at - 1].EastM,
+                                         along[at].NorthM - along[at - 1].NorthM);
+      runM += segmentM;
+      MostRiseViolationM_ =
+          std::max(MostRiseViolationM_,
+                   std::abs(along[at].GradeM - along[at - 1].GradeM) - Gradient_ * segmentM);
+    }
+    if (how.Form == outshine::RibbonForm::Surface && std::abs(along.front().EastM) < 1e-6 &&
+        along.front().NorthM > 1 && along.back().NorthM > along.front().NorthM) {
+      ApproachRunM_ = runM;
+    }
+    return Native_.Sweep(along, how, into);
+  }
+
+  void Junction(std::span<const outshine::RoadGate> gates,
+                outshine::RoadPlane plane,
+                const outshine::Vec3f &colour,
+                outshine::RoadMeshBuffers &into) const override {
+    Native_.Junction(gates, plane, colour, into);
+  }
+
+  [[nodiscard]] double ApproachRunM() const { return ApproachRunM_; }
+
+  [[nodiscard]] double MostRiseViolationM() const { return MostRiseViolationM_; }
+
+private:
+  outshine::Generators::ProfiledRoadMesher Native_;
+  double Gradient_;
+  mutable double ApproachRunM_ = 0;
+  mutable double MostRiseViolationM_ = 0;
+};
+
+}
+
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
@@ -77,7 +122,7 @@ int main() {
       .EyeLatDeg = origin.LatitudeDeg,
       .EyeLonDeg = origin.LongitudeDeg,
       .Projection = {.FocalPx = 800}};
-  const Generators::ProfiledRoadMesher mesher;
+  const RecordingMesher mesher(ways.Ways()[1].MaxGradient);
   const Generators::Corridors corridors(mesher);
   Geometry geometry;
   std::vector<EarthworkStamp> contacts;
@@ -94,7 +139,10 @@ int main() {
     clearanceM = band.ClearanceM;
     if (bridgeRunM <= band.RunM) { break; }
   }
-  const double approachRunM = (declared[1].LatLon[2] - declared[1].LatLon[0]) * kMPerDegLat;
+  const double approachRunM = mesher.ApproachRunM();
+  CHECK(approachRunM > 0, "the constructed approach excludes the flat junction footprint");
+  CHECK(mesher.MostRiseViolationM() < 1e-8,
+        "all constructed bridge and approach segments obey their permitted gradients");
   const double expectedM =
       10 + clearanceM - ways.Ways()[1].MaxGradient * approachRunM - kPavementLipM;
   CHECK(std::abs(heights[0] - expectedM) < 0.01 && *high - *low < 0.01,

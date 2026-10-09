@@ -28,9 +28,9 @@ int main() {
   const std::shared_ptr<const ClassStructure> noClasses;
   const Generators::ProfiledRoadMesher mesher;
   const Generators::Corridors corridors(mesher);
-  for (const int variant : {0, 1, 2}) {
+  for (const int variant : {0, 1, 2, 3}) {
     Generators::Osm::OsmField vectors(14, layers);
-    const std::string kind = variant == 1 ? "path" : "residential";
+    const std::string kind = variant == 1 ? "path" : variant == 3 ? "rail" : "residential";
     const std::array declared{
         Generators::Osm::OsmField::Declared{
             .Layer = "streets", .Key = "kind", .Value = kind, .LatLon = {49, 8, 49.001, 8}},
@@ -60,7 +60,12 @@ int main() {
           "the junction publishes its native terrain contact before its arms");
     if (contacts.empty()) { continue; }
     double most = 1;
-    for (const auto &way : ways.Ways()) { most = std::min(most, double{way.MaxGradient}); }
+    for (const auto &way : ways.Ways()) {
+      most = std::min(most, way.MaxGradient > 0 ? double{way.MaxGradient} : .10);
+    }
+    if (variant == 3) {
+      CHECK(ways.Ways()[0].MaxGradient == 0, "the supplied rail recipe has no grade bound");
+    }
     const auto &junction = contacts.front();
     CHECK(std::abs(junction.AtE) < .001 && std::abs(junction.AtN) < .001 &&
               std::abs(junction.SlopeE) < .0001 && std::abs(junction.SlopeN - most) < .0001,

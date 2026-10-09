@@ -54,7 +54,6 @@ constexpr double kLeastSineBetween = 1.0e-3;
 constexpr double kLeastCapM = 0.01;
 constexpr double kLeastSpanM = 0.05;
 constexpr float kUnlitTint = 0.65f;
-constexpr double kUnraisedDeckM = -1.0e29;
 constexpr double kRoseLeast = 0.05;
 constexpr double kRoadStepM = 16.0;
 constexpr int kRampPasses = 12;
@@ -69,7 +68,6 @@ constexpr double kBoundaryReachM = 100.0;
 constexpr double kAngleLookaheadM = 10.0;
 constexpr double kContinuesPastDeg = 160.0;
 constexpr double kParallelWithinDeg = 22.5;
-constexpr double kSteepestApproach = 0.10;
 constexpr double kSteepestJunction = 0.35;
 
 constexpr auto ByBearing = [](const auto &a, const auto &b) {
@@ -86,6 +84,10 @@ constexpr auto ByBearing = [](const auto &a, const auto &b) {
   return {{cover[0], cover[1], cover[2]}};
 }
 
+}
+
+double Corridors::RoadGradient(const ::outshine::Generators::Osm::StreetField::Way &way) noexcept {
+  return way.MaxGradient > 0.0f ? double{way.MaxGradient} : kDefaultGradient;
 }
 
 double Corridors::LeastSeen(double held, double seen) {
@@ -381,10 +383,11 @@ void Corridors::PaveEdge(const Paving &on,
                          std::vector<EarthworkStamp> &corridor,
                          RoadMeshBuffers &pavement) const {
   const Edge &edge = into.Edges[edgeAt];
+  if (edge.PlannedCount < 2) { return; }
   const size_t laneAt = edge.Lane;
   const ::outshine::Generators::Osm::StreetField::Way &lane = on.Ways.Ways()[laneAt];
-  const RoadStation *const first = into.Designed[laneAt].data() + edge.First;
-  into.Along.assign(first, first + edge.Count);
+  const RoadStation *const first = into.Planned.data() + edge.PlannedFirst;
+  into.Along.assign(first, first + edge.PlannedCount);
   if (into.Along.size() < 2) { return; }
 
   auto tookFrom = std::chrono::steady_clock::now();
@@ -393,17 +396,6 @@ void Corridors::PaveEdge(const Paving &on,
     tookFrom = std::chrono::steady_clock::now();
     return std::chrono::duration<double, std::milli>(tookFrom - was).count();
   };
-  {
-    static const Heap::Tag kFittingTag("road-fit");
-    const Heap::Tagged fitting(kFittingTag);
-    FitLane(edge, into);
-  }
-  into.FitMs += since();
-  if (into.Along.size() < 2) {
-    ++into.RefusedWays;
-    return;
-  }
-  DeckOrRamp(lane, edge, into);
   into.LaidWays += lane.Bridge ? 1u : 0u;
   into.GroundWays += lane.Bridge ? 0u : 1u;
   const bool sealed = lane.CoverRow >= 0 &&
@@ -721,7 +713,6 @@ void Corridors::EaseRampPass(const ::outshine::Generators::Osm::StreetField &way
         lane.PointCount < 2) {
       continue;
     }
-    if (!(lane.MaxGradient > 0.0f)) { continue; }
     const std::optional<Ends> ends = EndsOf(vectors, lane);
     if (!ends) { continue; }
     const std::array<uint64_t, 2> &key = ends->Key;
@@ -732,7 +723,7 @@ void Corridors::EaseRampPass(const ::outshine::Generators::Osm::StreetField &way
     const double runE = (ends->At[3] - ends->At[1]) * perLon;
     const double runN = (ends->At[2] - ends->At[0]) * kMPerDegLat;
     const double runM = std::sqrt(runE * runE + runN * runN);
-    const double mostM = runM * static_cast<double>(lane.MaxGradient);
+    const double mostM = runM * RoadGradient(lane);
     const double apartM = high->second - low->second;
     const auto capped = [&](uint64_t at, double toM) {
       const auto seeded = into.GroundEndM.find(at);
@@ -1088,8 +1079,8 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
   for (const Leg &leg : legs) {
     decked = decked || on.Ways.Ways()[into.Edges[leg.Edge].Lane].Bridge;
   }
-  const double rootsM = made.GradeM;
-  made.GradeM = on.Draped.At({.EastM = made.EastM, .NorthM = made.NorthM}, made.GradeM);
+  const double rootsM = on.Draped.At({.EastM = made.EastM, .NorthM = made.NorthM}, made.GradeM);
+  made.GradeM = rootsM;
   const auto seeded = into.EndM.find(node);
   if (seeded != into.EndM.end()) { made.GradeM = seeded->second; }
   made.CorridorKey = into.ContactKeys[into.Edges[legs.front().Edge].Lane];
@@ -1121,8 +1112,7 @@ void Corridors::LiesOnItsPlane(const Paving &on,
                                Paved &into) {
   double mostGradient = kSteepestJunction;
   for (const Leg &leg : legs) {
-    const double gradient = on.Ways.Ways()[into.Edges[leg.Edge].Lane].MaxGradient;
-    if (gradient > 0.0) { mostGradient = std::min(mostGradient, gradient); }
+    mostGradient = std::min(mostGradient, RoadGradient(on.Ways.Ways()[into.Edges[leg.Edge].Lane]));
   }
   const auto drape = [&](double eastM, double southM) {
     return on.Draped.At({.EastM = eastM, .NorthM = southM}, made.GradeM);
@@ -1256,60 +1246,6 @@ void Corridors::FinalizeJunction(Junction &made, Paved &into) {
     edge.GradeAtM[leg.End] = gate.GradeM;
     edge.HasEndGrade[leg.End] = true;
   }
-  AppendJunctionTerrainStamp(made, made.RootsM, made.Elevated, into);
-}
-
-void Corridors::DeckOrRamp(const ::outshine::Generators::Osm::StreetField::Way &lane,
-                           const Edge &edge,
-                           Paved &into) {
-  if (lane.Bridge) {
-    const std::vector<double> reached = ReachedAlong(into.Along);
-    if (!(reached.back() > 0.0)) { return; }
-    const double floorM = into.DeckM[edge.Lane];
-    const double firstM =
-        std::max(floorM, edge.HasEndGrade[0] ? edge.GradeAtM[0] : into.Along.front().GradeM);
-    const double lastM =
-        std::max(floorM, edge.HasEndGrade[1] ? edge.GradeAtM[1] : into.Along.back().GradeM);
-    for (size_t at = 0; at < into.Along.size(); ++at) {
-      into.Along[at].GradeM = std::lerp(firstM, lastM, reached[at] / reached.back());
-    }
-    return;
-  }
-  const double gradient =
-      lane.MaxGradient > 0.0f ? static_cast<double>(lane.MaxGradient) : kSteepestApproach;
-  ApplyApproachGrades(gradient, edge, into);
-}
-
-void Corridors::ApplyApproachGrades(double gradient, const Edge &edge, Paved &into) {
-  const std::vector<double> reached = ReachedAlong(into.Along);
-  const double lengthM = reached.back();
-  if (!(lengthM > 0.0)) { return; }
-  std::array<double, 2> liftM{};
-  std::array<double, 2> reachM{};
-  for (size_t end = 0; end < 2; ++end) {
-    if (!edge.HasEndGrade[end]) { continue; }
-    const RoadStation &rim = end == 0 ? into.Along.front() : into.Along.back();
-    liftM[end] = edge.GradeAtM[end] - rim.GradeM;
-    if (std::fabs(liftM[end]) < kLeastCapM) {
-      liftM[end] = 0.0;
-      continue;
-    }
-    reachM[end] = std::fabs(liftM[end]) / gradient;
-  }
-  const bool overlap = reachM[0] + reachM[1] > lengthM;
-  for (size_t at = 0; at < into.Along.size(); ++at) {
-    const std::array<double, 2> distanceM{reached[at], lengthM - reached[at]};
-    double offsetM = overlap ? std::lerp(liftM[0], liftM[1], reached[at] / lengthM) : 0.0;
-    for (size_t end = 0; end < 2; ++end) {
-      if (distanceM[end] >= reachM[end]) { continue; }
-      if (!overlap) { offsetM += liftM[end] * (1.0 - distanceM[end] / reachM[end]); }
-      into.LongestRampM = std::max(into.LongestRampM, distanceM[end]);
-    }
-    if (std::fabs(offsetM) < kLeastCapM) { continue; }
-    into.Along[at].GradeM += offsetM;
-    ++into.RampStations;
-    into.MostLiftedM = std::max(into.MostLiftedM, std::fabs(offsetM));
-  }
 }
 
 size_t Corridors::RaisesTheJunctionBodies(Paved &into, RoadMeshBuffers &pavement) const {
@@ -1437,7 +1373,7 @@ Corridors::SharedNodesOf(const ::outshine::Generators::Osm::StreetField &ways,
   return shared;
 }
 
-void Corridors::PaveLanes(const Paving &on,
+bool Corridors::PaveLanes(const Paving &on,
                           Paved &into,
                           std::vector<EarthworkStamp> &corridor,
                           RoadMeshBuffers &pavement,
@@ -1455,7 +1391,8 @@ void Corridors::PaveLanes(const Paving &on,
       PaveLane(on, pass, laneAt, into, corridor, pavement);
     }
     Notes(into, std::format("streets: of that, {} every lane", doing), since(), "ms");
-    Notes(into, std::format("streets: of {}, the fit", doing), into.FitMs, "ms");
+    const std::string_view fitting = pass == Pass::Designing ? doing : "profile preparation";
+    Notes(into, std::format("streets: of {}, the fit", fitting), into.FitMs, "ms");
     Notes(into, std::format("streets: of {}, the water", doing), into.WaterMs, "ms");
     Notes(into, std::format("streets: of {}, the sweep", doing), into.SweepMs, "ms");
     Notes(into, std::format("streets: of {}, the yields", doing), into.YieldsMs, "ms");
@@ -1473,6 +1410,14 @@ void Corridors::PaveLanes(const Paving &on,
       SplitsEdges(into);
       GroupTerrainContacts(on, into);
       ShapesJunctions(on, into);
+      for (size_t edge = 0; edge < into.Edges.size(); ++edge) { PrepareProfile(edge, on, into); }
+      if (const auto plan = PlanHeights(on, into); !plan) {
+        Notes(into, std::string(plan.error()), 1.0, "refusal");
+        return false;
+      }
+      for (const auto &junction : into.Junctions) {
+        AppendJunctionTerrainStamp(junction, junction.RootsM, junction.Elevated, into);
+      }
       corridor.insert(corridor.end(),
                       std::make_move_iterator(into.UnderJunctions.begin()),
                       std::make_move_iterator(into.UnderJunctions.end()));
@@ -1481,6 +1426,7 @@ void Corridors::PaveLanes(const Paving &on,
       Notes(into, "streets: of that, shaping the junctions", since(), "ms");
     }
   }
+  return true;
 }
 
 void Corridors::RaiseJunctionsAndRecordRoadMeasurements(const Site &site,
@@ -1503,12 +1449,6 @@ void Corridors::RaiseJunctionsAndRecordRoadMeasurements(const Site &site,
   Notes(
       into, "streets: decks a WATERWAY raised", static_cast<double>(into.DecksOverWater), "decks");
   Notes(into, "streets: and the clearance the widest one took", into.MostOverWaterM, "m");
-  Notes(into,
-        "streets: stations an approach ramp moved",
-        static_cast<double>(into.RampStations),
-        "stations");
-  Notes(into, "streets: and the longest approach", into.LongestRampM, "m");
-  Notes(into, "streets: and the most a rim lifted a road", into.MostLiftedM, "m");
   const auto junctionsAt = std::chrono::steady_clock::now();
   Notes(into,
         "streets: junction bodies raised",
@@ -1621,7 +1561,10 @@ bool Corridors::Lay(const Site &site,
         "streets: segments in the fullest square",
         static_cast<double>(into.FullestCell),
         "segments");
-  if (paving) { PaveLanes(*paving, into, corridor, pavement, tookFrom); }
+  if (paving && !PaveLanes(*paving, into, corridor, pavement, tookFrom)) {
+    notes = std::move(into.Notes);
+    return false;
+  }
   RaiseJunctionsAndRecordRoadMeasurements(site, waterRow, into, pavement);
   const size_t pavedTriangles = pavement.Index.size() / 3;
   Notes(into, "streets: triangles", static_cast<double>(pavedTriangles), "triangles");
@@ -1695,8 +1638,11 @@ bool Corridors::Job::RetireVectors(size_t unitsMost) noexcept {
     case RetireStage::Designed:
       if (RetireVector(Work.Designed, unitsMost, deadline) &&
           RetireVector(Work.ContactKeys, unitsMost, deadline)) {
-        Retirement = RetireStage::Junctions;
+        Retirement = RetireStage::Planned;
       }
+      break;
+    case RetireStage::Planned:
+      if (RetireVector(Work.Planned, unitsMost, deadline)) { Retirement = RetireStage::Junctions; }
       break;
     case RetireStage::Junctions:
       if (RetireVector(Work.Junctions, unitsMost, deadline)) {
@@ -1852,8 +1798,11 @@ std::expected<bool, std::string_view> Corridors::AdvanceStage(Job &job,
     case Stage::Legs: return AdvanceRoadDesign(job, slice);
     case Stage::Junctions:
     case Stage::EndCuts:
-    case Stage::JunctionContacts:
-    case Stage::Pave: return AdvanceRoadJunctions(job, slice);
+    case Stage::JunctionGates:
+    case Stage::JunctionContacts: return AdvanceRoadJunctions(job, slice);
+    case Stage::Pave: return AdvanceRoadPaving(job, slice);
+    case Stage::Profiles:
+    case Stage::Heights: return AdvanceRoadProfiles(job, slice);
     case Stage::Bodies: return AdvanceRoadBodies(job, slice);
     case Stage::FinishNotes: return AdvanceFinish(job, slice);
     case Stage::Transfer: return BeginTransfer(job, slice);
@@ -2184,8 +2133,42 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadDesign(Job &job,
   }
 }
 
+std::expected<bool, std::string_view> Corridors::AdvanceRoadProfiles(Job &job,
+                                                                     const JobSlice &slice) {
+  Paved &into = job.Work;
+  switch (job.Phase) {
+    case Job::Stage::Profiles: {
+      const size_t end =
+          std::min(job.NextEdge + 2 * std::max(size_t{1}, slice.lanesMost), into.Edges.size());
+      if (slice.paving != nullptr) {
+        for (; job.NextEdge < end; ++job.NextEdge) {
+          PrepareProfile(job.NextEdge, *slice.paving, into);
+        }
+      } else {
+        job.NextEdge = end;
+      }
+      job.StageMs += slice.Elapsed();
+      job.TotalMs += slice.Elapsed();
+      if (job.NextEdge < into.Edges.size()) { return false; }
+      job.Phase = Job::Stage::Heights;
+      return false;
+    }
+    case Job::Stage::Heights:
+      if (slice.paving != nullptr) {
+        if (const auto plan = PlanHeights(*slice.paving, into); !plan) {
+          return std::unexpected(plan.error());
+        }
+      }
+      job.StageMs += slice.Elapsed();
+      job.TotalMs += slice.Elapsed();
+      job.Phase = Job::Stage::JunctionContacts;
+      return false;
+    default: return std::unexpected("stale road profile planning stage");
+  }
+}
+
 std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
-                                                                      const JobSlice &slice) const {
+                                                                      const JobSlice &slice) {
   const auto *paving = slice.paving;
   const size_t lanesMost = slice.lanesMost;
   const size_t nodesMost = slice.nodesMost;
@@ -2219,14 +2202,29 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
       job.TotalMs += elapsed();
       if (job.NextEdge < into.Edges.size()) { return false; }
       job.NextBody = 0;
-      job.Phase = Job::Stage::JunctionContacts;
+      job.Phase = Job::Stage::JunctionGates;
+      return false;
+    }
+    case Job::Stage::JunctionGates: {
+      const size_t end =
+          std::min(job.NextBody + std::max(size_t{1}, nodesMost), into.Junctions.size());
+      for (; job.NextBody < end; ++job.NextBody) {
+        FinalizeJunction(into.Junctions[job.NextBody], into);
+      }
+      job.StageMs += elapsed();
+      job.TotalMs += elapsed();
+      if (job.NextBody < into.Junctions.size()) { return false; }
+      job.NextEdge = 0;
+      job.NextBody = 0;
+      job.Phase = Job::Stage::Profiles;
       return false;
     }
     case Job::Stage::JunctionContacts: {
       const size_t end =
           std::min(job.NextBody + std::max(size_t{1}, nodesMost), into.Junctions.size());
       for (; job.NextBody < end; ++job.NextBody) {
-        FinalizeJunction(into.Junctions[job.NextBody], into);
+        const auto &junction = into.Junctions[job.NextBody];
+        AppendJunctionTerrainStamp(junction, junction.RootsM, junction.Elevated, into);
       }
       job.StageMs += elapsed();
       job.TotalMs += elapsed();
@@ -2243,33 +2241,40 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
       job.Phase = Job::Stage::Pave;
       return false;
     }
-    case Job::Stage::Pave: {
-      const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
-      if (paving != nullptr) {
-        for (; job.NextLane < end; ++job.NextLane) {
-          PaveLane(*paving, Pass::Paving, job.NextLane, into, job.Corridor, job.Pavement);
-        }
-      } else {
-        job.NextLane = end;
-      }
-      job.StageMs += elapsed();
-      job.TotalMs += elapsed();
-      if (job.NextLane < job.WayCount) { return false; }
-      Notes(into, "streets: of that, paving every lane", job.StageMs, "ms");
-      Notes(into, "streets: of paving, the fit", into.FitMs, "ms");
-      Notes(into, "streets: of paving, the water", into.WaterMs, "ms");
-      Notes(into, "streets: of paving, the sweep", into.SweepMs, "ms");
-      Notes(into, "streets: of paving, the yields", into.YieldsMs, "ms");
-      Notes(into,
-            "streets: of paving, stations paved",
-            static_cast<double>(into.EdgeStations),
-            "stations");
-      job.StageMs = 0.0;
-      job.Phase = Job::Stage::Bodies;
-      return false;
-    }
     default: return std::unexpected(Says::kStaleCorridorInput);
   }
+}
+
+std::expected<bool, std::string_view> Corridors::AdvanceRoadPaving(Job &job,
+                                                                   const JobSlice &slice) const {
+  if (job.Phase != Job::Stage::Pave) { return std::unexpected(Says::kStaleCorridorInput); }
+  const auto *paving = slice.paving;
+  const size_t lanesMost = slice.lanesMost;
+  const auto elapsed = [&slice] { return slice.Elapsed(); };
+  Paved &into = job.Work;
+  const size_t end = std::min(job.NextLane + std::max(size_t{1}, lanesMost), job.WayCount);
+  if (paving != nullptr) {
+    for (; job.NextLane < end; ++job.NextLane) {
+      PaveLane(*paving, Pass::Paving, job.NextLane, into, job.Corridor, job.Pavement);
+    }
+  } else {
+    job.NextLane = end;
+  }
+  job.StageMs += elapsed();
+  job.TotalMs += elapsed();
+  if (job.NextLane < job.WayCount) { return false; }
+  Notes(into, "streets: of that, paving every lane", job.StageMs, "ms");
+  Notes(into, "streets: of profile preparation, the fit", into.FitMs, "ms");
+  Notes(into, "streets: of paving, the water", into.WaterMs, "ms");
+  Notes(into, "streets: of paving, the sweep", into.SweepMs, "ms");
+  Notes(into, "streets: of paving, the yields", into.YieldsMs, "ms");
+  Notes(into,
+        "streets: of paving, stations paved",
+        static_cast<double>(into.EdgeStations),
+        "stations");
+  job.StageMs = 0.0;
+  job.Phase = Job::Stage::Bodies;
+  return false;
 }
 
 std::expected<bool, std::string_view> Corridors::AdvanceRoadBodies(Job &job,
@@ -2320,12 +2325,6 @@ std::expected<bool, std::string_view> Corridors::AdvanceFinish(Job &job, const J
           static_cast<double>(into.DecksOverWater),
           "decks");
     Notes(into, "streets: and the clearance the widest one took", into.MostOverWaterM, "m");
-    Notes(into,
-          "streets: stations an approach ramp moved",
-          static_cast<double>(into.RampStations),
-          "stations");
-    Notes(into, "streets: and the longest approach", into.LongestRampM, "m");
-    Notes(into, "streets: and the most a rim lifted a road", into.MostLiftedM, "m");
     Notes(into,
           "streets: junction bodies raised",
           static_cast<double>(into.Junctions.size()),
@@ -2463,30 +2462,36 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
   job.TotalMs += elapsed();
   Notes(into, "streets: everything Paves did", job.TotalMs, "ms");
   job.LongestSliceMs[static_cast<size_t>(Job::Stage::TransferValidate)] = elapsed();
-  constexpr std::array<std::string_view, 24> stages{"prepare",
-                                                    "crossings",
-                                                    "cross-file",
-                                                    "cross-decks",
-                                                    "design",
-                                                    "bridge-topology",
-                                                    "bridge-relevant",
-                                                    "bridge-sample",
-                                                    "bridge-raise",
-                                                    "bridge-cleanup",
-                                                    "bridge-ramps",
-                                                    "bridge-grades",
-                                                    "edges",
-                                                    "legs",
-                                                    "junctions",
-                                                    "pave",
-                                                    "bodies",
-                                                    "notes",
-                                                    "transfer",
-                                                    "transfer-positions",
-                                                    "transfer-normals",
-                                                    "transfer-colours",
-                                                    "transfer-triangles",
-                                                    "transfer-validate"};
+  constexpr std::array<std::string_view, static_cast<size_t>(Job::Stage::Done)> stages{
+      "prepare",
+      "crossings",
+      "cross-file",
+      "cross-decks",
+      "design",
+      "bridge-topology",
+      "bridge-relevant",
+      "bridge-sample",
+      "bridge-raise",
+      "bridge-cleanup",
+      "bridge-ramps",
+      "bridge-grades",
+      "edges",
+      "legs",
+      "junctions",
+      "end-cuts",
+      "junction-gates",
+      "profiles",
+      "heights",
+      "junction-contacts",
+      "pave",
+      "bodies",
+      "notes",
+      "transfer",
+      "transfer-positions",
+      "transfer-normals",
+      "transfer-colours",
+      "transfer-triangles",
+      "transfer-validate"};
   for (size_t stage = 0; stage < stages.size(); ++stage) {
     Notes(into,
           std::format("streets: longest {} slice", stages[stage]),
@@ -2495,7 +2500,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceTransferValidation(Job &
     Notes(into,
           std::format("streets: {} advances", stages[stage]),
           static_cast<double>(job.StageAdvances[stage]),
-          "frames");
+          "advances");
   }
   corridor = std::move(job.Corridor);
   notes = std::move(into.Notes);

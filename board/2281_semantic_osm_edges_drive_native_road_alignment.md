@@ -11,12 +11,12 @@ Tags: roads, bridges, tunnels, topology
 
 ## Ergebnis und Ist
 Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funktionales Netz.
-Aktueller Schwerpunkt: sichtbare Netzfehler in Wien, anschließend schwierige selbst gewählte
-POIs: Feldkirch, Basel Badischer Bahnhof (Straßen/Tunnel/Ebenen), Zürich HB, Häfen und dichte Städte.
+Aktueller Schwerpunkt: sichtbare Netzfehler in Wien, anschließend selbst gewählte POIs: Feldkirch, Basel Badischer Bahnhof (Straßen/Tunnel/Ebenen), Zürich HB, Häfen und dichte Städte.
 Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen.
 Alle Bodenwege veröffentlichen ihren physischen Kernkontakt, auch ohne Erdarbeiten.
-Mesher und Terrainkontakt teilen Anschlussumriss und konservative Zellstützweite.
-Zusätzlicher Kontakt schneidet nur; Kern/weiche Ausläufe bleiben. Sync/Async teilen den Aufbau.
+Mesher und Terrainkontakt teilen Anschlussumriss/Zellstützweite; zusätzliche Überdeckung schneidet nur.
+Gemeinsame native Höhenplanung bindet Knotenports, Neigungsgrenzen und Brückenfreiraum vor Mesh/Kontakt.
+Schnittvorrang erhält tiefe Profile; nur notwendiger Freiraum erzeugt Auftrag. Sync/Async teilen den Aufbau.
 Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
 Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen. Seiten nutzen Kantennormalen.
 Places nutzen polygonale Kontakte; der gemeinsame Profilpfad verlangt benannte Routen.
@@ -31,7 +31,7 @@ Unbekannte Wegunterklassen behalten das allgemeine Rezept; ungültige Unterklass
 Native Rezepte werden versioniert; Quellen erhalten. Tunnel werden bisher vor der Straßenerzeugung verworfen.
 Treppenstufen, Bahnsteige, Pier-/Brückenwege und Seilbahnen fehlen noch.
 
-## Besitzer und nächste Lieferung
+## Nächste Lieferung
 OSM-Adapter normalisiert vorhandene Semantik; world/navigation hält das native logische Netz.
 generators/road besitzt Profile/Geometrie, Terrain konsumiert deren Kontaktdeformation.
 Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann Bauhaus/Art déco.
@@ -39,7 +39,7 @@ Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann
    Höheninputs/Kontakte und Licht bleiben aktiv; ohne Schattenplan keine Schatten. Fehlstellen lokalisieren.
    Erst einen vollständigen realen Anschluss samt Brücke sichtbar und funktional schließen.
 2. Kachelweise 2D-Vektorpläne mit expliziten Ebenen und gemeinsamen Randknoten aufbauen.
-   Daraus gemeinsame Knotenhöhen, C1-Profile und passende Nahabtastung ableiten.
+   Endpunkte aktuell ebenenlos; kanonische Ports und explizite Übergänge ersetzen Koordinatenkopplung. Der Höhenplan begrenzt zugeschnittene Sekanten; C1 fehlt.
 3. Schienen mit eigenen Breiten, zulässigen Profilen und Oberflächen darstellen; keine
    Straßenrezept-Kopie. Geh-/Radwege, Bahnübergänge und getrennte Ebenen bleiben verbunden.
 4. Tragwerk, Decks, Portale und erforderliche Freiräume gehören zum funktionalen Grundmodell.
@@ -64,8 +64,9 @@ Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann
 - Ein Alignment je Kette. Fahrbahn, Schultern, Bord/Gehweg, Knoten und Kollision daraus ableiten.
   Gemeinsame Endpositionen/Höhen/Tangenten über Tiles; vollständige Längs-/Querneigung
   klassenabhängig begrenzen. Kreuzungsebenen erfüllen alle angeschlossenen Klassengrenzen.
-  Beide Endkürzungen gemeinsam begrenzen; kurze Rampen behalten beide Anschlusshöhen
-  unabhängig von Linienrichtung oder getrennten Quellendpunkten.
+  Neigungsgrenzen gelten über tatsächlich zugeschnittene Profillängen, ohne ebene Knotenflächen.
+  Beide Endkürzungen gemeinsam begrenzen; Rampen behalten beide Anschlusshöhen unabhängig von Linienrichtung.
+  Unvereinbare geneigte Ports liefern den Konfliktzyklus; nur beteiligte Knotenebenen abflachen.
 - Brückendecks verbinden Uferhöhen mit geneigtem Profil und notwendigem Freiraum.
   Einzelne hohe DEM-Proben heben nicht den gesamten Überbau an. Wasserfreiraum gilt über
   dem nativen Pegel im gemeinsamen lokalen Up-Bezug; Inseln/fehlende Pegel heben nichts an.
@@ -85,8 +86,7 @@ Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann
   quintische Freiraumausläufe respektieren physische Kontakte und Quellrelief.
   Steile Einschnitte/Stützböschungen sind zulässig. Kontaktprodukte unterscheiden natürlichen
   Fels-/Bodenschnitt und bauliche Sicherung für Fels, Beton/Mauerwerk und Materialübergänge (2171).
-  Kernkorrekturen entscheiden die Zulässigkeit eines Kontakts. Weiche Ausläufe begrenzen ihre
-  Korrektur örtlich; hohes Quellrelief außerhalb des Kerns darf den Kontakt nicht pauschal verwerfen.
+  Kernkorrekturen entscheiden die Zulässigkeit; weiche Ausläufe begrenzen ihre Korrektur örtlich; hohes Quellrelief außerhalb des Kerns darf den Kontakt nicht pauschal verwerfen.
 - Verfeinerung gegen deformierte Oberfläche und Kontakte bestimmen. Deterministische gemeinsame
   Kanten/Ecken und konforme LOD-Ränder statt Risse; innere Kanten nicht durch abdeckende Eltern
   verändern. Kontakt-/Höhenfehler vor zusätzlichen Vertices beheben. 2336 besitzt Arbeitsauswahl,
@@ -103,7 +103,7 @@ Graph und Geometrie trennen; reale Linien erhalten, keine Tensorfeld-Neuerzeugun
 [Straßenmodelle, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf):
 Profile → eigene Straße/Brücke/Tunnel plus Geländeauftrag; neue Trassenwahl nicht übernehmen.
 [SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes.
-[Gemeinsame Profile](../test/experiments/road_profile_envelopes.py): begrenzte Sekanten mit harten Höhenrändern; native Integration/C1 offen.
+[Gemeinsame Profile](../test/experiments/road_profile_envelopes.py): Minimax/Schnittvorrang mit Höhenrändern/Portoffsets; native Kosten und LP-Vergleich. C1 und vollständige Ebenentopologie offen.
 [Übergangsvergleich](../test/experiments/earthwork_transition.py),
 [Clearance-Ausläufe](../test/experiments/clearance_aprons.py): gleiche Inputs/Qualität vor Integration vergleichen.
 [Kreuzungsflächen](../test/experiments/road_junction_coverage.py): gelieferte Linienrichtungen,

@@ -19,7 +19,7 @@ Straßennetz-Treffer umgehen Layout/Profilierung; fehlende Höhen ergeben kein R
 Regionshits überspringen Boden-/Straßen-/Wassererzeugung und rohe Terrain-Mesh-Jobs.
 WaterAsset hält Koordinaten/Pegel/Konturen/Flussprofile/Tileindex. Abfragen, Mesh und Decoder sind quellunabhängig; WaterField besitzt Erzeugung/Fortschritt.
 Coverage beobachtet nur; native Produkte bestimmen Ready und veröffentlichte Screenshot-Kennzahlen.
-Stabile Regionsanfragen binden Regeln/Form/Bedarf vor Quellen; Inhalts-IDs behalten Digests. Bestehende Pakete per atomarer Metadatenbindung übernehmen.
+Regionsanfragen binden Regeln/Form/Bedarf vor Quellen; Inhalts-IDs behalten Digests. Gleiche Pose trifft; Verschiebung bindet bisher den ganzen Verbund neu.
 
 ## Kostenbefund und nächste Lieferung
 Frische Offline-Prozesse, 1280×720/60, 60 Frames/360°; Höhensnapshot-Treffer:
@@ -39,7 +39,7 @@ Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-
    [Liefermodell](../test/experiments/building_asset_delivery.py): Basis hält Koordinaten/Origin/Höhenbindung/Quell-IDs/Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
    Gebäude-Anfragen finden Basis/Inhalts-ID vor Straßen-Digests. Native OSM-Kacheln werden vor
    Provider/MVT auf dem Compute-Worker geladen; Geometrie/Klassifizierung teilen den Pfad.
-   Regionsbedarf bindet Regeln, Form, Layout/Kacheladressen und Parameter ohne Quelldigests.
+   P0: GroundRegionParameters bindet exakte Augen-/Ankerposition. Kanonische Kachel-/LOD-Produkte statt Verbundneubau bei Bewegung; Infrastrukturpläne aus 2281 integrieren.
    Teilstände treffen keinen vollständigen Bedarf; vorhandene Pakete werden atomar gebunden.
    Native Klassen vor Feldern laden und Abdeckung über Übergaben halten; Hits sparen globale Straßenfelder.
    P0: Gebäude-Höhenbedarf vor Felddecode nach räumlichem Detailbedarf wählen; Fernbauten fordern bisher pauschal feinste DEM-Kacheln. Kachelpläne aus 2281/2336 liefern Bedarf, keine globale Feinabdeckung.
