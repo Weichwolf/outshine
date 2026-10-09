@@ -22,6 +22,11 @@ Vorhandene native Produkte reichen zum Einstieg; kein pauschaler API-/Quellen-Bl
 Zuerst eine erkennbare technische Objektklasse im Stadt-/Hafenbild integrieren.
 
 ## Verfahren
+- [Inventur](../doc/references/data/osm/inventory.md)/2341 bestimmen gelieferte Klassen und
+  fehlende Sonderklassendaten. Rezepte für Windräder/Solarparks/Kräne/Masten, Flughafenteile,
+  Straßenmöbel/Barrieren, ÖPNV/Parken und Sport/Spiel teilen primitive/instanzierte Rohlinge.
+  Industrieflächen belegen keine bestimmte technische Anlage. Zusätzliche Places prüfen
+  jede physische Rezeptfamilie, nicht nur das Vorhandensein ihrer Tags.
 - Gelieferte Maße/Richtung/Material/Kontakt übernehmen; Unbekanntes stabil und plausibel
   ergänzen. Primitive/Profile für Masten/Ausleger/Kräne, Poller/Geländer/Antennen und
   generische Fahrzeug-/Bootshüllen. Wiederholungen instanzieren, dünne Leitungen begrenzen.

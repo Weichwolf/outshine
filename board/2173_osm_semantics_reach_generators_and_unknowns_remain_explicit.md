@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -14,6 +14,9 @@ Vollständige Grundrisse/Höfe/Parts, plausible Dächer/Sonderbauten und räumli
 Native Höhenintervalle, Footprints, BuildingMesh und Terrain-Stempel bestehen. Klassen-/
 Dachpläne bleiben lückenhaft; prozedurale Formfamilie ist keine belegte Nutzung.
 Quellfarben erreichen den Renderer. Öffnungspläne existieren; die visuelle Abnahme bleibt offen.
+Tokyo/CP: große Körper bleiben glatte Blöcke. `BuildingShape::FormOf` leitet Hall/Tower aus
+Proportionen ab; `BuildingFacadeStyle` übernimmt diese Form, `facadePattern.glsl` öffnet nur
+House/Terrace/Block. Baukörperproportion ist damit fälschlich auch Fassadennutzung.
 
 ## Besitzer und Lieferung
 OSM-Erweiterung normalisiert tatsächliche Eigenschaften; building besitzt Form-/Kontaktpläne.
@@ -23,6 +26,26 @@ Asset-Rohlinge (2280) enthalten ergänzten Typ, Höhe, Dach, Material und Fassad
 Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen oder neues Raten.
 
 ## Form und Quellsemantik
+- [Inventur und vollständiger Lieferkatalog](../doc/references/data/osm/inventory.md): 2341
+  besitzt zusätzliche Layer/Zuordnung und die fehlenden Sonderklassendaten. Bestehende
+  Gebäude/Dächer können unabhängig davon verbessert werden; kein pauschaler Quellenblocker.
+- Klassen besitzen getrennte Rezepte: Haus/Reihe (Geschosse, Achsen, einfaches Dach),
+  Wohnblock/Büro/Hotel (Höfe/Parts, regelmäßige Öffnungen), Halle/Lager (Tore, wenige Öffnungen),
+  Schornstein (geschlossener, meist runder/verjüngter Schaft), Silo/Tank (Behälter), Wasserturm
+  (Schaft plus Behälter), Kirche (Langhaus plus Turm), Garage/Schuppen (Tor), Gewächshaus
+  (Tragwerk plus Glas), erhöhte Parts/Brücken (freie Unterkante). Unbekannte Nutzung bleibt
+  ein einfacher Ersatz. Gelieferte Form/Material schlagen Ergänzungen; Baujahr beweist kein Material.
+- Weitere Sonderrezepte: Kühlturm (offene gekrümmte Schale), Windrad (Mast/Gondel/Rotor),
+  Solarpark (gebündelte geneigte Modulreihen), Strommast/Leitung und technische Anlagen.
+  Alle gelieferten Attribute persistieren; relevante Eigenschaften vor Ergänzungen auswerten.
+  Fehlende Lieferantenklassen ausdrücklich benennen, nicht aus Wohnhausproportionen behaupten.
+- Rosenheim: native Lieferdaten der beiden hohen kleinen Grundrisse enthalten ausschließlich
+  `render_height`/`render_min_height` (65/80 m), keine Nutzung oder Materialangabe. Alle gelieferten
+  Tags bleiben im nativen OSM-Produkt. Unklassifizierte schmale Schächte bleiben konservativ
+  geschlossen; explizite Wohnnutzung geht vor. Das ist ein Ersatz, keine belegte Schornsteinklasse.
+- Dächer einfach und robust halten. Flensburg rechts zeigt fehlerhafte Dachspitzen bereits im
+  bisherigen Bild; Aufteilung/Anschlüsse gezielt korrigieren, bewährte Dachformen erhalten.
+  Komplexe Formen nur mit belegten Parametern und vollständigen, überschneidungsfreien Flächen.
 - Gelieferte Attribute erhalten; ausdrücklich gelieferte Schlüssel schlagen normalisierte Aliase.
   Höhe/Unterkante/Geschosse, Klasse/Nutzung, Dach, Material/Farbe und Parts nutzen, soweit vorhanden.
   [OpenMapTiles](https://github.com/openmaptiles/openmaptiles/blob/master/layers/building/building.yaml)
@@ -36,12 +59,16 @@ Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen
 - Kompakte Regeln bestimmen Geschosse/Achsen/Öffnungen, Eingangsseite, Dach und Kontakt.
   Regionale Grammatik ist Ergänzung, keine Fotorekonstruktion/Place-Geometrie. Kontakte ohne
   Fassadenmesh erzeugen; alle LODs teilen denselben Plan. Straßenqualität bleibt erhalten.
+- Massierung und Öffnungsplan trennen. Form bestimmt Silhouette/Dach, belegte Nutzung bestimmt
+  Sonderbau-/Öffnungsregeln; unbekannte breite Körper bekommen plausible Wohn-/Büroöffnungen.
+  Bekannte Industrie-/Versorgungstürme bleiben geschlossen. Regel-/Produktversion gezielt ändern;
+  alle LODs und native Treffer verwenden denselben Plan, keine pauschale Shader-Fensterfreigabe.
 - Gemeinsame randtreue Polygontriangulierung für Gebäude/Wasser mit Löchern: GEOS ≥3.10 über
   System-C-API; Library-Typen privat. Ungültige Polygone nicht durch Flächenverlust kaschieren.
 
 ## Nahdetail und Erscheinung
 - Öffnungen nur aus Nutzung/Geschossen/Achsen und verfügbarem Bildbedarf. Kontaktwände/Giebel,
-  Hallen/Türme/Sonderbauten geschlossen erhalten; kein gleichförmiges Fensterraster.
+  belegte Hallen/Versorgungstürme geschlossen erhalten; kein gleichförmiges Fensterraster.
 - Laibungen, Rahmen, Traufen, Balkone/Gauben erhalten nahe Tiefe; wiederholte Teile instanzieren.
   Fernhüllen filtern denselben Öffnungsplan ohne einzelne Detaildreiecke. Nahglas und Hüllen
   erhalten mittlere Coverage/Helligkeit. Fine bedeutet keine pauschale Expansion aller Details.

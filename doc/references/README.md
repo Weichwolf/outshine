@@ -26,6 +26,10 @@ das Clipmaps-Paper liegt bereits als PDF unter Terrain/SIGGRAPH.
 
 ## Gebäude und kompakte Fassaden — WI 2173 / 2171
 
+[OSM-Lieferinventur und Rezeptplan](data/osm/inventory.md), WI 2341:
+32 gezielte Standorte, alle gelieferten Layer, vollständiger beobachteter Klassenkatalog.
+Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Vollständigkeitsbehauptung.
+
 - **Instant Architecture**, Wonka et al., SIGGRAPH 2003.
   [Quelle](https://peterwonka.net/Publications/pdfs/2003.SG.Wonka.InstantArchitecture.high.pdf) ·
   [PDF](buildings/siggraph/2003-instant-architecture.pdf).
