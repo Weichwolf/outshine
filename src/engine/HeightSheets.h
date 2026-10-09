@@ -35,6 +35,7 @@ public:
     int FinestZoom;
     size_t RequestsMost;
     const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
+    bool BuildingFootprints = true;
     std::span<const Data::TileId> AdditionalTiles;
   };
 

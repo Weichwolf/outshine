@@ -17,9 +17,13 @@ Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation best
 Places nutzen überwiegend polygonale Kontakte; Hermite-Kontaktprofile und adaptive
 Nahfahrbahnen sind dort noch nicht integriert. Brückenanschlüsse sind verbessert, das Netz
 hat weiterhin falsche Profile/Übergänge. Vorhandene Straßenqualität bleibt erhalten.
-Der Playable-Erwerb in Feldkirch plant Straßen außerhalb bereitgestellter DEM-Felder und
-bricht ab; vollständige Refined-Place-Treffer umgehen diesen Pfad. Bedarf und Fachplanung
-müssen dieselbe notwendige Höhenabdeckung besitzen, auch bei kalten Assets/neuer Kamera.
+OpenMapTiles `class=rail` muss als kanonisches `kind=rail` das Schienenrezept erreichen;
+die falsche Umbenennung zu `railway` verwarf gelieferte Linien. Native Tile-/Region-Rezepte
+werden versioniert, damit Treffer die korrigierte Semantik enthalten; Quellen bleiben erhalten.
+Der erste Weltaufbau deckt auch die Vektorkacheln mit DEM-Eltern/Halos ab; Straßenplanung
+und Bedarf verwenden denselben Bestand. Feine Gebäudehöhen kommen erst bei Refined hinzu.
+Kalte Asset-Misses bleiben teuer; vollständige native Treffer umgehen diesen Aufbau.
+Gelieferte Transit-Unterklassen fehlen noch, ebenso Pier-/Brückenwege und Seilbahnen.
 
 ## Besitzer und nächste Lieferung
 OSM-Adapter normalisiert vorhandene Semantik; world/navigation hält das native logische Netz.

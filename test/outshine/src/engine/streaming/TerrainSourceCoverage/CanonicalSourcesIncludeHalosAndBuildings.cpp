@@ -113,6 +113,10 @@ int main() {
   const auto buildingsPlan = PlanTerrainSourceTiles({}, {.FinestZoom = 4, .Vectors = &vectors});
   CHECK(buildingsPlan && Keys(*buildingsPlan) == buildingExpected,
         "vector neighbours and building footprints contribute different source resolutions");
+  const auto streetsPlan = PlanTerrainSourceTiles(
+      {}, {.FinestZoom = 4, .Vectors = &vectors, .BuildingFootprints = false, .MaximumTiles = 9});
+  CHECK(streetsPlan && Keys(*streetsPlan) == NeighbourOracle({.Zoom = 2, .X = 2, .Y = 2}),
+        "initial street coverage retains source halos without refining every building footprint");
   const auto datelineNorth = Ground::TileFracToGeo({.X = 0.0, .Y = 128.25}, 8);
   const auto datelineSouth = Ground::TileFracToGeo({.X = 0.0, .Y = 129.75}, 8);
   buildings.front().LatLon = {datelineNorth.LatitudeDeg,

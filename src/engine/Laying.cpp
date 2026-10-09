@@ -1467,14 +1467,6 @@ Engine::State::AdvanceGroundCandidatePreparation(const GroundRequest &request) {
   return GroundBuildProgress::Pending;
 }
 
-namespace {
-const ::outshine::Generators::Osm::OsmField *
-HeightCoverageVectors(GroundQuality quality,
-                      const ::outshine::Generators::Osm::OsmField *vectors) noexcept {
-  return quality == GroundQuality::Refined ? vectors : nullptr;
-}
-}
-
 Engine::State::GroundBuildProgress
 Engine::State::BeginGroundSheetRefinement(const TangentFrame &standing, Patchwork &patchwork) {
   GroundBuildState &state = *World.GroundBuild;
@@ -1609,8 +1601,8 @@ Engine::State::GroundBuildProgress Engine::State::AdvanceGroundSheets(const Tang
           World.Stack.Ground(),
           {.FinestZoom = coverage.Zoom,
            .RequestsMost = kTerrainSheetsPerFrame,
-           .Vectors = HeightCoverageVectors(state.Revision().Quality,
-                                            state.Candidate().Sources().Vectors.get()),
+           .Vectors = state.Candidate().Sources().Vectors.get(),
+           .BuildingFootprints = state.Revision().Quality == GroundQuality::Refined,
            .AdditionalTiles = state.RoadHeightTiles()});
       if (!prepared) {
         Error = prepared.error();

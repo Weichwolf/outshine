@@ -146,6 +146,7 @@ AddSources(TilePlan &plan, std::span<const Data::TileId> sources, TerrainSourceC
     source = {.Zoom = zoom, .X = source.X >> drop, .Y = source.Y >> drop};
     if (!plan.Neighbours(source)) { return BudgetExceeded(); }
   }
+  if (!coverage.BuildingFootprints) { return {}; }
   const int buildings = vectors.Layer(::outshine::Generators::Osm::OsmLayer::Buildings);
   for (const auto &feature : vectors.Features()) {
     if (feature.Type != kPolygonFeature || std::cmp_not_equal(feature.Layer, buildings)) {

@@ -1,5 +1,7 @@
 #include "OsmField.h"
 #include "BuildingProperties.h"
+#include "GroundMaterials.h"
+#include "StreetField.h"
 #include "Check.h"
 #include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
 #include <array>
@@ -162,6 +164,38 @@ void CheckExplicitValuePrecedence() {
           "invalid explicit height remains visible instead of falling back to an alias");
   }
 }
+
+void CheckRailClassRules() {
+  using namespace outshine::Generators::Osm;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
+  GroundMaterials materials;
+  VegetationTemplates templates;
+  CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground catalog loads");
+  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "street rules load");
+  if (!templates.Ready()) { return; }
+  const std::array<std::string, 1> layers{"streets"};
+  OsmField field(2, layers, MvtSchema::OpenMapTiles);
+  CHECK(field.Accept(1,
+                     1,
+                     Layer("transportation",
+                           2,
+                           std::array<std::string_view, 3>{"class", "brunnel", "layer"},
+                           std::array{String("rail"), String("bridge"), Bytes{0x28, 2}})),
+        "provider railway geometry is accepted");
+  if (field.Features().empty()) { return; }
+  const auto &feature = field.Features().front();
+  CHECK(field.Str(feature, "class") == "rail" && field.Str(feature, "kind") == "rail",
+        "railway class reaches the canonical street recipe without losing the source tag");
+  StreetField streets;
+  CHECK(streets.Ingest(field, templates) == 1 && streets.UnruledCount() == 0,
+        "delivered railway becomes a native corridor instead of being silently discarded");
+  if (streets.Ways().empty()) { return; }
+  const auto &way = streets.Ways().front();
+  CHECK(way.Bridge && way.Layer == 2 && way.PointCount == 2 && way.CoverRow >= 0,
+        "rail bridge retains its independent level, geometry and surface material");
+  CHECK_NEAR(way.HalfWidthM, 1.9, 1e-6, "half width", "railway recipe controls corridor width");
+}
 }
 
 int main() {
@@ -258,5 +292,6 @@ int main() {
   CheckExplicitValuePrecedence();
   CheckBuildingColours();
   CheckUnprefixedBuildingColours();
+  CheckRailClassRules();
   return Report();
 }

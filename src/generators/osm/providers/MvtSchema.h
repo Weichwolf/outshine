@@ -38,7 +38,6 @@ NormalizeMvtTag(MvtSchema schema, std::string_view canonical, MvtLayer::Tag tag)
     tag.Key = "kind";
     if (canonical == "streets" && !tag.IsNumber) {
       if (tag.String == "minor") { tag.String = "residential"; }
-      if (tag.String == "rail") { tag.String = "railway"; }
     }
   }
   if (canonical == "streets" && tag.Key == "brunnel" && !tag.IsNumber &&

@@ -1,6 +1,7 @@
 #include "src/generators/road/Corridors.h"
 #include "src/generators/road/ProfiledRoadMesher.h"
 #include "PublishedRegion.h"
+#include "WaterAsset.h"
 #include "Check.h"
 
 #include <algorithm>
@@ -176,7 +177,7 @@ int main() {
   std::unique_ptr<Generators::Corridors::Job> stale = Generators::Corridors::Begin(site);
   const ::outshine::Generators::Osm::RegionSources pinned =
       ::outshine::Generators::Osm::RegionSources::Snapshot(
-          &vectors, ways, ::outshine::Generators::Osm::WaterField{});
+          &vectors, ways, Generators::WaterAsset{});
   auto changed = declared;
   changed.front().LatLon.front() += 0.0001;
   vectors.Declare(changed, *tile);

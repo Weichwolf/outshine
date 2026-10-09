@@ -100,6 +100,7 @@ void CopiesEdgeIntoRim(std::vector<float> &page, const std::vector<bool> &missin
                                       {.FinestZoom = preparation.FinestZoom,
                                        .GroundZoom = groundZoom,
                                        .Vectors = preparation.Vectors,
+                                       .BuildingFootprints = preparation.BuildingFootprints,
                                        .AdditionalTiles = preparation.AdditionalTiles});
   return tiles;
 }

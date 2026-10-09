@@ -20,6 +20,7 @@ struct TerrainSourceCoverage {
   int FinestZoom = 0;
   int GroundZoom = -1;
   const ::outshine::Generators::Osm::OsmField *Vectors = nullptr;
+  bool BuildingFootprints = true;
   std::span<const Data::TileId> AdditionalTiles;
   size_t MaximumTiles = MaximumFields;
 };
