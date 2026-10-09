@@ -32,6 +32,14 @@ outshine::Test::Mvt::Bytes BuildingTile() {
   Append(layer, 0x12, feature);
   Bytes tile;
   Append(tile, 0x1a, layer);
+  Bytes streetLayer{0x0a, 7, 's', 't', 'r', 'e', 'e', 't', 's', 0x78, 2, 0x28, 64};
+  Append(streetLayer, 0x1a, Bytes{'k', 'i', 'n', 'd'});
+  Append(streetLayer, 0x22, Bytes{0x0a, 11, 'r', 'e', 's', 'i', 'd', 'e', 'n', 't', 'i', 'a', 'l'});
+  Bytes street{0x08, 2, 0x18, 2};
+  Append(street, 0x12, Bytes{0, 0});
+  Append(street, 0x22, Bytes{9, 0, 0, 10, 120, 0});
+  Append(streetLayer, 0x12, street);
+  Append(tile, 0x1a, streetLayer);
   return tile;
 }
 
@@ -86,14 +94,22 @@ void Replay(const std::filesystem::path &directory, bool warm) {
         "native replay opens the real vector and asset services");
   if (!stack.Opened()) { return; }
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  while (!stack.Ingested() && std::chrono::steady_clock::now() < deadline) {
-    CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
+  const auto inputsReady = [&] {
+    return warm ? stack.Vectors() && stack.Vectors()->SettledWithin(0) : stack.Ingested();
+  };
+  while (!inputsReady() && std::chrono::steady_clock::now() < deadline) {
+    CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = warm ? 0u : 1u, .VectorRing = 0}).has_value(),
           "the real vector snapshot and semantic inputs advance");
     (void)stack.AwaitProgress(0.001);
   }
-  CHECK(stack.Ingested() && stack.Vectors() && stack.Vectors()->Tiles().size() == 1,
+  CHECK(inputsReady() && stack.Vectors() && stack.Vectors()->Tiles().size() == 1,
         "one complete vector tile supplies the native product");
-  if (!stack.Ingested() || !stack.Vectors() || stack.Vectors()->Tiles().size() != 1) { return; }
+  if (!inputsReady() || !stack.Vectors() || stack.Vectors()->Tiles().size() != 1) { return; }
+  CHECK(inputsReady(), "the required source or native admission metadata is available");
+  CHECK(!warm || stack.Ways().LookedCount() == 0,
+        "warm replay starts without preparing street inputs");
+  CHECK(warm || !stack.Ways().Ways().empty(),
+        "the cold asset binds an actual street corridor instead of an empty digest");
   auto &prints = stack.Footprints();
   prints.AnchorAt(TangentFrame::At(eye).OriginEcef());
   prints.TilesSpan(1000.0);
@@ -139,7 +155,7 @@ void Replay(const std::filesystem::path &directory, bool warm) {
     if (!ready) { break; }
     if (!ready->empty()) {
       CHECK(ready->front().Baked->Coordinates &&
-                ready->front().Baked->Coordinates->Points.size() == 8,
+                ready->front().Baked->Coordinates->Points.size() == 12,
             "native geometry owns its complete ground-contact ring before publication");
       queue.CommitsLandings(prints, *ready);
       landed = true;
@@ -162,13 +178,18 @@ void Replay(const std::filesystem::path &directory, bool warm) {
                 queue.Deferred());
   }
   const auto *input = prints.InputOfTile(0);
-  CHECK(input && input->Coordinates && input->Coordinates->Points.size() == 8,
+  CHECK(input && input->Coordinates && input->Coordinates->Points.size() == 12,
         "publication preserves native coordinates instead of moving an empty source buffer");
   CHECK(!warm || (pins == 0 && stack.BuildingAssets()->Costs().GeometryHits == 1),
         "fresh warm replay loads ready geometry without touching the height provider");
   const auto costs = stack.BuildingAssets()->Costs();
   CHECK(!warm || (costs.BasisHits == 1 && costs.Hits == 0 && costs.ReadBytes == 0),
         "fresh warm queue uses the owned basis without decoding the full building plans");
+  CHECK(!warm || (input && input->Bake.PreparedAssetKey.has_value() &&
+                  input->SourceKey == StructureBuildQueue::QualifiedSourceKey(prints, 0)),
+        "native content identity remains the accepted dependency without source revalidation");
+  CHECK(!warm || stack.Ways().LookedCount() == 0,
+        "native replay leaves unprepared street inputs untouched");
   queue.Clear();
 }
 }

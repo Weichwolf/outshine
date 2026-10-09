@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -80,6 +81,7 @@ public:
   void UseNativeAssets(std::shared_ptr<Generators::PreparedBuildingAssets> cache,
                        std::string key,
                        std::string requestKey = {});
+  [[nodiscard]] std::optional<std::string_view> PreparedAssetKey() const noexcept;
   void Start(Tasks &pool, const StructureMesher &mesher);
   void Resume(Tasks &pool, const StructureMesher &mesher);
   void RequestStop() noexcept;

@@ -635,6 +635,10 @@ void StructureBuildTask::UseNativeAssets(std::shared_ptr<Generators::PreparedBui
       std::make_unique<NativeProducts>(std::move(cache), std::move(key), std::move(requestKey));
 }
 
+std::optional<std::string_view> StructureBuildTask::PreparedAssetKey() const noexcept {
+  return Native_ ? std::optional(std::string_view(Native_->Key)) : std::nullopt;
+}
+
 void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   assert(State_ != State::Running);
   const Generators::RawTile *const raw = Raw_.get();

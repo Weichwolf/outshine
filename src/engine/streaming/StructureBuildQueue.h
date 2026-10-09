@@ -324,8 +324,14 @@ private:
   };
 
   struct NativeLookup {
+    enum class Phase : uint8_t { Request, Content };
+    Phase Stage = Phase::Request;
     Tasks::Handle Task = Tasks::kNoTask;
-    std::expected<Generators::PreparedBuildingAssets::Basis, Generators::StructureBakeError> Result;
+    std::expected<std::optional<Generators::PreparedBuildingAssets::RequestedBasis>,
+                  Generators::StructureBakeError>
+        Result;
+    std::string ContentKey;
+    uint64_t StreetDigest = 0;
     double ReadMs = 0.0;
   };
 

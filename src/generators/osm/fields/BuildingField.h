@@ -16,6 +16,8 @@
 #include <cassert>
 #include <functional>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -60,6 +62,7 @@ public:
     double TileSpanM = 0.0;
     LongitudeLatitude Eye;
     std::optional<Vec3> EyeEcef;
+    std::optional<std::string> PreparedAssetKey = std::nullopt;
   };
 
   struct AcceptedInput {
@@ -110,7 +113,7 @@ public:
                  .CellShellErrorM = baked.CellShellErrorM,
                  .Qualified = qualified,
                  .SourceKey = 0,
-                 .Bake = bake,
+                 .Bake = std::move(bake),
                  .HeightRevision = heightRevision,
                  .Heights = std::move(heights)} {
       std::ranges::sort(Input_.Sources);
@@ -123,7 +126,9 @@ public:
              .StreetDigest = Input_.Bake.StreetDigest,
              .TileSpanM = Input_.Bake.TileSpanM,
              .FallbackHeights = false,
-             .Origin = Input_.Coordinates ? &Input_.Coordinates->Origin : nullptr});
+             .Origin = Input_.Coordinates ? &Input_.Coordinates->Origin : nullptr,
+             .PreparedAssetKey = Input_.Bake.PreparedAssetKey.transform(
+                 [](const auto &key) { return std::string_view(key); })});
       }
     }
 
@@ -292,6 +297,7 @@ public:
                    CapacityBytes(AcceptedInputs_) + CapacityBytes(Products_) +
                    Admission_.HeapBytes() + MeasurementBytes();
     for (const AcceptedInput &input : AcceptedInputs_) {
+      if (input.Bake.PreparedAssetKey) { bytes += input.Bake.PreparedAssetKey->capacity() + 1u; }
       if (input.Coordinates) { bytes += input.Coordinates->HeapBytes(); }
       if (input.Vector) {
         bytes += input.Vector->SourceId.capacity() + input.Vector->Revision.capacity();

@@ -12,7 +12,7 @@ Tags: assets, loading, cache, spatial-index, residency
 ## Ergebnis und Ist
 Hierarchischer Weltbedarf (2336) → räumlicher Assetindex → Hit: fertigen Rohling laden.
 Nur fehlende benötigte Produkte starten Generator/Provider/Quellcache/API; anschließend atomar
-speichern und denselben Lade-/Publikationspfad bedienen. Das gilt für alle Weltklassen.
+speichern und denselben Lade-/Publikationspfad bedienen. Für alle Weltklassen.
 Vorhanden: öffentlicher AssetCache/ResolveAsset, SQLite-R*Tree, native Geometrie-/Netzcodecs,
 Höhenfelder, Gebäuderohlinge/LOD-Produkte und Impostoren. Pakete komprimiert Zstandard Level 1;
 alte Rohpakete/Quellen erhalten, native Länge/CRC/Frame prüfen. Keine Gerätehandles persistieren.
@@ -35,11 +35,11 @@ Trefferprozess: Peak-RSS 1,44 GiB, OS-Footprint 4,28 GiB; nicht addieren. RAM-/G
 Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je belegter Zelle.
 Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen native Pläne/Kontakte.
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
-Separate native Gebäude-Basis hält Koordinaten, Quell-IDs/Zellen, Origin und Höhenbindung. LOD-Treffer laden keine Pläne/Auswahl; Geometriemisses öffnen den Elternrohling. Fehlende Pläne invalidieren die Basis und erneuern den Quellauftrag. Hierarchie/Arbeitsmenge bleiben offen.
+Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-Hits ohne Pläne; Geometriemisses öffnen Eltern. Fehlende Pläne invalidieren die Basis. Hierarchie/Arbeitsmenge offen.
 [Zellenmodell](../test/experiments/prepared_building_residency.py) begründet Formladung bei Bedarf.
 1. P0: Bedarf aus 2336 vor Quellen/Cachedecode; räumliche Eltern/Kinder statt Kamerasnapshots.
    [Liefermodell](../test/experiments/building_asset_delivery.py): Basis hält Koordinaten/Origin/Höhenbindung/Quell-IDs/Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
-   Gebäude-Anfrage integriert: native Basis samt Inhalts-ID über stabile Parameter, Bindung bei Aufbau/Bestandsmigration. Queue prüft Inputs weiterhin; Aufruf vor OsmField.Build noch offen.
+   Gebäude-Anfrage: Basis/Inhalts-ID über stabile Parameter; Bindung bei Aufbau/Migration. Treffer brauchen keinen aktuellen Straßen-Digest; Legacy-/Quellschlüssel nur bei Miss. Native Inhalts-ID trägt Runtime-Gültigkeit. Aufruf vor OsmField.Build bleibt offen.
 2. P0: verbliebene Terrainproben aus nativen Höhen-/Kontaktprodukten bedienen, 25–32 MiB Zwischenfelder bei Hits vermeiden. WaterAsset integriert; monotone Bereichsumsetzung erhält Konturreihenfolge/Löcher. [Packmodell](../test/experiments/water_asset_coordinates.py): drei echte Pakete, 9–286 kB statt 0,19–60 MB Gesamtkoordinaten. Weitere Generatoren trennen fertige Rohlinge von Cursor/Quelllayout; gemeinsamer Vertrag aus 2188.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
    Renderer teilt Maps/Material ([Modell](../test/experiments/material_image_residency.py)). Native Bilder halten Basis und optionale Linear-/sRGB-/Normalmips; Producer bereitet vor Publikation vor, Hits uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
@@ -108,8 +108,8 @@ Wasser und Gebäude-Basis: zehn bildgleiche Migration-/Hit-Paare ohne Impostor-N
 Basis-Treffer warm 1,84–3,76 s, p99 1,60–4,57 ms. Alle Bilder geöffnet; kein neuer Bildgewinn.
 Frühere kalte Startspitzen CP 13,05/Koerbersee 25,10 ms bleiben bei 2340; günstige Fenster schließen sie nicht.
 Wasserabfragen und Gebäude-LOD-Treffer umgehen ihre Quellprodukte; Regionsschlüssel/übrige Quellenarbeit noch nicht.
-API-Lint e10d532cf: nur fehlendes Khronos-Pin-PNG rot; 363 Tidy-Units/32 Claims/Header/Shader sauber.
-Gebäude-Anfrage: sieben Fälle/29 Tidy-Units; zehn bildgleiche Migrations-/Hit-Paare, 490 Bindungen, warm null Bindungswrites. Warm 1,84–3,79 s, p99 1,92–3,10 ms, Footprint 4,28 GiB. Migration: Rosenheim/Tokyo ca. 17 ms p99 (2340); keine Startspitzen- oder RAM-Entwarnung.
+Voller Lint 46c235e0f: nur fehlendes Khronos-Pin-PNG rot; 363 Tidy-Units/32 Claims sauber. Neuer Stand noch nicht vollständig gelintet.
+Anfrage vor Straßenaufbereitung: 23 Fälle/29 Tidy-Units sauber; zehn bildgleiche Offline-Paare, 490 unveränderte Bindungen. Warm 1,85–3,75 s, p99 bis 10,51 ms (Malcesine, Frame 4); Footprint bis 4,29 GiB. Startspitzen (2340), RAM und Einstieg vor MVT-Decode bleiben offen.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

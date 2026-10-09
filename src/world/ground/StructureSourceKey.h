@@ -25,6 +25,7 @@ struct StructureSourceView {
   double TileSpanM = 0;
   bool FallbackHeights = false;
   const Data::ProductOrigin *Origin = nullptr;
+  std::optional<std::string_view> PreparedAssetKey = std::nullopt;
 };
 
 [[nodiscard]] inline uint64_t StructureSourceKey(const StructureSourceView &inputs) {
@@ -52,6 +53,13 @@ struct StructureSourceView {
     bytes(value.SourceId);
     bytes(value.Revision);
   };
+  if (inputs.PreparedAssetKey) {
+    bytes("prepared-structure-inputs-1");
+    bytes(*inputs.PreparedAssetKey);
+    word(inputs.HeightDigest);
+    word(static_cast<uint64_t>(inputs.FallbackHeights));
+    return digest == 0 ? kDigestBasis : digest;
+  }
   word(static_cast<uint64_t>(inputs.Vector.has_value()));
   if (inputs.Vector) { source(*inputs.Vector); }
   if (inputs.Origin != nullptr && inputs.Origin->Provenance) {

@@ -101,7 +101,7 @@ BuildingField::PrepareAcceptance(uint32_t tile,
           std::move(vector),
           sources,
           qualified,
-          bake,
+          std::move(bake),
           heightRevision,
           std::move(heights)};
 }
