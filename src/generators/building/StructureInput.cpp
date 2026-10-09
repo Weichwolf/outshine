@@ -3,10 +3,22 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <utility>
 
 namespace outshine::Generators {
+namespace {
+std::optional<FacadeStyle> FacadeOf(Ground::StructureOpenings openings) {
+  switch (openings) {
+    case Ground::StructureOpenings::Unspecified: return std::nullopt;
+    case Ground::StructureOpenings::Regular: return FacadeStyle::Block;
+    case Ground::StructureOpenings::Closed: return FacadeStyle::Outbuilding;
+    case Ground::StructureOpenings::Glazed: return FacadeStyle::Glazing;
+  }
+  return std::nullopt;
+}
+}
 
 std::expected<RawTile, StructureInputError>
 StructureInput(outshine::Ground::StructureFootprints footprints) {
@@ -38,6 +50,7 @@ StructureInput(outshine::Ground::StructureFootprints footprints) {
                               .HeightM = footprint.Height.TopM,
                               .MinimumHeightM = footprint.Height.MinimumM,
                               .WallColour = {},
+                              .Facade = FacadeOf(footprint.Openings),
                               .HeightOrigin = footprint.Height.TopOrigin,
                               .SourceId = footprint.Source});
   }

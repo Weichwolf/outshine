@@ -21,10 +21,13 @@ namespace {
 using StructureBinary::Reader;
 using StructureBinary::Writer;
 constexpr uint32_t kMagic = 0x31425350;
-constexpr uint32_t kVersion = 3;
-constexpr uint32_t kIndexVersion = 4;
+constexpr uint32_t kLegacyVersion = 3;
+constexpr uint32_t kVersion = 6;
+constexpr uint32_t kLegacyIndexVersion = 4;
+constexpr uint32_t kIndexVersion = 7;
 constexpr uint32_t kBasisVersion = 5;
-constexpr uint32_t kBlockMagic = 0x31435342;
+constexpr uint32_t kLegacyBlockMagic = 0x31435342;
+constexpr uint32_t kBlockMagic = 0x32435342;
 constexpr auto scalar = [](auto &archive, auto &value) { return archive.Number(value); };
 constexpr auto point = [](auto &archive, auto &value) {
   return archive.Number(value.EastM) && archive.Number(value.NorthM);
@@ -134,7 +137,7 @@ constexpr auto indexedHeightTile = [](auto &archive, auto &value) {
   return true;
 };
 
-constexpr auto layout = [](auto &archive, auto &value) {
+constexpr auto layout = [](auto &archive, auto &value, bool facadeFields) {
   return archive.Number(value.LocalFirst) && archive.Number(value.PointCount) &&
          archive.Number(value.SourceFirst) && archive.Number(value.FirstHole) &&
          archive.Number(value.HoleCount) && archive.Number(value.SourceFirstHole) &&
@@ -142,39 +145,45 @@ constexpr auto layout = [](auto &archive, auto &value) {
          archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
          archive.Number(value.Pitched) && archive.Maybe(value.WallColour, vector) &&
          archive.Maybe(value.HeightOrigin, scalar) && archive.Number(value.SourceId.Id) &&
-         archive.Number(value.SourceId.Kind);
+         archive.Number(value.SourceId.Kind) &&
+         (!facadeFields || archive.Maybe(value.Facade, scalar));
 };
-constexpr auto prepared = [](auto &archive, auto &value) {
-  return layout(archive, value.Layout) && footprint(archive, value.Standing) &&
+constexpr auto prepared = [](auto &archive, auto &value, bool facadeFields) {
+  return layout(archive, value.Layout, facadeFields) && footprint(archive, value.Standing) &&
          bounds(archive, value.Bounds) && archive.Number(value.CornerFirst) &&
          archive.Number(value.BaseAslM) && archive.Number(value.SeatAslM) &&
          archive.Number(value.AreaM2) && archive.Number(value.AcrossM);
 };
-constexpr auto shape = [](auto &archive, auto &value) {
-  return archive.List(value.Ring, point) &&
-         archive.List(value.Holes, [](auto &held, auto &hole) { return held.List(hole, point); }) &&
-         archive.Number(value.TidiedAway) && archive.List(value.PartyWallEdges, scalar) &&
-         archive.Number(value.AreaM2) && point(archive, value.Centre) &&
-         point(archive, value.AxisU) && archive.Number(value.HalfUm) &&
-         archive.Number(value.HalfVm) && archive.Number(value.Fill) && archive.Number(value.Form) &&
-         archive.Number(value.Roof) && archive.Number(value.Storeys) &&
-         archive.Number(value.FloorM) && archive.Number(value.FootM) &&
-         archive.Number(value.SeatM) && archive.Number(value.SoleM) &&
-         archive.Number(value.EavesM) && archive.Number(value.RiseM) &&
-         archive.Number(value.BreakFracV) && archive.Number(value.BreakRiseM) &&
-         archive.Number(value.PeriodM) && archive.Number(value.BayM) &&
-         archive.Number(value.OverhangM) && archive.Number(value.Seed) &&
-         archive.Number(value.Ident) && archive.Number(value.WallVariant) &&
-         archive.Number(value.FrontEdge);
+constexpr auto shape = [](auto &archive, auto &value, bool facadeFields) {
+  const bool read =
+      archive.List(value.Ring, point) &&
+      archive.List(value.Holes, [](auto &held, auto &hole) { return held.List(hole, point); }) &&
+      archive.Number(value.TidiedAway) && archive.List(value.PartyWallEdges, scalar) &&
+      archive.Number(value.AreaM2) && point(archive, value.Centre) && point(archive, value.AxisU) &&
+      archive.Number(value.HalfUm) && archive.Number(value.HalfVm) && archive.Number(value.Fill) &&
+      archive.Number(value.Form) && archive.Number(value.Roof) && archive.Number(value.Storeys) &&
+      archive.Number(value.FloorM) && archive.Number(value.FootM) && archive.Number(value.SeatM) &&
+      archive.Number(value.SoleM) && archive.Number(value.EavesM) && archive.Number(value.RiseM) &&
+      archive.Number(value.BreakFracV) && archive.Number(value.BreakRiseM) &&
+      archive.Number(value.PeriodM) && archive.Number(value.BayM) &&
+      archive.Number(value.OverhangM) && archive.Number(value.Seed) &&
+      archive.Number(value.Ident) && archive.Number(value.WallVariant) &&
+      archive.Number(value.FrontEdge);
+  if (!read) { return false; }
+  if (facadeFields) { return archive.Number(value.OpeningStyle); }
+  if constexpr (std::is_same_v<std::remove_cvref_t<decltype(archive)>, Reader>) {
+    value.OpeningStyle = BuildingFacadeStyle(value.Form);
+  }
+  return true;
 };
 }
 
 class PreparedStructureCodec {
 public:
   template <typename Archive, typename Surface>
-  static bool SurfaceFields(Archive &archive, Surface &value) {
+  static bool SurfaceFields(Archive &archive, Surface &value, bool facadeFields = true) {
     if constexpr (std::is_same_v<Archive, Writer>) {
-      if (value.Block_) { return SurfaceFields(archive, value.Resident()); }
+      if (value.Block_) { return SurfaceFields(archive, value.Resident(), facadeFields); }
     }
     using SupportFlag = std::conditional_t<std::is_same_v<Archive, Writer>, const bool, bool>;
     SupportFlag supported = !value.Shapes_.empty();
@@ -184,7 +193,11 @@ public:
            vector(archive, value.Axes_.North) && vector(archive, value.Axes_.Up) &&
            vector(archive, value.Bounds_.Min) && vector(archive, value.Bounds_.Max) &&
            archive.Number(value.MinimumHeightM_) && archive.Maybe(value.WallColour_, vector) &&
-           archive.List(value.Shapes_, shape) && archive.List(value.FaceOffsets_, scalar);
+           archive.List(value.Shapes_,
+                        [facadeFields](auto &held, auto &part) {
+                          return shape(held, part, facadeFields);
+                        }) &&
+           archive.List(value.FaceOffsets_, scalar);
   }
 
   template <typename Archive, typename Tile, typename Visit>
@@ -200,16 +213,22 @@ public:
   }
 
   template <typename Archive, typename Tile, typename Visit>
-  static bool MetadataFields(Archive &archive, Tile &value, Visit visitHeightTile) {
+  static bool
+  MetadataFields(Archive &archive, Tile &value, Visit visitHeightTile, bool facadeFields = true) {
     return HeaderFields(archive, value, visitHeightTile) &&
            archive.List(value.PointsLatLon, scalar) && archive.List(value.Holes, ring) &&
-           archive.List(value.CornerAslM, scalar) && archive.List(value.Structures, prepared);
+           archive.List(value.CornerAslM, scalar) &&
+           archive.List(value.Structures, [facadeFields](auto &held, auto &entry) {
+             return prepared(held, entry, facadeFields);
+           });
   }
 
-  template <typename Archive, typename Tile> static bool TileFields(Archive &archive, Tile &value) {
-    return MetadataFields(archive, value, heightTile) &&
-           archive.List(value.Surfaces,
-                        [](auto &held, auto &surface) { return SurfaceFields(held, surface); });
+  template <typename Archive, typename Tile>
+  static bool TileFields(Archive &archive, Tile &value, bool facadeFields = true) {
+    return MetadataFields(archive, value, heightTile, facadeFields) &&
+           archive.List(value.Surfaces, [facadeFields](auto &held, auto &surface) {
+             return SurfaceFields(held, surface, facadeFields);
+           });
   }
 
   template <typename Archive, typename Surface>
@@ -257,8 +276,8 @@ public:
     return true;
   }
 
-  static bool IndexFields(Reader &archive, PreparedStructureTile &value) {
-    return MetadataFields(archive, value, indexedHeightTile) &&
+  static bool IndexFields(Reader &archive, PreparedStructureTile &value, bool facadeFields) {
+    return MetadataFields(archive, value, indexedHeightTile, facadeFields) &&
            archive.List(value.Surfaces, [](auto &held, auto &surface) {
              BuildingSurface::Selection selection;
              if (!SummaryFields(held, surface, selection)) { return false; }
@@ -285,8 +304,9 @@ public:
     for (size_t index = 0; index < value.Shapes_.size(); ++index) {
       const auto &part = value.Shapes_[index];
       if (!part.Valid() || part.PartyWallEdges.size() != part.Ring.size() ||
-          part.Form > BuildingForm::Spire || part.Roof > RoofKind::Dome || part.Storeys < 1 ||
-          part.FloorM <= 0 || part.BayM <= 0 || part.FrontEdge < -1 ||
+          part.Form > BuildingForm::Spire || part.OpeningStyle < FacadeStyle::Outbuilding ||
+          part.OpeningStyle > FacadeStyle::Glazing || part.Roof > RoofKind::Dome ||
+          part.Storeys < 1 || part.FloorM <= 0 || part.BayM <= 0 || part.FrontEdge < -1 ||
           (part.FrontEdge >= 0 && std::cmp_greater_equal(part.FrontEdge, part.Ring.size()))) {
         return false;
       }
@@ -383,7 +403,10 @@ public:
           record.Cell.Index == 0 || record.Cell.Index > kStructureCellsPerTile ||
           entry.Standing.PointCount != record.PointCount ||
           entry.Standing.Source > Ground::BuildingHeightSource::Generated || entry.AreaM2 < 0 ||
-          entry.AcrossM < 0 || !ValidSurface(value.Surfaces[index])) {
+          entry.AcrossM < 0 ||
+          (record.Facade &&
+           (*record.Facade < FacadeStyle::Outbuilding || *record.Facade > FacadeStyle::Glazing)) ||
+          !ValidSurface(value.Surfaces[index])) {
         return false;
       }
     }
@@ -446,9 +469,10 @@ std::optional<PreparedStructureTile> DecodePreparedStructureTile(std::span<const
   uint32_t magic = 0;
   uint32_t version = 0;
   PreparedStructureTile tile;
-  if (!input.Number(magic) || magic != kMagic || !input.Number(version) || version != kVersion ||
-      !PreparedStructureCodec::TileFields(input, tile) || input.Remaining != 0 ||
-      !PreparedStructureCodec::Valid(tile)) {
+  if (!input.Number(magic) || magic != kMagic || !input.Number(version) ||
+      (version != kVersion && version != kLegacyVersion) ||
+      !PreparedStructureCodec::TileFields(input, tile, version == kVersion) ||
+      input.Remaining != 0 || !PreparedStructureCodec::Valid(tile)) {
     return std::nullopt;
   }
   return tile;
@@ -476,7 +500,8 @@ std::optional<PreparedStructureTile> DecodePreparedStructureIndex(std::span<cons
   uint32_t version = 0;
   PreparedStructureTile tile;
   if (!input.Number(magic) || magic != kMagic || !input.Number(version) ||
-      version != kIndexVersion || !PreparedStructureCodec::IndexFields(input, tile) ||
+      (version != kIndexVersion && version != kLegacyIndexVersion) ||
+      !PreparedStructureCodec::IndexFields(input, tile, version == kIndexVersion) ||
       input.Remaining != 0 || !PreparedStructureCodec::Valid(tile)) {
     return std::nullopt;
   }
@@ -506,10 +531,11 @@ DecodeBuildingSurfaceBlock(std::span<const uint8_t> bytes, size_t residentBytesM
   input.AllocationLeft = residentBytesMost;
   uint32_t magic = 0;
   std::vector<BuildingSurface> surfaces;
-  if (!input.Number(magic) || magic != kBlockMagic ||
+  if (!input.Number(magic) || (magic != kBlockMagic && magic != kLegacyBlockMagic) ||
       !input.List(surfaces,
-                  [](auto &held, auto &surface) {
-                    return PreparedStructureCodec::SurfaceFields(held, surface) &&
+                  [magic](auto &held, auto &surface) {
+                    return PreparedStructureCodec::SurfaceFields(
+                               held, surface, magic == kBlockMagic) &&
                            PreparedStructureCodec::ValidSurface(surface);
                   }) ||
       input.Remaining != 0) {

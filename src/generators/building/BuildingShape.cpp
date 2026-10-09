@@ -22,12 +22,14 @@
 
 namespace outshine::Generators {
 
-[[nodiscard]] FacadeStyle BuildingFacadeStyle(BuildingForm form) {
+[[nodiscard]] FacadeStyle BuildingFacadeStyle(BuildingForm form,
+                                              std::optional<FacadeStyle> declared) {
+  if (declared) { return *declared; }
   switch (form) {
     case BuildingForm::Outbuilding: return FacadeStyle::Outbuilding;
     case BuildingForm::Terrace: return FacadeStyle::Terrace;
-    case BuildingForm::Block: return FacadeStyle::Block;
-    case BuildingForm::Hall: return FacadeStyle::Hall;
+    case BuildingForm::Block:
+    case BuildingForm::Hall: return FacadeStyle::Block;
     case BuildingForm::Tower: return FacadeStyle::Tower;
     case BuildingForm::Spire: return FacadeStyle::Spire;
     case BuildingForm::House: break;
@@ -547,7 +549,7 @@ void SplitHeight(BuildingShape *s, Roofing under) {
 
   const double want = FloorPreferenceM(s->Form);
   s->Storeys = std::max(1, static_cast<int>(std::lround(s->EavesM / want)));
-  s->FloorM = s->EavesM / static_cast<double>(s->Storeys);
+  s->FloorM = s->EavesM > 0 ? s->EavesM / static_cast<double>(s->Storeys) : kFloorUnsaidM;
   if (s->FloorM > kTallFloorM) {
     s->Storeys = std::max(1, static_cast<int>(std::floor(s->EavesM / kTallFloorM)));
     s->FloorM = s->EavesM / static_cast<double>(s->Storeys);
@@ -645,6 +647,7 @@ void Finish(FootprintPiece &piece, const PartOrder &order, BuildingShape &s) {
                                 .HeightM = top,
                                 .SpanM = 2.0 * s.HalfUm,
                                 .PitchedShare = order.PitchedShare});
+  s.OpeningStyle = BuildingFacadeStyle(s.Form);
   s.PeriodM = std::max(kPeriodLeastM,
                        kPeriodHalvesLeast * s.HalfUm /
                            std::max(kPeriodHalvesLeast, std::round(s.HalfUm / kPeriodPerHalfM)));

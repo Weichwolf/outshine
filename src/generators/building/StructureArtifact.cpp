@@ -21,7 +21,7 @@
 namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
-constexpr uint32_t kVersion = 7;
+constexpr uint32_t kVersion = 8;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -275,7 +275,7 @@ StructureArtifactKey(const RawTile &raw,
            archive.Number(value.Cell.Index) && bounds(archive, value.Cell.Footprint) &&
            archive.Number(value.HeightM) && archive.Number(value.MinimumHeightM) &&
            archive.Number(value.Pitched) && archive.Maybe(value.WallColour, colour) &&
-           archive.Number(value.HeightOrigin.has_value()) &&
+           archive.Maybe(value.Facade, scalar) && archive.Number(value.HeightOrigin.has_value()) &&
            (!value.HeightOrigin || archive.Number(*value.HeightOrigin)) &&
            archive.Number(value.SourceId.Kind) && archive.Number(value.SourceId.Id);
   };

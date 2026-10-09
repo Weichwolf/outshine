@@ -16,6 +16,7 @@ namespace {
 
 constexpr double kSinkM = 0.30;
 constexpr double kPlinthM = 0.50;
+constexpr double kRegularTowerWidthM = 12.0;
 
 class FoundationGround {
 public:
@@ -134,6 +135,17 @@ PrepareBuildingShapes(const StructurePlan &plan, BuildingScratch &scratch) {
   if (!parts) { return std::unexpected(parts.error()); }
   const FoundationGround ground(plan);
   for (BuildingShape &part : *parts) {
+    part.OpeningStyle = BuildingFacadeStyle(part.Form, plan.Facade);
+    if (!plan.Facade && part.Form == BuildingForm::Tower &&
+        2.0 * part.HalfVm >= kRegularTowerWidthM) {
+      part.OpeningStyle = FacadeStyle::Block;
+    }
+    if (part.EavesM > 0.0 && part.OpeningStyle == FacadeStyle::Block &&
+        (part.Form == BuildingForm::Hall || part.Form == BuildingForm::Tower)) {
+      part.Storeys = std::max(1, static_cast<int>(std::lround(part.EavesM / kFloorUnsaidM)));
+      part.FloorM = part.EavesM / static_cast<double>(part.Storeys);
+      part.BayM = 3.0;
+    }
     if (plan.WallColour) { part.WallVariant = 0; }
     part.SeatM = plan.MinimumHeightM != 0.0 ? 0.0 : PlinthTopZ(part, ground);
     part.SoleM = plan.MinimumHeightM != 0.0 ? plan.MinimumHeightM : PlinthFootZ(part, ground);

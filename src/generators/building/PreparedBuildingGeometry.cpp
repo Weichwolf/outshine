@@ -27,7 +27,7 @@ std::string GeometryKey(const std::string &base, const RawTile &view) {
   const auto number = [&bytes](double value) {
     return std::isfinite(value) && bytes.Number(value == 0.0 ? 0.0 : value);
   };
-  if (!text("building-lod-1") || !text(base) ||
+  if (!text("building-lod-2") || !text(base) ||
       !bytes.Number(view.RequestedDetail ? static_cast<int>(*view.RequestedDetail) : -1) ||
       !bytes.Number(view.RequestedCell.value_or(0)) || !bytes.Number(view.ClusterTriangles) ||
       !number(view.Projection.FocalPx) || !number(view.Projection.AllowedErrorPx) ||
@@ -114,8 +114,17 @@ PreparedBuildingAssets::StoreGeometry(const std::string &baseKey,
   const auto key = GeometryKey(baseKey, view);
   if (key.empty()) { return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct); }
   const auto encoded = EncodeStructureArtifact(tile, key);
-  if (!encoded || encoded->size() > kGeometryBytesMost) {
+  if (!encoded) {
+    if (encoded.error() == StructureArtifactError::CapacityExceeded) {
+      return std::unexpected(StructureBakeErrorKind::ArtifactCapacityExceeded);
+    }
+    if (encoded.error() == StructureArtifactError::WriteFailed) {
+      return std::unexpected(StructureBakeErrorKind::ArtifactFailure);
+    }
     return std::unexpected(StructureBakeErrorKind::ArtifactInvalidProduct);
+  }
+  if (encoded->size() > kGeometryBytesMost) {
+    return std::unexpected(StructureBakeErrorKind::ArtifactCapacityExceeded);
   }
   const AssetRecord record{.Key = key,
                            .Kind = "building-lod",

@@ -38,12 +38,14 @@ RawTile Inputs() {
     if (!cell) { return {}; }
     const auto first = static_cast<uint32_t>(raw.LatLon.size() / 2);
     raw.LatLon.insert(raw.LatLon.end(), ring.begin(), ring.end());
-    raw.Structures.push_back({.LocalFirst = first,
-                              .PointCount = 4,
-                              .SourceFirst = first,
-                              .Cell = *cell,
-                              .HeightM = 12,
-                              .Pitched = 0});
+    raw.Structures.push_back(
+        {.LocalFirst = first,
+         .PointCount = 4,
+         .SourceFirst = first,
+         .Cell = *cell,
+         .HeightM = 12,
+         .Pitched = 0,
+         .Facade = index == 2 ? std::optional(FacadeStyle::Tower) : std::nullopt});
   }
   return raw;
 }
@@ -139,9 +141,23 @@ int main() {
   const auto reference = PrepareStructureTile(raw, *heights);
   CHECK(reference.has_value(), "cold native data supplies the reference");
   if (reference) {
+    const auto full = EncodePreparedStructureTile(*reference);
+    const auto decoded =
+        full ? DecodePreparedStructureTile(*full, size_t{1} * 1024 * 1024) : std::nullopt;
+    CHECK(decoded && decoded->Structures[2].Layout.Facade == FacadeStyle::Tower &&
+              !decoded->Structures[0].Layout.Facade &&
+              decoded->Surfaces[2].Shapes().front().OpeningStyle == FacadeStyle::Tower,
+          "native restart retains supplied service use and independent opening plans");
+    auto invalid = *reference;
+    invalid.Structures[2].Layout.Facade = static_cast<FacadeStyle>(8);
+    CHECK(!EncodePreparedStructureTile(invalid), "invalid opening families cannot publish");
     CHECK(reference->Surfaces.front().FaceCount() > 4 * 8 + 16,
           "long terrace yields more faces than a source-point multiplier can bound");
     auto index = EncodePreparedStructureIndex(*reference);
+    const auto decodedIndex =
+        index ? DecodePreparedStructureIndex(*index, size_t{1} * 1024 * 1024) : std::nullopt;
+    CHECK(decodedIndex && decodedIndex->Structures[2].Layout.Facade == FacadeStyle::Tower,
+          "spatial metadata retains opening use before shape reads");
     CHECK(index && index->size() >= 5, "fixture encodes native selection metadata");
     if (index && index->size() >= 5) {
       std::fill_n(index->end() - 5, 4, uint8_t{255});

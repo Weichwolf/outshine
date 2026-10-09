@@ -24,7 +24,10 @@ bool Stopped(const std::atomic_bool *stopping) {
   return stopping != nullptr && stopping->load(std::memory_order_relaxed);
 }
 
-double DistanceTo(const StructureMassPlan &mass, const RawTile &raw, const Box &bounds) {
+double DistanceTo(const StructureMassPlan &mass,
+                  const RawTile &raw,
+                  const Box &bounds,
+                  double guardM = kStructureEyeDetailGuardM) {
   double distanceM = 0.0;
   if (raw.EyeEcef && !bounds.Empty()) {
     const Vec3 eye = *raw.EyeEcef - raw.AnchorEcef;
@@ -42,7 +45,7 @@ double DistanceTo(const StructureMassPlan &mass, const RawTile &raw, const Box &
         std::hypot((nearLat - raw.Eye.LatitudeDeg) * kMPerDegLat,
                    (nearLon - eyeLon) * kMPerDegLon * std::cos(raw.Eye.LatitudeDeg * kDeg2Rad));
   }
-  return std::max(distanceM - kStructureEyeDetailGuardM, 1.0);
+  return std::max(distanceM - guardM, 1.0);
 }
 
 bool Massable(const StructurePlan &plan) {
@@ -134,7 +137,9 @@ void StructurePlanSelection::SelectSource(size_t index,
               *source.ShellErrorM > 0.0 && raw.Projection.Allows(*source.ShellErrorM, distanceM)
           ? LevelOfDetail::Shell
           : LevelOfDetail::Fine;
-  source.Plan.RecessedOpenings = !raw.Projection.Allows(kOpeningDepthM, distanceM);
+  source.Plan.RecessedOpenings = !raw.Projection.Allows(
+      kOpeningDepthM,
+      DistanceTo(source.Mass, raw, source.Bounds.value_or(Box{}), kStructureEyeReuseM));
   out.FootprintDetails[source.Footprint] = source.Plan.Coarseness;
   Commands_.push_back({.Source = index, .Mass = std::nullopt, .ProjectedSources = {}});
 }
@@ -154,7 +159,8 @@ bool StructurePlanSelection::SelectProjected(const RawTile &raw,
     const double distance = DistanceTo(source.Mass, raw, *source.Bounds);
     const bool shell = raw.Projection.Allows(*source.ShellErrorM, distance);
     source.Plan.Coarseness = shell ? LevelOfDetail::Shell : LevelOfDetail::Fine;
-    source.Plan.RecessedOpenings = !raw.Projection.Allows(kOpeningDepthM, distance);
+    source.Plan.RecessedOpenings = !raw.Projection.Allows(
+        kOpeningDepthM, DistanceTo(source.Mass, raw, *source.Bounds, kStructureEyeReuseM));
     distant += shell ? 1 : 0;
     known.push_back(index);
   }

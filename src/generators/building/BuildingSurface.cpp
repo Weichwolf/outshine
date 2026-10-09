@@ -154,7 +154,7 @@ Vec2f TextureAt(const BuildingShape &shape, size_t face, const Vec3 &point, bool
           ? ((point[0] - edge.A->EastM) * e + (point[1] - edge.A->NorthM) * n) / (length * length)
           : 0.0;
   const double bays = gable || edge.Party ? 0.0 : FacadeBays(length, shape.BayM);
-  return {{FacadeUvX(BuildingFacadeStyle(shape.Form),
+  return {{FacadeUvX(shape.OpeningStyle,
                      edge.Entrance && !gable ? Fields::Entrance : Fields::Back,
                      shape.WallVariant,
                      static_cast<float>(bays * fraction)),

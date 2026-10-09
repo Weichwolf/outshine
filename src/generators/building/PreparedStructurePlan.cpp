@@ -25,6 +25,7 @@ StructurePlan PreparedStructurePlan(const PreparedStructure &prepared,
   plan.HeightMeasured = standing.Source == Ground::BuildingHeightSource::Declared;
   plan.PitchedShare = static_cast<double>(layout.Pitched);
   plan.WallColour = layout.WallColour;
+  plan.Facade = layout.Facade;
   plan.Street = standing.Street;
   plan.AnchorEcef = anchor;
   return plan;

@@ -200,7 +200,8 @@ BuildingDetail DetailOf(const RawTile &raw, const Spread &bounds, double statedM
     const double conservativeAwayM =
         std::max(awayAtLeastM - kStructureEyeDetailGuardM, kNearestSeenM);
     const auto &projection = raw.Projection;
-    detail.RecessedOpenings = !projection.Allows(kOpeningDepthM, conservativeAwayM);
+    detail.RecessedOpenings = !projection.Allows(
+        kOpeningDepthM, std::max(awayAtLeastM - kStructureEyeReuseM, kNearestSeenM));
     if (!raw.RequestedDetail &&
         projection.Allows(std::max(kArchitectureM, statedM), conservativeAwayM)) {
       detail.Envelope = LevelOfDetail::Shell;

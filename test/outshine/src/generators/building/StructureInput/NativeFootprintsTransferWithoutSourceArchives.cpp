@@ -17,7 +17,8 @@ int main() {
                   .TopOrigin = outshine::Ground::BuildingHeightOrigin::Declared,
                   .MinimumOrigin = outshine::Ground::BuildingHeightOrigin::Declared,
                   .ConflictingLevels = false},
-       .Source = {}});
+       .Source = {},
+       .Openings = outshine::Ground::StructureOpenings::Closed});
   const auto *points = footprints.LatLon.data();
   const auto *rings = footprints.Rings.data();
   auto input = outshine::Generators::StructureInput(std::move(footprints));
@@ -26,6 +27,7 @@ int main() {
   CHECK(input && !input->SourceInputs.Objects && input->Structures.size() == 1 &&
             input->Structures.front().HeightM == 13 &&
             input->Structures.front().MinimumHeightM == 3 &&
+            input->Structures.front().Facade == outshine::FacadeStyle::Outbuilding &&
             input->Structures.front().HeightOrigin ==
                 outshine::Ground::BuildingHeightOrigin::Declared,
         "a producer needs no source archive to supply an explicit raised building");
@@ -42,5 +44,16 @@ int main() {
         "missing coordinate storage is refused before forming an out-of-range span");
   CHECK(outshine::Generators::StructureInput({}).has_value(),
         "a complete empty native product remains distinct from malformed geometry");
+  outshine::Ground::StructureFootprints glazed;
+  glazed.Origin.Bounds = {.WestDeg = -1, .SouthDeg = -1, .EastDeg = 1, .NorthDeg = 1};
+  glazed.LatLon = {0, 0, 0, 0.001, 0.001, 0.001, 0.001, 0};
+  glazed.Structures.push_back({.First = 0,
+                               .Count = 4,
+                               .Height = {.TopM = 8},
+                               .Source = {},
+                               .Openings = outshine::Ground::StructureOpenings::Glazed});
+  const auto glassInput = outshine::Generators::StructureInput(std::move(glazed));
+  CHECK(glassInput && glassInput->Structures.front().Facade == outshine::FacadeStyle::Glazing,
+        "a native glazed building retains its supplied opening plan");
   return Report();
 }

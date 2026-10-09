@@ -1,6 +1,7 @@
 #include "OsmStructureDescription.h"
 #include "OsmSourceProvenance.h"
 #include "OsmSourceCapture.h"
+#include "OsmBuildingFacade.h"
 
 #include "TangentFrame.h"
 #include <algorithm>
@@ -11,6 +12,7 @@
 #include <expected>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <utility>
 #include <vector>
@@ -19,6 +21,17 @@ namespace outshine::Generators::Osm {
 namespace {
 
 constexpr double kLongitudePeriodDeg = 360.0;
+
+Ground::StructureOpenings OpeningsOf(std::optional<FacadeStyle> facade) {
+  if (!facade) { return Ground::StructureOpenings::Unspecified; }
+  switch (*facade) {
+    case FacadeStyle::Glazing: return Ground::StructureOpenings::Glazed;
+    case FacadeStyle::House:
+    case FacadeStyle::Terrace:
+    case FacadeStyle::Block: return Ground::StructureOpenings::Regular;
+    default: return Ground::StructureOpenings::Closed;
+  }
+}
 
 std::expected<GeographicRing, StructureDescriptionError> PointRing(
     outshine::Ground::StructureFootprints &raw, const StructurePolicy &policy, uint32_t point) {
@@ -85,13 +98,15 @@ DescribeStructures(const BuildingFootprints &buildings,
       firstHole = static_cast<uint32_t>(building.FirstRing + 1);
       holeCount = static_cast<uint32_t>(building.RingCount - 1);
     }
+    const auto openings = OpeningsOf(ReadBuildingFacade(buildings.Tags(building)));
     raw.Structures.push_back(
         {.First = ring.First,
          .Count = ring.Count,
          .FirstHole = firstHole,
          .HoleCount = holeCount,
          .Height = *height,
-         .Source = {.Id = building.Source.Id, .Kind = static_cast<uint8_t>(building.Source.Kind)}});
+         .Source = {.Id = building.Source.Id, .Kind = static_cast<uint8_t>(building.Source.Kind)},
+         .Openings = openings});
   }
   std::vector<ElementId> roots;
   roots.reserve(buildings.Buildings().size());

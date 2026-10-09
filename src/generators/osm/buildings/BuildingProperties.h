@@ -3,6 +3,7 @@
 
 #include "BuildingHeightInterval.h"
 #include "OsmField.h"
+#include "OsmBuildingFacade.h"
 #include "format/CssColour.h"
 #include "math/Srgb.h"
 #include "math/Vec3.h"
@@ -17,12 +18,14 @@ struct BuildingProperties {
   bool Hidden = false;
   std::optional<Ground::BuildingHeightInterval> Height;
   std::optional<Vec3f> WallColour;
+  std::optional<FacadeStyle> Facade;
   bool WallColourRejected = false;
 };
 
 [[nodiscard]] inline BuildingProperties ReadBuildingProperties(const OsmField &field,
                                                                const OsmField::Feature &feature) {
   BuildingProperties result;
+  result.Facade = ReadBuildingFacade(field, feature);
   constexpr uint32_t byteMask = 255u;
   if (field.Has(feature, "building:colour")) {
     const auto rgba = ParseCssColour(field.Str(feature, "building:colour"));

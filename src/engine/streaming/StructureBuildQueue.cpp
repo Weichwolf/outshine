@@ -209,6 +209,7 @@ void RawOf(const ::outshine::Generators::Osm::OsmField &vectors,
                                 .MinimumHeightM = heights.MinimumM,
                                 .Pitched = pitched,
                                 .WallColour = building.WallColour,
+                                .Facade = building.Facade,
                                 .HeightOrigin = heights.Origin});
     }
   }

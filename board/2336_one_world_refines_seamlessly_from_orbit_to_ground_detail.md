@@ -21,14 +21,12 @@ Koerbersee-Diagnose: 16.255 Höhenblätter × 33² = 17.701.695 CPU-Vertices;
 = 583,56 MiB. Das sind CPU-Zwischenprodukte, keine gezeichneten Dreiecke. Der vorherige
 erfolgreiche Shot meldet 37.776 erzeugte Gebäudedreiecke laut ROW. ROW zählt keine
 GPU-Terraindreiecke; ein Verhältnis zu sichtbaren GPU-Dreiecken ist daraus nicht ableitbar.
-Die initiale TerrainSurvey erzeugt nur die bisher genutzten Lichtproben, keine Topologie;
-Positionen/Extrema stimmen im nativen Vergleich exakt mit dem alten Vollmesh überein.
+TerrainSurvey erzeugt Lichtproben ohne Topologie; Positionen/Extrema erhalten.
 Koerbersees Blattzahl erfordert damit 1.106.356 Proben × 12 Byte = 12,66 MiB Nutzdaten statt
 583,56 MiB Positionen/Indizes. Koer/Wien/CP/Tokyo sind im isolierten Stand pixelgleich;
 Survey-Schritte bei Koer maximal 0,224 ms. Der finale globale CPU-Meshaufbau ist jetzt entfernt:
 Audio liest publizierte, deformierte Höhen direkt, maximal 64 Proben ohne Geometrieallokation.
-Das ist grobe Verdeckung, kein exakter Kontakt-/Mehrwegebeweis; feine Quellen bleiben zu teuer.
-Koer/Wien/CP/Tokyo bleiben pixelgleich. Koers warmer Peak-Footprint fällt von 3,40 auf 1,83 GiB
+Grobe Audioverdeckung; feine Quellen bleiben teuer. Koers Peak-Footprint fällt von 3,40 auf 1,83 GiB
 (Bytes/1024³), Laden von 8,61 auf 7,88 s; Stadt-Laden bleibt bei 12–16 s. Quellenarbeit ist weiter offen.
 
 ## P0: grobe Sichtbarkeit vor feineren API-Anfragen
@@ -71,8 +69,10 @@ Verdecker brauchen tatsächlich belegte Coverage; eine Cluster-AABB ist keine ma
 Fachpläne; Engine koordiniert native Bounds/Qualität/Kosten ohne OSM-Semantik (2188).
 Stabile räumliche Zellen/Produktstufen/Versionen statt Kameraposition als Rohling-ID.
 Kamera/Projektion wählen Produkte und Runtime-Details; unveränderte Rohlinge wiederverwenden.
-Kachelzulassung nutzt nur Metadaten, ohne Featurescan: 33 Fälle/41 Tidy-Units sauber, zehn Offline-Bildpaare exakt gleich; warm 1,84–3,75 s und 1,96–3,01 ms p99. [Modell](../test/experiments/native_tile_admission.py) nutzt reale native Stückzahlen; kein Quellenbypass-/RAM-/Bildgewinnbeweis. Quelle erst beim Miss öffnen bleibt der nächste Schritt; gepackte Bereiche/Morton-Ordnung und GeoCellId erhalten.
-Nur fehlende erforderliche Produkte erzeugen. SSD/RAM/GPU-Arbeitsmengen getrennt begrenzen.
+Kachelzulassung nutzt native Metadaten; [Modell](../test/experiments/native_tile_admission.py) prüft reale Stückzahlen. Quellen erst bei Miss öffnen; gepackte Bereiche/Morton-Ordnung erhalten.
+Nur erforderliche Produkte erzeugen; SSD/RAM/GPU begrenzen.
+Laibungstiefe nur expandieren, wenn `FocalPx × 0,16 m / max(d − 64 m, 1 m)` das
+Pixelbudget überschreitet. 64 m ist der Wiederverwendungsradius; Form-/Shell-Grenzen bleiben gleich.
 
 ## Fernstadt vor weiteren Nahdetails
 | Stufe | Produkt | Bedarfsentscheidung |

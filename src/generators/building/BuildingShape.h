@@ -5,6 +5,7 @@
 #include "FacadeUv.h"
 #include <span>
 #include <expected>
+#include <optional>
 #include "Earth.h"
 #include <cstdint>
 #include <vector>
@@ -19,7 +20,8 @@ enum class RoofKind : uint8_t { Flat, Gable, Hip, Shed, Mansard, Sawtooth, Dome 
 
 enum class BuildingForm : uint8_t { Outbuilding, House, Terrace, Block, Hall, Tower, Spire };
 
-[[nodiscard]] FacadeStyle BuildingFacadeStyle(BuildingForm form);
+[[nodiscard]] FacadeStyle BuildingFacadeStyle(BuildingForm form,
+                                              std::optional<FacadeStyle> declared = std::nullopt);
 
 struct Boxed {
   double U = 0.0;
@@ -39,6 +41,7 @@ struct BuildingShape {
   double Fill = 0.0;
 
   BuildingForm Form = BuildingForm::House;
+  FacadeStyle OpeningStyle = FacadeStyle::House;
   RoofKind Roof = RoofKind::Flat;
   int Storeys = 1;
   double FloorM = kFloorUnsaidM;

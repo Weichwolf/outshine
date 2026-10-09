@@ -14,9 +14,9 @@ Vollständige Grundrisse/Höfe/Parts, plausible Dächer/Sonderbauten und räumli
 Native Höhenintervalle, Footprints, BuildingMesh und Terrain-Stempel bestehen. Klassen-/
 Dachpläne bleiben lückenhaft; prozedurale Formfamilie ist keine belegte Nutzung.
 Quellfarben erreichen den Renderer. Öffnungspläne existieren; die visuelle Abnahme bleibt offen.
-Tokyo/CP: große Körper bleiben glatte Blöcke. `BuildingShape::FormOf` leitet Hall/Tower aus
-Proportionen ab; `BuildingFacadeStyle` übernimmt diese Form, `facadePattern.glsl` öffnet nur
-House/Terrace/Block. Baukörperproportion ist damit fälschlich auch Fassadennutzung.
+Baukörper und Öffnungsplan sind getrennt; der native Rohling speichert beide. Breite unbekannte
+Hall-/Turmkörper erhalten regelmäßige Öffnungen, schmale Schächte bleiben geschlossen.
+Gelieferte Nutzung geht vor; Sonderformen und weitere Rezeptfamilien bleiben auszubauen.
 
 ## Besitzer und Lieferung
 OSM-Erweiterung normalisiert tatsächliche Eigenschaften; building besitzt Form-/Kontaktpläne.

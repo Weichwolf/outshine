@@ -19,6 +19,7 @@
 
 #include "StoredVertex.h"
 #include "BuildingFrontage.h"
+#include "FacadeUv.h"
 #include "GeographicRing.h"
 #include "TileMeshes.h"
 
@@ -96,6 +97,7 @@ struct StructurePlan {
 
   double PitchedShare = kPitchedShareUnknown;
   std::optional<Vec3f> WallColour;
+  std::optional<FacadeStyle> Facade;
 };
 
 class MeshScratch {

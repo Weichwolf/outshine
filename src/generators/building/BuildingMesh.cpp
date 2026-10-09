@@ -81,7 +81,9 @@ bool ValidPlanParameters(const StructurePlan &plan) {
   const bool colourValid = !plan.WallColour || std::ranges::all_of(*plan.WallColour, [](float c) {
     return std::isfinite(c) && c >= 0.0f && c <= 1.0f;
   });
-  return colourValid && std::ranges::all_of(values, finite) &&
+  const bool facadeValid = !plan.Facade || (*plan.Facade >= FacadeStyle::Outbuilding &&
+                                            *plan.Facade <= FacadeStyle::Glazing);
+  return colourValid && facadeValid && std::ranges::all_of(values, finite) &&
          std::ranges::all_of(plan.RingLatLon, finite) &&
          std::ranges::all_of(plan.CornerAslM, finite);
 }
@@ -130,11 +132,10 @@ double EavesZ(const BuildingShape &s) {
 }
 
 Vtx Wall(const BuildingShape &s, const EastNorth &p, double z, double bays, Fields stand) {
-  return {
-      .P = p,
-      .Z = z,
-      .U = FacadeUvX(BuildingFacadeStyle(s.Form), stand, s.WallVariant, static_cast<float>(bays)),
-      .V = FacadeUvY(static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
+  return {.P = p,
+          .Z = z,
+          .U = FacadeUvX(s.OpeningStyle, stand, s.WallVariant, static_cast<float>(bays)),
+          .V = FacadeUvY(static_cast<float>((z - s.SeatM - s.FootM) / s.FloorM))};
 }
 
 Vtx Face(const BuildingShape &s, const EastNorth &p, double z, Facade kind) {
@@ -407,8 +408,9 @@ struct FacadeWall {
 };
 
 bool RecessedWall(const BuildingShape &s, const FacadeWall &wall, Site &site) {
-  const bool housing = s.Form == BuildingForm::House || s.Form == BuildingForm::Terrace ||
-                       s.Form == BuildingForm::Block;
+  const bool housing = s.OpeningStyle == FacadeStyle::House ||
+                       s.OpeningStyle == FacadeStyle::Terrace ||
+                       s.OpeningStyle == FacadeStyle::Block;
   const auto &p = wall.From;
   const auto &q = wall.To;
   const double bays = wall.Bays;
