@@ -812,6 +812,12 @@ void StructureBuildQueue::RetireCellBuilds(BuildPurpose purpose) {
 }
 
 void StructureBuildQueue::ResumeCompletedTasks() {
+  for (const auto &entry : NativeLookups_) {
+    auto &lookup = *entry.second;
+    if (lookup.Task != Tasks::kNoTask && Pool_->TakeCompletion(lookup.Task)) {
+      lookup.Task = Tasks::kNoTask;
+    }
+  }
   const auto resume = [this](std::deque<QueuedBuild> &queue) {
     for (QueuedBuild &bake : queue) {
       if (!bake.Finished) {

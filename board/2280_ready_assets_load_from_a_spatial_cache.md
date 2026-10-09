@@ -50,6 +50,8 @@ Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-
    Native GeometryAsset-Karten umgehen Coverage-/Farbvorbereitung; Atlas-Rohlinge bleiben. Miss/Defekt repariert nur Karten; ca. −60 % entpackte Bytes, kein RAM-/Framegewinnbeweis.
    Atlas-Rezept bindet Artdefinition, Größe/Blicke und getrennte Generator-/Capture-Versionen; Änderungen an Wachstum oder Capture-Semantik erhöhen die jeweilige Version. Codecs prüfen eigene Formate. Fachfremde Engine-/Buildänderungen invalidieren nicht.
 5. P1: SSD automatisch budgetiert verdrängen; aktive Assets, Paketmitglieder, Eltern und Quellen erhalten. Nutzdaten bleiben opaque. Warm <10 s; Gebäudebedarf vor Decode.
+Lookup-Abschlüsse unabhängig von erneuten Anfragen abholen; veraltete Parameter dürfen
+kein IO-Fenster blockieren. Teilweise gelieferte Höhen bis zur vollständigen Eingabe halten.
 ## Besitzer und Grenzen
 2280: Speicherung/Index/Laden; Generatoren: Anreicherung/Inhalt; 2336: Hierarchie/LOD; 2188: API.
 AssetCache besitzt Speicherung/Kompression/Integrität und die AssetRecord-Hülle; Nutzdaten sind opaque.
@@ -107,9 +109,8 @@ räumliche Zellen und grobe Verbandsassets. [Retention](https://dev.epicgames.co
 Sichtbedarf, Speicherbudget und letzte Nutzung; kein Beleg für feste Detail-TTL-Sekunden.
 ## Abnahme
 Wasser, Gebäude-LOD und native OSM-Kacheln umgehen Providerdecode; Regionseinstieg/übrige Zwischenfelder offen.
-Voller Lint bcecd222c: nur fehlendes Khronos-Pin-PNG rot; 368 Tidy-Units/32 Claims/Roundtrips sauber.
 Frische Offline-Treffer: globale Straßenfelder 0 B, Nahmaske eine Kachel; fertiger Höhensnapshot statt Nachbarschaftslesungen. Laden 1,21–2,51 s, p99 1,90–2,94 ms.
-Zehn Miss-/Hit-Paare und vorherige PNGs exakt gleich; Basismiss-Wien: drei Pixel maximal 1/255 abweichend (2340). Aktueller Peak-RSS 1,41 GiB; Gesamt-RAM-/Bildgewinn offen.
+Miss-/Hit-Abweichungen in CP/Wien besitzt 2340. Peak-RSS und OS-Footprint getrennt messen; Speicherbedarf bleibt zu senken.
 Frischer Offline-Prozess lädt vollständige Assets bei Hits ohne Providerdecode, Anreicherung,
 Rohling-Neubau. Laufzeit-Nahdetails verwenden nur fertige Rohlinge und werden gezielt erneuert. Kalter Aufbau erzeugt genau einmal; Version-/Inputwechsel gezielt.
 Räumliche/LOD-Abfragen gegen vollständige Referenz; Grenze, leere Region, Drehung, Bewegung, Wiederstart

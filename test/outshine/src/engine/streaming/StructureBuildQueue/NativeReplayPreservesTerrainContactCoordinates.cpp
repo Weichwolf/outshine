@@ -67,7 +67,7 @@ public:
   void Say(const std::string &) override {}
 };
 
-void Replay(const std::filesystem::path &directory, bool warm) {
+void Replay(const std::filesystem::path &directory, bool warm, bool obsoleteLookups = false) {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
@@ -157,6 +157,16 @@ void Replay(const std::filesystem::path &directory, bool warm) {
   Generators::BuildingMesh mesher;
   StructureBuildQueue queue;
   queue.Opens(&compute, &mesher);
+  if (obsoleteLookups) {
+    for (size_t version = 1; version <= 4; ++version) {
+      prints.TilesSpan(1000.0 + static_cast<double>(version));
+      CHECK(queue.Posts(stack, prints, eye, source, 1) == 0,
+            "each obsolete request starts only an asynchronous native lookup");
+      compute.Wait(compute.Post([] {}));
+    }
+    CHECK(queue.Queued() == 4, "completed obsolete lookups occupy the entire candidate window");
+    prints.TilesSpan(1000.0);
+  }
   bool landed = false;
   while (!landed && std::chrono::steady_clock::now() < deadline) {
     deliveredThisPump = false;
@@ -218,6 +228,7 @@ int main() {
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Replay(directory, false);
   Replay(directory, true);
+  Replay(directory, true, true);
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "isolated source and asset products are removed");
