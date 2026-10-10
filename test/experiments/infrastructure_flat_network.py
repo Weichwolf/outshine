@@ -11,6 +11,7 @@ import shapely
 
 from infrastructure_flat_plan import plan,verify
 from infrastructure_network_graph import traffic_of
+from infrastructure_network import transport_widths
 
 
 def render(path,place,source,accepted,graphs,view):
@@ -51,9 +52,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=True)
     recipes = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())
-    templates = json.loads(Path('src/assets/world/vegetation.json').read_text())['templates']
-    rules = [r for t in templates for r in t.get('osm',[]) if r.get('layer')=='streets' and r.get('widthM',0)>0]
-    widths = {r['kind']:r['widthM'] for r in sorted(rules,key=lambda r:r.get('rank',0))}
+    widths = transport_widths()
     small = verify(recipes)
     (args.output/'small-cases.json').write_text(json.dumps(small,indent=2)+'\n')
     for place in args.places:

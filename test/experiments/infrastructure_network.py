@@ -99,6 +99,12 @@ def save_inputs(path, receipt, transport):
         properties=road['properties']) for road in transport]), separators=(',', ':')) + '\n')
 
 
+def transport_widths():
+    templates = json.loads(Path('src/assets/world/vegetation.json').read_text())['templates']
+    rules = [r for t in templates for r in t.get('osm',[]) if r.get('layer')=='streets' and r.get('widthM',0)>0]
+    return {r['kind']:r['widthM'] for r in sorted(rules,key=lambda r:r.get('rank',0))}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sources', type=Path, required=True)
@@ -118,10 +124,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     verify()
     verify_graph()
-    templates = json.loads(Path('src/assets/world/vegetation.json').read_text())['templates']
-    rules = [r for t in templates for r in t.get('osm', [])
-             if r.get('layer') == 'streets' and r.get('widthM', 0) > 0]
-    widths = {r['kind']: r['widthM'] for r in sorted(rules, key=lambda r: r.get('rank', 0))}
+    widths = transport_widths()
     recipes = json.loads(args.recipes.read_text())
     implementation = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
                       (Path(__file__), Path(__file__).with_name('infrastructure_network_plan.py'),
