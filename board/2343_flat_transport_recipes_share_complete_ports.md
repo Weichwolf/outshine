@@ -49,12 +49,12 @@ Quellachse gibt innere Kandidaten vor. Vorwärtsrichtung bleibt verbindlich, exa
 Ragt eine Portkarosserie aus der Motorfläche, prüft das Rezept 61 Richtungen innerhalb ±30° und
 wählt den größten Randabstand bei unveränderter Position. Alle Verbindungen teilen diese feste
 Portausrichtung; Nachbarkorridore müssen denselben gespeicherten Rahmen übernehmen.
-Statische Passung allein reicht nicht: ein gültiger Port kann die folgende Fahrkurve verhindern.
-Fehlender Vertrag: begrenzte Rahmenwahl aus dem Fahrbedarf beider Nachbarmodule. Alle Abbiegekurven
-teilen denselben gespeicherten Rahmen. Ein Kandidat muss die vollständige Karosserie tragen,
-neue Fahrten ermöglichen und jede zuvor gültige Fahrt der betroffenen Nachbarn erhalten.
-Änderungsbereich und Kandidatenzahl begrenzen; erfolglose Versuche behalten den gültigen Stand.
-Konfliktfreie Fahrspuren und die gemeinsame automatische Rahmenwahl bleiben offen.
+[Gemeinsame Rahmenwahl](../test/experiments/infrastructure_shared_frame_experiment.py) ergänzt die
+statische Passung: Richtungen in 5°-Schritten innerhalb ±30° zur Quelle, höchstens 64 Paare je Bauteil.
+Sie prüft die volle Karosserie auf beiden Nachbarflächen, dann die Fahrkurve und alle betroffenen
+Nachbarfahrten. Nur der angefragte Fahrgewinn ohne Verlust oder Änderung vorhandener Anfragen zählt.
+Position, Quellenkontakt und Richtung bleiben fest; alle Fahrten teilen denselben gespeicherten Rahmen.
+Erfolglose Kandidaten ändern nichts. Konfliktfreie Fahrspuren und weitere Rahmenrezepte bleiben offen.
 [Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
 maximaler Krümmung k sowie Krümmungsänderung k' gilt |q''(s)| ≤ A = k+r*(|k'|+k²).
 Analytische Kurven prüfen die konvexe Hülle zweier Endkarosserien mit Randreserve A*ds²/8.
