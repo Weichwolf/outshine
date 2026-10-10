@@ -13,7 +13,8 @@ Tags: roads, bridges, tunnels, topology
 Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funktionales Netz.
 Vorrang: Wiener Anschlüsse/Brücken; danach Feldkirch, Basel Badischer Bahnhof, Zürich HB und Häfen.
 Corridors liefert Geometrie/Kontakte; gemeinsame native Höhenplanung bindet Anschlüsse, Sekanten
-und Freiraum vor Geometrie/Terrain; Sync/Async teilen sie.
+und Freiraum vor Geometrie/Terrain; Sync/Async teilen sie. Anschlussflächen übertragen nativ
+Längs-/Querneigung samt Flächennormale an die Straßenbänder; ein Mittelpunkt allein genügt nicht.
 Der 2D-Endpunktplan trennt Position, Ebene und rekonstruierte Verbindungen. Kreuzungen werden
 jeweils einmal gespeichert; Grid-Zellen referenzieren sie. Gestapelte Decks behalten eigene Ports.
 Doppelte MVT-Linien erzeugen keine zusätzlichen Knotenflächen. Bodenwege liefern auch ohne Erdarbeiten Kernkontakte.
@@ -85,8 +86,7 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
   Up-Bezug; Inseln/fehlende Pegel erzeugen keine Hebung. Pfeiler/Widerlager plausibel gründen.
   Tunnel/Durchfahrten: gespeicherter 3D-Freiraum mit Innenhülle/Portalen; Gebäude schneiden, Terrainportale lokal als Mesh öffnen;
   Obergeschosse erhalten. Höfe über Innenringe/Blockumriss plus Wegenetz erkennen; alle Außenanschlüsse erhalten.
-  Keine Übermalung; RoadAlignmentBuilder verweigert
-  Brücke/Tunnel bis zum Struktursolver. Ebenerdige Bänder nur obere Fläche, Decks auch unten/seitlich.
+  Keine Übermalung; RoadAlignmentBuilder verweigert Brücke/Tunnel bis zum Struktursolver. Ebenerdige Bänder nur obere Fläche, Decks auch unten/seitlich.
 - Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene. Unabhängiges
   Millimeterrunden darf schmale Dreiecke nicht kippen; Seiten nutzen Kantennormalen.
 
@@ -112,7 +112,7 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
 [SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes; keine Vermessungstreue.
 [2D-Kacheln](../test/experiments/infrastructure_tiles.py): Feldkirchs 19.230 Abschnitte → 20.094 Teile/133 ENU-Kacheln bei 256 m; Bedarf: 2.711 statt 19.230 Kandidaten, 1.294 gleiche Treffer. Geografischer/native Vertrag offen.
 [Kern-/Rampenrezepte](../test/experiments/infrastructure_recipes.py), [gemeinsame Ports](../test/experiments/infrastructure_ported_junction.py): Flächen vor Mesh; feste Außenhöhen, starre Kerne/quintische Ansätze, Flächenneigung/Freiraum, LP-Vergleich.
-Topologische Unter-/Zielhüllen liefern lokalen Minimaxbedarf direkt in O(V+E); Gesamtgraph, horizontale Krümmung und native Integration offen.
+Topologische Unter-/Zielhüllen liefern lokalen Minimaxbedarf direkt in O(V+E); Gesamtgraph, horizontale Krümmung und gemeinsame native Randunterteilung offen.
 [Höhenplanung](../test/experiments/road_profile_envelopes.py), [Landekern](../test/experiments/road_landing_topology.py): native Höhenränder/Portoffsets, Schnittvorrang, Höhenbindung/kurze Anschlüsse; kein vollständiger C1-/Breitenbeweis.
 [Übergänge](../test/experiments/earthwork_transition.py), [Freiraum](../test/experiments/clearance_aprons.py), [Kreuzungsflächen](../test/experiments/road_junction_coverage.py), [Rasterkontakt](../test/experiments/road_terrain_contact.py): echte Inputs, gleiche Qualität.
 Durchgehende reale Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände oder unbefahrbare Profile.

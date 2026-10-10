@@ -250,38 +250,61 @@ CornerGates(std::span<const RoadStation> along, size_t at, double halfWidthM) {
 
 bool LayPiece(std::span<const double> eastNorthM,
               ElevationSamples elevation,
-              double halfWidthM,
-              RoadProfile profile,
-              const Vec3f &wearsLinear,
-              double crossfall,
-              RibbonForm form,
+              const RoadSweep &how,
               RoadMeshBuffers &into,
               RoadMeshingRejections &rejections) {
   ReferenceLine line;
   double tightestM = 0.0;
   if (!FitPiece(eastNorthM, line, tightestM, rejections)) { return false; }
-  const auto rise = ElevationKnots(elevation, line.LengthM());
+  auto rise = ElevationKnots(elevation, line.LengthM());
+  std::array<Knot, 2> bank = {
+      {Knot{.AlongM = 0.0, .Value = how.Crossfall, .RatePerM = 0.0},
+       Knot{.AlongM = line.LengthM(), .Value = how.Crossfall, .RatePerM = 0.0}}};
+  for (size_t end = 0; end < how.EndPlanes.size(); ++end) {
+    const auto &endPlane = how.EndPlanes[end];
+    if (!endPlane) { continue; }
+    Placed pose;
+    if (!line.At(bank[end].AlongM, pose)) {
+      ++rejections.Rise;
+      return false;
+    }
+    const RoadPlane &plane = *endPlane;
+    const double east = std::cos(pose.HeadingRad);
+    const double north = std::sin(pose.HeadingRad);
+    const double alongSlope = plane.SlopeE * east + plane.SlopeN * north;
+    const double acrossSlope = -plane.SlopeE * north + plane.SlopeN * east;
+    (end == 0 ? rise.front() : rise.back()).RatePerM = alongSlope;
+    bank[end].Value = -std::atan(acrossSlope);
+    bank[end].RatePerM = pose.CurvaturePerM * alongSlope / (1.0 + acrossSlope * acrossSlope);
+  }
   std::string said;
   if (!line.Rise(std::span<const Knot>(rise.data(), rise.size()), said)) {
     ++rejections.Rise;
     return false;
   }
-  const std::array<Knot, 2> bank = {
-      {Knot{.AlongM = 0.0, .Value = crossfall, .RatePerM = 0.0},
-       Knot{.AlongM = line.LengthM(), .Value = crossfall, .RatePerM = 0.0}}};
   if (!line.Bank(std::span<const Knot>(bank.data(), 2), said)) {
     ++rejections.Bank;
     return false;
   }
 
-  const Ribbon woven =
-      Sweep(line, SectionFor(halfWidthM, profile), 0.0, line.LengthM(), StepFor(tightestM), form);
+  const Ribbon woven = Sweep(line,
+                             SectionFor(how.HalfWidthM, how.Profile),
+                             0.0,
+                             line.LengthM(),
+                             StepFor(tightestM),
+                             how.Form);
   if (!woven.Woven) {
     ++rejections.Sweep;
     return false;
   }
-  Pour(woven, wearsLinear, into);
+  Pour(woven, how.WearsLinear, into);
   return true;
+}
+
+RoadSweep PieceSettings(RoadSweep how, size_t first, size_t count, size_t total) {
+  if (first != 0) { how.EndPlanes[0] = RoadPlane{}; }
+  if (first + count != total) { how.EndPlanes[1] = RoadPlane{}; }
+  return how;
 }
 
 }
@@ -290,9 +313,7 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
                                            RoadSweep how,
                                            RoadMeshBuffers &into) const {
   const double halfWidthM = how.HalfWidthM;
-  const RoadProfile profile = how.Profile;
   const Vec3f &wearsLinear = how.WearsLinear;
-  const double crossfall = how.Crossfall;
   RoadMeshingStats tally;
   RoadMeshingRejections &rejections = tally.Rejections;
   if (along.size() < 2 || !(halfWidthM > 0.0)) { return tally; }
@@ -326,15 +347,12 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
             probe);
     const size_t upTo = got.Laid ? along.size() - from - 1u : got.TightestDemandedAtVertex;
     const size_t count = upTo + 1u;
+    const RoadSweep piece = PieceSettings(how, from, count, along.size());
     if (count >= 2u) {
       if (LayPiece(std::span<const double>(eastNorth.data() + from * 2u, count * 2u),
                    {.GradeM = std::span<const double>(grade.data() + from, count),
                     .ReachedM = std::span<const double>(reached.data() + from, count)},
-                   halfWidthM,
-                   profile,
-                   wearsLinear,
-                   crossfall,
-                   how.Form,
+                   piece,
                    into,
                    rejections)) {
         ++tally.Pieces;

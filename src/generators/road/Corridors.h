@@ -102,6 +102,7 @@ private:
     std::array<double, 2> CutM{};
     std::array<double, 2> GradeAtM{};
     std::array<bool, 2> HasEndGrade{};
+    std::array<std::optional<RoadPlane>, 2> EndPlanes{};
   };
 
   struct Leg {

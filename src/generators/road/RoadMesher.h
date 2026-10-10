@@ -2,6 +2,8 @@
 #define OUTSHINE_GENERATORS_ROAD_ROADMESHER_H
 
 #include <cstdint>
+#include <array>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -77,6 +79,7 @@ struct RoadSweep {
   Vec3f WearsLinear;
   double Crossfall = 0.0;
   RibbonForm Form = RibbonForm::ClosedShell;
+  std::array<std::optional<RoadPlane>, 2> EndPlanes{};
 };
 
 class RoadMesher {
