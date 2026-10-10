@@ -332,6 +332,7 @@ def render(args, name, axes, heights, report):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
     colours = ['#a9b3a1', '#b9a893', '#7c999e']
     fig = plt.figure(figsize=(13, 6), constrained_layout=True)
@@ -342,7 +343,7 @@ def render(args, name, axes, heights, report):
     centre = shapely.get_coordinates(shapely.union_all(crossings)).mean(axis=0)
     datum = float(min(a['points'][:, 2].min() for a in axes))
     for axis in axes:
-        colour = colours[axis['owner']]
+        colour = '#167dba' if axis['bridge'] else colours[axis['owner']]
         plot_geometry(top, [axis['footprint']], colour)
         floor, sides = surface_faces(axis, heights[axis['owner']], datum)
         view.add_collection3d(Poly3DCollection(floor, facecolor=colour, edgecolor='none'))
@@ -350,6 +351,8 @@ def render(args, name, axes, heights, report):
             view.add_collection3d(Poly3DCollection(sides, facecolor='#6f7d7e', edgecolor='none'))
     top.set(xlim=(centre[0] - 60, centre[0] + 60), ylim=(centre[1] - 60, centre[1] + 60),
             aspect='equal', xlabel='East [m]', ylabel='North [m]', title='2D footprint / levels')
+    if any(a['bridge'] for a in axes):
+        top.legend(handles=[Line2D([], [], color='#167dba', label='Bridge')], loc='upper right')
     view.set(xlim=(centre[0] - 90, centre[0] + 90), ylim=(centre[1] - 90, centre[1] + 90),
              zlim=(0, 30), xlabel='East [m]', ylabel='North [m]', zlabel=f'Height above {datum:.1f} m',
              title='Rigid cores / smooth approaches / U sides')
@@ -362,6 +365,87 @@ def render(args, name, axes, heights, report):
     fig.savefig(path, dpi=120)
     plt.close(fig)
     return str(path)
+
+
+def joined_junction_plan(args, name, axes, context):
+    if len({a['tier'] for a in axes}) != 1:
+        raise ValueError('junction floors cannot merge different physical levels')
+    node_sets = [{p['node'] for p in context['designed'][a['lane']] if p.get('node')}
+                 for a in axes]
+    shared_nodes = set.intersection(*node_sets)
+    if not shared_nodes:
+        raise ValueError('this connected-junction recipe requires a shared native port')
+    began = time.perf_counter()
+    footprints = [shapely.set_precision(a['footprint'], 0) for a in axes]
+    core = shapely.union_all([shapely.set_precision(a['core_footprint'], 0) for a in axes])
+    whole = shapely.union_all(footprints)
+    boundaries = shapely.union_all([core.boundary, *[p.boundary for p in footprints]])
+    cells = shapely.get_parts(shapely.polygonize(shapely.get_parts(boundaries)))
+    cells = cells[shapely.covers(whole, shapely.point_on_surface(cells))]
+    canonical, owners = [], []
+    for cell in cells:
+        point = cell.representative_point()
+        owner = None if core.covers(point) else next(
+            (i for i, footprint in enumerate(footprints) if footprint.covers(point)), -1)
+        if owner == -1:
+            raise ValueError('approach surface requires a physical owner')
+        rings = [np.round(np.asarray(r.coords) / .001) * .001
+                 for r in [cell.exterior, *cell.interiors]]
+        cell = shapely.Polygon(rings[0], rings[1:])
+        if cell.area > 1e-10:
+            if not cell.is_valid:
+                raise ValueError('shared grid vertices require a different junction recipe')
+            canonical.append(cell)
+            owners.append(owner)
+    cells = np.asarray(canonical, dtype=object)
+    core = shapely.union_all([cell for cell, owner in zip(cells, owners) if owner is None])
+    joined_outline = shapely.union_all(cells)
+    error = joined_outline.symmetric_difference(whole).area
+    if error > (whole.length + core.length) * .001 * 2**.5:
+        raise ValueError('junction arrangement exceeds its coordinate quantization error')
+    whole = joined_outline
+    triangles = np.concatenate([triangles_of(cell) for cell in cells])
+    faces = np.asarray([np.asarray(p.exterior.coords)[:3] for p in triangles])
+    vertices, indices = np.unique(faces.reshape(-1, 2), axis=0, return_inverse=True)
+    indices = indices.reshape(-1, 3)
+    edges = np.sort(np.concatenate([indices[:, [0, 1]], indices[:, [1, 2]],
+                                   indices[:, [2, 0]]]), axis=1)
+    edges, counts = np.unique(edges, axis=0, return_counts=True)
+    if np.any(counts > 2):
+        raise ValueError('junction floor has non-manifold edges')
+    boundary = vertices[edges[counts == 1]].mean(axis=1)
+    if np.any(shapely.distance(shapely.points(boundary), whole.boundary) > 1e-7):
+        raise ValueError('junction floor has a crack or a T-junction')
+    polygons = shapely.polygons(faces)
+    merged = shapely.union_all(polygons)
+    if (merged.symmetric_difference(whole).area > 1e-7
+            or abs(float(shapely.area(polygons).sum()) - whole.area) > 1e-7):
+        raise ValueError('junction floor has overlapping or missing triangles')
+    elapsed = (time.perf_counter() - began) * 1000
+    import matplotlib.pyplot as plt
+    fig, views = plt.subplots(1, 2, figsize=(10, 5), constrained_layout=True)
+    for axis in axes:
+        plot_geometry(views[0], [axis['footprint']], '#adb8a8')
+    plot_geometry(views[1], [core], '#83a6a5')
+    for axis in axes:
+        plot_geometry(views[1], [axis['footprint'].difference(core)], '#adb8a8')
+    views[1].triplot(vertices[:, 0], vertices[:, 1], indices, color='#344f50', linewidth=.55)
+    centre = core.centroid.coords[0]
+    for ax, title in zip(views, ('Independent buffered bands / overlap', 'One core / trimmed approaches / shared vertices')):
+        ax.set(xlim=(centre[0] - 30, centre[0] + 30), ylim=(centre[1] - 30, centre[1] + 30),
+               aspect='equal', title=title, xlabel='East [m]', ylabel='North [m]')
+    fig.suptitle(f'{name}: native shared port; unique indexed floor, no interior cracks')
+    path = args.output / '2d' / f'{name}-joined.png'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    return dict(image=str(path), shared_native_nodes=sorted(shared_nodes), vertices=len(vertices),
+                triangles=len(indices), shared_edges=int(np.count_nonzero(counts == 2)),
+                common_arrangement_cells=len(cells),
+                canonical_vertex_grid_m=.001, outline_symmetric_difference_m2=error,
+                removed_overlap_m2=sum(a['footprint'].area for a in axes) - whole.area,
+                build_and_check_ms=elapsed, scope='One connected 2D native junction; '
+                'joined 3D gradients and full-network integration open.')
 
 
 def main():
@@ -416,6 +500,8 @@ def main():
                           triangle_overlap_checks=overlap_checks,
                           lp_displacement_error_m=abs(error - oracle.fun))
             report['image'] = render(args, name, axes, heights, report)
+            if name == 'Zuerich-ground-junction':
+                report['joined_2d_plan'] = joined_junction_plan(args, name, axes, context)
         reports.append(report)
         print(json.dumps(report), flush=True)
     args.output.mkdir(parents=True, exist_ok=True)
