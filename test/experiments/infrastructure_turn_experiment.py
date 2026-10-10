@@ -173,7 +173,7 @@ def main():
     args.output.mkdir(parents=True,exist_ok=True)
     configuration = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())
     vehicle = configuration['vehicleProfiles']['compact']
-    results,products = [],[]
+    results,products,selection_checks = [],[],[]
     for name,source,begin,node,end in cases():
         surface = road_surface(source,configuration)
         variants = {}
@@ -185,9 +185,14 @@ def main():
             feasible = sum(r['fits_surface'] for r in reports)
             results.append(dict(case=name,profile=profile,feasible=feasible,solve_ms=elapsed,candidates=reports))
             assert feasible,(name,profile,reports)
+            fast,notes = clearance_turns(node,begin,end,surface,profile,vehicle=vehicle,best_only=True)
+            best = min((i for i,r in enumerate(reports) if r['fits_surface']),key=lambda i:reports[i]['length_m'])
+            assert notes[-1]['fits_surface'] and shapely.equals_exact(fast[-1],paths[best],0)
+            assert len(notes)<=len(reports)
+            selection_checks.append(dict(case=name,profile=profile,full_candidates=len(reports),tested_candidates=len(notes)))
         products.append((name,surface,variants,begin,node,end))
     report = dict(math=verify_math(),limits=verify_limits(configuration),body=verify_body(configuration,vehicle),
-                  distance_clearance=verify_clearance_distance(),
+                  distance_clearance=verify_clearance_distance(),best_choice=selection_checks,
                   recipes=results,vehicle_profile=vehicle,
                   scope='Straight approaches, continuous curvature and swept rigid bodies; lanes and curved/asymmetric approaches remain open.')
     report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in

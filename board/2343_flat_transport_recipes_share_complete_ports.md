@@ -31,6 +31,8 @@ eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Verkehrsregelun
 [Fahrkurven](../test/experiments/infrastructure_junction_turn_experiment.py) verwenden Klothoiden
 mit optionalem Kreisbogen oder asymmetrische G2-Posekurven mit polynomialem Tangentenwinkel.
 Endkrümmung null, Krümmungsextrema analytisch; Radius/Breite kommen aus dem Fahrzeugprofil.
+Klothoiden werden vor der teuren Karosserieprüfung nach tatsächlicher Kurvenlänge sortiert;
+der erste gültige Kandidat liefert dasselbe Minimum wie die vollständige Kandidatenprüfung.
 [Quellrouten](../test/experiments/infrastructure_route_turns.py) verbinden Portkontakte über
 gerichtete kürzeste Wege. Ein begrenzter azyklischer Posengraph überspringt unnötige Quellknicke;
 jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.

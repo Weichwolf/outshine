@@ -31,7 +31,7 @@ def clothoid_connector(entry,exit,surface,vehicle,error):
     paths,reports = [],[]
     for transition in (.5,.25,.125):
         trial,notes = clearance_turns(node,entry['position'],exit['position'],surface,vehicle=vehicle,
-                                     error=error,transition_fraction=transition)
+                                     error=error,transition_fraction=transition,best_only=True)
         paths.extend(trial)
         reports.extend(notes)
         valid = [i for i,r in enumerate(reports) if r['fits_surface']]
