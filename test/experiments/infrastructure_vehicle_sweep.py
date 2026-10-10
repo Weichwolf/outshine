@@ -5,6 +5,7 @@ import shapely
 
 from infrastructure_clothoids import sample_clothoids
 from infrastructure_clothoid_turns import sample_symmetric_turns
+from infrastructure_curvature_paths import sample_curvature_paths
 
 
 def body_outlines(positions,headings,half_width,front,rear):
@@ -40,8 +41,14 @@ def turn_body_check(surface,fit,begin,end,profile,vehicle,error=.025,maximum_pos
     if counts.sum()+1>maximum_poses:
         return dict(fits_surface=False,reason='vehicle_sweep_budget_exhausted'),None
     stations = np.linspace(0,1,counts[1]+1)
-    xy,headings = (sample_clothoids(fit,stations) if profile=='G1' else
-                   sample_symmetric_turns(fit,stations)[:2])
+    if profile=='G1':
+        xy,headings = sample_clothoids(fit,stations)
+    elif profile=='G2':
+        xy,headings = sample_symmetric_turns(fit,stations)[:2]
+    elif profile=='G2-polynomial':
+        xy,headings = sample_curvature_paths(fit,stations)[:2]
+    else:
+        raise ValueError('unknown vehicle sweep trajectory')
     prefix = np.linspace(begin,xy[0,0],counts[0]+1)[:-1]
     suffix = np.linspace(xy[0,-1],end,counts[2]+1)[1:]
     positions = np.vstack((prefix,xy[0],suffix))

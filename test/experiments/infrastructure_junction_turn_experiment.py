@@ -155,7 +155,7 @@ def main():
                   scope='Selected actual level-zero junctions; complete windows, asymmetric curves and traffic control remain open.')
     names = ('infrastructure_port_lanes.py','infrastructure_flat_ports.py','infrastructure_junction_routes.py',
              'infrastructure_junction_surfaces.py','infrastructure_junction_turns.py','infrastructure_turn_paths.py',
-             'infrastructure_vehicle_sweep.py','infrastructure_clothoid_turns.py')
+             'infrastructure_vehicle_sweep.py','infrastructure_clothoid_turns.py','infrastructure_curvature_paths.py')
     report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
                                       (Path(__file__),configuration,*(Path(__file__).with_name(n) for n in names))}
     args.output.mkdir(parents=True,exist_ok=True)

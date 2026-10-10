@@ -51,6 +51,10 @@ eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Vollständige F
 Verbindungen innerhalb des Bauteils und die Karosserie auf öffentlicher Motorfläche im gemeinsamen
 Mesh. Wege/private Zufahrten sind kein Ausweichraum. Einfache Knoten funktionieren; Kreisverkehr,
 versetzte S-Kurven und Verbindungen durch zusammengesetzte Knoten brauchen weitere Rezepte.
+[G2-Posekurven](../test/experiments/infrastructure_curvature_experiment.py) ergänzen fehlende
+direkte S-/asymmetrische Verbindungen per polynomialem Tangentenwinkel: Endkrümmung null,
+Krümmungsextrema analytisch, begrenzte Posensuche und vollständige Karosserieprüfung.
+Das ergänzt Klothoiden; Inseln/zusammengesetzte Knoten brauchen weiterhin gerichtete Teilrouten.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
 
 ## Umsetzung und Abnahme
