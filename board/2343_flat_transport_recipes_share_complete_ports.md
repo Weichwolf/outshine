@@ -44,13 +44,15 @@ Höchstens 64 Ecken, drei Posen je Ecke und acht Nachfolger je Pose begrenzen di
 Identische Vereinfachungen entfallen; identische Posenpaare nutzen innerhalb desselben Bauteils
 dieselbe Prüfung. Eine Untergrenze aus Segmentanzahl und Sehnenlänge verwirft aussichtslose Kandidaten.
 Es gibt keinen globalen Memo-Speicher: Fläche, Fahrzeug und Toleranz bleiben innerhalb der Suche fest.
+Versetzte Portposen setzen feste Anfangs-/Endpositionen und Tangenten des Posengraphen; die
+Quellachse gibt innere Kandidaten vor. Das löst einzelne Fahrten, noch keine konfliktfreien Fahrspuren.
 [Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
 maximaler Krümmung k bewegt sich jeder Körperpunkt höchstens (1+k*r)*ds. Diese Grenze sichert
 die Zwischenräume der Abtastung; gerade Translationen nutzen den exakt extrudierten Körper.
 Wege/private Zufahrten sind kein Ausweichraum. Der gemeinsame Mesh begrenzt öffentliche Motorfläche.
 [Rezeptprüfungen](../test/experiments/infrastructure_route_experiment.py) umfassen Inselumfahrung,
 verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverwendeten Verbindungen.
-Offen: versetzte Quellrouten, ungültige feste Portposen, enge Kreisverkehre, Verkehrsregelung,
+Offen: durchgehende Spurzuordnung, ungültige feste Portposen, enge Kreisverkehre, Verkehrsregelung,
 vollständige Netze und tragbare Kosten. Erfolgreiche Einzelkurven sind keine fertige Verkehrssimulation.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
 

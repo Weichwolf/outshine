@@ -31,12 +31,15 @@ def route_waypoint_poses(points,maximum_corners=64):
     return (np.array(positions),np.array(headings)),None
 
 
-def rounded_route(points,surface,vehicle,error,lookahead=8,maximum_corners=64,connectors=None):
+def rounded_route(points,surface,vehicle,error,lookahead=8,maximum_corners=64,connectors=None,ports=None):
     connectors = {} if connectors is None else connectors
     poses,reason = route_waypoint_poses(points,maximum_corners)
     if reason is not None:
         return None,reason
     positions,headings = poses
+    if ports is not None:
+        positions[[0,-1]] = [p['position'] for p in ports]
+        headings[[0,-1]] = [p['heading'] for p in ports]
     bodies = body_outlines(positions,np.arctan2(headings[:,1],headings[:,0]),vehicle['widthM']*.5,
                            vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
     shapely.prepare(surface)
@@ -91,8 +94,6 @@ def rounded_route(points,surface,vehicle,error,lookahead=8,maximum_corners=64,co
 
 def source_route_connector(entry,exit,route,surface,vehicle,error=.025,*,connectors=None):
     raw = shapely.get_coordinates(route)
-    if max(np.linalg.norm(raw[0]-entry['position']),np.linalg.norm(raw[-1]-exit['position']))>1e-6:
-        return None,dict(reason='requires_offset_source_route')
     if len(raw)<3:
         return None,dict(reason='source_route_has_no_intermediate_corner')
     tried = set()
@@ -108,7 +109,7 @@ def source_route_connector(entry,exit,route,surface,vehicle,error=.025,*,connect
         directions /= np.linalg.norm(directions,axis=1)[:,None]
         if min(directions[0]@entry['heading'],directions[1]@exit['heading'])<1-1e-8:
             return None,dict(reason='source_route_port_heading_mismatch')
-        path,note = rounded_route(points,surface,vehicle,error,connectors=connectors)
+        path,note = rounded_route(points,surface,vehicle,error,connectors=connectors,ports=(entry,exit))
         if path is not None:
             return path,dict(simplification_m=tolerance,**note)
     return None,note

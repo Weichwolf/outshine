@@ -56,10 +56,21 @@ def verify_route(vehicle):
     count = len(connectors)
     repeated,_ = source_route_connector(entry,exit,route,floor,vehicle,connectors=connectors)
     assert shapely.equals_exact(path,repeated,0) and len(connectors)==count
+    approaches = shapely.LineString(np.vstack(([-12.,-8.],points,[12.,-8.])))
+    offset_floor,_ = rounded_plan(shapely.buffer(approaches,4.,quad_segs=8),2.)
+    shifted_entry = dict(entry,position=entry['position']+np.array([2.,0.]))
+    shifted_exit = dict(exit,position=exit['position']-np.array([2.,0.]))
+    shifted,note = source_route_connector(shifted_entry,shifted_exit,route,offset_floor,vehicle)
+    assert shifted is not None and note['vehicle_sweep']['fits_surface']
+    assert np.allclose(shapely.get_coordinates(shifted)[[0,-1]],
+                       [shifted_entry['position'],shifted_exit['position']],rtol=0,atol=1e-7)
+    invalid_entry = dict(entry,position=np.array([-8.5,0.]))
+    invalid,note = source_route_connector(invalid_entry,shifted_exit,route,offset_floor,vehicle)
+    assert invalid is None and note['reason']=='source_route_port_body_outside_surface'
     blocked = shapely.difference(floor,shapely.box(-4,8,4,16))
     rejected,note = source_route_connector(entry,exit,route,blocked,vehicle)
     assert rejected is None
-    return dict(island_avoided=True,body_gap_rejected=True,chosen=report,rejected_reason=note['reason'])
+    return dict(island_avoided=True,offset_ports_connected=True,body_gap_rejected=True,chosen=report,rejected_reason=note['reason'])
 
 
 def main():

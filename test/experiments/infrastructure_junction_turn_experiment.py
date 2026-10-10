@@ -121,14 +121,9 @@ def render(image_path,views):
         for pose in poses:
             p,h = pose['position'],pose['heading']
             ax.arrow(*p,*(h*2),width=.07,head_width=.6,length_includes_head=True,color='#465f57')
-        shown = Counter()
         for path,turn in zip(paths,turns):
-            category = 'accepted' if path is not None else 'rejected'
-            if shown[category]>=4:
-                continue
-            shown[category] += 1
             if path is not None:
-                ax.plot(*shapely.get_coordinates(path).T,color='#167dba',linewidth=1)
+                ax.plot(*shapely.get_coordinates(path).T,color='#167dba',linewidth=1,alpha=.65)
             else:
                 points = np.array([poses[turn['entry']]['position'],poses[turn['exit']]['position']])
                 ax.plot(*points.T,color='#bd5744',linestyle=':',linewidth=.8)
