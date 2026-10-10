@@ -41,7 +41,7 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
   Terrain konsumiert Kontakte. Bedarf: 2336; Produkte/Cache: 2280; Gebäude: 2173; Pegel: 2145.
 - Geografisch stabile GeoCellId-Zellen partitionieren/indexieren Vektorpläne; Straßenachsen bleiben
   kontinuierlich. Gemeinsame Randports:
-  Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer; nur begrenzte Nachbarbereiche.
+  Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer; räumlicher Regelprüfer repariert nur Konfliktnachbarn.
   Brücken-/Rampeneinheiten dürfen Zellgrenzen überspannen; ihre gekoppelten Profile gemeinsam lösen.
   Zellen indexieren Teile des gemeinsamen Plans, Nachbarn übernehmen dieselben Randwerte.
   Explizite Übergänge verbinden Ebenen. MVT ist kein vollständiger Routinggraph.
@@ -67,7 +67,7 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
 
 ## Profile und konstruktive Anschlüsse
 - Bauteilplan vor Mesh: 2D-Topologie/Ebenen lösen, endliche Rezepte mit benannten Ports einsetzen.
-  2D-Pläne je Ebene; Übergänge/Freiraum koppeln betroffene Bauteile. Komplexe Knoten/Brücken
+  Gemeinsame Flächen-/Randunterteilung vor Triangulierung; Profilgrenzen erhalten, Mesh bestimmt Höhenbedingungen. Komplexe Knoten/Brücken
   formstabil positionieren; verbindende Alignments begrenzt anpassen.
   Verletzte Krümmung/Steigung/Freiraum erfordert mehr Übergangsraum, neue Lage oder anderes Rezept.
   Wiener/Zürcher Inputs: Ebenen bei gleicher Netzgröße variieren, Port-/Konfliktkopplung separat;
@@ -83,7 +83,9 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
 - Höhenplanung bevorzugt Schnitt; Auftrag nur für notwendige Kontakte/Freiräume. Hohe einzelne
   DEM-Proben heben keinen ganzen Überbau. Wasserfreiraum über nativem Pegel im gemeinsamen
   Up-Bezug; Inseln/fehlende Pegel erzeugen keine Hebung. Pfeiler/Widerlager plausibel gründen.
-  Tunnel brauchen eigene Portale/Freiraum. Keine Übermalung; RoadAlignmentBuilder verweigert
+  Tunnel/Durchfahrten: gespeicherter 3D-Freiraum mit Innenhülle/Portalen; Gebäude schneiden, Terrainportale lokal als Mesh öffnen;
+  Obergeschosse erhalten. Höfe über Innenringe/Blockumriss plus Wegenetz erkennen; alle Außenanschlüsse erhalten.
+  Keine Übermalung; RoadAlignmentBuilder verweigert
   Brücke/Tunnel bis zum Struktursolver. Ebenerdige Bänder nur obere Fläche, Decks auch unten/seitlich.
 - Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene. Unabhängiges
   Millimeterrunden darf schmale Dreiecke nicht kippen; Seiten nutzen Kantennormalen.
@@ -106,8 +108,7 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
   Kontakt-/Höhenfehler vor Verfeinerung beheben; 2336 wählt Arbeit, 2280 versioniert native Rezepte/Cache.
 
 ## Verfahren und Abnahme
-[Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf): Graph vor Geometrie.
-[Straßenmodelle, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf): Profile, Querschnitte, Bauwerke, Terrainkontakte.
+[Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf): Graph vor Geometrie; [Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf): Profile, Bauwerke, Terrainkontakte.
 [SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes; keine Vermessungstreue.
 [2D-Kacheln](../test/experiments/infrastructure_tiles.py): Feldkirchs 19.230 Abschnitte → 20.094 Teile/133 ENU-Kacheln bei 256 m; Bedarf: 2.711 statt 19.230 Kandidaten, 1.294 gleiche Treffer. Geografischer/native Vertrag offen.
 [Kern-/Rampenrezepte](../test/experiments/infrastructure_recipes.py): 2D-Flächen vor GEOS-Triangulierung; feste Endhöhen, starre Kerne/quintische Ansätze, Flächenneigung/Freiraum; LP-Vergleich.
@@ -115,6 +116,5 @@ Topologische Unter-/Zielhüllen liefern lokalen Minimaxbedarf direkt in O(V+E); 
 [Höhenplanung](../test/experiments/road_profile_envelopes.py), [Landekern](../test/experiments/road_landing_topology.py): native Höhenränder/Portoffsets, Schnittvorrang, Höhenbindung/kurze Anschlüsse; kein vollständiger C1-/Breitenbeweis.
 [Übergänge](../test/experiments/earthwork_transition.py), [Freiraum](../test/experiments/clearance_aprons.py), [Kreuzungsflächen](../test/experiments/road_junction_coverage.py), [Rasterkontakt](../test/experiments/road_terrain_contact.py): echte Inputs, gleiche Qualität.
 Durchgehende reale Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände oder unbefahrbare Profile.
-Auch ohne Terrain/Gebäude lückenlos. Quellenabdeckung, Netzfunktion, Bild und Kosten getrennt prüfen.
-Nahbewegung und Rundumdrehung; Straßenqualität und Tokyo/Central Park erhalten. Neueste Place-PNGs
-zeigen Gewinn im unveränderten Profilbudget. Kritische Anschluss-/Kontaktfehler bleiben rot.
+Auch ohne Terrain/Gebäude lückenlos; 2D-Review zeigt Tunnel gestrichelt, Brücken blau, Ebenen separat. Quellenabdeckung, Netzfunktion, Bild/Kosten prüfen.
+Nahbewegung/Rundumdrehung; Straßenqualität und Tokyo/Central Park erhalten. Place-PNGs zeigen Gewinn im selben Profilbudget; kritische Fehler bleiben rot.

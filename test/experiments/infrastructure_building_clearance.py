@@ -121,7 +121,7 @@ def load_scene(args, place, widths):
     ty = int((1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n)
     span = GIRTH_M / n
     radius = box(-args.radius, -args.radius, args.radius, args.radius)
-    buildings, roads, receipts, seen = [], [], [], set()
+    buildings, roads, transport, receipts, seen = [], [], [], [], set()
     elevated, invalid = 0, 0
     for x in range(tx - 1, tx + 2):
         for y in range(ty - 1, ty + 2):
@@ -143,16 +143,16 @@ def load_scene(args, place, widths):
                             buildings.append(poly)
                             seen.add(key)
                 elif layer == 'transportation' and kind == 2:
-                    if props.get('brunnel') in ('bridge', 'tunnel') or props.get('layer', 0) != 0:
-                        continue
                     width = widths.get(street_kind(props))
-                    if width is None:
-                        continue
                     for part in local:
                         if len(part) >= 2:
-                            poly = LineString(part).buffer(width * .5 + args.side_room,
-                                                          resolution=2, cap_style=2)
-                            if poly.intersects(radius):
+                            line = LineString(part)
+                            if not line.intersects(radius):
+                                continue
+                            transport.append(dict(line=line, properties=props, width=width))
+                            if (width is not None and props.get('brunnel') not in ('bridge', 'tunnel')
+                                    and props.get('layer', 0) == 0):
+                                poly = line.buffer(width * .5 + args.side_room, resolution=2, cap_style=2)
                                 roads.append(poly)
     plan = None
     if args.native_plan and place == 'ZuerichHauptbahnhof':
@@ -167,8 +167,11 @@ def load_scene(args, place, widths):
                     scope='Native pre-height-planning axes; footprint only, not a solved 3D plan.')
     if not buildings or not roads:
         raise ValueError(f'{place}: missing building/corridor input')
-    return np.asarray(buildings, dtype=object), np.asarray(roads, dtype=object), dict(
+    structures = {kind: sum(r['properties'].get('brunnel') == kind for r in transport)
+                  for kind in ('bridge', 'tunnel')}
+    return np.asarray(buildings, dtype=object), np.asarray(roads, dtype=object), transport, dict(
         place=place, origin=[lat, lon], source_tiles=receipts, native_plan=plan,
+        transport_parts=len(transport), structures=structures,
         elevated_source_features_excluded=elevated, invalid_source_polygons_excluded=invalid)
 
 
@@ -240,24 +243,112 @@ def plot_geometry(ax, geometries, colour):
                               linewidth=.15))
 
 
-def render(args, name, buildings, roads, cut, hybrid, report):
+def plot_structures(ax, transport):
+    from matplotlib.collections import LineCollection
+    styles = [('bridge', '#167dba', 'solid'), ('tunnel', '#a43896', (0, (4, 3)))]
+    for kind, colour, style in styles:
+        parts = [np.asarray(r['line'].coords) for r in transport
+                 if r['properties'].get('brunnel') == kind]
+        if parts:
+            ax.add_collection(LineCollection(parts, colors='white', linewidths=2.8, zorder=3))
+            ax.add_collection(LineCollection(parts, colors=colour, linewidths=1.5,
+                                             linestyles=style, zorder=4))
+    other = [np.asarray(r['line'].coords) for r in transport
+             if r['properties'].get('layer', 0) != 0
+             and r['properties'].get('brunnel') not in ('bridge', 'tunnel')]
+    if other:
+        ax.add_collection(LineCollection(other, colors='#d17318', linewidths=1,
+                                         linestyles='dotted', zorder=4))
+
+
+def courtyard_cases(buildings, transport):
+    lines = np.asarray([r['line'] for r in transport], dtype=object)
+    tree = shapely.STRtree(lines)
+    cases = []
+    for building in buildings:
+        for ring in building.interiors:
+            hole = Polygon(ring)
+            if hole.area < 100:
+                continue
+            candidates = []
+            seen = set()
+            for index in tree.query(hole.buffer(3), predicate='intersects'):
+                road = transport[index]
+                props, line = road['properties'], road['line']
+                key = shapely.normalize(line).wkb
+                if (props.get('brunnel') == 'tunnel' and props.get('layer', 0) == 0
+                        and props.get('class') != 'rail' and line.length < 80
+                        and line.intersection(building).length > .1 and key not in seen):
+                    candidates.append(road)
+                    seen.add(key)
+            if len(candidates) >= 2:
+                cases.append(dict(building=building, hole=hole, passages=candidates))
+    return cases
+
+
+def render_courtyards(args, name, buildings, roads, transport):
+    import matplotlib.pyplot as plt
+    cases = courtyard_cases(buildings, transport)
+    if not cases:
+        return []
+    fig, axes = plt.subplots(1, len(cases), figsize=(5 * len(cases), 5),
+                             constrained_layout=True, squeeze=False)
+    reports = []
+    for ax, case in zip(axes[0], cases):
+        plot_geometry(ax, roads, '#8e9796')
+        plot_geometry(ax, buildings, '#cfbfa8')
+        plot_structures(ax, transport)
+        for road in transport:
+            if road['properties'].get('brunnel') is None:
+                xy = np.asarray(road['line'].coords)
+                ax.plot(xy[:, 0], xy[:, 1], color='#3d5951', linewidth=.8, zorder=2)
+        passages = []
+        for index, road in enumerate(case['passages'], 1):
+            point = road['line'].interpolate(.5, normalized=True)
+            ax.text(point.x, point.y, f'P{index}', color='#762e6d', fontsize=8, zorder=5)
+            passages.append(dict(properties=road['properties'],
+                                 coordinates=list(road['line'].coords)))
+        x, y = case['hole'].centroid.coords[0]
+        span = max(45., np.ptp(shapely.get_coordinates(case['building']), axis=0).max() * .7)
+        ax.set(xlim=(x - span, x + span), ylim=(y - span, y + span), aspect='equal',
+               title=f'Courtyard {x:.0f}, {y:.0f} m; {len(passages)} tunnel candidates',
+               xlabel='East [m]', ylabel='North [m]', facecolor='#dde9d0')
+        reports.append(dict(centre_m=[x, y], courtyard_area_m2=case['hole'].area,
+                            passages=passages))
+    fig.suptitle(f'{name}: building holes and supplied short tunnels; connectivity not yet solved')
+    path = args.output / '2d' / f'{name}-courtyard-passages.png'
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    return reports
+
+
+def render(args, name, buildings, roads, transport, cut, hybrid, report):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
     fig, axes = plt.subplots(1, 3, figsize=(15, 5), constrained_layout=True)
-    for ax, shapes, title in zip(axes, (buildings, cut, hybrid), ('Source', 'Cut', 'Cut / discard')):
+    source_title = 'Source buildings / native bands' if report['native_plan'] else 'Source / buffered axes'
+    for ax, shapes, title in zip(axes, (buildings, cut, hybrid),
+                                 (source_title, 'Ground cut', 'Ground cut / discard')):
         ax.set_facecolor('#dde9d0')
         plot_geometry(ax, roads, '#8e9796')
         plot_geometry(ax, shapes, '#cfbfa8')
+        plot_structures(ax, transport)
         ax.set(xlim=(-args.view, args.view), ylim=(-args.view, args.view),
                aspect='equal', title=title, xlabel='East [m]', ylabel='North [m]')
+    axes[0].legend(handles=[Line2D([], [], color='#167dba', label='Bridge'),
+                            Line2D([], [], color='#a43896', linestyle='--', label='Tunnel'),
+                            Line2D([], [], color='#d17318', linestyle=':', label='Other level')],
+                   loc='upper right', fontsize=8)
     fig.suptitle(f"{name}: {len(buildings)} source footprints; "
                  f"{report['hybrid']['cut']} cut, {report['hybrid']['discarded']} discarded\n"
-                 'Ground-level 2D experiment; no final height/profile proof')
+                 'Ground-level cuts only; tunnels / bridges retained as overlays, not building cuts')
     path = args.output / '2d' / f'{name}-building-clearance.png'
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=120)
     plt.close(fig)
+    report['courtyard_candidates'] = render_courtyards(args, name, buildings, roads, transport)
     return str(path)
 
 
@@ -280,6 +371,17 @@ def verify():
     assert result[0].equals(building)
     result, _ = indexed_cut(original, np.asarray([touching, narrow], dtype=object))
     assert all(p.equals(building.difference(narrow)) for p in result)
+    courtyard = Polygon([(0, 0), (20, 0), (20, 20), (0, 20)],
+                        [[(5, 5), (5, 15), (15, 15), (15, 5)]])
+    passages = [dict(line=LineString(points), properties=dict(brunnel='tunnel', **tags))
+                for points, tags in [([(-2, 10), (6, 10)], dict()),
+                                     ([(14, 10), (22, 10)], dict()),
+                                     ([(-2, 8), (6, 8)], dict(layer=-1)),
+                                     ([(-2, 12), (6, 12)], dict(class_='rail'))]]
+    passages[-1]['properties']['class'] = passages[-1]['properties'].pop('class_')
+    cases = courtyard_cases([courtyard], passages)
+    assert len(cases) == 1 and len(cases[0]['passages']) == 2
+    assert not courtyard_cases([building], passages)
 
 
 def main():
@@ -312,7 +414,7 @@ def main():
     reports = []
     for name in args.names:
         begin = time.perf_counter()
-        buildings, roads, report = load_scene(args, name, widths)
+        buildings, roads, transport, report = load_scene(args, name, widths)
         report['decode_ms'] = (time.perf_counter() - begin) * 1000
         (cut, counts), indexed_time = measure(lambda: indexed_cut(buildings, roads), args.repeats)
         global_cut, global_time = measure(lambda: shapely.difference(
@@ -329,7 +431,7 @@ def main():
                       discard_any_count=int(np.count_nonzero(original - remaining > 1e-7)),
                       side_room_m=args.side_room, minimum_area_m2=args.minimum_area,
                       minimum_width_m=args.minimum_width, radius_m=args.radius)
-        report['image'] = render(args, name, buildings, roads, cut, hybrid, report)
+        report['image'] = render(args, name, buildings, roads, transport, cut, hybrid, report)
         reports.append(report)
         (args.output / 'building-clearance.json').write_text(json.dumps(reports, indent=2) + '\n')
         print(json.dumps({k: report[k] for k in ('place', 'buildings', 'candidates',

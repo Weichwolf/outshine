@@ -31,6 +31,9 @@ GEOS-2D-Differenz gegen Weglassen vergleichen: betroffener Flächenanteil und br
 Randkontakt löscht keinen Baukörper; lokale Stadtstichproben belegen Kosten und erhaltene Massierung.
 Nur überlappende Höhenbereiche schneiden; Brücken/Tunnel erhalten darunter/darüber liegende Bauten.
 Bahnhallen/überdachte Passagen brauchen freie Verkehrsports und erhöhte Dach-Parts, keinen pauschalen Grundrissverlust.
+Tunnel-/Durchfahrtvolumen schneidet nur betroffene Geschosshöhen; Boden, Leibungen/Decke und Portale schließen.
+Innenringe/geschlossene Baublöcke plus Wegzyklen liefern Hofkandidaten, kein automatisches Kreisverkehr-Rezept.
+Durchgänge anhand gelieferter Tunnel/Überdeckung und fortgesetzter Wege planen; Zugang/Verkehrsart erhalten.
 Brauchbare Restkörper samt Höfen/Parts, Tags/Herkunft behalten; unbrauchbare Reste dürfen entfallen.
 Native Rohlinge binden den Infrastrukturplan; danach Terrain darunterlegen. Keine erneute Differenz bei Treffer.
 [2D-Vergleich](../test/experiments/infrastructure_building_clearance.py): GEOS mit räumlicher Vorauswahl
