@@ -12,6 +12,13 @@ from infrastructure_flat_plan import examples,plan
 from infrastructure_flat_surfaces import load_graphs,solve
 
 
+IMPLEMENTATION_SHA256 = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
+    (Path(__file__),*(Path(__file__).with_name(name) for name in (
+        'infrastructure_flat_surfaces.py','geos_triangulation.py','infrastructure_flat_corners.py',
+        'infrastructure_flat_junctions.py','infrastructure_flat_ports.py','infrastructure_flat_cuts.py',
+        'infrastructure_flat_plan.py','infrastructure_network_plan.py')))}
+
+
 def render(path,place,product,view):
     import matplotlib
     matplotlib.use('Agg')
@@ -50,17 +57,11 @@ def store(output,place,graphs,precision,view,source,junction_mode,corner_radius,
         render(image,place,product,view)
         report['image'] = str(image)
     report.update(place=place,precision_m=precision,**source)
-    report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
-        (Path(__file__),Path(__file__).with_name('infrastructure_flat_surfaces.py'),
-         Path(__file__).with_name('geos_triangulation.py'),
-         Path(__file__).with_name('infrastructure_flat_corners.py'),
-         Path(__file__).with_name('infrastructure_flat_junctions.py'),
-         Path(__file__).with_name('infrastructure_flat_ports.py'),
-         Path(__file__).with_name('infrastructure_flat_cuts.py'),
-         Path(__file__).with_name('infrastructure_network_plan.py'))}
+    report['implementation_sha256'] = IMPLEMENTATION_SHA256
     (output/f'{place}-flat-surfaces.json').write_text(json.dumps(report,indent=2)+'\n')
     np.savez_compressed(output/f'{place}-flat-surfaces.npz',**product)
-    print(json.dumps({k:v for k,v in report.items() if k!='implementation_sha256'}))
+    print(json.dumps({k:report[k] for k in ('place','triangles','modules','plan_ms','mesh_and_audit_ms')}|
+                     dict(port_sections=report['ports']['sections'],invalid_ports=report['ports']['invalid_sections'])))
 
 
 def small_cases(output,precision,junction_mode,corner_radius,arc_error,shots=None):

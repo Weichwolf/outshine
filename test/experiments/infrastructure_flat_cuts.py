@@ -7,35 +7,39 @@ from infrastructure_flat_junctions import continuation_chains,junction_nodes
 from infrastructure_network_plan import boundary_segments
 
 
-def cross_sections(graphs,precision,radius):
-    centres,normals,half,nodes = [],[],[],[]
+def section_model(graphs,precision,radius):
+    axes,depths,half,nodes = [],[],[],[]
     for graph in graphs:
         graph = continuation_chains(graph,precision)
         selected,widths = junction_nodes(graph,'branch')
         nodes.extend(graph['vertices'][selected])
         lines,edges = graph['lines'],graph['edges']
-        length = shapely.length(lines)
         reach = np.where(selected[edges],2*(widths[edges]+radius),0)
-        source = np.tile(np.arange(len(lines)),2)
-        side = np.repeat([0,1],len(lines))
-        wanted = selected[edges.T.ravel()]&(np.tile(length-reach.sum(axis=1),2)>precision)
-        source,side = source[wanted],side[wanted]
-        station = np.where(side==0,reach[source,0],length[source]-reach[source,1])
-        p = shapely.get_coordinates(shapely.line_interpolate_point(lines[source],station))
-        a = shapely.get_coordinates(shapely.line_interpolate_point(lines[source],station-precision*.1))
-        b = shapely.get_coordinates(shapely.line_interpolate_point(lines[source],station+precision*.1))
-        tangent = b-a
-        tangent /= np.linalg.norm(tangent,axis=1)[:,None]
-        centres.extend(p)
-        normals.extend(np.c_[-tangent[:,1],tangent[:,0]])
-        half.extend(graph['half_widths'][source])
-    return np.asarray(centres).reshape(-1,2),np.asarray(normals).reshape(-1,2),np.asarray(half),np.asarray(nodes).reshape(-1,2)
+        axes.extend(lines)
+        depths.extend(reach)
+        half.extend(graph['half_widths'])
+    lines = np.asarray(axes,dtype=object)
+    return dict(lines=lines,length=shapely.length(lines),depth=np.asarray(depths).reshape(-1,2),
+                half=np.asarray(half),nodes=np.asarray(nodes).reshape(-1,2))
 
 
-def surface_spans(complete,centres,normals,half,precision):
-    segments = boundary_segments(complete)
-    xy = shapely.get_coordinates(segments).reshape(-1,2,2)
-    tree = shapely.STRtree(segments)
+def sections_of(model,precision):
+    lines,length,depth = model['lines'],model['length'],model['depth']
+    source = np.tile(np.arange(len(lines)),2)
+    side = np.repeat([0,1],len(lines))
+    wanted = (depth.T.ravel()>0)&(np.tile(length-depth.sum(axis=1),2)>precision)
+    source,side = source[wanted],side[wanted]
+    station = np.where(side==0,depth[source,0],length[source]-depth[source,1])
+    p = shapely.get_coordinates(shapely.line_interpolate_point(lines[source],station))
+    a = shapely.get_coordinates(shapely.line_interpolate_point(lines[source],station-precision*.1))
+    b = shapely.get_coordinates(shapely.line_interpolate_point(lines[source],station+precision*.1))
+    tangent = b-a
+    tangent /= np.linalg.norm(tangent,axis=1)[:,None]
+    return p,np.c_[-tangent[:,1],tangent[:,0]],model['half'][source],source,side
+
+
+def surface_spans(complete,centres,normals,half,precision,boundary):
+    xy,tree = boundary
     before,after = np.full(len(centres),np.inf),np.full(len(centres),np.inf)
     extent = np.maximum(half*2,precision)
     limit = np.linalg.norm(np.subtract(complete.bounds[2:],complete.bounds[:2]))+precision
@@ -68,14 +72,51 @@ def surface_spans(complete,centres,normals,half,precision):
     return before,after,attempts
 
 
+def intersecting_sections(spans,normals,complete):
+    lines = shapely.linestrings(spans)
+    pairs = shapely.STRtree(lines).query(lines,predicate='intersects')
+    pairs = pairs[:,pairs[0]<pairs[1]]
+    a,b = normals[pairs[0]],normals[pairs[1]]
+    crossing = np.abs(a[:,0]*b[:,1]-a[:,1]*b[:,0])>1e-10
+    pairs = pairs[:,crossing]
+    intersections = shapely.intersection(lines[pairs[0]],lines[pairs[1]])
+    good = shapely.contains(complete,shapely.point_on_surface(intersections))
+    return pairs[:,good]
+
+
+def resolved_sections(complete,graphs,precision,radius,segments):
+    model = section_model(graphs,precision,radius)
+    original = model['depth'].copy()
+    boundary = shapely.get_coordinates(segments).reshape(-1,2,2),shapely.STRtree(segments)
+    passes,ray_passes = 0,0
+    for passes in range(32):
+        p,n,half,source,side = sections_of(model,precision)
+        before,after,attempts = surface_spans(complete,p,n,half,precision,boundary)
+        ray_passes = max(ray_passes,attempts)
+        good = np.isfinite(before)&np.isfinite(after)
+        spans = np.stack((p[good]-n[good]*before[good,None],p[good]+n[good]*after[good,None]),axis=1)
+        conflicts = intersecting_sections(spans,n[good],complete)
+        if not conflicts.size or passes==31:
+            break
+        changed = np.flatnonzero(good)[np.unique(conflicts)]
+        model['depth'][source[changed],side[changed]] *= 2
+        model['depth'] = np.minimum(model['depth'],model['length'][:,None])
+    geometry = dict(cut_centres=p[good],cut_normals=n[good],cut_spans=spans)
+    report = dict(cuts=len(spans),unresolved_cuts=int((~good).sum()),ray_expansions=ray_passes,
+                  cut_adjustment_passes=passes,adjusted_ends=int((model['depth']>original).sum()),
+                  remaining_cut_conflicts=conflicts.shape[1],
+                  absorbed_short_chains=int(((original.sum(axis=1)<model['length'])&
+                                             (model['depth'].sum(axis=1)>=model['length'])).sum()))
+    return geometry,model['nodes'],report
+
+
 def cuts_plan(complete,graphs,precision,radius):
-    centres,normals,half,nodes = cross_sections(graphs,precision,radius)
-    before,after,attempts = surface_spans(complete,centres,normals,half,precision)
-    good = np.isfinite(before)&np.isfinite(after)
-    p,n = centres[good],normals[good]
-    cut_xy = np.stack((p-n*(before[good]+precision)[:,None],p+n*(after[good]+precision)[:,None]),axis=1)
+    shapely.prepare(complete)
+    segments = boundary_segments(complete)
+    geometry,nodes,report = resolved_sections(complete,graphs,precision,radius,segments)
+    cut_xy = geometry['cut_spans']+geometry['cut_normals'][:,None,:]*np.array([-precision,precision])[None,:,None]
     cuts = shapely.linestrings(cut_xy)
-    lines = shapely.get_parts(shapely.union_all(np.r_[boundary_segments(complete),cuts]))
+    lines = shapely.get_parts(shapely.union_all(np.r_[segments,cuts]))
     parts = shapely.get_parts(shapely.polygonize(lines))
     shapely.prepare(complete)
     parts = parts[shapely.contains(complete,shapely.point_on_surface(parts))]
@@ -90,8 +131,5 @@ def cuts_plan(complete,graphs,precision,radius):
     coverage = abs(float(shapely.area(parts).sum())-complete.area)
     if not np.all(shapely.is_valid(parts)) or coverage>max(1e-7,complete.area*1e-12):
         raise ValueError('straight cuts do not partition the original road surface')
-    report = dict(cuts=len(cuts),unresolved_cuts=int((~good).sum()),ray_expansions=attempts,
-                  scope='Straight complete cuts; junction classification and traffic routes remain experimental.')
-    geometry = dict(cut_centres=p,cut_normals=n,
-                    cut_spans=np.stack((p-n*before[good,None],p+n*after[good,None]),axis=1))
+    report['scope'] = 'Straight complete cuts; junction classification and traffic routes remain experimental.'
     return parts,roles,report,geometry
