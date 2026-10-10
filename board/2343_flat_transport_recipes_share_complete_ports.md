@@ -73,6 +73,10 @@ die Portposen beider Nachbarknoten; gerichtete Modulrouten und dieselbe Karosser
 Nicht durchfahrbare Auto-Anschlüsse erscheinen separat in der Nutzungsbilanz. Ungültige feste
 Endkarosserien werden einmal vor der Kurvensuche geprüft; sie bleiben explizit ungelöst.
 Zweipunktige Quellachsen dürfen bei versetzten Ports ebenfalls quintische Verbindungen liefern.
+Bei erfolgloser Interpolation glättet ein begrenztes Zusatzrezept die Führungsachse:
+Abweichung zur Quelle plus quadratische zweite Differenzen, feste Endpunkte, positiv definites
+Fünfdiagonalsystem in O(N). Fläche, Ports, Krümmungs- und Karosserieprüfung bleiben unverändert.
+Jeder Spline-Kandidat muss die Inselwindung seiner Quelle erhalten; sonst läuft die Suche weiter.
 Offen: durchgehende Spurzuordnung, ungültige feste Portposen, enge Kreisverkehre, Verkehrsregelung,
 vollständige Netze und tragbare Kosten. Erfolgreiche Einzelkurven sind keine fertige Verkehrssimulation.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).

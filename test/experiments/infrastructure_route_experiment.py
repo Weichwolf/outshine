@@ -96,7 +96,7 @@ def main():
                   straight_source=verify_straight_source(vehicle),vehicle_profile=vehicle)
     report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
         (Path(__file__),configuration,*(Path(__file__).with_name(n) for n in
-          ('infrastructure_route_turns.py','infrastructure_directed_routes.py','infrastructure_junction_turns.py',
+          ('infrastructure_route_turns.py','infrastructure_route_fairing.py','infrastructure_directed_routes.py','infrastructure_junction_turns.py',
            'infrastructure_vehicle_sweep.py','infrastructure_curvature_paths.py')))}
     args.output.mkdir(parents=True,exist_ok=True)
     (args.output/'routes.json').write_text(json.dumps(report,indent=2)+'\n')

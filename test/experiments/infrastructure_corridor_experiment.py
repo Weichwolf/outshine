@@ -120,11 +120,12 @@ def main():
     for name in args.places:
         report,local = survey(args.input,name,vehicle,args.modules)
         reports.append(report)
-        ranked = sorted(local,key=lambda v:(v[2]['accepted']==v[2]['connections'],v[1]))
+        ranked = sorted(local,key=lambda v:(not any('fairing_weight' in t for t in v[2]['turns']),
+                                            v[2]['accepted']==v[2]['connections'],v[1]))
         views.extend(ranked[:2])
         print(json.dumps(dict(place=name,counts=report['counts'],total_ms=report['total_ms'])),flush=True)
     names = ('infrastructure_directed_routes.py','infrastructure_port_lanes.py','infrastructure_junction_turn_experiment.py',
-             'infrastructure_route_turns.py','infrastructure_spline_routes.py','infrastructure_vehicle_sweep.py',
+             'infrastructure_route_turns.py','infrastructure_route_fairing.py','infrastructure_spline_routes.py','infrastructure_vehicle_sweep.py',
              'infrastructure_junction_surfaces.py','infrastructure_junction_turns.py','infrastructure_turn_paths.py')
     report = dict(checks=dict(**verify_shared_ports(),**verify_invalid_endpoint(vehicle)),places=reports,vehicle_profile=vehicle,
                   scope='Corridors use fixed neighboring junction poses; complete network and traffic conflicts remain open.',

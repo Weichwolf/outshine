@@ -7,6 +7,8 @@ import shapely
 from scipy.interpolate import BPoly,PPoly,make_interp_spline
 
 from infrastructure_vehicle_sweep import sweep_check
+from infrastructure_route_fairing import fair_route
+from infrastructure_junction_surfaces import same_island_winding
 
 
 def split_controls(controls):
@@ -59,7 +61,7 @@ def spline_controls(points,entry,exit):
     return controls
 
 
-def spline_route(entry,exit,route,surface,vehicle,error=.025,maximum_poses=4096,spacing=None):
+def spline_route(entry,exit,route,surface,vehicle,error=.025,maximum_poses=4096,spacing=None,fairing_weight=0.):
     if spacing is None:
         raw = shapely.get_coordinates(route)
     else:
@@ -71,6 +73,7 @@ def spline_route(entry,exit,route,surface,vehicle,error=.025,maximum_poses=4096,
         return None,dict(reason='spline_knot_budget_exhausted')
     points = raw.copy()
     points[[0,-1]] = [entry['position'],exit['position']]
+    points = fair_route(points,fairing_weight)
     controls = spline_controls(points,entry,exit)
     if controls is None:
         return None,dict(reason='collapsed_spline_interval')
@@ -105,6 +108,17 @@ def spline_route_candidates(entry,exit,route,surface,vehicle,error):
     radius = vehicle['minimumRearAxleRadiusM']
     for spacing in (radius*2,radius,radius*3,radius*4,None):
         path,note = spline_route(entry,exit,route,surface,vehicle,error,spacing=spacing)
-        if path is not None:
+        if path is not None and same_island_winding(path,route,surface):
             return path,dict(note,source_spacing_m=spacing)
+        if path is not None:
+            note = dict(reason='spline_changes_source_island_winding')
+    for spacing in (radius,radius*2):
+        if route.length<=spacing:
+            continue
+        for weight in (.1,1.,10.,100.):
+            path,note = spline_route(entry,exit,route,surface,vehicle,error,spacing=spacing,fairing_weight=weight)
+            if path is not None:
+                if same_island_winding(path,route,surface):
+                    return path,dict(note,source_spacing_m=spacing,fairing_weight=weight)
+                note = dict(reason='spline_changes_source_island_winding')
     return None,note
