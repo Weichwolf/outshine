@@ -52,10 +52,17 @@ wählt den größten Randabstand bei unveränderter Position. Alle Verbindungen 
 Portausrichtung; Nachbarkorridore müssen denselben gespeicherten Rahmen übernehmen.
 Das löst einzelne Fahrten, noch keine konfliktfreien Fahrspuren.
 [Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
-maximaler Krümmung k bewegt sich jeder Körperpunkt höchstens (1+k*r)*ds. Diese Grenze sichert
-die Zwischenräume der Abtastung; gerade Translationen nutzen den exakt extrudierten Körper.
-Für Kurven genügt enthaltene Karosserie plus Mindestabstand zu allen Flächenrändern einschließlich
-Löchern. Das vermeidet pro Pose aufgeblasene Polygone bei derselben Bewegungsgrenze.
+maximaler Krümmung k sowie Krümmungsänderung k' gilt |q''(s)| ≤ A = k+r*(|k'|+k²).
+Analytische Kurven prüfen die konvexe Hülle zweier Endkarosserien mit Randreserve A*ds²/8.
+Sie umfasst alle linearen Eckinterpolationen; die Reserve umfasst deren kontinuierliche Abweichung.
+Enthaltene Endposen allein genügen nicht: die ganze Hülle muss auf der Motorfläche liegen,
+mit Reserve zu Außenrändern und Löchern. Nur unklare Intervalle werden halbiert; höchstens 4096
+tatsächlich geprüfte Karosserieposen, keine Suchschleife ohne Budget. Gerade Ansätze sind eigene
+Teilkurven; G1-Krümmungssprünge an ihren Enden überschreiten keine gemeinsame Ableitungsgrenze.
+Gerade Translationen nutzen den exakt extrudierten Körper. Quintische Quellrouten verwenden
+weiter die Weggrenze (1+k*r)*ds; ihr Abtastaufwand bleibt ein offener Engpass.
+[Hüllenprüfung](../test/experiments/infrastructure_swept_hull_experiment.py) vergleicht Eckbahnen,
+unabhängige numerische Integration, versteckte Löcher und enge Kurven bei festem Arbeitsbudget.
 Wege/private Zufahrten sind kein Ausweichraum. Der gemeinsame Mesh begrenzt öffentliche Motorfläche.
 Gerichtete Erreichbarkeit allein genügt nicht: bei Einbahnabschnitten muss die Kurve die
 Windungszahlen der gewählten Quellroute um Verkehrsinseln erhalten. Der Vergleich schließt

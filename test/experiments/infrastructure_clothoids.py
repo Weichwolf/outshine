@@ -50,6 +50,8 @@ def fit_clothoids(start,end,start_heading,end_heading,tolerance=1e-7):
     return dict(start=start,end=end,heading=heading,initial=initial,delta=delta,bend=a,length_m=length,
                 begin_curvature_per_m=begin_curvature,end_curvature_per_m=end_curvature,
                 maximum_curvature_per_m=np.maximum(np.abs(begin_curvature),np.abs(end_curvature)),
+                maximum_curvature_rate_per_m2=np.divide(2*np.abs(a),length**2,
+                    out=np.zeros_like(length),where=length>0),
                 closure_error_m=error,valid=valid,newton_steps=iterations,
                 scope='G1 poses only; road containment, traffic semantics and G2 transitions remain open.')
 

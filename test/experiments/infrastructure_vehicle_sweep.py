@@ -47,30 +47,70 @@ def straight_body_check(surface,begin,end,heading,vehicle,error=.025):
 def turn_body_check(surface,fit,begin,end,profile,vehicle,error=.025,maximum_poses=4096):
     if maximum_poses<2:
         return dict(fits_surface=False,reason='vehicle_sweep_budget_exhausted'),None
-    half_width = vehicle['widthM']*.5
-    front,rear = vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']
+    sampler = {'G1':sample_clothoids,'G2':sample_symmetric_turns,
+               'G2-polynomial':sample_curvature_paths}.get(profile)
+    if sampler is None:
+        raise ValueError('unknown vehicle sweep trajectory')
+    xy,angles = sampler(fit,np.array([0.,1.]))[:2]
+    xy,angles = xy[0],angles[0]
     curvature,length = float(fit['maximum_curvature_per_m'][0]),float(fit['length_m'][0])
     if curvature==0:
-        return straight_body_check(surface,begin,end,float(fit['start_heading'][0]),vehicle,error)
-    radius = np.hypot(max(front,rear),half_width)
-    spacing = 2*error/(1+curvature*radius)
-    before,after = np.linalg.norm(fit['start'][0]-begin),np.linalg.norm(end-fit['end'][0])
-    counts = np.ceil(np.array([before,length,after])/spacing).astype(int)
-    counts[1] = max(counts[1],1)
-    if counts.sum()+1>maximum_poses:
-        return dict(fits_surface=False,reason='vehicle_sweep_budget_exhausted'),None
-    stations = np.linspace(0,1,counts[1]+1)
-    if profile=='G1':
-        xy,headings = sample_clothoids(fit,stations)
-    elif profile=='G2':
-        xy,headings = sample_symmetric_turns(fit,stations)[:2]
-    elif profile=='G2-polynomial':
-        xy,headings = sample_curvature_paths(fit,stations)[:2]
-    else:
-        raise ValueError('unknown vehicle sweep trajectory')
-    prefix = np.linspace(begin,xy[0,0],counts[0]+1)[:-1]
-    suffix = np.linspace(xy[0,-1],end,counts[2]+1)[1:]
-    positions = np.vstack((prefix,xy[0],suffix))
-    angles = np.r_[np.full(len(prefix),headings[0,0]),headings[0],np.full(len(suffix),headings[0,-1])]
-    step = np.divide([before,length,after],counts,out=np.zeros(3),where=counts>0).max()
-    return sweep_check(surface,positions,angles,curvature,step,half_width,front,rear)
+        return straight_body_check(surface,begin,end,angles[0],vehicle,error)
+    radius = np.hypot(max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']),vehicle['widthM']*.5)
+    rate = float(fit['maximum_curvature_rate_per_m2'][0])
+    acceleration = (curvature+radius*(rate+curvature**2))*length**2
+    approaches = [(a,b,angle) for a,b,angle in ((begin,xy[0],angles[0]),(xy[-1],end,angles[-1]))
+                  if not np.array_equal(a,b)]
+    def evaluate(owners,stations):
+        positions,headings = np.empty((len(stations),2)),np.empty(len(stations))
+        curved = owners==0
+        if np.any(curved):
+            points,heading = sampler(fit,stations[curved])[:2]
+            positions[curved],headings[curved] = points[0],heading[0]
+        for owner,(a,b,angle) in enumerate(approaches,1):
+            mask = owners==owner
+            positions[mask],headings[mask] = a+(b-a)*stations[mask,None],angle
+        return positions,headings
+    return swept_hull_check(surface,evaluate,np.r_[acceleration,np.zeros(len(approaches))],
+                            vehicle,error,maximum_poses),None
+
+
+def swept_hull_check(surface,evaluate,maximum_second_derivative,vehicle,error=.025,maximum_poses=4096):
+    """A corner deviates from its endpoint chord by at most max|q''|*du**2/8."""
+    acceleration = np.asarray(maximum_second_derivative,dtype=float)
+    if (acceleration.ndim!=1 or not len(acceleration) or not np.isfinite(error) or error<=0 or
+        np.any(~np.isfinite(acceleration)) or np.any(acceleration<0)):
+        raise ValueError('invalid swept hull bounds')
+    counts = np.maximum(1,np.ceil(np.sqrt(acceleration/(8*error))))
+    report = dict(fits_surface=False,outside_poses=0,sampled_poses=0,sweep_deviation_bound_m=0.,
+                  method='adaptive_swept_hulls',hull_intervals=0,accepted_intervals=0)
+    if counts.sum()*2>maximum_poses:
+        return report|dict(reason='vehicle_sweep_budget_exhausted')
+    counts = counts.astype(int)
+    owners = np.repeat(np.arange(len(counts)),counts)
+    begin = np.concatenate([np.arange(n)/n for n in counts])
+    end = begin+1/counts[owners]
+    shapely.prepare(surface)
+    boundary = shapely.boundary(surface)
+    while len(owners):
+        if report['sampled_poses']+2*len(owners)>maximum_poses:
+            return report|dict(reason='vehicle_sweep_budget_exhausted')
+        positions,headings = evaluate(np.repeat(owners,2),np.stack((begin,end),axis=1).ravel())
+        outlines = body_outlines(positions,headings,vehicle['widthM']*.5,
+                                vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
+        report['sampled_poses'] += len(positions)
+        report['hull_intervals'] += len(owners)
+        report['outside_poses'] = int(np.count_nonzero(~shapely.covers(surface,shapely.polygons(outlines))))
+        if report['outside_poses']:
+            return report
+        hulls = shapely.convex_hull(shapely.multipoints(outlines.reshape(-1,8,2)))
+        deviation = acceleration[owners]*(end-begin)**2/8
+        clear = shapely.covers(surface,hulls)&(shapely.distance(hulls,boundary)>=deviation)
+        report['accepted_intervals'] += int(np.count_nonzero(clear))
+        report['sweep_deviation_bound_m'] = max(report['sweep_deviation_bound_m'],
+                                               float(deviation[clear].max(initial=0)))
+        left,right = begin[~clear],end[~clear]
+        middle = (left+right)*.5
+        owners = np.repeat(owners[~clear],2)
+        begin,end = np.stack((left,middle),axis=1).ravel(),np.stack((middle,right),axis=1).ravel()
+    return report|dict(fits_surface=True)

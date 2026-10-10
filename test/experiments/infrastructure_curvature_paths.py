@@ -20,6 +20,13 @@ def curvature_extrema(delta,amplitude,length):
     return np.divide(np.abs(gradient).max(axis=1),length,out=np.zeros_like(length),where=length>0)
 
 
+def curvature_rate_bound(delta,amplitude,length):
+    a,b,c = 192*amplitude,-12*delta-192*amplitude,6*delta+32*amplitude
+    vertex = np.clip(np.divide(-b,2*a,out=np.zeros_like(a),where=a!=0),0,1)
+    maximum = np.maximum.reduce((np.abs(c),np.abs(a+b+c),np.abs((a*vertex+b)*vertex+c)))
+    return np.divide(maximum,length**2,out=np.zeros_like(length),where=length>0)
+
+
 def fit_curvature_paths(start,end,start_heading,end_heading,tolerance=1e-7):
     start,end = np.asarray(start,dtype=float),np.asarray(end,dtype=float)
     delta = wrapped(end_heading-start_heading)
@@ -48,6 +55,7 @@ def fit_curvature_paths(start,end,start_heading,end_heading,tolerance=1e-7):
     return dict(start=start,end=end,start_heading=start_heading,delta=delta,amplitude=amplitude,
                 length_m=length,closure_error_m=closure,
                 maximum_curvature_per_m=curvature_extrema(delta,amplitude,length),
+                maximum_curvature_rate_per_m2=curvature_rate_bound(delta,amplitude,length),
                 valid=(chord>tolerance)&(forward>1e-9)&(length<=chord*2)&(closure<=tolerance))
 
 
