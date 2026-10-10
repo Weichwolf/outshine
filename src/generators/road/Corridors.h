@@ -64,11 +64,11 @@ private:
   static constexpr double kUnraisedDeckM = -1.0e29;
   static constexpr double kDefaultGradient = 0.10;
 
-  struct Meets {
+  struct Crossing {
     double EastM = 0.0;
     double NorthM = 0.0;
     double GradeM = 0.0;
-    uint64_t Named = 0;
+    std::array<uint64_t, 2> Nodes{};
     std::array<size_t, 2> Lanes{};
   };
 
@@ -81,6 +81,7 @@ private:
     const ::outshine::Generators::Osm::OsmField &Vectors;
     std::span<const double> Points;
     const std::unordered_map<uint64_t, uint32_t> &SharedNodes;
+    const std::unordered_map<uint64_t, uint64_t> &EndNodes;
     const Drape &Draped;
     const TangentFrame &Standing;
     const std::shared_ptr<const ClassStructure> &Classes;
@@ -151,7 +152,8 @@ private:
     std::vector<double> FitEastNorth;
     double TightestDemandM = 0.0;
     std::vector<double> DeckM;
-    std::unordered_map<uint64_t, std::vector<Meets>> AtCrossing;
+    std::vector<Crossing> Crossings;
+    std::unordered_map<uint64_t, std::vector<uint32_t>> AtCrossing;
     std::unordered_map<uint64_t, double> EndM;
     std::unordered_map<uint64_t, double> GroundEndM;
     RoadMeshingStats Swept;
@@ -229,9 +231,17 @@ private:
   static void SplitAtCrossings(size_t laneAt, Paved &into);
   static void BindCrossingStations(size_t laneAt, Paved &into);
   static std::optional<RoadStation>
-  CrossingStation(size_t laneAt, const Meets &met, std::span<const RoadStation, 2> span);
+  CrossingStation(size_t laneAt, const Crossing &met, std::span<const RoadStation, 2> span);
   static uint64_t RoadNodeAt(const ::outshine::Generators::Osm::StreetField::Way &lane,
                              LongitudeLatitude at);
+  static uint64_t RoadPositionKey(LongitudeLatitude at);
+  static uint64_t PlannedNodeAt(const Paving &on,
+                                const ::outshine::Generators::Osm::StreetField::Way &lane,
+                                LongitudeLatitude at);
+  static std::unordered_map<uint64_t, uint64_t>
+  EndpointNodesOf(const ::outshine::Generators::Osm::StreetField &ways,
+                  const ::outshine::Generators::Osm::OsmField &vectors,
+                  const TangentFrame &standing);
   static void FileCrossing(const Path::Network::Crossing &one,
                            const Paving &on,
                            const Path::Network &network,
@@ -248,8 +258,7 @@ private:
   };
 
   [[nodiscard]] static std::optional<Ends>
-  EndsOf(const ::outshine::Generators::Osm::OsmField &vectors,
-         const ::outshine::Generators::Osm::StreetField::Way &lane);
+  EndsOf(const Paving &on, const ::outshine::Generators::Osm::StreetField::Way &lane);
 
   struct Grounded {
     double EastM = 0.0;
@@ -275,15 +284,9 @@ private:
 
   [[nodiscard]] static double HighestDeckM(const Paved &over);
 
-  static void EaseRampPass(const ::outshine::Generators::Osm::StreetField &ways,
-                           const ::outshine::Generators::Osm::OsmField &vectors,
-                           double mostDeckM,
-                           Paved &into);
+  static void EaseRampPass(const Paving &on, double mostDeckM, Paved &into);
 
-  static void EasesRamps(const ::outshine::Generators::Osm::StreetField &ways,
-                         const ::outshine::Generators::Osm::OsmField &vectors,
-                         double mostDeckM,
-                         Paved &into);
+  static void EasesRamps(const Paving &on, double mostDeckM, Paved &into);
 
   static void GradesApproaches(const Paving &on, Paved &into);
 
@@ -300,6 +303,7 @@ private:
 
   static void SplitsEdges(Paved &into);
   struct HeightGraph;
+  static void CrossingClearances(const Paving &on, const Paved &into, HeightGraph &graph);
   static void HeightConstraints(const Paving &on, Paved &into, HeightGraph &graph);
   [[nodiscard]] static std::expected<void, std::string_view> PlanHeights(const Paving &on,
                                                                          Paved &into);
@@ -315,6 +319,7 @@ private:
   static void
   AppendJunctionTerrainStamp(const Junction &made, double rootsM, bool elevated, Paved &into);
   static void ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs, Paved &into);
+  static bool IsContinuation(const Paving &on, std::span<const Leg> legs, const Paved &into);
   static void ShapesJunctions(const Paving &on, Paved &into);
   static void RecordJunctionMetrics(Paved &into);
   static void LimitEndCuts(Edge &edge, const Paved &into);
@@ -420,6 +425,7 @@ public:
       Junctions,
       UnderJunctions,
       Corridor,
+      Crossings,
       CrossingMap,
       EndMap,
       GroundEndMap,
@@ -442,6 +448,7 @@ public:
     RoadMeshBuffers Pavement;
     std::vector<EarthworkStamp> Corridor;
     std::unordered_map<uint64_t, uint32_t> SharedNodes;
+    std::unordered_map<uint64_t, uint64_t> EndNodes;
     std::unordered_map<uint64_t, std::vector<Leg>> LegsAt;
     std::vector<Path::Network::Crossing> Crossed;
     BridgeTopology Topology;

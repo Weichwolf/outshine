@@ -1,5 +1,4 @@
 #include "Corridors.h"
-#include "geo/PlaceKey.h"
 #include "Digest.h"
 
 #include <algorithm>
@@ -26,9 +25,16 @@ uint64_t CrossingCell(EastNorth at) {
 
 }
 
+uint64_t Corridors::RoadPositionKey(LongitudeLatitude at) {
+  constexpr double kStepsPerDegree = 10'000'000;
+  const auto north = std::llround(at.LatitudeDeg * kStepsPerDegree) + 1'000'000'000LL;
+  const auto east = std::llround(at.LongitudeDeg * kStepsPerDegree) + 2'000'000'000LL;
+  return (static_cast<uint64_t>(north) << 32u) | static_cast<uint64_t>(east);
+}
+
 uint64_t Corridors::RoadNodeAt(const ::outshine::Generators::Osm::StreetField::Way &lane,
                                LongitudeLatitude at) {
-  const uint64_t key = PlaceKey(at);
+  const uint64_t key = RoadPositionKey(at);
   if (lane.Layer == 0 && !lane.Bridge) { return key; }
   uint64_t digest = kDigestBasis;
   for (unsigned shift = 0; shift < 64; shift += kByteBits) {
@@ -48,21 +54,20 @@ void Corridors::FileCrossing(const Path::Network::Crossing &one,
   const size_t second = network.TagOf(one.UnderWay);
   const auto &a = on.Ways.Ways()[first];
   const auto &b = on.Ways.Ways()[second];
-  if (a.Layer != b.Layer || a.Bridge != b.Bridge) { return; }
-  const auto crossedAt =
-      GroundUnder(on, {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg});
+  const LongitudeLatitude at{.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg};
+  const auto crossedAt = GroundUnder(on, at);
   if (!crossedAt) { return; }
-  const uint64_t named =
-      RoadNodeAt(a, {.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg});
+  const auto crossing = static_cast<uint32_t>(into.Crossings.size());
+  into.Crossings.push_back({.EastM = crossedAt->EastM,
+                            .NorthM = crossedAt->NorthM,
+                            .GradeM = crossedAt->GradeM,
+                            .Nodes = {PlannedNodeAt(on, a, at), PlannedNodeAt(on, b, at)},
+                            .Lanes = {first, second}});
   for (int stepE = -1; stepE <= 1; ++stepE) {
     for (int stepN = -1; stepN <= 1; ++stepN) {
       const uint64_t cell = CrossingCell({.EastM = crossedAt->EastM + stepE * kCrossCellM,
                                           .NorthM = crossedAt->NorthM + stepN * kCrossCellM});
-      into.AtCrossing[cell].push_back({.EastM = crossedAt->EastM,
-                                       .NorthM = crossedAt->NorthM,
-                                       .GradeM = crossedAt->GradeM,
-                                       .Named = named,
-                                       .Lanes = {first, second}});
+      into.AtCrossing[cell].push_back(crossing);
     }
   }
 }
@@ -73,7 +78,8 @@ void Corridors::BindCrossingStations(size_t laneAt, Paved &into) {
     const auto cell =
         into.AtCrossing.find(CrossingCell({.EastM = station.EastM, .NorthM = station.NorthM}));
     if (cell == into.AtCrossing.end()) { continue; }
-    for (const Meets &met : cell->second) {
+    for (const uint32_t crossing : cell->second) {
+      const Crossing &met = into.Crossings[crossing];
       if (met.Lanes[0] != laneAt && met.Lanes[1] != laneAt) { continue; }
       if (std::hypot(station.EastM - met.EastM, station.NorthM - met.NorthM) >
           kCrossingToleranceM) {
@@ -82,14 +88,15 @@ void Corridors::BindCrossingStations(size_t laneAt, Paved &into) {
       station.EastM = met.EastM;
       station.NorthM = met.NorthM;
       station.GradeM = met.GradeM;
-      station.Node = met.Named;
+      station.Node = met.Nodes[met.Lanes[0] == laneAt ? 0 : 1];
       break;
     }
   }
 }
 
-std::optional<RoadStation>
-Corridors::CrossingStation(size_t laneAt, const Meets &met, std::span<const RoadStation, 2> span) {
+std::optional<RoadStation> Corridors::CrossingStation(size_t laneAt,
+                                                      const Crossing &met,
+                                                      std::span<const RoadStation, 2> span) {
   const auto &begin = span.front();
   const auto &end = span.back();
   const double runE = end.EastM - begin.EastM;
@@ -106,8 +113,10 @@ Corridors::CrossingStation(size_t laneAt, const Meets &met, std::span<const Road
   if (std::min(along, 1.0 - along) * std::sqrt(lengthSquared) <= kCrossingToleranceM) {
     return std::nullopt;
   }
-  return RoadStation{
-      .EastM = met.EastM, .NorthM = met.NorthM, .GradeM = met.GradeM, .Node = met.Named};
+  return RoadStation{.EastM = met.EastM,
+                     .NorthM = met.NorthM,
+                     .GradeM = met.GradeM,
+                     .Node = met.Nodes[met.Lanes[0] == laneAt ? 0 : 1]};
 }
 
 void Corridors::SplitAtCrossings(size_t laneAt, Paved &into) {
@@ -125,7 +134,8 @@ void Corridors::SplitAtCrossings(size_t laneAt, Paved &into) {
     const double runE = end.EastM - begin.EastM;
     const double runN = end.NorthM - begin.NorthM;
     cuts.clear();
-    for (const Meets &met : cell->second) {
+    for (const uint32_t crossing : cell->second) {
+      const Crossing &met = into.Crossings[crossing];
       const auto cut = CrossingStation(
           laneAt, met, std::span<const RoadStation, 2>{into.Along.data() + station - 1, 2});
       if (cut) { cuts.push_back(*cut); }

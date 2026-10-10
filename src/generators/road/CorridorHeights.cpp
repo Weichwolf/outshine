@@ -34,6 +34,7 @@ struct ProfileLimits {
 struct Corridors::HeightGraph {
   std::vector<RoadHeightNode> Nodes;
   std::vector<RoadHeightLink> Links;
+  std::vector<RoadHeightClearance> Clearances;
   std::vector<uint32_t> Stations;
   std::vector<double> OffsetsM;
   std::unordered_map<uint64_t, uint32_t> Named;
@@ -149,9 +150,36 @@ void Corridors::PrepareProfile(size_t edgeAt, const Paving &on, Paved &into) {
   into.Planned.insert(into.Planned.end(), into.Along.begin(), into.Along.end());
 }
 
+void Corridors::CrossingClearances(const Paving &on, const Paved &into, HeightGraph &graph) {
+  for (const auto &crossing : into.Crossings) {
+    if (crossing.Nodes[0] == crossing.Nodes[1]) { continue; }
+    const auto &first = on.Ways.Ways()[crossing.Lanes[0]];
+    const auto &second = on.Ways.Ways()[crossing.Lanes[1]];
+    if (!first.Bridge && !second.Bridge) { continue; }
+    const bool firstAbove = first.Layer != second.Layer ? first.Layer > second.Layer : first.Bridge;
+    const size_t upper = firstAbove ? 0 : 1;
+    const size_t lower = 1 - upper;
+    const auto above = graph.Named.find(crossing.Nodes[upper]);
+    const auto below = graph.Named.find(crossing.Nodes[lower]);
+    if (above == graph.Named.end() || below == graph.Named.end()) { continue; }
+    const auto &upperWay = on.Ways.Ways()[crossing.Lanes[upper]];
+    const auto &lowerWay = on.Ways.Ways()[crossing.Lanes[lower]];
+    if (lowerWay.Bridge) {
+      auto &node = graph.Nodes[below->second];
+      node.MinimumM = std::max(node.MinimumM, crossing.GradeM + kSealedDepthM);
+    }
+    graph.Clearances.push_back(
+        {.Lower = below->second,
+         .Upper = above->second,
+         .MinimumGapM = lowerWay.ClearanceM + (upperWay.Bridge ? kSealedDepthM : 0)});
+  }
+}
+
 void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &graph) {
   graph.Nodes.clear();
   graph.Links.clear();
+  graph.Clearances.clear();
+  graph.Named.clear();
   graph.Stations.clear();
   graph.OffsetsM.clear();
   for (const auto &junction : into.Junctions) {
@@ -178,6 +206,7 @@ void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &gr
                                 : -std::numeric_limits<double>::infinity();
     AppendProfile(along, ends, {.MaxGradient = RoadGradient(way), .MinimumM = minimumM}, graph);
   }
+  CrossingClearances(on, into, graph);
 }
 
 std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, Paved &into) {
@@ -189,6 +218,7 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
   HeightGraph graph;
   graph.Nodes.reserve(maximum);
   graph.Links.reserve(into.Planned.size());
+  graph.Clearances.reserve(into.Crossings.size());
   graph.Stations.reserve(into.Planned.size());
   graph.OffsetsM.reserve(into.Planned.size());
   graph.Named.reserve(into.Edges.size() * 2);
@@ -198,7 +228,8 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
   }
   graph.Adjusted.resize(into.Junctions.size());
   HeightConstraints(on, into, graph);
-  auto plan = PlanRoadHeights(graph.Nodes, graph.Links, RoadHeightFit::PreferCuts);
+  auto plan =
+      PlanRoadHeights(graph.Nodes, graph.Links, graph.Clearances, RoadHeightFit::PreferCuts);
   for (size_t attempt = 0; !plan; ++attempt) {
     const auto &failure = plan.error();
     if (failure.CycleNodes.empty()) { return std::unexpected(failure.Reason); }
@@ -208,7 +239,7 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
     }
     if (!AdjustJunctionPlanes(failure, into, graph)) { return std::unexpected(failure.Reason); }
     HeightConstraints(on, into, graph);
-    plan = PlanRoadHeights(graph.Nodes, graph.Links, RoadHeightFit::PreferCuts);
+    plan = PlanRoadHeights(graph.Nodes, graph.Links, graph.Clearances, RoadHeightFit::PreferCuts);
   }
   size_t changedStations = 0;
   for (size_t at = 0; at < into.Planned.size(); ++at) {
@@ -232,6 +263,10 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
     }
   }
   Notes(into, "streets: joint height nodes", static_cast<double>(graph.Nodes.size()), "nodes");
+  Notes(into,
+        "streets: planned level clearances",
+        static_cast<double>(graph.Clearances.size()),
+        "crossings");
   Notes(into,
         "streets: joint height planes adjusted",
         static_cast<double>(graph.AdjustedJunctions),

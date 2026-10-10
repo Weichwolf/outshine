@@ -31,7 +31,6 @@
 #include "Log.h"
 #include "ReferenceLine.h"
 #include "TangentFrame.h"
-#include "geo/PlaceKey.h"
 #include "math/Quantile.h"
 #include "math/Units.h"
 #include "math/Vec2.h"
@@ -237,7 +236,7 @@ double Corridors::AwayM(const Paving &on,
 }
 
 uint64_t Corridors::SharedNodeAt(const Paving &on, double latDeg, double lonDeg) {
-  const uint64_t key = PlaceKey({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg});
+  const uint64_t key = RoadPositionKey({.LongitudeDeg = lonDeg, .LatitudeDeg = latDeg});
   const auto seen = on.SharedNodes.find(key);
   return seen != on.SharedNodes.end() && seen->second > 1u ? key : 0u;
 }
@@ -256,18 +255,16 @@ bool Corridors::StationsAlong(const Paving &on,
       const double onLon = on.Points[here + 1] + (on.Points[next + 1] - on.Points[here + 1]) * at;
       const LongitudeLatitude location{.LongitudeDeg = onLon, .LatitudeDeg = onLat};
       uint64_t node = piece == 0 ? SharedNodeAt(on, onLat, onLon) : 0u;
-      if (step == 0 && piece == 0) {
-        node = PlaceKey(location);
-      } else if (node != 0) {
-        node = RoadNodeAt(lane, location);
-      }
+      if ((step == 0 && piece == 0) || node != 0) { node = PlannedNodeAt(on, lane, location); }
       if (!station(location, node)) { return false; }
     }
   }
   const size_t last = (static_cast<size_t>(lane.FirstPoint) + lane.PointCount - 1u) * 2;
   return last + 1 < on.Points.size() &&
-         station({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]},
-                 PlaceKey({.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
+         station(
+             {.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]},
+             PlannedNodeAt(
+                 on, lane, {.LongitudeDeg = on.Points[last + 1], .LatitudeDeg = on.Points[last]}));
 }
 
 void Corridors::DesignLane(const Paving &on,
@@ -561,16 +558,15 @@ void Corridors::Crosses(const Paving &on, Paved &into) {
 }
 
 std::optional<Corridors::Ends>
-Corridors::EndsOf(const ::outshine::Generators::Osm::OsmField &vectors,
-                  const ::outshine::Generators::Osm::StreetField::Way &lane) {
-  const std::span<const double> points = vectors.Points();
+Corridors::EndsOf(const Paving &on, const ::outshine::Generators::Osm::StreetField::Way &lane) {
+  const std::span<const double> points = on.Vectors.Points();
   const size_t first = static_cast<size_t>(lane.FirstPoint) * 2u;
   const size_t last = first + (static_cast<size_t>(lane.PointCount) - 1u) * 2u;
   if (last + 1 >= points.size()) { return std::nullopt; }
   Ends out;
   out.At = {{points[first], points[first + 1], points[last], points[last + 1]}};
-  out.Key = {{PlaceKey({.LongitudeDeg = out.At[1], .LatitudeDeg = out.At[0]}),
-              PlaceKey({.LongitudeDeg = out.At[3], .LatitudeDeg = out.At[2]})}};
+  out.Key = {{PlannedNodeAt(on, lane, {.LongitudeDeg = out.At[1], .LatitudeDeg = out.At[0]}),
+              PlannedNodeAt(on, lane, {.LongitudeDeg = out.At[3], .LatitudeDeg = out.At[2]})}};
   return out;
 }
 
@@ -621,7 +617,7 @@ void Corridors::AppendBridgeTopology(const Paving &on, size_t laneAt, BridgeTopo
   if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon || lane.PointCount < 2) {
     return;
   }
-  const std::optional<Ends> ends = EndsOf(on.Vectors, lane);
+  const std::optional<Ends> ends = EndsOf(on, lane);
   if (!ends) { return; }
   topology.EndsOfWay[laneAt] = *ends;
   topology.HasEnds[laneAt] = 1;
@@ -697,23 +693,17 @@ double Corridors::HighestDeckM(const Paved &over) {
   return mostDeckM;
 }
 
-void Corridors::EasesRamps(const ::outshine::Generators::Osm::StreetField &ways,
-                           const ::outshine::Generators::Osm::OsmField &vectors,
-                           double mostDeckM,
-                           Paved &into) {
-  for (int pass = 0; pass < kRampPasses; ++pass) { EaseRampPass(ways, vectors, mostDeckM, into); }
+void Corridors::EasesRamps(const Paving &on, double mostDeckM, Paved &into) {
+  for (int pass = 0; pass < kRampPasses; ++pass) { EaseRampPass(on, mostDeckM, into); }
 }
 
-void Corridors::EaseRampPass(const ::outshine::Generators::Osm::StreetField &ways,
-                             const ::outshine::Generators::Osm::OsmField &vectors,
-                             double mostDeckM,
-                             Paved &into) {
-  for (const ::outshine::Generators::Osm::StreetField::Way &lane : ways.Ways()) {
+void Corridors::EaseRampPass(const Paving &on, double mostDeckM, Paved &into) {
+  for (const ::outshine::Generators::Osm::StreetField::Way &lane : on.Ways.Ways()) {
     if (lane.Form != ::outshine::Generators::Osm::StreetField::Shape::Ribbon ||
         lane.PointCount < 2) {
       continue;
     }
-    const std::optional<Ends> ends = EndsOf(vectors, lane);
+    const std::optional<Ends> ends = EndsOf(on, lane);
     if (!ends) { continue; }
     const std::array<uint64_t, 2> &key = ends->Key;
     const auto low = into.EndM.find(key[0]);
@@ -745,7 +735,7 @@ void Corridors::GradesApproaches(const Paving &on, Paved &into) {
       continue;
     }
     if (lane.PointCount < 2) { continue; }
-    const std::optional<Ends> ends = EndsOf(on.Vectors, lane);
+    const std::optional<Ends> ends = EndsOf(on, lane);
     if (!ends) { continue; }
     const std::array<uint64_t, 2> &key = ends->Key;
     double rose = 0.0;
@@ -788,7 +778,7 @@ void Corridors::ResolveBridgeConnections(const Paving &on, Paved &into) {
   SeedsBridgeEnds(on, into);
   Notes(into, "streets: of raising decks, seeding bridge ends", elapsed(), "ms");
   Notes(into, "streets: the highest deck a ramp must reach", HighestDeckM(into), "m");
-  EasesRamps(on.Ways, on.Vectors, HighestDeckM(into), into);
+  EasesRamps(on, HighestDeckM(into), into);
   Notes(into, "streets: of raising decks, easing ramps", elapsed(), "ms");
   GradesApproaches(on, into);
   Notes(into, "streets: of raising decks, grading approaches", elapsed(), "ms");
@@ -1170,6 +1160,32 @@ void Corridors::AppendJunctionTerrainStamp(const Junction &made,
   into.UnderJunctions.push_back(std::move(under));
 }
 
+bool Corridors::IsContinuation(const Paving &on, std::span<const Leg> legs, const Paved &into) {
+  constexpr double kSamePortAngleRad = 1e-8;
+  const auto samePort = [&](const Leg &a, const Leg &b) {
+    const auto &first = into.Edges[a.Edge];
+    const auto &second = into.Edges[b.Edge];
+    if (first.NodeAt[1 - a.End] != second.NodeAt[1 - b.End] || a.HalfM != b.HalfM) { return false; }
+    const auto &left = on.Ways.Ways()[first.Lane];
+    const auto &right = on.Ways.Ways()[second.Lane];
+    return left.Layer == right.Layer && left.Bridge == right.Bridge && left.Form == right.Form &&
+           left.CoverRow == right.CoverRow && left.MaxGradient == right.MaxGradient &&
+           left.Lanes == right.Lanes && left.Oneway == right.Oneway &&
+           std::abs(std::remainder(a.AngleRad - b.AngleRad, 2.0 * kDegPerHalfTurn * kDeg2Rad)) <
+               kSamePortAngleRad;
+  };
+  std::array<const Leg *, 2> ports{};
+  size_t count = 0;
+  for (const auto &leg : legs) {
+    bool known = false;
+    for (size_t at = 0; at < count; ++at) { known = known || samePort(leg, *ports[at]); }
+    if (known) { continue; }
+    if (count == ports.size()) { return false; }
+    ports[count++] = &leg;
+  }
+  return true;
+}
+
 void Corridors::ShapesJunctions(const Paving &on, Paved &into) {
   std::unordered_map<uint64_t, std::vector<Leg>> legsAt = LegsOf(on, into);
   std::vector<uint64_t> nodes;
@@ -1180,7 +1196,7 @@ void Corridors::ShapesJunctions(const Paving &on, Paved &into) {
   for (const uint64_t node : nodes) {
     std::vector<Leg> &legs = legsAt[node];
     std::ranges::sort(legs, ByBearing);
-    if (legs.size() == 2) {
+    if (IsContinuation(on, legs, into)) {
       ++into.Continuations;
       continue;
     }
@@ -1367,7 +1383,7 @@ Corridors::SharedNodesOf(const ::outshine::Generators::Osm::StreetField &ways,
     for (uint32_t step = 0; step < one.PointCount; ++step) {
       const size_t at = (static_cast<size_t>(one.FirstPoint) + step) * 2u;
       if (at + 1 >= points.size()) { break; }
-      ++shared[PlaceKey({.LongitudeDeg = points[at + 1], .LatitudeDeg = points[at]})];
+      ++shared[RoadPositionKey({.LongitudeDeg = points[at + 1], .LatitudeDeg = points[at]})];
     }
   }
   return shared;
@@ -1514,9 +1530,11 @@ bool Corridors::Lay(const Site &site,
   into.Designed.resize(ways.Ways().size());
   const int waterRow = site.Materials.Find("water");
   std::unordered_map<uint64_t, uint32_t> sharedNodes;
+  std::unordered_map<uint64_t, uint64_t> endNodes;
   std::optional<Paving> paving;
   if (vectors != nullptr) {
     sharedNodes = SharedNodesOf(ways, vectors->Points());
+    endNodes = EndpointNodesOf(ways, *vectors, standing);
     paving.emplace(Paving{.Materials = site.Materials,
                           .Vegetation = site.Vegetation,
                           .Ground = site.Ground,
@@ -1525,6 +1543,7 @@ bool Corridors::Lay(const Site &site,
                           .Vectors = *vectors,
                           .Points = vectors->Points(),
                           .SharedNodes = sharedNodes,
+                          .EndNodes = endNodes,
                           .Draped = drapedOver,
                           .Standing = standing,
                           .Classes = classStructure,
@@ -1626,7 +1645,7 @@ bool Corridors::Job::RetireStep(size_t unitsMost) noexcept {
   if (unitsMost == 0) { return false; }
   if (Retirement == RetireStage::Active) { Retirement = RetireStage::Designed; }
   if (Retirement == RetireStage::Done) { return true; }
-  if (Retirement <= RetireStage::Corridor || Retirement == RetireStage::Notes) {
+  if (Retirement <= RetireStage::Crossings || Retirement == RetireStage::Notes) {
     return RetireVectors(unitsMost);
   }
   return RetireMaps(unitsMost);
@@ -1655,7 +1674,12 @@ bool Corridors::Job::RetireVectors(size_t unitsMost) noexcept {
       }
       break;
     case RetireStage::Corridor:
-      if (RetireVector(Corridor, unitsMost, deadline)) { Retirement = RetireStage::CrossingMap; }
+      if (RetireVector(Corridor, unitsMost, deadline)) { Retirement = RetireStage::Crossings; }
+      break;
+    case RetireStage::Crossings:
+      if (RetireVector(Work.Crossings, unitsMost, deadline)) {
+        Retirement = RetireStage::CrossingMap;
+      }
       break;
     case RetireStage::Notes:
       if (RetireVector(Work.Notes, unitsMost, deadline)) { Retirement = RetireStage::Done; }
@@ -1680,7 +1704,9 @@ bool Corridors::Job::RetireMaps(size_t unitsMost) noexcept {
       }
       break;
     case RetireStage::SharedNodes:
-      if (RetireMap(SharedNodes, unitsMost, deadline)) { Retirement = RetireStage::LegsMap; }
+      if (RetireMap(SharedNodes, unitsMost, deadline) && RetireMap(EndNodes, unitsMost, deadline)) {
+        Retirement = RetireStage::LegsMap;
+      }
       break;
     case RetireStage::LegsMap:
       if (RetireMap(LegsAt, unitsMost, deadline)) { Retirement = RetireStage::TopologyWays; }
@@ -1739,6 +1765,7 @@ Corridors::Advance(Job &job,
   const int waterRow = site.Materials.Find("water");
   if (job.Phase == Job::Stage::Prepare && vectors != nullptr) {
     job.SharedNodes = SharedNodesOf(ways, vectors->Points());
+    job.EndNodes = EndpointNodesOf(ways, *vectors, site.Standing);
   }
   std::optional<Paving> paving;
   if (vectors != nullptr) {
@@ -1750,6 +1777,7 @@ Corridors::Advance(Job &job,
                           .Vectors = *vectors,
                           .Points = vectors->Points(),
                           .SharedNodes = job.SharedNodes,
+                          .EndNodes = job.EndNodes,
                           .Draped = site.Draped,
                           .Standing = site.Standing,
                           .Classes = site.Classes,
@@ -2036,15 +2064,13 @@ std::expected<bool, std::string_view> Corridors::AdvanceBridgeCleanup(Job &job,
 
 std::expected<bool, std::string_view> Corridors::AdvanceBridgeGrades(Job &job,
                                                                      const JobSlice &slice) {
-  const auto &ways = slice.ways;
-  const auto *vectors = slice.vectors;
   const auto *paving = slice.paving;
   const auto elapsed = [&slice] { return slice.Elapsed(); };
   Paved &into = job.Work;
   switch (job.Phase) {
     case Job::Stage::BridgeRamps:
       if (paving != nullptr && into.HasRaisedDecks()) {
-        EaseRampPass(ways, *vectors, job.RampCapM, into);
+        EaseRampPass(*paving, job.RampCapM, into);
         job.RampMs += elapsed();
         job.TotalMs += elapsed();
         if (++job.RampPass < kRampPasses) { return false; }
@@ -2181,7 +2207,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
         const uint64_t node = job.Nodes[job.NextNode];
         std::vector<Leg> &legs = job.LegsAt.at(node);
         std::ranges::sort(legs, ByBearing);
-        if (legs.size() == 2) {
+        if (paving != nullptr && IsContinuation(*paving, legs, into)) {
           ++into.Continuations;
         } else if (paving != nullptr) {
           ShapeOf(*paving, node, legs, into);

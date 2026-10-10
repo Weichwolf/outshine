@@ -11,110 +11,84 @@ Tags: roads, bridges, tunnels, topology
 
 ## Ergebnis und Ist
 Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funktionales Netz.
-Aktueller Schwerpunkt: sichtbare Netzfehler in Wien, anschließend selbst gewählte POIs: Feldkirch, Basel Badischer Bahnhof (Straßen/Tunnel/Ebenen), Zürich HB, Häfen und dichte Städte.
-Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen.
-Alle Bodenwege veröffentlichen ihren physischen Kernkontakt, auch ohne Erdarbeiten; Flensburgs Wegöffnung durch fremden Erdaushub ist geschlossen.
-Mesher und Terrainkontakt teilen Anschlussumriss/Zellstützweite; zusätzliche Überdeckung schneidet nur.
-Gemeinsame native Höhenplanung bindet Knotenports, Neigungsgrenzen und Brückenfreiraum vor Mesh/Kontakt.
-Schnittvorrang erhält tiefe Profile; nur notwendiger Freiraum erzeugt Auftrag. Sync/Async teilen den Aufbau.
-Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
-Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen. Seiten nutzen Kantennormalen.
-Places nutzen Corridors mit polygonalen Kontakten; der analytische RoadAlignment-/Surface-Pfad verlangt bisher benannte Routen. Beide auf den nativen Kachelplan vereinigen.
-Ebenerdige [Straßenbänder](../test/experiments/road_surface_cost.py) erzeugen nur die eigene obere Geometrie.
-Brücken behalten ihre Unter-/Seitenflächen. RoadAlignmentBuilder verweigert Brücken/Tunnel bis zum Struktursolver;
-regionaler Entwurf/Profile/Übergänge bleiben offen. Vorhandene Straßenqualität erhalten.
-Lokale Straßenverfeinerung berücksichtigt bisher nur benannte Rundkurse; Places benötigen
-den allgemeinen nativen Straßenbestand, nach Kameraabstand und Kontaktfehler ausgewählt.
-Gelieferte Rail-/Transit- und Wegunterklassen bestimmen Breite, Oberfläche und Neigungsregeln;
-`class=rail` erreicht als `kind=rail` das Schienenrezept. Originaltags bleiben erhalten.
-Unbekannte Wegunterklassen behalten das allgemeine Rezept; ungültige Unterklassen werden nicht geraten.
-Native Rezepte versioniert; Quellen erhalten. Tunnel bisher verworfen. Freiraumhebung nur Brücke/Nicht-Brücke; gestapelte Brücken und andere Ebenenpaare fehlen.
-Treppenstufen, Bahnsteige, Pier-/Brückenwege und Seilbahnen fehlen noch.
+Vorrang: Wiener Anschlüsse/Brücken; danach Feldkirch, Basel Badischer Bahnhof, Zürich HB und Häfen.
+Corridors liefert Place-Geometrie und polygonale Kontakte. Gemeinsame native Höhenplanung
+bindet Anschlüsse, zulässige Sekanten und Freiraum vor Geometrie/Terrain; Sync/Async teilen sie.
+Der 2D-Endpunktplan trennt Position, Ebene und rekonstruierte Verbindungen. Kreuzungen werden
+jeweils einmal gespeichert; Grid-Zellen referenzieren sie. Gestapelte Decks behalten eigene Ports.
+Doppelte MVT-Linien erzeugen keine zusätzlichen Knotenflächen. Alle Bodenwege liefern Kernkontakte,
+auch ohne Erdarbeiten; Flensburgs Wegöffnung durch fremden Aushub ist geschlossen.
+Offen: geografische Kachelports/Cacheplan, explizite Ebenenübergänge, C1, Freiraum über volle Breite,
+Tunnel/Portale, Tragwerk sowie Treppen, Bahnsteige, Piers und Seilbahnen.
+Der analytische RoadAlignment-/Surface-Pfad verlangt benannte Routen; auf denselben Plan vereinigen.
 
 ## Nächste Lieferung
-OSM-Adapter normalisiert vorhandene Semantik; world/navigation hält das native logische Netz.
-generators/road besitzt Profile/Geometrie, Terrain konsumiert deren Kontaktdeformation.
-Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann Bauhaus/Art déco.
-1. Infrastruktur allein rendern: Straße/Schiene/Brücken ohne gezeichnetes Terrain und Gebäude.
-   Höheninputs/Kontakte und Licht bleiben aktiv; ohne Schattenplan keine Schatten. Fehlstellen lokalisieren.
-   Erst einen vollständigen realen Anschluss samt Brücke sichtbar und funktional schließen.
-2. Kachelweise 2D-Vektorpläne mit expliziten Ebenen und gemeinsamen Randknoten aufbauen.
-   Endpunkte aktuell ebenenlos. Feldkirch hat 67 gemischte Endpositionen; ein bloßer Ebenenhash trennt auch echte Rampen. Explizite Übergänge ersetzen Koordinatenkopplung. Sekanten begrenzt; C1 fehlt.
-3. Schienen mit eigenen Breiten, zulässigen Profilen und Oberflächen darstellen; keine
-   Straßenrezept-Kopie. Geh-/Radwege, Bahnübergänge und getrennte Ebenen bleiben verbunden.
-4. Tragwerk, Decks, Portale und erforderliche Freiräume gehören zum funktionalen Grundmodell.
-   Gestaltung/Material und optionale Details folgen auf demselben Entwurf; kein zweiter Netzaufbau.
+1. Einen realen Anschluss samt Brücke als undekoriertes, funktionales Grundmodell schließen.
+   Infrastruktur allein über Szenario rendern; Höheninputs/Kontakte/Licht bleiben aktiv.
+2. Geografisch stabile 2D-Kacheln mit Randports und expliziten Übergängen nativ planen/speichern.
+   Kettenprofile und begrenzte Bauteilrezepte daraus ableiten; kein zweiter Netzaufbau.
+3. Eigene Schienen-/Wegprofile, Bahnübergänge und gestapelte Brücken/Tunnel integrieren.
+4. Bauhaus-/Art-déco-Gestaltung/Material auf demselben konstruktiven Plan ergänzen.
 
-## Verbindlicher Entwurf
-- OSM/DEM liefern Lage, Verteilung und Höhenbezug; Rezepte ergänzen plausible Maße und Formen.
-  Pro Region gemeinsame Profile/Anschlüsse und Gebäudekontakte planen, dann finales Terrain
-  darunter formen und Vegetation belegen. Grobe DEM-Proben allein garantieren keine Fahrbarkeit.
-  Benötigte Höhen gezielt verfeinern; keine globale serielle Baufolge. Feines Relief verschiebt
-  festgelegte Anschlüsse nicht. Bedarf besitzt 2336, native Produkte 2280, Gebäude 2173.
-- Gelieferte Klasse, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene normalisieren und erhalten.
-  MVT ist kein vollständiger Routinggraph. Randfragmente deterministisch vereinigen;
-  tatsächliche Schnittpunkte teilen Position/Höhe nur bei kompatibler Ebene/Brückenklasse.
-  Nähe allein erzeugt keine Verbindung. Quellendpunkte und Brückenenden bleiben angeschlossen.
-  Fehlende Topologie/Angaben als Annahmen kennzeichnen, nicht als belegte OSM-Verbindung.
-- Grid partitioniert die 2D-Vektorplanung und indexiert Bedarf; Straßenachsen werden nicht gerastert.
-  Kachelports teilen Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer. Begrenzte Nachbarbereiche; Ebenen bleiben getrennt.
-  Explizite Übergänge verbinden sie. Pro Kreuzung Ebenenreihenfolge/Freiraum zwischen geplanten Profilen samt Deckdicke lösen; Layer ist Ordnung, keine feste Höhe. Ketten gemeinsam planen.
-  Wenige Rezepte: Band, Kreuzung/Abzweig, Einfädelung, Rampe, Brückendeck/Tragwerk,
-  Tunnel/Portal und Schienenknoten, parametrisch statt starrem Teilekatalog. Derselbe native Plan liefert Mesh, Kollision und Terrainkontakt.
-- Ein Alignment je Kette. Fahrbahn, Schultern, Bord/Gehweg, Knoten und Kollision daraus ableiten.
-  Gemeinsame Endpositionen/Höhen/Tangenten über Tiles; vollständige Längs-/Querneigung
-  klassenabhängig begrenzen. Kreuzungsebenen erfüllen alle angeschlossenen Klassengrenzen.
-  Neigungsgrenzen gelten über tatsächlich zugeschnittene Profillängen, ohne ebene Knotenflächen.
-  Beide Endkürzungen gemeinsam begrenzen; Rampen behalten beide Anschlusshöhen unabhängig von Linienrichtung.
-  Unvereinbare geneigte Ports liefern den Konfliktzyklus; nur beteiligte Knotenebenen abflachen.
-- Brückendecks verbinden Uferhöhen mit geneigtem Profil und notwendigem Freiraum.
-  Einzelne hohe DEM-Proben heben nicht den gesamten Überbau an. Wasserfreiraum gilt über
-  dem nativen Pegel im gemeinsamen lokalen Up-Bezug; Inseln/fehlende Pegel heben nichts an.
-  Wasser-/Straßenkreuzungen vor Geometrie zusammenführen; Pfeiler, Widerlager und Rampen
-  mit passenden Gründungen. Tunnel brauchen Portale/Freiraum, keine Geländeübermalung.
-- Straßenbett und Terrain teilen denselben Kontakt. Physische Kerne/Höhen gemeinsam planen;
-  fremde Kerne und echte Freiräume respektieren. Geschlossene Linien bilden nur ein Band;
-  eingeschlossene Hügel/Senken bleiben erhalten. Kontaktkennungen folgen verbundenen Wegen
-  derselben Ebene und gehören zu Terrain-Key/Kandidatendigest.
-- Böschungen erreichen Quellgelände mit stetiger Höhe/Neigung: quintisches f, gemeinsames
-  Gewicht (1-f)/f. Breite hypot(Mindestbreite, 1,875 × Höhendifferenz / Böschungsneigung);
-  Quellneigung separat bewerten. Höhenunterschied/Schnitt/Auftrag an beiden Rändern aus
-  unverändertem Quellboden im Kern bestimmen, nicht aus Auslaufrändern. Nicht unbegrenzt
-  über Endpunkte extrapolieren. Becken gegen Außenauftrag schützen, Fundamente örtlich halten.
-  Kandidaten decken maximale Übergangsbreite/Höhen ab; Ausblenden versteckt keine Höhenfehler.
-  Nullauslauf bleibt ausdrücklicher harter Kontakt. Clearance schneidet nur, füllt nie Boden;
-  quintische Freiraumausläufe respektieren physische Kontakte und Quellrelief.
-  Steile Einschnitte/Stützböschungen sind zulässig. Kontaktprodukte unterscheiden natürlichen
-  Fels-/Bodenschnitt und bauliche Sicherung für Fels, Beton/Mauerwerk und Materialübergänge (2171).
-  Kernkorrekturen entscheiden die Zulässigkeit; weiche Ausläufe begrenzen ihre Korrektur örtlich; hohes Quellrelief außerhalb des Kerns darf den Kontakt nicht pauschal verwerfen.
-- Verfeinerung gegen deformierte Oberfläche und Kontakte bestimmen. Deterministische gemeinsame
-  Kanten/Ecken und konforme LOD-Ränder statt Risse; innere Kanten nicht durch abdeckende Eltern
-  verändern. Kontakt-/Höhenfehler vor zusätzlichen Vertices beheben. 2336 besitzt Arbeitsauswahl,
-  2280 versionierte native Rezepte/Cache, 2145 Pegel/Ufer, 2171 metrische Baustoffe.
-- Terrain-Zellen, die eine starre Fahrbahnfläche schneiden, unter deren gemeinsamer Kontaktebene
-  halten; nur Knoten innerhalb des Umrisses abzusenken genügt nicht. Rasterunterstützung begrenzen,
-  Profile/Quellrelief und weiche Ausläufe erhalten. Zellkontakt budgetiert vor Asset-Speicherung
-  erzeugen; Cachetreffer wiederholen ihn nicht. Geneigte Straßen-/Weg-/Brückenbänder benötigen ihren
-  eigenen Zellkontakt; CPU-Beleg ersetzt keine Prüfung des GPU-Lattice.
+## 2D-Plan und Ebenen
+- OSM-Adapter normalisiert gelieferte Klassen, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene;
+  world/navigation hält das native logische Netz. generators/road besitzt Profile/Geometrie.
+  Terrain konsumiert Kontakte. Bedarf: 2336; Produkte/Cache: 2280; Gebäude: 2173; Pegel: 2145.
+- Grid partitioniert/indexiert Vektorpläne, rastert keine Straßenachsen. Gemeinsame Randports:
+  Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer; nur begrenzte Nachbarbereiche.
+  Explizite Übergänge verbinden Ebenen. MVT ist kein vollständiger Routinggraph.
+- Aktueller Anschlussentwurf: Positionsauflösung 1e-7 Grad; Endpunkt-Abweichungen bis 0,25 m
+  nur bei gleicher Ebene/Brückenklasse vereinigen. Exakt deckungsgleiche Boden-/Brückenenden
+  sind rekonstruierte Übergänge, keine belegten OSM-Verbindungen. Andere Ebenen bleiben getrennt.
+  Nähe allein darf keine Kreuzungsverbindung oder versteckte Rampen erzeugen.
+- Pro Kreuzung Ebenenordnung und Freiraum zwischen geplanten Profilen samt Deckdicke lösen;
+  Layer ist Ordnung, keine feste Höhe. Fuß-/Radweg/Treppe/Path: 2 m Akteur + 0,5 m Reserve;
+  Straßen/Bahn behalten eigene Freiräume. Gelieferte Maße respektieren; fehlende Maße sind Rezepte.
+- Wenige parametrische Rezepte: Band, Kreuzung/Abzweig, Einfädelung, Rampe, Brückendeck/Tragwerk,
+  Tunnel/Portal und Schienenknoten. Derselbe Plan liefert Mesh, Kollision und Terrainkontakt.
+  Rail-/Transit- und Wegunterklassen bestimmen Breite, Material, Profil; rail erreicht das Schienenrezept.
+  Unbekannte Unterklassen nutzen das allgemeine Rezept; ungültige Werte nicht raten. Tags erhalten.
 
-## Forschungsgrundlage
-[Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf):
-Graph und Geometrie trennen; reale Linien erhalten, keine Tensorfeld-Neuerzeugung.
-[Straßenmodelle, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf):
-Profile → eigene Straße/Brücke/Tunnel plus Geländeauftrag; neue Trassenwahl nicht übernehmen.
-[SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes.
-[2D-Kacheln](../test/experiments/infrastructure_tiles.py): Feldkirch 19.230 Abschnitte → 20.094 Teile/133 Kacheln bei 256 m; 256-m-Bedarf prüft 2.711 statt 19.230 Kandidaten, alle 1.294 Treffer erhalten. ENU-Modell; native/geografische Ports offen.
-[Profile](../test/experiments/road_profile_envelopes.py): Minimax/Schnittvorrang mit Höhenrändern/Portoffsets; native Kosten und LP-Vergleich. C1 und Ebenentopologie offen.
-[Übergangsvergleich](../test/experiments/earthwork_transition.py), [Clearance-Ausläufe](../test/experiments/clearance_aprons.py): gleiche Inputs/Qualität vor Integration vergleichen.
-[Kreuzungsflächen](../test/experiments/road_junction_coverage.py): gelieferte Linienrichtungen,
-gemeinsamer vollständiger Umriss statt Dreiecksreduktion; Kontakt und Fahrbahn separat prüfen.
-[Rasterkontakte](../test/experiments/road_terrain_contact.py): native Terrain-/Straßendreiecke;
-Knotentest gegen konservative Zellüberdeckung bei gleicher Fahrbahn und Terrain-Auflösung.
+## Profile und konstruktive Anschlüsse
+- Ein Alignment je Kette; Fahrbahn, Schultern, Bord/Gehweg, Knoten und Kollision daraus ableiten.
+  Gemeinsame Endposition/Höhe/Tangente; gesamte Längs-/Querneigung klassenabhängig begrenzen.
+  Beide Endkürzungen gemeinsam beschränken; Rampen behalten beide Höhen unabhängig von Richtung.
+  Neigung über tatsächlich zugeschnittene Profillängen, ohne künstlich ebene Anschlussflächen.
+  Unvereinbare geneigte Ports liefern Konfliktzyklen; nur beteiligte Knotenebenen abflachen.
+- Höhenplanung bevorzugt Schnitt; Auftrag nur für notwendige Kontakte/Freiräume. Hohe einzelne
+  DEM-Proben heben keinen ganzen Überbau. Wasserfreiraum über nativem Pegel im gemeinsamen
+  Up-Bezug; Inseln/fehlende Pegel erzeugen keine Hebung. Pfeiler/Widerlager plausibel gründen.
+  Tunnel brauchen eigene Portale/Freiraum. Keine Übermalung; RoadAlignmentBuilder verweigert
+  Brücke/Tunnel bis zum Struktursolver. Ebenerdige Bänder nur obere Fläche, Decks auch unten/seitlich.
+- Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene. Unabhängiges
+  Millimeterrunden darf schmale Dreiecke nicht kippen; Seiten nutzen Kantennormalen.
 
-## Abnahme
-Durchgehende reale Abschnitte/Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände
-oder unbefahrbare Profilwechsel. Quellenabdeckung, Netzfunktion, Bild und Kosten getrennt prüfen.
-Auch ohne Terrain/Gebäude lückenlose Oberfläche entlang der geplanten Verbindungen.
-Plausible Interpretation statt Vermessungstreue; kritische Anschluss-/Kontaktfehler bleiben rot.
-Nahkamera/Bewegung und Rundumdrehung prüfen; Tokio/Central Park und bestehende Straßenqualität
-bleiben erhalten. Bildgewinn in den neuesten Place-PNGs, Arbeit/Bytes im unveränderten Profilbudget.
+## Terrainkontakt
+- Regionale Profile/Anschlüsse und Gebäudekontakte zuerst, finales Terrain darunter, Vegetation zuletzt.
+  Grobes DEM liefert Bezug; feines Relief verschiebt geplante Anschlüsse nicht. Keine globale serielle Baufolge.
+- Fahrbahn/Kernkontakt teilen Geometrie und Höhe. Fremde Kerne/Freiräume respektieren; geschlossene
+  Linien bilden Bänder, füllen keine Hügel/Senken. Verbundene Kontakte gleicher Ebene im Terrain-Key/Digest.
+- Böschung stetig in Höhe/Neigung: quintisches f, Gewicht (1-f)/f; Breite
+  hypot(Mindestbreite, 1,875 × Höhendifferenz / Böschungsneigung). Quellneigung separat prüfen;
+  Schnitt/Auftrag an beiden Kernrändern aus unverändertem Quellboden bestimmen. Enden nicht unbegrenzt
+  extrapolieren. Kerne bestimmen Zulässigkeit; Ausläufe begrenzen örtlich, fremdes Relief verwirft keinen Kern.
+- Kandidaten decken Übergangsbreite/Höhen ab. Nullauslauf ist harter Kontakt; Clearance schneidet nur.
+  Quintische Freiraumausläufe respektieren Quellrelief/Kerne. Becken schützen, Fundamente örtlich halten.
+  Steile Einschnitte zulässig; Kontakt unterscheidet Fels/Boden und bauliche Sicherung für Material in 2171.
+- Terrain-Zellen unter schneidender starrer Fahrbahn/Kontaktebene halten; reine Knotenabsenkung reicht nicht.
+  Mesher/Kontakt teilen Anschlussumriss/Zellstützweite; zusätzliche Überdeckung schneidet nur.
+  Auch geneigte Bänder brauchen Zellkontakt; vor Speicherung budgetiert erzeugen, Treffer wiederholen ihn nicht.
+  GPU-Lattice prüfen. Gemeinsame Kanten/Ecken/konforme LOD-Ränder; Eltern verändern keine inneren Kanten.
+  Kontakt-/Höhenfehler vor Verfeinerung beheben; 2336 wählt Arbeit, 2280 versioniert native Rezepte/Cache.
+
+## Verfahren und Abnahme
+[Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf): Graph vor Geometrie.
+[Straßenmodelle, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf): Profile, Querschnitte, Bauwerke, Terrainkontakte.
+[SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes; keine Vermessungstreue.
+[2D-Kacheln](../test/experiments/infrastructure_tiles.py): Feldkirchs 19.230 Abschnitte → 20.094 Teile/133 ENU-Kacheln bei 256 m; Bedarf: 2.711 statt 19.230 Kandidaten, 1.294 gleiche Treffer. Geografischer/native Vertrag offen.
+[Höhenplanung](../test/experiments/road_profile_envelopes.py): gerichteter Freiraum, Höhenränder/Portoffsets, Schnittvorrang/Minimax und nativer LP-Vergleich; kein C1-/Breitenbeweis.
+[Übergänge](../test/experiments/earthwork_transition.py), [Freiraum](../test/experiments/clearance_aprons.py), [Kreuzungsflächen](../test/experiments/road_junction_coverage.py), [Rasterkontakt](../test/experiments/road_terrain_contact.py): echte Inputs, gleiche Qualität.
+Durchgehende reale Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände oder unbefahrbare Profile.
+Auch ohne Terrain/Gebäude lückenlos. Quellenabdeckung, Netzfunktion, Bild und Kosten getrennt prüfen.
+Nahbewegung und Rundumdrehung; Straßenqualität und Tokyo/Central Park erhalten. Neueste Place-PNGs
+zeigen Gewinn im unveränderten Profilbudget. Kritische Anschluss-/Kontaktfehler bleiben rot.
