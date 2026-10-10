@@ -1,11 +1,16 @@
 #include "StreetField.h"
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <optional>
 #include <cstddef>
 #include <utility>
 #include <bit>
+#include <cmath>
+#include <numbers>
 #include "Digest.h"
+#include "TileSourceIdentity.h"
+#include "math/Units.h"
 
 namespace outshine::Generators::Osm {
 
@@ -14,6 +19,29 @@ using namespace outshine::Ground;
 namespace {
 
 constexpr uint32_t kMaxRingPoints = 512;
+
+StreetField::Traffic TrafficOf(std::string_view kind) {
+  if (kind == "rail" || kind == "transit" || kind == "tram") { return StreetField::Traffic::Rail; }
+  if (kind == "footway" || kind == "pedestrian" || kind == "cycleway" || kind == "path" ||
+      kind == "steps" || kind == "bridleway") {
+    return StreetField::Traffic::Path;
+  }
+  return StreetField::Traffic::Road;
+}
+
+bool OwnsEnd(const OsmField &field, const OsmField::Feature &feature, size_t point) {
+  const auto &tile = field.Tiles()[feature.Tile];
+  if (tile.Source.From == Data::TileSourceIdentity::Origin::Declared) { return true; }
+  constexpr double kBorderTolerance = 1e-9;
+  const auto points = field.Points();
+  const double scale = std::ldexp(1.0, tile.Z);
+  const double east = (points[2 * point + 1] + kDegPerHalfTurn) / kDegPerTurn * scale - tile.X;
+  const double latitude = points[2 * point] * kDeg2Rad;
+  const double north =
+      (1.0 - std::asinh(std::tan(latitude)) / std::numbers::pi) * .5 * scale - tile.Y;
+  return east > kBorderTolerance && east < 1.0 - kBorderTolerance && north > kBorderTolerance &&
+         north < 1.0 - kBorderTolerance;
+}
 
 uint64_t DigestOfWays(const OsmField &field, std::span<const StreetField::Way> ways) {
   uint64_t digest = kDigestBasis;
@@ -129,8 +157,16 @@ void StreetField::AppendFeature(const OsmField &field,
     w.HalfWidthM = ribbon ? rule.WidthM * 0.5f : 0.0f;
     w.CoverRow = static_cast<int32_t>(rule.Tpl);
     w.Form = ribbon ? Shape::Ribbon : Shape::Area;
+    w.TrafficKind = TrafficOf(field.Str(feature, "kind"));
+    if (ribbon) {
+      w.OwnsEnds = {OwnsEnd(field, feature, ring.First),
+                    OwnsEnd(field, feature, static_cast<size_t>(ring.First) + ring.Count - 1u)};
+    }
     w.Lanes = rule.Lanes;
     w.Bridge = field.Num(feature, "bridge", 0.0) > 0.5;
+    w.Ramp = field.Num(feature, "ramp", 0.0) > 0.5 ||
+             field.Str(feature, "kind").ends_with("_link") ||
+             field.Str(feature, "subclass").ends_with("_link");
     w.Layer = layer->value_or(0);
     w.ClearanceM = rule.ClearanceM;
     w.MaxGradient = rule.MaxGradient;

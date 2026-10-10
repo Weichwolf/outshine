@@ -2,6 +2,7 @@
 #define OUTSHINE_GENERATORS_OSM_FIELDS_STREETFIELD_H
 
 #include <span>
+#include <array>
 #include <cstdint>
 #include <vector>
 #include <memory>
@@ -20,12 +21,15 @@ using namespace outshine::Ground;
 class StreetField {
 public:
   enum class Shape : uint8_t { Ribbon, Area };
+  enum class Traffic : uint8_t { Road, Path, Rail };
 
   struct Way {
     uint32_t FirstPoint = 0, PointCount = 0;
     float HalfWidthM = 0.0f;
     int32_t CoverRow = -1;
     Shape Form = Shape::Ribbon;
+    Traffic TrafficKind = Traffic::Road;
+    std::array<bool, 2> OwnsEnds{true, true};
     int32_t Lanes = 0;
     int32_t Layer = 0;
     float ClearanceM = 0.0f;
@@ -35,6 +39,7 @@ public:
     bool Sealed = false;
     bool Oneway = false;
     bool Bridge = false;
+    bool Ramp = false;
   };
 
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
