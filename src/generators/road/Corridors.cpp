@@ -62,7 +62,6 @@ constexpr double kVergeM = 1.5;
 constexpr double kFitWithinM = 0.5;
 constexpr double kFitTightestM = 5.5;
 constexpr double kLeastRoadM = 2.0;
-constexpr double kJunctionRadiusM = 4.0;
 constexpr double kBoundaryReachM = 100.0;
 constexpr double kAngleLookaheadM = 10.0;
 constexpr double kContinuesPastDeg = 160.0;
@@ -1095,7 +1094,7 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
     legs[next].CutM = std::max(legs[next].CutM, cut->AlongB);
   }
   for (Leg &leg : legs) {
-    leg.CutM += kJunctionRadiusM;
+    leg.CutM += kJunctionCoreReachM;
     into.Edges[leg.Edge].CutM[leg.End] = leg.CutM;
   }
   if (!(decked && seeded != into.EndM.end())) { LiesOnItsPlane(on, legs, made, into); }
@@ -1122,12 +1121,12 @@ void Corridors::LiesOnItsPlane(const Paving &on,
   const auto drape = [&](double eastM, double southM) {
     return on.Draped.At({.EastM = eastM, .NorthM = southM}, made.GradeM);
   };
-  const double east = drape(made.EastM + kJunctionRadiusM, made.NorthM);
-  const double west = drape(made.EastM - kJunctionRadiusM, made.NorthM);
-  const double north = drape(made.EastM, made.NorthM + kJunctionRadiusM);
-  const double south = drape(made.EastM, made.NorthM - kJunctionRadiusM);
-  made.SlopeE = (east - west) / (2.0 * kJunctionRadiusM);
-  made.SlopeN = (north - south) / (2.0 * kJunctionRadiusM);
+  const double east = drape(made.EastM + kJunctionCoreReachM, made.NorthM);
+  const double west = drape(made.EastM - kJunctionCoreReachM, made.NorthM);
+  const double north = drape(made.EastM, made.NorthM + kJunctionCoreReachM);
+  const double south = drape(made.EastM, made.NorthM - kJunctionCoreReachM);
+  made.SlopeE = (east - west) / (2.0 * kJunctionCoreReachM);
+  made.SlopeN = (north - south) / (2.0 * kJunctionCoreReachM);
   const double steep = std::sqrt(made.SlopeE * made.SlopeE + made.SlopeN * made.SlopeN);
   if (steep > mostGradient) {
     made.SlopeE *= mostGradient / steep;

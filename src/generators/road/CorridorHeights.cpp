@@ -48,6 +48,7 @@ struct Corridors::HeightGraph {
   std::vector<uint32_t> LinkStations;
   std::vector<JunctionSlopeConstraint> PlaneConstraints;
   std::unordered_map<uint64_t, uint32_t> Named;
+  std::unordered_map<uint64_t, uint64_t> HeightOwners;
   std::unordered_map<uint64_t, uint32_t> JunctionAt;
   std::vector<bool> Adjusted;
   size_t AdjustedJunctions = 0;
@@ -60,12 +61,36 @@ constexpr double kPlaneClearanceMarginM = 1e-8;
 constexpr size_t kPlaneAttemptsMost = 64;
 constexpr auto kPlaneTimeBudget = std::chrono::seconds(5);
 
+uint64_t HeightOwner(uint64_t node, const auto &graph) {
+  for (;;) {
+    const auto found = graph.HeightOwners.find(node);
+    if (found == graph.HeightOwners.end() || found->second == node) { return node; }
+    node = found->second;
+  }
+}
+
+void BindCrossingHeights(const auto &on, const auto &into, auto &graph) {
+  graph.HeightOwners.reserve(2 * into.Crossings.size());
+  for (const auto &crossing : into.Crossings) {
+    const auto &a = on.Ways.Ways()[crossing.Lanes[0]];
+    const auto &b = on.Ways.Ways()[crossing.Lanes[1]];
+    if (a.Layer != b.Layer || a.Bridge != b.Bridge) { continue; }
+    const uint64_t first = HeightOwner(crossing.Nodes[0], graph);
+    const uint64_t second = HeightOwner(crossing.Nodes[1], graph);
+    const uint64_t owner = std::min(first, second);
+    graph.HeightOwners.insert_or_assign(first, owner);
+    graph.HeightOwners.insert_or_assign(second, owner);
+  }
+}
+
 uint32_t
 HeightNode(const RoadStation &station, HeightAttachment attachment, double minimumM, auto &graph) {
   auto node = static_cast<uint32_t>(graph.Nodes.size());
   if (attachment.Node != 0) {
-    const auto [found, inserted] = graph.Named.try_emplace(attachment.Node, node);
+    const uint64_t owner = HeightOwner(attachment.Node, graph);
+    const auto [found, inserted] = graph.Named.try_emplace(owner, node);
     if (!inserted) { node = found->second; }
+    if (owner != attachment.Node) { graph.Named.insert_or_assign(attachment.Node, node); }
   }
   const double sampleM = station.GradeM - attachment.OffsetM;
   const double floorM = minimumM - attachment.OffsetM;
@@ -212,6 +237,7 @@ void Corridors::CrossingClearances(const Paving &on, const Paved &into, HeightGr
     if (crossing.Nodes[0] == crossing.Nodes[1]) { continue; }
     const auto &first = on.Ways.Ways()[crossing.Lanes[0]];
     const auto &second = on.Ways.Ways()[crossing.Lanes[1]];
+    if (first.Layer == second.Layer && first.Bridge == second.Bridge) { continue; }
     if (!first.Bridge && !second.Bridge) { continue; }
     const bool firstAbove = first.Layer != second.Layer ? first.Layer > second.Layer : first.Bridge;
     const size_t upper = firstAbove ? 0 : 1;
@@ -289,6 +315,7 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
     graph.JunctionAt.emplace(into.Junctions[at].Node, at);
   }
   graph.Adjusted.resize(into.Junctions.size());
+  BindCrossingHeights(on, into, graph);
   HeightConstraints(on, into, graph);
   auto plan =
       PlanRoadHeights(graph.Nodes, graph.Links, graph.Clearances, RoadHeightFit::PreferCuts);

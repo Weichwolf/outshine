@@ -9,6 +9,8 @@
 
 namespace outshine::Generators {
 
+inline constexpr double kJunctionCoreReachM = 4.0;
+
 struct JunctionFootprint {
   EastNorth Centre;
   std::vector<EastNorth> Rim;

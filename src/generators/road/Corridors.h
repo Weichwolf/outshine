@@ -237,6 +237,7 @@ private:
                              LongitudeLatitude at);
   static uint64_t RoadPositionKey(LongitudeLatitude at);
   static uint64_t PlannedNodeAt(const Paving &on, uint64_t node);
+  static bool JoinLanding(const Crossing &crossing, const Paving &on);
   static void JoinCrossing(Crossing &crossing, const Paving &on);
   static void SettleCrossings(const Paving &on, Paved &into);
   static uint64_t PlannedNodeAt(const Paving &on,

@@ -43,7 +43,34 @@ struct RecordingMesher final : outshine::RoadMesher {
   }
 };
 
-enum class Crossing { Stack, NearEnd, GroundEnds, RoadMeetsPath, RailMeetsPath, RailEndMeetsPath };
+enum class Crossing {
+  Stack,
+  NearEnd,
+  GroundEnds,
+  RoadMeetsPath,
+  RailMeetsPath,
+  RailEndMeetsPath,
+  SameBridgeTier
+};
+
+void CheckHeights(Crossing kind,
+                  const RecordingMesher &mesher,
+                  const outshine::Generators::Osm::StreetField::Way &lower) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  if (kind == Crossing::SameBridgeTier) {
+    CHECK(std::abs(mesher.CrossingHeightM[0] - mesher.CrossingHeightM[1]) < 1e-6,
+          "road and rail share one deck elevation without joining their traffic networks");
+    return;
+  }
+  if (lower.Bridge) {
+    CHECK(mesher.CrossingHeightM[0] >= kSealedDepthM - 1e-6,
+          "clearance planning does not excavate the lower bridge into its ground support");
+  }
+  CHECK(mesher.CrossingHeightM[1] - kSealedDepthM >=
+            mesher.CrossingHeightM[0] + lower.ClearanceM - 1e-6,
+        "the upper underside clears the lower road envelope, independently of source order");
+}
 
 void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) {
   using namespace outshine;
@@ -73,6 +100,10 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
     declared[0].Bridge = false;
     declared[0].Level = 0;
     declared[1].LatLon.back() = 8.00000065;
+  }
+  if (kind == Crossing::SameBridgeTier) {
+    declared[0].Value = "rail";
+    declared[1].Level = declared[0].Level;
   }
   if (kind == Crossing::GroundEnds || kind == Crossing::RoadMeetsPath ||
       kind == Crossing::RailEndMeetsPath) {
@@ -145,13 +176,7 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
     return;
   }
   const auto &lower = ways.Ways()[reversed ? 1 : 0];
-  if (lower.Bridge) {
-    CHECK(mesher.CrossingHeightM[0] >= kSealedDepthM - 1e-6,
-          "clearance planning does not excavate the lower bridge into its ground support");
-  }
-  CHECK(mesher.CrossingHeightM[1] - kSealedDepthM >=
-            mesher.CrossingHeightM[0] + lower.ClearanceM - 1e-6,
-        "the upper underside clears the lower road envelope, independently of source order");
+  CheckHeights(kind, mesher, lower);
 }
 
 }
@@ -160,6 +185,8 @@ int main() {
   for (const bool duplicate : {false, true}) {
     CheckStack(false, duplicate);
     CheckStack(true, duplicate);
+    CheckStack(false, duplicate, Crossing::SameBridgeTier);
+    CheckStack(true, duplicate, Crossing::SameBridgeTier);
   }
   CheckStack(false, false, Crossing::NearEnd);
   CheckStack(true, false, Crossing::NearEnd);

@@ -1,4 +1,5 @@
 #include "Corridors.h"
+#include "JunctionFootprint.h"
 
 #include <algorithm>
 #include <array>
@@ -14,6 +15,42 @@ namespace {
 
 constexpr double kEndpointWeldM = .25;
 constexpr double kEndpointCellM = 2 * kEndpointWeldM;
+
+EastNorth WayPoint(const auto &on, size_t at) {
+  return on.Standing.ToLocalGroundPosition(
+      {.LongitudeDeg = on.Points[2 * at + 1], .LatitudeDeg = on.Points[2 * at]});
+}
+
+bool WithinLanding(const auto &on,
+                   const Osm::StreetField::Way &way,
+                   size_t end,
+                   EastNorth crossing) {
+  double reachedM = 0.0;
+  size_t at = static_cast<size_t>(way.FirstPoint) + (end ? way.PointCount - 1u : 0u);
+  EastNorth first = WayPoint(on, at);
+  for (uint32_t step = 1; step < way.PointCount; ++step) {
+    at = end ? at - 1u : at + 1u;
+    const EastNorth second = WayPoint(on, at);
+    const double dE = second.EastM - first.EastM;
+    const double dN = second.NorthM - first.NorthM;
+    const double squared = dE * dE + dN * dN;
+    if (!(squared > 0)) { continue; }
+    const double fraction = std::clamp(
+        ((crossing.EastM - first.EastM) * dE + (crossing.NorthM - first.NorthM) * dN) / squared,
+        0.0,
+        1.0);
+    const double apart = std::hypot(crossing.EastM - first.EastM - fraction * dE,
+                                    crossing.NorthM - first.NorthM - fraction * dN);
+    const double spanM = std::sqrt(squared);
+    if (apart <= kEndpointWeldM && reachedM + fraction * spanM <= kJunctionCoreReachM) {
+      return true;
+    }
+    reachedM += spanM;
+    if (reachedM > kJunctionCoreReachM) { return false; }
+    first = second;
+  }
+  return false;
+}
 
 struct Endpoint {
   uint64_t Node = 0;
@@ -105,10 +142,40 @@ uint64_t Corridors::PlannedNodeAt(const Paving &on, uint64_t node) {
   }
 }
 
+bool Corridors::JoinLanding(const Crossing &crossing, const Paving &on) {
+  const auto &a = on.Ways.Ways()[crossing.Lanes[0]];
+  const auto &b = on.Ways.Ways()[crossing.Lanes[1]];
+  const auto points = on.Points;
+  for (size_t firstEnd = 0; firstEnd < 2; ++firstEnd) {
+    if (!a.OwnsEnds[firstEnd]) { continue; }
+    const size_t firstPoint = a.FirstPoint + (firstEnd != 0 ? a.PointCount - 1u : 0u);
+    const LongitudeLatitude firstAt{.LongitudeDeg = points[2 * firstPoint + 1],
+                                    .LatitudeDeg = points[2 * firstPoint]};
+    const uint64_t port = PlannedNodeAt(on, a, firstAt);
+    for (size_t secondEnd = 0; secondEnd < 2; ++secondEnd) {
+      if (!b.OwnsEnds[secondEnd]) { continue; }
+      const size_t secondPoint = b.FirstPoint + (secondEnd != 0 ? b.PointCount - 1u : 0u);
+      const LongitudeLatitude secondAt{.LongitudeDeg = points[2 * secondPoint + 1],
+                                       .LatitudeDeg = points[2 * secondPoint]};
+      if (port != PlannedNodeAt(on, b, secondAt)) { continue; }
+      const EastNorth at{.EastM = crossing.EastM, .NorthM = crossing.NorthM};
+      if (!WithinLanding(on, a, firstEnd, at) || !WithinLanding(on, b, secondEnd, at)) { continue; }
+      const std::array nodes{
+          port, PlannedNodeAt(on, crossing.Nodes[0]), PlannedNodeAt(on, crossing.Nodes[1])};
+      const uint64_t root = *std::ranges::min_element(nodes);
+      for (const auto node : nodes) { on.JoinedNodes.insert_or_assign(node, root); }
+      return true;
+    }
+  }
+  return false;
+}
+
 void Corridors::JoinCrossing(Crossing &crossing, const Paving &on) {
   const auto &a = on.Ways.Ways()[crossing.Lanes[0]];
   const auto &b = on.Ways.Ways()[crossing.Lanes[1]];
-  if (a.Bridge == b.Bridge || a.TrafficKind != b.TrafficKind) { return; }
+  if (a.Bridge == b.Bridge || a.TrafficKind != b.TrafficKind || JoinLanding(crossing, on)) {
+    return;
+  }
   const auto points = on.Points;
   for (const auto lane : crossing.Lanes) {
     const auto &way = on.Ways.Ways()[lane];
