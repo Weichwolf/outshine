@@ -64,12 +64,13 @@ def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs):
     routes,excluded = directed_junction_routes(graph,poses,shape,tree)
     surface = motor_surface(shape,graph,tree,mesh,vehicle,curbs['corner_radius_m'],curbs['arc_error_m'])
     surface_ms = (time.perf_counter()-began)*1000
-    results,paths = [],[]
+    results,paths,connectors = [],[],{}
     for entry,exit in routes:
         started = time.perf_counter()
         path,report = connect_lanes(poses[entry],poses[exit],surface,vehicle,curbs['arc_error_m'])
         if path is None:
-            trial,note = source_route_connector(poses[entry],poses[exit],routes[entry,exit],surface,vehicle,curbs['arc_error_m'])
+            trial,note = source_route_connector(poses[entry],poses[exit],routes[entry,exit],surface,vehicle,
+                                                curbs['arc_error_m'],connectors=connectors)
             if trial is not None:
                 path,report = trial,note
             else:

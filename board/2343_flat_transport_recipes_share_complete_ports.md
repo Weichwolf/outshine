@@ -30,35 +30,28 @@ Gleichartige Nachbarstücke werden vereinigt. Kollidierende Schnitte rücken beg
 kurze Zwischenabschnitte gehen in den gemeinsamen Anschluss ein. Die drei vollständigen
 Ebenen-0-Fenster bestehen damit auch die Querschnittprüfung.
 Quellteilung darf keine künstlichen Bauteile erzeugen; Kosten und weltweite Vielfalt weiter prüfen.
-[Fahrkurvenvergleich](../test/experiments/infrastructure_turn_experiment.py) prüft G1-Bögen gegen
-symmetrische Zweier-Klothoiden mit stetiger Krümmung und geraden Zu-/Abfahrten.
-Letztere vermeiden Krümmungssprünge; maximaler Kurvenfehler und ein Freiraumstreifen prüfen die
-Flächenlage. Radius und Breite gehören zum Fahrzeugprofil, nicht zur OSM-Topologie.
-[Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py) prüft die ganze starre
-Karosserie samt geraden Zu-/Abfahrten. Für Körperradius r und maximale Krümmung k bewegt sich
-jeder Körperpunkt höchstens (1+k*r)*ds; diese Grenze sichert die Zwischenräume der Abtastung.
-Profilmaße und Kurvenradius sind parametriert; begrenzte Stichprobenarbeit verhindert Endlossuche.
-Fahrspuren und gekrümmte/asymmetrische Zufahrten auf realen Bauteilen weiter lösen.
-[Fahrspurversuch](../test/experiments/infrastructure_lane_turns.py) ergänzt einen Kreisbogen
-zwischen den Klothoiden. Endlich viele Übergangslängen erlauben engere versetzte Rechtskurven
-bei weiterhin stetiger Krümmung. Konstruktion und Fahrzeughülle bestehen auf kleinen
-Links-/Rechtsfällen; Quellfahrspuren, gekrümmte Zufahrten und Knotenverkehr bleiben offen.
 [Port-Fahrspuren](../test/experiments/infrastructure_port_lane_experiment.py) übernehmen öffentliche
 Richtung/Zugänge auf die tatsächlichen gemeinsamen Querschnitte. Getrennte Anschlüsse derselben
 Bauteile und mehrfache Achsenkreuzungen bleiben getrennt. Schmale Zweirichtungsstrecken teilen
-eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Vollständige Fahrkurven bleiben offen.
-[Reale Fahrkurven](../test/experiments/infrastructure_junction_turn_experiment.py) prüfen gerichtete
-Verbindungen innerhalb des Bauteils und die Karosserie auf öffentlicher Motorfläche im gemeinsamen
-Mesh. Wege/private Zufahrten sind kein Ausweichraum. Einfache Knoten funktionieren; Kreisverkehr,
-enge Kurven und Verbindungen durch zusammengesetzte Knoten brauchen weitere Rezepte.
-[G2-Posekurven](../test/experiments/infrastructure_curvature_experiment.py) ergänzen fehlende
-direkte S-/asymmetrische Verbindungen per polynomialem Tangentenwinkel: Endkrümmung null,
-Krümmungsextrema analytisch, begrenzte Posensuche und vollständige Karosserieprüfung.
-Das ergänzt Klothoiden; Inseln/zusammengesetzte Knoten brauchen weiterhin gerichtete Teilrouten.
-[Quellrouten](../test/experiments/infrastructure_route_experiment.py) verbinden Portkontakte über
-gerichtete kürzeste Wege und glätten Zwischenkurven unter derselben Karosserieprüfung.
-Gerade Abschnitte prüfen den exakt extrudierten Körper statt längenabhängiger Stichproben.
-Zu kurze Stützpunktabstände und versetzte Routen bleiben offene Rezeptfälle.
+eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Verkehrsregelung bleibt offen.
+[Fahrkurven](../test/experiments/infrastructure_junction_turn_experiment.py) verwenden Klothoiden
+mit optionalem Kreisbogen oder asymmetrische G2-Posekurven mit polynomialem Tangentenwinkel.
+Endkrümmung null, Krümmungsextrema analytisch; Radius/Breite kommen aus dem Fahrzeugprofil.
+[Quellrouten](../test/experiments/infrastructure_route_turns.py) verbinden Portkontakte über
+gerichtete kürzeste Wege. Ein begrenzter azyklischer Posengraph überspringt unnötige Quellknicke;
+jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.
+Höchstens 64 Ecken, drei Posen je Ecke und acht Nachfolger je Pose begrenzen die lokale Suche.
+Identische Vereinfachungen entfallen; identische Posenpaare nutzen innerhalb desselben Bauteils
+dieselbe Prüfung. Eine Untergrenze aus Segmentanzahl und Sehnenlänge verwirft aussichtslose Kandidaten.
+Es gibt keinen globalen Memo-Speicher: Fläche, Fahrzeug und Toleranz bleiben innerhalb der Suche fest.
+[Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
+maximaler Krümmung k bewegt sich jeder Körperpunkt höchstens (1+k*r)*ds. Diese Grenze sichert
+die Zwischenräume der Abtastung; gerade Translationen nutzen den exakt extrudierten Körper.
+Wege/private Zufahrten sind kein Ausweichraum. Der gemeinsame Mesh begrenzt öffentliche Motorfläche.
+[Rezeptprüfungen](../test/experiments/infrastructure_route_experiment.py) umfassen Inselumfahrung,
+verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverwendeten Verbindungen.
+Offen: versetzte Quellrouten, ungültige feste Portposen, enge Kreisverkehre, Verkehrsregelung,
+vollständige Netze und tragbare Kosten. Erfolgreiche Einzelkurven sind keine fertige Verkehrssimulation.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
 
 ## Umsetzung und Abnahme

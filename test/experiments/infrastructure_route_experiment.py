@@ -49,9 +49,13 @@ def verify_route(vehicle):
     route = shapely.LineString(points)
     floor,_ = rounded_plan(shapely.buffer(route,4.,quad_segs=8),2.)
     entry,exit = dict(position=points[0],heading=np.array([0.,1.])),dict(position=points[-1],heading=np.array([0.,-1.]))
-    path,report = source_route_connector(entry,exit,route,floor,vehicle)
+    connectors = {}
+    path,report = source_route_connector(entry,exit,route,floor,vehicle,connectors=connectors)
     assert path is not None and report['vehicle_sweep']['fits_surface']
     assert not shapely.intersects(path,shapely.box(-7,0,7,7)),'the route must go around the island'
+    count = len(connectors)
+    repeated,_ = source_route_connector(entry,exit,route,floor,vehicle,connectors=connectors)
+    assert shapely.equals_exact(path,repeated,0) and len(connectors)==count
     blocked = shapely.difference(floor,shapely.box(-4,8,4,16))
     rejected,note = source_route_connector(entry,exit,route,blocked,vehicle)
     assert rejected is None
