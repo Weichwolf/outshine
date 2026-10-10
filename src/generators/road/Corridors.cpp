@@ -510,6 +510,8 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
   const ::outshine::Generators::Osm::StreetField::Way &first = ways.Ways()[a];
   const ::outshine::Generators::Osm::StreetField::Way &second = ways.Ways()[b];
   if (first.Bridge == second.Bridge) { return; }
+  const LongitudeLatitude at{.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg};
+  if (PlannedNodeAt(on, first, at) == PlannedNodeAt(on, second, at)) { return; }
   const size_t spans = first.Bridge ? a : b;
   const ::outshine::Generators::Osm::StreetField::Way &below = first.Bridge ? second : first;
   const std::optional<Grounded> under =
@@ -521,6 +523,26 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
   if (into.DeckM[spans] < kUnraisedDeckM) { ++into.DecksRaised; }
   into.DeckM[spans] = need;
   into.MostRaisedM = std::max(into.MostRaisedM, need - onDrawn);
+}
+
+bool Corridors::FindCrossings(const Path::Network &net,
+                              std::vector<Path::Network::Crossing> &crossed,
+                              Paved &into) {
+  const auto swept = net.Crossings(crossed);
+  if (!swept) { return false; }
+  std::ranges::sort(crossed,
+                    [&net](const Path::Network::Crossing &a, const Path::Network::Crossing &b) {
+                      const std::array<size_t, 4> ka = {
+                          net.TagOf(a.OverWay), net.TagOf(a.UnderWay), a.OverAt, a.UnderAt};
+                      const std::array<size_t, 4> kb = {
+                          net.TagOf(b.OverWay), net.TagOf(b.UnderWay), b.OverAt, b.UnderAt};
+                      return ka < kb;
+                    });
+  into.CrossingsSeen = crossed.size();
+  into.PairsTested = swept->PairsTested;
+  into.PairsPruned = swept->PairsPruned;
+  into.FullestCell = swept->FullestCell;
+  return true;
 }
 
 void Corridors::Crosses(const Paving &on, Paved &into) {
@@ -536,22 +558,10 @@ void Corridors::Crosses(const Paving &on, Paved &into) {
   into.CrossNetworkMs = part();
 
   std::vector<Path::Network::Crossing> crossed;
-  const auto swept = net.Crossings(crossed);
-  if (!swept) { return; }
-  std::ranges::sort(crossed,
-                    [&net](const Path::Network::Crossing &a, const Path::Network::Crossing &b) {
-                      const std::array<size_t, 4> ka = {
-                          net.TagOf(a.OverWay), net.TagOf(a.UnderWay), a.OverAt, a.UnderAt};
-                      const std::array<size_t, 4> kb = {
-                          net.TagOf(b.OverWay), net.TagOf(b.UnderWay), b.OverAt, b.UnderAt};
-                      return ka < kb;
-                    });
+  if (!FindCrossings(net, crossed, into)) { return; }
   into.CrossSweepMs = part();
-  into.CrossingsSeen = crossed.size();
-  into.PairsTested = swept->PairsTested;
-  into.PairsPruned = swept->PairsPruned;
-  into.FullestCell = swept->FullestCell;
   for (const Path::Network::Crossing &one : crossed) { FileCrossing(one, on, net, into); }
+  SettleCrossings(on, into);
   into.CrossFilingMs = part();
   for (const Path::Network::Crossing &one : crossed) { RaiseDeckOver(one, on, net, into); }
   into.CrossDecksMs = part();
@@ -1089,6 +1099,11 @@ void Corridors::ShapeOf(const Paving &on, uint64_t node, std::vector<Leg> &legs,
     into.Edges[leg.Edge].CutM[leg.End] = leg.CutM;
   }
   if (!(decked && seeded != into.EndM.end())) { LiesOnItsPlane(on, legs, made, into); }
+  made.MaxGradient = kSteepestJunction;
+  for (const Leg &leg : legs) {
+    made.MaxGradient =
+        std::min(made.MaxGradient, RoadGradient(on.Ways.Ways()[into.Edges[leg.Edge].Lane]));
+  }
   made.RootsM = rootsM;
   made.Elevated = decked;
   made.Legs = std::move(legs);
@@ -1169,8 +1184,9 @@ bool Corridors::IsContinuation(const Paving &on, std::span<const Leg> legs, cons
     const auto &left = on.Ways.Ways()[first.Lane];
     const auto &right = on.Ways.Ways()[second.Lane];
     return left.Layer == right.Layer && left.Bridge == right.Bridge && left.Form == right.Form &&
-           left.CoverRow == right.CoverRow && left.MaxGradient == right.MaxGradient &&
-           left.Lanes == right.Lanes && left.Oneway == right.Oneway &&
+           left.TrafficKind == right.TrafficKind && left.CoverRow == right.CoverRow &&
+           left.MaxGradient == right.MaxGradient && left.Lanes == right.Lanes &&
+           left.Oneway == right.Oneway &&
            std::abs(std::remainder(a.AngleRad - b.AngleRad, 2.0 * kDegPerHalfTurn * kDeg2Rad)) <
                kSamePortAngleRad;
   };
@@ -1530,11 +1546,11 @@ bool Corridors::Lay(const Site &site,
   into.Designed.resize(ways.Ways().size());
   const int waterRow = site.Materials.Find("water");
   std::unordered_map<uint64_t, uint32_t> sharedNodes;
-  std::unordered_map<uint64_t, uint64_t> endNodes;
+  std::unordered_map<uint64_t, uint64_t> joinedNodes;
   std::optional<Paving> paving;
   if (vectors != nullptr) {
     sharedNodes = SharedNodesOf(ways, vectors->Points());
-    endNodes = EndpointNodesOf(ways, *vectors, standing);
+    joinedNodes = EndpointNodesOf(ways, *vectors, standing);
     paving.emplace(Paving{.Materials = site.Materials,
                           .Vegetation = site.Vegetation,
                           .Ground = site.Ground,
@@ -1543,7 +1559,7 @@ bool Corridors::Lay(const Site &site,
                           .Vectors = *vectors,
                           .Points = vectors->Points(),
                           .SharedNodes = sharedNodes,
-                          .EndNodes = endNodes,
+                          .JoinedNodes = joinedNodes,
                           .Draped = drapedOver,
                           .Standing = standing,
                           .Classes = classStructure,
@@ -1704,7 +1720,8 @@ bool Corridors::Job::RetireMaps(size_t unitsMost) noexcept {
       }
       break;
     case RetireStage::SharedNodes:
-      if (RetireMap(SharedNodes, unitsMost, deadline) && RetireMap(EndNodes, unitsMost, deadline)) {
+      if (RetireMap(SharedNodes, unitsMost, deadline) &&
+          RetireMap(JoinedNodes, unitsMost, deadline)) {
         Retirement = RetireStage::LegsMap;
       }
       break;
@@ -1765,7 +1782,7 @@ Corridors::Advance(Job &job,
   const int waterRow = site.Materials.Find("water");
   if (job.Phase == Job::Stage::Prepare && vectors != nullptr) {
     job.SharedNodes = SharedNodesOf(ways, vectors->Points());
-    job.EndNodes = EndpointNodesOf(ways, *vectors, site.Standing);
+    job.JoinedNodes = EndpointNodesOf(ways, *vectors, site.Standing);
   }
   std::optional<Paving> paving;
   if (vectors != nullptr) {
@@ -1777,7 +1794,7 @@ Corridors::Advance(Job &job,
                           .Vectors = *vectors,
                           .Points = vectors->Points(),
                           .SharedNodes = job.SharedNodes,
-                          .EndNodes = job.EndNodes,
+                          .JoinedNodes = job.JoinedNodes,
                           .Draped = site.Draped,
                           .Standing = site.Standing,
                           .Classes = site.Classes,
@@ -1863,25 +1880,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceCrossings(Job &job, cons
       job.Phase = Job::Stage::Crossings;
       return false;
     case Job::Stage::Crossings:
-      if (site.Network != nullptr) {
-        const Path::Network &network = *site.Network;
-        const auto swept = network.Crossings(job.Crossed);
-        if (swept) {
-          std::ranges::sort(
-              job.Crossed,
-              [&network](const Path::Network::Crossing &a, const Path::Network::Crossing &b) {
-                const std::array<size_t, 4> ka = {
-                    network.TagOf(a.OverWay), network.TagOf(a.UnderWay), a.OverAt, a.UnderAt};
-                const std::array<size_t, 4> kb = {
-                    network.TagOf(b.OverWay), network.TagOf(b.UnderWay), b.OverAt, b.UnderAt};
-                return ka < kb;
-              });
-          into.CrossingsSeen = job.Crossed.size();
-          into.PairsTested = swept->PairsTested;
-          into.PairsPruned = swept->PairsPruned;
-          into.FullestCell = swept->FullestCell;
-        }
-      }
+      if (site.Network != nullptr) { (void)FindCrossings(*site.Network, job.Crossed, into); }
       into.CrossSweepMs = elapsed();
       job.TotalMs += elapsed();
       job.Phase = Job::Stage::CrossFile;
@@ -1899,6 +1898,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceCrossings(Job &job, cons
       job.StageMs += elapsed();
       job.TotalMs += elapsed();
       if (job.NextCrossing < job.Crossed.size()) { return false; }
+      if (paving != nullptr) { SettleCrossings(*paving, into); }
       into.CrossFilingMs = job.StageMs;
       job.NextCrossing = 0;
       job.StageMs = 0.0;

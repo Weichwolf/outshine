@@ -35,7 +35,10 @@ uint64_t Corridors::RoadPositionKey(LongitudeLatitude at) {
 uint64_t Corridors::RoadNodeAt(const ::outshine::Generators::Osm::StreetField::Way &lane,
                                LongitudeLatitude at) {
   const uint64_t key = RoadPositionKey(at);
-  if (lane.Layer == 0 && !lane.Bridge) { return key; }
+  const auto traffic = !lane.Bridge && lane.TrafficKind != Osm::StreetField::Traffic::Rail
+                           ? Osm::StreetField::Traffic::Road
+                           : lane.TrafficKind;
+  if (lane.Layer == 0 && !lane.Bridge && traffic == Osm::StreetField::Traffic::Road) { return key; }
   uint64_t digest = kDigestBasis;
   for (unsigned shift = 0; shift < 64; shift += kByteBits) {
     digest = DigestFolded(digest, static_cast<uint8_t>(key >> shift));
@@ -43,6 +46,7 @@ uint64_t Corridors::RoadNodeAt(const ::outshine::Generators::Osm::StreetField::W
   for (unsigned shift = 0; shift < 32; shift += kByteBits) {
     digest = DigestFolded(digest, static_cast<uint8_t>(static_cast<uint32_t>(lane.Layer) >> shift));
   }
+  digest = DigestFolded(digest, static_cast<uint8_t>(traffic));
   return DigestFolded(digest, lane.Bridge ? 1u : 0u) | kRoadLevelNodeTag;
 }
 
@@ -63,6 +67,7 @@ void Corridors::FileCrossing(const Path::Network::Crossing &one,
                             .GradeM = crossedAt->GradeM,
                             .Nodes = {PlannedNodeAt(on, a, at), PlannedNodeAt(on, b, at)},
                             .Lanes = {first, second}});
+  JoinCrossing(into.Crossings.back(), on);
   for (int stepE = -1; stepE <= 1; ++stepE) {
     for (int stepN = -1; stepN <= 1; ++stepN) {
       const uint64_t cell = CrossingCell({.EastM = crossedAt->EastM + stepE * kCrossCellM,

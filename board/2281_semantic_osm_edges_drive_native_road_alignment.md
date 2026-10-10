@@ -38,9 +38,13 @@ Der analytische RoadAlignment-/Surface-Pfad verlangt benannte Routen; auf densel
   Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer; nur begrenzte Nachbarbereiche.
   Explizite Übergänge verbinden Ebenen. MVT ist kein vollständiger Routinggraph.
 - Aktueller Anschlussentwurf: Positionsauflösung 1e-7 Grad; Endpunkt-Abweichungen bis 0,25 m
-  nur bei gleicher Ebene/Brückenklasse vereinigen. Exakt deckungsgleiche Boden-/Brückenenden
-  sind rekonstruierte Übergänge, keine belegten OSM-Verbindungen. Andere Ebenen bleiben getrennt.
-  Nähe allein darf keine Kreuzungsverbindung oder versteckte Rampen erzeugen.
+  nur bei gleicher Ebene/Brückenklasse vereinigen. Deckungsgleiche Boden-/Brückenenden
+  verbinden nur kompatible Verkehrsklassen (Straße, Weg, Bahn); das bleibt rekonstruierte Topologie. Andere Ebenen bleiben getrennt.
+  Nähe allein darf keine Kreuzungsverbindung oder versteckte Rampen erzeugen. Bahn-/Wegkreuzungen
+  bleiben getrennte Ports; echte niveaugleiche Bahnübergänge brauchen ein eigenes belegtes Rezept.
+  Niveaugleiche Straßen-/Weganschlüsse teilen ihre native Höhe; Brückenübergänge bleiben klassifiziert.
+  Kompatible Bodenweg-Endpunkte an Brückenachsen rekonstruieren gemeinsame Ports; ein Brückenende
+  nahe einem durchlaufenden Weg allein erzeugt keinen Anschluss. Vor Profil/Geometrie abschließen.
 - Pro Kreuzung Ebenenordnung und Freiraum zwischen geplanten Profilen samt Deckdicke lösen;
   Layer ist Ordnung, keine feste Höhe. Fuß-/Radweg/Treppe/Path: 2 m Akteur + 0,5 m Reserve;
   Straßen/Bahn behalten eigene Freiräume. Gelieferte Maße respektieren; fehlende Maße sind Rezepte.
@@ -54,7 +58,9 @@ Der analytische RoadAlignment-/Surface-Pfad verlangt benannte Routen; auf densel
   Gemeinsame Endposition/Höhe/Tangente; gesamte Längs-/Querneigung klassenabhängig begrenzen.
   Beide Endkürzungen gemeinsam beschränken; Rampen behalten beide Höhen unabhängig von Richtung.
   Neigung über tatsächlich zugeschnittene Profillängen, ohne künstlich ebene Anschlussflächen.
-  Unvereinbare geneigte Ports liefern Konfliktzyklen; nur beteiligte Knotenebenen abflachen.
+  Höhen und Anschlussneigungen gemeinsam lösen. Gerichtete Konfliktzyklen liefern zusätzliche
+  Bedingungen nur für betroffene Knotenflächen; Neigungen dürfen ihre Richtung ändern.
+  Alle zuvor gelösten Bedingungen und klassenabhängigen Gradgrenzen bleiben verbindlich.
 - Höhenplanung bevorzugt Schnitt; Auftrag nur für notwendige Kontakte/Freiräume. Hohe einzelne
   DEM-Proben heben keinen ganzen Überbau. Wasserfreiraum über nativem Pegel im gemeinsamen
   Up-Bezug; Inseln/fehlende Pegel erzeugen keine Hebung. Pfeiler/Widerlager plausibel gründen.

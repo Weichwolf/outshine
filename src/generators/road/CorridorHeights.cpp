@@ -1,5 +1,6 @@
 #include "Corridors.h"
 #include "RoadHeightPlan.h"
+#include "JunctionSlopePlan.h"
 #include "Heap.h"
 
 #include <algorithm>
@@ -22,11 +23,17 @@ namespace {
 struct HeightAttachment {
   uint64_t Node = 0;
   double OffsetM = 0.0;
+  uint32_t Junction = std::numeric_limits<uint32_t>::max();
 };
 
 struct ProfileLimits {
   double MaxGradient = 0.0;
   double MinimumM = 0.0;
+};
+
+struct SlopeAttachment {
+  uint32_t Station = 0;
+  double Weight = 1.0;
 };
 
 }
@@ -37,6 +44,9 @@ struct Corridors::HeightGraph {
   std::vector<RoadHeightClearance> Clearances;
   std::vector<uint32_t> Stations;
   std::vector<double> OffsetsM;
+  std::vector<uint32_t> StationPlanes;
+  std::vector<uint32_t> LinkStations;
+  std::vector<JunctionSlopeConstraint> PlaneConstraints;
   std::unordered_map<uint64_t, uint32_t> Named;
   std::unordered_map<uint64_t, uint32_t> JunctionAt;
   std::vector<bool> Adjusted;
@@ -46,7 +56,7 @@ struct Corridors::HeightGraph {
 namespace {
 
 constexpr double kStationChangeToleranceM = .01;
-constexpr double kPlaneScaleMargin = 1e-6;
+constexpr double kPlaneClearanceMarginM = 1e-8;
 constexpr size_t kPlaneAttemptsMost = 64;
 constexpr auto kPlaneTimeBudget = std::chrono::seconds(5);
 
@@ -86,31 +96,78 @@ void AppendProfile(std::span<const RoadStation> along,
     const uint32_t node = HeightNode(along[at], attachment, limits.MinimumM, graph);
     graph.Stations.push_back(node);
     graph.OffsetsM.push_back(attachment.OffsetM);
+    graph.StationPlanes.push_back(attachment.Junction);
     if (at > 0) {
       const double runM = std::hypot(along[at].EastM - along[at - 1].EastM,
                                      along[at].NorthM - along[at - 1].NorthM);
       graph.Links.push_back(
           {previous, node, limits.MaxGradient * runM, previousOffsetM, attachment.OffsetM});
+      graph.LinkStations.push_back(static_cast<uint32_t>(graph.Stations.size() - 2));
     }
     previous = node;
     previousOffsetM = attachment.OffsetM;
   }
 }
 
-bool AdjustJunctionPlanes(const RoadHeightFailure &failure, auto &into, auto &graph) {
-  bool changed = false;
-  for (const uint32_t node : failure.CycleNodes) {
-    if (node >= into.Junctions.size()) { continue; }
-    auto &junction = into.Junctions[node];
-    if (junction.SlopeE == 0 && junction.SlopeN == 0) { continue; }
-    const double scale = failure.MaximumOffsetScale * (1.0 - kPlaneScaleMargin);
-    junction.SlopeE *= scale;
-    junction.SlopeN *= scale;
-    if (!graph.Adjusted[node]) { ++graph.AdjustedJunctions; }
-    graph.Adjusted[node] = true;
-    changed = true;
+void AppendSlopeTerm(SlopeAttachment from,
+                     const auto &into,
+                     const auto &graph,
+                     JunctionSlopeConstraint &constraint) {
+  const uint32_t plane = graph.StationPlanes[from.Station];
+  if (plane == std::numeric_limits<uint32_t>::max()) { return; }
+  auto term = std::ranges::find_if(constraint.Terms,
+                                   [&](const auto &one) { return one.Junction == plane; });
+  if (term == constraint.Terms.end()) {
+    constraint.Terms.push_back({.Junction = plane});
+    term = constraint.Terms.end() - 1;
   }
-  return changed;
+  const auto &at = into.Planned[from.Station];
+  const auto &junction = into.Junctions[plane];
+  term->EastM += from.Weight * (at.EastM - junction.EastM);
+  term->NorthM += from.Weight * (at.NorthM - junction.NorthM);
+}
+
+JunctionSlopeConstraint
+SlopeConstraint(const RoadHeightFailure &failure, const auto &into, const auto &graph) {
+  JunctionSlopeConstraint constraint{.Terms = {}, .MinimumRiseM = kPlaneClearanceMarginM};
+  for (const auto &crossed : failure.CycleConstraints) {
+    if (crossed.Kind == RoadHeightConstraintKind::Clearance) {
+      constraint.MinimumRiseM += graph.Clearances[crossed.Index].MinimumGapM;
+      continue;
+    }
+    const auto &link = graph.Links[crossed.Index];
+    constraint.MinimumRiseM -= link.MaximumRiseM;
+    const uint32_t first = graph.LinkStations[crossed.Index];
+    const double sign = crossed.Kind == RoadHeightConstraintKind::ForwardLink ? 1.0 : -1.0;
+    AppendSlopeTerm({.Station = first, .Weight = sign}, into, graph, constraint);
+    AppendSlopeTerm({.Station = first + 1, .Weight = -sign}, into, graph, constraint);
+  }
+  return constraint;
+}
+
+std::expected<void, std::string_view>
+AdjustJunctionPlanes(const RoadHeightFailure &failure,
+                     auto &into,
+                     auto &graph,
+                     std::chrono::steady_clock::time_point deadline) {
+  graph.PlaneConstraints.push_back(SlopeConstraint(failure, into, graph));
+  std::vector<JunctionSlope> slopes;
+  slopes.reserve(into.Junctions.size());
+  for (const auto &junction : into.Junctions) {
+    slopes.push_back({junction.SlopeE, junction.SlopeN, junction.MaxGradient});
+  }
+  if (auto plan = FitJunctionSlopes(slopes, graph.PlaneConstraints, deadline); !plan) {
+    return plan;
+  }
+  for (size_t at = 0; at < into.Junctions.size(); ++at) {
+    auto &junction = into.Junctions[at];
+    if (junction.SlopeE == slopes[at].East && junction.SlopeN == slopes[at].North) { continue; }
+    junction.SlopeE = slopes[at].East;
+    junction.SlopeN = slopes[at].North;
+    if (!graph.Adjusted[at]) { ++graph.AdjustedJunctions; }
+    graph.Adjusted[at] = true;
+  }
+  return {};
 }
 
 }
@@ -182,6 +239,8 @@ void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &gr
   graph.Named.clear();
   graph.Stations.clear();
   graph.OffsetsM.clear();
+  graph.StationPlanes.clear();
+  graph.LinkStations.clear();
   for (const auto &junction : into.Junctions) {
     const RoadStation centre{.GradeM = junction.GradeM, .Node = junction.Node};
     (void)HeightNode(
@@ -195,6 +254,7 @@ void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &gr
       const auto found = graph.JunctionAt.find(ends[end].Node);
       if (found == graph.JunctionAt.end()) { continue; }
       const auto &junction = into.Junctions[found->second];
+      ends[end].Junction = found->second;
       auto &at = end == 0 ? along.front() : along.back();
       ends[end].OffsetM = junction.SlopeE * (at.EastM - junction.EastM) +
                           junction.SlopeN * (at.NorthM - junction.NorthM);
@@ -221,6 +281,8 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
   graph.Clearances.reserve(into.Crossings.size());
   graph.Stations.reserve(into.Planned.size());
   graph.OffsetsM.reserve(into.Planned.size());
+  graph.StationPlanes.reserve(into.Planned.size());
+  graph.LinkStations.reserve(into.Planned.size());
   graph.Named.reserve(into.Edges.size() * 2);
   graph.JunctionAt.reserve(into.Junctions.size());
   for (uint32_t at = 0; at < into.Junctions.size(); ++at) {
@@ -237,7 +299,10 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
         std::chrono::steady_clock::now() - began >= kPlaneTimeBudget) {
       return std::unexpected("road junction plane planning exceeded its work bound");
     }
-    if (!AdjustJunctionPlanes(failure, into, graph)) { return std::unexpected(failure.Reason); }
+    if (auto adjusted = AdjustJunctionPlanes(failure, into, graph, began + kPlaneTimeBudget);
+        !adjusted) {
+      return adjusted;
+    }
     HeightConstraints(on, into, graph);
     plan = PlanRoadHeights(graph.Nodes, graph.Links, graph.Clearances, RoadHeightFit::PreferCuts);
   }

@@ -43,7 +43,9 @@ struct RecordingMesher final : outshine::RoadMesher {
   }
 };
 
-void CheckStack(bool reversed, bool duplicate, bool nearEnd = false, bool groundEnds = false) {
+enum class Crossing { Stack, NearEnd, GroundEnds, RoadMeetsPath, RailMeetsPath, RailEndMeetsPath };
+
+void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
@@ -67,18 +69,34 @@ void CheckStack(bool reversed, bool duplicate, bool nearEnd = false, bool ground
                                                            .Bridge = true,
                                                            .Level = 2,
                                                            .LatLon = {49, 7.996, 49, 8.004}}};
-  if (nearEnd) {
+  if (kind == Crossing::NearEnd) {
     declared[0].Bridge = false;
     declared[0].Level = 0;
     declared[1].LatLon.back() = 8.00000065;
   }
-  if (groundEnds) {
+  if (kind == Crossing::GroundEnds || kind == Crossing::RoadMeetsPath ||
+      kind == Crossing::RailEndMeetsPath) {
     declared[0].Bridge = false;
     declared[0].LatLon = {48.998, 8, 49, 8};
     declared[1].Bridge = false;
     declared[1].LatLon = {49, 7.996, 49, 8};
     declared.push_back(declared.front());
     declared.back().LatLon = {49, 8, 49.002, 8};
+  }
+  if (kind == Crossing::RoadMeetsPath) {
+    declared[0].Value = "cycleway";
+    declared[2].Value = "cycleway";
+    declared[1].Value = "trunk";
+    declared[1].Bridge = true;
+  }
+  if (kind == Crossing::RailMeetsPath || kind == Crossing::RailEndMeetsPath) {
+    for (auto &line : declared) {
+      line.Bridge = false;
+      line.Level = 0;
+    }
+    declared[0].Value = "footway";
+    declared[1].Value = "rail";
+    if (declared.size() == 3) { declared[2].Value = "footway"; }
   }
   if (duplicate) {
     const auto copies = declared;
@@ -122,7 +140,10 @@ void CheckStack(bool reversed, bool duplicate, bool nearEnd = false, bool ground
   CHECK(corridors.Lay(site, geometry, contacts, notes), "both deck products are generated");
   CHECK(mesher.JunctionCount == 0,
         "duplicate lines do not manufacture junctions or consume the available profile length");
-  if (groundEnds) { return; }
+  if (kind == Crossing::GroundEnds || kind == Crossing::RoadMeetsPath ||
+      kind == Crossing::RailMeetsPath || kind == Crossing::RailEndMeetsPath) {
+    return;
+  }
   const auto &lower = ways.Ways()[reversed ? 1 : 0];
   if (lower.Bridge) {
     CHECK(mesher.CrossingHeightM[0] >= kSealedDepthM - 1e-6,
@@ -140,9 +161,14 @@ int main() {
     CheckStack(false, duplicate);
     CheckStack(true, duplicate);
   }
-  CheckStack(false, false, true);
-  CheckStack(true, false, true);
-  CheckStack(false, false, false, true);
-  CheckStack(true, false, false, true);
+  CheckStack(false, false, Crossing::NearEnd);
+  CheckStack(true, false, Crossing::NearEnd);
+  CheckStack(false, false, Crossing::GroundEnds);
+  CheckStack(true, false, Crossing::GroundEnds);
+  for (const auto kind :
+       {Crossing::RoadMeetsPath, Crossing::RailMeetsPath, Crossing::RailEndMeetsPath}) {
+    CheckStack(false, false, kind);
+    CheckStack(true, false, kind);
+  }
   return outshine::Test::Report();
 }

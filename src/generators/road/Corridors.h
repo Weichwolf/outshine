@@ -81,7 +81,7 @@ private:
     const ::outshine::Generators::Osm::OsmField &Vectors;
     std::span<const double> Points;
     const std::unordered_map<uint64_t, uint32_t> &SharedNodes;
-    const std::unordered_map<uint64_t, uint64_t> &EndNodes;
+    std::unordered_map<uint64_t, uint64_t> &JoinedNodes;
     const Drape &Draped;
     const TangentFrame &Standing;
     const std::shared_ptr<const ClassStructure> &Classes;
@@ -120,6 +120,7 @@ private:
     double GradeM = 0.0;
     double SlopeE = 0.0;
     double SlopeN = 0.0;
+    double MaxGradient = 0.0;
     double RootsM = 0.0;
     bool Elevated = false;
     Vec3f WearsLinear = {{0.5f, 0.5f, 0.5f}};
@@ -235,6 +236,9 @@ private:
   static uint64_t RoadNodeAt(const ::outshine::Generators::Osm::StreetField::Way &lane,
                              LongitudeLatitude at);
   static uint64_t RoadPositionKey(LongitudeLatitude at);
+  static uint64_t PlannedNodeAt(const Paving &on, uint64_t node);
+  static void JoinCrossing(Crossing &crossing, const Paving &on);
+  static void SettleCrossings(const Paving &on, Paved &into);
   static uint64_t PlannedNodeAt(const Paving &on,
                                 const ::outshine::Generators::Osm::StreetField::Way &lane,
                                 LongitudeLatitude at);
@@ -249,6 +253,9 @@ private:
   static void RaiseDeckOver(const Path::Network::Crossing &one,
                             const Paving &on,
                             const Path::Network &net,
+                            Paved &into);
+  static bool FindCrossings(const Path::Network &network,
+                            std::vector<Path::Network::Crossing> &crossed,
                             Paved &into);
   static void Crosses(const Paving &on, Paved &into);
 
@@ -448,7 +455,7 @@ public:
     RoadMeshBuffers Pavement;
     std::vector<EarthworkStamp> Corridor;
     std::unordered_map<uint64_t, uint32_t> SharedNodes;
-    std::unordered_map<uint64_t, uint64_t> EndNodes;
+    std::unordered_map<uint64_t, uint64_t> JoinedNodes;
     std::unordered_map<uint64_t, std::vector<Leg>> LegsAt;
     std::vector<Path::Network::Crossing> Crossed;
     BridgeTopology Topology;
