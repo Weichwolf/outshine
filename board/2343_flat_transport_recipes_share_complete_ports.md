@@ -18,8 +18,8 @@ Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Fläch
 Fahrkurven, Verkehrsregeln, Kollisionsprodukt und Budgetgrenzen bleiben offen; gegliederte Flächen
 allein liefern noch kein plausibles fertiges Netz. Kleine Beispiele sind mit `--small` renderbar.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential,
-ohne bestehende Verkehrsfläche zu entfernen. Konflikte noch komponentenweise behandelt;
-Verfeinerungen müssen lokal ausfallen, brauchbare Fahrtrajektorien fehlen weiterhin.
+ohne bestehende Verkehrsfläche zu entfernen. Ungültige Bogenstücke entfallen lokal samt Grund;
+ein Konflikt verwirft keine ganze Komponente. Brauchbare Fahrtrajektorien fehlen weiterhin.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.

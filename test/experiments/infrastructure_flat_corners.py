@@ -6,7 +6,7 @@ import numpy as np
 import shapely
 
 
-def round_ring(points,radius,error,outer):
+def corner_patches(points,radius,error,outer):
     points = points[:-1]
     ccw = shapely.is_ccw(shapely.LinearRing(points))
     if ccw!=outer:
@@ -25,17 +25,13 @@ def round_ring(points,radius,error,outer):
     displacement = actual*(1/np.cos(turn[positions]*.5)-1)
     significant = displacement>error
     positions,cut,actual = positions[significant],cut[significant],actual[significant]
-    selected[:] = False
-    selected[positions] = True
     count = np.zeros(len(points),dtype=int)
     count[positions] = np.ceil(-turn[positions]/(2*np.arccos(1-np.minimum(error/actual,1)))).astype(int)
     cuts,radii = np.zeros(len(points)),np.zeros(len(points))
     cuts[positions],radii[positions] = cut,actual
-    result = []
-    for i,p in enumerate(points):
-        if not selected[i]:
-            result.append(p[None])
-            continue
+    patches = []
+    for i in positions:
+        p = points[i]
         a,b = p-u[i]*cuts[i],p+v[i]*cuts[i]
         centre = a+np.array([u[i,1],-u[i,0]])*radii[i]
         radial = a-centre
@@ -43,34 +39,34 @@ def round_ring(points,radius,error,outer):
         c,s = np.cos(angle),np.sin(angle)
         arc = centre+np.c_[radial[0]*c-radial[1]*s,radial[0]*s+radial[1]*c]
         arc[0],arc[-1] = a,b
-        result.append(arc)
-    return np.concatenate(result),int(selected.sum()),int(count.max(initial=0))
+        patches.append(np.vstack((arc,p)))
+    return patches,int(count.max(initial=0))
 
 
 def rounded_plan(complete,radius=2.,error=.025):
     began = time.perf_counter()
     parts = shapely.get_parts(complete)
-    polygons,rounded,rejected,maximum = [],0,0,0
+    patches,maximum = [],0
     for polygon in parts:
-        shell,count,segments = round_ring(shapely.get_coordinates(polygon.exterior),radius,error,True)
-        holes = []
-        for ring in polygon.interiors:
-            hole,more,n = round_ring(shapely.get_coordinates(ring),radius,error,False)
-            holes.append(hole)
-            count,segments = count+more,max(segments,n)
-        candidate = shapely.Polygon(shell,holes)
-        if not candidate.is_valid or polygon.difference(candidate).area>max(1e-7,polygon.area*1e-12):
-            rejected += 1
-            polygons.append(polygon)
-        else:
-            rounded += count
+        for ring,outer in [(polygon.exterior,True)]+[(r,False) for r in polygon.interiors]:
+            local,segments = corner_patches(shapely.get_coordinates(ring),radius,error,outer)
+            patches.extend(local)
             maximum = max(maximum,segments)
-            polygons.append(candidate)
-    result = shapely.union_all(polygons)
+    omitted = []
+    if patches:
+        coordinates = np.concatenate(patches)
+        owners = np.repeat(np.arange(len(patches)),[len(p) for p in patches])
+        candidates = shapely.polygons(shapely.linearrings(coordinates,indices=owners))
+        good = shapely.is_valid(candidates)&(shapely.area(candidates)>0)
+        omitted = [dict(position_m=patches[i][-1].tolist(),reason='invalid_curb_patch')
+                   for i in np.flatnonzero(~good)]
+        result = shapely.union_all(np.r_[parts,candidates[good]])
+    else:
+        result = complete
     missing = complete.difference(result).area
     if missing>max(1e-7,complete.area*1e-12):
         raise ValueError('rounded curbs remove an existing transport surface')
-    return result,dict(rounded_corners=rounded,retained_original_components=rejected,
+    return result,dict(rounded_corners=len(patches)-len(omitted),omitted_curve_corners=len(omitted),omitted=omitted,
                        maximum_arc_segments=maximum,corner_radius_m=radius,arc_error_m=error,
                        added_area_m2=result.area-complete.area,missing_original_area_m2=missing,
                        curve_plan_ms=(time.perf_counter()-began)*1000,
