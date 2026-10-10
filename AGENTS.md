@@ -10,6 +10,8 @@
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
   Baupläne. Gelieferte Angaben steuern Vielfalt/Erdähnlichkeit. Prozedurale Rezepte ergänzen
   und vereinfachen sie kohärent innerhalb des Budgets.
+  Ich suche eine schnelle, plausible, ästhetische und funktionale Lösung, keine eindeutige
+  Rekonstruktion. Ich darf Lage, Form und Profile kohärent anpassen und einfachere Rezepte wählen.
 - Solarpunk ist das Default-Setting; minimalistisches Bauhaus und Art déco prägen die
   prozedurale Gestaltung. Den gemeinsamen Look besitzt 2155, Materialkomposition 2171.
 - Ich liefere vom konkreten Bilddefizit bis zum integrierten Rendering. Interne Arbeit braucht
@@ -22,9 +24,12 @@
   räumliche/zeitliche Approximationen. Infrastruktur braucht konstruktive CAD-Qualität: saubere
   Geometrie, Anschlüsse und funktionale Profile; keine exakte Vermessung der Erde.
   Infrastruktur liefere ich zuerst als undekoriertes Grundmodell, danach mit Bauhaus-/Art-déco-Gestaltung.
-  Speichersicherheit, vollständige Inhalte und verlässliche Interaktionen bleiben verbindlich. Prüfungen folgen diesen
+  Speichersicherheit, korrekte erzeugte Inhalte und verlässliche Interaktionen bleiben verbindlich. Prüfungen folgen diesen
   Anforderungen; geänderte Anforderungen korrigiere ich ausdrücklich samt betroffenen Tests.
   Ferndetails dürfen plausibel geschätzt werden; Bildwirkung, Herkunft und Übergang zum Nahdetail zählen.
+  Infrastruktursolver liefern innerhalb ihres Budgets ein gültiges Teilnetz. Ungelöste Teile
+  blockieren weder Weltaufbau noch Frame; ich begrenze Auslassungen lokal und protokolliere
+  jede nicht verwendete Quelle mit Grund. Quelldaten bleiben erhalten; der Verwendungsgrad wächst.
 - Ich suche selbst Alternativen, sobald ein Ansatz erkennbar ungeeignet ist. Ich prüfe sie gegen
   Bild, Kosten und Verträge und entscheide, ohne auf Lösungsvorschläge des Nutzers zu warten.
 - Kostenbestimmende Verfahren vergleiche ich zuerst in kleinen Python-Experimenten mit echten
@@ -125,6 +130,7 @@
 - Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und
   betroffene Places prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
   nicht je Kleincommit. Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
+  Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
 - Ein schwerer Lauf zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
   detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.

@@ -75,8 +75,10 @@ Lieferungen integriert. Gemessene Einsparungen schaffen das Wolkenbudget; keine 
 von Profil, Sichtweite, Inhaltsvollständigkeit oder Framebudget.
 
 ## Reihenfolge und Zuständigkeit
-2281 ist der aktive Featureblock: Straßen, Schienen und Wege optisch und funktional schließen,
-mit selbst gewählten POIs. 2280/2336/2340 liefern dafür Cache, Bedarf und Arbeitsauswahl;
+2342 ist der aktive Schritt von 2281: ein ebener Vektorplan mit vollständiger Nutzungsbilanz.
+2343 liefert gemeinsame Bauteile/Ports, 2344 Profile, 2345 Ebenenrezepte; jeweiliger Vertrag vor Ausbau.
+Plausibilität, Ästhetik und Funktion im Budget entscheiden; ungelöste lokale Teile werden ausgewiesen.
+2280/2336/2340 liefern dafür Cache, Bedarf und Arbeitsauswahl;
 2188 migriert nur benötigte öffentliche Grenzen. Danach Gebäude/Terrain, Vegetation im freien
 Budget und Wolken zuletzt. GPU-Passzeiten und A18-Pro-Budget bleiben offen.
 Ein günstiges Messfenster schließt kein Gate; sichtbare Qualität folgt dem integrierten Gewinn.

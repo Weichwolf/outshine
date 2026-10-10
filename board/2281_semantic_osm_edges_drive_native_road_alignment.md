@@ -1,9 +1,9 @@
 Type: feature
-State: active
+State: open
 Architecture: ready
 Priority: P0
 Parent: 2169
-Depends:
+Depends: 2343
 Area: generators, world, engine
 Tags: roads, bridges, tunnels, topology
 
@@ -14,34 +14,35 @@ Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funk
 Vorrang: Wiener Anschlüsse/Brücken; danach Feldkirch, Basel Badischer Bahnhof, Zürich HB und Häfen.
 Corridors liefert Geometrie/Kontakte; gemeinsame native Höhenplanung bindet Anschlüsse, Sekanten
 und Freiraum vor Geometrie/Terrain; Sync/Async teilen sie. Anschlussflächen übertragen nativ
-Längs-/Querneigung samt Flächennormale an die Straßenbänder; ein Mittelpunkt allein genügt nicht.
+Längs-/Querneigung sowie vier gemeinsame Randpunkte/Normalen einschließlich Schultern/Unterseite.
+Der Höhensolver aktualisiert die Ports; überlappende Knotenflächen bleiben als gemeinsame Bauteile offen.
 Der 2D-Endpunktplan trennt Position, Ebene und rekonstruierte Verbindungen. Kreuzungen werden
 jeweils einmal gespeichert; Grid-Zellen referenzieren sie. Gestapelte Decks behalten eigene Ports.
-Doppelte MVT-Linien erzeugen keine zusätzlichen Knotenflächen. Bodenwege liefern auch ohne Erdarbeiten Kernkontakte.
+Doppelte MVT-Linien erzeugen keine zusätzlichen Knotenflächen; Bodenwege liefern Kernkontakte.
 Offen: geografische Kachelports/Cacheplan, Ebenenübergänge, C1, Breitenfreiraum, Tunnel/Portale, Tragwerk, Treppen, Bahnsteige, Piers, Seilbahnen.
 Der analytische RoadAlignment-/Surface-Pfad verlangt benannte Routen; auf denselben Plan vereinigen.
 Zürich HB lädt wieder: gemeinsame Brückenebenen teilen eine physische Höhe, Verkehrsports bleiben
 getrennt; kurze Kreuzungen im gemeinsamen Landekern erzeugen keinen falschen Unterpass.
-Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
-
+Bahnhofsanschlüsse bleiben fehlerhaft. [2D-Flächenversuch](../test/experiments/infrastructure_network.py)
+vereinigt ganze Wiener/Zürcher/Basler Quellfenster; funktionale Ports/Kurven sind noch nicht gelöst.
 ## Nächste Lieferung
-1. Einen realen Anschluss samt Brücke als undekoriertes, funktionales Grundmodell schließen.
-   Die native Produktauswahl aus 2188 liefert eine reine Infrastrukturansicht ohne Terrain/Gebäude;
-   Höheninputs/Kontakte/Licht bleiben aktiv. Wien zeigt auch darin fehlerhafte Nebenrampen und
-   Anschlüsse: zuerst den Netz-/Bauteilplan schließen, danach den Terrainkontakt prüfen.
-2. Geografisch stabile 2D-Kacheln mit Randports und expliziten Übergängen nativ planen/speichern.
-   Kettenprofile und begrenzte Bauteilrezepte daraus ableiten; kein zweiter Netzaufbau.
-3. Headless-Python: 2D mit 1–2 Ebenen, dann orthografisches 2,5D mit 2–3; endliche Rezepte/Solver an realen Inputs vergleichen.
-   Erfolgreiche PNGs/Parameter/Messwerte nach `build/shots/experiments/infrastructure/{2d,2_5d}/`; öffnen, nach Budgetbeleg integrieren.
-4. Solarpunk 2050: Bauhaus/Art déco, Grünstreifen/Mittelgrün/Pflanzbereiche bei verfügbarem Raum;
-   im Querschnitt reservieren, Vegetation berücksichtigt Fahrwege/Sicht/Freiraum. Decks dürfen stützenfrei wirken.
+2342 → 2343 → 2344 → 2345 liefern Graph, ebene Bauteile, Profile und Ebenenrezepte.
+2343 liefert den fehlenden gemeinsamen Bauteilplan samt vollständigen Ports für die native Integration;
+Höhen/Ebenen ergänzen ihn später. Jeder native Schritt braucht einen sichtbaren Place-Gewinn.
+OSM/DEM geben Verteilung und Bezug, keine unveränderlichen Baupläne. Plausibilität, Ästhetik,
+Funktion und Kosten entscheiden; der Solver wählt irgendeine gültige kohärente Interpretation.
+Feste Budgets, wenige Rezepte und lokale Reparaturen begrenzen die Arbeit. Nicht verwendete
+Quellen mit ID/Grund erhalten; Anzahl/Netzlänge/Fläche des verwendeten Anteils ausweisen.
+Unlösbare eigene Bedingungen erfordern ein anderes Rezept, neue Lage oder begrenzte Auslassung.
+Der Versuch mit festen 10-m-Höhenzellen ist als Verkehrsflächenmodell verworfen:
+Rasterecken erzeugten künstliche Anschlüsse/Freiraumkonflikte. Vektorgraph und echte Bauteilports entscheiden.
+Keine native Gate-Arbeit während der Verfahrenssuche; erfolgreiche Python-Schritte zuerst liefern.
 
 ## 2D-Plan und Ebenen
 - OSM-Adapter normalisiert gelieferte Klassen, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene;
   world/navigation hält das native logische Netz. generators/road besitzt Profile/Geometrie.
   Terrain konsumiert Kontakte. Bedarf: 2336; Produkte/Cache: 2280; Gebäude: 2173; Pegel: 2145.
-- Geografisch stabile GeoCellId-Zellen partitionieren/indexieren Vektorpläne; Straßenachsen bleiben
-  kontinuierlich. Gemeinsame Randports:
+- Geografisch stabile GeoCellId-Zellen indexieren Vektorpläne; Straßenachsen bleiben kontinuierlich. Gemeinsame Randports:
   Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer; räumlicher Regelprüfer repariert nur Konfliktnachbarn.
   Brücken-/Rampeneinheiten dürfen Zellgrenzen überspannen; ihre gekoppelten Profile gemeinsam lösen.
   Zellen indexieren Teile des gemeinsamen Plans, Nachbarn übernehmen dieselben Randwerte.
@@ -68,13 +69,14 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
 
 ## Profile und konstruktive Anschlüsse
 - Bauteilplan vor Mesh: 2D-Topologie/Ebenen lösen, endliche Rezepte mit benannten Ports einsetzen.
-  Gemeinsame Flächen-/Randunterteilung vor Triangulierung; Profilgrenzen erhalten, Mesh bestimmt Höhenbedingungen. Komplexe Knoten/Brücken
-  formstabil positionieren; verbindende Alignments begrenzt anpassen.
+  Gemeinsame Vierpunkt-Querschnitte einschließlich Schultern/Bord: Straße und Knoten speichern
+  dieselben Positionen/Normalen; beschränkte Triangulierung erhält die Randstützpunkte. Komplexe Knoten/Brücken
+  formstabil positionieren; überlappende kurze Knoten zu einem Bauteil vereinigen, statt Ports nach innen zu kürzen.
   Verletzte Krümmung/Steigung/Freiraum erfordert mehr Übergangsraum, neue Lage oder anderes Rezept.
   Wiener/Zürcher Inputs: Ebenen bei gleicher Netzgröße variieren, Port-/Konfliktkopplung separat;
   Solverzeit/Speicher samt Wachstum messen; drei lokale Ebenen sind Hypothese, keine Budgetfreigabe.
 - Fehlendes Rezept: Bauform auf ein vorhandenes vereinfachen; Verkehrsverbindungen, erforderliche
-  Ebenentrennung und Freiräume erhalten. Keine verlorenen Wege oder versteckten Kreuzungen.
+  Ebenentrennung und Freiräume erhalten. Nicht lösbare lokale Bauteile mit betroffenen Quell-IDs ausweisen.
 - Ein Alignment je Kette; Fahrbahn, Schultern, Bord/Gehweg, Knoten und Kollision daraus ableiten.
   Gemeinsame Endposition/Höhe/Tangente; gesamte Längs-/Querneigung klassenabhängig begrenzen.
   Rampen behalten beide Höhen; Endkürzungen gemeinsam begrenzen. Höhen/Neigungen gemeinsam lösen.
@@ -89,7 +91,6 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
   Keine Übermalung; RoadAlignmentBuilder verweigert Brücke/Tunnel bis zum Struktursolver. Ebenerdige Bänder nur obere Fläche, Decks auch unten/seitlich.
 - Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene. Unabhängiges
   Millimeterrunden darf schmale Dreiecke nicht kippen; Seiten nutzen Kantennormalen.
-
 ## Terrainkontakt
 - Regionale Profile/Anschlüsse und Gebäudekontakte zuerst, finales Terrain darunter, Vegetation zuletzt.
   Grobes DEM liefert Bezug; feines Relief verschiebt geplante Anschlüsse nicht. Keine globale serielle Baufolge.
@@ -110,11 +111,10 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
 ## Verfahren und Abnahme
 [Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf): Graph vor Geometrie; [Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf): Profile, Bauwerke, Terrainkontakte.
 [SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes; keine Vermessungstreue.
-[2D-Kacheln](../test/experiments/infrastructure_tiles.py): Feldkirchs 19.230 Abschnitte → 20.094 Teile/133 ENU-Kacheln bei 256 m; Bedarf: 2.711 statt 19.230 Kandidaten, 1.294 gleiche Treffer. Geografischer/native Vertrag offen.
 [Kern-/Rampenrezepte](../test/experiments/infrastructure_recipes.py), [gemeinsame Ports](../test/experiments/infrastructure_ported_junction.py): Flächen vor Mesh; feste Außenhöhen, starre Kerne/quintische Ansätze, Flächenneigung/Freiraum, LP-Vergleich.
-Topologische Unter-/Zielhüllen liefern lokalen Minimaxbedarf direkt in O(V+E); Gesamtgraph, horizontale Krümmung und gemeinsame native Randunterteilung offen.
 [Höhenplanung](../test/experiments/road_profile_envelopes.py), [Landekern](../test/experiments/road_landing_topology.py): native Höhenränder/Portoffsets, Schnittvorrang, Höhenbindung/kurze Anschlüsse; kein vollständiger C1-/Breitenbeweis.
 [Übergänge](../test/experiments/earthwork_transition.py), [Freiraum](../test/experiments/clearance_aprons.py), [Kreuzungsflächen](../test/experiments/road_junction_coverage.py), [Rasterkontakt](../test/experiments/road_terrain_contact.py): echte Inputs, gleiche Qualität.
 Durchgehende reale Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände oder unbefahrbare Profile.
-Auch ohne Terrain/Gebäude lückenlos; 2D-Review zeigt Tunnel gestrichelt, Brücken blau, Ebenen separat. Quellenabdeckung, Netzfunktion, Bild/Kosten prüfen.
+Verwendetes Netz auch ohne Terrain/Gebäude lückenlos; 2D-Review zeigt Tunnel gestrichelt,
+Brücken blau, Ebenen separat. Nicht verwendete Quellen/Gründe, Netzfunktion, Bild/Kosten prüfen.
 Nahbewegung/Rundumdrehung; Straßenqualität und Tokyo/Central Park erhalten. Place-PNGs zeigen Gewinn im selben Profilbudget; kritische Fehler bleiben rot.
