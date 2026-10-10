@@ -35,8 +35,8 @@ namespace outshine::Render {
 
 void SceneRenderer::SetContentSelection(const ContentSelection &selection) {
   auto &content = ActiveState().Content;
-  content.Subjects.Ground().SetDrawEnabled(selection.Terrain);
-  content.Glass.Ground().SetDrawEnabled(selection.Terrain);
+  content.Subjects.Ground().SetDrawEnabled(selection.HeightLattice);
+  content.Glass.Ground().SetDrawEnabled(selection.HeightLattice);
   content.Subjects.SetPiecesVisible(selection.Instances);
   content.Glass.SetPiecesVisible(selection.Instances);
 }

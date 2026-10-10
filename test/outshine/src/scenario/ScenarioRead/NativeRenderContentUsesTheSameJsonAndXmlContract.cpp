@@ -14,7 +14,7 @@ int main() {
   Scenario::Document scene;
   std::string error;
   CHECK(ReadScenario(input.data(), input.size(), scene, error), error.c_str());
-  CHECK(!scene.Render.Content.Terrain && !scene.Render.Content.Instances &&
+  CHECK(!scene.Render.Content.HeightLattice && !scene.Render.Content.Instances &&
             scene.Render.Content.MeshParts ==
                 std::vector<std::string>({"streets", "rail&platform"}),
         "JSON selects native products with the same validated XML fields");
@@ -30,7 +30,7 @@ int main() {
   CHECK(patched.has_value(), "generic scenario overrides can clear native part selection");
   if (patched) {
     CHECK(ReadScenario(patched->data(), patched->size(), copy, error) &&
-              copy.Render.Content.Terrain && !copy.Render.Content.Instances &&
+              copy.Render.Content.HeightLattice && !copy.Render.Content.Instances &&
               copy.Render.Content.MeshParts.empty(),
           "an explicit empty part array restores all mesh parts while preserving other fields");
   }

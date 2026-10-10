@@ -26,14 +26,14 @@ struct ImageRegion {
 
 /// Render selection; source acquisition, native assets and simulation remain active.
 /// An empty MeshParts list draws every named or unnamed base mesh part. Otherwise only
-/// exact part names are drawn. Terrain selects the native terrain lattice; Instances
+/// exact part names are drawn. HeightLattice selects sampled height geometry; Instances
 /// selects separately placed mesh pieces. Mutation requires exclusive access.
 struct ContentSelection {
   std::vector<std::string> MeshParts; ///< Exact native part names; strings are owned.
-  bool Terrain = true;                ///< Draw the terrain lattice while retaining height inputs.
+  bool HeightLattice = true;          ///< Draw sampled height geometry while retaining its inputs.
   bool Instances = true;              ///< Draw separately placed mesh pieces.
 
-  /// Compare every selection field; no allocation or IO.
+  /// @return Whether every selection field matches; no allocation or IO.
   [[nodiscard]] bool operator==(const ContentSelection &) const noexcept = default;
 };
 

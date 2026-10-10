@@ -17,7 +17,7 @@ int main() {
   Scenario::Document source;
   std::string error;
   CHECK(ReadScenario(input.data(), input.size(), source, error), error.c_str());
-  CHECK(!source.Render.Content.Terrain && !source.Render.Content.Instances &&
+  CHECK(!source.Render.Content.HeightLattice && !source.Render.Content.Instances &&
             source.Render.Content.MeshParts ==
                 std::vector<std::string>({"streets", "rail&platform"}),
         "native content selection is independent of render passes");

@@ -361,7 +361,7 @@ void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
   if (Declares(from, "output")) { into.Render.Outputs.clear(); }
   if (Declares(from, "stage")) { into.Render.Stages.clear(); }
   if (Declares(from, "meshPart")) { into.Render.Content.MeshParts.clear(); }
-  into.Render.Content.Terrain = from.Flag("terrain", into.Render.Content.Terrain);
+  into.Render.Content.HeightLattice = from.Flag("terrain", into.Render.Content.HeightLattice);
   into.Render.Content.Instances = from.Flag("instances", into.Render.Content.Instances);
   into.Render.Frame.WidthPx = static_cast<int>(from.Int("widthPx", into.Render.Frame.WidthPx));
   into.Render.Frame.HeightPx = static_cast<int>(from.Int("heightPx", into.Render.Frame.HeightPx));

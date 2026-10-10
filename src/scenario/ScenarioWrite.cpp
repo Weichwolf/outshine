@@ -568,7 +568,7 @@ void WriteIdentity(std::string &said, const Scenario::Identity &identity) {
 void WriteRender(std::string &said, const Render::Configuration &render) {
   if (!render.Declared) { return; }
   said += "  <render";
-  Yes(said, "terrain", render.Content.Terrain);
+  Yes(said, "terrain", render.Content.HeightLattice);
   Yes(said, "instances", render.Content.Instances);
   Number(said, "widthPx", render.Frame.WidthPx);
   Number(said, "heightPx", render.Frame.HeightPx);
