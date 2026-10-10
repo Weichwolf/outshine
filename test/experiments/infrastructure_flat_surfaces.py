@@ -8,6 +8,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 
 from geos_triangulation import triangles_of
+from infrastructure_flat_corners import rounded_plan
 from infrastructure_network_plan import boundary_segments
 
 
@@ -44,11 +45,16 @@ def load_graphs(path,report):
     return graphs
 
 
-def physical_plan(graphs,precision,junction_mode):
+def physical_plan(graphs,precision,junction_mode,corner_radius=0,arc_error=.025):
     lines = np.concatenate([g['lines'] for g in graphs])
     half = np.concatenate([g['half_widths'] for g in graphs])
     bands = shapely.buffer(lines,half,quad_segs=2,cap_style='round',join_style='round')
     complete = shapely.set_precision(shapely.set_precision(shapely.union_all(bands),precision),0)
+    curve = {}
+    original = None
+    if corner_radius>0:
+        original = shapely.get_coordinates(boundary_segments(complete)).reshape(-1,2,2)
+        complete,curve = rounded_plan(complete,corner_radius,arc_error)
     points,radii = junction_seeds(graphs,junction_mode)
     seeds = shapely.buffer(shapely.points(points),radii,quad_segs=4)
     junctions = complete.intersection(shapely.union_all(seeds))
@@ -63,7 +69,7 @@ def physical_plan(graphs,precision,junction_mode):
     coverage = abs(float(shapely.area(parts).sum())-complete.area)
     if coverage>max(1e-7,complete.area*1e-12):
         raise ValueError('module partition lost or duplicated area')
-    return complete,parts,roles
+    return complete,parts,roles,curve,original
 
 
 def shared_mesh(complete,parts,roles,precision):
@@ -130,12 +136,16 @@ def shared_mesh(complete,parts,roles,precision):
                 maximum_boundary_error_m=float(error))
 
 
-def solve(graphs,precision=.001,junction_mode='all'):
+def solve(graphs,precision=.001,junction_mode='all',corner_radius=0,arc_error=.025):
     began = time.perf_counter()
-    complete,parts,roles = physical_plan(graphs,precision,junction_mode)
+    complete,parts,roles,curve,original = physical_plan(graphs,precision,junction_mode,corner_radius,arc_error)
     plan_ms = (time.perf_counter()-began)*1000
     began = time.perf_counter()
     product,report = shared_mesh(complete,parts,roles,precision)
+    if original is not None:
+        product['original_boundary'] = original
+    if curve:
+        report['curbs'] = curve
     report.update(plan_ms=plan_ms,mesh_and_audit_ms=(time.perf_counter()-began)*1000,junction_mode=junction_mode,
                   scope='Flat shared surfaces only; smooth driving curves, heights and collision delivery remain open.')
     return product,report

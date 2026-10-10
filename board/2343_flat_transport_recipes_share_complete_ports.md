@@ -17,6 +17,9 @@ Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch o
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
 Fahrkurven, Verkehrsregeln, Kollisionsprodukt und Budgetgrenzen bleiben offen; gegliederte Flächen
 allein liefern noch kein plausibles fertiges Netz. Kleine Beispiele sind mit `--small` renderbar.
+[Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential,
+ohne bestehende Verkehrsfläche zu entfernen. Konflikte noch komponentenweise behandelt;
+Verfeinerungen müssen lokal ausfallen, brauchbare Fahrtrajektorien fehlen weiterhin.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
