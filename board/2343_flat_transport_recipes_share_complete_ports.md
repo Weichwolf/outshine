@@ -64,8 +64,6 @@ Hüllen: Bézier-Ableitungen begrenzen Geschwindigkeit v, Beschleunigung a und d
 über ihrem lokalen Parameter u. Positive Mindestgeschwindigkeit sichert θ'=cross(v,a)/|v|² und
 θ''=(cross(v,j)-2*θ'*dot(v,a))/|v|². Damit gilt |q''(u)| ≤ a_max+r*(|θ''|_max+|θ'|_max²).
 Linienpunkte entstehen separat nach a_max*du²/8; Karosserieprüfung erzeugt kein dichtes Linienmesh.
-[Hüllenprüfung](../test/experiments/infrastructure_swept_hull_experiment.py) vergleicht Eckbahnen,
-unabhängige numerische Integration, versteckte Löcher und enge Kurven bei festem Arbeitsbudget.
 Wege/private Zufahrten sind kein Ausweichraum. Der gemeinsame Mesh begrenzt öffentliche Motorfläche.
 Gerichtete Erreichbarkeit allein genügt nicht: bei Einbahnabschnitten muss die Kurve die
 Windungszahlen der gewählten Quellroute um Verkehrsinseln erhalten. Der Vergleich schließt
@@ -99,12 +97,14 @@ Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüll
 Nur fehlgeschlagene Fahrten ergänzen; bestehende Kurven, Straßenfläche und gemeinsame Posen bleiben fest.
 [Radiusprüfung](../test/experiments/infrastructure_window_driving_experiment.py) klassifiziert jeden berührten
 Bauteil, prüft alle angefragten öffentlichen Autofahrten bei festen Ports und bewahrt bisherige Lösungen.
+[Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
+und starke Komponenten vergleichen. Netztrennende Auslassungen zuerst; Einzelkurvenquoten genügen nicht.
 Offen: Spurzuordnung/Verkehrsregelung, feste ungültige Ports, vollständige Netze aller Modi und tragbare Kosten.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
-2. Überlappende kurze Knoten zu einem Bauteil vereinigen; Außenports gemeinsam speichern.
-   Kurven bei zu engem Radius vereinfachen/verschieben, dann messen; ungelöste lokale Teile ausweisen.
+2. Kurze überlappende Fahrknoten gemeinsam lösen; kilometerlange Mesh-Bauteile sind keine Fahrkurvenrezepte.
+   Lange Fahrten aus wiederverwendeten lokalen Stücken aufbauen; gemeinsame Posen/Hüllen/Richtung erhalten.
 3. Mesh, Kontakt und Kollision aus demselben Bauteilplan; Fläche einmal besitzen und triangulieren.
 4. Kleine Fälle, dann alle verwendeten Bauteile der Wiener/Zürcher/Basler Fenster rendern und öffnen.
 5. Weltweit hunderte bis tausende Beispiele nach Topologie, Klassen und gelieferten Tags untersuchen.
