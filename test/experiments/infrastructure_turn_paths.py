@@ -44,7 +44,7 @@ def clearance_turns(node,begin,end,surface,profile='G2',minimum_radius=4.,half_w
         tube = shapely.buffer(path,(half_width+error)/np.cos(np.pi/32),quad_segs=8)
         inside = bool(shapely.covers(surface,tube))
         body = None
-        if vehicle is not None:
+        if vehicle is not None and inside:
             body,_ = turn_body_check(surface,local,begin,end,profile,vehicle,error)
             inside &= body['fits_surface']
         paths.append(path)

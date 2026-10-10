@@ -47,6 +47,10 @@ Links-/Rechtsfällen; Quellfahrspuren, gekrümmte Zufahrten und Knotenverkehr bl
 Richtung/Zugänge auf die tatsächlichen gemeinsamen Querschnitte. Getrennte Anschlüsse derselben
 Bauteile und mehrfache Achsenkreuzungen bleiben getrennt. Schmale Zweirichtungsstrecken teilen
 eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Vollständige Fahrkurven bleiben offen.
+[Reale Fahrkurven](../test/experiments/infrastructure_junction_turn_experiment.py) prüfen gerichtete
+Verbindungen innerhalb des Bauteils und die Karosserie auf öffentlicher Motorfläche im gemeinsamen
+Mesh. Wege/private Zufahrten sind kein Ausweichraum. Einfache Knoten funktionieren; Kreisverkehr,
+versetzte S-Kurven und Verbindungen durch zusammengesetzte Knoten brauchen weitere Rezepte.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
 
 ## Umsetzung und Abnahme

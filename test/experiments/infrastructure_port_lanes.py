@@ -74,7 +74,9 @@ def crossing_lane_poses(graph,edge,crossing,port,shape,flags,vehicle,traffic_sid
             unused.append('lane_outside_port')
             continue
         poses.append(dict(position=shifted,heading=heading,incoming=positive if column==0 else not positive,
-                          edge=int(edge),corridor=port['corridor'],section=port['section'],shared_lane=shared_lane))
+                          edge=int(edge),direction=1 if column==0 else -1,
+                          station=float(graph['lines'][edge].project(crossing)),
+                          corridor=port['corridor'],section=port['section'],shared_lane=shared_lane))
     return poses,unused
 
 
