@@ -7,11 +7,13 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 
 
-def port_sections(product,tolerance=1e-5):
-    began = time.perf_counter()
+def shared_port_sections(product,tolerance=1e-5):
     edges,parts = product['port_edges'],np.sort(product['port_parts'],axis=1)
     if not len(edges):
-        return dict(sections=0,straight_sections=0,invalid_sections=0),np.empty((0,2))
+        return dict(parts=np.empty((0,2),dtype=int),begin=np.empty((0,2)),end=np.empty((0,2)),
+                    valid=np.empty(0,dtype=bool),open_path=np.empty(0,dtype=bool),
+                    degree=np.empty(0,dtype=int),deviation=np.empty(0),wrong_role=np.empty(0,dtype=bool),
+                    centres=np.empty((0,2)))
     keys = np.c_[np.repeat(parts,2,axis=0),edges.ravel()]
     nodes,labels = np.unique(keys,axis=0,return_inverse=True)
     pair = labels.reshape(-1,2)
@@ -42,8 +44,21 @@ def port_sections(product,tolerance=1e-5):
     centres = np.zeros((count,2))
     np.add.at(centres,components,xy)
     centres /= np.bincount(components,minlength=count)[:,None]
+    representatives = np.full(count,len(nodes),dtype=int)
+    np.minimum.at(representatives,components,np.arange(len(nodes)))
+    return dict(parts=nodes[representatives,:2],begin=origin,end=origin+direction*length[:,None],
+                valid=valid,open_path=open_path,degree=degree,deviation=deviation,
+                wrong_role=wrong_role,centres=centres)
+
+
+def port_sections(product,tolerance=1e-5):
+    began = time.perf_counter()
+    geometry = shared_port_sections(product,tolerance)
+    valid,open_path = geometry['valid'],geometry['open_path']
+    degree,deviation,wrong_role = (geometry[key] for key in ('degree','deviation','wrong_role'))
+    count = len(valid)
     return dict(sections=count,straight_sections=int(valid.sum()),invalid_sections=int((~valid).sum()),
                 closed_or_branching_sections=int((~open_path|(degree>2)).sum()),
                 curved_open_sections=int((open_path&(deviation>tolerance)).sum()),
                 wrong_module_roles=int(wrong_role.sum()),maximum_line_deviation_m=float(deviation[open_path].max(initial=0)),
-                straight_tolerance_m=tolerance,audit_ms=(time.perf_counter()-began)*1000),centres[~valid]
+                straight_tolerance_m=tolerance,audit_ms=(time.perf_counter()-began)*1000),geometry['centres'][~valid]

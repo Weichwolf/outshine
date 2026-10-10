@@ -43,6 +43,10 @@ Fahrspuren und gekrümmte/asymmetrische Zufahrten auf realen Bauteilen weiter l�
 zwischen den Klothoiden. Endlich viele Übergangslängen erlauben engere versetzte Rechtskurven
 bei weiterhin stetiger Krümmung. Konstruktion und Fahrzeughülle bestehen auf kleinen
 Links-/Rechtsfällen; Quellfahrspuren, gekrümmte Zufahrten und Knotenverkehr bleiben offen.
+[Port-Fahrspuren](../test/experiments/infrastructure_port_lane_experiment.py) übernehmen öffentliche
+Richtung/Zugänge auf die tatsächlichen gemeinsamen Querschnitte. Getrennte Anschlüsse derselben
+Bauteile und mehrfache Achsenkreuzungen bleiben getrennt. Schmale Zweirichtungsstrecken teilen
+eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Vollständige Fahrkurven bleiben offen.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
 
 ## Umsetzung und Abnahme

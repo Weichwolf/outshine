@@ -32,8 +32,13 @@ def load_graphs(path,report):
         owners = data[f'{i}_owner_sources']
         cuts = data[f'{i}_owner_offsets']
         half = np.maximum.reduceat(data['source_widths'][owners],cuts[:-1])*.5
-        graphs.append(dict(vertices=data[f'{i}_vertices'],edges=data[f'{i}_edges'],
-                           lines=lines,half_widths=half,tier=stats['tier']))
+        graph = dict(vertices=data[f'{i}_vertices'],edges=data[f'{i}_edges'],
+                     lines=lines,half_widths=half,tier=stats['tier'])
+        for key in ('travel_public','travel_restricted'):
+            if f'{i}_{key}' in data:
+                graph[key] = data[f'{i}_{key}']
+        graphs.append(graph)
+    data.close()
     return graphs
 
 
