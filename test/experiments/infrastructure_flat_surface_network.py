@@ -35,8 +35,8 @@ def render(path,place,product,view):
     plt.close(fig)
 
 
-def store(output,place,graphs,precision,view,source):
-    product,report = solve(graphs,precision)
+def store(output,place,graphs,precision,view,source,junction_mode):
+    product,report = solve(graphs,precision,junction_mode)
     image = output/'2d'/f'{place}-flat-surfaces.png'
     render(image,place,product,view)
     report.update(place=place,precision_m=precision,image=str(image),**source)
@@ -49,7 +49,7 @@ def store(output,place,graphs,precision,view,source):
     print(json.dumps({k:v for k,v in report.items() if k!='implementation_sha256'}))
 
 
-def small_cases(output,precision):
+def small_cases(output,precision,junction_mode):
     recipes = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())
     for name,roads in examples().items():
         accepted,graphs,usage = plan(roads,recipes,{},precision)
@@ -58,7 +58,7 @@ def small_cases(output,precision):
             graph['half_widths'] = np.maximum.reduceat(widths[graph['owner_sources']],
                                                        graph['owner_offsets'][:-1])*.5
         assert not usage['states'].get('not_used',0),(name,usage['reasons'])
-        store(output,name,list(graphs.values()),precision,35,dict(source_fixture=name))
+        store(output,name,list(graphs.values()),precision,35,dict(source_fixture=name),junction_mode)
 
 
 def main():
@@ -66,6 +66,7 @@ def main():
     parser.add_argument('--input',type=Path)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--small',action='store_true')
+    parser.add_argument('--junction-mode',choices=('all','branch'),default='all')
     parser.add_argument('--precision',type=float,default=.001)
     parser.add_argument('--view',type=float,default=600)
     parser.add_argument('places',nargs='*')
@@ -74,14 +75,15 @@ def main():
         parser.error('supply --small or --input and places')
     args.output.mkdir(parents=True,exist_ok=True)
     if args.small:
-        small_cases(args.output,args.precision)
+        small_cases(args.output,args.precision,args.junction_mode)
     for place in args.places:
         source_plan = args.input/f'{place}-flat-network.json'
         graph_path = args.input/f'{place}-flat-network.npz'
         previous = json.loads(source_plan.read_text())
         graphs = load_graphs(graph_path,previous)
         store(args.output,place,graphs,args.precision,args.view,
-              dict(source_plan=str(source_plan),source_graph_sha256=hashlib.sha256(graph_path.read_bytes()).hexdigest()))
+              dict(source_plan=str(source_plan),source_graph_sha256=hashlib.sha256(graph_path.read_bytes()).hexdigest()),
+              args.junction_mode)
 
 
 if __name__=='__main__':

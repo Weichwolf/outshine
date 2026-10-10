@@ -11,16 +11,19 @@ from geos_triangulation import triangles_of
 from infrastructure_network_plan import boundary_segments
 
 
-def junction_seeds(graphs):
+def junction_seeds(graphs,mode):
     points,radii = [],[]
     for graph in graphs:
         edges,vertices = graph['edges'],graph['vertices']
         half = graph['half_widths']
         degree = np.bincount(edges.ravel(),minlength=len(vertices))
         radius = np.zeros(len(vertices))
+        minimum = np.full(len(vertices),np.inf)
         np.maximum.at(radius,edges[:,0],half)
         np.maximum.at(radius,edges[:,1],half)
-        selected = degree>=2
+        np.minimum.at(minimum,edges[:,0],half)
+        np.minimum.at(minimum,edges[:,1],half)
+        selected = degree>=2 if mode=='all' else (degree>=3)|((degree==2)&(radius-minimum>1e-7))
         points.extend(vertices[selected])
         radii.extend(radius[selected]*1.5)
     return np.asarray(points).reshape(-1,2),np.asarray(radii)
@@ -41,12 +44,12 @@ def load_graphs(path,report):
     return graphs
 
 
-def physical_plan(graphs,precision):
+def physical_plan(graphs,precision,junction_mode):
     lines = np.concatenate([g['lines'] for g in graphs])
     half = np.concatenate([g['half_widths'] for g in graphs])
     bands = shapely.buffer(lines,half,quad_segs=2,cap_style='round',join_style='round')
     complete = shapely.set_precision(shapely.set_precision(shapely.union_all(bands),precision),0)
-    points,radii = junction_seeds(graphs)
+    points,radii = junction_seeds(graphs,junction_mode)
     seeds = shapely.buffer(shapely.points(points),radii,quad_segs=4)
     junctions = complete.intersection(shapely.union_all(seeds))
     corridors = complete.difference(junctions)
@@ -91,12 +94,13 @@ def shared_mesh(complete,parts,roles,precision):
     indices[signed<0] = indices[signed<0][:,[0,2,1]]
     area = np.abs(signed)
     centres = shapely.points(xy.mean(axis=1))
-    pairs = shapely.STRtree(parts).query(centres,predicate='within')
-    counts = np.bincount(pairs[0],minlength=len(indices))
+    shapely.prepare(parts)
+    pairs = shapely.STRtree(centres).query(parts,predicate='contains')
+    counts = np.bincount(pairs[1],minlength=len(indices))
     if np.any(counts!=1):
         raise ValueError('mesh face has ambiguous module ownership')
     owners = np.empty(len(indices),dtype=int)
-    owners[pairs[0]] = pairs[1]
+    owners[pairs[1]] = pairs[0]
     edges = np.r_[indices[:,[0,1]],indices[:,[1,2]],indices[:,[2,0]]]
     faces = np.tile(np.arange(len(indices)),3)
     unique,labels,counts = np.unique(np.sort(edges,axis=1),axis=0,return_inverse=True,return_counts=True)
@@ -126,12 +130,12 @@ def shared_mesh(complete,parts,roles,precision):
                 maximum_boundary_error_m=float(error))
 
 
-def solve(graphs,precision=.001):
+def solve(graphs,precision=.001,junction_mode='all'):
     began = time.perf_counter()
-    complete,parts,roles = physical_plan(graphs,precision)
+    complete,parts,roles = physical_plan(graphs,precision,junction_mode)
     plan_ms = (time.perf_counter()-began)*1000
     began = time.perf_counter()
     product,report = shared_mesh(complete,parts,roles,precision)
-    report.update(plan_ms=plan_ms,mesh_and_audit_ms=(time.perf_counter()-began)*1000,
+    report.update(plan_ms=plan_ms,mesh_and_audit_ms=(time.perf_counter()-began)*1000,junction_mode=junction_mode,
                   scope='Flat shared surfaces only; smooth driving curves, heights and collision delivery remain open.')
     return product,report
