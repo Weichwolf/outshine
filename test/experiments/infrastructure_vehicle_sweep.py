@@ -29,10 +29,27 @@ def sweep_check(surface,positions,headings,maximum_curvature,maximum_station_ste
                 sampled_poses=len(positions),sweep_deviation_bound_m=float(deviation)),outlines
 
 
+def straight_body_check(surface,begin,end,heading,vehicle,error=.025):
+    positions = np.array([begin,end])
+    outlines = body_outlines(positions,np.full(2,heading),vehicle['widthM']*.5,
+                            vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
+    prism = shapely.convex_hull(shapely.MultiPoint(outlines.reshape(-1,2)))
+    envelope = shapely.buffer(prism,error/np.cos(np.pi/32),quad_segs=8)
+    shapely.prepare(surface)
+    inside = shapely.covers(surface,envelope)
+    sampled = shapely.covers(surface,shapely.polygons(outlines))
+    return dict(fits_surface=bool(inside),outside_poses=int(np.count_nonzero(~sampled)),
+                sampled_poses=2,sweep_deviation_bound_m=float(error),method='exact_prismatic_sweep'),outlines
+
+
 def turn_body_check(surface,fit,begin,end,profile,vehicle,error=.025,maximum_poses=4096):
+    if maximum_poses<2:
+        return dict(fits_surface=False,reason='vehicle_sweep_budget_exhausted'),None
     half_width = vehicle['widthM']*.5
     front,rear = vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']
     curvature,length = float(fit['maximum_curvature_per_m'][0]),float(fit['length_m'][0])
+    if curvature==0:
+        return straight_body_check(surface,begin,end,float(fit['start_heading'][0]),vehicle,error)
     radius = np.hypot(max(front,rear),half_width)
     spacing = 2*error/(1+curvature*radius)
     before,after = np.linalg.norm(fit['start'][0]-begin),np.linalg.norm(end-fit['end'][0])

@@ -13,9 +13,10 @@ import shapely
 
 from infrastructure_flat_surfaces import load_graphs
 from infrastructure_port_lanes import junction_interfaces,junction_shape,lane_poses,module_face_index
-from infrastructure_junction_routes import allowed_connections
+from infrastructure_junction_routes import directed_junction_routes
 from infrastructure_junction_surfaces import mesh_surface_index,motor_surface
 from infrastructure_junction_turns import connect_lanes
+from infrastructure_route_turns import source_route_connector
 from infrastructure_building_clearance import plot_geometry
 
 
@@ -28,8 +29,9 @@ def verify_small(vehicle):
              enumerate(([[-5,-3],[-5,3]],[[5,-3],[5,3]],[[-3,5],[3,5]]))]
     shape,tree = shapely.box(-5,-5,5,5),shapely.STRtree(graph['lines'])
     poses,unused = lane_poses(graph,ports,shape,vehicle,tree=tree)
-    connections,_ = allowed_connections(graph,poses,shape,tree)
-    assert len(poses)==2 and not unused and connections==[(0,1)]
+    routes,_ = directed_junction_routes(graph,poses,shape,tree)
+    assert len(poses)==2 and not unused and list(routes)==[(0,1)]
+    assert np.array_equal(shapely.get_coordinates(routes[0,1])[[0,-1]],np.array([[-5,0],[5,0]]))
     physical = np.array([shapely.box(-12,-3,12,3),shapely.box(-3,-3,3,12)],dtype=object)
     floor = motor_surface(shape,graph,tree,(physical,shapely.STRtree(physical)),vehicle)
     assert not shapely.covers(floor,shapely.Point(0,7)),'a walk-only branch is not a motor turning area'
@@ -59,18 +61,24 @@ def selected_junctions(product,graph,tree,ports,faces,vehicle,limit):
 
 def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs):
     began = time.perf_counter()
-    connections,excluded = allowed_connections(graph,poses,shape,tree)
+    routes,excluded = directed_junction_routes(graph,poses,shape,tree)
     surface = motor_surface(shape,graph,tree,mesh,vehicle,curbs['corner_radius_m'],curbs['arc_error_m'])
     surface_ms = (time.perf_counter()-began)*1000
     results,paths = [],[]
-    for entry,exit in connections:
+    for entry,exit in routes:
         started = time.perf_counter()
         path,report = connect_lanes(poses[entry],poses[exit],surface,vehicle,curbs['arc_error_m'])
+        if path is None:
+            trial,note = source_route_connector(poses[entry],poses[exit],routes[entry,exit],surface,vehicle,curbs['arc_error_m'])
+            if trial is not None:
+                path,report = trial,note
+            else:
+                report['route_reason'] = note['reason']
         report.update(entry=entry,exit=exit,accepted=path is not None,solve_ms=(time.perf_counter()-started)*1000)
         results.append(report)
         paths.append(path)
     reasons = Counter(r['reason'] for r in results if not r['accepted'])
-    report = dict(module=module,ports=len(set(p['section'] for p in poses)),connections=len(connections),
+    report = dict(module=module,ports=len(set(p['section'] for p in poses)),connections=len(routes),
                   accepted=sum(r['accepted'] for r in results),reasons=dict(reasons),
                   excluded=excluded,unused_ports=unused,surface_ms=surface_ms,
                   total_ms=(time.perf_counter()-began)*1000,turns=results)
@@ -155,7 +163,8 @@ def main():
                   scope='Selected actual level-zero junctions; complete windows, asymmetric curves and traffic control remain open.')
     names = ('infrastructure_port_lanes.py','infrastructure_flat_ports.py','infrastructure_junction_routes.py',
              'infrastructure_junction_surfaces.py','infrastructure_junction_turns.py','infrastructure_turn_paths.py',
-             'infrastructure_vehicle_sweep.py','infrastructure_clothoid_turns.py','infrastructure_curvature_paths.py')
+             'infrastructure_vehicle_sweep.py','infrastructure_clothoid_turns.py','infrastructure_curvature_paths.py',
+             'infrastructure_route_turns.py')
     report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
                                       (Path(__file__),configuration,*(Path(__file__).with_name(n) for n in names))}
     args.output.mkdir(parents=True,exist_ok=True)
