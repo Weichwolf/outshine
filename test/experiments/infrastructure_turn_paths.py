@@ -8,7 +8,8 @@ from infrastructure_clothoid_turns import fit_symmetric_turns,sample_symmetric_t
 from infrastructure_vehicle_sweep import turn_body_check
 
 
-def clearance_turns(node,begin,end,surface,profile='G2',minimum_radius=4.,half_width=.9,error=.025,vehicle=None):
+def clearance_turns(node,begin,end,surface,profile='G2',minimum_radius=4.,half_width=.9,error=.025,
+                    vehicle=None,transition_fraction=.5):
     if vehicle is not None:
         minimum_radius,half_width = vehicle['minimumRearAxleRadiusM'],vehicle['widthM']*.5
     if minimum_radius<=0 or half_width<=0 or error<=0 or profile not in ('G1','G2'):
@@ -24,7 +25,7 @@ def clearance_turns(node,begin,end,surface,profile='G2',minimum_radius=4.,half_w
     initial = np.full(len(factors),np.arctan2(incoming[1],incoming[0]))
     final = np.full(len(factors),np.arctan2(outgoing[1],outgoing[0]))
     fit = (fit_clothoids(start,finish,initial,final) if profile=='G1' else
-           fit_symmetric_turns(node,trim,initial,final))
+           fit_symmetric_turns(node,trim,initial,final,transition_fraction=transition_fraction))
     curvature = fit['maximum_curvature_per_m']
     eligible = fit['valid']&(curvature*minimum_radius<=1+1e-12)
     steps = np.ceil(fit['length_m']*np.sqrt(curvature/(8*error))).astype(int)
@@ -48,6 +49,7 @@ def clearance_turns(node,begin,end,surface,profile='G2',minimum_radius=4.,half_w
             inside &= body['fits_surface']
         paths.append(path)
         reports.append(dict(profile=profile,factor=float(factors[index]),fits_surface=inside,
+                            transition_fraction=transition_fraction if profile=='G2' else None,
                             minimum_radius_m=float(1/curvature[index]) if curvature[index]>0 else None,
                             length_m=path.length,arc_segments=int(steps[index]),vehicle_sweep=body,
                             closure_error_m=float(fit['closure_error_m'][index]),

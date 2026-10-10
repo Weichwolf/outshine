@@ -39,6 +39,10 @@ Karosserie samt geraden Zu-/Abfahrten. Für Körperradius r und maximale Krümmu
 jeder Körperpunkt höchstens (1+k*r)*ds; diese Grenze sichert die Zwischenräume der Abtastung.
 Profilmaße und Kurvenradius sind parametriert; begrenzte Stichprobenarbeit verhindert Endlossuche.
 Fahrspuren und gekrümmte/asymmetrische Zufahrten auf realen Bauteilen weiter lösen.
+[Fahrspurversuch](../test/experiments/infrastructure_lane_turns.py) ergänzt einen Kreisbogen
+zwischen den Klothoiden. Endlich viele Übergangslängen erlauben engere versetzte Rechtskurven
+bei weiterhin stetiger Krümmung. Konstruktion und Fahrzeughülle bestehen auf kleinen
+Links-/Rechtsfällen; Quellfahrspuren, gekrümmte Zufahrten und Knotenverkehr bleiben offen.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
 
 ## Umsetzung und Abnahme
