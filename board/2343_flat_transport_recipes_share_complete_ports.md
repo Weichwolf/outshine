@@ -42,15 +42,19 @@ der erste gültige Kandidat liefert dasselbe Minimum wie die vollständige Kandi
 gerichtete kürzeste Wege. Ein begrenzter azyklischer Posengraph überspringt unnötige Quellknicke;
 jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.
 Höchstens 64 Ecken, drei Posen je Ecke und acht Nachfolger je Pose begrenzen die lokale Suche.
-Identische Vereinfachungen entfallen; identische Posenpaare nutzen nur bei derselben
-Prüffläche dieselbe Prüfung. Eine Untergrenze aus Segmentanzahl und Sehnenlänge verwirft aussichtslose Kandidaten.
-Es gibt keinen globalen Memo-Speicher: Fläche, Fahrzeug und Toleranz bleiben innerhalb der Suche fest.
+Identische Vereinfachungen entfallen; Posenpaare werden bei fester Fläche/Fahrzeug/Toleranz einmal
+geprüft. Eine Untergrenze aus Segmentanzahl und Sehnenlänge verwirft aussichtslose Kandidaten.
 Versetzte Portposen setzen feste Anfangs-/Endpositionen und Tangenten des Posengraphen; die
 Quellachse gibt innere Kandidaten vor. Vorwärtsrichtung bleibt verbindlich, exakte Parallelität nicht.
 Ragt eine Portkarosserie aus der Motorfläche, prüft das Rezept 61 Richtungen innerhalb ±30° und
 wählt den größten Randabstand bei unveränderter Position. Alle Verbindungen teilen diese feste
 Portausrichtung; Nachbarkorridore müssen denselben gespeicherten Rahmen übernehmen.
-Das löst einzelne Fahrten, noch keine konfliktfreien Fahrspuren.
+Statische Passung allein reicht nicht: ein gültiger Port kann die folgende Fahrkurve verhindern.
+Fehlender Vertrag: begrenzte Rahmenwahl aus dem Fahrbedarf beider Nachbarmodule. Alle Abbiegekurven
+teilen denselben gespeicherten Rahmen. Ein Kandidat muss die vollständige Karosserie tragen,
+neue Fahrten ermöglichen und jede zuvor gültige Fahrt der betroffenen Nachbarn erhalten.
+Änderungsbereich und Kandidatenzahl begrenzen; erfolglose Versuche behalten den gültigen Stand.
+Konfliktfreie Fahrspuren und die gemeinsame automatische Rahmenwahl bleiben offen.
 [Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
 maximaler Krümmung k sowie Krümmungsänderung k' gilt |q''(s)| ≤ A = k+r*(|k'|+k²).
 Analytische Kurven prüfen die konvexe Hülle zweier Endkarosserien mit Randreserve A*ds²/8.
