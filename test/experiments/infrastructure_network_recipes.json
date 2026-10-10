@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "description": "Experimental horizontal recipes. Widths describe plausible construction, not recovered survey dimensions.",
+  "axisRecipes": {
+    "corridor": {"widthFrom": "footway"},
+    "pier": {"widthFrom": "cycleway"},
+    "platform": {"widthM": 6.0},
+    "ferry": {"role": "route"}
+  },
+  "constructionSuffix": "_construction",
+  "constructionAliases": {"minor": "residential"}
+}
