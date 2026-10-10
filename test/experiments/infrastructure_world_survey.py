@@ -18,15 +18,18 @@ from infrastructure_flat_surface_network import IMPLEMENTATION_SHA256
 from infrastructure_flat_surfaces import solve
 from infrastructure_network import save_inputs,transport_widths
 from infrastructure_world_samples import site_roads,window_roads
+from infrastructure_travel import compile_travel
 
 
 def examine(transport,recipes,widths):
     began = time.perf_counter()
     cpu = resource.getrusage(resource.RUSAGE_SELF)
     accepted,graphs,usage = plan(transport,recipes,widths)
+    travel = compile_travel(accepted,graphs,recipes['travelRecipes'])
     report = dict(source_axes=len(transport),accepted_axes=len(accepted),source_states=usage['states'],
                   unused_reasons=usage['reasons'],planning_ms=usage['elapsed_ms'],
                   unused_sources=[[u['source'],u['id'],u['reason']] for u in usage['usage'] if u['status']=='not_used'])
+    report['travel'] = travel
     if not accepted:
         report.update(status='no_ground_assets',elapsed_ms=(time.perf_counter()-began)*1000)
         return report
@@ -60,12 +63,13 @@ def run(args):
     for path in [Path(__file__),Path(__file__).with_name('infrastructure_world_samples.py'),
                  Path(__file__).with_name('infrastructure_network_graph.py'),recipe_path,
                  Path(__file__).with_name('infrastructure_network.py'),
+                 Path(__file__).with_name('infrastructure_travel.py'),
                  Path(__file__).with_name('infrastructure_building_clearance.py'),
                  Path('src/assets/world/vegetation.json')]:
         implementation[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
     header = dict(inventory=str(args.inventory),inventory_sha256=hashlib.sha256(args.inventory.read_bytes()).hexdigest(),
                   implementation_sha256=implementation,sites=[s[0] for s in sites],radius_m=args.radius,
-                  sample_centres_m=centres,scope='Flat level-zero geometry only; routing, driving curves and heights remain open.')
+                  sample_centres_m=centres,scope='Flat level-zero geometry and source travel permissions; lanes, driving curves and heights remain open.')
     (args.output/'survey.json').write_text(json.dumps(header,indent=2)+'\n')
     counts,attempted = Counter(),0
     with (args.output/'results.jsonl').open('w') as output:

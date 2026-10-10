@@ -10,5 +10,18 @@
     "ferry": {"role": "route"}
   },
   "constructionSuffix": "_construction",
-  "constructionAliases": {"minor": "residential"}
+  "constructionAliases": {"minor": "residential"},
+  "travelRecipes": {
+    "motorway": ["motor"], "trunk": ["motor"],
+    "primary": ["motor", "cycle", "walk"], "secondary": ["motor", "cycle", "walk"],
+    "tertiary": ["motor", "cycle", "walk"],
+    "residential": ["motor", "cycle", "walk", "horse"],
+    "service": ["motor", "cycle", "walk", "horse"],
+    "track": ["motor", "cycle", "walk", "horse"], "busway": ["motor"],
+    "raceway": ["motor"], "path": ["cycle", "walk", "horse"],
+    "footway": ["walk"], "pedestrian": ["walk"], "steps": ["walk"],
+    "platform": ["walk"], "corridor": ["walk"], "pier": ["walk"],
+    "cycleway": ["cycle"], "bridleway": ["walk", "horse"],
+    "rail": ["rail"], "tram": ["rail"], "subway": ["rail"], "funicular": ["rail"]
+  }
 }

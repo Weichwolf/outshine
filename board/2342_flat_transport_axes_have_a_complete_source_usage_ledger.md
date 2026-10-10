@@ -22,7 +22,12 @@ Lückenlose Bauteilflächen, Kurven/Routenregeln und native Integration sind dam
 Quellen und überträgt deren Orientierung auf jede gemeinsam genodelte Kante, auch bei Ringen.
 Numerisch identische Knoten werden gemeinsam mit dem Mesh unter derselben Verschiebungsgrenze
 vereinigt; reine Rundungsreste sind keine befahrbaren Kanten. Unklare Richtungen werden gezählt.
-Geometrische Richtung ist noch keine Zugangserlaubnis; Modus/Zugang und Abbiegen weiter lösen.
+[Verkehrsprüfung](../test/experiments/infrastructure_travel_experiment.py) übersetzt gelieferte
+Richtung/Zugänge und Klassenrezepte in gerichtete Modusmasken. Spezifische Angaben überschreiben
+allgemeine Zugänge; private/beschränkte Verbindungen bleiben getrennt vom öffentlichen Netz.
+Absteigen/Seitenwegbedarf und unklare Werte werden quellbezogen ausgewiesen, nicht still geraten.
+Auto→Treppe und Rückfahrt in Einbahnrichtung sind ausgeschlossen. Fahrspuren, Abbiegeverbindungen
+und Fahrzeughüllen bleiben offen; Zugangsregeln allein beweisen keine Befahrbarkeit.
 
 ## Umsetzung in kleinen Schritten
 1. Gerade, T, X, Kurve, Sackgasse, kurzer Verbinder, knapp verfehlter Anschluss und Insel einzeln lösen.

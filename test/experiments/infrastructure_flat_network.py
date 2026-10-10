@@ -12,6 +12,7 @@ import shapely
 from infrastructure_flat_plan import plan,verify
 from infrastructure_network_graph import traffic_of
 from infrastructure_network import transport_widths
+from infrastructure_travel import compile_travel
 
 
 def render(path,place,source,accepted,graphs,view):
@@ -61,12 +62,15 @@ def main():
         transport = [dict(line=shapely.LineString(r['coordinates']),width=r['width_m'],
                           properties=r['properties']) for r in raw['roads']]
         roads,graphs,report = plan(transport,recipes,widths)
+        report['travel'] = compile_travel(roads,graphs,recipes['travelRecipes'])
         report['source'] = raw['receipt']
         report['input_sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
         report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
             (Path(__file__),Path(__file__).with_name('infrastructure_flat_plan.py'),
              Path(__file__).with_name('infrastructure_network.py'),
              Path(__file__).with_name('infrastructure_network_graph.py'),
+             Path(__file__).with_name('infrastructure_vertex_pool.py'),
+             Path(__file__).with_name('infrastructure_travel.py'),
              Path(__file__).with_name('infrastructure_network_recipes.json'))}
         if args.shots is not None:
             image = args.shots/f'{place}-flat-network.png'
@@ -76,7 +80,8 @@ def main():
         arrays = {}
         for i,graph in enumerate(graphs.values()):
             arrays.update({f'{i}_{k}':graph[k] for k in
-                           ('vertices','edges','owner_offsets','owner_sources','owner_directions')})
+                           ('vertices','edges','owner_offsets','owner_sources','owner_directions',
+                            'travel_public','travel_restricted')})
             coordinates,owners = shapely.get_coordinates(graph['lines'],return_index=True)
             arrays[f'{i}_line_coordinates'] = coordinates
             arrays[f'{i}_line_offsets'] = np.r_[0,np.cumsum(np.bincount(owners,minlength=len(graph['lines'])))]
