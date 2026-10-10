@@ -24,7 +24,9 @@ Der analytische RoadAlignment-/Surface-Pfad verlangt benannte Routen; auf densel
 
 ## Nächste Lieferung
 1. Einen realen Anschluss samt Brücke als undekoriertes, funktionales Grundmodell schließen.
-   Infrastruktur allein über Szenario rendern; Höheninputs/Kontakte/Licht bleiben aktiv.
+   Szenarien wählen native Darstellungsprodukte; Infrastruktur auch allein rendern.
+   Höheninputs/Kontakte/Licht bleiben aktiv. Die Produktauswahl in 2188 integrieren;
+   bestehende Renderstufenauswahl trennt Straßen und Gebäude noch nicht.
 2. Geografisch stabile 2D-Kacheln mit Randports und expliziten Übergängen nativ planen/speichern.
    Kettenprofile und begrenzte Bauteilrezepte daraus ableiten; kein zweiter Netzaufbau.
 3. Eigene Schienen-/Wegprofile, Bahnübergänge und gestapelte Brücken/Tunnel integrieren.
@@ -34,8 +36,11 @@ Der analytische RoadAlignment-/Surface-Pfad verlangt benannte Routen; auf densel
 - OSM-Adapter normalisiert gelieferte Klassen, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene;
   world/navigation hält das native logische Netz. generators/road besitzt Profile/Geometrie.
   Terrain konsumiert Kontakte. Bedarf: 2336; Produkte/Cache: 2280; Gebäude: 2173; Pegel: 2145.
-- Grid partitioniert/indexiert Vektorpläne, rastert keine Straßenachsen. Gemeinsame Randports:
+- Geografisch stabile GeoCellId-Zellen partitionieren/indexieren Vektorpläne; Straßenachsen bleiben
+  kontinuierlich. Gemeinsame Randports:
   Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer; nur begrenzte Nachbarbereiche.
+  Brücken-/Rampeneinheiten dürfen Zellgrenzen überspannen; ihre gekoppelten Profile gemeinsam lösen.
+  Zellen indexieren Teile des gemeinsamen Plans, Nachbarn übernehmen dieselben Randwerte.
   Explizite Übergänge verbinden Ebenen. MVT ist kein vollständiger Routinggraph.
 - Aktueller Anschlussentwurf: Positionsauflösung 1e-7 Grad; Endpunkt-Abweichungen bis 0,25 m
   nur bei gleicher Ebene/Brückenklasse vereinigen. Deckungsgleiche Boden-/Brückenenden

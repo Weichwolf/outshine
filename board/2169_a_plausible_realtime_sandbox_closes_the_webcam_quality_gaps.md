@@ -75,15 +75,11 @@ Lieferungen integriert. Gemessene Einsparungen schaffen das Wolkenbudget; keine 
 von Profil, Sichtweite, Inhaltsvollständigkeit oder Framebudget.
 
 ## Reihenfolge und Zuständigkeit
-2280 und 2336 sind aktiv: vollständiger Ladeablauf und einfache Gebäude mit Fernclustern.
-Zuerst die P0-Lade-/Bedarfsfehler aus dem Kostenreview beheben; dann Fernstadt und
-Erstframe-Spitzen. Stabile CP/Tokyo-Messfenster liegen bereits bei 2,59/3,62 ms p99;
-GPU-Passzeiten und A18-Pro-Budget bleiben offen. Ein günstiges Fenster schließt kein Gate.
-2336/2340 besitzen Repräsentation/Arbeitsauswahl; sichtbare Qualität folgt dem integrierten Gewinn.
-Aktuell hat 2281 Vorrang: Straßen, Schienen und Wege optisch und funktional schließen,
-mit selbst gewählten POIs. Danach Gebäude/Terrain; Vegetation graduell im freien Budget, Wolken zuletzt.
-2188 migriert dabei
-nur die benötigten öffentlichen Grenzen. Keine komplette SDK-Neufassung vor dem ersten Bild.
+2281 ist der aktive Featureblock: Straßen, Schienen und Wege optisch und funktional schließen,
+mit selbst gewählten POIs. 2280/2336/2340 liefern dafür Cache, Bedarf und Arbeitsauswahl;
+2188 migriert nur benötigte öffentliche Grenzen. Danach Gebäude/Terrain, Vegetation im freien
+Budget und Wolken zuletzt. GPU-Passzeiten und A18-Pro-Budget bleiben offen.
+Ein günstiges Messfenster schließt kein Gate; sichtbare Qualität folgt dem integrierten Gewinn.
 Zuerst Vorbereitungsstillstand und unnötige Arbeit beseitigen, dann verbleibende Kosten messen.
 Orbit-Verfeinerung folgt der Bodenhierarchie; sie blockiert keine nahe Stadtverbesserung.
 Geometriefehler sofort beheben. Licht/Material/Fels dürfen mit vorhandenen Inputs beginnen,
