@@ -3,14 +3,14 @@ State: open
 Architecture: ready
 Priority: P0
 Parent: 2169
-Depends:
+Depends: 2281
 Area: generators, world, engine
 Tags: buildings, roofs, facades, semantics
 
-# Complete buildings preserve source form and gain spatial detail
+# Buildings fit the infrastructure and gain coherent spatial detail
 
 ## Ergebnis und Ist
-Vollständige Grundrisse/Höfe/Parts, plausible Dächer/Sonderbauten und räumliche Nahfassaden.
+Plausible, vollständige Baukörper mit Höfen/Parts, passenden Dächern/Sonderformen und räumlichen Nahfassaden.
 Native Höhenintervalle, Footprints, BuildingMesh und Terrain-Stempel bestehen. Klassen-/
 Dachpläne bleiben lückenhaft; prozedurale Formfamilie ist keine belegte Nutzung.
 Quellfarben erreichen den Renderer. Öffnungspläne existieren; die visuelle Abnahme bleibt offen.
@@ -24,6 +24,17 @@ world/Renderer konsumieren native Assets ohne Tags/Generator-Eingabeverträge. 2
 Zuerst vollständige Formen/Höhen/Sonderklassen in Wien/Rosenheim, danach Dächer und Nahöffnungen.
 Asset-Rohlinge (2280) enthalten ergänzten Typ, Höhe, Dach, Material und Fassadenplan/Seed.
 Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen oder neues Raten.
+2281 liefert Infrastruktur vor Gebäudeplatzierung: Zugänge, Straßenkanten und Bezugshöhen.
+Fehlender Vertrag: native Korridorflächen/Höhenintervalle und überdachte Verkehrsfreiräume aus 2281.
+Grundriss gegen geplante Fahrbahn/Gehwege/Seitenraum räumlich vorauswählen; konfliktfreie Bauten unverändert.
+GEOS-2D-Differenz gegen Weglassen vergleichen: betroffener Flächenanteil und brauchbare Restform entscheiden.
+Randkontakt löscht keinen Baukörper; lokale Stadtstichproben belegen Kosten und erhaltene Massierung.
+Nur überlappende Höhenbereiche schneiden; Brücken/Tunnel erhalten darunter/darüber liegende Bauten.
+Bahnhallen/überdachte Passagen brauchen freie Verkehrsports und erhöhte Dach-Parts, keinen pauschalen Grundrissverlust.
+Brauchbare Restkörper samt Höfen/Parts, Tags/Herkunft behalten; unbrauchbare Reste dürfen entfallen.
+Native Rohlinge binden den Infrastrukturplan; danach Terrain darunterlegen. Keine erneute Differenz bei Treffer.
+[2D-Vergleich](../test/experiments/infrastructure_building_clearance.py): GEOS mit räumlicher Vorauswahl
+gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. Höhen-/Hallplan noch offen.
 
 ## Form und Quellsemantik
 - [Inventur und vollständiger Lieferkatalog](../doc/references/data/osm/inventory.md): 2341
@@ -95,6 +106,6 @@ Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen
 begrenzte Regeln aus wenigen Parametern, keine universelle Grammatikengine. [Weitere Quellen](../doc/references/README.md).
 
 ## Abnahme
-Wien/Feldkirch: vollständige Formen/Höfe/Parts. Rosenheim/Flensburg: korrekte gelieferte Sonderklassen,
+Wien/Feldkirch: vollständige, an Infrastruktur angepasste Baukörper/Höfe/Parts. Rosenheim/Flensburg: passende Sonderklassen,
 plausible Dächer. Nahöffnungen räumlich, Fernstadt stabil/gebündelt; kein Aufbau unsichtbarer Details.
 Assethit wiederholt keine Anreicherung. Bildgewinn und Kosten gemeinsam im AGENTS-Profil prüfen.
