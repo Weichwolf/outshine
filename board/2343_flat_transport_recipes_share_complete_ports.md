@@ -97,9 +97,9 @@ Auswertungen je Versuch; insgesamt 1024 tatsächliche Residuenaufrufe je Verbind
 Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüllen-/Radius-/Windungsprüfung entscheidet.
 [Punktabstände](../test/experiments/infrastructure_surface_clearance.py): Randindex zuerst; nur Randnähe/außen messen.
 Nur fehlgeschlagene Fahrten ergänzen; bestehende Kurven, Straßenfläche und gemeinsame Posen bleiben fest.
-Offen: durchgehende Spurzuordnung, ungültige feste Portposen, enge Kreisverkehre, Verkehrsregelung,
-vollständige Netze und tragbare Kosten. Erfolgreiche Einzelkurven sind keine fertige Verkehrssimulation.
-[Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
+[Radiusprüfung](../test/experiments/infrastructure_window_driving_experiment.py) klassifiziert jeden berührten
+Bauteil, prüft alle angefragten öffentlichen Autofahrten bei festen Ports und bewahrt bisherige Lösungen.
+Offen: Spurzuordnung/Verkehrsregelung, feste ungültige Ports, vollständige Netze aller Modi und tragbare Kosten.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
