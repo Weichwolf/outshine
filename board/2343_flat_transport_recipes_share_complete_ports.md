@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: planned
 Priority: P0
 Parent: 2169
@@ -13,6 +13,10 @@ Tags: infrastructure, solver, recipes
 2342 liefert den quellbezogenen ebenen Graph samt Nutzungsbilanz.
 Aus ihm entstehen einfache zusammenhängende Bänder, Kurven und Anschlussflächen ohne Terrain.
 Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch ohne Höhen/Ebenen.
+[Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
+Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
+Fahrkurven, Verkehrsregeln, Kollisionsprodukt und Budgetgrenzen bleiben offen; gegliederte Flächen
+allein liefern noch kein plausibles fertiges Netz. Kleine Beispiele sind mit `--small` renderbar.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
@@ -20,8 +24,10 @@ Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch o
    Kurven bei zu engem Radius vereinfachen/verschieben, dann messen; ungelöste lokale Teile ausweisen.
 3. Mesh, Kontakt und Kollision aus demselben Bauteilplan; Fläche einmal besitzen und triangulieren.
 4. Kleine Fälle, dann alle verwendeten Bauteile der Wiener/Zürcher/Basler Fenster rendern und öffnen.
-   Nach bestandenem ebenem Fenster nativ integrieren; keine Warteschleife auf weitere Ebenen.
+   Native Übertragung folgt erst den vollständigen geprüften 2D-/2,5D-Netzen gemäß Goal.
 Gemeinsame Portpositionen/Normalen, plausible Breiten/Kurven, keine Risse/Faltungen/inneren Doppelstücke.
 Verwendungsgrad und Kosten gehören zur Qualität; ungültige Teile bleiben außerhalb des Plans.
+Überflüssige Zweierknoten ohne Richtungs-/Breitenwechsel erhalten kein eigenes Modul.
+Ruhige Kurven und zusammenhängende Knotenformen im Bild entscheiden; Originalknicke dürfen weichen.
 [Gemeinsame Ports](../test/experiments/infrastructure_ported_junction.py),
 [OSM2World/SUMO/CARLA](../doc/references/infrastructure/README.md).

@@ -1,7 +1,7 @@
 Type: feature
 State: open
 Architecture: planned
-Priority: P1
+Priority: P0
 Parent: 2169
 Depends: 2342, 2344
 Area: generators, world

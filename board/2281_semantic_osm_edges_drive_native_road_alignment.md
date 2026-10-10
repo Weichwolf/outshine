@@ -3,7 +3,7 @@ State: open
 Architecture: ready
 Priority: P0
 Parent: 2169
-Depends: 2343
+Depends: 2345
 Area: generators, world, engine
 Tags: roads, bridges, tunnels, topology
 
@@ -27,8 +27,8 @@ Bahnhofsanschlüsse bleiben fehlerhaft. [2D-Flächenversuch](../test/experiments
 vereinigt ganze Wiener/Zürcher/Basler Quellfenster; funktionale Ports/Kurven sind noch nicht gelöst.
 ## Nächste Lieferung
 2342 → 2343 → 2344 → 2345 liefern Graph, ebene Bauteile, Profile und Ebenenrezepte.
-2343 liefert den fehlenden gemeinsamen Bauteilplan samt vollständigen Ports für die native Integration;
-Höhen/Ebenen ergänzen ihn später. Jeder native Schritt braucht einen sichtbaren Place-Gewinn.
+2345 liefert den geprüften gemeinsamen 2D-/2,5D-Bauteilplan für die native Integration.
+Die Python-Netze werden vorher vollständig visuell geprüft; jeder native Schritt braucht Place-Gewinn.
 OSM/DEM geben Verteilung und Bezug, keine unveränderlichen Baupläne. Plausibilität, Ästhetik,
 Funktion und Kosten entscheiden; der Solver wählt irgendeine gültige kohärente Interpretation.
 Feste Budgets, wenige Rezepte und lokale Reparaturen begrenzen die Arbeit. Nicht verwendete
