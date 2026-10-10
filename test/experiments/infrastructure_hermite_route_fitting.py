@@ -8,6 +8,7 @@ from scipy.sparse import lil_matrix
 from infrastructure_spline_routes import evaluate_controls,curve_bounds,split_controls,checked_spline_path
 from infrastructure_vehicle_sweep import body_outlines
 from infrastructure_junction_surfaces import same_island_winding
+from infrastructure_surface_clearance import SurfaceClearance
 
 
 class ResidualBudgetExceeded(RuntimeError):
@@ -37,7 +38,7 @@ def residual_dependencies(count):
 
 
 def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None,
-                      maximum_nodes=18,maximum_evaluations=40,maximum_calls=1024,maximum_poses=4096):
+                      maximum_nodes=18,maximum_evaluations=40,maximum_calls=1024,maximum_poses=4096,clearance=None):
     if min(maximum_nodes-2,maximum_evaluations,maximum_calls)<1 or error<=0 or not np.isfinite(error):
         raise ValueError('node, evaluation and error budgets must be positive')
     spacing = vehicle['minimumRearAxleRadiusM']*2 if spacing is None else spacing
@@ -56,8 +57,8 @@ def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None
     state[1:-1,4:] = raw[2:]-2*raw[1:-1]+raw[:-2]
     initial = np.r_[state[1:-1].ravel(),step,step]
     owners,stations = np.repeat(np.arange(count-1),17),np.tile(np.linspace(0,1,17),count-1)
-    boundary = shapely.boundary(surface)
-    shapely.prepare(surface)
+    clearance = SurfaceClearance(surface) if clearance is None else clearance
+    initial_samples,initial_measured = clearance.samples,clearance.measured_samples
     calls,best_cost,best = 0,np.inf,initial.copy()
     def decode(values):
         result = state.copy()
@@ -80,9 +81,7 @@ def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None
         corners = body_outlines(xy,np.arctan2(velocity[:,1],velocity[:,0]),vehicle['widthM']*.5,
                                vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
         points = shapely.points(corners.reshape(-1,2))
-        distance = shapely.distance(points,boundary)
-        distance = np.where(shapely.covers(surface,points),distance,-distance).reshape(-1,17,4)
-        floor = 4*np.maximum(error*3-distance,0).reshape(count-1,68)
+        floor = 4*clearance.shortfall(points,error*3).reshape(count-1,68)
         bends = 4*np.maximum(curvature.reshape(count-1,8)*vehicle['minimumRearAxleRadiusM']-.96,0)
         moving = np.maximum(.1-np.linalg.norm(velocity,axis=1).reshape(count-1,17)/step,0)
         values_residual = np.r_[np.c_[floor,bends,moving].ravel(),.005*(values-initial)]
@@ -108,21 +107,29 @@ def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None
         path,note = None,dict(reason='hermite_changes_source_island_winding')
     note.update(nodes=count,residual_calls=calls,maximum_residual_calls=maximum_calls,optimizer_status=status,
                 minimum_objective_seen=best_cost,jacobian_shape=pattern.shape,jacobian_nonzeros=pattern.nnz,
+                clearance_samples=clearance.samples-initial_samples,
+                clearance_measured_samples=clearance.measured_samples-initial_measured,
                 jacobian_pattern_bytes=pattern.data.nbytes+pattern.indices.nbytes+pattern.indptr.nbytes)
     if path is not None:
         note['profile'] = 'C2-quintic-Hermite-fit'
     return path,note
 
 
-def fitted_route_candidates(entry,exit,route,surface,vehicle,error=.025,maximum_calls=1024):
+def fitted_route_candidates(entry,exit,route,surface,vehicle,error=.025,maximum_calls=1024,*,clearance=None):
+    clearance = SurfaceClearance(surface) if clearance is None else clearance
+    initial_samples,initial_measured = clearance.samples,clearance.measured_samples
     calls,trials = 0,[]
     for spacing in (vehicle['minimumRearAxleRadiusM']*2,vehicle['minimumRearAxleRadiusM']):
         if calls>=maximum_calls:
             break
         path,note = fit_hermite_route(entry,exit,route,surface,vehicle,error,spacing=spacing,
-                                     maximum_calls=maximum_calls-calls)
+                                     maximum_calls=maximum_calls-calls,clearance=clearance)
         calls += note['residual_calls']
         trials.append(dict(spacing_m=spacing,**note))
         if path is not None:
-            return path,dict(note,spacing_m=spacing,residual_calls=calls,maximum_residual_calls=maximum_calls,fit_trials=trials)
-    return None,dict(reason='no_clear_fitted_route',residual_calls=calls,maximum_residual_calls=maximum_calls,fit_trials=trials)
+            return path,dict(note,spacing_m=spacing,residual_calls=calls,maximum_residual_calls=maximum_calls,
+                             clearance_samples=clearance.samples-initial_samples,
+                             clearance_measured_samples=clearance.measured_samples-initial_measured,fit_trials=trials)
+    return None,dict(reason='no_clear_fitted_route',residual_calls=calls,maximum_residual_calls=maximum_calls,
+                     clearance_samples=clearance.samples-initial_samples,
+                     clearance_measured_samples=clearance.measured_samples-initial_measured,fit_trials=trials)

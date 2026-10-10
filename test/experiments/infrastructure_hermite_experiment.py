@@ -18,6 +18,37 @@ from infrastructure_directed_routes import directed_module_routes
 from infrastructure_shared_frames import accepted_routes,frame_key,preserves_routes
 from infrastructure_hermite_route_fitting import hermite_controls,residual_dependencies,fit_hermite_route,fitted_route_candidates
 from infrastructure_junction_turn_experiment import render
+from infrastructure_surface_clearance import SurfaceClearance
+
+
+def verify_clearance():
+    polygon = shapely.Polygon([[-5,-5],[5,-5],[5,5],[-5,5]],holes=[[[-2,-2],[2,-2],[2,2],[-2,2]]])
+    surface = shapely.union_all([polygon,shapely.box(8,-3,12,3),shapely.box(-8,4,-3,8)])
+    rng = np.random.default_rng(2343)
+    cases,samples = 0,0
+    for angle,translation in ((0.,[0.,0.]),(.7,[100.,-300.]),(2.3,[10000.,-20000.])):
+        matrix = np.array([[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]])
+        transform = lambda xy:np.einsum('ij,kj->ki',matrix,xy)+translation
+        moved = shapely.transform(surface,transform)
+        clearance = SurfaceClearance(moved)
+        for margin in (0.,.025,.075,.7):
+            xy = rng.uniform([-10,-8],[14,10],(2048,2))
+            offsets = margin+np.array([-1e-12,0.,1e-12])
+            probes = np.array([[5-offset,y] for offset in offsets for y in (-4.,0.,4.)]+
+                              [[2+offset,y] for offset in offsets for y in (-1.,0.,1.)])
+            points = shapely.points(transform(np.vstack((xy,probes))))
+            distance = shapely.distance(points,shapely.boundary(moved))
+            expected = np.maximum(margin-np.where(shapely.covers(moved,points),distance,-distance),0)
+            assert np.array_equal(clearance.shortfall(points,margin),expected)
+            samples += len(points)
+            cases += 1
+    clearance = SurfaceClearance(shapely.box(-100,-100,100,100))
+    points = shapely.points(rng.uniform(-10,10,(1024,2)))
+    assert np.all(clearance.shortfall(points,.075)==0)
+    assert clearance.samples==1024 and clearance.measured_samples==0
+    assert len(clearance.shortfall(shapely.points(np.empty((0,2))),.075))==0
+    return dict(clearance_cases=cases,clearance_samples=samples,whole_boundary_bitwise_equal=True,
+                holes_and_components_preserved=True,threshold_and_transform_checked=True,interior_distance_work_skipped=True)
 
 
 def verify_hermite():
@@ -146,7 +177,7 @@ def main():
     if args.maximum_calls<1:
         parser.error('residual budget must be positive')
     vehicle = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())['vehicleProfiles']['compact']
-    checks = {**verify_hermite(),**verify_fitting(vehicle)}
+    checks = {**verify_clearance(),**verify_hermite(),**verify_fitting(vehicle)}
     reference = json.loads(args.frames.read_text())
     reports,views = [],[]
     for name in args.places:
@@ -157,7 +188,7 @@ def main():
         views.extend(preferred[:max(0,3-len(views))])
         print(json.dumps({k:v for k,v in report.items() if k not in ('trials','modules','frames','input_sha256')}),flush=True)
     args.output.mkdir(parents=True,exist_ok=True)
-    names = ('infrastructure_hermite_route_fitting.py','infrastructure_spline_routes.py','infrastructure_driving_network.py',
+    names = ('infrastructure_hermite_route_fitting.py','infrastructure_surface_clearance.py','infrastructure_spline_routes.py','infrastructure_driving_network.py',
              'infrastructure_directed_routes.py','infrastructure_junction_turn_experiment.py','infrastructure_junction_surfaces.py',
              'infrastructure_port_lanes.py','infrastructure_corridor_experiment.py','infrastructure_route_turns.py',
              'infrastructure_route_fairing.py','infrastructure_shared_frames.py','infrastructure_junction_turns.py',

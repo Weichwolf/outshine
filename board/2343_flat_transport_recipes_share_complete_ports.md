@@ -33,8 +33,7 @@ eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Verkehrsregelun
 [Fahrkurven](../test/experiments/infrastructure_junction_turn_experiment.py) verwenden Klothoiden
 mit optionalem Kreisbogen oder asymmetrische G2-Posekurven mit polynomialem Tangentenwinkel.
 Endkrümmung null, Krümmungsextrema analytisch; Radius/Breite kommen aus dem Fahrzeugprofil.
-Klothoiden werden vor der Karosserieprüfung nach Länge sortiert; der erste gültige Kandidat liefert
-dasselbe Minimum wie die vollständige Prüfung.
+Klothoiden nach Länge prüfen; erster gültiger Kandidat entspricht dem Minimum vollständiger Suche.
 [Quellrouten](../test/experiments/infrastructure_route_turns.py) verbinden Portkontakte über
 gerichtete kürzeste Wege. Ein begrenzter azyklischer Posengraph überspringt unnötige Quellknicke;
 jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.
@@ -96,6 +95,7 @@ Quintische Hermite-Abschnitte teilen Position/Tangente/Beschleunigung; feste Por
 Nachbarabhängigkeiten ergeben eine dünn besetzte Jacobi-Matrix. Höchstens 18 Knoten und 40 Solver-
 Auswertungen je Versuch; insgesamt 1024 tatsächliche Residuenaufrufe je Verbindung, inklusive Ableitungen.
 Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüllen-/Radius-/Windungsprüfung entscheidet.
+[Punktabstände](../test/experiments/infrastructure_surface_clearance.py): Randindex zuerst; nur Randnähe/außen messen.
 Nur fehlgeschlagene Fahrten ergänzen; bestehende Kurven, Straßenfläche und gemeinsame Posen bleiben fest.
 Offen: durchgehende Spurzuordnung, ungültige feste Portposen, enge Kreisverkehre, Verkehrsregelung,
 vollständige Netze und tragbare Kosten. Erfolgreiche Einzelkurven sind keine fertige Verkehrssimulation.
