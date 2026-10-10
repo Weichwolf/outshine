@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_GENERATORS_ROAD_ROADHEIGHTPLAN_H
 #define OUTSHINE_GENERATORS_ROAD_ROADHEIGHTPLAN_H
 
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <limits>
@@ -38,10 +39,18 @@ struct RoadHeightPlan {
   double MaximumAdjustmentM = 0.0;
 };
 
+enum class RoadHeightConstraintKind : uint8_t { ForwardLink, ReverseLink, Clearance };
+
+struct RoadHeightConstraint {
+  size_t Index = 0;
+  RoadHeightConstraintKind Kind = RoadHeightConstraintKind::ForwardLink;
+};
+
 struct RoadHeightFailure {
   std::string_view Reason;
   std::vector<uint32_t> CycleNodes;
   double MaximumOffsetScale = 1.0;
+  std::vector<RoadHeightConstraint> CycleConstraints;
 };
 
 enum class RoadHeightFit : uint8_t { MinimaxAdjustment, PreferCuts };

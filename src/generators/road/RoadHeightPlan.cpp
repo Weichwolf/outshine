@@ -25,9 +25,11 @@ constexpr size_t kEarlyCycleSteps = 128;
 
 struct Neighbor {
   uint32_t Node = 0;
+  RoadHeightConstraintKind Kind = RoadHeightConstraintKind::ForwardLink;
   double RiseM = 0.0;
   double ReverseRiseM = 0.0;
   double BaseRiseM = 0.0;
+  size_t Constraint = 0;
 };
 
 struct Neighbors {
@@ -64,35 +66,54 @@ Neighbors Connect(size_t nodes,
   std::partial_sum(out.First.begin(), out.First.end(), out.First.begin());
   out.Connected.resize(out.First.back());
   auto next = out.First;
-  for (const auto &link : links) {
+  for (size_t at = 0; at < links.size(); ++at) {
+    const auto &link = links[at];
     const double difference = link.FirstOffsetM - link.SecondOffsetM;
     out.Connected[next[link.First]++] = {.Node = link.Second,
                                          .RiseM = link.MaximumRiseM + difference,
                                          .ReverseRiseM = link.MaximumRiseM - difference,
-                                         .BaseRiseM = link.MaximumRiseM};
+                                         .BaseRiseM = link.MaximumRiseM,
+                                         .Constraint = at};
     out.Connected[next[link.Second]++] = {.Node = link.First,
+                                          .Kind = RoadHeightConstraintKind::ReverseLink,
                                           .RiseM = link.MaximumRiseM - difference,
                                           .ReverseRiseM = link.MaximumRiseM + difference,
-                                          .BaseRiseM = link.MaximumRiseM};
+                                          .BaseRiseM = link.MaximumRiseM,
+                                          .Constraint = at};
   }
-  for (const auto &clearance : clearances) {
+  for (size_t at = 0; at < clearances.size(); ++at) {
+    const auto &clearance = clearances[at];
     const double bound = -clearance.MinimumGapM;
     const double rise = bound + clearance.UpperOffsetM - clearance.LowerOffsetM;
     out.Connected[next[clearance.Upper]++] = {.Node = clearance.Lower,
+                                              .Kind = RoadHeightConstraintKind::Clearance,
                                               .RiseM = rise,
                                               .ReverseRiseM =
                                                   std::numeric_limits<double>::infinity(),
-                                              .BaseRiseM = bound};
+                                              .BaseRiseM = bound,
+                                              .Constraint = at};
     out.Connected[next[clearance.Lower]++] = {.Node = clearance.Upper,
+                                              .Kind = RoadHeightConstraintKind::Clearance,
                                               .RiseM = std::numeric_limits<double>::infinity(),
                                               .ReverseRiseM = rise,
-                                              .BaseRiseM = bound};
+                                              .BaseRiseM = bound,
+                                              .Constraint = at};
   }
   return out;
 }
 
 std::unexpected<RoadHeightFailure> Failure(std::string_view reason) {
-  return std::unexpected(RoadHeightFailure{.Reason = reason, .CycleNodes = {}});
+  return std::unexpected(
+      RoadHeightFailure{.Reason = reason, .CycleNodes = {}, .CycleConstraints = {}});
+}
+
+RoadHeightConstraint TraversedConstraint(const Neighbor &arc, bool reverse) {
+  auto kind = arc.Kind;
+  if (reverse && kind != RoadHeightConstraintKind::Clearance) {
+    kind = kind == RoadHeightConstraintKind::ForwardLink ? RoadHeightConstraintKind::ReverseLink
+                                                         : RoadHeightConstraintKind::ForwardLink;
+  }
+  return {.Index = arc.Constraint, .Kind = kind};
 }
 
 std::optional<RoadHeightFailure> AttachmentConflict(uint32_t start,
@@ -112,13 +133,15 @@ std::optional<RoadHeightFailure> AttachmentConflict(uint32_t start,
     if (fast == absent) { return {}; }
     if (slow != fast) { continue; }
     RoadHeightFailure failure{.Reason = "road profiles and clearance constraints conflict",
-                              .CycleNodes = {}};
+                              .CycleNodes = {},
+                              .CycleConstraints = {}};
     double budgetM = 0;
     double costM = 0;
     uint32_t at = slow;
     do {
       failure.CycleNodes.push_back(at);
       const auto &arc = neighbors.Connected[parentArc[at]];
+      failure.CycleConstraints.push_back(TraversedConstraint(arc, reverse));
       budgetM += arc.BaseRiseM;
       costM += reverse ? arc.ReverseRiseM : arc.RiseM;
       at = parent[at];
@@ -146,7 +169,8 @@ std::optional<RoadHeightFailure> TraceConflict(const Neighbor &next,
   if (conflict) { return conflict; }
   if (fullWalk) {
     return RoadHeightFailure{.Reason = "road attachment cycle exceeded its work bound",
-                             .CycleNodes = {}};
+                             .CycleNodes = {},
+                             .CycleConstraints = {}};
   }
   return {};
 }
