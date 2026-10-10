@@ -102,7 +102,7 @@ private:
     std::array<double, 2> CutM{};
     std::array<double, 2> GradeAtM{};
     std::array<bool, 2> HasEndGrade{};
-    std::array<std::optional<RoadPlane>, 2> EndPlanes{};
+    std::array<std::optional<RoadPort>, 2> EndPorts{};
   };
 
   struct Leg {
@@ -322,7 +322,9 @@ private:
                         const Paved &into,
                         uint32_t edgeAt,
                         std::unordered_map<uint64_t, std::vector<Leg>> &legsAt);
-  static void GatesOf(std::span<const Leg> legs, const Paved &into, Junction &made);
+  static RoadProfile ProfileOf(const Paving &on, size_t lane);
+  static void
+  GatesOf(const Paving &on, std::span<const Leg> legs, const Paved &into, Junction &made);
   static void
   LiesOnItsPlane(const Paving &on, std::span<const Leg> legs, Junction &made, Paved &into);
   static void
@@ -332,7 +334,8 @@ private:
   static void ShapesJunctions(const Paving &on, Paved &into);
   static void RecordJunctionMetrics(Paved &into);
   static void LimitEndCuts(Edge &edge, const Paved &into);
-  static void FinalizeJunction(Junction &made, Paved &into);
+  static void FinalizeJunction(const Paving &on, Junction &made, Paved &into);
+  static void BindJunctionPorts(const Junction &made, Paved &into);
   static void GroupTerrainContacts(const Paving &on, Paved &into);
   static void AppendTerrainStamps(const Paving &on,
                                   size_t laneAt,

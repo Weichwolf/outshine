@@ -1,5 +1,6 @@
 #include "Check.h"
 #include "src/generators/road/ProfiledRoadMesher.h"
+#include "src/generators/road/RoadCrossSection.h"
 
 #include <array>
 #include <cmath>
@@ -14,14 +15,20 @@ void CheckPortedRoad(std::span<const outshine::RoadStation> stations, outshine::
   using namespace outshine;
   using namespace outshine::Test;
   RoadMeshBuffers mesh;
-  const auto result = Generators::ProfiledRoadMesher{}.Sweep(stations,
-                                                             {.HalfWidthM = 2,
-                                                              .Profile = RoadProfile::Simple,
-                                                              .WearsLinear = {{.2f, .3f, .4f}},
-                                                              .Crossfall = .04,
-                                                              .Form = RibbonForm::Surface,
-                                                              .EndPlanes = {plane, plane}},
-                                                             mesh);
+  const auto result = Generators::ProfiledRoadMesher{}.Sweep(
+      stations,
+      {.HalfWidthM = 2,
+       .Profile = RoadProfile::Simple,
+       .WearsLinear = {{.2f, .3f, .4f}},
+       .Crossfall = .04,
+       .Form = RibbonForm::Surface,
+       .EndPorts = {RoadPort{Generators::RoadEndGate(
+                                 stations, false, Generators::RoadSection(2, RoadProfile::Simple)),
+                             plane},
+                    RoadPort{Generators::RoadEndGate(
+                                 stations, true, Generators::RoadSection(2, RoadProfile::Simple)),
+                             plane}}},
+      mesh);
   CHECK(result.Pieces == 1 && result.Cuts == 0 && result.Refused == 0,
         "ported road forms one complete fitted surface");
   const double normalLength = std::hypot(plane.SlopeE, 1.0, plane.SlopeN);

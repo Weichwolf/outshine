@@ -1,5 +1,6 @@
 #include "Corridors.h"
 #include "JunctionFootprint.h"
+#include "RoadCrossSection.h"
 
 #include <scene/ProjectedErrorBudget.h>
 
@@ -373,6 +374,16 @@ void Corridors::PaveLane(const Paving &on,
   }
 }
 
+RoadProfile Corridors::ProfileOf(const Paving &on, size_t laneAt) {
+  const auto &lane = on.Ways.Ways()[laneAt];
+  const bool sealed = lane.CoverRow >= 0 &&
+                      static_cast<size_t>(lane.CoverRow) < on.Vegetation.TemplateCount() &&
+                      on.Vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
+  RoadProfile profile = RoadProfile::Rounded;
+  if (sealed) { profile = lane.Lanes >= 2 ? RoadProfile::Kerbed : RoadProfile::Simple; }
+  return profile;
+}
+
 void Corridors::PaveEdge(const Paving &on,
                          size_t edgeAt,
                          Paved &into,
@@ -394,11 +405,7 @@ void Corridors::PaveEdge(const Paving &on,
   };
   into.LaidWays += lane.Bridge ? 1u : 0u;
   into.GroundWays += lane.Bridge ? 0u : 1u;
-  const bool sealed = lane.CoverRow >= 0 &&
-                      static_cast<size_t>(lane.CoverRow) < on.Vegetation.TemplateCount() &&
-                      on.Vegetation.Rows()[static_cast<size_t>(lane.CoverRow)].Mix[2] >= 1.0f;
-  RoadProfile profile = RoadProfile::Rounded;
-  if (sealed) { profile = lane.Lanes >= 2 ? RoadProfile::Kerbed : RoadProfile::Simple; }
+  const RoadProfile profile = ProfileOf(on, laneAt);
   const Vec3f wears = LaneColour(lane, on.Vegetation);
   into.WaterMs += since();
   into.Swept += Sweeper_.Sweep(std::span<const RoadStation>(into.Along.data(), into.Along.size()),
@@ -407,7 +414,7 @@ void Corridors::PaveEdge(const Paving &on,
                                 .WearsLinear = wears,
                                 .Crossfall = lane.Bridge ? std::atan(kCrossfall) : 0.0,
                                 .Form = lane.Bridge ? RibbonForm::ClosedShell : RibbonForm::Surface,
-                                .EndPlanes = edge.EndPlanes},
+                                .EndPorts = edge.EndPorts},
                                pavement);
   into.SweepMs += since();
   AppendTerrainStamps(on, laneAt, into, corridor);
@@ -988,7 +995,10 @@ void Corridors::AppendLeg(const Paving &on,
   }
 }
 
-void Corridors::GatesOf(std::span<const Leg> legs, const Paved &into, Junction &made) {
+void Corridors::GatesOf(const Paving &on,
+                        std::span<const Leg> legs,
+                        const Paved &into,
+                        Junction &made) {
   for (const Leg &leg : legs) {
     const Edge &edge = into.Edges[leg.Edge];
     const std::span<const RoadStation> stations(into.Designed[edge.Lane].data() + edge.First,
@@ -1006,13 +1016,16 @@ void Corridors::GatesOf(std::span<const Leg> legs, const Paved &into, Junction &
     const double spanM = line.AlongM[rim] - line.AlongM[before];
     const double along =
         spanM > kLeastRunM ? std::clamp((leg.CutM - line.AlongM[before]) / spanM, 0.0, 1.0) : 0.0;
+    const Section section = RoadSection(leg.HalfM, ProfileOf(on, edge.Lane));
     made.Gates.push_back(
         RoadGate{.EastM = line.EastM[before] + (line.EastM[rim] - line.EastM[before]) * along,
                  .NorthM = line.NorthM[before] + (line.NorthM[rim] - line.NorthM[before]) * along,
                  .GradeM = made.GradeM,
                  .OutE = outE,
                  .OutN = outN,
-                 .HalfWidthM = leg.HalfM});
+                 .HalfWidthM = section.HalfWidthM,
+                 .ShoulderM = section.ShoulderM,
+                 .ThicknessM = section.ThicknessM});
   }
 }
 
@@ -1218,7 +1231,7 @@ void Corridors::ShapesJunctions(const Paving &on, Paved &into) {
     ShapeOf(on, node, legs, into);
   }
   for (Edge &edge : into.Edges) { LimitEndCuts(edge, into); }
-  for (Junction &made : into.Junctions) { FinalizeJunction(made, into); }
+  for (Junction &made : into.Junctions) { FinalizeJunction(on, made, into); }
 }
 
 void Corridors::RecordJunctionMetrics(Paved &into) {
@@ -1261,22 +1274,30 @@ void Corridors::LimitEndCuts(Edge &edge, const Paved &into) {
   edge.CutM[1] *= scale;
 }
 
-void Corridors::FinalizeJunction(Junction &made, Paved &into) {
+void Corridors::FinalizeJunction(const Paving &on, Junction &made, Paved &into) {
   for (Leg &leg : made.Legs) {
     leg.CutM = into.Edges[leg.Edge].CutM[leg.End];
     into.DeepestCutM = std::max(into.DeepestCutM, leg.CutM);
     ++into.LegsCut;
   }
-  GatesOf(made.Legs, into, made);
+  GatesOf(on, made.Legs, into, made);
   for (size_t at = 0; at < made.Legs.size(); ++at) {
-    const Leg &leg = made.Legs[at];
     RoadGate &gate = made.Gates[at];
     gate.GradeM = made.GradeM + made.SlopeE * (gate.EastM - made.EastM) +
                   made.SlopeN * (gate.NorthM - made.NorthM);
+  }
+  BindJunctionPorts(made, into);
+}
+
+void Corridors::BindJunctionPorts(const Junction &made, Paved &into) {
+  for (size_t at = 0; at < made.Legs.size(); ++at) {
+    const auto &leg = made.Legs[at];
+    const auto &gate = made.Gates[at];
     Edge &edge = into.Edges[leg.Edge];
     edge.GradeAtM[leg.End] = gate.GradeM;
     edge.HasEndGrade[leg.End] = true;
-    edge.EndPlanes[leg.End] = RoadPlane{.SlopeE = made.SlopeE, .SlopeN = made.SlopeN};
+    edge.EndPorts[leg.End] =
+        RoadPort{.Gate = gate, .Plane = {.SlopeE = made.SlopeE, .SlopeN = made.SlopeN}};
   }
 }
 
@@ -2235,7 +2256,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadJunctions(Job &job,
       const size_t end =
           std::min(job.NextBody + std::max(size_t{1}, nodesMost), into.Junctions.size());
       for (; job.NextBody < end; ++job.NextBody) {
-        FinalizeJunction(into.Junctions[job.NextBody], into);
+        FinalizeJunction(*paving, into.Junctions[job.NextBody], into);
       }
       job.StageMs += elapsed();
       job.TotalMs += elapsed();

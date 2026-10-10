@@ -39,11 +39,18 @@ struct RoadGate {
   double OutE = 0.0;
   double OutN = 0.0;
   double HalfWidthM = 0.0;
+  double ShoulderM = 0.0;
+  double ThicknessM = kSealedDepthM;
 };
 
 struct RoadPlane {
   double SlopeE = 0.0;
   double SlopeN = 0.0;
+};
+
+struct RoadPort {
+  RoadGate Gate;
+  RoadPlane Plane;
 };
 
 struct RoadMeshingRejections {
@@ -79,7 +86,7 @@ struct RoadSweep {
   Vec3f WearsLinear;
   double Crossfall = 0.0;
   RibbonForm Form = RibbonForm::ClosedShell;
-  std::array<std::optional<RoadPlane>, 2> EndPlanes{};
+  std::array<std::optional<RoadPort>, 2> EndPorts{};
 };
 
 class RoadMesher {

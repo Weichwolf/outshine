@@ -353,6 +353,7 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
       gate.GradeM = junction.GradeM + junction.SlopeE * (gate.EastM - junction.EastM) +
                     junction.SlopeN * (gate.NorthM - junction.NorthM);
     }
+    BindJunctionPorts(junction, into);
   }
   Notes(into, "streets: joint height nodes", static_cast<double>(graph.Nodes.size()), "nodes");
   Notes(into,

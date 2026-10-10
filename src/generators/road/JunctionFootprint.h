@@ -11,12 +11,20 @@ namespace outshine::Generators {
 
 inline constexpr double kJunctionCoreReachM = 4.0;
 
-struct JunctionFootprint {
-  EastNorth Centre;
-  std::vector<EastNorth> Rim;
+struct JunctionSurfacePoint {
+  double EastM;
+  double NorthM;
+  double GradeM;
+  double ThicknessM;
 };
 
-[[nodiscard]] JunctionFootprint BuildJunctionFootprint(std::span<const RoadGate> gates);
+struct JunctionFootprint {
+  EastNorth Centre;
+  std::vector<JunctionSurfacePoint> Rim;
+};
+
+[[nodiscard]] JunctionFootprint BuildJunctionFootprint(std::span<const RoadGate> gates,
+                                                       RoadPlane plane = {});
 
 }
 #endif

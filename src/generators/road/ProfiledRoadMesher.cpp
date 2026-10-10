@@ -1,7 +1,7 @@
 #include "math/Units.h"
 #include "math/RenderFrame.h"
 #include "ProfiledRoadMesher.h"
-#include "JunctionFootprint.h"
+#include "RoadCrossSection.h"
 #include "math/Vec3.h"
 
 #include "Fit.h"
@@ -22,93 +22,6 @@ namespace outshine::Generators {
 
 namespace {
 
-constexpr double kKerbAcrossM = 0.35;
-
-constexpr double kShoulderDipM = 0.10;
-constexpr double kShoulderFraction = 0.35;
-
-constexpr double kTrackDepthM = 0.25;
-
-constexpr double kSnapM = 0.001;
-
-double Snapped(double metres) {
-  return std::round(metres / kSnapM) * kSnapM;
-}
-
-void StoreVertex(RoadMeshBuffers &into,
-                 const std::array<double, 3> &at,
-                 const Vec3 &normal,
-                 const Vec3f &wearsLinear) {
-  for (const double one : at) { into.PositionM.push_back(static_cast<float>(one)); }
-  for (int axis = 0; axis < 3; ++axis) { into.NormalM.push_back(static_cast<float>(normal[axis])); }
-  into.ColourRgba.insert(into.ColourRgba.end(),
-                         {wearsLinear[0], wearsLinear[1], wearsLinear[2], 1.0f});
-}
-
-}
-
-void ProfiledRoadMesher::Junction(std::span<const RoadGate> gates,
-                                  RoadPlane plane,
-                                  const Vec3f &wearsLinear,
-                                  RoadMeshBuffers &into) const {
-  const auto footprint = BuildJunctionFootprint(gates);
-  if (footprint.Rim.size() < 3) { return; }
-  double centreGrade = 0;
-  for (const auto &gate : gates) { centreGrade += gate.GradeM; }
-  centreGrade /= static_cast<double>(gates.size());
-  const auto vertexAt = [&](EastNorth at, double depth = 0.0) {
-    const double east = static_cast<float>(Snapped(at.EastM));
-    const double z = static_cast<float>(Snapped(RenderFrame::ZOfNorth(at.NorthM)));
-    const double grade = centreGrade + plane.SlopeE * (east - footprint.Centre.EastM) +
-                         plane.SlopeN * (RenderFrame::NorthOfZ(z) - footprint.Centre.NorthM);
-    return std::array{east, grade - depth, z};
-  };
-  Vec3 up = {{-plane.SlopeE, 1.0, RenderFrame::ZOfNorth(-plane.SlopeN)}};
-  const double normalLength = std::sqrt(up[0] * up[0] + up[1] * up[1] + up[2] * up[2]);
-  for (int axis = 0; axis < 3; ++axis) { up[axis] /= normalLength; }
-  const Vec3 down = {{-up[0], -up[1], -up[2]}};
-  const auto rim = static_cast<uint32_t>(footprint.Rim.size());
-  const auto top = static_cast<uint32_t>(into.PositionM.size() / 3);
-  const size_t centre = static_cast<size_t>(top) * 3;
-  StoreVertex(into, vertexAt(footprint.Centre), up, wearsLinear);
-  for (const auto &at : footprint.Rim) { StoreVertex(into, vertexAt(at), up, wearsLinear); }
-  const auto bottom = static_cast<uint32_t>(into.PositionM.size() / 3);
-  StoreVertex(into, vertexAt(footprint.Centre, kSealedDepthM), down, wearsLinear);
-  for (const auto &at : footprint.Rim) {
-    StoreVertex(into, vertexAt(at, kSealedDepthM), down, wearsLinear);
-  }
-  for (uint32_t at = 0; at < rim; ++at) {
-    const uint32_t next = (at + 1u) % rim;
-    const auto here = vertexAt(footprint.Rim[at]);
-    const auto after = vertexAt(footprint.Rim[next]);
-    const double apartE = after[0] - here[0];
-    const double apartZ = after[2] - here[2];
-    const double run = std::hypot(apartE, apartZ);
-    if (run < kSnapM) { continue; }
-    const size_t corner = (static_cast<size_t>(top) + 1u + at) * 3u;
-    const size_t following = (static_cast<size_t>(top) + 1u + next) * 3u;
-    const double aE = static_cast<double>(into.PositionM[corner]) - into.PositionM[centre];
-    const double aZ =
-        static_cast<double>(into.PositionM[corner + 2u]) - into.PositionM[centre + 2u];
-    const double bE = static_cast<double>(into.PositionM[following]) - into.PositionM[centre];
-    const double bZ =
-        static_cast<double>(into.PositionM[following + 2u]) - into.PositionM[centre + 2u];
-    if (aE * bZ - aZ * bE > kSnapM * kSnapM) {
-      into.Index.insert(into.Index.end(), {top, top + 1u + next, top + 1u + at});
-      into.Index.insert(into.Index.end(), {bottom, bottom + 1u + at, bottom + 1u + next});
-    }
-    const Vec3 outward = {{apartZ / run, 0.0, -apartE / run}};
-    const auto side = static_cast<uint32_t>(into.PositionM.size() / 3);
-    StoreVertex(into, here, outward, wearsLinear);
-    StoreVertex(into, vertexAt(footprint.Rim[at], kSealedDepthM), outward, wearsLinear);
-    StoreVertex(into, after, outward, wearsLinear);
-    StoreVertex(into, vertexAt(footprint.Rim[next], kSealedDepthM), outward, wearsLinear);
-    into.Index.insert(into.Index.end(), {side, side + 3u, side + 1u, side, side + 2u, side + 3u});
-  }
-}
-
-namespace {
-
 constexpr double kLayWithinM = 0.5;
 constexpr double kLayTightestM = 5.5;
 constexpr double kSagittaM = 0.20;
@@ -120,26 +33,6 @@ double StepFor(double radiusM) {
   const double chord = std::sqrt(8.0 * radiusM * kSagittaM);
   if (chord < kLeastStepM) { return kLeastStepM; }
   return chord > kMostStepM ? kMostStepM : chord;
-}
-
-Section SectionFor(double halfWidthM, RoadProfile profile) {
-  Section cut;
-  cut.HalfWidthM = halfWidthM;
-  switch (profile) {
-    case RoadProfile::Rounded:
-      cut.ShoulderM = halfWidthM * kShoulderFraction;
-      cut.ThicknessM = kTrackDepthM;
-      break;
-    case RoadProfile::Simple:
-      cut.ShoulderM = kShoulderDipM;
-      cut.ThicknessM = kSealedDepthM;
-      break;
-    case RoadProfile::Kerbed:
-      cut.ShoulderM = kKerbAcrossM;
-      cut.ThicknessM = kSealedDepthM;
-      break;
-  }
-  return cut;
 }
 
 void Pour(const Ribbon &woven, const Vec3f &wearsLinear, RoadMeshBuffers &into) {
@@ -223,29 +116,76 @@ std::vector<Knot> ElevationKnots(ElevationSamples samples, double lengthM) {
   return rise;
 }
 
-std::array<RoadGate, 2>
-CornerGates(std::span<const RoadStation> along, size_t at, double halfWidthM) {
-  const auto facing = [&](size_t one, size_t two) {
-    const double runE = along[two].EastM - along[one].EastM;
-    const double runN = along[two].NorthM - along[one].NorthM;
-    const double runM = std::sqrt(runE * runE + runN * runN);
-    return runM > kLeastTurnRad ? std::pair<double, double>{runE / runM, runN / runM}
-                                : std::pair<double, double>{0.0, 0.0};
-  };
-  const auto back = facing(at, at - 1u);
-  const auto on = facing(at, at + 1u);
-  return {{RoadGate{.EastM = along[at].EastM,
-                    .NorthM = along[at].NorthM,
-                    .GradeM = along[at].GradeM,
-                    .OutE = back.first,
-                    .OutN = back.second,
-                    .HalfWidthM = halfWidthM},
-           RoadGate{.EastM = along[at].EastM,
-                    .NorthM = along[at].NorthM,
-                    .GradeM = along[at].GradeM,
-                    .OutE = on.first,
-                    .OutN = on.second,
-                    .HalfWidthM = halfWidthM}}};
+struct PortVertex {
+  Vec3f Position;
+  double DepthM = 0;
+  int Facing = 0;
+};
+
+struct PortTarget {
+  size_t FirstVertex = 0;
+  size_t Stations = 0;
+  RibbonForm Form = RibbonForm::ClosedShell;
+  bool AtEnd = false;
+};
+
+void StorePortVertex(RoadMeshBuffers &into, size_t vertex, Vec3f normal, PortVertex at) {
+  for (size_t axis = 0; axis < 3; ++axis) {
+    into.PositionM[vertex * 3 + axis] =
+        static_cast<float>(at.Position[axis] - at.DepthM * normal[axis]);
+    if (at.Facing != 0) {
+      into.NormalM[vertex * 3 + axis] = static_cast<float>(at.Facing) * normal[axis];
+    }
+  }
+}
+
+void BindRoadPort(const RoadPort &port, PortTarget target, RoadMeshBuffers &into) {
+  const bool closed = target.Form == RibbonForm::ClosedShell;
+  const size_t stride = closed ? kRibbonAcross * 2 + 4 : kRibbonAcross;
+  const auto positions = RoadPortPositions(port);
+  const auto normal = RoadPortNormal(port.Plane);
+  const size_t station = target.FirstVertex + (target.AtEnd ? (target.Stations - 1) * stride : 0);
+  for (size_t across = 0; across < kRibbonAcross; ++across) {
+    const auto position = positions[target.AtEnd ? kRibbonAcross - 1 - across : across];
+    StorePortVertex(into, station + across, normal, {.Position = position, .Facing = 1});
+    if (closed) {
+      StorePortVertex(into,
+                      station + kRibbonAcross + across,
+                      normal,
+                      {.Position = position, .DepthM = port.Gate.ThicknessM, .Facing = -1});
+    }
+  }
+  if (!closed) { return; }
+  for (size_t side = 0; side < 2; ++side) {
+    const size_t across = side == 0 ? 0 : kRibbonAcross - 1;
+    const auto position = positions[target.AtEnd ? kRibbonAcross - 1 - across : across];
+    const size_t wall = station + kRibbonAcross * 2 + side * 2;
+    StorePortVertex(into, wall, normal, {.Position = position});
+    StorePortVertex(into, wall + 1, normal, {.Position = position, .DepthM = port.Gate.ThicknessM});
+  }
+  const size_t cap =
+      target.FirstVertex + target.Stations * stride + (target.AtEnd ? kRibbonAcross * 2 : 0);
+  for (size_t corner = 0; corner < kRibbonAcross * 2; ++corner) {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      into.PositionM[(cap + corner) * 3 + axis] = into.PositionM[(station + corner) * 3 + axis];
+    }
+  }
+}
+
+void BindRoadPorts(const Ribbon &woven,
+                   const RoadSweep &how,
+                   size_t firstVertex,
+                   RoadMeshBuffers &into) {
+  for (size_t end = 0; end < how.EndPorts.size(); ++end) {
+    const auto &port = how.EndPorts[end];
+    if (!port) { continue; }
+    BindRoadPort(*port,
+                 {.FirstVertex = firstVertex,
+                  .Stations = woven.Stations,
+                  .Form = how.Form,
+                  .AtEnd = end != 0},
+                 into);
+  }
 }
 
 bool LayPiece(std::span<const double> eastNorthM,
@@ -260,15 +200,15 @@ bool LayPiece(std::span<const double> eastNorthM,
   std::array<Knot, 2> bank = {
       {Knot{.AlongM = 0.0, .Value = how.Crossfall, .RatePerM = 0.0},
        Knot{.AlongM = line.LengthM(), .Value = how.Crossfall, .RatePerM = 0.0}}};
-  for (size_t end = 0; end < how.EndPlanes.size(); ++end) {
-    const auto &endPlane = how.EndPlanes[end];
-    if (!endPlane) { continue; }
+  for (size_t end = 0; end < how.EndPorts.size(); ++end) {
+    const auto &endPort = how.EndPorts[end];
+    if (!endPort) { continue; }
     Placed pose;
     if (!line.At(bank[end].AlongM, pose)) {
       ++rejections.Rise;
       return false;
     }
-    const RoadPlane &plane = *endPlane;
+    const RoadPlane &plane = endPort->Plane;
     const double east = std::cos(pose.HeadingRad);
     const double north = std::sin(pose.HeadingRad);
     const double alongSlope = plane.SlopeE * east + plane.SlopeN * north;
@@ -288,7 +228,7 @@ bool LayPiece(std::span<const double> eastNorthM,
   }
 
   const Ribbon woven = Sweep(line,
-                             SectionFor(how.HalfWidthM, how.Profile),
+                             RoadSection(how.HalfWidthM, how.Profile),
                              0.0,
                              line.LengthM(),
                              StepFor(tightestM),
@@ -297,13 +237,21 @@ bool LayPiece(std::span<const double> eastNorthM,
     ++rejections.Sweep;
     return false;
   }
+  const size_t firstVertex = into.PositionM.size() / 3;
   Pour(woven, how.WearsLinear, into);
+  BindRoadPorts(woven, how, firstVertex, into);
   return true;
 }
 
-RoadSweep PieceSettings(RoadSweep how, size_t first, size_t count, size_t total) {
-  if (first != 0) { how.EndPlanes[0] = RoadPlane{}; }
-  if (first + count != total) { how.EndPlanes[1] = RoadPlane{}; }
+RoadSweep
+PieceSettings(RoadSweep how, std::span<const RoadStation> along, size_t first, size_t total) {
+  const Section section = RoadSection(how.HalfWidthM, how.Profile);
+  if (first != 0) {
+    how.EndPorts[0] = RoadPort{.Gate = RoadEndGate(along, false, section), .Plane = {}};
+  }
+  if (first + along.size() != total) {
+    how.EndPorts[1] = RoadPort{.Gate = RoadEndGate(along, true, section), .Plane = {}};
+  }
   return how;
 }
 
@@ -347,8 +295,8 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
             probe);
     const size_t upTo = got.Laid ? along.size() - from - 1u : got.TightestDemandedAtVertex;
     const size_t count = upTo + 1u;
-    const RoadSweep piece = PieceSettings(how, from, count, along.size());
     if (count >= 2u) {
+      const RoadSweep piece = PieceSettings(how, along.subspan(from, count), from, along.size());
       if (LayPiece(std::span<const double>(eastNorth.data() + from * 2u, count * 2u),
                    {.GradeM = std::span<const double>(grade.data() + from, count),
                     .ReachedM = std::span<const double>(reached.data() + from, count)},
@@ -372,7 +320,9 @@ RoadMeshingStats ProfiledRoadMesher::Sweep(std::span<const RoadStation> along,
     {
       const size_t at = from + upTo;
       if (at > 0 && at + 1u < along.size()) {
-        const auto corner = CornerGates(along, at, halfWidthM);
+        const Section section = RoadSection(halfWidthM, how.Profile);
+        const std::array corner{RoadEndGate(along.subspan(at - 1, 2), true, section),
+                                RoadEndGate(along.subspan(at, 2), false, section)};
         Junction(std::span<const RoadGate>(corner.data(), 2), {}, wearsLinear, into);
       }
     }
