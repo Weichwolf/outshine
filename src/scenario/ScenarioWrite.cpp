@@ -568,6 +568,8 @@ void WriteIdentity(std::string &said, const Scenario::Identity &identity) {
 void WriteRender(std::string &said, const Render::Configuration &render) {
   if (!render.Declared) { return; }
   said += "  <render";
+  Yes(said, "terrain", render.Content.Terrain);
+  Yes(said, "instances", render.Content.Instances);
   Number(said, "widthPx", render.Frame.WidthPx);
   Number(said, "heightPx", render.Frame.HeightPx);
   Number(said, "leftFrac", render.Picture.LeftFrac);
@@ -582,7 +584,7 @@ void WriteRender(std::string &said, const Render::Configuration &render) {
   Number(said, "exposure", render.Exposure);
   Said(said, "precision", render.Precision);
   Said(said, "antialiasing", render.Antialiasing);
-  if (render.Outputs.empty() && render.Stages.empty()) {
+  if (render.Outputs.empty() && render.Stages.empty() && render.Content.MeshParts.empty()) {
     said += "/>\n";
     return;
   }
@@ -595,6 +597,11 @@ void WriteRender(std::string &said, const Render::Configuration &render) {
   for (const auto &stage : render.Stages) {
     said += "    <stage";
     Said(said, "name", stage);
+    said += "/>\n";
+  }
+  for (const auto &part : render.Content.MeshParts) {
+    said += "    <meshPart";
+    Said(said, "name", part);
     said += "/>\n";
   }
   said += "  </render>\n";

@@ -737,10 +737,12 @@ void GroundLattice::Draw(const PassRecording &into,
 }
 
 void GroundLattice::Encode(const PassRecording &into) const {
+  if (!DrawEnabled_) { return; }
   Draw(into, Pipelines_->Lit(), Visible_, VisibleReal_, VisibleVirtual_);
 }
 
 void GroundLattice::Cast(const PassRecording &into) const {
+  if (!DrawEnabled_) { return; }
   Draw(into, Pipelines_->Depth(), Instances_, RealCount_, VirtualCount_);
 }
 

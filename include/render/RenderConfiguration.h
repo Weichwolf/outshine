@@ -24,6 +24,19 @@ struct ImageRegion {
   }
 };
 
+/// Render selection; source acquisition, native assets and simulation remain active.
+/// An empty MeshParts list draws every named or unnamed base mesh part. Otherwise only
+/// exact part names are drawn. Terrain selects the native terrain lattice; Instances
+/// selects separately placed mesh pieces. Mutation requires exclusive access.
+struct ContentSelection {
+  std::vector<std::string> MeshParts; ///< Exact native part names; strings are owned.
+  bool Terrain = true;                ///< Draw the terrain lattice while retaining height inputs.
+  bool Instances = true;              ///< Draw separately placed mesh pieces.
+
+  /// Compare every selection field; no allocation or IO.
+  [[nodiscard]] bool operator==(const ContentSelection &) const noexcept = default;
+};
+
 /// Owned render request shared by direct clients and scenario import.
 struct Configuration {
   bool Declared = false; ///< Whether this request participates in declaration merging.
@@ -34,6 +47,7 @@ struct Configuration {
   double OrbitDegreesPerFrame = 0.0;        ///< Automatic orbit increment; zero disables orbiting.
   std::vector<std::string> Outputs;         ///< Additional native render resources to retain.
   std::vector<std::string> Stages; ///< Explicit native stages replacing automatic selection.
+  ContentSelection Content;        ///< Independent selection of displayed native geometry.
   std::string Transfer;            ///< Empty selects the default; otherwise `linear` or `filmic`.
   double Exposure = 0.0;           ///< Positive linear exposure; nonpositive selects metering.
   std::string Antialiasing; ///< Additional AA request: empty/`none`, or `temporal`; preserves

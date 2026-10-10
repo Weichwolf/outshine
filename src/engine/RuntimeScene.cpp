@@ -637,6 +637,7 @@ std::expected<void, std::string> RuntimeScene::PlanBuild() {
   }
 
   if (!Reshape(error)) { return std::unexpected(std::move(error)); }
+  Renderer_->SetContentSelection(Declared_.Content);
   DrivenParts_ = Shaped_.Parts.size();
   if (PendingDrivenParts_) { DrivenParts_ = *PendingDrivenParts_; }
   StandsShadowRadius();
@@ -666,6 +667,7 @@ std::expected<void, std::string> RuntimeScene::BindBuild() {
     Renderer_->SetPictureRegion({});
     Stood_ = Render::SubjectProxy{};
     Stood_.ResetForShape(Shaped_, Vec3{});
+    Stood_.SelectParts(Declared_.Content.MeshParts);
     StandsLighting();
     if (!Render::BindIllumination(*Renderer_, Stood_, Scratch_, error)) {
       return std::unexpected(std::move(error));
@@ -975,6 +977,7 @@ bool RuntimeScene::Stand(std::string &error) {
   if (!Reshape(error)) { return false; }
   ReshapeAgainMs_ = sinceStand();
   Stood_.ResetForShape(Shaped_, anchorEcefM);
+  Stood_.SelectParts(Declared_.Content.MeshParts);
   ProxyStandsMs_ = sinceStand();
   const Mat4 unmoved;
   for (size_t part = 0; part < Stood_.Parts(); ++part) {

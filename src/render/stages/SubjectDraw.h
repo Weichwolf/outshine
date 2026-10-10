@@ -129,6 +129,8 @@ public:
 
   [[nodiscard]] const GroundLattice &Ground() const { return Ground_; }
 
+  void SetPiecesVisible(bool visible);
+
   [[nodiscard]] PieceId PlacePiece(const PieceMesh &piece, std::string &error);
   void ReleasePiece(PieceId which);
   [[nodiscard]] bool
@@ -486,6 +488,7 @@ private:
   [[nodiscard]] bool AppendPieceBatches(Piece &one, std::string &error);
   [[nodiscard]] bool UploadTables(std::string &error);
   size_t Moved_ = 0;
+  bool PiecesVisible_ = true;
   uint64_t Reshaped_ = 0;
   SubjectMeshUploadMetrics LastMeshUpload_;
   MeshTicket PendingMesh_;

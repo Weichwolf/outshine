@@ -10,12 +10,17 @@ int main() {
   using namespace outshine::Test;
   constexpr std::string_view input = R"(<scenario><render widthPx="1234" heightPx="567" fps="59.94"
     fill="0.8" audits="yes" orbitDegPerFrame="0.12345678901234567" transfer="filmic" exposure="1.25" precision="float" antialiasing="temporal"
-    leftFrac="0.1" topFrac="0.2" widthFrac="0.3" heightFrac="0.4">
+    leftFrac="0.1" topFrac="0.2" widthFrac="0.3" heightFrac="0.4" terrain="no" instances="no">
     <keep name="depth"/><keep name="normal"/><keep name="depth"/>
-    <stage name="a&amp;b"/><stage name="next"/></render></scenario>)";
+    <stage name="a&amp;b"/><stage name="next"/>
+    <meshPart name="streets"/><meshPart name="rail&amp;platform"/></render></scenario>)";
   Scenario::Document source;
   std::string error;
   CHECK(ReadScenario(input.data(), input.size(), source, error), error.c_str());
+  CHECK(!source.Render.Content.Terrain && !source.Render.Content.Instances &&
+            source.Render.Content.MeshParts ==
+                std::vector<std::string>({"streets", "rail&platform"}),
+        "native content selection is independent of render passes");
   CHECK(source.Render.Outputs == std::vector<std::string>({"depth", "normal", "depth"}),
         "legacy keep aliases preserve order and duplicates");
   CHECK(source.Render.Antialiasing == "temporal",
@@ -44,6 +49,7 @@ int main() {
               a.Exposure == b.Exposure && a.Precision == b.Precision &&
               a.Antialiasing == b.Antialiasing,
           "ordered outputs stages and radiance settings survive");
+    CHECK(a.Content == b.Content, "display selection survives independently of output requests");
   };
   check();
   source.Render.Outputs.clear();

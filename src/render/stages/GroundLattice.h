@@ -108,7 +108,15 @@ public:
 
   [[nodiscard]] uint32_t Instances() const { return RealCount_ + VirtualCount_; }
 
-  [[nodiscard]] uint32_t Drawn() const { return VisibleReal_ + VisibleVirtual_; }
+  void SetDrawEnabled(bool enabled) {
+    if (DrawEnabled_ == enabled) { return; }
+    DrawEnabled_ = enabled;
+    ++Generation_;
+  }
+
+  [[nodiscard]] uint32_t Drawn() const {
+    return DrawEnabled_ ? VisibleReal_ + VisibleVirtual_ : 0u;
+  }
 
   [[nodiscard]] uint32_t PagesStanding() const { return PagesLive_; }
 
@@ -134,6 +142,7 @@ private:
             uint32_t virtual_) const;
 
   uint64_t Generation_ = 0;
+  bool DrawEnabled_ = true;
   SDL_GPUDevice *Device_ = nullptr;
   GroundPipelineBinding OwnedPipelines_;
   GroundPipelineBinding *Pipelines_ = &OwnedPipelines_;

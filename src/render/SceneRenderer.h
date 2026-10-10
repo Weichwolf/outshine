@@ -6,6 +6,7 @@
 #include "math/Vec2.h"
 #include "math/Vec3.h"
 #include "Extent.h"
+#include <render/RenderConfiguration.h>
 #include "Heap.h"
 #include <array>
 #include <cassert>
@@ -129,6 +130,8 @@ public:
   DrawsInto(int widthPx, int heightPx, SDL_Window *presents);
   [[nodiscard]] std::expected<std::optional<Shown>, std::string_view> Presented() const;
   void StopShowing();
+
+  void SetContentSelection(const ContentSelection &selection);
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;
 

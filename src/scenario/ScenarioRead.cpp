@@ -103,10 +103,11 @@ const std::array<Element, 83> kGrammar = {{
     {.Path = "scenario/world/osm", .Children = "way area"},
     {.Path = "scenario/world/osm/way", .Children = "", .Required = "kind"},
     {.Path = "scenario/world/osm/area", .Children = "", .Required = "kind"},
-    {.Path = "scenario/render", .Children = "keep output stage"},
+    {.Path = "scenario/render", .Children = "keep output stage meshPart"},
     {.Path = "scenario/render/keep", .Children = "", .Required = "name"},
     {.Path = "scenario/render/output", .Children = "", .Required = "name"},
     {.Path = "scenario/render/stage", .Children = "", .Required = "name"},
+    {.Path = "scenario/render/meshPart", .Children = "", .Required = "name"},
     {.Path = "scenario/lighting", .Children = "key environment"},
     {.Path = "scenario/lighting/key", .Children = ""},
     {.Path = "scenario/lighting/environment", .Children = ""},
@@ -359,6 +360,9 @@ void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
   into.Render.Declared = true;
   if (Declares(from, "output")) { into.Render.Outputs.clear(); }
   if (Declares(from, "stage")) { into.Render.Stages.clear(); }
+  if (Declares(from, "meshPart")) { into.Render.Content.MeshParts.clear(); }
+  into.Render.Content.Terrain = from.Flag("terrain", into.Render.Content.Terrain);
+  into.Render.Content.Instances = from.Flag("instances", into.Render.Content.Instances);
   into.Render.Frame.WidthPx = static_cast<int>(from.Int("widthPx", into.Render.Frame.WidthPx));
   into.Render.Frame.HeightPx = static_cast<int>(from.Int("heightPx", into.Render.Frame.HeightPx));
   into.Render.Picture.LeftFrac = from.Num("leftFrac", into.Render.Picture.LeftFrac);
@@ -382,6 +386,9 @@ void ReadRender(const Xml::Ref &from, Scenario::Document &into) {
   }
   for (const Xml::Ref stage : from.Children("stage")) {
     into.Render.Stages.push_back(stage.Attr("name"));
+  }
+  for (const Xml::Ref part : from.Children("meshPart")) {
+    into.Render.Content.MeshParts.push_back(part.Attr("name"));
   }
 }
 

@@ -21,12 +21,14 @@ auch ohne Erdarbeiten; Flensburgs Wegöffnung durch fremden Aushub ist geschloss
 Offen: geografische Kachelports/Cacheplan, explizite Ebenenübergänge, C1, Freiraum über volle Breite,
 Tunnel/Portale, Tragwerk sowie Treppen, Bahnsteige, Piers und Seilbahnen.
 Der analytische RoadAlignment-/Surface-Pfad verlangt benannte Routen; auf denselben Plan vereinigen.
+Zürich HB lädt derzeit nicht: gekoppelte Kreuzungsneigungen erreichen die Projektionsgrenze.
+Den begrenzten gemeinsamen Solver schließen; Budget-/Steigungsgrenzen nicht aufweichen.
 
 ## Nächste Lieferung
 1. Einen realen Anschluss samt Brücke als undekoriertes, funktionales Grundmodell schließen.
-   Szenarien wählen native Darstellungsprodukte; Infrastruktur auch allein rendern.
-   Höheninputs/Kontakte/Licht bleiben aktiv. Die Produktauswahl in 2188 integrieren;
-   bestehende Renderstufenauswahl trennt Straßen und Gebäude noch nicht.
+   Die native Produktauswahl aus 2188 liefert eine reine Infrastrukturansicht ohne Terrain/Gebäude;
+   Höheninputs/Kontakte/Licht bleiben aktiv. Wien zeigt auch darin fehlerhafte Nebenrampen und
+   Anschlüsse: zuerst den Netz-/Bauteilplan schließen, danach den Terrainkontakt prüfen.
 2. Geografisch stabile 2D-Kacheln mit Randports und expliziten Übergängen nativ planen/speichern.
    Kettenprofile und begrenzte Bauteilrezepte daraus ableiten; kein zweiter Netzaufbau.
 3. Eigene Schienen-/Wegprofile, Bahnübergänge und gestapelte Brücken/Tunnel integrieren.

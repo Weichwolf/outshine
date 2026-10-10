@@ -24,6 +24,9 @@ class SceneRenderer;
 class SubjectProxy {
 public:
   void ResetForShape(const Shape &subject, const Vec3 &anchorEcefM);
+  void SelectParts(std::span<const std::string> names);
+
+  [[nodiscard]] bool PartVisible(size_t part) const noexcept { return PartVisible_[part] != 0; }
 
   void BindPreviousPositions(std::span<const float> previousPositionsM) {
     Previous_ = previousPositionsM;
@@ -74,6 +77,7 @@ private:
   const Shape *Shape_ = nullptr;
   std::vector<std::array<float, 3>> EmittedRadiance_;
   std::vector<uint32_t> PartSurface_;
+  std::vector<uint8_t> PartVisible_;
   std::vector<Mat4> PartPlacement_;
   size_t Instances_ = 1;
   bool Placed_ = false;

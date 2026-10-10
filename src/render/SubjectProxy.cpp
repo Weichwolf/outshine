@@ -39,11 +39,19 @@ void SubjectProxy::ResetForShape(const Shape &subject, const Vec3 &anchorEcefM) 
   const size_t parts = subject.Parts.size();
   EmittedRadiance_.assign(parts, {0.0f, 0.0f, 0.0f});
   PartSurface_.assign(parts, 0);
+  PartVisible_.assign(parts, 1);
   Instances_ = 1;
   PartPlacement_.assign(parts, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
   Placed_ = false;
   Surfaces_.clear();
   Lights_.clear();
+}
+
+void SubjectProxy::SelectParts(std::span<const std::string> names) {
+  for (size_t part = 0; part < PartVisible_.size(); ++part) {
+    PartVisible_[part] = static_cast<uint8_t>(
+        names.empty() || std::ranges::find(names, Shape_->Parts[part].Name) != names.end());
+  }
 }
 
 bool SubjectProxy::ResizeInstances(size_t instances) {
@@ -231,6 +239,7 @@ DepthFraction([[maybe_unused]] const Shape &subject, const ShapePart &part, cons
                                  std::string &error) {
   list.Clear();
   for (size_t part = 0; part < subject.Parts.size(); ++part) {
+    if (!proxy.PartVisible(part)) { continue; }
     const ShapePart &where = subject.Parts[part];
     const uint32_t slot = proxy.Slot(part);
     Render::DrawItem item;

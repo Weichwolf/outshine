@@ -1179,6 +1179,13 @@ void SubjectDraw::ReleasePiece(PieceId which) {
   ++Reshaped_;
 }
 
+void SubjectDraw::SetPiecesVisible(bool visible) {
+  if (PiecesVisible_ == visible) { return; }
+  PiecesVisible_ = visible;
+  TablesStale_ = true;
+  ++Reshaped_;
+}
+
 void SubjectDraw::SetNativePieceSurfaces(std::span<const uint32_t> slots) {
   if (std::ranges::equal(SlotOf_, slots)) { return; }
   SlotOf_.assign(slots.begin(), slots.end());
@@ -1308,6 +1315,7 @@ void SubjectDraw::OrderPieces() {
 }
 
 bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
+  if (!PiecesVisible_) { return true; }
   auto &jobs = TableJobs_;
   auto &spheres = TableSpheres_;
   VertexLayout layout = one.Layout;

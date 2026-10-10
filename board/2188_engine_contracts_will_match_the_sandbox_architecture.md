@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -15,6 +15,9 @@ ProviderRegistry, Generator::make, Geometry/Material und kamera-relative Darstel
 Dichte GPU-Farbbereiche und ein gemeinsamer Placement-Vertrag für Darstellung/Culling bestehen.
 XML-/JSON-Dateien, vollständiges Inline-JSON und partielle JSON-Overrides teilen den
 öffentlichen Szenariolader und Validator; Overrides gelten auch für Places.
+Render::ContentSelection wählt native Mesh-Teile, Terrain-Lattice und Instanzen unabhängig
+von Renderstufen. JSON/XML und Overrides teilen den Vertrag; Standard ist die vollständige
+Darstellung. Quellbedarf, gespeicherte Assets, logische Welt und Höhenkontakte bleiben bestehen.
 Straßenfachplanung/native Netzassets und die Gebäude-Quellaufbereitung liegen in generators/osm;
 Engine führt Worker/Publikation. POI-Verknüpfung und Gebäuderezepte bleiben in dieser Erweiterung.
 Cachetreffer umgehen Layout/Verknüpfung/Profilierung; dieselben AssetCache/ResolveAsset-Dienste laden.
@@ -54,6 +57,8 @@ Derselbe öffentliche Vertrag lädt sie nach räumlicher/LOD-Auswahl: Frustum od
    vollständige Ergebnis. Client-Inhaltsschalter entfallen; Kamera-/Messbefehle bleiben.
    Dateipfade relativ zur Quelldatei, Inline-Layer relativ zum Shipped-Verzeichnis auflösen.
    Neue Inhaltsparameter gehören zum jeweiligen Fach-WI und werden hier generisch übernommen.
+   Render-Auswahl: `terrain`, `instances` und `meshPart` mit exakten nativen Namen;
+   leere Namensliste zeigt alle Teile. Auswahl betrifft Farbe/Tiefe/Schatten, nicht Fachplanung.
 3. Fachliche Vorbereitung aus Engine/SurfacePreparation zur verantwortlichen Erweiterung
    führen. OSM/XML/MVT zu generators/osm, Höhen-/Wetterdecoder zu ihren Erweiterungen.
    Private Sonderaufrufe beim Anschluss entfernen, statt einen Wrapper darüberzulegen.

@@ -15,6 +15,7 @@
 #include <vector>
 
 #include <Outshine.h>
+#include <render/RenderConfiguration.h>
 #include "ScenePlayback.h"
 #include "CameraState.h"
 #include "SubjectProxy.h"
@@ -46,6 +47,8 @@ struct Declaration {
   std::vector<std::string> Joins;
 
   std::vector<std::string> Stages;
+
+  Render::ContentSelection Content;
 
   std::vector<std::string> Outputs;
 
