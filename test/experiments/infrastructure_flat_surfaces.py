@@ -42,7 +42,7 @@ def load_graphs(path,report):
     return graphs
 
 
-def physical_plan(graphs,precision,junction_mode,corner_radius=0,arc_error=.025):
+def physical_plan(graphs,precision,junction_mode,corner_radius=0,arc_error=.025,*,vehicle=None):
     lines = np.concatenate([g['lines'] for g in graphs])
     half = np.concatenate([g['half_widths'] for g in graphs])
     bands = shapely.buffer(lines,half,quad_segs=2,cap_style='round',join_style='round')
@@ -52,7 +52,7 @@ def physical_plan(graphs,precision,junction_mode,corner_radius=0,arc_error=.025)
         geometry['original_boundary'] = shapely.get_coordinates(boundary_segments(complete)).reshape(-1,2,2)
         complete,details['curbs'] = rounded_plan(complete,corner_radius,arc_error)
     if junction_mode=='cuts':
-        parts,roles,details['cuts'],sections = cuts_plan(complete,graphs,precision,corner_radius)
+        parts,roles,details['cuts'],sections = cuts_plan(complete,graphs,precision,corner_radius,vehicle,arc_error)
         geometry.update(sections)
         return complete,parts,roles,details,geometry
     if junction_mode=='ports':
@@ -129,9 +129,9 @@ def shared_mesh(complete,parts,roles,precision):
                 maximum_boundary_error_m=float(error))
 
 
-def solve(graphs,precision=.001,junction_mode='all',corner_radius=0,arc_error=.025):
+def solve(graphs,precision=.001,junction_mode='all',corner_radius=0,arc_error=.025,*,vehicle=None):
     began = time.perf_counter()
-    complete,parts,roles,details,geometry = physical_plan(graphs,precision,junction_mode,corner_radius,arc_error)
+    complete,parts,roles,details,geometry = physical_plan(graphs,precision,junction_mode,corner_radius,arc_error,vehicle=vehicle)
     plan_ms = (time.perf_counter()-began)*1000
     began = time.perf_counter()
     product,report = shared_mesh(complete,parts,roles,precision)

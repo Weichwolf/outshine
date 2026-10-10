@@ -12,8 +12,10 @@ from infrastructure_flat_cuts import sections_of
 from infrastructure_flat_surfaces import solve
 from infrastructure_flat_surface_network import render
 from infrastructure_port_lanes import junction_interfaces,lane_poses,module_shape,module_face_index
-from infrastructure_junction_surfaces import mesh_surface_index
+from infrastructure_junction_surfaces import mesh_surface_index,motor_surface
 from infrastructure_junction_turn_experiment import solve_module
+from infrastructure_cut_clearance import motor_model,invalid_vehicle_sections
+from infrastructure_vehicle_sweep import body_outlines
 
 
 def verify_remainders():
@@ -35,7 +37,7 @@ def verify_dead_end(vehicle):
     graph = dict(vertices=vertices,edges=edges,half_widths=np.full(3,1.75),
                  travel_public=np.ones((3,2),dtype=np.uint8))
     graph['lines'] = shapely.linestrings(vertices[edges])
-    product,report = solve([graph],.001,'cuts',2.,.025)
+    product,report = solve([graph],.001,'cuts',2.,.025,vehicle=vehicle)
     ports = junction_interfaces(product)
     assert len(ports)==1 and len(next(iter(ports.values())))==2
     assert report['cuts']['absorbed_subwidth_remainders']==1
@@ -53,6 +55,57 @@ def verify_dead_end(vehicle):
                 through_routes_preserved=True,cuts=report['cuts']),product
 
 
+def invalid_port_bodies(product,graph,vehicle):
+    tree,faces,mesh = shapely.STRtree(graph['lines']),module_face_index(product),mesh_surface_index(product)
+    invalid = []
+    for module,ports in junction_interfaces(product).items():
+        shape = module_shape(product,module,faces)
+        poses,unused = lane_poses(graph,ports,shape,vehicle,tree=tree)
+        if not poses:
+            continue
+        surface = motor_surface(shape,graph,tree,mesh,vehicle)
+        positions = np.array([p['position'] for p in poses])
+        angles = np.array([np.arctan2(p['heading'][1],p['heading'][0]) for p in poses])
+        bodies = shapely.polygons(body_outlines(positions,angles,vehicle['widthM']*.5,
+                                  vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']))
+        invalid.extend((module,int(i)) for i in np.flatnonzero(~shapely.covers(surface,bodies)))
+    return invalid
+
+
+def verify_foreign_cut(vehicle):
+    vertices = np.array([[0.,0.],[24.,0.],[10.,1.5],[18.,1.5],[40.,1.5],[18.,12.]])
+    edges = np.array([[0,1],[2,3],[3,4],[3,5]])
+    graph = dict(vertices=vertices,edges=edges,lines=shapely.linestrings(vertices[edges]),
+                 half_widths=np.array([1.75,.9,.9,.9]),
+                 travel_public=np.array([[23,23],[4,4],[4,4],[4,4]],dtype=np.uint8))
+    original,before = solve([graph],.001,'cuts',2.,.025)
+    corrected,after = solve([graph],.001,'cuts',2.,.025,vehicle=vehicle)
+    assert invalid_port_bodies(original,graph,vehicle)
+    assert not invalid_port_bodies(corrected,graph,vehicle)
+    assert before['area_m2']==after['area_m2'] and after['coverage_error_m2']<1e-7
+    assert after['cuts']['vehicle_cut_adjustments']>0 and after['cuts']['vehicle_poses_checked']>0
+    assert after['ports']['invalid_sections']==0 and not after['cuts']['omitted_cuts']
+    return dict(foreign_mode_cut_repaired=True,source_surface_preserved=True,
+                all_fixed_motor_ports_valid=True,cuts=after['cuts'])
+
+
+def verify_directional_clearance(vehicle):
+    line = shapely.LineString([[-10,0],[10,0]])
+    graph = dict(lines=np.array([line],dtype=object),half_widths=np.array([1.75]),
+                 travel_public=np.array([[1,0]],dtype=np.uint8))
+    surface = shapely.buffer(line,1.75,quad_segs=2)
+    span = np.array([[[9.8,-1.75],[9.8,1.75]]])
+    model = motor_model([graph],surface,vehicle,0.,.025)
+    assert invalid_vehicle_sections(span,model,vehicle,.025)[0].tolist()==[0]
+    graph['travel_public'] = np.array([[0,1]],dtype=np.uint8)
+    model = motor_model([graph],surface,vehicle,0.,.025)
+    assert not len(invalid_vehicle_sections(span,model,vehicle,.025)[0])
+    graph['travel_public'][:] = 0
+    model = motor_model([graph],surface,vehicle,0.,.025)
+    assert not len(model['lines']) and not len(invalid_vehicle_sections(span,model,vehicle,.025)[0])
+    return dict(source_direction_enforced=True,non_motor_axes_excluded=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
@@ -62,8 +115,10 @@ def main():
     vehicle = json.loads(configuration.read_text())['vehicleProfiles']['compact']
     checks,product = verify_dead_end(vehicle)
     result = dict(remainders=verify_remainders(),dead_end=checks,
+                  foreign_cut=verify_foreign_cut(vehicle),directional=verify_directional_clearance(vehicle),
                   implementation_sha256={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
-                    (Path(__file__),Path(__file__).with_name('infrastructure_flat_cuts.py'),configuration)})
+                    (Path(__file__),Path(__file__).with_name('infrastructure_flat_cuts.py'),
+                     Path(__file__).with_name('infrastructure_cut_clearance.py'),configuration)})
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(result,indent=2)+'\n')
     if args.shot is not None:

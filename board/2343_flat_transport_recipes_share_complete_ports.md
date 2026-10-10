@@ -23,7 +23,10 @@ mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal sam
 Verkehrsfläche per Randschnitt/Suchindex. Kollidierende Schnitte rücken begrenzt nach außen;
 kurze Zwischenabschnitte gehen in den gemeinsamen Anschluss ein. Restketten kürzer als ihre eigene
 Breite bleiben ebenfalls im Knoten: sie tragen keinen brauchbaren eigenständigen Korridor.
-Das ändert nur die Teilung, weder Straßenfläche noch Quellen/Zugänge. Quellteilung erzeugt keine Module.
+Ein Fahrzeugprofil ergänzt die Schnittsuche: jeder öffentliche Auto-Achsenkontakt muss die
+Karosserie auf der unveränderten Motorfläche tragen, auch bei Schnitten fremder Modi.
+Unbrauchbare Schnitte rücken innerhalb derselben begrenzten Suche nach außen oder entfallen
+mit Grund. Das ändert nur die Teilung, weder Straßenfläche noch Quellen/Zugänge.
 [Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) prüft gerade vollständige gemeinsame
 Randsegmente unabhängig von der Flächenabdeckung; die drei Ebenen-0-Fenster bestehen beide Prüfungen.
 [Port-Fahrspuren](../test/experiments/infrastructure_port_lane_experiment.py) übernehmen öffentliche

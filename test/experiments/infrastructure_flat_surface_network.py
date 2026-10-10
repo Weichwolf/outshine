@@ -16,6 +16,7 @@ IMPLEMENTATION_SHA256 = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p
     (Path(__file__),*(Path(__file__).with_name(name) for name in (
         'infrastructure_flat_surfaces.py','geos_triangulation.py','infrastructure_flat_corners.py',
         'infrastructure_flat_junctions.py','infrastructure_flat_ports.py','infrastructure_flat_cuts.py',
+        'infrastructure_cut_clearance.py','infrastructure_port_lanes.py','infrastructure_vehicle_sweep.py',
         'infrastructure_flat_plan.py','infrastructure_network_plan.py','infrastructure_vertex_pool.py',
         'infrastructure_network.py','infrastructure_network_graph.py','infrastructure_network_recipes.json')))}
 
@@ -51,13 +52,13 @@ def render(path,place,product,view):
     plt.close(fig)
 
 
-def store(output,place,graphs,precision,view,source,junction_mode,corner_radius,arc_error,shots=None):
-    product,report = solve(graphs,precision,junction_mode,corner_radius,arc_error)
+def store(output,place,graphs,precision,view,source,junction_mode,corner_radius,arc_error,shots=None,vehicle=None):
+    product,report = solve(graphs,precision,junction_mode,corner_radius,arc_error,vehicle=vehicle)
     if shots is not None:
         image = shots/f'{place}-flat-surfaces.png'
         render(image,place,product,view)
         report['image'] = str(image)
-    report.update(place=place,precision_m=precision,**source)
+    report.update(place=place,precision_m=precision,vehicle_profile=vehicle,**source)
     report['implementation_sha256'] = IMPLEMENTATION_SHA256
     (output/f'{place}-flat-surfaces.json').write_text(json.dumps(report,indent=2)+'\n')
     np.savez_compressed(output/f'{place}-flat-surfaces.npz',**product)
@@ -65,7 +66,7 @@ def store(output,place,graphs,precision,view,source,junction_mode,corner_radius,
                      dict(port_sections=report['ports']['sections'],invalid_ports=report['ports']['invalid_sections'])))
 
 
-def small_cases(output,precision,junction_mode,corner_radius,arc_error,shots=None):
+def small_cases(output,precision,junction_mode,corner_radius,arc_error,shots=None,vehicle=None):
     recipes = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())
     for name,roads in examples().items():
         accepted,graphs,usage = plan(roads,recipes,{},precision)
@@ -75,7 +76,7 @@ def small_cases(output,precision,junction_mode,corner_radius,arc_error,shots=Non
                                                        graph['owner_offsets'][:-1])*.5
         assert not usage['states'].get('not_used',0),(name,usage['reasons'])
         store(output,name,list(graphs.values()),precision,None,dict(source_fixture=name),
-              junction_mode,corner_radius,arc_error,shots)
+              junction_mode,corner_radius,arc_error,shots,vehicle)
 
 
 def main():
@@ -99,8 +100,9 @@ def main():
     if not all(np.isfinite(v) for v in values) or min(values[:2])<=0 or args.corner_radius<0 or args.view<=0:
         parser.error('precision, arc error and view must be positive; radius must be nonnegative')
     args.output.mkdir(parents=True,exist_ok=True)
+    vehicle = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())['vehicleProfiles']['compact']
     if args.small:
-        small_cases(args.output,args.precision,args.junction_mode,args.corner_radius,args.arc_error,args.shots)
+        small_cases(args.output,args.precision,args.junction_mode,args.corner_radius,args.arc_error,args.shots,vehicle)
     for place in args.places:
         source_plan = args.input/f'{place}-flat-network.json'
         graph_path = args.input/f'{place}-flat-network.npz'
@@ -108,7 +110,7 @@ def main():
         graphs = load_graphs(graph_path,previous)
         store(args.output,place,graphs,args.precision,args.view,
               dict(source_plan=str(source_plan),source_graph_sha256=hashlib.sha256(graph_path.read_bytes()).hexdigest()),
-              args.junction_mode,args.corner_radius,args.arc_error,args.shots)
+              args.junction_mode,args.corner_radius,args.arc_error,args.shots,vehicle)
 
 
 if __name__=='__main__':

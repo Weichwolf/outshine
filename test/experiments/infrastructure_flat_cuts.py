@@ -1,10 +1,13 @@
 """Partition the actual road surface with complete straight cross-section cuts."""
 
+import time
+
 import numpy as np
 import shapely
 
 from infrastructure_flat_junctions import continuation_chains,junction_nodes
 from infrastructure_network_plan import boundary_segments
+from infrastructure_cut_clearance import motor_model,invalid_vehicle_sections
 
 
 def section_model(graphs,precision,radius):
@@ -85,27 +88,49 @@ def intersecting_sections(spans,normals,complete):
     return pairs[:,good]
 
 
-def resolved_sections(complete,graphs,precision,radius,segments):
+def resolved_sections(complete,graphs,precision,radius,segments,vehicle=None,error=.025):
     model = section_model(graphs,precision,radius)
     original = model['depth'].copy()
     boundary = shapely.get_coordinates(segments).reshape(-1,2,2),shapely.STRtree(segments)
-    passes,ray_passes = 0,0
+    began = time.perf_counter()
+    motor = motor_model(graphs,complete,vehicle,radius,error) if vehicle is not None else None
+    prepare_ms = (time.perf_counter()-began)*1000
+    passes,ray_passes,checked,check_ms = 0,0,0,0.
+    adjusted_vehicle_cuts = set()
     for passes in range(32):
         p,n,half,source,side = sections_of(model,precision)
         before,after,attempts = surface_spans(complete,p,n,half,precision,boundary)
         ray_passes = max(ray_passes,attempts)
         good = np.isfinite(before)&np.isfinite(after)
+        valid_rows = np.flatnonzero(good)
         spans = np.stack((p[good]-n[good]*before[good,None],p[good]+n[good]*after[good,None]),axis=1)
         conflicts = intersecting_sections(spans,n[good],complete)
-        if not conflicts.size or passes==31:
+        began = time.perf_counter()
+        invalid,poses = (invalid_vehicle_sections(spans,motor,vehicle,error) if motor is not None else
+                         (np.empty(0,dtype=int),0))
+        check_ms += (time.perf_counter()-began)*1000
+        checked += poses
+        adjusted_vehicle_cuts.update((int(source[i]),int(side[i])) for i in valid_rows[invalid])
+        if (not conflicts.size and not len(invalid)) or passes==31:
             break
-        changed = np.flatnonzero(good)[np.unique(conflicts)]
+        changed = valid_rows[np.unique(np.r_[conflicts.ravel(),invalid])]
         model['depth'][source[changed],side[changed]] *= 2
         model['depth'] = np.minimum(model['depth'],model['length'][:,None])
-    geometry = dict(cut_centres=p[good],cut_normals=n[good],cut_spans=spans)
-    report = dict(cuts=len(spans),unresolved_cuts=int((~good).sum()),ray_expansions=ray_passes,
+    omitted = []
+    failed = np.unique(np.r_[conflicts.ravel(),invalid])
+    invalid_set = set(invalid.tolist())
+    for i in failed:
+        row = valid_rows[i]
+        omitted.append(dict(source_chain=int(source[row]),end=int(side[row]),
+                            reason='vehicle_port_clearance_budget' if i in invalid_set else 'cut_conflict_budget'))
+    accepted = np.ones(len(spans),dtype=bool)
+    accepted[failed] = False
+    geometry = dict(cut_centres=p[good][accepted],cut_normals=n[good][accepted],cut_spans=spans[accepted])
+    report = dict(cuts=int(accepted.sum()),unresolved_cuts=int((~good).sum())+len(omitted),omitted_cuts=omitted,
+                  vehicle_cut_adjustments=len(adjusted_vehicle_cuts),vehicle_poses_checked=checked,
+                  motor_prepare_ms=prepare_ms,motor_clearance_ms=check_ms,ray_expansions=ray_passes,
                   cut_adjustment_passes=passes,adjusted_ends=int((model['depth']>original).sum()),
-                  remaining_cut_conflicts=conflicts.shape[1],
+                  remaining_cut_conflicts=0,remaining_vehicle_cut_failures=0,
                   absorbed_subwidth_remainders=int(np.count_nonzero((model['depth'].sum(axis=1)>0)&
                       (model['length']-model['depth'].sum(axis=1)>precision)&
                       (model['length']-model['depth'].sum(axis=1)<=2*model['half']))),
@@ -114,10 +139,10 @@ def resolved_sections(complete,graphs,precision,radius,segments):
     return geometry,model['nodes'],report
 
 
-def cuts_plan(complete,graphs,precision,radius):
+def cuts_plan(complete,graphs,precision,radius,vehicle=None,error=.025):
     shapely.prepare(complete)
     segments = boundary_segments(complete)
-    geometry,nodes,report = resolved_sections(complete,graphs,precision,radius,segments)
+    geometry,nodes,report = resolved_sections(complete,graphs,precision,radius,segments,vehicle,error)
     cut_xy = geometry['cut_spans']+geometry['cut_normals'][:,None,:]*np.array([-precision,precision])[None,:,None]
     cuts = shapely.linestrings(cut_xy)
     lines = shapely.get_parts(shapely.union_all(np.r_[segments,cuts]))

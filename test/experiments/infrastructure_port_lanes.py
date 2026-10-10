@@ -48,6 +48,18 @@ def crossing_tangent(axis,crossing,shape):
     return None,None
 
 
+def project_lane_positions(points,headings,offset,begin,end):
+    direction = end-begin
+    normal = np.stack((-direction[...,1],direction[...,0]),axis=-1)
+    denominator = np.sum(headings*normal,axis=-1)
+    valid = np.abs(denominator)>1e-10*np.linalg.norm(normal,axis=-1)
+    right = np.stack((headings[...,1],-headings[...,0]),axis=-1)
+    position = points+right*np.asarray(offset)[...,None]
+    along = np.divide(np.sum((position-begin)*normal,axis=-1),denominator,
+                      out=np.zeros_like(denominator),where=valid)
+    return position-headings*along[...,None],valid
+
+
 def crossing_lane_poses(graph,edge,crossing,port,shape,flags,vehicle,traffic_side,error):
     tangent,positive = crossing_tangent(graph['lines'][edge],crossing,shape)
     if tangent is None:
@@ -57,20 +69,15 @@ def crossing_lane_poses(graph,edge,crossing,port,shape,flags,vehicle,traffic_sid
         return [],['insufficient_mode_width']
     point = np.array(crossing.coords[0])
     ends = shapely.get_coordinates(port['line'])
-    port_direction = ends[-1]-ends[0]
-    normal = np.array([-port_direction[1],port_direction[0]])
     shared_lane = bool(np.all(flags) and half*.5<body_half)
     poses,unused = [],[]
     for column in np.flatnonzero(flags):
         heading = tangent*(1 if column==0 else -1)
-        right = np.array([heading[1],-heading[0]])
         offset = half*.5*traffic_side if np.all(flags) and not shared_lane else 0.
-        shifted = point+right*offset
-        denominator = heading@normal
-        if abs(denominator)<=1e-10*np.linalg.norm(normal):
+        shifted,valid = project_lane_positions(point,heading,offset,ends[0],ends[-1])
+        if not valid:
             unused.append('lane_tangent_parallel_to_port')
             continue
-        shifted -= heading*((shifted-ends[0])@normal/denominator)
         if port['line'].distance(shapely.Point(shifted))>1e-6:
             unused.append('lane_outside_port')
             continue
