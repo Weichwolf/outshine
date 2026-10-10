@@ -6,7 +6,7 @@ import numpy as np
 import shapely
 from scipy.interpolate import BPoly,PPoly,make_interp_spline
 
-from infrastructure_vehicle_sweep import sweep_check
+from infrastructure_vehicle_sweep import swept_hull_check
 from infrastructure_route_fairing import fair_route
 from infrastructure_junction_surfaces import same_island_winding
 
@@ -38,6 +38,18 @@ def curve_bounds(controls):
     curvature = np.divide(np.abs(cross).max(axis=1),minimum_speed**3,
                           out=np.full(len(controls),np.inf),where=minimum_speed>1e-10)
     return minimum_speed,maximum_speed,curvature
+
+
+def body_acceleration_bounds(controls,minimum_speed,maximum_speed,curvature,radius):
+    degree = controls.shape[1]-1
+    acceleration = degree*(degree-1)*np.diff(controls,n=2,axis=1)
+    jerk = degree*(degree-1)*(degree-2)*np.diff(controls,n=3,axis=1)
+    maximum_acceleration = np.linalg.norm(acceleration,axis=2).max(axis=1)
+    maximum_jerk = np.linalg.norm(jerk,axis=2).max(axis=1)
+    angular_speed = curvature*maximum_speed
+    angular_acceleration = (maximum_speed*maximum_jerk+
+                            2*angular_speed*maximum_speed*maximum_acceleration)/minimum_speed**2
+    return maximum_acceleration,maximum_acceleration+radius*(angular_acceleration+angular_speed**2)
 
 
 def evaluate_controls(controls,stations):
@@ -82,26 +94,29 @@ def spline_route(entry,exit,route,surface,vehicle,error=.025,maximum_poses=4096,
     if not np.isfinite(bound) or bound*vehicle['minimumRearAxleRadiusM']>1+1e-12:
         return None,dict(reason='spline_curvature_bound_exceeds_vehicle',maximum_curvature_bound=bound if np.isfinite(bound) else None)
     radius = np.hypot(max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']),vehicle['widthM']*.5)
-    spacing = 2*error/(1+bound*radius)
-    counts = np.maximum(1,np.ceil(speed/spacing).astype(int))
-    if counts.sum()+len(counts)>maximum_poses:
-        return None,dict(reason='spline_pose_budget_exhausted')
+    position_acceleration,body_acceleration = body_acceleration_bounds(controls,minimum,speed,curvature,radius)
+    velocities = 5*np.diff(controls,axis=1)
+    def evaluate(owners,stations):
+        xy = evaluate_controls(controls[owners],stations)
+        velocity = evaluate_controls(velocities[owners],stations)
+        return xy,np.arctan2(velocity[:,1],velocity[:,0])
+    body = swept_hull_check(surface,evaluate,body_acceleration,vehicle,error,maximum_poses)
+    if not body['fits_surface']:
+        reason = ('spline_pose_budget_exhausted' if body.get('reason')=='vehicle_sweep_budget_exhausted' else
+                  'spline_vehicle_body_outside_surface')
+        return None,dict(reason=reason,vehicle_sweep=body)
+    counts = np.maximum(1,np.ceil(np.sqrt(position_acceleration/(8*error))).astype(int))
     owners = np.repeat(np.arange(len(controls)),counts+1)
     stations = np.concatenate([np.linspace(0,1,n+1) for n in counts])
     xy = evaluate_controls(controls[owners],stations)
-    velocity = evaluate_controls(5*np.diff(controls[owners],axis=1),stations)
-    headings = np.arctan2(velocity[:,1],velocity[:,0])
-    body,_ = sweep_check(surface,xy,headings,bound,float((speed/counts).max()),
-                        vehicle['widthM']*.5,vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
-    if not body['fits_surface']:
-        return None,dict(reason='spline_vehicle_body_outside_surface')
     xy = xy[np.r_[True,np.linalg.norm(np.diff(xy,axis=0),axis=1)>1e-10]]
     path = shapely.LineString(xy)
     if not shapely.is_simple(path):
         return None,dict(reason='self_intersecting_spline_route')
     return path,dict(profile='G2-quintic-spline',length_m=path.length,vehicle_sweep=body,
                      minimum_radius_m=1/bound if bound>0 else None,curvature_bound_per_m=bound,
-                     endpoint_curvature_per_m=0.)
+                     endpoint_curvature_per_m=0.,geometry_vertices=len(xy),
+                     geometry_deviation_bound_m=float((position_acceleration/counts**2/8).max()))
 
 
 def spline_route_candidates(entry,exit,route,surface,vehicle,error):

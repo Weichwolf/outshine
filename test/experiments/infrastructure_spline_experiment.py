@@ -1,14 +1,18 @@
 """Verify Bernstein bounds and clamped source splines before real-network use."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
 import numpy as np
 import shapely
+from scipy.interpolate import BPoly
 
-from infrastructure_spline_routes import curve_bounds,evaluate_controls,split_controls,spline_controls,spline_route
+from infrastructure_spline_routes import (body_acceleration_bounds,curve_bounds,evaluate_controls,
+                                        split_controls,spline_controls,spline_route)
 from infrastructure_route_fairing import fair_route
+from infrastructure_vehicle_sweep import body_outlines
 
 
 def verify_fairing():
@@ -58,6 +62,69 @@ def verify_bounds():
     return dict(curves=len(controls),dense_samples=len(owners),speed_and_curvature_bounds=True,subdivision_preserves_curve=True)
 
 
+def verify_body_acceleration(vehicle):
+    rng = np.random.default_rng(2343)
+    controls = np.zeros((256,6,2))
+    controls[:,:,0] = np.linspace(0,10,6)
+    controls += rng.uniform(-.2,.2,controls.shape)
+    angles,scale = rng.uniform(-np.pi,np.pi,len(controls)),10**rng.uniform(-1,2,len(controls))
+    rotations = np.stack((np.stack((np.cos(angles),-np.sin(angles)),axis=1),
+                          np.stack((np.sin(angles),np.cos(angles)),axis=1)),axis=1)
+    controls = np.einsum('nij,nkj->nki',rotations,controls)*scale[:,None,None]
+    low,high,curvature = curve_bounds(controls)
+    radius = np.hypot(max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']),vehicle['widthM']*.5)
+    position_bound,body_bound = body_acceleration_bounds(controls,low,high,curvature,radius)
+    polynomial = BPoly(controls.transpose(1,0,2)[:,None,:,:],[0,1])
+    stations = np.linspace(0,1,257)
+    velocity,acceleration,jerk = [polynomial.derivative(order)(stations).transpose(1,0,2) for order in (1,2,3)]
+    squared_speed = np.sum(velocity**2,axis=2)
+    omega = (velocity[:,:,0]*acceleration[:,:,1]-velocity[:,:,1]*acceleration[:,:,0])/squared_speed
+    alpha = (velocity[:,:,0]*jerk[:,:,1]-velocity[:,:,1]*jerk[:,:,0]-
+             2*omega*np.sum(velocity*acceleration,axis=2))/squared_speed
+    assert np.all(np.linalg.norm(acceleration,axis=2)<=position_bound[:,None]+1e-9)
+    assert np.all(np.abs(omega)<=curvature[:,None]*high[:,None]+1e-10)
+    heading = np.arctan2(velocity[:,:,1],velocity[:,:,0])
+    cosine,sine = np.cos(heading),np.sin(heading)
+    corners = [(-vehicle['rearOverhangM'],y) for y in (-vehicle['widthM']*.5,vehicle['widthM']*.5)]
+    corners += [(vehicle['frontFromRearAxleM'],y) for y in (-vehicle['widthM']*.5,vehicle['widthM']*.5)]
+    for x,y in corners:
+        dx,dy = -alpha*y-omega**2*x,alpha*x-omega**2*y
+        second = acceleration+np.stack((cosine*dx-sine*dy,sine*dx+cosine*dy),axis=2)
+        assert np.all(np.linalg.norm(second,axis=2)<=body_bound[:,None]+1e-8)
+    positions = polynomial(stations).transpose(1,0,2)
+    outlines = body_outlines(positions.reshape(-1,2),heading.ravel(),vehicle['widthM']*.5,
+                            vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']).reshape(len(controls),257,4,2)
+    blend = np.linspace(0,1,33)[None,:,None,None]
+    for first in range(0,256,32):
+        chord = outlines[:,first,None]*(1-blend)+outlines[:,first+32,None]*blend
+        deviation = np.linalg.norm(outlines[:,first:first+33]-chord,axis=3).max(axis=(1,2))
+        assert np.all(deviation<=body_bound/(8*8**2)+1e-8)
+    return dict(curves=len(controls),dense_stations=len(stations),independent_bernstein_derivatives=True,
+                rotated_and_scaled_curves=True,continuous_corner_chords_bounded=True)
+
+
+def verify_long_source(vehicle):
+    x = np.linspace(0,350,6)
+    points = np.c_[x,12*np.sin(2*np.pi*x/350)]
+    entry = dict(position=points[0],heading=np.array([1.,0.]))
+    exit = dict(position=points[-1],heading=np.array([1.,0.]))
+    controls = spline_controls(points,entry,exit)
+    _,speed,curvature = curve_bounds(controls)
+    radius = np.hypot(max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']),vehicle['widthM']*.5)
+    first_order_poses = int(np.maximum(1,np.ceil(speed*(1+curvature.max()*radius)/.05)).sum()+len(controls))
+    assert first_order_poses>4096
+    route = shapely.LineString(points)
+    path,note = spline_route(entry,exit,route,shapely.buffer(route,5),vehicle,maximum_poses=256)
+    assert path is not None and note['vehicle_sweep']['sampled_poses']<=256
+    assert np.allclose(shapely.get_coordinates(path)[[0,-1]],points[[0,-1]],atol=1e-7,rtol=0)
+    owners = np.repeat(np.arange(len(controls)),33)
+    xy = evaluate_controls(controls[owners],np.tile(np.linspace(0,1,33),len(controls)))
+    deviation = float(shapely.distance(shapely.points(xy),path).max())
+    assert deviation<=note['geometry_deviation_bound_m']+1e-10
+    assert note['geometry_deviation_bound_m']<=.025
+    return dict(first_order_required_poses=first_order_poses,chosen=note,measured_geometry_deviation_m=deviation)
+
+
 def verify_route(vehicle):
     theta = np.linspace(0,np.pi,9)
     points = 20*np.c_[np.cos(theta),np.sin(theta)]
@@ -90,7 +157,12 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     args = parser.parse_args()
     vehicle = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())['vehicleProfiles']['compact']
-    report = dict(bounds=verify_bounds(),fairing=verify_fairing(),route=verify_route(vehicle))
+    report = dict(bounds=verify_bounds(),fairing=verify_fairing(),route=verify_route(vehicle),
+                  body_acceleration=verify_body_acceleration(vehicle),long_source=verify_long_source(vehicle))
+    paths = [Path(__file__),*(Path(__file__).with_name(name) for name in
+             ('infrastructure_spline_routes.py','infrastructure_vehicle_sweep.py','infrastructure_route_fairing.py',
+              'infrastructure_network_recipes.json'))]
+    report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report))

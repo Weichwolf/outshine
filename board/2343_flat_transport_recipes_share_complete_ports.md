@@ -59,8 +59,11 @@ Enthaltene Endposen allein genügen nicht: die ganze Hülle muss auf der Motorfl
 mit Reserve zu Außenrändern und Löchern. Nur unklare Intervalle werden halbiert; höchstens 4096
 tatsächlich geprüfte Karosserieposen, keine Suchschleife ohne Budget. Gerade Ansätze sind eigene
 Teilkurven; G1-Krümmungssprünge an ihren Enden überschreiten keine gemeinsame Ableitungsgrenze.
-Gerade Translationen nutzen den exakt extrudierten Körper. Quintische Quellrouten verwenden
-weiter die Weggrenze (1+k*r)*ds; ihr Abtastaufwand bleibt ein offener Engpass.
+Gerade Translationen nutzen den exakt extrudierten Körper. Quintische Quellrouten nutzen ebenfalls
+Hüllen: Bézier-Ableitungen begrenzen Geschwindigkeit v, Beschleunigung a und dritte Ableitung j
+über ihrem lokalen Parameter u. Positive Mindestgeschwindigkeit sichert θ'=cross(v,a)/|v|² und
+θ''=(cross(v,j)-2*θ'*dot(v,a))/|v|². Damit gilt |q''(u)| ≤ a_max+r*(|θ''|_max+|θ'|_max²).
+Linienpunkte entstehen separat nach a_max*du²/8; Karosserieprüfung erzeugt kein dichtes Linienmesh.
 [Hüllenprüfung](../test/experiments/infrastructure_swept_hull_experiment.py) vergleicht Eckbahnen,
 unabhängige numerische Integration, versteckte Löcher und enge Kurven bei festem Arbeitsbudget.
 Wege/private Zufahrten sind kein Ausweichraum. Der gemeinsame Mesh begrenzt öffentliche Motorfläche.
