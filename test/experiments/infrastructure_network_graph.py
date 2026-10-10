@@ -8,6 +8,8 @@ import shapely
 from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 
+from infrastructure_vertex_pool import welded_vertices
+
 
 def traffic_of(road):
     return 'rail' if road['properties'].get('class') in ('rail', 'transit') else 'land'
@@ -49,6 +51,13 @@ def axes_of(roads, precision):
         endpoints = np.array([xy[[0, -1]] for xy in coordinates]).reshape(-1, 2)
         vertices, indices = np.unique(endpoints, axis=0, return_inverse=True)
         indices = indices.reshape(-1, 2)
+        vertices,labels,displacement = welded_vertices(vertices,precision*1e-4)
+        indices = labels[indices]
+        for xy,edge in zip(coordinates,indices):
+            xy[[0,-1]] = vertices[edge]
+        parts = np.array([shapely.LineString(xy) for xy in coordinates],dtype=object)
+        collapsed = shapely.length(parts)==0
+        parts,indices = parts[~collapsed],indices[~collapsed]
         graph = coo_matrix((np.ones(len(parts), dtype=np.uint8), indices.T),
                            shape=(len(vertices), len(vertices))).tocsr()
         count, component = connected_components(graph, directed=False)
@@ -67,6 +76,8 @@ def axes_of(roads, precision):
                           terminal_nodes=int(np.count_nonzero(degree == 1)),
                           noding_ms=noding_ms,source_coverage_audit_ms=audit_ms,
                           preserved_axis_length_m=float(network.length),
+                          welded_node_displacement_m=displacement,
+                          collapsed_numeric_edges=int(collapsed.sum()),
                           uncovered_source_length_m=uncovered))
     transitions = [dict(position_m=list(point[1:]), traffic=point[0], sources=[i for i, _ in entries],
                         tiers=[list(tier) for tier in sorted({key for _, key in entries})])

@@ -21,14 +21,17 @@ from infrastructure_network_plan import bands_of, clustered_plan, global_plan, a
 from infrastructure_network_graph import axes_of, verify as verify_graph
 
 
+def source_identity(source):
+    return (source['line'].wkb,tuple(sorted((k,str(v)) for k,v in source['properties'].items())))
+
+
 def source_roads(transport, recipes=None, widths=None):
     roads, seen, unclassified, routes, inferred = [], set(), Counter(), Counter(), Counter()
     recipes, widths = recipes or {}, widths or {}
     for source in transport:
         props = source['properties']
         tier = (int(props.get('layer', 0)), str(props.get('brunnel', 'ground')))
-        identity = (shapely.normalize(source['line']).wkb,
-                    tuple(sorted((k, str(v)) for k, v in props.items())))
+        identity = source_identity(source)
         if identity in seen:
             continue
         seen.add(identity)

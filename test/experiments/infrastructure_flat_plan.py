@@ -8,13 +8,8 @@ import time
 import numpy as np
 import shapely
 
-from infrastructure_network import source_roads
+from infrastructure_network import source_roads,source_identity as identity
 from infrastructure_network_graph import axes_of,traffic_of
-
-
-def identity(road):
-    return (shapely.normalize(road['line']).wkb,
-            tuple(sorted((k,str(v)) for k,v in road['properties'].items())))
 
 
 def identifier(road):
@@ -35,6 +30,17 @@ def bind_sources(roads,graphs,tolerance):
             raise ValueError('noded edge without an owning source')
         graph['owner_offsets'] = np.r_[0,np.cumsum(counts)]
         graph['owner_sources'] = sources[pairs[1]]
+        first = shapely.line_interpolate_point(graph['lines'],.45,normalized=True)[pairs[0]]
+        second = shapely.line_interpolate_point(graph['lines'],.55,normalized=True)[pairs[0]]
+        owners = lines[pairs[1]]
+        first_station = shapely.line_locate_point(owners,first)
+        second_station = shapely.line_locate_point(owners,second)
+        delta = second_station-first_station
+        length = shapely.length(owners)
+        closed = shapely.is_closed(owners)
+        delta[closed] = (delta[closed]+length[closed]*.5)%length[closed]-length[closed]*.5
+        uncertainty = 32*np.spacing(np.maximum(np.abs(first_station),np.abs(second_station)))
+        graph['owner_directions'] = np.where(np.abs(delta)>uncertainty,np.sign(delta),0).astype(np.int8)
 
 
 def repair_ends(roads, precision, budget):
@@ -148,8 +154,9 @@ def plan(transport, recipes, widths, precision=.001):
         lengths[u['status']] += u['length_m']
     elapsed_ms = (time.perf_counter()-began)*1000
     validation_ms = sum(g['source_coverage_audit_ms'] for g in stats)
-    return accepted,graphs,dict(scope='Single horizontal level. Routing rules, ports, curves and heights remain open.',
+    return accepted,graphs,dict(scope='Single horizontal level with source direction; traffic rules, curves and heights remain open.',
            source_axes=len(transport),planned_axes=len(accepted),states=dict(counts),reasons=dict(reasons),
+           unresolved_owner_directions=sum(int(np.count_nonzero(g['owner_directions']==0)) for g in graphs.values()),
            length_m=dict(lengths),repairs=repairs,graphs=stats,usage=usage,
            merged_junction_sources=[dict(id=r['source_id'],position_m=r['merged_position'],
                                     width_m=r['width'],properties=r['properties']) for r in merged.values()],

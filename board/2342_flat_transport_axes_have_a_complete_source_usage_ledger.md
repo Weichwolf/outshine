@@ -14,10 +14,15 @@ Ein ebener quellbezogener Vektorgraph als erstes gültiges Grundmodell; kein Hö
 OSM-Achsen geben Verteilung/Verbindungshinweise. Kleine lokale Anpassungen sind ausdrücklich erlaubt.
 Der vorhandene Flächenversuch vereinigt Bänder, löst aber weder Ports noch alle Verkehrsverbindungen.
 Besitzer: generators/road; OSM-Semantik verbleibt in generators/osm. Native Lieferung folgt in 2281.
-[Ebener Vektorversuch](../test/experiments/infrastructure_flat_network.py) liefert acht kleine Fälle,
+[Ebener Vektorversuch](../test/experiments/infrastructure_flat_network.py) liefert kleine Grundfälle,
 Quell-IDs pro nodelter Kante, begrenzte lokale Endkorrekturen und eine vollständige Nutzungsbilanz.
 Andere Ebenen/Innenräume bleiben in diesem Schritt ausdrücklich nicht verwendet.
 Lückenlose Bauteilflächen, Kurven/Routenregeln und native Integration sind damit noch nicht bewiesen.
+[Quellrichtung](../test/experiments/infrastructure_source_directions.py) unterscheidet umgekehrte
+Quellen und überträgt deren Orientierung auf jede gemeinsam genodelte Kante, auch bei Ringen.
+Numerisch identische Knoten werden gemeinsam mit dem Mesh unter derselben Verschiebungsgrenze
+vereinigt; reine Rundungsreste sind keine befahrbaren Kanten. Unklare Richtungen werden gezählt.
+Geometrische Richtung ist noch keine Zugangserlaubnis; Modus/Zugang und Abbiegen weiter lösen.
 
 ## Umsetzung in kleinen Schritten
 1. Gerade, T, X, Kurve, Sackgasse, kurzer Verbinder, knapp verfehlter Anschluss und Insel einzeln lösen.

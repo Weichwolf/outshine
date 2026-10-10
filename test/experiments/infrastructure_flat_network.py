@@ -75,7 +75,8 @@ def main():
         (args.output/f'{place}-flat-network.json').write_text(json.dumps(report,indent=2)+'\n')
         arrays = {}
         for i,graph in enumerate(graphs.values()):
-            arrays.update({f'{i}_{k}':graph[k] for k in ('vertices','edges','owner_offsets','owner_sources')})
+            arrays.update({f'{i}_{k}':graph[k] for k in
+                           ('vertices','edges','owner_offsets','owner_sources','owner_directions')})
             coordinates,owners = shapely.get_coordinates(graph['lines'],return_index=True)
             arrays[f'{i}_line_coordinates'] = coordinates
             arrays[f'{i}_line_offsets'] = np.r_[0,np.cumsum(np.bincount(owners,minlength=len(graph['lines'])))]

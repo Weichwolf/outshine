@@ -3,9 +3,6 @@
 import time
 import numpy as np
 import shapely
-from scipy.spatial import cKDTree
-from scipy.sparse import coo_matrix
-from scipy.sparse.csgraph import connected_components
 
 from geos_triangulation import triangles_of
 from infrastructure_flat_corners import rounded_plan
@@ -13,6 +10,7 @@ from infrastructure_flat_junctions import junction_nodes,port_plan
 from infrastructure_flat_ports import port_sections
 from infrastructure_flat_cuts import cuts_plan
 from infrastructure_network_plan import boundary_segments
+from infrastructure_vertex_pool import welded_vertices
 
 
 def junction_seeds(graphs,mode):
@@ -76,18 +74,8 @@ def shared_mesh(complete,parts,roles,precision):
     polygons = triangles_of(shapely.MultiPolygon(parts.tolist()))
     xy = shapely.get_coordinates(polygons).reshape(-1,4,2)[:,:3]
     vertices,indices = np.unique(xy.reshape(-1,2),axis=0,return_inverse=True)
-    pairs = cKDTree(vertices).query_pairs(precision*1e-4,output_type='ndarray')
-    if len(pairs):
-        links = coo_matrix((np.ones(len(pairs)),pairs.T),shape=(len(vertices),len(vertices))).tocsr()
-        _,labels = connected_components(links,directed=False)
-        first = np.full(labels.max()+1,len(vertices),dtype=int)
-        np.minimum.at(first,labels,np.arange(len(vertices)))
-        canonical = vertices[first]
-        displacement = np.linalg.norm(vertices-canonical[labels],axis=1).max(initial=0)
-        if displacement>precision*1e-4:
-            raise ValueError('interface welding exceeds its numeric tolerance')
-        indices = labels[indices]
-        vertices = canonical
+    vertices,labels,displacement = welded_vertices(vertices,precision*1e-4)
+    indices = labels[indices]
     indices = indices.reshape(-1,3)
     emitted = vertices[indices]
     a,b = emitted[:,1]-emitted[:,0],emitted[:,2]-emitted[:,0]

@@ -16,7 +16,7 @@ IMPLEMENTATION_SHA256 = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p
     (Path(__file__),*(Path(__file__).with_name(name) for name in (
         'infrastructure_flat_surfaces.py','geos_triangulation.py','infrastructure_flat_corners.py',
         'infrastructure_flat_junctions.py','infrastructure_flat_ports.py','infrastructure_flat_cuts.py',
-        'infrastructure_flat_plan.py','infrastructure_network_plan.py')))}
+        'infrastructure_flat_plan.py','infrastructure_network_plan.py','infrastructure_vertex_pool.py')))}
 
 
 def render(path,place,product,view):
