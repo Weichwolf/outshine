@@ -52,6 +52,7 @@ def store(output,place,graphs,precision,view,source,junction_mode,corner_radius,
         (Path(__file__),Path(__file__).with_name('infrastructure_flat_surfaces.py'),
          Path(__file__).with_name('geos_triangulation.py'),
          Path(__file__).with_name('infrastructure_flat_corners.py'),
+         Path(__file__).with_name('infrastructure_flat_junctions.py'),
          Path(__file__).with_name('infrastructure_network_plan.py'))}
     (output/f'{place}-flat-surfaces.json').write_text(json.dumps(report,indent=2)+'\n')
     np.savez_compressed(output/f'{place}-flat-surfaces.npz',**product)
@@ -76,7 +77,7 @@ def main():
     parser.add_argument('--input',type=Path)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--small',action='store_true')
-    parser.add_argument('--junction-mode',choices=('all','branch'),default='all')
+    parser.add_argument('--junction-mode',choices=('all','branch','ports'),default='all')
     parser.add_argument('--corner-radius',type=float,default=0)
     parser.add_argument('--arc-error',type=float,default=.025)
     parser.add_argument('--precision',type=float,default=.001)

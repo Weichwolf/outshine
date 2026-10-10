@@ -9,23 +9,15 @@ from scipy.sparse.csgraph import connected_components
 
 from geos_triangulation import triangles_of
 from infrastructure_flat_corners import rounded_plan
+from infrastructure_flat_junctions import junction_nodes,port_plan
 from infrastructure_network_plan import boundary_segments
 
 
 def junction_seeds(graphs,mode):
     points,radii = [],[]
     for graph in graphs:
-        edges,vertices = graph['edges'],graph['vertices']
-        half = graph['half_widths']
-        degree = np.bincount(edges.ravel(),minlength=len(vertices))
-        radius = np.zeros(len(vertices))
-        minimum = np.full(len(vertices),np.inf)
-        np.maximum.at(radius,edges[:,0],half)
-        np.maximum.at(radius,edges[:,1],half)
-        np.minimum.at(minimum,edges[:,0],half)
-        np.minimum.at(minimum,edges[:,1],half)
-        selected = degree>=2 if mode=='all' else (degree>=3)|((degree==2)&(radius-minimum>1e-7))
-        points.extend(vertices[selected])
+        selected,radius = junction_nodes(graph,mode)
+        points.extend(graph['vertices'][selected])
         radii.extend(radius[selected]*1.5)
     return np.asarray(points).reshape(-1,2),np.asarray(radii)
 
@@ -55,9 +47,12 @@ def physical_plan(graphs,precision,junction_mode,corner_radius=0,arc_error=.025)
     if corner_radius>0:
         original = shapely.get_coordinates(boundary_segments(complete)).reshape(-1,2,2)
         complete,curve = rounded_plan(complete,corner_radius,arc_error)
-    points,radii = junction_seeds(graphs,junction_mode)
-    seeds = shapely.buffer(shapely.points(points),radii,quad_segs=4)
-    junctions = complete.intersection(shapely.union_all(seeds))
+    if junction_mode=='ports':
+        kernel,_ = port_plan(graphs,precision,corner_radius,arc_error)
+    else:
+        points,radii = junction_seeds(graphs,junction_mode)
+        kernel = shapely.union_all(shapely.buffer(shapely.points(points),radii,quad_segs=4))
+    junctions = complete.intersection(kernel)
     corridors = complete.difference(junctions)
     parts = np.r_[shapely.get_parts(junctions),shapely.get_parts(corridors)]
     roles = np.r_[np.ones(len(shapely.get_parts(junctions)),dtype=int),

@@ -20,6 +20,9 @@ allein liefern noch kein plausibles fertiges Netz. Kleine Beispiele sind mit `--
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential,
 ohne bestehende Verkehrsfläche zu entfernen. Ungültige Bogenstücke entfallen lokal samt Grund;
 ein Konflikt verwirft keine ganze Komponente. Brauchbare Fahrtrajektorien fehlen weiterhin.
+[Anschlusskerne](../test/experiments/infrastructure_flat_junctions.py) verwenden endliche Bänder
+mit geraden Schnitten; kurze überlappende Kerne vereinigen sich. Ganze Fenster behalten ihre Fläche.
+Vollständige gerade Ports bei spitzen Winkeln und komplexen Überlagerungen sind noch nicht belegt.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
@@ -27,7 +30,9 @@ ein Konflikt verwirft keine ganze Komponente. Brauchbare Fahrtrajektorien fehlen
    Kurven bei zu engem Radius vereinfachen/verschieben, dann messen; ungelöste lokale Teile ausweisen.
 3. Mesh, Kontakt und Kollision aus demselben Bauteilplan; Fläche einmal besitzen und triangulieren.
 4. Kleine Fälle, dann alle verwendeten Bauteile der Wiener/Zürcher/Basler Fenster rendern und öffnen.
-   Native Übertragung folgt erst den vollständigen geprüften 2D-/2,5D-Netzen gemäß Goal.
+5. Weltweit hunderte bis tausende Beispiele nach Topologie, Klassen und gelieferten Tags untersuchen.
+   Nahansichten müssen Anschlüsse, Fahrkurven und lokale Auslassungen plausibel zeigen.
+   Native Übertragung erst nach annähernd fehlerfreien vollständigen 2D-/2,5D-Netzen gemäß Goal.
 Gemeinsame Portpositionen/Normalen, plausible Breiten/Kurven, keine Risse/Faltungen/inneren Doppelstücke.
 Verwendungsgrad und Kosten gehören zur Qualität; ungültige Teile bleiben außerhalb des Plans.
 Überflüssige Zweierknoten ohne Richtungs-/Breitenwechsel erhalten kein eigenes Modul.
