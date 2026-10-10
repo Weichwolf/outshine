@@ -26,7 +26,7 @@ def module_face_index(product):
     return np.argsort(owners,kind='stable'),np.r_[0,np.cumsum(np.bincount(owners,minlength=len(product['part_roles'])))]
 
 
-def junction_shape(product,index,face_index=None):
+def module_shape(product,index,face_index=None):
     rows = product['face_owners']==index if face_index is None else face_index[0][face_index[1][index]:face_index[1][index+1]]
     triangles = product['vertices'][product['indices'][rows]]
     return shapely.union_all(shapely.polygons(triangles))

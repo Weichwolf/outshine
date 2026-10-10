@@ -68,6 +68,11 @@ Bézier-Hüllen begrenzen Geschwindigkeit und Krümmung nach fester Unterteilung
 Karosserieposen sichern die gesamte Fahrt. Im Inneren entfällt der Zwang zur Krümmung null.
 [Unabhängige Prüfung](../test/experiments/infrastructure_spline_experiment.py) deckt Hüllen,
 Endbedingungen, Hindernisse und Budgets ab; erfolglose Splines fallen auf die Posekette zurück.
+[Korridorfahrten](../test/experiments/infrastructure_corridor_experiment.py) übernehmen unverändert
+die Portposen beider Nachbarknoten; gerichtete Modulrouten und dieselbe Karosserieprüfung verbinden sie.
+Nicht durchfahrbare Auto-Anschlüsse erscheinen separat in der Nutzungsbilanz. Ungültige feste
+Endkarosserien werden einmal vor der Kurvensuche geprüft; sie bleiben explizit ungelöst.
+Zweipunktige Quellachsen dürfen bei versetzten Ports ebenfalls quintische Verbindungen liefern.
 Offen: durchgehende Spurzuordnung, ungültige feste Portposen, enge Kreisverkehre, Verkehrsregelung,
 vollständige Netze und tragbare Kosten. Erfolgreiche Einzelkurven sind keine fertige Verkehrssimulation.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).

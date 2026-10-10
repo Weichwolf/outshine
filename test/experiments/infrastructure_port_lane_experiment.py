@@ -12,7 +12,7 @@ import numpy as np
 import shapely
 
 from infrastructure_flat_surfaces import load_graphs
-from infrastructure_port_lanes import junction_interfaces,junction_shape,lane_poses,module_face_index,align_vehicle_ports
+from infrastructure_port_lanes import junction_interfaces,module_shape,lane_poses,module_face_index,align_vehicle_ports
 from infrastructure_vehicle_sweep import body_outlines
 
 
@@ -88,7 +88,7 @@ def survey(root,name,vehicle):
     prepared_ms = (time.perf_counter()-began)*1000
     counts,reasons,unused_ports = Counter(),Counter(),[]
     for junction,ports in interfaces.items():
-        poses,unused = lane_poses(graph,ports,junction_shape(product,junction,faces),vehicle,tree=tree)
+        poses,unused = lane_poses(graph,ports,module_shape(product,junction,faces),vehicle,tree=tree)
         counts.update(modules=1,incoming=sum(p['incoming'] for p in poses),
                       outgoing=sum(not p['incoming'] for p in poses),shared_lane=sum(p['shared_lane'] for p in poses),
                       motor_modules=bool(poses),omitted=len(unused))

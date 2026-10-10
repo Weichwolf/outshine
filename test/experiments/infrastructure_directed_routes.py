@@ -1,4 +1,4 @@
-"""Keep junction connections within the source-permitted directed local network."""
+"""Keep module connections within the source-permitted directed local network."""
 
 import heapq
 
@@ -52,7 +52,7 @@ def source_route(graph,entry,exit,parents,area):
     return path if shapely.covers(area,path) else None
 
 
-def directed_junction_routes(graph,poses,shape,tree,tolerance=1e-6):
+def directed_module_routes(graph,poses,shape,tree,tolerance=1e-6):
     local = tree.query(shape,predicate='intersects')
     permitted = graph['travel_public'][local]&MODES['motor']!=0
     local = local[np.any(permitted,axis=1)]

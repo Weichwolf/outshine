@@ -76,16 +76,27 @@ def verify_route(vehicle):
     return dict(island_avoided=True,offset_ports_connected=True,body_gap_rejected=True,chosen=report,rejected_reason=note['reason'])
 
 
+def verify_straight_source(vehicle):
+    route = shapely.LineString([[0,0],[20,0]])
+    entry = dict(position=np.array([0.,1.]),heading=np.array([1.,0.]))
+    exit = dict(position=np.array([20.,-1.]),heading=np.array([1.,0.]))
+    path,note = source_route_connector(entry,exit,route,shapely.box(-4,-3,24,3),vehicle)
+    assert path is not None and note['vehicle_sweep']['fits_surface']
+    assert np.allclose(shapely.get_coordinates(path)[[0,-1]],[entry['position'],exit['position']],atol=1e-7,rtol=0)
+    return dict(two_point_source_with_offset_ports=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
     args = parser.parse_args()
     configuration = Path(__file__).with_name('infrastructure_network_recipes.json')
     vehicle = json.loads(configuration.read_text())['vehicleProfiles']['compact']
-    report = dict(prism=verify_prism(vehicle),route=verify_route(vehicle),vehicle_profile=vehicle)
+    report = dict(prism=verify_prism(vehicle),route=verify_route(vehicle),
+                  straight_source=verify_straight_source(vehicle),vehicle_profile=vehicle)
     report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
         (Path(__file__),configuration,*(Path(__file__).with_name(n) for n in
-          ('infrastructure_route_turns.py','infrastructure_junction_routes.py','infrastructure_junction_turns.py',
+          ('infrastructure_route_turns.py','infrastructure_directed_routes.py','infrastructure_junction_turns.py',
            'infrastructure_vehicle_sweep.py','infrastructure_curvature_paths.py')))}
     args.output.mkdir(parents=True,exist_ok=True)
     (args.output/'routes.json').write_text(json.dumps(report,indent=2)+'\n')

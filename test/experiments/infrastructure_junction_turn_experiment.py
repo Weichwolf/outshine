@@ -12,13 +12,14 @@ import numpy as np
 import shapely
 
 from infrastructure_flat_surfaces import load_graphs
-from infrastructure_port_lanes import junction_interfaces,junction_shape,lane_poses,module_face_index,align_vehicle_ports
-from infrastructure_junction_routes import directed_junction_routes
+from infrastructure_port_lanes import junction_interfaces,module_shape,lane_poses,module_face_index,align_vehicle_ports
+from infrastructure_directed_routes import directed_module_routes
 from infrastructure_junction_surfaces import mesh_surface_index,motor_surface,same_island_winding
 from infrastructure_junction_turns import connect_lanes
 from infrastructure_route_turns import source_route_connector
 from infrastructure_building_clearance import plot_geometry
 from infrastructure_travel import MODES
+from infrastructure_vehicle_sweep import body_outlines
 
 
 def verify_small(vehicle):
@@ -30,7 +31,7 @@ def verify_small(vehicle):
              enumerate(([[-5,-3],[-5,3]],[[5,-3],[5,3]],[[-3,5],[3,5]]))]
     shape,tree = shapely.box(-5,-5,5,5),shapely.STRtree(graph['lines'])
     poses,unused = lane_poses(graph,ports,shape,vehicle,tree=tree)
-    routes,_ = directed_junction_routes(graph,poses,shape,tree)
+    routes,_ = directed_module_routes(graph,poses,shape,tree)
     assert len(poses)==2 and not unused and list(routes)==[(0,1)]
     assert np.array_equal(shapely.get_coordinates(routes[0,1])[[0,-1]],np.array([[-5,0],[5,0]]))
     physical = np.array([shapely.box(-12,-3,12,3),shapely.box(-3,-3,3,12)],dtype=object)
@@ -53,7 +54,7 @@ def verify_one_way_route(vehicle):
     exit = dict(position=np.array([16.,0.]),heading=np.array([1.,0.]),edge=4,direction=1,
                 station=6.,section=1,incoming=False)
     tree = shapely.STRtree(lines)
-    routes,_ = directed_junction_routes(graph,[entry,exit],shapely.box(-16,-4,16,16),tree)
+    routes,_ = directed_module_routes(graph,[entry,exit],shapely.box(-16,-4,16,16),tree)
     floor = shapely.union_all(shapely.buffer(lines,4))
     assert connect_lanes(entry,exit,floor,vehicle)[0] is not None
     shortcut,_ = connect_lanes(entry,exit,floor,vehicle)
@@ -82,7 +83,7 @@ def selected_junctions(product,graph,tree,ports,faces,vehicle,limit):
     centres = product['vertices'][product['indices'][first]].mean(axis=1)
     accepted = 0
     for module in candidates[np.argsort(np.linalg.norm(centres,axis=1))]:
-        shape = junction_shape(product,module,faces)
+        shape = module_shape(product,module,faces)
         poses,unused = lane_poses(graph,ports[module],shape,vehicle,tree=tree)
         if sum(p['incoming'] for p in poses)<2 or sum(not p['incoming'] for p in poses)<2:
             continue
@@ -94,11 +95,17 @@ def selected_junctions(product,graph,tree,ports,faces,vehicle,limit):
             break
 
 
-def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs):
+def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs,*,adjust_ports=True):
     began = time.perf_counter()
-    routes,excluded = directed_junction_routes(graph,poses,shape,tree)
+    routes,excluded = directed_module_routes(graph,poses,shape,tree)
     surface = motor_surface(shape,graph,tree,mesh,vehicle,curbs['corner_radius_m'],curbs['arc_error_m'])
-    poses,adjusted_ports = align_vehicle_ports(poses,surface,vehicle,curbs['arc_error_m'])
+    poses,adjusted_ports = (align_vehicle_ports(poses,surface,vehicle,curbs['arc_error_m'])
+                            if adjust_ports else (poses,[]))
+    positions = np.array([p['position'] for p in poses])
+    headings = np.array([np.arctan2(p['heading'][1],p['heading'][0]) for p in poses])
+    bodies = shapely.polygons(body_outlines(positions,headings,vehicle['widthM']*.5,
+                                          vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']))
+    valid_ports = shapely.covers(surface,bodies)
     surface_ms = (time.perf_counter()-began)*1000
     local = tree.query(surface,predicate='intersects')
     flags = graph['travel_public'][local]&MODES['motor']
@@ -106,6 +113,11 @@ def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs):
     results,paths,connectors = [],[],{}
     for entry,exit in routes:
         started = time.perf_counter()
+        if not valid_ports[entry] or not valid_ports[exit]:
+            results.append(dict(entry=entry,exit=exit,accepted=False,reason='fixed_port_body_outside_surface',
+                                solve_ms=(time.perf_counter()-started)*1000))
+            paths.append(None)
+            continue
         path,report = connect_lanes(poses[entry],poses[exit],surface,vehicle,curbs['arc_error_m'])
         if path is not None and has_one_way and not same_island_winding(path,routes[entry,exit],surface):
             path,report = None,dict(reason='curve_changes_directed_island_winding')
@@ -125,6 +137,7 @@ def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs):
     report = dict(module=module,ports=len(set(p['section'] for p in poses)),connections=len(routes),
                   accepted=sum(r['accepted'] for r in results),reasons=dict(reasons),
                   excluded=excluded,unused_ports=unused,adjusted_ports=adjusted_ports,
+                  invalid_body_ports=np.flatnonzero(~valid_ports).tolist(),
                   directed_island_winding=has_one_way,surface_ms=surface_ms,
                   total_ms=(time.perf_counter()-began)*1000,turns=results)
     return report,(shape,surface,poses,paths,results)
@@ -153,7 +166,7 @@ def survey(root,name,vehicle,limit):
     return dict(place=name,counts=dict(counts),modules=results,total_ms=(time.perf_counter()-began)*1000),views
 
 
-def render(image_path,views):
+def render(image_path,views,title=None):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -173,8 +186,8 @@ def render(image_path,views):
                 ax.plot(*points.T,color='#bd5744',linestyle=':',linewidth=.8)
         a,b,c,d = shape.bounds
         ax.set(xlim=(a-7,c+7),ylim=(b-7,d+7),aspect='equal',facecolor='#f1f0e8',
-               xlabel='East [m]',ylabel='North [m]',title=f'{name} #{module}: {report["accepted"]}/{report["connections"]} clear turns')
-    fig.suptitle('Actual public motor junctions: blue = full body checked; red dotted = unresolved request')
+               xlabel='East [m]',ylabel='North [m]',title=f'{name} #{module}: {report["accepted"]}/{report["connections"]} clear routes')
+    fig.suptitle(title or 'Actual public motor junctions: blue = full body checked; red dotted = unresolved request')
     image_path.parent.mkdir(parents=True,exist_ok=True)
     fig.savefig(image_path,dpi=140)
     plt.close(fig)
@@ -201,7 +214,7 @@ def main():
         print(json.dumps(dict(place=name,counts=report['counts'],total_ms=report['total_ms'])),flush=True)
     report = dict(vehicle_profile=vehicle,checks=checks,places=results,
                   scope='Selected actual level-zero junctions; complete windows, asymmetric curves and traffic control remain open.')
-    names = ('infrastructure_port_lanes.py','infrastructure_flat_ports.py','infrastructure_junction_routes.py',
+    names = ('infrastructure_port_lanes.py','infrastructure_flat_ports.py','infrastructure_directed_routes.py',
              'infrastructure_junction_surfaces.py','infrastructure_junction_turns.py','infrastructure_turn_paths.py',
              'infrastructure_vehicle_sweep.py','infrastructure_clothoid_turns.py','infrastructure_curvature_paths.py',
              'infrastructure_route_turns.py','infrastructure_spline_routes.py')
