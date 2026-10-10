@@ -49,6 +49,8 @@ Quellachse gibt innere Kandidaten vor. Das löst einzelne Fahrten, noch keine ko
 [Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
 maximaler Krümmung k bewegt sich jeder Körperpunkt höchstens (1+k*r)*ds. Diese Grenze sichert
 die Zwischenräume der Abtastung; gerade Translationen nutzen den exakt extrudierten Körper.
+Für Kurven genügt enthaltene Karosserie plus Mindestabstand zu allen Flächenrändern einschließlich
+Löchern. Das vermeidet pro Pose aufgeblasene Polygone bei derselben Bewegungsgrenze.
 Wege/private Zufahrten sind kein Ausweichraum. Der gemeinsame Mesh begrenzt öffentliche Motorfläche.
 [Rezeptprüfungen](../test/experiments/infrastructure_route_experiment.py) umfassen Inselumfahrung,
 verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverwendeten Verbindungen.

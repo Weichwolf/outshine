@@ -15,7 +15,7 @@ from infrastructure_flat_plan import examples,plan
 from infrastructure_flat_surfaces import physical_plan
 from infrastructure_turn_paths import clearance_turns
 from infrastructure_building_clearance import plot_geometry
-from infrastructure_vehicle_sweep import body_outlines,turn_body_check
+from infrastructure_vehicle_sweep import body_outlines,turn_body_check,sweep_check
 
 
 def cases():
@@ -100,6 +100,28 @@ def verify_body(configuration,vehicle):
                 obstacle_position_m=obstacle.tolist(),bounded_sampling=True)
 
 
+def verify_clearance_distance():
+    rng = np.random.default_rng(2343)
+    surface = shapely.difference(shapely.box(-10,-10,10,10),shapely.box(-2,-2,2,2))
+    count,accepted = 256,0
+    for position,angle in zip(rng.uniform(-12,12,(count,2)),rng.uniform(-np.pi,np.pi,count)):
+        report,outlines = sweep_check(surface,position[None,:],np.array([angle]),.25,.04)
+        body = shapely.Polygon(outlines[0])
+        margin = report['sweep_deviation_bound_m']
+        outer = shapely.buffer(body,margin/np.cos(np.pi/32),quad_segs=8)
+        inner = shapely.buffer(body,margin,quad_segs=64)
+        assert not shapely.covers(surface,outer) or report['fits_surface']
+        assert not report['fits_surface'] or shapely.covers(surface,inner)
+        accepted += report['fits_surface']
+    assert 0<accepted<count
+    for clearance,expected in ((.024,False),(.026,True)):
+        surface = shapely.box(-2,-2,3.3+clearance,2)
+        report,_ = sweep_check(surface,np.zeros((1,2)),np.zeros(1),0.,.05)
+        assert report['fits_surface']==expected
+    return dict(random_poses=count,accepted=accepted,inner_and_outer_envelopes_agree=True,
+                exact_wall_clearance_checked=True)
+
+
 def render(path,products,vehicle):
     import matplotlib
     matplotlib.use('Agg')
@@ -165,6 +187,7 @@ def main():
             assert feasible,(name,profile,reports)
         products.append((name,surface,variants,begin,node,end))
     report = dict(math=verify_math(),limits=verify_limits(configuration),body=verify_body(configuration,vehicle),
+                  distance_clearance=verify_clearance_distance(),
                   recipes=results,vehicle_profile=vehicle,
                   scope='Straight approaches, continuous curvature and swept rigid bodies; lanes and curved/asymmetric approaches remain open.')
     report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in

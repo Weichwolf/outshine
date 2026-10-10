@@ -22,9 +22,11 @@ def sweep_check(surface,positions,headings,maximum_curvature,maximum_station_ste
     radius = np.hypot(max(front,rear),half_width)
     deviation = (1+maximum_curvature*radius)*maximum_station_step*.5
     outlines = body_outlines(positions,headings,half_width,front,rear)
-    envelope = shapely.buffer(shapely.polygons(outlines),deviation/np.cos(np.pi/32),quad_segs=8)
+    bodies = shapely.polygons(outlines)
     shapely.prepare(surface)
-    inside = shapely.covers(surface,envelope)
+    inside = shapely.covers(surface,bodies)
+    covered = np.flatnonzero(inside)
+    inside[covered] &= shapely.distance(bodies[covered],shapely.boundary(surface))>=deviation
     return dict(fits_surface=bool(np.all(inside)),outside_poses=int(np.count_nonzero(~inside)),
                 sampled_poses=len(positions),sweep_deviation_bound_m=float(deviation)),outlines
 
